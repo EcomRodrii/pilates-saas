@@ -448,6 +448,9 @@
 .student-app .bar > i { display: block; height: 100%; width: var(--pct, 0%); border-radius: inherit; background: var(--accent); transition: width .5s var(--ease); }
 .student-app .bar--ok > i { background: var(--success); }
 .student-app .bar--warn > i { background: var(--warning); }
+/* Gastada: un bono expirado o agotado conserva su porcentaje —pudo caducar con
+   sesiones dentro— y pintarlo del color de marca lo haría parecer disponible. */
+.student-app .bar--apagada > i { background: var(--border-strong); }
 
 /* ── Avatar / círculo de icono ──
    Repetido en la ficha de instructora, el muro, los avisos, el resumen de

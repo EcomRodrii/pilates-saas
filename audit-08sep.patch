@@ -1,0 +1,1020 @@
+From 40d58a3aaa8f37bea38d34c02f2bbd95903ef557 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Auditor=C3=ADa=2027=C2=AA=20pasada?= <auditoria@tentare.app>
+Date: Tue, 8 Sep 2026 18:04:10 +0200
+Subject: [PATCH] =?UTF-8?q?fix(auditor=C3=ADa):=2027=C2=AA=20pasada=20?=
+ =?UTF-8?q?=E2=80=94=20el=20email=20de=20la=20propietaria=20nunca=20sali?=
+ =?UTF-8?q?=C3=B3,=20el=20sello=20legal=20certificaba=20otro=20texto,=20y?=
+ =?UTF-8?q?=20tres=20RPC=20de=20cr=C3=A9ditos=20sin=20comprobar=20rol?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+C-1 El motor de notificaciones nunca entregó un email a una propietaria:
+    propietaria() leía solo studios.email (vacío en 6 de 9 estudios activos) y
+    entregarExternos lo re-resolvía igual. Las 4 únicas entregas EMAIL de la
+    historia acabaron SKIPPED «destinatario sin email», y con ellas los avisos
+    CRITICA que no tienen otra vía (Stripe desconectado, prueba expirada).
+    Ahora cae al email de la cuenta. Mismo criterio en el resumen semanal.
+
+L-1 El sello de condiciones por compra (#1756) certificaba un texto distinto
+    del que vio la compradora: se pasaba la fila en snake_case a una interfaz
+    camelCase con todos los campos opcionales, así que se perdían razón social,
+    código postal, ventana de cancelación y cláusula de penalización.
+
+L-2 El portal no enseñaba NINGUNA condición en 10 de 11 estudios mientras el
+    servidor sí sellaba su hash. Y un texto guardado vacío enseñaba un
+    documento en blanco.
+
+S-1 ajustar_creditos, ajustar_stock y cancelar_canje comprobaban el estudio
+    pero no el rol: una instructora podía restar créditos a cualquier socia.
+    (migración ya aplicada en producción)
+
+I-1 «Serie cancelada · clientas avisadas» se decía sin haber medido un envío.
+I-2 Un resumen semanal fallido no se contaba ni se veía.
+I-3 Una campaña podía quedarse en ENVIANDO para siempre.
+I-5 El apunte de caja del cobro manual se perdía sin rastro.
+---
+ app/(dashboard)/calendario/page.tsx           |  20 +-
+ .../marketing/campanas/[id]/enviar/route.ts   |  17 +-
+ app/portal/[slug]/comprar/page.tsx            |  16 +-
+ lib/api-client.ts                             |  20 +-
+ lib/decision/resumen-semanal-cron.ts          |  33 ++-
+ lib/legal-sellado.test.ts                     |  55 ++++-
+ lib/legal-sellado.ts                          |  21 +-
+ lib/legal-textos.ts                           |  33 ++-
+ .../destinatario-propietaria.test.ts          |  89 ++++++++
+ lib/notifications/process.ts                  |  18 +-
+ lib/notifications/recipients.ts               |  36 +++-
+ lib/student/catalogo.ts                       |  16 ++
+ lib/studio-context.tsx                        |  65 ++++--
+ ...908170000_creditos_rpcs_comprueban_rol.sql | 192 ++++++++++++++++++
+ 14 files changed, 582 insertions(+), 49 deletions(-)
+ create mode 100644 lib/notifications/destinatario-propietaria.test.ts
+ create mode 100644 supabase/migrations/20260908170000_creditos_rpcs_comprueban_rol.sql
+
+diff --git a/app/(dashboard)/calendario/page.tsx b/app/(dashboard)/calendario/page.tsx
+index b001f837..0524341a 100644
+--- a/app/(dashboard)/calendario/page.tsx
++++ b/app/(dashboard)/calendario/page.tsx
+@@ -1504,7 +1504,15 @@ export default function Calendario() {
+     const res = await cancelarSerieDesde(sesionId);
+     setSesionId(null);
+     if (!res.ok) { showToast(res.error); return; }
+-    const base = `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''} · clientas avisadas`;
++    // El toast cuenta lo que de verdad salió. Antes decía «clientas avisadas»
++    // siempre: `notificarCancelacionSesiones` disparaba los emails sin esperar
++    // el resultado, exactamente el fallo que ya se cerró en `cancelarSesion`
++    // (clase suelta) y que su gemelo de serie se había quedado sin heredar.
++    const avisadas = res.avisadas ?? 0, sinAvisar = res.sinAvisar ?? 0;
++    const aviso = sinAvisar > 0
++      ? `${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
++      : avisadas > 0 ? 'clientas avisadas' : 'sin clientas a las que avisar';
++    const base = `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''} · ${aviso}${res.enApp === false ? ' · sin aviso en la app' : ''}`;
+     showToast(res.avisoBono ? `${base} · ${res.avisoBono}` : base);
+     void refrescarVista();
+   }
+@@ -1521,7 +1529,15 @@ export default function Calendario() {
+     setSesionId(null);
+     // F-9 (auditoría 22ª pasada): mismo trato que "Cancelar" — si alguna socia
+     // no recuperó su sesión de bono, el toast no puede decir solo "eliminada".
+-    showToast(res.avisoBono ? `Clase eliminada · ${res.avisoBono}` : 'Clase eliminada');
++    // Igual que "Cancelar": eliminar también avisa por email e in-app, así que
++    // el toast tiene que poder decir que ese aviso no salió.
++    const sinAvisar = res.sinAvisar ?? 0;
++    const pegas = [
++      sinAvisar > 0 ? `${sinAvisar} sin avisar` : null,
++      res.enApp === false ? 'sin aviso en la app' : null,
++      res.avisoBono ?? null,
++    ].filter(Boolean);
++    showToast(['Clase eliminada', ...pegas].join(' · '));
+     void refrescarVista();
+   }
+ 
+diff --git a/app/api/marketing/campanas/[id]/enviar/route.ts b/app/api/marketing/campanas/[id]/enviar/route.ts
+index dac8c008..c3278ad0 100644
+--- a/app/api/marketing/campanas/[id]/enviar/route.ts
++++ b/app/api/marketing/campanas/[id]/enviar/route.ts
+@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { inngest, EVENTS } from '@/lib/inngest/client';
+ import { mapCampana } from '@/lib/supabase-data';
+ import type { RowCampanas } from '@/lib/db-types';
++import * as Sentry from '@sentry/nextjs';
+ 
+ // POST /api/marketing/campanas/[id]/enviar — encola el envío real en
+ // servidor (lib/inngest/campanas.ts) y devuelve inmediato. El envío ya no se
+@@ -51,7 +52,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
+     return NextResponse.json({ error: 'Esta campaña ya se está enviando o ya se envió' }, { status: 409 });
+   }
+ 
+-  await inngest.send({ name: EVENTS.CAMPANA_ENVIAR, data: { campanaId, studioId: sesion.studioId } });
++  // El CAS de arriba ya dejó la campaña en ENVIANDO. Si el encolado falla
++  // (Inngest caído, INNGEST_EVENT_KEY rotada) y no se deshace, la campaña se
++  // queda en «Enviando…» para siempre: el propio CAS impide reintentarla, no
++  // hay barrido de ENVIANDO atascadas y ninguna pantalla la devuelve a
++  // BORRADOR. Devolverla es lo que le da una SALIDA a la propietaria.
++  try {
++    await inngest.send({ name: EVENTS.CAMPANA_ENVIAR, data: { campanaId, studioId: sesion.studioId } });
++  } catch (e) {
++    await admin.from('campanas').update({ estado: 'BORRADOR' })
++      .eq('id', campanaId).eq('studio_id', sesion.studioId).eq('estado', 'ENVIANDO');
++    Sentry.captureException(e instanceof Error ? e : new Error('campana enviar: encolado'), {
++      level: 'error', tags: { area: 'marketing' }, extra: { campanaId, studioId: sesion.studioId },
++    });
++    return NextResponse.json({ error: 'No se ha podido encolar el envío. Vuelve a intentarlo.' }, { status: 503 });
++  }
+ 
+   return NextResponse.json({ ok: true });
+ }
+diff --git a/app/portal/[slug]/comprar/page.tsx b/app/portal/[slug]/comprar/page.tsx
+index c9201c5c..c7f66ea1 100644
+--- a/app/portal/[slug]/comprar/page.tsx
++++ b/app/portal/[slug]/comprar/page.tsx
+@@ -16,6 +16,7 @@ import { useSesionStudent } from '@/lib/student/sesion';
+ import { invalidarCatalogo } from '@/lib/student/catalogo';
+ import { useRouter } from 'next/navigation';
+ import type { PlanTarifa } from '@/lib/types';
++import { configLegalDe } from '@/lib/legal-textos';
+ 
+ // Comprar (P0-5). Hasta ahora la alumna solo podía RESERVAR: no había ningún
+ // sitio donde ver qué vende el estudio, así que un bono o una suscripción solo
+@@ -47,12 +48,15 @@ export default function ComprarPage() {
+       stripeAccountId: d?.studio?.stripeAccountId ?? null,
+       // Los textos del estudio ya viajan en el payload (los usa el registro
+       // para la firma). Aquí sirven para poder LEERLOS antes de pagar.
+-      textosLegales: (() => {
+-        const s2 = d?.studio as { politicaPrivacidad?: string; terminosServicio?: string } | undefined;
+-        return s2?.politicaPrivacidad || s2?.terminosServicio
+-          ? { politicaPrivacidad: s2.politicaPrivacidad ?? '', terminosServicio: s2.terminosServicio ?? '' }
+-          : null;
+-      })(),
++      //
++      // Va por `configLegalDe` y no por los campos crudos: casi ningún estudio
++      // ha reescrito sus condiciones, así que leyéndolos a pelo esto salía
++      // `null`, la pantalla no pintaba la línea «Al pagar aceptas…» y la
++      // compradora no veía NADA legal — mientras el servidor sí escribía en su
++      // recibo el hash de unas condiciones aceptadas. Y el caso mixto (privacidad
++      // sí, términos no) abría un diálogo en blanco. Con la composición efectiva
++      // siempre hay documento, y es el MISMO que sella `lib/legal-sellado.ts`.
++      textosLegales: configLegalDe(d?.studio, d?.studio),
+       // Para poder decir A QUÉ está acotado un bono hace falta el nombre del
+       // tipo, no su id. Los dos datos ya viajan en el mismo payload.
+       nombresTipo: new Map((d?.tiposClase ?? []).map((t) => [t.id, t.nombre])),
+diff --git a/lib/api-client.ts b/lib/api-client.ts
+index b866e1a1..985ef09a 100644
+--- a/lib/api-client.ts
++++ b/lib/api-client.ts
+@@ -1658,15 +1658,22 @@ export async function borrarAusencia(id: string): Promise<boolean> {
+ // indefinidamente mientras el resto de la UI seguía como si ya estuviera
+ // borrada. Mismo AbortSignal.timeout que entregarExternos() en
+ // lib/notifications/engine.ts.
+-export async function avisarClaseCancelada(sesionId: string): Promise<void> {
+-  try {
+-    await fetch('/api/clases/avisar-cancelada', {
++// Devuelve si el aviso in-app/push SALIÓ. Antes era `Promise<void>` y un 401
++// (sesión caducada), un 404 ('Sesión no encontrada') o un 500 eran
++// indistinguibles del éxito, así que el panel podía decir «clientas avisadas»
++// sin que se hubiera avisado a nadie. Su hermana `avisarCambioClaseServidor`
++// ya devolvía el resultado por este mismo motivo. Sigue sin bloquear la
++// cancelación: quien llama decide si lo cuenta en el toast.
++export async function avisarClaseCancelada(sesionId: string): Promise<boolean> {
++  try {
++    const res = await fetch('/api/clases/avisar-cancelada', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+       body: JSON.stringify({ sesionId }),
+       signal: AbortSignal.timeout(10_000),
+     });
+-  } catch { /* best-effort: no bloquea la cancelación */ }
++    return res.ok;
++  } catch { /* best-effort: no bloquea la cancelación */ return false; }
+ }
+ 
+ // Avisa (in-app) a la propietaria de que una instructora ha creado una clase
+@@ -1720,6 +1727,11 @@ export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente
+     const res = await fetch('/api/emails/send', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
++      // Desde la 27ª pasada este envío se ESPERA (el panel cuenta cuántas
++      // socias se avisaron de verdad), así que necesita el mismo techo que
++      // `avisarClaseCancelada`: sin él, un /api/emails/send colgado dejaba el
++      // borrado de la clase esperando sin límite.
++      signal: AbortSignal.timeout(10_000),
+       body: JSON.stringify({
+         tipo: 'cancelacion',
+         to: params.to,
+diff --git a/lib/decision/resumen-semanal-cron.ts b/lib/decision/resumen-semanal-cron.ts
+index 4a73e03f..617fc677 100644
+--- a/lib/decision/resumen-semanal-cron.ts
++++ b/lib/decision/resumen-semanal-cron.ts
+@@ -18,6 +18,7 @@ import { enviarEmailResumenSemanal } from '@/lib/emails/resumen-semanal-server';
+ import { semanaAnterior, semanaPrevia } from '@/lib/inngest/resumen-semanal-fechas.ts';
+ import { calcularVariacionPct } from '@/lib/informes/ventas-por-tipo';
+ import * as Sentry from '@sentry/nextjs';
++import { emailDeLaPropietaria } from '@/lib/notifications/recipients';
+ 
+ type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
+ 
+@@ -30,6 +31,20 @@ export async function enviarResumenesSemanalesDeTodos(): Promise<{ estudios: num
+     try {
+       const resultado = await procesarEstudio(admin, studioId);
+       if ('ok' in resultado && resultado.ok) enviados++;
++      // `enviarEmailResumenSemanal` NUNCA lanza: devuelve {ok:false, error} en
++      // sus tres caminos de fallo. Sin esta rama, una caída de Resend un lunes
++      // daba el MISMO {estudios:9, enviados:0, fallidos:0} + Sentry limpio que
++      // «ninguna semana fue silenciosa» — indistinguible. Y como la fila de
++      // dedup se reclama ANTES de enviar (a propósito, para no duplicar), ese
++      // estudio no recibe el resumen de esa semana nunca: si se pierde, al
++      // menos tiene que verse.
++      else if ('ok' in resultado && !resultado.ok) {
++        fallidos++;
++        Sentry.captureMessage('[resumen-semanal] el email no salió', {
++          level: 'warning', tags: { area: 'decision-os' },
++          extra: { studioId, error: 'error' in resultado ? resultado.error : null },
++        });
++      }
+     } catch (e) {
+       fallidos++;
+       Sentry.captureException(e instanceof Error ? e : new Error('resumen semanal'), {
+@@ -50,10 +65,18 @@ async function procesarEstudio(admin: AdminClient, studioId: string) {
+   if (!silenciosa) return { skipped: 'semana con mensaje' };
+ 
+   // Mismo criterio de resolución de "propietaria" que
+-  // lib/notifications/recipients.ts (propietaria()): studios.email +
+-  // studios.nombre — no hay una tabla de "personas propietarias" aparte.
+-  const { data: studio } = await admin.from('studios').select('nombre, email').eq('id', studioId).maybeSingle();
+-  if (!studio?.email) return { skipped: 'sin email de contacto' };
++  // lib/notifications/recipients.ts (`emailDeLaPropietaria`): el email PÚBLICO
++  // del estudio si lo hay y, si no, el de su CUENTA. Antes se quedaba en
++  // `studios.email` a secas y, como ese campo está vacío en la mayoría de los
++  // estudios de producción, el resumen semanal no llegaba a casi ninguno —
++  // y ni siquiera contaba como fallo, salía por `skipped`.
++  const { data: studio } = await admin.from('studios')
++    .select('nombre, email, owner_auth_user_id').eq('id', studioId).maybeSingle();
++  if (!studio) return { skipped: 'estudio no encontrado' };
++  const email = studio.owner_auth_user_id
++    ? await emailDeLaPropietaria(admin, studio.owner_auth_user_id as string, studio.email)
++    : ((studio.email as string | null) ?? null);
++  if (!email) return { skipped: 'sin email de contacto' };
+ 
+   // Compare-and-set: reclama la fila ANTES de enviar, no después. A
+   // diferencia del resto del Notification Engine, este email no pasa por
+@@ -79,7 +102,7 @@ async function procesarEstudio(admin: AdminClient, studioId: string) {
+   const crecimientoPct = variacion !== null && variacion > 0 ? variacion : undefined;
+ 
+   return enviarEmailResumenSemanal({
+-    to: studio.email as string,
++    to: email,
+     propietariaNombre: (studio.nombre as string | null) ?? 'Propietaria',
+     studioId,
+     estudioNombre: (studio.nombre as string | null) ?? 'tu estudio',
+diff --git a/lib/legal-sellado.test.ts b/lib/legal-sellado.test.ts
+index 62deba85..5e322aff 100644
+--- a/lib/legal-sellado.test.ts
++++ b/lib/legal-sellado.test.ts
+@@ -1,7 +1,7 @@
+ import { test } from 'node:test';
+ import assert from 'node:assert/strict';
+ import { hashTextoLegal } from './legal-hash.ts';
+-import { configLegalDe, textoLegalCompleto } from './legal-textos.ts';
++import { configLegalDe, textoLegalCompleto, datosLegalesDeFila } from './legal-textos.ts';
+ 
+ // La cadena completa de la aceptación por compra, sin base de datos:
+ // datos del estudio → texto legal efectivo → huella.
+@@ -47,3 +47,56 @@ test('la misma configuración da SIEMPRE la misma huella', () => {
+   const dos = hashTextoLegal(textoLegalCompleto(configLegalDe(ESTUDIO, {})));
+   assert.equal(uno, dos);
+ });
++
++// ── 27ª pasada (8 sep 2026), L-1 ────────────────────────────────────────────
++// El sello certificaba un texto DISTINTO del que veía la compradora: a
++// `configLegalDe` se le pasaba la fila de `studios` en snake_case y, como
++// `DatosEstudioLegal` tiene todos los campos opcionales, TypeScript lo aceptaba
++// y se perdían en silencio la razón social, el código postal, la ventana de
++// cancelación y la cláusula de penalización.
++//
++// Este test ancla la FORMA, no la función: el test anterior («salen de la misma
++// función») pasaba tan campante mientras el documento sellado y el mostrado
++// eran distintos, porque a las dos llamadas se les daba la misma forma.
++test('el sello se compone con los MISMOS datos que ve la compradora en el portal', () => {
++  const fila = {
++    nombre: 'Pilates Boutique',
++    razon_social: 'Pilates Boutique SL',
++    nif: 'B12345678',
++    direccion: 'Calle Larios 1',
++    ciudad: 'Málaga',
++    codigo_postal: '29005',
++    email: 'hola@ejemplo.es',
++    cancelacion_ventana_horas: 24,
++    penalizacion_importe_eur: 8,
++    politica_privacidad: null,
++    terminos_servicio: null,
++  };
++  // Lo que el portal le pasa a configLegalDe (lib/studio-context.tsx): camelCase.
++  const comoLoVeLaCompradora = {
++    nombre: 'Pilates Boutique', razonSocial: 'Pilates Boutique SL', nif: 'B12345678',
++    direccion: 'Calle Larios 1', ciudad: 'Málaga', codigoPostal: '29005',
++    email: 'hola@ejemplo.es', cancelacionVentanaHoras: 24, penalizacionImporteEur: 8,
++  };
++  assert.deepEqual(datosLegalesDeFila(fila), comoLoVeLaCompradora);
++
++  const delServidor = textoLegalCompleto(configLegalDe(datosLegalesDeFila(fila), { politicaPrivacidad: null, terminosServicio: null }));
++  const delPortal = textoLegalCompleto(configLegalDe(comoLoVeLaCompradora, { politicaPrivacidad: null, terminosServicio: null }));
++  assert.equal(hashTextoLegal(delServidor), hashTextoLegal(delPortal));
++
++  // Y que de verdad lleva lo que se perdía: razón social, CP y las dos reglas.
++  assert.match(delServidor, /Pilates Boutique SL/);
++  assert.match(delServidor, /29005/);
++  assert.match(delServidor, /24/);
++});
++
++test('pasar la fila CRUDA produce un texto distinto — que es lo que ocurría', () => {
++  const fila = {
++    nombre: 'Pilates Boutique', razon_social: 'Pilates Boutique SL', nif: 'B12345678',
++    direccion: 'Calle Larios 1', ciudad: 'Málaga', codigo_postal: '29005', email: 'hola@ejemplo.es',
++    cancelacion_ventana_horas: 24, penalizacion_importe_eur: 8,
++  };
++  const bien = textoLegalCompleto(configLegalDe(datosLegalesDeFila(fila), { politicaPrivacidad: null, terminosServicio: null }));
++  const comoAntes = textoLegalCompleto(configLegalDe(fila as never, { politicaPrivacidad: null, terminosServicio: null }));
++  assert.notEqual(hashTextoLegal(bien), hashTextoLegal(comoAntes));
++});
+diff --git a/lib/legal-sellado.ts b/lib/legal-sellado.ts
+index af21a61f..dba6fc32 100644
+--- a/lib/legal-sellado.ts
++++ b/lib/legal-sellado.ts
+@@ -1,6 +1,6 @@
+ import 'server-only';
+ import type { SupabaseClient } from '@supabase/supabase-js';
+-import { configLegalDe, textoLegalCompleto } from '@/lib/legal-textos';
++import { configLegalDe, textoLegalCompleto, datosLegalesDeFila } from '@/lib/legal-textos';
+ import { hashTextoLegal } from '@/lib/legal-hash';
+ 
+ // Sella qué condiciones estaban vigentes cuando una clienta compra.
+@@ -33,19 +33,28 @@ export async function sellarCondicionesVigentes(
+   try {
+     const { data: s } = await admin
+       .from('studios')
+-      .select('nombre, razon_social, nif, direccion, ciudad, codigo_postal, email, politica_privacidad, terminos_servicio')
++      .select('nombre, razon_social, nif, direccion, ciudad, codigo_postal, email, politica_privacidad, terminos_servicio, cancelacion_ventana_horas, penalizacion_importe_eur')
+       .eq('id', studioId)
+       .maybeSingle();
+     if (!s) return null;
+ 
+-    const e = s as Record<string, string | null>;
++    const e = s as Record<string, unknown>;
+     // La MISMA composición que firma la clienta en el portal: sus textos si los
+     // ha reescrito, y si no los de por defecto redactados con sus datos
+     // fiscales. `configLegalDe` vive en `lib/legal-textos.ts` justamente para
+     // que servidor y cliente no tengan dos reglas distintas.
+-    const config = configLegalDe(e, {
+-      politicaPrivacidad: e.politica_privacidad,
+-      terminosServicio: e.terminos_servicio,
++    //
++    // ⚠️ El mapeo a camelCase es OBLIGATORIO y no cosmético: `DatosEstudioLegal`
++    // tiene todos los campos opcionales, así que pasarle la fila cruda en
++    // snake_case COMPILA y se traga en silencio `razon_social`, `codigo_postal`,
++    // `cancelacion_ventana_horas` y `penalizacion_importe_eur`. El resultado era
++    // un sello que certificaba un texto DISTINTO del que vio la compradora: con
++    // el nombre comercial en vez de la razón social que factura, sin código
++    // postal, con la ventana de cancelación por defecto y sin la cláusula de
++    // penalización. Es decir, prueba de un consentimiento que no se dio.
++    const config = configLegalDe(datosLegalesDeFila(e), {
++      politicaPrivacidad: (e.politica_privacidad as string | null) ?? null,
++      terminosServicio: (e.terminos_servicio as string | null) ?? null,
+     });
+     const texto = textoLegalCompleto(config);
+     const hash = hashTextoLegal(texto);
+diff --git a/lib/legal-textos.ts b/lib/legal-textos.ts
+index a3ce2984..0bfca2f9 100644
+--- a/lib/legal-textos.ts
++++ b/lib/legal-textos.ts
+@@ -187,14 +187,43 @@ export interface StudioConfig {
+  * pilates" — sin nombre ni NIF, aunque el estudio los tuviera rellenos. Lo que
+  * firmaba la clienta no identificaba a nadie.
+  */
++/**
++ * Traduce la fila de `studios` (snake_case) a `DatosEstudioLegal` (camelCase).
++ *
++ * Exportada A PROPÓSITO para poder anclarla en un test: como todos los campos
++ * de `DatosEstudioLegal` son opcionales, pasar la fila cruda COMPILA y se traga
++ * media identidad fiscal en silencio. Lo que hay que probar es la FORMA, no que
++ * servidor y portal llamen a la misma función — eso ya se cumplía cuando el
++ * sello certificaba un texto que la compradora nunca vio.
++ */
++export function datosLegalesDeFila(fila: Record<string, unknown>): DatosEstudioLegal {
++  const t = (k: string) => (fila[k] as string | null) ?? null;
++  const n = (k: string) => (fila[k] === null || fila[k] === undefined ? null : Number(fila[k]));
++  return {
++    nombre: t('nombre'),
++    razonSocial: t('razon_social'),
++    nif: t('nif'),
++    direccion: t('direccion'),
++    ciudad: t('ciudad'),
++    codigoPostal: t('codigo_postal'),
++    email: t('email'),
++    cancelacionVentanaHoras: n('cancelacion_ventana_horas'),
++    penalizacionImporteEur: n('penalizacion_importe_eur'),
++  };
++}
++
+ export function configLegalDe(
+   studio: DatosEstudioLegal | null | undefined,
+   guardados: { politicaPrivacidad?: string | null; terminosServicio?: string | null } | null | undefined,
+ ): StudioConfig {
+   const e = studio ?? {};
++  // `??` dejaba pasar la cadena vacía: un estudio que borrara el contenido del
++  // editor y guardara '' sellaba —y enseñaba— un documento EN BLANCO en vez del
++  // de por defecto. Vacío es "no lo he reescrito", no "mis condiciones son
++  // ninguna".
+   return {
+-    politicaPrivacidad: guardados?.politicaPrivacidad ?? politicaPrivacidadPorDefecto(e),
+-    terminosServicio: guardados?.terminosServicio ?? terminosServicioPorDefecto(e),
++    politicaPrivacidad: vacio(guardados?.politicaPrivacidad) ? politicaPrivacidadPorDefecto(e) : guardados!.politicaPrivacidad!,
++    terminosServicio: vacio(guardados?.terminosServicio) ? terminosServicioPorDefecto(e) : guardados!.terminosServicio!,
+   };
+ }
+ 
+diff --git a/lib/notifications/destinatario-propietaria.test.ts b/lib/notifications/destinatario-propietaria.test.ts
+new file mode 100644
+index 00000000..530ac749
+--- /dev/null
++++ b/lib/notifications/destinatario-propietaria.test.ts
+@@ -0,0 +1,89 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import type { SupabaseClient } from '@supabase/supabase-js';
++import { resolverDestinatarios } from './recipients.ts';
++import type { NotificationEvent } from './types.ts';
++
++// Regresión de la 27ª pasada (8 sep 2026), C-1.
++//
++// `propietaria()` leía SOLO `studios.email` —el email PÚBLICO de contacto del
++// estudio, vacío en 6 de los 9 estudios activos de producción—, así que el
++// canal EMAIL de la dueña no existía: las 4 únicas entregas EMAIL de la
++// historia de `notification_delivery` acabaron SKIPPED «destinatario sin
++// email», y con ellas los avisos CRITICA que no tienen otra vía para llegar a
++// quien no está mirando el panel (SISTEMA_STRIPE_DESCONECTADO, TRIAL_EXPIRADO).
++//
++// El test comprueba las DOS direcciones a propósito: que se cae a la cuenta
++// cuando falta el email del estudio, y que NO se pisa el del estudio cuando sí
++// está. Un fallback que gane siempre sería otro fallo.
++
++function adminFalso(studio: Record<string, unknown>, emailDeCuenta: string | null) {
++  let pedidoAAuth = 0;
++  const client = {
++    from: () => ({
++      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: studio }) }) }),
++    }),
++    auth: {
++      admin: {
++        getUserById: async () => {
++          pedidoAAuth++;
++          return { data: { user: emailDeCuenta ? { email: emailDeCuenta } : null } };
++        },
++      },
++    },
++  };
++  return { client: client as unknown as SupabaseClient, vecesQueSePidioLaCuenta: () => pedidoAAuth };
++}
++
++const EVENTO: NotificationEvent = { type: 'sistema.trial_expirado', studioId: 'studio-1', data: {} };
++
++test('propietaria sin email de contacto: se le escribe al email de su cuenta', async () => {
++  const { client, vecesQueSePidioLaCuenta } = adminFalso(
++    { nombre: 'Sereno', owner_auth_user_id: 'auth-1', email: null, telefono: null },
++    'marco@ejemplo.com',
++  );
++  const [dest] = await resolverDestinatarios(client, 'propietaria', EVENTO);
++  assert.equal(dest.email, 'marco@ejemplo.com');
++  assert.equal(vecesQueSePidioLaCuenta(), 1);
++});
++
++test('email de contacto vacío o con espacios cuenta como que no hay', async () => {
++  const { client } = adminFalso(
++    { nombre: 'Sereno', owner_auth_user_id: 'auth-1', email: '   ', telefono: null },
++    'marco@ejemplo.com',
++  );
++  const [dest] = await resolverDestinatarios(client, 'propietaria', EVENTO);
++  assert.equal(dest.email, 'marco@ejemplo.com');
++});
++
++test('con email de contacto puesto, manda ese y NO se consulta la cuenta', async () => {
++  const { client, vecesQueSePidioLaCuenta } = adminFalso(
++    { nombre: 'Sereno', owner_auth_user_id: 'auth-1', email: 'hola@sereno.es', telefono: '600' },
++    'marco@ejemplo.com',
++  );
++  const [dest] = await resolverDestinatarios(client, 'propietaria', EVENTO);
++  assert.equal(dest.email, 'hola@sereno.es');
++  assert.equal(vecesQueSePidioLaCuenta(), 0);
++});
++
++test('sin email en ninguno de los dos sitios, el destinatario sigue existiendo para in-app/push', async () => {
++  const { client } = adminFalso(
++    { nombre: 'Sereno', owner_auth_user_id: 'auth-1', email: null, telefono: null },
++    null,
++  );
++  const [dest] = await resolverDestinatarios(client, 'propietaria', EVENTO);
++  assert.equal(dest.email, null);
++  assert.equal(dest.userId, 'auth-1');
++});
++
++test('si la consulta a auth falla, el aviso NO se pierde: destinatario sin email pero con userId', async () => {
++  const client = {
++    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({
++      data: { nombre: 'Sereno', owner_auth_user_id: 'auth-1', email: null, telefono: null },
++    }) }) }) }),
++    auth: { admin: { getUserById: async () => { throw new Error('auth caída'); } } },
++  } as unknown as SupabaseClient;
++  const [dest] = await resolverDestinatarios(client, 'propietaria', EVENTO);
++  assert.equal(dest.email, null);
++  assert.equal(dest.userId, 'auth-1'); // in-app y push siguen llegando
++});
+diff --git a/lib/notifications/process.ts b/lib/notifications/process.ts
+index e01b8d0b..37f7721c 100644
+--- a/lib/notifications/process.ts
++++ b/lib/notifications/process.ts
+@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
+ import { REGLAS } from './catalog.ts';
+ import { CANALES, type ResultadoCanal } from './channels.ts';
+ import { crearInApp, canalesExtraDe, preferenciaDe, PREF_DEFECTO, type Preferencia } from './inapp.ts';
+-import { resolverContactoConocido } from './recipients.ts';
++import { resolverContactoConocido, emailDeLaPropietaria } from './recipients.ts';
+ import * as Sentry from '@sentry/nextjs';
+ import type {
+   NotificationCategory, NotificationChannel, NotificationEvent, NotificationRow, Recipient,
+@@ -243,6 +243,7 @@ export async function entregarExternos(
+ 
+   let entregadas = 0, deliveries = 0;
+   const fallos: FalloEnvio[] = [];
++  const emailsDeCuenta = new Map<string, string | null>();
+   for (const noti of pendientes) {
+     const regla = REGLAS[noti.event_type as string];
+     const dest: Recipient = {
+@@ -262,6 +263,21 @@ export async function entregarExternos(
+       const st = studios.get(noti.studio_id as string);
+       dest.email = (st?.email as string | null) ?? null;
+       dest.telefono = (st?.telefono as string | null) ?? null;
++      // `studios.email` es el email PÚBLICO del estudio y está vacío en la
++      // mayoría (medido en producción el 8 sep 2026). Sin este fallback, la
++      // propietaria NO tenía canal EMAIL: las únicas entregas EMAIL de la
++      // historia de esta tabla acabaron SKIPPED «destinatario sin email», y
++      // con ellas los avisos CRITICA que no tienen otra vía de llegar a quien
++      // no está mirando el panel (Stripe desconectado, prueba expirada).
++      // Se cachea por usuario: un aviso a todo un estudio recorre este bucle
++      // muchas veces y el email de su cuenta no cambia dentro de la tanda.
++      if (!dest.email && dest.userId) {
++        const yaVisto = emailsDeCuenta.get(dest.userId);
++        dest.email = yaVisto !== undefined
++          ? yaVisto
++          : await emailDeLaPropietaria(admin, dest.userId, null);
++        emailsDeCuenta.set(dest.userId, dest.email);
++      }
+     }
+ 
+     const critica = regla.priority === 'CRITICA';
+diff --git a/lib/notifications/recipients.ts b/lib/notifications/recipients.ts
+index ccda135b..fa3605a1 100644
+--- a/lib/notifications/recipients.ts
++++ b/lib/notifications/recipients.ts
+@@ -7,14 +7,44 @@ import type { SupabaseClient } from '@supabase/supabase-js';
+ import type { Audiencia } from './catalog.ts';
+ import type { NotificationEvent, Recipient } from './types.ts';
+ 
++// El email al que SE LE ESCRIBE a la propietaria.
++//
++// `studios.email` es el email PÚBLICO de contacto del estudio, que la dueña
++// rellena en Configuración y que 6 de los 9 estudios activos tienen vacío
++// (medido en producción el 8 sep 2026). Cuando falta, el email de su CUENTA
++// (auth.users) sí existe siempre — es con el que entra — y es el mismo
++// fallback que ya usaba `porAuthUserId` para Network unas líneas más abajo.
++//
++// Sin esto, el canal EMAIL de la propietaria no existía: las 4 únicas
++// entregas EMAIL de la historia de `notification_delivery` acabaron en
++// SKIPPED «destinatario sin email», y con ellas los avisos CRITICA
++// SISTEMA_STRIPE_DESCONECTADO («se deja de cobrar») y TRIAL_EXPIRADO, que no
++// tienen más canal que ese para llegar a quien no está mirando la app.
++export async function emailDeLaPropietaria(
++  admin: SupabaseClient, ownerAuthUserId: string, emailDelEstudio: unknown,
++): Promise<string | null> {
++  const publico = typeof emailDelEstudio === 'string' ? emailDelEstudio.trim() : '';
++  if (publico) return publico;
++  // No puede tumbar el reparto: resolver destinatarios es el paso previo a
++  // TODOS los canales, así que si la consulta a auth falla (o el cliente no la
++  // expone) se sigue sin email —in-app y push llegan igual— en vez de dejar el
++  // aviso entero sin enviar. Es la misma regla que el resto del módulo: quien
++  // no tiene un dato pierde su canal, no el evento.
++  try {
++    const { data } = await admin.auth.admin.getUserById(ownerAuthUserId);
++    return data.user?.email ?? null;
++  } catch { return null; }
++}
++
+ async function propietaria(admin: SupabaseClient, studioId: string): Promise<Recipient[]> {
+   const { data } = await admin.from('studios')
+     .select('nombre, owner_auth_user_id, email, telefono').eq('id', studioId).maybeSingle();
+   if (!data?.owner_auth_user_id) return [];
++  const ownerId = data.owner_auth_user_id as string;
+   return [{
+-    role: 'PROPIETARIO', userId: data.owner_auth_user_id as string,
++    role: 'PROPIETARIO', userId: ownerId,
+     nombre: (data.nombre as string | null) ?? 'Propietaria',
+-    email: (data.email as string | null) ?? null,
++    email: await emailDeLaPropietaria(admin, ownerId, data.email),
+     telefono: (data.telefono as string | null) ?? null,
+   }];
+ }
+@@ -92,7 +122,7 @@ async function staffPorAuthUserId(admin: SupabaseClient, studioId: string, authU
+     return [{
+       role: 'PROPIETARIO', userId: authUserId,
+       nombre: (studio.nombre as string | null) ?? 'Propietaria',
+-      email: (studio.email as string | null) ?? null,
++      email: await emailDeLaPropietaria(admin, authUserId, studio.email),
+       telefono: (studio.telefono as string | null) ?? null,
+     }];
+   }
+diff --git a/lib/student/catalogo.ts b/lib/student/catalogo.ts
+index bda33303..5649c46c 100644
+--- a/lib/student/catalogo.ts
++++ b/lib/student/catalogo.ts
+@@ -44,6 +44,22 @@ export interface PayloadPublico {
+     nombre: string; fotoUrl: string | null; slug: string;
+     /** Cuenta conectada de Stripe. `null` = el estudio aún no puede cobrar. */
+     stripeAccountId?: string | null;
++    // Identidad fiscal y condiciones. Ya viajaban en el payload
++    // (lib/db/supabase-data-admin.ts las mapea), pero este tipo no las
++    // declaraba, así que la pantalla de comprar tenía que castear para leerlas
++    // — y un cast es justo donde se pierde el contrato entre capas. Declaradas
++    // aquí, `configLegalDe` las recibe con la forma que espera.
++    razonSocial?: string | null;
++    nif?: string | null;
++    direccion?: string | null;
++    ciudad?: string | null;
++    codigoPostal?: string | null;
++    email?: string | null;
++    /** `null` = la clienta ve el texto por defecto, redactado con los datos de arriba. */
++    politicaPrivacidad?: string | null;
++    terminosServicio?: string | null;
++    cancelacionVentanaHoras?: number | null;
++    penalizacionImporteEur?: number | null;
+   } | null;
+   sesiones: Sesion[];
+   tiposClase: TipoClase[];
+diff --git a/lib/studio-context.tsx b/lib/studio-context.tsx
+index 94669ad9..92788c84 100644
+--- a/lib/studio-context.tsx
++++ b/lib/studio-context.tsx
+@@ -393,11 +393,11 @@ interface StudioContextValue {
+   // Sesiones
+   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+   updateSesion: (id: string, changes: Partial<Sesion>) => Promise<ResultadoEscritura>;
+-  deleteSesion: (id: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
++  deleteSesion: (id: string) => Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }>;
+   // Series de clases recurrentes (I-3)
+   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
+   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
+-  cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
++  cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }>;
+   /** Pasa las clases de una instructora a otra entre dos fechas. Devuelve los
+    *  ids movidos (para poder avisar a esas alumnas) y los que chocaron. */
+   reasignarInstructora: (
+@@ -2913,7 +2913,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     return res;
+   }
+ 
+-  async function deleteSesion(id: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
++  async function deleteSesion(id: string): Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }> {
+     // Borrar la sesión CASCADE-borra sus reservas en BD (FK on delete cascade) —
+     // antes eso pasaba en silencio: ni email ni aviso in-app a las socias con
+     // plaza, a diferencia de "Cancelar" (que sí avisa). Se manda el email Y el
+@@ -2922,8 +2922,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     // sesión en servidor por id, y si el DELETE le gana la carrera ya no
+     // encontraría nada que notificar.
+     const sesion = sesiones.find(s => s.id === id);
+-    if (sesion) notificarCancelacionSesiones([sesion]);
+-    await avisarClaseCancelada(id);
++    const aviso = sesion ? await notificarCancelacionSesiones([sesion]) : { avisadas: 0, sinAvisar: 0 };
++    const enApp = await avisarClaseCancelada(id);
+     // Auditoría de producto (P0-1): "Eliminar" no devolvía el bono consumido
+     // aunque "Cancelar" sí — dos botones casi idénticos con consecuencia de
+     // dinero opuesta. Para la alumna, perder su plaza es lo mismo con
+@@ -2954,14 +2954,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+       const fallos = resultados.filter(ok => !ok).length;
+       if (fallos > 0) {
+         return {
+-          ...res,
++          ...res, ...aviso, enApp,
+           avisoBono: fallos === 1
+             ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
+             : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`,
+         };
+       }
+     }
+-    return res;
++    return { ...res, ...aviso, enApp };
+   }
+ 
+   // ── Series de clases recurrentes (I-3) ───────────────────────────────────────
+@@ -3052,7 +3052,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+ 
+   // Cancela "esta y las siguientes" de una serie (p. ej. "cancelar la serie del
+   // verano") y avisa por email a las socias con plaza en cada sesión afectada.
+-  async function cancelarSerieDesde(sesionId: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
++  async function cancelarSerieDesde(sesionId: string): Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }> {
+     const objetivo = sesionesDeSerieDesde(sesionId).filter(s => !s.cancelada);
+     if (objetivo.length === 0) return { ok: true };
+     const ids = objetivo.map(s => s.id);
+@@ -3066,7 +3066,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+       return res;
+     }
+     // Aviso a las socias con plaza en cualquiera de las sesiones canceladas.
+-    notificarCancelacionSesiones(objetivo);
++    const aviso = await notificarCancelacionSesiones(objetivo);
+     // Notification Engine: además del email, in-app/push por cada sesión cancelada
+     // (igual que cancelar una clase suelta, que sí lo hacía). Sin esto, cancelar
+     // "esta y las siguientes" de una serie solo mandaba email y las socias no
+@@ -3075,7 +3075,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     // las reservas: `avisarClaseCancelada` los busca en servidor por
+     // estado = 'CONFIRMADA', así que cancelarlas antes deja el aviso sin
+     // nadie a quien mandarlo (mismo motivo por el que `deleteSesion` espera).
+-    await Promise.all(ids.map(id => avisarClaseCancelada(id)));
++    const enApp = (await Promise.all(ids.map(id => avisarClaseCancelada(id)))).every(Boolean);
+     // Las reservas de esas sesiones quedaban en CONFIRMADA/LISTA_ESPERA
+     // apuntando a una sesión ya cancelada — la socia veía en su portal una
+     // plaza "confirmada" para una clase que nunca va a pasar. Se marcan
+@@ -3087,31 +3087,49 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     // `cancelarSerieDesde` devolvía `{ok:true}` aunque las reservas se quedaran
+     // CONFIRMADA — el mismo `{ok:true}` mentiroso que ya se cerró en el camino
+     // de la clase suelta (calendario/page.tsx:1265).
+-    return await cancelarReservasDeSesiones(ids, 'cancelarSerieDesde');
++    return { ...await cancelarReservasDeSesiones(ids, 'cancelarSerieDesde'), ...aviso, enApp };
+   }
+ 
+   // Email de cancelación a cada socia con plaza (confirmada/asistida) en las
+   // sesiones dadas. Mismo criterio que la cancelación de una clase suelta.
+-  function notificarCancelacionSesiones(sesionesCanceladas: Sesion[]) {
+-    sesionesCanceladas.forEach(ses => {
++  // Devuelve el recuento REAL de envíos. Antes era un `.forEach` sin `await`
++  // sobre `enviarEmailCancelacionClase` —que devuelve boolean y nunca lanza—,
++  // así que el resultado se tiraba al suelo y el panel anunciaba «clientas
++  // avisadas» pasara lo que pasara: cancelar la serie del verano podía no
++  // avisar a nadie y la propietaria no tenía forma de saberlo. El camino de
++  // clase suelta (calendario/page.tsx, cancelarSesion) ya se arregló así; sus
++  // gemelos —cancelarSerieDesde y deleteSesion— se habían quedado atrás.
++  //
++  // `null` = socia sin email: no cuenta ni como avisada ni como fallo, igual
++  // criterio que el camino de clase suelta.
++  async function notificarCancelacionSesiones(
++    sesionesCanceladas: Sesion[],
++  ): Promise<{ avisadas: number; sinAvisar: number }> {
++    const envios = sesionesCanceladas.flatMap(ses => {
+       const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
+       const sala = salas.find(x => x.id === ses.salaId);
+       const instructor = instructores.find(i => i.id === ses.instructorId);
+       const inicio = new Date(ses.inicio);
+       const fecha = fechaLargaEstudio(inicio);
+       const hora = horaEstudio(inicio);
+-      reservas
++      return reservas
+         .filter(r => r.sesionId === ses.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
+-        .forEach(r => {
++        .map(async r => {
+           const socia = socios.find(s => s.id === r.socioId);
+-          if (!socia?.email) return;
+-          enviarEmailCancelacionClase({
++          if (!socia?.email) return null;
++          return enviarEmailCancelacionClase({
+             to: socia.email, toName: socia.nombre,
+             claseNombre: tipo?.nombre ?? 'Clase', fecha, hora,
+             sala: sala?.nombre ?? '', instructor: instructor?.nombre ?? '',
+           });
+         });
+     });
++    let avisadas = 0, sinAvisar = 0;
++    for (const ok of await Promise.all(envios)) {
++      if (ok === null) continue;
++      if (ok) avisadas++; else sinAvisar++;
++    }
++    return { avisadas, sinAvisar };
+   }
+ 
+   // ── Reservas ─────────────────────────────────────────────────────────────────
+@@ -3942,7 +3960,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     // —que es lo que pasaba siempre hasta hoy— pero el cobro no se pierde.
+     // El servidor decide si procede: sin caja abierta, o cobrado por
+     // transferencia o SEPA, no apunta nada y responde con el motivo.
+-    void apuntarCobroEnCaja(reciboId).catch(() => {});
++    // `apuntarCobroEnCaja` va por `pedir()`, que NUNCA rechaza: devuelve
++    // {error}. Así que el `.catch()` que había aquí era código muerto y el
++    // fallo real (500, RLS, red) se descartaba sin toast, sin Sentry y sin
++    // consola — justo el descuadre «sin ninguna pista de dónde venía» que
++    // este bloque dice haber cerrado. No se bloquea el cobro; se deja rastro.
++    void apuntarCobroEnCaja(reciboId).then(r => {
++      if (r && 'error' in r) {
++        capturarMensaje('[caja] el cobro manual no se apuntó en la caja', 'error', {
++          extra: { reciboId, error: r.error },
++        });
++      }
++    });
+ 
+     // Refill bono or extend mensual when renewal payment is collected
+     const recibo = recibos.find(r => r.id === reciboId);
+diff --git a/supabase/migrations/20260908170000_creditos_rpcs_comprueban_rol.sql b/supabase/migrations/20260908170000_creditos_rpcs_comprueban_rol.sql
+new file mode 100644
+index 00000000..391913a7
+--- /dev/null
++++ b/supabase/migrations/20260908170000_creditos_rpcs_comprueban_rol.sql
+@@ -0,0 +1,192 @@
++-- ─────────────────────────────────────────────────────────────────────────────
++-- 🟠 Auditoría 27ª pasada (8 sep 2026) — S-1.
++--
++-- Tres RPC de la familia de créditos/recompensas comprueban el ESTUDIO pero no
++-- el ROL, mientras sus hermanas de la misma familia sí lo hacen:
++--
++--   · ampliar_caducidades   → exige puede_mover_dinero()          ✅
++--   · consumir_sesion_bono  → exige puede_gestionar_calendario()  ✅
++--   · devolver_sesion_bono  → exige puede_gestionar_calendario()  ✅
++--   · ajustar_creditos      → solo validar_studio_mismatch()      ❌
++--   · ajustar_stock         → solo el check de studio_id          ❌
++--   · cancelar_canje        → solo validar_studio_mismatch()      ❌
++--
++-- Las tres son SECURITY DEFINER y `authenticated` tiene EXECUTE, así que son
++-- invocables directamente por REST (`/rest/v1/rpc/ajustar_creditos`). Una
++-- alumna NO llega: `current_studio_id()` solo resuelve para propietarias e
++-- instructoras, y para ella devuelve null → STUDIO_MISMATCH. Pero una
++-- INSTRUCTORA de ese estudio sí, y con eso puede, sin tocar el panel:
++--
++--   · restar créditos a CUALQUIER socia del estudio (p_delta_saldo < 0 pasa el
++--     único guard, que solo prohíbe ganancias);
++--   · inflar total_ganado / total_canjeado, que es lo que pintan los rankings;
++--   · alterar el stock del catálogo de recompensas;
++--   · cancelar el canje de otra socia y devolverle los créditos.
++--
++-- Por qué se puede cerrar sin riesgo: el ÚNICO camino vivo que usa estas RPC es
++-- el portal de la alumna (`/api/public/canje` → canjearRecompensaPublica), y va
++-- por service-role, donde `auth.uid()` es null y estos checks no se aplican —
++-- igual que ya ocurre con los de sus hermanas. Los llamantes del panel
++-- (dbAjustarCreditos / dbAjustarStock / dbCancelarCanje en lib/supabase-data.ts)
++-- solo los invoca `studio-context.tsx`, y ninguna pantalla llama hoy a esos
++-- métodos del contexto. Si se revivieran, PROPIETARIO/RECEPCION/MANAGER siguen
++-- pasando; solo INSTRUCTOR pierde el acceso, que es justo lo que se cierra.
++--
++-- Se elige `puede_gestionar_clientas()` (PROPIETARIO/RECEPCION/MANAGER) y no
++-- `puede_mover_dinero()` (que excluye a MANAGER) porque entregar y cancelar
++-- recompensas es trabajo de mostrador, no de caja: los créditos no son euros.
++--
++-- Reversible con: quitar los dos `if` añadidos en cada función.
++-- ─────────────────────────────────────────────────────────────────────────────
++
++create or replace function public.ajustar_creditos(p_socio_id text, p_studio_id text, p_delta_saldo integer, p_delta_ganado integer, p_delta_canjeado integer)
++ returns integer
++ language plpgsql
++ security definer
++ set search_path to 'public', 'pg_temp'
++as $function$
++declare v_saldo int; v_vivo int;
++begin
++  perform public.validar_studio_mismatch(p_studio_id);
++  perform public.validar_socio_del_studio(p_socio_id, p_studio_id);
++
++  -- Mover los créditos de otra persona es trabajo de mostrador.
++  if auth.uid() is not null and not public.puede_gestionar_clientas() then
++    raise exception 'NO_AUTORIZADO';
++  end if;
++
++  if auth.uid() is not null and p_delta_saldo > 0 then
++    raise exception 'GANANCIA_NO_PERMITIDA_AQUI';
++  end if;
++
++  -- `total_ganado` es lo que pintan los rankings y los logros: se gana por
++  -- `otorgar_credito_disparador`, que exige que la condición se cumpla de
++  -- verdad. Subirlo desde aquí sería la misma ganancia por la puerta de atrás
++  -- que la línea anterior ya prohíbe para el saldo.
++  if auth.uid() is not null and (coalesce(p_delta_ganado, 0) > 0 or coalesce(p_delta_canjeado, 0) < 0) then
++    raise exception 'GANANCIA_NO_PERMITIDA_AQUI';
++  end if;
++
++  if p_delta_saldo < 0 then
++    select public.saldo_vivo(mc.saldo, mc.caduca_el) into v_vivo
++      from member_credits mc where mc.socio_id = p_socio_id and mc.studio_id = p_studio_id;
++    if coalesce(v_vivo, 0) + p_delta_saldo < 0 then
++      raise exception 'SALDO_INSUFICIENTE';
++    end if;
++  end if;
++
++  insert into member_credits (socio_id, studio_id, saldo, total_ganado, total_canjeado, actualizado_en)
++    values (p_socio_id, p_studio_id, p_delta_saldo, p_delta_ganado, p_delta_canjeado, now())
++  on conflict (socio_id) do update set
++    saldo = member_credits.saldo + p_delta_saldo,
++    total_ganado = member_credits.total_ganado + p_delta_ganado,
++    total_canjeado = member_credits.total_canjeado + p_delta_canjeado,
++    actualizado_en = now()
++  returning saldo into v_saldo;
++
++  if v_saldo < 0 then
++    raise exception 'SALDO_INSUFICIENTE';
++  end if;
++
++  return v_saldo;
++end;
++$function$;
++
++create or replace function public.ajustar_stock(p_item_id text, p_studio_id text, p_delta integer)
++ returns integer
++ language plpgsql
++ security definer
++ set search_path to 'public', 'pg_temp'
++as $function$
++declare v_stock int;
++begin
++  -- Aislamiento por estudio en llamadas autenticadas (panel); la service-role
++  -- (endpoints públicos) no tiene auth.uid() y se salta el check.
++  if auth.uid() is not null and p_studio_id is distinct from public.current_studio_id() then
++    raise exception 'STUDIO_MISMATCH';
++  end if;
++
++  if auth.uid() is not null and not public.puede_gestionar_clientas() then
++    raise exception 'NO_AUTORIZADO';
++  end if;
++
++  update reward_catalog
++    set stock = stock + p_delta
++    where id = p_item_id
++      and studio_id = p_studio_id
++      and stock is not null
++      and (p_delta >= 0 or stock + p_delta >= 0)  -- no bajar de 0 al restar
++    returning stock into v_stock;
++
++  if not found then
++    raise exception 'SIN_STOCK';
++  end if;
++  return v_stock;
++end;
++$function$;
++
++create or replace function public.cancelar_canje(p_redemption_id text, p_studio_id text)
++ returns table(estado text, saldo integer)
++ language plpgsql
++ security definer
++ set search_path to 'public', 'pg_temp'
++as $function$
++declare
++  v_socio text;
++  v_item text;
++  v_coste int;
++  v_estado text;
++  v_saldo int;
++begin
++  perform public.validar_studio_mismatch(p_studio_id);
++
++  if auth.uid() is not null and not public.puede_gestionar_clientas() then
++    raise exception 'NO_AUTORIZADO';
++  end if;
++
++  select r.socio_id, r.catalog_item_id, r.creditos_gastados, r.estado
++    into v_socio, v_item, v_coste, v_estado
++  from reward_redemptions r
++  where r.id = p_redemption_id and r.studio_id = p_studio_id
++  for update;
++
++  if not found then
++    raise exception 'CANJE_NO_ENCONTRADO';
++  end if;
++
++  if v_estado is distinct from 'PENDIENTE' then
++    select mc.saldo into v_saldo from member_credits mc
++      where mc.socio_id = v_socio and mc.studio_id = p_studio_id;
++    return query select v_estado, coalesce(v_saldo, 0);
++    return;
++  end if;
++
++  update reward_redemptions set estado = 'CANCELADO' where id = p_redemption_id;
++
++  insert into member_credits (socio_id, studio_id, saldo, total_ganado, total_canjeado, actualizado_en)
++    values (v_socio, p_studio_id, v_coste, 0, 0, now())
++  on conflict (socio_id) do update set
++    saldo = member_credits.saldo + v_coste,
++    total_canjeado = greatest(0, member_credits.total_canjeado - v_coste),
++    actualizado_en = now()
++  returning member_credits.saldo into v_saldo;
++
++  update reward_catalog set stock = stock + 1
++    where id = v_item and studio_id = p_studio_id and stock is not null;
++
++  insert into credit_transactions (id, studio_id, socio_id, tipo, creditos, descripcion, ref_id, creado_en)
++    values (
++      'ctx-dev-' || substr(md5(p_redemption_id || '|' || clock_timestamp()::text || '|' || random()::text), 1, 18),
++      p_studio_id, v_socio, 'CANJE', v_coste, 'Canje cancelado: créditos devueltos', p_redemption_id, now()
++    );
++
++  return query select 'CANCELADO'::text, v_saldo;
++end;
++$function$;
++
++comment on function public.ajustar_creditos(text, text, integer, integer, integer) is
++  'Ajuste atómico de créditos por deltas. Desde una sesión autenticada exige mostrador (puede_gestionar_clientas) y NUNCA permite ganar: las ganancias van por otorgar_credito_disparador, que comprueba la condición.';
++comment on function public.ajustar_stock(text, text, integer) is
++  'Ajuste atómico del stock del catálogo de recompensas. Desde una sesión autenticada exige mostrador (puede_gestionar_clientas).';
++comment on function public.cancelar_canje(text, text) is
++  'Cancela un canje PENDIENTE y devuelve créditos y stock, idempotente. Desde una sesión autenticada exige mostrador (puede_gestionar_clientas).';
+-- 
+2.34.1
+

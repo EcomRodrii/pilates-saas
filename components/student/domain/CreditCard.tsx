@@ -25,7 +25,25 @@ export function CreditCard({ bono, compacta = false }: { bono: Bono; compacta?: 
         <p style={{ margin: 0, fontSize: compacta ? 12.5 : 13.5, fontWeight: 800 }}>{bono.nombre}</p>
         {compacta ? <span className="t-num" style={{ fontSize: 'var(--t-meta)', fontWeight: 700, color: 'var(--accent)' }}>quedan {quedan}</span> : <Badge tone={tono}>{etiqueta}</Badge>}
       </div>
-      <div style={{ height: compacta ? 5 : 6, borderRadius: 99, background: 'var(--muted)', overflow: 'hidden', marginTop: 9 }}><div style={{ width: pct + '%', height: '100%', borderRadius: 99, background: bono.estado === 'activo' ? 'var(--success)' : 'var(--border-strong)', transition: 'width .6s var(--ease)' }} /></div>
+      {/* ⚠️ La barra iba pintada a mano, con `--success` fijo, y eso rompía dos
+          cosas a la vez.
+          · `--success` NO se tiñe con la marca del estudio (a propósito: es el
+            verde de «ha ido bien», no un color de identidad). Las sesiones que
+            te quedan no son un éxito, son una CANTIDAD — y salían en verde en
+            los trece estudios, todos de marca índigo, violeta o tostada.
+          · Con una sesión o menos, la etiqueta ya se pone ámbar («few», arriba)
+            y la barra seguía verde: la misma tarjeta diciendo «cuidado» y «todo
+            bien» a la vez.
+          `.bar` del sistema ya hace justo esto: acento por defecto, `--warn`
+          cuando toca. El tono sale del MISMO cálculo que la etiqueta, así que no
+          pueden volver a contradecirse. */}
+      <div
+        aria-hidden
+        className={'bar' + (tono === 'few' ? ' bar--warn' : tono === 'neutral' ? ' bar--apagada' : '')}
+        style={{ ['--pct' as string]: pct + '%', height: compacta ? 5 : 6, marginTop: 9 }}
+      >
+        <i />
+      </div>
       {!compacta && (
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
           <p className="t-meta">{ilimitado ? 'Clases sin límite' : `Te quedan ${quedan} de ${bono.creditosTotales}`}</p>
