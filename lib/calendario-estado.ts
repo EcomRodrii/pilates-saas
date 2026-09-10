@@ -40,8 +40,20 @@ const TONO = {
     fondo: 'color-mix(in srgb, var(--brand-medio) 14%, var(--card))',
     tinta: 'var(--brand-medio)', barra: 'var(--brand-medio)',
   },
+  // ⚠️ 12 %, no 16 %. El fondo es una mezcla del MISMO color con la tarjeta y la
+  // tinta es ese color, así que el ratio lo decide sola la proporción. Medido
+  // con los tokens reales (`--warning: #8F6215`, `--card: #fff`):
+  //   16 % → #EDE6DA → **4,31:1**   ← por debajo de AA
+  //   14 % → #EFE9DE → 4,43
+  //   13 % → #F0EBE1 → 4,50   (justo)
+  //   12 % → #F2ECE3 → 4,56   ← con margen
+  // Los otros dos tonos cumplen tal cual: `exito` da 5,41 (14 % de #55622C) y
+  // `peligro` 5,01 (12 % de #A8442A). Este era el único que se pasaba de mezcla.
+  //
+  // Se ve en el calendario: `SIN_PASAR_LISTA` y `SIN_INSTRUCTORA` usan este
+  // tono, y son dos estados que la propietaria tiene que NOTAR.
   aviso: {
-    fondo: 'color-mix(in srgb, var(--warning) 16%, var(--card))',
+    fondo: 'color-mix(in srgb, var(--warning) 12%, var(--card))',
     tinta: 'var(--warning)', barra: 'var(--warning)',
   },
   peligro: {

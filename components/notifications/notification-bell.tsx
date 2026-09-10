@@ -224,8 +224,15 @@ export function NotificationBell() {
         className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
       >
         <Bell size={18} className="text-muted-foreground" />
+        {/* ⚠️ `red-600` y no `red-500`: el contador va en 10 px, y blanco sobre
+            `red-500` (#FB2C36) da **3,81:1**, por debajo del 4,5 que pide AA
+            para texto normal. `red-600` (#E7000B) da 4,77 y es el siguiente
+            paso de la misma escala, así que sigue siendo el mismo rojo.
+            No se veía porque el guardia de contraste del panel no sabía leer
+            los `oklab()`/`lab()` que emite Tailwind 4 y medía contra el
+            ancestro: daba 1,16:1, un número tan falso como tranquilizador. */}
         {unread > 0 && (
-          <span className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
