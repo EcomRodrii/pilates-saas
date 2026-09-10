@@ -126,3 +126,21 @@ export function casarRespuestas(
 export function yaNoSeReenvia(estado: EstadoTransmision): boolean {
   return estado === 'REGISTRADA' || estado === 'ACEPTADA_CON_ERRORES';
 }
+
+/**
+ * 50ª pasada de auditoría, hallazgo H-2: la AEAT devuelve `TiempoEsperaEnvio`
+ * en CADA respuesta y hay que respetarlo antes del SIGUIENTE envío — está
+ * documentado en tres comentarios de este módulo pero nunca se aplicaba.
+ * Cuando la AEAT no lo informa (primer envío, o un Fault que no llega a
+ * `parsearRespuestaAeat`), se usa el mínimo que la propia AEAT documenta:
+ * 60 segundos. Nunca 0 — un envío inmediato consume el control de flujo
+ * igual que uno demasiado rápido.
+ */
+export const ESPERA_AEAT_POR_DEFECTO_SEGUNDOS = 60;
+
+export function esperaAntesDelSiguienteEnvioMs(tiempoEsperaSegundos: number | null): number {
+  const segundos = tiempoEsperaSegundos && tiempoEsperaSegundos > 0
+    ? tiempoEsperaSegundos
+    : ESPERA_AEAT_POR_DEFECTO_SEGUNDOS;
+  return segundos * 1000;
+}
