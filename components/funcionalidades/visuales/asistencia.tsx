@@ -5,8 +5,12 @@ import { PanelClaro, PanelOscuro } from './comunes';
 // Fuente:
 //   · lib/pase-acceso.ts — ventana del pase (60 min antes / 15 después), QR con
 //     token firmado que caduca a los 2 min, código corto que no rota.
-//   · lib/inngest/checkin-automatico.ts — `studios.requiere_checkin_qr = false`
-//     marca ASISTIDA al TERMINAR la clase, no al reservar.
+//   · lib/checkin/marcar-asistidas-automatico.ts — pasar lista es opcional
+//     (`studios.requiere_checkin_qr`, y por tipo de clase desde migr
+//     20260909210000): cuando no se pasa, marca ASISTIDA al TERMINAR la clase,
+//     no al reservar. Lo dispara `app/api/cron/checkin-automatico` desde
+//     pg_cron cada 30 min — ya no vive en Inngest, que es donde lo situaba
+//     este comentario.
 //   · lib/no-show.ts — riesgo de plantón con decaimiento exponencial
 //     (VENTANA_DIAS = 90, VIDA_MEDIA_DIAS = 45) y suavizado bayesiano.
 //   · app/(dashboard)/calendario/pase — lector con BarcodeDetector nativo y
