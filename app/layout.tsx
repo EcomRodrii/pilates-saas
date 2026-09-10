@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { BASE_URL } from '@/lib/seo/paginas';
-import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins, Cormorant_Garamond, Libre_Caslon_Text, Figtree, IBM_Plex_Mono } from 'next/font/google';
+import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins, Cormorant_Garamond, Libre_Caslon_Text, Figtree, IBM_Plex_Mono, Sacramento } from 'next/font/google';
 import { StudioProvider } from '@/lib/studio-context';
 import { AuthProvider } from '@/lib/auth-context';
 import { AhrefsAnalytics } from '@/components/analitica/ahrefs';
@@ -100,6 +100,27 @@ const cormorant = Cormorant_Garamond({
 // tanto como en las otras dos). El 700 entra porque `--section-title-weight`
 // de Sereno es 600 en la SANS pero la display se usa a 400 y a 700 en el
 // prototipo (nombre de clase vs. rótulos fuertes).
+// La MANUSCRITA de la app de la alumna. Una sola cosa la usa —la tarjeta con la
+// frase que escribe el estudio, `CitaManuscrita`— y aun así entra aquí, porque
+// `next/font` no admite carga condicional por tenant: coste fijo, igual que
+// `outfit`, `poppins` y las dos de Sereno.
+//
+// ⚠️ `latin-ext` además de `latin`, y no es opcional en español: la eñe está en
+// `latin`, pero el subconjunto base de Google se queda corto con varios signos
+// que una frase de estudio usa sin pensar (comillas angulares, guion largo).
+// Pesa unos kilobytes más y evita el fallo más feo posible en una tipografía
+// decorativa — que una letra suelta salga en OTRA fuente.
+//
+// Un solo peso porque Sacramento solo tiene uno. Si algún día hace falta
+// «negrita» ahí, NO se pone `font-weight: 700`: el navegador la engorda
+// sintéticamente y una caligráfica engordada a mano se ve rota.
+const sacramento = Sacramento({
+  subsets: ['latin', 'latin-ext'],
+  variable: '--font-manuscrita',
+  weight: '400',
+  display: 'swap',
+});
+
 const libreCaslon = Libre_Caslon_Text({
   subsets: ['latin'],
   variable: '--font-libre-caslon',
@@ -169,7 +190,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} ${cormorant.variable} ${libreCaslon.variable} ${figtree.variable} ${plexMono.variable} antialiased`}>
+    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} ${cormorant.variable} ${libreCaslon.variable} ${sacramento.variable} ${figtree.variable} ${plexMono.variable} antialiased`}>
       <body className="bg-background">
         {/* Fuera de los providers a propósito: no depende de sesión ni de
             estudio, y así no vuelve a montarse cada vez que uno de los dos

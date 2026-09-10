@@ -51,7 +51,7 @@ type StudioForm = {
   direccion: string; ciudad: string; codigoPostal: string;
   telefono: string; email: string; sitioWeb: string;
   descripcion: string; anioFundacion: string; normasTexto: string;
-  lema: string; fraseHeroe: string;
+  lema: string; fraseHeroe: string; fraseManuscrita: string;
 };
 
 function studioToForm(s: Studio | null): StudioForm {
@@ -70,6 +70,7 @@ function studioToForm(s: Studio | null): StudioForm {
     normasTexto: s?.normasTexto ?? '',
     lema: s?.lema ?? '',
     fraseHeroe: s?.fraseHeroe ?? '',
+    fraseManuscrita: s?.fraseManuscrita ?? '',
   };
 }
 
@@ -196,7 +197,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
   async function guardarEstudio() {
     if (nifInvalido) { showToast('El NIF/CIF no es válido: revisa la letra o el dígito de control.'); return; }
     if (anioInvalido) { showToast('El año de apertura tiene que ser de cuatro cifras.'); return; }
-    const { anioFundacion, descripcion, normasTexto, sitioWeb, lema, fraseHeroe, ...resto } = form;
+    const { anioFundacion, descripcion, normasTexto, sitioWeb, lema, fraseHeroe, fraseManuscrita, ...resto } = form;
     setGuardando(true);
     const res = await updateStudio({
       ...resto,
@@ -214,6 +215,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
       // pinta la línea o si el héroe se queda como estaba.
       lema: lema.trim() || null,
       fraseHeroe: fraseHeroe.trim() || null,
+      fraseManuscrita: fraseManuscrita.trim() || null,
     });
     setGuardando(false);
     showToast(res.ok ? 'Datos del estudio guardados' : res.error);
@@ -494,6 +496,21 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
                 maxLength={44}
                 placeholder="Más fuerte cada semana"
                 onChange={e => setForm(f => ({ ...f, fraseHeroe: e.target.value }))}
+              />
+            )}
+          </Campo>
+          <Campo
+            label="Tu frase, a mano"
+            ayuda="Se escribe con letra manuscrita en la pantalla de inicio de tus alumnas. Una frase corta, tuya."
+          >
+            {id => (
+              <input
+                id={id}
+                className={inputCls}
+                value={form.fraseManuscrita}
+                maxLength={72}
+                placeholder="Un cuerpo feliz hace una mente tranquila"
+                onChange={e => setForm(f => ({ ...f, fraseManuscrita: e.target.value }))}
               />
             )}
           </Campo>

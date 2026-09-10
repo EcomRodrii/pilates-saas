@@ -56,6 +56,11 @@ export interface Studio {
   /** Frase en vertical al costado del héroe de la home. `null` = no se pinta. */
   fraseHeroe: string | null;
   /**
+   * Frase corta que la app de la alumna pinta con la tipografía manuscrita
+   * (migr 20260910224251). `null` = esa tarjeta no se pinta.
+   */
+  fraseManuscrita: string | null;
+  /**
    * Normas del centro que ve la socia en el portal (migr 20260813004723). Una
    * línea por norma. `null` = sin escribir, y entonces la pantalla no pinta la
    * sección en vez de un bloque vacío.

@@ -254,6 +254,14 @@
    acabó puesta en horas, fechas y sellos de mensaje, que no son códigos.
    `.t-code` dice CUÁNDO se usa, que es lo que hay que decidir al escribirla. */
 .student-app .t-code { font-family: var(--font-mono); letter-spacing: .04em; }
+
+/* La manuscrita del estudio. `1.35` de interlínea y no la de la app: una
+   caligráfica tiene ascendentes y descendentes mucho más largas, y con el
+   interlineado normal la «g» de una línea toca la «l» de la siguiente.
+   ⚠️ Nada de `font-weight` aquí: Sacramento tiene un solo peso y pedirle
+   negrita hace que el navegador la engorde él, que en una caligráfica se ve
+   como una letra rota. */
+.student-app .t-manuscrita { font-family: var(--font-manuscrita), cursive; line-height: 1.35; letter-spacing: .01em; }
 /* Alias heredado. Se conserva porque `.t-code` no cubre el caso de quien solo
    quiere la familia, pero si estás a punto de escribirla, para y pregúntate si
    lo que vas a pintar es un código (`.t-code`) o una cifra (`.t-num`). */

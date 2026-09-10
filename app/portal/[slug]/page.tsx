@@ -24,6 +24,7 @@ import { TuRitmo } from '@/components/student/domain/TuRitmo';
 import { AccesosRapidos } from '@/components/student/domain/AccesosRapidos';
 import { ProximaClaseVacia } from '@/components/student/domain/ProximaClaseVacia';
 import { FiltrosRapidos } from '@/components/student/domain/FiltrosRapidos';
+import { CitaManuscrita } from '@/components/student/domain/CitaManuscrita';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
 import { DelEstudio } from '@/components/student/domain/DelEstudio';
@@ -136,7 +137,7 @@ export default function InicioPage() {
       {/* `background`: mismo motivo que en la ficha de clase — un estudio puede
           no haber subido portada, y sin tinta detrás el héroe degrada a crema y
           se lleva por delante saludo, titular y cabecera transparente. */}
-      <section style={{ position: 'relative', height: 300, overflow: 'hidden', background: '#0F0F0C' }}>
+      <section style={{ position: 'relative', height: 316, overflow: 'hidden', background: '#0F0F0C' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={estudio.fotoPortada}
@@ -186,7 +187,11 @@ export default function InicioPage() {
         <div
           className="px"
           style={{
-            position: 'absolute', left: 0, right: 0, bottom: 14, color: '#FAF9F5',
+            // `bottom: 44` y no 14: el buscador SUBE hasta montarse sobre la
+            // foto (ver su `marginTop` negativo), y con el bloque de texto
+            // pegado abajo la píldora blanca le comía el borde inferior al
+            // botón «Reservar clase».
+            position: 'absolute', left: 0, right: 0, bottom: 44, color: '#FAF9F5',
             paddingTop: 34, paddingBottom: 4,
             // ⚠️ Sitio RESERVADO para el carril de la frase. Sin esto, medido en
             // el navegador: el saludo ocupaba de x=18 a x=375 y el carril de
@@ -194,7 +199,13 @@ export default function InicioPage() {
             // Con el hueco puesto, el saludo parte en dos líneas, que es
             // además como parte en la maqueta.
             ...(estudio.fraseHeroe ? { paddingRight: 112 } : null),
-            background: 'linear-gradient(to top, rgba(8,8,8,.70), rgba(8,8,8,.62) 42%, rgba(8,8,8,.50) 70%, rgba(8,8,8,.28) 88%, transparent)',
+            // ⚠️ Reforzado al cambiar la foto por defecto (banner nuevo, más
+            // luminoso). MEDIDO sobre la foto real, ocultando solo el texto y
+            // NO el velo: con el degradado anterior el kicker daba **3,73:1**
+            // donde hacen falta 4,5 — y era el único que fallaba, porque vive
+            // justo donde el velo se iba a transparente. Ahora el tramo alto no
+            // baja de .46 y arriba del todo queda un .14 en vez de nada.
+            background: 'linear-gradient(to top, rgba(8,8,8,.74), rgba(8,8,8,.68) 46%, rgba(8,8,8,.60) 74%, rgba(8,8,8,.46) 92%, rgba(8,8,8,.14))',
           }}
         >
           {/* ⚠️ DESIGN CONFLICT · el paquete pinta esta línea con
@@ -216,7 +227,11 @@ export default function InicioPage() {
               TAMAÑO y las VERSALES —11 px en mayúsculas frente a 13 px—, no la
               opacidad; y la opacidad, sobre una foto que sube cada estudio, es
               justo la herramienta que no controlamos. */}
-          <p className="t-label a-up" style={{ color: 'rgba(250,249,245,.9)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {/* Opacidad 1, no .9. Ya lo dice el comentario de arriba y esta foto lo
+              vuelve a demostrar: sobre una imagen que sube cada estudio, atenuar
+              es justo la herramienta que no controlamos. La jerarquía la marcan
+              el tamaño y las versales. */}
+          <p className="t-label a-up" style={{ color: '#FAF9F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {estudio.nombre} · {fechaLarga(hoy)}
           </p>
           {/* ⚠️ La JERARQUÍA se invierte respecto a lo que había: el saludo pasa
@@ -279,7 +294,12 @@ export default function InicioPage() {
           horario por nombre de clase, tipo o instructora, ignorando acentos. */}
       <form
         className="px a-up"
-        style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center' }}
+        // ⚠️ El buscador va A CABALLO entre la foto y la página, no debajo:
+        // media píldora sobre el héroe y media sobre el fondo. Es lo que cose
+        // las dos zonas —sin esto el héroe termina en una línea recta y la
+        // página parece empezar dos veces— y es como está en la guía de marca.
+        // `zIndex` porque el héroe pinta su degradado por encima del flujo.
+        style={{ marginTop: -26, position: 'relative', zIndex: 3, display: 'flex', gap: 10, alignItems: 'center' }}
         onSubmit={(e) => {
           e.preventDefault();
           const q = new FormData(e.currentTarget).get('q');
@@ -318,6 +338,10 @@ export default function InicioPage() {
         hrefBonos={href('/bonos')}
         hrefFavoritas={`${href('/reservar')}?filtro=Favoritas`}
       />
+
+      {/* La frase del estudio, a mano. Va pegada a las baldosas porque en la
+          guía de marca es la quinta pieza de esa misma fila. */}
+      <CitaManuscrita frase={estudio.fraseManuscrita} />
 
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '13px', marginTop: 14 }}>
         {estado === 'loading' && (
