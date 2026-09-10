@@ -94,13 +94,31 @@ export function estadoSesion(
   if (s.incidenciaTexto) return 'INCIDENCIA';
   if (ctx.conflicto) return 'CONFLICTO';
 
-  const ahoraMs = ahora.getTime();
-  const finMs = new Date(s.fin).getTime();
-  if (ahoraMs >= finMs) return ctx.confirmadasSinCheckin > 0 ? 'SIN_PASAR_LISTA' : 'FINALIZADA';
-
-  const inicioMs = new Date(s.inicio).getTime();
-  if (ahoraMs >= inicioMs) return 'EN_CURSO';
+  if (ahora.getTime() >= new Date(s.fin).getTime()) {
+    return ctx.confirmadasSinCheckin > 0 ? 'SIN_PASAR_LISTA' : 'FINALIZADA';
+  }
+  if (enCursoEn(s.inicio, s.fin, ahora)) return 'EN_CURSO';
   return 'PROGRAMADA';
+}
+
+// «Se está dando ahora mismo»: empezada y sin terminar. Extraído de
+// `estadoSesion` (que sigue siendo su único uso en el panel) para que la app de
+// la alumna use LA MISMA regla en vez de una copia — la trampa de tener el
+// criterio en dos sitios es que las dos pantallas acaban discrepando y nadie
+// sabe cuál miente.
+//
+// El fin es EXCLUSIVO (`< fin`): a las 16:55 en punto una clase de 16:00-16:55
+// ya ha terminado. Si fuera inclusivo, ese minuto la clase saldría a la vez
+// como «en curso» y como «finalizada» según quién pregunte.
+//
+// Compara INSTANTES, nunca cadenas de fecha+hora. La app de la alumna ya
+// reconstruye fechas en la zona del NAVEGADOR en dos sitios
+// (`lib/student/enlaces-clase.ts`, `maquina-reserva.ts`) dando por hecho que es
+// la del estudio; aquí no hace falta esa suposición porque `inicio`/`fin` vienen
+// del payload con su zona dentro.
+export function enCursoEn(inicio: string | Date, fin: string | Date, ahora: Date): boolean {
+  const t = ahora.getTime();
+  return t >= new Date(inicio).getTime() && t < new Date(fin).getTime();
 }
 
 // Guardia de negocio reusada tanto en cliente (deshabilitar acciones en el

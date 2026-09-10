@@ -15,6 +15,8 @@ import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { fechaLarga, hoyISO, saludo } from '@/lib/student/formato';
 import { NextClassCard } from '@/components/student/domain/NextClassCard';
 import { ClassCard } from '@/components/student/domain/ClassCard';
+import { useAhoraMs } from '@/lib/student/use-ahora';
+import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { añadirAlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
 import { TuRitmo } from '@/components/student/domain/TuRitmo';
@@ -40,6 +42,8 @@ export default function InicioPage() {
   const router = useRouter();
   const { socia } = useSesionStudent(estudio.slug);
   const hoy = hoyISO();
+  // `null` hasta que hidrata; los filtros que lo usan lo tratan como «todavía no».
+  const ahoraMs = useAhoraMs();
 
   const cargar = useCallback(async () => {
     const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha] = await Promise.all([
@@ -67,11 +71,22 @@ export default function InicioPage() {
   // El paquete no filtra por fecha porque sus datos de ejemplo son siempre
   // futuros; con datos reales, sin ese filtro «tu próxima clase» sería la
   // primera de su historial.
+  //
+  // ⚠️ El filtro por DÍA (`fecha >= hoy`) no bastaba, y era un bug visible: a las
+  // 16:30 seguía anunciando como «tu próxima clase» la de las 09:00 que ya había
+  // terminado, porque las dos son de hoy. Con el instante de fin a mano
+  // (`Clase.fin`) se descarta la terminada — y la que se está DANDO se queda, que
+  // es justo la que hay que enseñar, con su etiqueta de «en curso».
+  //
+  // El filtro por día se mantiene delante: es barato y descarta el historial sin
+  // mirar el reloj, así que antes de hidratar (`ahoraMs === null`) la tarjeta
+  // sigue saliendo igual que siempre en vez de desaparecer.
   const proxima = data?.reservas
     .filter((r) => r.estado === 'confirmada')
     .map((r) => ({ r, c: data.clases.find((c) => c.id === r.claseId) }))
     .filter((x): x is { r: (typeof x)['r']; c: NonNullable<(typeof x)['c']> } => Boolean(x.c))
     .filter((x) => x.c.fecha >= hoy)
+    .filter((x) => !yaTermino(x.c, ahoraMs))
     .sort((a, b) => (a.c.fecha + a.c.hora).localeCompare(b.c.fecha + b.c.hora))[0];
 
   // ── Tu ritmo ──────────────────────────────────────────────────────────────
@@ -91,8 +106,13 @@ export default function InicioPage() {
   // siete puntos de la semana justo encima, y contra una referencia que la
   // propia app se inventaba. Con la barra fuera, el cálculo sobra.
 
+  // «Huecos de hoy» es un atajo para RESERVAR, así que una clase ya empezada no
+  // es un hueco: el servidor la rechaza (`sesionYaEmpezada`). Antes salía toda la
+  // mañana ofreciendo plazas de clases que ya se estaban dando o que habían
+  // acabado, porque el filtro era del día entero.
   const huecos = (data?.clases ?? [])
     .filter((c) => c.fecha === hoy)
+    .filter((c) => !estaEnCurso(c, ahoraMs) && !yaTermino(c, ahoraMs))
     .filter((c) => disponibilidad(c, data?.reservas ?? [], estudio.soportaListaEspera) !== 'reservada')
     .filter((c) => c.plazasLibres > 0)
     .slice(0, 3);

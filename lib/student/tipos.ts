@@ -54,6 +54,21 @@ export interface Clase {
   fecha: string;            // ISO date YYYY-MM-DD
   hora: string;             // HH:mm
   duracionMin: number;
+  /**
+   * Los INSTANTES de la sesión, tal como vienen del payload (`sesiones.inicio` /
+   * `sesiones.fin`, columnas reales con zona).
+   *
+   * ⚠️ Existen aparte de `fecha`/`hora`/`duracionMin` y no en su lugar: esos tres
+   * son para PINTAR («mar 12 · 10:00 · 50 min») y la proyección los deja ya
+   * formateados en la zona del estudio. Estos dos son para COMPARAR con el reloj
+   * —«¿esta clase se está dando ahora?»— y para eso una cadena `'2026-08-12'` +
+   * `'10:00'` obliga a reconstruir un `Date` en la zona del navegador, que es
+   * justo la suposición que este repo ya arrastra en dos sitios
+   * (`lib/student/enlaces-clase.ts`, `maquina-reserva.ts`) y que se rompe con una
+   * alumna de viaje o con el móvil mal configurado.
+   */
+  inicio: string;           // ISO instant
+  fin: string;              // ISO instant
   nombre: string;
   tipo: string;             // Reformer · Mat · Yoga Flow…
   disciplina: Disciplina;

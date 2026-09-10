@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { coloresMonograma, inicialDe } from '@/lib/monograma-estudio';
 import { usePortalHref } from '@/components/student/contexto';
 import type { Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
-import { AvailabilityBadge } from '@/components/student/ui/Badge';
-import { precioClaseTexto } from '@/lib/student/formato';
+import { AvailabilityBadge, EnCursoBadge } from '@/components/student/ui/Badge';
+import { precioClaseTexto, horaFin } from '@/lib/student/formato';
+import { useAhoraMs } from '@/lib/student/use-ahora';
+import { estaEnCurso } from '@/lib/student/estado-clase';
 // ⚠️ Los enlaces del paquete son absolutos ('/reservar/…') porque allí la app
 // es la única del proyecto. Aquí cuelgan del slug del estudio, así que pasan
 // por `usePortalHref()`: dejarlos absolutos mandaría a la alumna a la landing
@@ -13,6 +15,11 @@ import { precioClaseTexto } from '@/lib/student/formato';
 export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { clase: Clase; instructora?: Instructora; estado: Disponibilidad; conBono: boolean; delay?: number }) {
   const href = usePortalHref();
   const chip = coloresMonograma(clase.color);
+  // El reloj lo pide la TARJETA, no la pantalla: así las tres que la usan
+  // (inicio, horario, calendario) no tienen que enterarse de nada. Un solo
+  // temporizador para todas, ver `useAhoraMs`.
+  const ahoraMs = useAhoraMs();
+  const enCurso = estaEnCurso(clase, ahoraMs);
   return (
     <Link href={href('/reservar/' + clase.id)} className="card card--tap a-up" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', animationDelay: delay + 'ms', borderColor: estado === 'reservada' ? 'var(--accent)' : undefined, borderWidth: estado === 'reservada' ? 1.5 : 1 }}>
       {/* El bloque de la izquierda: LOGO de la clase sobre la hora.
@@ -80,8 +87,16 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
         </div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <AvailabilityBadge estado={estado} plazas={clase.plazasLibres} />
-        <p style={{ margin: '5px 0 0', fontSize: 'var(--t-meta)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{conBono ? '1 sesión' : precioClaseTexto(clase)}</p>
+        {/* En curso el badge de plazas NO se pinta: ya no se puede reservar, y
+            «Quedan 2» sobre una clase que está dándose es una plaza que el
+            servidor niega. El precio también sobra por lo mismo. Si es SUYA, el
+            borde de acento de la tarjeta sigue diciéndolo. */}
+        {enCurso ? <EnCursoBadge terminaA={horaFin(clase.hora, clase.duracionMin)} /> : (
+          <>
+            <AvailabilityBadge estado={estado} plazas={clase.plazasLibres} />
+            <p style={{ margin: '5px 0 0', fontSize: 'var(--t-meta)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{conBono ? '1 sesión' : precioClaseTexto(clase)}</p>
+          </>
+        )}
       </div>
     </Link>
   );
