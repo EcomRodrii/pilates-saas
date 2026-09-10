@@ -3504,18 +3504,30 @@ export async function dbDevolverSesionBono(
 // sobre el array de recibos del cliente (capado a 1000 → mentía a escala). Un sum()
 // en SQL agrega todas las filas; la RLS acota por estudio. `desde` = 'YYYY-MM-DD' o
 // null (todo el histórico).
+// ⚠️ `null` cuando no hay respuesta, NUNCA ceros — por el mismo motivo que
+// `dbStatsClientas` (más abajo), pero aquí es dinero. Devolvía
+// `{ total: 0, … }`, y /informes lo pintaba tal cual: «Ingresos período
+// 0,00 €», «Ingresos del mes 0,00 €», «Ticket medio 0,00 €». Eso no es un
+// hueco, es una AFIRMACIÓN sobre la caja del estudio, indistinguible de la
+// verdad y en la pantalla que se abre precisamente para saber cuánto entró.
+// `informe_ingresos` es un agregado sin GROUP BY: cuando responde SIEMPRE trae
+// una fila, así que un estudio recién abierto sigue leyendo un 0,00 € legítimo
+// — «sin fila» solo pasa si algo va mal.
 export async function dbInformeIngresos(
   desde: string | null,
-): Promise<{ total: number; nCobrados: number; nSocias: number }> {
+): Promise<{ total: number; nCobrados: number; nSocias: number } | null> {
   const { data, error } = await supabase.rpc('informe_ingresos', { p_desde: desde });
-  if (error) { reportDbError('[dbInformeIngresos]', error); return { total: 0, nCobrados: 0, nSocias: 0 }; }
+  if (error) { reportDbError('[dbInformeIngresos]', error); return null; }
   const row = (Array.isArray(data) ? data[0] : data) as { total_ingresos: number; n_cobrados: number; n_socias_unicas: number } | undefined;
-  return { total: Number(row?.total_ingresos ?? 0), nCobrados: Number(row?.n_cobrados ?? 0), nSocias: Number(row?.n_socias_unicas ?? 0) };
+  if (!row) return null;
+  return { total: Number(row.total_ingresos ?? 0), nCobrados: Number(row.n_cobrados ?? 0), nSocias: Number(row.n_socias_unicas ?? 0) };
 }
 
-export async function dbIngresosPorDia(desde: string | null): Promise<{ dia: string; total: number }[]> {
+// Igual: `[]` significa «no hubo ni un cobro en el periodo» y es una respuesta
+// legítima que el gráfico sabe pintar. Para «no lo sé», `null`.
+export async function dbIngresosPorDia(desde: string | null): Promise<{ dia: string; total: number }[] | null> {
   const { data, error } = await supabase.rpc('ingresos_por_dia', { p_desde: desde });
-  if (error) { reportDbError('[dbIngresosPorDia]', error); return []; }
+  if (error) { reportDbError('[dbIngresosPorDia]', error); return null; }
   return ((data ?? []) as { dia: string; total: number }[]).map((r) => ({ dia: r.dia, total: Number(r.total) }));
 }
 
@@ -3541,12 +3553,15 @@ export async function dbEmbudoWidgetPorDia(desde: string): Promise<{ dia: string
 // dbInformeIngresos). `tipo` sale de planes_tarifa.tipo; los recibos sin
 // suscripcion_id (histórico migrado, POS/otros) caen en 'OTROS'. `hasta` es
 // inclusive — se usa para acotar el período anterior sin solapar con el actual.
+// ⚠️ `null` en el fallo, no `[]`: con `[]` la pantalla componía las cuatro
+// tarjetas a «0,00 € · 0 ventas», que otra vez es afirmar que no se vendió
+// nada. Ver la nota de `dbInformeIngresos`.
 export async function dbVentasPorTipo(
   desde: string | null,
   hasta: string | null,
-): Promise<{ tipo: string; nVentas: number; total: number }[]> {
+): Promise<{ tipo: string; nVentas: number; total: number }[] | null> {
   const { data, error } = await supabase.rpc('ventas_por_tipo', { p_desde: desde, p_hasta: hasta });
-  if (error) { reportDbError('[dbVentasPorTipo]', error); return []; }
+  if (error) { reportDbError('[dbVentasPorTipo]', error); return null; }
   return ((data ?? []) as { tipo: string; n_ventas: number; total: number }[])
     .map((r) => ({ tipo: r.tipo, nVentas: Number(r.n_ventas), total: Number(r.total) }));
 }

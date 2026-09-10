@@ -6,6 +6,7 @@ import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClienta
 import { fetchTarifasEquipo, type TarifaInstructor } from '@/lib/api-client';
 import { margenSesiones, type MargenSesion } from '@/lib/decision/margen-clase.ts';
 import { combinarConVariacion, type VentaTipoConVariacion } from '@/lib/informes/ventas-por-tipo.ts';
+import { etiquetaEuros as fmtEur, techoDelEje, marcasDelEje } from '@/lib/informes/eje-euros.ts';
 import type { Sesion } from '@/lib/types';
 import { TrendingUp, Users, CreditCard, Activity, Download, FileText, Scale, Package } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
@@ -23,11 +24,6 @@ const FALLBACK_SSR = new Date('2026-06-29');
 function localDate(d: Date | string): string {
   const dt = typeof d === 'string' ? new Date(d) : d;
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-}
-
-function fmtEur(v: number): string {
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}k €`;
-  return `${v.toFixed(0)} €`;
 }
 
 function fmtEurFull(v: number): string {
@@ -172,6 +168,13 @@ export default function Informes() {
   // Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) + variación
   // vs. el período anterior de igual duración — pedido explícito del fundador.
   const [ventasTipo, setVentasTipo] = useState<VentaTipoConVariacion[] | null>(null);
+  // La carga del dinero falló. Sin esto, `agg`/`ventasTipo` a null son
+  // ambiguos: pueden ser «todavía no ha llegado» o «no va a llegar», y la
+  // pantalla se comportaba como si fuera lo primero para siempre.
+  const [fallo, setFallo] = useState(false);
+  // Lo bombea el botón «Reintentar»: es una dependencia más del efecto de
+  // carga, en vez de duplicar las siete consultas en un handler aparte.
+  const [intento, setIntento] = useState(0);
 
   // `now` en estado en vez de `new Date()` en el cuerpo del render, mismo
   // arreglo que dashboard y calendario. Aquí importaba doblemente: los cuatro
@@ -251,19 +254,43 @@ export default function Informes() {
     ])
       .then(([per, mes, dias, ocup, stc, ventasActual, ventasAnterior]) => {
         if (cancel) return;
-        setAgg({ total: per.total, nSocias: per.nSocias, mrr: mes.total, porDia: dias });
-        setOcupData(ocup);
+        // ⚠️ Si el servidor no ha contestado, esta pantalla NO puede escribir
+        // «0,00 €»: es una afirmación sobre la caja del estudio y quien la lee
+        // no tiene forma de distinguirla de la verdad. `agg` a null y `fallo`
+        // a true → los importes salen «—» y se dice por qué.
+        if (!per || !mes || !dias) {
+          setAgg(null);
+          setFallo(true);
+        } else {
+          setFallo(false);
+          setAgg({ total: per.total, nSocias: per.nSocias, mrr: mes.total, porDia: dias });
+        }
+        if (ocup) setOcupData(ocup);
         // ⚠️ Sin clientas NO hay una retención del 0 %: no hay retención que
         // medir. Devolver 0 pintaba un «0 %» en rojo de alarma —con su color
         // de «esto va mal»— para un estudio que simplemente no tiene datos
         // todavía, y también cuando la consulta volvía vacía por un fallo.
         // Mismo criterio que el resto: ausente no es cero.
         setRetencion(stc && stc.total > 0 ? Math.round((stc.activas / stc.total) * 100) : null);
-        setVentasTipo(combinarConVariacion(ventasActual, ventasAnterior));
+        // `null` aquí es «no lo sé»; el bloque de abajo lo distingue de
+        // «todavía cargando» mirando `fallo`, para no dejar el esqueleto
+        // girando eternamente.
+        if (!ventasActual || !ventasAnterior) { setVentasTipo(null); setFallo(true); }
+        else setVentasTipo(combinarConVariacion(ventasActual, ventasAnterior));
+      })
+      // Los helpers ya convierten el error de PostgREST en `null`, así que aquí
+      // no llega casi nada. Va igual: sin él, cualquier excepción inesperada
+      // dejaba la pantalla muda con `agg` a null — y `?? 0` la hacía decir
+      // «0,00 €», que es exactamente lo que este cambio viene a quitar.
+      .catch(() => {
+        if (cancel) return;
+        setAgg(null);
+        setVentasTipo(null);
+        setFallo(true);
       });
     return () => { cancel = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, mounted]);
+  }, [period, mounted, intento]);
 
   // ─── Revenue chart buckets ──────────────────────────────────────────────────
   const revenueChart = useMemo((): Bucket[] => {
@@ -282,13 +309,18 @@ export default function Informes() {
   }, [agg, period, now]);
 
   // ─── KPI: Total ingresos del período (server-side, F1) ──────────────────────
-  const totalIngresos = agg?.total ?? 0;
+  // ⚠️ `null` = no lo sabemos, y se pinta «—». Antes era `?? 0`: con la RPC
+  // caída, las tres cifras de dinero de esta pantalla decían 0,00 € con la
+  // misma cara que cuando de verdad no entró nada.
+  const totalIngresos = agg?.total ?? null;
 
   // ─── KPI: MRR — ingresos del mes en curso (server-side, F1) ─────────────────
-  const mrr = agg?.mrr ?? 0;
+  const mrr = agg?.mrr ?? null;
 
   // ─── KPI: Ticket medio (server-side, F1) ────────────────────────────────────
-  const ticketMedio = agg && agg.nSocias > 0 ? agg.total / agg.nSocias : 0;
+  // Sin `agg` no hay ticket; con `agg` y cero pagadoras, el ticket es 0 de
+  // verdad (nadie pagó), que es distinto y sí se puede escribir.
+  const ticketMedio = agg == null ? null : agg.nSocias > 0 ? agg.total / agg.nSocias : 0;
 
   // ─── KPI: Tasa retención (server-side, F1) ──────────────────────────────────
   const tasaRetencion = retencion;
@@ -450,16 +482,13 @@ export default function Informes() {
   const BAR_GAP = period === 'month' ? 4 : 10;
   const CHART_H = 160;
   const PADDING_L = 44;
-  const maxVal = Math.max(...revenueChart.map(d => d.value), 1);
+  const PADDING_T = 8;
+  const Y_TICKS = 4;
+  const maxVal = techoDelEje(revenueChart.map(d => d.value), Y_TICKS);
   const chartW = revenueChart.length * (BAR_W + BAR_GAP) + PADDING_L;
 
   // Y-axis grid lines
-  const Y_TICKS = 4;
-  const yTicks = Array.from({ length: Y_TICKS + 1 }, (_, i) => {
-    const val = (maxVal / Y_TICKS) * i;
-    const y = CHART_H - (val / maxVal) * CHART_H;
-    return { val, y };
-  });
+  const yTicks = marcasDelEje(maxVal, Y_TICKS).map(val => ({ val, y: CHART_H - (val / maxVal) * CHART_H }));
 
   // Bar color by trend
   function barColor(i: number, value: number): string {
@@ -540,7 +569,7 @@ export default function Informes() {
               </div>
               <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos período</p>
               <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
-                {fmtEurFull(totalIngresos)}
+                {totalIngresos === null ? '—' : fmtEurFull(totalIngresos)}
               </CifraPrivada>
               <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>cobrados en el periodo</p>
             </div>
@@ -554,7 +583,7 @@ export default function Informes() {
               </div>
               <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos del mes</p>
               <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
-                {fmtEurFull(mrr)}
+                {mrr === null ? '—' : fmtEurFull(mrr)}
               </CifraPrivada>
               <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>ingresos mes actual</p>
             </div>
@@ -570,7 +599,7 @@ export default function Informes() {
               <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>Ticket medio de quien pagó</p>
               <p className="text-[11px] mb-1" style={{ color: 'var(--muted-foreground)' }}>Lo que paga de media cada clienta que ha pagado algo este periodo</p>
               <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
-                {fmtEurFull(ticketMedio)}
+                {ticketMedio === null ? '—' : fmtEurFull(ticketMedio)}
               </CifraPrivada>
               <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>solo entre las clientas con algún cobro en el periodo</p>
             </div>
@@ -596,6 +625,29 @@ export default function Informes() {
         </div>
       </div>
 
+      {/* Por qué hay guiones donde deberían ir euros. Sin esta línea, «—» en las
+          tres tarjetas es tan mudo como el 0,00 € que había antes: dice que no
+          hay número, no que no hemos podido traerlo. */}
+      {verFinanzas && fallo && (
+        <div
+          className="rounded-xl border p-4 flex flex-wrap items-center justify-between gap-3"
+          style={{ borderColor: 'color-mix(in srgb, var(--warning) 35%, var(--border))', backgroundColor: 'color-mix(in srgb, var(--warning) 8%, var(--card))' }}
+        >
+          <p className="text-sm" style={{ color: 'var(--foreground)' }}>
+            No hemos podido cargar los ingresos. Los importes salen como «—» a propósito:{' '}
+            <strong>no son cero, es que no lo sabemos.</strong>
+          </p>
+          <button
+            type="button"
+            onClick={() => setIntento(n => n + 1)}
+            className="text-sm font-semibold px-3 py-1.5 rounded-lg border shrink-0"
+            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card)', color: 'var(--foreground)' }}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
       {/* ── Section 2: Revenue bar chart ────────────────────────────────────── */}
       {/* Como las tarjetas KPI y el export: CifraPrivada es solo un difuminado
           contra miradas de reojo (se quita con un clic), no un permiso — se
@@ -608,11 +660,20 @@ export default function Informes() {
             <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>Cobros realizados en el periodo seleccionado</p>
           </div>
           <div className="text-right">
-            <CifraPrivada inline className="text-lg font-extrabold" style={{ color: 'var(--foreground)' }}>{fmtEurFull(totalIngresos)}</CifraPrivada>
+            <CifraPrivada inline className="text-lg font-extrabold" style={{ color: 'var(--foreground)' }}>{totalIngresos === null ? '—' : fmtEurFull(totalIngresos)}</CifraPrivada>
             <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>acumulado</p>
           </div>
         </div>
 
+        {fallo ? (
+          /* Sin datos del servidor, el gráfico dibujaría treinta barras a cero
+             sobre un eje inventado — que es exactamente lo mismo que decir
+             «no se cobró nada». Mejor no dibujar nada. */
+          <p className="text-sm py-10 text-center" style={{ color: 'var(--muted-foreground)' }}>
+            No hemos podido cargar los cobros de este periodo.
+          </p>
+        ) : (
+        <>
         {/* Legend */}
         <div className="flex items-center gap-4 mb-5 mt-3">
           <div className="flex items-center gap-1.5">
@@ -632,8 +693,13 @@ export default function Informes() {
         <CifraPrivada className="overflow-x-auto">
           <svg
             width={Math.max(chartW, 480)}
-            height={CHART_H + 52}
-            viewBox={`0 0 ${Math.max(chartW, 480)} ${CHART_H + 52}`}
+            height={CHART_H + 52 + PADDING_T}
+            // ⚠️ El lienzo empieza ARRIBA del cero. La marca más alta del eje
+            // cae en y=0 y su etiqueta se dibuja con la base en y=4: a 9 px de
+            // cuerpo, la parte de arriba de los dígitos quedaba fuera y la
+            // cifra mayor del gráfico salía descabezada, siempre. Se corre el
+            // viewBox en vez de mover cada hijo.
+            viewBox={`0 ${-PADDING_T} ${Math.max(chartW, 480)} ${CHART_H + 52 + PADDING_T}`}
             style={{ display: 'block', minWidth: '100%' }}
             aria-label="Gráfico de ingresos"
             role="img"
@@ -767,6 +833,8 @@ export default function Informes() {
             <line x1={PADDING_L} y1={CHART_H} x2={Math.max(chartW, 480)} y2={CHART_H} stroke="var(--border)" strokeWidth="1" />
           </svg>
         </CifraPrivada>
+        </>
+        )}
       </div>
       )}
 
@@ -778,7 +846,14 @@ export default function Informes() {
           Cobrado en el periodo, comparado con un periodo anterior de igual duración
         </p>
 
-        {ventasTipo === null ? (
+        {/* `null` es ambiguo por sí solo: `fallo` lo desambigua. Antes, un
+            fallo dejaba este esqueleto latiendo para siempre — o, cuando el
+            helper devolvía `[]`, cuatro tarjetas a «0,00 € · 0 ventas». */}
+        {ventasTipo === null && fallo ? (
+          <p className="text-sm py-6 text-center" style={{ color: 'var(--muted-foreground)' }}>
+            No hemos podido cargar las ventas de este periodo.
+          </p>
+        ) : ventasTipo === null ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-pulse">
             {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-border rounded-lg" />)}
           </div>
