@@ -42,31 +42,40 @@ Esto reemplaza cualquier configuración de v2 — v4 exige una configuración nu
 ("to migrate from v2 to v4... create a new Facebook Login for Business Configuration, and
 select your desired products").
 
-1. En el App Dashboard → **Facebook Login for Business** → Configuraciones → crear una
-   nueva. Meta ofrece una plantilla lista, que en español aparece como **"Configuración de
-   registro insertado de WhatsApp con un token que caduca en 60 días"** — el botón es
-   "Crear desde plantilla".
+1. 🚨 **La ruta buena NO es esta pantalla.** Hecho de verdad el 2026-09-10, y las dos
+   primeras opciones que parecen las obvias están mal:
 
-   🚨 **Léase el nombre entero antes de usarla: «con un token que caduca en 60 días».**
-   Esa plantilla NO es el punto de partida cómodo que este documento daba por hecho: fija
-   la caducidad del token a 60 días. Y el token que Embedded Signup entrega —el de usuario
-   del sistema de integración comercial— **por defecto NO caduca**: la documentación de
-   Facebook Login for Business lo dice literal («Según el valor predeterminado, nunca
-   caducan en el caso de las comunicaciones offline comunes de servidor a servidor»), y
-   los 60 días son un opt-in explícito (`set_token_expires_in_60_days`).
+   - **«Inicio de sesión con Facebook para empresas → Plantillas»**: las dos plantillas que
+     ofrece Meta son trampas. «Socio de medición de WhatsApp» dice literalmente *«solo es
+     compatible con la **versión 2** del registro insertado»* (la que muere el 8 de
+     octubre), y «Configuración de registro insertado en WhatsApp **con token de caducidad
+     de 60**» fija los 60 días.
+   - **«Inicio de sesión con Facebook para empresas → Ajustes → Crear ajuste»** (el
+     asistente genérico): en el paso «Elegir activos» **no ofrece WhatsApp** —solo Páginas,
+     Cuentas publicitarias, Catálogos, Píxeles e Instagram— y no deja avanzar sin marcar
+     alguno. Ahí es donde uno se atasca. Además su paso «Elige la caducidad del
+     identificador» viene con **«60 días (recomendado)» preseleccionado** y avisa de que
+     **no se puede cambiar después**; sí tiene «Nunca», pero hay que acordarse de marcarlo.
 
-   Qué pasaría si se usa tal cual: **el WhatsApp de CADA estudio dejaría de funcionar a
-   los 60 días de conectarlo**, en silencio y todos a la vez según se fueran cumpliendo
-   los plazos. Tentare no tiene —ni necesita— ningún camino de renovación: `lib/whatsapp.ts`
-   guarda el token y lo usa indefinidamente, que es lo correcto para un token que no
-   caduca. La propietaria vería su integración «conectada» y sus recordatorios dejarían de
-   salir, que es justo la «integración de mentira» que el módulo de salud existe para
-   evitar.
+   **La ruta correcta es**: *Casos de uso → Conectar en WhatsApp → Personalizar → Hazte
+   socio → **Creador de registro insertado** → «Crear configuración»*. Ese diálogo es el
+   específico de registro insertado y lo hace bien solo, sin decisiones que se puedan
+   olvidar. Lo dice él mismo:
 
-   **Por tanto: crear la configuración a mano** ("Crear configuración") con caducidad
-   indefinida, o partir de la plantilla y CAMBIAR la caducidad antes de guardar. Verificar
-   el valor antes de dar la configuración por buena.
-2. Seleccionar el **producto WhatsApp** dentro de esa configuración (v4 permite además
+   > «Esta configuración generará un identificador de acceso de usuario del sistema que
+   > **nunca caducará** y requerirá que los usuarios concedan los permisos
+   > `whatsapp_business_management` y `whatsapp_business_messaging` a tu aplicación.»
+
+   O sea: tipo de identificador correcto, caducidad correcta y los dos permisos de WhatsApp,
+   sin tocar nada. Verifica después en la tabla que la columna **Caducidad** dice «Nunca».
+
+   ⚠️ **Y el orden importa**: WhatsApp no aparece como activo hasta que el caso de uso está
+   dado de alta (aceptando las condiciones de WhatsApp Business y de alojamiento de la API
+   de nube) y se ha iniciado la incorporación como proveedor de tecnología. Intentar crear
+   la configuración antes es el atasco descrito arriba.
+
+2. (Ya no aplica con la ruta de arriba; se conserva por si alguien usa el asistente
+   genérico.) Seleccionar el **producto WhatsApp** dentro de esa configuración (v4 permite además
    Conversions API / Click-to-WhatsApp Ads / Click-to-Messenger Ads en el mismo flujo — no
    marcarlos salvo que Tentare vaya a usarlos; cada producto añadido amplía lo que la
    propietaria del estudio ve/autoriza en el popup, y el objetivo del producto es que solo
@@ -180,6 +189,51 @@ que los recordatorios funcionan automáticamente tras conectar un WABA nuevo.** 
 re-aprobación por WABA, hay que documentar en la UI de Tentare cómo la propietaria da de alta
 esa plantilla en su WhatsApp Manager (mismo texto exacto: «Recordatorio · {{1}}. Tienes {{2}}
 el {{3}} a las {{4}} en {{5}}.», categoría Utilidad, español).
+
+## 7.bis Estado REAL de la app de Meta de Tentare (2026-09-10)
+
+Esto ya no es teoría: la app existe. Hecho y verificado en el dashboard:
+
+| Pieza | Valor / estado |
+|---|---|
+| App de Meta | **Tentare** |
+| `META_APP_ID` = `NEXT_PUBLIC_META_APP_ID` | `1102733065592181` |
+| Portfolio empresarial | **Tentare** (nuevo, no se reutilizó ninguno existente) |
+| Caso de uso | Conectar con los clientes a través de WhatsApp ✅ |
+| Tipo de integración | **Hazte socio** → Independent Tech Provider ✅ |
+| `NEXT_PUBLIC_META_CONFIG_ID` | `2204043283500575` — **Caducidad: Nunca** ✅ |
+| Dominio autorizado del SDK JS | `https://www.tentare.app` ✅ |
+| Estado de publicación | **Sin publicar** (modo desarrollo) |
+
+⚠️ El dominio es **`www.tentare.app`**, no el ápice: `lib/legal-info.ts` documenta que
+`tentare.app` devuelve un 308 hacia `www`, así que el SDK de JavaScript siempre corre en
+`www` y es ese el que hay que autorizar.
+
+**Nota sobre «Paso 2. Configuración de producción»**: el asistente lo marca como
+**«No es obligatorio para los socios»**. Tentare no necesita un número de teléfono propio —
+cada estudio conecta el suyo. Es la respuesta a la pregunta razonable de «¿por qué tengo
+que poner yo mi número?»: no hay que ponerlo. Para PROBAR, Meta presta un número de prueba
+que envía a un máximo de **cinco** destinatarios que tú das de alta.
+
+### Lo que queda, y por qué no está hecho
+
+Los dos son de la empresa, no del código:
+
+1. **Verificación de la empresa** — «Solo un usuario administrador puede completarla».
+   Pide documentación legal de la sociedad.
+2. **Revisión de la aplicación** — incluye grabar **evidencia en vídeo** de que la app envía
+   mensajes y administra plantillas.
+
+Y dos que dependen de un despliegue:
+
+3. `META_APP_SECRET` — está en *Configuración de la aplicación → Información básica*. Se
+   pega en Vercel a mano.
+4. `META_WEBHOOK_VERIFY_TOKEN` — hay un huevo-gallina: Meta valida la URL del webhook al
+   guardarla, así que el endpoint tiene que estar desplegado **con la variable ya puesta**
+   antes de dar de alta el webhook en el dashboard.
+
+Hasta que 1 y 2 estén, la app sigue en modo desarrollo: el registro insertado solo funciona
+para administradores y testers de la app (§10), no para una propietaria real.
 
 ## 8.bis Qué se verificó contra la documentación viva (2026-09-10)
 
