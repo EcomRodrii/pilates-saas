@@ -19,11 +19,16 @@ const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad' | 'especialidades'> = {
 // la variante solo-ciudad: sin esto, cualquier combinación ciudad×
 // especialidad de la URL genera una página 200 indexable, tenga o no
 // contenido real detrás.
+//
+// Umbral compartido con la variante solo-ciudad (auditoría SEO 2026-09-10,
+// hallazgo 3) — ver el comentario largo en ../page.tsx.
+const UMBRAL_MIN_PERFILES_INDEXABLE = 3;
+
 async function hayResultadosReales(nombreCiudad: string, especialidad: EspecialidadNetwork): Promise<boolean> {
   const admin = getSupabaseAdmin();
   if (!admin) return false;
   const resultado = await buscarPerfilesPublico(admin, { ...FILTRO_BASE, ciudad: nombreCiudad, especialidades: [especialidad] });
-  return 'perfiles' in resultado && resultado.perfiles.length > 0;
+  return 'perfiles' in resultado && resultado.perfiles.length >= UMBRAL_MIN_PERFILES_INDEXABLE;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ ciudad: string; especialidad: string }> }): Promise<Metadata> {
@@ -34,9 +39,14 @@ export async function generateMetadata({ params }: { params: Promise<{ ciudad: s
   const disciplina = DISCIPLINA_DE_ESPECIALIDAD[especialidad];
   const nombreDisciplina = disciplina ? DISCIPLINA_LABEL[disciplina] : 'Pilates y Yoga';
   const indexable = await hayResultadosReales(nombreCiudad, especialidad);
+  // Autorreferencia siempre (auditoría SEO 2026-09-10, hallazgo 1) — mismo
+  // bug y mismo arreglo que la variante solo-ciudad: sin esto heredaba el
+  // canonical por defecto del layout raíz.
+  const url = `${LEGAL.url}/network/instructoras/ciudad/${ciudad}/${especialidad}`;
   return {
     title: `Instructoras de ${nombreDisciplina} de ${nombreEspecialidad} en ${nombreCiudad}`,
     description: `Instructoras de ${nombreDisciplina} especializadas en ${nombreEspecialidad} en ${nombreCiudad}, verificadas y disponibles.`,
+    alternates: { canonical: url },
     ...(indexable ? {} : { robots: { index: false, follow: false } }),
   };
 }

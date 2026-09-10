@@ -293,13 +293,16 @@ export const PAGINAS: PaginaSeo[] = [
     // de `paginaDe('/')` tiene mucho más radio de impacto que el resto de
     // páginas (afecta al fallback de TODA la app), así que aquí solo se
     // mantiene el texto EN SYNC a mano — verificado que coincide
-    // literalmente con `app/layout.tsx`, actualizado el 2026-08-18 al
-    // reposicionar la home hacia Barcelona (decisión de negocio explícita
-    // del fundador, no una corrección de divergencia).
+    // literalmente con `app/layout.tsx`. Llevó la coletilla "en Barcelona"
+    // desde el 2026-08-18 (reposicionamiento deliberado, ba4c8134);
+    // retirada el 2026-09-10 tras la auditoría SEO (hallazgo 2) — quedaba
+    // incoherente con el propio JSON-LD de la home (siempre nacional) y con
+    // /funcionalidades y /comparativa. La intención local la cubre ahora
+    // /network/instructoras/ciudad/barcelona.
     path: '/',
-    titulo: 'Software de Gestión para Estudios de Pilates en Barcelona',
+    titulo: 'Software de Gestión para Estudios de Pilates',
     descripcion:
-      'Gestiona tu estudio de Pilates en Barcelona con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
+      'Gestiona tu estudio de Pilates con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
     grupo: 'home',
     etiqueta: 'Inicio',
     prioridad: 1,

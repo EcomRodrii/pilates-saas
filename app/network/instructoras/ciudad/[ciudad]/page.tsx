@@ -28,11 +28,19 @@ const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad'> = {
 // resultado real es más barato y más correcto que intentar enumerar de
 // antemano qué ciudades tienen contenido (generateStaticParams no sirve
 // aquí: la lista de ciudades reales crece con cada perfil publicado).
+//
+// Umbral, no solo "algo > 0" (auditoría SEO 2026-09-10, hallazgo 3): una
+// ciudad con 1 perfil es justo el patrón de página fina que este guardia
+// existe para evitar — mismo principio que `MUESTRA_MINIMA` en
+// lib/decision/prediccion.ts (no fiarse de una muestra ruidosa), aplicado
+// aquí como corte duro de indexación en vez de un nivel de confianza.
+const UMBRAL_MIN_PERFILES_INDEXABLE = 3;
+
 async function hayResultadosReales(nombreCiudad: string): Promise<boolean> {
   const admin = getSupabaseAdmin();
   if (!admin) return false;
   const resultado = await buscarPerfilesPublico(admin, { ...FILTRO_BASE, ciudad: nombreCiudad });
-  return 'perfiles' in resultado && resultado.perfiles.length > 0;
+  return 'perfiles' in resultado && resultado.perfiles.length >= UMBRAL_MIN_PERFILES_INDEXABLE;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ ciudad: string }> }): Promise<Metadata> {
@@ -41,9 +49,17 @@ export async function generateMetadata({ params }: { params: Promise<{ ciudad: s
   // Una URL fabricada no describe ninguna página: ni título ni indexación.
   if (!nombre) return { title: 'Instructoras de Pilates y Yoga', robots: { index: false, follow: false } };
   const indexable = await hayResultadosReales(nombre);
+  // Autorreferencia siempre, indexable o no (auditoría SEO 2026-09-10,
+  // hallazgo 1): sin esto heredaba el canonical por defecto del layout raíz
+  // (`/`), lo que le decía a Google que esta página no era la autoridad
+  // sobre sí misma — podía suprimirla entera de resultados locales. Un
+  // canonical a sí misma en una página no-indexable es inocuo; apuntar a la
+  // home no lo es.
+  const url = `${LEGAL.url}/network/instructoras/ciudad/${ciudad}`;
   return {
     title: `Instructoras de Pilates y Yoga en ${nombre}`,
     description: `Encuentra instructoras de Pilates y Yoga verificadas en ${nombre}. Filtra por especialidad y disponibilidad, contacta directamente.`,
+    alternates: { canonical: url },
     ...(indexable ? {} : { robots: { index: false, follow: false } }),
   };
 }
