@@ -17,6 +17,9 @@ import { fetchAllRows } from '@/lib/supabase-data';
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (sesion.rol !== 'PROPIETARIO') {
+    return NextResponse.json({ error: 'Solo la propietaria puede sincronizar integraciones' }, { status: 403 });
+  }
 
   const accessToken = await getValidAccessToken(sesion.studioId);
   if (!accessToken) {
