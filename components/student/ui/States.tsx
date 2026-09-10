@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { Button } from './Button';
+import { Ilustracion, type NombreIlustracion } from './Ilustracion';
 
 // Los cuatro estados que toda pantalla necesita: vacío, error, sin conexión y
 // cargando. Antes cada uno resolvía su composición con estilos en línea —cinco
@@ -28,8 +29,17 @@ function Disco({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function EmptyState({ icono = '📋', titulo, cuerpo, accion, href, onAccion }: {
-  icono?: string; titulo: string; cuerpo?: string; accion?: string; href?: string; onAccion?: () => void;
+export function EmptyState({ icono = '📋', ilustracion, titulo, cuerpo, accion, href, onAccion }: {
+  icono?: string;
+  /**
+   * Ilustración del set (`Ilustracion.tsx`) en vez del emoji dentro del disco.
+   *
+   * El emoji sigue siendo el respaldo, no un modo alternativo: un estado vacío
+   * SIN nada arriba es un bloque de texto sobre un recuadro punteado, que es
+   * exactamente la pantalla que esto vino a arreglar.
+   */
+  ilustracion?: NombreIlustracion;
+  titulo: string; cuerpo?: string; accion?: string; href?: string; onAccion?: () => void;
 }) {
   return (
     <div
@@ -44,7 +54,7 @@ export function EmptyState({ icono = '📋', titulo, cuerpo, accion, href, onAcc
         padding: 'var(--s-7) var(--s-5)',
       }}
     >
-      <Disco>{icono}</Disco>
+      {ilustracion ? <Ilustracion nombre={ilustracion} /> : <Disco>{icono}</Disco>}
       <p className="t-card-title" style={{ marginTop: 'var(--s-1)' }}>{titulo}</p>
       {/* Tope de ancho: un párrafo centrado que cruza los 390 px de un móvil
           se lee peor que uno de línea corta, y en escritorio la tarjeta llega a

@@ -48,7 +48,7 @@ function Pagos() {
           <OfflineState cuerpo="Los recibos se mostrarán cuando vuelva la conexión." />
         )}
         {estado === 'empty' && (
-          <EmptyState icono="🧾" titulo="Sin pagos todavía" cuerpo="Aquí aparecerán tus recibos." />
+          <EmptyState ilustracion="recibo" titulo="Sin pagos todavía" cuerpo="Aquí aparecerán tus recibos." />
         )}
         {estado === 'ready' && data?.map((p, i) => <PaymentItem key={p.id} p={p} delay={i * 55} />)}
       </div>

@@ -51,7 +51,7 @@ export default function ComunidadPage() {
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver el tablón." />}
         {estado === 'empty' && (
-          <EmptyState icono="📣" titulo="Aún no hay publicaciones" cuerpo="Cuando el estudio publique algo, lo verás aquí." />
+          <EmptyState ilustracion="charla" titulo="Aún no hay publicaciones" cuerpo="Cuando el estudio publique algo, lo verás aquí." />
         )}
         {estado === 'ready' && posts.map((p, i) => <PostCard key={p.id} post={p} studioId={estudio.id} delay={Math.min(i, 8) * 50} />)}
         {estado === 'ready' && puedeCargarMas && (

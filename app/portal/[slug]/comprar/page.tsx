@@ -94,7 +94,7 @@ export default function ComprarPage() {
           // Estado vacío DISEÑADO, no una lista en blanco: un estudio puede no
           // vender nada online y eso no es un error.
           <EmptyState
-            icono="🛍"
+            ilustracion="tienda"
             titulo="Todavía no hay nada a la venta"
             cuerpo={`${estudio.nombre} aún no ha publicado bonos ni suscripciones. Escríbeles y te lo cuentan.`}
             accion="Ver contacto"

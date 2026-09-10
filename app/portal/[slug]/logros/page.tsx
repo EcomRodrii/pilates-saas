@@ -97,7 +97,7 @@ export default function LogrosPage() {
         {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver tus logros." />}
         {estado === 'empty' && (
           <EmptyState
-            icono="🏆"
+            ilustracion="trofeo"
             titulo="Tu estudio aún no ha configurado esto"
             cuerpo="Cuando active logros, niveles o recompensas, los verás aquí."
           />

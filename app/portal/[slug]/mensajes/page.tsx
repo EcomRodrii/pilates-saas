@@ -60,7 +60,7 @@ export default function MensajesPage() {
         {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver tus mensajes." />}
         {estado === 'empty' && (
           <EmptyState
-            icono="💬"
+            ilustracion="charla"
             titulo="Aún no tienes conversaciones"
             cuerpo="Si tienes una duda, escríbele al estudio y te contestarán por aquí."
             accion="Escribir al estudio"
