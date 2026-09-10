@@ -232,6 +232,16 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   // traduce a `null`.
   await ruta((p) => p === '/api/public/factura', (r) => r.fulfill(json({ error: 'Sin factura' }, 404)));
 
+  // ⚠️ Los PREFIJOS van antes que las rutas exactas, por el mismo motivo que el
+  // catch-all va el primero: gana la última registrada. Estaban al revés y el
+  // prefijo `/api/public/comunidad/` se comía a `/comunidad/posts`, así que las
+  // opciones `posts` y `conversaciones` no hacían NADA: se sembraban tres
+  // publicaciones y la pantalla salía con «Aún no hay publicaciones». Un
+  // andamiaje que se traga en silencio lo que le pides es peor que no tenerlo,
+  // porque lo que enseña parece un hallazgo.
+  await ruta((p) => p.startsWith('/api/public/comunidad/'), (r) => r.fulfill(json({ comentarios: [], liked: false, likes: 0 })));
+  await ruta((p) => p.startsWith('/api/public/mensajeria/'), (r) => r.fulfill(json({ mensajes: [], ok: true })));
+
   // Tablón.
   await ruta((p) => p === '/api/public/comunidad/posts', (r) => r.fulfill(json({
     posts: Array.from({ length: posts }, (_, i) => ({
@@ -241,7 +251,6 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
       eventoFecha: null, eventoAforo: null, eventoLugar: null,
     })),
   })));
-  await ruta((p) => p.startsWith('/api/public/comunidad/'), (r) => r.fulfill(json({ comentarios: [], liked: false, likes: 0 })));
 
   // Mensajería.
   await ruta((p) => p === '/api/public/mensajeria/conversaciones', (r) => r.fulfill(json({
@@ -252,7 +261,6 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
       sinLeer: 0, participantes: [],
     })),
   })));
-  await ruta((p) => p.startsWith('/api/public/mensajeria/'), (r) => r.fulfill(json({ mensajes: [], ok: true })));
 
   return { sinMockear: () => [...sinMockear], llamadas: () => ({ ...llamadas }) };
 }
