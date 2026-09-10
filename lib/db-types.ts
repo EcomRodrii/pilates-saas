@@ -858,6 +858,10 @@ export interface RowStudios {
   descripcion: string | null;
   // migr 0134.
   anio_fundacion: number | null;
+  // migr 20260910201734. Los dos son texto libre del estudio; NULL = la app
+  // de la alumna no pinta esa línea.
+  lema: string | null;
+  frase_heroe: string | null;
   // migr 20260725223957.
   suspendido_en: string | null;
   // migr 20260725223957.

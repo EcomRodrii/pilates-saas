@@ -525,6 +525,13 @@
 .student-app .shell { min-height: 100dvh; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; position: relative; }
 .student-app .page { flex: 1; padding: calc(var(--header-height) + var(--safe-top)) 0 calc(var(--nav-height) + 18px + var(--safe-bottom)); }
 .student-app .px { padding-left: 18px; padding-right: 18px; }
+
+/* El pie de las baldosas de Inicio. A cuatro columnas, por debajo de 360 px
+   de ancho no caben dos líneas de 10 px más el chevron: la baldosa crece hacia
+   abajo y el título —que es lo que nombra el destino— se parte. Se cae el pie,
+   que es el que sobra. */
+.student-app .solo-ancho { display: none; }
+@media (min-width: 360px) { .student-app .solo-ancho { display: block; } }
 @media (min-width: 768px) {
   .student-app .shell { max-width: 640px; }
   .student-app .px { padding-left: var(--s-6); padding-right: var(--s-6); }

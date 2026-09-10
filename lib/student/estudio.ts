@@ -86,6 +86,9 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     // Se pasa CRUDO (puede ser null): el respaldo lo pone `nombreCreditos`
     // en el momento de pintar, para que panel y portal usen la misma palabra.
     creditosNombre: s.creditosNombre,
+    // Los escribe el estudio en Configuración; vacío = la home no los pinta.
+    lema: s.lema,
+    fraseHeroe: s.fraseHeroe,
     tema: {},
     colorPrimario: s.colorPrimario,
     paginaOculta: s.paginaOculta,

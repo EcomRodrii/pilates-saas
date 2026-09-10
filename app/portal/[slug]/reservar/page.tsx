@@ -35,7 +35,11 @@ export default function HorarioPage() {
   const href = usePortalHref();
   const sp = useSearchParams();
   const [dia, setDia] = useState(hoyISO());
-  const [filtro, setFiltro] = useState('Todo');
+  // `?filtro=Favoritas` — lo usa la baldosa «Mis favoritas» de Inicio, que si
+  // no llevaría a un horario sin filtrar y dejaría a la alumna buscando ella
+  // misma la píldora. Solo se acepta un valor conocido: cualquier otra cosa en
+  // la URL no debe poder cambiar lo que se ve.
+  const [filtro, setFiltro] = useState(sp.get('filtro') === 'Favoritas' ? 'Favoritas' : 'Todo');
   // Búsqueda por texto, que el paquete no tenía. Llega desde el buscador de la
   // Home como `?q=`, y se puede editar aquí.
   const [q, setQ] = useState(sp.get('q') ?? '');
@@ -69,6 +73,12 @@ export default function HorarioPage() {
     [data],
   );
 
+  // ⚠️ Si el filtro que pide la URL no existe para ESTA alumna, vale «Todo».
+  // «Favoritas» solo se ofrece cuando tiene alguna guardada (ver `tipos`): sin
+  // esto, llegar desde la baldosa de Inicio sin ninguna favorita dejaba una
+  // lista vacía y ni siquiera la píldora con la que quitar el filtro.
+  const filtroReal = tipos.includes(filtro) ? filtro : 'Todo';
+
   // Buscar ignora acentos y mayúsculas: quien teclea «yoga» espera encontrar
   // «Yoga Flow», y quien teclea «maria» espera a «María».
   const normalizar = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -80,10 +90,10 @@ export default function HorarioPage() {
     // elegido: buscar «yoga» y que no salga nada porque hoy no hay es la peor
     // respuesta posible a una búsqueda.
     .filter((c) => (consulta ? true : c.fecha === dia))
-    .filter((c) => filtro === 'Todo'
-      || (filtro === 'Con hueco' ? c.plazasLibres > 0
-        : filtro === 'Favoritas' ? (data?.favoritos.has(c.tipoClaseId) ?? false)
-          : c.tipo === filtro))
+    .filter((c) => filtroReal === 'Todo'
+      || (filtroReal === 'Con hueco' ? c.plazasLibres > 0
+        : filtroReal === 'Favoritas' ? (data?.favoritos.has(c.tipoClaseId) ?? false)
+          : c.tipo === filtroReal))
     .filter((c) => !consulta
       || normalizar(c.nombre).includes(consulta)
       || normalizar(c.tipo).includes(consulta)
@@ -125,7 +135,7 @@ export default function HorarioPage() {
 
       <div className="px no-scrollbar" style={{ display: 'flex', gap: 7, overflowX: 'auto', marginTop: 10 }}>
         {tipos.map((t) => (
-          <button key={t} type="button" className="pill" aria-pressed={filtro === t} onClick={() => setFiltro(t)} style={{ flexShrink: 0 }}>
+          <button key={t} type="button" className="pill" aria-pressed={filtroReal === t} onClick={() => setFiltro(t)} style={{ flexShrink: 0 }}>
             {t}
           </button>
         ))}
@@ -162,9 +172,9 @@ export default function HorarioPage() {
             ) : (
               <EmptyState
                 ilustracion="calendario"
-                titulo={filtro === 'Todo' ? 'No hay clases este día' : `No hay ${filtro.toLowerCase()} este día`}
+                titulo={filtroReal === 'Todo' ? 'No hay clases este día' : `No hay ${filtroReal.toLowerCase()} este día`}
                 cuerpo="Prueba otro día o quita el filtro."
-                accion={filtro !== 'Todo' ? 'Quitar filtro' : undefined}
+                accion={filtroReal !== 'Todo' ? 'Quitar filtro' : undefined}
                 onAccion={() => setFiltro('Todo')}
               />
             )

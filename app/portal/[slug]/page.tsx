@@ -20,6 +20,7 @@ import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { añadirAlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
 import { TuRitmo } from '@/components/student/domain/TuRitmo';
+import { AccesosRapidos } from '@/components/student/domain/AccesosRapidos';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
 import { DelEstudio } from '@/components/student/domain/DelEstudio';
@@ -118,13 +119,17 @@ export default function InicioPage() {
     .slice(0, 3);
 
   return (
-    <StudentShell>
-      {/* Héroe fotográfico. `marginTop: -56` mete la foto DEBAJO de la cabecera
-          transparente: es lo que hace que no parezca una web con barra encima. */}
+    <StudentShell headerTransparente conLema>
+      {/* Héroe fotográfico, con la cabecera FLOTANDO encima.
+          ⚠️ Antes decía justo esto en el comentario y no era verdad: la home
+          nunca pasaba `headerTransparente`, así que la barra salía opaca y se
+          comía los primeros 56 px de la foto — el `marginTop: -56` solo servía
+          para meterla debajo de una barra que la tapaba. Ahora la barra es
+          transparente de verdad y el margen negativo sobra. */}
       {/* `background`: mismo motivo que en la ficha de clase — un estudio puede
           no haber subido portada, y sin tinta detrás el héroe degrada a crema y
           se lleva por delante saludo, titular y cabecera transparente. */}
-      <section style={{ position: 'relative', height: 250, marginTop: -56, overflow: 'hidden', background: '#0F0F0C' }}>
+      <section style={{ position: 'relative', height: 300, overflow: 'hidden', background: '#0F0F0C' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={estudio.fotoPortada}
@@ -176,6 +181,12 @@ export default function InicioPage() {
           style={{
             position: 'absolute', left: 0, right: 0, bottom: 14, color: '#FAF9F5',
             paddingTop: 34, paddingBottom: 4,
+            // ⚠️ Sitio RESERVADO para el carril de la frase. Sin esto, medido en
+            // el navegador: el saludo ocupaba de x=18 a x=375 y el carril de
+            // x=288 a x=375 — la mano del 👋 se pintaba encima de las palabras.
+            // Con el hueco puesto, el saludo parte en dos líneas, que es
+            // además como parte en la maqueta.
+            ...(estudio.fraseHeroe ? { paddingRight: 112 } : null),
             background: 'linear-gradient(to top, rgba(8,8,8,.70), rgba(8,8,8,.62) 42%, rgba(8,8,8,.50) 70%, rgba(8,8,8,.28) 88%, transparent)',
           }}
         >
@@ -198,16 +209,63 @@ export default function InicioPage() {
               TAMAÑO y las VERSALES —11 px en mayúsculas frente a 13 px—, no la
               opacidad; y la opacidad, sobre una foto que sube cada estudio, es
               justo la herramienta que no controlamos. */}
-          <p className="t-label a-up" style={{ color: 'rgba(250,249,245,.9)' }}>
+          <p className="t-label a-up" style={{ color: 'rgba(250,249,245,.9)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {estudio.nombre} · {fechaLarga(hoy)}
           </p>
-          <p className="a-up" style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'rgba(250,249,245,.9)', animationDelay: '60ms' }}>
+          {/* ⚠️ La JERARQUÍA se invierte respecto a lo que había: el saludo pasa
+              a ser el titular y «¿Qué te apetece hoy?» baja a subtítulo. Antes
+              el nombre de la alumna iba en 13 px y la pregunta genérica en 32:
+              lo grande era lo que no la nombraba. */}
+          <h1 className="a-up" style={{ margin: '8px 0 0', fontSize: 30, fontWeight: 800, letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms' }}>
             {saludo(socia?.nombre ?? '')} 👋
-          </p>
-          <h1 className="a-up" style={{ margin: '2px 0 0', fontSize: 32, fontWeight: 800, letterSpacing: '-.035em', lineHeight: 1, animationDelay: '120ms' }}>
-            ¿Qué te apetece hoy?
           </h1>
+          <p className="a-up" style={{ margin: '6px 0 0', fontSize: 'var(--t-body)', fontWeight: 600, color: 'rgba(250,249,245,.9)', animationDelay: '120ms' }}>
+            ¿Qué te apetece hoy?
+          </p>
+          {/* El héroe tenía foto, saludo y titular, y ninguna forma de salir de
+              él: para reservar había que bajar al buscador o a la barra. Aquí va
+              la acción, que es a lo que viene la mayoría. */}
+          <Link
+            href={href('/reservar')}
+            className="tap a-up"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 14,
+              height: 44, padding: '0 20px', borderRadius: 999,
+              background: '#FAF9F5', color: '#141410',
+              fontSize: 'var(--t-small)', fontWeight: 800, animationDelay: '180ms',
+            }}
+          >
+            Reservar clase
+            <span aria-hidden style={{ display: 'flex' }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
+            </span>
+          </Link>
         </div>
+
+        {/* Frase del estudio, al costado. Palabras APILADAS, no texto rotado:
+            en la maqueta cada palabra se lee horizontal, una debajo de otra, y
+            `writing-mode` habría girado las letras.
+            Solo si el estudio la ha escrito — y va en el tercio ALTO del héroe,
+            donde el velo aún está al .58/.18, no en el medio, que es el tramo
+            claro donde ya se midió que el texto desaparece. */}
+        {estudio.fraseHeroe && (
+          <p
+            aria-hidden
+            style={{
+              position: 'absolute', right: 18, top: 74, pointerEvents: 'none',
+              margin: 0, paddingLeft: 12, borderLeft: '1px solid rgba(250,249,245,.35)',
+              display: 'flex', flexDirection: 'column', gap: 4,
+              fontSize: 'var(--t-micro)', fontWeight: 700, letterSpacing: '.18em',
+              textTransform: 'uppercase', color: 'rgba(250,249,245,.92)',
+              textShadow: '0 1px 6px rgba(8,8,8,.55)',
+              maxWidth: 96, textAlign: 'left',
+            }}
+          >
+            {estudio.fraseHeroe.split(/\s+/).slice(0, 6).map((palabra, i) => (
+              <span key={`${palabra}-${i}`}>{palabra}</span>
+            ))}
+          </p>
+        )}
       </section>
 
       {/* Buscador. No decora: lleva a `/reservar?q=`, que busca en TODO el
@@ -235,6 +293,13 @@ export default function InicioPage() {
           />
         </div>
       </form>
+
+      <AccesosRapidos
+        hrefReservar={href('/reservar')}
+        hrefInstructoras={href('/instructoras')}
+        hrefBonos={href('/bonos')}
+        hrefFavoritas={`${href('/reservar')}?filtro=Favoritas`}
+      />
 
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '13px', marginTop: 14 }}>
         {estado === 'loading' && (
@@ -288,6 +353,7 @@ export default function InicioPage() {
               bono={bonoActivo ?? null}
               hrefBono={bonoActivo ? href(`/bonos/${bonoActivo.id}`) : href('/bonos')}
               hrefBonos={href('/bonos')}
+              hrefCalendario={href('/calendario')}
             />
 
 

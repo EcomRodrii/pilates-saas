@@ -42,6 +42,18 @@ export interface StudioSeo {
   permiteListaEspera: boolean;
   /** Cómo llama el estudio a su moneda de fidelización. `null` = la del producto. */
   creditosNombre: string | null;
+  /**
+   * Los dos textos de marca de la home de la alumna (migr 20260910201734):
+   * el lema bajo el nombre y la frase del héroe. `null` = no se pintan.
+   *
+   * ⚠️ Van también en el `.select` de abajo. Es la TERCERA lista blanca que
+   * atraviesa un campo del estudio para llegar al portal (esta, la del
+   * mapeo, y `studioPublico`), y ninguna de las tres falla si te la saltas:
+   * el campo llega vacío y en silencio. Es lo que dejó muerto el héroe con
+   * foto en su día.
+   */
+  lema: string | null;
+  fraseHeroe: string | null;
 }
 
 /**
@@ -91,6 +103,14 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       codigoPostal: '29001', descripcion: 'Estudio de prueba.', fotoUrl: null,
       cancelacionVentanaHoras: 12, permiteListaEspera: true,
       creditosNombre: process.env.E2E_CREDITOS_NOMBRE ?? null,
+      // ⚠️ Puestos POR DEFECTO, al revés que el logo. Se deciden en el SERVIDOR
+      // (`page.route` no llega), y dejarlos vacíos significaba que la cabecera
+      // de dos líneas, su velo y el carril del héroe no los ejercitaba nada en
+      // CI — que es donde de verdad tienen que estar mirados, porque los tres
+      // se pisan entre sí en 393 px. Para probar el camino contrario, el de un
+      // estudio que no los ha escrito, se pasan VACÍOS (`E2E_LEMA=`).
+      lema: process.env.E2E_LEMA ?? 'Cuerpo · Mente · Equilibrio',
+      fraseHeroe: process.env.E2E_FRASE_HEROE ?? 'Más fuerte cada semana',
       // Configurable para que el gate de página oculta se pueda ejercitar
       // alguna vez desde la suite: se decide en el SERVIDOR, así que
       // `page.route` no puede llegar a él y sin esto el camino de "oculta" no
@@ -121,7 +141,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       .from('studios')
       // ⚠️ Lista de columnas EXPLÍCITA: lo que no se nombre aquí llega
       // `undefined` al portal sin fallar y sin avisar.
-      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera, creditos_nombre')
+      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera, creditos_nombre, lema, frase_heroe')
       .eq('slug', slug)
       .maybeSingle(),
     // `.then(ok, ko)` y no `.catch`: el builder de supabase-js es un
@@ -164,6 +184,8 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     cancelacionVentanaHoras: (data.cancelacion_ventana_horas as number | null) ?? 12,
     permiteListaEspera: (data.permite_lista_espera as boolean | null) ?? true,
     creditosNombre: (data.creditos_nombre as string | null) ?? null,
+    lema: (data.lema as string | null) ?? null,
+    fraseHeroe: (data.frase_heroe as string | null) ?? null,
     // `=== true` y no un truthy: sin la columna todavía aplicada, «no sé» tiene
     // que significar «no oculta» y no esconder la página de todo el mundo.
     paginaOculta: visibilidad?.pagina_publica_oculta === true,

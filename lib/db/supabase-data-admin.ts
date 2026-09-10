@@ -290,6 +290,10 @@ function studioPublico(r: RowStudios) {
     ciudad: r.ciudad,
     descripcion: r.descripcion ?? null,
     anioFundacion: r.anio_fundacion ?? null,
+    // Van explícitas por lo que avisa el comentario de aquí abajo: sin
+    // nombrarlas, el héroe de la alumna no las vería nunca y no fallaría nada.
+    lema: r.lema ?? null,
+    fraseHeroe: r.frase_heroe ?? null,
     direccion: r.direccion,
     // ⚠️ `studioPublico` es LISTA BLANCA: lo que no se nombra aquí no llega al
     // portal, y no falla — llega vacío, en silencio. Es lo que dejó muerto el

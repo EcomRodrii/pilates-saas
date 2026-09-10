@@ -4596,6 +4596,11 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('imagenBienvenidaUrl' in changes) db.imagen_bienvenida_url = changes.imagenBienvenidaUrl;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
+  // ⚠️ Estas dos NO se guardan solo con estar aquí: `authenticated` perdió el
+  // UPDATE de tabla sobre `studios` y ahora va por lista blanca de columnas
+  // (migr 20260910171150). El GRANT va en su propia migración.
+  if ('lema' in changes) db.lema = changes.lema;
+  if ('fraseHeroe' in changes) db.frase_heroe = changes.fraseHeroe;
   if ('creditosNombre' in changes) db.creditos_nombre = changes.creditosNombre;
   if ('creditosCaducanMeses' in changes) db.creditos_caducan_meses = changes.creditosCaducanMeses;
   if ('rachaClasesSemana' in changes) db.racha_clases_semana = changes.rachaClasesSemana;
@@ -4951,6 +4956,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     ciudad: r.ciudad,
     descripcion: r.descripcion ?? null,
     anioFundacion: r.anio_fundacion ?? null,
+    lema: r.lema ?? null,
+    fraseHeroe: r.frase_heroe ?? null,
     codigoPostal: r.codigo_postal,
     sitioWeb: r.sitio_web ?? null,
     normasTexto: r.normas_texto ?? null,
