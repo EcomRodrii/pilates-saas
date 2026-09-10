@@ -6,6 +6,19 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 // iframe no hay same-origin gratis. Nunca un wildcard: se refleja el Origin
 // solo si está en la lista blanca del estudio (studios.widget_dominios_autorizados).
 //
+// ⚠️ 51ª pasada de auditoría: esto es CORS, no autorización de servidor. Evita
+// que la web de un tercero LEA la respuesta desde el navegador de su
+// visitante (el caso de uso real: que otro sitio "clone" el widget). NO
+// impide que la petición HTTP se ejecute — un curl/script sin navegador de
+// por medio la salta entera, porque el servidor nunca rechaza la escritura
+// por origen, solo decide qué cabecera CORS devolver. Cada endpoint que use
+// este módulo debe asumir eso: si lo que escribe no es tolerable viniendo de
+// cualquier origen (aunque venga sin Origin en absoluto), este módulo NO es
+// suficiente — hace falta autorización real (JWT, como ya hace
+// /api/public/reserva) o aceptar el riesgo explícitamente, como hoy hace
+// /api/public/evento (analítica de bajo impacto, acotada por
+// enforceRateLimit — ver su propio comentario).
+//
 // El preflight OPTIONS no lleva el body JSON (solo cabeceras + la URL), así
 // que el identificador del estudio para resolver la lista blanca tiene que
 // venir SIEMPRE por query param (?slug=... o ?studioId=...) en las llamadas
