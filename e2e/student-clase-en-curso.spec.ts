@@ -17,8 +17,21 @@ import { SLUG, SESION_ID, SOCIO_ID, STUDIO_ID, fixtureSociaLista, sembrarSociaLi
 test.use({ timezoneId: 'Europe/Madrid' });
 
 const base = `/portal/${SLUG}`;
-/** El fixture pone la clase a las 10:00–10:50 en hora del estudio. */
-const A_LAS = (hhmm: string) => new Date(`2026-08-12T${hhmm}:00`);
+/**
+ * Las HH:mm del ESTUDIO convertidas a un instante absoluto.
+ *
+ * ⚠️ El `+02:00` es obligatorio, no cosmético. `new Date('2026-08-12T10:30:00')`
+ * —sin zona— lo interpreta **Node**, o sea el runner: en un portátil de Madrid
+ * sale 08:30 UTC y en CI (que va en UTC) sale 10:30 UTC. Dos horas de diferencia
+ * sobre una clase que dura cincuenta minutos, así que los mismos tests pasaban
+ * en local y fallaban enteros en CI.
+ *
+ * Fijar `timezoneId` NO basta: eso decide cómo lee las fechas el NAVEGADOR (y por
+ * eso el fixture, con sus cadenas sin zona, sí queda en hora de Madrid), pero no
+ * toca la aritmética que hace el runner al construir el reloj. Las dos mitades
+ * tienen que hablar la misma zona. Agosto en Madrid es CEST = UTC+2.
+ */
+const A_LAS = (hhmm: string) => new Date(`2026-08-12T${hhmm}:00+02:00`);
 
 // ⚠️ Por `data-testid`, no por texto. `getByText('Tu próxima clase')` de Playwright
 // busca por SUBCADENA e ignorando mayúsculas, y el estado vacío de esta misma
