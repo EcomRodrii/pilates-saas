@@ -14,9 +14,12 @@ import { SLUG, SOCIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-li
 const base = `/portal/${SLUG}`;
 
 /** Un recibo por cada método que existe de verdad en producción. */
+/** El id de recibo más largo que hay en producción: 50 caracteres. */
+const ID_LARGO = 'rec-renov-sus-web-a1VBUeQFTrYFDKetxhX0Yo59-2026-08';
+
 const RECIBOS = [
   { id: 'r-tar', concepto: 'Bono 8 sesiones', importe: 96, estado: 'COBRADO', fechaCobro: '2026-08-01', metodoCobro: 'TARJETA' },
-  { id: 'r-sepa', concepto: 'Mensual ilimitado', importe: 89, estado: 'PENDIENTE', fechaVencimiento: '2026-09-01', metodoCobro: 'SEPA' },
+  { id: ID_LARGO, concepto: 'Mensual ilimitado', importe: 89, estado: 'PENDIENTE', fechaVencimiento: '2026-09-01', metodoCobro: 'SEPA' },
   { id: 'r-efe', concepto: 'Clase suelta', importe: 18, estado: 'COBRADO', fechaCobro: '2026-07-20', metodoCobro: 'EFECTIVO' },
   { id: 'r-biz', concepto: 'Bono 4 sesiones', importe: 52, estado: 'COBRADO', fechaCobro: '2026-07-10', metodoCobro: 'BIZUM' },
   { id: 'r-tra', concepto: 'Taller de suelo pélvico', importe: 35, estado: 'COBRADO', fechaCobro: '2026-07-01', metodoCobro: 'TRANSFERENCIA' },
@@ -24,7 +27,7 @@ const RECIBOS = [
   { id: 'r-nulo', concepto: 'Matrícula', importe: 20, estado: 'COBRADO', fechaCobro: '2026-06-01', metodoCobro: null },
 ];
 
-async function montar(page: Page) {
+async function montar(page: Page, o: { conFactura?: boolean } = {}) {
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   (f.socia as Record<string, unknown>).recibos = RECIBOS.map((r) => ({ ...r, socioId: SOCIO_ID }));
@@ -34,6 +37,15 @@ async function montar(page: Page) {
   await page.route((u) => u.pathname === '/api/public/session', (r) => r.fulfill(
     json({ socioId: SOCIO_ID, nombre: 'Ana Test', email: 'socia-e2e@test.com' }),
   ));
+  await page.route((u) => u.pathname === '/api/public/factura', (r) => r.fulfill(o.conFactura
+    ? json({
+        factura: { numeroCompleto: 'FA-2026-0042', fechaEmision: '2026-09-01', receptorNombre: 'Ana Test', receptorNIF: null, baseImponible: 89, lineas: [], total: 89 },
+        emisor: { nombre: 'Estudio Alma', nif: 'B12345678', direccion: 'Calle Larios 1' },
+        receptor: { nombre: 'Ana Test', nif: null, direccion: null },
+        sello: null,
+      })
+    // `null` es el caso NORMAL: 35 de 73 recibos de producción no llevan factura.
+    : { status: 404, contentType: 'application/json', body: '{}' }));
 }
 
 test.describe('Student PWA · pagos', () => {
@@ -65,10 +77,36 @@ test.describe('Student PWA · pagos', () => {
 
   test('y el detalle tampoco, que es donde se mira de cerca', async ({ page }) => {
     await montar(page);
-    await page.goto(`${base}/pagos/r-sepa`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${base}/pagos/${ID_LARGO}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Mensual ilimitado')).toBeVisible({ timeout: 30_000 });
     const texto = await page.locator('body').innerText();
     expect(texto).toContain('Domiciliación bancaria');
     expect(texto, 'jerga del esquema europeo de adeudos en la pantalla de una alumna').not.toContain('SEPA');
+  });
+
+  test('la referencia es el número de FACTURA, no el id interno del recibo', async ({ page }) => {
+    // ⚠️ Aquí se pintaba `recibos.id` en mayúsculas. En producción llega a 50
+    // caracteres y deletrea la maquinaria que lo generó («REC-RENOV-SUS-WEB-…»,
+    // y en un caso real el slug de un estudio). Ocupaba tres líneas de
+    // monoespaciada y no servía para nada: el buscador de cobros del panel
+    // filtra por CONCEPTO O CLIENTA, así que citarlo no le valía a nadie.
+    await montar(page, { conFactura: true });
+    await page.goto(`${base}/pagos/${ID_LARGO}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Mensual ilimitado')).toBeVisible({ timeout: 30_000 });
+    const texto = await page.locator('body').innerText();
+    expect(texto).toContain('FA-2026-0042');
+    expect(texto, 'el id interno del recibo sigue en pantalla').not.toContain('RENOV-SUS');
+    expect(texto).not.toContain(ID_LARGO.toUpperCase());
+  });
+
+  test('y sin factura emitida no se inventa ninguna referencia', async ({ page }) => {
+    await montar(page);
+    await page.goto(`${base}/pagos/${ID_LARGO}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Mensual ilimitado')).toBeVisible({ timeout: 30_000 });
+    const texto = await page.locator('body').innerText();
+    expect(texto, 'una fila «Factura» vacía es peor que ninguna').not.toContain('Factura\n');
+    expect(texto).not.toContain('RENOV-SUS');
+    // Y se sigue diciendo qué hacer para conseguirla.
+    expect(texto).toContain('Pídesela al estudio');
   });
 });

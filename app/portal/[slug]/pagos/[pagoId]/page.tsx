@@ -149,10 +149,24 @@ export default function ReciboPage() {
             <span style={{ color: 'var(--muted-foreground)' }}>Emitido por</span>
             <b style={{ textAlign: 'right' }}>{estudio.nombre}</b>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-            <span style={{ color: 'var(--muted-foreground)' }}>Referencia</span>
-            <b className="t-code">{data.id.toUpperCase()}</b>
-          </div>
+          {/* ⚠️ Aquí se pintaba `recibos.id` EN MAYÚSCULAS, y ese id no está
+              hecho para verse: en producción llega a 50 caracteres y deletrea
+              la maquinaria que lo generó —«REC-RENOV-SUS-WEB-…», «REC-POS-VPOS-…»,
+              y en un caso real hasta el slug de un estudio—. Ocupaba TRES
+              líneas de monoespaciada, era lo más ruidoso de una pantalla cuyo
+              asunto es «has pagado 89 €», y no servía para nada: el buscador de
+              cobros del panel filtra por CONCEPTO O CLIENTA, así que ni ella
+              podía usarlo ni el estudio encontrarlo si se lo citaba.
+              La referencia de verdad es el número de la factura —el que va en
+              el documento legal y el que el estudio sí sabe buscar—, y esta
+              pantalla ya lo tiene pedido. Sin factura emitida (35 de 73 recibos
+              en producción) no hay referencia que dar, y no se inventa una. */}
+          {factura && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+              <span style={{ color: 'var(--muted-foreground)' }}>Factura</span>
+              <b className="t-code">{factura.factura.numeroCompleto}</b>
+            </div>
+          )}
           {data.bonoId && (
             <Link href={href(`/bonos/${data.bonoId}`)} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
               Ver el bono →
