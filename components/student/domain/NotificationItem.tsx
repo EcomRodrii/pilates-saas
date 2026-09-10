@@ -12,7 +12,18 @@ export function NotificationItem({ n, delay = 0 }: { n: Notificacion; delay?: nu
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: n.leida ? 700 : 800, lineHeight: 1.35 }}>{n.titulo}</p>
         <p className="t-meta" style={{ marginTop: 2, lineHeight: 1.45 }}>{n.cuerpo}</p>
-        <p style={{ margin: '4px 0 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>{relativo(n.fecha)}</p>
+        {/* ⚠️ `--muted-foreground` y NO `--subtle-foreground`, por el mismo motivo
+          que ya documenta el conmutador de Mis clases: el token sutil está
+          calibrado contra el crema del fondo (4,55:1) y la tarjeta blanca
+          (4,80), pero la fila SIN LEER se pinta sobre `--accent-soft`, que es
+          más oscura — y encima cambia con la marca del estudio. Medido en las
+          nueve marcas reales: entre **3,97 y 4,15:1**, nunca llega a AA.
+          Y es el peor sitio para quedarse corta: 10 px, el texto más pequeño de
+          la app, justo en la fila que sí va a leer. `--muted-foreground` da
+          5,76–6,02 ahí y 6,96 sobre la tarjeta blanca de las ya leídas, así
+          que vale para las dos y no hace falta cambiar de tinta según el
+          estado. */}
+        <p style={{ margin: '4px 0 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--muted-foreground)' }}>{relativo(n.fecha)}</p>
       </div>
       {!n.leida && <span aria-label="Sin leer" style={{ width: 8, height: 8, flexShrink: 0, borderRadius: 99, background: 'var(--success)', marginTop: 6 }} />}
     </>
