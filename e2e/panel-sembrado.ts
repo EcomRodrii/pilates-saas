@@ -111,10 +111,38 @@ const PRODUCTOS = [
 const json = (r: Route, b: unknown, s = 200) =>
   r.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(b) });
 
-export async function montar(page: Page) {
+/** Lo que el andamiaje no cubre, para que se pueda exigir o al menos mirar. */
+export interface CoberturaPanel {
+  /** Endpoints `/api/` que la pantalla pidió y NADIE sembró: contestados `{}`. */
+  sinSembrar: () => string[];
+}
+
+export async function montar(page: Page): Promise<CoberturaPanel> {
+  const sinSembrar: string[] = [];
+
   // ⚠️ Comodines PRIMERO: Playwright prioriza la ruta registrada más tarde.
   await page.route('**/rest/v1/**', (r) => json(r, []));
-  await page.route('**/api/**', (r) => json(r, {}));
+
+  // ⚠️ Este catch-all contesta **`{}` con éxito** a todo lo que no esté sembrado
+  // abajo, y eso NO es inocuo. El panel llama a unos 200 endpoints y aquí se
+  // nombran cinco: el resto recibe un objeto vacío, la pantalla pinta su estado
+  // vacío y el test pasa sin haber visto nada. Medido: `centro-de-control`
+  // renderiza **360 caracteres**, `mensajeria` 395, `productos` 460. Las que sí
+  // salen pobladas (`cierre`, `informes`) es porque sus datos vienen de
+  // `rest/v1`, que sí está sembrado.
+  //
+  // Ya costó un susto: «Un `[...data.prioridades]` a secas con un `{}` por
+  // respuesta no rompe su tarjeta: rompe la pantalla principal del negocio. Lo
+  // destapó un e2e ajeno que mockea `/api/**` como `{}`» — o sea, este.
+  //
+  // No se cambia el comportamiento (sembrar los 195 es otro trabajo), pero se
+  // le da VOZ: `sinSembrar()` dice a qué se contestó en falso, para que una
+  // suite pueda exigirlo, medir su cobertura, o al menos que quien lea el fallo
+  // sepa que la pantalla estaba vacía por el andamiaje y no por el código.
+  await page.route('**/api/**', (r) => {
+    sinSembrar.push(new URL(r.request().url()).pathname);
+    return json(r, {});
+  });
 
   await page.route('**/api/layout**', (r) => json(r, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
   await page.route('**/api/billing/estado**', (r) => json(r, { bloqueado: false }));
@@ -141,6 +169,8 @@ export async function montar(page: Page) {
       user: { id, email: 'cloe@example.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
     }));
   }, [STORAGE_KEY, UID] as const);
+
+  return { sinSembrar: () => [...new Set(sinSembrar)] };
 }
 
 
