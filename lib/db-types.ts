@@ -734,6 +734,8 @@ export interface RowSocios {
   usuario: string | null;
   // migr 20260909003015.
   consentimiento_salud_texto: string | null;
+  // migr 20260910224240.
+  objetivo_clases_mes: number | null;
 }
 
 export interface RowSoporteSolicitudes {

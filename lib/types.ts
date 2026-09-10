@@ -387,6 +387,11 @@ export interface Socio {
   sepaPaymentMethodId?: string | null;
   fechaNacimiento?: string | null;
   direccion?: string | null;
+  // Meta de clases/mes que la socia se marca desde su propio perfil (portal).
+  // `null` = sin objetivo. Mes de calendario natural, sin histórico versionado
+  // (mismo criterio que `studios.racha_clases_semana`) — dispara el crédito
+  // OBJETIVO_MENSUAL la primera vez que lo alcanza dentro del mes en curso.
+  objetivoClasesMes?: number | null;
   fotoUrl?: string | null;
   // "Usuario" (@handle) — Ajustes del portal (migr 20260828100000). Solo un
   // campo de perfil por ahora: no hay página pública que lo resuelva, es

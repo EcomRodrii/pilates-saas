@@ -182,7 +182,7 @@ import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
-import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
+import { calcularRacha, claveMesActual, objetivoMensualAlcanzado, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
@@ -3579,6 +3579,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const racha = calcularRacha(reservasActualizadas.filter(r => r.socioId === reserva.socioId), sesiones, new Date());
     if (racha.semanas > 0) {
       otorgarCreditos(reserva.socioId, 'SEMANA_COMPLETA', `${reserva.socioId}:${racha.claveSemanaActual}`);
+    }
+    // Objetivo mensual (I-1, auditoria 49a): se dispara desde el mismo punto
+    // que SEMANA_COMPLETA -- la RPC revalida objetivo+recuento en servidor,
+    // esto solo evita una llamada inutil cuando aun no lo alcanzo.
+    const socioObjetivo = socios.find(s => s.id === reserva.socioId)?.objetivoClasesMes;
+    const reservasDelSocio = reservasActualizadas.filter(r => r.socioId === reserva.socioId);
+    if (objetivoMensualAlcanzado(reservasDelSocio, sesiones, socioObjetivo, new Date())) {
+      otorgarCreditos(reserva.socioId, 'OBJETIVO_MENSUAL', reserva.socioId + ':' + claveMesActual(new Date()));
     }
     // Premio a quien la trajo, si esta es su primera clase y hay tope disponible.
     premiarReferidoSiProcede(reserva.socioId, reservasActualizadas);

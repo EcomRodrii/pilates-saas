@@ -37,7 +37,7 @@ export default function DatosPage() {
   const { toast } = useToast();
   const { cambiarEmail } = useAuthStudent(estudio.slug);
 
-  const [f, setF] = useState({ nombre: '', apellidos: '', telefono: '' });
+  const [f, setF] = useState({ nombre: '', apellidos: '', telefono: '', objetivoClasesMes: '' });
   const [err, setErr] = useState<Record<string, string>>({});
   const [guardando, setGuardando] = useState(false);
   const [rellenadoDe, setRellenadoDe] = useState<string | null>(null);
@@ -82,6 +82,7 @@ export default function DatosPage() {
       nombre: socia.nombre ?? '',
       apellidos: socia.apellidos ?? '',
       telefono: socia.telefono ?? '',
+      objetivoClasesMes: socia.objetivoClasesMes != null ? String(socia.objetivoClasesMes) : '',
     });
   }
 
@@ -93,6 +94,14 @@ export default function DatosPage() {
     if (!socia) { toast('Espera un momento: aún estamos cargando tus datos.'); return; }
     const e: Record<string, string> = {};
     if (!f.nombre.trim()) e.nombre = 'Escribe tu nombre';
+    // Objetivo mensual (I-1): vacio = sin objetivo (se guarda null). El CHECK
+    // del servidor (1-60) es la cerradura real; esto es solo para no mandar
+    // una peticion que el servidor va a rechazar seguro.
+    const objetivoTexto = f.objetivoClasesMes.trim();
+    const objetivoNumero = objetivoTexto === '' ? null : Number(objetivoTexto);
+    if (objetivoNumero !== null && (!Number.isInteger(objetivoNumero) || objetivoNumero < 1 || objetivoNumero > 60)) {
+      e.objetivoClasesMes = 'Un numero entre 1 y 60, o vacio para no marcarte objetivo';
+    }
     setErr(e);
     if (Object.keys(e).length) return;
     setGuardando(true);
@@ -100,6 +109,7 @@ export default function DatosPage() {
       nombre: f.nombre.trim(),
       apellidos: f.apellidos.trim(),
       telefono: f.telefono.trim(),
+      objetivoClasesMes: objetivoNumero,
     });
     setGuardando(false);
     toast(r.ok ? 'Datos guardados ✓' : r.error);
@@ -171,6 +181,17 @@ export default function DatosPage() {
           </p>
         )}
         <Input label="Teléfono" type="tel" value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} autoComplete="tel" />
+        <Input
+          label="Objetivo de clases al mes"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={60}
+          value={f.objetivoClasesMes}
+          onChange={(e) => setF({ ...f, objetivoClasesMes: e.target.value })}
+          error={err.objetivoClasesMes}
+          hint={err.objetivoClasesMes ? undefined : 'Cuantas clases quieres hacer este mes. Dejalo vacio si no quieres marcarte una meta.'}
+        />
         {/* Sin campo de dirección: el formulario del paquete pide nombre,
             apellidos, email y teléfono, y añadir campos es rediseñar. El
             backend sí la admite (`CAMPOS_SOCIA_EDITABLES`) si algún día se
