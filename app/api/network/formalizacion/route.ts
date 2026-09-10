@@ -141,6 +141,14 @@ export async function POST(req: NextRequest) {
   const solicitudId = typeof body?.solicitudId === 'string' ? body.solicitudId : undefined;
   const participante = await resolverParticipante(req, admin, solicitudId);
   if (!participante) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Proponer/confirmar el tipo de contrato es una decisión de contratación —
+  // mismo permiso que ya exige la ejecución real del alta (intentarEjecutarAlta)
+  // y app/api/equipo/route.ts. Sin este guard, cualquier staff del estudio (p.
+  // ej. RECEPCIÓN) podía dejar "propuesto/confirmado indefinido" sin autoridad
+  // de contratación (54ª pasada de auditoría).
+  if (participante.lado === 'estudio' && !puedeGestionarEquipo(participante.sesionStaff.rol)) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  }
 
   const { data: existente } = await admin
     .from('red_formalizaciones').select('*').eq('solicitud_id', participante.solicitudId).maybeSingle();
