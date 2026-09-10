@@ -32,7 +32,13 @@ test.describe('Student PWA · aislamiento', () => {
     // de otro sitio o a la landing de Tentare. El paquete los trae así.
     await sembrarSociaLista(page);
     await page.goto(`/portal/${SLUG}`);
-    await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
+    // ⚠️ Por NOMBRE, no «la navegación» a secas. Inicio tiene dos landmarks de
+    // navegación desde que existen las baldosas de accesos rápidos —«Principal»
+    // (la barra de abajo) y «Accesos rápidos»—, y las dos con su etiqueta, que
+    // es como debe ser. Un `getByRole('navigation')` pelado resolvía a dos y
+    // reventaba por modo estricto. Aquí lo que se comprueba es que el marco de
+    // la app montó, o sea la barra.
+    await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible({ timeout: 30_000 });
 
     const hrefs = await page.locator('a[href^="/"]').evaluateAll(
       (as) => as.map((a) => a.getAttribute('href') ?? ''),
