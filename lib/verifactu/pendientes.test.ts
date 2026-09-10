@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   loteAEnviar, hayHuecoAntesDe, casarRespuestas, estadoDesdeRespuesta, yaNoSeReenvia,
+  esperaAntesDelSiguienteEnvioMs, ESPERA_AEAT_POR_DEFECTO_SEGUNDOS,
   type FacturaPendiente,
 } from './pendientes.ts';
 
@@ -73,4 +74,16 @@ test('el error guardado lleva código y descripción juntos', () => {
     { numSerieFactura: 'A-1', estado: 'Incorrecto', codigoError: '1141', descripcionError: 'NIF no identificado' },
   ]);
   assert.equal(res[0].error, '1141 · NIF no identificado');
+});
+
+// 50ª pasada de auditoría, H-2: el control de flujo de la AEAT — sin esto,
+// el cron podía mandar sobres seguidos sin esperar el TiempoEsperaEnvio.
+test('respeta el TiempoEsperaEnvio que devuelve la AEAT', () => {
+  assert.equal(esperaAntesDelSiguienteEnvioMs(120), 120_000);
+});
+
+test('sin TiempoEsperaEnvio (o 0/negativo) usa el mínimo documentado, nunca cero', () => {
+  assert.equal(esperaAntesDelSiguienteEnvioMs(null), ESPERA_AEAT_POR_DEFECTO_SEGUNDOS * 1000);
+  assert.equal(esperaAntesDelSiguienteEnvioMs(0), ESPERA_AEAT_POR_DEFECTO_SEGUNDOS * 1000);
+  assert.equal(esperaAntesDelSiguienteEnvioMs(-5), ESPERA_AEAT_POR_DEFECTO_SEGUNDOS * 1000);
 });

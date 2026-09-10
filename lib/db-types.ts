@@ -2699,3 +2699,10 @@ export interface RowValoracionesInicialesSalud {
   estado_cuerpo: string | null;
   creado_en: string;
 }
+
+export interface RowVerifactuTransmisionLock {
+  id: string;
+  en_curso: boolean;
+  iniciado_en: string | null;
+  actualizado_en: string;
+}
