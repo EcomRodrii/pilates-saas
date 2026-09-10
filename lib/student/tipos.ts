@@ -148,7 +148,7 @@ export interface Bono {
 export type EstadoPago = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded';
 export interface Pago { id: string; concepto: string; importe: number; fecha: string; estado: EstadoPago; metodo: string; bonoId?: string; }
 
-export interface Notificacion { id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string; }
+export interface Notificacion { id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar' | 'atencion'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string; }
 
 /** Todo lo que la alumna ve de gamificación (lib/student/gamificacion.ts). */
 export interface GamificacionVista {

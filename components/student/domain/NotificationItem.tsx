@@ -2,7 +2,9 @@
 import Link from 'next/link';
 import type { Notificacion } from '@/lib/student/tipos';
 import { relativo } from '@/lib/student/formato';
-const ICO: Record<Notificacion['tipo'], string> = { 'plaza-liberada': '🎉', recordatorio: '⏰', bono: '🎟', estudio: '📣', valorar: '⭐' };
+// El icono es lo único que distingue un aviso de otro: el disco no cambia de
+// color, así que un emoji equivocado es TODA la señal equivocada.
+const ICO: Record<Notificacion['tipo'], string> = { 'plaza-liberada': '🎉', recordatorio: '⏰', bono: '🎟', estudio: '📣', valorar: '⭐', atencion: '⚠️' };
 export function NotificationItem({ n, delay = 0 }: { n: Notificacion; delay?: number }) {
   const inner = (
     <>
