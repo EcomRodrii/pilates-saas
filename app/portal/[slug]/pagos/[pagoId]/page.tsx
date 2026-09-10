@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { getPagos } from '@/lib/student/datos';
-import { euros, fechaLarga, unir } from '@/lib/student/formato';
+import { euros, fechaLarga, metodoPagoTexto, unir } from '@/lib/student/formato';
 import { Badge } from '@/components/student/ui/Badge';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 import { ESTADO_PAGO } from '@/components/student/domain/PaymentItem';
@@ -106,7 +106,7 @@ export default function ReciboPage() {
           </p>
           <p style={{ margin: '4px 0 0', fontSize: 'var(--t-body)', fontWeight: 700 }}>{data.concepto}</p>
           <p className="t-meta" style={{ marginTop: 3 }}>
-            {unir(fechaLarga(data.fecha), data.metodo)}
+            {unir(fechaLarga(data.fecha), metodoPagoTexto(data.metodo))}
           </p>
 
           {/* Los cuatro avisos comparten forma: son `.note` del sistema, no

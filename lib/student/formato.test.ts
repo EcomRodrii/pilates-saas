@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hoyISO, addDias, etiquetaDia, fechaCorta, fechaLarga, saludo, euros, horaFin, relativo } from './formato.ts';
+import { addDias, etiquetaDia, euros, fechaCorta, fechaLarga, horaFin, hoyISO, metodoPagoTexto, relativo, saludo } from './formato.ts';
 
 // El grupo que de verdad importa: la fecha se calcula en Madrid, no en UTC.
 // El paquete de diseño usa `new Date().toISOString().slice(0,10)`, que en
@@ -94,4 +94,26 @@ test('una fecha buena sigue saliendo igual que antes', () => {
   assert.equal(fechaCorta('2026-09-04'), 'vie 4 sep');
   assert.equal(fechaLarga('2026-09-04'), 'viernes 4 de septiembre');
   assert.equal(etiquetaDia('2026-09-04', '2026-09-10'), 'Vie 4');
+});
+
+test('el método de cobro no se le enseña a la alumna en mayúsculas de enum', () => {
+  // Los cinco que hay en producción hoy.
+  assert.equal(metodoPagoTexto('TARJETA'), 'Tarjeta');
+  assert.equal(metodoPagoTexto('EFECTIVO'), 'Efectivo');
+  assert.equal(metodoPagoTexto('TRANSFERENCIA'), 'Transferencia');
+  assert.equal(metodoPagoTexto('BIZUM'), 'Bizum');
+  // ⚠️ «SEPA» no es solo un problema de mayúsculas: es el nombre del esquema
+  // europeo de adeudos, no algo que nadie reconozca. Mismo texto que el panel.
+  assert.equal(metodoPagoTexto('SEPA'), 'Domiciliación bancaria');
+});
+
+test('sin método no se inventa ninguno, y uno desconocido no se traga', () => {
+  // `recibos.metodo_cobro` es NULL en 38 recibos de producción (un cobro en
+  // mano que nadie marcó). `unir` se encarga de que no quede el punto colgando.
+  assert.equal(metodoPagoTexto(null), '');
+  assert.equal(metodoPagoTexto(undefined), '');
+  assert.equal(metodoPagoTexto(''), '');
+  // Un valor nuevo en la columna tiene que VERSE para poder añadirlo al mapa,
+  // no desaparecer de la pantalla dejando la línea a medias.
+  assert.equal(metodoPagoTexto('CRIPTO'), 'CRIPTO');
 });

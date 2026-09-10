@@ -146,3 +146,34 @@ export function precioClaseTexto(c: { precioSuelto: number; sinPrecioSuelto?: bo
   if (c.precioSuelto === 0) return 'Gratis';
   return euros(c.precioSuelto);
 }
+
+/**
+ * Cómo se cobró un recibo, dicho en castellano.
+ *
+ * ⚠️ Esto se pintaba con el ENUM CRUDO de `recibos.metodo_cobro`: la alumna
+ * leía «TARJETA», «EFECTIVO», «TRANSFERENCIA», «BIZUM» y «SEPA» a gritos en
+ * mayúsculas, debajo de la fecha de su recibo. Los cinco están en producción
+ * (34 recibos con método a fecha de hoy), así que no es un caso de laboratorio.
+ *
+ * «SEPA» es además jerga: es el nombre del esquema de adeudos europeo, no algo
+ * que nadie reconozca en su extracto. El panel ya lo llama «Domiciliación
+ * bancaria» (`app/(dashboard)/clientas/page.tsx`) — se usa ESE texto, no uno
+ * nuevo, para que el estudio y la alumna nombren lo mismo igual.
+ *
+ * Un método que no esté en la tabla se devuelve tal cual en vez de tragárselo:
+ * un valor nuevo en la columna tiene que verse para poder añadirlo aquí, no
+ * desaparecer de la pantalla.
+ */
+const METODO_COBRO: Record<string, string> = {
+  TARJETA: 'Tarjeta',
+  SEPA: 'Domiciliación bancaria',
+  BIZUM: 'Bizum',
+  EFECTIVO: 'Efectivo',
+  TRANSFERENCIA: 'Transferencia',
+  DATAFONO: 'Datáfono',
+};
+
+export function metodoPagoTexto(metodo: string | null | undefined): string {
+  if (!metodo) return '';
+  return METODO_COBRO[metodo.toUpperCase()] ?? metodo;
+}
