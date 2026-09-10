@@ -38,7 +38,7 @@ import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engin
 import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
-import { calcularRacha } from '@/lib/engines/streak-engine';
+import { calcularRacha, claveMesActual, objetivoMensualAlcanzado } from '@/lib/engines/streak-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
@@ -4089,6 +4089,10 @@ const CAMPOS_SOCIA_EDITABLES: Record<string, string> = {
   // vía de escritura — no existía ninguna, así que "quién más va a esta
   // clase" nunca podía enseñar un solo nombre.
   visibleEnClase: 'visible_en_clase',
+  // I-1 (auditoria 49a): meta de clases/mes para el disparador OBJETIVO_MENSUAL
+  // de gamificacion. null/0 = sin objetivo. El CHECK de la migracion
+  // (20260910224240) acota 1-60; se normaliza abajo antes de escribir.
+  objetivoClasesMes: 'objetivo_clases_mes',
 };
 
 
@@ -4121,6 +4125,14 @@ export async function actualizarSociaPublica(params: {
   // Postgres crudo en vez del mensaje de abajo.
   if (typeof db.usuario === 'string') db.usuario = db.usuario.trim().toLowerCase();
   if (db.usuario === '') db.usuario = null;
+  // objetivo_clases_mes: 0 o cadena vacia significa 'sin objetivo' igual
+  // que null -- el CHECK de la migracion (20260910224240) solo admite
+  // null o 1-60, y 0 lo rechazaria con un error crudo de Postgres.
+  if ('objetivo_clases_mes' in db) {
+    const v = db.objetivo_clases_mes;
+    if (v === null || v === undefined || v === '' || Number(v) === 0) db.objetivo_clases_mes = null;
+    else db.objetivo_clases_mes = Math.trunc(Number(v));
+  }
   // ⚠️ `foto_url` acaba pintada como `background-image` en la ficha que abre el
   // MOSTRADOR, y esta lista la acepta tal cual desde el cuerpo de la petición.
   // O sea: una socia podía dejar su avatar apuntando a un servidor cualquiera y
@@ -4159,6 +4171,7 @@ export async function actualizarSociaPublica(params: {
     // constraint...") en vez de un aviso que entienda.
     if ('usuario' in db && error.code === '23505') return { error: 'Ese usuario ya está en uso.' };
     if ('usuario' in db && error.code === '23514') return { error: 'El usuario solo puede tener minúsculas, números y guion bajo (3-24 caracteres).' };
+    if ('objetivo_clases_mes' in db && error.code === '23514') return { error: 'El objetivo tiene que estar entre 1 y 60 clases al mes.' };
     return { error: error.message };
   }
   return { ok: true as const };
@@ -4550,6 +4563,11 @@ async function evaluarGamificacionServidor(
     const racha = calcularRacha(ctx.reservas, ctx.sesiones, new Date());
     if (racha.semanas > 0) {
       await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${racha.claveSemanaActual}`);
+    }
+    // Objetivo mensual (I-1, auditoria 49a): mismo punto que SEMANA_COMPLETA
+    // arriba -- mismo motor puro sobre el mismo ctx ya cargado.
+    if (objetivoMensualAlcanzado(ctx.reservas, ctx.sesiones, ctx.socio.objetivoClasesMes, new Date())) {
+      await otorgarCreditosServidor(admin, studioId, socioId, 'OBJETIVO_MENSUAL', socioId + ':' + claveMesActual(new Date()));
     }
   } catch (err) {
     reportDbError('[evaluarGamificacionServidor]', err);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { calcularRacha } from './streak-engine.ts';
+import { calcularRacha, claveMesActual, objetivoMensualAlcanzado } from './streak-engine.ts';
 import type { Reserva, Sesion } from '../types.ts';
 
 // ⚠️ Este motor NO tenía ni un test, y alimenta el de logros
@@ -82,4 +82,59 @@ test('esMejor: empatar con su mejor marca SÍ cuenta', () => {
   const r = calcularRacha(asistio('s1', 's2', 's5', 's6'), SES, AHORA);
   assert.equal(r.semanas, 2);
   assert.equal(r.esMejor, true);
+});
+
+// -- objetivoMensualAlcanzado / claveMesActual (I-1, auditoria 49a) --------
+
+const SES_MES: Sesion[] = [
+  { id: 'm0', inicio: '2026-08-11T09:00:00Z' }, // agosto, ya paso
+  { id: 'm1', inicio: '2026-08-05T09:00:00Z' }, // agosto, ya paso
+  { id: 'm2', inicio: '2026-07-29T09:00:00Z' }, // julio -- mes distinto
+  { id: 'mF', inicio: '2026-08-20T09:00:00Z' }, // agosto, TODAVIA no ha pasado
+].map((s) => ({ ...s, fin: s.inicio }) as Sesion);
+
+const reservaAsistida = (sesionId: string): Reserva => ({ sesionId, estado: 'ASISTIDA' }) as Reserva;
+const reservaConfirmada = (sesionId: string): Reserva => ({ sesionId, estado: 'CONFIRMADA' }) as Reserva;
+
+test('objetivoMensualAlcanzado: sin objetivo (null/undefined) nunca es true', () => {
+  const dosAsistidas = [reservaAsistida('m0'), reservaAsistida('m1')];
+  assert.equal(objetivoMensualAlcanzado(dosAsistidas, SES_MES, null, AHORA), false);
+  assert.equal(objetivoMensualAlcanzado(dosAsistidas, SES_MES, undefined, AHORA), false);
+});
+
+test('objetivoMensualAlcanzado: alcanza el objetivo con ASISTIDAS de este mes', () => {
+  const dosAsistidas = [reservaAsistida('m0'), reservaAsistida('m1')];
+  assert.equal(objetivoMensualAlcanzado(dosAsistidas, SES_MES, 2, AHORA), true);
+});
+
+test('objetivoMensualAlcanzado: no alcanza si faltan clases', () => {
+  const dosAsistidas = [reservaAsistida('m0'), reservaAsistida('m1')];
+  assert.equal(objetivoMensualAlcanzado(dosAsistidas, SES_MES, 3, AHORA), false);
+});
+
+test('objetivoMensualAlcanzado: CONFIRMADA con la sesion ya pasada SI cuenta', () => {
+  const confirmadaPasada = [reservaConfirmada('m0')];
+  assert.equal(objetivoMensualAlcanzado(confirmadaPasada, SES_MES, 1, AHORA), true);
+});
+
+test('objetivoMensualAlcanzado: CONFIRMADA con la sesion TODAVIA no pasada NO cuenta', () => {
+  // Reservar no es venir: mismo criterio que ya prueba calcularRacha arriba,
+  // aplicado a la sesion futura de este mes en vez de a un estado distinto.
+  const confirmadaFutura = [reservaConfirmada('mF')];
+  assert.equal(objetivoMensualAlcanzado(confirmadaFutura, SES_MES, 1, AHORA), false);
+});
+
+test('objetivoMensualAlcanzado: una ASISTIDA de OTRO mes no cuenta para el mes en curso', () => {
+  const asistidaJulio = [reservaAsistida('m2')];
+  assert.equal(objetivoMensualAlcanzado(asistidaJulio, SES_MES, 1, AHORA), false);
+});
+
+test('objetivoMensualAlcanzado: una reserva cuya sesion no esta cargada se ignora', () => {
+  const conFantasma = [reservaAsistida('m0'), reservaAsistida('fantasma')];
+  assert.equal(objetivoMensualAlcanzado(conFantasma, SES_MES, 2, AHORA), false);
+});
+
+test('claveMesActual: formato YYYY-MM, mismo que to_char(current_date, YYYY-MM) en SQL', () => {
+  assert.equal(claveMesActual(AHORA), '2026-08');
+  assert.equal(claveMesActual(new Date('2026-01-05T00:00:00Z')), '2026-01');
 });

@@ -91,3 +91,41 @@ export function calcularRacha(reservas: Reserva[], sesiones: Sesion[], now: Date
     esMejor: racha > 0 && racha >= mejor,
   };
 }
+
+/**
+ * Clave del mes en curso, formato YYYY-MM -- usada como sufijo del ref_id
+ * de OBJETIVO_MENSUAL (socioId:YYYY-MM), mismo principio que
+ * claveSemanaActual arriba: la RPC vuelve a derivarla y comparar, asi que
+ * el formato tiene que coincidir byte a byte con to_char(current_date,
+ * YYYY-MM) en SQL.
+ */
+export function claveMesActual(now: Date): string {
+  const mes = String(now.getMonth() + 1).padStart(2, '0');
+  return now.getFullYear() + '-' + mes;
+}
+
+/**
+ * La socia ya alcanzo su objetivoClasesMes dentro del mes de calendario en
+ * curso? Mismo criterio de "hecha" que cuentaComoHecha (lib/student/ritmo.ts)
+ * y que la rama OBJETIVO_MENSUAL de otorgar_credito_disparador: ASISTIDA, o
+ * CONFIRMADA con la sesion ya pasada. null/undefined/menor que 1 = sin
+ * objetivo fijado, nunca "alcanzado".
+ */
+export function objetivoMensualAlcanzado(
+  reservas: Reserva[], sesiones: Sesion[], objetivoClasesMes: number | null | undefined, now: Date,
+): boolean {
+  if (!objetivoClasesMes || objetivoClasesMes < 1) return false;
+  const sesionById = new Map(sesiones.map(s => [s.id, s]));
+  const anio = now.getFullYear();
+  const mes = now.getMonth();
+  let hechas = 0;
+  for (const r of reservas) {
+    const s = sesionById.get(r.sesionId);
+    if (!s) continue;
+    const inicio = new Date(s.inicio);
+    if (inicio.getFullYear() !== anio || inicio.getMonth() !== mes) continue;
+    const hecha = r.estado === 'ASISTIDA' || (r.estado === 'CONFIRMADA' && inicio < now);
+    if (hecha) hechas++;
+  }
+  return hechas >= objetivoClasesMes;
+}

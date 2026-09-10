@@ -238,7 +238,7 @@ export interface PayloadMin {
     socio?: {
       id?: string; nombre?: string | null; apellidos?: string | null;
       email?: string | null; telefono?: string | null; direccion?: string | null;
-      fotoUrl?: string | null;
+      fotoUrl?: string | null; objetivoClasesMes?: number | null;
     } | null;
     suscripciones?: SuscripcionMin[];
     reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null; ofertaExpiraEn?: string | null }[];
@@ -537,5 +537,6 @@ export function proyectarAlumna(d: PayloadMin): Alumna | null {
     email: s.email ?? '',
     telefono: s.telefono ?? undefined,
     fotoUrl: s.fotoUrl ?? null,
+    objetivoClasesMes: s.objetivoClasesMes ?? null,
   };
 }

@@ -25,7 +25,7 @@ export interface StudioConfig {
   tema: Record<string, string>;
 }
 
-export interface Alumna { id: string; nombre: string; apellidos: string; email: string; telefono?: string; fotoUrl?: string | null; }
+export interface Alumna { id: string; nombre: string; apellidos: string; email: string; telefono?: string; fotoUrl?: string | null; objetivoClasesMes?: number | null; }
 
 export interface Instructora {
   id: string; nombre: string; iniciales: string; fotoUrl: string | null; especialidades: string[];

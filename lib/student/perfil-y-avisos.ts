@@ -174,7 +174,7 @@ export type ResultadoGuardar = { ok: true } | { ok: false; error: string };
  */
 export async function guardarDatos(
   studioId: string, slug: string,
-  cambios: { nombre?: string; apellidos?: string; telefono?: string; direccion?: string },
+  cambios: { nombre?: string; apellidos?: string; telefono?: string; direccion?: string; objetivoClasesMes?: number | null },
 ): Promise<ResultadoGuardar> {
   try {
     const auth = await portalAuthHeader();
