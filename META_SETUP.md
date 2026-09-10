@@ -7,8 +7,11 @@ tenga algo real contra lo que funcionar. Cada afirmación va con su fuente ofici
 documentación de Meta no da un valor exacto (nombres de botones, ubicación de menús — cambian
 sin aviso), se marca explícitamente como "verificar en el dashboard en el momento".
 
-⚠️ Meta deprecará **Embedded Signup v2 el 15 de octubre de 2026**. Todo lo de abajo es
-exclusivamente v4 — no reutilizar configuración ni tutoriales de v2.
+⚠️ Meta deprecará **Embedded Signup v2 el 8 de octubre de 2026** (verificado contra la
+documentación viva el 2026-09-10; este documento decía «15 de octubre», que era una semana
+tarde). Todo lo de abajo es exclusivamente v4 — no reutilizar configuración ni tutoriales
+de v2. El código de Tentare ya es v4, así que la fecha no obliga a nada urgente; importa
+si alguien copia un tutorial viejo.
 
 ---
 
@@ -40,9 +43,29 @@ Esto reemplaza cualquier configuración de v2 — v4 exige una configuración nu
 select your desired products").
 
 1. En el App Dashboard → **Facebook Login for Business** → Configuraciones → crear una
-   nueva. Meta ofrece una plantilla lista: **"WhatsApp Embedded Signup Configuration With
-   60 Expiration Token"** — usar el botón "Create from template" con esa plantilla como
-   punto de partida en vez de configurar todo desde cero.
+   nueva. Meta ofrece una plantilla lista, que en español aparece como **"Configuración de
+   registro insertado de WhatsApp con un token que caduca en 60 días"** — el botón es
+   "Crear desde plantilla".
+
+   🚨 **Léase el nombre entero antes de usarla: «con un token que caduca en 60 días».**
+   Esa plantilla NO es el punto de partida cómodo que este documento daba por hecho: fija
+   la caducidad del token a 60 días. Y el token que Embedded Signup entrega —el de usuario
+   del sistema de integración comercial— **por defecto NO caduca**: la documentación de
+   Facebook Login for Business lo dice literal («Según el valor predeterminado, nunca
+   caducan en el caso de las comunicaciones offline comunes de servidor a servidor»), y
+   los 60 días son un opt-in explícito (`set_token_expires_in_60_days`).
+
+   Qué pasaría si se usa tal cual: **el WhatsApp de CADA estudio dejaría de funcionar a
+   los 60 días de conectarlo**, en silencio y todos a la vez según se fueran cumpliendo
+   los plazos. Tentare no tiene —ni necesita— ningún camino de renovación: `lib/whatsapp.ts`
+   guarda el token y lo usa indefinidamente, que es lo correcto para un token que no
+   caduca. La propietaria vería su integración «conectada» y sus recordatorios dejarían de
+   salir, que es justo la «integración de mentira» que el módulo de salud existe para
+   evitar.
+
+   **Por tanto: crear la configuración a mano** ("Crear configuración") con caducidad
+   indefinida, o partir de la plantilla y CAMBIAR la caducidad antes de guardar. Verificar
+   el valor antes de dar la configuración por buena.
 2. Seleccionar el **producto WhatsApp** dentro de esa configuración (v4 permite además
    Conversions API / Click-to-WhatsApp Ads / Click-to-Messenger Ads en el mismo flujo — no
    marcarlos salvo que Tentare vaya a usarlos; cada producto añadido amplía lo que la
@@ -100,9 +123,12 @@ el momento de hacerlo, no seguir esta lista como capturas de pantalla literales.
 ## 5. Business Verification
 
 - Completar la **verificación de negocio** de la empresa Tentare en Meta Business Manager.
-- Confirmado en la documentación: completar Business Verification junto con App Review y
-  Access Verification **eleva el límite de onboarding de 10 a 200 clientes por cada ventana
-  de 7 días**. Sin esto, el rollout progresivo del plan (Fase 22: 1 interno → 1 beta → 5 →
+- ⚠️ **Sin verificar (2026-09-10)**: este documento afirmaba que completar Business
+  Verification junto con App Review y Access Verification «eleva el límite de onboarding de
+  10 a 200 clientes por cada ventana de 7 días». Al repasar la documentación viva no se
+  encontró esa cifra en las páginas consultadas. Puede seguir siendo cierta —y el orden de
+  magnitud encaja con que exista un límite de incorporación— pero **no darla por buena para
+  planificar el rollout sin confirmarla en el dashboard**. Sin esto, el rollout progresivo del plan (Fase 22: 1 interno → 1 beta → 5 →
   producción) se topa con un techo de 10 estudios/semana total de la plataforma, no por
   estudio — hacerlo con margen antes de escalar más allá de un puñado de estudios piloto.
 
@@ -154,6 +180,35 @@ que los recordatorios funcionan automáticamente tras conectar un WABA nuevo.** 
 re-aprobación por WABA, hay que documentar en la UI de Tentare cómo la propietaria da de alta
 esa plantilla en su WhatsApp Manager (mismo texto exacto: «Recordatorio · {{1}}. Tienes {{2}}
 el {{3}} a las {{4}} en {{5}}.», categoría Utilidad, español).
+
+## 8.bis Qué se verificó contra la documentación viva (2026-09-10)
+
+Este documento se escribió el 2026-08-27 a partir de la documentación de entonces, y Meta
+ha reorganizado la suya desde (`/docs/whatsapp/...` → `/documentation/business-messaging/whatsapp/...`).
+Repasado entero contra las páginas actuales:
+
+| Afirmación | Estado |
+|---|---|
+| Permisos `whatsapp_business_management` + `whatsapp_business_messaging` + `business_management` | ✅ confirmado (guía de tokens de acceso) |
+| `FB.login({config_id, response_type:'code', override_default_response_type:true, extras:{setup:{}}})` | ✅ confirmado, idéntico al ejemplo oficial |
+| `POST /<WABA_ID>/subscribed_apps` para suscribir la app a la WABA del cliente | ✅ confirmado (paso 2 del flujo de proveedor de tecnología) |
+| `POST /<PHONE_NUMBER_ID>/register` con PIN de **6 dígitos** | ✅ confirmado (paso 3); el PIN es el de verificación en dos pasos del número |
+| El token de Embedded Signup no exige re-autenticación futura | ✅ confirmado |
+| Deprecación de v2 | ⚠️ **corregido**: 8 de octubre, no 15 |
+| Plantilla de configuración recomendada | 🚨 **corregido**: fija caducidad a 60 días, ver §2.1 |
+| Límite de onboarding 10 → 200 por 7 días | ⚠️ **no verificable** en las páginas consultadas, ver §5 |
+
+Dos cosas nuevas que no existían cuando se escribió este documento y conviene conocer
+antes de redactar plantillas a mano:
+
+- **Parámetros con nombre**: una plantilla puede usar `{{dia}}` en vez de `{{1}}` (campo
+  `parameter_format`). Los posicionales siguen funcionando y son los que usa Tentare, así
+  que no hay nada que cambiar — pero si alguien crea una plantilla desde WhatsApp Manager
+  con nombres, no cuadrará con lo que manda el código.
+- **Biblioteca de plantillas**: WhatsApp Manager trae plantillas de utilidad y de
+  autenticación **ya categorizadas y sin revisión previa**. Su contenido es fijo, así que
+  no sustituye a las tres de Tentare, pero mirar ahí antes de redactar una desde cero
+  ahorra la espera de aprobación cuando el caso de uso es común.
 
 ## 9. Variables de entorno resultantes (para Fase D, en Vercel)
 
