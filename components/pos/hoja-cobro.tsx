@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Banknote, CreditCard, Smartphone, ArrowRightLeft, Loader2, CheckCircle2,
-  XCircle, AlertTriangle, ArrowLeft, Delete,
+  XCircle, AlertTriangle, ArrowLeft, Delete, X,
 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
@@ -184,10 +184,28 @@ export function HojaCobro({
     return true;
   };
 
+  // Qué significa CERRAR aquí, que no es lo mismo en todas las fases y la
+  // diferencia es de dinero:
+  //
+  //  · Mientras se espera al banco no se cierra. Ya estaba así.
+  //  · Tras una venta con ÉXITO, cerrar tiene que hacer lo MISMO que «Nueva
+  //    venta»: vaciar el ticket. `onCerrar` no lo vacía, así que salir por ahí
+  //    dejaba en pantalla un ticket ya cobrado con su botón «Cobrar» activo, y
+  //    la clave de idempotencia intacta (solo se renueva en `vaciar()`). Quien
+  //    volviera a pulsar cobraría —a ojos del mostrador— una venta que ya
+  //    existía. No era teórico: `Escape` ya cerraba por ahí, sin ningún botón
+  //    a la vista que lo insinuara.
+  //  · En el resto (elegir método, contar efectivo, fallo) cerrar es abandonar,
+  //    y el ticket debe quedarse como está.
+  const cerrar =
+    fase.f === 'esperando' || fase.f === 'enviando' ? null
+      : fase.f === 'exito' ? () => onHecho(fase.venta)
+        : onCerrar;
+
   return (
     <DashboardSheet
       open
-      onClose={fase.f === 'esperando' || fase.f === 'enviando' ? () => {} : onCerrar}
+      onClose={cerrar ?? (() => {})}
       closeOnBackdropClick={fase.f === 'metodo' || fase.f === 'efectivo'}
       label="Cobrar"
       portal
@@ -198,9 +216,22 @@ export function HojaCobro({
       <>
         {/* Cabecera: el total, siempre a la vista y grande. Es el dato que se
             dice en voz alta y el que se comprueba antes de tocar nada. */}
-        <div className="shrink-0 px-6 pt-6 pb-5 border-b border-border text-center">
+        <div className="relative shrink-0 px-6 pt-6 pb-5 border-b border-border text-center">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total a cobrar</p>
           <p className="mt-1 text-[40px] leading-none font-extrabold text-foreground tabular-nums">{formatEuro(total)}</p>
+          {/* Sin esto la única salida de la pantalla de éxito era el botón
+              «Nueva venta», que no dice que también sirva para cerrar. 44 px,
+              que es el mínimo para un dedo en el iPad del mostrador. */}
+          {cerrar && (
+            <button
+              type="button"
+              onClick={cerrar}
+              aria-label="Cerrar"
+              className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto">
