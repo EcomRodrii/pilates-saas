@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { zipSync, strFromU8 } from 'fflate';
 
-import { descomprimirTema, ZipInvalidoError, LIMITE_ZIP_BYTES } from './zip-parser.ts';
+import {
+  descomprimirTema, ZipInvalidoError, LIMITE_ZIP_BYTES,
+  LIMITE_FICHERO_DESCOMPRIMIDO_BYTES, LIMITE_TOTAL_DESCOMPRIMIDO_BYTES,
+} from './zip-parser.ts';
 
 const t = (s: string) => new TextEncoder().encode(s);
 
@@ -66,6 +69,26 @@ test('un ZIP vacío es inválido explícito', () => {
 test('⚠️ por encima del límite de tamaño, se rechaza ANTES de intentar descomprimir', () => {
   const grande = new Uint8Array(LIMITE_ZIP_BYTES + 1);
   assert.throws(() => descomprimirTema(grande), ZipInvalidoError);
+});
+
+// 46ª pasada de auditoría (zip bomb): LIMITE_ZIP_BYTES solo acotaba el ZIP
+// comprimido — un fichero de ceros comprime a casi nada pero descomprime a
+// lo que se le pida. El filter de fflate lee el tamaño real de la cabecera
+// central ANTES de inflar, así que estas dos pruebas nunca llegan a
+// materializar el buffer gigante en memoria.
+test('⚠️ una entrada que descomprime a más del límite por fichero se rechaza antes de inflarla', () => {
+  const bomba = new Uint8Array(LIMITE_FICHERO_DESCOMPRIMIDO_BYTES + 1024); // ceros: comprime a casi nada
+  const zip = zipSync({ 'index.html': t('<html></html>'), 'bomba.bin': bomba });
+  assert.throws(() => descomprimirTema(zip), ZipInvalidoError);
+});
+
+test('⚠️ varios ficheros bajo el límite individual que SUMAN más del límite total también se rechazan', () => {
+  const porFichero = Math.ceil(LIMITE_TOTAL_DESCOMPRIMIDO_BYTES / 6) + 1024;
+  assert.ok(porFichero < LIMITE_FICHERO_DESCOMPRIMIDO_BYTES, 'la prueba asume que el límite individual es mayor que total/6');
+  const entradas: Record<string, Uint8Array> = { 'index.html': t('<html></html>') };
+  for (let i = 0; i < 6; i++) entradas[`f${i}.bin`] = new Uint8Array(porFichero);
+  const zip = zipSync(entradas);
+  assert.throws(() => descomprimirTema(zip), ZipInvalidoError);
 });
 
 test('las dependencias de package.json se leen si el ZIP lo trae, y avisan de incompatibilidad', () => {
