@@ -54,6 +54,12 @@ export interface OpcionesSocia {
   /** Recibos en el historial. */
   recibos?: number;
   /**
+   * Tarjetas de «Descubre» (`contenido_portal_banners`) que el estudio ha
+   * publicado. `0` = ninguna, y entonces esa sección NO se pinta — que es el
+   * caso por defecto y el que hay que poder probar también.
+   */
+  descubre?: number;
+  /**
    * No fijar el reloj del navegador.
    *
    * ⚠️ `page.clock.install()` **vacía la Performance API**. Medido en esta app:
@@ -89,6 +95,7 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   const {
     bono = 5, reservada = false, ocupadas = 0, conTienda = true, avisos = [],
     posts = 0, conversaciones = 0, valoracionActiva = false, conTarjeta = false, recibos = 0,
+    descubre = 0,
   } = o;
 
   const sinMockear: string[] = [];
@@ -145,6 +152,25 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   s.reservas = reservada
     ? [{ id: 'res-1', socioId: SOCIO_ID, sesionId: SESION_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-01T09:00:00Z' }]
     : [];
+
+  // «Descubre». El servidor ya filtra por `activo` y ubicación y ordena por
+  // `orden`, así que el andamiaje manda solo lo que llegaría de verdad. La
+  // tercera va SIN enlace válido a propósito: es el camino que decide si la
+  // tarjeta se pinta con chevron o sin él, y sin una fila así no lo prueba nada.
+  f.bannersPortal = Array.from({ length: descubre }, (_, i) => ({
+    id: `ban-${i}`,
+    studioId: STUDIO_ID,
+    imagenUrl: `https://cdn.example.com/descubre-${i}.jpg`,
+    titulo: ['Nuevas clases', 'Bienestar fuera del estudio', 'Tu progreso importa'][i % 3],
+    texto: ['Reformer los martes', 'Rutinas para casa', 'Mira tus semanas'][i % 3],
+    linkTipo: i % 3 === 1 ? 'externo' : 'interno',
+    linkValor: i % 3 === 0 ? '/reservar' : i % 3 === 1 ? 'https://estudio.example/blog' : 'javascript:alert(1)',
+    ubicacion: ['home'],
+    activo: true,
+    orden: i,
+    fechaInicio: null,
+    fechaFin: null,
+  }));
 
   // ⚠️ El aforo se DERIVA de la reserva, no se escribe aparte. Escribirlos por
   // separado fue lo que hizo que una ficha dijera «10 libres» con la alumna ya

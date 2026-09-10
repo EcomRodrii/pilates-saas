@@ -44,12 +44,15 @@ export function StudentShell({
   noLeidas = 0,
   badgeReservas = 0,
   headerTransparente = false,
+  conLema = false,
   sinNav = false,
 }: {
   children: ReactNode;
   noLeidas?: number;
   badgeReservas?: number;
   headerTransparente?: boolean;
+  /** Pinta el lema del estudio bajo su nombre. Solo sobre un héroe. */
+  conLema?: boolean;
   sinNav?: boolean;
 }) {
   // El punto de la campana era una rama muerta: ninguna pantalla pasaba
@@ -63,7 +66,7 @@ export function StudentShell({
   return (
     <GuardiaSesion>
       <div className="shell">
-        <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} />
+        <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
         <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined}>
           <OfflineBanner />
           {children}

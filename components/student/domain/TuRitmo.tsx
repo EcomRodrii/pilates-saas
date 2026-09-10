@@ -52,14 +52,31 @@ function Semana({ dias }: { dias: DiaSemana[] }) {
   return (
     <ul className="row" style={{ ['--gap' as string]: 'var(--s-1)', justifyContent: 'space-between', margin: 0, padding: 0, listStyle: 'none' }}>
       {dias.map((d) => (
-        <li key={d.fecha} className="stack" style={{ ['--gap' as string]: '6px', alignItems: 'center', flex: 1 }}>
+        <li key={d.fecha} className="stack" style={{ ['--gap' as string]: '5px', alignItems: 'center', flex: 1, minWidth: 0 }}>
           <span className="t-faint" style={{ fontSize: 'var(--t-micro)', fontWeight: 700, letterSpacing: '.04em' }}>{d.letra}</span>
+          {/* ⚠️ El NÚMERO del día, no solo la letra. Con siete letras sueltas la
+              tira decía en qué día de la SEMANA hizo clase, pero no en cuál del
+              mes: para saber si «el martes» era ayer o el de la semana pasada
+              había que contar. Hoy va relleno; el día con clase, en tinta de
+              marca. El punto de debajo se queda porque es lo que se lee de un
+              vistazo — el número es el que responde «¿cuándo?». */}
+          <span
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, borderRadius: 10,
+              fontSize: 'var(--t-meta)', fontWeight: 800,
+              background: d.esHoy ? 'var(--foreground)' : 'transparent',
+              color: d.esHoy ? 'var(--background)' : d.hecha ? 'var(--accent)' : 'var(--muted-foreground)',
+            }}
+          >
+            {Number(d.fecha.slice(8, 10))}
+          </span>
           <span
             aria-hidden
             style={{
-              width: 10, height: 10, borderRadius: 'var(--radius-pill)',
+              width: 7, height: 7, borderRadius: 'var(--radius-pill)',
               background: d.hecha ? 'var(--accent)' : 'transparent',
-              boxShadow: d.hecha ? 'none' : `inset 0 0 0 1.5px ${d.esHoy ? 'var(--foreground)' : 'var(--border-strong)'}`,
+              boxShadow: d.hecha ? 'none' : `inset 0 0 0 1.5px var(--border-strong)`,
             }}
           />
         </li>
@@ -78,7 +95,7 @@ function Dato({ rotulo, children }: { rotulo: string; children: React.ReactNode 
   );
 }
 
-export function TuRitmo({ dias, racha, estaSemana, bono, hrefBono, hrefBonos }: {
+export function TuRitmo({ dias, racha, estaSemana, bono, hrefBono, hrefBonos, hrefCalendario }: {
   dias: DiaSemana[];
   racha: number;
   estaSemana: number;
@@ -86,6 +103,7 @@ export function TuRitmo({ dias, racha, estaSemana, bono, hrefBono, hrefBonos }: 
   bono: Bono | null;
   hrefBono: string;
   hrefBonos: string;
+  hrefCalendario: string;
 }) {
   const ilimitado = bono ? !Number.isFinite(bono.creditosTotales) : false;
   const quedan = bono && !ilimitado ? bono.creditosTotales - bono.creditosUsados : null;
@@ -93,10 +111,16 @@ export function TuRitmo({ dias, racha, estaSemana, bono, hrefBono, hrefBonos }: 
   return (
     <section className="card card--pad-lg stack" style={{ ['--gap' as string]: 'var(--s-4)' }} aria-label="Tu ritmo">
       <div className="row row--between">
-        <p className="t-label">Tu ritmo</p>
+        <p className="t-label">Tu ritmo esta semana</p>
         {/* La racha solo aparece si existe: «🔥 0 sem.» no motiva a nadie. */}
-        {racha > 0 && (
+        {racha > 0 ? (
           <p className="t-num t-dim no-shrink" style={{ fontSize: 'var(--t-meta)', fontWeight: 700 }}>🔥 {racha} sem.</p>
+        ) : (
+          // Sin racha que enseñar, el hueco lo ocupa la salida al calendario:
+          // la tira de siete días es justo desde donde se quiere mirar el mes.
+          <Link href={hrefCalendario} className="tap no-shrink" style={{ fontSize: 'var(--t-meta)', fontWeight: 800, color: 'var(--accent)' }}>
+            Ver calendario →
+          </Link>
         )}
       </div>
 

@@ -18,6 +18,10 @@ export interface StudioConfig {
   politicaCancelacionHoras: number; soportaListaEspera: boolean;
   /** Cómo llama el estudio a sus créditos. `null` = el nombre por defecto. */
   creditosNombre: string | null;
+  /** Lema corto bajo el nombre, en la cabecera sobre el héroe. `null` = no se pinta. */
+  lema: string | null;
+  /** Frase en vertical al costado del héroe de Inicio. `null` = no se pinta. */
+  fraseHeroe: string | null;
   tema: Record<string, string>;
 }
 

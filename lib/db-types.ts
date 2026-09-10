@@ -966,6 +966,10 @@ export interface RowStudios {
   racha_clases_semana: number | null;
   // migr 20260909003015.
   valoracion_inicial_activa: boolean | null;
+  // migr 20260910201734.
+  lema: string | null;
+  // migr 20260910201734.
+  frase_heroe: string | null;
 }
 
 export interface RowSuscripciones {

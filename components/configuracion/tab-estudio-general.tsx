@@ -51,6 +51,7 @@ type StudioForm = {
   direccion: string; ciudad: string; codigoPostal: string;
   telefono: string; email: string; sitioWeb: string;
   descripcion: string; anioFundacion: string; normasTexto: string;
+  lema: string; fraseHeroe: string;
 };
 
 function studioToForm(s: Studio | null): StudioForm {
@@ -67,6 +68,8 @@ function studioToForm(s: Studio | null): StudioForm {
     descripcion: s?.descripcion ?? '',
     anioFundacion: s?.anioFundacion ? String(s.anioFundacion) : '',
     normasTexto: s?.normasTexto ?? '',
+    lema: s?.lema ?? '',
+    fraseHeroe: s?.fraseHeroe ?? '',
   };
 }
 
@@ -193,7 +196,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
   async function guardarEstudio() {
     if (nifInvalido) { showToast('El NIF/CIF no es válido: revisa la letra o el dígito de control.'); return; }
     if (anioInvalido) { showToast('El año de apertura tiene que ser de cuatro cifras.'); return; }
-    const { anioFundacion, descripcion, normasTexto, sitioWeb, ...resto } = form;
+    const { anioFundacion, descripcion, normasTexto, sitioWeb, lema, fraseHeroe, ...resto } = form;
     setGuardando(true);
     const res = await updateStudio({
       ...resto,
@@ -207,6 +210,10 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
       // «no las ha escrito» (no pinta la sección) de «las ha escrito y están
       // en blanco», que no significaría nada.
       normasTexto: normasTexto.trim() || null,
+      // Mismo criterio: vacío es NULL. La home de la alumna decide con eso si
+      // pinta la línea o si el héroe se queda como estaba.
+      lema: lema.trim() || null,
+      fraseHeroe: fraseHeroe.trim() || null,
     });
     setGuardando(false);
     showToast(res.ok ? 'Datos del estudio guardados' : res.error);
@@ -457,6 +464,36 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
                 maxLength={400}
                 placeholder="Estudio boutique especializado en pilates reformer. Grupos de ocho para que nadie pase desapercibida."
                 onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+              />
+            )}
+          </Campo>
+          <Campo
+            label="Tu lema"
+            ayuda="Una línea corta bajo el nombre del estudio, en la app de tus alumnas. Va en mayúsculas."
+          >
+            {id => (
+              <input
+                id={id}
+                className={inputCls}
+                value={form.lema}
+                maxLength={44}
+                placeholder="Cuerpo · Mente · Equilibrio"
+                onChange={e => setForm(f => ({ ...f, lema: e.target.value }))}
+              />
+            )}
+          </Campo>
+          <Campo
+            label="Frase de la portada"
+            ayuda="Se lee en vertical al lado de la foto grande, al abrir la app. Cuatro o cinco palabras."
+          >
+            {id => (
+              <input
+                id={id}
+                className={inputCls}
+                value={form.fraseHeroe}
+                maxLength={44}
+                placeholder="Más fuerte cada semana"
+                onChange={e => setForm(f => ({ ...f, fraseHeroe: e.target.value }))}
               />
             )}
           </Campo>

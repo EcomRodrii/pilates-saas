@@ -5,7 +5,7 @@ import { aplicarAforo } from '@/lib/student/aforo-fresco';
 import { borrarPorSlug, claveCatalogo } from '@/lib/student/catalogo-clave';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import type {
-  AchievementDefinition, AchievementProgress, ChallengeDefinition, ChallengeProgress,
+  AchievementDefinition, AchievementProgress, BannerPortal, ChallengeDefinition, ChallengeProgress,
   FavoritoClase, Instructor, LevelDefinition, MemberCredits, PlanTarifa, PlazaFija, Recibo,
   Recuperacion, Reserva, RewardCatalogItem, Sala, Sesion, Suscripcion, TipoClase,
 } from '@/lib/types';
@@ -99,6 +99,15 @@ export interface PayloadPublico {
   achievementDefinitions?: AchievementDefinition[];
   challengeDefinitions?: ChallengeDefinition[];
   rewardCatalog?: RewardCatalogItem[];
+  /**
+   * «Descubre»: las tarjetas con foto que publica el estudio
+   * (`contenido_portal_banners`). El servidor ya las filtra por `activo` y por
+   * ubicación `home` y las ordena; la ventana de fechas se resuelve al pintar
+   * (ver `lib/student/descubre.ts`).
+   *
+   * ⚠️ NO llegan en modo `liviano` — los widgets embebibles no las piden.
+   */
+  bannersPortal?: BannerPortal[];
   socia: {
     /** La ficha de la socia (el servidor manda `select('*')` de `socios`).
         Solo se declaran los campos que la app usa. */

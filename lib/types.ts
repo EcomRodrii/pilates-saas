@@ -47,6 +47,15 @@ export interface Studio {
   /** Año en que abrió. NO es `creadoEn`, que es el alta en Tentare (migr 0134). */
   anioFundacion: number | null;
   /**
+   * Lema corto bajo el nombre del estudio en la app de la alumna, tipo
+   * «CUERPO · MENTE · EQUILIBRIO» (migr 20260910201734). `null` = no se
+   * pinta; no hay texto por defecto, porque el portal es marca blanca y un
+   * lema que el estudio no ha escrito no es suyo.
+   */
+  lema: string | null;
+  /** Frase en vertical al costado del héroe de la home. `null` = no se pinta. */
+  fraseHeroe: string | null;
+  /**
    * Normas del centro que ve la socia en el portal (migr 20260813004723). Una
    * línea por norma. `null` = sin escribir, y entonces la pantalla no pinta la
    * sección en vez de un bloque vacío.

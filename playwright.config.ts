@@ -152,6 +152,15 @@ export default defineConfig({
       // Deja pasar la marca del estudio si el que lanza la suite la fija (ver
       // `E2E_COLOR_PRIMARIO` en lib/studio-seo.ts). Sin ella, '#1A1A1A'.
       ...(process.env.E2E_COLOR_PRIMARIO ? { E2E_COLOR_PRIMARIO: process.env.E2E_COLOR_PRIMARIO } : {}),
+      // El lema y la frase del héroe se resuelven en el SERVIDOR
+      // (`lib/studio-seo.ts`), así que `page.route` no llega a ellos. Ahí van
+      // PUESTOS por defecto; esto es solo para pisarlos —incluido dejarlos
+      // vacíos (`E2E_LEMA=`) para probar el estudio que no los ha escrito—, y
+      // por eso se compara contra `undefined` y no por verdadero.
+      // ⚠️ El servidor se reutiliza entre corridas (`reuseExistingServer`):
+      // para cambiarlos en local hay que matarlo, no basta con reexportar.
+      ...(process.env.E2E_LEMA !== undefined ? { E2E_LEMA: process.env.E2E_LEMA } : {}),
+      ...(process.env.E2E_FRASE_HEROE !== undefined ? { E2E_FRASE_HEROE: process.env.E2E_FRASE_HEROE } : {}),
     },
   },
 });
