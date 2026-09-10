@@ -18,6 +18,15 @@ import { rutaConTravesia } from '../ruta-segura.ts';
 
 export const LIMITE_ZIP_BYTES = 25 * 1024 * 1024; // 25 MB — un tema estático no debería pesar más.
 export const LIMITE_FICHEROS = 500;
+// 46ª pasada de auditoría: LIMITE_ZIP_BYTES solo acota el ZIP COMPRIMIDO.
+// Un ratio de compresión patológico (zip bomb) puede expandir 25 MB a
+// decenas de GB en memoria antes de que se comprobara nada — `unzipSync`
+// descomprimía el ZIP entero de una sola vez. Estos dos límites se aplican
+// vía el `filter` de fflate, que fflate llama por entrada ANTES de inflarla
+// (lee `originalSize` de la cabecera central del ZIP, sin descomprimir) —
+// así que una entrada que los supere nunca llega a inflarse.
+export const LIMITE_FICHERO_DESCOMPRIMIDO_BYTES = 20 * 1024 * 1024; // 20 MB por fichero ya descomprimido.
+export const LIMITE_TOTAL_DESCOMPRIMIDO_BYTES = 100 * 1024 * 1024; // 100 MB acumulados del ZIP entero.
 
 export interface ZipDescomprimido {
   manifest: ImportedThemeManifest;
@@ -40,10 +49,33 @@ export function descomprimirTema(buffer: Uint8Array): ZipDescomprimido {
     );
   }
 
+  let totalDescomprimido = 0;
   let entradas: Record<string, Uint8Array>;
   try {
-    entradas = unzipSync(buffer);
-  } catch {
+    entradas = unzipSync(buffer, {
+      filter(file) {
+        if (file.originalSize > LIMITE_FICHERO_DESCOMPRIMIDO_BYTES) {
+          throw new ZipInvalidoError(
+            `"${file.name}" pesa ${Math.round(file.originalSize / 1024 / 1024)} MB ya descomprimido — ` +
+            `el límite por fichero son ${LIMITE_FICHERO_DESCOMPRIMIDO_BYTES / 1024 / 1024} MB.`,
+          );
+        }
+        totalDescomprimido += file.originalSize;
+        if (totalDescomprimido > LIMITE_TOTAL_DESCOMPRIMIDO_BYTES) {
+          throw new ZipInvalidoError(
+            `El ZIP descomprime a más de ${LIMITE_TOTAL_DESCOMPRIMIDO_BYTES / 1024 / 1024} MB — ` +
+            'revisa que no traiga un ratio de compresión anómalo.',
+          );
+        }
+        return true;
+      },
+    });
+  } catch (err) {
+    // fflate llama al filter POR ENTRADA, leyendo su tamaño de la cabecera
+    // central — ANTES de inflarla. Lanzar aquí dentro corta la descompresión
+    // a mitad de ZIP, así que un ZipInvalidoError propio nunca llega a
+    // inflar la entrada que lo disparó (ni las siguientes).
+    if (err instanceof ZipInvalidoError) throw err;
     throw new ZipInvalidoError('El fichero no es un ZIP válido, o está dañado.');
   }
 
