@@ -173,6 +173,7 @@ import type {
   SustitucionConfirmadaPublica,
   ValoracionSocia,
 } from '@/lib/types';
+import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
 import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
@@ -3963,7 +3964,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const recibo = recibos.find(r => r.id === reciboId) ??
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
       const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
-      const fac = construirFacturaCobro(updatedRecibo, facturas);
+      // ⚠️ El efectivo no emite factura sola (`lib/factura-automatica.ts`).
+      // `metodo` es lo que acaba de elegir quien cobra; si no viene, se usa el
+      // que ya tuviera el recibo — es el mismo criterio con el que dos líneas
+      // más arriba se actualiza `metodoCobro` en el estado.
+      //
+      // La vía MANUAL («generar factura») no pasa por aquí y sigue intacta: si
+      // la clienta pide factura de un pago en efectivo, se le puede emitir.
+      const metodoReal = metodo ?? recibo.metodoCobro ?? null;
+      const fac = emiteFacturaAutomatica(metodoReal)
+        ? construirFacturaCobro(updatedRecibo, facturas)
+        : null;
       if (fac) {
         setFacturas(prev => [...prev, fac]);
         resSellado = await sellarFacturaYActualizar(fac);
