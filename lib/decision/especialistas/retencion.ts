@@ -103,7 +103,13 @@ function reglaR2(socio: Socio, idx: IndicesSenal, memoria: MemoriaEstudio, now: 
   });
   if (!confianza) return null;
 
-  const motivoMotor = `Lleva ${dias} días sin venir y su renovación vence en ${renovProx} días. Puedo enviarle una oferta del ${descuentoPct}% — la apruebas tú.`;
+  // 52ª pasada de auditoría, hallazgo H3: decía "la apruebas tú", pero
+  // ENVIAR_REACTIVACION es uno de los dos tipos con autonomía declarada en 2
+  // (confianza.ts) y su acción (ENVIAR_EMAIL) SÍ puede auto-ejecutarse si el
+  // piloto está activo — el texto prometía una aprobación que a veces no
+  // llega a pedirse. La propia pantalla ya distingue pendiente/ya-enviada
+  // por estado, así que el motivo no necesita afirmarlo.
+  const motivoMotor = `Lleva ${dias} días sin venir y su renovación vence en ${renovProx} días. Puedo enviarle una oferta del ${descuentoPct}%.`;
 
   return {
     especialista: 'RETENCION',

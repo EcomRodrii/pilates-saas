@@ -29,7 +29,7 @@ import {
   dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
   dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
-  dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy, dbListMensajesRecientes, dbUpsertMensajeDia,
+  dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy, dbAprobarAutonoma, dbListMensajesRecientes, dbUpsertMensajeDia,
   dbListFeatureFlagRows, dbCalcularSeguimientoPorTipo, dbCalcularImpactoRealPorTipo,
 } from '@/lib/decision/db';
 import { seleccionarAutonomas } from '@/lib/decision/autonomia';
@@ -177,24 +177,33 @@ export const analizarEstudio = inngest.createFunction(
     // autonomía ≥2 cuyo tipo esté en su allowlist se APRUEBAN y ejecutan solas,
     // hasta el tope diario. La ejecución reutiliza F3 (DECISION_APPROVED); quedan
     // marcadas con resuelto_por='AUTONOMIA' y con traza en el feed de actividad.
-    const autonomas = await step.run('seleccionar-autonomas', async () => {
+    const { ids: autonomas, maxDiario } = await step.run('seleccionar-autonomas', async () => {
       const config = await dbGetAutonomiaConfig(studioId);
-      if (!config.activa) return [] as { id: string }[];
+      if (!config.activa) return { ids: [] as { id: string }[], maxDiario: config.maxDiario };
       const yaHoy = await dbCountAutonomasHoy(studioId, now);
       // Se releen las PENDIENTE reales (estado + id ya persistidos), no el objeto en memoria.
       const pendientes = await dbListPendientes(studioId);
-      return seleccionarAutonomas(pendientes, config, yaHoy).map(r => ({ id: r.id }));
+      return { ids: seleccionarAutonomas(pendientes, config, yaHoy).map(r => ({ id: r.id })), maxDiario: config.maxDiario };
     });
 
     // Batch autonomías en un solo evento en lugar de N llamadas individuales.
     // Con 200 estudios × 2-3 autonomías/día, esto es 400-600 → 200 eventos.
+    //
+    // 52ª pasada de auditoría, H2: el cupo ya se estimó arriba con
+    // dbCountAutonomasHoy (para priorizar/ordenar cuántas intentar), pero la
+    // SEGURIDAD de no superar `maxDiario` no depende de ese conteo — cada
+    // aprobación recuenta en caliente dentro de `aprobar_recomendacion_autonoma`
+    // (advisory lock por estudio+día), así que una invocación solapada nunca
+    // puede colarse por encima del tope real, aunque su propia estimación de
+    // cupo estuviera desfasada.
     const autonomasAprobadas: string[] = [];
     for (const a of autonomas) {
       const aprobada = await step.run(`autonomia-aprobar-${a.id}`, () =>
-        dbTransicionarRecomendacion(a.id, studioId, 'PENDIENTE', 'APROBADA', { resueltoPor: 'AUTONOMIA', resueltoEn: new Date().toISOString() })
+        dbAprobarAutonoma(a.id, studioId, maxDiario)
       );
-      // Solo se emite el evento de ejecución si la transición realmente ocurrió
-      // (evita ejecutar dos veces ante un replay del handler).
+      // Solo se emite el evento de ejecución si la aprobación realmente ocurrió
+      // (evita ejecutar dos veces ante un replay del handler, o colarse por
+      // encima del tope si el conteo estimado ya estaba desfasado).
       if (aprobada.ok) {
         autonomasAprobadas.push(a.id);
       }
