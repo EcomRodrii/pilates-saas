@@ -733,3 +733,24 @@ export async function dbCountAutonomasHoy(studioId: string, now: Date): Promise<
   if (error) { reportError('[dbCountAutonomasHoy]', error); return 0; }
   return count ?? 0;
 }
+
+/**
+ * 52ª pasada de auditoría, hallazgo H2: aprueba UNA recomendación como
+ * AUTONOMIA a través de `aprobar_recomendacion_autonoma` (RPC con advisory
+ * lock por estudio+día) en vez de fiarse del cupo calculado en TS con
+ * `dbCountAutonomasHoy` — ese conteo sigue sirviendo para ORDENAR/priorizar
+ * cuántas intentar (seleccionarAutonomas), pero la SEGURIDAD de no superar
+ * `maxDiario` la da esta función, que recuenta en caliente dentro de la
+ * misma transacción que aprueba. Así, aunque dos invocaciones se solapen,
+ * ninguna puede colarse por encima del tope real.
+ */
+export async function dbAprobarAutonoma(
+  id: string, studioId: string, maxDiario: number,
+): Promise<{ ok: boolean; motivo?: 'TOPE' | 'YA_RESUELTA' }> {
+  const { data, error } = await db().rpc('aprobar_recomendacion_autonoma', {
+    p_id: id, p_studio_id: studioId, p_max_diario: maxDiario,
+  });
+  if (error) { reportError('[dbAprobarAutonoma]', error); return { ok: false }; }
+  if (data === 'APROBADA') return { ok: true };
+  return { ok: false, motivo: data as 'TOPE' | 'YA_RESUELTA' };
+}

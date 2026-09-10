@@ -21,10 +21,28 @@ export interface AutonomiaConfig {
   maxDiario: number;
 }
 
+// 52ª pasada de auditoría, hallazgo H1: COBRAR_RECIBOS solo quedaba fuera de
+// la allowlist porque el array de abajo no lo incluye — un `.push` o un
+// `[...TIPOS_AUTONOMIA_PERMITIDOS, 'COBRAR_RECIBOS']` en un cambio futuro no
+// habría dado ningún error, solo el comentario de arriba recordando no
+// hacerlo. `Exclude<TipoAccion, 'COBRAR_RECIBOS'>` convierte esa promesa en
+// un tipo: intentar meter 'COBRAR_RECIBOS' en el array de abajo es ahora un
+// error de compilación, no una regla que haya que acordarse de leer.
+type TipoAccionAutonomizable = Exclude<TipoAccion, 'COBRAR_RECIBOS'>;
+
 // Tipos de acción que PUEDEN ejecutarse de forma autónoma. Deliberadamente NO
-// incluye COBRAR_RECIBOS (cargo a tarjeta = acción financiera, siempre manual)
-// ni MARCAR_GESTIONADO (sin efecto externo).
-export const TIPOS_AUTONOMIA_PERMITIDOS: TipoAccion[] = ['ENVIAR_EMAIL', 'CONTACTO_MANUAL'];
+// incluye COBRAR_RECIBOS (cargo a tarjeta = acción financiera, siempre manual
+// — y el tipo de arriba lo impide aunque alguien lo intente) ni
+// MARCAR_GESTIONADO (sin efecto externo).
+export const TIPOS_AUTONOMIA_PERMITIDOS: TipoAccionAutonomizable[] = ['ENVIAR_EMAIL', 'CONTACTO_MANUAL'];
+
+// Único punto de LECTURA de la allowlist con un `tipo` completo (que sí
+// puede ser 'COBRAR_RECIBOS'). El cast es seguro aquí porque solo comprueba
+// pertenencia — no permite ESCRIBIR 'COBRAR_RECIBOS' en el array de arriba,
+// que sigue siendo un error de tipos si alguien lo intenta.
+function esTipoAutonomizable(tipo: TipoAccion): tipo is TipoAccionAutonomizable {
+  return (TIPOS_AUTONOMIA_PERMITIDOS as readonly TipoAccion[]).includes(tipo);
+}
 
 export const MAX_DIARIO_TOPE = 50;
 
@@ -40,7 +58,7 @@ export const AUTONOMIA_CONFIG_DEFAULT: AutonomiaConfig = {
 // dedup, acota el tope diario y coacciona `activa` a booleano estricto.
 export function sanitizarConfig(input: Partial<AutonomiaConfig> | null | undefined): AutonomiaConfig {
   const tiposIn = Array.isArray(input?.tiposPermitidos) ? input!.tiposPermitidos : AUTONOMIA_CONFIG_DEFAULT.tiposPermitidos;
-  const permitidos = tiposIn.filter((t): t is TipoAccion => TIPOS_AUTONOMIA_PERMITIDOS.includes(t as TipoAccion));
+  const permitidos = tiposIn.filter((t): t is TipoAccion => esTipoAutonomizable(t as TipoAccion));
   const maxIn = typeof input?.maxDiario === 'number' && Number.isFinite(input.maxDiario)
     ? Math.round(input.maxDiario) : AUTONOMIA_CONFIG_DEFAULT.maxDiario;
   return {
@@ -57,7 +75,7 @@ export function elegibleParaAutonomia(r: Recomendacion, config: AutonomiaConfig)
   if (r.confianza.nivel !== 'ALTA') return false;
   if (r.nivelAutonomia < 2) return false;
   // Doble guardia: el tipo debe estar en la allowlist global Y en la del estudio.
-  if (!TIPOS_AUTONOMIA_PERMITIDOS.includes(r.accion.tipo)) return false;
+  if (!esTipoAutonomizable(r.accion.tipo)) return false;
   if (!config.tiposPermitidos.includes(r.accion.tipo)) return false;
   return true;
 }
