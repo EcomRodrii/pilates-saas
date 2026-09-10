@@ -35,11 +35,16 @@ export default function HorarioPage() {
   const href = usePortalHref();
   const sp = useSearchParams();
   const [dia, setDia] = useState(hoyISO());
-  // `?filtro=Favoritas` — lo usa la baldosa «Mis favoritas» de Inicio, que si
-  // no llevaría a un horario sin filtrar y dejaría a la alumna buscando ella
-  // misma la píldora. Solo se acepta un valor conocido: cualquier otra cosa en
-  // la URL no debe poder cambiar lo que se ve.
-  const [filtro, setFiltro] = useState(sp.get('filtro') === 'Favoritas' ? 'Favoritas' : 'Todo');
+  // `?filtro=` — lo usan la baldosa «Mis favoritas» y la hoja de filtros de
+  // Inicio, que si no llevarían a un horario sin filtrar y dejarían a la alumna
+  // buscando ella misma la píldora.
+  //
+  // ⚠️ Aquí se acepta CUALQUIER valor a propósito, porque quien decide es
+  // `filtroReal` (abajo): solo vale si está en las píldoras que esta alumna
+  // tiene de verdad. Filtrar aquí por una lista fija habría que mantenerla al
+  // día con los tipos de clase de trece estudios, y la comprobación buena ya
+  // existe una línea más abajo.
+  const [filtro, setFiltro] = useState(sp.get('filtro') ?? 'Todo');
   // Búsqueda por texto, que el paquete no tenía. Llega desde el buscador de la
   // Home como `?q=`, y se puede editar aquí.
   const [q, setQ] = useState(sp.get('q') ?? '');

@@ -82,6 +82,13 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
               className="tap a-up"
               style={{
                 display: 'flex', flexDirection: 'column', gap: 7, height: '100%',
+                // ⚠️ `minWidth: 0` o la baldosa se sale de su celda. Medido:
+                // «Instructoras» no cabe en los 63 px de contenido de una
+                // columna de 83, y sin esto el <a> crecía a 92 y su texto se
+                // pintaba ENCIMA de la baldosa de al lado. La rejilla no lo
+                // impide: un flex/grid item no encoge por debajo de su
+                // contenido mínimo si no se le dice.
+                minWidth: 0,
                 padding: '11px 10px 10px', borderRadius: 16,
                 background: a.principal ? 'var(--accent)' : 'var(--card)',
                 color: a.principal ? 'var(--accent-foreground)' : 'var(--foreground)',
@@ -93,7 +100,9 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
               <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 {a.paths.map((d) => <path key={d} d={d} />)}
               </svg>
-              <span style={{ display: 'block', fontSize: 12, fontWeight: 800, letterSpacing: '-.01em', lineHeight: 1.15 }}>{a.titulo}</span>
+              {/* Y que pueda partirse con guion: el idioma va declarado en el
+                  <html lang="es">, así que «Instruc-toras» parte donde toca. */}
+              <span style={{ display: 'block', fontSize: 12, fontWeight: 800, letterSpacing: '-.01em', lineHeight: 1.15, hyphens: 'auto', overflowWrap: 'break-word' }}>{a.titulo}</span>
               {/* El pie se cae por debajo de 360 px de ancho: a cuatro columnas
                   no hay sitio para dos líneas de 10 px y un chevron, y lo que
                   se pierde es la palabra que de verdad nombra el destino. */}

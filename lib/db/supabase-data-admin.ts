@@ -3573,7 +3573,12 @@ export async function resolverSociaAutenticada(slug: string, authUserId: string,
 
   // 1) Ya vinculada: la socia de este estudio cuyo auth_user_id es este usuario.
   const { data: linked } = await admin
-    .from('socios').select('id, nombre, apellidos, email')
+    // `foto_url`: la cara de la alumna, para la cabecera de su app. Sale de
+    // aquí y no del payload gordo a propósito — esta respuesta ya está cacheada
+    // por sesión (`cacheSocia`), así que la cabecera la tiene en TODAS las
+    // pantallas sin pedir nada; leerla del catálogo habría disparado el payload
+    // completo en las que hoy no lo necesitan.
+    .from('socios').select('id, nombre, apellidos, email, foto_url')
     .eq('auth_user_id', authUserId).eq('studio_id', studio.id).maybeSingle();
   if (linked) {
     // ⚠️ El email de la ficha se REALINEA con el del JWT cuando difieren.
@@ -3592,15 +3597,15 @@ export async function resolverSociaAutenticada(slug: string, authUserId: string,
     // ningún webhook. Solo escribe cuando de verdad difieren.
     if (email && linked.email && linked.email.trim().toLowerCase() !== email.trim().toLowerCase()) {
       await admin.from('socios').update({ email: email.trim() }).eq('id', linked.id);
-      return { socioId: linked.id, nombre: `${linked.nombre} ${linked.apellidos}`.trim(), email: email.trim() };
+      return { socioId: linked.id, nombre: `${linked.nombre} ${linked.apellidos}`.trim(), email: email.trim(), fotoUrl: linked.foto_url ?? null };
     }
-    return { socioId: linked.id, nombre: `${linked.nombre} ${linked.apellidos}`.trim(), email: linked.email };
+    return { socioId: linked.id, nombre: `${linked.nombre} ${linked.apellidos}`.trim(), email: linked.email, fotoUrl: linked.foto_url ?? null };
   }
 
   // 2) Claim: una socia de este estudio con este email y aún sin vincular. El
   //    email del JWT es de confianza (Supabase lo verificó), así que enlazamos.
   const { data: claimable } = await admin
-    .from('socios').select('id, nombre, apellidos, email')
+    .from('socios').select('id, nombre, apellidos, email, foto_url')
     // Gemelo del `.ilike` de registrarSociaPublica: aquí el email viene del JWT
     // verificado, pero `%` y `_` son caracteres legales en la parte local de un
     // email, así que el patrón se escapa igual — la defensa no puede depender
@@ -3608,7 +3613,7 @@ export async function resolverSociaAutenticada(slug: string, authUserId: string,
     .ilike('email', escaparLike(email.trim())).eq('studio_id', studio.id).is('auth_user_id', null).maybeSingle();
   if (!claimable) return null;
   await admin.from('socios').update({ auth_user_id: authUserId }).eq('id', claimable.id);
-  return { socioId: claimable.id, nombre: `${claimable.nombre} ${claimable.apellidos}`.trim(), email: claimable.email };
+  return { socioId: claimable.id, nombre: `${claimable.nombre} ${claimable.apellidos}`.trim(), email: claimable.email, fotoUrl: claimable.foto_url ?? null };
 }
 
 // Devuelve el id de la socia vinculada a un usuario de Supabase Auth dentro de

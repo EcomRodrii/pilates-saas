@@ -11,6 +11,12 @@ export interface SociaSesion {
   socioId: string;
   nombre: string;
   email: string;
+  /**
+   * Su foto de perfil, para la cabecera de la app. Opcional porque este mismo
+   * tipo lo consume el bundle embebible, que no la pinta — y porque una socia
+   * puede no haber subido ninguna, y entonces se ven sus iniciales.
+   */
+  fotoUrl?: string | null;
 }
 
 // Sesión de socia para páginas públicas SIN el provider del portal (p. ej.
