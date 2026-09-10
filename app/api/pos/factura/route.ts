@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { data: fila } = await admin.from('facturas')
-    .select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion')
+    .select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto')
     .eq('recibo_id', venta.recibo_id).eq('studio_id', sesion.studioId)
     .maybeSingle();
 

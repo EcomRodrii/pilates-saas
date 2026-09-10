@@ -154,7 +154,9 @@ export async function sellarFacturaDeRecibo(
     seq = Number(existente.verifactu_seq);
   } else {
     const { data: recibo } = await admin
-      .from('recibos').select('importe, socio_id')
+      // `concepto` viaja a la factura y se queda ahí: es lo que verá la clienta
+      // en su PDF dentro de tres años, aunque el recibo se edite mañana.
+      .from('recibos').select('importe, socio_id, concepto')
       .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
     if (!recibo) {
       return { ok: false, error: 'Recibo no encontrado' };
@@ -217,6 +219,10 @@ export async function sellarFacturaDeRecibo(
         p_tipo_iva: tipoIVAStudio,
         p_cuota_iva: cuotaCalc,
         p_total: totalCalc,
+        // El concepto REAL del recibo («Bono 10 clases», «Cuota mensual»…), no
+        // un literal. Se copia aquí, en el sellado, y la factura ya no lo
+        // vuelve a mirar — ver lib/facturas/concepto.ts.
+        p_concepto: recibo.concepto ?? null,
       })
       .single<{ numero_completo: string; verifactu_seq: number; verifactu_prev_hash: string }>();
 

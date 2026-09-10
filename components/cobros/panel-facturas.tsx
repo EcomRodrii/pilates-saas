@@ -8,6 +8,7 @@ import { nifEmisorValido } from '@/lib/nif';
 import { cn } from '@/lib/utils';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
+import { conceptoDeFactura } from '@/lib/facturas/concepto';
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
 import { selloParaCliente } from '@/lib/factura-sello-cliente';
@@ -541,8 +542,10 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
                   <tbody>
                     <tr className="border-b border-border">
                       <td className="px-4 py-4">
-                        <p className="font-semibold text-foreground">Servicios de pilates</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Cuota mensual / bono</p>
+                        {/* El concepto REAL, guardado en la factura al sellarla.
+                            Antes eran dos literales fijos: una factura de un
+                            «Bono 10 clases» decía lo mismo que una cuota. */}
+                        <p className="font-semibold text-foreground">{conceptoDeFactura(previewFactura)}</p>
                       </td>
                       <td className="px-4 py-4 text-right font-semibold text-foreground">{kpi(previewFactura.baseImponible)} €</td>
                     </tr>
