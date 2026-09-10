@@ -52,6 +52,12 @@ export async function POST(req: NextRequest) {
     return conCorsWidget(req, NextResponse.json({ error: 'Datos de evento inválidos' }, { status: 400 }));
   }
 
+  // 51ª pasada de auditoría: la lista blanca de widget_dominios_autorizados
+  // (cors-widget.ts) NO se comprueba aquí a propósito — es CORS, decide qué
+  // cabecera devolver, no si se escribe. Un curl con cualquier studioId
+  // real escribe igual, sin pasar por la lista. Riesgo asumido: es
+  // analítica anónima de bajo impacto (ensucia widget_eventos como mucho,
+  // nunca dinero ni PII), acotada por enforceRateLimit de arriba.
   const admin = getSupabaseAdmin();
   // Sin service-role configurada (entorno local sin la variable) no hay
   // dónde escribir — no es un error para quien llama, solo no se registra.
