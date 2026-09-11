@@ -79,6 +79,40 @@ const SPECS_WEBKIT = [
   // plataforma y no nos enteramos. Además llega casi siempre desde el móvil
   // (un enlace de Instagram, un WhatsApp), o sea Safari de iPhone.
   '**/alta-estudio.spec.ts',
+
+  // ── MEDICIÓN, NO PROPUESTA CERRADA ──────────────────────────────────────
+  // Ocho specs de la app de la alumna, añadidos para que CI diga cuánto
+  // cuesta y si pasan en WebKit. Elegidos por dónde Safari SÍ se comporta
+  // distinto —no por cubrir la app entera, que serían +518 s (+11 % del
+  // trabajo de e2e) y la mayor parte en lógica de negocio, donde el motor no
+  // cambia nada—:
+  //
+  //   · la hoja de filtros: `position: fixed` + portal + arrastre
+  //   · el `.ics`: descarga, que es comportamiento de plataforma
+  //   · los objetivos táctiles y el aislamiento por slug
+  //   · el acceso
+  //   · los dos que miden PÍXELES sobre foto (degradados y velos se componen
+  //     distinto en cada motor)
+  //   · la clase en curso, que usa `page.clock`
+  //
+  // ⚠️ La app de la alumna cumple el criterio escrito arriba: la sufre alguien
+  // de FUERA. Una socia con la app rota no lo cuenta — se va. El panel sigue
+  // fuera por lo mismo de siempre: ahí hay quien avise.
+  //
+  // ⚠️ Y que no se venda de más: esto NO habría cazado los dos fallos que
+  // encontró el iPhone del fundador (#1867). Uno era un campo que no viajaba
+  // —independiente del motor— y el otro el zoom del teclado de iOS, que
+  // WebKit de Playwright no simula. Lo que cubre es la otra familia: la de
+  // #565 (`BarcodeDetector`) y #994 (el portapapeles diciendo «Copiado» con
+  // el portapapeles vacío).
+  '**/student-filtros-rapidos.spec.ts',
+  '**/student-anadir-al-calendario.spec.ts',
+  '**/student-cabos.spec.ts',
+  '**/student-acceso.spec.ts',
+  '**/student-aislamiento.spec.ts',
+  '**/student-heroe-sobre-la-foto.spec.ts',
+  '**/student-cabecera-sobre-foto.spec.ts',
+  '**/student-clase-en-curso.spec.ts',
 ];
 
 export default defineConfig({
