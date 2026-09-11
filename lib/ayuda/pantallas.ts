@@ -161,6 +161,13 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     destino: { categoria: 'configuracion', slug: 'datos-del-estudio' },
   },
 
+  '/actualizaciones': {
+    titulo: 'Actualizaciones',
+    resumen:
+      'Todo lo que ha cambiado en Tentare, versión a versión: lo que es nuevo, lo que hemos mejorado y lo que hemos corregido. Publicamos casi cada semana y aquí queda el registro completo, contado sin tecnicismos.',
+    ahorra: 'Enterarte de una función nueva meses después de tenerla.',
+    destino: { categoria: 'empezar', slug: 'primera-semana-de-clases' },
+  },
   '/notificaciones': {
     titulo: 'Notificaciones',
     resumen:

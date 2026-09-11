@@ -118,6 +118,7 @@ const allSections: NavSection[] = [
       // que viene de otra app piensa en migrar, piensa en traerse lo suyo.
       { href: '/migracion', label: 'Traer mis datos', icon: DownloadCloud },
       { href: '/configuracion', label: 'Configuración', icon: Settings },
+      { href: '/actualizaciones', label: 'Actualizaciones', icon: Megaphone, alias: ['novedades', 'changelog', 'versiones', 'que hay de nuevo'] },
       // Wallet y no CreditCard: CreditCard ya es /cobros (dinero de las socias)
       // y repetirlo aquí hacía indistinguibles dos conceptos opuestos — cobrar
       // tú vs pagar tu cuota de Tentare (auditoría 2026-08-20).
@@ -165,7 +166,7 @@ export const bottomNavItems: NavItemDef[] = [
 // Momence—. La contrapartida (una entrada de más para quien ya migró) tiene
 // salida: no está en NO_OCULTABLES, así que se puede quitar desde el editor de
 // menú. Al revés no la habría: no se puede encontrar lo que no se ve.
-export const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/citas', '/clientas', '/equipo', '/cobros', '/informes', '/configuracion', '/migracion'];
+export const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/citas', '/clientas', '/equipo', '/cobros', '/informes', '/configuracion', '/migracion', '/actualizaciones'];
 
 // Módulos que nunca se pueden ocultar (acceso crítico a facturación/config).
 export const NO_OCULTABLES = ['/dashboard', '/configuracion', '/suscripcion'];
