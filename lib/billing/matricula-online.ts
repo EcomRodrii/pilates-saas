@@ -44,3 +44,45 @@ export async function primeraVezConPlan(
   if (error) return false;
   return (count ?? 0) === 0;
 }
+
+/**
+ * Cuánto hay que COBRAR de matrícula por este plan: 0 si la promoción la
+ * cubre, su importe si no.
+ *
+ * ⚠️ No decide nada aquí: lo decide `reservar_matricula` en la base, bajo un
+ * `for update` de la fila del plan. Y no es un capricho — hay CUATRO sitios que
+ * cobran matrícula (los dos checkouts online y las dos vías de mostrador), así
+ * que repartir el cupo entre ellos sería repartir la misma carrera cuatro
+ * veces: dos socias comprando a la vez con un cupo libre se lo llevarían las
+ * dos. Mismo patrón que `canjear_recompensa`.
+ *
+ * ⚠️ Llamar SOLO cuando ya se sabe que es la primera vez de esa socia
+ * (`primeraVezConPlan`). Si no, una veterana —que no paga matrícula igualmente—
+ * gastaría una plaza al contratar su segundo plan.
+ *
+ * Ante un fallo de la RPC se devuelve la matrícula completa: cobrar de más es
+ * un problema que la propietaria puede devolver; regalar plazas que no existen,
+ * no.
+ */
+export async function reservarMatricula(
+  admin: SupabaseClient,
+  planId: string,
+  studioId: string,
+  matriculaCatalogo: number,
+): Promise<number> {
+  const { data, error } = await admin.rpc('reservar_matricula', {
+    p_plan_id: planId, p_studio_id: studioId,
+  });
+  if (error) return matriculaCatalogo;
+  return Number(data ?? matriculaCatalogo);
+}
+
+/** Devuelve la plaza si el cobro no llegó a crearse. Best-effort. */
+export async function liberarCupoMatricula(
+  admin: SupabaseClient,
+  planId: string,
+  studioId: string,
+): Promise<void> {
+  await admin.rpc('liberar_cupo_matricula', { p_plan_id: planId, p_studio_id: studioId })
+    .then(() => undefined, () => undefined);
+}

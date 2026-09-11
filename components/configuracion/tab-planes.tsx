@@ -31,7 +31,7 @@ function estadoOferta(plan: PlanTarifa): 'activa' | 'caducada' | null {
   return plan.ofertaHasta >= hoy ? 'activa' : 'caducada';
 }
 import {
-  planVacio, planAFormulario, formularioAPlan, motivoNoGuardable,
+  planVacio, planAFormulario, formularioAPlan, motivoNoGuardable, precioANumero,
   NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA,
   type FormularioPlan,
 } from '@/lib/planes/formulario';
@@ -106,6 +106,9 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<PlanForm>(emptyPlanForm());
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  // El plan que se está editando, para poder enseñar cuántas plazas de
+  // matrícula gratis se han gastado ya. En un plan nuevo no hay ninguna.
+  const planEditado = editId ? planesTarifa.find(p => p.id === editId) ?? null : null;
 
   const openNuevo = useCallback(() => {
     setForm(emptyPlanForm());
@@ -451,7 +454,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
               </Field>
               <Field
                 label="Matrícula (opcional)"
-                description="Cuota de alta, en euros. Se cobra UNA sola vez —en el primer plan que contrata la clienta— y como recibo aparte, así que las renovaciones no la vuelven a incluir. Hoy se aplica al dar de alta o asignar el plan desde el panel; una compra por internet desde el portal todavía no la cobra."
+                description="Cuota de alta, en euros. Se cobra UNA sola vez —en el primer plan que contrata la clienta— y como recibo aparte, así que las renovaciones no la vuelven a incluir. Se aplica igual desde el panel y en una compra por internet."
               >
                 <input
                   className={inputCls}
@@ -464,6 +467,52 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                 />
               </Field>
             </div>
+
+            {/* La promoción solo tiene sentido si hay matrícula que perdonar:
+                enseñarla sobre un plan sin matrícula sería ofrecer regalar algo
+                que no se cobra. */}
+            {precioANumero(form.matricula) > 0 && (
+              <div className="grid grid-cols-2 gap-3">
+                <Field
+                  label="Matrícula gratis hasta (opcional)"
+                  description="Último día en que se perdona la matrícula. A partir del día siguiente se cobra sola, sin que tengas que acordarte."
+                >
+                  <input
+                    className={inputCls}
+                    type="date"
+                    value={form.matriculaGratisHasta}
+                    onChange={e => setForm(f => ({ ...f, matriculaGratisHasta: e.target.value }))}
+                  />
+                </Field>
+                <Field
+                  label="¿A cuántas? (opcional)"
+                  description="Plazas con matrícula gratis. Vacío = a todas las que entren dentro de la fecha. Si dejas las dos casillas vacías, no hay promoción y se cobra siempre."
+                >
+                  <input
+                    className={inputCls}
+                    type="number"
+                    min={1}
+                    value={form.matriculaGratisCupos}
+                    onChange={e => setForm(f => ({ ...f, matriculaGratisCupos: e.target.value }))}
+                    placeholder="Sin tope"
+                  />
+                </Field>
+              </div>
+            )}
+
+            {/* Cuántas se han ido. Solo en edición —un plan nuevo no tiene
+                ninguna— y solo de lectura: el contador lo lleva la base, y
+                escribirlo desde aquí pisaría las plazas gastadas mientras el
+                formulario estaba abierto. Para devolver una, se suben los cupos. */}
+            {planEditado && (planEditado.matriculaGratisUsados ?? 0) > 0 && (
+              <p className="text-[12px] text-muted-foreground">
+                Ya se han dado <strong className="text-foreground">{planEditado.matriculaGratisUsados}</strong>
+                {(planEditado.matriculaGratisCupos ?? null) != null
+                  ? ` de ${planEditado.matriculaGratisCupos} plazas`
+                  : ' matrículas gratis'}
+                . Si una compra se quedó a medias y se comió una plaza, súbete el número.
+              </p>
+            )}
             <Field
               label="¿Para qué clases sirve? (opcional)"
               description="Sin marcar nada, el plan sirve para todas las clases. Marca solo las que cubra si, por ejemplo, tu bono de reformer no debe valer para mat."

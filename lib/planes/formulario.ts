@@ -90,6 +90,12 @@ export type FormularioPlan = {
   periodicidadMeses: string;
   /** Cuota de alta en euros, o '' = sin matrícula. */
   matricula: string;
+  /**
+   * Promoción sobre la matrícula: hasta cuándo, y para cuántas. Las dos vacías
+   * = sin promoción, que es como se comportan todos los planes de siempre.
+   */
+  matriculaGratisHasta: string;
+  matriculaGratisCupos: string;
 };
 
 /** Lo que se guarda: un plan sin los campos que pone el sistema. */
@@ -116,6 +122,8 @@ export function planVacio(): FormularioPlan {
     ofertaHasta: '',
     periodicidadMeses: '1',
     matricula: '',
+    matriculaGratisHasta: '',
+    matriculaGratisCupos: '',
   };
 }
 
@@ -151,6 +159,8 @@ export function planAFormulario(p: PlanTarifa): FormularioPlan {
     // borrar antes de escribir. Vacío vuelve a 0 en `formularioAPlan`, así que
     // la ida y vuelta no cambia nada.
     matricula: p.matricula ? String(p.matricula) : '',
+    matriculaGratisHasta: p.matriculaGratisHasta ?? '',
+    matriculaGratisCupos: p.matriculaGratisCupos ? String(p.matriculaGratisCupos) : '',
   };
 }
 
@@ -216,7 +226,20 @@ export function formularioAPlan(f: FormularioPlan): DatosPlan {
     // ninguna pantalla enseñaría y nadie usaría. Mismo criterio que `sesiones`.
     periodicidadMeses: f.tipo === 'MENSUAL' ? mesesDeCiclo({ periodicidadMeses: parseInt(f.periodicidadMeses, 10) }) : 1,
     matricula: importeNoNegativo(f.matricula),
+    // ⚠️ Solo se emiten si hay promoción, igual que `limitePorTipo`. Un plan de
+    // los de siempre tiene que salir de aquí IDÉNTICO a como entró —hay un test
+    // de ida y vuelta que lo exige— y un `matriculaGratisHasta: null` sería un
+    // campo nuevo donde antes no había nada.
+    ...promocionDeMatricula(f),
   };
+}
+
+/** Los dos campos de la promoción, o ninguno si no la hay. */
+function promocionDeMatricula(f: FormularioPlan): Partial<DatosPlan> {
+  const hasta = f.matriculaGratisHasta.trim() || null;
+  const cupos = enteroPositivo(f.matriculaGratisCupos);
+  if (!hasta && cupos == null) return {};
+  return { matriculaGratisHasta: hasta, matriculaGratisCupos: cupos };
 }
 
 /**

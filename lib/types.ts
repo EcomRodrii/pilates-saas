@@ -639,6 +639,21 @@ export interface PlanTarifa {
    * ciclo. Con su propio recibo eso es imposible.
    */
   matricula?: number | null;
+  /**
+   * Promoción sobre la MATRÍCULA: «gratis para las 4 primeras, hasta final de
+   * año». Las dos a `null` = sin promoción, que es como se han comportado
+   * siempre todos los planes.
+   *
+   * ⚠️ No se decide en pantalla. Quién se lleva una plaza lo resuelve
+   * `reservar_matricula` en la base, bajo un `for update` de la fila del plan:
+   * hay CUATRO sitios que cobran matrícula (los dos checkouts online y las dos
+   * vías de mostrador) y repartir el cupo entre ellos es repartir la misma
+   * carrera cuatro veces.
+   */
+  matriculaGratisHasta?: string | null;
+  matriculaGratisCupos?: number | null;
+  /** Plazas ya gastadas. SOLO LECTURA desde el panel: lo lleva la BD. */
+  matriculaGratisUsados?: number | null;
 }
 
 export interface Suscripcion {

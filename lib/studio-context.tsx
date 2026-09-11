@@ -19,6 +19,7 @@ import {
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
   dbSocioTieneAlgunPlan,
+  dbReservarMatricula,
   dbGuardarEntrega,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
   dbInsertPlazaFija, dbUpdatePlazaFija, dbListPlazasFijas,
@@ -2212,7 +2213,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // siguiente con `plan.precio` tal cual. Metida dentro, la matrícula se
         // cobraría cada mes. Aparte es imposible por construcción, y además
         // deja la caja legible («¿cuánto entró de matrículas este trimestre?»).
-        const matricula = plan.matricula ?? 0;
+        //
+        // El IMPORTE ya no sale del catálogo: lo decide `reservar_matricula` en
+        // la BD, que además gasta la plaza de la promoción («gratis para las 4
+        // primeras») bajo un `for update`. Una socia que se da de alta AQUÍ es
+        // primera vez por definición, así que no hace falta preguntarlo.
+        const matricula = (plan.matricula ?? 0) > 0
+          ? await dbReservarMatricula(plan.id, getCurrentStudioId(), plan.matricula ?? 0)
+          : 0;
         if (matricula > 0) {
           const reciboMatricula: Recibo = {
             id: `rec-${uid()}`,
@@ -2593,8 +2601,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // suscripción de hace tres años de una socia que vuelve puede no estar
     // cargada, y cobrarle otra vez el alta es una devolución. `null` (no se ha
     // podido saber) cuenta como «ya tenía»: ante la duda no se cobra.
-    const cobraMatricula = (plan?.matricula ?? 0) > 0
+    //
+    // Y si toca cobrarla, CUÁNTO lo decide la BD: la promoción de matrícula
+    // («gratis para las N primeras, hasta tal fecha») gasta su plaza ahí, para
+    // que el mostrador y los dos checkouts online no repartan el mismo cupo
+    // cada uno por su cuenta.
+    const primeraVez = (plan?.matricula ?? 0) > 0
       && (await dbSocioTieneAlgunPlan(socioId, getCurrentStudioId())) === false;
+    const importeMatricula = primeraVez && plan
+      ? await dbReservarMatricula(plan.id, getCurrentStudioId(), plan.matricula ?? 0)
+      : 0;
+    const cobraMatricula = importeMatricula > 0;
 
     // 1) El plan nuevo. Si esto falla no se ha tocado nada: se corta aquí.
     if (nueva) {
@@ -2648,7 +2665,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         socioId,
         suscripcionId: null,
         concepto: `Matrícula — ${plan.nombre}`,
-        importe: plan.matricula ?? 0,
+        // Lo que decidió la BD, no el precio de catálogo. Hoy coinciden cuando
+        // se cobra, pero leerlo del catálogo es cómo divergen las cosas: si
+        // mañana la promoción rebaja en vez de perdonar, el recibo mentiría.
+        importe: importeMatricula,
         estado: 'PENDIENTE',
         fechaVencimiento: nueva.fechaInicio,
         fechaCobro: null,

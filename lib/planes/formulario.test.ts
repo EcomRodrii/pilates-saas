@@ -310,3 +310,78 @@ test('los topes van y vuelven del plan al formulario', () => {
   // El techo TOTAL sigue existiendo aparte: los dos se cumplen.
   assert.equal(formularioAPlan(f).limiteSemanal, 3);
 });
+
+// ── Promoción de matrícula: «gratis para las 4 primeras, hasta fin de año» ────
+//
+// Los dos campos son independientes y CUALQUIERA de los dos por sí solo ya es
+// una promoción: fecha sin tope («todo diciembre, las que sean») y tope sin
+// fecha («las 4 primeras, cuando sea») son dos ofertas reales distintas.
+
+test('la promoción de matrícula admite solo fecha, solo cupo, o las dos', () => {
+  const soloFecha = formularioAPlan(form({ nombre: 'X', precio: '60', matricula: '30', matriculaGratisHasta: '2026-12-31' }));
+  assert.deepEqual(
+    { hasta: soloFecha.matriculaGratisHasta, cupos: soloFecha.matriculaGratisCupos },
+    { hasta: '2026-12-31', cupos: null },
+  );
+
+  const soloCupo = formularioAPlan(form({ nombre: 'X', precio: '60', matricula: '30', matriculaGratisCupos: '4' }));
+  assert.deepEqual(
+    { hasta: soloCupo.matriculaGratisHasta, cupos: soloCupo.matriculaGratisCupos },
+    { hasta: null, cupos: 4 },
+  );
+
+  const ambas = formularioAPlan(form({
+    nombre: 'X', precio: '60', matricula: '30',
+    matriculaGratisHasta: '2026-12-31', matriculaGratisCupos: '4',
+  }));
+  assert.deepEqual(
+    { hasta: ambas.matriculaGratisHasta, cupos: ambas.matriculaGratisCupos },
+    { hasta: '2026-12-31', cupos: 4 },
+  );
+});
+
+test('sin promoción, los dos campos NI APARECEN', () => {
+  // Mismo motivo que `limitePorTipo`: un `matriculaGratisHasta: null` sería un
+  // campo nuevo donde antes no había nada, y el test de ida y vuelta de un plan
+  // de los de siempre dejaría de pasar. Esta migración no cambia lo que cobra
+  // ningún plan existente, y esto es lo que lo sujeta.
+  const d = formularioAPlan(form({ nombre: 'X', precio: '60', matricula: '30' }));
+  assert.equal('matriculaGratisHasta' in d, false);
+  assert.equal('matriculaGratisCupos' in d, false);
+});
+
+test('«0 plazas gratis» es NO HAY promoción, no una promoción que nunca aplica', () => {
+  // Un 0 guardado haría que `reservar_matricula` viera `v_hay_promo` cierto y
+  // `v_usados < v_cupos` falso para siempre: una promoción permanentemente
+  // agotada. Lo mismo con un texto ilegible.
+  for (const v of ['0', '-3', 'cuatro', ' ']) {
+    const d = formularioAPlan(form({ nombre: 'X', precio: '60', matricula: '30', matriculaGratisCupos: v }));
+    assert.equal('matriculaGratisCupos' in d, false, `«${v}» ha creado una promoción`);
+  }
+});
+
+test('el formulario NUNCA escribe el contador de plazas gastadas', () => {
+  // `matriculaGratisUsados` lo lleva la base dentro de `reservar_matricula`.
+  // Guardar el plan con el editor abierto desde hace rato pisaría las plazas
+  // que se hayan gastado mientras tanto — por eso no está en el formulario ni
+  // en `COLUMNAS_PLAN`.
+  const d = formularioAPlan(form({
+    nombre: 'X', precio: '60', matricula: '30', matriculaGratisCupos: '4',
+  }));
+  assert.equal('matriculaGratisUsados' in d, false);
+});
+
+test('la promoción va y vuelve del plan al formulario', () => {
+  const plan = { id: 'p1', studioId: 's1', nombre: 'Pack 4 meses', descripcion: null,
+    precio: 240, tipo: 'MENSUAL' as const, sesiones: null, activo: true,
+    matricula: 30, matriculaGratisHasta: '2026-12-31', matriculaGratisCupos: 4,
+    // Llega de la BD y tiene que quedarse ahí: el formulario lo ignora.
+    matriculaGratisUsados: 2 };
+  const f = planAFormulario(plan);
+  assert.equal(f.matriculaGratisHasta, '2026-12-31');
+  assert.equal(f.matriculaGratisCupos, '4');
+  const d = formularioAPlan(f);
+  assert.equal(d.matriculaGratisHasta, '2026-12-31');
+  assert.equal(d.matriculaGratisCupos, 4);
+  assert.equal('matriculaGratisUsados' in d, false);
+});

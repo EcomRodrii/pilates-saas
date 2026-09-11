@@ -426,6 +426,12 @@ export interface RowPlanesTarifa {
   periodicidad_meses: number | null;
   // migr 20260907031555.
   matricula: number | null;
+  // migr 20260911013944.
+  matricula_gratis_hasta: string | null;
+  // migr 20260911013944.
+  matricula_gratis_cupos: number | null;
+  // migr 20260911013944.
+  matricula_gratis_usados: number | null;
 }
 
 export interface RowPostsComunidad {

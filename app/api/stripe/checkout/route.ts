@@ -12,7 +12,7 @@ import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
-import { primeraVezConPlan } from '@/lib/billing/matricula-online';
+import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula } from '@/lib/billing/matricula-online';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
@@ -134,6 +134,9 @@ export async function POST(req: NextRequest) {
   // P-1 (auditoría 26ª pasada): matrícula cobrada en este MISMO cargo, solo
   // en la rama de compra de plan (nunca en pago de un recibo ya existente).
   let matriculaCentimos = 0;
+  // Qué plaza de matrícula gratis se ha reservado, para poder devolverla si el
+  // cobro no llega a crearse. `null` = no se reservó ninguna.
+  let cupoMatriculaReservado: { planId: string; studioId: string } | null = null;
   // ⚠️ El `socioId` NUNCA se toma del body a pelo (auditoría 21/22-ago, C-1).
   // Antes era `body.socioId ?? null` sin comprobar nada: pagando con tarjeta
   // propia se podía escribir bono/recibo/suscripción a nombre de OTRA socia
@@ -255,9 +258,19 @@ export async function POST(req: NextRequest) {
     // (ese es del plan, no de esta venta aparte). La puerta se decide AQUÍ,
     // antes de cobrar: `entregarPlanComprado` ya no vuelve a preguntarlo,
     // solo registra lo que este importe diga que se cobró.
+    //
+    // Desde la promoción de matrícula (cupo + fecha), el IMPORTE ya no sale del
+    // catálogo: lo decide `reservar_matricula` en la base, que además gasta la
+    // plaza bajo un `for update`. Aquí solo se cobra lo que diga.
     if (Number(plan.matricula) > 0 && await primeraVezConPlan(admin, body.studioId, socioId, body.socioEmail ?? null)) {
-      matriculaCentimos = Math.round(Number(plan.matricula) * 100);
-      metadata.matriculaCentimos = String(matriculaCentimos);
+      const aCobrar = await reservarMatricula(admin, body.planId, body.studioId, Number(plan.matricula));
+      matriculaCentimos = Math.round(aCobrar * 100);
+      // Solo se anota si se cobra: un 0 en metadata haría que el webhook
+      // registrara un recibo de matrícula de cero euros.
+      if (matriculaCentimos > 0) metadata.matriculaCentimos = String(matriculaCentimos);
+      // La plaza se reserva ANTES de crear el cobro. Si el cobro no llega a
+      // existir, esa plaza no se ha usado y tiene que volver.
+      if (aCobrar === 0) cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
     }
 
     // "Pagar y reservar sin login previo" con Bizum (fallback de Modo B, ver
@@ -536,6 +549,10 @@ export async function POST(req: NextRequest) {
         await stripe.checkout.sessions
           .expire(session.id, undefined, { stripeAccount: studio.stripe_account_id })
           .catch(() => { /* si ni siquiera se puede expirar, el aviso de arriba es el rastro */ });
+        // La compra no sigue adelante: la plaza de matrícula gratis vuelve.
+        if (cupoMatriculaReservado) {
+          await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+        }
         return conCorsWidget(req, NextResponse.json(
           { error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' },
           { status: 500 },
@@ -545,6 +562,11 @@ export async function POST(req: NextRequest) {
 
     return conCorsWidget(req, NextResponse.json({ url: session.url }));
   } catch (err) {
+    // Si el cobro no llegó a nacer, la plaza que se reservó para decidir su
+    // precio no se ha usado. Devolverla antes de contestar el error.
+    if (cupoMatriculaReservado) {
+      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+    }
     return conCorsWidget(req, errorInterno('stripe/checkout:POST', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo más tarde.'));
   }
 }

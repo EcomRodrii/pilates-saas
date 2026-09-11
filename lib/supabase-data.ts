@@ -822,6 +822,9 @@ export function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
     // podría no traerlos. Los defaults son el comportamiento de siempre.
     periodicidadMeses: r.periodicidad_meses ?? 1,
     matricula: r.matricula ?? 0,
+    matriculaGratisHasta: r.matricula_gratis_hasta ?? null,
+    matriculaGratisCupos: r.matricula_gratis_cupos ?? null,
+    matriculaGratisUsados: r.matricula_gratis_usados ?? 0,
   } as PlanTarifa;
 }
 
@@ -1507,6 +1510,12 @@ const COLUMNAS_PLAN = {
   ofertaHasta: 'oferta_hasta',
   periodicidadMeses: 'periodicidad_meses',
   matricula: 'matricula',
+  // `matriculaGratisUsados` NO entra aquí a propósito: es un CONTADOR que lleva
+  // la base. Si el editor lo escribiera, guardar el plan con un formulario
+  // abierto hace rato pisaría las plazas gastadas mientras tanto. Para devolver
+  // una, la propietaria sube los cupos.
+  matriculaGratisHasta: 'matricula_gratis_hasta',
+  matriculaGratisCupos: 'matricula_gratis_cupos',
 } as const satisfies Partial<Record<keyof PlanTarifa, string>>;
 
 const CAMPOS_PLAN = Object.entries(COLUMNAS_PLAN) as [keyof typeof COLUMNAS_PLAN, string][];
@@ -2495,6 +2504,27 @@ async function conReintentoFK<T extends { error: { code: string; message: string
  * quedarse una matrícula corta se arregla en el mostrador en un minuto,
  * cobrarla dos veces es una devolución y una conversación incómoda.
  */
+/**
+ * Cuánto cobrar de matrícula: 0 si la promoción del plan la cubre, su importe
+ * si no. Gasta la plaza si la perdona — bajo `for update` en la BD, que es lo
+ * único que impide que dos altas simultáneas se lleven el mismo último cupo.
+ *
+ * ⚠️ Llamar SOLO cuando ya se sabe que es la primera vez de esa socia. Si no,
+ * una veterana —que no paga matrícula igualmente— gastaría una plaza.
+ *
+ * Ante un fallo se devuelve la matrícula completa: cobrar de más se devuelve,
+ * regalar plazas que no existen no.
+ */
+export async function dbReservarMatricula(
+  planId: string, studioId: string, matriculaCatalogo: number,
+): Promise<number> {
+  const { data, error } = await supabase.rpc('reservar_matricula', {
+    p_plan_id: planId, p_studio_id: studioId,
+  });
+  if (error) { reportDbError('[dbReservarMatricula]', error); return matriculaCatalogo; }
+  return Number(data ?? matriculaCatalogo);
+}
+
 export async function dbSocioTieneAlgunPlan(socioId: string, studioId: string): Promise<boolean | null> {
   const { count, error } = await supabase
     .from('suscripciones')
