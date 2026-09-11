@@ -6,6 +6,13 @@ import { useAsync } from '@/lib/student/useAsync';
 import { getTablon } from '@/lib/student/comunidad';
 import { relativo } from '@/lib/student/formato';
 
+// ⚠️ `a-fade` y no `a-up`. Este bloque trae SU PROPIA petición, así que monta
+// después de que el resto de la home ya se haya asentado — medido: el payload
+// llega a 599 ms y esto a 721. Un bloque que se DESLIZA hacia arriba 400 ms
+// después de que todo lo demás esté quieto es justo lo que se siente como «va a
+// saltos»: llama la atención sobre su propio retraso. Apareciendo sin moverse,
+// no.
+//
 // Bloque «Del estudio» de la Home: la última publicación del tablón y un
 // enlace al tablón entero. Secundario a propósito: si no hay nada o la
 // petición falla, no se pinta — la Home no enseña un error por esto.
@@ -16,7 +23,7 @@ export function DelEstudio({ studioId, href }: { studioId: string; href: string 
   if (estado !== 'ready' || !post) return null;
 
   return (
-    <Link href={href} className="card card--tap a-up" data-testid="del-estudio" style={{ display: 'block', padding: '13px 15px' }}>
+    <Link href={href} className="card card--tap a-fade" data-testid="del-estudio" style={{ display: 'block', padding: '13px 15px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
         <p className="t-label" style={{ margin: 0 }}>Del estudio</p>
         <span style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>Ver el tablón →</span>

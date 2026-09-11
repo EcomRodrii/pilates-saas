@@ -62,7 +62,7 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
   return (
     <nav className="px" style={{ marginTop: 14 }} aria-label="Accesos rápidos">
       <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, margin: 0, padding: 0, listStyle: 'none' }}>
-        {accesos.map((a, i) => (
+        {accesos.map((a) => (
           // `display: flex` en el <li>: sin él la baldosa no estira hasta el
           // alto de la fila y la primera —cuyo título parte en dos líneas—
           // quedaba 9 px más alta que las otras tres.
@@ -83,7 +83,12 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
                 background: 'var(--card)', color: 'var(--foreground)',
                 border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)',
                 textAlign: 'center',
-                animationDelay: `${i * 45}ms`,
+                // ⚠️ Sin escalonar. Las cuatro baldosas son UNA pieza, no
+                // cuatro cosas que llegan: con `i * 45` la fila tardaba 135 ms
+                // en terminar de aparecer y se leía como un goteo. Medido en el
+                // conjunto de la home, este era uno de los trece trozos que la
+                // mantenían moviéndose 1,28 s después de entrar.
+                animationDelay: '0ms',
               }}
             >
               {/* El disco del icono. En la guía es un gris muy claro, no la
