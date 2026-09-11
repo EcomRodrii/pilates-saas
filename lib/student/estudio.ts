@@ -68,7 +68,22 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     // que es justo el primer contacto de su primera clienta. La `semilla` es
     // el slug: así cada estudio recibe SIEMPRE la misma, y no una distinta en
     // cada carga.
-    fotoPortada: imagenDeEstudio('portada', s.fotoUrl, s.slug),
+    // ⚠️ `imagenBienvenidaUrl`, NO `fotoUrl`. Esto pintaba
+    // `studios.foto_url`, que es la foto de perfil de LA PROPIETARIA: la sube
+    // en Configuración → Mi perfil, se guarda en el bucket `avatars` como
+    // `admin-studio-…` y de ahí salía a la portada de la app de sus alumnas.
+    //
+    // Lo vio el fundador abriendo la app en su iPhone: el héroe era un primer
+    // plano de una cara. En producción le pasaba a los dos únicos estudios con
+    // `foto_url` puesta.
+    //
+    // Y el propio `lib/types.ts` ya lo avisaba, palabra por palabra:
+    // «Deliberadamente separada de `fotoUrl` (foto de perfil de la propietaria,
+    // solo panel): compartir un campo hacía que subir una selfie para el
+    // sidebar la enseñara de golpe a toda socia del estudio». La separación
+    // existía; lo que faltaba es que esta capa leyera el campo bueno — que ni
+    // siquiera viajaba, porque `studio-seo` no lo seleccionaba.
+    fotoPortada: imagenDeEstudio('portada', s.imagenBienvenidaUrl, s.slug),
     telefono: s.telefono ?? '',
     email: s.email ?? '',
     // El backend no clasifica el estudio por disciplina: `tipos_clase` es libre

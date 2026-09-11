@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { proyectarClases, type PayloadMin } from './mapeo.ts';
 
 const BASE: PayloadMin = {
-  studio: { fotoUrl: '/estudio.webp' },
+  studio: { imagenBienvenidaUrl: '/estudio.webp' },
   sesiones: [{
     id: 'ses-1', inicio: '2026-09-10T09:00:00.000Z', fin: '2026-09-10T10:00:00.000Z',
     aforoMaximo: 10, tipoClaseId: 'tc-1', salaId: 'sala-1', instructorId: 'ins-1',
@@ -46,7 +46,7 @@ test('⚠️ el logo NO hereda de la sala ni del estudio', () => {
   // prohíbe la foto por defecto en las miniaturas de los listados.
   const c = proyectar({
     salas: [{ id: 'sala-1', nombre: 'Sala 1', fotoUrl: '/sala.webp' }],
-    studio: { fotoUrl: '/estudio.webp' },
+    studio: { imagenBienvenidaUrl: '/estudio.webp' },
   });
   assert.equal(c.logoUrl, undefined, 'sin logo propio, la fila va sin icono');
 });
@@ -95,6 +95,18 @@ test('sin nada, ni `undefined` NI cadena vacía: la por defecto de su familia', 
   assert.equal(typeof foto, 'string');
   // De SU familia, deducida del nombre del tipo, no una genérica cualquiera.
   assert.match(foto, /reformer/);
+});
+
+// ⚠️ El fallo que enseñó el iPhone del fundador: `studios.foto_url` es la foto
+// de perfil de LA PROPIETARIA (bucket `avatars`), no la portada del estudio. Se
+// heredaba aquí, así que una clase sin foto propia, en una sala sin foto, salía
+// ilustrada con la cara de la dueña.
+test('la foto de la propietaria NUNCA ilustra una clase', () => {
+  const c = proyectar({
+    studio: { fotoUrl: 'https://x.supabase.co/storage/v1/object/public/avatars/admin-studio-1', imagenBienvenidaUrl: null },
+    tiposClase: [{ id: 'tc-1', nombre: 'Reformer', nivel: 'TODOS' }],
+  });
+  assert.doesNotMatch(c.fotoUrl, /avatars|admin-studio/, 'cae en la de por defecto, no en el avatar');
 });
 
 // ── Las dos a la vez ─────────────────────────────────────────────────────────
