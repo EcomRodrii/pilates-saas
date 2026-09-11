@@ -16,7 +16,7 @@ import type { TipoPlan } from '@/lib/types';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
-import { primeraVezConPlan } from '@/lib/billing/matricula-online';
+import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula } from '@/lib/billing/matricula-online';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
@@ -264,9 +264,17 @@ export async function POST(req: NextRequest) {
   // P-1 (auditoría 26ª pasada): la matrícula se cobra la PRIMERA vez que esta
   // socia contrata un plan aquí — nunca sobre el código de descuento (ese es
   // del plan, no de esta venta aparte). Decidido AQUÍ, antes de cobrar.
+  //
+  // Desde la promoción de matrícula (cupo + fecha), el IMPORTE lo decide
+  // `reservar_matricula` en la base, que además gasta la plaza bajo un
+  // `for update`. Aquí solo se cobra lo que diga — igual que el Modo A, que es
+  // justo el motivo de que la decisión viva en la BD y no en cada ruta.
   let matriculaCentimos = 0;
+  let cupoMatriculaReservado: { planId: string; studioId: string } | null = null;
   if (Number(plan.matricula) > 0 && await primeraVezConPlan(admin, body.studioId, socioId, body.socioEmail ?? null)) {
-    matriculaCentimos = Math.round(Number(plan.matricula) * 100);
+    const aCobrar = await reservarMatricula(admin, body.planId, body.studioId, Number(plan.matricula));
+    matriculaCentimos = Math.round(aCobrar * 100);
+    if (aCobrar === 0) cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
   }
 
   // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-11. El `importe > 0` de arriba se
@@ -278,6 +286,11 @@ export async function POST(req: NextRequest) {
   // improvisa en un endpoint de cobro: se dice claro que ese código no sirve
   // para esta compra.
   if (!(importe > 0)) {
+    // La compra no sigue: la plaza de matrícula gratis que se acaba de reservar
+    // no se ha usado y tiene que volver.
+    if (cupoMatriculaReservado) {
+      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+    }
     return conCorsWidget(req, NextResponse.json(
       { error: 'Ese código deja la compra en 0 €. Pide a tu estudio que te dé el bono directamente.' },
       { status: 409 },
@@ -520,6 +533,10 @@ export async function POST(req: NextRequest) {
       matricula: matriculaCentimos / 100,
     }));
   } catch (err) {
+    // Si el cobro no llegó a nacer, la plaza no se ha usado.
+    if (cupoMatriculaReservado) {
+      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+    }
     return conCorsWidget(req, errorInterno('public/checkout-embebido:POST', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo más tarde.'));
   }
 }
