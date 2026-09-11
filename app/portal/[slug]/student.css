@@ -190,6 +190,24 @@
 .student-app *, .student-app *::before, .student-app *::after { box-sizing: border-box; }
 .student-app a { color: inherit; text-decoration: none; }
 .student-app button, .student-app input, .student-app textarea { font-family: inherit; }
+
+/* ⚠️ 16 px MÍNIMO en los campos con pantalla táctil, y NO es una decisión
+   tipográfica: es un requisito de la plataforma.
+
+   Safari de iOS hace ZOOM automático al enfocar un `<input>` cuyo tamaño de
+   letra sea menor de 16 px. El kit los pinta a 14,5 (`.input`) y el buscador de
+   Inicio a 13,5, así que tocar cualquiera de los dos ampliaba la página entera
+   — y al cerrar el teclado no volvía sola: en la grabación del fundador en su
+   iPhone se ve la home encogida, con márgenes grises a los lados y la cuarta
+   baldosa cortada.
+
+   Se arregla con el tamaño, no con `maximum-scale=1` ni `user-scalable=no`:
+   eso quita el zoom a TODA la página, que es exactamente lo que necesita quien
+   ve poco. Acotado a `pointer: coarse` para no engordar los campos en
+   escritorio, donde el problema no existe. */
+@media (pointer: coarse) {
+  .student-app input, .student-app textarea, .student-app select { font-size: 16px; }
+}
 .student-app button { cursor: pointer; }
 .student-app input { outline: none; }
 /* ⚠️ Aquí había `border-radius: 6px` en la regla de foco, y era un fallo

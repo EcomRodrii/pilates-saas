@@ -213,7 +213,10 @@ export function horaLocal(iso: string): string {
  * hacer imposible probar esto con el runner de Node.
  */
 export interface PayloadMin {
-  studio?: { fotoUrl?: string | null } | null;
+  // ⚠️ `imagenBienvenidaUrl` es la portada del PORTAL. `fotoUrl` es la foto de
+  // perfil de la propietaria (bucket `avatars`) y NO se hereda a nada que vea
+  // una alumna — ver la nota de `proyectarClases`.
+  studio?: { fotoUrl?: string | null; imagenBienvenidaUrl?: string | null } | null;
   sesiones?: {
     id: string; inicio: string; fin: string; aforoMaximo: number;
     tipoClaseId: string; salaId: string; instructorId: string;
@@ -361,7 +364,13 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       // dos únicos sitios que leen esto son renders grandes, así que no entra
       // en el caso excluido (las miniaturas de los listados, donde la misma
       // foto ocho veces se lee como un error).
-      fotoUrl: imagenDeClase({ fotoUrl: tipo?.fotoUrl ?? sala?.fotoUrl ?? d.studio?.fotoUrl, nombre: tipo?.nombre }),
+      //
+      // ⚠️ El último escalón es `imagenBienvenidaUrl`, NO `fotoUrl`. Heredaba
+      // `studios.foto_url`, que es la foto de perfil de LA PROPIETARIA: una
+      // clase sin foto propia y en una sala sin foto salía ilustrada con la
+      // cara de la dueña. Mismo fallo que tenía la portada de Inicio, y el
+      // mismo campo.
+      fotoUrl: imagenDeClase({ fotoUrl: tipo?.fotoUrl ?? sala?.fotoUrl ?? d.studio?.imagenBienvenidaUrl, nombre: tipo?.nombre }),
       // El logo NO hereda: ver el comentario en `Clase.logoUrl`.
       logoUrl: tipo?.logoUrl ?? undefined,
       descripcion: tipo?.descripcion ?? undefined,

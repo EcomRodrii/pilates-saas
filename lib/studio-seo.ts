@@ -56,6 +56,17 @@ export interface StudioSeo {
   fraseHeroe: string | null;
   fraseManuscrita: string | null;
   subtituloHeroe: string | null;
+  /**
+   * La portada del PORTAL — la que ve la alumna al abrir la app y al entrar.
+   *
+   * ⚠️ NO es `fotoUrl`. `studios.foto_url` es la foto de perfil de LA
+   * PROPIETARIA (la sube en Configuración → Mi perfil y se guarda en el bucket
+   * `avatars`), y `lib/types.ts` ya avisaba de que las dos están «deliberadamente
+   * separadas… compartir un campo hacía que subir una selfie para el sidebar la
+   * enseñara de golpe a toda socia del estudio». Este campo no se seleccionaba
+   * aquí, así que la app de la alumna no podía verlo y caía en `fotoUrl`.
+   */
+  imagenBienvenidaUrl: string | null;
 }
 
 /**
@@ -102,7 +113,13 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       logoUrl: process.env.E2E_LOGO_URL ?? null,
       slug,
       telefono: '+34 600 000 000', email: 'hola@studio-test.es',
-      codigoPostal: '29001', descripcion: 'Estudio de prueba.', fotoUrl: null,
+      codigoPostal: '29001', descripcion: 'Estudio de prueba.',
+      // ⚠️ Con pinta de lo que ES en producción: la foto de perfil de la
+      // propietaria, en el bucket `avatars`. Iba a `null` y por eso el
+      // andamiaje no podía distinguir «la portada sale de aquí» de «la portada
+      // cae en la de por defecto» — que es justo el fallo que hubo que ver en
+      // un iPhone. Con esto, el guardia de `student-iphone` puede fallar.
+      fotoUrl: 'https://ejemplo.supabase.co/storage/v1/object/public/avatars/admin-studio-1',
       cancelacionVentanaHoras: 12, permiteListaEspera: true,
       creditosNombre: process.env.E2E_CREDITOS_NOMBRE ?? null,
       // ⚠️ Puestos POR DEFECTO, al revés que el logo. Se deciden en el SERVIDOR
@@ -119,6 +136,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // es además el que esperan media docena de suites que aguardan a
       // «¿Qué te apetece hoy?» para saber que Inicio ha cargado.
       subtituloHeroe: process.env.E2E_SUBTITULO_HEROE ?? null,
+      imagenBienvenidaUrl: process.env.E2E_PORTADA_URL ?? null,
       // Configurable para que el gate de página oculta se pueda ejercitar
       // alguna vez desde la suite: se decide en el SERVIDOR, así que
       // `page.route` no puede llegar a él y sin esto el camino de "oculta" no
@@ -149,7 +167,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       .from('studios')
       // ⚠️ Lista de columnas EXPLÍCITA: lo que no se nombre aquí llega
       // `undefined` al portal sin fallar y sin avisar.
-      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera, creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe')
+      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera, creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, imagen_bienvenida_url')
       .eq('slug', slug)
       .maybeSingle(),
     // `.then(ok, ko)` y no `.catch`: el builder de supabase-js es un
@@ -196,6 +214,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     fraseHeroe: (data.frase_heroe as string | null) ?? null,
     fraseManuscrita: (data.frase_manuscrita as string | null) ?? null,
     subtituloHeroe: (data.subtitulo_heroe as string | null) ?? null,
+    imagenBienvenidaUrl: (data.imagen_bienvenida_url as string | null) ?? null,
     // `=== true` y no un truthy: sin la columna todavía aplicada, «no sé» tiene
     // que significar «no oculta» y no esconder la página de todo el mundo.
     paginaOculta: visibilidad?.pagina_publica_oculta === true,

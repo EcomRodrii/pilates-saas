@@ -41,7 +41,7 @@ import type {
  */
 export interface PayloadPublico {
   studio: {
-    nombre: string; fotoUrl: string | null; slug: string;
+    nombre: string; fotoUrl: string | null; imagenBienvenidaUrl: string | null; slug: string;
     /** Cuenta conectada de Stripe. `null` = el estudio aún no puede cobrar. */
     stripeAccountId?: string | null;
     // Identidad fiscal y condiciones. Ya viajaban en el payload
