@@ -32,11 +32,14 @@ export function CheckoutEmbebido({
   onExito: () => void;
   /**
    * Fallback con redirect avisado — reutiliza /api/stripe/checkout tal cual.
-   * Opcional: el flujo "pagar y reservar sin login previo" no lo ofrece
-   * todavía (esa ruta de Stripe no sabe reservar una clase, solo comprar un
-   * plan — ofrecer Bizum ahí cobraría sin reservar, ver
-   * docs/reserva-sin-login-diseno.md §9, Ruta B/Bizum deferred). Sin
-   * `onBizum`, el botón no se pinta.
+   * Opcional: sin `onBizum`, el botón no se pinta. Lo pasan tanto el Modo B
+   * (`comprarConBizum`, `lib/widget/usar-datos-widget.ts`) como "pagar y
+   * reservar sin login previo" (`handleBizumSinLogin`,
+   * `app/reservar/[slug]/page.tsx`) — este último manda además `sesionId`/
+   * `spotId`, porque ahí Bizum no solo compra un plan, también reserva una
+   * clase concreta (docs/reserva-sin-login-diseno.md §9 quedó resuelto: ya
+   * no es "cobraría sin reservar", el webhook de `/api/stripe/checkout`
+   * también reserva la plaza tras el pago).
    */
   onBizum?: () => void;
   /**
