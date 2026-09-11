@@ -105,6 +105,15 @@ export interface DatosClaveCheckoutPlan {
   codigoDescuentoId: string | null;
   /** `payment_method_types` de la sesión: cambiarlos exige una sesión distinta. */
   metodos: string[];
+  // "Pagar y reservar sin login" con Bizum (fallback de /api/stripe/checkout,
+  // Modo A): mismo criterio que ya usa `claveCheckoutEmbebido` — con clase
+  // concreta se elimina el componente temporal, porque pagar ESTA clase con
+  // este plan no es algo que se repita legítimamente, y evita que la misma
+  // persona comprando el mismo plan para dos clases DISTINTAS choque con la
+  // misma clave. `null` conserva el comportamiento de siempre (ventana de un
+  // minuto): la inmensa mayoría de las llamadas a este endpoint siguen siendo
+  // compra suelta de bono, sin clase.
+  sesionId?: string | null;
 }
 
 export function claveCheckoutPlanModoA(
@@ -112,15 +121,20 @@ export function claveCheckoutPlanModoA(
   ahoraMs: number = Date.now(),
 ): string | null {
   if (!datos.socioId && !datos.socioEmail) return null;
-  return [
+  const partes = [
     'checkout-plan',
     datos.studioId,
     datos.planId,
     quienPaga(datos.socioId, datos.socioEmail),
     datos.codigoDescuentoId ? `d${datos.codigoDescuentoId}` : 'dnone',
     [...datos.metodos].sort().join('+'),
-    String(Math.floor(ahoraMs / 60000)),
-  ].join('-');
+  ];
+  if (datos.sesionId) {
+    partes.push(`s${datos.sesionId}`);
+  } else {
+    partes.push(String(Math.floor(ahoraMs / 60000)));
+  }
+  return partes.join('-');
 }
 
 export function claveCheckoutEmbebido(

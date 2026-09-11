@@ -195,3 +195,37 @@ test('compra suelta: la ventana de un minuto se conserva (Modo A)', () => {
   const otroMinuto = Date.parse('2026-08-20T10:01:10.000Z');
   assert.notEqual(claveCheckoutPlanModoA(PLAN_A, t0), claveCheckoutPlanModoA(PLAN_A, otroMinuto));
 });
+
+// ── Bizum en "pagar y reservar sin login" (fallback de /api/stripe/checkout
+// tras un intento embebido) — mismo criterio que ya cubre `sesionId` en
+// claveCheckoutEmbebido, ahora también en Modo A. ─────────────────────────
+
+test('⚠️ con sesionId, dos pestañas del mismo intento SIEMPRE comparten clave (Modo A)', () => {
+  // A diferencia de la compra suelta, aquí NO hay ventana de un minuto:
+  // pagar esta clase con este plan no se repite legítimamente.
+  const conSesion = { ...PLAN_A, sesionId: 'ses-lunes-10h' };
+  const t0 = Date.parse('2026-08-20T10:00:10.000Z');
+  const muchoDespues = Date.parse('2026-08-20T10:05:00.000Z');
+  assert.equal(
+    claveCheckoutPlanModoA(conSesion, t0),
+    claveCheckoutPlanModoA(conSesion, muchoDespues),
+    'con clase concreta, el paso del tiempo no crea un intento nuevo',
+  );
+});
+
+test('la misma socia comprando el mismo plan para DOS clases distintas (Modo A)', () => {
+  const ahora = Date.parse('2026-08-20T10:00:00.000Z');
+  const lunes = claveCheckoutPlanModoA({ ...PLAN_A, sesionId: 'ses-lunes-10h' }, ahora);
+  const martes = claveCheckoutPlanModoA({ ...PLAN_A, sesionId: 'ses-martes-19h' }, ahora);
+  assert.notEqual(lunes, martes, 'son dos compras legítimas distintas, no un duplicado');
+});
+
+test('sin sesionId, Modo A conserva la ventana de un minuto de siempre', () => {
+  const sinSesion = { ...PLAN_A, sesionId: null };
+  const t0 = Date.parse('2026-08-20T10:00:10.000Z');
+  const mismoMinuto = Date.parse('2026-08-20T10:00:50.000Z');
+  const otroMinuto = Date.parse('2026-08-20T10:01:10.000Z');
+  assert.equal(claveCheckoutPlanModoA(sinSesion, t0), claveCheckoutPlanModoA(sinSesion, mismoMinuto));
+  assert.notEqual(claveCheckoutPlanModoA(sinSesion, t0), claveCheckoutPlanModoA(sinSesion, otroMinuto));
+});
+
