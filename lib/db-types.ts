@@ -2718,3 +2718,11 @@ export interface RowVerifactuTransmisionLock {
   iniciado_en: string | null;
   actualizado_en: string;
 }
+
+export interface RowEmailRebotes {
+  email: string;
+  tipo: string;
+  motivo: string | null;
+  email_id: string | null;
+  detectado_en: string;
+}

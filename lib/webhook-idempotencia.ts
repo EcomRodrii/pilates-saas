@@ -38,7 +38,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // propio porque el `id` de un evento de WhatsApp (wamid de un mensaje/status)
 // vive en un espacio de nombres totalmente distinto al `event.id` de Stripe;
 // prefijar evita cualquier colisión teórica entre los dos.
-export type AmbitoWebhook = 'connect' | 'billing' | 'whatsapp';
+// 'resend': eventos de entrega de correo (app/api/webhooks/resend) — el id que
+// identifica el evento ahí es el `svix-id` de la propia entrega del webhook,
+// otro espacio de nombres más.
+export type AmbitoWebhook = 'connect' | 'billing' | 'whatsapp' | 'resend';
 
 export function claveWebhook(ambito: AmbitoWebhook, eventId: string): string {
   return `${ambito}:${eventId}`;

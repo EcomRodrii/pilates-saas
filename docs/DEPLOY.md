@@ -159,6 +159,18 @@ Todas son claves de **servidor** (sin `NEXT_PUBLIC_`), así que se leen en runti
   `SUPABASE_SERVICE_ROLE_KEY` (esta última, solo servidor).
 - **Emails (Resend)**: `RESEND_API_KEY` y `RESEND_FROM` (`Tentare <hola@tentare.es>`
   con dominio verificado; sin verificar, cae al sandbox `onboarding@resend.dev`).
+- **Rebotes de correo (Resend → Tentare)**: `RESEND_WEBHOOK_SECRET`.
+  ⚠️ Sin esta variable, `/api/webhooks/resend` responde **503 a todo** (fail-closed:
+  sin secreto no hay forma de saber si el aviso viene de Resend) y Tentare vuelve a
+  no enterarse de ningún rebote — que es el estado en el que estuvo hasta el
+  11-sep-2026. Se saca al dar de alta el webhook en Resend → **Webhooks** →
+  `https://<dominio>/api/webhooks/resend`, suscrito a `email.bounced`,
+  `email.complained`, `email.suppressed` y `email.delivered` (los cuatro: los tres
+  primeros marcan el buzón como roto y el último lo desmarca cuando vuelve a
+  funcionar). Por qué importa: `resend.emails.send()` devuelve 200 cuando ACEPTA la
+  petición, no cuando entrega — un correo aceptado puede rebotar dos segundos
+  después, o estar en la lista de supresión de la cuenta y no salir nunca, y las dos
+  cosas se veían en el panel como «enviado».
 - **Crons** (`vercel.json`): protegidos con `CRON_SECRET` (header
   `Authorization: Bearer <CRON_SECRET>`). Incluye el semanal de riesgo de
   concentración por instructor (`/api/cron/dependency-risk`).
