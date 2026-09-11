@@ -167,7 +167,17 @@ export default function InicioPage() {
             // con la página) y solo se sostiene el velo entre el 62% y el 88%,
             // donde está el texto. La composición no se toca: mismo alto, misma
             // posición, mismos tamaños.
-            background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.06) 58%, rgba(250,249,245,.35) 86%, var(--background))',
+            // ⚠️ SIN el desvanecido a crema del final. El degradado terminaba
+            // en `rgba(250,249,245,.35)` al 86% y en `--background` al 100%
+            // para «coser» el héroe con la página, y con la foto nueva eso se
+            // lee como un velo lavado sobre el último tercio: la foto pierde
+            // color justo donde todavía se ve, y parece un fallo de impresión
+            // más que una transición.
+            //
+            // Ya no hace falta: quien cose las dos zonas ahora es el BUSCADOR,
+            // que va montado a caballo sobre el borde. La foto llega entera
+            // hasta abajo y corta limpia.
+            background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.06) 58%, rgba(8,8,8,.03) 88%, rgba(8,8,8,0))',
           }}
         />
         {/* ⚠️ VELO PROPIO DEL TEXTO, medido en el render y no deducido.
