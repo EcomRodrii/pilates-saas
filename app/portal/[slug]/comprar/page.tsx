@@ -155,6 +155,10 @@ export default function ComprarPage() {
       </div>
 
       <HojaCompra
+        // `key`, no un efecto dentro de HojaCompra: cambiar de plan tiene que
+        // reiniciar su estado de cero (ver el comentario largo ahí sobre el
+        // bug real de precio arrastrado entre planes distintos).
+        key={comprando?.id}
         plan={comprando}
         cobertura={coberturaDeTipos(comprando?.tiposClaseIds, nombresTipo)}
         studioId={estudio.id}

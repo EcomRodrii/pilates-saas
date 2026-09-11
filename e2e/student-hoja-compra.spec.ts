@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { SLUG, STUDIO_ID, SOCIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-lista';
+import { STRIPE_STUB } from './stripe-stub';
 
 // La hoja de compra: la ÚLTIMA pantalla antes de pagar.
 //
@@ -76,5 +77,51 @@ test.describe('Student PWA · hoja de compra', () => {
     await page.getByRole('button', { name: /^Comprar$/ }).first().click({ timeout: 30_000 });
     await expect(page.getByText(/todavía no tiene los pagos activados/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: /Continuar al pago/ })).toHaveCount(0);
+  });
+
+  // ⚠️ Bug real visto en producción (2026-09-11): la hoja es UNA sola instancia
+  // que el padre reutiliza para cualquier plan (no hay `key={plan.id}`), así
+  // que cancelar la compra de un plan y abrir "Comprar" en OTRO dejaba el
+  // `clientSecret`/importe del plan ANTERIOR en el estado — el título ya decía
+  // el plan nuevo (viene de la prop), pero el Total y el botón de pagar seguían
+  // mostrando el precio del que se acababa de cancelar. Encontrado a mano
+  // (Bono 12 clases 95 € cancelado → Clase suelta 1 € abierta acto seguido →
+  // "Total 95 €"), reproducido aquí con Bono 8 sesiones (96 €) y Mensual (89 €).
+  test('cancelar un plan y comprar OTRO no arrastra el precio del anterior', async ({ page }) => {
+    await montar(page);
+    // Sin esto, CheckoutEmbebido cae al aviso de «pago no disponible» y nunca
+    // llega a pintar el Total que este test necesita comprobar.
+    await page.route('https://js.stripe.com/**', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/javascript', body: STRIPE_STUB }));
+    await page.route((u) => u.pathname === '/api/public/checkout-embebido', async (r) => {
+      const body = r.request().postDataJSON() as { planId?: string };
+      const importe = body.planId === 'plan-bono8' ? 96 : 89;
+      return r.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ clientSecret: `pi_${body.planId}_secret_x`, importe }),
+      });
+    });
+
+    await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
+    // El catálogo detrás de la hoja también enseña "96 €"/"89 €" en sus
+    // propias tarjetas — todas las comprobaciones de precio se acotan a la
+    // hoja abierta (el diálogo), nunca a la página entera.
+    const hoja = page.locator('[role="dialog"]').last();
+
+    // Abre "Bono 8 sesiones" (96 €), llega hasta el paso de pago, y cancela.
+    await page.getByRole('button', { name: /^Comprar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Continuar al pago' }).click();
+    await expect(hoja.getByText('Confirmar reserva')).toBeVisible({ timeout: 30_000 });
+    await expect(hoja.getByText('96 €').first()).toBeVisible();
+    await hoja.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByText('Confirmar reserva')).not.toBeVisible();
+
+    // Abre "Mensual ilimitado" (89 €) justo después: el Total tiene que ser
+    // el de ESTE plan, no el arrastrado del anterior.
+    await page.getByRole('button', { name: /^Contratar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Continuar al pago' }).click();
+    await expect(hoja.getByText('Confirmar reserva')).toBeVisible({ timeout: 30_000 });
+    await expect(hoja.getByText('96 €')).toHaveCount(0);
+    await expect(hoja.getByText('89 €').first()).toBeVisible();
   });
 });
