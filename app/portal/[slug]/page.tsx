@@ -28,9 +28,7 @@ import { CitaManuscrita } from '@/components/student/domain/CitaManuscrita';
 import { subtituloDelHeroe } from '@/lib/student/subtitulo-heroe';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
-import { DelEstudio } from '@/components/student/domain/DelEstudio';
 import { Descubre } from '@/components/student/domain/Descubre';
-import { MensajesCard } from '@/components/student/domain/MensajesCard';
 import { ValoracionCard } from '@/components/student/domain/ValoracionCard';
 import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
@@ -419,16 +417,17 @@ export default function InicioPage() {
 
             {/* Nivel y créditos: solo si el estudio usa gamificación. */}
             {gamificacion && <NivelCard g={gamificacion} href={href('/logros')} creditosNombre={estudio.creditosNombre} />}
-            {/* ── DEL ESTUDIO ──────────────────────────────────────────────
-                Lo último que ha publicado el estudio en su tablón. Una sola
-                petición (`limite=1`); si no hay nada o falla, no se pinta. */}
-            <DelEstudio studioId={estudio.id} href={href('/comunidad')} />
-
-            {/* ── MENSAJES ─────────────────────────────────────────────────
-                Al contrario que "Del estudio", esta SIEMPRE se pinta si la
-                petición fue bien (ver MensajesCard): es la única puerta de
-                entrada al chat con el estudio para una socia nueva. */}
-            <MensajesCard studioId={estudio.id} nombreEstudio={estudio.nombre} href={href('/mensajes')} />
+            {/* ⚠️ Aquí vivían «Del estudio» (el último post del tablón) y
+                «Mensajes». Fuera los dos, por decisión del fundador: la home
+                llegaba a trece bloques y esos dos costaban además una ida y
+                vuelta cada uno —medido: `/api/public/comunidad/posts` y
+                `/api/public/mensajeria/conversaciones`, los dos a 721 ms,
+                montando cuando el resto ya estaba quieto—.
+                Y ahora que existe «Descubre», «Del estudio» era el segundo
+                bloque de contenido del estudio en la misma pantalla.
+                ⚠️ `/mensajes` NO tenía otra puerta en toda la app: entra en
+                Perfil → «Escribir al estudio» en este mismo cambio. Comunidad
+                ya se alcanzaba desde ahí. */}
 
             {/* ── DESCUBRE ─────────────────────────────────────────────────
                 Las tarjetas con foto que publica el estudio. Va ANTES de
