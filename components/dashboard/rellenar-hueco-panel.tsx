@@ -180,6 +180,19 @@ export function RellenarHuecoPanel({
       ];
       if (data.sinContacto) partes.push(`${data.sinContacto} sin teléfono ni email`);
       if (data.sinConsentimiento) partes.push(`${data.sinConsentimiento} sin consentimiento de marketing`);
+      // Las dos razones de abajo las devolvía el servidor desde el principio y
+      // este panel no las pintaba. Son justo las que explican un «no ha pasado
+      // nada»: con las dos calladas, avisar a alguien ya avisado hace un rato
+      // se leía como un botón muerto.
+      // Con nombre: lo que hay que hacer es abrir SU ficha y corregir la
+      // dirección, así que decir «1 con el correo mal» obligaría a adivinar cuál.
+      const rotos: string[] = Array.isArray(data.correoRoto) ? data.correoRoto : [];
+      if (rotos.length) {
+        partes.push(`el correo de ${rotos.join(', ')} rebota — corrígelo en su ficha`);
+      }
+      if (data.saltadasPorDedup) {
+        partes.push(`${data.saltadasPorDedup} ya avisada${data.saltadasPorDedup === 1 ? '' : 's'} en las últimas 24 h`);
+      }
       if (data.errores) partes.push(`${data.errores} con error`);
       const texto = partes.join(' · ');
       // Cero enviados NO es un éxito, aunque el servidor conteste 200: se queda

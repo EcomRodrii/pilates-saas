@@ -10,6 +10,7 @@ import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { normalizarEmail } from '@/lib/emails/rebotes';
 import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
@@ -42,8 +43,17 @@ import { fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 // ⚠️ NO se salta de un canal al otro cuando el envío falla, a propósito: un
 // estudio con WhatsApp conectado pero sin la plantilla `hueco_disponible`
 // aprobada tiene un problema de configuración, y taparlo mandando correos por
-// detrás lo dejaría sin arreglar para siempre. Los fallos se cuentan, quedan
-// en `avisos_hueco` y se ven en el panel.
+// detrás lo dejaría sin arreglar para siempre. Los fallos se cuentan y quedan
+// en `avisos_hueco`. ⚠️ Ese registro NO lo lee ninguna pantalla todavía —
+// decía «y se ven en el panel», y era falso: no hay un solo consumidor de esa
+// tabla en el repo. Lo que la propietaria ve es el recuento que devuelve esta
+// ruta, ahí mismo, en el cajón de «Rellenar hueco».
+//
+// ⚠️ `resultado: 'ok'` significa «Resend/Meta ACEPTÓ el envío», no «llegó». Un
+// correo aceptado con 200 puede rebotar dos segundos después, o estar en la
+// lista de supresión de la cuenta y no salir nunca (las dos cosas, medidas el
+// 11-sep-2026). Eso solo se sabe por webhook: app/api/webhooks/resend lo anota
+// en `email_rebotes` y esta ruta lo consulta antes de volver a escribir.
 //
 // Server-only: manda WhatsApp real y necesita límite de gasto/spam — no hay
 // ningún rate-limit de mensajería en el repo hasta esta ruta, así que se
@@ -178,7 +188,12 @@ export async function POST(req: NextRequest) {
       .from('avisos_hueco').select('socio_id')
       .eq('sesion_id', sesionId).gte('enviado_en', desdeDedup);
     const avisadasSet = new Set((yaAvisadas ?? []).map(r => r.socio_id as string));
+    // Se cuentan las que SALEN de esta tanda, no todas las avisadas de la
+    // sesión: con lo segundo, seleccionar a una persona nueva podía contestar
+    // «3 ya avisadas» hablando de otras tres que no estaban seleccionadas.
+    const antesDeDedup = candidatas.length;
     candidatas = candidatas.filter(s => !avisadasSet.has(s.id));
+    const saltadasPorDedup = antesDeDedup - candidatas.length;
 
     // F2 (B2.9): "a esta jamás le avises de huecos" — la dueña lo manda por encima.
     const { data: exentasRows } = await admin
@@ -213,6 +228,25 @@ export async function POST(req: NextRequest) {
       sinConsentimiento = antes - candidatas.length;
     }
 
+    // Buzones que ya sabemos rotos (app/api/webhooks/resend → email_rebotes).
+    // Escribirles otra vez no es inofensivo: Resend acepta el envío con 200 y
+    // un id, lo descarta en silencio, y el panel contaba eso como «1 aviso
+    // enviado». Es exactamente lo que pasó el 11-sep-2026 con `meri@gmail.com`.
+    // Aquí se saca a esas socias de la lista y se dicen aparte, para que la
+    // propietaria sepa que lo que hay que arreglar es el correo de su ficha.
+    const correoRotoPorSocia = new Map<string, string>();
+    if (candidatas.length) {
+      const emails = [...new Set(candidatas.map(s => s.email).filter(Boolean).map(e => normalizarEmail(e!)))];
+      if (emails.length) {
+        const { data: rebotadas } = await admin.from('email_rebotes').select('email, tipo').in('email', emails);
+        const rotos = new Map((rebotadas ?? []).map(r => [r.email as string, r.tipo as string]));
+        for (const s of candidatas) {
+          const tipo = s.email ? rotos.get(normalizarEmail(s.email)) : undefined;
+          if (tipo) correoRotoPorSocia.set(s.id, tipo);
+        }
+      }
+    }
+
     const nombreClase = tipoRow?.nombre ?? 'pilates';
     const hora = horaEstudio(sesionObj.inicio);
     const fecha = fechaLargaEstudio(sesionObj.inicio);
@@ -228,6 +262,10 @@ export async function POST(req: NextRequest) {
     let porWhatsapp = 0;
     let porEmail = 0;
     let sinContacto = 0;
+    // Por NOMBRE y no solo un recuento: «1 con el correo mal» obliga a
+    // adivinar cuál de las seleccionadas es, y lo único que hay que hacer es
+    // abrir SU ficha y corregir la dirección.
+    const correoRoto: string[] = [];
     let errores = 0;
     // Una sola escritura de salud por tanda, no una por mensaje — mismo
     // criterio y mismo acumulador que el cron de recordatorios: lo que la
@@ -243,8 +281,15 @@ export async function POST(req: NextRequest) {
       // demo con dirección inventada no es un fallo del correo, así que ni se
       // intenta ni se cuenta como error.
       const porWa = !!whatsapp && !!socia.telefono;
-      const puedeEmail = !!emailProvider && !!socia.email && !esDominioReservado(socia.email);
-      if (!porWa && !puedeEmail) { sinContacto++; continue; }
+      // Un buzón que ya rebotó no vuelve a intentarse por correo. Si tiene
+      // teléfono y el estudio tiene WhatsApp, le sigue llegando por ahí: lo que
+      // está roto es la dirección, no la persona.
+      const rotoTipo = correoRotoPorSocia.get(socia.id);
+      const puedeEmail = !!emailProvider && !!socia.email && !esDominioReservado(socia.email) && !rotoTipo;
+      if (!porWa && !puedeEmail) {
+        if (rotoTipo) correoRoto.push(socia.nombre); else sinContacto++;
+        continue;
+      }
 
       let resultado: { ok: true; id?: string } | { ok: false; error: string };
       if (porWa) {
@@ -319,7 +364,15 @@ export async function POST(req: NextRequest) {
       // «sin contacto» es de verdad sin ninguna vía: ni teléfono utilizable ni
       // correo.
       sinContacto,
-      saltadasPorDedup: avisadasSet.size,
+      // Aparte de `sinContacto` a propósito: aquí SÍ hay un correo escrito en la
+      // ficha, lo que pasa es que no funciona. Son dos arreglos distintos —
+      // pedirle el contacto a la socia, o corregir una errata.
+      correoRoto,
+      // Compatibilidad de forma con el resto de contadores de esta respuesta,
+      // que son números: quien solo quiera contar no tiene que saber que el
+      // otro campo es una lista.
+      conCorreoRoto: correoRoto.length,
+      saltadasPorDedup,
     });
   } catch (err) {
     return errorInterno('marketing/hueco/avisar:POST', err, 'No se pudo avisar a las candidatas. Inténtalo de nuevo más tarde.');
