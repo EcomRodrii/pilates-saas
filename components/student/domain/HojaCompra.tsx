@@ -56,6 +56,20 @@ export function HojaCompra({ textosLegales,
   onComprado: () => void;
   onSesionCaducada: () => void;
 }) {
+  // ⚠️ El padre TIENE que montar esto con `key={plan?.id}` (ver
+  // app/portal/[slug]/comprar/page.tsx). Sin una key que cambie por plan,
+  // React reutiliza esta misma instancia al cambiar de `plan` — cancelar la
+  // compra de uno y abrir "Comprar" en OTRO dejaba el `clientSecret`/importe/
+  // paso del anterior: el título de la hoja ya decía el plan nuevo (viene
+  // directo de la prop), pero el total y el botón de pagar seguían mostrando
+  // el precio del que se acababa de cancelar. Visto en producción
+  // (2026-09-11): "Bono 12 clases" (95 €) cancelado, "Clase suelta" (1 €)
+  // abierto acto seguido → "Total 95 €". Un `useEffect` que reseteara
+  // `estado` al cambiar `plan?.id` habría arreglado el síntoma, pero es
+  // exactamente el `setState` síncrono dentro de un efecto que el linter de
+  // React Compiler rechaza (cascada de renders) — la `key` es la forma
+  // correcta de "reiniciar componente cuando cambia de identidad" que ya
+  // describen los propios docs de React.
   const [estado, setEstado] = useState<Estado>({ fase: 'listo' });
   // ¿Hay una confirmación de pago EN VUELO? Lo dice el propio checkout
   // (`onProcesando`), no una suposición desde fuera.
