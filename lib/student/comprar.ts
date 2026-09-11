@@ -133,6 +133,50 @@ export async function iniciarCompra(
 }
 
 /**
+ * Bizum: fuera del Payment Element embebido a propósito, igual que en el
+ * widget (`comprarConBizum`, `lib/widget/usar-datos-widget.ts`) — Bizum es un
+ * método con redirect y `iniciarCompra` crea su PaymentIntent con
+ * `allow_redirects: 'never'`. Reutiliza `/api/stripe/checkout` (el mismo
+ * endpoint que ya usa `handleContratarPlan` en `/reservar`) y REDIRIGE a la
+ * página hospedada de Stripe en vez de devolver un `clientSecret`.
+ *
+ * Nunca lanza, por el mismo motivo que `iniciarCompra`: un error se traduce a
+ * un mensaje, nunca a una promesa rota que deje el botón colgado.
+ */
+export async function comprarConBizum(
+  studioId: string,
+  planId: string,
+  socioId: string | null,
+  socioEmail: string | null,
+  codigoDescuento?: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const auth = await portalAuthHeader();
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({
+        studioId, planId, socioId, socioEmail, bizum: true,
+        codigoDescuento: codigoDescuento || undefined,
+      }),
+    });
+    if (res.status === 401) {
+      return { ok: false, error: 'Tu sesión ha caducado. Vuelve a entrar y no se te ha cobrado nada.' };
+    }
+    const cuerpo = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+    if (!res.ok || !cuerpo?.url) {
+      return { ok: false, error: cuerpo?.error ?? 'No hemos podido iniciar el pago. Inténtalo de nuevo.' };
+    }
+    // Escapa de cualquier contenedor hacia la ventana de nivel superior real
+    // — mismo criterio que `handleContratarPlan`/`comprarConBizum` del widget.
+    (window.top ?? window).location.href = cuerpo.url;
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'No hemos podido iniciar el pago. Comprueba tu conexión — no se te ha cobrado nada.' };
+  }
+}
+
+/**
  * La clave publicable de Stripe, validada.
  *
  * Se valida la FORMA (`pk_`) y no solo que exista: una variable mal puesta —una

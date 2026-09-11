@@ -5,7 +5,7 @@ import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
 import { MODO_TOKENS } from '@/lib/portal-paleta';
-import { comprobarCodigo, iniciarCompra, clavePublicableStripe } from '@/lib/student/comprar';
+import { comprobarCodigo, iniciarCompra, comprarConBizum, clavePublicableStripe } from '@/lib/student/comprar';
 import { euros } from '@/lib/student/formato';
 import { esSuscripcion } from '@/lib/student/tienda';
 import { nombrePeriodo } from '@/lib/bono-logic';
@@ -34,7 +34,7 @@ type Estado =
   | { fase: 'hecho' };
 
 export function HojaCompra({ textosLegales,
-  plan, cobertura, studioId, socioId, stripeAccountId, onCerrar, onComprado, onSesionCaducada,
+  plan, cobertura, studioId, socioId, socioEmail, stripeAccountId, onCerrar, onComprado, onSesionCaducada,
 }: {
   plan: PlanTarifa | null;
   /** Condiciones y privacidad del estudio, para poder leerlas ANTES de pagar. */
@@ -49,6 +49,8 @@ export function HojaCompra({ textosLegales,
   cobertura?: string | null;
   studioId: string;
   socioId: string | null;
+  /** Solo para el fallback de Bizum (`comprarConBizum`) — `iniciarCompra` no lo necesita. */
+  socioEmail: string | null;
   stripeAccountId: string | null;
   onCerrar: () => void;
   onComprado: () => void;
@@ -100,6 +102,15 @@ export function HojaCompra({ textosLegales,
     }
     setEstado({ fase: 'error', mensaje: r.error, sesionCaducada: r.sesionCaducada });
   }, [plan, studioId, socioId, codigo]);
+
+  // Fallback de Bizum (`onBizum` de <CheckoutEmbebido>): mismo criterio que
+  // `handleContratarPlan`/el widget — redirige fuera a la página hospedada de
+  // Stripe. Si falla, se enseña como el mismo estado de error que `arrancar`.
+  const manejarBizum = useCallback(async () => {
+    if (!plan) return;
+    const r = await comprarConBizum(studioId, plan.id, socioId, socioEmail, codigo.trim() || null);
+    if (!r.ok) setEstado({ fase: 'error', mensaje: r.error });
+  }, [plan, studioId, socioId, socioEmail, codigo]);
 
   if (!plan) return null;
 
@@ -321,6 +332,7 @@ export function HojaCompra({ textosLegales,
             importeTotal={estado.importe}
             onProcesando={setConfirmando}
             onExito={() => { setConfirmando(false); setEstado({ fase: 'hecho' }); }}
+            onBizum={manejarBizum}
             onCerrar={onCerrar}
             />
           </>

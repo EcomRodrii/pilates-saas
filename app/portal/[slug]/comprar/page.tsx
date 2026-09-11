@@ -159,6 +159,7 @@ export default function ComprarPage() {
         cobertura={coberturaDeTipos(comprando?.tiposClaseIds, nombresTipo)}
         studioId={estudio.id}
         socioId={socia?.socioId ?? null}
+        socioEmail={socia?.email ?? null}
         stripeAccountId={data?.stripeAccountId ?? null}
         textosLegales={data?.textosLegales ?? null}
         onCerrar={() => setComprando(null)}
