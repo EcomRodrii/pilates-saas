@@ -89,6 +89,7 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     // Los escribe el estudio en Configuración; vacío = la home no los pinta.
     lema: s.lema,
     fraseHeroe: s.fraseHeroe,
+    fraseManuscrita: s.fraseManuscrita,
     tema: {},
     colorPrimario: s.colorPrimario,
     paginaOculta: s.paginaOculta,

@@ -54,6 +54,7 @@ export interface StudioSeo {
    */
   lema: string | null;
   fraseHeroe: string | null;
+  fraseManuscrita: string | null;
 }
 
 /**
@@ -111,6 +112,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // estudio que no los ha escrito, se pasan VACÍOS (`E2E_LEMA=`).
       lema: process.env.E2E_LEMA ?? 'Cuerpo · Mente · Equilibrio',
       fraseHeroe: process.env.E2E_FRASE_HEROE ?? 'Más fuerte cada semana',
+      fraseManuscrita: process.env.E2E_FRASE_MANUSCRITA ?? 'Un cuerpo feliz hace una mente tranquila',
       // Configurable para que el gate de página oculta se pueda ejercitar
       // alguna vez desde la suite: se decide en el SERVIDOR, así que
       // `page.route` no puede llegar a él y sin esto el camino de "oculta" no
@@ -141,7 +143,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       .from('studios')
       // ⚠️ Lista de columnas EXPLÍCITA: lo que no se nombre aquí llega
       // `undefined` al portal sin fallar y sin avisar.
-      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera, creditos_nombre, lema, frase_heroe')
+      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera, creditos_nombre, lema, frase_heroe, frase_manuscrita')
       .eq('slug', slug)
       .maybeSingle(),
     // `.then(ok, ko)` y no `.catch`: el builder de supabase-js es un
@@ -186,6 +188,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     creditosNombre: (data.creditos_nombre as string | null) ?? null,
     lema: (data.lema as string | null) ?? null,
     fraseHeroe: (data.frase_heroe as string | null) ?? null,
+    fraseManuscrita: (data.frase_manuscrita as string | null) ?? null,
     // `=== true` y no un truthy: sin la columna todavía aplicada, «no sé» tiene
     // que significar «no oculta» y no esconder la página de todo el mundo.
     paginaOculta: visibilidad?.pagina_publica_oculta === true,

@@ -22,6 +22,8 @@ export interface StudioConfig {
   lema: string | null;
   /** Frase en vertical al costado del héroe de Inicio. `null` = no se pinta. */
   fraseHeroe: string | null;
+  /** Frase que se pinta con la manuscrita. `null` = no se pinta la tarjeta. */
+  fraseManuscrita: string | null;
   tema: Record<string, string>;
 }
 

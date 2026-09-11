@@ -161,6 +161,7 @@ export default defineConfig({
       // para cambiarlos en local hay que matarlo, no basta con reexportar.
       ...(process.env.E2E_LEMA !== undefined ? { E2E_LEMA: process.env.E2E_LEMA } : {}),
       ...(process.env.E2E_FRASE_HEROE !== undefined ? { E2E_FRASE_HEROE: process.env.E2E_FRASE_HEROE } : {}),
+      ...(process.env.E2E_FRASE_MANUSCRITA !== undefined ? { E2E_FRASE_MANUSCRITA: process.env.E2E_FRASE_MANUSCRITA } : {}),
     },
   },
 });

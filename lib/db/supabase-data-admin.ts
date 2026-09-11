@@ -294,6 +294,7 @@ function studioPublico(r: RowStudios) {
     // nombrarlas, el héroe de la alumna no las vería nunca y no fallaría nada.
     lema: r.lema ?? null,
     fraseHeroe: r.frase_heroe ?? null,
+    fraseManuscrita: r.frase_manuscrita ?? null,
     direccion: r.direccion,
     // ⚠️ `studioPublico` es LISTA BLANCA: lo que no se nombra aquí no llega al
     // portal, y no falla — llega vacío, en silencio. Es lo que dejó muerto el

@@ -4603,6 +4603,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   // (migr 20260910171150). El GRANT va en su propia migración.
   if ('lema' in changes) db.lema = changes.lema;
   if ('fraseHeroe' in changes) db.frase_heroe = changes.fraseHeroe;
+  if ('fraseManuscrita' in changes) db.frase_manuscrita = changes.fraseManuscrita;
   if ('creditosNombre' in changes) db.creditos_nombre = changes.creditosNombre;
   if ('creditosCaducanMeses' in changes) db.creditos_caducan_meses = changes.creditosCaducanMeses;
   if ('rachaClasesSemana' in changes) db.racha_clases_semana = changes.rachaClasesSemana;
@@ -4960,6 +4961,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     anioFundacion: r.anio_fundacion ?? null,
     lema: r.lema ?? null,
     fraseHeroe: r.frase_heroe ?? null,
+    fraseManuscrita: r.frase_manuscrita ?? null,
     codigoPostal: r.codigo_postal,
     sitioWeb: r.sitio_web ?? null,
     normasTexto: r.normas_texto ?? null,
