@@ -118,6 +118,10 @@ export function PantallaReserva({
     radioInput?: number;
     onExito: () => void;
     onVolverADatos: () => void;
+    // Bizum: fuera del Payment Element a propósito (redirect, no cabe en el
+    // checkout embebido). Sin esta prop, `<CheckoutEmbebido>` no pinta el
+    // botón — mismo criterio que ya usa el widget embebible (Modo B).
+    onBizum?: () => void;
   };
   /** "Bonos y mensualidades del estudio": solo cuando hay más de un plan
    *  PUNTUAL que cubre la clase — con uno solo, se auto-elige sin preguntar. */
@@ -684,6 +688,7 @@ export function PantallaReserva({
                   fuentePago={pago.fuentePago}
                   radioInput={pago.radioInput}
                   onExito={pago.onExito}
+                  onBizum={pago.onBizum}
                   onCerrar={pago.onVolverADatos}
                 />
               </div>

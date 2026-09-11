@@ -1866,6 +1866,61 @@ export default function ReservarPage() {
     }
   }
 
+  // "Pagar y reservar sin login previo" con Bizum: el checkout embebido
+  // (handleDatosContinuar, arriba) no admite Bizum en su Payment Element —
+  // es un método con redirect, y el PaymentIntent embebido se crea con
+  // `allow_redirects: 'never'` a propósito (ver el comentario en
+  // /api/public/checkout-embebido/route.ts). Mismo patrón que
+  // `comprarConBizum` (lib/widget/usar-datos-widget.ts, Modo B) y que
+  // `handleContratarPlan` de aquí mismo: reutiliza /api/stripe/checkout
+  // (Checkout Session hospedada, que SÍ sabe pintar tarjeta+Bizum) y
+  // redirige fuera. A diferencia de `handleContratarPlan`, este camino manda
+  // `sesionId`/`spotId` — "pagar y reservar sin login" es "paga esta clase
+  // concreta", no "compra cualquier bono", así que el webhook necesita saber
+  // qué reservar tras el pago (ver checkout/route.ts y webhook/route.ts).
+  async function handleBizumSinLogin() {
+    if (!bookingSesionId || !datosPlan || !studio?.id || datosCargando) return;
+    if (!loginForm.nombre.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono)) return;
+    if (!privacidadAceptada) return;
+    setDatosError('');
+    setDatosCargando(true);
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studioId: studio.id,
+          planId: datosPlan.id,
+          sesionId: bookingSesionId,
+          socioEmail: loginForm.email.trim(),
+          socioNombre: loginForm.nombre.trim(),
+          socioTelefono: loginForm.telefono.trim(),
+          origenLead: searchParams.get('ref') ?? null,
+          codigoDescuento: codigoDescuento.trim() || undefined,
+          spotId: selectedSpot || undefined,
+          genero: datosInfoAdicional.genero || undefined,
+          comoConociste: datosInfoAdicional.comoConociste || undefined,
+          codigoPostal: datosInfoAdicional.codigoPostal.trim() || undefined,
+          fechaNacimiento: fechaNacimientoISO(datosInfoAdicional.fechaNacimiento) ?? undefined,
+          bizum: true,
+        }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (data.url) {
+        trackEventoWidget(studio?.id, 'checkout_started', { origen: searchParams.get('ref'), socioId: null });
+        // Escapa del <iframe> del widget embebido, mismo criterio que
+        // handleContratarPlan.
+        (window.top ?? window).location.href = data.url;
+      } else {
+        setDatosError(data.error ?? 'No se ha podido iniciar el pago.');
+      }
+    } catch {
+      setDatosError('Error de conexión. Inténtalo de nuevo.');
+    } finally {
+      setDatosCargando(false);
+    }
+  }
+
   // Tras un pago confirmado en el propio Shadow Root/iframe (sin salir de la
   // página): la reserva y la ficha las crea el webhook de Stripe
   // (reservarPlazaTrasPagoPublico, server-side, idempotente por PaymentIntent)
@@ -4029,6 +4084,7 @@ export default function ReservarPage() {
                   radioInput: radiosDe(apariencia, { tarjeta: R.card, boton: R.pill, input: R.spot }).input,
                   onExito: handlePagoExitoso,
                   onVolverADatos: () => setLoginStep('datos'),
+                  onBizum: handleBizumSinLogin,
                 } : undefined}
               />
             )}

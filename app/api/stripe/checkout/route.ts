@@ -19,6 +19,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
+import { telefonoValido } from '@/lib/csv';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -89,6 +90,26 @@ export async function POST(req: NextRequest) {
     // nunca al cobro de un recibo ya generado — el importe de un recibo
     // viene fijado por reglas de facturación anteriores, no de marketing.
     codigoDescuento?: string;
+    // "Pagar y reservar sin login previo" con Bizum: el fallback de Bizum
+    // (docs/reserva-sin-login-diseno.md §4.1, mismo patrón que el fallback de
+    // Modo B en usar-datos-widget.ts) reutiliza ESTE endpoint tras un intento
+    // fallido/descartado del checkout embebido — que no admite Bizum en su
+    // Payment Element (§4 del diseño de checkout embebido). Con `sesionId`
+    // esto deja de ser "compra cualquier bono": es "paga esta clase concreta"
+    // y hay que reservarla al confirmar el pago, igual que ya hace
+    // /api/public/checkout-embebido.
+    sesionId?: string;
+    // "Elige tu plaza": el sitio concreto de la sala, si la tiene. Solo tiene
+    // sentido junto a sesionId — nunca decide el importe.
+    spotId?: string | null;
+    socioTelefono?: string | null;
+    // "Información adicional" del formulario de pago sin login — solo se
+    // escriben al crear ficha NUEVA (mismo criterio que checkout-embebido).
+    genero?: string | null;
+    comoConociste?: string | null;
+    codigoPostal?: string | null;
+    /** ISO `yyyy-mm-dd`. */
+    fechaNacimiento?: string | null;
   } | null;
 
   if (!body?.studioId) {
@@ -239,6 +260,34 @@ export async function POST(req: NextRequest) {
       metadata.matriculaCentimos = String(matriculaCentimos);
     }
 
+    // "Pagar y reservar sin login previo" con Bizum (fallback de Modo B, ver
+    // el tipo del body más arriba): si viene sesionId, comprobar que la clase
+    // sigue viva y que el plan la cubre ANTES de generar una sesión de pago —
+    // cobrar por una clase que ya no se puede reservar sería cobrar sin poder
+    // entregar nada. RÉPLICA EXACTA de la misma validación en
+    // /api/public/checkout-embebido/route.ts (el camino "de origen" de este
+    // flujo): las dos puertas de cobro tienen que estar de acuerdo en qué
+    // clase es reservable, porque el webhook de esta puerta (más abajo)
+    // también va a intentar reservarla.
+    if (body.sesionId) {
+      if (!socioId && !body.socioEmail) {
+        return conCorsWidget(req, NextResponse.json({ error: 'Falta el email' }, { status: 400 }));
+      }
+      const { data: sesion } = await admin
+        .from('sesiones').select('inicio, cancelada, tipo_clase_id')
+        .eq('id', body.sesionId).eq('studio_id', body.studioId).maybeSingle();
+      if (!sesion) return conCorsWidget(req, NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 }));
+      if (sesion.cancelada) return conCorsWidget(req, NextResponse.json({ error: 'Esta clase está cancelada' }, { status: 409 }));
+      if (new Date(sesion.inicio as string).getTime() <= Date.now()) {
+        return conCorsWidget(req, NextResponse.json({ error: 'Esta clase ya ha empezado' }, { status: 409 }));
+      }
+      const { data: tiposDelPlan } = await admin
+        .from('plan_tipos_clase').select('tipo_clase_id').eq('plan_id', body.planId);
+      if (tiposDelPlan && tiposDelPlan.length > 0 && !tiposDelPlan.some(t => t.tipo_clase_id === sesion.tipo_clase_id)) {
+        return conCorsWidget(req, NextResponse.json({ error: 'Este plan no cubre el tipo de esta clase' }, { status: 400 }));
+      }
+    }
+
     // 32ª pasada de auditoría: este camino (Modo A, redirección al Checkout
     // Session hospedado) quedó fuera del trabajo de consentimiento legal de
     // #1756/#1761 — solo tocaron el checkout embebido (Modo B). El webhook
@@ -264,6 +313,26 @@ export async function POST(req: NextRequest) {
   if (socioId) metadata.socioId = socioId;
   // Stripe exige valores de metadata como string no vacío.
   if (body.origenLead) metadata.origenLead = body.origenLead;
+  // "Pagar y reservar sin login" con Bizum: el webhook (checkout.session.
+  // completed → entregarPlanComprado, y el bloque de reserva justo después)
+  // necesita estos mismos campos que ya viaja checkout-embebido — sin ellos
+  // aquí, el fallback de Bizum entregaría el plan pero no reservaría la clase
+  // ni rellenaría la ficha nueva con lo que la visitante ya escribió.
+  if (body.sesionId) metadata.sesionId = body.sesionId;
+  // Solo tiene sentido junto a sesionId — sin sesión no hay reserva a la que
+  // asignarle un sitio.
+  if (body.sesionId && body.spotId) metadata.spotId = body.spotId;
+  // Teléfono: saneado pero NO bloqueante, mismo criterio que checkout-embebido
+  // — un formato raro no puede frenar un cobro legítimo, simplemente no viaja.
+  const telefonoCrudo = body.socioTelefono?.trim() ?? '';
+  const socioTelefono = telefonoCrudo && telefonoCrudo.length <= 32 && telefonoValido(telefonoCrudo)
+    ? telefonoCrudo
+    : null;
+  if (socioTelefono) metadata.socioTelefono = socioTelefono;
+  if (body.genero) metadata.genero = body.genero;
+  if (body.comoConociste) metadata.comoConociste = body.comoConociste;
+  if (body.codigoPostal) metadata.codigoPostal = body.codigoPostal;
+  if (body.fechaNacimiento) metadata.fechaNacimiento = body.fechaNacimiento;
 
   const { data: studio } = await admin
     .from('studios')
@@ -373,6 +442,7 @@ export async function POST(req: NextRequest) {
         socioEmail: body.socioEmail ?? null,
         codigoDescuentoId: metadata.codigoDescuentoId ?? null,
         metodos: paymentMethodTypes,
+        sesionId: body.sesionId ?? null,
       })
     : null;
 

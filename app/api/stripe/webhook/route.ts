@@ -548,6 +548,19 @@ async function procesarEvento(
           // si compró antes de registrarse.
           email: session.customer_details?.email ?? session.customer_email ?? null,
           nombre: session.customer_details?.name ?? null,
+          // "Pagar y reservar sin login" con Bizum (fallback de Modo B):
+          // antes esta rama nunca pasaba `telefono`/`datosAdicionales` porque
+          // ningún caller de este endpoint los necesitaba — con el fallback
+          // de Bizum, `/api/stripe/checkout` los guarda en metadata igual que
+          // checkout-embebido, y `entregarPlanComprado` ya sabe qué hacer con
+          // ellos (ver la rama gemela de payment_intent.succeeded más abajo).
+          telefono: session.metadata?.socioTelefono ?? null,
+          datosAdicionales: {
+            genero: session.metadata?.genero ?? null,
+            comoConociste: session.metadata?.comoConociste ?? null,
+            codigoPostal: session.metadata?.codigoPostal ?? null,
+            fechaNacimiento: session.metadata?.fechaNacimiento ?? null,
+          },
           // Lo cobrado DE VERDAD, no el precio de catálogo releído ahora: entre
           // abrir el checkout y llegar este webhook el estudio puede haber
           // cambiado el precio del plan.
@@ -617,6 +630,51 @@ async function procesarEvento(
         await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
         const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
         await enviarEmailReciboWebhook(admin, { studioId, reciboId: entrega.reciboId });
+
+        // "Pagar y reservar sin login previo" con Bizum (fallback de Modo B,
+        // docs/reserva-sin-login-diseno.md §4.2): mismo bloque que la rama
+        // gemela de `payment_intent.succeeded` (checkout embebido) más abajo
+        // en este fichero — ahí está el comentario largo de por qué es
+        // `error` y no `warning`, y por qué es best-effort. Este camino
+        // (Checkout Session hospedada) necesitaba el MISMO tratamiento
+        // porque es el ÚNICO sitio donde Bizum puede pagar "pagar y reservar
+        // sin login": el checkout embebido no admite Bizum en su Payment
+        // Element (es un método con redirect), así que este es el camino
+        // real por el que Bizum reserva una clase.
+        if (session.metadata?.sesionId && typeof session.payment_intent === 'string') {
+          const piIdReserva = session.payment_intent;
+          try {
+            const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
+            const r = await reservarPlazaTrasPagoPublico({
+              studioId, sesionId: session.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: piIdReserva,
+              spotId: session.metadata?.spotId ?? null,
+            });
+            if (!r.ok) {
+              Sentry.captureMessage('[stripe webhook] checkout (Bizum sin login): plan entregado pero NO se pudo reservar la clase', {
+                level: 'error',
+                extra: { studioId, sesionId: session.metadata.sesionId, socioId: entrega.socioId, sessionId: session.id, motivo: r.motivo, detalle: r.detalle },
+              });
+              const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+              await emitirReservaPagadaSinPlaza(admin, { studioId, sesionId: session.metadata.sesionId, socioId: entrega.socioId });
+            } else if (r.estado === 'LISTA_ESPERA') {
+              const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+              await emitirReservaPagadaSinPlaza(admin, {
+                studioId, sesionId: session.metadata.sesionId, socioId: entrega.socioId, situacion: 'en-espera',
+              });
+            }
+          } catch (e) {
+            Sentry.captureException(e, { extra: { contexto: 'reservarPlazaTrasPagoPublico', studioId, sesionId: session.metadata.sesionId, sessionId: session.id } });
+          }
+        } else if (session.metadata?.sesionId) {
+          // No debería pasar (una Checkout Session 'payment' completada trae
+          // siempre su payment_intent como string), pero si pasara sería
+          // exactamente el mismo problema que el `motivo: r.motivo` de arriba:
+          // dinero cobrado, clase sin reservar, y nadie enterándose.
+          Sentry.captureMessage('[stripe webhook] checkout (Bizum sin login): sin payment_intent para reservar la clase', {
+            level: 'error', extra: { studioId, sesionId: session.metadata.sesionId, sessionId: session.id },
+          });
+        }
+
         socioEntregado = entrega.socioId;
         fichaCreadaEnLaEntrega = entrega.fichaCreada;
       }
