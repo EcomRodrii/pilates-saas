@@ -28,6 +28,8 @@ import type { Rol } from './types';
 // panel, en app/network/mi-perfil — cuenta independiente por auth_user_id,
 // sin studio_id, alcanzable sin pasar por esta lista blanca en absoluto.
 const PERMITIDO_INSTRUCTOR = [
+  // Todo el equipo puede ver qué ha cambiado en el producto que usa.
+  '/actualizaciones',
   '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/mi-perfil', '/comunidad',
 ];
 

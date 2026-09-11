@@ -723,7 +723,7 @@ export const PREFIJOS_NO_INDEXABLES = [
   // Enlaces firmados de un solo uso
   '/aceptar-sustitucion', '/confirmar-reserva', '/disponibilidad', '/no-puedo', '/valorar',
   // Panel de gestión — TODOS los segmentos de app/(dashboard)
-  '/automatizaciones', '/calendario', '/centro-de-control', '/chat', '/cierre', '/citas',
+  '/actualizaciones', '/automatizaciones', '/calendario', '/centro-de-control', '/chat', '/cierre', '/citas',
   '/clientas', '/cobros', '/comunidad', '/configuracion', '/contenido', '/dashboard',
   '/equipo', '/explorar-funciones', '/facturas', '/informes', '/libreta', '/marketing',
   '/mensajeria', '/mi-perfil', '/migracion', '/notificaciones', '/ondemand', '/pagos',
