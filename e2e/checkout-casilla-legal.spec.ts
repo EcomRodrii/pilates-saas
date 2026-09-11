@@ -77,7 +77,9 @@ test.describe('Casilla de aceptación en el checkout', () => {
     // Premarcada no sería una aceptación, sería un trámite atravesado sin mirar.
     await expect(casilla).not.toBeChecked();
 
-    const pagar = page.getByRole('button', { name: /^Pagar/ });
+    // Nombre EXACTO, no /^Pagar/: el fallback de Bizum ("Pagar con Bizum")
+    // también empieza por "Pagar" y el regex resolvía a dos botones.
+    const pagar = page.getByRole('button', { name: 'Pagar 70 €' });
     await expect(pagar).toBeDisabled();
 
     await casilla.check();
@@ -107,7 +109,7 @@ test.describe('Casilla de aceptación en el checkout', () => {
     await montar(page, { conTextos: false });
     await abrirPago(page);
 
-    await expect(page.getByRole('button', { name: /^Pagar/ })).toBeEnabled({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Pagar 70 €' })).toBeEnabled({ timeout: 30_000 });
     await expect(page.getByRole('checkbox')).toHaveCount(0);
   });
 });
