@@ -193,6 +193,8 @@ export type EtiquetaCambio = 'NUEVA_FUNCIONALIDAD' | 'MEJORA' | 'RENDIMIENTO' | 
 
 export interface CambioChangelog {
   id: string; etiqueta: EtiquetaCambio; texto: string; orden: number;
+  /** Captura de lo que hace el cambio. `null` en casi todos: no hay nada que enseñar. */
+  imagen_url: string | null;
 }
 
 export interface VersionChangelog {
@@ -208,11 +210,29 @@ export const crearVersionChangelog = (cuerpo: { version: string; titulo: string;
 
 export const guardarVersionChangelog = (
   id: string,
-  cuerpo: { version?: string; titulo?: string; fechaPublicacion?: string; cambios?: Array<{ texto: string; etiqueta: EtiquetaCambio }> },
+  cuerpo: { version?: string; titulo?: string; fechaPublicacion?: string; cambios?: Array<{ texto: string; etiqueta: EtiquetaCambio; imagenUrl?: string | null }> },
 ) => pedir<{ ok: true }>(`/changelog/${id}`, { method: 'PATCH', body: JSON.stringify(cuerpo) });
 
 export const publicarVersionChangelog = (id: string) =>
   pedir<{ ok: true }>(`/changelog/${id}`, { method: 'PATCH', body: JSON.stringify({ publicar: true }) });
+
+/**
+ * Sube la captura de un cambio y devuelve su URL pública.
+ *
+ * Va por el servidor (`/api/interno/changelog/imagen`) y no por
+ * `supabase.storage`: el bucket `changelog-media` no tiene ninguna política de
+ * RLS a propósito, porque quien escribe es Tentare con `service_role`. Abrirle
+ * una política a `authenticated` sería abrírsela a cualquiera con cuenta en
+ * cualquier estudio.
+ */
+export async function subirImagenCambio(file: File): Promise<{ url: string }> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await fetch('/api/interno/changelog/imagen', { method: 'POST', body: fd });
+  const j = (await r.json().catch(() => null)) as { url?: string; error?: string } | null;
+  if (!r.ok || !j?.url) throw new Error(j?.error ?? 'No se ha podido subir la imagen.');
+  return { url: j.url };
+}
 
 export const borrarVersionChangelog = (id: string) =>
   pedir<{ ok: true }>(`/changelog/${id}`, { method: 'DELETE' });

@@ -95,7 +95,7 @@ export default function ActualizacionesPage() {
     // — mismo truco que el widget.
     const { data, error: err } = await supabase
       .from('changelog_versiones')
-      .select('id, version, titulo, fecha_publicacion, changelog_cambios(texto, etiqueta, orden)')
+      .select('id, version, titulo, fecha_publicacion, changelog_cambios(texto, etiqueta, orden, imagen_url)')
       .eq('estado', 'publicado')
       .order('fecha_publicacion', { ascending: false })
       .limit(limite + 1);
@@ -287,6 +287,33 @@ function Destacada({ version, onAbrir }: { version: VersionPublicada; onAbrir: (
 
 // ─── Timeline ────────────────────────────────────────────────────────────────
 
+/**
+ * La captura que representa a una versión en la lista: la primera que tenga
+ * alguno de sus cambios. `null` si ninguno trae imagen, que es lo normal.
+ */
+function portadaDe(v: VersionPublicada): string | null {
+  for (const c of v.cambios) {
+    const u = (c.imagen_url ?? '').trim();
+    if (u !== '') return u;
+  }
+  return null;
+}
+
+function Miniatura({ url }: { url: string | null }) {
+  const [rota, setRota] = useState(false);
+  if (!url || rota) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- se publica sin desplegar; misma razón que CapturaCambio
+    <img
+      src={url}
+      alt=""
+      loading="lazy"
+      onError={() => setRota(true)}
+      className="hidden md:block w-[152px] h-[92px] shrink-0 rounded-xl border border-border object-cover object-top transition-transform duration-200 group-hover:scale-[1.04]"
+    />
+  );
+}
+
 function FilaTimeline({
   version, reciente, onAbrir,
 }: { version: VersionPublicada; reciente: boolean; onAbrir: () => void }) {
@@ -352,10 +379,16 @@ function FilaTimeline({
               </p>
             </div>
 
-            <PreviewActualizacion
-              categoria={cat}
-              className="hidden md:block w-[152px] h-[92px] shrink-0 transition-transform duration-200 group-hover:scale-[1.04]"
-            />
+            {/* ⚠️ La miniatura es la CAPTURA de esta versión, y si no tiene, no hay
+                miniatura. Antes se pintaba aquí la escena de su categoría, y el
+                resultado era que cuatro filas seguidas de «nuevas funciones»
+                enseñaban el MISMO dibujo: una lista donde todo se ve igual no
+                distingue nada y se lee como un fallo de carga. Es la regla que
+                `public/por-defecto/README.md` ya dejó escrita para las fotos de
+                estudio («la misma foto ocho veces en una pantalla se lee como un
+                error»), aplicada aquí. La escena de categoría sigue viva donde sí
+                aporta: el bloque destacado y el detalle sin capturas. */}
+            <Miniatura url={portadaDe(version)} />
 
             <ChevronRight
               size={16}
@@ -371,9 +404,44 @@ function FilaTimeline({
 
 // ─── Detalle ─────────────────────────────────────────────────────────────────
 
+/**
+ * La captura de un cambio concreto, si la tiene.
+ *
+ * `alt=""` a propósito: el texto del cambio va JUSTO al lado y dice lo mismo.
+ * Repetirlo en el `alt` le hace oír dos veces la misma frase a quien usa lector
+ * de pantalla, que es peor que no describir una imagen ya descrita.
+ *
+ * `<img>` crudo y no `next/image`: la URL vive en Supabase Storage y se publica
+ * desde /interno SIN desplegar, que es el sentido entero del changelog. Con el
+ * optimizador habría que tocar `remotePatterns` y volver a desplegar, o la
+ * imagen no cargaría.
+ *
+ * ⚠️ Si el fichero desaparece del bucket, se ESCONDE en vez de dejar el icono
+ * de imagen rota: una versión antigua con una foto que ya no está no debe
+ * estropear la lectura de un changelog que sigue siendo correcto.
+ */
+function CapturaCambio({ url }: { url?: string | null }) {
+  const [rota, setRota] = useState(false);
+  if (!url || rota) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- se publica sin desplegar; ver arriba
+    <img
+      src={url}
+      alt=""
+      loading="lazy"
+      onError={() => setRota(true)}
+      // Alto acotado y ancho libre: una captura de panel (1380×812) ocupa el
+      // ancho entero, y una de móvil (393×852) se queda en su tamaño de teléfono
+      // en vez de estirarse hasta comerse la pantalla del drawer entera.
+      className="mt-2.5 max-h-[380px] w-auto max-w-full rounded-lg border border-border bg-muted"
+    />
+  );
+}
+
 function DetalleVersion({ version, onCerrar }: { version: VersionPublicada | null; onCerrar: () => void }) {
   if (!version) return null;
   const cat = categoriaDeVersion(version.cambios);
+  const tieneCapturas = version.cambios.some((c) => (c.imagen_url ?? '') !== '');
   const porTipo: { id: Exclude<FiltroActualizaciones, 'todas'>; titulo: string }[] = [
     { id: 'nuevas', titulo: 'Nuevo' },
     { id: 'mejoras', titulo: 'Mejoras' },
@@ -403,7 +471,10 @@ function DetalleVersion({ version, onCerrar }: { version: VersionPublicada | nul
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          <PreviewActualizacion categoria={cat} className="w-full h-[150px]" />
+          {/* La escena de categoría solo si NO hay capturas de verdad. Con ambas,
+              lo primero que se ve es el dibujo genérico y lo real queda debajo —
+              justo al revés de lo que interesa. */}
+          {!tieneCapturas && <PreviewActualizacion categoria={cat} className="w-full h-[150px]" />}
           {porTipo.map(({ id, titulo }) => {
             const items = version.cambios.filter((c) => CHIP[categoriaDeCambio(c)].label === CHIP[id].label);
             if (items.length === 0) return null;
@@ -414,7 +485,10 @@ function DetalleVersion({ version, onCerrar }: { version: VersionPublicada | nul
                   {items.map((c, i) => (
                     <li key={i} className="flex gap-2.5 text-[13.5px] text-foreground">
                       <span aria-hidden className={cn('mt-[7px] h-1.5 w-1.5 rounded-full shrink-0', id === 'nuevas' ? 'bg-success' : id === 'mejoras' ? 'bg-info' : 'bg-brand-medio')} />
-                      <span className="text-pretty leading-relaxed">{c.texto}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-pretty leading-relaxed">{c.texto}</span>
+                        <CapturaCambio url={c.imagen_url} />
+                      </span>
                     </li>
                   ))}
                 </ul>

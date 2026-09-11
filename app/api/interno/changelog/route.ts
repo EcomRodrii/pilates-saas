@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await db
     .from('changelog_versiones')
-    .select('id, version, titulo, fecha_publicacion, estado, publicado_en, changelog_cambios(id, etiqueta, texto, orden)')
+    .select('id, version, titulo, fecha_publicacion, estado, publicado_en, changelog_cambios(id, etiqueta, texto, orden, imagen_url)')
     .order('fecha_publicacion', { ascending: false });
   if (error) return NextResponse.json({ error: 'No se ha podido cargar el changelog.' }, { status: 500 });
 
