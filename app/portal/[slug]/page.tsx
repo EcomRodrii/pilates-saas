@@ -25,6 +25,7 @@ import { AccesosRapidos } from '@/components/student/domain/AccesosRapidos';
 import { ProximaClaseVacia } from '@/components/student/domain/ProximaClaseVacia';
 import { FiltrosRapidos } from '@/components/student/domain/FiltrosRapidos';
 import { CitaManuscrita } from '@/components/student/domain/CitaManuscrita';
+import { subtituloDelHeroe } from '@/lib/student/subtitulo-heroe';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
 import { DelEstudio } from '@/components/student/domain/DelEstudio';
@@ -241,8 +242,12 @@ export default function InicioPage() {
           <h1 className="a-up" style={{ margin: '8px 0 0', fontSize: 30, fontWeight: 800, letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms' }}>
             {saludo(socia?.nombre ?? '')} 👋
           </h1>
+          {/* Lo escribe el estudio; sin escribir nada, el del producto. ⚠️ Aquí
+              el vacío NO es «no se pinta» —como en el lema o la manuscrita—,
+              porque esta línea ya existía antes de ser configurable. Ver
+              `lib/student/subtitulo-heroe.ts`. */}
           <p className="a-up" style={{ margin: '6px 0 0', fontSize: 'var(--t-body)', fontWeight: 600, color: 'rgba(250,249,245,.9)', animationDelay: '120ms' }}>
-            ¿Qué te apetece hoy?
+            {subtituloDelHeroe(estudio.subtituloHeroe)}
           </p>
           {/* El héroe tenía foto, saludo y titular, y ninguna forma de salir de
               él: para reservar había que bajar al buscador o a la barra. Aquí va

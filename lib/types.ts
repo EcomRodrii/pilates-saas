@@ -56,6 +56,14 @@ export interface Studio {
   /** Frase en vertical al costado del héroe de la home. `null` = no se pinta. */
   fraseHeroe: string | null;
   /**
+   * La línea BAJO EL SALUDO en la home de la alumna (migr 20260911000542). No
+   * es `fraseHeroe`, que va en vertical al costado: son dos sitios del mismo
+   * héroe.
+   * ⚠️ `null` NO es «no se pinta»: es «se pinta la del producto»
+   * (`subtituloDelHeroe`). Este hueco ya tenía texto antes de ser configurable.
+   */
+  subtituloHeroe: string | null;
+  /**
    * Frase corta que la app de la alumna pinta con la tipografía manuscrita
    * (migr 20260910224251). `null` = esa tarjeta no se pinta.
    */

@@ -24,6 +24,8 @@ export interface StudioConfig {
   fraseHeroe: string | null;
   /** Frase que se pinta con la manuscrita. `null` = no se pinta la tarjeta. */
   fraseManuscrita: string | null;
+  /** Línea bajo el saludo. `null` = la del producto, no un hueco. */
+  subtituloHeroe: string | null;
   tema: Record<string, string>;
 }
 
