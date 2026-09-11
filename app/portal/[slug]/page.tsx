@@ -25,11 +25,10 @@ import { AccesosRapidos } from '@/components/student/domain/AccesosRapidos';
 import { ProximaClaseVacia } from '@/components/student/domain/ProximaClaseVacia';
 import { FiltrosRapidos } from '@/components/student/domain/FiltrosRapidos';
 import { CitaManuscrita } from '@/components/student/domain/CitaManuscrita';
+import { subtituloDelHeroe } from '@/lib/student/subtitulo-heroe';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
-import { DelEstudio } from '@/components/student/domain/DelEstudio';
 import { Descubre } from '@/components/student/domain/Descubre';
-import { MensajesCard } from '@/components/student/domain/MensajesCard';
 import { ValoracionCard } from '@/components/student/domain/ValoracionCard';
 import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
@@ -166,7 +165,17 @@ export default function InicioPage() {
             // con la página) y solo se sostiene el velo entre el 62% y el 88%,
             // donde está el texto. La composición no se toca: mismo alto, misma
             // posición, mismos tamaños.
-            background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.06) 58%, rgba(250,249,245,.35) 86%, var(--background))',
+            // ⚠️ SIN el desvanecido a crema del final. El degradado terminaba
+            // en `rgba(250,249,245,.35)` al 86% y en `--background` al 100%
+            // para «coser» el héroe con la página, y con la foto nueva eso se
+            // lee como un velo lavado sobre el último tercio: la foto pierde
+            // color justo donde todavía se ve, y parece un fallo de impresión
+            // más que una transición.
+            //
+            // Ya no hace falta: quien cose las dos zonas ahora es el BUSCADOR,
+            // que va montado a caballo sobre el borde. La foto llega entera
+            // hasta abajo y corta limpia.
+            background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.06) 58%, rgba(8,8,8,.03) 88%, rgba(8,8,8,0))',
           }}
         />
         {/* ⚠️ VELO PROPIO DEL TEXTO, medido en el render y no deducido.
@@ -241,8 +250,12 @@ export default function InicioPage() {
           <h1 className="a-up" style={{ margin: '8px 0 0', fontSize: 30, fontWeight: 800, letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms' }}>
             {saludo(socia?.nombre ?? '')} 👋
           </h1>
+          {/* Lo escribe el estudio; sin escribir nada, el del producto. ⚠️ Aquí
+              el vacío NO es «no se pinta» —como en el lema o la manuscrita—,
+              porque esta línea ya existía antes de ser configurable. Ver
+              `lib/student/subtitulo-heroe.ts`. */}
           <p className="a-up" style={{ margin: '6px 0 0', fontSize: 'var(--t-body)', fontWeight: 600, color: 'rgba(250,249,245,.9)', animationDelay: '120ms' }}>
-            ¿Qué te apetece hoy?
+            {subtituloDelHeroe(estudio.subtituloHeroe)}
           </p>
           {/* El héroe tenía foto, saludo y titular, y ninguna forma de salir de
               él: para reservar había que bajar al buscador o a la barra. Aquí va
@@ -404,16 +417,17 @@ export default function InicioPage() {
 
             {/* Nivel y créditos: solo si el estudio usa gamificación. */}
             {gamificacion && <NivelCard g={gamificacion} href={href('/logros')} creditosNombre={estudio.creditosNombre} />}
-            {/* ── DEL ESTUDIO ──────────────────────────────────────────────
-                Lo último que ha publicado el estudio en su tablón. Una sola
-                petición (`limite=1`); si no hay nada o falla, no se pinta. */}
-            <DelEstudio studioId={estudio.id} href={href('/comunidad')} />
-
-            {/* ── MENSAJES ─────────────────────────────────────────────────
-                Al contrario que "Del estudio", esta SIEMPRE se pinta si la
-                petición fue bien (ver MensajesCard): es la única puerta de
-                entrada al chat con el estudio para una socia nueva. */}
-            <MensajesCard studioId={estudio.id} nombreEstudio={estudio.nombre} href={href('/mensajes')} />
+            {/* ⚠️ Aquí vivían «Del estudio» (el último post del tablón) y
+                «Mensajes». Fuera los dos, por decisión del fundador: la home
+                llegaba a trece bloques y esos dos costaban además una ida y
+                vuelta cada uno —medido: `/api/public/comunidad/posts` y
+                `/api/public/mensajeria/conversaciones`, los dos a 721 ms,
+                montando cuando el resto ya estaba quieto—.
+                Y ahora que existe «Descubre», «Del estudio» era el segundo
+                bloque de contenido del estudio en la misma pantalla.
+                ⚠️ `/mensajes` NO tenía otra puerta en toda la app: entra en
+                Perfil → «Escribir al estudio» en este mismo cambio. Comunidad
+                ya se alcanzaba desde ahí. */}
 
             {/* ── DESCUBRE ─────────────────────────────────────────────────
                 Las tarjetas con foto que publica el estudio. Va ANTES de

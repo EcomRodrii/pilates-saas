@@ -974,6 +974,8 @@ export interface RowStudios {
   frase_heroe: string | null;
   // migr 20260910224251.
   frase_manuscrita: string | null;
+  // migr 20260911000542.
+  subtitulo_heroe: string | null;
 }
 
 export interface RowSuscripciones {

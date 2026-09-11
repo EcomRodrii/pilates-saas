@@ -90,6 +90,7 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     lema: s.lema,
     fraseHeroe: s.fraseHeroe,
     fraseManuscrita: s.fraseManuscrita,
+    subtituloHeroe: s.subtituloHeroe,
     tema: {},
     colorPrimario: s.colorPrimario,
     paginaOculta: s.paginaOculta,

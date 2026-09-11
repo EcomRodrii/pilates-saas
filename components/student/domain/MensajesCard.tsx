@@ -13,6 +13,8 @@ import { unir } from '@/lib/student/formato';
 // una socia nueva descubre que puede escribirle al estudio, y ocultarla
 // dejaría "Mensajes" sin ninguna puerta de entrada hasta que el estudio le
 // escribiera primero.
+// ⚠️ `a-fade` y no `a-up`, por lo mismo que `DelEstudio`: trae su propia
+// petición y monta cuando el resto ya está quieto. Sin movimiento no hay salto.
 export function MensajesCard({ studioId, nombreEstudio, href }: { studioId: string; nombreEstudio: string; href: string }) {
   const miId = useMiAuthUserId();
   const cargar = useCallback(async () => (await fetchConversaciones(studioId)) ?? [], [studioId]);
@@ -25,7 +27,7 @@ export function MensajesCard({ studioId, nombreEstudio, href }: { studioId: stri
   const nombre = destacada?.tipo === 'ALUMNA_MOSTRADOR' ? nombreEstudio : 'Tu instructora';
 
   return (
-    <Link href={href} className="card card--tap a-up" data-testid="mensajes-card" style={{ display: 'block', padding: '13px 15px' }}>
+    <Link href={href} className="card card--tap a-fade" data-testid="mensajes-card" style={{ display: 'block', padding: '13px 15px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
         <p className="t-label" style={{ margin: 0 }}>Mensajes</p>
         <span style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>

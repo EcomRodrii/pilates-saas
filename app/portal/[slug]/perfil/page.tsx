@@ -99,6 +99,13 @@ export default function PerfilPage() {
           titulo="Estudio"
           items={[
             { label: 'Ayuda y contacto', href: href('/ayuda') },
+            // ⚠️ «Escribir al estudio» ENTRA aquí en el mismo cambio que saca
+            // la tarjeta de Mensajes de Inicio. Esa tarjeta era la ÚNICA puerta
+            // a `/mensajes` en toda la app —comprobado con grep antes de
+            // tocarla—, así que quitarla sin esto habría dejado a la alumna sin
+            // forma de escribir a su estudio. Comunidad no tenía el problema:
+            // ya se llegaba desde aquí.
+            { label: 'Escribir al estudio', href: href('/mensajes') },
             { label: 'Notificaciones', href: href('/notificaciones') },
             { label: 'Comunidad', href: href('/comunidad') },
             { label: 'Logros y recompensas', href: href('/logros') },

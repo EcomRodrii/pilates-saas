@@ -153,4 +153,18 @@ test.describe('Student PWA · cabos sueltos de la auditoría', () => {
     expect(Math.min(...alturas.map((a) => a.pintado))).toBeLessThan(44);
     for (const a of alturas) expect(a.tactil).toBeGreaterThanOrEqual(44);
   });
+
+  test('escribir al estudio se alcanza desde la app, no solo tecleando la URL', async ({ page }) => {
+    // ⚠️ Este guardia nace de quitar la tarjeta de «Mensajes» de Inicio. Era la
+    // ÚNICA puerta a `/mensajes` en toda la app —comprobado con grep—, así que
+    // sacarla sin poner otra habría dejado la pantalla viva, servida y
+    // completamente inalcanzable: una alumna sin forma de escribir a su
+    // estudio. Comunidad no tenía ese problema, ya se llegaba desde Perfil.
+    await montar(page);
+    await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
+    const enlace = page.getByRole('link', { name: 'Escribir al estudio' });
+    await expect(enlace).toBeVisible({ timeout: 30_000 });
+    await enlace.click();
+    await expect(page).toHaveURL(new RegExp(`${base}/mensajes$`));
+  });
 });
