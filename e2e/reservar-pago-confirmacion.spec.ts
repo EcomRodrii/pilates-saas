@@ -215,7 +215,10 @@ for (const modo of ['throw', 'reject'] as const) {
     // `.first()`: el aviso tiene titular y cuerpo, y los dos empiezan igual.
     await expect(page.getByText('No hemos podido procesar el pago', { exact: false }).first()).toBeVisible();
     // Y se puede reintentar: el botón de pagar sigue vivo, no deshabilitado.
-    await expect(page.getByRole('button', { name: /Pagar/ })).toBeEnabled();
+    // Nombre EXACTO, no /Pagar/: desde que existe el fallback de Bizum
+    // ("Pagar con Bizum", mismo paso de pago) el regex resuelve a dos
+    // botones y Playwright lo rechaza en modo estricto.
+    await expect(page.getByRole('button', { name: 'Pagar 18 € y reservar' })).toBeEnabled();
   });
 }
 
