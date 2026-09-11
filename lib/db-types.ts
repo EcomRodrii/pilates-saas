@@ -1877,6 +1877,8 @@ export interface RowChangelogCambios {
   etiqueta: string;
   texto: string;
   orden: number;
+  // migr 20260911003214.
+  imagen_url: string | null;
 }
 
 export interface RowIntentosReservaFallidos {

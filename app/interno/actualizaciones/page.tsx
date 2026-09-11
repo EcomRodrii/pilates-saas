@@ -15,6 +15,7 @@ import { Check, Loader2, Plus, Rocket, Sparkles, Trash2, X } from 'lucide-react'
 import {
   borrarVersionChangelog, crearVersionChangelog, fetchChangelog, fetchNovedadesMenu,
   guardarVersionChangelog, marcarNovedadMenu, publicarVersionChangelog, quitarNovedadMenu,
+  subirImagenCambio,
   type EtiquetaCambio, type NovedadMenuInterna, type VersionChangelog,
 } from '@/lib/interno/client';
 
@@ -29,10 +30,72 @@ const ETIQUETAS: EtiquetaCambio[] = ['NUEVA_FUNCIONALIDAD', 'MEJORA', 'RENDIMIEN
 
 const fecha = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 
-type CambioEdit = { texto: string; etiqueta: EtiquetaCambio };
+type CambioEdit = { texto: string; etiqueta: EtiquetaCambio; imagenUrl: string | null };
 
 function cambiosDesde(v: VersionChangelog): CambioEdit[] {
-  return [...v.changelog_cambios].sort((a, b) => a.orden - b.orden).map(c => ({ texto: c.texto, etiqueta: c.etiqueta }));
+  return [...v.changelog_cambios].sort((a, b) => a.orden - b.orden)
+    .map(c => ({ texto: c.texto, etiqueta: c.etiqueta, imagenUrl: c.imagen_url }));
+}
+
+/**
+ * La captura de un cambio: subir, ver, quitar.
+ *
+ * ⚠️ **Opcional de verdad, y la pantalla lo dice.** Casi ningún cambio lleva
+ * imagen: una política de RLS que se cierra o una carrera entre transmisiones
+ * no se pueden fotografiar, y rellenarlas con una ilustración de catálogo es
+ * decorado. El rótulo pone «si hay algo que enseñar» para que no se lea como un
+ * campo a medio rellenar.
+ */
+function CampoImagen({ url, onChange, deshabilitado }: {
+  url: string | null; onChange: (u: string | null) => void; deshabilitado?: boolean;
+}) {
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function elegir(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setSubiendo(true);
+    try {
+      const { url: nueva } = await subirImagenCambio(file);
+      onChange(nueva);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSubiendo(false);
+    }
+  }
+
+  if (url) {
+    return (
+      <div className="flex items-center gap-2 pl-1">
+        {/* eslint-disable-next-line @next/next/no-img-element -- captura en Storage, publicada sin desplegar */}
+        <img src={url} alt="" className="h-10 w-16 rounded border border-border object-cover" />
+        <span className="text-[11px] text-muted-foreground">Captura puesta</span>
+        <button
+          type="button" disabled={deshabilitado} onClick={() => onChange(null)}
+          className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+        >
+          Quitar
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 pl-1">
+      <label className="text-[11px] font-semibold text-brand-medio cursor-pointer">
+        {subiendo ? 'Subiendo…' : '+ Captura'}
+        <input
+          type="file" accept="image/png,image/jpeg,image/webp" className="sr-only"
+          disabled={deshabilitado || subiendo}
+          onChange={e => void elegir(e.target.files?.[0])}
+        />
+      </label>
+      <span className="text-[11px] text-muted-foreground">opcional, solo si hay algo que enseñar</span>
+      {error && <span className="text-[11px] text-destructive">{error}</span>}
+    </div>
+  );
 }
 
 function EditorCambios({ cambios, onChange, deshabilitado }: {
@@ -42,27 +105,34 @@ function EditorCambios({ cambios, onChange, deshabilitado }: {
   return (
     <div className="flex flex-col gap-1.5">
       {cambios.map((c, i) => (
-        <div key={i} className="flex items-center gap-1.5">
-          <select
-            value={c.etiqueta} disabled={deshabilitado}
-            onChange={e => onChange(cambios.map((x, j) => j === i ? { ...x, etiqueta: e.target.value as EtiquetaCambio } : x))}
-            className="rounded-lg border border-border bg-background px-2 py-1.5 text-[11.5px] font-semibold text-foreground"
-          >
-            {ETIQUETAS.map(et => <option key={et} value={et}>{ETIQUETA_LABEL[et]}</option>)}
-          </select>
-          <input
-            className={campo} value={c.texto} disabled={deshabilitado} placeholder="Qué ha cambiado, en una frase"
-            onChange={e => onChange(cambios.map((x, j) => j === i ? { ...x, texto: e.target.value } : x))}
+        <div key={i} className="flex flex-col gap-1.5 rounded-lg border border-border/60 p-1.5">
+          <div className="flex items-center gap-1.5">
+            <select
+              value={c.etiqueta} disabled={deshabilitado}
+              onChange={e => onChange(cambios.map((x, j) => j === i ? { ...x, etiqueta: e.target.value as EtiquetaCambio } : x))}
+              className="rounded-lg border border-border bg-background px-2 py-1.5 text-[11.5px] font-semibold text-foreground"
+            >
+              {ETIQUETAS.map(et => <option key={et} value={et}>{ETIQUETA_LABEL[et]}</option>)}
+            </select>
+            <input
+              className={campo} value={c.texto} disabled={deshabilitado} placeholder="Qué ha cambiado, en una frase"
+              onChange={e => onChange(cambios.map((x, j) => j === i ? { ...x, texto: e.target.value } : x))}
+            />
+            <button type="button" disabled={deshabilitado} aria-label="Quitar cambio"
+              onClick={() => onChange(cambios.filter((_, j) => j !== i))}>
+              <X className="size-3.5 text-muted-foreground" />
+            </button>
+          </div>
+          <CampoImagen
+            url={c.imagenUrl}
+            deshabilitado={deshabilitado}
+            onChange={u => onChange(cambios.map((x, j) => j === i ? { ...x, imagenUrl: u } : x))}
           />
-          <button type="button" disabled={deshabilitado} aria-label="Quitar cambio"
-            onClick={() => onChange(cambios.filter((_, j) => j !== i))}>
-            <X className="size-3.5 text-muted-foreground" />
-          </button>
         </div>
       ))}
       <button
         type="button" disabled={deshabilitado}
-        onClick={() => onChange([...cambios, { texto: '', etiqueta: 'MEJORA' }])}
+        onClick={() => onChange([...cambios, { texto: '', etiqueta: 'MEJORA', imagenUrl: null }])}
         className="mt-0.5 flex w-fit items-center gap-1 text-[12px] font-semibold text-brand-medio"
       >
         <Plus className="size-3.5" /> Añadir cambio

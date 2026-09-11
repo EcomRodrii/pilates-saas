@@ -17,6 +17,15 @@ export interface CambioVersion {
   etiqueta: EtiquetaCambio;
   texto: string;
   orden?: number;
+  /**
+   * Captura de lo que hace este cambio, o `null`.
+   *
+   * ⚠️ **`null` es lo normal, no un hueco por rellenar.** La mitad de lo que
+   * entra en una versión no se puede fotografiar: una política de RLS que se
+   * cierra, una carrera entre dos transmisiones a la AEAT, un zip bomb acotado.
+   * Quien lo pinte tiene que estar igual de bien SIN imagen.
+   */
+  imagen_url?: string | null;
 }
 
 export interface VersionPublicada {

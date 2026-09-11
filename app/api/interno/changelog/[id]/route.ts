@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import { registrar } from '@/lib/interno/auditoria';
+import { urlImagenCambioValida, normalizarUrlImagenCambio } from '@/lib/interno/changelog-imagen';
 
 export const runtime = 'nodejs';
 
@@ -11,6 +12,9 @@ const VERSION_RE = /^\d+\.\d+(\.\d+)?$/;
 interface CuerpoCambio {
   texto?: string;
   etiqueta?: string;
+  // Opcional y casi siempre ausente: la mitad de lo que entra en una versión no
+  // se puede fotografiar (una política de RLS, una carrera entre transmisiones).
+  imagenUrl?: string | null;
 }
 
 interface CuerpoPatch {
@@ -74,12 +78,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (cuerpo.fechaPublicacion !== undefined) update.fecha_publicacion = cuerpo.fechaPublicacion;
 
-  let filas: Array<{ texto: string; etiqueta: string; orden: number }> | null = null;
+  let filas: Array<{ texto: string; etiqueta: string; orden: number; imagen_url: string | null }> | null = null;
   if (cuerpo.cambios !== undefined) {
-    filas = cuerpo.cambios.map((c, i) => ({ texto: (c.texto ?? '').trim(), etiqueta: c.etiqueta ?? '', orden: i }));
+    filas = cuerpo.cambios.map((c, i) => ({
+      texto: (c.texto ?? '').trim(),
+      etiqueta: c.etiqueta ?? '',
+      orden: i,
+      imagen_url: normalizarUrlImagenCambio(c.imagenUrl),
+    }));
     if (filas.some(c => c.texto.length === 0)) return NextResponse.json({ error: 'Ningún cambio puede quedar vacío.' }, { status: 400 });
     const desconocida = filas.find(c => !ETIQUETAS.includes(c.etiqueta as typeof ETIQUETAS[number]));
     if (desconocida) return NextResponse.json({ error: `"${desconocida.etiqueta}" no es una etiqueta válida.` }, { status: 400 });
+    // ⚠️ Se valida aquí AUNQUE la URL la haya devuelto nuestra propia subida:
+    // el cuerpo del PATCH lo compone el navegador y nada impide mandar otra. Y
+    // esto termina en un `<img src>` en el panel de todos los estudios.
+    const supa = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+    const mala = filas.find(c => !urlImagenCambioValida(c.imagen_url, supa));
+    if (mala) return NextResponse.json({ error: 'La imagen de un cambio tiene que estar subida aquí, no enlazada de fuera.' }, { status: 400 });
   }
 
   if (Object.keys(update).length > 0) {
@@ -98,7 +113,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     let nuevosIds: string[] = [];
     if (filas.length > 0) {
       const { data: insertados, error: errInsertar } = await db.from('changelog_cambios')
-        .insert(filas.map(f => ({ version_id: id, etiqueta: f.etiqueta, texto: f.texto, orden: f.orden })))
+        .insert(filas.map(f => ({ version_id: id, etiqueta: f.etiqueta, texto: f.texto, orden: f.orden, imagen_url: f.imagen_url })))
         .select('id');
       if (errInsertar) return NextResponse.json({ error: 'No se han podido guardar los cambios.' }, { status: 500 });
       nuevosIds = (insertados ?? []).map(r => r.id as string);
