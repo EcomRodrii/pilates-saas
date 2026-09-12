@@ -5,13 +5,8 @@ import type { Clase, Instructora, Reserva } from '@/lib/student/tipos';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { AvailabilityBadge } from '@/components/student/ui/Badge';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
-import { etiquetaDia, hoyISO } from '@/lib/student/formato';
+import { etiquetaDia, horaAhora, hoyISO } from '@/lib/student/formato';
 import { notaTexto, proximasClasesDe } from '@/lib/student/instructora';
-
-/** HH:mm local, el mismo reloj que usa `hoyISO()`. */
-function horaAhora(d = new Date()): string {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
 
 // La ficha de la instructora, desde la píldora de la hoja de clase. Antes esa
 // píldora era un <button> sin onClick: un control muerto. Todo lo que enseña

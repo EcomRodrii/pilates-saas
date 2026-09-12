@@ -27,6 +27,29 @@ export function hoyISO(ahora: Date = new Date()): string {
 }
 
 /**
+ * La hora de AHORA en la zona del estudio, «HH:mm».
+ *
+ * ⚠️ Va pegada a `hoyISO` porque son pareja: quien pregunta «¿qué día es?» en
+ * Madrid y «¿qué hora es?» en el navegador está comparando dos relojes.
+ *
+ * Y no es teórico. Las horas contra las que se compara —`Clase.hora`
+ * (`horaLocal`, Europe/Madrid) y `plazas_fijas.hora_inicio`, el horario del
+ * estudio— están TODAS en la zona del estudio. Esto se construía con
+ * `new Date().getHours()`, o sea la del móvil: a una socia de viaje, o
+ * simplemente en Canarias, la app le enseñaba como «próxima» una clase que ya
+ * había empezado, con el desfase exacto de su zona. Lo destapó un e2e que en
+ * CI corre en UTC y vio «Hoy 08:00» donde en Madrid eran las 06:00.
+ *
+ * En una máquina española el fallo es INVISIBLE, así que su guardia
+ * (`hora-del-estudio.test.ts`) fija una zona de proceso distinta a propósito.
+ */
+export function horaAhora(ahora: Date = new Date()): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    timeZone: ZONA, hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(ahora);
+}
+
+/**
  * Suma días a una fecha ISO.
  *
  * Se construye a mediodía y no a medianoche a propósito: con `T00:00:00` local,
