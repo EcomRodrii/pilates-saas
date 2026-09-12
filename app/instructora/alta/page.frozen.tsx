@@ -100,7 +100,7 @@ export default function AltaInstructoraFreelancePage() {
             <div>
               <label htmlFor={`${uid}-email`} className="block text-[13px] font-medium text-[#3A3A34] mb-1.5">Email</label>
               <input id={`${uid}-email`} type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="tu@email.com"
+                placeholder="tu@ejemplo.com"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-brand/15 focus:border-brand transition-all" />
             </div>
             <div>

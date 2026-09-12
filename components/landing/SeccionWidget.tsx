@@ -209,7 +209,7 @@ export function SeccionWidget() {
                 <div className="v5-w-cuenta">
                   <div className="v5-w-perfil">
                     <span className="v5-w-avatar">L</span>
-                    <span><strong>Laura Ortega</strong><span>laura@email.com</span></span>
+                    <span><strong>Laura Ortega</strong><span>laura@ejemplo.com</span></span>
                   </div>
                   <div className="v5-w-fila-cuenta">
                     <span>Bono 10 sesiones</span>

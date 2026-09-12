@@ -107,7 +107,7 @@ export function PasoCuenta({
         </div>
         <div>
           <label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-e`}>Email</label>
-          <input id={`${uid}-e`} type="email" required value={emailCuenta} onChange={e => setEmailCuenta(e.target.value)} className={inputCls} style={inputStyle} placeholder="tu@email.com" />
+          <input id={`${uid}-e`} type="email" required value={emailCuenta} onChange={e => setEmailCuenta(e.target.value)} className={inputCls} style={inputStyle} placeholder="tu@ejemplo.com" />
         </div>
         <div>
           <label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-p`}>Contraseña</label>
