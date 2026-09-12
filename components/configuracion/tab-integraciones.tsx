@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useId } from 'react';
+import type Stripe from 'stripe';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Check,
@@ -391,6 +392,24 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const res = await updateStudio({ stripeAccountId: null });
     showToast(res.ok ? 'Stripe desconectado' : res.error);
   };
+
+  // Bizum en un cargo directo exige la capacidad `bizum_payments` `active` en
+  // ESTA cuenta conectada, no solo pedida (#1874) — pedirla no la activa al
+  // instante. Antes de esto, la propietaria solo se enteraba de que Bizum no
+  // funcionaba cuando una socia se quejaba de un cobro roto (#1883); ahora se
+  // lo dice esta misma pantalla, sin que tenga que adivinar dónde arreglarlo.
+  const [bizumEstado, setBizumEstado] = useState<Stripe.Account.Capabilities['bizum_payments'] | null>(null);
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      if (!stripeConectado) { if (!cancelado) setBizumEstado(null); return; }
+      const res = await fetch('/api/integrations/stripe/bizum-estado', { headers: await authHeader() });
+      if (!res.ok || cancelado) return;
+      const data = await res.json() as { estado?: 'active' | 'pending' | 'inactive' };
+      if (!cancelado) setBizumEstado(data.estado ?? 'inactive');
+    })();
+    return () => { cancelado = true; };
+  }, [stripeConectado]);
 
   // Google Calendar: OAuth real (ver lib/google-calendar.ts). A diferencia de
   // Stripe, desconectar y sincronizar pasan por rutas de servidor
@@ -886,6 +905,16 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                         : lineaSalud.tono === 'ok' ? 'text-success' : 'text-muted-foreground',
                     )}>
                       {lineaSalud.texto}
+                    </p>
+                  )}
+                  {cat.tipo === 'STRIPE' && stripeConectado && bizumEstado && bizumEstado !== 'active' && (
+                    <p className="text-[11px] text-warning mt-1.5 leading-snug">
+                      Bizum todavía no está activo en tu cuenta de Stripe — tus socias no lo verán
+                      como opción de pago. Entra en{' '}
+                      <a href="https://dashboard.stripe.com/settings/payment_methods" target="_blank" rel="noreferrer" className="underline">
+                        tu Dashboard de Stripe → Métodos de pago
+                      </a>{' '}
+                      y actívalo (si te pide completar datos fiscales, hazlo ahí mismo).
                     </p>
                   )}
                   {cat.tipo === 'ZOOM' && zoomConectado && (
