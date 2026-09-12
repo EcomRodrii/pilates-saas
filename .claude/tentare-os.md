@@ -29,10 +29,16 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
     `e2e/socia-lista.ts` en vez de rehacerlo.
   - **(2) Los e2e solo corrían en Chromium.** Ahora el proyecto `webkit-publico`
     (`playwright.config.ts`, #998) pasa por WebKit/iPhone las pantallas PÚBLICAS —
-    `/reservar`, que es el widget que el estudio incrusta en su web. El panel queda fuera a
-    propósito: se usa desde el iPad de recepción, pero ahí hay alguien que puede avisar;
-    una socia con el widget roto se va y no lo cuenta. Añadir una spec exige ese criterio
-    (pública + la sufre alguien de fuera), porque pasar la suite entera dobla el e2e.
+    `/reservar`, el widget que el estudio incrusta en su web, y desde **#1869 también la
+    app de la alumna** (`app/portal/[slug]`, ocho specs), que se usa desde el móvil de la
+    socia. El panel queda fuera a propósito: se usa desde el iPad de recepción, pero ahí
+    hay alguien que puede avisar; una socia con la app rota se va y no lo cuenta. Añadir
+    una spec exige ese criterio (pública + la sufre alguien de fuera) Y medir lo que
+    cuesta: las ocho de la alumna son **140 s de trabajo, +3 %** del e2e (1,58× lo que
+    cuestan en Chromium), y ese número sale de **sumar las duraciones por test** de los
+    artefactos `timings-*` — el wall clock del run entero se mueve más que el propio
+    cambio (2.806 s vs 2.833 s: ruido). Con `--reporter=blob,json` el log no nombra ni un
+    test, así que «ha corrido» se demuestra contando por `projectName` en esos artefactos.
     ⚠️ La clave de caché de navegadores lleva **qué** navegadores contiene
     (`-chromium-webkit`): sin eso, añadir uno acierta con la caché vieja, el install se
     salta por su `if` y los tests mueren con «Executable doesn't exist» — se lee como fallo
