@@ -8,6 +8,8 @@ import { useEstudio } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { getPagos } from '@/lib/student/datos';
 import { PaymentItem } from '@/components/student/domain/PaymentItem';
+import { agruparPorMes, pagosPendientes, totalPendiente } from '@/lib/student/pagos-agrupados';
+import { euros } from '@/lib/student/formato';
 import { useToast } from '@/components/student/ui/Toast';
 import { avisoDeRetorno } from '@/lib/student/retorno-pago';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -21,6 +23,10 @@ function Pagos() {
   const { estudio } = useEstudio();
   const cargar = useCallback(() => getPagos(estudio.slug), [estudio.slug]);
   const { data, estado, reintentar } = useAsync(cargar);
+
+  const sinCobrar = pagosPendientes(data ?? []);
+  const pendiente = totalPendiente(data ?? []);
+  const grupos = agruparPorMes(data ?? []);
 
   // Retorno de Stripe al guardar tarjeta o domiciliación (`setup-tarjeta` y
   // `setup-sepa` vuelven aquí). Sin esto, la alumna guardaba su tarjeta y
@@ -50,7 +56,49 @@ function Pagos() {
         {estado === 'empty' && (
           <EmptyState ilustracion="recibo" titulo="Sin pagos todavía" cuerpo="Aquí aparecerán tus recibos." />
         )}
-        {estado === 'ready' && data?.map((p, i) => <PaymentItem key={p.id} p={p} delay={i * 55} />)}
+
+        {/* La pregunta con la que se entra aquí. Estaba respondida —una fila
+            con la etiqueta «Pendiente» entre otras once iguales— pero no
+            contestada: había que leer la lista entera para saber si se debe
+            algo. El importe va en `--t-display`, el escalón que la propia
+            hoja describe como «un importe, un saldo: la cifra que se viene a
+            mirar».
+
+            Sin botón de pagar: esta pantalla es de solo lectura a propósito
+            (nada de aquí mueve dinero), y un domiciliado lo cobra el estudio.
+            Dice cuánto y desde cuándo, no pide una acción que no existe. */}
+        {estado === 'ready' && pendiente > 0 && (
+          <div data-testid="total-pendiente" className="note note--warn a-up" style={{ padding: 'var(--s-3) var(--s-4)' }}>
+            {/* `.note--warn` y no un fondo escrito a mano: esa pareja de
+                tokens (`--warning-soft` + `--warning-foreground`) ya está
+                calibrada a 4,5:1 en la hoja —lo dice el comentario de
+                `--warning-foreground`, que se subió justo por eso— y es la
+                misma que usa el chip de cobertura de la tienda. Heredan el
+                color del contenedor, así que ninguna de las tres líneas
+                necesita repetirlo. */}
+            {/* ⚠️ «Te queda por pagar» y NO «Pendiente de pago». La fila de
+                cada recibo ya lleva una insignia que dice «Pendiente», y dos
+                elementos con ese nombre en la misma pantalla no son solo
+                redundantes: rompieron `student-cabos.spec.ts`, que comprueba
+                justo esa insignia. Mismo tropiezo que ya costó cinco rojos en
+                el rediseño de Inicio — al añadir un bloque a una pantalla que
+                existe, mirar antes cómo se llama lo que ya hay. */}
+            <p className="t-label" style={{ color: 'inherit' }}>Te queda por pagar</p>
+            <p className="t-display t-num" style={{ marginTop: 4 }}>{euros(pendiente)}</p>
+            <p className="t-meta" style={{ marginTop: 4, color: 'inherit', fontWeight: 600 }}>
+              {sinCobrar.length === 1 ? '1 recibo sin cobrar' : `${sinCobrar.length} recibos sin cobrar`}
+            </p>
+          </div>
+        )}
+
+        {estado === 'ready' && grupos.map((g) => (
+          <section key={g.clave} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {/* Sin título cuando el recibo no trae fecha utilizable: un
+                encabezado vacío separa peor que no separar. */}
+            {g.titulo && <p className="t-label" style={{ marginTop: 5 }}>{g.titulo}</p>}
+            {g.pagos.map((p, i) => <PaymentItem key={p.id} p={p} delay={i * 55} />)}
+          </section>
+        ))}
       </div>
     </StudentShell>
   );

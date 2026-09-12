@@ -38,7 +38,7 @@ export default function AyudaPage() {
 
   return (
     <StudentShell>
-      <PageHeader titulo="Ayuda" sub={estudio.nombre} back />
+      <PageHeader titulo="Ayuda" back />
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '16px', marginTop: 14 }}>
         {contacto.length > 0 && <ProfileSection titulo="Contacto" items={contacto} />}
 

@@ -45,9 +45,40 @@ export function CreditCard({ bono, compacta = false }: { bono: Bono; compacta?: 
         <i />
       </div>
       {!compacta && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-          <p className="t-meta">{ilimitado ? 'Clases sin límite' : `Te quedan ${quedan} de ${bono.creditosTotales}`}</p>
-          <p className="t-meta t-num">{bono.expiraEn ? (bono.estado === 'expirado' ? 'caducó ' : 'caduca ') + fechaCorta(bono.expiraEn) : 'sin caducidad'}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 8, gap: 10 }}>
+          {/* ⚠️ La cifra que da nombre a la pantalla iba en `--t-meta`: 11,5 px
+              y gris, el mismo peso visual que la fecha de caducidad de al
+              lado. «¿Cuántas me quedan?» es la única pregunta con la que se
+              abre Bonos, y había que leer una frase para responderla.
+              `--t-display` es el escalón que la propia hoja define como «un
+              importe, un saldo: la cifra que se viene a mirar», y hasta ahora
+              solo lo usaba el detalle de un recibo.
+
+              Sigue siendo una sola tarjeta: el número no añade una fila, se
+              come la que ya había. Y el texto largo se queda debajo en
+              pequeño, porque «de 8» es lo que da sentido al 5. */}
+          <div style={{ minWidth: 0 }}>
+            {ilimitado ? (
+              <p className="t-card-title">Clases sin límite</p>
+            ) : (
+              <>
+                {/* ⚠️ «Te quedan» ENCIMA de la cifra, y no «5 · sesiones de 8».
+                    El primer intento de esta tarjeta ponía el número solo con
+                    «sesiones de 8» debajo, y eso se lee «5 sesiones de 8», o
+                    sea «llevo 5 hechas» — que es exactamente el bug que
+                    `student-bono-detalle.spec.ts` fijó en su día («la barra se
+                    llena con lo que QUEDA»). El guardia lo cazó al primer
+                    intento. La cifra se agranda; el verbo que la desambigua no
+                    se quita. */}
+                <p className="t-label">Te quedan</p>
+                <p className="t-display t-num" data-testid="bono-restantes" style={{ marginTop: 1 }}>{quedan}</p>
+                <p className="t-meta" style={{ marginTop: 1 }}>
+                  de {bono.creditosTotales} {bono.creditosTotales === 1 ? 'sesión' : 'sesiones'}
+                </p>
+              </>
+            )}
+          </div>
+          <p className="t-meta t-num" style={{ flexShrink: 0, textAlign: 'right' }}>{bono.expiraEn ? (bono.estado === 'expirado' ? 'caducó ' : 'caduca ') + fechaCorta(bono.expiraEn) : 'sin caducidad'}</p>
         </div>
       )}
     </Link>
