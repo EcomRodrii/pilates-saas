@@ -95,3 +95,41 @@ export async function liberarCupoMatricula(
   await admin.rpc('liberar_cupo_matricula', { p_plan_id: planId, p_studio_id: studioId })
     .then(() => undefined, () => undefined);
 }
+
+/**
+ * P-1 (auditoría 58ª pasada). El `catch` síncrono del checkout ya devolvía la
+ * plaza si el cobro ni siquiera llegaba a crearse — pero no si se creaba y
+ * luego nadie pagaba (la Checkout Session caduca, o Stripe rechaza el cobro),
+ * que es el caso más común con Bizum: la clienta abre el enlace, no completa
+ * el pago, y la plaza de "gratis para las 4 primeras" se quedaba gastada para
+ * siempre sin que nadie la hubiera usado.
+ *
+ * Dos eventos del webhook pueden anunciar el mismo fallo para el MISMO
+ * PaymentIntent (`payment_intent.payment_failed` si Stripe rechazó el cobro,
+ * y luego `checkout.session.expired` cuando la sesión caduca sin que nadie
+ * reintentara) — llamar dos veces a `liberarCupoMatricula` devolvería DOS
+ * plazas por una sola reserva. Se cierra con el mismo patrón compare-and-set
+ * que ya usa el repo para dinero (`codigos_descuento_consumos`,
+ * `recibos.checkout_session_id`): una fila con PK en `payment_intent_id` —
+ * el primer aviso gana con el INSERT, el segundo choca por 23505 y no libera
+ * nada.
+ */
+export async function liberarCupoMatriculaUnaVez(
+  admin: SupabaseClient,
+  paymentIntentId: string,
+  planId: string,
+  studioId: string,
+): Promise<void> {
+  const { error } = await admin
+    .from('matricula_cupo_liberaciones')
+    .insert({ payment_intent_id: paymentIntentId, plan_id: planId, studio_id: studioId });
+  if (error) {
+    // 23505 = ya se liberó para este PaymentIntent (el otro evento gemelo
+    // llegó antes) — silencioso a propósito, es el camino normal.
+    if ((error as { code?: string }).code !== '23505') {
+      console.error('[matricula-online] no se pudo registrar la liberación del cupo', paymentIntentId, error);
+    }
+    return;
+  }
+  await liberarCupoMatricula(admin, planId, studioId);
+}

@@ -388,7 +388,16 @@ export async function POST(req: NextRequest) {
     if (matriculaCentimos > 0) metadata.matriculaCentimos = String(matriculaCentimos);
     // La plaza se reserva ANTES de crear el cobro. Si el cobro no llega a
     // existir, esa plaza no se ha usado y tiene que volver.
-    if (aCobrar === 0) cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
+    if (aCobrar === 0) {
+      cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
+      // P-1 (auditoría 58ª): si la clienta abandona el checkout (nadie paga,
+      // la sesión caduca) o Stripe rechaza el cobro, el webhook necesita
+      // saber que esta sesión se llevó una plaza gratis para devolverla —
+      // sin esto, solo se devolvía si el checkout ni siquiera llegaba a
+      // crearse (el `catch` de más abajo), nunca si se creaba y luego nadie
+      // pagaba, que es el caso más común. Ver `liberarCupoMatriculaUnaVez`.
+      metadata.cupoMatriculaReservado = '1';
+    }
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';

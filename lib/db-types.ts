@@ -2734,3 +2734,10 @@ export interface RowEmailRebotes {
   email_id: string | null;
   detectado_en: string;
 }
+
+export interface RowMatriculaCupoLiberaciones {
+  payment_intent_id: string;
+  plan_id: string;
+  studio_id: string;
+  liberado_en: string;
+}

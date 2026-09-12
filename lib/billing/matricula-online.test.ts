@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { primeraVezConPlan } from './matricula-online.ts';
+import { primeraVezConPlan, liberarCupoMatriculaUnaVez } from './matricula-online.ts';
 
 type Fila = Record<string, unknown>;
 
@@ -88,4 +88,43 @@ test('⚠️ fail-safe: un fallo leyendo suscripciones NO cobra matrícula', asy
 test('un email con comodín "*" no se deja resolver (fail-closed)', async () => {
   const r = await primeraVezConPlan(fakeAdmin({ sociosPorEmail: [] }), 'studio-1', null, 'x*@example.com');
   assert.equal(r, false);
+});
+
+// P-1 (auditoría 58ª pasada): liberarCupoMatriculaUnaVez — compare-and-set
+// por payment_intent_id para que dos eventos del webhook (payment_intent.
+// payment_failed y checkout.session.expired) del MISMO intento fallido no
+// devuelvan la plaza dos veces.
+function fakeAdminLiberacion(opts: { yaLiberado?: boolean; errorInesperado?: boolean } = {}) {
+  const llamadasRpc: string[] = [];
+  return {
+    admin: {
+      from: () => ({
+        insert: () => Promise.resolve(
+          opts.errorInesperado ? { error: { code: '42501', message: 'permission denied' } }
+            : opts.yaLiberado ? { error: { code: '23505', message: 'duplicate key' } }
+              : { error: null },
+        ),
+      }),
+      rpc: (nombre: string) => { llamadasRpc.push(nombre); return Promise.resolve({ error: null }); },
+    } as never,
+    llamadasRpc,
+  };
+}
+
+test('primer aviso: inserta y libera la plaza', async () => {
+  const { admin, llamadasRpc } = fakeAdminLiberacion();
+  await liberarCupoMatriculaUnaVez(admin, 'pi_1', 'plan-1', 'studio-1');
+  assert.deepEqual(llamadasRpc, ['liberar_cupo_matricula']);
+});
+
+test('segundo aviso del MISMO PaymentIntent (23505): no libera otra vez', async () => {
+  const { admin, llamadasRpc } = fakeAdminLiberacion({ yaLiberado: true });
+  await liberarCupoMatriculaUnaVez(admin, 'pi_1', 'plan-1', 'studio-1');
+  assert.deepEqual(llamadasRpc, []);
+});
+
+test('un error inesperado del INSERT tampoco libera (no arriesga doble devolución)', async () => {
+  const { admin, llamadasRpc } = fakeAdminLiberacion({ errorInesperado: true });
+  await liberarCupoMatriculaUnaVez(admin, 'pi_1', 'plan-1', 'studio-1');
+  assert.deepEqual(llamadasRpc, []);
 });
