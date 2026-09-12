@@ -673,6 +673,8 @@ export interface RowSesiones {
   zoom_meeting_id: number | null;
   // migr 20260820193428.
   zoom_join_url: string | null;
+  // migr 20260912223256.
+  creado_en: string | null;
 }
 
 export interface RowSocios {

@@ -41,8 +41,8 @@ export async function GET(req: NextRequest) {
   const [studios, socios, sesiones, reservas7, reservas30, reservasHoy, instructores, tiposClase] = await Promise.all([
     db.from('studios').select('id, slug, nombre, plan, creado_en, stripe_customer_id, subscription_status, suspendido_en, nif, stripe_account_id'),
     catalogo<{ studio_id: string }>((d, h) => db.from('socios').select('studio_id').range(d, h)),
-    // ⚠️ `creado_en` NO existe en `sesiones` — la tabla no guarda cuándo se creó
-    // una clase, solo cuándo EMPIEZA (`inicio`). Pedirla hacía que PostgREST
+    // ⚠️ `creado_en` NO existía en `sesiones` cuando se escribió esto (se añadió
+    // en 20260912223256): la tabla solo sabía cuándo EMPIEZA una clase. Pedirla hacía que PostgREST
     // devolviera 400 («column sesiones.creado_en does not exist», visto en los
     // logs de producción), `catalogo()` lo convirtiera en `data: null`, y este
     // fichero lo leyera como CERO clases en toda la plataforma. Además del
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   // «no inventar números» que este fichero ya se exige a sí mismo más abajo,
   // solo que el número inventado era un 0 y por eso nadie lo miraba dos veces.
   //
-  // Pasó de verdad: se pedía `sesiones.creado_en`, una columna que no existe, y
+  // Pasó de verdad: se pedía `sesiones.creado_en`, una columna que entonces no existía, y
   // el panel interno llevaba quién sabe cuánto diciendo que la plataforma no
   // tenía ni una clase. Ahora la respuesta dice qué no se pudo leer, y quien la
   // pinte puede distinguir «no hay» de «no lo sé».

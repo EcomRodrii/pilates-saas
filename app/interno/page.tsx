@@ -64,7 +64,7 @@ export default function ResumenInterno() {
       {/* Mismo criterio que las tarjetas de Stripe de aquí abajo: un cero se lee
           como un dato, así que si una lectura ha fallado hay que decirlo en vez
           de dejar que las cifras lo disimulen. No es hipotético — se pedía
-          `sesiones.creado_en`, una columna que no existe, y este panel llevaba
+          `sesiones.creado_en`, una columna que entonces no existía, y este panel llevaba
           quién sabe cuánto diciendo que la plataforma no tenía ni una clase. */}
       {k.noLeidos && k.noLeidos.length > 0 && (
         <p className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] text-foreground">

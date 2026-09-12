@@ -7,8 +7,9 @@ import { join } from 'node:path';
 // Guardián: ninguna ruta de API pide una columna que no existe.
 //
 // ── Por qué existe ───────────────────────────────────────────────────────────
-// `app/api/interno/kpis` pedía `sesiones.creado_en`. Esa columna NO existe: la
-// tabla guarda cuándo EMPIEZA una clase (`inicio`), no cuándo se creó. PostgREST
+// `app/api/interno/kpis` pedía `sesiones.creado_en`. Esa columna NO existía
+// entonces (se añadió después, migr 20260912223256): la tabla solo guardaba
+// cuándo EMPIEZA una clase (`inicio`), no cuándo se creó. PostgREST
 // respondía 400 —«column sesiones.creado_en does not exist», visto en los logs
 // de producción—, el helper de paginado lo convertía en `data: null`, y la ruta
 // lo leía con un `?? []`.
@@ -81,7 +82,9 @@ test('la lista de tipos generados se ha leído de verdad', () => {
   const mapa = columnasPorInterfaz();
   assert.ok(mapa.size > 50, `solo ${mapa.size} interfaces: el parseo de db-types.ts no está funcionando`);
   assert.ok(mapa.get('RowSesiones')?.has('inicio'), 'RowSesiones sin `inicio`: el parseo está mal');
-  assert.ok(!mapa.get('RowSesiones')?.has('creado_en'), '`sesiones` NO tiene columna de creación');
+  // Desde 20260912223256 sí existe. Si este assert falla es que la migración
+  // o la regeneración de tipos se ha perdido — no que el guardián esté mal.
+  assert.ok(mapa.get('RowSesiones')?.has('creado_en'), '`sesiones.creado_en` ha desaparecido de los tipos generados');
 });
 
 test('⚠️ ninguna ruta de API pide una columna inexistente', () => {

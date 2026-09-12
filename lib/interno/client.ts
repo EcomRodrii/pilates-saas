@@ -36,7 +36,7 @@ export interface Kpis {
    * Qué lecturas fallaron. Vacío = todas las cifras son reales.
    *
    * ⚠️ Existe porque un fallo de lectura salía como CERO y nadie lo miraba dos
-   * veces: se pedía `sesiones.creado_en`, una columna que no existe, y este
+   * veces: se pedía `sesiones.creado_en`, una columna que entonces no existía, y este
    * panel llevaba quién sabe cuánto diciendo que la plataforma no tenía ni una
    * clase programada. Cero y «no lo sé» tienen que poder distinguirse.
    */
