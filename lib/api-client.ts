@@ -1,5 +1,6 @@
 'use client';
 
+import type { TipoRebote } from '@/lib/emails/rebotes';
 import { supabase } from '@/lib/db/supabase';
 import { unaVez } from '@/lib/una-vez';
 import { supabasePortal } from '@/lib/db/supabase-portal';
@@ -1111,6 +1112,41 @@ export async function verificarLimiteSocias(): Promise<string | null> {
   } catch {
     // Fail-open: un fallo de red no debe impedir dar de alta a una clienta.
     return null;
+  }
+}
+
+/**
+ * Correos del estudio que el proveedor rechaza, por dirección normalizada.
+ *
+ * No se puede leer con el cliente de Supabase: `email_rebotes` va sin políticas
+ * y con los grants revocados a propósito (que una dirección rebote es
+ * información de la DIRECCIÓN, no del estudio que pregunta), así que la lista
+ * la acota el servidor a las socias de este estudio.
+ *
+ * Fail-open con `{}`: sin esto, un fallo de red dejaría la ficha entera sin
+ * pintarse por un aviso que es información de apoyo. El precio es que un fallo
+ * se lee igual que «ninguna rebota» — se asume porque la alternativa (pintar
+ * «no hemos podido comprobarlo» en cada ficha) es ruido permanente por un caso
+ * que no pasa casi nunca.
+ */
+export async function fetchEmailsRebotados(): Promise<Record<string, TipoRebote>> {
+  try {
+    const res = await fetch('/api/clientas/rebotes', { headers: await authHeader() });
+    if (!res.ok) return {};
+    const data = await res.json().catch(() => null);
+    const crudo = data?.rebotes;
+    if (!crudo || typeof crudo !== 'object') return {};
+    // Se filtra en vez de castear: el tipo decide qué frase se le enseña a la
+    // propietaria, y un valor que no conocemos pintaría una tarjeta vacía en
+    // lugar de no pintar nada. La tabla tiene un CHECK con estos tres, así que
+    // lo que no casa es un dato de un futuro que este código no entiende.
+    const out: Record<string, TipoRebote> = {};
+    for (const [email, tipo] of Object.entries(crudo)) {
+      if (tipo === 'REBOTE' || tipo === 'QUEJA' || tipo === 'SUPRIMIDO') out[email] = tipo;
+    }
+    return out;
+  } catch {
+    return {};
   }
 }
 

@@ -11,6 +11,7 @@ import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { normalizarEmail } from '@/lib/emails/rebotes';
+import { rebotesDeEmails } from '@/lib/emails/rebotes-consulta';
 import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
@@ -236,14 +237,13 @@ export async function POST(req: NextRequest) {
     // propietaria sepa que lo que hay que arreglar es el correo de su ficha.
     const correoRotoPorSocia = new Map<string, string>();
     if (candidatas.length) {
-      const emails = [...new Set(candidatas.map(s => s.email).filter(Boolean).map(e => normalizarEmail(e!)))];
-      if (emails.length) {
-        const { data: rebotadas } = await admin.from('email_rebotes').select('email, tipo').in('email', emails);
-        const rotos = new Map((rebotadas ?? []).map(r => [r.email as string, r.tipo as string]));
-        for (const s of candidatas) {
-          const tipo = s.email ? rotos.get(normalizarEmail(s.email)) : undefined;
-          if (tipo) correoRotoPorSocia.set(s.id, tipo);
-        }
+      // La consulta vive en `rebotesDeEmails` y no aquí: la ficha de la clienta
+      // hace la misma pregunta, y dos copias de «cómo se compara un correo
+      // contra la tabla» acaban divergiendo en la normalización.
+      const rotos = await rebotesDeEmails(admin, candidatas.map(s => s.email));
+      for (const s of candidatas) {
+        const tipo = s.email ? rotos.get(normalizarEmail(s.email)) : undefined;
+        if (tipo) correoRotoPorSocia.set(s.id, tipo);
       }
     }
 

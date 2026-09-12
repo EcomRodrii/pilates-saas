@@ -175,7 +175,8 @@ import type {
   ValoracionSocia,
 } from '@/lib/types';
 import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
+import type { TipoRebote } from '@/lib/emails/rebotes';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
@@ -384,6 +385,13 @@ interface StudioContextValue {
   addCondicion: (fields: Omit<CondicionSalud, 'id' | 'studioId' | 'creadoEn' | 'actualizadoEn'>) => Promise<ResultadoEscritura>;
   updateCondicion: (id: string, changes: Partial<CondicionSalud>) => Promise<ResultadoEscritura>;
   deleteCondicion: (id: string) => Promise<ResultadoEscritura>;
+
+  /**
+   * Correos del estudio que el proveedor RECHAZA, por dirección normalizada.
+   * Carga perezosa con `cargarFichaClienta` — nunca en el arranque del panel.
+   * Vacío mientras no se haya pedido: ausencia NO es «ninguno rebota».
+   */
+  emailsRebotados: Record<string, TipoRebote>;
 
   // Ficha clínica — evolución post-clase (Fase 2)
   respuestasSesion: RespuestaSesionRow[];
@@ -824,6 +832,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [valoracionesSocias, setValoracionesSocias] = useState<ValoracionSocia[]>([]);
   const [condicionesSalud, setCondicionesSalud] = useState<CondicionSalud[]>([]);
   const [respuestasSesion, setRespuestasSesion] = useState<RespuestaSesionRow[]>([]);
+  const [emailsRebotados, setEmailsRebotados] = useState<Record<string, TipoRebote>>({});
   const [plantillasCuestionarioSalud, setPlantillasCuestionarioSalud] = useState<PlantillaCuestionarioSalud[]>([]);
   const [respuestasCuestionarioSalud, setRespuestasCuestionarioSalud] = useState<RespuestaCuestionarioSalud[]>([]);
 
@@ -5141,6 +5150,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setNotasInternas(f.notasInternas);
     setValoracionesSocias(f.valoracionesSocias);
     setRespuestasSesion(f.respuestasSesion);
+    // Aparte y por HTTP, no con el resto: `email_rebotes` no la puede leer el
+    // cliente (sin políticas y con los grants revocados, a propósito — que una
+    // dirección rebote es información de la dirección, no del estudio que
+    // pregunta). Va detrás porque un fallo aquí no puede costar las notas ni la
+    // valoración: si no llega, la ficha se pinta sin el aviso, que es
+    // exactamente como estaba antes.
+    setEmailsRebotados(await fetchEmailsRebotados());
   }), [cargarUnaVez]);
 
   // Se saca el setter del store en vez de depender del objeto entero: es un
@@ -5261,6 +5277,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     updateCondicion,
     deleteCondicion,
     respuestasSesion,
+    emailsRebotados,
     registrarRespuestaSesion,
     plantillasCuestionarioSalud,
     addPlantillaCuestionarioSalud,
@@ -5427,7 +5444,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
-    condicionesSalud, respuestasSesion,
+    condicionesSalud, respuestasSesion, emailsRebotados,
     plantillasCuestionarioSalud, respuestasCuestionarioSalud,
     citas, citasServicios, citasDisponibilidad, productosPOS, ventasPOS, campanas, automatizaciones,
     discountCodes.codigosDescuento,

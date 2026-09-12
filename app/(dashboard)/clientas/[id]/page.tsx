@@ -32,6 +32,7 @@ import { EstadoSuscripcion } from '@/components/suscripciones/estado-suscripcion
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
+import { normalizarEmail, motivoLegible } from '@/lib/emails/rebotes';
 import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
   AlertTriangle, Plus, Tag, MessageSquare, Pause, Play, X, Clock, Megaphone,
@@ -234,6 +235,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     notasProgreso, addNotaProgreso,
     condicionesSalud, camposPersonalizados,
     facturas,
+    emailsRebotados,
   } = useStudio();
   // Las notas internas y las respuestas de sesión no vienen en el arranque
   // (#1375 las sacó y nadie escribió la carga posterior). Se piden aquí.
@@ -381,6 +383,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   }, [id, verFinanzas]);
 
   const socio = socios.find(s => s.id === id);
+  // Si el buzón de esta clienta rechaza el correo, hay que decirlo AQUÍ. Antes
+  // solo se veía al reintentar un aviso de hueco: los recordatorios, las
+  // facturas y los accesos se daban por enviados igual (#1868). Se normaliza
+  // porque la tabla va en minúsculas y una ficha puede tener «Maria@Gmail.com».
+  const reboteCorreo = socio?.email ? emailsRebotados[normalizarEmail(socio.email)] : undefined;
 
   // P0-34: las derivaciones que escanean arrays estudio-wide se memoizan (y van
   // ANTES del early return, por las reglas de hooks). Antes se recalculaban en
@@ -1607,6 +1614,16 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <Mail size={14} className="text-muted-foreground shrink-0" />
                 <span className="text-xs font-medium text-foreground truncate flex-1">{socio.email}</span>
               </div>
+              {reboteCorreo && (
+                <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-2.5 py-2">
+                  <AlertTriangle size={13} className="text-destructive shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-snug text-destructive">
+                    <span className="font-semibold">No le está llegando el correo.</span>{' '}
+                    {motivoLegible(reboteCorreo)}. Corrige la dirección en «Editar» y volverá a
+                    recibir recordatorios, facturas y accesos.
+                  </p>
+                </div>
+              )}
               {socio.telefono && (
                 <div className="flex items-center gap-2.5">
                   <Phone size={14} className="text-muted-foreground shrink-0" />
