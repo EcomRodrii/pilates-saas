@@ -16,19 +16,6 @@ export function proximasClasesDe<T extends ClaseMin>(clases: T[], instructoraId:
     .slice(0, max);
 }
 
-/**
- * HH:mm del reloj local, el mismo con el que `hoyISO()` decide qué día es.
- *
- * Vive aquí y no dentro de una pantalla porque lo necesitan DOS: la hoja de la
- * instructora y la lista de «Conoce al equipo». Tenerlo dos veces es tenerlo
- * mal una vez: basta con que una de las copias se olvide del `padStart` para
- * que a las 9:05 una clase de las 10:00 deje de ser «próxima» (porque '9:05'
- * es mayor que '10:00' comparando cadenas).
- */
-export function horaLocalAhora(d = new Date()): string {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
 /** «4,8 · 23 valoraciones». `null` sin nota publicable (menos de 5 votos). */
 export function notaTexto(rating: number | undefined, total: number | undefined): string | null {
   if (rating == null) return null;

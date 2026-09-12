@@ -9,8 +9,8 @@ import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
-import { horaLocalAhora, proximasClasesDe } from '@/lib/student/instructora';
-import { etiquetaDia, hoyISO } from '@/lib/student/formato';
+import { proximasClasesDe } from '@/lib/student/instructora';
+import { etiquetaDia, horaAhora, hoyISO } from '@/lib/student/formato';
 import type { Instructora } from '@/lib/student/tipos';
 
 // «Conoce al equipo». Nace de la baldosa de Inicio: la maqueta la pedía y no
@@ -40,7 +40,7 @@ export default function InstructorasPage() {
   // vez cambia el criterio —por ejemplo dejar fuera las clases llenas— cambia
   // en un sitio y las dos lo respetan.
   const hoy = hoyISO();
-  const ahora = horaLocalAhora();
+  const ahora = horaAhora();
   const proximaDe = (id: string): string | null => {
     const c = proximasClasesDe(data?.clases ?? [], id, hoy, ahora, 1)[0];
     return c ? `${etiquetaDia(c.fecha, hoy)} ${c.hora}` : null;

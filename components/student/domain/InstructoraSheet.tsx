@@ -5,8 +5,8 @@ import type { Clase, Instructora, Reserva } from '@/lib/student/tipos';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { AvailabilityBadge } from '@/components/student/ui/Badge';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
-import { etiquetaDia, hoyISO } from '@/lib/student/formato';
-import { horaLocalAhora, notaTexto, proximasClasesDe } from '@/lib/student/instructora';
+import { etiquetaDia, horaAhora, hoyISO } from '@/lib/student/formato';
+import { notaTexto, proximasClasesDe } from '@/lib/student/instructora';
 
 // La ficha de la instructora, desde la píldora de la hoja de clase. Antes esa
 // píldora era un <button> sin onClick: un control muerto. Todo lo que enseña
@@ -17,7 +17,7 @@ export function InstructoraSheet({ instructora, clases, reservas, soportaEspera,
   open: boolean; onClose: () => void; href: (p: string) => string;
 }) {
   const i = instructora;
-  const proximas = i ? proximasClasesDe(clases, i.id, hoyISO(), horaLocalAhora()) : [];
+  const proximas = i ? proximasClasesDe(clases, i.id, hoyISO(), horaAhora()) : [];
   const nota = i ? notaTexto(i.rating, i.valoraciones) : null;
   return (
     <Sheet open={open && !!i} onClose={onClose} label={i ? `Instructora ${i.nombre}` : 'Instructora'}>
