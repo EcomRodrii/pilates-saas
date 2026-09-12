@@ -32,7 +32,7 @@ const RUTAS = [
   'centro-de-control', 'calendario', 'citas', 'configuracion',
   'automatizaciones', 'cierre', 'comunidad', 'explorar-funciones',
   'libreta', 'mensajeria', 'mi-perfil', 'migracion',
-  'notificaciones', 'primeros-pasos', 'sustituciones', 'network/buscar',
+  'notificaciones', 'primeros-pasos', 'primeros-pasos/tu-horario', 'sustituciones', 'network/buscar',
 ];
 
 // ⚠️ Fuera de la lista, y no por descuido: /facturas, /pagos, /socios y

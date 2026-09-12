@@ -14,6 +14,7 @@ import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { TourProvider } from '@/lib/tour-context';
 import { Spotlight } from '@/components/tour/spotlight';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
+import { PrimeraVezAqui } from '@/components/guia/primera-vez-aqui';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
@@ -275,7 +276,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <div className="pt-14 lg:pt-[var(--panel-top)] pb-32 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <Topbar />
               <PanelPageTransition>
-                {cargandoDatos ? <PanelSkeleton /> : children}
+                {cargandoDatos ? <PanelSkeleton /> : (
+                  <>
+                    {/* La guía asomándose donde hace falta. Va DENTRO del
+                        `cargandoDatos ? …` y no fuera: enseñar «¿primera vez
+                        aquí?» encima de un esqueleto de carga es hablarle a
+                        una pantalla que todavía no existe. */}
+                    <PrimeraVezAqui />
+                    {children}
+                  </>
+                )}
               </PanelPageTransition>
             </div>
           </main>
