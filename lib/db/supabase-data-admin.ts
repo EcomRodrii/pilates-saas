@@ -866,31 +866,53 @@ export async function fetchPublicStudioData(
   // 1000 filas — un estudio con histórico real perdía en silencio las
   // sesiones futuras (incluida la semana siguiente) en el portal de la
   // clienta, aunque el panel interno (fetchCriticalStudioData) sí paginaba.
-  const [{ data: sesionesData, error: errSesiones }, { data: reservasAforo, error: errReservas }] = await Promise.all([
-    // Columnas, no `select('*')`: esto corre en el SERVIDOR y en CADA visita al
-    // portal, así que cada columna de más se paga dos veces en Active CPU de
-    // Fluid — al parsear la respuesta de PostgREST y al volver a serializar el
-    // JSON hacia el navegador. La espera de red no se factura; el trabajo de
-    // CPU sobre los bytes, sí. La lista es la misma que consume `mapSesion`
-    // (tipo `FilaSesionPanel`), así que si se queda corta, `tsc` la nombra.
-    // Sin zoom_join_url a propósito: el enlace de Zoom nunca sale de un select
-    // genérico del portal (ver comentario de mapSesion). zoom_meeting_id sí,
-    // porque un id sin la reunión detrás no sirve de nada.
-    // Sin `notas` ni `incidencia_texto` por el mismo motivo: son texto que
-    // escribe el personal para el personal («la clienta X viene lesionada»,
-    // «se rompió el reformer 3») y este payload lo sirve `POST
-    // /api/public/studio-data`, que responde también SIN sesión. Ningún
-    // componente del portal, del widget ni de /reservar los lee (verificado
-    // con grep en components/portal, app/portal, app/reservar,
-    // components/reserva, app/widget-bundle y lib/widget); el panel usa su
-    // propio select en lib/supabase-data.ts. Se rellenan a null al mapear
-    // para no cambiar la forma de `Sesion`.
-    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, precio_puntual, google_event_id, serie_id, zoom_meeting_id').eq('studio_id', studioId).range(from, to)),
-    fetchAllRows(studioId, 'reservas', (from, to) => admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId).range(from, to)),
-  ]);
+  // Columnas, no `select('*')`: esto corre en el SERVIDOR y en CADA visita al
+  // portal, así que cada columna de más se paga dos veces en Active CPU de
+  // Fluid — al parsear la respuesta de PostgREST y al volver a serializar el
+  // JSON hacia el navegador. La espera de red no se factura; el trabajo de
+  // CPU sobre los bytes, sí. La lista es la misma que consume `mapSesion`
+  // (tipo `FilaSesionPanel`), así que si se queda corta, `tsc` la nombra.
+  // Sin zoom_join_url a propósito: el enlace de Zoom nunca sale de un select
+  // genérico del portal (ver comentario de mapSesion). zoom_meeting_id sí,
+  // porque un id sin la reunión detrás no sirve de nada.
+  // Sin `notas` ni `incidencia_texto` por el mismo motivo: son texto que
+  // escribe el personal para el personal («la clienta X viene lesionada»,
+  // «se rompió el reformer 3») y este payload lo sirve `POST
+  // /api/public/studio-data`, que responde también SIN sesión. Ningún
+  // componente del portal, del widget ni de /reservar los lee (verificado
+  // con grep en components/portal, app/portal, app/reservar,
+  // components/reserva, app/widget-bundle y lib/widget); el panel usa su
+  // propio select en lib/supabase-data.ts. Se rellenan a null al mapear
+  // para no cambiar la forma de `Sesion`.
+  //
+  // I-11 (auditoría 58ª pasada): sin cota, esto traía TODAS las sesiones y
+  // reservas de la historia del estudio a cualquier visitante anónimo — años
+  // de estados de reserva de clientas, para siempre. Se acota por ABAJO con
+  // el mismo criterio que ya usa `fetchAforoPublico` (misma función, unas
+  // líneas más arriba): `fin >= ahora`, no `inicio >= ahora`, para no hacer
+  // desaparecer una clase que ya empezó pero sigue en curso. A propósito NO
+  // se acota por ARRIBA: `reserva_antelacion_maxima_dias` es nullable (sin
+  // límite por defecto), así que un tope fijo aquí escondería clases futuras
+  // legítimas de un estudio que programa con meses de antelación — sería
+  // cambiar un hueco de privacidad por una regresión de producto. El
+  // catálogo público es "qué se puede reservar", nunca "qué reservó
+  // alguien" — una vez la clase termina, ya no hace falta.
+  //
+  // Secuencial y no en el mismo Promise.all de antes: `reservas` se acota a
+  // las sesiones que YA quedaron dentro de la ventana, así que necesita sus
+  // ids resueltos primero.
+  const { data: sesionesData, error: errSesiones } = await fetchAllRows(studioId, 'sesiones', (from, to) =>
+    admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, precio_puntual, google_event_id, serie_id, zoom_meeting_id')
+      .eq('studio_id', studioId).gte('fin', new Date().toISOString()).range(from, to));
+  if (errSesiones) throw new Error(`catálogo público: sesiones: ${errSesiones.message}`);
+  const sesionIdsVigentes = (sesionesData ?? []).map(s => s.id as string);
+  const { data: reservasAforo, error: errReservas } = sesionIdsVigentes.length === 0
+    ? { data: [] as { id: string; sesion_id: string; estado: string; spot_id: string | null }[], error: null }
+    : await fetchAllRows(studioId, 'reservas', (from, to) =>
+      admin.from('reservas').select('id, sesion_id, estado, spot_id')
+        .eq('studio_id', studioId).in('sesion_id', sesionIdsVigentes).range(from, to));
   // Mismo criterio que el catálogo: un horario o un aforo truncados por un
   // fallo no se sirven como si fueran completos.
-  if (errSesiones) throw new Error(`catálogo público: sesiones: ${errSesiones.message}`);
   if (errReservas) throw new Error(`catálogo público: reservas: ${errReservas.message}`);
 
   const base = {
