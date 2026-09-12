@@ -6,6 +6,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { inicialDe } from '@/lib/monograma-estudio';
+import { urlServida } from '@/lib/student/imagen-servida';
 
 /**
  * Cabecera fija con la marca del estudio. Del paquete
@@ -105,7 +106,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
         <Link href={href()} aria-label={estudio.nombre} className="tap" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, color: flotando ? '#FAF9F5' : 'var(--foreground)' }}>
           {estudio.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={estudio.logoUrl} alt="" style={{ height: 26, maxWidth: 132, objectFit: 'contain', flexShrink: 0 }} />
+            <img src={urlServida(estudio.logoUrl, 132)} alt="" decoding="async" style={{ height: 26, maxWidth: 132, objectFit: 'contain', flexShrink: 0 }} />
           ) : (
             // Sin logo, monograma con la inicial — el diseño lo declara como
             // estado normal, no como respaldo de error (`logoUrl: null`).

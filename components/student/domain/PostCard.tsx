@@ -8,6 +8,7 @@ import { rsvpEvento, toggleLikePost, fetchComentarios, postComentario } from '@/
 import { useToast } from '@/components/student/ui/Toast';
 import { Button } from '@/components/student/ui/Button';
 import { Badge } from '@/components/student/ui/Badge';
+import { Foto } from '@/components/student/ui/Foto';
 
 // Una publicación del tablón. Mismo idioma que NotificationItem: avatar
 // redondo, título en 800, cuerpo en t-meta, fecha relativa en voz baja.
@@ -111,8 +112,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
 
       <p style={{ margin: '10px 0 0', fontSize: 'var(--t-body)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{post.texto}</p>
       {post.imagenUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={post.imagenUrl} alt="" style={{ display: 'block', width: '100%', marginTop: 10, borderRadius: 12, objectFit: 'cover', maxHeight: 260 }} />
+        <Foto src={post.imagenUrl} ancho={540} alto={260} style={{ display: 'block', width: '100%', marginTop: 10, borderRadius: 12, objectFit: 'cover', maxHeight: 260 }} />
       )}
 
       {esEvento && (

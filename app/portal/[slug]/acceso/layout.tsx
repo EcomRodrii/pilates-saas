@@ -2,6 +2,8 @@
 
 import { useEstudio } from '@/components/student/contexto';
 import { inicialDe } from '@/lib/monograma-estudio';
+import { Foto } from '@/components/student/ui/Foto';
+import { urlServida } from '@/lib/student/imagen-servida';
 
 /**
  * Marco de acceso: portada fotográfica oscura arriba, formulario sobre crema
@@ -30,10 +32,11 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
 
       <div className="st-auth-hero">
         {estudio.fotoPortada && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Foto
             src={estudio.fotoPortada}
-            alt=""
+            ancho={640}
+            alto={800}
+            prioritaria
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%', animation: 'apKen 22s ease-in-out infinite' }}
           />
         )}
@@ -44,7 +47,7 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
         <div style={{ position: 'absolute', top: 'calc(18px + var(--safe-top))', left: 22, display: 'flex', alignItems: 'center', gap: 9, color: '#FAF9F5' }}>
           {estudio.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={estudio.logoUrl} alt="" style={{ height: 26 }} />
+            <img src={urlServida(estudio.logoUrl, 132)} alt="" decoding="async" style={{ height: 26 }} />
           ) : (
             <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(250,249,245,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--t-meta)', fontWeight: 800 }}>
               {inicialDe(estudio.nombre)}

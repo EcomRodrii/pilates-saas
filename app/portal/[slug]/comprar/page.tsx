@@ -17,6 +17,7 @@ import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { useRouter } from 'next/navigation';
 import type { PlanTarifa } from '@/lib/types';
 import { configLegalDe } from '@/lib/legal-textos';
+import { Foto } from '@/components/student/ui/Foto';
 
 // Comprar (P0-5). Hasta ahora la alumna solo podía RESERVAR: no había ningún
 // sitio donde ver qué vende el estudio, así que un bono o una suscripción solo
@@ -193,11 +194,10 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
           producto de producción tiene imagen, así que un marco vacío sería lo
           que vería todo el mundo. Mismo criterio que el catálogo del TPV. */}
       {p.imagenUrl && (
-        // eslint-disable-next-line @next/next/no-img-element -- URL de Supabase Storage con `?v=` propio; `next/image` la re-serviría por su optimizador y perdería ese rompe-cachés.
-        <img
+        <Foto
           src={p.imagenUrl}
-          alt=""
-          loading="lazy"
+          ancho={540}
+          alto={132}
           style={{ width: '100%', height: 132, objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: 10, display: 'block' }}
         />
       )}
