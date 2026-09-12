@@ -41,13 +41,38 @@ export async function GET(req: NextRequest) {
   const [studios, socios, sesiones, reservas7, reservas30, reservasHoy, instructores, tiposClase] = await Promise.all([
     db.from('studios').select('id, slug, nombre, plan, creado_en, stripe_customer_id, subscription_status, suspendido_en, nif, stripe_account_id'),
     catalogo<{ studio_id: string }>((d, h) => db.from('socios').select('studio_id').range(d, h)),
-    catalogo<{ studio_id: string; creado_en: string | null }>((d, h) => db.from('sesiones').select('studio_id, creado_en').range(d, h)),
+    // ⚠️ `creado_en` NO existe en `sesiones` — la tabla no guarda cuándo se creó
+    // una clase, solo cuándo EMPIEZA (`inicio`). Pedirla hacía que PostgREST
+    // devolviera 400 («column sesiones.creado_en does not exist», visto en los
+    // logs de producción), `catalogo()` lo convirtiera en `data: null`, y este
+    // fichero lo leyera como CERO clases en toda la plataforma. Además del
+    // contador, eso arrastraba el embudo entero: sin sesiones, «programar
+    // clases» salía como el paso que bloquea a TODOS los estudios.
+    // Nadie usaba el campo: aquí solo se cuentan filas y se agrupan por estudio.
+    catalogo<{ studio_id: string }>((d, h) => db.from('sesiones').select('studio_id').range(d, h)),
     db.from('reservas').select('id', { count: 'exact', head: true }).gte('creado_en', hace7),
     db.from('reservas').select('id', { count: 'exact', head: true }).gte('creado_en', hace30),
     db.from('reservas').select('id', { count: 'exact', head: true }).gte('creado_en', inicioHoy),
     catalogo<{ studio_id: string; activo: boolean }>((d, h) => db.from('instructores').select('studio_id, activo').range(d, h)),
     catalogo<{ studio_id: string }>((d, h) => db.from('tipos_clase').select('studio_id').range(d, h)),
   ]);
+
+  // ⚠️ Un catálogo que falla devuelve `data: null`, y `?? []` lo convierte en
+  // «cero filas» — que aquí no se lee como un error, se lee como un dato: cero
+  // clases, cero socias, todos los estudios sin activar. Es exactamente el
+  // «no inventar números» que este fichero ya se exige a sí mismo más abajo,
+  // solo que el número inventado era un 0 y por eso nadie lo miraba dos veces.
+  //
+  // Pasó de verdad: se pedía `sesiones.creado_en`, una columna que no existe, y
+  // el panel interno llevaba quién sabe cuánto diciendo que la plataforma no
+  // tenía ni una clase. Ahora la respuesta dice qué no se pudo leer, y quien la
+  // pinte puede distinguir «no hay» de «no lo sé».
+  const lecturas: [string, unknown][] = [
+    ['estudios', studios.error], ['socias', socios.error], ['clases', sesiones.error],
+    ['reservasHoy', reservasHoy.error], ['reservas7d', reservas7.error], ['reservas30d', reservas30.error],
+    ['instructores', instructores.error], ['tiposClase', tiposClase.error],
+  ];
+  const noLeidos = lecturas.filter(([, e]) => e).map(([nombre]) => nombre);
 
   const filas = studios.data ?? [];
   const sociosPorEstudio = new Map<string, number>();
@@ -114,6 +139,8 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
+    /** Qué no se pudo leer. Vacío = todas las cifras de abajo son reales. */
+    noLeidos,
     estudios: {
       total: filas.length,
       conActividad: conActividad.length,
