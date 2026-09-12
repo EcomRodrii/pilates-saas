@@ -18,6 +18,7 @@ import { añadirAlCalendario } from '@/lib/student/enlaces-clase';
 import { Badge, EnCursoBadge } from '@/components/student/ui/Badge';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso } from '@/lib/student/estado-clase';
+import { etiquetaHistorial } from '@/lib/student/etiqueta-historial';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 
@@ -322,8 +323,14 @@ export default function MisReservasPage() {
                     <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{c.nombre}</p>
                     <p className="t-meta" style={{ marginTop: 1 }}>{fechaCorta(c.fecha)} · {c.hora}</p>
                   </div>
-                  <Badge tone={r.estado === 'asistida' ? 'ok' : r.estado === 'no-asistida' ? 'few' : 'neutral'}>
-                    {r.estado === 'asistida' ? 'Asistida' : r.estado === 'no-asistida' ? 'No asistió' : 'Cancelada'}
+                  {/* ⚠️ La etiqueta sale de `etiquetaHistorial`, no de un
+                      ternario con `else`. El `else` decía «Cancelada», y aquí
+                      caen también las CONFIRMADA de clases ya pasadas en las
+                      que el estudio no pasó lista —ver el filtro de `hist`
+                      más arriba—: a una socia que reservó y fue se le decía
+                      que había cancelado. */}
+                  <Badge tone={etiquetaHistorial(r.estado).tono}>
+                    {etiquetaHistorial(r.estado).texto}
                   </Badge>
                 </Link>
               ))

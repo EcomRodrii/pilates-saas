@@ -190,7 +190,7 @@ export default function DatosPage() {
           value={f.objetivoClasesMes}
           onChange={(e) => setF({ ...f, objetivoClasesMes: e.target.value })}
           error={err.objetivoClasesMes}
-          hint={err.objetivoClasesMes ? undefined : 'Cuantas clases quieres hacer este mes. Dejalo vacio si no quieres marcarte una meta.'}
+          hint={err.objetivoClasesMes ? undefined : 'Cuántas clases quieres hacer este mes. Déjalo vacío si no quieres marcarte una meta.'}
         />
         {/* Sin campo de dirección: el formulario del paquete pide nombre,
             apellidos, email y teléfono, y añadir campos es rediseñar. El
