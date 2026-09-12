@@ -61,6 +61,18 @@ export default function ResumenInterno() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Mismo criterio que las tarjetas de Stripe de aquí abajo: un cero se lee
+          como un dato, así que si una lectura ha fallado hay que decirlo en vez
+          de dejar que las cifras lo disimulen. No es hipotético — se pedía
+          `sesiones.creado_en`, una columna que no existe, y este panel llevaba
+          quién sabe cuánto diciendo que la plataforma no tenía ni una clase. */}
+      {k.noLeidos && k.noLeidos.length > 0 && (
+        <p className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] text-foreground">
+          <strong className="font-semibold">Faltan datos, no son ceros.</strong>{' '}
+          No se ha podido leer: {k.noLeidos.join(', ')}. Las cifras de esas secciones
+          están incompletas.
+        </p>
+      )}
       <section>
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Negocio</h2>
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
