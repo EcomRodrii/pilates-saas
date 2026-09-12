@@ -19,14 +19,24 @@ export default function OfflinePage() {
   return (
     <div className="student-app" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ textAlign: 'center', maxWidth: 320 }}>
-        <div
+        {/* ⚠️ La MISMA cara que `OfflineState` (components/student/ui/States.tsx),
+            que es lo que la alumna ve cuando se queda sin red DENTRO de la app:
+            📡 sobre el disco `.avatar` de 52 px en `--accent-soft`. Esta página
+            llevaba ⚡ sobre un disco gris de 56 px, así que el mismo estado
+            —«Sin conexión»— tenía dos caras según dónde la pillara el corte.
+            `Disco` no se importa porque no se exporta, y esta pantalla no puede
+            depender de nada que no venga con ella: se replica la receta. */}
+        <span
           aria-hidden
-          style={{ width: 56, height: 56, borderRadius: 999, background: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', fontSize: 22 }}
+          className="avatar"
+          style={{ ['--size' as string]: '52px', fontSize: 24, background: 'var(--accent-soft)', margin: '0 auto 18px' }}
         >
-          ⚡
-        </div>
+          📡
+        </span>
         <h1 className="t-h1">Sin conexión</h1>
-        <p className="t-meta" style={{ marginTop: 10, fontSize: 13, lineHeight: 1.6 }}>
+        {/* `t-small t-dim`, como el cuerpo de `OfflineState`, y no un 13 px a
+            mano entre dos escalones de la escala. */}
+        <p className="t-small t-dim" style={{ marginTop: 10, lineHeight: 1.6 }}>
           No hemos podido cargar esta pantalla. Lo que ya habías visto sigue disponible;
           para reservar o pagar hace falta conexión.
         </p>
