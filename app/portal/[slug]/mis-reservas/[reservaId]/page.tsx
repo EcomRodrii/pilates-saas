@@ -12,6 +12,7 @@ import { getPase, type Pase } from '@/lib/student/reservas-acciones';
 import { fechaLarga, hoyISO } from '@/lib/student/formato';
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import { Badge } from '@/components/student/ui/Badge';
+import { etiquetaHistorial } from '@/lib/student/etiqueta-historial';
 import { Button } from '@/components/student/ui/Button';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 import { ValorarClase } from '@/components/student/domain/ValorarClase';
@@ -176,10 +177,18 @@ export default function DetalleReservaPage() {
               <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800 }}>{c.nombre}</p>
               <p className="t-meta" style={{ marginTop: 2 }}>{fechaLarga(c.fecha)} · {c.hora}</p>
             </div>
-            <Badge tone={res.estado === 'asistida' ? 'ok' : res.estado === 'en-espera' ? 'wait' : 'neutral'}>
-              {res.estado === 'asistida' ? 'Asistida'
-                : res.estado === 'cancelada' ? 'Cancelada'
-                  : res.estado === 'en-espera' ? 'En espera' : 'No asistió'}
+            {/* ⚠️ La MISMA `etiquetaHistorial` que la lista de «Mis clases», y no
+                un ternario propio. El de aquí terminaba en `else 'No asistió'`,
+                así que una reserva CONFIRMADA de una clase ya pasada en la que
+                el estudio no pasó lista —hay muchas en producción— se le
+                enseñaba como una AUSENCIA: a una socia que reservó y
+                seguramente fue se le decía que no se presentó, que es lo que
+                en este producto lleva penalización. Y la lista, ya arreglada,
+                decía «Reservada»: la misma reserva con dos afirmaciones a un
+                toque de distancia. Con una sola función no pueden volver a
+                contradecirse. */}
+            <Badge tone={etiquetaHistorial(res.estado).tono}>
+              {etiquetaHistorial(res.estado).texto}
             </Badge>
           </div>
         )}

@@ -25,7 +25,7 @@ async function mocksComunes(page: Page) {
 test.describe('Student PWA · el historial no llama cancelada a lo que no se canceló', () => {
   test.describe.configure({ timeout: 120_000 });
 
-  test('una clase reservada y nunca marcada dice «Reservada», no «Cancelada»', async ({ page }) => {
+  async function sembrarHistorial(page: Page) {
     await sembrarSociaLista(page);
     await mocksComunes(page);
     await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill(json({ items: [], unread: 0 })));
@@ -53,7 +53,10 @@ test.describe('Student PWA · el historial no llama cancelada a lo que no se can
       { id: 'r-bar', socioId: SOCIO_ID, sesionId: 'p-bar', estado: 'ASISTIDA', creadoEn: '2026-08-01T09:00:00Z' },
     ];
     await page.route('**/api/public/studio-data', (r) => r.fulfill(json(f)));
+  }
 
+  test('una clase reservada y nunca marcada dice «Reservada», no «Cancelada»', async ({ page }) => {
+    await sembrarHistorial(page);
     await page.goto(`${base}/mis-reservas`);
     await page.getByRole('tab', { name: 'Historial' }).click({ timeout: 30_000 });
 
@@ -64,6 +67,18 @@ test.describe('Student PWA · el historial no llama cancelada a lo que no se can
     await expect(fila('Mat Pilates')).toContainText('Cancelada');
     await expect(fila('Barre')).toContainText('Asistida');
     void STUDIO_ID;
+  });
+
+  test('y la FICHA de esa misma reserva tampoco dice «No asistió»', async ({ page }) => {
+    // ⚠️ Peor que el de la lista: la ficha terminaba en `else 'No asistió'`, o
+    // sea que a una socia que reservó y seguramente fue se le decía que NO SE
+    // PRESENTÓ — lo que en este producto lleva penalización. Y con la lista ya
+    // arreglada, la misma reserva decía «Reservada» en la lista y «No asistió»
+    // un toque más allá. Las dos salen ahora de `etiquetaHistorial`.
+    await sembrarHistorial(page);
+    await page.goto(`${base}/mis-reservas/r-ref`);
+    await expect(page.getByText('Reservada', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('No asistió', { exact: true })).toHaveCount(0);
   });
 });
 
