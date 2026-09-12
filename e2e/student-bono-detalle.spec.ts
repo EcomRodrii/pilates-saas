@@ -62,6 +62,16 @@ test.describe('Student PWA · ficha de un bono', () => {
     await expect(page.getByText('de 8 sesiones')).toBeVisible();
   });
 
+  test('el nombre del bono se dice UNA vez, no en el título y en la tarjeta', async ({ page }) => {
+    // Las tres fichas de la app se titulan igual de genérico —«Recibo»,
+    // «Tu reserva», «Tu bono»— y dejan que la tarjeta nombre la cosa. Esta
+    // era la única que ponía el nombre arriba Y debajo, a dos filas.
+    await montar(page, { total: 8, restantes: 5 });
+    await page.goto(`${base}/bonos/sus-1`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: 'Tu bono' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Bono 8 sesiones')).toHaveCount(1);
+  });
+
   test('un bono recién comprado dice que no ha gastado nada, sin inventarse una lista', async ({ page }) => {
     await montar(page, { total: 8, restantes: 8 });
     await page.goto(`${base}/bonos/sus-1`, { waitUntil: 'domcontentloaded' });
