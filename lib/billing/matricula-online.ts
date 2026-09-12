@@ -77,7 +77,16 @@ export async function reservarMatricula(
   return Number(data ?? matriculaCatalogo);
 }
 
-/** Devuelve la plaza si el cobro no llegó a crearse. Best-effort. */
+/**
+ * Devuelve la plaza si el cobro no llegó a crearse. Best-effort.
+ *
+ * ⚠️ **Solo service_role.** `authenticated` no tiene EXECUTE sobre
+ * `liberar_cupo_matricula` (migr 20260912002351): devolver una plaza es una
+ * compensación de servidor, y la función REGALA matrículas. Desde el navegador
+ * daría «permission denied for function», así que si alguna pantalla llega a
+ * necesitarlo, hace falta una ruta que lo haga con el admin — no volver a abrir
+ * el grant. Lo sujeta `liberar-cupo-solo-servidor.test.ts`.
+ */
 export async function liberarCupoMatricula(
   admin: SupabaseClient,
   planId: string,
