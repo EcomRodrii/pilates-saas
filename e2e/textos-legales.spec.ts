@@ -85,7 +85,7 @@ function bloqueLegal(page: Page) {
 async function abrirPasoDeContrato(page: Page) {
   await page.goto('/clientas');
   await page.getByRole('button', { name: /Nueva clienta|Añadir primera clienta/ }).first().click({ timeout: 30_000 });
-  // Por rol y no por placeholder: "Laura" casa también con "laura@email.com".
+  // Por rol y no por placeholder: "Laura" casa también con "laura@ejemplo.com".
   // Nombre, apellidos y email son los tres obligatorios del paso 1.
   await page.getByRole('textbox', { name: 'Nombre' }).fill('María');
   await page.getByRole('textbox', { name: 'Apellidos' }).fill('Soler Puig');

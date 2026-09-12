@@ -1419,7 +1419,7 @@ export default function Socios() {
                 <input
                   type="email"
                   className={inputCls}
-                  placeholder="laura@email.com"
+                  placeholder="laura@ejemplo.com"
                   value={form.email}
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 />

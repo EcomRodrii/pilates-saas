@@ -126,9 +126,17 @@ test('en el checkout "sin popup" la página SÍ hace scroll (no hay fondo que pr
 test('⚠️ los campos miden 16px: por debajo, iOS amplía la página al enfocarlos', async ({ page }) => {
   await abrirPasoDatos(page);
 
-  for (const marcador of ['Nombre', 'Apellidos', 'tu@email.com']) {
+  // ⚠️ Estos son los placeholders REALES de `PantallaReserva`, no los del
+  // formulario anterior al rediseño. 'Apellidos' y 'tu@email.com' dejaron de
+  // casar con nada («Nombre y apellido» en singular, «Email» a secas) y el
+  // `continue` los saltaba EN SILENCIO: de los tres campos solo se medía uno.
+  // El comentario de `CampoTexto` cita este test como la medición que
+  // justifica su `fontSize: 16`, así que la cobertura que prometía era falsa.
+  // Por eso un marcador que no aparece ahora FALLA en vez de saltarse — un
+  // guardia que se salta solo es justo el bug que este test viene a evitar.
+  for (const marcador of ['Nombre y apellido', 'Email', 'Móvil']) {
     const campo = page.getByPlaceholder(marcador, { exact: false }).first();
-    if (!(await campo.count())) continue;
+    await expect(campo, `no hay ningún campo con placeholder «${marcador}»`).toHaveCount(1);
     const px = await campo.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
     expect(px, `el campo «${marcador}» mide ${px}px`).toBeGreaterThanOrEqual(16);
   }
