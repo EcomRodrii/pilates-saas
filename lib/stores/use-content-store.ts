@@ -33,6 +33,8 @@ import {
 export type OpcionesAddPost = {
   audiencia?: DestinatariosCampana; imagenUrl?: string | null;
   tipo?: 'TEXTO' | 'EVENTO'; eventoFecha?: string | null; eventoAforo?: number | null; eventoLugar?: string | null;
+  /** Fijar arriba del tablón. `dbUpdatePostComunidad` ya lo escribía (F-26); solo faltaba un botón que lo pidiera. */
+  fijado?: boolean;
 };
 
 export function useContentStore() {

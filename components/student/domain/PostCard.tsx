@@ -101,7 +101,12 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
   return (
     <article className="card a-up" data-testid="post" data-tipo={post.tipo} style={{ padding: '13px 14px', animationDelay: `${delay}ms` }}>
       <div style={{ display: 'flex', gap: 11 }}>
-        <span aria-hidden style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 'var(--t-small)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{post.autorInicial}</span>
+        {post.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={post.logoUrl} alt="" aria-hidden style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 999, objectFit: 'cover' }} />
+        ) : (
+          <span aria-hidden style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 'var(--t-small)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{post.autorInicial}</span>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800, lineHeight: 1.35 }}>{post.autorNombre}</p>
           <p style={{ margin: '2px 0 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>{relativo(post.creadoEn)}</p>

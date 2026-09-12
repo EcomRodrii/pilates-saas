@@ -266,6 +266,7 @@ export function ComunidadFeed() {
               onToggleComentarios={handleToggleComments}
               onEditar={puedeTocarEstePost ? updatePost : undefined}
               onBorrar={puedeTocarEstePost ? setBorrarId : undefined}
+              onFijar={puedeTocarEstePost ? (id) => updatePost(id, post.texto, { fijado: !post.fijado }) : undefined}
             >
               <HiloComentarios
                 postId={post.id}

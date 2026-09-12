@@ -14,6 +14,7 @@ export const LIMITE_TABLON = 20;
 
 interface FilaPost {
   id: string; texto: string; imagenUrl: string | null; autorNombre: string; autorInicial: string;
+  logoUrl?: string | null;
   creadoEn: string; likes: number; likedByMe?: boolean; comentariosCount: number; tipo: 'TEXTO' | 'EVENTO';
   eventoFecha: string | null; eventoAforo: number | null; eventoLugar: string | null;
   totalAsistentes?: number; apuntada?: boolean;
@@ -28,6 +29,7 @@ export async function getTablon(studioId: string, antes?: string, limite = LIMIT
     const cuerpo = (await res.json()) as { posts?: FilaPost[] };
     return (cuerpo.posts ?? []).map((p) => ({
       id: p.id, texto: p.texto, imagenUrl: p.imagenUrl ?? null, autorNombre: p.autorNombre, autorInicial: p.autorInicial,
+      logoUrl: p.logoUrl ?? null,
       creadoEn: p.creadoEn, likes: p.likes ?? 0, likedByMe: p.likedByMe === true,
       comentariosCount: p.comentariosCount ?? 0, tipo: p.tipo ?? 'TEXTO',
       eventoFecha: p.eventoFecha ?? null, eventoAforo: p.eventoAforo ?? null, eventoLugar: p.eventoLugar ?? null,
