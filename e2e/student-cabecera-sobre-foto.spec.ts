@@ -1,9 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { sembrarSociaCompleta, SLUG } from './socia-completa';
+import { sembrarSociaCompleta, SESION_ID, SLUG } from './socia-completa';
 
-// La cabecera de Inicio FLOTA sobre la portada del estudio, en crema. Su
-// legibilidad no la decide ningún token: la decide la foto que sube cada
-// estudio, y eso no lo controlamos.
+// La cabecera FLOTA sobre una foto, en crema, en DOS pantallas: Inicio (sobre
+// la portada del estudio) y la ficha de una clase (sobre la foto de la clase o
+// de su sala). Su legibilidad no la decide ningún token: la decide la foto que
+// sube cada estudio, y eso no lo controlamos.
+//
+// ⚠️ La ficha de clase entró aquí al pasarla a `headerTransparente`. Es el
+// caso MÁS expuesto de los dos: la portada la elige el estudio una vez y la
+// mira, mientras que la foto de una clase puede venir heredada de su sala o de
+// su tipo, y nadie la ha visto nunca con una cabecera encima.
 //
 // ⚠️ `student-contraste.spec.ts` NO puede cubrir esto y por eso existe este
 // fichero. Aquel resuelve el fondo leyendo estilos y se salta el texto sobre
@@ -25,12 +31,19 @@ function lum(r: number, g: number, b: number) {
 }
 const LTINTA = lum(250, 249, 245); // #FAF9F5, la crema de la cabecera flotante.
 
+/** Las dos pantallas que ponen la cabecera encima de una foto. */
+const PANTALLAS = [
+  ['Inicio', `/portal/${SLUG}`],
+  ['la ficha de una clase', `/portal/${SLUG}/reservar/${SESION_ID}`],
+] as const;
+
 test.describe('Student PWA · cabecera sobre la portada', () => {
   test.describe.configure({ timeout: 120_000 });
 
+  for (const [pantalla, ruta] of PANTALLAS) {
   for (const [tono, color] of [['clara', CLARA], ['oscura', OSCURA]] as const) {
     for (const [indice, etiqueta, minimo] of [[0, 'el nombre del estudio', 4.5], [1, 'el lema', 4.5]] as const) {
-      test(`${etiqueta} se lee sobre una portada ${tono}`, async ({ page }) => {
+      test(`${pantalla}: ${etiqueta} se lee sobre una foto ${tono}`, async ({ page }) => {
         await sembrarSociaCompleta(page);
         // La portada se sustituye por un color plano de luminancia conocida: lo
         // que se prueba es el VELO, no la foto de ejemplo del andamiaje.
@@ -39,7 +52,7 @@ test.describe('Student PWA · cabecera sobre la portada', () => {
           body: `<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="${color}"/></svg>`,
         }));
         await page.setViewportSize({ width: 393, height: 852 });
-        await page.goto(`/portal/${SLUG}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+        await page.goto(ruta, { waitUntil: 'domcontentloaded' }).catch(() => {});
         await page.waitForTimeout(2000);
 
         const caja = await page.evaluate((i) => {
@@ -74,8 +87,9 @@ test.describe('Student PWA · cabecera sobre la portada', () => {
           const [a, b] = [LTINTA, l].sort((x, y) => y - x);
           peor = Math.min(peor, (a + 0.05) / (b + 0.05));
         }
-        expect(+peor.toFixed(2), `peor contraste medido sobre portada ${tono}`).toBeGreaterThanOrEqual(minimo);
+        expect(+peor.toFixed(2), `${pantalla}: peor contraste medido sobre foto ${tono}`).toBeGreaterThanOrEqual(minimo);
       });
     }
+  }
   }
 });

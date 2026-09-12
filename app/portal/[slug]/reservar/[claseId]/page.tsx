@@ -204,7 +204,17 @@ export default function FichaClasePage() {
   const esFinal = enSheet && bk !== 'reviewing' && bk !== 'submitting';
 
   return (
-    <StudentShell>
+    // `headerTransparente`, igual que Inicio: esta pantalla también abre con
+    // una foto a sangre y la cabecera iba SÓLIDA encima. No era solo una
+    // incoherencia — el `marginTop: -56` de la sección metía los primeros
+    // 56 px de la foto DETRÁS de una barra crema opaca, así que la foto se
+    // recortaba sola. Con la cabecera flotando se ve entera y la geometría no
+    // cambia: `.page` pierde su relleno superior justo en los mismos 56 px que
+    // compensaba ese margen negativo.
+    //
+    // El velo va DENTRO de `StudioHeader` (medido: el nombre a 8,53:1 sobre la
+    // portada más clara), así que no hace falta ninguno aquí.
+    <StudentShell headerTransparente>
       {/* ⚠️ `background` no está en el paquete: allí `clase.fotoUrl` SIEMPRE
           existe (es un mock). Aquí puede no haberla, y sin tinta detrás el
           héroe degradaba a crema: el degradado del paquete arranca en
@@ -212,7 +222,7 @@ export default function FichaClasePage() {
           transparente en blanco sobre claro — ilegibles. `#0F0F0C` es la misma
           tinta que el propio paquete pone bajo la foto del layout de acceso
           (`.st-auth-hero`), así que sin foto se ve como el diseño espera. */}
-      <section style={{ position: 'relative', height: 290, marginTop: -56, overflow: 'hidden', background: '#0F0F0C' }}>
+      <section style={{ position: 'relative', height: 290, overflow: 'hidden', background: '#0F0F0C' }}>
         <Foto
           src={clase.fotoUrl}
           ancho={640}
