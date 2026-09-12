@@ -107,7 +107,15 @@ export function PrimeraVezAqui() {
       </p>
       <button
         onClick={cerrar}
-        aria-label="No volver a mostrar esta ayuda aquí"
+        // ⚠️ Ni «volver» ni «ver» en esta etiqueta. Decía «No VOLver a mostrar
+        // esta ayuda aquí» y tumbó `cobros-masivo.spec.ts`: su filtro se busca
+        // con `getByLabel('Ver')`, que es SUBCADENA e insensible a mayúsculas,
+        // así que «volver» contaba como segundo resultado y Playwright lo
+        // rechazó por modo estricto. Esta tira se monta en ocho pantallas que
+        // no son suyas — su nombre accesible no puede parecerse al de ningún
+        // control de la pantalla anfitriona. Mismo error de categoría que ya
+        // documenta el `getByText` de la app de la alumna.
+        aria-label="Ocultar esta ayuda"
         className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted transition-colors"
       >
         <X size={14} />
