@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { urlServida, srcSetServido, esTransformable } from './imagen-servida.ts';
+import { urlServida, srcSetServido, srcSetPorAncho, esTransformable } from './imagen-servida.ts';
 
 const SUPA = 'https://dwqvdycjcffqwfkzapvi.supabase.co/storage/v1/object/public/avatars/clase-7';
 
@@ -52,4 +52,14 @@ test('un ancho absurdo no genera una URL inválida', () => {
   assert.ok(urlServida(SUPA, 0).includes('width=16'));
   assert.ok(urlServida(SUPA, -5).includes('width=16'));
   assert.ok(urlServida(SUPA, 33.4).includes('width=33'));
+});
+
+test('el srcset por ANCHO ofrece la escalera completa', () => {
+  const s = srcSetPorAncho(SUPA)!;
+  assert.ok(s.includes('width=390') && s.includes(' 390w'));
+  assert.ok(s.includes('width=1600') && s.includes(' 1600w'));
+});
+
+test('una foto por defecto tampoco entra en la escalera', () => {
+  assert.equal(srcSetPorAncho('/por-defecto/estudio-hero.webp'), null);
 });

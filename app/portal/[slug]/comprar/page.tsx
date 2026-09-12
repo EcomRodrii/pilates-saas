@@ -198,6 +198,7 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
           src={p.imagenUrl}
           ancho={540}
           alto={132}
+          sizes="(min-width:1024px) 500px, 100vw"
           style={{ width: '100%', height: 132, objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: 10, display: 'block' }}
         />
       )}

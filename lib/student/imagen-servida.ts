@@ -54,30 +54,51 @@ export function urlServida(url: string, ancho: number): string {
 }
 
 /**
- * El `srcset` para un hueco de `ancho` píxeles CSS.
+ * El `srcset` para un hueco de ancho FIJO, por densidad de pantalla (`1x/2x/3x`).
  *
- * Se dan densidades (`1x/2x/3x`) y no anchos (`w`) a propósito: el hueco lo fija
- * el diseño y no cambia con el viewport (las tarjetas tienen ancho fijo y el
- * héroe vive dentro de un `shell` acotado), así que lo único que varía entre
- * dispositivos es la densidad de pantalla. Con densidades el navegador elige
- * UNA y no hace falta un `sizes` que habría que mantener a mano en cada sitio
- * —y que, mal puesto, hace descargar la más grande siempre.
+ * ⚠️ Solo vale si el hueco NO cambia con el viewport — la tarjeta de «Descubre»
+ * mide 172 px siempre. Para una imagen que ocupa el ancho disponible hay que
+ * usar `srcSetPorAncho` + `sizes`: con densidades, el navegador elige `3x` de lo
+ * que se declare como `1x`, así que declarar el ancho de ESCRITORIO le hace
+ * bajar la mayor a un móvil. Medido en WebKit/iPhone (DPR 3): con un hueco real
+ * de 390 px y candidatas 390/780/1170, elige la de 1170; si el `1x` dijera 640,
+ * elegiría la de 1600 — justo la que se quería evitar.
  *
- * `null` si la imagen no es transformable: repetir la misma URL tres veces no
- * aporta nada y engorda el HTML.
+ * `null` si la imagen no es transformable, o si no hay candidatas distintas.
  */
 export function srcSetServido(url: string, ancho: number): string | null {
   if (!esTransformable(url)) return null;
-  const densidades = [1, 2, 3];
   const vistos = new Set<string>();
   const partes: string[] = [];
-  for (const d of densidades) {
+  for (const d of [1, 2, 3]) {
     const u = urlServida(url, ancho * d);
     // Pasado el tope, 2x y 3x devuelven la MISMA url que 1x. Repetirla haría
     // que el navegador creyera que tiene tres opciones cuando tiene una.
     if (vistos.has(u)) continue;
     vistos.add(u);
     partes.push(`${u} ${d}x`);
+  }
+  return partes.length > 1 ? partes.join(', ') : null;
+}
+
+/** La escalera de anchos que se ofrece cuando el hueco es variable. */
+export const ESCALERA = [390, 640, 780, 1040, 1280, 1600] as const;
+
+/**
+ * El `srcset` por ANCHO (`390w, 640w…`), para imágenes cuyo hueco depende del
+ * viewport. Va SIEMPRE acompañado de un `sizes` que diga cuánto mide el hueco
+ * en cada tamaño de pantalla: sin él, el navegador asume `100vw` y en
+ * escritorio se lleva la mayor sin necesitarla.
+ */
+export function srcSetPorAncho(url: string): string | null {
+  if (!esTransformable(url)) return null;
+  const vistos = new Set<string>();
+  const partes: string[] = [];
+  for (const w of ESCALERA) {
+    const u = urlServida(url, w);
+    if (vistos.has(u)) continue;
+    vistos.add(u);
+    partes.push(`${u} ${w}w`);
   }
   return partes.length > 1 ? partes.join(', ') : null;
 }

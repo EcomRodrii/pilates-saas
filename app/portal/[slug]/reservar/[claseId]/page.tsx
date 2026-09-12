@@ -217,6 +217,7 @@ export default function FichaClasePage() {
           src={clase.fotoUrl}
           ancho={640}
           alto={290}
+          sizes="(min-width:1024px) 1040px, (min-width:768px) 640px, 100vw"
           prioritaria
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', animation: 'apKen 18s ease-in-out infinite' }}
         />

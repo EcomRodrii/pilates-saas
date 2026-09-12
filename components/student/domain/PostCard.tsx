@@ -112,7 +112,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
 
       <p style={{ margin: '10px 0 0', fontSize: 'var(--t-body)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{post.texto}</p>
       {post.imagenUrl && (
-        <Foto src={post.imagenUrl} ancho={540} alto={260} style={{ display: 'block', width: '100%', marginTop: 10, borderRadius: 12, objectFit: 'cover', maxHeight: 260 }} />
+        <Foto src={post.imagenUrl} ancho={540} alto={260} sizes="(min-width:1024px) 500px, 100vw" style={{ display: 'block', width: '100%', marginTop: 10, borderRadius: 12, objectFit: 'cover', maxHeight: 260 }} />
       )}
 
       {esEvento && (
