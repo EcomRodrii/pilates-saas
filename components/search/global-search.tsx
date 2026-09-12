@@ -344,7 +344,7 @@ export function GlobalSearch({
                   {recibosRes.map(r => {
                     const s = socioById.get(r.socioId ?? '');
                     return (
-                      <button key={r.id} onClick={() => go('/cobros?tab=pendientes')}
+                      <button key={r.id} onClick={() => go('/cobros?tab=deudas')}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))' }}>
                           <CreditCard size={14} style={{ color: 'var(--warning)' }} />

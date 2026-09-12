@@ -14,7 +14,7 @@ export default function RedireccionTransacciones() {
   useEffect(() => {
     const qs = window.location.search;
     const extra = qs ? `&${qs.slice(1)}` : '';
-    router.replace(`/cobros?tab=movimientos${extra}`);
+    router.replace(`/cobros?tab=cobrado${extra}`);
   }, [router]);
   return null;
 }

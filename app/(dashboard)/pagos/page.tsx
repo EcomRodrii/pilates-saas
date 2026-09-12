@@ -14,7 +14,7 @@ export default function RedireccionPagos() {
   useEffect(() => {
     const qs = window.location.search;
     const extra = qs ? `&${qs.slice(1)}` : '';
-    router.replace(`/cobros?tab=pendientes${extra}`);
+    router.replace(`/cobros?tab=deudas${extra}`);
   }, [router]);
   return null;
 }

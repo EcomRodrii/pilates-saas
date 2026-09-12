@@ -65,7 +65,7 @@ export const TAREAS: Tarea[] = [
   {
     id: 'nuevo-cobro',
     label: 'Cobrar una mensualidad',
-    href: '/cobros?tab=pendientes',
+    href: '/cobros?tab=deudas',
     claves: ['cobro', 'cuota', 'mensualidad', 'recibo', 'pendiente de pago', 'domiciliar'],
   },
   {
@@ -97,13 +97,13 @@ export const TAREAS: Tarea[] = [
   {
     id: 'nueva-sala',
     label: 'Añadir una sala',
-    href: '/configuracion?tab=salas',
+    href: '/configuracion?tab=clases-salas&sub=salas',
     claves: ['sala', 'espacio', 'aforo', 'capacidad'],
   },
   {
     id: 'nuevo-tipo-clase',
     label: 'Crear un tipo de clase',
-    href: '/configuracion?tab=clases',
+    href: '/configuracion?tab=clases-salas',
     claves: ['tipo de clase', 'disciplina', 'reformer', 'mat', 'modalidad'],
   },
   {
@@ -121,7 +121,7 @@ export const TAREAS: Tarea[] = [
   {
     id: 'marca',
     label: 'Personalizar los colores y el logo',
-    href: '/configuracion/apariencia',
+    href: '/configuracion/apariencia/panel',
     claves: ['marca', 'logo', 'color', 'apariencia', 'tema', 'personalizar'],
   },
 
