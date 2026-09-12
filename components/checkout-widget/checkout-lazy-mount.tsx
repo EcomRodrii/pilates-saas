@@ -42,7 +42,7 @@ export interface PropsListaPlanesLazy {
   publishableKey: string;
   stripeAccountId: string | null;
   onCrearIntento: (plan: PlanTarifa) => Promise<(ResultadoEscritura & { datos?: unknown }) | undefined>;
-  onBizum: (plan: PlanTarifa) => void;
+  onBizum: (plan: PlanTarifa, aceptaCondiciones: boolean) => void;
   onCerrar: () => void;
   onComprado?: () => void;
   onIniciarSesion?: () => void;

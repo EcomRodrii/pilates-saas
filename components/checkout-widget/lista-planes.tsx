@@ -30,7 +30,7 @@ export function ListaPlanes({
   publishableKey: string;
   stripeAccountId: string | null;
   onCrearIntento: (plan: PlanTarifa) => Promise<(ResultadoEscritura & { datos?: unknown }) | undefined>;
-  onBizum: (plan: PlanTarifa) => void;
+  onBizum: (plan: PlanTarifa, aceptaCondiciones: boolean) => void;
   onCerrar: () => void;
   /** Refresca bonos/suscripciones tras una compra confirmada. */
   onComprado?: () => void;
@@ -90,7 +90,7 @@ export function ListaPlanes({
         t={t} plan={estado.plan} clientSecret={estado.clientSecret}
         publishableKey={publishableKey} stripeAccountId={stripeAccountId}
         onExito={() => { setEstado({ fase: 'exito', plan: estado.plan }); onComprado?.(); }}
-        onBizum={() => onBizum(estado.plan)}
+        onBizum={(acepta) => onBizum(estado.plan, acepta)}
         onCerrar={() => setEstado({ fase: 'lista' })}
       />
     );

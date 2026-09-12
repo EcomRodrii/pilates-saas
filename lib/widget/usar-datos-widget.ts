@@ -248,10 +248,11 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
 
   // Bizum: fuera del Payment Element a propósito (§4 del diseño, redirect
   // avisado) — reutiliza /api/stripe/checkout tal cual, ahora CORS-aware.
-  const comprarConBizum = useCallback(async (plan: PlanTarifa) => {
+  const comprarConBizum = useCallback(async (plan: PlanTarifa, aceptaCondiciones: boolean) => {
     if (!socia?.socioId) return;
     const r = await postPublicoWidget(`${baseUrl}/api/stripe/checkout`, {
       studioId: datos.studioId, planId: plan.id, socioId: socia.socioId, socioEmail: socia.email, bizum: true,
+      aceptaCondiciones,
     }, { studioId: datos.studioId });
     const url = (r.datos as { url?: string } | null)?.url;
     if (r.ok && url) {

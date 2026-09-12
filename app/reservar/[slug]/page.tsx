@@ -1903,6 +1903,11 @@ export default function ReservarPage() {
           codigoPostal: datosInfoAdicional.codigoPostal.trim() || undefined,
           fechaNacimiento: fechaNacimientoISO(datosInfoAdicional.fechaNacimiento) ?? undefined,
           bizum: true,
+          // P-2 (auditoría 58ª): ya se comprueba en el `if` de arriba antes de
+          // llamar (`if (!privacidadAceptada) return;`), pero el SERVIDOR es
+          // quien tiene que exigirlo — no basta con que el navegador no deje
+          // pulsar.
+          aceptaCondiciones: privacidadAceptada,
         }),
       });
       const data = await res.json() as { url?: string; error?: string };

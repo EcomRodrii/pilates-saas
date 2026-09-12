@@ -83,6 +83,11 @@ export async function POST(req: NextRequest) {
     // (clase suelta / bono / primer pago). Bizum no es recurrente ni guardable,
     // así que activarlo desactiva el guardado de tarjeta (setup_future_usage).
     bizum?: boolean;
+    // P-2 (auditoría 58ª): prueba de que la persona marcó la casilla legal
+    // ANTES de pagar. Solo se exige (ver `exigeAceptacionExplicita`) cuando el
+    // estudio reescribió su política de privacidad o sus términos -- para el
+    // resto, que ni siquiera pinta la casilla, no cambia nada.
+    aceptaCondiciones?: boolean;
     // P1 auditoría Momence: lead-id crudo del widget público (`?ref=`),
     // viaja en la metadata de Stripe hasta entregarPlanComprado.
     origenLead?: string | null;
@@ -324,6 +329,19 @@ export async function POST(req: NextRequest) {
     // SERVIDOR a partir de los textos vigentes del estudio, nunca el cliente.
     // Best-effort — si falla, la compra sigue sin sello (igual que Modo B).
     const { sellarCondicionesVigentes } = await import('@/lib/legal-sellado');
+    const { exigeAceptacionExplicita } = await import('@/lib/legal-aceptacion');
+    // P-2 (auditoría 58ª): sellar sin comprobar nada certificaba un
+    // consentimiento que nadie dio -- C-1 ya cerró el hueco del NAVEGADOR
+    // (el botón de Bizum no exigía la casilla); esto cierra el del SERVIDOR,
+    // que sellaba igual aunque el body llegara sin ninguna prueba. Acotado a
+    // los estudios que de verdad reescribieron algo (mismo criterio que ya
+    // decide si el checkout PINTA la casilla): los demás siguen igual.
+    if (await exigeAceptacionExplicita(admin, body.studioId) && body.aceptaCondiciones !== true) {
+      return conCorsWidget(req, NextResponse.json(
+        { error: 'Debes aceptar las condiciones del servicio y la política de privacidad.' },
+        { status: 409 },
+      ));
+    }
     const sello = await sellarCondicionesVigentes(admin, body.studioId);
     if (sello) {
       metadata.terminosHash = sello.hash;

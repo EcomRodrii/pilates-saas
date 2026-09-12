@@ -41,7 +41,13 @@ export function CheckoutEmbebido({
    * no es "cobraría sin reservar", el webhook de `/api/stripe/checkout`
    * también reserva la plaza tras el pago).
    */
-  onBizum?: () => void;
+  /**
+   * P-2 (auditoría 58ª): recibe si la casilla legal está marcada EN ESTE
+   * instante, para que quien maneja el fallback de Bizum pueda mandarlo al
+   * servidor — antes se sabía en el navegador (el botón queda `disabled`)
+   * pero el servidor sellaba el consentimiento sin comprobarlo.
+   */
+  onBizum?: (aceptaCondiciones: boolean) => void;
   /**
    * Condiciones y privacidad DEL ESTUDIO, para poder leerlas antes de pagar.
    *
@@ -325,7 +331,7 @@ function FormularioPago({
   t, plan, onExito, onBizum, onCerrar, textoBoton, ventanaCancelacionHoras, datosPago, onProcesando, importeTotal,
   textosLegales,
 }: {
-  t: ModoTokens; plan: PlanTarifa; onExito: () => void; onBizum?: () => void; onCerrar: () => void;
+  t: ModoTokens; plan: PlanTarifa; onExito: () => void; onBizum?: (aceptaCondiciones: boolean) => void; onCerrar: () => void;
   /** Condiciones y privacidad del estudio, para leerlas junto al botón de pago. */
   textosLegales?: { politicaPrivacidad: string; terminosServicio: string } | null;
   textoBoton?: string; ventanaCancelacionHoras?: number;
@@ -615,7 +621,7 @@ function FormularioPago({
         // (`sellarCondicionesVigentes` no exige prueba de aceptación), así que
         // el recibo certificaba un consentimiento que nadie dio.
         <button
-          type="button" onClick={onBizum} disabled={bloqueado}
+          type="button" onClick={() => onBizum(acepta)} disabled={bloqueado}
           style={{
             background: 'none', border: `1px solid ${t.line}`, borderRadius: radius.pillBtnSm, height: 44,
             color: t.ink, fontSize: 13, fontWeight: 700,
