@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { bizumActivo } from '@/lib/billing/bizum-activo';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
@@ -400,6 +401,18 @@ export async function POST(req: NextRequest) {
   // Stripe rechazaría la sesión. Así el camino nuevo gana capacidad sin poner en
   // riesgo el que ya iba, y `metodoReutilizableDe` acepta las dos formas.
   const conBizum = body.bizum === true;
+  // Pedir Bizum sin comprobar que la cuenta CONECTADA lo tiene `active` tumba
+  // la sesión ENTERA (Stripe rechaza el `create` si cualquier método pedido
+  // no está activo) -- también la tarjeta, que sí funcionaría. Confirmado en
+  // producción (2026-09-12): "The payment method type provided: bizum is
+  // invalid" dejaba a la alumna sin poder pagar de ninguna forma. Ver
+  // lib/billing/bizum-activo.ts.
+  if (conBizum && !(await bizumActivo(stripe, studio.stripe_account_id))) {
+    return conCorsWidget(req, NextResponse.json(
+      { error: 'Bizum todavía no está disponible para este estudio. Paga con tarjeta mientras tanto.' },
+      { status: 409 },
+    ));
+  }
   const paymentMethodTypes: Array<'card' | 'bizum'> = conBizum ? ['card', 'bizum'] : ['card'];
 
   // DOBLE COBRO (C-3). Hasta aquí esto solo LEÍA el estado del recibo y creaba
