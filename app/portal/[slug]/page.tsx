@@ -119,12 +119,16 @@ export default function InicioPage() {
   // es un hueco: el servidor la rechaza (`sesionYaEmpezada`). Antes salía toda la
   // mañana ofreciendo plazas de clases que ya se estaban dando o que habían
   // acabado, porque el filtro era del día entero.
-  const huecos = (data?.clases ?? [])
+  //
+  // ⚠️ El recorte a 3 es de la LISTA, no del recuento: `ProximaClaseVacia` dice
+  // «Hay N clases hoy con plaza libre» y con esta misma variable topada decía 3
+  // habiendo 8. La frase tenía cálculo detrás, pero no el que decía.
+  const libresHoy = (data?.clases ?? [])
     .filter((c) => c.fecha === hoy)
     .filter((c) => !estaEnCurso(c, ahoraMs) && !yaTermino(c, ahoraMs))
     .filter((c) => disponibilidad(c, data?.reservas ?? [], estudio.soportaListaEspera) !== 'reservada')
-    .filter((c) => c.plazasLibres > 0)
-    .slice(0, 3);
+    .filter((c) => c.plazasLibres > 0);
+  const huecos = libresHoy.slice(0, 3);
 
   return (
     <StudentShell headerTransparente conLema>
@@ -385,7 +389,7 @@ export default function InicioPage() {
                 onComoLlegar={() => window.open(urlComoLlegar(estudio.direccion, estudio.nombre, navigator.userAgent), '_blank', 'noopener')}
               />
             ) : (
-              <ProximaClaseVacia huecosHoy={huecos.length} hrefReservar={href('/reservar')} />
+              <ProximaClaseVacia huecosHoy={libresHoy.length} hrefReservar={href('/reservar')} />
             )}
 
             {/* ── TU RITMO ─────────────────────────────────────────────────

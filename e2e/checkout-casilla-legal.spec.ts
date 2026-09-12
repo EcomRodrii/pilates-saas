@@ -79,15 +79,28 @@ test.describe('Casilla de aceptación en el checkout', () => {
 
     // Nombre EXACTO, no /^Pagar/: el fallback de Bizum ("Pagar con Bizum")
     // también empieza por "Pagar" y el regex resolvía a dos botones.
+    //
+    // ⚠️ Y se comprueban LOS DOS. Desambiguar quitando el de Bizum fue lo que
+    // dejó pasar que ese botón no miraba la casilla: se podía pagar sin aceptar
+    // nada, y el servidor sellaba igualmente `terminos_hash` en el recibo. Una
+    // puerta de cobro que este test no mire es una puerta sin guardia.
     const pagar = page.getByRole('button', { name: 'Pagar 70 €' });
+    const bizum = page.getByRole('button', { name: 'Pagar con Bizum' });
+    // Que EXISTA es parte de lo que se afirma: con un `if (await count())` el
+    // día que alguien quitara el botón —o le cambiara el rótulo— este test
+    // seguiría en verde sin mirar ya ninguna puerta de Bizum.
+    await expect(bizum).toHaveCount(1);
     await expect(pagar).toBeDisabled();
+    await expect(bizum).toBeDisabled();
 
     await casilla.check();
     await expect(pagar).toBeEnabled();
+    await expect(bizum).toBeEnabled();
 
     // Y se puede volver atrás: desmarcarla vuelve a bloquear el cobro.
     await casilla.uncheck();
     await expect(pagar).toBeDisabled();
+    await expect(bizum).toBeDisabled();
   });
 
   test('los documentos se pueden leer ahí mismo', async ({ page }) => {

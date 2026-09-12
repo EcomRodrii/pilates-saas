@@ -14,8 +14,10 @@ import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunnin
 import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
 import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
+import { metodoRealDeSesion } from '@/lib/billing/metodo-real-sesion';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
+
 
 // Id de NUESTRA propia cuenta de Stripe (la de la plataforma).
 //
@@ -482,18 +484,7 @@ async function procesarEvento(
         // Si se ofreció Bizum, el método real puede ser bizum O tarjeta → lo
         // leemos del cargo para registrar metodo_cobro con exactitud. Si no se
         // ofreció Bizum, es tarjeta y evitamos la llamada extra.
-        const pmTypes = (session.payment_method_types ?? []) as string[];
-        let metodoCobro = 'TARJETA';
-        if (pmTypes.includes('bizum') && typeof session.payment_intent === 'string') {
-          try {
-            const piPago = await stripe.paymentIntents.retrieve(
-              session.payment_intent, { expand: ['latest_charge'] },
-              event.account ? { stripeAccount: event.account } : undefined,
-            );
-            const tipo = (piPago.latest_charge as Stripe.Charge | null)?.payment_method_details?.type;
-            metodoCobro = tipo === 'bizum' ? 'BIZUM' : 'TARJETA';
-          } catch { /* si falla la lectura, dejamos TARJETA por defecto */ }
-        }
+        const metodoCobro = await metodoRealDeSesion(stripe, session, event.account ?? null);
         const piId = typeof session.payment_intent === 'string' ? session.payment_intent : null;
         // F-12/F-13 (rediseño de fondo): marcar cobrado + renovar + sellar
         // factura + notificar + email viven ahora en UN SOLO SITIO
@@ -569,6 +560,9 @@ async function procesarEvento(
           // buscarlo a mano en Stripe.
           paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
           origenLead: origenLead ?? null,
+          // Con qué se pagó de verdad. Esta rama escribía siempre 'TARJETA', y
+          // desde #1864/#1865 también entra Bizum por aquí.
+          metodoCobro: await metodoRealDeSesion(stripe, session, event.account ?? null),
           // I-8: si es invitada, crear ficha nueva siempre (no reutilizar)
           esInvitada,
           fuente: 'webhook',

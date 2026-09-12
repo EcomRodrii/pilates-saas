@@ -204,9 +204,18 @@
    Se arregla con el tamaño, no con `maximum-scale=1` ni `user-scalable=no`:
    eso quita el zoom a TODA la página, que es exactamente lo que necesita quien
    ve poco. Acotado a `pointer: coarse` para no engordar los campos en
-   escritorio, donde el problema no existe. */
+   escritorio, donde el problema no existe.
+
+   ⚠️ Con `!important`, y por el mismo motivo que en `prefers-reduced-motion`:
+   la mitad de los campos de la app llevan su tamaño en un `style` EN LÍNEA
+   (el buscador de Inicio y el del horario, el código de descuento, los
+   comentarios…), y una declaración en línea gana a cualquier regla de hoja sin
+   `!important`. Sin esto, la regla existía y el iPhone seguía ampliando la
+   página en justo los campos que motivaron el arreglo. Es un requisito de
+   plataforma acotado a pantalla táctil, no una preferencia de diseño: por eso
+   puede pisar al componente. */
 @media (pointer: coarse) {
-  .student-app input, .student-app textarea, .student-app select { font-size: 16px; }
+  .student-app input, .student-app textarea, .student-app select { font-size: 16px !important; }
 }
 .student-app button { cursor: pointer; }
 .student-app input { outline: none; }

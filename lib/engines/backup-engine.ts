@@ -64,6 +64,56 @@ export interface BackupSnapshot {
 // simultáneas multiplican por ~19 lo que tarda cada una por separado.
 const TABLAS_A_LA_VEZ = 8;
 
+// Por qué columna se ordena cada tabla al paginar. `leerCatalogoCompleto` lo
+// EXIGE ("`construir` DEBE incluir un `.order(...)` por una columna única"):
+// sin ORDER BY, Postgres no garantiza que LIMIT/OFFSET devuelva páginas
+// disjuntas, así que una fila puede salir dos veces y otra ninguna. En un
+// backup eso no es un informe incompleto, es PÉRDIDA DE DATOS —
+// `restaurarSnapshot` borra y reinserta el snapshot tal cual.
+//
+// `id` sirve para 42 de las 44 tablas; `member_credits` y `preferencias_socio`
+// NO tienen columna `id` (su PK es `socio_id`, verificado en producción contra
+// `pg_constraint`) y ordenarlas por `id` reventaría su lectura con un 42703,
+// que es peor que el fallo que esto arregla.
+// ⚠️ El tipo es EXHAUSTIVO (`Record`, no `Partial<Record>`) a propósito: así,
+// añadir una tabla a `BACKUP_TABLES` no compila hasta decir por qué columna se
+// ordena. Con un valor por defecto, la tabla 45 con PK distinta de `id` se
+// habría paginado por una columna inexistente y su backup fallaría ENTERO en
+// producción, sin que ningún check lo viera.
+const COLUMNA_ORDEN: Record<(typeof BACKUP_TABLES)[number], string> = {
+  socios: 'id', planes_tarifa: 'id', suscripciones: 'id', salas: 'id', spots: 'id',
+  tipos_clase: 'id', instructores: 'id', sesiones: 'id', reservas: 'id', recibos: 'id',
+  facturas: 'id', citas: 'id', productos_pos: 'id', ventas_pos: 'id', campanas: 'id',
+  automatizaciones: 'id', automation_rules: 'id', automation_logs: 'id',
+  codigos_descuento: 'id', actividad_reciente: 'id', mensajes_equipo: 'id',
+  notificaciones: 'id', videos_on_demand: 'id', posts_comunidad: 'id',
+  notas_internas: 'id', notas_progreso: 'id', integraciones: 'id',
+  // Las dos SIN columna `id`: su PK es `socio_id` (verificado en el catálogo de
+  // producción, `pg_constraint`).
+  preferencias_socio: 'socio_id',
+  member_credits: 'socio_id',
+  reward_rules: 'id', reward_actions: 'id', reward_history: 'id',
+  credit_transactions: 'id', reward_catalog: 'id', reward_redemptions: 'id',
+  achievement_definitions: 'id', achievement_progress: 'id', achievement_history: 'id',
+  level_definitions: 'id', challenge_definitions: 'id', challenge_progress: 'id',
+  challenge_history: 'id', dashboard_charts: 'id', soporte_solicitudes: 'id',
+};
+
+/** Mensaje legible de un error de PostgREST, que NO es `Error` y da "[object Object]". */
+function mensajeDeError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null) {
+    const e = error as { message?: unknown; code?: unknown; details?: unknown; hint?: unknown };
+    if (typeof e.message === 'string') {
+      const code = typeof e.code === 'string' && e.code ? ` [${e.code}]` : '';
+      const det = typeof e.details === 'string' && e.details ? ` — ${e.details}` : '';
+      return `${e.message}${code}${det}`;
+    }
+    try { return JSON.stringify(error); } catch { /* cae al String de abajo */ }
+  }
+  return String(error);
+}
+
 // Lee todas las filas de un negocio en cada tabla de BACKUP_TABLES. Requiere
 // el cliente admin (service role) porque tiene que leer sin restricciones de
 // RLS, sea quien sea quien lo dispare (staff logueado, o el cron sin sesión).
@@ -81,10 +131,15 @@ export async function crearSnapshot(admin: SupabaseClient, studioId: string): Pr
   for (let i = 0; i < BACKUP_TABLES.length; i += TABLAS_A_LA_VEZ) {
     const lote = BACKUP_TABLES.slice(i, i + TABLAS_A_LA_VEZ);
     await Promise.all(lote.map(async tabla => {
+      const orden = COLUMNA_ORDEN[tabla];
       const { filas, truncado } = await leerCatalogoCompleto<Record<string, unknown>>(
-        (desde, hasta) => admin.from(tabla).select('*').eq('studio_id', studioId).range(desde, hasta),
+        (desde, hasta) => admin.from(tabla).select('*').eq('studio_id', studioId)
+          .order(orden, { ascending: true }).range(desde, hasta),
       ).catch((error: unknown) => {
-        throw new Error(`Error leyendo ${tabla}: ${error instanceof Error ? error.message : String(error)}`);
+        // El error de PostgREST no es un `Error`: sin esto, el aviso que llega a
+        // Sentry es literalmente «Error leyendo planes_tarifa: [object Object]»
+        // y deja al equipo sin saber por qué lleva noches sin copia.
+        throw new Error(`Error leyendo ${tabla}: ${mensajeDeError(error)}`);
       });
       // El tope de `leerCatalogoCompleto` es una red contra bucles infinitos.
       // Si salta, el snapshot estaría incompleto — y guardar un backup

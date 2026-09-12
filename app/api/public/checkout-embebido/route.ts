@@ -269,13 +269,17 @@ export async function POST(req: NextRequest) {
   // `reservar_matricula` en la base, que además gasta la plaza bajo un
   // `for update`. Aquí solo se cobra lo que diga — igual que el Modo A, que es
   // justo el motivo de que la decisión viva en la BD y no en cada ruta.
+  //
+  // ⚠️ La plaza NO se reserva aquí: se reserva lo más tarde posible (justo
+  // antes de crear el PaymentIntent), porque entre este punto y el cobro hay
+  // seis validaciones que pueden abortar la compra —importe 0, sin email,
+  // clase inexistente/cancelada/empezada, plan que no cubre el tipo, Stripe sin
+  // conectar— y solo la primera devolvía la plaza. Las otras cinco la gastaban
+  // para siempre: cuatro intentos fallidos agotaban «gratis para las 4
+  // primeras» sin una sola venta.
   let matriculaCentimos = 0;
   let cupoMatriculaReservado: { planId: string; studioId: string } | null = null;
-  if (Number(plan.matricula) > 0 && await primeraVezConPlan(admin, body.studioId, socioId, body.socioEmail ?? null)) {
-    const aCobrar = await reservarMatricula(admin, body.planId, body.studioId, Number(plan.matricula));
-    matriculaCentimos = Math.round(aCobrar * 100);
-    if (aCobrar === 0) cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
-  }
+  const matriculaBase = Number(plan.matricula);
 
   // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-11. El `importe > 0` de arriba se
   // comprueba ANTES del descuento, así que un código del 100 % dejaba llegar un
@@ -286,11 +290,6 @@ export async function POST(req: NextRequest) {
   // improvisa en un endpoint de cobro: se dice claro que ese código no sirve
   // para esta compra.
   if (!(importe > 0)) {
-    // La compra no sigue: la plaza de matrícula gratis que se acaba de reservar
-    // no se ha usado y tiene que volver.
-    if (cupoMatriculaReservado) {
-      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
-    }
     return conCorsWidget(req, NextResponse.json(
       { error: 'Ese código deja la compra en 0 €. Pide a tu estudio que te dé el bono directamente.' },
       { status: 409 },
@@ -334,6 +333,19 @@ export async function POST(req: NextRequest) {
     return conCorsWidget(req, NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Integraciones antes de cobrar.' }, { status: 409 }));
   }
   const stripeAccount = studio.stripe_account_id;
+
+  // P-1 (auditoría 26ª pasada): la matrícula se cobra la PRIMERA vez que esta
+  // socia contrata un plan aquí — nunca sobre el código de descuento (ese es
+  // del plan, no de esta venta aparte). El IMPORTE lo decide `reservar_matricula`
+  // en la base, que gasta la plaza bajo un `for update`; aquí solo se cobra lo
+  // que diga. Es el último punto en que la compra puede fallar sin haber
+  // gastado nada: de aquí en adelante, lo único que no crea el cobro es el
+  // `catch` — que sí devuelve la plaza.
+  if (matriculaBase > 0 && await primeraVezConPlan(admin, body.studioId, socioId, body.socioEmail ?? null)) {
+    const aCobrar = await reservarMatricula(admin, body.planId, body.studioId, matriculaBase);
+    matriculaCentimos = Math.round(aCobrar * 100);
+    if (aCobrar === 0) cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
+  }
   // Base de idempotencia de ESTE intento — la reutiliza el PaymentIntent de
   // abajo. La creación del Customer usa un sufijo propio: Stripe scopea las
   // claves de idempotencia por cuenta y comprueba que los parámetros

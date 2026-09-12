@@ -441,6 +441,13 @@ function FormularioPago({
     }
   }
 
+  // Las DOS puertas de cobro (tarjeta y Bizum) comparten el mismo bloqueo, y
+  // por eso se calcula una sola vez: el botón de Bizum nació sin mirar la
+  // casilla legal, y una condición repetida a mano en cada botón es justo cómo
+  // se cuela el siguiente. Bizum no depende de Stripe.js (redirige), así que
+  // `stripe`/`elementoListo` siguen siendo solo del botón de tarjeta.
+  const bloqueado = enviando || (!!textosLegales && !acepta);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Mientras el iframe del PaymentElement no existe todavía (antes
@@ -572,12 +579,12 @@ function FormularioPago({
         </div>
       )}
       <button
-        type="button" disabled={!stripe || !elementoListo || enviando || (!!textosLegales && !acepta)} onClick={pagar}
+        type="button" disabled={!stripe || !elementoListo || bloqueado} onClick={pagar}
         aria-busy={enviando}
         style={{
           width: '100%', height: 52, borderRadius: radius.pillBtnSm, border: 'none', fontSize: 14, fontWeight: 800,
           background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-          cursor: (!stripe || !elementoListo || enviando || (!!textosLegales && !acepta)) ? 'default' : 'pointer', opacity: (!stripe || !elementoListo || enviando || (!!textosLegales && !acepta)) ? 0.6 : 1,
+          cursor: (!stripe || !elementoListo || bloqueado) ? 'default' : 'pointer', opacity: (!stripe || !elementoListo || bloqueado) ? 0.6 : 1,
         }}
       >
         {enviando ? (
@@ -601,11 +608,20 @@ function FormularioPago({
         </span>
       </div>
       {onBizum && (
+        // ⚠️ La MISMA guarda que el botón de tarjeta: con textos legales, hasta
+        // que no se marca la casilla no se puede pagar. Bizum nació sin ella
+        // (#1864/#1865) y era la única puerta que la esquivaba — y el servidor
+        // sella igualmente `terminosHash`/`terminosAceptadosEn` en el recibo
+        // (`sellarCondicionesVigentes` no exige prueba de aceptación), así que
+        // el recibo certificaba un consentimiento que nadie dio.
         <button
-          type="button" onClick={onBizum} disabled={enviando}
+          type="button" onClick={onBizum} disabled={bloqueado}
           style={{
             background: 'none', border: `1px solid ${t.line}`, borderRadius: radius.pillBtnSm, height: 44,
-            color: t.ink, fontSize: 13, fontWeight: 700, cursor: enviando ? 'default' : 'pointer',
+            color: t.ink, fontSize: 13, fontWeight: 700,
+            // El bloqueo se VE, no solo se aplica: un botón a opacidad 1 con
+            // cursor de mano que al pulsarlo no hace nada es otro botón mudo.
+            cursor: bloqueado ? 'default' : 'pointer', opacity: bloqueado ? 0.6 : 1,
           }}
         >
           Pagar con Bizum

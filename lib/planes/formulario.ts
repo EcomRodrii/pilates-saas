@@ -226,20 +226,18 @@ export function formularioAPlan(f: FormularioPlan): DatosPlan {
     // ninguna pantalla enseñaría y nadie usaría. Mismo criterio que `sesiones`.
     periodicidadMeses: f.tipo === 'MENSUAL' ? mesesDeCiclo({ periodicidadMeses: parseInt(f.periodicidadMeses, 10) }) : 1,
     matricula: importeNoNegativo(f.matricula),
-    // ⚠️ Solo se emiten si hay promoción, igual que `limitePorTipo`. Un plan de
-    // los de siempre tiene que salir de aquí IDÉNTICO a como entró —hay un test
-    // de ida y vuelta que lo exige— y un `matriculaGratisHasta: null` sería un
-    // campo nuevo donde antes no había nada.
-    ...promocionDeMatricula(f),
+    // ⚠️ Se emiten SIEMPRE, como `ofertaHasta` y por el MISMO motivo: en la
+    // edición, `dbUpdatePlanTarifa` se salta lo `undefined`, así que omitirlos
+    // cuando la propietaria vacía las dos casillas NO apagaba la promoción —
+    // decía «Plan actualizado» y la matrícula se seguía regalando. Es
+    // literalmente el bug de `oferta_hasta` que documenta `supabase-data.ts`,
+    // repetido once líneas más abajo. En el alta no cambia nada:
+    // `planTarifaToDb` escribe `plan[campo] ?? null` para todas las columnas.
+    matriculaGratisHasta: f.matriculaGratisHasta.trim() || null,
+    // «0 plazas» / un texto ilegible siguen siendo NO HAY promoción (null), no
+    // una promoción permanentemente agotada — eso no cambia.
+    matriculaGratisCupos: enteroPositivo(f.matriculaGratisCupos),
   };
-}
-
-/** Los dos campos de la promoción, o ninguno si no la hay. */
-function promocionDeMatricula(f: FormularioPlan): Partial<DatosPlan> {
-  const hasta = f.matriculaGratisHasta.trim() || null;
-  const cupos = enteroPositivo(f.matriculaGratisCupos);
-  if (!hasta && cupos == null) return {};
-  return { matriculaGratisHasta: hasta, matriculaGratisCupos: cupos };
 }
 
 /**

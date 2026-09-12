@@ -40,7 +40,18 @@ export default function ErrorPortalStudent({
     });
   }, [error, ruta, slug]);
 
-  const noDisponible = error.message === 'STUDENT_ESTUDIO_NO_DISPONIBLE';
+  // ⚠️ Aquí había un `error.message === 'STUDENT_ESTUDIO_NO_DISPONIBLE'` para
+  // elegir la copia. En producción era SIEMPRE falso: Next borra el mensaje de
+  // los errores de servidor antes de que lleguen al boundary del cliente («The
+  // specific message is omitted in production builds…»), y así se vio en Sentry
+  // el 8-sep, con los mismos sellos de tiempo que los 17 errores del servidor.
+  // Las socias reales nunca leyeron la copia escrita para ellas: veían el
+  // genérico. Se deja UNA sola copia, y es NEUTRA a propósito: este boundary no
+  // recoge solo el fallo del layout, recoge las 29 pantallas del segmento (no
+  // hay ningún `error.tsx` anidado). Decir «no hemos podido cargar tu estudio»
+  // cuando lo que ha fallado es la pantalla de comunidad sería mentir, y
+  // prometer «no ha afectado a tus reservas» es algo que aquí no se puede
+  // saber.
 
   return (
     <div
@@ -64,13 +75,11 @@ export default function ErrorPortalStudent({
       </span>
 
       <h1 style={{ margin: 0, fontSize: 'var(--t-h1)', fontWeight: 800, letterSpacing: '-.02em' }}>
-        {noDisponible ? 'No hemos podido cargar tu estudio' : 'Algo no ha salido bien'}
+        No hemos podido cargar esta pantalla
       </h1>
 
       <p style={{ margin: 0, fontSize: 'var(--t-body)', lineHeight: 1.55, maxWidth: '32ch', color: 'var(--muted-foreground, #5A5A52)' }}>
-        {noDisponible
-          ? 'Es un problema nuestro, no tuyo, y no ha afectado a tus reservas. Vuelve a intentarlo en un momento.'
-          : 'Vuelve a intentarlo. Si sigue pasando, escríbenos y lo miramos.'}
+        Es un problema nuestro, no tuyo. Vuelve a intentarlo en un momento; si sigue pasando, escríbenos y lo miramos.
       </p>
 
       <button

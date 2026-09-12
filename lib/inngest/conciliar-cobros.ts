@@ -34,6 +34,7 @@ import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { fetchAllRows } from '../supabase-data.ts';
 import { entregarPlanComprado, idsDe } from '../billing/entregar-plan-comprado.ts';
 import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar, consumirCodigoDescuentoSiAplica } from '../billing/confirmar-cobro.ts';
+import { metodoRealDeSesion } from '../billing/metodo-real-sesion.ts';
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
@@ -480,8 +481,14 @@ async function entregar(
     const piId = typeof sesion?.payment_intent === 'string'
       ? sesion.payment_intent
       : sesion?.payment_intent?.id ?? null;
+    // Con qué se pagó DE VERDAD, igual que el webhook: una sesión que ofrece
+    // Bizum la puede acabar pagando la socia con tarjeta, y al revés. Esto era
+    // un 'TARJETA' a pelo — y el conciliador es el camino real en 4 de cada 6
+    // cobros, así que el desglose por método del arqueo mentía justo en la
+    // mayoría.
     const res = await confirmarCobroRecibo(admin, {
-      studioId: p.studioId, reciboId: p.reciboId, metodoCobro: 'TARJETA',
+      studioId: p.studioId, reciboId: p.reciboId,
+      metodoCobro: sesion ? await metodoRealDeSesion(stripe, sesion, cuenta) : 'TARJETA',
       paymentIntentId: piId, fuente: 'conciliador',
     });
     if (!res.ok) throw new Error(`conciliador/recibo ${p.reciboId}: ${res.error}`);
@@ -556,6 +563,10 @@ async function entregar(
     // socioId conocido, es una compra de invitada.
     esInvitada: !p.socioId,
     fuente: 'conciliador',
+    // Mismo motivo que en la rama de recibo: en Modo B (`pi`, checkout
+    // embebido) no hay Bizum —el PaymentIntent se crea con `allow_redirects:
+    // 'never'`—, así que sin sesión el defecto TARJETA es correcto.
+    metodoCobro: sesion ? await metodoRealDeSesion(stripe, sesion, cuenta) : 'TARJETA',
     // P-1 (auditoría 26ª pasada): ya decidido al crear el checkout, aquí solo
     // se lee para registrarla — mismo criterio que codigoDescuentoId abajo.
     matriculaCobradaCentimos: Number(sesion?.metadata?.matriculaCentimos ?? pi?.metadata?.matriculaCentimos ?? 0) || 0,
