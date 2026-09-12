@@ -4,6 +4,7 @@ import { dbSetStripeAccountId } from '@/lib/db/supabase-data-admin';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarEstadoOAuth } from '@/lib/oauth-state';
 import { registrarDominiosWalletEstudio } from '@/lib/billing/dominios-wallets';
+import { solicitarCapacidadBizum } from '@/lib/billing/capacidad-bizum';
 
 // Vuelta del OAuth de Stripe Connect (ver el botón "Conectar con Stripe" en
 // Configuración → Integraciones). Cambia el `code` de un solo uso por el id
@@ -71,6 +72,21 @@ export async function GET(req: NextRequest) {
       );
     } catch (e) {
       console.error('[stripe/connect/callback] registro de dominios de wallets', e);
+    }
+
+    // Bizum en un cargo DIRECTO (Connect) exige la capacidad `bizum_payments`
+    // `active` en la cuenta CONECTADA, no solo en la de la plataforma (doc
+    // Stripe, seccion Connect) -- causa raiz de que Bizum nunca apareciera en
+    // el checkout de ningun estudio salvo el que la pidio a mano por soporte.
+    // Se solicita aqui, en el alta, para que las cuentas nuevas no arrastren
+    // el mismo hueco; ver `lib/billing/capacidad-bizum.ts` para el detalle y
+    // para el helper que reutilizara el backfill de las cuentas ya conectadas.
+    // Mismo criterio fail-soft que el registro de dominios de arriba: la
+    // conexion ya esta guardada, un tropiezo aqui no debe anunciar fallo.
+    try {
+      await solicitarCapacidadBizum(stripe, token.stripe_user_id);
+    } catch (e) {
+      console.error('[stripe/connect/callback] solicitud de capacidad bizum_payments', e);
     }
 
     return NextResponse.redirect(`${appUrl}/configuracion?stripe_connected=1`);
