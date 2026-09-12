@@ -77,6 +77,16 @@ export interface CompraPlan {
    */
   importeCobradoCentimos: number | null;
   /**
+   * Con qué método se pagó DE VERDAD (`payment_method_details.type` del cargo).
+   *
+   * Ausente = TARJETA, que es lo que esto escribía siempre a pelo. Desde que
+   * Bizum entra también por la compra de plan (#1864 «pagar y reservar sin
+   * login», #1865 «Comprar» en la app de la alumna), el desglose por método del
+   * arqueo daba TARJETA a cobros que no lo eran. El conciliador no lo sabe —
+   * reconstruye desde Stripe sin el cargo— y por eso sigue cayendo al defecto.
+   */
+  metodoCobro?: 'TARJETA' | 'BIZUM';
+  /**
    * `session.payment_intent`: el cargo real en Stripe.
    *
    * Sin esto, un recibo nacido de una compra web no tenía ninguna forma de
@@ -408,7 +418,7 @@ export async function entregarPlanComprado(
     fecha_cobro: hoy,
     fecha_devolucion: null,
     intentos_reintento: 0,
-    metodo_cobro: 'TARJETA',
+    metodo_cobro: compra.metodoCobro ?? 'TARJETA',
     // Qué condiciones estaban vigentes cuando decidió pagar. NULL cuando el
     // cobro no vino del checkout de la app (renovación, mostrador): es un dato
     // ausente, no un cero — y la columna lo admite por eso.
@@ -487,7 +497,7 @@ export async function entregarPlanComprado(
       fecha_cobro: hoy,
       fecha_devolucion: null,
       intentos_reintento: 0,
-      metodo_cobro: 'TARJETA',
+      metodo_cobro: compra.metodoCobro ?? 'TARJETA',
       stripe_payment_intent_id: compra.paymentIntentId,
     });
     if (errMat && errMat.code !== YA_EXISTIA) {

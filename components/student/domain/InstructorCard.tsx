@@ -1,20 +1,30 @@
 import type { Instructora } from '@/lib/student/tipos';
 import { notaTexto } from '@/lib/student/instructora';
+import { esUrlImagenValida } from '@/lib/imagen-url';
 
 /** El círculo con su foto, o sus iniciales si no la ha subido. */
 function Cara({ i, lado }: { i: Instructora; lado: number }) {
+  // ⚠️ La URL la teclea el staff y acaba DENTRO de un `url(...)` de CSS. Se
+  // valida con el mismo `esUrlImagenValida` que ya usa «Descubre» —donde el
+  // dato viene por la misma puerta— y se escapa lo único que puede salirse de
+  // la declaración: la comilla y la barra invertida. Nada de `encodeURI`, que
+  // volvería a codificar el `%` de una URL ya escapada (`%20` → `%2520`) y
+  // convertiría la foto en un 404. Sin foto válida, iniciales.
+  const foto = i.fotoUrl && esUrlImagenValida(i.fotoUrl)
+    ? i.fotoUrl.replace(/["\\]/g, '\\$&')
+    : null;
   return (
     <span
       aria-hidden
       style={{
         width: lado, height: lado, flexShrink: 0, borderRadius: 999,
-        background: i.fotoUrl ? 'url(' + i.fotoUrl + ') center/cover' : 'var(--accent-soft)',
+        background: foto ? `url("${foto}") center/cover` : 'var(--accent-soft)',
         color: 'var(--accent-soft-foreground)',
         fontSize: lado >= 44 ? 'var(--t-small)' : 'var(--t-meta)', fontWeight: 800,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
     >
-      {!i.fotoUrl && i.iniciales}
+      {!foto && i.iniciales}
     </span>
   );
 }

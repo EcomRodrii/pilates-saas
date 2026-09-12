@@ -29,9 +29,17 @@ test.describe('Student PWA · lo que enseñó el iPhone', () => {
       // `pointer: coarse` no se puede emular desde Playwright, así que se
       // comprueba la REGLA: la hoja de estilos tiene que declararla, y el
       // tamaño base de cada campo se lee para dejar constancia.
+      // ⚠️ `CSSMediaRule` DE VERDAD (`type === 4`), no un `cssText.includes`.
+      // Un comentario mal cerrado justo encima hizo que el navegador se
+      // tragara el `@media` entero como selector de una regla inválida: la
+      // regla desaparecía de la hoja y un `includes` sobre el texto de
+      // cualquier regla seguía encontrando las palabras. El tipo no se puede
+      // falsificar así.
       const regla = Array.from(document.styleSheets)
         .flatMap((h) => { try { return Array.from(h.cssRules); } catch { return []; } })
-        .some((r) => r.cssText.includes('pointer: coarse') && r.cssText.includes('font-size: 16px'));
+        .some((r) => r.type === 4
+          && (r as CSSMediaRule).conditionText?.includes('coarse')
+          && /font-size:\s*16px\s*!important/.test(r.cssText));
       const campos = Array.from(document.querySelectorAll('input, textarea, select')).map((e) => ({
         que: (e.getAttribute('name') || e.getAttribute('type') || e.tagName).slice(0, 20),
         px: parseFloat(getComputedStyle(e).fontSize),
@@ -39,7 +47,12 @@ test.describe('Student PWA · lo que enseñó el iPhone', () => {
       return { regla, campos };
     });
 
-    expect(pequenos.regla, 'la hoja declara el mínimo de 16 px para pantalla táctil').toBe(true);
+    // El `!important` NO es cosmético y por eso se afirma: el buscador de
+    // Inicio, el del horario y varios campos más llevan su `font-size` en un
+    // `style` EN LÍNEA, que gana a cualquier regla de hoja sin él. La versión
+    // anterior de este test daba VERDE con la regla puesta y el zoom seguía
+    // pasando, porque solo comprobaba que la regla existiera.
+    expect(pequenos.regla, 'la hoja impone el mínimo de 16 px (y gana a los `style` en línea)').toBe(true);
     expect(pequenos.campos.length, 'hay algún campo que mirar').toBeGreaterThan(0);
   });
 

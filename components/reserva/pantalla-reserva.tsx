@@ -666,6 +666,14 @@ export function PantallaReserva({
 
             {fase === 'pago' && pago && (
               <div key="pago" className="pantalla-reserva-seccion">
+                {/* ⚠️ `datosError` se pintaba SOLO en la fase de datos, y el
+                    fallback de Bizum (`onBizum` → /api/stripe/checkout) escribe
+                    justo ahí cuando falla. Resultado: se pulsaba «Pagar con
+                    Bizum» y no pasaba absolutamente nada —ni error, ni spinner,
+                    ni redirección— en la pantalla donde más se abandona. */}
+                {datosError && (
+                  <p role="alert" style={{ color: 'var(--destructive)', fontSize: 13, margin: '0 0 10px' }}>{datosError}</p>
+                )}
                 <CheckoutEmbebido
                   t={t}
                   plan={pago.plan}

@@ -135,6 +135,10 @@ export async function POST(req: NextRequest) {
   // P-1 (auditoría 26ª pasada): matrícula cobrada en este MISMO cargo, solo
   // en la rama de compra de plan (nunca en pago de un recibo ya existente).
   let matriculaCentimos = 0;
+  // Lo que el plan cobra de matrícula (0 = no cobra). Se resuelve en la rama de
+  // plan y se USA más abajo, cuando ya no queda ninguna validación que pueda
+  // abortar la compra — ver el comentario de la reserva de plaza.
+  let matriculaBase = 0;
   // Qué plaza de matrícula gratis se ha reservado, para poder devolverla si el
   // cobro no llega a crearse. `null` = no se reservó ninguna.
   let cupoMatriculaReservado: { planId: string; studioId: string } | null = null;
@@ -212,7 +216,17 @@ export async function POST(req: NextRequest) {
     // Comprar un plan sin ficha: decide el estudio (0110). En EXIGIR_REGISTRO
     // no se cobra a quien no se ha registrado — sin ficha no hay contrato
     // aceptado, así que cobrar antes sería cobrar sin consentimiento.
-    if (!socioId) {
+    //
+    // EXCEPCIÓN deliberada, la MISMA que su gemelo de origen
+    // (/api/public/checkout-embebido/route.ts, donde está el razonamiento
+    // largo): con `sesionId` esto ya no es «compra cualquier bono de forma
+    // anónima» —lo que `compra_publica_modo` decide— sino «paga esta clase
+    // concreta», el flujo que siempre está disponible sin registro previo.
+    // #1864 copió aquí la validación de clase («RÉPLICA EXACTA») pero no esta
+    // excepción, así que el botón «Pagar con Bizum» de «pagar y reservar sin
+    // login previo» devolvía 409 en los 13 estudios (todos en EXIGIR_REGISTRO):
+    // la funcionalidad no llegó a cobrar ni una vez.
+    if (!socioId && !body.sesionId) {
       const { data: cfg } = await admin
         .from('studios')
         .select('compra_publica_modo')
@@ -263,16 +277,14 @@ export async function POST(req: NextRequest) {
     // Desde la promoción de matrícula (cupo + fecha), el IMPORTE ya no sale del
     // catálogo: lo decide `reservar_matricula` en la base, que además gasta la
     // plaza bajo un `for update`. Aquí solo se cobra lo que diga.
-    if (Number(plan.matricula) > 0 && await primeraVezConPlan(admin, body.studioId, socioId, body.socioEmail ?? null)) {
-      const aCobrar = await reservarMatricula(admin, body.planId, body.studioId, Number(plan.matricula));
-      matriculaCentimos = Math.round(aCobrar * 100);
-      // Solo se anota si se cobra: un 0 en metadata haría que el webhook
-      // registrara un recibo de matrícula de cero euros.
-      if (matriculaCentimos > 0) metadata.matriculaCentimos = String(matriculaCentimos);
-      // La plaza se reserva ANTES de crear el cobro. Si el cobro no llega a
-      // existir, esa plaza no se ha usado y tiene que volver.
-      if (aCobrar === 0) cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
-    }
+    // ⚠️ Aquí solo se ANOTA cuánto cobra este plan de matrícula. La plaza se
+    // reserva lo más tarde posible (justo antes de crear el cobro, más abajo):
+    // reservarla aquí la gastaba también cuando la petición moría en una de las
+    // seis validaciones siguientes —clase llena, cancelada, ya empezada, plan
+    // que no cubre el tipo, sin email, sin Stripe conectado—, y ninguno de esos
+    // `return` la devolvía. Cuatro intentos fallidos y la promoción del cartel
+    // («gratis para las 4 primeras») se agotaba sin una sola venta.
+    matriculaBase = Number(plan.matricula);
 
     // "Pagar y reservar sin login previo" con Bizum (fallback de Modo B, ver
     // el tipo del body más arriba): si viene sesionId, comprobar que la clase
@@ -355,6 +367,28 @@ export async function POST(req: NextRequest) {
     .single();
   if (!studio?.stripe_account_id) {
     return conCorsWidget(req, NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Integraciones antes de cobrar.' }, { status: 409 }));
+  }
+
+  // P-1 (auditoría 26ª pasada): la matrícula se cobra la PRIMERA vez que esta
+  // socia contrata un plan aquí — nunca sobre el código de descuento (ese es
+  // del plan, no de esta venta aparte).
+  //
+  // Desde la promoción de matrícula (cupo + fecha), el IMPORTE ya no sale del
+  // catálogo: lo decide `reservar_matricula` en la base, que además gasta la
+  // plaza bajo un `for update`. Aquí solo se cobra lo que diga. Va en el ÚLTIMO
+  // punto en que la compra todavía puede fallar sin haber gastado nada: a
+  // partir de aquí, el único camino que no crea el cobro es el `catch` — que sí
+  // devuelve la plaza.
+  if (matriculaBase > 0 && body.planId
+      && await primeraVezConPlan(admin, body.studioId, socioId, body.socioEmail ?? null)) {
+    const aCobrar = await reservarMatricula(admin, body.planId, body.studioId, matriculaBase);
+    matriculaCentimos = Math.round(aCobrar * 100);
+    // Solo se anota si se cobra: un 0 en metadata haría que el webhook
+    // registrara un recibo de matrícula de cero euros.
+    if (matriculaCentimos > 0) metadata.matriculaCentimos = String(matriculaCentimos);
+    // La plaza se reserva ANTES de crear el cobro. Si el cobro no llega a
+    // existir, esa plaza no se ha usado y tiene que volver.
+    if (aCobrar === 0) cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';

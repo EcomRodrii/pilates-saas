@@ -157,6 +157,12 @@ export async function comprarConBizum(
       headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify({
         studioId, planId, socioId, socioEmail, bizum: true,
+        // ⚠️ Sin `origen`, `urlsDeRetorno` cae a la regla genérica y devuelve a
+        // la alumna al ESCAPARATE público (`/reservar/<slug>?compra=ok`) en vez
+        // de a «Mis bonos», que es la pantalla que comprueba que el bono llegó.
+        // Su hermano `pagarReciboConBizum` (lib/student/pagos-acciones.ts) sí lo
+        // manda desde el primer día.
+        origen: 'portal',
         codigoDescuento: codigoDescuento || undefined,
       }),
     });

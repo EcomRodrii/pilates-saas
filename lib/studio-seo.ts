@@ -1,5 +1,44 @@
 import { cache } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+
+// Columnas de `studios` que esta función lee, partidas en dos por una razón
+// operativa, no estética: las ESTABLES llevan meses en producción y ninguna
+// migración pendiente las puede quitar; las JÓVENES son las que entran con cada
+// funcionalidad nueva, y son justo las que pueden no existir todavía cuando el
+// despliegue llega antes que su migración. Ver el reintento de más abajo.
+const COLUMNAS_ESTABLES =
+  'id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, '
+  + 'codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera';
+const COLUMNAS_JOVENES =
+  'creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, imagen_bienvenida_url';
+
+/** La fila tal y como la lee esta función: las jóvenes pueden no venir. */
+interface FilaStudio {
+  id: string;
+  nombre: string | null; ciudad: string | null; direccion: string | null;
+  color_primario: string | null; logo_url: string | null; slug: string | null;
+  telefono: string | null; email: string | null; codigo_postal: string | null;
+  descripcion: string | null; foto_url: string | null;
+  cancelacion_ventana_horas: number | null; permite_lista_espera: boolean | null;
+  creditos_nombre?: string | null; lema?: string | null; frase_heroe?: string | null;
+  frase_manuscrita?: string | null; subtitulo_heroe?: string | null;
+  imagen_bienvenida_url?: string | null;
+}
+
+/**
+ * ¿Este error de PostgREST es «esa columna no existe»?
+ *
+ * 42703 es `undefined_column` de Postgres; PostgREST lo propaga tal cual al
+ * pedir una columna que no está en el esquema. Se mira también el mensaje
+ * porque la caché de esquema puede devolverlo como PGRST204 antes de refrescar.
+ */
+function esColumnaInexistente(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === '42703'
+    || error.code === 'PGRST204'
+    || /column .* does not exist|Could not find the .* column/i.test(error.message ?? '');
+}
 
 // Datos mínimos del estudio para SEO y primer paint de la página pública (I-9).
 // Se resuelve en el SERVIDOR y se cachea por request con React cache, de modo
@@ -162,12 +201,12 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
   // oculta» durante los minutos que separen el despliegue de la migración —el
   // comportamiento de hoy— en vez de una caída. Después de aplicarla, la
   // segunda consulta acierta siempre y esto deja de importar.
-  const [base, visibilidad] = await Promise.all([
+  const [base0, visibilidad] = await Promise.all([
     admin
       .from('studios')
       // ⚠️ Lista de columnas EXPLÍCITA: lo que no se nombre aquí llega
       // `undefined` al portal sin fallar y sin avisar.
-      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera, creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, imagen_bienvenida_url')
+      .select(`${COLUMNAS_ESTABLES}, ${COLUMNAS_JOVENES}`)
       .eq('slug', slug)
       .maybeSingle(),
     // `.then(ok, ko)` y no `.catch`: el builder de supabase-js es un
@@ -183,11 +222,39 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       () => null,
     ),
   ]);
-  const data = base.data;
+  // ⚠️ La red que el comentario de arriba prometía y NO existía para estas seis
+  // columnas. El 8-sep-2026, `creditos_nombre` entró en este `select` a las
+  // 09:43 UTC y su migración se aplicó a las 10:43:05: durante esos ~40 min
+  // PostgREST rechazó la consulta ENTERA con un 42703 y los 13 estudios vieron
+  // su app y su página pública caídas (17 eventos en Sentry, socias reales sin
+  // poder entrar). Desde entonces se han añadido cinco columnas jóvenes más por
+  // la misma puerta.
+  //
+  // Si falla por «columna inexistente», se reintenta con las columnas de
+  // siempre: el peor caso pasa a ser la home sin lema ni frase durante los
+  // minutos que separen el despliegue de la migración, que es exactamente lo
+  // que este módulo dice hacer.
+  let data = base0.data as FilaStudio | null;
+  let errorBase: { code?: string; message?: string } | null = base0.error;
+  if (errorBase && esColumnaInexistente(errorBase)) {
+    // Degradar EN SILENCIO sería cambiar una caída ruidosa por una avería muda:
+    // en esta casa un desfase de esquema puede durar días (hoy mismo falta
+    // `studios.menu_posicion` y Sentry lleva 4 días diciéndolo), y sin este
+    // aviso el portal se pintaría sin lema ni frases para siempre sin que
+    // nadie lo supiera. Nivel `warning`: la página SÍ se sirve.
+    Sentry.captureMessage('[studio-seo] columnas jóvenes ausentes en el esquema: se sirve el estudio sin ellas', {
+      level: 'warning',
+      tags: { area: 'studio-seo' },
+      extra: { slug, code: errorBase.code, message: errorBase.message },
+    });
+    const reintento = await admin.from('studios').select(COLUMNAS_ESTABLES).eq('slug', slug).maybeSingle();
+    data = reintento.data as FilaStudio | null;
+    errorBase = reintento.error;
+  }
   // Un `error` de PostgREST NO es un estudio inexistente: es red caída, esquema
   // desincronizado o permiso denegado. `maybeSingle()` deja `data` en null en
   // los dos casos, así que hay que mirar el error para separarlos.
-  if (base.error) return { estudio: null, causa: 'no-disponible' };
+  if (errorBase) return { estudio: null, causa: 'no-disponible' };
   if (!data) return { estudio: null, causa: 'no-existe' };
   return { estudio: {
     id: data.id,

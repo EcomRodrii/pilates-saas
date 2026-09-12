@@ -22,7 +22,15 @@ export async function POST(req: NextRequest) {
   }
   try {
     const resumen = await ejecutarCopiaDiariaDeTodos();
-    return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen });
+    // ⚠️ Con `fallidos > 0` esto devolvía 200. Es el ÚNICO cron sin red —corre
+    // una vez al día y no reintenta—, así que un estudio podía encadenar noches
+    // sin copia sin que nada lo dijera: pasó de verdad (studio-1, sin backup
+    // diario desde el 2026-09-09, tres noches). Un 5xx deja rastro en pg_net y
+    // en cualquier monitor de la ruta, que es lo que faltaba.
+    return NextResponse.json(
+      { ejecutadoEn: new Date().toISOString(), ...resumen },
+      resumen.fallidos > 0 ? { status: 500 } : undefined,
+    );
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'backups' } });
     return errorInterno('cron/backups:POST', err, 'Error ejecutando la copia de seguridad diaria.');

@@ -65,6 +65,9 @@ test('editar y volver a guardar sin tocar nada no cambia el plan', () => {
     precio: 120, tipo: 'BONO', sesiones: 10, validezDias: 60, limiteSemanal: null,
     tiposClaseIds: ['tc-1'], activo: true, ofertaHasta: null,
     periodicidadMeses: 1, matricula: 0,
+    // Como `ofertaHasta`: se emiten siempre (es lo que permite APAGAR la
+    // promoción vaciando las casillas), así que la ida y vuelta los devuelve.
+    matriculaGratisHasta: null, matriculaGratisCupos: null,
   } as PlanTarifa;
 
   const vuelta = formularioAPlan(planAFormulario(guardado));
@@ -340,14 +343,17 @@ test('la promoción de matrícula admite solo fecha, solo cupo, o las dos', () =
   );
 });
 
-test('sin promoción, los dos campos NI APARECEN', () => {
-  // Mismo motivo que `limitePorTipo`: un `matriculaGratisHasta: null` sería un
-  // campo nuevo donde antes no había nada, y el test de ida y vuelta de un plan
-  // de los de siempre dejaría de pasar. Esta migración no cambia lo que cobra
-  // ningún plan existente, y esto es lo que lo sujeta.
+test('vaciar las dos casillas APAGA la promoción (null explícito, no ausencia)', () => {
+  // Lo que costó dinero: emitirlos solo «si hay promoción» hacía que vaciar las
+  // casillas no escribiera nada —`dbUpdatePlanTarifa` se salta lo `undefined`—,
+  // la pantalla decía «Plan actualizado» y la matrícula se seguía regalando. La
+  // pantalla promete literalmente «Si dejas las dos casillas vacías, no hay
+  // promoción y se cobra siempre»: esto es la línea que lo hace cierto.
   const d = formularioAPlan(form({ nombre: 'X', precio: '60', matricula: '30' }));
-  assert.equal('matriculaGratisHasta' in d, false);
-  assert.equal('matriculaGratisCupos' in d, false);
+  assert.equal('matriculaGratisHasta' in d, true);
+  assert.equal('matriculaGratisCupos' in d, true);
+  assert.equal(d.matriculaGratisHasta, null);
+  assert.equal(d.matriculaGratisCupos, null);
 });
 
 test('«0 plazas gratis» es NO HAY promoción, no una promoción que nunca aplica', () => {
@@ -356,7 +362,7 @@ test('«0 plazas gratis» es NO HAY promoción, no una promoción que nunca apli
   // agotada. Lo mismo con un texto ilegible.
   for (const v of ['0', '-3', 'cuatro', ' ']) {
     const d = formularioAPlan(form({ nombre: 'X', precio: '60', matricula: '30', matriculaGratisCupos: v }));
-    assert.equal('matriculaGratisCupos' in d, false, `«${v}» ha creado una promoción`);
+    assert.equal(d.matriculaGratisCupos, null, `«${v}» ha creado una promoción`);
   }
 });
 
