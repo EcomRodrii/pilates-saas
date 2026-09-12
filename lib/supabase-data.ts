@@ -439,7 +439,11 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // estudio, y solo lo necesita comparar la vigencia — no el panel, que se lo
 // comería en el payload de arranque de TODAS las pantallas.
 export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'consentimiento_salud_texto' | 'visible_en_clase'>;
-export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancelada_motivo'>;
+// `creado_en` fuera, igual que las otras dos: el panel no la pide en su select
+// ni la pinta — es para medir el embudo desde el servidor, no un dato de la
+// clase. Sin este Omit, añadir la columna volvía obligatoria en la fila a una
+// clave que ninguna consulta del panel trae.
+export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancelada_motivo' | 'creado_en'>;
 // El arranque del panel NO trae ni `proximo_reintento` ni el snapshot de la
 // entrega: son columnas que solo lee el dunning (servidor) y la card de
 // devoluciones, y meterlas aquí engordaría el payload de arranque de TODAS las
