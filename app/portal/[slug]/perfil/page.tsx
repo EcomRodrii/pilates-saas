@@ -65,6 +65,12 @@ export default function PerfilPage() {
           </span>
         </Link>
 
+        {/* ⚠️ Dos bloques y no uno. «Cuenta» acumulaba OCHO filas seguidas,
+            y las cuatro últimas no son ajustes de cuenta: son dinero. En un
+            listado plano de ocho, «Contraseña» y «Método de pago» pesan lo
+            mismo y hay que leer los ocho rótulos para encontrar cualquiera de
+            los dos. Es el mismo criterio que ya separa «Estudio» y «Sesión»
+            más abajo — por qué estás ahí, no dónde vive el dato. */}
         <ProfileSection
           titulo="Cuenta"
           items={[
@@ -78,8 +84,14 @@ export default function PerfilPage() {
             // contraseña era el flujo de recuperación por correo, que es para
             // cuando NO te acuerdas.
             { label: 'Contraseña', href: href('/perfil/seguridad') },
-            { label: 'Comprar bonos y suscripciones', href: href('/comprar') },
+          ]}
+        />
+
+        <ProfileSection
+          titulo="Bonos y pagos"
+          items={[
             { label: 'Bonos', href: href('/bonos') },
+            { label: 'Comprar bonos y suscripciones', href: href('/comprar') },
             { label: 'Pagos y recibos', href: href('/pagos') },
             { label: 'Método de pago', href: href('/perfil/pago') },
           ]}

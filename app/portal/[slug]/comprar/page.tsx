@@ -7,6 +7,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { catalogo } from '@/lib/student/catalogo';
 import { euros } from '@/lib/student/formato';
+import { precioPorSesion } from '@/lib/student/precio-por-clase';
 import { nombrePeriodo } from '@/lib/bono-logic';
 import { AVISO_PRODUCTOS, catalogoTienda, coberturaDeTipos, coberturaProducto, resumenProducto, TITULO_FAMILIA, type FamiliaProducto, type ProductoTienda } from '@/lib/student/tienda';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -82,7 +83,7 @@ export default function ComprarPage() {
 
   return (
     <StudentShell>
-      <PageHeader titulo="Comprar" sub={`Lo que ofrece ${estudio.nombre}`} back />
+      <PageHeader titulo="Comprar" back />
 
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', marginTop: 14 }}>
         {estado === 'loading' && <ListSkeleton n={3} h={96} />}
@@ -187,6 +188,7 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
   delay: number; onComprar: () => void;
 }) {
   const resumen = resumenProducto(p, nombresTipo);
+  const porClase = precioPorSesion(p.precio, p.familia === 'suscripcion' ? null : p.sesiones);
   return (
     <article className="card a-up" style={{ padding: '14px 15px', animationDelay: `${delay}ms` }}>
       {/* La foto solo si la hay, y sin reservarle hueco cuando no: hoy NINGÚN
@@ -203,12 +205,24 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
       )}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
         <h3 style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800, letterSpacing: '-.01em' }}>{p.nombre}</h3>
-        <p style={{ margin: 0, fontSize: 'var(--t-h3)', fontWeight: 800, flexShrink: 0 }}>
-          {euros(p.precio)}
-          {p.familia === 'suscripcion' && (
-            <span className="t-meta">/{nombrePeriodo({ periodicidadMeses: p.periodicidadMeses })}</span>
+        <div style={{ flexShrink: 0, textAlign: 'right' }}>
+          <p style={{ margin: 0, fontSize: 'var(--t-h3)', fontWeight: 800 }}>
+            {euros(p.precio)}
+            {p.familia === 'suscripcion' && (
+              <span className="t-meta">/{nombrePeriodo({ periodicidadMeses: p.periodicidadMeses })}</span>
+            )}
+          </p>
+          {/* El número que de verdad decide, y que la pantalla le estaba
+              dejando calcular a ella: con cinco productos a la vez, elegir
+              entre «56 €» y «96 €» es dividir de cabeza. No es una oferta ni
+              un descuento inventado — es el mismo precio, escrito por clase.
+              `precioPorSesion` devuelve `null` en todo lo que no se puede
+              dividir (un mensual ilimitado, una clase suelta), y entonces
+              aquí no se escribe nada. */}
+          {porClase !== null && (
+            <p className="t-meta t-num" data-testid="precio-por-clase" style={{ marginTop: 2 }}>{euros(porClase)}/clase</p>
           )}
-        </p>
+        </div>
       </div>
 
       {resumen && <p className="t-meta" style={{ margin: '4px 0 0' }}>{resumen}</p>}

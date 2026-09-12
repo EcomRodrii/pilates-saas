@@ -14,6 +14,7 @@ import { useToast } from '@/components/student/ui/Toast';
 import { avisoDeRetorno, esperarBonoDePlan } from '@/lib/student/retorno-pago';
 import { renovarPlan } from '@/lib/student/pagos-acciones';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import { Ilustracion } from '@/components/student/ui/Ilustracion';
 
 // Bonos (§A.12). Solo lectura: no hay ninguna acción que mueva dinero aquí.
 //
@@ -124,7 +125,12 @@ function Bonos() {
                 // "Comprar" a elegir de nuevo entre todos — mismo plan, mismo
                 // precio, un toque menos.
                 <div className="card card--pad stack" style={{ ['--gap' as string]: 'var(--s-2)', alignItems: 'center', textAlign: 'center' }}>
-                  <span aria-hidden style={{ fontSize: 28 }}>🎟</span>
+                  {/* La ilustración del sistema y no un emoji: el emoji lo
+                      dibuja el sistema operativo, así que ni toma la tinta del
+                      estudio ni se parece al del estado vacío de tres líneas
+                      más abajo —que ya usa `ilustracion="bono"` para decir
+                      exactamente lo mismo. */}
+                  <Ilustracion nombre="bono" alto={76} />
                   <p className="t-small" style={{ fontWeight: 800 }}>Sin bono activo</p>
                   <p className="t-meta">Tus bonos anteriores están agotados o han caducado.</p>
                   <button type="button" className="btn btn--primary btn--sm" disabled={renovando} onClick={renovar}>

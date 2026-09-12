@@ -110,7 +110,6 @@ export default function HorarioPage() {
     <StudentShell>
       <PageHeader
         titulo="Horario"
-        sub={estudio.nombre}
         accion={<Link href={href('/calendario')} className="btn btn--secondary btn--sm">Calendario</Link>}
       />
 

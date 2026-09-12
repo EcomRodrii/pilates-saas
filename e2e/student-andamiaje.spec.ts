@@ -41,7 +41,7 @@ test.describe('Student PWA · el andamiaje hace lo que dice', () => {
   test('`bono` y `recibos` llegan a sus pantallas', async ({ page }) => {
     await sembrarSociaCompleta(page, { bono: 3, recibos: 2 });
     await page.goto(`${base}/bonos`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText('Te quedan 3 de 8')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('bono-restantes')).toHaveText('3', { timeout: 30_000 });
     await page.goto(`${base}/pagos`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Bono 8 sesiones')).toBeVisible({ timeout: 30_000 });
   });

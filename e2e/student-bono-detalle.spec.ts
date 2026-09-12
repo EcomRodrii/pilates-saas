@@ -54,13 +54,20 @@ test.describe('Student PWA · ficha de un bono', () => {
     // «5 de 8 sesiones» se leía como «llevo 5 hechas de 8» — justo al revés.
     await montar(page, { total: 8, restantes: 5 });
     await page.goto(`${base}/bonos/sus-1`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText('Te quedan 5 de 8')).toBeVisible({ timeout: 30_000 });
+    // La frase se reparte en tres líneas desde que la cifra va en grande
+    // (`--t-display`), pero dice lo mismo y en el mismo orden: el verbo
+    // ANTES del número es lo que impide volver a leer «llevo 5 hechas».
+    await expect(page.getByText('Te quedan')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('bono-restantes')).toHaveText('5');
+    await expect(page.getByText('de 8 sesiones')).toBeVisible();
   });
 
   test('un bono recién comprado dice que no ha gastado nada, sin inventarse una lista', async ({ page }) => {
     await montar(page, { total: 8, restantes: 8 });
     await page.goto(`${base}/bonos/sus-1`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText('Te quedan 8 de 8')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Te quedan')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('bono-restantes')).toHaveText('8');
+    await expect(page.getByText('de 8 sesiones')).toBeVisible();
     const texto = await page.locator('body').innerText();
     expect(texto).toContain('0 / 8');
   });
