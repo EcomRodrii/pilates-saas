@@ -9,6 +9,8 @@ import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import { horaLocalAhora, proximasClasesDe } from '@/lib/student/instructora';
+import { etiquetaDia, hoyISO } from '@/lib/student/formato';
 import type { Instructora } from '@/lib/student/tipos';
 
 // «Conoce al equipo». Nace de la baldosa de Inicio: la maqueta la pedía y no
@@ -31,6 +33,18 @@ export default function InstructorasPage() {
   }, [estudio.slug]);
 
   const { data, estado, reintentar } = useAsync(cargar, () => false);
+
+  // Cuándo se la puede encontrar. Reutiliza la MISMA función que la hoja de
+  // instructora (`proximasClasesDe`) y el mismo payload que ya está cargado:
+  // ni una petición nueva, ni una segunda idea de qué es «próxima». Si alguna
+  // vez cambia el criterio —por ejemplo dejar fuera las clases llenas— cambia
+  // en un sitio y las dos lo respetan.
+  const hoy = hoyISO();
+  const ahora = horaLocalAhora();
+  const proximaDe = (id: string): string | null => {
+    const c = proximasClasesDe(data?.clases ?? [], id, hoy, ahora, 1)[0];
+    return c ? `${etiquetaDia(c.fecha, hoy)} ${c.hora}` : null;
+  };
 
   return (
     <StudentShell>
@@ -56,7 +70,7 @@ export default function InstructorasPage() {
             <ul style={{ display: 'flex', flexDirection: 'column', gap: 9, margin: 0, padding: 0, listStyle: 'none' }}>
               {data.instructoras.map((i, n) => (
                 <li key={i.id} className="a-up" style={{ animationDelay: `${n * 45}ms` }}>
-                  <InstructorCard i={i} ancha onClick={() => setAbierta(i)} />
+                  <InstructorCard i={i} ancha proxima={proximaDe(i.id)} onClick={() => setAbierta(i)} />
                 </li>
               ))}
             </ul>

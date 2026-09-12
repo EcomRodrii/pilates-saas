@@ -29,7 +29,18 @@ function Cara({ i, lado }: { i: Instructora; lado: number }) {
  * una línea vacía, como un filtro huérfano. Va aquí y no en la pantalla nueva
  * para que siga habiendo una sola cosa que sepa cómo se dibuja una instructora.
  */
-export function InstructorCard({ i, onClick, ancha = false }: { i: Instructora; onClick?: () => void; ancha?: boolean }) {
+export function InstructorCard({ i, onClick, ancha = false, proxima }: {
+  i: Instructora;
+  onClick?: () => void;
+  ancha?: boolean;
+  /**
+   * Cuándo se la puede encontrar: «Mañana 10:00». Ya compuesto por quien
+   * pinta la lista, porque saber qué día es hoy no es cosa de esta tarjeta.
+   * `null`/ausente = no tiene ninguna clase en el horario publicado, y
+   * entonces no se escribe nada — mismo criterio que la línea de la nota.
+   */
+  proxima?: string | null;
+}) {
   const nota = i.rating ? notaTexto(i.rating, undefined) : null;
 
   if (ancha) {
@@ -50,6 +61,17 @@ export function InstructorCard({ i, onClick, ancha = false }: { i: Instructora; 
               {nota && <><span style={{ color: 'var(--warning)' }}>★</span> {nota}</>}
               {nota && i.especialidades.length > 0 && ' · '}
               {i.especialidades.join(' · ')}
+            </span>
+          )}
+          {/* ⚠️ CUÁNDO, y solo eso. «Conoce al equipo» daba nombre, cara y
+              especialidades, y no decía en qué momento de la semana existe
+              cada una — que es lo que hace falta para elegir con quién
+              reservar. No se repite el nombre de la clase: ya está arriba como
+              especialidad en la mayoría de los casos, y el detalle completo lo
+              da la hoja al tocar. */}
+          {proxima && (
+            <span className="t-meta trunc" data-testid="instructora-proxima" style={{ color: 'var(--accent)', fontWeight: 700 }}>
+              Próxima · {proxima}
             </span>
           )}
         </span>
