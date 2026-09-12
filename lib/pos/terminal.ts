@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MetodoPago } from '@/lib/types';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { bizumActivo } from '@/lib/billing/bizum-activo';
 import { metodoRealBizum } from './metodo-real-bizum.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 
@@ -234,6 +235,17 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
 
     async iniciar(ctx, p) {
       try {
+        // Comprobar la capacidad ANTES de llamar a Stripe: pedir `bizum` sin
+        // que esté `active` en la cuenta conectada tumba el `create` ENTERO
+        // (también la tarjeta que va en la misma llamada), no solo Bizum.
+        // Visto en producción (2026-09-12): el mostrador se quedaba sin poder
+        // cobrar nada por este método. Ver lib/billing/bizum-activo.ts.
+        if (!(await bizumActivo(ctx.stripe, ctx.stripeAccount))) {
+          return {
+            ok: false,
+            error: 'Bizum no está activo todavía en la cuenta de Stripe de este estudio. Actívalo en tu Dashboard de Stripe (Configuración → Métodos de pago) o completa los datos fiscales pendientes.',
+          };
+        }
         const sesion = await ctx.stripe.checkout.sessions.create({
           mode: 'payment',
           // ⚠️ `['card', 'bizum']`, NO `['bizum']` a secas. El checkout del
