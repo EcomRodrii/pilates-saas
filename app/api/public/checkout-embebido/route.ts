@@ -472,6 +472,10 @@ export async function POST(req: NextRequest) {
     metadata.terminosHash = sello.hash;
     metadata.terminosAceptadosEn = sello.aceptadoEn;
   }
+  // P-1 (auditoría 58ª): si nadie llega a confirmar este PaymentIntent (o
+  // Stripe lo rechaza), el webhook necesita saber que se llevó una plaza
+  // gratis de matrícula para devolverla — ver `liberarCupoMatriculaUnaVez`.
+  if (cupoMatriculaReservado) metadata.cupoMatriculaReservado = '1';
   if (socioId) metadata.socioId = socioId;
   // Stripe exige valores de metadata como string no vacío.
   if (body.origenLead) metadata.origenLead = body.origenLead;

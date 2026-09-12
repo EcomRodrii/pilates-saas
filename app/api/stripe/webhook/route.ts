@@ -15,6 +15,7 @@ import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/bil
 import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 import { metodoRealDeSesion } from '@/lib/billing/metodo-real-sesion';
+import { liberarCupoMatriculaUnaVez } from '@/lib/billing/matricula-online';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -131,6 +132,27 @@ async function liberarCobroPosFallidoDelWebhook(
     studioId: studioDeCuenta as string, metadata, paymentIntentId, motivo,
   });
   return NextResponse.json({ received: true });
+}
+
+// P-1 (auditoría 58ª pasada): el checkout online (Modo A y Modo B) marca
+// `metadata.cupoMatriculaReservado` cuando se llevó una plaza gratis de
+// matrícula (ver `app/api/stripe/checkout` y `app/api/public/checkout-
+// embebido`). Si nadie llega a pagar (Stripe rechaza el cobro, o la Checkout
+// Session caduca sin que nadie reintentara), esa plaza tiene que volver — se
+// llama desde los mismos dos eventos que ya cubren el fallo POS de arriba,
+// pero es un camino independiente (no pasa por `ORIGENES_POS`). La
+// idempotencia frente a que los DOS eventos lleguen para el mismo
+// PaymentIntent la da `liberarCupoMatriculaUnaVez`, no esta función.
+async function liberarCupoMatriculaDelWebhook(
+  admin: AdminClient,
+  metadata: Stripe.Metadata | undefined,
+  paymentIntentId: string | null,
+): Promise<void> {
+  if (!paymentIntentId || metadata?.cupoMatriculaReservado !== '1') return;
+  const planId = metadata.planId;
+  const studioId = metadata.studioId;
+  if (!planId || !studioId) return;
+  await liberarCupoMatriculaUnaVez(admin, paymentIntentId, planId, studioId);
 }
 
 export async function POST(req: NextRequest) {
@@ -1310,6 +1332,13 @@ async function procesarEvento(
       );
       if (respuesta) return respuesta;
     }
+
+    // P-1 (auditoría 58ª pasada): Stripe rechazó el cobro de un checkout
+    // online que se había llevado una plaza gratis de matrícula.
+    if (pi.metadata?.cupoMatriculaReservado === '1') {
+      const admin = getSupabaseAdmin();
+      if (admin) await liberarCupoMatriculaDelWebhook(admin, pi.metadata, pi.id);
+    }
   }
 
   // P-2 (27ª pasada): la Checkout Session de Bizum del mostrador caducó sin
@@ -1336,6 +1365,18 @@ async function procesarEvento(
         'El enlace de pago caducó sin completarse',
       );
       if (respuesta) return respuesta;
+    }
+
+    // P-1 (auditoría 58ª pasada): la clienta abrió el checkout de un plan
+    // (Modo A — la Checkout Session que lleva "pagar y reservar sin login" y
+    // el fallback de Bizum del widget/portal) y no llegó a pagar; la sesión
+    // caducó a los 30 min. Si esta compra se había llevado una plaza gratis
+    // de matrícula, hay que devolverla — es el caso más común con Bizum:
+    // abrir el enlace y no completar el pago.
+    if (session.metadata?.cupoMatriculaReservado === '1') {
+      const admin = getSupabaseAdmin();
+      const piId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null;
+      if (admin) await liberarCupoMatriculaDelWebhook(admin, session.metadata, piId);
     }
   }
 
