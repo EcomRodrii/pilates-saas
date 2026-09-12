@@ -66,7 +66,12 @@ export default function DetalleBonoPage() {
 
   return (
     <StudentShell>
-      <PageHeader titulo={b.nombre} back />
+      {/* «Tu bono» y no el nombre del bono: la tarjeta de debajo YA lo dice,
+          así que el nombre salía dos veces a dos filas de distancia. Sus dos
+          pantallas hermanas ya resuelven esto igual —«Recibo» en
+          `/pagos/[id]`, «Tu reserva» en `/mis-reservas/[id]`—, y en las dos la
+          tarjeta es la que nombra la cosa. Esta era la única que lo repetía. */}
+      <PageHeader titulo="Tu bono" back />
 
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '12px', marginTop: 14 }}>
         <CreditCard bono={b} />
