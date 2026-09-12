@@ -121,7 +121,7 @@ export function PantallaReserva({
     // Bizum: fuera del Payment Element a propósito (redirect, no cabe en el
     // checkout embebido). Sin esta prop, `<CheckoutEmbebido>` no pinta el
     // botón — mismo criterio que ya usa el widget embebible (Modo B).
-    onBizum?: () => void;
+    onBizum?: (aceptaCondiciones: boolean) => void;
   };
   /** "Bonos y mensualidades del estudio": solo cuando hay más de un plan
    *  PUNTUAL que cubre la clase — con uno solo, se auto-elige sin preguntar. */

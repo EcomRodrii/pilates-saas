@@ -149,6 +149,7 @@ export async function comprarConBizum(
   socioId: string | null,
   socioEmail: string | null,
   codigoDescuento?: string | null,
+  aceptaCondiciones?: boolean,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const auth = await portalAuthHeader();
@@ -164,6 +165,7 @@ export async function comprarConBizum(
         // manda desde el primer día.
         origen: 'portal',
         codigoDescuento: codigoDescuento || undefined,
+        aceptaCondiciones,
       }),
     });
     if (res.status === 401) {

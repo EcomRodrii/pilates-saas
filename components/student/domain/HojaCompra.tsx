@@ -120,9 +120,9 @@ export function HojaCompra({ textosLegales,
   // Fallback de Bizum (`onBizum` de <CheckoutEmbebido>): mismo criterio que
   // `handleContratarPlan`/el widget — redirige fuera a la página hospedada de
   // Stripe. Si falla, se enseña como el mismo estado de error que `arrancar`.
-  const manejarBizum = useCallback(async () => {
+  const manejarBizum = useCallback(async (aceptaCondiciones: boolean) => {
     if (!plan) return;
-    const r = await comprarConBizum(studioId, plan.id, socioId, socioEmail, codigo.trim() || null);
+    const r = await comprarConBizum(studioId, plan.id, socioId, socioEmail, codigo.trim() || null, aceptaCondiciones);
     if (!r.ok) setEstado({ fase: 'error', mensaje: r.error });
   }, [plan, studioId, socioId, socioEmail, codigo]);
 
