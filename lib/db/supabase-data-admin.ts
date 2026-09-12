@@ -395,6 +395,29 @@ function studioPublico(r: RowStudios) {
   };
 }
 
+// I-12 (auditoría 58ª pasada). `mapSocio` (lib/supabase-data.ts) es el mapeo
+// del PANEL: incluye clasificación de CRM (`leadStage`, `tags`, `origenLead`,
+// `referidoPor`) e ids internos de cobro (Stripe/SEPA) que la propietaria
+// necesita ver de sus clientas. `fetchPublicStudioData` reutilizaba el MISMO
+// mapeo para el `socia.socio` que viaja al navegador de la PROPIA socia —
+// verificado con grep en app/portal, components/student, app/reservar,
+// components/reserva, app/widget-bundle y lib/widget: ninguna pantalla lee
+// ninguno de estos campos, así que quitarlos no cambia nada visible.
+//
+// Lista blanca (mismo criterio que `studioPublico`, arriba): lo que no se
+// nombra aquí no llega a su propio portal. Se queda todo lo que SÍ es "mi
+// perfil" (nombre, contacto, tarjeta guardada -para "Mi método de pago"-,
+// fecha de nacimiento, avatar, visibilidad en clase...) y fuera lo que es
+// clasificación interna del negocio sobre ella.
+function socioPropio(s: Socio): Socio {
+  const {
+    leadStage: _leadStage, tags: _tags, origenLead: _origenLead, referidoPor: _referidoPor,
+    stripeCustomerId: _stripeCustomerId, stripePaymentMethodId: _stripePaymentMethodId,
+    sepaMandateId: _sepaMandateId, sepaPaymentMethodId: _sepaPaymentMethodId,
+    ...resto
+  } = s;
+  return resto as Socio;
+}
 
 export type PublicStudioData = Awaited<ReturnType<typeof fetchPublicStudioData>>;
 
@@ -1006,7 +1029,7 @@ export async function fetchPublicStudioData(
   return {
     ...base,
     socia: {
-      socio: mapSocio(socioRow as RowSocios),
+      socio: socioPropio(mapSocio(socioRow as RowSocios)),
       suscripciones: (susRes.data ?? []).map(mapSuscripcion),
       reservas: (resRes.data ?? []).map(mapReserva),
       recibos: misRecibos,
