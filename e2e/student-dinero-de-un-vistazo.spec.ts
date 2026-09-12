@@ -89,6 +89,7 @@ test('Pagos abre diciendo cuánto se debe, y agrupa por mes', async ({ page }) =
   await page.goto(`${base}/pagos`);
 
   const total = page.getByTestId('total-pendiente');
+  await expect(total).toContainText('Te queda por pagar');
   await expect(total).toContainText('89 €');
   await expect(total).toContainText('1 recibo sin cobrar');
 

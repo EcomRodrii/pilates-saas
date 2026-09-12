@@ -76,7 +76,14 @@ function Pagos() {
                 misma que usa el chip de cobertura de la tienda. Heredan el
                 color del contenedor, así que ninguna de las tres líneas
                 necesita repetirlo. */}
-            <p className="t-label" style={{ color: 'inherit' }}>Pendiente de pago</p>
+            {/* ⚠️ «Te queda por pagar» y NO «Pendiente de pago». La fila de
+                cada recibo ya lleva una insignia que dice «Pendiente», y dos
+                elementos con ese nombre en la misma pantalla no son solo
+                redundantes: rompieron `student-cabos.spec.ts`, que comprueba
+                justo esa insignia. Mismo tropiezo que ya costó cinco rojos en
+                el rediseño de Inicio — al añadir un bloque a una pantalla que
+                existe, mirar antes cómo se llama lo que ya hay. */}
+            <p className="t-label" style={{ color: 'inherit' }}>Te queda por pagar</p>
             <p className="t-display t-num" style={{ marginTop: 4 }}>{euros(pendiente)}</p>
             <p className="t-meta" style={{ marginTop: 4, color: 'inherit', fontWeight: 600 }}>
               {sinCobrar.length === 1 ? '1 recibo sin cobrar' : `${sinCobrar.length} recibos sin cobrar`}
