@@ -497,6 +497,7 @@ export function PostCardPanel({
   onToggleComentarios,
   onEditar,
   onBorrar,
+  onFijar,
   children,
 }: {
   post: PostComunidad;
@@ -516,6 +517,8 @@ export function PostCardPanel({
   /** Ausentes → sin acciones de editar/borrar (p.ej. una vista de solo lectura). */
   onEditar?: (id: string, texto: string, opts?: OpcionesEditarPost) => void;
   onBorrar?: (id: string) => void;
+  /** Ausente → sin acción de fijar (misma condición que editar/borrar: autor o moderador). */
+  onFijar?: (id: string) => void;
   /** El hilo de comentarios, que lo monta la página (tiene el estado). */
   children?: React.ReactNode;
 }) {
@@ -615,8 +618,24 @@ export function PostCardPanel({
             <Users size={11} aria-hidden />
             {etiquetaSegmento(post.audiencia)}
           </span>
-          {!editando && (onEditar || onBorrar) && (
+          {!editando && (onEditar || onBorrar || onFijar) && (
             <div className="flex shrink-0 items-center gap-0.5">
+              {onFijar && (
+                <button
+                  type="button"
+                  onClick={() => onFijar(post.id)}
+                  aria-label={post.fijado ? 'Desfijar publicación' : 'Fijar publicación arriba del tablón'}
+                  aria-pressed={post.fijado}
+                  className={cn(
+                    'flex size-8 items-center justify-center rounded-full transition-colors',
+                    post.fijado
+                      ? 'text-warning hover:bg-warning/10'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <Pin size={14} fill={post.fijado ? 'currentColor' : 'none'} />
+                </button>
+              )}
               {onEditar && (
                 <button
                   type="button"

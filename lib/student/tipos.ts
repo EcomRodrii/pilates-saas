@@ -195,6 +195,9 @@ export type RecuperacionesVista = import('./plaza-fija.ts').RecuperacionesVista;
 /** Publicación del tablón del estudio (`posts_comunidad`), ya filtrada por audiencia en el servidor. */
 export interface Post {
   id: string; texto: string; imagenUrl: string | null; autorNombre: string; autorInicial: string;
+  /** Logo del estudio (Configuración → Tu marca), solo cuando el post lo firma el estudio
+   *  (`autorNombre` coincide con el nombre del estudio) — no en el post de una instructora. */
+  logoUrl: string | null;
   creadoEn: string; likes: number; tipo: 'TEXTO' | 'EVENTO';
   eventoFecha: string | null; eventoAforo: number | null; eventoLugar: string | null;
   /** Solo eventos: asistentes confirmadas. */

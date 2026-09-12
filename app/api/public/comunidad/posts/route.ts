@@ -42,12 +42,13 @@ export async function GET(req: NextRequest) {
   const socioId = await socioAutenticado(user.userId, studioId);
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-  const [{ data: socioRow }, { data: susRaw }, { data: recRaw }] = await Promise.all([
+  const [{ data: socioRow }, { data: susRaw }, { data: recRaw }, { data: studioRow }] = await Promise.all([
     admin.from('socios').select('id, activo, tags, fecha_nacimiento').eq('id', socioId).maybeSingle(),
     admin.from('suscripciones')
       .select('socio_id, estado, sesiones_restantes, fecha_fin')
       .eq('studio_id', studioId).eq('socio_id', socioId).eq('estado', 'ACTIVA'),
     admin.from('recibos').select('socio_id, estado').eq('studio_id', studioId).eq('socio_id', socioId).eq('estado', 'FALLIDO'),
+    admin.from('studios').select('nombre, logo_url').eq('id', studioId).maybeSingle(),
   ]);
   if (!socioRow) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
@@ -124,6 +125,11 @@ export async function GET(req: NextRequest) {
       imagenUrl: row.imagen_url ?? null,
       autorNombre: row.autor_nombre,
       autorInicial: row.autor_inicial,
+      // Mismo criterio que el panel (PR #1807): no hay fila STAFF distinta
+      // para "el estudio" — se reconoce porque quien publicó se llama igual
+      // que el estudio (cuenta de mostrador). Un post firmado por una
+      // instructora concreta sigue enseñando sus iniciales, no el logo.
+      logoUrl: studioRow?.logo_url && row.autor_nombre === studioRow.nombre ? studioRow.logo_url : null,
       creadoEn: row.creado_en,
       likes: row.likes ?? 0,
       likedByMe: misLikes.has(row.id),
