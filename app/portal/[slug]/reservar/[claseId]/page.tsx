@@ -27,6 +27,7 @@ import { BookingStatus } from '@/components/student/domain/BookingStatus';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
+import { Foto } from '@/components/student/ui/Foto';
 
 // Ficha de clase + hoja de reserva (§A.7). Es la pantalla donde la máquina de
 // estados del paquete se conecta al servidor real.
@@ -212,10 +213,12 @@ export default function FichaClasePage() {
           tinta que el propio paquete pone bajo la foto del layout de acceso
           (`.st-auth-hero`), así que sin foto se ve como el diseño espera. */}
       <section style={{ position: 'relative', height: 290, marginTop: -56, overflow: 'hidden', background: '#0F0F0C' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Foto
           src={clase.fotoUrl}
-          alt=""
+          ancho={640}
+          alto={290}
+          sizes="(min-width:1024px) 1040px, (min-width:768px) 640px, 100vw"
+          prioritaria
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', animation: 'apKen 18s ease-in-out infinite' }}
         />
         <div

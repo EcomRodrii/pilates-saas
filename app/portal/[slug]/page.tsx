@@ -32,6 +32,7 @@ import { Descubre } from '@/components/student/domain/Descubre';
 import { ValoracionCard } from '@/components/student/domain/ValoracionCard';
 import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
+import { Foto } from '@/components/student/ui/Foto';
 
 // Inicio (§A.5 del handoff): héroe fotográfico, próxima clase, bono y huecos de
 // hoy. Estructura y medidas literales del paquete.
@@ -137,10 +138,12 @@ export default function InicioPage() {
           no haber subido portada, y sin tinta detrás el héroe degrada a crema y
           se lleva por delante saludo, titular y cabecera transparente. */}
       <section style={{ position: 'relative', height: 316, overflow: 'hidden', background: '#0F0F0C' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Foto
           src={estudio.fotoPortada}
-          alt=""
+          ancho={640}
+          alto={316}
+          sizes="(min-width:1024px) 1040px, (min-width:768px) 640px, 100vw"
+          prioritaria
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
             objectPosition: 'center 32%', animation: 'apKen 22s ease-in-out infinite',

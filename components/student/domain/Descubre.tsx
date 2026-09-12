@@ -6,6 +6,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { getDescubre } from '@/lib/student/datos';
 import { hoyISO } from '@/lib/student/formato';
 import type { TarjetaDescubre } from '@/lib/student/descubre';
+import { Foto } from '@/components/student/ui/Foto';
 
 // «Descubre» — la fila de tarjetas con foto que publica el estudio.
 //
@@ -23,11 +24,10 @@ import type { TarjetaDescubre } from '@/lib/student/descubre';
 function Tarjeta({ t, href, delay }: { t: TarjetaDescubre; href: (p: string) => string; delay: number }) {
   const cuerpo = (
     <>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Foto
         src={t.imagenUrl}
-        alt=""
-        loading="lazy"
+        ancho={172}
+        alto={194}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
       />
       {/* Velo. El texto va en crema sobre una foto que sube el estudio, así que
