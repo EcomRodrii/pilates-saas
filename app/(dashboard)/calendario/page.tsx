@@ -2702,6 +2702,9 @@ export default function Calendario() {
             horaCierre={datosVista.horaCierre}
             tiposClase={tiposClase.map(t => ({ nombre: t.nombre, duracionMinutos: t.duracionMinutos }))}
             salas={salas.map(s => ({ nombre: s.nombre, capacidad: s.capacidad }))}
+            // Solo si el equipo es UNA persona (la propietaria que dijo «sí, yo
+            // doy clases»): con más gente, repartir clases es decisión suya.
+            instructora={instructoresActivos.length === 1 ? instructoresActivos[0].nombre : null}
             puedeCrear={gestionaClientas}
             slug={studio?.slug ?? null}
             nombreEstudio={studio?.nombre ?? 'tu estudio'}

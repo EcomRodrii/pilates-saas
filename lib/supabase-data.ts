@@ -3179,6 +3179,8 @@ export async function dbUpdateRecibosBatch(
   if ('fechaCobro' in changes) db.fecha_cobro = changes.fechaCobro;
   if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
+  // Sin esta línea, «Cobrar pendientes» con método elegido lo perdía en silencio.
+  if ('metodoCobro' in changes) db.metodo_cobro = changes.metodoCobro;
   if (Object.keys(db).length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   let q = supabase.from('recibos').update(db).in('id', ids);
   // Mismo criterio que dbMarcarCobrado: cobrar en lote también alcanza a los

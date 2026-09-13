@@ -90,7 +90,12 @@ const PANTALLAS: Pantalla[] = [
     id: 'logo',
     problema: '«Quiero que mis alumnas vean mi estudio, no una plantilla»',
     titular: 'Ponle tu logo y ya es tuyo',
-    apoyo: 'Es lo único que te pedimos ahora. El resto —colores, textos, tu página— lo afinas cuando quieras.',
+    // ⚠️ Prometía «colores, textos, tu página — lo afinas cuando quieras» con
+    // el editor de marca cerrado por mantenimiento (decisión del 7-sep). Hoy
+    // se puede cambiar el color (Apariencia → Personalizar tu panel, que es el
+    // mismo color que ve el portal) y los textos (Configuración → Estudio);
+    // la portada no. Se promete solo lo que hay.
+    apoyo: 'Es lo único que te pedimos ahora. Tu color y tus textos los cambias cuando quieras desde Configuración.',
     puntos: ['Tu página de reservas', 'La app de tus alumnas', 'Sus correos'],
     pose: 'con-amor',
     Escena: null,

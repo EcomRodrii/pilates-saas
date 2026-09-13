@@ -79,11 +79,17 @@ test.describe('Apariencia — mantenimiento y salida', () => {
   test('la pantalla avisa y ofrece un solo botón', async ({ page }) => {
     await montar(page);
     await page.goto('/configuracion/apariencia');
-    await expect(page.getByText('El editor de marca está en mantenimiento')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('La portada y el diseño de tu portal, en mantenimiento')).toBeVisible({ timeout: 30_000 });
     // Y dice que lo publicado no se rompe: sin eso, «mantenimiento» se lee
     // como «mis clientas ya no ven mi marca».
     await expect(page.getByText(/sigue\s+funcionando igual/)).toBeVisible();
-    await expect(page.getByRole('link', { name: /Personalizar tu panel/ })).toBeVisible();
+    // Evaluación del 13-sep: la pantalla no decía que el color del portal SÍ
+    // se cambia, y una propietaria se fue creyendo que no podía. La salida
+    // tiene que decirlo y llevar a donde se cambia.
+    const salida = page.getByRole('link', { name: /Tu color y tu panel/ });
+    await expect(salida).toBeVisible();
+    await expect(salida).toContainText('ven tus alumnas en tu página de reservas');
+    await expect(salida).toHaveAttribute('href', '/configuracion/apariencia/panel');
   });
 
   test('el editor no se abre ni escribiendo la URL', async ({ page }) => {

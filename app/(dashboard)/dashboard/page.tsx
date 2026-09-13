@@ -28,6 +28,7 @@ import type { LayoutConfig } from '@/lib/layout-schema';
 import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
+import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
 import { useRol, puedeVerFinanzas, puedeVer, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { Toast, useToast } from '@/components/ui/toast';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
@@ -959,16 +960,13 @@ export default function Dashboard() {
                         <CifraPrivada inline className="text-[13px] font-bold text-foreground">
                           {r.importe} €
                         </CifraPrivada>
-                        <button
-                          onClick={() => {
-                            void marcarCobrado(r.id).then(res => {
-                              if (!res.ok) showToast(res.error);
-                            });
-                          }}
+                        <BotonCobrarConMetodo
+                          detalle={<>{r.socio!.nombre} {r.socio!.apellidos} — <span className="font-semibold text-foreground">{r.importe} €</span></>}
+                          onCobrar={metodo => marcarCobrado(r.id, metodo).then(res => {
+                            showToast(res.ok ? `Cobro registrado: ${r.importe} €` : res.error);
+                          })}
                           className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors"
-                        >
-                          Cobrar
-                        </button>
+                        />
                       </div>
                     </div>
                   ))}
