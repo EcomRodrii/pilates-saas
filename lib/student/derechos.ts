@@ -48,13 +48,17 @@ export async function getMisDerechos(slug: string): Promise<MisDerechos> {
   return { excluirDePerfilado: d.excluirDePerfilado, solicitudes };
 }
 
-export async function solicitarDerecho(slug: string, tipo: TipoSolicitudDerechos):
+/**
+ * `confirmacion` es la frase que escribió la alumna: el servidor la exige para
+ * la supresión (`lib/student/confirmacion-eliminacion.ts`) y la ignora en el resto.
+ */
+export async function solicitarDerecho(slug: string, tipo: TipoSolicitudDerechos, confirmacion?: string):
 Promise<{ ok: true; yaExistia: boolean } | { ok: false; error: string }> {
   try {
     const res = await fetch('/api/public/solicitud-derechos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
-      body: JSON.stringify({ slug, tipo }),
+      body: JSON.stringify({ slug, tipo, confirmacion }),
     });
     if (!res.ok) return { ok: false, error: await mensajeDe(res, 'No hemos podido enviar tu solicitud.') };
     const d = (await res.json()) as { yaExistia?: boolean };

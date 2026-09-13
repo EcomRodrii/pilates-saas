@@ -30,6 +30,8 @@ const PANTALLAS: Array<[string, string, OpcionesSocia]> = [
   ['comprar', '/comprar', {}],
   ['perfil', '/perfil', {}],
   ['preferencias', '/perfil/preferencias', {}],
+  // Con consentimiento de salud: así se miden también sus enlaces terciarios.
+  ['privacidad', '/perfil/privacidad', { saludConsentida: true }],
   ['notificaciones', '/notificaciones', { avisos: [
     { id: 'n1', title: 'Tu reserva se ha cancelado', body: 'La clase de hoy a las 10:00', category: 'reservas', eventType: 'reserva.cancelada' },
     { id: 'n2', title: 'Bono a punto de caducar', body: 'Te quedan 5 sesiones', category: 'pagos', eventType: 'bono.por_caducar', leido: true },

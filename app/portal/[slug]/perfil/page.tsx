@@ -15,8 +15,6 @@ import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Icono } from '@/components/student/ui/Icono';
-import { MisDatos } from '@/components/student/domain/MisDatos';
-import { ConsentimientoSaludPerfil } from '@/components/student/domain/ConsentimientoSaludPerfil';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -90,10 +88,6 @@ export default function PerfilPage() {
           ]}
         />
 
-        {/* Consentimiento de salud: verlo y retirarlo. Componente propio para
-            no mezclarse con el resto de secciones de esta pantalla. */}
-        <ConsentimientoSaludPerfil studioId={estudio.id} nombreEstudio={estudio.nombre} hrefMensajes={href('/mensajes')} />
-
         <ProfileSection
           titulo="Bonos y pagos"
           items={[
@@ -128,10 +122,13 @@ export default function PerfilPage() {
             { label: 'Notificaciones', href: href('/notificaciones') },
             { label: 'Comunidad', href: href('/comunidad') },
             { label: 'Logros y recompensas', href: href('/logros') },
+            // Descargar, retirar el consentimiento de salud y pedir que borren
+            // sus datos viven en su propia pantalla. Antes eran dos bloques
+            // aquí, con la eliminación en rojo a un toque; son cosas de casi
+            // nunca, así que queda UNA fila, la última antes de cerrar sesión.
+            { label: 'Privacidad y datos', href: href('/perfil/privacidad') },
           ]}
         />
-
-        <MisDatos slug={estudio.slug} nombreEstudio={estudio.nombre} />
 
         <ProfileSection
           titulo="Sesión"

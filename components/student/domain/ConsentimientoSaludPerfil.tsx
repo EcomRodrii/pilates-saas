@@ -68,10 +68,13 @@ export function ConsentimientoSaludPerfil({ studioId, nombreEstudio, hrefMensaje
               Autorizaste a {nombreEstudio} a usar lo que le cuentas sobre tu salud (molestias, lesiones…)
               para adaptar tus clases{fechaLarga(datos.fecha) ? ` el ${fechaLarga(datos.fecha)}` : ''}.
             </p>
+            {/* Enlace terciario, no rojo: vive en «Privacidad y datos» y no debe
+                llamar la atención. El tono de peligro se queda en la hoja de
+                confirmación, que es donde se decide. */}
             <button
               type="button"
               onClick={() => setConfirmar(true)}
-              style={{ alignSelf: 'flex-start', minHeight: 44, padding: 0, border: 'none', background: 'none', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--destructive)' }}
+              style={{ alignSelf: 'flex-start', minHeight: 44, padding: 0, border: 'none', background: 'none', textAlign: 'left', fontSize: 'var(--t-small)', fontWeight: 600, color: 'var(--muted-foreground)', textDecoration: 'underline', textUnderlineOffset: 3 }}
             >
               Retirar consentimiento de salud
             </button>
