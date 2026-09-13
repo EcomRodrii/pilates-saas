@@ -618,7 +618,10 @@ export default function ReservarPage() {
     // «Con Carmen» y no «Carmen» a secas: en la misma fila que «Mat» o
     // «Reformer», un nombre suelto no dice si es una clase o una persona.
     for (const i of instructoresVisibles) {
-      chips.push({ id: `instructor:${i.id}`, label: `Con ${i.nombre}`, grupo: 'instructora', activo: filtroInstructor === i.nombre, onClick: () => setFiltroInstructor(filtroInstructor === i.nombre ? '' : i.nombre) });
+      // I-6 (auditoría 59ª pasada): el chip guardaba el NOMBRE, no el id. Dos
+      // instructoras que se llamen igual —normal en un estudio de 9— se
+      // mezclaban: pulsar «Con Carmen» enseñaba las clases de las dos.
+      chips.push({ id: `instructor:${i.id}`, label: `Con ${i.nombre}`, grupo: 'instructora', activo: filtroInstructor === i.id, onClick: () => setFiltroInstructor(filtroInstructor === i.id ? '' : i.id) });
     }
     return chips;
   }, [tiposClaseVisibles, instructoresVisibles, filtroTipo, filtroInstructor]);
@@ -1297,7 +1300,7 @@ export default function ReservarPage() {
       .filter(s => !configWidget?.instructoras.length || configWidget.instructoras.includes(s.instructorId))
       .filter(s => !configWidget?.salas.length || configWidget.salas.includes(s.salaId))
       .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
-      .filter(s => !filtroInstructor || s.instructor?.nombre === filtroInstructor)
+      .filter(s => !filtroInstructor || s.instructorId === filtroInstructor)
       .filter(s => !filtroSala || s.sala?.nombre === filtroSala)
       .filter(s => {
         if (!busqueda) return true;
@@ -1522,7 +1525,7 @@ export default function ReservarPage() {
       .filter(s => !configWidget?.instructoras.length || configWidget.instructoras.includes(s.instructorId))
       .filter(s => !configWidget?.salas.length || configWidget.salas.includes(s.salaId))
       .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
-      .filter(s => !filtroInstructor || s.instructor?.nombre === filtroInstructor)
+      .filter(s => !filtroInstructor || s.instructorId === filtroInstructor)
       .filter(s => !filtroSala || s.sala?.nombre === filtroSala)
       .sort((a, b) => a.inicio.localeCompare(b.inicio))
       .map(s => ({

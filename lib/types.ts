@@ -376,7 +376,12 @@ export interface Socio {
   // Art. 9 RGPD: consentimiento específico para tratar datos de salud (aparte
   // del contrato general). undefined = no lo ha dado — condiciones_salud no
   // debe recibir ninguna fila para esta socia hasta que exista.
-  consentimientoSalud?: { fecha: string; registradoPor: string };
+  // `texto`: QUÉ se consintió exactamente (I-7, 59ª pasada). Se guarda en
+  // `socios.consentimiento_salud_texto`, igual que `consentimientoMarketing.texto`
+  // y que `aceptacionContrato.versionTexto`. `undefined` al LEER desde el panel
+  // (la columna no viaja en FilaSocioPanel: pesa y es idéntica para todas); al
+  // ESCRIBIR hay que mandarlo, o el registro RGPD queda sin prueba de contenido.
+  consentimientoSalud?: { fecha: string; registradoPor: string; texto?: string };
   // Art. 7.4 RGPD: consentimiento específico para marketing por email (aparte
   // del contrato general y de `consentimientoSalud`). `texto` es el texto
   // COMPLETO aceptado (lib/legal-textos.ts textoConsentimientoMarketing),

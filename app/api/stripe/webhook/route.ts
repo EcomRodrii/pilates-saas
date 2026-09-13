@@ -144,16 +144,55 @@ async function liberarCobroPosFallidoDelWebhook(
 // pero es un camino independiente (no pasa por `ORIGENES_POS`). La
 // idempotencia frente a que los DOS eventos lleguen para el mismo
 // PaymentIntent la da `liberarCupoMatriculaUnaVez`, no esta función.
+//
+// ⚠️ C-1 (auditoría 59ª pasada, 13-sep-2026). Esta función se escribió en la
+// misma pasada que `liberarCobroPosFallidoDelWebhook` (arriba) y se dejó SIN
+// la comprobación de tenant que su gemelo sí hace — el mismo patrón «arreglar
+// un endpoint y no su hermano» que el repo arrastra desde el 21-ago. Se fiaba
+// de `metadata.studioId` y `metadata.planId` a secas, y a este endpoint
+// entran los eventos de TODAS las cuentas Connect: cualquier estudio con su
+// propia cuenta podía crear PaymentIntents de un céntimo con
+// `metadata:{cupoMatriculaReservado:'1', planId:<plan ajeno>, studioId:<otro
+// estudio>}`, dejarlos fallar, y decrementar `matricula_gratis_usados` del
+// estudio víctima una vez por PaymentIntent — regalando matrículas gratis
+// (dinero real) sin límite, porque la idempotencia es por PaymentIntent. El
+// `planId` es adivinable: viaja en el widget público de compra. Aguas abajo no
+// hay red: la RPC que devuelve la plaza (ver `liberarCupoMatricula` en
+// lib/billing/matricula-online.ts) es SECURITY DEFINER y sus dos guardas
+// (`validar_studio_mismatch`, `puede_gestionar_clientas`) están condicionadas
+// a `auth.uid() is not null`, o sea no-op con service-role.
+//
+// El estudio sale ahora de la cuenta que FIRMA el evento, nunca de la
+// metadata, igual que en el gemelo. A diferencia de él NO se devuelve 403:
+// aquí un rechazo abortaría el resto del manejador (el evento puede traer
+// además un cobro POS legítimo) y haría que Stripe reintentase para siempre.
+// Se deniega en silencio para el efecto y se avisa a Sentry, que es lo que
+// convierte un intento en una alarma.
 async function liberarCupoMatriculaDelWebhook(
   admin: AdminClient,
+  event: Stripe.Event,
   metadata: Stripe.Metadata | undefined,
   paymentIntentId: string | null,
 ): Promise<void> {
   if (!paymentIntentId || metadata?.cupoMatriculaReservado !== '1') return;
   const planId = metadata.planId;
-  const studioId = metadata.studioId;
-  if (!planId || !studioId) return;
-  await liberarCupoMatriculaUnaVez(admin, paymentIntentId, planId, studioId);
+  const studioIdMetadata = metadata.studioId;
+  if (!planId) return;
+  const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+  if (!tenantAutorizado(studioDeCuenta, studioIdMetadata)) {
+    // Dos motivos distintos con consecuencias distintas: o la metadata miente
+    // (intento de tocar el cupo de otro estudio) o no hemos sabido resolver la
+    // cuenta que firma (config de Stripe, estudio desvinculado) y entonces la
+    // plaza se queda sin devolver a alguien que sí tenía derecho. El mensaje
+    // los separa para no investigar el caso equivocado.
+    const motivo = studioDeCuenta === null ? 'cuenta-no-resuelta' : 'metadata-no-corresponde';
+    Sentry.captureMessage(`[stripe webhook] no se devuelve el cupo de matricula: ${motivo}`, {
+      level: 'error', tags: { area: 'cobros' },
+      extra: { motivo, eventAccount: event.account, studioIdMetadata, studioDeCuenta, planId, paymentIntentId },
+    });
+    return;
+  }
+  await liberarCupoMatriculaUnaVez(admin, paymentIntentId, planId, studioDeCuenta as string);
 }
 
 export async function POST(req: NextRequest) {
@@ -1339,7 +1378,7 @@ async function procesarEvento(
     // online que se había llevado una plaza gratis de matrícula.
     if (pi.metadata?.cupoMatriculaReservado === '1') {
       const admin = getSupabaseAdmin();
-      if (admin) await liberarCupoMatriculaDelWebhook(admin, pi.metadata, pi.id);
+      if (admin) await liberarCupoMatriculaDelWebhook(admin, event, pi.metadata, pi.id);
     }
   }
 
@@ -1378,7 +1417,7 @@ async function procesarEvento(
     if (session.metadata?.cupoMatriculaReservado === '1') {
       const admin = getSupabaseAdmin();
       const piId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null;
-      if (admin) await liberarCupoMatriculaDelWebhook(admin, session.metadata, piId);
+      if (admin) await liberarCupoMatriculaDelWebhook(admin, event, session.metadata, piId);
     }
   }
 

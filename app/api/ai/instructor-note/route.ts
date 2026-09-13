@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     try {
       parsed = parseJsonIA(raw);
     } catch {
-      return NextResponse.json({ error: 'Respuesta IA inválida', raw }, { status: 500 });
+      return NextResponse.json({ error: 'Respuesta IA inválida' }, { status: 500 });
     }
 
     return NextResponse.json({

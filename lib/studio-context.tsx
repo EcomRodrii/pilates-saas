@@ -3036,7 +3036,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // dinero opuesta. Para la alumna, perder su plaza es lo mismo con
     // cualquiera de los dos botones; captura ANTES del DELETE (el cascade se
     // lleva las reservas, no queda nada que consultar después).
-    const confirmadas = reservas.filter(r => r.sesionId === id && r.estado === 'CONFIRMADA');
+    //
+    // I-1 (auditoría 59ª pasada, 13-sep-2026): faltaba el filtro `res-pf-`.
+    // `materializar_plazas_fijas` inserta las plazas fijas ya CONFIRMADAS y
+    // SIN consumir sesión de bono (0084_materializar_plazas_fijas.sql:74), así
+    // que devolverles una sesión INVENTA saldo. El guard existe en los otros
+    // tres caminos —`ejecutarCancelacionReserva`
+    // (lib/db/supabase-data-admin.ts) y `/api/reservas/devolver-bonos`, que
+    // hasta lo documenta—; «Eliminar clase» era el único hermano sin él.
+    // Borrar una clase con N plazas fijas regalaba N sesiones de bono.
+    const confirmadas = reservas.filter(r =>
+      r.sesionId === id && r.estado === 'CONFIRMADA' && !r.id.startsWith('res-pf-'));
     // El DELETE en sí también se espera ahora — antes era fire-and-forget: el
     // calendario ya la quitaba de pantalla aunque el borrado real en BD
     // hubiera fallado, así que recargar la traía de vuelta.
@@ -3364,6 +3374,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // estimación puede decir CONFIRMADA y la BD LISTA_ESPERA.
       const datos = r.datos as { estado?: EstadoReserva; spotAsignado?: string | null } | null;
       return { ok: true, estado: datos?.estado ?? estado, spotAsignado: datos?.spotAsignado ?? null };
+    }
+
+    // I-2 (auditoría 59ª pasada, 13-sep-2026): el camino público lo rechaza en
+    // `crearReservaPublica` («Esta clase está cancelada»), pero el panel llama
+    // a `reservar_plaza` DIRECTO desde el navegador y la RPC no tiene ese
+    // guard — su `cancelada` es el de las sesiones AJENAS con las que busca
+    // solape, nunca el de la propia. Y la ficha de una sesión cancelada sí se
+    // abre (`onSeleccionar` no mira `cancelada`, a diferencia de
+    // `moverSesionArrastrada`), así que «Añadir clienta a la clase» dejaba la
+    // reserva CONFIRMADA en una clase que no se va a dar Y le descontaba una
+    // sesión de bono. Mismo guard que su gemelo público, en el mismo idioma.
+    //
+    // Nota: apuntar a una clase YA EMPEZADA sí se permite aquí a propósito —
+    // es el walk-in del mostrador (`esWalkIn` en calendario/page.tsx). Lo que
+    // no tiene lectura legítima es apuntar a una clase cancelada.
+    if (sesion?.cancelada) {
+      return { ok: false, error: 'Esta clase está cancelada: no se puede apuntar a nadie.' };
     }
 
     const reservaId = `res-${uid()}`;
