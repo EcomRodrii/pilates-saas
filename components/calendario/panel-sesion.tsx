@@ -77,6 +77,12 @@ export function PanelSesion({
   // depender solo de leer el color del badge. Mismos tres estados que ya
   // implican `ahora >= inicio` en estadoSesion().
   const yaEmpezada = estado === 'EN_CURSO' || estado === 'FINALIZADA' || estado === 'SIN_PASAR_LISTA';
+  // Sin mapa de spots, «Plazas» era un callejón: una caja que decía «Sala sin
+  // mapa de spots» y ningún sitio del panel donde crear uno (evaluación del
+  // 13-sep). Se quita la pestaña en vez de enseñar un vacío sin salida.
+  const hayMapa = !!spots && spots.length > 0;
+  const pestanas = hayMapa ? PESTANAS : PESTANAS.filter(t => t.id !== 'plazas');
+  const activa: PestanaSesion = !hayMapa && pestana === 'plazas' ? 'clientas' : pestana;
 
   return (
     <DashboardDrawer open={abierto} onClose={onCerrar} label={titulo}>
@@ -132,13 +138,13 @@ export function PanelSesion({
       )}
 
       <div className="flex flex-none border-b border-border px-2">
-        {PESTANAS.map(t => (
+        {pestanas.map(t => (
           <button
             key={t.id}
             onClick={() => onCambiarPestana(t.id)}
             className={cn(
               'px-3.5 py-2.5 text-[12.5px] font-bold border-b-2 -mb-px transition-colors',
-              pestana === t.id ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
+              activa === t.id ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
             {t.label}
@@ -147,29 +153,23 @@ export function PanelSesion({
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
-        {pestana === 'clientas' && (
+        {activa === 'clientas' && (
           <>
             {extraClientas}
             <ListaClientas {...clientas} />
           </>
         )}
-        {pestana === 'plazas' && (
-          spots && spots.length > 0 ? (
-            <SpotMap
-              spots={spots}
-              reservas={reservasConSocio}
-              socios={socios}
-              onCheckin={onCheckinSpot}
-              onQuitarSpot={onLiberarSpot}
-              onAsignarSpot={onAsignarSpot}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-32 rounded-2xl border-2 border-dashed border-border text-sm text-muted-foreground">
-              Sala sin mapa de spots
-            </div>
-          )
+        {activa === 'plazas' && spots && spots.length > 0 && (
+          <SpotMap
+            spots={spots}
+            reservas={reservasConSocio}
+            socios={socios}
+            onCheckin={onCheckinSpot}
+            onQuitarSpot={onLiberarSpot}
+            onAsignarSpot={onAsignarSpot}
+          />
         )}
-        {pestana === 'historial' && <HistorialSesion eventos={eventosHistorial} />}
+        {activa === 'historial' && <HistorialSesion eventos={eventosHistorial} />}
       </div>
     </DashboardDrawer>
   );

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  X, Menu, LogOut, Check, PanelLeft, ExternalLink,
+  X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -457,6 +457,27 @@ export function Sidebar() {
     return () => ro.disconnect();
   }, [horizontal]);
 
+  // ⚠️ La columna se desplaza, pero nada lo decía. En un portátil (800 px de
+  // alto) con «Todo», el menú acababa a media lista y el resto quedaba debajo
+  // sin barra a la vista — macOS la esconde hasta que haces scroll — así que
+  // parecía que no había más módulos (evaluación del 13-sep). Un degradado con
+  // flecha avisa de que sigue, y se va al llegar al final.
+  // Sin llamada inicial: `observe()` ya dispara la primera medición. Las
+  // dependencias extra vuelven a observar cuando cambia lo que MIDE el menú
+  // por dentro sin cambiar su caja (modo, tamaño, módulos ocultos u orden).
+  const navRef = useRef<HTMLElement | null>(null);
+  const [quedaMenuAbajo, setQuedaMenuAbajo] = useState(false);
+  useEffect(() => {
+    if (horizontal) return;
+    const el = navRef.current;
+    if (!el) return;
+    const medir = () => setQuedaMenuAbajo(el.scrollHeight - el.scrollTop - el.clientHeight > 8);
+    el.addEventListener('scroll', medir, { passive: true });
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => { el.removeEventListener('scroll', medir); ro.disconnect(); };
+  }, [horizontal, navMode, size, ocultos, ordenMenu]);
+
 
   async function handleSignOut() {
     await signOut();
@@ -477,7 +498,7 @@ export function Sidebar() {
   // derecho, que depende de lo que venga detrás), y de pie va suelto. Escribirlo
   // dos veces es como una rama acaba con un `min-w-0` que la otra no tiene.
   const menu = (
-    <nav className={cn(
+    <nav ref={navRef} className={cn(
       'flex-1 px-2',
       // ⚠️ Tumbado, la fila ENVUELVE; no se desplaza.
       //
@@ -641,7 +662,22 @@ export function Sidebar() {
           </div>
         )}
 
-        {menu}
+        {horizontal ? menu : (
+          // `min-h-0`: sin él la envoltura crece hasta el alto del menú entero
+          // y el `overflow-y-auto` del <nav> no tiene nada que desplazar.
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            {menu}
+            {quedaMenuAbajo && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 flex h-12 items-end justify-center pb-1"
+                style={{ background: 'linear-gradient(to top, #0A0A0A 35%, transparent)' }}
+              >
+                <ChevronDown size={14} className="text-white/50" />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
         {studioSlug && (collapsed || horizontal ? (

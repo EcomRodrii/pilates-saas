@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BookOpen, X } from 'lucide-react';
 import { CAPITULOS } from '@/lib/guia/curriculo';
+import { CAPITULO_POR_SECCION, seccionConAyuda } from '@/lib/guia/ayuda-seccion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «¿Primera vez aquí?» — la guía, asomándose donde hace falta.
@@ -22,32 +23,16 @@ import { CAPITULOS } from '@/lib/guia/curriculo';
 //
 // ── Por qué no satura ────────────────────────────────────────────────────────
 // Tres frenos, y hacen falta los tres:
-//   1. Solo en las secciones del mapa de abajo — no en las treinta y pico.
+//   1. Solo en las secciones del mapa (`lib/guia/ayuda-seccion.ts`) — no en
+//      las treinta y pico.
 //   2. Se cierra y no vuelve, por navegador (mismo patrón que el tour y que
 //      `panel-privacy`). Cerrarla es una respuesta, y repreguntar es el
-//      comportamiento que el encargo pedía evitar.
+//      comportamiento que el encargo pedía evitar — por eso, cerrada en dos
+//      secciones, deja de salir en todas: ocho tiras iguales seguidas eran
+//      justo esa repregunta.
 //   3. Una sola línea, sin ilustración ni caja de color. Es una puerta, no un
 //      anuncio.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Sección del panel → capítulo que la explica.
- *
- * Deliberadamente corto: solo las pantallas donde una propietaria nueva se
- * queda mirando sin saber qué hacer. Añadir aquí las treinta y pico rutas
- * convertiría la ayuda en ruido y la primera en cerrarse para siempre sería
- * justamente la útil.
- */
-const CAPITULO_POR_SECCION: Record<string, string> = {
-  '/calendario': 'tu-horario',
-  '/cobros': 'cobrar',
-  '/clientas': 'tus-alumnas',
-  '/equipo': 'tu-equipo',
-  '/automatizaciones': 'que-trabaje-solo',
-  '/informes': 'entiende-tu-negocio',
-  '/sustituciones': 'tu-equipo',
-  '/migracion': 'tus-alumnas',
-};
 
 const CLAVE = 'guia-ayuda-cerrada';
 
@@ -76,14 +61,9 @@ export function PrimeraVezAqui() {
     setCerradas(leerCerradas());
   }, []);
 
-  // Coincidencia por sección, no por ruta exacta: `/clientas/abc` sigue siendo
-  // Clientas. Se ordena de más larga a más corta para que un prefijo corto no
-  // le robe la coincidencia a uno más específico si algún día se añade.
-  const seccion = Object.keys(CAPITULO_POR_SECCION)
-    .sort((a, b) => b.length - a.length)
-    .find(s => pathname === s || pathname.startsWith(`${s}/`));
-
-  if (!seccion || cerradas === null || cerradas.includes(seccion)) return null;
+  if (cerradas === null) return null;
+  const seccion = seccionConAyuda(pathname, cerradas);
+  if (!seccion) return null;
 
   const capitulo = CAPITULOS.find(c => c.id === CAPITULO_POR_SECCION[seccion]);
   if (!capitulo) return null;
