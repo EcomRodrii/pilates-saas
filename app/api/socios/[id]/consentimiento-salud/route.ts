@@ -20,7 +20,7 @@ import { comprobarAccesoSaludSocia } from '@/lib/datos-salud/acceso-servidor';
 // Lo único que viene del cliente es la firma tecleada.
 //
 // Escribe solo `consentimiento_salud_cambiar` (service_role): `authenticated`
-// ya no tiene INSERT/UPDATE sobre esas columnas (migr 20260913173100).
+// ya no tiene INSERT/UPDATE sobre esas columnas (migr 20260913214142).
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const sesion = await verificarSesionStaff(req);

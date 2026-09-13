@@ -4,7 +4,7 @@
 // El estado vigente vive en `socios.consentimiento_salud_*` (de ahí cuelga
 // `tiene_consentimiento_salud()` y la RLS de las tablas clínicas); el historial,
 // en `consentimientos_salud_eventos`. La única vía de escritura es la RPC
-// `consentimiento_salud_cambiar` (migr 20260913173100), solo service_role.
+// `consentimiento_salud_cambiar` (migr 20260913214142), solo service_role.
 //
 // Puro y sin dependencias: se prueba con `node --test`.
 // ─────────────────────────────────────────────────────────────────────────────

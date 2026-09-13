@@ -186,7 +186,7 @@ export async function tieneConsentimientoSalud(socioId: string): Promise<boolean
 /**
  * Lo deja registrado con quién lo dio y QUÉ texto aceptó.
  *
- * Pasa por `consentimiento_salud_cambiar` (migr 20260913173100), la única vía
+ * Pasa por `consentimiento_salud_cambiar` (migr 20260913214142), la única vía
  * de escritura: fija `now()`, levanta una revocación anterior (si no, quedaría
  * dado y revocado a la vez) y apunta el evento en el historial en la misma
  * transacción, así que volver a consentir no borra la prueba del ciclo

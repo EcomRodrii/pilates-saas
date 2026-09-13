@@ -421,7 +421,7 @@ test('filtrarRetribucionVisible: la liquidación propia en BORRADOR no se ve (li
 test('puedeGestionarCamposPersonalizados: solo la propietaria define qué se pregunta (igual que la RLS)', () => {
   // Lo rellenado va a `campos_extra`, que lee todo el personal: si una
   // instructora pudiera crear «Lesiones previas», la salud se saldría de la
-  // ficha clínica. Migr 20260913173200.
+  // ficha clínica. Migr 20260913214150.
   assert.equal(puedeGestionarCamposPersonalizados('PROPIETARIO'), true);
   assert.equal(puedeGestionarCamposPersonalizados('MANAGER'), false);
   assert.equal(puedeGestionarCamposPersonalizados('RECEPCION'), false);

@@ -35,7 +35,7 @@ test('la nota de sesión con IA comprueba el rol clínico y el consentimiento', 
   const ruta = leer('app/api/ai/instructor-note/route.ts');
   assert.match(ruta, /puedeVerFichaClinica\(sesion\.rol\)/);
   // La comprobación vive en el helper compartido con las otras rutas de salud
-  // (consentimiento + alumna asignada, migr 20260913173000).
+  // (consentimiento + alumna asignada, migr 20260913214116).
   assert.match(ruta, /comprobarAccesoSaludSocia\([^)]*exigirConsentimiento:\s*true/);
   const helper = leer('lib/datos-salud/acceso-servidor.ts');
   assert.match(helper, /consentimiento_salud_revocado_en/);

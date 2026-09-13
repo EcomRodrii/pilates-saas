@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Verificación — salud por alumna asignada + consentimiento demostrable
--- Migraciones 20260913173000 / 20260913173100 / 20260913173200.
+-- Migraciones 20260913214116 / 20260913214142 / 20260913214150.
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Ejecutar DESPUÉS de aplicarlas. TODO va dentro de `begin read only … rollback`:
 -- no escribe nada. Solo devuelve booleanos, recuentos e ids internos (sin

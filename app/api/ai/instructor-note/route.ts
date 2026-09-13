@@ -12,7 +12,7 @@ const client = new Anthropic();
 
 // El texto que llega aquí es dato de salud de una socia (progreso, lesiones,
 // limitaciones) y sale hacia un proveedor externo. Las mismas cerraduras que la
-// RLS de `notas_progreso` (migr 20260913173000): rol clínico, consentimiento de
+// RLS de `notas_progreso` (migr 20260913214116): rol clínico, consentimiento de
 // salud vigente de ESA socia en ESTE estudio y, si es instructora, que sea su
 // alumna. Con service-role la RLS no se aplica, así que la regla va en TS
 // (`lib/datos-salud/acceso-servidor.ts`).

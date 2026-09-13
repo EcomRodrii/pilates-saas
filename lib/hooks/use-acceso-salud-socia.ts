@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { dbInstructoraAtiendeSocia } from '@/lib/supabase-data';
 import type { Rol } from '@/lib/types';
 
-// ¿Ve esta INSTRUCTORA la salud de esta socia? (migr 20260913173000: solo sus
+// ¿Ve esta INSTRUCTORA la salud de esta socia? (migr 20260913214116: solo sus
 // alumnas, reserva o cita con ella en ±30 días).
 //
 // No es la cerradura —esa es la RLS, que ya devuelve vacío—, es para no pintar

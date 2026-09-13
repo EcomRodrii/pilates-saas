@@ -110,7 +110,7 @@ export function puedeVerSemaforo(rol: Rol): boolean {
 }
 
 // ⚠️ `puedeVerFichaClinica` dice si el ROL es clínico, no si ve la ficha de UNA
-// socia concreta: desde la migr 20260913173000 una INSTRUCTORA solo ve la salud
+// socia concreta: desde la migr 20260913214116 una INSTRUCTORA solo ve la salud
 // de sus alumnas (reserva o cita con ella en ±30 días). Esa segunda mitad vive
 // en `lib/datos-salud/acceso-instructora.ts` (TS) y en
 // `instructora_atiende_socia()` (RLS).
@@ -119,7 +119,7 @@ export function puedeVerSemaforo(rol: Rol): boolean {
 // la ficha). Solo la propietaria: lo que se rellena ahí va a `campos_extra`,
 // que lee todo el personal sin las garantías de la ficha clínica, y la
 // auditoría RGPD encontró un campo «Lesiones previas» creado ahí. La cerradura
-// es la RLS (migr 20260913173200); esto solo no enseña botones que fallarían.
+// es la RLS (migr 20260913214150); esto solo no enseña botones que fallarían.
 export function puedeGestionarCamposPersonalizados(rol: Rol): boolean {
   return rol === 'PROPIETARIO';
 }
