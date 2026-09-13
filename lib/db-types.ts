@@ -2217,7 +2217,7 @@ export interface RowRedVerificacionesIdentidad {
   resuelto_por: string | null;
   // migr 20260819212346.
   documento_path_reverso: string | null;
-  // migr 20260913161000.
+  // migr 20260913222743.
   documento_borrado_en: string | null;
 }
 
@@ -2234,7 +2234,7 @@ export interface RowRedCertificaciones {
   creado_en: string;
   resuelto_en: string | null;
   resuelto_por: string | null;
-  // migr 20260913161000.
+  // migr 20260913222743.
   documento_borrado_en: string | null;
 }
 

@@ -60,6 +60,11 @@ export interface OpcionesSocia {
    */
   descubre?: number;
   /**
+   * Consentimiento de salud VIGENTE. Por defecto `NO_CONSTA`, que es el caso en
+   * que «Privacidad y datos» no pinta el bloque de salud.
+   */
+  saludConsentida?: boolean;
+  /**
    * No fijar el reloj del navegador.
    *
    * ⚠️ `page.clock.install()` **vacía la Performance API**. Medido en esta app:
@@ -95,7 +100,7 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   const {
     bono = 5, reservada = false, ocupadas = 0, conTienda = true, avisos = [],
     posts = 0, conversaciones = 0, valoracionActiva = false, conTarjeta = false, recibos = 0,
-    descubre = 0,
+    descubre = 0, saludConsentida = false,
   } = o;
 
   const sinMockear: string[] = [];
@@ -223,8 +228,9 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   })));
   await ruta((p) => p === '/api/notifications/subscribe', (r) => r.fulfill(json({ ok: true })));
 
-  // Derechos RGPD (Perfil → «Tus datos», Preferencias → oposición al perfilado).
-  // Sin solicitudes y sin oposición: el estado de cualquier alumna nueva.
+  // Derechos RGPD (Perfil → «Privacidad y datos», Preferencias → oposición al
+  // perfilado). Sin solicitudes y sin oposición: el estado de cualquier alumna
+  // nueva.
   await ruta((p) => p === '/api/public/solicitud-derechos', (r) => {
     const m = r.request().method();
     if (m === 'PATCH') return r.fulfill(json({ excluirDePerfilado: true }));
@@ -232,11 +238,14 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
     return r.fulfill(json({ excluirDePerfilado: false, solicitudes: [] }));
   });
 
-  // Consentimiento de salud (Perfil): la alumna del fixture no lo ha dado, que
-  // es el caso en el que el bloque no se pinta.
-  await ruta((p) => p === '/api/public/consentimiento-salud', (r) => r.fulfill(json({
-    estado: 'NO_CONSTA', fecha: null, revocadoEn: null,
-  })));
+  // Consentimiento de salud (Perfil → «Privacidad y datos»): por defecto la
+  // alumna del fixture no lo ha dado, que es el caso en el que el bloque no se
+  // pinta.
+  await ruta((p) => p === '/api/public/consentimiento-salud', (r) => r.fulfill(json(
+    saludConsentida
+      ? { estado: 'VIGENTE', fecha: '2026-08-01T10:00:00Z', revocadoEn: null }
+      : { estado: 'NO_CONSTA', fecha: null, revocadoEn: null },
+  )));
   await ruta((p) => p === '/api/public/consentimiento-salud/revocar', (r) => r.fulfill(json({ ok: true })));
 
   // El pase de acceso. ⚠️ `hayPase` con `reservaId` de la reserva del fixture:

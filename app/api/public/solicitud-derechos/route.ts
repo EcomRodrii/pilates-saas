@@ -7,6 +7,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { emitirSolicitudDerechos } from '@/lib/notifications/emit';
 import { esTipoSolicitud, mapSolicitudDerechos } from '@/lib/socios/solicitudes-derechos';
+import { errorConfirmacionSolicitud } from '@/lib/student/confirmacion-eliminacion';
 
 // Derechos RGPD de la ALUMNA desde su app, lado solicitud:
 //   GET   → su estado: oposición al perfilado + sus solicitudes.
@@ -60,9 +61,14 @@ export async function POST(req: NextRequest) {
   // Una solicitud avisa por email al estudio: tope bajo.
   const limited = await enforceRateLimit(req, 'public-solicitud-derechos-post', { max: 5, windowSeconds: 600 });
   if (limited) return limited;
-  const body = (await req.json().catch(() => null)) as { slug?: unknown; tipo?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { slug?: unknown; tipo?: unknown; confirmacion?: unknown } | null;
   if (!esTipoSolicitud(body?.tipo)) return errorPeticion('Tipo de solicitud no válido.');
   const tipo = body.tipo;
+  // La supresión exige la frase escrita también AQUÍ, no solo en la hoja: el
+  // botón desactivado es la UI, y la UI nunca es el límite. Antes de tocar la
+  // BD, así que sin la frase no se crea nada.
+  const sinConfirmar = errorConfirmacionSolicitud(tipo, body.confirmacion);
+  if (sinConfirmar) return errorPeticion(sinConfirmar);
   const r = await resolverSocia(req, body?.slug);
   if (r instanceof NextResponse) return r;
 
