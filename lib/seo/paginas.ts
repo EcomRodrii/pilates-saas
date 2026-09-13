@@ -704,8 +704,6 @@ export const PREFIJOS_NO_INDEXABLES = [
   '/oauth',
   // Alta de cuenta freelance (feature #9) — mismo criterio que /crear-estudio.
   '/instructora',
-  // Puerta de demo temporal para grabar vídeo — no es contenido real, nunca indexable
-  '/demo',
   // Cara pública operativa de cada estudio.
   //
   // ⚠️ `/reservar` YA NO está aquí: decisión del fundador (2026-08-17) de abrir

@@ -84,7 +84,6 @@ Confirmado en `robots.txt` de producción — coincide exactamente con
 | `/login`, `/crear-estudio`, `/suscripcion`, `/invitacion`, `/clave-nueva` | Autenticación y alta | Zona de acceso, no landing |
 | `/interno` | Backoffice de Tentare-empresa | No es cara pública del producto |
 | `/instructora` | Alta freelance sin estudio | Flujo de alta, no contenido |
-| `/demo` | Puerta temporal para grabar vídeo | No es contenido real |
 | `/portal`, `/portal-preview` | Portal de socias por estudio | B2B primero — decisión de producto explícita: no miles de URLs por estudio |
 | `/kiosk` | Check-in en tablet | Módulo **congelado** (`lib/frozen-features.ts`) |
 | `/reservar` | Widget público de reserva por estudio | Decisión de producto: antes contradecía `robots.txt` (declaraba `index:true`), corregido — ahora coherente en no-index |

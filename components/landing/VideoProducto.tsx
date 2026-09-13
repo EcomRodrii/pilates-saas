@@ -2,8 +2,8 @@
 
 import { useSyncExternalStore } from 'react';
 
-// El vídeo de producto del hero: la demo REAL de Tentare (/demo → "Estudio
-// Aurora", ficticio) grabada con scripts/grabar-demo.mjs. Cuatro pantallas
+// El vídeo de producto del hero: la demo REAL de Tentare ("Estudio Aurora",
+// ficticio) grabada con scripts/grabar-demo.mjs. Cuatro pantallas
 // —lo que necesita tu atención, la semana, tus clientas y el dinero— con
 // encadenados suaves, sin cursor, sin barra de navegador y sin nada del
 // sistema operativo: solo el producto.
