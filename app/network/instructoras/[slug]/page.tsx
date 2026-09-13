@@ -19,6 +19,7 @@ import { FormularioResenaAlumna } from '@/components/network/formulario-resena-a
 import { ListaBadgesNetwork } from '@/components/network/lista-badges';
 import { FilaStat } from '@/components/network/ficha-layout';
 import { rangoAnios, hrefDeRedSocial, hrefDeWeb } from '@/lib/network/formato';
+import { nombreEstudioVisible } from '@/lib/network/verificacion-experiencia';
 import {
   ESPECIALIDAD_LABEL, HORARIO_LABEL, TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
   tituloProfesionalDe,
@@ -341,11 +342,11 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                           className="relative z-10 shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-[14px] font-extrabold"
                           style={{ background: NW_SAND, color: NW_TINTA, border: `2px solid ${NW_FONDO}` }}
                         >
-                          {exp.nombreEstudio.charAt(0).toUpperCase()}
+                          {nombreEstudioVisible(exp).charAt(0).toUpperCase()}
                         </div>
                         <div className="pt-1">
                           <div className="flex items-center gap-1.5">
-                            <p className="text-[15px] font-bold" style={{ color: NW_TINTA }}>{exp.nombreEstudio}</p>
+                            <p className="text-[15px] font-bold" style={{ color: NW_TINTA }}>{nombreEstudioVisible(exp)}</p>
                             {exp.estadoVerificacion === 'confirmada' && <BadgeCheck size={14} color={NW_PRODUCTO} />}
                           </div>
                           <p className="text-[13px]" style={{ color: NW_MUTED_2 }}>{rangoAnios(exp.fechaInicio, exp.fechaFin)}</p>

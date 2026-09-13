@@ -44,6 +44,7 @@ import {
   TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL, tituloProfesionalDe,
 } from '@/lib/network/catalogo';
 import { rangoAnios } from '@/lib/network/formato';
+import { nombreEstudioVisible } from '@/lib/network/verificacion-experiencia';
 import type {
   PerfilNetworkPublico, ExperienciaNetworkPublica, BadgesNetwork,
   ResenaNetwork, MediaNetwork, EstudioActualNetwork,
@@ -260,10 +261,10 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
                 {experiencias.map((exp, i) => (
                   <div key={exp.id} className={cn('flex gap-3 py-3', i > 0 && 'border-t border-border')}>
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-[13px] font-extrabold text-foreground">
-                      {exp.nombreEstudio.charAt(0).toUpperCase()}
+                      {nombreEstudioVisible(exp).charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[13.5px] font-bold text-foreground">{exp.nombreEstudio}</p>
+                      <p className="text-[13.5px] font-bold text-foreground">{nombreEstudioVisible(exp)}</p>
                       <p className="text-[12px] text-muted-foreground">{rangoAnios(exp.fechaInicio, exp.fechaFin)}</p>
                       {exp.especialidades.length > 0 && (
                         <p className="mt-0.5 text-[12px] text-foreground">

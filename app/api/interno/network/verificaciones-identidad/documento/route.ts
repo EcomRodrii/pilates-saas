@@ -36,10 +36,13 @@ export async function GET(req: NextRequest) {
 
   const tabla = tipo === 'identidad' ? 'red_verificaciones_identidad' : 'red_certificaciones';
   const columna = tipo === 'identidad' && cara === 'reverso' ? 'documento_path_reverso' : 'documento_path';
-  const { data: fila, error: errLeer } = await db.from(tabla).select(columna).eq('id', id).maybeSingle();
+  const { data: fila, error: errLeer } = await db.from(tabla).select(`${columna}, documento_borrado_en`).eq('id', id).maybeSingle();
   if (errLeer) return NextResponse.json({ error: 'No se ha podido leer el documento.' }, { status: 500 });
   if (!fila) return NextResponse.json({ error: 'Documento no encontrado.' }, { status: 404 });
   const path = (fila as Record<string, string | null>)[columna];
+  if (!path && (fila as Record<string, string | null>).documento_borrado_en) {
+    return NextResponse.json({ error: 'El documento se borró al resolver la verificación.' }, { status: 410 });
+  }
   if (!path) return NextResponse.json({ error: 'Ese lado del documento no se subió.' }, { status: 404 });
 
   const { data: firmada, error: errFirma } = await db.storage

@@ -296,22 +296,26 @@ export interface VerificacionIdentidadNetworkInterna {
   creadoEn: string; resueltoEn: string | null;
   /** DNI/NIE llevan reverso, Pasaporte no — decide si se pinta el botón "Ver reverso". */
   tieneReverso: boolean;
+  /** false una vez resuelta: la imagen se borra al aprobar o rechazar. */
+  tieneDocumento: boolean;
+  documentoBorradoEn: string | null;
   perfilId: string | null; perfilNombre: string; perfilSlug: string | null;
 }
 export const fetchVerificacionesIdentidadNetworkInterno = (estado: string) =>
   pedir<{ verificaciones: VerificacionIdentidadNetworkInterna[] }>(`/network/verificaciones-identidad?estado=${encodeURIComponent(estado)}`);
 export const resolverVerificacionIdentidadNetworkInterno = (id: string, aprobar: boolean, motivo?: string) =>
-  pedir<{ ok: true }>('/network/verificaciones-identidad', { method: 'PATCH', body: JSON.stringify({ id, aprobar, motivo }) });
+  pedir<{ ok: true; documentoBorrado: boolean }>('/network/verificaciones-identidad', { method: 'PATCH', body: JSON.stringify({ id, aprobar, motivo }) });
 
 export interface CertificacionNetworkInterna {
   id: string; nombre: string; institucion: string; anio: number | null; duracion: string | null;
   estado: string; motivoRechazo: string | null; creadoEn: string; resueltoEn: string | null;
+  tieneDocumento: boolean; documentoBorradoEn: string | null;
   perfilId: string | null; perfilNombre: string; perfilSlug: string | null;
 }
 export const fetchCertificacionesNetworkInterno = (estado: string) =>
   pedir<{ certificaciones: CertificacionNetworkInterna[] }>(`/network/certificaciones?estado=${encodeURIComponent(estado)}`);
 export const resolverCertificacionNetworkInterno = (id: string, aprobar: boolean, motivo?: string) =>
-  pedir<{ ok: true }>('/network/certificaciones', { method: 'PATCH', body: JSON.stringify({ id, aprobar, motivo }) });
+  pedir<{ ok: true; documentoBorrado: boolean }>('/network/certificaciones', { method: 'PATCH', body: JSON.stringify({ id, aprobar, motivo }) });
 
 // URL firmada de 5 min — se pide bajo demanda (clic en "Ver documento"), no
 // al cargar la lista: el bucket no tiene SELECT para nadie salvo

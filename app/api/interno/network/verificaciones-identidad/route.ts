@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
+import { purgarDocumentoResuelto } from '@/lib/network/documentos-servidor';
 
 export const runtime = 'nodejs';
 
@@ -22,15 +23,15 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await db
     .from('red_verificaciones_identidad')
-    .select('id, estado, motivo_rechazo, documento_path, documento_path_reverso, creado_en, resuelto_en, red_perfiles ( id, nombre, slug )')
+    .select('id, estado, motivo_rechazo, documento_path, documento_path_reverso, documento_borrado_en, creado_en, resuelto_en, red_perfiles ( id, nombre, slug )')
     .eq('estado', estado)
     .order('creado_en', { ascending: true }) // más antigua primero: la cola se vacía por orden de llegada
     .limit(500);
   if (error) return NextResponse.json({ error: 'No se han podido cargar las verificaciones.' }, { status: 500 });
 
   type FilaCruda = {
-    id: string; estado: string; motivo_rechazo: string | null; documento_path: string; documento_path_reverso: string | null;
-    creado_en: string; resuelto_en: string | null;
+    id: string; estado: string; motivo_rechazo: string | null; documento_path: string | null; documento_path_reverso: string | null;
+    documento_borrado_en: string | null; creado_en: string; resuelto_en: string | null;
     red_perfiles: { id: string; nombre: string; slug: string | null } | null;
   };
   // El path crudo del bucket privado no viaja a este listado (igual que ya
@@ -44,6 +45,10 @@ export async function GET(req: NextRequest) {
     creadoEn: f.creado_en,
     resueltoEn: f.resuelto_en,
     tieneReverso: f.documento_path_reverso != null,
+    // Tras resolver, la imagen del documento se borra (minimización): el panel
+    // deja de ofrecer «Ver documento» y dice cuándo se borró.
+    tieneDocumento: f.documento_path != null,
+    documentoBorradoEn: f.documento_borrado_en,
     perfilId: f.red_perfiles?.id ?? null,
     perfilNombre: f.red_perfiles?.nombre ?? 'Perfil eliminado',
     perfilSlug: f.red_perfiles?.slug ?? null,
@@ -71,7 +76,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data: fila, error: errLeer } = await db
     .from('red_verificaciones_identidad')
-    .select('id, perfil_id, estado')
+    .select('id, perfil_id, estado, documento_path, documento_path_reverso')
     .eq('id', id)
     .maybeSingle();
   if (errLeer) return NextResponse.json({ error: 'No se ha podido leer la verificación.' }, { status: 500 });
@@ -125,5 +130,15 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true });
+  // Resuelta (aprobada o rechazada), la imagen del DNI/NIE/pasaporte ya no
+  // hace falta: se borra del Storage y en la fila quedan resultado, fecha y
+  // quién. Detrás de CONSERVAR_DOCUMENTO_TRAS_VERIFICAR (pendiente de revisión
+  // legal). Va al final a propósito: si la resolución se revierte arriba, el
+  // documento sigue ahí para reintentar.
+  const { documentoBorrado } = await purgarDocumentoResuelto(db, {
+    tipo: 'identidad', id,
+    fila: { documento_path: fila.documento_path as string | null, documento_path_reverso: fila.documento_path_reverso as string | null },
+  });
+
+  return NextResponse.json({ ok: true, documentoBorrado });
 }
