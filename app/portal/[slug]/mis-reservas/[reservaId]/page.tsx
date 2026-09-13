@@ -101,6 +101,14 @@ export default function DetalleReservaPage() {
   const { res, c, i } = data;
   // El pase solo se enseña si es EL de esta reserva.
   const paseDeEsta = pase?.hayPase && pase.reservaId === res.id ? pase : null;
+  // Un solo valor decide el cuadro Y lo que va dentro: si fueran dos
+  // condiciones, un QR podría acabar pintado sobre el hueco transparente
+  // (ilegible para la cámara) o un texto sobre el blanco macizo (la cara de
+  // imagen rota). Es el TOKEN y no un booleano a propósito: ramificando sobre
+  // él, TypeScript sabe dentro del QR que no es nulo — con un `hayQr` suelto
+  // perdía ese estrechamiento y `qrSvgMarkup` recibía `string | null`.
+  const tokenQr = paseDeEsta?.vigente && paseDeEsta.token ? paseDeEsta.token : null;
+  const hayQr = tokenQr !== null;
 
   return (
     <StudentShell>
@@ -120,25 +128,47 @@ export default function DetalleReservaPage() {
               Pase de acceso · {estudio.nombre}
             </p>
 
+            {/* ⚠️ Blanco SOLO cuando hay QR que leer. Sin QR, este cuadrado se
+                pintaba igual —168 px de blanco macizo con una frase dentro— y
+                eso es exactamente la cara de una imagen que no ha cargado: la
+                socia llega a la puerta del estudio, abre su pase y ve lo que
+                parece un QR roto.
+
+                Ahora, sin QR, es un HUECO: el mismo tamaño —así nada salta
+                cuando el pase se activa—, sin relleno y con borde discontinuo.
+                Es la receta con la que la app ya dice «aquí irá algo» (`1.5px
+                dashed`, estado vacío y «Tu próxima clase» vacía), pero con el
+                color de ESTA tarjeta: `--border-strong` está pensado para el
+                crema y sobre `--accent-deep` apenas se vería, así que el borde
+                usa `--accent-deep-muted`, el mismo tono de los rótulos de la
+                tarjeta. El QR sí necesita el blanco: la cámara lee contraste. */}
             <div
+              data-testid={hayQr ? 'pase-qr' : 'pase-hueco'}
               style={{
-                width: 168, height: 168, margin: '14px auto 0', background: '#FAF9F5',
+                width: 168, height: 168, margin: '14px auto 0', boxSizing: 'border-box',
+                background: hayQr ? '#FAF9F5' : 'transparent',
+                border: hayQr ? 'none' : '1.5px dashed var(--accent-deep-muted)',
                 borderRadius: 18, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
-              {paseDeEsta?.vigente && paseDeEsta.token ? (
+              {tokenQr ? (
                 <div
                   role="img"
                   aria-label="Código QR de acceso"
                   style={{ width: '100%', height: '100%' }}
                   // El SVG lo genera `lib/qr-svg.ts` a partir del token firmado.
                   // No es HTML de usuario: es marcado que construimos aquí.
-                  dangerouslySetInnerHTML={{ __html: qrSvgMarkup(paseDeEsta.token) }}
+                  dangerouslySetInnerHTML={{ __html: qrSvgMarkup(tokenQr) }}
                 />
               ) : (
                 // Sin QR no se deja un hueco mudo: se dice POR QUÉ y CUÁNDO.
                 // Es la diferencia entre «esto está roto» y «todavía no toca».
-                <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: '#5A5A52', lineHeight: 1.5 }}>
+                // ⚠️ El color es el de la TARJETA, no el `#5A5A52` que tenía. Ese
+                // gris estaba pensado para el blanco macizo; al quitarle el blanco
+                // al hueco se quedó gris oscuro sobre `--accent-deep`, a ~2:1, y
+                // la frase que explica por qué no hay QR dejó de leerse. Lo cazó
+                // la captura, no el test: el test medía el fondo y el borde.
+                <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-deep-foreground)', lineHeight: 1.5 }}>
                   {paseDeEsta?.yaAsistida
                     ? 'Ya has entrado a esta clase ✓'
                     : paseDeEsta
