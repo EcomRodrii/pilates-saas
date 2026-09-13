@@ -5,6 +5,7 @@ import {
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
   puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCentroNotificaciones,
   puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo,
+  puedeGestionarFichaDe, puedeVerRetribucionDe, filtrarRetribucionVisible,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -338,6 +339,82 @@ test('puedeVerFichaClinica: solo propietaria e instructora ven el detalle clíni
   assert.equal(puedeVerFichaClinica('INSTRUCTOR'), true);
   assert.equal(puedeVerFichaClinica('RECEPCION'), false);
   assert.equal(puedeVerFichaClinica('MANAGER'), false);
+});
+
+// ── Retribución del equipo: los LISTADOS también distinguen fila ────────────
+// `GET /api/equipo/tarifas` y `GET /api/equipo/liquidaciones` (sin instructorId)
+// iban por service-role y solo miraban `puedeGestionarEquipo`: un MANAGER veía
+// la tarifa y la liquidación de la propietaria y de otras managers. La RLS
+// (`puede_gestionar_ficha_instructor` + lectura propia) ya se lo negaba.
+test('puedeVerRetribucionDe espeja la RLS de tarifas/liquidaciones', () => {
+  const ROLES = ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const;
+  // puede_gestionar_ficha_instructor (migr 20260908184657), por rol de la ficha
+  const RLS: Record<(typeof ROLES)[number], readonly string[]> = {
+    PROPIETARIO: ROLES,
+    MANAGER: ['RECEPCION', 'INSTRUCTOR'],
+    RECEPCION: [],
+    INSTRUCTOR: [],
+  };
+  for (const actor of ROLES) {
+    for (const ficha of ROLES) {
+      assert.equal(puedeVerRetribucionDe(actor, ficha, false), RLS[actor].includes(ficha), `${actor} → ${ficha}`);
+      // y la misma respuesta que el guard de escritura
+      assert.equal(puedeVerRetribucionDe(actor, ficha, false), puedeGestionarFichaDe(actor, ficha), `${actor} → ${ficha}`);
+      // `*_propia_lectura`: la fila propia la ve cualquiera
+      assert.equal(puedeVerRetribucionDe(actor, ficha, true), true, `${actor} propia`);
+    }
+  }
+  assert.equal(puedeVerRetribucionDe('MANAGER', null, false), false, 'ficha desconocida: falla cerrado');
+  assert.equal(puedeVerRetribucionDe('PROPIETARIO', undefined, false), true);
+});
+
+test('filtrarRetribucionVisible: el manager solo se lleva recepción, instructoras y lo suyo', () => {
+  const roles = new Map([
+    ['ins-prop', 'PROPIETARIO'], ['ins-mgr-yo', 'MANAGER'], ['ins-mgr-otra', 'MANAGER'],
+    ['ins-rec', 'RECEPCION'], ['ins-ana', 'INSTRUCTOR'],
+  ] as const);
+  const filas = [
+    { instructorId: 'ins-prop', estado: 'PAGADA' },
+    { instructorId: 'ins-mgr-yo', estado: 'CONFIRMADA' },
+    { instructorId: 'ins-mgr-otra', estado: 'PAGADA' },
+    { instructorId: 'ins-rec', estado: 'BORRADOR' },
+    { instructorId: 'ins-ana', estado: 'BORRADOR' },
+    { instructorId: 'ins-borrada', estado: 'PAGADA' },
+  ];
+  const ids = (xs: { instructorId: string }[]) => xs.map(x => x.instructorId);
+
+  assert.deepEqual(
+    ids(filtrarRetribucionVisible(filas, { rolActor: 'MANAGER', rolPorInstructor: roles, propioInstructorId: 'ins-mgr-yo' })),
+    ['ins-mgr-yo', 'ins-rec', 'ins-ana'],
+  );
+  assert.deepEqual(
+    ids(filtrarRetribucionVisible(filas, { rolActor: 'PROPIETARIO', rolPorInstructor: roles, propioInstructorId: null })),
+    ids(filas),
+    'la propietaria lo ve todo, también fichas que ya no están',
+  );
+  // Sin ficha propia resuelta, el manager no gana nada extra.
+  assert.deepEqual(
+    ids(filtrarRetribucionVisible(filas, { rolActor: 'MANAGER', rolPorInstructor: roles, propioInstructorId: null })),
+    ['ins-rec', 'ins-ana'],
+  );
+  // Si falla la consulta de roles (mapa vacío), el manager solo ve lo suyo.
+  assert.deepEqual(
+    ids(filtrarRetribucionVisible(filas, { rolActor: 'MANAGER', rolPorInstructor: new Map(), propioInstructorId: 'ins-mgr-yo' })),
+    ['ins-mgr-yo'],
+  );
+});
+
+test('filtrarRetribucionVisible: la liquidación propia en BORRADOR no se ve (liquidaciones_propia_lectura)', () => {
+  const roles = new Map([['ins-mgr-yo', 'MANAGER'], ['ins-ana', 'INSTRUCTOR']] as const);
+  const filas = [
+    { instructorId: 'ins-mgr-yo', estado: 'BORRADOR' },
+    { instructorId: 'ins-ana', estado: 'BORRADOR' },
+  ];
+  const visibles = filtrarRetribucionVisible(filas, {
+    rolActor: 'MANAGER', rolPorInstructor: roles, propioInstructorId: 'ins-mgr-yo',
+    propiaVisible: f => f.estado !== 'BORRADOR',
+  });
+  assert.deepEqual(visibles.map(f => f.instructorId), ['ins-ana']);
 });
 
 

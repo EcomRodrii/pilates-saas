@@ -229,7 +229,13 @@ export default function CierreDeAnoPage() {
       const res = await fetch('/api/cierre/enviar-gestoria', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ anio, email: gestEmail.trim(), ...(envTrimestre ? { trimestre: envTrimestre } : {}) }),
+        // Recepción no elige destinatario: el servidor solo le deja reenviar al
+        // email ya guardado (lib/fiscal/envio-gestoria-reglas.ts).
+        body: JSON.stringify({
+          anio,
+          email: esPropietaria ? gestEmail.trim() : (studio?.gestoriaEmail ?? ''),
+          ...(envTrimestre ? { trimestre: envTrimestre } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setEnvResult({ ok: false, msg: data.error ?? 'No se ha podido enviar.' }); return; }
@@ -616,8 +622,23 @@ export default function CierreDeAnoPage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="gest-email">Email de la gestoría</Label>
-                <Input id="gest-email" type="email" value={gestEmail} onChange={(e) => setGestEmail(e.target.value)} placeholder="gestoria@ejemplo.com" autoFocus />
-                {studio?.gestoriaEmail && <p className="text-xs text-muted-foreground mt-0.5">Guardado la última vez. Puedes cambiarlo.</p>}
+                {esPropietaria ? (
+                  <>
+                    <Input id="gest-email" type="email" value={gestEmail} onChange={(e) => setGestEmail(e.target.value)} placeholder="gestoria@ejemplo.com" autoFocus />
+                    {studio?.gestoriaEmail && <p className="text-xs text-muted-foreground mt-0.5">Guardado la última vez. Puedes cambiarlo.</p>}
+                  </>
+                ) : (
+                  // Recepción reenvía, no elige: el destinatario es el que guardó
+                  // la propietaria, y el servidor rechaza cualquier otro.
+                  <>
+                    <Input id="gest-email" type="email" value={studio?.gestoriaEmail ?? ''} readOnly placeholder="Sin email guardado" />
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {studio?.gestoriaEmail
+                        ? 'Es el email que ha guardado la propietaria. Solo ella puede cambiarlo.'
+                        : 'Todavía no hay un email de gestoría guardado. Pide a la propietaria que lo configure enviando el primer cierre.'}
+                    </p>
+                  </>
+                )}
                 {envResult && !envResult.ok && <p className="text-xs text-destructive mt-1">{envResult.msg}</p>}
               </div>
 
@@ -644,7 +665,7 @@ export default function CierreDeAnoPage() {
             ) : (
               <>
                 <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
-                <Button onClick={enviarGestoria} disabled={enviando || !gestEmail.trim()}>
+                <Button onClick={enviarGestoria} disabled={enviando || !(esPropietaria ? gestEmail.trim() : studio?.gestoriaEmail)}>
                   {enviando ? 'Enviando…' : <><Send className="size-4" /> Enviar</>}
                 </Button>
               </>

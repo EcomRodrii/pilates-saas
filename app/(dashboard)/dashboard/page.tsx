@@ -110,6 +110,7 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   AUTOMATIZACION_CAMBIO: { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Automatización' },
   DECISION_GESTIONADA: { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Centro de Control' },
   SESION_REASIGNADA:  { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Sustitución' },
+  GESTORIA_CAMBIADA:  { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Gestoría' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────

@@ -1118,7 +1118,7 @@ function pistaDe(m: MiembroCompleto): string {
 const TIPO_AUDITORIA = new Set([
   'SOCIA_EDITADA', 'SOCIA_ELIMINADA', 'PLAN_CREADO', 'PLAN_EDITADO', 'PLAN_ELIMINADO',
   'PLAN_ASIGNADO', 'COBRO_MANUAL', 'EQUIPO_ALTA', 'EQUIPO_EDITADO', 'EQUIPO_BAJA',
-  'AUTOMATIZACION_CAMBIO', 'NUEVA_SOCIA', 'SESION_REASIGNADA',
+  'AUTOMATIZACION_CAMBIO', 'NUEVA_SOCIA', 'SESION_REASIGNADA', 'GESTORIA_CAMBIADA',
 ]);
 
 function ActividadTab({ actividadReciente }: { actividadReciente: import('@/lib/types').ActividadReciente[] }) {

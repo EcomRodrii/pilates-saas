@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { uid } from '@/lib/utils';
+import type { Rol } from '@/lib/types';
 import { calcularLiquidacion, type SesionParaLiquidacion } from './liquidacion-logic.ts';
 
 // Capa de datos server-only para la liquidación de instructoras (fila 11 del
@@ -200,6 +201,17 @@ export async function listarLiquidaciones(
   const { data } = await admin.from('liquidaciones_instructoras').select('*')
     .eq('studio_id', studioId).eq('periodo_anio', anio).eq('periodo_mes', mes);
   return (data ?? []).map(mapRow);
+}
+
+// Rol de cada ficha del estudio (activas o no), para filtrar los listados de
+// retribución con `filtrarRetribucionVisible`. Si la consulta falla devuelve un
+// mapa vacío: el filtro trata el rol desconocido como "no se ve" (falla cerrado).
+export async function rolesPorInstructor(
+  admin: SupabaseClient, studioId: string,
+): Promise<Map<string, Rol>> {
+  const { data, error } = await admin.from('instructores').select('id, rol').eq('studio_id', studioId);
+  if (error) return new Map();
+  return new Map((data ?? []).map(r => [r.id as string, r.rol as Rol]));
 }
 
 export async function obtenerLiquidacion(

@@ -2,7 +2,8 @@
 
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarEquipo, puedeGestionarFichaDe } from '@/lib/permisos-reglas';
+import { filtrarRetribucionVisible, puedeGestionarEquipo, puedeGestionarFichaDe } from '@/lib/permisos-reglas';
+import { rolesPorInstructor } from '@/lib/equipo/liquidacion-datos';
 import type { Rol } from '@/lib/types';
 import { ErrorAccion } from '@/lib/actions/errores';
 import * as Sentry from '@sentry/nextjs';
@@ -67,7 +68,16 @@ async function getTarifas(
     .from('instructor_tarifas')
     .select('instructor_id, tarifa_hora, moneda, base_mensual_eur, recargo_sustitucion_pct, horas_semanales_contrato')
     .eq('studio_id', sesion.studioId);
-  return { items: (data ?? []).map(mapTarifaRow) };
+  const items = (data ?? []).map(mapTarifaRow);
+  if (sesion.rol === 'PROPIETARIO') return { items };
+  // Mismo reparto que el PATCH de abajo y que la RLS (`tarifas_gestion` +
+  // `tarifas_propia_lectura`): un manager no se lleva la tarifa, la base ni las
+  // horas de contrato de la propietaria ni de otra manager. La suya sí.
+  const [rolPorInstructor, propioInstructorId] = await Promise.all([
+    rolesPorInstructor(admin, sesion.studioId),
+    resolverPropioInstructorId(admin, sesion.userId, sesion.studioId),
+  ]);
+  return { items: filtrarRetribucionVisible(items, { rolActor: sesion.rol, rolPorInstructor, propioInstructorId }) };
 }
 
 async function patchTarifa(

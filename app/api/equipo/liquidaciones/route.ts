@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarEquipo, puedeGestionarFichaDe } from '@/lib/permisos-reglas';
+import { filtrarRetribucionVisible, puedeGestionarEquipo, puedeGestionarFichaDe } from '@/lib/permisos-reglas';
 import type { Rol } from '@/lib/types';
-import { generarLiquidacionBorrador, transicionarLiquidacion, listarLiquidaciones, obtenerLiquidacion } from '@/lib/equipo/liquidacion-datos.ts';
+import {
+  generarLiquidacionBorrador, transicionarLiquidacion, listarLiquidaciones, obtenerLiquidacion, rolesPorInstructor,
+} from '@/lib/equipo/liquidacion-datos.ts';
 
 // Fila 11 del informe estratégico: liquidación de instructoras (desglose
 // transparente, sin pago real — ver comentario de la migración). Mismo
@@ -70,7 +72,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ items: row ? [row] : [] });
   }
   const items = await listarLiquidaciones(admin, sesion.studioId, periodo.anio, periodo.mes);
-  return NextResponse.json({ items });
+  if (sesion.rol === 'PROPIETARIO') return NextResponse.json({ items });
+  // El listado también distingue fila, igual que el detalle de arriba y la RLS
+  // (`liquidaciones_gestion` + `liquidaciones_propia_lectura`): un manager no se
+  // lleva la liquidación de la propietaria ni la de otra manager. La suya, solo
+  // CONFIRMADA/PAGADA, como cualquier persona del equipo.
+  const [rolPorInstructor, propioInstructorId] = await Promise.all([
+    rolesPorInstructor(admin, sesion.studioId),
+    resolverPropioInstructorId(admin, sesion.userId, sesion.studioId),
+  ]);
+  return NextResponse.json({
+    items: filtrarRetribucionVisible(items, {
+      rolActor: sesion.rol, rolPorInstructor, propioInstructorId,
+      propiaVisible: l => l.estado !== 'BORRADOR',
+    }),
+  });
 }
 
 export async function POST(req: NextRequest) {
