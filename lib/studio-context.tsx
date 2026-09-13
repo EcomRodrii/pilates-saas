@@ -8,6 +8,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { supabase } from '@/lib/db/supabase';
 import { apuntarCobroEnCaja } from '@/lib/pos/cliente';
 import { debeReleerAlVolver } from '@/lib/panel-refresco';
+import { puedeProgramarBaja } from '@/lib/billing/baja-al-vencer';
 import type { RowInstructores } from '@/lib/db-types';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchGamificacionStudio,
@@ -376,6 +377,8 @@ interface StudioContextValue {
   reanudarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
   reactivarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
   cancelarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
+  /** Baja a fin de periodo (true) o quitarla (false). Ver migr 20260913231500. */
+  programarBajaSuscripcion: (susId: string, programar: boolean) => Promise<ResultadoEscritura>;
 
   // Notas internas
   addNota: (socioId: string, texto: string) => Promise<ResultadoEscritura>;
@@ -2873,6 +2876,38 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true };
   }
 
+  /**
+   * Baja a fin de periodo (evaluación del 13-sep): la cuota sigue ACTIVA hasta
+   * su `fechaFin` —la alumna reserva lo que ya ha pagado— y el cron de
+   * renovaciones la cancela en vez de cobrarle el siguiente periodo. Con
+   * `programar = false` se quita y vuelve a renovar como siempre.
+   *
+   * Escribe primero y solo entonces pinta, como `cancelarSuscripcion`.
+   */
+  async function programarBajaSuscripcion(susId: string, programar: boolean): Promise<ResultadoEscritura> {
+    const sus = suscripciones.find(s => s.id === susId);
+    if (!sus) return { ok: false, error: 'No se encuentra esta suscripción.' };
+    const plan = planesTarifa.find(p => p.id === sus.planId);
+    if (programar && !puedeProgramarBaja(sus, plan, hoyEnEstudio(new Date()))) {
+      return { ok: false, error: 'Solo se puede programar la baja de una cuota activa con fecha de renovación.' };
+    }
+
+    const res = await dbUpdateSuscripcion(susId, { bajaAlVencer: programar });
+    if (!res.ok) return res;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, bajaAlVencer: programar } : s));
+
+    const socio = socios.find(s => s.id === sus.socioId);
+    addActividadReciente(
+      'PLAN_ASIGNADO',
+      programar
+        ? `${actorNombre ?? 'Alguien'} programó la baja de${plan ? ` "${plan.nombre}"` : 'l plan'} de ${socio?.nombre ?? 'una socia'} para el ${sus.fechaFin ?? 'final del periodo'}`
+        : `${actorNombre ?? 'Alguien'} quitó la baja programada de${plan ? ` "${plan.nombre}"` : 'l plan'} de ${socio?.nombre ?? 'una socia'}`,
+      sus.socioId,
+      `/socios/${sus.socioId}`,
+    );
+    return { ok: true };
+  }
+
   // ── Sesiones ─────────────────────────────────────────────────────────────────
 
   // Escribe PRIMERO y solo entonces la pinta. Antes era al revés: la clase
@@ -5352,6 +5387,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     reanudarSuscripcion,
     reactivarSuscripcion,
     cancelarSuscripcion,
+    programarBajaSuscripcion,
     addNota,
     deleteNota,
     condicionesSalud,

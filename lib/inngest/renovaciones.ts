@@ -16,6 +16,7 @@
 import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { idsEstudios } from './estudios.ts';
+import { repartirVencidas } from '@/lib/billing/baja-al-vencer';
 
 export const renovacionesDispatcher = inngest.createFunction(
   { id: 'renovaciones-dispatcher', triggers: [{ cron: '0 8 * * *' }] },
@@ -138,7 +139,7 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
 
       const [{ data: susRows, error: susErr }, { data: planRows, error: planErr }] = await Promise.all([
         admin.from('suscripciones')
-          .select('id, socio_id, plan_id, fecha_fin')
+          .select('id, socio_id, plan_id, fecha_fin, baja_al_vencer')
           .eq('studio_id', studioId)
           .eq('estado', 'ACTIVA')
           .not('fecha_fin', 'is', null)
@@ -152,7 +153,25 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
       if (planErr) throw new Error(planErr.message);
 
       const planById = new Map((planRows ?? []).map(p => [p.id as string, p]));
-      const vencidas = (susRows ?? []).filter(s => planById.has(s.plan_id as string));
+      const todasVencidas = (susRows ?? []).filter(s => planById.has(s.plan_id as string));
+      if (todasVencidas.length === 0) return 0;
+
+      // Baja programada a fin de periodo (migr 20260913231500): la cuota vence
+      // y se CANCELA en vez de generarle el recibo del mes siguiente. Va antes
+      // de crear nada, y con la condición de estado en el UPDATE para no pisar
+      // una suscripción que alguien haya tocado entre la lectura y la escritura.
+      const { renovar: vencidas, cancelar } = repartirVencidas(
+        todasVencidas.map(s => ({ ...s, id: s.id as string, baja_al_vencer: s.baja_al_vencer as boolean | null })),
+      );
+      if (cancelar.length > 0) {
+        const { error: bajaErr } = await admin.from('suscripciones')
+          .update({ estado: 'CANCELADA' })
+          .eq('studio_id', studioId)
+          .eq('estado', 'ACTIVA')
+          .eq('baja_al_vencer', true)
+          .in('id', cancelar.map(s => s.id));
+        if (bajaErr) throw new Error(bajaErr.message);
+      }
       if (vencidas.length === 0) return 0;
 
       // Dedupe: fuera las suscripciones que ya tienen un recibo de renovación

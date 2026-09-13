@@ -1,0 +1,21 @@
+-- Baja programada a fin de periodo (evaluación del 13-sep).
+--
+-- «Cancelar suscripción» cortaba la cuota en el acto: una alumna que el día 10
+-- avisaba de que lo deja se quedaba sin reservar los 20 días que ya había
+-- pagado. Lo normal en un estudio es que siga hasta final de mes y que no se
+-- le cobre el siguiente.
+--
+-- `baja_al_vencer = true`: la suscripción sigue ACTIVA hasta `fecha_fin` (puede
+-- reservar), y el cron de renovaciones (lib/inngest/renovaciones.ts), en vez de
+-- generar el recibo de renovación, la pasa a CANCELADA. Mientras no llega la
+-- fecha se puede quitar (vuelve a renovar como siempre).
+--
+-- Solo aplica a cuotas (tipo MENSUAL): un bono no se renueva solo, así que no
+-- hay cobro siguiente que evitar. Lo acota la pantalla y el cron solo mira
+-- MENSUAL; la columna no lo fuerza porque el tipo vive en `planes_tarifa`.
+--
+-- Columna nueva con default: sin backfill, ninguna suscripción existente
+-- cambia de comportamiento. Los grants de tabla la cubren (RLS de
+-- `suscripciones` sin cambios).
+alter table public.suscripciones
+  add column if not exists baja_al_vencer boolean not null default false;
