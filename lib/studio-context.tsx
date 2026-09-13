@@ -3783,6 +3783,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (sus.fechaFin >= hoy) return;
       const plan = planesTarifa.find(p => p.id === sus.planId);
       if (!plan || plan.tipo !== 'MENSUAL') return;
+      // Baja programada a fin de periodo (migr 20260913231500): esta cuota no
+      // se renueva. Sin esto, abrir el panel antes del cron de las 08:00 le
+      // creaba el recibo de renovación y el dunning se lo cobraba igual.
+      if (sus.bajaAlVencer) return;
       const yaHayReciboPendiente = recibos.some(
         r => r.socioId === sus.socioId && r.suscripcionId === sus.id && r.estado === 'PENDIENTE'
       );
@@ -4036,7 +4040,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         });
         return;
       }
-      const res = await dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
+      // `bajaAlVencer: false`: espejo de `renovacion-server.ts` — si se cobra
+      // la renovación, se queda, y una baja programada deja de aplicar.
+      const res = await dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA', bajaAlVencer: false });
       if (!res.ok) { avisarFallo(res.error); return; }
       anotarEntrega({
         tipo: 'MENSUAL', aplicada: true,
@@ -4045,7 +4051,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         estadoAntes: sus.estado ?? null,
       });
       setSuscripciones(prev => prev.map(s =>
-        s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const } : s
+        s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const, bajaAlVencer: false } : s
       ));
     }
   }

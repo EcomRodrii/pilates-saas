@@ -87,7 +87,7 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
       if (!admin) throw new Error('Service role no configurada');
       const { data: candidatos, error: candErr } = await admin
         .from('recibos')
-        .select('id, socio_id')
+        .select('id, socio_id, suscripcion_id')
         .eq('studio_id', studioId)
         .eq('estado', 'PENDIENTE')
         .is('proximo_reintento', null)
@@ -120,8 +120,21 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
         // no lo adoptes" — sin inventar ninguna columna nueva.
         .is('checkout_session_id', null);
       if (candErr) throw new Error(candErr.message);
+      // Baja programada a fin de periodo (migr 20260913231500): nunca se adopta
+      // —y por tanto nunca se cobra solo— un recibo de renovación de una cuota
+      // que se da de baja al vencer. Defensa en profundidad: el efecto del
+      // navegador ya no los crea, pero un panel abierto con código anterior sí
+      // podría haberlo hecho.
+      const { data: conBaja, error: bajaErr } = await admin
+        .from('suscripciones')
+        .select('id')
+        .eq('studio_id', studioId)
+        .eq('baja_al_vencer', true);
+      if (bajaErr) throw new Error(bajaErr.message);
+      const suscripcionesConBaja = new Set((conBaja ?? []).map(s => s.id as string));
       const idsAAdoptar = (candidatos ?? [])
         .filter(r => conMetodoCobro.has(r.socio_id as string))
+        .filter(r => !suscripcionesConBaja.has(r.suscripcion_id as string))
         .map(r => r.id as string);
       if (idsAAdoptar.length === 0) return 0;
       const { data, error } = await admin
