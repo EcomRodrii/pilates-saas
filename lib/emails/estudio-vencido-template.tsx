@@ -36,7 +36,8 @@ export function EstudioVencidoEmail({ fase, estudioNombre, fechaPurga, urlSuscri
       </Text>
       <EmailButton href={urlSuscripcion}>Elegir un plan</EmailButton>
       <Text style={{ color: '#6B7280', fontSize: 13, margin: '16px 0 0' }}>
-        Para exportar tus datos: <a href={urlExportar} style={{ color: '#374151' }}>Configuración → Copias de seguridad</a>.
+        Para descargar tus datos (un CSV por tabla, sin ficha clínica), entra con tu cuenta en{' '}
+        <a href={urlExportar} style={{ color: '#374151' }}>Exportar datos del estudio</a>.
         Los datos que la ley obliga a guardar, como las facturas, se conservan durante el plazo legal.
       </Text>
     </EmailLayout>

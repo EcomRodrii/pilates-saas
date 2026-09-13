@@ -11,6 +11,7 @@ import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, type EstadoBil
 import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { SelectorPlan } from '@/components/planes/selector-plan';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
+import { ExportarDatosEstudio } from '@/components/billing/exportar-datos-estudio';
 import { TZ_ESTUDIO } from '@/lib/utils';
 
 // Suscripción del estudio a Tentare.
@@ -252,6 +253,14 @@ export default function SuscripcionPage() {
               Los pagos de tus alumnas van directos a tu cuenta de Stripe — Tentare no cobra comisión sobre ellos.
             </p>
           </>
+        )}
+
+        {/* Con la prueba agotada el panel entero redirige aquí, así que esta es
+            la única puerta a la exportación que prometen los avisos de borrado
+            (enlace `/suscripcion#exportar-datos`). Solo para la propietaria:
+            la API exige ese rol y a nadie más le serviría el botón. */}
+        {!cargando && estado?.esPropietaria === true && (
+          <ExportarDatosEstudio id="exportar-datos" className="mt-9 rounded-2xl border border-border bg-card p-5 sm:p-6" />
         )}
       </div>
     </div>
