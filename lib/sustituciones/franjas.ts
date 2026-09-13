@@ -5,6 +5,13 @@
 // rango horario concreto que sí se persiste.
 //
 // dia_semana: 0=domingo..6=sábado, para casar con EXTRACT(DOW) del scoring (0038).
+//
+// ⚠️ El motor (`rankear_candidatas`) NO copia estos límites. Hasta
+// 20260913020000 sí: tenía las tres franjas antiguas escritas a mano y exigía
+// una fila EXACTA por cada una, así que al pasar aquí a cuatro franjas (7-sep,
+// #1686) toda disponibilidad guardada desde entonces quedó invisible para el
+// ranking. Ahora comprueba que la unión de filas CUBRE la clase: estos límites
+// se pueden volver a cambiar sin tocar el SQL.
 
 export type FranjaKey = 'manana' | 'media_manana' | 'tarde' | 'noche';
 
