@@ -3,10 +3,13 @@
 -- post o la instructora pertenecen a `p_studio_id` (que a su vez ya se
 -- compara con `current_studio_id()` en las dos llamables desde el cliente).
 --
--- Las tres conservan su firma, así que CREATE OR REPLACE mantiene los grants
--- que ya tenían: `congelar_suscripcion` y `toggle_like_post` para
--- authenticated + service_role, `confirmar_sustitucion` solo service_role.
--- Cuerpos copiados de producción; solo cambia el bloque marcado.
+-- Las tres conservan su firma. `congelar_suscripcion` y `toggle_like_post`
+-- (SECURITY DEFINER) reafirman sus grants tras redefinirse: fuera PUBLIC y
+-- anon, EXECUTE para authenticated + service_role. `confirmar_sustitucion`
+-- (INVOKER) mantiene el suyo: solo service_role.
+-- Cuerpos copiados de producción, con la guardia de servidor ya escrita como
+-- `es_llamada_servicio()` (20260914100000); aparte de eso solo cambia el
+-- bloque marcado.
 
 -- ── congelar_suscripcion ───────────────────────────────────────────────────
 -- Sin la comprobación, el INSERT en `congelaciones` aceptaba cualquier
@@ -22,7 +25,7 @@ as $function$
 begin
   perform public.validar_studio_mismatch(p_studio_id);
 
-  if auth.uid() is not null and not public.puede_mover_dinero() then
+  if not public.es_llamada_servicio() and not public.puede_mover_dinero() then
     raise exception 'NO_AUTORIZADO';
   end if;
 
@@ -46,6 +49,9 @@ begin
     where id = p_suscripcion_id and studio_id = p_studio_id and estado = 'ACTIVA';
 end;
 $function$;
+
+revoke all on function public.congelar_suscripcion(text, text, text, text) from public, anon;
+grant execute on function public.congelar_suscripcion(text, text, text, text) to authenticated, service_role;
 
 -- ── toggle_like_post ───────────────────────────────────────────────────────
 -- Misma comprobación que ya hace `toggle_like_post_portal`, con el mismo
@@ -91,6 +97,9 @@ begin
   return next;
 end;
 $function$;
+
+revoke all on function public.toggle_like_post(text, text) from public, anon;
+grant execute on function public.toggle_like_post(text, text) to authenticated, service_role;
 
 -- ── confirmar_sustitucion ──────────────────────────────────────────────────
 -- Asigna `sesiones.instructor_id` con el id que le llega. La ruta del panel

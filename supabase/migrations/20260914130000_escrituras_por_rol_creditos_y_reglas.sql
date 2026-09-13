@@ -182,10 +182,10 @@ create policy challenge_progress_update_instructora on public.challenge_progress
               and not coalesce(completado, false));
 
 -- ── otorgar_credito_disparador: rol de quien concede ──────────────────────
--- Misma firma: CREATE OR REPLACE conserva los grants actuales (authenticated
--- + service_role, sin anon). Con `auth.uid()` NULL (service-role del
--- servidor: portal, crons) no cambia nada, igual que el resto de guardias de
--- esta función.
+-- Misma firma; los grants se reafirman al final (authenticated + service_role,
+-- sin PUBLIC ni anon). Las llamadas del servidor (service_role: portal, crons)
+-- se reconocen con `es_llamada_servicio()` (20260914100000) y no pasan por la
+-- comprobación de rol. Un uid nulo que no venga del servidor NO se la salta.
 --
 -- Quien gestiona clientas (PROPIETARIO/MANAGER/RECEPCION) sigue igual. La
 -- instructora solo concede lo que sale de pasar lista y cuya condición la BD
@@ -219,7 +219,7 @@ begin
     raise exception 'REF_ID_REQUERIDO';
   end if;
 
-  if auth.uid() is not null and not public.puede_gestionar_clientas() then
+  if not public.es_llamada_servicio() and not public.puede_gestionar_clientas() then
     if public.current_rol() is distinct from 'INSTRUCTOR'
        or p_trigger not in ('ASISTENCIA_CLASE', 'SEMANA_COMPLETA', 'OBJETIVO_MENSUAL', 'PRIMERA_RESERVA', 'LOGRO', 'RETO') then
       raise exception 'NO_AUTORIZADO';
@@ -416,3 +416,6 @@ begin
   return query select v_saldo, true, v_id, v_creditos, v_desc;
 end;
 $function$;
+
+revoke all on function public.otorgar_credito_disparador(text, text, text, text, text) from public, anon;
+grant execute on function public.otorgar_credito_disparador(text, text, text, text, text) to authenticated, service_role;
