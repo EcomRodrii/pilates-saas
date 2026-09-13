@@ -5,6 +5,7 @@ import { X, ChevronDown, Search, Send, CheckCircle2, ArrowUpRight } from 'lucide
 import { cn } from '@/lib/utils';
 import { useCore } from '@/lib/core-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
+import { authHeader } from '@/lib/api-client';
 import type { TipoSoporte } from '@/lib/types';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { FAQS } from '@/lib/faqs';
@@ -54,13 +55,12 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
     const guardado = await dbInsertSoporteSolicitud(solicitud);
     let correo = false;
     try {
+      // Con la sesión: el servidor saca de ella quién escribe, el estudio y a
+      // dónde contestar. Sin cabecera, 401.
       const r = await fetch('/api/soporte', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo, mensaje: solicitud.mensaje, contacto: solicitud.contacto,
-          studioNombre: studio?.nombre ?? null,
-        }),
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ tipo, mensaje: solicitud.mensaje, contacto: solicitud.contacto }),
       });
       // `skipped: true` = Resend sin configurar. Eso NO es un envío: si además
       // el registro falló, no se ha enterado nadie.

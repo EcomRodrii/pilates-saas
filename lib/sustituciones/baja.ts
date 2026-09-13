@@ -163,7 +163,7 @@ export async function crearBaja(
   if (origen === 'instructora') {
     const { emitirInstructoraBaja } = await import('@/lib/notifications/emit');
     await emitirInstructoraBaja(admin, {
-      studioId, sesionId, motivo,
+      studioId, sesionId,
       instructorId: (clase.instructor_id as string | null) ?? null,
       sustitucionId: insertada.id as string,
     });

@@ -189,6 +189,24 @@ export function puedeGestionarEquipo(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER';
 }
 
+// Ver el TIPO y el MOTIVO de la ausencia de otra persona del equipo (vacaciones,
+// baja médica, otro). Es dato laboral y a veces de salud: solo quien gestiona el
+// equipo. Recepción sigue sabiendo QUIÉN no está y QUÉ DÍAS —lo necesita para no
+// asignarle una clase—, sin el porqué. Espejo de `ausencias_gestion`
+// (migr 20260914120100). La instructora ve el detalle de las SUYAS aparte.
+export function puedeVerDetalleAusencias(rol: Rol): boolean {
+  return puedeGestionarEquipo(rol);
+}
+
+// Leer las solicitudes que el estudio manda a Tentare desde «Ayuda». Texto
+// libre: quien escribe describe su caso y a veces el caso es una alumna. Todo
+// el personal puede ESCRIBIR una; leerlas, solo la propietaria. Espejo de
+// `soporte_leer_propietaria` (migr 20260914120000). No hay pantalla que las
+// liste hoy: la regla está para que la primera no nazca abierta a todo el equipo.
+export function puedeVerSolicitudesSoporte(rol: Rol): boolean {
+  return rol === 'PROPIETARIO';
+}
+
 // Configurar el Inicio del portal — reordenar módulos, añadir/editar bloques
 // del catálogo (Fase 2/3 del editor de temas). Mismo criterio que
 // `puedeGestionarEquipo` (trabajo operativo/de marketing de sede, no
