@@ -113,7 +113,7 @@ export function Descubre({ slug, href }: { slug: string; href: (p: string) => st
       <ul
         className="no-scrollbar"
         style={{
-          display: 'flex', gap: 11, margin: '0 -18px', padding: '2px 18px',
+          display: 'flex', gap: 11, margin: '0 calc(var(--px) * -1)', padding: '2px var(--px)',
           listStyle: 'none', overflowX: 'auto', scrollSnapType: 'x proximity',
           WebkitOverflowScrolling: 'touch',
         }}

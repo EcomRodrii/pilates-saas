@@ -72,11 +72,11 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
 
   return (
     <header
+      // Sobre la foto, el velo mide lo que la foto —el ancho del shell en cada
+      // escalón— y no la ventana: pintaba una franja gris encima del crema.
+      className={flotando ? 'ancho-shell' : undefined}
       style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 46, paddingTop: 'var(--safe-top)',
-        // Sobre la foto, el velo mide lo que la foto (1040 px) y no la ventana:
-        // en escritorio pintaba una franja gris encima del crema de los lados.
-        ...(flotando ? { maxWidth: 1040, marginInline: 'auto' } : {}),
         // ⚠️ VELO PROPIO cuando flota, y no es adorno: MEDIDO fotografiando los
         // píxeles bajo el nombre del estudio con el texto oculto, sobre una
         // portada clara (#F2EFE9, una sala a contraluz — lo que sube media
@@ -95,7 +95,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
         transition: 'background .18s linear',
       }}
     >
-      <div style={{ maxWidth: 1040, margin: '0 auto', height: altoCabecera(lema), display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 18px' }}>
+      <div className="ancho-shell px" style={{ height: altoCabecera(lema), display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         {/* ⚠️ `minWidth: 0` y el recorte de abajo NO están en el paquete, y sin
             ellos el header se rompe con datos reales.
             Medido a 320px con un logo apaisado (2000×200, un lockup de marca de
