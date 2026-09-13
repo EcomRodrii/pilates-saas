@@ -136,6 +136,10 @@ TIPOS_MANUALES = {
     # Mismo motivo: `alter column email drop not null` (migr 20260913134147,
     # alta de mostrador sin email).
     ('socios', 'email'): 'string | null',
+    # Ídem, migr 20260913205038: pasan a ON DELETE SET NULL hacia auth.users
+    # para que borrar la cuenta de una socia suprimida no falle con 23503.
+    ('mensajes', 'remitente_auth_user_id'): 'string | null',
+    ('documentos_socio', 'subido_por'): 'string | null',
 }
 for (tabla, col), ts in TIPOS_MANUALES.items():
     if tabla in tables and col in tables[tabla]:
