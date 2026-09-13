@@ -4486,7 +4486,17 @@ async function evaluarLogrosServidor(
       // Si falla, NO se marca el progreso como completado: la próxima
       // evaluación lo reintenta. Idempotente si ya se concedió antes (el
       // UNIQUE de reward_actions dentro de la RPC lo hace un no-op sin error).
-      if (credError) { reportDbError('[evaluarLogrosServidor] crédito', credError); return; }
+      //
+      // Sentry JAVASCRIPT-NEXTJS-2Q: SIN_REGLA_ACTIVA/CONDICION_NO_CUMPLIDA/
+      // REF_ID_NO_DERIVADO no son errores de sistema, son el "no toca
+      // conceder" de la propia RPC — mismo filtro que ya usa
+      // otorgarCreditosServidor más arriba, que no se había replicado aquí.
+      if (credError) {
+        if (!/SIN_REGLA_ACTIVA|CONDICION_NO_CUMPLIDA|REF_ID_NO_DERIVADO/.test(credError.message)) {
+          reportDbError('[evaluarLogrosServidor] crédito', credError);
+        }
+        return;
+      }
     }
 
     const { error: progError } = await admin.from('achievement_progress').upsert({
@@ -4553,7 +4563,15 @@ async function evaluarRetosServidor(
         p_studio_id: studioId, p_socio_id: socioId,
         p_trigger: 'RETO', p_ref_id: `${socioId}:${reto.id}`, p_config_id: reto.id,
       });
-      if (credError) { reportDbError('[evaluarRetosServidor] crédito', credError); return; }
+      // Sentry JAVASCRIPT-NEXTJS-2Q: mismo filtro que evaluarLogrosServidor
+      // arriba — SIN_REGLA_ACTIVA/CONDICION_NO_CUMPLIDA/REF_ID_NO_DERIVADO son
+      // el "no toca conceder" de la propia RPC, no un fallo de sistema.
+      if (credError) {
+        if (!/SIN_REGLA_ACTIVA|CONDICION_NO_CUMPLIDA|REF_ID_NO_DERIVADO/.test(credError.message)) {
+          reportDbError('[evaluarRetosServidor] crédito', credError);
+        }
+        return;
+      }
     }
 
     const { error: progError } = await admin.from('challenge_progress').upsert({
