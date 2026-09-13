@@ -45,7 +45,18 @@ export async function dbInsertDecisionSession(input: {
     id, studio_id: input.studioId, disparado_por: input.disparadoPor,
     algorithm_version: input.algorithmVersion, iniciado_en: input.iniciadoEn,
   });
-  if (error) reportError('[dbInsertDecisionSession]', error);
+  if (error) {
+    reportError('[dbInsertDecisionSession]', error);
+    // Sentry JAVASCRIPT-NEXTJS-2N: si el INSERT falla y esto devuelve el id
+    // igualmente, cada `recomendaciones` que se escriba después con ese
+    // `decision_session_id` viola la FK — en silencio, porque
+    // `dbUpsertRecomendacion` también se limita a reportar. Se lanza para que
+    // el `step.run('crear-sesion', ...)` de Inngest (lib/inngest/decision.ts)
+    // lo vea como un fallo DE VERDAD y reintente el paso (la función ya tiene
+    // `retries: 3`), en vez de seguir analizando el estudio con una sesión
+    // que nunca llegó a existir.
+    throw error instanceof Error ? error : new Error(`[dbInsertDecisionSession]: ${JSON.stringify(error)}`);
+  }
   return id;
 }
 
