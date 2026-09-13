@@ -28,7 +28,7 @@ export const LEGAL = {
   dominio: 'www.tentare.app',
   url: 'https://www.tentare.app',
   // Fecha de última revisión del contenido legal (no la de render).
-  actualizado: '23 de julio de 2026',
+  actualizado: '13 de septiembre de 2026',
 
   // ── Identificación del titular (LSSI-CE art. 10) ────────────────────────────
   // Persona física (autónomo). Sin datos registrales (ver cabecera).
@@ -49,10 +49,20 @@ export const PROVEEDORES: { nombre: string; uso: string; ubicacion: string }[] =
   { nombre: 'Vercel', uso: 'Alojamiento y entrega de la aplicación', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Stripe', uso: 'Procesamiento de pagos y facturación', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Resend', uso: 'Envío de correos transaccionales', ubicacion: 'UE / EE. UU.' },
-  { nombre: 'Cloudflare', uso: 'Almacenamiento de archivos (R2) y vídeo (Stream)', ubicacion: 'UE / EE. UU.' },
+  { nombre: 'Spacemail', uso: 'Correo saliente de Tentare', ubicacion: 'UE / EE. UU.' },
+  { nombre: 'Cloudflare', uso: 'Almacenamiento de archivos (R2), vídeo (Stream) y verificación anti-bots (Turnstile)', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Sentry', uso: 'Monitorización de errores', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Inngest', uso: 'Ejecución de tareas y automatizaciones', ubicacion: 'UE / EE. UU.' },
-  { nombre: 'Google (opcional)', uso: 'Integración con Google Calendar / Gmail, si la activas', ubicacion: 'UE / EE. UU.' },
+  { nombre: 'Anthropic', uso: 'Asistente de IA: redacción de mensajes, notas de sesión dictadas y análisis de ficheros importados', ubicacion: 'EE. UU.' },
+  { nombre: 'PostHog', uso: 'Analítica de uso del producto y del sitio', ubicacion: 'UE' },
+  { nombre: 'Ahrefs', uso: 'Analítica del sitio web público', ubicacion: 'Fuera de la UE' },
+  { nombre: 'Fiskaly', uso: 'Firma y registro de facturas (Veri*Factu)', ubicacion: 'UE' },
+  { nombre: 'OpenStreetMap', uso: 'Mapas y ubicación aproximada en Tentare Network', ubicacion: 'Reino Unido / UE' },
+  { nombre: 'Google', uso: 'Tipografías del widget de reservas (Google Fonts) e integración con Google Calendar / Gmail, si la activas', ubicacion: 'UE / EE. UU.' },
+  { nombre: 'Meta (opcional)', uso: 'WhatsApp Business, si el estudio lo activa', ubicacion: 'UE / EE. UU.' },
+  { nombre: 'Klaviyo (opcional)', uso: 'Sincronización de audiencias de marketing, si el estudio lo activa', ubicacion: 'EE. UU.' },
+  { nombre: 'Mailchimp (opcional)', uso: 'Sincronización de audiencias de marketing, si el estudio lo activa', ubicacion: 'EE. UU.' },
+  { nombre: 'Kisi (opcional)', uso: 'Control de acceso, si el estudio lo activa', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Zoom (opcional)', uso: 'Integración de videollamadas, si la activas', ubicacion: 'UE / EE. UU.' },
 ];
 

@@ -287,7 +287,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Están seguros los datos de mi estudio y mis alumnas?',
-    a: 'Cumplimos el RGPD, cada estudio accede únicamente a sus propios datos y puedes exportarlos cuando quieras.',
+    a: 'Tentare está diseñado con el RGPD en mente: cada estudio accede únicamente a sus propios datos y puedes exportarlos cuando quieras.',
   },
   {
     q: '¿Puedo gestionar varios centros?',

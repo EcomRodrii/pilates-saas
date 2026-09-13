@@ -22,11 +22,14 @@ interface ModalNotaVozProps {
 }
 
 export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onClose }: ModalNotaVozProps) {
-  const { addNotaProgreso } = useStudio();
+  const { addNotaProgreso, socios } = useStudio();
   const { disponible, grabando, transcripcion, error, iniciar, detener } = useSpeechToText();
   const [procesando, setProcesando] = useState(false);
   const [resultado, setResultado] = useState<NotaIAEstructurada | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
+  // La RLS de `notas_progreso` y la ruta de IA exigen consentimiento de salud
+  // vigente: sin él, grabar y estructurar acabaría en un guardado rechazado.
+  const tieneConsentimiento = Boolean(socios.find(s => s.id === socioId)?.consentimientoSalud);
 
   async function procesar() {
     if (!transcripcion.trim()) return;
@@ -35,8 +38,8 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
     try {
       const r = await estructurarNotaIA({ texto: transcripcion, socioId, instructorId, sesionId });
       setResultado(r);
-    } catch {
-      setErrorAccion('No se pudo procesar la nota. Inténtalo de nuevo.');
+    } catch (err) {
+      setErrorAccion(err instanceof Error && err.message ? err.message : 'No se pudo procesar la nota. Inténtalo de nuevo.');
       Sentry.captureMessage('piloto-voz: fallo al estructurar nota', { tags: { motivo: 'estructurar-ia' } });
     } finally {
       setProcesando(false);
@@ -64,7 +67,11 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
           <DialogTitle>Nota de voz — {nombreSocia}</DialogTitle>
         </DialogHeader>
 
-        {!disponible ? (
+        {!tieneConsentimiento ? (
+          <p role="alert" className="text-sm text-muted-foreground">
+            Registra primero el consentimiento de salud de esta clienta desde su ficha. Sin él no se pueden guardar notas de sesión.
+          </p>
+        ) : !disponible ? (
           <p className="text-sm text-muted-foreground">
             Grabación por voz no disponible en este navegador — usa el micrófono de tu teclado y escribe la nota desde la ficha de {nombreSocia}.
           </p>

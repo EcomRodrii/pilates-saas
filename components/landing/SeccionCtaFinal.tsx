@@ -98,7 +98,7 @@ export function SeccionCtaFinal() {
           <div className="v5-pie-legal">
             <span>© 2026 Tentare · Software para estudios de Pilates · Hecho en España 🇪🇸</span>
             <div className="v5-pie-legal-der">
-              <span>RGPD · Tus datos son tuyos</span>
+              <span>Diseñado con el RGPD en mente · Tus datos son tuyos</span>
               <a href="https://sellwithboost.com" target="_blank" rel="noopener noreferrer" className="v5-pie-badge">
                 {/* eslint-disable-next-line @next/next/no-img-element -- badge externo, no un asset propio */}
                 <img src="https://sellwithboost.com/badge/listing-dark.svg" alt="Listed on Sell With boost" width={110} height={40} />

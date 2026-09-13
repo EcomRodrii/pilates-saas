@@ -52,8 +52,15 @@ export default function Privacidad() {
         </tbody>
       </table>
       <p>
-        No se realizan decisiones automatizadas con efectos jurídicos significativos sobre las personas. No se
-        tratan categorías especiales de datos de las cuentas; los datos de salud que un estudio pueda registrar
+        <strong>Automatizaciones.</strong> Algunas funciones que cada estudio decide activar y configurar actúan
+        de forma automática sobre sus clientas: recomendaciones y avisos generados a partir de la actividad del
+        estudio, la cancelación de una clase que no alcanza el mínimo de asistentes fijado por el estudio, o una
+        penalización por cancelar tarde o no presentarse, que el estudio puede configurar para que se cobre
+        automáticamente. Esas reglas las decide el estudio como responsable del tratamiento; si te afecta una de
+        ellas, puedes pedir al estudio que la revise una persona.
+      </p>
+      <p>
+        No se tratan categorías especiales de datos de las cuentas; los datos de salud que un estudio pueda registrar
         sobre sus clientas se tratan por cuenta y bajo la responsabilidad del estudio, con acceso restringido.
       </p>
 
@@ -66,8 +73,9 @@ export default function Privacidad() {
 
       <h2>5. Destinatarios y encargados</h2>
       <p>
-        No vendemos tus datos. Para prestar el servicio recurrimos a proveedores que actúan como encargados o
-        subencargados, con contrato conforme al art. 28 RGPD:
+        No vendemos tus datos. Para prestar el servicio recurrimos a los proveedores siguientes; los marcados
+        como opcionales solo intervienen si el estudio activa esa integración. Cuando tratan datos personales
+        por nuestra cuenta, lo hacen como encargados o subencargados, con contrato conforme al art. 28 RGPD:
       </p>
       <table>
         <thead>

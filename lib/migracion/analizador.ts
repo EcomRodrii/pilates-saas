@@ -18,6 +18,7 @@ import {
   type EntidadMigracion, type ArchivoEntrada, type ArchivoAnalizado,
   type PlanMigracion, type ContextoEstudio,
 } from './clasificador.ts';
+import { construirPromptClasificacion, NOTA_MUESTRAS_ANONIMAS } from './muestras-anonimas.ts';
 
 // Re-export de los tipos para no romper a los importadores existentes.
 export type { EntidadMigracion, ArchivoEntrada, ArchivoAnalizado, PlanMigracion, ContextoEstudio } from './clasificador.ts';
@@ -42,15 +43,11 @@ async function clasificarConIA(
         'Clasificas exports de software de gestión de estudios de pilates/fitness (Timp, Momence, Eversports, bsport, Mindbody, Excel casero...) para migrarlos. ' +
         'Devuelves SOLO un JSON: {"entidad": "<socias|membresias|clases|reservas|citas|pagos|ninguna>", "mapeo": {"<campo>": <índice de columna 0-based>}}. ' +
         'Solo incluye en el mapeo campos que EXISTAN claramente en las columnas; nunca inventes. Si el archivo no encaja con ninguna entidad, entidad="ninguna". ' +
-        'Los campos con * son obligatorios: si no puedes mapearlos, la entidad no es válida.\n\nEntidades y campos:\n' + esquemas,
-      messages: [{
-        role: 'user',
-        content:
-          `Archivo: ${nombre}\nColumnas (índice: nombre):\n` +
-          headers.map((h, i) => `${i}: ${h}`).join('\n') +
-          `\n\nPrimeras filas:\n` +
-          muestra.map(f => f.join(' | ')).join('\n'),
-      }],
+        'Los campos con * son obligatorios: si no puedes mapearlos, la entidad no es válida. ' +
+        NOTA_MUESTRAS_ANONIMAS + '\n\nEntidades y campos:\n' + esquemas,
+      // Nunca filas reales: son datos personales (y a veces de salud) de las
+      // socias del estudio. Ver lib/migracion/muestras-anonimas.ts.
+      messages: [{ role: 'user', content: construirPromptClasificacion(nombre, headers, muestra) }],
     });
     const raw = message.content[0].type === 'text' ? message.content[0].text : '';
     const json = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
