@@ -27,7 +27,9 @@ export async function enviarAvisoEstudioVencido(params: {
       estudioNombre: params.estudioNombre,
       fechaPurga: formatearFechaAviso(params.fechaPurga),
       urlSuscripcion: `${base}/suscripcion`,
-      urlExportar: `${base}/configuracion?tab=backups`,
+      // No `/configuracion?tab=backups`: con la prueba agotada el panel redirige
+      // a /suscripcion y ese enlace nunca llegaría a la exportación.
+      urlExportar: `${base}/suscripcion#exportar-datos`,
     }));
     const { error } = await new Resend(apiKey).emails.send({
       from: remitentePorMarca('Tentare'),
