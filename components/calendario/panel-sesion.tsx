@@ -95,7 +95,16 @@ export function PanelSesion({
             </p>
             {(instructoraNombre || salaNombre) && (
               <p className="text-[12px] text-muted-foreground truncate">
-                {instructoraNombre ? `Con ${instructoraNombre}` : 'Sin instructora'}
+                {/* Con una sustitución abierta el estado ya dice «Sin
+                    instructora», y debajo salía «Con SALMA» — las dos cosas a
+                    la vez (evaluación del 13-sep). La instructora sigue
+                    asignada en la sesión mientras se busca sustituta; lo que
+                    hay que decir es que no puede darla. */}
+                {instructoraNombre
+                  ? estado === 'SIN_INSTRUCTORA'
+                    ? `${instructoraNombre} no puede darla · buscando sustituta`
+                    : `Con ${instructoraNombre}`
+                  : 'Sin instructora'}
                 {salaNombre ? ` · ${salaNombre}` : ''}
               </p>
             )}
