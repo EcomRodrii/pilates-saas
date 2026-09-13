@@ -1156,3 +1156,30 @@ export async function emitirFacturaRechazadaAeat(
     console.error('[notifications] emitirFacturaRechazadaAeat:', e instanceof Error ? e.message : e);
   }
 }
+
+// RGPD: una alumna ha pedido desde su app eliminar sus datos o limitar/oponerse
+// a su uso. Al mostrador, con el plazo legal. ⚠️ Nada de salud en el aviso: ni
+// motivo ni ficha, solo quién lo pide, qué pide y hasta cuándo. `dedupKey` por
+// solicitud: la ruta ya no duplica una pendiente, y esto evita además un
+// segundo aviso si el emisor se reintenta.
+export async function emitirSolicitudDerechos(
+  admin: SupabaseClient,
+  p: { studioId: string; solicitudId: string; socioId: string; tipo: 'supresion' | 'oposicion' | 'limitacion'; plazoHasta: string },
+): Promise<void> {
+  try {
+    const { data: socio } = await admin.from('socios').select('nombre, apellidos')
+      .eq('id', p.socioId).eq('studio_id', p.studioId).maybeSingle();
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    const accion = p.tipo === 'supresion'
+      ? 'eliminar sus datos personales'
+      : p.tipo === 'limitacion' ? 'limitar el uso de sus datos' : 'oponerse al uso de sus datos';
+    await publish({
+      type: EVENTOS.SOLICITUD_DERECHOS, studioId: p.studioId,
+      data: { socia, socioId: p.socioId, accion, plazo: fechaCortaEstudio(new Date(p.plazoHasta)) },
+      resource: { type: 'solicitud_derechos', id: p.solicitudId },
+      dedupKey: `solicitud-derechos:${p.solicitudId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirSolicitudDerechos:', e instanceof Error ? e.message : e);
+  }
+}

@@ -30,7 +30,7 @@ import {
   dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
   dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy, dbAprobarAutonoma, dbListMensajesRecientes, dbUpsertMensajeDia,
-  dbListFeatureFlagRows, dbCalcularSeguimientoPorTipo, dbCalcularImpactoRealPorTipo,
+  dbListFeatureFlagRows, dbCalcularSeguimientoPorTipo, dbCalcularImpactoRealPorTipo, dbListSociasExcluidasDePerfilado,
 } from '@/lib/decision/db';
 import { seleccionarAutonomas } from '@/lib/decision/autonomia';
 import type { Recomendacion, EspecialistaId, TipoRecomendacion } from '@/lib/decision/tipos';
@@ -105,13 +105,16 @@ export const analizarEstudio = inngest.createFunction(
       dbInsertDecisionSession({ studioId, disparadoPor, algorithmVersion: ALGORITHM_VERSION, iniciadoEn: nowISO })
     );
 
-    const [snapshot, memoriaRows, pendientesActuales, resueltas90d, { nombrePropietario, nombreEstudio }, flagsRows] = await Promise.all([
+    const [snapshot, memoriaRows, pendientesActuales, resueltas90d, { nombrePropietario, nombreEstudio }, flagsRows, sociasExcluidasDePerfilado] = await Promise.all([
       step.run('snapshot', () => construirSnapshot(studioId, now)),
       step.run('memoria', () => dbListMemoriaRows(studioId)),
       step.run('pendientes', () => dbListPendientes(studioId)),
       step.run('resueltas', () => dbListResueltas90d(studioId, now)),
       step.run('propietario', () => nombrePropietarioDe(studioId)),
       step.run('flags', () => dbListFeatureFlagRows(studioId)),
+      // Art. 21 RGPD. Un array (no un Set): lo que devuelve un step pasa por
+      // JSON en el replay, mismo gotcha que flags/memoria. El Set lo arma el motor.
+      step.run('oposicion-perfilado', () => dbListSociasExcluidasDePerfilado(studioId)),
     ]);
     // Se reconstruye FUERA del step: un Map no sobrevive la serialización a
     // JSON que Inngest hace entre steps (ver lib/decision/db.ts) — igual que
@@ -130,6 +133,7 @@ export const analizarEstudio = inngest.createFunction(
       ventanaMientrasDormiasDesde: new Date(now.getTime() - 17 * 3600000), // ~21:00 del día anterior
       now,
       flagsEspecialistas,
+      sociasExcluidasDePerfilado,
     });
 
     // Candidatas → Recomendacion con id + contexto de sesión (ID de negocio,

@@ -744,6 +744,8 @@ export interface RowSocios {
   consentimiento_salud_texto: string | null;
   // migr 20260910224240.
   objetivo_clases_mes: number | null;
+  // migr 20260913171000.
+  excluir_de_perfilado: boolean | null;
 }
 
 export interface RowSoporteSolicitudes {
@@ -2744,4 +2746,17 @@ export interface RowMatriculaCupoLiberaciones {
   plan_id: string;
   studio_id: string;
   liberado_en: string;
+}
+
+export interface RowSolicitudesDerechos {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  tipo: string;
+  estado: string;
+  solicitada_en: string;
+  plazo_hasta: string;
+  resuelta_en: string | null;
+  resuelta_por: string | null;
+  nota: string | null;
 }

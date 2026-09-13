@@ -181,10 +181,10 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
       <div className="pt-4 mt-4 border-t border-border space-y-3">
         <div className="flex items-center gap-2">
           <Download size={16} className="text-brand-secondary" />
-          <h3 className="text-[14px] font-semibold text-foreground">Exportar tus datos</h3>
+          <h3 className="text-[14px] font-semibold text-foreground">Exportar datos del estudio</h3>
         </div>
         <p className="text-[12px] text-muted-foreground">
-          Un CSV por tabla, listo para abrir en Excel o llevarte a otra plataforma. No incluye ficha clínica ni notas de progreso.
+          Un CSV por tabla con los datos de todo el estudio, listo para abrir en Excel o llevarte a otra plataforma. No incluye ficha clínica ni notas de progreso. Para entregar a una clienta sus propios datos, usa «Descargar sus datos» en su ficha.
         </p>
         <div className="flex flex-wrap gap-2">
           {EXPORTABLES.map(e => (

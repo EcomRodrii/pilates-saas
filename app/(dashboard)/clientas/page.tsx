@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { PageHeader } from '@/components/ui/page-header';
+import { SolicitudesDerechosPendientes } from '@/components/socios/solicitudes-derechos-pendientes';
 import { ConstructorSegmentos } from '@/components/segmentos/constructor-segmento';
 import { construirContextoSegmento, evaluarSegmento } from '@/lib/segmentos/evaluador';
 import type { SegmentoCliente } from '@/lib/segmentos/tipos';
@@ -848,6 +849,9 @@ export default function Socios() {
           ) : null
         }
       />
+
+      {/* RGPD: solicitudes de las clientas desde su app, por plazo. Se atienden en la ficha. */}
+      {gestionaClientas && <SolicitudesDerechosPendientes />}
 
       {/* ── Stats row ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
