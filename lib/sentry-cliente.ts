@@ -26,6 +26,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { CaptureContext, SeverityLevel } from '@sentry/nextjs';
 import { crearCola } from '@/lib/sentry-cola';
+import { sanearEventoSentry, sanearMigaSentry } from '@/lib/sentry-scrub';
 
 type SDK = typeof import('@sentry/nextjs');
 
@@ -54,13 +55,18 @@ export function forzarCarga(): Promise<SDK | null> {
   cargando = import('@sentry/nextjs')
     .then((m) => {
       // En servidor `sentry.server.config.ts` ya llamó a init: repetirlo aquí
-      // pisaría su configuración (que sí manda PII de servidor, entre otras).
+      // pisaría su configuración (DSN, muestreo y saneado propios).
       if (enNavegador) {
         m.init({
           dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
           enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
           tracesSampleRate: 0.1,
           sendDefaultPii: false,
+          // Mismo saneado que servidor y edge: nada de datos de una persona en
+          // extra, mensajes, URLs de navegación ni migas de fetch.
+          beforeSend: sanearEventoSentry,
+          beforeSendTransaction: sanearEventoSentry,
+          beforeBreadcrumb: sanearMigaSentry,
           // Probe de navegadores in-app de iOS (WKWebView de Instagram/
           // Facebook/etc., y el propio Safari en ciertos casos) sondeando si
           // existe un puente nativo que esta app nunca declara — visto en

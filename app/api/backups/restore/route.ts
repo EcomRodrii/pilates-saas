@@ -3,6 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { restaurarSnapshot, cargarSnapshot, type BackupRow } from '@/lib/engines/backup-engine';
 import { errorInterno } from '@/lib/errores-servidor';
+import { RESTAURACION_DISPONIBLE, MENSAJE_RESTAURACION_NO_DISPONIBLE } from '@/lib/backups/restauracion';
 
 // Restaurar sobrescribe TODOS los datos actuales del negocio con los del
 // backup elegido — irreversible salvo que exista otro backup posterior.
@@ -21,6 +22,11 @@ export async function POST(req: NextRequest) {
   }
   if (sesion.rol !== 'PROPIETARIO') {
     return NextResponse.json({ error: 'Solo la propietaria puede restaurar una copia de seguridad' }, { status: 403 });
+  }
+  // Desactivada hasta que la restauración conserve lo fiscal y respete las
+  // supresiones (ver lib/backups/restauracion.ts). 423 = recurso bloqueado.
+  if (!RESTAURACION_DISPONIBLE) {
+    return NextResponse.json({ error: MENSAJE_RESTAURACION_NO_DISPONIBLE }, { status: 423 });
   }
 
   const body = await req.json();
