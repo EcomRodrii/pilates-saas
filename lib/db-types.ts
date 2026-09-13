@@ -798,7 +798,7 @@ export interface RowStudios {
   subscription_id: string | null;
   subscription_status: string | null;
   current_period_end: string | null;
-  // migr 0007. Siempre NULL desde 20260914110000 (CHECK): el hash vive en `kiosko_tokens`.
+  // migr 0007.
   kiosk_token: string | null;
   // migr 0008.
   stripe_terminal_reader_id: string | null;
@@ -1445,6 +1445,8 @@ export interface RowSustitucionContactos {
   token: string | null;
   enviado_en: string | null;
   respondido_en: string | null;
+  // migr 20260914110100.
+  token_hash: string | null;
 }
 
 export interface RowValoraciones {
@@ -2805,5 +2807,11 @@ export interface RowCicloEstudiosVencidos {
   cancelada_en: string | null;
   resumen: any;
   creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowKioskoTokens {
+  studio_id: string;
+  token_hash: string;
   actualizado_en: string;
 }

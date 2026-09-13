@@ -17,8 +17,9 @@
 --    (20260910171150), así que aquí el REVOKE por columna SÍ resta.
 -- 2) INSERT (alta desde el cliente, grant de TABLA) y cualquier concesión futura
 --    de UPDATE: un trigger con el mismo patrón que
---    `studios_cuenta_cobro_solo_servidor` (20260913131051) — petición de usuario:
---    el INSERT arranca sin dominios y un UPDATE que los cambie falla.
+--    `studios_cuenta_cobro_solo_servidor` (20260913131051) — si no llama el
+--    servidor (`public.es_llamada_servicio()`, 20260914100000; nunca «uid
+--    nulo»), el INSERT arranca sin dominios y un UPDATE que los cambie falla.
 
 revoke update (widget_dominios_autorizados) on public.studios from authenticated;
 revoke update (widget_dominios_autorizados) on public.studios from anon;
@@ -30,7 +31,9 @@ security invoker
 set search_path = ''
 as $$
 begin
-  if auth.uid() is null then
+  -- Rama de servidor: quién llama (service_role o sesión de administración),
+  -- no «no hay usuario» (20260914100000, public.es_llamada_servicio()).
+  if public.es_llamada_servicio() then
     return new;
   end if;
 
