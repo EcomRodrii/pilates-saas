@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { Bono } from '@/lib/student/tipos';
 import type { DiaSemana } from '@/lib/student/ritmo';
+import { Icono } from '@/components/student/ui/Icono';
 
 // «TU RITMO» — una sola tarjeta, no tres.
 //
@@ -114,7 +115,7 @@ export function TuRitmo({ dias, racha, estaSemana, bono, hrefBono, hrefBonos, hr
         <p className="t-label">Tu ritmo esta semana</p>
         {/* La racha solo aparece si existe: «🔥 0 sem.» no motiva a nadie. */}
         {racha > 0 ? (
-          <p className="t-num t-dim no-shrink" style={{ fontSize: 'var(--t-meta)', fontWeight: 700 }}>🔥 {racha} sem.</p>
+          <p className="t-num t-dim no-shrink" style={{ fontSize: 'var(--t-meta)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}><Icono nombre="racha" tamano={14} />{racha} sem.</p>
         ) : (
           // Sin racha que enseñar, el hueco lo ocupa la salida al calendario:
           // la tira de siete días es justo desde donde se quiere mirar el mes.

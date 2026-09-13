@@ -248,7 +248,7 @@ export default function MisReservasPage() {
                           ? '¡Plaza libre!'
                           : espera
                             ? `Lista de espera${r.posicionEspera ? ` · ${r.posicionEspera}ª` : ''}`
-                            : 'Confirmada ✓'}
+                            : 'Reservada ✓'}
                       </Badge>
                       )}
                     </div>

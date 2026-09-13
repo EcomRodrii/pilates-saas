@@ -2,13 +2,16 @@
 import Link from 'next/link';
 import type { Notificacion } from '@/lib/student/tipos';
 import { relativo } from '@/lib/student/formato';
+import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
 // El icono es lo único que distingue un aviso de otro: el disco no cambia de
 // color, así que un emoji equivocado es TODA la señal equivocada.
-const ICO: Record<Notificacion['tipo'], string> = { 'plaza-liberada': '🎉', recordatorio: '⏰', bono: '🎟', estudio: '📣', valorar: '⭐', atencion: '⚠️' };
+// Iconos del set y no emoji: el emoji traía su paleta a todo color y cada
+// móvil lo dibuja distinto.
+const ICO: Record<Notificacion['tipo'], NombreIcono> = { 'plaza-liberada': 'plaza', recordatorio: 'campana', bono: 'bono', estudio: 'megafono', valorar: 'estrella', atencion: 'alerta' };
 export function NotificationItem({ n, delay = 0 }: { n: Notificacion; delay?: number }) {
   const inner = (
     <>
-      <span aria-hidden style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 999, background: n.leida ? 'var(--muted)' : 'var(--accent-soft)', fontSize: 'var(--t-h3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{ICO[n.tipo]}</span>
+      <span aria-hidden style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 999, background: n.leida ? 'var(--muted)' : 'var(--card)', color: n.leida ? 'var(--muted-foreground)' : 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icono nombre={ICO[n.tipo]} tamano={18} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: n.leida ? 700 : 800, lineHeight: 1.35 }}>{n.titulo}</p>
         <p className="t-meta" style={{ marginTop: 2, lineHeight: 1.45 }}>{n.cuerpo}</p>

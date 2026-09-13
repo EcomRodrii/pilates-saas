@@ -53,9 +53,11 @@ test('ningún <path> fuera del set de iconos', () => {
 });
 
 test('ningún carácter haciendo de icono', () => {
-  // Solo, entre etiquetas o como literal suelto: `>←<`, `'✓'`. Una flecha
-  // DENTRO de un texto («Ver horario →») es tipografía y no se toca.
-  const glifo = /(>\s*[←→‹›✓×]\s*<)|(['"][←‹›✓×]['"])/;
+  // Solo, entre etiquetas o como literal suelto: `>←<`, `'✓'`, `'📡'`. Una
+  // flecha o un emoji DENTRO de un texto («Ver horario →», «🎁 Una es tu
+  // recompensa») es tipografía y no se toca. Los emoji que el ESTUDIO pone a
+  // sus logros y recompensas son datos, no literales, y tampoco los mira.
+  const glifo = /(>\s*([←→‹›✓×★✎♥♡⚠+]|\p{Extended_Pictographic})️?\s*<)|(['"]([←‹›✓×★✎♥♡⚠]|\p{Extended_Pictographic})️?['"])/u;
   const fuera = ficheros.filter((f) => glifo.test(f.codigo)).map((f) => `${f.ruta}: ${f.codigo.match(glifo)?.[0].trim()}`);
   assert.deepEqual(fuera, []);
 });

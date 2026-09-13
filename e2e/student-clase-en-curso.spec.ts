@@ -142,6 +142,6 @@ test.describe('Student PWA · la clase que se está dando ahora', () => {
     await page.goto(`${base}/mis-reservas`);
 
     await expect(badgeEnCurso(page).first()).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Confirmada ✓')).toHaveCount(0);
+    await expect(page.getByText('Reservada ✓', { exact: true })).toHaveCount(0);
   });
 });

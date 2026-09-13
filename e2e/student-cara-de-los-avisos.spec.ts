@@ -12,21 +12,22 @@ import { SLUG, SOCIO_ID, sembrarSociaLista } from './socia-lista';
 // avisar de que no hay clase a la que despertarse.
 //
 // Se prueba en la PANTALLA porque el unitario cubre la decisión; esto comprueba
-// que la decisión llega hasta el emoji que se ve.
+// que la decisión llega hasta el icono que se ve. Desde que los emoji pasaron a
+// iconos del set, se lee el `data-icono` que pinta `Icono.tsx`.
 
 const base = `/portal/${SLUG}`;
 
-/** Eventos reales del catálogo, con el emoji que les toca. */
+/** Eventos reales del catálogo, con el icono que les toca. */
 const AVISOS: Array<{ id: string; eventType: string; category: string; title: string; icono: string }> = [
-  { id: 'n-lib', eventType: 'reserva.plaza_liberada', category: 'reservas', title: 'Se ha liberado una plaza', icono: '🎉' },
-  { id: 'n-can', eventType: 'reserva.cancelada', category: 'reservas', title: 'Tu reserva se ha cancelado', icono: '⚠️' },
-  { id: 'n-aba', eventType: 'reserva.abandonada', category: 'reservas', title: 'No terminaste tu reserva', icono: '⚠️' },
-  { id: 'n-rec', eventType: 'reserva.recordatorio_1h', category: 'reservas', title: 'Tu clase es dentro de 1 hora', icono: '⏰' },
-  { id: 'n-cla', eventType: 'clase.cancelada', category: 'clases', title: 'Se ha cancelado tu clase', icono: '⚠️' },
-  { id: 'n-pag', eventType: 'pago.fallido', category: 'pagos', title: 'No hemos podido cobrarte', icono: '⚠️' },
-  { id: 'n-bon', eventType: 'bono.por_caducar', category: 'pagos', title: 'Tu bono caduca pronto', icono: '🎟' },
-  { id: 'n-val', eventType: 'clase.valorar', category: 'reservas', title: '¿Qué tal la clase?', icono: '⭐' },
-  { id: 'n-com', eventType: 'comunidad.post_nuevo', category: 'mensajeria', title: 'Novedad en la comunidad', icono: '📣' },
+  { id: 'n-lib', eventType: 'reserva.plaza_liberada', category: 'reservas', title: 'Se ha liberado una plaza', icono: 'plaza' },
+  { id: 'n-can', eventType: 'reserva.cancelada', category: 'reservas', title: 'Tu reserva se ha cancelado', icono: 'alerta' },
+  { id: 'n-aba', eventType: 'reserva.abandonada', category: 'reservas', title: 'No terminaste tu reserva', icono: 'alerta' },
+  { id: 'n-rec', eventType: 'reserva.recordatorio_1h', category: 'reservas', title: 'Tu clase es dentro de 1 hora', icono: 'campana' },
+  { id: 'n-cla', eventType: 'clase.cancelada', category: 'clases', title: 'Se ha cancelado tu clase', icono: 'alerta' },
+  { id: 'n-pag', eventType: 'pago.fallido', category: 'pagos', title: 'No hemos podido cobrarte', icono: 'alerta' },
+  { id: 'n-bon', eventType: 'bono.por_caducar', category: 'pagos', title: 'Tu bono caduca pronto', icono: 'bono' },
+  { id: 'n-val', eventType: 'clase.valorar', category: 'reservas', title: '¿Qué tal la clase?', icono: 'estrella' },
+  { id: 'n-com', eventType: 'comunidad.post_nuevo', category: 'mensajeria', title: 'Novedad en la comunidad', icono: 'megafono' },
 ];
 
 async function montar(page: Page) {
@@ -44,6 +45,12 @@ async function montar(page: Page) {
   })));
 }
 
+/** El icono de la fila cuyo título es exactamente `titulo`. */
+async function iconoDe(page: Page, titulo: string) {
+  const fila = page.getByText(titulo, { exact: true }).locator('xpath=ancestor::*[self::a or self::div][1]/..');
+  return fila.first().locator('[data-icono]').first().getAttribute('data-icono');
+}
+
 test.describe('Student PWA · la cara de cada aviso', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 390, height: 844 } });
@@ -54,9 +61,7 @@ test.describe('Student PWA · la cara de cada aviso', () => {
     await expect(page.getByText('Tu reserva se ha cancelado')).toBeVisible({ timeout: 30_000 });
 
     for (const a of AVISOS) {
-      const fila = page.getByText(a.title, { exact: true }).locator('xpath=ancestor::*[self::a or self::div][1]/..');
-      const texto = await fila.first().innerText();
-      expect(texto, `«${a.title}» no lleva ${a.icono}`).toContain(a.icono);
+      expect(await iconoDe(page, a.title), `«${a.title}» no lleva ${a.icono}`).toBe(a.icono);
     }
   });
 
@@ -66,13 +71,11 @@ test.describe('Student PWA · la cara de cada aviso', () => {
     await expect(page.getByText('Tu reserva se ha cancelado')).toBeVisible({ timeout: 30_000 });
 
     for (const malo of ['Tu reserva se ha cancelado', 'No terminaste tu reserva', 'Se ha cancelado tu clase', 'No hemos podido cobrarte']) {
-      const fila = page.getByText(malo, { exact: true }).locator('xpath=ancestor::*[self::a or self::div][1]/..');
-      const texto = await fila.first().innerText();
-      expect(texto, `confeti encima de «${malo}»`).not.toContain('🎉');
-      expect(texto, `un despertador encima de «${malo}»`).not.toContain('⏰');
+      const icono = await iconoDe(page, malo);
+      expect(icono, `una plaza que se abre encima de «${malo}»`).not.toBe('plaza');
+      expect(icono, `un recordatorio encima de «${malo}»`).not.toBe('campana');
     }
-    // Y el 🎉 sigue existiendo donde sí toca: esto no es «quitar el confeti».
-    const buena = page.getByText('Se ha liberado una plaza', { exact: true }).locator('xpath=ancestor::*[self::a or self::div][1]/..');
-    expect(await buena.first().innerText()).toContain('🎉');
+    // Y la cara de buena noticia sigue existiendo donde sí toca.
+    expect(await iconoDe(page, 'Se ha liberado una plaza')).toBe('plaza');
   });
 });

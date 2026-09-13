@@ -205,7 +205,13 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
         />
       )}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-        <h3 style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800, letterSpacing: '-.01em' }}>{p.nombre}</h3>
+        {/* El resumen va DEBAJO DEL NOMBRE, en su columna. Suelto tras la fila
+            quedaba bajo la columna del precio, que con «12 €/clase» es más
+            alta: «8 clases» caía separado de su nombre por un hueco. */}
+        <div style={{ minWidth: 0 }}>
+          <h3 style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800, letterSpacing: '-.01em' }}>{p.nombre}</h3>
+          {resumen && <p className="t-meta" style={{ margin: '4px 0 0' }}>{resumen}</p>}
+        </div>
         <div style={{ flexShrink: 0, textAlign: 'right' }}>
           <p style={{ margin: 0, fontSize: 'var(--t-h3)', fontWeight: 800 }}>
             {euros(p.precio)}
@@ -226,7 +232,6 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
         </div>
       </div>
 
-      {resumen && <p className="t-meta" style={{ margin: '4px 0 0' }}>{resumen}</p>}
 
       {/* La restricción va ANTES del precio de decidir, no después de pagar:
           un bono acotado a un tipo de clase se rechaza al reservar cualquier

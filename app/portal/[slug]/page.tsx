@@ -208,7 +208,7 @@ export default function InicioPage() {
             // foto (ver su `marginTop` negativo), y con el bloque de texto
             // pegado abajo la píldora blanca le comía el borde inferior al
             // botón «Reservar clase».
-            position: 'absolute', left: 0, right: 0, bottom: 44, color: '#FAF9F5',
+            position: 'absolute', left: 0, right: 0, bottom: 44, color: 'var(--on-dark)',
             paddingTop: 34, paddingBottom: 4,
             // ⚠️ Sitio RESERVADO para el carril de la frase. Sin esto, medido en
             // el navegador: el saludo ocupaba de x=18 a x=375 y el carril de
@@ -248,7 +248,7 @@ export default function InicioPage() {
               vuelve a demostrar: sobre una imagen que sube cada estudio, atenuar
               es justo la herramienta que no controlamos. La jerarquía la marcan
               el tamaño y las versales. */}
-          <p className="t-label a-up" style={{ color: '#FAF9F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <p className="t-label a-up" style={{ color: 'var(--on-dark)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {estudio.nombre} · {fechaLarga(hoy)}
           </p>
           {/* ⚠️ La JERARQUÍA se invierte respecto a lo que había: el saludo pasa
@@ -274,7 +274,7 @@ export default function InicioPage() {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 14,
               height: 44, padding: '0 20px', borderRadius: 999,
-              background: '#FAF9F5', color: '#141410',
+              background: 'var(--on-dark)', color: 'var(--foreground)',
               fontSize: 'var(--t-small)', fontWeight: 800, animationDelay: '180ms',
             }}
           >

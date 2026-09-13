@@ -104,14 +104,14 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
             No se tapa con `overflow: hidden` en el header: se arregla donde
             está el problema — el logo se acota, el nombre puede encogerse y
             elidirse, y la campana no se comprime nunca. */}
-        <Link href={href()} aria-label={estudio.nombre} className="tap" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, color: flotando ? '#FAF9F5' : 'var(--foreground)' }}>
+        <Link href={href()} aria-label={estudio.nombre} className="tap" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, color: flotando ? 'var(--on-dark)' : 'var(--foreground)' }}>
           {estudio.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={urlServida(estudio.logoUrl, 132)} alt="" decoding="async" style={{ height: 26, maxWidth: 132, objectFit: 'contain', flexShrink: 0 }} />
           ) : (
             // Sin logo, monograma con la inicial — el diseño lo declara como
             // estado normal, no como respaldo de error (`logoUrl: null`).
-            <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 999, background: flotando ? 'rgba(250,249,245,.22)' : 'var(--accent)', color: flotando ? '#FAF9F5' : 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--t-meta)', fontWeight: 800 }}>
+            <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 999, background: flotando ? 'rgba(250,249,245,.22)' : 'var(--accent)', color: flotando ? 'var(--on-dark)' : 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--t-meta)', fontWeight: 800 }}>
               {inicialDe(estudio.nombre)}
             </span>
           )}
@@ -138,7 +138,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
           href={href('/notificaciones')}
           aria-label={'Notificaciones' + (noLeidas ? `, ${noLeidas} sin leer` : '')}
           className="tap tap--icono"
-          style={{ position: 'relative', width: 40, height: 40, flexShrink: 0, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid ' + (flotando ? 'rgba(255,255,255,.45)' : 'var(--border)'), background: flotando ? 'rgba(250,249,245,.22)' : 'var(--card)', color: flotando ? '#FAF9F5' : 'var(--foreground)' }}
+          style={{ position: 'relative', width: 40, height: 40, flexShrink: 0, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid ' + (flotando ? 'rgba(255,255,255,.45)' : 'var(--border)'), background: flotando ? 'rgba(250,249,245,.22)' : 'var(--card)', color: flotando ? 'var(--on-dark)' : 'var(--foreground)' }}
         >
           {/* La campana del mismo set que la barra de abajo (HugeIcons
               stroke-rounded), a 1.5 por el mismo motivo: a 2 se empasta el

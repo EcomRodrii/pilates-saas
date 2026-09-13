@@ -69,7 +69,7 @@ export function InstructorCard({ i, onClick, ancha = false, proxima }: {
               segunda línea vacía para que la tarjeta «tenga dos líneas». */}
           {(nota || i.especialidades.length > 0) && (
             <span className="t-meta trunc">
-              {nota && <><span style={{ color: 'var(--warning)' }}>★</span> {nota}</>}
+              {nota && <><Icono nombre="estrella" tamano={12} fill="var(--warning)" stroke="var(--warning)" style={{ verticalAlign: '-1px' }} /> {nota}</>}
               {nota && i.especialidades.length > 0 && ' · '}
               {i.especialidades.join(' · ')}
             </span>
@@ -94,7 +94,7 @@ export function InstructorCard({ i, onClick, ancha = false, proxima }: {
   return (
     <button type="button" onClick={onClick} className="card card--tap" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 9, padding: '6px 13px 6px 6px', borderRadius: 999, textAlign: 'left' }}>
       <Cara i={i} lado={32} />
-      <span style={{ fontSize: 'var(--t-small)', fontWeight: 700 }}>{i.nombre}{nota && <span style={{ color: 'var(--muted-foreground)' }}> · <span style={{ color: 'var(--warning)' }}>★</span> {nota}</span>}</span>
+      <span style={{ fontSize: 'var(--t-small)', fontWeight: 700 }}>{i.nombre}{nota && <span style={{ color: 'var(--muted-foreground)' }}> · <Icono nombre="estrella" tamano={12} fill="var(--warning)" stroke="var(--warning)" style={{ verticalAlign: '-1px' }} /> {nota}</span>}</span>
     </button>
   );
 }

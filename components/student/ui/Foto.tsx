@@ -54,7 +54,14 @@ export function Foto({ src, ancho, alto, prioritaria = false, sizes, style, clas
   // esa función, un objeto recién subido que aún no se ha propagado), se vuelve
   // a la URL original en vez de dejar un hueco. Una foto grande se ve; una foto
   // rota, no.
-  const [crudo, setCrudo] = useState(false);
+  //
+  // Y si la ORIGINAL también falla (el estudio borró la foto, un enlace
+  // caducado), el <img> se oculta: el navegador pintaba su icono de imagen
+  // rota encima del fondo de la tarjeta. El fallo se ata a `src`, así que una
+  // foto nueva vuelve a intentarse desde cero.
+  const [fallo, setFallo] = useState<{ src: string; nivel: 1 | 2 } | null>(null);
+  const nivel = fallo?.src === src ? fallo.nivel : 0;
+  const crudo = nivel >= 1;
   const srcSet = crudo ? undefined : (sizes ? srcSetPorAncho(src) : srcSetServido(src, ancho)) ?? undefined;
 
   return (
@@ -69,9 +76,9 @@ export function Foto({ src, ancho, alto, prioritaria = false, sizes, style, clas
       decoding="async"
       loading={prioritaria ? 'eager' : 'lazy'}
       fetchPriority={prioritaria ? 'high' : undefined}
-      onError={() => setCrudo(true)}
+      onError={() => setFallo({ src, nivel: crudo ? 2 : 1 })}
       className={className}
-      style={style}
+      style={nivel === 2 ? { ...style, visibility: 'hidden' } : style}
     />
   );
 }

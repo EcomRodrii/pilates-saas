@@ -41,7 +41,7 @@ function Tarjeta({ t, href, delay }: { t: TarjetaDescubre; href: (p: string) => 
           background: 'linear-gradient(to top, rgba(8,8,8,.78), rgba(8,8,8,.45) 46%, rgba(8,8,8,.12) 78%, rgba(8,8,8,.04))',
         }}
       />
-      <span style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4, padding: 13, marginTop: 'auto', color: '#FAF9F5' }}>
+      <span style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4, padding: 13, marginTop: 'auto', color: 'var(--on-dark)' }}>
         {t.titulo && (
           <span style={{ fontSize: 'var(--t-small)', fontWeight: 800, letterSpacing: '-.015em', lineHeight: 1.2 }}>{t.titulo}</span>
         )}

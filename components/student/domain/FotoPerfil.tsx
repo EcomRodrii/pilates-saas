@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { subirFoto, quitarFoto } from '@/lib/student/foto-perfil';
 import { motivoFotoInvalida } from '@/lib/foto-perfil-regla';
 import { Button } from '@/components/student/ui/Button';
+import { Icono } from '@/components/student/ui/Icono';
 
 // La foto de perfil de la alumna.
 //
@@ -104,12 +105,12 @@ export function FotoPerfil({ studioId, url, iniciales, onCambio }: {
           style={{
             position: 'absolute', right: 0, bottom: 0, width: 30, height: 30,
             borderRadius: 'var(--radius-pill)', background: 'var(--primary)',
-            color: 'var(--primary-foreground)', fontSize: 'var(--t-small)',
+            color: 'var(--primary-foreground)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: '2px solid var(--background)',
           }}
         >
-          ✎
+          <Icono nombre="editar" tamano={16} grosor={2} />
         </span>
       </button>
 
