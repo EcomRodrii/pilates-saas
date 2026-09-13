@@ -18,6 +18,10 @@ import { SLUG, STUDIO_ID, SOCIO_ID, SESION_ID, fixtureSociaLista, sembrarSociaLi
 //
 // Se prueba en la PANTALLA porque el unitario (`lib/student/como-se-paga.ts`)
 // solo cubre la decisión: lo que fallaba era el sitio donde se pinta.
+//
+// ⚠️ La marca ya no es un carácter («✓», «×») sino un icono del set, así que se
+// lee su `data-icono`. Comprobar que el texto NO contiene «✓» habría seguido
+// pasando — ahora no hay carácter ninguno — sin probar nada.
 
 const base = `/portal/${SLUG}`;
 
@@ -81,7 +85,7 @@ test.describe('Student PWA · hoja de confirmar la reserva', () => {
     const aviso = await abrirHoja(page);
     await expect(aviso).toHaveAttribute('data-tono', 'bloqueo');
     await expect(aviso).toContainText('solo se reserva con bono');
-    expect(await aviso.innerText(), 'un ✓ encima de «no puedes reservar esto»').not.toContain('✓');
+    await expect(aviso.locator('[data-icono]'), 'un ✓ encima de «no puedes reservar esto»').toHaveAttribute('data-icono', 'cerrar');
   });
 
   test('«vas a pagar 18 €» avisa, no felicita', async ({ page }) => {
@@ -89,7 +93,7 @@ test.describe('Student PWA · hoja de confirmar la reserva', () => {
     const aviso = await abrirHoja(page);
     await expect(aviso).toHaveAttribute('data-tono', 'coste');
     await expect(aviso).toContainText('18 €');
-    expect(await aviso.innerText()).not.toContain('✓');
+    await expect(aviso.locator('[data-icono]')).toHaveAttribute('data-icono', 'aviso');
   });
 
   test('y con bono que cubre sí es buena noticia, con su ✓', async ({ page }) => {
@@ -97,7 +101,7 @@ test.describe('Student PWA · hoja de confirmar la reserva', () => {
     const aviso = await abrirHoja(page);
     await expect(aviso).toHaveAttribute('data-tono', 'ok');
     await expect(aviso).toContainText('No pagas nada hoy');
-    expect(await aviso.innerText()).toContain('✓');
+    await expect(aviso.locator('[data-icono]')).toHaveAttribute('data-icono', 'hecho');
   });
 
   test('la promesa de cancelación cita la ventana DEL TIPO de clase', async ({ page }) => {
