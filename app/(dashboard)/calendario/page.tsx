@@ -785,11 +785,16 @@ export default function Calendario() {
     const faltan: string[] = [];
     if (!form.tipoClaseId) faltan.push(tiposClase.length === 0 ? 'un tipo de clase' : 'elegir el tipo de clase');
     if (!form.salaId) faltan.push(salas.length === 0 ? 'una sala' : 'elegir la sala');
-    if (!form.instructorId) faltan.push(instructores.length === 0 ? 'una instructora' : 'elegir la instructora');
+    // La instructora solo se exige al CREAR. El horario propuesto deja clases
+    // «Sin instructora» y, al editar una para cambiarle la sala, el formulario
+    // obligaba a elegir instructora antes de dejar guardar (evaluación del
+    // 13-sep). Editar guarda el mismo `instructorId` que ya tenía la clase.
+    const exigeInstructora = showForm === 'nueva';
+    if (!form.instructorId && exigeInstructora) faltan.push(instructores.length === 0 ? 'una instructora' : 'elegir la instructora');
     if (faltan.length === 0) return null;
     const sinCrear = (!form.tipoClaseId && tiposClase.length === 0)
       || (!form.salaId && salas.length === 0)
-      || (!form.instructorId && instructores.length === 0);
+      || (!form.instructorId && exigeInstructora && instructores.length === 0);
     return { faltan, sinCrear };
   }, [showForm, form.tipoClaseId, form.salaId, form.instructorId, tiposClase.length, salas.length, instructores.length]);
 
@@ -3206,7 +3211,7 @@ export default function Calendario() {
               <FormField label="Instructora">
                 <select className={selectCls} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
                   {!form.instructorId && (
-                    <option value="">{instructoresForm.length ? 'Elige una instructora' : 'Todavía no tienes instructoras'}</option>
+                    <option value="">{!instructoresForm.length ? 'Todavía no tienes instructoras' : showForm === 'editar' ? 'Sin instructora' : 'Elige una instructora'}</option>
                   )}
                   {instructoresForm.map(i => { const au = ausenciaEnFecha(ausencias, i.id, form.fecha || new Date()); return <option key={i.id} value={i.id}>{i.nombre}{i.activo ? '' : ' · ya no está en el equipo'}{sufijoAusencia(au)}</option>; })}
                 </select>
