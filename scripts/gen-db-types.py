@@ -133,6 +133,10 @@ TIPOS_MANUALES = {
     # `string` a secas.
     ('red_resenas', 'solicitud_id'): 'string | null',
     ('red_resenas', 'perfil_id'): 'string | null',
+    # Ídem, migr 20260913170000: pasan a ON DELETE SET NULL hacia auth.users
+    # para que borrar la cuenta de una socia suprimida no falle con 23503.
+    ('mensajes', 'remitente_auth_user_id'): 'string | null',
+    ('documentos_socio', 'subido_por'): 'string | null',
 }
 for (tabla, col), ts in TIPOS_MANUALES.items():
     if tabla in tables and col in tables[tabla]:

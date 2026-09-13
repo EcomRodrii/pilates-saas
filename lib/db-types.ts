@@ -2500,7 +2500,7 @@ export interface RowMensajes {
   id: string;
   conversacion_id: string;
   studio_id: string;
-  remitente_auth_user_id: string;
+  remitente_auth_user_id: string | null;
   cuerpo: string;
   creado_en: string;
 }
@@ -2512,7 +2512,7 @@ export interface RowDocumentosSocio {
   categoria: string;
   titulo: string;
   storage_path: string;
-  subido_por: string;
+  subido_por: string | null;
   caduca_en: string | null;
   creado_en: string;
   borrado_en: string | null;
@@ -2742,4 +2742,17 @@ export interface RowMatriculaCupoLiberaciones {
   plan_id: string;
   studio_id: string;
   liberado_en: string;
+}
+
+export interface RowSupresiones {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  auth_user_id: string | null;
+  solicitada_en: string;
+  ejecutada_en: string | null;
+  ejecutada_por: string | null;
+  origen: string;
+  terceros_pendientes: any;
+  reaplicada_en: string | null;
 }
