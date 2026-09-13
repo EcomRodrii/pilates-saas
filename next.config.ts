@@ -53,8 +53,7 @@ const nextConfig: NextConfig = {
   // script servido desde otro origen (CDN, dominio de assets) y solo entrega
   // un `Script error.` vacío a `window.onerror` — sin fichero, línea ni pila.
   // Con el atributo, el próximo error cruzado llega con la pila real. Mismo
-  // motivo por el que `descartarScriptErrorOpaco` filtra ese ruido en
-  // lib/posthog-cliente.ts.
+  // motivo por el que `ignoreErrors` filtra ese ruido en lib/sentry-cliente.ts.
   crossOrigin: 'anonymous',
   // URL limpia para el origen dedicado de temas ZIP publicados
   // (`imports.tentare.app/<slug>` en vez de `/tema-publicado/<slug>`). Esto
