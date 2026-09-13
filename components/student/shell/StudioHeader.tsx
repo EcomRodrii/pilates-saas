@@ -161,7 +161,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
           <Link
             href={href('/perfil')}
             aria-label={`Tu perfil, ${socia.nombre}`}
-            className="tap"
+            className="tap tap--icono"
             style={{
               display: 'flex', width: 34, height: 34, flexShrink: 0, borderRadius: 999,
               // El aro despega la foto de lo que haya detrás: sobre el héroe es
