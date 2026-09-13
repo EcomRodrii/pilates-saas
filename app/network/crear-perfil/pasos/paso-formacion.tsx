@@ -58,7 +58,13 @@ export function PasoFormacion({
             <EstadoDocumento estado={c.estado} motivo={c.motivoRechazo} />
           </div>
           {c.estado === 'rechazado' && (
-            <button type="button" onClick={async () => { await eliminarCertificacionNetwork(c.id); setCertificaciones(certificaciones.filter(x => x.id !== c.id)); setAbierto(true); }} className="mt-2 text-[12.5px] font-semibold underline" style={{ color: NW_TINTA }}>
+            <button type="button" onClick={async () => {
+              // Solo se quita la tarjeta si el servidor confirmó el borrado: antes
+              // se quitaba siempre, y el DELETE de una rechazada fallaba en silencio.
+              const res = await eliminarCertificacionNetwork(c.id);
+              if (!res.ok) { setErrorLocal(res.error ?? 'No se ha podido retirar la certificación.'); return; }
+              setCertificaciones(certificaciones.filter(x => x.id !== c.id)); setAbierto(true);
+            }} className="mt-2 text-[12.5px] font-semibold underline" style={{ color: NW_TINTA }}>
               Volver a subir
             </button>
           )}

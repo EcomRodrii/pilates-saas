@@ -363,6 +363,9 @@ interface FilaResolucion {
   perfilId: string | null; perfilNombre: string; perfilSlug: string | null;
   /** Solo aplica a la cola de identidad (DNI/NIE) — ausente en certificaciones. */
   tieneReverso?: boolean;
+  /** false una vez resuelta: el documento se borra del Storage (minimización). */
+  tieneDocumento?: boolean;
+  documentoBorradoEn?: string | null;
 }
 
 function ColaResolucion<T extends FilaResolucion>({
@@ -406,9 +409,15 @@ function ColaResolucion<T extends FilaResolucion>({
               </p>
               {renderExtra?.(f)}
               <p className="text-[12px] text-muted-foreground mt-0.5">
-                {cuando(f.creadoEn)} · <BotonVerDocumento id={f.id} tipo={tipoDocumento} cara={tipoDocumento === 'identidad' ? 'anverso' : undefined} etiqueta={tipoDocumento === 'identidad' && f.tieneReverso ? 'Ver anverso' : undefined} />
-                {tipoDocumento === 'identidad' && f.tieneReverso && (
-                  <> · <BotonVerDocumento id={f.id} tipo="identidad" cara="reverso" etiqueta="Ver reverso" /></>
+                {cuando(f.creadoEn)} · {f.tieneDocumento === false ? (
+                  <span>Documento borrado tras resolver{f.documentoBorradoEn ? ` (${cuando(f.documentoBorradoEn)})` : ''}</span>
+                ) : (
+                  <>
+                    <BotonVerDocumento id={f.id} tipo={tipoDocumento} cara={tipoDocumento === 'identidad' ? 'anverso' : undefined} etiqueta={tipoDocumento === 'identidad' && f.tieneReverso ? 'Ver anverso' : undefined} />
+                    {tipoDocumento === 'identidad' && f.tieneReverso && (
+                      <> · <BotonVerDocumento id={f.id} tipo="identidad" cara="reverso" etiqueta="Ver reverso" /></>
+                    )}
+                  </>
                 )}
               </p>
               {f.estado === 'rechazado' && f.motivoRechazo && (

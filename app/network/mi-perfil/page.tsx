@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, Check, Loader2, Eye, EyeOff, ShieldAlert, Star } from 'lucide-react';
+import { Camera, Check, Loader2, Eye, EyeOff, ShieldAlert, Star, Trash2 } from 'lucide-react';
 import { Toast, useToast } from '@/components/ui/toast';
 import { SelectorChips } from '@/components/network/selector-chips';
 import { SeccionExperienciaNetwork } from '@/components/network/seccion-experiencia';
@@ -10,7 +10,7 @@ import { SeccionReferenciasNetwork } from '@/components/network/seccion-referenc
 import { SeccionPortfolioNetwork } from '@/components/network/seccion-portfolio';
 import { ListaBadgesNetwork } from '@/components/network/lista-badges';
 import { useAuth } from '@/lib/auth-context';
-import { fetchMiPerfilNetwork, guardarPerfilNetwork, cambiarEstadoPerfilNetwork } from '@/lib/api-client';
+import { fetchMiPerfilNetwork, guardarPerfilNetwork, cambiarEstadoPerfilNetwork, eliminarPerfilNetwork } from '@/lib/api-client';
 import { subirFotoPerfilNetwork, validarFotoPerfil } from '@/lib/portal-storage';
 import { fetchMisEstudios, type SedeSeleccionable } from '@/lib/supabase-data';
 import {
@@ -122,6 +122,10 @@ export default function MiPerfilNetworkPage() {
   const [referencias, setReferencias] = useState<ReferenciaNetwork[]>([]);
   const [sedesActuales, setSedesActuales] = useState<SedeSeleccionable[]>([]);
   const [cargandoSedes, setCargandoSedes] = useState(true);
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [borrando, setBorrando] = useState(false);
+  const [errorBorrado, setErrorBorrado] = useState('');
+  const [eliminado, setEliminado] = useState(false);
 
   useEffect(() => {
     if (!cargandoSesion && !user) router.replace('/network/acceso');
@@ -151,6 +155,25 @@ export default function MiPerfilNetworkPage() {
     identidadVerificada: identidadVerificada(perfil?.identidadVerificadaEn ?? null),
     activaRecientemente: activaRecientemente(perfil?.ultimoAccesoEn ?? null, new Date()),
   }), [user, experiencias, referencias, perfil]);
+
+  if (eliminado) {
+    return (
+      <div className="max-w-lg mx-auto py-16 text-center">
+        <h1 className="text-[22px] font-extrabold mb-2" style={{ color: NW_TINTA }}>Tu perfil se ha eliminado</h1>
+        <p className="text-[14px] mb-6" style={{ color: NW_MUTED }}>
+          Hemos borrado tu perfil de Network, tus documentos y tus fotos. Tu cuenta de Tentare sigue activa.
+        </p>
+        <button
+          type="button"
+          onClick={() => { refetchShell(); router.replace('/network'); }}
+          className="px-5 py-2.5 rounded-full text-[13.5px] font-bold text-white"
+          style={{ background: NW_PRODUCTO }}
+        >
+          Ir a Tentare Network
+        </button>
+      </div>
+    );
+  }
 
   if (cargandoSesion || !user || cargando || !form || !perfil) {
     return (
@@ -216,6 +239,17 @@ export default function MiPerfilNetworkPage() {
     setPerfil(res.perfil);
     refetchShell();
     showToast('Foto actualizada');
+  }
+
+  // Supresión: solo se da por hecha si el servidor lo confirma. Si no, se
+  // enseña su mensaje tal cual (dice qué quedó sin borrar) y el perfil sigue.
+  async function eliminarPerfil() {
+    setErrorBorrado('');
+    setBorrando(true);
+    const res = await eliminarPerfilNetwork();
+    setBorrando(false);
+    if (!res.ok) { setErrorBorrado(res.error); return; }
+    setEliminado(true);
   }
 
   const estadoLabel = perfil.estado === 'published' ? 'Publicado'
@@ -486,6 +520,52 @@ export default function MiPerfilNetworkPage() {
               )}
               {perfil.estado === 'suspended' && <ShieldAlert size={18} style={{ color: '#A04A3C' }} className="shrink-0 mt-0.5" />}
             </div>
+          </div>
+
+          {/* Eliminar perfil — supresión a petición de la titular */}
+          <div className="rounded-2xl p-6" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
+            <TituloSeccion>Eliminar mi perfil</TituloSeccion>
+            <p className="text-[13px]" style={{ color: NW_MUTED }}>
+              Se borran para siempre tu perfil, tus documentos de identidad y certificados, tus fotos, tu experiencia,
+              referencias, reseñas, candidaturas y las conversaciones con estudios. Tu cuenta de Tentare no se borra:
+              si trabajas o reservas en un estudio, eso sigue igual.
+            </p>
+            {errorBorrado && <p role="alert" className="text-[12.5px] mt-2" style={{ color: '#A04A3C' }}>{errorBorrado}</p>}
+            {!confirmandoBorrado ? (
+              <button
+                type="button"
+                onClick={() => { setErrorBorrado(''); setConfirmandoBorrado(true); }}
+                className="mt-4 px-3.5 py-2 rounded-lg text-[12.5px] font-bold flex items-center gap-1.5 transition-opacity hover:opacity-90"
+                style={{ background: '#fff', border: '1px solid #A04A3C', color: '#A04A3C' }}
+              >
+                <Trash2 size={14} /> Eliminar mi perfil
+              </button>
+            ) : (
+              <div className="mt-4 rounded-xl p-4" style={{ background: NW_SAND }}>
+                <p className="text-[13px] font-bold mb-3" style={{ color: NW_TINTA }}>¿Seguro? Esto no se puede deshacer.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={eliminarPerfil}
+                    disabled={borrando}
+                    className="px-3.5 py-2 rounded-lg text-[12.5px] font-bold text-white flex items-center gap-1.5 disabled:opacity-60"
+                    style={{ background: '#A04A3C' }}
+                  >
+                    {borrando ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    {borrando ? 'Eliminando…' : 'Sí, eliminar definitivamente'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoBorrado(false)}
+                    disabled={borrando}
+                    className="px-3.5 py-2 rounded-lg text-[12.5px] font-bold disabled:opacity-60"
+                    style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

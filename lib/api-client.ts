@@ -2324,6 +2324,24 @@ export async function guardarPerfilNetwork(
   }
 }
 
+// Supresión del perfil a petición de su titular (DELETE /api/network/perfil).
+// `ok` SOLO si el servidor confirmó que borró documentos, foto y fila: con
+// cualquier otra respuesta se devuelve su mensaje, que dice qué quedó sin borrar.
+export async function eliminarPerfilNetwork(): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/perfil', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ confirmar: true }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!res.ok || data.ok !== true) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'No se ha podido eliminar tu perfil. Comprueba tu conexión; no se ha borrado nada.' };
+  }
+}
+
 // Fase 3: enviar a revisión/ocultar. Endpoint aparte de guardarPerfilNetwork
 // porque lleva su propia validación mínima (nombre + ciudad + especialidad)
 // — ver app/api/network/perfil/estado/route.ts. Nunca acepta 'published' ni

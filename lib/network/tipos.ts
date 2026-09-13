@@ -191,7 +191,14 @@ export type NuevaExperienciaNetwork = Pick<
 
 // Lo que ve un estudio en el perfil público de otra persona: sin `perfilId`
 // (identificador interno sin uso del lado cliente en ese contexto).
-export type ExperienciaNetworkPublica = Omit<ExperienciaNetwork, 'perfilId'>;
+export type ExperienciaNetworkPublica = Omit<ExperienciaNetwork, 'perfilId'> & {
+  /**
+   * Nombre REAL del estudio enlazado (`studios.nombre`). Con la experiencia
+   * `confirmada`, la ficha enseña este y no el texto libre `nombreEstudio`
+   * (ver `nombreEstudioVisible`, lib/network/verificacion-experiencia.ts).
+   */
+  estudioVerificadorNombre?: string | null;
+};
 
 // F1 "Actualmente en Tentare" — una sede real donde la instructora trabaja
 // HOY (JOIN instructores↔studios, no mis_estudios(): el detalle público
@@ -358,7 +365,8 @@ export interface VerificacionIdentidadNetwork {
   perfilId: string;
   estado: EstadoVerificacionDocumento;
   motivoRechazo: string | null;
-  documentoPath: string;
+  /** null una vez resuelta: la imagen se borra al aprobar o rechazar (CONSERVAR_DOCUMENTO_TRAS_VERIFICAR). */
+  documentoPath: string | null;
   /** Reverso — null si el tipo de documento es Pasaporte (sin reverso) o si es una fila histórica anterior a este campo. */
   documentoPathReverso: string | null;
   creadoEn: string;
@@ -377,7 +385,8 @@ export interface CertificacionNetwork {
   institucion: string;
   anio: number | null;
   duracion: string | null;
-  documentoPath: string;
+  /** null una vez resuelta (el certificado se borra al aprobar o rechazar). */
+  documentoPath: string | null;
   estado: EstadoVerificacionDocumento;
   motivoRechazo: string | null;
   creadoEn: string;

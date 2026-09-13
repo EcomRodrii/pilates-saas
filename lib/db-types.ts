@@ -2203,12 +2203,14 @@ export interface RowRedVerificacionesIdentidad {
   perfil_id: string;
   estado: string;
   motivo_rechazo: string | null;
-  documento_path: string;
+  documento_path: string | null;
   creado_en: string;
   resuelto_en: string | null;
   resuelto_por: string | null;
   // migr 20260819212346.
   documento_path_reverso: string | null;
+  // migr 20260913161000.
+  documento_borrado_en: string | null;
 }
 
 export interface RowRedCertificaciones {
@@ -2218,12 +2220,14 @@ export interface RowRedCertificaciones {
   institucion: string;
   anio: number | null;
   duracion: string | null;
-  documento_path: string;
+  documento_path: string | null;
   estado: string;
   motivo_rechazo: string | null;
   creado_en: string;
   resuelto_en: string | null;
   resuelto_por: string | null;
+  // migr 20260913161000.
+  documento_borrado_en: string | null;
 }
 
 export interface RowThemeImports {

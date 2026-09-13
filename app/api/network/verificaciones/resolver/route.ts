@@ -35,6 +35,9 @@ export async function POST(req: NextRequest) {
   if (errResolver) {
     if (errResolver.message?.includes('VERIFICACION_NO_ENCONTRADA')) return errorPeticion('Solicitud no encontrada.', 404);
     if (errResolver.message?.includes('YA_RESUELTA')) return errorPeticion('Esta solicitud ya se resolvió.');
+    // La experiencia es de la dueña del estudio o de quien la está aprobando:
+    // nadie confirma su propia experiencia (migr 20260913161400).
+    if (errResolver.message?.includes('AUTOVERIFICACION')) return errorPeticion('No puedes confirmar tu propia experiencia. Puedes rechazar la solicitud.', 403);
     return errorInterno('network:verificaciones:resolver', errResolver, 'No se ha podido resolver la solicitud.');
   }
   const resultado = (filas as { experiencia_id: string; perfil_auth_user_id: string; perfil_nombre: string; nombre_estudio: string }[] | null)?.[0];

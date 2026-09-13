@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
 import { mapFilaAVerificacionIdentidad, type FilaRedVerificacionIdentidad } from '@/lib/network/mapeo';
+import { limpiarHuerfanosTrasRegistrar } from '@/lib/network/documentos-servidor';
 
 // Paso 02 del wizard — solicitud de verificación de identidad por
 // documento. El documento en sí ya está subido al bucket privado
@@ -102,6 +103,12 @@ export async function POST(req: NextRequest) {
     .select(SELECT_COLUMNAS)
     .single();
   if (error) return errorInterno('network:verificacion-identidad:POST', error, 'No se ha podido enviar tu documento.');
+
+  // Una cara subida dos veces (la primera salía borrosa) dejaba la anterior
+  // en el bucket sin ninguna fila que la encontrara. Ya registrada la nueva,
+  // se borra lo que no referencia ninguna verificación de este perfil. Margen
+  // 0: solo hay una verificación viva y sus dos caras ya están en la fila.
+  await limpiarHuerfanosTrasRegistrar(admin, { authUserId: usuario.userId, perfilId, prefijo: 'identidad', margenMs: 0 });
 
   return NextResponse.json({ verificacion: mapFilaAVerificacionIdentidad(data as unknown as FilaRedVerificacionIdentidad) });
 }
