@@ -18,7 +18,10 @@
 
 import { useEffect } from 'react';
 import { useParams, usePathname } from 'next/navigation';
-import * as Sentry from '@sentry/nextjs';
+// Por `lib/sentry-cliente` y no `@sentry/nextjs` directo: este boundary se carga
+// con TODAS las pantallas del portal, y un import estático del SDK metía ~20 KB
+// comprimidos en el camino crítico, anulando la carga diferida de Sentry.
+import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { Icono } from '@/components/student/ui/Icono';
 
 export default function ErrorPortalStudent({
@@ -31,7 +34,7 @@ export default function ErrorPortalStudent({
     // El contexto que hace depurable esto: qué operación y qué estudio, sin
     // PII de la alumna. `digest` es el identificador que Next enseña en
     // producción, y sin él un informe de Sentry no se puede cruzar con el log.
-    Sentry.captureException(error, {
+    capturarExcepcion(error, {
       // ⚠️ Nada de PII. El slug es PÚBLICO (va en la URL que cualquiera puede
       // ver) y es lo que permite saber a QUÉ estudio le está pasando; el email
       // o el id de la socia no añadirían nada que no se pueda cruzar por el
