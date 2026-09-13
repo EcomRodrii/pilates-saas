@@ -98,6 +98,10 @@ function formatHora(iso: string) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+// Las notas de sesión son dato de salud: la RLS de `notas_progreso` y la ruta de
+// IA exigen el consentimiento de salud vigente de la socia.
+const SIN_CONSENTIMIENTO_SALUD = 'Registra primero el consentimiento de salud de esta clienta.';
+
 const inputCls = "w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-foreground transition-colors";
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
@@ -641,6 +645,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
   async function handleAiNote() {
     if (!aiNoteText.trim()) return;
+    // Mismo gate que la RLS de `notas_progreso` y que la ruta de IA: sin
+    // consentimiento de salud vigente el servidor dirá que no, así que se
+    // explica antes en vez de dejar que el guardado falle con un «sin permiso».
+    if (!socio?.consentimientoSalud) { setToast(SIN_CONSENTIMIENTO_SALUD); return; }
     setAiLoading(true);
     setAiResult(null);
     try {
@@ -650,8 +658,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
         instructorId: yo?.id ?? instructores[0]?.id ?? '',
       });
       setAiResult(resultado);
-    } catch {
-      setToast('Error al procesar con IA');
+    } catch (err) {
+      setToast(err instanceof Error && err.message ? err.message : 'Error al procesar con IA');
     } finally {
       setAiLoading(false);
     }
@@ -659,6 +667,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
   async function handleSaveAiNote() {
     if (!aiResult) return;
+    if (!socio?.consentimientoSalud) { setToast(SIN_CONSENTIMIENTO_SALUD); return; }
     const res = await addNotaProgreso({
       socioId: id,
       instructorId: yo?.id ?? instructores[0]?.id ?? '',
@@ -1103,10 +1112,15 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     <p className="text-xs text-muted-foreground mb-3">
                       Dicta o escribe lo que pasó en la sesión. La IA estructura automáticamente la nota de progreso.
                     </p>
+                    {!socio?.consentimientoSalud && (
+                      <p role="alert" className="text-xs font-semibold text-warning mb-3">
+                        {SIN_CONSENTIMIENTO_SALUD} Hasta entonces no se pueden crear ni consultar sus notas de sesión.
+                      </p>
+                    )}
                     <div className="rounded-xl border border-border overflow-hidden focus-within:border-foreground transition-colors mb-3">
                       <textarea
                         rows={3}
-                        placeholder='Ej: "Laura estuvo bien hoy, mejoró la alineación en el rollup. Sigue con tensión cervical. La próxima sesión trabajaremos la movilidad torácica. Le mando ejercicios de respiración para casa."'
+                        placeholder='Ej: "Hoy mejoró la alineación en el roll-up. Sigue con tensión cervical. Próxima sesión: movilidad torácica. Ejercicios de respiración para casa."'
                         value={aiNoteText}
                         onChange={e => setAiNoteText(e.target.value)}
                         disabled={speech.grabando}
@@ -1129,7 +1143,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       )}
                       <button
                         onClick={handleAiNote}
-                        disabled={aiLoading || speech.grabando || !aiNoteText.trim()}
+                        disabled={aiLoading || speech.grabando || !aiNoteText.trim() || !socio?.consentimientoSalud}
                         className="flex items-center gap-1.5 px-4 py-2 bg-brand text-brand-foreground rounded-xl text-xs font-bold hover:brightness-95 disabled:opacity-40 transition-colors"
                       >
                         {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}

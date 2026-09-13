@@ -516,7 +516,10 @@ export function mapSocio(r: FilaSocioPanel): Socio {
           ...(r.aceptacion_por ? { introducidaPor: r.aceptacion_por } : {}),
         }
       : undefined;
-  const consentimientoSalud = r.consentimiento_salud_fecha
+  // Vigente = dado y sin revocar, las mismas dos columnas que
+  // `tiene_consentimiento_salud` en SQL. Sin mirar la revocación, la UI ofrecía
+  // guardar datos de salud que la RLS iba a rechazar.
+  const consentimientoSalud = r.consentimiento_salud_fecha && !r.consentimiento_salud_revocado_en
     ? { fecha: r.consentimiento_salud_fecha, registradoPor: r.consentimiento_salud_registrado_por ?? '' }
     : undefined;
   // `texto` vacío a propósito, mismo motivo que aceptacionContrato.versionTexto
