@@ -147,8 +147,10 @@ test.describe('Un bono que solo vale para ciertas clases', () => {
 
     await page.getByRole('button', { name: 'Crear', exact: true }).click();
     await page.getByPlaceholder('Ej. Bono 4 clases').fill('Bono 10 Reformer');
-    await page.getByPlaceholder('0,00').first().fill('130');
-    await page.getByPlaceholder('4').fill('10');
+    // `exact`: `getByPlaceholder` es SUBCADENA, y «4» también casa con el
+    // «Ej. Bono 4 clases» del nombre (modo estricto → dos elementos).
+    await page.getByPlaceholder('0,00', { exact: true }).first().fill('130');
+    await page.getByPlaceholder('4', { exact: true }).fill('10');
 
     // Por defecto sirve para todas; acotarlo es una decisión explícita.
     await expect(page.getByRole('radio', { name: /Todas las clases/ })).toHaveAttribute('aria-checked', 'true');
