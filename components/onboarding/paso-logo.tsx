@@ -64,7 +64,7 @@ export function PasoLogo({
       <input
         ref={input}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        accept="image/png,image/jpeg,image/webp"
         onChange={(e) => { void elegir(e.target.files?.[0]); e.target.value = ''; }}
         style={{ display: 'none' }}
       />
@@ -108,7 +108,7 @@ export function PasoLogo({
               Elige tu logo
             </span>
             <span style={{ fontSize: 12, color: 'var(--valor-tenue)', textAlign: 'center', lineHeight: 1.45 }}>
-              PNG, JPG, WebP o SVG, hasta 2 MB.<br />Si tiene fondo transparente, mejor.
+              PNG, JPG o WebP, hasta 2 MB.<br />Si tienes tu logo en SVG, expórtalo como PNG con fondo transparente.
             </span>
           </>
         )}
