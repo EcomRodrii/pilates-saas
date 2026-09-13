@@ -438,7 +438,7 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // es el texto legal COMPLETO que aceptó, idéntico para todas las socias del
 // estudio, y solo lo necesita comparar la vigencia — no el panel, que se lo
 // comería en el payload de arranque de TODAS las pantallas.
-export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'consentimiento_salud_texto' | 'visible_en_clase'>;
+export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'consentimiento_salud_texto' | 'visible_en_clase' | 'excluir_de_perfilado'>;
 // `creado_en` fuera, igual que las otras dos: el panel no la pide en su select
 // ni la pinta — es para medir el embudo desde el servidor, no un dato de la
 // clase. Sin este Omit, añadir la columna volvía obligatoria en la fila a una

@@ -15,6 +15,7 @@ import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Icono } from '@/components/student/ui/Icono';
+import { MisDatos } from '@/components/student/domain/MisDatos';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -124,6 +125,8 @@ export default function PerfilPage() {
             { label: 'Logros y recompensas', href: href('/logros') },
           ]}
         />
+
+        <MisDatos slug={estudio.slug} nombreEstudio={estudio.nombre} />
 
         <ProfileSection
           titulo="Sesión"

@@ -210,6 +210,10 @@ export const EVENTOS = {
   CLASE_CREADA_POR_INSTRUCTOR: 'clase.creada_por_instructor',
   // Operativos de la dueña (antes escribían a la tabla legacy `notificaciones`)
   SALUD_REVISION: 'salud.revision_pendiente',
+  // RGPD: una alumna pide desde su app eliminar sus datos, o limitar/oponerse a
+  // su uso. El estudio es el responsable y tiene un plazo legal para responder
+  // (tabla `solicitudes_derechos`). Sin ningún dato de salud en el aviso.
+  SOLICITUD_DERECHOS: 'socia.solicitud_derechos',
   RIESGO_DEPENDENCIA: 'riesgo.dependencia',
   // Equipo: la instructora avisa de que no puede dar una clase.
   INSTRUCTORA_BAJA: 'instructora.baja',
@@ -383,6 +387,13 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.INSTRUCTORA_AUSENCIA]:  { category: 'sustituciones', priority: 'MEDIA', canales: [], audiencia: 'propietaria' },
   // Aviso interno de una automatización → al mostrador (dueña + recepción).
   [EVENTOS.AUTOMATIZACION_DISPARADA]: { category: 'sistema', priority: 'BAJA', canales: [], audiencia: 'mostrador' },
+  // Solicitud RGPD de una alumna → al mostrador (quien puede gestionar
+  // clientas: dueña, recepción y manager — el mismo trío que ve y resuelve la
+  // solicitud en el panel). CRÍTICA a propósito, y SOLO con EMAIL: el email
+  // de las preferencias viene apagado por defecto (`PREF_DEFECTO`), así que con
+  // ALTA el correo no saldría casi nunca, y aquí corre un plazo legal de 30
+  // días. Sin PUSH: no hay que actuar en el minuto, hay que no perderlo.
+  [EVENTOS.SOLICITUD_DERECHOS]: { category: 'sistema', priority: 'CRITICA', canales: ['EMAIL'], audiencia: 'mostrador' },
   // Stripe desconectado = se deja de cobrar. CRÍTICA: ignora preferencias y usa
   // todos los canales que declara (los no configurados → SKIPPED).
   [EVENTOS.SISTEMA_STRIPE_DESCONECTADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
@@ -912,6 +923,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: '{mensaje}',
     deepLink: (d: Datos) => `/clientas/${s(d.socioId)}?rev=${s(d.condId)}`,
   },
+  // A la ficha: es donde se ve la solicitud y donde se ejecuta o se rechaza.
+  ...paraRoles(EVENTOS.SOLICITUD_DERECHOS, ROLES_POR_AUDIENCIA.mostrador, {
+    title: 'Solicitud sobre datos personales',
+    body: '{socia} ha pedido {accion}. Tenéis hasta el {plazo} para responder desde su ficha.',
+    deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
+  }),
   [`${EVENTOS.RIESGO_DEPENDENCIA}#PROPIETARIO`]: {
     title: 'Riesgo de concentración alto',
     body: '{instructora} concentra el {porcentaje}% de tu facturación en alumnas cautivas. Si se va, ese ingreso está en riesgo.',
