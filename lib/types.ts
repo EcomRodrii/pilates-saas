@@ -1542,7 +1542,10 @@ export type TipoActividad =
   | 'DECISION_GESTIONADA'
   | 'SESION_REASIGNADA'
   // La propietaria cambió el email al que va el cierre (y el envío trimestral).
-  | 'GESTORIA_CAMBIADA';
+  | 'GESTORIA_CAMBIADA'
+  // Cambio de la cuenta donde entra el dinero (Stripe Connect o datos SEPA).
+  // Lo escriben solo rutas de servidor.
+  | 'CUENTA_COBRO_CAMBIADA';
 
 export interface ActividadReciente {
   id: string;

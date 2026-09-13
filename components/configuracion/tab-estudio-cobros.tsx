@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
+import { authHeader } from '@/lib/api-client';
+import type { DatosSepa } from '@/lib/billing/cuenta-cobro';
 import { Toggle, inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 type SepaForm = { sepaAcreedorId: string; sepaIban: string; sepaTitular: string };
@@ -17,8 +19,9 @@ function studioToSepa(s: Studio | null): SepaForm {
 }
 
 export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, updateStudio } = useStudio();
+  const { studio, reflejarStudioGuardado } = useStudio();
   const [form, setForm] = useState<SepaForm>(() => studioToSepa(studio));
+  const [guardando, setGuardando] = useState(false);
 
   const [studioAnterior, setStudioAnterior] = useState(studio);
   if (studio !== studioAnterior) {
@@ -26,13 +29,27 @@ export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void
     setForm(studioToSepa(studio));
   }
 
+  // Los datos SEPA son la cuenta donde entra el dinero de la remesa: los valida
+  // y guarda el servidor (solo la dueña), y aquí se pinta lo que devolvió ya
+  // normalizado — nunca lo que se tecleó.
   async function guardarSepa() {
-    const res = await updateStudio({
-      sepaAcreedorId: form.sepaAcreedorId.trim() || null,
-      sepaIban: form.sepaIban.replace(/\s+/g, '').toUpperCase() || null,
-      sepaTitular: form.sepaTitular.trim() || null,
-    });
-    showToast(res.ok ? 'Datos SEPA guardados' : res.error);
+    if (guardando) return;
+    setGuardando(true);
+    try {
+      const res = await fetch('/api/estudio/sepa', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json().catch(() => null) as { datos?: DatosSepa; error?: string } | null;
+      if (!res.ok || !data?.datos) { showToast(data?.error ?? 'No se han podido guardar los datos SEPA'); return; }
+      reflejarStudioGuardado(data.datos);
+      showToast('Datos SEPA guardados');
+    } catch {
+      showToast('No se han podido guardar los datos SEPA. Revisa tu conexión.');
+    } finally {
+      setGuardando(false);
+    }
   }
 
   return (
@@ -54,8 +71,8 @@ export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void
             <input className={inputCls} value={form.sepaTitular} onChange={e => setForm(f => ({ ...f, sepaTitular: e.target.value }))} />
           </div>
         </div>
-        <button onClick={guardarSepa} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
-          Guardar datos SEPA
+        <button onClick={guardarSepa} disabled={guardando} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors disabled:opacity-60">
+          {guardando ? 'Guardando…' : 'Guardar datos SEPA'}
         </button>
       </div>
 
