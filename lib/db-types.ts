@@ -2756,19 +2756,6 @@ export interface RowMatriculaCupoLiberaciones {
   liberado_en: string;
 }
 
-export interface RowCicloEstudiosVencidos {
-  id: number;
-  studio_id: string;
-  trial_ends_at: string;
-  fase: string;
-  programada_para: string;
-  ejecutada_en: string | null;
-  cancelada_en: string | null;
-  resumen: any;
-  creado_en: string;
-  actualizado_en: string;
-}
-
 export interface RowSupresiones {
   id: string;
   studio_id: string;
@@ -2806,4 +2793,17 @@ export interface RowConsentimientosSaludEventos {
   firma: string | null;
   actor_uid: string | null;
   actor_rol: string | null;
+}
+
+export interface RowCicloEstudiosVencidos {
+  id: number;
+  studio_id: string;
+  trial_ends_at: string;
+  fase: string;
+  programada_para: string;
+  ejecutada_en: string | null;
+  cancelada_en: string | null;
+  resumen: any;
+  creado_en: string;
+  actualizado_en: string;
 }

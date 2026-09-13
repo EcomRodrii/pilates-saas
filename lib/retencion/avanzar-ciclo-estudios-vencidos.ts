@@ -9,7 +9,7 @@
 //
 // La lógica de fechas y fases es pura (ciclo-estudios-vencidos.ts). La guardia
 // que de verdad impide borrar un estudio que paga vive en la BD
-// (`purgar_estudio_vencido`, migr 20260913172100).
+// (`purgar_estudio_vencido`, migr 20260913220947).
 //
 // ⚠️ Borrado real SOLO con `PURGA_ESTUDIOS_VENCIDOS=activa` (pendiente de
 // validación legal). Sin ella, la fase de purga solo deja en `resumen` qué

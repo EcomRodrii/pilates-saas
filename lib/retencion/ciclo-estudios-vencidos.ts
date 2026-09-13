@@ -8,7 +8,7 @@
 //
 // Aquí solo fechas y la máquina de fases, sin BD, para poder probarlas. Quien
 // ejecuta es `avanzar-ciclo-estudios-vencidos.ts`; la guardia final vive en la
-// BD (`purgar_estudio_vencido`, migr 20260913172100).
+// BD (`purgar_estudio_vencido`, migr 20260913220947).
 //
 // ⚠️ Un aviso NUNCA se salta y un paso NUNCA se adelanta: si el cron no corrió
 // o un email no pudo salir, los pasos siguientes se corren para mantener los
