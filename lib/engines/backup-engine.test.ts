@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   crearSnapshot, BACKUP_TABLES, COLUMNAS_SOCIOS_QUE_NO_VUELVEN_ATRAS, TABLAS_ACTUALIZAR,
   TABLAS_FISCALES_SOLO_INSERTAR, planModosRestauracion, sociasAReanonimizar, type ReferenciaFk,
+  backupsAPodar, RETENCION_MANUAL_DIAS, type FilaBackupPoda,
 } from './backup-engine.ts';
 
 // ─── Restauración (C4 / R-1) ─────────────────────────────────────────────────
@@ -141,6 +142,32 @@ test('restaurar: la función es solo de service_role y lo comprueba al aplicarse
 });
 
 // ─── Copia (crearSnapshot) ───────────────────────────────────────────────────
+
+// ── Poda por FECHA de las copias manuales ──
+const AHORA = new Date('2026-10-10T12:00:00Z');
+const hace = (dias: number, id = `b-${dias}`): FilaBackupPoda =>
+  ({ id, creado_en: new Date(AHORA.getTime() - dias * 86_400_000).toISOString(), storage_key: `backups/s/${id}.json` });
+
+test('backupsAPodar: una MANUAL de más de 90 días se borra aunque no se llegue al tope de 100', () => {
+  assert.equal(RETENCION_MANUAL_DIAS, 90);
+  const ids = backupsAPodar([hace(1), hace(89), hace(91), hace(200)], 'MANUAL', AHORA).map(b => b.id);
+  assert.deepEqual(ids.sort(), ['b-200', 'b-91']);
+});
+
+test('backupsAPodar: la copia MANUAL sin storage_key (snapshot inline, anterior a R2) también caduca', () => {
+  const inline = { ...hace(95, 'inline'), storage_key: null };
+  assert.deepEqual(backupsAPodar([inline], 'MANUAL', AHORA).map(b => b.id), ['inline']);
+});
+
+test('backupsAPodar: las automáticas NO caducan por fecha, solo por número', () => {
+  assert.deepEqual(backupsAPodar([hace(400)], 'MENSUAL', AHORA), []);
+  const diarias = Array.from({ length: 16 }, (_, i) => hace(i));
+  assert.deepEqual(backupsAPodar(diarias, 'DIARIO', AHORA).map(b => b.id).sort(), ['b-14', 'b-15']);
+});
+
+test('backupsAPodar: una fecha ilegible no se borra por fecha', () => {
+  assert.deepEqual(backupsAPodar([{ id: 'x', creado_en: 'basura', storage_key: null }], 'MANUAL', AHORA), []);
+});
 
 // Simula lo que hace PostgREST de verdad: devolver como mucho `max_rows` filas
 // por petición (1000, supabase/config.toml:18) y hacerlo EN SILENCIO — sin

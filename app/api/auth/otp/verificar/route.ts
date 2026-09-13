@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
+import { claveRateLimit, enforceRateLimit, rateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 export const dynamic = 'force-dynamic';
@@ -71,8 +71,11 @@ export async function POST(req: NextRequest) {
   // respondió con éxito dos líneas arriba. Best-effort (nunca debe tumbar un
   // login que ya tuvo éxito): si falla, el peor caso es que el cerrojo viejo
   // siga en pie unos minutos más para un email que ya no lo necesita.
+  // La fila se guarda con la clave opaca (HMAC), no con el email en claro: hay
+  // que recomponerla igual que la compuso `rateLimit` o el DELETE no toca nada.
   const admin = getSupabaseAdmin();
-  if (admin) await admin.from('rate_limits').delete().eq('bucket_key', `otp-verify-email:${email}`);
+  const claveCerrojo = await claveRateLimit(`otp-verify-email:${email}`);
+  if (admin && claveCerrojo) await admin.from('rate_limits').delete().eq('bucket_key', claveCerrojo);
 
   // Solo lo estrictamente necesario para que el navegador rehidrate la
   // sesión con `setSession()` — nunca se registra el token en logs (Next.js
