@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { Icono } from '@/components/student/ui/Icono';
 export function ProfileSection({ titulo, items }: { titulo: string; items: { label: string; href?: string; onClick?: () => void; valor?: string; destructivo?: boolean }[] }) {
   return (
     <section>
@@ -7,7 +8,7 @@ export function ProfileSection({ titulo, items }: { titulo: string; items: { lab
       <div className="card" style={{ overflow: 'hidden' }}>
         {items.map((it, i) => {
           const st: React.CSSProperties = { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 15px', minHeight: 48, border: 'none', borderBottom: i < items.length - 1 ? '1px solid var(--muted)' : 'none', background: 'none', fontSize: 'var(--t-small)', fontWeight: 700, color: it.destructivo ? 'var(--destructive)' : 'var(--foreground)', textAlign: 'left' };
-          const inner = <><span>{it.label}</span><span style={{ color: 'var(--subtle-foreground)', fontSize: 'var(--t-small)', fontWeight: 600, display: 'flex', gap: 8 }}>{it.valor}<span aria-hidden>›</span></span></>;
+          const inner = <><span>{it.label}</span><span style={{ color: 'var(--subtle-foreground)', fontSize: 'var(--t-small)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>{it.valor}<Icono nombre="chevron-derecha" tamano={18} style={{ flexShrink: 0 }} /></span></>;
           return it.href ? <Link key={it.label} href={it.href} style={st}>{inner}</Link> : <button key={it.label} type="button" onClick={it.onClick} style={st}>{inner}</button>;
         })}
       </div>

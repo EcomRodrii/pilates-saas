@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { alternarFavorito } from '@/lib/student/favoritos';
 import { useToast } from '@/components/student/ui/Toast';
+import { Icono } from '@/components/student/ui/Icono';
 
 // El corazón de la hoja de clase. Optimista —un corazón tiene que responder al
 // instante— pero se REVIERTE si el servidor dice que no: pintarlo marcado sin
@@ -50,16 +51,17 @@ export function FavoritoButton({ slug, studioId, tipoClaseId, marcada, onCambio,
       data-testid="favorito"
       style={{ width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', ...style }}
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden
-        fill={marcada ? 'var(--destructive, #c2410c)' : 'none'} stroke={marcada ? 'var(--destructive, #c2410c)' : 'var(--foreground)'} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round"
+      {/* El corazón de HugeIcons (Favourite), el mismo set y grosor que la
+          barra y las baldosas de Inicio: esto era el de Feather, con otra
+          silueta, y a un toque de distancia se veían dos corazones distintos. */}
+      <Icono nombre="favorito"
+        fill={marcada ? 'var(--destructive)' : 'none'} stroke={marcada ? 'var(--destructive)' : 'var(--foreground)'}
         onAnimationEnd={() => setLatiendo(false)}
         style={{
           transition: 'transform .25s var(--ease-spring)',
           transform: marcada ? 'scale(1.12)' : 'none',
           animation: latiendo ? 'apHeart .45s var(--ease-spring)' : undefined,
-        }}>
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-      </svg>
+        }} />
     </button>
   );
 }

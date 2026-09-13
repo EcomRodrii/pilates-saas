@@ -1,6 +1,7 @@
 import type { Instructora } from '@/lib/student/tipos';
 import { notaTexto } from '@/lib/student/instructora';
 import { esUrlImagenValida } from '@/lib/imagen-url';
+import { Icono } from '@/components/student/ui/Icono';
 
 /** El círculo con su foto, o sus iniciales si no la ha subido. */
 function Cara({ i, lado }: { i: Instructora; lado: number }) {
@@ -85,9 +86,7 @@ export function InstructorCard({ i, onClick, ancha = false, proxima }: {
             </span>
           )}
         </span>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--subtle-foreground)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>
-          <path d="M9 6l6 6-6 6" />
-        </svg>
+        <Icono nombre="chevron-derecha" tamano={18} stroke="var(--subtle-foreground)" style={{ flexShrink: 0 }} />
       </button>
     );
   }

@@ -7,6 +7,7 @@ import { getDescubre } from '@/lib/student/datos';
 import { hoyISO } from '@/lib/student/formato';
 import type { TarjetaDescubre } from '@/lib/student/descubre';
 import { Foto } from '@/components/student/ui/Foto';
+import { Icono } from '@/components/student/ui/Icono';
 
 // «Descubre» — la fila de tarjetas con foto que publica el estudio.
 //
@@ -59,7 +60,7 @@ function Tarjeta({ t, href, delay }: { t: TarjetaDescubre; href: (p: string) => 
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+            <Icono nombre="chevron-derecha" tamano={18} />
           </span>
         )}
       </span>
@@ -68,7 +69,7 @@ function Tarjeta({ t, href, delay }: { t: TarjetaDescubre; href: (p: string) => 
 
   const estilo = {
     position: 'relative' as const, display: 'flex', flexDirection: 'column' as const,
-    width: 172, height: 194, flexShrink: 0, borderRadius: 18, overflow: 'hidden',
+    width: 172, height: 194, flexShrink: 0, borderRadius: 'var(--radius-card)', overflow: 'hidden',
     background: '#0F0F0C', animationDelay: `${delay}ms`,
   };
 

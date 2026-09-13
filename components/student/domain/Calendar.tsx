@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { hoyISO } from '@/lib/student/formato';
+import { Icono } from '@/components/student/ui/Icono';
 /** Calendario mensual táctil: puntos = clases reservadas; el día seleccionado se resalta. */
 export function Calendar({ value, onChange, marcados }: { value: string; onChange: (iso: string) => void; marcados: string[] }) {
   const [cursor, setCursor] = useState(() => value.slice(0, 7));
@@ -17,9 +18,13 @@ export function Calendar({ value, onChange, marcados }: { value: string; onChang
   return (
     <div className="card" style={{ padding: '14px 14px 12px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <button type="button" aria-label="Mes anterior" onClick={() => mover(-1)} className="btn btn--ghost tap tap--icono" style={{ width: 36, height: 36, padding: 0 }}>‹</button>
+        <button type="button" aria-label="Mes anterior" onClick={() => mover(-1)} className="btn btn--ghost tap tap--icono" style={{ width: 36, height: 36, padding: 0 }}>
+          <Icono nombre="chevron-izquierda" tamano={18} />
+        </button>
         <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800 }}>{mes}</p>
-        <button type="button" aria-label="Mes siguiente" onClick={() => mover(1)} className="btn btn--ghost tap tap--icono" style={{ width: 36, height: 36, padding: 0 }}>›</button>
+        <button type="button" aria-label="Mes siguiente" onClick={() => mover(1)} className="btn btn--ghost tap tap--icono" style={{ width: 36, height: 36, padding: 0 }}>
+          <Icono nombre="chevron-derecha" tamano={18} />
+        </button>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
         {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => <span key={d} className="t-label" style={{ textAlign: 'center' }}>{d}</span>)}

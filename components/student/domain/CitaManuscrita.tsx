@@ -31,7 +31,7 @@ export function CitaManuscrita({ frase }: { frase: string | null }) {
     <section className="px a-up" style={{ marginTop: 14 }} data-testid="cita-manuscrita">
       <div
         style={{
-          borderRadius: 18,
+          borderRadius: 'var(--radius-card)',
           background: 'var(--accent)',
           color: 'var(--accent-foreground)',
           padding: '20px 22px',

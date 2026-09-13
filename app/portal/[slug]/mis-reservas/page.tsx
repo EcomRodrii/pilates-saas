@@ -233,7 +233,7 @@ export default function MisReservasPage() {
                     style={{
                       background: ofertaViva ? 'var(--warning-soft)' : espera ? 'var(--card)' : 'var(--accent-soft)',
                       border: `1px solid ${ofertaViva ? 'var(--warning)' : espera ? 'var(--border)' : 'transparent'}`,
-                      borderRadius: 17, padding: '13px 15px',
+                      borderRadius: 'var(--radius-card)', padding: '13px 15px',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -356,7 +356,7 @@ export default function MisReservasPage() {
           <div
             style={{
               background: aviso?.devolveriaCredito ? 'var(--accent-soft)' : 'var(--warning-soft)',
-              borderRadius: 14, padding: '11px 14px', marginTop: 13,
+              borderRadius: 'var(--radius-sm)', padding: '11px 14px', marginTop: 13,
             }}
           >
             <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: aviso?.devolveriaCredito ? 'var(--accent-soft-foreground)' : 'var(--warning-foreground)' }}>

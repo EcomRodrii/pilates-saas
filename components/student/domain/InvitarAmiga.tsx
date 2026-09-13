@@ -5,6 +5,7 @@ import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { enlaceInvitacion, textoInvitacion } from '@/lib/student/referido';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Invitar a una amiga.
 //
@@ -48,7 +49,7 @@ export function InvitarAmiga({ slug, socioId, nombreEstudio }: {
           <span className="t-card-title">Invita a una amiga</span>
           <span className="t-meta">Comparte {nombreEstudio} con quien quieras</span>
         </span>
-        <span aria-hidden className="t-dim no-shrink">→</span>
+        <Icono nombre="chevron-derecha" tamano={18} stroke="var(--subtle-foreground)" className="no-shrink" />
       </button>
 
       <Sheet open={abierta} onClose={() => setAbierta(false)} label="Invitar a una amiga">
