@@ -104,43 +104,53 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
   // el rol exige plan con Centro de Control (el riesgo lo calcula el motor de
   // decisiones). Meterla en `updateStudio` —un UPDATE del cliente contra la
   // RLS— la habría regalado a cualquier plan sin que se notara. Se queda con su
-  // endpoint, y por eso guarda al pulsar en vez de esperar al botón de abajo.
-  const [confirmacion, setConfirmacion] = useState<boolean | null>(null); // null = cargando
+  // endpoint: al pulsar «Guardar» se llama a él, nunca a `updateStudio`.
+  //
+  // Desde el 13-sep también espera al botón, como todo lo demás. Guardaba al
+  // pulsar, y con dos modelos en la misma tarjeta nadie sabía qué se había
+  // guardado (evaluación del 13-sep). Por eso lo guardado y lo elegido en
+  // pantalla van por separado.
+  const [confirmacionGuardada, setConfirmacionGuardada] = useState<boolean | null>(null); // null = cargando
+  const [confirmacion, setConfirmacion] = useState<boolean | null>(null);
   const [sinPlanConfirmacion, setSinPlanConfirmacion] = useState(false);
-  const [guardandoConfirmacion, setGuardandoConfirmacion] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   useEffect(() => {
     let vivo = true;
     obtenerConfirmacionRiesgo().then(r => {
       if (!vivo) return;
-      if ('activo' in r) { setConfirmacion(r.activo); return; }
+      if ('activo' in r) { setConfirmacionGuardada(r.activo); setConfirmacion(r.activo); return; }
       // Fallar en CERRADO para lo que se pinta: sin poder leerlo, se enseña
       // apagado y sin permitir tocarlo, nunca encendido por defecto.
+      setConfirmacionGuardada(false);
       setConfirmacion(false);
       setSinPlanConfirmacion(true);
     });
     return () => { vivo = false; };
   }, []);
 
-  async function cambiarConfirmacion(activo: boolean) {
-    const previo = confirmacion;
-    setConfirmacion(activo); // optimista
-    setGuardandoConfirmacion(true);
-    const r = await actualizarConfirmacionRiesgo(activo);
-    setGuardandoConfirmacion(false);
-    if ('error' in r) { setConfirmacion(previo); showToast(r.error); return; }
-    showToast(activo ? 'Se pedirá confirmación a quien tenga más riesgo de no venir' : 'Ya no se pedirá confirmación');
-  }
-
-  // Todo el formulario espera al botón salvo «Pedir confirmación…», que guarda
-  // al pulsar (ver arriba). Con los dos modelos en la misma tarjeta, quien
-  // tocaba un interruptor y salía creía haberlo guardado (evaluación del
-  // 13-sep): el botón va pegado abajo y dice si queda algo pendiente.
-  const hayCambios = JSON.stringify(pol) !== JSON.stringify(studioToPolitica(studio));
+  // Un solo botón para toda la tarjeta, pegado abajo, que dice si queda algo
+  // pendiente — incluido el interruptor de confirmación.
+  const cambiaPolitica = JSON.stringify(pol) !== JSON.stringify(studioToPolitica(studio));
+  const cambiaConfirmacion = confirmacion !== null && confirmacion !== confirmacionGuardada;
+  const hayCambios = cambiaPolitica || cambiaConfirmacion;
 
   async function guardarPolitica() {
-    if (ventanaImposible) return;
-    const res = await updateStudio(pol);
-    showToast(res.ok ? 'Política de reservas guardada' : res.error);
+    if (ventanaImposible || guardando) return;
+    setGuardando(true);
+    const errores: string[] = [];
+    if (cambiaPolitica) {
+      const res = await updateStudio(pol);
+      if (!res.ok) errores.push(res.error);
+    }
+    if (cambiaConfirmacion && confirmacion !== null) {
+      const r = await actualizarConfirmacionRiesgo(confirmacion);
+      // Si su endpoint dice que no, la pantalla se queda con «cambios sin
+      // guardar»: lo elegido no se da por guardado.
+      if ('error' in r) errores.push(r.error);
+      else setConfirmacionGuardada(confirmacion);
+    }
+    setGuardando(false);
+    showToast(errores.length ? errores.join(' · ') : 'Política de reservas guardada');
   }
 
   return (
@@ -345,8 +355,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
                 La víspera se le manda un email para que confirme que viene. Si no
                 confirma antes de la clase, se cancela su reserva y la plaza pasa a
                 la lista de espera. <strong className="font-semibold">No se le pide a todo el mundo</strong>: solo a
-                quien acumula faltas recientes, no a quien reserva y viene. Se
-                guarda al pulsar, no hace falta el botón de abajo.
+                quien acumula faltas recientes, no a quien reserva y viene.
               </span>
               {sinPlanConfirmacion && (
                 <span className="block text-[11px] text-muted-foreground mt-1">
@@ -357,8 +366,8 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             </span>
             <Toggle
               on={!!confirmacion}
-              onChange={v => { if (!sinPlanConfirmacion) void cambiarConfirmacion(v); }}
-              disabled={confirmacion === null || guardandoConfirmacion || sinPlanConfirmacion}
+              onChange={v => { if (!sinPlanConfirmacion) setConfirmacion(v); }}
+              disabled={confirmacion === null || sinPlanConfirmacion}
             />
           </label>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
@@ -437,7 +446,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
         <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 flex flex-wrap items-center gap-3 rounded-b-xl border-t border-border bg-card px-6 py-3">
           <button
             onClick={guardarPolitica}
-            disabled={ventanaImposible || !hayCambios}
+            disabled={ventanaImposible || !hayCambios || guardando}
             className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Guardar política de reservas
