@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
 
 /**
  * Bottom sheet del kit: handle 34×4, radio 24, entrada con spring, y cierre por
@@ -51,6 +52,13 @@ const sinSuscripcion = () => () => {};
 export function Sheet({ open, onClose, children, label }: {
   open: boolean; onClose: () => void; children: ReactNode; label: string;
 }) {
+  // M-7 (auditoría 58ª pasada): con la hoja abierta, `body` seguía en
+  // `overflow: visible` — «scroll chaining» clásico, el gesto que llega al
+  // final del contenido de la hoja arrastra la página de detrás. Mismo hook
+  // ya usado por `PublicSheet`/`DashboardSheet` (components/ui/use-dialog-
+  // a11y.ts), con su cuenta de hojas anidadas — no se reinventa aquí.
+  useBloquearScrollFondo(open);
+
   const [dy, setDy] = useState(0);
   const [arrastrando, setArrastrando] = useState(false);
   const y0 = useRef<number | null>(null);
