@@ -271,12 +271,12 @@ function CabeceraAutoservicio({ pathname }: { pathname: string }) {
 export default function NetworkLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // `lib/posthog-cliente.ts` existía en el repo sin un solo caller (auditoría
-  // 2026-08-19) — este layout envuelve TODO /network, público y autoservicio,
-  // así que es el único sitio que hace falta tocar para que la analítica de
-  // conversión del embudo (instrumentada en BuscadorHero/FormularioInteresEstudio/
-  // BotonContactar) llegue a algún sitio. `capture_pageview: true` ya cubre las
-  // vistas de página sin nada más que hacer aquí.
+  // No es el único caller: `instrumentation-client.ts` ya pide la carga en toda
+  // la app. Se deja porque es idempotente y hace explícito que la analítica de
+  // conversión del embudo (BuscadorHero/FormularioInteresEstudio/BotonContactar)
+  // cuenta con PostHog. DÓNDE puede cargar no se decide aquí:
+  // `lib/posthog-cliente.ts` lo comprueba en cada llamada, y bajo /network deja
+  // fuera el acceso, las referencias firmadas y el lado de la alumna.
   useEffect(() => { cargarCuandoOcioso(); }, []);
 
   if (!SUBNAV.some(s => coincide(pathname ?? '', s.href))) return <>{children}</>;

@@ -8,47 +8,49 @@
 //
 // APAGADO por defecto: sin NEXT_PUBLIC_POSTHOG_KEY es un no-op total.
 //
-// PRIVACIDAD (la app maneja datos de salud):
-//   · `autocapture: false` — el autocapture de PostHog manda el texto visible
-//     de lo que se pulsa (nombre de un botón, texto de un enlace...), y en
-//     este panel eso puede ser el nombre de una socia. Solo eventos manuales.
-//   · Grabación de sesión APAGADA por defecto; se enciende explícitamente
-//     solo en el widget público de reserva (`iniciarGrabacionSiCorresponde`,
-//     llamado desde el layout de /reservar) — nunca en /clientas, /portal ni
-//     /mi-perfil, que muestran datos personales/de salud de una socia.
+// PRIVACIDAD (la app maneja datos de salud). Lo que garantiza ESTE fichero, no
+// lo que se espera de la configuración del proyecto en PostHog:
+//   · DÓNDE: nunca en la app de la alumna, la página ni el widget de reservas
+//     (tampoco incrustado en la web de un estudio), los enlaces firmados, las
+//     pantallas de acceso ni /interno. La lista vive en
+//     `lib/posthog-privacidad.ts` y se pregunta al programar la carga, al
+//     cargar y antes de encolar cada llamada: la SPA cambia de ruta sin recargar.
+//   · QUÉ: `before_send` (`sanearEventoPosthog`) vuelve a descartar cualquier
+//     evento cuya ruta esté excluida, tira los que llevan texto del DOM o
+//     errores, y sanea toda URL: sin fragmento (ahí vuelve la sesión de Supabase
+//     tras un enlace mágico u OAuth), sin query salvo `utm_*`, ids como `:id`.
+//   · NADA en el dispositivo: `persistence: 'memory'`, ni cookie ni
+//     localStorage. El id anónimo dura lo que dura la página.
+//   · Sin autocapture, dead clicks, heatmaps, rage clicks, excepciones,
+//     grabación de sesión, logs de consola, encuestas, tours, chat ni
+//     experimentos. Tres cerrojos independientes para que encender algo en el
+//     panel de PostHog no llegue aquí: cada opción va a `false` explícito (el
+//     SDK solo hace caso a la config remota cuando la local está sin definir),
+//     `advanced_disable_flags` impide descargar esa config remota, y
+//     `disable_external_dependency_loading` impide cargar los scripts que esas
+//     funciones necesitan (grabación, toolbar, logs...).
+//   · Los errores de cliente los recoge Sentry (lib/sentry-cliente.ts), no esto.
 //   · `identificar()` es solo para PERSONAL (propietaria/instructora/
 //     recepción) — nunca una socia. Mismo criterio que `identificarEnSentry`
 //     en lib/auth-context.tsx: se llama con el id (UUID) nada más, nunca
 //     email ni nombre.
 // ─────────────────────────────────────────────────────────────────────────────
-import type { BeforeSendFn } from 'posthog-js';
 import { crearCola, type Destino } from '@/lib/sentry-cola';
+import { debeCargarseAnalitica, esVistaIncrustada, sanearEventoPosthog } from '@/lib/posthog-privacidad';
 
 type PostHogSDK = typeof import('posthog-js').default;
 
 const enNavegador = typeof window !== 'undefined';
 const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com';
 
-// Gemelo del `ignoreErrors` de Sentry (lib/sentry-cliente.ts): Safari en iOS
-// reduce un error de un script servido sin cabeceras CORS a un `onerror` vacío
-// — `Error: Script error.` sin fichero, línea ni pila. Sin pila la incidencia
-// no aporta nada que depurar, así que se descarta en origen para que no llegue
-// a crearse. La cura de raíz — que el próximo error cruzado llegue CON pila —
-// es `crossOrigin: 'anonymous'` en next.config.ts.
-const descartarScriptErrorOpaco: BeforeSendFn = (evento) => {
-  if (!evento || evento.event !== '$exception') return evento;
-  const lista = evento.properties?.$exception_list as unknown as
-    | Array<{ value?: string; stacktrace?: { frames?: unknown[] } }>
-    | undefined;
-  if (!Array.isArray(lista) || lista.length === 0) return evento;
-  const sinPila = lista.every((e) => !e.stacktrace?.frames?.length);
-  const esScriptError = lista.some((e) => e.value === 'Script error.');
-  return sinPila && esScriptError ? null : evento;
-};
-
 let sdk: PostHogSDK | null = null;
 let cargando: Promise<PostHogSDK | null> | null = null;
 const cola = crearCola();
+
+/** ¿Se puede medir en la vista actual? */
+function analiticaPermitidaAqui(): boolean {
+  return enNavegador && debeCargarseAnalitica(window.location.pathname, esVistaIncrustada());
+}
 
 function envolverDestino(instancia: PostHogSDK): Destino {
   // Cierres explícitos, no destructuring: los métodos de posthog-js dependen
@@ -57,8 +59,6 @@ function envolverDestino(instancia: PostHogSDK): Destino {
     capture: (...a: unknown[]) => (instancia.capture as (...a: unknown[]) => unknown)(...a),
     identify: (...a: unknown[]) => (instancia.identify as (...a: unknown[]) => unknown)(...a),
     reset: (...a: unknown[]) => (instancia.reset as (...a: unknown[]) => unknown)(...a),
-    startSessionRecording: (...a: unknown[]) => (instancia.startSessionRecording as (...a: unknown[]) => unknown)(...a),
-    stopSessionRecording: (...a: unknown[]) => (instancia.stopSessionRecording as (...a: unknown[]) => unknown)(...a),
   };
 }
 
@@ -67,6 +67,7 @@ function forzarCarga(): Promise<PostHogSDK | null> {
   const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
   if (!key) return Promise.resolve(null);
   if (sdk) return Promise.resolve(sdk);
+  if (!analiticaPermitidaAqui()) return Promise.resolve(null);
   if (cargando) return cargando;
 
   cargando = import('posthog-js')
@@ -74,16 +75,32 @@ function forzarCarga(): Promise<PostHogSDK | null> {
       const instancia = m.default;
       instancia.init(key, {
         api_host: HOST,
-        autocapture: false,        // solo eventos manuales — ver nota de privacidad arriba
-        capture_pageview: true,    // solo URL/referrer, sin contenido de DOM
-        disable_session_recording: true, // se enciende a mano solo donde no hay datos de una socia
-        person_profiles: 'identified_only',
+        persistence: 'memory',          // ni cookie ni localStorage
+        autocapture: false,             // solo eventos manuales
+        capture_pageview: true,         // la URL la sanea before_send
+        capture_dead_clicks: false,
+        capture_heatmaps: false,
+        capture_exceptions: false,
+        rageclick: false,
+        capture_performance: false,
+        disable_session_recording: true,
+        enable_recording_console_log: false,
+        logs: { captureConsoleLogs: false },
         // El botón de feedback flotante (encuesta por defecto de PostHog)
         // salía en todas las pantallas del panel sin que nadie lo pidiera —
-        // una propietaria lo reportó como ruido. Sin encuestas configuradas
-        // hoy en este proyecto de PostHog, desactivarlas todas no pierde nada.
+        // una propietaria lo reportó como ruido.
         disable_surveys: true,
-        before_send: descartarScriptErrorOpaco,
+        disable_product_tours: true,
+        disable_conversations: true,
+        disable_web_experiments: true,
+        // Sin config remota ni scripts externos: lo que no está aquí no existe.
+        advanced_disable_flags: true,
+        disable_external_dependency_loading: true,
+        advanced_disable_toolbar_metrics: true,
+        disable_capture_url_hashes: true,
+        mask_personal_data_properties: true,
+        person_profiles: 'identified_only',
+        before_send: sanearEventoPosthog,
       });
       sdk = instancia;
       cola.conectar(envolverDestino(instancia));
@@ -99,7 +116,7 @@ function forzarCarga(): Promise<PostHogSDK | null> {
 
 /** Carga en cuanto el navegador no tenga nada mejor que hacer. */
 export function cargarCuandoOcioso(): void {
-  if (!enNavegador) return;
+  if (!analiticaPermitidaAqui()) return;
   const w = window as typeof window & {
     requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
   };
@@ -108,7 +125,7 @@ export function cargarCuandoOcioso(): void {
 }
 
 function encolar(metodo: string, args: unknown[]) {
-  if (!enNavegador || !process.env.NEXT_PUBLIC_POSTHOG_KEY) return;
+  if (!process.env.NEXT_PUBLIC_POSTHOG_KEY || !analiticaPermitidaAqui()) return;
   cola.pedir(metodo, args);
   if (!cola.conectada) void forzarCarga();
 }
@@ -126,17 +143,4 @@ export function identificar(usuarioId: string): void {
 /** Al cerrar sesión de personal — desvincula la sesión del navegador de esa persona. */
 export function resetear(): void {
   encolar('reset', []);
-}
-
-/**
- * Enciende grabación de sesión SOLO en rutas sin datos personales de una
- * socia — hoy únicamente el widget público de reserva. Nunca llamar en
- * /clientas, /portal ni /mi-perfil.
- */
-export function iniciarGrabacionSiCorresponde(): void {
-  encolar('startSessionRecording', []);
-}
-
-export function detenerGrabacion(): void {
-  encolar('stopSessionRecording', []);
 }
