@@ -2750,6 +2750,19 @@ export interface RowMatriculaCupoLiberaciones {
   liberado_en: string;
 }
 
+export interface RowCicloEstudiosVencidos {
+  id: number;
+  studio_id: string;
+  trial_ends_at: string;
+  fase: string;
+  programada_para: string;
+  ejecutada_en: string | null;
+  cancelada_en: string | null;
+  resumen: any;
+  creado_en: string;
+  actualizado_en: string;
+}
+
 export interface RowConsentimientosSaludEventos {
   id: string;
   studio_id: string;
