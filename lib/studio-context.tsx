@@ -8,6 +8,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { supabase } from '@/lib/db/supabase';
 import { apuntarCobroEnCaja } from '@/lib/pos/cliente';
 import { debeReleerAlVolver } from '@/lib/panel-refresco';
+import { puedeProgramarBaja } from '@/lib/billing/baja-al-vencer';
 import type { RowInstructores } from '@/lib/db-types';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchGamificacionStudio,
@@ -381,6 +382,8 @@ interface StudioContextValue {
   reanudarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
   reactivarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
   cancelarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
+  /** Baja a fin de periodo (true) o quitarla (false). Ver migr 20260913215533. */
+  programarBajaSuscripcion: (susId: string, programar: boolean) => Promise<ResultadoEscritura>;
 
   // Notas internas
   addNota: (socioId: string, texto: string) => Promise<ResultadoEscritura>;
@@ -2901,6 +2904,38 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true };
   }
 
+  /**
+   * Baja a fin de periodo (evaluación del 13-sep): la cuota sigue ACTIVA hasta
+   * su `fechaFin` —la alumna reserva lo que ya ha pagado— y el cron de
+   * renovaciones la cancela en vez de cobrarle el siguiente periodo. Con
+   * `programar = false` se quita y vuelve a renovar como siempre.
+   *
+   * Escribe primero y solo entonces pinta, como `cancelarSuscripcion`.
+   */
+  async function programarBajaSuscripcion(susId: string, programar: boolean): Promise<ResultadoEscritura> {
+    const sus = suscripciones.find(s => s.id === susId);
+    if (!sus) return { ok: false, error: 'No se encuentra esta suscripción.' };
+    const plan = planesTarifa.find(p => p.id === sus.planId);
+    if (programar && !puedeProgramarBaja(sus, plan, hoyEnEstudio(new Date()))) {
+      return { ok: false, error: 'Solo se puede programar la baja de una cuota activa con fecha de renovación.' };
+    }
+
+    const res = await dbUpdateSuscripcion(susId, { bajaAlVencer: programar });
+    if (!res.ok) return res;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, bajaAlVencer: programar } : s));
+
+    const socio = socios.find(s => s.id === sus.socioId);
+    addActividadReciente(
+      'PLAN_ASIGNADO',
+      programar
+        ? `${actorNombre ?? 'Alguien'} programó la baja de${plan ? ` "${plan.nombre}"` : 'l plan'} de ${socio?.nombre ?? 'una socia'} para el ${sus.fechaFin ?? 'final del periodo'}`
+        : `${actorNombre ?? 'Alguien'} quitó la baja programada de${plan ? ` "${plan.nombre}"` : 'l plan'} de ${socio?.nombre ?? 'una socia'}`,
+      sus.socioId,
+      `/socios/${sus.socioId}`,
+    );
+    return { ok: true };
+  }
+
   // ── Sesiones ─────────────────────────────────────────────────────────────────
 
   // Escribe PRIMERO y solo entonces la pinta. Antes era al revés: la clase
@@ -3776,6 +3811,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (sus.fechaFin >= hoy) return;
       const plan = planesTarifa.find(p => p.id === sus.planId);
       if (!plan || plan.tipo !== 'MENSUAL') return;
+      // Baja programada a fin de periodo (migr 20260913215533): esta cuota no
+      // se renueva. Sin esto, abrir el panel antes del cron de las 08:00 le
+      // creaba el recibo de renovación y el dunning se lo cobraba igual.
+      if (sus.bajaAlVencer) return;
       const yaHayReciboPendiente = recibos.some(
         r => r.socioId === sus.socioId && r.suscripcionId === sus.id && r.estado === 'PENDIENTE'
       );
@@ -4029,7 +4068,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         });
         return;
       }
-      const res = await dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
+      // `bajaAlVencer: false`: espejo de `renovacion-server.ts` — si se cobra
+      // la renovación, se queda, y una baja programada deja de aplicar.
+      const res = await dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA', bajaAlVencer: false });
       if (!res.ok) { avisarFallo(res.error); return; }
       anotarEntrega({
         tipo: 'MENSUAL', aplicada: true,
@@ -4038,7 +4079,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         estadoAntes: sus.estado ?? null,
       });
       setSuscripciones(prev => prev.map(s =>
-        s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const } : s
+        s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const, bajaAlVencer: false } : s
       ));
     }
   }
@@ -5382,6 +5423,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     reanudarSuscripcion,
     reactivarSuscripcion,
     cancelarSuscripcion,
+    programarBajaSuscripcion,
     addNota,
     deleteNota,
     condicionesSalud,

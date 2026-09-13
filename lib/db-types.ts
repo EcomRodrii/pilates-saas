@@ -1000,6 +1000,8 @@ export interface RowSuscripciones {
   fecha_fin: string | null;
   sesiones_restantes: number | null;
   stripe_subscription_id: string | null;
+  // migr 20260913215533.
+  baja_al_vencer: boolean | null;
 }
 
 export interface RowTiposClase {

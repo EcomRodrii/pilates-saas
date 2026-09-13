@@ -16,6 +16,7 @@
 import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { idsEstudios } from './estudios.ts';
+import { repartirVencidas } from '@/lib/billing/baja-al-vencer';
 
 export const renovacionesDispatcher = inngest.createFunction(
   { id: 'renovaciones-dispatcher', triggers: [{ cron: '0 8 * * *' }] },
@@ -86,7 +87,7 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
       if (!admin) throw new Error('Service role no configurada');
       const { data: candidatos, error: candErr } = await admin
         .from('recibos')
-        .select('id, socio_id')
+        .select('id, socio_id, suscripcion_id')
         .eq('studio_id', studioId)
         .eq('estado', 'PENDIENTE')
         .is('proximo_reintento', null)
@@ -119,8 +120,21 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
         // no lo adoptes" — sin inventar ninguna columna nueva.
         .is('checkout_session_id', null);
       if (candErr) throw new Error(candErr.message);
+      // Baja programada a fin de periodo (migr 20260913215533): nunca se adopta
+      // —y por tanto nunca se cobra solo— un recibo de renovación de una cuota
+      // que se da de baja al vencer. Defensa en profundidad: el efecto del
+      // navegador ya no los crea, pero un panel abierto con código anterior sí
+      // podría haberlo hecho.
+      const { data: conBaja, error: bajaErr } = await admin
+        .from('suscripciones')
+        .select('id')
+        .eq('studio_id', studioId)
+        .eq('baja_al_vencer', true);
+      if (bajaErr) throw new Error(bajaErr.message);
+      const suscripcionesConBaja = new Set((conBaja ?? []).map(s => s.id as string));
       const idsAAdoptar = (candidatos ?? [])
         .filter(r => conMetodoCobro.has(r.socio_id as string))
+        .filter(r => !suscripcionesConBaja.has(r.suscripcion_id as string))
         .map(r => r.id as string);
       if (idsAAdoptar.length === 0) return 0;
       const { data, error } = await admin
@@ -138,7 +152,7 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
 
       const [{ data: susRows, error: susErr }, { data: planRows, error: planErr }] = await Promise.all([
         admin.from('suscripciones')
-          .select('id, socio_id, plan_id, fecha_fin')
+          .select('id, socio_id, plan_id, fecha_fin, baja_al_vencer')
           .eq('studio_id', studioId)
           .eq('estado', 'ACTIVA')
           .not('fecha_fin', 'is', null)
@@ -152,7 +166,25 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
       if (planErr) throw new Error(planErr.message);
 
       const planById = new Map((planRows ?? []).map(p => [p.id as string, p]));
-      const vencidas = (susRows ?? []).filter(s => planById.has(s.plan_id as string));
+      const todasVencidas = (susRows ?? []).filter(s => planById.has(s.plan_id as string));
+      if (todasVencidas.length === 0) return 0;
+
+      // Baja programada a fin de periodo (migr 20260913215533): la cuota vence
+      // y se CANCELA en vez de generarle el recibo del mes siguiente. Va antes
+      // de crear nada, y con la condición de estado en el UPDATE para no pisar
+      // una suscripción que alguien haya tocado entre la lectura y la escritura.
+      const { renovar: vencidas, cancelar } = repartirVencidas(
+        todasVencidas.map(s => ({ ...s, id: s.id as string, baja_al_vencer: s.baja_al_vencer as boolean | null })),
+      );
+      if (cancelar.length > 0) {
+        const { error: bajaErr } = await admin.from('suscripciones')
+          .update({ estado: 'CANCELADA' })
+          .eq('studio_id', studioId)
+          .eq('estado', 'ACTIVA')
+          .eq('baja_al_vencer', true)
+          .in('id', cancelar.map(s => s.id));
+        if (bajaErr) throw new Error(bajaErr.message);
+      }
       if (vencidas.length === 0) return 0;
 
       // Dedupe: fuera las suscripciones que ya tienen un recibo de renovación

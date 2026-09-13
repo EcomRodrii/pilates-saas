@@ -32,6 +32,7 @@ import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { EstadoSuscripcion } from '@/components/suscripciones/estado-suscripcion';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
+import { puedeProgramarBaja } from '@/lib/billing/baja-al-vencer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import { normalizarEmail, motivoLegible } from '@/lib/emails/rebotes';
@@ -237,6 +238,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     cargarFichaClienta,
     updateSocio, deleteSocio, assignPlan, marcarCobrado, addRecibo, cobrarTodosPendientes,
     addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion, cancelarSuscripcion,
+    programarBajaSuscripcion,
     addNota, deleteNota,
     notasProgreso, addNotaProgreso,
     condicionesSalud, camposPersonalizados,
@@ -624,6 +626,23 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     }
   }
 
+  // Baja a fin de periodo (evaluación del 13-sep): sigue activa hasta la fecha
+  // de renovación y no se le vuelve a cobrar. `programar = false` la quita.
+  async function handleProgramarBaja(programar: boolean) {
+    if (!suscripcion || cambiandoPlan) return;
+    setCambiandoPlan(true);
+    try {
+      const res = await programarBajaSuscripcion(suscripcion.id, programar);
+      if (!res.ok) { setToast(res.error); return; }
+      setToast(programar
+        ? `Se dará de baja el ${suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'}`
+        : 'Baja programada quitada: seguirá renovando');
+      setConfirmarCancelarSus(false);
+    } finally {
+      setCambiandoPlan(false);
+    }
+  }
+
   async function handleAddRecibo() {
     const res = await addRecibo({
       socioId: id,
@@ -802,10 +821,31 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               {suscripcion.estado === 'CANCELADA' && (
                                 <span className="inline-block mt-2 text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}>Cancelada</span>
                               )}
-                              {textoCaducidadSus && suscripcion.estado === 'ACTIVA' && (
+                              {textoCaducidadSus && suscripcion.estado === 'ACTIVA' && !suscripcion.bajaAlVencer && (
                                 <p className="inline-flex items-center gap-1 text-xs font-semibold mt-1.5" style={{ color: colorCaducidadSus }}>
                                   {estadoSus.kind === 'recurrente' ? <RefreshCw size={12} /> : <Calendar size={12} />}
                                   {textoCaducidadSus}
+                                </p>
+                              )}
+                              {/* Baja programada: «Próxima renovación en N días» sería
+                                  mentira, así que se dice la fecha de baja y cómo
+                                  deshacerla. */}
+                              {suscripcion.bajaAlVencer && suscripcion.estado === 'ACTIVA' && (
+                                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold mt-1.5" style={{ color: 'var(--warning)' }}>
+                                  <span className="inline-flex items-center gap-1">
+                                    <Calendar size={12} />
+                                    Se da de baja el {suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'} · no se le volverá a cobrar
+                                  </span>
+                                  {puedeCobrar && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleProgramarBaja(false)}
+                                      disabled={cambiandoPlan}
+                                      className="font-bold underline underline-offset-2 text-foreground disabled:opacity-50"
+                                    >
+                                      Deshacer
+                                    </button>
+                                  )}
                                 </p>
                               )}
                             </div>
@@ -2280,14 +2320,37 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             </div>
             <div>
               <h3 className="text-base font-semibold text-foreground mb-1">Cancelar la suscripción</h3>
-              <p className="text-sm text-muted-foreground">
-                {plan?.nombre ? `«${plan.nombre}» dejará` : 'La suscripción dejará'} de estar activa: {socio.nombre} no podrá reservar con ella y no se le volverá a cobrar.
-                {(suscripcion?.sesionesRestantes ?? 0) > 0 && (
-                  <> Le quedan <strong className="text-destructive">{suscripcion!.sesionesRestantes} {suscripcion!.sesionesRestantes === 1 ? 'sesión' : 'sesiones'} sin usar</strong> que ya ha pagado, y las pierde.</>
-                )}
-                {' '}Puedes volver a activarla después desde esta misma tarjeta.
-              </p>
+              {suscripcion && puedeProgramarBaja(suscripcion, plan, localDate(now)) && !suscripcion.bajaAlVencer ? (
+                // Una cuota con fecha de renovación: lo normal es dejarla
+                // terminar el periodo que ya ha pagado (evaluación del 13-sep).
+                <p className="text-sm text-muted-foreground">
+                  Lo habitual es darla de baja <strong className="text-foreground">al final del periodo</strong>: {socio.nombre} sigue
+                  reservando hasta el {suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'} y no se le vuelve a cobrar.
+                  Si la cancelas ahora, deja de poder reservar desde hoy.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {plan?.nombre ? `«${plan.nombre}» dejará` : 'La suscripción dejará'} de estar activa: {socio.nombre} no podrá reservar con ella y no se le volverá a cobrar.
+                  {(suscripcion?.sesionesRestantes ?? 0) > 0 && (
+                    <> Le quedan <strong className="text-destructive">{suscripcion!.sesionesRestantes} {suscripcion!.sesionesRestantes === 1 ? 'sesión' : 'sesiones'} sin usar</strong> que ya ha pagado, y las pierde.</>
+                  )}
+                  {' '}Puedes volver a activarla después desde esta misma tarjeta.
+                </p>
+              )}
             </div>
+            {suscripcion && puedeProgramarBaja(suscripcion, plan, localDate(now)) && !suscripcion.bajaAlVencer ? (
+              <div className="flex flex-col gap-2 w-full">
+                <button onClick={() => handleProgramarBaja(true)} disabled={cambiandoPlan} className="w-full py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-50 transition-colors">
+                  {cambiandoPlan ? 'Guardando…' : `Dar de baja el ${suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'}`}
+                </button>
+                <button onClick={handleCancelarSuscripcion} disabled={cambiandoPlan} className="w-full py-2.5 rounded-xl text-sm font-bold text-destructive border border-destructive/30 hover:bg-destructive/10 disabled:opacity-50 transition-colors">
+                  Cancelar ahora
+                </button>
+                <button onClick={() => setConfirmarCancelarSus(false)} className="w-full py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted">
+                  Volver
+                </button>
+              </div>
+            ) : (
             <div className="flex gap-3 w-full">
               <button onClick={() => setConfirmarCancelarSus(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted">
                 Volver
@@ -2296,6 +2359,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 {cambiandoPlan ? 'Cancelando…' : 'Cancelar suscripción'}
               </button>
             </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

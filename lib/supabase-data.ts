@@ -856,6 +856,7 @@ export function mapSuscripcion(r: RowSuscripciones): Suscripcion {
     fechaFin: r.fecha_fin ?? null,
     sesionesRestantes: r.sesiones_restantes ?? null,
     stripeSubscriptionId: r.stripe_subscription_id ?? null,
+    bajaAlVencer: (r as { baja_al_vencer?: boolean | null }).baja_al_vencer === true,
   } as Suscripcion;
 }
 
@@ -2574,6 +2575,7 @@ export async function dbUpdateSuscripcion(id: string, changes: Partial<Suscripci
   if ('fechaFin' in changes) db.fecha_fin = changes.fechaFin;
   if ('sesionesRestantes' in changes) db.sesiones_restantes = changes.sesionesRestantes;
   if ('stripeSubscriptionId' in changes) db.stripe_subscription_id = changes.stripeSubscriptionId;
+  if ('bajaAlVencer' in changes) db.baja_al_vencer = changes.bajaAlVencer === true;
   const { error } = await supabase.from('suscripciones').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateSuscripcion]', error) : ESCRITURA_OK;
 }
@@ -5285,7 +5287,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId?: 
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
     fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
-    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
+    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
     db.from('spots').select('*').eq('studio_id', sid),
     db.from('tipos_clase').select('*').eq('studio_id', sid),
@@ -5476,7 +5478,7 @@ export async function fetchDatosTrasVentaPOS(studioId?: string) {
   const [recibosRes, facturasRes, suscripcionesRes, ventasPOSRes, productosPOSRes] = await Promise.all([
     fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).range(from, to)),
-    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
+    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid),
     fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
     db.from('productos_pos').select('*').eq('studio_id', sid),
   ]);
@@ -5503,7 +5505,7 @@ export async function fetchTarifasYSuscripciones(studioId?: string) {
   const db = supabase;
   const [planesRes, suscripcionesRes] = await Promise.all([
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
-    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
+    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid),
   ]);
   if (planesRes.error || suscripcionesRes.error) return null;
   return {

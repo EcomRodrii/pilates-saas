@@ -189,7 +189,10 @@ export async function aplicarRenovacionServidor(
       }
       await admin
         .from('suscripciones')
-        .update({ fecha_fin: fechaFin, estado: 'ACTIVA' })
+        // `baja_al_vencer: false`: si se ha cobrado una renovación es que se
+        // queda (p. ej. la renueva ella misma desde el portal), así que una baja
+        // programada antes deja de aplicar (migr 20260913215533).
+        .update({ fecha_fin: fechaFin, estado: 'ACTIVA', baja_al_vencer: false })
         .eq('id', sus.id)
         .eq('studio_id', studioId);
       return guardar({
