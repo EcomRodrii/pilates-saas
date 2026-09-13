@@ -1621,7 +1621,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 style={socio.activo ? { backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' } : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: socio.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
-                {socio.activo ? 'Activa' : 'Inactiva'}
+                {/* «Activa» solo quería decir «no dada de baja», y salía al
+                    lado de «Sin plan»: una alumna activa sin plan no se
+                    entiende (evaluación del 13-sep). Es el alta en el
+                    estudio, no si tiene bono. */}
+                {socio.activo ? 'De alta' : 'De baja'}
               </span>
               {verSemaforo && semaforoSocio !== 'VERDE' && (
                 <button

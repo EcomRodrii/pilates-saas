@@ -3049,8 +3049,23 @@ export default function Calendario() {
                         </div>
                       </button>
                     ))}
+                    {/* Sin resultado no había salida: con la alumna nueva
+                        delante había que cerrar la clase, ir a Clientas, darla
+                        de alta y volver (evaluación del 13-sep). El alta se
+                        abre con lo que se buscó como nombre. */}
                     {sociosDisponibles.length === 0 && (
-                      <p className="text-xs text-center py-3 text-muted-foreground">No hay clientas disponibles</p>
+                      <div className="py-3 text-center space-y-1.5">
+                        <p className="text-xs text-muted-foreground">
+                          {buscarSocia.trim() ? `Ninguna clienta coincide con «${buscarSocia.trim()}»` : 'No hay clientas disponibles'}
+                        </p>
+                        <Link
+                          href={`/clientas?nuevo=1${buscarSocia.trim() ? `&nombre=${encodeURIComponent(buscarSocia.trim())}` : ''}`}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-medio hover:underline"
+                        >
+                          <UserPlus size={13} />
+                          {buscarSocia.trim() ? `Dar de alta a «${buscarSocia.trim()}»` : 'Dar de alta una clienta nueva'}
+                        </Link>
+                      </div>
                     )}
                   </div>
                   <button onClick={() => { setShowAnadir(false); setBuscarSocia(''); }} className="w-full py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted">

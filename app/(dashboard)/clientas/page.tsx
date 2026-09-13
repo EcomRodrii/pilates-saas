@@ -288,8 +288,12 @@ export default function Socios() {
     // `?nuevo=1` abre el alta sin pasar por el botón: si no se comprueba aquí,
     // basta el enlace del dashboard (o escribir la url) para saltarse la puerta.
     if (params.get('nuevo') === '1' && gestionaClientas) {
+      // `&nombre=` lo manda el buscador de «Añadir clienta a la clase» del
+      // calendario cuando no encuentra a nadie: lo escrito pasa a nombre (la
+      // primera palabra) y apellidos (el resto), editable como cualquier alta.
+      const [nombre = '', ...apellidos] = (params.get('nombre') ?? '').trim().split(/\s+/);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search (?nuevo=1). La URL no existe durante el render en servidor, así que esto NO se puede derivar en render.
-      setForm(emptyForm());
+      setForm({ ...emptyForm(), nombre, apellidos: apellidos.join(' ') });
       setShowForm('nueva');
       window.history.replaceState({}, '', '/clientas');
     }
@@ -423,7 +427,7 @@ export default function Socios() {
   // pero son causas distintas para la propietaria — una no es un problema,
   // la otra puede que sí.
   function estadoBadgeInfo(s: Socio): { label: string; bg: string; color: string; Icon?: typeof AlertCircle; title?: string } {
-    if (!s.activo) return { label: 'Inactiva', bg: 'var(--muted)', color: 'var(--muted-foreground)', title: 'Dada de baja por el estudio.' };
+    if (!s.activo) return { label: 'De baja', bg: 'var(--muted)', color: 'var(--muted-foreground)', title: 'Dada de baja por el estudio.' };
     if (isBonoExpirado(s.id)) return { label: 'Bono expirado', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)', Icon: AlertCircle };
     if (isInactiva30d(s.id, s)) {
       if (sinDatosDeAsistencia(s.id, s)) {
