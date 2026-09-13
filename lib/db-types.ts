@@ -1112,6 +1112,8 @@ export interface RowVentasPos {
   anulada_motivo: string | null;
   // migr 20260908162951.
   checkout_session_id: string | null;
+  // migr 20260913020635.
+  matricula_cupo_plan_id: string | null;
 }
 
 export interface RowVideosOnDemand {
