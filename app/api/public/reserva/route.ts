@@ -4,6 +4,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
+import { bloqueoPorSuspension } from '@/lib/billing/billing-guard';
 
 // Crear o cancelar una reserva desde las páginas públicas (reserva/portal).
 // SEGURIDAD: exige sesión real de socia (JWT de Supabase Auth) y deriva su id
@@ -45,6 +46,12 @@ export async function POST(req: NextRequest) {
   // reportar a Sentry cada rechazo normal de negocio como si fuera una avería.
   try {
     if (body.accion === 'crear') {
+      // M-3 (auditoría 58ª pasada): solo para CREAR — cancelar o valorar una
+      // reserva ya existente tiene que seguir funcionando aunque el estudio
+      // esté suspendido; bloquearlo atraparía a una socia en una reserva que
+      // no puede soltar.
+      const bloqueo = await bloqueoPorSuspension(body.studioId);
+      if (bloqueo) return conCorsWidget(req, bloqueo);
       if (!body.sesionId) return conCorsWidget(req, NextResponse.json({ error: 'Falta la sesión' }, { status: 400 }));
       const r = await crearReservaPublica({
         studioId: body.studioId, sesionId: body.sesionId, socioId, authUserId: user.userId, spotId: body.spotId ?? null,

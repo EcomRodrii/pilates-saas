@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { cargarEstudio } from '@/lib/student/estudio';
 import { acentoCssText } from '@/lib/student/tema';
@@ -6,6 +7,8 @@ import { StudentProvider } from '@/components/student/contexto';
 import { ToastProvider } from '@/components/student/ui/Toast';
 import { RegistroSW } from '@/components/student/RegistroSW';
 import { urlIconoEstudio } from '@/lib/monograma-estudio';
+import { veredictoPagina, nombreCookieAcceso } from '@/lib/publico/acceso-pagina';
+import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import './student.css';
 
 // Raíz de la Student PWA. Server Component a propósito.
@@ -102,6 +105,24 @@ export default async function StudentLayout({
   // base de datos, y ese 404 se comparte y se indexa.
   if (estudio === 'no-disponible') throw new Error('STUDENT_ESTUDIO_NO_DISPONIBLE');
   if (!estudio) notFound();
+
+  // M-2 (auditoría 58ª pasada): el gate de "página oculta" ya lo respeta
+  // `/reservar` (app/reservar/[slug]/layout.tsx) pero aquí nunca se leía —
+  // `estudio.paginaOculta` viaja desde `cargarEstudio` sin que nadie lo
+  // comprobara. Mismo criterio exacto: oculta la PÁGINA, no los datos (la
+  // API pública sigue respondiendo; la cerradura real es siempre la RLS).
+  if (estudio.paginaOculta) {
+    const galleta = await cookies();
+    const veredicto = veredictoPagina({
+      oculta: true,
+      tieneClave: estudio.paginaTieneClave,
+      pase: galleta.get(nombreCookieAcceso(estudio.id))?.value,
+      studioId: estudio.id,
+    });
+    if (veredicto !== 'abierta') {
+      return <PaginaOculta nombre={estudio.nombre} slug={slug} pideClave={veredicto === 'pide-clave'} />;
+    }
+  }
 
   return (
     <div className="student-app">
