@@ -1,6 +1,6 @@
 // Baja programada a fin de periodo: qué hace el cron con cada cuota vencida, y
 // cuándo se puede programar. Puro, para poder probar la regla de dinero sin
-// Inngest ni base de datos (migr 20260913231500).
+// Inngest ni base de datos (migr 20260913215533).
 
 /** Lo mínimo de una suscripción vencida que el cron necesita para decidir. */
 export interface SuscripcionVencida {

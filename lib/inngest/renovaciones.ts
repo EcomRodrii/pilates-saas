@@ -120,7 +120,7 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
         // no lo adoptes" — sin inventar ninguna columna nueva.
         .is('checkout_session_id', null);
       if (candErr) throw new Error(candErr.message);
-      // Baja programada a fin de periodo (migr 20260913231500): nunca se adopta
+      // Baja programada a fin de periodo (migr 20260913215533): nunca se adopta
       // —y por tanto nunca se cobra solo— un recibo de renovación de una cuota
       // que se da de baja al vencer. Defensa en profundidad: el efecto del
       // navegador ya no los crea, pero un panel abierto con código anterior sí
@@ -169,7 +169,7 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
       const todasVencidas = (susRows ?? []).filter(s => planById.has(s.plan_id as string));
       if (todasVencidas.length === 0) return 0;
 
-      // Baja programada a fin de periodo (migr 20260913231500): la cuota vence
+      // Baja programada a fin de periodo (migr 20260913215533): la cuota vence
       // y se CANCELA en vez de generarle el recibo del mes siguiente. Va antes
       // de crear nada, y con la condición de estado en el UPDATE para no pisar
       // una suscripción que alguien haya tocado entre la lectura y la escritura.

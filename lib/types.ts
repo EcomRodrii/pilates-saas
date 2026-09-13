@@ -671,7 +671,7 @@ export interface Suscripcion {
   fechaFin: string | null;
   sesionesRestantes: number | null;
   stripeSubscriptionId: string | null;
-  // Baja programada a fin de periodo (migr 20260913231500): sigue ACTIVA hasta
+  // Baja programada a fin de periodo (migr 20260913215533): sigue ACTIVA hasta
   // `fechaFin` y el cron la cancela en vez de renovarla. Opcional: filas leídas
   // sin la columna cuentan como `false`.
   bajaAlVencer?: boolean;

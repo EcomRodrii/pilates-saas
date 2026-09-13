@@ -377,7 +377,7 @@ interface StudioContextValue {
   reanudarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
   reactivarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
   cancelarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
-  /** Baja a fin de periodo (true) o quitarla (false). Ver migr 20260913231500. */
+  /** Baja a fin de periodo (true) o quitarla (false). Ver migr 20260913215533. */
   programarBajaSuscripcion: (susId: string, programar: boolean) => Promise<ResultadoEscritura>;
 
   // Notas internas
@@ -3783,7 +3783,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (sus.fechaFin >= hoy) return;
       const plan = planesTarifa.find(p => p.id === sus.planId);
       if (!plan || plan.tipo !== 'MENSUAL') return;
-      // Baja programada a fin de periodo (migr 20260913231500): esta cuota no
+      // Baja programada a fin de periodo (migr 20260913215533): esta cuota no
       // se renueva. Sin esto, abrir el panel antes del cron de las 08:00 le
       // creaba el recibo de renovación y el dunning se lo cobraba igual.
       if (sus.bajaAlVencer) return;
