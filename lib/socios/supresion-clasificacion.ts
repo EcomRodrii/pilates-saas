@@ -8,7 +8,7 @@
 // fuera de la transacción: `app/api/socios/eliminar/route.ts`).
 //
 // Este módulo es la FUENTE DOCUMENTAL que comparten:
-//   · la migración `20260913170100_anonimizar_socio.sql`, que la copia como
+//   · la migración `20260913205144_anonimizar_socio.sql`, que la copia como
 //     tabla en su cabecera y la ejecuta en `public.anonimizar_socio`;
 //   · `supresion-cobertura.test.ts`, que falla si aparece en `lib/db-types.ts`
 //     una tabla con una columna que apunta a una socia y no está aquí, o si una

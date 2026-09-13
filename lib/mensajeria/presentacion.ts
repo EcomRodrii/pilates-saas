@@ -115,7 +115,7 @@ export interface MensajeAgrupable {
   id: string;
   creado_en: string;
   // NULL cuando la cuenta de quien lo envió se ha borrado (supresión RGPD,
-  // FK ON DELETE SET NULL desde migr 20260913170000). Nunca es «mío».
+  // FK ON DELETE SET NULL desde migr 20260913205038). Nunca es «mío».
   remitente_auth_user_id: string | null;
 }
 

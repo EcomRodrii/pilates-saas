@@ -154,7 +154,7 @@ export async function crearSnapshot(admin: SupabaseClient, studioId: string): Pr
 // ─────────────────────────────────────────────────────────────────────────────
 // Restauración: qué se hace con cada tabla.
 //
-// La decisión la toma la RPC `restaurar_backup` (migr 20260913170200) EN CADA
+// La decisión la toma la RPC `restaurar_backup` (migr 20260913205215) EN CADA
 // EJECUCIÓN mirando el catálogo de FKs; esto es su espejo puro, para poder
 // testear la regla sin base de datos y para que nadie cambie una lista sin la
 // otra (el test compara las dos con el SQL).

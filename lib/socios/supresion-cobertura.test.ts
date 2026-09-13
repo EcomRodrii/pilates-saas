@@ -11,7 +11,7 @@ import {
 
 const dbTypes = readFileSync(new URL('../db-types.ts', import.meta.url), 'utf8');
 const migracion = readFileSync(
-  new URL('../../supabase/migrations/20260913170100_anonimizar_socio.sql', import.meta.url), 'utf8');
+  new URL('../../supabase/migrations/20260913205144_anonimizar_socio.sql', import.meta.url), 'utf8');
 const cuerpoFuncion = migracion.slice(migracion.indexOf('create or replace function public.anonimizar_socio'));
 
 /** `RowVentasPos` → `ventas_pos` (inverso de `pascal()` en scripts/gen-db-types.py). */

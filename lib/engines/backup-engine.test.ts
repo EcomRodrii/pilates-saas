@@ -55,7 +55,7 @@ const fks = (mapa: Record<string, string[]>): ReferenciaFk[] =>
   Object.entries(mapa).flatMap(([referenciada, hijas]) => hijas.map(referenciante => ({ referenciada, referenciante })));
 
 const migracionRestaurar = readFileSync(new URL(
-  '../../supabase/migrations/20260913170200_restaurar_backup_conserva_fiscal_y_supresiones.sql', import.meta.url), 'utf8');
+  '../../supabase/migrations/20260913205215_restaurar_backup_conserva_fiscal_y_supresiones.sql', import.meta.url), 'utf8');
 function arraySql(nombre: string): string[] {
   const m = migracionRestaurar.match(new RegExp(`${nombre} constant text\\[\\] := array\\[([\\s\\S]*?)\\];`));
   assert.ok(m, `no encuentro ${nombre} en la migración`);

@@ -10,7 +10,7 @@
 // la ruta responde 423 y el panel no ofrece el botón. Crear copias sigue igual.
 // Si un estudio necesita recuperar datos, se hace a mano con soporte.
 //
-// Esa versión ya está escrita (migr 20260913170200_restaurar_backup_conserva_
+// Esa versión ya está escrita (migr 20260913205215_restaurar_backup_conserva_
 // fiscal_y_supresiones, modos en lib/engines/backup-engine.ts), pero NO se ha
 // ejecutado nunca contra datos reales. Antes de poner esto a `true`, en una RAMA
 // de Supabase con una copia real de R2 y dentro de BEGIN … ROLLBACK:
