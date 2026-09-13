@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { mapSesion, mapReserva, mapSala, mapInstructor } from '@/lib/supabase-data';
-import { enriquecerSesiones, ocultarImporteSiCorresponde, filtrarSesionesPorRol } from '@/lib/calendario-datos';
+import { enriquecerSesiones, ocultarImporteSiCorresponde, filtrarSesionesPorRol, instructoresVisiblesPorRol } from '@/lib/calendario-datos';
 import type { RowSesiones, RowReservas, RowSalas, RowInstructores, RowStudios, RowSustituciones, RowStudioHorario } from '@/lib/db-types';
 
 // Rediseño del Calendario — endpoint propio, separado a propósito de
@@ -111,7 +111,10 @@ export async function GET(req: NextRequest) {
     reservas: reservasFinal,
     sustituciones: sustitucionesFinal,
     salas: ((salasRows ?? []) as RowSalas[]).map(mapSala),
-    instructores: ((instructoresRows ?? []) as RowInstructores[]).map(mapInstructor),
+    // Sin email/teléfono de las compañeras para la instructora (sí los suyos).
+    instructores: instructoresVisiblesPorRol(
+      ((instructoresRows ?? []) as RowInstructores[]).map(mapInstructor), sesion.rol, sesion.userId,
+    ),
     horaApertura,
     horaCierre,
     horarioSemana,

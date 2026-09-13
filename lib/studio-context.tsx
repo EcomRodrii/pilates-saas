@@ -189,7 +189,7 @@ import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
-import { uid, uuidV4, fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
+import { uid, uuidV4, hoyEnEstudio } from '@/lib/utils';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import type { TabBarStyleId } from '@/lib/theme-schema';
@@ -3092,6 +3092,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // sesión en servidor por id, y si el DELETE le gana la carrera ya no
     // encontraría nada que notificar.
     const sesion = sesiones.find(s => s.id === id);
+    // El servidor solo avisa de una cancelación que ya está en la BD, así que la
+    // clase se marca cancelada antes de avisar y de borrar. Si el DELETE fallara
+    // después, queda cancelada (coherente con lo que ya se ha avisado), no en pie.
+    if (!sesion?.cancelada) {
+      const marcada = await dbUpdateSesion(id, { cancelada: true });
+      if (!marcada.ok) return marcada;
+      setSesiones(prev => prev.map(s => s.id === id ? { ...s, cancelada: true } : s));
+    }
     const aviso = sesion ? await notificarCancelacionSesiones([sesion]) : { avisadas: 0, sinAvisar: 0 };
     const enApp = await avisarClaseCancelada(id);
     // Auditoría de producto (P0-1): "Eliminar" no devolvía el bono consumido
@@ -3285,25 +3293,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   async function notificarCancelacionSesiones(
     sesionesCanceladas: Sesion[],
   ): Promise<{ avisadas: number; sinAvisar: number }> {
-    const envios = sesionesCanceladas.flatMap(ses => {
-      const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
-      const sala = salas.find(x => x.id === ses.salaId);
-      const instructor = instructores.find(i => i.id === ses.instructorId);
-      const inicio = new Date(ses.inicio);
-      const fecha = fechaLargaEstudio(inicio);
-      const hora = horaEstudio(inicio);
-      return reservas
-        .filter(r => r.sesionId === ses.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
-        .map(async r => {
-          const socia = socios.find(s => s.id === r.socioId);
-          if (!socia?.email) return null;
-          return enviarEmailCancelacionClase({
-            to: socia.email, toName: socia.nombre,
-            claseNombre: tipo?.nombre ?? 'Clase', fecha, hora,
-            sala: sala?.nombre ?? '', instructor: instructor?.nombre ?? '',
-          });
-        });
-    });
+    // Clase, fecha, hora, sala e instructora las pone el servidor desde la BD.
+    const envios = sesionesCanceladas.flatMap(ses => reservas
+      .filter(r => r.sesionId === ses.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
+      .map(async r => {
+        const socia = socios.find(s => s.id === r.socioId);
+        if (!socia?.email) return null;
+        return enviarEmailCancelacionClase({ to: socia.email, toName: socia.nombre, sesionId: ses.id });
+      }));
     let avisadas = 0, sinAvisar = 0;
     for (const ok of await Promise.all(envios)) {
       if (ok === null) continue;
@@ -3734,7 +3731,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // check-in (la recepcionista está delante y puede abrir a mano).
     if (integrationsStore.integraciones.some(i => i.tipo === 'KISI' && i.activo)) {
       authHeader()
-        .then(h => fetch('/api/integrations/kisi/abrir', { method: 'POST', headers: h }))
+        // Con la reserva: el servidor solo abre si esa asistencia existe y es
+        // de una clase en curso que quien la marca puede pasar lista.
+        .then(h => fetch('/api/integrations/kisi/abrir', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...h },
+          body: JSON.stringify({ reservaId }),
+        }))
         .catch(() => {});
     }
     const reserva = base.find(r => r.id === reservaId);

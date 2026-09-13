@@ -3,6 +3,7 @@
 import { useState, useMemo, useId, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
+import { useRol, puedeGestionarClientas } from '@/lib/permisos';
 import {
   Bell, MessageCircle, Send, Search, Check, CheckCheck,
   Info, AlertTriangle, CheckCircle2, XCircle, Users, ChevronRight, Inbox,
@@ -372,6 +373,10 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
 
 export default function Mensajeria() {
   const { socios } = useStudio();
+  // «Enviar mensaje» escribe a clientas: trabajo de mostrador. El servidor ya
+  // rechaza ese envío a la instructora (`puedeEnviarEmail`), así que la pestaña
+  // no se le ofrece.
+  const escribeAClientas = puedeGestionarClientas(useRol());
   const [tab, setTab] = useState<Tab>('notificaciones');
   const [busqueda, setBusqueda] = useState('');
 
@@ -412,7 +417,7 @@ export default function Mensajeria() {
     { id: 'notificaciones' as Tab, label: 'Notificaciones', icon: Bell, count: noLeidas },
     { id: 'comunidad' as Tab, label: 'Comunidad', icon: MessageCircle, count: 0 },
     { id: 'conversaciones' as Tab, label: 'Conversaciones', icon: Inbox, count: 0 },
-    { id: 'enviar' as Tab, label: 'Enviar mensaje', icon: Send, count: 0 },
+    ...(escribeAClientas ? [{ id: 'enviar' as Tab, label: 'Enviar mensaje', icon: Send, count: 0 }] : []),
   ];
 
   return (
@@ -515,7 +520,7 @@ export default function Mensajeria() {
       {tab === 'conversaciones' && <ConversacionesTab />}
 
       {/* ── ENVIAR MENSAJE ── */}
-      {tab === 'enviar' && (
+      {tab === 'enviar' && escribeAClientas && (
         <div className="bg-card rounded-2xl border border-border p-6">
           <Compositor socios={socios} />
         </div>
