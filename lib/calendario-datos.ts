@@ -7,8 +7,8 @@
 // Supabase ni Next — "los tres roles reciben payloads distintos, con test".
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { Sesion, Rol } from './types.ts';
-import { puedeMoverDinero } from './permisos-reglas.ts';
+import type { Sesion, Rol, Instructor } from './types.ts';
+import { puedeMoverDinero, puedeVerContactoEquipo } from './permisos-reglas.ts';
 
 // Duplicado deliberadamente en vez de importado de lib/sustituciones/contacto.ts:
 // ese archivo arrastra imports @/lib/* (server-only, WhatsApp, billing…) que
@@ -82,4 +82,19 @@ export function filtrarSesionesPorRol(
   if (rol !== 'INSTRUCTOR') return sesiones;
   if (!instructorId) return [];
   return sesiones.filter(s => s.instructorId === instructorId);
+}
+
+// El equipo va entero en el payload (nombre y color pintan la rejilla), pero el
+// contacto de las compañeras solo a quien organiza el calendario. La ficha
+// propia se queda intacta: el calendario se reconoce a sí mismo por
+// `authUserId`, y sin él la instructora dejaría de ver sus botones.
+export function instructoresVisiblesPorRol(
+  instructores: Instructor[],
+  rol: Rol,
+  propioAuthUserId: string | null,
+): Instructor[] {
+  if (puedeVerContactoEquipo(rol)) return instructores;
+  return instructores.map(i => (propioAuthUserId && i.authUserId === propioAuthUserId)
+    ? i
+    : { ...i, email: null, telefono: null, authUserId: null });
 }

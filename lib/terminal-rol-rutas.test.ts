@@ -16,11 +16,10 @@ import { join } from 'node:path';
 // Es el fallo repetido de este repo: arreglar un endpoint y no su gemelo. Por
 // eso se blinda la FAMILIA entera y no solo la ruta que se arregló.
 //
-// Fuera de la lista a propósito: `/api/terminal/estado` y
-// `/api/terminal/reconciliaciones` solo LEEN (estado de un PaymentIntent, lista
-// de pendientes). Que un instructor pueda verlas es otra pregunta —y sigue
-// abierta—, pero no es la de esta familia: aquí se comprueba quién puede
-// ESCRIBIR sobre la caja.
+// `/api/terminal/reconciliaciones` solo LEE, pero lo que lee son importes y
+// conceptos de cobros de la caja, y `reconciliaciones_pos` no tiene política
+// para `authenticated`: sin guardia, la ruta daba más que la BD. Entra en la
+// familia. Fuera sigue `/api/terminal/estado` (estado de un PaymentIntent).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -30,6 +29,7 @@ const RUTAS_DE_CAJA = [
   'app/api/terminal/cobrar/route.ts',
   'app/api/terminal/lector/route.ts',
   'app/api/terminal/reconciliar/route.ts',
+  'app/api/terminal/reconciliaciones/route.ts',
 ];
 
 // Trocea el fuente por método HTTP exportado: cada handler tiene que traer su

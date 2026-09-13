@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { puedeMoverDinero } from '@/lib/permisos-reglas';
+import { puedeGestionarAutomatizaciones } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor, dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
@@ -45,8 +45,9 @@ export async function POST(req: NextRequest) {
   // manda emails y WhatsApps REALES a las clientas en nombre del estudio.
   // Sin esto, cualquiera con sesión de staff podía dispararlo desde la consola
   // del navegador, aunque el Centro de Control esté oculto en su menú.
-  // Mismo criterio que /api/ingresos-manuales y las rutas de decisiones.
-  if (!puedeMoverDinero(sesion.rol)) {
+  // Mismo criterio que la pantalla /automatizaciones (solo la propietaria):
+  // antes era `puedeMoverDinero`, que dejaba pasar a recepción.
+  if (!puedeGestionarAutomatizaciones(sesion.rol)) {
     return NextResponse.json(
       { error: 'No tienes permiso para ejecutar automatizaciones.' },
       { status: 403 },

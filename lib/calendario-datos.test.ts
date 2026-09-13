@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  enriquecerSesiones, ocultarImporteSiCorresponde, filtrarSesionesPorRol,
+  enriquecerSesiones, ocultarImporteSiCorresponde, filtrarSesionesPorRol, instructoresVisiblesPorRol,
 } from './calendario-datos.ts';
-import type { Sesion } from './types.ts';
+import type { Sesion, Instructor } from './types.ts';
 
 const sesion = (o: Partial<Sesion> & Pick<Sesion, 'id' | 'instructorId'>): Sesion => ({
   studioId: 'e1', tipoClaseId: 'tc1', salaId: 'sala1', inicio: '2026-07-13T08:00:00Z',
@@ -103,4 +103,33 @@ test('MANAGER: mismo contrato que PROPIETARIO para sesiones (ve todas)', () => {
   );
   const finales = filtrarSesionesPorRol(enr, 'MANAGER', null);
   assert.equal(finales.length, 2);
+});
+
+// ── instructoresVisiblesPorRol ───────────────────────────────────────────────
+
+const ficha = (id: string): Instructor => ({
+  id, studioId: 'e1', nombre: id, email: `${id}@estudio.es`, telefono: '600000000',
+  color: '#000', activo: true, rol: 'INSTRUCTOR', authUserId: `u-${id}`,
+} as Instructor);
+
+test('INSTRUCTOR: sus compañeras llegan sin email, teléfono ni cuenta; su ficha, entera', () => {
+  const [julia, maria] = instructoresVisiblesPorRol([ficha('julia'), ficha('maria')], 'INSTRUCTOR', 'u-julia');
+  assert.equal(julia.email, 'julia@estudio.es');
+  assert.equal(julia.authUserId, 'u-julia', 'el calendario se reconoce a sí mismo por authUserId');
+  assert.equal(maria.email, null);
+  assert.equal(maria.telefono, null);
+  assert.equal(maria.authUserId, null);
+  assert.equal(maria.nombre, 'maria', 'nombre y color siguen: pintan la rejilla');
+});
+
+test('INSTRUCTOR sin cuenta resuelta no recibe el contacto de nadie', () => {
+  const lista = instructoresVisiblesPorRol([ficha('julia')], 'INSTRUCTOR', null);
+  assert.equal(lista[0].email, null);
+});
+
+test('quien organiza el calendario recibe el contacto de todo el equipo', () => {
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
+    const [maria] = instructoresVisiblesPorRol([ficha('maria')], rol, 'u-otra');
+    assert.equal(maria.telefono, '600000000', rol);
+  }
 });
