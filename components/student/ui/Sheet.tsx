@@ -172,7 +172,11 @@ export function Sheet({ open, onClose, children, label }: {
           onPointerUp={soltar}
           // Sin esto, soltar fuera del handle deja el panel pegado al dedo.
           onPointerCancel={soltar}
-          style={{ padding: '9px 0 4px', touchAction: 'none', cursor: 'grab' }}
+          // M-6 (auditoría 58ª): el padding de antes (9px arriba, 4px abajo)
+          // dejaba una zona de arrastre de 17px de alto (9+4 del asa+4) —
+          // menos de la mitad del mínimo táctil de 44px. El asa VISUAL (34×4)
+          // no cambia; solo crece el área invisible que la rodea.
+          style={{ padding: '20px 0 20px', touchAction: 'none', cursor: 'grab' }}
         >
           <div style={{ width: 34, height: 4, borderRadius: 99, background: 'var(--border-strong)', margin: '0 auto' }} />
         </div>

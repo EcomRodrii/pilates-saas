@@ -210,7 +210,7 @@ export default function LoginPage() {
           <span style={{ fontSize: 'var(--t-small)', color: 'var(--muted-foreground)' }}>Recordar sesión</span>
         </label>
 
-        <Link href={href('/acceso/recuperar')} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
+        <Link href={href('/acceso/recuperar')} className="tap" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
           ¿Has olvidado la contraseña?
         </Link>
       </div>
@@ -260,7 +260,7 @@ export default function LoginPage() {
       </button>
 
       <p className="t-meta" style={{ textAlign: 'center' }}>
-        ¿Primera vez? <Link href={href('/acceso/registro')} style={{ fontWeight: 800, color: 'var(--foreground)' }}>Crear cuenta</Link>
+        ¿Primera vez? <Link href={href('/acceso/registro')} className="tap" style={{ fontWeight: 800, color: 'var(--foreground)' }}>Crear cuenta</Link>
       </p>
 
       {captcha}
