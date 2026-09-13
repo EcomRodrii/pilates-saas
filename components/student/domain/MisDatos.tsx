@@ -160,7 +160,6 @@ export function SolicitudesDerechos({ slug, nombreEstudio }: { slug: string; nom
       <Sheet open={eligiendo} onClose={() => setEligiendo(false)} label="Limitar u oponerme al uso de mis datos">
         <h3 className="t-h2" style={{ textAlign: 'center', marginBottom: 14 }}>¿Qué quieres pedir?</h3>
         <ProfileSection
-          titulo="Elige una opción"
           items={[
             { label: 'Limitar el uso de mis datos', valor: enCursoDe('limitacion') ? 'En curso' : undefined, onClick: () => { setEligiendo(false); abrir('limitacion'); } },
             { label: 'Oponerme al uso de mis datos', valor: enCursoDe('oposicion') ? 'En curso' : undefined, onClick: () => { setEligiendo(false); abrir('oposicion'); } },
@@ -179,6 +178,7 @@ export function SolicitudesDerechos({ slug, nombreEstudio }: { slug: string; nom
           ? `La enviaste el ${fechaCortaEstudio(enCurso.solicitadaEn)}. ${nombreEstudio} tiene hasta el ${fechaCortaEstudio(enCurso.plazoHasta)} para gestionarla.`
           : undefined}
         confirmar={enCurso ? 'Entendido' : 'Enviar solicitud'}
+        cancelar={enCurso ? null : undefined}
         tono={pideFrase ? 'danger' : 'primary'}
         loading={enviando}
         deshabilitado={pideFrase && !fraseOk}

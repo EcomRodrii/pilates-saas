@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import {
@@ -14,6 +14,10 @@ import {
 // el estudio deja de ver esos datos (quedan BLOQUEADOS por la base de datos),
 // pero no se borran — eso es una petición aparte. ⚠️ Bloquear o borrar es
 // decisión legal pendiente; este texto describe lo que el producto hace hoy.
+//
+// El estado inicial lo lee la PÁGINA (`perfil/privacidad/page.tsx`), no este
+// bloque: lo que va debajo tiene que esperar a saber si este existe, o se
+// mueve bajo el dedo al llegar.
 
 function fechaLarga(iso: string | null): string | null {
   if (!iso) return null;
@@ -22,23 +26,18 @@ function fechaLarga(iso: string | null): string | null {
   return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
 }
 
-export function ConsentimientoSaludPerfil({ studioId, nombreEstudio, hrefMensajes }: {
+export function ConsentimientoSaludPerfil({ inicial, studioId, nombreEstudio, hrefMensajes }: {
+  inicial: ConsentimientoSaludAlumna;
   studioId: string;
   nombreEstudio: string;
   hrefMensajes: string;
 }) {
-  const [datos, setDatos] = useState<ConsentimientoSaludAlumna | null>(null);
+  const [datos, setDatos] = useState<ConsentimientoSaludAlumna>(inicial);
   const [confirmar, setConfirmar] = useState(false);
   const [retirando, setRetirando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelado = false;
-    leerConsentimientoSalud(studioId).then(d => { if (!cancelado) setDatos(d); });
-    return () => { cancelado = true; };
-  }, [studioId]);
-
-  if (!datos || datos.estado === 'NO_CONSTA') return null;
+  if (datos.estado === 'NO_CONSTA') return null;
 
   const retirar = async () => {
     setRetirando(true);
@@ -57,6 +56,8 @@ export function ConsentimientoSaludPerfil({ studioId, nombreEstudio, hrefMensaje
   };
 
   const texto: React.CSSProperties = { margin: 0, fontSize: 'var(--t-small)', color: 'var(--muted-foreground)', lineHeight: 1.5 };
+  const autorizado = fechaLarga(datos.fecha);
+  const retirado = fechaLarga(datos.revocadoEn);
 
   return (
     <section>
@@ -64,9 +65,11 @@ export function ConsentimientoSaludPerfil({ studioId, nombreEstudio, hrefMensaje
       <div className="card card--pad-lg" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {datos.estado === 'VIGENTE' ? (
           <>
+            {/* La fecha DELANTE: al final («…para adaptar tus clases el 1 de
+                agosto») se leía como el día de las clases. */}
             <p style={texto}>
-              Autorizaste a {nombreEstudio} a usar lo que le cuentas sobre tu salud (molestias, lesiones…)
-              para adaptar tus clases{fechaLarga(datos.fecha) ? ` el ${fechaLarga(datos.fecha)}` : ''}.
+              {autorizado ? `El ${autorizado} autorizaste` : 'Autorizaste'} a {nombreEstudio} a usar lo que le cuentas
+              sobre tu salud (molestias, lesiones…) para adaptar tus clases.
             </p>
             {/* Enlace terciario, no rojo: vive en «Privacidad y datos» y no debe
                 llamar la atención. El tono de peligro se queda en la hoja de
@@ -82,7 +85,7 @@ export function ConsentimientoSaludPerfil({ studioId, nombreEstudio, hrefMensaje
         ) : (
           <>
             <p style={texto}>
-              Retiraste este consentimiento{fechaLarga(datos.revocadoEn) ? ` el ${fechaLarga(datos.revocadoEn)}` : ''}.
+              Retiraste este consentimiento{retirado ? ` el ${retirado}` : ''}.
               {' '}{nombreEstudio} ya no puede ver tus datos de salud: están bloqueados, pero no se han borrado.
             </p>
             <p style={texto}>
