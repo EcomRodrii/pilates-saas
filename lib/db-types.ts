@@ -744,6 +744,8 @@ export interface RowSocios {
   consentimiento_salud_texto: string | null;
   // migr 20260910224240.
   objetivo_clases_mes: number | null;
+  // migr 20260913173100.
+  consentimiento_salud_registrado_por_uid: string | null;
   // migr 20260913205557.
   excluir_de_perfilado: boolean | null;
 }
@@ -2746,6 +2748,19 @@ export interface RowMatriculaCupoLiberaciones {
   plan_id: string;
   studio_id: string;
   liberado_en: string;
+}
+
+export interface RowConsentimientosSaludEventos {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  tipo: string;
+  en: string;
+  origen: string;
+  texto: string | null;
+  firma: string | null;
+  actor_uid: string | null;
+  actor_rol: string | null;
 }
 
 export interface RowSupresiones {
