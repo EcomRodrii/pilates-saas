@@ -22,7 +22,8 @@
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { desenlaceDeRespuesta, esRechazoConocido, type DesenlaceReserva, type RespuestaReserva } from '@/lib/student/reserva-codigos';
 import { portalAuthHeader } from '@/lib/api-client';
-import * as Sentry from '@sentry/nextjs';
+// Diferido, como el resto de la app: ver `lib/sentry-cliente`.
+import { capturarMensaje } from '@/lib/sentry-cliente';
 
 export interface OpcionesReserva {
   /** El sitio (reformer) que ha elegido, si la sala los tiene. */
@@ -90,8 +91,7 @@ export async function confirmarReserva(
   // mirar el `codigo`, cada alumna que intenta reservar sin bono levantaba un
   // evento de nivel `error` en Sentry.
   if (desenlace.state === 'error' && !esRechazoConocido(codigo)) {
-    Sentry.captureMessage('student-pwa: reserva sin desenlace conocido', {
-      level: 'error',
+    capturarMensaje('student-pwa: reserva sin desenlace conocido', 'error', {
       tags: { area: 'student-pwa', operacion: 'confirmar-reserva', estudio: slug },
       extra: {
         // El código del backend, que es el dato que permite arreglarlo. Sin

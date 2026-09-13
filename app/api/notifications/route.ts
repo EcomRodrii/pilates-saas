@@ -90,12 +90,23 @@ export async function GET(req: NextRequest) {
   // no tiene ahí ninguna notificación.
   if (typeof filtro === 'string') return NextResponse.json({ items: [], unread: 0 });
 
-  let q = admin.from('notification').select(COLS)
+  // `soloConteo=1`: el punto de la campana de la alumna solo necesita el número.
+  // Sale de la MISMA consulta acotada que la bandeja —no de una copia del
+  // acotado que pueda divergir—, pero sin cuerpo (HEAD + count), servida por
+  // `idx_notification_unread` y sin el techo de 60 filas.
+  const soloConteo = req.nextUrl.searchParams.get('soloConteo') === '1';
+  let q = admin.from('notification').select(COLS, soloConteo ? { count: 'exact', head: true } : undefined)
     .eq('recipient_user_id', user.userId)
     .is('archived_at', null);
   if (filtro.studioId) q = q.eq('studio_id', filtro.studioId);
   if (filtro.rolIgual) q = q.eq('recipient_role', filtro.rolIgual);
   if (filtro.rolDistinto) q = q.neq('recipient_role', filtro.rolDistinto);
+
+  if (soloConteo) {
+    const { count, error } = await q.is('read_at', null);
+    if (error) return errorInterno('GET /api/notifications', error, 'No hemos podido cargar tus avisos.');
+    return NextResponse.json({ unread: count ?? 0 });
+  }
 
   const { data, error } = await q
     .order('created_at', { ascending: false })

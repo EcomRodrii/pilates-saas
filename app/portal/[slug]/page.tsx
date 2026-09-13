@@ -32,8 +32,12 @@ import { Descubre } from '@/components/student/domain/Descubre';
 import { ValoracionCard } from '@/components/student/domain/ValoracionCard';
 import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
-import { Foto } from '@/components/student/ui/Foto';
+import { Foto, precargarFoto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
+
+// Cuánto mide el héroe en cada ancho. Lo leen el `<img>` y su precarga: si
+// dijeran cosas distintas, el navegador bajaría la portada dos veces.
+const SIZES_PORTADA = '(min-width:1024px) 1040px, (min-width:768px) 640px, 100vw';
 
 // Inicio (§A.5 del handoff): héroe fotográfico, próxima clase, bono y huecos de
 // hoy. Estructura y medidas literales del paquete.
@@ -45,6 +49,11 @@ import { Icono } from '@/components/student/ui/Icono';
 // reservar, y por eso su rechazo tiene pantalla propia (`full`).
 export default function InicioPage() {
   const { estudio } = useEstudio();
+  // La portada es lo más grande de esta pantalla (su LCP) y su `<img>` NO está
+  // en el HTML: vive dentro de la guardia de sesión, que en el servidor pinta
+  // el esqueleto. El navegador no se enteraba de ella hasta hidratar y resolver
+  // `/api/public/session`. Un `preload` en el render sale en el `<head>`.
+  precargarFoto(estudio.fotoPortada, 640, SIZES_PORTADA);
   const href = usePortalHref();
   const router = useRouter();
   const { socia } = useSesionStudent(estudio.slug);
@@ -147,7 +156,7 @@ export default function InicioPage() {
           src={estudio.fotoPortada}
           ancho={640}
           alto={316}
-          sizes="(min-width:1024px) 1040px, (min-width:768px) 640px, 100vw"
+          sizes={SIZES_PORTADA}
           prioritaria
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',

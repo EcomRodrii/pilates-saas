@@ -59,6 +59,10 @@ const outfit = Outfit({
   variable: '--font-outfit',
   weight: ['400', '500', '600', '700'],
   display: 'swap',
+  // Sin precarga: solo la usa un tema concreto (o una sola pieza), y con
+  // `preload: true` —el valor por defecto— se descargaba en TODAS las páginas.
+  // Sin precargar, el navegador la pide solo cuando algo la pinta.
+  preload: false,
 });
 
 // Tema "Bloom" (lib/theme-definitions.ts, FUENTES en lib/theme-schema.ts) —
@@ -71,6 +75,7 @@ const poppins = Poppins({
   variable: '--font-poppins',
   weight: ['400', '500', '600', '700'],
   display: 'swap',
+  preload: false,
 });
 
 // Tema "Tentada" (themes/tentada/) — la serif de los titulares del portal de
@@ -87,6 +92,7 @@ const cormorant = Cormorant_Garamond({
   weight: ['400', '500', '600'],
   style: ['normal', 'italic'],
   display: 'swap',
+  preload: false,
 });
 
 // Tema "Sereno" (themes/sereno/) — las DOS familias del tema son nuevas en el
@@ -119,6 +125,7 @@ const sacramento = Sacramento({
   variable: '--font-manuscrita',
   weight: '400',
   display: 'swap',
+  preload: false,
 });
 
 const libreCaslon = Libre_Caslon_Text({
@@ -127,6 +134,7 @@ const libreCaslon = Libre_Caslon_Text({
   weight: ['400', '700'],
   style: ['normal', 'italic'],
   display: 'swap',
+  preload: false,
 });
 
 // El cuerpo de Sereno. Se piden 300-700 porque el prototipo usa 500/600 en
@@ -138,6 +146,7 @@ const figtree = Figtree({
   variable: '--font-figtree',
   weight: ['300', '400', '500', '600', '700'],
   display: 'swap',
+  preload: false,
 });
 
 // El title/description/OG de aquí abajo llevaban la coletilla "en Barcelona"
