@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import * as Sentry from '@sentry/nextjs';
 
 // Ausencias de instructoras (vacaciones / baja médica / otro). Al crearlas se
 // materializan los bloqueos día a día en instructora_disponibilidad_excepciones
@@ -149,7 +150,48 @@ export async function POST(req: NextRequest) {
     fecha: f, hora_inicio: null, hora_fin: null, tipo: 'bloqueo', ausencia_id: id,
   }));
   const { error: errExc } = await admin.from('instructora_disponibilidad_excepciones').insert(bloqueos);
-  if (errExc) console.error('[equipo:ausencias] bloqueos', errExc.message);
+  if (errExc) {
+    // I-5 (auditoría 59ª pasada, 13-sep-2026): esto era un `console.error` y
+    // seguía a un 200 OK. El bloqueo materializado aquí es lo ÚNICO que ve el
+    // motor de sustituciones (`rankear_candidatas` mira
+    // `instructora_disponibilidad_excepciones`, nunca `instructora_ausencias`),
+    // así que una ausencia sin su bloqueo deja a la instructora ELEGIBLE para
+    // cubrir clases durante sus propias vacaciones — y la dueña, que la ve en
+    // la lista, no tiene forma de saberlo. Clase «desplegado, en verde y sin
+    // efecto».
+    //
+    // El insert de un array es una sola sentencia: si falla, no entró ninguna
+    // fila. Se retira la ausencia recién creada para no dejar el estado a
+    // medias y se devuelve error, que es lo que permite reintentar. El aviso
+    // del Notification Engine todavía no se ha emitido a estas alturas.
+    console.error('[equipo:ausencias] bloqueos', errExc.message);
+    Sentry.captureMessage('[equipo:ausencias] no se pudo materializar el bloqueo de disponibilidad', {
+      level: 'error', tags: { area: 'sustituciones' },
+      extra: { studioId: staff.studioId, instructorId, ausenciaId: id, error: errExc.message },
+    });
+    //
+    // El propio rollback puede fallar, y por la MISMA causa (BD caída). Si
+    // falla, la ausencia queda viva y sin bloqueos — justo el estado que este
+    // bloque intenta evitar—, así que el mensaje no puede decir «no se ha
+    // guardado»: sería un fracaso falso, y la dueña crearía una segunda
+    // ausencia dejando la primera huérfana para siempre.
+    const { error: errRollback } = await admin.from('instructora_ausencias')
+      .delete().eq('id', id).eq('studio_id', staff.studioId);
+    if (errRollback) {
+      Sentry.captureMessage('[equipo:ausencias] ausencia huérfana: sin bloqueo y sin poder retirarla', {
+        level: 'error', tags: { area: 'sustituciones' },
+        extra: { studioId: staff.studioId, instructorId, ausenciaId: id, error: errRollback.message },
+      });
+      return NextResponse.json(
+        { error: 'La ausencia se ha guardado, pero NO hemos podido bloquear esas fechas: bórrala y vuelve a crearla, o el motor de sustituciones seguirá proponiendo a esta instructora.' },
+        { status: 500 },
+      );
+    }
+    return NextResponse.json(
+      { error: 'No se ha podido bloquear la disponibilidad de esas fechas. La ausencia no se ha guardado: vuelve a intentarlo.' },
+      { status: 500 },
+    );
+  }
 
   // Clases YA programadas de esa instructora dentro del periodo: es lo accionable
   // (hay que cubrirlas). Se cuentan para devolverlo y para el aviso.

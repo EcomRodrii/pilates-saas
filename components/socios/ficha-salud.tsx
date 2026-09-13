@@ -25,6 +25,7 @@ import { dbRegistrarLecturaFichaSalud, getCurrentStudioId } from '@/lib/supabase
 import { sugerirAdaptacionesSocio, type AdaptacionSocioIA } from '@/lib/ai/ficha-clinica-socio-client';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { TentareOrb } from '@/components/marca/tentare-orb';
+import { textoConsentimientoSaludMostrador } from '@/lib/legal-textos';
 
 // ─── Etiquetas de presentación ───────────────────────────────────────────────
 
@@ -270,11 +271,12 @@ function ConsentimientoSaludDialog({
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Autorización para tratar datos de salud</DialogTitle></DialogHeader>
         <div className="space-y-3 text-sm text-foreground">
-          <p className="text-muted-foreground">
-            Vas a registrar lesiones, embarazo u otra condición médica. Es un dato de categoría
-            especial (art. 9 RGPD): antes de guardar el primero, la socia debe autorizar
-            expresamente que el estudio lo trate para adaptar sus clases con seguridad.
-          </p>
+          {/* I-7 (59ª pasada): el texto sale de una fuente única y es EL MISMO
+              que se guarda como prueba en `consentimiento_salud_texto`. Antes
+              estaba escrito a mano aquí y no se guardaba en ninguna parte: un
+              registro de art. 9 RGPD con fecha y firmante, pero sin contenido. */}
+          <p className="text-muted-foreground">Vas a registrar lesiones, embarazo u otra condición médica. Es un dato de categoría especial (art. 9 RGPD): antes de guardar el primero, la socia debe autorizar expresamente que el estudio lo trate para adaptar sus clases con seguridad.</p>
+          <p className="text-xs text-muted-foreground border-l-2 border-border pl-3 italic">{textoConsentimientoSaludMostrador()}</p>
           <div>
             <label htmlFor="consentimiento-salud-nombre" className="text-xs font-semibold text-muted-foreground mb-1.5 block">
               Nombre de quien autoriza (la propia socia, delante de ti)
@@ -522,7 +524,15 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
   async function confirmarConsentimiento(registradoPor: string) {
     setGuardandoConsentimiento(true);
     setErrorConsentimiento(null);
-    const r = await updateSocio(socioId, { consentimientoSalud: { fecha: new Date().toISOString(), registradoPor } });
+    const r = await updateSocio(socioId, {
+      consentimientoSalud: {
+        fecha: new Date().toISOString(),
+        registradoPor,
+        // I-7: se guarda el texto que la socia acaba de leer en el diálogo, no
+        // solo la fecha y el nombre.
+        texto: textoConsentimientoSaludMostrador(),
+      },
+    });
     setGuardandoConsentimiento(false);
     if (!r.ok) { setErrorConsentimiento(r.error); return; }
     setConsentimientoDialogOpen(false);

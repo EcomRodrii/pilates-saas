@@ -1869,6 +1869,31 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
   if ('consentimientoSalud' in changes) {
     db.consentimiento_salud_fecha = changes.consentimientoSalud?.fecha ?? null;
     db.consentimiento_salud_registrado_por = changes.consentimientoSalud?.registradoPor ?? null;
+    // I-3 (auditoría 59ª pasada, 13-sep-2026). «Hay consentimiento» se lee en
+    // TODAS partes como `fecha is not null AND revocado_en is null` (mapSocio
+    // en :522, las RLS de las cinco tablas de salud vía
+    // `tiene_consentimiento_salud`, `/api/ai/instructor-note`), pero este
+    // camino solo escribía la fecha. El gemelo de la propia socia
+    // (`lib/db/valoracion-inicial-admin.ts:201`) sí levanta la revocación.
+    //
+    // ⚠️ Honestidad sobre el alcance: HOY el estado «dado y revocado a la vez»
+    // no es alcanzable desde el panel —lo único que revoca es el borrado RGPD
+    // (`app/api/socios/eliminar`), que en el mismo UPDATE pone `borrado_en`, y
+    // el cargador del panel filtra `.is('borrado_en', null)`— y producción
+    // tiene 0 filas así. Esto no arregla un fallo vivo: alinea este camino con
+    // su gemelo para que la regla sea una sola, que es lo que evita que el
+    // próximo cambio la rompa por un lado solo.
+    //
+    // Solo se levanta la revocación al REGISTRAR (`fecha` informada). La rama
+    // vacía se deja intacta a propósito: el único escritor de este campo es
+    // `components/socios/ficha-salud.tsx:525`, que siempre manda una fecha, y
+    // estampar aquí una revocación convertiría cualquier `updateSocio` que
+    // arrastre la clave con valor `undefined` en una revocación falsa en el
+    // registro RGPD. Revocar tiene su propio camino
+    // (`app/api/socios/eliminar/route.ts:188`).
+    if (changes.consentimientoSalud?.fecha) db.consentimiento_salud_revocado_en = null;
+    // I-7: sin esto el registro RGPD dice cuándo y quién, pero no QUÉ.
+    if (changes.consentimientoSalud?.texto) db.consentimiento_salud_texto = changes.consentimientoSalud.texto;
   }
   if ('consentimientoMarketing' in changes) {
     db.consentimiento_marketing_en = changes.consentimientoMarketing?.fecha ?? null;
