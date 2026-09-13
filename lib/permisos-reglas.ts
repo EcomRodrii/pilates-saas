@@ -124,6 +124,21 @@ export function puedeGestionarCamposPersonalizados(rol: Rol): boolean {
   return rol === 'PROPIETARIO';
 }
 
+// Datos PRIVADOS de la socia (auditoría RGPD 2026-09-13, M1): NIF, dirección,
+// fecha de nacimiento completa, firma del contrato y los identificadores de
+// pago (Stripe, SEPA, tarjeta). Solo la propietaria (responsable del
+// tratamiento) y recepción (cobra y factura en mostrador). El manager y la
+// instructora trabajan con nombre, contacto y lo operativo; el cumpleaños les
+// llega sin año (`socios.cumple_mm_dd`).
+//
+// Espejo de `puede_ver_datos_privados_socia()` en SQL (migr 20260914160000):
+// esa función decide qué devuelve la RPC `socios_datos_privados()` y, tras la
+// migración de cierre, quién puede escribir esas columnas. Esto solo esconde
+// los campos y evita mandarlos al guardar.
+export function puedeVerDatosPrivadosSocia(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'RECEPCION';
+}
+
 // Mover dinero: crear cobros, marcarlos cobrados, asignar o cancelar planes.
 // La propietaria y recepción — recepción cobra en mostrador y vende bonos, así
 // que necesita poder de verdad. La instructora no: no tiene ningún motivo para

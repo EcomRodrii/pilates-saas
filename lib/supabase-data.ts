@@ -25,6 +25,7 @@ import { saldoVivo } from '@/lib/creditos-caducidad';
 // `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
 // medianoche UTC — dos horas antes en verano — para todo el mundo.
 import { hoyISO } from '@/lib/student/formato';
+import { fusionarDatosPrivados, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -445,7 +446,14 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // es el texto legal COMPLETO que aceptó, idéntico para todas las socias del
 // estudio, y solo lo necesita comparar la vigencia — no el panel, que se lo
 // comería en el payload de arranque de TODAS las pantallas.
-export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'consentimiento_salud_texto' | 'visible_en_clase' | 'excluir_de_perfilado' | 'consentimiento_salud_registrado_por_uid'>;
+//
+// Las 12 columnas PRIVADAS (`COLUMNAS_PRIVADAS_SOCIA`) son OPCIONALES: el panel
+// no las lee de la tabla sino de la RPC `socios_datos_privados()`, que solo
+// devuelve filas a PROPIETARIO y RECEPCION. A un MANAGER o una INSTRUCTORA le
+// llegan sin esas claves y `mapSocio` las deja en `null`.
+export type FilaSocioPanel =
+  Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'consentimiento_salud_texto' | 'visible_en_clase' | 'excluir_de_perfilado' | 'consentimiento_salud_registrado_por_uid' | ColumnaPrivadaSocia>
+  & Partial<Pick<RowSocios, ColumnaPrivadaSocia>>;
 // `creado_en` fuera, igual que las otras dos: el panel no la pide en su select
 // ni la pinta — es para medir el embudo desde el servidor, no un dato de la
 // clase. Sin este Omit, añadir la columna volvía obligatoria en la fila a una
@@ -568,6 +576,7 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     sepaMandateId: r.sepa_mandate_id ?? null,
     sepaPaymentMethodId: r.sepa_payment_method_id ?? null,
     fechaNacimiento: r.fecha_nacimiento ?? null,
+    cumpleMmDd: r.cumple_mm_dd ?? null,
     direccion: r.direccion ?? null,
     objetivoClasesMes: r.objetivo_clases_mes ?? null,
     fotoUrl: r.foto_url ?? null,
@@ -1467,6 +1476,8 @@ function socioToDb(socio: Socio) {
     stripeCustomerId, stripePaymentMethodId, fechaNacimiento, fotoUrl, referidoPor, origenLead,
     metodoPagoPreferido, sepaMandateId, sepaPaymentMethodId,
     camposExtra,
+    // Columna GENERADA (`socios.cumple_mm_dd`): mandarla en el insert es un error.
+    cumpleMmDd: _cumpleGenerado,
     ...rest
   } = socio;
   return {
@@ -5209,7 +5220,38 @@ async function enTandas<T extends readonly unknown[] | []>(
 // en el navegador `getSupabaseAdmin()` es SIEMPRE null (sin
 // SUPABASE_SERVICE_ROLE_KEY en el bundle), así que el comportamiento real no
 // cambia, solo se rompe la cadena de imports estática hacia supabase-admin.ts.
-export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId?: string) {
+// Socias para el PANEL (sesión de staff), en dos lecturas que se juntan por id:
+// lo público de la tabla y lo privado por `socios_datos_privados()`, que
+// devuelve CERO filas si el rol no puede verlo (M1 RGPD, migr 20260914160000).
+// Funciona igual con el SELECT de tabla de `authenticated` puesto (antes de la
+// migración de cierre) y sin él (después): no pide ninguna columna privada.
+//
+// ⚠️ Si se añade una columna aquí, tiene que estar en el `grant select (...)`
+// de la migración de cierre, o el arranque del panel falla con 42501 en todos
+// los roles (lo vigila lib/rgpd-socios-datos-privados-contrato.test.ts).
+async function fetchSociosPanel(db: SupabaseClient, sid: string) {
+  const [publicas, privadas] = await Promise.all([
+    fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, fecha_alta, activo, lead_stage, tags, avatar, metodo_pago_preferido, cumple_mm_dd, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    // `.order('id')`: sin orden estable, paginar una RPC puede repetir o saltar filas.
+    fetchAllRows<FilaDatosPrivadosSocia>(sid, 'socios_datos_privados', (from, to) => db.rpc('socios_datos_privados').order('id').range(from, to)),
+  ]);
+  return {
+    data: fusionarDatosPrivados(publicas.data, privadas.data),
+    // Un fallo de la RPC marca `socios` como incompleto: las fichas se pintan
+    // sin NIF ni firma, y los formularios no mandan lo que no cambió
+    // (`cambiosSociaPermitidos`), así que no se borra nada al guardar.
+    error: publicas.error ?? privadas.error,
+  };
+}
+
+// `privadas`: de dónde salen las 12 columnas privadas de socias.
+//  · 'columnas' — de la tabla. SOLO servidor (service_role): crons, Decision OS,
+//    automatizaciones.
+//  · 'rpc' — de `socios_datos_privados()`. El panel, con la sesión de staff.
+// Sin valor por defecto a propósito: equivocarse en cualquiera de los dos
+// sentidos es silencioso (el servidor se quedaría sin tarjetas guardadas, o el
+// navegador volvería a pedir columnas que la BD le niega).
+export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: string | undefined, opciones: { privadas: 'columnas' | 'rpc' }) {
   const sid = studioId ?? getCurrentStudioId();
   const [
     studioRes,
@@ -5285,7 +5327,9 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId?: 
     // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
-    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    opciones.privadas === 'columnas'
+      ? fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, cumple_mm_dd, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to))
+      : fetchSociosPanel(db, sid),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
@@ -5445,7 +5489,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId?: 
 }
 
 export async function fetchCriticalStudioData(studioId?: string) {
-  return fetchCriticalStudioDataCon(supabase, studioId);
+  return fetchCriticalStudioDataCon(supabase, studioId, { privadas: 'rpc' });
 }
 
 

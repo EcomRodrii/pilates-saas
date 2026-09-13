@@ -1,4 +1,5 @@
 import type { Socio, Suscripcion, Recibo, DestinatariosCampana } from '@/lib/types';
+import { cumpleMesDia } from '../socios/datos-privados.ts';
 
 const MS_DIA = 86400000;
 
@@ -128,10 +129,11 @@ export function resolverDestinatariasCampana(
     case 'CUMPLE_ESTE_MES': {
       const mesActual = now.getUTCMonth();
       return socios.filter(s => {
-        if (!s.fechaNacimiento) return false;
-        // fechaNacimiento es 'YYYY-MM-DD' — mes por índice de string, sin
-        // pasar por Date (evita el desfase de zona horaria en el día 1/31).
-        return Number(s.fechaNacimiento.slice(5, 7)) - 1 === mesActual;
+        // 'MM-DD' sin año: es lo único que ve un MANAGER (M1 RGPD, la fecha
+        // completa llega `null`). Mes por índice de string, sin pasar por Date
+        // (evita el desfase de zona horaria en el día 1/31).
+        const md = cumpleMesDia(s);
+        return md !== null && Number(md.slice(0, 2)) - 1 === mesActual;
       });
     }
 

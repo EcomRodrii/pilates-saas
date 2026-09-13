@@ -10,6 +10,7 @@
 // pueda divergir), pero no importa nada de lib/decision — si en el futuro
 // un segmento guardado alimenta El Umbral, es una fase 2 explícita.
 import type { Socio, Suscripcion, Reserva, Sesion, CampoPersonalizado } from '@/lib/types';
+import { cumpleMesDia, diasHastaCumple } from '../socios/datos-privados.ts';
 import { ultimaAsistidaPorSocio } from '../engines/senales-inactividad.ts';
 import type { CampoSegmento, Comparador, CondicionSegmento, DefinicionSegmento } from './tipos.ts';
 
@@ -61,15 +62,6 @@ function diasEntre(desdeISO: string, hasta: Date): number {
   return Math.floor((hasta.getTime() - new Date(desdeISO).getTime()) / MS_DIA);
 }
 
-// Próximo cumpleaños en días (ignora el año de nacimiento) — null si no hay
-// fecha de nacimiento registrada.
-function diasHastaProximoCumpleanos(fechaNacimientoISO: string, now: Date): number {
-  const nac = new Date(fechaNacimientoISO);
-  const esteAnio = new Date(now.getFullYear(), nac.getMonth(), nac.getDate());
-  const objetivo = esteAnio.getTime() >= now.getTime() ? esteAnio : new Date(now.getFullYear() + 1, nac.getMonth(), nac.getDate());
-  return Math.ceil((objetivo.getTime() - now.getTime()) / MS_DIA);
-}
-
 function compararNumero(actual: number | null, comparador: Comparador, valor: number): boolean {
   if (actual === null) return false; // sin dato conocido: nunca cumple una condición numérica
   if (comparador === 'mayor_que') return actual > valor;
@@ -114,7 +106,10 @@ export function evaluarCondicion(cond: CondicionSegmento, socio: Socio, ctx: Con
     return compararNumero(diasEntre(socio.fechaAlta, ctx.now), cond.comparador, Number(cond.valor));
   }
   if (campo === 'cumpleanos_en_proximos_dias') {
-    const dias = socio.fechaNacimiento ? diasHastaProximoCumpleanos(socio.fechaNacimiento, ctx.now) : null;
+    // Día y mes (`cumpleMmDd`): un MANAGER no recibe la fecha completa (M1
+    // RGPD) y el año no pinta nada aquí. Hoy cuenta como 0 días, no 365.
+    const md = cumpleMesDia(socio);
+    const dias = md ? diasHastaCumple(md, ctx.now) : null;
     return compararNumero(dias, cond.comparador, Number(cond.valor));
   }
   if (campo === 'etiqueta') {

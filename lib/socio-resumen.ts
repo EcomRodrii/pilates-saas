@@ -6,6 +6,7 @@
 // hooks); en ese caso devuelve valores neutros que la página no llega a pintar.
 
 import type { Socio, Reserva, Recibo, Suscripcion, PlanTarifa, Sesion } from '@/lib/types';
+import { cumpleMesDia, formatearCumple } from './socios/datos-privados.ts';
 
 export interface ResumenSocioInput {
   socio: Socio | undefined;
@@ -100,9 +101,10 @@ export function resumenSocio({
   const planActivo = suscripcionActiva ? planesTarifa.find(p => p.id === suscripcionActiva.planId) ?? null : null;
   const bonosActivos = suscripciones.filter(s => s.socioId === id && s.estado === 'ACTIVA' && estaVigente(s)).length;
   const pendientesImporte = pendientes.reduce((acc, r) => acc + r.importe, 0);
-  const cumpleanos = socio?.fechaNacimiento
-    ? new Date(socio.fechaNacimiento).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })
-    : null;
+  // Día y mes, nunca el año: todo el personal ve esta tarjeta y la fecha
+  // completa es dato privado (M1 RGPD). Sin `new Date(iso)`, que en UTC-x
+  // restaba un día.
+  const cumpleanos = formatearCumple(cumpleMesDia(socio));
 
   // Sparkline de asistencia de las últimas 12 semanas.
   const sparklineWeeks = Array.from({ length: 12 }, (_, i) => {

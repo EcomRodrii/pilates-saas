@@ -5277,7 +5277,9 @@ export async function contarSedesCadena(cadenaId: string): Promise<number> {
 export async function fetchAllStudioDataServidor(studioId?: string) {
   const db = getSupabaseAdmin() ?? supabase;
   const [critical, deferred] = await Promise.all([
-    fetchCriticalStudioDataCon(db, studioId),
+    // `columnas`: el servidor sigue leyendo las 12 columnas privadas de socias
+    // de la tabla (service_role). La RPC del panel le devolvería cero filas.
+    fetchCriticalStudioDataCon(db, studioId, { privadas: 'columnas' }),
     fetchDeferredStudioDataCon(db, studioId),
   ]);
   return { ...critical, ...deferred };

@@ -13,7 +13,8 @@ import { resumenSocio } from '@/lib/socio-resumen';
 import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
 import type { LeadStage } from '@/lib/types';
 import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto } from '@/lib/api-client';
-import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
+import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
@@ -220,6 +221,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // Alta, edición y baja de clientas: mostrador y manager. La instructora tenía
   // los tres botones a la vista y los tres terminaban en el rechazo de la RLS.
   const gestionaClientas = puedeGestionarClientas(rol);
+  // NIF, firma y demás datos privados (M1 RGPD): a un MANAGER o una INSTRUCTORA
+  // le llegan `null` y aquí ni se pintan ni se mandan al guardar.
+  const veDatosPrivados = puedeVerDatosPrivadosSocia(rol);
   // Antes era `rol !== 'INSTRUCTOR'`, escrito a mano. Con un rol nuevo esa forma
   // se equivoca sola: el manager habría heredado la vista de facturación sin que
   // nadie lo decidiera. Ahora lo dice una regla con nombre.
@@ -552,14 +556,16 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   }
 
   async function saveEdit() {
-    const res = await updateSocio(id, {
+    // Sin permiso el NIF no se manda (el campo está oculto y valdría '', o sea
+    // borrarlo); con permiso, solo si cambió respecto a lo cargado.
+    const res = await updateSocio(id, cambiosSociaPermitidos({
       nombre: editForm.nombre.trim(),
       apellidos: editForm.apellidos.trim(),
       email: editForm.email.trim(),
       telefono: editForm.telefono || null,
       nif: editForm.nif || null,
       camposExtra: editForm.camposExtra,
-    });
+    }, { puedeVerPrivados: veDatosPrivados, original: socio }));
     // El diálogo solo se cierra si de verdad se guardó: cerrarlo con el error
     // detrás deja a la propietaria creyendo que cambió el email de una clienta.
     if (!res.ok) { setToast(res.error); return; }
@@ -1741,7 +1747,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   <span className="text-xs font-medium text-foreground">{socio.telefono}</span>
                 </div>
               )}
-              {socio.nif && (
+              {veDatosPrivados && socio.nif && (
                 <div className="flex items-center gap-2.5">
                   <CreditCard size={14} className="text-muted-foreground shrink-0" />
                   <span className="text-xs font-medium text-foreground">{socio.nif}</span>
@@ -1942,10 +1948,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   <span className="text-xs font-bold text-success">Contrato aceptado</span>
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1 pt-1">
-                  <div className="flex items-center gap-1.5">
-                    <FileSignature size={11} className="shrink-0" />
-                    <span className="font-medium text-foreground truncate">{socio.aceptacionContrato.firma}</span>
-                  </div>
+                  {/* La firma es dato privado (M1 RGPD): el resto del
+                      personal ve que está aceptado y cuándo, no el nombre. */}
+                  {veDatosPrivados && socio.aceptacionContrato.firma && (
+                    <div className="flex items-center gap-1.5">
+                      <FileSignature size={11} className="shrink-0" />
+                      <span className="font-medium text-foreground truncate">{socio.aceptacionContrato.firma}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <Calendar size={11} className="shrink-0" />
                     <span>{fecha(socio.aceptacionContrato.fecha)}</span>
@@ -2117,9 +2127,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               <FF label="Teléfono">
                 <input className={inputCls} value={editForm.telefono} onChange={e => setEditForm(f => ({ ...f, telefono: e.target.value }))} />
               </FF>
-              <FF label="NIF (opcional)">
-                <input className={inputCls} value={editForm.nif} onChange={e => setEditForm(f => ({ ...f, nif: e.target.value }))} />
-              </FF>
+              {veDatosPrivados && (
+                <FF label="NIF (opcional)">
+                  <input className={inputCls} value={editForm.nif} onChange={e => setEditForm(f => ({ ...f, nif: e.target.value }))} />
+                </FF>
+              )}
             </div>
             {camposPersonalizados.some(c => c.activo) && (
               <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">

@@ -6,7 +6,8 @@ import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useRol, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
+import { useRol, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
+import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
 import { textoLegalCompleto, textoConsentimientoMarketing } from '@/lib/legal-textos';
@@ -190,6 +191,9 @@ export default function Socios() {
   // dar de baja y cambiar plan, los pulsaba, y se llevaba un error. Un botón que
   // siempre falla no es una funcionalidad, es una trampa.
   const gestionaClientas = puedeGestionarClientas(rol);
+  // NIF y firma son datos privados (M1 RGPD): solo propietaria y recepción los
+  // ven, los rellenan y los mandan. Un MANAGER da el alta sin ellos.
+  const veDatosPrivados = puedeVerDatosPrivadosSocia(rol);
   const mueveDinero = puedeMoverDinero(rol);
 
   // Semáforo de salud por clienta (solo el color; el motivo vive en el detalle).
@@ -688,7 +692,7 @@ export default function Socios() {
     setGuardando(true);
     setErrorGuardar(null);
     const versionTexto = textoLegalCompleto(studioConfig);
-    const res = await addSocio({
+    const res = await addSocio(cambiosSociaPermitidos({
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
       email: form.email.trim(),
@@ -710,7 +714,7 @@ export default function Socios() {
             // Quién la recogió lo rellena el contexto, que sí sabe quién opera.
           }
         : undefined,
-    });
+    }, { puedeVerPrivados: veDatosPrivados }));
     setGuardando(false);
     // Si la BD la rechaza, el diálogo se queda abierto con los datos puestos:
     // antes se cerraba igual y la clienta aparecía en la lista sin existir.
@@ -726,14 +730,16 @@ export default function Socios() {
     if (!editandoId || guardando) return;
     setGuardando(true);
     setErrorGuardar(null);
-    const res = await updateSocio(editandoId, {
+    // Sin permiso el NIF no se manda (oculto, valdría '' y lo borraría); con
+    // permiso, solo si cambió respecto a la ficha cargada.
+    const res = await updateSocio(editandoId, cambiosSociaPermitidos({
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
       email: form.email.trim(),
       telefono: form.telefono || null,
       nif: form.nif || null,
       camposExtra: form.camposExtra,
-    });
+    }, { puedeVerPrivados: veDatosPrivados, original: socios.find(s => s.id === editandoId) }));
     setGuardando(false);
     if (!res.ok) { setErrorGuardar(res.error); return; }
     // Sólo si el plan ha cambiado de verdad. `assignPlan` cancela la suscripción
@@ -1415,14 +1421,16 @@ export default function Socios() {
                     onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
                   />
                 </FF>
-                <FF label="NIF (opcional)" description="Solo hace falta si vas a facturarle. Se puede añadir más adelante.">
-                  <input
-                    className={inputCls}
-                    placeholder="12345678A"
-                    value={form.nif}
-                    onChange={(e) => setForm((f) => ({ ...f, nif: e.target.value }))}
-                  />
-                </FF>
+                {veDatosPrivados && (
+                  <FF label="NIF (opcional)" description="Solo hace falta si vas a facturarle. Se puede añadir más adelante.">
+                    <input
+                      className={inputCls}
+                      placeholder="12345678A"
+                      value={form.nif}
+                      onChange={(e) => setForm((f) => ({ ...f, nif: e.target.value }))}
+                    />
+                  </FF>
+                )}
               </div>
               {camposPersonalizados.some(c => c.activo) && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
@@ -1561,6 +1569,9 @@ export default function Socios() {
                   nombre por ella — y quedaba registrado como si hubiera firmado
                   ella misma. Sin firma, la socia se crea igual y la firma se le
                   pide la primera vez que entre a reservar. */}
+              {/* La firma es dato privado (M1 RGPD): un MANAGER no la recoge;
+                  la socia queda pendiente y firma ella al entrar a reservar. */}
+              {veDatosPrivados && (
               <FF
                 label="Firma de la clienta (opcional)"
                 description="Solo si está delante y firma ella. Si se ha apuntado por teléfono, déjalo vacío: se lo pediremos cuando entre a reservar."
@@ -1575,6 +1586,7 @@ export default function Socios() {
                   />
                 </div>
               </FF>
+              )}
 
               {/* Resumen: dice exactamente qué se va a guardar y de quién. */}
               {aceptado && (
