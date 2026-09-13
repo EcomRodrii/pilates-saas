@@ -7,10 +7,11 @@ import { CoreProvider } from '@/lib/core-context';
 import { Toast, useToast } from '@/components/ui/toast';
 import { supabase } from '@/lib/db/supabase';
 import { apuntarCobroEnCaja } from '@/lib/pos/cliente';
+import { debeReleerAlVolver } from '@/lib/panel-refresco';
 import type { RowInstructores } from '@/lib/db-types';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchGamificacionStudio,
-  fetchAgendaCitasStudio, fetchFichaClientaStudio, fetchDashboardChartsStudio, fetchDatosTrasVentaPOS, mapInstructor,
+  fetchAgendaCitasStudio, fetchFichaClientaStudio, fetchDashboardChartsStudio, fetchDatosTrasVentaPOS, fetchTarifasYSuscripciones, mapInstructor,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
   dbFetchSegmentosClientes, dbInsertSegmentoCliente, dbUpdateSegmentoCliente, dbDeleteSegmentoCliente,
@@ -1216,6 +1217,40 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicSlug]);
+
+  // Lo mismo para el PANEL, pero acotado. Al volver a una pestaña que llevaba
+  // un rato oculta se releen tarifas y suscripciones: activar un bono en una
+  // pestaña (o en el iPad de recepción) y venderlo en otra daba aquí «Asignar
+  // plan» vacío y «no tiene bono» hasta recargar (evaluación del 13-sep). Dos
+  // consultas y no `fetchCriticalStudioData` entero, que son ~50; el cuándo
+  // vive en `lib/panel-refresco.ts`. Solo `visibilitychange`, no `focus`:
+  // cambiar de ventana no oculta la pestaña ni la deja con datos de otra.
+  useEffect(() => {
+    if (publicSlug || studioIdOverride || !authUserId || !dataLoaded) return;
+    let ocultaDesde: number | null = document.visibilityState === 'hidden' ? Date.now() : null;
+    let vivo = true;
+    function alCambiarVisibilidad() {
+      if (document.visibilityState === 'hidden') {
+        ocultaDesde ??= Date.now();
+        return;
+      }
+      const releer = debeReleerAlVolver(ocultaDesde, Date.now());
+      ocultaDesde = null;
+      if (!releer) return;
+      fetchTarifasYSuscripciones().then(d => {
+        // `null` = alguna consulta falló: mejor lo que ya había que una lista
+        // vacía que parezca real.
+        if (!vivo || !d) return;
+        setPlanesTarifa(d.planesTarifa);
+        setSuscripciones(d.suscripciones);
+      }).catch(err => { console.error('Error releyendo tarifas y suscripciones:', err); });
+    }
+    document.addEventListener('visibilitychange', alCambiarVisibilidad);
+    return () => {
+      vivo = false;
+      document.removeEventListener('visibilitychange', alCambiarVisibilidad);
+    };
+  }, [publicSlug, studioIdOverride, authUserId, dataLoaded]);
 
   useEffect(() => {
     // Ruta pública (reserva/portal/kiosk): los datos vienen del proxy de
