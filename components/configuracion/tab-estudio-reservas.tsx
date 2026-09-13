@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
@@ -198,6 +199,23 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             </span>
             <Toggle on={pol.reservaExigirPlan} onChange={v => setPol(p => ({ ...p, reservaExigirPlan: v }))} />
           </label>
+          {/* ── Opciones avanzadas ────────────────────────────────────────────
+              Arriba solo lo que decide todo estudio (cancelación, devolución,
+              exigir bono). El resto —unas quince reglas— se pliega: la tarjeta
+              enseñaba veinte opciones seguidas y lo básico se perdía entre
+              penalizaciones y plazos (evaluación del 13-sep). Plegado no es
+              escondido: todo sigue guardándose con el mismo botón. */}
+          <details className="group rounded-xl border border-border">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="block text-[13px] font-semibold text-foreground">Opciones avanzadas</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  Compra desde el enlace, recuperaciones, antelación, lista de espera, confirmación, mínimo de asistentes y penalizaciones.
+                </span>
+              </span>
+              <ChevronDown size={16} className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className="space-y-4 border-t border-border px-4 py-4">
           {/* Quién puede comprar desde el enlace público sin tener ficha. Antes
               no había ajuste: se cobraba y no se entregaba nada (el webhook
               ignoraba el plan comprado). */}
@@ -442,6 +460,8 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               </label>
             </>
           )}
+            </div>
+          </details>
         </div>
         <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 flex flex-wrap items-center gap-3 rounded-b-xl border-t border-border bg-card px-6 py-3">
           <button
@@ -452,7 +472,12 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             Guardar política de reservas
           </button>
           <p role="status" className={cn('text-[11px]', hayCambios ? 'font-medium text-foreground' : 'text-muted-foreground')}>
-            {hayCambios ? 'Tienes cambios sin guardar.' : 'Sin cambios pendientes.'}
+            {/* La alerta de antelación imposible vive en «Opciones avanzadas», que
+                puede estar plegado: sin esto el botón aparecería apagado sin
+                decir por qué. */}
+            {ventanaImposible
+              ? 'Revisa la antelación en «Opciones avanzadas»: la mínima es mayor que la máxima.'
+              : hayCambios ? 'Tienes cambios sin guardar.' : 'Sin cambios pendientes.'}
           </p>
         </div>
       </div>

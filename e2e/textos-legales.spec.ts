@@ -90,7 +90,9 @@ async function abrirPasoDeContrato(page: Page) {
   await page.getByRole('textbox', { name: 'Nombre' }).fill('María');
   await page.getByRole('textbox', { name: 'Apellidos' }).fill('Soler Puig');
   await page.getByRole('textbox', { name: 'Email' }).fill('maria@example.com');
-  await page.getByRole('button', { name: /Siguiente — Contrato/ }).click();
+  // Alta en un solo paso (13-sep): el contrato va plegado en la misma pantalla
+  // y se despliega para leerlo.
+  await page.locator('summary', { hasText: 'Ver política de privacidad y condiciones' }).click();
 }
 
 test.describe('Textos legales con los datos del estudio', () => {

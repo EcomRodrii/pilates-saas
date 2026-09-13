@@ -83,7 +83,7 @@ async function rellenarAlta(page: Page, conPlan: boolean) {
   await page.getByRole('textbox', { name: 'Apellidos' }).fill('Soler Puig');
   await page.getByRole('textbox', { name: 'Email' }).fill('maria@example.com');
   if (conPlan) await page.getByRole('combobox', { name: /Plan/i }).selectOption('plan-1');
-  await page.getByRole('button', { name: /Siguiente — Contrato/ }).click();
+  // Alta en un solo paso (13-sep): la aceptación está en la misma pantalla.
   await page.getByRole('checkbox').check();
   await page.getByPlaceholder(/Nombre completo de la clienta/i).fill('María Soler Puig');
 }
