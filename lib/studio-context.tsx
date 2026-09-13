@@ -647,6 +647,8 @@ interface StudioContextValue {
   /** Gráficos personalizados del dashboard. */
   cargarDashboardCharts: () => void;
   dataLoaded: boolean;
+  /** Tablas de dinero que llegaron truncadas en el arranque (I-14). Vacío = ok. */
+  datosIncompletos: string[];
   /**
    * La carga pública falló de verdad (red/servidor) — distinto de `dataLoaded`
    * con catálogo vacío, que hoy es indistinguible de "0 clases" para quien
@@ -730,6 +732,9 @@ export function useStudio(): StudioContextValue {
 
 export function StudioProvider({ children, studioIdOverride, publicSlug }: { children: ReactNode; studioIdOverride?: string; publicSlug?: string }) {
   const [dataLoaded, setDataLoaded] = useState(false);
+  // I-14: qué tablas de dinero llegaron truncadas en el arranque del panel
+  // (fetchAllRows falló en alguna página). Vacío = todo llegó completo.
+  const [datosIncompletos, setDatosIncompletos] = useState<string[]>([]);
   const [errorPublico, setErrorPublico] = useState(false);
   const [dbError, setDbError] = useState<{ msg: string; key: number } | null>(null);
 
@@ -1270,6 +1275,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return null;
     })().then(data => {
       if (!data) { setDataLoaded(true); return; }
+      setDatosIncompletos(data.datosIncompletos ?? []);
       setPlanesTarifa(data.planesTarifa);
       setSalas(data.salas);
       setTiposClase(data.tiposClase);
@@ -5425,6 +5431,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dismissLog,
     actualizarLog,
     dataLoaded,
+    datosIncompletos,
     errorPublico,
     planMasElegidoId,
     sustitucionesConfirmadas,

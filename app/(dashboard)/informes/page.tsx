@@ -138,7 +138,7 @@ type ExportState = 'idle' | 'loading' | 'done';
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Informes() {
-  const { recibos, socios, sesiones, reservas, tiposClase, suscripciones, planesTarifa, instructores } = useStudio();
+  const { recibos, socios, sesiones, reservas, tiposClase, suscripciones, planesTarifa, instructores, datosIncompletos } = useStudio();
   // Sin esto, una instructora o un manager veían aquí las tarjetas de
   // ingresos/ticket medio — la RLS real (migración 0114) sí bloquea los datos
   // (ven un 0 € falso, no el número real), pero mostrar la tarjeta igual es
@@ -554,6 +554,22 @@ export default function Informes() {
           </div>
         }
       />
+
+      {/* I-14 (58ª auditoría): `fetchAllRows` puede fallar a media paginación —
+          antes eso se veía igual que "0 filas", así que un número bajo por un
+          fallo de red parecía un dato real. Solo se enseña si alguna de las
+          tablas que ESTA pantalla usa (recibos/sesiones/reservas) está en la
+          lista; el resto (p.ej. facturas) no cambiaría nada de lo que se ve aquí. */}
+      {datosIncompletos.some(t => ['recibos', 'sesiones', 'reservas'].includes(t)) && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm font-medium"
+          style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)' }}
+          role="alert"
+        >
+          Algunos datos no se han podido cargar del todo por un fallo de conexión — los números de
+          esta página pueden estar incompletos. Recarga la página; si sigue pasando, contacta con soporte.
+        </div>
+      )}
 
       {/* ── Section 1: KPI cards ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

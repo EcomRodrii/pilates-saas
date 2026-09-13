@@ -5341,7 +5341,22 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId?: 
     (planesTarifaRes.data ?? []).map(mapPlanTarifa),
     planTiposClaseRes.data as { plan_id: string; tipo_clase_id: string }[] | null,
   );
+  // I-14 (58ª auditoría): `fetchAllRows` ya reporta a Sentry la página que
+  // falla, pero hasta aquí el resultado se trataba igual que si esa tabla
+  // estuviera simplemente vacía — quien mira Informes/el panel nunca se
+  // enteraba de que el número que ve es un recuento PARCIAL, no cero de
+  // verdad. Solo las tablas que se traen con `fetchAllRows` pueden truncarse
+  // así (las demás no paginan); son justo las seis rutas de dinero.
+  const datosIncompletos = ([
+    ['socios', sociosRes], ['sesiones', sesionesRes], ['reservas', reservasRes],
+    ['recibos', recibosRes], ['facturas', facturasRes], ['citas', citasRes],
+    ['ventas_pos', ventasPOSRes],
+  ] as const)
+    .filter(([, res]) => res.error)
+    .map(([tabla]) => tabla);
+
   return {
+    datosIncompletos,
     studio: studioRes.data ? mapStudio(studioRes.data, studioHorarioRes.data ?? undefined) : null,
     // Política/términos persistidos (0107); null = el cliente aplica el texto por
     // defecto. Antes StudioConfig no se hidrataba nunca y perdía lo que la dueña editó.
