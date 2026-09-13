@@ -9,9 +9,15 @@ import { useStudio } from '@/lib/studio-context';
 // solo, mensaje a mensaje, o su ausencia. A diferencia de la bienvenida (que
 // sustituye el layout entero), este vive dentro de Centro de Control — es una
 // promesa sobre ESTA pantalla, no sobre el producto entero.
-export function ContratoDecisionOS() {
+//
+// `hayAnalisis`: se enseña cuando ya hay algo que la pantalla pueda cumplir.
+// Antes salía el primer día, encima de «Todavía no he hecho mi primer
+// análisis», y una promesa sobre una pantalla vacía no se entendía
+// (evaluación del 13-sep). Como se guarda al pulsar «Entendido», esperar al
+// primer análisis no hace que se pierda: sale entonces, una vez.
+export function ContratoDecisionOS({ hayAnalisis }: { hayAnalisis: boolean }) {
   const { studio, updateStudio } = useStudio();
-  if (!studio || studio.decisionContratoVistoEn) return null;
+  if (!studio || studio.decisionContratoVistoEn || !hayAnalisis) return null;
 
   return (
     <Card style={{ borderLeft: '4px solid var(--brand-secondary)' }}>

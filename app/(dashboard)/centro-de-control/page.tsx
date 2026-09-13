@@ -194,7 +194,7 @@ export default function CentroDeControlPage() {
         {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
       </p>
 
-      <ContratoDecisionOS />
+      <ContratoDecisionOS hayAnalisis={!modoAprendizaje} />
 
       {/* 1. Estado global */}
       <VeredictoDelDia
