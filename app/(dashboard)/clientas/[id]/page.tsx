@@ -2114,6 +2114,23 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <span>Sin plan</span>
               </button>
             )}
+            {/* ⚠️ Sin tarifas a la venta el diálogo salía con el título y nada
+                debajo: el asistente deja las tarifas en borrador (inactivas y a
+                0 €) y aquí solo se listan las activas (evaluación del 13-sep).
+                Se dice por qué está vacío y dónde se arregla. */}
+            {planesTarifa.filter(p => p.activo).length === 0 && (
+              <div className="rounded-xl border border-dashed border-border px-4 py-3 text-sm">
+                <p className="font-semibold text-foreground">No tienes tarifas a la venta</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {planesTarifa.length > 0
+                    ? `Tienes ${planesTarifa.length} en borrador: ponles precio y actívalas en Paquetes y podrás asignarlas desde aquí.`
+                    : 'Crea un bono o una cuota en Paquetes y podrás asignarlo desde aquí.'}
+                </p>
+                <Link href="/productos" className="mt-2 inline-block text-xs font-semibold text-brand-medio hover:underline">
+                  Ir a Paquetes
+                </Link>
+              </div>
+            )}
             {planesTarifa.filter(p => p.activo).map(p => (
               <button
                 key={p.id}

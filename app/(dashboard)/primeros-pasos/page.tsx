@@ -6,7 +6,7 @@ import {
   CheckCircle2, Circle, CircleDot, Clock, ArrowRight, Play, Compass, Lightbulb, BookOpen,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { calcularOnboarding } from '@/lib/onboarding';
+import { avisoVentaOnline, calcularOnboarding } from '@/lib/onboarding';
 import { calcularProgresoGuia, porNivel, type CapituloConEstado } from '@/lib/guia/progreso';
 import { ETIQUETA_NIVEL, EXPLICACION_NIVEL, type NivelGuia } from '@/lib/guia/curriculo';
 import { useTour } from '@/lib/tour-context';
@@ -59,9 +59,19 @@ export default function PrimerosPasosPage() {
     numReservas: reservas.length,
     numSalas: salas.length,
     numPlanesTarifa: planesTarifa.filter(p => p.activo && p.precio > 0).length,
+    numPlanesActivos: planesTarifa.filter(p => p.activo).length,
+    numPlanesBorrador: planesTarifa.filter(p => !p.activo || !(p.precio > 0)).length,
+    reservaExigirPlan: studio.reservaExigirPlan ?? true,
     numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
     contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
     automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
+  }) : null;
+  // Mismo aviso que la tarjeta del dashboard y la pantalla de «listo»: se pinta
+  // también cuando lo esencial está hecho, que es justo cuando se promete.
+  const aviso = studio ? avisoVentaOnline({
+    stripeAccountId: studio.stripeAccountId,
+    reservaExigirPlan: studio.reservaExigirPlan ?? true,
+    numPlanesActivos: planesTarifa.filter(p => p.activo).length,
   }) : null;
 
   const progreso = datos ? calcularProgresoGuia(datos.categorias) : null;
@@ -108,6 +118,15 @@ export default function PrimerosPasosPage() {
                 <p className="text-[13px] text-muted-foreground mt-1">
                   Lo esencial está hecho. A partir de aquí, cada capítulo te quita trabajo de encima.
                 </p>
+                {aviso && (
+                  <Link
+                    href="/configuracion?tab=integraciones"
+                    className="mt-3 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-[12.5px] leading-snug text-foreground hover:bg-warning/15"
+                  >
+                    <Lightbulb size={14} className="mt-[2px] shrink-0 text-warning" aria-hidden />
+                    <span>{aviso}</span>
+                  </Link>
+                )}
               </>
             ) : (
               <>

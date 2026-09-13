@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Rocket, X, Lightbulb } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Rocket, X, Lightbulb } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { calcularOnboarding } from '@/lib/onboarding';
+import { avisoVentaOnline, calcularOnboarding } from '@/lib/onboarding';
+import { calcularProgresoGuia } from '@/lib/guia/progreso';
 
 // Resumen compacto para el dashboard — el asistente completo (categorías,
 // ayuda contextual, enlaces) vive en su propia página, /primeros-pasos. Antes
@@ -24,7 +25,7 @@ export function OnboardingChecklist() {
 
   if (!studio || studio.onboardingDescartadoEn) return null;
 
-  const { totalPasos, totalCompletados, esencial } = calcularOnboarding({
+  const datos = {
     nif: studio.nif,
     stripeAccountId: studio.stripeAccountId,
     slug: studio.slug,
@@ -45,19 +46,29 @@ export function OnboardingChecklist() {
     // aparece en la reserva pública hasta que la propietaria lo activa de
     // verdad.
     numPlanesTarifa: planesTarifa.filter(p => p.activo && p.precio > 0).length,
+    numPlanesActivos: planesTarifa.filter(p => p.activo).length,
+    numPlanesBorrador: planesTarifa.filter(p => !p.activo || !(p.precio > 0)).length,
+    reservaExigirPlan: studio.reservaExigirPlan ?? true,
     numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
     contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
     automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
-  });
+  };
+  const { totalPasos, totalCompletados, categorias } = calcularOnboarding(datos);
 
   if (totalCompletados === totalPasos) return null;
 
-  // ⚠️ El porcentaje mide la ESENCIAL, no los 17 pasos. Contándolos todos, un
-  // estudio con su página ya abierta veía «40 %»: había terminado lo que le
-  // hacía falta para operar y el panel le decía que iba por la mitad. El resto
-  // de categorías (equipo, portal, automatizaciones) siguen en /primeros-pasos,
-  // que es donde tienen sentido.
-  const pct = esencial.pct;
+  // ⚠️ EL MISMO NÚMERO QUE LA GUÍA. Esta tarjeta contaba los 10 pasos de
+  // «Configuración inicial» (`calcularOnboarding().esencial`, incluidos
+  // «Personaliza tu marca» y «Recibe tu primera reserva») y /primeros-pasos los
+  // 7 de los capítulos «Para empezar» (`calcularProgresoGuia`). Una propietaria
+  // leía «4 de 10» en el dashboard, pulsaba «Ver todos los pasos» y la guía le
+  // decía «3 de 7 · te faltan 4» (evaluación del 13-sep). Ahora los dos salen
+  // del mismo cálculo, así que no pueden volver a divergir.
+  const progreso = calcularProgresoGuia(categorias);
+  const pct = progreso.esencialPct;
+  const listo = progreso.esencialTotal > 0 && progreso.esencialHechos === progreso.esencialTotal;
+  const siguiente = progreso.siguientePaso;
+  const aviso = avisoVentaOnline(datos);
 
   async function handleDismiss() {
     await updateStudio({ onboardingDescartadoEn: new Date().toISOString() });
@@ -72,9 +83,13 @@ export function OnboardingChecklist() {
           </div>
           <div>
             <p className="text-[13px] font-semibold text-foreground">
-              {pct === 100 ? 'Tu estudio ya puede recibir reservas' : `Tu estudio está al ${pct}%`}
+              {listo ? 'Tu estudio ya puede recibir reservas' : `Tu estudio está al ${pct}%`}
             </p>
-            <p className="text-[11px] text-muted-foreground">{esencial.hechos} de {esencial.total} para poder recibir reservas</p>
+            <p className="text-[11px] text-muted-foreground">
+              {listo
+                ? 'Lo esencial está hecho.'
+                : `${progreso.esencialHechos} de ${progreso.esencialTotal} para poder recibir reservas`}
+            </p>
           </div>
         </div>
         <button onClick={handleDismiss} aria-label="Ocultar primeros pasos" className="shrink-0 p-1 rounded-lg hover:bg-muted transition-colors" title="Ocultar">
@@ -86,19 +101,31 @@ export function OnboardingChecklist() {
         <div className="h-full rounded-full bg-brand-secondary transition-all" style={{ width: `${pct}%` }} />
       </div>
 
+      {/* Lo que hace falta saber antes de compartir el enlace: va encima del
+          siguiente paso porque rompe justo lo que el titular promete. */}
+      {aviso && (
+        <Link
+          href="/configuracion?tab=integraciones"
+          className="mt-3 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 transition-colors hover:bg-warning/15"
+        >
+          <AlertTriangle size={14} className="mt-[2px] shrink-0 text-warning" aria-hidden />
+          <span className="text-[12px] leading-snug text-foreground">{aviso}</span>
+        </Link>
+      )}
+
       {/* El siguiente paso concreto con su enlace, no un consejo. Antes aquí
           iba la recomendación más urgente («Vemos que todavía no has conectado
           Stripe»), que dice lo que falta pero no la lleva a hacerlo — y encima
           podía no ser el siguiente paso del camino. */}
-      {esencial.siguiente && (
+      {siguiente && (
         <Link
-          href={esencial.siguiente.href}
+          href={siguiente.href}
           className="mt-3 flex items-start gap-2 rounded-xl border border-border bg-background px-3 py-2.5 transition-colors hover:bg-muted"
         >
           <Lightbulb size={14} className="mt-[2px] shrink-0 text-warning" aria-hidden />
           <span className="min-w-0">
-            <span className="block text-[12.5px] font-semibold text-foreground">{esencial.siguiente.label}</span>
-            <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{esencial.siguiente.descripcion}</span>
+            <span className="block text-[12.5px] font-semibold text-foreground">{siguiente.label}</span>
+            <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{siguiente.descripcion}</span>
           </span>
         </Link>
       )}
