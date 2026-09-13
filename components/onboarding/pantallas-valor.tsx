@@ -215,10 +215,16 @@ export function PantallasValor({
         </button>
       </header>
 
+      {/* ⚠️ Anclado ARRIBA, no centrado en vertical. Centrado, cada pantalla
+          quedaba a una altura distinta (titulares de dos o tres líneas, escenas
+          de alto distinto) y «Siguiente» cambiaba de sitio entre una y otra: el
+          segundo clic en el mismo punto caía en vacío (evaluación del 13-sep).
+          Con esto y la fila mínima del texto de `.valor-rejilla`, el botón queda
+          siempre a la misma altura en escritorio. */}
       <div
         style={{
-          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '8px 24px 24px',
+          flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          padding: 'clamp(16px, 9vh, 96px) 24px 24px',
         }}
       >
         <div
@@ -373,6 +379,11 @@ export function PantallasValor({
             /* La escena ocupa la columna derecha entera; texto y acciones se
                apilan a su izquierda. */
             grid-template-areas: 'texto escena' 'acciones escena';
+            /* Fila del texto con alto MÍNIMO fijo (el texto se ancla abajo) y
+               la de acciones flexible: la escena, que ocupa las dos, crece
+               sobre la fila flexible y no empuja a la de acciones. Así
+               «Siguiente» empieza siempre a la misma altura. */
+            grid-template-rows: minmax(300px, auto) 1fr;
             align-items: start;
           }
           .valor-rejilla > [style*='grid-area: texto'] { align-self: end; }

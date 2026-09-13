@@ -419,12 +419,12 @@ export default function Mensajeria() {
     <div className="space-y-6">
       <PageHeader
         title="Mensajería"
-        description="Notificaciones, comunidad y comunicación con miembros"
+        description="Notificaciones, comunidad y conversaciones con tus alumnas"
         actions={
           <Link href="/clientas"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors">
             <Users size={14} />
-            Ver miembros
+            Ver alumnas
           </Link>
         }
       />

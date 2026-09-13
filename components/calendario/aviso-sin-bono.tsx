@@ -66,8 +66,13 @@ export function AvisoSinBono({
             </Button>
           )}
           {!hayPrecio && permiteCobrar && (
+            // «Un plan de tipo PUNTUAL» es el nombre interno de la tabla, no una
+            // palabra que use nadie en un estudio (evaluación del 13-sep).
             <p className="-mt-1 text-[11px] text-muted-foreground">
-              Configura un precio de «Clase suelta» (un plan de tipo PUNTUAL) para poder cobrarla desde aquí.
+              Para cobrarla desde aquí, ponle precio a tu tarifa «Clase suelta»{' '}
+              <Link href="/productos" onClick={onClose} className="font-semibold text-brand-medio hover:underline">
+                en Paquetes
+              </Link>.
             </p>
           )}
           <Link

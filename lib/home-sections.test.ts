@@ -75,7 +75,9 @@ test('una prioridad sin sección real no mueve nada', () => {
   // sección de la home que las atienda. Mapearlas a la "más parecida" movería
   // el panel por un motivo inventado; el orden se queda como estaba.
   const visibles = ['accion', 'resumen', 'ingresos', 'principal'];
-  for (const p of ['Conseguir más alumnos', 'Marketing', 'Sustituciones de profesoras', 'Otro']) {
+  // Las dos variantes: la etiqueta pasó a «alumnas» el 13-sep y los estudios
+  // anteriores tienen guardada la antigua en `onb_prioridad`.
+  for (const p of ['Conseguir más alumnas', 'Conseguir más alumnos', 'Marketing', 'Sustituciones de profesoras', 'Otro']) {
     assert.deepEqual(ordenarSeccionesHome(visibles, [p]), ordenarSeccionesHome(visibles), p);
   }
 });
