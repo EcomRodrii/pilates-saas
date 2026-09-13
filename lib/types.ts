@@ -1540,7 +1540,9 @@ export type TipoActividad =
   | 'EQUIPO_BAJA'
   | 'AUTOMATIZACION_CAMBIO'
   | 'DECISION_GESTIONADA'
-  | 'SESION_REASIGNADA';
+  | 'SESION_REASIGNADA'
+  // La propietaria cambió el email al que va el cierre (y el envío trimestral).
+  | 'GESTORIA_CAMBIADA';
 
 export interface ActividadReciente {
   id: string;
