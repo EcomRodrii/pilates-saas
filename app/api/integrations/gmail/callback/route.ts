@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForTokens, getGoogleAccountEmail, isGmailConfigurado } from '@/lib/gmail';
 import { dbSetGmailEmail, dbSaveGmailCredenciales } from '@/lib/db/supabase-data-admin';
-import { verificarEstadoOAuth } from '@/lib/oauth-state';
+import { borrarCookieOAuth, nombreCookieOAuth, verificarEstadoOAuth } from '@/lib/oauth-state';
 
 // Vuelta del OAuth de Gmail (botón "Conectar con Gmail" en Configuración →
 // Integraciones). Mismo patrón que app/api/integrations/google-calendar/
@@ -10,19 +10,30 @@ import { verificarEstadoOAuth } from '@/lib/oauth-state';
 // pisar los tokens de Google Calendar si el estudio tiene ambas conectadas.
 export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
+  // H-1: la cookie del flujo es de un solo uso — se borra en TODAS las salidas.
+  const redirigir = (query: string) => {
+    const res = NextResponse.redirect(`${appUrl}/configuracion?${query}`);
+    borrarCookieOAuth(res, 'gmail');
+    return res;
+  };
   if (!isGmailConfigurado()) {
-    return NextResponse.redirect(`${appUrl}/configuracion?gmail_error=Gmail%20no%20configurado`);
+    return redirigir('gmail_error=Gmail%20no%20configurado');
   }
 
   const code = req.nextUrl.searchParams.get('code');
   const oauthError = req.nextUrl.searchParams.get('error_description') ?? req.nextUrl.searchParams.get('error');
 
   if (oauthError) {
-    return NextResponse.redirect(`${appUrl}/configuracion?gmail_error=${encodeURIComponent(oauthError)}`);
+    return redirigir(`gmail_error=${encodeURIComponent(oauthError)}`);
   }
-  const verificado = verificarEstadoOAuth(req.nextUrl.searchParams.get('state'), 'gmail', Date.now());
+  // H-1: el state solo vale junto a la cookie que se fijó en ESTE navegador al
+  // pedirlo. Un enlace ajeno llega sin ella y no escribe nada.
+  const verificado = verificarEstadoOAuth(
+    req.nextUrl.searchParams.get('state'), 'gmail', Date.now(),
+    req.cookies.get(nombreCookieOAuth('gmail'))?.value,
+  );
   if (!code || !verificado) {
-    return NextResponse.redirect(`${appUrl}/configuracion?gmail_error=Estado%20de%20conexi%C3%B3n%20inv%C3%A1lido%20o%20caducado`);
+    return redirigir('gmail_error=Estado%20de%20conexi%C3%B3n%20inv%C3%A1lido%20o%20caducado');
   }
   const studioId = verificado.studioId;
 
@@ -31,9 +42,9 @@ export async function GET(req: NextRequest) {
     const email = await getGoogleAccountEmail(tokens.accessToken);
     await dbSaveGmailCredenciales(studioId, tokens);
     await dbSetGmailEmail(studioId, email);
-    return NextResponse.redirect(`${appUrl}/configuracion?gmail_connected=1`);
+    return redirigir('gmail_connected=1');
   } catch (err) {
     console.error('[integrations/gmail/callback]', err instanceof Error ? err.message : err);
-    return NextResponse.redirect(`${appUrl}/configuracion?gmail_error=${encodeURIComponent('No se pudo completar la conexión con Gmail. Inténtalo de nuevo.')}`);
+    return redirigir(`gmail_error=${encodeURIComponent('No se pudo completar la conexión con Gmail. Inténtalo de nuevo.')}`);
   }
 }

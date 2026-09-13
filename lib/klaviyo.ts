@@ -7,7 +7,7 @@
 // (provider='klaviyo'), sin policies de RLS para anon/authenticated.
 //
 // Diferencia real con Google/Zoom: Klaviyo exige PKCE desde 2025 (bloquea el
-// flujo sin él) — ver lib/oauth-state.ts, que lleva el code_verifier dentro
+// flujo sin él) — ver lib/oauth-state.ts, que guarda el code_verifier en la cookie HttpOnly del flujo (nunca en el state)
 // del propio `state` firmado.
 //
 // ⚠️ NO VERIFICADO end-to-end: sin KLAVIYO_CLIENT_ID/SECRET reales (hay que

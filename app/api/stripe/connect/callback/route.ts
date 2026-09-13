@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { dbSetStripeAccountId } from '@/lib/db/supabase-data-admin';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { verificarEstadoOAuth } from '@/lib/oauth-state';
+import { borrarCookieOAuth, nombreCookieOAuth, verificarEstadoOAuth } from '@/lib/oauth-state';
 import { registrarDominiosWalletEstudio } from '@/lib/billing/dominios-wallets';
 import { solicitarCapacidadBizum } from '@/lib/billing/capacidad-bizum';
 
@@ -13,22 +13,34 @@ import { solicitarCapacidadBizum } from '@/lib/billing/capacidad-bizum';
 export async function GET(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
+  // H-1: la cookie del flujo es de un solo uso — se borra en TODAS las salidas.
+  const redirigir = (query: string) => {
+    const res = NextResponse.redirect(`${appUrl}/configuracion?${query}`);
+    borrarCookieOAuth(res, 'stripe');
+    return res;
+  };
   if (!key || key.startsWith('sk_test_XXXX')) {
-    return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=Stripe%20no%20configurado`);
+    return redirigir('stripe_connect_error=Stripe%20no%20configurado');
   }
 
   const code = req.nextUrl.searchParams.get('code');
   const oauthError = req.nextUrl.searchParams.get('error_description') ?? req.nextUrl.searchParams.get('error');
 
   if (oauthError) {
-    return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=${encodeURIComponent(oauthError)}`);
+    return redirigir(`stripe_connect_error=${encodeURIComponent(oauthError)}`);
   }
   // C-8: el studioId sale del `state` FIRMADO (emitido por /api/integrations/
   // oauth-state al PROPIETARIO), no de un id en claro del navegador. Un state
   // ausente, manipulado o caducado se rechaza → no hay CSRF de binding.
-  const verificado = verificarEstadoOAuth(req.nextUrl.searchParams.get('state'), 'stripe', Date.now());
+  // H-1: y solo junto a la cookie que se fijó en ESTE navegador al pedirlo —
+  // si no, un propietario podía hacer que otra persona conectase SU cuenta de
+  // Stripe al estudio del primero con un enlace de autorización legítimo.
+  const verificado = verificarEstadoOAuth(
+    req.nextUrl.searchParams.get('state'), 'stripe', Date.now(),
+    req.cookies.get(nombreCookieOAuth('stripe'))?.value,
+  );
   if (!code || !verificado) {
-    return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=Estado%20de%20conexi%C3%B3n%20inv%C3%A1lido%20o%20caducado`);
+    return redirigir('stripe_connect_error=Estado%20de%20conexi%C3%B3n%20inv%C3%A1lido%20o%20caducado');
   }
   const studioId = verificado.studioId;
 
@@ -47,7 +59,7 @@ export async function GET(req: NextRequest) {
     // cuenta): la propietaria veía "conectado" y no cobraba nada.
     const resultado = await dbSetStripeAccountId(studioId, token.stripe_user_id);
     if (!resultado.ok) {
-      return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=${encodeURIComponent(resultado.error)}`);
+      return redirigir(`stripe_connect_error=${encodeURIComponent(resultado.error)}`);
     }
 
     // Con la cuenta recién conectada, registra sus dominios de wallets:
@@ -89,9 +101,9 @@ export async function GET(req: NextRequest) {
       console.error('[stripe/connect/callback] solicitud de capacidad bizum_payments', e);
     }
 
-    return NextResponse.redirect(`${appUrl}/configuracion?stripe_connected=1`);
+    return redirigir('stripe_connected=1');
   } catch (err) {
     console.error('[stripe/connect/callback]', err instanceof Error ? err.message : err);
-    return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=${encodeURIComponent('No se pudo completar la conexión con Stripe. Inténtalo de nuevo.')}`);
+    return redirigir(`stripe_connect_error=${encodeURIComponent('No se pudo completar la conexión con Stripe. Inténtalo de nuevo.')}`);
   }
 }
