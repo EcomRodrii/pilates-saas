@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { cn } from '@/lib/utils';
 import type { BackupMeta, TipoBackup } from '@/lib/types';
 import { btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { RESTAURACION_DISPONIBLE, MENSAJE_RESTAURACION_NO_DISPONIBLE } from '@/lib/backups/restauracion';
 
 const TIPO_LABEL: Record<TipoBackup, { label: string; bg: string; text: string }> = {
   DIARIO: { label: 'Diario', bg: '#EAF6FF', text: '#3F5A7A' },
@@ -135,8 +136,12 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
         </button>
       </div>
       <p className="text-[12px] text-muted-foreground">
-        Todos los días se crea automáticamente una copia diaria (los lunes también semanal, y el día 1 de cada mes también mensual) — en segundo plano, sin interrumpir la app. Restaurar sobrescribe todos los datos actuales del negocio.
+        Todos los días se crea automáticamente una copia diaria (los lunes también semanal, y el día 1 de cada mes también mensual) — en segundo plano, sin interrumpir la app.
+        {RESTAURACION_DISPONIBLE && ' Restaurar sobrescribe todos los datos actuales del negocio.'}
       </p>
+      {!RESTAURACION_DISPONIBLE && (
+        <p className="text-[12px] text-muted-foreground bg-muted rounded-lg px-3 py-2">{MENSAJE_RESTAURACION_NO_DISPONIBLE}</p>
+      )}
       {error && <p className="text-[12px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>}
 
       {ordenados.length === 0 ? (
@@ -159,12 +164,14 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => { setRestaurando(b); setConfirmText(''); setError(null); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors shrink-0"
-                >
-                  <RotateCcw size={14} /> Restaurar
-                </button>
+                {RESTAURACION_DISPONIBLE && (
+                  <button
+                    onClick={() => { setRestaurando(b); setConfirmText(''); setError(null); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors shrink-0"
+                  >
+                    <RotateCcw size={14} /> Restaurar
+                  </button>
+                )}
               </div>
             );
           })}

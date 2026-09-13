@@ -16,6 +16,7 @@ import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 import { metodoRealDeSesion } from '@/lib/billing/metodo-real-sesion';
 import { liberarCupoMatriculaUnaVez } from '@/lib/billing/matricula-online';
+import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -171,40 +172,41 @@ export async function POST(req: NextRequest) {
   const body = await req.text();
   const sig = req.headers.get('stripe-signature') ?? '';
 
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(body, sig, webhookSecret ?? '');
-  } catch {
-    // El primer catch NO reporta a propósito: aquí todavía es el caso normal
-    // (un evento de Connect firmado con el OTRO secreto). El silencio solo es
-    // un problema si TAMBIÉN falla el segundo.
-    try {
-      event = stripe.webhooks.constructEvent(body, sig, connectWebhookSecret ?? '');
-    } catch (err) {
-      // Mismo fallo mudo que e45f765c cerró en /api/billing/webhook, su gemelo
-      // — pero por AQUÍ entra el dinero de las socias (bonos, recibos,
-      // reembolsos y disputas), no la suscripción del estudio. Sin esto, un
-      // secreto rotado en Stripe y no actualizado en Vercel deja de entregar
-      // eventos y nadie se entera: la alumna paga, el bono no se activa y la
-      // propietaria no ve el cobro. Es un riesgo vivo: la clave de Stripe se ha
-      // rotado dos veces en 3 días (84d921c5, 92ff8e9f). `error` siempre —
-      // Sentry agrupa por fingerprint, así que el ruido de internet contra la
-      // URL no convierte esto en una alarma que suena sin parar.
-      Sentry.captureMessage('[stripe webhook connect] firma inválida — un pago de una socia puede quedarse sin registrar', {
+  // Se prueba con el secreto de plataforma y con el de Connect, pero NUNCA con
+  // uno vacío: stripe-node acepta una firma calculada con clave vacía, así que
+  // una variable sin configurar no puede degradar a "cualquier firma vale".
+  // Ver lib/billing/verificar-firma-stripe.ts.
+  const firma = verificarFirmaStripe(stripe, body, sig, [webhookSecret, connectWebhookSecret]);
+  if (!firma.ok) {
+    // Mismo fallo mudo que e45f765c cerró en /api/billing/webhook, su gemelo
+    // — pero por AQUÍ entra el dinero de las socias (bonos, recibos,
+    // reembolsos y disputas), no la suscripción del estudio. Sin esto, un
+    // secreto rotado en Stripe y no actualizado en Vercel deja de entregar
+    // eventos y nadie se entera: la alumna paga, el bono no se activa y la
+    // propietaria no ve el cobro. Es un riesgo vivo: la clave de Stripe se ha
+    // rotado dos veces en 3 días (84d921c5, 92ff8e9f). `error` siempre —
+    // Sentry agrupa por fingerprint, así que el ruido de internet contra la
+    // URL no convierte esto en una alarma que suena sin parar.
+    const sinSecreto = firma.motivo === 'sin-secreto';
+    Sentry.captureMessage(
+      sinSecreto
+        ? '[stripe webhook] sin secreto de firma configurado — se rechazan todos los eventos de pago'
+        : '[stripe webhook connect] firma inválida — un pago de una socia puede quedarse sin registrar',
+      {
         level: 'error',
-        tags: {
-          area: 'cobros',
-          tipo: webhookSecret || connectWebhookSecret ? 'firma-no-verifica' : 'secreto-no-configurado',
-        },
+        tags: { area: 'cobros', tipo: sinSecreto ? 'secreto-no-configurado' : 'firma-no-verifica' },
         extra: {
-          error: err instanceof Error ? err.message : String(err),
+          error: sinSecreto ? null : firma.error instanceof Error ? firma.error.message : String(firma.error),
           secretoPlataformaConfigurado: Boolean(webhookSecret),
           secretoConnectConfigurado: Boolean(connectWebhookSecret),
         },
-      });
-      return NextResponse.json({ error: 'Webhook signature inválida' }, { status: 400 });
-    }
+      },
+    );
+    return sinSecreto
+      ? NextResponse.json({ error: 'Webhook no configurado' }, { status: 503 })
+      : NextResponse.json({ error: 'Webhook signature inválida' }, { status: 400 });
   }
+  const event: Stripe.Event = firma.evento;
 
   // M10: idempotencia por event.id — reclamación atómica (RPC): si este
   // evento ya se procesó con éxito o hay otra entrega en vuelo dentro de la

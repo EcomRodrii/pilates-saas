@@ -6,6 +6,7 @@ import { capturar } from '@/lib/analytics';
 import * as Sentry from '@sentry/nextjs';
 import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
 import { enviarEmailFalloPagoSaas } from '@/lib/emails/fallo-pago-saas-server';
+import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Webhook de Stripe Billing (suscripción del estudio al SaaS). Distinto del
@@ -29,10 +30,10 @@ export async function POST(req: NextRequest) {
   const bodyText = await req.text();
   const sig = req.headers.get('stripe-signature') ?? '';
 
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(bodyText, sig, whSecret ?? '');
-  } catch (err) {
+  // Nunca con secreto vacío: stripe-node aceptaría una firma calculada con
+  // clave vacía (ver lib/billing/verificar-firma-stripe.ts).
+  const firma = verificarFirmaStripe(stripe, bodyText, sig, [whSecret]);
+  if (!firma.ok) {
     // Antes esto fallaba en TOTAL SILENCIO — ni log ni Sentry. Así estuvo roto
     // varios días (18→21-ago) sin que nadie se enterara: un estudio pagó de
     // verdad, Stripe entregó el evento, la firma no verificó, y el 400 se
@@ -43,13 +44,20 @@ export async function POST(req: NextRequest) {
     // mismo síntoma que un secreto rotado en Stripe sin actualizar Vercel —
     // Sentry agrupa por fingerprint, así que esto no se convierte en una
     // alarma que suena sin parar por ruido de internet.
+    const sinSecreto = firma.motivo === 'sin-secreto';
     Sentry.captureMessage('[billing webhook] firma inválida — la suscripción del estudio puede quedarse sin sincronizar', {
       level: 'error',
-      tags: { area: 'cobros', tipo: whSecret ? 'firma-no-verifica' : 'secreto-no-configurado' },
-      extra: { error: err instanceof Error ? err.message : String(err), secretoConfigurado: Boolean(whSecret) },
+      tags: { area: 'cobros', tipo: sinSecreto ? 'secreto-no-configurado' : 'firma-no-verifica' },
+      extra: {
+        error: sinSecreto ? null : firma.error instanceof Error ? firma.error.message : String(firma.error),
+        secretoConfigurado: Boolean(whSecret),
+      },
     });
-    return NextResponse.json({ error: 'Firma de webhook inválida' }, { status: 400 });
+    return sinSecreto
+      ? NextResponse.json({ error: 'Webhook no configurado' }, { status: 503 })
+      : NextResponse.json({ error: 'Firma de webhook inválida' }, { status: 400 });
   }
+  const event: Stripe.Event = firma.evento;
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
@@ -104,7 +112,10 @@ export async function POST(req: NextRequest) {
           extra: {
             sessionId: s.id,
             eventAccount: event.account ?? null,
-            metadata: s.metadata ?? null,
+            // Solo las CLAVES: la metadata de un checkout de socia lleva datos
+            // de la persona (nombre, email, teléfono…) y a Sentry no van.
+            metadataClaves: Object.keys(s.metadata ?? {}),
+            origen: s.metadata?.origen ?? null,
             pista: 'Ruido esperado mientras este destino siga suscrito a checkout.session.completed: '
               + 'lo entrega /api/stripe/webhook. Para silenciarlo del todo, quita ese tipo de evento '
               + 'de la suscripción del destino del SaaS en Stripe. Si además el bono NO llega, entonces '

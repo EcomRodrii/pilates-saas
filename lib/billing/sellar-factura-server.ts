@@ -191,7 +191,8 @@ export async function sellarFacturaDeRecibo(
           Sentry.captureMessage('Veri*Factu: NIF de receptor con formato dudoso al sellar', {
             level: 'warning',
             tags: { area: 'verifactu', studio: studioId },
-            extra: { socioId: recibo.socio_id, nif: receptorNIFCalc },
+            // El NIF no viaja a Sentry: con el socioId basta para localizarlo.
+            extra: { socioId: recibo.socio_id, nifLongitud: receptorNIFCalc.length },
           });
         }
       }
