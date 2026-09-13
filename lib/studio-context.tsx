@@ -462,7 +462,7 @@ interface StudioContextValue {
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentarSelladoFactura: (reciboId: string) => Promise<ResultadoEscritura>;
   deleteRecibo: (id: string) => Promise<ResultadoEscritura>;
-  cobrarTodosPendientes: (socioId?: string) => Promise<ResultadoEscritura>;
+  cobrarTodosPendientes: (socioId?: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura>;
   marcarRecibosEnviadosAlBanco: (ids: string[]) => Promise<ResultadoEscritura>;
 
   // Citas
@@ -4144,7 +4144,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  async function cobrarTodosPendientes(socioId?: string): Promise<ResultadoEscritura> {
+  async function cobrarTodosPendientes(socioId?: string, metodo?: MetodoCobro): Promise<ResultadoEscritura> {
     // Con socioId, cobra SOLO los pendientes de esa socia (botón de la ficha de
     // socia). Sin él, cobra todos los del estudio (dashboard / página de Pagos).
     // Antes ignoraba cualquier filtro y desde la ficha cobraba —y sellaba una
@@ -4155,7 +4155,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // round-trips secuenciales para cobrar 40 recibos pendientes).
     // Se espera el resultado ANTES de dar nada por cobrado: si la BD rechaza, no
     // se emiten facturas ni se renuevan bonos contra un cobro que no existe.
-    const res = await dbUpdateRecibosBatch(pendientes.map(r => r.id), { estado: 'COBRADO', fechaCobro });
+    // El método, si se eligió: mismo criterio que `marcarCobrado` (el cobro de
+    // la ficha de la clienta lo pregunta desde la evaluación del 13-sep).
+    const res = await dbUpdateRecibosBatch(
+      pendientes.map(r => r.id),
+      { estado: 'COBRADO', fechaCobro, ...(metodo ? { metodoCobro: metodo } : {}) },
+    );
     if (!res.ok) return res;
 
     // M-2 (auditoría 2026-07-29): dbUpdateRecibosBatch ahora exige
@@ -4166,7 +4171,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const cobradosAhora = pendientes.filter(r => idsCobrados.has(r.id));
 
     setRecibos(prev => prev.map(r =>
-      idsCobrados.has(r.id) ? { ...r, estado: 'COBRADO' as const, fechaCobro } : r
+      idsCobrados.has(r.id) ? { ...r, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? r.metodoCobro ?? null } : r
     ));
     // 2.2: se construye el lote de facturas puro (el acumulador `current` numera
     // en orden dentro del propio lote), y el sellado —red, uno por factura— va
@@ -4175,7 +4180,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     {
       let current = facturas;
       for (const recibo of cobradosAhora) {
-        const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
+        // Con el método dentro: `factura-automatica` no emite sola la del efectivo.
+        const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? recibo.metodoCobro ?? null };
         const fac = construirFacturaCobro(cobrado, current);
         if (fac) { nuevasFacturas.push(fac); current = [...current, fac]; }
       }

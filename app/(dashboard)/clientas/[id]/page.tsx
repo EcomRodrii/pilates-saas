@@ -23,6 +23,7 @@ import { FichaMandatoSepa } from '@/components/socios/ficha-mandato-sepa';
 import { FichaDocumentos } from '@/components/socios/ficha-documentos';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
+import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
 import { BotonRectificarFactura } from '@/components/socios/boton-rectificar-factura';
 import { estadoReembolso } from '@/lib/billing/estado-reembolso';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
@@ -1306,18 +1307,19 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         <Plus size={14} />Nuevo cobro
                       </button>
                       {pendientes.length > 0 && (
-                        <button
-                          onClick={() => {
+                        <BotonCobrarConMetodo
+                          detalle={<>{pendientes.length} {pendientes.length === 1 ? 'recibo' : 'recibos'} — <span className="font-semibold text-foreground">{formatEuro(pendientes.reduce((t, r) => t + r.importe, 0))}</span></>}
+                          onCobrar={metodo => {
                             const n = pendientes.length;
-                            void cobrarTodosPendientes(id).then(res => {
-                              setToast(res.ok ? `${n} recibo(s) cobrados` : res.error);
+                            return cobrarTodosPendientes(id, metodo).then(res => {
+                              setToast(res.ok ? `${n} ${n === 1 ? 'recibo cobrado' : 'recibos cobrados'}` : res.error);
                             });
                           }}
                           className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg transition-colors"
                           style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
                         >
                           <CheckCircle2 size={14} />Cobrar pendientes ({pendientes.length})
-                        </button>
+                        </BotonCobrarConMetodo>
                       )}
                     </div>
                   </div>
@@ -1387,17 +1389,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   {r.estado === 'PENDIENTE' && (
-                                    <button
-                                      onClick={() => {
-                                        void marcarCobrado(r.id).then(res => {
-                                          setToast(res.ok ? 'Recibo cobrado' : res.error);
-                                        });
-                                      }}
+                                    <BotonCobrarConMetodo
+                                      detalle={<>{r.concepto} — <span className="font-semibold text-foreground">{formatEuro(r.importe)}</span></>}
+                                      onCobrar={metodo => marcarCobrado(r.id, metodo).then(res => {
+                                        setToast(res.ok ? `Cobro registrado: ${formatEuro(r.importe)}` : res.error);
+                                      })}
                                       className="text-xs font-bold px-2.5 py-1 rounded-lg transition-colors"
                                       style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
-                                    >
-                                      Cobrar
-                                    </button>
+                                    />
                                   )}
                                   {/* Devolver: mismo gate de rol que cobrar (`puedeMoverDinero`).
                                       El componente se calla solo si la política del estudio está

@@ -5,6 +5,7 @@ import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import type { EstadoRecibo, Socio, MetodoCobro } from '@/lib/types';
+import { DialogoMetodoCobro } from '@/components/cobros/dialogo-metodo-cobro';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn, copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
@@ -1880,38 +1881,15 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
       {/* MODAL: Nuevo cobro                                                     */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {/* F2 (B2.6): cobro sin pasarela de primera clase — elige cómo se cobró. */}
-      <Dialog open={!!cobrandoRecibo} onOpenChange={open => { if (!open) setCobrandoRecibo(null); }}>
-        <DialogContent className="max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-foreground">¿Cómo lo has cobrado?</DialogTitle>
-            {cobrandoRecibo && (() => {
-              const r = recibos.find(x => x.id === cobrandoRecibo);
-              return r ? (
-                <p className="text-sm text-muted-foreground">
-                  {socioName(r.socioId)} — <span className="font-semibold text-foreground">{formatEuro(r.importe)}</span>
-                </p>
-              ) : null;
-            })()}
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            {([['BIZUM', 'Bizum'], ['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia'], ['TARJETA', 'Tarjeta']] as [MetodoCobro, string][]).map(([m, label]) => (
-              <button
-                key={m}
-                onClick={() => { const id = cobrandoRecibo; setCobrandoRecibo(null); if (id) cobrarYEmail(id, m); }}
-                className="px-3 py-2.5 rounded-lg text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => { const id = cobrandoRecibo; setCobrandoRecibo(null); if (id) cobrarYEmail(id); }}
-            className="mt-3 w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Marcar cobrado sin especificar
-          </button>
-        </DialogContent>
-      </Dialog>
+      <DialogoMetodoCobro
+        abierto={!!cobrandoRecibo}
+        detalle={cobrandoRecibo && (() => {
+          const r = recibos.find(x => x.id === cobrandoRecibo);
+          return r ? <>{socioName(r.socioId)} — <span className="font-semibold text-foreground">{formatEuro(r.importe)}</span></> : null;
+        })()}
+        onCerrar={() => setCobrandoRecibo(null)}
+        onElegir={m => { const id = cobrandoRecibo; setCobrandoRecibo(null); if (id) cobrarYEmail(id, m); }}
+      />
 
       <Dialog open={showNuevoCobro} onOpenChange={open => { if (!open) setShowNuevoCobro(false); }}>
         <DialogContent className="max-w-md">

@@ -535,7 +535,11 @@ interface CampoMeta2 { campo: CampoMembresia; etiqueta: string; obligatorio: boo
 
 const SINONIMOS_MEMBRESIA: Record<CampoMembresia, string[]> = {
   email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'socia', 'socio', 'cliente'],
-  plan: ['plan', 'tarifa', 'membresia', 'membership', 'membership name', 'membership type', 'plan name', 'bono', 'abono', 'nombre del bono', 'nombre del abono', 'class pack', 'pack', 'producto', 'suscripcion', 'subscription', 'paquete'],
+  // Mindbody llama al bono/membresía de la clienta «Pricing Option». Sin él,
+  // su export de clientas traía «Remaining» y «Expiration Date» pero ningún
+  // plan, así que el bloque de bonos no se derivaba y los saldos se quedaban
+  // fuera («No se importan estas columnas…»). Visto en la evaluación del 13-sep.
+  plan: ['plan', 'tarifa', 'membresia', 'membership', 'membership name', 'membership type', 'plan name', 'bono', 'abono', 'nombre del bono', 'nombre del abono', 'class pack', 'pack', 'producto', 'suscripcion', 'subscription', 'paquete', 'pricing option', 'pricing options', 'pricing option name'],
   // Momence exporta "Credits Remaining"; Eversports, "Remaining"; Timp, "Sesiones
   // disponibles". Sin estos sinónimos el bono entraba sin saldo (= sin sesiones).
   sesiones: ['sesiones', 'sesiones restantes', 'sesiones disponibles', 'clases restantes', 'clases disponibles', 'saldo', 'saldo restante', 'creditos', 'creditos restantes', 'credits', 'credits remaining', 'remaining credits', 'sessions', 'sessions remaining', 'restantes', 'remaining', 'bonos restantes'],

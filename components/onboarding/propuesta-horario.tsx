@@ -23,7 +23,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useMemo, useState } from 'react';
-import { CalendarDays, Check, Loader2, X } from 'lucide-react';
+import { CalendarDays, Check, Loader2, Undo2, X } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
 import {
@@ -45,13 +45,32 @@ export function PropuestaHorario({
 }) {
   const inicial = useMemo(() => proponerHorario(entrada), [entrada]);
   const [clases, setClases] = useState<ClasePropuesta[]>(inicial);
+  // ⚠️ Quitar un chip era irreversible: una clase quitada por error solo se
+  // recuperaba descartando la propuesta entera. Se guarda lo quitado, con su
+  // posición, para poder deshacerlo.
+  const [quitadas, setQuitadas] = useState<{ clase: ClasePropuesta; pos: number }[]>([]);
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const resumen = resumirPropuesta(clases);
+  // Con varias salas se dice en qué sala va cada clase: es la decisión que más
+  // se nota (aforo) y la que antes salía mal sin que se viera.
+  const variasSalas = new Set(inicial.map((c) => c.sala)).size > 1;
 
   const quitar = useCallback((i: number) => {
-    setClases((c) => c.filter((_, n) => n !== i));
+    setClases((c) => {
+      setQuitadas((q) => [...q, { clase: c[i], pos: i }]);
+      return c.filter((_, n) => n !== i);
+    });
+  }, []);
+
+  const deshacer = useCallback(() => {
+    setQuitadas((q) => {
+      const ultima = q[q.length - 1];
+      if (!ultima) return q;
+      setClases((c) => [...c.slice(0, ultima.pos), ultima.clase, ...c.slice(ultima.pos)]);
+      return q.slice(0, -1);
+    });
   }, []);
 
   const crear = useCallback(async () => {
@@ -72,7 +91,7 @@ export function PropuestaHorario({
             horaInicio: c.horaInicio,
             horaFin: c.horaFin,
             duracion: null,
-            instructor: null,
+            instructor: c.instructor,
             sala: c.sala,
             aforo: c.aforo,
           })),
@@ -107,6 +126,8 @@ export function PropuestaHorario({
     return null;
   }
 
+  const instructora = inicial[0]?.instructor ?? null;
+
   return (
     <div className={compacta ? '' : 'mx-auto w-full max-w-[560px] px-5 py-8'}>
       <div className="flex items-start gap-3">
@@ -123,6 +144,12 @@ export function PropuestaHorario({
               : <>Lo hemos montado con lo que nos has contado. Quita lo que no encaje —
                   {' '}<strong className="text-foreground">tú lo confirmas</strong>, no se crea nada hasta entonces.</>}
           </p>
+          {clases.length > 0 && (variasSalas || instructora) && (
+            <p className="mt-1.5 text-[12.5px] leading-snug text-muted-foreground">
+              {variasSalas && 'Las de máquina van a la sala pequeña y las de suelo a la grande, cada una con su aforo. '}
+              {instructora && <>Las das tú (<strong className="text-foreground">{instructora}</strong>); las repartes luego si hace falta.</>}
+            </p>
+          )}
         </div>
       </div>
 
@@ -141,7 +168,10 @@ export function PropuestaHorario({
                       className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card py-1 pl-3 pr-1 text-[12.5px]"
                     >
                       <span className="tabular-nums font-semibold text-foreground">{c.horaInicio}</span>
-                      <span className="text-muted-foreground">{c.clase}</span>
+                      <span className="text-muted-foreground">
+                        {c.clase}
+                        {variasSalas && c.sala ? <span className="text-muted-foreground/70"> · {c.sala}</span> : null}
+                      </span>
                       <button
                         type="button"
                         onClick={() => quitar(i)}
@@ -162,6 +192,18 @@ export function PropuestaHorario({
             {' '}({resumen.clases} en total). Podrás cambiarlas o borrarlas desde el calendario.
           </p>
         </>
+      )}
+
+      {quitadas.length > 0 && (
+        <button
+          type="button"
+          onClick={deshacer}
+          disabled={creando}
+          className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-medio hover:underline disabled:opacity-50"
+        >
+          <Undo2 size={13} aria-hidden />
+          Deshacer: volver a poner {quitadas[quitadas.length - 1].clase.clase} a las {quitadas[quitadas.length - 1].clase.horaInicio}
+        </button>
       )}
 
       {error && (

@@ -373,16 +373,18 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
           </div>
 
           <Link
-            href="/configuracion/apariencia"
+            href="/configuracion/apariencia/panel"
             className="flex items-center justify-between rounded-xl border border-border px-3.5 py-3 transition-colors hover:bg-muted"
           >
             <span className="min-w-0">
               <span className="flex items-center gap-2.5 text-[13px] font-semibold text-foreground">
                 <Palette size={15} className="shrink-0 text-muted-foreground" />
-                Colores, tipografía y portada
+                El color de tu marca
               </span>
+              {/* Prometía «tipografía y portada», que están en mantenimiento
+                  (Apariencia, 7-sep). El color sí: es el que ve el portal. */}
               <span className="mt-0.5 block text-[11.5px] text-muted-foreground">
-                Se editan en Apariencia, donde puedes verlos aplicados antes de publicar.
+                Lo ven tus alumnas en tu página de reservas y en su app. Lo pruebas antes de guardarlo.
               </span>
             </span>
             <ChevronRight size={15} className="shrink-0 text-muted-foreground" />

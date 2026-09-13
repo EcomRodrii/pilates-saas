@@ -42,6 +42,13 @@ export interface ClasePropuesta {
   horaFin: string;      // 'HH:MM'
   sala: string | null;
   aforo: number | null;
+  /** Nombre de la instructora. El importador la empareja por nombre. */
+  instructor: string | null;
+}
+
+export interface SalaPropuesta {
+  nombre: string;
+  capacidad?: number | null;
 }
 
 export interface EntradaPropuesta {
@@ -52,9 +59,14 @@ export interface EntradaPropuesta {
   horaCierre?: string;
   duracionMinutos?: number;
   tiposClase?: string[];
-  /** Nombres de sala tal y como los crea `planificarConfiguracion`. */
-  salas?: string[];
-  aforoPorSala?: number;
+  /** Salas del estudio con su aforo real, tal y como las dejó el asistente. */
+  salas?: SalaPropuesta[];
+  /**
+   * Quién da las clases, si se sabe sin adivinar: hoy, solo cuando el equipo
+   * es UNA persona (la propietaria que dijo «sí, yo doy clases»). Con más
+   * gente no se reparte nada — eso es una decisión suya.
+   */
+  instructora?: string | null;
 }
 
 const MIN_POR_HORA = 60;
@@ -76,38 +88,82 @@ function aHHMM(minutos: number): string {
 /**
  * Las horas a las que se propone clase dentro de la franja.
  *
- * ⚠️ HORAS REDONDAS Y EN DOS BLOQUES, y las dos cosas por el mismo motivo:
- * que el horario propuesto se parezca al de un estudio de verdad. La primera
- * versión colocaba las clases en los extremos exactos de la franja y salía
- * esto para 07:00–22:00: «07:00, 07:50, 21:10», con trece horas muertas en
- * medio y una clase acabando a las 22:00 clavadas. Nadie tiene ese horario.
- * Visto imprimiendo la propuesta, no leyendo el código.
+ * ⚠️ EN LOS PICOS DE UN ESTUDIO, NO EN LOS BORDES DE LA FRANJA. La versión
+ * anterior ponía dos clases al abrir y dos al cerrar, así que «Mañana y tarde
+ * (7:00 a 22:00)» salía 07:00, 08:00, 20:00 y 21:00: nada entre las 9 y las 20,
+ * y una clase de Prenatal a las 21:00. Lo vio una propietaria probando la app
+ * (evaluación del 13-sep): «esto no es mi estudio».
  *
- * Un estudio real trabaja en dos picos —antes de la jornada y al salir— y en
- * horas redondas. Así que se proponen hasta dos clases al empezar la franja y
- * hasta dos al final, siempre en punto. Si la franja es corta (solo mañanas,
- * solo tardes) hay un único bloque, que es la respuesta correcta: son menos
- * horas.
+ * Un estudio de Pilates llena a media mañana (desde las 9) y a la salida del
+ * trabajo (desde las 18). Así que cada bloque arranca en su pico —o en la
+ * apertura, si abre más tarde— y propone dos clases seguidas en punto. Una
+ * franja que no llega a un pico (solo mañanas) da un solo bloque, que es lo
+ * correcto: son menos horas.
  */
-const MIN_PARA_DOS_BLOQUES = 6 * MIN_POR_HORA;
+const PICO_MANANA = 9 * MIN_POR_HORA;
+const FIN_MANANA = 13 * MIN_POR_HORA;
+const PICO_TARDE = 18 * MIN_POR_HORA;
+/** Desde cuándo una franja «tiene tarde» aunque no llegue al pico de las 18. */
+const INICIO_TARDE = 16 * MIN_POR_HORA;
 
 export function horasPropuestas(aperturaMin: number, cierreMin: number, duracion: number): number[] {
   const cabe = (inicio: number) => inicio >= aperturaMin && inicio + duracion <= cierreMin;
-  // Hacia arriba desde la apertura y hacia abajo desde el cierre: en los dos
-  // casos se busca la hora EN PUNTO más cercana que siga dentro de la franja.
-  const enPuntoDesde = Math.ceil(aperturaMin / MIN_POR_HORA) * MIN_POR_HORA;
-  const ultimaEnPunto = Math.floor((cierreMin - duracion) / MIN_POR_HORA) * MIN_POR_HORA;
-
+  const enPunto = (m: number) => Math.ceil(m / MIN_POR_HORA) * MIN_POR_HORA;
   const horas = new Set<number>();
-  if (cabe(enPuntoDesde)) horas.add(enPuntoDesde);
-  if (cabe(enPuntoDesde + MIN_POR_HORA)) horas.add(enPuntoDesde + MIN_POR_HORA);
+  const bloque = (inicio: number) => {
+    if (!cabe(inicio)) return false;
+    horas.add(inicio);
+    if (cabe(inicio + MIN_POR_HORA)) horas.add(inicio + MIN_POR_HORA);
+    return true;
+  };
 
-  if (cierreMin - aperturaMin >= MIN_PARA_DOS_BLOQUES) {
-    if (cabe(ultimaEnPunto)) horas.add(ultimaEnPunto);
-    if (cabe(ultimaEnPunto - MIN_POR_HORA)) horas.add(ultimaEnPunto - MIN_POR_HORA);
+  const inicioManana = Math.max(enPunto(aperturaMin), PICO_MANANA);
+  if (inicioManana < FIN_MANANA) bloque(inicioManana);
+
+  const inicioTarde = Math.max(enPunto(aperturaMin), PICO_TARDE);
+  if (!bloque(inicioTarde)) {
+    // La franja cierra antes de que quepa una clase a las 18 (p.ej. 13:00–18:30):
+    // las dos últimas en punto de la tarde, si las hay. Solo si la franja llega
+    // de verdad a la tarde — «Solo mañanas (7:00 a 15:00)» no tiene tarde, y sin
+    // este tope salía con clases a las 13:00 y 14:00.
+    const ultima = Math.floor((cierreMin - duracion) / MIN_POR_HORA) * MIN_POR_HORA;
+    if (ultima >= INICIO_TARDE && !horas.has(ultima)) {
+      if (cabe(ultima - MIN_POR_HORA) && ultima - MIN_POR_HORA >= FIN_MANANA) horas.add(ultima - MIN_POR_HORA);
+      if (cabe(ultima)) horas.add(ultima);
+    }
   }
 
+  // Franjas raras que no tocan ningún pico (p.ej. 7:00–9:00): la primera en punto.
+  if (horas.size === 0 && cabe(enPunto(aperturaMin))) horas.add(enPunto(aperturaMin));
+
   return [...horas].sort((a, b) => a - b);
+}
+
+/**
+ * Tipos de clase que se dan en MÁQUINA. Van a la sala pequeña: una sala de
+ * máquinas cabe lo que caben las máquinas, y el suelo (Mat, Yoga, Prenatal…)
+ * es lo que llena la sala grande.
+ */
+const RE_MAQUINA = /reformer|cadillac|barril|barrel|silla|chair|tower|torre|m[aá]quina|wunda/i;
+
+/**
+ * Sala de cada tipo de clase.
+ *
+ * ⚠️ Antes TODO iba a la primera sala, con su aforo: un estudio con Sala 1
+ * (8 plazas, máquinas) y Sala 2 (12 plazas) recibía Mat y Yoga a 8 plazas y la
+ * Sala 2 sin una sola clase. Con una sala no hay nada que decidir; con varias,
+ * máquinas a la de menos aforo y suelo a la de más. Nunca hay dos clases a la
+ * misma hora (una por hueco), así que repartir salas no puede solaparse.
+ */
+export function salaParaTipo(tipo: string, salas: SalaPropuesta[]): SalaPropuesta | null {
+  if (salas.length === 0) return null;
+  if (salas.length === 1) return salas[0];
+  const conAforo = salas.map((s, i) => ({ s, i, cap: s.capacidad ?? null }));
+  const conocidas = conAforo.filter((x) => x.cap != null);
+  // Sin aforos no se puede saber cuál es la grande: se queda la primera.
+  if (conocidas.length < 2) return salas[0];
+  const orden = [...conocidas].sort((a, b) => (a.cap! - b.cap!) || (a.i - b.i));
+  return RE_MAQUINA.test(tipo) ? orden[0].s : orden[orden.length - 1].s;
 }
 
 /**
@@ -131,11 +187,8 @@ export function proponerHorario(e: EntradaPropuesta): ClasePropuesta[] {
   const horas = horasPropuestas(apertura, cierre, duracion);
   if (horas.length === 0) return [];
 
-  // Una sola sala en la propuesta aunque tenga varias: dos clases a la misma
-  // hora en salas distintas es una decisión de aforo que ella no ha tomado, y
-  // además `sesiones_sala_sin_solape` obliga a que cada sala tenga su hueco.
-  // Con una sala, la propuesta nunca puede chocar consigo misma.
-  const sala = (e.salas ?? [])[0] ?? null;
+  const salas = (e.salas ?? []).filter((s) => s.nombre.trim() !== '');
+  const instructor = e.instructora?.trim() || null;
 
   // Los tipos de clase ROTAN por el conjunto de huecos de la semana, no por
   // día: si rotaran dentro del día, un estudio con dos tipos tendría lunes
@@ -148,19 +201,19 @@ export function proponerHorario(e: EntradaPropuesta): ClasePropuesta[] {
   const diasOrdenados = DIAS_SEMANA.filter((d) => dias.includes(d.dow)).map((d) => d.dow);
   for (const [diaIdx, dow] of diasOrdenados.entries()) {
     for (const inicio of horas) {
+      // El `+ diaIdx` desplaza la rotación un tipo por día. Sin él, con dos
+      // tipos y cuatro huecos la rotación vuelve a la misma fase cada día y
+      // la semana entera sale idéntica.
+      const clase = tipos[(i + diaIdx) % tipos.length];
+      const sala = salaParaTipo(clase, salas);
       propuesta.push({
-        // El `+ diaIdx` desplaza la rotación un tipo por día. Sin él, con dos
-        // tipos y cuatro huecos la rotación vuelve a la misma fase cada día y
-        // la semana entera sale idéntica: lunes «Reformer, Mat, Reformer, Mat»
-        // y martes exactamente igual. Con el desplazamiento, el martes empieza
-        // por Mat y el horario se lee como el de un estudio, no como el de una
-        // fórmula.
-        clase: tipos[(i + diaIdx) % tipos.length],
+        clase,
         diaSemana: dow,
         horaInicio: aHHMM(inicio),
         horaFin: aHHMM(inicio + duracion),
-        sala,
-        aforo: e.aforoPorSala ?? null,
+        sala: sala?.nombre ?? null,
+        aforo: sala?.capacidad ?? null,
+        instructor,
       });
       i += 1;
     }

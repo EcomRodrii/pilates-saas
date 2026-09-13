@@ -47,11 +47,14 @@ export function PrimerHorario({
   puedeCrear,
   slug,
   nombreEstudio,
+  instructora = null,
 }: {
   horaApertura: string;
   horaCierre: string;
   tiposClase: { nombre: string; duracionMinutos: number }[];
   salas: { nombre: string; capacidad: number }[];
+  /** Quién da las clases si el equipo es una sola persona; null = no se sabe. */
+  instructora?: string | null;
   onCreado: (creadas: number) => void;
   /** Una instructora ve el calendario vacío igual, pero no puede sembrarlo. */
   puedeCrear: boolean;
@@ -69,9 +72,11 @@ export function PrimerHorario({
     horaCierre,
     duracionMinutos: tiposClase[0]?.duracionMinutos ?? 50,
     tiposClase: tiposClase.map((t) => t.nombre),
-    salas: salas.map((s) => s.nombre),
-    aforoPorSala: salas[0]?.capacidad,
-  }), [dias, horaApertura, horaCierre, tiposClase, salas]);
+    // Cada sala con SU aforo: antes iba solo el de la primera y todo acababa
+    // en ella (evaluación del 13-sep).
+    salas: salas.map((s) => ({ nombre: s.nombre, capacidad: s.capacidad })),
+    instructora,
+  }), [dias, horaApertura, horaCierre, tiposClase, salas, instructora]);
 
   // Sin tipos de clase no hay nada que proponer: lo primero es crearlos.
   const puedeProponer = puedeCrear && tiposClase.length > 0;

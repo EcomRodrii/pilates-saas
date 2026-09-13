@@ -11,6 +11,7 @@ import {
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
 import { avisoEquipoIncompleto, motivoSinCandidatas, type DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import { encajeDe } from '@/lib/sustituciones/encaje';
+import { MarcarDisponibilidadDialog } from '@/components/sustituciones/marcar-disponibilidad-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -69,6 +70,9 @@ export default function SustitucionesPage() {
   // Quién es invisible para el ranking por no tener disponibilidad cargada.
   const [equipo, setEquipo] = useState<DiagnosticoEquipo>({ total: 0, sinDisponibilidad: [] });
   const [pidiendo, setPidiendo] = useState(false); // diálogo "pedir disponibilidad"
+  // «La marco yo»: la propietaria carga la disponibilidad por la instructora.
+  // Guarda a quién preseleccionar (null = cerrado).
+  const [marcandoPara, setMarcandoPara] = useState<string | null>(null);
   const [modo, setModo] = useState('asistido');               // modo_autonomia del estudio
   const [autonomiaOk, setAutonomiaOk] = useState(false);      // plan incluye autónomo/vacaciones
 
@@ -241,6 +245,25 @@ export default function SustitucionesPage() {
     }
   }
 
+  // Tras marcar la disponibilidad de alguien, las bajas abiertas que se habían
+  // quedado SIN candidatas se vuelven a buscar solas: el motivo de marcarla es
+  // ver a quién proponer, no tener que pulsar «Volver a buscar» en cada tarjeta.
+  async function disponibilidadMarcada(nombre: string, franjas: number) {
+    setErrorAccion(null);
+    const sinCandidatas = activas.filter(s => !(Array.isArray(s.ranking) && s.ranking.length > 0) && s.estado !== 'contactando');
+    const resultados = await Promise.all(sinCandidatas.map(s => recalcularCandidatas(s.id).catch(() => null)));
+    const fallidas = resultados.filter(r => !r || 'error' in r).length;
+    await recargar();
+    if (fallidas > 0) {
+      setErrorAccion(`Guardada la disponibilidad de ${nombre}, pero no pude volver a buscar en ${fallidas} ${fallidas === 1 ? 'baja' : 'bajas'}. Pulsa «Volver a buscar» en su tarjeta.`);
+      return;
+    }
+    setAviso(sinCandidatas.length > 0
+      ? `Guardadas ${franjas} franjas de ${nombre}. He vuelto a buscar sustituta en ${sinCandidatas.length} ${sinCandidatas.length === 1 ? 'baja' : 'bajas'}.`
+      : `Guardadas ${franjas} franjas de ${nombre}. Ya puedo proponerla como sustituta.`);
+    setTimeout(() => setAviso(null), 6000);
+  }
+
   async function descartar(s: SustitucionPanel) {
     // Estas acciones escriben y luego recargan: sin esto, un segundo clic
     // mientras la primera sigue en curso la ejecuta dos veces.
@@ -326,12 +349,21 @@ export default function SustitucionesPage() {
           <AlertTriangle size={16} className="shrink-0 mt-0.5 text-warning" />
           <div className="min-w-0">
             <p className="text-[13px] text-warning leading-relaxed">{avisoEquipo}</p>
-            <button
-              onClick={() => setPidiendo(true)}
-              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning text-warning-foreground text-[12px] font-bold hover:brightness-110 transition"
-            >
-              <CalendarClock size={14} /> Pedirles su disponibilidad
-            </button>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                onClick={() => setPidiendo(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning text-warning-foreground text-[12px] font-bold hover:brightness-110 transition"
+              >
+                <CalendarClock size={14} /> Pedirles su disponibilidad
+              </button>
+              {/* Sin esperar a que contesten: si sabe cuándo pueden, lo marca ella. */}
+              <button
+                onClick={() => setMarcandoPara(equipo.sinDisponibilidad[0]?.id ?? null)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-warning/40 bg-card text-warning text-[12px] font-bold hover:bg-warning/10 transition"
+              >
+                <Check size={14} /> La marco yo
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -340,6 +372,14 @@ export default function SustitucionesPage() {
         abierto={pidiendo}
         instructores={equipo.sinDisponibilidad}
         onClose={() => setPidiendo(false)}
+      />
+
+      <MarcarDisponibilidadDialog
+        abierto={marcandoPara !== null}
+        instructoras={instructores.filter(i => i.activo !== false).map(i => ({ id: i.id, nombre: i.nombre }))}
+        inicialId={marcandoPara}
+        onClose={() => setMarcandoPara(null)}
+        onGuardado={(nombre, franjas) => { setMarcandoPara(null); void disponibilidadMarcada(nombre, franjas); }}
       />
 
       {aviso && (
@@ -380,6 +420,9 @@ export default function SustitucionesPage() {
                   instructores={instructores} valoraciones={valoraciones} accionEnCurso={accion?.id === s.id ? accion.que : null}
                   onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={(s: SustitucionPanel) => setACancelar(s)}
                   onVolverABuscar={volverABuscar} onReprogramar={(s: SustitucionPanel) => setAReprogramar(s)}
+                  onMarcarDisponibilidad={(s: SustitucionPanel) => setMarcandoPara(
+                    equipo.sinDisponibilidad.find(i => i.id !== s.instructor_original_id)?.id ?? null,
+                  )}
                 />
               ))}
             </div>
@@ -624,7 +667,7 @@ function HorarioActualizadoCard({ sub, sesiones, tiposClase, nombreInstructor, o
 }
 
 function SustitucionCard({
-  s, tipo, nombreInstructor, instructores, valoraciones, equipo, accionEnCurso, onConfirmar, onDescartar, onAvisar, onCancelar, onVolverABuscar, onReprogramar,
+  s, tipo, nombreInstructor, instructores, valoraciones, equipo, accionEnCurso, onConfirmar, onDescartar, onAvisar, onCancelar, onVolverABuscar, onReprogramar, onMarcarDisponibilidad,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
@@ -639,6 +682,8 @@ function SustitucionCard({
   onCancelar: (s: SustitucionPanel) => void;
   onReprogramar: (s: SustitucionPanel) => void;
   onVolverABuscar: (s: SustitucionPanel) => void;
+  /** «La marco yo»: abre la rejilla de disponibilidad de quien falta por cargar. */
+  onMarcarDisponibilidad: (s: SustitucionPanel) => void;
 }) {
   // Mientras algo está en curso se bloquea la tarjeta entera (las acciones se
   // pisan entre sí), pero solo el botón pulsado dice qué está haciendo.
@@ -717,6 +762,16 @@ function SustitucionCard({
             <AlertTriangle size={16} className="text-destructive shrink-0 mt-0.5" />
             <p className="text-[13px] text-destructive">{motivoSinCandidatas(sinDispRelevantes)}</p>
           </div>
+          {/* Si el hueco es que nadie tiene disponibilidad cargada, el arreglo
+              más rápido es marcarla ella: va antes que todo lo demás. */}
+          {sinDispRelevantes > 0 && (
+            <button
+              onClick={() => onMarcarDisponibilidad(s)} disabled={enProceso}
+              className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-card border border-border text-foreground text-[12px] font-bold hover:bg-muted disabled:opacity-50 transition"
+            >
+              <Check size={14} /> Marcar yo su disponibilidad
+            </button>
+          )}
           {/* Buscar otra vez va PRIMERO: es gratis y reversible. Cancelar manda
               un email a todas las alumnas y no hay vuelta atrás. */}
           <button

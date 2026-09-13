@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  proponerHorario, horasPropuestas, resumirPropuesta, SEMANAS_A_CREAR, DIAS_SEMANA,
+  proponerHorario, horasPropuestas, resumirPropuesta, salaParaTipo, SEMANAS_A_CREAR, DIAS_SEMANA,
 } from './horario-propuesto.ts';
 
 const BASE = {
@@ -10,9 +10,10 @@ const BASE = {
   horaCierre: '21:00:00',
   duracionMinutos: 50,
   tiposClase: ['Reformer', 'Mat'],
-  salas: ['Sala'],
-  aforoPorSala: 8,
+  salas: [{ nombre: 'Sala', capacidad: 8 }],
 };
+
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
 test('el caso normal: tres días, dos tipos, franja de mañana y tarde', () => {
   const p = proponerHorario(BASE);
@@ -80,9 +81,13 @@ test('una franja de solo mañanas propone menos clases que una de todo el día',
 });
 
 // `sesiones_sala_sin_solape` es una exclusion constraint real: dos clases a la
-// misma hora en la misma sala harían fallar la importación entera.
+// misma hora en la misma sala harían fallar la importación entera. Y la misma
+// instructora no puede dar dos clases a la vez.
 test('nunca hay dos clases a la misma hora el mismo día', () => {
-  const p = proponerHorario({ ...BASE, dias: [1, 2, 3, 4, 5], tiposClase: ['Reformer', 'Mat', 'Prenatal'] });
+  const p = proponerHorario({
+    ...BASE, dias: [1, 2, 3, 4, 5], tiposClase: ['Reformer', 'Mat', 'Prenatal'],
+    salas: [{ nombre: 'Sala 1', capacidad: 8 }, { nombre: 'Sala 2', capacidad: 12 }],
+  });
   const vistos = new Set<string>();
   for (const c of p) {
     const k = `${c.diaSemana}-${c.horaInicio}`;
@@ -96,7 +101,7 @@ test('días repetidos o inválidos no duplican ni rompen', () => {
   assert.deepEqual([...new Set(p.map(c => c.diaSemana))], [1]);
 });
 
-test('la sala y el aforo salen de lo que ya contestó', () => {
+test('con una sala, la sala y el aforo salen de lo que ya contestó', () => {
   const p = proponerHorario(BASE);
   for (const c of p) {
     assert.equal(c.sala, 'Sala');
@@ -104,19 +109,35 @@ test('la sala y el aforo salen de lo que ya contestó', () => {
   }
 });
 
-// Con varias salas se usa UNA: dos clases a la vez en salas distintas es una
-// decisión de aforo que ella no ha tomado.
-test('con varias salas la propuesta usa solo la primera', () => {
-  const p = proponerHorario({ ...BASE, salas: ['Sala 1', 'Sala 2', 'Sala 3'] });
-  assert.deepEqual([...new Set(p.map(c => c.sala))], ['Sala 1']);
+// Evaluación del 13-sep: con Sala 1 (8) y Sala 2 (12), las 76 clases salieron
+// en Sala 1 a 8 plazas y la Sala 2 se quedó sin ninguna.
+test('con varias salas, máquinas a la sala pequeña y suelo a la grande, con SU aforo', () => {
+  const salas = [{ nombre: 'Sala 1', capacidad: 8 }, { nombre: 'Sala 2', capacidad: 12 }];
+  const p = proponerHorario({ ...BASE, dias: [1, 2, 3, 4, 5], tiposClase: ['Reformer', 'Mat', 'Yoga'], salas });
+  for (const c of p) {
+    if (c.clase === 'Reformer') { assert.equal(c.sala, 'Sala 1'); assert.equal(c.aforo, 8); }
+    else { assert.equal(c.sala, 'Sala 2', c.clase); assert.equal(c.aforo, 12); }
+  }
+  assert.ok(p.some(c => c.sala === 'Sala 2'), 'la sala grande no puede quedarse vacía');
 });
 
-// Este caso afirmaba lo contrario: que la última clase empezaba en
-// `cierre - duración`. Para 09:00–21:00 eso daba las 20:10, y para 07:00–22:00
-// las 21:10 — horas que ningún estudio tiene. Se cambió a horas EN PUNTO tras
-// imprimir la propuesta y ver el resultado.
-test('todas las horas propuestas son en punto', () => {
-  for (const [ap, ci] of [[9 * 60, 21 * 60], [7 * 60, 22 * 60], [15 * 60, 22 * 60]] as const) {
+test('salaParaTipo: sin aforos conocidos no adivina cuál es la grande', () => {
+  const salas = [{ nombre: 'A' }, { nombre: 'B' }];
+  assert.equal(salaParaTipo('Mat', salas)?.nombre, 'A');
+  assert.equal(salaParaTipo('Reformer', salas)?.nombre, 'A');
+  assert.equal(salaParaTipo('Mat', []), null);
+});
+
+// «Sí, yo doy clases»: la ficha existe, y dejar 76 clases «Sin instructora»
+// obligaba a editarlas una a una.
+test('si se sabe quién da las clases, van a su nombre; si no, sin instructora', () => {
+  for (const c of proponerHorario({ ...BASE, instructora: 'Salma' })) assert.equal(c.instructor, 'Salma');
+  for (const c of proponerHorario(BASE)) assert.equal(c.instructor, null);
+  for (const c of proponerHorario({ ...BASE, instructora: '  ' })) assert.equal(c.instructor, null);
+});
+
+test('todas las horas propuestas son en punto y dentro de la franja', () => {
+  for (const [ap, ci] of [[9 * 60, 21 * 60], [7 * 60, 22 * 60], [15 * 60, 22 * 60], [7 * 60, 15 * 60], [13 * 60, 18 * 60 + 30]] as const) {
     for (const h of horasPropuestas(ap, ci, 50)) {
       assert.equal(h % 60, 0, `${h} no es una hora en punto`);
       assert.ok(h >= ap && h + 50 <= ci, `${h} se sale de la franja`);
@@ -124,12 +145,23 @@ test('todas las horas propuestas son en punto', () => {
   }
 });
 
-// Antes se amontonaban en los extremos exactos: «07:00, 07:50, 21:10», con
-// trece horas muertas en medio. Un estudio real trabaja en dos picos.
-test('en una franja larga hay bloque de mañana y bloque de tarde', () => {
-  const h = horasPropuestas(7 * 60, 22 * 60, 50);
-  assert.ok(h.some(x => x < 12 * 60), 'falta la mañana');
-  assert.ok(h.some(x => x >= 18 * 60), 'falta la tarde');
+// Antes: «Mañana y tarde (7:00 a 22:00)» daba 07:00, 08:00, 20:00 y 21:00 —
+// nada entre las 9 y las 20 y Prenatal a las 21:00. Un estudio llena a media
+// mañana y a la salida del trabajo.
+test('las clases caen en los picos de un estudio, no en los bordes de la franja', () => {
+  assert.deepEqual(horasPropuestas(7 * 60, 22 * 60, 50).map(hhmm), ['09:00', '10:00', '18:00', '19:00']);
+  assert.deepEqual(horasPropuestas(9 * 60, 21 * 60, 50).map(hhmm), ['09:00', '10:00', '18:00', '19:00']);
+  assert.deepEqual(horasPropuestas(7 * 60, 15 * 60, 50).map(hhmm), ['09:00', '10:00']);
+  assert.deepEqual(horasPropuestas(15 * 60, 22 * 60, 50).map(hhmm), ['18:00', '19:00']);
+});
+
+test('una franja que cierra antes de las 19 sigue teniendo tarde', () => {
+  const h = horasPropuestas(13 * 60, 18 * 60 + 30, 50).map(hhmm);
+  assert.deepEqual(h, ['16:00', '17:00']);
+});
+
+test('una franja que no toca ningún pico propone al menos una clase', () => {
+  assert.deepEqual(horasPropuestas(7 * 60, 9 * 60, 50).map(hhmm), ['07:00']);
 });
 
 // Con dos tipos y cuatro huecos, una rotación sin desplazar vuelve a la misma

@@ -15,9 +15,12 @@ import { FRANJAS } from './franjas.ts';
 // vigila que las dos pantallas sigan derivándolo de `FRANJAS`, no que valga 4 —
 // si mañana hay cinco franjas, esto tiene que seguir en verde sin tocarlo.
 
+// La rejilla del panel vive en `rejilla-disponibilidad.tsx` desde que la usan dos
+// pantallas: «Mi perfil» (la instructora) y «La marco yo» (la propietaria, en
+// Sustituciones). Se vigila ahí, que es donde se escribe el número.
 const PANTALLAS = [
   'app/disponibilidad/[token]/disponibilidad-form.tsx',
-  'components/mi-perfil/tab-mi-disponibilidad.tsx',
+  'components/sustituciones/rejilla-disponibilidad.tsx',
 ];
 
 test('las franjas son cuatro (si esto cambia, es el dato, no la rejilla)', () => {

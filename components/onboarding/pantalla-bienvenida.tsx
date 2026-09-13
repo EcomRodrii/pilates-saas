@@ -212,9 +212,15 @@ const PASOS_BASE: Paso[] = [
     id: 'importar', etiqueta: 'Migración', titulo: '¿Quieres que importemos tus datos?',
     // 'Otro' es un cajón genérico, no el nombre real de ninguna plataforma —
     // interpolarlo tal cual daba "reservas de Otro." (#issue pendiente).
+    // ⚠️ Decía «Lo hacemos nosotros» y el resumen «Migramos tus datos y te
+    // avisamos al terminar», sin pedir archivo, acceso ni fecha. Al entrar al
+    // panel, la Migración Mágica decía «arrastra lo que tengas»: la primera
+    // promesa rota de la prueba (evaluación del 13-sep). Lo que pasa de verdad
+    // es que ella sube sus exportaciones y Tentare monta el plan; eso es lo
+    // que se dice.
     nota: (a) => vieneDeOtraPlataforma(a.software)
-      ? `Alumnos, bonos y reservas de ${a.software}. Lo hacemos nosotros, sin coste.`
-      : 'Si tienes listas en Excel o en papel, las pasamos nosotros, sin coste.',
+      ? `Exporta de ${a.software} tus alumnas, bonos y horario y súbelos: los leemos solos, ves el plan antes de importar nada y se puede deshacer. Sin coste.`
+      : 'Si las tienes en Excel, súbelo: lo leemos solo, ves el plan antes de importar nada y se puede deshacer. Sin coste.',
     opciones: ['Sí, importadlos', 'No, empiezo de cero'],
   },
   {
@@ -554,7 +560,7 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
     progresoAncho: `${Math.min(100, (hechas / tramos) * 100).toFixed(2)}%`,
     resumen,
     resumenTitulo: migra && e.ans.importar === 'Sí, importadlos'
-      ? `Migramos tus datos de ${e.ans.software} y te avisamos al terminar.`
+      ? `Ahora trae tus datos de ${e.ans.software}: sube lo que exportes y te enseñamos el plan antes de importar.`
       : `${nombreEstudio}, tu panel ya está ordenado a tu medida.`,
     panelPie: enIntro ? 'Tu estudio, en marcha' : e.fase === 'wizard' ? `Paso ${e.paso + 1} de ${PASOS.length}` : 'Todo listo',
     // "Elige una opción" en vez de "Pulsa 1-N": el atajo de teclado (número)
