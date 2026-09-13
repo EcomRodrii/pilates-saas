@@ -86,7 +86,7 @@ export default function ComprarPage() {
     <StudentShell>
       <PageHeader titulo="Comprar" back />
 
-      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', marginTop: 14 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '20px', marginTop: 14 }}>
         {estado === 'loading' && <ListSkeleton n={3} h={96} />}
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && !data && (
@@ -104,8 +104,8 @@ export default function ComprarPage() {
           />
         ) : null}
 
-        {data && productos.length > 0 && familias.map(({ familia, items }, gi) => (
-          <section key={familia} style={{ marginTop: gi === 0 ? 0 : 6 }}>
+        {data && productos.length > 0 && familias.map(({ familia, items }) => (
+          <section key={familia}>
             <h2 className="t-label" style={{ marginBottom: 9 }}>{TITULO_FAMILIA[familia]}</h2>
             {/* El aviso va DENTRO de la sección y antes de las tarjetas, no en
                 un pie: tiene que leerse antes de que a nadie le apetezca buscar

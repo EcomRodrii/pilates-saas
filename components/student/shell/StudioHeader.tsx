@@ -74,6 +74,9 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
     <header
       style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 46, paddingTop: 'var(--safe-top)',
+        // Sobre la foto, el velo mide lo que la foto (1040 px) y no la ventana:
+        // en escritorio pintaba una franja gris encima del crema de los lados.
+        ...(flotando ? { maxWidth: 1040, marginInline: 'auto' } : {}),
         // ⚠️ VELO PROPIO cuando flota, y no es adorno: MEDIDO fotografiando los
         // píxeles bajo el nombre del estudio con el texto oculto, sobre una
         // portada clara (#F2EFE9, una sala a contraluz — lo que sube media

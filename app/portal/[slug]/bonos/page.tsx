@@ -136,7 +136,7 @@ function Bonos() {
                   <button type="button" className="btn btn--primary btn--sm" disabled={renovando} onClick={renovar}>
                     {renovando ? 'Preparando el pago…' : 'Renovar mi plan'}
                   </button>
-                  <Link href={href('/comprar')} className="t-label">o comprar un bono distinto</Link>
+                  <Link href={href('/comprar')} className="t-small tap" style={{ fontWeight: 800, color: 'var(--accent)' }}>o comprar un bono distinto</Link>
                 </div>
               ) : (
                 <EmptyState

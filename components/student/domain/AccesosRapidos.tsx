@@ -63,6 +63,10 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
               className="tap a-up"
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%',
+                // `flex: 1`: el <li> es flex en fila, y sin esto la baldosa medía lo
+                // que su texto. En el móvil casi no se nota; a 1280 px quedaban
+                // cuatro baldosas de 90 px sueltas en columnas de 250.
+                flex: 1,
                 // ⚠️ `minWidth: 0` o la baldosa se sale de su celda. Medido:
                 // «Instructoras» no cabe en los 63 px de contenido de una
                 // columna de 83, y sin esto el <a> crecía a 92 y su texto se

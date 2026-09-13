@@ -12,6 +12,7 @@ import { colorPersona, selloLista, tieneSinLeer, unaLinea } from '@/lib/mensajer
 import { Button } from '@/components/student/ui/Button';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { useToast } from '@/components/student/ui/Toast';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Bandeja de la alumna. No estaba en la reconstrucción del portal (#1591/
 // #1593) — el backend (RLS, RPC `abrir_conversacion`, resumen con
@@ -78,7 +79,8 @@ export default function MensajesPage() {
               style={{ display: 'flex', gap: 11, alignItems: 'center', padding: '12px 14px' }}
             >
               <span aria-hidden style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 999, background: colorPersona(c.id), color: '#fff', fontSize: 'var(--t-body)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {nombre.slice(0, 1).toUpperCase()}
+                {/* «Tu instructora» no es un nombre: su inicial era la T de «Tu». */}
+                {c.tipo === 'ALUMNA_INSTRUCTORA' ? <Icono nombre="perfil" tamano={20} /> : nombre.slice(0, 1).toUpperCase()}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
