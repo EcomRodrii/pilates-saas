@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  CheckCircle2, Circle, CircleDot, Clock, ArrowRight, Play, Compass, Lightbulb, BookOpen,
+  CheckCircle2, Circle, CircleDot, Clock, ArrowRight, Play, Compass, Lightbulb, BookOpen, ChevronDown,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { avisoVentaOnline, calcularOnboarding } from '@/lib/onboarding';
@@ -96,13 +96,18 @@ export default function PrimerosPasosPage() {
   if (!studio || !datos || !progreso) return null;
   const bloques = porNivel(progreso);
   const siguiente = progreso.siguiente;
+  // La versión corta primero (evaluación del 13-sep: «una guía de 15 capítulos,
+  // ~96 min» asustaba antes de empezar). Se nombra lo esencial con sus minutos
+  // de verdad, y el resto se pliega en «Cuando tengas tiempo».
+  const esenciales = bloques.find(b => b.nivel === 'esencial')?.capitulos ?? [];
+  const minutosEsenciales = esenciales.reduce((t, c) => t + c.capitulo.minutos, 0);
 
   return (
     <div className="space-y-6 max-w-3xl">
       <PageHeader
         back={{ href: '/dashboard', label: 'Volver al inicio' }}
         title="Aprende a llevar tu estudio con Tentare"
-        description="Quince capítulos que explican el producto entero. No hace falta hacerlos hoy, ni en orden — pero el orden está pensado."
+        description={`Empieza por ${esenciales.length} capítulos, unos ${minutosEsenciales} minutos: lo justo para recibir reservas. El resto está plegado abajo para cuando lo necesites.`}
       />
 
       {/* ── Lo primero: dónde estoy y qué hago ahora ──────────────────────── */}
@@ -193,22 +198,48 @@ export default function PrimerosPasosPage() {
         </div>
       )}
 
-      {/* ── Los capítulos, por nivel ──────────────────────────────────────── */}
-      {bloques.map(({ nivel, capitulos }) => (
-        <section key={nivel} className="space-y-3">
-          <div className="flex items-center gap-3 px-1">
+      {/* ── Los capítulos, por nivel ──────────────────────────────────────────
+          Solo «Para empezar» va abierto. Los otros niveles se pliegan con sus
+          minutos a la vista: siguen a un clic, pero no se leen como deberes
+          pendientes el primer día. */}
+      {bloques.map(({ nivel, capitulos }) => {
+        const cabecera = (
+          <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={ILUSTRACION_NIVEL[nivel]} alt="" className="w-10 h-10 object-contain shrink-0" />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h2 className="text-[15px] font-semibold text-foreground">{ETIQUETA_NIVEL[nivel]}</h2>
               <p className="text-[12px] text-muted-foreground">{EXPLICACION_NIVEL[nivel]}</p>
             </div>
-          </div>
+          </>
+        );
+        const lista = (
           <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-muted">
             {capitulos.map(c => <FilaCapitulo key={c.capitulo.id} item={c} />)}
           </div>
-        </section>
-      ))}
+        );
+        if (nivel === 'esencial') {
+          return (
+            <section key={nivel} className="space-y-3">
+              <div className="flex items-center gap-3 px-1">{cabecera}</div>
+              {lista}
+            </section>
+          );
+        }
+        const minutos = capitulos.reduce((t, c) => t + c.capitulo.minutos, 0);
+        return (
+          <details key={nivel} className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-1 [&::-webkit-details-marker]:hidden">
+              {cabecera}
+              <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                Cuando tengas tiempo · {capitulos.length} {capitulos.length === 1 ? 'capítulo' : 'capítulos'} · {minutos} min
+              </span>
+              <ChevronDown size={16} className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className="mt-3">{lista}</div>
+          </details>
+        );
+      })}
     </div>
   );
 }

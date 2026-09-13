@@ -84,7 +84,13 @@ test('el interruptor vive con las reglas de reserva y guarda por su endpoint', a
 
   await fila.click();
 
-  // Guarda al pulsar, sin pasar por el botón de abajo.
+  // Desde el 13-sep espera al botón como el resto de la tarjeta: pulsar solo
+  // cambia la pantalla y avisa de que hay algo sin guardar.
+  await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+  expect(puts, 'pulsar el interruptor no escribe hasta «Guardar»').toHaveLength(0);
+  await page.getByRole('button', { name: 'Guardar política de reservas' }).click();
+
+  // Y al guardar, por SU endpoint.
   await expect.poll(() => puts.length, { timeout: 15_000 }).toBeGreaterThan(0);
   expect(puts[puts.length - 1]).toEqual({ activo: true });
 

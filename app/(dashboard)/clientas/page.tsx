@@ -266,7 +266,6 @@ export default function Socios() {
   const [formStep, setFormStep] = useState<1 | 2>(1);
   const [firma, setFirma] = useState('');
   const [aceptado, setAceptado] = useState(false);
-  const [scrolledToBottom, setScrolledToBottom] = useState(false);
   // El alta escribe en la BD y puede fallar: hasta ahora se cerraba el diálogo
   // igualmente y la clienta salía en la lista sin existir de verdad.
   const [guardando, setGuardando] = useState(false);
@@ -682,7 +681,6 @@ export default function Socios() {
     setFormStep(1);
     setFirma('');
     setAceptado(false);
-    setScrolledToBottom(false);
     setErrorGuardar(null);
   }
 
@@ -1549,22 +1547,14 @@ export default function Socios() {
                     <FileText size={11} />
                     Política de privacidad y condiciones
                   </label>
-                  {!scrolledToBottom && (
-                    <span className="text-[10px] text-muted-foreground">Desplaza hasta el final ↓</span>
-                  )}
-                  {scrolledToBottom && (
-                    <span className="text-[10px] text-success font-medium flex items-center gap-1">
-                      <CheckCircle2 size={10} /> Leído
-                    </span>
-                  )}
+                  {/* Aquí decía «Desplaza hasta el final ↓» y, al llegar,
+                      «Leído». No bloqueaba nada —la casilla nunca dependió del
+                      desplazamiento— pero con la alumna delante se leía como
+                      un paso obligatorio (evaluación del 13-sep). Y un «Leído»
+                      por mover la rueda no prueba que nadie lo haya leído. */}
                 </div>
                 <div
                   ref={contratoRef}
-                  onScroll={(e) => {
-                    const el = e.currentTarget;
-                    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-                    if (nearBottom) setScrolledToBottom(true);
-                  }}
                   className="h-52 overflow-y-auto rounded-lg border border-border bg-muted p-3 text-[11px] text-foreground leading-relaxed whitespace-pre-wrap font-mono"
                 >
                   {textoLegalCompleto(studioConfig)}
@@ -1663,7 +1653,7 @@ export default function Socios() {
             </button>
             {showForm === 'nueva' && formStep === 1 ? (
               <button
-                onClick={() => { setScrolledToBottom(false); setFormStep(2); }}
+                onClick={() => setFormStep(2)}
                 disabled={!form.nombre || !form.apellidos}
                 className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
               >
