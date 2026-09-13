@@ -12,16 +12,22 @@ const BUCKET = 'avatars';
 
 // Guardrail de subidas de marca (logo/favicon): límite de tamaño y formato.
 // Validación en cliente antes de subir; devuelve un mensaje o null si es válida.
+//
+// ⚠️ Sin SVG (migr 20260913161300): un SVG puede llevar script y el bucket es
+// público. El bucket ya lo rechaza; aquí se dice antes y con un mensaje que se
+// entiende. Los logos SVG que ya existían se siguen viendo.
 const IMG_TIPOS = [
   'image/png',
   'image/jpeg',
   'image/webp',
-  'image/svg+xml',
   'image/x-icon',
   'image/vnd.microsoft.icon',
 ];
 export function validarImagenMarca(file: File, maxBytes: number): string | null {
-  if (!IMG_TIPOS.includes(file.type)) return 'Formato no admitido. Usa PNG, JPG, WEBP, SVG o ICO.';
+  if (file.type === 'image/svg+xml') {
+    return 'Por seguridad ya no admitimos SVG. Exporta tu logo como PNG (mejor con fondo transparente), JPG o WEBP.';
+  }
+  if (!IMG_TIPOS.includes(file.type)) return 'Formato no admitido. Usa PNG, JPG, WEBP o ICO.';
   if (file.size > maxBytes) {
     const limite = maxBytes >= 1024 * 1024 ? `${Math.round(maxBytes / 1024 / 1024)} MB` : `${Math.round(maxBytes / 1024)} KB`;
     return `La imagen pesa demasiado (máximo ${limite}).`;
@@ -342,10 +348,10 @@ export async function subirImagenPortal(
 // de la clienta, que es donde ya no puedes arreglarlo.
 //
 // ⚠️ SIN redimensionar, a diferencia de las cinco funciones de foto de arriba.
-// No es un olvido: `validarImagenMarca` admite SVG e ICO, y pasar un SVG por
-// canvas lo rasteriza — se perdería el vector justo en el activo que más
-// necesita escalar bien. Un logo tampoco tiene el problema de tamaño de las
-// fotos de móvil: ya está acotado a 2 MB (y el favicon a 512 KB).
+// No es un olvido: `validarImagenMarca` admite ICO (y admitía SVG, retirado por
+// seguridad), y pasar por canvas un logo que ya viene a buena resolución solo lo
+// degrada. Un logo tampoco tiene el problema de tamaño de las fotos de móvil: ya
+// está acotado a 2 MB (y el favicon a 512 KB).
 export async function subirLogoEstudio(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const invalido = validarImagenMarca(file, LOGO_MAX_BYTES);
   if (invalido) return { error: invalido };

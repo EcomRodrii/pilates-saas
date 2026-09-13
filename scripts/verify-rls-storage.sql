@@ -15,15 +15,19 @@
 -- otra mitad: preguntarle a la base de datos DE VERDAD.
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- 1) Las CUATRO políticas del bucket siguen colgando de la misma función.
---    Deseado: 4 filas (SELECT/INSERT/UPDATE/DELETE), todas con
---    `avatars_path_autorizado` en su condición. Si alguna dejara de usarla,
---    ese verbo se estaría autorizando por otro criterio.
+-- 1) Las CUATRO políticas del bucket cuelgan de sus funciones.
+--    Deseado (desde 20260913161200): SELECT con `avatars_path_autorizado`
+--    (lectura, por estudio) e INSERT/UPDATE/DELETE con
+--    `avatars_path_escribible` (mismo árbol de prefijos + rol). Si algún verbo
+--    de escritura volviera a la función de lectura, dejaría de mirar el rol.
 select cmd,
        policyname,
-       coalesce(qual, with_check) like '%avatars_path_autorizado%' as usa_la_funcion
+       case when cmd = 'SELECT'
+            then coalesce(qual, with_check) like '%avatars_path_autorizado%'
+            else coalesce(qual, with_check) like '%avatars_path_escribible%'
+       end as usa_la_funcion_correcta
 from pg_policies
-where schemaname = 'storage' and tablename = 'objects'
+where schemaname = 'storage' and tablename = 'objects' and policyname like 'avatars_%'
 order by cmd;
 
 -- 2) Ramas que autoriza la función, tal y como está AHORA en la base de datos.
