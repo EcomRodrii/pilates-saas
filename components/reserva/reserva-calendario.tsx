@@ -204,8 +204,12 @@ export interface ReservaCalendarioProps {
    * este componente solo pinta la fila, nunca decide qué filtra. Solo
    * `estiloDias='dias'`; el resto de variantes (Modo B rejilla, "Mis
    * reservas") no la pasan y no ven ningún cambio.
+   *
+   * `grupo` separa los de instructora de los de tipo (sin él, cuenta como
+   * tipo): en una sola fila «Mat · Reformer · Carmen · Lucía» no se sabía qué
+   * era clase y qué era persona (evaluación del 13-sep).
    */
-  filtrosChips?: { id: string; label: string; activo: boolean; onClick: () => void }[];
+  filtrosChips?: { id: string; label: string; activo: boolean; onClick: () => void; grupo?: 'tipo' | 'instructora' }[];
   /**
    * Fase 4 del rediseño: las clases de HOY que ya empezaron/terminaron, para
    * pintarlas en gris con "FINALIZADA" en la tarjeta del día — `slots`
@@ -777,19 +781,10 @@ export function ReservaCalendario({
               fuenteDisplay: serif, fuenteUI: fontFamily, radioChip: 14,
             }}
           />
-          {filtrosChips && filtrosChips.length > 0 && (
-            <div
-              role="group"
-              aria-label="Filtrar por tipo de clase"
-              // Fila única con scroll horizontal, no envuelve — igual que el
-              // diseño ("Tentare Portal Reservas": `overflow-x:auto`, sin
-              // wrap) y que la propia tira de días de al lado. Con
-              // `flexWrap:'wrap'` un estudio con muchos tipos+instructoras
-              // (caso real: 5 tipos + 5 instructoras) empujaba el feed varias
-              // líneas hacia abajo dentro del bloque sticky.
-              style={{ display: 'flex', gap: 6, overflowX: 'auto', marginTop: 12 }}
-            >
-              {filtrosChips.map((chip) => (
+          {filtrosChips && filtrosChips.length > 0 && (() => {
+            const deTipo = filtrosChips.filter(c => c.grupo !== 'instructora');
+            const deInstructora = filtrosChips.filter(c => c.grupo === 'instructora');
+            const pintarChip = (chip: (typeof filtrosChips)[number]) => (
                 <button
                   key={chip.id}
                   type="button"
@@ -815,9 +810,34 @@ export function ReservaCalendario({
                 >
                   {chip.label}
                 </button>
-              ))}
-            </div>
-          )}
+            );
+            return (
+              <div
+                // Fila única con scroll horizontal, no envuelve — igual que el
+                // diseño ("Tentare Portal Reservas": `overflow-x:auto`, sin
+                // wrap) y que la propia tira de días de al lado. Con
+                // `flexWrap:'wrap'` un estudio con muchos tipos+instructoras
+                // (caso real: 5 tipos + 5 instructoras) empujaba el feed varias
+                // líneas hacia abajo dentro del bloque sticky.
+                style={{ display: 'flex', alignItems: 'center', gap: 6, overflowX: 'auto', marginTop: 12 }}
+              >
+                {/* Dos grupos con su nombre, no `display: contents`: WebKit
+                    ha perdido el rol de elementos así, y /reservar pasa por
+                    WebKit en CI. */}
+                <div role="group" aria-label="Filtrar por tipo de clase" style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  {deTipo.map(pintarChip)}
+                </div>
+                {deInstructora.length > 0 && (
+                  <>
+                    <span aria-hidden style={{ width: 1, alignSelf: 'stretch', margin: '4px 4px', background: t.line, flexShrink: 0 }} />
+                    <div role="group" aria-label="Filtrar por instructora" style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      {deInstructora.map(pintarChip)}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 

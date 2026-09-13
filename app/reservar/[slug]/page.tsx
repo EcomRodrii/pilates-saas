@@ -609,14 +609,16 @@ export default function ReservarPage() {
   // `filtroInstructor`) que conviven porque `slots` ya los aplica los dos a
   // la vez (líneas 1114/1123 y 1340/1347).
   const filtrosChipsClases = useMemo(() => {
-    const chips: { id: string; label: string; activo: boolean; onClick: () => void }[] = [
-      { id: '__todas', label: 'Todas', activo: filtroTipo === '' && filtroInstructor === '', onClick: () => { setFiltroTipo(''); setFiltroInstructor(''); } },
+    const chips: { id: string; label: string; activo: boolean; onClick: () => void; grupo: 'tipo' | 'instructora' }[] = [
+      { id: '__todas', label: 'Todas', grupo: 'tipo', activo: filtroTipo === '' && filtroInstructor === '', onClick: () => { setFiltroTipo(''); setFiltroInstructor(''); } },
     ];
     for (const t of tiposClaseVisibles) {
-      chips.push({ id: `tipo:${t.id}`, label: t.nombre, activo: filtroTipo === t.id, onClick: () => setFiltroTipo(filtroTipo === t.id ? '' : t.id) });
+      chips.push({ id: `tipo:${t.id}`, label: t.nombre, grupo: 'tipo', activo: filtroTipo === t.id, onClick: () => setFiltroTipo(filtroTipo === t.id ? '' : t.id) });
     }
+    // «Con Carmen» y no «Carmen» a secas: en la misma fila que «Mat» o
+    // «Reformer», un nombre suelto no dice si es una clase o una persona.
     for (const i of instructoresVisibles) {
-      chips.push({ id: `instructor:${i.id}`, label: i.nombre, activo: filtroInstructor === i.nombre, onClick: () => setFiltroInstructor(filtroInstructor === i.nombre ? '' : i.nombre) });
+      chips.push({ id: `instructor:${i.id}`, label: `Con ${i.nombre}`, grupo: 'instructora', activo: filtroInstructor === i.nombre, onClick: () => setFiltroInstructor(filtroInstructor === i.nombre ? '' : i.nombre) });
     }
     return chips;
   }, [tiposClaseVisibles, instructoresVisibles, filtroTipo, filtroInstructor]);

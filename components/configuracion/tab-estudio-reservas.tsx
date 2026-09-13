@@ -131,6 +131,12 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
     showToast(activo ? 'Se pedirá confirmación a quien tenga más riesgo de no venir' : 'Ya no se pedirá confirmación');
   }
 
+  // Todo el formulario espera al botón salvo «Pedir confirmación…», que guarda
+  // al pulsar (ver arriba). Con los dos modelos en la misma tarjeta, quien
+  // tocaba un interruptor y salía creía haberlo guardado (evaluación del
+  // 13-sep): el botón va pegado abajo y dice si queda algo pendiente.
+  const hayCambios = JSON.stringify(pol) !== JSON.stringify(studioToPolitica(studio));
+
   async function guardarPolitica() {
     if (ventanaImposible) return;
     const res = await updateStudio(pol);
@@ -428,13 +434,18 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             </>
           )}
         </div>
-        <button
-          onClick={guardarPolitica}
-          disabled={ventanaImposible}
-          className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Guardar política de reservas
-        </button>
+        <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 flex flex-wrap items-center gap-3 rounded-b-xl border-t border-border bg-card px-6 py-3">
+          <button
+            onClick={guardarPolitica}
+            disabled={ventanaImposible || !hayCambios}
+            className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Guardar política de reservas
+          </button>
+          <p role="status" className={cn('text-[11px]', hayCambios ? 'font-medium text-foreground' : 'text-muted-foreground')}>
+            {hayCambios ? 'Tienes cambios sin guardar.' : 'Sin cambios pendientes.'}
+          </p>
+        </div>
       </div>
     </div>
   );
