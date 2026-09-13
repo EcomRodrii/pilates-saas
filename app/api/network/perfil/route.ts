@@ -8,6 +8,8 @@ import {
   esEspecialidadValida, esHorarioValido, esTipoTrabajoValido, esTarifaRangoValida,
 } from '@/lib/network/catalogo';
 import { geocodificarDireccion } from '@/lib/network/geocodificar';
+import { suprimirPerfilNetwork } from '@/lib/network/documentos-servidor';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Perfil profesional de Tentare Network (docs/NETWORK-IMPLEMENTATION-PLAN.md
 // §1). Identidad por auth_user_id, NUNCA por studio_id — verificarSesionStaff
@@ -197,4 +199,35 @@ export async function PUT(req: NextRequest) {
   if (error) return errorInterno('network:perfil:PUT:crear', error, 'No se ha podido crear tu perfil.');
 
   return NextResponse.json({ perfil: mapFilaAPerfil(data as unknown as FilaRedPerfil) });
+}
+
+// Supresión del perfil a petición de su titular. Borra sus documentos del
+// bucket privado (identidad, certificaciones, portfolio), su foto pública y la
+// fila `red_perfiles` —el resto de tablas `red_*` cuelgan en CASCADE—, en ese
+// orden (lib/network/documentos-servidor.ts). NO borra la cuenta de Auth: la
+// misma cuenta puede ser socia, instructora o propietaria en Tentare.
+//
+// Se pide `confirmar: true` en el cuerpo para que ningún DELETE accidental
+// (un cliente mal escrito, un reintento) se lleve un perfil entero.
+export async function DELETE(req: NextRequest) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+
+  const usuario = await verificarUsuarioSupabase(req);
+  if (!usuario) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  const limitado = await enforceRateLimit(req, 'network-perfil-suprimir', { max: 5, windowSeconds: 3600 }, usuario.userId);
+  if (limitado) return limitado;
+
+  const body = (await req.json().catch(() => null)) as { confirmar?: unknown } | null;
+  if (body?.confirmar !== true) return errorPeticion('Confirma que quieres eliminar tu perfil.');
+
+  const resultado = await suprimirPerfilNetwork(admin, usuario.userId);
+  if (!resultado.ok) {
+    if (resultado.codigo === 'SIN_PERFIL') return errorPeticion(resultado.mensaje, 404);
+    console.error('[network:perfil:DELETE]', resultado.codigo);
+    return NextResponse.json({ error: resultado.mensaje }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

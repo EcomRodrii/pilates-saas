@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
+import { purgarDocumentoResuelto } from '@/lib/network/documentos-servidor';
 
 export const runtime = 'nodejs';
 
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await db
     .from('red_certificaciones')
-    .select('id, nombre, institucion, anio, duracion, estado, motivo_rechazo, documento_path, creado_en, resuelto_en, red_perfiles ( id, nombre, slug )')
+    .select('id, nombre, institucion, anio, duracion, estado, motivo_rechazo, documento_path, documento_borrado_en, creado_en, resuelto_en, red_perfiles ( id, nombre, slug )')
     .eq('estado', estado)
     .order('creado_en', { ascending: true })
     .limit(500);
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 
   type FilaCruda = {
     id: string; nombre: string; institucion: string; anio: number | null; duracion: string | null;
-    estado: string; motivo_rechazo: string | null; documento_path: string;
+    estado: string; motivo_rechazo: string | null; documento_path: string | null; documento_borrado_en: string | null;
     creado_en: string; resuelto_en: string | null;
     red_perfiles: { id: string; nombre: string; slug: string | null } | null;
   };
@@ -43,6 +44,8 @@ export async function GET(req: NextRequest) {
     motivoRechazo: f.motivo_rechazo,
     creadoEn: f.creado_en,
     resueltoEn: f.resuelto_en,
+    tieneDocumento: f.documento_path != null,
+    documentoBorradoEn: f.documento_borrado_en,
     perfilId: f.red_perfiles?.id ?? null,
     perfilNombre: f.red_perfiles?.nombre ?? 'Perfil eliminado',
     perfilSlug: f.red_perfiles?.slug ?? null,
@@ -65,7 +68,7 @@ export async function PATCH(req: NextRequest) {
   if (!id || aprobar === null) return NextResponse.json({ error: 'Datos no válidos.' }, { status: 400 });
   if (!aprobar && !motivo) return NextResponse.json({ error: 'Indica el motivo del rechazo.' }, { status: 400 });
 
-  const { data: fila, error: errLeer } = await db.from('red_certificaciones').select('id, estado').eq('id', id).maybeSingle();
+  const { data: fila, error: errLeer } = await db.from('red_certificaciones').select('id, estado, documento_path').eq('id', id).maybeSingle();
   if (errLeer) return NextResponse.json({ error: 'No se ha podido leer la certificación.' }, { status: 500 });
   if (!fila) return NextResponse.json({ error: 'Certificación no encontrada.' }, { status: 404 });
   if (fila.estado !== 'pendiente' && fila.estado !== 'en_revision') {
@@ -88,5 +91,12 @@ export async function PATCH(req: NextRequest) {
   if (error) return NextResponse.json({ error: 'No se ha podido actualizar la certificación.' }, { status: 500 });
   if (!count) return NextResponse.json({ error: 'Esta certificación ya está resuelta.' }, { status: 409 });
 
-  return NextResponse.json({ ok: true });
+  // Mismo criterio que la identidad: resuelta, el certificado se borra del
+  // Storage (CONSERVAR_DOCUMENTO_TRAS_VERIFICAR, pendiente de revisión legal).
+  // La señal pública «formación verificada» es el `estado`, no el fichero.
+  const { documentoBorrado } = await purgarDocumentoResuelto(db, {
+    tipo: 'certificacion', id, fila: { documento_path: fila.documento_path as string | null },
+  });
+
+  return NextResponse.json({ ok: true, documentoBorrado });
 }

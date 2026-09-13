@@ -313,8 +313,11 @@ async function detallePerfilDesdeFila(
     { data: certificacionesData },
     { data: mediaData },
   ] = await Promise.all([
+    // `studios ( nombre )`: con la experiencia confirmada, la ficha enseña el
+    // nombre REAL del estudio que la verificó, no el texto libre que escribió
+    // la instructora (el sello se podía fabricar con un nombre inventado).
     admin.from('red_experiencias')
-      .select('id, studio_id, nombre_estudio, fecha_inicio, fecha_fin, especialidades, descripcion, estado_verificacion, creado_en')
+      .select('id, studio_id, nombre_estudio, fecha_inicio, fecha_fin, especialidades, descripcion, estado_verificacion, creado_en, studios ( nombre )')
       .eq('perfil_id', id)
       .order('fecha_inicio', { ascending: false }),
     admin.from('red_perfiles').select('auth_user_id').eq('id', id).maybeSingle(),
