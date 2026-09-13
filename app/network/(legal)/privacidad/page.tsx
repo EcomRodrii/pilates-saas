@@ -52,8 +52,11 @@ export default function PrivacidadNetwork() {
       <h2>3. Base jurídica</h2>
       <p>
         Tratamos tu perfil público y tus datos de contacto para ejecutar el servicio que solicitas (publicar tu
-        perfil y recibir/hacer solicitudes de contacto). El documento de identidad se trata con tu
-        consentimiento explícito, exigido antes de subirlo. Las reseñas se publican con base en el interés
+        perfil y recibir/hacer solicitudes de contacto). El documento de identidad lo aportas tú de forma
+        voluntaria, solo si quieres verificar tu perfil, y se usa únicamente para comprobar tu identidad: lo
+        revisa el equipo de Tentare y no se publica ni se comparte con estudios. Puedes pedir que lo
+        eliminemos en cualquier momento escribiendo a{' '}
+        <a href={`mailto:${LEGAL.emailPrivacidad}`}>{LEGAL.emailPrivacidad}</a>. Las reseñas se publican con base en el interés
         legítimo de dar información veraz a quien consulta un perfil, con la posibilidad de reportarlas si son
         falsas o inapropiadas.
       </p>

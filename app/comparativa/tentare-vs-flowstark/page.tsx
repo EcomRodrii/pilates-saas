@@ -21,7 +21,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Precio de entrada', tentare: ['partial', 'Desde 29€/mes'], them: ['yes', 'Gratis hasta 50 clientes, o 19€/mes sin límite'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí'], them: ['yes', 'Sí — cancela cuando quieras desde el panel'] },
   { feature: 'Facturación España (Veri*factu) nativa', tentare: ['yes', 'Nativo'], them: ['no', 'Sin mención pública'] },
-  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en España'], them: ['partial', 'Empresa con sede en España; alojamiento de datos no especificado'] },
+  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE (Fráncfort)'], them: ['partial', 'Empresa con sede en España; alojamiento de datos no especificado'] },
   { feature: 'Gestión por reformer individual', tentare: ['yes', 'Sí, con lista de espera por aparato'], them: ['no', 'No encontrada'] },
   { feature: 'Sustitución de instructoras integrada', tentare: ['yes', 'Automática, con niveles de autonomía'], them: ['no', 'No encontrada'] },
 ];

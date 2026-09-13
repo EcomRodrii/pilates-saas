@@ -5,5 +5,5 @@ export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 
 export default async function Image() {
-  return generarOgImage('Seguridad y privacidad.', 'Datos aislados por estudio, alojados en la UE y conformes al RGPD. Sin permanencia.');
+  return generarOgImage('Seguridad y privacidad.', 'Datos aislados por estudio, base de datos en la UE y diseñado con el RGPD en mente. Sin permanencia.');
 }

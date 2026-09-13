@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     title: pagina.titulo,
-    description: 'Datos aislados por estudio, alojados en la UE y conformes al RGPD. Sin permanencia.',
+    description: 'Datos aislados por estudio, base de datos en la UE y diseñado con el RGPD en mente. Sin permanencia.',
     url: urlDe(PATH),
     images: [{ url: '/seguridad/opengraph-image' }],
   },
@@ -41,7 +41,7 @@ const PILLARS = [
     bg: '#EDF3F4', fg: '#3E7C86',
     icon: <Globe size={21} />,
     title: 'Datos en Europa, RGPD',
-    body: 'La información se aloja en la Unión Europea y se trata conforme al RGPD. No cruza el Atlántico como en las suites estadounidenses.',
+    body: 'La base de datos se aloja en la Unión Europea (Fráncfort). Algunos proveedores que usamos pueden tratar datos fuera de la UE: están listados, con su ubicación, en la política de privacidad.',
   },
   {
     bg: '#F1F2EA', fg: '#C2503A',
@@ -92,7 +92,7 @@ export default function SeguridadPage() {
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px', color: '#fff' }}>Tus datos y los de tus<br />alumnas, protegidos.</h1>
           <p style={{ fontSize: 'clamp(17px,1.6vw,20px)', lineHeight: 1.55, color: MUTED_DARK, maxWidth: 600, margin: '0 0 30px' }}>Tentare gestiona información sensible de tu negocio y de tus socias. Está construido desde el primer día para que esos datos estén aislados, alojados en Europa y bajo tu control.</p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {['Datos alojados en la UE', 'Conforme al RGPD', 'Cifrado en tránsito', 'Sin permanencia'].map((t) => (
+            {['Base de datos en la UE', 'Diseñado con el RGPD en mente', 'Cifrado en tránsito', 'Sin permanencia'].map((t) => (
               <span key={t} className="lp-mono" style={{ fontSize: 12, color: '#D8D8D2', background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 999, padding: '8px 14px' }}>{t}</span>
             ))}
           </div>

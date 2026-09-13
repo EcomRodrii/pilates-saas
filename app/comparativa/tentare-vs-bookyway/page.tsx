@@ -21,7 +21,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Precio de entrada', tentare: ['yes', 'Desde 29€/mes, todo incluido'], them: ['partial', 'Sin cuota fija: 1,50€ por usuario añadido (modelo de pago por uso, no comparable directamente)'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí'], them: ['partial', 'No es suscripción — pago por uso, sin permanencia declarada'] },
   { feature: 'Facturación España (Veri*factu) nativa', tentare: ['yes', 'Nativo'], them: ['no', 'Sin mención pública'] },
-  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en España'], them: ['yes', 'Sí, en Italia (empresa italiana)'] },
+  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE (Fráncfort)'], them: ['yes', 'Sí, en Italia (empresa italiana)'] },
   { feature: 'Gestión por reformer individual', tentare: ['yes', 'Sí, con lista de espera por aparato'], them: ['no', 'Menciona "Pilates Reformer" como tipo de clase, sin sistema de aparato individual'] },
   { feature: 'Sustitución de instructoras integrada', tentare: ['yes', 'Automática, con niveles de autonomía'], them: ['no', 'No encontrada'] },
 ];
