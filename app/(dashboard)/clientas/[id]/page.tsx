@@ -1571,12 +1571,16 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     <p className="text-xs font-medium text-muted-foreground">
                       {comunicaciones.length} {comunicaciones.length === 1 ? 'mensaje enviado' : 'mensajes enviados'}
                     </p>
+                    {/* Escribir a la clienta es trabajo de mostrador: el servidor
+                        rechaza el envío a la instructora (`puedeEnviarEmail`). */}
+                    {gestionaClientas && (
                     <button
                       onClick={() => setShowSendMessage(true)}
                       className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                     >
                       <Send size={14} />Enviar mensaje
                     </button>
+                    )}
                   </div>
 
                   {comunicaciones.length === 0 ? (
@@ -1584,12 +1588,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       <Mail size={28} className="mx-auto text-muted-foreground mb-3" />
                       <p className="text-sm font-semibold text-muted-foreground">Sin comunicaciones enviadas</p>
                       <p className="text-xs text-muted-foreground mt-1">Los emails enviados a esta clienta aparecerán aquí.</p>
+                      {gestionaClientas && (
                       <button
                         onClick={() => setShowSendMessage(true)}
                         className="mt-4 text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                       >
                         Enviar primer mensaje
                       </button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1800,12 +1806,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
             {/* Actions */}
             <div className="space-y-2 mt-4 pt-4 border-t border-muted">
+              {gestionaClientas && (
               <button
                 onClick={() => { setActiveTab('comunicaciones'); setShowSendMessage(true); }}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors"
               >
                 <Mail size={14} />Enviar email
               </button>
+              )}
               {gestionaClientas && (<>
               <button
                 onClick={openEdit}

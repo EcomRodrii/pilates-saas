@@ -34,13 +34,22 @@ function cuerpoCobrarYEmail(): string {
     .join('\n');
 }
 
-test('el número de factura sale de quien la emitió, no del estado', () => {
+// Desde que /api/emails/send arma el justificante desde la BD (el importe y el
+// concepto ya no se aceptan del cliente), el número tampoco viaja desde el
+// panel: el servidor lo lee de `facturas` por `recibo_id`. Llega porque el
+// email se dispara DESPUÉS de `await marcarCobrado(...)`, que ya ha sellado.
+test('el número de factura sale de la factura emitida, no del estado del panel', () => {
   const cuerpo = cuerpoCobrarYEmail();
-  assert.match(cuerpo, /marcado\.numeroFactura/,
-    'El número tiene que venir de `marcarCobrado`, que es quien crea la factura.');
+  assert.match(cuerpo, /reciboId/,
+    'El panel dice qué recibo; el servidor arma el justificante desde él.');
   assert.doesNotMatch(cuerpo, /facturas\.find\(/,
     'Buscar en `facturas` justo tras el await lee el render anterior: la factura '
     + 'recién emitida todavía no está, y el email sale sin número.');
+  assert.doesNotMatch(cuerpo, /numeroFactura/,
+    'Un número mandado desde el panel sería texto libre en un justificante de pago.');
+  const ruta = leer('app/api/emails/send/route.ts');
+  assert.match(ruta, /from\('facturas'\)[\s\S]{0,120}\.eq\('recibo_id', reciboId\)/,
+    'El servidor tiene que leer el número de la factura de ESE recibo.');
 });
 
 test('marcarCobrado devuelve el número que acaba de emitir', () => {

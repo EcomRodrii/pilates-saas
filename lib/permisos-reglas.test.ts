@@ -7,6 +7,9 @@ import {
   puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo,
   puedeGestionarFichaDe, puedeVerRetribucionDe, filtrarRetribucionVisible,
   puedeGestionarCamposPersonalizados,
+  puedeOperarClase, puedeEnviarEmail, TIPOS_EMAIL_PANEL, TIPOS_EMAIL_DE_CLASE,
+  puedeGestionarAutomatizaciones, puedeVerContactoEquipo,
+  puedeVerValoracionesDe, puedeVerResumenValoracionDe, puedeGestionarCalendario,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -314,6 +317,84 @@ test('la pantalla de notificaciones se cierra igual que su API', () => {
       `/notificaciones: la pantalla y la API no dicen lo mismo para ${rol}`,
     );
   }
+});
+
+// ── Rutas de servicio que solo pedían sesión de staff ───────────────────────
+const TODOS_LOS_ROLES = ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const;
+
+test('actuar sobre una clase: mostrador y manager cualquiera, la instructora solo la suya', () => {
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
+    assert.equal(puedeOperarClase(rol, false), true, rol);
+  }
+  assert.equal(puedeOperarClase('INSTRUCTOR', true), true);
+  assert.equal(puedeOperarClase('INSTRUCTOR', false), false, 'la clase de una compañera no');
+});
+
+test('emails del panel: cada tipo con su rol (clase ajena)', () => {
+  const permitidos: Record<string, readonly string[]> = {
+    recibo: ['PROPIETARIO', 'RECEPCION'],
+    bienvenida: ['PROPIETARIO', 'MANAGER', 'RECEPCION'],
+    automatizacion: ['PROPIETARIO', 'MANAGER', 'RECEPCION'],
+    reserva: ['PROPIETARIO', 'MANAGER', 'RECEPCION'],
+    promocion: ['PROPIETARIO', 'MANAGER', 'RECEPCION'],
+    cancelacion: ['PROPIETARIO', 'MANAGER', 'RECEPCION'],
+    cambio: ['PROPIETARIO', 'MANAGER', 'RECEPCION'],
+    recordatorio: ['PROPIETARIO', 'MANAGER', 'RECEPCION'],
+  };
+  assert.deepEqual(Object.keys(permitidos).sort(), [...TIPOS_EMAIL_PANEL].sort(), 'un tipo nuevo necesita su rol aquí');
+  for (const tipo of TIPOS_EMAIL_PANEL) {
+    for (const rol of TODOS_LOS_ROLES) {
+      assert.equal(puedeEnviarEmail(rol, tipo, false), permitidos[tipo].includes(rol), `${tipo} · ${rol}`);
+    }
+  }
+});
+
+test('un justificante de pago lo manda quien mueve dinero, sin excepciones', () => {
+  for (const rol of TODOS_LOS_ROLES) {
+    assert.equal(puedeEnviarEmail(rol, 'recibo'), puedeMoverDinero(rol), rol);
+  }
+});
+
+test('la instructora solo avisa por email de la cancelación de SU clase, y de nada más', () => {
+  assert.equal(puedeEnviarEmail('INSTRUCTOR', 'cancelacion', true), true);
+  for (const tipo of TIPOS_EMAIL_PANEL.filter(t => t !== 'cancelacion')) {
+    assert.equal(puedeEnviarEmail('INSTRUCTOR', tipo, true), false, `${tipo}: ser su clase no le abre este correo`);
+  }
+});
+
+test('un tipo de email que no está en el catálogo no lo manda nadie', () => {
+  for (const rol of TODOS_LOS_ROLES) assert.equal(puedeEnviarEmail(rol, 'libre', true), false, rol);
+  for (const tipo of TIPOS_EMAIL_DE_CLASE) assert.ok(TIPOS_EMAIL_PANEL.includes(tipo), tipo);
+});
+
+test('ejecutar automatizaciones: exactamente quien ve la pantalla', () => {
+  for (const rol of TODOS_LOS_ROLES) {
+    assert.equal(puedeGestionarAutomatizaciones(rol), puedeVer(rol, '/automatizaciones'), rol);
+  }
+  assert.equal(puedeGestionarAutomatizaciones('RECEPCION'), false, 'recepción cobra, pero no escribe campañas');
+});
+
+test('el contacto del equipo lo recibe quien organiza el calendario, no la instructora', () => {
+  for (const rol of TODOS_LOS_ROLES) {
+    assert.equal(puedeVerContactoEquipo(rol), puedeGestionarCalendario(rol), rol);
+  }
+  assert.equal(puedeVerContactoEquipo('INSTRUCTOR'), false);
+});
+
+test('valoraciones con comentario: propietaria y manager, o la instructora las suyas', () => {
+  assert.equal(puedeVerValoracionesDe('PROPIETARIO', false), true);
+  assert.equal(puedeVerValoracionesDe('MANAGER', false), true);
+  assert.equal(puedeVerValoracionesDe('RECEPCION', false), false, 'recepción no ve /equipo');
+  assert.equal(puedeVerValoracionesDe('INSTRUCTOR', true), true);
+  assert.equal(puedeVerValoracionesDe('INSTRUCTOR', false), false);
+});
+
+test('la media de valoraciones: el mostrador entero; la instructora solo la suya', () => {
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
+    assert.equal(puedeVerResumenValoracionDe(rol, false), true, rol);
+  }
+  assert.equal(puedeVerResumenValoracionDe('INSTRUCTOR', true), true);
+  assert.equal(puedeVerResumenValoracionDe('INSTRUCTOR', false), false);
 });
 
 test('puedeGestionarPortalHome: propietaria y manager sí, recepción e instructora no', () => {

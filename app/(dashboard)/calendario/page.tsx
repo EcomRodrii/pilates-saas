@@ -1473,9 +1473,6 @@ export default function Calendario() {
     let avisadas = 0;
     let sinAvisar = 0;
     if (sesion) {
-      const inicio = new Date(sesion.inicio);
-      const fecha = fechaLargaEstudio(inicio);
-      const hora = horaEstudio(inicio);
       const apuntadas = reservas.filter(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'));
       // Se espera cada envío y se cuenta el resultado real: antes el
       // `.forEach` disparaba enviarEmailCancelacionClase sin await por cada
@@ -1483,14 +1480,8 @@ export default function Calendario() {
       const resultados = await Promise.all(apuntadas.map(async r => {
         const socia = socios.find(s => s.id === r.socioId);
         if (!socia?.email) return null;
-        return enviarEmailCancelacionClase({
-          to: socia.email,
-          toName: socia.nombre,
-          claseNombre: sesion.tipoClase.nombre,
-          fecha, hora,
-          sala: sesion.sala.nombre,
-          instructor: sesion.instructor.nombre,
-        });
+        // Los datos de la clase los pone el servidor, que ya la ve cancelada.
+        return enviarEmailCancelacionClase({ to: socia.email, toName: socia.nombre, sesionId });
       }));
       for (const ok of resultados) {
         if (ok === null) continue; // sin email: no cuenta ni como avisada ni como fallo

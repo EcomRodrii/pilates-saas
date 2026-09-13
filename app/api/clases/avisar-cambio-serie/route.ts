@@ -5,6 +5,7 @@ import { emitirClaseModificada } from '@/lib/notifications/emit';
 import { sociasDeSesion } from '@/lib/notifications/recipients';
 import { enviarEmailesCambioClase } from '@/lib/emails/enviar-cambio-clase';
 import { avisoPorAlumna, type CambioClaseSerie } from '@/lib/avisos-serie';
+import { clasesParaAviso, nombreDeCompanera } from '@/lib/avisos-clase-servidor';
 
 // Aviso de una edición de SERIE («Guardar esta y las siguientes»). Hermano de
 // avisar-cambio-clase, que avisa de UNA clase: llamarlo en bucle mandaba a una
@@ -17,6 +18,11 @@ import { avisoPorAlumna, type CambioClaseSerie } from '@/lib/avisos-serie';
 // está en la primera y también en otra que sea la primera de otra alumna puede
 // recibir dos push — raro (hace falta alguien que no esté en la primera), y
 // mucho menos que uno por clase.
+//
+// Igual que avisar-cambio-clase: lo que dice cada aviso sale de la BD, y solo
+// se avisa de las clases que quien llama puede tocar. Una serie editada por su
+// instructora puede incluir clases que da otra (una sustitución puntual): esas
+// se saltan, no tumban el aviso de las suyas.
 const MAX_CLASES = 200;
 
 export async function POST(req: NextRequest) {
@@ -27,20 +33,23 @@ export async function POST(req: NextRequest) {
 
   const b = (await req.json().catch(() => null)) as { cambios?: CambioClaseSerie[] } | null;
   const cambios = Array.isArray(b?.cambios)
-    ? b.cambios.filter(c => c && typeof c.sesionId === 'string' && typeof c.inicio === 'string')
+    ? b.cambios.filter(c => c && typeof c.sesionId === 'string')
     : [];
   if (cambios.length === 0) return NextResponse.json({ error: 'Faltan clases' }, { status: 400 });
   if (cambios.length > MAX_CLASES) return NextResponse.json({ error: 'Demasiadas clases' }, { status: 400 });
 
-  // Solo clases de SU estudio: los ids vienen del cliente.
-  const ids = [...new Set(cambios.map(c => c.sesionId))];
-  const { data: propias } = await admin.from('sesiones')
-    .select('id').eq('studio_id', staff.studioId).in('id', ids);
-  const validas = new Set((propias ?? []).map(s => s.id as string));
+  const r = await clasesParaAviso(admin, staff, cambios.map(c => c.sesionId));
+  if (!r) return NextResponse.json({ error: 'No se ha podido comprobar la clase.' }, { status: 500 });
+  const claseDe = new Map(r.clases.filter(c => !c.cancelada).map(c => [c.id, c]));
+  const vistos = new Set<string>();
   const enOrden = cambios
-    .filter(c => validas.has(c.sesionId))
-    .sort((x, y) => x.inicio.localeCompare(y.inicio));
-  if (enOrden.length === 0) return NextResponse.json({ error: 'Sesión no encontrada' }, { status: 404 });
+    .filter(c => claseDe.has(c.sesionId) && !vistos.has(c.sesionId) && vistos.add(c.sesionId))
+    .sort((x, y) => claseDe.get(x.sesionId)!.inicio.localeCompare(claseDe.get(y.sesionId)!.inicio));
+  if (enOrden.length === 0) {
+    return r.ajenas > 0
+      ? NextResponse.json({ error: 'No tienes permiso para avisar de estas clases.' }, { status: 403 })
+      : NextResponse.json({ error: 'Sesión no encontrada' }, { status: 404 });
+  }
 
   // Destinatarias resueltas contra la BD en el momento del envío, igual que
   // avisar-cambio-clase. Clave de alumna: su id de socia.
@@ -54,12 +63,18 @@ export async function POST(req: NextRequest) {
     new Map([...porSesion].map(([id, rs]) => [id, rs.map(clave).filter(Boolean)])),
   );
 
+  const anteriores = new Map<string, string | undefined>();
   let enviados = 0;
   let sinEmail = 0;
   let enApp = 0;
   for (const c of enOrden) {
     const aqui = (porSesion.get(c.sesionId) ?? []).filter(r => avisos.get(clave(r))?.sesionId === c.sesionId);
     if (aqui.length === 0) continue;
+    const clase = claseDe.get(c.sesionId)!;
+    const nombreAnterior = typeof c.instructorAnterior === 'string' ? c.instructorAnterior : '';
+    if (!anteriores.has(nombreAnterior)) {
+      anteriores.set(nombreAnterior, await nombreDeCompanera(admin, staff.studioId, nombreAnterior));
+    }
 
     // Dos tandas de correo por clase como mucho: con y sin «y las siguientes».
     for (const mas of [true, false]) {
@@ -69,20 +84,21 @@ export async function POST(req: NextRequest) {
         .filter((r): r is typeof r & { email: string } => !!r.email)
         .map(r => ({ email: r.email, nombre: r.nombre ?? 'Socia' }));
       sinEmail += grupo.length - conEmail.length;
-      const r = await enviarEmailesCambioClase(staff.studioId, conEmail, {
-        claseNombre: c.clase || 'tu clase', fecha: c.fecha || '', hora: c.hora || '',
-        sala: c.sala || '', instructor: c.instructorActual || c.instructora || '',
-        instructorAnterior: c.instructorAnterior, cambioHora: c.cambioHora, cambioSala: c.cambioSala,
+      const envio = await enviarEmailesCambioClase(staff.studioId, conEmail, {
+        claseNombre: clase.clase, fecha: clase.fecha, hora: clase.hora,
+        sala: clase.sala, instructor: clase.instructor,
+        instructorAnterior: anteriores.get(nombreAnterior),
+        cambioHora: c.cambioHora === true, cambioSala: c.cambioSala === true,
         masClasesDeLaSerie: mas,
       });
-      enviados += r.enviados;
-      sinEmail += r.sinEmail;
+      enviados += envio.enviados;
+      sinEmail += envio.sinEmail;
     }
 
     enApp += await emitirClaseModificada(admin, {
       studioId: staff.studioId, sesionId: c.sesionId,
-      clase: c.clase || 'tu clase', cuando: c.cuando || '', sala: c.sala || '',
-      instructora: c.instructora || '',
+      clase: clase.clase, cuando: clase.cuando, sala: clase.sala,
+      instructora: c.instructora ? clase.instructor : '',
     });
   }
 

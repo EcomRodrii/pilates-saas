@@ -306,6 +306,84 @@ export function puedeGestionarAppsOAuth(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER';
 }
 
+// ── Reglas de rutas de servidor que solo pedían sesión de staff ─────────────
+// Todas estas rutas corren con service-role, así que la RLS no está debajo:
+// la regla de aquí es la cerradura de la ruta, no solo la de la UI.
+
+// Actuar sobre UNA clase concreta: avisar a sus alumnas de que se cancela o
+// cambia, o abrir la puerta al marcar asistencia en ella. Espejo de la RLS de
+// UPDATE en `sesiones` (migr 20260730012600): mostrador y manager sobre
+// cualquiera; la instructora solo sobre las suyas, que son las que ya puede
+// editar, cancelar y pasar lista desde el calendario.
+export function puedeOperarClase(rol: Rol, esClasePropia: boolean): boolean {
+  return puedeGestionarCalendario(rol) || (rol === 'INSTRUCTOR' && esClasePropia);
+}
+
+export const TIPOS_EMAIL_PANEL = [
+  'recibo', 'bienvenida', 'reserva', 'automatizacion', 'promocion', 'cancelacion', 'cambio', 'recordatorio',
+] as const;
+export type TipoEmailPanel = typeof TIPOS_EMAIL_PANEL[number];
+
+// Los tipos que hablan de una clase. En /api/emails/send su contenido (clase,
+// fecha, hora, sala, instructora) sale de la BD a partir de `sesionId`, nunca
+// del cuerpo de la petición.
+export const TIPOS_EMAIL_DE_CLASE: readonly TipoEmailPanel[] = ['reserva', 'promocion', 'cancelacion', 'cambio', 'recordatorio'];
+
+// Quién puede mandar cada correo de `/api/emails/send` a una clienta. Todos salen
+// con la marca del estudio, así que el rol va por lo que dice el correo:
+//   · recibo → dinero (un justificante de pago).
+//   · bienvenida y automatizacion → trabajo de mostrador sobre la clienta; es
+//     el único tipo con título y texto libres (mensaje a una persona desde la
+//     ficha o Mensajería, aprobación de una automatización).
+//   · cancelacion → quien puede cancelar esa clase (la instructora, la suya).
+//   · reserva/promocion/cambio/recordatorio → calendario. Desde el panel no los
+//     llama nadie hoy (el servidor los manda por su cuenta), así que no se abren
+//     a la instructora.
+// `esClasePropia` solo cuenta en `cancelacion`; la ruta lo comprueba contra la BD.
+export function puedeEnviarEmail(rol: Rol, tipo: string, esClasePropia = false): boolean {
+  switch (tipo) {
+    case 'recibo': return puedeMoverDinero(rol);
+    case 'bienvenida':
+    case 'automatizacion': return puedeGestionarClientas(rol);
+    case 'cancelacion': return puedeOperarClase(rol, esClasePropia);
+    case 'reserva':
+    case 'promocion':
+    case 'cambio':
+    case 'recordatorio': return puedeGestionarCalendario(rol);
+    default: return false;
+  }
+}
+
+// Ejecutar las automatizaciones a mano (`/api/automatizaciones/run`): manda
+// emails y WhatsApps reales a las clientas. Mismo criterio que la pantalla
+// `/automatizaciones`, que ya era solo de la propietaria (bloqueada para
+// recepción y manager en `puedeVer`); la ruta usaba `puedeMoverDinero` y dejaba
+// pasar a recepción por una puerta que su menú no tenía.
+export function puedeGestionarAutomatizaciones(rol: Rol): boolean {
+  return rol === 'PROPIETARIO';
+}
+
+// Email y teléfono de las compañeras. Quien organiza el calendario los necesita
+// (contactar a una sustituta por WhatsApp); una instructora solo recibe los
+// suyos. Mismo recorte que ya hace `/api/equipo/tarjetas` con la vista de
+// compañeras.
+export function puedeVerContactoEquipo(rol: Rol): boolean {
+  return puedeGestionarCalendario(rol);
+}
+
+// Leer las valoraciones de una instructora una a una: comentario libre de la
+// alumna y su nombre. La propietaria y la manager (gestionan el equipo); la
+// instructora, solo las suyas. Recepción no: ni siquiera ve /equipo.
+export function puedeVerValoracionesDe(rol: Rol, esPropia: boolean): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER' || (rol === 'INSTRUCTOR' && esPropia);
+}
+
+// La media y el total (sin comentarios ni nombres): lo pinta el ranking de
+// /sustituciones, que usa todo el mostrador. La instructora ve solo la suya.
+export function puedeVerResumenValoracionDe(rol: Rol, esPropia: boolean): boolean {
+  return puedeGestionarCalendario(rol) || (rol === 'INSTRUCTOR' && esPropia);
+}
+
 // Arquitectura de marca: el panel es una sola app role-gateada, pero se
 // percibe como dos productos — Tentare Core para instructoras, Tentare
 // Manager para propietaria/manager/recepción. Fuente de verdad única del

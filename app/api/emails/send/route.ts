@@ -20,26 +20,44 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { escaparLike } from '@/lib/escapar-like';
 import { rateLimit } from '@/lib/rate-limit';
 import { tooManyRequestsResponse, retryAfterSeconds } from '@/lib/rate-limit-core';
+import { puedeEnviarEmail, TIPOS_EMAIL_PANEL, TIPOS_EMAIL_DE_CLASE, type TipoEmailPanel } from '@/lib/permisos-reglas';
+import { clasesParaAviso } from '@/lib/avisos-clase-servidor';
+
+const json = (error: string, status: number) => NextResponse.json({ error }, { status });
 
 export async function POST(req: NextRequest) {
   // SEGURIDAD: solo staff autenticado. Evita que cualquiera use la cuenta de
   // Resend del estudio para enviar correos (spam / phishing).
   const sesion = await verificarSesionStaff(req);
-  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (!sesion) return json('No autorizado', 401);
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) {
-    return NextResponse.json({ error: 'Resend no configurado. Añade RESEND_API_KEY en .env.local' }, { status: 503 });
+    return json('Resend no configurado. Añade RESEND_API_KEY en .env.local', 503);
   }
 
   const resend = new Resend(apiKey);
-  const body = await req.json() as {
-    tipo: 'recibo' | 'bienvenida' | 'reserva' | 'automatizacion' | 'promocion' | 'cancelacion' | 'cambio' | 'recordatorio';
-    to: string;
-    toName: string;
-    data: Record<string, unknown>;
+  const body = (await req.json().catch(() => null)) as {
+    tipo?: string;
+    to?: string;
+    toName?: string;
+    data?: Record<string, unknown>;
     socioId?: string;
-  };
+  } | null;
+  if (!body || typeof body.to !== 'string' || !body.to.trim()) return json('Falta el destinatario.', 400);
+  if (!(TIPOS_EMAIL_PANEL as readonly string[]).includes(body.tipo ?? '')) return json('Tipo de email desconocido', 400);
+  const tipo = body.tipo as TipoEmailPanel;
+  const to = body.to.trim();
+  const toName = typeof body.toName === 'string' ? body.toName : '';
+  const dataCliente = (body.data && typeof body.data === 'object' ? body.data : {}) as Record<string, unknown>;
+
+  // Rol por tipo de correo (ver `puedeEnviarEmail`). Antes bastaba la sesión:
+  // una instructora podía mandar a una clienta un «Pago confirmado» o un texto
+  // libre con la marca del estudio. Aquí va el techo del rol; que la clase de
+  // una cancelación sea de quien llama se comprueba abajo, contra la BD.
+  if (!puedeEnviarEmail(sesion.rol, tipo, true)) {
+    return json('No tienes permiso para enviar este email.', 403);
+  }
 
   // Direcciones de ejemplo (RFC 2606): se cortan ANTES de llamar a Resend, igual
   // que en el motor de automatizaciones. Hasta ahora la guarda sólo vivía allí, así
@@ -47,34 +65,24 @@ export async function POST(req: NextRequest) {
   // cancelación, cambio de instructora, campaña— salía sin filtrar. Resend las
   // rechaza de todas formas, pero con un error suyo en inglés; aquí le decimos qué
   // arreglar y nos ahorramos la llamada. Ver lib/emails/dominios-reservados.ts.
-  if (esDominioReservado(body.to)) {
-    return NextResponse.json({
-      error: `${body.toName || body.to} tiene un email de ejemplo (${body.to}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.`,
-    }, { status: 400 });
+  if (esDominioReservado(to)) {
+    return json(`${toName || to} tiene un email de ejemplo (${to}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.`, 400);
   }
 
-  // Auditoría 23ª pasada (4-sep-2026), P-4. Hasta aquí solo se comprobaba que
-  // hubiera SESIÓN de staff — cualquier rol (incluida INSTRUCTOR) podía mandar
-  // asunto y cuerpo arbitrarios a CUALQUIER dirección, en volumen ilimitado,
-  // firmados desde el dominio verificado que comparten TODOS los estudios. El
-  // radio de explosión no era el estudio de quien llamaba: era la reputación
-  // de envío del SaaS entero.
-  //
-  // Los ocho tipos de este endpoint son comunicaciones de NEGOCIO a una socia
-  // (recibo, bienvenida, reserva, cancelación...) — ninguno es un envío libre a
-  // una dirección externa. Todos los llamantes reales (lib/api-client.ts,
-  // mensajería, automatizaciones) ya sacan `to`/`toName` de una fila de
-  // `socios` cargada del propio estudio, así que exigirlo en servidor no
-  // rompe ningún camino legítimo, solo cierra el que nadie usa.
+  // Auditoría 23ª pasada (4-sep-2026), P-4: el destinatario tiene que ser una
+  // clienta del estudio. Todos los llamantes reales sacan `to`/`toName` de una
+  // fila de `socios` del propio estudio. Se piden todas las fichas con ese email
+  // (una familia puede compartirlo): el recibo o la plaza pueden ser de cualquiera.
   const admin = getSupabaseAdmin();
-  if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
-  const { data: socia } = await admin
+  if (!admin) return json('Servidor no configurado', 503);
+  const { data: socias } = await admin
     .from('socios').select('id')
     .eq('studio_id', sesion.studioId)
-    .ilike('email', escaparLike(body.to.trim()))
-    .limit(1).maybeSingle();
-  if (!socia) {
-    return NextResponse.json({ error: 'Ese destinatario no es una clienta de tu estudio.' }, { status: 403 });
+    .ilike('email', escaparLike(to))
+    .limit(20);
+  const socioIds = ((socias ?? []) as { id: string }[]).map(s => s.id);
+  if (socioIds.length === 0) {
+    return json('Ese destinatario no es una clienta de tu estudio.', 403);
   }
 
   // Red de seguridad de volumen: generoso a propósito (la mensajería masiva ya
@@ -84,6 +92,53 @@ export async function POST(req: NextRequest) {
   const porEstudio = await rateLimit(`emails-send:${sesion.studioId}`, { max: 500, windowSeconds: 3600 });
   if (!porEstudio.allowed) {
     return tooManyRequestsResponse(retryAfterSeconds(porEstudio.resetAt, 3600));
+  }
+
+  // Lo que dice un justificante de pago o un aviso de clase sale de la BD, no de
+  // la petición: si no, cualquiera con permiso de enviar podía inventarse el
+  // importe, el concepto o una clase. Solo `bienvenida` y `automatizacion` usan
+  // `data` tal cual llega.
+  let datos: Record<string, unknown> = dataCliente;
+  if (tipo === 'recibo') {
+    const reciboId = typeof dataCliente.reciboId === 'string' ? dataCliente.reciboId : null;
+    if (!reciboId) return json('Falta el recibo del justificante.', 400);
+    const { data: recibo } = await admin.from('recibos')
+      .select('concepto, importe, socio_id, fecha_cobro, estado')
+      .eq('id', reciboId).eq('studio_id', sesion.studioId).maybeSingle();
+    if (!recibo) return json('Recibo no encontrado.', 404);
+    if (!socioIds.includes(recibo.socio_id as string)) return json('Ese recibo no es de esa clienta.', 403);
+    if (recibo.estado !== 'COBRADO') return json('Ese recibo no está cobrado.', 409);
+    // Puede no existir: la factura se sella aparte. El email sale sin número.
+    const { data: factura } = await admin.from('facturas')
+      .select('numero_completo').eq('recibo_id', reciboId).maybeSingle();
+    datos = {
+      concepto: recibo.concepto,
+      importe: Number(recibo.importe),
+      fechaCobro: (recibo.fecha_cobro as string | null) ?? new Date().toISOString(),
+      numeroFactura: (factura?.numero_completo as string | null) ?? undefined,
+    };
+  } else if ((TIPOS_EMAIL_DE_CLASE as readonly string[]).includes(tipo)) {
+    const sesionId = typeof dataCliente.sesionId === 'string' ? dataCliente.sesionId : null;
+    if (!sesionId) return json('Falta la clase del aviso.', 400);
+    const r = await clasesParaAviso(admin, sesion, [sesionId]);
+    if (!r) return json('No se ha podido comprobar la clase.', 500);
+    if (r.ajenas > 0) return json('No tienes permiso para avisar de esta clase.', 403);
+    const clase = r.clases[0];
+    if (!clase) return json('Sesión no encontrada', 404);
+    // Una cancelación, de una clase cancelada en la BD; el resto, de una en pie.
+    if ((tipo === 'cancelacion') !== clase.cancelada) {
+      return json(tipo === 'cancelacion' ? 'Esa clase no está cancelada.' : 'Esa clase está cancelada.', 409);
+    }
+    // Y a quien tenga plaza en ella. Quien cancela avisa ANTES de cancelar las
+    // reservas, así que en ese momento siguen vivas.
+    const { data: plaza } = await admin.from('reservas').select('id')
+      .eq('sesion_id', clase.id).in('socio_id', socioIds).neq('estado', 'CANCELADA').limit(1);
+    if (!plaza || plaza.length === 0) return json('Esa clienta no tiene plaza en esa clase.', 403);
+    datos = {
+      claseNombre: clase.clase, fecha: clase.fecha, hora: clase.hora,
+      sala: clase.sala, instructor: clase.instructor,
+      cambioHora: dataCliente.cambioHora === true, cambioSala: dataCliente.cambioSala === true,
+    };
   }
 
   // La propietaria puede apagar cualquiera de los correos automáticos desde
@@ -96,17 +151,17 @@ export async function POST(req: NextRequest) {
   // el panel cada vez que se da de alta a una clienta con la bienvenida
   // apagada. Los llamantes que cuentan avisos de verdad
   // (enviarEmailCancelacionClase) miran este campo para no contar de más.
-  if (await envioDesactivado(sesion.studioId, body.tipo)) {
+  if (await envioDesactivado(sesion.studioId, tipo)) {
     return NextResponse.json({ omitido: 'desactivado' });
   }
 
-  // `body.data` llega con un `as` que TypeScript no comprueba en runtime. Se
-  // valida ANTES de renderizar: los campos que van en template literals (asunto,
-  // `preview`) sacan "undefined" a la vista de la clienta, y los que reciben un
-  // método (importe.toFixed, new Date(fechaCobro)) revientan sin try/catch en un
-  // 500 opaco. Sólo lo que rompe el email de verdad — ver lib/emails/validar-datos.
-  const errorDatos = validarDatosEmail(body.tipo, body.data);
-  if (errorDatos) return NextResponse.json({ error: errorDatos }, { status: 400 });
+  // `data` llega sin tipos en runtime. Se valida ANTES de renderizar: los campos
+  // que van en template literals (asunto, `preview`) sacan "undefined" a la
+  // vista de la clienta, y los que reciben un método (importe.toFixed, new
+  // Date(fechaCobro)) revientan sin try/catch en un 500 opaco. Sólo lo que rompe
+  // el email de verdad — ver lib/emails/validar-datos.
+  const errorDatos = validarDatosEmail(tipo, datos);
+  if (errorDatos) return json(errorDatos, 400);
 
   let html: string;
   let subject: string;
@@ -114,86 +169,70 @@ export async function POST(req: NextRequest) {
   // Override de plantilla del estudio (asunto + intro). El studioId sale de la
   // sesión de staff, no del body — así ningún emisor tiene que pasarlo. Para los
   // tipos no editables (recibo, automatizacion) devuelve {} y todo sigue igual.
-  const plantilla = await resolverPlantilla(sesion.studioId, body.tipo);
+  const plantilla = await resolverPlantilla(sesion.studioId, tipo);
   // Marca del estudio (logo + color): una sola resolución aquí, en vez de que
   // cada caller de /api/emails/send tenga que acordarse de pasarla.
   const marca = await resolverMarcaEstudio(sesion.studioId);
-  const dv = body.data as { estudioNombre?: string; claseNombre?: string };
+  const dv = datos as { estudioNombre?: string; claseNombre?: string };
   // `{estudio}` en una plantilla personalizada sale del nombre REAL del estudio
   // (sesión → studios.nombre), no de lo que mande el cliente: ningún emisor de
   // lib/api-client.ts pone `estudioNombre` en el body, así que la variable se
   // interpolaba a cadena vacía y la propietaria veía "Bienvenida a  " en su
   // propio asunto. Mismo motivo que el default 'Tentare' del encabezado.
   const nombreEstudio = marca.nombre || dv.estudioNombre;
-  const varsPlantilla = { nombre: body.toName, estudio: nombreEstudio, clase: dv.claseNombre };
+  const varsPlantilla = { nombre: toName, estudio: nombreEstudio, clase: dv.claseNombre };
   const introCustom = plantilla.intro ? interpolar(plantilla.intro, varsPlantilla) : undefined;
   const asuntoCustom = plantilla.asunto ? interpolar(plantilla.asunto, varsPlantilla) : undefined;
   // Personalización total (cuerpo libre, marca y pie por plantilla). Para los
   // tipos no editables viene vacía y no cambia nada.
   const personalizacion = interpolarPersonalizacion(plantilla, varsPlantilla);
 
-  if (body.tipo === 'recibo') {
-    const d = body.data as {
+  type DatosClase = { claseNombre: string; fecha: string; hora: string; sala: string; instructor: string; estudioNombre?: string };
+
+  if (tipo === 'recibo') {
+    const d = datos as {
       concepto: string; importe: number; fechaCobro: string;
       numeroFactura?: string; estudioNombre?: string;
     };
-    html = await render(ReciboEmail({ socioNombre: body.toName, ...d, ...marca }));
+    html = await render(ReciboEmail({ socioNombre: toName, ...d, ...marca }));
     subject = `Pago confirmado — ${d.concepto}`;
-  } else if (body.tipo === 'bienvenida') {
-    const d = body.data as { planNombre?: string; estudioNombre?: string };
+  } else if (tipo === 'bienvenida') {
+    const d = datos as { planNombre?: string; estudioNombre?: string };
     // Enlace de acceso directo al portal: antes la bienvenida no decía cómo
     // entrar y la socia se quedaba sin saber que existía /portal/{slug}. Es el
     // mismo magic link que ya usa el login sin contraseña del portal, solo que
     // lo dispara el staff en vez de esperar a que la socia lo pida ella misma.
     // Fallo suave: si algo falla, la bienvenida sale igual, sin el botón.
-    const urlAcceso = marca.slug ? await generarEnlaceAccesoSocia(marca.slug, body.to) : null;
-    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, url: urlAcceso ?? undefined, ...d, ...marca }));
+    const urlAcceso = marca.slug ? await generarEnlaceAccesoSocia(marca.slug, to) : null;
+    html = await render(BienvenidaEmail({ socioNombre: toName, intro: introCustom, personalizacion, url: urlAcceso ?? undefined, ...d, ...marca }));
     subject = asuntoCustom ?? `¡Bienvenida a ${nombreEstudio ?? 'tu estudio'}!`;
-  } else if (body.tipo === 'reserva') {
-    const d = body.data as {
-      claseNombre: string; fecha: string; hora: string;
-      sala: string; instructor: string; estudioNombre?: string;
-    };
-    html = await render(ReservaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...d, ...marca }));
+  } else if (tipo === 'reserva') {
+    const d = datos as DatosClase;
+    html = await render(ReservaEmail({ socioNombre: toName, intro: introCustom, personalizacion, ...d, ...marca }));
     subject = asuntoCustom ?? `Reserva confirmada — ${d.claseNombre}`;
-  } else if (body.tipo === 'automatizacion') {
-    const d = body.data as { titulo: string; mensaje: string; estudioNombre?: string };
-    html = await render(AutomatizacionEmail({ socioNombre: body.toName, ...d, ...marca }));
+  } else if (tipo === 'automatizacion') {
+    const d = datos as { titulo: string; mensaje: string; estudioNombre?: string };
+    html = await render(AutomatizacionEmail({ socioNombre: toName, ...d, ...marca }));
     subject = d.titulo;
-  } else if (body.tipo === 'promocion') {
-    const d = body.data as {
-      claseNombre: string; fecha: string; hora: string;
-      sala: string; instructor: string; estudioNombre?: string; bonoConsumido?: boolean;
-    };
-    html = await render(PromocionEsperaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...d, ...marca }));
+  } else if (tipo === 'promocion') {
+    const d = datos as DatosClase;
+    html = await render(PromocionEsperaEmail({ socioNombre: toName, intro: introCustom, personalizacion, ...d, ...marca }));
     subject = asuntoCustom ?? `Se ha liberado tu plaza — ${d.claseNombre}`;
-  } else if (body.tipo === 'cancelacion') {
-    const d = body.data as {
-      claseNombre: string; fecha: string; hora: string;
-      sala: string; instructor: string; estudioNombre?: string; bonoDevuelto?: boolean;
-    };
-    html = await render(CancelacionClaseEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...d, ...marca }));
+  } else if (tipo === 'cancelacion') {
+    const d = datos as DatosClase;
+    html = await render(CancelacionClaseEmail({ socioNombre: toName, intro: introCustom, personalizacion, ...d, ...marca }));
     subject = asuntoCustom ?? `Clase cancelada — ${d.claseNombre}`;
-  } else if (body.tipo === 'cambio') {
-    const d = body.data as {
-      claseNombre: string; fecha: string; hora: string;
-      sala: string; instructor: string; instructorAnterior?: string; estudioNombre?: string;
-      cambioHora?: boolean; cambioSala?: boolean;
-    };
-    html = await render(CambioClaseEmail({ socioNombre: body.toName, intro: introCustom, ...d, ...marca }));
+  } else if (tipo === 'cambio') {
+    const d = datos as DatosClase & { cambioHora?: boolean; cambioSala?: boolean };
+    html = await render(CambioClaseEmail({ socioNombre: toName, intro: introCustom, ...d, ...marca }));
     // Asunto según qué cambió de verdad — antes siempre decía "instructora"
     // aunque el motivo fuera mover la clase de hora/sala.
     const motivoAsunto = d.cambioHora || d.cambioSala ? 'Cambio de horario' : 'Cambio de instructora';
     subject = asuntoCustom ?? `${motivoAsunto} — ${d.claseNombre}`;
-  } else if (body.tipo === 'recordatorio') {
-    const d = body.data as {
-      claseNombre: string; fecha: string; hora: string;
-      sala: string; instructor: string; estudioNombre?: string;
-    };
-    html = await render(RecordatorioEmail({ socioNombre: body.toName, intro: introCustom, ...d, ...marca }));
-    subject = asuntoCustom ?? `Recordatorio — ${d.claseNombre}`;
   } else {
-    return NextResponse.json({ error: 'Tipo de email desconocido' }, { status: 400 });
+    const d = datos as DatosClase;
+    html = await render(RecordatorioEmail({ socioNombre: toName, intro: introCustom, ...d, ...marca }));
+    subject = asuntoCustom ?? `Recordatorio — ${d.claseNombre}`;
   }
 
   const { data, error } = await resend.emails.send({
@@ -204,7 +243,7 @@ export async function POST(req: NextRequest) {
     // estudio. La dirección que firma sigue siendo la verificada de la
     // plataforma (una del estudio sin verificar en Resend rebotaría).
     ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
-    to: [body.to],
+    to: [to],
     subject,
     html,
   });
@@ -213,11 +252,12 @@ export async function POST(req: NextRequest) {
   // captura sus propios errores internamente y nunca lanza): si el email SÍ
   // salió (o SÍ falló), eso ya es el resultado que importa; un problema al
   // loguearlo no debe convertir un envío correcto en un error 500.
-  if (body.socioId) {
+  // Solo con la ficha de la destinataria, no con cualquier id del body.
+  if (body.socioId && socioIds.includes(body.socioId)) {
     await registrarComunicacion({
       studioId: sesion.studioId,
       socioId: body.socioId,
-      tipo: body.tipo,
+      tipo,
       asunto: subject,
       estado: error ? 'FALLIDO' : 'ENVIADO',
       error: error?.message ?? null,

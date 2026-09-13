@@ -1408,13 +1408,12 @@ export async function terminalMarcarReconciliado(params: {
 
 // ── Emails ────────────────────────────────────────────────────────────────────
 
+// El servidor arma el justificante desde el recibo (concepto, importe, fecha y
+// número de factura): aquí solo se dice cuál.
 export async function enviarEmailRecibo(params: {
   to: string;
   toName: string;
-  concepto: string;
-  importe: number;
-  fechaCobro: string;
-  numeroFactura?: string;
+  reciboId: string;
 }) {
   await fetch('/api/emails/send', {
     method: 'POST',
@@ -1423,12 +1422,7 @@ export async function enviarEmailRecibo(params: {
       tipo: 'recibo',
       to: params.to,
       toName: params.toName,
-      data: {
-        concepto: params.concepto,
-        importe: params.importe,
-        fechaCobro: params.fechaCobro,
-        numeroFactura: params.numeroFactura,
-      },
+      data: { reciboId: params.reciboId },
     }),
   });
 }
@@ -1635,14 +1629,12 @@ export async function subirVideoAStream(uploadURL: string, file: File): Promise<
   }
 }
 
+// Los emails de clase (reserva, cancelación…) solo dicen de qué clase se trata:
+// nombre, fecha, hora, sala e instructora los pone el servidor desde la BD.
 export async function enviarEmailReserva(params: {
   to: string;
   toName: string;
-  claseNombre: string;
-  fecha: string;
-  hora: string;
-  sala: string;
-  instructor: string;
+  sesionId: string;
 }) {
   await fetch('/api/emails/send', {
     method: 'POST',
@@ -1651,24 +1643,9 @@ export async function enviarEmailReserva(params: {
       tipo: 'reserva',
       to: params.to,
       toName: params.toName,
-      data: {
-        claseNombre: params.claseNombre,
-        fecha: params.fecha,
-        hora: params.hora,
-        sala: params.sala,
-        instructor: params.instructor,
-      },
+      data: { sesionId: params.sesionId },
     }),
   });
-}
-
-// Datos de clase compartidos por los emails transaccionales de calendario.
-export interface DatosClaseEmailCliente {
-  claseNombre: string;
-  fecha: string;
-  hora: string;
-  sala: string;
-  instructor: string;
 }
 
 // Aviso a una socia de que su clase reservada ha sido cancelada por el estudio.
@@ -1778,8 +1755,11 @@ export async function avisarClaseModificada(
 // servidor responde 200 con `omitido` y NADIE ha sido avisado — contarlo como
 // aviso enviado dejaría el toast diciendo "8 clientas avisadas" con la bandeja
 // de las ocho vacía.
-export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente & {
-  to: string; toName: string;
+// El servidor solo lo manda si la clase YA está cancelada en la BD y la
+// destinataria tiene plaza en ella: se llama después de cancelarla y antes de
+// cancelar sus reservas.
+export async function enviarEmailCancelacionClase(params: {
+  to: string; toName: string; sesionId: string;
 }): Promise<boolean> {
   try {
     const res = await fetch('/api/emails/send', {
@@ -1794,10 +1774,7 @@ export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente
         tipo: 'cancelacion',
         to: params.to,
         toName: params.toName,
-        data: {
-          claseNombre: params.claseNombre, fecha: params.fecha, hora: params.hora,
-          sala: params.sala, instructor: params.instructor,
-        },
+        data: { sesionId: params.sesionId },
       }),
     });
     if (!res.ok) return false;
