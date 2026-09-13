@@ -4093,7 +4093,7 @@ export async function registrarSociaPublica(params: {
   //
   // Separadas, las dos comprobaciones se vuelven a desincronizar; juntas, el
   // tope solo se aplica cuando de verdad va a entrar una socia nueva.
-  const denegacion = await evaluarLimiteSocias(params.studioId, await contarSociasActivas(admin, params.studioId), 1);
+  const denegacion = await evaluarLimiteSocias(admin, params.studioId, await contarSociasActivas(admin, params.studioId), 1);
   if (denegacion) return { error: denegacion.error, code: denegacion.code };
 
   const { error } = await admin.from('socios').insert({
@@ -4356,7 +4356,7 @@ async function otorgarCreditosServidor(
   // es una feature de los planes Estudio/Cadena — un estudio en Base no gana
   // créditos nuevos aquí. `evaluarFeature` falla abierto si BILLING_ENFORCED no
   // está activo, igual que el resto de gates del producto (ver billing-rules.ts).
-  if (await evaluarFeature(studioId, 'gamificacion')) return;
+  if (await evaluarFeature(admin, studioId, 'gamificacion')) return;
   if (!refId) return;
 
   const { error } = await admin.rpc('otorgar_credito_disparador', {
@@ -4584,7 +4584,7 @@ async function evaluarGamificacionServidor(
     // evalúa progreso nuevo de logros/retos. El progreso ya conseguido antes de
     // perder el plan NO se borra (evaluarLogrosServidor/evaluarRetosServidor no
     // tocan lo que ya está `completado`); solo se congela, no retrocede.
-    if (await evaluarFeature(studioId, 'gamificacion')) return;
+    if (await evaluarFeature(admin, studioId, 'gamificacion')) return;
     const ctx = await cargarContextoGamificacion(admin, studioId, socioId);
     if (!ctx) return;
     await evaluarLogrosServidor(admin, studioId, socioId, ctx);

@@ -11,6 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
   evaluarSuscripcion,
   evaluarSuspension,
@@ -29,7 +30,7 @@ function aRespuesta(denegacion: Denegacion | null): NextResponse | null {
 }
 
 export async function bloqueoPorSuscripcion(studioId: string): Promise<NextResponse | null> {
-  return aRespuesta(await evaluarSuscripcion(studioId));
+  return aRespuesta(await evaluarSuscripcion(getSupabaseAdmin(), studioId));
 }
 
 /**
@@ -42,14 +43,14 @@ export async function bloqueoPorSuscripcion(studioId: string): Promise<NextRespo
  * suspensión manda siempre) y no arrastra ninguna otra regla de billing.
  */
 export async function bloqueoPorSuspension(studioId: string): Promise<NextResponse | null> {
-  return aRespuesta(await evaluarSuspension(studioId));
+  return aRespuesta(await evaluarSuspension(getSupabaseAdmin(), studioId));
 }
 
 export async function bloqueoPorFeature(
   studioId: string,
   feature: keyof Entitlements['features'],
 ): Promise<NextResponse | null> {
-  return aRespuesta(await evaluarFeature(studioId, feature));
+  return aRespuesta(await evaluarFeature(getSupabaseAdmin(), studioId, feature));
 }
 
 export async function bloqueoPorLimiteSocias(
@@ -57,5 +58,5 @@ export async function bloqueoPorLimiteSocias(
   sociasActuales: number,
   aAnadir: number,
 ): Promise<NextResponse | null> {
-  return aRespuesta(await evaluarLimiteSocias(studioId, sociasActuales, aAnadir));
+  return aRespuesta(await evaluarLimiteSocias(getSupabaseAdmin(), studioId, sociasActuales, aAnadir));
 }

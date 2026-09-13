@@ -1,7 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // R7 · Reglas de enforcement de plan/suscripción — LÓGICA PURA (sin next/server,
-// testeable con `node --test`). El envoltorio HTTP (NextResponse) vive en
-// lib/billing/billing-guard.ts, que es lo que importan las rutas.
+// sin `server-only`, testeable con `node --test`). Recibe el admin client ya
+// montado como parámetro en vez de resolverlo con `getSupabaseAdmin()` -- ese
+// helper vive en supabase-admin.ts, que lleva `import 'server-only'` (PR #1738)
+// y revienta cualquier test que lo importe transitivamente, aunque sea a través
+// de este módulo (mismo patrón que legal-aceptacion.ts vs legal-sellado.ts).
+// El envoltorio HTTP (NextResponse) vive en lib/billing/billing-guard.ts, que
+// resuelve el admin client y es lo que importan las rutas.
 //
 // FILOSOFÍA: todo detrás de `BILLING_ENFORCED`. Con la env sin poner (estado
 // actual de prod, sin planes asignados) las reglas FALLAN ABIERTO — no bloquean
@@ -9,7 +14,7 @@
 // está vivo. Ver también lib/billing/stripe-fees.ts (mismo patrón "mecanismo apagado").
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { getSupabaseAdmin } from '../db/supabase-admin.ts';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { accesoProducto, tieneFeature, entitlementsDe, type Entitlements } from './entitlements.ts';
 
 /** Motivo de denegación (sin acoplar a HTTP: el status es orientativo del código). */
@@ -27,8 +32,7 @@ export function billingEnforced(): boolean {
 
 type StudioBilling = { plan: string | null; subscriptionStatus: string | null };
 
-async function cargarBilling(studioId: string): Promise<StudioBilling | null> {
-  const admin = getSupabaseAdmin();
+async function cargarBilling(admin: SupabaseClient | null, studioId: string): Promise<StudioBilling | null> {
   if (!admin) return null; // sin service-role no podemos comprobar → fail-open
   const { data } = await admin
     .from('studios')
@@ -50,8 +54,7 @@ async function cargarBilling(studioId: string): Promise<StudioBilling | null> {
  * Sí falla abierto sin service-role, igual que el resto: preferimos dejar pasar
  * a alguien suspendido que tumbar el producto entero por un fallo de infra.
  */
-export async function evaluarSuspension(studioId: string): Promise<Denegacion | null> {
-  const admin = getSupabaseAdmin();
+export async function evaluarSuspension(admin: SupabaseClient | null, studioId: string): Promise<Denegacion | null> {
   if (!admin) return null;
   const { data } = await admin
     .from('studios')
@@ -71,14 +74,14 @@ export async function evaluarSuspension(studioId: string): Promise<Denegacion | 
 }
 
 /** Denegación si la suscripción del estudio no está activa. `null` = puede seguir. */
-export async function evaluarSuscripcion(studioId: string): Promise<Denegacion | null> {
+export async function evaluarSuscripcion(admin: SupabaseClient | null, studioId: string): Promise<Denegacion | null> {
   // La suspensión manda sobre cualquier consideración de billing y se comprueba
   // primero: un estudio suspendido no opera aunque tenga la suscripción al día.
-  const suspendido = await evaluarSuspension(studioId);
+  const suspendido = await evaluarSuspension(admin, studioId);
   if (suspendido) return suspendido;
 
   if (!billingEnforced()) return null;
-  const billing = await cargarBilling(studioId);
+  const billing = await cargarBilling(admin, studioId);
   if (!billing) return null;
   if (accesoProducto({ subscriptionStatus: billing.subscriptionStatus })) return null;
   return {
@@ -90,11 +93,12 @@ export async function evaluarSuscripcion(studioId: string): Promise<Denegacion |
 
 /** Denegación si el plan del estudio no incluye la feature. `null` = puede seguir. */
 export async function evaluarFeature(
+  admin: SupabaseClient | null,
   studioId: string,
   feature: keyof Entitlements['features'],
 ): Promise<Denegacion | null> {
   if (!billingEnforced()) return null;
-  const billing = await cargarBilling(studioId);
+  const billing = await cargarBilling(admin, studioId);
   if (!billing) return null;
   if (tieneFeature({ plan: billing.plan, subscriptionStatus: billing.subscriptionStatus }, feature)) return null;
   return {
@@ -107,12 +111,13 @@ export async function evaluarFeature(
 
 /** Denegación si añadir `aAnadir` socias superaría el tope del plan. `null` = puede seguir. */
 export async function evaluarLimiteSocias(
+  admin: SupabaseClient | null,
   studioId: string,
   sociasActuales: number,
   aAnadir: number,
 ): Promise<Denegacion | null> {
   if (!billingEnforced()) return null;
-  const billing = await cargarBilling(studioId);
+  const billing = await cargarBilling(admin, studioId);
   if (!billing) return null;
   const max = entitlementsDe({ plan: billing.plan }).maxSocios;
   if (sociasActuales + aAnadir <= max) return null;
