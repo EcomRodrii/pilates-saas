@@ -12,6 +12,7 @@ import { leerFirma, olvidarFirma } from '@/lib/student/consentimiento';
 import { errorDeRetornoOAuth } from '@/lib/student/oauth-retorno';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
+import { Sello } from '@/components/student/ui/Sello';
 
 /**
  * DESIGN CONFLICT #2 — código de 4 dígitos frente a enlace por correo.
@@ -246,7 +247,7 @@ function Verificar() {
   if (listo) {
     return (
       <div className="a-pop" style={{ textAlign: 'center' }}>
-        <span aria-hidden style={{ width: 64, height: 64, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>✓</span>
+        <Sello />
         <h2 className="t-h1" style={{ marginTop: 16 }}>Todo listo</h2>
         <p className="t-meta" style={{ marginTop: 6 }}>Te llevamos a tu estudio…</p>
       </div>

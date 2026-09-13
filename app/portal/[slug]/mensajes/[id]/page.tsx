@@ -13,6 +13,7 @@ import { agruparHilo, horaCorta } from '@/lib/mensajeria/presentacion';
 import type { RowMensajes } from '@/lib/db-types';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { useToast } from '@/components/student/ui/Toast';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Hilo de una conversación. Sin Realtime a propósito (ver lib/student/
 // mensajeria.ts): se refresca al montar, al enviar, y al volver a la pestaña
@@ -176,9 +177,7 @@ export default function HiloMensajesPage() {
                   opacity: !borrador.trim() || enviando ? 0.5 : 1,
                 }}
               >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" />
-                </svg>
+                <Icono nombre="enviar" />
               </button>
             </div>
           </div>

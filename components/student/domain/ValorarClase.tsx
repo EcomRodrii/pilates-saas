@@ -5,6 +5,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { enviarValoracion, getValoracionClase, type EstadoValoracion } from '@/lib/student/valorar';
 import { useToast } from '@/components/student/ui/Toast';
 import { Button } from '@/components/student/ui/Button';
+import { Icono } from '@/components/student/ui/Icono';
 
 // «Valorar la clase ★» del detalle de reserva (paquete: mis-reservas/[bookingId]).
 //
@@ -63,10 +64,8 @@ export function ValorarClase({ studioId, sesionId, instructora }: { studioId: st
             className="tap"
             style={{ width: 40, height: 40, border: 'none', background: 'transparent', padding: 0, cursor: soloLectura ? 'default' : 'pointer' }}
           >
-            <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden
-              fill={n <= nivel ? 'var(--warning)' : 'none'} stroke={n <= nivel ? 'var(--warning)' : 'var(--border-strong)'} strokeWidth="1.6" strokeLinejoin="round">
-              <path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z" />
-            </svg>
+            <Icono nombre="estrella" tamano={30}
+              fill={n <= nivel ? 'var(--warning)' : 'none'} stroke={n <= nivel ? 'var(--warning)' : 'var(--border-strong)'} />
           </button>
         ))}
       </div>

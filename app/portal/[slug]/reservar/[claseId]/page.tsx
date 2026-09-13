@@ -28,6 +28,7 @@ import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 import { Foto } from '@/components/student/ui/Foto';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Ficha de clase + hoja de reserva (§A.7). Es la pantalla donde la máquina de
 // estados del paquete se conecta al servidor real.
@@ -240,9 +241,9 @@ export default function FichaClasePage() {
           onClick={() => router.back()}
           aria-label="Volver"
           className="tap tap--icono"
-          style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', left: 14, width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', fontSize: 'var(--t-h3)' }}
+          style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', left: 14, width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          ←
+          <Icono nombre="flecha-izquierda" tamano={18} />
         </button>
         <FavoritoButton
           slug={estudio.slug} studioId={estudio.id} tipoClaseId={clase.tipoClaseId}

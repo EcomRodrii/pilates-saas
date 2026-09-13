@@ -14,6 +14,7 @@ import { useAuthStudent } from '@/lib/student/auth';
 import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -61,7 +62,7 @@ export default function PerfilPage() {
               foto. Antes esta fila no hacía nada, y la única forma de cambiar
               la foto era adivinar que estaba dentro de «Datos personales». */}
           <span aria-hidden className="push t-faint" style={{ display: 'flex' }}>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+            <Icono nombre="chevron-derecha" tamano={18} />
           </span>
         </Link>
 

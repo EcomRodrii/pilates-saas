@@ -67,7 +67,7 @@ export function FiltrosRapidos({ tipos, conFavoritas, hrefReservar }: {
       >
         {/* Los tres deslizadores de la guía: la línea cruza el mando de lado a
             lado y el mando va hueco, no macizo. */}
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
           <path d="M3 7h18M3 12h18M3 17h18" />
           <circle cx="16" cy="7" r="2.4" fill="var(--accent)" />
           <circle cx="8" cy="12" r="2.4" fill="var(--accent)" />

@@ -10,6 +10,8 @@ import { useAuthStudent } from '@/lib/student/auth';
 import { usePortalHref, useEstudio } from '@/components/student/contexto';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { recuerdaSesion, fijarRecordarSesion } from '@/lib/db/portal-almacen-sesion';
+import { Sello } from '@/components/student/ui/Sello';
+import { Icono } from '@/components/student/ui/Icono';
 
 /**
  * Entrar. Literal del paquete (`app/(auth)/login/page.tsx`) con el backend real
@@ -139,7 +141,7 @@ export default function LoginPage() {
   if (enlaceEnviado) {
     return (
       <div className="a-pop" style={{ textAlign: 'center' }}>
-        <span aria-hidden style={{ width: 64, height: 64, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>✓</span>
+        <Sello />
         <h2 className="t-h1" style={{ marginTop: 16 }}>Revisa tu correo</h2>
         <p className="t-meta" style={{ marginTop: 6, lineHeight: 1.5 }}>
           Si <b>{f.email}</b> está registrado, te hemos enviado un enlace para entrar. Ábrelo en este mismo móvil.
@@ -203,9 +205,9 @@ export default function LoginPage() {
             type="button" role="checkbox" aria-checked={recordar}
             aria-label="Recordar inicio de sesión en este dispositivo"
             onClick={() => setRecordar((v) => !v)}
-            style={{ width: 19, height: 19, flexShrink: 0, borderRadius: 6, border: 'none', background: recordar ? 'var(--accent)' : 'var(--card)', boxShadow: recordar ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: '#fff', fontSize: 'var(--t-meta)', fontWeight: 800, transition: 'all .2s' }}
+            style={{ width: 19, height: 19, flexShrink: 0, borderRadius: 6, border: 'none', background: recordar ? 'var(--accent)' : 'var(--card)', boxShadow: recordar ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'all .2s' }}
           >
-            {recordar ? '✓' : ''}
+            {recordar && <Icono nombre="hecho" tamano={16} grosor={2} />}
           </button>
           <span style={{ fontSize: 'var(--t-small)', color: 'var(--muted-foreground)' }}>Recordar sesión</span>
         </label>

@@ -1,6 +1,7 @@
 import type { BookingState } from '@/lib/student/tipos';
 import { COPY } from '@/lib/student/maquina-reserva';
 import { seArreglaComprando } from '@/lib/bono-logic';
+import { Sello } from '@/components/student/ui/Sello';
 /**
  * Resultado de reserva devuelto por el servidor. Solo 'confirmed' muestra la celebración.
  *
@@ -25,13 +26,12 @@ export function BookingStatus({ state, titulo, mensaje, onRetry, onWaitlist, onC
   // alumna contra el mismo muro en el momento en que más ganas tiene de
   // resolverlo. La regla es la MISMA que aplica el servidor (lib/bono-logic.ts).
   const compraLoArregla = state === 'error' && !!mensaje && !!onComprar && seArreglaComprando(mensaje);
-  const col = c.tono === 'ok' ? 'var(--success)' : c.tono === 'warn' ? 'var(--warning)' : 'var(--destructive)';
   return (
     <div role="status" aria-live="assertive" style={{ position: 'relative', textAlign: 'center', padding: '10px 0 4px', overflow: 'hidden' }}>
       {ok && ['A', 'B', 'C', 'B', 'A', 'C'].map((k, i) => <span key={i} aria-hidden style={{ position: 'absolute', left: (28 + i * 9) + '%', top: '30%', width: i % 2 ? 8 : 7, height: i % 2 ? 8 : 11, borderRadius: i % 2 ? 99 : 2, background: ['var(--success)', '#C99A3C', '#C2503A', '#1A1A1A'][i % 4], animation: 'apConf' + k + ' .95s ' + (i * .05) + 's ease-out both' }} />)}
       <div style={{ position: 'relative', width: 64, height: 64, margin: '0 auto' }}>
         {ok && <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 999, border: '2.5px solid var(--success)', animation: 'apRing .9s ease-out both' }} />}
-        <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 999, background: col, color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>{c.tono === 'ok' ? '✓' : c.tono === 'warn' ? '!' : '×'}</span>
+        <Sello tono={c.tono === 'ok' ? 'ok' : c.tono === 'warn' ? 'warn' : 'error'} style={{ position: 'absolute', inset: 0 }} />
       </div>
       <h3 className="t-h2" style={{ marginTop: 15, letterSpacing: '-.025em', animation: 'apUp .4s .15s both' }}>{titulo ?? c.titulo}</h3>
       <p style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', color: 'var(--muted-foreground)', lineHeight: 1.5, animation: 'apUp .4s .22s both' }}>{mensaje ?? c.cuerpo}</p>

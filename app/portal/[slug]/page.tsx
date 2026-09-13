@@ -33,6 +33,7 @@ import { ValoracionCard } from '@/components/student/domain/ValoracionCard';
 import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
 import { Foto } from '@/components/student/ui/Foto';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Inicio (§A.5 del handoff): héroe fotográfico, próxima clase, bono y huecos de
 // hoy. Estructura y medidas literales del paquete.
@@ -279,7 +280,7 @@ export default function InicioPage() {
           >
             Reservar clase
             <span aria-hidden style={{ display: 'flex' }}>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
+              <Icono nombre="flecha-derecha" tamano={18} />
             </span>
           </Link>
         </div>
@@ -329,7 +330,7 @@ export default function InicioPage() {
       >
         <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
           <span aria-hidden style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', color: 'var(--subtle-foreground)', display: 'flex' }}>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM16.5 16.5 21 21" /></svg>
+            <Icono nombre="buscar" tamano={18} />
           </span>
           <input
             name="q"

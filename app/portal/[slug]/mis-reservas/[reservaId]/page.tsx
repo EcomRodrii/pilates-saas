@@ -121,7 +121,7 @@ export default function DetalleReservaPage() {
             className="a-pop"
             style={{
               background: 'var(--accent-deep)', color: 'var(--accent-deep-foreground)',
-              borderRadius: 22, padding: '20px 18px', textAlign: 'center', boxShadow: 'var(--shadow-hero)',
+              borderRadius: 'var(--radius-hero)', padding: '20px 18px', textAlign: 'center', boxShadow: 'var(--shadow-hero)',
             }}
           >
             <p className="t-label" style={{ color: 'var(--accent-deep-muted)' }}>

@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { Icono } from '@/components/student/ui/Icono';
 
 /**
  * Una opción que se toca para elegirla. La pieza de la que está hecha casi toda
@@ -60,11 +61,15 @@ export function Opcion({ seleccionada, onClick, children, icono, disabled }: {
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           background: seleccionada ? 'var(--accent)' : 'transparent',
           border: seleccionada ? 'none' : '1.5px solid var(--border-strong)',
-          color: '#fff', fontSize: 'var(--t-meta)', fontWeight: 800,
+          // `--accent-foreground` y no blanco: es la tinta que el tema calcula
+          // para ir SOBRE `--accent`, y con un acento claro el blanco no se ve.
+          color: 'var(--accent-foreground)',
           transition: 'background .18s, border-color .18s',
         }}
       >
-        {seleccionada ? '✓' : ''}
+        {/* A 16 px el trazo va a 2 para pintar ~1,3 px, lo
+            mismo que pintan los iconos de la barra a 22 px con 1,5. */}
+        {seleccionada && <Icono nombre="hecho" tamano={16} grosor={2} />}
       </span>
     </button>
   );
