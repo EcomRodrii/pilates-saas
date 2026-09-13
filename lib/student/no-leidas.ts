@@ -11,7 +11,10 @@ import { portalAuthHeader } from '@/lib/api-client';
 // pantalla habría sido 20 sitios que mantener y 20 peticiones; lo pide el
 // marco, una vez, y lo comparte.
 //
-// El endpoint ya devuelve el conteo (`{ items, unread }`): no se recalcula aquí.
+// Se pide SOLO el conteo (`soloConteo=1` → `{ unread }`). Para encender un punto
+// se traía la bandeja entera —hasta 60 avisos con título y cuerpo, en cada
+// arranque de la app— y el número salía de esos 60, así que con más sin leer se
+// quedaba corto.
 
 const TTL_MS = 60_000;
 let cache: { studioId: string; valor: number; cuando: number } | null = null;
@@ -21,7 +24,7 @@ const oyentes = new Set<(n: number) => void>();
 async function pedir(studioId: string): Promise<number> {
   const auth = await portalAuthHeader();
   if (!auth.Authorization) return 0; // sin sesión no hay bandeja
-  const res = await fetch(`/api/notifications?ambito=socia&studioId=${encodeURIComponent(studioId)}`, { headers: auth });
+  const res = await fetch(`/api/notifications?ambito=socia&studioId=${encodeURIComponent(studioId)}&soloConteo=1`, { headers: auth });
   if (!res.ok) return 0;
   const cuerpo = (await res.json()) as { unread?: number; items?: { readAt?: string | null }[] };
   // `unread` es lo que manda; el recuento sobre `items` es solo el respaldo
