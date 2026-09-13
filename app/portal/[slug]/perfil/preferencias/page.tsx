@@ -11,6 +11,7 @@ import { getPreferencias, guardarPreferencia, type PreferenciaCategoria } from '
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { activarPushStudent, contextoPushStudent, desactivarPushStudent } from '@/lib/student/push';
 import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estado';
+import { OposicionPerfilado } from '@/components/student/domain/OposicionPerfilado';
 
 // Preferencias de aviso (§A.19).
 //
@@ -187,6 +188,8 @@ export default function PreferenciasPage() {
                 onChange={(v) => void cambiar('pagos', 'email', v)}
               />
             </div>
+
+            <OposicionPerfilado slug={estudio.slug} />
 
             <p className="t-meta" style={{ margin: '14px 0 0', lineHeight: 1.5 }}>
               Los avisos de seguridad y los que afectan a tus reservas ya hechas se envían siempre.
