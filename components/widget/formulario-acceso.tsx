@@ -85,11 +85,14 @@ export function FormularioAccesoWidget({
     // token de Turnstile. Abrirla después de un `await` arriesga que el
     // navegador la trate como popup no solicitado (spike pendiente de medir,
     // docs/auth-widget-diseno.md §9.3).
-    const popup = window.open(urlRetornoWidgetAuth(baseUrl, slug), 'tentare-widget-auth', 'width=420,height=600');
+    // Un nonce por intento, el MISMO en la pestaña y en el enlace del email:
+    // el widget solo acepta la sesión que vuelva con él.
+    const nonce = auth.nuevoIntentoEnlace();
+    const popup = window.open(urlRetornoWidgetAuth(baseUrl, slug, nonce), 'tentare-widget-auth', 'width=420,height=600');
     setEnviando(true);
     const token = await pedirToken();
     if (token === null) { setError(ERROR_CAPTCHA); setEnviando(false); popup?.close(); return; }
-    const r = await auth.enviarEnlace(email, token || undefined);
+    const r = await auth.enviarEnlace(email, nonce, token || undefined);
     setEnviando(false);
     if ('error' in r) { setError(r.error); popup?.close(); return; }
     setModo('magic-enviado');

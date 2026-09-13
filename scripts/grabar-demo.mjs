@@ -1,9 +1,15 @@
-// Graba el vídeo de producto del hero a partir de la DEMO REAL (/demo →
-// "Estudio Aurora", studio-demo: un estudio cien por cien ficticio que existe
-// justo para esto).
+// Graba el vídeo de producto del hero a partir de la DEMO REAL ("Estudio
+// Aurora", studio-demo: un estudio cien por cien ficticio que existe justo
+// para esto).
 //
 //   npm run build && npx next start -p 3400 &
-//   node scripts/grabar-demo.mjs
+//   DEMO_EMAIL=… DEMO_PASSWORD=… node scripts/grabar-demo.mjs
+//
+// Credenciales SOLO por entorno, sin valores por defecto: nunca en el repo ni
+// en una página pública. Entra por el /login real. Si el captcha no deja
+// entrar a un navegador sin cabeza, inicia sesión a mano una vez, guarda el
+// estado con Playwright (`context.storageState({ path })`) y pásalo con
+// `DEMO_STORAGE_STATE=/ruta/estado.json` en lugar de email y contraseña.
 //
 // Sale en public/producto/demo.(mp4|webm) + demo-poster.jpg.
 //
@@ -157,6 +163,25 @@ const ESCENAS = [
   },
 ];
 
+async function obtenerSesion(navegador) {
+  const { DEMO_STORAGE_STATE, DEMO_EMAIL, DEMO_PASSWORD } = process.env;
+  if (DEMO_STORAGE_STATE) return DEMO_STORAGE_STATE;
+  if (!DEMO_EMAIL || !DEMO_PASSWORD) {
+    throw new Error('Faltan credenciales: define DEMO_EMAIL y DEMO_PASSWORD, o DEMO_STORAGE_STATE.');
+  }
+  const ctxLogin = await navegador.newContext({ viewport: { width: ANCHO, height: ALTO }, locale: 'es-ES', timezoneId: 'Europe/Madrid' });
+  const pLogin = await ctxLogin.newPage();
+  await pLogin.goto(`${BASE}/login`, { waitUntil: 'load', timeout: 60_000 });
+  await pLogin.locator('input[type="email"]').fill(DEMO_EMAIL);
+  await pLogin.locator('input[type="password"]').fill(DEMO_PASSWORD);
+  await pLogin.locator('form button[type="submit"]').click();
+  await pLogin.waitForURL(/dashboard|centro-de-control/, { timeout: 60_000 });
+  await pLogin.waitForTimeout(3000);
+  const sesion = await ctxLogin.storageState();
+  await ctxLogin.close();
+  return sesion;
+}
+
 async function main() {
   fs.rmSync(TMP, { recursive: true, force: true });
   fs.mkdirSync(TMP, { recursive: true });
@@ -164,15 +189,9 @@ async function main() {
 
   const navegador = await chromium.launch();
 
-  // La puerta de /demo inicia sesión sola; se guarda la sesión para no repetir
-  // el login en cada escena (y para que no salga en ninguna toma).
-  const ctxLogin = await navegador.newContext({ viewport: { width: ANCHO, height: ALTO }, locale: 'es-ES', timezoneId: 'Europe/Madrid' });
-  const pLogin = await ctxLogin.newPage();
-  await pLogin.goto(`${BASE}/demo`, { waitUntil: 'load', timeout: 60_000 });
-  await pLogin.waitForURL(/dashboard|centro-de-control/, { timeout: 60_000 });
-  await pLogin.waitForTimeout(3000);
-  const sesion = await ctxLogin.storageState();
-  await ctxLogin.close();
+  // Se inicia sesión una sola vez y se guarda la sesión para no repetir el
+  // login en cada escena (y para que no salga en ninguna toma).
+  const sesion = await obtenerSesion(navegador);
 
   const clips = [];
   for (const esc of ESCENAS) {

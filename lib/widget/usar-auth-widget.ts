@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { mensajeSeguro } from '@/lib/errores';
@@ -27,26 +27,44 @@ type ResultadoAuth = { ok: true } | { error: string };
 // forma síncrona en el manejador de clic (antes de esperar el token de
 // Turnstile, ver el comentario de `enviarEnlace` más abajo) — no puede
 // esperar a que `enviarEnlace` termine para saber qué pestaña abrir.
-export function urlRetornoWidgetAuth(baseUrl: string, slug: string): string {
-  return `${baseUrl}/widget-auth-retorno?slug=${encodeURIComponent(slug)}&origenEstudio=${encodeURIComponent(window.location.origin)}`;
+//
+// `nonce` identifica el intento: el mismo valor viaja en `window.open` y en
+// `emailRedirectTo`, y el puente lo devuelve en su mensaje.
+export function urlRetornoWidgetAuth(baseUrl: string, slug: string, nonce: string): string {
+  return `${baseUrl}/widget-auth-retorno?slug=${encodeURIComponent(slug)}&origenEstudio=${encodeURIComponent(window.location.origin)}&nonce=${encodeURIComponent(nonce)}`;
 }
 
 export function useAuthWidget(slug: string, baseUrl: string) {
+  // Nonce del intento de enlace en curso (null = no hay ninguno).
+  const intentoRef = useRef<string | null>(null);
+
   // Escucha el mensaje que manda app/widget-auth-retorno/page.tsx al
   // completar el magic link. Solo acepta mensajes cuyo origen sea EXACTAMENTE
-  // el de Tentare — cualquier otro remitente (incluido código del propio
-  // sitio del estudio) se ignora sin más. El token en sí ya viene firmado y
-  // verificado por Supabase; este postMessage solo lo transporta.
+  // el de Tentare Y que traigan el nonce del intento que abrió este widget —
+  // cualquier otro remitente o intento se ignora sin más. El token en sí ya
+  // viene firmado y verificado por Supabase; este postMessage solo lo
+  // transporta.
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       if (!baseUrl || e.origin !== baseUrl) return;
-      const data = e.data as { tipo?: string; ok?: boolean; access_token?: string; refresh_token?: string } | null;
+      const data = e.data as { tipo?: string; ok?: boolean; nonce?: string; access_token?: string; refresh_token?: string } | null;
       if (data?.tipo !== 'tentare-widget-auth' || !data.ok || !data.access_token || !data.refresh_token) return;
+      if (!intentoRef.current || data.nonce !== intentoRef.current) return;
+      intentoRef.current = null;
       void supabasePortal.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [baseUrl]);
+
+  // Abre un intento nuevo de acceso por enlace y devuelve su nonce. Llamar UNA
+  // vez por clic, antes de `window.open`, y pasar ese mismo valor a
+  // `enviarEnlace`.
+  const nuevoIntentoEnlace = useCallback((): string => {
+    const nonce = crypto.randomUUID();
+    intentoRef.current = nonce;
+    return nonce;
+  }, []);
 
   const loginConPassword = useCallback(async (email: string, password: string, captchaToken?: string): Promise<ResultadoAuth> => {
     const { error } = await supabasePortal.auth.signInWithPassword({ email: email.trim(), password, options: { captchaToken } });
@@ -63,10 +81,10 @@ export function useAuthWidget(slug: string, baseUrl: string) {
   // token de Turnstile. Abrirla aquí, después de un `await`, arriesga que el
   // navegador la trate como popup no solicitado y la bloquee (spike
   // pendiente de medir, docs/auth-widget-diseno.md §9.3).
-  const enviarEnlace = useCallback(async (email: string, captchaToken?: string): Promise<ResultadoAuth> => {
+  const enviarEnlace = useCallback(async (email: string, nonce: string, captchaToken?: string): Promise<ResultadoAuth> => {
     const { error } = await supabasePortal.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: urlRetornoWidgetAuth(baseUrl, slug), captchaToken },
+      options: { emailRedirectTo: urlRetornoWidgetAuth(baseUrl, slug, nonce), captchaToken },
     });
     if (captchaToken) captchaGastado();
     return error
@@ -93,5 +111,5 @@ export function useAuthWidget(slug: string, baseUrl: string) {
 
   const logout = useCallback(async () => { await supabasePortal.auth.signOut(); }, []);
 
-  return { loginConPassword, enviarEnlace, registrar, logout };
+  return { loginConPassword, nuevoIntentoEnlace, enviarEnlace, registrar, logout };
 }

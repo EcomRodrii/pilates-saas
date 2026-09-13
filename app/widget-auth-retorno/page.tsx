@@ -1,4 +1,5 @@
 import { origenPermitido } from '@/lib/cors-widget';
+import { nonceValido } from '@/lib/widget/puente-sesion';
 import { WidgetAuthRetornoCliente } from './cliente';
 
 // Puente del magic link para el widget embebido (Modo B, Shadow DOM).
@@ -11,22 +12,39 @@ import { WidgetAuthRetornoCliente } from './cliente';
 // lib/widget/usar-auth-widget.ts); en cuanto aquí hay sesión, se la pasamos
 // de vuelta por `postMessage` al `opener` y esta pestaña se cierra sola.
 //
-// ⚠️ SEGURIDAD (auditoría 21/22-ago, C-1): `origenEstudio` llegaba por query
-// string y se usaba TAL CUAL como `targetOrigin` del `postMessage`, sin
-// validarlo contra nada — cualquier web podía abrir esta URL con su propio
-// origen y, si la visitante tenía sesión de socia activa (ya en localStorage,
-// sin necesidad de completar el enlace mágico), llevarse su access_token Y
-// refresh_token: toma de control persistente de la cuenta. Ahora el destino
-// se resuelve en SERVIDOR contra `studios.widget_dominios_autorizados` (la
-// misma lista blanca que gobierna el CORS del widget, `lib/cors-widget.ts`) —
-// Server Component a propósito, para que el cliente nunca vuelva a leer la
-// URL. Un estudio sin dominios autorizados no puede usar este camino, pero
-// tampoco podía antes: sin whitelist, `conCorsWidget` no emite cabeceras y el
-// navegador bloquea la respuesta — no es una regresión de producto.
+// ⚠️ SEGURIDAD. Tres garantías, las tres necesarias:
+//
+// 1. Destino resuelto en SERVIDOR (auditoría 21/22-ago, C-1): `origenEstudio`
+//    se valida contra `studios.widget_dominios_autorizados` (la misma lista
+//    blanca que gobierna el CORS del widget, `lib/cors-widget.ts`). El cliente
+//    nunca vuelve a leer la URL.
+//
+// 2. Solo sesiones NUEVAS. Esa lista blanca la escribe cada estudio, así que
+//    por sí sola no basta para decidir que una sesión ya guardada en el
+//    navegador puede salir hacia ese origen (la clave de sesión del portal es
+//    común a todos los estudios). El puente solo reenvía una sesión cuyo
+//    acceso por email ocurrió DESPUÉS de abrirse esta página — lo comprueba el
+//    claim `amr` del token contra `abiertoEn`, que se fija aquí con el reloj
+//    del servidor (`lib/widget/puente-sesion.ts`). Una sesión preexistente, o
+//    una obtenida por contraseña/OAuth, nunca se reenvía.
+//
+// 3. Un intento, un nonce. El widget genera un nonce por intento, lo usa en
+//    `window.open` y en `emailRedirectTo`, y solo acepta el mensaje que lo
+//    trae. Sin nonce válido no hay destino.
+//
+// No se añade COOP: rompería `window.opener`, que es el transporte.
 //
 // Ver docs/auth-widget-diseno.md §2 para el diseño completo, incluido el
 // spike pendiente de validar en Safari real con "Prevent Cross-Site
 // Tracking" — este flujo no se ha probado todavía fuera de este repo.
+
+// Reloj del servidor, no del dispositivo: se compara con la marca de tiempo
+// que pone gotrue, y un móvil con la hora mal no debe decidir la frescura.
+// Esta página es dinámica (lee searchParams), así que se evalúa por petición.
+function marcaDeApertura(): number {
+  return Date.now();
+}
+
 export default async function WidgetAuthRetorno({
   searchParams,
 }: {
@@ -35,8 +53,10 @@ export default async function WidgetAuthRetorno({
   const sp = await searchParams;
   const slug = typeof sp.slug === 'string' ? sp.slug : null;
   const origenEstudio = typeof sp.origenEstudio === 'string' ? sp.origenEstudio : null;
+  const nonce = nonceValido(sp.nonce) ? sp.nonce : null;
 
-  const destino = slug && origenEstudio ? await origenPermitido({ slug }, origenEstudio) : null;
+  const destino = slug && origenEstudio && nonce ? await origenPermitido({ slug }, origenEstudio) : null;
+  const abiertoEn = marcaDeApertura();
 
-  return <WidgetAuthRetornoCliente destino={destino} />;
+  return <WidgetAuthRetornoCliente destino={destino} nonce={destino ? nonce : null} abiertoEn={abiertoEn} />;
 }
