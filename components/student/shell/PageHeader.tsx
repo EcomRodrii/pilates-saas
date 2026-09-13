@@ -8,7 +8,7 @@ import { Icono } from '@/components/student/ui/Icono';
 export function PageHeader({ titulo, sub, back, accion }: { titulo: string; sub?: string; back?: boolean; accion?: ReactNode }) {
   const r = useRouter();
   return (
-    <div className="px a-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, padding: '8px 18px 0' }}>
+    <div className="px a-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, paddingTop: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {back && (
           <button type="button" onClick={() => r.back()} aria-label="Volver" className="tap tap--icono" style={{ width: 36, height: 36, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

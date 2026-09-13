@@ -152,7 +152,7 @@ export default function HiloMensajesPage() {
 
         {listo && (
           <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)', background: 'var(--card)' }}>
-            <div className="px" style={{ display: 'flex', gap: 8, alignItems: 'flex-end', padding: '10px 16px' }}>
+            <div className="px" style={{ display: 'flex', gap: 8, alignItems: 'flex-end', paddingTop: 10, paddingBottom: 10 }}>
               <textarea
                 value={borrador}
                 onChange={(e) => setBorrador(e.target.value)}

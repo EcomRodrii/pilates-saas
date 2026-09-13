@@ -295,7 +295,7 @@ export default function InicioPage() {
           <p
             aria-hidden
             style={{
-              position: 'absolute', right: 18, top: 74, pointerEvents: 'none',
+              position: 'absolute', right: 'var(--px)', top: 74, pointerEvents: 'none',
               margin: 0, paddingLeft: 12, borderLeft: '1px solid rgba(250,249,245,.35)',
               display: 'flex', flexDirection: 'column', gap: 4,
               fontSize: 'var(--t-micro)', fontWeight: 700, letterSpacing: '.18em',
