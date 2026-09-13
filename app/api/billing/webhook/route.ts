@@ -59,6 +59,28 @@ export async function POST(req: NextRequest) {
   }
   const event: Stripe.Event = firma.evento;
 
+  // I-12 (59ª auditoría, 13-sep-2026). Este destino solo escucha la cuenta
+  // PLATAFORMA (la suscripción de un estudio a Tentare); su gemelo,
+  // `/api/stripe/webhook`, es el que procesa eventos de las cuentas Connect
+  // de las socias y SIEMPRE resuelve el tenant por `event.account`, nunca por
+  // la metadata a secas (D-3, 22ª pasada — el mismo criterio que cerró C-1 de
+  // esta misma auditoría). Aquí, `actualizarSuscripcion` lee
+  // `sub.metadata.cadenaId`/`studioId` sin ese cruce: hoy está contenido
+  // porque Stripe solo entrega a este destino eventos de la cuenta plataforma
+  // (no está dado de alta como endpoint Connect), así que `event.account`
+  // siempre llega vacío. Si eso cambiara alguna vez — o si algo llegara a
+  // reenviar aquí un evento de una cuenta conectada — un estudio con su
+  // propia cuenta podría escribir el plan/estado de OTRO estudio con solo
+  // acertar su id en la metadata. Defensa de una línea: si `event.account`
+  // viene informado, esto NO es tráfico legítimo de este destino.
+  if (event.account) {
+    Sentry.captureMessage('[billing webhook] evento de una cuenta Connect en el destino de plataforma', {
+      level: 'error', tags: { area: 'cobros', tipo: 'cuenta-inesperada' },
+      extra: { eventAccount: event.account, eventType: event.type, eventId: event.id },
+    });
+    return NextResponse.json({ error: 'Cuenta no esperada en este destino' }, { status: 400 });
+  }
+
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
