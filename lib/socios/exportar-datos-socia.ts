@@ -266,7 +266,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('socio_tipos_clase_autorizados', 'tipo_clase_id, autorizada_en', 'tipo_clase_id'),
     leer(db, 'post_evento_asistentes', 'post_id, creado_en', [['eq', 'socio_id', socioId]], 'post_id'),
     tabla('solicitudes_derechos', 'id, tipo, estado, solicitada_en, plazo_hasta, resuelta_en, nota'),
-    // Historial de su consentimiento de salud (migr 20260913173100). Sin `actor_uid`: es la cuenta del personal.
+    // Historial de su consentimiento de salud (migr 20260913214142). Sin `actor_uid`: es la cuenta del personal.
     tabla('consentimientos_salud_eventos', 'id, tipo, en, origen, texto, firma', 'en'),
     tabla('memoria_socio', 'id, clave, origen, evidencia, activa, creado_en, expira_en'),
     tabla('recomendaciones', 'id, tipo, titulo, motivo, estado, creado_en'),

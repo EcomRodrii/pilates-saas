@@ -8,7 +8,7 @@
 // días (ambos extremos incluidos). RECEPCIÓN y MANAGER no ven detalle clínico.
 //
 // Es la versión TS de `public.instructora_atiende_socia()` (migr
-// 20260913173000), para las rutas que leen o reenvían salud con service-role,
+// 20260913214116), para las rutas que leen o reenvían salud con service-role,
 // donde la RLS no se aplica. Las dos tienen que decir lo mismo: si cambias la
 // ventana o los estados aquí, cámbialos en SQL (y al revés).
 //

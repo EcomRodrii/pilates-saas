@@ -15,7 +15,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 // `socios.campos_extra`, que lee TODO el personal, sin el consentimiento de
 // salud ni el acceso restringido de la ficha clínica. El copy anterior ponía
 // una lesión como ejemplo y en producción había un campo así (auditoría RGPD
-// 2026-09-13). Solo la propietaria define campos (migr 20260913173200).
+// 2026-09-13). Solo la propietaria define campos (migr 20260913214150).
 
 const TIPOS_CAMPO: { id: CampoPersonalizado['tipo']; label: string }[] = [
   { id: 'texto',     label: 'Texto' },

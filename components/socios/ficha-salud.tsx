@@ -439,7 +439,7 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
   const rol = useRol();
   const socio = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
 
-  // Una instructora solo ve la salud de SUS alumnas (migr 20260913173000). Si
+  // Una instructora solo ve la salud de SUS alumnas (migr 20260913214116). Si
   // esta no lo es, la RLS le devuelve vacío: la pantalla lo dice en vez de
   // pintar «Ficha de salud vacía» y un «Añadir condición» que se rechazaría.
   // 'ERROR' (la comprobación no respondió) no bloquea: manda la RLS.

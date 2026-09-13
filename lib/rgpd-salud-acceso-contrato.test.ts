@@ -211,7 +211,7 @@ test('una columna NUEVA de socios necesita su grant por columna (o ser solo de s
   });
   assert.deepEqual(
     faltan, [],
-    'authenticated ya no tiene UPDATE de tabla sobre socios (migr 20260913173100). Una columna nueva ' +
+    'authenticated ya no tiene UPDATE de tabla sobre socios (migr 20260913214142). Una columna nueva ' +
     'necesita `grant insert (col), update (col) on public.socios to authenticated`, o, si solo la escribe ' +
     'el servidor, añadirla a SOCIOS_SOLO_SERVIDOR.',
   );

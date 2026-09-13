@@ -1882,7 +1882,7 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
     db.aceptacion_origen = changes.aceptacionContrato?.origen ?? null;
     db.aceptacion_por = changes.aceptacionContrato?.introducidaPor ?? null;
   }
-  // `consentimientoSalud` NO se escribe desde aquí (migr 20260913173100): la
+  // `consentimientoSalud` NO se escribe desde aquí (migr 20260913214142): la
   // fecha la ponía el reloj del navegador y sin texto ni autor, y RECEPCIÓN
   // podía marcarlo o anular una revocación. Ahora `authenticated` no tiene
   // INSERT/UPDATE sobre esas columnas; se registra y se retira por
@@ -4058,7 +4058,7 @@ export async function dbSemaforoSaludEstudio(studioId: string): Promise<Map<stri
 }
 
 // ¿Esta INSTRUCTORA atiende a esta socia? Misma función que usa la RLS de las
-// tablas de salud (migr 20260913173000). `null` si la llamada falla: quien la
+// tablas de salud (migr 20260913214116). `null` si la llamada falla: quien la
 // use no debe tomarlo por un «no».
 export async function dbInstructoraAtiendeSocia(socioId: string): Promise<boolean | null> {
   const { data, error } = await supabase.rpc('instructora_atiende_socia', { p_socio_id: socioId });
