@@ -79,11 +79,13 @@ async function montar(page: Page, opts: { rechazarSocia?: boolean } = {}) {
 
 async function rellenarAlta(page: Page, conPlan: boolean) {
   await page.getByRole('button', { name: /Nueva clienta|Añadir primera clienta/ }).first().click({ timeout: 30_000 });
-  await page.getByRole('textbox', { name: 'Nombre' }).fill('María');
+  // Regex anclada: con el alta en un paso, la firma («Nombre completo de la
+  // clienta…») está en la misma pantalla y `name: 'Nombre'` es subcadena.
+  await page.getByRole('textbox', { name: /^Nombre\s*\*?$/ }).fill('María');
   await page.getByRole('textbox', { name: 'Apellidos' }).fill('Soler Puig');
   await page.getByRole('textbox', { name: 'Email' }).fill('maria@example.com');
   if (conPlan) await page.getByRole('combobox', { name: /Plan/i }).selectOption('plan-1');
-  await page.getByRole('button', { name: /Siguiente — Contrato/ }).click();
+  // Alta en un solo paso (13-sep): la aceptación está en la misma pantalla.
   await page.getByRole('checkbox').check();
   await page.getByPlaceholder(/Nombre completo de la clienta/i).fill('María Soler Puig');
 }

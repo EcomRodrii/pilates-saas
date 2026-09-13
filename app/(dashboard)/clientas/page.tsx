@@ -20,7 +20,7 @@ import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
   ChevronUp, ChevronDown, ChevronsUpDown, Mail, Pencil,
   Trash2, AlertTriangle, CheckCircle2, Upload, X, UserX,
-  Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck, Loader2,
+  Tag, Bookmark, FileText, PenLine, ShieldCheck, Loader2,
   CircleDashed, CalendarPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -264,7 +264,6 @@ export default function Socios() {
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
 
   // Multi-step "nueva clienta" contract flow
-  const [formStep, setFormStep] = useState<1 | 2>(1);
   const [firma, setFirma] = useState('');
   const [aceptado, setAceptado] = useState(false);
   // El alta escribe en la BD y puede fallar: hasta ahora se cerraba el diálogo
@@ -679,7 +678,6 @@ export default function Socios() {
     setShowForm(null);
     setEditandoId(null);
     setForm(emptyForm());
-    setFormStep(1);
     setFirma('');
     setAceptado(false);
     setErrorGuardar(null);
@@ -775,7 +773,6 @@ export default function Socios() {
       cobroMetodo: 'EFECTIVO',
       camposExtra: s.camposExtra ?? {},
     });
-    setFormStep(1);
     setFirma('');
     setAceptado(false);
     setEditandoId(s.id);
@@ -1363,40 +1360,15 @@ export default function Socios() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-              {showForm === 'nueva' && formStep === 2 && (
-                <button onClick={() => setFormStep(1)} aria-label="Paso anterior" className="p-0.5 rounded hover:bg-muted">
-                  <ArrowLeft size={15} className="text-muted-foreground" />
-                </button>
-              )}
-              {showForm === 'nueva'
-                ? formStep === 1 ? 'Nueva clienta' : 'Política y contrato'
-                : 'Editar clienta'}
+              {showForm === 'nueva' ? 'Nueva clienta' : 'Editar clienta'}
             </DialogTitle>
           </DialogHeader>
 
-          {/* ── Step indicator (nueva only) ─── */}
-          {showForm === 'nueva' && (
-            <div className="flex items-center gap-2 mt-1 mb-2">
-              {[{ n: 1, label: 'Datos' }, { n: 2, label: 'Contrato' }].map(({ n, label }) => (
-                <div key={n} className="flex items-center gap-1.5">
-                  <div className={cn(
-                    'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors',
-                    formStep >= n ? 'bg-brand text-brand-foreground' : 'bg-border text-muted-foreground',
-                  )}>
-                    {formStep > n ? <CheckCircle2 size={11} /> : n}
-                  </div>
-                  <span className={cn(
-                    'text-[11px] font-medium',
-                    formStep >= n ? 'text-foreground' : 'text-muted-foreground',
-                  )}>{label}</span>
-                  {n < 2 && <div className="w-6 h-px bg-border mx-0.5" />}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── Step 1: Datos de la clienta ─── */}
-          {(showForm === 'editar' || formStep === 1) && (
+          {/* ── Datos de la clienta ───
+              Alta en UN paso (evaluación del 13-sep): datos, aceptación y firma
+              en la misma pantalla. Antes eran dos («Datos» → «Contrato») y con la
+              alumna delante en recepción el segundo se hacía largo. */}
+          {(showForm === 'editar' || showForm === 'nueva') && (
             <div className="space-y-3.5 mt-2">
               {/* P2 (auditoría de producto): el panel es `w-full` por debajo de
                   `lg` (components/ui/dashboard-drawer.tsx) — a 375px de ancho
@@ -1541,29 +1513,32 @@ export default function Socios() {
             </div>
           )}
 
-          {/* ── Step 2: Política de privacidad + contrato ─── */}
-          {showForm === 'nueva' && formStep === 2 && (
-            <div className="space-y-3.5 mt-2">
-              {/* Scrollable policy + terms */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+          {/* ── Política de privacidad + contrato (mismo paso) ─── */}
+          {showForm === 'nueva' && (
+            <div className="space-y-3.5 mt-4 pt-4 border-t border-border">
+              {/* El texto va PLEGADO: está a un clic para leerlo entero, pero no
+                  obliga a recorrerlo con la alumna delante. La aceptación sigue
+                  siendo obligatoria para crear la clienta. */}
+              <details className="group space-y-1.5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                     <FileText size={11} />
-                    Política de privacidad y condiciones
-                  </label>
+                    Ver política de privacidad y condiciones
+                  </span>
+                  <ChevronDown size={14} className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
                   {/* Aquí decía «Desplaza hasta el final ↓» y, al llegar,
                       «Leído». No bloqueaba nada —la casilla nunca dependió del
                       desplazamiento— pero con la alumna delante se leía como
                       un paso obligatorio (evaluación del 13-sep). Y un «Leído»
                       por mover la rueda no prueba que nadie lo haya leído. */}
-                </div>
+                </summary>
                 <div
                   ref={contratoRef}
-                  className="h-52 overflow-y-auto rounded-lg border border-border bg-muted p-3 text-[11px] text-foreground leading-relaxed whitespace-pre-wrap font-mono"
+                  className="mt-2 h-52 overflow-y-auto rounded-lg border border-border bg-muted p-3 text-[11px] text-foreground leading-relaxed whitespace-pre-wrap font-mono"
                 >
                   {textoLegalCompleto(studioConfig)}
                 </div>
-              </div>
+              </details>
 
               {/* Acceptance checkbox */}
               <label className={cn(
@@ -1641,9 +1616,9 @@ export default function Socios() {
           {/* "Siguiente" se queda deshabilitado en silencio si falta algún
               obligatorio (#865) — este aviso dice cuál, en vez de dejar que
               el botón "no haga nada" sin explicación. */}
-          {showForm === 'nueva' && formStep === 1 && (!form.nombre || !form.apellidos) && (
+          {showForm === 'nueva' && (!form.nombre || !form.apellidos || !aceptado) && (
             <p className="mt-3 text-[11px] text-muted-foreground">
-              Falta {[!form.nombre && 'Nombre', !form.apellidos && 'Apellidos'].filter(Boolean).join(', ')} para continuar.
+              Falta {[!form.nombre && 'Nombre', !form.apellidos && 'Apellidos', !aceptado && 'aceptar la política y las condiciones'].filter(Boolean).join(', ')} para crearla.
             </p>
           )}
 
@@ -1655,21 +1630,10 @@ export default function Socios() {
             >
               Cancelar
             </button>
-            {showForm === 'nueva' && formStep === 1 ? (
-              <button
-                onClick={() => setFormStep(2)}
-                disabled={!form.nombre || !form.apellidos}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
-              >
-                Siguiente — Contrato
-              </button>
-            ) : (
               <button
                 onClick={showForm === 'nueva' ? handleCrear : handleEditar}
                 disabled={
-                  guardando || (showForm === 'nueva'
-                    ? !aceptado
-                    : !form.nombre || !form.apellidos)
+                  guardando || !form.nombre || !form.apellidos || (showForm === 'nueva' && !aceptado)
                 }
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
               >
@@ -1680,7 +1644,6 @@ export default function Socios() {
                     ? (firma.trim() ? 'Crear clienta y firmar' : 'Crear clienta')
                     : 'Guardar cambios'}
               </button>
-            )}
           </div>
         </DialogContent>
       </Dialog>

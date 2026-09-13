@@ -70,6 +70,8 @@ test('el interruptor de impago llega hasta la columna, no solo al toast', async 
   const patches: string[] = [];
   await abrirReservas(page, patches);
 
+  // Vive en «Opciones avanzadas», plegado por defecto desde el 13-sep.
+  await page.locator('summary', { hasText: 'Opciones avanzadas' }).click({ timeout: 30_000 });
   const toggle = page.getByText('No dejar reservar con un pago fallido');
   await expect(toggle).toBeVisible({ timeout: 30_000 });
   await toggle.click();
@@ -86,6 +88,7 @@ test('el interruptor de recuperaciones automáticas también llega a la columna'
   const patches: string[] = [];
   await abrirReservas(page, patches);
 
+  await page.locator('summary', { hasText: 'Opciones avanzadas' }).click({ timeout: 30_000 });
   const toggle = page.getByText('Dar recuperaciones solas al cerrar la semana');
   await expect(toggle).toBeVisible({ timeout: 30_000 });
   await toggle.click();

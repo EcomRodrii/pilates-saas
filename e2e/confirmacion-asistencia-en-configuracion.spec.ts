@@ -76,6 +76,8 @@ async function abrir(page: Page, opts: { conPlan: boolean }) {
 test('el interruptor vive con las reglas de reserva y guarda por su endpoint', async ({ page }) => {
   const { puts, patches } = await abrir(page, { conPlan: true });
 
+  // Vive en «Opciones avanzadas», plegado por defecto desde el 13-sep.
+  await page.locator('summary', { hasText: 'Opciones avanzadas' }).click({ timeout: 30_000 });
   const fila = page.getByText('Pedir confirmación a quien suele no venir');
   await expect(fila).toBeVisible({ timeout: 30_000 });
   // La letra pequeña tiene que decir a quién se le pide: «se cancela la reserva»
@@ -101,6 +103,8 @@ test('el interruptor vive con las reglas de reserva y guarda por su endpoint', a
 test('sin plan no se pulsa, y se dice por qué', async ({ page }) => {
   const { puts } = await abrir(page, { conPlan: false });
 
+  // Vive en «Opciones avanzadas», plegado por defecto desde el 13-sep.
+  await page.locator('summary', { hasText: 'Opciones avanzadas' }).click({ timeout: 30_000 });
   const fila = page.getByText('Pedir confirmación a quien suele no venir');
   await expect(fila).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Esta regla va con el Centro de Control/)).toBeVisible();
