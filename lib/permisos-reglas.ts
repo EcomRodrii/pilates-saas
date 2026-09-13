@@ -245,6 +245,42 @@ export function puedeGestionarFichaDe(rolActor: Rol, rolFicha: Rol): boolean {
   return rolesQuePuedeAsignar(rolActor).includes(rolFicha);
 }
 
+// VER la retribución (tarifa, base, horas de contrato, liquidación) de una ficha
+// del equipo. Espejo de la RLS de `instructor_tarifas`/`liquidaciones_instructoras`:
+// `*_gestion` (`puede_gestionar_ficha_instructor`, migr 20260908184657) más la
+// lectura propia (`tarifas_propia_lectura`/`liquidaciones_propia_lectura`).
+//
+// Hacía falta porque los LISTADOS (`GET /api/equipo/tarifas` y
+// `GET /api/equipo/liquidaciones` sin `instructorId`) van por service-role y
+// solo miraban `puedeGestionarEquipo`: un MANAGER se llevaba la tarifa y la
+// liquidación de la propietaria y de las otras managers, justo lo que la RLS le
+// niega. `rolFicha` desconocido (ficha que ya no está) → no, salvo propietaria.
+export function puedeVerRetribucionDe(rolActor: Rol, rolFicha: Rol | null | undefined, esPropia: boolean): boolean {
+  if (rolActor === 'PROPIETARIO') return true;
+  if (esPropia) return true;
+  if (!rolFicha) return false;
+  return puedeGestionarFichaDe(rolActor, rolFicha);
+}
+
+// Aplica `puedeVerRetribucionDe` a un listado. `propiaVisible` afina la fila
+// propia (la liquidación propia solo se ve CONFIRMADA/PAGADA, como en la RLS).
+export function filtrarRetribucionVisible<T extends { instructorId: string }>(
+  filas: readonly T[],
+  ctx: {
+    rolActor: Rol;
+    rolPorInstructor: ReadonlyMap<string, Rol>;
+    propioInstructorId: string | null;
+    propiaVisible?: (fila: T) => boolean;
+  },
+): T[] {
+  if (ctx.rolActor === 'PROPIETARIO') return [...filas];
+  return filas.filter(fila => {
+    const esPropia = ctx.propioInstructorId != null && fila.instructorId === ctx.propioInstructorId;
+    if (esPropia) return ctx.propiaVisible ? ctx.propiaVisible(fila) : true;
+    return puedeVerRetribucionDe(ctx.rolActor, ctx.rolPorInstructor.get(fila.instructorId), false);
+  });
+}
+
 // Conectar/revocar una app de terceros (OAuth, p.ej. Zapier) para el estudio
 // entero. Mismo criterio que puedeGestionarEquipo: es una decisión de negocio
 // de la sede, no algo que competa a RECEPCION/INSTRUCTOR. Barrera de UI; la
