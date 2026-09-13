@@ -151,19 +151,124 @@ export async function crearSnapshot(admin: SupabaseClient, studioId: string): Pr
   return snapshot;
 }
 
-// Sobrescribe TODOS los datos actuales del negocio con los del snapshot.
-// Operación destructiva e irreversible salvo que exista otro backup posterior.
+// ─────────────────────────────────────────────────────────────────────────────
+// Restauración: qué se hace con cada tabla.
 //
-// P0-15: el borrado + reinserción de las 44 tablas se hace en UNA transacción
-// atómica (RPC restaurar_backup) en vez de 88 llamadas HTTP independientes. Si
-// algo falla a mitad, se revierte entero — nunca deja al tenant con datos a
-// medias (parte borrada, parte restaurada) sin posibilidad de rollback.
-export async function restaurarSnapshot(admin: SupabaseClient, studioId: string, snapshot: BackupSnapshot): Promise<void> {
-  const { error } = await admin.rpc('restaurar_backup', {
+// La decisión la toma la RPC `restaurar_backup` (migr 20260913170200) EN CADA
+// EJECUCIÓN mirando el catálogo de FKs; esto es su espejo puro, para poder
+// testear la regla sin base de datos y para que nadie cambie una lista sin la
+// otra (el test compara las dos con el SQL).
+//
+//   · reemplazar          DELETE + INSERT. Solo si ninguna tabla fuera del
+//                         conjunto «reemplazar» la referencia (hasta punto fijo).
+//   · insertar_faltantes  INSERT … ON CONFLICT DO NOTHING. Lo fiscal siempre, y
+//                         toda tabla que no se puede borrar sin arrastrar datos
+//                         que la copia no guarda. No revierte filas existentes:
+//                         revertirlas movería dinero o acceso (una suscripción
+//                         que vuelve a ACTIVA y se renueva, una instructora dada
+//                         de baja que vuelve a entrar, una reserva que vuelve a
+//                         NO_ASISTIO y dispara una penalización).
+//   · actualizar          Solo `socios`: upsert sin DELETE, sin tocar las
+//                         columnas de COLUMNAS_SOCIOS_QUE_NO_VUELVEN_ATRAS.
+//   · ausente             La copia no trae la tabla: ni se borra ni se inserta.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type TablaBackup = (typeof BACKUP_TABLES)[number];
+export type ModoRestauracion = 'reemplazar' | 'insertar_faltantes' | 'actualizar' | 'ausente';
+
+/** Registro fiscal: nunca se borra ni se revierte. `ventas_pos_lineas`,
+ * `devoluciones` y `pagos_historicos` no están en la copia: no se tocan nunca. */
+export const TABLAS_FISCALES_SOLO_INSERTAR: readonly TablaBackup[] = ['recibos', 'facturas', 'ventas_pos'];
+
+export const TABLAS_ACTUALIZAR: readonly TablaBackup[] = ['socios'];
+
+/** Columnas de `socios` que una copia antigua NO puede pisar: prueban un
+ * consentimiento, conectan con dinero o con la cuenta, o marcan la supresión. */
+export const COLUMNAS_SOCIOS_QUE_NO_VUELVEN_ATRAS = [
+  'id', 'studio_id', 'email', 'usuario', 'auth_user_id', 'borrado_en',
+  'stripe_customer_id', 'stripe_payment_method_id', 'sepa_mandate_id', 'sepa_payment_method_id',
+  'tarjeta_marca', 'tarjeta_ultimos4', 'tarjeta_exp_mes', 'tarjeta_exp_anio', 'metodo_pago_preferido',
+  'aceptacion_fecha', 'aceptacion_firma', 'aceptacion_version', 'aceptacion_origen', 'aceptacion_por',
+  'consentimiento_salud_fecha', 'consentimiento_salud_registrado_por',
+  'consentimiento_salud_revocado_en', 'consentimiento_salud_texto',
+  'consentimiento_marketing_en', 'consentimiento_marketing_texto', 'consentimiento_marketing_por',
+] as const;
+
+/** Una FK del catálogo: `referenciante` apunta a `referenciada`. */
+export interface ReferenciaFk {
+  referenciada: string;
+  referenciante: string;
+}
+
+export function planModosRestauracion(
+  fks: readonly ReferenciaFk[],
+  tablasEnCopia: Iterable<string> = BACKUP_TABLES,
+): Record<TablaBackup, ModoRestauracion> {
+  const enCopia = new Set(tablasEnCopia);
+  const reemplazar = new Set<string>(BACKUP_TABLES.filter(t =>
+    !TABLAS_FISCALES_SOLO_INSERTAR.includes(t) && !TABLAS_ACTUALIZAR.includes(t) && enCopia.has(t)));
+
+  // Punto fijo: sacar una tabla de «reemplazar» puede dejar bloqueada a otra
+  // que ella referencia (su DELETE arrastraría en cascada una tabla que ya no
+  // se va a reinsertar).
+  let cambio = true;
+  while (cambio) {
+    cambio = false;
+    for (const tabla of [...reemplazar]) {
+      const bloqueada = fks.some(fk =>
+        fk.referenciada === tabla && fk.referenciante !== tabla && !reemplazar.has(fk.referenciante));
+      if (bloqueada) {
+        reemplazar.delete(tabla);
+        cambio = true;
+      }
+    }
+  }
+
+  const modos = {} as Record<TablaBackup, ModoRestauracion>;
+  for (const tabla of BACKUP_TABLES) {
+    modos[tabla] = !enCopia.has(tabla) ? 'ausente'
+      : TABLAS_ACTUALIZAR.includes(tabla) ? 'actualizar'
+        : reemplazar.has(tabla) ? 'reemplazar'
+          : 'insertar_faltantes';
+  }
+  return modos;
+}
+
+/**
+ * A quién se le vuelve a aplicar `anonimizar_socio` al terminar: toda socia del
+ * estudio que esté en `supresiones`, que estuviera borrada ANTES de restaurar o
+ * que, tras restaurar, tenga `borrado_en`. Una copia vieja no resucita a nadie.
+ */
+export function sociasAReanonimizar(opts: {
+  sociasTrasRestaurar: readonly { id: string; borrado_en: string | null }[];
+  borradasAntes: readonly string[];
+  suprimidas: readonly string[];
+}): string[] {
+  const antes = new Set(opts.borradasAntes);
+  const suprimidas = new Set(opts.suprimidas);
+  const ids = opts.sociasTrasRestaurar
+    .filter(s => s.borrado_en !== null || antes.has(s.id) || suprimidas.has(s.id))
+    .map(s => s.id);
+  return [...new Set(ids)].sort();
+}
+
+export interface ResumenRestauracion {
+  modos: Record<string, ModoRestauracion>;
+  reanonimizadas: number;
+}
+
+// Restaura la copia en UNA transacción (RPC restaurar_backup, P0-15): si algo
+// falla a mitad, se revierte entero. Ya NO sobrescribe todo: ver los modos de
+// arriba. Devuelve qué se hizo con cada tabla.
+export async function restaurarSnapshot(
+  admin: SupabaseClient, studioId: string, snapshot: BackupSnapshot,
+): Promise<ResumenRestauracion> {
+  const { data, error } = await admin.rpc('restaurar_backup', {
     p_studio_id: studioId,
     p_snapshot: snapshot,
   });
   if (error) throw new Error(`Error restaurando el backup: ${error.message}`);
+  return data as ResumenRestauracion;
 }
 
 // Fila de backups tal como la necesitan las lecturas (metadata + de dónde sale

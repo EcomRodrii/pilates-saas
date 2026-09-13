@@ -1,46 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Stripe from 'stripe';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 import { ejecutarCancelacionReserva } from '@/lib/db/supabase-data-admin';
+import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { VINCULOS_CUENTA, decidirBorradoCuenta, type RecuentoVinculos } from '@/lib/socios/borrado-cuenta';
+import {
+  avisoPendientes, conReintentos, cuentaYaNoExiste, stripeYaNoExiste, type TerceroPendiente,
+} from '@/lib/socios/terceros-supresion';
 
-// A-3/A-4: baja de una socia con RETENCIÓN FISCAL. No se borra la fila (eso
-// destruía recibos/facturas con obligación de conservación, o fallaba a medias
-// por las FK RESTRICT). En su lugar:
-//   · se ELIMINAN los datos personales sin base de retención: ficha clínica
-//     (dato de salud), respuestas del cuestionario de salud, respuestas de
-//     sesión, notas internas y de progreso, preferencias, documentos subidos
-//     (fila + objeto en Storage);
-//   · se CANCELAN (no se borran) las suscripciones — están referenciadas por
-//     recibos fiscales (FK RESTRICT);
-//   · se ANONIMIZA el PII de la socia y se marca `borrado_en`;
-//   · se CONSERVAN recibos, facturas, ventas_pos (registro fiscal) y
-//     `lecturas_ficha_salud` (auditoría de QUIÉN del estudio leyó su ficha
-//     clínica y cuándo — es evidencia sobre el acceso del staff, no un dato
-//     de salud de la socia en sí; borrarla destruiría esa trazabilidad sin
-//     ninguna base de retención que lo exija en sentido contrario).
-// El panel filtra `borrado_en IS NULL`, así la socia desaparece de los listados.
-// Solo PROPIETARIO/RECEPCIÓN del propio estudio.
+// Supresión RGPD (art. 17) de una socia, con RETENCIÓN FISCAL.
 //
-// I-14 (auditoría 29-ago): `respuestas_cuestionario_salud` y
-// `documentos_socio` (+ sus objetos en Storage) no se tocaban — dato de
-// salud y documentos personales (posible DNI/contrato con nombre) que
-// sobrevivían al "borrado" RGPD sin ninguna base de retención que lo
-// justificara.
+// Decisión de producto cerrada: se borra o anonimiza TODO menos lo fiscal
+// (recibos, facturas, ventas, devoluciones, pagos históricos, que se conservan
+// seudonimizados por `socio_id`), incluida su cuenta de acceso si no tiene más
+// vínculos y su cliente en la cuenta Stripe del estudio. Qué pasa con cada tabla:
+// `lib/socios/supresion-clasificacion.ts` (con test de cobertura).
 //
-// F-3 (auditoría 22ª pasada, 3-sep-2026): esta ruta nunca mencionaba
-// `reservas` — sus reservas futuras (CONFIRMADA/LISTA_ESPERA/
-// PENDIENTE_APROBACION) se quedaban ocupando aforo para siempre, la lista de
-// espera nunca se promocionaba al liberarse el hueco, y nadie del estudio ni
-// de la cola se enteraba. Se cancelan ANTES de anonimizar (paso 1c, antes del
-// paso 3): `ejecutarCancelacionReserva` dispara notificaciones reales a otras
-// socias (promoción de lista de espera, ofertas) que tienen que salir con el
-// nombre de quien libera la plaza, no con "Socia eliminada". Reutiliza el
-// mismo núcleo que ya usan `/api/reservas/cancelar` y las sustituciones —
-// nunca un UPDATE directo sobre `reservas`, que se saltaría la promoción de
-// espera y la devolución de bono. `omitirPenalizacion: true`: la socia no
-// pulsó "cancelar", así que no se le puede aplicar cancelación tardía —
-// mismo criterio que ya usa el corte automático por riesgo de plantón.
+// H-2 (auditoría RGPD 13-sep): esta ruta limpiaba 8 tablas y dejaba ~30 con su
+// nombre, su firma, notificaciones, logs, IBAN, créditos, la cuenta de
+// auth.users y el cliente de Stripe. Ahora el grueso vive en UNA transacción
+// (`anonimizar_socio`) y aquí queda solo lo que no cabe en ella.
+//
+// Orden, y por qué:
+//   1. Storage de `documentos_socio` ANTES que sus filas: si falla, 500 y las
+//      filas se quedan para reintentar; al revés el objeto quedaría colgando sin
+//      nada que lo encuentre (I-14).
+//   2. Reservas FUTURAS canceladas ANTES de anonimizar (F-3): el núcleo
+//      `ejecutarCancelacionReserva` promociona la lista de espera y avisa con el
+//      nombre de quien libera la plaza. `omitirPenalizacion`: ella no pulsó
+//      cancelar. Best-effort: una carrera no bloquea la baja.
+//   3. Avatar del bucket PÚBLICO `avatars` (la ruta del objeto es el socioId a
+//      pelo). Best-effort.
+//   4. `anonimizar_socio` (RPC, service_role): borra/anonimiza y registra la fila
+//      en `supresiones`. Si falla, 500 y no se ha tocado ningún tercero.
+//   5. Terceros, FUERA de la transacción, con 3 intentos cada uno:
+//      a) cliente de Stripe en la cuenta conectada del estudio (respetando
+//         lib/billing/modo-stripe.ts). Borrar el cliente cancela también sus
+//         suscripciones de Stripe;
+//      b) cuenta de auth.users, SOLO si no le queda ningún otro vínculo
+//         (`decidirBorradoCuenta`, fail-closed).
+//      Lo que falle se guarda en `supresiones.terceros_pendientes` y la respuesta
+//      lo dice (`completa: false`, `aviso`). Volver a llamar a esta ruta sobre
+//      una socia ya suprimida reaplica la función y reintenta los pendientes.
+//
+// Se CONSERVA `lecturas_ficha_salud` (quién del estudio leyó su ficha y cuándo):
+// es trazabilidad del acceso del staff. ⚠️ Pendiente de revisión legal su plazo.
+// Solo PROPIETARIO/RECEPCIÓN/MANAGER del propio estudio.
+
+const STRIPE_SIN_CONFIGURAR = 'sk_test_XXXX';
 
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
@@ -57,42 +67,48 @@ export async function POST(req: NextRequest) {
   if (!socioId) return NextResponse.json({ error: 'Falta el socioId' }, { status: 400 });
 
   // La socia debe existir y ser de este estudio (autoridad: el JWT, no el body).
+  // Cuenta y cliente de Stripe se leen AQUÍ: la función los pone a NULL.
   const { data: socia, error: errLeer } = await admin
     .from('socios')
-    .select('id, studio_id, borrado_en')
+    .select('id, studio_id, borrado_en, auth_user_id, stripe_customer_id')
     .eq('id', socioId)
     .eq('studio_id', sesion.studioId)
     .maybeSingle();
   if (errLeer) return NextResponse.json({ error: 'No se pudo leer la socia' }, { status: 500 });
   if (!socia) return NextResponse.json({ error: 'Socia no encontrada' }, { status: 404 });
-  if (socia.borrado_en) return NextResponse.json({ ok: true, yaEstaba: true }); // idempotente
 
-  // 1) Borrar datos personales SIN base de retención. Idempotente (re-ejecutable).
-  //    La ficha clínica es dato de salud sensible: se elimina, no se conserva.
-  //    Todas las tablas tienen (socio_id, studio_id) → se scopean por ambos.
-  for (const tabla of [
-    'condiciones_salud', 'respuestas_cuestionario_salud', 'respuestas_sesion',
-    'notas_internas', 'notas_progreso', 'preferencias_socio',
-    // ⚠️ Las DOS mitades de la valoración inicial, y la de salud PRIMERO.
-    // `valoraciones_iniciales_salud` cuelga de `valoraciones_iniciales` con
-    // `on delete cascade`, así que borrar solo la madre bastaría — pero se
-    // borra explícitamente igual, por dos motivos: el orden garantiza que el
-    // dato del art. 9 se va aunque la segunda sentencia falle, y quien lea
-    // esta lista tiene que poder VER que se contempla, en vez de deducirlo de
-    // una FK que está en otro fichero. Esta lista ya se dejó incompleta una
-    // vez (I-14).
-    'valoraciones_iniciales_salud', 'valoraciones_iniciales',
-  ]) {
-    const { error } = await admin.from(tabla).delete().eq('socio_id', socioId).eq('studio_id', sesion.studioId);
-    if (error) return NextResponse.json({ error: `No se pudo limpiar ${tabla}` }, { status: 500 });
+  // Ya suprimida: reaplicar es idempotente (y completa bajas anteriores a la
+  // función); lo único pendiente pueden ser terceros que fallaron.
+  if (socia.borrado_en) {
+    const { data: supresion } = await admin
+      .from('supresiones').select('terceros_pendientes')
+      .eq('studio_id', sesion.studioId).eq('socio_id', socioId).maybeSingle();
+    const previos = Array.isArray(supresion?.terceros_pendientes)
+      ? (supresion.terceros_pendientes as TerceroPendiente[]) : [];
+
+    const { error: errRpc } = await admin.rpc('anonimizar_socio', {
+      p_studio_id: sesion.studioId, p_socio_id: socioId, p_ejecutada_por: sesion.userId, p_origen: 'panel',
+    });
+    if (errRpc) {
+      console.error('[socios/eliminar] anonimizar_socio (reaplicar) falló', errRpc);
+      return NextResponse.json({ error: 'No se pudo completar la supresión' }, { status: 500 });
+    }
+    if (previos.length === 0) return NextResponse.json({ ok: true, yaEstaba: true, completa: true });
+
+    const pendientes: TerceroPendiente[] = [];
+    for (const p of previos) {
+      const r = p.tercero === 'stripe_customer'
+        ? await borrarClienteStripe(admin, sesion.studioId, p.ref, p.cuenta ?? null)
+        : (await borrarCuentaSiQuedaSuelta(admin, p.ref)).pendiente;
+      if (r) pendientes.push(r);
+    }
+    await guardarPendientes(admin, sesion.studioId, socioId, pendientes);
+    return respuesta(pendientes, { yaEstaba: true });
   }
 
-  // 1b) Documentos subidos: primero los objetos en Storage (por su
-  // `storage_path` real), luego las filas. Si el borrado de Storage falla a
-  // medias, la fila se queda para reintentar — nunca al revés (fila borrada
-  // con el objeto todavía colgando y sin ninguna referencia que lo encuentre).
+  // 1) Documentos: objetos de Storage primero. Las filas las borra la función.
   const { data: documentos, error: errDocsLeer } = await admin
-    .from('documentos_socio').select('id, storage_path')
+    .from('documentos_socio').select('storage_path')
     .eq('socio_id', socioId).eq('studio_id', sesion.studioId);
   if (errDocsLeer) return NextResponse.json({ error: 'No se pudieron leer los documentos' }, { status: 500 });
   if (documentos && documentos.length > 0) {
@@ -100,27 +116,10 @@ export async function POST(req: NextRequest) {
       .from('documentos-socio')
       .remove(documentos.map(d => d.storage_path as string));
     if (errStorage) return NextResponse.json({ error: 'No se pudieron borrar los documentos del almacenamiento' }, { status: 500 });
-    const { error: errDocsBorrar } = await admin
-      .from('documentos_socio').delete()
-      .eq('socio_id', socioId).eq('studio_id', sesion.studioId);
-    if (errDocsBorrar) return NextResponse.json({ error: 'No se pudo limpiar documentos_socio' }, { status: 500 });
   }
 
-  // 2) Cancelar suscripciones (no borrar: las referencian recibos fiscales).
-  const { error: errSus } = await admin
-    .from('suscripciones')
-    .update({ estado: 'CANCELADA' })
-    .eq('socio_id', socioId)
-    .eq('studio_id', sesion.studioId)
-    .neq('estado', 'CANCELADA');
-  if (errSus) return NextResponse.json({ error: 'No se pudieron cancelar las suscripciones' }, { status: 500 });
-
-  // 1c) Cancelar sus reservas FUTURAS antes de anonimizar (ver cabecera, F-3).
-  //     Solo clases que no han empezado — una reserva de una clase ya pasada
-  //     no ocupa nada que liberar. Secuencial a propósito, igual que el resto
-  //     de cancelaciones en lote de este repo: cada llamada libera un hueco y
-  //     puede promocionar a la siguiente de la lista de espera, y dos
-  //     promociones concurrentes de la misma cola competirían entre sí.
+  // 2) Reservas futuras, antes de anonimizar (ver cabecera). Secuencial a
+  //    propósito: cada cancelación puede promocionar a la siguiente de la cola.
   const { data: reservasFuturas, error: errReservasLeer } = await admin
     .from('reservas')
     .select('id, sesiones!inner(inicio)')
@@ -132,64 +131,132 @@ export async function POST(req: NextRequest) {
   for (const r of reservasFuturas ?? []) {
     const res = await ejecutarCancelacionReserva(admin, {
       studioId: sesion.studioId, reservaId: r.id as string, socioId, omitirPenalizacion: true,
-      // D-1: una cuenta que se está borrando no va a volver a canjear ninguna
-      // recuperación — crearla aquí sería una fila de `recuperaciones` sobre
-      // un socio_id a punto de anonimizarse, puro ruido.
+      // D-1: nadie va a canjear una recuperación de una cuenta que se suprime.
       otorgarRecuperacionPlazaFija: false,
     });
-    // Best-effort a propósito: una reserva que no se pudo cancelar (carrera
-    // rarísima, o ya la canceló otra vía justo antes) no debe bloquear la
-    // baja RGPD de la socia — quedaría visible en logs, no en un 500 al
-    // staff que solo está intentando borrar una ficha.
     if ('error' in res) {
       console.error('[socios/eliminar] no se pudo cancelar una reserva futura', socioId, r.id, res.error);
     }
   }
 
-  // 2b) La FOTO, del almacenamiento y no solo de la columna.
-  //
-  // ⚠️ Poner `foto_url: null` más abajo borra el PUNTERO, no la cara. El bucket
-  // `avatars` es PÚBLICO y la ruta del objeto es el `socioId` a pelo
-  // (`app/api/public/foto-perfil/route.ts` sube con `.upload(socioId, …)`), o
-  // sea que después de un borrado RGPD la foto seguía siendo servible por una
-  // URL adivinable. `documentos_socio` ya lo hacía bien —limpia Storage antes
-  // que las filas, con su comentario— y esto se le quedó fuera.
-  //
-  // No bloquea el borrado si falla: la petición es idempotente y se puede
-  // reintentar, y dejar a la socia sin anonimizar por un fallo de Storage sería
-  // peor que un objeto huérfano que el siguiente intento se lleva.
+  // 3) La foto, del almacenamiento y no solo de la columna (bucket público).
   const { error: errFoto } = await admin.storage.from('avatars').remove([socioId]);
   if (errFoto) console.error('[socios:eliminar] no se pudo borrar el avatar', errFoto);
 
-  // 3) Anonimizar el PII y marcar el borrado lógico. Se conservan recibos,
-  //    facturas y ventas_pos (fiscal). El email lleva el id para no colisionar.
-  const { error: errAnon } = await admin
-    .from('socios')
-    .update({
-      nombre: 'Socia',
-      apellidos: 'eliminada',
-      email: `borrado+${socioId}@anon.invalid`,
-      telefono: null,
-      nif: null,
-      direccion: null,
-      fecha_nacimiento: null,
-      foto_url: null,
-      avatar: null,
-      auth_user_id: null,
-      stripe_customer_id: null,
-      stripe_payment_method_id: null,
-      tags: [],
-      lead_stage: null,
-      activo: false,
-      borrado_en: new Date().toISOString(),
-      // Fila 12 del informe estratégico: el consentimiento de datos de salud
-      // deja de estar vigente aquí — condiciones_salud ya se borró por
-      // completo en el paso 1, así que ya no queda ningún dato que ampare.
-      consentimiento_salud_revocado_en: new Date().toISOString(),
-    })
-    .eq('id', socioId)
-    .eq('studio_id', sesion.studioId);
-  if (errAnon) return NextResponse.json({ error: 'No se pudo anonimizar la socia' }, { status: 500 });
+  // 4) La supresión en sí, en una transacción.
+  const { data: resumen, error: errRpc } = await admin.rpc('anonimizar_socio', {
+    p_studio_id: sesion.studioId, p_socio_id: socioId, p_ejecutada_por: sesion.userId, p_origen: 'panel',
+  });
+  if (errRpc) {
+    console.error('[socios/eliminar] anonimizar_socio falló', errRpc);
+    return NextResponse.json({ error: 'No se pudo completar la supresión de la socia' }, { status: 500 });
+  }
+  const mandatoSepaRetenido = (resumen as { mandato_sepa_retenido?: unknown } | null)?.mandato_sepa_retenido === true;
 
-  return NextResponse.json({ ok: true });
+  // 5) Terceros.
+  const pendientes: TerceroPendiente[] = [];
+  if (socia.stripe_customer_id) {
+    const p = await borrarClienteStripe(admin, sesion.studioId, socia.stripe_customer_id as string, null);
+    if (p) pendientes.push(p);
+  }
+  let cuentaConservada = false;
+  if (socia.auth_user_id) {
+    const r = await borrarCuentaSiQuedaSuelta(admin, socia.auth_user_id as string);
+    if (r.pendiente) pendientes.push(r.pendiente);
+    cuentaConservada = r.conservada;
+  }
+  await guardarPendientes(admin, sesion.studioId, socioId, pendientes);
+
+  return respuesta(pendientes, { cuentaConservada, mandatoSepaRetenido });
+}
+
+function respuesta(pendientes: TerceroPendiente[], extra: Record<string, unknown>) {
+  return NextResponse.json({
+    ok: true,
+    ...extra,
+    completa: pendientes.length === 0,
+    pendientes: pendientes.map(p => ({ tercero: p.tercero, motivo: p.motivo })),
+    aviso: avisoPendientes(pendientes),
+  });
+}
+
+async function guardarPendientes(admin: SupabaseClient, studioId: string, socioId: string, pendientes: TerceroPendiente[]) {
+  const { error } = await admin
+    .from('supresiones')
+    .update({ terceros_pendientes: pendientes })
+    .eq('studio_id', studioId)
+    .eq('socio_id', socioId);
+  // No se oculta al panel: la respuesta ya lleva los pendientes. Pero sin la
+  // fila actualizada nadie los reintentará, así que va a los logs.
+  if (error) console.error('[socios/eliminar] no se pudieron registrar los terceros pendientes', socioId, error);
+}
+
+async function borrarClienteStripe(
+  admin: SupabaseClient, studioId: string, customerId: string, cuentaGuardada: string | null,
+): Promise<TerceroPendiente | null> {
+  const pendiente = (motivo: string, cuenta: string | null): TerceroPendiente => ({
+    tercero: 'stripe_customer', ref: customerId, cuenta, motivo, en: new Date().toISOString(),
+  });
+
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key || key.startsWith(STRIPE_SIN_CONFIGURAR)) return pendiente('Stripe no está configurado en el servidor', cuentaGuardada);
+  // Una clave live fuera de producción no borra clientes reales, igual que no cobra.
+  const modo = comprobarModoStripe();
+  if (!modo.puedeCobrar) return pendiente(modo.motivo ?? 'Modo de Stripe no permitido en este entorno', cuentaGuardada);
+
+  let cuenta = cuentaGuardada;
+  if (!cuenta) {
+    const { data: estudio, error } = await admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle();
+    if (error) return pendiente('No se pudo leer la cuenta de Stripe del estudio', null);
+    cuenta = (estudio?.stripe_account_id as string | null) ?? null;
+  }
+  // Los clientes viven en la cuenta del estudio (Connect Standard): sin ella no
+  // hay dónde borrarlo, y borrar en la plataforma no alcanzaría el correcto.
+  if (!cuenta) return pendiente('El estudio no tiene cuenta de Stripe conectada', null);
+
+  const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
+  const r = await conReintentos(async () => {
+    try {
+      await stripe.customers.del(customerId, { stripeAccount: cuenta });
+    } catch (e) {
+      if (!stripeYaNoExiste(e)) throw e;
+    }
+  });
+  if (!r.ok) {
+    console.error('[socios/eliminar] no se pudo borrar el cliente de Stripe', r.error);
+    return pendiente(`Stripe: ${r.error}`, cuenta);
+  }
+  return null;
+}
+
+async function borrarCuentaSiQuedaSuelta(
+  admin: SupabaseClient, authUserId: string,
+): Promise<{ pendiente: TerceroPendiente | null; conservada: boolean }> {
+  const pendiente = (motivo: string): TerceroPendiente => ({
+    tercero: 'cuenta_acceso', ref: authUserId, motivo, en: new Date().toISOString(),
+  });
+
+  const recuento: RecuentoVinculos = {};
+  await Promise.all(VINCULOS_CUENTA.map(async v => {
+    const { count, error } = await admin
+      .from(v.tabla).select(v.columna, { count: 'exact', head: true }).eq(v.columna, authUserId);
+    recuento[v.clave] = error ? null : (count ?? null);
+  }));
+
+  const decision = decidirBorradoCuenta(recuento);
+  if (!decision.borrar) {
+    // Con otros vínculos la cuenta se conserva a propósito: no es un pendiente.
+    if (decision.motivo === 'tiene_vinculos') return { pendiente: null, conservada: true };
+    return { pendiente: pendiente(`No se pudieron comprobar sus otros vínculos (${decision.sinComprobar.join(', ')})`), conservada: false };
+  }
+
+  const r = await conReintentos(async () => {
+    const { error } = await admin.auth.admin.deleteUser(authUserId);
+    if (error && !cuentaYaNoExiste(error)) throw error;
+  });
+  if (!r.ok) {
+    console.error('[socios/eliminar] no se pudo borrar la cuenta de acceso', r.error);
+    return { pendiente: pendiente(`Cuenta: ${r.error}`), conservada: false };
+  }
+  return { pendiente: null, conservada: false };
 }
