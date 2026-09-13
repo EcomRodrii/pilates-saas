@@ -24,8 +24,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, Check, Copy, ExternalLink, MessageCircle } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, Copy, ExternalLink, MessageCircle } from 'lucide-react';
 import { copiarAlPortapapeles } from '@/lib/utils';
+import { useStudio } from '@/lib/studio-context';
+import { avisoVentaOnline } from '@/lib/onboarding';
 
 // El móvil de la vista previa. Se dibuja a tamaño de teléfono de verdad
 // (iPhone 14/15, el más común entre las alumnas) y se encoge para caber.
@@ -49,6 +51,15 @@ export function ListoParaReservar({
   const [copiado, setCopiado] = useState(false);
   const [cargada, setCargada] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // La frase grande dice «ya puede recibir reservas». Si una alumna nueva no va
+  // a poder (exige bono, hay tarifas activas y no hay Stripe), se dice aquí
+  // mismo, antes de que copie el enlace y lo mande (evaluación del 13-sep).
+  const { studio, planesTarifa } = useStudio();
+  const aviso = studio ? avisoVentaOnline({
+    stripeAccountId: studio.stripeAccountId,
+    reservaExigirPlan: studio.reservaExigirPlan ?? true,
+    numPlanesActivos: planesTarifa.filter(p => p.activo).length,
+  }) : null;
   // Cierra con Escape, como cualquier pantalla que tapa el panel.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onSeguir(); };
@@ -112,6 +123,12 @@ export function ListoParaReservar({
             ? <>Has dejado <strong className="text-foreground">{clasesCreadas} clases</strong> programadas. Tu página está abierta: cualquiera con este enlace puede reservar.</>
             : <>Tu página está abierta: cualquiera con este enlace puede reservar.</>}
         </p>
+        {aviso && (
+          <p className="mx-auto mt-3 flex max-w-[560px] items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-left text-[13px] leading-snug text-foreground">
+            <AlertTriangle size={15} className="mt-[1px] shrink-0 text-warning" aria-hidden />
+            <span>{aviso}</span>
+          </p>
+        )}
       </div>
 
       <div className="mt-7 grid gap-6 sm:grid-cols-[minmax(0,1fr)_260px] sm:items-start">

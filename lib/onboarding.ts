@@ -30,6 +30,44 @@ export interface DatosOnboarding {
   contenidoPortalPersonalizado: boolean;
   /** Solo los triggers relevantes para "Funciones inteligentes", con si están activos. */
   automatizacionesActivas: Set<string>;
+  /**
+   * `studio.reservaExigirPlan`. Opcional: sin él se asume que no bloquea, que
+   * es lo prudente para no avisar de algo que no se sabe.
+   */
+  reservaExigirPlan?: boolean;
+  /**
+   * Tarifas ACTIVAS, tengan precio o no. Es lo que mira el gate real de la
+   * reserva pública (`hayAlgoQueContratar`, lib/bono-logic.ts) — distinto de
+   * `numPlanesTarifa`, que solo cuenta las que ya se pueden vender.
+   */
+  numPlanesActivos?: number;
+  /** Tarifas que existen pero no se venden todavía (inactivas o sin precio). */
+  numPlanesBorrador?: number;
+}
+
+/**
+ * ¿Puede una alumna NUEVA reservar desde la página pública? Devuelve el aviso si
+ * no, o null.
+ *
+ * ⚠️ «Tu estudio ya puede recibir reservas» es cierto sin Stripe — ver el
+ * candado falso más abajo — pero NO en un caso concreto, que es el de la
+ * evaluación del 13-sep: el estudio exige bono para reservar, tiene tarifas
+ * activas (así que el gate SÍ se aplica) y no tiene Stripe. La alumna nueva
+ * llega, ve «para reservar necesitas un bono» y no tiene cómo comprarlo online.
+ * Se dice ahí, y solo ahí: sin tarifas activas el gate no bloquea, y con Stripe
+ * lo puede comprar.
+ *
+ * Mira el ajuste del ESTUDIO: un tipo de clase puede llevarle la contraria
+ * (`tipos_clase.reserva_exigir_plan`), pero esto es un aviso para decidir, no el
+ * gate — el gate sigue estando en el servidor.
+ */
+export function avisoVentaOnline(
+  d: Pick<DatosOnboarding, 'stripeAccountId' | 'reservaExigirPlan' | 'numPlanesActivos'>,
+): string | null {
+  if (d.stripeAccountId) return null;
+  if (!d.reservaExigirPlan) return null;
+  if (!d.numPlanesActivos) return null;
+  return 'Una alumna nueva todavía no puede reservar desde tu página: pides bono para reservar y, sin Stripe, no puede comprarlo online. Conecta Stripe o véndeselo tú en el mostrador.';
 }
 
 export interface PasoOnboarding {
@@ -220,10 +258,27 @@ export function calcularOnboarding(d: DatosOnboarding): {
  * Priorizadas: cobrar > vender > no perder lo que ya se vende > automatizar.
  */
 function calcularRecomendaciones(d: DatosOnboarding): RecomendacionOnboarding[] {
+  const ventaOnline = avisoVentaOnline(d);
+  const borradores = d.numPlanesBorrador ?? 0;
   const candidatas: (RecomendacionOnboarding | null)[] = [
-    !d.stripeAccountId ? { id: 'stripe', texto: 'Vemos que todavía no has conectado Stripe.', href: '/configuracion?tab=integraciones' } : null,
+    // El aviso concreto sustituye al genérico de Stripe: dicen lo mismo, y el
+    // concreto además explica qué se rompe.
+    ventaOnline ? { id: 'venta-online', texto: ventaOnline, href: '/configuracion?tab=integraciones' } : null,
+    !d.stripeAccountId && !ventaOnline ? { id: 'stripe', texto: 'Vemos que todavía no has conectado Stripe.', href: '/configuracion?tab=integraciones' } : null,
     !d.slug ? { id: 'slug', texto: 'Las reservas online aún están desactivadas: falta la dirección pública de tu estudio.', href: '/configuracion?tab=estudio' } : null,
-    d.numPlanesTarifa === 0 ? { id: 'bonos', texto: 'Todavía no has creado ningún bono ni membresía.', href: '/configuracion?tab=planes' } : null,
+    // ⚠️ Decía «Todavía no has creado ningún bono» también cuando el asistente
+    // ya había dejado el bono y la cuota creados en borrador (sin precio e
+    // inactivos): la propietaria los veía en Paquetes y el aviso le decía que
+    // no existían (evaluación del 13-sep).
+    d.numPlanesTarifa === 0
+      ? {
+          id: 'bonos',
+          texto: borradores > 0
+            ? `Tienes ${borradores} ${borradores === 1 ? 'tarifa' : 'tarifas'} en borrador: ${borradores === 1 ? 'ponle precio y actívala' : 'ponles precio y actívalas'} para poder vender.`
+            : 'Todavía no has creado ningún bono ni membresía.',
+          href: '/productos',
+        }
+      : null,
     d.automatizacionesActivas.size === 0 ? { id: 'automatizaciones', texto: 'No hay ninguna función inteligente activa todavía.', href: '/automatizaciones' } : null,
     d.numSesiones === 0 ? { id: 'sesiones', texto: 'Las alumnas todavía no pueden reservar: no hay ninguna clase programada.', href: '/calendario' } : null,
   ];
