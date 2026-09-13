@@ -29,7 +29,7 @@
 -- ── QUÉ BORRA LA PURGA ──────────────────────────────────────────────────────
 -- NUNCA `DELETE FROM studios`: arrastraría en CASCADE facturas, recibos y
 -- ventas (≈150 FKs). La fila del estudio se queda.
---   · socios        → ANONIMIZADAS con public.anonimizar_socio(text, text).
+--   · socios        → ANONIMIZADAS con public.anonimizar_socio(text, text, uuid, text).
 --                     ⚠️ Esa RPC la crea OTRA migración (en paralelo). Sin ella,
 --                     el modo real se niega a arrancar (raise) antes de tocar
 --                     nada; el modo informe lo avisa en `anonimizar_socio_disponible`.
@@ -122,7 +122,7 @@ declare
   v_socio       record;
   v_n_socias    bigint;
   v_n_instr     bigint;
-  v_anonimizar  boolean := to_regprocedure('public.anonimizar_socio(text,text)') is not null;
+  v_anonimizar  boolean := to_regprocedure('public.anonimizar_socio(text,text,uuid,text)') is not null;
 begin
   select id, subscription_status, subscription_id, trial_ends_at
     into v_estudio from public.studios where id = p_studio_id;
@@ -146,7 +146,7 @@ begin
           or foto_url is not null or avatar is not null or bio is not null);
 
   if p_ejecutar and v_n_socias > 0 and not v_anonimizar then
-    raise exception 'purgar_estudio_vencido: falta public.anonimizar_socio(text, text); no se purga sin anonimizar a las socias';
+    raise exception 'purgar_estudio_vencido: falta public.anonimizar_socio(text, text, uuid, text); no se purga sin anonimizar a las socias';
   end if;
 
   if p_ejecutar then
