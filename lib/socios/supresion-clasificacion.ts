@@ -169,6 +169,10 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
     accion: 'ANONIMIZAR',
     detalle: '⚠️ REVISIÓN LEGAL: se quedan tipo, fecha, origen y texto legal como prueba; `firma` pasa a «[firma eliminada]» (un CHECK exige firma en un OTORGADO no histórico) y `actor_uid` a NULL.',
   },
+  aceptaciones_contrato_eventos: {
+    accion: 'ANONIMIZAR',
+    detalle: '⚠️ REVISIÓN LEGAL: se quedan fecha, origen, huella del texto aceptado (resoluble en `terminos_versiones`) y si coincidía con el mostrado, como prueba del contrato; `firma` pasa a «[firma eliminada]» (NOT NULL) e `ip_hmac`, `user_agent`, `introducida_por` y `actor_uid` a NULL.',
+  },
 };
 
 /**

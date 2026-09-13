@@ -77,6 +77,7 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   post_evento_asistentes: { seccion: 'otros' },
   solicitudes_derechos: { seccion: 'otros' },
   consentimientos_salud_eventos: { seccion: 'consentimientos' },
+  aceptaciones_contrato_eventos: { seccion: 'consentimientos' },
   memoria_socio: { seccion: 'otros' },
   recomendaciones: { seccion: 'otros' },
   notas_internas: { excluida: 'Anotaciones internas del personal del estudio. Se entregan a petición, valorando caso a caso los derechos de terceros (art. 15.4 RGPD).' },
@@ -230,7 +231,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     citas, plazasFijas, recuperaciones,
     saldo, movimientos, canjes, recompensas, logros, progresoLogros, retos, progresoRetos, participacionesRetos,
     participaciones, valoraciones, preferenciasClase, favoritos, documentos,
-    comunicaciones, excepciones, autorizadas, eventos, solicitudes, consentimientosSalud, memoria, recomendaciones,
+    comunicaciones, excepciones, autorizadas, eventos, solicitudes, consentimientosSalud, aceptacionesContrato, memoria, recomendaciones,
     avisos, camposPersonalizados,
     valoracionesIniciales, valoracionesInicialesSalud, condiciones, respuestasCuestionario, respuestasSesion, notasProgreso,
   ] = await Promise.all([
@@ -268,6 +269,9 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('solicitudes_derechos', 'id, tipo, estado, solicitada_en, plazo_hasta, resuelta_en, nota'),
     // Historial de su consentimiento de salud (migr 20260913214142). Sin `actor_uid`: es la cuenta del personal.
     tabla('consentimientos_salud_eventos', 'id, tipo, en, origen, texto, firma', 'en'),
+    // Historial de su aceptación del contrato (migr 20260914150100). Sin `ip_hmac`,
+    // `user_agent`, `introducida_por` ni `actor_uid`: son prueba técnica o datos del personal.
+    tabla('aceptaciones_contrato_eventos', 'id, en, origen, texto_hash, texto_cliente_coincide', 'en'),
     tabla('memoria_socio', 'id, clave, origen, evidencia, activa, creado_en, expira_en'),
     tabla('recomendaciones', 'id, tipo, titulo, motivo, estado, creado_en'),
     authUserId
@@ -284,7 +288,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
 
   // ── Segunda ola: lo que da nombre a los ids ──
   const idsSesion = [...reservas, ...valoraciones, ...respuestasSesion, ...notasProgreso].map(f => f.sesion_id);
-  const [sesiones, planes, facturas, mensajes, preguntas] = await Promise.all([
+  const [sesiones, planes, facturas, mensajes, preguntas, textosContrato] = await Promise.all([
     leerPorIds(db, 'sesiones', 'id, tipo_clase_id, sala_id, instructor_id, inicio, fin, cancelada', studioId, 'id', idsSesion),
     leerPorIds(db, 'planes_tarifa', 'id, nombre', studioId, 'id', suscripciones.map(f => f.plan_id)),
     Promise.all([
@@ -297,6 +301,8 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
         participaciones.map(f => f.conversacion_id), [['eq', 'remitente_auth_user_id', authUserId]])
       : sinFilas,
     leerPorIds(db, 'plantillas_cuestionario_salud', 'id, pregunta', studioId, 'id', respuestasCuestionario.map(f => f.pregunta_id)),
+    // El texto de cada aceptación se guarda una vez por versión: se resuelve por su huella.
+    leerPorIds(db, 'terminos_versiones', 'hash, texto', studioId, 'hash', aceptacionesContrato.map(f => f.texto_hash)),
   ]);
   const [tipos, salas, instructoras] = await Promise.all([
     leerPorIds(db, 'tipos_clase', 'id, nombre', studioId, 'id',
@@ -415,6 +421,14 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
           : null,
         historialSalud: porFecha(consentimientosSalud, 'en').map(e => ({
           tipo: str(e.tipo), fecha: str(e.en), via: str(e.origen), textoAceptado: str(e.texto), firma: str(e.firma),
+        })),
+        historialContrato: porFecha(aceptacionesContrato, 'en').map(e => ({
+          fecha: str(e.en),
+          via: str(e.origen),
+          // null = la pantalla no mandó texto; false = enseñaba otro distinto del registrado.
+          textoCoincidiaConElMostrado: bool(e.texto_cliente_coincide),
+          versionTexto: str(e.texto_hash),
+          textoAceptado: str(porId(textosContrato, 'hash').get(String(e.texto_hash))?.texto),
         })),
         marketing: s.consentimiento_marketing_en
           ? { fecha: str(s.consentimiento_marketing_en), textoAceptado: str(s.consentimiento_marketing_texto) }

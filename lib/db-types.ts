@@ -2815,3 +2815,19 @@ export interface RowKioskoTokens {
   token_hash: string;
   actualizado_en: string;
 }
+
+export interface RowAceptacionesContratoEventos {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  en: string;
+  origen: string;
+  texto_hash: string;
+  texto_cliente_coincide: boolean | null;
+  firma: string;
+  introducida_por: string | null;
+  actor_uid: string | null;
+  actor_rol: string | null;
+  ip_hmac: string | null;
+  user_agent: string | null;
+}
