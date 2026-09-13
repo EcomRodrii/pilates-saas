@@ -133,7 +133,7 @@ TIPOS_MANUALES = {
     # `string` a secas.
     ('red_resenas', 'solicitud_id'): 'string | null',
     ('red_resenas', 'perfil_id'): 'string | null',
-    # Mismo motivo: `alter column email drop not null` (migr 20260913150000,
+    # Mismo motivo: `alter column email drop not null` (migr 20260913134147,
     # alta de mostrador sin email).
     ('socios', 'email'): 'string | null',
 }

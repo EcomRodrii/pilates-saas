@@ -537,7 +537,7 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     studioId: r.studio_id,
     nombre: r.nombre,
     apellidos: r.apellidos,
-    // Alta de mostrador sin email (migr 20260913150000): en la BD es NULL y en
+    // Alta de mostrador sin email (migr 20260913134147): en la BD es NULL y en
     // el panel '' — `Socio.email` sigue siendo string y todo lo que envía
     // correo ya comprueba que no esté vacío.
     email: r.email ?? '',
@@ -1465,7 +1465,7 @@ function socioToDb(socio: Socio) {
     ...rest,
     // Sin email es NULL, nunca '': el índice único `uq_socios_studio_email`
     // excluye los NULL, pero dos '' del mismo estudio chocarían entre sí
-    // (alta de mostrador sin email, migr 20260913150000).
+    // (alta de mostrador sin email, migr 20260913134147).
     email: rest.email?.trim() ? rest.email.trim() : null,
     studio_id: studioId ?? STUDIO_ID,
     fecha_alta: fechaAlta,
