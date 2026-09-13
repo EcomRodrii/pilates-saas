@@ -744,7 +744,7 @@ export interface RowSocios {
   consentimiento_salud_texto: string | null;
   // migr 20260910224240.
   objetivo_clases_mes: number | null;
-  // migr 20260913171000.
+  // migr 20260913205557.
   excluir_de_perfilado: boolean | null;
 }
 
@@ -2748,19 +2748,6 @@ export interface RowMatriculaCupoLiberaciones {
   liberado_en: string;
 }
 
-export interface RowSolicitudesDerechos {
-  id: string;
-  studio_id: string;
-  socio_id: string;
-  tipo: string;
-  estado: string;
-  solicitada_en: string;
-  plazo_hasta: string;
-  resuelta_en: string | null;
-  resuelta_por: string | null;
-  nota: string | null;
-}
-
 export interface RowSupresiones {
   id: string;
   studio_id: string;
@@ -2772,4 +2759,17 @@ export interface RowSupresiones {
   origen: string;
   terceros_pendientes: any;
   reaplicada_en: string | null;
+}
+
+export interface RowSolicitudesDerechos {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  tipo: string;
+  estado: string;
+  solicitada_en: string;
+  plazo_hasta: string;
+  resuelta_en: string | null;
+  resuelta_por: string | null;
+  nota: string | null;
 }

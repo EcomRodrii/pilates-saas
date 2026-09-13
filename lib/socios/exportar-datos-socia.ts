@@ -86,6 +86,7 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   notification: { excluida: 'Copia de los avisos que ya recibió en su app; los hechos que los originan salen en sus secciones.' },
   avisos_hueco: { excluida: 'Registro técnico de avisos de plaza libre; no contiene nada aportado por ella.' },
   intentos_reserva_fallidos: { excluida: 'Registro técnico de errores al reservar; no contiene nada aportado por ella.' },
+  supresiones: { excluida: 'Registro de que sus datos se suprimieron (art. 17): solo existe cuando la ficha ya está anonimizada y no queda nada suyo que entregar.' },
   recordatorio_envios: { excluida: 'Registro técnico de recordatorios enviados (clase, canal y hora).' },
   reward_actions: { excluida: 'Registro técnico que origina los créditos; el resultado sale en creditos.movimientos.' },
   widget_eventos: { excluida: 'Evento analítico del widget de reservas, sin contenido aportado por ella.' },

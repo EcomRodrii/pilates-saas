@@ -1,5 +1,5 @@
 // Solicitudes de derechos RGPD de una socia (tabla `solicitudes_derechos`,
-// migr 20260913171000).
+// migr 20260913205557).
 //
 // La alumna EXPORTA sus datos al momento, pero suprimir, limitar u oponerse es
 // una SOLICITUD al estudio —el responsable del tratamiento—, que tiene un plazo
