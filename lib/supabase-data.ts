@@ -1,4 +1,5 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
+import { conReintentoTransitorio } from '@/lib/reintento-transitorio';
 import { unaVez } from '@/lib/una-vez';
 import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion';
 import { mapLimit } from '@/lib/concurrency';
@@ -214,7 +215,15 @@ export async function fetchAllRows<T>(
   const filas: T[] = [];
   let desde = 0;
   for (;;) {
-    const { data, error } = await pagina(desde, desde + PAGE_SIZE - 1);
+    // M-11 (59ª auditoría / Sentry JAVASCRIPT-NEXTJS-1G): un "Gateway Timeout"
+    // es un 504 transitorio de la infraestructura, no un fallo de la app —
+    // reintentar la MISMA página un par de veces con una espera corta
+    // recupera la mayoría de estos casos. Lógica en lib/reintento-transitorio.ts,
+    // aparte porque este fichero usa el alias `@/` y eso rompe `node --test`.
+    const { resultado, reintentos } = await conReintentoTransitorio(
+      () => pagina(desde, desde + PAGE_SIZE - 1),
+    );
+    const { data, error } = resultado;
     if (error) {
       // 2.4: antes esto se tragaba en silencio (data ?? []) y la app pintaba
       // "0 filas" en vez de un error. Se reporta para que el fallo sea visible
@@ -222,13 +231,11 @@ export async function fetchAllRows<T>(
       // se había podido traer.
       //
       // Salvo un blip de red del propio cliente ("Failed to fetch" y
-      // compañía) — mismo filtro que ya usa reportDbError() más abajo. Sin
-      // él, este era el único punto de reporte de la tabla que NO lo tenía:
-      // JAVASCRIPT-NEXTJS-1G llevaba 9 apariciones en 8 días, todas con ese
-      // mismo mensaje, sin ningún fallo de app detrás.
+      // compañía) — mismo filtro que ya usa reportDbError() más abajo.
       if (!esErrorDeRedCliente(error)) {
         capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
-          tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
+          tags: { area: 'supabase-data', tabla },
+          extra: { studioId, desde, error: error.message, reintentado: reintentos > 0 },
         });
       }
       return { data: filas, error };
