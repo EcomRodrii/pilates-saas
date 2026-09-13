@@ -177,9 +177,8 @@ Cualquier fase de este plan que hable de "recordatorios" se refiere solo al cana
 | Columnas | `id text PK`, `studio_id text FK→studios(id)`, `tipo text`, `activo boolean`, `config jsonb`, `actualizado_en`, `ultimo_ok_en`, `ultimo_error`, `ultimo_error_en` |
 | Constraint | `UNIQUE(studio_id, tipo)` |
 | Discriminador | `tipo = 'WHATSAPP'` |
-| Claves en `config` (jsonb) | `token` (access_token, **texto plano**), `phoneId` (phone_number_id, texto plano), `plantillaAprobada` (string `'true'`/`'false'`) |
+| Claves en `config` (jsonb) | `token` (access_token), `phoneId` (phone_number_id), `plantillaAprobada` (string `'true'`/`'false'`) |
 | Claves que NO existen hoy | `waba_id`, `business_id` |
-| Cifrado | Ninguno |
 | RLS | `owner_integraciones`, `TO authenticated`, `USING/WITH CHECK (current_rol()='PROPIETARIO' AND studio_id=current_studio_id())` — correcta, no cross-tenant |
 | Lectura server-side | `dbGetIntegracionConfig` (`lib/db/supabase-data-admin.ts:3941`), service role |
 | Escritura | `dbUpsertIntegracion` (`lib/supabase-data.ts:3583`), cliente autenticado, sujeto a RLS |
@@ -210,8 +209,7 @@ landing/portal, cero relación con Cloud API.
   `ultimo_error`/etc. como columnas propias, promover `wabaId`/`businessId` a columnas
   reales si se quiere indexarlas/validarlas con CHECK. Decisión de diseño para Fase B, no
   tomada aquí.
-- El token sigue en texto plano salvo que se decida cifrar (fuera del alcance mínimo, pero
-  recomendable dado que hoy viaja plano — evaluar `pgsodium`/cifrado de aplicación en Fase B).
+- Almacenamiento del token: decisión de seguridad tratada en la documentación interna.
 
 **Backend:**
 - `lib/whatsapp.ts` — añadir función(es) para el intercambio de código por token de sistema
@@ -250,10 +248,7 @@ landing/portal, cero relación con Cloud API.
 - **Coexistencia con conexiones manuales existentes**: cualquier estudio que ya tenga
   `token`/`phoneId` pegados a mano debe seguir funcionando sin tocar nada — el contrato
   `WhatsAppCredenciales{token, phoneId}` no puede romperse a mitad de migración.
-- **Token en texto plano** ya es así hoy (riesgo preexistente, no introducido por esta
-  migración, pero conviene abordarlo ya que se toca esta tabla).
-- **`GRANT ALL ... TO anon`** en `integraciones` (heredado del patrón del repo) — RLS lo
-  cubre hoy, pero cualquier función `SECURITY DEFINER` nueva para el intercambio OAuth debe
+- **Grants**: cualquier función `SECURITY DEFINER` nueva para el intercambio OAuth debe
   seguir el patrón ya documentado en memoria del proyecto: `REVOKE FROM PUBLIC` +
   `GRANT` explícito a los roles correctos, verificado con `has_function_privilege` — este
   repo ha tropezado con el mismo gotcha de grants varias veces.

@@ -1,12 +1,9 @@
-# Documentación de arquitectura y auditorías
+# Documentación de arquitectura
 
-Índice de los documentos de diseño y auditoría del repo. La raíz solo mantiene `README.md`, `AGENTS.md` y `CLAUDE.md` (los que herramientas/convención esperan ahí).
+Índice de los documentos de diseño del repo. La raíz solo mantiene `README.md`, `AGENTS.md` y `CLAUDE.md` (los que herramientas/convención esperan ahí).
 
-## Auditorías técnicas
-- [AUDITORIA-CTO.md](AUDITORIA-CTO.md) — seguridad, auth, RLS, permisos.
-- [AUDITORIA-ESCALABILIDAD.md](AUDITORIA-ESCALABILIDAD.md) — arquitectura, escalabilidad, rendimiento.
-- [AUDITORIA-PRODUCTO.md](AUDITORIA-PRODUCTO.md) — producto/negocio, sobre la base de las dos anteriores.
-- [AUDITORIA-CALENDARIO-RESERVAS.md](AUDITORIA-CALENDARIO-RESERVAS.md) — calendario y reservas.
+Los informes de auditoría y de seguridad no viven en este repositorio (es público): se
+conservan como documentación interna.
 
 ## Decision OS / Centro de Control
 Orden de lectura: Análisis → Arquitectura → Núcleo → Especialistas → Modelo de datos → Inventario → Roadmap.

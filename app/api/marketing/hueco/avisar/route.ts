@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
     // Buzones que ya sabemos rotos (app/api/webhooks/resend → email_rebotes).
     // Escribirles otra vez no es inofensivo: Resend acepta el envío con 200 y
     // un id, lo descarta en silencio, y el panel contaba eso como «1 aviso
-    // enviado». Es exactamente lo que pasó el 11-sep-2026 con `meri@gmail.com`.
+    // enviado». Es exactamente lo que pasó el 11-sep-2026 con una dirección suprimida.
     // Aquí se saca a esas socias de la lista y se dicen aparte, para que la
     // propietaria sepa que lo que hay que arreglar es el correo de su ficha.
     const correoRotoPorSocia = new Map<string, string>();

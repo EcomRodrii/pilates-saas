@@ -4,13 +4,17 @@
 -- Hasta ahora, «enviado» en Tentare significaba «Resend aceptó la llamada».
 -- No es lo mismo. Un correo aceptado con 200 puede no salir nunca:
 --
---   · REBOTE (bounce): el buzón no existe. Medido el 11-sep-2026 en el aviso
---     de hueco a `fashionbeatriz553@email.com` — la propietaria quiso escribir
---     `@gmail.com`. Resend devolvió 200 y un id; el panel dijo «1 aviso
---     enviado»; el correo rebotó dos segundos después.
+--   · REBOTE (bounce): el buzón no existe. Medido el 11-sep-2026 en un aviso
+--     de hueco a una socia cuya dirección tenía una errata en el dominio.
+--     Resend devolvió 200 y un id; el panel dijo «1 aviso enviado»; el correo
+--     rebotó dos segundos después.
 --   · SUPRIMIDO: tras un rebote, Resend añade la dirección a una lista de
 --     supresión de la CUENTA y descarta los envíos siguientes en silencio,
---     también con 200. El mismo día, el aviso a `meri@gmail.com` salió así.
+--     también con 200. El mismo día, otro aviso salió así.
+--
+--   (Repo público: las direcciones reales de ambos casos se han retirado de
+--   este comentario el 2026-09-14. La migración ya está aplicada y el cambio
+--   es solo de comentario; no altera el esquema.)
 --
 -- Ninguna de las dos cosas llegaba a Tentare: la cuenta tenía 30 direcciones
 -- suprimidas y CERO webhooks configurados. Nadie en el producto podía saberlo,

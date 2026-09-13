@@ -113,6 +113,28 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   `/api/stripe/checkout`. Cualquier vía nueva de cobro lo lleva también. Montaje del
   sandbox en `docs/STRIPE-MODO-TEST.md`.
 
+## Repo público: ni informes de auditoría ni datos personales
+
+El repositorio de GitHub es **público** (hacerlo privado dispararía el coste de Actions),
+así que todo lo que se versiona lo lee cualquiera:
+
+- **Los informes de auditoría/pentest/seguridad viven fuera del repo**, como documentación
+  interna: hallazgos, escenarios de explotación, rutas vulnerables, parches `audit-*.patch`.
+  Nunca en commits, PRs, docs, comentarios ni migraciones.
+- **Nunca PII**: ni emails, ni nombres, ni ids reales de socias, estudios o personas —
+  tampoco en tests ni en el comentario que explica un bug medido en producción. Se describe
+  el caso («una dirección con errata en el dominio»), no se pega. Para fixtures,
+  `@example.com` / `.invalid`.
+- **Commits y PRs discretos** en seguridad: qué área se endurece, no cómo se explotaba.
+- `lib/repo-publico-guardia.test.ts` falla en CI si entra un documento con nombre de
+  auditoría/pentest fuera de su lista, cualquier `.patch`, o un email no permitido en
+  `supabase/`, `scripts/`, `docs/`, `.claude/`, `.github/` o la raíz (y enseña el email
+  enmascarado: los logs de Actions también son públicos). Ampliar sus excepciones exige un
+  motivo en comentario.
+- ⚠️ **Borrar un fichero no lo saca del historial.** Lo retirado el 2026-09-14 sigue en los
+  commits anteriores; limpiarlo exigiría reescribir historial (filter-repo + force push, y
+  aun así quedan clones/forks). Es una decisión aparte, no un efecto de borrar.
+
 ## Decisiones de producto/arquitectura ya cerradas (no reabrir sin pedirlo expresamente)
 
 - No trocear los "god files" (`lib/supabase-data.ts`, `studio-context.tsx`...) — propuesto y

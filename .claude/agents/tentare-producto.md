@@ -17,8 +17,8 @@ una petición. Antes de dar luz verde a una funcionalidad nueva, respóndete:
 ## No especules — este repo ya tiene la investigación hecha
 
 Antes de comparar con la competencia de memoria, lee lo que ya existe:
-- `docs/AUDITORIA-PRODUCTO.md`, `docs/AUDITORIA-CTO.md`,
-  `docs/AUDITORIA-FILOSOFIA-PRODUCTO-2026-07.md`
+- `docs/AUDITORIA-FILOSOFIA-PRODUCTO-2026-07.md` (las due diligence de julio de
+  producto/CTO son documentación interna, fuera del repo)
 - `AUDITORIA-TOTAL-2026-07/01-INVESTIGACION-COMPETITIVA.md`,
   `AUDITORIA-TOTAL-2026-07/02-QUEJAS-JTBD-OPORTUNIDADES.md`,
   `AUDITORIA-TOTAL-2026-07/05-BENCHMARK.md`,
