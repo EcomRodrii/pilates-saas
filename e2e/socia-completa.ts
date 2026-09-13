@@ -232,6 +232,13 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
     return r.fulfill(json({ excluirDePerfilado: false, solicitudes: [] }));
   });
 
+  // Consentimiento de salud (Perfil): la alumna del fixture no lo ha dado, que
+  // es el caso en el que el bloque no se pinta.
+  await ruta((p) => p === '/api/public/consentimiento-salud', (r) => r.fulfill(json({
+    estado: 'NO_CONSTA', fecha: null, revocadoEn: null,
+  })));
+  await ruta((p) => p === '/api/public/consentimiento-salud/revocar', (r) => r.fulfill(json({ ok: true })));
+
   // El pase de acceso. ⚠️ `hayPase` con `reservaId` de la reserva del fixture:
   // el endpoint devuelve SIEMPRE el de la próxima clase, y la pantalla de
   // detalle compara ese id con el suyo (`pase.reservaId === res.id`).

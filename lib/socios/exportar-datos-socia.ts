@@ -76,6 +76,7 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   socio_tipos_clase_autorizados: { seccion: 'otros' },
   post_evento_asistentes: { seccion: 'otros' },
   solicitudes_derechos: { seccion: 'otros' },
+  consentimientos_salud_eventos: { seccion: 'consentimientos' },
   memoria_socio: { seccion: 'otros' },
   recomendaciones: { seccion: 'otros' },
   notas_internas: { excluida: 'Anotaciones internas del personal del estudio. Se entregan a petición, valorando caso a caso los derechos de terceros (art. 15.4 RGPD).' },
@@ -229,7 +230,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     citas, plazasFijas, recuperaciones,
     saldo, movimientos, canjes, recompensas, logros, progresoLogros, retos, progresoRetos, participacionesRetos,
     participaciones, valoraciones, preferenciasClase, favoritos, documentos,
-    comunicaciones, excepciones, autorizadas, eventos, solicitudes, memoria, recomendaciones,
+    comunicaciones, excepciones, autorizadas, eventos, solicitudes, consentimientosSalud, memoria, recomendaciones,
     avisos, camposPersonalizados,
     valoracionesIniciales, valoracionesInicialesSalud, condiciones, respuestasCuestionario, respuestasSesion, notasProgreso,
   ] = await Promise.all([
@@ -265,6 +266,8 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('socio_tipos_clase_autorizados', 'tipo_clase_id, autorizada_en', 'tipo_clase_id'),
     leer(db, 'post_evento_asistentes', 'post_id, creado_en', [['eq', 'socio_id', socioId]], 'post_id'),
     tabla('solicitudes_derechos', 'id, tipo, estado, solicitada_en, plazo_hasta, resuelta_en, nota'),
+    // Historial de su consentimiento de salud (migr 20260913173100). Sin `actor_uid`: es la cuenta del personal.
+    tabla('consentimientos_salud_eventos', 'id, tipo, en, origen, texto, firma', 'en'),
     tabla('memoria_socio', 'id, clave, origen, evidencia, activa, creado_en, expira_en'),
     tabla('recomendaciones', 'id, tipo, titulo, motivo, estado, creado_en'),
     authUserId
@@ -410,6 +413,9 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
         salud: s.consentimiento_salud_fecha
           ? { fecha: str(s.consentimiento_salud_fecha), revocadoEn: str(s.consentimiento_salud_revocado_en), textoAceptado: str(s.consentimiento_salud_texto) }
           : null,
+        historialSalud: porFecha(consentimientosSalud, 'en').map(e => ({
+          tipo: str(e.tipo), fecha: str(e.en), via: str(e.origen), textoAceptado: str(e.texto), firma: str(e.firma),
+        })),
         marketing: s.consentimiento_marketing_en
           ? { fecha: str(s.consentimiento_marketing_en), textoAceptado: str(s.consentimiento_marketing_texto) }
           : null,

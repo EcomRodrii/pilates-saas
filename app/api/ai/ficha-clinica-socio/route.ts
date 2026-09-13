@@ -8,6 +8,7 @@ import type { CondicionSalud } from '@/lib/types';
 import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { puedeVerFichaClinica } from '@/lib/permisos-reglas';
+import { comprobarAccesoSaludSocia } from '@/lib/datos-salud/acceso-servidor';
 
 const client = new Anthropic();
 
@@ -24,10 +25,21 @@ export async function POST(req: NextRequest) {
   try {
     // El cliente envía las condiciones ACTIVAS ya cargadas bajo RLS. Nunca
     // llega el nombre de la socia — la IA solo redacta (§9).
-    const body = (await req.json()) as { condiciones?: CondicionSalud[] };
+    const body = (await req.json()) as { socioId?: unknown; condiciones?: CondicionSalud[] };
     if (!Array.isArray(body?.condiciones) || body.condiciones.length === 0) {
       return NextResponse.json({ error: 'Faltan condiciones de salud' }, { status: 400 });
     }
+    // De quién son: la regla de acceso se decide por socia. Si alguna condición
+    // dice ser de otra, no se mezcla.
+    const socioId = typeof body.socioId === 'string' ? body.socioId : '';
+    if (!socioId) return NextResponse.json({ error: 'Falta la clienta' }, { status: 400 });
+    if (body.condiciones.some(c => c?.socioId && c.socioId !== socioId)) {
+      return NextResponse.json({ error: 'Las condiciones no son de esta clienta' }, { status: 400 });
+    }
+    // Mismas cerraduras que la RLS de `condiciones_salud`: consentimiento
+    // vigente y, si es instructora, que sea su alumna.
+    const acceso = await comprobarAccesoSaludSocia(sesion, socioId, { exigirConsentimiento: true });
+    if (!acceso.ok) return NextResponse.json({ error: acceso.error }, { status: acceso.status });
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',

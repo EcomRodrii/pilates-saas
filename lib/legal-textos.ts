@@ -168,24 +168,29 @@ export function textoConsentimientoMarketing(e: DatosEstudioLegal = {}): string 
 }
 
 /**
- * Texto del consentimiento de datos de salud que se registra EN MOSTRADOR.
+ * Consentimiento de datos de salud (art. 9 RGPD) que se registra DESDE EL PANEL,
+ * con la socia delante. Es el texto que se guarda como prueba en
+ * `socios.consentimiento_salud_texto` y en `consentimientos_salud_eventos`.
  *
- * I-7 (auditoría 59ª pasada, 13-sep-2026). El diálogo del panel
- * (`components/socios/ficha-salud.tsx`) enseñaba este párrafo escrito a mano en
- * el JSX y guardaba solo fecha y nombre de quien autoriza:
- * `consentimiento_salud_texto` se quedaba a NULL (2 de los 3 consentimientos
- * vivos de producción están así). O sea, un registro RGPD de categoría especial
- * (art. 9) que dice CUÁNDO y QUIÉN pero no QUÉ se consintió — y si mañana se
- * reescribe el párrafo, nada permite saber cuál firmó cada socia.
+ * ⚠️ Lo deriva SIEMPRE el servidor (`/api/socios/[id]/consentimiento-salud`);
+ * el panel lo llama con el mismo `nombre` solo para enseñarlo antes de firmar.
+ * Nunca se acepta un texto que mande el navegador.
  *
- * El camino de la propia socia ya lo hacía bien: `textoConsentimientoSalud` en
- * lib/student/valoracion-copy.ts es la fuente única y el servidor guarda ese
- * mismo texto (`registrarConsentimientoSaludSocia`). Esto le da al mostrador la
- * suya, con el mismo patrón que `textoConsentimientoMarketing`: una sola
- * definición, la pantalla la pinta y la BD la guarda.
+ * Solo usa `nombre` a propósito: así lo que ve la pantalla y lo que guarda el
+ * servidor salen de la misma entrada y no pueden divergir.
+ *
+ * ⚠️ REVISIÓN LEGAL NECESARIA sobre la redacción. No promete lo que el producto
+ * no cumple: dice quién lo ve de verdad (propietaria e instructoras que le dan
+ * clase), que hay proveedores tecnológicos por medio y que revocar BLOQUEA los
+ * datos, no los borra (borrarlos es una petición aparte).
  */
-export function textoConsentimientoSaludMostrador(): string {
-  return 'Autorizo al estudio a tratar mis datos de salud (lesiones, embarazo u otras condiciones médicas) con la única finalidad de adaptar mis clases con seguridad. Es un dato de categoría especial (art. 9 RGPD) y doy este consentimiento de forma expresa. Puedo retirarlo en cualquier momento, sin coste ni justificación, pidiéndolo al estudio.';
+export function textoConsentimientoSaludPanel(e: DatosEstudioLegal = {}): string {
+  const nombreEstudio = !vacio(e.nombre) ? e.nombre!.trim() : 'el Estudio';
+  return [
+    `Autorizo expresamente a ${nombreEstudio} a tratar los datos sobre mi salud que le comunique (lesiones, embarazo u otras condiciones que influyan en el ejercicio) con la única finalidad de adaptar mis clases con seguridad.`,
+    `Los verán la dirección del estudio y las instructoras que me den clase. El estudio los gestiona con su programa de gestión, cuyos proveedores tecnológicos los tratan por cuenta del estudio.`,
+    `Puedo retirar esta autorización cuando quiera, desde la app del estudio o pidiéndolo en el propio estudio. Desde ese momento dejarán de estar visibles para el personal, y puedo pedir además que se eliminen.`,
+  ].join('\n\n');
 }
 
 // ─── Textos legales efectivos de un estudio ─────────────────────────────────

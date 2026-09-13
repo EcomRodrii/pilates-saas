@@ -222,6 +222,7 @@ import type { AparienciaWidget } from '@/lib/reservar/apariencia-widget';
 // Se importa ADEMÁS de re-exportar: `export … from` reenvía el nombre pero no
 // lo trae al ámbito de este fichero, y aquí se usa (`studioConfig: StudioConfig`).
 import { configLegalDe, defaultStudioConfig, textoConsentimientoMarketing, type StudioConfig } from '@/lib/legal-textos';
+import { registrarConsentimientoSaludApi, revocarConsentimientoSaludApi } from '@/lib/datos-salud/consentimiento-cliente';
 export { configLegalDe, defaultStudioConfig, type StudioConfig };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -350,6 +351,10 @@ interface StudioContextValue {
   registrarConsentimientoMarketing: (
     socioIds: string[],
   ) => Promise<{ ok: true; registradas: number; yaVigentes: number; noEncontradas: number } | { ok: false; error: string }>;
+  /** Consentimiento de salud (art. 9) de una socia. Fecha, autor y texto los fija el servidor. */
+  registrarConsentimientoSalud: (socioId: string, firma: string) => Promise<ResultadoEscritura>;
+  /** Lo retira sin borrar la prueba; los datos de salud quedan bloqueados por la RLS. */
+  revocarConsentimientoSalud: (socioId: string) => Promise<ResultadoEscritura>;
 
   // Mutable state
   socios: Socio[];
@@ -1717,6 +1722,29 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // reconstruir eso en el cliente sería replicar el criterio en dos sitios.
     if (res.ok) resetDatosPilates();
     return res;
+  }
+
+  // Consentimiento de datos de salud (art. 9) de UNA socia. Lo escribe el
+  // servidor (fecha, autor y texto vigente); aquí solo se pinta lo que devolvió.
+  async function registrarConsentimientoSalud(socioId: string, firma: string): Promise<ResultadoEscritura> {
+    const r = await registrarConsentimientoSaludApi(socioId, firma);
+    if (!r.ok) return r;
+    // Si ya constaba, el servidor devuelve la firma anterior, no la tecleada.
+    setSocios(prev => prev.map(s => s.id === socioId ? { ...s, consentimientoSalud: r.consentimiento ?? undefined } : s));
+    return { ok: true };
+  }
+
+  async function revocarConsentimientoSalud(socioId: string): Promise<ResultadoEscritura> {
+    const r = await revocarConsentimientoSaludApi(socioId);
+    if (!r.ok) return r;
+    setSocios(prev => prev.map(s => s.id === socioId ? { ...s, consentimientoSalud: undefined } : s));
+    // Con el consentimiento retirado la RLS ya no devuelve su salud. Se suelta
+    // también la copia en memoria, para que ninguna pantalla la siga enseñando
+    // hasta la próxima recarga.
+    setCondicionesSalud(prev => prev.filter(c => c.socioId !== socioId));
+    setRespuestasSesion(prev => prev.filter(x => x.socioId !== socioId));
+    setRespuestasCuestionarioSalud(prev => prev.filter(x => x.socioId !== socioId));
+    return { ok: true };
   }
 
   // F2 (B2.9): poner/quitar una excepción de una socia (toggle "porque lo digo yo").
@@ -5315,6 +5343,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     anularRecuperacion,
     ampliarCaducidades,
     registrarConsentimientoMarketing,
+    registrarConsentimientoSalud,
+    revocarConsentimientoSalud,
     addTipoClase,
     updateTipoClase,
     deleteTipoClase,

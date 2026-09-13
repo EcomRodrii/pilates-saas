@@ -1,14 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Check, Plus, Pencil, Trash2, ShieldAlert } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { useRol, puedeGestionarCamposPersonalizados } from '@/lib/permisos';
 import { cn } from '@/lib/utils';
 import type { CampoPersonalizado } from '@/lib/types';
 import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/app/(dashboard)/configuracion/page';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 // ─── Campos personalizados de socia ──────────────────────────────────────────
+//
+// ⚠️ Sin ejemplos de salud, y con aviso. Lo que se rellena aquí va a
+// `socios.campos_extra`, que lee TODO el personal, sin el consentimiento de
+// salud ni el acceso restringido de la ficha clínica. El copy anterior ponía
+// una lesión como ejemplo y en producción había un campo así (auditoría RGPD
+// 2026-09-13). Solo la propietaria define campos (migr 20260913173200).
 
 const TIPOS_CAMPO: { id: CampoPersonalizado['tipo']; label: string }[] = [
   { id: 'texto',     label: 'Texto' },
@@ -23,6 +30,7 @@ const emptyCampoForm = (): CampoForm => ({ etiqueta: '', tipo: 'texto', opciones
 
 export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) => void }) {
   const { camposPersonalizados, addCampoPersonalizado, updateCampoPersonalizado, deleteCampoPersonalizado } = useStudio();
+  const puedeEditar = puedeGestionarCamposPersonalizados(useRol());
   const [form, setForm] = useState<CampoForm>(emptyCampoForm());
   const [editId, setEditId] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
@@ -66,54 +74,70 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
 
   return (
     <div className="space-y-5 max-w-2xl">
-      <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-foreground mb-1">{editId ? 'Editar campo' : 'Nuevo campo'}</h3>
-        <p className="text-[12px] text-muted-foreground mb-4">
-          Datos propios que quieras recoger de cada clienta (lesiones, objetivos, cómo nos conoció…).
-          Aparecen al dar de alta una clienta y en su ficha.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field
-            label="Nombre del campo"
-            description="Lo que se preguntará en la ficha de cada clienta. Ej: «Lesiones previas»."
-          >
-            <input className={inputCls} placeholder="Ej. Lesiones o limitaciones"
-              value={form.etiqueta} onChange={e => setForm(f => ({ ...f, etiqueta: e.target.value }))} />
-          </Field>
-          <Field
-            label="Tipo"
-            description="Determina cómo se rellena: texto libre, número, fecha o una lista de opciones."
-          >
-            <select className={cn(inputCls, 'cursor-pointer')} value={form.tipo}
-              onChange={e => setForm(f => ({ ...f, tipo: e.target.value as CampoPersonalizado['tipo'] }))}>
-              {TIPOS_CAMPO.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
-          </Field>
-          {form.tipo === 'seleccion' && (
-            <div className="sm:col-span-2">
-              <Field
-            label="Opciones (separadas por comas)"
-            description="Las opciones entre las que elegir. Ej: Mañana, Tarde, Indiferente."
-          >
-                <input className={inputCls} placeholder="Instagram, Google, Recomendación, Otro"
-                  value={form.opciones} onChange={e => setForm(f => ({ ...f, opciones: e.target.value }))} />
-              </Field>
-            </div>
-          )}
-        </div>
-        <label className="flex items-center justify-between gap-4 cursor-pointer mt-4">
-          <span className="text-[13px] text-foreground">Obligatorio al dar de alta</span>
-          <Toggle on={form.requerido} onChange={v => setForm(f => ({ ...f, requerido: v }))} />
-        </label>
-        <div className="flex gap-2 mt-4">
-          <button onClick={guardar} className={btnPrimary}>
-            {editId ? <><Check size={14} /> Guardar cambios</> : <><Plus size={14} /> Añadir campo</>}
-          </button>
-          {editId && (
-            <button onClick={() => { setEditId(null); setForm(emptyCampoForm()); }} className={btnSecondary}>Cancelar</button>
-          )}
+      <div role="note" className="flex gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4">
+        <ShieldAlert size={18} className="shrink-0 text-warning mt-0.5" aria-hidden />
+        <div className="text-[12px] leading-relaxed text-foreground">
+          <p className="font-semibold mb-0.5">No uses estos campos para datos de salud</p>
+          <p className="text-muted-foreground">
+            Lesiones, embarazo o patologías son datos especialmente protegidos. Estos campos los ve todo el
+            equipo y no piden el consentimiento que exige la ley. Regístralos en la pestaña <strong>Salud</strong> de
+            cada clienta, que solo ven la dirección y las instructoras que le dan clase.
+          </p>
         </div>
       </div>
+
+      {puedeEditar ? (
+        <div className={cn(cardCls, 'p-6')}>
+          <h3 className="text-[14px] font-semibold text-foreground mb-1">{editId ? 'Editar campo' : 'Nuevo campo'}</h3>
+          <p className="text-[12px] text-muted-foreground mb-4">
+            Datos propios que quieras recoger de cada clienta (objetivo, horario preferido, cómo nos conoció…).
+            Aparecen al dar de alta una clienta y en su ficha.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field
+              label="Nombre del campo"
+              description="Lo que se preguntará en la ficha de cada clienta. Ej: «Horario preferido»."
+            >
+              <input className={inputCls} placeholder="Ej. Cómo nos conoció"
+                value={form.etiqueta} onChange={e => setForm(f => ({ ...f, etiqueta: e.target.value }))} />
+            </Field>
+            <Field
+              label="Tipo"
+              description="Determina cómo se rellena: texto libre, número, fecha o una lista de opciones."
+            >
+              <select className={cn(inputCls, 'cursor-pointer')} value={form.tipo}
+                onChange={e => setForm(f => ({ ...f, tipo: e.target.value as CampoPersonalizado['tipo'] }))}>
+                {TIPOS_CAMPO.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </Field>
+            {form.tipo === 'seleccion' && (
+              <div className="sm:col-span-2">
+                <Field
+              label="Opciones (separadas por comas)"
+              description="Las opciones entre las que elegir. Ej: Mañana, Tarde, Indiferente."
+            >
+                  <input className={inputCls} placeholder="Instagram, Google, Recomendación, Otro"
+                    value={form.opciones} onChange={e => setForm(f => ({ ...f, opciones: e.target.value }))} />
+                </Field>
+              </div>
+            )}
+          </div>
+          <label className="flex items-center justify-between gap-4 cursor-pointer mt-4">
+            <span className="text-[13px] text-foreground">Obligatorio al dar de alta</span>
+            <Toggle on={form.requerido} onChange={v => setForm(f => ({ ...f, requerido: v }))} />
+          </label>
+          <div className="flex gap-2 mt-4">
+            <button onClick={guardar} className={btnPrimary}>
+              {editId ? <><Check size={14} /> Guardar cambios</> : <><Plus size={14} /> Añadir campo</>}
+            </button>
+            {editId && (
+              <button onClick={() => { setEditId(null); setForm(emptyCampoForm()); }} className={btnSecondary}>Cancelar</button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="text-[12px] text-muted-foreground">Solo la dirección del estudio puede crear o cambiar estos campos.</p>
+      )}
 
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-4">Campos ({ordenados.length})</h3>
@@ -123,12 +147,14 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
           <ul className="divide-y divide-border">
             {ordenados.map((c, i) => (
               <li key={c.id} className="flex items-center gap-3 py-3">
-                <div className="flex flex-col gap-0.5">
-                  <button onClick={() => mover(c.id, -1)} disabled={i === 0}
-                    className="text-[11px] leading-none text-muted-foreground hover:text-foreground disabled:opacity-30">▲</button>
-                  <button onClick={() => mover(c.id, 1)} disabled={i === ordenados.length - 1}
-                    className="text-[11px] leading-none text-muted-foreground hover:text-foreground disabled:opacity-30">▼</button>
-                </div>
+                {puedeEditar && (
+                  <div className="flex flex-col gap-0.5">
+                    <button onClick={() => mover(c.id, -1)} disabled={i === 0}
+                      className="text-[11px] leading-none text-muted-foreground hover:text-foreground disabled:opacity-30">▲</button>
+                    <button onClick={() => mover(c.id, 1)} disabled={i === ordenados.length - 1}
+                      className="text-[11px] leading-none text-muted-foreground hover:text-foreground disabled:opacity-30">▼</button>
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-foreground truncate">
                     {c.etiqueta}
@@ -139,15 +165,19 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
                     {c.tipo === 'seleccion' && c.opciones.length > 0 && ` · ${c.opciones.join(', ')}`}
                   </p>
                 </div>
-                <label className="flex items-center gap-1.5 cursor-pointer shrink-0" title="Activo">
-                  <Toggle on={c.activo} onChange={async v => { const res = await updateCampoPersonalizado(c.id, { activo: v }); if (!res.ok) showToast(res.error); }} />
-                </label>
-                <button onClick={() => editar(c)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground shrink-0" title="Editar">
-                  <Pencil size={14} />
-                </button>
-                <button onClick={() => setConfirmDel(c.id)} className="p-1.5 rounded-lg hover:bg-muted text-destructive shrink-0" title="Eliminar">
-                  <Trash2 size={14} />
-                </button>
+                {puedeEditar && (
+                  <>
+                    <label className="flex items-center gap-1.5 cursor-pointer shrink-0" title="Activo">
+                      <Toggle on={c.activo} onChange={async v => { const res = await updateCampoPersonalizado(c.id, { activo: v }); if (!res.ok) showToast(res.error); }} />
+                    </label>
+                    <button onClick={() => editar(c)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground shrink-0" title="Editar">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => setConfirmDel(c.id)} className="p-1.5 rounded-lg hover:bg-muted text-destructive shrink-0" title="Eliminar">
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                )}
               </li>
             ))}
           </ul>

@@ -445,7 +445,7 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // es el texto legal COMPLETO que aceptó, idéntico para todas las socias del
 // estudio, y solo lo necesita comparar la vigencia — no el panel, que se lo
 // comería en el payload de arranque de TODAS las pantallas.
-export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'consentimiento_salud_texto' | 'visible_en_clase' | 'excluir_de_perfilado'>;
+export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'consentimiento_salud_texto' | 'visible_en_clase' | 'excluir_de_perfilado' | 'consentimiento_salud_registrado_por_uid'>;
 // `creado_en` fuera, igual que las otras dos: el panel no la pide en su select
 // ni la pinta — es para medir el embudo desde el servidor, no un dato de la
 // clase. Sin este Omit, añadir la columna volvía obligatoria en la fila a una
@@ -1881,35 +1881,11 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
     db.aceptacion_origen = changes.aceptacionContrato?.origen ?? null;
     db.aceptacion_por = changes.aceptacionContrato?.introducidaPor ?? null;
   }
-  if ('consentimientoSalud' in changes) {
-    db.consentimiento_salud_fecha = changes.consentimientoSalud?.fecha ?? null;
-    db.consentimiento_salud_registrado_por = changes.consentimientoSalud?.registradoPor ?? null;
-    // I-3 (auditoría 59ª pasada, 13-sep-2026). «Hay consentimiento» se lee en
-    // TODAS partes como `fecha is not null AND revocado_en is null` (mapSocio
-    // en :522, las RLS de las cinco tablas de salud vía
-    // `tiene_consentimiento_salud`, `/api/ai/instructor-note`), pero este
-    // camino solo escribía la fecha. El gemelo de la propia socia
-    // (`lib/db/valoracion-inicial-admin.ts:201`) sí levanta la revocación.
-    //
-    // ⚠️ Honestidad sobre el alcance: HOY el estado «dado y revocado a la vez»
-    // no es alcanzable desde el panel —lo único que revoca es el borrado RGPD
-    // (`app/api/socios/eliminar`), que en el mismo UPDATE pone `borrado_en`, y
-    // el cargador del panel filtra `.is('borrado_en', null)`— y producción
-    // tiene 0 filas así. Esto no arregla un fallo vivo: alinea este camino con
-    // su gemelo para que la regla sea una sola, que es lo que evita que el
-    // próximo cambio la rompa por un lado solo.
-    //
-    // Solo se levanta la revocación al REGISTRAR (`fecha` informada). La rama
-    // vacía se deja intacta a propósito: el único escritor de este campo es
-    // `components/socios/ficha-salud.tsx:525`, que siempre manda una fecha, y
-    // estampar aquí una revocación convertiría cualquier `updateSocio` que
-    // arrastre la clave con valor `undefined` en una revocación falsa en el
-    // registro RGPD. Revocar tiene su propio camino
-    // (`app/api/socios/eliminar/route.ts:188`).
-    if (changes.consentimientoSalud?.fecha) db.consentimiento_salud_revocado_en = null;
-    // I-7: sin esto el registro RGPD dice cuándo y quién, pero no QUÉ.
-    if (changes.consentimientoSalud?.texto) db.consentimiento_salud_texto = changes.consentimientoSalud.texto;
-  }
+  // `consentimientoSalud` NO se escribe desde aquí (migr 20260913173100): la
+  // fecha la ponía el reloj del navegador y sin texto ni autor, y RECEPCIÓN
+  // podía marcarlo o anular una revocación. Ahora `authenticated` no tiene
+  // INSERT/UPDATE sobre esas columnas; se registra y se retira por
+  // /api/socios/[id]/consentimiento-salud(/revocar).
   if ('consentimientoMarketing' in changes) {
     db.consentimiento_marketing_en = changes.consentimientoMarketing?.fecha ?? null;
     db.consentimiento_marketing_texto = changes.consentimientoMarketing?.texto ?? null;
@@ -4077,6 +4053,15 @@ export async function dbSemaforoSaludEstudio(studioId: string): Promise<Map<stri
     m.set(row.socio_id, row.nivel as NivelSemaforo);
   }
   return m;
+}
+
+// ¿Esta INSTRUCTORA atiende a esta socia? Misma función que usa la RLS de las
+// tablas de salud (migr 20260913173000). `null` si la llamada falla: quien la
+// use no debe tomarlo por un «no».
+export async function dbInstructoraAtiendeSocia(socioId: string): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc('instructora_atiende_socia', { p_socio_id: socioId });
+  if (error) { reportDbError('[dbInstructoraAtiendeSocia]', error); return null; }
+  return data === true;
 }
 
 export async function dbInsertRespuestaSesion(r: RespuestaSesionRow): Promise<ResultadoEscritura> {

@@ -16,6 +16,7 @@ import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Icono } from '@/components/student/ui/Icono';
 import { MisDatos } from '@/components/student/domain/MisDatos';
+import { ConsentimientoSaludPerfil } from '@/components/student/domain/ConsentimientoSaludPerfil';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -88,6 +89,10 @@ export default function PerfilPage() {
             { label: 'Contraseña', href: href('/perfil/seguridad') },
           ]}
         />
+
+        {/* Consentimiento de salud: verlo y retirarlo. Componente propio para
+            no mezclarse con el resto de secciones de esta pantalla. */}
+        <ConsentimientoSaludPerfil studioId={estudio.id} nombreEstudio={estudio.nombre} hrefMensajes={href('/mensajes')} />
 
         <ProfileSection
           titulo="Bonos y pagos"

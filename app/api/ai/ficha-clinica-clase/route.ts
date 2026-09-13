@@ -8,6 +8,7 @@ import type { ResumenClaseSalud } from '@/lib/ficha-clinica';
 import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { puedeVerFichaClinica } from '@/lib/permisos-reglas';
+import { comprobarAccesoSaludClase } from '@/lib/datos-salud/acceso-servidor';
 
 const client = new Anthropic();
 
@@ -22,12 +23,16 @@ export async function POST(req: NextRequest) {
   const bloqueoIA = await bloqueoPorFeature(sesion.studioId, 'ia');
   if (bloqueoIA) return bloqueoIA;
   try {
-    // El cliente envía el agregado ANÓNIMO ya calculado (resumenSaludClase).
-    // No llegan nombres ni datos personales — la IA solo redacta (§9).
-    const resumen = (await req.json()) as ResumenClaseSalud;
+    // El cliente envía el agregado ANÓNIMO ya calculado (resumenSaludClase) y
+    // la clase de la que sale. No llegan nombres — la IA solo redacta (§9).
+    const { sesionId, ...resumen } = (await req.json()) as ResumenClaseSalud & { sesionId?: unknown };
     if (typeof resumen?.totalAlumnas !== 'number') {
       return NextResponse.json({ error: 'Resumen inválido' }, { status: 400 });
     }
+    // Una instructora solo prepara las clases que imparte (sus alumnas por
+    // definición); la propietaria, cualquiera de su estudio.
+    const acceso = await comprobarAccesoSaludClase(sesion, sesionId);
+    if (!acceso.ok) return NextResponse.json({ error: acceso.error }, { status: acceso.status });
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',

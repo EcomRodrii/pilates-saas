@@ -183,22 +183,35 @@ export async function tieneConsentimientoSalud(socioId: string): Promise<boolean
   return Boolean(data?.consentimiento_salud_fecha) && !data?.consentimiento_salud_revocado_en;
 }
 
-/** Lo deja registrado con quién lo dio y QUÉ texto aceptó. */
+/**
+ * Lo deja registrado con quién lo dio y QUÉ texto aceptó.
+ *
+ * Pasa por `consentimiento_salud_cambiar` (migr 20260913173100), la única vía
+ * de escritura: fija `now()`, levanta una revocación anterior (si no, quedaría
+ * dado y revocado a la vez) y apunta el evento en el historial en la misma
+ * transacción, así que volver a consentir no borra la prueba del ciclo
+ * anterior. Si ya estaba vigente no se sobrescribe nada.
+ */
 export async function registrarConsentimientoSaludSocia(
-  socioId: string, texto: string,
+  studioId: string, socioId: string, texto: string, authUserId: string | null,
 ): Promise<{ ok: true } | { error: string }> {
   const admin = getSupabaseAdmin();
   if (!admin) return { error: 'Servidor no configurado' };
-  const { error } = await admin.from('socios').update({
-    consentimiento_salud_fecha: new Date().toISOString(),
+  const { data, error } = await admin.rpc('consentimiento_salud_cambiar', {
+    p_studio_id: studioId,
+    p_socio_id: socioId,
+    p_tipo: 'OTORGADO',
+    p_origen: 'PORTAL',
+    p_texto: texto,
     // 'SOCIA' = lo dio ella misma desde su app. La convención ya estaba escrita
     // para el consentimiento de marketing: o 'SOCIA', o el nombre de quien del
     // estudio lo registró en mostrador.
-    consentimiento_salud_registrado_por: 'SOCIA',
-    consentimiento_salud_texto: texto,
-    // Volver a darlo levanta una revocación anterior; si no, quedaría dado y
-    // revocado a la vez, y `tiene_consentimiento_salud` seguiría diciendo que no.
-    consentimiento_salud_revocado_en: null,
-  }).eq('id', socioId);
-  return error ? { error: 'No hemos podido guardar tu consentimiento.' } : { ok: true };
+    p_firma: 'SOCIA',
+    p_actor_uid: authUserId,
+    p_actor_rol: 'SOCIA',
+  });
+  if (error || (data !== 'OK' && data !== 'YA_CONSTABA')) {
+    return { error: 'No hemos podido guardar tu consentimiento.' };
+  }
+  return { ok: true };
 }

@@ -7,11 +7,12 @@ export interface AdaptacionSocioIA {
   variantes: string[];
 }
 
-export async function sugerirAdaptacionesSocio(condiciones: CondicionSalud[]): Promise<AdaptacionSocioIA> {
+/** `socioId` va aparte: el servidor decide el acceso por socia (consentimiento y alumna asignada). */
+export async function sugerirAdaptacionesSocio(socioId: string, condiciones: CondicionSalud[]): Promise<AdaptacionSocioIA> {
   const res = await fetch('/api/ai/ficha-clinica-socio', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({ condiciones }),
+    body: JSON.stringify({ socioId, condiciones }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? 'Error al procesar con IA');

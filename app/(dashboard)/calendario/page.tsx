@@ -2471,7 +2471,9 @@ export default function Calendario() {
       const res = await fetch('/api/ai/ficha-clinica-clase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify(resumen),
+        // La clase va con el resumen: una instructora solo puede prepararla si
+        // la imparte ella (lo comprueba el servidor).
+        body: JSON.stringify({ ...resumen, sesionId: sesionActual.id }),
       });
       if (!res.ok) { setPrepIAError(true); return; }
       const data = await res.json();
@@ -2978,7 +2980,9 @@ export default function Calendario() {
                   </ul>
                 </div>
               )}
-              {verFichaClinica && alertasClase.length > 0 && (
+              {/* Solo en clases propias para la instructora: el servidor rechaza
+                  preparar con IA una clase que no imparte ella. */}
+              {verFichaClinica && esPropiaClase && alertasClase.length > 0 && (
                 <div className="mb-3">
                   {!prepIA && (
                     <button
