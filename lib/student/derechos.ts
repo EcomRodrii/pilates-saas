@@ -29,11 +29,23 @@ export async function descargarMisDatos(slug: string): Promise<Resultado> {
 
 export interface MisDerechos { excluirDePerfilado: boolean; solicitudes: SolicitudDerechosVista[] }
 
-/** Lanza si falla: `useAsync` pinta el error en vez de un estado inventado. */
+/**
+ * Lanza si falla o si la respuesta no tiene la forma esperada: `useAsync` pinta
+ * el error en vez de un estado inventado, y ninguna pantalla lee a ciegas un
+ * `{}` como si trajera `solicitudes`.
+ */
 export async function getMisDerechos(slug: string): Promise<MisDerechos> {
   const res = await fetch(`/api/public/solicitud-derechos?slug=${encodeURIComponent(slug)}`, { headers: await portalAuthHeader() });
   if (!res.ok) throw new Error(`solicitud-derechos respondió ${res.status}`);
-  return res.json() as Promise<MisDerechos>;
+  const d = (await res.json().catch(() => null)) as { excluirDePerfilado?: unknown; solicitudes?: unknown } | null;
+  if (!d || typeof d.excluirDePerfilado !== 'boolean' || !Array.isArray(d.solicitudes)) {
+    throw new Error('solicitud-derechos devolvió una respuesta sin la forma esperada');
+  }
+  const solicitudes = d.solicitudes.filter((s): s is SolicitudDerechosVista =>
+    !!s && typeof s === 'object'
+    && typeof (s as SolicitudDerechosVista).tipo === 'string'
+    && typeof (s as SolicitudDerechosVista).estado === 'string');
+  return { excluirDePerfilado: d.excluirDePerfilado, solicitudes };
 }
 
 export async function solicitarDerecho(slug: string, tipo: TipoSolicitudDerechos):

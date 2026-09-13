@@ -30,6 +30,8 @@ export function SolicitudesDerechosPendientes() {
     setSolicitudes(r.solicitudes);
   }, []);
 
+  // setState tras await, no en cascada — falso positivo del lint (mismo patrón que app/interno/layout.tsx).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void cargar(); }, [cargar]);
 
   async function marcarResuelta(s: SolicitudConSocia) {

@@ -50,6 +50,8 @@ export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
     setDatos(r);
   }, [socioId]);
 
+  // setState tras await, no en cascada — falso positivo del lint (mismo patrón que app/interno/layout.tsx).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void cargar(); }, [cargar]);
 
   async function descargar() {
@@ -97,8 +99,9 @@ export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
   }
 
   const ahora = new Date(ahoraMs);
-  const pendientes = datos?.solicitudes.filter(s => s.estado === 'pendiente') ?? [];
-  const cerradas = datos?.solicitudes.filter(s => s.estado !== 'pendiente').slice(0, 3) ?? [];
+  const todas = Array.isArray(datos?.solicitudes) ? datos.solicitudes : [];
+  const pendientes = todas.filter(s => s.estado === 'pendiente');
+  const cerradas = todas.filter(s => s.estado !== 'pendiente').slice(0, 3);
   const btn = 'inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border border-border hover:bg-muted transition-colors disabled:opacity-50';
 
   return (

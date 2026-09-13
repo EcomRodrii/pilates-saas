@@ -223,6 +223,15 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   })));
   await ruta((p) => p === '/api/notifications/subscribe', (r) => r.fulfill(json({ ok: true })));
 
+  // Derechos RGPD (Perfil → «Tus datos», Preferencias → oposición al perfilado).
+  // Sin solicitudes y sin oposición: el estado de cualquier alumna nueva.
+  await ruta((p) => p === '/api/public/solicitud-derechos', (r) => {
+    const m = r.request().method();
+    if (m === 'PATCH') return r.fulfill(json({ excluirDePerfilado: true }));
+    if (m === 'POST') return r.fulfill(json({ solicitud: null, yaExistia: false }, 201));
+    return r.fulfill(json({ excluirDePerfilado: false, solicitudes: [] }));
+  });
+
   // El pase de acceso. ⚠️ `hayPase` con `reservaId` de la reserva del fixture:
   // el endpoint devuelve SIEMPRE el de la próxima clase, y la pantalla de
   // detalle compara ese id con el suyo (`pase.reservaId === res.id`).

@@ -30,14 +30,28 @@ export async function descargarDatosSocia(socioId: string): Promise<Resultado> {
   }
 }
 
-/** `null` = no se pudo cargar (la pantalla lo dice, no pinta «ninguna»). */
+/**
+ * `null` = no se pudo cargar (la pantalla lo dice, no pinta «ninguna»).
+ *
+ * ⚠️ La forma se COMPRUEBA, no se da por hecha: esto se pinta dentro de la ficha
+ * de la clienta, y un `{}` (proxy, error raro, el catch-all de los e2e) leído a
+ * ciegas como `.solicitudes.filter` tumbaba la ficha entera, no solo esta tarjeta.
+ */
 export async function listarSolicitudesDerechos(socioId?: string):
 Promise<{ solicitudes: SolicitudConSocia[]; excluirDePerfilado: boolean | null } | null> {
   try {
     const qs = socioId ? `?socioId=${encodeURIComponent(socioId)}` : '';
     const res = await fetch(`/api/socios/solicitudes-derechos${qs}`, { headers: await authHeader() });
     if (!res.ok) return null;
-    return await res.json();
+    const d = (await res.json().catch(() => null)) as { solicitudes?: unknown; excluirDePerfilado?: unknown } | null;
+    if (!d || !Array.isArray(d.solicitudes)) return null;
+    const solicitudes = d.solicitudes.filter((s): s is SolicitudConSocia =>
+      !!s && typeof s === 'object'
+      && typeof (s as SolicitudConSocia).id === 'string'
+      && typeof (s as SolicitudConSocia).tipo === 'string'
+      && typeof (s as SolicitudConSocia).estado === 'string'
+      && typeof (s as SolicitudConSocia).plazoHasta === 'string');
+    return { solicitudes, excluirDePerfilado: typeof d.excluirDePerfilado === 'boolean' ? d.excluirDePerfilado : null };
   } catch {
     return null;
   }
