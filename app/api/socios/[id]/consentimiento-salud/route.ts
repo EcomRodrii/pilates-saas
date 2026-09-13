@@ -5,7 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { textoConsentimientoSaludPanel } from '@/lib/legal-textos';
-import { normalizarFirma, respuestaCambioConsentimiento } from '@/lib/datos-salud/consentimiento';
+import { normalizarFirma, respuestaCambioConsentimiento, decidirFirmantePanel } from '@/lib/datos-salud/consentimiento';
 import { comprobarAccesoSaludSocia } from '@/lib/datos-salud/acceso-servidor';
 
 // Registrar el consentimiento de datos de salud (art. 9 RGPD) desde el panel,
@@ -17,7 +17,12 @@ import { comprobarAccesoSaludSocia } from '@/lib/datos-salud/acceso-servidor';
 //  · el TEXTO aceptado (derivado aquí con el nombre del estudio de la BD; si
 //    llega un `texto` en el cuerpo, se ignora),
 //  · y QUIÉN PUEDE: rol clínico, y si es instructora, que sea su alumna.
-// Lo único que viene del cliente es la firma tecleada.
+// Lo único que viene del cliente es la firma tecleada y, si no consta la fecha
+// de nacimiento, quién firma (la propia socia o su tutor legal).
+//
+// ⚠️ Menores de 14 (decisión B, auditoría RGPD): si `socios.fecha_nacimiento`
+// dice que es menor, SOLO se acepta la firma de su padre, madre o tutor legal,
+// y el texto guardado como prueba es el del tutor (`decidirFirmantePanel`).
 //
 // Escribe solo `consentimiento_salud_cambiar` (service_role): `authenticated`
 // ya no tiene INSERT/UPDATE sobre esas columnas (migr 20260913214142).
@@ -32,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (limited) return limited;
 
   const { id: socioId } = await params;
-  const body = (await req.json().catch(() => null)) as { firma?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { firma?: unknown; firmante?: unknown } | null;
   const firma = normalizarFirma(body?.firma);
   if (!firma) {
     return NextResponse.json({ error: 'Escribe el nombre completo de quien autoriza.' }, { status: 400 });
@@ -45,8 +50,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 500 });
 
   try {
-    const { data: studio } = await admin.from('studios').select('nombre').eq('id', sesion.studioId).maybeSingle();
-    const texto = textoConsentimientoSaludPanel({ nombre: (studio?.nombre as string | null) ?? null });
+    const [{ data: studio }, { data: socia, error: errorSocia }] = await Promise.all([
+      admin.from('studios').select('nombre').eq('id', sesion.studioId).maybeSingle(),
+      admin.from('socios').select('fecha_nacimiento').eq('id', socioId).eq('studio_id', sesion.studioId).maybeSingle(),
+    ]);
+    if (errorSocia) return errorInterno('socios/consentimiento-salud:POST', errorSocia, 'No se ha podido guardar el consentimiento.');
+    // La edad la mira el SERVIDOR con la fecha de la base; el panel solo declara
+    // quién firma cuando no consta.
+    const decision = decidirFirmantePanel((socia?.fecha_nacimiento as string | null) ?? null, new Date(), body?.firmante);
+    if (!decision.ok) return NextResponse.json({ error: decision.error, codigo: decision.codigo }, { status: decision.status });
+    const texto = textoConsentimientoSaludPanel({ nombre: (studio?.nombre as string | null) ?? null }, decision.firmante);
 
     const { data: resultado, error } = await admin.rpc('consentimiento_salud_cambiar', {
       p_studio_id: sesion.studioId,

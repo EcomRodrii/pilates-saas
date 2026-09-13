@@ -23,6 +23,46 @@ export interface SelloLegal {
 }
 
 /**
+ * El texto legal vigente del estudio (privacidad + términos), compuesto EN
+ * SERVIDOR con sus datos de la base. `null` si no se pudo leer el estudio.
+ *
+ * Lo comparten el sello por compra y la aceptación del contrato de la socia
+ * (`/api/public/socio`, `/api/socios/[id]/aceptacion-contrato`): el mismo texto,
+ * la misma huella, y ninguno de los dos se fía del que manda el navegador.
+ */
+export async function componerTextoLegalVigente(
+  admin: SupabaseClient,
+  studioId: string,
+): Promise<string | null> {
+  const { data: s, error } = await admin
+    .from('studios')
+    .select('nombre, razon_social, nif, direccion, ciudad, codigo_postal, email, politica_privacidad, terminos_servicio, cancelacion_ventana_horas, penalizacion_importe_eur')
+    .eq('id', studioId)
+    .maybeSingle();
+  if (error || !s) return null;
+
+  const e = s as Record<string, unknown>;
+  // La MISMA composición que firma la clienta en el portal: sus textos si los
+  // ha reescrito, y si no los de por defecto redactados con sus datos
+  // fiscales. `configLegalDe` vive en `lib/legal-textos.ts` justamente para
+  // que servidor y cliente no tengan dos reglas distintas.
+  //
+  // ⚠️ El mapeo a camelCase es OBLIGATORIO y no cosmético: `DatosEstudioLegal`
+  // tiene todos los campos opcionales, así que pasarle la fila cruda en
+  // snake_case COMPILA y se traga en silencio `razon_social`, `codigo_postal`,
+  // `cancelacion_ventana_horas` y `penalizacion_importe_eur`. El resultado era
+  // un sello que certificaba un texto DISTINTO del que vio la compradora: con
+  // el nombre comercial en vez de la razón social que factura, sin código
+  // postal, con la ventana de cancelación por defecto y sin la cláusula de
+  // penalización. Es decir, prueba de un consentimiento que no se dio.
+  const config = configLegalDe(datosLegalesDeFila(e), {
+    politicaPrivacidad: (e.politica_privacidad as string | null) ?? null,
+    terminosServicio: (e.terminos_servicio as string | null) ?? null,
+  });
+  return textoLegalCompleto(config);
+}
+
+/**
  * Compone el texto legal vigente del estudio, lo guarda UNA vez por versión, y
  * devuelve su huella. `null` si no se pudo (y entonces la compra va sin sello).
  */
@@ -31,32 +71,8 @@ export async function sellarCondicionesVigentes(
   studioId: string,
 ): Promise<SelloLegal | null> {
   try {
-    const { data: s } = await admin
-      .from('studios')
-      .select('nombre, razon_social, nif, direccion, ciudad, codigo_postal, email, politica_privacidad, terminos_servicio, cancelacion_ventana_horas, penalizacion_importe_eur')
-      .eq('id', studioId)
-      .maybeSingle();
-    if (!s) return null;
-
-    const e = s as Record<string, unknown>;
-    // La MISMA composición que firma la clienta en el portal: sus textos si los
-    // ha reescrito, y si no los de por defecto redactados con sus datos
-    // fiscales. `configLegalDe` vive en `lib/legal-textos.ts` justamente para
-    // que servidor y cliente no tengan dos reglas distintas.
-    //
-    // ⚠️ El mapeo a camelCase es OBLIGATORIO y no cosmético: `DatosEstudioLegal`
-    // tiene todos los campos opcionales, así que pasarle la fila cruda en
-    // snake_case COMPILA y se traga en silencio `razon_social`, `codigo_postal`,
-    // `cancelacion_ventana_horas` y `penalizacion_importe_eur`. El resultado era
-    // un sello que certificaba un texto DISTINTO del que vio la compradora: con
-    // el nombre comercial en vez de la razón social que factura, sin código
-    // postal, con la ventana de cancelación por defecto y sin la cláusula de
-    // penalización. Es decir, prueba de un consentimiento que no se dio.
-    const config = configLegalDe(datosLegalesDeFila(e), {
-      politicaPrivacidad: (e.politica_privacidad as string | null) ?? null,
-      terminosServicio: (e.terminos_servicio as string | null) ?? null,
-    });
-    const texto = textoLegalCompleto(config);
+    const texto = await componerTextoLegalVigente(admin, studioId);
+    if (!texto) return null;
     const hash = hashTextoLegal(texto);
 
     // Una fila por texto y estudio. `ignoreDuplicates` porque la carrera normal

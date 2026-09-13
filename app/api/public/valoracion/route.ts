@@ -7,7 +7,10 @@ import { errorInterno } from '@/lib/errores-servidor';
 import {
   leerHistorialValoracion, guardarValoracionInicial,
   tieneConsentimientoSalud, registrarConsentimientoSaludSocia,
+  leerFechaNacimiento, guardarFechaNacimiento,
 } from '@/lib/db/valoracion-inicial-admin';
+import { consentimientoSaludPorEdad, normalizarFechaNacimiento } from '@/lib/datos-salud/edad';
+import { bloqueoConsentimientoPortal } from '@/lib/datos-salud/consentimiento';
 import { VALORACION_VACIA, type Valoracion } from '@/lib/valoracion-inicial';
 import { textoConsentimientoSalud } from '@/lib/student/valoracion-copy';
 
@@ -66,8 +69,8 @@ export async function GET(req: NextRequest) {
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   try {
-    const [activa, conSalud] = await Promise.all([
-      estaActiva(studioId), tieneConsentimientoSalud(socioId),
+    const [activa, conSalud, nacimiento] = await Promise.all([
+      estaActiva(studioId), tieneConsentimientoSalud(socioId), leerFechaNacimiento(studioId, socioId),
     ]);
     // Se responde con `activa: false` en vez de un 404: la pantalla necesita
     // saber que existe pero está apagada, para no ofrecer una entrada muerta.
@@ -76,7 +79,11 @@ export async function GET(req: NextRequest) {
     // La socia SIEMPRE puede leer su propia mitad de salud: es suya. El gate de
     // rol de la RLS es para el personal, no para ella.
     const historial = await leerHistorialValoracion(studioId, socioId, true);
-    return NextResponse.json({ activa: true, conSalud, historial });
+    // Qué puede hacer en la puerta de salud según su edad, para que la app
+    // enseñe la pantalla correcta ANTES de que pulse: consentir, pedirle la
+    // fecha, o explicarle que lo gestiona el estudio con su tutor legal.
+    const consentimientoSalud = conSalud ? 'PUEDE' : consentimientoSaludPorEdad(nacimiento, new Date());
+    return NextResponse.json({ activa: true, conSalud, consentimientoSalud, historial });
   } catch (e) {
     return errorInterno('valoracion:leer', e, 'No hemos podido cargar tu valoración.');
   }
@@ -90,6 +97,8 @@ export async function POST(req: NextRequest) {
     studioId?: string;
     accion?: 'guardar' | 'completar' | 'consentir-salud';
     valoracion?: Partial<Valoracion>;
+    /** Solo con `consentir-salud`, si todavía no consta. */
+    fechaNacimiento?: unknown;
   } | null;
 
   const studioId = body?.studioId ?? '';
@@ -103,6 +112,27 @@ export async function POST(req: NextRequest) {
 
   try {
     if (body.accion === 'consentir-salud') {
+      // ⚠️ MENORES (decisión B de la auditoría RGPD). Con menos de 14 años la
+      // alumna NO registra su propio consentimiento de salud: lo recoge el
+      // estudio en mostrador con la firma de su padre, madre o tutor legal.
+      //
+      // Sin fecha de nacimiento no se da por adulta: criterio conservador, se le
+      // pide la fecha en la misma pantalla y se decide con ella. La RPC repite
+      // la comprobación (migr 20260914150000).
+      const hoy = new Date();
+      let porEdad = consentimientoSaludPorEdad(await leerFechaNacimiento(studioId, socioId), hoy);
+      if (porEdad === 'FALTA_FECHA' && typeof body.fechaNacimiento === 'string' && body.fechaNacimiento.trim()) {
+        const fecha = normalizarFechaNacimiento(body.fechaNacimiento, hoy);
+        if (!fecha) {
+          return NextResponse.json({ error: 'Esa fecha de nacimiento no parece correcta.', codigo: 'FECHA_NO_VALIDA' }, { status: 400 });
+        }
+        const g = await guardarFechaNacimiento(studioId, socioId, fecha);
+        if ('error' in g) return NextResponse.json({ error: g.error }, { status: 500 });
+        porEdad = consentimientoSaludPorEdad(fecha, hoy);
+      }
+      const bloqueo = bloqueoConsentimientoPortal(porEdad);
+      if (bloqueo) return NextResponse.json({ error: bloqueo.error, codigo: bloqueo.codigo }, { status: bloqueo.status });
+
       // ⚠️ El texto lo DERIVA el servidor, y antes llegaba en el cuerpo.
       //
       // Es la prueba legal de qué aceptó exactamente, y este repo decide la
@@ -120,7 +150,7 @@ export async function POST(req: NextRequest) {
       const r = await registrarConsentimientoSaludSocia(
         studioId, socioId, textoConsentimientoSalud(nombre), usuario?.userId ?? null,
       );
-      if ('error' in r) return NextResponse.json({ error: r.error }, { status: 500 });
+      if ('error' in r) return NextResponse.json({ error: r.error, codigo: r.codigo }, { status: r.status });
       return NextResponse.json({ ok: true, conSalud: true });
     }
 

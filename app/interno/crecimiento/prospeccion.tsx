@@ -66,9 +66,11 @@ function FichaProspecto({ p }: { p: Prospecto }) {
   );
 }
 
-function TarjetaBorrador({ borrador, prospecto, onCambiado, onError }: {
+function TarjetaBorrador({ borrador, prospecto, onCambiado, onError, activa }: {
   borrador: BorradorProspeccion;
   prospecto: Prospecto;
+  /** Con la prospección apagada solo se puede descartar (el servidor rechaza el resto). */
+  activa: boolean;
   onCambiado: (b: BorradorProspeccion) => void;
   onError: (m: string) => void;
 }) {
@@ -151,7 +153,7 @@ function TarjetaBorrador({ borrador, prospecto, onCambiado, onError }: {
           >
             Descartar
           </button>
-          {sucio && (
+          {activa && sucio && (
             <button
               type="button" disabled={ocupado} onClick={() => void actuar('guardar')}
               className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-bold text-foreground disabled:opacity-40"
@@ -159,7 +161,7 @@ function TarjetaBorrador({ borrador, prospecto, onCambiado, onError }: {
               Guardar cambios
             </button>
           )}
-          {!aprobado || sucio ? (
+          {!activa ? null : !aprobado || sucio ? (
             <button
               type="button" disabled={ocupado} onClick={() => void actuar('aprobar')}
               className="flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-1.5 text-[12px] font-bold text-brand-foreground disabled:opacity-40"
@@ -295,7 +297,14 @@ export function Prospeccion() {
 
   return (
     <div className="flex flex-col gap-5">
-      {!d.buzonConfigurado && (
+      {!d.activa && (
+        <p role="status" className="rounded-xl border border-destructive/30 bg-destructive/[0.06] px-3.5 py-2.5 text-[12.5px] font-semibold text-foreground">
+          {d.motivoDesactivada ?? 'Desactivada hasta revisión legal.'} No se puede importar, generar, aprobar
+          ni enviar; lo ya importado se conserva y los borradores se pueden descartar.
+        </p>
+      )}
+
+      {d.activa && !d.buzonConfigurado && (
         <p className="rounded-xl border border-warning/30 bg-warning/[0.06] px-3.5 py-2.5 text-[12.5px] font-semibold text-foreground">
           El buzón de envío no está configurado. Puedes importar, generar y revisar, pero
           «Enviar» no funcionará hasta que estén puestas <code>SPACEMAIL_USER</code> y{' '}
@@ -353,7 +362,7 @@ export function Prospeccion() {
             </ul>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        {d.activa && <div className="flex shrink-0 items-center gap-2">
           <input
             ref={archivo} type="file" accept=".csv,text/csv" className="hidden"
             onChange={e => void alSubirArchivo(e)}
@@ -374,7 +383,7 @@ export function Prospeccion() {
                 : <><Sparkles className="size-4" /> Generar {sinBorrador.length} borradores</>}
             </button>
           )}
-        </div>
+        </div>}
       </div>
 
       {fallidos.length > 0 && (
@@ -411,7 +420,7 @@ export function Prospeccion() {
               if (!p) return null;
               return (
                 <TarjetaBorrador
-                  key={b.id} borrador={b} prospecto={p}
+                  key={b.id} borrador={b} prospecto={p} activa={d.activa}
                   onError={setError}
                   onCambiado={actualizado => setD(prev => prev && ({
                     ...prev,
@@ -424,7 +433,7 @@ export function Prospeccion() {
         </>
       )}
 
-      {resumen.aprobados > 0 && (
+      {d.activa && resumen.aprobados > 0 && (
         <div className="sticky bottom-4 -mt-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-lg">
           <div className="min-w-0 text-[13px]">
             <b className="tabular-nums">{resumen.aprobados}</b> aprobados listos para enviar
