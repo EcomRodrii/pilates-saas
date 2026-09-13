@@ -115,3 +115,29 @@ test.describe('Crear una clase en otra semana', () => {
     await expect(page.getByText('esta semana', { exact: true })).toBeVisible();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El botón de guardar tiene que VERSE sin desplazar nada.
+//
+// El resto de este fichero pulsa «Crear clase» y pasaba en CI con el botón
+// fuera de la ventana: `.click()` de Playwright desplaza hasta el elemento antes
+// de pulsar, cosa que una persona no hace. En producción el pie del cajón quedaba
+// cortado abajo — el panel se abría sin `portal` y `.panel-page-in` lo anclaba a
+// la caja de la PÁGINA (alta como toda la rejilla), no a la ventana.
+//
+// `toBeInViewport` no desplaza. Y `ratio: 1` porque el botón asomaba un filo:
+// con el umbral por defecto (cualquier píxel dentro) este test habría pasado
+// con el fallo puesto.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('El cajón de «Nueva clase» cabe en la ventana', () => {
+  test('el botón de crear se ve entero sin desplazar la página', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Nueva clase' }).first().click({ timeout: 30_000 });
+    const cajon = page.getByRole('dialog', { name: 'Nueva clase' });
+    await expect(cajon).toBeVisible();
+
+    await expect(cajon.getByRole('button', { name: 'Crear clase' })).toBeInViewport({ ratio: 1 });
+  });
+});

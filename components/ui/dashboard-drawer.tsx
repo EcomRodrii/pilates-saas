@@ -20,7 +20,13 @@ export function DashboardDrawer({
   sheetClassName = 'relative w-full lg:w-[420px] bg-card h-full flex flex-col shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)]',
   sheetStyle,
   closeOnBackdropClick = true,
-  portal = false,
+  // ⚠️ `true` por defecto desde 2026-09-13. Era opt-in (`false`), y opt-in quería
+  // decir que cada caller tenía que acordarse — y doce no se acordaron, entre
+  // ellos «Nueva clase» del calendario: el pie con el botón quedaba FUERA de la
+  // ventana. Nadie pasaba `portal={false}` a propósito, y fuera del panel
+  // `anfitrionPortal()` cae en `document.body`, así que `true` es seguro en
+  // todas partes. Lo fija `lib/ui-paneles-en-portal.test.ts`.
+  portal = true,
 }: {
   open: boolean;
   onClose: () => void;

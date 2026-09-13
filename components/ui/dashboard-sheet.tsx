@@ -23,7 +23,10 @@ export function DashboardSheet({
   sheetClassName = 'bg-card rounded-2xl w-full max-w-md shadow-2xl',
   sheetStyle,
   closeOnBackdropClick = true,
-  portal = false,
+  // ⚠️ `true` por defecto desde 2026-09-13, igual que `DashboardDrawer` y por lo
+  // mismo: opt-in obligaba a cada caller a acordarse, y siete hojas del panel
+  // (Network, mensajes) no lo hicieron. Ver `lib/ui-paneles-en-portal.test.ts`.
+  portal = true,
 }: {
   open: boolean;
   onClose: () => void;
