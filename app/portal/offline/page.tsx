@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 // `.t-h1`/`.t-meta` que usa abajo. Es justo la pantalla que se ve sin red, o
 // sea la que no puede depender de nada que no venga con ella.
 import '../[slug]/student.css';
+import { Icono } from '@/components/student/ui/Icono';
 
 export const metadata: Metadata = { title: 'Sin conexión', robots: { index: false, follow: false } };
 
@@ -21,7 +22,7 @@ export default function OfflinePage() {
       <div style={{ textAlign: 'center', maxWidth: 320 }}>
         {/* ⚠️ La MISMA cara que `OfflineState` (components/student/ui/States.tsx),
             que es lo que la alumna ve cuando se queda sin red DENTRO de la app:
-            📡 sobre el disco `.avatar` de 52 px en `--accent-soft`. Esta página
+            el icono de sin conexión sobre el disco `.avatar` de 52 px en `--accent-soft`. Esta página
             llevaba ⚡ sobre un disco gris de 56 px, así que el mismo estado
             —«Sin conexión»— tenía dos caras según dónde la pillara el corte.
             `Disco` no se importa porque no se exporta, y esta pantalla no puede
@@ -29,9 +30,9 @@ export default function OfflinePage() {
         <span
           aria-hidden
           className="avatar"
-          style={{ ['--size' as string]: '52px', fontSize: 24, background: 'var(--accent-soft)', margin: '0 auto 18px' }}
+          style={{ ['--size' as string]: '52px', background: 'var(--accent-soft)', color: 'var(--accent)', margin: '0 auto 18px' }}
         >
-          📡
+          <Icono nombre="sin-conexion" tamano={24} />
         </span>
         <h1 className="t-h1">Sin conexión</h1>
         {/* `t-small t-dim`, como el cuerpo de `OfflineState`, y no un 13 px a

@@ -14,6 +14,7 @@ import { catalogo } from '@/lib/student/catalogo';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { useSesionStudent } from '@/lib/student/sesion';
+import { Icono } from '@/components/student/ui/Icono';
 
 /**
  * Crear cuenta. Literal del paquete (`app/(auth)/registro/page.tsx`): mismos
@@ -230,9 +231,9 @@ export default function RegistroPage() {
           type="button" role="checkbox" aria-checked={f.acepto}
           aria-label={`Acepto la política de privacidad de ${estudio.nombre}`}
           onClick={() => setF({ ...f, acepto: !f.acepto })}
-          style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6, border: 'none', background: f.acepto ? 'var(--accent)' : 'var(--card)', boxShadow: f.acepto ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: '#fff', fontSize: 'var(--t-small)', fontWeight: 800, transition: 'all .2s' }}
+          style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6, border: 'none', background: f.acepto ? 'var(--accent)' : 'var(--card)', boxShadow: f.acepto ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'all .2s' }}
         >
-          {f.acepto ? '✓' : ''}
+          {f.acepto && <Icono nombre="hecho" tamano={16} grosor={2} />}
         </button>
         <span style={{ fontSize: 'var(--t-small)', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
           Al inscribirme, acepto la{' '}

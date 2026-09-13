@@ -10,6 +10,7 @@ import { euros } from '@/lib/student/formato';
 import { esSuscripcion } from '@/lib/student/tienda';
 import { nombrePeriodo } from '@/lib/bono-logic';
 import type { PlanTarifa } from '@/lib/types';
+import { Sello } from '@/components/student/ui/Sello';
 
 // La compra, DENTRO de la app.
 //
@@ -270,7 +271,7 @@ export function HojaCompra({ textosLegales,
           </>
         ) : estado.fase === 'hecho' ? (
           <div className="a-pop" style={{ textAlign: 'center', padding: '8px 0 4px' }}>
-            <span aria-hidden style={{ width: 60, height: 60, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 'var(--t-h1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</span>
+            <Sello />
             <h3 className="t-title" style={{ marginTop: 14 }}>Compra realizada</h3>
             <p className="t-meta" style={{ marginTop: 6 }}>
               Ya está en tu cuenta. Puedes reservar con ella ahora mismo.

@@ -356,7 +356,8 @@
   transition: transform .15s var(--ease), background .2s, box-shadow .25s, border-color .2s, opacity .2s;
 }
 .student-app .btn:active:not(:disabled) { transform: scale(.97); }
-.student-app .btn:disabled { opacity: .45; cursor: default; }
+/* Sin sombra: un botón apagado que sigue «flotando» promete que se puede pulsar. */
+.student-app .btn:disabled { opacity: .45; cursor: default; box-shadow: none; }
 /* Estado de espera: el botón sigue leyéndose, pero deja claro que ya se pulsó.
    Antes cada pantalla lo resolvía con su propio `opacity` en línea. */
 .student-app .btn[aria-busy="true"] { cursor: progress; }

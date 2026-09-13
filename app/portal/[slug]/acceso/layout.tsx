@@ -45,7 +45,7 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
             contraste lo pone el degradado. */}
         <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(8,8,8,.45), rgba(8,8,8,.05) 35%, rgba(8,8,8,.7))' }} />
 
-        <div style={{ position: 'absolute', top: 'calc(18px + var(--safe-top))', left: 22, display: 'flex', alignItems: 'center', gap: 9, color: '#FAF9F5' }}>
+        <div style={{ position: 'absolute', top: 'calc(18px + var(--safe-top))', left: 22, display: 'flex', alignItems: 'center', gap: 9, color: 'var(--on-dark)' }}>
           {estudio.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={urlServida(estudio.logoUrl, 132)} alt="" decoding="async" style={{ height: 26 }} />
@@ -57,7 +57,7 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
           <span style={{ fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.02em' }}>{estudio.nombre}</span>
         </div>
 
-        <div style={{ position: 'absolute', left: 22, right: 22, bottom: 22, color: '#FAF9F5' }}>
+        <div style={{ position: 'absolute', left: 22, right: 22, bottom: 22, color: 'var(--on-dark)' }}>
           <p className="t-label a-up" style={{ color: 'rgba(250,249,245,.75)' }}>
             {/* El backend no clasifica el estudio por disciplina, así que la
                 línea es solo la ciudad cuando no hay nada más que decir. */}

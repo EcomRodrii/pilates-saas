@@ -41,7 +41,7 @@ import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estad
 // categoría, lo que hay que reescribir es esta tabla, no la categoría del evento.
 const FILAS: Array<{ categoria: string; label: string; sub?: string }> = [
   { categoria: 'reservas', label: 'Tus reservas', sub: 'Recordatorio de tus clases, plaza liberada, cambios en tus reservas y la petición de valorar la clase tras asistir' },
-  { categoria: 'clases', label: 'Cambios en las clases', sub: 'Si se cancela, se modifica o la da otra profesora' },
+  { categoria: 'clases', label: 'Cambios en las clases', sub: 'Si se cancela, se modifica o la da otra instructora' },
   { categoria: 'pagos', label: 'Bonos y pagos', sub: 'Bono a punto de caducar o agotado, cobros' },
   { categoria: 'marketing', label: 'Novedades del estudio' },
 ];

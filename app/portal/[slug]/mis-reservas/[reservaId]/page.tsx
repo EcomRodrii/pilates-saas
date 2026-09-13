@@ -121,7 +121,7 @@ export default function DetalleReservaPage() {
             className="a-pop"
             style={{
               background: 'var(--accent-deep)', color: 'var(--accent-deep-foreground)',
-              borderRadius: 22, padding: '20px 18px', textAlign: 'center', boxShadow: 'var(--shadow-hero)',
+              borderRadius: 'var(--radius-hero)', padding: '20px 18px', textAlign: 'center', boxShadow: 'var(--shadow-hero)',
             }}
           >
             <p className="t-label" style={{ color: 'var(--accent-deep-muted)' }}>
@@ -146,7 +146,7 @@ export default function DetalleReservaPage() {
               data-testid={hayQr ? 'pase-qr' : 'pase-hueco'}
               style={{
                 width: 168, height: 168, margin: '14px auto 0', boxSizing: 'border-box',
-                background: hayQr ? '#FAF9F5' : 'transparent',
+                background: hayQr ? 'var(--on-dark)' : 'transparent',
                 border: hayQr ? 'none' : '1.5px dashed var(--accent-deep-muted)',
                 borderRadius: 18, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
@@ -173,7 +173,7 @@ export default function DetalleReservaPage() {
                     ? 'Ya has entrado a esta clase ✓'
                     : paseDeEsta
                       ? `Tu pase se activa ${paseDeEsta.minutosParaActivarse > 0
-                          ? `en ${paseDeEsta.minutosParaActivarse} min`
+                          ? `en ${paseDeEsta.minutosParaActivarse}\u00A0min`
                           : 'en breve'}`
                       : paseResuelto
                         // El servidor ya contestó y este pase no es de esta
@@ -185,7 +185,7 @@ export default function DetalleReservaPage() {
               )}
             </div>
 
-            <p style={{ margin: '14px 0 0', fontSize: 'var(--t-h3)', fontWeight: 800, color: '#FAF9F5' }}>{c.nombre}</p>
+            <p style={{ margin: '14px 0 0', fontSize: 'var(--t-h3)', fontWeight: 800, color: 'var(--on-dark)' }}>{c.nombre}</p>
             <p style={{ margin: '3px 0 0', fontSize: 'var(--t-small)', color: 'color-mix(in srgb, var(--accent-deep-foreground) 75%, transparent)' }}>
               {fechaLarga(c.fecha)} · {c.hora} · con {i?.nombre ?? '—'}
             </p>
@@ -193,7 +193,7 @@ export default function DetalleReservaPage() {
             {paseDeEsta?.vigente && paseDeEsta.codigo && (
               // El código corto existe para cuando la cámara no lee: pantalla
               // rota, mucha luz, funda con brillo.
-              <p className="t-code" style={{ margin: '10px 0 0', fontSize: 'var(--t-small)', letterSpacing: '.18em', color: '#FAF9F5' }}>
+              <p className="t-code" style={{ margin: '10px 0 0', fontSize: 'var(--t-small)', letterSpacing: '.18em', color: 'var(--on-dark)' }}>
                 {paseDeEsta.codigo}
               </p>
             )}

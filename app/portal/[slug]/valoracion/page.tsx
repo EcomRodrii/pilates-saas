@@ -9,6 +9,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { Button } from '@/components/student/ui/Button';
+import { Sello } from '@/components/student/ui/Sello';
 import { Opcion } from '@/components/student/valoracion/Opcion';
 import { Progreso } from '@/components/student/valoracion/Progreso';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
@@ -223,7 +224,7 @@ export default function ValoracionPage() {
     return (
       <StudentShell sinNav>
         <div className="px a-pop" style={{ marginTop: '22vh', textAlign: 'center' }}>
-          <span aria-hidden style={{ width: 68, height: 68, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>✓</span>
+          <Sello />
           <h2 className="t-h1" style={{ marginTop: 18 }}>Gracias</h2>
           <p className="t-body t-dim" style={{ marginTop: 8 }}>
             {estudio.nombre} ya sabe por dónde empezar contigo.

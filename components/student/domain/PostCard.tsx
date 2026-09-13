@@ -9,6 +9,7 @@ import { useToast } from '@/components/student/ui/Toast';
 import { Button } from '@/components/student/ui/Button';
 import { Badge } from '@/components/student/ui/Badge';
 import { Foto } from '@/components/student/ui/Foto';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Una publicación del tablón. Mismo idioma que NotificationItem: avatar
 // redondo, título en 800, cuerpo en t-meta, fecha relativa en voz baja.
@@ -150,8 +151,8 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
             color: liked ? 'var(--destructive)' : 'var(--subtle-foreground)',
           }}
         >
-          <span aria-hidden style={{ fontSize: 'var(--t-body)' }}>{liked ? '♥' : '♡'}</span>
-          {likes > 0 ? ` ${likes}` : 'Me gusta'}
+          <Icono nombre="favorito" tamano={18} fill={liked ? 'currentColor' : 'none'} />
+          {likes > 0 ? likes : 'Me gusta'}
         </button>
         <button
           type="button"
@@ -162,7 +163,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
             background: 'transparent', cursor: 'pointer', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--subtle-foreground)',
           }}
         >
-          <span aria-hidden style={{ fontSize: 'var(--t-small)' }}>💬</span>
+          <Icono nombre="comentario" tamano={18} />
           {totalComentarios > 0 ? `${totalComentarios} comentario${totalComentarios === 1 ? '' : 's'}` : 'Comentar'}
         </button>
       </div>

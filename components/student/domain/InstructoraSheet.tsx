@@ -7,6 +7,7 @@ import { AvailabilityBadge } from '@/components/student/ui/Badge';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, horaAhora, hoyISO } from '@/lib/student/formato';
 import { notaTexto, proximasClasesDe } from '@/lib/student/instructora';
+import { Icono } from '@/components/student/ui/Icono';
 
 // La ficha de la instructora, desde la píldora de la hoja de clase. Antes esa
 // píldora era un <button> sin onClick: un control muerto. Todo lo que enseña
@@ -28,7 +29,7 @@ export function InstructoraSheet({ instructora, clases, reservas, soportaEspera,
             <div style={{ minWidth: 0 }}>
               <p style={{ margin: 0, fontSize: 'var(--t-h2)', fontWeight: 800, letterSpacing: '-.02em' }}>{i.nombre}</p>
               {nota
-                ? <p className="t-meta" style={{ margin: '2px 0 0' }}><span style={{ color: 'var(--warning)' }}>★</span> {nota}</p>
+                ? <p className="t-meta" style={{ margin: '2px 0 0' }}><Icono nombre="estrella" tamano={12} fill="var(--warning)" stroke="var(--warning)" style={{ verticalAlign: '-1px' }} /> {nota}</p>
                 : <p className="t-meta" style={{ margin: '2px 0 0' }}>Instructora del estudio</p>}
             </div>
           </div>

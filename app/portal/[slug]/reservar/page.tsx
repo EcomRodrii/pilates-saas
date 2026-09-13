@@ -16,6 +16,7 @@ import { etiquetaDia, hoyISO } from '@/lib/student/formato';
 import { DateSelector } from '@/components/student/domain/DateSelector';
 import { ClassCard } from '@/components/student/domain/ClassCard';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Horario (§A.6): días + filtros + lista de clases.
 //
@@ -120,7 +121,7 @@ export default function HorarioPage() {
       <div className="px" style={{ marginTop: 12 }}>
         <div style={{ position: 'relative' }}>
           <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--subtle-foreground)', display: 'flex' }}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM16.5 16.5 21 21" /></svg>
+            <Icono nombre="buscar" tamano={18} />
           </span>
           <input
             type="search"
@@ -132,7 +133,7 @@ export default function HorarioPage() {
           />
           {q && (
             <button type="button" onClick={() => setQ('')} aria-label="Borrar búsqueda"
-              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: 999, border: 'none', background: 'var(--muted)', color: 'var(--muted-foreground)', fontSize: 'var(--t-small)' }}>×</button>
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: 999, border: 'none', background: 'var(--muted)', color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icono nombre="cerrar" tamano={16} /></button>
           )}
         </div>
       </div>

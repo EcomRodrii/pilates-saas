@@ -38,7 +38,7 @@ test.describe('Student PWA · instructora', () => {
     await page.getByRole('button', { name: /Ana/ }).first().click({ timeout: 30_000 });
     const hoja = page.getByTestId('instructora-sheet');
     await expect(hoja).toBeVisible();
-    await expect(hoja.getByText('★')).toHaveCount(0);
+    await expect(hoja.locator('[data-icono="estrella"]')).toHaveCount(0);
     await expect(hoja.getByText('Instructora del estudio')).toBeVisible();
     void STUDIO_ID;
   });

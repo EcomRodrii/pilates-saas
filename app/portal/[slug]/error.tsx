@@ -19,6 +19,7 @@
 import { useEffect } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import * as Sentry from '@sentry/nextjs';
+import { Icono } from '@/components/student/ui/Icono';
 
 export default function ErrorPortalStudent({
   error, reset,
@@ -67,11 +68,11 @@ export default function ErrorPortalStudent({
         aria-hidden
         style={{
           width: 52, height: 52, borderRadius: 999, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', fontSize: 24,
-          background: 'var(--muted, #EFEDE4)',
+          justifyContent: 'center',
+          background: 'var(--muted, #EFEDE4)', color: 'var(--foreground, #1A1A1A)',
         }}
       >
-        ⚠
+        <Icono nombre="alerta" tamano={24} />
       </span>
 
       <h1 style={{ margin: 0, fontSize: 'var(--t-h1)', fontWeight: 800, letterSpacing: '-.02em' }}>

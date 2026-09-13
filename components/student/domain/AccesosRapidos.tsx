@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
 
 // Las cuatro cosas que hace una alumna, debajo del buscador.
 //
@@ -16,8 +17,13 @@ import Link from 'next/link';
 // Los iconos son del mismo set que la barra (HugeIcons stroke-rounded) y al
 // mismo grosor. Mezclar familias en la misma pantalla se nota aunque no se
 // sepa por qué.
+//
+// ⚠️ Tres de estos cuatro estaban dibujados a mano «a lo HugeIcons» y se
+// notaba: el hombro de la segunda persona de Instructoras volvía sobre sí mismo
+// y parecía un trazo duplicado, y el corazón tenía otra forma que el de la
+// barra. Ahora salen de `ui/Icono.tsx`, copiados del paquete sin retocar.
 
-type Acceso = { href: string; titulo: string; pie: string; paths: string[] };
+type Acceso = { href: string; titulo: string; pie: string; icono: NombreIcono };
 
 export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, hrefFavoritas }: {
   hrefReservar: string;
@@ -28,34 +34,19 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
   const accesos: Acceso[] = [
     {
       href: hrefReservar, titulo: 'Clases', pie: 'Reserva tu plaza',
-      paths: [
-        'M16 2V6M8 2V6',
-        'M3 10H21',
-        'M21 12V11C21 7.22876 21 5.34315 19.8284 4.17157C18.6569 3 16.7712 3 13 3H11C7.22876 3 5.34315 3 4.17157 4.17157C3 5.34315 3 7.22876 3 11V13C3 16.7712 3 18.6569 4.17157 19.8284C5.34315 21 7.22876 21 11 21H13C16.7712 21 18.6569 21 19.8284 19.8284C21 18.6569 21 16.7712 21 13V12Z',
-      ],
+      icono: 'calendario',
     },
     {
       href: hrefInstructoras, titulo: 'Instructoras', pie: 'Conoce al equipo',
-      paths: [
-        'M14 8.5C14 10.433 12.433 12 10.5 12C8.567 12 7 10.433 7 8.5C7 6.567 8.567 5 10.5 5C12.433 5 14 6.567 14 8.5Z',
-        'M17 19.5C17 16.7386 14.0899 14.5 10.5 14.5C6.91015 14.5 4 16.7386 4 19.5',
-        'M17 11C18.6569 11 20 9.65685 20 8C20 6.34315 18.6569 5 17 5',
-        'M18.5 18.5C18.5 16.6 17.7 15 16.5 14.1C18.9 14.5 20.5 16 20.5 18',
-      ],
+      icono: 'instructoras',
     },
     {
       href: hrefBonos, titulo: 'Bonos', pie: 'Gestiona tus créditos',
-      paths: [
-        'M15 4H9C5.70017 4 4.05025 4 3.02513 5.02513C2 6.05025 2 7.70017 2 11V13C2 16.2998 2 17.9497 3.02513 18.9749C4.05025 20 5.70017 20 9 20H15C18.2998 20 19.9497 20 20.9749 18.9749C22 17.9497 22 16.2998 22 13V11C22 7.70017 22 6.05025 20.9749 5.02513C19.9497 4 18.2998 4 15 4Z',
-        'M21.5 8H11.5L12.5 9.5H21.5V8Z',
-        'M10 11.5C10 12.8807 8.88072 14 7.5 14C6.11928 14 5 12.8807 5 11.5C5 10.1193 6.11928 9 7.5 9C8.88072 9 10 10.1193 10 11.5Z',
-      ],
+      icono: 'bono',
     },
     {
       href: hrefFavoritas, titulo: 'Mis favoritos', pie: 'Tus clases guardadas',
-      paths: [
-        'M12 20.5C11.4 20.5 3 15.6 3 9.9C3 7.2 5.1 5 7.7 5C9.5 5 11.1 6.1 12 7.6C12.9 6.1 14.5 5 16.3 5C18.9 5 21 7.2 21 9.9C21 15.6 12.6 20.5 12 20.5Z',
-      ],
+      icono: 'favorito',
     },
   ];
 
@@ -102,9 +93,7 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  {a.paths.map((d) => <path key={d} d={d} />)}
-                </svg>
+                <Icono nombre={a.icono} />
               </span>
               {/* Que pueda partirse con guion: el idioma va declarado en el
                   <html lang="es">, así que «Instruc-toras» parte donde toca. */}

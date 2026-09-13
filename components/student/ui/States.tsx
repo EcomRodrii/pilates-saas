@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { Button } from './Button';
 import { Ilustracion, type NombreIlustracion } from './Ilustracion';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Los cuatro estados que toda pantalla necesita: vacío, error, sin conexión y
 // cargando. Antes cada uno resolvía su composición con estilos en línea —cinco
@@ -12,33 +13,29 @@ import { Ilustracion, type NombreIlustracion } from './Ilustracion';
 /**
  * El icono, dentro de un disco suave en vez de suelto sobre el fondo.
  *
- * Un emoji a pelo se pinta con su propia paleta a todo color en medio de una
- * app de crema y oliva, y no se lee como parte del diseño sino como algo
- * pegado encima. Sobre el disco de acento tiene sitio propio, y el tamaño del
- * disco da la escala que antes ponía el `fontSize: 28`.
+ * Sobre el disco de acento el icono tiene sitio propio, y el tamaño del disco
+ * da la escala. Antes llevaba un emoji (📡), con su paleta a todo color en
+ * medio de una app de crema y oliva.
  */
 function Disco({ children }: { children: React.ReactNode }) {
   return (
     <span
       aria-hidden
       className="avatar"
-      style={{ ['--size' as string]: '52px', fontSize: 24, background: 'var(--accent-soft)' }}
+      style={{ ['--size' as string]: '52px', background: 'var(--accent-soft)', color: 'var(--accent)' }}
     >
       {children}
     </span>
   );
 }
 
-export function EmptyState({ icono = '📋', ilustracion, titulo, cuerpo, accion, href, onAccion }: {
-  icono?: string;
+export function EmptyState({ ilustracion, titulo, cuerpo, accion, href, onAccion }: {
   /**
-   * Ilustración del set (`Ilustracion.tsx`) en vez del emoji dentro del disco.
-   *
-   * El emoji sigue siendo el respaldo, no un modo alternativo: un estado vacío
-   * SIN nada arriba es un bloque de texto sobre un recuadro punteado, que es
-   * exactamente la pantalla que esto vino a arreglar.
+   * Ilustración del set (`Ilustracion.tsx`). Obligatoria: un estado vacío SIN
+   * nada arriba es un bloque de texto sobre un recuadro punteado. Tenía un
+   * emoji de respaldo (📋) que ninguna pantalla usaba ya.
    */
-  ilustracion?: NombreIlustracion;
+  ilustracion: NombreIlustracion;
   titulo: string; cuerpo?: string; accion?: string; href?: string; onAccion?: () => void;
 }) {
   return (
@@ -54,7 +51,7 @@ export function EmptyState({ icono = '📋', ilustracion, titulo, cuerpo, accion
         padding: 'var(--s-7) var(--s-5)',
       }}
     >
-      {ilustracion ? <Ilustracion nombre={ilustracion} /> : <Disco>{icono}</Disco>}
+      <Ilustracion nombre={ilustracion} />
       <p className="t-card-title" style={{ marginTop: 'var(--s-1)' }}>{titulo}</p>
       {/* Tope de ancho: un párrafo centrado que cruza los 390 px de un móvil
           se lee peor que uno de línea corta, y en escritorio la tarjeta llega a
@@ -94,7 +91,7 @@ export function OfflineState({
 }: { cuerpo?: string }) {
   return (
     <div role="status" className="a-up card row row--top" style={{ ['--gap' as string]: 'var(--s-3)', padding: 'var(--s-4) var(--s-5)' }}>
-      <Disco>📡</Disco>
+      <Disco><Icono nombre="sin-conexion" tamano={24} /></Disco>
       <div className="stack" style={{ ['--gap' as string]: 'var(--s-1)' }}>
         <p className="t-card-title">Sin conexión</p>
         <p className="t-small t-dim">{cuerpo}</p>

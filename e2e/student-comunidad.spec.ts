@@ -51,7 +51,9 @@ test.describe('Student PWA · comunidad', () => {
     // `likedByMe: false` en el mock → corazón vacío: esta socia no lo ha dado
     // ella, aunque otras 3 personas sí (P2, antes el corazón era un contador
     // estático siempre relleno — ahora distingue "cuántos" de "yo también").
-    await expect(post(page, 'p-txt').getByText('♡ 3')).toBeVisible();
+    const like = post(page, 'p-txt').getByRole('button', { name: 'Me gusta' });
+    await expect(like).toHaveAttribute('aria-pressed', 'false');
+    await expect(like).toHaveText('3');
     await expect(post(page, 'p-ev').getByText('3 de 10 plazas')).toBeVisible();
     await expect(post(page, 'p-ev').getByRole('button', { name: 'Me apunto' })).toBeVisible();
     // Completo: sin botón de RSVP, y se dice. (P2: like/comentar viven en

@@ -5,6 +5,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio } from '@/components/student/contexto';
 import { ProfileSection } from '@/components/student/domain/ProfileSection';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Ayuda (§A.20): contacto del estudio y las preguntas que de verdad hacen.
 //
@@ -48,7 +49,7 @@ export default function AyudaPage() {
             {faq.map(([q, a], i) => (
               <details key={q} style={{ borderBottom: i < faq.length - 1 ? '1px solid var(--muted)' : 'none' }}>
                 <summary style={{ listStyle: 'none', cursor: 'pointer', padding: '13px 15px', fontSize: 'var(--t-small)', fontWeight: 700, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                  {q}<span aria-hidden style={{ color: 'var(--accent)' }}>+</span>
+                  {q}<Icono nombre="mas" tamano={16} stroke="var(--accent)" style={{ flexShrink: 0 }} />
                 </summary>
                 <p style={{ margin: 0, padding: '0 15px 13px', fontSize: 'var(--t-small)', lineHeight: 1.55, color: 'var(--muted-foreground)' }}>{a}</p>
               </details>

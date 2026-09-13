@@ -181,7 +181,9 @@ export default function LogrosPage() {
                           <p className="t-card-title">{l.icono} {l.nombre}</p>
                           {l.descripcion && <p className="t-meta" style={{ marginTop: 2 }}>{l.descripcion}</p>}
                         </div>
-                        {l.completado && <Badge tone="ok">✓</Badge>}
+                        {/* Con palabra, no «✓» suelto: un lector de pantalla leía
+                            «marca de verificación» y nada más. */}
+                        {l.completado && <Badge tone="ok">Conseguido</Badge>}
                       </div>
                       {!l.completado && (
                         <>
