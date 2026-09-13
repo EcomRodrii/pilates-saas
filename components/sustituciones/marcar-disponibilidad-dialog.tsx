@@ -14,10 +14,13 @@
 // existiendo aparte.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, CalendarCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { authHeader } from '@/lib/api-client';
+import { useStudio } from '@/lib/studio-context';
+import { franjaLocalDe } from '@/lib/utils';
+import { celdasDesdeClases } from '@/lib/sustituciones/disponibilidad-desde-clases';
 import type { FranjaKey } from '@/lib/sustituciones/franjas';
 import { RejillaDisponibilidad, alternarCelda } from '@/components/sustituciones/rejilla-disponibilidad';
 
@@ -68,6 +71,26 @@ export function MarcarDisponibilidadDialog({
 
   const nombre = instructoras.find((i) => i.id === id)?.nombre ?? 'la instructora';
 
+  // «Rellenar con sus clases» (evaluación del 13-sep): las franjas en las que
+  // ya da clase, con las clases que el panel tiene cargadas. Es un punto de
+  // partida para no empezar en blanco; se revisa antes de guardar. Sin corte
+  // por fecha a propósito: `Date.now()` en render es impuro (react-hooks/purity)
+  // y el contexto ya trae solo una ventana de clases.
+  const { sesiones } = useStudio();
+  const deSusClases = useMemo(() => {
+    if (!id) return new Set<string>();
+    return celdasDesdeClases(
+      sesiones
+        .filter((s) => s.instructorId === id && !s.cancelada)
+        .map((s) => {
+          const ini = franjaLocalDe(s.inicio);
+          const fin = franjaLocalDe(s.fin);
+          return { dow: ini.dow, inicioMin: ini.hora * 60 + ini.minuto, finMin: fin.hora * 60 + fin.minuto };
+        }),
+    );
+  }, [sesiones, id]);
+  const faltanDeSusClases = [...deSusClases].filter((c) => !activas.has(c)).length;
+
   async function guardar() {
     if (!id || guardando) return;
     setError(null);
@@ -111,6 +134,23 @@ export function MarcarDisponibilidadDialog({
               {instructoras.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
             </select>
           </label>
+        )}
+
+        {!cargando && faltanDeSusClases > 0 && (
+          <button
+            type="button"
+            onClick={() => setActivas((p) => new Set([...p, ...deSusClases]))}
+            className="mt-2 flex w-full items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-left text-[12.5px] text-foreground hover:bg-muted"
+          >
+            <CalendarCheck size={14} className="mt-[2px] shrink-0 text-brand-secondary" aria-hidden />
+            <span>
+              <span className="font-semibold">Rellenar con sus clases</span>
+              <span className="block text-[11.5px] text-muted-foreground">
+                Marca {faltanDeSusClases} {faltanDeSusClases === 1 ? 'franja' : 'franjas'} en las que ya da clase: suele estar en el estudio.
+                Nunca se la propone para una clase que coincide con otra suya. Revísalo antes de guardar.
+              </span>
+            </span>
+          </button>
         )}
 
         <div className="mt-2">
