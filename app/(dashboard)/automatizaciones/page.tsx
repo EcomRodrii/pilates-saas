@@ -10,7 +10,7 @@ import {
   Send, X, Eye,
 } from 'lucide-react';
 import { cn, formatFechaHora as formatFecha } from '@/lib/utils';
-import { aprobarCobroAutonomo } from '@/lib/api-client';
+import { aprobarCobroAutonomo, enviarPruebaAutomatizacion } from '@/lib/api-client';
 import { resultadoDeCobro } from '@/lib/billing/resultado-cobro';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 import { mensajeSeguro } from '@/lib/errores';
@@ -428,7 +428,19 @@ function EditorMensaje({ rule, def, soloLectura }: {
   const [borrador, setBorrador] = useState(() => plantillaDe(rule, def.clave));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // «Enviarme una prueba» (evaluación del 13-sep): leer el texto en pantalla no
+  // dice cómo llega de verdad a una bandeja. Siempre al email de quien lo pide.
+  const [probando, setProbando] = useState(false);
+  const [avisoPrueba, setAvisoPrueba] = useState<string | null>(null);
   const personalizado = def.clave in mensajesPersonalizados(rule);
+
+  async function probar(texto: string | null) {
+    setProbando(true);
+    setAvisoPrueba(null);
+    const res = await enviarPruebaAutomatizacion({ ruleId: rule.id, clave: def.clave, texto });
+    setProbando(false);
+    setAvisoPrueba('error' in res ? res.error : `Enviada a ${res.enviadoA}. Mira tu bandeja de entrada.`);
+  }
 
   async function guardar(texto: string | null) {
     setGuardando(true);
@@ -456,6 +468,9 @@ function EditorMensaje({ rule, def, soloLectura }: {
       <p className="mt-2 rounded-md bg-card border border-border p-2.5 text-[11.5px] leading-relaxed text-foreground">
         {vistaPreviaMensaje(rule, def.clave)}
       </p>
+      {avisoPrueba && (
+        <p role="status" className="mt-1.5 text-[10.5px] text-muted-foreground">{avisoPrueba}</p>
+      )}
 
       {!soloLectura && !abierto && (
         <div className="mt-2 flex items-center gap-3">
@@ -465,6 +480,14 @@ function EditorMensaje({ rule, def, soloLectura }: {
             className="text-[11px] font-semibold text-brand-medio hover:underline"
           >
             Escribirlo a mi manera
+          </button>
+          <button
+            type="button"
+            onClick={() => probar(null)}
+            disabled={probando}
+            className="text-[11px] font-semibold text-muted-foreground hover:underline disabled:opacity-50"
+          >
+            {probando ? 'Enviando…' : 'Enviarme una prueba'}
           </button>
           {personalizado && (
             <button
@@ -505,6 +528,14 @@ function EditorMensaje({ rule, def, soloLectura }: {
               className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground hover:bg-muted"
             >
               Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => probar(borrador)}
+              disabled={probando || !borrador.trim()}
+              className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground hover:bg-muted disabled:opacity-40"
+            >
+              {probando ? 'Enviando…' : 'Enviarme una prueba'}
             </button>
             <button
               type="button"

@@ -2068,6 +2068,24 @@ export async function importarRecuperaciones(
   }
 }
 
+// ─── Automatizaciones: envío de prueba de un mensaje ─────────────────────────
+// Al email de quien lo pide, nunca a una clienta. `texto` = el borrador sin
+// guardar; sin él, el texto guardado en la regla.
+export async function enviarPruebaAutomatizacion(datos: { ruleId: string; clave: string; texto?: string | null }): Promise<{ ok: true; enviadoA: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/automatizaciones/prueba', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(datos),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data as { ok: true; enviadoA: string };
+  } catch {
+    return { error: 'No se pudo enviar la prueba' };
+  }
+}
+
 // ─── Plantillas de email: vista previa + envío de prueba (P2-11) ─────────────
 
 // El borrador del formulario, sin guardar: la vista previa y el envío de
