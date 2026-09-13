@@ -18,7 +18,10 @@ export async function leerConsentimientoSalud(studioId: string): Promise<Consent
     if (!auth.Authorization) return null;
     const res = await fetch(`/api/public/consentimiento-salud?studioId=${encodeURIComponent(studioId)}`, { headers: auth });
     if (!res.ok) return null;
-    return (await res.json()) as ConsentimientoSaludAlumna;
+    const data = (await res.json().catch(() => null)) as Partial<ConsentimientoSaludAlumna> | null;
+    // Una respuesta sin estado reconocible no es «no consta»: no se pinta nada.
+    if (!data || (data.estado !== 'VIGENTE' && data.estado !== 'REVOCADO' && data.estado !== 'NO_CONSTA')) return null;
+    return { estado: data.estado, fecha: data.fecha ?? null, revocadoEn: data.revocadoEn ?? null };
   } catch {
     return null;
   }
