@@ -11,7 +11,7 @@ export {
   puedeVer, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar,
   puedeCrearClasesPropias, puedeGestionarCalendario, puedeGestionarAppsOAuth,
-  nombreAppPorRol,
+  nombreAppPorRol, puedeGestionarCamposPersonalizados,
 } from './permisos-reglas';
 
 // A-2 (fail-closed): antes cualquier usuario autenticado SIN ficha de instructora

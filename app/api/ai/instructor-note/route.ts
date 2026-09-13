@@ -6,33 +6,16 @@ import { parseJsonIA } from '@/lib/ai/parse-ia';
 import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { puedeVerFichaClinica } from '@/lib/permisos-reglas';
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { comprobarAccesoSaludSocia } from '@/lib/datos-salud/acceso-servidor';
 
 const client = new Anthropic();
 
 // El texto que llega aquí es dato de salud de una socia (progreso, lesiones,
-// limitaciones) y sale hacia un proveedor externo. Dos cerraduras, las mismas
-// que la RLS de `notas_progreso`: el rol que puede ver la ficha clínica y el
-// consentimiento de salud vigente de ESA socia, en ESTE estudio.
-//
-// ⚠️ El consentimiento se lee de las columnas, no con la RPC
-// `tiene_consentimiento_salud`: con service-role `auth.uid()` es NULL y la RPC
-// se salta el filtro de estudio.
-async function motivoSinConsentimiento(studioId: string, socioId: string): Promise<string | null> {
-  const admin = getSupabaseAdmin();
-  if (!admin) return 'No se ha podido comprobar el consentimiento de salud de esta clienta.';
-  const { data, error } = await admin.from('socios')
-    .select('consentimiento_salud_fecha, consentimiento_salud_revocado_en')
-    .eq('id', socioId)
-    .eq('studio_id', studioId)
-    .is('borrado_en', null)
-    .maybeSingle();
-  if (error || !data) return 'No encontramos a esta clienta en tu estudio.';
-  if (!data.consentimiento_salud_fecha || data.consentimiento_salud_revocado_en) {
-    return 'Registra primero el consentimiento de salud de esta clienta.';
-  }
-  return null;
-}
+// limitaciones) y sale hacia un proveedor externo. Las mismas cerraduras que la
+// RLS de `notas_progreso` (migr 20260913173000): rol clínico, consentimiento de
+// salud vigente de ESA socia en ESTE estudio y, si es instructora, que sea su
+// alumna. Con service-role la RLS no se aplica, así que la regla va en TS
+// (`lib/datos-salud/acceso-servidor.ts`).
 
 const SYSTEM_PROMPT = `Eres un asistente para instructores de pilates.
 Tu tarea es convertir notas de texto libre (dictadas por voz o escritas rápidamente) en una nota de progreso estructurada.
@@ -75,8 +58,8 @@ export async function POST(req: NextRequest) {
     if (typeof socioId !== 'string' || !socioId) {
       return NextResponse.json({ error: 'Falta la clienta de la nota' }, { status: 400 });
     }
-    const motivo = await motivoSinConsentimiento(sesion.studioId, socioId);
-    if (motivo) return NextResponse.json({ error: motivo }, { status: 403 });
+    const acceso = await comprobarAccesoSaludSocia(sesion, socioId, { exigirConsentimiento: true });
+    if (!acceso.ok) return NextResponse.json({ error: acceso.error }, { status: acceso.status });
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',

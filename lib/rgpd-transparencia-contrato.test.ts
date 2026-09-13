@@ -34,9 +34,13 @@ test('la migración de notas_progreso exige consentimiento de salud en lectura y
 test('la nota de sesión con IA comprueba el rol clínico y el consentimiento', () => {
   const ruta = leer('app/api/ai/instructor-note/route.ts');
   assert.match(ruta, /puedeVerFichaClinica\(sesion\.rol\)/);
-  assert.match(ruta, /consentimiento_salud_revocado_en/);
+  // La comprobación vive en el helper compartido con las otras rutas de salud
+  // (consentimiento + alumna asignada, migr 20260913173000).
+  assert.match(ruta, /comprobarAccesoSaludSocia\([^)]*exigirConsentimiento:\s*true/);
+  const helper = leer('lib/datos-salud/acceso-servidor.ts');
+  assert.match(helper, /consentimiento_salud_revocado_en/);
   // Con service-role la RPC se salta el filtro de estudio: no vale aquí.
-  assert.doesNotMatch(ruta, /rpc\(\s*['"]tiene_consentimiento_salud/);
+  assert.doesNotMatch(ruta + helper, /rpc\(\s*['"]tiene_consentimiento_salud/);
 });
 
 test('la lista pública de proveedores incluye a quienes tratan datos', () => {

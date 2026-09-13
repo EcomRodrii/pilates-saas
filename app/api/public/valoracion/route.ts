@@ -114,7 +114,12 @@ export async function POST(req: NextRequest) {
       // en las penalizaciones — se deriva en servidor y el campo del cliente,
       // si viene, se ignora.
       const nombre = await nombreEstudio(studioId);
-      const r = await registrarConsentimientoSaludSocia(socioId, textoConsentimientoSalud(nombre));
+      // Quién lo dio, para la prueba (`consentimientos_salud_eventos`): la
+      // cuenta de Auth de la propia alumna, del token, no del cuerpo.
+      const usuario = await verificarUsuarioSupabase(req);
+      const r = await registrarConsentimientoSaludSocia(
+        studioId, socioId, textoConsentimientoSalud(nombre), usuario?.userId ?? null,
+      );
       if ('error' in r) return NextResponse.json({ error: r.error }, { status: 500 });
       return NextResponse.json({ ok: true, conSalud: true });
     }

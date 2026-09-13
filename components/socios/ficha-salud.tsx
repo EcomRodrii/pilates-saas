@@ -22,10 +22,12 @@ import {
   RESTRICCIONES, restriccionesLegibles, revisionVencida, diasDesde,
 } from '@/lib/ficha-clinica';
 import { dbRegistrarLecturaFichaSalud, getCurrentStudioId } from '@/lib/supabase-data';
+import { textoConsentimientoSaludPanel } from '@/lib/legal-textos';
+import { useAccesoSaludSocia } from '@/lib/hooks/use-acceso-salud-socia';
+import { MENSAJE_NO_ES_SU_ALUMNA } from '@/lib/datos-salud/acceso-instructora';
 import { sugerirAdaptacionesSocio, type AdaptacionSocioIA } from '@/lib/ai/ficha-clinica-socio-client';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { TentareOrb } from '@/components/marca/tentare-orb';
-import { textoConsentimientoSaludMostrador } from '@/lib/legal-textos';
 
 // ─── Etiquetas de presentación ───────────────────────────────────────────────
 
@@ -255,15 +257,20 @@ function CondicionCard({ c, now, onEdit, onAlta, onDelete }: {
 // ─── Consentimiento de tratamiento de datos de salud (art. 9 RGPD) ───────────
 // Se pide UNA vez, antes de guardar la primera condición de esta socia — no en
 // el alta general, para no pedirlo a quien nunca va a necesitarlo.
+//
+// El texto que se enseña es el MISMO que guarda el servidor como prueba
+// (`textoConsentimientoSaludPanel`), junto con la fecha del servidor y el
+// usuario que lo registra. Aquí solo se teclea la firma.
 
 function ConsentimientoSaludDialog({
-  open, onClose, onConfirmar, guardando, error,
+  open, onClose, onConfirmar, guardando, error, texto,
 }: {
   open: boolean;
   onClose: () => void;
   onConfirmar: (registradoPor: string) => void;
   guardando: boolean;
   error: string | null;
+  texto: string;
 }) {
   const [nombre, setNombre] = useState('');
   return (
@@ -271,15 +278,21 @@ function ConsentimientoSaludDialog({
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Autorización para tratar datos de salud</DialogTitle></DialogHeader>
         <div className="space-y-3 text-sm text-foreground">
-          {/* I-7 (59ª pasada): el texto sale de una fuente única y es EL MISMO
-              que se guarda como prueba en `consentimiento_salud_texto`. Antes
-              estaba escrito a mano aquí y no se guardaba en ninguna parte: un
-              registro de art. 9 RGPD con fecha y firmante, pero sin contenido. */}
-          <p className="text-muted-foreground">Vas a registrar lesiones, embarazo u otra condición médica. Es un dato de categoría especial (art. 9 RGPD): antes de guardar el primero, la socia debe autorizar expresamente que el estudio lo trate para adaptar sus clases con seguridad.</p>
-          <p className="text-xs text-muted-foreground border-l-2 border-border pl-3 italic">{textoConsentimientoSaludMostrador()}</p>
+          <p className="text-muted-foreground">
+            Vas a registrar lesiones, embarazo u otra condición médica. Es un dato de categoría
+            especial (art. 9 RGPD): antes de guardar el primero, la clienta tiene que autorizarlo
+            expresamente. Léele este texto: es el que quedará guardado como prueba, con la fecha y tu usuario.
+          </p>
+          <div
+            role="document"
+            aria-label="Texto de la autorización que se registra"
+            className="max-h-48 overflow-y-auto whitespace-pre-line rounded-lg border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground"
+          >
+            {texto}
+          </div>
           <div>
             <label htmlFor="consentimiento-salud-nombre" className="text-xs font-semibold text-muted-foreground mb-1.5 block">
-              Nombre de quien autoriza (la propia socia, delante de ti)
+              Nombre completo de quien autoriza (la propia clienta, delante de ti)
             </label>
             <input
               id="consentimiento-salud-nombre"
@@ -413,7 +426,8 @@ function PreguntaCuestionario({
 
 export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Date; onToast: (mensaje: string) => void }) {
   const {
-    socios, condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion, updateSocio, instructores,
+    socios, condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion, instructores, studio,
+    registrarConsentimientoSalud, revocarConsentimientoSalud,
     cargarFichaClienta,
     plantillasCuestionarioSalud, respuestasCuestionarioSalud, guardarRespuestaCuestionarioSalud,
   } = useStudio();
@@ -425,12 +439,19 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
   const rol = useRol();
   const socio = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
 
+  // Una instructora solo ve la salud de SUS alumnas (migr 20260913173000). Si
+  // esta no lo es, la RLS le devuelve vacío: la pantalla lo dice en vez de
+  // pintar «Ficha de salud vacía» y un «Añadir condición» que se rechazaría.
+  // 'ERROR' (la comprobación no respondió) no bloquea: manda la RLS.
+  const acceso = useAccesoSaludSocia(rol, socioId);
+  const fichaVisible = acceso === 'PERMITIDO' || acceso === 'ERROR';
+
   // Auditoría RGPD de LECTURA (no de escritura): quién abre esta pestaña, de
   // qué socia, y cuándo. Best-effort — un fallo aquí no debe impedir ver la
   // ficha. Una vez por montaje (abrir/cerrar y volver a abrir es una lectura
-  // nueva legítima, no hace falta deduplicar).
+  // nueva legítima, no hace falta deduplicar). Solo si de verdad se enseña.
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !fichaVisible) return;
     const yo = instructores.find(i => i.authUserId === user.id);
     const studioId = getCurrentStudioId();
     if (!studioId) return;
@@ -441,7 +462,7 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
       leidoPorRol: rol,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socioId, user?.id]);
+  }, [socioId, user?.id, fichaVisible]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<CondicionSalud | null>(null);
   // Borrar una condición de la ficha clínica es destructivo y sobre dato de
@@ -507,12 +528,18 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
   }
   function abrirEditar(c: CondicionSalud) { setEditando(c); setDialogOpen(true); }
 
+  // Retirar el consentimiento desde la ficha (la clienta lo pide en mostrador).
+  const [confirmarRevocar, setConfirmarRevocar] = useState(false);
+  const [revocando, setRevocando] = useState(false);
+  // El mismo texto que el servidor guardará como prueba (solo se enseña).
+  const textoConsentimiento = textoConsentimientoSaludPanel({ nombre: studio?.nombre ?? null });
+
   async function adaptarConIA() {
     setAdaptacionIALoading(true);
     setAdaptacionIA(null);
     setAdaptacionIAError(false);
     try {
-      const r = await sugerirAdaptacionesSocio(activas);
+      const r = await sugerirAdaptacionesSocio(socioId, activas);
       setAdaptacionIA(r);
     } catch {
       setAdaptacionIAError(true);
@@ -524,21 +551,23 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
   async function confirmarConsentimiento(registradoPor: string) {
     setGuardandoConsentimiento(true);
     setErrorConsentimiento(null);
-    const r = await updateSocio(socioId, {
-      consentimientoSalud: {
-        fecha: new Date().toISOString(),
-        registradoPor,
-        // I-7: se guarda el texto que la socia acaba de leer en el diálogo, no
-        // solo la fecha y el nombre.
-        texto: textoConsentimientoSaludMostrador(),
-      },
-    });
+    // Fecha, autor y texto los pone el servidor; aquí solo viaja la firma.
+    const r = await registrarConsentimientoSalud(socioId, registradoPor);
     setGuardandoConsentimiento(false);
     if (!r.ok) { setErrorConsentimiento(r.error); return; }
     setConsentimientoDialogOpen(false);
     const cb = trasConsentimiento;
     setTrasConsentimiento(null);
     if (cb) cb(); else { setEditando(null); setDialogOpen(true); }
+  }
+
+  async function revocarConsentimiento() {
+    setRevocando(true);
+    const r = await revocarConsentimientoSalud(socioId);
+    setRevocando(false);
+    if (!r.ok) { onToast(r.error); return; }
+    setConfirmarRevocar(false);
+    onToast('Consentimiento de salud retirado. Sus datos de salud quedan bloqueados.');
   }
 
   async function guardar(f: FormState) {
@@ -562,6 +591,21 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
     if (!res.ok) { onToast(res.error); return; }
     setDialogOpen(false);
     setEditando(null);
+  }
+
+  // Instructora sin relación con esta clienta: se explica por qué no ve nada,
+  // en vez de enseñar una ficha vacía (que parecería que no tiene nada).
+  if (acceso === 'NO_ES_SU_ALUMNA') {
+    return (
+      <div role="status" className="py-12 px-6 text-center border border-dashed border-border rounded-xl">
+        <ShieldCheck size={28} className="mx-auto text-muted-foreground mb-3" aria-hidden />
+        <p className="text-sm font-semibold text-foreground">No puedes ver la ficha de salud de esta clienta</p>
+        <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">{MENSAJE_NO_ES_SU_ALUMNA}</p>
+      </div>
+    );
+  }
+  if (acceso === 'CARGANDO') {
+    return <p role="status" className="py-12 text-center text-xs text-muted-foreground">Comprobando el acceso a la ficha de salud…</p>;
   }
 
   const inicial: FormState = editando
@@ -686,6 +730,23 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
         </div>
       )}
 
+      {/* Consentimiento de salud vigente: cuándo consta y cómo retirarlo
+          (la clienta puede pedirlo en mostrador; también lo tiene en su app). */}
+      {socio?.consentimientoSalud && (
+        <div className="rounded-xl border border-border px-4 py-3 mb-5 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+            <ShieldCheck size={13} className="shrink-0" aria-hidden />
+            Autorización de datos de salud registrada el {fechaCorta(socio.consentimientoSalud.fecha)}
+          </p>
+          <button
+            onClick={() => setConfirmarRevocar(true)}
+            className="text-[11px] font-semibold text-destructive hover:underline"
+          >
+            Retirar consentimiento de salud
+          </button>
+        </div>
+      )}
+
       {/* Línea de tiempo */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs font-medium text-muted-foreground">{condiciones.length} registro(s) en la ficha</p>
@@ -721,6 +782,17 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
         onConfirmar={confirmarConsentimiento}
         guardando={guardandoConsentimiento}
         error={errorConsentimiento}
+        texto={textoConsentimiento}
+      />
+
+      <ConfirmDialog
+        open={confirmarRevocar}
+        onOpenChange={abierto => { if (!abierto && !revocando) setConfirmarRevocar(false); }}
+        titulo="¿Retirar el consentimiento de salud?"
+        descripcion="Hazlo solo si la clienta lo pide. Desde ese momento nadie del estudio verá sus datos de salud (condiciones, notas de sesión, cuestionario): quedan bloqueados, no se borran, y no se podrán añadir nuevos. Si además quiere que se eliminen, es una solicitud de supresión aparte. Queda registrado quién lo retiró y cuándo."
+        textoConfirmar={revocando ? 'Retirando…' : 'Retirar consentimiento'}
+        destructivo
+        onConfirm={() => { if (!revocando) void revocarConsentimiento(); }}
       />
 
       <ConfirmDialog

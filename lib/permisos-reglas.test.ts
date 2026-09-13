@@ -6,6 +6,7 @@ import {
   puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCentroNotificaciones,
   puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo,
   puedeGestionarFichaDe, puedeVerRetribucionDe, filtrarRetribucionVisible,
+  puedeGestionarCamposPersonalizados,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -415,6 +416,14 @@ test('filtrarRetribucionVisible: la liquidación propia en BORRADOR no se ve (li
     propiaVisible: f => f.estado !== 'BORRADOR',
   });
   assert.deepEqual(visibles.map(f => f.instructorId), ['ins-ana']);
+test('puedeGestionarCamposPersonalizados: solo la propietaria define qué se pregunta (igual que la RLS)', () => {
+  // Lo rellenado va a `campos_extra`, que lee todo el personal: si una
+  // instructora pudiera crear «Lesiones previas», la salud se saldría de la
+  // ficha clínica. Migr 20260913173200.
+  assert.equal(puedeGestionarCamposPersonalizados('PROPIETARIO'), true);
+  assert.equal(puedeGestionarCamposPersonalizados('MANAGER'), false);
+  assert.equal(puedeGestionarCamposPersonalizados('RECEPCION'), false);
+  assert.equal(puedeGestionarCamposPersonalizados('INSTRUCTOR'), false);
 });
 
 

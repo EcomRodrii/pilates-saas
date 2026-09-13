@@ -167,27 +167,6 @@ export function textoConsentimientoMarketing(e: DatosEstudioLegal = {}): string 
   return `Acepto recibir por email novedades, promociones y ofertas de ${nombreEstudio}. Puedo retirar este consentimiento en cualquier momento, sin coste ni justificación, desde el enlace de baja de cualquier email o pidiéndolo directamente al estudio. Esta comunicación es independiente de los avisos necesarios para la prestación del servicio (reservas, pagos, cambios de horario), que seguiré recibiendo aunque retire este consentimiento.`;
 }
 
-/**
- * Texto del consentimiento de datos de salud que se registra EN MOSTRADOR.
- *
- * I-7 (auditoría 59ª pasada, 13-sep-2026). El diálogo del panel
- * (`components/socios/ficha-salud.tsx`) enseñaba este párrafo escrito a mano en
- * el JSX y guardaba solo fecha y nombre de quien autoriza:
- * `consentimiento_salud_texto` se quedaba a NULL (2 de los 3 consentimientos
- * vivos de producción están así). O sea, un registro RGPD de categoría especial
- * (art. 9) que dice CUÁNDO y QUIÉN pero no QUÉ se consintió — y si mañana se
- * reescribe el párrafo, nada permite saber cuál firmó cada socia.
- *
- * El camino de la propia socia ya lo hacía bien: `textoConsentimientoSalud` en
- * lib/student/valoracion-copy.ts es la fuente única y el servidor guarda ese
- * mismo texto (`registrarConsentimientoSaludSocia`). Esto le da al mostrador la
- * suya, con el mismo patrón que `textoConsentimientoMarketing`: una sola
- * definición, la pantalla la pinta y la BD la guarda.
- */
-export function textoConsentimientoSaludMostrador(): string {
-  return 'Autorizo al estudio a tratar mis datos de salud (lesiones, embarazo u otras condiciones médicas) con la única finalidad de adaptar mis clases con seguridad. Es un dato de categoría especial (art. 9 RGPD) y doy este consentimiento de forma expresa. Puedo retirarlo en cualquier momento, sin coste ni justificación, pidiéndolo al estudio.';
-}
-
 // ─── Textos legales efectivos de un estudio ─────────────────────────────────
 //
 // Vivían en `lib/studio-context.tsx`, que es `'use client'`. Se mueven aquí
