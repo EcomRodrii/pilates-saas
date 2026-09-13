@@ -1,7 +1,146 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { crearSnapshot, BACKUP_TABLES } from './backup-engine.ts';
+import {
+  crearSnapshot, BACKUP_TABLES, COLUMNAS_SOCIOS_QUE_NO_VUELVEN_ATRAS, TABLAS_ACTUALIZAR,
+  TABLAS_FISCALES_SOLO_INSERTAR, planModosRestauracion, sociasAReanonimizar, type ReferenciaFk,
+} from './backup-engine.ts';
+
+// ─── Restauración (C4 / R-1) ─────────────────────────────────────────────────
+
+// FKs que apuntan a tablas de BACKUP_TABLES, leídas del catálogo de producción
+// (`pg_constraint`, 13-sep-2026). Solo el par referenciada ← referenciante: el
+// ON DELETE da igual, porque cualquiera de ellos (cascada, set null o bloqueo)
+// rompe un DELETE de la madre si la hija no se reinserta.
+const FK_PRODUCCION: Record<string, string[]> = {
+  achievement_definitions: ['achievement_history', 'achievement_progress'],
+  automation_rules: ['automation_logs'],
+  automatizaciones: ['automation_logs'],
+  challenge_definitions: ['challenge_history', 'challenge_progress'],
+  codigos_descuento: ['codigos_descuento_consumos'],
+  instructores: ['citas_disponibilidad', 'contenido_portal_banners', 'instructor_dependency_snapshots',
+    'instructor_enlaces_vigentes', 'instructor_tarifas', 'instructora_ausencias', 'instructora_disponibilidad',
+    'instructora_disponibilidad_excepciones', 'liquidaciones_instructoras', 'novedades_estudio',
+    'red_formalizaciones', 'sustitucion_contactos', 'sustituciones', 'valoraciones', 'citas',
+    'mensajes_equipo', 'notas_progreso', 'preferencias_socio', 'sesiones', 'videos_on_demand'],
+  planes_tarifa: ['matricula_cupo_liberaciones', 'plan_tipos_clase', 'suscripciones', 'ventas_pos'],
+  posts_comunidad: ['comentarios_comunidad', 'post_evento_asistentes', 'post_likes'],
+  productos_pos: ['movimientos_stock'],
+  recibos: ['codigos_descuento_consumos', 'devoluciones', 'penalizaciones', 'facturas'],
+  reservas: ['conversaciones', 'red_resenas'],
+  reward_actions: ['reward_history'],
+  reward_catalog: ['reward_redemptions'],
+  reward_rules: ['reward_history'],
+  salas: ['bloqueos_maquina', 'plazas_fijas', 'sesiones', 'spots'],
+  sesiones: ['conversaciones', 'intentos_reserva_fallidos', 'recordatorio_envios', 'respuestas_sesion',
+    'sustituciones', 'valoraciones', 'widget_eventos', 'reservas'],
+  socios: ['codigos_descuento_consumos', 'comunicaciones_socio', 'condiciones_salud', 'conversacion_participantes',
+    'devoluciones', 'documentos_socio', 'favoritos_clase', 'intentos_reserva_fallidos', 'lecturas_ficha_salud',
+    'mandatos_sepa', 'memoria_socio', 'pagos_historicos', 'plazas_fijas', 'post_evento_asistentes',
+    'recomendaciones', 'recordatorio_envios', 'recuperaciones', 'respuestas_cuestionario_salud',
+    'respuestas_sesion', 'reto_participaciones', 'socio_companeras', 'socio_excepciones',
+    'socio_tipos_clase_autorizados', 'tareas', 'valoraciones', 'valoraciones_iniciales',
+    'valoraciones_iniciales_salud', 'widget_eventos', 'achievement_history', 'achievement_progress',
+    'actividad_reciente', 'challenge_history', 'challenge_progress', 'citas', 'credit_transactions',
+    'member_credits', 'notas_internas', 'notas_progreso', 'preferencias_socio', 'recibos', 'reservas',
+    'reward_actions', 'reward_history', 'reward_redemptions', 'suscripciones', 'ventas_pos'],
+  spots: ['bloqueos_maquina', 'plazas_fijas', 'reservas'],
+  suscripciones: ['congelaciones', 'recibos'],
+  tipos_clase: ['favoritos_clase', 'intentos_reserva_fallidos', 'plan_tipos_clase', 'plazas_fijas',
+    'socio_tipos_clase_autorizados', 'sesiones'],
+  ventas_pos: ['devoluciones', 'ventas_pos_lineas', 'facturas'],
+};
+const fks = (mapa: Record<string, string[]>): ReferenciaFk[] =>
+  Object.entries(mapa).flatMap(([referenciada, hijas]) => hijas.map(referenciante => ({ referenciada, referenciante })));
+
+const migracionRestaurar = readFileSync(new URL(
+  '../../supabase/migrations/20260913170200_restaurar_backup_conserva_fiscal_y_supresiones.sql', import.meta.url), 'utf8');
+function arraySql(nombre: string): string[] {
+  const m = migracionRestaurar.match(new RegExp(`${nombre} constant text\\[\\] := array\\[([\\s\\S]*?)\\];`));
+  assert.ok(m, `no encuentro ${nombre} en la migración`);
+  return [...m[1].matchAll(/'([a-z0-9_]+)'/g)].map(x => x[1]);
+}
+
+test('restaurar: lo fiscal nunca se borra ni se revierte', () => {
+  const modos = planModosRestauracion(fks(FK_PRODUCCION));
+  for (const t of ['recibos', 'facturas', 'ventas_pos'] as const) {
+    assert.equal(modos[t], 'insertar_faltantes', `${t} no puede reemplazarse`);
+  }
+});
+
+test('restaurar: socios se actualiza sin DELETE (sin cascadas a salud, documentos, mensajes)', () => {
+  assert.equal(planModosRestauracion(fks(FK_PRODUCCION)).socios, 'actualizar');
+});
+
+test('restaurar: con el catálogo de producción, ninguna tabla a reemplazar arrastra datos fuera de la copia', () => {
+  const lista = fks(FK_PRODUCCION);
+  const modos = planModosRestauracion(lista);
+  const reemplazadas = new Set(BACKUP_TABLES.filter(t => modos[t] === 'reemplazar'));
+  for (const t of reemplazadas) {
+    const fuera = lista.filter(fk => fk.referenciada === t && !reemplazadas.has(fk.referenciante as never));
+    assert.deepEqual(fuera, [], `borrar ${t} arrastraría ${fuera.map(f => f.referenciante).join(', ')}`);
+  }
+  // Lo que la v1 destruía o no podía borrar se queda sin DELETE.
+  for (const t of ['instructores', 'sesiones', 'reservas', 'suscripciones', 'planes_tarifa', 'tipos_clase',
+    'salas', 'spots', 'productos_pos', 'codigos_descuento', 'posts_comunidad'] as const) {
+    assert.equal(modos[t], 'insertar_faltantes', `${t}`);
+  }
+  // Y lo que no cuelga de nada ajeno se sigue restaurando entero (no verde por vacío).
+  for (const t of ['notas_internas', 'automation_logs', 'automation_rules', 'reward_redemptions', 'citas'] as const) {
+    assert.equal(modos[t], 'reemplazar', `${t}`);
+  }
+});
+
+test('restaurar: una FK nueva desde una tabla no respaldada saca a su madre de reemplazar, en cadena', () => {
+  const modos = planModosRestauracion([
+    ...fks(FK_PRODUCCION),
+    { referenciada: 'automation_logs', referenciante: 'tabla_nueva_sin_backup' },
+  ]);
+  assert.equal(modos.automation_logs, 'insertar_faltantes');
+  // automation_logs ya no se borra → borrar sus madres la arrastraría.
+  assert.equal(modos.automation_rules, 'insertar_faltantes');
+  assert.equal(modos.automatizaciones, 'insertar_faltantes');
+});
+
+test('restaurar: una tabla que la copia no trae ni se borra ni se vacía', () => {
+  const sinDashboard = BACKUP_TABLES.filter(t => t !== 'dashboard_charts');
+  assert.equal(planModosRestauracion(fks(FK_PRODUCCION), sinDashboard).dashboard_charts, 'ausente');
+});
+
+test('restaurar: una socia suprimida después de la copia se vuelve a anonimizar', () => {
+  const ids = sociasAReanonimizar({
+    sociasTrasRestaurar: [
+      { id: 'activa', borrado_en: null },
+      { id: 'suprimida-despues', borrado_en: null }, // la copia la trae viva…
+      { id: 'borrada-en-copia', borrado_en: '2026-08-01T00:00:00Z' },
+      { id: 'borrada-antes', borrado_en: null },
+    ],
+    borradasAntes: ['borrada-antes'],
+    suprimidas: ['suprimida-despues', 'suprimida-despues'], // …pero está en `supresiones`
+  });
+  assert.deepEqual(ids, ['borrada-antes', 'borrada-en-copia', 'suprimida-despues']);
+});
+
+test('restaurar: las listas de TS y las de la migración son las mismas', () => {
+  assert.deepEqual(arraySql('c_tablas'), [...BACKUP_TABLES]);
+  assert.deepEqual(arraySql('c_fiscales'), [...TABLAS_FISCALES_SOLO_INSERTAR]);
+  assert.deepEqual(arraySql('c_actualizar'), [...TABLAS_ACTUALIZAR]);
+  assert.deepEqual(arraySql('c_socios_no_vuelven_atras').sort(), [...COLUMNAS_SOCIOS_QUE_NO_VUELVEN_ATRAS].sort());
+});
+
+test('restaurar: la función es solo de service_role y lo comprueba al aplicarse', () => {
+  const firma = 'public.restaurar_backup(text, jsonb)';
+  for (const rol of ['public', 'anon', 'authenticated']) {
+    assert.ok(migracionRestaurar.includes(`revoke all on function ${firma} from ${rol};`), `falta revoke ${rol}`);
+  }
+  assert.ok(migracionRestaurar.includes(`grant execute on function ${firma} to service_role;`));
+  for (const rol of ['anon', 'authenticated', 'service_role']) {
+    assert.ok(migracionRestaurar.includes(`has_function_privilege('${rol}', '${firma}'`), `falta comprobación ${rol}`);
+  }
+});
+
+// ─── Copia (crearSnapshot) ───────────────────────────────────────────────────
 
 // Simula lo que hace PostgREST de verdad: devolver como mucho `max_rows` filas
 // por petición (1000, supabase/config.toml:18) y hacerlo EN SILENCIO — sin
