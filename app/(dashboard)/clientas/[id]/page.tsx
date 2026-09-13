@@ -12,7 +12,7 @@ import { estructurarNotaIA } from '@/lib/ai/instructor-note-client';
 import { resumenSocio } from '@/lib/socio-resumen';
 import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
 import type { LeadStage } from '@/lib/types';
-import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio } from '@/lib/api-client';
+import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
@@ -300,6 +300,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [toast, setToast] = useState<string | null>(null);
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
   const [reactivando, setReactivando] = useState(false);
+  const [reactivandoBuzon, setReactivandoBuzon] = useState(false);
+  // I-8: `emailsRebotados` vive en el contexto y se carga UNA vez por sesión
+  // (`cargarUnaVez`, studio-context.tsx) — no hay una vía barata de forzar un
+  // refresco solo de esto sin tocar ese caché compartido por todo el panel.
+  // Optimista y local a esta ficha: en cuanto Resend confirma la reactivación,
+  // se oculta el aviso aquí mismo sin esperar a la próxima carga completa.
+  const [buzonesReactivados, setBuzonesReactivados] = useState<Set<string>>(new Set());
   const [confirmarCancelarSus, setConfirmarCancelarSus] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
@@ -387,7 +394,27 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // solo se veía al reintentar un aviso de hueco: los recordatorios, las
   // facturas y los accesos se daban por enviados igual (#1868). Se normaliza
   // porque la tabla va en minúsculas y una ficha puede tener «Maria@Gmail.com».
-  const reboteCorreo = socio?.email ? emailsRebotados[normalizarEmail(socio.email)] : undefined;
+  const emailNormalizadoSocio = socio?.email ? normalizarEmail(socio.email) : null;
+  const reboteCorreo = emailNormalizadoSocio && !buzonesReactivados.has(emailNormalizadoSocio)
+    ? emailsRebotados[emailNormalizadoSocio]
+    : undefined;
+
+  // I-8 (auditoría 58ª pasada): la única salida manual para "no le está
+  // llegando el correo" — ver lib/emails/reactivar-buzon.ts. Quita la
+  // supresión en Resend y, solo si Resend lo confirma, la fila de
+  // email_rebotes deja de existir.
+  const reactivarBuzon = async () => {
+    if (!emailNormalizadoSocio || reactivandoBuzon) return;
+    setReactivandoBuzon(true);
+    try {
+      const r = await reactivarBuzonRoto(emailNormalizadoSocio);
+      if (!r.ok) { setToast(r.error); return; }
+      setBuzonesReactivados(prev => new Set(prev).add(emailNormalizadoSocio));
+      setToast('Buzón reactivado — volverá a recibir correos');
+    } finally {
+      setReactivandoBuzon(false);
+    }
+  };
 
   // P0-34: las derivaciones que escanean arrays estudio-wide se memoizan (y van
   // ANTES del early return, por las reglas de hooks). Antes se recalculaban en
@@ -1617,11 +1644,31 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               {reboteCorreo && (
                 <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-2.5 py-2">
                   <AlertTriangle size={13} className="text-destructive shrink-0 mt-0.5" />
-                  <p className="text-[11px] leading-snug text-destructive">
-                    <span className="font-semibold">No le está llegando el correo.</span>{' '}
-                    {motivoLegible(reboteCorreo)}. Corrige la dirección en «Editar» y volverá a
-                    recibir recordatorios, facturas y accesos.
-                  </p>
+                  <div className="text-[11px] leading-snug text-destructive">
+                    <p>
+                      <span className="font-semibold">No le está llegando el correo.</span>{' '}
+                      {motivoLegible(reboteCorreo)}. Corrige la dirección en «Editar» y volverá a
+                      recibir recordatorios, facturas y accesos.
+                    </p>
+                    {/* I-8: si la dirección ya es correcta (typo corregido, o
+                        confirmado con ella que su buzón funciona), esto es lo
+                        único que la desatasca — sin webhook posible que lo
+                        haga solo, ver lib/emails/reactivar-buzon.ts. */}
+                    {gestionaClientas && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`¿Reactivar ${socio.email}? Solo hazlo si ya has confirmado que este buzón funciona.`)) {
+                            reactivarBuzon();
+                          }
+                        }}
+                        disabled={reactivandoBuzon}
+                        className="mt-1 font-semibold underline underline-offset-2 disabled:opacity-50"
+                      >
+                        {reactivandoBuzon ? 'Reactivando…' : 'Ya funciona: reactivar'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
               {socio.telefono && (

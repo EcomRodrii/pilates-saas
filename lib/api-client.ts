@@ -1150,6 +1150,27 @@ export async function fetchEmailsRebotados(): Promise<Record<string, TipoRebote>
   }
 }
 
+/**
+ * I-8 (auditoría 58ª pasada): la única salida manual para "no le está
+ * llegando el correo" — ver `lib/emails/reactivar-buzon.ts`. Quita la
+ * supresión en Resend y, solo si eso se confirma, borra la fila de
+ * `email_rebotes`.
+ */
+export async function reactivarBuzonRoto(email: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/clientas/rebotes/reactivar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return { ok: false, error: data?.error ?? 'No se pudo reactivar' };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'No se pudo contactar con el servidor' };
+  }
+}
+
 // Importa membresías/bonos (suscripciones). Empareja por email de socia y nombre
 // de plan en el servidor; el studio_id sale del JWT. Misma forma de resultado.
 // F2 (B2.11) rescate: importa las plazas fijas del estudio desde CSV.
