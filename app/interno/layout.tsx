@@ -11,9 +11,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Building2, CreditCard, LayoutDashboard, LifeBuoy, Megaphone, Network, ScrollText, ShieldAlert, Sprout, Users } from 'lucide-react';
-import { fetchSesionInterna, SinAcceso, type SesionInterna } from '@/lib/interno/client';
+import { EVENTO_MFA_REQUERIDO, fetchSesionInterna, SinAcceso, type SesionInterna } from '@/lib/interno/client';
 import { useAuth } from '@/lib/auth-context';
 import { tieneAlguno, type Permiso } from '@/lib/interno/permisos';
 
@@ -42,20 +42,56 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const pathname = usePathname();
+  const router = useRouter();
+  // La pantalla de MFA vive dentro de /interno pero NO puede depender de la
+  // sesión interna: con la exigencia activa, esa llamada es justo la que
+  // responde MFA_REQUERIDO y la mandaría aquí en bucle.
+  const esPantallaMfa = pathname === '/interno/mfa';
+
+  const irAMfa = useCallback(() => {
+    const volver = `${window.location.pathname}${window.location.search}`;
+    router.replace(`/interno/mfa?volver=${encodeURIComponent(volver)}`);
+  }, [router]);
 
   const cargar = useCallback(async () => {
     try {
       setSesion(await fetchSesionInterna());
+      setCargando(false);
     } catch (e) {
+      // Se queda en «Comprobando acceso…» mientras navega: pintar el error
+      // diría «no eres del equipo» a quien sí lo es.
+      if (e instanceof SinAcceso && e.tipo === 'mfa-requerido') { irAMfa(); return; }
       setError(e instanceof SinAcceso ? e.message : 'No se ha podido comprobar tu acceso.');
-    } finally {
       setCargando(false);
     }
-  }, []);
+  }, [irAMfa]);
 
   // setState tras await, no en cascada — falso positivo del lint.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void cargar(); }, [cargar]);
+  useEffect(() => { if (!esPantallaMfa) void cargar(); }, [cargar, esPantallaMfa]);
+
+  // Cualquier llamada de una pantalla (no solo la de sesión) puede toparse con
+  // MFA_REQUERIDO si la exigencia se activa con la pestaña abierta.
+  useEffect(() => {
+    if (esPantallaMfa) return;
+    window.addEventListener(EVENTO_MFA_REQUERIDO, irAMfa);
+    return () => window.removeEventListener(EVENTO_MFA_REQUERIDO, irAMfa);
+  }, [irAMfa, esPantallaMfa]);
+
+  if (esPantallaMfa) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="bg-slate-900 text-slate-100">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-3">
+            <span className="text-[13px] font-bold tracking-wide">
+              Tentare <span className="text-slate-400 font-medium">Internal</span>
+            </span>
+          </div>
+        </header>
+        <main className="mx-auto max-w-6xl px-4 sm:px-6 py-5 sm:py-6">{children}</main>
+      </div>
+    );
+  }
 
   if (cargando) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Comprobando acceso…</div>;
@@ -147,6 +183,19 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
             </nav>
           </div>
         </header>
+        {/* Solo con `nivel: 'aal1'` explícito: mientras INTERNO_EXIGIR_MFA no
+            esté activa, es lo que empuja a cada admin a enrolarse antes. */}
+        {sesion.nivel === 'aal1' && (
+          <div className="bg-amber-500/10 border-b border-amber-500/20">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-foreground">
+              <ShieldAlert size={14} className="text-warning shrink-0" />
+              <span>Esta sesión no ha pasado la verificación en dos pasos. Pronto será obligatoria para entrar aquí.</span>
+              <Link href={`/interno/mfa?volver=${encodeURIComponent(pathname)}`} className="font-bold underline">
+                Configurarla
+              </Link>
+            </div>
+          </div>
+        )}
         <main className="mx-auto max-w-6xl px-4 sm:px-6 py-5 sm:py-6">{children}</main>
       </div>
     </Ctx.Provider>

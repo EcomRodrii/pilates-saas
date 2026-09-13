@@ -368,6 +368,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     if (!stripeClientId) return;
     const res = await fetch('/api/integrations/oauth-state', {
       method: 'POST',
+      // H-1: same-origin (el valor por defecto, explícito para que no se cambie): esta respuesta fija la cookie HttpOnly del flujo.
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ provider: 'stripe' }),
     });
@@ -421,6 +423,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     if (!googleClientId) return;
     const res = await fetch('/api/integrations/oauth-state', {
       method: 'POST',
+      // H-1: same-origin (el valor por defecto, explícito para que no se cambie): esta respuesta fija la cookie HttpOnly del flujo.
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ provider: 'google' }),
     });
@@ -479,6 +483,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     if (!googleClientId) return;
     const res = await fetch('/api/integrations/oauth-state', {
       method: 'POST',
+      // H-1: same-origin (el valor por defecto, explícito para que no se cambie): esta respuesta fija la cookie HttpOnly del flujo.
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ provider: 'gmail' }),
     });
@@ -546,6 +552,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     if (!zoomClientId) return;
     const res = await fetch('/api/integrations/oauth-state', {
       method: 'POST',
+      // H-1: same-origin (el valor por defecto, explícito para que no se cambie): esta respuesta fija la cookie HttpOnly del flujo.
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ provider: 'zoom' }),
     });
@@ -607,6 +615,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     if (!klaviyoClientId) return;
     const res = await fetch('/api/integrations/oauth-state', {
       method: 'POST',
+      // H-1: same-origin (el valor por defecto, explícito para que no se cambie): esta respuesta fija la cookie HttpOnly del flujo.
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ provider: 'klaviyo' }),
     });

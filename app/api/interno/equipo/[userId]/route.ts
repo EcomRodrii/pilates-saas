@@ -41,7 +41,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
   const brutos = cuerpo.permisos ?? antes.permisos;
   const desconocido = brutos.find(p => !esPermiso(p));
   if (desconocido) return NextResponse.json({ error: `"${desconocido}" no es un permiso.` }, { status: 400 });
-  const permisos = brutos as Permiso[];
+  // A5: de baja = sin permisos. Antes la baja solo apagaba `activo` y dejaba
+  // las filas de `plataforma_permiso` (en producción, un `admin.full` de
+  // alguien ya fuera). Reactivar la cuenta devolvía ese acceso total sin que
+  // nadie lo concediera otra vez. Ahora se borran y lo apunta la auditoría
+  // (el «−permiso» del resumen y `despues.permisos: []`). Reactivar obliga a
+  // elegir permisos de nuevo: sin ellos, la regla de abajo lo rechaza.
+  // Vale también para quien YA estaba de baja con permisos colgando: cualquier
+  // cambio sobre su ficha los limpia.
+  const permisos = activo ? (brutos as Permiso[]) : [];
 
   const daDeBaja = antes.activo && !activo;
   const requerido: Permiso = daDeBaja ? 'users.delete' : 'users.create';

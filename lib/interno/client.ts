@@ -5,17 +5,29 @@
 import { authHeader } from '../api-client.ts';
 
 export class SinAcceso extends Error {
-  constructor(public readonly tipo: 'no-eres-del-equipo' | 'te-falta-permiso', mensaje: string) {
+  constructor(public readonly tipo: 'no-eres-del-equipo' | 'te-falta-permiso' | 'mfa-requerido', mensaje: string) {
     super(mensaje);
   }
 }
+
+// Lo escucha el layout de /interno para llevar a la pantalla de MFA desde
+// cualquier llamada, no solo desde la de sesión: la exigencia puede activarse
+// con la pestaña ya abierta.
+export const EVENTO_MFA_REQUERIDO = 'interno:mfa-requerido';
 
 async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/interno${ruta}`, {
     ...init,
     headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...(await authHeader()) },
   });
-  if (res.status === 401) throw new SinAcceso('no-eres-del-equipo', 'Esta zona es solo para el equipo de Tentare.');
+  if (res.status === 401) {
+    const cuerpo = await res.json().catch(() => null) as { codigo?: string } | null;
+    if (cuerpo?.codigo === 'MFA_REQUERIDO') {
+      window.dispatchEvent(new Event(EVENTO_MFA_REQUERIDO));
+      throw new SinAcceso('mfa-requerido', 'Confirma tu identidad con la verificación en dos pasos.');
+    }
+    throw new SinAcceso('no-eres-del-equipo', 'Esta zona es solo para el equipo de Tentare.');
+  }
   if (res.status === 403) {
     const cuerpo = await res.json().catch(() => ({ error: '' }));
     throw new SinAcceso('te-falta-permiso', cuerpo.error || 'No tienes permiso para ver esto.');
@@ -29,6 +41,8 @@ async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
 
 export interface SesionInterna {
   nombre: string; cargo: string | null; email: string; permisos: string[];
+  /** Ausente en respuestas antiguas o mockeadas: solo `'aal1'` explícito enseña el aviso. */
+  nivel?: 'aal1' | 'aal2';
 }
 
 export interface Kpis {
