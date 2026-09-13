@@ -1,0 +1,11 @@
+-- Alta de mostrador sin email (evaluación del 13-sep, problema 16).
+--
+-- Una alumna que se apunta en recepción no siempre da su correo en el momento,
+-- y el formulario no dejaba darla de alta sin él. La columna era NOT NULL
+-- desde el esquema inicial, pero nada en la BD lo necesita:
+--   · `uq_socios_studio_email` ya excluye los NULL (WHERE email IS NOT NULL).
+--   · Ningún trigger ni CHECK de `socios` lee el email.
+--   · La única función que lo lee (`alumnas_apuntadas`) lo devuelve tal cual.
+-- Sin email la alumna no entra al portal ni recibe correos hasta que se le
+-- ponga uno en su ficha; el panel ya filtra por `email` antes de enviar.
+alter table public.socios alter column email drop not null;

@@ -353,7 +353,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'crear-un-plan', categoria: 'bonos', tipo: 'guia',
     titulo: 'Cómo crear un plan o bono nuevo',
-    descripcion: 'Nombre, tipo, precio y sesiones incluidas — desde Configuración > Planes y tarifas.',
+    descripcion: 'Nombre, tipo, precio y sesiones incluidas — desde Paquetes.',
     actualizado: '2026-08-28',
     relacionados: ['bonos/tipos-de-bono'],
     estado: 'publicado',

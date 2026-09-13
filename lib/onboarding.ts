@@ -171,7 +171,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
     // de lo que contestó en el asistente.
     { id: 'horario', label: 'Programa tus clases', descripcion: 'Sin clases en el calendario, tu página de reservas no tiene nada que enseñar. Te proponemos un horario y lo confirmas.', minutos: 2, done: d.numSesiones > 0, href: '/calendario' },
     { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: 'Empieza con las que ya tienes — el resto se apuntará sola desde tu página de reservas.', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1', labelSecundario: '¿Vienes de otro software? Importa tus datos', hrefSecundario: '/migracion' },
-    { id: 'bonos', label: 'Configura tus bonos y membresías', descripcion: 'Planes de pago recurrente o por sesiones — sin esto, cada clienta paga clase a clase.', minutos: 4, done: d.numPlanesTarifa > 0, href: '/configuracion?tab=planes' },
+    { id: 'bonos', label: 'Configura tus bonos y membresías', descripcion: 'Planes de pago recurrente o por sesiones — sin esto, cada clienta paga clase a clase.', minutos: 4, done: d.numPlanesTarifa > 0, href: '/productos' },
   ];
   // ⚠️ EL CANDADO DE STRIPE ERA FALSO. Este paso exigía `stripeAccountId`, y
   // para recibir una reserva Stripe NO hace falta: se comprobó contra el camino
@@ -201,7 +201,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
 
   const pagos: PasoOnboarding[] = [
     { id: 'stripe', label: 'Conecta Stripe', descripcion: 'Cobra online con tarjeta o SEPA — sin esto, todos los cobros son manuales.', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=integraciones' },
-    { id: 'renovacion', label: 'Activa una membresía con renovación automática', descripcion: 'Cobra la cuota sola cada mes, sin que tengas que perseguir a nadie.', minutos: 2, done: d.numSuscripcionesActivas > 0, href: '/configuracion?tab=planes' },
+    { id: 'renovacion', label: 'Activa una membresía con renovación automática', descripcion: 'Cobra la cuota sola cada mes, sin que tengas que perseguir a nadie.', minutos: 2, done: d.numSuscripcionesActivas > 0, href: '/productos' },
   ];
 
   const automatizaciones: PasoOnboarding[] = AUTOMATIZACIONES_ONBOARDING.map(a => ({

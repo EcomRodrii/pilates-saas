@@ -1,17 +1,17 @@
 import Link from 'next/link';
-import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
 import { AyudaPaso, AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
+// Sin captura desde el 13-sep: la que había era de Configuración → Planes y
+// tarifas, pantalla que se quitó al dejar las tarifas solo en Paquetes. Mejor
+// ninguna imagen que una de una pantalla que ya no existe.
 export default function Contenido() {
   return (
     <>
-      <AyudaPaso numero={1} titulo="Ve a Configuración > Planes y tarifas">
-        <p>Ahí ves todos tus planes activos, y el botón para crear uno nuevo.</p>
-        <AyudaCaptura
-          src="/help/bonos/configuracion-planes.png"
-          alt="Listado de planes en Configuración &gt; Planes y tarifas, con tipo, precio, sesiones y a qué clases sirve cada uno"
-          caption="Configuración &gt; Planes y tarifas — dos planes reales: una cuota mensual y un bono de sesiones."
-        />
+      <AyudaPaso numero={1} titulo="Ve a Paquetes">
+        <p>
+          En el menú, <strong>Paquetes</strong>. Ahí tienes tus tarifas separadas en Suscripciones, Bonos y Bajo
+          demanda, y el botón <strong>Crear</strong> para una nueva.
+        </p>
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Elige el tipo y complétalo">

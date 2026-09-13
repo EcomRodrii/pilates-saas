@@ -45,8 +45,22 @@ test('la comparación es por sesión, no contra la primera de la serie', () => {
 
 test('usa el aviso que SÍ lleva quién da la clase', () => {
   const cuerpo = cuerpoEditarSerie();
-  assert.match(cuerpo, /avisarCambioHorarioSala/,
+  // Desde el 13-sep la serie avisa en UNA llamada (`avisarCambioSerieServidor`,
+  // un correo por alumna — ver lib/avisos-serie.ts) en vez de llamar a
+  // `avisarCambioHorarioSala` clase a clase. Lo que protege este test sigue
+  // igual: que ese aviso lleve quién da la clase y quién la daba.
+  assert.match(cuerpo, /avisarCambioSerieServidor/,
     'El aviso corto no lleva instructora: el correo diría que algo cambió sin decir qué.');
+  assert.match(cuerpo, /instructorActual/,
+    'El correo tiene que decir quién la da ahora.');
   assert.match(cuerpo, /instructorAnterior/,
     'El correo tiene que poder decir quién la daba antes.');
+});
+
+test('una serie no avisa clase a clase', () => {
+  const cuerpo = cuerpoEditarSerie();
+  // Llamar al aviso dentro del bucle mandaba a una alumna con plaza en toda la
+  // serie un correo por clase (evaluación del 13-sep).
+  assert.doesNotMatch(cuerpo, /avisarCambioHorarioSala\(/,
+    'El aviso por clase dentro del bucle vuelve a mandar un correo por clase.');
 });

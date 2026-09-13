@@ -537,7 +537,10 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     studioId: r.studio_id,
     nombre: r.nombre,
     apellidos: r.apellidos,
-    email: r.email,
+    // Alta de mostrador sin email (migr 20260913134147): en la BD es NULL y en
+    // el panel '' — `Socio.email` sigue siendo string y todo lo que envía
+    // correo ya comprueba que no esté vacío.
+    email: r.email ?? '',
     telefono: r.telefono ?? null,
     nif: r.nif ?? null,
     fechaAlta: r.fecha_alta,
@@ -1460,6 +1463,10 @@ function socioToDb(socio: Socio) {
   } = socio;
   return {
     ...rest,
+    // Sin email es NULL, nunca '': el índice único `uq_socios_studio_email`
+    // excluye los NULL, pero dos '' del mismo estudio chocarían entre sí
+    // (alta de mostrador sin email, migr 20260913134147).
+    email: rest.email?.trim() ? rest.email.trim() : null,
     studio_id: studioId ?? STUDIO_ID,
     fecha_alta: fechaAlta,
     lead_stage: leadStage ?? null,
@@ -1839,7 +1846,8 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
   if ('studioId' in changes) db.studio_id = changes.studioId;
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('apellidos' in changes) db.apellidos = changes.apellidos;
-  if ('email' in changes) db.email = changes.email;
+  // Vaciar el email lo deja en NULL (ver `socioToDb`).
+  if ('email' in changes) db.email = changes.email?.trim() ? changes.email.trim() : null;
   if ('telefono' in changes) db.telefono = changes.telefono;
   if ('nif' in changes) db.nif = changes.nif;
   if ('fechaAlta' in changes) db.fecha_alta = changes.fechaAlta;

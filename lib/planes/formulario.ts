@@ -6,7 +6,8 @@
 // su copia de la derivación. Se separaron, y esa separación costó dos bugs de
 // dinero seguidos: un bono de 120 € vendido desde una pantalla no generaba
 // recibo, y no caducaba nunca (`fecha_fin` NULL) porque a ese formulario le
-// faltaba el campo. Mismo concepto, dos verdades.
+// faltaba el campo. Mismo concepto, dos verdades. (Desde el 13-sep solo queda
+// `/productos`: la pestaña de Configuración se quitó.)
 //
 // A partir de aquí las dos pantallas pintan lo que quieran, pero LO QUE SE
 // GUARDA se decide una sola vez, aquí, y está cubierto por tests. Añadir un
@@ -318,9 +319,9 @@ export function erroresPlan(f: FormularioPlan): Partial<Record<CampoPlan, string
  * Por qué NO se puede guardar todavía, o null si está listo.
  *
  * Se deriva de `erroresPlan` en un ORDEN FIJO para que siga diciendo lo mismo
- * que decía cuando era la única validación — la otra pantalla de tarifas
- * (`components/configuracion/tab-planes.tsx`) la sigue usando tal cual y no
- * debe cambiar de comportamiento porque aquí se haya afinado la presentación.
+ * que decía cuando era la única validación. La pantalla que la usaba
+ * (Configuración → Planes y tarifas) se quitó el 13-sep; Paquetes valida campo
+ * a campo con `erroresPlan`.
  */
 export function motivoNoGuardable(f: FormularioPlan): string | null {
   const e = erroresPlan(f);

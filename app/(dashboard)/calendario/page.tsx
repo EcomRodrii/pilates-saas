@@ -24,7 +24,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera } from '@/lib/utils';
-import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarClaseCancelada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
+import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
+import type { CambioClaseSerie } from '@/lib/avisos-serie';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva, heredaOverride } from '@/lib/booking-logic';
@@ -1399,6 +1400,11 @@ export default function Calendario() {
       const clase = tiposClase.find(t => t.id === form.tipoClaseId)?.nombre ?? base.tipoClase.nombre;
       const salaNombre = salas.find(s => s.id === form.salaId)?.nombre ?? '';
       const nuevaInstructora = nombreInstructor(form.instructorId);
+      // Se juntan TODAS las clases que cambian y se avisa una sola vez: antes
+      // el bucle llamaba al aviso clase a clase y una alumna con plaza en toda
+      // la serie recibía un correo por clase (evaluación del 13-sep). El
+      // servidor decide a quién avisar en qué clase (lib/avisos-serie.ts).
+      const cambios: CambioClaseSerie[] = [];
       for (const s of sesionesEnriquecidas) {
         if (s.serieId !== base.serieId || s.inicio < base.inicio) continue;
         const nuevoInicioS = toISO(localDate(new Date(s.inicio)), form.horaInicio);
@@ -1413,20 +1419,20 @@ export default function Calendario() {
         const cambioInstructora = s.instructorId !== form.instructorId;
         if (!cambioHora && !cambioSala && !cambioInstructora) continue;
         const d = new Date(nuevoInicioS);
-        // Se usa el aviso COMPLETO (el mismo que la clase suelta y el lote), no
+        // Mismos datos que el aviso COMPLETO de una clase suelta, no los de
         // `avisarClaseModificada`: ese no lleva instructora, así que el correo
         // habría dicho que algo cambió sin decir qué.
-        void avisarCambioHorarioSala(
-          s.id,
-          {
-            clase, cuando: cuandoEstudio(d), d, sala: salaNombre,
-            instructora: cambioInstructora ? nuevaInstructora : '',
-            instructorActual: nuevaInstructora,
-            instructorAnterior: cambioInstructora ? nombreInstructor(s.instructorId) : undefined,
-          },
-          { cambioHora, cambioSala },
-        );
+        cambios.push({
+          sesionId: s.id, inicio: nuevoInicioS,
+          clase, cuando: cuandoEstudio(d), sala: salaNombre,
+          instructora: cambioInstructora ? nuevaInstructora : '',
+          instructorActual: nuevaInstructora,
+          instructorAnterior: cambioInstructora ? nombreInstructor(s.instructorId) : undefined,
+          fecha: fechaLargaEstudio(d), hora: horaEstudio(d),
+          cambioHora, cambioSala,
+        });
       }
+      if (cambios.length > 0) void avisarCambioSerieServidor(cambios);
     }
     setShowForm(null);
     showToast(`Serie actualizada · ${n} clases`);

@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { cn } from '@/lib/utils';
 import { Toast, useToast } from '@/components/ui/toast';
@@ -21,7 +21,6 @@ import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 // cargado solo cuando activeTab la selecciona.
 const TabCamposPersonalizados = dynamic(() => import('@/components/configuracion/tab-campos-personalizados').then(m => m.TabCamposPersonalizados), { loading: () => <PanelSkeleton /> });
 const TabPlantillasEmail = dynamic(() => import('@/components/configuracion/tab-plantillas-email').then(m => m.TabPlantillasEmail), { loading: () => <PanelSkeleton /> });
-const TabPlanes = dynamic(() => import('@/components/configuracion/tab-planes').then(m => m.TabPlanes), { loading: () => <PanelSkeleton /> });
 const TabIntegraciones = dynamic(() => import('@/components/configuracion/tab-integraciones').then(m => m.TabIntegraciones), { loading: () => <PanelSkeleton /> });
 const TabEstudio = dynamic(() => import('@/components/configuracion/tab-estudio').then(m => m.TabEstudio), { loading: () => <PanelSkeleton /> });
 const TabPerfil = dynamic(() => import('@/components/configuracion/tab-perfil').then(m => m.TabPerfil), { loading: () => <PanelSkeleton /> });
@@ -189,10 +188,15 @@ export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases-salas' | 'citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'descubre' | 'api' | 'campos' | 'cuestionario-salud' | 'plantillas' | 'backups' | 'perfil';
+type TabId = 'clases-salas' | 'citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'descubre' | 'api' | 'campos' | 'cuestionario-salud' | 'plantillas' | 'backups' | 'perfil';
+
+// «Planes y tarifas» ya no es una pestaña de aquí: las tarifas se gestionan
+// solo en Paquetes (/productos). Eran dos pantallas para la misma tabla, con
+// campos distintos en cada una, y la dueña no sabía cuál mandaba (evaluación
+// del 13-sep). Un `?tab=planes` guardado en un enlace antiguo va a Paquetes.
+const TAB_MOVIDO_A_PAQUETES = 'planes';
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: 'planes',      label: 'Planes y tarifas' },
   { id: 'clases-salas', label: 'Clases y salas' },
   { id: 'citas',       label: 'Citas' },
   { id: 'gamificacion', label: 'Logros y motivación' },
@@ -241,7 +245,8 @@ const TAB_ALIASES = new Map<string, TabId>([
 export default function ConfiguracionPage() {
   const { studio } = useStudio();
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>('planes');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabId>('clases-salas');
   // Sub-pestaña con la que abrir Gamificación, si el ?tab= venía con un id
   // antiguo (recompensas/logros/niveles/retos) de antes de la unificación.
   const [gamificacionSub, setGamificacionSub] = useState<string | undefined>(undefined);
@@ -263,6 +268,10 @@ export default function ConfiguracionPage() {
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (!tab) return;
+    if (tab === TAB_MOVIDO_A_PAQUETES) {
+      router.replace('/productos');
+      return;
+    }
     if (SUB_GAMIFICACION.has(tab)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setGamificacionSub(tab);
@@ -282,7 +291,7 @@ export default function ConfiguracionPage() {
       const sub = searchParams.get('sub');
       if (sub) setEstudioSub(sub);
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   if (!mounted) return null;
 
@@ -290,7 +299,7 @@ export default function ConfiguracionPage() {
     <div data-tour="configuracion-vista" className="space-y-6">
       <PageHeader
         title="Configuración"
-        description="Gestiona los planes, clases, salas, instructoras e integraciones de tu estudio"
+        description="Clases, salas, integraciones y ajustes de tu estudio. Las tarifas están en Paquetes."
       />
 
       {/* Tab nav
@@ -319,7 +328,6 @@ export default function ConfiguracionPage() {
 
       {/* Tab content */}
       <ReanimarAlCambiar clave={activeTab} animClassName="tab-content-in">
-        {activeTab === 'planes'      && <TabPlanes      showToast={showToast} />}
         {activeTab === 'clases-salas' && <TabClasesSalas showToast={showToast} sub={clasesSalasSub} />}
         {activeTab === 'citas'       && <TabCitas       showToast={showToast} sub={citasSub} />}
         {activeTab === 'gamificacion' && <TabGamificacion showToast={showToast} sub={gamificacionSub} studio={studio} />}

@@ -14,7 +14,7 @@ export const FAQS: FaqItem[] = [
   { categoria: 'Reservas', pregunta: '¿Cómo reservan clase mis clientas?', respuesta: 'Desde tu página de reservas pública. También puedes reservarles clase tú desde el Calendario del panel.' },
   { categoria: 'Reservas', pregunta: '¿Qué pasa si una clase está completa?', respuesta: 'La clienta entra automáticamente en lista de espera. Si se libera una plaza (cancelación), sube la primera de la lista y se le notifica.' },
   { categoria: 'Reservas', pregunta: '¿Puedo cancelar una clase y avisar a los inscritos?', respuesta: 'Sí, desde Calendario > clase > Cancelar. Se marca como cancelada y las clientas con reserva reciben un aviso.' },
-  { categoria: 'Planes y cobros', pregunta: '¿Cómo creo un nuevo plan o bono?', respuesta: 'En Configuración > Planes y tarifas > Nuevo plan. Define nombre, tipo (mensual, bono o puntual), precio y sesiones incluidas.' },
+  { categoria: 'Planes y cobros', pregunta: '¿Cómo creo un nuevo plan o bono?', respuesta: 'En Paquetes > Crear. Define nombre, tipo (mensual, bono o puntual), precio y sesiones incluidas.' },
   { categoria: 'Planes y cobros', pregunta: '¿Cómo cobro a una clienta?', respuesta: 'Desde Transacciones puedes marcar un recibo como cobrado manualmente, o conectar Stripe en Configuración > Integraciones para cobros automáticos con tarjeta guardada.' },
   { categoria: 'Planes y cobros', pregunta: '¿Se generan facturas automáticamente?', respuesta: 'Sí, cada cobro genera su factura correspondiente, disponible en Facturas y descargable en PDF.' },
   // ⚠️ Aquí vivían las dos preguntas de "Portal de clientas". El portal de la
