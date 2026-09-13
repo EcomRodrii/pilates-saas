@@ -6,9 +6,9 @@ import { interpretarEventoResend, normalizarEmail, motivoLegible } from './rebot
 // Los dos casos medidos en producción el 11-sep-2026, que son los que dan
 // nombre a este módulo:
 //
-//   · `fashionbeatriz553@email.com` — la propietaria quiso escribir @gmail.com.
+//   · `buzon.con.errata@example.com` — la propietaria quiso escribir @gmail.com.
 //     Resend devolvió 200 y un id; el correo REBOTÓ 2 s después.
-//   · `meri@gmail.com` — dirección ya en la lista de supresión de la cuenta por
+//   · `socia.suprimida@example.com` — dirección ya en la lista de supresión de la cuenta por
 //     un rebote anterior. Resend devolvió 200 y un id y NO lo mandó.
 //
 // En los dos, el panel dijo «1 aviso enviado». Lo que se prueba aquí es que el
@@ -23,14 +23,14 @@ test('un rebote permanente marca la dirección', () => {
     created_at: BASE.created_at,
     data: {
       ...BASE,
-      to: ['fashionbeatriz553@email.com'],
+      to: ['buzon.con.errata@example.com'],
       bounce: { type: 'Permanent', subType: 'General', message: 'The recipient does not exist' },
     },
   });
 
   assert.equal(efecto.accion, 'anotar');
   assert.deepEqual(efecto.accion === 'anotar' ? efecto.rebotes : null, [{
-    email: 'fashionbeatriz553@email.com',
+    email: 'buzon.con.errata@example.com',
     tipo: 'REBOTE',
     motivo: 'The recipient does not exist',
     emailId: 'e-1',
@@ -42,7 +42,7 @@ test('una supresión también: es el caso que «funciona» y no llega', () => {
   // única señal que tenía Tentare era la de éxito.
   const efecto = interpretarEventoResend({
     type: 'email.suppressed',
-    data: { ...BASE, to: ['meri@gmail.com'], suppressed: { type: 'bounce', message: 'On the suppression list' } },
+    data: { ...BASE, to: ['socia.suprimida@example.com'], suppressed: { type: 'bounce', message: 'On the suppression list' } },
   });
   assert.equal(efecto.accion, 'anotar');
   assert.equal(efecto.accion === 'anotar' && efecto.rebotes[0].tipo, 'SUPRIMIDO');
@@ -112,14 +112,14 @@ test('un envío a varias direcciones marca todas', () => {
 
 test('la dirección se normaliza: mayúsculas y espacios son el mismo buzón', () => {
   // Es la clave primaria de `email_rebotes` y con lo que se cruza contra
-  // `socios.email`. Sin normalizar, «Meri@Gmail.com» sería otro buzón y el
+  // `socios.email`. Sin normalizar, «Socia.Suprimida@Example.com» sería otro buzón y el
   // aviso volvería a salir.
-  assert.equal(normalizarEmail('  Meri@Gmail.COM '), 'meri@gmail.com');
+  assert.equal(normalizarEmail('  Socia.Suprimida@Example.COM '), 'socia.suprimida@example.com');
   const efecto = interpretarEventoResend({
     type: 'email.bounced',
-    data: { ...BASE, to: ['  Meri@Gmail.COM '], bounce: { type: 'Permanent' } },
+    data: { ...BASE, to: ['  Socia.Suprimida@Example.COM '], bounce: { type: 'Permanent' } },
   });
-  assert.equal(efecto.accion === 'anotar' && efecto.rebotes[0].email, 'meri@gmail.com');
+  assert.equal(efecto.accion === 'anotar' && efecto.rebotes[0].email, 'socia.suprimida@example.com');
 });
 
 test('el motivo que ve la propietaria va en castellano', () => {

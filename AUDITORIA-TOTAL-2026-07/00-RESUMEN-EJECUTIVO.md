@@ -59,6 +59,6 @@ Tentare es **mucho más maduro de lo que un observador esperaría** —seguridad
 - **01** Investigación competitiva (17 competidores, ranking de amenaza, pricing).
 - **02** Quejas de categoría, JTBD, oportunidades y mapa de IA.
 - **03** España: fiscal (Verifactu/TicketBAI/IVA), pagos (Bizum/SEPA), RGPD, GTM.
-- **04** Auditoría técnica (arquitectura, código, BD, rendimiento, seguridad, UX).
+- **04** Auditoría técnica — documentación interna, fuera de este repo.
 - **05** Benchmark (funcional/UX/pricing/técnico con ✅🟡❌ + matriz de gaps).
 - **06** Roadmap 24 meses, 100 mejoras por ROI, IA, y conclusión "si fuera mío".

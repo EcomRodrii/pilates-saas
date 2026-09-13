@@ -9,8 +9,8 @@
 // webhooks, así que nadie en el producto podía saberlo.
 //
 // Medido el 11-sep-2026, dos avisos de hueco seguidos desde el panel:
-//   · `fashionbeatriz553@email.com` (errata de @gmail.com) → 200 + id → REBOTÓ.
-//   · `meri@gmail.com` (ya suprimida por un rebote anterior) → 200 + id →
+//   · una dirección con errata en el dominio → 200 + id → REBOTÓ.
+//   · una dirección ya suprimida por un rebote anterior → 200 + id →
 //     descartado sin intentarlo.
 // El panel dijo «1 aviso enviado» las dos veces.
 //

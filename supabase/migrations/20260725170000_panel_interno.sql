@@ -88,13 +88,22 @@ revoke all on plataforma_auditoria from anon, authenticated;
 
 -- ── Alta de los dos fundadores ───────────────────────────────────────────────
 -- Por email, para que sea idempotente y no dependa de uuids escritos a mano.
+--
+-- Nota (2026-09-14): este repositorio es público. Esta migración ya está
+-- aplicada en producción, y las dos direcciones reales se han sustituido aquí
+-- por marcadores `@example.invalid`: el alta real vive SOLO en la BD
+-- (`plataforma_admin` / `plataforma_permiso`). Ningún código decide permisos
+-- por email — la capa de TS lee esas tablas por `auth_user_id` —, así que no
+-- hay nada que mover a variables de entorno. En una BD nueva (local, rama)
+-- estos `select` no encuentran a nadie y no se da de alta a ningún admin, que
+-- es justo lo deseable fuera de producción.
 do $$
 declare
   id_marcos uuid;
   id_meri   uuid;
 begin
-  select id into id_marcos from auth.users where email = 'marcosrocarodriguezbussines@gmail.com';
-  select id into id_meri   from auth.users where email = 'meri@gmail.com';
+  select id into id_marcos from auth.users where email = 'fundador@example.invalid';
+  select id into id_meri   from auth.users where email = 'cofundadora@example.invalid';
 
   if id_marcos is not null then
     insert into plataforma_admin (auth_user_id, nombre, cargo)
