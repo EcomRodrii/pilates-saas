@@ -63,7 +63,8 @@ export const HOME_FIJAS_PRIMERO: readonly string[] = ['hoy', 'accion', 'onboardi
 // `onb_prioridad` y no la leía nadie. Esto es lo que la hace real.
 //
 // Solo están las prioridades que tienen una sección DE VERDAD. Las otras
-// ('Conseguir más alumnos', 'Sustituciones de profesoras', 'Marketing',
+// ('Conseguir más alumnas' —«alumnos» en estudios dados de alta antes del
+// 13-sep—, 'Sustituciones de profesoras', 'Marketing',
 // 'Otro') no aparecen a propósito: no hay hoy una sección de la home que las
 // atienda —marketing vive detrás de un flag desactivado— y mapearlas a la
 // sección "más parecida" movería el panel por un motivo inventado. Sin

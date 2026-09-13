@@ -188,9 +188,13 @@ const PASOS_BASE: Paso[] = [
     // suyo ("Elige hasta cuatro", "Elige hasta dos") y este no, así que quien
     // marcaba las tres formas de cobro —bonos, cuota y clase suelta, que es lo
     // normal en un estudio— se quedaba con dos sin saber cuál había perdido.
-    nota: 'Elige hasta dos. Dejamos preparado lo que uses; el precio lo pones tú antes de activarlo.',
+    // ⚠️ Eran DOS, y lo normal en un estudio es vender las tres: bono, cuota
+    // y clase suelta. `planificarConfiguracion` ya dejaba preparada cualquiera
+    // de ellas; el tope solo vivía aquí, y obligaba a elegir cuál perder
+    // (evaluación del 13-sep).
+    nota: 'Elige todas las que uses. Las dejamos preparadas; el precio lo pones tú antes de activarlas.',
     opciones: [...OPCIONES_COBRO],
-    multi: 2,
+    multi: OPCIONES_COBRO.length,
   },
   {
     id: 'horario', etiqueta: 'Tu espacio', titulo: '¿A qué horas das clases?',
@@ -229,7 +233,10 @@ const PASOS_BASE: Paso[] = [
     // la prioridad elegida (lib/home-sections.ts). Se matiza el "ordenamos"
     // porque no todas las prioridades tienen hoy una sección que mover.
     nota: 'Elige hasta dos. Subimos a lo primero de tu panel lo que más te importe.',
-    opciones: ['Conseguir más alumnos', 'Gestionar reservas', 'Cobros', 'Sustituciones de instructoras', 'Automatizar tareas', 'Marketing', 'Otro'],
+    // «alumnas», como en el resto del producto. Esta etiqueta no mueve
+    // ninguna sección de la home (lib/home-sections.ts la deja fuera a
+    // propósito), así que renombrarla no cambia el panel de nadie.
+    opciones: ['Conseguir más alumnas', 'Gestionar reservas', 'Cobros', 'Sustituciones de instructoras', 'Automatizar tareas', 'Marketing', 'Otro'],
     multi: 2,
   },
   {
@@ -495,7 +502,7 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
   const migra = vieneDeOtraPlataforma(e.ans.software);
   const resumen = ([
     ['Centros', e.ans.centros],
-    ['Alumnos activos', e.ans.alumnos],
+    ['Alumnas activas', e.ans.alumnos],
     ['Salas', e.ans.salas],
     ['Plazas por sala', resumenAforos(e.ans)],
     ['Duración de clase', e.ans.duracion],
