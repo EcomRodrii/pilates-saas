@@ -68,7 +68,7 @@ const CATEGORIAS_BASE: CategoriaFunciones[] = [
   {
     id: 'configuracion', label: 'Configuración y marca',
     funciones: [
-      { href: '/configuracion', label: 'Configuración', descripcion: 'Planes, marca, salas, integraciones y todo lo que define cómo funciona tu estudio.' },
+      { href: '/configuracion', label: 'Configuración', descripcion: 'Marca, salas, integraciones y todo lo que define cómo funciona tu estudio. Las tarifas están en Paquetes.' },
       { href: '/migracion', label: 'Traer mis datos', descripcion: 'Importa clientas y bonos desde Bsport, Momence u otra plataforma.' },
     ],
   },

@@ -679,7 +679,7 @@ export default function MigracionPage() {
 
               {planesTarifa.length === 0 && (
                 <p className="mt-3 text-[12px] text-muted-foreground">
-                  Todavía no tienes tarifas creadas. Créalas en Configuración → Planes y tarifas y
+                  Todavía no tienes tarifas creadas. Créalas en Paquetes y
                   vuelve aquí: podrás emparejarlas sin volver a subir los archivos.
                 </p>
               )}

@@ -29,6 +29,13 @@ test('sale en el modo por defecto, que es el del estudio recién creado', () => 
   assert.ok(ESSENTIAL_HREFS.includes('/migracion'));
 });
 
+test('Paquetes sale en el modo por defecto: es el único sitio de las tarifas', () => {
+  // Desde el 13-sep Configuración ya no tiene «Planes y tarifas». Fuera del modo
+  // esencial, un estudio recién creado no tendría en el menú ningún camino a
+  // crear o activar su primer bono.
+  assert.ok(ESSENTIAL_HREFS.includes('/productos'));
+});
+
 test('quien ya migró puede quitarla del menú', () => {
   // Es la contrapartida de que salga por defecto. Sin esta salida, sería una
   // entrada de por vida para algo que se usa una vez.

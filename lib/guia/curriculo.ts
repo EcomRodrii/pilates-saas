@@ -447,7 +447,7 @@ export const CAPITULOS: CapituloGuia[] = [
         texto: 'Un cargo único la primera vez que alguien contrata contigo. Va en un recibo aparte del de la cuota, para que las renovaciones no la vuelvan a cobrar. Y puedes hacer promoción: gratis hasta una fecha, para las primeras N personas, o las dos cosas.',
       },
     ],
-    acciones: [{ label: 'Crear un bono o una cuota', href: '/configuracion?tab=planes' }],
+    acciones: [{ label: 'Crear un bono o una cuota', href: '/productos' }],
     consejo: 'Los precios que escribes llevan el IVA incluido. Cambiar el IVA general solo cambia cómo se desglosa en la factura, nunca lo que paga tu alumna.',
     pasos: ['bonos'],
   },

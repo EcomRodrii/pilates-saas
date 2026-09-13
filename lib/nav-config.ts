@@ -166,7 +166,10 @@ export const bottomNavItems: NavItemDef[] = [
 // Momence—. La contrapartida (una entrada de más para quien ya migró) tiene
 // salida: no está en NO_OCULTABLES, así que se puede quitar desde el editor de
 // menú. Al revés no la habría: no se puede encontrar lo que no se ve.
-export const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/citas', '/clientas', '/equipo', '/cobros', '/informes', '/configuracion', '/migracion', '/actualizaciones'];
+// '/productos' (Paquetes) entra el 13-sep: las tarifas dejaron de estar en
+// Configuración, y «Esencial» es el modo por defecto — sin esto, una dueña
+// nueva no tenía en el menú ningún camino a crear o activar su bono.
+export const ESSENTIAL_HREFS = ['/centro-de-control', '/dashboard', '/calendario', '/citas', '/clientas', '/equipo', '/cobros', '/productos', '/informes', '/configuracion', '/migracion', '/actualizaciones'];
 
 // Módulos que nunca se pueden ocultar (acceso crítico a facturación/config).
 export const NO_OCULTABLES = ['/dashboard', '/configuracion', '/suscripcion'];

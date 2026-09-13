@@ -19,6 +19,7 @@ export async function enviarEmailesCambioClase(
   datos: {
     claseNombre: string; fecha: string; hora: string; sala: string; instructor: string;
     instructorAnterior?: string; cambioHora?: boolean; cambioSala?: boolean;
+    masClasesDeLaSerie?: boolean;
   },
 ): Promise<{ enviados: number; sinEmail: number }> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -56,6 +57,7 @@ export async function enviarEmailesCambioClase(
       claseNombre: datos.claseNombre, fecha: datos.fecha, hora: datos.hora,
       sala: datos.sala, instructor: datos.instructor, instructorAnterior: datos.instructorAnterior,
       cambioHora: datos.cambioHora, cambioSala: datos.cambioSala,
+      masClasesDeLaSerie: datos.masClasesDeLaSerie,
     }));
     const { error } = await resend.emails.send({
       from: remitentePorMarca(marca.nombre || 'Tentare'),

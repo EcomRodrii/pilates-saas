@@ -6,7 +6,7 @@ import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero } from '@/lib/permisos';
 import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, Image as ImageIcon } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
-import { cn, uid } from '@/lib/utils';
+import { cn, uid, formatFechaLarga } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
 import { estadoStock } from '@/lib/pos/ticket';
 import { HojaStock } from '@/components/pos/hoja-stock';
@@ -61,10 +61,11 @@ function fmt(n: number) { return n.toLocaleString('es-ES', { minimumFractionDigi
 
 // ── Formulario de tarifa ──────────────────────────────────────────────────────
 
-// El formulario y su derivación viven en lib/planes/formulario.ts, compartidos
-// con components/configuracion/tab-planes.tsx. Eran dos copias, se separaron, y
-// esa separación costó dos bugs de dinero: un bono vendido aquí no generaba
-// recibo y no caducaba nunca. Los campos se pintan donde toque; lo que se
+// El formulario y su derivación viven en lib/planes/formulario.ts. Había una
+// segunda pantalla de tarifas (Configuración → Planes y tarifas) con su propia
+// copia; se separaron, y esa separación costó dos bugs de dinero: un bono
+// vendido aquí no generaba recibo y no caducaba nunca. Desde el 13-sep esta es
+// la ÚNICA pantalla de tarifas. Los campos se pintan donde toque; lo que se
 // GUARDA se decide en un solo sitio y está cubierto por tests.
 //
 // Rediseño (2026-09-05). Lo que había era una columna estrecha con los diez
@@ -523,6 +524,19 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
                     </div>
                   )}
                 </div>
+
+                {/* Venía solo en Configuración → Planes y tarifas, que era la
+                    segunda pantalla de tarifas y se ha quitado (evaluación del
+                    13-sep: «dos sitios para lo mismo»). Informativa, como allí:
+                    no cambia el precio al pasar la fecha. */}
+                <Campo
+                  id={`${uid}-oferta`} etiqueta="Oferta hasta"
+                  ayuda="Opcional. Marca el precio como oferta hasta esa fecha; al pasarla no cambia solo, lo cambias tú.">
+                  {p => (
+                    <input {...p} value={form.ofertaHasta} onChange={e => set('ofertaHasta', e.target.value)}
+                      type="date" className={cn(cajaCls(), 'max-w-[240px]')} />
+                  )}
+                </Campo>
               </Seccion>
 
               {tiposClase.length > 0 && (
@@ -1155,6 +1169,24 @@ export default function Productos() {
                     {plan.tipo !== 'MENSUAL' && (
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {plan.validezDias ? `Caduca a los ${plan.validezDias} días` : 'Sin caducidad'}
+                      </p>
+                    )}
+                    {/* A qué clases sirve, sin abrir la tarifa. Venía de la
+                        tabla de Configuración → Planes y tarifas, que se ha
+                        quitado: con ocho o diez tarifas, lo que separa un bono
+                        de Reformer de una fuga de ingresos no puede quedar
+                        escondido dentro de cada una. */}
+                    <p className="text-xs text-muted-foreground mt-0.5" data-testid="cobertura-plan">
+                      {(() => {
+                        const nombres = tiposClase
+                          .filter(tc => (plan.tiposClaseIds ?? []).includes(tc.id))
+                          .map(tc => tc.nombre);
+                        return nombres.length === 0 ? 'Sirve para todas las clases' : `Solo para ${nombres.join(' · ')}`;
+                      })()}
+                    </p>
+                    {plan.ofertaHasta && (
+                      <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--warning)' }}>
+                        Oferta hasta {formatFechaLarga(plan.ofertaHasta)}
                       </p>
                     )}
                   </div>

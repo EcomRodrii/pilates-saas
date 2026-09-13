@@ -5,6 +5,7 @@ import { supabase } from '@/lib/db/supabase';
 import { unaVez } from '@/lib/una-vez';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
+import type { CambioClaseSerie } from '@/lib/avisos-serie';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { ErrorContraste } from '@/lib/theme-runtime';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
@@ -1843,6 +1844,29 @@ export async function avisarCambioClaseServidor(
       { enviados?: number; sinEmail?: number; enApp?: number } | null;
     if (!j) return null;
     return { enviados: j.enviados ?? 0, sinEmail: j.sinEmail ?? 0, enApp: j.enApp ?? 0 };
+  } catch {
+    return null;
+  }
+}
+
+// Edición de una SERIE: un solo aviso por alumna (el de su primera clase que
+// cambia), en vez de llamar a `avisarCambioClaseServidor` una vez por clase.
+// Ver app/api/clases/avisar-cambio-serie/route.ts.
+export async function avisarCambioSerieServidor(
+  cambios: CambioClaseSerie[],
+): Promise<{ alumnas: number; enviados: number; sinEmail: number; enApp: number } | null> {
+  if (cambios.length === 0) return { alumnas: 0, enviados: 0, sinEmail: 0, enApp: 0 };
+  try {
+    const res = await fetch('/api/clases/avisar-cambio-serie', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ cambios }),
+    });
+    if (!res.ok) return null;
+    const j = (await res.json().catch(() => null)) as
+      { alumnas?: number; enviados?: number; sinEmail?: number; enApp?: number } | null;
+    if (!j) return null;
+    return { alumnas: j.alumnas ?? 0, enviados: j.enviados ?? 0, sinEmail: j.sinEmail ?? 0, enApp: j.enApp ?? 0 };
   } catch {
     return null;
   }

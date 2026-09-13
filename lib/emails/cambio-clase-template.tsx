@@ -26,6 +26,10 @@ interface Props {
   // una clase de sala Y de hora en la misma edición).
   cambioHora?: boolean;
   cambioSala?: boolean;
+  // Edición de una serie: la alumna tiene más clases que cambian igual. Se le
+  // manda UN correo (el de su primera clase) y esta línea dice que no es solo
+  // esa — ver lib/avisos-serie.ts.
+  masClasesDeLaSerie?: boolean;
   estudioNombre?: string;
   logoUrl?: string | null;
   colorPrimario?: string | null;
@@ -59,6 +63,7 @@ export function CambioClaseEmail({
   instructorAnterior,
   cambioHora,
   cambioSala,
+  masClasesDeLaSerie,
   estudioNombre = 'Tentare',
   logoUrl,
   colorPrimario,
@@ -88,6 +93,13 @@ export function CambioClaseEmail({
         {instructorAnterior && <EmailInfoRow label="Antes la daba" value={instructorAnterior} tachado />}
         <EmailInfoRow label="Ahora la da" value={instructor} />
       </Section>
+
+      {masClasesDeLaSerie && (
+        <Text style={{ color: '#374151', fontSize: 14, margin: '0 0 16px' }}>
+          El cambio es para toda la serie: tus próximas clases de {claseNombre} cambian igual.
+          Te mandamos un solo aviso para no llenarte el correo.
+        </Text>
+      )}
 
       <Text style={{ color: '#6B7280', fontSize: 13, margin: 0 }}>
         No tienes que hacer nada: tu plaza sigue reservada. Si no te viene bien, puedes cancelar

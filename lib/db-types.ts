@@ -682,7 +682,7 @@ export interface RowSocios {
   studio_id: string;
   nombre: string;
   apellidos: string;
-  email: string;
+  email: string | null;
   telefono: string | null;
   nif: string | null;
   fecha_alta: string | null;

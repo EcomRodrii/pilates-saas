@@ -1415,7 +1415,11 @@ export default function Socios() {
                   />
                 </FF>
               </div>
-              <FF label="Email" required description="Con esto entra al portal y recibe recordatorios y facturas.">
+              {/* Opcional (evaluación del 13-sep): con la alumna delante en
+                  recepción no siempre hay correo, y sin él no se podía darla de
+                  alta. Sin email no entra al portal ni recibe correos hasta que
+                  se le ponga uno en su ficha. */}
+              <FF label="Email (opcional)" description="Con esto entra al portal y recibe recordatorios y facturas. Si no lo tienes ahora, déjalo vacío y añádelo después en su ficha.">
                 <input
                   type="email"
                   className={inputCls}
@@ -1639,9 +1643,9 @@ export default function Socios() {
           {/* "Siguiente" se queda deshabilitado en silencio si falta algún
               obligatorio (#865) — este aviso dice cuál, en vez de dejar que
               el botón "no haga nada" sin explicación. */}
-          {showForm === 'nueva' && formStep === 1 && (!form.nombre || !form.apellidos || !form.email) && (
+          {showForm === 'nueva' && formStep === 1 && (!form.nombre || !form.apellidos) && (
             <p className="mt-3 text-[11px] text-muted-foreground">
-              Falta {[!form.nombre && 'Nombre', !form.apellidos && 'Apellidos', !form.email && 'Email'].filter(Boolean).join(', ')} para continuar.
+              Falta {[!form.nombre && 'Nombre', !form.apellidos && 'Apellidos'].filter(Boolean).join(', ')} para continuar.
             </p>
           )}
 
@@ -1656,7 +1660,7 @@ export default function Socios() {
             {showForm === 'nueva' && formStep === 1 ? (
               <button
                 onClick={() => { setScrolledToBottom(false); setFormStep(2); }}
-                disabled={!form.nombre || !form.apellidos || !form.email}
+                disabled={!form.nombre || !form.apellidos}
                 className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
               >
                 Siguiente — Contrato
@@ -1667,7 +1671,7 @@ export default function Socios() {
                 disabled={
                   guardando || (showForm === 'nueva'
                     ? !aceptado
-                    : !form.nombre || !form.apellidos || !form.email)
+                    : !form.nombre || !form.apellidos)
                 }
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
               >

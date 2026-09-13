@@ -169,7 +169,7 @@ test.describe('Emparejar los planes del CSV con las tarifas del estudio', () => 
     await subirYRevisar(page);
 
     await expect(panel(page).getByText(/Todavía no tienes tarifas creadas/)).toBeVisible();
-    await expect(panel(page).getByText(/Configuración → Planes y tarifas/)).toBeVisible();
+    await expect(panel(page).getByText(/Créalas en Paquetes/)).toBeVisible();
   });
 
   test('si los planes YA casan, no se molesta con el panel', async ({ page }) => {

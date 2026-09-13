@@ -91,7 +91,7 @@ export const TAREAS: Tarea[] = [
   {
     id: 'nuevo-plan',
     label: 'Crear un plan o tarifa',
-    href: '/configuracion?tab=planes',
+    href: '/productos',
     claves: ['plan', 'tarifa', 'precio', 'paquete', 'bono', 'membresia', 'cuota', 'abono', 'suscripcion'],
   },
   {

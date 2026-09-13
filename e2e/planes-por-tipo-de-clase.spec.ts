@@ -8,7 +8,8 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // Mat a 12 €, así que o cobraba el mat de más o el reformer de menos. No es un
 // capricho de configuración, es la base de su precio.
 //
-// Esta suite fija el contrato de la pantalla donde lo decide:
+// Esta suite fija el contrato de la pantalla donde lo decide (Paquetes,
+// /productos — la única pantalla de tarifas desde el 13-sep):
 //   1. puede acotar un plan a ciertos tipos de clase, y lo acotado se GUARDA
 //      (con las filas que toca, no solo pintado);
 //   2. no marcar nada sigue significando "vale para todas" — que es lo que
@@ -130,8 +131,12 @@ function planRow(id: string, nombre: string): Record<string, unknown> {
 }
 
 async function abrirPlanes(page: Page) {
-  await page.goto('/configuracion?tab=planes');
-  await expect(page.getByRole('button', { name: 'Nuevo plan' })).toBeVisible({ timeout: 30_000 });
+  // Las tarifas viven solo en Paquetes desde el 13-sep (Configuración → Planes
+  // y tarifas se quitó). Paquetes abre en «Suscripciones»: los planes de este
+  // spec son bonos, así que se entra en su pestaña.
+  await page.goto('/productos');
+  await expect(page.getByRole('button', { name: 'Crear', exact: true })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: /^Bonos/ }).click();
 }
 
 test.describe('Un bono que solo vale para ciertas clases', () => {
@@ -140,20 +145,19 @@ test.describe('Un bono que solo vale para ciertas clases', () => {
     await seedSesionDeDuena(page);
     await abrirPlanes(page);
 
-    await page.getByRole('button', { name: 'Nuevo plan' }).click();
-    await page.getByPlaceholder('Ej: Mensual ilimitado').fill('Bono 10 Reformer');
-    await page.getByPlaceholder('0.00').fill('130');
+    await page.getByRole('button', { name: 'Crear', exact: true }).click();
+    await page.getByPlaceholder('Ej. Bono 4 clases').fill('Bono 10 Reformer');
+    await page.getByPlaceholder('0,00').first().fill('130');
+    await page.getByPlaceholder('4').fill('10');
 
-    // El control existe y arranca sin nada marcado: por defecto, todas.
-    const reformer = page.getByRole('button', { name: 'Reformer', exact: true });
-    await expect(reformer).toHaveAttribute('aria-pressed', 'false');
-    await reformer.click();
-    await expect(reformer).toHaveAttribute('aria-pressed', 'true');
+    // Por defecto sirve para todas; acotarlo es una decisión explícita.
+    await expect(page.getByRole('radio', { name: /Todas las clases/ })).toHaveAttribute('aria-checked', 'true');
+    await page.getByRole('radio', { name: /Solo algunas clases/ }).click();
+    const reformer = page.getByRole('checkbox', { name: 'Reformer' });
+    await expect(reformer).not.toBeChecked();
+    await reformer.check();
 
-    // Y se avisa de la consecuencia, que es lo que la dueña necesita entender.
-    await expect(page.getByText(/no podrá usarlo en el resto de clases/i)).toBeVisible();
-
-    await page.getByRole('button', { name: 'Crear plan' }).click();
+    await page.getByRole('button', { name: 'Crear bono de sesiones' }).click();
 
     // Lo que importa: llegó a la BD como fila de vínculo, no solo a la pantalla.
     await expect.poll(() => vinculos.length, { timeout: 15_000 }).toBe(1);
@@ -161,12 +165,11 @@ test.describe('Un bono que solo vale para ciertas clases', () => {
 
     // La comprobación de la dueña: recargar y ver si le dijimos la verdad.
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Nuevo plan' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Crear', exact: true })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Bonos/ }).click();
     await page.getByRole('button', { name: 'Editar plan' }).first().click();
-    await expect(page.getByRole('button', { name: 'Reformer', exact: true }))
-      .toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('button', { name: 'Mat', exact: true }))
-      .toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByRole('checkbox', { name: 'Reformer' })).toBeChecked();
+    await expect(page.getByRole('checkbox', { name: 'Mat' })).not.toBeChecked();
   });
 
   test('sin marcar nada, el plan sigue sirviendo para todas las clases', async ({ page }) => {
@@ -179,15 +182,12 @@ test.describe('Un bono que solo vale para ciertas clases', () => {
     await abrirPlanes(page);
 
     await page.getByRole('button', { name: 'Editar plan' }).first().click();
-    await expect(page.getByRole('button', { name: 'Reformer', exact: true }))
-      .toHaveAttribute('aria-pressed', 'false');
-    await expect(page.getByRole('button', { name: 'Mat', exact: true }))
-      .toHaveAttribute('aria-pressed', 'false');
-    // Sin nada marcado no se enseña la advertencia de exclusión: no excluye nada.
-    await expect(page.getByText(/no podrá usarlo en el resto de clases/i)).toHaveCount(0);
+    await expect(page.getByRole('radio', { name: /Todas las clases/ })).toHaveAttribute('aria-checked', 'true');
+    // Sin «Solo algunas clases» no se enseña la lista de clases: no excluye nada.
+    await expect(page.getByRole('checkbox', { name: 'Reformer' })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
-    await expect(page.getByText('Plan actualizado')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: 'Guardar cambios' })).toHaveCount(0, { timeout: 15_000 });
     expect(vinculos).toHaveLength(0);
   });
 });
@@ -195,10 +195,10 @@ test.describe('Un bono que solo vale para ciertas clases', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Y que se VEA sin abrir la tarifa.
 //
-// La restricción se guardaba bien, pero la lista de tarifas solo tenía Nombre ·
-// Tipo · Precio · Sesiones · Estado: para saber si un bono estaba acotado había
-// que abrirlo uno por uno. Con ocho o diez tarifas, lo único que separa un bono
-// caro de una fuga de ingresos quedaba escondido justo donde irías a auditarlo.
+// La restricción se guardaba bien, pero la lista de tarifas no decía a qué
+// clases servía: para saber si un bono estaba acotado había que abrirlo uno por
+// uno. Con ocho o diez tarifas, lo único que separa un bono caro de una fuga de
+// ingresos quedaba escondido justo donde irías a auditarlo.
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe('La cobertura se ve en la lista de tarifas', () => {
   test('un plan sin acotar dice que sirve para todas', async ({ page }) => {
@@ -206,7 +206,7 @@ test.describe('La cobertura se ve en la lista de tarifas', () => {
     await seedSesionDeDuena(page);
     await abrirPlanes(page);
 
-    await expect(page.getByRole('cell', { name: 'Todas las clases' })).toBeVisible();
+    await expect(page.getByTestId('cobertura-plan')).toHaveText('Sirve para todas las clases');
   });
 
   test('un plan acotado nombra las clases que cubre, sin tener que abrirlo', async ({ page }) => {
@@ -217,8 +217,7 @@ test.describe('La cobertura se ve en la lista de tarifas', () => {
     await seedSesionDeDuena(page);
     await abrirPlanes(page);
 
-    await expect(page.getByRole('cell', { name: 'Reformer', exact: true })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Todas las clases' })).toHaveCount(0);
+    await expect(page.getByTestId('cobertura-plan')).toHaveText('Solo para Reformer');
   });
 });
 
@@ -227,26 +226,25 @@ test.describe('La cobertura se ve en la lista de tarifas', () => {
 // «PUNTUAL» no es una palabra que use una dueña de estudio: dice «clase suelta».
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe('El tipo de tarifa se dice en castellano', () => {
-  test('la insignia de la tabla no enseña la constante en mayúsculas', async ({ page }) => {
+  test('la tarjeta no enseña la constante en mayúsculas', async ({ page }) => {
     await mockBackend(page, { planesIniciales: [planRow('plan-1', 'Bono 10 sesiones')] });
     await seedSesionDeDuena(page);
     await abrirPlanes(page);
 
-    // Por celda: el mismo texto se pinta también en la ficha de móvil, que está
-    // oculta a este ancho.
-    await expect(page.getByRole('cell', { name: 'Bono de sesiones' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'BONO', exact: true })).toHaveCount(0);
+    await expect(page.getByText('Bono 10 sesiones')).toBeVisible();
+    await expect(page.getByText('BONO', { exact: true })).toHaveCount(0);
   });
 
-  test('el desplegable de crear tarifa tampoco', async ({ page }) => {
+  test('las pestañas de tipo tampoco', async ({ page }) => {
     await mockBackend(page);
     await seedSesionDeDuena(page);
     await abrirPlanes(page);
 
-    await page.getByRole('button', { name: 'Nuevo plan' }).click();
-    // Por opción: el nombre accesible del <select> arrastra el del InfoTip, así
-    // que getByLabel('Tipo') no basta para leer lo que hay dentro.
-    const opciones = page.getByRole('combobox').first().getByRole('option');
-    await expect(opciones).toHaveText(['Cuota', 'Bono de sesiones', 'Clase suelta']);
+    for (const nombre of [/^Suscripciones/, /^Bonos/, /^Bajo demanda/]) {
+      await expect(page.getByRole('button', { name: nombre })).toBeVisible();
+    }
+    for (const constante of ['MENSUAL', 'BONO', 'PUNTUAL']) {
+      await expect(page.getByRole('button', { name: constante, exact: true })).toHaveCount(0);
+    }
   });
 });
