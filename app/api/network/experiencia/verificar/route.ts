@@ -4,6 +4,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
 import { emitirRedVerificacionSolicitada } from '@/lib/notifications/emit';
+import { enforceRateLimit } from '@/lib/rate-limit';
+import { ROLES_QUE_RESUELVEN_VERIFICACION, motivoVerificadorNoPermitido } from '@/lib/network/verificacion-experiencia';
 
 // Solicitar verificación de una experiencia — docs/NETWORK-IMPLEMENTATION-PLAN.md
 // §4. Enlaza la experiencia a un estudio Tentare REAL (studio_id, hasta ahora
@@ -13,12 +15,20 @@ import { emitirRedVerificacionSolicitada } from '@/lib/notifications/emit';
 // `red_verificaciones_experiencia` es parcial (solo mientras `pendiente`,
 // migr 20260813115118) — dos solicitudes resueltas para la misma experiencia
 // no chocan entre sí.
+//
+// ⚠️ Nadie se verifica a sí misma: se rechaza pedírselo a un estudio del que
+// eres dueña o que gestionas (PROPIETARIO/MANAGER), porque serías tú quien lo
+// aprueba. La RPC que aprueba lo comprueba otra vez (migr 20260913161400).
+// Límite por cuenta: cada solicitud notifica a un estudio.
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   const usuario = await verificarUsuarioSupabase(req);
   if (!usuario) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  const limitado = await enforceRateLimit(req, 'network-verificar-experiencia', { max: 10, windowSeconds: 3600 }, usuario.userId);
+  if (limitado) return limitado;
 
   const body = (await req.json().catch(() => null)) as { experienciaId?: unknown; studioId?: unknown } | null;
   const experienciaId = typeof body?.experienciaId === 'string' ? body.experienciaId : null;
@@ -38,8 +48,27 @@ export async function POST(req: NextRequest) {
   if (experiencia.estado_verificacion === 'pendiente') return errorPeticion('Ya hay una solicitud en curso para esta experiencia.');
   if (experiencia.estado_verificacion === 'confirmada') return errorPeticion('Esta experiencia ya está verificada.');
 
-  const { data: estudio } = await admin.from('studios').select('id, nombre').eq('id', studioId).maybeSingle();
+  const { data: estudio } = await admin.from('studios').select('id, nombre, owner_auth_user_id').eq('id', studioId).maybeSingle();
   if (!estudio) return errorPeticion('Ese estudio no existe.', 404);
+
+  const { data: gestion, error: errGestion } = await admin
+    .from('instructores')
+    .select('id')
+    .eq('studio_id', studioId)
+    .eq('auth_user_id', usuario.userId)
+    .eq('activo', true)
+    .in('rol', [...ROLES_QUE_RESUELVEN_VERIFICACION])
+    .limit(1);
+  if (errGestion) return errorInterno('network:experiencia:verificar:gestion', errGestion, 'No se ha podido enviar la solicitud.');
+
+  const motivo = motivoVerificadorNoPermitido({
+    perfilAuthUserId: usuario.userId,
+    ownerAuthUserId: (estudio as { owner_auth_user_id: string | null }).owner_auth_user_id,
+    gestionaElEstudio: (gestion ?? []).length > 0,
+  });
+  if (motivo) {
+    return errorPeticion('No puedes pedir la verificación a un estudio que es tuyo o que gestionas. Pídesela al estudio donde trabajaste.', 403);
+  }
 
   const { error: errUpdate } = await admin
     .from('red_experiencias')

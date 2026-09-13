@@ -91,6 +91,8 @@ export interface FilaRedExperiencia {
   descripcion: string | null;
   estado_verificacion: string;
   creado_en: string;
+  /** Join `studios ( nombre )` por studio_id — solo lo pide la ficha pública. */
+  studios?: { nombre: string | null } | null;
 }
 
 export function mapFilaAExperiencia(f: FilaRedExperiencia): ExperienciaNetwork {
@@ -119,6 +121,7 @@ export function mapFilaAExperienciaPublica(f: Omit<FilaRedExperiencia, 'perfil_i
     descripcion: f.descripcion,
     estadoVerificacion: f.estado_verificacion as ExperienciaNetworkPublica['estadoVerificacion'],
     creadoEn: f.creado_en,
+    estudioVerificadorNombre: f.studios?.nombre ?? null,
   };
 }
 
@@ -240,7 +243,7 @@ export interface FilaRedVerificacionIdentidad {
   perfil_id: string;
   estado: string;
   motivo_rechazo: string | null;
-  documento_path: string;
+  documento_path: string | null;
   documento_path_reverso: string | null;
   creado_en: string;
   resuelto_en: string | null;
@@ -266,7 +269,7 @@ export interface FilaRedCertificacion {
   institucion: string;
   anio: number | null;
   duracion: string | null;
-  documento_path: string;
+  documento_path: string | null;
   estado: string;
   motivo_rechazo: string | null;
   creado_en: string;
