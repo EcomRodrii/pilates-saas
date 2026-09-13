@@ -182,7 +182,10 @@ test('socios: authenticated pierde el grant de TABLA y ninguna columna de consen
 
 // Columnas de `socios` que a propósito NO escribe `authenticated`. Añadir aquí
 // solo lo que escribe exclusivamente el servidor.
-const SOCIOS_SOLO_SERVIDOR = new Set<string>([]);
+// Columnas que `authenticated` no debe escribir: las pone el servidor.
+//  · excluir_de_perfilado (#1922): la oposición al perfilado la cambia solo la
+//    propia socia por la ruta del portal (service_role); un trigger bloquea al staff.
+const SOCIOS_SOLO_SERVIDOR = new Set<string>(['excluir_de_perfilado']);
 
 test('una columna NUEVA de socios necesita su grant por columna (o ser solo de servidor)', () => {
   const todas = migraciones();

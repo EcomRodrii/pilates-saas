@@ -167,6 +167,32 @@ export function textoConsentimientoMarketing(e: DatosEstudioLegal = {}): string 
   return `Acepto recibir por email novedades, promociones y ofertas de ${nombreEstudio}. Puedo retirar este consentimiento en cualquier momento, sin coste ni justificación, desde el enlace de baja de cualquier email o pidiéndolo directamente al estudio. Esta comunicación es independiente de los avisos necesarios para la prestación del servicio (reservas, pagos, cambios de horario), que seguiré recibiendo aunque retire este consentimiento.`;
 }
 
+/**
+ * Consentimiento de datos de salud (art. 9 RGPD) que se registra DESDE EL PANEL,
+ * con la socia delante. Es el texto que se guarda como prueba en
+ * `socios.consentimiento_salud_texto` y en `consentimientos_salud_eventos`.
+ *
+ * ⚠️ Lo deriva SIEMPRE el servidor (`/api/socios/[id]/consentimiento-salud`);
+ * el panel lo llama con el mismo `nombre` solo para enseñarlo antes de firmar.
+ * Nunca se acepta un texto que mande el navegador.
+ *
+ * Solo usa `nombre` a propósito: así lo que ve la pantalla y lo que guarda el
+ * servidor salen de la misma entrada y no pueden divergir.
+ *
+ * ⚠️ REVISIÓN LEGAL NECESARIA sobre la redacción. No promete lo que el producto
+ * no cumple: dice quién lo ve de verdad (propietaria e instructoras que le dan
+ * clase), que hay proveedores tecnológicos por medio y que revocar BLOQUEA los
+ * datos, no los borra (borrarlos es una petición aparte).
+ */
+export function textoConsentimientoSaludPanel(e: DatosEstudioLegal = {}): string {
+  const nombreEstudio = !vacio(e.nombre) ? e.nombre!.trim() : 'el Estudio';
+  return [
+    `Autorizo expresamente a ${nombreEstudio} a tratar los datos sobre mi salud que le comunique (lesiones, embarazo u otras condiciones que influyan en el ejercicio) con la única finalidad de adaptar mis clases con seguridad.`,
+    `Los verán la dirección del estudio y las instructoras que me den clase. El estudio los gestiona con su programa de gestión, cuyos proveedores tecnológicos los tratan por cuenta del estudio.`,
+    `Puedo retirar esta autorización cuando quiera, desde la app del estudio o pidiéndolo en el propio estudio. Desde ese momento dejarán de estar visibles para el personal, y puedo pedir además que se eliminen.`,
+  ].join('\n\n');
+}
+
 // ─── Textos legales efectivos de un estudio ─────────────────────────────────
 //
 // Vivían en `lib/studio-context.tsx`, que es `'use client'`. Se mueven aquí
