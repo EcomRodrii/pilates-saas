@@ -11,7 +11,6 @@ import { cn, copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils'
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cobrarOnlineDirecto, crearEnlaceTarjeta, enviarEmailRecibo } from '@/lib/api-client';
-import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
 import {
   CheckCircle2,
   XCircle,
@@ -1134,12 +1133,18 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                           )}
                           {r.estado === 'COBRADO' && (
                             <>
-                              {/* ⚠️ El botón rojo «Sin factura» solo si a ese cobro
-                                  le CORRESPONDÍA una. El efectivo no factura solo
-                                  (`lib/factura-automatica.ts`), así que marcarlo en
-                                  rojo sería señalar como avería lo que es la regla —
-                                  y el botón reintenta el sellado, o sea que la
-                                  desharía de un clic. */}
+                              {/* C-2 paso 1 (59ª auditoría): antes este botón se
+                                  ocultaba si el método (p.ej. EFECTIVO) no factura
+                                  solo — razonable para el aviso de Sentry, pero aquí
+                                  dejaba 3 cobros en efectivo por 255 € que la
+                                  propietaria no podía ver ni resolver desde ningún
+                                  sitio del panel. `emiteFacturaAutomatica` decide
+                                  qué se FACTURA SOLA al cobrar, no qué se enseña
+                                  aquí: un cobro COBRADO sin factura siempre se
+                                  puede sellar a mano, sea cual sea su método. El
+                                  botón llama a `reintentarSelladoFactura` (nunca a
+                                  `crearFacturaDirecta`, que crearía un recibo
+                                  nuevo y duplicaría el cobro — I-11). */}
                               {factura ? (
                                 <Link
                                   href={`/facturas?ver=${factura.id}`}
@@ -1149,7 +1154,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                                   <FileText size={12} />
                                   {factura.numeroCompleto}
                                 </Link>
-                              ) : emiteFacturaAutomatica(r.metodoCobro) ? (
+                              ) : (
                                 <button
                                   onClick={() => handleReintentarFactura(r.id)}
                                   disabled={reintentandoFactura === r.id}
@@ -1161,7 +1166,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                                     : <RefreshCw size={12} />}
                                   Sin factura
                                 </button>
-                              ) : null}
+                              )}
                               <button
                                 onClick={() => marcarDevuelto(r.id)}
                                 className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-destructive/10 transition-colors"
@@ -1517,11 +1522,14 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                     // hover, en la vista "Quién me debe" filtrada por estado).
                     // SIEMPRE visible, sin gating de hover: es la recuperación
                     // de un fallo, no una acción rutinaria que deba esconderse.
-                    // Mismo criterio que arriba: al efectivo no le falta factura,
-                    // es que no le toca.
+                    // C-2 paso 1 (59ª auditoría): sin gating por método tampoco
+                    // — `emiteFacturaAutomatica` decide qué se factura SOLA al
+                    // cobrar, no qué se puede sellar a mano después. Antes esto
+                    // ocultaba los cobros en efectivo sin factura, que son
+                    // justo los que la propietaria no podía ver en ningún otro
+                    // sitio del panel.
                     const sinFactura = r.estado === 'COBRADO'
-                      && !facturas.some(f => f.reciboId === r.id)
-                      && emiteFacturaAutomatica(r.metodoCobro);
+                      && !facturas.some(f => f.reciboId === r.id);
                     return (
                       <div key={r.id} className="flex items-center gap-4 px-5 py-3.5">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand-medio shrink-0">
