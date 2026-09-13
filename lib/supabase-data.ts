@@ -4612,6 +4612,14 @@ export async function dbUpdateStudioConfig(changes: { politicaPrivacidad?: strin
 }
 
 export async function dbUpdateStudio(changes: Partial<Studio>): Promise<ResultadoEscritura> {
+  // La cuenta de cobro (Stripe Connect y datos SEPA) ya no se escribe desde el
+  // navegador: la base de datos lo rechaza (migr 20260913160100). Va por
+  // /api/integrations/stripe/desconectar, /api/estudio/sepa y el callback de
+  // Connect. Se corta aquí para que un caller nuevo reciba un error claro en vez
+  // de un 42501 a medias con el resto de campos.
+  if ('stripeAccountId' in changes || 'sepaIban' in changes || 'sepaAcreedorId' in changes || 'sepaTitular' in changes) {
+    return { ok: false, error: 'La cuenta de cobro se cambia desde Configuración → Cobros e Integraciones.' };
+  }
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('nif' in changes) db.nif = changes.nif;
@@ -4675,14 +4683,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('bloquearReservaImpago' in changes) db.bloquear_reserva_impago = changes.bloquearReservaImpago;
   if ('recuperacionAutoSemanal' in changes) db.recuperacion_auto_semanal = changes.recuperacionAutoSemanal;
   if ('visibleEnNetwork' in changes) db.visible_en_network = changes.visibleEnNetwork;
-  // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
-  // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
-  // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
-  if ('stripeAccountId' in changes) db.stripe_account_id = changes.stripeAccountId;
   if ('onboardingDescartadoEn' in changes) db.onboarding_descartado_en = changes.onboardingDescartadoEn;
-  if ('sepaAcreedorId' in changes) db.sepa_acreedor_id = changes.sepaAcreedorId;
-  if ('sepaIban' in changes) db.sepa_iban = changes.sepaIban;
-  if ('sepaTitular' in changes) db.sepa_titular = changes.sepaTitular;
   if ('bienvenidaVistaEn' in changes) db.bienvenida_vista_en = changes.bienvenidaVistaEn;
   if ('onbCentros' in changes) db.onb_centros = changes.onbCentros;
   if ('onbSoftwareAnterior' in changes) db.onb_software_anterior = changes.onbSoftwareAnterior;

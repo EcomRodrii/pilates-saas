@@ -296,7 +296,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   // dentro del JSX y un hook no puede llamarse ahí. El sufijo por campo.key
   // hace único cada id.
   const uid = useId();
-  const { studio, updateStudio, integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos, reservas, sesiones, tiposClase } = useStudio();
+  const { studio, updateStudio, reflejarStudioGuardado, integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos, reservas, sesiones, tiposClase } = useStudio();
   const [editando, setEditando] = useState<TipoIntegracion | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [probando, setProbando] = useState<TipoIntegracion | null>(null);
@@ -390,9 +390,19 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // La cuenta de cobro ya no la escribe el navegador: la ruta comprueba que
+  // quien la desconecta es la dueña, guarda la cuenta anterior para atribuir
+  // los webhooks que lleguen tarde y deja constancia en Actividad.
   const desconectarStripe = async () => {
-    const res = await updateStudio({ stripeAccountId: null });
-    showToast(res.ok ? 'Stripe desconectado' : res.error);
+    try {
+      const res = await fetch('/api/integrations/stripe/desconectar', { method: 'POST', headers: await authHeader() });
+      const data = await res.json().catch(() => null) as { error?: string } | null;
+      if (!res.ok) { showToast(data?.error ?? 'No se ha podido desconectar Stripe'); return; }
+      reflejarStudioGuardado({ stripeAccountId: null });
+      showToast('Stripe desconectado');
+    } catch {
+      showToast('No se ha podido desconectar Stripe. Revisa tu conexión.');
+    }
   };
 
   // Bizum en un cargo directo exige la capacidad `bizum_payments` `active` en

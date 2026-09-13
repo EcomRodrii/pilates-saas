@@ -4,6 +4,9 @@ import {
   crearCookieOAuth, firmarEstadoOAuth, nombreCookieOAuth, opcionesCookieOAuth, type ProveedorOAuth,
 } from '@/lib/oauth-state';
 import { generarPkce } from '@/lib/marketing/pkce';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
+import { puedeCambiarCuentaDeCobro } from '@/lib/billing/cuenta-cobro';
 
 const PROVIDERS: readonly ProveedorOAuth[] = ['stripe', 'google', 'gmail', 'zoom', 'klaviyo'];
 
@@ -29,6 +32,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Proveedor no válido' }, { status: 400 });
   }
   const provider = body.provider as ProveedorOAuth;
+
+  // Conectar Stripe decide en qué cuenta caen los cobros de las socias. El rol
+  // PROPIETARIO no basta (hay fichas de equipo con ese rol que no son la dueña):
+  // mismo criterio que desconectar y los datos SEPA.
+  if (provider === 'stripe') {
+    const admin = getSupabaseAdmin();
+    if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+    const { data: studio, error } = await admin
+      .from('studios').select('owner_auth_user_id').eq('id', sesion.studioId).maybeSingle();
+    if (error) return errorInterno('oauth-state:stripe:estudio', error);
+    if (!puedeCambiarCuentaDeCobro({ rol: sesion.rol, esDuena: studio?.owner_auth_user_id === sesion.userId })) {
+      return NextResponse.json(
+        { error: 'Solo la dueña del estudio puede conectar la cuenta donde se cobra.' },
+        { status: 403 },
+      );
+    }
+  }
 
   try {
     // Klaviyo exige PKCE: el code_verifier va en la cookie HttpOnly, no en el

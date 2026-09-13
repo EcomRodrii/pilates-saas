@@ -111,6 +111,9 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   DECISION_GESTIONADA: { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Centro de Control' },
   SESION_REASIGNADA:  { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Sustitución' },
   GESTORIA_CAMBIADA:  { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Gestoría' },
+  // Aviso y no éxito: cambiar dónde entra el dinero es algo que la dueña tiene
+  // que poder reconocer como suyo de un vistazo.
+  CUENTA_COBRO_CAMBIADA: { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Cuenta de cobro' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────

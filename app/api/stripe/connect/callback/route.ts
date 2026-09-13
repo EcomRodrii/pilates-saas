@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { borrarCookieOAuth, nombreCookieOAuth, verificarEstadoOAuth } from '@/lib/oauth-state';
 import { registrarDominiosWalletEstudio } from '@/lib/billing/dominios-wallets';
 import { solicitarCapacidadBizum } from '@/lib/billing/capacidad-bizum';
+import { uid } from '@/lib/utils';
 
 // Vuelta del OAuth de Stripe Connect (ver el botón "Conectar con Stripe" en
 // Configuración → Integraciones). Cambia el `code` de un solo uso por el id
@@ -60,6 +61,22 @@ export async function GET(req: NextRequest) {
     const resultado = await dbSetStripeAccountId(studioId, token.stripe_user_id);
     if (!resultado.ok) {
       return redirigir(`stripe_connect_error=${encodeURIComponent(resultado.error)}`);
+    }
+
+    // Constancia en Actividad: esta es la vía por la que cambia la cuenta donde
+    // caen los cobros. Fail-soft, como lo de abajo: la conexión ya está guardada.
+    try {
+      const admin = getSupabaseAdmin();
+      const { error: errLog } = admin
+        ? await admin.from('actividad_reciente').insert({
+          id: uid(), studio_id: studioId, tipo: 'CUENTA_COBRO_CAMBIADA',
+          texto: `Stripe conectado al estudio (cuenta terminada en ${token.stripe_user_id.slice(-4)})`,
+          socio_id: null, enlace: '/configuracion', creado_en: new Date().toISOString(), actor_nombre: null,
+        })
+        : { error: null };
+      if (errLog) console.error('[stripe/connect/callback] registro de actividad', errLog.message);
+    } catch (e) {
+      console.error('[stripe/connect/callback] registro de actividad', e);
     }
 
     // Con la cuenta recién conectada, registra sus dominios de wallets:

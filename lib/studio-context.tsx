@@ -685,6 +685,8 @@ interface StudioContextValue {
   sustitucionesConfirmadas: SustitucionConfirmadaPublica[];
   updateAvatarAdmin: (avatarId: string | null) => Promise<ResultadoEscritura>;
   updateStudio: (changes: Partial<Studio>) => Promise<ResultadoEscritura>;
+  /** Refleja en el estado local un cambio de `studio` que YA guardó una ruta de servidor. No escribe nada. */
+  reflejarStudioGuardado: (changes: Partial<Studio>) => void;
   updateHorarioEstudio: (dias: DiaHorario[]) => Promise<ResultadoEscritura>;
 }
 
@@ -2130,6 +2132,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (!res.ok) return res;
     setStudio(prev => prev ? { ...prev, ...changes } : prev);
     return res;
+  }
+
+  // Para lo que ya no escribe el navegador (cuenta de cobro): la ruta de
+  // servidor guarda y confirma, y esto solo pinta lo que el servidor devolvió.
+  function reflejarStudioGuardado(changes: Partial<Studio>) {
+    setStudio(prev => prev ? { ...prev, ...changes } : prev);
   }
 
   async function updateHorarioEstudio(dias: DiaHorario[]): Promise<ResultadoEscritura> {
@@ -5476,6 +5484,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     studio,
     updateAvatarAdmin,
     updateStudio,
+    reflejarStudioGuardado,
     updateHorarioEstudio,
   // deps deliberately cover only state read by `value`'s ~80 inline functions
   // (verified: every closed-over identifier is listed below); the functions
