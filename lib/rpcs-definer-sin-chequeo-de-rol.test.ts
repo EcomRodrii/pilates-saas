@@ -247,8 +247,11 @@ test('tiene_consentimiento_salud: filtra por estudio (se usa dentro de 13 polici
     'de OTRO tenant. No se puede arreglar con un REVOKE: la función se evalúa ' +
     'dentro de las políticas RLS de las tablas de salud y revocarla las rompe (42501).',
   );
+  // Desde 20260914100000 la rama de servidor es `es_llamada_servicio()`, pero la
+  // conversión se hizo sobre la definición viva: el último texto del repo puede
+  // seguir mostrando la forma antigua. Vale cualquiera de las dos.
   assert.ok(
-    /auth\.uid\s*\(\s*\)\s+is\s+null/.test(cuerpo!),
-    'La rama `auth.uid() is null` preserva el camino de service_role',
+    /auth\.uid\s*\(\s*\)\s+is\s+null|es_llamada_servicio\s*\(\s*\)/.test(cuerpo!),
+    'La rama de servidor preserva el camino de service_role',
   );
 });
