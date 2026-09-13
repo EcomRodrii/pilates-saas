@@ -87,7 +87,9 @@ async function abrirPasoDeContrato(page: Page) {
   await page.getByRole('button', { name: /Nueva clienta|Añadir primera clienta/ }).first().click({ timeout: 30_000 });
   // Por rol y no por placeholder: "Laura" casa también con "laura@ejemplo.com".
   // Nombre, apellidos y email son los tres obligatorios del paso 1.
-  await page.getByRole('textbox', { name: 'Nombre' }).fill('María');
+  // Regex anclada: con el alta en un paso, la firma («Nombre completo de la
+  // clienta…») está en la misma pantalla y `name: 'Nombre'` es subcadena.
+  await page.getByRole('textbox', { name: /^Nombre\s*\*?$/ }).fill('María');
   await page.getByRole('textbox', { name: 'Apellidos' }).fill('Soler Puig');
   await page.getByRole('textbox', { name: 'Email' }).fill('maria@example.com');
   // Alta en un solo paso (13-sep): el contrato va plegado en la misma pantalla
