@@ -798,7 +798,7 @@ export interface RowStudios {
   subscription_id: string | null;
   subscription_status: string | null;
   current_period_end: string | null;
-  // migr 0007.
+  // migr 0007. Siempre NULL desde 20260914110000 (CHECK): el hash vive en `kiosko_tokens`.
   kiosk_token: string | null;
   // migr 0008.
   stripe_terminal_reader_id: string | null;
