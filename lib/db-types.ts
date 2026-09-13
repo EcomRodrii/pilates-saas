@@ -2211,7 +2211,7 @@ export interface RowRedVerificacionesIdentidad {
   perfil_id: string;
   estado: string;
   motivo_rechazo: string | null;
-  documento_path: string | null;
+  documento_path: string;
   creado_en: string;
   resuelto_en: string | null;
   resuelto_por: string | null;
@@ -2228,7 +2228,7 @@ export interface RowRedCertificaciones {
   institucion: string;
   anio: number | null;
   duracion: string | null;
-  documento_path: string | null;
+  documento_path: string;
   estado: string;
   motivo_rechazo: string | null;
   creado_en: string;
