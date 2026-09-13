@@ -11,6 +11,7 @@ import { coordinarColisiones, construirResumenDiario, construirMientrasDormias }
 import { detectarConflictos } from './conflictos.ts';
 import { priorizar, seleccionarPrioridadesHome, enCooldown, type CandidataPriorizada } from './prioridad.ts';
 import { construirIndices } from './senales.ts';
+import { sinSociasOpuestas } from './perfilado.ts';
 import { TZ_ESTUDIO } from '../utils.ts';
 
 export interface RecomendacionAExpirar {
@@ -59,6 +60,10 @@ export interface EntradaAnalisis {
   // (default true): un estudio existente no pierde silenciosamente ninguna
   // recomendación por no haber flags configurados todavía.
   flagsEspecialistas?: Map<EspecialistaId, boolean>;
+  // Art. 21 RGPD: ids de las socias que se han opuesto al perfilado
+  // (`socios.excluir_de_perfilado`). Llega aparte y fresca, no dentro del
+  // snapshot cacheado — ver perfilado.ts. Ausente = nadie se ha opuesto.
+  sociasExcluidasDePerfilado?: readonly string[];
 }
 
 export interface ResultadoAnalisis {
@@ -84,14 +89,20 @@ export function ejecutarAnalisis(input: EntradaAnalisis): ResultadoAnalisis {
   // que sí habían funcionado bien). Un especialista roto no debe tumbar a
   // los que están sanos.
   const especialistasActivos = ESPECIALISTAS.filter(e => flagsEspecialistas?.get(e.id) !== false);
-  const candidatasBrutas = especialistasActivos.flatMap(e => {
+  // Art. 21 RGPD: lo que señala a una socia que se ha opuesto al perfilado se
+  // descarta AQUÍ, antes de memoria/coordinación/prioridad — así tampoco puede
+  // ganar una colisión, llegar al piloto automático ni al mensaje del día. Sus
+  // PENDIENTES ya persistidas expiran solas en esta misma pasada
+  // (calcularExpiraciones: el hecho «ya no se detecta»).
+  const excluidasPerfilado = new Set(input.sociasExcluidasDePerfilado ?? []);
+  const candidatasBrutas = sinSociasOpuestas(especialistasActivos.flatMap(e => {
     try {
       return e.detectar(snapshot, memoria, now);
     } catch (err) {
       console.error(`[decision/motor] especialista "${e.id}" falló, se omite su análisis de hoy:`, err);
       return [];
     }
-  });
+  }), excluidasPerfilado);
   const nCandidatasGeneradas = candidatasBrutas.length;
 
   // 3 · MEMORY ENGINE — veto y ajuste de canal.
@@ -150,10 +161,11 @@ export function ejecutarAnalisis(input: EntradaAnalisis): ResultadoAnalisis {
   // Ciclo de vida: expiraciones + escritura automática de memoria.
   const expiraciones = calcularExpiraciones(pendientesActuales, coordinadas, now);
   const idx = construirIndices(snapshot);
-  const nuevosHechosMemoria = [
+  // Tampoco se aprende nada nuevo sobre quien se ha opuesto al perfilado.
+  const nuevosHechosMemoria = sinSociasOpuestas([
     ...detectarHechosPorRegla(idx, snapshot, now),
     ...detectarHechosPorFeedback(resueltas90d, now),
-  ];
+  ], excluidasPerfilado);
 
   return {
     candidatasFinales: puntuadas,

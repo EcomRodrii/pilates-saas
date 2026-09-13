@@ -499,6 +499,30 @@ export async function dbListFeatureFlagRows(studioId: string): Promise<{ flag: D
   return (data ?? []).map(r => ({ flag: r.flag as DecisionFlag, activo: r.activo as boolean }));
 }
 
+// Art. 21 RGPD: socias que se han opuesto al perfilado. Se lee en cada pasada
+// y fuera del snapshot (que se cachea 24 h), para que un «no» se respete ya en
+// el análisis siguiente. Paginado: PostgREST corta a 1.000 filas en silencio.
+//
+// ⚠️ Si la lectura FALLA se lanza, no se devuelve []: una lista vacía por error
+// perfilaría justo a quien dijo que no. Que la pasada de ese estudio se
+// reintente es el mal menor.
+export async function dbListSociasExcluidasDePerfilado(studioId: string): Promise<string[]> {
+  const ids: string[] = [];
+  const PAGINA = 1000;
+  for (let desde = 0; ; desde += PAGINA) {
+    const { data, error } = await db().from('socios').select('id')
+      .eq('studio_id', studioId).eq('excluir_de_perfilado', true)
+      .order('id', { ascending: true }).range(desde, desde + PAGINA - 1);
+    if (error) {
+      reportError('[dbListSociasExcluidasDePerfilado]', error);
+      throw new Error(`No se pudo leer la oposición al perfilado: ${error.message}`);
+    }
+    const lote = (data ?? []).map(r => r.id as string);
+    ids.push(...lote);
+    if (lote.length < PAGINA) return ids;
+  }
+}
+
 export async function dbSetFeatureFlag(studioId: string, flag: DecisionFlag, activo: boolean, activadoPor: string): Promise<void> {
   const { error } = await db().from('decision_feature_flags').upsert({
     id: uid(), studio_id: studioId, flag, activo, activado_en: new Date().toISOString(), activado_por: activadoPor,

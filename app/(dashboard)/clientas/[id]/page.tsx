@@ -21,6 +21,7 @@ import { FichaClasesAutorizadas } from '@/components/socios/ficha-clases-autoriz
 import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
 import { FichaMandatoSepa } from '@/components/socios/ficha-mandato-sepa';
 import { FichaDocumentos } from '@/components/socios/ficha-documentos';
+import { DerechosRgpdFicha } from '@/components/socios/derechos-rgpd-ficha';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
 import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
@@ -1783,6 +1784,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               </>)}
             </div>
           </Card>
+
+          {gestionaClientas && (
+            <DerechosRgpdFicha socioId={id} nombreSocia={`${socio.nombre} ${socio.apellidos}`.trim()} onToast={setToast} />
+          )}
 
           {/* Ficha rápida (CRM) */}
           <Card>
