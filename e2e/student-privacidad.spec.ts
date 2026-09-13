@@ -71,6 +71,10 @@ test.describe('Student PWA · privacidad y datos', () => {
     // Una frase a medias tampoco habilita, y ni forzando el toque sale nada.
     await campo.fill('Solicitar la eliminacion');
     await expect(enviar).toBeDisabled();
+    // ⚠️ `force` se salta la espera de «estable»: sin esto el toque sale con la
+    // hoja aún subiendo (medido: desplazada 352 px justo tras `toBeVisible`) y
+    // Playwright falla con «outside of the viewport» antes de probar nada.
+    await expect(enviar).toBeInViewport({ ratio: 1 });
     await enviar.click({ force: true });
     await page.waitForTimeout(800);
     expect(posts).toHaveLength(0);
@@ -85,6 +89,64 @@ test.describe('Student PWA · privacidad y datos', () => {
     await expect(page.getByText(/Solicitud enviada a/)).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(800);
     expect(posts).toHaveLength(1);
+    expect([...new Set(and.sinMockear())], 'andamiaje incompleto').toEqual([]);
+  });
+
+  test('mientras llega el consentimiento no se mueve nada bajo el dedo', async ({ page }) => {
+    // Los enlaces de «Otras solicitudes» se pintaban al momento y bajaban
+    // ~190 px cuando llegaba el bloque de salud: «Retirar consentimiento» caía
+    // justo donde estaba «Limitar u oponerme», así que un toque durante la
+    // carga acababa en otra acción.
+    const and = await sembrarSociaCompleta(page, { saludConsentida: true });
+    let servido = false;
+    await page.route((u) => u.pathname === '/api/public/consentimiento-salud', async (r) => {
+      await new Promise((ok) => setTimeout(ok, 2_500));
+      servido = true;
+      return r.fallback();
+    });
+
+    await page.goto(`${base}/perfil/privacidad`, { waitUntil: 'domcontentloaded' });
+    const eliminar = page.getByRole('button', { name: 'Solicitar la eliminación de mis datos', exact: true });
+    await expect(eliminar).toBeVisible({ timeout: 30_000 });
+    const antes = await arriba(eliminar);
+
+    await expect(page.getByRole('button', { name: 'Retirar consentimiento de salud', exact: true })).toBeVisible({ timeout: 30_000 });
+    expect(servido, 'la respuesta retrasada tiene que haberse servido').toBe(true);
+    expect(await arriba(eliminar), 'el enlace se movió al llegar el bloque de salud').toBe(antes);
+    expect([...new Set(and.sinMockear())], 'andamiaje incompleto').toEqual([]);
+  });
+
+  test('la fecha dice cuándo autorizó, y las hojas no repiten título ni salida', async ({ page }) => {
+    const and = await sembrarSociaCompleta(page, { saludConsentida: true });
+    await page.route((u) => u.pathname === '/api/public/solicitud-derechos', (r) => r.request().method() === 'GET'
+      ? r.fulfill({ json: { excluirDePerfilado: false, solicitudes: [{
+        id: 's1', socioId: 'socio-e2e', tipo: 'supresion', estado: 'pendiente',
+        solicitadaEn: '2026-09-10T10:00:00Z', plazoHasta: '2026-10-10T10:00:00Z', resueltaEn: null, nota: null,
+      }] } })
+      : r.fallback());
+    await page.goto(`${base}/perfil/privacidad`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('button', { name: 'Retirar consentimiento de salud', exact: true })).toBeVisible({ timeout: 30_000 });
+
+    // «…para adaptar tus clases el 1 de agosto de 2026» se leía como la fecha
+    // de las clases, no la de la autorización.
+    await expect.soft(page.getByText(/^El 1 de agosto de 2026 autorizaste a /)).toBeVisible();
+
+    // «¿Qué quieres pedir?» llevaba debajo un segundo título, «Elige una opción».
+    await page.getByRole('button', { name: 'Limitar u oponerme al uso de mis datos', exact: true }).click();
+    const elegir = page.getByRole('dialog', { name: 'Limitar u oponerme al uso de mis datos' });
+    await expect(elegir.getByRole('heading', { name: '¿Qué quieres pedir?' })).toBeVisible();
+    await expect.soft(elegir.getByText('Elige una opción', { exact: true })).toHaveCount(0);
+    await elegir.getByRole('button', { name: 'Volver', exact: true }).click();
+    // ⚠️ No `toBeHidden()`: la hoja del kit cerrada no se oculta, se desplaza
+    // fuera de la pantalla y sigue «visible» para Playwright.
+    await expect(elegir).not.toBeInViewport();
+
+    // En curso solo hay algo que hacer: enterarse. «Entendido» y «Volver» eran
+    // dos botones que hacían lo mismo.
+    await page.getByRole('button', { name: /^Solicitar la eliminación de mis datos · En curso$/ }).click();
+    const enCurso = page.getByRole('dialog', { name: 'Tu solicitud está en curso' });
+    await expect(enCurso.getByRole('button', { name: 'Entendido', exact: true })).toBeVisible();
+    await expect.soft(enCurso.getByRole('button', { name: 'Volver', exact: true })).toHaveCount(0);
     expect([...new Set(and.sinMockear())], 'andamiaje incompleto').toEqual([]);
   });
 });
