@@ -33,18 +33,43 @@ export type TipoBackup = 'DIARIO' | 'SEMANAL' | 'MENSUAL' | 'MANUAL';
 
 const RETENCION: Record<TipoBackup, number> = { DIARIO: 14, SEMANAL: 8, MENSUAL: 12, MANUAL: 100 };
 
+/**
+ * ⚠️ LEGAL (plazo pendiente de validar). Una copia MANUAL con más de estos días
+ * se borra aunque no se haya llegado al tope de 100. Solo con el tope por
+ * número, un estudio que hace pocas copias manuales las guardaba para siempre —
+ * y con ellas la ficha completa de socias ya suprimidas. Las diarias, semanales
+ * y mensuales ya rotan solas (la más vieja, una mensual de ≈12 meses).
+ */
+export const RETENCION_MANUAL_DIAS = 90;
+
+export interface FilaBackupPoda { id: string; creado_en: string; storage_key: string | null }
+
+/**
+ * Qué copias sobran: las que pasan del tope por número de su tipo y, si son
+ * MANUAL, además las que superan `RETENCION_MANUAL_DIAS`. Una fecha ilegible no
+ * se borra por fecha (solo por número): ante la duda, conservar.
+ */
+export function backupsAPodar(filas: FilaBackupPoda[], tipo: TipoBackup, ahora: Date = new Date()): FilaBackupPoda[] {
+  const t = (f: FilaBackupPoda) => Date.parse(f.creado_en);
+  const ordenadas = [...filas].sort((a, b) => (t(b) || 0) - (t(a) || 0));
+  const porNumero = new Set(ordenadas.slice(RETENCION[tipo]));
+  const corte = ahora.getTime() - RETENCION_MANUAL_DIAS * 86_400_000;
+  return ordenadas.filter(f => porNumero.has(f) || (tipo === 'MANUAL' && !Number.isNaN(t(f)) && t(f) < corte));
+}
+
 // Evita que la tabla crezca sin límite: conserva solo los N backups más
-// recientes de cada tipo (14 diarios, 8 semanales, 12 mensuales, 100 manuales).
+// recientes de cada tipo (14 diarios, 8 semanales, 12 mensuales, 100 manuales)
+// y ninguna manual de más de RETENCION_MANUAL_DIAS.
 export async function podarBackupsAntiguos(admin: SupabaseClient, studioId: string, tipo: TipoBackup): Promise<void> {
-  const limite = RETENCION[tipo];
   const { data } = await admin
     .from('backups')
     .select('id, creado_en, storage_key')
     .eq('studio_id', studioId)
     .eq('tipo', tipo)
     .order('creado_en', { ascending: false });
-  if (!data || data.length <= limite) return;
-  const sobran = data.slice(limite) as { id: string; storage_key: string | null }[];
+  if (!data) return;
+  const sobran = backupsAPodar(data as FilaBackupPoda[], tipo);
+  if (sobran.length === 0) return;
   const aBorrar = sobran.map(b => b.id);
   // Primero R2 (best-effort), luego la fila. Si R2 fallara y la fila quedara,
   // la siguiente poda lo reintenta; nunca dejamos un objeto R2 huérfano sin
