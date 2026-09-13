@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server';
 import {
   evaluarSuscripcion,
+  evaluarSuspension,
   evaluarFeature,
   evaluarLimiteSocias,
   type Denegacion,
@@ -29,6 +30,19 @@ function aRespuesta(denegacion: Denegacion | null): NextResponse | null {
 
 export async function bloqueoPorSuscripcion(studioId: string): Promise<NextResponse | null> {
   return aRespuesta(await evaluarSuscripcion(studioId));
+}
+
+/**
+ * M-3 (auditoría 58ª pasada). `evaluarSuscripcion` ya encadena la suspensión
+ * PRIMERO (billing-rules.ts) para las rutas que cobran, pero las que NO cobran
+ * -crear una reserva, que puede ser gratis o cubierta por un plan- nunca
+ * llamaban a ninguna de las dos: un estudio suspendido a mano (impago
+ * persistente, abuso, petición del cliente) seguía dejando reservar. A
+ * diferencia de `bloqueoPorSuscripcion`, esto NO exige `BILLING_ENFORCED` (la
+ * suspensión manda siempre) y no arrastra ninguna otra regla de billing.
+ */
+export async function bloqueoPorSuspension(studioId: string): Promise<NextResponse | null> {
+  return aRespuesta(await evaluarSuspension(studioId));
 }
 
 export async function bloqueoPorFeature(

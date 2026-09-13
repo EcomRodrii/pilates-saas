@@ -41,3 +41,31 @@ export function normalizarUrlImagenCambio(url: string | null | undefined): strin
   const v = (url ?? '').trim();
   return v === '' ? null : v;
 }
+
+/**
+ * M-4 (auditoría 58ª pasada). La ruta de subida solo comprobaba `file.type`
+ * —lo que el NAVEGADOR dice que es el fichero, no lo que de verdad hay
+ * dentro— antes de decidir la extensión y el `contentType` con el que se
+ * guarda. Mitigado por otras capas (exige `content.write`, el bucket no
+ * acepta ningún tipo fuera de esta lista), pero "mitigado" no es "cerrado":
+ * esto mira los primeros bytes de verdad.
+ *
+ * `null` = no es ninguno de los tres formatos que este endpoint admite.
+ */
+export function tipoRealDeBytes(bytes: Uint8Array): 'image/png' | 'image/jpeg' | 'image/webp' | null {
+  if (bytes.length >= 8
+      && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
+      && bytes[4] === 0x0D && bytes[5] === 0x0A && bytes[6] === 0x1A && bytes[7] === 0x0A) {
+    return 'image/png';
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+    return 'image/jpeg';
+  }
+  // WEBP: contenedor RIFF ("RIFF" + tamaño de 4 bytes + "WEBP").
+  if (bytes.length >= 12
+      && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+      && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+    return 'image/webp';
+  }
+  return null;
+}

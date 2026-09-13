@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { urlImagenCambioValida, normalizarUrlImagenCambio } from './changelog-imagen.ts';
+import { urlImagenCambioValida, normalizarUrlImagenCambio, tipoRealDeBytes } from './changelog-imagen.ts';
 
 const SUPA = 'https://dwqvdycjcffqwfkzapvi.supabase.co';
 
@@ -55,4 +55,32 @@ test('sin saber cuál es nuestro origen, no se aprueba ninguna URL', () => {
 
 test('una barra de más en la URL del proyecto no invalida la imagen', () => {
   assert.equal(urlImagenCambioValida(NUESTRA, `${SUPA}/`), true);
+});
+
+// M-4 (auditoría 58ª pasada): tipoRealDeBytes — la cabecera de verdad, no lo
+// que declara el navegador.
+test('reconoce un PNG por su cabecera', () => {
+  const png = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0]);
+  assert.equal(tipoRealDeBytes(png), 'image/png');
+});
+
+test('reconoce un JPEG por su cabecera', () => {
+  const jpeg = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0]);
+  assert.equal(tipoRealDeBytes(jpeg), 'image/jpeg');
+});
+
+test('reconoce un WEBP por su contenedor RIFF/WEBP', () => {
+  const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
+  assert.equal(tipoRealDeBytes(webp), 'image/webp');
+});
+
+test('unos bytes que no son ninguno de los tres formatos -> null', () => {
+  // "<html>" -- el caso real que este arreglo cierra: un fichero que dice
+  // ser una imagen y no lo es.
+  const html = new TextEncoder().encode('<html><script>1</script></html>');
+  assert.equal(tipoRealDeBytes(html), null);
+});
+
+test('un PNG real no confunde con un WEBP truncado en pocos bytes', () => {
+  assert.equal(tipoRealDeBytes(new Uint8Array([0x89, 0x50])), null);
 });
