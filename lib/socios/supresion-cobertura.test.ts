@@ -49,6 +49,19 @@ test('toda tabla de db-types con una columna que apunta a una socia está clasif
     + 'Añádelas a lib/socios/supresion-clasificacion.ts y, si no son CONSERVAR, a anonimizar_socio.');
 });
 
+test('las tablas de PRs posteriores ya están clasificadas aunque aún no estén en db-types', () => {
+  // La cobertura va en UNA dirección (db-types ⊆ clasificación): una entrada de
+  // una tabla que todavía no existe es válida y es lo que evita que el test se
+  // ponga rojo el día que esos PRs regeneren db-types.
+  assert.equal(CLASIFICACION_SUPRESION.solicitudes_derechos?.accion, 'CONSERVAR');
+  assert.equal(CLASIFICACION_SUPRESION.consentimientos_salud_eventos?.accion, 'ANONIMIZAR');
+  // Y la función no puede tocarlas en estático: tienen que ir detrás de un
+  // `to_regclass` y por EXECUTE, o fallaría mientras la tabla no exista.
+  assert.match(cuerpoFuncion, /to_regclass\('public\.consentimientos_salud_eventos'\) is not null/);
+  assert.doesNotMatch(cuerpoFuncion, /^\s*update public\.consentimientos_salud_eventos/m);
+  assert.doesNotMatch(cuerpoFuncion, /solicitudes_derechos/);
+});
+
 test('toda tabla BORRAR/ANONIMIZAR aparece en el cuerpo de anonimizar_socio', () => {
   const ausentes = [...tablasPorAccion('BORRAR'), ...tablasPorAccion('ANONIMIZAR')]
     .filter(t => !new RegExp(`public\\.${escapar(t)}\\b`).test(cuerpoFuncion));

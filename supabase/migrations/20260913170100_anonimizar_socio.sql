@@ -62,6 +62,9 @@
 -- | recibos / facturas / ventas_pos / devoluciones / pagos_historicos / codigos_descuento_consumos | CONSERVAR | Fiscal
 -- | lecturas_ficha_salud           | CONSERVAR  | ⚠️ REVISIÓN LEGAL: registro de accesos del staff a su ficha; falta fijar plazo
 -- | supresiones                    | CONSERVAR  | El propio registro
+-- | solicitudes_derechos           | CONSERVAR  | ⚠️ REVISIÓN LEGAL: prueba de que el derecho se ejerció y resolvió (#1922; la función no la toca)
+-- | consentimientos_salud_eventos  | ANONIMIZAR | ⚠️ REVISIÓN LEGAL: firma → «[firma eliminada]» (un CHECK la exige), actor_uid NULL; quedan tipo/fecha/origen/texto (#1927, solo si existe)
+-- | socios.consentimiento_salud_registrado_por_uid | → NULL, solo si la columna existe (#1927)
 --
 -- No enlazables por socio_id y fuera de aquí a propósito: `ingresos_manuales.cliente`
 -- (texto libre del estudio), `decision_snapshots` (se regenera en cada pasada),
@@ -350,6 +353,32 @@ begin
     borrado_en = coalesce(s.borrado_en, now()),
     consentimiento_salud_revocado_en = coalesce(s.consentimiento_salud_revocado_en, now())
   where s.id = p_socio_id and s.studio_id = p_studio_id;
+
+  -- ── 8b. Evidencia de consentimiento de salud (tablas/columnas de #1927) ────
+  -- Pueden no existir todavía: se comprueban en el catálogo y se escriben con
+  -- EXECUTE dinámico (una sentencia estática con una columna inexistente falla
+  -- al ejecutarse aunque la rama no aplique).
+  -- ⚠️ REVISIÓN LEGAL: se conservan tipo, fecha, origen y texto legal como prueba
+  -- de que hubo consentimiento y de cuándo se revocó; se quitan la firma
+  -- tecleada (su nombre) y la cuenta de quien lo registró.
+  -- La firma NO va a NULL: el CHECK `consentimientos_salud_eventos_texto_si_otorgado`
+  -- exige firma en un OTORGADO que no sea HISTORICO, y un NULL tumbaría la
+  -- supresión entera. Se sustituye por un marcador.
+  if to_regclass('public.consentimientos_salud_eventos') is not null then
+    execute 'update public.consentimientos_salud_eventos '
+         || 'set firma = case when firma is null then null else ''[firma eliminada]'' end, actor_uid = null '
+         || 'where studio_id = $1 and socio_id = $2 '
+         || 'and ((firma is not null and firma <> ''[firma eliminada]'') or actor_uid is not null)'
+      using p_studio_id, p_socio_id;
+  end if;
+
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'socios'
+                and column_name = 'consentimiento_salud_registrado_por_uid') then
+    execute 'update public.socios set consentimiento_salud_registrado_por_uid = null '
+         || 'where id = $1 and studio_id = $2 and consentimiento_salud_registrado_por_uid is not null'
+      using p_socio_id, p_studio_id;
+  end if;
 
   -- ── 9. Registro ────────────────────────────────────────────────────────────
   insert into public.supresiones as sp (studio_id, socio_id, auth_user_id, ejecutada_en, ejecutada_por, origen)

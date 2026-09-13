@@ -155,6 +155,20 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
     detalle: '⚠️ REVISIÓN LEGAL: registro de QUIÉN del estudio leyó su ficha clínica. Es trazabilidad del acceso del staff; falta fijar su plazo de conservación.',
   },
   supresiones: { accion: 'CONSERVAR', detalle: 'El propio registro de supresiones: sin él una restauración no podría volver a aplicarlas.' },
+
+  // ── Tablas de PRs posteriores ──────────────────────────────────────────────
+  // Se clasifican ANTES de existir en `lib/db-types.ts`, a propósito: el test de
+  // cobertura solo exige que toda tabla de db-types esté aquí (no al revés), así
+  // que estas entradas no rompen nada hoy y lo mantienen en verde cuando esos
+  // PRs regeneren db-types. La función SQL las toca solo si existen.
+  solicitudes_derechos: {
+    accion: 'CONSERVAR',
+    detalle: '⚠️ REVISIÓN LEGAL: prueba de que el derecho se ejerció y se resolvió (y en plazo). `nota` es texto libre del staff: revisar que no guarde más de lo necesario.',
+  },
+  consentimientos_salud_eventos: {
+    accion: 'ANONIMIZAR',
+    detalle: '⚠️ REVISIÓN LEGAL: se quedan tipo, fecha, origen y texto legal como prueba; `firma` pasa a «[firma eliminada]» (un CHECK exige firma en un OTORGADO no histórico) y `actor_uid` a NULL.',
+  },
 };
 
 /**

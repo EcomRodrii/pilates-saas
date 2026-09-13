@@ -39,9 +39,13 @@
 --                         NO vuelven atrás las columnas que prueban un
 --                         consentimiento o conectan con dinero o con la cuenta
 --                         (email, usuario, auth_user_id, stripe_*, sepa_*,
---                         tarjeta_*, aceptacion_*, consentimiento_*, borrado_en):
+--                         tarjeta_*, aceptacion_*, consentimiento_*, borrado_en,
+--                         excluir_de_perfilado):
 --                         restaurarlas reactivaría un marketing revocado, un
---                         método de pago retirado o el acceso de otra persona.
+--                         método de pago retirado, el acceso de otra persona o
+--                         levantaría una oposición al perfilado (art. 21).
+--                         Nombrar columnas que aún no existen es inofensivo: la
+--                         lista solo EXCLUYE nombres de pg_attribute del SET.
 --   · ausente             La tabla no viene en la copia (copia anterior a que se
 --                         añadiera a BACKUP_TABLES): ni se borra ni se inserta. La
 --                         v1 la vaciaba.
@@ -110,7 +114,12 @@ declare
     'aceptacion_fecha', 'aceptacion_firma', 'aceptacion_version', 'aceptacion_origen', 'aceptacion_por',
     'consentimiento_salud_fecha', 'consentimiento_salud_registrado_por',
     'consentimiento_salud_revocado_en', 'consentimiento_salud_texto',
-    'consentimiento_marketing_en', 'consentimiento_marketing_texto', 'consentimiento_marketing_por'
+    'consentimiento_marketing_en', 'consentimiento_marketing_texto', 'consentimiento_marketing_por',
+    -- De PRs posteriores; aún pueden no existir. Esta lista solo se usa para
+    -- EXCLUIR filas de pg_attribute del SET (`attname <> all(...)`), así que
+    -- nombrar una columna inexistente no hace nada.
+    'consentimiento_salud_registrado_por_uid', -- #1927
+    'excluir_de_perfilado' -- #1922: oposición art. 21; una copia vieja la revertiría a false
   ];
   v_reemplazar text[];
   v_cambio boolean;

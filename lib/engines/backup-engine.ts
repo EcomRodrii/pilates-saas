@@ -192,6 +192,11 @@ export const COLUMNAS_SOCIOS_QUE_NO_VUELVEN_ATRAS = [
   'consentimiento_salud_fecha', 'consentimiento_salud_registrado_por',
   'consentimiento_salud_revocado_en', 'consentimiento_salud_texto',
   'consentimiento_marketing_en', 'consentimiento_marketing_texto', 'consentimiento_marketing_por',
+  // Pueden no existir aún (llegan en PRs posteriores). La lista solo excluye
+  // columnas del SET, así que nombrar una inexistente es inofensivo.
+  'consentimiento_salud_registrado_por_uid',
+  // Oposición al perfilado (art. 21): una copia vieja la devolvería a false.
+  'excluir_de_perfilado',
 ] as const;
 
 /** Una FK del catálogo: `referenciante` apunta a `referenciada`. */
