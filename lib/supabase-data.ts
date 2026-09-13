@@ -5464,6 +5464,28 @@ export async function fetchDatosTrasVentaPOS(studioId?: string) {
   };
 }
 
+// Tarifas y suscripciones, solas. Las relee el panel al volver a una pestaña
+// que llevaba un rato oculta (`studio-context.tsx`): activar un bono en una
+// pestaña y venderlo en otra daba «Asignar plan» vacío y «no tiene bono» hasta
+// recargar (evaluación del 13-sep). Dos consultas y no el arranque entero —
+// ver [[arranque-panel-abanico-consultas]]. Solo cliente, mismo motivo que
+// `fetchDatosTrasVentaPOS`. `null` si alguna falla: quien llama se queda con
+// lo que tenía, nunca con una lista vacía que parezca real.
+export async function fetchTarifasYSuscripciones(studioId?: string) {
+  const sid = studioId ?? getCurrentStudioId();
+  if (!sid) return null;
+  const db = supabase;
+  const [planesRes, suscripcionesRes] = await Promise.all([
+    db.from('planes_tarifa').select('*').eq('studio_id', sid),
+    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
+  ]);
+  if (planesRes.error || suscripcionesRes.error) return null;
+  return {
+    planesTarifa: (planesRes.data ?? []).map(mapPlanTarifa),
+    suscripciones: (suscripcionesRes.data ?? []).map(mapSuscripcion),
+  };
+}
+
 // Núcleo compartido cliente/servidor — mismo motivo y mismo patrón que
 // fetchCriticalStudioDataCon, justo arriba.
 export async function fetchDeferredStudioDataCon(db: SupabaseClient, studioId?: string) {
