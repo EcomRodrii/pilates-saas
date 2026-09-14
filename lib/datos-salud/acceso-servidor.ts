@@ -6,20 +6,18 @@
 // `instructora_atiende_socia`) no sirven aquí: la primera se salta el filtro de
 // estudio y la segunda devuelve siempre false. Esta es la misma regla escrita
 // en TS, con las mismas columnas:
-//   · rol clínico (PROPIETARIO/INSTRUCTOR),
+//   · rol clínico en el panel (solo PROPIETARIO: Tentare Core se retiró y la
+//     instructora lee la salud de sus alumnas en la app, por su propia ruta),
 //   · la socia es de ESTE estudio y no está borrada,
-//   · consentimiento de salud vigente (fecha puesta y `consentimiento_salud_revocado_en` NULL),
-//   · y si es INSTRUCTORA, que sea su alumna (±30 días, ver acceso-instructora.ts).
+//   · consentimiento de salud vigente (fecha puesta y `consentimiento_salud_revocado_en` NULL).
+// `filasDeSociaConInstructora` sigue aquí para la app: decide «es su alumna».
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import type { SesionStaff } from '@/lib/auth-server';
 import { puedeVerFichaClinica } from '@/lib/permisos-reglas';
-import {
-  accesoSaludSocia, instructoraAtiendeSocia, mensajeAccesoSalud,
-  VENTANA_ALUMNA_DIAS, type ClaseOCitaDeSocia,
-} from '@/lib/datos-salud/acceso-instructora';
+import { VENTANA_ALUMNA_DIAS, type ClaseOCitaDeSocia } from '@/lib/datos-salud/acceso-instructora';
 
 export type ResultadoAcceso = { ok: true } | { ok: false; status: number; error: string };
 
@@ -27,20 +25,6 @@ const DIA_MS = 24 * 60 * 60 * 1000;
 
 const NO_AUTORIZADO: ResultadoAcceso = { ok: false, status: 403, error: 'No tienes permiso para ver datos de salud.' };
 const SIN_SERVIDOR: ResultadoAcceso = { ok: false, status: 500, error: 'No se ha podido comprobar el acceso a los datos de salud.' };
-
-/** La ficha de `instructores` de esta persona en la sede de la sesión. */
-export async function instructorIdDeSesion(admin: SupabaseClient, sesion: SesionStaff): Promise<string | null> {
-  const { data, error } = await admin.from('instructores').select('id')
-    .eq('auth_user_id', sesion.userId)
-    .eq('studio_id', sesion.studioId)
-    // Mismo criterio que `current_instructor_id()`: solo una baja explícita revoca.
-    .neq('activo', false)
-    .order('id', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data.id as string;
-}
 
 /**
  * Reservas y citas de la socia con esa instructora dentro de la ventana. `null`
@@ -100,7 +84,6 @@ export async function comprobarAccesoSaludSocia(
   sesion: SesionStaff,
   socioId: string,
   opciones: { exigirConsentimiento: boolean },
-  ahora: Date = new Date(),
 ): Promise<ResultadoAcceso> {
   if (!puedeVerFichaClinica(sesion.rol)) return NO_AUTORIZADO;
   if (typeof socioId !== 'string' || !socioId) return { ok: false, status: 400, error: 'Falta la clienta.' };
@@ -120,24 +103,12 @@ export async function comprobarAccesoSaludSocia(
     && (!socio.consentimiento_salud_fecha || socio.consentimiento_salud_revocado_en)) {
     return { ok: false, status: 403, error: 'Registra primero el consentimiento de salud de esta clienta.' };
   }
-
-  let atiende = false;
-  if (sesion.rol === 'INSTRUCTOR') {
-    const instructorId = await instructorIdDeSesion(admin, sesion);
-    const filas = instructorId
-      ? await filasDeSociaConInstructora(admin, sesion.studioId, instructorId, socioId, ahora)
-      : null;
-    atiende = filas ? instructoraAtiendeSocia(filas, instructorId, ahora) : false;
-  }
-  const acceso = accesoSaludSocia(sesion.rol, atiende);
-  if (acceso !== 'PERMITIDO') return { ok: false, status: 403, error: mensajeAccesoSalud(acceso)! };
   return { ok: true };
 }
 
 /**
  * Para el resumen de salud de UNA clase: la propietaria, cualquier clase de su
- * estudio; la instructora, solo las que imparte ella (sus alumnas por
- * definición).
+ * estudio (en el panel es la única con rol clínico).
  */
 export async function comprobarAccesoSaludClase(sesion: SesionStaff, sesionId: unknown): Promise<ResultadoAcceso> {
   if (!puedeVerFichaClinica(sesion.rol)) return NO_AUTORIZADO;
@@ -145,15 +116,9 @@ export async function comprobarAccesoSaludClase(sesion: SesionStaff, sesionId: u
   const admin = getSupabaseAdmin();
   if (!admin) return SIN_SERVIDOR;
 
-  const { data: clase, error } = await admin.from('sesiones').select('instructor_id')
+  const { data: clase, error } = await admin.from('sesiones').select('id')
     .eq('id', sesionId).eq('studio_id', sesion.studioId).maybeSingle();
   if (error) return SIN_SERVIDOR;
   if (!clase) return { ok: false, status: 404, error: 'No encontramos esa clase en tu estudio.' };
-  if (sesion.rol === 'PROPIETARIO') return { ok: true };
-
-  const instructorId = await instructorIdDeSesion(admin, sesion);
-  if (!instructorId || clase.instructor_id !== instructorId) {
-    return { ok: false, status: 403, error: 'Solo puedes preparar con IA las clases que impartes tú.' };
-  }
   return { ok: true };
 }

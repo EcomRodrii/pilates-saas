@@ -1,8 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Buscador rápido (Fase 2 del calendario) — saltar a una clase por
 // instructora/sala/tipo sin navegar semana a semana. Puro: la regla de
-// visibilidad por rol (INSTRUCTOR solo ve sus propias clases, igual que
-// filtrarSesionesPorRol en lib/calendario-datos.ts) la aplica el LLAMADOR
+// visibilidad por rol (INSTRUCTOR solo ve sus propias clases) la aplica el LLAMADOR
 // sobre `candidatas` antes de pasarlas aquí — este módulo no sabe de roles,
 // solo de texto y fechas.
 // ─────────────────────────────────────────────────────────────────────────────

@@ -24,8 +24,8 @@ import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/
 
 // Sus ausencias (vacaciones, baja médica u otro motivo) en la app del estudio.
 //
-// Es lo mismo que «Tus ausencias» del panel (`components/mi-perfil/tab-mi-ausencia.tsx`)
-// y va al mismo núcleo en servidor: mientras está fuera, el motor de sustituciones
+// Sustituye a «Tus ausencias» del panel (retirado con Tentare Core) y va al mismo
+// núcleo en servidor que usa la gerencia: mientras está fuera, el motor de sustituciones
 // no le pide que cubra clases. NO pide la baja de sus clases ya programadas (#558):
 // si tiene alguna en esas fechas se le dice, y la baja la pide desde cada clase.
 

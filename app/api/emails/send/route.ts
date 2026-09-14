@@ -54,8 +54,8 @@ export async function POST(req: NextRequest) {
   // Rol por tipo de correo (ver `puedeEnviarEmail`). Antes bastaba la sesión:
   // una instructora podía mandar a una clienta un «Pago confirmado» o un texto
   // libre con la marca del estudio. Aquí va el techo del rol; que la clase de
-  // una cancelación sea de quien llama se comprueba abajo, contra la BD.
-  if (!puedeEnviarEmail(sesion.rol, tipo, true)) {
+  // una cancelación sea del estudio se comprueba abajo, contra la BD.
+  if (!puedeEnviarEmail(sesion.rol, tipo)) {
     return json('No tienes permiso para enviar este email.', 403);
   }
 

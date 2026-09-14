@@ -50,19 +50,12 @@ test('el id de reserva tiene que tener la forma que genera el panel', () => {
 
 test('propietaria, manager y recepción apuntan en cualquier clase', () => {
   for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
-    assert.equal(puedeApuntarEnClase({ rol, instructorIdStaff: null, instructorIdClase: 'ins-otra' }), true, rol);
-    assert.equal(puedeApuntarEnClase({ rol, instructorIdStaff: null, instructorIdClase: null }), true, rol);
+    assert.equal(puedeApuntarEnClase(rol), true, rol);
   }
 });
 
 test('la instructora ya no apunta en ninguna clase desde el panel, ni en las suyas (Tentare Core retirado)', () => {
-  assert.equal(puedeApuntarEnClase({ rol: 'INSTRUCTOR', instructorIdStaff: 'ins-1', instructorIdClase: 'ins-1' }), false);
-  assert.equal(puedeApuntarEnClase({ rol: 'INSTRUCTOR', instructorIdStaff: 'ins-1', instructorIdClase: 'ins-2' }), false);
-  assert.equal(puedeApuntarEnClase({ rol: 'INSTRUCTOR', instructorIdStaff: 'ins-1', instructorIdClase: null }), false);
-});
-
-test('⚠️ instructora sin ficha: ninguna clase, tampoco las que no tienen instructora', () => {
-  assert.equal(puedeApuntarEnClase({ rol: 'INSTRUCTOR', instructorIdStaff: null, instructorIdClase: null }), false);
+  assert.equal(puedeApuntarEnClase('INSTRUCTOR'), false);
 });
 
 // ── Guardianes sobre el código ──────────────────────────────────────────────

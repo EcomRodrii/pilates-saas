@@ -3,7 +3,6 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { abrirPuertaDelEstudio } from '@/lib/kisi-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { instructorIdDeSesion } from '@/lib/datos-salud/acceso-servidor';
 import { puedeOperarClase } from '@/lib/permisos-reglas';
 
 // Abre la puerta del estudio vía Kisi al hacer CHECK-IN desde el panel.
@@ -19,8 +18,8 @@ import { puedeOperarClase } from '@/lib/permisos-reglas';
 // Es una puerta física, así que no basta con tener sesión: la apertura va atada
 // a la asistencia que se acaba de marcar. La reserva tiene que estar ASISTIDA,
 // su clase en curso (desde una hora antes hasta que termina) y quien llama poder
-// pasar lista en esa clase: mostrador y manager en cualquiera, la instructora en
-// las suyas. Un check-in hecho a posteriori ya no abre nada.
+// operar la clase (quien gestiona el calendario; la instructora ya no pasa lista
+// desde el panel). Un check-in hecho a posteriori ya no abre nada.
 const ANTES_DEL_INICIO_MS = 60 * 60_000;
 
 export async function POST(req: NextRequest) {
@@ -39,19 +38,18 @@ export async function POST(req: NextRequest) {
 
   const { data: fila } = await admin
     .from('reservas')
-    .select('estado, sesiones!inner(inicio, fin, cancelada, instructor_id)')
+    .select('estado, sesiones!inner(inicio, fin, cancelada)')
     .eq('id', reservaId)
     .eq('studio_id', sesion.studioId)
     .maybeSingle();
   if (!fila) return NextResponse.json({ ok: false, error: 'Reserva no encontrada' }, { status: 404 });
 
-  type Clase = { inicio: string; fin: string | null; cancelada: boolean | null; instructor_id: string | null };
+  type Clase = { inicio: string; fin: string | null; cancelada: boolean | null };
   const rel = (fila as unknown as { sesiones: Clase | Clase[] }).sesiones;
   const clase = Array.isArray(rel) ? rel[0] : rel;
   if (!clase) return NextResponse.json({ ok: false, error: 'Reserva no encontrada' }, { status: 404 });
 
-  const propio = sesion.rol === 'INSTRUCTOR' ? await instructorIdDeSesion(admin, sesion) : null;
-  if (!puedeOperarClase(sesion.rol, !!propio && clase.instructor_id === propio)) {
+  if (!puedeOperarClase(sesion.rol)) {
     return NextResponse.json({ ok: false, error: 'No tienes permiso para abrir la puerta.' }, { status: 403 });
   }
 

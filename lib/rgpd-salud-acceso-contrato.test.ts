@@ -124,12 +124,14 @@ test('semaforo_salud_estudio: la guardia de rol falla cerrada con NULL y filtra 
   assert.match(SALUD, /revoke all on function public\.semaforo_salud_estudio\(text\) from anon;/);
 });
 
-test('las rutas de servidor que sirven salud aplican la regla de alumna asignada', () => {
+test('las rutas de servidor que sirven salud comprueban rol clínico, estudio y consentimiento', () => {
   assert.match(leer('app/api/ai/instructor-note/route.ts'), /comprobarAccesoSaludSocia\(/);
   assert.match(leer('app/api/ai/ficha-clinica-socio/route.ts'), /comprobarAccesoSaludSocia\([^)]*exigirConsentimiento:\s*true/);
   assert.match(leer('app/api/ai/ficha-clinica-clase/route.ts'), /comprobarAccesoSaludClase\(/);
   const helper = leer('lib/datos-salud/acceso-servidor.ts');
-  assert.match(helper, /instructoraAtiendeSocia\(/);
+  // En el panel solo la propietaria tiene rol clínico (Tentare Core retirado);
+  // la regla de alumna asignada vive en la app de la instructora (abajo).
+  assert.equal(helper.match(/if \(!puedeVerFichaClinica\(sesion\.rol\)\) return NO_AUTORIZADO;/g)?.length, 2);
   assert.match(helper, /VENTANA_ALUMNA_DIAS/);
   assert.match(helper, /\.is\('borrado_en', null\)/);
 });

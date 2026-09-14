@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { mapSesion, mapReserva, mapSala, mapInstructor } from '@/lib/supabase-data';
-import { enriquecerSesiones, ocultarImporteSiCorresponde, filtrarSesionesPorRol, instructoresVisiblesPorRol } from '@/lib/calendario-datos';
+import { enriquecerSesiones, ocultarImporteSiCorresponde, instructoresVisiblesPorRol } from '@/lib/calendario-datos';
 import type { RowSesiones, RowReservas, RowSalas, RowInstructores, RowStudios, RowSustituciones, RowStudioHorario } from '@/lib/db-types';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 
@@ -54,10 +54,6 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [] as Pick<RowSustituciones, 'id' | 'sesion_id' | 'estado' | 'motivo' | 'sustituta_final_id' | 'creado_en' | 'resuelto_en'>[] }),
   ]);
 
-  // La instructora ya no llega aquí (403 arriba): su agenda sale de la app del
-  // estudio. `filtrarSesionesPorRol` sigue recibiendo el id por su contrato.
-  const instructorId: string | null = null;
-
   // El motivo de una baja puede hablar de la salud de quien la pidió: solo para
   // quien gestiona el equipo (mismo criterio que `puedeVerDetalleAusencias`).
   // Recepción sigue viendo que hay una baja y en qué estado está.
@@ -65,8 +61,9 @@ export async function GET(req: NextRequest) {
   const sustitucionesVisibles = (sustitucionesRows ?? []).map(s => (verMotivo ? s : { ...s, motivo: null }));
 
   const enriquecidas = enriquecerSesiones(sesionesRaw.map(mapSesion), sustitucionesVisibles);
-  const sinImporteSegunRol = ocultarImporteSiCorresponde(enriquecidas, sesion.rol);
-  const sesionesFinal = filtrarSesionesPorRol(sinImporteSegunRol, sesion.rol, instructorId);
+  // Todo el estudio: la instructora ya no llega aquí (403 arriba) y el resto de
+  // roles ve todas las clases.
+  const sesionesFinal = ocultarImporteSiCorresponde(enriquecidas, sesion.rol);
   const idsVisibles = new Set(sesionesFinal.map(s => s.id));
 
   const reservasFinal = ((reservasRows ?? []) as RowReservas[])

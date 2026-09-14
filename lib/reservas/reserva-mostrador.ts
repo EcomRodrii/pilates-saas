@@ -46,24 +46,13 @@ export function leerPeticionReservaMostrador(body: unknown):
 }
 
 /**
- * ¿Puede este miembro del equipo apuntar a alguien en esta clase?
+ * ¿Puede este miembro del equipo apuntar a alguien en una clase desde el panel?
  *
- * Es la regla que aplicaba `reservar_plaza` cuando la llamaba el navegador
- * (migr 20260907030553, guardia convertida en 20260913233644):
- *   `if not es_llamada_servicio() and current_rol() = 'INSTRUCTOR' then
- *      if v_instructor_id is distinct from current_instructor_id() → NO_AUTORIZADO`
- * PROPIETARIO, MANAGER y RECEPCION en cualquier clase; INSTRUCTOR solo en las
- * suyas. Con service-role esa guardia no corre, por eso se repite en la ruta.
- *
- * Una diferencia, a propósito y hacia el lado seguro: con la instructora sin
- * ficha y la clase sin instructora, la RPC compararía NULL con NULL y dejaría
- * pasar. Aquí no. No es alcanzable (el rol INSTRUCTOR sale de su ficha), pero
- * si algún día lo fuera, «sin ficha» no puede significar «todas las clases sin
- * asignar».
+ * PROPIETARIO, MANAGER y RECEPCION en cualquier clase. INSTRUCTOR en ninguna,
+ * tampoco en las suyas: Tentare Core se retiró (14-sep-2026) y la ruta ya no
+ * resuelve su ficha. Con service-role la guardia de `reservar_plaza` no corre,
+ * por eso la comprueba la ruta.
  */
-export function puedeApuntarEnClase(p: {
-  rol: Rol; instructorIdStaff: string | null; instructorIdClase: string | null;
-}): boolean {
-  const esClasePropia = p.instructorIdStaff != null && p.instructorIdStaff === p.instructorIdClase;
-  return puedeOperarClase(p.rol, esClasePropia);
+export function puedeApuntarEnClase(rol: Rol): boolean {
+  return puedeOperarClase(rol);
 }

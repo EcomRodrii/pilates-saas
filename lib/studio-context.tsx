@@ -184,7 +184,7 @@ import type {
 } from '@/lib/types';
 import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
@@ -2979,12 +2979,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbInsertSesion(nueva);
     if (!res.ok) return res;
     setSesiones(prev => [...prev, nueva]);
-    // Autoservicio de instructora (20260731100000): si quien crea es ella
-    // misma, la propietaria no lo sabe todavía — avisarla (best-effort, no
-    // bloquea el alta). No se detecta por rol (evitar el ciclo useRol→
-    // useStudio) sino comprobando si la clase es de SU propia ficha.
-    const yo = instructores.find(i => i.authUserId === user?.id);
-    if (yo && yo.rol === 'INSTRUCTOR' && yo.id === nueva.instructorId) void avisarClaseCreadaPorInstructor(nueva.id);
+    // (La instructora ya no crea clases desde el panel: Tentare Core se retiró
+    // y lo hace en la app, que avisa a la propietaria desde su servidor.)
     return res;
   }
 
