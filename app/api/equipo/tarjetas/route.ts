@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import type { MiembroCompleto } from '@/lib/equipo-tarjetas.ts';
 import { DIAS_LARGOS, MIN_CLASES_OCUPACION } from '@/lib/equipo-tarjetas.ts';
 
@@ -45,7 +46,10 @@ export async function GET(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol === 'RECEPCION') {
+  // Recepción no gestiona el equipo. La instructora tampoco llega ya: con Tentare
+  // Core retirado (14-sep-2026) no tiene pantalla en el panel, y esta ruta le
+  // servía la agenda y la ocupación de sus compañeras aunque recortara campos.
+  if (sesion.rol === 'RECEPCION' || sesion.rol === 'INSTRUCTOR') {
     return NextResponse.json({ error: 'No tienes acceso al equipo' }, { status: 403 });
   }
 
@@ -185,7 +189,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const gestiona = sesion.rol !== 'INSTRUCTOR';
+  // Quien llega aquí gestiona el equipo (recepción e instructora ya recibieron 403).
+  const gestiona = puedeGestionarEquipo(sesion.rol);
 
   const items: MiembroCompleto[] = (instructores ?? []).map(i => {
     const esYo = i.auth_user_id === sesion.userId;
