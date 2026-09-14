@@ -298,6 +298,40 @@ Confirmado contra el código real:
   `verificarUsuarioSupabase`) — el `postMessage` solo transporta un token ya
   legítimo, no autoriza nada por sí mismo.
 
+### 7.1 La lista de dominios NO verifica que el dominio sea del estudio — decisión (2026-09-14)
+
+`studios.widget_dominios_autorizados` decide dos cosas:
+- a qué origen entrega el puente del enlace mágico la sesión nueva (`app/widget-auth-retorno/page.tsx` → `origenPermitido`);
+- qué webs pueden leer las respuestas públicas del widget (CORS).
+
+**No prueba** que el estudio controle ese dominio, y es a propósito.
+
+**Se valoró exigir esa prueba** (registro DNS TXT o fichero en `/.well-known/`) **y se descartó**:
+
+- **No quita nada que la lista no quite ya.** El widget se ejecuta dentro de la página listada. El acceso con contraseña (`loginConPassword`, `lib/widget/usar-auth-widget.ts`) ya deja la sesión en esa página sin pasar por la lista. El puente no entrega nada que esa página no obtenga ya por otra vía.
+- **Cualquiera prueba su propia web en minutos.** Quien opera una web puede demostrar que es suya enseguida, así que verificar no frena a nadie que la lista no frene ya.
+- **El coste es real:**
+  - un paso más para la propietaria (los constructores alojados habituales no dejan servir ficheros en `/.well-known/`);
+  - una consulta saliente desde servidor;
+  - un estado «verificado» que envejece sin que nadie lo vuelva a comprobar.
+
+**Lo que sí protege el puente**, y no cambia:
+- solo reenvía sesiones nuevas obtenidas por enlace (`lib/widget/puente-sesion.ts`);
+- un nonce por intento;
+- el destino se resuelve en servidor;
+- la lista solo la escribe la propietaria, desde servidor (`app/api/estudio/widget-dominios/route.ts`), con su línea en Actividad.
+
+**Si algún día se reabre**, ya se sabe qué NO hacer:
+- nada de fichero en `/.well-known/`: es una petición saliente a un host arbitrario y no está disponible en constructores alojados;
+- nada de comprobarlo en cada apertura del puente: añade latencia y falla cuando falla el DNS;
+- nada de un cron que lo recompruebe: cuota de Inngest.
+
+Lo razonable sería un TXT sobre el host exacto, que gobierne solo el puente y no el CORS.
+
+**Reabrir si**:
+- el puente pasa a reenviar sesiones que ya existían, o
+- la sesión deja de ser global y pasa a ser por estudio.
+
 ---
 
 ## 8. Qué NO se aborda en esta fase
