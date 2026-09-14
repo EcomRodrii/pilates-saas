@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   sesionEncajaEnPlaza, plazasFijasSinSesion, horaInicioLocalDe, normalizarHoraInicio, nombreDiaSemana,
+  proximaSesionParaPlaza,
 } from './plazas-fijas-slot.ts';
 import { franjaLocalDe, hoyEnEstudio } from './utils.ts';
 import type { PlazaFija, Sesion } from './types.ts';
@@ -148,6 +149,33 @@ test('el horizonte recorta la búsqueda: una clase que encaja a 10 semanas no sa
   const lejana = ses({ id: 'lejos', inicio: new Date(Date.parse(MARTES_10_UTC) + 10 * 7 * DIA_MS).toISOString() });
   const cerca = serieSemanal(4, { salaId: 'sala-2' });
   assert.deepEqual(plazasFijasSinSesion([pf({ id: 'p' })], [...cerca, lejana], AHORA).map(p => p.id), ['p']);
+});
+
+// ── proximaSesionParaPlaza ───────────────────────────────────────────────────
+test('proximaSesionParaPlaza: la primera futura que encaja, no la más lejana', () => {
+  const serie = serieSemanal(4); // ses-0 es la de referencia (MARTES_10_UTC), ses-1..3 semanas siguientes
+  const res = proximaSesionParaPlaza(pf({ id: 'p' }), serie, AHORA);
+  assert.equal(res?.id, 'ses-0');
+});
+
+test('proximaSesionParaPlaza: descarta las ya pasadas', () => {
+  const serie = serieSemanal(4);
+  // AHORA está justo antes de ses-0 (referencia); si "ahora" fuera justo
+  // después de ses-0, la próxima tiene que ser ses-1.
+  const justoTrasSes0 = Date.parse(MARTES_10_UTC) + 60_000;
+  const res = proximaSesionParaPlaza(pf({ id: 'p' }), serie, justoTrasSes0);
+  assert.equal(res?.id, 'ses-1');
+});
+
+test('proximaSesionParaPlaza: null sin ninguna sesión que encaje', () => {
+  const otraSala = serieSemanal(4, { salaId: 'sala-2' });
+  assert.equal(proximaSesionParaPlaza(pf({ id: 'p' }), otraSala, AHORA), null);
+});
+
+test('proximaSesionParaPlaza: una CANCELADA no cuenta, sigue a la siguiente', () => {
+  const serie = serieSemanal(3).map(s => s.id === 'ses-0' ? { ...s, cancelada: true } : s);
+  const res = proximaSesionParaPlaza(pf({ id: 'p' }), serie, AHORA);
+  assert.equal(res?.id, 'ses-1');
 });
 
 test('nombreDiaSemana: valores de extract(dow) de Postgres', () => {

@@ -149,6 +149,13 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
     if ('error' in res) { setError(res.error); return; }
     setDialogOpen(false);
     setEditando(null);
+    // Confirmación explícita de lo que ha pasado de verdad — sin esto, guardar
+    // solo cerraba el diálogo y nada decía si ya había clase apuntada o si
+    // tocaba esperar a que se programara una (feedback real de una
+    // propietaria en prueba: "no se entera" de qué ha hecho el botón).
+    onToast(res.proximaOcurrencia
+      ? `Plaza fija guardada · ya tiene reservada la clase del ${fechaCorta(res.proximaOcurrencia.fecha)}`
+      : 'Plaza fija guardada · en cuanto haya una clase programada en ese horario, se le reservará sola');
   }
 
   return (
@@ -156,7 +163,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="min-w-0">
           <p className="text-sm font-bold text-foreground">Plaza fija</p>
-          <p className="text-xs text-muted-foreground">Su hueco semanal reservado. Se materializa en reservas automáticamente.</p>
+          <p className="text-xs text-muted-foreground">Viene siempre al mismo hueco: se le reserva sola cada semana, sin que tengas que apuntarla clase a clase.</p>
         </div>
         <button
           onClick={abrir}
@@ -168,7 +175,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
       </div>
 
       {mias.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2">Sin plaza fija. Asigna un día y hora recurrentes.</p>
+        <p className="text-xs text-muted-foreground py-2">Aún no tiene plaza fija. Elige un día y hora para que venga siempre a ese hueco.</p>
       ) : (
         <div className="space-y-2">
           {mias.map(p => {
