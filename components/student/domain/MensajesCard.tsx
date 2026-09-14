@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import Link from 'next/link';
 import { useAsync } from '@/lib/student/useAsync';
 import { fetchConversaciones, useMiAuthUserId } from '@/lib/student/mensajeria';
-import { selloLista, tieneSinLeer, unaLinea } from '@/lib/mensajeria/presentacion';
+import { selloLista, tieneSinLeer, tituloConversacionAlumna, unaLinea } from '@/lib/mensajeria/presentacion';
 import { unir } from '@/lib/student/formato';
 
 // Punto de entrada a Mensajes desde la Home. A diferencia de `DelEstudio`
@@ -24,7 +24,7 @@ export function MensajesCard({ studioId, nombreEstudio, href }: { studioId: stri
   const conversaciones = data ?? [];
   const conSinLeer = conversaciones.filter((c) => tieneSinLeer(c, miId));
   const destacada = conSinLeer[0] ?? conversaciones[0] ?? null;
-  const nombre = destacada?.tipo === 'ALUMNA_MOSTRADOR' ? nombreEstudio : 'Tu instructora';
+  const nombre = destacada ? tituloConversacionAlumna(destacada, nombreEstudio) : nombreEstudio;
 
   return (
     <Link href={href} className="card card--tap a-fade" data-testid="mensajes-card" style={{ display: 'block', padding: '13px 15px' }}>
