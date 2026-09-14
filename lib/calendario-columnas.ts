@@ -141,3 +141,48 @@ export function prepararColumnasDiaSemana(
     return { dia, sesiones: conCarril, ocupacionMedia, hayAtencion, vacio: delDia.length === 0, cerrado: cerradoPorWeekday.get(weekday) ?? false };
   });
 }
+
+// ── Reparto del ancho de la semana ───────────────────────────────────────────
+//
+// Las siete columnas se repartían el ancho A PARTES IGUALES, y cada clase que
+// coincide con otra recibe `1/totalCarriles` de SU columna. Medido a 1280×720
+// con el menú grande: una clase sola, 111 px; dos que se pisan, 54 px («Reformer»
+// ya sale cortado); TRES, 35 px — ilegible. Mientras tanto un día cerrado o
+// sin clases se llevaba los mismos 111 px para enseñar la palabra «Cerrado».
+//
+// En un estudio de pilates dos clases a la misma hora en salas distintas NO son
+// un caso raro, son lo normal, así que ponerlas lado a lado es lo correcto: lo
+// que faltaba era ANCHO. Aquí cada día pesa lo que coincide en él.
+
+/** Por debajo de esto un carril no cabe «09:00 · Reformer» sin cortarse. */
+export const ANCHO_MIN_CARRIL_PX = 64;
+
+/** Tope del peso de un día: sin él, un día con seis salas a la vez dejaría a
+ *  los otros seis en su mínimo y la semana dejaría de leerse como semana. */
+export const PESO_MAX_DIA = 4;
+
+/**
+ * La plantilla de columnas de la semana, ponderada por solapes.
+ *
+ * ⚠️ La MISMA cadena tiene que ir en la cabecera de días y en el cuerpo: si una
+ * reparte distinto que la otra, «Lun 14» deja de estar encima de sus clases.
+ *
+ * El mínimo de cada columna crece con sus carriles para que ninguno baje de
+ * `ANCHO_MIN_CARRIL_PX`: si no cabe, el contenedor ya hace scroll horizontal
+ * (que es lo que pasa hoy en móvil), en vez de encoger las clases hasta
+ * convertirlas en rayas.
+ */
+export function plantillaColumnasSemana(
+  columnas: Pick<ColumnaDia, 'sesiones'>[],
+  anchoMinColumnaPx: number,
+): { plantilla: string; anchoMin: number } {
+  if (columnas.length === 0) return { plantilla: `minmax(${anchoMinColumnaPx}px, 1fr)`, anchoMin: anchoMinColumnaPx };
+  let anchoMin = 0;
+  const pistas = columnas.map((c) => {
+    const carriles = Math.min(PESO_MAX_DIA, Math.max(1, ...c.sesiones.map((s) => s.totalCarriles)));
+    const min = Math.max(anchoMinColumnaPx, carriles * ANCHO_MIN_CARRIL_PX);
+    anchoMin += min;
+    return `minmax(${min}px, ${carriles}fr)`;
+  });
+  return { plantilla: pistas.join(' '), anchoMin };
+}
