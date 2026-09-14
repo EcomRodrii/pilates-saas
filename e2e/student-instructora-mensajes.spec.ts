@@ -83,6 +83,7 @@ test.describe('Mensajes de la instructora con sus alumnas', () => {
     await expect(page).toHaveURL(/\/equipo\/mensajes\/conv-1$/, { timeout: 30_000 });
     await expect(page.getByRole('heading', { name: 'Aina P.' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(PREGUNTA)).toBeVisible();
+    await expect(page.getByTestId('aviso-hilo')).toHaveText('El estudio también puede leer esta conversación.');
 
     await page.getByPlaceholder('Escribe un mensaje…').fill('Sí, y trae calcetines antideslizantes');
     await page.getByRole('button', { name: 'Enviar' }).click();

@@ -9,6 +9,7 @@ import {
   enviarEnHiloInstructora, getHilosInstructora, getMensajesHilo, marcarHiloLeidoInstructora,
 } from '@/lib/student/datos-instructora';
 import { HiloConversacion } from '@/components/student/domain/HiloConversacion';
+import { AVISO_ESTUDIO_PUEDE_LEER } from '@/lib/mensajeria/presentacion';
 
 // Conversación de la instructora con una alumna suya. La misma pantalla que el
 // hilo de la alumna (`HiloConversacion`); el título es el nombre corto de la
@@ -40,6 +41,7 @@ export default function HiloInstructoraPage() {
     <HiloConversacion
       modo="instructora"
       titulo={titulo}
+      aviso={AVISO_ESTUDIO_PUEDE_LEER}
       cargar={cargar}
       enviar={enviar}
       marcarLeido={marcarLeido}

@@ -28,6 +28,11 @@ export interface ResumenConversacion {
   leido_hasta_otros: string | null;
   ultimo_cuerpo: string | null;
   ultimo_remitente_auth_user_id: string | null;
+  /**
+   * Hilo instructora–alumna que quien pregunta lee sin participar (la
+   * propietaria). La RLS ya le impide escribir; esto decide la pantalla.
+   */
+  solo_lectura?: boolean;
 }
 
 export type ConversacionConResumen = RowConversaciones & ResumenConversacion;
@@ -191,6 +196,13 @@ export function estadoEntrega(
 }
 
 // ── Texto ───────────────────────────────────────────────────────────────────
+
+/**
+ * Aviso fijo en los hilos instructora–alumna (decisión del 14-sep-2026): la
+ * propietaria puede leerlos, y quien escribe tiene que saberlo. Lo comparten la
+ * app del estudio y el panel.
+ */
+export const AVISO_ESTUDIO_PUEDE_LEER = 'El estudio también puede leer esta conversación.';
 
 /**
  * El texto que viaja en el push de un mensaje nuevo. En las conversaciones
