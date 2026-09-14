@@ -2791,7 +2791,13 @@ export default function Calendario() {
             ahoraMin={now.getHours() * 60 + now.getMinutes()}
             horaInicioMin={horaInicioMinVista}
             horaFinMin={horaFinMinVista}
-            pxPorHora={58}
+            // 72 y no 58. Medido: una tarjeta de semana necesita 55 px para sus tres
+            // líneas (hora y ocupación, clase, instructora) y 42 px para dos. A 58 px
+            // por hora TODA clase de menos de una hora salía cortada — y la clase
+            // típica de pilates dura 50-55 min, así que eran casi todas. A 72, una de
+            // 50 min mide 58 px. Las más cortas las resuelve `BloqueClase`
+            // quitando líneas en vez de recortarlas.
+            pxPorHora={72}
             seleccionadaId={sesionId}
             marcadas={marcadas}
             onSeleccionar={id => { if (modoSeleccion) { alternarMarcada(id); return; } setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}

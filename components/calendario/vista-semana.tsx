@@ -124,6 +124,7 @@ export function VistaSemana({
                 // palabra HOY.
                 <div
                   key={c.dia}
+                  data-cabecera-dia={i}
                   className="relative min-w-0 overflow-hidden border-l border-border/60 px-2 py-2 text-center"
                   style={{
                     background: esHoy ? 'color-mix(in srgb, var(--brand-medio) 10%, var(--card))' : undefined,
@@ -223,7 +224,12 @@ export function VistaSemana({
                     onClickVacio({ diaColumna: i, offsetYPx: e.clientY - rect.top, pxPorHora });
                   }}
                 >
-                  {(c.cerrado || c.vacio) && (
+                  {/* Solo «Cerrado». Un día abierto sin clases ya lo dice su cabecera
+                      («Sin clases»), y repetirlo aquí lo dejaba flotando en mitad de la
+                      rejilla —a la altura del mediodía, en cada día vacío a la vez—, una
+                      franja de texto que se leía como una fila más del horario. En un día
+                      cerrado sí aporta: toda la columna es inservible. */}
+                  {c.cerrado && (
                     // pointer-events-none: sin esto, este rótulo (que cubre TODA
                     // la columna) se comía cualquier clic en un día cerrado antes
                     // de que llegara a onClickVacio — la comprobación de "clic en
@@ -233,7 +239,7 @@ export function VistaSemana({
                     // `--border` (#E7E7E0) es el token de las LÍNEAS y como
                     // tinta sobre blanco da 1,24:1 — invisible, no tenue.
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {c.cerrado ? 'Cerrado' : 'Sin clases'}
+                      Cerrado
                     </span>
                   )}
 

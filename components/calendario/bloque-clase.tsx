@@ -15,6 +15,10 @@ import type { Sesion, TipoClase, Instructor, Reserva } from '@/lib/types';
 // El posicionamiento absoluto (top/height/left/width dentro de la columna) lo
 // calcula quien llama (VistaDiaSalas/VistaSemana, con lib/calendario-carriles)
 // — este componente solo pinta lo que le dan.
+/** Alto natural medido del bloque compacto con tres líneas y con dos. */
+const ALTO_TRES_LINEAS_PX = 55;
+const ALTO_DOS_LINEAS_PX = 42;
+
 export interface BloqueClaseProps {
   sesion: Pick<Sesion, 'inicio' | 'fin' | 'aforoMaximo' | 'cancelada'>;
   tipo: Pick<TipoClase, 'nombre' | 'color'>;
@@ -145,7 +149,21 @@ export function BloqueClase({
   // da de sí: una clase de 15 min mide 14 px de alto y la recortaría a la
   // mitad, que es peor que no ponerla.
   const duracionMin = Math.max(0, Math.round((new Date(sesion.fin).getTime() - new Date(sesion.inicio).getTime()) / 60_000));
-  const cabeInstructoraCompacto = duracionMin >= 40;
+  // Cuántas líneas CABEN, decidido por los píxeles que el bloque tiene de verdad
+  // (`style.height`, que es lo que le da quien lo coloca) y no por la duración.
+  //
+  // ⚠️ Antes era `duracionMin >= 40` para la tercera línea, y medido a 58 px por
+  // hora eso cortaba el texto en TODA clase de menos de una hora: una de 50 min
+  // medía 46 px y pintaba tres líneas que piden 55 — «María Solar» salía
+  // partida. Una línea que no cabe se quita; no se recorta a la mitad.
+  //
+  // Los dos umbrales están MEDIDOS en el navegador (alto natural del bloque con
+  // tres y con dos líneas) y los vigila `e2e/calendario-semana-legible.spec.ts`:
+  // si cambia un tamaño de letra, ese test falla antes de que se vea cortado.
+  const altoDisponible = typeof style.height === 'number' ? style.height : null;
+  const lineasCompacto = altoDisponible == null
+    ? (duracionMin >= 40 ? 3 : 2)
+    : altoDisponible >= ALTO_TRES_LINEAS_PX ? 3 : altoDisponible >= ALTO_DOS_LINEAS_PX ? 2 : 1;
 
   return (
     <div
@@ -227,7 +245,17 @@ export function BloqueClase({
             {p.label}
           </span>
         )}
-        {!ancho && !sesion.cancelada && (
+        {!ancho && lineasCompacto === 1 && (
+          // Una sola línea: hora y CLASE, que es lo que identifica el bloque. La
+          // ocupación cede el sitio; se ve al abrirla.
+          <span
+            className="min-w-0 truncate text-[10.5px] font-semibold leading-tight"
+            style={{ color: p.tinta, textDecoration: sesion.cancelada ? 'line-through' : 'none' }}
+          >
+            {tipo.nombre}
+          </span>
+        )}
+        {!ancho && !sesion.cancelada && lineasCompacto >= 2 && (
           /* ⚠️ La tinta es la del chip, NO `colorOcupacion(ratio)`. Ese color es
              una ESCALA SEMÁNTICA pensada para pintar superficies, y como tinta
              de 9,5 px sobre el fondo del chip daba entre 2,37 y 3,41:1 según el
@@ -246,12 +274,14 @@ export function BloqueClase({
         )}
       </span>
 
-      <span
-        className={cn('font-semibold leading-tight truncate', ancho ? 'text-[15px]' : 'text-[10.5px]')}
-        style={{ color: p.tinta, textDecoration: sesion.cancelada ? 'line-through' : 'none' }}
-      >
-        {tipo.nombre}
-      </span>
+      {(ancho || lineasCompacto >= 2) && (
+        <span
+          className={cn('font-semibold leading-tight truncate', ancho ? 'text-[15px]' : 'text-[10.5px]')}
+          style={{ color: p.tinta, textDecoration: sesion.cancelada ? 'line-through' : 'none' }}
+        >
+          {tipo.nombre}
+        </span>
+      )}
 
       {ancho && (
         <span className="text-[10.5px] truncate" style={{ color: estado === 'PROGRAMADA' ? 'var(--muted-foreground)' : p.tinta }}>
@@ -260,7 +290,7 @@ export function BloqueClase({
         </span>
       )}
 
-      {!ancho && cabeInstructoraCompacto && (
+      {!ancho && lineasCompacto === 3 && (
         <span className="text-[9px] leading-tight truncate" style={{ color: estado === 'PROGRAMADA' ? 'var(--muted-foreground)' : p.tinta }}>
           {instructor?.nombre ?? 'Sin instructora'}
           {enEspera > 0 ? ` · ${enEspera} en espera` : ''}
