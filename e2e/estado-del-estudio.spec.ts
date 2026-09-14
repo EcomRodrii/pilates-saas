@@ -379,31 +379,10 @@ test.describe('Reservas por aprobar, dentro de la bandeja', () => {
     expect(intentos.cuerpos).toEqual([{ reservaId: 'res-pend-1', aprobar: true }]);
   });
 
-  test('una instructora no ve la tarjeta ni la pide, aunque haya reservas pendientes', async ({ page }) => {
-    const consultas = { reservas: 0, deLaTarjeta: 0, post: 0 };
-    const registrar = async (p: Page) => {
-      await p.route('**/rest/v1/reservas**', route => {
-        consultas.reservas++;
-        if (decodeURIComponent(route.request().url()).includes('sesiones!inner')) consultas.deLaTarjeta++;
-        return json(route, [RESERVA_PENDIENTE]);
-      });
-      await p.route('**/api/reservas/resolver-pendiente**', route => { consultas.post++; return json(route, {}); });
-    };
-    await montar(page, { cuerpo: { ...SIN_NADA, aplica: false } }, {
-      socios: CON_RESERVA_REST.socios,
-      // Otra dueña, y esta cuenta es una instructora del equipo.
-      studios: { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: 'auth-e2e-otra' },
-      instructores: [{ id: 'ins-1', studio_id: STUDIO_ID, nombre: 'Laura', activo: true, rol: 'INSTRUCTOR', color: '#5A6142', auth_user_id: AUTH_UID }],
-    }, registrar);
-
-    await expect(page.getByRole('link', { name: /^Inicio/ }).first()).toBeVisible({ timeout: 30_000 });
-    // ⚠️ Sin esto, «no la ve» podría ser verdad por no haber cargado nada:
-    // las reservas pendientes SÍ se le sirvieron al panel.
-    await expect.poll(() => consultas.reservas, { timeout: 30_000 }).toBeGreaterThan(0);
-    await expect(page.getByTestId('reservas-por-aprobar')).toHaveCount(0);
-    expect(consultas.deLaTarjeta).toBe(0);
-    expect(consultas.post).toBe(0);
-  });
+  // Quién NO la ve (la instructora) se fija en lib/reservas-por-aprobar-gate.test.ts
+  // y no aquí: desde #2013 una instructora no llega a /dashboard (el shell la
+  // manda a la app del estudio), así que un e2e pasaría en verde aunque se
+  // borrara la guardia de la tarjeta.
 });
 
 test.describe('Menú reorganizado', () => {
