@@ -72,7 +72,7 @@ const vacio = (v: unknown) => v === undefined || v === null || v === '';
  */
 export type CampoPrivadoSocio = typeof CAMPOS_PRIVADOS_SOCIO[number];
 
-export function cambiosSociaPermitidos<T extends object>(
+export function cambiosSociaPermitidos<T extends Record<string, unknown>>(
   cambios: T,
   opciones: { puedeVerPrivados: boolean; original?: object | null },
 ): Omit<T, CampoPrivadoSocio> & Partial<Pick<T, Extract<keyof T, CampoPrivadoSocio>>> {

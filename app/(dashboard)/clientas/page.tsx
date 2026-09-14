@@ -692,7 +692,7 @@ export default function Socios() {
     setGuardando(true);
     setErrorGuardar(null);
     const versionTexto = textoLegalCompleto(studioConfig);
-    const res = await addSocio(cambiosSociaPermitidos({
+    const permitidos = cambiosSociaPermitidos({
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
       email: form.email.trim(),
@@ -701,7 +701,9 @@ export default function Socios() {
       activo: true,
       camposExtra: form.camposExtra,
       planId: form.planId || undefined,
-      cobroAlta: form.cobroPagado ? { pagado: true, metodo: form.cobroMetodo } : { pagado: false },
+      // `as const`: el objeto ya no va directo a `addSocio`, y sin contexto de
+      // tipo `pagado` se ensancha a `boolean` y deja de encajar en `CobroAlta`.
+      cobroAlta: form.cobroPagado ? { pagado: true as const, metodo: form.cobroMetodo } : { pagado: false as const },
       // Sin firma no se guarda ninguna aceptación: la socia queda pendiente y
       // el portal se la pedirá a ella (reservar/[slug] ya lo hace cuando no hay
       // `aceptacionContrato`). Con firma, se marca que la recogió el estudio.
@@ -714,7 +716,12 @@ export default function Socios() {
             // Quién la recogió lo rellena el contexto, que sí sabe quién opera.
           }
         : undefined,
-    }, { puedeVerPrivados: veDatosPrivados }));
+    }, { puedeVerPrivados: veDatosPrivados });
+    // `addSocio` tipa `nif` como obligatorio (`string | null`) y el filtro lo
+    // quita a quien no puede verlo. En un alta, ausente y `null` terminan igual
+    // —la columna queda NULL, que el trigger de cierre admite en un INSERT—, así
+    // que se repone a `null` para cumplir el contrato del tipo.
+    const res = await addSocio({ ...permitidos, nif: permitidos.nif ?? null });
     setGuardando(false);
     // Si la BD la rechaza, el diálogo se queda abierto con los datos puestos:
     // antes se cerraba igual y la clienta aparecía en la lista sin existir.
