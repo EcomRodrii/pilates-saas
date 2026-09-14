@@ -986,6 +986,9 @@ export default function ReservarPage() {
   // para `entradasPropiasRef` (no la puede deshacer un `history.go()` propio,
   // no sabemos si hay nada detrás en el historial de esta pestaña).
   const primerPasoUrlRef = useRef(true);
+  // La última URL (`searchParams.toString()`) que el efecto de "URL → estado"
+  // ya procesó. Ver el porqué junto a su uso.
+  const urlProcesadaRef = useRef<string | null>(null);
 
   // Posicionamiento que se pasa a los PublicSheet en modo embebido. `top`/
   // `height` + `bottom: auto` pisan el `inset-0` de la clase; `alignItems`
@@ -1355,6 +1358,18 @@ export default function ReservarPage() {
   // que Next ya hace.
   useEffect(() => {
     if (!mounted) return;
+    // ⚠️ Solo actúa ante una URL NUEVA, nunca porque cambien solo los datos.
+    // Efecto B hace `pushState` y Next resincroniza `useSearchParams()` un
+    // render DESPUÉS: si en ese hueco cambia `slots` (el reloj de un minuto,
+    // datos que llegan), esta pasada leía la URL VIEJA contra un
+    // `claveVistaRef` ya actualizado, lo tomaba por un Atrás y cerraba la hoja
+    // recién abierta por un deep link — y con las clases ya cargadas, Efecto B
+    // lo convertía en un `history.go(-1)` que la dejaba cerrada del todo.
+    // `sesiones`/`slots` siguen en las deps para lo que sí las necesita: el
+    // reintento de una URL que aún NO se aplicó (datos cargando, más abajo).
+    // Regresión: e2e/reservar-deeplink-no-se-cierra-sola.spec.ts.
+    const urlActual = searchParams.toString();
+    if (urlActual === urlProcesadaRef.current) return;
     const esPrimeraAplicacion = primerPasoUrlRef.current;
 
     const paso = searchParams.get('paso') as VistaPaso | null;
@@ -1365,6 +1380,7 @@ export default function ReservarPage() {
       // (clave `''` contra el `''` inicial de `claveVistaRef`), que por eso
       // SÍ tiene que limpiar `primerPasoUrlRef` aquí y no solo más abajo.
       primerPasoUrlRef.current = false;
+      urlProcesadaRef.current = urlActual;
       return;
     }
 
@@ -1388,6 +1404,7 @@ export default function ReservarPage() {
     }
     primerPasoUrlRef.current = false;
     claveVistaRef.current = clave;
+    urlProcesadaRef.current = urlActual;
 
     if (paso === 'ficha') {
       const existe = !!claseId && slots.some(s => s.id === claseId);
@@ -1429,8 +1446,8 @@ export default function ReservarPage() {
     // se queda un render por detrás justo cuando `sesiones`/`slots` cambian
     // juntos (p. ej. al recargar con `?paso=ficha` en la URL), y `existe`
     // salía `false` para una clase que sí existía. Que reaccione también a
-    // cambios de filtro no es problema: si `clave` sigue igual a
-    // `claveVistaRef.current`, el efecto ya corta arriba sin hacer nada.
+    // cambios de filtro no es problema: con la URL ya procesada
+    // (`urlProcesadaRef`), el efecto corta arriba sin hacer nada.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- openBooking/closeBooking se redeclaran cada render (cierran sobre mucho estado); esto solo debe reaccionar a la URL y a los datos cargando.
   }, [mounted, searchParams, sesiones, slots]);
 
