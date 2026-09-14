@@ -7,6 +7,7 @@ import {
   estadoTrial,
   trialVigente,
   mensajeTrial,
+  ampliacionDePrueba,
 } from './trial.ts';
 
 const AHORA = new Date('2026-08-19T10:00:00.000Z');
@@ -161,4 +162,32 @@ test('los estudios anteriores a la apertura NO se ven afectados', () => {
   assert.equal(estadoTrial({ trialEndsAt: null, subscriptionStatus: 'active' }, AHORA).agotada, false);
   assert.equal(estadoTrial({ trialEndsAt: null, subscriptionStatus: null }, AHORA).fase, 'SIN_PRUEBA');
   assert.equal(estadoTrial({ trialEndsAt: null, subscriptionStatus: 'trial_expirado' }, AHORA).fase, 'SIN_PRUEBA');
+});
+
+// ── Ampliar la prueba desde /interno ────────────────────────────────────────
+
+const dentroDe = (n: number) => new Date(AHORA.getTime() + n * 86_400_000).toISOString();
+
+test('ampliar una prueba que ACABÓ cuenta desde ahora, no desde su fecha', () => {
+  const r = ampliacionDePrueba({ trialEndsAt: dentroDe(-1), subscriptionStatus: 'trial_expirado', subscriptionId: null }, 7, AHORA);
+  assert.deepEqual(r, { ok: true, hasta: new Date(dentroDe(7)) });
+});
+
+test('ampliar una prueba en curso suma a su fecha de fin', () => {
+  const r = ampliacionDePrueba({ trialEndsAt: dentroDe(3), subscriptionStatus: 'trialing', subscriptionId: null }, 7, AHORA);
+  assert.deepEqual(r, { ok: true, hasta: new Date(dentroDe(10)) });
+});
+
+test('con suscripción de Stripe NUNCA, ni siquiera cancelada: sería acceso infinito', () => {
+  for (const subscriptionStatus of ['trialing', 'active', 'canceled', 'trial_expirado']) {
+    const r = ampliacionDePrueba({ trialEndsAt: dentroDe(-1), subscriptionStatus, subscriptionId: 'sub_123' }, 7, AHORA);
+    assert.equal(r.ok, false, subscriptionStatus);
+  }
+});
+
+test('sin prueba local, con plan manual o siendo sede, no se amplía', () => {
+  assert.equal(ampliacionDePrueba({ trialEndsAt: null, subscriptionStatus: null, subscriptionId: null }, 7, AHORA).ok, false);
+  assert.equal(ampliacionDePrueba({ trialEndsAt: dentroDe(-1), subscriptionStatus: 'active', subscriptionId: null }, 7, AHORA).ok, false);
+  assert.equal(ampliacionDePrueba({ trialEndsAt: null, subscriptionStatus: 'trial_expirado', subscriptionId: null }, 7, AHORA).ok, false);
+  assert.equal(ampliacionDePrueba({ trialEndsAt: dentroDe(-1), subscriptionStatus: 'trial_expirado', subscriptionId: null, esSede: true }, 7, AHORA).ok, false);
 });

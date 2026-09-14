@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import { registrar } from '@/lib/interno/auditoria';
 import { PLANES } from '@/lib/billing/entitlements';
+import { DIAS_AMPLIACION_PRUEBA } from '@/lib/billing/trial';
+import { ampliarPruebaEstudio } from '@/lib/interno/ampliar-prueba';
 
 export const runtime = 'nodejs';
 
@@ -12,13 +14,16 @@ export const runtime = 'nodejs';
 //   2. Leen el estado ANTES, escriben, y auditan ambos con un resumen legible.
 //      Sin el "antes" la auditoría no sirve para reconstruir qué pasó.
 //   3. Nada de acciones que solo Stripe sabe hacer bien (reembolsar, reenviar
-//      factura, meses gratis). Ahí el panel enlaza a Stripe en vez de duplicar
-//      una superficie por la que se pierde dinero.
+//      factura, meses gratis a quien paga). Ahí el panel enlaza a Stripe en vez
+//      de duplicar una superficie por la que se pierde dinero. La prueba
+//      gratuita LOCAL (sin tarjeta) no es de Stripe: esa sí se amplía aquí
+//      (`ampliar-prueba`), y nunca a un estudio con suscripción en Stripe.
 type Accion =
   | { accion: 'cambiar-plan'; plan: string }
   | { accion: 'suspender'; motivo: string }
   | { accion: 'reactivar' }
-  | { accion: 'activar-review-boost' };
+  | { accion: 'activar-review-boost' }
+  | { accion: 'ampliar-prueba' };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const g = await exigirPermiso(req, 'studios.update');
@@ -146,6 +151,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       antes: { reviewBoostElegibleEn: null }, despues: { reviewBoostElegibleEn: true },
     });
     return NextResponse.json({ ok: true, reviewBoostElegible: true });
+  }
+
+  if (cuerpo.accion === 'ampliar-prueba') {
+    // La regla, la purga y el compare-and-set viven en `ampliarPruebaEstudio`
+    // (probado contra las peticiones reales a PostgREST). Aquí: permiso y auditoría.
+    const r = await ampliarPruebaEstudio(db, id);
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+
+    const dia = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+    await registrar(db, req, {
+      actor: g.admin,
+      accion: 'estudio.prueba.ampliada',
+      objetivoTipo: 'studio', objetivoId: id,
+      resumen: `${r.nombre}: prueba +${DIAS_AMPLIACION_PRUEBA} días, hasta el ${dia(r.hasta)} (${r.estadoAntes === 'trial_expirado' ? 'había terminado' : 'acababa'} el ${dia(r.trialAntes)})`,
+      antes: { trialEndsAt: r.trialAntes, subscriptionStatus: r.estadoAntes },
+      despues: { trialEndsAt: r.hasta, subscriptionStatus: 'trialing' },
+    });
+    return NextResponse.json({ ok: true, pruebaHasta: r.hasta });
   }
 
   return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 });
