@@ -990,6 +990,8 @@ export interface RowStudios {
   frase_manuscrita: string | null;
   // migr 20260911000542.
   subtitulo_heroe: string | null;
+  // migr 20260914104856.
+  instructoras_crean_clases: boolean | null;
 }
 
 export interface RowSuscripciones {

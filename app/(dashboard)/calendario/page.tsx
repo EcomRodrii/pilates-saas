@@ -573,7 +573,8 @@ export default function Calendario() {
   const rolActual = useRol();
   const gestionaClientas = puedeGestionarClientas(rolActual);
   const mueveDinero = puedeMoverDinero(rolActual);
-  const creaClasesPropias = puedeCrearClasesPropias(rolActual);
+  // El estudio decide si la instructora crea sus clases (migr 20260914104856).
+  const creaClasesPropias = puedeCrearClasesPropias(rolActual, studio?.instructorasCreanClases ?? true);
   const esInstructorTop = rolActual === 'INSTRUCTOR';
   const yoTop = instructores.find(i => i.authUserId === user?.id) ?? null;
 
@@ -3283,7 +3284,7 @@ export default function Calendario() {
                 </FormField>
               </div>
               {esInstructorTop && showForm === 'nueva' ? (
-                <FormField label="Aforo máximo" description="Es el de la sala elegida.">
+                <FormField label="Aforo máximo" description="Lo fija el tipo de clase o, si no tiene, la sala elegida.">
                   <input type="number" className={inputCls + ' opacity-60'} value={form.aforoMaximo} disabled readOnly />
                 </FormField>
               ) : (

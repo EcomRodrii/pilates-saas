@@ -236,6 +236,10 @@ export interface Studio {
   bloquearReservaImpago: boolean;
   /** Otorgar recuperaciones solas al cerrar la semana. Solo planes con límite semanal. */
   recuperacionAutoSemanal: boolean;
+  // Migr 20260914104856: si la instructora puede crear sus propias clases (en el
+  // panel y en la app del estudio). Ausente = true, el comportamiento de siempre
+  // (#550). La RLS de INSERT en `sesiones` lo exige también.
+  instructorasCreanClases?: boolean;
   // Devoluciones desde el panel (migr 20260811091725). Apagadas por defecto: un
   // botón que mueve dinero real no aparece solo, lo enciende la propietaria —
   // mismo criterio que `penalizacionImporteEur`. Sin override por tipo de clase
