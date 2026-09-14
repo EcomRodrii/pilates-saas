@@ -1,6 +1,8 @@
 // El perfil de la instructora en la app del estudio: sus ausencias, su tarifa y
-// sus estudios. Tipos y reglas PURAS (sin imports): lo prueba el runner de Node
-// y lo comparten el servidor y las pantallas.
+// sus estudios. Tipos y reglas PURAS (solo imports de tipo): lo prueba el runner
+// de Node y lo comparten el servidor y las pantallas.
+
+import type { ValoracionesVista } from './valoraciones-instructora.ts';
 
 export type TipoAusencia = 'VACACIONES' | 'BAJA_MEDICA' | 'OTRO';
 
@@ -39,6 +41,8 @@ export interface TarifaVista {
 export interface PerfilInstructora {
   estudios: EstudioDeInstructora[];
   tarifa: TarifaVista | null;
+  /** Su nota agregada y protegida; `null` mientras no haya datos suficientes. */
+  valoraciones: ValoracionesVista | null;
 }
 
 /** El mismo tope que el servidor (`lib/sustituciones/ausencias-servidor.ts`). */
