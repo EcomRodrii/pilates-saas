@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
   // Tipo y motivo solo para quien gestiona el equipo, o para la instructora
   // sobre las suyas (arriba ya se acotó a ellas). Recepción, que asigna clases
   // en el calendario, se lleva quién y qué días. Espejo de la RLS
-  // `ausencias_gestion` (migr 20260914120100): esta ruta va con service-role y
+  // `ausencias_gestion` (migr 20260914000209): esta ruta va con service-role y
   // la RLS no la ve, así que el recorte tiene que estar AQUÍ también.
   const verDetalle = staff.rol === 'INSTRUCTOR' || puedeVerDetalleAusencias(staff.rol);
 

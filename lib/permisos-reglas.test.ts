@@ -511,7 +511,7 @@ test('puedeGestionarCamposPersonalizados: solo la propietaria define qué se pre
 
 test('puedeVerDetalleAusencias: tipo y motivo solo para quien gestiona el equipo (igual que la RLS)', () => {
   // Una baja médica es salud de una empleada. Recepción sigue sabiendo quién
-  // no está y qué días. Migr 20260914120100 (`ausencias_gestion`).
+  // no está y qué días. Migr 20260914000209 (`ausencias_gestion`).
   assert.equal(puedeVerDetalleAusencias('PROPIETARIO'), true);
   assert.equal(puedeVerDetalleAusencias('MANAGER'), true);
   assert.equal(puedeVerDetalleAusencias('RECEPCION'), false);
@@ -524,7 +524,7 @@ test('puedeVerDetalleAusencias: tipo y motivo solo para quien gestiona el equipo
 });
 
 test('puedeVerSolicitudesSoporte: solo la propietaria lee lo que el estudio escribe a Tentare', () => {
-  // Migr 20260914120000 (`soporte_leer_propietaria`).
+  // Migr 20260914000205 (`soporte_leer_propietaria`).
   assert.equal(puedeVerSolicitudesSoporte('PROPIETARIO'), true);
   assert.equal(puedeVerSolicitudesSoporte('MANAGER'), false);
   assert.equal(puedeVerSolicitudesSoporte('RECEPCION'), false);
