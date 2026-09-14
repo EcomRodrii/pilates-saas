@@ -41,7 +41,7 @@ export async function leerArchivoTabular(file: File): Promise<ParsedCsv> {
   if (esExcel(file)) {
     const { parseXlsx } = await import('./xlsx-import.ts');
     const buffer = await file.arrayBuffer();
-    return parseXlsx(buffer);
+    return await parseXlsx(buffer);
   }
   const texto = await file.text();
   return parseCsv(texto);

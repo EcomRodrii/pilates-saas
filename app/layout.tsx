@@ -4,6 +4,7 @@ import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins, 
 import { StudioProvider } from '@/lib/studio-context';
 import { AuthProvider } from '@/lib/auth-context';
 import { AhrefsAnalytics } from '@/components/analitica/ahrefs';
+import { LogSetup } from '@/components/log-setup';
 import './globals.css';
 
 const jakarta = Plus_Jakarta_Sans({
@@ -192,6 +193,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} ${cormorant.variable} ${libreCaslon.variable} ${sacramento.variable} ${figtree.variable} ${plexMono.variable} antialiased`}>
       <body className="bg-background">
+        <LogSetup />
         {/* Fuera de los providers a propósito: no depende de sesión ni de
             estudio, y así no vuelve a montarse cada vez que uno de los dos
             reevalúa. Decide por sí mismo en qué rutas mide — ver

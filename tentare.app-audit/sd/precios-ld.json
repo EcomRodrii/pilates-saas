@@ -1,0 +1,289 @@
+{
+  "block_count": 10,
+  "processed_count": 10,
+  "total_bytes": 5131,
+  "truncated": false,
+  "blocks": [
+    {
+      "index": 1,
+      "size_bytes": 409,
+      "valid": true,
+      "types": [
+        "ContactPoint",
+        "Organization"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Tentare",
+        "url": "https://www.tentare.app",
+        "email": "hola@tentare.app",
+        "sameAs": [
+          "https://x.com/tentaresoftware",
+          "https://www.instagram.com/tentareapp/",
+          "https://www.linkedin.com/company/tentare/"
+        ],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "hola@tentare.app",
+          "contactType": "customer support",
+          "areaServed": "ES",
+          "availableLanguage": [
+            "Spanish"
+          ]
+        }
+      }
+    },
+    {
+      "index": 2,
+      "size_bytes": 259,
+      "valid": true,
+      "types": [
+        "SearchAction",
+        "WebSite"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Tentare",
+        "url": "https://www.tentare.app",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://www.tentare.app/recursos?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    },
+    {
+      "index": 3,
+      "size_bytes": 138,
+      "valid": true,
+      "types": [
+        "SiteNavigationElement"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SiteNavigationElement",
+        "name": "Funcionalidades",
+        "url": "https://www.tentare.app/funcionalidades"
+      }
+    },
+    {
+      "index": 4,
+      "size_bytes": 150,
+      "valid": true,
+      "types": [
+        "SiteNavigationElement"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SiteNavigationElement",
+        "name": "Sustituciones",
+        "url": "https://www.tentare.app/funcionalidades/sustituciones"
+      }
+    },
+    {
+      "index": 5,
+      "size_bytes": 122,
+      "valid": true,
+      "types": [
+        "SiteNavigationElement"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SiteNavigationElement",
+        "name": "Precios",
+        "url": "https://www.tentare.app/precios"
+      }
+    },
+    {
+      "index": 6,
+      "size_bytes": 115,
+      "valid": true,
+      "types": [
+        "SiteNavigationElement"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SiteNavigationElement",
+        "name": "FAQ",
+        "url": "https://www.tentare.app/#faq"
+      }
+    },
+    {
+      "index": 7,
+      "size_bytes": 124,
+      "valid": true,
+      "types": [
+        "SiteNavigationElement"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SiteNavigationElement",
+        "name": "Recursos",
+        "url": "https://www.tentare.app/recursos"
+      }
+    },
+    {
+      "index": 8,
+      "size_bytes": 253,
+      "valid": true,
+      "types": [
+        "BreadcrumbList",
+        "ListItem"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Inicio",
+            "item": "https://www.tentare.app"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Precios",
+            "item": "https://www.tentare.app/precios"
+          }
+        ]
+      }
+    },
+    {
+      "index": 9,
+      "size_bytes": 900,
+      "valid": true,
+      "types": [
+        "Offer",
+        "SoftwareApplication"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Tentare",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web, iOS, Android",
+        "url": "https://www.tentare.app",
+        "description": "Tres planes con precio público y sin permanencia: Base 29€, Estudio 59€ y Cadena 149€ al mes. Qué incluye cada uno, qué límites tiene y qué se cobra aparte.",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Base",
+            "price": 29,
+            "priceCurrency": "EUR",
+            "url": "https://www.tentare.app/precios",
+            "description": "Reservas, cobros y check-in. Hasta 150 socias."
+          },
+          {
+            "@type": "Offer",
+            "name": "Estudio",
+            "price": 59,
+            "priceCurrency": "EUR",
+            "url": "https://www.tentare.app/precios",
+            "description": "Socias ilimitadas + gamificación, marketing y automatizaciones."
+          },
+          {
+            "@type": "Offer",
+            "name": "Cadena",
+            "price": 149,
+            "priceCurrency": "EUR",
+            "url": "https://www.tentare.app/precios",
+            "description": "Multi-centro y todo incluido."
+          }
+        ]
+      }
+    },
+    {
+      "index": 10,
+      "size_bytes": 2661,
+      "valid": true,
+      "types": [
+        "Answer",
+        "FAQPage",
+        "Question"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "¿La prueba de 7 días pide tarjeta?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Creas tu estudio y entras: 7 días con todo abierto sin darnos ningún dato de pago. Al terminar no se te cobra nada — si no eliges plan, la prueba simplemente se acaba y tus datos siguen ahí intactos, sin borrar nada."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Qué pasa exactamente cuando terminan los 7 días?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Que dejas de poder entrar al panel hasta que elijas un plan. No se borra nada: tus alumnas, tus clases, tus bonos y tus facturas siguen donde estaban, y en cuanto contrates vuelves a encontrarlo todo tal cual lo dejaste. Tus alumnas tampoco pierden su historial."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Hay permanencia?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Se paga mes a mes y se cancela cuando quieras. Tus datos son tuyos: puedes exportar alumnas, historial y facturas en cualquier momento, también al irte."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Os lleváis una comisión de lo que cobro a mis alumnas?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Tentare no añade ninguna comisión sobre tus cobros ni tiene un marketplace donde competir por tus clientas. Lo que sí pagas es la comisión de Stripe por procesar cada pago, que es de Stripe y la ves en su propio panel."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Qué pasa si supero las 150 alumnas del plan Base?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "El tope se aplica sobre alumnas activas: al llegar al límite no puedes dar de alta a más hasta que pases al plan Estudio. No se corta nada de lo que ya tienes ni se borra a nadie."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Y si un mes falla el cobro de mi suscripción?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No se corta el servicio a la primera. Mientras el pago está en reintento el estudio sigue funcionando, para que un problema puntual de tarjeta no deje a tus alumnas sin poder reservar."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿La migración desde otra plataforma cuesta aparte?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No se cobra aparte. Traes tus datos con los asistentes de importación y te acompañamos en la puesta en marcha; tu sistema actual puede seguir funcionando mientras tanto."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Puedo cambiar de plan más adelante?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sí, en los dos sentidos. Si bajas de plan, las funciones exclusivas del plan superior dejan de estar disponibles — por ejemplo, las sustituciones autónomas vuelven a modo asistido en lugar de seguir operando solas."
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
