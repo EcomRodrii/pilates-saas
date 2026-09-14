@@ -85,19 +85,9 @@ export async function POST(req: NextRequest) {
   if (canceladas.length === 0) return NextResponse.json({ devueltas: 0, fallos: 0, saldos: [] });
 
   if (!puedeGestionarCalendario(sesion.rol)) {
-    if (sesion.rol !== 'INSTRUCTOR') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    // Misma comprobación que `/api/reservas/cancelar`: con service-role
-    // `auth.uid()` es NULL, así que la guardia de la RPC quedaría bypaseada en
-    // silencio y hay que replicarla aquí. `limit(1)` en vez de `maybeSingle()`
-    // porque no hay UNIQUE(auth_user_id, studio_id) en `instructores`.
-    const { data: instructorRows } = await admin
-      .from('instructores').select('id')
-      .eq('auth_user_id', sesion.userId).eq('studio_id', sesion.studioId)
-      .neq('activo', false).order('id', { ascending: true }).limit(1);
-    const instructorId = (instructorRows?.[0]?.id as string | undefined) ?? null;
-    const todasSuyas = (sesiones ?? []).length === sesionIds.length
-      && (sesiones ?? []).every(s => s.instructor_id === instructorId);
-    if (!instructorId || !todasSuyas) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    // La instructora devolvía bonos de sus clases canceladas desde el panel; con
+    // Tentare Core retirado (14-sep-2026) es trabajo de mostrador.
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
 
   // ⚠️ La política del estudio se comprueba AQUÍ, no solo en el navegador. Su

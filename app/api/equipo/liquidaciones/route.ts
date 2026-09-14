@@ -43,17 +43,10 @@ export async function GET(req: NextRequest) {
   const periodo = parsePeriodo(req);
   if (!periodo) return NextResponse.json({ error: 'Falta anio/mes válidos' }, { status: 400 });
 
+  // La instructora consultaba aquí su propia liquidación desde el panel, sin
+  // ninguna pantalla que lo usara; con Tentare Core retirado (14-sep-2026), 403.
   if (!puedeGestionarEquipo(sesion.rol)) {
-    if (sesion.rol !== 'INSTRUCTOR') {
-      return NextResponse.json({ error: 'No tienes permiso para ver liquidaciones' }, { status: 403 });
-    }
-    const instructorId = await resolverPropioInstructorId(admin, sesion.userId, sesion.studioId);
-    if (!instructorId) return NextResponse.json({ items: [] });
-    const row = await obtenerLiquidacion(admin, sesion.studioId, instructorId, periodo.anio, periodo.mes);
-    // Nunca enseñar un BORRADOR a la propia instructora: puede recalcularse
-    // y cambiar antes de confirmarse.
-    const items = row && row.estado !== 'BORRADOR' ? [row] : [];
-    return NextResponse.json({ items });
+    return NextResponse.json({ error: 'No tienes permiso para ver liquidaciones' }, { status: 403 });
   }
 
   const instructorIdQuery = req.nextUrl.searchParams.get('instructorId');

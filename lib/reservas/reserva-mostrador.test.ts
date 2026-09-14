@@ -55,8 +55,8 @@ test('propietaria, manager y recepción apuntan en cualquier clase', () => {
   }
 });
 
-test('la instructora solo apunta en sus propias clases', () => {
-  assert.equal(puedeApuntarEnClase({ rol: 'INSTRUCTOR', instructorIdStaff: 'ins-1', instructorIdClase: 'ins-1' }), true);
+test('la instructora ya no apunta en ninguna clase desde el panel, ni en las suyas (Tentare Core retirado)', () => {
+  assert.equal(puedeApuntarEnClase({ rol: 'INSTRUCTOR', instructorIdStaff: 'ins-1', instructorIdClase: 'ins-1' }), false);
   assert.equal(puedeApuntarEnClase({ rol: 'INSTRUCTOR', instructorIdStaff: 'ins-1', instructorIdClase: 'ins-2' }), false);
   assert.equal(puedeApuntarEnClase({ rol: 'INSTRUCTOR', instructorIdStaff: 'ins-1', instructorIdClase: null }), false);
 });

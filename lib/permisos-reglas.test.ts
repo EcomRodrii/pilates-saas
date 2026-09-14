@@ -336,12 +336,13 @@ test('la pantalla de notificaciones se cierra igual que su API', () => {
 // ── Rutas de servicio que solo pedían sesión de staff ───────────────────────
 const TODOS_LOS_ROLES = ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const;
 
-test('actuar sobre una clase: mostrador y manager cualquiera, la instructora solo la suya', () => {
+test('actuar sobre una clase: mostrador y manager cualquiera; la instructora, ninguna desde el panel', () => {
   for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
     assert.equal(puedeOperarClase(rol, false), true, rol);
   }
-  assert.equal(puedeOperarClase('INSTRUCTOR', true), true);
-  assert.equal(puedeOperarClase('INSTRUCTOR', false), false, 'la clase de una compañera no');
+  // Tentare Core retirado (14-sep-2026): ni la suya.
+  assert.equal(puedeOperarClase('INSTRUCTOR', true), false);
+  assert.equal(puedeOperarClase('INSTRUCTOR', false), false);
 });
 
 test('emails del panel: cada tipo con su rol (clase ajena)', () => {
@@ -369,10 +370,10 @@ test('un justificante de pago lo manda quien mueve dinero, sin excepciones', () 
   }
 });
 
-test('la instructora solo avisa por email de la cancelación de SU clase, y de nada más', () => {
-  assert.equal(puedeEnviarEmail('INSTRUCTOR', 'cancelacion', true), true);
-  for (const tipo of TIPOS_EMAIL_PANEL.filter(t => t !== 'cancelacion')) {
-    assert.equal(puedeEnviarEmail('INSTRUCTOR', tipo, true), false, `${tipo}: ser su clase no le abre este correo`);
+test('la instructora no manda ningún email del panel, ni el de cancelación de su clase', () => {
+  // Tentare Core retirado (14-sep-2026): cancelar y avisar es trabajo de mostrador.
+  for (const tipo of TIPOS_EMAIL_PANEL) {
+    assert.equal(puedeEnviarEmail('INSTRUCTOR', tipo, true), false, tipo);
   }
 });
 
@@ -431,9 +432,10 @@ test('puedeVerSemaforo: propietaria, instructora, recepción y manager sí; nadi
   assert.equal(puedeVerSemaforo('MANAGER'), true);
 });
 
-test('puedeVerFichaClinica: solo propietaria e instructora ven el detalle clínico', () => {
+test('puedeVerFichaClinica: en el panel solo la propietaria ve el detalle clínico', () => {
   assert.equal(puedeVerFichaClinica('PROPIETARIO'), true);
-  assert.equal(puedeVerFichaClinica('INSTRUCTOR'), true);
+  // La instructora lo lee en la app del estudio, por su propia ruta (Tentare Core retirado).
+  assert.equal(puedeVerFichaClinica('INSTRUCTOR'), false);
   assert.equal(puedeVerFichaClinica('RECEPCION'), false);
   assert.equal(puedeVerFichaClinica('MANAGER'), false);
 });

@@ -6,6 +6,7 @@ import { abrirPuertaDelEstudio, tieneKisi } from '@/lib/kisi-servidor';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarPase, codigoCortoValido, normalizarCodigo, paseVigente, ventanaDelPase } from '@/lib/pase-acceso';
+import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
 
 // POST /api/checkin/pase → el estudio lee el pase de una clienta y la marca.
 //
@@ -13,10 +14,11 @@ import { verificarPase, codigoCortoValido, normalizarCodigo, paseVigente, ventan
 // canjeables, dispara el premio de referido y mueve racha y logros, así que
 // exige sesión de PERSONAL: la clienta no puede marcarse sola desde el sofá.
 //
-// Quién puede: cualquier persona del equipo del estudio, instructoras incluidas.
-// No es una laxitud — es que hoy la instructora ya marca asistencia a mano en
-// la pestaña Asistentes del calendario. Dejar el escáner en menos manos que la
-// lista que sustituye habría sido incoherente.
+// Quién puede: quien gestiona el calendario (propietaria, gerencia, recepción).
+// La instructora podía mientras marcaba asistencia desde el calendario del panel;
+// con Tentare Core retirado (14-sep-2026) pasa lista en la app del estudio, que
+// solo le deja marcar SUS clases (`/api/portal/instructora/lista`). Aquí podía
+// marcar cualquier reserva del estudio y abrir la puerta de Kisi.
 //
 // Dos formas de leerlo, mismo destino: el QR (token firmado, caduca en 2 min) o
 // el código de 6 caracteres tecleado cuando la cámara no coopera.
@@ -26,6 +28,7 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (!puedeGestionarCalendario(sesion.rol)) return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
 
   const body = (await req.json().catch(() => null)) as { token?: string; codigo?: string } | null;
   const token = typeof body?.token === 'string' ? body.token : null;

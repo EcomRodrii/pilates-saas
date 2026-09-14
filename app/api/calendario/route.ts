@@ -18,6 +18,10 @@ export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
+  // Tentare Core retirado (14-sep-2026): el calendario del panel no es de la
+  // instructora; su agenda la sirve `/api/portal/instructora/agenda`.
+  if (sesion.rol === 'INSTRUCTOR') return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
+
   const { searchParams } = new URL(req.url);
   const desde = searchParams.get('desde');
   const hasta = searchParams.get('hasta');
@@ -50,16 +54,9 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [] as Pick<RowSustituciones, 'id' | 'sesion_id' | 'estado' | 'motivo' | 'sustituta_final_id' | 'creado_en' | 'resuelto_en'>[] }),
   ]);
 
-  let instructorId: string | null = null;
-  if (sesion.rol === 'INSTRUCTOR') {
-    // limit(1) en vez de maybeSingle(): no hay UNIQUE(auth_user_id, studio_id)
-    // en `instructores` (mismo motivo que app/api/mi-disponibilidad/route.ts).
-    const { data } = await admin
-      .from('instructores').select('id')
-      .eq('auth_user_id', sesion.userId).eq('studio_id', studioId)
-      .eq('activo', true).order('id', { ascending: true }).limit(1);
-    instructorId = (data?.[0]?.id as string | undefined) ?? null;
-  }
+  // La instructora ya no llega aquí (403 arriba): su agenda sale de la app del
+  // estudio. `filtrarSesionesPorRol` sigue recibiendo el id por su contrato.
+  const instructorId: string | null = null;
 
   // El motivo de una baja puede hablar de la salud de quien la pidió: solo para
   // quien gestiona el equipo (mismo criterio que `puedeVerDetalleAusencias`).

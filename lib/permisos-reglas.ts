@@ -62,12 +62,16 @@ function coincide(path: string, prefijo: string) {
   return path === prefijo || path.startsWith(`${prefijo}/`);
 }
 
-// Ficha clínica: dato de salud sensible (FICHA-CLINICA.md §11). PROPIETARIO e
-// INSTRUCTOR ven el detalle clínico; RECEPCIÓN solo ve el color del semáforo
+// Ficha clínica: dato de salud sensible (FICHA-CLINICA.md §11). En el PANEL solo
+// la PROPIETARIA ve el detalle clínico; RECEPCIÓN solo ve el color del semáforo
 // (no el motivo ni las condiciones). Es una barrera de UI; la fuente de verdad
 // se protege también en servidor.
+//
+// La INSTRUCTORA salió de aquí al retirarse Tentare Core (14-sep-2026): la salud
+// de sus alumnas la lee en la app del estudio, por su propia ruta de servidor
+// (`lib/datos-salud/salud-para-instructora.ts`), no por el panel.
 export function puedeVerFichaClinica(rol: Rol): boolean {
-  return rol === 'PROPIETARIO' || rol === 'INSTRUCTOR';
+  return rol === 'PROPIETARIO';
 }
 
 // El semáforo (verde/ámbar/rojo) SÍ lo ve RECEPCIÓN, según el comentario de
@@ -87,11 +91,11 @@ export function puedeVerSemaforo(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'INSTRUCTOR' || rol === 'RECEPCION' || rol === 'MANAGER';
 }
 
-// ⚠️ `puedeVerFichaClinica` dice si el ROL es clínico, no si ve la ficha de UNA
-// socia concreta: desde la migr 20260913214116 una INSTRUCTORA solo ve la salud
-// de sus alumnas (reserva o cita con ella en ±30 días). Esa segunda mitad vive
-// en `lib/datos-salud/acceso-instructora.ts` (TS) y en
-// `instructora_atiende_socia()` (RLS).
+// ⚠️ `puedeVerFichaClinica` dice si el ROL es clínico en el panel, no si ve la
+// ficha de UNA socia concreta. La instructora ve la salud de sus alumnas (reserva
+// o cita con ella en ±30 días) solo en la app del estudio: la regla vive en
+// `lib/datos-salud/acceso-instructora.ts` (TS) y en `instructora_atiende_socia()`
+// (RLS, pendiente de cerrarse para el panel).
 
 // Definir los campos personalizados de socia (qué se pregunta en el alta y en
 // la ficha). Solo la propietaria: lo que se rellena ahí va a `campos_extra`,
@@ -332,8 +336,11 @@ export function puedeGestionarAppsOAuth(rol: Rol): boolean {
 // UPDATE en `sesiones` (migr 20260730012600): mostrador y manager sobre
 // cualquiera; la instructora solo sobre las suyas, que son las que ya puede
 // editar, cancelar y pasar lista desde el calendario.
-export function puedeOperarClase(rol: Rol, esClasePropia: boolean): boolean {
-  return puedeGestionarCalendario(rol) || (rol === 'INSTRUCTOR' && esClasePropia);
+// Tentare Core retirado (14-sep-2026): la instructora ya no opera clases desde el
+// panel (apuntar alumnas, Kisi, email de cancelación), ni siquiera las suyas. Se
+// conserva el segundo argumento para no tocar a los llamadores; ya no decide nada.
+export function puedeOperarClase(rol: Rol, _esClasePropia = false): boolean {
+  return puedeGestionarCalendario(rol);
 }
 
 export const TIPOS_EMAIL_PANEL = [
@@ -352,11 +359,11 @@ export const TIPOS_EMAIL_DE_CLASE: readonly TipoEmailPanel[] = ['reserva', 'prom
 //   · bienvenida y automatizacion → trabajo de mostrador sobre la clienta; es
 //     el único tipo con título y texto libres (mensaje a una persona desde la
 //     ficha o Mensajería, aprobación de una automatización).
-//   · cancelacion → quien puede cancelar esa clase (la instructora, la suya).
+//   · cancelacion → quien puede operar la clase (calendario; la instructora ya
+//     no, ni la suya: Tentare Core retirado, 14-sep-2026).
 //   · reserva/promocion/cambio/recordatorio → calendario. Desde el panel no los
-//     llama nadie hoy (el servidor los manda por su cuenta), así que no se abren
-//     a la instructora.
-// `esClasePropia` solo cuenta en `cancelacion`; la ruta lo comprueba contra la BD.
+//     llama nadie hoy (el servidor los manda por su cuenta).
+// `esClasePropia` ya no decide nada (ver `puedeOperarClase`); se conserva la firma.
 export function puedeEnviarEmail(rol: Rol, tipo: string, esClasePropia = false): boolean {
   switch (tipo) {
     case 'recibo': return puedeMoverDinero(rol);
