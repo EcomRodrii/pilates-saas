@@ -67,3 +67,9 @@ next-env.d.ts
 
 # Capturas de scripts de comparación visual (se regeneran)
 .comparacion-visual/
+
+# Informes de auditoría/pentest y sus parches: documentación interna. El repo es
+# público; se guardan fuera (ver lib/repo-publico-guardia.test.ts).
+/auditoria-*.md
+/auditoria-*.patch
+/tentare.app-audit/
