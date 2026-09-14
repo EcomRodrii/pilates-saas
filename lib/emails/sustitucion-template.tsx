@@ -1,5 +1,6 @@
 import { Text, Section } from '@react-email/components';
 import { EmailLayout, EmailButton } from '@/lib/emails/layout';
+import { lineaNetworkAgotada } from '@/lib/sustituciones/mensajes';
 
 interface ContactoProps {
   toName: string;
@@ -46,11 +47,13 @@ interface AlertaProps {
   candidataNombre?: string;
   urlPanel: string;
   yaContactando?: boolean;
+  /** 'agotada': cuántos profesionales de Tentare Network se le proponen. */
+  nNetwork?: number;
 }
 
 // Alerta a la propietaria: nadie responde o se agotó el ranking — el fallo
 // controlado del motor, para que se entere ELLA y no una alumna en la puerta.
-export function AlertaPropietariaEmail({ estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando }: AlertaProps) {
+export function AlertaPropietariaEmail({ estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando, nNetwork }: AlertaProps) {
   const agotada = tipo === 'agotada';
   const baja = tipo === 'baja';
   const sinSustituta = tipo === 'sin_sustituta';
@@ -77,13 +80,20 @@ export function AlertaPropietariaEmail({ estudioNombre, logoUrl, colorPrimario, 
         // de qué ha pasado, no una llamada a la acción antes de que sea tarde.
         ? `Esta clase ya ha llegado a su hora sin que nadie confirmara cubrirla — puede que nunca llegara a avisarse a ninguna candidata. Revisa el panel para ver qué pasó y avisar a las alumnas si hace falta.`
         : `Avisamos a ${candidataNombre ?? 'la candidata'} y aún no ha respondido. Puedes esperar, avisar a otra candidata o cancelar la clase desde el panel.`;
+  // Solo en 'agotada': es cuando el motor ya no tiene a nadie interno y Tentare
+  // Network es una salida más. El número, nunca nombres — los perfiles se ven
+  // en el panel, donde ella decide si contacta.
+  const lineaNetwork = agotada ? lineaNetworkAgotada(nNetwork) : null;
   return (
     <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} headerColor={color} titulo={titulo} preview={cuerpo.slice(0, 90)}>
       <Section style={{ backgroundColor: '#FAFAF7', borderRadius: 10, padding: '16px 18px', marginBottom: 20 }}>
         <Text style={{ color: '#1A1A1A', fontSize: 17, fontWeight: 700, margin: '0 0 4px' }}>{claseNombre}</Text>
         <Text style={{ color: '#6B7280', fontSize: 15, margin: 0 }}>{cuando}</Text>
       </Section>
-      <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.5, margin: '0 0 24px' }}>{cuerpo}</Text>
+      <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.5, margin: lineaNetwork ? '0 0 12px' : '0 0 24px' }}>{cuerpo}</Text>
+      {lineaNetwork && (
+        <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.5, margin: '0 0 24px' }}>{lineaNetwork}</Text>
+      )}
       <EmailButton href={urlPanel} colorPrimario={colorPrimario}>Abrir el panel de sustituciones</EmailButton>
     </EmailLayout>
   );

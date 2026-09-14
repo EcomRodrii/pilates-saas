@@ -4,6 +4,7 @@ import { ultimaRespuestaDe, type ContactoFila } from '@/lib/sustituciones/traza'
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
 import { escalacionVigente, contactarDesde, alertarPropietaria, modoAutonomiaEfectivo } from '@/lib/sustituciones/contacto';
 import { inngest, EVENTS } from '@/lib/inngest/client';
+import { refrescarCandidatosNetwork } from '@/lib/network/candidatos-sustitucion.ts';
 
 // «La cubro» / «No puedo» a una sustitución. Un solo núcleo para las dos puertas
 // por las que llega la respuesta:
@@ -182,13 +183,17 @@ async function rechazar(admin: SupabaseClient, p: RespuestaSustitucion, sesionId
         return { ok: true, rechazado: true, avanzada: true };
       }
       // Ranking agotado: marca 'agotada' (compare-and-set) y alerta a la dueña.
-      await admin.from('sustituciones')
+      const { data: agotada } = await admin.from('sustituciones')
         .update({ estado: 'agotada' })
-        .eq('id', sustitucionId).eq('studio_id', studioId).eq('estado', 'contactando');
+        .eq('id', sustitucionId).eq('studio_id', studioId).eq('estado', 'contactando')
+        .select('id').maybeSingle();
+      // Sin nadie interno, los candidatos de Network de AHORA, no los que se
+      // guardaron al crear la baja. Best-effort: nunca lanza.
+      const nNetwork = agotada ? await refrescarCandidatosNetwork(admin, { sustitucionId, studioId }) : null;
       // Las dos cosas, no una: `alertarPropietaria` sale por email/WhatsApp y
       // el aviso de campana no existe hasta aquí — no son el mismo canal.
       await avisarRechazo('No queda nadie más a quien preguntar.');
-      await alertarPropietaria(admin, { studioId, sesion: v.sesion, tipo: 'agotada' });
+      await alertarPropietaria(admin, { studioId, sesion: v.sesion, tipo: 'agotada', nNetwork: nNetwork ?? undefined });
       return { ok: true, rechazado: true, agotada: true };
     }
     // El escalado ya había avanzado por su cuenta antes de este tap.

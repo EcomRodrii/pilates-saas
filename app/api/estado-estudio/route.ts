@@ -5,7 +5,7 @@ import {
   puedeGestionarAutomatizaciones, puedeGestionarCalendario, puedeGestionarClientas,
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
 } from '@/lib/permisos-reglas';
-import { construirEstadoEstudio, type ConteosEstudio } from '@/lib/estado-estudio';
+import { construirEstadoEstudio, contarConCandidatosNetwork, type ConteosEstudio } from '@/lib/estado-estudio';
 
 // GET /api/estado-estudio — la bandeja única de la home (lib/estado-estudio.ts):
 // qué espera el visto bueno de quien mira, qué está haciendo Tentare solo y qué
@@ -23,8 +23,9 @@ import { construirEstadoEstudio, type ConteosEstudio } from '@/lib/estado-estudi
 // Sin plan de por medio, a diferencia de /api/decisiones: esto es operación del
 // día (una reserva por aprobar, una clase sin cubrir), no el Decision OS.
 //
-// Coste: hasta 13 HEAD en paralelo, una vez por carga de la home y compartidos
-// con el contador del menú (lib/estado-estudio-cliente.ts). Si algún día pesa
+// Coste: hasta 13 HEAD + 1 select mínimo (sustituciones agotadas) en paralelo,
+// una vez por carga de la home y compartidos con el contador del menú
+// (lib/estado-estudio-cliente.ts). Si algún día pesa
 // —el proyecto ya ha visto 504 por ráfagas—, el siguiente paso es una única RPC
 // de recuentos, con sus REVOKE/GRANT explícitos; no más polling.
 export async function GET(req: NextRequest) {
@@ -54,6 +55,9 @@ export async function GET(req: NextRequest) {
     permitido ? f() : Promise.resolve(undefined);
 
   const verSustituciones = puedeVer(rol, '/sustituciones');
+  // Los candidatos de Network se ven en /sustituciones, pero son la herramienta
+  // de contratación (/network/buscar): hacen falta las dos pantallas.
+  const verNetworkEnSustituciones = verSustituciones && puedeVer(rol, '/network/buscar');
   const gestionaCalendario = puedeGestionarCalendario(rol);
   const mueveDinero = puedeMoverDinero(rol);
   const verFinanzas = puedeVerFinanzas(rol);
@@ -61,7 +65,7 @@ export async function GET(req: NextRequest) {
   const gestionaClientas = puedeGestionarClientas(rol);
 
   const [
-    sustitucionesPorDecidir, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
+    sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
@@ -72,6 +76,23 @@ export async function GET(req: NextRequest) {
     si(verSustituciones, () => contar('sust-decidir', admin.from('sustituciones')
       .select('id, sesiones!inner(inicio)', HEAD).eq('studio_id', studioId)
       .in('estado', ['pendiente_aprobacion', 'agotada']).gt('sesiones.inicio', ahoraISO))),
+    // De esas, las 'agotada' a las que Tentare Network tiene a quién proponer.
+    // Sufijo de la línea de arriba, no una línea ni un sumando del contador.
+    // No es un HEAD: no hemos podido comprobar contra la API real un filtro
+    // PostgREST de «array jsonb no vacío» (`neq.[]`), y un filtro que no filtra
+    // diría «te proponemos» donde no hay nadie. Se cuenta aquí sobre filas que
+    // son pocas (clases futuras sin cubrir de un estudio); el jsonb no sale de
+    // esta función, solo el número.
+    si(verNetworkEnSustituciones, async () => {
+      const { data, error } = await admin.from('sustituciones')
+        .select('candidatos_network, sesiones!inner(inicio)').eq('studio_id', studioId)
+        .eq('estado', 'agotada').gt('sesiones.inicio', ahoraISO).limit(200);
+      if (error) {
+        console.error('[estado-estudio:sust-network]', error);
+        return null;
+      }
+      return contarConCandidatosNetwork(data ?? []);
+    }),
     si(gestionaCalendario, () => contar('reservas-aprobar', admin.from('reservas')
       .select('id, sesiones!inner(inicio)', HEAD).eq('studio_id', studioId)
       .eq('estado', 'PENDIENTE_APROBACION').gt('sesiones.inicio', ahoraISO))),
@@ -115,7 +136,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   const conteos: ConteosEstudio = {
-    sustitucionesPorDecidir, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
+    sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,

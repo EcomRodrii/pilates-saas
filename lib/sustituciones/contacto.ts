@@ -309,6 +309,7 @@ export async function alertarPropietaria(
     tipo: TipoAlertaPropietaria;
     candidataNombre?: string;  // 'sin_respuesta': la candidata; 'baja': quien no puede venir
     yaContactando?: boolean;   // 'baja': el motor ya está avisando (modo autónomo)
+    nNetwork?: number;         // 'agotada': cuántos de Tentare Network se le proponen (solo el número)
   },
 ): Promise<{ email: boolean; mensaje: boolean }> {
   const { studioId, sesion, tipo } = params;
@@ -342,6 +343,7 @@ export async function alertarPropietaria(
       claseNombre, cuando, tipo,
       candidataNombre: params.candidataNombre, urlPanel,
       yaContactando: params.yaContactando,
+      nNetwork: params.nNetwork,
     });
     email = 'ok' in r && r.ok === true;
   }

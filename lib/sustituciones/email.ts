@@ -48,12 +48,13 @@ export async function enviarEmailAlertaPropietaria(params: Marca & {
   candidataNombre?: string;
   urlPanel: string;
   yaContactando?: boolean; // 'baja': el motor ya está avisando a candidatas
+  nNetwork?: number;       // 'agotada': profesionales de Network propuestos (solo el número)
 }): Promise<EnvioResultado> {
-  const { to, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando } = params;
+  const { to, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando, nNetwork } = params;
   const agotada = tipo === 'agotada';
   const baja = tipo === 'baja';
   const sinSustituta = tipo === 'sin_sustituta';
-  const html = await render(AlertaPropietariaEmail({ estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando }));
+  const html = await render(AlertaPropietariaEmail({ estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando, nNetwork }));
   const asunto = baja
     ? `${candidataNombre ?? 'Una instructora'} no puede dar ${claseNombre} — ya estamos en ello`
     : agotada
