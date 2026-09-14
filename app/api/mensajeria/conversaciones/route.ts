@@ -12,6 +12,7 @@ import {
 import type { RowConversacionesConParticipantes } from '@/lib/mensajeria/tipos';
 
 const TIPOS_ABRIBLES = ['ALUMNA_INSTRUCTORA', 'ALUMNA_MOSTRADOR'] as const;
+const LIMITE_BANDEJA = 100;
 type TipoAbrible = (typeof TIPOS_ABRIBLES)[number];
 
 // Mismo helper local que ya usa app/api/mi-disponibilidad/route.ts para
@@ -151,16 +152,62 @@ export async function GET(req: NextRequest) {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
 
-  const { data, error } = await sesionCliente
-    .from('conversaciones')
-    .select('id, studio_id, tipo, titulo, ancla_sesion_id, ancla_reserva_id, creado_en, ultimo_mensaje_en, mostrador_leido_hasta, conversacion_participantes(socio_id, rol_en_conversacion, auth_user_id, leido_hasta)')
-    .eq('studio_id', sesion.studioId)
-    .order('ultimo_mensaje_en', { ascending: false })
-    .limit(100);
+  const columnas = 'id, studio_id, tipo, titulo, ancla_sesion_id, ancla_reserva_id, creado_en, ultimo_mensaje_en, mostrador_leido_hasta, conversacion_participantes(socio_id, rol_en_conversacion, auth_user_id, leido_hasta)';
+  const ERROR_LISTA = 'No se han podido cargar las conversaciones.';
+  const desc = (a: RowConversacionesConParticipantes, b: RowConversacionesConParticipantes) =>
+    (a.ultimo_mensaje_en < b.ultimo_mensaje_en ? 1 : a.ultimo_mensaje_en > b.ultimo_mensaje_en ? -1 : 0);
 
-  if (error) return errorInterno('mensajeria:conversaciones:GET', error, 'No se han podido cargar las conversaciones.');
+  // «Equipo con alumnas» (`?ambito=supervision`): los hilos instructora–alumna
+  // del estudio, que la propietaria LEE sin participar (migr
+  // *_mensajeria_propietaria_lee_instructora_alumna). Para el resto de roles la
+  // RLS no devuelve nada; se corta antes para no pedirlo.
+  const supervision = new URL(req.url).searchParams.get('ambito') === 'supervision';
+  if (supervision && sesion.rol !== 'PROPIETARIO') return NextResponse.json({ conversaciones: [] });
 
-  const filas = (data ?? []) as unknown as RowConversacionesConParticipantes[];
+  let filas: RowConversacionesConParticipantes[];
+  if (supervision) {
+    const { data, error } = await sesionCliente
+      .from('conversaciones').select(columnas)
+      .eq('studio_id', sesion.studioId).eq('tipo', 'ALUMNA_INSTRUCTORA')
+      .order('ultimo_mensaje_en', { ascending: false }).limit(LIMITE_BANDEJA);
+    if (error) return errorInterno('mensajeria:conversaciones:GET', error, ERROR_LISTA);
+    filas = (data ?? []) as unknown as RowConversacionesConParticipantes[];
+  } else {
+    // Su bandeja de siempre. Los hilos instructora–alumna, solo los SUYOS: los
+    // del equipo que la propietaria puede leer no se mezclan con lo suyo ni se
+    // comen el límite.
+    const otras = await sesionCliente
+      .from('conversaciones').select(columnas)
+      .eq('studio_id', sesion.studioId).neq('tipo', 'ALUMNA_INSTRUCTORA')
+      .order('ultimo_mensaje_en', { ascending: false }).limit(LIMITE_BANDEJA);
+    if (otras.error) return errorInterno('mensajeria:conversaciones:GET', otras.error, ERROR_LISTA);
+
+    // Sus participaciones, por páginas: PostgREST corta en 1000 filas sin avisar.
+    const ids: string[] = [];
+    for (let desde = 0; ; desde += 1000) {
+      const { data, error } = await sesionCliente
+        .from('conversacion_participantes').select('conversacion_id')
+        .eq('auth_user_id', sesion.userId)
+        .order('conversacion_id').range(desde, desde + 999);
+      if (error) return errorInterno('mensajeria:conversaciones:GET', error, ERROR_LISTA);
+      ids.push(...(data ?? []).map(p => p.conversacion_id as string));
+      if ((data ?? []).length < 1000) break;
+    }
+
+    // En trozos (un `.in()` con cientos de ids alarga la URL hasta que PostgREST
+    // la rechaza) y en paralelo.
+    const trozos: string[][] = [];
+    for (let i = 0; i < ids.length; i += 100) trozos.push(ids.slice(i, i + 100));
+    const resultados = await Promise.all(trozos.map(trozo => sesionCliente
+      .from('conversaciones').select(columnas)
+      .eq('studio_id', sesion.studioId).eq('tipo', 'ALUMNA_INSTRUCTORA')
+      .in('id', trozo)));
+    const fallido = resultados.find(r => r.error);
+    if (fallido?.error) return errorInterno('mensajeria:conversaciones:GET', fallido.error, ERROR_LISTA);
+    const mias = resultados.flatMap(r => (r.data ?? []) as unknown as RowConversacionesConParticipantes[]);
+    filas = [...((otras.data ?? []) as unknown as RowConversacionesConParticipantes[]), ...mias]
+      .sort(desc).slice(0, LIMITE_BANDEJA);
+  }
   if (filas.length === 0) return NextResponse.json({ conversaciones: [] });
 
   const { data: ultimos } = await sesionCliente

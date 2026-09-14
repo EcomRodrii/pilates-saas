@@ -46,8 +46,10 @@ export function resumirConversaciones<T extends { id: string; ultimo_mensaje_en:
 
   const mio = new Map<string, string>();
   const otros = new Map<string, string>();
+  const participo = new Set<string>();
   for (const l of lecturas) {
     if (l.auth_user_id === miAuthUserId) {
+      participo.add(l.conversacion_id);
       mio.set(l.conversacion_id, l.leido_hasta);
     } else {
       // El más ATRASADO de los demás: en un canal de equipo, "lo han leído"
@@ -66,6 +68,9 @@ export function resumirConversaciones<T extends { id: string; ultimo_mensaje_en:
       leido_hasta_otros: otros.get(c.id) ?? null,
       ultimo_cuerpo: ultimo?.cuerpo ?? null,
       ultimo_remitente_auth_user_id: ultimo?.remitente_auth_user_id ?? null,
+      // La propietaria lee los hilos instructora–alumna del estudio sin
+      // participar: en esos, solo lectura (la RLS ya le impide escribir).
+      solo_lectura: (c as { tipo?: string }).tipo === 'ALUMNA_INSTRUCTORA' && !participo.has(c.id),
     };
   });
 }

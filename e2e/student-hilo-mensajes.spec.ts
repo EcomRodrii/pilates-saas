@@ -73,6 +73,8 @@ test.describe('Student PWA · hilo de mensajes', () => {
     await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('¿Queda sitio en la de mañana a las 10?')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible();
+    // Con el estudio no hay nadie más leyendo: sin aviso.
+    await expect(page.getByTestId('aviso-hilo')).toHaveCount(0);
     // 18:02Z son las 20:02 en el navegador, que va fijado a Madrid arriba.
     // (La hora del chat es la del DISPOSITIVO, no la del estudio — ver la nota.)
     await expect(page.getByText('20:02')).toBeVisible();
@@ -105,5 +107,6 @@ test.describe('Student PWA · hilo con su instructora', () => {
     await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Laura M.' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Tu instructora')).toHaveCount(0);
+    await expect(page.getByTestId('aviso-hilo')).toHaveText('El estudio también puede leer esta conversación.');
   });
 });

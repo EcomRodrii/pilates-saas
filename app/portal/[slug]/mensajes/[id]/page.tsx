@@ -7,7 +7,7 @@ import {
   fetchConversaciones, fetchMensajes, enviarMensaje, marcarConversacionLeida, useMiAuthUserId,
   type ConversacionPortal,
 } from '@/lib/student/mensajeria';
-import { tituloConversacionAlumna } from '@/lib/mensajeria/presentacion';
+import { AVISO_ESTUDIO_PUEDE_LEER, tituloConversacionAlumna } from '@/lib/mensajeria/presentacion';
 import { HiloConversacion } from '@/components/student/domain/HiloConversacion';
 
 // Hilo de una conversación de la alumna. La pantalla es compartida con la de la
@@ -35,6 +35,9 @@ export default function HiloMensajesPage() {
   return (
     <HiloConversacion
       titulo={conv ? tituloConversacionAlumna(conv, estudio.nombre) : 'Mensajes'}
+      // Por defecto se avisa: si la lista tarda o falla, nadie escribe en un hilo
+      // con su instructora sin haberlo visto. Solo se quita si es con el estudio.
+      aviso={conv && conv.tipo !== 'ALUMNA_INSTRUCTORA' ? null : AVISO_ESTUDIO_PUEDE_LEER}
       cargar={cargar}
       enviar={enviar}
       marcarLeido={marcarLeido}

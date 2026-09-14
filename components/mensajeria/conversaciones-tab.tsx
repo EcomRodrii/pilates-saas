@@ -12,7 +12,7 @@
 // `conversacion:{id}`— y las rutas de escritura no se tocan.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MessageSquarePlus, RefreshCw, Search } from 'lucide-react';
+import { Eye, MessageSquarePlus, RefreshCw, Search } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
 import { useRol } from '@/lib/permisos';
@@ -78,6 +78,8 @@ function Hilo({
   const [cuerpo, setCuerpo] = useState('');
   const [enviando, setEnviando] = useState(false);
   const conversacionId = conversacion.id;
+  // La propietaria lee hilos del equipo sin participar: ni leído ni «escribiendo».
+  const soloLectura = Boolean(conversacion.solo_lectura);
   // Mismo mecanismo "escribiendo…" que ya vive en el portal
   // (app/portal/[slug]/mensajes/[id]/page.tsx): broadcast efímero `typing`
   // sobre el MISMO canal — nunca se había construido en este lado, así que
@@ -92,11 +94,11 @@ function Hilo({
     if (resultado.ok) {
       setMensajes(resultado.data.mensajes);
       setError(null);
-      void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
+      if (!soloLectura) void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
     } else {
       setError(resultado.error);
     }
-  }, [conversacionId]);
+  }, [conversacionId, soloLectura]);
 
   // Carga inicial vía fetch tal cual; el refresco continuo pasa de polling a
   // Realtime Broadcast-from-DB (diseño validado por tentare-arquitecto,
@@ -124,7 +126,7 @@ function Hilo({
         .on('broadcast', { event: 'INSERT' }, ({ payload }) => {
           const fila = payload.record as RowMensajes;
           setMensajes(prev => (prev?.some(m => m.id === fila.id) ? prev : [...(prev ?? []), fila]));
-          void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
+          if (!soloLectura) void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
           // Un mensaje real es señal más fuerte que el "escribiendo…" que lo
           // precedió — se apaga en vez de esperar a que expire solo.
           if (fila.remitente_auth_user_id !== authUserId) {
@@ -227,6 +229,7 @@ function Hilo({
       onVolver={onVolver}
       onReintentar={() => void cargar()}
       escribiendoOtros={escribiendoOtros}
+      soloLectura={soloLectura}
     />
   );
 }
@@ -239,6 +242,8 @@ export function ConversacionesTab() {
   const authUserId = user?.id ?? null;
   const rol = useRol();
   const puedeMostrador = puedeGestionarCalendario(rol);
+  const esPropietaria = rol === 'PROPIETARIO';
+  const [ambito, setAmbito] = useState<'bandeja' | 'supervision'>('bandeja');
 
   // Quien no lleva el mostrador (la instructora) solo puede abrir conversación
   // con las socias de SUS clases —la RPC rechaza el resto— y no ve su contacto
@@ -258,10 +263,12 @@ export function ConversacionesTab() {
   const [filtro, setFiltro] = useState('');
 
   const cargarLista = useCallback(async () => {
-    const resultado = await api<{ conversaciones: Conversacion[] }>('/api/mensajeria/conversaciones');
+    const resultado = await api<{ conversaciones: Conversacion[] }>(
+      ambito === 'supervision' ? '/api/mensajeria/conversaciones?ambito=supervision' : '/api/mensajeria/conversaciones',
+    );
     if (resultado.ok) { setConversaciones(resultado.data.conversaciones); setError(null); }
     else setError(resultado.error);
-  }, []);
+  }, [ambito]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la bandeja.
   useEffect(() => { void cargarLista(); }, [cargarLista]);
@@ -288,7 +295,14 @@ export function ConversacionesTab() {
     });
     if (!resultado.ok) { setErrorNueva(resultado.error); return; }
     setMostrarNueva(false);
-    void cargarLista();
+    // Abierta por la propietaria en nombre de una instructora: no participa, así
+    // que el hilo no está en su bandeja sino en «Equipo con alumnas».
+    if (tipo === 'ALUMNA_INSTRUCTORA' && esPropietaria && ambito !== 'supervision') {
+      setConversaciones(null);
+      setAmbito('supervision');
+    } else {
+      void cargarLista();
+    }
     setAbiertaId(resultado.data.id);
   }
 
@@ -320,13 +334,34 @@ export function ConversacionesTab() {
                 </span>
               )}
             </div>
-            <button
-              onClick={() => setMostrarNueva(v => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-brand-medio hover:bg-muted transition-colors shrink-0"
-            >
-              <MessageSquarePlus size={14} aria-hidden="true" /> Nueva
-            </button>
+            {ambito === 'bandeja' && (
+              <button
+                onClick={() => setMostrarNueva(v => !v)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-brand-medio hover:bg-muted transition-colors shrink-0"
+              >
+                <MessageSquarePlus size={14} aria-hidden="true" /> Nueva
+              </button>
+            )}
           </div>
+
+          {esPropietaria && (
+            <div className="flex gap-1 px-3 py-2 border-b border-border shrink-0" role="tablist" aria-label="Qué conversaciones ver">
+              {([['bandeja', 'Tus conversaciones'], ['supervision', 'Equipo con alumnas']] as const).map(([valor, texto]) => (
+                <button
+                  key={valor}
+                  role="tab"
+                  aria-selected={ambito === valor}
+                  onClick={() => {
+                    if (ambito === valor) return;
+                    setAmbito(valor); setAbiertaId(null); setConversaciones(null); setFiltro(''); setMostrarNueva(false);
+                  }}
+                  className={`flex-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${ambito === valor ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                >
+                  {texto}
+                </button>
+              ))}
+            </div>
+          )}
 
           {mostrarNueva && (
             <NuevaConversacion
@@ -359,7 +394,16 @@ export function ConversacionesTab() {
             {conversaciones === null ? (
               <SkeletonLista />
             ) : conversaciones.length === 0 ? (
-              <BandejaVacia onNueva={() => setMostrarNueva(true)} />
+              ambito === 'supervision' ? (
+                <EmptyState
+                  compacto
+                  icono={Eye}
+                  titulo="Tu equipo aún no ha escrito a ninguna alumna"
+                  descripcion="Cuando una instructora escriba a una alumna desde la app, lo verás aquí en solo lectura."
+                />
+              ) : (
+                <BandejaVacia onNueva={() => setMostrarNueva(true)} />
+              )
             ) : filas.length === 0 ? (
               <EmptyState compacto icono={Search} titulo="Ninguna coincide" descripcion={`Nada con «${filtro.trim()}».`} />
             ) : (
