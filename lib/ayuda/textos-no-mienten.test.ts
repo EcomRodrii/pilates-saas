@@ -43,6 +43,10 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
   // «Logros» a secas era la pestaña vieja; «Logros y motivación» es la de hoy.
   { patron: new RegExp(`Configuración${FLECHA}(?:Recompensas|Niveles|Retos|Logros(?! y motivación))\\b`), ahora: 'van dentro de Configuración > Logros y motivación' },
   { patron: new RegExp(`Configuración${FLECHA}Reservas`), ahora: 'es Configuración > Estudio > Reservas y cancelaciones' },
+  // Tres textos que mentían sobre lo que HACE el producto, no sobre dónde está.
+  { patron: /Avisar a las alumnas por email/, ahora: 'el aviso llega por email y en su app, y se cambia en Configuración > Estudio > Reservas y cancelaciones' },
+  { patron: /lista de espera se activa por tipo de clase/, ahora: 'viene encendida para todo el estudio y cada tipo de clase puede apagarla' },
+  { patron: /Devolver la\s+sesión al cancelar tú una clase/, ahora: 'se llama «Devolver la sesión al cancelar una clase entera» y decide también el mínimo de asistentes y el cierre' },
 ];
 
 test('la ayuda no manda a pantallas o nombres de menú que ya no existen', () => {

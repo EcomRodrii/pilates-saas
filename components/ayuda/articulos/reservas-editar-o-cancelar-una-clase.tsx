@@ -29,7 +29,9 @@ export default function Contenido() {
       <p>
         Al cancelar, la clase se marca como cancelada y cada alumna con una reserva CONFIRMADA en ella recibe un
         aviso. Por defecto recuperan además la sesión en su bono; si prefieres que no, desactiva &ldquo;Devolver la
-        sesión al cancelar tú una clase&rdquo; en Configuración &gt; Estudio &gt; Reservas y cancelaciones.
+        sesión al cancelar una clase entera&rdquo; en Configuración &gt; Estudio &gt; Reservas y cancelaciones. Ese mismo
+        ajuste decide qué pasa cuando una clase se cancela sola por no llegar al mínimo de asistentes o por un cierre
+        del centro.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué NO cambia sola</h2>

@@ -5124,6 +5124,9 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     rachaClasesSemana: r.racha_clases_semana ?? null,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     cancelacionClaseDevuelveBono: r.cancelacion_clase_devuelve_bono ?? true,
+    // Sin la columna (un mock, una fila recortada) no se inventa el default de la
+    // BD: null = «no lo sabemos», y la pantalla no afirma que avise ni que no.
+    avisarAlumnas: typeof r.avisar_alumnas === 'boolean' ? r.avisar_alumnas : null,
     recuperacionCaducidadTipo: (r.recuperacion_caducidad_tipo as 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE') ?? 'FIN_MES_SIGUIENTE',
     recuperacionCaducidadDias: r.recuperacion_caducidad_dias ?? null,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,

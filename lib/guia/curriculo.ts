@@ -398,7 +398,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Mínimo de asistentes',
-        texto: 'Puedes decir que una clase con menos de N apuntadas no sale. Dos horas antes, si no se alcanza, se cancela sola y se devuelve el bono a quien estuviera apuntada. Nadie se planta en el estudio para encontrárselo cerrado.',
+        texto: 'Puedes decir que una clase con menos de N apuntadas no sale. Dos horas antes, si no se alcanza, se cancela sola y, como cualquier clase cancelada entera, devuelve la sesión a quien estuviera apuntada salvo que lo hayas desactivado en Reservas y cancelaciones. Nadie se planta en el estudio para encontrárselo cerrado.',
       },
       {
         titulo: 'Cobrar por no venir',

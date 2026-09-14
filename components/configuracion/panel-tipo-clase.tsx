@@ -901,7 +901,9 @@ export function PanelTipoClase({
 
           <CampoHeredado
             label="¿Cuántas alumnas hacen falta para que la clase salga?"
-            ayuda="Si a 2 horas del inicio no se llega, la clase se cancela sola y se les devuelve la sesión."
+            ayuda={(studio?.cancelacionClaseDevuelveBono ?? true)
+              ? 'Si a 2 horas del inicio no se llega, la clase se cancela sola y se les devuelve la sesión.'
+              : 'Si a 2 horas del inicio no se llega, la clase se cancela sola, sin devolverles la sesión: lo tienes así en Reservas y cancelaciones.'}
             heredado={form.minimoAsistentesPorClase.trim() === ''}
             onHeredar={() => setForm(f => ({ ...f, minimoAsistentesPorClase: '' }))}
             onPersonalizar={() =>

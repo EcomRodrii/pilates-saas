@@ -25,7 +25,8 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué le llega a la alumna</h2>
       <p>
         Si se cubre la clase, a ti te llega «Clase cubierta» y las alumnas con reserva reciben un aviso del cambio
-        (si tienes encendido «Avisar a las alumnas por email…») — la clase sigue en pie, no se cancela. Si no queda
+        por email y en su app — la clase sigue en pie, no se cancela. Ese aviso viene encendido y se cambia en
+        Configuración &gt; Estudio &gt; Reservas y cancelaciones, donde también ves qué pasa con todo lo demás. Si no queda
         nadie de tu equipo, Tentare te propone profesionales de Tentare Network; también puedes volver a buscar,
         reprogramar o cancelar.
       </p>

@@ -161,6 +161,12 @@ export interface Studio {
   /** Cuando el ESTUDIO cancela una clase completa (no una reserva suelta):
    *  true = devuelve la sesión a cada socia con plaza confirmada. */
   cancelacionClaseDevuelveBono: boolean;
+  /** `studios.avisar_alumnas`: avisar a las alumnas cuando Sustituciones cubre,
+   *  mueve o cancela su clase. SOLO LECTURA aquí: su único escritor es
+   *  `/api/sustituciones` (action `config_avisar`), y tras guardar se refleja con
+   *  `reflejarStudioGuardado`. `dbUpdateStudio` no lo mapea a propósito.
+   *  null/ausente = no se ha leído: no se afirma nada. */
+  avisarAlumnas?: boolean | null;
   /** Caducidad de las recuperaciones que concede el estudio (migr 0086). La
    *  resuelve `calcular_caduca_recuperacion` dentro de `crear_recuperacion`:
    *  DIAS suma `recuperacionCaducidadDias`; FIN_MES y FIN_MES_SIGUIENTE la

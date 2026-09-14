@@ -97,9 +97,9 @@ export default function CancelacionesPage() {
           la plaza.
         </p>
         <p>
-          La segunda: si eres tú quien cancela una clase, el bono no vuelve por defecto —es tu decisión y la gestionas
-          como quieras—, pero si la clase se cae sola por no llegar al mínimo de asistentes, el bono <strong>siempre</strong>{' '}
-          se devuelve. Esa no es decisión de nadie, y no puede pagarla la alumna.
+          La segunda: cuando se cae una clase entera —la cancelas tú, no llega al mínimo de asistentes o cierras el
+          centro—, el bono <strong>vuelve por defecto</strong>. No lo ha decidido la alumna. Si prefieres otra cosa, es
+          un solo ajuste para los tres casos.
         </p>
         <Limite titulo="Una plaza fija no devuelve bono, devuelve recuperación">
           Porque nunca consumió uno: sus reservas se crean solas cada semana sin descontar sesiones. Su compensación es un
