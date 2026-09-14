@@ -48,15 +48,24 @@ export async function authUserIdsParaNotificar(
   admin: SupabaseClient, conversacion: ConversacionInfo, remitenteAuthUserId: string,
 ): Promise<string[]> {
   const ids = new Set<string>();
+  let equipo: string[] | null = null;
+  const equipoVigente = async () => (equipo ??= await equipoDinamico(admin, conversacion.studio_id));
 
   const { data: participantes } = await admin
     .from('conversacion_participantes')
-    .select('auth_user_id')
+    .select('auth_user_id, rol_en_conversacion')
     .eq('conversacion_id', conversacion.id);
-  for (const p of participantes ?? []) if (p.auth_user_id) ids.add(p.auth_user_id as string);
+  for (const p of participantes ?? []) {
+    if (!p.auth_user_id) continue;
+    // Una fila STAFF sobrevive a la baja: solo se avisa a quien sigue en el
+    // equipo (dueña o ficha activa), el mismo criterio que
+    // `es_participante_conversacion()` aplica a la lectura.
+    if (p.rol_en_conversacion === 'STAFF' && !(await equipoVigente()).includes(p.auth_user_id as string)) continue;
+    ids.add(p.auth_user_id as string);
+  }
 
   if (conversacion.tipo === 'EQUIPO') {
-    for (const id of await equipoDinamico(admin, conversacion.studio_id)) ids.add(id);
+    for (const id of await equipoVigente()) ids.add(id);
   } else if (conversacion.tipo === 'ALUMNA_MOSTRADOR') {
     for (const id of await mostradorDinamico(admin, conversacion.studio_id)) ids.add(id);
   }
