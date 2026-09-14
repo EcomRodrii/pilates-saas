@@ -2,7 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useToast } from '@/components/student/ui/Toast';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
@@ -10,7 +11,7 @@ import { useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { etiquetaDia, hoyISO } from '@/lib/student/formato';
-import { getFichaAlumna, getSaludAlumna } from '@/lib/student/datos-instructora';
+import { escribirAAlumna, getFichaAlumna, getSaludAlumna } from '@/lib/student/datos-instructora';
 import { textoEstadoClaseAlumna, type ClaseConAlumna } from '@/lib/student/alumnas-instructora';
 import { fechaEnZona } from '@/lib/student/agenda-instructora';
 import { SEMAFORO_META } from '@/lib/ficha-clinica';
@@ -119,7 +120,19 @@ export default function FichaAlumnaInstructoraPage() {
   const href = usePortalHref();
   const { instructora } = useSesionInstructora(estudio.slug, true, true);
   const { online } = useOnline();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [abriendo, setAbriendo] = useState(false);
   const esInstructora = Boolean(instructora);
+
+  const escribir = async () => {
+    if (abriendo) return;
+    setAbriendo(true);
+    const r = await escribirAAlumna(estudio.slug, socioId);
+    setAbriendo(false);
+    if (!r.ok) { toast(r.error); return; }
+    router.push(href(`/equipo/mensajes/${encodeURIComponent(r.id)}`));
+  };
   const hoy = hoyISO();
 
   const cargar = useCallback(
@@ -190,6 +203,14 @@ export default function FichaAlumnaInstructoraPage() {
             <h2 className="t-h2 trunc" data-testid="nombre-alumna">{data.nombre}</h2>
             {data.primeraClase && <div style={{ marginTop: 4 }}><Badge tone="ok">Primera clase en el estudio</Badge></div>}
           </div>
+          {/* Sin cuenta en la app no tiene dónde leer un mensaje: ni se ofrece. */}
+          {data.tieneCuenta && (
+            <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+              <Button size="sm" variant="secondary" loading={abriendo} disabled={!online || abriendo} onClick={() => void escribir()}>
+                Escribir
+              </Button>
+            </div>
+          )}
         </div>
 
         <SeccionSalud slug={estudio.slug} socioId={data.socioId} online={online} />

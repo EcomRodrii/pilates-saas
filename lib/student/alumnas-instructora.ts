@@ -65,6 +65,8 @@ export interface FichaAlumna {
   nombre: string;
   fotoUrl: string | null;
   primeraClase: boolean;
+  /** Si usa la app: sin cuenta no puede recibir mensajes. */
+  tieneCuenta: boolean;
   /** Las que aún no han empezado, de la más próxima a la más lejana. */
   proximas: ClaseConAlumna[];
   /** Las que ya empezaron, de la más reciente a la más antigua. */
