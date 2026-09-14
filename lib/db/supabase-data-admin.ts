@@ -19,6 +19,7 @@ import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
 import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
+import { agregadoPublicable, type VotoValoracion } from '@/lib/valoraciones/agregado';
 import { primerError } from '@/lib/db/primer-error';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { esCodigoReserva, mensajeDeErrorReserva, MENSAJE_RESERVA_RPC } from '@/lib/reservas/errores-rpc';
@@ -597,11 +598,11 @@ export async function fetchPublicStudioData(
       // misma transacción). Nunca `motivo`/`origen`/candidatas descartadas.
       admin.from('sustituciones').select('sesion_id, instructor_original_id')
         .eq('studio_id', studioId).eq('estado', 'confirmada'),
-      // Valoraciones para la nota de cada instructora. Solo `instructor_id` y
-      // `puntuacion`: el comentario y quién lo escribió NO salen del servidor —
-      // esto alimenta una media, no una lista de opiniones, y el comentario es
-      // de la socia que lo escribió, no del catálogo público.
-      admin.from('valoraciones').select('instructor_id, puntuacion').eq('studio_id', studioId),
+      // Valoraciones para la nota de cada instructora. Nunca el comentario.
+      // `socio_id` y `creado_en` solo sirven para el agregado protegido (alumnas
+      // distintas, meses cerrados) y NO salen del servidor: esto alimenta una
+      // media, no una lista de opiniones.
+      admin.from('valoraciones').select('instructor_id, puntuacion, socio_id, creado_en').eq('studio_id', studioId),
     ]);
     // ESENCIALES: sin ellas la app no se queda corta, MIENTE. Una consulta
     // fallida (Supabase saturado, un 504, una RLS cambiada) dejaba su parte
@@ -720,18 +721,24 @@ export async function fetchPublicStudioData(
     // vez y se reutiliza para la nota del ESTUDIO (`valoracionEstudio`, "Tu
     // estudio" en Inicio): sumarla en el otro sentido (media × total de cada
     // instructora) da los mismos puntos sin releer `valoraciones` fila a fila.
-    const sumaValoraciones = new Map<string, { total: number; puntos: number }>();
-    for (const v of (valoracionesRes.data ?? []) as { instructor_id: string; puntuacion: number }[]) {
-      if (!v.instructor_id || typeof v.puntuacion !== 'number') continue;
-      const a = sumaValoraciones.get(v.instructor_id) ?? { total: 0, puntos: 0 };
-      a.total += 1; a.puntos += v.puntuacion;
-      sumaValoraciones.set(v.instructor_id, a);
+    // ⚠️ Protegida (decisión del 14-sep-2026): meses cerrados y bloques de al
+    // menos 5 alumnas distintas (`agregadoPublicable`). Antes salía la suma
+    // exacta en vivo con cualquier total y el mínimo solo se aplicaba en el
+    // navegador; la instructora lee este catálogo, y ella sabe quién vino a
+    // cada clase.
+    const votosPorInstructora = new Map<string, VotoValoracion[]>();
+    for (const v of (valoracionesRes.data ?? []) as { instructor_id: string; puntuacion: number; socio_id: string | null; creado_en: string }[]) {
+      if (!v.instructor_id || typeof v.puntuacion !== 'number' || !v.socio_id) continue;
+      const lista = votosPorInstructora.get(v.instructor_id) ?? [];
+      lista.push({ alumna: v.socio_id, puntuacion: v.puntuacion, creadoEn: v.creado_en });
+      votosPorInstructora.set(v.instructor_id, lista);
     }
+    const ahoraValoraciones = new Date();
     const instructoresPub = (instructoresRes.data ?? []).map((r) => {
       const base = mapInstructorPublico(r as RowInstructores);
-      const a = sumaValoraciones.get(base.id);
-      return a && a.total > 0
-        ? { ...base, valoracion: { media: a.puntos / a.total, total: a.total } }
+      const agregado = agregadoPublicable(votosPorInstructora.get(base.id) ?? [], ahoraValoraciones);
+      return agregado
+        ? { ...base, valoracion: { media: agregado.media, total: agregado.total } }
         : base;
     });
 

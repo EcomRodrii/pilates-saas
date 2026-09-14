@@ -251,10 +251,14 @@ export function cifras(m: MiembroCompleto, rolViewer: Rol, ahora: Date): CifrasT
     ocupacionPie: m.ocupacionPct == null ? 'sin clases recientes' : `${clases(m)} clase${clases(m) === 1 ? '' : 's'} esta semana`,
     segundaValor: coste != null ? euros(coste) : (m.horasMes == null ? '—' : horas(m.horasMes)),
     segundaEtiqueta: coste != null ? 'Coste del mes' : 'Horas del mes',
-    valoracionTexto: m.valoracion && m.valoracion.total > 0
-      ? `${m.valoracion.media.toFixed(1)} de ${m.valoracion.total} clientas`
-      : 'sin valoraciones aún',
-    conValoracion: !!(m.valoracion && m.valoracion.total > 0),
+    // A quien no gestiona el equipo (la instructora en su propia tarjeta) no se le
+    // envía la media en vivo: no se dice «sin valoraciones aún», que sería falso.
+    valoracionTexto: !gestiona(rolViewer)
+      ? ''
+      : m.valoracion && m.valoracion.total > 0
+        ? `${m.valoracion.media.toFixed(1)} de ${m.valoracion.total} clientas`
+        : 'sin valoraciones aún',
+    conValoracion: gestiona(rolViewer) && !!(m.valoracion && m.valoracion.total > 0),
     frecuenciaTexto: frecuencia == null ? null : `≈${frecuencia % 1 === 0 ? frecuencia : frecuencia.toFixed(1)} clase${frecuencia === 1 ? '' : 's'}/mes`,
   };
 }
