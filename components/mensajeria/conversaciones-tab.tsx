@@ -20,7 +20,7 @@ import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
 import { authHeader } from '@/lib/api-client';
 import { supabase } from '@/lib/db/supabase';
 import { EmptyState } from '@/components/ui/empty-state';
-import { tieneSinLeer } from '@/lib/mensajeria/presentacion';
+import { anadirMensaje, tieneSinLeer } from '@/lib/mensajeria/presentacion';
 import { sociasConRelacion } from '@/lib/mensajeria-portal';
 import {
   BandejaVacia, FilaConversacion, HiloVista, NuevaConversacion, SinHiloElegido, SkeletonLista,
@@ -125,7 +125,7 @@ function Hilo({
         .channel(`conversacion:${conversacionId}`, { config: { private: true } })
         .on('broadcast', { event: 'INSERT' }, ({ payload }) => {
           const fila = payload.record as RowMensajes;
-          setMensajes(prev => (prev?.some(m => m.id === fila.id) ? prev : [...(prev ?? []), fila]));
+          setMensajes(prev => anadirMensaje(prev, fila));
           if (!soloLectura) void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
           // Un mensaje real es señal más fuerte que el "escribiendo…" que lo
           // precedió — se apaga en vez de esperar a que expire solo.
@@ -195,7 +195,8 @@ function Hilo({
     if (!resultado.ok) { setError(resultado.error); return; }
     setCuerpo('');
     setError(null);
-    setMensajes(prev => [...(prev ?? []), resultado.data.mensaje]);
+    // El broadcast del INSERT suele llegar antes que esta respuesta.
+    setMensajes(prev => anadirMensaje(prev, resultado.data.mensaje));
     onEnviado();
   }
 

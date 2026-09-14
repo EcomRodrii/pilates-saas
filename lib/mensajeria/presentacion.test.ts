@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { previsualizacionParaAviso, tieneSinLeer, tituloConversacionAlumna, type ConversacionConResumen } from './presentacion.ts';
+import { anadirMensaje, previsualizacionParaAviso, tieneSinLeer, tituloConversacionAlumna, type ConversacionConResumen } from './presentacion.ts';
 
 function base(overrides: Partial<ConversacionConResumen>): ConversacionConResumen {
   return {
@@ -67,4 +67,20 @@ test('la alumna ve el nombre de su instructora; «Tu instructora» solo si no ll
   assert.equal(tituloConversacionAlumna({ tipo: 'ALUMNA_INSTRUCTORA', interlocutor: { nombre: 'Laura' } }, 'Estudio Norte'), 'Laura');
   assert.equal(tituloConversacionAlumna({ tipo: 'ALUMNA_INSTRUCTORA', interlocutor: null }, 'Estudio Norte'), 'Tu instructora');
   assert.equal(tituloConversacionAlumna({ tipo: 'ALUMNA_INSTRUCTORA', interlocutor: { nombre: '  ' } }, 'Estudio Norte'), 'Tu instructora');
+});
+
+test('el mensaje propio llega dos veces (respuesta del POST y broadcast), en cualquier orden, y se pinta una', () => {
+  const previo = { id: 'msg-1' };
+  const nuevo = { id: 'msg-2' };
+
+  // Broadcast primero, respuesta del POST después (lo habitual): la segunda no duplica.
+  const trasBroadcast = anadirMensaje([previo], nuevo);
+  assert.deepEqual(trasBroadcast, [previo, nuevo]);
+  assert.equal(anadirMensaje(trasBroadcast, nuevo), trasBroadcast, 'misma referencia: sin re-render');
+
+  // Respuesta primero, broadcast después: igual.
+  assert.deepEqual(anadirMensaje(anadirMensaje([previo], nuevo), nuevo), [previo, nuevo]);
+
+  // Hilo aún sin cargar.
+  assert.deepEqual(anadirMensaje(null, nuevo), [nuevo]);
 });
