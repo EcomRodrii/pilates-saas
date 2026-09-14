@@ -29,12 +29,17 @@ async function leerError(res: Response, respaldo: string): Promise<string> {
   return cuerpo?.error ? mensajeSeguro(cuerpo.error, respaldo) : respaldo;
 }
 
-export async function fetchConversaciones(studioId: string): Promise<ConversacionConResumen[] | null> {
+/** Una conversación de la alumna; en las de su instructora, con quién habla. */
+export type ConversacionPortal = ConversacionConResumen & {
+  interlocutor?: { nombre: string; fotoUrl: string | null } | null;
+};
+
+export async function fetchConversaciones(studioId: string): Promise<ConversacionPortal[] | null> {
   try {
     const auth = await portalAuthHeader();
     const res = await fetch(`/api/public/mensajeria/conversaciones?studioId=${encodeURIComponent(studioId)}`, { headers: auth });
     if (!res.ok) return null;
-    const cuerpo = await res.json() as { conversaciones?: ConversacionConResumen[] };
+    const cuerpo = await res.json() as { conversaciones?: ConversacionPortal[] };
     return cuerpo.conversaciones ?? [];
   } catch {
     return null;

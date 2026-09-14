@@ -113,10 +113,7 @@ export async function GET(req: NextRequest) {
 
   // Dos consultas más, acotadas a las conversaciones que ya sabemos suyas
   // (`filas`, derivadas de su propio `socio_id`): el último mensaje de cada una
-  // y hasta dónde ha leído cada participante. No se devuelve NINGÚN dato nuevo
-  // de la otra persona más allá de un instante de lectura — ni su identidad ni
-  // su nombre, que ya se resuelven en el cliente contra el equipo público del
-  // estudio.
+  // y hasta dónde ha leído cada participante.
   const { data: ultimos } = await admin
     .from('mensajes')
     .select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en')
@@ -125,12 +122,40 @@ export async function GET(req: NextRequest) {
 
   const { data: lecturas } = await admin
     .from('conversacion_participantes')
-    .select('conversacion_id, auth_user_id, leido_hasta')
+    .select('conversacion_id, auth_user_id, leido_hasta, rol_en_conversacion')
     .in('conversacion_id', filas.map(c => c.id));
+
+  // Con quién habla en las conversaciones con su instructora: nombre y foto, lo
+  // mismo que ya enseña el equipo público del estudio. Nada más de ella.
+  const staffPorConversacion = new Map<string, string>();
+  for (const l of lecturas ?? []) {
+    if (l.rol_en_conversacion === 'STAFF' && l.auth_user_id) {
+      staffPorConversacion.set(l.conversacion_id as string, l.auth_user_id as string);
+    }
+  }
+  const instructoraPorUsuario = new Map<string, { nombre: string; fotoUrl: string | null }>();
+  const idsStaff = [...new Set(staffPorConversacion.values())];
+  if (idsStaff.length > 0) {
+    const { data: instructoras } = await admin
+      .from('instructores')
+      .select('auth_user_id, nombre, foto_url')
+      .eq('studio_id', studioId)
+      .in('auth_user_id', idsStaff);
+    for (const i of instructoras ?? []) {
+      if (i.auth_user_id && i.nombre) {
+        instructoraPorUsuario.set(i.auth_user_id as string, { nombre: i.nombre as string, fotoUrl: (i.foto_url as string | null) ?? null });
+      }
+    }
+  }
 
   return NextResponse.json({
     conversaciones: resumirConversaciones(
       filas, (ultimos ?? []) as FilaUltimoMensaje[], (lecturas ?? []) as FilaLectura[], user.userId,
-    ),
+    ).map(c => ({
+      ...c,
+      interlocutor: c.tipo === 'ALUMNA_INSTRUCTORA'
+        ? instructoraPorUsuario.get(staffPorConversacion.get(c.id) ?? '') ?? null
+        : null,
+    })),
   });
 }

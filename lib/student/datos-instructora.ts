@@ -9,6 +9,10 @@ import type { AusenciaVista, PerfilInstructora, TipoAusencia } from '@/lib/stude
 import type { OpcionesNuevaClase } from '@/lib/student/nueva-clase';
 import type { AlumnaResumen, FichaAlumna } from '@/lib/student/alumnas-instructora';
 import type { SaludAlumna } from '@/lib/datos-salud/salud-para-instructora';
+import type { HiloInstructora } from '@/lib/student/mensajes-instructora';
+import type { ResultadoAbrir, ResultadoEnviar } from '@/lib/student/mensajeria';
+import type { RowMensajes } from '@/lib/db-types';
+import { mensajeSeguro } from '@/lib/errores';
 
 // Adaptador de datos de la instructora en la app. Delgado a propósito, como
 // `datos.ts`: pide y devuelve; lo que decide vive en el servidor.
@@ -126,7 +130,7 @@ export async function guardarDisponibilidadInstructora(
 }
 
 async function postInstructora(
-  ruta: 'ofertas' | 'lista' | 'perfil' | 'ausencias' | 'clases' | 'alumnas', cuerpo: Record<string, unknown>,
+  ruta: 'ofertas' | 'lista' | 'perfil' | 'ausencias' | 'clases' | 'alumnas' | 'mensajes', cuerpo: Record<string, unknown>,
 ): Promise<Response> {
   const auth = await portalAuthHeader();
   return fetch(`/api/portal/instructora/${ruta}`, {
@@ -315,6 +319,7 @@ export async function getFichaAlumna(slug: string, socioId: string): Promise<Fic
     nombre: d.nombre ?? '',
     fotoUrl: d.fotoUrl ?? null,
     primeraClase: d.primeraClase === true,
+    tieneCuenta: d.tieneCuenta === true,
     proximas: Array.isArray(d.proximas) ? d.proximas : [],
     pasadas: Array.isArray(d.pasadas) ? d.pasadas : [],
   };
@@ -336,4 +341,56 @@ export async function getSaludAlumna(slug: string, socioId: string): Promise<Sal
     avisos: Array.isArray(d.avisos) ? d.avisos : [],
     notas: Array.isArray(d.notas) ? d.notas : [],
   };
+}
+
+// ── Mensajes con sus alumnas ────────────────────────────────────────────────
+
+async function errorDe(res: Response, respaldo: string): Promise<string> {
+  const cuerpo = await res.json().catch(() => null) as { error?: string } | null;
+  return cuerpo?.error ? mensajeSeguro(cuerpo.error, respaldo) : respaldo;
+}
+
+/** Su bandeja: sus conversaciones con alumnas de este estudio. */
+export async function getHilosInstructora(slug: string): Promise<HiloInstructora[]> {
+  const res = await postInstructora('mensajes', { slug, accion: 'hilos' });
+  if (!res.ok) throw new Error(`instructora/mensajes:hilos ${res.status}`);
+  const d = await res.json() as { hilos?: HiloInstructora[] };
+  return Array.isArray(d.hilos) ? d.hilos : [];
+}
+
+/** Abre (o reutiliza) su conversación con una alumna suya. */
+export async function escribirAAlumna(slug: string, socioId: string): Promise<ResultadoAbrir> {
+  try {
+    const res = await postInstructora('mensajes', { slug, accion: 'abrir', socioId });
+    if (!res.ok) return { ok: false, error: await errorDe(res, 'No hemos podido abrir la conversación.') };
+    const d = await res.json() as { id?: string };
+    return d.id ? { ok: true, id: d.id } : { ok: false, error: 'No hemos podido abrir la conversación.' };
+  } catch {
+    return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };
+  }
+}
+
+export async function getMensajesHilo(slug: string, conversacionId: string): Promise<RowMensajes[]> {
+  const res = await postInstructora('mensajes', { slug, accion: 'mensajes', conversacionId });
+  if (!res.ok) throw new Error(`instructora/mensajes:mensajes ${res.status}`);
+  const d = await res.json() as { mensajes?: RowMensajes[] };
+  return Array.isArray(d.mensajes) ? d.mensajes : [];
+}
+
+export async function enviarEnHiloInstructora(slug: string, conversacionId: string, cuerpo: string): Promise<ResultadoEnviar> {
+  try {
+    const res = await postInstructora('mensajes', { slug, accion: 'enviar', conversacionId, cuerpo });
+    if (!res.ok) return { ok: false, error: await errorDe(res, 'No se ha podido enviar el mensaje.') };
+    const d = await res.json() as { mensaje: RowMensajes };
+    return { ok: true, mensaje: d.mensaje };
+  } catch {
+    return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };
+  }
+}
+
+/** Best-effort: si falla, la bandeja la sigue enseñando sin leer, que es el fallo seguro. */
+export async function marcarHiloLeidoInstructora(slug: string, conversacionId: string): Promise<void> {
+  try {
+    await postInstructora('mensajes', { slug, accion: 'leido', conversacionId });
+  } catch { /* best-effort */ }
 }

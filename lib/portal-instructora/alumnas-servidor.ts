@@ -194,11 +194,11 @@ export async function fichaDeAlumna(
   if (filas === null) throw new Error('No se ha podido comprobar si es su alumna');
   if (!instructoraAtiendeSocia(filas, p.instructorId, ahora)) return null;
 
-  const { data: socio, error } = await admin.from('socios').select('id, nombre, apellidos, foto_url')
+  const { data: socio, error } = await admin.from('socios').select('id, nombre, apellidos, foto_url, auth_user_id')
     .eq('id', p.socioId).eq('studio_id', p.studioId).is('borrado_en', null).maybeSingle();
   if (error) throw error;
   if (!socio) return null;
-  const fila = socio as FilaSocia;
+  const fila = socio as FilaSocia & { auth_user_id: string | null };
 
   const sesiones = await sesionesSuyasEnVentana(admin, p.studioId, p.instructorId, ahora);
   const sesionPorId = new Map(sesiones.map((s) => [s.id, s]));
@@ -228,6 +228,8 @@ export async function fichaDeAlumna(
     nombre: nombresParaLista([{ nombre: fila.nombre, apellidos: fila.apellidos }])[0],
     fotoUrl: fila.foto_url ?? null,
     primeraClase: !vino,
+    // Solo el sí/no, nunca el id de su cuenta.
+    tieneCuenta: Boolean(fila.auth_user_id),
     proximas,
     pasadas,
   };

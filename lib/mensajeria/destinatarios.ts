@@ -51,9 +51,24 @@ export async function authUserIdsParaNotificar(
 
   const { data: participantes } = await admin
     .from('conversacion_participantes')
-    .select('auth_user_id')
+    .select('auth_user_id, rol_en_conversacion')
     .eq('conversacion_id', conversacion.id);
-  for (const p of participantes ?? []) if (p.auth_user_id) ids.add(p.auth_user_id as string);
+  // En instructora–alumna, la parte STAFF solo se entera si sigue ACTIVA en el
+  // estudio: dada de baja ya no puede abrir el hilo, y el aviso no le sirve.
+  const staffInstructora: string[] = [];
+  for (const p of participantes ?? []) {
+    if (!p.auth_user_id) continue;
+    if (conversacion.tipo === 'ALUMNA_INSTRUCTORA' && p.rol_en_conversacion === 'STAFF') {
+      staffInstructora.push(p.auth_user_id as string);
+    } else {
+      ids.add(p.auth_user_id as string);
+    }
+  }
+  if (staffInstructora.length > 0) {
+    const { data: activas } = await admin.from('instructores').select('auth_user_id')
+      .eq('studio_id', conversacion.studio_id).in('auth_user_id', staffInstructora).neq('activo', false);
+    for (const a of activas ?? []) if (a.auth_user_id) ids.add(a.auth_user_id as string);
+  }
 
   if (conversacion.tipo === 'EQUIPO') {
     for (const id of await equipoDinamico(admin, conversacion.studio_id)) ids.add(id);

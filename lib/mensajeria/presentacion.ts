@@ -192,6 +192,28 @@ export function estadoEntrega(
 
 // ── Texto ───────────────────────────────────────────────────────────────────
 
+/**
+ * El texto que viaja en el push de un mensaje nuevo. En las conversaciones
+ * instructora–alumna, ninguno («Ana te ha escrito»), en las dos direcciones
+ * (decisión del 14-sep-2026): son las que más pueden hablar de lesiones, y un
+ * push se ve con el móvil bloqueado y pasa por servicios de terceros.
+ */
+export function previsualizacionParaAviso(tipo: string, cuerpo: string): string | null {
+  return tipo === 'ALUMNA_INSTRUCTORA' ? null : cuerpo.slice(0, 80);
+}
+
+/**
+ * Cómo se llama una conversación en la app de la alumna: el estudio, o el
+ * nombre de su instructora. «Tu instructora» solo si el servidor no lo trae.
+ */
+export function tituloConversacionAlumna(
+  c: { tipo: string; interlocutor?: { nombre: string } | null }, nombreEstudio: string,
+): string {
+  if (c.tipo === 'ALUMNA_MOSTRADOR') return nombreEstudio;
+  if (c.tipo === 'ALUMNA_INSTRUCTORA') return c.interlocutor?.nombre?.trim() || 'Tu instructora';
+  return 'Mensajes';
+}
+
 /** Previsualización de una línea: sin saltos de línea, sin cola de espacios. */
 export function unaLinea(texto: string | null | undefined, max = 120): string {
   if (!texto) return '';

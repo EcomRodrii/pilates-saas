@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tieneSinLeer, type ConversacionConResumen } from './presentacion.ts';
+import { previsualizacionParaAviso, tieneSinLeer, tituloConversacionAlumna, type ConversacionConResumen } from './presentacion.ts';
 
 function base(overrides: Partial<ConversacionConResumen>): ConversacionConResumen {
   return {
@@ -53,4 +53,18 @@ test('nunca marca como sin leer el propio mensaje, ni en el mostrador', () => {
     ultimo_remitente_auth_user_id: 'yo',
   });
   assert.equal(tieneSinLeer(c, 'yo'), false);
+});
+
+test('el push de una conversación con la instructora no lleva el texto; el resto, los primeros 80 caracteres', () => {
+  const largo = 'Me duele la rodilla desde la última clase y no sé si venir mañana, ¿qué me recomiendas hacer?';
+  assert.equal(previsualizacionParaAviso('ALUMNA_INSTRUCTORA', largo), null);
+  assert.equal(previsualizacionParaAviso('ALUMNA_MOSTRADOR', largo), largo.slice(0, 80));
+  assert.equal(previsualizacionParaAviso('EQUIPO', 'Hola'), 'Hola');
+});
+
+test('la alumna ve el nombre de su instructora; «Tu instructora» solo si no llega', () => {
+  assert.equal(tituloConversacionAlumna({ tipo: 'ALUMNA_MOSTRADOR' }, 'Estudio Norte'), 'Estudio Norte');
+  assert.equal(tituloConversacionAlumna({ tipo: 'ALUMNA_INSTRUCTORA', interlocutor: { nombre: 'Laura' } }, 'Estudio Norte'), 'Laura');
+  assert.equal(tituloConversacionAlumna({ tipo: 'ALUMNA_INSTRUCTORA', interlocutor: null }, 'Estudio Norte'), 'Tu instructora');
+  assert.equal(tituloConversacionAlumna({ tipo: 'ALUMNA_INSTRUCTORA', interlocutor: { nombre: '  ' } }, 'Estudio Norte'), 'Tu instructora');
 });

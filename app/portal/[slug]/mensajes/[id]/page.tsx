@@ -1,52 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { StudentShell } from '@/components/student/shell/StudentShell';
-import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio } from '@/components/student/contexto';
-import { useAsync } from '@/lib/student/useAsync';
 import {
   fetchConversaciones, fetchMensajes, enviarMensaje, marcarConversacionLeida, useMiAuthUserId,
+  type ConversacionPortal,
 } from '@/lib/student/mensajeria';
-import { agruparHilo, horaCorta } from '@/lib/mensajeria/presentacion';
-import type { RowMensajes } from '@/lib/db-types';
-import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
-import { useToast } from '@/components/student/ui/Toast';
-import { Icono } from '@/components/student/ui/Icono';
+import { tituloConversacionAlumna } from '@/lib/mensajeria/presentacion';
+import { HiloConversacion } from '@/components/student/domain/HiloConversacion';
 
-// Hilo de una conversación. Sin Realtime a propósito (ver lib/student/
-// mensajeria.ts): se refresca al montar, al enviar, y al volver a la pestaña
-// — mismo criterio que el resto de la Student PWA (comunidad, notificaciones),
-// que tampoco llevan websocket.
-//
-// ⚠️ El compositor va en el FLUJO NORMAL, nunca en `position: fixed`. La
-// primera versión lo ponía fijo, flotando encima de la nav inferior con un
-// `bottom: var(--nav-height)` calculado a mano — en iOS Safari real, al abrir
-// el teclado, dos elementos `fixed` (compositor + nav) se separan del
-// viewport visual y acaban flotando a mitad de pantalla, por encima del
-// teclado (visto en grabación real, no en el navegador headless). El arreglo
-// de verdad es `StudentShell sinNav`: la pantalla pasa a ser una columna flex
-// a pantalla completa (mensajes con scroll propio, compositor como último
-// hijo normal) — así el compositor sube con el teclado solo, como hace
-// cualquier `<input>` normal, sin ninguna posición fija que reconciliar.
-
-function tituloDe(tipo: string | null, nombreEstudio: string): string {
-  if (tipo === 'ALUMNA_MOSTRADOR') return nombreEstudio;
-  if (tipo === 'ALUMNA_INSTRUCTORA') return 'Tu instructora';
-  return 'Mensajes';
-}
+// Hilo de una conversación de la alumna. La pantalla es compartida con la de la
+// instructora (`HiloConversacion`); aquí solo se decide el título —el estudio o
+// el nombre de su instructora— y de dónde salen los datos.
 
 export default function HiloMensajesPage() {
   const { id } = useParams<{ id: string }>();
   const { estudio } = useEstudio();
-  const { toast } = useToast();
   const miId = useMiAuthUserId();
-  const [tipo, setTipo] = useState<string | null>(null);
-  const [borrador, setBorrador] = useState('');
-  const [enviando, setEnviando] = useState(false);
-  const [extra, setExtra] = useState<RowMensajes[]>([]);
-  const finRef = useRef<HTMLDivElement>(null);
+  const [conv, setConv] = useState<ConversacionPortal | null>(null);
 
   const cargar = useCallback(async () => {
     const [mensajes, conversaciones] = await Promise.all([
@@ -54,135 +26,19 @@ export default function HiloMensajesPage() {
       fetchConversaciones(estudio.id),
     ]);
     if (mensajes === null) throw new Error('mensajes');
-    const conv = conversaciones?.find((c) => c.id === id);
-    setTipo(conv?.tipo ?? null);
+    setConv(conversaciones?.find((c) => c.id === id) ?? null);
     return mensajes;
   }, [estudio.id, id]);
-  const { data, estado, reintentar } = useAsync(cargar, () => false);
-
-  const mensajes = [...(data ?? []), ...extra];
-
-  // Marcar leído al abrir. Best-effort (ver marcarConversacionLeida): si
-  // falla, la próxima carga de la bandeja seguirá enseñándola sin leer, que es
-  // el fallo seguro correcto — nunca al revés.
-  useEffect(() => {
-    if (estado === 'ready' || estado === 'empty') void marcarConversacionLeida(estudio.id, id);
-  }, [estado, estudio.id, id]);
-
-  useEffect(() => {
-    finRef.current?.scrollIntoView({ block: 'end' });
-  }, [mensajes.length]);
-
-  const enviar = async () => {
-    const cuerpo = borrador.trim();
-    if (!cuerpo || enviando) return;
-    setEnviando(true);
-    const r = await enviarMensaje(estudio.id, id, cuerpo);
-    setEnviando(false);
-    if (!r.ok) { toast(r.error); return; }
-    setExtra((e) => [...e, r.mensaje]);
-    setBorrador('');
-  };
-
-  const dias = agruparHilo(mensajes, new Date());
-  const listo = estado === 'ready' || estado === 'empty';
+  const enviar = useCallback((cuerpo: string) => enviarMensaje(estudio.id, id, cuerpo), [estudio.id, id]);
+  const marcarLeido = useCallback(() => marcarConversacionLeida(estudio.id, id), [estudio.id, id]);
 
   return (
-    <StudentShell sinNav>
-      {/* ⚠️ `height: 100%` NO llenaba la pantalla: el porcentaje se resuelve
-          contra el alto del padre, y `.page` no declara `height` — lo suyo sale
-          de `flex: 1`. Medido en el navegador: `.page` 844 px y esta columna
-          472, o sea el alto del contenido. Con pocos mensajes —el caso NORMAL
-          de una conversación recién abierta desde «Escribir al estudio»— el
-          compositor se quedaba flotando a media altura con 600 px de crema
-          muerta debajo, y la pantalla parecía a medio cargar.
-          Se resta la altura real de la cabecera (`--header-height`) y las áreas
-          seguras, que es lo mismo que `.page` añade como `padding` cuando
-          `sinNav`. Con un alto definido, la lista vuelve a desplazarse por
-          dentro y el compositor queda abajo. */}
-      <div
-        style={{
-          height: 'calc(100dvh - var(--header-height) - var(--safe-top) - var(--safe-bottom))',
-          display: 'flex', flexDirection: 'column',
-        }}
-      >
-        <PageHeader titulo={tituloDe(tipo, estudio.nombre)} back />
-
-        <div className="px" style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {estado === 'loading' && <ListSkeleton n={5} h={40} />}
-          {estado === 'error' && <ErrorState onRetry={reintentar} />}
-          {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver este hilo." />}
-          {listo && dias.map((dia) => (
-            <div key={dia.etiqueta}>
-              <p style={{ textAlign: 'center', margin: '10px 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>{dia.etiqueta}</p>
-              {dia.bloques.map((bloque, i) => {
-                const mio = bloque.remitenteAuthUserId === miId;
-                return (
-                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: mio ? 'flex-end' : 'flex-start', gap: 3, marginTop: 6 }}>
-                    {bloque.items.map((m) => (
-                      <div
-                        key={m.id}
-                        style={{
-                          maxWidth: '80%', padding: '9px 12px', borderRadius: 16,
-                          borderBottomRightRadius: mio ? 4 : 16, borderBottomLeftRadius: mio ? 16 : 4,
-                          background: mio ? 'var(--accent)' : 'var(--muted)', color: mio ? 'var(--accent-foreground)' : 'var(--foreground)',
-                          fontSize: 'var(--t-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                        }}
-                      >
-                        {m.cuerpo}
-                      </div>
-                    ))}
-                    <span className="t-num" style={{ fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>{horaCorta(bloque.items[bloque.items.length - 1].creado_en)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-          {/* `useAsync` se construye con `() => false` como predicado de vacío,
-              así que `estado` NUNCA vale 'empty' y este texto no se pintaba
-              jamás — justo en el camino principal de «Escribir al estudio», que
-              aterriza aquí con cero mensajes. La alumna veía la cabecera, un
-              hueco en blanco y el compositor, sin nada que explicara dónde
-              estaba. Se deriva de los mensajes, que es el dato real. */}
-          {listo && mensajes.length === 0 && (
-            <p className="t-meta" style={{ textAlign: 'center', margin: '20px 0' }}>Este es el comienzo de tu conversación.</p>
-          )}
-          <div ref={finRef} />
-        </div>
-
-        {listo && (
-          <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)', background: 'var(--card)' }}>
-            <div className="px" style={{ display: 'flex', gap: 8, alignItems: 'flex-end', paddingTop: 10, paddingBottom: 10 }}>
-              <textarea
-                value={borrador}
-                onChange={(e) => setBorrador(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); }
-                }}
-                rows={1}
-                placeholder="Escribe un mensaje…"
-                aria-label="Escribe un mensaje"
-                className="input"
-                style={{ flex: 1, resize: 'none', fontSize: 'var(--t-body)', minHeight: 40, maxHeight: 120, padding: '9px 12px' }}
-              />
-              <button
-                type="button"
-                onClick={() => void enviar()}
-                disabled={!borrador.trim() || enviando}
-                aria-label="Enviar"
-                style={{
-                  width: 40, height: 40, flexShrink: 0, borderRadius: 999, border: 'none',
-                  background: 'var(--accent)', color: 'var(--accent-foreground)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  opacity: !borrador.trim() || enviando ? 0.5 : 1,
-                }}
-              >
-                <Icono nombre="enviar" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </StudentShell>
+    <HiloConversacion
+      titulo={conv ? tituloConversacionAlumna(conv, estudio.nombre) : 'Mensajes'}
+      cargar={cargar}
+      enviar={enviar}
+      marcarLeido={marcarLeido}
+      miId={miId}
+    />
   );
 }
