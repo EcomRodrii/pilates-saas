@@ -287,7 +287,10 @@ test.describe('PATCH /api/equipo (editar instructora)', () => {
   }) => {
     await mockBackendEquipo(page, { rol: 'INSTRUCTOR' });
     await seedAuth(page, INSTRUCTOR_ID, 'ana@test.com');
-    await page.goto('/dashboard');
+    // Un fichero estático como origen, no /dashboard: la instructora ya no se
+    // queda en el panel (la puerta la manda a la app) y la navegación a mitad
+    // de la petición destruiría el contexto de `page.evaluate`.
+    await page.goto('/llms.txt');
 
     const result = await makeRequestEquipo(page, 'PATCH', '', {
       method: 'PATCH',
@@ -305,7 +308,10 @@ test.describe('PATCH /api/equipo (editar instructora)', () => {
   }) => {
     await mockBackendEquipo(page, { rol: 'INSTRUCTOR' });
     await seedAuth(page, INSTRUCTOR_ID, 'ana@test.com');
-    await page.goto('/dashboard');
+    // Un fichero estático como origen, no /dashboard: la instructora ya no se
+    // queda en el panel (la puerta la manda a la app) y la navegación a mitad
+    // de la petición destruiría el contexto de `page.evaluate`.
+    await page.goto('/llms.txt');
 
     const result = await makeRequestEquipo(page, 'PATCH', '', {
       method: 'PATCH',
@@ -455,7 +461,10 @@ test.describe('GET /api/equipo/tarifas', () => {
   test('INSTRUCTOR ve solo suya → 200', async ({ page }) => {
     await mockBackendEquipo(page, { rol: 'INSTRUCTOR' });
     await seedAuth(page, INSTRUCTOR_ID, 'ana@test.com');
-    await page.goto('/dashboard');
+    // Un fichero estático como origen, no /dashboard: la instructora ya no se
+    // queda en el panel (la puerta la manda a la app) y la navegación a mitad
+    // de la petición destruiría el contexto de `page.evaluate`.
+    await page.goto('/llms.txt');
 
     const result = await makeRequestEquipo(page, 'GET', '/tarifas');
 

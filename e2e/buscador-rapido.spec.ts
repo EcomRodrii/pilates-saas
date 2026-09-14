@@ -111,20 +111,9 @@ test.describe('Buscador rápido', () => {
     await expect(page.getByText('10:00')).toBeVisible({ timeout: 30_000 });
   });
 
-  test('instructora: no ve en los resultados clases de sus compañeras', async ({ page }) => {
-    await mockBackend(page, 'INSTRUCTOR');
-    await seedAuth(page, 'auth-e2e-instructora', 'marta@example.com');
-    await page.goto('/calendario');
-
-    await page.getByRole('button', { name: 'Buscar clase en todo el estudio' }).click({ timeout: 30_000 });
-    await page.getByPlaceholder('Instructora, sala o tipo de clase…').fill('reformer');
-
-    // Solo su propia clase (Marta) — la de Laura no debe aparecer.
-    const resultados = page.getByTestId('buscador-resultados');
-    await expect(resultados.getByText('Sin resultados')).toHaveCount(0);
-    await expect(resultados.getByRole('button')).toHaveCount(1);
-    await expect(resultados.getByText('Laura')).toHaveCount(0);
-  });
+  // El caso «instructora: no ve clases de sus compañeras» se fue con Tentare
+  // Core (14-sep-2026): ya no abre el calendario del panel, y en la app solo
+  // se le sirven las suyas desde el servidor.
 
   test('sin texto no muestra ningún resultado', async ({ page }) => {
     await mockBackend(page, 'PROPIETARIO');

@@ -33,7 +33,7 @@ export async function enviarEmailContactoSustituta(params: Marca & {
   const asunto = recordatorio
     ? `Recordatorio: ¿puedes cubrir ${claseNombre}? — ${estudioNombre}`
     : `¿Puedes cubrir ${claseNombre}? — ${estudioNombre}`;
-  return enviar(to, asunto, html, 'Tentare Core');
+  return enviar(to, asunto, html, 'Tentare');
 }
 
 // Alerta a la propietaria: nadie responde ('sin_respuesta') o se agotó el ranking
@@ -108,8 +108,8 @@ function conTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-// `marca`: nombre mostrado como remitente. 'Tentare Core' para instructoras y
-// 'Tentare Manager' para propietaria/gerencia (son NUESTRO producto, ver
+// `marca`: nombre mostrado como remitente. 'Tentare' para instructoras (Tentare
+// Core se retiró) y 'Tentare Manager' para propietaria/gerencia (ver
 // `nombreAppPorRol`); para las ALUMNAS, el nombre de su estudio — a ellas los
 // nombres de producto interno no les dicen nada, y la marca paraguas tampoco.
 //

@@ -73,13 +73,6 @@ test.describe('Nota de sesión IA: detrás de la ficha clínica', () => {
     await expect(page.getByText('Ana Gil')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Nota de sesión IA')).toHaveCount(0);
   });
-
-  test('la instructora sí ve la nota de sesión IA en la ficha de una socia', async ({ page }) => {
-    await mockBackend(page);
-    await seedSesion(page, UID_INSTRUCTORA, 'marta@example.com');
-    await page.goto('/clientas/soc-1');
-
-    await expect(page.getByText('Ana Gil')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Nota de sesión IA')).toBeVisible();
-  });
+  // La instructora ya no abre fichas en el panel (Tentare Core retirado,
+  // 14-sep-2026): lee las notas de sus alumnas en la app del estudio.
 });

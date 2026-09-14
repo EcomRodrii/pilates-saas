@@ -200,7 +200,7 @@ export function BajaForm({ token }: { token: string }) {
           </ul>
         )}
       </div>
-      <p className="mt-6 text-center text-[11px] text-slate-300">Tentare Core</p>
+      <p className="mt-6 text-center text-[11px] text-slate-300">Tentare</p>
     </main>
   );
 }

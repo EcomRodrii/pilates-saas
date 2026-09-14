@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { AvisoCambioDeSede } from '@/components/layout/sede-activa';
-import { AvisoAppInstructora } from '@/components/layout/aviso-app-instructora';
+import { PuertaAppInstructora } from '@/components/layout/puerta-app-instructora';
 import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
@@ -53,9 +53,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   //
   // Mientras el rol no está resuelto, `useRol()` cae al mínimo (INSTRUCTOR,
   // fail-closed de A-2) — con el rebranding por rol eso se veía como un
-  // parpadeo real ("Tentare Core" un instante, luego "Tentare Manager" al
-  // cargar el estudio de una propietaria). Con "Tentare" a secas mientras
-  // carga no se afirma un rol que aún no se conoce.
+  // parpadeo real (la marca de la instructora un instante, luego "Tentare
+  // Manager" al cargar el estudio de una propietaria). Con "Tentare" a secas
+  // mientras carga no se afirma un rol que aún no se conoce.
   useEffect(() => {
     const item = navSections
       .flatMap(s => s.items)
@@ -115,9 +115,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [session, studio]);
   const estudioNuncaResuelve = estudioTardaDemasiado && studio === null;
+  // La instructora no pasa por aquí: tiene su propia puerta (abajo). Sin esta
+  // excepción, con la lista blanca vacía, rebotaría a /dashboard en bucle.
+  const esInstructora = rolResuelto && rol === 'INSTRUCTOR';
   useEffect(() => {
-    if (!loading && session && rolResuelto && !autorizado) router.replace('/dashboard');
-  }, [loading, session, rolResuelto, autorizado, router]);
+    if (!loading && session && rolResuelto && !autorizado && !esInstructora) router.replace('/dashboard');
+  }, [loading, session, rolResuelto, autorizado, esInstructora, router]);
 
   // Antes era `return null`: pantalla en BLANCO mientras se resuelve la sesión.
   // Sumado a que el panel son ~2,3 MB de JS que hay que descargar y ejecutar
@@ -188,6 +191,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
           </main>
+        </PanelThemeProvider>
+      </PanelPrivacyProvider>
+    );
+  }
+
+  // Tentare Core retirado (paso 2, 14-sep-2026): quien tiene rol INSTRUCTOR en
+  // la sede activa no ve el panel, va a la app de su estudio. Solo con el rol
+  // RESUELTO: mientras carga, el rol mínimo también es INSTRUCTOR y mandaría a
+  // la app a la propietaria, la gerencia o recepción.
+  if (esInstructora && studio) {
+    return (
+      <PanelPrivacyProvider>
+        <PanelThemeProvider className="min-h-dvh bg-background">
+          <PuertaAppInstructora studioId={studio.id} slug={studio.slug ?? null} nombre={studio.nombre} />
         </PanelThemeProvider>
       </PanelPrivacyProvider>
     );
@@ -284,12 +301,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                         aquí?» encima de un esqueleto de carga es hablarle a
                         una pantalla que todavía no existe. */}
                     <PrimeraVezAqui />
-                    {/* La instructora tiene ya su trabajo en la app del estudio:
-                        primer paso para retirar Tentare Core. Con el rol
-                        RESUELTO (el mínimo mientras carga también es INSTRUCTOR). */}
-                    {rolResuelto && rol === 'INSTRUCTOR' && studio?.slug && (
-                      <AvisoAppInstructora studioId={studio.id} slug={studio.slug} />
-                    )}
                     {children}
                   </>
                 )}

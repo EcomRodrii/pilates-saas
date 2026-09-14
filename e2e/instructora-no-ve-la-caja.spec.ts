@@ -101,6 +101,11 @@ async function mockBackend(page: Page, opts: { verRecibos: boolean }) {
   await page.route('**/rest/v1/instructores**', route => json(route, EQUIPO));
   await page.route('**/rest/v1/socios**', route => json(route, [SOCIO]));
   await page.route('**/rest/v1/recibos**', route => json(route, opts.verRecibos ? RECIBOS : []));
+  // `mis_estudios()` confirma el rol por sede: la puerta del panel solo manda a
+  // la app a quien la BD da como INSTRUCTOR en la sede activa.
+  await page.route('**/rest/v1/rpc/mis_estudios', route => json(route, [
+    { id: STUDIO_ID, nombre: 'Pilates Centro', slug: 'pilates-centro', ciudad: null, rol: 'INSTRUCTOR' },
+  ]));
 }
 
 test.describe('Quien no lleva la caja no ve la caja', () => {
@@ -115,31 +120,15 @@ test.describe('Quien no lleva la caja no ve la caja', () => {
     await expect(page.getByText(String(IMPORTE)).first()).toBeVisible();
   });
 
-  test('la instructora no ve ingresos, ni gráfica, ni pagos pendientes', async ({ page }) => {
+  test('la instructora ya no llega al panel: acaba en la app de su estudio, sin ver la caja', async ({ page }) => {
+    // Tentare Core se retiró (14-sep-2026): el panel entero se sustituye por la
+    // puerta a la app, así que la caja ni siquiera llega a pintarse.
     await mockBackend(page, { verRecibos: false });
     await seedSesion(page, UID_INSTRUCTORA, 'marta@example.com');
     await page.goto('/dashboard');
 
-    // Su panel carga con normalidad: esto no va de romperle la pantalla.
-    await expect(page.getByRole('link', { name: /Clientas hoy/i })
-      .or(page.getByText(/Clientas hoy/i)).first()).toBeVisible({ timeout: 30_000 });
-
-    // Y no queda ni la tarjeta, ni el hueco con un 0 € falso.
+    await expect(page).toHaveURL(/\/portal\/pilates-centro\//, { timeout: 30_000 });
     await expect(page.getByText('Ingresos cobrados este mes')).toHaveCount(0);
-    await expect(page.getByText('Ingresos del mes')).toHaveCount(0);
-    await expect(page.getByText('Pagos pendientes')).toHaveCount(0);
     await expect(page.getByText(String(IMPORTE))).toHaveCount(0);
-  });
-
-  test('no se le ofrece un enlace que la devolvería donde estaba', async ({ page }) => {
-    // "Ocupación semana" enlazaba a /informes también para ella, que no puede
-    // verlo: el guardia del layout la rebotaba al panel. Un enlace que te deja
-    // donde estabas no es un enlace.
-    await mockBackend(page, { verRecibos: false });
-    await seedSesion(page, UID_INSTRUCTORA, 'marta@example.com');
-    await page.goto('/dashboard');
-
-    await expect(page.getByText(/Ocupación semana/i).first()).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('link', { name: /Ocupación semana/i })).toHaveCount(0);
   });
 });

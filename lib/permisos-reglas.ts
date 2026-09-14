@@ -14,35 +14,13 @@
 import { esRutaCongelada } from './frozen-features.ts';
 import type { Rol } from './types';
 
-// Instructoras: su agenda, sus alumnas y las herramientas de contenido/equipo
-// — nada de cobros, informes, marketing ni ajustes del negocio.
-// CONGELADO (feature-freeze PMF): '/ondemand' sigue fuera de esta lista blanca
-// — no es visible para nadie. '/comunidad' SÍ volvió (P1, Community &
-// Messaging OS): es un tablón de equipo/estudio, no una herramienta de
-// gestión del negocio — mismo criterio que ya le abre '/mensajeria'. Decisión
-// tomada aquí, no pedida explícitamente: si algún día se quiere un tablón
-// "solo staff de mostrador", esto hay que revisarlo.
-// '/network' YA NO está aquí: es el buscador de candidatas de la
-// propietaria/manager/recepción (herramienta de contratación), no algo que
-// competa a una instructora. Su propio perfil de Network vive fuera del
-// panel, en app/network/mi-perfil — cuenta independiente por auth_user_id,
-// sin studio_id, alcanzable sin pasar por esta lista blanca en absoluto.
-const PERMITIDO_INSTRUCTOR = [
-  // Todo el equipo puede ver qué ha cambiado en el producto que usa.
-  '/actualizaciones',
-  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/mi-perfil', '/comunidad',
-];
-
-// ⚠️ La lista blanca de arriba se compara POR PREFIJO, así que cada ruta abre
-// también a todas sus hijas. Eso coló seis pantallas de importación enteras a la
-// instructora —/clientas/importar, /citas/importar, /calendario/importar y sus
-// hijas— porque sus padres sí están permitidos. Importar es trabajo de
-// mostrador: mueve el alta masiva de clientas, horario, citas, reservas y bonos.
-// El servidor ya las rechazaba (puedeGestionarClientas / puedeMoverDinero en cada
-// ruta de API); lo que sobraba era la pantalla que llevaba hasta el rechazo.
-const BLOQUEADO_INSTRUCTOR = [
-  '/clientas/importar', '/citas/importar', '/calendario/importar',
-];
+// Instructoras: NINGUNA pantalla del panel. Tentare Core se retiró (paso 2,
+// decisión del fundador 14-sep-2026): su trabajo vive en la app del estudio
+// (`app/portal/[slug]/equipo`) y `DashboardShell` la manda allí
+// (`components/layout/puerta-app-instructora.tsx`). Aquí vivía una lista blanca
+// (/dashboard, /calendario, /clientas, /mensajeria…) que por prefijo llegó a
+// abrirle seis pantallas de importación. Su perfil de Tentare Network sigue
+// fuera del panel, en app/network, sin pasar por aquí.
 
 // Recepción: todo lo operativo, nada de configuración del negocio,
 // marketing, automatizaciones, informes o gestión del equipo.
@@ -432,8 +410,11 @@ export function puedeVerResumenValoracionDe(rol: Rol, _esPropia: boolean): boole
 // Manager para propietaria/manager/recepción. Fuente de verdad única del
 // mapeo; todo lo que muestre el nombre del producto (título de página, logo,
 // emails al equipo) pasa por aquí en vez de repetir el `rol === 'INSTRUCTOR'`.
-export function nombreAppPorRol(rol: Rol): 'Tentare Core' | 'Tentare Manager' {
-  return rol === 'INSTRUCTOR' ? 'Tentare Core' : 'Tentare Manager';
+// Tentare Core se retiró (14-sep-2026): a la instructora ya no se le habla de
+// un producto propio del panel, solo de la marca paraguas (sus correos de
+// sustituciones, disponibilidad e invitación).
+export function nombreAppPorRol(rol: Rol): 'Tentare' | 'Tentare Manager' {
+  return rol === 'INSTRUCTOR' ? 'Tentare' : 'Tentare Manager';
 }
 
 // Fuente de verdad única de "cómo se llama este rol" — auditoría integral
@@ -455,10 +436,8 @@ export function puedeVer(rol: Rol, path: string): boolean {
   // layout redirija a /dashboard. Reactivar = quitar la ruta de RUTAS_CONGELADAS.
   if (esRutaCongelada(path)) return false;
   if (rol === 'PROPIETARIO') return true;
-  if (rol === 'INSTRUCTOR') {
-    if (BLOQUEADO_INSTRUCTOR.some(p => coincide(path, p))) return false;
-    return PERMITIDO_INSTRUCTOR.some(p => coincide(path, p));
-  }
+  // Ni una: su sitio es la app del estudio (ver arriba).
+  if (rol === 'INSTRUCTOR') return false;
   if (rol === 'MANAGER') return !BLOQUEADO_MANAGER.some(p => coincide(path, p));
   return !BLOQUEADO_RECEPCION.some(p => coincide(path, p));
 }
