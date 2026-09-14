@@ -4,7 +4,7 @@ import { PanelClaro, PanelOscuro } from './comunes';
 // ── Dibujos propios de /funcionalidades/app-para-alumnas ─────────────────────
 // Fuente: app/portal/[slug]/* (las pantallas reales), el manifest POR ESTUDIO
 // (app/portal/[slug]/manifest.webmanifest — name, theme_color y logo del
-// estudio, scope anclado a su slug), lib/theme-definitions.ts (4 temas base) y
+// estudio, scope anclado a su slug), lib/theme-definitions.ts (hoy solo el aspecto clásico: los temas del kit se retiraron el 2026-08-27) y
 // lib/notifications/push-client.ts (web push; en iPhone exige la PWA instalada
 // e iOS 16.4+).
 //

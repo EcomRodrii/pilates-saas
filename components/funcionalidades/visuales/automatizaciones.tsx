@@ -1,13 +1,15 @@
 import { MUTED } from '@/components/landing/theme';
 import { PanelClaro, PanelOscuro } from './comunes';
+import { REGLAS as REGLAS_AVISOS } from '@/lib/notifications/catalog';
 
 // ── Dibujos propios de /funcionalidades/automatizaciones-y-avisos ────────────
-// Fuente: lib/engines/automation-engine.ts (TRIGGERS_IMPLEMENTADOS — las 7
-// reglas que el motor sabe atender de verdad), app/(dashboard)/automatizaciones
-// (los umbrales por defecto de REGLAS_SUGERIDAS) y lib/notifications/catalog.ts
-// (los canales por evento).
+// Fuente: app/(dashboard)/automatizaciones (REGLAS_SUGERIDAS: las 6 reglas que
+// un estudio puede encender, con sus umbrales por defecto) y
+// lib/notifications/catalog.ts (los canales por evento). El recordatorio de
+// clase (CLASE_MANANA) sigue en TRIGGERS_IMPLEMENTADOS pero ya NO se ofrece:
+// va de serie para todos los estudios (lib/inngest/recordatorios.ts).
 //
-// ⚠️ Solo se listan las 7 reglas VIVAS. Existen otros 10 disparadores en el
+// ⚠️ Solo se listan las reglas VIVAS. Existen otros 10 disparadores en el
 // código (`TriggerAutomatizacion`) que solo se configuran desde el módulo de
 // marketing, hoy apagado: contarlos aquí sería vender una pantalla a la que un
 // estudio nuevo no puede llegar.
@@ -25,13 +27,6 @@ export const REGLAS = [
     disparo: 'Un recibo vence sin cobrar',
     hace: 'Dos avisos escalados. Si hay tarjeta guardada puede proponerte el cobro; si tras el segundo aviso sigue sin resolverse, te lo pasa a ti.',
     umbral: '3 / 8 / 15 días',
-    escribe: true,
-  },
-  {
-    n: 'Recordatorio de clase',
-    disparo: 'La clase es mañana',
-    hace: 'Avisa a quien tiene reserva confirmada. Por WhatsApp si hay teléfono; por email si no.',
-    umbral: '24 h antes',
     escribe: true,
   },
   {
@@ -67,8 +62,8 @@ export const REGLAS = [
 export function TablaDeReglas() {
   return (
     <PanelClaro
-      titulo="Las siete reglas que puedes encender"
-      nota="Todas nacen apagadas, a propósito. Cinco de ellas escriben a tus clientas en nombre del estudio, así que encenderlas es una decisión consciente y no el efecto secundario de pulsar «cargar reglas sugeridas». Los umbrales son un punto de partida: se cambian."
+      titulo="Las seis reglas que puedes encender"
+      nota="Todas nacen apagadas, a propósito. Cuatro de ellas escriben a tus clientas en nombre del estudio, así que encenderlas es una decisión consciente y no el efecto secundario de pulsar «cargar reglas sugeridas». Los umbrales son un punto de partida: se cambian. El recordatorio de clase no está aquí porque no hay que encenderlo: va de serie."
     >
       <div style={{ display: 'grid', gap: 10 }}>
         {REGLAS.map((r) => (
@@ -92,19 +87,22 @@ export function TablaDeReglas() {
   );
 }
 
-// Proporciones contadas sobre el catálogo real (37 eventos): 23 declaran PUSH,
-// 4 EMAIL, 2 WHATSAPP y 2 SMS; el in-app va en todos salvo los silenciosos.
+// Proporciones CALCULADAS sobre el catálogo real, no escritas a mano: con los
+// números fijos de antes (37 eventos, 5 canales) esta página siguió diciendo
+// WhatsApp y SMS después de que el motor los retirara con Twilio, y 37 cuando
+// ya eran 61. El in-app va en todos salvo los silenciosos.
+const EVENTOS_AVISO = Object.values(REGLAS_AVISOS);
+const pctCanal = (canal: 'PUSH' | 'EMAIL') =>
+  Math.round((EVENTOS_AVISO.filter((r) => r.canales.includes(canal)).length / EVENTOS_AVISO.length) * 100);
 const CANALES = [
   { n: 'En la app', d: 'Siempre, salvo que la persona lo apague', pct: 100 },
-  { n: 'Push al móvil', d: 'Lo que hay que ver ahora', pct: 62 },
-  { n: 'Email', d: 'Lo que hay que poder releer', pct: 11 },
-  { n: 'WhatsApp', d: 'Reservado para lo crítico', pct: 5 },
-  { n: 'SMS', d: 'Última red, cuando lo demás puede fallar', pct: 5 },
+  { n: 'Push al móvil', d: 'Lo que hay que ver ahora', pct: pctCanal('PUSH') },
+  { n: 'Email', d: 'Lo que hay que poder releer', pct: pctCanal('EMAIL') },
 ];
 
 export function CanalesPorEvento() {
   return (
-    <PanelOscuro titulo="37 tipos de aviso · 5 canales">
+    <PanelOscuro titulo={`${EVENTOS_AVISO.length} tipos de aviso · 3 canales`}>
       <div style={{ display: 'grid', gap: 13 }}>
         {CANALES.map((c) => (
           <div key={c.n}>
@@ -120,7 +118,8 @@ export function CanalesPorEvento() {
       </div>
       <p style={{ margin: '16px 0 0', fontSize: 12, lineHeight: 1.5, color: 'rgba(255,255,255,.5)' }}>
         La proporción es la del catálogo real: la mayoría de avisos se quedan dentro de la app y del móvil. Un aviso solo
-        sale por un canal si ese evento lo tiene declarado — ni siquiera los críticos improvisan uno nuevo.
+        sale por un canal si ese evento lo tiene declarado — ni siquiera los críticos improvisan uno nuevo. WhatsApp, si
+        conectas tu número, va aparte: recordatorio de clase, radar de ocupación y sustituciones.
       </p>
     </PanelOscuro>
   );

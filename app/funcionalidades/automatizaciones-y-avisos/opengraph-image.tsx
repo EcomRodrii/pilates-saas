@@ -5,5 +5,5 @@ export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 
 export default async function Image() {
-  return generarOgImage('Lo que se te olvida, ya está hecho.', 'Siete reglas que enciendes tú y avisos por el canal de cada una.');
+  return generarOgImage('Lo que se te olvida, ya está hecho.', 'Recordatorio de serie, seis reglas que enciendes tú y avisos por el canal de cada una.');
 }

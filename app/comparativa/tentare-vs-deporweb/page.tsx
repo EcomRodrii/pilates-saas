@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio de entrada', tentare: ['yes', 'Desde 29€/mes, público'], them: ['no', 'No publica precio — hay que contactar'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí'], them: ['partial', 'No lo especifica en público'] },
-  { feature: 'Facturación España (Veri*factu) nativa', tentare: ['yes', 'Nativo'], them: ['partial', 'Muestra un sello VeriFactu en su web, sin explicar el alcance'] },
+  { feature: 'Facturación España (Veri*factu) nativa', tentare: ['partial', 'Formato nativo; envío a la AEAT en construcción'], them: ['partial', 'Muestra un sello VeriFactu en su web, sin explicar el alcance'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí'], them: ['partial', 'No especifica dónde'] },
   { feature: 'Gestión por reformer individual', tentare: ['yes', 'Sí, con lista de espera por aparato'], them: ['no', 'No encontrada — funcionalidades genéricas de ficha de socio y reservas'] },
   { feature: 'Sustitución de instructoras integrada', tentare: ['yes', 'Automática, con niveles de autonomía'], them: ['no', 'No encontrada'] },

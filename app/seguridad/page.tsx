@@ -53,7 +53,7 @@ const PILLARS = [
     bg: '#E7F3EC', fg: '#4E9E7F',
     icon: <FileCheck size={21} />,
     title: 'Facturación legal (Veri*factu)',
-    body: 'Las facturas se emiten con encadenamiento por hash y código QR, según el estándar Veri*factu español. Corrección fiscal de serie, sin capas externas.',
+    body: 'Las facturas se emiten con numeración legal, encadenamiento por hash y código QR, en el formato Veri*factu español. El envío automático del registro a la AEAT está todavía en construcción.',
   },
   {
     bg: '#F1F2EA', fg: '#5A6142',
@@ -65,7 +65,7 @@ const PILLARS = [
     bg: '#F1F2EA', fg: ACC,
     icon: <Database size={21} />,
     title: 'Copias de seguridad',
-    body: 'Guardamos copias fuera de la propia base de datos, en almacenamiento independiente. Si algo se tuerce, tu información se puede restaurar.',
+    body: 'Guardamos una copia diaria fuera de la propia base de datos, en almacenamiento independiente. La restauración desde el panel está desactivada temporalmente: si necesitas recuperar datos, lo hacemos contigo desde soporte.',
   },
 ];
 
@@ -127,7 +127,7 @@ export default function SeguridadPage() {
           <Reveal style={{ marginTop: 44, textAlign: 'center' }}>
             <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#A8A89F', marginBottom: 18 }}>Construido sobre infraestructura de referencia</div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {['Supabase · Postgres + Auth', 'Stripe · pagos', 'Cloudflare · copias y vídeo', 'Sentry · monitorización'].map((t) => (
+              {['Supabase · Postgres + Auth', 'Stripe · pagos', 'Cloudflare · copias y antibots', 'Sentry · monitorización'].map((t) => (
                 <span key={t} className="lp-mono" style={{ fontSize: 13, color: '#5A5A52', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 12, padding: '11px 18px' }}>{t}</span>
               ))}
             </div>

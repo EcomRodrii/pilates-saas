@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 const ROWS: ComparativaRow[] = [
-  { feature: 'Facturación España (Veri*factu) nativa', tentare: ['yes', 'Nativo'], them: ['partial', 'Add-on de pago'] },
+  { feature: 'Facturación España (Veri*factu) nativa', tentare: ['partial', 'Formato nativo; envío a la AEAT en construcción'], them: ['partial', 'Add-on de pago'] },
   { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29€/mes'], them: ['yes', 'Público'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí'], them: ['no', 'Contrato anual'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí'], them: ['yes', 'Sí'] },

@@ -126,7 +126,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/sustituciones',
     titulo: 'Sustituciones de instructoras automáticas | Tentare',
     descripcion:
-      'Una instructora avisa de que no puede y el sistema busca sustituta, la contacta, escala si no responde y avisa a las alumnas. Con cuatro niveles de autonomía.',
+      'Una instructora avisa de que no puede y el sistema busca sustituta, la contacta con tu visto bueno —o sola, en modo autónomo—, insiste si no responde y avisa a las alumnas.',
     grupo: 'funcionalidades',
     etiqueta: 'Sustituciones',
     resumen: 'La baja se cubre sola: candidatas, contacto, escalado y aviso.',
@@ -170,7 +170,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     // cosa y la página diga otra es la peor forma de perder la confianza de
     // quien te está evaluando. Aquí solo va lo que hoy es cierto.
     descripcion:
-      'Cada cobro genera su factura con numeración correlativa, huella encadenada y QR de verificación. Y el cierre de año listo para tu gestoría.',
+      'Cada cobro, salvo el efectivo, genera su factura con numeración correlativa, huella encadenada y QR de verificación. Y el cierre de año listo para tu gestoría.',
     grupo: 'funcionalidades',
     etiqueta: 'Facturación',
     resumen: 'Del cobro a la factura sellada, sin tocar nada.',
@@ -199,15 +199,18 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     // escribirla y NO era el que se suponía: los 10 disparadores de
     // `TriggerAutomatizacion` solo se configuran desde /marketing, que está
     // apagado (MARKETING_MODULE_ENABLED=false). Lo que un estudio puede
-    // encender hoy son las 7 reglas de `TRIGGERS_IMPLEMENTADOS`
-    // (lib/engines/automation-engine.ts) más los 37 tipos de aviso del motor
-    // de notificaciones (lib/notifications/catalog.ts). Si algún día se
-    // reactiva marketing, esta descripción se queda corta — no al revés.
+    // encender hoy son las 6 reglas sugeridas de /automatizaciones: el
+    // recordatorio de clase (CLASE_MANANA) ya NO es una de ellas, va de serie
+    // para todos los estudios (lib/inngest/recordatorios.ts). Encima, los avisos
+    // del motor de notificaciones (lib/notifications/catalog.ts), que salen por
+    // app, push y email: WhatsApp y SMS se retiraron del motor con Twilio. Sin
+    // número de avisos escrito a mano — el «treinta y siete» de antes llegó a 61
+    // sin que nadie tocara esta línea.
     descripcion:
-      'Recordatorios de clase, bonos casi agotados, alumnas que llevan semanas sin venir y pagos vencidos. Siete reglas que enciendes tú y treinta y siete avisos por cinco canales.',
+      'El recordatorio de clase va de serie. Además, seis reglas que enciendes tú —ausencias, pagos vencidos, altas nuevas— y decenas de avisos por app, push y email.',
     grupo: 'funcionalidades',
     etiqueta: 'Automatizaciones y avisos',
-    resumen: 'Siete reglas que trabajan solas y avisos por el canal de cada una.',
+    resumen: 'Seis reglas que trabajan solas y avisos por el canal de cada una.',
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
@@ -316,7 +319,7 @@ export const PAGINAS: PaginaSeo[] = [
       'Tres planes con precio público y sin permanencia: Base 29€, Estudio 59€ y Cadena 149€ al mes. Qué incluye cada uno, qué límites tiene y qué se cobra aparte.',
     grupo: 'software',
     etiqueta: 'Precios',
-    resumen: 'Tres planes, precio público, sin permanencia y con prueba de 14 días.',
+    resumen: 'Tres planes, precio público, sin permanencia y con prueba de 7 días sin tarjeta.',
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,

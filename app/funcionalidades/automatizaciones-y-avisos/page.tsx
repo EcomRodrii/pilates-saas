@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
 import { CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion, Tabla } from '@/components/funcionalidades/bloques';
 import { CanalesPorEvento, TablaDeReglas } from '@/components/funcionalidades/visuales/automatizaciones';
+import { REGLAS as REGLAS_AVISOS } from '@/lib/notifications/catalog';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/funcionalidades/automatizaciones-y-avisos';
@@ -44,8 +45,8 @@ export default function AutomatizacionesPage() {
       path={PATH}
       eyebrow="Trabajo que ocurre sin ti"
       h1={<>Lo que se te olvida, ya está hecho.</>}
-      intro={<>Recordar la clase de mañana, avisar de un bono que se acaba, preguntar por quien lleva un mes sin venir. Siete reglas que enciendes tú, y un motor de avisos que decide por qué canal sale cada cosa.</>}
-      chips={['7 reglas configurables', '37 tipos de aviso', 'App, push, email, WhatsApp y SMS']}
+      intro={<>Recordar la clase de mañana, avisar de un bono que se acaba, preguntar por quien lleva un mes sin venir. El recordatorio va de serie, seis reglas las enciendes tú, y un motor de avisos decide por qué canal sale cada cosa.</>}
+      chips={['6 reglas configurables', `${Object.keys(REGLAS_AVISOS).length} tipos de aviso`, 'App, push y email']}
       visual={<CanalesPorEvento />}
     >
       <Seccion id="problema" titulo="Lo que se pierde por no escribir a tiempo">
@@ -70,7 +71,7 @@ export default function AutomatizacionesPage() {
         </p>
         <TablaDeReglas />
         <p>
-          Fíjate en la última columna. Cinco reglas escriben directamente a la clienta; dos solo te avisan a ti. Esa
+          Fíjate en la última columna. Cuatro reglas escriben directamente a la clienta; dos solo te avisan a ti. Esa
           distinción no es cosmética: encender una regla que escribe en nombre de tu estudio, cada mañana y sin volver a
           preguntar, es dar un permiso serio, y el producto te lo pide de forma explícita en vez de darlo por hecho.
         </p>
@@ -90,14 +91,14 @@ export default function AutomatizacionesPage() {
             ['Una instructora da de baja su clase', 'La propietaria', 'App + push'],
             ['Cambia quién da tu clase', 'Las socias apuntadas', 'App + push'],
             ['Se pierde una disputa de pago', 'Mostrador', 'App + push + email'],
-            ['Stripe se desconecta', 'La propietaria', 'Los cinco canales'],
+            ['Stripe se desconecta', 'La propietaria', 'App + push + email'],
             ['Una clase se queda casi llena', 'La propietaria', 'Solo en la app'],
           ]}
         />
         <p>
-          Que los dos únicos casos con los cinco canales sean «se ha caído el cobro» y «el sistema ha fallado» es
-          intencionado. Si todo es urgente, nada lo es — y un WhatsApp de tu software a las once de la noche tiene que
-          significar algo.
+          Que casi todo se quede en la app y el móvil, y el email se reserve para lo que tiene plazo o hay que poder
+          releer —una disputa de pago, una plaza con fecha límite, Stripe desconectado—, es intencionado. Si todo es
+          urgente, nada lo es — y un correo de tu software a las once de la noche tiene que significar algo.
         </p>
       </Seccion>
 
@@ -108,8 +109,8 @@ export default function AutomatizacionesPage() {
         </p>
         <Rejilla
           items={[
-            { titulo: 'No avisa a toda la lista', body: 'Solo a socias con bono activo — pueden reservar de verdad — que ya han hecho antes esa clase.' },
-            { titulo: 'Lo lanzas tú', body: 'El radar detecta y propone; el mensaje sale cuando lo mandas. La decisión de escribir sigue siendo tuya.' },
+            { titulo: 'No avisa a toda la lista', body: 'Solo a socias con bono activo — pueden reservar de verdad — que ya han hecho antes esa clase y aceptaron recibir comunicaciones.' },
+            { titulo: 'Lo lanzas tú', body: 'El radar detecta y propone; el mensaje sale cuando lo mandas, por WhatsApp si lo tienes conectado y si no por email. La decisión de escribir sigue siendo tuya.' },
           ]}
         />
         <p>
@@ -142,7 +143,7 @@ export default function AutomatizacionesPage() {
 
       <CierreCta
         titulo="Enciende dos reglas y olvídate"
-        body="El recordatorio de clase y el aviso de ausencia son los dos que más se notan. El resto, cuando quieras."
+        body="El recordatorio de clase ya va de serie. De las reglas, la de clienta ausente y la de pago pendiente son las que más se notan. El resto, cuando quieras."
       />
     </FeatureShell>
   );

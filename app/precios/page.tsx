@@ -40,10 +40,9 @@ function tope(plan: Plan): string {
 // La comparativa por categorías vive en lib/billing/catalogo-planes.ts y la
 // pinta <ComparativaPlanes>. Esta página tenía su propia lista de 11 filas
 // escrita a mano, y /suscripcion otra distinta de 4 bullets por plan: dos
-// promesas del mismo producto que ya habían empezado a separarse. El
-// comentario que había aquí excluía `marketing`, `ia` y `gamificacion` por
-// estar desactivadas — dejó de ser cierto el 2026-08-13, cuando
-// MARKETING_MODULE_ENABLED volvió a true, y nadie lo revisó.
+// promesas del mismo producto que ya habían empezado a separarse. Qué entra y
+// qué no (p. ej. marketing, apagado otra vez desde el 2026-08-19) se decide
+// allí, no aquí.
 
 const FAQ = [
   {

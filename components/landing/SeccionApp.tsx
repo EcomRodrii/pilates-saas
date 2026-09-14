@@ -15,14 +15,14 @@ export function SeccionApp() {
           <p className="v5-app-eyebrow">Tu app de alumnas</p>
           <h2 id="v5-app-h" className="v5-app-h2">Tu app debería parecerse a tu estudio.</h2>
           <p className="v5-app-lead">
-            Con Tentare la experiencia de tus alumnas la diseñas tú, sin diseñador: eliges tema, y cambian
-            los colores, los bloques del inicio y hasta la navegación.
+            Con Tentare la experiencia de tus alumnas la diseñas tú, sin diseñador: los colores, la tipografía,
+            los bloques del inicio y hasta la navegación.
           </p>
 
           <ul className="v5-app-lista">
             <li><strong>Reserva, bonos, retos y progreso</strong> — con su reformer favorito guardado.</li>
             <li><strong>Avisos por su canal</strong>: app, email o WhatsApp. Sin que tú escribas.</li>
-            <li><strong>White-label completo</strong> en el plan Cadena — ni rastro de Tentare.</li>
+            <li><strong>Tu marca</strong> desde el plan Estudio — tu nombre, tu logo y tus colores en su móvil.</li>
           </ul>
 
           <Link href={SALIDAS.app.href} className="v5-salida">{SALIDAS.app.label} →</Link>

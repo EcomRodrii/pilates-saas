@@ -7,9 +7,13 @@ import { SALIDAS } from './enlaces';
 // Sección 03 de la landing v5 — la demo de sustituciones.
 //
 // Cuatro fotogramas de un caso concreto: una baja entra a las 16:42 y el
-// sistema la resuelve. Los textos y los estados son los del producto
-// (buscando → contactando → esperando visto bueno → cubierta), no una
-// ilustración de lo que podría pasar.
+// sistema la resuelve. Los textos y los estados son los del producto en su
+// modo por defecto, asistido (buscando → tu visto bueno → contactando →
+// cubierta), no una ilustración de lo que podría pasar. ⚠️ En asistido NO se
+// escribe a ninguna candidata hasta que la propietaria da el visto bueno
+// (lib/sustituciones/baja.ts), y cuando la candidata acepta la clase se
+// reasigna sola (responder.ts). Esta demo contaba antes el orden al revés:
+// contactaba sola a dos a la vez y pedía la aprobación al final.
 //
 // Se puede avanzar a mano: el ciclo automático es un acompañamiento, no la
 // única forma de verlo. Con `prefers-reduced-motion` arranca directamente en
@@ -38,23 +42,23 @@ const FOTOGRAMAS: Fotograma[] = [
     badge: 'Buscando', badgeBg: 'rgba(143,98,21,.12)', badgeFg: '#8F6215',
     c1: 'Encaja con esta clase', c1fg: '#2F6B4F',
     c2: 'Comprobando…', c2fg: '#8E8E86',
-    btn: 'Contactando candidatas…', btnBg: '#F5F5F1', btnFg: '#8E8E86', hl: false,
-  },
-  {
-    badge: 'Contactando', badgeBg: 'rgba(143,98,21,.12)', badgeFg: '#8F6215',
-    c1: 'Email enviado · 16:43', c1fg: '#8F6215',
-    c2: 'Email enviado · 16:43', c2fg: '#8F6215',
-    btn: 'Esperando respuesta · recordatorio en 2 h', btnBg: '#F5F5F1', btnFg: '#8E8E86', hl: false,
+    btn: 'Calculando candidatas…', btnBg: '#F5F5F1', btnFg: '#8E8E86', hl: false,
   },
   {
     badge: 'Esperando tu visto bueno', badgeBg: 'rgba(52,56,37,.1)', badgeFg: '#5A6142',
-    c1: 'Ha aceptado ✓', c1fg: '#2F6B4F',
-    c2: 'Sin respuesta', c2fg: '#8E8E86',
-    btn: 'Confirmar a Julia Ramos', btnBg: '#343825', btnFg: '#D9C29E', hl: true,
+    c1: 'Propuesta ✓', c1fg: '#2F6B4F',
+    c2: 'Siguiente en la lista', c2fg: '#8E8E86',
+    btn: 'Avisar a Julia Ramos', btnBg: '#343825', btnFg: '#D9C29E', hl: true,
+  },
+  {
+    badge: 'Contactando', badgeBg: 'rgba(143,98,21,.12)', badgeFg: '#8F6215',
+    c1: 'Email enviado · 16:45', c1fg: '#8F6215',
+    c2: 'Siguiente en la lista', c2fg: '#8E8E86',
+    btn: 'Esperando respuesta · si no contesta, recordatorio', btnBg: '#F5F5F1', btnFg: '#8E8E86', hl: false,
   },
   {
     badge: 'Cubierta', badgeBg: 'rgba(47,107,79,.12)', badgeFg: '#2F6B4F',
-    c1: 'Confirmada ✓', c1fg: '#2F6B4F',
+    c1: 'Ha aceptado ✓', c1fg: '#2F6B4F',
     c2: '—', c2fg: '#8E8E86',
     btn: 'Cubierta por Julia · 8 alumnas avisadas', btnBg: 'rgba(47,107,79,.12)', btnFg: '#2F6B4F', hl: false,
   },
@@ -64,11 +68,11 @@ const FOTOGRAMAS: Fotograma[] = [
 const REGISTRO: [string, string][] = [
   ['16:42', 'Marta avisa de que no puede dar la clase'],
   ['16:43', 'Se calculan las candidatas que pueden darla'],
-  ['16:43', 'Email a Julia y a Juana'],
-  ['18:40', 'Recordatorio automático a quien no ha contestado'],
-  ['19:05', 'Julia acepta · esperando tu visto bueno'],
-  ['19:06', 'Calendario y horas actualizados'],
-  ['19:06', 'Las 8 alumnas reciben el cambio'],
+  ['16:45', 'Tu visto bueno: avisar a Julia'],
+  ['16:45', 'Email a Julia con un enlace para aceptar'],
+  ['17:30', 'Recordatorio automático, también por WhatsApp'],
+  ['17:52', 'Julia acepta · la clase se reasigna sola'],
+  ['17:52', 'Las 8 alumnas reciben el cambio'],
 ];
 
 export function SeccionSustituciones() {
@@ -89,8 +93,8 @@ export function SeccionSustituciones() {
             Una profesora cancela a las 16:42.<br />Tú no deberías montar una operación de rescate.
           </h2>
           <p className="v5-sust-lead">
-            Tentare sabe quién puede dar esa clase, la contacta, insiste por ti y te lo trae resuelto.
-            Míralo pasar:
+            Tentare sabe quién puede dar esa clase y te la propone. Con tu visto bueno la contacta, insiste
+            por ti y te lo trae resuelto. Míralo pasar:
           </p>
         </header>
 
@@ -133,7 +137,7 @@ export function SeccionSustituciones() {
               </div>
 
               <div className="v5-accion" style={{ background: f.btnBg, color: f.btnFg }}>{f.btn}</div>
-              <p className="v5-nota">Avisar a las alumnas al confirmar</p>
+              <p className="v5-nota">Aviso a las alumnas activado en tu estudio</p>
             </div>
 
             {/* Controles de verdad: se puede parar la demo y mirar un paso
@@ -166,8 +170,9 @@ export function SeccionSustituciones() {
               ))}
             </ol>
             <p className="v5-registro-p">
-              Ninguna de esas siete cosas la has hecho tú. Y si nadie hubiera aceptado, te lo diría con
-              las opciones sobre la mesa en vez de dejarte descubrirlo por la mañana.
+              De esas siete cosas, tú solo has hecho una: dar el visto bueno — y en modo autónomo, ni eso.
+              Si nadie hubiera aceptado, te lo diría con las opciones sobre la mesa en vez de dejarte
+              descubrirlo por la mañana.
             </p>
             <Link href={SALIDAS.sustituciones.href} className="v5-salida">
               {SALIDAS.sustituciones.label} <span aria-hidden>→</span>

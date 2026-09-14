@@ -134,7 +134,7 @@ export default function OcupacionClasesVallePage() {
 
         <CtaBlock
           title="Un aviso automático cuando una clase se queda vacía"
-          body="El Radar de Ocupación de Tentare vigila tus próximas 48h y avisa por WhatsApp solo a las socias con bono activo que ya han hecho esa clase antes — sin que muevas un dedo."
+          body="El Radar de Ocupación de Tentare vigila tus próximas 48h, te enseña las clases por debajo del 70 % y, con un toque, avisa solo a las socias con bono activo que ya han hecho esa clase — por WhatsApp si lo tienes conectado, o por email."
         />
 
         <RelatedLinks

@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: '¿Tengo que emitir yo las facturas una a una?',
-    a: 'No. Cada cobro genera su factura: la cuota mensual que se cobra sola, el bono que compra una alumna desde el portal, la venta de mostrador. Las que emites a mano son la excepción, no la norma.',
+    a: 'No. Cada cobro genera su factura: la cuota mensual que se cobra sola, el bono que compra una alumna desde el portal, la venta de mostrador con tarjeta. La excepción es el efectivo, que no la emite solo: la generas desde el recibo si te la piden.',
   },
   {
     q: '¿Qué pasa si me equivoco en una factura ya emitida?',
@@ -44,7 +44,7 @@ export default function FacturacionPage() {
       path={PATH}
       eyebrow="España · Ley Antifraude"
       h1={<>Facturas que cumplen, sin que tengas que saber cómo.</>}
-      intro={<>Cada cobro genera su factura con número correlativo, huella encadenada y QR de verificación, en el formato que exige el reglamento. Sin que abras nada.</>}
+      intro={<>Cada cobro —salvo el efectivo— genera su factura con número correlativo, huella encadenada y QR de verificación, en el formato que exige el reglamento. Sin que abras nada.</>}
       chips={['Formato Veri*Factu', 'Numeración a prueba de carreras', 'Cierre anual para la gestoría']}
       visual={<LoQueLlevaLaFactura />}
     >
@@ -70,7 +70,7 @@ export default function FacturacionPage() {
         <p>
           La relación entre <Link href="/funcionalidades/cobros-recurrentes">cobros</Link> y facturas es donde la mayoría de
           estudios pierde horas: se cobra en un sitio y se factura en otro, y a fin de mes hay que cuadrar los dos. Aquí es
-          una sola cosa. Un recibo que pasa a cobrado dispara su factura.
+          una sola cosa. Un recibo que pasa a cobrado dispara su factura (en efectivo, solo si la pides desde el recibo).
         </p>
         <DelCobroALaFactura />
         <p>

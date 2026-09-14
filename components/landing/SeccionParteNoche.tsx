@@ -25,7 +25,7 @@ export function SeccionParteNoche() {
           <h2 id="v5-noche-h" className="v5-noche-h2">Tentare sigue trabajando.</h2>
           <p className="v5-noche-lead">
             No es una bandeja de avisos esperando a que los leas. Cuando una instructora falla, busca quién la
-            cubre y avisa a las alumnas — y tú te enteras cuando ya está hecho.
+            cubre y avisa a las alumnas — y, en modo autónomo, tú te enteras cuando ya está hecho.
           </p>
         </div>
 

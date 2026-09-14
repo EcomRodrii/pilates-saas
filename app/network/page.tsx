@@ -96,7 +96,7 @@ const FAQ_ITEMS = [
   { q: '¿Puedo ocultar mi perfil si dejo de buscar?', a: 'Sí, en cualquier momento, sin perder los datos que ya rellenaste. Vuelves a publicarlo cuando quieras.' },
   { q: '¿Qué significa que Tentare Network está en beta?', a: 'Que acabamos de abrir la red y estamos incorporando a las primeras instructoras y estudios. Entrar ahora significa formar parte desde el principio, no llegar tarde a algo ya lleno.' },
   { q: '¿En qué ciudades está disponible?', a: 'Empezamos con las primeras instructoras en Barcelona y Madrid, y vamos a sumar más ciudades según se una gente.' },
-  { q: '¿Cómo elimino mi cuenta o mi perfil?', a: 'Escríbenos a hola@tentare.app y lo borramos. Mientras tanto puedes ocultar tu perfil tú misma desde "Mi perfil" cuando quieras, sin perder tus datos.' },
+  { q: '¿Cómo elimino mi cuenta o mi perfil?', a: 'Desde "Mi perfil" puedes ocultar tu perfil sin perder tus datos, o eliminarlo tú misma. Para borrar la cuenta por completo, escríbenos a hola@tentare.app.' },
 ] as const;
 
 /** Titular en curvas con el trazo del acento — misma técnica que el mockup: `<text>` con `fill` = fondo de la sección (se camufla) y `stroke` = acento, `paint-order="stroke"`. */

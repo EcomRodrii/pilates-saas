@@ -102,7 +102,7 @@ export default function VerifactuPage() {
         />
 
         <h2 id="s4">TicketBAI: un régimen aparte</h2>
-        <p>Si tu estudio está en <strong>País Vasco o Navarra</strong>, ojo: ahí rige TicketBAI, un sistema propio de las haciendas forales, distinto de Veri*factu. Hoy en Tentare tenemos Veri*factu nativo; TicketBAI no está soportado todavía. Si es tu caso, pregúntanoslo antes de decidirte — preferimos decírtelo aquí a que lo descubras después.</p>
+        <p>Si tu estudio está en <strong>País Vasco o Navarra</strong>, ojo: ahí rige TicketBAI, un sistema propio de las haciendas forales, distinto de Veri*factu. Hoy Tentare emite las facturas con el formato Veri*factu (huella encadenada y QR), aunque el envío automático a la AEAT sigue en construcción; TicketBAI no está soportado todavía. Si es tu caso, pregúntanoslo antes de decidirte — preferimos decírtelo aquí a que lo descubras después.</p>
 
         <h2 id="s5">Checklist de cumplimiento</h2>
         <Checklist
@@ -118,7 +118,7 @@ export default function VerifactuPage() {
         <h2 id="s6">Preguntas frecuentes</h2>
         <ArticleFaq items={FAQ} />
 
-        <CtaBlock title="Veri*factu, ya incluido de serie." body="Tentare emite tus facturas con hash y QR desde el primer cobro. Sin capas externas ni sorpresas en 2027." />
+        <CtaBlock title="El formato Veri*factu, de serie." body="Tentare emite tus facturas con numeración legal, hash y QR desde el primer cobro. El envío automático a la AEAT está en construcción, y te lo contamos sin rodeos." />
 
         <RelatedLinks
           items={[
