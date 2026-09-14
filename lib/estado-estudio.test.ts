@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { construirEstadoEstudio, contarConCandidatosNetwork, tituloDecidir } from './estado-estudio.ts';
+import { ANCLA_DECIDIR, construirEstadoEstudio, contarConCandidatosNetwork, tituloDecidir } from './estado-estudio.ts';
 
 const SUFIJO = 'te proponemos profesionales de Tentare Network';
 
@@ -102,8 +102,32 @@ test('el orden es el de urgencia, no el de llegada de los datos', () => {
 });
 
 test('lo que se resuelve en una tarjeta de la home no enlaza a otra pantalla', () => {
-  const e = construirEstadoEstudio({ penalizacionesPorAprobar: 1, devolucionesPorRevisar: 1, canjesPorEntregar: 1, bajasPorRevisar: 1 });
+  const e = construirEstadoEstudio({ reservasPorAprobar: 1, penalizacionesPorAprobar: 1, devolucionesPorRevisar: 1, canjesPorEntregar: 1, bajasPorRevisar: 1 });
+  assert.equal(e.decidir.length, 5);
   assert.ok(e.decidir.every(l => l.href === null));
+});
+
+test('las reservas por aprobar se deciden en la bandeja: sin enlace a /calendario y con ancla a su tarjeta', () => {
+  const e = construirEstadoEstudio({ reservasPorAprobar: 2, sustitucionesPorDecidir: 1 });
+  const linea = e.decidir.find(l => l.id === 'reservasPorAprobar')!;
+  assert.equal(linea.href, null);
+  assert.equal(linea.texto, '2 reservas esperan tu aprobación');
+  assert.equal(ANCLA_DECIDIR.reservasPorAprobar, 'decidir-reservas');
+  // Sigue contando como decisión, y sigue sin afirmar «todo bien».
+  assert.equal(e.nDecidir, 3);
+  assert.doesNotMatch(e.titulo, /todo|bajo control|en orden|nada pendiente/i);
+});
+
+test('ninguna línea de «Decidir» sin enlace se queda sin tarjeta a la que saltar', () => {
+  const todas = construirEstadoEstudio({
+    sustitucionesPorDecidir: 1, reservasPorAprobar: 1, recibosFallidos: 1, penalizacionesPorAprobar: 1,
+    devolucionesPorRevisar: 1, automatizacionesEsperando: 1, canjesPorEntregar: 1, bajasPorRevisar: 1,
+  });
+  const sinEnlace = todas.decidir.filter(l => l.href === null);
+  assert.ok(sinEnlace.length > 0);
+  for (const l of sinEnlace) assert.ok(ANCLA_DECIDIR[l.id], `«${l.id}» no tiene enlace ni tarjeta`);
+  const anclas = Object.values(ANCLA_DECIDIR);
+  assert.equal(new Set(anclas).size, anclas.length, 'dos tarjetas no pueden compartir ancla');
 });
 
 test('las bajas de última hora del equipo esperan decisión, van las últimas y sin palabras de sanción', () => {

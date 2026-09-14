@@ -26,6 +26,9 @@ export interface ListaClientasProps {
   onRevertirNoShow?: (reservaId: string) => void;
   onAprobar?: (reservaId: string) => void;
   onRechazar?: (reservaId: string) => void;
+  /** Reserva cuya aprobación/rechazo está viajando: mientras tanto se apagan
+   *  Aprobar y Rechazar de todas, para no mandar dos decisiones a la vez. */
+  resolviendoId?: string | null;
   onQuitar?: (reservaId: string) => void;
   /** "Repite como la semana pasada" — vuelve a apuntarla a la misma sala+tipo
    *  de clase, 7 días después. Solo tiene sentido sobre una reserva ya
@@ -64,7 +67,7 @@ function etiquetaEstado(r: Reserva): string {
 const BOTON = 'flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors';
 
 export function ListaClientas({
-  reservas, nombreClienta, onCheckin, checkinBloqueadoPor, onNoShow, onDeshacerCheckin, onRevertirNoShow, onAprobar, onRechazar, onQuitar,
+  reservas, nombreClienta, onCheckin, checkinBloqueadoPor, onNoShow, onDeshacerCheckin, onRevertirNoShow, onAprobar, onRechazar, resolviendoId, onQuitar,
   onRepetirSemanaSiguiente, onHacerPlazaFija, plazaFijaExistePara, semaforoPorSocio, filaExtra,
 }: ListaClientasProps) {
   const visibles = reservas.filter(r => r.estado !== 'CANCELADA');
@@ -113,12 +116,12 @@ export function ListaClientas({
             {r.estado === 'PENDIENTE_APROBACION' && (onAprobar || onRechazar) && (
               <>
                 {onAprobar && (
-                  <button onClick={() => onAprobar(r.id)} className={BOTON} style={{ background: 'color-mix(in srgb, var(--brand-medio) 12%, var(--card))', color: 'var(--brand-medio)' }}>
+                  <button onClick={() => onAprobar(r.id)} disabled={resolviendoId != null} className={`${BOTON} disabled:opacity-50 disabled:cursor-not-allowed`} style={{ background: 'color-mix(in srgb, var(--brand-medio) 12%, var(--card))', color: 'var(--brand-medio)' }}>
                     Aprobar
                   </button>
                 )}
                 {onRechazar && (
-                  <button onClick={() => onRechazar(r.id)} className={BOTON} style={{ background: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}>
+                  <button onClick={() => onRechazar(r.id)} disabled={resolviendoId != null} className={`${BOTON} disabled:opacity-50 disabled:cursor-not-allowed`} style={{ background: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}>
                     Rechazar
                   </button>
                 )}

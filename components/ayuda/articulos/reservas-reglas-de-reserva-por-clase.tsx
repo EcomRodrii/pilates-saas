@@ -25,7 +25,12 @@ export default function Contenido() {
         Además de esas cuatro, puedes exigir que una reserva de un tipo de clase concreto quede pendiente de tu
         aprobación en vez de confirmarse sola. Mientras está pendiente, no ocupa aforo ni consume bono — solo se
         descuenta cuando la apruebas, y ahí se vuelve a comprobar el aforo por si ya se ha llenado mientras
-        esperaba.
+        esperaba (si no queda sitio, pasa a la lista de espera).
+      </p>
+      <p>
+        Las apruebas o las rechazas desde Inicio, en &ldquo;Lo que espera tu visto bueno&rdquo;, sin tener que
+        buscarlas clase a clase; o desde la propia clase en el calendario, en su lista de clientas. Una reserva que
+        sigue pendiente cuando la clase empieza se cancela sola y se avisa a la alumna.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Dónde se configuran</h2>

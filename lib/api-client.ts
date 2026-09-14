@@ -13,6 +13,7 @@ import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_I
 import { mensajeSeguro, mensajeHttp, type ResultadoEscritura } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
 import type { DecisionEstudio } from '@/lib/student/baja-instructora';
+import type { RespuestaDecision } from '@/lib/reservas-por-aprobar';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
 import type { FaseTrial } from '@/lib/billing/trial';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
@@ -964,6 +965,23 @@ export async function revisarBajaInstructora(
     return { ok: true };
   } catch {
     return { error: 'Sin conexión: no se ha guardado. Inténtalo de nuevo.', status: 0 };
+  }
+}
+
+// Aprobar o rechazar una reserva pendiente de aprobación. Devuelve la respuesta
+// cruda (`status: 0` = sin red): qué decir y si la fila sobra lo decide
+// `resultadoDecisionReserva`, la misma traducción para la bandeja de Inicio y
+// para la clase en el calendario.
+export async function decidirReservaPendiente(reservaId: string, aprobar: boolean): Promise<RespuestaDecision> {
+  try {
+    const res = await fetch('/api/reservas/resolver-pendiente', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reservaId, aprobar }),
+    });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  } catch {
+    return { status: 0, body: null };
   }
 }
 

@@ -31,7 +31,7 @@ const CON_PENDIENTES = {
   titulo: '3 cosas esperan tu visto bueno',
   decidir: [
     { id: 'sustitucionesPorDecidir', n: 1, texto: 'Una clase sin cubrir necesita que decidas', href: '/sustituciones' },
-    { id: 'reservasPorAprobar', n: 2, texto: '2 reservas esperan tu aprobación', href: '/calendario' },
+    { id: 'reservasPorAprobar', n: 2, texto: '2 reservas esperan tu aprobación', href: null },
   ],
   enMarcha: [
     { id: 'sustitucionesBuscando', n: 1, texto: 'Buscando sustituta para una clase', href: '/sustituciones' },
@@ -48,7 +48,7 @@ const SIN_NADA = {
 async function montar(
   page: Page,
   estado: { cuerpo?: unknown; status?: number },
-  rest: Record<string, unknown[]> = {},
+  rest: Record<string, unknown> = {},
   extra?: (page: Page) => Promise<void>,
 ) {
   const intentos = { n: 0 };
@@ -99,11 +99,12 @@ test.describe('Estado del estudio en Inicio', () => {
     await expect(bandeja).toBeVisible({ timeout: 30_000 });
     await expect(bandeja.getByText('3 cosas esperan tu visto bueno')).toBeVisible();
 
-    // Lo que espera decisión lleva a donde se resuelve.
+    // Lo que espera decisión lleva a donde se resuelve: otra pantalla, o su
+    // tarjeta dentro de la propia bandeja.
     await expect(bandeja.getByRole('link', { name: /Una clase sin cubrir necesita que decidas/ }))
       .toHaveAttribute('href', '/sustituciones');
     await expect(bandeja.getByRole('link', { name: /2 reservas esperan tu aprobación/ }))
-      .toHaveAttribute('href', '/calendario');
+      .toHaveAttribute('href', '#decidir-reservas');
 
     await expect(bandeja.getByText('Tentare lo está haciendo')).toBeVisible();
     await expect(bandeja.getByText('Buscando sustituta para una clase')).toBeVisible();
@@ -140,8 +141,9 @@ test.describe('Estado del estudio en Inicio', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Un solo sitio para decidir: las tarjetas que resuelven lo que la bandeja
-// cuenta sin enlace (penalizaciones, devoluciones, canjes) viven DENTRO de ella,
-// bajo «Decidir», y ya no sueltas más abajo en la home.
+// cuenta sin enlace (reservas por aprobar, penalizaciones, devoluciones, canjes,
+// bajas del equipo) viven DENTRO de ella, bajo «Decidir», y ya no sueltas más
+// abajo en la home.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PENALIZACION = { id: 'pen-1', socio_id: 'soc-1', importe: 12, tipo: 'NO_SHOW', detectada_en: '2026-09-10T09:00:00Z' };
@@ -249,6 +251,158 @@ test.describe('Lo que se aprueba, dentro de la bandeja', () => {
     await expect(page.getByText('Anotado: todo en orden')).toHaveCount(0);
     await expect(page.getByTestId('bajas-por-revisar')).toHaveCount(0);
     expect(intentos.post).toBeGreaterThan(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reservas pendientes de aprobación, decididas dentro de la bandeja.
+//
+// Cada prueba de camino de fallo lleva su contador de POST: «no dijo aprobada»
+// o «la fila sigue ahí» son verdad también si nunca se intentó nada.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Relativa al reloj real: la tarjeta descarta las clases que ya empezaron.
+const EN_TRES_DIAS = new Date(Date.now() + 3 * 24 * 3600_000).toISOString();
+const RESERVA_PENDIENTE = {
+  id: 'res-pend-1', studio_id: STUDIO_ID, sesion_id: 'ses-pend-1', socio_id: 'soc-1',
+  estado: 'PENDIENTE_APROBACION', sesiones: { inicio: EN_TRES_DIAS, tipos_clase: { nombre: 'Reformer' } },
+};
+const CON_RESERVA_REST = {
+  reservas: [RESERVA_PENDIENTE],
+  socios: [{ id: 'soc-1', nombre: 'María', apellidos: 'Soler' }],
+};
+const CON_RESERVA = {
+  aplica: true, nDecidir: 1, titulo: 'Una cosa espera tu visto bueno',
+  decidir: [{ id: 'reservasPorAprobar', n: 1, texto: 'Una reserva espera tu aprobación', href: null }],
+  enMarcha: [], resuelto: [],
+};
+const LIMITE_SEMANAL = 'La socia ya alcanzó el límite semanal de su plan y no tiene recuperaciones disponibles. La reserva sigue pendiente: libera una clase de esa semana o recházala.';
+
+function mockResolver(respuesta: { status: number; body: unknown } | 'sin-red', retrasoMs = 0) {
+  const intentos = { post: 0, cuerpos: [] as unknown[] };
+  const registrar = async (page: Page) => {
+    await page.route('**/api/reservas/resolver-pendiente**', async route => {
+      intentos.post++;
+      intentos.cuerpos.push(JSON.parse(route.request().postData() || '{}'));
+      if (retrasoMs) await new Promise(r => setTimeout(r, retrasoMs));
+      if (respuesta === 'sin-red') return route.abort('failed');
+      return json(route, respuesta.body, respuesta.status);
+    });
+  };
+  return { intentos, registrar };
+}
+
+test.describe('Reservas por aprobar, dentro de la bandeja', () => {
+  test('se aprueba DENTRO de la región, va la primera y su línea lleva a la tarjeta', async ({ page }) => {
+    const { intentos, registrar } = mockResolver({ status: 200, body: { ok: true, estado: 'CONFIRMADA' } });
+    await montar(page, { cuerpo: CON_RESERVA }, CON_RESERVA_REST, registrar);
+
+    const bandeja = page.getByRole('region', { name: 'Lo que espera tu visto bueno' });
+    const tarjeta = bandeja.getByTestId('reservas-por-aprobar');
+    await expect(tarjeta).toContainText('María Soler · Reformer', { timeout: 30_000 });
+    await expect(page.locator('[data-acciones-en-linea] > *').first()).toHaveAttribute('data-testid', 'reservas-por-aprobar');
+    await expect(tarjeta.getByRole('link', { name: 'Ver clase' })).toHaveAttribute('href', '/calendario?sesion=ses-pend-1');
+
+    const linea = bandeja.getByRole('link', { name: /Una reserva espera tu aprobación/ });
+    await expect(linea).toHaveAttribute('href', '#decidir-reservas');
+    await linea.click();
+    await expect(page.locator('#decidir-reservas')).toBeFocused();
+
+    await tarjeta.getByRole('button', { name: /^Aprobar la reserva de María Soler/ }).click();
+
+    await expect(page.getByTestId('reservas-por-aprobar')).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByText('Reserva aprobada: tiene su plaza confirmada')).toBeVisible();
+    expect(intentos.post).toBe(1);
+    expect(intentos.cuerpos[0]).toEqual({ reservaId: 'res-pend-1', aprobar: true });
+  });
+
+  test('409 (ya no estaba pendiente): quita la fila sin decir «aprobada»', async ({ page }) => {
+    const { intentos, registrar } = mockResolver({ status: 409, body: { error: 'Esta reserva ya no está pendiente de aprobación' } });
+    await montar(page, { cuerpo: CON_RESERVA }, CON_RESERVA_REST, registrar);
+
+    const tarjeta = page.getByTestId('reservas-por-aprobar');
+    await expect(tarjeta).toContainText('María Soler · Reformer', { timeout: 30_000 });
+    await expect(page.getByText(/aprobada/i)).toHaveCount(0);
+    await tarjeta.getByRole('button', { name: /^Aprobar la reserva/ }).click();
+
+    await expect(page.getByTestId('reservas-por-aprobar')).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByText(/ya no está pendiente de aprobación/)).toBeVisible();
+    await expect(page.getByText(/aprobada/i)).toHaveCount(0);
+    expect(intentos.post).toBeGreaterThan(0);
+    expect(intentos.cuerpos[0]).toEqual({ reservaId: 'res-pend-1', aprobar: true });
+  });
+
+  test('400 por el límite semanal: la fila se queda con el motivo del servidor', async ({ page }) => {
+    const { intentos, registrar } = mockResolver({ status: 400, body: { error: LIMITE_SEMANAL } });
+    await montar(page, { cuerpo: CON_RESERVA }, CON_RESERVA_REST, registrar);
+
+    const tarjeta = page.getByTestId('reservas-por-aprobar');
+    await tarjeta.getByRole('button', { name: /^Aprobar la reserva/ }).click({ timeout: 30_000 });
+
+    await expect(tarjeta.getByRole('alert')).toHaveText(LIMITE_SEMANAL, { timeout: 15_000 });
+    await expect(tarjeta).toContainText('María Soler · Reformer');
+    await expect(tarjeta.getByRole('button', { name: /^Aprobar la reserva/ })).toBeEnabled();
+    await expect(page.getByText(/aprobada/i)).toHaveCount(0);
+    expect(intentos.post).toBe(1);
+    expect(intentos.cuerpos[0]).toEqual({ reservaId: 'res-pend-1', aprobar: true });
+  });
+
+  test('sin red: la fila se queda y pide volver a intentarlo', async ({ page }) => {
+    const { intentos, registrar } = mockResolver('sin-red');
+    await montar(page, { cuerpo: CON_RESERVA }, CON_RESERVA_REST, registrar);
+
+    const tarjeta = page.getByTestId('reservas-por-aprobar');
+    await tarjeta.getByRole('button', { name: /^Rechazar la reserva/ }).click({ timeout: 30_000 });
+
+    await expect(tarjeta.getByRole('alert')).toHaveText('No se ha podido guardar. Vuelve a intentarlo', { timeout: 15_000 });
+    await expect(tarjeta).toContainText('María Soler · Reformer');
+    await expect(page.getByText('Reserva rechazada')).toHaveCount(0);
+    expect(intentos.post).toBeGreaterThan(0);
+    expect(intentos.cuerpos[0]).toEqual({ reservaId: 'res-pend-1', aprobar: false });
+  });
+
+  test('doble toque: exactamente un POST, y los botones se apagan mientras viaja', async ({ page }) => {
+    const { intentos, registrar } = mockResolver({ status: 200, body: { ok: true, estado: 'LISTA_ESPERA' } }, 1500);
+    await montar(page, { cuerpo: CON_RESERVA }, CON_RESERVA_REST, registrar);
+
+    const tarjeta = page.getByTestId('reservas-por-aprobar');
+    const aprobar = tarjeta.getByRole('button', { name: /^Aprobar la reserva/ });
+    await expect(aprobar).toBeEnabled({ timeout: 30_000 });
+    // Dos clics en el mismo tick: antes de que React repinte el botón apagado.
+    await aprobar.evaluate((b: HTMLButtonElement) => { b.click(); b.click(); });
+
+    await expect(tarjeta.getByRole('button', { name: /^Rechazar la reserva/ })).toBeDisabled();
+    await expect(page.getByTestId('reservas-por-aprobar')).toHaveCount(0, { timeout: 15_000 });
+    // Aprobar con la clase llena no es «aprobada con plaza»: lo dice.
+    await expect(page.getByText(/pasa a la lista de espera/)).toBeVisible();
+    expect(intentos.post).toBe(1);
+    expect(intentos.cuerpos).toEqual([{ reservaId: 'res-pend-1', aprobar: true }]);
+  });
+
+  test('una instructora no ve la tarjeta ni la pide, aunque haya reservas pendientes', async ({ page }) => {
+    const consultas = { reservas: 0, deLaTarjeta: 0, post: 0 };
+    const registrar = async (p: Page) => {
+      await p.route('**/rest/v1/reservas**', route => {
+        consultas.reservas++;
+        if (decodeURIComponent(route.request().url()).includes('sesiones!inner')) consultas.deLaTarjeta++;
+        return json(route, [RESERVA_PENDIENTE]);
+      });
+      await p.route('**/api/reservas/resolver-pendiente**', route => { consultas.post++; return json(route, {}); });
+    };
+    await montar(page, { cuerpo: { ...SIN_NADA, aplica: false } }, {
+      socios: CON_RESERVA_REST.socios,
+      // Otra dueña, y esta cuenta es una instructora del equipo.
+      studios: { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: 'auth-e2e-otra' },
+      instructores: [{ id: 'ins-1', studio_id: STUDIO_ID, nombre: 'Laura', activo: true, rol: 'INSTRUCTOR', color: '#5A6142', auth_user_id: AUTH_UID }],
+    }, registrar);
+
+    await expect(page.getByRole('link', { name: /^Inicio/ }).first()).toBeVisible({ timeout: 30_000 });
+    // ⚠️ Sin esto, «no la ve» podría ser verdad por no haber cargado nada:
+    // las reservas pendientes SÍ se le sirvieron al panel.
+    await expect.poll(() => consultas.reservas, { timeout: 30_000 }).toBeGreaterThan(0);
+    await expect(page.getByTestId('reservas-por-aprobar')).toHaveCount(0);
+    expect(consultas.deLaTarjeta).toBe(0);
+    expect(consultas.post).toBe(0);
   });
 });
 

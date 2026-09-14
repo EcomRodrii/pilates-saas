@@ -30,7 +30,7 @@ import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
-import { useRol, puedeVerFinanzas, puedeVer, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
+import { useRol, puedeVerFinanzas, puedeVer, puedeGestionarClientas, puedeMoverDinero, puedeGestionarCalendario } from '@/lib/permisos';
 import { Toast, useToast } from '@/components/ui/toast';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
 import { useAuth } from '@/lib/auth-context';
@@ -38,6 +38,7 @@ import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pend
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
 import { CanjesPendientes } from '@/components/dashboard/canjes-pendientes';
 import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
+import { ReservasPorAprobar } from '@/components/dashboard/reservas-por-aprobar';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
@@ -506,6 +507,7 @@ export default function Dashboard() {
   const gestionaClientas = puedeGestionarClientas(rolActual);
   const mueveDinero = puedeMoverDinero(rolActual);
   const gestionaEquipo = puedeGestionarEquipo(rolActual);
+  const gestionaCalendario = puedeGestionarCalendario(rolActual);
 
   // ── Pagos pendientes ─────────────────────────────────────────────────────────
   const pendientes = useMemo(
@@ -673,12 +675,14 @@ export default function Dashboard() {
             de la propietaria: cada fuente va acotada por rol en el servidor, y a
             quien no ve ninguna (instructora) no se le pinta nada.
 
-            Las tres tarjetas que resuelven aquí mismo lo que la bandeja cuenta
-            sin enlace (penalizaciones, devoluciones, canjes) van DENTRO, bajo
-            «Decidir»: un solo sitio para decidir. Cada una se oculta sola si no
-            tiene nada, y sus guardias son los mismos roles que exige el servidor
-            (`puedeMoverDinero` para aprobar el cobro o revertir, la RPC
-            `entregar_canje` para los canjes) — la UI no es el límite, pero
+            Las tarjetas que resuelven aquí mismo lo que la bandeja cuenta sin
+            enlace (reservas por aprobar, penalizaciones, devoluciones, canjes,
+            bajas del equipo) van DENTRO, bajo «Decidir»: un solo sitio para
+            decidir. Cada una se oculta sola si no tiene nada, y sus guardias son
+            los mismos roles que exige el servidor (`puedeGestionarCalendario`
+            para las reservas, `puedeMoverDinero` para aprobar el cobro o
+            revertir, la RPC `entregar_canje` para los canjes,
+            `puedeGestionarEquipo` para las bajas) — la UI no es el límite, pero
             tampoco debe ofrecer un botón que va a rebotar.
 
             `hidden={false}` a propósito: 'estado' es fija y el editor no la deja
@@ -688,6 +692,8 @@ export default function Dashboard() {
         <div {...wrap('estado')} hidden={false}>
           <EstadoDelEstudio
             accionesEnLinea={<>
+              {/* La primera: es la única que puede caducar sola (la clase empieza). */}
+              {gestionaCalendario && <ReservasPorAprobar onToast={showToast} />}
               {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
               {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
               {gestionaClientas && <CanjesPendientes onToast={showToast} />}

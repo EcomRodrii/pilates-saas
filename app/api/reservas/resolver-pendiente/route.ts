@@ -23,6 +23,9 @@ export async function POST(req: NextRequest) {
   const r = await resolverReservaPendiente({
     studioId: sesion.studioId, reservaId: body.reservaId, aprobar: body.aprobar,
   });
-  if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 });
+  // 409 = ya no estaba pendiente (otra persona, el cron, o el reintento de una
+  // aprobación que sí entró): quien pulsa quita la fila, sin decir «aprobada».
+  // 400 = sigue pendiente (límite semanal, validación): la fila se queda.
+  if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.yaNoPendiente ? 409 : 400 });
   return NextResponse.json(r);
 }

@@ -21,7 +21,8 @@ import type { LineaEstado } from '@/lib/estado-estudio';
 // grande que dice lo mismo cada mañana entrena a no mirarlo.
 //
 // `accionesEnLinea` son las tarjetas que resuelven AQUÍ MISMO lo que la lista
-// cuenta sin `href` (penalizaciones, devoluciones, canjes): un solo sitio para
+// cuenta sin `href` (reservas por aprobar, penalizaciones, devoluciones, canjes,
+// bajas del equipo): un solo sitio para
 // decidir, en vez de una línea arriba y su botón tres secciones más abajo. Las
 // monta la página con sus mismos guardias de rol; cada tarjeta carga lo suyo y
 // devuelve null si no tiene nada, así que el hueco se pliega con `:empty`.
