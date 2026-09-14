@@ -111,6 +111,8 @@ async function montar(page: Page, opts: { widgetBuilder?: Record<string, unknown
   await page.route('**/rest/v1/studios**', route => {
     if (route.request().method() === 'PATCH') {
       patches.push(route.request().postDataJSON() as Record<string, unknown>);
+      // Lo que devuelve PostgREST con `select=id`; `[]` sería «no se guardó».
+      return json(route, [{ id: STUDIO_ID }]);
     }
     return json(route, studioRow);
   });

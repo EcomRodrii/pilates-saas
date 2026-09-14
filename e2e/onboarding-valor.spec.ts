@@ -33,10 +33,14 @@ export async function montarBienvenida(page: Page) {
   await page.route('**/rest/v1/**', route => json(route, []));
   // `bienvenida_vista_en: null` es lo que dispara la pantalla completa.
   await page.route('**/rest/v1/studios**', route =>
-    json(route, {
-      id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen',
-      owner_auth_user_id: AUTH_UID, bienvenida_vista_en: null,
-    }));
+    // El UPDATE (sellar la bienvenida, guardar el logo) pide `select=id` y
+    // cuenta filas: con un objeto suelto (o `[]`) cuenta como no guardado.
+    route.request().method() === 'PATCH'
+      ? json(route, [{ id: STUDIO_ID }])
+      : json(route, {
+        id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen',
+        owner_auth_user_id: AUTH_UID, bienvenida_vista_en: null,
+      }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/dashboard');

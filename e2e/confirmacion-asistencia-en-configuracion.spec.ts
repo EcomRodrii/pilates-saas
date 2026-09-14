@@ -54,7 +54,8 @@ async function abrir(page: Page, opts: { conPlan: boolean }) {
   await page.route('**/rest/v1/studios**', route => {
     if (route.request().method() === 'PATCH') {
       patches.push(route.request().postData() ?? '');
-      return json(route, [], 200);
+      // Lo que devuelve PostgREST con `select=id`; `[]` sería «no se guardó».
+      return json(route, [{ id: STUDIO_ID }], 200);
     }
     return json(route, STUDIO_ROW);
   });
