@@ -12,6 +12,7 @@ import type { ResultadoEscritura } from '@/lib/errores';
 import { sans, radius } from '@/lib/reservar-publico-tokens';
 import { semantic } from '@/lib/portal-tokens';
 import { CheckoutEmbebido } from './checkout-embebido';
+import { bizumPermitidoPara } from '@/lib/billing/bizum-permitido';
 
 type EstadoCompra =
   | { fase: 'lista' }
@@ -90,7 +91,7 @@ export function ListaPlanes({
         t={t} plan={estado.plan} clientSecret={estado.clientSecret}
         publishableKey={publishableKey} stripeAccountId={stripeAccountId}
         onExito={() => { setEstado({ fase: 'exito', plan: estado.plan }); onComprado?.(); }}
-        onBizum={(acepta) => onBizum(estado.plan, acepta)}
+        onBizum={bizumPermitidoPara(estado.plan.tipo) ? (acepta) => onBizum(estado.plan, acepta) : undefined}
         onCerrar={() => setEstado({ fase: 'lista' })}
       />
     );

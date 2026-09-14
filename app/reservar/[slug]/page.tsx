@@ -1,6 +1,7 @@
 'use client';
 import { aFechaCal, eventoIcs, nombreIcs } from '@/lib/calendario-ics';
 import { esClavePublicable } from '@/lib/billing/modo-stripe';
+import { bizumPermitidoPara } from '@/lib/billing/bizum-permitido';
 import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -2213,11 +2214,10 @@ export default function ReservarPage() {
           // embebido (Modo B), que sí necesita un botón aparte porque Bizum
           // no cabe dentro de su Payment Element. Mismo criterio que ya usa
           // `comprarConBizum` (lib/widget/usar-datos-widget.ts) para Modo B:
-          // se ofrece para cualquier tipo de plan, incluido MENSUAL — ver el
-          // comentario de conBizum en app/api/stripe/checkout/route.ts sobre
-          // el guardado de tarjeta por método (Bizum no la deja guardada, así
-          // que la renovación del mes siguiente dependerá de que la socia
-          // vuelva a pagar a mano si eligió Bizum aquí).
+          // se ofrece para bonos y clases sueltas. En una CUOTA el botón no se
+          // pinta y, aunque llegara `bizum: true`, el servidor lo ignora y ofrece
+          // solo tarjeta: Bizum no la deja guardada y la renovación del ciclo
+          // siguiente no se cobraría sola (lib/billing/bizum-permitido.ts).
           bizum: true,
         }),
       });
@@ -4094,7 +4094,9 @@ export default function ReservarPage() {
                   radioInput: radiosDe(apariencia, { tarjeta: R.card, boton: R.pill, input: R.spot }).input,
                   onExito: handlePagoExitoso,
                   onVolverADatos: () => setLoginStep('datos'),
-                  onBizum: handleBizumSinLogin,
+                  // Cuota (mensual, trimestral, anual): sin Bizum, que no deja
+                  // tarjeta para la renovación. Ver lib/billing/bizum-permitido.ts.
+                  onBizum: bizumPermitidoPara(datosPlan.tipo) ? handleBizumSinLogin : undefined,
                 } : undefined}
               />
             )}

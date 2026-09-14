@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
+import { ofrecerBizum, tipoDeReciboParaBizum } from '@/lib/billing/bizum-permitido';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
@@ -80,8 +81,9 @@ export async function POST(req: NextRequest) {
     // es una etiqueta de una lista blanca, nunca una URL (ver origen-pago.ts).
     origen?: string;
     // Pagos España (PR-5): ofrecer Bizum además de tarjeta en pagos PUNTUALES
-    // (clase suelta / bono / primer pago). Bizum no es recurrente ni guardable,
-    // así que activarlo desactiva el guardado de tarjeta (setup_future_usage).
+    // (clase suelta, bono). Bizum no es recurrente ni guardable: en una CUOTA
+    // este campo se IGNORA y se ofrece solo tarjeta — ver `tipoPlanCobrado` y
+    // lib/billing/bizum-permitido.ts.
     bizum?: boolean;
     // P-2 (auditoría 58ª): prueba de que la persona marcó la casilla legal
     // ANTES de pagar. Solo se exige (ver `exigeAceptacionExplicita`) cuando el
@@ -161,12 +163,16 @@ export async function POST(req: NextRequest) {
   // Sesión de Checkout que este recibo ya tenga abierta (migr 20260817214500).
   // Es lo que impide crear una SEGUNDA sesión pagable del mismo recibo.
   let sesionAbiertaId: string | null = null;
+  // Qué se cobra, a efectos de Bizum (lib/billing/bizum-permitido.ts): el
+  // `tipo` del plan, `SIN_PLAN`, o `null` si no se ha podido saber. Una cuota
+  // (MENSUAL: mensual, trimestral o anual) no admite Bizum.
+  let tipoPlanCobrado: string | null = null;
   const metadata: Record<string, string> = { studioId: body.studioId };
 
   if (body.reciboId) {
     const { data: recibo, error } = await admin
       .from('recibos')
-      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en')
+      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id')
       .eq('id', body.reciboId)
       .maybeSingle();
     if (error || !recibo) {
@@ -190,10 +196,29 @@ export async function POST(req: NextRequest) {
     socioId = recibo.socio_id ?? socioId;
     sesionAbiertaId = (recibo.checkout_session_id as string | null) ?? null;
     metadata.reciboId = body.reciboId;
+    // ¿Es el recibo de una CUOTA? `entrega_tipo` se escribe DESPUÉS de cobrar,
+    // así que un pendiente casi nunca lo trae y se mira el plan de su
+    // suscripción (ver `tipoDeReciboParaBizum`). Si la consulta no da nada,
+    // `null`: sin Bizum.
+    const tipoRecibo = tipoDeReciboParaBizum(
+      (recibo.entrega_tipo as string | null) ?? null,
+      (recibo.suscripcion_id as string | null) ?? null,
+    );
+    if (tipoRecibo !== 'CONSULTAR_PLAN') {
+      tipoPlanCobrado = tipoRecibo;
+    } else {
+      const { data: sus } = await admin
+        .from('suscripciones').select('plan_id').eq('id', recibo.suscripcion_id).maybeSingle();
+      if (sus?.plan_id) {
+        const { data: planSus } = await admin
+          .from('planes_tarifa').select('tipo').eq('id', sus.plan_id).maybeSingle();
+        tipoPlanCobrado = (planSus?.tipo as string | null | undefined) ?? null;
+      }
+    }
   } else if (body.planId) {
     const { data: plan, error } = await admin
       .from('planes_tarifa')
-      .select('nombre, precio, studio_id, activo, matricula')
+      .select('nombre, precio, studio_id, activo, matricula, tipo')
       .eq('id', body.planId)
       .maybeSingle();
     if (error || !plan) {
@@ -246,6 +271,7 @@ export async function POST(req: NextRequest) {
     }
     importe = Number(plan.precio);
     concepto = plan.nombre;
+    tipoPlanCobrado = (plan.tipo as string | null | undefined) ?? null;
     metadata.planId = body.planId;
 
     // Auditoría vs Momence: canje de código de descuento, solo en compra de
@@ -461,7 +487,13 @@ export async function POST(req: NextRequest) {
   // Con Bizum sí va solo el por-método: el global es incompatible con `bizum` y
   // Stripe rechazaría la sesión. Así el camino nuevo gana capacidad sin poner en
   // riesgo el que ya iba, y `metodoReutilizableDe` acepta las dos formas.
-  const conBizum = body.bizum === true;
+  // ⚠️ En una CUOTA (mensual, trimestral, anual) Bizum se ignora aunque se
+  // pida: no deja tarjeta guardada, y la renovación del ciclo siguiente no
+  // tendría con qué cobrarse sola — la alumna seguiría con su plan sin pagar.
+  // Sin `bizum`, la sesión ofrece solo tarjeta y pide el guardado GLOBAL, que es
+  // justo lo que la renovación necesita. Es la cerradura; las pantallas además
+  // ocultan el botón (lib/billing/bizum-permitido.ts).
+  const conBizum = ofrecerBizum(body.bizum === true, tipoPlanCobrado);
   // Pedir Bizum sin comprobar que la cuenta CONECTADA lo tiene `active` tumba
   // la sesión ENTERA (Stripe rechaza el `create` si cualquier método pedido
   // no está activo) -- también la tarjeta, que sí funcionaría. Confirmado en
