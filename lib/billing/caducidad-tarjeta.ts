@@ -58,17 +58,27 @@ export async function guardarCaducidadTarjeta(
       p.stripeAccount ? { stripeAccount: p.stripeAccount } : undefined,
     );
     const caducidad = caducidadDe(pm);
-    if (!caducidad) return null;
+    // ⚠️ Un Link sustituye a la tarjeta anterior en `stripe_payment_method_id`,
+    // pero no trae caducidad ni últimos cuatro. Sin limpiar, el portal seguía
+    // enseñando «Visa •••• 4242, caduca…» —una tarjeta que ya no se cobra— y el
+    // aviso de caducidad saltaba por ella. Se guarda `tarjeta_marca = 'link'` y
+    // el resto a null: el portal enseña «Link» (y deja quitarlo), y el relleno
+    // del cron de dunning no lo vuelve a pedir cada día.
+    const esLink = !caducidad && pm?.type === 'link';
+    if (!caducidad && !esLink) return null;
 
     // Acotado por studio_id además de por id: mismo criterio que el resto de
     // escrituras del webhook — nunca un UPDATE sin tenant sobre un id que
     // viene de metadata.
-    const { error } = await admin.from('socios').update({
-      tarjeta_exp_mes: caducidad.expMes,
-      tarjeta_exp_anio: caducidad.expAnio,
-      tarjeta_marca: caducidad.marca,
-      tarjeta_ultimos4: caducidad.ultimos4,
-    }).eq('id', p.socioId).eq('studio_id', p.studioId);
+    const { error } = await admin.from('socios').update(caducidad
+      ? {
+        tarjeta_exp_mes: caducidad.expMes,
+        tarjeta_exp_anio: caducidad.expAnio,
+        tarjeta_marca: caducidad.marca,
+        tarjeta_ultimos4: caducidad.ultimos4,
+      }
+      : { tarjeta_exp_mes: null, tarjeta_exp_anio: null, tarjeta_marca: 'link', tarjeta_ultimos4: null },
+    ).eq('id', p.socioId).eq('studio_id', p.studioId);
     if (error) {
       console.error('[caducidad-tarjeta] no se pudo guardar', p.socioId, error);
       return null;

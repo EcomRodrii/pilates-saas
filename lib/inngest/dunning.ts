@@ -190,6 +190,11 @@ export const procesarDunningEstudio = inngest.createFunction(
         .eq('studio_id', studioId)
         .not('stripe_payment_method_id', 'is', null)
         .is('tarjeta_exp_anio', null)
+        // Un Link no tiene caducidad, y sin esto se volvería a pedir a Stripe
+        // cada día, para siempre (y 25 así taparían el relleno de las tarjetas).
+        // `.or` y no `.neq` a secas: `neq` excluiría también las `tarjeta_marca`
+        // NULL, que son justo las tarjetas viejas por rellenar.
+        .or('tarjeta_marca.is.null,tarjeta_marca.neq.link')
         .is('borrado_en', null)
         .limit(25);
       if (error) throw new Error(error.message);

@@ -143,6 +143,22 @@ test('pagado con Link en el checkout embebido: se guarda (se cobra después off-
   const r = await guardarMetodoDeCompra(admin, stripe, args({ paymentIntent: PI_EMBEBIDO_SIN_EXPANDIR }));
   assert.deepEqual(r, { ok: true, guardado: true });
   assert.equal(updates[0].stripe_payment_method_id, 'pm_3');
+  // Y limpia la tarjeta anterior: sin esto el portal seguía enseñando
+  // «Visa •••• 4242» y el aviso de caducidad saltaba por ella.
+  assert.deepEqual(updates[1], { tarjeta_exp_mes: null, tarjeta_exp_anio: null, tarjeta_marca: 'link', tarjeta_ultimos4: null });
+});
+
+test('checkout embebido de invitada sin identidad demostrada: ni una llamada a Stripe', async () => {
+  // El guard de identidad va ANTES de preguntar el tipo del método: quien no
+  // puede dejar su método guardado tampoco provoca consultas.
+  const { admin, updates } = fakeAdmin();
+  const { stripe, pmPedidos } = fakeStripe({ pm: { id: 'pm_3', type: 'card' } });
+  const r = await guardarMetodoDeCompra(admin, stripe, args({
+    paymentIntent: PI_EMBEBIDO_SIN_EXPANDIR, exigirIdentidadDemostrada: true, socioIdVerificado: null, fichaCreada: false,
+  }));
+  assert.deepEqual(r, { ok: true, guardado: false });
+  assert.equal(updates.length, 0);
+  assert.deepEqual(pmPedidos, []);
 });
 
 test('pagado con un método que no se puede reutilizar: no guarda, y no es un error', async () => {

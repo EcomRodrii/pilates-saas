@@ -20,12 +20,13 @@
 //     supiera el email de una socia real podía dejarle SU tarjeta guardada.
 //     Ver lib/billing/identidad-compra.ts.
 //
-//  2. Bloqueante vs best-effort. El webhook puede devolver 5xx para que Stripe
-//     reintente (idempotente: mismos customer/payment_method). El conciliador
-//     es un cron: no hay a quién devolverle un código HTTP, así que un fallo
-//     aquí va a Sentry, nunca lanza — el bono ya entregado no puede tumbarse
-//     porque falle el remate. Por eso esta función NUNCA lanza: devuelve un
-//     resultado y el llamador decide qué hacer con un fallo.
+//  2. Best-effort para quien llama. ⚠️ Ni el webhook ni el conciliador
+//     reintentan: el webhook contesta 200 a Stripe ANTES de procesar, así que
+//     un 5xx no provoca ningún reintento (se creyó que sí, y cortar la rama
+//     dejaba la compra sin reservar la plaza ni recibo). Los dos dejan el fallo
+//     en Sentry y siguen — el bono ya entregado no puede tumbarse porque falle
+//     el remate. Por eso esta función NUNCA lanza: devuelve un resultado y el
+//     llamador decide qué hacer con un fallo.
 // ─────────────────────────────────────────────────────────────────────────────
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -96,8 +97,8 @@ export async function guardarMetodoDeCompra(
   // con TODO lo ofrecido (`['card','link',…]`). Sin el tipo real,
   // `metodoReutilizableDe` no se arriesga y no guardaba NADA — ni una tarjeta
   // pagada con tarjeta —, así que la cuota comprada ahí no se renovaba sola.
-  // Se pregunta a Stripe; si no responde, `ok:false` para que el webhook
-  // reintente en vez de dar la compra por rematada sin método.
+  // Se pregunta a Stripe; si no responde, `ok:false` y quien llama lo deja en
+  // Sentry (no hay reintento automático: ver el punto 2 de la cabecera).
   if (hayQueConsultarTipo(pi)) {
     try {
       const pm = await stripe.paymentMethods.retrieve(
