@@ -269,7 +269,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('solicitudes_derechos', 'id, tipo, estado, solicitada_en, plazo_hasta, resuelta_en, nota'),
     // Historial de su consentimiento de salud (migr 20260913214142). Sin `actor_uid`: es la cuenta del personal.
     tabla('consentimientos_salud_eventos', 'id, tipo, en, origen, texto, firma', 'en'),
-    // Historial de su aceptación del contrato (migr 20260914150100). Sin `ip_hmac`,
+    // Historial de su aceptación del contrato (migr 20260914015133). Sin `ip_hmac`,
     // `user_agent`, `introducida_por` ni `actor_uid`: son prueba técnica o datos del personal.
     tabla('aceptaciones_contrato_eventos', 'id, en, origen, texto_hash, texto_cliente_coincide', 'en'),
     tabla('memoria_socio', 'id, clave, origen, evidencia, activa, creado_en, expira_en'),

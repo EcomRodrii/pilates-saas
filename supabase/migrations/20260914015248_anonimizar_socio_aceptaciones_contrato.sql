@@ -1,7 +1,7 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- `anonimizar_socio`: añade la evidencia de aceptación del contrato.
 --
--- `aceptaciones_contrato_eventos` (migr 20260914150100) guarda `socio_id`, así
+-- `aceptaciones_contrato_eventos` (migr 20260914015133) guarda `socio_id`, así
 -- que la supresión tiene que decidir qué hace con ella. Decisión: ANONIMIZAR.
 -- Se quedan fecha, origen, huella del texto aceptado (resoluble en
 -- `terminos_versiones`) y si coincidía con el mostrado: son la prueba del
@@ -74,7 +74,7 @@
 -- | solicitudes_derechos           | CONSERVAR  | ⚠️ REVISIÓN LEGAL: prueba de que el derecho se ejerció y resolvió (#1922; la función no la toca)
 -- | consentimientos_salud_eventos  | ANONIMIZAR | ⚠️ REVISIÓN LEGAL: firma → «[firma eliminada]» (un CHECK la exige), actor_uid NULL; quedan tipo/fecha/origen/texto (#1927, solo si existe)
 -- | socios.consentimiento_salud_registrado_por_uid | → NULL, solo si la columna existe (#1927)
--- | aceptaciones_contrato_eventos  | ANONIMIZAR | ⚠️ REVISIÓN LEGAL: firma → «[firma eliminada]», ip_hmac/user_agent/introducida_por/actor_uid NULL; quedan fecha/origen/texto_hash/texto_cliente_coincide (20260914150100, solo si existe)
+-- | aceptaciones_contrato_eventos  | ANONIMIZAR | ⚠️ REVISIÓN LEGAL: firma → «[firma eliminada]», ip_hmac/user_agent/introducida_por/actor_uid NULL; quedan fecha/origen/texto_hash/texto_cliente_coincide (20260914015133, solo si existe)
 --
 -- No enlazables por socio_id y fuera de aquí a propósito: `ingresos_manuales.cliente`
 -- (texto libre del estudio), `decision_snapshots` (se regenera en cada pasada),
@@ -363,7 +363,7 @@ begin
       using p_socio_id, p_studio_id;
   end if;
 
-  -- 8c. Evidencia de aceptación del contrato (20260914150100; puede no existir aún). ⚠️ REVISIÓN LEGAL.
+  -- 8c. Evidencia de aceptación del contrato (20260914015133; puede no existir aún). ⚠️ REVISIÓN LEGAL.
   if to_regclass('public.aceptaciones_contrato_eventos') is not null then
     execute 'update public.aceptaciones_contrato_eventos '
          || 'set firma = ''[firma eliminada]'', ip_hmac = null, user_agent = null, introducida_por = null, actor_uid = null '

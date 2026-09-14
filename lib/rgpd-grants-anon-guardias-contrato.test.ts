@@ -12,7 +12,7 @@ import { join } from 'node:path';
 //    saltan una comprobación para el servidor preguntan
 //    `public.es_llamada_servicio()`, nunca si `auth.uid()` es nulo. La
 //    conversión de las 27 que había se hizo sobre la definición viva de prod
-//    (20260914100000), así que el texto de migraciones ANTERIORES sigue
+//    (20260913233644), así que el texto de migraciones ANTERIORES sigue
 //    mostrando la forma vieja: este fichero impide que vuelva a entrar por una
 //    migración nueva que copie ese texto.
 //  · Una función SECURITY DEFINER nueva declara por escrito qué pasa con anon
@@ -27,7 +27,7 @@ const RAIZ = join(import.meta.dirname, '..');
 const DIR = join(RAIZ, 'supabase/migrations');
 
 /** Primera migración de la fase: desde aquí rigen las reglas nuevas. */
-const CORTE = '20260914100000';
+const CORTE = '20260913233644';
 
 const sinComentarios = (sql: string) => sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
 

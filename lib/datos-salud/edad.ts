@@ -15,7 +15,7 @@
  * al consentimiento de datos de salud (art. 9 RGPD) por decisión de producto.
  *
  * Si el dictamen fija otro umbral, se cambia AQUÍ y en la migración
- * `20260914150000_consentimiento_salud_menores_portal.sql`, que repite el
+ * `20260914015114_consentimiento_salud_menores_portal.sql`, que repite el
  * número en `consentimiento_salud_cambiar` como defensa en profundidad (lo
  * vigila `lib/rgpd-menores-aceptacion-contrato.test.ts`).
  */

@@ -1,4 +1,4 @@
--- 20260914110000 · TENTARE — el token del kiosko deja de guardarse en claro.
+-- 20260914011331 · TENTARE — el token del kiosko deja de guardarse en claro.
 --
 -- Auditoría RGPD/seguridad 2026-09-13 (anexo 05, A-11; control C03).
 --

@@ -71,7 +71,7 @@ test('el navegador ya no escribe los dominios del widget', () => {
   assert.match(ruta, /validarDominiosWidget\(/);
   assert.match(ruta, /actividad_reciente/);
 
-  const sql = leer('supabase/migrations/20260914110200_widget_dominios_solo_servidor.sql');
+  const sql = leer('supabase/migrations/20260914011356_widget_dominios_solo_servidor.sql');
   assert.match(sql, /revoke\s+update\s*\(\s*widget_dominios_autorizados\s*\)\s+on\s+public\.studios\s+from\s+authenticated/i);
   assert.match(sql, /revoke\s+execute\s+on\s+function\s+public\.studios_widget_dominios_solo_servidor\(\)\s+from\s+public,\s*anon,\s*authenticated/i);
 });

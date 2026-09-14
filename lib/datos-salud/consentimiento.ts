@@ -26,7 +26,7 @@ export function estadoConsentimientoSalud(c: {
 export type TipoCambioConsentimiento = 'OTORGADO' | 'REVOCADO';
 export type ResultadoCambioConsentimiento =
   | 'OK' | 'YA_CONSTABA' | 'NO_CONSTABA' | 'SOCIA_NO_ENCONTRADA'
-  // Solo origen PORTAL (migr 20260914150000): la alumna no consiente por sí misma.
+  // Solo origen PORTAL (migr 20260914015114): la alumna no consiente por sí misma.
   | 'MENOR_14' | 'FALTA_FECHA_NACIMIENTO';
 
 export interface RespuestaCambio {
