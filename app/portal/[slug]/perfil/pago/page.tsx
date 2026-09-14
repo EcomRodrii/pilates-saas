@@ -19,6 +19,10 @@ import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components
 // Los datos que se enseñan (marca, últimos cuatro, caducidad) ya viajan en el
 // payload de la socia: son suyos. El número completo no existe en ninguna parte
 // del sistema — lo guarda Stripe, no nosotros.
+//
+// Un método Link se enseña igual, con su nombre en vez de «Visa •••• 4242»: se
+// cobra cada renovación exactamente como una tarjeta, así que tiene que verse y
+// poder quitarse.
 
 export default function PagoPage() {
   const { estudio } = useEstudio();
@@ -29,6 +33,7 @@ export default function PagoPage() {
 
   const cargar = useCallback(() => getMetodoPago(estudio.slug), [estudio.slug]);
   const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d.tieneTarjeta);
+  const esLink = data?.esLink === true;
 
   const confirmar = async () => {
     setQuitando(true);
@@ -36,7 +41,7 @@ export default function PagoPage() {
     setQuitando(false);
     setConfirmando(false);
     if (error) { toast(error); return; }
-    toast('Tarjeta eliminada');
+    toast(esLink ? 'Link eliminado' : 'Tarjeta eliminada');
     await refrescar();
   };
 
@@ -58,39 +63,41 @@ export default function PagoPage() {
         {estado === 'ready' && data?.tieneTarjeta && (
           <>
             <div className="card" data-testid="tarjeta" style={{ padding: '15px 16px' }}>
-              <p className="t-label" style={{ margin: 0 }}>Tarjeta guardada</p>
+              <p className="t-label" style={{ margin: 0 }}>{esLink ? 'Método guardado' : 'Tarjeta guardada'}</p>
               <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.01em' }}>
-                {data.marca ? `${data.marca} ` : ''}•••• {data.ultimos4}
+                {esLink ? 'Link' : <>{data.marca ? `${data.marca} ` : ''}•••• {data.ultimos4}</>}
               </p>
               {data.caducidad && <p className="t-meta" style={{ margin: '2px 0 0' }}>Caduca {data.caducidad}</p>}
               <p className="t-meta" style={{ margin: '10px 0 0', lineHeight: 1.5 }}>
-                Se usa para los cobros de tus bonos y suscripciones. El número completo
-                lo guarda la pasarela de pago, no el estudio.
+                {esLink
+                  ? 'Se usa para los cobros de tus bonos y suscripciones. Tus datos de pago los guarda Link, no el estudio.'
+                  : <>Se usa para los cobros de tus bonos y suscripciones. El número completo
+                    lo guarda la pasarela de pago, no el estudio.</>}
               </p>
             </div>
 
             <Button variant="danger" full disabled={!online} onClick={() => setConfirmando(true)}>
-              Quitar tarjeta
+              {esLink ? 'Quitar Link' : 'Quitar tarjeta'}
             </Button>
             <p className="t-meta" style={{ margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
-              Si la quitas, los cobros automáticos de tus renovaciones dejarán de
+              Si {esLink ? 'lo quitas' : 'la quitas'}, los cobros automáticos de tus renovaciones dejarán de
               funcionar y tendrás que pagarlos a mano.
             </p>
           </>
         )}
       </div>
 
-      <Sheet open={confirmando} onClose={() => setConfirmando(false)} label="Quitar la tarjeta">
-        <h3 className="t-h2" style={{ margin: 0 }}>¿Quitar tu tarjeta?</h3>
+      <Sheet open={confirmando} onClose={() => setConfirmando(false)} label={esLink ? 'Quitar Link' : 'Quitar la tarjeta'}>
+        <h3 className="t-h2" style={{ margin: 0 }}>{esLink ? '¿Quitar Link?' : '¿Quitar tu tarjeta?'}</h3>
         <p style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', lineHeight: 1.55, color: 'var(--muted-foreground)' }}>
-          Tus renovaciones dejarán de cobrarse solas. Podrás volver a guardarla la
+          Tus renovaciones dejarán de cobrarse solas. Podrás volver a {esLink ? 'guardar un método' : 'guardarla'} la
           próxima vez que pagues.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
           <Button variant="danger" full disabled={quitando} onClick={() => void confirmar()}>
-            {quitando ? 'Quitando…' : 'Sí, quitar la tarjeta'}
+            {quitando ? 'Quitando…' : esLink ? 'Sí, quitar Link' : 'Sí, quitar la tarjeta'}
           </Button>
-          <Button variant="ghost" full onClick={() => setConfirmando(false)}>Mantenerla</Button>
+          <Button variant="ghost" full onClick={() => setConfirmando(false)}>{esLink ? 'Mantenerlo' : 'Mantenerla'}</Button>
         </div>
       </Sheet>
     </StudentShell>
