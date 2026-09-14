@@ -30,7 +30,7 @@ import {
 
 interface FilaClase { id: string; inicio: string; fin: string; cancelada: boolean | null; tipo_clase_id: string | null }
 interface Socia { nombre: string | null; apellidos: string | null }
-interface FilaReserva { id: string; estado: string; socios: Socia | Socia[] | null }
+interface FilaReserva { id: string; estado: string; socio_id: string; socios: Socia | Socia[] | null }
 
 type Admin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 type ClaseDeInstructora = { studioId: string; instructorId: string; sesionId: string };
@@ -65,7 +65,7 @@ export async function listaDeClase(p: ClaseDeInstructora): Promise<ListaDeClase 
       return (data?.nombre as string | undefined) || 'Clase';
     })(),
     (async () => {
-      const { data, error } = await admin.from('reservas').select('id, estado, socios!inner(nombre, apellidos)')
+      const { data, error } = await admin.from('reservas').select('id, estado, socio_id, socios!inner(nombre, apellidos)')
         .eq('studio_id', p.studioId).eq('sesion_id', clase.id)
         .in('estado', ['CONFIRMADA', 'ASISTIDA', 'NO_ASISTIO']);
       if (error) throw error;
@@ -77,11 +77,11 @@ export async function listaDeClase(p: ClaseDeInstructora): Promise<ListaDeClase 
     const estado = estadoEnLista(f.estado);
     if (!estado) return [];
     const socia = Array.isArray(f.socios) ? f.socios[0] : f.socios;
-    return [{ reservaId: f.id, estado, persona: { nombre: socia?.nombre ?? null, apellidos: socia?.apellidos ?? null } }];
+    return [{ reservaId: f.id, socioId: f.socio_id, estado, persona: { nombre: socia?.nombre ?? null, apellidos: socia?.apellidos ?? null } }];
   });
   const nombres = nombresParaLista(enLista.map((f) => f.persona));
   const alumnas: AlumnaEnLista[] = ordenarLista(
-    enLista.map((f, i) => ({ reservaId: f.reservaId, nombre: nombres[i], estado: f.estado })),
+    enLista.map((f, i) => ({ reservaId: f.reservaId, socioId: f.socioId, nombre: nombres[i], estado: f.estado })),
   );
 
   return {
