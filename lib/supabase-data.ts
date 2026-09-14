@@ -25,7 +25,7 @@ import { saldoVivo } from '@/lib/creditos-caducidad';
 // `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
 // medianoche UTC — dos horas antes en verano — para todo el mundo.
 import { hoyISO } from '@/lib/student/formato';
-import { fusionarDatosPrivados, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
+import { fusionarDatosPrivados, CAMPOS_PRIVADOS_SOCIO, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -1473,11 +1473,19 @@ export function mapRespuestaSesion(r: RowRespuestasSesion): RespuestaSesionRow {
 function socioToDb(socio: Socio) {
   const {
     aceptacionContrato, studioId, fechaAlta, leadStage,
-    stripeCustomerId, stripePaymentMethodId, fechaNacimiento, fotoUrl, referidoPor, origenLead,
-    metodoPagoPreferido, sepaMandateId, sepaPaymentMethodId,
+    fechaNacimiento, fotoUrl, referidoPor, origenLead,
+    metodoPagoPreferido,
     camposExtra,
     // Columna GENERADA (`socios.cumple_mm_dd`): mandarla en el insert es un error.
     cumpleMmDd: _cumpleGenerado,
+    // Pago, tarjeta y SEPA NO salen del navegador ni en el alta: los escriben
+    // los webhooks de Stripe con service_role, y `authenticated` ya no tiene
+    // INSERT sobre esas columnas (migr 20260914190000). Mandarlas, aunque sea a
+    // `null`, haría fallar el alta entera.
+    stripeCustomerId: _stripeCustomerId, stripePaymentMethodId: _stripePaymentMethodId,
+    sepaMandateId: _sepaMandateId, sepaPaymentMethodId: _sepaPaymentMethodId,
+    tarjetaMarca: _tarjetaMarca, tarjetaUltimos4: _tarjetaUltimos4,
+    tarjetaExpMes: _tarjetaExpMes, tarjetaExpAnio: _tarjetaExpAnio,
     ...rest
   } = socio;
   return {
@@ -1489,11 +1497,7 @@ function socioToDb(socio: Socio) {
     studio_id: studioId ?? STUDIO_ID,
     fecha_alta: fechaAlta,
     lead_stage: leadStage ?? null,
-    stripe_customer_id: stripeCustomerId ?? null,
-    stripe_payment_method_id: stripePaymentMethodId ?? null,
     metodo_pago_preferido: metodoPagoPreferido ?? 'TARJETA',
-    sepa_mandate_id: sepaMandateId ?? null,
-    sepa_payment_method_id: sepaPaymentMethodId ?? null,
     fecha_nacimiento: fechaNacimiento ?? null,
     foto_url: fotoUrl ?? null,
     referido_por: referidoPor ?? null,
@@ -1860,7 +1864,41 @@ export async function dbInsertSocio(socio: Socio): Promise<ResultadoEscritura> {
   return falloEscritura('[dbInsertSocio]', error);
 }
 
+async function dbGuardarNifSocio(id: string, nif: string | null): Promise<ResultadoEscritura> {
+  try {
+    const res = await fetch(`/api/socios/${encodeURIComponent(id)}/nif`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({ nif }),
+    });
+    if (res.ok) return ESCRITURA_OK;
+    const cuerpo = (await res.json().catch(() => ({}))) as { error?: string };
+    reportDbError('[dbGuardarNifSocio]', { status: res.status, ...cuerpo });
+    return { ok: false, error: cuerpo.error || 'No se ha podido guardar el NIF.' };
+  } catch (e) {
+    reportDbError('[dbGuardarNifSocio]', e);
+    return { ok: false, error: 'No se ha podido guardar el NIF. Revisa tu conexión.' };
+  }
+}
+
 export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promise<ResultadoEscritura> {
+  // Los datos privados NO se escriben con la sesión del navegador: `authenticated`
+  // ya no tiene UPDATE sobre esas columnas (migr 20260914190000). El NIF va por
+  // su ruta de servidor; pago, tarjeta, SEPA, dirección, nacimiento y la
+  // aceptación del contrato solo los escribe el servidor. Pedirlos aquí es un
+  // fallo de quien llama, y se dice: ignorarlos en silencio sería una pantalla
+  // que anuncia «guardado» sin haber guardado.
+  const soloServidor = CAMPOS_PRIVADOS_SOCIO.filter(c => c !== 'nif' && c in changes);
+  if (soloServidor.length > 0) {
+    return falloEscritura('[dbUpdateSocio]', new Error(`Campos que solo escribe el servidor: ${soloServidor.join(', ')}`));
+  }
+  // El NIF primero: es lo que más probablemente rechace el servidor (rol). Si
+  // luego falla el resto, reintentar vuelve a mandar un NIF idéntico, sin daño.
+  if ('nif' in changes) {
+    const r = await dbGuardarNifSocio(id, changes.nif ?? null);
+    if (!r.ok) return r;
+  }
+
   const db: Record<string, unknown> = {};
   if ('studioId' in changes) db.studio_id = changes.studioId;
   if ('nombre' in changes) db.nombre = changes.nombre;
@@ -1868,31 +1906,17 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
   // Vaciar el email lo deja en NULL (ver `socioToDb`).
   if ('email' in changes) db.email = changes.email?.trim() ? changes.email.trim() : null;
   if ('telefono' in changes) db.telefono = changes.telefono;
-  if ('nif' in changes) db.nif = changes.nif;
   if ('fechaAlta' in changes) db.fecha_alta = changes.fechaAlta;
   if ('activo' in changes) db.activo = changes.activo;
   if ('leadStage' in changes) db.lead_stage = changes.leadStage;
   if ('tags' in changes) db.tags = changes.tags;
   if ('avatar' in changes) db.avatar = changes.avatar;
-  if ('stripeCustomerId' in changes) db.stripe_customer_id = changes.stripeCustomerId;
-  if ('stripePaymentMethodId' in changes) db.stripe_payment_method_id = changes.stripePaymentMethodId;
   if ('metodoPagoPreferido' in changes) db.metodo_pago_preferido = changes.metodoPagoPreferido;
-  if ('sepaMandateId' in changes) db.sepa_mandate_id = changes.sepaMandateId;
-  if ('sepaPaymentMethodId' in changes) db.sepa_payment_method_id = changes.sepaPaymentMethodId;
-  if ('fechaNacimiento' in changes) db.fecha_nacimiento = changes.fechaNacimiento;
-  if ('direccion' in changes) db.direccion = changes.direccion;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
   if ('usuario' in changes) db.usuario = changes.usuario;
   if ('referidoPor' in changes) db.referido_por = changes.referidoPor;
   if ('origenLead' in changes) db.origen_lead = changes.origenLead;
   if ('camposExtra' in changes) db.campos_extra = changes.camposExtra ?? {};
-  if ('aceptacionContrato' in changes) {
-    db.aceptacion_fecha = changes.aceptacionContrato?.fecha ?? null;
-    db.aceptacion_firma = changes.aceptacionContrato?.firma ?? null;
-    db.aceptacion_version = changes.aceptacionContrato?.versionTexto ?? null;
-    db.aceptacion_origen = changes.aceptacionContrato?.origen ?? null;
-    db.aceptacion_por = changes.aceptacionContrato?.introducidaPor ?? null;
-  }
   // `consentimientoSalud` NO se escribe desde aquí (migr 20260913214142): la
   // fecha la ponía el reloj del navegador y sin texto ni autor, y RECEPCIÓN
   // podía marcarlo o anular una revocación. Ahora `authenticated` no tiene
@@ -1917,6 +1941,8 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
     const ahora = (changes.email ?? '').trim().toLowerCase();
     if (actual && antes !== ahora) db.auth_user_id = null;
   }
+  // Solo cambió el NIF: ya está guardado, y un UPDATE vacío sería un error.
+  if (Object.keys(db).length === 0) return ESCRITURA_OK;
   const { error } = await supabase.from('socios').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateSocio]', error) : ESCRITURA_OK;
 }

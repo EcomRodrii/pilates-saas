@@ -60,19 +60,36 @@ export const CAMPOS_PRIVADOS_SOCIO = [
 
 const vacio = (v: unknown) => v === undefined || v === null || v === '';
 
+export const NIF_SOCIA_MAX = 32;
+
+/**
+ * El NIF de una socia tal como se guarda (PUT /api/socios/[id]/nif).
+ *
+ * Vacío → `null` (borrarlo es un cambio legítimo). No se exige formato español
+ * a propósito: hay socias con pasaporte o documento extranjero, y la ficha
+ * nunca lo ha validado. Solo se rechaza lo que no puede ser un documento.
+ * `undefined` = no válido.
+ */
+export function normalizarNifSocia(valor: unknown): string | null | undefined {
+  if (valor === null) return null;
+  if (typeof valor !== 'string') return undefined;
+  const v = valor.trim();
+  if (!v) return null;
+  if (v.length > NIF_SOCIA_MAX || [...v].some(ch => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127)) return undefined;
+  return v;
+}
+
 /**
  * Lo que un formulario del panel puede mandar a `updateSocio`/`addSocio`.
  *
  *  · Sin permiso, ningún campo privado sale: el campo está oculto y su valor
  *    en el formulario es `''`, así que mandarlo BORRARÍA el NIF de la socia.
- *    ⚠️ Y esta comprobación es la ÚNICA que hay: la migración de cierre
- *    (20260914080445) revocó el SELECT por columna, pero el UPDATE sigue
- *    concedido —medido en producción el 14-sep:
- *    `has_column_privilege('authenticated','socios','nif','UPDATE')` = true—
- *    porque el formulario de la propietaria escribe esas columnas desde el
- *    navegador. O sea que la BD NO rechaza el borrado con 42501, como decía
- *    aquí antes. Escalón pendiente: mover esa escritura al servidor y revocar
- *    también el UPDATE.
+ *    Al EDITAR, la BD ya no deja escribir estas columnas con la sesión del
+ *    navegador (migr 20260914190000): el NIF va por su ruta de servidor, que
+ *    comprueba el rol, y `dbUpdateSocio` rechaza cualquier otro campo privado.
+ *    En el ALTA sí se siguen mandando NIF, dirección, nacimiento y firma
+ *    (INSERT), y el trigger `socios_guarda_datos_privados` lo limita por rol;
+ *    pago, tarjeta y SEPA no se mandan nunca desde el navegador.
  *  · Con permiso y `original`, solo sale lo que CAMBIÓ. Si la RPC falló al
  *    cargar, el formulario enseña `''` donde había un NIF; sin esta
  *    comparación, guardar el teléfono lo habría vaciado.

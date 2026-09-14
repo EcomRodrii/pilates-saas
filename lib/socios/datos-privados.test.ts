@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COLUMNAS_PRIVADAS_SOCIA, fusionarDatosPrivados, cambiosSociaPermitidos,
-  cumpleMesDia, formatearCumple, diasHastaCumple,
+  cumpleMesDia, formatearCumple, diasHastaCumple, normalizarNifSocia, NIF_SOCIA_MAX,
 } from './datos-privados.ts';
 
 // M1 (auditoría RGPD 2026-09-13): NIF, dirección, fecha de nacimiento, firma y
@@ -84,6 +84,21 @@ test('guardar: con permiso y sin original (alta), se manda tal cual', () => {
   const r = cambiosSociaPermitidos({ ...FORM, nif: 'X', aceptacionContrato: { firma: 'Ana' } }, { puedeVerPrivados: true });
   assert.equal(r.nif, 'X');
   assert.deepEqual(r.aceptacionContrato, { firma: 'Ana' });
+});
+
+test('NIF: vacío o solo espacios es borrarlo (null), y se guarda sin espacios alrededor', () => {
+  assert.equal(normalizarNifSocia(null), null);
+  assert.equal(normalizarNifSocia(''), null);
+  assert.equal(normalizarNifSocia('   '), null);
+  assert.equal(normalizarNifSocia(' 12345678Z '), '12345678Z');
+});
+
+test('NIF: un documento extranjero vale; lo que no puede ser un documento, no', () => {
+  assert.equal(normalizarNifSocia('AB1234567'), 'AB1234567');
+  assert.equal(normalizarNifSocia('x'.repeat(NIF_SOCIA_MAX + 1)), undefined);
+  assert.equal(normalizarNifSocia('123\n45'), undefined);
+  assert.equal(normalizarNifSocia(12345678), undefined);
+  assert.equal(normalizarNifSocia(undefined), undefined);
 });
 
 test('cumpleaños: prefiere cumpleMmDd; en servidor lo saca de la fecha completa', () => {
