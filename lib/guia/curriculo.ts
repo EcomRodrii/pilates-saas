@@ -125,7 +125,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Las seis zonas del panel',
-        texto: 'Arriba del todo, Centro de Control y tu Inicio: lo que hay que mirar hoy. Clases reúne tu calendario y las citas. Clientas, tus alumnas y la mensajería. Ventas, lo que cobras. Estudio, tu equipo, los informes y la configuración. Y el buscador (⌘K) llega a cualquier sitio escribiendo dos palabras.',
+        texto: 'Arriba del todo, tu Inicio y el Centro de Control: lo que hay que mirar hoy; y Automatizaciones, lo que trabaja solo. Operación, lo de cada día: calendario, citas, tus alumnas y la mensajería. Equipo, quién da las clases y quién cubre a quien falta. Negocio, cobros, caja, paquetes, informes y el cierre de año. Estudio, la configuración y tu suscripción. Y el buscador (⌘K) llega a cualquier sitio escribiendo dos palabras.',
       },
       {
         titulo: 'Empieza por lo que desbloquea el resto',

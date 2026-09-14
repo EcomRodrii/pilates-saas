@@ -170,7 +170,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     // 15 min (app/api/cron/zoom-sync/route.ts) — para cada tipo de clase con
     // esOnline=true (Configuración → Clases). Antes estaba en "Próximamente"
     // porque conectar Zoom no hacía nada; ya no es el caso.
-    descripcion: 'Crea automáticamente una reunión de Zoom única para cada sesión de los tipos de clase que marques como "online" (Configuración → Clases) — nunca tienes que ir copiando enlaces a mano. Puedes desconectar el acceso cuando quieras; las clases ya creadas y actualizadas dejan de sincronizarse, no se borra nada retroactivamente.',
+    descripcion: 'Crea automáticamente una reunión de Zoom única para cada sesión de los tipos de clase que marques como "online" (Configuración → Clases y salas) — nunca tienes que ir copiando enlaces a mano. Puedes desconectar el acceso cuando quieras; las clases ya creadas y actualizadas dejan de sincronizarse, no se borra nada retroactivamente.',
     Icon: ZoomIcon,
     placaPropia: true,
     color: '#0B5CFF',

@@ -163,7 +163,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
 
   const configuracionInicial: PasoOnboarding[] = [
     { id: 'estudio', label: 'Configura los datos de tu estudio', descripcion: 'Nombre, NIF y contacto — aparecen en tus recibos y en tu página de reservas.', minutos: 3, done: !!d.nif, href: '/configuracion?tab=estudio' },
-    { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion?tab=estudio&sub=enlaces' },
+    { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion/apariencia' },
     { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas clientas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=clases-salas&sub=salas' },
     // Mismo criterio que «clientas»: el panel usa una sola palabra para la
     // clientela porque el equipo de un estudio de Pilates lo es casi siempre.
@@ -217,13 +217,13 @@ export function calcularOnboarding(d: DatosOnboarding): {
   ];
 
   const portal: PasoOnboarding[] = [
-    { id: 'portal-contenido', label: 'Personaliza el contenido de tu portal', descripcion: 'El mensaje destacado y los banners que ven tus clientas al entrar en su app.', minutos: 3, done: d.contenidoPortalPersonalizado, href: '/configuracion?tab=estudio&sub=enlaces' },
+    { id: 'portal-contenido', label: 'Personaliza el contenido de tu portal', descripcion: 'El mensaje destacado y los banners que ven tus clientas al entrar en su app.', minutos: 3, done: d.contenidoPortalPersonalizado, href: '/configuracion?tab=descubre' },
   ];
 
   const categorias: CategoriaOnboarding[] = [
     { id: 'configuracion-inicial', label: 'Configuración inicial', pasos: configuracionInicial },
     { id: 'pagos', label: 'Pagos', pasos: pagos },
-    { id: 'automatizaciones', label: 'Funciones inteligentes', pasos: automatizaciones },
+    { id: 'automatizaciones', label: 'Automatizaciones', pasos: automatizaciones },
     { id: 'equipo', label: 'Equipo', pasos: equipo },
     { id: 'portal', label: 'Portal de alumnas', pasos: portal },
   ];
@@ -231,7 +231,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
   const enlaces: EnlaceOnboarding[] = [
     { id: 'informes', label: 'Ingresos, ocupación y margen por clase', descripcion: 'Qué clases dan dinero de verdad y cuáles no.', href: '/informes' },
     { id: 'rendimiento', label: 'Rendimiento de tus instructoras', descripcion: 'Retención y conversión de cada una, para decidir turnos con datos.', href: '/equipo/rendimiento' },
-    { id: 'sustituciones', label: 'Sustituciones sin llamadas', descripcion: 'Cuando una instructora avisa de que no puede, Tentare busca sustituta sola.', href: '/sustituciones' },
+    { id: 'sustituciones', label: 'Sustituciones sin llamadas', descripcion: 'Cuando una instructora avisa de que no puede, Tentare ordena a quién pedírselo y espera tu visto bueno, o las contacta sola si activas el modo autónomo.', href: '/sustituciones' },
     { id: 'centro-control', label: 'Recomendaciones para tu estudio', descripcion: 'Qué merece la pena atender esta semana, calculado a partir de tus propios datos.', href: '/centro-de-control' },
   ];
 
@@ -282,7 +282,7 @@ function calcularRecomendaciones(d: DatosOnboarding): RecomendacionOnboarding[] 
           href: '/productos',
         }
       : null,
-    d.automatizacionesActivas.size === 0 ? { id: 'automatizaciones', texto: 'No hay ninguna función inteligente activa todavía.', href: '/automatizaciones' } : null,
+    d.automatizacionesActivas.size === 0 ? { id: 'automatizaciones', texto: 'No hay ninguna automatización activa todavía.', href: '/automatizaciones' } : null,
     d.numSesiones === 0 ? { id: 'sesiones', texto: 'Las alumnas todavía no pueden reservar: no hay ninguna clase programada.', href: '/calendario' } : null,
   ];
   return candidatas.filter((r): r is RecomendacionOnboarding => r !== null).slice(0, 3);

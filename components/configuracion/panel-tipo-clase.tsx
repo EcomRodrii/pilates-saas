@@ -1093,7 +1093,7 @@ export function PanelTipoClase({
           <Sparkles size={13} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <p className={ayudaCls}>
             Qué bonos y planes sirven para esta clase se decide en{' '}
-            <span className="font-medium text-foreground">Configuración → Planes</span>, desde cada plan. Un bono
+            <span className="font-medium text-foreground">Paquetes</span>, desde cada plan. Un bono
             sin clases marcadas vale para todas.
           </p>
         </div>

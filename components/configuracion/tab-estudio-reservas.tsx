@@ -415,7 +415,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
                 Desactívalo si confías en que quien reserva viene: toda reserva confirmada se da por asistida sola al terminar la clase, sin que nadie tenga que escanear nada ni marcarla a mano.
               </span>
               <span className="block text-[11px] text-muted-foreground mt-1">
-                Es el valor por defecto: cada tipo de clase puede llevarte la contraria desde Configuración → Clases.
+                Es el valor por defecto: cada tipo de clase puede llevarte la contraria desde Configuración → Clases y salas.
               </span>
               {!pol.requiereCheckinQr && !!pol.penalizacionImporteEur && pol.penalizacionAplicaNoShow && (
                 <span className="block text-[11px] text-amber-600 mt-1">
