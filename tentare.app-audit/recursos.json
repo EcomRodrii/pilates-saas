@@ -1,0 +1,144 @@
+{
+  "url": "https://www.tentare.app/recursos",
+  "status_code": 200,
+  "content": "<!DOCTYPE html><html data-dpl-id=\"dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" lang=\"es\" class=\"plus_jakarta_sans_9d745193-module__Fxzc9a__variable instrument_serif_d9f30734-module__EcR9cG__variable instrument_sans_46649ba5-module__-gGwmG__variable outfit_97ff99cf-module__2SBXlG__variable poppins_adb72ef2-module__EV3ncG__variable cormorant_garamond_8570ea2-module__E6LdoW__variable libre_caslon_text_f12de662-module__-2EB8a__variable figtree_40fdaaa3-module__APoWRq__variable ibm_plex_mono_bdb4b585-module__35JmoG__variable antialiased\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" href=\"/_next/static/media/01e4147cff8141ee-s.p.3huc2loe0ie8a.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/0f44b6394d723b98-s.p.24ir78z669k58.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/1b99372b3eaef0c8-s.p.1gsd1jahc5dg_.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/37afeb4e0885cb1d-s.p.34pxs3l5kt36m.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/47fe1b7cd6e6ed85-s.p.3bh2vc0w-r-ll.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/7ebf22b5a21034f8-s.p.3j3877k49yy0l.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/8bd76523131fa0fc-s.p.1pvupmngxrt5z.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/8e6fa89aa22d24ec-s.p.2o7m9ogm38dql.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/99e609270109b47d-s.p.40sczeszzbjw1.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/a218039a3287bcfd-s.p.43zbiuwnnoiok.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/e2334d715941921e-s.p.3o_v2fun1jzxk.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/e41d5df559864f9e-s.p.1g73gv09-xcb6.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/efd23c95a9595abc-s.p.17bkc83it2-u9.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/effe91970fc4db64-s.p.0oace-s_gkfks.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/f06bf9da926bae75-s.p.2874ccu1_u7jf.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/f7aa21714c1c53f8-s.p.0-95eo-012xnf.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/fba5a26ea33df6a3-s.p.18rizl4rsrl42.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/chunks/3p0wxa4axnh6x.css?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" crossorigin=\"anonymous\" data-precedence=\"next\"/><link rel=\"stylesheet\" href=\"/_next/static/chunks/3kmoja9rflmiu.css?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" crossorigin=\"anonymous\" data-precedence=\"next\"/><link rel=\"stylesheet\" href=\"/_next/static/chunks/36yj_frg8s4jb.css?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" crossorigin=\"anonymous\" data-precedence=\"next\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/0nd9iztwdnw1f.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" crossorigin=\"\"/><script src=\"/_next/static/chunks/297ngcom2j3jo.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/1ff5rqxf7-gk1.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/31r80pvk0th4o.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/0t-pf73k306zg.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/turbopack-3aauc1v8g5vkp.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/10o1kzkmqi-jo.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/01fprkpnwwkx-.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/0i2y0w5aiwy7c.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/1p_b_p1xqj81u.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/0v3h_5qfcttdh.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/41nbuv2xpkm-k.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/1r2j-2pnel3u2.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/364nmriubcn7h.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/0eblu6u12phjg.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/1633vnbibsngk.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/0gg2hlmhuppp1.j",
+  "raw_content": "<!DOCTYPE html><html data-dpl-id=\"dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" lang=\"es\" class=\"plus_jakarta_sans_9d745193-module__Fxzc9a__variable instrument_serif_d9f30734-module__EcR9cG__variable instrument_sans_46649ba5-module__-gGwmG__variable outfit_97ff99cf-module__2SBXlG__variable poppins_adb72ef2-module__EV3ncG__variable cormorant_garamond_8570ea2-module__E6LdoW__variable libre_caslon_text_f12de662-module__-2EB8a__variable figtree_40fdaaa3-module__APoWRq__variable ibm_plex_mono_bdb4b585-module__35JmoG__variable antialiased\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" href=\"/_next/static/media/01e4147cff8141ee-s.p.3huc2loe0ie8a.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/0f44b6394d723b98-s.p.24ir78z669k58.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/1b99372b3eaef0c8-s.p.1gsd1jahc5dg_.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/37afeb4e0885cb1d-s.p.34pxs3l5kt36m.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/47fe1b7cd6e6ed85-s.p.3bh2vc0w-r-ll.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/7ebf22b5a21034f8-s.p.3j3877k49yy0l.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/8bd76523131fa0fc-s.p.1pvupmngxrt5z.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/8e6fa89aa22d24ec-s.p.2o7m9ogm38dql.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/99e609270109b47d-s.p.40sczeszzbjw1.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/a218039a3287bcfd-s.p.43zbiuwnnoiok.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/e2334d715941921e-s.p.3o_v2fun1jzxk.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/e41d5df559864f9e-s.p.1g73gv09-xcb6.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/efd23c95a9595abc-s.p.17bkc83it2-u9.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/effe91970fc4db64-s.p.0oace-s_gkfks.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/f06bf9da926bae75-s.p.2874ccu1_u7jf.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/f7aa21714c1c53f8-s.p.0-95eo-012xnf.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/fba5a26ea33df6a3-s.p.18rizl4rsrl42.woff2?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"stylesheet\" href=\"/_next/static/chunks/3p0wxa4axnh6x.css?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" crossorigin=\"anonymous\" data-precedence=\"next\"/><link rel=\"stylesheet\" href=\"/_next/static/chunks/3kmoja9rflmiu.css?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" crossorigin=\"anonymous\" data-precedence=\"next\"/><link rel=\"stylesheet\" href=\"/_next/static/chunks/36yj_frg8s4jb.css?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" crossorigin=\"anonymous\" data-precedence=\"next\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/0nd9iztwdnw1f.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" crossorigin=\"\"/><script src=\"/_next/static/chunks/297ngcom2j3jo.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/1ff5rqxf7-gk1.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/31r80pvk0th4o.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/0t-pf73k306zg.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/turbopack-3aauc1v8g5vkp.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/10o1kzkmqi-jo.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/01fprkpnwwkx-.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/0i2y0w5aiwy7c.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/1p_b_p1xqj81u.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/0v3h_5qfcttdh.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/41nbuv2xpkm-k.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/1r2j-2pnel3u2.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/364nmriubcn7h.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/0eblu6u12phjg.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/1633vnbibsngk.js?dpl=dpl_21YoSK8SBCnYZScnXWcisjbwDJn8\" async=\"\" crossorigin=\"\"></script><script src=\"/_next/static/chunks/0gg2hlmhuppp1.j",
+  "is_spa": false,
+  "extracted_text": "Gu\u00edas pr\u00e1cticas para propietarias de estudios de pilates: ocupaci\u00f3n, precios, sustituciones, retenci\u00f3n y la parte administrativa que nadie te cont\u00f3. Sin humo.\nDatos reales de Club Pilates, SLT, BASI y el mercado espa\u00f1ol (Eversports, Statista): qu\u00e9 hacen distinto \u2014 y qu\u00e9 puedes copiar ma\u00f1ana.\nDos formatos, dos costes, dos techos de ingresos. C\u00f3mo fijar precios que reflejen la diferencia \u2014 sin dejar dinero sobre la mesa.\nQu\u00e9 cambia con Veri*factu, cu\u00e1ndo es obligatorio y c\u00f3mo dejarlo automatizado desde el primer cobro.\nLas 10:00 de un martes vac\u00edas cuestan dinero. Lo que hace ClassPass con el precio din\u00e1mico, y lo que puedes copiar sin depender de nadie.\nLo que cobran de verdad SoulCycle o Barry's, y lo que dice la evidencia cl\u00ednica sobre los recordatorios.\nLo que dicen miles de rese\u00f1as en Capterra y G2 \u2014 y las preguntas exactas para la demo.\nEl riesgo silencioso de todo estudio: c\u00f3mo repartir el conocimiento y la carga entre tu equipo.\nLa alumna que sale de tu web para reservar, casi siempre no vuelve. Widget, plugin o API: qu\u00e9 opci\u00f3n encaja con tu estudio.\nLas tres formas t\u00e9cnicas comparadas de verdad: qu\u00e9 pierdes con cada una, c\u00f3mo instalarlas y el checklist antes de publicar.\nPrecio real en euros, permanencia, gesti\u00f3n por reformer individual y sustituci\u00f3n de instructoras \u2014 sin folletos de marketing.\nGu\u00edas nuevas, plantillas y datos del sector. Sin spam \u2014 cancelas cuando quieras.\nSuscribirme por email",
+  "publication_date": "2026-08-11",
+  "accessibility_tree": null,
+  "accessibility_error": null,
+  "accessibility_partial": false,
+  "headers": {
+    "Access-Control-Allow-Origin": "*",
+    "Age": "251",
+    "Cache-Control": "public, max-age=0, must-revalidate",
+    "Content-Disposition": "inline",
+    "Content-Encoding": "br",
+    "Content-Security-Policy": "frame-ancestors 'none'",
+    "Content-Type": "text/html; charset=utf-8",
+    "Date": "Thu, 10 Sep 2026 16:50:21 GMT",
+    "Etag": "W/\"a405e5cf88cb880fae0ee40d5391898e\"",
+    "Server": "Vercel",
+    "Strict-Transport-Security": "max-age=63072000",
+    "Vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "X-Frame-Options": "DENY",
+    "X-Matched-Path": "/recursos",
+    "X-Nextjs-Prerender": "1",
+    "X-Nextjs-Stale-Time": "300",
+    "X-Vercel-Cache": "HIT",
+    "X-Vercel-Id": "cdg1::qhb75-1789059021472-7f7763c7694b",
+    "Transfer-Encoding": "chunked"
+  },
+  "redirect_chain": [],
+  "console_errors": [],
+  "render_diagnostics": [],
+  "render_engine": null,
+  "render_ms": null,
+  "mode_used": "raw",
+  "error": null,
+  "structured_data": {
+    "block_count": 8,
+    "processed_count": 8,
+    "total_bytes": 1572,
+    "truncated": false,
+    "blocks": [
+      {
+        "index": 1,
+        "size_bytes": 409,
+        "valid": true,
+        "types": [
+          "ContactPoint",
+          "Organization"
+        ],
+        "types_truncated": false
+      },
+      {
+        "index": 2,
+        "size_bytes": 259,
+        "valid": true,
+        "types": [
+          "SearchAction",
+          "WebSite"
+        ],
+        "types_truncated": false
+      },
+      {
+        "index": 3,
+        "size_bytes": 138,
+        "valid": true,
+        "types": [
+          "SiteNavigationElement"
+        ],
+        "types_truncated": false
+      },
+      {
+        "index": 4,
+        "size_bytes": 150,
+        "valid": true,
+        "types": [
+          "SiteNavigationElement"
+        ],
+        "types_truncated": false
+      },
+      {
+        "index": 5,
+        "size_bytes": 122,
+        "valid": true,
+        "types": [
+          "SiteNavigationElement"
+        ],
+        "types_truncated": false
+      },
+      {
+        "index": 6,
+        "size_bytes": 115,
+        "valid": true,
+        "types": [
+          "SiteNavigationElement"
+        ],
+        "types_truncated": false
+      },
+      {
+        "index": 7,
+        "size_bytes": 124,
+        "valid": true,
+        "types": [
+          "SiteNavigationElement"
+        ],
+        "types_truncated": false
+      },
+      {
+        "index": 8,
+        "size_bytes": 255,
+        "valid": true,
+        "types": [
+          "BreadcrumbList",
+          "ListItem"
+        ],
+        "types_truncated": false
+      }
+    ]
+  },
+  "truncation": {
+    "limit": 6000,
+    "fields": {
+      "content": {
+        "original_chars": 64318,
+        "returned_chars": 6000,
+        "truncated": true
+      },
+      "raw_content": {
+        "original_chars": 64318,
+        "returned_chars": 6000,
+        "truncated": true
+      },
+      "extracted_text": {
+        "original_chars": 1425,
+        "returned_chars": 1425,
+        "truncated": false
+      }
+    }
+  },
+  "output_written": false
+}

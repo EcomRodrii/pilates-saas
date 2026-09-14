@@ -1,0 +1,306 @@
+{
+  "block_count": 9,
+  "processed_count": 9,
+  "total_bytes": 6523,
+  "truncated": false,
+  "blocks": [
+    {
+      "index": 1,
+      "size_bytes": 710,
+      "valid": true,
+      "types": [
+        "Offer",
+        "SoftwareApplication"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Tentare",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web, iOS, Android",
+        "url": "https://www.tentare.app",
+        "description": "Software para estudios de Pilates en España: reservas, cobros, calendario, alumnas e instructoras, y sustituciones automáticas ante bajas.",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Base",
+            "price": 29,
+            "priceCurrency": "EUR",
+            "description": "Para empezar. Hasta 150 alumnas."
+          },
+          {
+            "@type": "Offer",
+            "name": "Estudio",
+            "price": 59,
+            "priceCurrency": "EUR",
+            "description": "El plan completo. Alumnas ilimitadas."
+          },
+          {
+            "@type": "Offer",
+            "name": "Cadena",
+            "price": 149,
+            "priceCurrency": "EUR",
+            "description": "Multi-centro y white-label."
+          }
+        ]
+      }
+    },
+    {
+      "index": 2,
+      "size_bytes": 4496,
+      "valid": true,
+      "types": [
+        "Answer",
+        "FAQPage",
+        "Question"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "¿La prueba pide tarjeta?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Son 7 días gratis con todo abierto y no te pedimos ningún dato de pago para empezar: creas tu estudio y entras. Cuando termina la prueba no se te cobra nada — si no eliges plan, simplemente se pausa y tus datos siguen ahí intactos."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Sustituye a mi software actual o convive con él?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Lo sustituye del todo: reservas, cobros, calendario, alumnas e instructoras están dentro. Y la migración te la hacemos nosotros en 48h: nos mandas lo que puedas exportar (da igual el formato) y te entregamos el estudio montado, con un acta para comprobar que todo cuadra. Tu software actual sigue funcionando mientras tanto."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Es difícil de aprender a usar?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Es lo primero que nos dicen las propietarias que lo prueban: si sabes usar WhatsApp, sabes usar Tentare. No hay formación que hacer ni manual que leer — el Centro de Control te dice cada mañana qué necesita tu atención. La mayoría de estudios ya están reservando y cobrando el primer día."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Y si ninguna instructora acepta la sustitución?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Nunca te deja colgada. Si nadie puede, te avisa enseguida con las opciones sobre la mesa: reprogramar, cancelar avisando a las alumnas, o cubrir tú. Tú eliges; él ejecuta."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Tengo que dar de alta a mis instructoras?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sí, das de alta a tu equipo una vez con su disponibilidad. A partir de ahí el sistema trabaja con esos datos: sabe quién puede cubrir cada clase sin que tengas que decírselo."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Cómo avisáis a las alumnas?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Por el canal de cada alumna: la app de marca, email o WhatsApp. Cuando cambia una clase, reciben el aviso al momento — sin que tengas que escribir nada."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Hay permanencia?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Ninguna. Tus datos son tuyos: si te vas, exportas alumnas, historial y facturas cuando quieras. Nos quedamos porque funciona, no por un contrato."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Cuánto tarda ponerlo en marcha?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Días, no semanas. Traes tus datos con asistentes de importación por CSV (alumnas, bonos, reservas, clases y citas) y te acompañamos en la puesta en marcha. Empiezas con lo básico y activas el resto a tu ritmo."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Tengo que usar las sustituciones automáticas desde el principio?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Puedes empezar solo con reservas y cobros y activar las sustituciones cuando te sientas cómoda. Muchos estudios arrancan en modo Manual y suben de nivel con el tiempo."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Están seguros los datos de mi estudio y mis alumnas?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Cumplimos el RGPD, cada estudio accede únicamente a sus propios datos y puedes exportarlos cuando quieras."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Puedo gestionar varios centros?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sí. El plan Cadena gestiona varios centros desde un mismo panel, con datos y permisos separados por sede."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Pierdo datos o me quedo sin servicio al migrar?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Tu estudio sigue funcionando en tu sistema actual hasta que tú decidas arrancar, y cada migración deja un acta con los números para comprobar que no falta nada — si algo no cuadra, se deshace entera con un clic. Las tarjetas guardadas de tus alumnas no se transfieren solas entre plataformas: te ayudamos a gestionar ese paso para que nadie se quede sin cobrar."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Me vais a subir el precio dentro de un año?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Nuestros precios son públicos y no jugamos a subirlos por sorpresa. Si algún día cambia una tarifa, te avisamos con antelación y respetamos tu plan."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿El soporte es de personas y en español?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sí. Te atienden personas, en español, que conocen cómo funciona un estudio de pilates. Sin bots que te dan vueltas ni esperas eternas."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "index": 3,
+      "size_bytes": 409,
+      "valid": true,
+      "types": [
+        "ContactPoint",
+        "Organization"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Tentare",
+        "url": "https://www.tentare.app",
+        "email": "hola@tentare.app",
+        "sameAs": [
+          "https://x.com/tentaresoftware",
+          "https://www.instagram.com/tentareapp/",
+          "https://www.linkedin.com/company/tentare/"
+        ],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "hola@tentare.app",
+          "contactType": "customer support",
+          "areaServed": "ES",
+          "availableLanguage": [
+            "Spanish"
+          ]
+        }
+      }
+    },
+    {
+      "index": 4,
+      "size_bytes": 259,
+      "valid": true,
+      "types": [
+        "SearchAction",
+        "WebSite"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Tentare",
+        "url": "https://www.tentare.app",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://www.tentare.app/recursos?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    },
+    {
+      "index": 5,
+      "size_bytes": 138,
+      "valid": true,
+      "types": [
+        "SiteNavigationElement"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SiteNavigationElement",
+        "name": "Funcionalidades",
+        "url": "https://www.tentare.app/funcionalidades"
+      }
+    },
+    {
+      "index": 6,
+      "size_bytes": 150,
+      "valid": true,
+      "types": [
+        "SiteNavigationElement"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SiteNavigationElement",
+        "name": "Sustituciones",
+        "url": "https://www.tentare.app/funcionalidades/sustituciones"
+      }
+    },
+    {
+      "index": 7,
+      "size_bytes": 122,
+      "valid": true,
+      "types": [
+        "SiteNavigationElement"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SiteNavigationElement",
+        "name": "Precios",
+        "url": "https://www.tentare.app/precios"
+      }
+    },
+    {
+      "index": 8,
+      "size_bytes": 115,
+      "valid": true,
+      "types": [
+        "SiteNavigationElement"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SiteNavigationElement",
+        "name": "FAQ",
+        "url": "https://www.tentare.app/#faq"
+      }
+    },
+    {
+      "index": 9,
+      "size_bytes": 124,
+      "valid": true,
+      "types": [
+        "SiteNavigationElement"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "SiteNavigationElement",
+        "name": "Recursos",
+        "url": "https://www.tentare.app/recursos"
+      }
+    }
+  ]
+}

@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEstudio } from '@/components/student/contexto';
-import { useSesionStudent } from '@/lib/student/sesion';
 import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
 
 // Nav inferior. Del paquete (`components/shell/BottomNavigation.tsx`): mismos
@@ -18,9 +17,7 @@ import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
 // ese grosor sobre un lienzo de 24, y engordarlos cierra los huecos del corazón
 // del calendario y de las chispas de la búsqueda. Los trazados viven en
 // `ui/Icono.tsx`, con los del resto de la app.
-type Tab = { ruta: string; label: string; icono: NombreIcono };
-
-const TABS: Tab[] = [
+const TABS: Array<{ ruta: string; label: string; icono: NombreIcono }> = [
   {
     ruta: '', label: 'Inicio',
     icono: 'inicio',
@@ -43,29 +40,10 @@ const TABS: Tab[] = [
   },
 ];
 
-// La misma barra para la instructora (decisión del 14-sep-2026: una sola app),
-// con sus destinos. «Reservar» solo si además es alumna del estudio: la agenda
-// es única y ahí ve también las clases a las que viene.
-function tabsInstructora(esTambienAlumna: boolean): Tab[] {
-  return [
-    { ruta: '/equipo', label: 'Hoy', icono: 'inicio' },
-    { ruta: '/equipo/agenda', label: 'Agenda', icono: 'calendario' },
-    ...(esTambienAlumna ? [{ ruta: '/reservar', label: 'Reservar', icono: 'reservar' as NombreIcono }] : []),
-    { ruta: '/equipo/perfil', label: 'Perfil', icono: 'perfil' },
-  ];
-}
-
-export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
-  badgeReservas?: number;
-  modo?: 'alumna' | 'instructora';
-}) {
+export function BottomNavigation({ badgeReservas = 0 }: { badgeReservas?: number }) {
   const path = usePathname();
   const { slug } = useEstudio();
-  // No cuesta petición: la sesión está en caché compartida con la cabecera.
-  const { socia } = useSesionStudent(slug);
   const base = `/portal/${encodeURIComponent(slug)}`;
-  const tabs = modo === 'instructora' ? tabsInstructora(Boolean(socia)) : TABS;
-  const raiz = modo === 'instructora' ? '/equipo' : '';
 
   return (
     <nav
@@ -73,11 +51,11 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
       style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 40, background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--muted)', paddingBottom: 'var(--safe-bottom)' }}
     >
       <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '9px 8px 10px' }}>
-        {tabs.map((t) => {
+        {TABS.map((t) => {
           const destino = base + t.ruta;
-          // La raíz (Inicio / Hoy) solo se ilumina en su ruta exacta; el resto,
-          // también en sus subrutas (`/reservar/c1` mantiene «Reservar» activa).
-          const on = t.ruta === raiz ? path === destino : path.startsWith(destino);
+          // Inicio solo se ilumina en la raíz exacta; el resto, también en sus
+          // subrutas (`/reservar/c1` mantiene «Reservar» activa).
+          const on = t.ruta === '' ? path === base : path.startsWith(destino);
           return (
             <Link
               key={t.ruta || 'inicio'}

@@ -1,12 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { Icono } from '@/components/student/ui/Icono';
-// `titulo` opcional: dentro de una hoja que ya tiene su propio encabezado, un
-// rótulo encima de la lista es un segundo título diciendo lo mismo.
-export function ProfileSection({ titulo, items }: { titulo?: string; items: { label: string; href?: string; onClick?: () => void; valor?: string; destructivo?: boolean }[] }) {
+export function ProfileSection({ titulo, items }: { titulo: string; items: { label: string; href?: string; onClick?: () => void; valor?: string; destructivo?: boolean }[] }) {
   return (
     <section>
-      {titulo && <p className="t-label" style={{ margin: '0 0 7px' }}>{titulo}</p>}
+      <p className="t-label" style={{ margin: '0 0 7px' }}>{titulo}</p>
       <div className="card" style={{ overflow: 'hidden' }}>
         {items.map((it, i) => {
           const st: React.CSSProperties = { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 15px', minHeight: 48, border: 'none', borderBottom: i < items.length - 1 ? '1px solid var(--muted)' : 'none', background: 'none', fontSize: 'var(--t-small)', fontWeight: 700, color: it.destructivo ? 'var(--destructive)' : 'var(--foreground)', textAlign: 'left' };

@@ -33,12 +33,17 @@ import { Descubre } from '@/components/student/domain/Descubre';
 import { ValoracionCard } from '@/components/student/domain/ValoracionCard';
 import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
+<<<<<<< HEAD
 import { Foto, precargarFoto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
 
 // Cuánto mide el héroe en cada ancho. Lo leen el `<img>` y su precarga: si
 // dijeran cosas distintas, el navegador bajaría la portada dos veces.
 const SIZES_PORTADA = '(min-width:1024px) 1040px, (min-width:768px) 640px, 100vw';
+=======
+import { Foto } from '@/components/student/ui/Foto';
+import { Icono } from '@/components/student/ui/Icono';
+>>>>>>> claude/alumna-detalle
 
 // Inicio (§A.5 del handoff): héroe fotográfico, próxima clase, bono y huecos de
 // hoy. Estructura y medidas literales del paquete.

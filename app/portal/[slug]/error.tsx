@@ -18,10 +18,14 @@
 
 import { useEffect } from 'react';
 import { useParams, usePathname } from 'next/navigation';
+<<<<<<< HEAD
 // Por `lib/sentry-cliente` y no `@sentry/nextjs` directo: este boundary se carga
 // con TODAS las pantallas del portal, y un import estático del SDK metía ~20 KB
 // comprimidos en el camino crítico, anulando la carga diferida de Sentry.
 import { capturarExcepcion } from '@/lib/sentry-cliente';
+=======
+import * as Sentry from '@sentry/nextjs';
+>>>>>>> claude/alumna-detalle
 import { Icono } from '@/components/student/ui/Icono';
 
 export default function ErrorPortalStudent({

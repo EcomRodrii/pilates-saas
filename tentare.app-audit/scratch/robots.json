@@ -1,0 +1,61 @@
+{
+  "url": "https://www.tentare.app/robots.txt",
+  "status_code": 200,
+  "content": "User-Agent: *\nAllow: /\nAllow: /network/instructoras\nAllow: /network/crear-perfil\nAllow: /network/terminos\nAllow: /network/privacidad\nDisallow: /api\nDisallow: /login\nDisallow: /crear-estudio\nDisallow: /suscripcion\nDisallow: /invitacion\nDisallow: /clave-nueva\nDisallow: /interno\nDisallow: /widget-auth-retorno\nDisallow: /oauth\nDisallow: /instructora\nDisallow: /demo\nDisallow: /portal\nDisallow: /kiosk\nDisallow: /i\nDisallow: /aceptar-sustitucion\nDisallow: /confirmar-reserva\nDisallow: /disponibilidad\nDisallow: /no-puedo\nDisallow: /valorar\nDisallow: /automatizaciones\nDisallow: /calendario\nDisallow: /centro-de-control\nDisallow: /chat\nDisallow: /cierre\nDisallow: /citas\nDisallow: /clientas\nDisallow: /cobros\nDisallow: /comunidad\nDisallow: /configuracion\nDisallow: /contenido\nDisallow: /dashboard\nDisallow: /equipo\nDisallow: /explorar-funciones\nDisallow: /facturas\nDisallow: /informes\nDisallow: /libreta\nDisallow: /marketing\nDisallow: /mensajeria\nDisallow: /mi-perfil\nDisallow: /migracion\nDisallow: /notificaciones\nDisallow: /ondemand\nDisallow: /pagos\nDisallow: /pos\nDisallow: /primeros-pasos\nDisallow: /productos\nDisallow: /socios\nDisallow: /sustituciones\nDisallow: /transacciones\nDisallow: /network/\n\nHost: https://www.tentare.app\nSitemap: https://www.tentare.app/sitemap.xml\n",
+  "raw_content": "User-Agent: *\nAllow: /\nAllow: /network/instructoras\nAllow: /network/crear-perfil\nAllow: /network/terminos\nAllow: /network/privacidad\nDisallow: /api\nDisallow: /login\nDisallow: /crear-estudio\nDisallow: /suscripcion\nDisallow: /invitacion\nDisallow: /clave-nueva\nDisallow: /interno\nDisallow: /widget-auth-retorno\nDisallow: /oauth\nDisallow: /instructora\nDisallow: /demo\nDisallow: /portal\nDisallow: /kiosk\nDisallow: /i\nDisallow: /aceptar-sustitucion\nDisallow: /confirmar-reserva\nDisallow: /disponibilidad\nDisallow: /no-puedo\nDisallow: /valorar\nDisallow: /automatizaciones\nDisallow: /calendario\nDisallow: /centro-de-control\nDisallow: /chat\nDisallow: /cierre\nDisallow: /citas\nDisallow: /clientas\nDisallow: /cobros\nDisallow: /comunidad\nDisallow: /configuracion\nDisallow: /contenido\nDisallow: /dashboard\nDisallow: /equipo\nDisallow: /explorar-funciones\nDisallow: /facturas\nDisallow: /informes\nDisallow: /libreta\nDisallow: /marketing\nDisallow: /mensajeria\nDisallow: /mi-perfil\nDisallow: /migracion\nDisallow: /notificaciones\nDisallow: /ondemand\nDisallow: /pagos\nDisallow: /pos\nDisallow: /primeros-pasos\nDisallow: /productos\nDisallow: /socios\nDisallow: /sustituciones\nDisallow: /transacciones\nDisallow: /network/\n\nHost: https://www.tentare.app\nSitemap: https://www.tentare.app/sitemap.xml\n",
+  "is_spa": false,
+  "extracted_text": null,
+  "publication_date": null,
+  "accessibility_tree": null,
+  "accessibility_error": null,
+  "accessibility_partial": false,
+  "headers": {
+    "Access-Control-Allow-Origin": "*",
+    "Age": "149",
+    "Cache-Control": "public, max-age=0, must-revalidate",
+    "Content-Disposition": "inline; filename=\"robots.txt\"",
+    "Content-Encoding": "br",
+    "Content-Security-Policy": "frame-ancestors 'none'",
+    "Content-Type": "text/plain; charset=utf-8",
+    "Date": "Thu, 10 Sep 2026 16:46:22 GMT",
+    "Etag": "W/\"001042b21e5270f555be4feb0557873c\"",
+    "Last-Modified": "Thu, 10 Sep 2026 16:43:53 GMT",
+    "Server": "Vercel",
+    "Strict-Transport-Security": "max-age=63072000",
+    "X-Frame-Options": "DENY",
+    "X-Matched-Path": "/robots.txt",
+    "X-Vercel-Cache": "HIT",
+    "X-Vercel-Id": "cdg1::ttzxz-1789058782680-46953f32cf2d",
+    "Transfer-Encoding": "chunked"
+  },
+  "redirect_chain": [],
+  "console_errors": [],
+  "render_diagnostics": [],
+  "render_engine": null,
+  "render_ms": null,
+  "mode_used": "raw",
+  "error": null,
+  "structured_data": {
+    "block_count": 0,
+    "processed_count": 0,
+    "total_bytes": 0,
+    "truncated": false,
+    "blocks": []
+  },
+  "truncation": {
+    "limit": null,
+    "fields": {
+      "content": {
+        "original_chars": 1274,
+        "returned_chars": 1274,
+        "truncated": false
+      },
+      "raw_content": {
+        "original_chars": 1274,
+        "returned_chars": 1274,
+        "truncated": false
+      }
+    }
+  },
+  "output_written": false
+}

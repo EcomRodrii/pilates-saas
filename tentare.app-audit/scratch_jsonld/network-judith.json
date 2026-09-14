@@ -1,0 +1,71 @@
+{
+  "block_count": 2,
+  "processed_count": 2,
+  "total_bytes": 1400,
+  "truncated": false,
+  "blocks": [
+    {
+      "index": 1,
+      "size_bytes": 990,
+      "valid": true,
+      "types": [
+        "Person",
+        "PostalAddress",
+        "WebSite"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "name": "Judith Clemente",
+        "jobTitle": "Instructora de Yoga",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Barcelona"
+        },
+        "image": "https://dwqvdycjcffqwfkzapvi.supabase.co/storage/v1/object/public/avatars/network-red-mtr20j13-1-37oqf?v=1788775037681",
+        "description": "Soy profesora de yoga certificada con una formación YTT 200h realizada en Bali. Mi práctica personal lleva años acompañándome, y recientemente he decidido dar el paso de compartirla también como profesora.\n\nMe interesa especialmente crear clases cercanas, conscientes y accesibles, con atención a la respiración, la alineación y la conexión con el cuerpo. Actualmente estoy buscando oportunidades para ganar experiencia, cubrir sustituciones y colaborar con estudios con los que comparta filosofía.",
+        "url": "https://www.tentare.app/network/instructoras/judith-clemente-barcelona",
+        "isPartOf": {
+          "@type": "WebSite",
+          "name": "Tentare",
+          "url": "https://www.tentare.app"
+        }
+      }
+    },
+    {
+      "index": 2,
+      "size_bytes": 410,
+      "valid": true,
+      "types": [
+        "BreadcrumbList",
+        "ListItem"
+      ],
+      "types_truncated": false,
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Inicio",
+            "item": "https://www.tentare.app"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Instructoras",
+            "item": "https://www.tentare.app/network/instructoras"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Judith Clemente",
+            "item": "https://www.tentare.app/network/instructoras/judith-clemente-barcelona"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -2,11 +2,9 @@
 // Lector de Excel (.xlsx/.xls) para los asistentes de importación (SheetJS).
 // Aislado en su propio módulo — no en `lib/csv.ts` — para que `xlsx` (pesada)
 // solo entre al bundle del navegador cuando alguien sube de verdad un Excel:
-// se carga con `import()` dinámico desde `lib/importar-archivo.ts`, nunca en
-// el top-level de una página.
+// se carga con `import()` dinámico, nunca en el top-level de una página.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import * as XLSX from 'xlsx';
 import { detectarCabeceraYFilas, type ParsedCsv } from './csv.ts';
 
 /**
@@ -25,7 +23,8 @@ import { detectarCabeceraYFilas, type ParsedCsv } from './csv.ts';
  * cabecera" que `parseCsv` (vía `detectarCabeceraYFilas`, compartida) — un
  * Excel exportado a mano tiene exactamente el mismo problema que un CSV.
  */
-export function parseXlsx(data: ArrayBuffer): ParsedCsv {
+export async function parseXlsx(data: ArrayBuffer): Promise<ParsedCsv> {
+  const XLSX = await import('xlsx');
   const libro = XLSX.read(data, { type: 'array' });
 
   let mejor: string[][] = [];
