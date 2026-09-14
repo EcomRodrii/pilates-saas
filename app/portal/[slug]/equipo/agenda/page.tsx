@@ -44,15 +44,25 @@ export default function AgendaInstructoraPage() {
       // Si falla el catálogo de alumna, su agenda de instructora se enseña igual.
       esAlumna ? getClasesComoAlumna(estudio.slug, hoy, hasta).catch(() => []) : Promise.resolve([]),
     ]);
-    return unirAgenda(agenda.clases, viene);
+    return { filas: unirAgenda(agenda.clases, viene), puedeCrearClases: agenda.puedeCrearClases };
   }, [esInstructora, estudio.slug, hoy, hasta, esAlumna]);
 
   const { data, estado, reintentar } = useAsync(cargar, () => false);
-  const delDia = (data ?? []).filter((f) => f.clase.fecha === dia);
+  const delDia = (data?.filas ?? []).filter((f) => f.clase.fecha === dia);
 
   return (
     <StudentShell modo="instructora">
-      <PageHeader titulo="Agenda" sub={esAlumna ? 'Las clases que das y las que has reservado' : 'Las clases que das'} />
+      <PageHeader
+        titulo="Agenda"
+        sub={esAlumna ? 'Las clases que das y las que has reservado' : 'Las clases que das'}
+        // Solo si el estudio le deja crear sus clases: un botón que acaba en «no
+        // puedes» es peor que no tenerlo.
+        accion={data?.puedeCrearClases ? (
+          <Link href={href('/equipo/nueva-clase')} className="btn btn--secondary btn--sm tap" data-testid="nueva-clase">
+            Nueva clase
+          </Link>
+        ) : undefined}
+      />
       <div style={{ marginTop: 12 }}>
         <DateSelector value={dia} onChange={setDia} dias={DIAS} />
       </div>

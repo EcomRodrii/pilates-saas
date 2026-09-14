@@ -52,6 +52,9 @@ type PoliticaForm = {
   bloquearReservaImpago: boolean;
   // Migr 20260906005059: recuperaciones solas al cerrar la semana.
   recuperacionAutoSemanal: boolean;
+  // Migr 20260914104856: «la instructora crea sus clases / solo se le asignan».
+  // Default true = lo de siempre (#550).
+  instructorasCreanClases: boolean;
 };
 
 function studioToPolitica(s: Studio | null): PoliticaForm {
@@ -77,6 +80,7 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     requiereCheckinQr: s?.requiereCheckinQr ?? true,
     bloquearReservaImpago: s?.bloquearReservaImpago ?? false,
     recuperacionAutoSemanal: s?.recuperacionAutoSemanal ?? false,
+    instructorasCreanClases: s?.instructorasCreanClases ?? true,
   };
 }
 
@@ -198,6 +202,15 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               <span className="block text-[11px] text-muted-foreground">La clienta necesita una suscripción activa o bono con sesiones para reservar.</span>
             </span>
             <Toggle on={pol.reservaExigirPlan} onChange={v => setPol(p => ({ ...p, reservaExigirPlan: v }))} />
+          </label>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-[13px] text-foreground">
+              Las instructoras pueden crear sus clases
+              <span className="block text-[11px] text-muted-foreground">
+                Desactivado: solo tienen las clases que les asignas. Pueden seguir moviendo o editando las suyas.
+              </span>
+            </span>
+            <Toggle on={pol.instructorasCreanClases} onChange={v => setPol(p => ({ ...p, instructorasCreanClases: v }))} />
           </label>
           {/* ── Opciones avanzadas ────────────────────────────────────────────
               Arriba solo lo que decide todo estudio (cancelación, devolución,

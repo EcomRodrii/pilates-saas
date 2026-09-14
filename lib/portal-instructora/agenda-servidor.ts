@@ -31,6 +31,8 @@ export interface AgendaInstructora {
   clases: ClaseQueDa[];
   /** Bajas con clase en el rango, incluidas las de clases que ya no son suyas. */
   bajas: BajaConClase[];
+  /** Si el estudio le deja crear sus clases (migr 20260914104856): para enseñar «Nueva clase». */
+  puedeCrearClases: boolean;
 }
 
 export async function agendaDeInstructora(p: {
@@ -159,5 +161,12 @@ export async function agendaDeInstructora(p: {
     .filter((b): b is BajaConClase => b !== null)
     .sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio));
 
-  return { clases, bajas };
+  // Solo decide si se enseña «Nueva clase»: si esta lectura falla, el botón no
+  // sale y la agenda se sirve igual (crear vuelve a comprobar el ajuste).
+  const { data: estudio, error: eEstudio } = await admin.from('studios')
+    .select('instructoras_crean_clases').eq('id', p.studioId).maybeSingle();
+  const puedeCrearClases = !eEstudio
+    && (estudio as { instructoras_crean_clases?: boolean } | null)?.instructoras_crean_clases === true;
+
+  return { clases, bajas, puedeCrearClases };
 }

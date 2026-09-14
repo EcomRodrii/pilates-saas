@@ -7,6 +7,21 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { obtenerOCrearCuponReviewBoost } from '@/lib/billing/review-boost-cupon';
 import { capturar } from '@/lib/analytics';
 import { errorInterno } from '@/lib/errores-servidor';
+import { marcarReviewBoostRespondido } from '@/lib/growth/review-boost-respondido';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+// Tras responder (o al ver que ya había respondido), el modal no puede volver a
+// salir: ver lib/growth/review-boost-respondido.ts. Si no se pudiera marcar, el
+// feedback ya está guardado y no se le falla a la propietaria por esto — pero
+// el modal le volvería a salir, así que se avisa.
+async function marcarRespondido(admin: SupabaseClient, studioId: string) {
+  const r = await marcarReviewBoostRespondido(admin, studioId);
+  if (!r.ok) {
+    Sentry.captureException(new Error(`review-boost: no se pudo marcar respondido: ${r.error}`), {
+      level: 'error', tags: { area: 'growth', tipo: 'review-boost-respondido' }, extra: { studioId },
+    });
+  }
+}
 
 // Feedback interno de Review Boost: 1-5 estrellas + comentario opcional. Solo
 // PROPIETARIO (misma decisión que /configuracion → Facturación: es sobre la
@@ -45,10 +60,23 @@ export async function POST(req: NextRequest) {
     // 23505 = unique(studio_id) — ya había dado feedback. No es un fallo del
     // cliente, es la guardia real de "no volver a pedirlo" en el esquema.
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'Ya nos habías compartido tu opinión, gracias de nuevo.' }, { status: 409 });
+      // Se vuelve a marcar: un estudio que quedó en el bucle antes de este
+      // arreglo sale de él en cuanto responde otra vez.
+      await marcarRespondido(admin, sesion.studioId);
+      // Y se dice si de verdad tiene recompensa. El modal enseñaba «20% de
+      // descuento reservado» con cualquier 409, también a quien había dado 3★
+      // y no tenía ninguna: una promesa que el checkout no iba a cumplir.
+      const { data: recompensa } = await admin.from('review_boost_recompensas')
+        .select('studio_id').eq('studio_id', sesion.studioId).maybeSingle();
+      return NextResponse.json(
+        { error: 'Ya nos habías compartido tu opinión, gracias de nuevo.', recompensa: Boolean(recompensa) },
+        { status: 409 },
+      );
     }
     return errorInterno('growth/review-boost/feedback:POST', error, 'No se ha podido guardar tu opinión.');
   }
+
+  await marcarRespondido(admin, sesion.studioId);
 
   const positivo = rating >= 4;
   capturar(sesion.studioId, { nombre: 'review_boost_feedback_submitted', props: { rating } });

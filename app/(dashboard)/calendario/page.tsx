@@ -23,7 +23,8 @@ import {
   Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
 } from 'lucide-react';
 import Link from 'next/link';
-import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera } from '@/lib/utils';
+import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera, hoyEnEstudio, franjaLocalDe } from '@/lib/utils';
+import { horaInicioLocalDe, nombreDiaSemana } from '@/lib/plazas-fijas-slot';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import type { CambioClaseSerie } from '@/lib/avisos-serie';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
@@ -535,7 +536,7 @@ interface DatosVista {
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
-    suscripciones, planesTarifa, studio, plazasFijas,
+    suscripciones, planesTarifa, studio, plazasFijas, asignarPlazaFija,
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
@@ -572,7 +573,8 @@ export default function Calendario() {
   const rolActual = useRol();
   const gestionaClientas = puedeGestionarClientas(rolActual);
   const mueveDinero = puedeMoverDinero(rolActual);
-  const creaClasesPropias = puedeCrearClasesPropias(rolActual);
+  // El estudio decide si la instructora crea sus clases (migr 20260914104856).
+  const creaClasesPropias = puedeCrearClasesPropias(rolActual, studio?.instructorasCreanClases ?? true);
   const esInstructorTop = rolActual === 'INSTRUCTOR';
   const yoTop = instructores.find(i => i.authUserId === user?.id) ?? null;
 
@@ -2134,6 +2136,31 @@ export default function Calendario() {
     showToast(res.estado === 'CONFIRMADA' ? 'Añadida a la clase de la semana que viene.' : 'La clase de la semana que viene está llena — añadida a lista de espera.');
   }
 
+  // Atajo pedido tras feedback real de una propietaria en prueba: crear una
+  // plaza fija estaba solo en la ficha de la socia (Clientas → ficha →
+  // "Plaza fija" → Añadir), sin ningún enlace desde el calendario — nadie la
+  // encontraba desde el sitio donde de verdad se decide "esta clienta viene
+  // siempre a este hueco". Ancla al slot de la sesión actual (sala/día/hora
+  // en local del estudio, mismo criterio que sesionEncajaEnPlaza).
+  async function hacerPlazaFija(reservaId: string) {
+    const r = reservasActuales.find(x => x.id === reservaId);
+    if (!r || !sesionActual) return;
+    const franja = franjaLocalDe(sesionActual.inicio);
+    const res = await asignarPlazaFija({
+      socioId: r.socioId,
+      diaSemana: franja.dow,
+      horaInicio: horaInicioLocalDe(sesionActual.inicio),
+      salaId: sesionActual.salaId,
+      tipoClaseId: sesionActual.tipoClaseId,
+      spotId: r.spotId,
+      vigenciaDesde: hoyEnEstudio(),
+      vigenciaHasta: null,
+      estado: 'ACTIVA',
+    });
+    if ('error' in res) { showToast(res.error); return; }
+    showToast(`Plaza fija creada — ${nombreClientaResolver(r.socioId)} queda apuntada cada ${nombreDiaSemana(franja.dow)} a esta hora.`);
+  }
+
   function abrirIncidencia(sesionId: string) {
     const actual = datosVista?.sesiones.find(s => s.id === sesionId)?.incidenciaTexto ?? '';
     setDialogoIncidencia({ sesionId, texto: actual ?? '' });
@@ -2907,6 +2934,9 @@ export default function Calendario() {
               });
             } : undefined,
             onRepetirSemanaSiguiente: gestionaClientas ? repetirSemanaSiguiente : undefined,
+            onHacerPlazaFija: gestionaClientas ? hacerPlazaFija : undefined,
+            plazaFijaExistePara: socioId => plazasFijas.some(p => p.socioId === socioId && p.estado !== 'BAJA'
+              && sesionActual && sesionEncajaEnPlaza(p, sesionActual)),
             semaforoPorSocio: verSemaforo ? (socioId => {
               const nivel = semaforoParaMostrar.get(socioId);
               return nivel ? { color: SEMAFORO_META[nivel].color, label: SEMAFORO_META[nivel].label } : undefined;
@@ -3254,7 +3284,7 @@ export default function Calendario() {
                 </FormField>
               </div>
               {esInstructorTop && showForm === 'nueva' ? (
-                <FormField label="Aforo máximo" description="Es el de la sala elegida.">
+                <FormField label="Aforo máximo" description="Lo fija el tipo de clase o, si no tiene, la sala elegida.">
                   <input type="number" className={inputCls + ' opacity-60'} value={form.aforoMaximo} disabled readOnly />
                 </FormField>
               ) : (

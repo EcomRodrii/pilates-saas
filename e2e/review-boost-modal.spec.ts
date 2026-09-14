@@ -19,9 +19,15 @@ function json(route: Route, body: unknown, status = 200) {
 async function montarDashboard(page: Page, opts: {
   elegible?: boolean;
   mostrado?: boolean;
+  /** Cierre sin responder anterior: con ≥14 días y `veces` < 2, el modal reaparece. */
+  pospuesto?: string | null;
+  veces?: number;
   feedbackPost?: { status: number; body: unknown };
 } = {}) {
-  const { elegible = true, mostrado = false, feedbackPost = { status: 200, body: { estado: 'positivo' } } } = opts;
+  const {
+    elegible = true, mostrado = false, pospuesto = null, veces = 0,
+    feedbackPost = { status: 200, body: { estado: 'positivo' } },
+  } = opts;
   const feedbackRequests: unknown[] = [];
 
   await page.addInitScript(([key, uid]) => {
@@ -53,23 +59,32 @@ async function montarDashboard(page: Page, opts: {
   });
 
   await page.route('**/rest/v1/**', route => json(route, []));
-  await page.route('**/rest/v1/studios**', route =>
-    // Al cerrar, el modal sella `review_boost_*` con un UPDATE que pide
-    // `select=id` y cuenta filas: con un objeto suelto contaría como no
-    // guardado y saldría el aviso global de escritura fallida (otro «Cerrar»).
-    route.request().method() === 'PATCH'
-      ? json(route, [{ id: STUDIO_ID }])
-      : json(route, {
-        id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID,
-        review_boost_elegible_en: elegible ? '2026-08-20T06:00:00Z' : null,
-        review_boost_mostrado_en: mostrado ? '2026-08-20T07:00:00Z' : null,
-        review_boost_pospuesto_en: null,
-        review_boost_veces_mostrado: 0,
-      }));
+  // Con estado: un PATCH se aplica y la siguiente carga lo lee, como la BD.
+  const estudio: Record<string, unknown> = {
+    id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID,
+    review_boost_elegible_en: elegible ? '2026-08-20T06:00:00Z' : null,
+    review_boost_mostrado_en: mostrado ? '2026-08-20T07:00:00Z' : null,
+    review_boost_pospuesto_en: pospuesto,
+    review_boost_veces_mostrado: veces,
+  };
+  const escriturasEstudio: Record<string, unknown>[] = [];
+  await page.route('**/rest/v1/studios**', route => {
+    const req = route.request();
+    if (req.method() === 'PATCH') {
+      const cambios = req.postDataJSON() as Record<string, unknown>;
+      escriturasEstudio.push(cambios);
+      Object.assign(estudio, cambios);
+      // `dbUpdateStudio` pide `select=id` y cuenta filas: con un 204 sin cuerpo
+      // contaría como no guardado y saldría el aviso global de escritura
+      // fallida, cuyo ✕ también se llama «Cerrar».
+      return json(route, [{ id: STUDIO_ID }]);
+    }
+    return json(route, estudio);
+  });
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/dashboard');
-  return { feedbackRequests };
+  return { feedbackRequests, escriturasEstudio };
 }
 
 test.describe('Review Boost — modal tras el trial', () => {
@@ -87,6 +102,25 @@ test.describe('Review Boost — modal tras el trial', () => {
   test('ya mostrado antes: no se repite en una nueva carga', async ({ page }) => {
     await montarDashboard(page, { elegible: true, mostrado: true });
     await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('¿Qué te está pareciendo Tentare?')).toHaveCount(0);
+  });
+
+  test('recargar con el modal abierto NO lo vuelve a enseñar: se apunta al enseñarlo', async ({ page }) => {
+    // «Entro, recargo y pum, otra vez la reseña» (14-sep): solo se apuntaba al
+    // CERRAR, así que recargar o salir con el modal abierto no escribía nada.
+    const { escriturasEstudio } = await montarDashboard(page, { elegible: true });
+    await expect(page.getByText('¿Qué te está pareciendo Tentare?')).toBeVisible({ timeout: 30_000 });
+
+    // Contador: sin esta escritura, que no salga al recargar no probaría nada.
+    await expect.poll(() => escriturasEstudio.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    expect(escriturasEstudio[0].review_boost_veces_mostrado).toBe(1);
+    expect(escriturasEstudio[0].review_boost_mostrado_en).toBeTruthy();
+    expect(escriturasEstudio[0].review_boost_pospuesto_en).toBeTruthy();
+
+    await page.reload();
+    await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: 30_000 });
+    // Margen para que el estudio cargue y el modal decida: sin él, «no está» podría ser «aún no».
+    await page.waitForTimeout(2_000);
     await expect(page.getByText('¿Qué te está pareciendo Tentare?')).toHaveCount(0);
   });
 
@@ -111,6 +145,42 @@ test.describe('Review Boost — modal tras el trial', () => {
     expect(capterraHref).toContain('reviews.capterra.com');
     const getappHref = await page.getByRole('link', { name: /Reseñar en GetApp/ }).getAttribute('href');
     expect(getappHref).toContain('reviews.getapp.com');
+  });
+
+  // La reaparición a los 14 días le salía también a quien ya había valorado. Si
+  // entonces pulsa 5★, el servidor dice 409 (ya había feedback) — y el modal
+  // enseñaba «20% de descuento reservado» aunque no tuviera recompensa (había
+  // dado 3★). El servidor ahora dice si la tiene.
+  const REAPARICION = { mostrado: true, pospuesto: '2026-08-26T09:00:00Z', veces: 1 };
+
+  test('ya había valorado SIN recompensa (409): no promete el 20% y dice que no volverá a preguntar', async ({ page }) => {
+    const { feedbackRequests } = await montarDashboard(page, {
+      ...REAPARICION,
+      feedbackPost: { status: 409, body: { error: 'Ya nos habías compartido tu opinión, gracias de nuevo.', recompensa: false } },
+    });
+    await expect(page.getByText('¿Qué te está pareciendo Tentare?')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('radio', { name: '5 estrellas' }).click();
+
+    await expect(page.getByText('Ya nos habías dado tu opinión')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('No volveremos a preguntártelo.')).toBeVisible();
+    await expect(page.getByText(/20% de descuento/)).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Reseñar en/ })).toHaveCount(0);
+    expect(feedbackRequests).toEqual([{ rating: 5, comentario: undefined }]);
+
+    await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
+    await expect(page.getByText('Ya nos habías dado tu opinión')).toHaveCount(0);
+  });
+
+  test('409 CON recompensa (se perdió la respuesta del primer envío): sí enseña el 20%', async ({ page }) => {
+    await montarDashboard(page, {
+      ...REAPARICION,
+      feedbackPost: { status: 409, body: { error: 'Ya nos habías compartido tu opinión, gracias de nuevo.', recompensa: true } },
+    });
+    await expect(page.getByText('¿Qué te está pareciendo Tentare?')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('radio', { name: '5 estrellas' }).click();
+    await expect(page.getByText('Nos alegra mucho saberlo ❤️')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/20% de descuento en tu primer/)).toBeVisible();
   });
 
   test('2 estrellas: va a feedback interno, SIN recompensa ni plataformas externas', async ({ page }) => {

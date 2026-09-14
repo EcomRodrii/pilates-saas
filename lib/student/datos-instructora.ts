@@ -6,6 +6,7 @@ import type {
   BajaConClase, ClaseQueDa, ClaseQueReserva, EstadoEnLista, ListaDeClase, OfertaSustitucion,
 } from '@/lib/student/agenda-instructora';
 import type { AusenciaVista, PerfilInstructora, TipoAusencia } from '@/lib/student/perfil-instructora';
+import type { OpcionesNuevaClase } from '@/lib/student/nueva-clase';
 
 // Adaptador de datos de la instructora en la app. Delgado a propósito, como
 // `datos.ts`: pide y devuelve; lo que decide vive en el servidor.
@@ -13,6 +14,8 @@ import type { AusenciaVista, PerfilInstructora, TipoAusencia } from '@/lib/stude
 export interface AgendaInstructoraVista {
   clases: ClaseQueDa[];
   bajas: BajaConClase[];
+  /** Si el estudio le deja crear sus clases. Sin el dato, no se ofrece. */
+  puedeCrearClases: boolean;
 }
 
 /** Sus clases y sus bajas entre dos días (YYYY-MM-DD, ambos incluidos). */
@@ -30,6 +33,7 @@ export async function getAgendaInstructora(slug: string, desde: string, hasta: s
   return {
     clases: Array.isArray(d.clases) ? d.clases : [],
     bajas: Array.isArray(d.bajas) ? d.bajas : [],
+    puedeCrearClases: d.puedeCrearClases === true,
   };
 }
 
@@ -120,7 +124,7 @@ export async function guardarDisponibilidadInstructora(
 }
 
 async function postInstructora(
-  ruta: 'ofertas' | 'lista' | 'perfil' | 'ausencias', cuerpo: Record<string, unknown>,
+  ruta: 'ofertas' | 'lista' | 'perfil' | 'ausencias' | 'clases', cuerpo: Record<string, unknown>,
 ): Promise<Response> {
   const auth = await portalAuthHeader();
   return fetch(`/api/portal/instructora/${ruta}`, {
@@ -251,5 +255,40 @@ export async function borrarAusenciaInstructora(
     return { ok: true };
   } catch {
     return { ok: false, error: 'Sin conexión: la ausencia sigue guardada.' };
+  }
+}
+
+/** Tipos de clase y salas para crear una clase, si el estudio le deja. */
+export async function getOpcionesNuevaClase(slug: string): Promise<OpcionesNuevaClase> {
+  const res = await postInstructora('clases', { slug, accion: 'opciones' });
+  if (!res.ok) throw new Error(`instructora/clases ${res.status}`);
+  const d = await res.json() as Partial<OpcionesNuevaClase>;
+  return {
+    puedeCrear: d.puedeCrear === true,
+    tipos: Array.isArray(d.tipos) ? d.tipos : [],
+    salas: Array.isArray(d.salas) ? d.salas : [],
+  };
+}
+
+export type ResultadoCrearClaseApp =
+  | { ok: true; sesionId: string }
+  | { ok: false; error: string; sesionCaducada?: boolean };
+
+/** Crea su clase. Solo la da por creada si el servidor lo confirma. No lanza nunca. */
+export async function crearClaseInstructora(
+  slug: string, datos: { tipoClaseId: string; salaId: string; fecha: string; hora: string },
+): Promise<ResultadoCrearClaseApp> {
+  const auth = await portalAuthHeader();
+  if (!auth.Authorization) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+  try {
+    const res = await postInstructora('clases', { slug, accion: 'crear', ...datos });
+    if (res.status === 401) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+    const d = await res.json().catch(() => ({})) as { ok?: boolean; sesionId?: unknown; error?: string };
+    if (!res.ok || !d.ok || typeof d.sesionId !== 'string') {
+      return { ok: false, error: d.error || 'No hemos podido crear la clase. Vuelve a intentarlo.' };
+    }
+    return { ok: true, sesionId: d.sesionId };
+  } catch {
+    return { ok: false, error: 'Sin conexión: la clase no se ha creado.' };
   }
 }

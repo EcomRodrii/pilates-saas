@@ -10,10 +10,11 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
-import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
+import { getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
 import { cancelarReserva, aceptarOfertaEspera } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato';
+import { nombreDia } from '@/lib/student/plaza-fija';
 import { añadirAlCalendario } from '@/lib/student/enlaces-clase';
 import { Badge, EnCursoBadge } from '@/components/student/ui/Badge';
 import { useAhoraMs } from '@/lib/student/use-ahora';
@@ -21,6 +22,23 @@ import { estaEnCurso } from '@/lib/student/estado-clase';
 import { etiquetaHistorial } from '@/lib/student/etiqueta-historial';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import type { Clase } from '@/lib/student/tipos';
+import type { PlazaFijaVista } from '@/lib/student/tipos';
+
+// Feedback real de una propietaria en prueba (14-sep): una socia no sabía que
+// podía cancelar SOLO un día de su plaza fija sin perder el hueco semanal —
+// esta tarjeta usaba el mismo badge "Reservada ✓" que cualquier otra clase, y
+// el diálogo de cancelar nunca decía que era su plaza fija. Comparación por
+// nombre (sala/tipo), no por id: `getPlazaFija` (F2) ya proyecta la plaza con
+// nombres resueltos para pintarla, y `Clase` no trae más que eso mismo.
+function esOcurrenciaDePlazaFija(plaza: PlazaFijaVista | null, c: Clase): boolean {
+  if (!plaza || plaza.estado !== 'ACTIVA') return false;
+  if (new Date(`${c.fecha}T12:00:00`).getDay() !== plaza.diaSemana) return false;
+  if (c.hora !== plaza.hora) return false;
+  if (c.sala !== plaza.sala) return false;
+  if (plaza.tipo && c.tipo !== plaza.tipo) return false;
+  return true;
+}
 
 // Mis clases (§A.9): próximas / historial, con cancelación y salida de la lista
 // de espera.
@@ -52,10 +70,10 @@ export default function MisReservasPage() {
   const ahoraMs = useAhoraMs();
 
   const cargar = useCallback(async () => {
-    const [reservas, clases, instructoras] = await Promise.all([
-      getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug),
+    const [reservas, clases, instructoras, { plaza }] = await Promise.all([
+      getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug),
     ]);
-    return { reservas, clases, instructoras };
+    return { reservas, clases, instructoras, plaza };
   }, [estudio.slug]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
@@ -82,6 +100,7 @@ export default function MisReservasPage() {
 
   const sel = items.find((x) => x.r.id === cancelId);
   const aviso = sel ? avisoCancelacion(sel.c, estudio.politicaCancelacionHoras) : null;
+  const selEsFija = sel && sel.r.estado !== 'en-espera' ? esOcurrenciaDePlazaFija(data?.plaza ?? null, sel.c) : false;
 
   // Sin `useCallback` a propósito: cierra sobre `sel`, que se deriva en el
   // render a partir de `data`, y el compilador de React no puede preservar esa
@@ -221,6 +240,7 @@ export default function MisReservasPage() {
                 const i = data.instructoras.find((x) => x.id === c.instructoraId);
                 const av = avisoCancelacion(c, estudio.politicaCancelacionHoras);
                 const espera = r.estado === 'en-espera';
+                const esFija = !espera && esOcurrenciaDePlazaFija(data.plaza, c);
                 // P-5: la oferta vive hasta `ofertaExpiraEn` — pasado ese
                 // instante el cron ya la ha caducado y el sitio no es suyo,
                 // aunque el catálogo todavía no se haya recargado.
@@ -248,7 +268,7 @@ export default function MisReservasPage() {
                           ? '¡Plaza libre!'
                           : espera
                             ? `Lista de espera${r.posicionEspera ? ` · ${r.posicionEspera}ª` : ''}`
-                            : 'Reservada ✓'}
+                            : esFija ? 'Tu plaza fija ✓' : 'Reservada ✓'}
                       </Badge>
                       )}
                     </div>
@@ -352,6 +372,13 @@ export default function MisReservasPage() {
         loading={cancelando}
         onConfirm={confirmarCancelacion}
       >
+        {selEsFija && data?.plaza && (
+          <div style={{ background: 'var(--accent-soft)', borderRadius: 'var(--radius-sm)', padding: '11px 14px', marginTop: 13 }}>
+            <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>
+              Esto NO cancela tu plaza fija de los {nombreDia(data.plaza.diaSemana)} — solo esta clase. Seguirás apuntada cada semana.
+            </p>
+          </div>
+        )}
         {sel && sel.r.estado !== 'en-espera' && (
           <div
             style={{

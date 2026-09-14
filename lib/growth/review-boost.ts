@@ -67,3 +67,28 @@ export function debeMostrarModal(estudio: {
   if (!estudio.reviewBoostMostradoEn) return true; // 1ª vez
   return debeReaparecer(estudio.reviewBoostPospuestoEn, estudio.reviewBoostVecesMostrado, ahora);
 }
+
+/**
+ * Lo que se apunta en el estudio al ENSEÑAR el modal (no al cerrarlo): cuenta
+ * como una vez mostrado y abre el plazo de reaparición. Así «1ª vez + 1
+ * reaparición» cuenta VECES QUE SE VIO, también si se recargó o se salió con el
+ * modal abierto — que antes no apuntaba nada y lo volvía a sacar en cada carga.
+ * Si responde, el servidor borra el pospuesto (lib/growth/review-boost-respondido.ts)
+ * y ya no vuelve.
+ */
+export function cambiosAlMostrar(estudio: {
+  reviewBoostMostradoEn: string | null;
+  reviewBoostVecesMostrado: number;
+}, ahora: Date = new Date()): {
+  reviewBoostMostradoEn: string;
+  reviewBoostPospuestoEn: string;
+  reviewBoostVecesMostrado: number;
+} {
+  const iso = ahora.toISOString();
+  return {
+    // La primera vez no se pisa: /interno la enseña.
+    reviewBoostMostradoEn: estudio.reviewBoostMostradoEn ?? iso,
+    reviewBoostPospuestoEn: iso,
+    reviewBoostVecesMostrado: (estudio.reviewBoostVecesMostrado ?? 0) + 1,
+  };
+}
