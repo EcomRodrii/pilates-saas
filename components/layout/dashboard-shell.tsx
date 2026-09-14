@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { AvisoCambioDeSede } from '@/components/layout/sede-activa';
+import { AvisoAppInstructora } from '@/components/layout/aviso-app-instructora';
 import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
@@ -283,6 +284,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                         aquí?» encima de un esqueleto de carga es hablarle a
                         una pantalla que todavía no existe. */}
                     <PrimeraVezAqui />
+                    {/* La instructora tiene ya su trabajo en la app del estudio:
+                        primer paso para retirar Tentare Core. Con el rol
+                        RESUELTO (el mínimo mientras carga también es INSTRUCTOR). */}
+                    {rolResuelto && rol === 'INSTRUCTOR' && studio?.slug && (
+                      <AvisoAppInstructora studioId={studio.id} slug={studio.slug} />
+                    )}
                     {children}
                   </>
                 )}
