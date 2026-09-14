@@ -257,7 +257,9 @@ export async function GET(req: NextRequest) {
       ultimaClaseIso: ultimaClasePorInstructor.get(i.id) ?? null,
       clasesUltimos90Dias: clasesUltimos90DiasPorInstructor.get(i.id) ?? (ultimaClasePorInstructor.has(i.id) ? 0 : null),
       semana, horasDia,
-      ocupacionPct, valoracion: valoracionPorInstructor.get(i.id) ?? null,
+      // La media en vivo solo para quien gestiona: a la instructora, ni la suya
+      // (deja deducir votos viendo cuándo cambia).
+      ocupacionPct, valoracion: gestiona ? valoracionPorInstructor.get(i.id) ?? null : null,
       horasMes: Math.round(horasMes * 10) / 10, costeMes,
       coincideContigo,
       disponibilidadActualizadaEn: disponibilidadActualizadaPorInstructor.get(i.id) ?? null,

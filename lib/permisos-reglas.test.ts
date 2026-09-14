@@ -398,19 +398,20 @@ test('el contacto del equipo lo recibe quien organiza el calendario, no la instr
   assert.equal(puedeVerContactoEquipo('INSTRUCTOR'), false);
 });
 
-test('valoraciones con comentario: propietaria y manager, o la instructora las suyas', () => {
+test('valoraciones con comentario: solo propietaria y manager', () => {
   assert.equal(puedeVerValoracionesDe('PROPIETARIO', false), true);
   assert.equal(puedeVerValoracionesDe('MANAGER', false), true);
   assert.equal(puedeVerValoracionesDe('RECEPCION', false), false, 'recepción no ve /equipo');
-  assert.equal(puedeVerValoracionesDe('INSTRUCTOR', true), true);
+  // Ni las suyas: una valoración suelta identifica a quien la puso.
+  assert.equal(puedeVerValoracionesDe('INSTRUCTOR', true), false);
   assert.equal(puedeVerValoracionesDe('INSTRUCTOR', false), false);
 });
 
-test('la media de valoraciones: el mostrador entero; la instructora solo la suya', () => {
+test('la media de valoraciones en vivo: el mostrador entero; la instructora, ni la suya', () => {
   for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
     assert.equal(puedeVerResumenValoracionDe(rol, false), true, rol);
   }
-  assert.equal(puedeVerResumenValoracionDe('INSTRUCTOR', true), true);
+  assert.equal(puedeVerResumenValoracionDe('INSTRUCTOR', true), false);
   assert.equal(puedeVerResumenValoracionDe('INSTRUCTOR', false), false);
 });
 

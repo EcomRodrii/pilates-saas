@@ -411,16 +411,20 @@ export function puedeVerContactoEquipo(rol: Rol): boolean {
 }
 
 // Leer las valoraciones de una instructora una a una: comentario libre de la
-// alumna y su nombre. La propietaria y la manager (gestionan el equipo); la
-// instructora, solo las suyas. Recepción no: ni siquiera ve /equipo.
-export function puedeVerValoracionesDe(rol: Rol, esPropia: boolean): boolean {
-  return rol === 'PROPIETARIO' || rol === 'MANAGER' || (rol === 'INSTRUCTOR' && esPropia);
+// alumna y su nombre. La propietaria y la manager (gestionan el equipo).
+// Recepción no: ni siquiera ve /equipo. La instructora TAMPOCO, ni las suyas
+// (decisión del 14-sep-2026): ella sabe quién vino a cada clase, así que una
+// valoración suelta la identifica. Solo ve su nota agregada y protegida en la
+// app del estudio (`lib/valoraciones/agregado.ts`).
+export function puedeVerValoracionesDe(rol: Rol, _esPropia: boolean): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER';
 }
 
-// La media y el total (sin comentarios ni nombres): lo pinta el ranking de
-// /sustituciones, que usa todo el mostrador. La instructora ve solo la suya.
-export function puedeVerResumenValoracionDe(rol: Rol, esPropia: boolean): boolean {
-  return puedeGestionarCalendario(rol) || (rol === 'INSTRUCTOR' && esPropia);
+// La media y el total en vivo (sin comentarios ni nombres): lo pinta el ranking
+// de /sustituciones, que usa todo el mostrador. La instructora no: una media en
+// vivo deja deducir un voto viendo cuándo cambia.
+export function puedeVerResumenValoracionDe(rol: Rol, _esPropia: boolean): boolean {
+  return puedeGestionarCalendario(rol);
 }
 
 // Arquitectura de marca: el panel es una sola app role-gateada, pero se

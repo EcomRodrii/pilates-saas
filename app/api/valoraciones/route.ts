@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { instructorIdDeSesion } from '@/lib/datos-salud/acceso-servidor';
 import { puedeVerValoracionesDe, puedeVerResumenValoracionDe } from '@/lib/permisos-reglas';
 
 // GET /api/valoraciones — resumen (media + total) por instructora del estudio,
@@ -10,9 +9,10 @@ import { puedeVerValoracionesDe, puedeVerResumenValoracionDe } from '@/lib/permi
 // Con ?instructorId=… devuelve el DETALLE: cada valoración individual (nota +
 // comentario + clase + alumna) para leerlas, no solo la media.
 //
-// El detalle lleva el comentario libre y el nombre de la alumna: propietaria y
-// manager, o la instructora sobre sus propias clases. El resumen lo usa todo el
-// mostrador; a una instructora solo le llega su fila.
+// El detalle lleva el comentario libre y el nombre de la alumna: solo
+// propietaria y manager. El resumen en vivo lo usa todo el mostrador. A una
+// instructora no le llega ni el detalle ni el resumen, ni de sus clases: su nota
+// agregada y protegida la ve en la app del estudio (`lib/valoraciones/agregado.ts`).
 export async function GET(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
@@ -20,11 +20,9 @@ export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-  const propio = sesion.rol === 'INSTRUCTOR' ? await instructorIdDeSesion(admin, sesion) : null;
-
   const instructorId = req.nextUrl.searchParams.get('instructorId');
   if (instructorId) {
-    if (!puedeVerValoracionesDe(sesion.rol, !!propio && instructorId === propio)) {
+    if (!puedeVerValoracionesDe(sesion.rol, false)) {
       return NextResponse.json({ error: 'No tienes permiso para leer estas valoraciones.' }, { status: 403 });
     }
     const { data, error } = await admin
@@ -64,7 +62,7 @@ export async function GET(req: NextRequest) {
   // Mapa instructor_id → { media, total } para lookup O(1) en la UI.
   const resumen: Record<string, { media: number; total: number }> = {};
   for (const r of (data ?? []) as { instructor_id: string; media: number | string; total: number | string }[]) {
-    if (!puedeVerResumenValoracionDe(sesion.rol, !!propio && r.instructor_id === propio)) continue;
+    if (!puedeVerResumenValoracionDe(sesion.rol, false)) continue;
     resumen[r.instructor_id] = { media: Number(r.media), total: Number(r.total) };
   }
   return NextResponse.json({ resumen });
