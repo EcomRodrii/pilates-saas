@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  agruparPorDia, bajasEnCurso, clasesLocalesDesdeAgenda, estadoBajaVista, fechaEnZona, horaEnZona,
-  proximaQueDa, puedePedirBaja, rangoAgendaValido, textoBaja, unirAgenda,
+  agruparPorDia, bajasEnCurso, clasesLocalesDesdeAgenda, estadoBajaVista, estadoEnLista, fechaEnZona, horaEnZona,
+  nombresParaLista, ordenarLista, proximaQueDa, puedePasarLista, puedePedirBaja, rangoAgendaValido, resumenLista,
+  textoBaja, textoMotivoOferta, unirAgenda,
   type ClaseQueDa, type ClaseQueReserva,
 } from './agenda-instructora.ts';
 
@@ -131,4 +132,52 @@ test('el rango de la agenda exige fechas reales, en orden y de como mucho 31 dí
   assert.equal(rangoAgendaValido('14/09/2026', '2026-09-20'), false);
   assert.equal(rangoAgendaValido(undefined, '2026-09-20'), false);
   assert.equal(rangoAgendaValido('2026-09-14', 20260920), false);
+});
+
+test('la lista se abre una hora antes, se cierra 12 h después de acabar y nunca en una cancelada', () => {
+  const clase = { inicio: '2026-09-15T10:00:00Z', fin: '2026-09-15T10:55:00Z', cancelada: false };
+  assert.equal(puedePasarLista(clase, Date.parse('2026-09-15T08:59:00Z')), false);
+  assert.equal(puedePasarLista(clase, Date.parse('2026-09-15T09:00:00Z')), true);
+  assert.equal(puedePasarLista(clase, Date.parse('2026-09-15T22:55:00Z')), true);
+  assert.equal(puedePasarLista(clase, Date.parse('2026-09-15T22:56:00Z')), false);
+  assert.equal(puedePasarLista({ ...clase, cancelada: true }, Date.parse('2026-09-15T10:10:00Z')), false);
+});
+
+test('en la lista solo está quien tiene plaza, y un «no vino» se enseña tal cual', () => {
+  assert.equal(estadoEnLista('CONFIRMADA'), 'por-marcar');
+  assert.equal(estadoEnLista('ASISTIDA'), 'asistio');
+  assert.equal(estadoEnLista('NO_ASISTIO'), 'no-vino');
+  for (const e of ['LISTA_ESPERA', 'CANCELADA', 'PENDIENTE_APROBACION', 'OTRO']) {
+    assert.equal(estadoEnLista(e), null, e);
+  }
+});
+
+test('nombres de la lista: nombre e inicial, y el apellido entero solo si dos coinciden', () => {
+  assert.deepEqual(
+    nombresParaLista([
+      { nombre: 'Laura', apellidos: 'Martín Gil' },
+      { nombre: 'laura', apellidos: 'Moreno' },
+      { nombre: 'Aina', apellidos: 'puig' },
+      { nombre: 'Carmen', apellidos: null },
+      { nombre: '  ', apellidos: 'Soler' },
+    ]),
+    ['Laura Martín', 'laura Moreno', 'Aina P.', 'Carmen', 'S.'],
+  );
+});
+
+test('la lista se ordena por nombre y cuenta quién ha venido', () => {
+  const lista = ordenarLista([
+    { reservaId: '1', nombre: 'Úrsula T.', estado: 'asistio' as const },
+    { reservaId: '2', nombre: 'Aina P.', estado: 'por-marcar' as const },
+    { reservaId: '3', nombre: 'Carmen', estado: 'no-vino' as const },
+  ]);
+  assert.deepEqual(lista.map((a) => a.reservaId), ['2', '3', '1']);
+  assert.deepEqual(resumenLista(lista), { vinieron: 1, total: 3 });
+});
+
+test('cada motivo de una oferta tiene su explicación, y lo desconocido no la culpa de nada', () => {
+  assert.match(textoMotivoOferta('ya_no_te_toca'), /otra persona/);
+  assert.match(textoMotivoOferta('conflicto_horario'), /otra clase a esa hora/);
+  assert.match(textoMotivoOferta('clase_ya_empezada'), /ya ha empezado/);
+  assert.match(textoMotivoOferta(undefined), /cubierto antes/);
 });

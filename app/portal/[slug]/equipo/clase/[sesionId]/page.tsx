@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
@@ -11,7 +12,7 @@ import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getClases } from '@/lib/student/datos';
 import { getAgendaInstructora, pedirBaja } from '@/lib/student/datos-instructora';
-import { puedePedirBaja, textoBaja } from '@/lib/student/agenda-instructora';
+import { puedePasarLista, puedePedirBaja, textoBaja } from '@/lib/student/agenda-instructora';
 import { addDias, etiquetaDia, hoyISO } from '@/lib/student/formato';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
@@ -120,6 +121,9 @@ export default function FichaClaseInstructoraPage() {
 
   const baja = clase.baja ? textoBaja(clase.baja.estado, clase.baja.sustituta) : null;
   const sePuede = ahoraMs != null && puedePedirBaja(clase, ahoraMs);
+  // Desde una hora antes: en esa hora conviven las dos acciones (una baja de
+  // última hora sigue siendo posible), así que la barra puede llevar dos botones.
+  const listaAbierta = ahoraMs != null && puedePasarLista(clase, ahoraMs);
   const cuando = `${etiquetaDia(clase.fecha)} · ${clase.hora}`;
 
   return (
@@ -161,7 +165,7 @@ export default function FichaClaseInstructoraPage() {
         </div>
       </section>
 
-      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 90 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: sePuede && listaAbierta ? 150 : 90 }}>
         {clase.cancelada && <div><Badge tone="full">Clase cancelada</Badge></div>}
 
         {baja && (
@@ -182,18 +186,26 @@ export default function FichaClaseInstructoraPage() {
         {!online && <OfflineState cuerpo="Puedes ver la clase, pero avisar al estudio necesita conexión." />}
       </div>
 
-      {sePuede && (
+      {(sePuede || listaAbierta) && (
         <div
           style={{
             position: 'fixed', left: 0, right: 0, bottom: 'calc(var(--nav-height) + var(--safe-bottom))',
             zIndex: 39, padding: '10px 16px 12px',
             background: 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)',
             maxWidth: 640, margin: '0 auto',
+            display: 'flex', flexDirection: 'column', gap: 8,
           }}
         >
-          <Button variant="secondary" full disabled={!online} onClick={() => { setError(null); setAbierta(true); }}>
-            No puedo dar esta clase
-          </Button>
+          {listaAbierta && (
+            <Link href={href(`/equipo/clase/${encodeURIComponent(clase.id)}/lista`)} className="btn btn--primary btn--full tap">
+              Pasar lista
+            </Link>
+          )}
+          {sePuede && (
+            <Button variant="secondary" full disabled={!online} onClick={() => { setError(null); setAbierta(true); }}>
+              No puedo dar esta clase
+            </Button>
+          )}
         </div>
       )}
 

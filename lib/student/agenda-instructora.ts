@@ -198,6 +198,132 @@ export function clasesLocalesDesdeAgenda(clases: readonly ClaseQueDa[]): Array<{
     }));
 }
 
+/** Una clase que el motor le está pidiendo cubrir AHORA: es la candidata a la que le toca. */
+export interface OfertaSustitucion {
+  sustitucionId: string;
+  sesionId: string;
+  inicio: string;
+  fin: string;
+  fecha: string;
+  hora: string;
+  horaFin: string;
+  tipo: string;
+  sala: string | null;
+}
+
+/**
+ * Por qué no ha valido su respuesta a una oferta, dicho para ella.
+ *
+ * Son los motivos del enlace del email (`app/api/public/aceptar-sustitucion`)
+ * más dos que solo existen en la app: `ya_no_te_toca` (allí el token prueba que
+ * se le preguntó; aquí lo prueba ser la candidata a la que el motor le pregunta
+ * ahora) y `no_encontrada`. Lo desconocido cae en «otra la cubrió antes», que es
+ * lo único que no la culpa de nada.
+ */
+export function textoMotivoOferta(motivo: string | undefined): string {
+  switch (motivo) {
+    case 'ya_aceptaste': return 'Ya nos dijiste que la cubres. La tienes en tu agenda.';
+    case 'ya_rechazaste': return 'Ya nos dijiste que esta no podías. No tienes que hacer nada más.';
+    case 'clase_ya_empezada': return 'Esta clase ya ha empezado.';
+    case 'conflicto_horario': return 'Ya tienes otra clase a esa hora, así que no podemos darte esta.';
+    case 'ya_no_te_toca': return 'Ya se lo estamos preguntando a otra persona.';
+    case 'no_encontrada': return 'Esta petición ya no existe.';
+    default: return 'Otra persona la ha cubierto antes. ¡Gracias igualmente!';
+  }
+}
+
+/**
+ * Cuándo se puede pasar lista: desde una hora antes de empezar hasta 12 horas
+ * después de terminar (para quien la pasa al acabar el día).
+ *
+ * El panel no deja marcar hasta que la clase empieza (#870, contra «última
+ * asistencia: hace -1 días» en clases de OTRO día). Una hora antes no abre nada
+ * nuevo: es la misma apertura que el pase de la alumna (`lib/pase-acceso.ts`),
+ * que ya marca asistencia, y que la puerta de Kisi — la gente llega antes.
+ */
+export const LISTA_ABRE_MIN_ANTES = 60;
+export const LISTA_CIERRA_HORAS_DESPUES = 12;
+
+export function ventanaLista(clase: { inicio: string; fin: string }): { abreMs: number; cierraMs: number } {
+  return {
+    abreMs: Date.parse(clase.inicio) - LISTA_ABRE_MIN_ANTES * 60_000,
+    cierraMs: Date.parse(clase.fin) + LISTA_CIERRA_HORAS_DESPUES * 3_600_000,
+  };
+}
+
+export function puedePasarLista(clase: { inicio: string; fin: string; cancelada: boolean }, ahoraMs: number): boolean {
+  if (clase.cancelada) return false;
+  const { abreMs, cierraMs } = ventanaLista(clase);
+  return ahoraMs >= abreMs && ahoraMs <= cierraMs;
+}
+
+/**
+ * Cómo aparece cada alumna en la lista.
+ *
+ * ⚠️ Desde la app SOLO se marca «Asistió» (14-sep-2026): `NO_ASISTIO` dispara
+ * `trg_penalizacion_no_show`, que abre una penalización de dinero a la alumna, y
+ * eso lo decide el estudio. Un «no vino» que ya marcó el estudio se enseña tal
+ * cual, sin nada que tocar.
+ */
+export type EstadoEnLista = 'por-marcar' | 'asistio' | 'no-vino';
+
+export function estadoEnLista(estadoReserva: string): EstadoEnLista | null {
+  switch (estadoReserva) {
+    case 'CONFIRMADA': return 'por-marcar';
+    case 'ASISTIDA': return 'asistio';
+    case 'NO_ASISTIO': return 'no-vino';
+    // Lista de espera, canceladas y pendientes de aprobar no tienen plaza en la clase.
+    default: return null;
+  }
+}
+
+export interface AlumnaEnLista {
+  reservaId: string;
+  /** Ver `nombresParaLista`. */
+  nombre: string;
+  estado: EstadoEnLista;
+}
+
+export interface ListaDeClase {
+  clase: { id: string; tipo: string; inicio: string; fin: string; fecha: string; hora: string; horaFin: string; cancelada: boolean };
+  alumnas: AlumnaEnLista[];
+}
+
+/**
+ * El nombre con el que la reconoce en la puerta: nombre e inicial del primer
+ * apellido («Laura M.»). Lo mínimo (RGPD): ni apellidos, ni contacto, ni nada de
+ * salud. Solo si dos quedan iguales en la misma clase se escribe el primer
+ * apellido entero, que es lo justo para no confundirlas.
+ */
+export function nombresParaLista(personas: ReadonlyArray<{ nombre: string | null; apellidos: string | null }>): string[] {
+  const partes = personas.map((p) => ({
+    nombre: (p.nombre ?? '').trim(),
+    primerApellido: (p.apellidos ?? '').trim().split(/\s+/)[0] ?? '',
+  }));
+  const cortos = partes.map(({ nombre, primerApellido }) => {
+    const inicial = primerApellido.charAt(0).toUpperCase();
+    if (!nombre) return inicial ? `${inicial}.` : 'Sin nombre';
+    return inicial ? `${nombre} ${inicial}.` : nombre;
+  });
+  const clave = (s: string) => s.toLocaleLowerCase('es');
+  const veces = new Map<string, number>();
+  for (const c of cortos) veces.set(clave(c), (veces.get(clave(c)) ?? 0) + 1);
+  return partes.map((p, i) => (
+    (veces.get(clave(cortos[i])) ?? 0) > 1 && p.nombre && p.primerApellido
+      ? `${p.nombre} ${p.primerApellido}`
+      : cortos[i]
+  ));
+}
+
+/** Por nombre, como una lista en papel. */
+export function ordenarLista<T extends { nombre: string }>(alumnas: readonly T[]): T[] {
+  return [...alumnas].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+export function resumenLista(alumnas: ReadonlyArray<{ estado: EstadoEnLista }>): { vinieron: number; total: number } {
+  return { vinieron: alumnas.filter((a) => a.estado === 'asistio').length, total: alumnas.length };
+}
+
 const RE_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 /** Tope de días por petición: una agenda, no un informe. */
 export const MAX_DIAS_AGENDA = 31;

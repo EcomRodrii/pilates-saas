@@ -51,9 +51,14 @@ test('el enlace de sustitución se guarda y se busca por hash, y el staff no lee
   assert.doesNotMatch(contacto, /\btoken:\s*p\.token/);
   assert.match(contacto, /token_hash:/);
 
+  // La ruta pública pasa el HASH del token al núcleo compartido con la app
+  // (`lib/sustituciones/responder.ts`), que es quien busca el contacto.
   const publica = leer('app/api/public/aceptar-sustitucion/route.ts');
   assert.doesNotMatch(publica, /\.eq\('token'/);
-  assert.match(publica, /\.eq\('token_hash', tokenHash\)/);
+  assert.match(publica, /tokenHash:\s*hashToken\(/);
+  const responder = leer('lib/sustituciones/responder.ts');
+  assert.doesNotMatch(responder, /\.eq\('token'/);
+  assert.match(responder, /\.eq\('token_hash', p\.contacto\.tokenHash\)/);
 
   const sql = leer('supabase/migrations/20260914011337_sustitucion_contactos_token_solo_hash.sql');
   assert.match(sql, /revoke\s+all\s+on\s+public\.sustitucion_contactos\s+from\s+anon,\s*authenticated/i);
