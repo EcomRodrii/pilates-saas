@@ -50,18 +50,11 @@ async function getTarifas(
   // BACKWARD COMPAT: si no hay admin, devolver items vacío (no error)
   if (!admin) return { items: [] };
 
+  // La instructora leía aquí su propia tarifa desde el panel. Con Tentare Core
+  // retirado (14-sep-2026) la ve en la app del estudio, por su ruta de servidor
+  // (`/api/portal/instructora/perfil`): aquí, 403 como cualquier rol sin permiso.
   if (!puedeGestionarEquipo(sesion.rol)) {
-    if (sesion.rol !== 'INSTRUCTOR') {
-      throw new ErrorAccion('No tienes permiso para ver tarifas', 403);
-    }
-    const instructorId = await resolverPropioInstructorId(admin, sesion.userId, sesion.studioId);
-    if (!instructorId) return { items: [] };
-    const { data } = await admin
-      .from('instructor_tarifas')
-      .select('instructor_id, tarifa_hora, moneda, base_mensual_eur, recargo_sustitucion_pct, horas_semanales_contrato')
-      .eq('studio_id', sesion.studioId)
-      .eq('instructor_id', instructorId);
-    return { items: (data ?? []).map(mapTarifaRow) };
+    throw new ErrorAccion('No tienes permiso para ver tarifas', 403);
   }
 
   const { data } = await admin

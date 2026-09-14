@@ -58,6 +58,15 @@ test('leer un pase y ver los correos rebotados exigen rol, no solo sesión de pe
   assert.ok(gateRebotes > 0 && gateRebotes < rebotes.indexOf("from('socios')"), 'clientas/rebotes: rol antes de leer las direcciones');
 });
 
+test('las tarjetas del equipo y las tarifas ya no responden a la instructora', () => {
+  const tarjetas = sinComentarios(leer('app/api/equipo/tarjetas/route.ts'));
+  assert.match(tarjetas, /if \(sesion\.rol === 'RECEPCION' \|\| sesion\.rol === 'INSTRUCTOR'\) \{\s*return NextResponse\.json\(\{ error: 'No tienes acceso al equipo' \}, \{ status: 403 \}\)/);
+  const tarifas = sinComentarios(leer('lib/actions/equipo/equipoTarifasAction.ts'));
+  const get = tarifas.slice(tarifas.indexOf('async function getTarifas'), tarifas.indexOf('async function patchTarifa'));
+  assert.doesNotMatch(get, /rol !== 'INSTRUCTOR'/, 'getTarifas: una rama que deja pasar a la instructora');
+  assert.match(get, /if \(!puedeGestionarEquipo\(sesion\.rol\)\) \{\s*throw new ErrorAccion\('No tienes permiso para ver tarifas', 403\)/);
+});
+
 test('el calendario, las bajas y las ausencias del panel responden 403 a la instructora', () => {
   const explicita = /if \((sesion|staff)\.rol === 'INSTRUCTOR'\) return NextResponse\.json\(\{ error: 'No tienes permiso para esto' \}, \{ status: 403 \}\)/;
   for (const ruta of ['app/api/calendario/route.ts', 'app/api/sustituciones/route.ts', 'app/api/equipo/ausencias/route.ts']) {

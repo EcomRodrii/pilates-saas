@@ -458,7 +458,7 @@ test.describe('GET /api/equipo/tarifas', () => {
     expect(result.data).toBeDefined();
   });
 
-  test('INSTRUCTOR ve solo suya → 200', async ({ page }) => {
+  test('INSTRUCTOR ya no lee tarifas del panel (la suya la ve en la app) → 403', async ({ page }) => {
     await mockBackendEquipo(page, { rol: 'INSTRUCTOR' });
     await seedAuth(page, INSTRUCTOR_ID, 'ana@test.com');
     // Un fichero estático como origen, no /dashboard: la instructora ya no se
@@ -469,8 +469,8 @@ test.describe('GET /api/equipo/tarifas', () => {
     const result = await makeRequestEquipo(page, 'GET', '/tarifas');
 
     expect(result.requestCount).toBeGreaterThan(0);
-    expect(result.status).toBe(200);
-    expect(result.data).toBeDefined();
+    expect(result.status).toBe(403);
+    expect(result.data).toHaveProperty('error');
   });
 
   test('RECEPCION sin permiso → 403', async ({ page }) => {
