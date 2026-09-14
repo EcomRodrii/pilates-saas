@@ -31,9 +31,9 @@ export default function Contenido() {
 
       <AyudaPaso numero={3} titulo="Clase suelta o serie recurrente">
         <p>
-          El interruptor &ldquo;Repetir semanalmente&rdquo; convierte la clase en una serie. Editar o cancelar
-          después una serie te deja elegir si el cambio afecta solo a esa sesión, a esa y las futuras, o a toda la
-          serie — ver <Link href="/ayuda/reservas/editar-o-cancelar-una-clase" style={{ color: 'inherit', textDecoration: 'underline' }}>editar o cancelar una clase</Link>.
+          El interruptor &ldquo;Repetir semanalmente&rdquo; convierte la clase en una serie. Al editar después una
+          clase de la serie eliges si el cambio vale solo para esa clase o para esa y las siguientes, y
+          &ldquo;Cancelar serie&rdquo; cancela esa clase y las que vienen detrás — ver <Link href="/ayuda/reservas/editar-o-cancelar-una-clase" style={{ color: 'inherit', textDecoration: 'underline' }}>editar o cancelar una clase</Link>.
         </p>
       </AyudaPaso>
 

@@ -100,7 +100,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/productos': {
     titulo: 'Paquetes',
     resumen:
-      'Lo que vendes: cuotas mensuales, bonos de sesiones, clases sueltas y plazas fijas. Aquí pones el precio, cuánto dura, si se renueva solo y a qué clases da derecho.',
+      'Lo que vendes: cuotas mensuales, bonos de sesiones y clases sueltas. Aquí pones el precio, cuánto dura, si se renueva solo y a qué clases da derecho.',
     ahorra: 'Explicar por WhatsApp qué incluye cada bono y llevar las caducidades a mano.',
     destino: { categoria: 'bonos', slug: 'tipos-de-bono' },
   },
@@ -116,7 +116,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/sustituciones': {
     titulo: 'Sustituciones',
     resumen:
-      'Marcas que una instructora no puede dar su clase y Tentare avisa por orden a las que encajan —su disponibilidad, el tipo de clase, la hora a la que suele dar— hasta que una dice que sí.',
+      'Una instructora avisa desde la app (o lo marcas tú) de que no puede dar su clase y Tentare busca por orden a las que encajan hasta que una dice que sí. Si no queda nadie, te propone profesionales de Tentare Network.',
     ahorra: 'La cadena de WhatsApps a las once de la noche buscando quién cubre mañana.',
     destino: { categoria: 'instructores', slug: 'sustituciones' },
   },
@@ -156,7 +156,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/configuracion': {
     titulo: 'Configuración',
     resumen:
-      'Los cimientos: tus datos fiscales, las salas, los tipos de clase, quién puede hacer qué y con qué se conecta Tentare. Se toca poco, pero de aquí salen las reglas del resto.',
+      'Los cimientos: tus datos fiscales, las salas, los tipos de clase, las reglas de reserva y con qué se conecta Tentare. Se toca poco, pero de aquí salen las reglas del resto.',
     ahorra: 'Repetir la misma configuración cada vez que creas una clase.',
     destino: { categoria: 'configuracion', slug: 'datos-del-estudio' },
   },
@@ -171,7 +171,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/notificaciones': {
     titulo: 'Notificaciones',
     resumen:
-      'El registro de todo lo que Tentare ha enviado en tu nombre: a quién, por qué canal y si llegó. Si algo no salió, aquí tienes el motivo y el botón para reintentarlo.',
+      'El registro de los avisos que Tentare ha enviado en tu nombre: a qué perfil, por qué canal y si llegó. Si algo no salió, aquí tienes el motivo y el botón para reintentarlo.',
     ahorra: 'Fiarte de que el recordatorio salió sin poder comprobarlo.',
     destino: { categoria: 'automatizaciones', slug: 'registro-de-envios' },
   },
@@ -179,7 +179,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/automatizaciones': {
     titulo: 'Automatizaciones',
     resumen:
-      'Lo que Tentare hace solo: recordar la clase, avisar de un bono que se acaba, reintentar un cobro que falló. Tú decides qué se ejecuta sin preguntar y qué te pide el visto bueno antes.',
+      'Lo que Tentare ya hace de serie —recordar la clase, avisar de un bono que se acaba, reintentar un cobro que falló— y las reglas que enciendes tú. Lo que mueve dinero te pide siempre el visto bueno.',
     ahorra: 'Acordarte tú de cada aviso, todos los días.',
     destino: { categoria: 'automatizaciones', slug: 'recordatorios-automaticos' },
   },

@@ -31,10 +31,10 @@ export default function AyudaPage() {
 
   const faq: Array<[string, string]> = [
     ['¿Cómo cancelo una clase?', `Desde Mis clases → Cancelar. Si faltan más de ${estudio.politicaCancelacionHoras} h, normalmente recuperas la sesión de tu bono; el estudio puede tener una regla distinta para algún tipo de clase.`],
-    ['¿Qué pasa si la clase está llena?', 'Puedes apuntarte a la lista de espera. Te avisamos al momento si se libera una plaza y decides si la quieres.'],
+    ['¿Qué pasa si la clase está llena?', 'Puedes apuntarte a la lista de espera. Si se libera una plaza, pasa a ser tuya y te avisamos al momento (algunos estudios te dan un plazo para aceptarla).'],
     ['¿Cómo funciona el pase de acceso?', 'Al entrar al estudio, abre tu reserva: el pase se valida solo. No necesitas imprimir nada, y caduca cada dos minutos por seguridad.'],
     ['¿Caducan los bonos?', 'Depende del bono; lo ves en Bonos → detalle. Te avisamos antes de que caduque.'],
-    ['¿Puedo cambiar mi email?', 'Todavía no desde aquí: escríbele al estudio y lo cambian ellos. Es para que tu email de acceso y el de tu ficha no se separen.'],
+    ['¿Puedo cambiar mi email?', 'Sí, en Perfil → Datos. Te mandamos un enlace para confirmarlo; hasta entonces sigues entrando con el de ahora.'],
   ];
 
   return (

@@ -14,14 +14,14 @@ export default function Contenido() {
       <AyudaCaptura
         src="/help/configuracion/configuracion-estudio.png"
         alt="Configuración > Estudio > General: información del estudio, marca, facturación e impuestos, y recarga de datos"
-        caption="Configuración &gt; Estudio — datos, IVA, marca (enlazada aparte) y sincronización."
+        caption="Configuración &gt; Estudio — datos, marca, IVA y sincronización."
       />
 
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo te presentas y normas del centro</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo te presentas</h2>
       <p>
-        Dos campos de texto libre que salen directamente en tu página de reservas: una descripción de tu estudio, y
-        las normas del centro (una por línea) que ven tus alumnas en su app, en «Mi centro». Si los dejas vacíos,
-        esos bloques simplemente no se pintan — no hay texto de relleno.
+        Textos libres para tu página de reservas: cómo te presentas, tu lema y las frases de bienvenida y de
+        portada. Aquí guardas también las normas del centro. Si dejas un texto vacío, ese bloque simplemente no se
+        pinta — no hay texto de relleno.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Facturación e impuestos</h2>

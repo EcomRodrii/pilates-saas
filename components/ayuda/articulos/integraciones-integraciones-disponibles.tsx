@@ -42,9 +42,9 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo se conectan</h2>
       <p>
-        La mayoría usa OAuth (Google, Gmail, Klaviyo, Stripe, Zoom…): das permiso en la ventana del propio servicio,
-        sin pegar ninguna clave a mano. Mailchimp es la excepción — ahí pegas tu clave API directamente. Zapier
-        funciona al revés: la conexión se autoriza desde Zapier, no desde Tentare.
+        La mayoría usa OAuth (Google Calendar, Gmail, Klaviyo, Stripe, Zoom): das permiso en la ventana del propio
+        servicio, sin pegar ninguna clave a mano. Mailchimp y Kisi piden tu clave API, y WhatsApp los datos de tu
+        cuenta de Meta. Zapier funciona al revés: la conexión se autoriza desde Zapier, no desde Tentare.
       </p>
 
       <AyudaResultado>

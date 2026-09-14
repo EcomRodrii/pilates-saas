@@ -18,7 +18,7 @@ export default function Contenido() {
 
       <ComoSolucionarlo>
         <p style={{ margin: '0 0 12px' }}>Si la tarjeta se rechaza, pide que pruebe otra o que contacte con su banco — el motivo exacto lo decide el banco, no Tentare.</p>
-        <p style={{ margin: '0 0 12px' }}>Si se queda colgado en &ldquo;Procesando el pago…&rdquo;, que recargue la página e intente de nuevo: el checkout no duplica un cobro que ya se ha completado.</p>
+        <p style={{ margin: '0 0 12px' }}>Si se queda colgado en &ldquo;Procesando el pago…&rdquo;, a los 90 segundos la propia pantalla lo avisa: que mire antes en su banco si le han cobrado. Si ve el cargo, no debe volver a pagar; si no lo ve, puede intentarlo de nuevo.</p>
         <p style={{ margin: 0 }}>Si pasa siempre, en el mismo dispositivo, prueba en una pestaña nueva o en otro navegador para descartar una extensión que bloquee el formulario.</p>
       </ComoSolucionarlo>
 

@@ -6,18 +6,20 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        Todo lo que Tentare ha enviado en tu nombre, con nombre y apellidos: a quién, cuándo, por qué canal y con
-        qué resultado. Es la respuesta a «¿le llegó el recordatorio o no?», que hasta ahora solo se podía suponer.
+        Los avisos que Tentare ha enviado en tu nombre: a qué perfil, cuándo, por qué canal y con qué resultado.
+        Es la respuesta a «¿le llegó el aviso de 24 h o de 1 h en su app?», que hasta ahora solo se podía suponer.
+        Salen los últimos 150.
       </AyudaAntesDeEmpezar>
 
       <p>
-        Cada línea trae la fecha, la destinataria, de qué era el aviso y por dónde salió —email, WhatsApp, push—.
+        Cada línea trae la fecha, a quién iba (propietaria, instructora o socia), de qué era el aviso y por dónde
+        salió —en la app, push o email—.
         Un mismo aviso puede ir por varios canales y que uno funcione y otro no: por eso el resultado se ve{' '}
         <strong>por canal</strong>, no como un «enviado» global que no distingue.
       </p>
       <p>
         Cuando algo falla, aparece el motivo tal cual lo devuelve quien lo tenía que entregar: correo rebotado,
-        número que no existe, móvil sin la app. Con eso ya sabes si el problema es tuyo, suyo o de nadie.
+        dirección que no existe, móvil sin avisos activados. Con eso ya sabes si el problema es tuyo, suyo o de nadie.
       </p>
       <p>
         Y hay un botón de <strong>Reintentar</strong>. Si vuelve a fallar te lo dice, en vez de quedarse callado —

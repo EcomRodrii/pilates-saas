@@ -18,7 +18,7 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué puede hacer una alumna desde el portal</h2>
       <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
-        <li>Ver tu horario filtrando por tipo de clase, instructora o sala.</li>
+        <li>Ver tu horario filtrando por tipo de clase o instructora.</li>
         <li>Reservar una clase suelta, con las reglas de antelación y aforo que hayas configurado.</li>
         <li>Entrar en lista de espera si la clase está completa.</li>
         <li>Crear su cuenta y, ya con acceso, ver su plan, sus créditos y su historial.</li>

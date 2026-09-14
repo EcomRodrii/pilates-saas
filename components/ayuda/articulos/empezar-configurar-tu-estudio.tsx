@@ -5,7 +5,7 @@ export default function Contenido() {
   return (
     <>
       <p>
-        En Configuración &gt; Estudio pones los datos que verán tus alumnas y los que necesitas para facturar
+        En Configuración &gt; Estudio &gt; General pones los datos que verán tus alumnas y los que necesitas para facturar
         correctamente: nombre, NIF, dirección, y el color y logo de tu marca.
       </p>
 
@@ -17,8 +17,9 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Color y logo</h2>
       <p>
-        El color de marca y el logo que subas aquí se usan en tu portal de reservas y en el widget — es lo primero
-        que distingue tu estudio del de cualquier otra propietaria de Tentare.
+        El logo lo subes aquí mismo; el color, desde «El color de tu marca», que te deja probarlo antes de
+        guardarlo. Los dos los ven tus alumnas en tu página de reservas y en su app — es lo primero que distingue
+        tu estudio del de cualquier otra propietaria de Tentare.
       </p>
 
       <AyudaResultado>

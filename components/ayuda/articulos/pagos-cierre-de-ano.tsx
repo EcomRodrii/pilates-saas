@@ -31,8 +31,8 @@ export default function Contenido() {
           entero o solo un trimestre.
         </p>
         <p style={{ margin: 0 }}>
-          Si dejas puesto el email de tu gestoría, cada trimestre se le manda solo el día 1 del mes siguiente, sin
-          que tengas que volver a esta pantalla.
+          Con el email de tu gestoría guardado, la propietaria puede marcar «Enviar cada trimestre automáticamente»:
+          se le manda solo el día 1 tras cerrar cada trimestre, sin que tengas que volver a esta pantalla.
         </p>
       </AyudaPaso>
 

@@ -21,9 +21,10 @@ export default function Contenido() {
           Confirma con ella el email exacto que usó al reservar — es la clave que la identifica, no su nombre.
         </p>
         <p style={{ margin: '0 0 12px' }}>
-          Dile que use el control{' '}
-          <strong>&ldquo;No tengo contraseña o la he olvidado — mándame un enlace&rdquo;</strong> en la pantalla de
-          acceso, en vez de intentar adivinar una contraseña que quizá nunca llegó a crear. Ver{' '}
+          Dile que pulse{' '}
+          <strong>&ldquo;No tengo contraseña — mándame un enlace&rdquo;</strong> en la pantalla de acceso (o
+          &ldquo;¿Has olvidado la contraseña?&rdquo; si sí tenía una), en vez de intentar adivinar una contraseña que
+          quizá nunca llegó a crear. Ver{' '}
           <Link href="/ayuda/portal/acceso-de-una-clienta" style={{ color: 'inherit', textDecoration: 'underline' }}>cómo entra una clienta por primera vez</Link>.
         </p>
         <p style={{ margin: 0 }}>

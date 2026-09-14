@@ -20,15 +20,16 @@ export default function Contenido() {
         caption="Editar clase — los mismos campos que al crearla."
       />
       <p>
-        Si la clase forma parte de una serie recurrente, editarla o cancelarla te pregunta el alcance del cambio:
-        solo esa sesión, esa y las futuras, o toda la serie.
+        Si la clase forma parte de una serie recurrente, al guardar eliges &ldquo;Guardar solo esta clase&rdquo; o
+        &ldquo;Guardar esta y las siguientes&rdquo;. Para cancelar pasa lo mismo: &ldquo;Cancelar&rdquo; quita solo
+        esa clase y &ldquo;Cancelar serie&rdquo;, esa y las siguientes.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cancelar una clase</h2>
       <p>
         Al cancelar, la clase se marca como cancelada y cada alumna con una reserva CONFIRMADA en ella recibe un
-        aviso. La cancelación de una clase suelta o de una serie completa no devuelve el bono consumido salvo que lo
-        hagas tú a mano desde la ficha de la clienta.
+        aviso. Por defecto recuperan además la sesión en su bono; si prefieres que no, desactiva &ldquo;Devolver la
+        sesión al cancelar tú una clase&rdquo; en Configuración &gt; Estudio &gt; Reservas y cancelaciones.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué NO cambia sola</h2>

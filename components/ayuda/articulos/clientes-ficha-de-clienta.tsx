@@ -20,14 +20,15 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Notas de progreso</h2>
       <p>
         Sirven para dejar constancia de cómo va una alumna sesión a sesión — no son una valoración de la clienta,
-        son un apunte de seguimiento pensado para que cualquiera de tu equipo retome el hilo sin preguntarte a ti.
+        son un apunte de seguimiento pensado para que tú o sus instructoras retoméis el hilo. Como son datos de
+        salud, exigen su consentimiento, y recepción no las ve: ve solo las notas internas.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Ficha de salud: quién la ve</h2>
       <p>
         Si usas la ficha de salud (lesiones, zonas y adaptaciones), es un dato sensible con visibilidad restringida a
-        propósito: la propietaria y las instructoras ven el detalle completo; recepción solo ve el semáforo de color
-        (si hay algo que tener en cuenta o no), nunca el motivo. No es un descuido de la interfaz — es la regla, y
+        propósito: la propietaria ve el detalle de todas; cada instructora, solo el de sus alumnas; recepción y
+        responsable de sede solo ven el semáforo de color (si hay algo que tener en cuenta o no), nunca el motivo. No es un descuido de la interfaz — es la regla, y
         está igual de protegida en el servidor.
       </p>
 

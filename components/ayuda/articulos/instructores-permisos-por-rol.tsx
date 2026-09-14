@@ -10,7 +10,7 @@ export default function Contenido() {
           ['Propietaria', 'Control total: puede ver y editar todo, incluida la facturación y los datos del estudio.'],
           ['Responsable de sede', 'Lleva el día a día de la sede: horario, clientas, lista de espera, sustituciones y equipo. No ve facturación ni informes de ingresos, y no puede dar acceso de propietaria a nadie.'],
           ['Recepción', 'Reservas, clientas, cobros y caja — sin acceso a marketing, informes ni ajustes del negocio. En la ficha de salud solo ve el semáforo de color, nunca el detalle clínico.'],
-          ['Instructora', 'Su propio panel (Tentare Core): sus clases, su disponibilidad, sus alumnas. Puede editar sus propias clases, pero no las de otra instructora, ni tocar facturación.'],
+          ['Instructora', 'La app del estudio: sus clases, sus bajas, su disponibilidad y sus alumnas. Puede editar sus propias clases, pero no las de otra instructora, ni tocar facturación.'],
         ].map(([rol, texto]) => (
           <div key={rol} style={{ border: '1px solid #E7E7E0', borderRadius: 14, padding: '14px 18px' }}>
             <p style={{ fontWeight: 700, fontSize: 15, margin: '0 0 4px' }}>{rol}</p>
@@ -21,9 +21,9 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Por qué la ficha de salud es distinta</h2>
       <p>
-        Es el único dato con una regla de visibilidad propia, más estricta que el resto: propietaria e instructoras
-        ven el detalle completo (lesiones, zonas, adaptaciones); recepción ve solo si hay algo a tener en cuenta
-        (un semáforo de color), nunca el motivo. Es un dato de salud, no un dato de gestión.
+        Es el único dato con una regla de visibilidad propia, más estricta que el resto: la propietaria ve el
+        detalle completo (lesiones, zonas, adaptaciones) y cada instructora, solo el de sus alumnas; recepción y
+        responsable de sede ven solo si hay algo a tener en cuenta (un semáforo de color), nunca el motivo. Es un dato de salud, no un dato de gestión.
       </p>
 
       <AyudaResultado>

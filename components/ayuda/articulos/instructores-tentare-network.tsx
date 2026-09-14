@@ -7,8 +7,9 @@ export default function Contenido() {
     <>
       <AyudaAntesDeEmpezar>
         Las <Link href="/ayuda/instructores/sustituciones" style={{ color: 'inherit', textDecoration: 'underline' }}>sustituciones</Link> buscan <strong>dentro</strong>: entre
-        las instructoras que ya trabajan contigo. Tentare Network busca <strong>fuera</strong>, entre
-        profesionales de Pilates y Yoga que están disponibles para dar clase en un estudio.
+        las instructoras que ya trabajan contigo, y cuando no queda nadie te proponen profesionales de Network.
+        Tentare Network busca <strong>fuera</strong>, entre profesionales de Pilates y Yoga que están disponibles
+        para dar clase en un estudio.
       </AyudaAntesDeEmpezar>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Buscar instructoras</h2>
@@ -19,7 +20,8 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Vacantes</h2>
       <p>
-        Al revés: publicas lo que necesitas —qué días, qué tipo de clase, dónde— y que te encuentren a ti. Sirve
+        Al revés: publicas lo que necesitas —especialidad, horario, tipo de colaboración y remuneración— y que te
+        encuentren a ti. Sirve
         cuando no es una sustitución de un día sino una plaza que quieres cubrir.
       </p>
 
@@ -30,8 +32,9 @@ export default function Contenido() {
       </p>
 
       <AyudaResultado>
-        Contactar no es contratar. Cuando os pongáis de acuerdo, la das de alta en{' '}
-        <Link href="/ayuda/instructores/dar-de-alta-una-instructora" style={{ color: 'inherit', textDecoration: 'underline' }}>Equipo</Link> como a cualquier otra, con su
+        Contactar no es contratar. Cuando os pongáis de acuerdo, lo formalizáis en el chat y queda dada de alta
+        en tu{' '}
+        <Link href="/ayuda/instructores/dar-de-alta-una-instructora" style={{ color: 'inherit', textDecoration: 'underline' }}>Equipo</Link>, donde ajustas su
         disponibilidad, su tarifa y sus permisos.
       </AyudaResultado>
     </>

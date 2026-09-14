@@ -11,9 +11,9 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Cómo se marca un no-show</h2>
       <p>
-        Cuando una clase termina, cualquier reserva que seguía CONFIRMADA sin que la alumna asistiera pasa sola a
-        NO_ASISTIO — no hace falta que tú la marques a mano, aunque también puedes hacerlo desde la lista de
-        asistentes de la clase si lo ves antes.
+        Cada noche, cualquier reserva de una clase ya terminada que seguía CONFIRMADA sin que la alumna asistiera
+        pasa sola a NO_ASISTIO — no hace falta que tú la marques a mano, aunque también puedes hacerlo desde la
+        lista de asistentes de la clase si lo ves antes.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cancelación tardía</h2>

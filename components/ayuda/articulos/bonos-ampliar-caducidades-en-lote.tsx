@@ -24,14 +24,14 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaPaso numero={3} titulo="Comprueba lo que se movió">
-        Al terminar te dice exactamente cuántos bonos y cuántas recuperaciones ha ampliado. Si sale «no había
-        nada en vigor que ampliar», es que esas alumnas no tenían bonos vivos — no es un error.
+        Al terminar te dice exactamente cuántos bonos y cuántas recuperaciones ha ampliado. Si sale «No había
+        ningún bono ni recuperación en vigor que ampliar», es que esas alumnas no tenían nada vivo — no es un error.
       </AyudaPaso>
 
       <h2 style={h2}>Qué se amplía y qué no</h2>
       <ul style={{ paddingLeft: 20, lineHeight: 1.7 }}>
-        <li><strong>Sí:</strong> los bonos de sesiones en vigor y las recuperaciones sin usar.</li>
-        <li><strong>No: las cuotas mensuales.</strong> En una mensualidad, esa fecha es la del próximo cobro — moverla no le regala días, le cambia cuándo se le cobra. Si quieres compensar a quien tiene mensual, es otra conversación (un mes gratis, un descuento), no esto.</li>
+        <li><strong>Sí:</strong> los bonos de sesiones y clases sueltas en vigor, y las recuperaciones sin usar.</li>
+        <li><strong>No: las cuotas.</strong> En una mensualidad, esa fecha es la del próximo cobro — moverla no le regala días, le cambia cuándo se le cobra. Si quieres compensar a quien tiene mensual, es otra conversación (un mes gratis, un descuento), no esto.</li>
       </ul>
 
       <h2 style={h2}>Amplía antes de cerrar, no después</h2>
@@ -43,7 +43,7 @@ export default function Contenido() {
 
       <AyudaResultado>
         Es la operación pensada para vacaciones y festivos. Para el caso de una sola alumna que se va de viaje,
-        tienes algo mejor: <Link href="/ayuda/bonos/caducidad-de-un-bono" style={enlace}>congelar su plan</Link>,
+        tienes algo mejor: <Link href="/ayuda/bonos/caducidad-de-un-bono" style={enlace}>pausar su plan</Link>,
         que empuja su fecha exactamente los días que estuvo parada.
       </AyudaResultado>
     </>

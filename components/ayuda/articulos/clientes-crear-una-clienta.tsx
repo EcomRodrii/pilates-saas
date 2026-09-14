@@ -18,8 +18,8 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Alta manual desde el panel</h2>
       <p>
         Si prefieres crearla tú (por ejemplo, alguien que te escribe por WhatsApp antes de reservar), puedes darla de
-        alta directamente en Clientas, con su nombre y email como mínimo. Puedes asignarle un plan o bono en el
-        mismo momento o más tarde.
+        alta directamente en Clientas, con nombre y apellidos como mínimo (el email es opcional, aunque sin él no
+        podrá entrar a su app). Si puedes cobrar, le asignas un plan o bono en el mismo momento o más tarde.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Si vienes de otro software</h2>

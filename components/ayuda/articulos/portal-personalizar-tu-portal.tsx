@@ -1,42 +1,30 @@
 import Link from 'next/link';
-import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
 import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
-// Reescrito el 28-ago-2026 tras verificar en vivo
-// /configuracion/apariencia/editor: es un editor de secciones y bloques con
-// vista previa móvil en directo, no solo un selector de color y tipografía
-// (eso vive en la otra pestaña, "Ajustes del tema" — ver
-// configuracion/marca).
+// Reescrito el 14-sep-2026: el editor de tema (/configuracion/apariencia/editor)
+// está cerrado por mantenimiento desde el 7-sep —su ruta redirige y Apariencia
+// lo dice—, así que el artículo contaba un editor que nadie puede abrir. Se
+// quitó la captura por la misma razón: enseñaba esa pantalla cerrada.
 export default function Contenido() {
   return (
     <>
       <p>
-        Desde Configuración &gt; Estudio &gt; «Editar marca y apariencia» entras al editor de tema: a la izquierda,
-        las secciones de cada pantalla del portal; a la derecha, una vista previa móvil en vivo que cambia con cada
-        edición.
+        El editor de la portada, la tipografía y las secciones del portal de tus alumnas está{' '}
+        <strong>en mantenimiento</strong>: lo estamos rehaciendo y, mientras tanto, esa parte no se puede editar.
+      </p>
+      <p>
+        Lo que ya tenías publicado sigue funcionando igual — tus clientas ven tu marca como siempre.
       </p>
 
-      <AyudaCaptura
-        src="/help/configuracion/apariencia-editor.png"
-        alt="Editor de tema, pestaña Secciones: bloques del Inicio del portal de la socia, con vista previa móvil en directo"
-        caption="Secciones del Inicio — arrastra para reordenar, oculta lo que no uses, añade bloques del catálogo."
-      />
-
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Tres zonas distintas</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Lo que sí puedes cambiar hoy</h2>
       <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
-        <li><strong>Portal de la socia</strong> — lo que ve tu clienta en su móvil: Inicio (con bloques como «Esta semana», «Accesos rápidos», «Progreso semanal», «Retos»…), Clases, Bonos, Bienvenida, Reservas y Perfil.</li>
-        <li><strong>Página pública de reservas</strong> — la que enlazas desde tu web, la ve cualquiera sin cuenta.</li>
-        <li><strong>Panel del equipo</strong> — lo que ves tú y tu equipo al entrar; no lo ve ninguna clienta.</li>
+        <li><strong>Tu logo</strong>, en Configuración &gt; Estudio &gt; General.</li>
+        <li><strong>Tu color</strong>, desde «El color de tu marca», en esa misma pantalla.</li>
+        <li><strong>Los textos con los que te presentas</strong> en tu página de reservas, también en General.</li>
       </ul>
 
-      <p>
-        Dentro de Inicio, el saludo y la próxima clase se quedan siempre arriba — el resto de bloques los arrastras,
-        ocultas o añades desde un catálogo, sin tocar código.
-      </p>
-
       <AyudaResultado>
-        Nada de esto se aplica hasta que pulsas «Publicar» — mientras tanto es un borrador que solo ves tú. Color,
-        tipografía y el resto de la identidad visual viven en la otra pestaña del mismo editor: ver{' '}
+        En cuanto el editor vuelva, lo contaremos en Actualizaciones. Mientras, ver{' '}
         <Link href="/ayuda/configuracion/marca" style={{ color: 'inherit', textDecoration: 'underline' }}>tu marca: logo y color</Link>.
       </AyudaResultado>
     </>

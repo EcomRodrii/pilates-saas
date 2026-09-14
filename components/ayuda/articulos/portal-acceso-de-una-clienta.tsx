@@ -26,9 +26,10 @@ export default function Contenido() {
       />
 
       <p>
-        Escribe su email y su contraseña. Si todavía no ha creado una, o no se acuerda, tiene el control{' '}
-        <strong>&ldquo;No tengo contraseña o la he olvidado — mándame un enlace&rdquo;</strong>: se la manda por
-        email y la elige ella en ese momento. También puede entrar directamente con su cuenta de Google.
+        Escribe su email y su contraseña. Si nunca se puso una, pulsa{' '}
+        <strong>&ldquo;No tengo contraseña — mándame un enlace&rdquo;</strong> y entra con el enlace que le llega por
+        email. Si la tenía y no se acuerda, <strong>&ldquo;¿Has olvidado la contraseña?&rdquo;</strong> le manda un
+        enlace para crear una nueva. También puede entrar directamente con su cuenta de Google.
       </p>
 
       <AyudaResultado>

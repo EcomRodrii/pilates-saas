@@ -17,7 +17,7 @@ export default function Contenido() {
         si tienes tarjetas guardadas, y ves qué suscripciones siguen activas.
       </p>
       <p>
-        Si una tarjeta falló, el recibo sigue aquí con el motivo. No hay que buscarlo en otro sitio: lo que no ha
+        Si una tarjeta falló, el recibo sigue aquí marcado como «No se pudo cobrar». No hay que buscarlo en otro sitio: lo que no ha
         entrado se queda en esta lista hasta que entra.
       </p>
 
@@ -30,7 +30,8 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Facturas</h2>
       <p style={{ margin: 0 }}>
         Está aparte porque no es una vista más: es una obligación fiscal. Cada cobro completado tiene la suya, y
-        de aquí salen los PDF y el <Link href="/ayuda/pagos/cierre-de-ano" style={{ color: 'inherit', textDecoration: 'underline' }}>cierre de año</Link>.
+        de aquí salen los PDF. El resumen para tu gestoría tiene su propia entrada en el menú,{' '}
+        <Link href="/ayuda/pagos/cierre-de-ano" style={{ color: 'inherit', textDecoration: 'underline' }}>Cierre de año</Link>.
       </p>
 
       <AyudaResultado>

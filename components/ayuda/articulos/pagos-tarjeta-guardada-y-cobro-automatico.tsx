@@ -17,7 +17,8 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Si quiere cambiar de tarjeta</h2>
       <p>
-        Puede hacerlo ella misma desde su portal, sin pedírtelo a ti. La próxima renovación usará la tarjeta nueva.
+        Desde su app puede quitar la tarjeta guardada, sin pedírtelo a ti; la nueva queda guardada la próxima vez
+        que pague online, y a partir de ahí las renovaciones usan esa.
       </p>
 
       <AyudaResultado>

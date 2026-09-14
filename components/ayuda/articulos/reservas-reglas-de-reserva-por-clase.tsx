@@ -30,8 +30,10 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Dónde se configuran</h2>
       <p>
-        Los valores del estudio están en Configuración &gt; Reservas; los de un tipo de clase concreto, al editar ese
-        tipo de clase. Un campo en blanco en el tipo de clase significa &ldquo;usa el del estudio&rdquo;, no &ldquo;sin límite&rdquo;.
+        Los valores del estudio están en Configuración &gt; Estudio &gt; Reservas y cancelaciones (casi todos, dentro de
+        &ldquo;Opciones avanzadas&rdquo;); los de un tipo de clase concreto, al editar ese tipo en Configuración &gt; Clases
+        y salas. Mientras un tipo de clase muestra &ldquo;Ajuste del estudio&rdquo;, usa el del estudio; pulsa
+        &ldquo;Personalizar&rdquo; para darle el suyo.
       </p>
 
       <AyudaResultado>

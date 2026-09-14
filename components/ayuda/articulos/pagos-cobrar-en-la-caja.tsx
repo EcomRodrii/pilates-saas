@@ -4,7 +4,7 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        La Caja está en <strong>Ventas &gt; Caja</strong>, y es una pantalla de mostrador: se usa de pie, con la
+        La Caja está en <strong>Negocio &gt; Caja</strong>, y es una pantalla de mostrador: se usa de pie, con la
         clienta delante. Solo la ven la propietaria y recepción — quien no mueve dinero no la tiene en el menú.
       </AyudaAntesDeEmpezar>
 
@@ -31,12 +31,13 @@ export default function Contenido() {
         <p>
           La diferencia entre los tres primeros y los dos últimos importa, y por eso la pantalla no los trata
           igual. En Datáfono y Bizum, «Cobrado» significa que Stripe lo ha confirmado. En Tarjeta y Transferencia
-          significa <strong>que lo has dicho tú</strong>: nadie más puede saberlo, así que Tentare te lo pregunta
+          la pantalla dice <strong>«Registrado»</strong>: lo has dicho tú y nadie más puede saberlo, así que Tentare te lo pregunta
           en vez de darlo por hecho. Registrarlo es correcto; pintarlo como un cobro verificado no lo sería.
         </p>
         <p style={{ margin: 0 }}>
-          Datáfono y Bizum solo están disponibles si tienes lector emparejado y Stripe conectado. Si no, aparecen
-          apagados: mejor eso que un botón que falla con alguien esperando.
+          Datáfono necesita un lector emparejado; Bizum, Stripe conectado, y no vale para una cuota, porque no deja
+          la tarjeta guardada para renovar. Si falta algo, aparecen apagados: mejor eso que un botón que falla con
+          alguien esperando.
         </p>
       </AyudaPaso>
 

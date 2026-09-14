@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { QueEstaPasando, CausasComunes, ComoSolucionarlo } from '@/components/ayuda/TroubleshootShell';
 import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
-// Verificado contra lib/billing/dunning.ts: 3 reintentos a +1/+3/+7 días tras
-// el vencimiento; al agotarlos, el plan pasa a estado de impago.
+// Verificado contra lib/billing/dunning.ts (planificarTrasFallo): 3 intentos en
+// total —el del vencimiento y reintentos a +3 y +7 días—; al tercer fallo el
+// recibo queda FALLIDO y dunning-server.ts cancela la suscripción.
 export default function Contenido() {
   return (
     <>
@@ -20,13 +21,13 @@ export default function Contenido() {
 
       <ComoSolucionarlo>
         <p style={{ margin: '0 0 12px' }}>
-          No hace falta que hagas nada en el primer intento: Tentare reintenta automáticamente a 1, 3 y 7 días del
-          fallo — hasta 3 intentos en total. Si alguno de esos reintentos entra, el plan sigue activo sin que la
-          alumna note nada.
+          No hace falta que hagas nada en el primer fallo: Tentare lo reintenta solo a los 3 y a los 7 días del
+          vencimiento — tres intentos en total. A la alumna le llega un aviso en el primer fallo para que revise su
+          tarjeta; si un reintento entra, el plan sigue activo.
         </p>
         <p style={{ margin: 0 }}>
-          Si los tres reintentos fallan, el plan queda marcado como impago y puedes ver el detalle en Cobros o en la
-          ficha de la clienta — desde ahí puedes reintentarlo tú a mano en cuanto la alumna actualice su tarjeta.
+          Si los tres fallan, el recibo queda como «No se pudo cobrar», su cuota se cancela y te llega un aviso.
+          Puedes volver a cobrarlo tú a mano desde Cobros en cuanto la alumna actualice su tarjeta.
         </p>
       </ComoSolucionarlo>
 
