@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type CSSProperties } from 'react';
+import { preload } from 'react-dom';
 import { urlServida, srcSetServido, srcSetPorAncho } from '@/lib/student/imagen-servida';
 
 // La única `<img>` de fotos de la app de la alumna.
@@ -49,6 +50,27 @@ export interface FotoProps {
   className?: string;
 }
 
+/** Lo que pide el `<img>` cuando nada ha fallado. Una sola fuente para él y su precarga. */
+function fuenteServida(src: string, ancho: number, sizes?: string) {
+  const srcSet = (sizes ? srcSetPorAncho(src) : srcSetServido(src, ancho)) ?? undefined;
+  return { src: urlServida(src, ancho), srcSet, sizes: srcSet && sizes ? sizes : undefined };
+}
+
+/**
+ * Precarga una foto `prioritaria` cuyo `<img>` todavía no está en el HTML
+ * (p. ej. detrás de la guardia de sesión). Se llama en el render: en el
+ * servidor sale como `<link rel="preload">` en el `<head>`.
+ *
+ * ⚠️ `ancho` y `sizes` tienen que ser los MISMOS que se le pasan a `<Foto>`. Si
+ * no, la precarga pide una variante y el `<img>` otra: dos descargas en vez de
+ * una, que es peor que no precargar.
+ */
+export function precargarFoto(src: string | null | undefined, ancho: number, sizes?: string): void {
+  if (!src) return;
+  const f = fuenteServida(src, ancho, sizes);
+  preload(f.src, { as: 'image', fetchPriority: 'high', imageSrcSet: f.srcSet, imageSizes: f.sizes });
+}
+
 export function Foto({ src, ancho, alto, prioritaria = false, sizes, style, className }: FotoProps) {
   // ⚠️ Red de seguridad: si el endpoint que redimensiona fallara (un plan sin
   // esa función, un objeto recién subido que aún no se ha propagado), se vuelve
@@ -62,14 +84,14 @@ export function Foto({ src, ancho, alto, prioritaria = false, sizes, style, clas
   const [fallo, setFallo] = useState<{ src: string; nivel: 1 | 2 } | null>(null);
   const nivel = fallo?.src === src ? fallo.nivel : 0;
   const crudo = nivel >= 1;
-  const srcSet = crudo ? undefined : (sizes ? srcSetPorAncho(src) : srcSetServido(src, ancho)) ?? undefined;
+  const servida = crudo ? null : fuenteServida(src, ancho, sizes);
 
   return (
     // eslint-disable-next-line @next/next/no-img-element -- Storage sirve el redimensionado; `next/image` lo re-serviría por su optimizador y perdería el `?v=` que rompe la caché
     <img
-      src={crudo ? src : urlServida(src, ancho)}
-      srcSet={srcSet}
-      sizes={srcSet && sizes ? sizes : undefined}
+      src={servida?.src ?? src}
+      srcSet={servida?.srcSet}
+      sizes={servida?.sizes}
       alt=""
       width={ancho}
       height={alto}

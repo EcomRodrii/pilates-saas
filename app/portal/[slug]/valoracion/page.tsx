@@ -9,6 +9,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { Button } from '@/components/student/ui/Button';
+import { Input } from '@/components/student/ui/Input';
 import { Sello } from '@/components/student/ui/Sello';
 import { Opcion } from '@/components/student/valoracion/Opcion';
 import { Progreso } from '@/components/student/valoracion/Progreso';
@@ -25,6 +26,7 @@ import {
   TITULO, PASO_COPY, BLOQUE_TITULO, OBJETIVO_TEXTO, OBJETIVO_CHIP, EXPERIENCIA_TEXTO,
   NIVEL_TEXTO, CUERPO_TEXTO, ZONA_TEXTO, FRECUENCIA_TEXTO,
   CONSENTIMIENTO_SALUD_TITULO, textoConsentimientoSalud,
+  CONSENTIMIENTO_SALUD_MENOR_TITULO, textoConsentimientoSaludMenor,
 } from '@/lib/student/valoracion-copy';
 
 /**
@@ -67,6 +69,10 @@ export default function ValoracionPage() {
   // el mismo problema en pequeño: cambias el nivel y te toca recorrer las seis
   // pantallas siguientes para volver a guardar. Con esto, «Editar» va y vuelve.
   const [volviendoAlResumen, setVolviendoAlResumen] = useState(false);
+  // ⚠️ Menores: lo que su edad permite en la puerta de salud lo dice el
+  // servidor (fecha de la base), no un cálculo de la pantalla.
+  const [porEdad, setPorEdad] = useState<'PUEDE' | 'MENOR' | 'FALTA_FECHA'>('PUEDE');
+  const [nacimiento, setNacimiento] = useState('');
 
   // Se rellena con lo que ya había —el borrador si lo hay, y si no la última
   // completada, porque «actualizar mi valoración» parte de lo que dijo, no de
@@ -77,6 +83,7 @@ export default function ValoracionPage() {
   if (data && clave && clave !== hidratadoDe) {
     setHidratadoDe(clave);
     setConSalud(data.conSalud);
+    setPorEdad(data.consentimientoSalud ?? 'PUEDE');
     const previa = data.historial?.borrador ?? data.historial?.actual;
     if (previa) setV(previa.valoracion);
     // ⚠️ Y se entra por donde toca, que es la mitad que faltaba. Rellenar las
@@ -169,10 +176,16 @@ export default function ValoracionPage() {
   };
 
   const aceptarSalud = async () => {
-    setGuardando(true);
-    const r = await consentirSalud(estudio.id);
+    setError(''); setGuardando(true);
+    const r = await consentirSalud(estudio.id, porEdad === 'FALTA_FECHA' ? nacimiento : undefined);
     setGuardando(false);
-    if ('error' in r) { setError(r.error); return; }
+    if ('error' in r) {
+      // Menor de 14: no es un fallo que reintentar, es otra pantalla.
+      if (r.codigo === 'MENOR_14') { setPorEdad('MENOR'); return; }
+      if (r.codigo === 'FALTA_FECHA_NACIMIENTO') setPorEdad('FALTA_FECHA');
+      setError(r.error);
+      return;
+    }
     // ⚠️ Al aceptar, la puerta SALE de la lista y todo lo que venía detrás se
     // corre un sitio. Quedarse en el índice de antes la mandaría a la pantalla
     // equivocada, así que se salta a la primera pregunta que acaba de
@@ -237,6 +250,29 @@ export default function ValoracionPage() {
   // ── El paso de consentimiento, antes de la parte de salud ────────────────
   // No es un paso más del wizard: es una puerta, y tiene que verse como tal.
   if (paso?.id === 'consentimiento') {
+    const saltarSalud = () => {
+      setError('');
+      setV((x) => normalizar({ ...x, tieneMolestias: null, zonas: [], detalle: '', estadoCuerpo: null }));
+      setI(indice + 1);
+    };
+
+    // Menor de 14: no se le ofrece un «sí» que el servidor rechazaría. Se le
+    // explica quién lo gestiona y sigue con su valoración.
+    if (porEdad === 'MENOR') {
+      return (
+        <StudentShell sinNav>
+          <PageHeader titulo={TITULO} back />
+          <div className="px stack" style={{ ['--gap' as string]: 'var(--s-4)', marginTop: 18, maxWidth: 520 }} data-testid="salud-menor">
+            <h1 className="t-h1">{CONSENTIMIENTO_SALUD_MENOR_TITULO}</h1>
+            {textoConsentimientoSaludMenor(estudio.nombre).split('\n\n').map((p, n) => (
+              <p key={n} className="t-body t-dim">{p}</p>
+            ))}
+            <Button full onClick={saltarSalud}>Continuar</Button>
+          </div>
+        </StudentShell>
+      );
+    }
+
     return (
       <StudentShell sinNav>
         <PageHeader titulo={TITULO} back />
@@ -245,8 +281,18 @@ export default function ValoracionPage() {
           {textoConsentimientoSalud(estudio.nombre).split('\n\n').map((p, n) => (
             <p key={n} className="t-body t-dim">{p}</p>
           ))}
+          {porEdad === 'FALTA_FECHA' && (
+            <Input
+              label="Tu fecha de nacimiento"
+              type="date"
+              autoComplete="bday"
+              value={nacimiento}
+              onChange={(e) => { setError(''); setNacimiento(e.target.value); }}
+              hint="Con menos de 14 años, esta parte la gestiona el estudio con tu padre, madre o tutor legal."
+            />
+          )}
           {error && <p role="alert" className="note note--danger">{error}</p>}
-          <Button full loading={guardando} disabled={!online} onClick={() => void aceptarSalud()}>
+          <Button full loading={guardando} disabled={!online || (porEdad === 'FALTA_FECHA' && !nacimiento)} onClick={() => void aceptarSalud()}>
             Sí, podéis guardarlo
           </Button>
           {/* Saltar NO es una salida de emergencia: es una opción legítima con
@@ -254,7 +300,7 @@ export default function ValoracionPage() {
               como un enlace pequeño y gris sería empujar hacia el sí. */}
           <Button
             variant="secondary" full
-            onClick={() => { setV((x) => normalizar({ ...x, tieneMolestias: null, zonas: [], detalle: '', estadoCuerpo: null })); setI(indice + 1); }}
+            onClick={saltarSalud}
           >
             Prefiero no contarlo
           </Button>
