@@ -5,6 +5,7 @@ import { useEstudio } from '@/components/student/contexto';
 
 import type { CSSProperties, ReactNode } from 'react';
 import { GuardiaSesion } from '@/components/student/GuardiaSesion';
+import { GuardiaInstructora } from '@/components/student/GuardiaInstructora';
 import { StudioHeader } from './StudioHeader';
 import { BottomNavigation } from './BottomNavigation';
 import { OfflineBanner } from './OfflineBanner';
@@ -28,6 +29,10 @@ import { OfflineBanner } from './OfflineBanner';
  * Las de acceso no lo usan — tienen su propio layout, precisamente porque son
  * las únicas a las que se llega sin haber entrado.
  *
+ * `modo="instructora"` es el mismo marco para las pantallas de la instructora
+ * (`/equipo/**`): una sola app para las dos (decisión del 14-sep-2026). Cambia
+ * la guardia —exige ser instructora de este estudio— y los destinos de la barra.
+ *
  * `sinNav` quita la barra inferior — mismo criterio que cualquier chat real
  * (WhatsApp, iMessage): dentro de una conversación no hay tabs debajo, solo
  * el compositor. No es solo estético: `BottomNavigation` es `position: fixed`
@@ -46,6 +51,7 @@ export function StudentShell({
   headerTransparente = false,
   conLema = false,
   sinNav = false,
+  modo = 'alumna',
 }: {
   children: ReactNode;
   noLeidas?: number;
@@ -54,6 +60,7 @@ export function StudentShell({
   /** Pinta el lema del estudio bajo su nombre. Solo sobre un héroe. */
   conLema?: boolean;
   sinNav?: boolean;
+  modo?: 'alumna' | 'instructora';
 }) {
   // El punto de la campana era una rama muerta: ninguna pantalla pasaba
   // `noLeidas`. Lo pide el marco, una vez y compartido. Una pantalla puede
@@ -63,15 +70,16 @@ export function StudentShell({
   const estiloPage: CSSProperties = {};
   if (headerTransparente) estiloPage.paddingTop = 0;
   if (sinNav) estiloPage.paddingBottom = 'var(--safe-bottom)';
+  const Guardia = modo === 'instructora' ? GuardiaInstructora : GuardiaSesion;
   return (
-    <GuardiaSesion>
+    <Guardia>
       <div className="shell">
         <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
         <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined}>
           <OfflineBanner />
           {children}
         </main>
-        {!sinNav && <BottomNavigation badgeReservas={badgeReservas} />}
+        {!sinNav && <BottomNavigation badgeReservas={badgeReservas} modo={modo} />}
         {/* Anfitrión de las hojas (`Sheet`). Existe por dos motivos a la vez, y
             hacen falta LOS DOS:
               · fuera de `main`, para que ningún `.a-up` —cuyo `transform`
@@ -84,6 +92,6 @@ export function StudentShell({
                 píldoras, sin el tono de la marca. */}
         <div id="student-portal-host" />
       </div>
-    </GuardiaSesion>
+    </Guardia>
   );
 }
