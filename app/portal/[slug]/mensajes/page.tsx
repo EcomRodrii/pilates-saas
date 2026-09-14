@@ -8,7 +8,8 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { fetchConversaciones, abrirConversacionConEstudio, useMiAuthUserId } from '@/lib/student/mensajeria';
-import { colorPersona, selloLista, tieneSinLeer, unaLinea } from '@/lib/mensajeria/presentacion';
+import { colorPersona, selloLista, tieneSinLeer, tituloConversacionAlumna, unaLinea } from '@/lib/mensajeria/presentacion';
+import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Button } from '@/components/student/ui/Button';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { useToast } from '@/components/student/ui/Toast';
@@ -19,10 +20,6 @@ import { Icono } from '@/components/student/ui/Icono';
 // previsualización/no-leído de lib/mensajeria/resumen.ts) llevaba semanas
 // listo sin ninguna pantalla que lo llamara. Mismo idioma visual que
 // Comunidad y Notificaciones: no hay página del paquete de diseño para esto.
-
-function titulo(tipo: string, nombreEstudio: string): string {
-  return tipo === 'ALUMNA_MOSTRADOR' ? nombreEstudio : 'Tu instructora';
-}
 
 export default function MensajesPage() {
   const { estudio } = useEstudio();
@@ -70,7 +67,7 @@ export default function MensajesPage() {
         )}
         {estado === 'ready' && data!.map((c) => {
           const sinLeer = tieneSinLeer(c, miId);
-          const nombre = titulo(c.tipo, estudio.nombre);
+          const nombre = tituloConversacionAlumna(c, estudio.nombre);
           return (
             <Link
               key={c.id}
@@ -78,10 +75,14 @@ export default function MensajesPage() {
               className="card card--tap a-up"
               style={{ display: 'flex', gap: 11, alignItems: 'center', padding: '12px 14px' }}
             >
-              <span aria-hidden style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 999, background: colorPersona(c.id), color: '#fff', fontSize: 'var(--t-body)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {/* «Tu instructora» no es un nombre: su inicial era la T de «Tu». */}
-                {c.tipo === 'ALUMNA_INSTRUCTORA' ? <Icono nombre="perfil" tamano={20} /> : nombre.slice(0, 1).toUpperCase()}
-              </span>
+              {c.tipo === 'ALUMNA_INSTRUCTORA' && c.interlocutor ? (
+                <AvatarSocia nombre={c.interlocutor.nombre} fotoUrl={c.interlocutor.fotoUrl} size={40} />
+              ) : (
+                <span aria-hidden style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 999, background: colorPersona(c.id), color: '#fff', fontSize: 'var(--t-body)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {/* «Tu instructora» no es un nombre: su inicial era la T de «Tu». */}
+                  {c.tipo === 'ALUMNA_INSTRUCTORA' ? <Icono nombre="perfil" tamano={20} /> : nombre.slice(0, 1).toUpperCase()}
+                </span>
+              )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                   <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: sinLeer ? 800 : 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre}</p>

@@ -202,6 +202,18 @@ export function previsualizacionParaAviso(tipo: string, cuerpo: string): string 
   return tipo === 'ALUMNA_INSTRUCTORA' ? null : cuerpo.slice(0, 80);
 }
 
+/**
+ * Cómo se llama una conversación en la app de la alumna: el estudio, o el
+ * nombre de su instructora. «Tu instructora» solo si el servidor no lo trae.
+ */
+export function tituloConversacionAlumna(
+  c: { tipo: string; interlocutor?: { nombre: string } | null }, nombreEstudio: string,
+): string {
+  if (c.tipo === 'ALUMNA_MOSTRADOR') return nombreEstudio;
+  if (c.tipo === 'ALUMNA_INSTRUCTORA') return c.interlocutor?.nombre?.trim() || 'Tu instructora';
+  return 'Mensajes';
+}
+
 /** Previsualización de una línea: sin saltos de línea, sin cola de espacios. */
 export function unaLinea(texto: string | null | undefined, max = 120): string {
   if (!texto) return '';

@@ -29,13 +29,17 @@ const mensajes = [
   { id: 'm2', conversacion_id: CONV, studio_id: STUDIO_ID, remitente_auth_user_id: ELLA, cuerpo: 'Sí, quedan dos. ¿Te la reservo?', creado_en: '2026-08-11T18:20:00Z' },
 ];
 
-async function montar(page: Page, o: { vacia?: boolean } = {}) {
+async function montar(page: Page, o: { vacia?: boolean; conInstructora?: boolean } = {}) {
   await sembrarSociaLista(page);
   const json = (b: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill(json({ items: [], unread: 0 })));
   await page.route((u) => u.pathname.endsWith('/mensajes'), (r) => r.fulfill(json({ mensajes: o.vacia ? [] : mensajes })));
   await page.route((u) => u.pathname.endsWith('/leido'), (r) => r.fulfill(json({ ok: true })));
-  await page.route((u) => u.pathname === '/api/public/mensajeria/conversaciones', (r) => r.fulfill(json({ conversaciones: [conversacion] })));
+  await page.route((u) => u.pathname === '/api/public/mensajeria/conversaciones', (r) => r.fulfill(json({
+    conversaciones: [o.conInstructora
+      ? { ...conversacion, tipo: 'ALUMNA_INSTRUCTORA', interlocutor: { nombre: 'Laura M.', fotoUrl: null } }
+      : conversacion],
+  })));
   // ⚠️ Va DESPUÉS de `sembrarSociaLista` a propósito: registrar rutas por
   // predicado detrás de sus globs dejaba `/api/public/session` sin contestar y
   // la guardia de sesión se quedaba en «Cargando…» para siempre. Explícita aquí.
@@ -89,5 +93,17 @@ test.describe('Student PWA · hilo de mensajes', () => {
     await expect(page.getByPlaceholder('Escribe un mensaje…')).toBeVisible({ timeout: 30_000 });
     const hueco = await huecoBajoElCompositor(page);
     expect(hueco!, `quedan ${hueco}px muertos bajo el compositor`).toBeLessThanOrEqual(8);
+  });
+});
+
+test.describe('Student PWA · hilo con su instructora', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });
+
+  test('la cabecera dice con qué instructora habla, no «Tu instructora»', async ({ page }) => {
+    await montar(page, { conInstructora: true });
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: 'Laura M.' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Tu instructora')).toHaveCount(0);
   });
 });
