@@ -153,7 +153,9 @@ export const procesarDunningEstudio = inngest.createFunction(
           extra: { reciboId: rec.id, studioId, paymentIntentId: pi.id, status: pi.status },
         });
         if (pi.status === 'succeeded') {
-          const out = await confirmarCobroExitoso({ admin, reciboId: rec.id, studioId, metodo: 'SEPA', fuente: 'conciliador' });
+          // Con el cargo: sin él, un recibo DEVUELTO no se distingue de uno
+          // cobrado otra vez, y no se puede devolver desde el panel.
+          const out = await confirmarCobroExitoso({ admin, reciboId: rec.id, studioId, metodo: 'SEPA', paymentIntentId: pi.id, fuente: 'conciliador' });
           return { tipo: 'reconciliado' as const, ok: out.ok };
         }
         // requires_payment_method / canceled / cualquier estado terminal no exitoso.
