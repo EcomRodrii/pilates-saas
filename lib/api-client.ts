@@ -2771,7 +2771,7 @@ export async function resolverVerificacionNetwork(
 // Fase 9: contacto.
 export async function contactarPerfilNetwork(
   perfilId: string, mensaje: string,
-): Promise<{ ok: true; solicitudId: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; solicitudId: string } | { ok: false; error: string; status: number }> {
   try {
     const res = await fetch('/api/network/contacto', {
       method: 'POST',
@@ -2779,10 +2779,12 @@ export async function contactarPerfilNetwork(
       body: JSON.stringify({ perfilId, mensaje: mensaje || null }),
     });
     const data = (await res.json().catch(() => ({}))) as { solicitudId?: string; error?: string };
-    if (!res.ok || !data.solicitudId) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    // `status` para que quien llama distinga «ya le habías pedido contacto»
+    // (409) de un fallo de verdad sin comparar el texto del error.
+    if (!res.ok || !data.solicitudId) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)), status: res.status };
     return { ok: true, solicitudId: data.solicitudId };
   } catch {
-    return { ok: false, error: 'No se pudo enviar la solicitud de contacto' };
+    return { ok: false, error: 'No se pudo enviar la solicitud de contacto', status: 0 };
   }
 }
 
