@@ -149,6 +149,7 @@ test.describe('C — doble clic en "Aceptar y continuar" no da de alta dos ficha
     await page.route('**/api/public/session', r => r.fulfill({ status: 404, contentType: 'application/json', body: '{}' }));
 
     let altas = 0;
+    let altasRespondidas = 0;
     await page.route('**/api/public/socio', async route => {
       const body = route.request().postDataJSON() as { accion?: string };
       if (body?.accion === 'registrar') {
@@ -157,6 +158,7 @@ test.describe('C — doble clic en "Aceptar y continuar" no da de alta dos ficha
         // que un segundo clic dispare una segunda petición antes de que la
         // primera responda.
         await new Promise(res => setTimeout(res, 400));
+        altasRespondidas += 1;
         return json(route, { ok: true });
       }
       return json(route, { ok: true });
@@ -174,12 +176,29 @@ test.describe('C — doble clic en "Aceptar y continuar" no da de alta dos ficha
     await page.getByRole('checkbox').check();
 
     const boton = page.getByRole('button', { name: /Aceptar y continuar/ });
-    // Dos clics tan rápidos como Playwright permite — el escenario real es
-    // un doble clic humano, no dos peticiones separadas a propósito.
-    await Promise.all([boton.click(), boton.click()]);
+    await expect(boton).toBeEnabled();
+    // Los dos clics van en el MISMO tick, dentro de la página. Antes eran
+    // `Promise.all([boton.click(), boton.click()])`, y eso dependía del reloj:
+    // el segundo `click()` de Playwright espera a que el botón esté habilitado,
+    // pero el primero ya ha puesto `firmando` («Guardando…», deshabilitado) y
+    // al terminar cierra la hoja — bajo carga en CI esperaba un botón que no
+    // iba a volver hasta agotar los 30 s (PR #1971, E2E 7/12).
+    //
+    // Así además se prueba el caso más duro, no uno más fácil: entre dos
+    // `el.click()` síncronos React no llega a repintar, así que el segundo
+    // clic encuentra el botón AÚN habilitado y `firmando` AÚN en false — lo
+    // único que lo para es `firmandoRef`. Un doble clic humano (dos eventos
+    // separados) queda cubierto por lo mismo: el cerrojo sigue echado hasta
+    // que la petición responde.
+    await boton.evaluate((el: HTMLElement) => { el.click(); el.click(); });
 
-    // Deja que la petición (lenta a propósito) termine antes de comprobar.
-    await page.waitForTimeout(600);
+    // Espera a que la petición (lenta a propósito) termine de verdad, en vez
+    // de un `waitForTimeout` fijo. Si el cerrojo fallara, las dos peticiones
+    // salen a la vez y ambas se cuentan en la entrada del mock, 400 ms antes
+    // de que responda la primera.
+    await expect.poll(() => altasRespondidas).toBeGreaterThan(0);
     expect(altas, 'el segundo clic no debería haber disparado una segunda alta').toBe(1);
+    // Y el alta que sí salió llegó hasta el final: la hoja se cierra.
+    await expect(page.getByRole('heading', { name: 'Acepta los términos' })).toBeHidden();
   });
 });
