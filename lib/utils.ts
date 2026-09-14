@@ -139,6 +139,34 @@ export function inicioDelDiaEstudio(fechaISO: string): string {
   return new Date(tentativo - desfaseEstudio(tentativo)).toISOString();
 }
 
+/**
+ * Una hora del estudio ('YYYY-MM-DD' + 'HH:MM') como instante UTC (ISO), o
+ * `null` si no existe.
+ *
+ * Para crear clases en SERVIDOR: Vercel corre en UTC, así que un
+ * `new Date('2026-09-18T10:00')` crearía la clase una o dos horas desplazada.
+ * El desfase se resuelve DOS veces (con el instante tentativo y con el ya
+ * corregido): con una sola, una hora de la madrugada del cambio de hora de
+ * primavera salía una hora antes. Y se comprueba a la vuelta: «31 de febrero» o
+ * las 02:30 del día que el reloj salta de 02:00 a 03:00 no existen.
+ */
+export function instanteEnEstudio(fechaISO: string, hora: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaISO) || !/^\d{2}:\d{2}$/.test(hora)) return null;
+  const [a, m, d] = fechaISO.split('-').map(Number);
+  const [h, min] = hora.split(':').map(Number);
+  if (h > 23 || min > 59) return null;
+  const tentativo = Date.UTC(a, m - 1, d, h, min, 0);
+  const primero = tentativo - desfaseEstudio(tentativo);
+  const ms = tentativo - desfaseEstudio(primero);
+  const f = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ_ESTUDIO, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+  const p = Object.fromEntries(f.formatToParts(new Date(ms)).map(x => [x.type, x.value]));
+  if (`${p.year}-${p.month}-${p.day}` !== fechaISO || `${p.hour}:${p.minute}` !== hora) return null;
+  return new Date(ms).toISOString();
+}
+
 /** El instante UTC en que TERMINA ese día del estudio (= empieza el siguiente).
  *  Exclusivo, para usarlo como `< fin` y no dejar fuera los últimos segundos. */
 export function finDelDiaEstudio(fechaISO: string): string {
