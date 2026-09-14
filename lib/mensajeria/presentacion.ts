@@ -232,3 +232,13 @@ export function unaLinea(texto: string | null | undefined, max = 120): string {
   const plano = texto.replace(/\s+/g, ' ').trim();
   return plano.length > max ? `${plano.slice(0, max - 1)}…` : plano;
 }
+
+/**
+ * Añade un mensaje al hilo si no está ya. A quien envía le llega el mismo
+ * mensaje dos veces —con la respuesta del POST y con el broadcast del INSERT—
+ * y en cualquier orden. Si ya estaba, devuelve el mismo array: sin re-render.
+ */
+export function anadirMensaje<T extends { id: string }>(hilo: T[] | null, fila: T): T[] {
+  const actual = hilo ?? [];
+  return actual.some(m => m.id === fila.id) ? actual : [...actual, fila];
+}
