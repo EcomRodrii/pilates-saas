@@ -21,6 +21,7 @@ import { authHeader } from '@/lib/api-client';
 import { supabase } from '@/lib/db/supabase';
 import { EmptyState } from '@/components/ui/empty-state';
 import { tieneSinLeer } from '@/lib/mensajeria/presentacion';
+import { sociasConRelacion } from '@/lib/mensajeria-portal';
 import {
   BandejaVacia, FilaConversacion, HiloVista, NuevaConversacion, SinHiloElegido, SkeletonLista,
   identidadDe, type ContextoAncla,
@@ -233,11 +234,21 @@ function Hilo({
 // ── Pestaña ─────────────────────────────────────────────────────────────────
 
 export function ConversacionesTab() {
-  const { socios, instructores } = useStudio();
+  const { socios, instructores, reservas, sesiones } = useStudio();
   const { user } = useAuth();
   const authUserId = user?.id ?? null;
   const rol = useRol();
   const puedeMostrador = puedeGestionarCalendario(rol);
+
+  // Quien no lleva el mostrador (la instructora) solo puede abrir conversación
+  // con las socias de SUS clases —la RPC rechaza el resto— y no ve su contacto
+  // (decisión del 14-sep-2026). Solo UI: `socios_lectura` sigue abarcando el
+  // estudio hasta que se retire Tentare Core.
+  const sociasParaNueva = useMemo(() => {
+    if (puedeMostrador) return socios;
+    const yo = instructores.find(i => i.authUserId === authUserId) ?? null;
+    return sociasConRelacion(socios, reservas, sesiones, yo?.id ?? null);
+  }, [puedeMostrador, socios, instructores, reservas, sesiones, authUserId]);
 
   const [conversaciones, setConversaciones] = useState<Conversacion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -319,9 +330,10 @@ export function ConversacionesTab() {
 
           {mostrarNueva && (
             <NuevaConversacion
-              socios={socios}
+              socios={sociasParaNueva}
               instructores={instructores}
               puedeMostrador={puedeMostrador}
+              verContacto={puedeMostrador}
               error={errorNueva}
               onCerrar={() => { setMostrarNueva(false); setErrorNueva(null); }}
               onAbrir={abrirConversacion}

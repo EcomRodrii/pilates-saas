@@ -500,11 +500,15 @@ export function HiloVista({
 // cualquier app: escribes un nombre, ves caras, eliges.
 
 export function NuevaConversacion({
-  socios, instructores, puedeMostrador, onAbrir, onCerrar, error,
+  socios, instructores, puedeMostrador, verContacto, onAbrir, onCerrar, error,
 }: {
+  /** Las socias que se ofrecen. Para una instructora llegan ya acotadas a las
+   *  de sus clases (ver `sociasConRelacion`). */
   socios: Socio[];
   instructores: Instructor[];
   puedeMostrador: boolean;
+  /** Si se enseña (y se busca por) el email. Una instructora no ve contacto. */
+  verContacto: boolean;
   /** Devuelve el id de la conversación, o null si falló (el error lo pinta el
    *  contenedor vía `error`). */
   onAbrir: (tipo: 'ALUMNA_INSTRUCTORA' | 'ALUMNA_MOSTRADOR', socioId: string, instructorId?: string) => Promise<void>;
@@ -521,9 +525,9 @@ export function NuevaConversacion({
     const q = busqueda.trim().toLowerCase();
     const activos = socios.filter(s => s.activo !== false);
     return (q
-      ? activos.filter(s => `${s.nombre} ${s.apellidos} ${s.email}`.toLowerCase().includes(q))
+      ? activos.filter(s => `${s.nombre} ${s.apellidos}${verContacto ? ` ${s.email}` : ''}`.toLowerCase().includes(q))
       : activos).slice(0, 40);
-  }, [socios, busqueda]);
+  }, [socios, busqueda, verContacto]);
 
   async function abrir(tipo: 'ALUMNA_INSTRUCTORA' | 'ALUMNA_MOSTRADOR', instructorId?: string) {
     if (!socio) return;
@@ -554,7 +558,7 @@ export function NuevaConversacion({
             <input
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              placeholder="Busca por nombre o email…"
+              placeholder={verContacto ? 'Busca por nombre o email…' : 'Busca por nombre…'}
               aria-label="Buscar clienta"
               className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1 min-w-0"
             />
@@ -562,7 +566,11 @@ export function NuevaConversacion({
           <div className="max-h-56 overflow-y-auto -mx-1 px-1">
             {resultados.length === 0 ? (
               <p className="text-xs text-muted-foreground py-6 text-center">
-                Ninguna clienta coincide con «{busqueda.trim()}».
+                {busqueda.trim()
+                  ? <>Ninguna clienta coincide con «{busqueda.trim()}».</>
+                  : verContacto
+                    ? 'Todavía no hay clientas activas.'
+                    : 'Aún no hay alumnas con reserva en tus clases.'}
               </p>
             ) : (
               <ul className="space-y-0.5">
@@ -581,7 +589,9 @@ export function NuevaConversacion({
                         <span className="block text-[13px] font-semibold text-foreground truncate">
                           {s.nombre} {s.apellidos}
                         </span>
-                        <span className="block text-[11px] text-muted-foreground truncate">{s.email}</span>
+                        {verContacto && (
+                          <span className="block text-[11px] text-muted-foreground truncate">{s.email}</span>
+                        )}
                       </span>
                     </button>
                   </li>

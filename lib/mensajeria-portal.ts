@@ -33,6 +33,23 @@ export function instructorasConRelacion(
   return instructores.filter(i => idsConRelacion.has(i.id) && i.activo !== false);
 }
 
+// El mismo criterio visto desde el otro lado: a qué socias puede escribir una
+// INSTRUCTORA desde el panel. Sin esto el selector le listaba TODAS las socias
+// del estudio y casi todas acababan en SIN_RELACION_VALIDA. Otra vez UX: la
+// cerradura sigue siendo la RPC (y acotar `socios_lectura` queda para cuando
+// se retire Tentare Core).
+export function sociasConRelacion<T extends { id: string }>(
+  socios: T[], reservas: Reserva[], sesiones: Sesion[], instructorId: string | null,
+): T[] {
+  if (!instructorId) return [];
+  const sesionesSuyas = new Set(sesiones.filter(s => s.instructorId === instructorId).map(s => s.id));
+  const idsConRelacion = new Set<string>();
+  for (const r of reservas) {
+    if (ESTADOS_CON_RELACION.has(r.estado) && sesionesSuyas.has(r.sesionId)) idsConRelacion.add(r.socioId);
+  }
+  return socios.filter(s => idsConRelacion.has(s.id));
+}
+
 // ── Llamadas a /api/public/mensajeria ───────────────────────────────────────
 
 async function leerError(res: Response, respaldo: string): Promise<string> {
