@@ -27,7 +27,7 @@ export default function Contenido() {
 
       <AyudaPaso numero={2} titulo="Elige tu plan de prueba">
         <p>
-          Puedes cambiarlo más adelante desde Configuración &gt; Suscripción sin perder nada de lo que hayas
+          Puedes cambiarlo más adelante desde Suscripción, en el menú, sin perder nada de lo que hayas
           configurado durante la prueba.
         </p>
         <AyudaCaptura
@@ -38,7 +38,7 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaPaso numero={3} titulo="Crea tu acceso">
-        <p>Tu nombre, email y una contraseña. Con esto entras directamente a tu panel — no hace falta confirmar el email antes de empezar a usarlo.</p>
+        <p>Tu nombre, email y una contraseña. Te llega un código de 6 dígitos a ese email: lo escribes en la misma pantalla y entras a tu panel.</p>
         <AyudaCaptura
           src="/help/empezar/crear-estudio-paso-3.png"
           alt="Formulario de acceso, paso 3 de 3: nombre, email y contraseña"

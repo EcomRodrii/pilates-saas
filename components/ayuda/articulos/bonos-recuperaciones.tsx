@@ -13,14 +13,15 @@ export default function Contenido() {
       </AyudaAntesDeEmpezar>
 
       <h2 style={{ ...h2, marginTop: 4 }}>Cuándo nace una recuperación</h2>
-      <p>Hay dos formas, y conviene distinguirlas:</p>
+      <p>Las formas más habituales, y conviene distinguirlas:</p>
       <ul style={{ paddingLeft: 20, lineHeight: 1.7 }}>
         <li><strong>Se la concedes tú</strong> desde su ficha, con el botón «Dar recuperación». Es lo normal cuando avisa de que no puede venir y quieres compensarla.</li>
-        <li><strong>Se genera sola</strong> cuando cancela una clase de su plaza fija desde la app. Ahí no se le devuelve sesión de bono, porque no se le había descontado ninguna: la recuperación es la compensación.</li>
+        <li><strong>Se genera sola</strong> cuando se cancela una clase de su plaza fija, desde su app o desde el mostrador. Ahí no se le devuelve sesión de bono, porque no se le había descontado ninguna: la recuperación es la compensación.</li>
+        <li><strong>Sola al cerrar la semana</strong>, si activas «Dar recuperaciones solas al cerrar la semana»: a quien canceló a tiempo y no pudo recuperar el hueco, solo en planes con límite semanal.</li>
       </ul>
       <p>
-        Cancelar una clase normal a tiempo <strong>no</strong> genera recuperación: le devuelve la sesión a su
-        bono, que es lo que esperaría. Puedes leer cómo funciona esa ventana en{' '}
+        Cancelar una clase normal a tiempo con bono <strong>no</strong> genera recuperación: le devuelve la sesión a
+        su bono, que es lo que esperaría. Puedes leer cómo funciona esa ventana en{' '}
         <Link href="/ayuda/reservas/reglas-de-reserva-por-clase" style={enlace}>reglas de reserva</Link>.
       </p>
 
@@ -55,8 +56,8 @@ export default function Contenido() {
       </p>
 
       <AyudaResultado>
-        Las recuperaciones vivas aparecen en la ficha de la alumna y en tu lista de «Para hoy» cuando les quedan
-        menos de siete días — para que puedas avisarla antes de que la pierda. También se traen desde tu
+        Las recuperaciones vivas aparecen en la ficha de la alumna, y en Centro de Control («Ver todo el detalle»)
+        cuando les quedan menos de siete días — para que puedas avisarla antes de que la pierda. También se traen desde tu
         software anterior al{' '}
         <Link href="/ayuda/clientes/importar-clientes" style={enlace}>importar tus datos</Link>.
       </AyudaResultado>

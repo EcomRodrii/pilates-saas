@@ -19,8 +19,8 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Comunidad</h2>
       <p>
-        El <Link href="/ayuda/app/comunidad" style={{ color: 'inherit', textDecoration: 'underline' }}>tablón del estudio</Link>, el mismo que ven ellas en su portal. Está aquí
-        además de en su propia sección para poder publicar sin cambiar de pantalla.
+        El <Link href="/ayuda/app/comunidad" style={{ color: 'inherit', textDecoration: 'underline' }}>tablón del estudio</Link>, el mismo que ven ellas en su app. Ya no tiene
+        entrada propia en el menú: se publica desde esta pestaña.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Conversaciones</h2>
@@ -38,8 +38,8 @@ export default function Contenido() {
 
       <AyudaResultado>
         Esto es lo que mandas <strong>tú</strong>. Lo que sale solo —recordatorios, avisos de bono a punto de
-        acabar— se configura en{' '}
-        <Link href="/ayuda/automatizaciones/recordatorios-automaticos" style={{ color: 'inherit', textDecoration: 'underline' }}>Automatizaciones</Link>, y lo que ya se ha
+        acabar— lo hace Tentare de serie, sin configurar nada (ver{' '}
+        <Link href="/ayuda/automatizaciones/recordatorios-automaticos" style={{ color: 'inherit', textDecoration: 'underline' }}>avisos automáticos</Link>), y lo que ya se ha
         enviado se comprueba en el{' '}
         <Link href="/ayuda/automatizaciones/registro-de-envios" style={{ color: 'inherit', textDecoration: 'underline' }}>registro de envíos</Link>.
       </AyudaResultado>

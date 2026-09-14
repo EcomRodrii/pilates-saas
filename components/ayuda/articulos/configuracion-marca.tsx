@@ -1,36 +1,30 @@
 import Link from 'next/link';
-import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
 import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
-// Reescrito el 28-ago-2026: la versión anterior decía que el color y el logo
-// se editaban dentro de Configuración > Estudio — falso, esa pestaña solo
-// tiene un enlace ("Editar marca y apariencia") que lleva a un editor
-// completamente aparte, con su propia URL (/configuracion/apariencia/editor).
+// Reescrito el 14-sep-2026: la versión del 28-ago mandaba a «Editar marca y
+// apariencia» y a un editor de tema con borrador y «Publicar». Ese editor está
+// en mantenimiento desde el 7-sep y el botón ya no existe: el logo y el favicon
+// se suben en Estudio > General, y el color abre /configuracion/apariencia/panel,
+// que guarda al momento («Guardar colores»). La captura enseñaba el editor
+// cerrado y se quitó.
 export default function Contenido() {
   return (
     <>
       <p>
-        Desde Configuración &gt; Estudio, el bloque «Marca» tiene un único botón — «Editar marca y apariencia» —
-        que te lleva al editor de tema: vista previa en vivo de tu portal, con panel de secciones y de ajustes.
+        En Configuración &gt; Estudio &gt; General, el bloque «Tu marca» reúne lo que ven tus alumnas: el nombre de tu
+        estudio, tu logo y tu favicon, que subes ahí mismo.
       </p>
 
-      <AyudaCaptura
-        src="/help/configuracion/apariencia-ajustes-tema.png"
-        alt="Editor de tema, pestaña Ajustes: paleta, imágenes de marca, color, tipografía, esquinas, botón principal, tarjetas, navegación, redes sociales y más"
-        caption="Ajustes del tema — mucho más que un color y un logo."
-      />
-
       <p>
-        En «Ajustes del tema» está todo lo que normalmente se entiende por marca (logo, favicon, color, tipografía),
-        pero también el resto de la identidad visual de tu portal: forma de las esquinas, estilo de los botones y
-        tarjetas, cómo se navega, tus redes sociales, la portada de tu página de reservas y hasta el texto con el
-        que le hablas a tu clienta.
+        El color va desde «El color de tu marca», en ese mismo bloque: abre «Personalizar tu panel», donde eliges tu
+        color principal y el secundario y los pruebas antes de guardarlos. Lo ven tus alumnas en tu página de
+        reservas y en su app.
       </p>
 
       <AyudaResultado>
-        Los cambios se guardan como borrador hasta que pulsas «Publicar» — puedes probar combinaciones sin que tus
-        alumnas vean nada a medias. Sigue con{' '}
-        <Link href="/ayuda/portal/personalizar-tu-portal" style={{ color: 'inherit', textDecoration: 'underline' }}>personalizar tu portal</Link>, que detalla el resto del editor (secciones y bloques).
+        Los colores se aplican en cuanto pulsas «Guardar colores» — no hay borrador. La portada, la tipografía y las
+        secciones del portal están en mantenimiento: ver{' '}
+        <Link href="/ayuda/portal/personalizar-tu-portal" style={{ color: 'inherit', textDecoration: 'underline' }}>personalizar tu portal</Link>.
       </AyudaResultado>
     </>
   );

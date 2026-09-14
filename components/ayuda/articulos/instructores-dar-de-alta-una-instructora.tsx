@@ -6,12 +6,12 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        Dar de alta a una instructora le crea un acceso propio a Tentare Core — no comparte usuario contigo ni con
-        el resto del equipo.
+        Dar de alta a una instructora crea su ficha en tu equipo. Su acceso lo crea ella —con la invitación por
+        email o entrando con ese mismo correo—, así que no comparte usuario contigo ni con el resto del equipo.
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Ve a Equipo y añade una persona nueva">
-        <p>Su nombre, email y el rol que le corresponde: instructora, recepción o manager.</p>
+        <p>Su nombre, email y el rol que le corresponde: instructora, recepción o responsable de sede.</p>
         <AyudaCaptura
           src="/help/instructores/equipo-nuevo-miembro.png"
           alt="Formulario de alta de una persona del equipo: nombre, avatar, email, teléfono y rol"
@@ -28,7 +28,7 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaResultado>
-        La instructora recibe su acceso y entra directamente a su propio panel (Tentare Core), donde configura su{' '}
+        La instructora trabaja desde la app del estudio, con esa misma cuenta: ahí pone su{' '}
         <Link href="/ayuda/instructores/disponibilidad-y-tarifas" style={{ color: 'inherit', textDecoration: 'underline' }}>disponibilidad</Link> y ve las clases que le asignes.
       </AyudaResultado>
     </>

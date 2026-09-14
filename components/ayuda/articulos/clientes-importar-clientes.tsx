@@ -25,7 +25,7 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaPaso numero={3} titulo="Corrige lo que salga marcado">
-        <p style={{ margin: 0 }}>Filas con un email inválido o duplicado se marcan antes de importar, no después — puedes corregirlas en el propio archivo o decidir ignorarlas.</p>
+        <p style={{ margin: 0 }}>Filas con un email inválido o duplicado se marcan antes de importar, no después, y se omiten solas — si quieres traerlas, corrígelas en el archivo y vuelve a subirlo.</p>
       </AyudaPaso>
 
       <AyudaResultado>

@@ -16,14 +16,14 @@ export default function Contenido() {
 
       <AyudaPaso numero={2} titulo="Elige el tipo y complétalo">
         <p style={{ margin: 0 }}>
-          Nombre, tipo (bono, cuota mensual o puntual — ver{' '}
-          <Link href="/ayuda/bonos/tipos-de-bono" style={{ color: 'inherit', textDecoration: 'underline' }}>tipos de bono</Link>), precio, número de sesiones si aplica, y si quieres limitarlo a un tipo de clase concreto.
+          Primero el tipo —Cuota, Bono de sesiones o Clase suelta, ver{' '}
+          <Link href="/ayuda/bonos/tipos-de-bono" style={{ color: 'inherit', textDecoration: 'underline' }}>tipos de bono</Link>—; luego nombre, precio, sesiones, caducidad o cada cuánto se cobra según el tipo, y en qué clases vale.
         </p>
       </AyudaPaso>
 
       <AyudaResultado>
-        En cuanto lo guardas, el plan ya está disponible para asignar a una clienta o para que ella lo compre desde
-        el checkout de tu portal.
+        En cuanto lo guardas con «Disponible para vender» encendido (viene así), el plan ya está disponible para
+        asignar a una clienta o para que ella lo compre desde el checkout de tu portal.
       </AyudaResultado>
     </>
   );

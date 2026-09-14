@@ -9,27 +9,29 @@ export default function Contenido() {
   return (
     <>
       <p>
-        Tentare avisa automáticamente por email y, si lo tienes activado, por WhatsApp — sin que tengas que
-        configurar plantillas ni redactar nada. Algunos ejemplos de lo que se envía solo:
+        Tentare avisa solo, de serie y sin que tengas que activar ninguna regla ni redactar nada: en la app de la
+        alumna y, para el recordatorio de clase, también por email (o por WhatsApp si lo tienes conectado).
+        Algunos ejemplos de lo que se envía solo:
       </p>
 
       <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
-        <li>Confirmación al reservar una clase.</li>
-        <li>Recordatorio antes de que empiece.</li>
-        <li>Aviso de que un bono está a punto de caducar o casi agotado.</li>
-        <li>Aviso a mostrador cuando una sustitución no encuentra candidata a tiempo.</li>
-        <li>Confirmación cuando se cubre una clase con sustituta.</li>
+        <li>Confirmación en su app al reservar una clase.</li>
+        <li>Recordatorio antes de que empiece: en su app 24 h y 1 h antes, y por email.</li>
+        <li>Aviso de que un bono está a punto de caducar o se ha quedado sin clases.</li>
+        <li>Aviso a la propietaria cuando una sustitución se queda sin candidatas.</li>
+        <li>«Clase cubierta» cuando una sustituta acepta la clase.</li>
       </ul>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué puedes activar o apagar</h2>
       <p>
-        Desde Configuración puedes decidir por qué canal te llegan a ti los avisos internos (email, WhatsApp), y si
-        tu estudio tiene el canal de WhatsApp disponible para las alumnas también.
+        Estos avisos no se encienden ni se apagan: son parte del producto. Lo que eliges tú es qué avisos te llegan
+        a ti y por dónde, desde las preferencias de notificaciones, y el WhatsApp de tu estudio se conecta en
+        Configuración &gt; Integraciones.
       </p>
 
       <AyudaResultado>
-        Esto no es un sistema de campañas de marketing con segmentos y envíos manuales — es automatización
-        operativa: cada aviso responde a algo que ha pasado de verdad, no a una campaña que has programado tú.
+        Esto es lo que Tentare hace de serie: cada aviso responde a algo que ha pasado de verdad. Para escribir tú
+        a un grupo está Mensajería &gt; Enviar mensaje, y para reglas propias, Automatizaciones.
         Relacionado:{' '}
         <Link href="/ayuda/problemas/no-llega-un-email" style={{ color: 'inherit', textDecoration: 'underline' }}>no llega un email</Link> y{' '}
         <Link href="/ayuda/problemas/no-llega-un-whatsapp" style={{ color: 'inherit', textDecoration: 'underline' }}>no llega un WhatsApp</Link>.

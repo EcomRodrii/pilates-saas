@@ -11,7 +11,7 @@ export default function Contenido() {
     <>
       <p>
         Quién tiene acceso a tu panel y con qué rol se gestiona desde Equipo, no dentro de Configuración — ahí
-        invitas y das de baja a personas, y les asignas su rol.
+        invitas y eliminas a personas, y les asignas su rol.
       </p>
 
       <AyudaCaptura
@@ -26,8 +26,8 @@ export default function Contenido() {
       </p>
 
       <AyudaResultado>
-        Dar de baja a una persona no borra su historial: las clases que ha dado o las acciones que ha registrado se
-        quedan, solo pierde el acceso a partir de ese momento.
+        Eliminar a una persona del equipo no borra sus clases ni sus citas: se quedan, pero dejan de mostrar quién
+        las daba. Ella pierde el acceso a partir de ese momento.
       </AyudaResultado>
     </>
   );

@@ -6,7 +6,7 @@ export default function Contenido() {
   return (
     <>
       <QueEstaPasando>
-        Un email que Tentare debería haber enviado (confirmación de reserva, recordatorio, enlace de acceso, factura)
+        Un email que Tentare debería haber enviado (recordatorio de clase, enlace de acceso, factura)
         no ha llegado.
       </QueEstaPasando>
 
@@ -19,12 +19,12 @@ export default function Contenido() {
 
       <ComoSolucionarlo>
         <p style={{ margin: '0 0 12px' }}>Pide que revise spam y promociones antes que nada — es la causa más común, con diferencia.</p>
-        <p style={{ margin: '0 0 12px' }}>Comprueba en su ficha que el email guardado está bien escrito.</p>
+        <p style={{ margin: '0 0 12px' }}>Mira su ficha: si el correo rebotó, sale un aviso con el motivo. Comprueba que el email guardado está bien escrito y corrígelo en «Editar».</p>
         <p style={{ margin: 0 }}>Si es un correo repetitivo (recordatorios, por ejemplo) que nunca llega a esa persona en concreto, prueba a que marque tu remitente como seguro o añada tu dirección a sus contactos.</p>
       </ComoSolucionarlo>
 
       <AyudaResultado>
-        Los avisos automáticos (recordatorios, bono a punto de acabar…) siguen la misma vía de email — ver{' '}
+        El recordatorio de clase sigue esta misma vía de email; los avisos de bono llegan en su app — ver{' '}
         <Link href="/ayuda/automatizaciones/recordatorios-automaticos" style={{ color: 'inherit', textDecoration: 'underline' }}>recordatorios automáticos</Link>.
       </AyudaResultado>
     </>

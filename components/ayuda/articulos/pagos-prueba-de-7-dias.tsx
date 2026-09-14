@@ -12,7 +12,7 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Qué pasa al terminar</h2>
       <p>
         Cuando se cumplen los 7 días, tu prueba se cierra sola. Para seguir usando Tentare eliges y pagas un plan
-        desde Configuración &gt; Suscripción — nada se cobra automáticamente al terminar la prueba, porque nunca
+        desde Suscripción, en el menú — nada se cobra automáticamente al terminar la prueba, porque nunca
         diste una tarjeta.
       </p>
 

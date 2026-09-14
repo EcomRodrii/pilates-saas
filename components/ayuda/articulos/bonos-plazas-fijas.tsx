@@ -18,9 +18,9 @@ export default function Contenido() {
         y sala, y opcionalmente el tipo de clase y hasta el sitio concreto (si tu sala tiene máquinas numeradas).
       </p>
       <p>
-        La plaza se guarda como un <strong>hueco semanal</strong>, no como una lista de reservas. Cada noche,
-        Tentare mira las seis semanas siguientes y crea las reservas que falten en ese hueco. Por eso una plaza
-        recién asignada aparece en el calendario al día siguiente, no al instante.
+        La plaza se guarda como un <strong>hueco semanal</strong>, no como una lista de reservas. Al guardarla ya
+        se le reserva la próxima clase de ese hueco; las siguientes las crea Tentare cada noche, mirando las seis
+        semanas que vienen.
       </p>
 
       <h2 style={h2}>Si cambias el horario de la clase</h2>
@@ -38,7 +38,8 @@ export default function Contenido() {
       <h2 style={h2}>Cambiarle el hueco a una alumna</h2>
       <p>
         Desde su ficha puedes <strong>editar</strong> la plaza —día, hora, sala— sin borrarla y volver a
-        crearla. Importa hacerlo así: al recrearla perdería su antigüedad.
+        crearla. Importa hacerlo así: al recrearla perdería su antigüedad. Las reservas ya creadas en el hueco
+        anterior no se mueven: cancélalas desde el calendario.
       </p>
 
       <h2 style={h2}>Cuando una semana no puede venir</h2>
@@ -51,8 +52,8 @@ export default function Contenido() {
 
       <AyudaResultado>
         Si una plaza fija se queda sin clase a la que engancharse —porque cambió el horario y no se movió, o
-        porque esa clase ya no existe— aparece en tu lista de «Para hoy» como plaza sin clase, en vez de dejar
-        de funcionar en silencio.
+        porque esa clase ya no existe— lo verás en su ficha («Sin clase en este horario») y en Centro de Control,
+        dentro de «Ver todo el detalle», en vez de dejar de funcionar en silencio.
       </AyudaResultado>
     </>
   );

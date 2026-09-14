@@ -4,8 +4,8 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        El tablón de tu estudio. Publicas algo aquí y lo ven tus alumnas en su portal, sin que tengas que montar
-        un grupo de WhatsApp con ochenta personas para contar una cosa.
+        El tablón de tu estudio. Lo publicas desde Mensajería, pestaña Comunidad, y lo ven tus alumnas en su app,
+        sin que tengas que montar un grupo de WhatsApp con ochenta personas para contar una cosa.
       </AyudaAntesDeEmpezar>
 
       <p>
@@ -23,8 +23,8 @@ export default function Contenido() {
       </p>
 
       <AyudaResultado>
-        Tus alumnas pueden reaccionar y comentar, y tú lo ves aquí mismo. La misma pantalla está en Mensajería:
-        es el mismo tablón, no dos sitios distintos que se puedan quedar diciendo cosas diferentes.
+        Tus alumnas pueden reaccionar y comentar, y tú lo ves en esa misma pestaña. Comunidad ya no tiene entrada
+        propia en el menú: es un solo tablón, no dos sitios que se puedan quedar diciendo cosas diferentes.
       </AyudaResultado>
     </>
   );
