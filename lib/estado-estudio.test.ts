@@ -102,6 +102,16 @@ test('el orden es el de urgencia, no el de llegada de los datos', () => {
 });
 
 test('lo que se resuelve en una tarjeta de la home no enlaza a otra pantalla', () => {
-  const e = construirEstadoEstudio({ penalizacionesPorAprobar: 1, devolucionesPorRevisar: 1, canjesPorEntregar: 1 });
+  const e = construirEstadoEstudio({ penalizacionesPorAprobar: 1, devolucionesPorRevisar: 1, canjesPorEntregar: 1, bajasPorRevisar: 1 });
   assert.ok(e.decidir.every(l => l.href === null));
+});
+
+test('las bajas de última hora del equipo esperan decisión, van las últimas y sin palabras de sanción', () => {
+  const e = construirEstadoEstudio({ bajasPorRevisar: 2, sustitucionesPorDecidir: 1, canjesPorEntregar: 1 });
+  assert.deepEqual(e.decidir.map(l => l.id), ['sustitucionesPorDecidir', 'canjesPorEntregar', 'bajasPorRevisar']);
+  assert.equal(e.nDecidir, 4);
+  const linea = e.decidir.find(l => l.id === 'bajasPorRevisar')!;
+  assert.equal(linea.texto, '2 bajas de última hora del equipo por revisar');
+  assert.doesNotMatch(linea.texto, /sanci|penaliz|falta|justific/i);
+  assert.equal(construirEstadoEstudio({ bajasPorRevisar: 1 }).decidir[0].texto, 'Una baja de última hora del equipo por revisar');
 });

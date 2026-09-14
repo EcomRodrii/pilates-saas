@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
   puedeGestionarAutomatizaciones, puedeGestionarCalendario, puedeGestionarClientas,
-  puedeMoverDinero, puedeVer, puedeVerFinanzas,
+  puedeGestionarEquipo, puedeMoverDinero, puedeVer, puedeVerFinanzas,
 } from '@/lib/permisos-reglas';
 import { construirEstadoEstudio, contarConCandidatosNetwork, type ConteosEstudio } from '@/lib/estado-estudio';
 
@@ -23,7 +23,7 @@ import { construirEstadoEstudio, contarConCandidatosNetwork, type ConteosEstudio
 // Sin plan de por medio, a diferencia de /api/decisiones: esto es operación del
 // día (una reserva por aprobar, una clase sin cubrir), no el Decision OS.
 //
-// Coste: hasta 13 HEAD + 1 select mínimo (sustituciones agotadas) en paralelo,
+// Coste: hasta 14 HEAD + 1 select mínimo (sustituciones agotadas) en paralelo,
 // una vez por carga de la home y compartidos con el contador del menú
 // (lib/estado-estudio-cliente.ts). Si algún día pesa
 // —el proyecto ya ha visto 504 por ráfagas—, el siguiente paso es una única RPC
@@ -63,10 +63,13 @@ export async function GET(req: NextRequest) {
   const verFinanzas = puedeVerFinanzas(rol);
   const gestionaAutomatizaciones = puedeGestionarAutomatizaciones(rol) && puedeVer(rol, '/automatizaciones');
   const gestionaClientas = puedeGestionarClientas(rol);
+  // El motivo de una baja puede ser salud: la revisa quien gestiona el equipo,
+  // nunca recepción (mismo gate que la tarjeta y /api/equipo/bajas-instructora).
+  const gestionaEquipo = puedeGestionarEquipo(rol);
 
   const [
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
-    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar,
+    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
   ] = await Promise.all([
@@ -108,6 +111,21 @@ export async function GET(req: NextRequest) {
       .select('id', HEAD).eq('studio_id', studioId).eq('resultado', 'PENDIENTE_ADMIN'))),
     si(gestionaClientas, () => contar('canjes', admin.from('reward_redemptions')
       .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE'))),
+    // Sin la suya propia (una gerente que da clases): no la puede revisar, y
+    // contarla dejaría una línea que lleva a una tarjeta vacía.
+    si(gestionaEquipo, async () => {
+      const { data: ficha, error } = await admin.from('instructores').select('id')
+        .eq('studio_id', studioId).eq('auth_user_id', sesion.userId).limit(1);
+      if (error) {
+        console.error('[estado-estudio:bajas-revisar-ficha]', error);
+        return null;
+      }
+      const propia = (ficha?.[0]?.id as string | undefined) ?? null;
+      let pendientes = admin.from('bajas_instructora')
+        .select('id', HEAD).eq('studio_id', studioId).eq('revision', 'PENDIENTE');
+      if (propia) pendientes = pendientes.neq('instructor_id', propia);
+      return contar('bajas-revisar', pendientes);
+    }),
 
     // ── En marcha ──
     si(verSustituciones, () => contar('sust-buscando', admin.from('sustituciones')
@@ -137,7 +155,7 @@ export async function GET(req: NextRequest) {
 
   const conteos: ConteosEstudio = {
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
-    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar,
+    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
   };

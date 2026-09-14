@@ -49,6 +49,31 @@ test('el panel solo enseña el motivo a quien gestiona el equipo', () => {
   assert.equal(src.match(/from\('bajas_instructora'\)/g)?.length, 1);
 });
 
+test('revisar una baja es de quien gestiona el equipo, acotado a su estudio y solo desde PENDIENTE', () => {
+  const src = sinComentarios(leer('app/api/equipo/bajas-instructora/route.ts'));
+  for (const metodo of ['GET', 'POST']) {
+    const bloque = src.slice(src.indexOf(`export async function ${metodo}(`));
+    const gate = bloque.indexOf('if (!puedeGestionarEquipo(sesion.rol))');
+    const lectura = bloque.indexOf("from('bajas_instructora')");
+    assert.ok(gate > 0 && lectura > gate, `${metodo}: comprueba el rol antes de tocar la tabla`);
+    assert.match(bloque.slice(lectura, lectura + 400), /\.eq\('studio_id', sesion\.studioId\)/);
+  }
+  assert.match(src, /\.eq\('id', id\)\.eq\('studio_id', sesion\.studioId\)\.eq\('revision', 'PENDIENTE'\)/);
+  assert.match(src, /normalizarDecision\(body\?\.decision\)/);
+  // Nadie revisa su propia baja, ni la ve en la lista.
+  assert.equal(src.match(/const propia = await fichaPropia\(admin, sesion\.studioId, sesion\.userId\)/g)?.length, 2);
+  assert.match(src, /if \(propia\) pendientes = pendientes\.neq\('instructor_id', propia\)/);
+  assert.match(src, /if \(propia\) revisar = revisar\.neq\('instructor_id', propia\)/);
+});
+
+test('la bandeja cuenta las bajas por revisar solo para quien gestiona el equipo, sin la suya propia', () => {
+  const src = sinComentarios(leer('app/api/estado-estudio/route.ts'));
+  const bloque = src.slice(src.indexOf('si(gestionaEquipo, async () => {'));
+  assert.ok(bloque.length > 0, 'el recuento va gateado por gestionaEquipo');
+  assert.match(bloque.slice(0, 900), /from\('bajas_instructora'\)[\s\S]*\.neq\('instructor_id', propia\)[\s\S]*contar\('bajas-revisar'/);
+  assert.match(src, /const gestionaEquipo = puedeGestionarEquipo\(rol\)/);
+});
+
 test('la ruta de la app limita por IP antes de verificar y por instructora después', () => {
   const src = sinComentarios(leer('app/api/portal/instructora/baja/route.ts'));
   const ip = src.indexOf("enforceRateLimit(req, 'portal-instructora-baja-ip'");

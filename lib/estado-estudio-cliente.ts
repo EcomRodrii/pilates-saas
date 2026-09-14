@@ -25,6 +25,7 @@ export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
   penalizacionesPorAprobar: 'decidir-penalizaciones',
   devolucionesPorRevisar: 'decidir-devoluciones',
   canjesPorEntregar: 'decidir-canjes',
+  bajasPorRevisar: 'decidir-bajas-equipo',
 };
 
 const FRESCO_MS = 30_000;

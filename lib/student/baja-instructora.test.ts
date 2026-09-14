@@ -2,8 +2,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CATEGORIAS_BAJA, MINUTOS_ULTIMA_HORA, antelacionMinutos, normalizarCategoria, normalizarRevision,
-  revisionInicial, revisionReciente, textoMotivoParaEstudio, textoRevision,
+  normalizarDecision, revisionInicial, revisionReciente, textoAntelacion, textoMotivoParaEstudio, textoRevision,
 } from './baja-instructora.ts';
+
+test('el estudio solo puede decidir «Todo en orden» o «Lo hablamos»', () => {
+  assert.equal(normalizarDecision('EN_ORDEN'), 'EN_ORDEN');
+  assert.equal(normalizarDecision('LO_HABLAMOS'), 'LO_HABLAMOS');
+  for (const malo of ['PENDIENTE', 'NO_JUSTIFICADA', 'en_orden', null, 1]) assert.equal(normalizarDecision(malo), null);
+});
+
+test('la antelación se cuenta en hechos: minutos por debajo de una hora, horas por encima', () => {
+  assert.equal(textoAntelacion(40), 'Avisó con 40 min de antelación');
+  assert.equal(textoAntelacion(180), 'Avisó con 3 h de antelación');
+  assert.equal(textoAntelacion(-5), 'Avisó con 0 min de antelación');
+  assert.equal(textoAntelacion(Number.NaN), 'Avisó con 0 min de antelación');
+});
 
 test('el motivo son tres opciones fijas; cualquier otra cosa no se guarda', () => {
   assert.deepEqual(CATEGORIAS_BAJA.map((c) => c.valor), ['SALUD', 'PERSONAL', 'OTRO']);

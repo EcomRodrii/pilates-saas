@@ -871,6 +871,26 @@ export async function emitirSustitucionOfrecida(
   }
 }
 
+// El estudio ha revisado una baja de última hora de la instructora. El aviso NO
+// lleva qué se decidió ni la nota: se leen dentro de la app, no en la pantalla
+// bloqueada. Una vez por baja (dedupKey), aunque se reintente la petición.
+export async function emitirBajaRevisada(
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; instructorId: string; sustitucionId: string; bajaId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    await publish({
+      type: EVENTOS.BAJA_REVISADA, studioId: p.studioId,
+      data: { ...ctx, instructorId: p.instructorId },
+      resource: { type: 'sustitucion', id: p.sustitucionId },
+      dedupKey: `baja-revisada:${p.bajaId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirBajaRevisada:', e instanceof Error ? e.message : e);
+  }
+}
+
 // El Umbral (lib/decision/umbral.ts): el único mensaje del día, si lo hay.
 // dedupKey por fecha (no por dedupeKey de la candidata) — refuerza en este
 // nivel también "como mucho un push de este tipo al día por estudio".
