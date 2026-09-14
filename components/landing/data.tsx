@@ -238,7 +238,7 @@ export const PLANS = [
     name: 'Cadena',
     price: '149€',
     desc: 'Varias sedes en un mismo panel.',
-    features: ['Todo lo de Estudio', 'Varios centros', 'Una sola suscripción para la cadena'],
+    features: ['Todo lo de Estudio', 'Varios centros', 'Soporte dedicado'],
     cta: 'Hablar con ventas',
     dark: false,
     popular: false,
