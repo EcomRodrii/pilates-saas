@@ -400,7 +400,7 @@ export async function PATCH(req: NextRequest) {
     //
     // A las de LISTA_ESPERA y PENDIENTE_APROBACION se les cancela sin aviso:
     // avisarAlumnas solo alcanza a las CONFIRMADA. Es lo que ya hacía el panel.
-    const { data: confirmadasAntes } = await admin.from('reservas').select('socio_id')
+    const { data: confirmadasAntes } = await admin.from('reservas').select('id, socio_id')
       .eq('sesion_id', sust.sesion_id).eq('studio_id', sesion.studioId).eq('estado', 'CONFIRMADA');
 
     const cancRes = await admin.from('reservas')
@@ -442,7 +442,7 @@ export async function PATCH(req: NextRequest) {
         .eq('id', sust.sesion_id).maybeSingle();
       const tipoClaseId = sesionInfo?.tipo_clase_id as string | null;
       await devolverBonosPorCancelacionClase(admin, sesion.studioId,
-        confirmadasAntes.map(r => ({ socioId: r.socio_id as string, tipoClaseId })));
+        confirmadasAntes.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })));
     }
 
     return NextResponse.json({ ok: true, alumnas });

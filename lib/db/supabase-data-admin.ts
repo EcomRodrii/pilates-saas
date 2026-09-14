@@ -22,6 +22,10 @@ import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { primerError } from '@/lib/db/primer-error';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { esCodigoReserva, mensajeDeErrorReserva, MENSAJE_RESERVA_RPC } from '@/lib/reservas/errores-rpc';
+import {
+  descontarSesionDeReserva, devolucionPermitida, efectosTrasConsumo, esColumnaInexistente, ocupaPlaza,
+  sesionDescontada, type ConsumoBono,
+} from '@/lib/reservas/consumo-bono-reserva';
 import { LEGAL } from '@/lib/legal-info';
 import { selloParaCliente, type SelloCliente } from '@/lib/factura-sello-cliente';
 import type { FacturaImprimible } from '@/lib/factura-pdf';
@@ -1098,7 +1102,14 @@ async function validarSociaPublica(
 // (antes lo consultaba cada llamante por su cuenta) y así se le puede pasar la
 // sesión a la RPC, que vuelve a comprobar la cobertura del lado de la BD.
 
-async function consumirBonoServidor(admin: SupabaseClient, studioId: string, socioId: string, sesionId: string): Promise<boolean> {
+async function consumirBonoServidor(admin: SupabaseClient, p: {
+  studioId: string; socioId: string; sesionId: string;
+  /** La reserva que se cobra: la decisión (cobrada o no) queda marcada en ella. */
+  reservaId: string;
+  /** Reintento del mismo intento: solo descuenta si puede PROBAR que falta. */
+  reintento?: boolean;
+}): Promise<ConsumoBono> {
+  const { studioId, socioId, sesionId } = p;
   const { data: ses } = await admin.from('sesiones').select('tipo_clase_id').eq('id', sesionId).maybeSingle();
   const tipoClaseId = (ses?.tipo_clase_id as string | null) ?? null;
   const [{ data: susRows }, { data: planRows }] = await Promise.all([
@@ -1110,22 +1121,28 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
   // descontaría de un bono que no cubre esta clase.
   const planes = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
   const consumible = bonoConsumible(socioId, suscripciones, planes, undefined, tipoClaseId);
-  if (!consumible) return false;
-  const { suscripcion: sus, plan } = consumible;
+  // «No hay bono que cubra la clase» también es una decisión y se registra en la
+  // reserva (`suscripcionId: null`): si la socia compra un bono después, un
+  // reintento no le cobra esta clase.
+  //
   // Decremento ATÓMICO condicional (arregla el sobre-consumo concurrente): N
   // reservas simultáneas de la misma socia ya NO comparten el mismo descuento.
-  // Devuelve el nuevo saldo, o null si otra reserva ya agotó el bono / hubo error.
-  const { data: nuevoSaldo, error } = await admin.rpc('consumir_sesion_bono', {
-    p_suscripcion_id: sus.id,
-    p_studio_id: studioId,
-    // La BD vuelve a comprobar la cobertura por tipo de clase (migr 0129). Aquí
-    // `bonoConsumible` ya la respeta, así que esto no debería rechazar nunca —
-    // y justo por eso vale: si algún día deja de respetarla, salta aquí en vez
-    // de servir la clase cara contra el bono barato en silencio.
-    p_sesion_id: sesionId,
+  // Y POR RESERVA (migr 20260914130000): la marca queda en la propia reserva en
+  // la misma transacción, así que volver a llamar descuenta si falta y, si no,
+  // no toca nada. Sin la migración aplicada cae al descuento de siempre (ver
+  // `lib/reservas/consumo-bono-reserva.ts`).
+  // La BD vuelve a comprobar la cobertura por tipo de clase (migr 0129). Aquí
+  // `bonoConsumible` ya la respeta, así que esto no debería rechazar nunca —
+  // y justo por eso vale: si algún día deja de respetarla, salta aquí en vez
+  // de servir la clase cara contra el bono barato en silencio.
+  const consumo = await descontarSesionDeReserva(admin as never, {
+    studioId, sesionId, suscripcionId: consumible?.suscripcion.id ?? null,
+    reservaId: p.reservaId, reintento: p.reintento ?? false,
   });
-  if (error) { reportDbError('[consumirBonoServidor]', error); return false; }
-  if (nuevoSaldo == null) {
+  if (consumo.resultado === 'FALLO') { reportDbError('[consumirBonoServidor]', consumo.error); return consumo; }
+  if (!consumible) return consumo;
+  const { suscripcion: sus, plan } = consumible;
+  if (consumo.resultado === 'SIN_SALDO') {
     // La socia SÍ tenía un bono consumible (`bonoConsumible` lo confirmó arriba)
     // pero el RPC no descontó. La reserva ya está CONFIRMADA, así que esto es
     // una clase servida sin cobrar. No se revierte aquí —cancelar una plaza ya
@@ -1146,10 +1163,13 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
     // buscar otra causa antes de darlo por una carrera.
     reportDbError(
       '[consumirBonoServidor] bono consumible sin descontar (posible clase no cobrada)',
-      { studioId, socioId, suscripcionId: sus.id },
+      { studioId, socioId, suscripcionId: sus.id, reservaId: p.reservaId },
     );
-    return false;
+    return consumo;
   }
+  // YA_CONSUMIDA / YA_DECIDIDA / NO_OCUPA_PLAZA / NO_VERIFICABLE: no se ha descontado nada
+  // ahora, así que tampoco se vuelve a anunciar «bono agotado».
+  if (consumo.resultado !== 'CONSUMIDA') return consumo;
   // ⚠️ Aquí NO se crea ningún recibo. Agotar un bono es el final de una compra
   // única, no el principio de otra: hasta el 2026-09-05 este bloque insertaba
   // un recibo «Renovación <plan>» PENDIENTE con `proximo_reintento`, o sea con
@@ -1166,11 +1186,11 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
   //
   // El mensual no pasa por aquí (no consume sesiones): su renovación la sigue
   // llevando el cron `lib/inngest/renovaciones.ts`, intacto.
-  if (nuevoSaldo === 0 && avisaBonoAgotado(plan)) {
+  if (consumo.saldo === 0 && avisaBonoAgotado(plan)) {
     const { emitirBonoAgotado } = await import('@/lib/notifications/emit');
     await emitirBonoAgotado(admin, { studioId, socioId, plan: plan.nombre, suscripcionId: sus.id });
   }
-  return true;
+  return consumo;
 }
 
 
@@ -1229,7 +1249,7 @@ export async function devolverBonoServidor(
 // para que el email de cancelación nunca prometa una sesión que no recuperó.
 export async function devolverBonosPorCancelacionClase(
   admin: SupabaseClient, studioId: string,
-  confirmadas: { socioId: string; tipoClaseId: string | null }[],
+  confirmadas: { socioId: string; tipoClaseId: string | null; reservaId?: string }[],
 ): Promise<Map<string, boolean>> {
   const devueltoPorSocia = new Map<string, boolean>();
   if (confirmadas.length === 0) return devueltoPorSocia;
@@ -1240,7 +1260,10 @@ export async function devolverBonosPorCancelacionClase(
     confirmadas.forEach(c => devueltoPorSocia.set(c.socioId, false));
     return devueltoPorSocia;
   }
+  // Una reserva rastreada que nunca se cobró de un bono no recupera nada.
+  const sinCobro = await reservasSinCobroRegistrado(admin, studioId, confirmadas.flatMap(c => c.reservaId ? [c.reservaId] : []));
   for (const c of confirmadas) {
+    if (c.reservaId && sinCobro.has(c.reservaId)) { devueltoPorSocia.set(c.socioId, false); continue; }
     devueltoPorSocia.set(c.socioId, (await devolverBonoServidor(admin, studioId, c.socioId, c.tipoClaseId)) === 'DEVUELTA');
   }
   return devueltoPorSocia;
@@ -1324,11 +1347,32 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
   spotAsignado: string | null; canal: CanalReserva;
   /** Solo el mostrador puede decir que no («Avisar a la alumna» desmarcado). */
   avisarSocia?: boolean;
-}): Promise<void> {
+  reservaId: string;
+  /**
+   * Reintento del MISMO intento (mismo id de reserva): la primera vez pudo morir
+   * entre crear la reserva y descontar el bono. Se completa el descuento (es
+   * idempotente por reserva) y el resto de efectos solo se repite si ese
+   * descuento ha ocurrido AHORA — ver `efectosTrasConsumo`.
+   */
+  reintento?: boolean;
+}): Promise<boolean> {
+  // La clase decide de QUÉ bono se descuenta (0111): con un "Bono Reformer" y
+  // un "Bono Mat" a la vez, sin la sesión se quitaría del equivocado.
+  if (p.reintento) {
+    if (!ocupaPlaza(p.estado)) return false;
+    const consumo = await consumirBonoServidor(admin, {
+      studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId, reintento: true,
+    });
+    if (!efectosTrasConsumo(p.estado, consumo, true)) return false;
+  } else if (p.estado === 'CONFIRMADA') {
+    const consumo = await consumirBonoServidor(admin, {
+      studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId,
+    });
+    // Una llamada concurrente con la misma reserva (un reintento) ya decidió el
+    // cobro: es ella la que avisa, cuenta la analítica y da los créditos.
+    if (!efectosTrasConsumo(p.estado, consumo, false)) return false;
+  }
   if (p.estado === 'CONFIRMADA') {
-    // La clase decide de QUÉ bono se descuenta (0111): con un "Bono Reformer" y
-    // un "Bono Mat" a la vez, sin la sesión se quitaría del equivocado.
-    await consumirBonoServidor(admin, p.studioId, p.socioId, p.sesionId);
     // La analítica de conversión mide a la ALUMNA reservando (widget, app,
     // pago). Una reserva metida por recepción no es una conversión del embudo.
     if (p.canal !== 'mostrador') {
@@ -1357,15 +1401,21 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
     const { emitirReservaPendienteAprobacion } = await import('@/lib/notifications/emit');
     await emitirReservaPendienteAprobacion(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId });
   }
+  return true;
 }
 
 async function trasPlazaConfirmada(admin: SupabaseClient, p: {
-  studioId: string; socioId: string; sesionId: string;
+  studioId: string; socioId: string; sesionId: string; reservaId: string;
+  /** Reintento sobre una reserva que YA está CONFIRMADA (lo garantiza quien llama). */
+  reintento?: boolean;
 }): Promise<void> {
   // Mismo criterio que una reserva normal: la clase decide de qué bono se
   // descuenta (0111). El spot elegido al pedir no se conserva: no hay spot
   // guardado mientras se espera, se asigna solo al confirmar.
-  await consumirBonoServidor(admin, p.studioId, p.socioId, p.sesionId);
+  const consumo = await consumirBonoServidor(admin, {
+    studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId, reintento: p.reintento,
+  });
+  if (!efectosTrasConsumo('CONFIRMADA', consumo, p.reintento ?? false)) return;
   const { emitirReserva } = await import('@/lib/notifications/emit');
   await emitirReserva(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, estado: 'CONFIRMADA' });
 }
@@ -1375,7 +1425,33 @@ async function trasPromocionDeEspera(admin: SupabaseClient, p: {
 }): Promise<{ bonoConsumido: boolean }> {
   // Entra en la MISMA clase que se acaba de liberar, así que su tipo decide de
   // qué bono se le descuenta.
-  const bonoConsumido = await consumirBonoServidor(admin, p.studioId, p.socioId, p.sesionId);
+  //
+  // La RPC de promoción devuelve a QUIÉN subió, no el id de su reserva: se
+  // busca su reserva activa en esa clase (única por `uq_reserva_activa_socio_
+  // sesion`).
+  //
+  // ⚠️ Sin id NO se cobra «a la antigua». Un descuento sin marca sobre una
+  // reserva rastreada deja justo la señal de «cobro pendiente», y un reintento
+  // posterior (aceptar una oferta, aprobar) lo cobraría otra vez. Se prefiere
+  // no cobrar y dejarlo a la vista: descontar dos veces es peor.
+  const { data: activa, error: errActiva } = await admin.from('reservas').select('id')
+    .eq('studio_id', p.studioId).eq('sesion_id', p.sesionId).eq('socio_id', p.socioId)
+    .in('estado', ['CONFIRMADA', 'ASISTIDA']).maybeSingle();
+  const reservaId = (activa?.id as string | undefined) ?? null;
+  let bonoConsumido = false;
+  if (reservaId) {
+    const consumo = await consumirBonoServidor(admin, {
+      studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId,
+    });
+    bonoConsumido = sesionDescontada(consumo);
+    // Otra llamada ya decidió el cobro de esta reserva: es ella la que avisa.
+    if (!efectosTrasConsumo('CONFIRMADA', consumo, false)) return { bonoConsumido };
+  } else {
+    reportDbError(
+      '[trasPromocionDeEspera] sin reserva promovida que marcar: bono sin decidir (posible clase no cobrada)',
+      errActiva ?? { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId },
+    );
+  }
   // Correo «Se ha liberado tu plaza» (dice si se descontó sesión, solo si de
   // verdad ocurrió) + push. Cierra la mentira "te avisaremos si se libera una
   // plaza", da igual quién la liberase: una cancelación, el mostrador con
@@ -1384,6 +1460,54 @@ async function trasPromocionDeEspera(admin: SupabaseClient, p: {
   const { emitirPlazaLiberada } = await import('@/lib/notifications/emit');
   await emitirPlazaLiberada(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId });
   return { bonoConsumido };
+}
+
+// Reintento de aprobar una reserva pendiente o de aceptar una oferta: la RPC ya
+// no encuentra nada pendiente, y una causa posible es que la primera vez SÍ
+// confirmó y el proceso murió antes de descontar el bono. Si la reserva está
+// CONFIRMADA, su dueño se llama otra vez en modo reintento: descuenta solo si
+// falta (idempotente por reserva) y solo entonces avisa. Con la reserva ya
+// cobrada, o legada, no hace nada.
+async function completarConfirmacionTrasReintento(admin: SupabaseClient, p: {
+  studioId: string; reservaId: string;
+  /** Si viene, la reserva tiene que ser de esta socia (camino de la propia alumna). */
+  socioId?: string;
+}): Promise<void> {
+  // Las plazas fijas materializadas no se cobran nunca (nacen no rastreadas);
+  // esto cubre también las anteriores a la migración.
+  if (p.reservaId.startsWith('res-pf-')) return;
+  const { data: res } = await admin.from('reservas').select('estado, sesion_id, socio_id')
+    .eq('id', p.reservaId).eq('studio_id', p.studioId).maybeSingle();
+  if (!res || res.estado !== 'CONFIRMADA' || !res.sesion_id || !res.socio_id) return;
+  if (p.socioId && res.socio_id !== p.socioId) return;
+  await trasPlazaConfirmada(admin, {
+    studioId: p.studioId, socioId: res.socio_id as string, sesionId: res.sesion_id as string,
+    reservaId: p.reservaId, reintento: true,
+  });
+}
+
+// Al cancelar: reservas RASTREADAS cuyo cobro nunca salió de un bono (sin bono,
+// o canceladas con el cobro aún en vuelo — ver `devolucionPermitida`). A esas no
+// se les devuelve sesión: regalaría saldo. Hay que leerlo DESPUÉS de cancelar:
+// un cobro que aún no hubiera terminado ya ve la reserva cancelada y no descuenta.
+// Sin la migración aplicada (columnas inexistentes) devuelve vacío y todo sigue
+// como siempre; un error de lectura también, pero se reporta.
+export async function reservasSinCobroRegistrado(
+  admin: SupabaseClient, studioId: string, reservaIds: string[],
+): Promise<Set<string>> {
+  const sinCobro = new Set<string>();
+  if (reservaIds.length === 0) return sinCobro;
+  const { data, error } = await admin.from('reservas')
+    .select('id, bono_consumo_rastreado, bono_suscripcion_id')
+    .eq('studio_id', studioId).in('id', reservaIds);
+  if (error) {
+    if (!esColumnaInexistente(error)) reportDbError('[reservasSinCobroRegistrado]', error);
+    return sinCobro;
+  }
+  for (const r of data ?? []) {
+    if (!devolucionPermitida(r)) sinCobro.add(r.id as string);
+  }
+  return sinCobro;
 }
 
 // Recordatorios de revisión de ficha clínica (FICHA-CLINICA.md §10). Recorre las
@@ -2455,7 +2579,7 @@ export async function crearReservaPublica(params: {
   // Bono, analítica, gamificación y avisos: dueño único (ver `trasReservaCreada`).
   await trasReservaCreada(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
-    estado, spotAsignado, canal: 'alumna',
+    estado, spotAsignado, canal: 'alumna', reservaId,
   });
   return { ok: true as const, estado, reservaId, spotAsignado, recuperacionUsada };
 }
@@ -2536,8 +2660,19 @@ export async function reservarPlazaTrasPagoPublico(params: {
     // YA_RESERVADA: mismo p_reserva_id que un reintento anterior del webhook
     // ya insertó — idempotente, se trata como éxito, no como fallo.
     if (error.message.includes('YA_RESERVADA')) {
-      const { data: existente } = await admin.from('reservas').select('estado, spot_id').eq('id', reservaId).maybeSingle();
-      return { ok: true, estado: (existente?.estado as string) ?? 'CONFIRMADA', reservaId, spotAsignado: (existente?.spot_id as string | null) ?? null };
+      const { data: existente } = await admin.from('reservas').select('estado, spot_id, socio_id, sesion_id').eq('id', reservaId).maybeSingle();
+      const estadoExistente = (existente?.estado as string) ?? 'CONFIRMADA';
+      const spotExistente = (existente?.spot_id as string | null) ?? null;
+      if (existente && existente.socio_id === params.socioId && existente.sesion_id === params.sesionId) {
+        // La entrega anterior insertó la reserva y pudo morir antes de descontar
+        // el bono: se completa (idempotente por reserva). Los avisos solo salen
+        // si ese descuento ocurre ahora.
+        await trasReservaCreada(admin, {
+          studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
+          estado: estadoExistente, spotAsignado: spotExistente, canal: 'pago', reservaId, reintento: true,
+        });
+      }
+      return { ok: true, estado: estadoExistente, reservaId, spotAsignado: spotExistente };
     }
     if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) return { ok: false, motivo: 'sesion-invalida', detalle: 'clase completa' };
     // La visitante pagó por un sitio concreto y otro pago se lo llevó
@@ -2601,7 +2736,7 @@ export async function reservarPlazaTrasPagoPublico(params: {
 
   await trasReservaCreada(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
-    estado, spotAsignado, canal: 'pago',
+    estado, spotAsignado, canal: 'pago', reservaId,
   });
 
   return { ok: true, estado, reservaId, spotAsignado };
@@ -2654,14 +2789,23 @@ export async function crearReservaMostrador(params: {
   if (error) {
     // Reintento del MISMO intento (el id lo genera el panel y viaja en la
     // petición): si la fila con ese id ya existe y es de esta socia en esta
-    // clase, la primera vez sí entró — se contesta con lo que hay y NO se
-    // vuelven a disparar bono ni avisos. Otro id con la socia ya apuntada es un
-    // «ya está apuntada» de verdad.
+    // clase, la primera vez sí entró — se contesta con lo que hay. Pudo morir
+    // entre crear la reserva y descontar el bono: el dueño lo completa en modo
+    // reintento (idempotente por reserva, nunca dos veces), y avisos y créditos
+    // solo salen si ese descuento ha ocurrido AHORA, que es la prueba de que la
+    // primera vez no llegó a ellos. Otro id con la socia ya apuntada es un «ya
+    // está apuntada» de verdad.
     if (esCodigoReserva(error.message, 'YA_RESERVADA')) {
       const { data: existente } = await admin
         .from('reservas').select('estado, posicion_espera, socio_id, sesion_id')
         .eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
       if (existente && existente.socio_id === params.socioId && existente.sesion_id === params.sesionId) {
+        const completada = await trasReservaCreada(admin, {
+          studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
+          estado: existente.estado as string, spotAsignado: null, canal: 'mostrador',
+          avisarSocia: params.avisarSocia, reservaId: params.reservaId, reintento: true,
+        });
+        if (completada) await otorgarPrimeraReservaSiToca(admin, params.studioId, params.socioId);
         return {
           ok: true, estado: existente.estado as string,
           posicionEspera: (existente.posicion_espera as number | null) ?? null,
@@ -2682,22 +2826,27 @@ export async function crearReservaMostrador(params: {
   await trasReservaCreada(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
     estado, spotAsignado: null, canal: 'mostrador', avisarSocia: params.avisarSocia,
+    reservaId: params.reservaId,
   });
 
-  // Créditos de «Primera reserva». Los daba el panel en cliente mirando su lista
-  // local de reservas (que puede no estar entera); aquí se cuenta en la BD, con
-  // la que se acaba de crear dentro. El mismo `ref_id` que usaba el cliente
-  // (`socioId`, el único que acepta la RPC) y el UNIQUE de `reward_actions`
-  // garantizan que no se da dos veces aunque se reintente. El cliente ya NO lo
-  // pide: una sola vía.
-  const { count } = await admin
-    .from('reservas').select('id', { count: 'exact', head: true })
-    .eq('studio_id', params.studioId).eq('socio_id', params.socioId);
-  if (count === 1) {
-    await otorgarCreditosServidor(admin, params.studioId, params.socioId, 'PRIMERA_RESERVA', params.socioId);
-  }
+  await otorgarPrimeraReservaSiToca(admin, params.studioId, params.socioId);
 
   return { ok: true, estado, posicionEspera, reservaId: params.reservaId, repetida: false };
+}
+
+// Créditos de «Primera reserva». Los daba el panel en cliente mirando su lista
+// local de reservas (que puede no estar entera); aquí se cuenta en la BD, con
+// la que se acaba de crear dentro. El mismo `ref_id` que usaba el cliente
+// (`socioId`, el único que acepta la RPC) y el UNIQUE de `reward_actions`
+// garantizan que no se da dos veces aunque se reintente. El cliente ya NO lo
+// pide: una sola vía.
+async function otorgarPrimeraReservaSiToca(admin: SupabaseClient, studioId: string, socioId: string): Promise<void> {
+  const { count } = await admin
+    .from('reservas').select('id', { count: 'exact', head: true })
+    .eq('studio_id', studioId).eq('socio_id', socioId);
+  if (count === 1) {
+    await otorgarCreditosServidor(admin, studioId, socioId, 'PRIMERA_RESERVA', socioId);
+  }
 }
 
 // Aprobar/rechazar una reserva PENDIENTE_APROBACION desde el panel (Fase 2a).
@@ -2722,7 +2871,13 @@ export async function resolverReservaPendiente(params: {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_aprobar: params.aprobar,
   });
   if (error) {
-    if (error.message.includes('NO_ENCONTRADA_O_YA_RESUELTA')) return { error: 'Esta reserva ya no está pendiente de aprobación' };
+    if (error.message.includes('NO_ENCONTRADA_O_YA_RESUELTA')) {
+      // Puede ser el reintento de una aprobación que sí entró: se completa lo que
+      // faltara (ver `completarConfirmacionTrasReintento`) y se contesta igual,
+      // porque para quien pulsa ya no está pendiente.
+      await completarConfirmacionTrasReintento(admin, { studioId: params.studioId, reservaId: params.reservaId });
+      return { error: 'Esta reserva ya no está pendiente de aprobación' };
+    }
     // R-2: la RPC valida ahora el límite semanal del plan (el mismo bloque que
     // reservar_plaza). La excepción revierte todo, así que la reserva SIGUE
     // pendiente de aprobación — el mensaje se lo dice a quien aprueba para que
@@ -2750,7 +2905,7 @@ export async function resolverReservaPendiente(params: {
   }
 
   if (estado === 'CONFIRMADA') {
-    await trasPlazaConfirmada(admin, { studioId: params.studioId, socioId, sesionId });
+    await trasPlazaConfirmada(admin, { studioId: params.studioId, socioId, sesionId, reservaId: params.reservaId });
   } else if (estado === 'LISTA_ESPERA') {
     // Aprobada pero sin hueco: no ocupa plaza, así que no descuenta nada.
     const { emitirReserva } = await import('@/lib/notifications/emit');
@@ -2889,6 +3044,12 @@ export async function aceptarOfertaListaEspera(params: {
   });
   if (error) {
     if (error.message.includes('OFERTA_CADUCADA')) return { error: 'Esta oferta ya ha caducado' };
+    if (error.message.includes('OFERTA_NO_ENCONTRADA') || error.message.includes('SIN_OFERTA_ACTIVA')) {
+      // Reintento de una aceptación que sí entró: se completa lo que faltara.
+      await completarConfirmacionTrasReintento(admin, {
+        studioId: params.studioId, reservaId: params.reservaId, socioId: params.socioId,
+      });
+    }
     if (error.message.includes('OFERTA_NO_ENCONTRADA')) return { error: 'Esta reserva ya no está en lista de espera' };
     if (error.message.includes('SIN_OFERTA_ACTIVA')) return { error: 'No hay ninguna oferta activa para esta reserva' };
     if (error.message.includes('NO_AUTORIZADO')) return { error: 'No autorizado' };
@@ -2943,7 +3104,7 @@ export async function aceptarOfertaListaEspera(params: {
   }
 
   if (sesionId) {
-    await trasPlazaConfirmada(admin, { studioId: params.studioId, socioId: params.socioId, sesionId });
+    await trasPlazaConfirmada(admin, { studioId: params.studioId, socioId: params.socioId, sesionId, reservaId: params.reservaId });
   }
   return { ok: true, estado: 'CONFIRMADA' };
 }
@@ -3073,7 +3234,7 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
   // le prometa a nadie una sesión que no ha recuperado. En esta cancelación cada
   // socia recibe su propio correo, así que el dato es por persona, no global.
   const devueltoPorSocia = await devolverBonosPorCancelacionClase(admin, params.studioId,
-    confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId })));
+    confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })));
 
   // CLASE_CANCELADA no manda email a propósito (catalog.ts) — aquí SÍ hay
   // dinero de por medio, así que se manda explícito. CancelacionClaseEmail ya
@@ -3232,7 +3393,12 @@ export async function ejecutarCancelacionReserva(
     // panel y cualquier superficie que venga. Este camino ya la resolvía bien,
     // pero tenerla escrita dos veces es exactamente cómo se desincronizó del
     // panel. `?? true` mantiene lo de siempre si la RPC aún no trae la columna.
-    if (inicio && (row?.devolver_bono ?? true)) {
+    // Una reserva rastreada que nunca se cobró de un bono (sin bono, o cancelada
+    // con el cobro aún en vuelo) no recupera nada: devolverle una sesión
+    // regalaría saldo. La decisión de política de la BD (`devolver_bono`) no lo
+    // sabe: responde a «¿toca devolver?», no a «¿se cobró?».
+    const nuncaCobrada = (await reservasSinCobroRegistrado(admin, params.studioId, [params.reservaId])).has(params.reservaId);
+    if (inicio && (row?.devolver_bono ?? true) && !nuncaCobrada) {
       // Se devuelve al bono que cubre esa clase: es del que se descontó.
       // I-5: `bonoDevuelto` sale de lo que REALMENTE pasó, no de haber llamado.
       // Antes se ponía a true a pelo, así que el email de cancelación le decía a

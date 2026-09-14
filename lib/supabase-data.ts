@@ -5458,7 +5458,10 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     novedadesEstudio: (novedadesEstudioRes.data ?? []).map((r) => mapNovedadEstudio(r as RowNovedadesEstudio)),
     instructores: (instructoresRes.data ?? []).map(mapInstructor),
     sesiones: (sesionesRes.data ?? []).map(mapSesion),
-    reservas: (reservasRes.data ?? []).map(mapReserva),
+    // Cast como los vecinos: la lista de columnas del panel no pide las de
+    // consumo de bono por reserva (no las usa, y pedirlas antes de aplicar su
+    // migración tumbaría la carga con un 400).
+    reservas: (reservasRes.data ?? []).map((r) => mapReserva(r as RowReservas)),
     recibos: (recibosRes.data ?? []).map(mapRecibo),
     facturas: (facturasRes.data ?? []).map(mapFactura),
     citas: (citasRes.data ?? []).map(mapCita),

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { devolverBonoServidor } from '@/lib/db/supabase-data-admin';
+import { devolverBonoServidor, reservasSinCobroRegistrado } from '@/lib/db/supabase-data-admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,7 +117,10 @@ export async function POST(req: NextRequest) {
   const tipoPorSesion = new Map((sesiones ?? []).map(s => [s.id as string, (s.tipo_clase_id as string | null) ?? null]));
   let devueltas = 0;
   let fallos = 0;
+  // Una reserva rastreada que nunca se cobró de un bono no recupera nada.
+  const sinCobro = await reservasSinCobroRegistrado(admin, sesion.studioId, canceladas.map(r => r.id as string));
   for (const r of canceladas) {
+    if (sinCobro.has(r.id as string)) continue;
     const res = await devolverBonoServidor(
       admin, sesion.studioId, r.socio_id as string, tipoPorSesion.get(r.sesion_id as string) ?? null,
     );

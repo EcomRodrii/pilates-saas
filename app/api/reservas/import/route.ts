@@ -9,6 +9,7 @@ import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 import { catalogo } from '@/lib/migracion/catalogo';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { esColumnaInexistente } from '@/lib/reservas/consumo-bono-reserva';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -180,7 +181,14 @@ export async function POST(req: NextRequest) {
       check_in_en: p.estado === 'ASISTIDA' ? new Date().toISOString() : null,
       creado_en: new Date().toISOString(),
     }));
-    const { error } = await admin.from('reservas').insert(lote);
+    // Una reserva importada no la cobra este sistema (su saldo ya viene hecho de
+    // la otra plataforma): nace NO rastreada, o un reintento de aprobar o de
+    // aceptar una oferta podría cobrarle la sesión. Sin la migración aplicada la
+    // columna no existe y se inserta sin ella, como siempre.
+    let { error } = await admin.from('reservas').insert(lote.map(fila => ({ ...fila, bono_consumo_rastreado: false })));
+    if (error && esColumnaInexistente(error)) {
+      ({ error } = await admin.from('reservas').insert(lote));
+    }
     if (error) {
       if (batchId && idsCreados.length > 0) {
         await registrarIdsBatch(admin, { studioId, batchId, entidad: 'reservas', ids: idsCreados });
