@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarInstructoraEnEstudio } from '@/lib/auth-instructora';
 import { crearBaja } from '@/lib/sustituciones/baja';
-import { enforceRateLimit } from '@/lib/rate-limit';
+import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
+import { retryAfterSeconds, tooManyRequestsResponse } from '@/lib/rate-limit-core';
 import { errorInterno } from '@/lib/errores-servidor';
+import { normalizarCategoria } from '@/lib/student/baja-instructora';
 
 // «No puedo dar esta clase» desde la app del estudio.
 //
@@ -18,11 +20,19 @@ import { errorInterno } from '@/lib/errores-servidor';
 //
 // A ella no se le devuelve la sustitución: lleva el ranking con nombres de
 // compañeras. Mismo recorte que `app/api/sustituciones` y `app/api/public/baja`.
-export async function POST(req: NextRequest) {
-  const limited = await enforceRateLimit(req, 'portal-instructora-baja', { max: 10, windowSeconds: 60 });
-  if (limited) return limited;
+//
+// El motivo va en tres opciones fijas (`categoria`) más la nota libre, las dos
+// opcionales; `crearBaja` las guarda aparte, donde recepción no llega.
+const LIMITE = { max: 10, windowSeconds: 60 };
 
-  const body = await req.json().catch(() => null) as { slug?: string; sesionId?: unknown; motivo?: unknown } | null;
+export async function POST(req: NextRequest) {
+  // Uno amplio por IP ANTES de verificar el token: sin él, una petición sin
+  // sesión llegaría gratis a la verificación y a la BD. El que cuenta de verdad
+  // es el de por instructora, más abajo.
+  const porIp = await enforceRateLimit(req, 'portal-instructora-baja-ip', { max: 30, windowSeconds: 60 });
+  if (porIp) return porIp;
+
+  const body = await req.json().catch(() => null) as { slug?: string; sesionId?: unknown; motivo?: unknown; categoria?: unknown } | null;
   if (!body?.slug) return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
   const sesionId = typeof body.sesionId === 'string' ? body.sesionId : null;
   if (!sesionId) return NextResponse.json({ error: 'Falta la clase' }, { status: 400 });
@@ -31,6 +41,10 @@ export async function POST(req: NextRequest) {
     const sesion = await verificarInstructoraEnEstudio(req, body.slug);
     if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
+    // Por instructora y no por IP: con datos y wifi a la vez, la IP cambia.
+    const limite = await rateLimit(`portal-instructora-baja:${sesion.instructorId}`, LIMITE);
+    if (!limite.allowed) return tooManyRequestsResponse(retryAfterSeconds(limite.resetAt, LIMITE.windowSeconds));
+
     const admin = getSupabaseAdmin();
     if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
@@ -38,6 +52,7 @@ export async function POST(req: NextRequest) {
       studioId: sesion.studioId,
       sesionId,
       motivo: typeof body.motivo === 'string' ? body.motivo : null,
+      categoria: normalizarCategoria(body.categoria),
       origen: 'instructora',
       soloSiInstructorEs: sesion.instructorId,
     });

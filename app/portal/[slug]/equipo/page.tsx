@@ -14,6 +14,7 @@ import { useToast } from '@/components/student/ui/Toast';
 import { addDias, etiquetaDia, fechaLarga, hoyISO, saludo } from '@/lib/student/formato';
 import { getAgendaInstructora, getOfertasInstructora, responderOferta } from '@/lib/student/datos-instructora';
 import { bajasEnCurso, proximaQueDa, textoBaja, type OfertaSustitucion } from '@/lib/student/agenda-instructora';
+import { textoRevision } from '@/lib/student/baja-instructora';
 import { ClaseQueDaCard } from '@/components/student/domain/ClaseQueDaCard';
 import { OfertaSustitucionCard } from '@/components/student/domain/OfertaSustitucionCard';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -84,7 +85,7 @@ export default function HoyInstructoraPage() {
 
   const proxima = data && ahoraMs != null ? proximaQueDa(data.clases, ahoraMs) : null;
   const clasesHoy = (data?.clases ?? []).filter((c) => c.fecha === hoy && !c.cancelada).length;
-  const bajas = bajasEnCurso(data?.bajas ?? []);
+  const bajas = bajasEnCurso(data?.bajas ?? [], ahoraMs);
   const ofertas = data?.ofertas ?? [];
   const primerNombre = (instructora?.nombre ?? '').split(' ')[0];
   const fecha = fechaLarga(hoy);
@@ -146,6 +147,7 @@ export default function HoyInstructoraPage() {
                 <h2 id="hoy-bajas" className="t-label">Bajas que has pedido</h2>
                 {bajas.map((b) => {
                   const t = textoBaja(b.estado, b.sustituta);
+                  const rev = textoRevision(b.revision ?? null);
                   return (
                     <div
                       key={b.sustitucionId}
@@ -157,6 +159,8 @@ export default function HoyInstructoraPage() {
                       <p className="t-meta">{etiquetaDia(b.fecha, hoy)} · {b.hora} · {b.tipo}</p>
                       <p className="t-card-title">{t.titulo}</p>
                       {t.detalle && <p className="t-small t-dim">{t.detalle}</p>}
+                      {rev && <p className="t-small" style={{ fontWeight: 700, marginTop: 4 }}>{rev.titulo}</p>}
+                      {rev?.nota && <p className="t-small t-dim">«{rev.nota}»</p>}
                     </div>
                   );
                 })}

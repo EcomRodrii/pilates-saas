@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { mapSesion, mapReserva, mapSala, mapInstructor } from '@/lib/supabase-data';
 import { enriquecerSesiones, ocultarImporteSiCorresponde, filtrarSesionesPorRol, instructoresVisiblesPorRol } from '@/lib/calendario-datos';
 import type { RowSesiones, RowReservas, RowSalas, RowInstructores, RowStudios, RowSustituciones, RowStudioHorario } from '@/lib/db-types';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 
 // Rediseño del Calendario — endpoint propio, separado a propósito de
 // fetchAllStudioData() (lib/studio-context.tsx). Ese fetch genérico carga TODO
@@ -60,7 +61,13 @@ export async function GET(req: NextRequest) {
     instructorId = (data?.[0]?.id as string | undefined) ?? null;
   }
 
-  const enriquecidas = enriquecerSesiones(sesionesRaw.map(mapSesion), sustitucionesRows ?? []);
+  // El motivo de una baja puede hablar de la salud de quien la pidió: solo para
+  // quien gestiona el equipo (mismo criterio que `puedeVerDetalleAusencias`).
+  // Recepción sigue viendo que hay una baja y en qué estado está.
+  const verMotivo = puedeGestionarEquipo(sesion.rol);
+  const sustitucionesVisibles = (sustitucionesRows ?? []).map(s => (verMotivo ? s : { ...s, motivo: null }));
+
+  const enriquecidas = enriquecerSesiones(sesionesRaw.map(mapSesion), sustitucionesVisibles);
   const sinImporteSegunRol = ocultarImporteSiCorresponde(enriquecidas, sesion.rol);
   const sesionesFinal = filtrarSesionesPorRol(sinImporteSegunRol, sesion.rol, instructorId);
   const idsVisibles = new Set(sesionesFinal.map(s => s.id));
@@ -75,7 +82,7 @@ export async function GET(req: NextRequest) {
   // visibles según rol: una instructora nunca ve el historial de cobertura
   // de una clase ajena.
   type SustitucionRow = Pick<RowSustituciones, 'id' | 'sesion_id' | 'estado' | 'motivo' | 'sustituta_final_id' | 'creado_en' | 'resuelto_en'>;
-  const sustitucionesFinal = ((sustitucionesRows ?? []) as SustitucionRow[])
+  const sustitucionesFinal = (sustitucionesVisibles as SustitucionRow[])
     .filter(s => idsVisibles.has(s.sesion_id))
     .map(s => ({
       id: s.id,

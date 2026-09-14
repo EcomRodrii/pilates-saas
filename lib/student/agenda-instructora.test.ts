@@ -96,6 +96,19 @@ test('las bajas en curso excluyen solo las que el estudio ya resolvió', () => {
   assert.deepEqual(b.map((x) => x.sustitucionId), ['1', '3']);
 });
 
+test('una baja resuelta con la revisión del estudio reciente se sigue viendo, para que no desaparezca lo que le dicen', () => {
+  const ahora = Date.parse('2026-09-14T12:00:00Z');
+  const base = { sesionId: 's', sustituta: null, estado: 'resuelta' as const };
+  const bajas = [
+    { ...base, sustitucionId: 'reciente', revision: { estado: 'LO_HABLAMOS' as const, nota: 'Llámame', revisadaEn: '2026-09-13T12:00:00Z' } },
+    { ...base, sustitucionId: 'vieja', revision: { estado: 'EN_ORDEN' as const, nota: null, revisadaEn: '2026-09-01T12:00:00Z' } },
+    { ...base, sustitucionId: 'pendiente', revision: { estado: 'PENDIENTE' as const, nota: null, revisadaEn: null } },
+  ];
+  assert.deepEqual(bajasEnCurso(bajas, ahora).map((x) => x.sustitucionId), ['reciente']);
+  // Sin reloj todavía, no se da por reciente nada.
+  assert.deepEqual(bajasEnCurso(bajas, null), []);
+});
+
 test('pedir la baja: nunca de una clase empezada, cancelada o con una baja abierta', () => {
   const ahora = Date.parse('2026-09-15T10:00:00Z');
   const baja = (estado: 'revisando' | 'buscando' | 'cubierta' | 'sin-cubrir' | 'resuelta') =>

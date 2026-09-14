@@ -14,6 +14,7 @@ import { getClases } from '@/lib/student/datos';
 import { getAgendaInstructora, getListaClase, pedirBaja } from '@/lib/student/datos-instructora';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { puedePasarLista, puedePedirBaja, textoBaja } from '@/lib/student/agenda-instructora';
+import { CATEGORIAS_BAJA, textoRevision, type CategoriaBaja } from '@/lib/student/baja-instructora';
 import { addDias, etiquetaDia, hoyISO } from '@/lib/student/formato';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
@@ -51,6 +52,7 @@ export default function FichaClaseInstructoraPage() {
 
   const [abierta, setAbierta] = useState(false);
   const [motivo, setMotivo] = useState('');
+  const [categoria, setCategoria] = useState<CategoriaBaja | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +84,7 @@ export default function FichaClaseInstructoraPage() {
     // El estado de carga ANTES del await: que no se pueda pulsar dos veces.
     setEnviando(true);
     setError(null);
-    const r = await pedirBaja(estudio.slug, clase.id, motivo);
+    const r = await pedirBaja(estudio.slug, clase.id, motivo, categoria);
     if (!r.ok) {
       setEnviando(false);
       if (r.sesionCaducada) { router.push(href('/acceso/login')); return; }
@@ -95,6 +97,7 @@ export default function FichaClaseInstructoraPage() {
     setEnviando(false);
     setAbierta(false);
     setMotivo('');
+    setCategoria(null);
     toast(r.yaAvisada ? 'Ya habías avisado de esta clase' : 'Hemos avisado al estudio');
   };
 
@@ -125,6 +128,7 @@ export default function FichaClaseInstructoraPage() {
   }
 
   const baja = clase.baja ? textoBaja(clase.baja.estado, clase.baja.sustituta) : null;
+  const revision = textoRevision(clase.baja?.revision ?? null);
   const sePuede = ahoraMs != null && puedePedirBaja(clase, ahoraMs);
   // Desde una hora antes: en esa hora conviven las dos acciones (una baja de
   // última hora sigue siendo posible), así que la barra puede llevar dos botones.
@@ -178,6 +182,12 @@ export default function FichaClaseInstructoraPage() {
             <p className="t-label">Tu aviso</p>
             <p className="t-card-title">{baja.titulo}</p>
             {baja.detalle && <p className="t-small t-dim">{baja.detalle}</p>}
+            {revision && (
+              <div data-testid="revision-baja" className="stack" style={{ ['--gap' as string]: '2px', marginTop: 6 }}>
+                <p className="t-small" style={{ fontWeight: 700 }}>{revision.titulo}</p>
+                {revision.nota && <p className="t-small t-dim">«{revision.nota}»</p>}
+              </div>
+            )}
           </div>
         )}
 
@@ -251,6 +261,33 @@ export default function FichaClaseInstructoraPage() {
           Buscamos quién la cubra. Hasta que se confirme, la clase sigue a tu nombre; si nadie puede, decide el estudio.
         </p>
 
+        <p id="categoria-baja" className="t-label" style={{ marginTop: 14 }}>Motivo (opcional)</p>
+        {/* Tres opciones fijas: así nadie tiene que escribir un diagnóstico para avisar. */}
+        <div role="group" aria-labelledby="categoria-baja" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+          {CATEGORIAS_BAJA.map((c) => {
+            const elegida = categoria === c.valor;
+            return (
+              <button
+                key={c.valor}
+                type="button"
+                aria-pressed={elegida}
+                disabled={enviando}
+                onClick={() => setCategoria(elegida ? null : c.valor)}
+                className="tap"
+                style={{
+                  minHeight: 44, padding: '0 14px', borderRadius: 999, fontFamily: 'inherit',
+                  fontSize: 'var(--t-small)', fontWeight: 700,
+                  border: `1px solid ${elegida ? 'var(--primary)' : 'var(--border-strong)'}`,
+                  background: elegida ? 'var(--primary)' : 'var(--card)',
+                  color: elegida ? 'var(--primary-foreground)' : 'var(--foreground)',
+                }}
+              >
+                {c.etiqueta}
+              </button>
+            );
+          })}
+        </div>
+
         <label htmlFor="motivo-baja" className="t-label" style={{ display: 'block', marginTop: 14 }}>
           Lo que quieras contarle al estudio (opcional)
         </label>
@@ -264,7 +301,9 @@ export default function FichaClaseInstructoraPage() {
           // 16 px: por debajo, iOS amplía la página al enfocar y no vuelve.
           style={{ width: '100%', marginTop: 6, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--card)', fontFamily: 'inherit', fontSize: 16, color: 'var(--foreground)', resize: 'none' }}
         />
-        <p className="t-meta" style={{ marginTop: 4 }}>No hace falta dar detalles de salud.</p>
+        <p className="t-meta" style={{ marginTop: 4 }}>
+          No hace falta dar detalles de salud. Solo lo lee quien dirige el estudio, no recepción ni tus compañeras.
+        </p>
 
         {error && (
           <p role="alert" style={{ margin: '12px 0 0', background: 'var(--destructive-soft)', color: 'var(--destructive-foreground)', borderRadius: 12, padding: '10px 13px', fontSize: 'var(--t-small)', fontWeight: 700 }}>

@@ -1,11 +1,13 @@
 // La agenda de la instructora dentro de la app del estudio: tipos y reglas
-// PURAS. Sin imports ni `@/`: lo prueba el runner de Node y lo comparten el
+// PURAS. Sin `@/` (solo relativos con `.ts`): lo prueba el runner de Node y lo comparten el
 // servidor (`lib/portal-instructora/agenda-servidor.ts`) y las pantallas.
 //
 // ⚠️ Nada de aquí DECIDE nada sobre la clase. No dice si alguien la cubre ni si
 // se cancela: eso lo resuelve el motor de sustituciones y, si no hay nadie, el
 // estudio (decisión del fundador, 14-sep-2026: la instructora nunca cancela,
 // pide la baja). Aquí solo se traduce lo que ya ha pasado a lo que ve ella.
+
+import { revisionReciente, type RevisionVista } from './baja-instructora.ts';
 
 /** La zona del negocio. Mismo criterio que `lib/student/formato.ts` (`ZONA`). */
 export const ZONA_ESTUDIO = 'Europe/Madrid';
@@ -68,6 +70,8 @@ export interface BajaVista {
   estado: EstadoBajaVista;
   /** Nombre de quien la cubre, solo cuando ya está confirmada. */
   sustituta: string | null;
+  /** La revisión del estudio (solo bajas de última hora). */
+  revision?: RevisionVista | null;
 }
 
 /** Una baja con lo mínimo de su clase, para listarla aunque la clase ya no sea suya. */
@@ -157,9 +161,13 @@ export function proximaQueDa(da: readonly ClaseQueDa[], ahoraMs: number): ClaseQ
     .sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio))[0] ?? null;
 }
 
-/** Bajas que todavía piden atención: todas menos las que el estudio ya resolvió. */
-export function bajasEnCurso<T extends BajaVista>(bajas: readonly T[]): T[] {
-  return bajas.filter((b) => b.estado !== 'resuelta');
+/**
+ * Bajas que todavía piden atención: todas menos las que el estudio ya resolvió.
+ * Una resuelta con la revisión del estudio reciente se sigue enseñando: si no,
+ * lo que el estudio le dice desaparecería justo cuando llega.
+ */
+export function bajasEnCurso<T extends BajaVista>(bajas: readonly T[], ahoraMs: number | null = null): T[] {
+  return bajas.filter((b) => b.estado !== 'resuelta' || (ahoraMs != null && revisionReciente(b.revision, ahoraMs)));
 }
 
 /**

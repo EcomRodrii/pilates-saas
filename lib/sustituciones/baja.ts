@@ -7,6 +7,7 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { candidatosNetworkParaHueco } from '@/lib/network/candidatos-sustitucion.ts';
 import type { EspecialidadNetwork } from '@/lib/network/catalogo.ts';
+import { antelacionMinutos, revisionInicial, type CategoriaBaja } from '@/lib/student/baja-instructora';
 
 // ── Núcleo de "marcar una baja" ─────────────────────────────────────────────
 //
@@ -55,6 +56,8 @@ export async function crearBaja(
     studioId: string;
     sesionId: string;
     motivo?: string | null;
+    /** Solo con `origen: 'instructora'`: una de las tres opciones fijas. */
+    categoria?: CategoriaBaja | null;
     origen: OrigenBaja;
     soloSiInstructorEs?: string;
   },
@@ -132,7 +135,9 @@ export async function crearBaja(
     studio_id: studioId,
     sesion_id: sesionId,
     instructor_original_id: clase.instructor_id,
-    motivo,
+    // El motivo de la instructora NO va aquí: `sustituciones` la lee también
+    // recepción, y ese texto a veces habla de su salud. Va a `bajas_instructora`.
+    motivo: origen === 'instructora' ? null : motivo,
     estado,
     origen,
     ranking: ranking ?? [],
@@ -158,6 +163,26 @@ export async function crearBaja(
   }
 
   const sesionMin = { inicio: clase.inicio as string, tipo_clase_id: clase.tipo_clase_id as string | null };
+
+  // Motivo y revisión de la baja que pide la instructora (migr bajas_instructora).
+  // Una fila por baja, lleve motivo o no: con menos de 24 h espera que el estudio
+  // la revise. Best-effort: la baja ya está registrada y el motor tiene que
+  // arrancar igual; perder el motivo es malo, dejar la clase sin cubrir es peor.
+  if (origen === 'instructora' && clase.instructor_id) {
+    const antelacion = antelacionMinutos(clase.inicio as string, Date.now());
+    const { error: errMotivo } = await admin.from('bajas_instructora').insert({
+      id: `bi-${uid()}`,
+      studio_id: studioId,
+      instructor_id: clase.instructor_id,
+      sustitucion_id: insertada.id,
+      sesion_id: sesionId,
+      categoria: params.categoria ?? null,
+      motivo,
+      antelacion_minutos: antelacion,
+      revision: revisionInicial(antelacion),
+    });
+    if (errMotivo) console.error('[crearBaja:motivo]', errMotivo.message);
+  }
 
   // Notification Engine: si la baja la da LA INSTRUCTORA (desde su enlace), la
   // dueña se entera al instante. Si la da ella misma desde el panel, no: ya lo sabe.

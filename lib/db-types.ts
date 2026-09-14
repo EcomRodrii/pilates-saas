@@ -2843,3 +2843,19 @@ export interface RowAceptacionesContratoEventos {
   ip_hmac: string | null;
   user_agent: string | null;
 }
+
+export interface RowBajasInstructora {
+  id: string;
+  studio_id: string;
+  instructor_id: string;
+  sustitucion_id: string;
+  sesion_id: string;
+  categoria: string | null;
+  motivo: string | null;
+  antelacion_minutos: number;
+  revision: string | null;
+  nota_estudio: string | null;
+  revisada_por: string | null;
+  revisada_en: string | null;
+  creado_en: string;
+}

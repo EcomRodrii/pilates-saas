@@ -24,7 +24,7 @@ function json(route: Route, body: unknown, status = 200) {
 }
 
 /** Una clase de la instructora pasado mañana a las 18:00 UTC (tarde-noche en Madrid). */
-function claseDePasadoManana(baja: null | { estado: string }) {
+function claseDePasadoManana(baja: null | { estado: string; revision?: unknown }) {
   const base = new Date(`${fmtDia.format(new Date())}T12:00:00Z`);
   base.setUTCDate(base.getUTCDate() + 2);
   const fecha = base.toISOString().slice(0, 10);
@@ -33,11 +33,14 @@ function claseDePasadoManana(baja: null | { estado: string }) {
   return {
     id: 'ses-ana', inicio, fin, fecha, hora: fmtHora.format(new Date(inicio)), horaFin: fmtHora.format(new Date(fin)),
     tipo: 'Reformer Flow', color: '#2C352C', sala: 'Sala Norte', aforo: 8, confirmadas: 6, enEspera: 1, cancelada: false,
-    baja: baja ? { sustitucionId: 'sust-1', sesionId: 'ses-ana', estado: baja.estado, sustituta: null } : null,
+    baja: baja ? { sustitucionId: 'sust-1', sesionId: 'ses-ana', estado: baja.estado, sustituta: null, revision: baja.revision ?? null } : null,
   };
 }
 
-async function montar(page: Page, opciones: { bajaResponde?: { status: number; body: unknown } } = {}) {
+async function montar(page: Page, opciones: {
+  bajaResponde?: { status: number; body: unknown };
+  bajaInicial?: { estado: string; revision?: unknown };
+} = {}) {
   const contador = { baja: 0, guardar: 0, cuerpoBaja: null as null | Record<string, unknown>, celdasGuardadas: null as null | string[] };
   let bajaPedida = false;
   let guardadas: string[] = ['1-manana'];
@@ -46,8 +49,8 @@ async function montar(page: Page, opciones: { bajaResponde?: { status: number; b
   await page.route('**/api/public/session**', (route) => json(route, { error: 'No hay ninguna socia' }, 404));
   await page.route('**/api/portal/instructora/sesion', (route) => json(route, { instructora: INSTRUCTORA }));
   await page.route('**/api/portal/instructora/agenda', (route) => {
-    const clase = claseDePasadoManana(bajaPedida ? { estado: 'revisando' } : null);
-    return json(route, { clases: [clase], bajas: bajaPedida ? [{ ...clase.baja, inicio: clase.inicio, fecha: clase.fecha, hora: clase.hora, tipo: clase.tipo }] : [] });
+    const clase = claseDePasadoManana(bajaPedida ? { estado: 'revisando' } : opciones.bajaInicial ?? null);
+    return json(route, { clases: [clase], bajas: clase.baja ? [{ ...clase.baja, inicio: clase.inicio, fecha: clase.fecha, hora: clase.hora, tipo: clase.tipo }] : [] });
   });
   await page.route('**/api/portal/instructora/baja', (route) => {
     contador.baja++;
@@ -90,6 +93,10 @@ test.describe('La instructora avisa de una baja y marca su disponibilidad', () =
     const hoja = page.getByRole('dialog');
     await expect(hoja).toContainText('la clase sigue a tu nombre');
     await expect(hoja).toContainText('No hace falta dar detalles de salud');
+    // El motivo en opciones fijas, opcional: se elige y se puede quitar.
+    const personal = hoja.getByRole('button', { name: 'Asunto personal', exact: true });
+    await personal.click();
+    await expect(personal).toHaveAttribute('aria-pressed', 'true');
     await hoja.getByLabel(/Lo que quieras contarle al estudio/).fill('Me ha surgido un imprevisto');
     await hoja.getByRole('button', { name: 'Avisar al estudio', exact: true }).click();
 
@@ -99,7 +106,24 @@ test.describe('La instructora avisa de una baja y marca su disponibilidad', () =
     await expect(page.getByRole('button', { name: 'No puedo dar esta clase', exact: true })).toHaveCount(0);
 
     expect(contador.baja).toBe(1);
-    expect(contador.cuerpoBaja).toMatchObject({ slug: SLUG, sesionId: 'ses-ana', motivo: 'Me ha surgido un imprevisto' });
+    expect(contador.cuerpoBaja).toMatchObject({
+      slug: SLUG, sesionId: 'ses-ana', motivo: 'Me ha surgido un imprevisto', categoria: 'PERSONAL',
+    });
+  });
+
+  test('ve lo que el estudio le dice de una baja ya resuelta, con su nota y sin palabras de sanción', async ({ page }) => {
+    await montar(page, {
+      bajaInicial: {
+        estado: 'resuelta',
+        revision: { estado: 'LO_HABLAMOS', nota: 'Pásate el jueves y lo vemos', revisadaEn: new Date().toISOString() },
+      },
+    });
+    await page.goto(`/portal/${SLUG}/equipo/clase/ses-ana`);
+
+    const revision = page.getByTestId('revision-baja');
+    await expect(revision).toContainText('El estudio quiere hablarlo contigo', { timeout: 30_000 });
+    await expect(revision).toContainText('Pásate el jueves y lo vemos');
+    await expect(page.getByTestId('estado-baja')).not.toContainText(/sanci|penaliz|justific/i);
   });
 
   test('si el servidor dice que no, lo explica y la hoja sigue abierta con su motivo', async ({ page }) => {

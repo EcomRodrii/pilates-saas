@@ -3,6 +3,7 @@ import {
   estadoBajaVista, fechaEnZona, horaEnZona,
   type BajaConClase, type BajaVista, type ClaseQueDa,
 } from '@/lib/student/agenda-instructora';
+import type { RevisionBaja, RevisionVista } from '@/lib/student/baja-instructora';
 
 // La agenda de una instructora para la app del estudio. SOLO lectura.
 //
@@ -22,6 +23,9 @@ interface FilaSesion {
 }
 interface FilaSustitucion {
   id: string; sesion_id: string; estado: string; sustituta_final_id: string | null;
+}
+interface FilaRevision {
+  sustitucion_id: string; revision: RevisionBaja | null; nota_estudio: string | null; revisada_en: string | null;
 }
 
 const COLUMNAS_SESION = 'id, inicio, fin, aforo_maximo, cancelada, tipo_clase_id, sala_id';
@@ -92,8 +96,11 @@ export async function agendaDeInstructora(p: {
     [...ultimaBajaPorSesion.values()].map((s) => s.sustituta_final_id).filter((x): x is string => !!x),
   )];
   const vacio = Promise.resolve({ data: [] as unknown[], error: null });
+  // La revisión del estudio de SUS bajas de las clases del rango. Nunca el motivo:
+  // lo escribió ella y no hace falta devolvérselo.
+  const idsBajas = todas.map((s) => ultimaBajaPorSesion.get(s.id)?.id).filter((x): x is string => !!x);
 
-  const [tipos, salas, reservas, sustitutas] = await Promise.all([
+  const [tipos, salas, reservas, sustitutas, revisiones] = await Promise.all([
     tipoIds.length
       ? admin.from('tipos_clase').select('id, nombre, color').eq('studio_id', p.studioId).in('id', tipoIds)
       : vacio,
@@ -107,8 +114,24 @@ export async function agendaDeInstructora(p: {
     sustitutaIds.length
       ? admin.from('instructores').select('id, nombre').eq('studio_id', p.studioId).in('id', sustitutaIds)
       : vacio,
+    idsBajas.length
+      ? admin.from('bajas_instructora').select('sustitucion_id, revision, nota_estudio, revisada_en')
+          .eq('studio_id', p.studioId).eq('instructor_id', p.instructorId).in('sustitucion_id', idsBajas)
+      : vacio,
   ]);
   for (const r of [tipos, salas, reservas, sustitutas]) if (r.error) throw r.error;
+  // La revisión es un extra: si falla, la agenda se sirve igual, sin ella.
+  if (revisiones.error) console.error('[agenda-instructora:revisiones]', revisiones.error);
+  const revisionPorBaja = new Map<string, RevisionVista>();
+  for (const r of (revisiones.error ? [] : revisiones.data ?? []) as FilaRevision[]) {
+    if (!r.revision) continue;
+    const hecha = r.revision !== 'PENDIENTE';
+    revisionPorBaja.set(r.sustitucion_id, {
+      estado: r.revision,
+      nota: hecha ? r.nota_estudio : null,
+      revisadaEn: hecha ? r.revisada_en : null,
+    });
+  }
 
   const tipoPorId = new Map(((tipos.data ?? []) as Array<{ id: string; nombre: string; color: string | null }>)
     .map((t) => [t.id, t]));
@@ -132,6 +155,7 @@ export async function agendaDeInstructora(p: {
       sesionId,
       estado,
       sustituta: estado === 'cubierta' && s.sustituta_final_id ? nombreSustituta.get(s.sustituta_final_id) ?? null : null,
+      revision: revisionPorBaja.get(s.id) ?? null,
     };
   };
   const nombreTipo = (s: FilaSesion) => (s.tipo_clase_id && tipoPorId.get(s.tipo_clase_id)?.nombre) || 'Clase';
