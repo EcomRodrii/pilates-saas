@@ -201,7 +201,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     // apagado (MARKETING_MODULE_ENABLED=false). Lo que un estudio puede
     // encender hoy son las 6 reglas sugeridas de /automatizaciones: el
     // recordatorio de clase (CLASE_MANANA) ya NO es una de ellas, va de serie
-    // para todos los estudios (lib/inngest/recordatorios.ts). Encima, los avisos
+    // para todos los estudios (lib/notificaciones/recordatorio-clase.ts). Encima, los avisos
     // del motor de notificaciones (lib/notifications/catalog.ts), que salen por
     // app, push y email: WhatsApp y SMS se retiraron del motor con Twilio. Sin
     // número de avisos escrito a mano — el «treinta y siete» de antes llegó a 61

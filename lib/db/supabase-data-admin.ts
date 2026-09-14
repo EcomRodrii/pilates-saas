@@ -12,7 +12,7 @@ import { mapLimit } from '@/lib/concurrency';
 import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO } from '@/lib/whatsapp';
+import { datosClaseRecordatorio, enviarEmailRecordatorio, enviarWhatsAppRecordatorio } from '@/lib/notificaciones/recordatorio-clase';
 import { whatsappDelEstudio, type WhatsAppDelEstudio } from '@/lib/whatsapp-estudio';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
@@ -1988,9 +1988,15 @@ async function avisarEsperaSinPlaza(
   }
 }
 
-// Recordatorios de clase: para cada sesión no cancelada cuyo inicio cae en la
-// ventana [desdeISO, hastaISO), envía un email a cada socia CONFIRMADA/ASISTIDA.
-// Lo dispara un cron (ver /api/cron/recordatorios). Devuelve un resumen.
+// Recordatorios de clase — CAMINO VIEJO, en transición. Para cada sesión no
+// cancelada cuyo inicio cae en [desdeISO, hastaISO), email + WhatsApp a cada
+// socia CONFIRMADA. Lo dispara `lib/inngest/recordatorios.ts` (diario).
+//
+// El dueño del recordatorio es ya `enviarRecordatorioClase`
+// (lib/notificaciones/recordatorio-clase.ts), llamado por el barrido de pg_cron.
+// Mientras los dos convivan, este reclama las MISMAS filas de
+// `recordatorio_envios` ('EMAIL' y 'WHATSAPP') con las mismas funciones, así que
+// ninguna socia recibe el aviso dos veces. Se retira en su propio PR.
 
 export async function enviarRecordatoriosClasesProximas(studioId: string, desdeISO: string, hastaISO: string) {
   const admin = getSupabaseAdmin();
@@ -2022,7 +2028,8 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
     admin.from('salas').select('id, nombre').in('id', uniq(sesiones.map(s => s.sala_id as string))),
     admin.from('instructores').select('id, nombre').in('id', uniq(sesiones.map(s => s.instructor_id as string))),
     admin.from('studios').select('id, nombre').in('id', uniq(sesiones.map(s => s.studio_id as string))),
-    admin.from('reservas').select('sesion_id, socio_id').in('sesion_id', sesionIds).in('estado', ['CONFIRMADA', 'ASISTIDA']),
+    // Solo CONFIRMADA: a quien ya pasó lista (ASISTIDA) no se le recuerda la clase.
+    admin.from('reservas').select('sesion_id, socio_id').in('sesion_id', sesionIds).eq('estado', 'CONFIRMADA'),
     // WhatsApp ya no es una integración de plataforma (secreto único del
     // operador): cada estudio pega su propio token + phoneId, así que hay que
     // cargar el de CADA estudio implicado en la ventana, no un único flag global.
@@ -2109,17 +2116,16 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
   for (const ses of sesiones) {
     const rs = reservasPorSesion.get(ses.id as string) ?? [];
     if (rs.length === 0) continue;
-    const inicio = new Date(ses.inicio as string);
-    const datos = {
+    // El mismo constructor que el barrido nuevo: con la misma clave de
+    // idempotencia y un cuerpo distinto, Resend rechaza en vez de deduplicar.
+    const datos = datosClaseRecordatorio({
       inicioISO: ses.inicio as string,
-      claseNombre: tipoNombre.get(ses.tipo_clase_id as string) ?? 'Clase',
-      fecha: fechaLargaEstudio(inicio),
-      hora: horaEstudio(inicio),
-      sala: (ses.sala_id ? salaNombre.get(ses.sala_id as string) : '') ?? '',
-      instructor: (ses.instructor_id ? instNombre.get(ses.instructor_id as string) : '') ?? '',
-      estudioNombre: studioNombre.get(ses.studio_id as string) ?? 'Tentare',
+      nombre: tipoNombre.get(ses.tipo_clase_id as string) ?? null,
+      sala: ses.sala_id ? salaNombre.get(ses.sala_id as string) ?? null : null,
+      instructor: ses.instructor_id ? instNombre.get(ses.instructor_id as string) ?? null : null,
+      estudioNombre: studioNombre.get(ses.studio_id as string) ?? null,
       zoomJoinUrl: (ses.zoom_join_url as string | null) ?? null,
-    };
+    });
     for (const r of rs) {
       const socia = sociaPorId.get(r.socio_id);
       if (!socia) continue;
@@ -2135,40 +2141,27 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
         if (!socia.email) {
           sinEmail++;
         } else {
-          const res = await enviarEmailTransaccional({
-            tipo: 'recordatorio', to: socia.email, toName: socia.nombre ?? 'Socia', data: datos,
-            // studioId: sin él se ignoraba el override de plantilla del estudio; la
-            // funcionalidad existía pero no llegaba a los recordatorios.
-            studioId: ses.studio_id as string,
-            // Clave determinista por (sesión, socia): si el cron expira a medio
-            // barrido, el reintento NO reenvía el recordatorio a quien ya lo recibió.
-            idempotencyKey: `recordatorio-${ses.id}-${r.socio_id}`,
-          });
-          if (res.ok) enviados++;
-          else if ('error' in res) fallidos++;
+          // Reclama (sesión, socia, 'EMAIL') antes de mandar y lo suelta si no
+          // sale. La clave de Resend (`recordatorio-<sesión>-<socia>`) sigue ahí,
+          // pero sola no basta: este envío y el del barrido pueden distar más de
+          // las 24 h que Resend la recuerda.
+          const estado = await enviarEmailRecordatorio(admin, {
+            sesionId: ses.id as string, socioId: r.socio_id, studioId: ses.studio_id as string,
+            to: socia.email, toName: socia.nombre ?? 'Socia', data: datos,
+          }, enviarEmailTransaccional);
+          if (estado === 'enviado') enviados++;
+          else if (estado === 'fallido') fallidos++;
         }
       }
 
       const whatsapp = whatsappPorStudio.get(ses.studio_id as string);
       if (quiereWhatsapp && whatsapp && socia.telefono) {
-        // C-6: reclama (sesión, socia, WHATSAPP) ANTES de enviar. Si el step
-        // de Inngest falla a mitad y reintenta (retries: 3), este insert
-        // choca (23505) para quien ya recibió el mensaje en un intento
-        // previo — no se reenvía. El email ya tiene su propio dedupe
-        // (idempotencyKey de Resend); WhatsApp no tenía ninguno.
-        const { error: dedupError } = await admin
-          .from('recordatorio_envios')
-          .insert({ sesion_id: ses.id as string, socio_id: r.socio_id, canal: 'WHATSAPP' });
-        if (dedupError && dedupError.code !== '23505') throw new Error(dedupError.message);
-        if (!dedupError) {
-          const res = whatsapp.plantillaRecordatorio
-            ? await enviarWhatsAppPlantilla(whatsapp, socia.telefono, PLANTILLA_RECORDATORIO, [
-                datos.estudioNombre, datos.claseNombre, datos.fecha, datos.hora, datos.sala || 'tu estudio',
-              ])
-            : await enviarWhatsAppTexto(
-                whatsapp, socia.telefono,
-                `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`,
-              );
+        // C-6: reclama (sesión, socia, WHATSAPP) ANTES de enviar — la misma fila
+        // que el barrido. `null` = ya salió (otro intento u otro camino).
+        const res = await enviarWhatsAppRecordatorio(admin, {
+          sesionId: ses.id as string, socioId: r.socio_id, telefono: socia.telefono, data: datos, whatsapp,
+        });
+        if (res) {
           saludWhatsapp.anota(res);
           if (res.ok) enviadosWhatsapp++;
           else fallidosWhatsapp++;

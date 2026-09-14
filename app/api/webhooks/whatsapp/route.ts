@@ -78,8 +78,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Un acierto GANA a los fallos de la MISMA tanda, por estudio — mismo
-  // criterio que ya usa el cron de recordatorios (acumuladorSalud, ver
-  // lib/db/supabase-data-admin.ts::enviarRecordatoriosClasesProximas). Sin
+  // criterio que ya usa el barrido de recordatorios (acumuladorSalud, ver
+  // lib/notificaciones/recordatorio-clase.ts::barrerRecordatoriosClase). Sin
   // esto, un solo número mal escrito entre 20 recordatorios pintaría el
   // estudio ENTERO como "Con problemas" aunque el token/WABA estén sanos:
   // se acumula por studio_id y se escribe UNA vez al final, no por status.

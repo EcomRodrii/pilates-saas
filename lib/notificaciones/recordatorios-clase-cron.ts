@@ -1,110 +1,46 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Recordatorios de clase (push, 24h y 1h antes) — Notification Engine.
+// Recordatorios de clase — barrido global cada 15 min (pg_cron
+// `notif-recordatorios` → /api/cron/notif-recordatorios).
 //
-// Global (todos los estudios activos en una pasada), sin fan-out por estudio.
-// Piloto de arquitectura (2026-08-11): salió de Inngest a pg_cron (bucket A,
-// barrido sin estado por ítem). No confundir con `lib/inngest/recordatorios.ts`
-// (email/WhatsApp diario de las clases del día, bucket B, sigue en Inngest).
+// Es el ÚNICO que llama a `enviarRecordatorioClase`: 24 h antes, aviso en su app
+// + email + WhatsApp (si el estudio lo conectó); 1 h antes, solo el aviso en su
+// app. La lógica vive en `recordatorio-clase.ts` (probada con `node --test`);
+// aquí solo se enchufan las piezas que necesitan `@/`.
+//
+// ⚠️ Transición: `lib/inngest/recordatorios.ts` (email/WhatsApp diario a las
+// 08:00 UTC) sigue registrado hasta retirarlo en su propio PR. No duplica nada
+// porque reclama la misma fila de `recordatorio_envios` antes de mandar.
 // ─────────────────────────────────────────────────────────────────────────────
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { exigirLectura } from '@/lib/exigir-lectura';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { publish } from '@/lib/notifications/engine';
-import { EVENTOS } from '@/lib/notifications/catalog';
-import type { TipoExcepcion } from '@/lib/excepciones';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { horaEstudio } from '@/lib/utils';
+import { enviarEmailTransaccional } from '@/lib/emails/send-server';
+import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
+import { capturarMensaje } from '@/lib/sentry-cliente';
+import { barrerRecordatoriosClase, type ResumenBarrido } from '@/lib/notificaciones/recordatorio-clase';
 
-// Tipado, no un literal suelto: una errata aquí apagaría la exención en
-// silencio y nadie se enteraría hasta que una socia exenta recibiera el push.
-const EXENCION_RECORDATORIO: TipoExcepcion = 'SIN_RECORDATORIO';
-
-const hora = (iso: string) => horaEstudio(iso);
-
-export async function recordatoriosClaseGlobal(): Promise<{ publicados: number } | { skipped: string }> {
+export async function recordatoriosClaseGlobal(): Promise<ResumenBarrido | { skipped: string }> {
   const admin = getSupabaseAdmin();
   if (!admin) return { skipped: 'sin service-role' };
-  return recordatoriosGlobal(admin);
-}
-
-async function recordatoriosGlobal(admin: SupabaseClient) {
-  const ahora = Date.now();
-  const desde = new Date(ahora).toISOString();
-  const hasta = new Date(ahora + 25 * 3600_000).toISOString();
-  // ⚠️ Todas las lecturas de aquí van PAGINADAS (`fetchAllRows`): al colapsar
-  // el fan-out por estudio en una query global, cada lectura pasó de "las
-  // filas de UN estudio" a "las de TODOS", y PostgREST corta en 1.000 filas
-  // EN SILENCIO. Es exactamente el fallo que ya costó los backups (#684).
-  const { data: studiosActivos, error: errStudios } = await fetchAllRows<{ id: string; slug: string | null }>(
-    '(global)', 'studios',
-    (from, to) => admin.from('studios').select('id, slug').is('suspendido_en', null).range(from, to),
-  );
-  exigirLectura(errStudios, 'leyendo estudios');
-  if (!studiosActivos.length) return { publicados: 0 };
-  const slugById = new Map(studiosActivos.map((s) => [s.id, s.slug ?? '']));
-
-  const { data: sesiones, error: errSesiones } = await fetchAllRows<{ id: string; studio_id: string; inicio: string; tipo_clase_id: string | null }>(
-    '(global)', 'sesiones',
-    (from, to) => admin.from('sesiones')
-      .select('id, studio_id, inicio, tipo_clase_id').eq('cancelada', false)
-      .in('studio_id', studiosActivos.map((s) => s.id))
-      .gte('inicio', desde).lte('inicio', hasta).range(from, to),
-  );
-  exigirLectura(errSesiones, 'leyendo sesiones');
-  if (!sesiones.length) return { publicados: 0 };
-  const sesById = new Map(sesiones.map((s) => [s.id, s]));
-
-  const [{ data: tipos, error: errTipos }, { data: reservas, error: errReservas }] = await Promise.all([
-    fetchAllRows<{ id: string; nombre: string }>(
-      '(global)', 'tipos_clase',
-      (from, to) => admin.from('tipos_clase').select('id, nombre')
-        .in('id', [...new Set(sesiones.map(s => s.tipo_clase_id as string).filter(Boolean))]).range(from, to),
-    ),
-    fetchAllRows<{ id: string; studio_id: string; socio_id: string | null; sesion_id: string }>(
-      '(global)', 'reservas',
-      (from, to) => admin.from('reservas').select('id, studio_id, socio_id, sesion_id')
-        .eq('estado', 'CONFIRMADA').in('sesion_id', [...sesById.keys()]).range(from, to),
-    ),
-  ]);
-  // `errTipos` NO se exige: `tipos` solo da el nombre bonito de la clase y ya
-  // hay respaldo («tu clase»). Lanzar aquí dejaría sin recordatorio de 24 h y
-  // de 1 h a TODAS las socias por un fallo decorativo — y la ventana de 1 h
-  // solo tiene dos intentos. Se sigue con el mapa parcial.
-  if (errTipos) console.error('[recordatorios] no se pudieron leer los tipos de clase', errTipos);
-  exigirLectura(errReservas, 'leyendo reservas');
-  const nombre = new Map(tipos.map((t) => [t.id, t.nombre]));
-
-  // "No enviarle recordatorios" (B2.9). Se consulta aquí en lote.
-  const socioIds = [...new Set(reservas.map(r => r.socio_id as string).filter(Boolean))];
-  const { data: exentosR, error: errExentos } = socioIds.length
-    ? await fetchAllRows<{ socio_id: string }>(
-        '(global)', 'socio_excepciones',
-        (from, to) => admin.from('socio_excepciones').select('socio_id')
-          .eq('tipo', EXENCION_RECORDATORIO).in('socio_id', socioIds).range(from, to),
-      )
-    : { data: [] as { socio_id: string }[], error: null };
-  // Si esta falla, el barrido mandaría el recordatorio a quien pidió no
-  // recibirlo: tampoco vale seguir con la lista vacía.
-  exigirLectura(errExentos, 'leyendo excepciones de recordatorio');
-  const exentos = new Set(exentosR.map(e => e.socio_id));
-
-  let publicados = 0;
-  for (const r of reservas) {
-    const ses = sesById.get(r.sesion_id as string);
-    if (!ses || !r.socio_id) continue;
-    if (exentos.has(r.socio_id as string)) continue;
-    const horas = (new Date(ses.inicio as string).getTime() - ahora) / 3600_000;
-    const tipo = horas >= 23.5 && horas <= 24.5 ? '24h' : horas >= 0.75 && horas <= 1.25 ? '1h' : null;
-    if (!tipo) continue;
-    const studioId = ses.studio_id as string;
-    await publish({
-      type: tipo === '24h' ? EVENTOS.RECORDATORIO_24H : EVENTOS.RECORDATORIO_1H,
-      studioId,
-      data: { clase: nombre.get(ses.tipo_clase_id as string) ?? 'tu clase', hora: hora(ses.inicio as string), slug: slugById.get(studioId) ?? '', sesionId: ses.id, socioId: r.socio_id },
-      resource: { type: 'sesion', id: ses.id as string },
-      dedupKey: `recordatorio-${tipo}:${r.id}`,
+  const resumen = await barrerRecordatoriosClase(admin, {
+    publicar: publish,
+    enviarEmail: enviarEmailTransaccional,
+    leerTodas: fetchAllRows,
+    registrarSalud: registrarSaludIntegracion,
+  });
+  // Una lectura de adorno o de contacto que falla no tumba el barrido (el push
+  // tiene que salir), pero tampoco puede quedar solo en un log.
+  if (resumen.lecturasDegradadas.length) {
+    capturarMensaje('[recordatorios] barrido con lecturas degradadas', 'warning', {
+      tags: { area: 'recordatorios', tipo: 'lectura-degradada' },
+      extra: { lecturas: resumen.lecturasDegradadas },
     });
-    publicados++;
   }
-  return { publicados };
+  if (resumen.whatsapp.fallidos > 0) {
+    capturarMensaje('[recordatorios] fallo al enviar recordatorio por WhatsApp', 'warning', {
+      tags: { area: 'recordatorios', tipo: 'whatsapp-fallido' },
+      extra: { enviados: resumen.whatsapp.enviados, fallidos: resumen.whatsapp.fallidos },
+    });
+  }
+  return resumen;
 }
