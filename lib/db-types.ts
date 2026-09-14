@@ -25,6 +25,12 @@ export interface RowReservas {
   valoracion_experiencia: number | null;
   // migr 20260906005059.
   cancelada_tardia: boolean | null;
+  // migr 20260914130000.
+  bono_suscripcion_id: string | null;
+  // migr 20260914130000.
+  bono_consumido_en: string | null;
+  // migr 20260914130000.
+  bono_consumo_rastreado: boolean | null;
 }
 
 export interface RowAchievementDefinitions {
