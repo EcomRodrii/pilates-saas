@@ -59,33 +59,19 @@ export async function POST(req: NextRequest) {
   const sesionId = typeof body?.sesionId === 'string' ? body.sesionId : null;
   if (!sesionId) return NextResponse.json({ error: 'Falta la clase (sesionId)' }, { status: 400 });
 
-  let soloSiInstructorEs: string | undefined;
-  if (sesion.rol === 'INSTRUCTOR') {
-    // limit(1) en vez de maybeSingle(): no hay UNIQUE(auth_user_id, studio_id)
-    // en `instructores` (ver 0068 y lib/auth-server.ts) — una ficha duplicada
-    // rompería maybeSingle() y dejaría a una instructora legítima con 401.
-    const { data: yo } = await admin
-      .from('instructores').select('id')
-      .eq('auth_user_id', sesion.userId).eq('studio_id', sesion.studioId)
-      .neq('activo', false).order('id', { ascending: true }).limit(1);
-    if (!yo?.[0]) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    soloSiInstructorEs = yo[0].id as string;
-  }
+  // Tentare Core retirado (14-sep-2026): la instructora pide su baja desde la app
+  // del estudio (`/api/portal/instructora/baja`, que guarda su motivo aparte). Aquí
+  // solo marca bajas el panel.
+  if (sesion.rol === 'INSTRUCTOR') return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
 
   const r = await crearBaja(admin, {
     studioId: sesion.studioId,
     sesionId,
     motivo: body?.motivo ?? null,
-    origen: sesion.rol === 'INSTRUCTOR' ? 'instructora' : 'panel',
-    soloSiInstructorEs,
+    origen: 'panel',
   });
 
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
-
-  // A la instructora no le devolvemos la sustitución entera: lleva el ranking
-  // con nombres de compañeras y motivos de scoring — no es asunto suyo quién
-  // la va a cubrir. Mismo recorte que ya hace app/api/public/baja.
-  if (sesion.rol === 'INSTRUCTOR') return NextResponse.json({ ok: true, yaAvisada: r.yaExistia });
   return NextResponse.json({ sustitucion: r.sustitucion, yaExistia: r.yaExistia });
 }
 

@@ -15,21 +15,6 @@ const TIPOS_ABRIBLES = ['ALUMNA_INSTRUCTORA', 'ALUMNA_MOSTRADOR'] as const;
 const LIMITE_BANDEJA = 100;
 type TipoAbrible = (typeof TIPOS_ABRIBLES)[number];
 
-// Mismo helper local que ya usa app/api/mi-disponibilidad/route.ts para
-// resolver el instructor_id propio de una sesión de staff con rol
-// INSTRUCTOR — sin UNIQUE(auth_user_id, studio_id) en `instructores`, así que
-// limit(1) en vez de maybeSingle().
-async function resolverInstructorPropio(
-  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
-  userId: string, studioId: string,
-): Promise<string | null> {
-  const { data } = await admin
-    .from('instructores').select('id')
-    .eq('auth_user_id', userId).eq('studio_id', studioId)
-    .neq('activo', false).order('id', { ascending: true }).limit(1);
-  return (data?.[0]?.id as string | undefined) ?? null;
-}
-
 // Abre (o reutiliza) una conversación desde el lado STAFF. Llama siempre a la
 // RPC `abrir_conversacion` con service-role (mismo patrón que
 // crearReservaPublica/resolver_reserva_pendiente): el guardia de autorización
@@ -38,9 +23,9 @@ async function resolverInstructorPropio(
 // guardia queda como defensa en profundidad, no como el único candado.
 //
 // Criterio de "en nombre de quién":
-// - ALUMNA_INSTRUCTORA: una INSTRUCTOR solo puede abrir la conversación de SU
-//   PROPIA relación con la alumna — no puede abrir en nombre de una
-//   compañera. PROPIETARIO/MANAGER/RECEPCION sí pueden abrirla en nombre de
+// - ALUMNA_INSTRUCTORA: la INSTRUCTOR ya no la abre desde aquí (Tentare Core
+//   retirado, 14-sep-2026: escribe a sus alumnas desde la app del estudio,
+//   `/api/portal/instructora/mensajes`). PROPIETARIO/MANAGER/RECEPCION sí pueden abrirla en nombre de
 //   cualquier instructora del estudio (p.ej. desde la ficha de la clienta en
 //   el panel), porque ya tienen visión y control total sobre el calendario.
 // - ALUMNA_MOSTRADOR: reservado a quien gestiona el calendario/mostrador
@@ -72,14 +57,7 @@ export async function POST(req: NextRequest) {
   let instructorId: string | null = null;
 
   if (tipo === 'ALUMNA_INSTRUCTORA') {
-    if (sesion.rol === 'INSTRUCTOR') {
-      const propio = await resolverInstructorPropio(admin, sesion.userId, sesion.studioId);
-      if (!propio) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-      if (body.instructorId && body.instructorId !== propio) {
-        return NextResponse.json({ error: 'No puedes abrir una conversación en nombre de otra instructora.' }, { status: 403 });
-      }
-      instructorId = propio;
-    } else if (puedeGestionarCalendario(sesion.rol)) {
+    if (puedeGestionarCalendario(sesion.rol)) {
       if (!body.instructorId) return errorPeticion('Falta la instructora.');
       instructorId = body.instructorId;
     } else {

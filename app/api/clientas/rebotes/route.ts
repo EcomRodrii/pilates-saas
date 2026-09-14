@@ -3,6 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { rebotesDeEmails } from '@/lib/emails/rebotes-consulta';
+import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Qué correos de ESTE estudio están rotos.
@@ -29,6 +30,9 @@ import { rebotesDeEmails } from '@/lib/emails/rebotes-consulta';
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Direcciones de TODAS las socias del estudio: quien gestiona clientas, no
+  // cualquier persona con sesión de personal (la instructora no las necesita).
+  if (!puedeGestionarClientas(sesion.rol)) return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
