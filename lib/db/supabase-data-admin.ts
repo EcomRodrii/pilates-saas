@@ -4826,10 +4826,13 @@ async function evaluarLogrosServidor(
       }
     }
 
-    const { error: histError } = await admin.from('achievement_history').insert({
+    // Idempotente: dos evaluaciones a la vez del mismo logro (dos reservas
+    // seguidas, el panel y el portal) dejaban la fila repetida. El índice único
+    // (migr 20260914175000) lo impide y aquí la segunda no cuenta como error.
+    const { error: histError } = await admin.from('achievement_history').upsert({
       id: `achh-${uid()}`, studio_id: studioId, socio_id: socioId, achievement_id: def.id,
       nombre: def.nombre, icono: def.icono, creado_en: now.toISOString(),
-    });
+    }, { onConflict: 'socio_id,achievement_id', ignoreDuplicates: true });
     if (histError) reportDbError('[evaluarLogrosServidor] historial', histError);
   }));
 }
