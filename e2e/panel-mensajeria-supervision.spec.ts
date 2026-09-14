@@ -49,6 +49,8 @@ test('la propietaria lee los hilos de su equipo con alumnas sin poder escribir e
   });
 
   await ir(page, 'mensajeria');
+  // `/mensajeria` abre en otra pestaña: primero «Conversaciones», luego el ámbito.
+  await page.getByRole('button', { name: 'Conversaciones', exact: true }).click({ timeout: 30_000 });
   await page.getByRole('tab', { name: 'Equipo con alumnas' }).click({ timeout: 30_000 });
   await page.getByRole('listitem').filter({ hasText: PREGUNTA }).click({ timeout: 30_000 });
 
