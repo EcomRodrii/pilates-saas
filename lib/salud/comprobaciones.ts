@@ -185,8 +185,9 @@ export const DEFINICIONES: Definicion[] = [
     que: 'Penalizaciones de cobro automático (RECIBO_CREADO) detectadas hace más de 1 hora cuyo recibo sigue PENDIENTE sin reintento programado.',
     impacto:
       'Nadie las va a cobrar ni a reintentar: el cron de penalizaciones solo mira las DETECTADA y el dunning solo cobra ' +
-      'recibos con reintento programado. Pasa si el proceso murió entre enlazar el recibo y programarlo, o si ni siquiera ' +
-      'se pudo devolver la penalización a DETECTADA. Revisa el recibo en Cobros: cóbralo o anúlalo.',
+      'recibos con reintento programado. Pasa si el proceso murió entre enlazar el recibo y programarlo, si no se pudo ' +
+      'confirmar que el recibo quedaba sin programar, o si ni siquiera se pudo devolver la penalización a DETECTADA. ' +
+      'Revisa el recibo en Cobros: cóbralo o anúlalo.',
     // Una fila ya es aviso: en un sistema sano esto vive milisegundos (entre
     // enlazar y armar dentro de la misma pasada), nunca una hora.
     umbralAviso: 1,

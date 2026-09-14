@@ -14,6 +14,10 @@ import { fetchAllRows } from '@/lib/supabase-data';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
+import { dunningPuedeCobrarPenalizacion, penalizacionDelRecibo } from '@/lib/billing/penalizacion-aprobar-reglas';
+import {
+  desprogramarReciboDePenalizacion, leerPenalizacionDelRecibo, seguirPenalizacionAlRecibo,
+} from '@/lib/billing/penalizacion-recibo-server';
 
 // Dispatcher: a las 08:30 UTC (evita las 07:00 de automatizaciones y las
 // 06:30/14:30 del Decision OS, para no competir por la concurrencia del plan free).
@@ -80,7 +84,28 @@ export const procesarDunningEstudio = inngest.createFunction(
 
     for (let i = 0; i < recibos.length; i++) {
       const r = recibos[i] as { id: string; socio_id: string };
+      const esDePenalizacion = penalizacionDelRecibo(r.id) !== null;
       const res = await step.run(`dunning-${r.id}`, async () => {
+        // El recibo de una penalización solo se cobra con el cobro ya decidido
+        // (`dunningPuedeCobrarPenalizacion`). Uno armado de otra forma (código
+        // anterior, un desarme que no se pudo confirmar) tendría detrás una
+        // penalización que el trigger de no-show puede revertir, que espera al
+        // estudio o que se decidió no cobrar. Se omite sin contar intento y, con
+        // la penalización leída, se saca del dunning para que el aviso salga
+        // una vez y no cada día.
+        if (esDePenalizacion) {
+          const admin = getSupabaseAdmin();
+          if (!admin) throw new Error('Service role no configurada');
+          const pen = await leerPenalizacionDelRecibo(admin, { studioId, reciboId: r.id });
+          if (!dunningPuedeCobrarPenalizacion(pen)) {
+            const desprogramado = pen.ok ? await desprogramarReciboDePenalizacion(admin, { studioId, reciboId: r.id, hastaISO: nowISO }) : false;
+            Sentry.captureMessage('[dunning] recibo de penalización sin cobro decidido: no se cobra', {
+              level: 'warning', tags: { area: 'cobros', tipo: 'dunning' },
+              extra: { reciboId: r.id, studioId, estadoPenalizacion: pen.ok ? pen.estado : 'ilegible', desprogramado },
+            });
+            return { tipo: 'omitido' as const, errorCode: 'PENALIZACION_SIN_COBRO_DECIDIDO' as const };
+          }
+        }
         const cobro = await cobrarReciboOffSession({ reciboId: r.id, socioId: r.socio_id, studioId });
         if (cobro.ok) {
           // Tarjeta cobrada (succeeded) o adeudo SEPA enviado (processing → EN_CURSO,
@@ -103,6 +128,20 @@ export const procesarDunningEstudio = inngest.createFunction(
         // `succeeded` en vez de cobrar otra vez.
         return { tipo: 'omitido' as const, errorCode: cobro.errorCode };
       });
+
+      // Su penalización refleja cómo ha quedado el recibo (cobrado → COBRADA,
+      // agotado → FALLIDA, con aviso de pago deduplicado). En un step aparte: si
+      // el proceso muere aquí, Inngest repite esto y no el cobro. Se lee el
+      // estado del recibo, no `res`, así que también cubre la excepción que llega
+      // DESPUÉS de un cargo que sí entró. Lo que no se escriba lo barre el cron.
+      if (esDePenalizacion && !(res.tipo === 'omitido' && res.errorCode === 'PENALIZACION_SIN_COBRO_DECIDIDO')) {
+        await step.run(`dunning-penalizacion-${r.id}`, async () => {
+          const admin = getSupabaseAdmin();
+          if (!admin) throw new Error('Service role no configurada');
+          const seguimiento = await seguirPenalizacionAlRecibo(admin, { studioId, reciboId: r.id });
+          return seguimiento?.paso ?? null;
+        });
+      }
 
       if (res.tipo === 'cobro') { if (res.status === 'processing') enCurso++; else cobrados++; }
       else if (res.tipo === 'fallo') { if (res.estado === 'FALLIDO') fallidos++; else reprogramados++; }

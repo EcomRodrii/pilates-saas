@@ -20,9 +20,11 @@
 //      escribe comprueba cuántas filas tocó.
 //   2. Cualquier «no se ha podido cobrar» vuelve a leer el recibo antes de
 //      decidir. Si el recibo está COBRADO, la penalización pasa a COBRADA.
-//   3. COBRADA no se pisa nunca. Lo único que puede escribir COBRADA sobre
-//      FALLIDA es un cobro CONFIRMADO (recibo COBRADO): es corregir el registro
-//      con lo que ha pasado con el dinero, no una opinión.
+//   3. COBRADA no se pisa nunca desde aquí. Lo único que puede escribir COBRADA
+//      sobre FALLIDA es un cobro CONFIRMADO (recibo COBRADO): es corregir el
+//      registro con lo que ha pasado con el dinero, no una opinión. (La única
+//      salida de COBRADA a FALLIDA es un recibo que acaba FALLIDO, un adeudo
+//      SEPA que no llegó a entrar, y la escribe `seguirAlRecibo`, más abajo.)
 //   4. Si Stripe no está listo (sin configurar, sin conectar, cuenta sin poder
 //      cobrar) no se ha intentado cobrar: la penalización sigue pendiente.
 //
@@ -73,7 +75,9 @@ export type TipoDesenlace =
   /** 409 · no se puede cobrar (sin tarjeta); la penalización queda fallida. */
   | 'NO_COBRABLE'
   /** 409 · ya no está pendiente de aprobar (otra persona, otro proceso). */
-  | 'NO_PENDIENTE';
+  | 'NO_PENDIENTE'
+  /** Solo el cron automático · adeudo SEPA saliendo: no se da por cobrada hasta que el recibo quede COBRADO. */
+  | 'ADEUDO_EN_CURSO';
 
 export interface Desenlace {
   tipo: TipoDesenlace;
@@ -131,6 +135,7 @@ const desenlaces = {
   stripeNoListo: (codigo: string): Desenlace =>
     ({ tipo: 'STRIPE_NO_LISTO', http: 503, mensaje: STRIPE_NO_LISTO[codigo] ?? STRIPE_NO_LISTO.NO_CONFIGURADO, notificar: false }),
   noPendiente: (mensaje = NO_PENDIENTE): Desenlace => ({ tipo: 'NO_PENDIENTE', http: 409, mensaje, notificar: false }),
+  adeudoEnCurso: (): Desenlace => ({ tipo: 'ADEUDO_EN_CURSO', http: 200, notificar: false }),
 };
 
 /** Una FALLIDA puede estar cobrada de verdad: antes de contestar 409 se mira su recibo. */
@@ -284,12 +289,14 @@ export function cuerpoRespuesta(d: Desenlace, statusStripe?: string): Record<str
 // trigger acaba de revertir (OMITIDA_REVERTIDA) entre su SELECT y su UPDATE.
 //
 // ⚠️ Pero lo que se cobra es el RECIBO, y el dunning (lib/inngest/dunning.ts)
-// cobra CUALQUIER recibo PENDIENTE con `proximo_reintento` vencido, sin mirar la
-// penalización. Por eso el recibo nace SIEMPRE sin `proximo_reintento` y solo
-// se arma cuando cobrar ya está decidido: modo automático y la penalización ya
-// en RECIBO_CREADO. Antes nacía armado en automático: si el trigger la revertía
-// entre el SELECT y el UPDATE, el CAS no tocaba nada y el cron salía… y el
-// dunning cobraba igual una penalización revertida, sin rastro en su registro.
+// cobra los recibos PENDIENTE con `proximo_reintento` vencido. Por eso el recibo
+// nace SIEMPRE sin `proximo_reintento` y solo se arma cuando cobrar ya está
+// decidido: modo automático y la penalización ya en RECIBO_CREADO. Antes nacía
+// armado en automático: si el trigger la revertía entre el SELECT y el UPDATE, el
+// CAS no tocaba nada y el cron salía… y el dunning cobraba igual una penalización
+// revertida, sin rastro en su registro. Como segunda cerradura, el dunning ya no
+// cobra el recibo de una penalización sin cobro decidido
+// (`dunningPuedeCobrarPenalizacion`, más abajo).
 //
 // Límite conocido (sin migración): el trigger de no-show solo revierte desde
 // DETECTADA o PENDIENTE_APROBACION, y nunca toca recibos.
@@ -347,61 +354,110 @@ export function limpiezaTrasCasFallido(p: { origen: 'CREADO' | 'YA_EXISTIA'; rec
 export type LecturaArmado = { ok: true; estado: string | null; armado: boolean } | { ok: false };
 
 /** Alertas del cron a Sentry. Van solo con ids, nunca con datos de la socia. */
-export type AlertaCron = 'NO_SE_PUDO_ARMAR' | 'RECIBO_NO_PENDIENTE_AL_ARMAR' | 'NO_SE_PUDO_DEVOLVER';
+export type AlertaCron = 'NO_SE_PUDO_ARMAR' | 'RECIBO_NO_PENDIENTE_AL_ARMAR' | 'NO_SE_PUDO_DEVOLVER' | 'NO_SE_PUDO_DESARMAR';
+
+/**
+ * ¿Ha quedado el recibo fuera del dunning? El UPDATE solo toca un recibo
+ * PENDIENTE, así que una fila tocada basta. Con error, o sin filas, se relee: el
+ * dunning solo cobra recibos PENDIENTE con `proximo_reintento`, y cualquier otra
+ * cosa (otro estado, sin programar, borrado) también vale. Sin poder releer, no
+ * está confirmado.
+ *
+ * Importa porque lo que viene detrás es devolver la penalización a DETECTADA, y
+ * una DETECTADA la puede revertir el trigger de no-show: si su recibo siguiera
+ * armado, el dunning cobraría una penalización revertida.
+ */
+export function reciboQuedaDesarmado(desarme: { error: boolean; tocadas: number }, lectura?: LecturaArmado): boolean {
+  if (!desarme.error && desarme.tocadas > 0) return true;
+  return lectura?.ok === true && (lectura.estado !== 'PENDIENTE' || !lectura.armado);
+}
+
+/**
+ * Quién retoma el cobro si este intento no deja nada escrito (transitorio, Stripe
+ * no listo, recibo ilegible):
+ * - DUNNING: el recibo está PENDIENTE y armado; lo reintenta el dunning.
+ * - NINGUNO: el recibo ya no es cobrable; el guardia no cobra y la relectura
+ *   decide.
+ */
+export type Reintento = 'DUNNING' | 'NINGUNO';
 
 export type TrasArmar =
-  | { accion: 'COBRAR'; alerta: AlertaCron | null }
+  | { accion: 'COBRAR'; alerta: AlertaCron | null; reintento: Reintento }
+  | { accion: 'CERRAR_FALLIDA'; alerta: null }
   | { accion: 'DEVOLVER_A_DETECTADA'; alerta: AlertaCron };
 
 /** Vuelta atrás cuando no se pudo armar: la próxima pasada del cron la recoge entera. */
 export const VUELTA_A_DETECTADA: Escritura = { estado: 'DETECTADA', desde: ['RECIBO_CREADO'] };
 
-/** Los estados de recibo que el guardia de `cobrarReciboOffSession` deja cobrar. */
-const RECIBO_COBRABLE = ['PENDIENTE', 'FALLIDO'];
+/** La penalización recién enlazada a un recibo que ya estaba FALLIDO: se cierra sin cobrar. */
+export const CIERRE_RECIBO_FALLIDO: Escritura = { estado: 'FALLIDA', desde: ['RECIBO_CREADO'] };
 
 /**
  * Armar el recibo no confirmó una fila: ¿se cobra igual? Solo si no puede quedar
  * nada que nadie reintente.
  * - Armado (una fila), o ya lo estaba (código anterior) → cobrar: si el cobro
  *   sale transitorio, lo retoma el dunning.
+ * - FALLIDO (el dunning lo agotó) → NO se cobra: la penalización queda FALLIDA,
+ *   lo mismo que escribe `seguirAlRecibo` con ese recibo. Antes se devolvía a
+ *   DETECTADA y, como armar exige PENDIENTE, cada pasada repetía lo mismo con su
+ *   alerta, para siempre. Cobrarlo aquí no es seguro: tras agotar los reintentos
+ *   la clave (`-i<intentos>`) es nueva, así que es un cargo nuevo mientras la
+ *   socia puede estar pagando ese mismo recibo desde el portal (un FALLIDO es
+ *   deuda cobrable); y un transitorio obligaría a volver a DETECTADA con el
+ *   desenlace del cargo sin saber, donde el trigger la podría revertir con el
+ *   dinero dentro. Para volver a intentarlo está «Cobrar online» en Cobros: si
+ *   entra, el barrido la pasa a COBRADA.
  * - El recibo ya no es cobrable (cobrado o anulado a mano, borrado) → se intenta
  *   igual: el guardia del recibo no cobra, y la relectura deja la penalización
  *   COBRADA o FALLIDA. Con alerta, porque no debería pasar.
- * - Error, no se pudo leer, o sigue cobrable sin armar → NO se cobra. Un
+ * - Error, no se pudo leer, o sigue PENDIENTE sin armar → NO se cobra. Un
  *   transitorio dejaría RECIBO_CREADO con el recibo sin armar, y eso no lo
  *   reintenta nadie: el cron solo lee DETECTADA y el dunning solo cobra recibos
  *   armados. Se desarma, se devuelve a DETECTADA y la próxima pasada lo repite
  *   entero (23505 → enlazar → armar → cobrar), con la misma Idempotency-Key.
  */
 export function decidirTrasArmar(armado: { error: boolean; tocadas: number }, lectura?: LecturaArmado): TrasArmar {
-  if (!armado.error && armado.tocadas > 0) return { accion: 'COBRAR', alerta: null };
+  if (!armado.error && armado.tocadas > 0) return { accion: 'COBRAR', alerta: null, reintento: 'DUNNING' };
   if (lectura?.ok) {
-    if (lectura.estado === 'PENDIENTE' && lectura.armado) return { accion: 'COBRAR', alerta: null };
-    if (!RECIBO_COBRABLE.includes(lectura.estado ?? '')) return { accion: 'COBRAR', alerta: 'RECIBO_NO_PENDIENTE_AL_ARMAR' };
+    if (lectura.estado === 'PENDIENTE' && lectura.armado) return { accion: 'COBRAR', alerta: null, reintento: 'DUNNING' };
+    if (lectura.estado === 'FALLIDO') return { accion: 'CERRAR_FALLIDA', alerta: null };
+    if (lectura.estado !== 'PENDIENTE') return { accion: 'COBRAR', alerta: 'RECIBO_NO_PENDIENTE_AL_ARMAR', reintento: 'NINGUNO' };
   }
   return { accion: 'DEVOLVER_A_DETECTADA', alerta: 'NO_SE_PUDO_ARMAR' };
 }
 
 /**
  * Tras el cobro automático: las MISMAS reglas que la aprobación a mano, saliendo
- * de RECIBO_CREADO.
+ * de RECIBO_CREADO, con dos diferencias.
  * - Transitorio, Stripe no listo o recibo ilegible → no se escribe. Sigue
- *   RECIBO_CREADO con el recibo armado, y lo reintenta el DUNNING (el cron solo
- *   lee DETECTADA), con la misma Idempotency-Key porque el contador de intentos
- *   no se movió.
+ *   RECIBO_CREADO con el recibo armado y lo reintenta el DUNNING (el cron solo lee
+ *   DETECTADA), con la misma Idempotency-Key porque el contador de intentos no se
+ *   movió.
  * - Recibo COBRADO → COBRADA y aviso (deduplicado).
- * - Rechazo real → FALLIDA, como siempre.
- *
- * ⚠️ PENDIENTE, fuera de este cambio: tras un rechazo real la penalización queda
- * FALLIDA, pero su recibo sigue armado y el dunning lo reintenta. Si el dunning
- * lo cobra después, la penalización se queda FALLIDA con el dinero dentro (y
- * una RECIBO_CREADO que cobre el dunning se queda RECIBO_CREADO). El dunning
- * (lib/inngest/dunning.ts) tiene que actualizar la penalización de los recibos
- * `rec-penaliz-*` al cobrarlos. Hay que resolverlo ANTES de que ningún estudio
- * active el cobro automático de penalizaciones.
+ * - ⚠️ Rechazo real (FALLO_COBRO) o sin tarjeta, con el recibo PENDIENTE y armado
+ *   → NO se escribe: los reintentos son del dunning, y su recibo sigue en el
+ *   ciclo. Escribir FALLIDA aquí dejaba la penalización «fallida» mientras el
+ *   dunning seguía cobrando, y si cobraba, fallida con el dinero dentro. Sin
+ *   tarjeta, el dunning la omite sin contar intento y cobra cuando la haya. El
+ *   desenlace lo escribe `seguirAlRecibo` cuando el dunning cobra o agota el recibo.
+ *   Este rechazo no pasa por `registrarFalloCobro`: el primer barrido del dunning
+ *   repite la misma clave y Stripe le devuelve el mismo rechazo, que ahí sí cuenta
+ *   como intento. Vale mientras el cron corra antes de que caduque la clave
+ *   (~24 h): corre cada hora y el dunning una vez al día.
+ * - ⚠️ Adeudo SEPA en `processing` → NO se escribe COBRADA: el adeudo puede fallar
+ *   y `registrarFalloCobro` devuelve el recibo al dunning. Se queda RECIBO_CREADO
+ *   y la cierra `seguirAlRecibo` cuando el recibo quede COBRADO (lo mismo que
+ *   cuando ese `processing` sale del dunning). La aprobación a mano sigue dando
+ *   por cobrado su `processing`.
+ * - Recibo FALLIDO (el dunning lo agotó entre medias), NO_ENCONTRADO o anulado
+ *   → FALLIDA. El cron saca antes el recibo del dunning (`crearReciboYCobrar`).
  */
-export function planificarCobroAutomatico(cobro: Cobro, recibo?: LecturaRecibo): Plan {
-  return planificarTrasCobro(cobro, recibo, 'RECIBO_CREADO');
+export function planificarCobroAutomatico(cobro: Cobro, recibo: LecturaRecibo | undefined, reintento: Reintento): Plan {
+  if (cobro.ok && !cobro.aviso && cobro.status === 'processing') return { escritura: null, desenlace: desenlaces.adeudoEnCurso() };
+  const plan = planificarTrasCobro(cobro, recibo, 'RECIBO_CREADO');
+  const sigueEnElDunning = reintento === 'DUNNING' && (cobro.errorCode === 'FALLO_COBRO' || cobro.errorCode === 'SIN_TARJETA')
+    && plan.escritura?.estado === 'FALLIDA' && recibo?.ok === true && recibo.estado === 'PENDIENTE';
+  return sigueEnElDunning ? { escritura: null, desenlace: plan.desenlace } : plan;
 }
 
 /** Acceso a datos del cron, inyectado para probar el orden sin Supabase ni Stripe. */
@@ -413,8 +469,8 @@ export interface IoCronPenalizacion {
   leerPunteroRecibo(): Promise<LecturaPuntero>;
   /** DELETE del recibo, solo si sigue PENDIENTE y sin armar. */
   borrarRecibo(): Promise<void>;
-  /** `proximo_reintento = null`, solo si sigue PENDIENTE. */
-  desarmarRecibo(): Promise<void>;
+  /** `proximo_reintento = null`, solo si sigue PENDIENTE. Devuelve las filas tocadas. */
+  desarmarRecibo(): Promise<{ error: boolean; tocadas: number }>;
   /** `proximo_reintento = ahora`, solo si sigue PENDIENTE y sin armar. Devuelve las filas tocadas. */
   armarRecibo(): Promise<{ error: boolean; tocadas: number }>;
   /** Estado del recibo y si tiene `proximo_reintento`, cuando armar no tocó fila. */
@@ -437,10 +493,24 @@ export type PasadaCron =
   | { paso: 'YA_NO_DETECTADA'; limpieza: LimpiezaRecibo }
   | { paso: 'ESPERA_APROBACION' }
   | { paso: 'SIN_ARMAR'; devuelta: boolean }
+  /** El recibo ya estaba FALLIDO: FALLIDA sin cobrar. Sin `cerrada`, la cierra el barrido. */
+  | { paso: 'RECIBO_FALLIDO'; cerrada: boolean }
   | { paso: 'COBRO'; desenlace: Desenlace };
 
 /** Crear el recibo de una penalización DETECTADA y, en automático, cobrarlo. */
 export async function crearReciboYCobrar(io: IoCronPenalizacion, p: { reciboId: string; automatico: boolean }): Promise<PasadaCron> {
+  // Desarmar SIN comprobarlo no vale: un error de la BD se tragaba y lo de detrás
+  // (devolver a DETECTADA, dejar la penalización a merced del trigger) seguía
+  // como si el recibo estuviera fuera del dunning. Si no se confirma, se avisa,
+  // y quien llama no devuelve nada a DETECTADA.
+  const desarmar = async (): Promise<boolean> => {
+    const desarme = await io.desarmarRecibo();
+    const confirmado = !desarme.error && desarme.tocadas > 0;
+    const ok = reciboQuedaDesarmado(desarme, confirmado ? undefined : await io.leerArmadoRecibo());
+    if (!ok) io.alertar('NO_SE_PUDO_DESARMAR');
+    return ok;
+  };
+
   const origen = origenDelRecibo(await io.insertarRecibo());
   if (origen === 'ERROR') return { paso: 'ERROR_RECIBO' };
 
@@ -451,14 +521,17 @@ export async function crearReciboYCobrar(io: IoCronPenalizacion, p: { reciboId: 
   if (enlace.tocadas === 0) {
     const limpieza = limpiezaTrasCasFallido({ origen, reciboId: p.reciboId, puntero: await io.leerPunteroRecibo() });
     if (limpieza === 'BORRAR') await io.borrarRecibo();
-    if (limpieza === 'DESARMAR') await io.desarmarRecibo();
+    // Sin confirmar, queda la alerta; el dunning tampoco lo cobra, porque no cobra
+    // el recibo de una penalización sin cobro decidido (`dunningPuedeCobrarPenalizacion`).
+    if (limpieza === 'DESARMAR') await desarmar();
     return { paso: 'YA_NO_DETECTADA', limpieza };
   }
   if (!reciboEntraEnDunning({ automatico: p.automatico, casAplicado: true })) {
     // Manual: el recibo no puede quedar cobrable por el dunning. Uno nuevo nace
     // sin armar; uno que ya existía pudo armarlo el código anterior (o el
     // estudio pasó de automático a manual entre pasadas), así que se desarma.
-    if (origen === 'YA_EXISTIA') await io.desarmarRecibo();
+    // Sin confirmar: alerta, y el dunning no cobra una PENDIENTE_APROBACION.
+    if (origen === 'YA_EXISTIA') await desarmar();
     return { paso: 'ESPERA_APROBACION' };
   }
 
@@ -471,17 +544,31 @@ export async function crearReciboYCobrar(io: IoCronPenalizacion, p: { reciboId: 
   if (tras.alerta) io.alertar(tras.alerta);
   if (tras.accion === 'DEVOLVER_A_DETECTADA') {
     // Primero desarmar (un recibo armado del código anterior no puede quedar
-    // cobrable con la penalización en DETECTADA), luego devolver.
-    await io.desarmarRecibo();
+    // cobrable con la penalización en DETECTADA), luego devolver. Si no se puede
+    // confirmar que quedó desarmado, NO se devuelve: una RECIBO_CREADO no la
+    // revierte el trigger, y si el recibo sigue armado lo cobra el dunning con el
+    // cobro ya decidido; si no, lo cuenta la salud `penalizaciones-recibo-sin-programar`.
+    if (!(await desarmar())) return { paso: 'SIN_ARMAR', devuelta: false };
     const vuelta = await io.devolverPenalizacion(VUELTA_A_DETECTADA);
     const devuelta = !vuelta.error && vuelta.tocadas > 0;
     if (!devuelta) io.alertar('NO_SE_PUDO_DEVOLVER');
     return { paso: 'SIN_ARMAR', devuelta };
   }
 
+  if (tras.accion === 'CERRAR_FALLIDA') {
+    const cierre = await io.cerrarPenalizacion(CIERRE_RECIBO_FALLIDO);
+    return { paso: 'RECIBO_FALLIDO', cerrada: !cierre.error && cierre.tocadas > 0 };
+  }
+
   const cobro = await io.cobrar();
   const recibo = hayQueReleerRecibo(cobro) ? await io.leerRecibo() : undefined;
-  const plan = planificarCobroAutomatico(cobro, recibo);
+  const plan = planificarCobroAutomatico(cobro, recibo, tras.reintento);
+  // Toda FALLIDA que escribe el cron saca antes su recibo del dunning, y el dunning
+  // no cobra el recibo de una FALLIDA. Importa sobre todo con un cobro que entró
+  // sin quedar registrado (COBRADO_SIN_PERSISTIR): el recibo sigue PENDIENTE y,
+  // pasadas ~24 h, reintentarlo ya no repite la clave. Lo arregla el webhook, y
+  // el barrido la pasa a COBRADA.
+  if (plan.escritura?.estado === 'FALLIDA' && tras.reintento === 'DUNNING') await desarmar();
   let desenlace = plan.desenlace;
   if (plan.escritura) {
     const cierre = await io.cerrarPenalizacion(plan.escritura);
@@ -489,6 +576,129 @@ export async function crearReciboYCobrar(io: IoCronPenalizacion, p: { reciboId: 
   }
   if (desenlace.notificar) await io.notificarPago();
   return { paso: 'COBRO', desenlace };
+}
+
+// ── El dunning y el barrido: la penalización sigue a su recibo ──────────────
+//
+// En automático, el cobro de una penalización puede acabar fuera del cron: lo
+// reintenta el dunning (lib/inngest/dunning.ts), lo reconcilia el webhook de un
+// cargo con tarjeta cuya respuesta se perdió, o alguien lo cobra desde Cobros.
+// Ninguno de esos caminos sabe nada de penalizaciones, y la penalización se
+// quedaba RECIBO_CREADO (o FALLIDA) con el dinero dentro.
+//
+// No se copia la confirmación del cobro en ellos: el dueño de «recibo cobrado» es
+// quien es (`confirmar-cobro.ts`/`dunning-server.ts`, y lo que salga de #1987). Lo
+// que se añade es un solo dueño de «la penalización refleja su recibo»: lee el
+// ESTADO del recibo, no el resultado de quien cobró, así que da igual qué camino
+// lo cobró y se puede llamar las veces que haga falta. Lo llaman el dunning al
+// terminar con el recibo y el cron cada hora sobre lo que aún no cuadra.
+
+export const PREFIJO_RECIBO_PENALIZACION = 'rec-penaliz-';
+
+/** Id de la penalización de un recibo `rec-penaliz-<id>`; `null` si el recibo no es de una. */
+export function penalizacionDelRecibo(reciboId: string): string | null {
+  if (!reciboId.startsWith(PREFIJO_RECIBO_PENALIZACION)) return null;
+  return reciboId.slice(PREFIJO_RECIBO_PENALIZACION.length) || null;
+}
+
+/** Lectura de `penalizaciones.estado`. `estado: null` = no existe o no apunta a ese recibo. */
+export type LecturaPenalizacion = { ok: true; estado: string | null } | { ok: false };
+
+/**
+ * Estados con los que el dunning puede cobrar el recibo.
+ * - RECIBO_CREADO: el camino normal en automático, cobro decidido.
+ * - COBRADA: con su recibo PENDIENTE y programado solo existe si un adeudo SEPA
+ *   que salió en `processing` (dado por cobrado en la aprobación a mano) falló
+ *   después y `registrarFalloCobro` devolvió el recibo al dunning. Dejarla fuera
+ *   era no perseguir nunca esa deuda.
+ */
+export const ESTADOS_QUE_DEJAN_COBRAR_AL_DUNNING: readonly EstadoPenalizacion[] = ['RECIBO_CREADO', 'COBRADA'];
+
+/**
+ * ¿Puede el dunning cobrar el recibo de esta penalización? El dunning cobra
+ * cualquier recibo PENDIENTE armado, y un recibo de penalización puede quedar
+ * armado sin que la penalización lo esté (el código anterior, un desarme que no
+ * se pudo confirmar). Fuera, entre otras:
+ * - DETECTADA y PENDIENTE_APROBACION: las puede revertir el trigger de no-show, y
+ *   la segunda espera a que el estudio la apruebe.
+ * - FALLIDA: el cron saca del dunning el recibo de toda FALLIDA que escribe; si
+ *   sigue armado es un cobro que entró sin quedar registrado.
+ * - OMITIDA_* y REEMBOLSADA: se decidió no cobrar, o el dinero ya volvió.
+ * Sin poder leerla, tampoco: se omite sin contar intento y se repite mañana.
+ */
+export function dunningPuedeCobrarPenalizacion(lectura: LecturaPenalizacion): boolean {
+  return lectura.ok && ESTADOS_QUE_DEJAN_COBRAR_AL_DUNNING.includes(lectura.estado as EstadoPenalizacion);
+}
+
+/**
+ * Estado del recibo → escritura de la penalización. Solo resuelven dos:
+ * - COBRADO → COBRADA, desde lo mismo que corrige cualquier cobro confirmado.
+ * - FALLIDO → FALLIDA, desde RECIBO_CREADO (el dunning lo agotó) y desde COBRADA
+ *   (un adeudo SEPA dado por cobrado en `processing` que no llegó a entrar: con
+ *   tarjeta un recibo COBRADO nunca pasa a FALLIDO, `registrarFalloCobro` lo
+ *   excluye). Una PENDIENTE_APROBACION con el recibo fallido es cosa del estudio,
+ *   y una DETECTADA la cierra el cron.
+ * EN_CURSO no resuelve: remesas y reintentos manuales lo escriben sin pasar por
+ * Stripe, así que no prueba nada. Se espera a COBRADO.
+ */
+export function escrituraPorEstadoDelRecibo(estadoRecibo: string | null): Escritura | null {
+  if (estadoRecibo === 'COBRADO') return { estado: 'COBRADA', desde: ESTADOS_QUE_CORRIGE_UN_COBRO };
+  if (estadoRecibo === 'FALLIDO') return { estado: 'FALLIDA', desde: ['RECIBO_CREADO', 'COBRADA'] };
+  return null;
+}
+
+/**
+ * Una COBRADA que deja de serlo pudo repartirse ya en la liquidación de una
+ * instructora: hay que pedir que se revise, igual que al reembolsarla.
+ */
+export function hayQueRevisarLiquidacion(estadoPrevio: string | null, escritura: Escritura): boolean {
+  return estadoPrevio === 'COBRADA' && escritura.estado !== 'COBRADA';
+}
+
+/**
+ * Lo que barre el cron cada hora: penalizaciones cuyo recibo ya se resolvió por
+ * otro camino. DETECTADA queda fuera: la procesa el propio cron en la misma
+ * pasada. Cada entrada tiene que poder escribirse con `escrituraPorEstadoDelRecibo`;
+ * si no, el barrido la volvería a encontrar cada hora (hay test).
+ */
+export const BARRIDO_RECIBO_RESUELTO: ReadonlyArray<{ estadoRecibo: 'COBRADO' | 'FALLIDO'; estados: readonly EstadoPenalizacion[] }> = [
+  { estadoRecibo: 'COBRADO', estados: ['PENDIENTE_APROBACION', 'RECIBO_CREADO', 'FALLIDA'] },
+  { estadoRecibo: 'FALLIDO', estados: ['RECIBO_CREADO', 'COBRADA'] },
+];
+
+/** Acceso a datos de `seguirAlRecibo`, inyectado para probarlo sin Supabase. */
+export interface IoPenalizacionSigueAlRecibo {
+  leerRecibo(): Promise<LecturaRecibo>;
+  /** CAS de la penalización a `e.estado`, con `procesada_en`. */
+  cerrarPenalizacion(e: Escritura): Promise<{ error: boolean; tocadas: number }>;
+  leerEstadoPenalizacion(): Promise<string | null>;
+  /** PAGO_PENALIZACION, deduplicado por `pago-penalizacion:<id>`. */
+  notificarPago(): Promise<void>;
+}
+
+export type Seguimiento =
+  | { paso: 'RECIBO_ILEGIBLE' }
+  | { paso: 'RECIBO_SIN_RESOLVER' }
+  | { paso: 'ESCRITA'; estado: EstadoPenalizacion; notificada: boolean }
+  | { paso: 'SIN_EFECTO'; estado: string | null; notificada: boolean };
+
+/**
+ * Deja la penalización como dice su recibo. Compare-and-set, e idempotente: una
+ * segunda llamada no toca nada. El aviso sale si la penalización ha quedado
+ * COBRADA con su recibo COBRADO, la haya escrito esta llamada u otra (un reintento
+ * del step que murió entre escribir y avisar): lo deduplica la clave del motor.
+ */
+export async function seguirAlRecibo(io: IoPenalizacionSigueAlRecibo): Promise<Seguimiento> {
+  const recibo = await io.leerRecibo();
+  if (!recibo.ok) return { paso: 'RECIBO_ILEGIBLE' };
+  const escritura = escrituraPorEstadoDelRecibo(recibo.estado);
+  if (!escritura) return { paso: 'RECIBO_SIN_RESOLVER' };
+  const cierre = await io.cerrarPenalizacion(escritura);
+  const aplicada = !cierre.error && cierre.tocadas > 0;
+  const estado = aplicada ? escritura.estado : await io.leerEstadoPenalizacion();
+  const notificada = escritura.estado === 'COBRADA' && estado === 'COBRADA';
+  if (notificada) await io.notificarPago();
+  return aplicada ? { paso: 'ESCRITA', estado: escritura.estado, notificada } : { paso: 'SIN_EFECTO', estado, notificada };
 }
 
 // ── Lado de la tarjeta ──────────────────────────────────────────────────────
