@@ -330,8 +330,8 @@ const leer = (ruta: string) => readFileSync(join(RAIZ, ruta), 'utf8');
 const ADMIN = leer('lib/db/supabase-data-admin.ts');
 const MODULO = leer('lib/reservas/consumo-bono-reserva.ts');
 const sinComentariosSql = (sql: string) => sql.replace(/^\s*--.*$/gm, '');
-const MIGR_A = sinComentariosSql(leer('supabase/migrations/20260914130000_reservas_bono_decidido_por_reserva.sql'));
-const MIGR_B = sinComentariosSql(leer('supabase/migrations/20260914130100_reservas_bono_rastreo_por_defecto.sql'));
+const MIGR_A = sinComentariosSql(leer('supabase/migrations/20260914182637_reservas_bono_decidido_por_reserva.sql'));
+const MIGR_B = sinComentariosSql(leer('supabase/migrations/20260914182713_reservas_bono_rastreo_por_defecto.sql'));
 
 /** Texto de la llamada que empieza en `i`, hasta su paréntesis de cierre. */
 function llamadaDesde(fuente: string, i: number): string {

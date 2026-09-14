@@ -1127,7 +1127,7 @@ async function consumirBonoServidor(admin: SupabaseClient, p: {
   //
   // Decremento ATÓMICO condicional (arregla el sobre-consumo concurrente): N
   // reservas simultáneas de la misma socia ya NO comparten el mismo descuento.
-  // Y POR RESERVA (migr 20260914130000): la marca queda en la propia reserva en
+  // Y POR RESERVA (migr 20260914182637): la marca queda en la propia reserva en
   // la misma transacción, así que volver a llamar descuenta si falta y, si no,
   // no toca nada. Sin la migración aplicada cae al descuento de siempre (ver
   // `lib/reservas/consumo-bono-reserva.ts`).

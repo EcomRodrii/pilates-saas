@@ -33,7 +33,7 @@
 --   2. Aplicar ESTA migración.
 --   3. Confirmar que PostgREST ya ve la RPC: llamada REST con service_role y un
 --      id inexistente → `RESERVA_NO_ENCONTRADA`, NO `PGRST202` (check 3 abajo).
---   4. Solo entonces aplicar `20260914130100_reservas_bono_rastreo_por_defecto`.
+--   4. Solo entonces aplicar `20260914182713_reservas_bono_rastreo_por_defecto`.
 -- Por qué: entre el COMMIT del DDL y la recarga de la caché de PostgREST, el
 -- código no ve la RPC y descuenta con la vieja, sin marca. Si en ese hueco las
 -- filas nuevas ya nacieran rastreadas, un reintento posterior las cobraría otra

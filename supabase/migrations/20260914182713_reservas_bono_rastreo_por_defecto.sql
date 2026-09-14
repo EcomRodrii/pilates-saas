@@ -1,7 +1,7 @@
 -- Consumo de bono idempotente POR RESERVA (2 de 2: las reservas nuevas nacen
 -- rastreadas).
 --
--- ⚠️ NO aplicar junto con la 1 de 2 (`20260914130000_reservas_bono_decidido_
+-- ⚠️ NO aplicar junto con la 1 de 2 (`20260914182637_reservas_bono_decidido_
 -- por_reserva`). Solo después de confirmar que PostgREST ya ve
 -- `consumir_sesion_bono_reserva` (check 3 de esa migración: llamada REST con
 -- service_role → `RESERVA_NO_ENCONTRADA`, no `PGRST202`).
