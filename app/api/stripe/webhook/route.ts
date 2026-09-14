@@ -1115,12 +1115,15 @@ async function procesarEvento(
         });
       }
 
-      // Guardado de tarjeta (§6 del diseño): con PaymentIntent directo, el
-      // propio evento YA ES el PaymentIntent — a diferencia de
-      // checkout.session.completed no hace falta expandir/recuperar nada.
-      // Un fallo aquí devuelve 5xx para reintentar (idempotente: mismos
-      // customer/payment_method). Bizum no aplica: este endpoint solo ofrece
-      // tarjeta (payment_method_types:['card'] fijo).
+      // Guardado del método (§6 del diseño): con PaymentIntent directo, el
+      // propio evento YA ES el PaymentIntent. Un fallo aquí devuelve 5xx para
+      // reintentar (idempotente: mismos customer/payment_method). Bizum no
+      // aplica (`allow_redirects: 'never'`).
+      // ⚠️ Pero el método viene SIN expandir y el endpoint usa
+      // `automatic_payment_methods`, así que se pudo pagar con tarjeta o con
+      // Link: `guardarMetodoDeCompra` pregunta el tipo real a Stripe. Antes este
+      // comentario decía «solo ofrece tarjeta, sin expandir basta», y con eso
+      // no se guardaba nada en cuanto el estudio tenía Link activo.
       // Auditoría 25-ago. `socioEmail` NO es una identidad demostrada: en el
       // camino de invitada (sin socioId, docs/reserva-sin-login-diseno.md
       // §4.1) `entregarPlanComprado` resuelve la ficha con
@@ -1141,9 +1144,8 @@ async function procesarEvento(
       // recibe su plan igual, pero no toca credenciales de pago ajenas.
       //
       // Auditoría 26ª pasada, P-2: extraído a guardarMetodoDeCompra, mismo
-      // helper que checkout.session.completed y el conciliador. El evento ya
-      // ES el PaymentIntent y este endpoint solo ofrece tarjeta, así que sin
-      // expandir basta.
+      // helper que checkout.session.completed y el conciliador. El tipo real
+      // del método lo resuelve el helper (`hayQueConsultarTipo`).
       if (typeof pi.customer === 'string') {
         const res = await guardarMetodoDeCompra(admin, stripe, {
           studioId, socioId: entrega.socioId, customerId: pi.customer, stripeAccount: event.account,

@@ -29,7 +29,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { metodoReutilizableDe, type PaymentIntentReutilizable } from './metodo-reutilizable.ts';
+import { hayQueConsultarTipo, metodoReutilizableDe, type PaymentIntentReutilizable } from './metodo-reutilizable.ts';
 import { guardarCaducidadTarjeta } from './caducidad-tarjeta.ts';
 import { identidadDemostradaEnCompra } from './identidad-compra.ts';
 
@@ -89,6 +89,26 @@ export async function guardarMetodoDeCompra(
     }
   } else {
     return { ok: true, guardado: false };
+  }
+
+  // ⚠️ El checkout embebido usa `automatic_payment_methods`: el evento y el
+  // listado del conciliador traen el método como id y `payment_method_types`
+  // con TODO lo ofrecido (`['card','link',…]`). Sin el tipo real,
+  // `metodoReutilizableDe` no se arriesga y no guardaba NADA — ni una tarjeta
+  // pagada con tarjeta —, así que la cuota comprada ahí no se renovaba sola.
+  // Se pregunta a Stripe; si no responde, `ok:false` para que el webhook
+  // reintente en vez de dar la compra por rematada sin método.
+  if (hayQueConsultarTipo(pi)) {
+    try {
+      const pm = await stripe.paymentMethods.retrieve(
+        pi.payment_method as string,
+        {},
+        args.stripeAccount ? { stripeAccount: args.stripeAccount } : undefined,
+      );
+      pi = { ...pi, payment_method: { id: pm.id, type: pm.type } };
+    } catch (e) {
+      return { ok: false, guardado: false, motivo: `no se pudo recuperar el método de pago: ${String(e)}` };
+    }
   }
 
   const paymentMethodId = metodoReutilizableDe(pi);
