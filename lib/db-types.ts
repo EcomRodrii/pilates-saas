@@ -748,6 +748,8 @@ export interface RowSocios {
   excluir_de_perfilado: boolean | null;
   // migr 20260913214142.
   consentimiento_salud_registrado_por_uid: string | null;
+  // migr 20260914160000.
+  cumple_mm_dd: string | null;
 }
 
 export interface RowSoporteSolicitudes {

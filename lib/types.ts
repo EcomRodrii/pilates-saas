@@ -403,7 +403,13 @@ export interface Socio {
   metodoPagoPreferido?: MetodoPagoPreferido;
   sepaMandateId?: string | null;
   sepaPaymentMethodId?: string | null;
+  // ⚠️ `fechaNacimiento`, `nif`, `direccion`, la firma del contrato y los
+  // identificadores de pago llegan `null` al panel de un MANAGER o una
+  // INSTRUCTORA: son datos privados (lib/socios/datos-privados.ts). `null` ahí
+  // NO significa «no consta». Para felicitar o segmentar, `cumpleMmDd`.
   fechaNacimiento?: string | null;
+  // 'MM-DD', sin año (columna generada `socios.cumple_mm_dd`). Todo el personal.
+  cumpleMmDd?: string | null;
   direccion?: string | null;
   // Meta de clases/mes que la socia se marca desde su propio perfil (portal).
   // `null` = sin objetivo. Mes de calendario natural, sin histórico versionado

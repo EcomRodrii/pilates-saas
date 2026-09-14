@@ -1,6 +1,7 @@
 import type { Automatizacion, AutomationLog, Socio, Suscripcion, Reserva, Cita } from '@/lib/types';
 import { ultimaAsistidaPorSocio, huboAvisoInactividadReciente } from './senales-inactividad.ts';
 import { tieneConsentimientoMarketingVigente } from '../marketing/consentimiento.ts';
+import { cumpleMesDia } from '../socios/datos-privados.ts';
 
 // Motor de las Automatizaciones de MARKETING (tipo `Automatizacion`, con triggers
 // de negocio). Antes la UI las creaba pero NINGÚN proceso las ejecutaba — fachada
@@ -134,7 +135,7 @@ export function computeAutomatizacionMktCandidatos(
         for (const s of socios) if (s.activo && diasDesde(s.fechaAlta) <= 1 && diasDesde(s.fechaAlta) >= 0) emitir(a, s);
         break;
       case 'CUMPLEANOS':
-        for (const s of socios) if (s.activo && s.fechaNacimiento && s.fechaNacimiento.slice(5) === hoyMD) emitir(a, s);
+        for (const s of socios) if (s.activo && cumpleMesDia(s) === hoyMD) emitir(a, s);
         break;
       case 'PRIMERA_CLASE':
         for (const [socioId, fecha] of primeraAsistida) if (diasDesde(fecha) <= 1 && diasDesde(fecha) >= 0) { const s = socioById.get(socioId); if (s?.activo) emitir(a, s); }

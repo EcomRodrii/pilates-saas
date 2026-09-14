@@ -1,5 +1,6 @@
 import type { AchievementMetric, AchievementMetricDef, Reserva, Sesion, Socio } from '@/lib/types';
 import { calcularRacha } from '@/lib/engines/streak-engine';
+import { cumpleMesDia } from '@/lib/socios/datos-privados';
 
 // Catálogo de métricas que la app sabe calcular. El estudio no inventa
 // métricas nuevas (eso es código), pero SÍ decide el umbral de cada logro
@@ -18,8 +19,11 @@ export function metricaDef(metric: AchievementMetric): AchievementMetricDef | un
 }
 
 function asistioEnCumpleanos(reservas: Reserva[], sesiones: Sesion[], socio: Socio | undefined): boolean {
-  if (!socio?.fechaNacimiento) return false;
-  const nacimiento = new Date(socio.fechaNacimiento);
+  // Día y mes (`cumpleMmDd`), que es lo que ve todo el personal (M1 RGPD).
+  const md = cumpleMesDia(socio);
+  if (!md) return false;
+  const mesCumple = Number(md.slice(0, 2)) - 1;
+  const diaCumple = Number(md.slice(3, 5));
   const sesionById = new Map(sesiones.map(s => [s.id, s])); // P0-22
   return reservas
     .filter(r => r.estado === 'ASISTIDA')
@@ -27,7 +31,7 @@ function asistioEnCumpleanos(reservas: Reserva[], sesiones: Sesion[], socio: Soc
     .filter((s): s is Sesion => !!s)
     .some(s => {
       const d = new Date(s.inicio);
-      return d.getMonth() === nacimiento.getMonth() && d.getDate() === nacimiento.getDate();
+      return d.getMonth() === mesCumple && d.getDate() === diaCumple;
     });
 }
 
