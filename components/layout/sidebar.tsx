@@ -14,6 +14,7 @@ import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { useMenuNovedades } from '@/lib/menu-novedades-cliente';
 import { useMensajesSinLeerStaff } from '@/lib/mensajeria/use-sin-leer-staff';
+import { useEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import { fetchLayout } from '@/lib/api-client';
 import { filtrarItemsMenu, ordenarItemsMenu, type MenuPosicion } from '@/lib/layout-runtime';
 import { SedeActiva } from '@/components/layout/sede-activa';
@@ -22,8 +23,8 @@ import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { huecosDelMenu, BARRA_ALTO_INICIAL } from '@/lib/panel-huecos';
 
 export function useNavMode() {
-  // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
-  // ahoga entre 19 opciones, y en móvil la barra inferior cubre casi todo sin
+  // Por defecto 'esencial' (los módulos del día a día, ESSENTIAL_HREFS): un
+  // estudio nuevo no se ahoga entre todas las opciones, y en móvil la barra inferior cubre casi todo sin
   // enterrar nada en "Más". Quien ya eligió "Todo" a mano se respeta.
   const [mode, setMode] = useState<'esencial' | 'avanzado'>('esencial');
 
@@ -76,7 +77,7 @@ function BadgeNuevo({ compacto }: { compacto?: boolean }) {
 // Contador de no leídos — distinto de BadgeNuevo (que anuncia una función
 // recién lanzada, no un pendiente real). Aquí sí importa el número: es lo que
 // le dice a la propietaria "tienes 3 mensajes sin leer" sin tener que entrar.
-function BadgeContador({ n, compacto }: { n: number; compacto?: boolean }) {
+function BadgeContador({ n, compacto, etiqueta = 'sin leer' }: { n: number; compacto?: boolean; etiqueta?: string }) {
   const texto = n > 9 ? '9+' : String(n);
   if (compacto) {
     return (
@@ -84,7 +85,7 @@ function BadgeContador({ n, compacto }: { n: number; compacto?: boolean }) {
         className="absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground ring-2 ring-sidebar"
         role="status"
       >
-        <span className="sr-only">{n} sin leer</span>
+        <span className="sr-only">{n} {etiqueta}</span>
         <span aria-hidden>{texto}</span>
       </span>
     );
@@ -94,20 +95,20 @@ function BadgeContador({ n, compacto }: { n: number; compacto?: boolean }) {
       className="ml-auto flex min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-destructive-foreground"
       role="status"
     >
-      <span className="sr-only">{n} sin leer</span>
+      <span className="sr-only">{n} {etiqueta}</span>
       <span aria-hidden>{texto}</span>
     </span>
   );
 }
 
-function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, horizontal }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean; nuevo?: boolean; contador?: number; horizontal?: boolean }) {
+function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, contadorEtiqueta = 'sin leer', horizontal }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean; nuevo?: boolean; contador?: number; contadorEtiqueta?: string; horizontal?: boolean }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
   return (
     <Link
       href={href}
       onClick={onClick}
-      title={collapsed ? (contador ? `${label} (${contador} sin leer)` : nuevo ? `${label} (nuevo)` : label) : undefined}
+      title={collapsed ? (contador ? `${label} (${contador} ${contadorEtiqueta})` : nuevo ? `${label} (nuevo)` : label) : undefined}
       className={cn(
         'flex items-center rounded-full text-[13px] font-medium transition-all relative',
         collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
@@ -121,14 +122,14 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, horiz
     >
       <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
       {!collapsed && label}
-      {Boolean(contador) ? <BadgeContador n={contador!} compacto={collapsed} /> : nuevo && <BadgeNuevo compacto={collapsed} />}
+      {Boolean(contador) ? <BadgeContador n={contador!} compacto={collapsed} etiqueta={contadorEtiqueta} /> : nuevo && <BadgeNuevo compacto={collapsed} />}
     </Link>
   );
 }
 
 // ─── Mobile: bottom nav item ──────────────────────────────────────────────────
 
-function BottomNavItem({ href, label, Icon }: { href: string; label: string; Icon: React.ElementType }) {
+function BottomNavItem({ href, label, Icon, contador, contadorEtiqueta }: { href: string; label: string; Icon: React.ElementType; contador?: number; contadorEtiqueta?: string }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
   return (
@@ -137,9 +138,10 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
       className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
     >
       <div className={cn(
-        'w-10 h-7 rounded-full flex items-center justify-center transition-[background-color,transform] duration-150 active:scale-90',
+        'relative w-10 h-7 rounded-full flex items-center justify-center transition-[background-color,transform] duration-150 active:scale-90',
         active ? 'bg-brand' : 'bg-transparent'
       )}>
+        {Boolean(contador) && <BadgeContador n={contador!} compacto etiqueta={contadorEtiqueta} />}
         <Icon
           size={20}
           strokeWidth={active ? 2.5 : 1.8}
@@ -304,6 +306,10 @@ export function Sidebar() {
   // Los `href` señalados como NUEVO desde /interno.
   const conNovedad = useMenuNovedades();
   const sinLeerMensajes = useMensajesSinLeerStaff(true);
+  // Lo que espera el visto bueno de quien mira (lib/estado-estudio.ts), sobre
+  // Inicio: sin esto, para saber si tenía algo pendiente había que abrir la
+  // home. Misma carga que la bandeja de la home, no una segunda petición.
+  const porDecidir = useEstadoEstudio()?.nDecidir ?? 0;
   const [masOpen, setMasOpen] = useState(false);
   const [size, setSize] = useState<SidebarSize>('normal');
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
@@ -537,7 +543,8 @@ export function Sidebar() {
               // una preferencia de la columna, no de la barra.
               collapsed={horizontal ? false : collapsed}
               nuevo={conNovedad.has(item.href)}
-              contador={item.href === '/mensajeria' ? sinLeerMensajes : undefined}
+              contador={item.href === '/mensajeria' ? sinLeerMensajes : item.href === '/dashboard' ? porDecidir : undefined}
+              contadorEtiqueta={item.href === '/dashboard' ? 'por decidir' : undefined}
             />
           ))}
         </div>
@@ -570,7 +577,11 @@ export function Sidebar() {
         style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
         {bottomNavVisibles.map(item => (
-          <BottomNavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} />
+          <BottomNavItem
+            key={item.href} href={item.href} label={item.label} Icon={item.icon}
+            contador={item.href === '/dashboard' ? porDecidir : undefined}
+            contadorEtiqueta="por decidir"
+          />
         ))}
         {/* Más button */}
         <button

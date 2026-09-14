@@ -112,7 +112,10 @@ export interface RecomendacionOnboarding {
 }
 
 const AUTOMATIZACIONES_ONBOARDING: { id: string; trigger: string; label: string; descripcion: string }[] = [
-  { id: 'recordatorios', trigger: 'CLASE_MANANA', label: 'Recordatorios de clase', descripcion: 'Avisa a cada clienta el día antes de su clase, por WhatsApp si tiene teléfono o por email si no — te ahorra escribir uno a uno cada tarde.' },
+  // Sin «Recordatorios de clase» (CLASE_MANANA): el recordatorio lo manda
+  // Tentare de serie a todos los estudios. Pedir aquí que se activara la regla
+  // era pedir un segundo recordatorio por la misma clase — un paso del
+  // checklist que, completado, empeoraba el producto.
   { id: 'ausencias', trigger: 'AUSENCIA_DIAS', label: 'Recupera clientas ausentes', descripcion: 'Pregunta cómo están las que llevan días sin venir y ofrece una vuelta con descuento si la ausencia se alarga — te ahorra llevar la cuenta a mano.' },
   { id: 'nuevas', trigger: 'NUEVA_SOCIA', label: 'Acompaña a las clientas nuevas', descripcion: 'Anima a reservar a quien se acaba de dar de alta y no lo ha hecho, y te avisa si sigue sin venir — te ahorra el seguimiento manual de cada alta.' },
 ];

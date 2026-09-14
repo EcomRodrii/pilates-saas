@@ -135,10 +135,17 @@ test('v2: "Recibe tu primera reserva" se marca con una reserva real, y con nada 
 });
 
 test('v2: "Funciones inteligentes" refleja las automatizaciones realmente activas por trigger', () => {
-  const r = calcularOnboarding({ ...VACIO_V2, automatizacionesActivas: new Set(['CLASE_MANANA']) });
+  const r = calcularOnboarding({ ...VACIO_V2, automatizacionesActivas: new Set(['AUSENCIA_DIAS']) });
   const automatizaciones = r.categorias.find(c => c.id === 'automatizaciones')!;
-  assert.equal(automatizaciones.pasos.find(p => p.id === 'recordatorios')!.done, true);
-  assert.equal(automatizaciones.pasos.find(p => p.id === 'ausencias')!.done, false);
+  assert.equal(automatizaciones.pasos.find(p => p.id === 'ausencias')!.done, true);
+  assert.equal(automatizaciones.pasos.find(p => p.id === 'nuevas')!.done, false);
+});
+
+test('el checklist no pide activar el recordatorio de clase: ya lo manda Tentare de serie', () => {
+  // Activar CLASE_MANANA duplicaba el recordatorio nativo (lib/inngest/recordatorios.ts).
+  const r = calcularOnboarding(VACIO_V2);
+  const pasos = r.categorias.flatMap(c => c.pasos);
+  assert.ok(!pasos.some(p => p.id === 'recordatorios'));
 });
 
 test('v2: Centro de Control no es una categoría de pasos, son enlaces sin estado done/pendiente', () => {
@@ -157,7 +164,7 @@ test('v2: sin nada configurado, hay recomendaciones inteligentes priorizadas por
 test('v2: con todo resuelto, no hay recomendaciones pendientes', () => {
   const r = calcularOnboarding({
     ...VACIO_V2, stripeAccountId: 'acct_123', slug: 'mi-estudio', numPlanesTarifa: 1,
-    numSesiones: 1, automatizacionesActivas: new Set(['CLASE_MANANA']),
+    numSesiones: 1, automatizacionesActivas: new Set(['AUSENCIA_DIAS']),
   });
   assert.deepEqual(r.recomendaciones, []);
 });

@@ -928,6 +928,29 @@ cambio que toque **código**. Y al comprobar un despliegue, mirar que el build
 corrió de verdad, no solo que el check está en verde — es el mismo error de
 categoría que ya documenta [[deploy-atascado-rate-limit-vercel]].
 
+## Arquitectura operativa: cuatro capas (2026-09-14)
+
+Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se reabre:
+
+- **Un dueño por hecho de negocio.** Si un efecto (consumir bono, avisar, sellar
+  factura) ya tiene función dueña, el cambio va ahí; si hay copias, se unifican
+  antes de añadir otra. Pendiente P1: «reserva confirmada» (5 copias + panel en
+  cliente) y «cobro confirmado» (3 dueños + `marcarCobrado`).
+- **De serie ≠ personalizable.** Recordatorio de clase, confirmación, lista de
+  espera, bono agotado, reintento de cobro, valoración y búsqueda de sustituta son
+  producto, no reglas. `CLASE_MANANA` ya no se ofrece (duplicaba el recordatorio
+  nativo); el motor la sigue ejecutando si alguien la tuviera encendida (0 el 14-sep).
+- **La bandeja única** (`lib/estado-estudio.ts`, `/api/estado-estudio`, sección
+  fija `estado` de la home, contador «por decidir» sobre Inicio) es la ÚNICA
+  cifra de «lo que espera tu visto bueno». Cualquier estado nuevo que bloquee a
+  la propietaria se añade ahí, no en una tarjeta suelta. ⚠️ Nunca dice «todo
+  bien»: las sugerencias del Decision OS no cuentan en ella y el ActionCenter las
+  sigue contando aparte (#1401).
+- **Todo aviso de problema tiene su aviso de resolución** (`SUSTITUCION_CUBIERTA`
+  cierra `INSTRUCTORA_BAJA`).
+- **Menú por pregunta** (Operación / Equipo / Negocio / Estudio) y sin entradas
+  nuevas: una función nueva vive dentro de un módulo existente.
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),

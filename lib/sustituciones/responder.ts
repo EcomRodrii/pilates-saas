@@ -125,8 +125,14 @@ async function aceptar(admin: SupabaseClient, p: RespuestaSustitucion, sesionId:
     const { data: cand } = await admin.from('instructores').select('nombre').eq('id', p.instructorId).maybeSingle();
     await avisarAlumnas(admin, { sesionId: r.sesion_id, studioId: p.studioId, tipo: 'cubierta', sustituta: cand?.nombre });
     // Notification Engine: in-app a la instructora que cubre ("nueva clase asignada").
-    const { emitirSustitucionAceptada } = await import('@/lib/notifications/emit');
+    const { emitirSustitucionAceptada, emitirSustitucionCubierta } = await import('@/lib/notifications/emit');
     await emitirSustitucionAceptada(admin, { studioId: p.studioId, sesionId: r.sesion_id, instructorId: p.instructorId });
+    // Y a la propietaria: «ya está resuelto». Sin esto, el último aviso que le
+    // llegó de esta clase era «no puede dar su clase», y en autónomo nadie le
+    // contaba nunca que Tentare ya lo había arreglado.
+    await emitirSustitucionCubierta(admin, {
+      studioId: p.studioId, sesionId: r.sesion_id, sustitucionId: p.sustitucionId, instructorId: p.instructorId,
+    });
   }
   return { ok: true };
 }

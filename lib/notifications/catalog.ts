@@ -134,6 +134,11 @@ export const EVENTOS = {
   CLASE_SUSTITUTA: 'clase.sustituta',
   SUSTITUCION_ACEPTADA: 'sustitucion.aceptada',
   SUSTITUCION_RECHAZADA: 'sustitucion.rechazada',
+  // Cierre del bucle para la propietaria: Tentare encontró quién cubre la clase.
+  // Evento propio y no otra audiencia de SUSTITUCION_ACEPTADA, porque a la
+  // sustituta y a la dueña se les cuenta un hecho distinto («tienes una clase
+  // nueva» / «ya está resuelto, no tienes que hacer nada»).
+  SUSTITUCION_CUBIERTA: 'sustitucion.cubierta',
   // El motor le pregunta a una candidata si cubre la clase. El email con su
   // enlace sigue saliendo igual; esto lleva la pregunta a la app del estudio.
   SUSTITUCION_OFRECIDA: 'sustitucion.ofrecida',
@@ -320,6 +325,12 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.CLASE_SUSTITUTA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
   [EVENTOS.SUSTITUCION_ACEPTADA]:  { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
   [EVENTOS.SUSTITUCION_RECHAZADA]: { category: 'sustituciones', priority: 'ALTA', canales: [],     audiencia: 'propietaria' },
+  // PUSH y no solo campana: cierra un aviso que SÍ fue push (INSTRUCTORA_BAJA,
+  // CRITICA). Sin este cierre, la propietaria que recibió «no puede dar su
+  // clase» se queda sin saber que ya está resuelto y acaba llamando ella. Solo
+  // lo emite el motor (alguien aceptó una oferta), nunca cuando la propia dueña
+  // confirma desde el panel: eso ya lo sabe.
+  [EVENTOS.SUSTITUCION_CUBIERTA]:  { category: 'sustituciones', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'propietaria' },
   // Solo PUSH: el email con el enlace ya lo manda `contactarCandidata`; otro
   // email por lo mismo sería la misma pregunta dos veces.
   [EVENTOS.SUSTITUCION_OFRECIDA]:  { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
@@ -778,6 +789,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // `{siguiente}` en vez de un "Busca otra opción" fijo: en modo autónomo el
   // motor ya ha pasado a la siguiente candidata por su cuenta, y decirle a la
   // propietaria que busque sería mandarla a hacer un trabajo que no le toca.
+  [`${EVENTOS.SUSTITUCION_CUBIERTA}#PROPIETARIO`]: {
+    title: 'Clase cubierta',
+    body: '{sustituta} cubrirá {clase} del {cuando}{sala}. No tienes que hacer nada.',
+    deepLink: () => `/sustituciones`,
+  },
   [`${EVENTOS.SUSTITUCION_RECHAZADA}#PROPIETARIO`]: {
     title: 'Sustitución rechazada',
     body: '{instructora} no puede cubrir {clase} del {cuando}. {siguiente}',

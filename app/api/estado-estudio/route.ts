@@ -1,0 +1,124 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { verificarSesionStaff } from '@/lib/auth-server';
+import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
+import {
+  puedeGestionarAutomatizaciones, puedeGestionarCalendario, puedeGestionarClientas,
+  puedeMoverDinero, puedeVer, puedeVerFinanzas,
+} from '@/lib/permisos-reglas';
+import { construirEstadoEstudio, type ConteosEstudio } from '@/lib/estado-estudio';
+
+// GET /api/estado-estudio — la bandeja única de la home (lib/estado-estudio.ts):
+// qué espera el visto bueno de quien mira, qué está haciendo Tentare solo y qué
+// ha resuelto.
+//
+// Solo RECUENTOS (`head: true`): ni un nombre ni un importe sale de aquí. El
+// detalle sigue viviendo en la pantalla de cada cosa, que es donde se actúa.
+//
+// ⚠️ Cliente service-role, así que la RLS NO filtra: cada recuento va acotado a
+// `studio_id` Y gateado con el MISMO permiso que ya exige la pantalla o la
+// tarjeta donde se resuelve (mismas reglas de lib/permisos-reglas.ts). Un rol
+// sin permiso recibe `undefined` en esa fuente — ni se enseña ni se cuenta —,
+// no un cero: un cero sería afirmar que no hay nada.
+//
+// Sin plan de por medio, a diferencia de /api/decisiones: esto es operación del
+// día (una reserva por aprobar, una clase sin cubrir), no el Decision OS.
+//
+// Coste: hasta 13 HEAD en paralelo, una vez por carga de la home y compartidos
+// con el contador del menú (lib/estado-estudio-cliente.ts). Si algún día pesa
+// —el proyecto ya ha visto 504 por ráfagas—, el siguiente paso es una única RPC
+// de recuentos, con sus REVOKE/GRANT explícitos; no más polling.
+export async function GET(req: NextRequest) {
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  const admin = requireSupabaseAdmin();
+  const { studioId, rol } = sesion;
+  const ahora = new Date();
+  const ahoraISO = ahora.toISOString();
+  const hace24hISO = new Date(ahora.getTime() - 24 * 3600_000).toISOString();
+  // Mismo corte de «hoy» que dbCountAutonomasHoy (lib/decision/db.ts), para que
+  // esta cifra y la del Veredicto del Día no discrepen.
+  const inicioDia = new Date(ahora); inicioDia.setUTCHours(0, 0, 0, 0);
+  const inicioDiaISO = inicioDia.toISOString();
+  const HEAD = { count: 'exact', head: true } as const;
+
+  const contar = async (etiqueta: string, q: PromiseLike<{ count: number | null; error: unknown }>) => {
+    const { count, error } = await q;
+    if (error) {
+      console.error(`[estado-estudio:${etiqueta}]`, error);
+      return null;
+    }
+    return count ?? 0;
+  };
+  const si = (permitido: boolean, f: () => Promise<number | null>) =>
+    permitido ? f() : Promise.resolve(undefined);
+
+  const verSustituciones = puedeVer(rol, '/sustituciones');
+  const gestionaCalendario = puedeGestionarCalendario(rol);
+  const mueveDinero = puedeMoverDinero(rol);
+  const verFinanzas = puedeVerFinanzas(rol);
+  const gestionaAutomatizaciones = puedeGestionarAutomatizaciones(rol) && puedeVer(rol, '/automatizaciones');
+  const gestionaClientas = puedeGestionarClientas(rol);
+
+  const [
+    sustitucionesPorDecidir, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
+    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar,
+    sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
+    sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
+  ] = await Promise.all([
+    // ── Decidir ──
+    // Solo clases que aún no han empezado: una que ya pasó sin cubrir la cierra
+    // el cron (cerrar-vencidas) y ya no hay nada que decidir a tiempo.
+    si(verSustituciones, () => contar('sust-decidir', admin.from('sustituciones')
+      .select('id, sesiones!inner(inicio)', HEAD).eq('studio_id', studioId)
+      .in('estado', ['pendiente_aprobacion', 'agotada']).gt('sesiones.inicio', ahoraISO))),
+    si(gestionaCalendario, () => contar('reservas-aprobar', admin.from('reservas')
+      .select('id, sesiones!inner(inicio)', HEAD).eq('studio_id', studioId)
+      .eq('estado', 'PENDIENTE_APROBACION').gt('sesiones.inicio', ahoraISO))),
+    // FALLIDO = el dunning agotó sus reintentos: a partir de aquí ya no lo
+    // intenta nadie más que ella.
+    si(verFinanzas, () => contar('recibos-fallidos', admin.from('recibos')
+      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'FALLIDO'))),
+    si(mueveDinero, () => contar('penalizaciones', admin.from('penalizaciones')
+      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE_APROBACION'))),
+    si(mueveDinero, () => contar('devoluciones', admin.from('devoluciones')
+      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE_REVISION'))),
+    si(gestionaAutomatizaciones, () => contar('auto-esperando', admin.from('automation_logs')
+      .select('id', HEAD).eq('studio_id', studioId).eq('resultado', 'PENDIENTE_ADMIN'))),
+    si(gestionaClientas, () => contar('canjes', admin.from('reward_redemptions')
+      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE'))),
+
+    // ── En marcha ──
+    si(verSustituciones, () => contar('sust-buscando', admin.from('sustituciones')
+      .select('id, sesiones!inner(inicio)', HEAD).eq('studio_id', studioId)
+      .eq('estado', 'contactando').gt('sesiones.inicio', ahoraISO))),
+    si(gestionaCalendario, () => contar('ofertas-espera', admin.from('reservas')
+      .select('id', HEAD).eq('studio_id', studioId)
+      .eq('estado', 'LISTA_ESPERA').gt('oferta_expira_en', ahoraISO))),
+    // `intentos_reintento > 0` y no solo `proximo_reintento`: renovaciones
+    // también programa `proximo_reintento` para el PRIMER cobro de quien tiene
+    // tarjeta guardada, y eso no es «un cobro que falló».
+    si(verFinanzas, () => contar('cobros-reintento', admin.from('recibos')
+      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE')
+      .gt('intentos_reintento', 0).not('proximo_reintento', 'is', null))),
+
+    // ── Resuelto ──
+    si(verSustituciones, () => contar('sust-cubiertas', admin.from('sustituciones')
+      .select('id', HEAD).eq('studio_id', studioId)
+      .eq('estado', 'confirmada').gte('resuelto_en', hace24hISO))),
+    si(rol === 'PROPIETARIO', () => contar('autonomas', admin.from('recomendaciones')
+      .select('id', HEAD).eq('studio_id', studioId)
+      .eq('resuelto_por', 'AUTONOMIA').gte('resuelto_en', inicioDiaISO))),
+    si(gestionaAutomatizaciones, () => contar('auto-ejecutadas', admin.from('automation_logs')
+      .select('id', HEAD).eq('studio_id', studioId)
+      .eq('resultado', 'EJECUTADO').gte('ejecutado_en', inicioDiaISO))),
+  ]);
+
+  const conteos: ConteosEstudio = {
+    sustitucionesPorDecidir, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
+    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar,
+    sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
+    sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
+  };
+  return NextResponse.json(construirEstadoEstudio(conteos));
+}

@@ -17,6 +17,7 @@ export interface HomeSeccion {
 // home a mano sigue viendo lo que él mismo eligió.
 export const HOME_SECCIONES: HomeSeccion[] = [
   { id: 'hoy', label: 'Hoy en el estudio' },
+  { id: 'estado', label: 'Lo que espera tu visto bueno' },
   { id: 'accion', label: 'Lo que necesita tu atención' },
   { id: 'onboarding', label: 'Primeros pasos' },
   { id: 'resumen', label: 'Hoy de un vistazo' },
@@ -53,7 +54,11 @@ export const HOME_SECCIONES: HomeSeccion[] = [
 // puede enterrar bajo las gráficas, la pregunta se vuelve a quedar sin
 // contestar. Por el mismo motivo tampoco se puede ocultar desde el editor de
 // inicio: lo que se puede reordenar y apagar es todo lo que va DEBAJO.
-export const HOME_FIJAS_PRIMERO: readonly string[] = ['hoy', 'accion', 'onboarding'];
+// 'estado' (lib/estado-estudio.ts) va justo detrás: después de «qué pasa hoy»,
+// la siguiente pregunta es «¿tengo que hacer algo?». Es la bandeja que junta lo
+// que antes estaba repartido en diez pantallas, y su sitio no puede depender de
+// cómo haya ordenado cada estudio su home — por eso es fija, igual que 'accion'.
+export const HOME_FIJAS_PRIMERO: readonly string[] = ['hoy', 'estado', 'accion', 'onboarding'];
 
 // Prioridad elegida en el asistente de bienvenida (`studios.onb_prioridad`) →
 // sección de la home que la atiende.

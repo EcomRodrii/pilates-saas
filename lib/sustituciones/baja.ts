@@ -172,6 +172,7 @@ export async function crearBaja(
   // Modo autónomo/vacaciones: la dueña ha "desaparecido" → el motor contacta solo
   // a la primera candidata contactable y arranca el escalado. En asistido no se
   // contacta a nadie aquí (espera el visto bueno de la propietaria en el panel).
+  let sinNadieAQuienPreguntar = false;
   if (insertada.estado === 'contactando') {
     const rank = (Array.isArray(ranking) ? ranking : []) as RankingItem[];
     const r = await contactarDesde(admin, {
@@ -179,9 +180,33 @@ export async function crearBaja(
     });
     if (r.contactada) {
       await emitirEscalado({ sustitucionId: insertada.id, studioId, instructorId: r.instructorId, idx: r.idx });
+    } else {
+      // Nadie contactable (ranking vacío o sin emails). Antes la baja se quedaba
+      // en 'contactando' sin contactar a nadie: ningún escalado la movía, E2 del
+      // Decision OS tardaba 3 h en verla, y a la dueña se le decía «ya estamos
+      // contactando». Es exactamente el estado 'agotada' —el motor no tiene a
+      // quién preguntar—, que ya tiene sus tres salidas en el panel (volver a
+      // buscar, reprogramar, cancelar) y su aviso. Compare-and-set, como el
+      // resto de transiciones del módulo.
+      const { data: agotada } = await admin.from('sustituciones')
+        .update({ estado: 'agotada' })
+        .eq('id', insertada.id).eq('studio_id', studioId).eq('estado', 'contactando')
+        .select('id').maybeSingle();
+      if (agotada) {
+        insertada.estado = 'agotada';
+        sinNadieAQuienPreguntar = true;
+      }
     }
-    // Si nadie es contactable (ranking vacío o sin emails), la baja queda en
-    // 'contactando' con el ranking vacío → el panel muestra "cancelar clase".
+  }
+
+  if (sinNadieAQuienPreguntar) {
+    // Aviso por email siempre, venga de donde venga la baja: aunque la haya
+    // marcado ella desde el panel, esperaba que Tentare buscara sola.
+    try {
+      await alertarPropietaria(admin, { studioId, sesion: sesionMin, tipo: 'agotada' });
+    } catch (e) {
+      console.error('[sustituciones] no se pudo avisar a la propietaria de la lista vacía', e);
+    }
   }
 
   // REGLA DURA del módulo: la propietaria se entera ANTES o A LA VEZ que las
@@ -189,7 +214,9 @@ export async function crearBaja(
   // avisarla activamente, y en modo asistido además su visto bueno es lo único
   // que desbloquea el flujo (si no ve el aviso, la clase se queda sin cubrir).
   // Best-effort: que falle el email no puede tumbar una baja ya registrada.
-  if (origen === 'instructora') {
+  // Con la lista vacía ya salió el aviso de 'agotada', que es el accionable:
+  // mandar además el de 'baja' serían dos correos por lo mismo.
+  if (origen === 'instructora' && !sinNadieAQuienPreguntar) {
     try {
       const { data: quien } = await admin
         .from('instructores').select('nombre').eq('id', clase.instructor_id ?? '').maybeSingle();

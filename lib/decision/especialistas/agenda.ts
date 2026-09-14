@@ -447,7 +447,7 @@ function reglaA5(s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata[] 
     const reservas = idx.ocupadasPorSesion.get(se.id) ?? 0;
 
     const motivoMotor = bloqueo
-      ? `${nombre} tiene marcado que no está disponible el ${diaSemana} ${dia}, y esa clase sigue asignada a ella. ${reservas === 0 ? 'Todavía no hay nadie apuntado' : reservas === 1 ? 'Ya hay 1 alumna apuntada' : `Ya hay ${reservas} alumnas apuntadas`}. Marcar la baja desde el panel de sustituciones te busca sustituta sola.`
+      ? `${nombre} tiene marcado que no está disponible el ${diaSemana} ${dia}, y esa clase sigue asignada a ella. ${reservas === 0 ? 'Todavía no hay nadie apuntado' : reservas === 1 ? 'Ya hay 1 alumna apuntada' : `Ya hay ${reservas} alumnas apuntadas`}. Si marcas la baja en Sustituciones, Tentare prepara a quién pedírselo por orden de encaje.`
       : `${nombre} está asignada a dos clases que se pisan el ${diaSemana} a las ${hora}. Una de las dos se va a quedar sin quien la dé.`;
 
     candidatas.push({

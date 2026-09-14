@@ -116,8 +116,8 @@ test.describe('Personalizar tu panel', () => {
     await page.goto('/configuracion/apariencia/panel');
     // Por `title` y no por `aria-label` del módulo concreto: el candado es un
     // <span> no interactivo (getByLabel no lo alcanza) y el rótulo del módulo
-    // es «Dashboard», no «Inicio» — dos formas de que el test mienta sobre algo
-    // que sí está pintado.
+    // cambió de «Dashboard» a «Inicio» (14-sep) — dos formas de que el test
+    // mienta sobre algo que sí está pintado.
     await expect(page.getByTitle('Siempre visible').first()).toBeVisible({ timeout: 30_000 });
     // Y el resto sí se puede esconder.
     await expect(page.getByRole('button', { name: /^Ocultar / }).first()).toBeVisible();

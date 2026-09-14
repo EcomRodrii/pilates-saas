@@ -97,10 +97,11 @@ const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces
     nombre: 'Pago pendiente', descripcion: 'Persigue pagos vencidos con dos avisos escalados — cobra directo si hay tarjeta guardada (con tu aprobación) o te avisa a ti si tras dos avisos sigue sin resolverse',
     icono: '💳', trigger: 'PAGO_PENDIENTE_DIAS', condicion: { dias: 3, diasSegundo: 8, diasEscalada: 15 }, pasos: [], activa: false,
   },
-  {
-    nombre: 'Recordatorio de clase', descripcion: 'Avisa a las clientas con reserva confirmada el día antes de su clase — por WhatsApp si tienen teléfono, por email si no',
-    icono: '📅', trigger: 'CLASE_MANANA', condicion: {}, pasos: [], activa: false,
-  },
+  // «Recordatorio de clase» (CLASE_MANANA) ya NO se ofrece: el recordatorio lo
+  // manda Tentare de serie a todos los estudios (lib/inngest/recordatorios.ts +
+  // el push de 24 h/1 h), así que encender esta regla era mandar DOS
+  // recordatorios por la misma clase. El trigger sigue existiendo en el motor
+  // por si algún estudio lo tuviera encendido (0 en producción el 14-sep).
   {
     nombre: 'Clase con demanda sostenida', descripcion: 'Detecta franjas horarias que llevan varias semanas casi llenas y te recomienda abrir otra sesión',
     icono: '📈', trigger: 'CLASE_LLENA_RECURRENTE', condicion: { semanasConsecutivas: 3, ocupacionMinima: 0.95 }, pasos: [], activa: false,
@@ -132,6 +133,50 @@ const TRIGGERS_QUE_ESCRIBEN_A_CLIENTAS = new Set<AutomationRule['trigger']>([
   'NUEVA_SOCIA',
   'RENOVACION_COBRADA',
 ]);
+
+// ─── Lo que Tentare hace de serie ─────────────────────────────────────────────
+//
+// La frontera entre AUTOMÁTICO POR DEFECTO y AUTOMATIZACIONES PERSONALIZABLES.
+// Sin ella, esta pantalla sugería que un recordatorio de clase había que
+// «encenderlo» —y quien lo encendía mandaba dos—. Cada línea es un camino de
+// código que ya corre para todos los estudios sin configurar nada; si alguno
+// deja de ser así, se quita de aquí, no se deja como promesa:
+//   · recordatorio de clase → lib/inngest/recordatorios.ts + cron notif-recordatorios
+//   · confirmación al reservar → emitirReserva (RESERVA_CONFIRMADA, push)
+//   · lista de espera → cancelar_reserva_plaza / promocionar_siguiente_espera
+//   · bono agotado / a punto de caducar → emitirBonoAgotado + bonos-inactivas-cron
+//   · reintento de cobros → lib/inngest/dunning.ts (con tarjeta o SEPA guardados)
+//   · valoración después de clase → lib/inngest/valoraciones.ts
+const HECHO_DE_SERIE: string[] = [
+  'Recuerda cada clase a quien ha reservado: aviso en su app 24 h y 1 h antes, y email (o WhatsApp si lo tienes conectado).',
+  'Confirma cada reserva en la app de la alumna en cuanto la hace.',
+  'Cuando alguien cancela, pasa la plaza a la siguiente de la lista de espera y se lo cuenta.',
+  'Avisa a la alumna cuando su bono se queda sin clases o está a punto de caducar.',
+  'Reintenta los cobros que fallan con tarjeta o SEPA guardados, y avisa a la alumna.',
+  'Pide una valoración después de clase.',
+];
+
+function HechoPorTentare() {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center gap-2">
+        <TentareOrb tam={16} />
+        <h2 className="text-sm font-semibold text-foreground">Esto ya lo hace Tentare, sin que configures nada</h2>
+      </div>
+      <ul className="mt-2.5 space-y-1.5">
+        {HECHO_DE_SERIE.map(t => (
+          <li key={t} className="flex gap-2 text-xs text-muted-foreground">
+            <span aria-hidden className="text-success">✓</span>
+            <span>{t}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 border-t border-border pt-2.5 text-xs text-muted-foreground">
+        Las reglas de abajo son para lo que depende de cómo trabajas tú: a quién escribir cuando deja de venir, cómo perseguir un pago sin tarjeta…
+      </p>
+    </div>
+  );
+}
 
 // ─── Morning Briefing ─────────────────────────────────────────────────────────
 
@@ -703,6 +748,11 @@ export default function AutomatizacionesPage() {
     setRunning(false);
   }
 
+  // Una CLASE_MANANA apagada (las de quien cargó las sugeridas antes de que
+  // saliera de la lista) no se enseña: encenderla duplicaría el recordatorio
+  // nativo. Si alguna estuviera ENCENDIDA sí se ve, para poder apagarla.
+  const reglasVisibles = automationRules.filter(r => r.trigger !== 'CLASE_MANANA' || r.activa);
+
   function handleCargarSugeridas() {
     const existentes = new Set(automationRules.map(r => r.trigger));
     const nuevas = REGLAS_SUGERIDAS.filter(r => !existentes.has(r.trigger));
@@ -861,7 +911,8 @@ export default function AutomatizacionesPage() {
               Ahora se ven desde el primer segundo, sin escribir nada en la base
               de datos: son tarjetas de solo lectura, con sus pasos
               desplegables, hasta que la propietaria decide añadirlas. */}
-          {automationRules.length === 0 ? (
+          <HechoPorTentare />
+          {reglasVisibles.length === 0 ? (
             <>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground max-w-xl">
@@ -908,7 +959,7 @@ export default function AutomatizacionesPage() {
                   Cargar reglas sugeridas
                 </button>
               </div>
-              {automationRules.map(rule => (
+              {reglasVisibles.map(rule => (
                 <RuleCard
                   key={rule.id}
                   rule={rule}

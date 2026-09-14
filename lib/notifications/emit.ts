@@ -822,6 +822,30 @@ export async function emitirSustitucionAceptada(
   }
 }
 
+// Sustitución resuelta por el motor → la propietaria. dedupKey por sustitución:
+// una clase se cubre una vez, y un reintento del mismo «La cubro» no debe
+// volver a sonar en su móvil.
+export async function emitirSustitucionCubierta(
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; sustitucionId: string; instructorId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    // Acotado al estudio aunque confirmar_sustitucion ya validó la candidata:
+    // service-role no tiene RLS, y el nombre acaba en el móvil de la dueña.
+    const { data: instr } = await admin.from('instructores').select('nombre')
+      .eq('id', p.instructorId).eq('studio_id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.SUSTITUCION_CUBIERTA, studioId: p.studioId,
+      data: { ...ctx, sustituta: (instr?.nombre as string | null) ?? 'Una compañera' },
+      resource: { type: 'sustitucion', id: p.sustitucionId },
+      dedupKey: `sustitucion-cubierta:${p.sustitucionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirSustitucionCubierta:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Te piden cubrir una clase: a la candidata a la que el motor acaba de preguntar.
 // La clase se resuelve desde la sustitución (quien contacta no la tiene a mano).
 // dedupKey por par (sustitución, candidata): un push por pregunta, no uno por

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { dbListarPenalizacionesPendientes, type PenalizacionPendiente } from '@/lib/supabase-data';
 import { aprobarPenalizacion } from '@/lib/api-client';
+import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -34,10 +35,12 @@ export function PenalizacionesPendientes({ onToast }: { onToast: (m: string) => 
     // con un "Cobro aprobado" que era exactamente lo contrario.
     if (r.aviso === 'COBRADO_SIN_PERSISTIR') {
       setItems(prev => (prev ?? []).filter(p => p.id !== id));
+      invalidarEstadoEstudio();
       onToast(r.detalle ?? 'Se ha cobrado en Stripe, pero no ha quedado registrado: revísalo antes de volver a cobrarlo.');
       return;
     }
     setItems(prev => (prev ?? []).filter(p => p.id !== id));
+    invalidarEstadoEstudio();
     onToast('Cobro aprobado');
   }
 
