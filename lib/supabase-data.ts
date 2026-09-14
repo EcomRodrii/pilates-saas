@@ -5,6 +5,7 @@ import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion
 import { mapLimit } from '@/lib/concurrency';
 import { mensajeDeErrorReserva } from '@/lib/reservas/errores-rpc';
 import { supabase } from '@/lib/db/supabase';
+import { actualizarFilaStudio } from '@/lib/db/actualizar-studio';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import type { Plan } from '@/lib/billing/entitlements';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
@@ -4657,8 +4658,10 @@ export async function dbUpdateStudioConfig(changes: { politicaPrivacidad?: strin
   if ('politicaPrivacidad' in changes) db.politica_privacidad = changes.politicaPrivacidad;
   if ('terminosServicio' in changes) db.terminos_servicio = changes.terminosServicio;
   if (Object.keys(db).length === 0) return ESCRITURA_OK;
-  const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
-  return error ? falloEscritura('[dbUpdateStudioConfig]', error) : ESCRITURA_OK;
+  // Cuenta filas, no solo `error`: si la RLS no casa, PostgREST devuelve 0 sin
+  // quejarse (lib/db/actualizar-studio.ts).
+  const r = await actualizarFilaStudio(supabase, STUDIO_ID, db);
+  return r.ok ? ESCRITURA_OK : falloEscritura('[dbUpdateStudioConfig]', r.error);
 }
 
 export async function dbUpdateStudio(changes: Partial<Studio>): Promise<ResultadoEscritura> {
@@ -4751,8 +4754,10 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('reviewBoostMostradoEn' in changes) db.review_boost_mostrado_en = changes.reviewBoostMostradoEn;
   if ('reviewBoostPospuestoEn' in changes) db.review_boost_pospuesto_en = changes.reviewBoostPospuestoEn;
   if ('reviewBoostVecesMostrado' in changes) db.review_boost_veces_mostrado = changes.reviewBoostVecesMostrado;
-  const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
-  return error ? falloEscritura('[dbUpdateStudio]', error) : ESCRITURA_OK;
+  // Cuenta filas, no solo `error`: si la RLS no casa, PostgREST devuelve 0 sin
+  // quejarse y la pantalla decía «Guardado» (lib/db/actualizar-studio.ts).
+  const r = await actualizarFilaStudio(supabase, STUDIO_ID, db);
+  return r.ok ? ESCRITURA_OK : falloEscritura('[dbUpdateStudio]', r.error);
 }
 
 // Horario semanal del estudio (studio_horario, migr 20260804210500). Un solo

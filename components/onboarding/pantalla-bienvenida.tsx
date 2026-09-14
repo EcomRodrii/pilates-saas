@@ -611,9 +611,11 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
   const [valorVisto, setValorVisto] = useState(false);
   const { updateStudio } = useStudio();
   const saltarValor = useCallback(() => setValorVisto(true), []);
-  const guardarLogo = useCallback(async (url: string) => {
-    await updateStudio({ logoUrl: url });
-  }, [updateStudio]);
+  // Devuelve el resultado: PasoLogo solo enseña el logo si quedó guardado.
+  const guardarLogo = useCallback(
+    (url: string) => updateStudio({ logoUrl: url }),
+    [updateStudio],
+  );
 
   if (!valorVisto) {
     return (

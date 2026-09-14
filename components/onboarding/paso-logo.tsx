@@ -22,6 +22,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { ImagePlus, Loader2 } from 'lucide-react';
 import { subirLogoEstudio } from '@/lib/portal-storage';
+import type { ResultadoEscritura } from '@/lib/errores';
 
 export function PasoLogo({
   studioId,
@@ -34,7 +35,7 @@ export function PasoLogo({
   logoActual: string | null;
   /** Persiste la URL en `studios.logo_url`. Lo hace el llamador porque es quien
    *  tiene el contexto del estudio; aquí solo se sube el fichero. */
-  onGuardar: (url: string) => Promise<void>;
+  onGuardar: (url: string) => Promise<ResultadoEscritura>;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -48,8 +49,11 @@ export function PasoLogo({
     try {
       const r = await subirLogoEstudio(studioId, file);
       if ('error' in r) { setError(r.error); return; }
+      // El logo se pinta cuando `studios.logo_url` lo ha aceptado, no al subir:
+      // antes se enseñaba igual con el UPDATE rechazado y en el panel no salía.
+      const guardado = await onGuardar(r.url);
+      if (!guardado.ok) { setError(guardado.error); return; }
       setUrl(r.url);
-      await onGuardar(r.url);
     } catch {
       // Mensaje en la voz del producto: qué ha pasado y qué hacer, sin
       // disculparse y sin un código que no le dice nada a nadie.
