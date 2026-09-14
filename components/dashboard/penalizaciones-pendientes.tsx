@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { dbListarPenalizacionesPendientes, type PenalizacionPendiente } from '@/lib/supabase-data';
 import { aprobarPenalizacion } from '@/lib/api-client';
+import { queHaceLaTarjeta } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { ANCLA_DECIDIR, invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -13,9 +14,18 @@ import { Button } from '@/components/ui/button';
 // cobro antes de tocar la tarjeta de la socia. Alcance deliberadamente
 // pequeño: una lista + un botón, no una pantalla nueva. Solo se monta si
 // `puedeMoverDinero` (mismo gate que aprueba el cobro en el servidor).
+//
+// Qué hace la fila con cada respuesta lo decide `queHaceLaTarjeta`
+// (lib/billing/penalizacion-aprobar-reglas.ts): se va solo si la penalización
+// ya no está pendiente; si no se sabe qué pasó (red, 5xx), se queda con el
+// botón activo y lo dice, porque reintentar no cobra dos veces.
 export function PenalizacionesPendientes({ onToast }: { onToast: (m: string) => void }) {
   const [items, setItems] = useState<PenalizacionPendiente[] | null>(null);
   const [aprobando, setAprobando] = useState<string | null>(null);
+  const [avisos, setAvisos] = useState<Record<string, string>>({});
+  // `aprobando` llega un render tarde: dos toques en el mismo tick lo verían a
+  // null los dos y saldrían dos POST. El ref corta el segundo en el acto.
+  const enVuelo = useRef(false);
 
   useEffect(() => {
     let vivo = true;
@@ -24,24 +34,25 @@ export function PenalizacionesPendientes({ onToast }: { onToast: (m: string) => 
   }, []);
 
   async function aprobar(id: string) {
+    if (aprobando || enVuelo.current) return;
+    enVuelo.current = true;
     setAprobando(id);
-    const r = await aprobarPenalizacion(id);
-    setAprobando(null);
-    if ('error' in r) { onToast(r.error); return; }
-    // 202: el cargo SÍ entró en Stripe, pero no se pudo dejar escrito y el
-    // servidor ha marcado la penalización FALLIDA. La fila se quita igual —ya
-    // no está pendiente de aprobar, y volver a pulsar cobraría otra vez— pero
-    // el mensaje tiene que decir lo que ha pasado de verdad: antes desaparecía
-    // con un "Cobro aprobado" que era exactamente lo contrario.
-    if (r.aviso === 'COBRADO_SIN_PERSISTIR') {
+    setAvisos(prev => ({ ...prev, [id]: '' }));
+    try {
+      const { quitarFila, mensaje } = queHaceLaTarjeta(await aprobarPenalizacion(id));
+      if (!quitarFila) {
+        setAvisos(prev => ({ ...prev, [id]: mensaje }));
+        return;
+      }
+      // 202 incluido: el cargo entró y ya no está pendiente de aprobar; el
+      // mensaje dice lo que ha pasado de verdad, no «Cobro aprobado».
       setItems(prev => (prev ?? []).filter(p => p.id !== id));
       invalidarEstadoEstudio();
-      onToast(r.detalle ?? 'Se ha cobrado en Stripe, pero no ha quedado registrado: revísalo antes de volver a cobrarlo.');
-      return;
+      onToast(mensaje);
+    } finally {
+      enVuelo.current = false;
+      setAprobando(null);
     }
-    setItems(prev => (prev ?? []).filter(p => p.id !== id));
-    invalidarEstadoEstudio();
-    onToast('Cobro aprobado');
   }
 
   if (!items?.length) return null;
@@ -64,12 +75,16 @@ export function PenalizacionesPendientes({ onToast }: { onToast: (m: string) => 
               <p className="text-[11px] text-muted-foreground">
                 {p.tipo === 'NO_SHOW' ? 'No presentada' : 'Cancelación tardía'} · {formatEuro(p.importe)}
               </p>
+              {avisos[p.id] && (
+                <p role="status" className="mt-1 text-[12px] leading-snug text-foreground">{avisos[p.id]}</p>
+              )}
             </div>
             <Button
-              size="sm" variant="outline" disabled={aprobando === p.id}
-              onClick={() => aprobar(p.id)}
+              size="sm" variant="outline" disabled={aprobando !== null}
+              onClick={() => void aprobar(p.id)}
+              className="shrink-0"
             >
-              {aprobando === p.id ? 'Cobrando…' : 'Aprobar y cobrar'}
+              {aprobando === p.id ? 'Cobrando…' : `Aprobar y cobrar ${formatEuro(p.importe)}`}
             </Button>
           </div>
         ))}

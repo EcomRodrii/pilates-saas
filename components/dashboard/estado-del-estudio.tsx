@@ -22,10 +22,10 @@ import type { LineaEstado } from '@/lib/estado-estudio';
 //
 // `accionesEnLinea` son las tarjetas que resuelven AQUÍ MISMO lo que la lista
 // cuenta sin `href` (reservas por aprobar, penalizaciones, devoluciones, canjes,
-// bajas del equipo): un solo sitio para
-// decidir, en vez de una línea arriba y su botón tres secciones más abajo. Las
-// monta la página con sus mismos guardias de rol; cada tarjeta carga lo suyo y
-// devuelve null si no tiene nada, así que el hueco se pliega con `:empty`.
+// bajas de última hora del equipo): un solo sitio para decidir, en vez de una
+// línea arriba y su botón tres secciones más abajo. Las monta la página con sus
+// mismos guardias de rol; cada tarjeta carga lo suyo y devuelve null si no
+// tiene nada, así que el hueco se pliega con `:empty`.
 //
 // ⚠️ El árbol es el MISMO en todos los estados (cargando, endpoint caído, una
 // línea, bandeja completa): solo cambian clases y hermanos. Si el hueco saltara

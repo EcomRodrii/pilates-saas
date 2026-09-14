@@ -402,7 +402,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Cobrar por no venir',
-        texto: 'Puedes poner un importe por cancelación tardía o por no presentarse. Empieza apagado, y cuando lo enciendes cada cargo espera tu aprobación salvo que le digas lo contrario. Solo se le puede cobrar a quien tenga tarjeta guardada y haya aceptado las condiciones.',
+        texto: 'Puedes poner un importe por cancelación tardía o por no presentarse. Empieza apagado, y cuando lo enciendes cada cargo espera tu aprobación salvo que le digas lo contrario. Los que esperan aparecen en Inicio, en «Lo que espera tu visto bueno», con su importe, y se aprueban ahí mismo. Solo se le puede cobrar a quien tenga tarjeta guardada y haya aceptado las condiciones.',
       },
       {
         titulo: 'El estudio manda, la clase matiza',

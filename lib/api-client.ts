@@ -12,6 +12,9 @@ import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_IDS } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp, type ResultadoEscritura } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
+import {
+  TEXTO_COBRO_SIN_CONFIRMAR, respaldoAprobacion, type AprobacionPenalizacion,
+} from '@/lib/billing/penalizacion-aprobar-reglas';
 import type { DecisionEstudio } from '@/lib/student/baja-instructora';
 import type { RespuestaDecision } from '@/lib/reservas-por-aprobar';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
@@ -911,16 +914,35 @@ export async function crearEnlaceTarjeta(params: {
 // Mismo 202 que `aprobarCobroAutonomo`: el cargo entró en Stripe y la
 // penalización quedó FALLIDA por no poder persistirlo. Antes se perdía aquí y
 // la fila desaparecía de la lista con un "Cobro aprobado" alegre.
-export async function aprobarPenalizacion(penalizacionId: string): Promise<CobroAprobado | { error: string }> {
-  const res = await fetch('/api/penalizaciones/aprobar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({ penalizacionId }),
-  });
-  const data = await res.json();
-  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
-  const aviso = leerAvisoCobro(data);
-  return aviso ? { ok: true, ...aviso } : { ok: true };
+//
+// NUNCA lanza. Sin try/catch, un corte de red o un 504 con cuerpo HTML
+// reventaba aquí y el botón se quedaba en «Cobrando…» para siempre. `status: 0`
+// = no se sabe qué pasó (sin respuesta, o un 2xx que no trae la forma esperada:
+// no se afirma un cobro que no se puede leer).
+export async function aprobarPenalizacion(penalizacionId: string): Promise<AprobacionPenalizacion> {
+  try {
+    const res = await fetch('/api/penalizaciones/aprobar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ penalizacionId }),
+    });
+    const data: unknown = await res.json().catch(() => null);
+    const d = (typeof data === 'object' && data !== null ? data : {}) as { ok?: unknown; error?: unknown; resultado?: unknown };
+    if (!res.ok) {
+      return {
+        error: mensajeSeguro(d.error, respaldoAprobacion(res.status) ?? mensajeHttp(res.status)),
+        status: res.status,
+        ...(typeof d.resultado === 'string' ? { resultado: d.resultado } : {}),
+      };
+    }
+    if (d.ok !== true) return { error: TEXTO_COBRO_SIN_CONFIRMAR, status: 0 };
+    const aviso = leerAvisoCobro(data);
+    if (aviso) return { ok: true, ...aviso };
+    if (d.resultado === 'COBRADA_INCOMPLETA') return { ok: true, incompleta: true };
+    return d.resultado === 'YA_COBRADA' ? { ok: true, yaCobrada: true } : { ok: true };
+  } catch {
+    return { error: TEXTO_COBRO_SIN_CONFIRMAR, status: 0 };
+  }
 }
 
 /** Una baja de última hora del equipo esperando revisión (GET /api/equipo/bajas-instructora). */

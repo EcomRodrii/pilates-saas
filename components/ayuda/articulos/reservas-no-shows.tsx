@@ -26,6 +26,9 @@ export default function Contenido() {
       <p>
         Si tu estudio la ha activado, un no-show o una cancelación tardía puede generar un cargo a la tarjeta
         guardada de la alumna — con cobro automático o pendiente de tu aprobación, según cómo lo hayas configurado.
+        Los que esperan tu aprobación aparecen en Inicio, en «Lo que espera tu visto bueno», con el nombre de la
+        alumna y el importe: se aprueban ahí mismo con «Aprobar y cobrar». Si se corta la conexión a mitad, puedes
+        volver a pulsarlo: un cargo que ya entró no se cobra dos veces.
         No se cobra nunca sin que la alumna haya aceptado antes las condiciones que incluyen esa penalización.
         Una clase que cancela el propio estudio (por ejemplo, por mínimo de asistentes no alcanzado) nunca genera
         penalización a nadie.

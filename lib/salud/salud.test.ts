@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { secretoValido } from './secreto.ts';
-import { comprobarFlujos, DEFINICIONES } from './comprobaciones.ts';
+import {
+  avisoParaSentry, comprobarFlujos, DEFINICIONES, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR,
+} from './comprobaciones.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // ── La puerta ────────────────────────────────────────────────────────────────
@@ -91,4 +93,60 @@ test('cada comprobación explica su impacto en lenguaje de negocio', () => {
     assert.ok(d.impacto.length > 40, `${d.id}: el impacto tiene que decir a quién afecta, no ser una etiqueta`);
     assert.ok(d.umbralFallo >= d.umbralAviso, `${d.id}: el umbral de fallo no puede ser menor que el de aviso`);
   }
+});
+
+// ── Penalizaciones con el recibo sin programar ──────────────────────────────
+
+/** Graba la cadena de llamadas de una sola consulta, para ver QUÉ filtra. */
+function adminQueGraba(resultado: { count: number | null; error: { message: string } | null }) {
+  const llamadas: Array<[string, ...unknown[]]> = [];
+  const self: Record<string, unknown> = {};
+  for (const m of ['select', 'eq', 'lte', 'gte', 'like', 'not', 'is', 'limit']) {
+    self[m] = (...args: unknown[]) => { llamadas.push([m, ...args]); return self; };
+  }
+  self.then = (res: (v: typeof resultado) => unknown) => Promise.resolve(resultado).then(res);
+  const admin = { from: (tabla: string) => { llamadas.push(['from', tabla]); return self; } } as unknown as SupabaseClient;
+  return { admin, llamadas };
+}
+
+test('recibo sin programar: cuenta RECIBO_CREADO con su recibo PENDIENTE y sin reintento, detectadas hace más de 1 h', async () => {
+  const def = DEFINICIONES.find(d => d.id === ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR);
+  assert.ok(def, 'la comprobación existe junto a las demás');
+  const ahora = new Date('2026-09-14T12:00:00.000Z');
+  const { admin, llamadas } = adminQueGraba({ count: 3, error: null });
+  const r = await def.contar(admin, ahora);
+  assert.equal(r.count, 3);
+  assert.deepEqual(llamadas[0], ['from', 'penalizaciones']);
+  const [, columnas, opciones] = llamadas.find(l => l[0] === 'select')!;
+  assert.match(String(columnas), /recibos!inner\(/, 'solo las que tienen recibo');
+  assert.deepEqual(opciones, { count: 'exact', head: true }, 'solo el número, nunca filas');
+  assert.ok(llamadas.some(l => l[0] === 'eq' && l[1] === 'estado' && l[2] === 'RECIBO_CREADO'));
+  assert.ok(llamadas.some(l => l[0] === 'eq' && l[1] === 'recibos.estado' && l[2] === 'PENDIENTE'));
+  assert.ok(llamadas.some(l => l[0] === 'is' && l[1] === 'recibos.proximo_reintento' && l[2] === null));
+  assert.ok(llamadas.some(l => l[0] === 'lte' && l[1] === 'detectada_en' && l[2] === '2026-09-14T11:00:00.000Z'));
+});
+
+test('recibo sin programar: una sola fila ya es aviso en el informe', async () => {
+  const informe = await comprobarFlujos(adminFalso({ penalizaciones: { count: 1, error: null } }));
+  const c = informe.comprobaciones.find(x => x.id === ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR)!;
+  assert.equal(c.valor, 1);
+  assert.equal(c.estado, 'aviso');
+});
+
+test('aviso para Sentry: nada en verde; solo el número (sin filas ni ids) en aviso o fallo; error si no se pudo contar', () => {
+  const def = DEFINICIONES.find(d => d.id === ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR)!;
+  assert.equal(avisoParaSentry(def, { count: 0, error: null }), null);
+  assert.equal(avisoParaSentry(def, { count: null, error: null }), null);
+
+  const aviso = avisoParaSentry(def, { count: 2, error: null });
+  assert.equal(aviso?.nivel, 'warning');
+  assert.deepEqual(aviso?.extra, { comprobacion: ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR, valor: 2 });
+  // Mensaje estable: el número va en `extra`, para que Sentry agrupe en un issue.
+  assert.equal(aviso?.mensaje, `[salud] ${ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR}`);
+
+  assert.equal(avisoParaSentry(def, { count: def.umbralFallo, error: null })?.nivel, 'error');
+
+  const roto = avisoParaSentry(def, { count: null, error: { message: 'timeout' } });
+  assert.equal(roto?.nivel, 'error');
+  assert.equal(roto?.extra.valor, -1);
 });

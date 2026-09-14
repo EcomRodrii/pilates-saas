@@ -677,11 +677,12 @@ export default function Dashboard() {
 
             Las tarjetas que resuelven aquí mismo lo que la bandeja cuenta sin
             enlace (reservas por aprobar, penalizaciones, devoluciones, canjes,
-            bajas del equipo) van DENTRO, bajo «Decidir»: un solo sitio para
-            decidir. Cada una se oculta sola si no tiene nada, y sus guardias son
-            los mismos roles que exige el servidor (`puedeGestionarCalendario`
-            para las reservas, `puedeMoverDinero` para aprobar el cobro o
-            revertir, la RPC `entregar_canje` para los canjes,
+            bajas de última hora del equipo) van DENTRO, bajo «Decidir»: un solo
+            sitio para decidir. Cada una se oculta sola si no tiene nada, y sus
+            guardias son los mismos roles que exige el servidor
+            (`puedeGestionarCalendario` para las reservas, `puedeMoverDinero`
+            para aprobar el cobro o revertir, la RPC `entregar_canje` para los
+            canjes,
             `puedeGestionarEquipo` para las bajas) — la UI no es el límite, pero
             tampoco debe ofrecer un botón que va a rebotar.
 
