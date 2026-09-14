@@ -67,6 +67,11 @@ $function$;
 comment on function public.es_participante_conversacion(text) is
   'Participa en la conversación: fila SOCIO, o fila STAFF con ficha activa en el estudio de la conversación (o dueña del estudio). Base de las policies de conversaciones, participantes, mensajes y Realtime.';
 
+-- Sobre anon, por escrito: ni anon ni PUBLIC; la necesitan las policies de
+-- `authenticated`. Es el estado que ya dejó la migración original.
+revoke all on function public.es_participante_conversacion(text) from public, anon;
+grant execute on function public.es_participante_conversacion(text) to authenticated, service_role;
+
 do $$
 begin
   if has_function_privilege('anon', 'public.es_participante_conversacion(text)', 'EXECUTE') then

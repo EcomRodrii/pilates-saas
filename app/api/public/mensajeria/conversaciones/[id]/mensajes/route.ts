@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { authUserIdsParaNotificar, resolverNombreRemitente } from '@/lib/mensajeria/destinatarios';
 import { emitirMensajeRecibido } from '@/lib/notifications/emit';
+import { previsualizacionParaAviso } from '@/lib/mensajeria/presentacion';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import type { RowMensajes } from '@/lib/db-types';
@@ -121,7 +122,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const remitente = (await resolverNombreRemitente(admin, user.userId, conv.studio_id as string)) ?? 'Alguien';
       await emitirMensajeRecibido(admin, {
         studioId: conv.studio_id as string, conversacionId: id, mensajeId,
-        remitente, previsualizacion: cuerpo.slice(0, 80), authUserIds,
+        remitente, previsualizacion: previsualizacionParaAviso(conv.tipo as string, cuerpo), authUserIds,
+        tipo: conv.tipo as string,
       });
     } catch (e) {
       console.error('[public/mensajeria/mensajes:POST] fan-out tras respuesta falló', e instanceof Error ? e.message : e);

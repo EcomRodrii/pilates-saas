@@ -98,6 +98,7 @@ export default function PerfilInstructoraPage() {
             { label: 'Tu disponibilidad', href: href('/equipo/disponibilidad') },
             { label: 'Tus ausencias', href: href('/equipo/ausencias') },
             { label: 'Tus alumnas', href: href('/equipo/alumnas') },
+            { label: 'Mensajes con tus alumnas', href: href('/equipo/mensajes') },
           ]}
         />
 

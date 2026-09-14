@@ -46,7 +46,7 @@ test('es_participante_conversacion exige ficha activa en el estudio para una fil
 
 type Fila = Record<string, unknown>;
 
-/** Lo justo de supabase-js para `destinatarios.ts`: select/eq/in/maybeSingle. */
+/** Lo justo de supabase-js para `destinatarios.ts`: select/eq/neq/in/maybeSingle. */
 function adminFalso(tablas: Record<string, Fila[]>): SupabaseClient {
   return {
     from(tabla: string) {
@@ -54,6 +54,7 @@ function adminFalso(tablas: Record<string, Fila[]>): SupabaseClient {
       const q = {
         select: () => q,
         eq: (col: string, val: unknown) => { filas = filas.filter((f) => f[col] === val); return q; },
+        neq: (col: string, val: unknown) => { filas = filas.filter((f) => f[col] !== val); return q; },
         in: (col: string, vals: unknown[]) => { filas = filas.filter((f) => vals.includes(f[col])); return q; },
         maybeSingle: async () => ({ data: filas[0] ?? null, error: null }),
         then: (ok: (r: { data: Fila[]; error: null }) => unknown) => Promise.resolve({ data: filas, error: null }).then(ok),

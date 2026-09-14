@@ -576,12 +576,22 @@ function plantillasMensajeRecibido(): Record<string, Plantilla> {
     body: '{remitente} te ha escrito{previsualizacion}.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/notificaciones`,
   };
+  // La instructora lee sus conversaciones con alumnas en la app del estudio
+  // (Tentare Core en retirada). El canal de equipo sigue en el panel.
+  const instructora: Plantilla = {
+    title: 'Nuevo mensaje',
+    body: '{remitente} te ha escrito{previsualizacion}.',
+    deepLink: (d: Datos) => (d.tipo === 'ALUMNA_INSTRUCTORA' && d.slug
+      ? `/portal/${s(d.slug)}/equipo/mensajes/${s(d.conversacionId)}`
+      : `/mensajeria?conversacion=${s(d.conversacionId)}`),
+  };
   return {
     ...Object.fromEntries(
-      (['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const).map(
+      (['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const).map(
         rol => [`${EVENTOS.MENSAJE_RECIBIDO}#${rol}`, staff],
       ),
     ),
+    [`${EVENTOS.MENSAJE_RECIBIDO}#INSTRUCTOR`]: instructora,
     [`${EVENTOS.MENSAJE_RECIBIDO}#SOCIA`]: socia,
   };
 }
