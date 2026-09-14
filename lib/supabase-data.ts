@@ -3802,7 +3802,12 @@ export async function dbInsertAchievementHistory(h: AchievementHistory) {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, achievement_id: h.achievementId,
     nombre: h.nombre, icono: h.icono, creado_en: h.creadoEn,
   };
-  const { error } = await supabase.from('achievement_history').insert(row);
+  // Una fila por socia y logro (índice único, migr 20260914175000). Si el
+  // servidor o una pestaña ya la escribió, esto no es un error: el logro sigue
+  // conseguido una sola vez. La RLS solo deja insertar a quien gestiona clientas
+  // y con el progreso del logro completado en la base.
+  const { error } = await supabase.from('achievement_history')
+    .upsert(row, { onConflict: 'socio_id,achievement_id', ignoreDuplicates: true });
   if (error) reportDbError('[dbInsertAchievementHistory]', error);
 }
 
