@@ -184,6 +184,7 @@ import type {
   ValoracionSocia,
 } from '@/lib/types';
 import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
+import { refIdCreditoRenovacion } from '@/lib/billing/cobro-confirmado-reglas';
 import type { TipoRebote } from '@/lib/emails/rebotes';
 import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
@@ -4239,8 +4240,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         recibo.socioId ?? undefined,
         recibo.socioId ? `/socios/${recibo.socioId}` : undefined
       );
+      // Mismo `ref_id` que el servidor (`refIdCreditoRenovacion`): el cobro
+      // confirmado por Stripe también da estos créditos, y UNIQUE
+      // (studio_id, trigger, ref_id) en `reward_actions` solo evita la doble
+      // concesión si los dos caminos usan el MISMO valor. El criterio por
+      // concepto se queda aquí porque el panel no carga `es_renovacion`; la
+      // RPC acepta cualquiera de los dos.
       if (recibo.concepto.startsWith('Renovación') && recibo.socioId) {
-        otorgarCreditos(recibo.socioId, 'RENOVACION_PLAN', reciboId);
+        otorgarCreditos(recibo.socioId, 'RENOVACION_PLAN', refIdCreditoRenovacion(reciboId));
       }
     }
     // `cobroRegistrado` distingue el fallo del SELLADO fiscal (el dinero ya se

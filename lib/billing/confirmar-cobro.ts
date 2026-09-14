@@ -1,67 +1,391 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// F-12/F-13 (rediseño de fondo, no un parche): punto ÚNICO de "un recibo pagado
-// por Checkout Session se acaba de cobrar de verdad". Antes esto vivía
-// duplicado, casi carácter por carácter, en dos sitios:
+// Dueño ÚNICO de «este recibo está cobrado».
 //
-//   1. app/api/stripe/webhook/route.ts — camino principal, en tiempo real.
-//   2. lib/inngest/conciliar-cobros.ts — red de recuperación cuando el
-//      webhook falla (F-12: desde que el webhook responde 200 ANTES de
-//      procesar, esta es la ÚNICA red real).
+// Historia corta: F-12/F-13 juntó aquí el webhook de Checkout y el conciliador,
+// que eran gemelos divergentes. Pero seguían quedando otros escritores de
+// COBRADO, cada uno con su orden de efectos y sus huecos:
+//   · `confirmarCobroExitoso` (SEPA / tarjeta guardada, dunning-server.ts)
+//     mandaba el email ANTES de sellar, así que salía sin número de factura;
+//     no marcaba `factura_pendiente_sellar` y SEPA no guardaba el cargo;
+//   · `cobrarReciboOffSession` (stripe-cobros.ts) leía el recibo y luego lo
+//     actualizaba SIN filtro de estado;
+//   · `entregarPlanComprado` sellaba por su cuenta y el webhook mandaba el
+//     email en cada reentrega.
 //
-// Cada vez que uno ganaba una pieza nueva (guardar el PaymentIntent, sellar
-// factura), el otro se quedaba atrás — es el mismo patrón "gemelos
-// divergentes" que la 20ª auditoría señala como la causa estructural
-// dominante del repo (F-1, F-4, F-5, F-10, F-16 son la misma clase de fallo).
-// Ambos llamadores pasan a llamar aquí; lo que sigue siendo suyo es todo lo
-// que necesita el objeto vivo de Stripe (verificar importe, detectar Bizum
-// vs tarjeta, listar sesiones/PaymentIntents) — eso no se puede compartir sin
-// atar este módulo a la forma de un solo llamador.
+// Ahora hay dos piezas:
 //
-// El camino de SEPA/tarjeta guardada (confirmarCobroExitoso, dunning-server.ts)
-// NO pasa por aquí: ese YA era una función única compartida por su webhook y
-// su cron — nunca tuvo el problema de los gemelos divergentes. Se deja tal
-// cual; solo se le añade el mismo campo de conciliación (ver esa función).
+//  1. `confirmarCobro` — UN compare-and-set a COBRADO, filtrado por los estados
+//     que admite quien confirma (`estadosAdmitidosPorOrigen`) y por las guardas
+//     de reembolso, con `conciliado_por` en el mismo UPDATE. Si no toca filas
+//     distingue reentrega (`ya_estaba`), devuelto con el mismo cargo
+//     (`devuelto`, nunca se resucita) y otro cargo distinto (se reporta, nunca
+//     un éxito silencioso). Solo quien GANA la transición aplica efectos.
 //
-// Orden fijo, el mismo para cualquier llamador: marcar cobrado → renovar/
-// entregar → sellar factura (best-effort, NUNCA deshace el cobro si falla) →
-// marcar conciliado. Un fallo de sellado dedica una tarea aparte
-// (`factura_pendiente_sellar`) que el conciliador horario reintenta sobre
-// cobros RECIENTES — nunca retroactivo sin límite: sellar HOY una factura de
-// hace semanas tiene implicación fiscal real (en qué trimestre se declara),
-// y eso lo decide una persona, no un cron.
+//  2. `aplicarEfectosCobro` — renovación → factura → caja → créditos →
+//     aviso → email, en ese orden (ver `efectosEnOrden`). Cada paso es
+//     best-effort: el dinero ya entró y ningún efecto puede deshacer el cobro.
+//     Todos son idempotentes salvo el email, que solo se pide cuando se ganó
+//     la transición. Se puede volver a llamar para reparar.
+//
+// Las reglas puras viven en `cobro-confirmado-reglas.ts`, con tests.
+//
+// ⚠️ Lo que sigue siendo de cada llamador es lo que necesita el objeto vivo de
+// Stripe: verificar importe, resolver el estudio por la cuenta que firma,
+// detectar Bizum vs tarjeta, la Idempotency-Key. Eso no se trae aquí.
+//
+// Un fallo de sellado deja `factura_pendiente_sellar`, que el conciliador
+// horario reintenta sobre cobros RECIENTES — nunca retroactivo sin límite:
+// sellar HOY una factura de hace semanas tiene implicación fiscal real (en qué
+// trimestre se declara), y eso lo decide una persona, no un cron.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
-import * as Sentry from '@sentry/nextjs';
+import * as SentryNext from '@sentry/nextjs';
 import { aplicarRenovacionServidor } from './renovacion-server.ts';
-import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
+import { sellarFacturaDeRecibo, type ResultadoSellado } from './sellar-factura-server.ts';
+import { evaluarFeature } from './billing-rules.ts';
 import { hoyEnEstudio } from '../utils.ts';
-import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
+import {
+  conciliadoPorDe, efectosEnOrden, esRenovacion, estadosAdmitidosPorOrigen, facturaIdCheckout,
+  facturaIdParaReintento, filtroNoResucitarDevuelto, refIdCreditoRenovacion, resolverSinFilas,
+  type OrigenCobro, type PasoEfecto,
+} from './cobro-confirmado-reglas.ts';
+
+export type { OrigenCobro } from './cobro-confirmado-reglas.ts';
+
+// Fuera del runtime de Next (`node --test`) el paquete no expone
+// `captureMessage`/`captureException` y llamarlos lanza. Aquí eso importa: los
+// avisos están en los caminos de fallo que los tests SÍ recorren (factura sin
+// sellar, segundo cargo), y un aviso no puede tumbar los efectos de un cobro.
+const sentry = SentryNext as Partial<typeof SentryNext>;
+const Sentry = {
+  captureMessage: (...a: Parameters<typeof SentryNext.captureMessage>) => { sentry.captureMessage?.(...a); },
+  captureException: (...a: Parameters<typeof SentryNext.captureException>) => { sentry.captureException?.(...a); },
+};
 
 // 'tpv' = el mostrador cobrando un recibo por datáfono o Bizum. Se distingue
 // de 'manual' a propósito: 'manual' es alguien marcándolo sin que nadie lo
-// confirme, 'tpv' es Stripe diciendo que sí. El CHECK de `conciliado_por` lo
-// admite desde la migración `20260907174932`.
+// confirme, 'tpv' es Stripe diciendo que sí.
 export type FuenteConfirmacion = 'webhook' | 'conciliador' | 'tpv';
+
+/** Quién estaba delante, para el apunte de caja. */
+export interface ActorCobro { userId: string | null; nombre: string | null }
+
+export interface ParamsConfirmarCobro {
+  studioId: string;
+  reciboId: string;
+  /** Con qué se cobró de verdad (va a `recibos.metodo_cobro`). */
+  metodo: string;
+  origen: OrigenCobro;
+  /** El cargo real, para poder devolverlo desde el panel. Solo se escribe si viene. */
+  paymentIntentId: string | null;
+  /** Pedir el email de justificante SI esta llamada gana la transición. */
+  avisarSocia: boolean;
+  /** Id de la factura de este canal (ver `facturaIdCheckout`/`facturaIdMetodoGuardado`). */
+  facturaId: string;
+  actor?: ActorCobro;
+}
+
+export type ResultadoConfirmarCobro =
+  | {
+      ok: true;
+      transicion: 'aplicada' | 'ya_estaba' | 'devuelto';
+      numeroFactura?: string;
+      /** `false` solo si en ESTA llamada se intentó sellar y falló. */
+      selladoOk: boolean;
+    }
+  | { ok: false; codigo: 'NO_ENCONTRADO' | 'NO_COBRABLE' | 'PERSISTENCIA'; error: string };
+
+/** Los efectos, inyectables para poder probar el orden sin red ni BD. */
+export interface DependenciasEfectos {
+  renovar: (admin: SupabaseClient, p: { studioId: string; reciboId: string }) => Promise<unknown>;
+  sellar: (admin: SupabaseClient, p: { studioId: string; reciboId: string; facturaId: string }) => Promise<ResultadoSellado>;
+  apuntarCaja: (admin: SupabaseClient, p: { studioId: string; reciboId: string; actor: ActorCobro | null }) => Promise<void>;
+  otorgarCreditos: (admin: SupabaseClient, p: { studioId: string; reciboId: string; socioId: string }) => Promise<void>;
+  notificar: (admin: SupabaseClient, p: { studioId: string; reciboId: string }) => Promise<void>;
+  enviarEmail: (admin: SupabaseClient, p: { studioId: string; reciboId: string }) => Promise<void>;
+}
+
+// El dinero pasó por el mostrador: que cuadre el arqueo. Idempotente por id
+// derivado del recibo (`mov-rec-<recibo>`), y la propia RPC decide si procede
+// (sin caja abierta, o SEPA/transferencia, no apunta nada).
+async function apuntarCobroEnCajaServidor(
+  admin: SupabaseClient, p: { studioId: string; reciboId: string; actor: ActorCobro | null },
+): Promise<void> {
+  const { error } = await admin.rpc('apuntar_cobro_en_caja', {
+    p_studio_id: p.studioId, p_recibo_id: p.reciboId,
+    p_por: p.actor?.userId ?? null, p_por_nombre: p.actor?.nombre ?? null,
+  });
+  if (error) throw new Error(error.message);
+}
+
+// Créditos RENOVACION_PLAN, en servidor. Decisión del fundador (14-sep): se dan
+// en CUALQUIER cobro de una renovación —tarjeta guardada, SEPA, web,
+// mostrador—, una sola vez por recibo. Hasta ahora solo los daba el panel al
+// marcar cobrado a mano.
+//
+// Misma RPC y mismo gate de plan que `otorgarCreditosServidor`
+// (supabase-data-admin.ts, no exportada). La unicidad la pone la BD:
+// `reward_actions` UNIQUE (studio_id, trigger, ref_id) con el ref_id que
+// comparten panel y servidor (`refIdCreditoRenovacion`).
+async function otorgarCreditosRenovacionServidor(
+  admin: SupabaseClient, p: { studioId: string; reciboId: string; socioId: string },
+): Promise<void> {
+  if (await evaluarFeature(admin, p.studioId, 'gamificacion')) return;
+  const { error } = await admin.rpc('otorgar_credito_disparador', {
+    p_studio_id: p.studioId, p_socio_id: p.socioId,
+    p_trigger: 'RENOVACION_PLAN', p_ref_id: refIdCreditoRenovacion(p.reciboId), p_config_id: null,
+  });
+  // «No toca conceder» (sin regla activa, etc.) no es un error de sistema.
+  if (error && !/SIN_REGLA_ACTIVA|CONDICION_NO_CUMPLIDA|REF_ID_NO_DERIVADO/.test(error.message)) {
+    throw new Error(error.message);
+  }
+}
+
+const DEPENDENCIAS: DependenciasEfectos = {
+  renovar: aplicarRenovacionServidor,
+  sellar: sellarFacturaDeRecibo,
+  apuntarCaja: apuntarCobroEnCajaServidor,
+  otorgarCreditos: otorgarCreditosRenovacionServidor,
+  notificar: async (admin, p) => {
+    const { emitirPagoRealizado } = await import('../notifications/emit.ts');
+    await emitirPagoRealizado(admin, p);
+  },
+  enviarEmail: async (admin, p) => {
+    const { enviarEmailReciboWebhook } = await import('../emails/enviar-recibo-webhook.ts');
+    await enviarEmailReciboWebhook(admin, p);
+  },
+};
+
+export interface ParamsEfectosCobro {
+  studioId: string;
+  reciboId: string;
+  metodo: string | null;
+  origen: OrigenCobro;
+  facturaId: string;
+  /** Mandar el email. Solo `true` si quien llama ganó la transición. */
+  avisarSocia: boolean;
+  /** `false` cuando la entrega ya la hizo el llamador (compra web). */
+  renovar?: boolean;
+  notificar?: boolean;
+  /** Reparación de un cobro que ya estaba: un sellado fallido no se re-reporta a Sentry. */
+  reparacion?: boolean;
+  actor?: ActorCobro;
+  /** Si el llamador ya lo sabe (el CAS lo devuelve), se ahorra la lectura. */
+  recibo?: { socioId: string | null; esRenovacion: boolean };
+}
+
+export interface ResultadoEfectosCobro {
+  pasos: PasoEfecto[];
+  selladoOk: boolean;
+  numeroFactura?: string;
+}
+
+/**
+ * Efectos de un cobro ya confirmado. Idempotente y seguro de repetir (salvo el
+ * email, que solo sale con `avisarSocia`). Nunca lanza.
+ */
+export async function aplicarEfectosCobro(
+  admin: SupabaseClient,
+  p: ParamsEfectosCobro,
+  deps: Partial<DependenciasEfectos> = {},
+): Promise<ResultadoEfectosCobro> {
+  const d: DependenciasEfectos = { ...DEPENDENCIAS, ...deps };
+  const base = { studioId: p.studioId, reciboId: p.reciboId };
+
+  let recibo = p.recibo;
+  if (!recibo) {
+    try {
+      const { data } = await admin.from('recibos')
+        .select('socio_id, es_renovacion').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+      recibo = { socioId: (data?.socio_id as string | null) ?? null, esRenovacion: esRenovacion(data) };
+    } catch {
+      // Sin poder leerlo no se dan créditos; el resto de efectos sigue.
+      recibo = { socioId: null, esRenovacion: false };
+    }
+  }
+
+  const pasos = efectosEnOrden({
+    origen: p.origen, metodo: p.metodo, avisarSocia: p.avisarSocia,
+    esRenovacion: recibo.esRenovacion && !!recibo.socioId,
+    renovar: p.renovar, notificar: p.notificar,
+  });
+
+  let selladoOk = true;
+  let numeroFactura: string | undefined;
+
+  const marcarFacturaPendiente = async (detalle: unknown) => {
+    selladoOk = false;
+    try {
+      await admin.from('recibos').update({ factura_pendiente_sellar: true })
+        .eq('id', p.reciboId).eq('studio_id', p.studioId);
+    } catch (e) {
+      console.error('[aplicarEfectosCobro] no se pudo marcar la factura pendiente', p.reciboId, e);
+    }
+    if (p.reparacion) {
+      // El camino que ganó la transición ya lo reportó segundos antes: capturarlo
+      // otra vez duplicaría el aviso en CADA cobro de un estudio sin NIF.
+      console.error('[aplicarEfectosCobro] reparación: factura sin sellar', p.reciboId, detalle);
+      return;
+    }
+    Sentry.captureMessage('[confirmarCobro] cobro OK pero factura sin sellar', {
+      level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
+      extra: { reciboId: p.reciboId, studioId: p.studioId, origen: p.origen, error: String(detalle) },
+    });
+  };
+
+  for (const paso of pasos) {
+    try {
+      switch (paso) {
+        case 'renovacion':
+          await d.renovar(admin, base);
+          break;
+        case 'factura': {
+          const r = await d.sellar(admin, { ...base, facturaId: p.facturaId });
+          if (r.ok) {
+            const n = r.factura?.numeroCompleto;
+            if (typeof n === 'string') numeroFactura = n;
+          } else {
+            await marcarFacturaPendiente(r.error);
+          }
+          break;
+        }
+        case 'caja':
+          await d.apuntarCaja(admin, { ...base, actor: p.actor ?? null });
+          break;
+        case 'creditos':
+          await d.otorgarCreditos(admin, { ...base, socioId: recibo.socioId as string });
+          break;
+        case 'notificacion':
+          await d.notificar(admin, base);
+          break;
+        case 'email':
+          await d.enviarEmail(admin, base);
+          break;
+      }
+    } catch (e) {
+      if (paso === 'factura') {
+        await marcarFacturaPendiente(e instanceof Error ? e.message : e);
+        continue;
+      }
+      Sentry.captureException(e instanceof Error ? e : new Error(`Fallo en el efecto ${paso} del cobro`), {
+        level: 'warning', tags: { area: 'cobros', tipo: `efecto-${paso}` },
+        extra: { reciboId: p.reciboId, studioId: p.studioId, origen: p.origen },
+      });
+    }
+  }
+
+  return { pasos, selladoOk, ...(numeroFactura ? { numeroFactura } : {}) };
+}
+
+/**
+ * La única transición a COBRADO del servidor. Ver la cabecera del módulo.
+ */
+export async function confirmarCobro(
+  admin: SupabaseClient,
+  p: ParamsConfirmarCobro,
+  deps: Partial<DependenciasEfectos> = {},
+): Promise<ResultadoConfirmarCobro> {
+  const ahoraISO = new Date().toISOString();
+  // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date`, no `timestamptz` como
+  // `conciliado_en` — con `ahoraISO` un cobro a la 01:30 de Madrid se fechaba
+  // el día anterior (mismo bug que ya documenta `hoyEnEstudio`).
+  const hoy = hoyEnEstudio(new Date(ahoraISO));
+  const conciliadoPor = conciliadoPorDe(p.origen);
+
+  let consulta = admin
+    .from('recibos')
+    .update({
+      estado: 'COBRADO', fecha_cobro: hoy, metodo_cobro: p.metodo,
+      ...(p.metodo === 'SEPA' ? { sepa_estado: 'succeeded' } : {}),
+      ...(p.paymentIntentId ? { stripe_payment_intent_id: p.paymentIntentId } : {}),
+      // Pagado: deja de haber una sesión abierta que reutilizar.
+      checkout_session_id: null,
+      ...(conciliadoPor ? { conciliado_en: ahoraISO, conciliado_por: conciliadoPor } : {}),
+    })
+    // Acotado al tenant y a los estados que admite QUIEN confirma. Queda fuera
+    // COBRADO, para no reescribir `fecha_cobro` con un evento tardío o
+    // duplicado.
+    //
+    // Las dos guardas de reembolso son las mismas columnas que mira
+    // `esReciboCobrable`: un recibo que se le está devolviendo a la socia NO se
+    // resucita por aquí. El tercer discriminante (`importe_devuelto >=
+    // importe`) no se replica: PostgREST no compara dos columnas entre sí, y
+    // hacerlo en TS sería leer-y-escribir con carrera. La puerta que decide si
+    // se le puede COBRAR es /api/stripe/checkout, que sí lo comprueba.
+    .eq('id', p.reciboId).eq('studio_id', p.studioId)
+    .in('estado', estadosAdmitidosPorOrigen(p.origen))
+    .is('reembolso_stripe_id', null)
+    .is('reembolso_solicitado_en', null);
+  // Un DEVUELTO con ESTE mismo cargo no vuelve a COBRADO (reentrega tardía de
+  // un pago ya devuelto); con otro cargo sí, que es pagar una deuda devuelta.
+  const noResucitar = filtroNoResucitarDevuelto(p.paymentIntentId);
+  if (noResucitar) consulta = consulta.or(noResucitar);
+
+  const { data: marcado, error } = await consulta.select('id, socio_id, es_renovacion').maybeSingle();
+  if (error) return { ok: false, codigo: 'PERSISTENCIA', error: error.message };
+
+  if (!marcado) {
+    const { data: fila, error: errLeer } = await admin.from('recibos')
+      .select('estado, stripe_payment_intent_id').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+    if (errLeer) return { ok: false, codigo: 'PERSISTENCIA', error: errLeer.message };
+    const decision = resolverSinFilas(
+      fila as { estado: string | null; stripe_payment_intent_id: string | null } | null,
+      p.paymentIntentId,
+    );
+    switch (decision.tipo) {
+      case 'no_encontrado':
+        return { ok: false, codigo: 'NO_ENCONTRADO', error: 'Recibo no encontrado' };
+      case 'ya_estaba':
+        return { ok: true, transicion: 'ya_estaba', selladoOk: true };
+      case 'devuelto':
+        return { ok: true, transicion: 'devuelto', selladoOk: true };
+      case 'otro_cobro':
+        Sentry.captureMessage('[confirmarCobro] SEGUNDO cobro del mismo recibo: hay que devolver uno', {
+          level: 'error', tags: { area: 'cobros' },
+          extra: {
+            reciboId: p.reciboId, studioId: p.studioId, origen: p.origen,
+            paymentIntentCobrado: decision.anterior, paymentIntentDuplicado: p.paymentIntentId,
+          },
+        });
+        return { ok: false, codigo: 'NO_COBRABLE', error: 'Este recibo ya estaba cobrado con otro cargo: hay que devolver uno de los dos.' };
+      case 'no_cobrable':
+        Sentry.captureMessage('[confirmarCobro] cobro sobre un recibo que no admite cobro', {
+          // Con Stripe de por medio el dinero YA entró: es un error. A mano es
+          // una acción que se rechaza y ya.
+          level: p.origen === 'manual' ? 'warning' : 'error', tags: { area: 'cobros' },
+          extra: { reciboId: p.reciboId, studioId: p.studioId, origen: p.origen, estado: decision.estado, paymentIntentId: p.paymentIntentId },
+        });
+        return { ok: false, codigo: 'NO_COBRABLE', error: `Este recibo no admite este cobro (estado: ${decision.estado ?? 'desconocido'}).` };
+    }
+  }
+
+  const efectos = await aplicarEfectosCobro(admin, {
+    studioId: p.studioId, reciboId: p.reciboId, metodo: p.metodo, origen: p.origen,
+    facturaId: p.facturaId, avisarSocia: p.avisarSocia, actor: p.actor,
+    recibo: {
+      socioId: (marcado.socio_id as string | null) ?? null,
+      esRenovacion: esRenovacion(marcado as { es_renovacion?: boolean | null }),
+    },
+  }, deps);
+
+  return {
+    ok: true, transicion: 'aplicada', selladoOk: efectos.selladoOk,
+    ...(efectos.numeroFactura ? { numeroFactura: efectos.numeroFactura } : {}),
+  };
+}
 
 export type ResultadoConfirmarCobroRecibo =
   | {
       ok: true;
-      /**
-       * `false` = 0 filas tocadas por el UPDATE: reentrega del mismo evento,
-       * o el recibo ya no estaba en un estado cobrable (ya COBRADO o
-       * DEVUELTO). No es un fallo — pero el llamador puede querer saberlo
-       * (p. ej. para no repetir un log de "recuperado" sobre algo que el
-       * webhook ya había aplicado segundos antes).
-       */
+      /** `false` = no hubo transición en esta llamada (ya estaba, o devuelto con ese cargo). */
       actualizado: boolean;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; codigo: 'NO_ENCONTRADO' | 'NO_COBRABLE' | 'PERSISTENCIA' };
 
 /**
  * Confirma el cobro de un recibo pagado por Checkout Session (portal, enlace
- * público, widget embebido). Idempotente: una reentrega del mismo evento, o
- * el conciliador llegando después de que el webhook ya lo aplicó, no repite
- * ningún efecto — el `.in('estado', ...)` deja fuera COBRADO y DEVUELTO.
+ * público, widget embebido) o por el TPV del mostrador. Envoltorio de
+ * `confirmarCobro` con el nombre de siempre.
  */
 export async function confirmarCobroRecibo(
   admin: SupabaseClient,
@@ -69,105 +393,19 @@ export async function confirmarCobroRecibo(
     studioId: string;
     reciboId: string;
     metodoCobro: string;
-    /** El cargo real, para poder devolverlo desde el panel. Solo se escribe si viene. */
     paymentIntentId: string | null;
     fuente: FuenteConfirmacion;
+    /** Solo TPV: quién cobraba, para el apunte de caja. */
+    actor?: ActorCobro;
   },
 ): Promise<ResultadoConfirmarCobroRecibo> {
-  const { studioId, reciboId, metodoCobro, paymentIntentId, fuente } = params;
-  const ahoraISO = new Date().toISOString();
-  // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date`, no `timestamptz` como
-  // `conciliado_en` — con `ahoraISO` un cobro a la 01:30 de Madrid se fechaba
-  // el día anterior (mismo bug que ya documenta `hoyEnEstudio`).
-  const hoy = hoyEnEstudio(new Date(ahoraISO));
-
-  const { data: marcado, error } = await admin
-    .from('recibos')
-    .update({
-      estado: 'COBRADO', fecha_cobro: hoy, metodo_cobro: metodoCobro,
-      ...(paymentIntentId ? { stripe_payment_intent_id: paymentIntentId } : {}),
-      // Pagado: deja de haber una sesión abierta que reutilizar.
-      checkout_session_id: null,
-      conciliado_en: ahoraISO, conciliado_por: fuente,
-    })
-    // Acotado al tenant y a los estados realmente cobrables. Queda fuera
-    // COBRADO, para no reescribir `fecha_cobro` con un evento tardío o
-    // duplicado.
-    //
-    // ⚠️ 26ª pasada, corrección de A-1. Aquí faltaba `DEVUELTO`, y el motivo
-    // escrito («para no resucitar un recibo ya devuelto») solo es cierto para
-    // UNA de las dos cosas que significa ese estado: un reembolso. Un recibo
-    // «devuelto por el banco» es deuda viva, `socio_tiene_impago` bloquea por
-    // él, `dbMarcarCobrado` deja cerrarlo desde el panel y ahora también
-    // /api/stripe/checkout deja pagarlo — si este escritor no lo aceptara, la
-    // socia pagaría de verdad y el UPDATE tocaría 0 filas: sin entrega, sin
-    // factura, sin email, sin renovación y todavía bloqueada. Cobrado y sin
-    // entregar, que es peor que el problema que A-1 venía a arreglar.
-    //
-    // La lista sale de `ESTADOS_COBRABLES` para que no vuelva a haber cuatro
-    // listas distintas, y las dos guardas de reembolso son las mismas columnas
-    // que mira `esReciboCobrable`: un recibo que se le está devolviendo a la
-    // socia NO se resucita por aquí.
-    //
-    // El tercer discriminante de `esReciboCobrable` (`importe_devuelto >=
-    // importe`) NO se replica aquí, y es deliberado: PostgREST no compara dos
-    // columnas entre sí, y hacerlo en TS sería un read-then-update con carrera.
-    // La puerta que decide si se le puede COBRAR es /api/stripe/checkout, que
-    // sí lo comprueba antes de mover un euro; si aun así llegara un pago sobre
-    // una fila así, marcarla cobrada y ENTREGAR es menos malo que quedarse el
-    // dinero sin entregar nada.
-    .eq('id', reciboId).eq('studio_id', studioId)
-    .in('estado', [...ESTADOS_COBRABLES, 'EN_CURSO'])
-    .is('reembolso_stripe_id', null)
-    .is('reembolso_solicitado_en', null)
-    .select('id').maybeSingle();
-  if (error) return { ok: false, error: error.message };
-
-  if (!marcado) {
-    // 0 filas tiene DOS causas muy distintas:
-    //   · Stripe reentrega el MISMO evento — normal, no hay nada que hacer.
-    //   · Un SEGUNDO cobro real del mismo recibo — dinero cobrado dos veces.
-    // Se distinguen por el PaymentIntent: si el recibo ya guarda uno y llega
-    // otro distinto, no es un reintento. Generalizado del webhook (F-13): el
-    // conciliador antes no tenía esta protección en absoluto.
-    if (paymentIntentId) {
-      const { data: previo } = await admin.from('recibos')
-        .select('stripe_payment_intent_id').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
-      const anterior = (previo?.stripe_payment_intent_id as string | null) ?? null;
-      if (anterior && anterior !== paymentIntentId) {
-        Sentry.captureMessage('[confirmarCobroRecibo] SEGUNDO cobro del mismo recibo: hay que devolver uno', {
-          level: 'error',
-          extra: { reciboId, studioId, fuente, paymentIntentCobrado: anterior, paymentIntentDuplicado: paymentIntentId },
-        });
-      }
-    }
-    return { ok: true, actualizado: false };
-  }
-
-  // Renovación en servidor (refill de bono / extensión del mensual).
-  // Best-effort e idempotente — nunca puede tumbar la confirmación del cobro.
-  await aplicarRenovacionServidor(admin, { studioId, reciboId });
-
-  // Sellado de factura: best-effort, NUNCA deshace el cobro si falla — el
-  // dinero ya entró, no sellar es un problema de facturación, no de caja.
-  const selladoFactura = await sellarFacturaDeRecibo(admin, {
-    studioId, reciboId, facturaId: `fac-checkout-${reciboId}`,
+  const r = await confirmarCobro(admin, {
+    studioId: params.studioId, reciboId: params.reciboId, metodo: params.metodoCobro,
+    origen: params.fuente, paymentIntentId: params.paymentIntentId,
+    avisarSocia: true, facturaId: facturaIdCheckout(params.reciboId), actor: params.actor,
   });
-  if (!selladoFactura.ok) {
-    await admin.from('recibos').update({ factura_pendiente_sellar: true })
-      .eq('id', reciboId).eq('studio_id', studioId);
-    Sentry.captureMessage('[confirmarCobroRecibo] cobro OK pero factura sin sellar', {
-      level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
-      extra: { reciboId, studioId, fuente, error: selladoFactura.error },
-    });
-  }
-
-  const { emitirPagoRealizado } = await import('../notifications/emit.ts');
-  await emitirPagoRealizado(admin, { studioId, reciboId });
-  const { enviarEmailReciboWebhook } = await import('../emails/enviar-recibo-webhook.ts');
-  await enviarEmailReciboWebhook(admin, { studioId, reciboId });
-
-  return { ok: true, actualizado: true };
+  if (!r.ok) return { ok: false, error: r.error, codigo: r.codigo };
+  return { ok: true, actualizado: r.transicion === 'aplicada' };
 }
 
 /**
@@ -183,7 +421,7 @@ export async function reintentarFacturasPendientesDeSellar(
   const desde = new Date(Date.now() - horas * 3600_000).toISOString();
   const { data: pendientes } = await admin
     .from('recibos')
-    .select('id, studio_id')
+    .select('id, studio_id, metodo_cobro, conciliado_por')
     .eq('factura_pendiente_sellar', true)
     .eq('estado', 'COBRADO')
     .gte('fecha_cobro', desde.slice(0, 10))
@@ -191,9 +429,10 @@ export async function reintentarFacturasPendientesDeSellar(
   if (!pendientes?.length) return 0;
 
   let selladas = 0;
-  for (const rec of pendientes as { id: string; studio_id: string }[]) {
+  for (const rec of pendientes as { id: string; studio_id: string; metodo_cobro: string | null; conciliado_por: string | null }[]) {
+    // El id del canal que lo intentó primero, no `fac-checkout-` para todos.
     const res = await sellarFacturaDeRecibo(admin, {
-      studioId: rec.studio_id, reciboId: rec.id, facturaId: `fac-checkout-${rec.id}`,
+      studioId: rec.studio_id, reciboId: rec.id, facturaId: facturaIdParaReintento(rec),
     });
     if (res.ok) {
       await admin.from('recibos').update({ factura_pendiente_sellar: false })
