@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { BASE_URL } from '@/lib/seo/paginas';
 import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins, Cormorant_Garamond, Libre_Caslon_Text, Figtree, IBM_Plex_Mono, Sacramento } from 'next/font/google';
-import { StudioProvider } from '@/lib/studio-context';
-import { AuthProvider } from '@/lib/auth-context';
+import { ProveedoresRaiz } from '@/components/raiz/proveedores-raiz';
 import { AhrefsAnalytics } from '@/components/analitica/ahrefs';
 import './globals.css';
 
@@ -206,9 +205,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             reevalúa. Decide por sí mismo en qué rutas mide — ver
             lib/ahrefs-cliente.ts. */}
         <AhrefsAnalytics />
-        <AuthProvider>
-          <StudioProvider>{children}</StudioProvider>
-        </AuthProvider>
+        {/* `AuthProvider` + `StudioProvider`, salvo en la app de la alumna, que
+            no los usa y se ahorra su código. Ver proveedores-raiz.tsx. */}
+        <ProveedoresRaiz>{children}</ProveedoresRaiz>
       </body>
     </html>
   );

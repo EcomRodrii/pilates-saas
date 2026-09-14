@@ -77,6 +77,23 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-explicit-any": "off",
     },
   },
+  {
+    // La app de la alumna se sirve SIN `AuthProvider` ni `StudioProvider`
+    // (components/raiz/proveedores-raiz.tsx): así no descarga ~65 KB gz de código
+    // del panel en cada arranque. Un `useStudio()` o un `useRol()` aquí no
+    // fallaría en el lint ni en `tsc`: lanzaría en ejecución, en el móvil de la
+    // socia. Esta regla lo para al escribirlo; el import INDIRECTO lo caza
+    // `e2e/student-sin-codigo-del-panel.spec.ts`, que mira el JS descargado.
+    files: ["app/portal/**/*.{ts,tsx}", "components/student/**/*.{ts,tsx}", "lib/student/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        paths: ["@/lib/studio-context", "@/lib/auth-context", "@/lib/core-context", "@/lib/permisos"].map((name) => ({
+          name,
+          message: "La app de la alumna no monta los providers del panel: ver components/raiz/proveedores-raiz.tsx.",
+        })),
+      }],
+    },
+  },
   // Aquí vivía el bloque que bajaba a "warn" 5 reglas de react-hooks
   // (`set-state-in-effect`, `purity`, `refs`, `preserve-manual-memoization`,
   // `immutability`) mientras se saldaba la deuda con la que llegaron. Su propio
