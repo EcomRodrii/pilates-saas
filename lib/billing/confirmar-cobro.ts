@@ -353,7 +353,7 @@ export async function confirmarCobro(
             paymentIntentCobrado: decision.anterior, paymentIntentDuplicado: p.paymentIntentId,
           },
         });
-        return { ok: false, codigo: 'NO_COBRABLE', error: 'Este recibo ya estaba cobrado con otro cargo: hay que devolver uno de los dos.' };
+        return { ok: false, codigo: 'NO_COBRABLE', estado: 'COBRADO', error: 'Este recibo ya estaba cobrado con otro cargo: hay que devolver uno de los dos.' };
       case 'no_cobrable':
         Sentry.captureMessage(decision.estado === 'ANULADO'
           ? '[confirmarCobro] pago sobre un recibo ANULADO: hay que devolverlo'
@@ -435,11 +435,11 @@ export async function confirmarCobroRecibo(
   }
 
   if (!r.ok) {
-    // Un recibo ANULADO (perdonado al cancelar la cuota) que aun así cobra: el
-    // dinero entró, no se marca ni se entrega nada y `confirmarCobro` ya avisó
-    // para devolverlo. Devolver error haría que Stripe reintentara para siempre
-    // un evento que no se va a poder aplicar nunca.
-    if (r.codigo === 'NO_COBRABLE' && r.estado === 'ANULADO') return { ok: true, actualizado: false };
+    // Un recibo ANULADO (perdonado al cancelar la cuota) o ya cobrado con otro
+    // cargo que aun así cobra: el dinero entró, no se marca ni se entrega nada y
+    // `confirmarCobro` ya avisó para devolverlo. Devolver error haría que Stripe
+    // reintentara para siempre un evento que no se va a poder aplicar nunca.
+    if (r.codigo === 'NO_COBRABLE' && (r.estado === 'ANULADO' || r.estado === 'COBRADO')) return { ok: true, actualizado: false };
     return { ok: false, error: r.error, codigo: r.codigo };
   }
   return { ok: true, actualizado: false };

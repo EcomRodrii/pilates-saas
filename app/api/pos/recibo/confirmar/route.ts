@@ -130,18 +130,14 @@ export async function POST(req: NextRequest) {
         paymentIntentId: est.paymentIntentId
           ?? (recibo.cobro_mostrador_pi.startsWith('cs_') ? null : recibo.cobro_mostrador_pi),
         fuente: 'tpv',
+        // El apunte de caja es uno de los efectos del cobro y lo hace quien
+        // gana la transición (este camino o el webhook), con quién cobraba.
+        actor: { userId: sesion.userId, nombre: sesion.nombre },
       });
       if (!res.ok) {
         return errorInterno('[pos/recibo] cobro bueno sin poder cerrarlo', res.error,
           'El cobro salió bien pero no hemos podido cerrarlo. Avísanos antes de volver a cobrar.');
       }
-
-      // El dinero pasó por el mostrador: que cuadre el arqueo. Idempotente por
-      // id derivado del recibo, así que el webhook llegando también no duplica.
-      await admin.rpc('apuntar_cobro_en_caja', {
-        p_studio_id: sesion.studioId, p_recibo_id: reciboId,
-        p_por: sesion.userId, p_por_nombre: sesion.nombre,
-      });
 
       await admin.from('recibos').update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
         .eq('id', reciboId).eq('studio_id', sesion.studioId);
