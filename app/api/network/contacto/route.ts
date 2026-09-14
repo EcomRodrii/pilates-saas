@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
 import { emitirRedContactoSolicitado } from '@/lib/notifications/emit';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Contacto — docs/NETWORK-IMPLEMENTATION-PLAN.md §6/§9.
 //
@@ -27,8 +28,17 @@ export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
+  const limitado = await enforceRateLimit(req, 'network-contacto', { max: 20, windowSeconds: 60 });
+  if (limitado) return limitado;
+
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  // Por persona además de por IP: cada solicitud le llega como aviso a alguien
+  // de fuera del estudio, así que una cuenta no puede soltar una ráfaga (desde
+  // /sustituciones basta un toque por profesional). Mismo patrón que /api/soporte.
+  const limitadoUsuario = await enforceRateLimit(req, 'network-contacto-usuario', { max: 20, windowSeconds: 600 }, sesion.userId);
+  if (limitadoUsuario) return limitadoUsuario;
 
   const body = (await req.json().catch(() => null)) as { perfilId?: unknown; mensaje?: unknown } | null;
   const perfilId = typeof body?.perfilId === 'string' ? body.perfilId : null;

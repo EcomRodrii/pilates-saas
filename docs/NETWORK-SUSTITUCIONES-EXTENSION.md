@@ -2,8 +2,17 @@
 
 Fase 11 del plan (`docs/NETWORK-IMPLEMENTATION-PLAN.md §17`): documentar dónde
 y cómo se conectaría Network con el motor de sustituciones ya existente, **sin
-tocar código de sustituciones**. Nada de lo de abajo está implementado — es el
-mapa para cuando se decida construirlo.
+tocar código de sustituciones**. Se escribió como mapa antes de construir nada.
+
+> **Estado (2026-09-14).** Ya construido: `tipos_clase.especialidad_network` (la
+> opción 1 de §3), `candidatosNetworkParaHueco()` en `crearBaja()` guardando
+> `sustituciones.candidatos_network` (migr `20260818010302`), y la sección aparte
+> y sin puntuar en `/sustituciones`. Con la sustitución **agotada** esa sección
+> pasa a primer plano, enlaza a la ficha del panel (`/network/[perfilId]`, con
+> chat previo) y tiene un botón «Pedir que la cubra» por profesional que manda
+> una `red_solicitudes_contacto` con solo tipo de clase, día y hora
+> (`lib/network/contacto-sustitucion.ts`). Sigue sin existir, a propósito:
+> contacto automático, «pedir a todas» y contratación automática (§5, §7).
 
 ## 1. Qué hay hoy, y por qué no es trivial enchufar Network encima
 

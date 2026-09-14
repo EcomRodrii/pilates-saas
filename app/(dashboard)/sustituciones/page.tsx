@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState, useId } from 'react';
+import { useEffect, useMemo, useRef, useState, useId } from 'react';
+import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
   cancelarClase, reprogramarClase, setAvisarAlumnas, setModoAutonomia, resumenValoraciones, generarEnlaceDisponibilidad, recalcularCandidatas,
-  pedirDisponibilidadMasiva,
+  pedirDisponibilidadMasiva, contactarPerfilNetwork,
   type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
+import { useRol, puedeVer } from '@/lib/permisos';
+import { mensajeCoberturaSustitucion, estadoContactoDesde, type EstadoContacto } from '@/lib/network/contacto-sustitucion';
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
 import { avisoEquipoIncompleto, motivoSinCandidatas, type DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import { encajeDe } from '@/lib/sustituciones/encaje';
@@ -16,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
-  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw, Loader2,
+  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw, Loader2, Send,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -755,6 +758,10 @@ function SustitucionCard({
         </div>
       )}
 
+      {/* Agotada: no queda nadie del equipo, así que Network es el siguiente
+          paso y va justo aquí, no al fondo de la tarjeta. */}
+      {s.estado === 'agotada' && <PropuestasNetwork s={s} tipoClase={tipo?.nombre ?? null} destacada />}
+
       {!hero ? (
         // Sin candidatas disponibles
         <div className="mt-4 rounded-xl bg-destructive/10 border border-red-100 p-3">
@@ -950,35 +957,8 @@ function SustitucionCard({
         </>
       )}
 
-      {/* Sección APARTE del ranking interno, nunca fusionada — sin puntuar
-          (docs/NETWORK-SUSTITUCIONES-EXTENSION.md §2). Solo aparece si el
-          tipo de clase tiene especialidad de Network mapeada Y hubo
-          resultados; nunca "0 candidatas de Network" como si fuera un fallo. */}
-      {(s.candidatos_network?.length ?? 0) > 0 && (
-        <div className="mt-4 rounded-2xl border border-border bg-muted/30 p-4">
-          <p className="text-[12px] font-bold text-foreground">Profesionales de Tentare Network</p>
-          <p className="text-[11.5px] text-muted-foreground mt-0.5">
-            Podrían encajar por especialidad y disponibilidad orientativa — confírmalo con ella antes de contar con su clase.
-          </p>
-          <div className="mt-3 space-y-2">
-            {s.candidatos_network!.map(c => (
-              <a
-                key={c.perfilId}
-                href={c.slug ? `/network/instructoras/${c.slug}` : '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-card transition-colors"
-              >
-                <ProfileAvatar avatarId={null} nombre={c.nombre} color="#343825" size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-foreground truncate">{c.nombre}</p>
-                  {c.ciudad && <p className="text-[11px] text-muted-foreground truncate">{c.ciudad}</p>}
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Fuera de «agotada» va aquí, detrás del ranking interno: es un extra. */}
+      {s.estado !== 'agotada' && <PropuestasNetwork s={s} tipoClase={tipo?.nombre ?? null} />}
 
       {/* Traza: qué ha hecho el motor por su cuenta */}
       <TrazaContactos contactos={s.sustitucion_contactos ?? []} instructores={instructores} activa={contactada || s.estado === 'agotada'} />
@@ -998,6 +978,109 @@ function SustitucionCard({
         <button onClick={() => onDescartar(s)} disabled={enProceso} className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors">
           {accionEnCurso === 'descartar' ? 'Guardando…' : 'Lo resuelvo por mi cuenta'}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// Profesionales de Tentare Network que podrían cubrir la clase. Sección APARTE
+// del ranking interno, nunca fusionada ni puntuada
+// (docs/NETWORK-SUSTITUCIONES-EXTENSION.md §2). Solo aparece si el tipo de clase
+// tiene especialidad de Network mapeada Y hubo resultados; nunca «0 candidatas».
+//
+// Decisión del fundador: Tentare PROPONE y la propietaria pide, con un toque por
+// profesional. Nunca se contacta a nadie de fuera solo, y no hay «pedir a todas».
+// El mensaje solo lleva tipo de clase, día y hora (nada de alumnas ni del motivo
+// de la baja) — ver lib/network/contacto-sustitucion.ts.
+function PropuestasNetwork({ s, tipoClase, destacada = false }: {
+  s: SustitucionPanel;
+  tipoClase: string | null;
+  destacada?: boolean;
+}) {
+  const rol = useRol();
+  const [estados, setEstados] = useState<Record<string, EstadoContacto | 'enviando'>>({});
+  // Candado síncrono contra el doble toque: el estado de React no se ha
+  // re-renderizado todavía cuando llega el segundo clic.
+  const enVuelo = useRef(new Set<string>());
+
+  const candidatas = s.candidatos_network ?? [];
+  if (candidatas.length === 0) return null;
+  // El buscador de Network es la herramienta de contratación del mostrador
+  // (propietaria/manager/recepción): quien no la ve tampoco pide desde aquí.
+  const puedeContactar = puedeVer(rol, '/network/buscar');
+
+  async function pedir(perfilId: string) {
+    if (enVuelo.current.has(perfilId)) return;
+    enVuelo.current.add(perfilId);
+    setEstados(prev => ({ ...prev, [perfilId]: 'enviando' }));
+    try {
+      const r = await contactarPerfilNetwork(perfilId, mensajeCoberturaSustitucion({ tipoClase, inicioISO: s.sesiones?.inicio ?? null }));
+      setEstados(prev => ({ ...prev, [perfilId]: estadoContactoDesde(r) }));
+    } finally {
+      enVuelo.current.delete(perfilId);
+    }
+  }
+
+  return (
+    <div className={destacada
+      ? 'mt-4 rounded-2xl border border-brand/30 bg-brand/[0.05] p-4 sm:p-5'
+      : 'mt-4 rounded-2xl border border-border bg-muted/30 p-4'}
+    >
+      <p className={destacada ? 'text-[14px] font-extrabold text-foreground leading-snug' : 'text-[12px] font-bold text-foreground'}>
+        {destacada
+          ? 'No queda nadie de tu equipo. Estas profesionales de Tentare Network podrían cubrirla'
+          : 'Profesionales de Tentare Network'}
+      </p>
+      <p className="text-[11.5px] text-muted-foreground mt-0.5">
+        Podrían encajar por especialidad y disponibilidad orientativa — confírmalo con ella antes de contar con su clase.
+        {puedeContactar && ' Solo le escribimos a quien tú pidas: le llega el tipo de clase, el día y la hora.'}
+      </p>
+      <div className="mt-3 space-y-2">
+        {candidatas.map(c => {
+          const estado = estados[c.perfilId];
+          const fila = (
+            <>
+              <ProfileAvatar avatarId={null} nombre={c.nombre} color="#343825" size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-foreground truncate">{c.nombre}</p>
+                {c.ciudad && <p className="text-[11px] text-muted-foreground truncate">{c.ciudad}</p>}
+              </div>
+            </>
+          );
+          if (!puedeContactar) {
+            return <div key={c.perfilId} className="flex items-center gap-2.5 p-2">{fila}</div>;
+          }
+          return (
+            <div key={c.perfilId} className="rounded-xl bg-card border border-border p-2">
+              <div className="flex items-center gap-2.5">
+                {/* Ficha DENTRO del panel: ahí están el chat previo y el estado de la solicitud. */}
+                <Link href={`/network/${encodeURIComponent(c.perfilId)}`} className="flex items-center gap-2.5 min-w-0 flex-1 rounded-lg hover:bg-muted/50 transition-colors">
+                  {fila}
+                </Link>
+                {estado && estado !== 'enviando' && estado.tipo === 'enviada' ? (
+                  <span className="shrink-0 inline-flex items-center gap-1 text-[12px] font-bold text-success" role="status">
+                    <Check size={14} /> Solicitud enviada
+                  </span>
+                ) : estado && estado !== 'enviando' && estado.tipo === 'ya-pedida' ? (
+                  <span className="shrink-0 text-[12px] font-semibold text-muted-foreground" role="status">Ya le has pedido contacto</span>
+                ) : (
+                  <button
+                    onClick={() => pedir(c.perfilId)}
+                    disabled={estado === 'enviando'}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-60 transition active:scale-[0.99]"
+                  >
+                    {estado === 'enviando'
+                      ? <><Loader2 size={13} className="animate-spin" /> Enviando…</>
+                      : <><Send size={13} /> Pedir que la cubra</>}
+                  </button>
+                )}
+              </div>
+              {estado && estado !== 'enviando' && estado.tipo === 'error' && (
+                <p className="mt-1.5 px-1 text-[11.5px] text-destructive" role="alert">{estado.mensaje}</p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
