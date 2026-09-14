@@ -1,0 +1,33 @@
+-- Tentare Network — las solicitudes de contacto solo se escriben desde el servidor.
+--
+-- Toda escritura de `red_solicitudes_contacto` pasa ya por rutas de servidor con
+-- service-role (app/api/network/contacto, contacto/resolver, candidaturas/[id]),
+-- que es donde viven las comprobaciones de quién puede crear o resolver una
+-- solicitud. Revisado antes de escribir esto: ningún código de navegador, de la
+-- app de la profesional, de e2e ni de realtime inserta, actualiza o borra en
+-- esta tabla, y la única función que la toca (`enviar_mensaje_red`) es SECURITY
+-- DEFINER y solo de service_role. Se alinea el privilegio con esa realidad.
+--
+-- A nivel de TABLA: un REVOKE por columna no resta nada a un GRANT de tabla.
+-- SELECT no se toca (lo siguen acotando las policies de siempre), y las
+-- policies no se borran. Los borrados en cascada (perfil, estudio) y el
+-- `on delete set null` de `sustitucion_id` los ejecuta el propietario de la
+-- tabla, así que no dependen de estos privilegios.
+
+revoke insert, update, delete on table public.red_solicitudes_contacto from anon, authenticated;
+
+-- Comprobaciones tras aplicar (todas deben dar lo indicado):
+--   select has_table_privilege('authenticated', 'public.red_solicitudes_contacto', 'INSERT');  -- false
+--   select has_table_privilege('authenticated', 'public.red_solicitudes_contacto', 'UPDATE');  -- false
+--   select has_table_privilege('authenticated', 'public.red_solicitudes_contacto', 'DELETE');  -- false
+--   select has_table_privilege('anon',          'public.red_solicitudes_contacto', 'INSERT');  -- false
+--   select has_table_privilege('anon',          'public.red_solicitudes_contacto', 'UPDATE');  -- false
+--   select has_table_privilege('anon',          'public.red_solicitudes_contacto', 'DELETE');  -- false
+--   select has_column_privilege('authenticated', 'public.red_solicitudes_contacto', 'studio_id', 'UPDATE');       -- false
+--   select has_column_privilege('authenticated', 'public.red_solicitudes_contacto', 'estado', 'UPDATE');          -- false
+--   select has_column_privilege('authenticated', 'public.red_solicitudes_contacto', 'sustitucion_id', 'UPDATE');  -- false
+--     (sustitucion_id existe desde 20260914113000: aplicar esa antes que esta)
+--   select has_table_privilege('authenticated', 'public.red_solicitudes_contacto', 'SELECT');  -- true (sin cambios)
+--   select has_table_privilege('service_role',  'public.red_solicitudes_contacto', 'INSERT');  -- true
+--   select has_table_privilege('service_role',  'public.red_solicitudes_contacto', 'UPDATE');  -- true
+--   select has_table_privilege('service_role',  'public.red_solicitudes_contacto', 'DELETE');  -- true
