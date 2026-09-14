@@ -67,3 +67,7 @@ next-env.d.ts
 
 # Capturas de scripts de comparación visual (se regeneran)
 .comparacion-visual/
+
+# Documentación interna: vive fuera del repo público (ver lib/repo-publico-guardia.test.ts)
+/auditoria-*
+/tentare.app-audit/
