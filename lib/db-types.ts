@@ -28,7 +28,7 @@ export interface RowReservas {
   // migr 20260914130000.
   bono_suscripcion_id: string | null;
   // migr 20260914130000.
-  bono_consumido_en: string | null;
+  bono_decidido_en: string | null;
   // migr 20260914130000.
   bono_consumo_rastreado: boolean | null;
 }

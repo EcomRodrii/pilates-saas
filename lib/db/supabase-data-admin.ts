@@ -23,8 +23,8 @@ import { primerError } from '@/lib/db/primer-error';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { esCodigoReserva, mensajeDeErrorReserva, MENSAJE_RESERVA_RPC } from '@/lib/reservas/errores-rpc';
 import {
-  descontarSesionDeReserva, efectosTrasReintento, ocupaPlaza, sesionDescontada, SIN_CONSUMO,
-  type ConsumoBono,
+  descontarSesionDeReserva, devolucionPermitida, efectosTrasConsumo, esColumnaInexistente, ocupaPlaza,
+  sesionDescontada, type ConsumoBono,
 } from '@/lib/reservas/consumo-bono-reserva';
 import { LEGAL } from '@/lib/legal-info';
 import { selloParaCliente, type SelloCliente } from '@/lib/factura-sello-cliente';
@@ -1104,8 +1104,8 @@ async function validarSociaPublica(
 
 async function consumirBonoServidor(admin: SupabaseClient, p: {
   studioId: string; socioId: string; sesionId: string;
-  /** La reserva que se cobra. `null` solo si no se ha podido identificar: descuento viejo, sin marca. */
-  reservaId: string | null;
+  /** La reserva que se cobra: la decisión (cobrada o no) queda marcada en ella. */
+  reservaId: string;
   /** Reintento del mismo intento: solo descuenta si puede PROBAR que falta. */
   reintento?: boolean;
 }): Promise<ConsumoBono> {
@@ -1121,8 +1121,10 @@ async function consumirBonoServidor(admin: SupabaseClient, p: {
   // descontaría de un bono que no cubre esta clase.
   const planes = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
   const consumible = bonoConsumible(socioId, suscripciones, planes, undefined, tipoClaseId);
-  if (!consumible) return SIN_CONSUMO('SIN_BONO');
-  const { suscripcion: sus, plan } = consumible;
+  // «No hay bono que cubra la clase» también es una decisión y se registra en la
+  // reserva (`suscripcionId: null`): si la socia compra un bono después, un
+  // reintento no le cobra esta clase.
+  //
   // Decremento ATÓMICO condicional (arregla el sobre-consumo concurrente): N
   // reservas simultáneas de la misma socia ya NO comparten el mismo descuento.
   // Y POR RESERVA (migr 20260914130000): la marca queda en la propia reserva en
@@ -1134,9 +1136,12 @@ async function consumirBonoServidor(admin: SupabaseClient, p: {
   // y justo por eso vale: si algún día deja de respetarla, salta aquí en vez
   // de servir la clase cara contra el bono barato en silencio.
   const consumo = await descontarSesionDeReserva(admin as never, {
-    studioId, sesionId, suscripcionId: sus.id, reservaId: p.reservaId, reintento: p.reintento ?? false,
+    studioId, sesionId, suscripcionId: consumible?.suscripcion.id ?? null,
+    reservaId: p.reservaId, reintento: p.reintento ?? false,
   });
   if (consumo.resultado === 'FALLO') { reportDbError('[consumirBonoServidor]', consumo.error); return consumo; }
+  if (!consumible) return consumo;
+  const { suscripcion: sus, plan } = consumible;
   if (consumo.resultado === 'SIN_SALDO') {
     // La socia SÍ tenía un bono consumible (`bonoConsumible` lo confirmó arriba)
     // pero el RPC no descontó. La reserva ya está CONFIRMADA, así que esto es
@@ -1162,7 +1167,7 @@ async function consumirBonoServidor(admin: SupabaseClient, p: {
     );
     return consumo;
   }
-  // YA_CONSUMIDA / NO_OCUPA_PLAZA / NO_VERIFICABLE: no se ha descontado nada
+  // YA_CONSUMIDA / YA_DECIDIDA / NO_OCUPA_PLAZA / NO_VERIFICABLE: no se ha descontado nada
   // ahora, así que tampoco se vuelve a anunciar «bono agotado».
   if (consumo.resultado !== 'CONSUMIDA') return consumo;
   // ⚠️ Aquí NO se crea ningún recibo. Agotar un bono es el final de una compra
@@ -1244,7 +1249,7 @@ export async function devolverBonoServidor(
 // para que el email de cancelación nunca prometa una sesión que no recuperó.
 export async function devolverBonosPorCancelacionClase(
   admin: SupabaseClient, studioId: string,
-  confirmadas: { socioId: string; tipoClaseId: string | null }[],
+  confirmadas: { socioId: string; tipoClaseId: string | null; reservaId?: string }[],
 ): Promise<Map<string, boolean>> {
   const devueltoPorSocia = new Map<string, boolean>();
   if (confirmadas.length === 0) return devueltoPorSocia;
@@ -1255,7 +1260,10 @@ export async function devolverBonosPorCancelacionClase(
     confirmadas.forEach(c => devueltoPorSocia.set(c.socioId, false));
     return devueltoPorSocia;
   }
+  // Una reserva rastreada que nunca se cobró de un bono no recupera nada.
+  const sinCobro = await reservasSinCobroRegistrado(admin, studioId, confirmadas.flatMap(c => c.reservaId ? [c.reservaId] : []));
   for (const c of confirmadas) {
+    if (c.reservaId && sinCobro.has(c.reservaId)) { devueltoPorSocia.set(c.socioId, false); continue; }
     devueltoPorSocia.set(c.socioId, (await devolverBonoServidor(admin, studioId, c.socioId, c.tipoClaseId)) === 'DEVUELTA');
   }
   return devueltoPorSocia;
@@ -1344,7 +1352,7 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
    * Reintento del MISMO intento (mismo id de reserva): la primera vez pudo morir
    * entre crear la reserva y descontar el bono. Se completa el descuento (es
    * idempotente por reserva) y el resto de efectos solo se repite si ese
-   * descuento ha ocurrido AHORA — ver `efectosTrasReintento`.
+   * descuento ha ocurrido AHORA — ver `efectosTrasConsumo`.
    */
   reintento?: boolean;
 }): Promise<boolean> {
@@ -1355,11 +1363,14 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
     const consumo = await consumirBonoServidor(admin, {
       studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId, reintento: true,
     });
-    if (!efectosTrasReintento(p.estado, consumo)) return false;
+    if (!efectosTrasConsumo(p.estado, consumo, true)) return false;
   } else if (p.estado === 'CONFIRMADA') {
-    await consumirBonoServidor(admin, {
+    const consumo = await consumirBonoServidor(admin, {
       studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId,
     });
+    // Una llamada concurrente con la misma reserva (un reintento) ya decidió el
+    // cobro: es ella la que avisa, cuenta la analítica y da los créditos.
+    if (!efectosTrasConsumo(p.estado, consumo, false)) return false;
   }
   if (p.estado === 'CONFIRMADA') {
     // La analítica de conversión mide a la ALUMNA reservando (widget, app,
@@ -1404,7 +1415,7 @@ async function trasPlazaConfirmada(admin: SupabaseClient, p: {
   const consumo = await consumirBonoServidor(admin, {
     studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId, reintento: p.reintento,
   });
-  if (p.reintento && !efectosTrasReintento('CONFIRMADA', consumo)) return;
+  if (!efectosTrasConsumo('CONFIRMADA', consumo, p.reintento ?? false)) return;
   const { emitirReserva } = await import('@/lib/notifications/emit');
   await emitirReserva(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, estado: 'CONFIRMADA' });
 }
@@ -1417,16 +1428,30 @@ async function trasPromocionDeEspera(admin: SupabaseClient, p: {
   //
   // La RPC de promoción devuelve a QUIÉN subió, no el id de su reserva: se
   // busca su reserva activa en esa clase (única por `uq_reserva_activa_socio_
-  // sesion`). Si la lectura falla o no aparece, `null` = el descuento de siempre,
-  // sin marca.
-  const { data: activa } = await admin.from('reservas').select('id')
+  // sesion`).
+  //
+  // ⚠️ Sin id NO se cobra «a la antigua». Un descuento sin marca sobre una
+  // reserva rastreada deja justo la señal de «cobro pendiente», y un reintento
+  // posterior (aceptar una oferta, aprobar) lo cobraría otra vez. Se prefiere
+  // no cobrar y dejarlo a la vista: descontar dos veces es peor.
+  const { data: activa, error: errActiva } = await admin.from('reservas').select('id')
     .eq('studio_id', p.studioId).eq('sesion_id', p.sesionId).eq('socio_id', p.socioId)
     .in('estado', ['CONFIRMADA', 'ASISTIDA']).maybeSingle();
-  const consumo = await consumirBonoServidor(admin, {
-    studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId,
-    reservaId: (activa?.id as string | undefined) ?? null,
-  });
-  const bonoConsumido = sesionDescontada(consumo);
+  const reservaId = (activa?.id as string | undefined) ?? null;
+  let bonoConsumido = false;
+  if (reservaId) {
+    const consumo = await consumirBonoServidor(admin, {
+      studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId,
+    });
+    bonoConsumido = sesionDescontada(consumo);
+    // Otra llamada ya decidió el cobro de esta reserva: es ella la que avisa.
+    if (!efectosTrasConsumo('CONFIRMADA', consumo, false)) return { bonoConsumido };
+  } else {
+    reportDbError(
+      '[trasPromocionDeEspera] sin reserva promovida que marcar: bono sin decidir (posible clase no cobrada)',
+      errActiva ?? { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId },
+    );
+  }
   // Correo «Se ha liberado tu plaza» (dice si se descontó sesión, solo si de
   // verdad ocurrió) + push. Cierra la mentira "te avisaremos si se libera una
   // plaza", da igual quién la liberase: una cancelación, el mostrador con
@@ -1448,6 +1473,9 @@ async function completarConfirmacionTrasReintento(admin: SupabaseClient, p: {
   /** Si viene, la reserva tiene que ser de esta socia (camino de la propia alumna). */
   socioId?: string;
 }): Promise<void> {
+  // Las plazas fijas materializadas no se cobran nunca (nacen no rastreadas);
+  // esto cubre también las anteriores a la migración.
+  if (p.reservaId.startsWith('res-pf-')) return;
   const { data: res } = await admin.from('reservas').select('estado, sesion_id, socio_id')
     .eq('id', p.reservaId).eq('studio_id', p.studioId).maybeSingle();
   if (!res || res.estado !== 'CONFIRMADA' || !res.sesion_id || !res.socio_id) return;
@@ -1456,6 +1484,30 @@ async function completarConfirmacionTrasReintento(admin: SupabaseClient, p: {
     studioId: p.studioId, socioId: res.socio_id as string, sesionId: res.sesion_id as string,
     reservaId: p.reservaId, reintento: true,
   });
+}
+
+// Al cancelar: reservas RASTREADAS cuyo cobro nunca salió de un bono (sin bono,
+// o canceladas con el cobro aún en vuelo — ver `devolucionPermitida`). A esas no
+// se les devuelve sesión: regalaría saldo. Hay que leerlo DESPUÉS de cancelar:
+// un cobro que aún no hubiera terminado ya ve la reserva cancelada y no descuenta.
+// Sin la migración aplicada (columnas inexistentes) devuelve vacío y todo sigue
+// como siempre; un error de lectura también, pero se reporta.
+export async function reservasSinCobroRegistrado(
+  admin: SupabaseClient, studioId: string, reservaIds: string[],
+): Promise<Set<string>> {
+  const sinCobro = new Set<string>();
+  if (reservaIds.length === 0) return sinCobro;
+  const { data, error } = await admin.from('reservas')
+    .select('id, bono_consumo_rastreado, bono_suscripcion_id')
+    .eq('studio_id', studioId).in('id', reservaIds);
+  if (error) {
+    if (!esColumnaInexistente(error)) reportDbError('[reservasSinCobroRegistrado]', error);
+    return sinCobro;
+  }
+  for (const r of data ?? []) {
+    if (!devolucionPermitida(r)) sinCobro.add(r.id as string);
+  }
+  return sinCobro;
 }
 
 // Recordatorios de revisión de ficha clínica (FICHA-CLINICA.md §10). Recorre las
@@ -3182,7 +3234,7 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
   // le prometa a nadie una sesión que no ha recuperado. En esta cancelación cada
   // socia recibe su propio correo, así que el dato es por persona, no global.
   const devueltoPorSocia = await devolverBonosPorCancelacionClase(admin, params.studioId,
-    confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId })));
+    confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })));
 
   // CLASE_CANCELADA no manda email a propósito (catalog.ts) — aquí SÍ hay
   // dinero de por medio, así que se manda explícito. CancelacionClaseEmail ya
@@ -3341,7 +3393,12 @@ export async function ejecutarCancelacionReserva(
     // panel y cualquier superficie que venga. Este camino ya la resolvía bien,
     // pero tenerla escrita dos veces es exactamente cómo se desincronizó del
     // panel. `?? true` mantiene lo de siempre si la RPC aún no trae la columna.
-    if (inicio && (row?.devolver_bono ?? true)) {
+    // Una reserva rastreada que nunca se cobró de un bono (sin bono, o cancelada
+    // con el cobro aún en vuelo) no recupera nada: devolverle una sesión
+    // regalaría saldo. La decisión de política de la BD (`devolver_bono`) no lo
+    // sabe: responde a «¿toca devolver?», no a «¿se cobró?».
+    const nuncaCobrada = (await reservasSinCobroRegistrado(admin, params.studioId, [params.reservaId])).has(params.reservaId);
+    if (inicio && (row?.devolver_bono ?? true) && !nuncaCobrada) {
       // Se devuelve al bono que cubre esa clase: es del que se descontó.
       // I-5: `bonoDevuelto` sale de lo que REALMENTE pasó, no de haber llamado.
       // Antes se ponía a true a pelo, así que el email de cancelación le decía a
