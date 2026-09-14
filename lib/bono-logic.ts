@@ -312,9 +312,14 @@ export function calcularReactivacion(
  * no se iban a volver a cobrar nunca.
  *
  * La lógica correcta ya vivía aquí, en `calcularReactivacion`, cuyo comentario
- * decía «mismo criterio que `assignPlan`» — y no lo era. Ahora sí: los cuatro
- * caminos (alta de socia, asignar plan, compra web y reactivar) pasan por esta
- * función y no pueden volver a separarse.
+ * decía «mismo criterio que `assignPlan`» — y no lo era. Ahora sí: los cinco
+ * caminos (alta de socia, asignar plan, compra web, reactivar y la venta del
+ * TPV) pasan por esta función.
+ *
+ * ⚠️ «Y no pueden volver a separarse» decía aquí, y el TPV se había quedado
+ * fuera: hasta el 14-sep una cuota vendida en el mostrador nacía sin fecha de
+ * fin (lib/pos/suscripcion-de-linea.ts). Ahora lo vigila una guardia que falla
+ * si alguien fuera de este fichero llama a `calcularFechaFinBono`.
  */
 export function cicloInicialDe(
   plan: Pick<PlanTarifa, 'tipo' | 'sesiones' | 'validezDias'> & Partial<Pick<PlanTarifa, 'periodicidadMeses'>>,

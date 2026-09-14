@@ -1560,7 +1560,9 @@ export type TipoActividad =
   | 'GESTORIA_CAMBIADA'
   // Cambio de la cuenta donde entra el dinero (Stripe Connect o datos SEPA).
   // Lo escriben solo rutas de servidor.
-  | 'CUENTA_COBRO_CAMBIADA';
+  | 'CUENTA_COBRO_CAMBIADA'
+  // Dominios autorizados del widget embebido. Solo /api/estudio/widget-dominios.
+  | 'WIDGET_DOMINIOS_CAMBIADOS';
 
 export interface ActividadReciente {
   id: string;

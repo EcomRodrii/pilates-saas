@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
+import { hashToken } from '@/lib/token-hash';
 import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { ultimaRespuestaDe, type ContactoFila } from '@/lib/sustituciones/traza';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
@@ -24,6 +25,9 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   const sustitucionId = claim.ref;
+  // La traza guarda solo el hash del token (migr 20260914110100). La firma ya
+  // está verificada arriba; el hash solo sirve para encontrar SU contacto.
+  const tokenHash = hashToken(String(body?.token));
 
   if (body?.accion === 'aceptar') {
     // Auditoría de producto (P0-3): `confirmar_sustitucion` autoriza a
@@ -82,7 +86,7 @@ export async function POST(req: NextRequest) {
     // Marca este contacto como aceptado.
     await admin.from('sustitucion_contactos')
       .update({ estado: 'aceptado', respondido_en: new Date().toISOString() })
-      .eq('token', body?.token ?? '');
+      .eq('token_hash', tokenHash).eq('sustitucion_id', sustitucionId);
 
     // Avisa a las alumnas (si el estudio lo tiene activado): "tu clase sigue en pie".
     if (r.sesion_id) {
@@ -98,7 +102,7 @@ export async function POST(req: NextRequest) {
   if (body?.accion === 'rechazar') {
     await admin.from('sustitucion_contactos')
       .update({ estado: 'rechazado', respondido_en: new Date().toISOString() })
-      .eq('token', body?.token ?? '');
+      .eq('token_hash', tokenHash).eq('sustitucion_id', sustitucionId);
 
     // El "no puedo" tiene que llegar a la propietaria SIEMPRE, no solo en modo
     // asistido: en autónomo el motor avanzaba a la siguiente candidata en

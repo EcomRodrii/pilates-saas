@@ -8,6 +8,7 @@ import { inngest, EVENTS } from '@/lib/inngest/client';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
 import { contactarCandidata, ESTADOS_EN_JUEGO, type RankingItem } from '@/lib/sustituciones/contacto';
 import { crearBaja } from '@/lib/sustituciones/baja';
+import { candidataDelEstudio } from '@/lib/sustituciones/candidata-del-estudio';
 import { featureDeEstudio } from '@/lib/billing/feature-estudio';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import {
@@ -207,6 +208,13 @@ export async function PATCH(req: NextRequest) {
     const instructorId = typeof body?.instructorId === 'string' ? body.instructorId : null;
     if (!instructorId) return NextResponse.json({ error: 'Falta la candidata (instructorId)' }, { status: 400 });
 
+    // El id llega del cuerpo de la petición: tiene que ser una ficha activa de
+    // ESTE estudio antes de asignarle la clase (y de mandar su nombre a las
+    // alumnas). La RPC lo vuelve a comprobar, pero aquí se corta con un 404
+    // claro en vez de un 409 que diría «ya resuelta».
+    const candidata = await candidataDelEstudio(admin, instructorId, sesion.studioId);
+    if (!candidata) return NextResponse.json({ error: 'Esa instructora no está en el equipo de este estudio' }, { status: 404 });
+
     // La RPC confirmar_sustitucion no comprueba si la clase ya empezó (solo
     // revalida solape de horario) — se hace aquí, igual que crearBaja.
     const { data: sust } = await admin
@@ -247,9 +255,8 @@ export async function PATCH(req: NextRequest) {
       if (body?.avisar === false) {
         alumnas = { avisadas: 0, total: 0, skipped: true, desactivado: false };
       } else {
-        const { data: cand } = await admin.from('instructores').select('nombre').eq('id', instructorId).maybeSingle();
         alumnas = await avisarAlumnas(admin, {
-          sesionId: r.sesion_id, studioId: sesion.studioId, tipo: 'cubierta', sustituta: cand?.nombre,
+          sesionId: r.sesion_id, studioId: sesion.studioId, tipo: 'cubierta', sustituta: candidata.nombre ?? undefined,
         });
       }
     }

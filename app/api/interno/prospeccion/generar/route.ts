@@ -8,6 +8,7 @@ import {
 } from '@/lib/ai/prospeccion-email-prompt';
 import { errorInterno } from '@/lib/errores-servidor';
 import { aBorrador } from '@/lib/interno/prospeccion';
+import { bloqueoProspeccion } from '@/lib/interno/prospeccion-activa';
 
 export const runtime = 'nodejs';
 
@@ -24,6 +25,9 @@ const client = new Anthropic();
 export async function POST(req: NextRequest) {
   const g = await exigirPermiso(req, 'marketing.send');
   if ('error' in g) return g.error;
+  // ⚠️ Prospección desactivada hasta dictamen legal (lib/interno/prospeccion-activa.ts).
+  const bloqueo = bloqueoProspeccion(process.env);
+  if (bloqueo) return NextResponse.json({ error: bloqueo.error, codigo: bloqueo.codigo }, { status: bloqueo.status });
 
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });

@@ -4,6 +4,7 @@ import { exigirPermiso } from '@/lib/interno/auth';
 import { registrar } from '@/lib/interno/auditoria';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { siguienteLote, TAMANO_LOTE } from '@/lib/interno/prospeccion';
+import { bloqueoProspeccion } from '@/lib/interno/prospeccion-activa';
 
 export const runtime = 'nodejs';
 
@@ -17,6 +18,9 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   const g = await exigirPermiso(req, 'marketing.send');
   if ('error' in g) return g.error;
+  // ⚠️ Prospección desactivada hasta dictamen legal (lib/interno/prospeccion-activa.ts).
+  const bloqueo = bloqueoProspeccion(process.env);
+  if (bloqueo) return NextResponse.json({ error: bloqueo.error, codigo: bloqueo.codigo }, { status: bloqueo.status });
 
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });

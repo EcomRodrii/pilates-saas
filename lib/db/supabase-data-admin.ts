@@ -4,6 +4,7 @@ import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
 import { configLegalDe } from '@/lib/legal-textos';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { tokenCoincideConHash } from '@/lib/token-hash';
 import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
 import { mapLimit } from '@/lib/concurrency';
@@ -4205,15 +4206,10 @@ export async function actualizarSociaPublica(params: {
       return { error: 'Esa foto no es válida. Súbela desde tu perfil.' as const };
     }
   }
-  // Aceptación del contrato (clickwrap): objeto anidado → columnas de registro.
-  // Sin esto, la aceptación se perdía y no quedaba evidencia (C-7).
-  const ac = params.cambios.aceptacionContrato as
-    { fecha?: string; firma?: string; versionTexto?: string } | undefined;
-  if (ac && typeof ac === 'object') {
-    db.aceptacion_fecha = ac.fecha ?? null;
-    db.aceptacion_firma = ac.firma ?? null;
-    db.aceptacion_version = ac.versionTexto ?? null;
-  }
+  // Aceptación del contrato: ya NO se escribe aquí. Guardaba la fecha y el
+  // texto que mandaba el navegador, sin origen. La sella la ruta
+  // (`/api/public/socio`, `registrarAceptacionContrato`) con valores del
+  // servidor y la aparta de `cambios` antes de llegar a esta función.
   if (Object.keys(db).length === 0) return { ok: true as const };
   const { error } = await admin.from('socios').update(db).eq('id', params.socioId);
   if (error) {
@@ -4633,20 +4629,16 @@ async function evaluarGamificacionServidor(
 }
 
 // C-2: valida el token de dispositivo de kiosko de un estudio. Sin token
-// configurado (NULL) el check-in público queda cerrado (devuelve false), que es
-// el lado seguro. Solo tiene sentido en servidor (usa service-role); en cliente
-// getSupabaseAdmin() es null y devuelve false.
+// configurado el check-in público queda cerrado (devuelve false), que es el lado
+// seguro. La BD guarda solo el SHA-256 (`kiosko_tokens`, migr 20260914110000):
+// se compara el hash del token recibido, en tiempo constante.
 
 export async function validarKioskToken(studioId: string, token: string | null): Promise<boolean> {
   if (!token) return false;
   const admin = getSupabaseAdmin();
   if (!admin) return false;
-  const { data } = await admin.from('studios').select('kiosk_token').eq('id', studioId).maybeSingle();
-  const esperado = (data?.kiosk_token ?? '') as string;
-  // El token es aleatorio de alta entropía; una comparación directa es
-  // suficiente (un ataque de temporización sobre un secreto aleatorio no es
-  // práctico) y evita importar `crypto` en un módulo que también corre en cliente.
-  return esperado.length > 0 && esperado === token;
+  const { data } = await admin.from('kiosko_tokens').select('token_hash').eq('studio_id', studioId).maybeSingle();
+  return tokenCoincideConHash(token, (data?.token_hash as string | undefined) ?? null);
 }
 
 // Check-in de kiosk: marca la reserva ASISTIDA, otorga créditos de asistencia y,

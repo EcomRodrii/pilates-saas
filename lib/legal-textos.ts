@@ -1,3 +1,5 @@
+import { EDAD_MINIMA_CONSENTIMIENTO_SALUD } from './datos-salud/edad.ts';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Los textos legales que firma la clienta, con los datos REALES del estudio.
 //
@@ -184,8 +186,20 @@ export function textoConsentimientoMarketing(e: DatosEstudioLegal = {}): string 
  * clase), que hay proveedores tecnológicos por medio y que revocar BLOQUEA los
  * datos, no los borra (borrarlos es una petición aparte).
  */
-export function textoConsentimientoSaludPanel(e: DatosEstudioLegal = {}): string {
+export function textoConsentimientoSaludPanel(
+  e: DatosEstudioLegal = {},
+  firmante: 'SOCIA' | 'TUTOR_LEGAL' = 'SOCIA',
+): string {
   const nombreEstudio = !vacio(e.nombre) ? e.nombre!.trim() : 'el Estudio';
+  // Menor de 14 (o persona con tutela): firma su padre, madre o tutor legal, y
+  // el texto guardado como prueba lo dice. ⚠️ REVISIÓN LEGAL NECESARIA.
+  if (firmante === 'TUTOR_LEGAL') {
+    return [
+      `Como padre, madre o tutor legal de la alumna (menor de ${EDAD_MINIMA_CONSENTIMIENTO_SALUD} años o bajo mi tutela), autorizo expresamente a ${nombreEstudio} a tratar los datos sobre su salud que le comunique (lesiones u otras condiciones que influyan en el ejercicio) con la única finalidad de adaptar sus clases con seguridad.`,
+      `Los verán la dirección del estudio y las instructoras que le den clase. El estudio los gestiona con su programa de gestión, cuyos proveedores tecnológicos los tratan por cuenta del estudio.`,
+      `Puedo retirar esta autorización cuando quiera, pidiéndolo en el propio estudio. Desde ese momento dejarán de estar visibles para el personal, y puedo pedir además que se eliminen.`,
+    ].join('\n\n');
+  }
   return [
     `Autorizo expresamente a ${nombreEstudio} a tratar los datos sobre mi salud que le comunique (lesiones, embarazo u otras condiciones que influyan en el ejercicio) con la única finalidad de adaptar mis clases con seguridad.`,
     `Los verán la dirección del estudio y las instructoras que me den clase. El estudio los gestiona con su programa de gestión, cuyos proveedores tecnológicos los tratan por cuenta del estudio.`,

@@ -353,7 +353,7 @@ interface StudioContextValue {
     socioIds: string[],
   ) => Promise<{ ok: true; registradas: number; yaVigentes: number; noEncontradas: number } | { ok: false; error: string }>;
   /** Consentimiento de salud (art. 9) de una socia. Fecha, autor y texto los fija el servidor. */
-  registrarConsentimientoSalud: (socioId: string, firma: string) => Promise<ResultadoEscritura>;
+  registrarConsentimientoSalud: (socioId: string, firma: string, firmante?: 'SOCIA' | 'TUTOR_LEGAL') => Promise<ResultadoEscritura>;
   /** Lo retira sin borrar la prueba; los datos de salud quedan bloqueados por la RLS. */
   revocarConsentimientoSalud: (socioId: string) => Promise<ResultadoEscritura>;
 
@@ -1729,8 +1729,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Consentimiento de datos de salud (art. 9) de UNA socia. Lo escribe el
   // servidor (fecha, autor y texto vigente); aquí solo se pinta lo que devolvió.
-  async function registrarConsentimientoSalud(socioId: string, firma: string): Promise<ResultadoEscritura> {
-    const r = await registrarConsentimientoSaludApi(socioId, firma);
+  async function registrarConsentimientoSalud(socioId: string, firma: string, firmante?: 'SOCIA' | 'TUTOR_LEGAL'): Promise<ResultadoEscritura> {
+    const r = await registrarConsentimientoSaludApi(socioId, firma, firmante);
     if (!r.ok) return r;
     // Si ya constaba, el servidor devuelve la firma anterior, no la tecleada.
     setSocios(prev => prev.map(s => s.id === socioId ? { ...s, consentimientoSalud: r.consentimiento ?? undefined } : s));

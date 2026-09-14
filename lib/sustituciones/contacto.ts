@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { firmarTokenInstructora } from '@/lib/sustituciones/token';
+import { hashToken } from '@/lib/token-hash';
 import {
   enviarEmailContactoSustituta,
   enviarEmailAlertaPropietaria,
@@ -86,7 +87,9 @@ async function registrarContacto(
       instructor_id: p.instructorId,
       canal: p.canal,
       estado: p.estado,
-      token: p.token ?? null,
+      // Solo el hash (migr 20260914110100): el token en claro va únicamente en
+      // el enlace del email. La ruta pública localiza el contacto por hash.
+      token_hash: p.token ? hashToken(p.token) : null,
     });
   } catch (e) {
     console.error('[sustituciones] no se pudo registrar el contacto', e);

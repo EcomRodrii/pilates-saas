@@ -38,9 +38,9 @@ export function useAforoEnVivoPortal(
   }, [slug, refrescar]);
 
   // ⚠️ DOS clientes, y no es un descuido. El canal lo abre `supabase` (el
-  // cliente completo, que ya está cargado aquí porque `StudioProvider` envuelve
-  // toda la app aunque quede inerte en /portal) y la identidad la pone
-  // `supabasePortal.auth`, donde vive la sesión de la socia.
+  // cliente completo, que la app de la alumna ya carga por `lib/api-client.ts`
+  // —ya no por `StudioProvider`, que en /portal no se monta—) y la identidad la
+  // pone `supabasePortal.auth`, donde vive la sesión de la socia.
   //
   // `supabasePortal` es SOLO `.auth` a propósito: un cliente completo instancia
   // Postgrest/Realtime/Storage en su constructor y eso metía ~110 KB de más en

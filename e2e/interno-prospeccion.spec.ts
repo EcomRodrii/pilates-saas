@@ -39,7 +39,7 @@ const borrador = (o: Partial<{ id: string; asunto: string; cuerpo: string; estad
 });
 
 async function montar(page: Page, opts: {
-  prospectos?: unknown[]; borradores?: unknown[]; buzonConfigurado?: boolean;
+  prospectos?: unknown[]; borradores?: unknown[]; buzonConfigurado?: boolean; activa?: boolean;
 } = {}) {
   await page.addInitScript(key => {
     localStorage.setItem(key, JSON.stringify({
@@ -63,6 +63,10 @@ async function montar(page: Page, opts: {
       prospectos: opts.prospectos ?? [PROSPECTO],
       borradores: opts.borradores ?? [borrador()],
       buzonConfigurado: opts.buzonConfigurado ?? true,
+      // El interruptor PROSPECCION_ACTIVA viaja en la respuesta: sin él la
+      // pantalla se pinta como desactivada y los botones no aparecen.
+      activa: opts.activa ?? true,
+      motivoDesactivada: opts.activa === false ? 'Prospección desactivada hasta revisión legal.' : null,
     });
   });
 
@@ -123,6 +127,14 @@ test.describe('Prospección en frío', () => {
   test('sin nada aprobado no aparece el botón de enviar', async ({ page }) => {
     await montar(page);
     await expect(page.getByRole('heading', { name: 'Pilates BCN' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: /Enviar siguiente lote/ })).toHaveCount(0);
+  });
+
+  test('⚠️ con la prospección desactivada se avisa y no se puede aprobar ni enviar', async ({ page }) => {
+    await montar(page, { borradores: [borrador({ estado: 'APROBADO' }), borrador({ id: 'p-2' })], activa: false });
+    await expect(page.getByRole('status').filter({ hasText: /No se puede importar, generar, aprobar/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Pilates BCN' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Aprobar' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Enviar siguiente lote/ })).toHaveCount(0);
   });
 

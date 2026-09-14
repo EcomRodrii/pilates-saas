@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import { registrar } from '@/lib/interno/auditoria';
 import { aBorrador } from '@/lib/interno/prospeccion';
+import { bloqueoProspeccion } from '@/lib/interno/prospeccion-activa';
 
 export const runtime = 'nodejs';
 
@@ -38,6 +39,13 @@ export async function PATCH(req: NextRequest) {
   }
 
   const accion = body.accion ?? 'guardar';
+
+  // ⚠️ Con la prospección desactivada solo se puede DESCARTAR: reduce lo que
+  // podría salir. Aprobar o reescribir es preparar un envío.
+  if (accion !== 'descartar') {
+    const bloqueo = bloqueoProspeccion(process.env);
+    if (bloqueo) return NextResponse.json({ error: bloqueo.error, codigo: bloqueo.codigo }, { status: bloqueo.status });
+  }
   const asunto = body.asunto !== undefined ? body.asunto.trim() : (antes.asunto as string);
   const texto = body.cuerpo !== undefined ? body.cuerpo.trim() : (antes.cuerpo as string);
 

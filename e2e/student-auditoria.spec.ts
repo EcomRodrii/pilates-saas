@@ -82,6 +82,29 @@ test.describe('Student PWA · resto de la auditoría', () => {
     await expect(page.getByText(/tarjeta eliminada/i)).toBeVisible();
   });
 
+  test('un Link guardado se ve y se puede quitar, sin inventar tarjeta ni caducidad', async ({ page }) => {
+    // Pagar con Link en el checkout embebido deja un método que se cobra en cada
+    // renovación, pero sin marca de tarjeta ni últimos cuatro. La pantalla
+    // decidía por los últimos cuatro: lo escondía («No tienes ninguna tarjeta
+    // guardada») y no dejaba quitarlo.
+    const borrados = await montar(page, (f) => {
+      const socia = f.socia as Record<string, unknown>;
+      const socio = socia.socio as Record<string, unknown>;
+      socio.tarjetaMarca = 'link'; socio.tarjetaUltimos4 = null; socio.tarjetaExpMes = null; socio.tarjetaExpAnio = null;
+    });
+    await page.goto(`${base}/perfil/pago`);
+    const t = page.getByTestId('tarjeta');
+    await expect(t).toBeVisible({ timeout: 30_000 });
+    await expect(t.getByText('Link', { exact: true })).toBeVisible();
+    await expect(t.getByText(/••••/)).toHaveCount(0);
+    await expect(t.getByText(/Caduca/)).toHaveCount(0);
+
+    await page.getByRole('button', { name: /^quitar link$/i }).click();
+    await page.getByRole('button', { name: /sí, quitar link/i }).click();
+    await expect.poll(() => borrados.length).toBe(1);
+    await expect(page.getByText(/link eliminado/i)).toBeVisible();
+  });
+
   test('sin tarjeta guardada se dice, no se pinta una vacía', async ({ page }) => {
     await montar(page);
     await page.goto(`${base}/perfil/pago`);

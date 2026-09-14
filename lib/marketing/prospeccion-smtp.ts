@@ -21,6 +21,7 @@
 // contraseña del propio buzón.
 // ─────────────────────────────────────────────────────────────────────────────
 import nodemailer from 'nodemailer';
+import { prospeccionActiva, MOTIVO_PROSPECCION_DESACTIVADA } from '../interno/prospeccion-activa.ts';
 
 export interface ResultadoEnvio {
   ok: boolean;
@@ -88,6 +89,8 @@ function aHtml(cuerpo: string): string {
 export async function enviarProspeccion(input: {
   to: string; asunto: string; cuerpo: string;
 }): Promise<ResultadoEnvio> {
+  // Última barrera: nada sale por SMTP con la prospección apagada, llame quien llame.
+  if (!prospeccionActiva(process.env)) return { ok: false, error: MOTIVO_PROSPECCION_DESACTIVADA };
   const transporte = transporteSpacemail();
   if (!transporte) {
     return { ok: false, error: 'Buzón sin configurar (faltan SPACEMAIL_USER / SPACEMAIL_PASSWORD).' };

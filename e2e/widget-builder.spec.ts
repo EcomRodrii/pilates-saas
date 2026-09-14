@@ -279,10 +279,16 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
 
   test('⚠️ guardar un dominio dispara el registro de wallets (contador real, no fe)', async ({ page }) => {
     const { patches } = await montar(page);
-    // Registrada DESPUÉS de montar: en Playwright la última ruta gana, así
-    // que esta pisa el catch-all **/api/** para poder CONTAR los intentos —
+    // Registradas DESPUÉS de montar: en Playwright la última ruta gana, así
+    // que pisan el catch-all **/api/** para poder CONTAR los intentos —
     // sin contador, este test saldría verde sin haberse pedido nada
     // ([[test-4xx-necesita-contador-de-intentos]]).
+    const envios: string[][] = [];
+    await page.route('**/api/estudio/widget-dominios', route => {
+      const cuerpo = route.request().postDataJSON() as { dominios: string[] };
+      envios.push(cuerpo.dominios);
+      return json(route, { ok: true, dominios: cuerpo.dominios });
+    });
     let intentosWallet = 0;
     await page.route('**/api/widget/dominios-wallet', route => {
       intentosWallet++;
@@ -293,12 +299,13 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
     await page.getByPlaceholder('midominio.com').fill('otrodominio.com');
     await page.getByRole('button', { name: 'Añadir' }).click();
 
-    // Primero el guardado real del dominio (PATCH a studios)...
+    // Primero el guardado real del dominio, por la ruta de servidor (el
+    // navegador ya no puede escribir la columna: migr 20260914110200)...
     await expect.poll(
-      () => patches.some(p => Array.isArray(p.widget_dominios_autorizados)
-        && (p.widget_dominios_autorizados as string[]).includes('https://otrodominio.com')),
+      () => envios.some(d => d.includes('https://otrodominio.com')),
       { timeout: 10_000 },
     ).toBe(true);
+    expect(patches.some(p => 'widget_dominios_autorizados' in p)).toBe(false);
     // ...y detrás, el fire-and-forget que registra el dominio para Apple Pay.
     await expect.poll(() => intentosWallet, { timeout: 10_000 }).toBeGreaterThan(0);
   });

@@ -1,4 +1,5 @@
 import { authHeader } from '@/lib/api-client';
+import type { FirmanteConsentimiento } from '@/lib/datos-salud/consentimiento';
 
 // Panel → rutas de consentimiento de salud. El servidor fija fecha, autor y
 // texto; aquí solo viaja la firma tecleada.
@@ -26,8 +27,11 @@ async function enviar(url: string, body: unknown): Promise<ResultadoConsentimien
   }
 }
 
-export function registrarConsentimientoSaludApi(socioId: string, firma: string): Promise<ResultadoConsentimientoApi> {
-  return enviar(`/api/socios/${encodeURIComponent(socioId)}/consentimiento-salud`, { firma });
+export function registrarConsentimientoSaludApi(
+  socioId: string, firma: string, firmante?: FirmanteConsentimiento,
+): Promise<ResultadoConsentimientoApi> {
+  // `firmante` es una declaración; la edad la comprueba el servidor.
+  return enviar(`/api/socios/${encodeURIComponent(socioId)}/consentimiento-salud`, { firma, firmante });
 }
 
 export function revocarConsentimientoSaludApi(socioId: string): Promise<ResultadoConsentimientoApi> {

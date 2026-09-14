@@ -4658,6 +4658,11 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('stripeAccountId' in changes || 'sepaIban' in changes || 'sepaAcreedorId' in changes || 'sepaTitular' in changes) {
     return { ok: false, error: 'La cuenta de cobro se cambia desde Configuración → Cobros e Integraciones.' };
   }
+  // Igual con los dominios del widget (migr 20260914110200): van por
+  // /api/estudio/widget-dominios, que valida el formato y deja constancia.
+  if ('widgetDominiosAutorizados' in changes) {
+    return { ok: false, error: 'Los dominios del widget se cambian desde Configuración → API.' };
+  }
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('nif' in changes) db.nif = changes.nif;
@@ -4671,7 +4676,6 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('telefono' in changes) db.telefono = changes.telefono;
   if ('colorPrimario' in changes) db.color_primario = changes.colorPrimario;
   if ('temaPortal' in changes) db.tema_portal = changes.temaPortal;
-  if ('widgetDominiosAutorizados' in changes) db.widget_dominios_autorizados = changes.widgetDominiosAutorizados;
   if ('widgetBuilder' in changes) db.widget_builder = changes.widgetBuilder;
   if ('logoUrl' in changes) db.logo_url = changes.logoUrl;
   if ('ivaPorDefecto' in changes) db.iva_por_defecto = changes.ivaPorDefecto;

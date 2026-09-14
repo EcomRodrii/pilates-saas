@@ -19,11 +19,11 @@ import './student.css';
 // el navegador pinte nada.
 //
 // ⚠️ Lo que NO hace, y es la decisión de arquitectura de toda la app: no monta
-// `StudioProvider` (lib/studio-context.tsx). El de `app/layout.tsx` sigue por
-// encima —envuelve toda la aplicación— pero queda inerte en estas rutas: su
-// guardia de ruta pública (`shadowedByPublicRoute`, studio-context.tsx:687)
-// reconoce el prefijo `/portal/`, y sin sesión de personal su efecto de carga
-// sale por el `return` temprano. La app de la alumna no lee su contexto.
+// `StudioProvider` (lib/studio-context.tsx) ni `AuthProvider`. Y desde que la
+// raíz los monta vía `components/raiz/proveedores-raiz.tsx`, tampoco llegan de
+// arriba: en `/portal/**` no se renderizan ni se descarga su código (~65 KB gz).
+// Un `useStudio()`/`useAuth()` aquí LANZA en ejecución; lo impide la regla de
+// `eslint.config.mjs` y lo vigila `e2e/student-sin-codigo-del-panel.spec.ts`.
 
 export const viewport: Viewport = {
   // El crema del kit. El navegador tiñe con esto la barra de estado cuando la

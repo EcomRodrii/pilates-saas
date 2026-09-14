@@ -136,6 +136,15 @@ function fixture(sociaExtra: Fila = {}): Record<string, Fila[]> {
     notas_progreso: [{ id: 'np1', studio_id: 'st1', socio_id: 's1', instructor_id: 'i1', sesion_id: 'se1', progreso: 'Mejor', creada_en: '2026-09-01T10:30:00Z' }],
     valoraciones_iniciales: [{ id: 'v1', studio_id: 'st1', socio_id: 's1', estado: 'COMPLETADA', objetivos: ['Espalda'] }],
     valoraciones_iniciales_salud: [{ valoracion_id: 'v1', studio_id: 'st1', socio_id: 's1', tiene_molestias: true, zonas: ['lumbar'] }],
+    aceptaciones_contrato_eventos: [
+      { id: 'ac1', studio_id: 'st1', socio_id: 's1', en: '2026-09-01T08:00:00Z', origen: 'MOSTRADOR', texto_hash: 'h'.repeat(64), texto_cliente_coincide: true,
+        firma: 'Ana Ruiz', introducida_por: 'Recepción Marta', actor_uid: 'staff-uid', ip_hmac: 'f'.repeat(64), user_agent: 'Mozilla/5.0 iPad-recepcion' },
+      { id: 'ac2', studio_id: 'st1', socio_id: 's2', en: '2026-09-01T08:00:00Z', origen: 'PORTAL', texto_hash: 'h'.repeat(64), texto_cliente_coincide: false, firma: 'Bea', ip_hmac: 'e'.repeat(64) },
+    ],
+    terminos_versiones: [
+      { id: 'tv1', studio_id: 'st1', hash: 'h'.repeat(64), texto: 'Condiciones de Pilates Luz v1' },
+      { id: 'tv2', studio_id: 'st2', hash: 'h'.repeat(64), texto: 'Condiciones de OTRO estudio' },
+    ],
   };
 }
 
@@ -171,6 +180,20 @@ test('minimización: nada de contacto del personal, de quién tecleó ni del IBA
     assert.ok(!json.includes(prohibido), `no debe salir: ${prohibido}`);
   }
   assert.equal(enmascararIban('ES91 2100 0418 4502 0005 1332'), 'ES·· ···· 1332');
+});
+
+test('historial del contrato (art. 15): fecha, vía, si coincidía y el texto; nada de IP, navegador ni quién lo tecleó', async () => {
+  const { db } = bdFalsa(fixture());
+  const r = await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: false, ahora: AHORA });
+  const c = r!.secciones.consentimientos as { historialContrato: Fila[] };
+  assert.deepEqual(c.historialContrato, [{
+    fecha: '2026-09-01T08:00:00Z', via: 'MOSTRADOR', textoCoincidiaConElMostrado: true,
+    versionTexto: 'h'.repeat(64), textoAceptado: 'Condiciones de Pilates Luz v1',
+  }]);
+  const json = JSON.stringify(r);
+  for (const prohibido of ['f'.repeat(64), 'e'.repeat(64), 'iPad-recepcion', 'Recepción Marta', 'staff-uid', 'Condiciones de OTRO estudio', 'ip_hmac', 'user_agent']) {
+    assert.ok(!json.includes(prohibido), `no debe salir: ${prohibido}`);
+  }
 });
 
 test('alcance: cada lectura de una tabla con socio_id va filtrada por la socia, y por el estudio si la tabla lo tiene', async () => {

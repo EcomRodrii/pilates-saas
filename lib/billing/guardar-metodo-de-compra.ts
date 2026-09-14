@@ -20,16 +20,17 @@
 //     supiera el email de una socia real podía dejarle SU tarjeta guardada.
 //     Ver lib/billing/identidad-compra.ts.
 //
-//  2. Bloqueante vs best-effort. El webhook puede devolver 5xx para que Stripe
-//     reintente (idempotente: mismos customer/payment_method). El conciliador
-//     es un cron: no hay a quién devolverle un código HTTP, así que un fallo
-//     aquí va a Sentry, nunca lanza — el bono ya entregado no puede tumbarse
-//     porque falle el remate. Por eso esta función NUNCA lanza: devuelve un
-//     resultado y el llamador decide qué hacer con un fallo.
+//  2. Best-effort para quien llama. ⚠️ Ni el webhook ni el conciliador
+//     reintentan: el webhook contesta 200 a Stripe ANTES de procesar, así que
+//     un 5xx no provoca ningún reintento (se creyó que sí, y cortar la rama
+//     dejaba la compra sin reservar la plaza ni recibo). Los dos dejan el fallo
+//     en Sentry y siguen — el bono ya entregado no puede tumbarse porque falle
+//     el remate. Por eso esta función NUNCA lanza: devuelve un resultado y el
+//     llamador decide qué hacer con un fallo.
 // ─────────────────────────────────────────────────────────────────────────────
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { metodoReutilizableDe, type PaymentIntentReutilizable } from './metodo-reutilizable.ts';
+import { hayQueConsultarTipo, metodoReutilizableDe, type PaymentIntentReutilizable } from './metodo-reutilizable.ts';
 import { guardarCaducidadTarjeta } from './caducidad-tarjeta.ts';
 import { identidadDemostradaEnCompra } from './identidad-compra.ts';
 
@@ -89,6 +90,26 @@ export async function guardarMetodoDeCompra(
     }
   } else {
     return { ok: true, guardado: false };
+  }
+
+  // ⚠️ El checkout embebido usa `automatic_payment_methods`: el evento y el
+  // listado del conciliador traen el método como id y `payment_method_types`
+  // con TODO lo ofrecido (`['card','link',…]`). Sin el tipo real,
+  // `metodoReutilizableDe` no se arriesga y no guardaba NADA — ni una tarjeta
+  // pagada con tarjeta —, así que la cuota comprada ahí no se renovaba sola.
+  // Se pregunta a Stripe; si no responde, `ok:false` y quien llama lo deja en
+  // Sentry (no hay reintento automático: ver el punto 2 de la cabecera).
+  if (hayQueConsultarTipo(pi)) {
+    try {
+      const pm = await stripe.paymentMethods.retrieve(
+        pi.payment_method as string,
+        {},
+        args.stripeAccount ? { stripeAccount: args.stripeAccount } : undefined,
+      );
+      pi = { ...pi, payment_method: { id: pm.id, type: pm.type } };
+    } catch (e) {
+      return { ok: false, guardado: false, motivo: `no se pudo recuperar el método de pago: ${String(e)}` };
+    }
   }
 
   const paymentMethodId = metodoReutilizableDe(pi);

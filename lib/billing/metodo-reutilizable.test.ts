@@ -1,6 +1,54 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { metodoReutilizableDe } from './metodo-reutilizable.ts';
+import { hayQueConsultarTipo, metodoReutilizableDe } from './metodo-reutilizable.ts';
+
+test('Link con setup_future_usage global (checkout embebido): se guarda', () => {
+  // Un PaymentMethod `link` se cobra después off-session igual que una tarjeta.
+  // Rechazarlo dejaba la cuota pagada con Link sin método para renovarse.
+  assert.equal(metodoReutilizableDe({
+    payment_method: { id: 'pm_link', type: 'link' },
+    payment_method_types: ['card', 'link'],
+    setup_future_usage: 'off_session',
+  }), 'pm_link');
+});
+
+test('Link con guardado pedido SOLO para tarjeta: no se guarda', () => {
+  assert.equal(metodoReutilizableDe({
+    payment_method: { id: 'pm_link', type: 'link' },
+    payment_method_types: ['card', 'link'],
+    payment_method_options: { card: { setup_future_usage: 'off_session' } },
+  }), null);
+});
+
+test('Link con guardado pedido para Link: se guarda', () => {
+  assert.equal(metodoReutilizableDe({
+    payment_method: { id: 'pm_link', type: 'link' },
+    payment_method_types: ['card', 'link'],
+    payment_method_options: { link: { setup_future_usage: 'off_session' } },
+  }), 'pm_link');
+});
+
+test('un método no reutilizable (klarna) no se guarda aunque se pidiera', () => {
+  assert.equal(metodoReutilizableDe({
+    payment_method: { id: 'pm_k', type: 'klarna' },
+    payment_method_types: ['card', 'link', 'klarna'],
+    setup_future_usage: 'off_session',
+  }), null);
+});
+
+test('⚠️ sin expandir y con métodos automáticos: hay que preguntar el tipo', () => {
+  // El caso del checkout embebido: el evento trae el id y la lista de TODO lo
+  // ofrecido. Sin preguntar, `metodoReutilizableDe` no guarda ni una tarjeta.
+  const pi = { payment_method: 'pm_x', payment_method_types: ['card', 'link'], setup_future_usage: 'off_session' };
+  assert.equal(hayQueConsultarTipo(pi), true);
+  assert.equal(metodoReutilizableDe(pi), null);
+});
+
+test('no hace falta preguntar: ya expandido, solo tarjeta ofrecida, o sin pedir guardado', () => {
+  assert.equal(hayQueConsultarTipo({ payment_method: { id: 'pm_x', type: 'card' }, payment_method_types: ['card', 'link'], setup_future_usage: 'off_session' }), false);
+  assert.equal(hayQueConsultarTipo({ payment_method: 'pm_x', payment_method_types: ['card'], setup_future_usage: 'off_session' }), false);
+  assert.equal(hayQueConsultarTipo({ payment_method: 'pm_x', payment_method_types: ['card', 'link'] }), false);
+});
 
 test('tarjeta con setup_future_usage por método: se guarda', () => {
   assert.equal(metodoReutilizableDe({

@@ -15,6 +15,14 @@
 //      incompatible con Bizum. Con el global ya no puesto, la comprobación
 //      antigua daría "no reutilizable" SIEMPRE y la tarjeta no se guardaría
 //      nunca — el bug que veníamos a arreglar, del revés.
+//   3. Link (14-sep-2026). El checkout embebido usa `automatic_payment_methods`,
+//      así que se puede pagar con Link, y un PaymentMethod `link` guardado con
+//      `setup_future_usage` SÍ se cobra después off-session (guía de Stripe «Set
+//      up future payments using Elements and Link»: PaymentIntent con
+//      `customer`, `payment_method`, `off_session` y `confirm`).
+//      `cobrarReciboOffSession` no fija tipos, y desde la API 2023-08-16 eso
+//      activa los automáticos, así que ese cobro no necesita cambio. Rechazarlo
+//      aquí dejaba la cuota pagada una vez y sin renovación.
 //
 // Se acepta el `setup_future_usage` global además del por-método: lo siguen
 // pidiendo /api/public/checkout-embebido y cualquier PaymentIntent anterior a
@@ -29,8 +37,20 @@ export interface PaymentIntentReutilizable {
   payment_method?: string | { id?: string | null; type?: string | null } | null;
   payment_method_types?: string[] | null;
   setup_future_usage?: string | null;
-  payment_method_options?: { card?: { setup_future_usage?: string | null } | null } | null;
+  payment_method_options?: {
+    card?: { setup_future_usage?: string | null } | null;
+    link?: { setup_future_usage?: string | null } | null;
+  } | null;
 }
+
+const pedidoGuardar = (pi: PaymentIntentReutilizable, tipo: 'card' | 'link'): boolean =>
+  pi.setup_future_usage === 'off_session'
+  || pi.payment_method_options?.[tipo]?.setup_future_usage === 'off_session';
+
+const soloTarjetaOfrecida = (pi: PaymentIntentReutilizable): boolean => {
+  const ofrecidos = pi.payment_method_types ?? [];
+  return ofrecidos.length === 1 && ofrecidos[0] === 'card';
+};
 
 // El id del método a guardar, o null si no hay nada reutilizable.
 export function metodoReutilizableDe(pi: PaymentIntentReutilizable): string | null {
@@ -38,20 +58,31 @@ export function metodoReutilizableDe(pi: PaymentIntentReutilizable): string | nu
   const pmId = typeof pm === 'string' ? pm : (pm?.id ?? null);
   if (!pmId) return null;
 
-  // Se pidió guardarlo, en cualquiera de las dos formas.
-  const pedidoGlobal = pi.setup_future_usage === 'off_session';
-  const pedidoPorTarjeta = pi.payment_method_options?.card?.setup_future_usage === 'off_session';
-  if (!pedidoGlobal && !pedidoPorTarjeta) return null;
-
-  // Y es de verdad una tarjeta. Con el PaymentMethod expandido lo sabemos
+  // Tarjeta o Link, y que se pidiera guardarlo para ESE tipo (el por-método de
+  // tarjeta no guarda un Link). Con el PaymentMethod expandido lo sabemos
   // seguro; sin expandir, solo se acepta cuando lo ÚNICO ofrecido era tarjeta
-  // (ahí no cabe ambigüedad). Si se ofreció Bizum y no tenemos el tipo real,
-  // preferimos no guardar nada antes que guardar un método que no sirve: el
-  // coste de no guardar es pedirle la tarjeta otra vez; el de guardar mal es un
-  // cobro automático que falla sin que nadie entienda por qué.
+  // (ahí no cabe ambigüedad). En cualquier otro caso, antes de llamar aquí hay
+  // que preguntar el tipo real (`hayQueConsultarTipo`): el coste de no guardar
+  // es una cuota que no se renueva sola; el de guardar mal, un cobro automático
+  // que falla sin que nadie entienda por qué.
   const tipoReal = typeof pm === 'string' ? null : (pm?.type ?? null);
-  if (tipoReal !== null) return tipoReal === 'card' ? pmId : null;
+  if (tipoReal !== null) {
+    return (tipoReal === 'card' || tipoReal === 'link') && pedidoGuardar(pi, tipoReal) ? pmId : null;
+  }
+  return soloTarjetaOfrecida(pi) && pedidoGuardar(pi, 'card') ? pmId : null;
+}
 
-  const ofrecidos = pi.payment_method_types ?? [];
-  return ofrecidos.length === 1 && ofrecidos[0] === 'card' ? pmId : null;
+/**
+ * ¿Hace falta preguntarle a Stripe el TIPO del método antes de decidir?
+ *
+ * Sí cuando se pidió guardar, el método viene sin expandir (el evento
+ * `payment_intent.succeeded` y el listado del conciliador lo traen como id) y
+ * se ofreció algo más que tarjeta. ⚠️ Con `automatic_payment_methods` (checkout
+ * embebido) `payment_method_types` lista TODO lo ofrecido —`['card','link',…]`—
+ * y, sin preguntar, no se guardaba ni una tarjeta pagada con tarjeta.
+ */
+export function hayQueConsultarTipo(pi: PaymentIntentReutilizable): boolean {
+  if (typeof pi.payment_method !== 'string') return false;
+  if (!pedidoGuardar(pi, 'card') && !pedidoGuardar(pi, 'link')) return false;
+  return !soloTarjetaOfrecida(pi);
 }

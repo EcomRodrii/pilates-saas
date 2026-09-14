@@ -767,11 +767,15 @@ async function procesarEvento(
             socioIdVerificado: socioId, fichaCreada: fichaCreadaEnLaEntrega,
           });
           if (!res.ok) {
+            // ⚠️ Sin `return`. Se creyó que un 5xx hacía reintentar a Stripe, y no:
+            // el webhook contesta 200 ANTES de procesar. Cortar aquí dejaba la
+            // compra sin lo que viene detrás (reservar la plaza pagada, gastar el
+            // código, el recibo) por un fallo al guardar el MÉTODO, lo único
+            // secundario de la rama. Queda en Sentry y se sigue.
             console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioDestino, res.motivo);
             Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta de la socia', {
               level: 'error', tags: { area: 'cobros' }, extra: { socioId: socioDestino, studioId, sessionId: session.id, detalle: res.motivo },
             });
-            return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
           }
         }
       }
@@ -1115,12 +1119,15 @@ async function procesarEvento(
         });
       }
 
-      // Guardado de tarjeta (§6 del diseño): con PaymentIntent directo, el
-      // propio evento YA ES el PaymentIntent — a diferencia de
-      // checkout.session.completed no hace falta expandir/recuperar nada.
-      // Un fallo aquí devuelve 5xx para reintentar (idempotente: mismos
-      // customer/payment_method). Bizum no aplica: este endpoint solo ofrece
-      // tarjeta (payment_method_types:['card'] fijo).
+      // Guardado del método (§6 del diseño): con PaymentIntent directo, el
+      // propio evento YA ES el PaymentIntent. Un fallo al guardarlo se registra
+      // y NO corta la rama (ver abajo: no hay reintento). Bizum no aplica
+      // (`allow_redirects: 'never'`).
+      // ⚠️ Pero el método viene SIN expandir y el endpoint usa
+      // `automatic_payment_methods`, así que se pudo pagar con tarjeta o con
+      // Link: `guardarMetodoDeCompra` pregunta el tipo real a Stripe. Antes este
+      // comentario decía «solo ofrece tarjeta, sin expandir basta», y con eso
+      // no se guardaba nada en cuanto el estudio tenía Link activo.
       // Auditoría 25-ago. `socioEmail` NO es una identidad demostrada: en el
       // camino de invitada (sin socioId, docs/reserva-sin-login-diseno.md
       // §4.1) `entregarPlanComprado` resuelve la ficha con
@@ -1141,9 +1148,8 @@ async function procesarEvento(
       // recibe su plan igual, pero no toca credenciales de pago ajenas.
       //
       // Auditoría 26ª pasada, P-2: extraído a guardarMetodoDeCompra, mismo
-      // helper que checkout.session.completed y el conciliador. El evento ya
-      // ES el PaymentIntent y este endpoint solo ofrece tarjeta, así que sin
-      // expandir basta.
+      // helper que checkout.session.completed y el conciliador. El tipo real
+      // del método lo resuelve el helper (`hayQueConsultarTipo`).
       if (typeof pi.customer === 'string') {
         const res = await guardarMetodoDeCompra(admin, stripe, {
           studioId, socioId: entrega.socioId, customerId: pi.customer, stripeAccount: event.account,
@@ -1151,11 +1157,15 @@ async function procesarEvento(
           socioIdVerificado: pi.metadata.socioId, fichaCreada: entrega.fichaCreada,
         });
         if (!res.ok) {
+          // ⚠️ Sin `return`. Se creyó que un 5xx hacía reintentar a Stripe, y no:
+          // el webhook contesta 200 ANTES de procesar. Cortar aquí dejaba la
+          // compra sin lo que viene detrás (reservar la plaza pagada, gastar el
+          // código, el recibo) por un fallo al guardar el MÉTODO, lo único
+          // secundario de la rama. Queda en Sentry y se sigue.
           console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia (checkout embebido)', entrega.socioId, res.motivo);
           Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta de la socia (checkout embebido)', {
             level: 'error', tags: { area: 'cobros' }, extra: { socioId: entrega.socioId, studioId, paymentIntentId: pi.id, detalle: res.motivo },
           });
-          return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
         }
       }
 

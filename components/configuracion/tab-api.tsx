@@ -11,6 +11,7 @@ import { copiarAlPortapapeles } from '@/lib/utils';
 import { TabCrecimientoWeb } from '@/components/configuracion/tab-crecimiento-web';
 import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
+import { normalizarOrigenWidget } from '@/lib/widget/dominios-autorizados';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { COLOR_VALIDO, fuenteValida, familiaCssDe, urlFuenteGoogle } from '@/lib/reservar/config-widget';
 import { luminancia } from '@/lib/reservar/apariencia-widget';
@@ -556,7 +557,28 @@ function AppsConectadas({ showToast }: { showToast: (m: string) => void }) {
 }
 
 function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: string) => void }) {
-  const { sesiones, tiposClase, salas, instructores, studio, updateStudio } = useStudio();
+  const { sesiones, tiposClase, salas, instructores, studio, updateStudio, reflejarStudioGuardado } = useStudio();
+
+  // Los dominios del widget los valida y guarda el servidor (solo la
+  // propietaria, migr 20260914110200); aquí se pinta lo que devolvió, nunca lo
+  // que se mandó.
+  async function guardarDominiosWidget(dominios: string[]): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch('/api/estudio/widget-dominios', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ dominios }),
+      });
+      const data = await res.json().catch(() => null) as { dominios?: unknown; error?: string } | null;
+      if (!res.ok || !Array.isArray(data?.dominios)) {
+        return { ok: false, error: data?.error ?? 'No se han podido guardar los dominios' };
+      }
+      reflejarStudioGuardado({ widgetDominiosAutorizados: data.dominios as string[] });
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'No se han podido guardar los dominios. Revisa tu conexión.' };
+    }
+  }
   const [activo, setActivo] = useState<(typeof WIDGETS)[number]['id']>('clases');
   const [copiado, setCopiado] = useState(false);
   const [sesionElegida, setSesionElegida] = useState('');
@@ -933,7 +955,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
               {widget.modo === 'script' && (
                 <GestionDominios
                   dominios={dominiosAutorizados}
-                  onGuardar={dominios => updateStudio({ widgetDominiosAutorizados: dominios })}
+                  onGuardar={guardarDominiosWidget}
                   showToast={showToast}
                 />
               )}
@@ -1116,20 +1138,11 @@ function GestionDominios({ dominios, onGuardar, showToast }: {
   const [nuevo, setNuevo] = useState('');
   const [guardando, setGuardando] = useState(false);
 
-  function normalizar(valor: string): string | null {
-    const v = valor.trim().replace(/\/+$/, '');
-    if (!v) return null;
-    try {
-      const u = new URL(v.includes('://') ? v : `https://${v}`);
-      return u.origin;
-    } catch {
-      return null;
-    }
-  }
-
   async function anadir() {
-    const origenNuevo = normalizar(nuevo);
-    if (!origenNuevo) { showToast('Escribe un dominio válido, p. ej. midominio.com'); return; }
+    // Misma regla que aplica el servidor (https, sin comodines ni IPs): así el
+    // aviso sale aquí y no tras un viaje de ida y vuelta.
+    const origenNuevo = normalizarOrigenWidget(nuevo);
+    if (!origenNuevo) { showToast('Escribe un dominio válido con https, p. ej. midominio.com'); return; }
     if (dominios.includes(origenNuevo)) { setNuevo(''); return; }
     setGuardando(true);
     const r = await onGuardar([...dominios, origenNuevo]);
