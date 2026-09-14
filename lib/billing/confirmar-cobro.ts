@@ -4,9 +4,9 @@
 // Historia corta: F-12/F-13 juntó aquí el webhook de Checkout y el conciliador,
 // que eran gemelos divergentes. Pero seguían quedando otros escritores de
 // COBRADO, cada uno con su orden de efectos y sus huecos:
-//   · `confirmarCobroExitoso` (SEPA / tarjeta guardada, dunning-server.ts)
-//     mandaba el email ANTES de sellar, así que salía sin número de factura;
-//     no marcaba `factura_pendiente_sellar` y SEPA no guardaba el cargo;
+//   · `confirmarCobroExitoso` (SEPA / tarjeta guardada) mandaba el email ANTES
+//     de sellar, así que salía sin número de factura; no marcaba
+//     `factura_pendiente_sellar` y SEPA no guardaba el cargo;
 //   · `cobrarReciboOffSession` (stripe-cobros.ts) leía el recibo y luego lo
 //     actualizaba SIN filtro de estado;
 //   · `entregarPlanComprado` sellaba por su cuenta y el webhook mandaba el
@@ -15,17 +15,23 @@
 // Ahora hay dos piezas:
 //
 //  1. `confirmarCobro` — UN compare-and-set a COBRADO, filtrado por los estados
-//     que admite quien confirma (`estadosAdmitidosPorOrigen`) y por las guardas
-//     de reembolso, con `conciliado_por` en el mismo UPDATE. Si no toca filas
-//     distingue reentrega (`ya_estaba`), devuelto con el mismo cargo
-//     (`devuelto`, nunca se resucita) y otro cargo distinto (se reporta, nunca
-//     un éxito silencioso). Solo quien GANA la transición aplica efectos.
+//     que admite quien confirma (`estadosAdmitidosPorOrigen`), por el cargo
+//     (`filtroCargoEnCas`: un EN_CURSO solo lo cierra su propio cargo, un
+//     DEVUELTO con ese mismo cargo no se resucita) y por las guardas de
+//     reembolso, con `conciliado_por` en el mismo UPDATE. Si no toca filas
+//     distingue reentrega (`ya_estaba`), devuelto (`devuelto`) y otro cargo
+//     distinto (se reporta, nunca un éxito silencioso). Solo quien GANA la
+//     transición aplica efectos.
 //
 //  2. `aplicarEfectosCobro` — renovación → factura → caja → créditos →
 //     aviso → email, en ese orden (ver `efectosEnOrden`). Cada paso es
 //     best-effort: el dinero ya entró y ningún efecto puede deshacer el cobro.
 //     Todos son idempotentes salvo el email, que solo se pide cuando se ganó
 //     la transición. Se puede volver a llamar para reparar.
+//
+// Los envoltorios de cada camino (`confirmarCobroRecibo`,
+// `confirmarCobroExitoso`, `cerrarCobroOffSession`) viven aquí también, para
+// poder probarlos: sus módulos de origen no cargan en `node --test`.
 //
 // Las reglas puras viven en `cobro-confirmado-reglas.ts`, con tests.
 //
@@ -45,8 +51,9 @@ import { sellarFacturaDeRecibo, type ResultadoSellado } from './sellar-factura-s
 import { evaluarFeature } from './billing-rules.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import {
-  conciliadoPorDe, efectosEnOrden, esRenovacion, estadosAdmitidosPorOrigen, facturaIdCheckout,
-  facturaIdParaReintento, filtroNoResucitarDevuelto, refIdCreditoRenovacion, resolverSinFilas,
+  conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
+  facturaIdCheckout, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas,
+  refIdCreditoRenovacion, resolverSinFilas,
   type OrigenCobro, type PasoEfecto,
 } from './cobro-confirmado-reglas.ts';
 
@@ -83,6 +90,8 @@ export interface ParamsConfirmarCobro {
   /** Id de la factura de este canal (ver `facturaIdCheckout`/`facturaIdMetodoGuardado`). */
   facturaId: string;
   actor?: ActorCobro;
+  /** `false` = este camino nunca cierra un DEVUELTO (SEPA / tarjeta guardada). */
+  admitirDevuelto?: boolean;
 }
 
 export type ResultadoConfirmarCobro =
@@ -93,7 +102,13 @@ export type ResultadoConfirmarCobro =
       /** `false` solo si en ESTA llamada se intentó sellar y falló. */
       selladoOk: boolean;
     }
-  | { ok: false; codigo: 'NO_ENCONTRADO' | 'NO_COBRABLE' | 'PERSISTENCIA'; error: string };
+  | {
+      ok: false;
+      codigo: 'NO_ENCONTRADO' | 'NO_COBRABLE' | 'PERSISTENCIA';
+      error: string;
+      /** Con NO_COBRABLE: el estado en que se encontró el recibo. */
+      estado?: string | null;
+    };
 
 /** Los efectos, inyectables para poder probar el orden sin red ni BD. */
 export interface DependenciasEfectos {
@@ -106,8 +121,8 @@ export interface DependenciasEfectos {
 }
 
 // El dinero pasó por el mostrador: que cuadre el arqueo. Idempotente por id
-// derivado del recibo (`mov-rec-<recibo>`), y la propia RPC decide si procede
-// (sin caja abierta, o SEPA/transferencia, no apunta nada).
+// derivado del recibo (`mov-rec-<recibo>`, ON CONFLICT DO NOTHING), y la propia
+// RPC decide si procede (sin caja abierta, o SEPA/transferencia, no apunta).
 async function apuntarCobroEnCajaServidor(
   admin: SupabaseClient, p: { studioId: string; reciboId: string; actor: ActorCobro | null },
 ): Promise<void> {
@@ -126,7 +141,8 @@ async function apuntarCobroEnCajaServidor(
 // Misma RPC y mismo gate de plan que `otorgarCreditosServidor`
 // (supabase-data-admin.ts, no exportada). La unicidad la pone la BD:
 // `reward_actions` UNIQUE (studio_id, trigger, ref_id) con el ref_id que
-// comparten panel y servidor (`refIdCreditoRenovacion`).
+// comparten panel y servidor (`refIdCreditoRenovacion`). Un segundo intento
+// choca ahí y la RPC devuelve `otorgado = false` sin sumar nada.
 async function otorgarCreditosRenovacionServidor(
   admin: SupabaseClient, p: { studioId: string; reciboId: string; socioId: string },
 ): Promise<void> {
@@ -233,6 +249,17 @@ export async function aplicarEfectosCobro(
     });
   };
 
+  // Sellada (ahora o antes): si quedó marca de un intento fallido, se quita.
+  // Solo toca la fila si la marca estaba puesta, así que repetirlo no escribe.
+  const limpiarFacturaPendiente = async () => {
+    try {
+      await admin.from('recibos').update({ factura_pendiente_sellar: false })
+        .eq('id', p.reciboId).eq('studio_id', p.studioId).eq('factura_pendiente_sellar', true);
+    } catch (e) {
+      console.error('[aplicarEfectosCobro] no se pudo quitar la marca de factura pendiente', p.reciboId, e);
+    }
+  };
+
   for (const paso of pasos) {
     try {
       switch (paso) {
@@ -244,6 +271,7 @@ export async function aplicarEfectosCobro(
           if (r.ok) {
             const n = r.factura?.numeroCompleto;
             if (typeof n === 'string') numeroFactura = n;
+            await limpiarFacturaPendiente();
           } else {
             await marcarFacturaPendiente(r.error);
           }
@@ -313,13 +341,12 @@ export async function confirmarCobro(
     // hacerlo en TS sería leer-y-escribir con carrera. La puerta que decide si
     // se le puede COBRAR es /api/stripe/checkout, que sí lo comprueba.
     .eq('id', p.reciboId).eq('studio_id', p.studioId)
-    .in('estado', estadosAdmitidosPorOrigen(p.origen))
+    .in('estado', estadosAdmitidosPorOrigen(p.origen, { admitirDevuelto: p.admitirDevuelto }))
     .is('reembolso_stripe_id', null)
     .is('reembolso_solicitado_en', null);
-  // Un DEVUELTO con ESTE mismo cargo no vuelve a COBRADO (reentrega tardía de
-  // un pago ya devuelto); con otro cargo sí, que es pagar una deuda devuelta.
-  const noResucitar = filtroNoResucitarDevuelto(p.paymentIntentId);
-  if (noResucitar) consulta = consulta.or(noResucitar);
+  // DEVUELTO y EN_CURSO atados al cargo que llega (ver `filtroCargoEnCas`).
+  const filtroCargo = filtroCargoEnCas(p.paymentIntentId);
+  if (filtroCargo) consulta = consulta.or(filtroCargo);
 
   const { data: marcado, error } = await consulta.select('id, socio_id, es_renovacion').maybeSingle();
   if (error) return { ok: false, codigo: 'PERSISTENCIA', error: error.message };
@@ -335,8 +362,24 @@ export async function confirmarCobro(
     switch (decision.tipo) {
       case 'no_encontrado':
         return { ok: false, codigo: 'NO_ENCONTRADO', error: 'Recibo no encontrado' };
-      case 'ya_estaba':
+      case 'ya_estaba': {
+        // Lo único que se repite es el apunte de caja del mostrador: el segundo
+        // camino que llega (TPV o webhook) lo hacía siempre y reparaba así uno
+        // fallido. Idempotente. Ni email ni créditos.
+        const d: DependenciasEfectos = { ...DEPENDENCIAS, ...deps };
+        for (const paso of efectosEnReentrega(p.origen)) {
+          if (paso !== 'caja') continue;
+          try {
+            await d.apuntarCaja(admin, { studioId: p.studioId, reciboId: p.reciboId, actor: p.actor ?? null });
+          } catch (e) {
+            Sentry.captureException(e instanceof Error ? e : new Error('Fallo al apuntar en caja un cobro ya confirmado'), {
+              level: 'warning', tags: { area: 'cobros', tipo: 'efecto-caja' },
+              extra: { reciboId: p.reciboId, studioId: p.studioId, origen: p.origen },
+            });
+          }
+        }
         return { ok: true, transicion: 'ya_estaba', selladoOk: true };
+      }
       case 'devuelto':
         return { ok: true, transicion: 'devuelto', selladoOk: true };
       case 'otro_cobro':
@@ -347,7 +390,7 @@ export async function confirmarCobro(
             paymentIntentCobrado: decision.anterior, paymentIntentDuplicado: p.paymentIntentId,
           },
         });
-        return { ok: false, codigo: 'NO_COBRABLE', error: 'Este recibo ya estaba cobrado con otro cargo: hay que devolver uno de los dos.' };
+        return { ok: false, codigo: 'NO_COBRABLE', error: 'Este recibo ya estaba cobrado, o en cobro, con otro cargo: hay que devolver uno de los dos.', estado: fila?.estado as string | null };
       case 'no_cobrable':
         Sentry.captureMessage('[confirmarCobro] cobro sobre un recibo que no admite cobro', {
           // Con Stripe de por medio el dinero YA entró: es un error. A mano es
@@ -355,7 +398,7 @@ export async function confirmarCobro(
           level: p.origen === 'manual' ? 'warning' : 'error', tags: { area: 'cobros' },
           extra: { reciboId: p.reciboId, studioId: p.studioId, origen: p.origen, estado: decision.estado, paymentIntentId: p.paymentIntentId },
         });
-        return { ok: false, codigo: 'NO_COBRABLE', error: `Este recibo no admite este cobro (estado: ${decision.estado ?? 'desconocido'}).` };
+        return { ok: false, codigo: 'NO_COBRABLE', error: `Este recibo no admite este cobro (estado: ${decision.estado ?? 'desconocido'}).`, estado: decision.estado };
     }
   }
 
@@ -406,6 +449,119 @@ export async function confirmarCobroRecibo(
   });
   if (!r.ok) return { ok: false, error: r.error, codigo: r.codigo };
   return { ok: true, actualizado: r.transicion === 'aplicada' };
+}
+
+// Confirma un cobro que Stripe ya liquidó (`payment_intent.succeeded`) de un
+// recibo cobrado con SEPA o tarjeta guardada. Lo usan el webhook y el backstop
+// SEPA de `lib/inngest/dunning.ts` (vía la reexportación de dunning-server.ts).
+//
+// SEPA: el adeudo es asíncrono y el webhook ES el camino normal.
+// TARJETA (D-6, auditoría 20-ago): `cobrarReciboOffSession` ya cierra el recibo
+// de forma síncrona, así que aquí el webhook es la RED: recoge el
+// COBRADO_SIN_PERSISTIR y la respuesta perdida con la clave de idempotencia ya
+// expirada (ver lib/billing/clasificar-error-cobro.ts).
+//
+// `studioId` viene siempre de una fuente fiable del llamante (la cuenta
+// Connect del evento, o el propio recibo ya acotado por estudio), nunca de la
+// metadata del PaymentIntent.
+export async function confirmarCobroExitoso(
+  params: {
+    admin: SupabaseClient;
+    reciboId: string;
+    studioId: string;
+    metodo: 'SEPA' | 'TARJETA';
+    /** El cargo real, para poder devolverlo desde el panel. Solo se escribe si viene. */
+    paymentIntentId?: string | null;
+    /** F-12/F-13: quién lo confirma, para `recibos.conciliado_por`. */
+    fuente: 'webhook' | 'conciliador';
+  },
+  deps: Partial<DependenciasEfectos> = {},
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { admin, reciboId, studioId, metodo, fuente } = params;
+  // TARJETA usa el MISMO id de factura que `cobrarReciboOffSession`: si el
+  // camino síncrono ya selló, esto colisiona y no duplica.
+  const facturaId = facturaIdMetodoGuardado(reciboId, metodo);
+
+  const r = await confirmarCobro(admin, {
+    studioId, reciboId, metodo, origen: fuente,
+    paymentIntentId: params.paymentIntentId ?? null,
+    // Este camino nunca cerró un DEVUELTO: un adeudo SEPA se puede devolver
+    // hasta 8 semanas después, y la reentrega del succeeded original no puede
+    // resucitarlo, tenga o no cargo guardado.
+    admitirDevuelto: false,
+    // Transición real: en SEPA es el camino normal; en TARJETA significa que el
+    // webhook acaba de RECUPERAR un cobro que el camino síncrono perdió —
+    // avisar a la socia es lo correcto: nadie más lo hará.
+    avisarSocia: true,
+    facturaId,
+  }, deps);
+
+  if (!r.ok) {
+    // 'Recibo no encontrado' lo usa el webhook para detectar un cobro que
+    // apunta a un recibo inexistente o de OTRO estudio.
+    if (r.codigo === 'NO_ENCONTRADO') return { ok: false, error: 'Recibo no encontrado' };
+    // DEVUELTO no se toca y, como siempre, no se pide reintento: queda
+    // reportado por `confirmarCobro` si no era una simple reentrega.
+    if (r.codigo === 'NO_COBRABLE' && r.estado === 'DEVUELTO') return { ok: true };
+    return { ok: false, error: r.error };
+  }
+
+  // Ya COBRADO con este cargo. En TARJETA es el caso NORMAL —el webhook llega
+  // para cada cargo y `cobrarReciboOffSession` ya lo cerró de forma síncrona—;
+  // en SEPA, una reentrega. Se repara en silencio lo idempotente (la única red
+  // si el proceso murió entre la transición y sus efectos) pero SIN email, que
+  // no es idempotente y ya lo pidió quien ganó. El aviso al estudio, como
+  // antes: la reentrega SEPA lo repetía (deduplicado por recibo), la de tarjeta
+  // nunca lo emitió.
+  if (r.transicion === 'ya_estaba') {
+    await aplicarEfectosCobro(admin, {
+      studioId, reciboId, metodo, origen: fuente, facturaId,
+      avisarSocia: false, reparacion: true, notificar: metodo === 'SEPA',
+    }, deps);
+  }
+  return { ok: true };
+}
+
+export type CierreOffSession = { aviso?: undefined; error?: undefined } | { aviso: 'COBRADO_SIN_PERSISTIR'; error: string };
+
+/**
+ * Cierre de `cobrarReciboOffSession` tras un `succeeded`: Stripe YA cobró. La
+ * transición es un compare-and-set sobre lo que se comprobó antes de cobrar;
+ * antes era un UPDATE sin filtro de estado y, si el recibo cambiaba entre medias
+ * (lo cobraba el mostrador, lo cerraba el webhook), se pisaba sin enterarse
+ * nadie.
+ *
+ * `avisarSocia: false` y sin aviso al estudio: este camino síncrono nunca los
+ * ha enviado, y empezar ahora sería un cambio de producto, no un arreglo.
+ *
+ * Devuelve `COBRADO_SIN_PERSISTIR` cuando no pudo dejarlo cerrado —el llamante
+ * NO debe darlo por hecho—. `ya_estaba` (el webhook de este mismo cargo llegó
+ * antes) es un cierre correcto.
+ */
+export async function cerrarCobroOffSession(
+  admin: SupabaseClient,
+  p: { studioId: string; reciboId: string; socioId: string; metodo: string; paymentIntentId: string },
+  deps: Partial<DependenciasEfectos> = {},
+): Promise<CierreOffSession> {
+  const confirmado = await confirmarCobro(admin, {
+    studioId: p.studioId, reciboId: p.reciboId, metodo: p.metodo,
+    origen: 'off_session', paymentIntentId: p.paymentIntentId,
+    avisarSocia: false, facturaId: facturaIdMetodoGuardado(p.reciboId, p.metodo),
+  }, deps);
+  if (confirmado.ok && confirmado.transicion !== 'devuelto') return {};
+
+  const detalle = confirmado.ok ? 'el recibo figura devuelto con este cargo' : `${confirmado.codigo}: ${confirmado.error}`;
+  // La idempotency key evita el doble cargo, pero el recibo quedaría sin
+  // cerrar y podría reaparecer para cobro. No se traga.
+  Sentry.captureException(new Error(`Cobro OK en Stripe pero no se pudo marcar el recibo COBRADO: ${detalle}`), {
+    level: 'error',
+    tags: { area: 'cobros', tipo: 'reconciliacion' },
+    extra: { reciboId: p.reciboId, socioId: p.socioId, paymentIntentId: p.paymentIntentId },
+  });
+  return {
+    aviso: 'COBRADO_SIN_PERSISTIR',
+    error: 'El cobro se completó en Stripe pero no se pudo marcar el recibo como COBRADO. Revísalo manualmente.',
+  };
 }
 
 /**
