@@ -3799,6 +3799,15 @@ export async function dbUpsertAchievementProgress(p: AchievementProgress) {
   };
   const { error } = await supabase.from('achievement_progress').upsert(row, { onConflict: 'socio_id,achievement_id' });
   if (error) reportDbError('[dbUpsertAchievementProgress]', error);
+  // Devuelve si se GUARDÓ. Antes no devolvía nada y quien la llamaba daba el
+  // logro por conseguido pasara lo que pasara: con las políticas por rol del
+  // 14-sep, una INSTRUCTORA recibe 42501 al marcar `completado=true` (medido en
+  // producción con una instructora real), así que al pasar lista la pantalla
+  // desbloqueaba el logro, insertaba su fila de historial y pedía los créditos
+  // —que la RPC niega porque la BD no tiene el progreso completado—. Al
+  // recargar, el logro volvía sin completar y el historial se duplicaba en la
+  // siguiente lista. Ver `evaluarLogrosSocio` en lib/studio-context.tsx.
+  return { ok: !error };
 }
 
 export async function dbInsertAchievementHistory(h: AchievementHistory) {
@@ -3898,6 +3907,9 @@ export async function dbUpsertChallengeProgress(p: ChallengeProgress) {
   };
   const { error } = await supabase.from('challenge_progress').upsert(row, { onConflict: 'socio_id,challenge_id' });
   if (error) reportDbError('[dbUpsertChallengeProgress]', error);
+  // Devuelve si se GUARDÓ, por el mismo motivo que su gemela
+  // `dbUpsertAchievementProgress`: completar un reto no puede ser optimista.
+  return { ok: !error };
 }
 
 export async function dbInsertChallengeHistory(h: ChallengeHistory) {

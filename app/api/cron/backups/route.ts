@@ -25,8 +25,22 @@ export async function POST(req: NextRequest) {
     // ⚠️ Con `fallidos > 0` esto devolvía 200. Es el ÚNICO cron sin red —corre
     // una vez al día y no reintenta—, así que un estudio podía encadenar noches
     // sin copia sin que nada lo dijera: pasó de verdad (studio-1, sin backup
-    // diario desde el 2026-09-09, tres noches). Un 5xx deja rastro en pg_net y
-    // en cualquier monitor de la ruta, que es lo que faltaba.
+    // diario desde el 2026-09-09).
+    //
+    // ⚠️⚠️ Y el 5xx NO es la alarma. Aquí decía «deja rastro en pg_net y en
+    // cualquier monitor de la ruta»; medido el 14-sep, eso es falso:
+    // `cron.job_run_details` marcó «succeeded» las 2.184 ejecuciones de 48 h
+    // —pg_cron solo encola con `net.http_post`, que es asíncrono— y
+    // `net._http_response` se autopurga en ~6 h y no la lee nadie. Las cinco
+    // noches sin copia de studio-1 las descubrió Sentry, no esto. Así que la
+    // señal se emite explícitamente.
+    if (resumen.fallidos > 0) {
+      Sentry.captureMessage('[backups] estudios sin copia de seguridad esta noche', {
+        level: 'error',
+        tags: { cron: 'backups', tipo: 'copia-fallida' },
+        extra: { ...resumen, queHacer: 'Un estudio sin copia diaria no es recuperable a esa fecha: mirar por qué falló ANTES de la noche siguiente.' },
+      });
+    }
     return NextResponse.json(
       { ejecutadoEn: new Date().toISOString(), ...resumen },
       resumen.fallidos > 0 ? { status: 500 } : undefined,

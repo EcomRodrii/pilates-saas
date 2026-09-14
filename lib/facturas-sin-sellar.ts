@@ -21,22 +21,47 @@ export interface ReciboCobrado {
   metodoCobro?: string | null;
 }
 
-/**
- * ⚠️ Los cobros que NO emiten factura sola quedan fuera: no les FALTA nada.
- *
- * Sin esto, cada cobro en efectivo entraría aquí para siempre desde que el
- * efectivo dejó de facturarse solo (`lib/factura-automatica.ts`), y esta lista
- * alimenta dos cosas que se estropean con ruido permanente: el aviso a Sentry
- * del conciliador («recibos COBRADO sin ninguna factura») y el botón rojo
- * «Sin factura» del panel de cobros, que además reintentaría el sellado y
- * desharía la regla de un clic.
- *
- * Un aviso que salta siempre enseña a ignorarlo, que es justo lo contrario de
- * para lo que se escribió este fichero.
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// 60ª auditoría (14-sep-2026), C-3. Aquí había UNA función contestando DOS
+// preguntas distintas, y por eso la vigilancia era ciega justo donde más falta
+// hacía:
+//
+//   1. «¿Está cobrado y sin factura?» → la pregunta de VIGILANCIA y la que
+//      importa para la obligación de facturar, que en España no depende del
+//      medio de pago.
+//   2. «¿Le falta la factura que debería haberse emitido sola?» → la pregunta
+//      de AVERÍA: si falta, hay un fallo de software que arreglar.
+//
+// El filtro por `emiteFacturaAutomatica` contestaba la 2 y se usaba para la 1,
+// así que el cron de Sentry NO PODÍA avisar nunca de un cobro en efectivo sin
+// factura. Medido en producción el 13-sep y otra vez el 14-sep, sin moverse:
+// 33 recibos COBRADO sin factura (1.610,05 €), 3 de ellos en efectivo e
+// invisibles para la alarma.
+//
+// La justificación que sostenía el filtro además ya no es cierta: decía
+// proteger «el botón rojo «Sin factura» del panel de cobros», y ese botón
+// nunca llamó a esta función (lee `facturas` del estado del cliente) y desde
+// #1940 explícitamente no se oculta por método de pago.
+//
+// El ruido se evita separando las dos cifras en el aviso, no escondiendo una.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Pregunta 1 — VIGILANCIA: cobrado y sin ninguna factura, se cobrara como se cobrara. */
 export function recibosCobradosSinFactura(
   recibos: ReciboCobrado[],
   idsConFactura: ReadonlySet<string>,
 ): ReciboCobrado[] {
-  return recibos.filter(r => !idsConFactura.has(r.id) && emiteFacturaAutomatica(r.metodoCobro));
+  return recibos.filter(r => !idsConFactura.has(r.id));
+}
+
+/**
+ * Pregunta 2 — AVERÍA: de los anteriores, los que SÍ tenían que haberse
+ * facturado solos. Es la cifra accionable por ingeniería; el resto (hoy, el
+ * efectivo) es una decisión de negocio que se resuelve con el asesor fiscal.
+ */
+export function recibosConFacturaAutomaticaAusente(
+  recibos: ReciboCobrado[],
+  idsConFactura: ReadonlySet<string>,
+): ReciboCobrado[] {
+  return recibosCobradosSinFactura(recibos, idsConFactura).filter(r => emiteFacturaAutomatica(r.metodoCobro));
 }

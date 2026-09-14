@@ -16,6 +16,7 @@ import { cargarCatalogoPOS, esError, type CatalogoPOS } from '@/lib/pos/cliente'
 import { formatNumeroVenta } from '@/lib/pos/tipos';
 import { registrarVenta } from '@/lib/pos/cliente';
 import { cuotaSinClienta } from '@/lib/pos/cuota-exige-clienta';
+import { bizumPermitidoPara } from '@/lib/billing/bizum-permitido';
 import type { CodigoDescuento } from '@/lib/types';
 import type { MetodoPago } from '@/lib/types';
 import { HojaCobro } from './hoja-cobro';
@@ -270,10 +271,18 @@ export function PosTerminal() {
   // tiene que ser de alguien. Vendida sin clienta quedaba sin entregar, y en el
   // caso real se volvió a dar de alta desde el panel —dos recibos por un pago—.
   // Aquí SÍ se bloquea «Cobrar»; el servidor lo rechaza igualmente.
-  const cuotaSinFicha = cuotaSinClienta(
-    carrito.filter((i) => i.tipo === 'PLAN').map((i) => catalogo?.planes.find((p) => p.id === i.referenciaId)?.tipo),
-    clienteId,
-  );
+  const tiposDePlanDelTicket = carrito
+    .filter((i) => i.tipo === 'PLAN')
+    .map((i) => catalogo?.planes.find((p) => p.id === i.referenciaId)?.tipo);
+  const cuotaSinFicha = cuotaSinClienta(tiposDePlanDelTicket, clienteId);
+
+  // Bizum no vale para una cuota (lib/billing/bizum-permitido.ts): no deja
+  // método guardado y la renovación del ciclo siguiente se queda sin con qué
+  // cobrarse. El mismo módulo que usan el checkout online y las dos pantallas
+  // de compra; aquí solo para no pintar un botón que el servidor va a rechazar.
+  // Sin `?? 'SIN_PLAN'`: el contrato del módulo es «no se sabe → sin Bizum», y
+  // un plan cuyo catálogo aún no ha cargado es exactamente «no se sabe».
+  const bizumPermitido = tiposDePlanDelTicket.every((t) => bizumPermitidoPara(t));
 
   // ── Cobro ─────────────────────────────────────────────────────────────────
   //
@@ -892,6 +901,7 @@ export function PosTerminal() {
         <HojaCobro
           total={ticket.total}
           cobroDisponible={catalogo?.cobro ?? { stripeConectado: false, datafonoEmparejado: false }}
+          bizumPermitido={bizumPermitido}
           onCobrar={enviarVenta}
           onHecho={() => { setMostrarCobro(false); vaciar(); refrescar(); }}
           onCerrar={() => { setMostrarCobro(false); refrescar(); }}

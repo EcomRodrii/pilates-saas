@@ -6,6 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import { formatEuro } from '@/lib/utils';
 import { cobrarReciboEnMostrador, confirmarCobroRecibo, esError } from '@/lib/pos/cliente';
 import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
+import { bizumPermitidoPara, tipoDeReciboParaBizum } from '@/lib/billing/bizum-permitido';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Vengo a pagar la cuota.»
@@ -43,7 +44,7 @@ type Fase =
   | { f: 'hecho'; reciboId: string };
 
 export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrado: () => void }) {
-  const { recibos, marcarCobrado } = useStudio();
+  const { recibos, marcarCobrado, suscripciones, planesTarifa } = useStudio();
   const [fase, setFase] = useState<Fase>({ f: 'quieto' });
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +54,22 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
       .sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento)),
     [recibos, socioId],
   );
+
+  // ¿Se le puede ofrecer Bizum a ESTE recibo? Mismo veredicto que da el
+  // servidor en `/api/pos/recibo` (`lib/billing/tipo-plan-de-recibo.ts`), y por
+  // los mismos dos saltos: `entrega_tipo` se escribe DESPUÉS de cobrar, así que
+  // un pendiente casi siempre llega sin él y hay que mirar el plan de su
+  // suscripción. Sin esto, el mostrador pintaba «Bizum» en la cuota de una
+  // socia y el servidor lo rechazaba con un 400 — que es justo el «botón que el
+  // servidor no va a atender» que el módulo de Bizum existe para evitar.
+  const bizumPermitidoDe = (r: { entregaTipo?: string | null; suscripcionId: string | null }) => {
+    const veredicto = tipoDeReciboParaBizum(r.entregaTipo ?? null, r.suscripcionId);
+    if (veredicto !== 'CONSULTAR_PLAN') return bizumPermitidoPara(veredicto);
+    const sus = suscripciones.find((s) => s.id === r.suscripcionId);
+    const plan = planesTarifa.find((p) => p.id === sus?.planId);
+    // `plan?.tipo` indefinido = no se sabe → sin Bizum, igual que en servidor.
+    return bizumPermitidoPara(plan?.tipo);
+  };
 
   // Sondeo mientras la clienta pasa la tarjeta. El estado lo decide SIEMPRE el
   // servidor releyendo el PaymentIntent; esto solo pregunta.
@@ -161,8 +178,10 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
                 onClick={() => cobrarEnEfectivo(r.id)} />
               <BotonCobro icono={CreditCard} etiqueta="Datáfono" cargando={false}
                 onClick={() => cobrarConProveedor(r.id, 'DATAFONO')} />
-              <BotonCobro icono={Smartphone} etiqueta="Bizum" cargando={false}
-                onClick={() => cobrarConProveedor(r.id, 'BIZUM')} />
+              {bizumPermitidoDe(r) && (
+                <BotonCobro icono={Smartphone} etiqueta="Bizum" cargando={false}
+                  onClick={() => cobrarConProveedor(r.id, 'BIZUM')} />
+              )}
             </div>
           </div>
         );

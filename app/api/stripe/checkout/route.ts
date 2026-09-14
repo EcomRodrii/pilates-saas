@@ -4,7 +4,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
-import { ofrecerBizum, tipoDeReciboParaBizum } from '@/lib/billing/bizum-permitido';
+import { ofrecerBizum } from '@/lib/billing/bizum-permitido';
+import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
@@ -200,21 +201,12 @@ export async function POST(req: NextRequest) {
     // así que un pendiente casi nunca lo trae y se mira el plan de su
     // suscripción (ver `tipoDeReciboParaBizum`). Si la consulta no da nada,
     // `null`: sin Bizum.
-    const tipoRecibo = tipoDeReciboParaBizum(
-      (recibo.entrega_tipo as string | null) ?? null,
-      (recibo.suscripcion_id as string | null) ?? null,
-    );
-    if (tipoRecibo !== 'CONSULTAR_PLAN') {
-      tipoPlanCobrado = tipoRecibo;
-    } else {
-      const { data: sus } = await admin
-        .from('suscripciones').select('plan_id').eq('id', recibo.suscripcion_id).maybeSingle();
-      if (sus?.plan_id) {
-        const { data: planSus } = await admin
-          .from('planes_tarifa').select('tipo').eq('id', sus.plan_id).maybeSingle();
-        tipoPlanCobrado = (planSus?.tipo as string | null | undefined) ?? null;
-      }
-    }
+    // El mismo helper que usa el mostrador (`/api/pos/recibo`): el 14-sep esta
+    // resolución vivía solo aquí y el TPV ofrecía Bizum en cuotas.
+    tipoPlanCobrado = await tipoDePlanDelRecibo(admin, {
+      entrega_tipo: (recibo.entrega_tipo as string | null) ?? null,
+      suscripcion_id: (recibo.suscripcion_id as string | null) ?? null,
+    });
   } else if (body.planId) {
     const { data: plan, error } = await admin
       .from('planes_tarifa')

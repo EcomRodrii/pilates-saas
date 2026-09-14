@@ -381,7 +381,21 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.SALUD_REVISION]:        { category: 'sistema',  priority: 'MEDIA', canales: [],       audiencia: 'propietaria' },
   [EVENTOS.RIESGO_DEPENDENCIA]:    { category: 'sistema',  priority: 'MEDIA', canales: [],       audiencia: 'propietaria' },
   // Equipo: hay una clase sin quien la dé → la dueña tiene que actuar YA.
-  [EVENTOS.INSTRUCTORA_BAJA]:      { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'propietaria' },
+  //
+  // CRITICA (14-sep): de las 10 propietarias de producción solo una tiene
+  // suscripción push, y con prioridad ALTA el PUSH además depende de la
+  // preferencia. Con CRITICA sale siempre que haya suscripción.
+  //
+  // EMAIL NO se pone aquí a propósito: el correo de esta misma baja lo manda
+  // `alertarPropietaria` (`lib/sustituciones/contacto.ts`), que lleva quién no
+  // puede venir y si el motor ya está buscando, y que desde el 14-sep sí
+  // resuelve destinatario en los 14 estudios. Añadirlo también al catálogo
+  // mandaba DOS correos por la misma baja a la misma dirección y sin dedup —
+  // lo cazó la revisión independiente. La separación ya estaba escrita en
+  // `app/api/public/aceptar-sustitucion/route.ts`: «`alertarPropietaria` sale
+  // por email/WhatsApp y el aviso de campana no existe hasta aquí — no son el
+  // mismo canal».
+  [EVENTOS.INSTRUCTORA_BAJA]:      { category: 'sustituciones', priority: 'CRITICA', canales: ['PUSH'], audiencia: 'propietaria' },
   // Ausencia programada: no es urgente (se registra con antelación), pero si deja
   // clases sin cubrir la dueña tiene que verlo.
   [EVENTOS.INSTRUCTORA_AUSENCIA]:  { category: 'sustituciones', priority: 'MEDIA', canales: [], audiencia: 'propietaria' },

@@ -8,6 +8,7 @@ import {
 } from '@/lib/sustituciones/email';
 import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_SUSTITUCION } from '@/lib/whatsapp';
 import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
+import { emailDeLaPropietaria } from '@/lib/notifications/recipients';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { tieneFeature } from '@/lib/billing/entitlements';
@@ -303,7 +304,7 @@ export async function alertarPropietaria(
 ): Promise<{ email: boolean; mensaje: boolean }> {
   const { studioId, sesion, tipo } = params;
   const { data: estudio } = await admin
-    .from('studios').select('nombre, email, color_primario, logo_url').eq('id', studioId).maybeSingle();
+    .from('studios').select('nombre, email, color_primario, logo_url, owner_auth_user_id').eq('id', studioId).maybeSingle();
 
   const { data: tc } = await admin
     .from('tipos_clase').select('nombre').eq('id', sesion?.tipo_clase_id ?? '').maybeSingle();
@@ -313,10 +314,22 @@ export async function alertarPropietaria(
   const estudioNombre = estudio?.nombre ?? 'Tu estudio';
   const urlPanel = `${appUrl()}/sustituciones`;
 
+  // `studios.email` es el email PÚBLICO del estudio y está vacío en 10 de los
+  // 14 estudios de producción (medido el 14-sep) — y los 10 tienen email de
+  // cuenta perfectamente válido. Con `if (estudio?.email)` a secas, los cuatro
+  // avisos de rescate de una sustitución (baja, sin respuesta, lista agotada,
+  // sin sustituta) salían a cero y sin dejar traza: el retorno lo descartan los
+  // cuatro llamantes. `emailDeLaPropietaria` es el helper que ya resolvió esto
+  // mismo para el motor de notificaciones (8-sep) y que nunca llegó aquí, que
+  // es el módulo cuya única razón de existir es este aviso.
+  const destinatario = estudio?.owner_auth_user_id
+    ? await emailDeLaPropietaria(admin, estudio.owner_auth_user_id as string, estudio.email)
+    : (typeof estudio?.email === 'string' && estudio.email.trim() ? estudio.email : null);
+
   let email = false;
-  if (estudio?.email) {
+  if (destinatario) {
     const r = await enviarEmailAlertaPropietaria({
-      to: estudio.email, estudioNombre, colorPrimario: estudio.color_primario, logoUrl: estudio.logo_url,
+      to: destinatario, estudioNombre, colorPrimario: estudio?.color_primario, logoUrl: estudio?.logo_url,
       claseNombre, cuando, tipo,
       candidataNombre: params.candidataNombre, urlPanel,
       yaContactando: params.yaContactando,

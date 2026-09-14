@@ -129,3 +129,16 @@ test('formatearFechaAviso y asunto: fecha en español y hora de España', () => 
   assert.match(asuntoAvisoEstudioVencido('aviso_30', dia(90)), /hasta el 24 de noviembre de 2026$/);
   assert.match(asuntoAvisoEstudioVencido('aviso_final', dia(90)), /^Último aviso/);
 });
+
+test('el último aviso no promete un borrado si la purga no está armada', () => {
+  // R-1 (60ª pasada): el primer correo de este ciclo sale el 25-sep-2026 a una
+  // propietaria real, y `PURGA_ESTUDIOS_VENCIDOS` está apagada. Decirle «se
+  // borrarán el X» cuando ese día solo se calcula un informe es una
+  // declaración falsa sobre sus datos. El defecto del parámetro es `false`
+  // justo para que un llamante que se olvide no vuelva a prometerlo.
+  assert.doesNotMatch(asuntoAvisoEstudioVencido('aviso_final', dia(90), false), /se borrarán/);
+  assert.match(asuntoAvisoEstudioVencido('aviso_final', dia(90), false), /conservamos/i);
+  assert.doesNotMatch(asuntoAvisoEstudioVencido('aviso_final', dia(90)), /se borrarán/);
+  // Y con el interruptor puesto, sí lo dice.
+  assert.match(asuntoAvisoEstudioVencido('aviso_final', dia(90), true), /se borrarán el 24 de noviembre de 2026$/);
+});

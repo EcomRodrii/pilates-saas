@@ -4,7 +4,7 @@ import { EstudioVencidoEmail } from '@/lib/emails/estudio-vencido-template';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 import { LEGAL } from '@/lib/legal-info';
-import { asuntoAvisoEstudioVencido, formatearFechaAviso } from '@/lib/retencion/ciclo-estudios-vencidos';
+import { asuntoAvisoEstudioVencido, formatearFechaAviso, purgaEstudiosActiva } from '@/lib/retencion/ciclo-estudios-vencidos';
 
 // Aviso del ciclo de estudios vencidos (30 y 83 días). A diferencia del resto de
 // emails best-effort, aquí el resultado MANDA: si no sale, el ciclo no avanza
@@ -26,6 +26,11 @@ export async function enviarAvisoEstudioVencido(params: {
       fase: params.fase,
       estudioNombre: params.estudioNombre,
       fechaPurga: formatearFechaAviso(params.fechaPurga),
+      // El texto tiene que decir lo que el motor va a hacer, no lo que el ciclo
+      // describe sobre el papel: con el interruptor apagado ese día solo se
+      // calcula un informe. Se lee aquí y no se pasa desde el ciclo para que
+      // ningún llamante pueda prometer un borrado que no está armado.
+      purgaArmada: purgaEstudiosActiva(process.env),
       urlSuscripcion: `${base}/suscripcion`,
       // No `/configuracion?tab=backups`: con la prueba agotada el panel redirige
       // a /suscripcion y ese enlace nunca llegaría a la exportación.
@@ -34,7 +39,7 @@ export async function enviarAvisoEstudioVencido(params: {
     const { error } = await new Resend(apiKey).emails.send({
       from: remitentePorMarca('Tentare'),
       to: [params.to],
-      subject: asuntoAvisoEstudioVencido(params.fase, params.fechaPurga),
+      subject: asuntoAvisoEstudioVencido(params.fase, params.fechaPurga, purgaEstudiosActiva(process.env)),
       html,
     });
     if (error) return { ok: false, error: error.message };

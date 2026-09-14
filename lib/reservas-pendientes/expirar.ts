@@ -11,6 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { expirarReservaPendiente } from '@/lib/db/supabase-data-admin';
+import { exigirLectura } from '@/lib/exigir-lectura';
 import { fetchAllRows } from '@/lib/supabase-data';
 
 export async function expirarReservasPendientes(): Promise<{ expiradas: number }> {
@@ -18,7 +19,7 @@ export async function expirarReservasPendientes(): Promise<{ expiradas: number }
   if (!admin) return { expiradas: 0 };
   // Paginado: query global (todos los estudios) y PostgREST corta a 1.000
   // filas en silencio.
-  const { data: reservas } = await fetchAllRows<{ id: string; studio_id: string; sesion_id: string; socio_id: string | null }>(
+  const { data: reservas, error: errReservas } = await fetchAllRows<{ id: string; studio_id: string; sesion_id: string; socio_id: string | null }>(
     '(global)', 'reservas',
     (from, to) => admin
       .from('reservas')
@@ -26,8 +27,9 @@ export async function expirarReservasPendientes(): Promise<{ expiradas: number }
       .eq('estado', 'PENDIENTE_APROBACION')
       .range(from, to),
   );
+  exigirLectura(errReservas, 'leyendo reservas pendientes');
   if (!reservas.length) return { expiradas: 0 };
-  const { data: sesiones } = await fetchAllRows<{ id: string; inicio: string }>(
+  const { data: sesiones, error: errSesiones } = await fetchAllRows<{ id: string; inicio: string }>(
     '(global)', 'sesiones',
     (from, to) => admin
       .from('sesiones')
@@ -35,6 +37,7 @@ export async function expirarReservasPendientes(): Promise<{ expiradas: number }
       .in('id', [...new Set(reservas.map((r) => r.sesion_id))])
       .range(from, to),
   );
+  exigirLectura(errSesiones, 'leyendo sesiones');
   const inicioById = new Map(sesiones.map((s) => [s.id, s.inicio]));
   const ahora = Date.now();
   let expiradas = 0;

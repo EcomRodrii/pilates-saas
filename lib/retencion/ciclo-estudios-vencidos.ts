@@ -166,9 +166,21 @@ export function formatearFechaAviso(d: Date): string {
   return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' }).format(d);
 }
 
-export function asuntoAvisoEstudioVencido(fase: 'aviso_30' | 'aviso_final', fechaPurga: Date): string {
+/**
+ * `purgaArmada` = `purgaEstudiosActiva(process.env)`. Por defecto `false`, que
+ * es como está producción hoy: sin él, el asunto del último aviso afirmaba un
+ * borrado en una fecha concreta que ese día NO ocurre (solo se calcula un
+ * informe). Es una declaración sobre los datos de una persona; tiene que ser
+ * verdad. Ver `lib/emails/estudio-vencido-template.tsx`.
+ */
+export function asuntoAvisoEstudioVencido(
+  fase: 'aviso_30' | 'aviso_final',
+  fechaPurga: Date,
+  purgaArmada = false,
+): string {
   const fecha = formatearFechaAviso(fechaPurga);
-  return fase === 'aviso_final'
+  if (fase !== 'aviso_final') return `Conservaremos los datos de tu estudio hasta el ${fecha}`;
+  return purgaArmada
     ? `Último aviso: los datos de tu estudio se borrarán el ${fecha}`
-    : `Conservaremos los datos de tu estudio hasta el ${fecha}`;
+    : `Último aviso: conservamos los datos de tu estudio solo hasta el ${fecha}`;
 }

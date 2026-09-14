@@ -5,6 +5,7 @@ import { supabase } from '@/lib/db/supabase';
 import { configLegalDe } from '@/lib/legal-textos';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { tokenCoincideConHash } from '@/lib/token-hash';
+import { exigirLectura } from '@/lib/exigir-lectura';
 import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
 import { mapLimit } from '@/lib/concurrency';
@@ -503,9 +504,14 @@ export async function fetchAforoPublico(slug: string): Promise<
   // sobrantes volvería a cero y se pintarían como libres — el mismo fallo que
   // ya costó el truncado de los backups (#684), pero mostrando plazas que no
   // existen.
-  const { data: aforoReservas } = await fetchAllRows(studioId, 'reservas', (from, to) =>
+  // El comentario de arriba contemplaba el truncado y no el ERROR, que tiene
+  // el mismo resultado y peor: con un 504 del pooler, `aforoReservas` queda
+  // vacío y TODAS las clases del portal se pintan libres. Mejor un fallo
+  // visible que vender plazas que no existen.
+  const { data: aforoReservas, error: errAforo } = await fetchAllRows(studioId, 'reservas', (from, to) =>
     admin.from('reservas').select('id, sesion_id, estado, spot_id')
       .eq('studio_id', studioId).in('sesion_id', sesionIds).range(from, to));
+  exigirLectura(errAforo, 'leyendo el aforo de las clases');
 
   return {
     sesionIds,
@@ -4474,33 +4480,44 @@ async function evaluarLogrosServidor(
     // arriba) sin que el saldo real se hubiera movido — el mismo defecto que
     // ya se corrigió hoy para `otorgar_credito_disparador` en el resto de
     // disparadores, sin replicarlo aquí hasta ahora.
+    // ⚠️ ORDEN (60ª auditoría, 14-sep-2026). Antes se concedía el crédito ANTES
+    // de escribir el progreso, con la idea de «no dar el logro por conseguido
+    // sin haber pagado». Era un INTERBLOQUEO: `otorgar_credito_disparador`
+    // exige, en su rama {TRIGGER}, que el progreso esté COMPLETADO EN LA BASE
+    // (`... and ap.completado`), así que respondía CONDICION_NO_CUMPLIDA, el
+    // `return` salía antes del upsert, y la próxima evaluación repetía lo
+    // mismo para siempre. Con las 24 definiciones activas de producción
+    // llevando `creditosRecompensa > 0`, el camino de servidor —el del
+    // PORTAL— no ha completado ni un logro nunca. Y el filtro de Sentry de
+    // abajo silenciaba justo el error que lo delataba.
+    //
+    // Ahora: se escribe el progreso, se pide el crédito, y si el crédito falla
+    // por un error REAL se revierte `completado` para que la próxima
+    // evaluación lo reintente — que es la intención original de la 31ª pasada,
+    // esta vez alcanzable.
+    const idProgreso = existente?.id ?? `achp-${uid()}`;
+    const { error: progError } = await admin.from('achievement_progress').upsert({
+      id: idProgreso,
+      studio_id: studioId, socio_id: socioId, achievement_id: def.id,
+      progreso_actual: valor, completado: true, completado_en: now.toISOString(),
+    }, { onConflict: 'socio_id,achievement_id' });
+    if (progError) { reportDbError('[evaluarLogrosServidor] progreso', progError); return; }
+
     if (def.creditosRecompensa > 0) {
       const { error: credError } = await admin.rpc('otorgar_credito_disparador', {
         p_studio_id: studioId, p_socio_id: socioId,
         p_trigger: 'LOGRO', p_ref_id: `${socioId}:${def.id}`, p_config_id: def.id,
       });
-      // Si falla, NO se marca el progreso como completado: la próxima
-      // evaluación lo reintenta. Idempotente si ya se concedió antes (el
-      // UNIQUE de reward_actions dentro de la RPC lo hace un no-op sin error).
-      //
-      // Sentry JAVASCRIPT-NEXTJS-2Q: SIN_REGLA_ACTIVA/CONDICION_NO_CUMPLIDA/
-      // REF_ID_NO_DERIVADO no son errores de sistema, son el "no toca
-      // conceder" de la propia RPC — mismo filtro que ya usa
-      // otorgarCreditosServidor más arriba, que no se había replicado aquí.
-      if (credError) {
-        if (!/SIN_REGLA_ACTIVA|CONDICION_NO_CUMPLIDA|REF_ID_NO_DERIVADO/.test(credError.message)) {
-          reportDbError('[evaluarLogrosServidor] crédito', credError);
-        }
+      // SIN_REGLA_ACTIVA / CONDICION_NO_CUMPLIDA / REF_ID_NO_DERIVADO no son
+      // errores de sistema: son el «no toca conceder» de la propia RPC, y el
+      // logro sí está conseguido. Cualquier otro error sí deshace el completado.
+      if (credError && !/SIN_REGLA_ACTIVA|CONDICION_NO_CUMPLIDA|REF_ID_NO_DERIVADO/.test(credError.message)) {
+        reportDbError('[evaluarLogrosServidor] crédito', credError);
+        await admin.from('achievement_progress')
+          .update({ completado: false, completado_en: null }).eq('id', idProgreso);
         return;
       }
     }
-
-    const { error: progError } = await admin.from('achievement_progress').upsert({
-      id: existente?.id ?? `achp-${uid()}`,
-      studio_id: studioId, socio_id: socioId, achievement_id: def.id,
-      progreso_actual: valor, completado: true, completado_en: now.toISOString(),
-    }, { onConflict: 'socio_id,achievement_id' });
-    if (progError) { reportDbError('[evaluarLogrosServidor] progreso', progError); return; }
 
     const { error: histError } = await admin.from('achievement_history').insert({
       id: `achh-${uid()}`, studio_id: studioId, socio_id: socioId, achievement_id: def.id,
@@ -4549,33 +4566,30 @@ async function evaluarRetosServidor(
       return;
     }
 
-    // 31ª pasada de auditoría: mismo arreglo que evaluarLogrosServidor — el
-    // crédito se concede ANTES de marcar el reto conseguido, con la RPC
-    // atómica `otorgar_credito_disparador` (mueve saldo+ledger en una sola
-    // transacción). Un fallo deja el reto reintentable en vez de darlo por
-    // conseguido sin haber pagado el crédito.
+    // Mismo interbloqueo que en los logros, y mismo arreglo (60ª auditoría):
+    // la RPC exige el progreso completado EN LA BASE, así que pedir el crédito
+    // primero no podía funcionar nunca. Se escribe, se pide, y solo un error
+    // REAL deshace el completado.
+    const idProgresoReto = existente?.id ?? `chap-${uid()}`;
+    const { error: progError } = await admin.from('challenge_progress').upsert({
+      id: idProgresoReto,
+      studio_id: studioId, socio_id: socioId, challenge_id: reto.id,
+      progreso_actual: valor, completado: true, completado_en: now.toISOString(),
+    }, { onConflict: 'socio_id,challenge_id' });
+    if (progError) { reportDbError('[evaluarRetosServidor] progreso', progError); return; }
+
     if (reto.creditosRecompensa > 0) {
       const { error: credError } = await admin.rpc('otorgar_credito_disparador', {
         p_studio_id: studioId, p_socio_id: socioId,
         p_trigger: 'RETO', p_ref_id: `${socioId}:${reto.id}`, p_config_id: reto.id,
       });
-      // Sentry JAVASCRIPT-NEXTJS-2Q: mismo filtro que evaluarLogrosServidor
-      // arriba — SIN_REGLA_ACTIVA/CONDICION_NO_CUMPLIDA/REF_ID_NO_DERIVADO son
-      // el "no toca conceder" de la propia RPC, no un fallo de sistema.
-      if (credError) {
-        if (!/SIN_REGLA_ACTIVA|CONDICION_NO_CUMPLIDA|REF_ID_NO_DERIVADO/.test(credError.message)) {
-          reportDbError('[evaluarRetosServidor] crédito', credError);
-        }
+      if (credError && !/SIN_REGLA_ACTIVA|CONDICION_NO_CUMPLIDA|REF_ID_NO_DERIVADO/.test(credError.message)) {
+        reportDbError('[evaluarRetosServidor] crédito', credError);
+        await admin.from('challenge_progress')
+          .update({ completado: false, completado_en: null }).eq('id', idProgresoReto);
         return;
       }
     }
-
-    const { error: progError } = await admin.from('challenge_progress').upsert({
-      id: existente?.id ?? `chap-${uid()}`,
-      studio_id: studioId, socio_id: socioId, challenge_id: reto.id,
-      progreso_actual: valor, completado: true, completado_en: now.toISOString(),
-    }, { onConflict: 'socio_id,challenge_id' });
-    if (progError) { reportDbError('[evaluarRetosServidor] progreso', progError); return; }
 
     const { error: histError } = await admin.from('challenge_history').insert({
       id: `chah-${uid()}`, studio_id: studioId, socio_id: socioId, challenge_id: reto.id,

@@ -5,6 +5,8 @@ import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
 import { contextoCobroDe, proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
+import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
+import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
 import type { EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 
@@ -57,16 +59,27 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: recibo } = await admin.from('recibos')
-    .select('id, concepto, importe, estado, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, cobro_mostrador_pi')
+    .select('id, concepto, importe, estado, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, cobro_mostrador_pi, entrega_tipo, suscripcion_id')
     .eq('id', reciboId).eq('studio_id', sesion.studioId)
     .maybeSingle();
   if (!recibo) return NextResponse.json({ error: 'No encontramos ese recibo' }, { status: 404 });
+
 
   // El MISMO veredicto que usa /api/stripe/checkout y el panel. Una cuarta
   // lista de estados «cobrables» es cómo se acaba cobrando dos veces algo ya
   // devuelto.
   if (!esReciboCobrable(recibo)) {
     return NextResponse.json({ error: 'Ese recibo ya no se puede cobrar.' }, { status: 409 });
+  }
+
+  // Bizum fuera de las cuotas, con el MISMO veredicto que /api/stripe/checkout.
+  // «Vengo a pagar la cuota» es justo el caso en el que más a mano queda Bizum
+  // y el que peor acaba: no deja método guardado, así que el ciclo siguiente
+  // nace PENDIENTE y sin reintento (`lib/inngest/renovaciones.ts`). Va DESPUÉS
+  // de `esReciboCobrable`: a un recibo ya devuelto hay que decirle lo que le
+  // pasa de verdad, no mandarle a cambiar de método para nada.
+  if (metodo === 'BIZUM' && !bizumPermitidoPara(await tipoDePlanDelRecibo(admin, recibo))) {
+    return NextResponse.json({ error: MENSAJE_BIZUM_EN_CUOTA, codigo: 'BIZUM_EN_CUOTA' }, { status: 400 });
   }
 
   const centimos = Math.round(Number(recibo.importe) * 100);
