@@ -11,6 +11,7 @@ import { useAuthStudent } from '@/lib/student/auth';
 import { useAsync } from '@/lib/student/useAsync';
 import { getPerfilInstructora } from '@/lib/student/datos-instructora';
 import { euros } from '@/lib/student/formato';
+import { TEXTO_SIN_VALORACIONES, textoValoraciones } from '@/lib/student/valoraciones-instructora';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { activarPushStudent, contextoPushStudent, desactivarPushStudent } from '@/lib/student/push';
@@ -46,6 +47,7 @@ export default function PerfilInstructoraPage() {
   const { data: perfil } = useAsync(cargar, () => false);
   const tarifa = perfil?.tarifa ?? null;
   const estudios = perfil?.estudios ?? [];
+  const valoracion = textoValoraciones(perfil?.valoraciones ?? null);
 
   // Avisos en ESTE dispositivo: el mismo registro que la app de la alumna
   // (`lib/student/push.ts`, misma tabla y mismo motor). Sin él, «Te piden cubrir
@@ -101,6 +103,27 @@ export default function PerfilInstructoraPage() {
             { label: 'Mensajes con tus alumnas', href: href('/equipo/mensajes') },
           ]}
         />
+
+        {/* Solo con el perfil cargado: sin respuesta no se inventa ni una nota ni un «aún no». */}
+        {perfil && (
+          <section>
+            <p className="t-label" style={{ margin: '0 0 7px' }}>Tus valoraciones</p>
+            <div
+              className="card"
+              data-testid="valoraciones"
+              style={{ padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 3, fontSize: 'var(--t-small)' }}
+            >
+              {valoracion ? (
+                <>
+                  <span style={{ fontWeight: 700 }}>{valoracion.nota}</span>
+                  {valoracion.hasta && <span className="t-meta">{valoracion.hasta}</span>}
+                </>
+              ) : (
+                <span className="t-meta">{TEXTO_SIN_VALORACIONES}</span>
+              )}
+            </div>
+          </section>
+        )}
 
         {dispositivo && (
           <section>

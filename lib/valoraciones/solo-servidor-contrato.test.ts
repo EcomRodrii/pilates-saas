@@ -44,3 +44,12 @@ test('ninguna regla del panel deja a la instructora leer valoraciones sueltas ni
     assert.doesNotMatch(cuerpo, /INSTRUCTOR/, `${nombre} vuelve a abrirse a la instructora`);
   }
 });
+
+test('el perfil de la instructora solo pide lo necesario para su agregado, de sus clases en ese estudio', () => {
+  const perfil = leer('lib/portal-instructora/perfil-servidor.ts');
+  const consulta = perfil.match(/from\('valoraciones'\)\.select\('([^']*)'\)/)?.[1];
+  assert.ok(consulta, 'no se encontró la consulta de valoraciones del perfil');
+  assert.doesNotMatch(consulta!, /comentario/);
+  assert.match(perfil, /\.eq\('studio_id', studioId\)\.eq\('instructor_id', instructorId\)/);
+  assert.match(perfil, /valoraciones: agregadoPublicable\(/);
+});

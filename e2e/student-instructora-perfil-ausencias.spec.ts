@@ -28,20 +28,32 @@ function diaMas(n: number): string {
 
 type Ausencia = { id: string; tipo: string; desde: string; hasta: string; motivo: string | null };
 
-async function montar(page: Page, opciones: { iniciales?: Ausencia[]; crearFalla?: boolean } = {}) {
-  const contador = { crear: 0, borrar: 0, cuerpoCrear: null as null | Record<string, unknown>, idBorrado: null as unknown };
+async function montar(
+  page: Page,
+  opciones: { iniciales?: Ausencia[]; crearFalla?: boolean; valoraciones?: unknown; perfilFalla?: boolean } = {},
+) {
+  const contador = {
+    crear: 0, borrar: 0, cuerpoCrear: null as null | Record<string, unknown>, idBorrado: null as unknown,
+    perfil: 0, cuerpoPerfil: null as null | Record<string, unknown>,
+  };
   let items: Ausencia[] = opciones.iniciales ?? [];
 
   await montarPortal(page, { conSesion: true, sinSocia: true });
   await page.route('**/api/public/session**', (route) => json(route, { error: 'No hay ninguna socia' }, 404));
   await page.route('**/api/portal/instructora/sesion', (route) => json(route, { instructora: INSTRUCTORA }));
-  await page.route('**/api/portal/instructora/perfil', (route) => json(route, {
-    estudios: [
-      { nombre: 'Estudio Centro', slug: SLUG, actual: true },
-      { nombre: 'Estudio Playa', slug: 'estudio-playa', actual: false },
-    ],
-    tarifa: { tarifaHora: 22, baseMensualEur: null },
-  }));
+  await page.route('**/api/portal/instructora/perfil', (route) => {
+    contador.perfil++;
+    contador.cuerpoPerfil = JSON.parse(route.request().postData() || '{}') as Record<string, unknown>;
+    if (opciones.perfilFalla) return json(route, { error: 'No se ha podido cargar tu perfil.' }, 500);
+    return json(route, {
+      estudios: [
+        { nombre: 'Estudio Centro', slug: SLUG, actual: true },
+        { nombre: 'Estudio Playa', slug: 'estudio-playa', actual: false },
+      ],
+      tarifa: { tarifaHora: 22, baseMensualEur: null },
+      valoraciones: opciones.valoraciones ?? null,
+    });
+  });
   await page.route('**/api/portal/instructora/ausencias', (route) => {
     const cuerpo = JSON.parse(route.request().postData() || '{}') as Record<string, unknown>;
     if (cuerpo.accion === 'crear') {
@@ -123,5 +135,39 @@ test.describe('La instructora ve su perfil y gestiona sus ausencias desde la app
     await expect(ausencia).toHaveCount(0);
     expect(contador.borrar).toBe(1);
     expect(contador.idBorrado).toBe('aus-1');
+  });
+});
+
+test.describe('La instructora ve su nota agregada en el perfil', () => {
+  test('con datos suficientes, la media con su número de valoraciones y hasta cuándo', async ({ page }) => {
+    const contador = await montar(page, { valoraciones: { media: 4.63, total: 38, hasta: '2026-08-31' } });
+    await page.goto(`/portal/${SLUG}/equipo/perfil`);
+
+    const tarjeta = page.getByTestId('valoraciones');
+    await expect(tarjeta).toContainText('4,6 · 38 valoraciones', { timeout: 30_000 });
+    await expect(tarjeta).toContainText('Datos hasta el 31 de agosto');
+    expect(contador.perfil).toBeGreaterThan(0);
+    // La instructora sale del token: el cuerpo solo lleva el estudio.
+    expect(contador.cuerpoPerfil).toEqual({ slug: SLUG });
+  });
+
+  test('sin datos suficientes, una línea neutra y ningún número', async ({ page }) => {
+    const contador = await montar(page, { valoraciones: null });
+    await page.goto(`/portal/${SLUG}/equipo/perfil`);
+
+    const tarjeta = page.getByTestId('valoraciones');
+    await expect(tarjeta).toContainText('Cuando al menos 5 alumnas hayan valorado tus clases', { timeout: 30_000 });
+    await expect(tarjeta).not.toContainText('·');
+    expect(contador.perfil).toBeGreaterThan(0);
+  });
+
+  test('si el perfil falla, no inventa ninguna nota y el resto del perfil sigue sirviendo', async ({ page }) => {
+    const contador = await montar(page, { perfilFalla: true });
+    await page.goto(`/portal/${SLUG}/equipo/perfil`);
+
+    await expect(page.getByRole('link', { name: 'Tus ausencias', exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => contador.perfil, { timeout: 30_000 }).toBeGreaterThan(0);
+    await expect(page.getByTestId('valoraciones')).toHaveCount(0);
+    await expect(page.getByText('Cuando al menos 5 alumnas')).toHaveCount(0);
   });
 });

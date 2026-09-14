@@ -6,6 +6,7 @@ import type {
   BajaConClase, ClaseQueDa, ClaseQueReserva, EstadoEnLista, ListaDeClase, OfertaSustitucion,
 } from '@/lib/student/agenda-instructora';
 import type { AusenciaVista, PerfilInstructora, TipoAusencia } from '@/lib/student/perfil-instructora';
+import { normalizarValoraciones } from '@/lib/student/valoraciones-instructora';
 import type { OpcionesNuevaClase } from '@/lib/student/nueva-clase';
 import type { AlumnaResumen, FichaAlumna } from '@/lib/student/alumnas-instructora';
 import type { SaludAlumna } from '@/lib/datos-salud/salud-para-instructora';
@@ -217,6 +218,7 @@ export async function getPerfilInstructora(slug: string): Promise<PerfilInstruct
   return {
     estudios: Array.isArray(d.estudios) ? d.estudios : [],
     tarifa: d.tarifa && typeof d.tarifa === 'object' ? d.tarifa : null,
+    valoraciones: normalizarValoraciones(d.valoraciones),
   };
 }
 
