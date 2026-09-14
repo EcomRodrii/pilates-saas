@@ -25,6 +25,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { Tenti, type TentiPose } from '@/components/marca/tenti';
 import { PasoLogo } from './paso-logo';
+import type { ResultadoEscritura } from '@/lib/errores';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import {
   EscenaReservas, EscenaCobros, EscenaSustituciones, EscenaInformes,
@@ -113,7 +114,7 @@ export function PantallasValor({
   studioId: string;
   studioNombre: string;
   logoActual: string | null;
-  onGuardarLogo: (url: string) => Promise<void>;
+  onGuardarLogo: (url: string) => Promise<ResultadoEscritura>;
 }) {
   const [i, setI] = useState(0);
   const [transformada, setTransformada] = useState(false);

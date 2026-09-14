@@ -45,8 +45,15 @@ async function seedSesionDeDuena(page: Page) {
   }, [STORAGE_KEY, AUTH_UID] as const);
 }
 
-/** Devuelve los cuerpos de los PATCH que salen hacia `studios`. */
-async function base(page: Page, patches: Record<string, unknown>[], fila: Record<string, unknown> = STUDIO_ROW) {
+/** Devuelve los cuerpos de los PATCH que salen hacia `studios`.
+ *  `filasPatch` es lo que contesta PostgREST al UPDATE: `dbUpdateStudio` pide
+ *  `select=id` y cuenta filas, así que `[]` es «la RLS no casó, no se guardó». */
+async function base(
+  page: Page,
+  patches: Record<string, unknown>[],
+  fila: Record<string, unknown> = STUDIO_ROW,
+  filasPatch: unknown[] = [{ id: STUDIO_ID }],
+) {
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/layout**', route =>
     json(route, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
@@ -58,7 +65,7 @@ async function base(page: Page, patches: Record<string, unknown>[], fila: Record
   await page.route('**/rest/v1/studios**', route => {
     if (route.request().method() === 'PATCH') {
       patches.push(JSON.parse(route.request().postData() ?? '{}'));
-      return json(route, []);
+      return json(route, filasPatch);
     }
     return json(route, fila);
   });
@@ -121,5 +128,27 @@ test.describe('Cómo llama el estudio a sus créditos', () => {
     // aunque el PATCH saliera un instante después.
     await page.waitForTimeout(500);
     expect(patches).toHaveLength(0);
+  });
+
+  test('si el UPDATE no toca ninguna fila, la pantalla no dice que guardó', async ({ page }) => {
+    const patches: Record<string, unknown>[] = [];
+    // Así contesta PostgREST cuando la RLS de `studios` no casa: 200 y cero
+    // filas, sin error. Antes el panel lo daba por guardado.
+    await base(page, patches, STUDIO_ROW, []);
+
+    const campo = await abrirRecompensas(page);
+    await expect(campo).toBeVisible({ timeout: 30_000 });
+    await campo.fill('puntos');
+    await campo.blur();
+
+    // Primero que lo INTENTÓ: sin esto, «no dijo que guardó» pasaría también
+    // con un botón que no manda nada.
+    await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
+    // `.first()`: el mismo texto sale en el toast de la pestaña y en el aviso
+    // global de escritura fallida.
+    await expect(page.getByText('No se ha guardado: tu usuario no puede cambiar los datos de este estudio.').first())
+      .toBeVisible();
+    await expect(page.getByText('Nombre actualizado')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /puntos por acción/i })).toHaveCount(0);
   });
 });

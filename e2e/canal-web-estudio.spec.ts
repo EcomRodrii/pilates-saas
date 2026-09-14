@@ -45,7 +45,8 @@ async function montar(page: Page, sitioWebGuardado: string | null = null) {
   await page.route('**/rest/v1/studios**', route => {
     if (route.request().method() === 'PATCH') {
       patches.push(route.request().postDataJSON() as Record<string, unknown>);
-      return json(route, []);
+      // Lo que devuelve PostgREST con `select=id`; `[]` sería «no se guardó».
+      return json(route, [{ id: STUDIO_ID }]);
     }
     return json(route, {
       id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen',

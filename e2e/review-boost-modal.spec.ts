@@ -74,7 +74,10 @@ async function montarDashboard(page: Page, opts: {
       const cambios = req.postDataJSON() as Record<string, unknown>;
       escriturasEstudio.push(cambios);
       Object.assign(estudio, cambios);
-      return route.fulfill({ status: 204 });
+      // `dbUpdateStudio` pide `select=id` y cuenta filas: con un 204 sin cuerpo
+      // contaría como no guardado y saldría el aviso global de escritura
+      // fallida, cuyo ✕ también se llama «Cerrar».
+      return json(route, [{ id: STUDIO_ID }]);
     }
     return json(route, estudio);
   });
