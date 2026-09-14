@@ -62,6 +62,31 @@ const menos = (ahora: Date, minutos: number) => new Date(ahora.getTime() - minut
 // `server-only` con medio repo detrás, y esto solo necesita un número.
 const VENTANA_ESPERAS_DIAS = 30;
 
+/**
+ * Penalizaciones RECIBO_CREADO con el recibo sin programar. Exportado porque el
+ * cron de penalizaciones la cuenta también en cada pasada y manda el número a
+ * Sentry (sin cron nuevo: Inngest va cerca del límite del plan).
+ */
+export const ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR = 'penalizaciones-recibo-sin-programar';
+
+/**
+ * Qué mandar a Sentry con el resultado de una comprobación. `null` = en verde,
+ * nada que mandar. Solo el número y el id de la comprobación: nunca filas, ids
+ * de socias ni de estudios. Mensaje estable para que Sentry agrupe en un issue.
+ */
+export function avisoParaSentry(
+  d: { id: string; umbralAviso: number; umbralFallo: number },
+  r: { count: number | null; error: { message: string } | null },
+): { nivel: 'warning' | 'error'; mensaje: string; extra: { comprobacion: string; valor: number; error?: string } } | null {
+  const mensaje = `[salud] ${d.id}`;
+  // Igual que en `comprobarFlujos`: no poder contar es un fallo, no un verde.
+  if (r.error) return { nivel: 'error', mensaje, extra: { comprobacion: d.id, valor: -1, error: r.error.message } };
+  const valor = r.count ?? 0;
+  const estado = clasificar(valor, d.umbralAviso, d.umbralFallo);
+  if (estado === 'ok') return null;
+  return { nivel: estado === 'fallo' ? 'error' : 'warning', mensaje, extra: { comprobacion: d.id, valor } };
+}
+
 export const DEFINICIONES: Definicion[] = [
   {
     id: 'reservas-pendientes-sin-expirar',
@@ -153,6 +178,27 @@ export const DEFINICIONES: Definicion[] = [
       .from('penalizaciones')
       .select('id', { count: 'exact', head: true })
       .eq('estado', 'DETECTADA')
+      .lte('detectada_en', menos(ahora, 60)),
+  },
+  {
+    id: ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR,
+    que: 'Penalizaciones de cobro automático (RECIBO_CREADO) detectadas hace más de 1 hora cuyo recibo sigue PENDIENTE sin reintento programado.',
+    impacto:
+      'Nadie las va a cobrar ni a reintentar: el cron de penalizaciones solo mira las DETECTADA y el dunning solo cobra ' +
+      'recibos con reintento programado. Pasa si el proceso murió entre enlazar el recibo y programarlo, o si ni siquiera ' +
+      'se pudo devolver la penalización a DETECTADA. Revisa el recibo en Cobros: cóbralo o anúlalo.',
+    // Una fila ya es aviso: en un sistema sano esto vive milisegundos (entre
+    // enlazar y armar dentro de la misma pasada), nunca una hora.
+    umbralAviso: 1,
+    umbralFallo: 5,
+    // Desde `detectada_en` y no desde el recibo: `recibos` no guarda cuándo se
+    // creó. Detectada hace más de 1 h y aún así sin programar ya no es tránsito.
+    contar: (admin, ahora) => admin
+      .from('penalizaciones')
+      .select('id, recibos!inner(estado, proximo_reintento)', { count: 'exact', head: true })
+      .eq('estado', 'RECIBO_CREADO')
+      .eq('recibos.estado', 'PENDIENTE')
+      .is('recibos.proximo_reintento', null)
       .lte('detectada_en', menos(ahora, 60)),
   },
   {

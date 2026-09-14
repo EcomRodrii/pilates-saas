@@ -343,6 +343,45 @@ export function limpiezaTrasCasFallido(p: { origen: 'CREADO' | 'YA_EXISTIA'; rec
   return p.origen === 'CREADO' ? 'BORRAR' : 'DESARMAR';
 }
 
+/** Cómo quedó el recibo cuando armarlo no tocó fila. `ok: false` = no se pudo leer. */
+export type LecturaArmado = { ok: true; estado: string | null; armado: boolean } | { ok: false };
+
+/** Alertas del cron a Sentry. Van solo con ids, nunca con datos de la socia. */
+export type AlertaCron = 'NO_SE_PUDO_ARMAR' | 'RECIBO_NO_PENDIENTE_AL_ARMAR' | 'NO_SE_PUDO_DEVOLVER';
+
+export type TrasArmar =
+  | { accion: 'COBRAR'; alerta: AlertaCron | null }
+  | { accion: 'DEVOLVER_A_DETECTADA'; alerta: AlertaCron };
+
+/** Vuelta atrás cuando no se pudo armar: la próxima pasada del cron la recoge entera. */
+export const VUELTA_A_DETECTADA: Escritura = { estado: 'DETECTADA', desde: ['RECIBO_CREADO'] };
+
+/** Los estados de recibo que el guardia de `cobrarReciboOffSession` deja cobrar. */
+const RECIBO_COBRABLE = ['PENDIENTE', 'FALLIDO'];
+
+/**
+ * Armar el recibo no confirmó una fila: ¿se cobra igual? Solo si no puede quedar
+ * nada que nadie reintente.
+ * - Armado (una fila), o ya lo estaba (código anterior) → cobrar: si el cobro
+ *   sale transitorio, lo retoma el dunning.
+ * - El recibo ya no es cobrable (cobrado o anulado a mano, borrado) → se intenta
+ *   igual: el guardia del recibo no cobra, y la relectura deja la penalización
+ *   COBRADA o FALLIDA. Con alerta, porque no debería pasar.
+ * - Error, no se pudo leer, o sigue cobrable sin armar → NO se cobra. Un
+ *   transitorio dejaría RECIBO_CREADO con el recibo sin armar, y eso no lo
+ *   reintenta nadie: el cron solo lee DETECTADA y el dunning solo cobra recibos
+ *   armados. Se desarma, se devuelve a DETECTADA y la próxima pasada lo repite
+ *   entero (23505 → enlazar → armar → cobrar), con la misma Idempotency-Key.
+ */
+export function decidirTrasArmar(armado: { error: boolean; tocadas: number }, lectura?: LecturaArmado): TrasArmar {
+  if (!armado.error && armado.tocadas > 0) return { accion: 'COBRAR', alerta: null };
+  if (lectura?.ok) {
+    if (lectura.estado === 'PENDIENTE' && lectura.armado) return { accion: 'COBRAR', alerta: null };
+    if (!RECIBO_COBRABLE.includes(lectura.estado ?? '')) return { accion: 'COBRAR', alerta: 'RECIBO_NO_PENDIENTE_AL_ARMAR' };
+  }
+  return { accion: 'DEVOLVER_A_DETECTADA', alerta: 'NO_SE_PUDO_ARMAR' };
+}
+
 /**
  * Tras el cobro automático: las MISMAS reglas que la aprobación a mano, saliendo
  * de RECIBO_CREADO.
@@ -352,6 +391,14 @@ export function limpiezaTrasCasFallido(p: { origen: 'CREADO' | 'YA_EXISTIA'; rec
  *   no se movió.
  * - Recibo COBRADO → COBRADA y aviso (deduplicado).
  * - Rechazo real → FALLIDA, como siempre.
+ *
+ * ⚠️ PENDIENTE, fuera de este cambio: tras un rechazo real la penalización queda
+ * FALLIDA, pero su recibo sigue armado y el dunning lo reintenta. Si el dunning
+ * lo cobra después, la penalización se queda FALLIDA con el dinero dentro (y
+ * una RECIBO_CREADO que cobre el dunning se queda RECIBO_CREADO). El dunning
+ * (lib/inngest/dunning.ts) tiene que actualizar la penalización de los recibos
+ * `rec-penaliz-*` al cobrarlos. Hay que resolverlo ANTES de que ningún estudio
+ * active el cobro automático de penalizaciones.
  */
 export function planificarCobroAutomatico(cobro: Cobro, recibo?: LecturaRecibo): Plan {
   return planificarTrasCobro(cobro, recibo, 'RECIBO_CREADO');
@@ -368,14 +415,20 @@ export interface IoCronPenalizacion {
   borrarRecibo(): Promise<void>;
   /** `proximo_reintento = null`, solo si sigue PENDIENTE. */
   desarmarRecibo(): Promise<void>;
-  /** `proximo_reintento = ahora`, solo si sigue PENDIENTE y sin armar. */
-  armarRecibo(): Promise<void>;
+  /** `proximo_reintento = ahora`, solo si sigue PENDIENTE y sin armar. Devuelve las filas tocadas. */
+  armarRecibo(): Promise<{ error: boolean; tocadas: number }>;
+  /** Estado del recibo y si tiene `proximo_reintento`, cuando armar no tocó fila. */
+  leerArmadoRecibo(): Promise<LecturaArmado>;
+  /** CAS de la penalización a `e.estado` sin tocar `procesada_en` (la vuelta a DETECTADA). */
+  devolverPenalizacion(e: Escritura): Promise<{ error: boolean; tocadas: number }>;
   cobrar(): Promise<Cobro>;
   leerRecibo(): Promise<LecturaRecibo>;
   /** CAS de la penalización a `e.estado`, con `procesada_en`. */
   cerrarPenalizacion(e: Escritura): Promise<{ error: boolean; tocadas: number }>;
   leerEstadoPenalizacion(): Promise<string | null>;
   notificarPago(): Promise<void>;
+  /** Aviso a Sentry, solo con ids. */
+  alertar(motivo: AlertaCron): void;
 }
 
 export type PasadaCron =
@@ -383,6 +436,7 @@ export type PasadaCron =
   | { paso: 'ERROR_ENLACE' }
   | { paso: 'YA_NO_DETECTADA'; limpieza: LimpiezaRecibo }
   | { paso: 'ESPERA_APROBACION' }
+  | { paso: 'SIN_ARMAR'; devuelta: boolean }
   | { paso: 'COBRO'; desenlace: Desenlace };
 
 /** Crear el recibo de una penalización DETECTADA y, en automático, cobrarlo. */
@@ -408,8 +462,23 @@ export async function crearReciboYCobrar(io: IoCronPenalizacion, p: { reciboId: 
     return { paso: 'ESPERA_APROBACION' };
   }
 
-  // Se arma ANTES de cobrar: si el proceso muere a mitad, el dunning lo retoma.
-  await io.armarRecibo();
+  // Se arma ANTES de cobrar: si el proceso muere después, el dunning lo retoma.
+  // Si muere ENTRE enlazar y armar, no hay código que lo recoja: lo cuenta la
+  // comprobación de salud `penalizaciones-recibo-sin-programar`.
+  const armado = await io.armarRecibo();
+  const lecturaArmado = armado.error || armado.tocadas === 0 ? await io.leerArmadoRecibo() : undefined;
+  const tras = decidirTrasArmar(armado, lecturaArmado);
+  if (tras.alerta) io.alertar(tras.alerta);
+  if (tras.accion === 'DEVOLVER_A_DETECTADA') {
+    // Primero desarmar (un recibo armado del código anterior no puede quedar
+    // cobrable con la penalización en DETECTADA), luego devolver.
+    await io.desarmarRecibo();
+    const vuelta = await io.devolverPenalizacion(VUELTA_A_DETECTADA);
+    const devuelta = !vuelta.error && vuelta.tocadas > 0;
+    if (!devuelta) io.alertar('NO_SE_PUDO_DEVOLVER');
+    return { paso: 'SIN_ARMAR', devuelta };
+  }
+
   const cobro = await io.cobrar();
   const recibo = hayQueReleerRecibo(cobro) ? await io.leerRecibo() : undefined;
   const plan = planificarCobroAutomatico(cobro, recibo);

@@ -7,9 +7,11 @@ import {
   DESDE_DETECTADA,
   ESTADOS_QUE_CORRIGE_UN_COBRO,
   TEXTO_COBRADA_INCOMPLETA,
+  VUELTA_A_DETECTADA,
   crearReciboYCobrar,
   cuerpoRespuesta,
   decidirAntesDeCobrar,
+  decidirTrasArmar,
   escrituraAlCrearRecibo,
   hayQueLeerReciboAntesDeCobrar,
   hayQueReleerRecibo,
@@ -21,6 +23,7 @@ import {
   reciboEntraEnDunning,
   resolverEscrituraSinEfecto,
   respaldoAprobacion,
+  type AlertaCron,
   type EstadoPenalizacion,
   type Escritura,
   type IoCronPenalizacion,
@@ -424,6 +427,31 @@ test('⚠️ cron: un recibo que ya existía (23505) no se borra NUNCA; como muc
   assert.equal(limpiezaTrasCasFallido({ origen: 'YA_EXISTIA', reciboId: RID, puntero: { ok: true, reciboId: RID } }), 'NADA');
 });
 
+test('⚠️ cron: tras armar, solo se cobra si no puede quedar nada que nadie reintente', () => {
+  const COBRAR = { accion: 'COBRAR', alerta: null };
+  const DEVOLVER = { accion: 'DEVOLVER_A_DETECTADA', alerta: 'NO_SE_PUDO_ARMAR' };
+  // Armado de verdad, o ya lo estaba (código anterior): el dunning cubre un transitorio.
+  assert.deepEqual(decidirTrasArmar({ error: false, tocadas: 1 }), COBRAR);
+  assert.deepEqual(decidirTrasArmar({ error: false, tocadas: 0 }, { ok: true, estado: 'PENDIENTE', armado: true }), COBRAR);
+  assert.deepEqual(decidirTrasArmar({ error: true, tocadas: 0 }, { ok: true, estado: 'PENDIENTE', armado: true }), COBRAR);
+  // El recibo ya no es cobrable: el guardia no cobra y la relectura cierra la penalización.
+  for (const estado of ['COBRADO', 'ANULADA', 'EN_CURSO', 'DEVUELTO', null]) {
+    assert.deepEqual(
+      decidirTrasArmar({ error: false, tocadas: 0 }, { ok: true, estado, armado: false }),
+      { accion: 'COBRAR', alerta: 'RECIBO_NO_PENDIENTE_AL_ARMAR' }, String(estado),
+    );
+  }
+  // Sin confirmar el armado y con el recibo cobrable: no se cobra.
+  assert.deepEqual(decidirTrasArmar({ error: true, tocadas: 0 }), DEVOLVER);
+  assert.deepEqual(decidirTrasArmar({ error: true, tocadas: 0 }, { ok: false }), DEVOLVER);
+  assert.deepEqual(decidirTrasArmar({ error: false, tocadas: 0 }, { ok: true, estado: 'PENDIENTE', armado: false }), DEVOLVER);
+  // FALLIDO: el guardia del recibo SÍ lo cobraría, y sin armar el dunning no lo retoma.
+  for (const armado of [false, true]) {
+    assert.deepEqual(decidirTrasArmar({ error: false, tocadas: 0 }, { ok: true, estado: 'FALLIDO', armado }), DEVOLVER);
+  }
+  assert.deepEqual(VUELTA_A_DETECTADA, { estado: 'DETECTADA', desde: ['RECIBO_CREADO'] });
+});
+
 test('cron: tras cobrar decide igual que la aprobación a mano, saliendo de RECIBO_CREADO', () => {
   for (const [cobro, recibo] of todosLosCasos()) {
     const etiqueta = `${JSON.stringify(cobro)} / ${JSON.stringify(recibo)}`;
@@ -440,22 +468,25 @@ test('cron: tras cobrar decide igual que la aprobación a mano, saliendo de RECI
 //
 // `crearReciboYCobrar` con un `IoCronPenalizacion` falso que se comporta como
 // las consultas del cron (CAS con `.in('estado')`, borrar solo PENDIENTE sin
-// armar…). Lo que se mira siempre: ¿queda algún recibo que el DUNNING cobraría
-// (PENDIENTE y armado) sin que cobrar esté decidido?
+// armar, el guardia de estado del recibo al cobrar…). Lo que se mira siempre:
+// ¿queda algún recibo que el DUNNING cobraría (PENDIENTE y armado) sin que
+// cobrar esté decidido? ¿Y algo que NADIE reintentaría sin haber avisado?
 
 interface ReciboMem { estado: string; armado: boolean }
 interface Mundo {
   pen: { estado: string; reciboId: string | null };
   recibos: Map<string, ReciboMem>;
+  /** Cargos que el guardia del recibo dejó llegar a Stripe. */
   cargos: number;
   avisos: number;
+  alertas: AlertaCron[];
   armadoAlCobrar: boolean | null;
 }
 
 function mundo(estado = 'DETECTADA', recibo?: ReciboMem, reciboId: string | null = null): Mundo {
   const recibos = new Map<string, ReciboMem>();
   if (recibo) recibos.set(RID, { ...recibo });
-  return { pen: { estado, reciboId }, recibos, cargos: 0, avisos: 0, armadoAlCobrar: null };
+  return { pen: { estado, reciboId }, recibos, cargos: 0, avisos: 0, alertas: [], armadoAlCobrar: null };
 }
 
 const cobraBien = (m: Mundo): ResultadoCobro => {
@@ -463,13 +494,20 @@ const cobraBien = (m: Mundo): ResultadoCobro => {
   return { ok: true, status: 'succeeded' };
 };
 
-function io(m: Mundo, op: {
+interface OpcionesIo {
   cobro?: (m: Mundo) => ResultadoCobro;
   /** Lo que pasa entre el SELECT del cron y su UPDATE (el trigger, otra pasada). */
   antesDelEnlace?: (m: Mundo) => void;
+  /** Lo que pasa entre enlazar y armar (alguien en Cobros, otra escritura). */
+  antesDeArmar?: (m: Mundo) => void;
   errorInsert?: string;
   errorEnlace?: boolean;
-} = {}): IoCronPenalizacion {
+  errorArmar?: boolean;
+  errorLecturaArmado?: boolean;
+  errorDevolver?: boolean;
+}
+
+function io(m: Mundo, op: OpcionesIo = {}): IoCronPenalizacion {
   const casMem = (e: Escritura, recibo: boolean) => {
     if (!e.desde.includes(m.pen.estado as EstadoPenalizacion)) return { error: false, tocadas: 0 };
     m.pen = { estado: e.estado, reciboId: recibo ? RID : m.pen.reciboId };
@@ -497,23 +535,42 @@ function io(m: Mundo, op: {
       if (r && r.estado === 'PENDIENTE') r.armado = false;
     },
     armarRecibo: async () => {
+      op.antesDeArmar?.(m);
+      if (op.errorArmar) return { error: true, tocadas: 0 };
       const r = m.recibos.get(RID);
-      if (r && r.estado === 'PENDIENTE' && !r.armado) r.armado = true;
+      if (r && r.estado === 'PENDIENTE' && !r.armado) { r.armado = true; return { error: false, tocadas: 1 }; }
+      return { error: false, tocadas: 0 };
     },
+    leerArmadoRecibo: async () => {
+      if (op.errorLecturaArmado) return { ok: false };
+      const r = m.recibos.get(RID);
+      return { ok: true, estado: r?.estado ?? null, armado: r?.armado ?? false };
+    },
+    devolverPenalizacion: async (e) => (op.errorDevolver ? { error: true, tocadas: 0 } : casMem(e, false)),
     cobrar: async () => {
+      const r = m.recibos.get(RID);
+      m.armadoAlCobrar = r?.armado ?? null;
+      // El guardia de `cobrarReciboOffSession`: sin recibo, o no PENDIENTE/FALLIDO, no cobra.
+      if (!r) return fallo('NO_ENCONTRADO');
+      if (r.estado !== 'PENDIENTE' && r.estado !== 'FALLIDO') return fallo('NO_PENDIENTE');
       m.cargos++;
-      m.armadoAlCobrar = m.recibos.get(RID)?.armado ?? null;
       return (op.cobro ?? cobraBien)(m);
     },
     leerRecibo: async () => ({ ok: true, estado: m.recibos.get(RID)?.estado ?? null }),
     cerrarPenalizacion: async (e) => casMem(e, false),
     leerEstadoPenalizacion: async () => m.pen.estado,
     notificarPago: async () => { m.avisos++; },
+    alertar: (motivo) => { m.alertas.push(motivo); },
   };
 }
 
 /** ¿Lo cobraría el dunning? PENDIENTE y con `proximo_reintento`. */
 const cobrableEnDunning = (m: Mundo) => [...m.recibos.values()].some(r => r.estado === 'PENDIENTE' && r.armado);
+/** Lo que cuenta la comprobación de salud `penalizaciones-recibo-sin-programar`. */
+const loCuentaLaSalud = (m: Mundo) => {
+  const r = m.recibos.get(RID);
+  return m.pen.estado === 'RECIBO_CREADO' && r?.estado === 'PENDIENTE' && !r.armado;
+};
 const trigger = (m: Mundo) => {
   if (m.pen.estado === 'DETECTADA' || m.pen.estado === 'PENDIENTE_APROBACION') m.pen.estado = 'OMITIDA_REVERTIDA';
 };
@@ -541,10 +598,8 @@ test('⚠️ revertida con un recibo de una pasada anterior (23505, incluso arma
 
 test('⚠️ dos pasadas solapadas: la segunda no toca el recibo de la primera ni devuelve la COBRADA a pendiente', async () => {
   const m = mundo();
-  // Pasada 1 completa.
   assert.equal((await crearReciboYCobrar(io(m), { reciboId: RID, automatico: true })).paso, 'COBRO');
   assert.equal(m.pen.estado, 'COBRADA');
-  // Pasada 2, que leyó la penalización cuando aún era DETECTADA.
   for (const automatico of [true, false]) {
     const r = await crearReciboYCobrar(io(m), { reciboId: RID, automatico });
     assert.deepEqual(r, { paso: 'YA_NO_DETECTADA', limpieza: 'NADA' });
@@ -556,7 +611,6 @@ test('⚠️ dos pasadas solapadas: la segunda no toca el recibo de la primera n
 
 test('dos pasadas: la segunda llega entre el enlace de la primera y su cobro → no borra ni cobra', async () => {
   const m = mundo();
-  // La primera pasada ya enlazó (RECIBO_CREADO + recibo armado) y aún no ha cobrado.
   m.recibos.set(RID, { estado: 'PENDIENTE', armado: true });
   m.pen = { estado: 'RECIBO_CREADO', reciboId: RID };
   const r = await crearReciboYCobrar(io(m), { reciboId: RID, automatico: true });
@@ -602,6 +656,7 @@ test('automático: se arma el dunning ANTES de cobrar, y un cobro limpio cierra 
   assert.equal(m.pen.estado, 'COBRADA');
   assert.equal(m.avisos, 1);
   assert.equal(m.cargos, 1);
+  assert.deepEqual(m.alertas, []);
 });
 
 test('⚠️ automático: excepción DESPUÉS de cobrar (transitorio con el recibo COBRADO) → COBRADA con aviso, nunca FALLIDA', async () => {
@@ -621,6 +676,7 @@ test('⚠️ automático: transitorio de verdad o Stripe no listo → sin FALLID
     assert.equal(m.pen.estado, 'RECIBO_CREADO', codigo);
     assert.deepEqual(m.recibos.get(RID), { estado: 'PENDIENTE', armado: true }, codigo);
     assert.equal(m.avisos, 0, codigo);
+    assert.equal(loCuentaLaSalud(m), false, codigo);
   }
 });
 
@@ -632,6 +688,66 @@ test('automático: rechazo real → FALLIDA como siempre, con el recibo armado p
   assert.equal(m.avisos, 0);
 });
 
+test('⚠️ armar falla: no se cobra, alerta, vuelve a DETECTADA sin armar, y la pasada siguiente lo cobra una vez', async () => {
+  const m = mundo();
+  const r = await crearReciboYCobrar(io(m, { errorArmar: true, errorLecturaArmado: true }), { reciboId: RID, automatico: true });
+  assert.deepEqual(r, { paso: 'SIN_ARMAR', devuelta: true });
+  assert.equal(m.cargos, 0);
+  assert.equal(m.pen.estado, 'DETECTADA');
+  assert.deepEqual(m.alertas, ['NO_SE_PUDO_ARMAR']);
+  assert.equal(cobrableEnDunning(m), false);
+  assert.equal(loCuentaLaSalud(m), false);
+
+  const siguiente = await crearReciboYCobrar(io(m), { reciboId: RID, automatico: true });
+  assert.equal(siguiente.paso, 'COBRO');
+  assert.equal(m.cargos, 1);
+  assert.equal(m.pen.estado, 'COBRADA');
+  assert.equal(m.recibos.size, 1);
+});
+
+test('⚠️ armar falla y devolver también: doble alerta, sin cargo, y queda justo lo que cuenta la salud', async () => {
+  const m = mundo();
+  const r = await crearReciboYCobrar(
+    io(m, { errorArmar: true, errorLecturaArmado: true, errorDevolver: true }), { reciboId: RID, automatico: true },
+  );
+  assert.deepEqual(r, { paso: 'SIN_ARMAR', devuelta: false });
+  assert.deepEqual(m.alertas, ['NO_SE_PUDO_ARMAR', 'NO_SE_PUDO_DEVOLVER']);
+  assert.equal(m.cargos, 0);
+  assert.equal(cobrableEnDunning(m), false);
+  assert.equal(loCuentaLaSalud(m), true);
+});
+
+test('armar da error pero el recibo quedó armado (se perdió la respuesta): se cobra, sin alerta', async () => {
+  const m = mundo();
+  const r = await crearReciboYCobrar(io(m, {
+    antesDeArmar: (mm) => { mm.recibos.get(RID)!.armado = true; },
+    errorArmar: true,
+  }), { reciboId: RID, automatico: true });
+  assert.equal(r.paso, 'COBRO');
+  assert.equal(m.cargos, 1);
+  assert.deepEqual(m.alertas, []);
+});
+
+test('el recibo se cobró a mano entre enlazar y armar: no se cobra otra vez y la penalización queda COBRADA', async () => {
+  const m = mundo();
+  const r = await crearReciboYCobrar(io(m, {
+    antesDeArmar: (mm) => { mm.recibos.get(RID)!.estado = 'COBRADO'; },
+  }), { reciboId: RID, automatico: true });
+  assert.equal(r.paso === 'COBRO' && r.desenlace.tipo, 'YA_COBRADA');
+  assert.equal(m.cargos, 0);
+  assert.equal(m.pen.estado, 'COBRADA');
+  assert.deepEqual(m.alertas, ['RECIBO_NO_PENDIENTE_AL_ARMAR']);
+});
+
+test('armar falla con un recibo previo ya armado (código anterior): se desarma antes de devolver a DETECTADA', async () => {
+  const m = mundo('DETECTADA', { estado: 'PENDIENTE', armado: true });
+  const r = await crearReciboYCobrar(io(m, { errorArmar: true, errorLecturaArmado: true }), { reciboId: RID, automatico: true });
+  assert.deepEqual(r, { paso: 'SIN_ARMAR', devuelta: true });
+  assert.equal(m.pen.estado, 'DETECTADA');
+  assert.deepEqual(m.recibos.get(RID), { estado: 'PENDIENTE', armado: false });
+  assert.equal(cobrableEnDunning(m), false);
+});
+
 test('error al enlazar: se sale sin cobrar y el recibo queda sin armar (nada lo cobra hasta la próxima pasada)', async () => {
   const m = mundo();
   const r = await crearReciboYCobrar(io(m, { errorEnlace: true }), { reciboId: RID, automatico: true });
@@ -639,7 +755,6 @@ test('error al enlazar: se sale sin cobrar y el recibo queda sin armar (nada lo 
   assert.equal(m.cargos, 0);
   assert.equal(m.pen.estado, 'DETECTADA');
   assert.equal(cobrableEnDunning(m), false);
-  // La siguiente pasada converge sobre el MISMO recibo (23505) y cobra una vez.
   const siguiente = await crearReciboYCobrar(io(m), { reciboId: RID, automatico: true });
   assert.equal(siguiente.paso, 'COBRO');
   assert.equal(m.cargos, 1);
@@ -655,20 +770,29 @@ test('error al insertar el recibo (no 23505): no se toca nada más', async () =>
   assert.equal(m.cargos, 0);
 });
 
-test('invariante: en ningún escenario del cron queda un recibo cobrable por el dunning sin cobro decidido', async () => {
+test('invariante: ningún escenario deja un recibo cobrable sin cobro decidido, ni algo que nadie reintente sin alerta', async () => {
   const cobros: Array<(m: Mundo) => ResultadoCobro> = [
     cobraBien, () => fallo('FALLO_COBRO'), () => fallo('ERROR_TRANSITORIO'), () => fallo('SIN_STRIPE_CONECTADO'),
+  ];
+  const fallosAlArmar: OpcionesIo[] = [
+    {}, { errorArmar: true, errorLecturaArmado: true }, { errorArmar: true, errorLecturaArmado: true, errorDevolver: true },
   ];
   for (const automatico of [true, false]) {
     for (const revertir of [false, true]) {
       for (const previo of [undefined, { estado: 'PENDIENTE', armado: false }, { estado: 'PENDIENTE', armado: true }]) {
         for (const cobro of cobros) {
-          const m = mundo('DETECTADA', previo);
-          await crearReciboYCobrar(io(m, { cobro, antesDelEnlace: revertir ? trigger : undefined }), { reciboId: RID, automatico });
-          const decidido = automatico && (m.pen.estado === 'RECIBO_CREADO' || m.pen.estado === 'FALLIDA' || m.pen.estado === 'COBRADA');
-          const etiqueta = `auto=${automatico} revertir=${revertir} previo=${JSON.stringify(previo)}`;
-          if (!decidido) assert.equal(cobrableEnDunning(m), false, etiqueta);
-          if (!automatico || revertir) assert.equal(m.cargos, 0, etiqueta);
+          for (const fallos of fallosAlArmar) {
+            const m = mundo('DETECTADA', previo);
+            await crearReciboYCobrar(
+              io(m, { ...fallos, cobro, antesDelEnlace: revertir ? trigger : undefined }), { reciboId: RID, automatico },
+            );
+            const etiqueta = `auto=${automatico} revertir=${revertir} previo=${JSON.stringify(previo)} fallos=${JSON.stringify(fallos)}`;
+            const decidido = automatico && ['RECIBO_CREADO', 'FALLIDA', 'COBRADA'].includes(m.pen.estado);
+            if (!decidido) assert.equal(cobrableEnDunning(m), false, etiqueta);
+            if (!automatico || revertir) assert.equal(m.cargos, 0, etiqueta);
+            // Nada sin reintentar en silencio: si queda lo que cuenta la salud, se avisó.
+            if (loCuentaLaSalud(m)) assert.ok(m.alertas.includes('NO_SE_PUDO_DEVOLVER'), etiqueta);
+          }
         }
       }
     }

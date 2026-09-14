@@ -11,12 +11,16 @@
 // pero tampoco tan relajada como Fase 2b, porque aquí hay dinero de por
 // medio y cuanto antes se sepa si hace falta aprobación manual, mejor.
 // ─────────────────────────────────────────────────────────────────────────────
+import * as Sentry from '@sentry/nextjs';
 import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
   DESDE_DETECTADA, crearReciboYCobrar, type EstadoPenalizacion,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
+import {
+  DEFINICIONES, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR, avisoParaSentry,
+} from '@/lib/salud/comprobaciones.ts';
 import {
   terminosServicioPorDefecto, politicaPrivacidadPorDefecto, textoLegalCompleto,
 } from '@/lib/legal-textos';
@@ -119,12 +123,18 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   // El ORDEN y las decisiones viven en `crearReciboYCobrar`
   // (lib/billing/penalizacion-aprobar-reglas.ts), probado sin Supabase ni
   // Stripe: insertar sin armar → CAS desde DETECTADA → si no tocó nada, limpiar
-  // el recibo propio; si tocó y es automático, armar el dunning → cobrar →
-  // releer el recibo → cerrar con CAS. Aquí solo va el acceso a datos.
+  // el recibo propio; si tocó y es automático, armar el dunning (y si no se
+  // puede confirmar, devolver a DETECTADA sin cobrar) → cobrar → releer el
+  // recibo → cerrar con CAS. Aquí solo va el acceso a datos.
   //
   // Límite conocido, documentado allí: una penalización revertida desde
   // PENDIENTE_APROBACION deja su recibo PENDIENTE en Cobros (sin armar: el
   // dunning no lo cobra), y el trigger no revierte nada desde RECIBO_CREADO.
+  //
+  // ⚠️ Pendiente, documentado allí también: en automático, si el dunning cobra
+  // después un recibo `rec-penaliz-*`, no actualiza su penalización (se queda
+  // FALLIDA o RECIBO_CREADO con el dinero dentro). Resolver antes de que ningún
+  // estudio active el cobro automático de penalizaciones.
   await crearReciboYCobrar({
     insertarRecibo: async () => {
       const { error } = await admin.from('recibos').insert({
@@ -176,10 +186,25 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
       if (error) console.error('[penalizaciones] no se pudo desprogramar el recibo', reciboId, error.message);
     },
     armarRecibo: async () => {
-      const { error } = await admin.from('recibos').update({ proximo_reintento: new Date().toISOString() })
+      const { data, error } = await admin.from('recibos').update({ proximo_reintento: new Date().toISOString() })
         .eq('id', reciboId).eq('studio_id', pen.studio_id)
-        .eq('estado', 'PENDIENTE').is('proximo_reintento', null);
+        .eq('estado', 'PENDIENTE').is('proximo_reintento', null)
+        .select('id');
       if (error) console.error('[penalizaciones] no se pudo programar el reintento del recibo', reciboId, error.message);
+      return { error: !!error, tocadas: data?.length ?? 0 };
+    },
+    leerArmadoRecibo: async () => {
+      const { data, error } = await admin.from('recibos').select('estado, proximo_reintento')
+        .eq('id', reciboId).eq('studio_id', pen.studio_id).maybeSingle();
+      if (error) return { ok: false };
+      return { ok: true, estado: (data?.estado as string | undefined) ?? null, armado: !!data?.proximo_reintento };
+    },
+    devolverPenalizacion: async (e) => {
+      const { data, error } = await admin.from('penalizaciones')
+        .update({ estado: e.estado })
+        .eq('id', pen.id).in('estado', [...e.desde]).select('id');
+      if (error) console.error('[penalizaciones] no se pudo devolver la penalización a DETECTADA', pen.id, error.message);
+      return { error: !!error, tocadas: data?.length ?? 0 };
     },
     cobrar: () => cobrarReciboOffSession({ reciboId, socioId: pen.socio_id, studioId: pen.studio_id }),
     leerRecibo: async () => {
@@ -203,7 +228,33 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
       const { emitirPagoPenalizacion } = await import('@/lib/notifications/emit');
       await emitirPagoPenalizacion(admin, { studioId: pen.studio_id, socioId: pen.socio_id, importe: pen.importe, penalizacionId: pen.id });
     },
+    alertar: (motivoAlerta) => {
+      // Solo ids: ni nombre, ni email, ni importe de la socia.
+      Sentry.captureMessage(`[penalizaciones] ${motivoAlerta}`, {
+        level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-sin-programar' },
+        extra: { penalizacionId: pen.id, reciboId, studioId: pen.studio_id },
+      });
+    },
   }, { reciboId, automatico });
+}
+
+/**
+ * Vigilancia sin cron nuevo (Inngest va cerca del límite del plan): de paso por
+ * esta pasada, cuántas penalizaciones RECIBO_CREADO llevan más de 1 h con el
+ * recibo PENDIENTE sin programar. Es la MISMA comprobación que sirve
+ * /api/health/flujos; a Sentry solo va el número.
+ */
+async function vigilarRecibosSinProgramar(admin: SupabaseClient) {
+  try {
+    const def = DEFINICIONES.find(d => d.id === ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR);
+    if (!def) return;
+    const aviso = avisoParaSentry(def, await def.contar(admin, new Date()));
+    if (aviso) {
+      Sentry.captureMessage(aviso.mensaje, { level: aviso.nivel, tags: { area: 'cobros', tipo: 'salud' }, extra: aviso.extra });
+    }
+  } catch (e) {
+    console.error('[penalizaciones] vigilancia de recibos sin programar', e instanceof Error ? e.message : e);
+  }
 }
 
 export const penalizacionesDispatcher = inngest.createFunction(
@@ -227,11 +278,13 @@ export const penalizacionesDispatcher = inngest.createFunction(
         .select('id, studio_id, socio_id, reserva_id, tipo, importe')
         .eq('estado', 'DETECTADA')
         .limit(200);
-      if (!pendientes?.length) return { procesadas: 0 };
-      for (const pen of pendientes) {
+      for (const pen of pendientes ?? []) {
         await procesarUna(admin, pen as never);
       }
-      return { procesadas: pendientes.length };
+      // Después de procesar, y también cuando no había nada DETECTADA: lo que
+      // vigila no depende de que haya trabajo nuevo.
+      await vigilarRecibosSinProgramar(admin);
+      return { procesadas: pendientes?.length ?? 0 };
     });
   },
 );
