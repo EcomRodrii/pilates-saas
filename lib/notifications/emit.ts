@@ -1052,16 +1052,23 @@ export async function emitirMensajeRecibido(
   p: {
     studioId: string; conversacionId: string; mensajeId: string;
     remitente: string; previsualizacion?: string | null;
-    authUserIds: string[]; slug?: string | null;
+    authUserIds: string[]; slug?: string | null; tipo?: string | null;
   },
 ): Promise<void> {
   try {
+    // Los enlaces de la socia y de la instructora viven en la app del estudio:
+    // sin slug no hay a dónde llevarlas, así que se resuelve si no llega.
+    let slug = p.slug ?? null;
+    if (!slug) {
+      const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+      slug = (studio?.slug as string | null) ?? null;
+    }
     await publish({
       type: EVENTOS.MENSAJE_RECIBIDO, studioId: p.studioId,
       data: {
         conversacionId: p.conversacionId, remitente: p.remitente,
         previsualizacion: p.previsualizacion ? `: "${p.previsualizacion}"` : '',
-        authUserIds: p.authUserIds, slug: p.slug ?? null,
+        authUserIds: p.authUserIds, slug, tipo: p.tipo ?? null,
       },
       resource: { type: 'mensaje', id: p.mensajeId },
       dedupKey: `mensaje-recibido:${p.mensajeId}`,
