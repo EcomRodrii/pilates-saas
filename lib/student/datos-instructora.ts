@@ -2,7 +2,9 @@
 
 import { portalAuthHeader } from '@/lib/api-client';
 import { getClases, getReservas } from '@/lib/student/datos';
-import type { BajaConClase, ClaseQueDa, ClaseQueReserva } from '@/lib/student/agenda-instructora';
+import type {
+  BajaConClase, ClaseQueDa, ClaseQueReserva, EstadoEnLista, ListaDeClase, OfertaSustitucion,
+} from '@/lib/student/agenda-instructora';
 
 // Adaptador de datos de la instructora en la app. Delgado a propósito, como
 // `datos.ts`: pide y devuelve; lo que decide vive en el servidor.
@@ -113,5 +115,83 @@ export async function guardarDisponibilidadInstructora(
     return { ok: true };
   } catch {
     return { ok: false, error: 'Sin conexión: no se ha guardado. Vuelve a intentarlo cuando tengas cobertura.' };
+  }
+}
+
+async function postInstructora(ruta: 'ofertas' | 'lista', cuerpo: Record<string, unknown>): Promise<Response> {
+  const auth = await portalAuthHeader();
+  return fetch(`/api/portal/instructora/${ruta}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify(cuerpo),
+  });
+}
+
+/** Lo que el motor le está pidiendo cubrir ahora mismo. */
+export async function getOfertasInstructora(slug: string): Promise<OfertaSustitucion[]> {
+  const res = await postInstructora('ofertas', { slug, accion: 'listar' });
+  if (!res.ok) throw new Error(`instructora/ofertas ${res.status}`);
+  const d = await res.json() as { ofertas?: unknown };
+  return Array.isArray(d.ofertas) ? d.ofertas as OfertaSustitucion[] : [];
+}
+
+export type ResultadoOferta =
+  | { ok: true }
+  /** Con `motivo`, el servidor contestó (llega tarde, ya no le toca…); sin él, no se sabe si llegó. */
+  | { ok: false; error: string; motivo?: string; sesionCaducada?: boolean };
+
+/** «La cubro» / «No puedo». No lanza nunca y no da nada por hecho sin el servidor. */
+export async function responderOferta(
+  slug: string, sustitucionId: string, accion: 'aceptar' | 'rechazar',
+): Promise<ResultadoOferta> {
+  const auth = await portalAuthHeader();
+  if (!auth.Authorization) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+  try {
+    const res = await postInstructora('ofertas', { slug, accion, sustitucionId });
+    if (res.status === 401) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+    const d = await res.json().catch(() => ({})) as { ok?: boolean; motivo?: string; error?: string };
+    if (!res.ok || !d.ok) {
+      return {
+        ok: false,
+        error: d.error || 'No hemos podido enviar tu respuesta. Vuelve a intentarlo.',
+        motivo: typeof d.motivo === 'string' ? d.motivo : undefined,
+      };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Sin conexión: no hemos podido enviar tu respuesta.' };
+  }
+}
+
+/** La lista de una clase suya. `null` si no existe o ya no es suya. */
+export async function getListaClase(slug: string, sesionId: string): Promise<ListaDeClase | null> {
+  const res = await postInstructora('lista', { slug, sesionId, accion: 'leer' });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`instructora/lista ${res.status}`);
+  const d = await res.json() as Partial<ListaDeClase>;
+  if (!d.clase) return null;
+  return { clase: d.clase, alumnas: Array.isArray(d.alumnas) ? d.alumnas : [] };
+}
+
+export type ResultadoMarcarAsistencia =
+  | { ok: true; estado: EstadoEnLista }
+  | { ok: false; error: string; sesionCaducada?: boolean };
+
+/** Marca «Asistió» o lo deshace. Lo que se pinta después es el estado que devuelve el servidor. */
+export async function marcarAsistenciaEnLista(
+  slug: string, sesionId: string, reservaId: string, accion: 'asistio' | 'deshacer',
+): Promise<ResultadoMarcarAsistencia> {
+  const auth = await portalAuthHeader();
+  if (!auth.Authorization) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+  try {
+    const res = await postInstructora('lista', { slug, sesionId, reservaId, accion });
+    if (res.status === 401) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+    const d = await res.json().catch(() => ({})) as { ok?: boolean; estado?: string; error?: string };
+    if (!res.ok || !d.ok || (d.estado !== 'asistio' && d.estado !== 'por-marcar')) {
+      return { ok: false, error: d.error || 'No se ha guardado. Vuelve a intentarlo.' };
+    }
+    return { ok: true, estado: d.estado };
+  } catch {
+    return { ok: false, error: 'Sin conexión: no se ha guardado.' };
   }
 }

@@ -4662,7 +4662,15 @@ export async function checkinPublico(params: { studioId: string; reservaId: stri
   // asistencia indebidos.
   if (reserva.estado !== 'CONFIRMADA') return { error: 'La reserva no está confirmada' as const };
 
-  await admin.from('reservas').update({ estado: 'ASISTIDA', check_in_en: new Date().toISOString() }).eq('id', params.reservaId);
+  // Si el UPDATE falla no se sigue: antes se otorgaban créditos y se contestaba
+  // `ok` sobre una asistencia que no se había guardado, y la pantalla que marca
+  // (pase, kiosko, lista de la instructora) decía «hecho».
+  const { error: eCheckin } = await admin.from('reservas')
+    .update({ estado: 'ASISTIDA', check_in_en: new Date().toISOString() }).eq('id', params.reservaId);
+  if (eCheckin) {
+    reportDbError('[checkinPublico]', eCheckin);
+    return { error: 'No se ha podido registrar la asistencia' as const };
+  }
 
   // Créditos por asistencia (dedup por reservaId).
   await otorgarCreditosServidor(admin, params.studioId, reserva.socioId, 'ASISTENCIA_CLASE', params.reservaId);
