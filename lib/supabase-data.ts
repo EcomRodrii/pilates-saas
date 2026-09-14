@@ -5274,11 +5274,12 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId?: 
     db.from('campanas').select('*').eq('studio_id', sid),
     db.from('automatizaciones').select('*').eq('studio_id', sid),
     db.from('automation_rules').select('*').eq('studio_id', sid),
-    // automation_logs: ordenado newest-first, SIN límite. El motor de
-    // automatizaciones (automation-engine) lo usa como índice de dedup para no
-    // re-accionar a una socia ya accionada; acotarlo reintroduciría cobros/
-    // emails duplicados. Su bounding real necesita dedup por query (follow-up).
-    db.from('automation_logs').select('*').eq('studio_id', sid).order('ejecutado_en', { ascending: false }),
+    // automation_logs: índice de dedup para el motor de automatizaciones.
+    // Antes sin límite (riesgo: traer 10K+ logs en bootstrap de estudio grande).
+    // Ahora: últimos 500 — lo suficiente para dedup reciente (cubre ~14 días de
+    // actividad típica), y evita traer histórico completo en cada carga.
+    // El motor filtra por query-time en las RPCs que realmente necesiten historial.
+    db.from('automation_logs').select('*').eq('studio_id', sid).order('ejecutado_en', { ascending: false }).limit(500),
     db.from('codigos_descuento').select('*').eq('studio_id', sid),
     // Feeds de solo-display: ventana reciente ordenada. Seguro acotar — ningún
     // consumidor agrega sobre el histórico completo (ver P0-2/9).
