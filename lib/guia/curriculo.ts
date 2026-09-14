@@ -232,7 +232,10 @@ export const CAPITULOS: CapituloGuia[] = [
       { label: 'Ver el buscador de sustitutas', href: '/sustituciones' },
     ],
     consejo: 'Aunque des clases tú sola, date de alta como instructora: tus clases necesitan a alguien asignado y así tu calendario cuadra desde el primer día.',
-    pasos: ['instructor', 'invitar-equipo'],
+    // 'invitar-equipo' ya no cuenta aquí: exige más de una persona con cuenta,
+    // así que una propietaria que trabaja sola no terminaba NUNCA lo esencial.
+    // Se enseña en «Tu día a día», que es cuando de verdad hace falta.
+    pasos: ['instructor'],
   },
 
   // ── 04 ─────────────────────────────────────────────────────────────────────
@@ -657,12 +660,17 @@ export const CAPITULOS: CapituloGuia[] = [
         titulo: 'Rellenar un hueco',
         texto: 'Si una clase de mañana va vacía, puedes avisar a las alumnas que encajan con esa franja, por WhatsApp o por email. Solo llega a quien aceptó recibir ese tipo de avisos.',
       },
+      {
+        titulo: 'Cuando el equipo crece',
+        texto: 'Si alguien más va a llevar el mostrador o dar clases, dale su propia cuenta desde Equipo. Cada una ve solo lo suyo, y así las bajas, la disponibilidad y las sustituciones las gestiona cada instructora desde su móvil en vez de pasar por ti.',
+      },
     ],
     acciones: [
       { label: 'Ver mi inicio', href: '/dashboard' },
       { label: 'Ver mi calendario', href: '/calendario' },
+      { label: 'Invitar a mi equipo', href: '/equipo' },
     ],
-    pasos: [],
+    pasos: ['invitar-equipo'],
   },
 
   // ── 14 ─────────────────────────────────────────────────────────────────────
@@ -674,15 +682,15 @@ export const CAPITULOS: CapituloGuia[] = [
     nivel: 'avanzado',
     minutos: 5,
     queAprendes: [
-      'Las tres automatizaciones que merecen la pena desde el principio',
+      'Qué hace Tentare solo y qué dos automatizaciones merecen la pena desde el principio',
       'Cómo se conecta WhatsApp',
       'Qué correos ven tus alumnas y cómo cambiarlos',
     ],
     porQue: 'Cada aviso automático es una tarea que dejas de hacer todas las tardes.',
     apartados: [
       {
-        titulo: 'Recordatorios de clase',
-        texto: 'Avisa a cada alumna el día antes. Es la que menos discusión tiene y la que más faltas evita.',
+        titulo: 'Lo que ya va solo',
+        texto: 'No tienes que encender nada para lo básico: Tentare recuerda cada clase a quien ha reservado, confirma las reservas, pasa la plaza libre a la lista de espera, avisa del bono que se acaba y reintenta los cobros que fallan. Las automatizaciones son para lo que depende de cómo trabajas tú.',
       },
       {
         titulo: 'Recuperar a quien no viene',
@@ -706,8 +714,8 @@ export const CAPITULOS: CapituloGuia[] = [
       { label: 'Mis correos', href: '/configuracion?tab=plantillas' },
       { label: 'Conectar WhatsApp', href: '/configuracion?tab=integraciones' },
     ],
-    consejo: 'Activa solo los recordatorios de clase y vive con ellos dos semanas. Encender cinco cosas a la vez hace imposible saber cuál funcionó.',
-    pasos: ['recordatorios', 'ausencias', 'nuevas'],
+    consejo: 'Empieza por recuperar a quien no viene y vive con ello dos semanas. Encender cinco cosas a la vez hace imposible saber cuál funcionó.',
+    pasos: ['ausencias', 'nuevas'],
   },
 
   // ── 15 ─────────────────────────────────────────────────────────────────────

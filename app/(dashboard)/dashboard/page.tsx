@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraciones-caidas';
 import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
+import { EstadoDelEstudio } from '@/components/dashboard/estado-del-estudio';
 import { TentareOrb } from '@/components/marca/tentare-orb';
 import { ActionCenter } from '@/components/decision/action-center';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
@@ -663,6 +664,13 @@ export default function Dashboard() {
             «esta clase se ha quedado sin instructora». */}
         <div {...wrap('hoy')}><HoyEnElEstudio /></div>
 
+        {/* ── Lo que espera tu visto bueno ────────────────────────────────────
+            La bandeja única (lib/estado-estudio.ts): lo que no avanza sin ella,
+            lo que Tentare está haciendo solo y lo que ya ha resuelto. No es solo
+            de la propietaria: cada fuente va acotada por rol en el servidor, y a
+            quien no ve ninguna (instructora) no se le pinta nada. */}
+        <div {...wrap('estado')}><EstadoDelEstudio /></div>
+
         {/* ── Lo que necesita su atención (Decision OS) ──────────────────────── */}
         {/* El Brain vivía entero en /centro-de-control y esta pantalla —la que
             se abre al entrar— no lo mencionaba. Aquí se trae el resumen, con
@@ -754,7 +762,10 @@ export default function Dashboard() {
               </div>
               <div className="min-w-0 flex-1">
                 {pendingAdmin.length === 0 ? (
-                  <p className="text-[13px] font-medium">Sistema autónomo — hoy no tienes nada pendiente</p>
+                  // Solo afirma lo que cuenta —las automatizaciones—, no «nada
+                  // pendiente» en general: dos secciones más arriba la bandeja
+                  // puede estar contando reservas o cobros por decidir.
+                  <p className="text-[13px] font-medium">Sistema autónomo — ninguna automatización espera tu visto bueno</p>
                 ) : (
                   <p className="text-[13px] font-medium">
                     Sistema autónomo —{' '}

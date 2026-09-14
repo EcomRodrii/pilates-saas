@@ -5,6 +5,7 @@ import { RotateCcw } from 'lucide-react';
 import { dbListarDevolucionesPendientes, type DevolucionPendiente } from '@/lib/supabase-data';
 import { calcularReversion, huellaDe } from '@/lib/billing/preview-reversion';
 import { resolverDevolucion } from '@/lib/api-client';
+import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -45,6 +46,7 @@ export function DevolucionesPendientes({ onToast }: { onToast: (m: string) => vo
     setEnCurso(null);
     if ('error' in r) { onToast(r.error); return; }
     setItems(prev => (prev ?? []).filter(x => x.id !== d.id));
+    invalidarEstadoEstudio();
     onToast(accion === 'REVERTIR' ? 'Entrega revertida' : 'Devolución marcada como revisada');
   }
 

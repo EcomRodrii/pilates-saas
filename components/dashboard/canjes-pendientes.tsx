@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Gift } from 'lucide-react';
 import { dbListarCanjesPendientes, dbEntregarCanje, getCurrentStudioId, type CanjePendiente } from '@/lib/supabase-data';
 import { nombreCreditos } from '@/lib/creditos-nombre';
+import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import { useStudio } from '@/lib/studio-context';
 import { Button } from '@/components/ui/button';
 
@@ -52,6 +53,7 @@ export function CanjesPendientes({ onToast }: { onToast: (m: string) => void }) 
     setEntregando(null);
     if ('error' in r) { onToast(mensajeDeError(r.error)); return; }
     setItems(prev => (prev ?? []).filter(x => x.id !== c.id));
+    invalidarEstadoEstudio();
     onToast(`Entregada: ${c.recompensa}`);
   }
 
@@ -65,6 +67,7 @@ export function CanjesPendientes({ onToast }: { onToast: (m: string) => void }) 
     setBuscando(false);
     if ('error' in r) { onToast(mensajeDeError(r.error)); return; }
     setItems(prev => (prev ?? []).filter(x => x.id !== r.id));
+    invalidarEstadoEstudio();
     setCodigo('');
     onToast('Recompensa entregada');
   }

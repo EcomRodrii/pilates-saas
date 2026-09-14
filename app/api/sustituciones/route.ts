@@ -259,6 +259,11 @@ export async function PATCH(req: NextRequest) {
           sesionId: r.sesion_id, studioId: sesion.studioId, tipo: 'cubierta', sustituta: candidata.nombre ?? undefined,
         });
       }
+      // La sustituta tiene que enterarse de que le han asignado una clase. El
+      // camino del motor (responder.ts) ya lo avisaba; este, en el que la dueña
+      // confirma directamente sin mandar oferta, reasignaba la clase en silencio.
+      const { emitirSustitucionAceptada } = await import('@/lib/notifications/emit');
+      await emitirSustitucionAceptada(admin, { studioId: sesion.studioId, sesionId: r.sesion_id, instructorId });
     }
     return NextResponse.json({ ...r, alumnas });
   }

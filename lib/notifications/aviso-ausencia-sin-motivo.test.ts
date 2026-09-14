@@ -8,7 +8,10 @@ import { EVENTOS, plantillaDe, render } from './catalog.ts';
 // «baja médica» en el título. Las dos cosas pueden ser salud de una empleada, y
 // un push pasa por servicios de terceros y se queda en `notification`.
 
-const EVENTOS_EQUIPO = [EVENTOS.INSTRUCTORA_BAJA, EVENTOS.INSTRUCTORA_AUSENCIA];
+// SUSTITUCION_CUBIERTA cierra el aviso de INSTRUCTORA_BAJA con la misma
+// audiencia y por el mismo canal: si algún día le crece un hueco para el
+// motivo, se colaría por el mismo sitio.
+const EVENTOS_EQUIPO = [EVENTOS.INSTRUCTORA_BAJA, EVENTOS.INSTRUCTORA_AUSENCIA, EVENTOS.SUSTITUCION_CUBIERTA];
 
 test('las plantillas de baja y ausencia no tienen hueco para el motivo ni el tipo', () => {
   for (const evento of EVENTOS_EQUIPO) {
@@ -22,7 +25,7 @@ test('las plantillas de baja y ausencia no tienen hueco para el motivo ni el tip
 
 test('aunque llegue el motivo en los datos, no sale en el aviso', () => {
   const datos = {
-    instructora: 'Marta', clase: 'Reformer', cuando: 'martes 9:00',
+    instructora: 'Marta', sustituta: 'Marta', clase: 'Reformer', cuando: 'martes 9:00', sala: '',
     desde: '1 sep', hasta: '5 sep', clases: '',
     motivo: ' (dato de salud)', tipoTexto: 'baja médica',
   };
@@ -47,9 +50,9 @@ function cuerpoDe(fuente: string, nombre: string): string {
   return fuente.slice(ini, fin + 2);
 }
 
-test('emitirInstructoraBaja y emitirInstructoraAusencia no mandan motivo ni tipo', () => {
+test('emitirInstructoraBaja, emitirInstructoraAusencia y emitirSustitucionCubierta no mandan motivo ni tipo', () => {
   const fuente = readFileSync(new URL('./emit.ts', import.meta.url), 'utf8');
-  for (const nombre of ['emitirInstructoraBaja', 'emitirInstructoraAusencia']) {
+  for (const nombre of ['emitirInstructoraBaja', 'emitirInstructoraAusencia', 'emitirSustitucionCubierta']) {
     const cuerpo = cuerpoDe(fuente, nombre);
     assert.doesNotMatch(cuerpo, /motivo|tipoTexto|\btipo\b/, `${nombre} vuelve a llevar motivo o tipo`);
   }
