@@ -11,6 +11,7 @@ import {
 } from '@/lib/api-client';
 import { useRol, puedeVer } from '@/lib/permisos';
 import { mensajeCoberturaSustitucion, estadoContactoDesde, type EstadoContacto } from '@/lib/network/contacto-sustitucion';
+import type { EstadoCoberturaNetwork } from '@/lib/network/cobertura-sustitucion';
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
 import { avisoEquipoIncompleto, motivoSinCandidatas, type DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import { encajeDe } from '@/lib/sustituciones/encaje';
@@ -20,6 +21,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
   Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw, Loader2, Send,
+  MessageCircle, UserCheck,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -206,6 +208,14 @@ export default function SustitucionesPage() {
     } finally {
       setAccion(null);
     }
+  }
+  // La profesional de Network ya asignada (PropuestasNetwork hizo la llamada y
+  // solo llega aquí con el servidor diciendo que sí).
+  async function networkAsignada(nombre: string) {
+    setErrorAccion(null);
+    setAviso(`Clase asignada a ${nombre}.`);
+    await recargar();
+    setTimeout(() => setAviso(null), 6000);
   }
   async function avisarCandidata(s: SustitucionPanel, instructorId: string) {
     // Estas acciones escriben y luego recargan: sin esto, un segundo clic
@@ -423,6 +433,7 @@ export default function SustitucionesPage() {
                   instructores={instructores} valoraciones={valoraciones} accionEnCurso={accion?.id === s.id ? accion.que : null}
                   onConfirmar={confirmar} onDescartar={descartar} onAvisar={avisarCandidata} onCancelar={(s: SustitucionPanel) => setACancelar(s)}
                   onVolverABuscar={volverABuscar} onReprogramar={(s: SustitucionPanel) => setAReprogramar(s)}
+                  onNetworkAsignada={networkAsignada}
                   onMarcarDisponibilidad={(s: SustitucionPanel) => setMarcandoPara(
                     equipo.sinDisponibilidad.find(i => i.id !== s.instructor_original_id)?.id ?? null,
                   )}
@@ -670,7 +681,7 @@ function HorarioActualizadoCard({ sub, sesiones, tiposClase, nombreInstructor, o
 }
 
 function SustitucionCard({
-  s, tipo, nombreInstructor, instructores, valoraciones, equipo, accionEnCurso, onConfirmar, onDescartar, onAvisar, onCancelar, onVolverABuscar, onReprogramar, onMarcarDisponibilidad,
+  s, tipo, nombreInstructor, instructores, valoraciones, equipo, accionEnCurso, onConfirmar, onDescartar, onAvisar, onCancelar, onVolverABuscar, onReprogramar, onMarcarDisponibilidad, onNetworkAsignada,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
@@ -687,6 +698,8 @@ function SustitucionCard({
   onVolverABuscar: (s: SustitucionPanel) => void;
   /** «La marco yo»: abre la rejilla de disponibilidad de quien falta por cargar. */
   onMarcarDisponibilidad: (s: SustitucionPanel) => void;
+  /** Una profesional de Network ya en el equipo acaba de quedarse con la clase. */
+  onNetworkAsignada: (nombre: string) => Promise<void> | void;
 }) {
   // Mientras algo está en curso se bloquea la tarjeta entera (las acciones se
   // pisan entre sí), pero solo el botón pulsado dice qué está haciendo.
@@ -760,7 +773,9 @@ function SustitucionCard({
 
       {/* Agotada: no queda nadie del equipo, así que Network es el siguiente
           paso y va justo aquí, no al fondo de la tarjeta. */}
-      {s.estado === 'agotada' && <PropuestasNetwork s={s} tipoClase={tipo?.nombre ?? null} destacada />}
+      {s.estado === 'agotada' && (
+        <PropuestasNetwork s={s} tipoClase={tipo?.nombre ?? null} destacada bloqueada={enProceso} onAsignada={onNetworkAsignada} />
+      )}
 
       {!hero ? (
         // Sin candidatas disponibles
@@ -958,7 +973,9 @@ function SustitucionCard({
       )}
 
       {/* Fuera de «agotada» va aquí, detrás del ranking interno: es un extra. */}
-      {s.estado !== 'agotada' && <PropuestasNetwork s={s} tipoClase={tipo?.nombre ?? null} />}
+      {s.estado !== 'agotada' && (
+        <PropuestasNetwork s={s} tipoClase={tipo?.nombre ?? null} bloqueada={enProceso} onAsignada={onNetworkAsignada} />
+      )}
 
       {/* Traza: qué ha hecho el motor por su cuenta */}
       <TrazaContactos contactos={s.sustitucion_contactos ?? []} instructores={instructores} activa={contactada || s.estado === 'agotada'} />
@@ -992,32 +1009,66 @@ function SustitucionCard({
 // profesional. Nunca se contacta a nadie de fuera solo, y no hay «pedir a todas».
 // El mensaje solo lleva tipo de clase, día y hora (nada de alumnas ni del motivo
 // de la baja) — ver lib/network/contacto-sustitucion.ts.
-function PropuestasNetwork({ s, tipoClase, destacada = false }: {
+//
+// Después de pedir, la tarjeta sigue el camino con datos del servidor
+// (`cobertura_network`, lib/network/cobertura-sustitucion.ts): pendiente →
+// aceptó (se formaliza en el chat, el flujo que ya existía) → ya en el equipo
+// → «Asignar la clase» por la MISMA acción 'confirmar' que cualquier
+// instructora. Su ficha es una más: sale en Equipo y en la liquidación.
+function PropuestasNetwork({ s, tipoClase, destacada = false, bloqueada = false, onAsignada }: {
   s: SustitucionPanel;
   tipoClase: string | null;
   destacada?: boolean;
+  /** Otra acción de la tarjeta está en curso: no se asigna encima. */
+  bloqueada?: boolean;
+  onAsignada: (nombre: string) => Promise<void> | void;
 }) {
   const rol = useRol();
   const [estados, setEstados] = useState<Record<string, EstadoContacto | 'enviando'>>({});
   // Candado síncrono contra el doble toque: el estado de React no se ha
   // re-renderizado todavía cuando llega el segundo clic.
   const enVuelo = useRef(new Set<string>());
+  const [aAsignar, setAAsignar] = useState<{ perfilId: string; nombre: string; instructorId: string } | null>(null);
+  const [asignando, setAsignando] = useState<string | null>(null);
+  const [errorAsignar, setErrorAsignar] = useState<Record<string, string>>({});
+  const asignandoRef = useRef(false);
 
   const candidatas = s.candidatos_network ?? [];
   if (candidatas.length === 0) return null;
   // El buscador de Network es la herramienta de contratación del mostrador
   // (propietaria/manager/recepción): quien no la ve tampoco pide desde aquí.
   const puedeContactar = puedeVer(rol, '/network/buscar');
+  const cobertura = s.cobertura_network ?? {};
 
   async function pedir(perfilId: string) {
     if (enVuelo.current.has(perfilId)) return;
     enVuelo.current.add(perfilId);
     setEstados(prev => ({ ...prev, [perfilId]: 'enviando' }));
     try {
-      const r = await contactarPerfilNetwork(perfilId, mensajeCoberturaSustitucion({ tipoClase, inicioISO: s.sesiones?.inicio ?? null }));
+      const r = await contactarPerfilNetwork(
+        perfilId, mensajeCoberturaSustitucion({ tipoClase, inicioISO: s.sesiones?.inicio ?? null }), s.id,
+      );
       setEstados(prev => ({ ...prev, [perfilId]: estadoContactoDesde(r) }));
     } finally {
       enVuelo.current.delete(perfilId);
+    }
+  }
+
+  // Nada optimista: solo se dice «asignada» con el servidor diciendo que sí. Un
+  // 409 (ya tiene clase a esa hora, la clase ya empezó, ya estaba resuelta) o un
+  // 500 se enseñan tal cual en su fila y el botón sigue ahí.
+  async function asignar(perfilId: string, nombre: string, instructorId: string) {
+    if (asignandoRef.current) return;
+    asignandoRef.current = true;
+    setAsignando(perfilId);
+    setErrorAsignar(prev => { const resto = { ...prev }; delete resto[perfilId]; return resto; });
+    try {
+      const r = await confirmarSustituta(s.id, instructorId);
+      if ('error' in r) { setErrorAsignar(prev => ({ ...prev, [perfilId]: r.error })); return; }
+      await onAsignada(nombre);
+    } finally {
+      asignandoRef.current = false;
+      setAsignando(null);
     }
   }
 
@@ -1057,33 +1108,89 @@ function PropuestasNetwork({ s, tipoClase, destacada = false }: {
                 <Link href={`/network/${encodeURIComponent(c.perfilId)}`} className="flex items-center gap-2.5 min-w-0 flex-1 rounded-lg hover:bg-muted/50 transition-colors">
                   {fila}
                 </Link>
-                {estado && estado !== 'enviando' && estado.tipo === 'enviada' ? (
-                  <span className="shrink-0 inline-flex items-center gap-1 text-[12px] font-bold text-success" role="status">
-                    <Check size={14} /> Solicitud enviada
-                  </span>
-                ) : estado && estado !== 'enviando' && estado.tipo === 'ya-pedida' ? (
-                  <span className="shrink-0 text-[12px] font-semibold text-muted-foreground" role="status">Ya le has pedido contacto</span>
-                ) : (
-                  <button
-                    onClick={() => pedir(c.perfilId)}
-                    disabled={estado === 'enviando'}
-                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-60 transition active:scale-[0.99]"
-                  >
-                    {estado === 'enviando'
-                      ? <><Loader2 size={13} className="animate-spin" /> Enviando…</>
-                      : <><Send size={13} /> Pedir que la cubra</>}
-                  </button>
-                )}
+                {accionFila(c.perfilId, c.nombre, estado, cobertura[c.perfilId] ?? { tipo: 'sin-solicitud' })}
               </div>
               {estado && estado !== 'enviando' && estado.tipo === 'error' && (
                 <p className="mt-1.5 px-1 text-[11.5px] text-destructive" role="alert">{estado.mensaje}</p>
+              )}
+              {errorAsignar[c.perfilId] && (
+                <p className="mt-1.5 px-1 text-[11.5px] text-destructive" role="alert">{errorAsignar[c.perfilId]}</p>
               )}
             </div>
           );
         })}
       </div>
+
+      <ConfirmDialog
+        open={aAsignar !== null}
+        onOpenChange={abierto => { if (!abierto) setAAsignar(null); }}
+        titulo="¿Le asignas la clase?"
+        descripcion={aAsignar
+          ? `${aAsignar.nombre} pasa a dar la clase del ${fmtClase(s.sesiones?.inicio).toLowerCase()}. Ya está en tu equipo: la verás en Equipo y en la liquidación como a cualquier otra instructora.`
+          : undefined}
+        textoConfirmar="Asignar la clase"
+        onConfirm={() => { const a = aAsignar; setAAsignar(null); if (a) void asignar(a.perfilId, a.nombre, a.instructorId); }}
+      />
     </div>
   );
+
+  // Lo que se puede hacer con cada profesional. Lo recién pulsado aquí
+  // (`estado`) manda sobre lo que trajo el servidor hasta la próxima recarga.
+  function accionFila(perfilId: string, nombre: string, estado: EstadoContacto | 'enviando' | undefined, servidor: EstadoCoberturaNetwork) {
+    const etiqueta = (texto: string, ok = false) => (
+      <span className={ok
+        ? 'shrink-0 inline-flex items-center gap-1 text-[12px] font-bold text-success'
+        : 'shrink-0 text-[12px] font-semibold text-muted-foreground'} role="status">
+        {ok && <Check size={14} />} {texto}
+      </span>
+    );
+    if (estado && estado !== 'enviando' && estado.tipo === 'enviada') return etiqueta('Solicitud enviada', true);
+    if (estado && estado !== 'enviando' && estado.tipo === 'ya-pedida') return etiqueta('Ya le has pedido contacto');
+
+    switch (servidor.tipo) {
+      case 'asignable':
+        return (
+          <button
+            onClick={() => setAAsignar({ perfilId, nombre, instructorId: servidor.instructorId })}
+            disabled={bloqueada || asignando !== null}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-60 transition active:scale-[0.99]"
+          >
+            {asignando === perfilId
+              ? <><Loader2 size={13} className="animate-spin" /> Asignando…</>
+              : <><UserCheck size={13} /> Asignar la clase</>}
+          </button>
+        );
+      case 'aceptada':
+        // La formalización vive encima del chat (components/network/hilo-mensajes.tsx):
+        // se lleva allí, no se duplica aquí.
+        return (
+          <Link
+            href={`/network/mensajes?hilo=${encodeURIComponent(servidor.solicitudId)}`}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-brand/40 bg-card text-brand text-[12px] font-bold hover:bg-brand/5 transition"
+          >
+            <MessageCircle size={13} /> Formalizar en el chat
+          </Link>
+        );
+      case 'solicitada':
+        return servidor.paraEstaClase ? etiqueta('Solicitud enviada', true) : etiqueta('Ya le has pedido contacto');
+      case 'rechazada':
+        return etiqueta('No puede cubrirla');
+      case 'titular':
+        return etiqueta('Es quien da la baja');
+      default:
+        return (
+          <button
+            onClick={() => pedir(perfilId)}
+            disabled={estado === 'enviando'}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-60 transition active:scale-[0.99]"
+          >
+            {estado === 'enviando'
+              ? <><Loader2 size={13} className="animate-spin" /> Enviando…</>
+              : <><Send size={13} /> Pedir que la cubra</>}
+          </button>
+        );
+    }
+  }
 }
 
 // Lo que el motor ha hecho por su cuenta: a quién avisó, por qué canal, cuándo y
