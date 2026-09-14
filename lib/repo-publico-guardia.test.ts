@@ -98,6 +98,15 @@ test('ningún informe de auditoría/pentest ni parche versionado fuera de la lis
       infractores.push(`${f} (parche versionado)`);
       continue;
     }
+    // Una CARPETA con nombre de revisión en la raíz se mira entera, sea cual
+    // sea la extensión: la que entró el 2026-09-14 era casi toda JSON, PNG y
+    // `.err`, que el filtro de documentos de abajo deja pasar. Solo la raíz:
+    // más adentro hay código legítimo con ese nombre (`app/interno/auditoria`).
+    const raiz = f.includes('/') ? f.split('/')[0] : null;
+    if (raiz && NOMBRE_DE_INFORME.test(raiz) && !CARPETAS_PERMITIDAS.some(p => f.startsWith(p))) {
+      infractores.push(`${f} (carpeta de revisión)`);
+      continue;
+    }
     if (!EXT_DOCUMENTO.test(f)) continue;
     const segmentos = f.split('/');
     const nombre = segmentos.pop()!;
