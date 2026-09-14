@@ -677,6 +677,11 @@ export default function Calendario() {
   const [confirmarEspera, setConfirmarEspera] = useState<
     { sesionId: string; socioId: string; nombre: string; posicion: number } | null
   >(null);
+  // «Avisar a la alumna» del buscador de «Añadir clienta a la clase». Vive aquí
+  // y no dentro del buscador porque el alta puede terminar DESPUÉS de cerrarlo
+  // (diálogo de lista de espera, aviso de sin bono): la decisión tiene que
+  // llegar hasta `confirmarAddReserva`. Vuelve a marcado cada vez que se abre.
+  const [avisarAlumna, setAvisarAlumna] = useState(true);
 
   // Punto 4: diálogo de confirmación para CUBRIR / OFRECER / AJUSTAR_AFORO.
   const [dialogoAccion, setDialogoAccion] = useState<{ tipo: 'CUBRIR' | 'OFRECER' | 'AJUSTAR_AFORO'; sesionId: string } | null>(null);
@@ -1618,16 +1623,19 @@ export default function Calendario() {
     // no la estimación del cliente: antes se tostaba "añadida" incondicionalmente
     // aunque el servidor rechazara la reserva (clase ya empezada, tope semanal,
     // sin bono que cubra el tipo de clase) y la plaza nunca llegara a existir.
-    const res = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn });
+    const res = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn, avisar: avisarAlumna });
     if (!res.ok) {
       showToast(res.error);
       return;
     }
-    showToast(res.estado === 'LISTA_ESPERA'
+    // Si recepción decidió no avisarla, el toast lo recuerda: es la única
+    // pista de que la alumna no sabe nada de esta reserva.
+    const sinAviso = avisarAlumna ? '' : ' · sin avisarla';
+    showToast((res.estado === 'LISTA_ESPERA'
       ? `Clase llena — ${nombre} va a lista de espera`
       : esWalkIn
       ? `${nombre} añadida y registrada como asistencia`
-      : `${nombre} añadida a la clase`);
+      : `${nombre} añadida a la clase`) + sinAviso);
     void refrescarVista();
   }
 
@@ -2131,7 +2139,11 @@ export default function Calendario() {
     if (!r || !sesionActual) return;
     const destino = buscarSesionSemanaSiguiente(sesiones, sesionActual);
     if (!destino) { showToast('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
-    const res = await addReserva(destino.id, r.socioId);
+    // Sin casilla aquí, y se la avisa: es una clase FUTURA que no ha reservado
+    // ella, así que si no se le cuenta no tiene forma de saber que va apuntada
+    // (ni de cancelarla a tiempo). Es la regla general de las reservas del
+    // mostrador; la casilla solo existe donde la clienta suele estar delante.
+    const res = await addReserva(destino.id, r.socioId, undefined, { avisar: true });
     if (!res.ok) { showToast(res.error); return; }
     showToast(res.estado === 'CONFIRMADA' ? 'Añadida a la clase de la semana que viene.' : 'La clase de la semana que viene está llena — añadida a lista de espera.');
   }
@@ -3047,7 +3059,7 @@ export default function Calendario() {
               )}
               {gestionaClientas && (!showAnadir ? (
                 <button
-                  onClick={() => setShowAnadir(true)}
+                  onClick={() => { setAvisarAlumna(true); setShowAnadir(true); }}
                   className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-border text-xs font-bold text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors mb-3"
                 >
                   <UserPlus size={14} />Añadir clienta a la clase
@@ -3059,6 +3071,15 @@ export default function Calendario() {
                       Clase llena ({sesionActual.confirmadas}/{sesionActual.aforoMaximo}) — quien añadas entrará en lista de espera.
                     </p>
                   )}
+                  <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-[var(--brand)]"
+                      checked={avisarAlumna}
+                      onChange={e => setAvisarAlumna(e.target.checked)}
+                    />
+                    Avisar a la alumna
+                  </label>
                   <input
                     className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground"
                     placeholder="Buscar clienta..."

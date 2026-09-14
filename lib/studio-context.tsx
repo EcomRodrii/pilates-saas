@@ -32,7 +32,7 @@ import {
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
   dbReasignarInstructora,
   dbCancelarReservasPorSesiones,
-  dbUpdateReserva, dbReservarPlaza,
+  dbUpdateReserva,
   dbInsertRecibo, dbUpdateRecibo, dbMarcarCobrado, dbUpdateRecibosBatch, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
@@ -42,7 +42,6 @@ import {
   dbInsertRewardRule, dbUpdateRewardRule,
   dbOtorgarCreditoDisparador,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem,
-  dbConsumirSesionBono,
   dbDevolverSesionBono,
   dbCancelarCanje,
   dbCanjearRecompensa, dbEntregarCanje,
@@ -212,7 +211,7 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, calcularReactivacion, cicloInicialDe, avisaBonoAgotado, mesesDeCiclo } from '@/lib/bono-logic';
+import { bonoDevolvible, calcularReactivacion, cicloInicialDe, avisaBonoAgotado, mesesDeCiclo } from '@/lib/bono-logic';
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -446,7 +445,9 @@ interface StudioContextValue {
   // asistencia en la misma llamada, sin exigir un segundo clic en "Check-in"
   // sobre la fila ya creada. Solo tiene efecto si la reserva queda CONFIRMADA
   // (una LISTA_ESPERA no puede tener asistencia) y fuera de la vía pública.
-  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean }) => Promise<ResultadoReserva>;
+  // `avisar` solo cuenta en el panel: `false` = recepción desmarcó «Avisar a la
+  // alumna». Por defecto se la avisa, como en cualquier otra reserva.
+  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean }) => Promise<ResultadoReserva>;
   // recuperacionCreada/recuperacionCaducaEl: solo la vía pública los rellena
   // (al cancelar una ocurrencia de plaza fija, ver cancelarReservaPublica) —
   // el panel de staff los deja undefined, no aplica ahí.
@@ -3342,63 +3343,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Reservas ─────────────────────────────────────────────────────────────────
 
-  // Descuenta una sesión del bono activo del socio al confirmar una reserva.
-  // Si el bono se agota, avisa — sin crear ninguna deuda (ver `avisaBonoAgotado`).
-  // `sesionId` no es opcional por comodidad: sin él, con un "Bono Reformer" y un
-  // "Bono Mat" vivos a la vez, bonoConsumible ordena por caducidad y descuenta
-  // del que caduque antes — aunque sea el que NO cubre esta clase. La puerta de
-  // entrada (calendario) sí comprobaba la cobertura; el descuento no, así que la
-  // clase cara se servía contra el bono barato y la restricción de la migr 0111
-  // se evaporaba justo en el momento de gastar.
-  async function consumirSesionBono(socioId: string, sesionId: string) {
-    const tipoClaseId = sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null;
-    // bono-logic resuelve el bono consumible (qué suscripción descontar).
-    const consumible = bonoConsumible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
-    if (!consumible) return;
-    const { suscripcion: sus, plan } = consumible;
-
-    // C5/R2: el descuento y la decisión de "agotado" salen de la RPC atómica
-    // (serializada por lock de fila), NO de calcularConsumoBono() sobre el
-    // snapshot local —que puede estar obsoleto y provocar un recibo de renovación
-    // perdido o duplicado si dos reservas compiten. Espejo de consumirBonoServidor.
-    // La sesión viaja hasta la RPC: allí se vuelve a comprobar que el plan cubra
-    // el tipo de clase (migr 0129). `bonoConsumible` ya lo respeta arriba, así
-    // que esto no debería rechazar nunca — y por eso mismo es la red: el día que
-    // alguien vuelva a olvidarse del tipo, salta en vez de descontar del bono
-    // equivocado sin que se entere nadie.
-    const res = await dbConsumirSesionBono(sus.id, getCurrentStudioId(), sesionId);
-    if (!('ok' in res)) return; // sin sesión que descontar / error → no tocar recibo
-    const nuevasRestantes = res.saldo;
-    setSuscripciones(prev => prev.map(s =>
-      s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
-    ));
-
-    // Bono agotado (transición autoritativa a 0) → AVISO. Y solo aviso.
-    //
-    // ⚠️ Aquí se creaba un recibo «Renovación <plan>» PENDIENTE. Se ha quitado:
-    // ese recibo entraba en el ciclo de dunning y la tarjeta de la socia se
-    // acababa cobrando sola por un bono que nadie había pedido. Un bono es una
-    // compra única de N sesiones — gastarlas es su ciclo de vida completo, no
-    // el principio de otro. Motivo largo en `avisaBonoAgotado`
-    // (`lib/bono-logic.ts`); el gemelo servidor es `consumirBonoServidor`
-    // (supabase-data-admin.ts) y hay que tocar los dos o vuelve por el otro lado.
-    //
-    // `PUNTUAL` sigue fuera por lo de siempre: usar una clase suelta no es
-    // «quedarse sin bono», así que ni siquiera avisa.
-    if (nuevasRestantes === 0 && avisaBonoAgotado(plan)) {
-      const socio = socios.find(s => s.id === socioId);
-      const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
-      toastAviso.show(
-        `Bono agotado: ${nombreSocio} ha consumido su última sesión de ${plan.nombre}.`,
-      );
-      addActividadReciente(
-        'PAGO_PENDIENTE',
-        `Bono agotado — ${nombreSocio} puede querer renovar ${plan.nombre}`,
-        socioId,
-        `/socios/${socioId}`,
-      );
-    }
-  }
+  // ⚠️ Aquí vivía `consumirSesionBono`, el descuento de bono EN CLIENTE. Su único
+  // llamante era el alta de reserva del panel, que ya reserva por el servidor
+  // (`/api/reservas/crear`): el descuento lo hace `trasReservaCreada`
+  // (supabase-data-admin.ts) y el panel solo relee el saldo
+  // (`releerSaldoTrasReservaMostrador`). No lo repongas: dos sitios que
+  // descuentan son dos sitios que se desincronizan.
 
   // Devuelve una sesión al bono cuando se cancela una reserva confirmada,
   // sin superar el total del plan.
@@ -3444,8 +3394,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return true;
   }
 
-  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean }): Promise<ResultadoReserva> {
-    const esPrimeraReserva = !reservas.some(r => r.socioId === socioId);
+  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean }): Promise<ResultadoReserva> {
     const sesion = sesiones.find(s => s.id === sesionId);
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
     const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
@@ -3499,51 +3448,90 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     };
     const reservasActualizadas = [...reservas, nueva];
     setReservas(reservasActualizadas);
-    // La inserción real pasa por la función Postgres atómica reservar_plaza
-    // (bloquea la fila de la sesión mientras decide) — la estimación de arriba
-    // es solo para pintar algo al instante. Se ESPERA la respuesta (antes esto
-    // era un `.then()` sin await: la función devolvía `{ ok: true, estado }`
-    // con la estimación ANTES de que la RPC respondiera, así que un rechazo
-    // real —clase ya empezada, tope semanal, sin bono— nunca llegaba a quien
-    // llamaba, y el calendario anunciaba éxito con la reserva inexistente en
-    // servidor). Si dos altas concurrentes compiten por la última plaza, o si
-    // la RPC rechaza, la decisión de la base de datos manda: se corrige o se
-    // retira el estado local y los efectos (bono/créditos/logros) se disparan
-    // sobre ese resultado autoritativo, no sobre la estimación.
-    const r = await dbReservarPlaza(getCurrentStudioId(), sesionId, socioId, reservaId);
-    if (!r || 'error' in r) {
+    // La reserva la hace el SERVIDOR (`/api/reservas/crear` →
+    // `crearReservaMostrador`): `reservar_plaza` decide aforo bajo bloqueo, y
+    // detrás van el bono, los créditos de primera reserva, logros/retos y el
+    // aviso a la alumna, con el mismo dueño que las reservas de la app
+    // (`trasReservaCreada`). Antes el navegador llamaba a la RPC y hacía todo
+    // eso a mano — y a la alumna no le llegaba nada.
+    //
+    // La estimación de arriba es solo para pintar algo al instante. Se ESPERA la
+    // respuesta y manda la BD: si rechaza, se retira la fila; si decide otro
+    // estado (dos altas peleando por la última plaza), se corrige. Una
+    // respuesta sin `estado` (200 vacío, cuerpo roto) cuenta como fallo: anunciar
+    // «añadida» sin saber qué pasó es justo el bug que esto cerró.
+    //
+    // El `reservaId` viaja en la petición: si la red corta y se reintenta con el
+    // mismo id, el servidor reconoce su propia fila y no descuenta dos veces.
+    const respuesta = await fetch('/api/reservas/crear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ sesionId, socioId, reservaId, avisar: opciones?.avisar !== false }),
+    }).catch(() => null);
+    const datos = await respuesta?.json().catch(() => null) as {
+      estado?: string; posicionEspera?: number | null; error?: string;
+    } | null;
+    const estadoReal = typeof datos?.estado === 'string' && datos.estado ? datos.estado as EstadoReserva : null;
+    if (!respuesta?.ok || !estadoReal) {
       setReservas(prev => prev.filter(x => x.id !== reservaId));
-      return { ok: false, error: r && 'error' in r ? r.error : 'No se pudo guardar la reserva' };
+      return { ok: false, error: datos?.error ?? 'No se ha podido apuntar. Inténtalo otra vez.' };
     }
-    if (r.estado !== estado) {
+    const posicionReal = datos?.posicionEspera ?? null;
+    if (estadoReal !== estado || posicionReal !== posicionEspera) {
       setReservas(prev => prev.map(x => x.id === reservaId
-        ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera } : x));
+        ? { ...x, estado: estadoReal, posicionEspera: posicionReal } : x));
     }
-    if (r.estado === 'CONFIRMADA') await consumirSesionBono(socioId, sesionId);
-    if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
-    // I12: evaluar logros/retos sobre el set con el estado AUTORITATIVO de la
-    // RPC, no sobre la estimación optimista. Si la estimación fue CONFIRMADA
-    // pero la BD devolvió LISTA_ESPERA, evaluar sobre reservasActualizadas
-    // otorgaría logros como si la clase contara.
+    // El bono ya lo descontó el servidor: aquí solo se relee el saldo real.
+    // Logros y retos tampoco se evalúan aquí — ya lo hizo el servidor
+    // (`evaluarGamificacionServidor`), y hacerlo también en cliente duplicaba
+    // el historial del logro.
+    if (estadoReal === 'CONFIRMADA') await releerSaldoTrasReservaMostrador(socioId);
     const reservasFinales = reservasActualizadas.map(x => x.id === reservaId
-      ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera }
+      ? { ...x, estado: estadoReal, posicionEspera: posicionReal }
       : x);
-    evaluarLogrosSocio(socioId, reservasFinales);
-    evaluarRetosSocio(socioId, reservasFinales);
 
     // Walk-in (I-alta pilar 6): se le pasa `reservasFinales` como snapshot
     // explícito en vez de dejar que checkin() lea el `reservas` del cierre de
     // este render — esa closure todavía no incluye la reserva recién creada
-    // (el `await dbReservarPlaza` de arriba cede el hilo y React puede
-    // renderizar de nuevo, pero esta ejecución sigue con las variables que
-    // tenía al empezar). Sin el override, el check-in se marcaría en BD pero
-    // el paso de créditos/logros no encontraría la reserva y se saltaría en
-    // silencio.
-    if (opciones?.checkInInmediato && r.estado === 'CONFIRMADA') {
+    // (el `await fetch` de arriba cede el hilo y React puede renderizar de
+    // nuevo, pero esta ejecución sigue con las variables que tenía al empezar).
+    // Sin el override, el check-in se marcaría en BD pero el paso de
+    // créditos/logros no encontraría la reserva y se saltaría en silencio.
+    if (opciones?.checkInInmediato && estadoReal === 'CONFIRMADA') {
       await checkin(reservaId, reservasFinales);
     }
 
-    return { ok: true, estado: r.estado as EstadoReserva };
+    return { ok: true, estado: estadoReal };
+  }
+
+  // Tras una reserva del mostrador el servidor ya ha descontado la sesión del
+  // bono; el saldo que hay en memoria es el de antes. Se relee de la BD (la
+  // misma lectura ligera que usa la vuelta a la pestaña) y se conserva el aviso
+  // de «Bono agotado» que antes daba el descuento en cliente — el aviso
+  // persistente a la propietaria ya lo emite el servidor (`emitirBonoAgotado`).
+  // Si la lectura falla se queda lo que había: mejor un saldo un paso atrás que
+  // una lista vacía que parezca real.
+  async function releerSaldoTrasReservaMostrador(socioId: string) {
+    const antes = suscripciones.filter(s => s.socioId === socioId);
+    const d = await fetchTarifasYSuscripciones().catch(() => null);
+    if (!d) return;
+    setSuscripciones(d.suscripciones);
+    for (const sus of d.suscripciones) {
+      if (sus.socioId !== socioId || sus.sesionesRestantes !== 0) continue;
+      const previa = antes.find(a => a.id === sus.id);
+      if (!previa?.sesionesRestantes) continue; // ya estaba a 0 (o no era un bono)
+      const plan = planesTarifa.find(p => p.id === sus.planId);
+      if (!plan || !avisaBonoAgotado(plan)) continue;
+      const socio = socios.find(s => s.id === socioId);
+      const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
+      toastAviso.show(`Bono agotado: ${nombreSocio} ha consumido su última sesión de ${plan.nombre}.`);
+      addActividadReciente(
+        'PAGO_PENDIENTE',
+        `Bono agotado — ${nombreSocio} puede querer renovar ${plan.nombre}`,
+        socioId,
+        `/socios/${socioId}`,
+      );
+    }
   }
 
   // Favorito por TIPO de clase (catálogo), no por sesión puntual — así una
@@ -3793,7 +3781,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Premio a quien la trajo, si esta es su primera clase y hay tope disponible.
     premiarReferidoSiProcede(reserva.socioId, reservasActualizadas);
     // Nota: la sesión del bono ya se descuenta al confirmar la reserva
-    // (ver consumirSesionBono en addReserva), no en el check-in, para evitar
+    // (lo descuenta el servidor al reservar, `trasReservaCreada`), no en el check-in, para evitar
     // el doble cobro y para que el saldo refleje las plazas ya comprometidas.
     return res;
   }

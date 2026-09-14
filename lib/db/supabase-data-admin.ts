@@ -21,7 +21,7 @@ import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { primerError } from '@/lib/db/primer-error';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
-import { esCodigoReserva } from '@/lib/reservas/errores-rpc';
+import { esCodigoReserva, mensajeDeErrorReserva, MENSAJE_RESERVA_RPC } from '@/lib/reservas/errores-rpc';
 import { LEGAL } from '@/lib/legal-info';
 import { selloParaCliente, type SelloCliente } from '@/lib/factura-sello-cliente';
 import type { FacturaImprimible } from '@/lib/factura-pdf';
@@ -1298,6 +1298,94 @@ async function notificarPromocionEspera(
   });
 }
 
+// ─── Hechos de reserva: un dueño por hecho ──────────────────────────────────
+// Lo que pasa DESPUÉS de que la BD decida una plaza (descontar bono, gamificación,
+// avisos) estaba copiado en siete sitios y ya había divergido: la misma
+// promoción desde lista de espera se contaba con el correo «Se ha liberado tu
+// plaza» si la disparaba una cancelación y con un push genérico de «reserva
+// confirmada» si la disparaba el mostrador o una oferta caducada.
+//
+// Son tres hechos distintos, y cada uno tiene aquí UNA función dueña:
+//  · `trasReservaCreada`    — alguien pide plaza y `reservar_plaza` la decide
+//                             (CONFIRMADA / LISTA_ESPERA / PENDIENTE_APROBACION).
+//  · `trasPlazaConfirmada`  — una petición que ya existía pasa a CONFIRMADA
+//                             (aprobación manual, oferta aceptada a tiempo).
+//  · `trasPromocionDeEspera`— la BD sube sola a la primera de la lista de
+//                             espera porque se ha liberado un hueco.
+//
+// Regla: cualquier camino NUEVO que confirme una plaza llama a su dueño, nunca
+// a `consumirBonoServidor` ni a `emitir*` por su cuenta. Si un caso no encaja en
+// ninguno de los tres, es un hecho nuevo y merece su propio dueño aquí.
+
+type CanalReserva = 'alumna' | 'pago' | 'mostrador';
+
+async function trasReservaCreada(admin: SupabaseClient, p: {
+  studioId: string; socioId: string; sesionId: string; estado: string;
+  spotAsignado: string | null; canal: CanalReserva;
+  /** Solo el mostrador puede decir que no («Avisar a la alumna» desmarcado). */
+  avisarSocia?: boolean;
+}): Promise<void> {
+  if (p.estado === 'CONFIRMADA') {
+    // La clase decide de QUÉ bono se descuenta (0111): con un "Bono Reformer" y
+    // un "Bono Mat" a la vez, sin la sesión se quitaría del equivocado.
+    await consumirBonoServidor(admin, p.studioId, p.socioId, p.sesionId);
+    // La analítica de conversión mide a la ALUMNA reservando (widget, app,
+    // pago). Una reserva metida por recepción no es una conversión del embudo.
+    if (p.canal !== 'mostrador') {
+      capturar(p.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: Boolean(p.spotAsignado) } });
+    }
+  }
+  // S-1: la reserva mueve RESERVAS_TOTALES (y la racha, si la sesión ya pasó),
+  // tanto para logros como para retos vigentes.
+  await evaluarGamificacionServidor(admin, p.studioId, p.socioId);
+
+  // Notification Engine (server-only): la socia recibe confirmación / lista de
+  // espera y la propietaria "nueva reserva". Import dinámico para no arrastrar el
+  // motor (node:crypto, Inngest) al bundle de cliente de este módulo.
+  if (p.estado === 'CONFIRMADA' || p.estado === 'LISTA_ESPERA') {
+    const { emitirReserva, emitirClaseCasiLlena } = await import('@/lib/notifications/emit');
+    if (p.avisarSocia !== false) {
+      await emitirReserva(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, estado: p.estado as 'CONFIRMADA' | 'LISTA_ESPERA' });
+    }
+    // Aviso a la dueña si la clase se acerca al lleno (≥90%). Es para el
+    // estudio, no para la socia: no depende de `avisarSocia`.
+    if (p.estado === 'CONFIRMADA') await emitirClaseCasiLlena(admin, { studioId: p.studioId, sesionId: p.sesionId });
+  } else if (p.estado === 'PENDIENTE_APROBACION') {
+    // Fase 2a: no consume bono ni asigna spot todavía (bloque de arriba, gateado
+    // a `CONFIRMADA`, ya la deja fuera). Solo avisa al mostrador de que hay algo
+    // que revisar antes de que empiece la clase.
+    const { emitirReservaPendienteAprobacion } = await import('@/lib/notifications/emit');
+    await emitirReservaPendienteAprobacion(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId });
+  }
+}
+
+async function trasPlazaConfirmada(admin: SupabaseClient, p: {
+  studioId: string; socioId: string; sesionId: string;
+}): Promise<void> {
+  // Mismo criterio que una reserva normal: la clase decide de qué bono se
+  // descuenta (0111). El spot elegido al pedir no se conserva: no hay spot
+  // guardado mientras se espera, se asigna solo al confirmar.
+  await consumirBonoServidor(admin, p.studioId, p.socioId, p.sesionId);
+  const { emitirReserva } = await import('@/lib/notifications/emit');
+  await emitirReserva(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, estado: 'CONFIRMADA' });
+}
+
+async function trasPromocionDeEspera(admin: SupabaseClient, p: {
+  studioId: string; socioId: string; sesionId: string;
+}): Promise<{ bonoConsumido: boolean }> {
+  // Entra en la MISMA clase que se acaba de liberar, así que su tipo decide de
+  // qué bono se le descuenta.
+  const bonoConsumido = await consumirBonoServidor(admin, p.studioId, p.socioId, p.sesionId);
+  // Correo «Se ha liberado tu plaza» (dice si se descontó sesión, solo si de
+  // verdad ocurrió) + push. Cierra la mentira "te avisaremos si se libera una
+  // plaza", da igual quién la liberase: una cancelación, el mostrador con
+  // «Ofrecer plaza» o una oferta que caducó sin aceptar.
+  await notificarPromocionEspera(admin, p.studioId, p.socioId, p.sesionId, bonoConsumido);
+  const { emitirPlazaLiberada } = await import('@/lib/notifications/emit');
+  await emitirPlazaLiberada(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId });
+  return { bonoConsumido };
+}
+
 // Recordatorios de revisión de ficha clínica (FICHA-CLINICA.md §10). Recorre las
 // condiciones activas de todos los estudios; para las que necesitan revisión
 // (regla pura `recordatoriosRevision`) crea un aviso en `notificaciones`. Dedup:
@@ -2354,9 +2442,6 @@ export async function crearReservaPublica(params: {
       .eq('usada_en_reserva_id', reservaId).eq('studio_id', params.studioId)
       .maybeSingle();
     if (recup) recuperacionUsada = { caducaEl: (recup.caduca_el as string | null) ?? null };
-    // La clase decide de QUÉ bono se descuenta (0111): con un "Bono Reformer" y
-    // un "Bono Mat" a la vez, sin esto se quitaría del equivocado.
-    await consumirBonoServidor(admin, params.studioId, params.socioId, params.sesionId);
     // El sitio ya viene asignado por la RPC, dentro de la misma transacción
     // (ver `p_spot_id` arriba). Ya NO se llama a `asignarSpotReserva`: hacerlo
     // era un read-then-update posterior que podía perder la carrera y devolver
@@ -2366,27 +2451,12 @@ export async function crearReservaPublica(params: {
     // no se crea, que es lo honesto: la socia eligió un sitio y se le dice que
     // no lo tiene, en vez de confirmarle la clase en otro sin avisar.
     spotAsignado = params.spotId ?? null;
-    capturar(params.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: Boolean(spotAsignado) } });
   }
-  // S-1: la reserva mueve RESERVAS_TOTALES (y la racha, si la sesión ya pasó),
-  // tanto para logros como para retos vigentes.
-  await evaluarGamificacionServidor(admin, params.studioId, params.socioId);
-
-  // Notification Engine (server-only): la socia recibe confirmación / lista de
-  // espera y la propietaria "nueva reserva". Import dinámico para no arrastrar el
-  // motor (node:crypto, Inngest) al bundle de cliente de este módulo.
-  if (estado === 'CONFIRMADA' || estado === 'LISTA_ESPERA') {
-    const { emitirReserva, emitirClaseCasiLlena } = await import('@/lib/notifications/emit');
-    await emitirReserva(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, estado: estado as 'CONFIRMADA' | 'LISTA_ESPERA' });
-    // Aviso a la dueña si la clase se acerca al lleno (≥90%).
-    if (estado === 'CONFIRMADA') await emitirClaseCasiLlena(admin, { studioId: params.studioId, sesionId: params.sesionId });
-  } else if (estado === 'PENDIENTE_APROBACION') {
-    // Fase 2a: no consume bono ni asigna spot todavía (bloque de arriba, gateado
-    // a `estado === 'CONFIRMADA'`, ya la deja fuera). Solo avisa al mostrador de
-    // que hay algo que revisar antes de que empiece la clase.
-    const { emitirReservaPendienteAprobacion } = await import('@/lib/notifications/emit');
-    await emitirReservaPendienteAprobacion(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId });
-  }
+  // Bono, analítica, gamificación y avisos: dueño único (ver `trasReservaCreada`).
+  await trasReservaCreada(admin, {
+    studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
+    estado, spotAsignado, canal: 'alumna',
+  });
   return { ok: true as const, estado, reservaId, spotAsignado, recuperacionUsada };
 }
 
@@ -2529,22 +2599,105 @@ export async function reservarPlazaTrasPagoPublico(params: {
   const estado: string = row?.estado ?? 'CONFIRMADA';
   const spotAsignado = estado === 'CONFIRMADA' ? (params.spotId ?? null) : null;
 
-  if (estado === 'CONFIRMADA') {
-    await consumirBonoServidor(admin, params.studioId, params.socioId, params.sesionId);
-    capturar(params.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: Boolean(spotAsignado) } });
-  }
-  await evaluarGamificacionServidor(admin, params.studioId, params.socioId);
-
-  if (estado === 'CONFIRMADA' || estado === 'LISTA_ESPERA') {
-    const { emitirReserva, emitirClaseCasiLlena } = await import('@/lib/notifications/emit');
-    await emitirReserva(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, estado: estado as 'CONFIRMADA' | 'LISTA_ESPERA' });
-    if (estado === 'CONFIRMADA') await emitirClaseCasiLlena(admin, { studioId: params.studioId, sesionId: params.sesionId });
-  } else if (estado === 'PENDIENTE_APROBACION') {
-    const { emitirReservaPendienteAprobacion } = await import('@/lib/notifications/emit');
-    await emitirReservaPendienteAprobacion(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId });
-  }
+  await trasReservaCreada(admin, {
+    studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
+    estado, spotAsignado, canal: 'pago',
+  });
 
   return { ok: true, estado, reservaId, spotAsignado };
+}
+
+// El MOSTRADOR apunta a una clienta desde el panel (calendario: «Añadir clienta
+// a la clase», walk-in y «repetir la semana que viene").
+//
+// Antes el navegador llamaba a `reservar_plaza` directo y luego descontaba el
+// bono, daba créditos y evaluaba logros él mismo — y a la alumna no le llegaba
+// NADA: la misma reserva avisaba o no según quién pulsara el botón. Ahora pasa
+// por el mismo dueño que el resto (`trasReservaCreada`, canal 'mostrador'), con
+// una sola excepción que decide recepción: «Avisar a la alumna» (`avisarSocia`).
+//
+// ⚠️ Corre con service-role, así que dentro de la RPC `es_llamada_servicio()` es
+// true y `current_rol()` es NULL. Eso cambia dos cosas que hay que reponer:
+//  · La guardia de INSTRUCTOR («solo sus clases») NO se ejecuta: la autorización
+//    vive en la ruta (`app/api/reservas/crear`), antes de llegar aquí.
+//  · El gate de impago SÍ se ejecutaría (lo salta `current_rol() is not null`,
+//    que con service-role es falso). El staff siempre se lo ha saltado —en
+//    mostrador el impago se habla, no se bloquea—, así que se pasa
+//    `p_saltar_gate_impago` explícito. Solo se llega aquí con el rol ya comprobado.
+// Lo que NO se aplica a propósito, a diferencia de `crearReservaPublica`: clase
+// ya empezada (es el walk-in), plan/bono exigido y ventanas de antelación. El
+// resto de parámetros van por defecto, igual que cuando la llamaba el panel:
+// admite lista de espera, sin aprobación manual y sin sitio.
+export async function crearReservaMostrador(params: {
+  studioId: string; sesionId: string; socioId: string; reservaId: string; avisarSocia: boolean;
+}): Promise<
+  | { ok: true; estado: string; posicionEspera: number | null; reservaId: string; repetida: boolean }
+  | { ok: false; status: 400 | 404 | 500; error: string }
+> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  // La RPC no mira si la PROPIA sesión está cancelada (su `cancelada` es el de
+  // las sesiones ajenas con las que busca solape). Mismo guard que el camino
+  // público y que el que ya tenía `addReserva` en el cliente (I-2, 59ª pasada).
+  const { data: ses } = await admin
+    .from('sesiones').select('cancelada')
+    .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
+  if (!ses) return { ok: false, status: 404, error: MENSAJE_RESERVA_RPC.SESION_NO_ENCONTRADA };
+  if (ses.cancelada) return { ok: false, status: 400, error: 'Esta clase está cancelada: no se puede apuntar a nadie.' };
+
+  const { data, error } = await admin.rpc('reservar_plaza', {
+    p_studio_id: params.studioId, p_sesion_id: params.sesionId,
+    p_socio_id: params.socioId, p_reserva_id: params.reservaId,
+    p_saltar_gate_impago: true,
+  });
+  if (error) {
+    // Reintento del MISMO intento (el id lo genera el panel y viaja en la
+    // petición): si la fila con ese id ya existe y es de esta socia en esta
+    // clase, la primera vez sí entró — se contesta con lo que hay y NO se
+    // vuelven a disparar bono ni avisos. Otro id con la socia ya apuntada es un
+    // «ya está apuntada» de verdad.
+    if (esCodigoReserva(error.message, 'YA_RESERVADA')) {
+      const { data: existente } = await admin
+        .from('reservas').select('estado, posicion_espera, socio_id, sesion_id')
+        .eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
+      if (existente && existente.socio_id === params.socioId && existente.sesion_id === params.sesionId) {
+        return {
+          ok: true, estado: existente.estado as string,
+          posicionEspera: (existente.posicion_espera as number | null) ?? null,
+          reservaId: params.reservaId, repetida: true,
+        };
+      }
+    }
+    // Nunca el SQL crudo a pantalla: la tabla completa de códigos de la RPC.
+    const traducido = mensajeDeErrorReserva(error.message);
+    if (traducido) return { ok: false, status: 400, error: traducido };
+    reportDbError('[crearReservaMostrador]', error);
+    return { ok: false, status: 500, error: 'No se ha podido apuntar. Inténtalo otra vez.' };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  const estado: string = row?.estado ?? 'CONFIRMADA';
+  const posicionEspera = (row?.posicion_espera as number | null | undefined) ?? null;
+
+  await trasReservaCreada(admin, {
+    studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
+    estado, spotAsignado: null, canal: 'mostrador', avisarSocia: params.avisarSocia,
+  });
+
+  // Créditos de «Primera reserva». Los daba el panel en cliente mirando su lista
+  // local de reservas (que puede no estar entera); aquí se cuenta en la BD, con
+  // la que se acaba de crear dentro. El mismo `ref_id` que usaba el cliente
+  // (`socioId`, el único que acepta la RPC) y el UNIQUE de `reward_actions`
+  // garantizan que no se da dos veces aunque se reintente. El cliente ya NO lo
+  // pide: una sola vía.
+  const { count } = await admin
+    .from('reservas').select('id', { count: 'exact', head: true })
+    .eq('studio_id', params.studioId).eq('socio_id', params.socioId);
+  if (count === 1) {
+    await otorgarCreditosServidor(admin, params.studioId, params.socioId, 'PRIMERA_RESERVA', params.socioId);
+  }
+
+  return { ok: true, estado, posicionEspera, reservaId: params.reservaId, repetida: false };
 }
 
 // Aprobar/rechazar una reserva PENDIENTE_APROBACION desde el panel (Fase 2a).
@@ -2590,23 +2743,18 @@ export async function resolverReservaPendiente(params: {
   const socioId = res?.socio_id as string | undefined;
   if (!sesionId || !socioId) return { ok: true, estado };
 
-  if (estado === 'CONFIRMADA') {
-    // Mismo criterio que una reserva normal: la clase decide de qué bono se
-    // descuenta (0111). El spot elegido al pedir la aprobación no se conserva
-    // (mismo comportamiento que ya tenía la promoción desde lista de espera:
-    // no hay spot guardado durante la espera, se asigna solo al confirmar).
-    await consumirBonoServidor(admin, params.studioId, socioId, sesionId);
-  }
-
   if (params.aprobar && estado === 'CANCELADA') {
     const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
     await emitirReservaCancelada(admin, { studioId: params.studioId, sesionId, socioId, reservaId: params.reservaId, motivo: 'expirada' });
     return { ok: true, estado, motivoUI: 'clase_ya_empezada' };
   }
 
-  if (estado === 'CONFIRMADA' || estado === 'LISTA_ESPERA') {
+  if (estado === 'CONFIRMADA') {
+    await trasPlazaConfirmada(admin, { studioId: params.studioId, socioId, sesionId });
+  } else if (estado === 'LISTA_ESPERA') {
+    // Aprobada pero sin hueco: no ocupa plaza, así que no descuenta nada.
     const { emitirReserva } = await import('@/lib/notifications/emit');
-    await emitirReserva(admin, { studioId: params.studioId, sesionId, socioId, estado: estado as 'CONFIRMADA' | 'LISTA_ESPERA' });
+    await emitirReserva(admin, { studioId: params.studioId, sesionId, socioId, estado: 'LISTA_ESPERA' });
   } else if (estado === 'CANCELADA') {
     const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
     await emitirReservaCancelada(admin, { studioId: params.studioId, sesionId, socioId, reservaId: params.reservaId, motivo: 'rechazada' });
@@ -2683,10 +2831,10 @@ export async function ofrecerPlazaLibre(params: {
   if (!row?.promovida_socio_id && !row?.oferta_socio_id) return { error: 'No hay nadie en lista de espera para esta clase' };
 
   if (row.promovida_socio_id) {
-    const socioId = row.promovida_socio_id as string;
-    await consumirBonoServidor(admin, params.studioId, socioId, params.sesionId);
-    const { emitirReserva } = await import('@/lib/notifications/emit');
-    await emitirReserva(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId, estado: 'CONFIRMADA' });
+    // Una promoción de lista de espera, igual que la que dispara una
+    // cancelación: mismo dueño, mismo aviso («Se ha liberado tu plaza»). Antes
+    // aquí salía solo el push genérico de «reserva confirmada».
+    await trasPromocionDeEspera(admin, { studioId: params.studioId, socioId: row.promovida_socio_id as string, sesionId: params.sesionId });
     return { ok: true, resultado: 'confirmada' };
   }
   const { emitirOfertaListaEspera } = await import('@/lib/notifications/emit');
@@ -2795,9 +2943,7 @@ export async function aceptarOfertaListaEspera(params: {
   }
 
   if (sesionId) {
-    await consumirBonoServidor(admin, params.studioId, params.socioId, sesionId);
-    const { emitirReserva } = await import('@/lib/notifications/emit');
-    await emitirReserva(admin, { studioId: params.studioId, sesionId, socioId: params.socioId, estado: 'CONFIRMADA' });
+    await trasPlazaConfirmada(admin, { studioId: params.studioId, socioId: params.socioId, sesionId });
   }
   return { ok: true, estado: 'CONFIRMADA' };
 }
@@ -2849,12 +2995,10 @@ export async function expirarOfertaListaEspera(params: {
     // silencio: la socia quedaba CONFIRMADA sin consumir bono (el consumo
     // vive aquí, no en la RPC — mismo criterio que
     // `aceptarOfertaListaEspera`/`resolverReservaPendiente`) y sin ninguna
-    // notificación.
-    await consumirBonoServidor(admin, params.studioId, row.promovida_socio_id as string, params.sesionId);
-    const { emitirReserva } = await import('@/lib/notifications/emit');
-    await emitirReserva(admin, {
-      studioId: params.studioId, sesionId: params.sesionId,
-      socioId: row.promovida_socio_id as string, estado: 'CONFIRMADA',
+    // notificación. Ahora pasa por el dueño de la promoción: descuenta bono y
+    // la avisa igual que cualquier otra subida desde lista de espera.
+    await trasPromocionDeEspera(admin, {
+      studioId: params.studioId, socioId: row.promovida_socio_id as string, sesionId: params.sesionId,
     });
   }
   return true;
@@ -3099,23 +3243,13 @@ export async function ejecutarCancelacionReserva(
   }
 
   if (row?.promovida_socio_id) {
-    const promSocioId = row.promovida_socio_id as string;
-    // Entra en la MISMA clase que se acaba de liberar, así que su tipo decide de
-    // qué bono se le descuenta. Se resuelve aquí porque la consulta de arriba
-    // vive dentro del bloque de la cancelación tardía. `sesion_id` es required
-    // en consumirBonoServidor (0132): sin sesión no hay de qué clase decidir la
-    // cobertura, así que sin ella tampoco hay nada que consumir.
-    const bonoConsumido = cancelada?.sesion_id
-      ? await consumirBonoServidor(admin, params.studioId, promSocioId, cancelada.sesion_id as string)
-      : false;
-    // Avisar a la socia ascendida de que su plaza está confirmada (indicando si
-    // se le ha consumido una sesión del bono — solo si realmente ocurrió).
-    // Cierra la mentira "te avisaremos si se libera una plaza". No bloquea.
+    // `sesion_id` es required en consumirBonoServidor (0132): sin sesión no hay
+    // de qué clase decidir la cobertura, así que sin ella no hay nada que
+    // consumir ni que contar. Bono + correo + push: `trasPromocionDeEspera`.
     if (cancelada?.sesion_id) {
-      await notificarPromocionEspera(admin, params.studioId, promSocioId, cancelada.sesion_id as string, bonoConsumido);
-      // Notification Engine: in-app (+ push cuando aplique) a la socia ascendida.
-      const { emitirPlazaLiberada } = await import('@/lib/notifications/emit');
-      await emitirPlazaLiberada(admin, { studioId: params.studioId, sesionId: cancelada.sesion_id as string, socioId: promSocioId });
+      await trasPromocionDeEspera(admin, {
+        studioId: params.studioId, socioId: row.promovida_socio_id as string, sesionId: cancelada.sesion_id as string,
+      });
     }
   } else if (row?.oferta_socio_id && cancelada?.sesion_id) {
     // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
