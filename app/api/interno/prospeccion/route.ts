@@ -4,6 +4,7 @@ import { exigirPermiso } from '@/lib/interno/auth';
 import { registrar } from '@/lib/interno/auditoria';
 import { parseCsv } from '@/lib/csv';
 import { autoMapearProspecto, validarFilasProspecto, aBorrador } from '@/lib/interno/prospeccion';
+import { bloqueoProspeccion, prospeccionActiva, MOTIVO_PROSPECCION_DESACTIVADA } from '@/lib/interno/prospeccion-activa';
 
 export const runtime = 'nodejs';
 
@@ -53,6 +54,9 @@ export async function GET(req: NextRequest) {
     // Que la pantalla pueda avisar ANTES de que alguien apruebe 12 correos y
     // descubra al pulsar "Enviar" que el buzón no está puesto.
     buzonConfigurado: Boolean(process.env.SPACEMAIL_USER && process.env.SPACEMAIL_PASSWORD),
+    // Para que la pantalla lo diga y no ofrezca botones que aquí se rechazan.
+    activa: prospeccionActiva(process.env),
+    motivoDesactivada: prospeccionActiva(process.env) ? null : MOTIVO_PROSPECCION_DESACTIVADA,
   });
 }
 
@@ -62,6 +66,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const g = await exigirPermiso(req, 'marketing.send');
   if ('error' in g) return g.error;
+  // ⚠️ Prospección desactivada hasta dictamen legal (lib/interno/prospeccion-activa.ts).
+  const bloqueo = bloqueoProspeccion(process.env);
+  if (bloqueo) return NextResponse.json({ error: bloqueo.error, codigo: bloqueo.codigo }, { status: bloqueo.status });
 
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });

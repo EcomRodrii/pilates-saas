@@ -1,6 +1,7 @@
 import { inngest, EVENTS } from './client';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enviarProspeccion } from '@/lib/marketing/prospeccion-smtp';
+import { prospeccionActiva } from '@/lib/interno/prospeccion-activa';
 
 // Envío de un lote de outreach en frío. Lo dispara una persona pulsando
 // "Enviar siguiente lote" en /interno/crecimiento — NO es fan-out de un
@@ -15,6 +16,9 @@ import { enviarProspeccion } from '@/lib/marketing/prospeccion-smtp';
 export const enviarLoteProspeccion = inngest.createFunction(
   { id: 'prospeccion-enviar-lote', triggers: [{ event: EVENTS.PROSPECCION_ENVIAR_LOTE }], retries: 2 },
   async ({ event, step }) => {
+    // ⚠️ Un lote encolado antes de apagarla tampoco sale (lib/interno/prospeccion-activa.ts).
+    if (!prospeccionActiva(process.env)) return { skipped: 'prospección desactivada' };
+
     const { ids } = event.data as { ids: string[] };
     if (!Array.isArray(ids) || ids.length === 0) return { skipped: 'lote vacío' };
 

@@ -4206,15 +4206,10 @@ export async function actualizarSociaPublica(params: {
       return { error: 'Esa foto no es válida. Súbela desde tu perfil.' as const };
     }
   }
-  // Aceptación del contrato (clickwrap): objeto anidado → columnas de registro.
-  // Sin esto, la aceptación se perdía y no quedaba evidencia (C-7).
-  const ac = params.cambios.aceptacionContrato as
-    { fecha?: string; firma?: string; versionTexto?: string } | undefined;
-  if (ac && typeof ac === 'object') {
-    db.aceptacion_fecha = ac.fecha ?? null;
-    db.aceptacion_firma = ac.firma ?? null;
-    db.aceptacion_version = ac.versionTexto ?? null;
-  }
+  // Aceptación del contrato: ya NO se escribe aquí. Guardaba la fecha y el
+  // texto que mandaba el navegador, sin origen. La sella la ruta
+  // (`/api/public/socio`, `registrarAceptacionContrato`) con valores del
+  // servidor y la aparta de `cambios` antes de llegar a esta función.
   if (Object.keys(db).length === 0) return { ok: true as const };
   const { error } = await admin.from('socios').update(db).eq('id', params.socioId);
   if (error) {

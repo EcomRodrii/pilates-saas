@@ -10,6 +10,7 @@
 // suena a consulta médica cambia lo que la persona contesta, y además promete
 // una competencia que un estudio de Pilates no tiene ni debe aparentar.
 
+import { EDAD_MINIMA_CONSENTIMIENTO_SALUD } from '../datos-salud/edad.ts';
 import type {
   Objetivo, Experiencia, Nivel, EstadoCuerpo, Zona, Frecuencia, IdPaso,
 } from '@/lib/valoracion-inicial';
@@ -161,5 +162,16 @@ export function textoConsentimientoSalud(nombreEstudio: string): string {
     `Lo siguiente son molestias o lesiones, y eso es información sobre tu salud. La ley la protege de forma especial, así que solo la guardamos si tú nos dices que sí.`,
     `Si aceptas, ${nombreEstudio} podrá ver lo que cuentes aquí para adaptar tus clases. No lo verá nadie más, no se usa para nada que no sea eso, y puedes pedir que se borre cuando quieras.`,
     `Si prefieres que no, no pasa nada: terminas tu valoración igual y te saltas esta parte.`,
+  ].join('\n\n');
+}
+
+/** Puerta de salud para una alumna menor de 14: no consiente ella (decisión B, auditoría RGPD). */
+export const CONSENTIMIENTO_SALUD_MENOR_TITULO = 'Esta parte la vemos en el estudio';
+
+export function textoConsentimientoSaludMenor(nombreEstudio: string): string {
+  return [
+    `Como tienes menos de ${EDAD_MINIMA_CONSENTIMIENTO_SALUD} años, no guardamos información sobre tu salud solo con tu permiso.`,
+    `Si hay algo que ${nombreEstudio} deba saber, como una lesión o una molestia, cuéntaselo en el estudio con tu padre, tu madre o tu tutor legal: allí lo apuntan con su autorización.`,
+    `Tu valoración la puedes terminar igual: nos saltamos esta parte.`,
   ].join('\n\n');
 }

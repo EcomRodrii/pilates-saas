@@ -23,6 +23,8 @@ import {
 } from '@/lib/ficha-clinica';
 import { dbRegistrarLecturaFichaSalud, getCurrentStudioId } from '@/lib/supabase-data';
 import { textoConsentimientoSaludPanel } from '@/lib/legal-textos';
+import { consentimientoSaludPorEdad, EDAD_MINIMA_CONSENTIMIENTO_SALUD } from '@/lib/datos-salud/edad';
+import type { FirmanteConsentimiento } from '@/lib/datos-salud/consentimiento';
 import { useAccesoSaludSocia } from '@/lib/hooks/use-acceso-salud-socia';
 import { MENSAJE_NO_ES_SU_ALUMNA } from '@/lib/datos-salud/acceso-instructora';
 import { sugerirAdaptacionesSocio, type AdaptacionSocioIA } from '@/lib/ai/ficha-clinica-socio-client';
@@ -261,18 +263,31 @@ function CondicionCard({ c, now, onEdit, onAlta, onDelete }: {
 // El texto que se enseña es el MISMO que guarda el servidor como prueba
 // (`textoConsentimientoSaludPanel`), junto con la fecha del servidor y el
 // usuario que lo registra. Aquí solo se teclea la firma.
+//
+// ⚠️ Menores de 14: firma su padre, madre o tutor legal. El diálogo aplica la
+// misma regla que el servidor (`decidirFirmantePanel`) para enseñar el texto y
+// la etiqueta correctos, pero quien decide es la ruta, con la fecha de la base.
 
 function ConsentimientoSaludDialog({
-  open, onClose, onConfirmar, guardando, error, texto,
+  open, onClose, onConfirmar, guardando, error, nombreEstudio, fechaNacimiento, now,
 }: {
   open: boolean;
   onClose: () => void;
-  onConfirmar: (registradoPor: string) => void;
+  onConfirmar: (registradoPor: string, firmante: FirmanteConsentimiento) => void;
   guardando: boolean;
   error: string | null;
-  texto: string;
+  nombreEstudio: string | null;
+  fechaNacimiento: string | null;
+  now: Date;
 }) {
   const [nombre, setNombre] = useState('');
+  const [elegido, setElegido] = useState<FirmanteConsentimiento | null>(null);
+  const porEdad = consentimientoSaludPorEdad(fechaNacimiento, now);
+  const firmante: FirmanteConsentimiento | null =
+    porEdad === 'MENOR' ? 'TUTOR_LEGAL' : porEdad === 'PUEDE' ? 'SOCIA' : elegido;
+  const tutor = firmante === 'TUTOR_LEGAL';
+  const texto = firmante ? textoConsentimientoSaludPanel({ nombre: nombreEstudio }, firmante) : null;
+
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-md">
@@ -280,19 +295,56 @@ function ConsentimientoSaludDialog({
         <div className="space-y-3 text-sm text-foreground">
           <p className="text-muted-foreground">
             Vas a registrar lesiones, embarazo u otra condición médica. Es un dato de categoría
-            especial (art. 9 RGPD): antes de guardar el primero, la clienta tiene que autorizarlo
-            expresamente. Léele este texto: es el que quedará guardado como prueba, con la fecha y tu usuario.
+            especial (art. 9 RGPD): antes de guardar el primero, hay que autorizarlo expresamente.
+            Léele este texto: es el que quedará guardado como prueba, con la fecha y tu usuario.
           </p>
-          <div
-            role="document"
-            aria-label="Texto de la autorización que se registra"
-            className="max-h-48 overflow-y-auto whitespace-pre-line rounded-lg border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground"
-          >
-            {texto}
-          </div>
+          {porEdad === 'MENOR' && (
+            <p role="note" className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+              <span>
+                Según su fecha de nacimiento tiene menos de {EDAD_MINIMA_CONSENTIMIENTO_SALUD} años. No puede
+                autorizarlo ella: tiene que firmar su padre, madre o tutor legal, delante de ti.
+              </span>
+            </p>
+          )}
+          {porEdad === 'FALTA_FECHA' && (
+            <div>
+              <span id="consentimiento-salud-quien" className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+                No consta su fecha de nacimiento. ¿Quién autoriza?
+              </span>
+              <div role="radiogroup" aria-labelledby="consentimiento-salud-quien" className="grid gap-1.5 sm:grid-cols-2">
+                {([
+                  ['SOCIA', `La propia clienta (${EDAD_MINIMA_CONSENTIMIENTO_SALUD} años o más)`],
+                  ['TUTOR_LEGAL', 'Su padre, madre o tutor legal'],
+                ] as const).map(([valor, etiqueta]) => (
+                  <button
+                    key={valor} type="button" role="radio" aria-checked={elegido === valor}
+                    onClick={() => setElegido(valor)}
+                    className={cn('text-xs font-semibold px-3 py-2 rounded-lg border text-left transition-colors',
+                      elegido === valor ? 'border-foreground bg-foreground text-background' : 'border-border text-muted-foreground hover:text-foreground')}
+                  >
+                    {etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {texto ? (
+            <div
+              role="document"
+              aria-label="Texto de la autorización que se registra"
+              className="max-h-48 overflow-y-auto whitespace-pre-line rounded-lg border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground"
+            >
+              {texto}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Elige quién autoriza para ver el texto que se registrará.</p>
+          )}
           <div>
             <label htmlFor="consentimiento-salud-nombre" className="text-xs font-semibold text-muted-foreground mb-1.5 block">
-              Nombre completo de quien autoriza (la propia clienta, delante de ti)
+              {tutor
+                ? 'Nombre completo del padre, madre o tutor legal (delante de ti)'
+                : 'Nombre completo de quien autoriza (la propia clienta, delante de ti)'}
             </label>
             <input
               id="consentimiento-salud-nombre"
@@ -307,8 +359,8 @@ function ConsentimientoSaludDialog({
         <div className="flex justify-end gap-2 pt-4">
           <button onClick={onClose} className="text-xs font-semibold px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground">Cancelar</button>
           <button
-            disabled={!nombre.trim() || guardando}
-            onClick={() => onConfirmar(nombre.trim())}
+            disabled={!nombre.trim() || !firmante || guardando}
+            onClick={() => { if (firmante) onConfirmar(nombre.trim(), firmante); }}
             className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <ShieldCheck size={14} /> {guardando ? 'Guardando…' : 'Autoriza y continuar'}
@@ -531,8 +583,6 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
   // Retirar el consentimiento desde la ficha (la clienta lo pide en mostrador).
   const [confirmarRevocar, setConfirmarRevocar] = useState(false);
   const [revocando, setRevocando] = useState(false);
-  // El mismo texto que el servidor guardará como prueba (solo se enseña).
-  const textoConsentimiento = textoConsentimientoSaludPanel({ nombre: studio?.nombre ?? null });
 
   async function adaptarConIA() {
     setAdaptacionIALoading(true);
@@ -548,11 +598,11 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
     }
   }
 
-  async function confirmarConsentimiento(registradoPor: string) {
+  async function confirmarConsentimiento(registradoPor: string, firmante: FirmanteConsentimiento) {
     setGuardandoConsentimiento(true);
     setErrorConsentimiento(null);
     // Fecha, autor y texto los pone el servidor; aquí solo viaja la firma.
-    const r = await registrarConsentimientoSalud(socioId, registradoPor);
+    const r = await registrarConsentimientoSalud(socioId, registradoPor, firmante);
     setGuardandoConsentimiento(false);
     if (!r.ok) { setErrorConsentimiento(r.error); return; }
     setConsentimientoDialogOpen(false);
@@ -777,12 +827,15 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
       <CondicionDialog open={dialogOpen} onClose={() => { setDialogOpen(false); setEditando(null); }} onSave={guardar} inicial={inicial} />
 
       <ConsentimientoSaludDialog
+        key={socioId}
         open={consentimientoDialogOpen}
         onClose={() => { setConsentimientoDialogOpen(false); setErrorConsentimiento(null); }}
         onConfirmar={confirmarConsentimiento}
         guardando={guardandoConsentimiento}
         error={errorConsentimiento}
-        texto={textoConsentimiento}
+        nombreEstudio={studio?.nombre ?? null}
+        fechaNacimiento={socio?.fechaNacimiento ?? null}
+        now={now}
       />
 
       <ConfirmDialog

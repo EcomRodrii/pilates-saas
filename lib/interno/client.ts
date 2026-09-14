@@ -167,6 +167,9 @@ export interface Prospeccion {
   prospectos: Prospecto[];
   borradores: import('./prospeccion.ts').BorradorProspeccion[];
   buzonConfigurado: boolean;
+  /** Interruptor PROSPECCION_ACTIVA del servidor. */
+  activa: boolean;
+  motivoDesactivada: string | null;
 }
 
 export const fetchProspeccion = () => pedir<Prospeccion>('/prospeccion');

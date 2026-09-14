@@ -4,6 +4,7 @@ import {
   normalizar, sePuedeCompletar, repartirHistorial,
   type Valoracion, type FilaValoracion, type Historial,
 } from '@/lib/valoracion-inicial';
+import { respuestaCambioConsentimiento } from '@/lib/datos-salud/consentimiento';
 
 // Lectura y escritura de la valoración inicial, EN SERVIDOR y con service-role.
 //
@@ -194,9 +195,9 @@ export async function tieneConsentimientoSalud(socioId: string): Promise<boolean
  */
 export async function registrarConsentimientoSaludSocia(
   studioId: string, socioId: string, texto: string, authUserId: string | null,
-): Promise<{ ok: true } | { error: string }> {
+): Promise<{ ok: true } | { error: string; status: number; codigo?: 'MENOR_14' | 'FALTA_FECHA_NACIMIENTO' }> {
   const admin = getSupabaseAdmin();
-  if (!admin) return { error: 'Servidor no configurado' };
+  if (!admin) return { error: 'Servidor no configurado', status: 500 };
   const { data, error } = await admin.rpc('consentimiento_salud_cambiar', {
     p_studio_id: studioId,
     p_socio_id: socioId,
@@ -210,8 +211,39 @@ export async function registrarConsentimientoSaludSocia(
     p_actor_uid: authUserId,
     p_actor_rol: 'SOCIA',
   });
-  if (error || (data !== 'OK' && data !== 'YA_CONSTABA')) {
-    return { error: 'No hemos podido guardar tu consentimiento.' };
+  if (error) return { error: 'No hemos podido guardar tu consentimiento.', status: 500 };
+  // La RPC también se niega con una menor o sin fecha de nacimiento (migr
+  // 20260914150000): defensa en profundidad por si la ruta no lo hubiera visto.
+  const r = respuestaCambioConsentimiento(data);
+  if (!r.ok) {
+    return r.codigo
+      ? { error: r.error ?? 'No hemos podido guardar tu consentimiento.', status: r.status, codigo: r.codigo }
+      : { error: 'No hemos podido guardar tu consentimiento.', status: r.status };
   }
   return { ok: true };
+}
+
+/** `socios.fecha_nacimiento` de la propia socia ('YYYY-MM-DD' o null). */
+export async function leerFechaNacimiento(studioId: string, socioId: string): Promise<string | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin.from('socios')
+    .select('fecha_nacimiento').eq('id', socioId).eq('studio_id', studioId).maybeSingle();
+  if (error) throw error;
+  return (data?.fecha_nacimiento as string | null | undefined) ?? null;
+}
+
+/**
+ * Guarda la fecha de nacimiento que la alumna da al consentir. Es un campo que
+ * ya puede editar en «Mis datos» (`CAMPOS_SOCIA_EDITABLES`); se acepta aquí
+ * para no mandarla a otra pantalla en mitad de la valoración.
+ */
+export async function guardarFechaNacimiento(
+  studioId: string, socioId: string, fecha: string,
+): Promise<{ ok: true } | { error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return { error: 'Servidor no configurado' };
+  const { error } = await admin.from('socios')
+    .update({ fecha_nacimiento: fecha }).eq('id', socioId).eq('studio_id', studioId).is('borrado_en', null);
+  return error ? { error: 'No hemos podido guardar tu fecha de nacimiento.' } : { ok: true };
 }

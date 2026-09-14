@@ -6,11 +6,14 @@
 
 import { portalAuthHeader } from '@/lib/api-client';
 import type { Historial, Valoracion, IdPaso } from '@/lib/valoracion-inicial';
+import type { ConsentimientoSaludPorEdad } from '@/lib/datos-salud/edad';
 
 export interface EstadoValoracionRemota {
   activa: boolean;
   /** ¿Ha dado su consentimiento para la parte de salud? */
   conSalud: boolean;
+  /** Qué permite su edad en la puerta de salud (lo decide el servidor). */
+  consentimientoSalud?: ConsentimientoSaludPorEdad;
   historial: Historial | null;
 }
 
@@ -30,7 +33,7 @@ export type ResultadoGuardado =
   | { ok: true }
   // `falta` viaja hasta la pantalla para poder llevarla al paso que le falta,
   // en vez de dejarla delante de un botón que no responde.
-  | { error: string; falta?: IdPaso[] };
+  | { error: string; falta?: IdPaso[]; codigo?: string };
 
 async function enviar(cuerpo: Record<string, unknown>): Promise<ResultadoGuardado> {
   try {
@@ -39,11 +42,11 @@ async function enviar(cuerpo: Record<string, unknown>): Promise<ResultadoGuardad
       headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
       body: JSON.stringify(cuerpo),
     });
-    const datos = (await res.json().catch(() => null)) as { error?: string; falta?: IdPaso[] } | null;
+    const datos = (await res.json().catch(() => null)) as { error?: string; falta?: IdPaso[]; codigo?: string } | null;
     // ⚠️ Se mira `res.ok`, no solo que la petición no lanzara. Anunciar
     // «guardado» con el servidor diciendo 400 es el bug más repetido de este
     // repo, y aquí costaría que se creyera que su valoración está entregada.
-    if (!res.ok) return { error: datos?.error ?? 'No hemos podido guardar. Inténtalo de nuevo.', falta: datos?.falta };
+    if (!res.ok) return { error: datos?.error ?? 'No hemos podido guardar. Inténtalo de nuevo.', falta: datos?.falta, codigo: datos?.codigo };
     return { ok: true };
   } catch {
     return { error: 'No hemos podido guardar. Comprueba tu conexión.' };
@@ -66,5 +69,5 @@ export const completarValoracion = (studioId: string, valoracion: Valoracion) =>
  * servidor: un texto legal que viaja en el cuerpo de la petición es una traza
  * que se certifica a sí misma.
  */
-export const consentirSalud = (studioId: string) =>
-  enviar({ studioId, accion: 'consentir-salud' });
+export const consentirSalud = (studioId: string, fechaNacimiento?: string) =>
+  enviar({ studioId, accion: 'consentir-salud', ...(fechaNacimiento ? { fechaNacimiento } : {}) });

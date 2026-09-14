@@ -10,6 +10,7 @@ import { useRol, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero } fr
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
 import { textoLegalCompleto, textoConsentimientoMarketing } from '@/lib/legal-textos';
+import { sellarAceptacionMostrador } from '@/lib/aceptacion-contrato-cliente';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
@@ -711,10 +712,19 @@ export default function Socios() {
           }
         : undefined,
     });
-    setGuardando(false);
     // Si la BD la rechaza, el diálogo se queda abierto con los datos puestos:
     // antes se cerraba igual y la clienta aparecía en la lista sin existir.
-    if (!res.ok) { setErrorGuardar(res.error); return; }
+    if (!res.ok) { setGuardando(false); setErrorGuardar(res.error); return; }
+
+    // La firma recogida en mostrador se vuelve a sellar EN SERVIDOR: fecha,
+    // texto vigente, quién la introdujo, huella de IP y user-agent (plan RGPD
+    // 3.17). La clienta ya existe, así que un fallo aquí no deshace el alta,
+    // pero se dice en la lista en vez de dar la firma por registrada.
+    if (firma.trim() && res.id) {
+      const sello = await sellarAceptacionMostrador(res.id, firma.trim(), versionTexto);
+      if (!sello.ok) setErrorFila(`La clienta se ha creado, pero su firma no ha quedado registrada: ${sello.error}`);
+    }
+    setGuardando(false);
 
     // La bienvenida la manda addSocio (lib/studio-context.tsx) — así cubre
     // también las altas que no pasan por esta pantalla (import CSV, alta

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   CLASIFICACION_SUPRESION, COLUMNAS_QUE_APUNTAN_A_SOCIA, tablasPorAccion,
 } from './supresion-clasificacion.ts';
@@ -10,8 +10,14 @@ import {
 // a mirarla cada vez que aparece una tabla nueva con `socio_id`.
 
 const dbTypes = readFileSync(new URL('../db-types.ts', import.meta.url), 'utf8');
-const migracion = readFileSync(
-  new URL('../../supabase/migrations/20260913205144_anonimizar_socio.sql', import.meta.url), 'utf8');
+// La definición VIGENTE es la de la última migración que recrea la función
+// (la primera fue 20260913205144; cada tabla nueva la vuelve a crear entera).
+const DIR_MIGRACIONES = new URL('../../supabase/migrations/', import.meta.url);
+const ultimaAnonimizar = readdirSync(DIR_MIGRACIONES).filter(n => n.endsWith('.sql')).sort()
+  .filter(n => /create or replace function public\.anonimizar_socio\b/.test(readFileSync(new URL(n, DIR_MIGRACIONES), 'utf8')))
+  .at(-1);
+if (!ultimaAnonimizar) throw new Error('no hay ninguna migración que defina anonimizar_socio');
+const migracion = readFileSync(new URL(ultimaAnonimizar, DIR_MIGRACIONES), 'utf8');
 const cuerpoFuncion = migracion.slice(migracion.indexOf('create or replace function public.anonimizar_socio'));
 
 /** `RowVentasPos` → `ventas_pos` (inverso de `pascal()` en scripts/gen-db-types.py). */
@@ -55,10 +61,18 @@ test('las tablas de PRs posteriores ya están clasificadas aunque aún no estén
   // ponga rojo el día que esos PRs regeneren db-types.
   assert.equal(CLASIFICACION_SUPRESION.solicitudes_derechos?.accion, 'CONSERVAR');
   assert.equal(CLASIFICACION_SUPRESION.consentimientos_salud_eventos?.accion, 'ANONIMIZAR');
+  assert.equal(CLASIFICACION_SUPRESION.aceptaciones_contrato_eventos?.accion, 'ANONIMIZAR');
   // Y la función no puede tocarlas en estático: tienen que ir detrás de un
   // `to_regclass` y por EXECUTE, o fallaría mientras la tabla no exista.
   assert.match(cuerpoFuncion, /to_regclass\('public\.consentimientos_salud_eventos'\) is not null/);
   assert.doesNotMatch(cuerpoFuncion, /^\s*update public\.consentimientos_salud_eventos/m);
+  assert.match(cuerpoFuncion, /to_regclass\('public\.aceptaciones_contrato_eventos'\) is not null/);
+  assert.doesNotMatch(cuerpoFuncion, /^\s*update public\.aceptaciones_contrato_eventos/m);
+  // IP, navegador y quién la introdujo se vacían; la huella del texto y la fecha quedan como prueba.
+  for (const col of ['ip_hmac = null', 'user_agent = null', 'introducida_por = null', 'actor_uid = null']) {
+    assert.ok(cuerpoFuncion.includes(col), `anonimizar_socio no pone ${col} en aceptaciones_contrato_eventos`);
+  }
+  assert.doesNotMatch(cuerpoFuncion, /\b(texto_hash|texto_cliente_coincide) = null/);
   assert.doesNotMatch(cuerpoFuncion, /solicitudes_derechos/);
 });
 
