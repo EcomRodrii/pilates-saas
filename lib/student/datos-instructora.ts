@@ -52,3 +52,66 @@ export async function getClasesComoAlumna(slug: string, desde: string, hasta: st
   }
   return filas;
 }
+
+const SESION_CADUCADA = 'Tu sesión ha caducado. Vuelve a entrar.';
+
+export type ResultadoPedirBaja =
+  | { ok: true; yaAvisada: boolean }
+  | { ok: false; error: string; sesionCaducada?: boolean };
+
+/**
+ * «No puedo dar esta clase». No lanza nunca: cualquier fallo se traduce a un
+ * mensaje que la pantalla sabe pintar, y nunca se da por hecha la baja sin la
+ * respuesta del servidor (la clase sigue a su nombre hasta que él diga que sí).
+ */
+export async function pedirBaja(slug: string, sesionId: string, motivo: string): Promise<ResultadoPedirBaja> {
+  const auth = await portalAuthHeader();
+  if (!auth.Authorization) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+  try {
+    const res = await fetch('/api/portal/instructora/baja', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ slug, sesionId, motivo: motivo.trim() || null }),
+    });
+    if (res.status === 401) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+    const d = await res.json().catch(() => ({})) as { ok?: boolean; yaAvisada?: boolean; error?: string };
+    if (!res.ok || !d.ok) {
+      return { ok: false, error: d.error || 'No hemos podido avisar al estudio. Tu clase sigue a tu nombre: inténtalo de nuevo.' };
+    }
+    return { ok: true, yaAvisada: Boolean(d.yaAvisada) };
+  } catch {
+    return { ok: false, error: 'Sin conexión: no hemos podido avisar al estudio. Tu clase sigue a tu nombre.' };
+  }
+}
+
+async function postDisponibilidad(slug: string, cuerpo: Record<string, unknown>): Promise<Response> {
+  const auth = await portalAuthHeader();
+  return fetch('/api/portal/instructora/disponibilidad', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ slug, ...cuerpo }),
+  });
+}
+
+/** Las franjas en las que ha dicho que puede cubrir (claves de `celdaKey`). */
+export async function getDisponibilidadInstructora(slug: string): Promise<string[]> {
+  const res = await postDisponibilidad(slug, { accion: 'leer' });
+  if (!res.ok) throw new Error(`instructora/disponibilidad ${res.status}`);
+  const d = await res.json() as { celdas?: unknown };
+  return Array.isArray(d.celdas) ? d.celdas.filter((c): c is string => typeof c === 'string') : [];
+}
+
+/** Reemplaza su disponibilidad. Solo da por guardado lo que el servidor confirma. */
+export async function guardarDisponibilidadInstructora(
+  slug: string, celdas: readonly string[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const res = await postDisponibilidad(slug, { accion: 'guardar', celdas });
+    const d = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+    if (res.status === 401) return { ok: false, error: SESION_CADUCADA };
+    if (!res.ok || !d.ok) return { ok: false, error: d.error || 'No hemos podido guardar tu disponibilidad. Vuelve a intentarlo.' };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Sin conexión: no se ha guardado. Vuelve a intentarlo cuando tengas cobertura.' };
+  }
+}

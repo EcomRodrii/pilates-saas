@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  agruparPorDia, bajasEnCurso, estadoBajaVista, fechaEnZona, horaEnZona, proximaQueDa,
-  rangoAgendaValido, textoBaja, unirAgenda,
+  agruparPorDia, bajasEnCurso, clasesLocalesDesdeAgenda, estadoBajaVista, fechaEnZona, horaEnZona,
+  proximaQueDa, puedePedirBaja, rangoAgendaValido, textoBaja, unirAgenda,
   type ClaseQueDa, type ClaseQueReserva,
 } from './agenda-instructora.ts';
 
@@ -93,6 +93,34 @@ test('las bajas en curso excluyen solo las que el estudio ya resolvió', () => {
     { ...base, sustitucionId: '3', estado: 'cubierta' as const },
   ]);
   assert.deepEqual(b.map((x) => x.sustitucionId), ['1', '3']);
+});
+
+test('pedir la baja: nunca de una clase empezada, cancelada o con una baja abierta', () => {
+  const ahora = Date.parse('2026-09-15T10:00:00Z');
+  const baja = (estado: 'revisando' | 'buscando' | 'cubierta' | 'sin-cubrir' | 'resuelta') =>
+    ({ sustitucionId: 'x', sesionId: 's', estado, sustituta: null });
+  assert.equal(puedePedirBaja(da('f', '2026-09-16T10:00:00Z'), ahora), true);
+  assert.equal(puedePedirBaja(da('empezada', '2026-09-15T09:30:00Z'), ahora), false);
+  assert.equal(puedePedirBaja(da('justo-ahora', '2026-09-15T10:00:00Z'), ahora), false);
+  assert.equal(puedePedirBaja(da('c', '2026-09-16T10:00:00Z', { cancelada: true }), ahora), false);
+  for (const e of ['revisando', 'buscando', 'cubierta', 'sin-cubrir'] as const) {
+    assert.equal(puedePedirBaja(da('b', '2026-09-16T10:00:00Z', { baja: baja(e) }), ahora), false, e);
+  }
+  // Si el estudio la resolvió (p. ej. la canceló y la volvió a abrir), puede volver a pedirla.
+  assert.equal(puedePedirBaja(da('r', '2026-09-16T10:00:00Z', { baja: baja('resuelta') }), ahora), true);
+});
+
+test('«Rellenar con mis clases» usa el día del ESTUDIO, no el de UTC, y salta las canceladas', () => {
+  const locales = clasesLocalesDesdeAgenda([
+    // 00:30 del martes 15 en Madrid = lunes 14 22:30 UTC.
+    da('madrugada', '2026-09-14T22:30:00Z'),
+    da('tarde', '2026-09-15T16:00:00Z'),
+    da('cancelada', '2026-09-15T08:00:00Z', { cancelada: true }),
+  ]);
+  assert.deepEqual(locales, [
+    { dow: 2, inicioMin: 30, finMin: 85 },
+    { dow: 2, inicioMin: 18 * 60, finMin: 18 * 60 + 55 },
+  ]);
 });
 
 test('el rango de la agenda exige fechas reales, en orden y de como mucho 31 días', () => {

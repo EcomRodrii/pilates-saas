@@ -162,6 +162,42 @@ export function bajasEnCurso<T extends BajaVista>(bajas: readonly T[]): T[] {
   return bajas.filter((b) => b.estado !== 'resuelta');
 }
 
+/**
+ * ¿Puede pedir la baja de esta clase ahora?
+ *
+ * Nunca de una cancelada ni de una que ya ha empezado (el servidor lo vuelve a
+ * comprobar: `sesionYaEmpezada`), ni si ya hay una baja que el estudio no ha
+ * cerrado. «Nadie ha podido cubrirla» tampoco reabre: ahí decide el estudio.
+ */
+export function puedePedirBaja(clase: ClaseQueDa, ahoraMs: number): boolean {
+  if (clase.cancelada) return false;
+  if (Date.parse(clase.inicio) <= ahoraMs) return false;
+  return !clase.baja || clase.baja.estado === 'resuelta';
+}
+
+function aMinutos(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Sus clases en la forma que usa «Rellenar con mis clases»
+ * (`celdasDesdeClases`, lib/sustituciones/disponibilidad-desde-clases.ts):
+ * día de la semana (0 = domingo) y minutos del día, ya en la zona del estudio.
+ *
+ * El día sale de `fecha` a mediodía UTC y no de `inicio`: `fecha` ya está en la
+ * zona del estudio, e `inicio` a las 00:30 de Madrid cae el día anterior en UTC.
+ */
+export function clasesLocalesDesdeAgenda(clases: readonly ClaseQueDa[]): Array<{ dow: number; inicioMin: number; finMin: number }> {
+  return clases
+    .filter((c) => !c.cancelada)
+    .map((c) => ({
+      dow: new Date(`${c.fecha}T12:00:00Z`).getUTCDay(),
+      inicioMin: aMinutos(c.hora),
+      finMin: aMinutos(c.horaFin),
+    }));
+}
+
 const RE_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 /** Tope de días por petición: una agenda, no un informe. */
 export const MAX_DIAS_AGENDA = 31;

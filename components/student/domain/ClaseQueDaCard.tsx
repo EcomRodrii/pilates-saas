@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Badge } from '@/components/student/ui/Badge';
 import { textoBaja, type ClaseQueDa } from '@/lib/student/agenda-instructora';
 
@@ -10,20 +11,22 @@ import { textoBaja, type ClaseQueDa } from '@/lib/student/agenda-instructora';
  * las alumnas: los nombres llegan en la Fase 2, acotados a sus clases (RGPD).
  * Si ha pedido la baja, lo que diga el estado va debajo, sin prometer nada que
  * no esté pasando (ver `textoBaja`).
+ *
+ * Con `href`, toda la tarjeta lleva a la ficha de la clase (como las filas del
+ * horario de la alumna): ahí es donde se pide la baja.
  */
-export function ClaseQueDaCard({ clase, conFecha, etiqueta }: {
+export function ClaseQueDaCard({ clase, conFecha, etiqueta, href }: {
   clase: ClaseQueDa;
   conFecha?: string;
   /** «Das clase» en la agenda única, para distinguirla de las que reserva. */
   etiqueta?: string;
+  href?: string;
 }) {
   const baja = clase.baja ? textoBaja(clase.baja.estado, clase.baja.sustituta) : null;
-  return (
-    <article
-      className="card row row--top"
-      data-testid="clase-que-da"
-      style={{ ['--gap' as string]: 'var(--s-3)', padding: 'var(--s-4)', opacity: clase.cancelada ? 0.6 : 1 }}
-    >
+  const estilo = { ['--gap' as string]: 'var(--s-3)', padding: 'var(--s-4)', opacity: clase.cancelada ? 0.6 : 1 };
+
+  const contenido = (
+    <>
       <span
         aria-hidden
         style={{ width: 4, alignSelf: 'stretch', borderRadius: 4, background: clase.color || 'var(--accent)', flexShrink: 0 }}
@@ -55,6 +58,16 @@ export function ClaseQueDaCard({ clase, conFecha, etiqueta }: {
           </div>
         )}
       </div>
+    </>
+  );
+
+  return href ? (
+    <Link href={href} className="card card--tap row row--top" data-testid="clase-que-da" style={estilo}>
+      {contenido}
+    </Link>
+  ) : (
+    <article className="card row row--top" data-testid="clase-que-da" style={estilo}>
+      {contenido}
     </article>
   );
 }
