@@ -22,8 +22,13 @@
 //     feedbacks llegaron a guardarse. Diferir la apertura a un efecto (tras
 //     el evento que disparó el render) rompe esa carrera.
 //
-// "Cerrar" (`cerrar()`) escribe `reviewBoostMostradoEn`/`Pospuesto` — nunca
-// al abrir.
+// ⚠️ Lo visto se apunta al ENSEÑARLO (`cambiosAlMostrar`), ya no al cerrar:
+// apuntarlo solo al cerrar hacía que recargar o salir con el modal abierto no
+// escribiera nada, y salía en cada carga («recargo y otra vez la reseña»,
+// 14-sep). El bug 1 ya no aplica: `open` es estado local decidido una vez, y
+// que `elegible` pase a falso al escribir no cierra nada. RESPONDER lo deja
+// marcado el servidor (borra el pospuesto): sin eso, tras una reaparición el
+// modal volvía en cada carga — ver lib/growth/review-boost-respondido.ts.
 //
 // La recompensa (20% primer mes) se concede por dar feedback interno honesto
 // 4-5★, NUNCA por el clic en Capterra/GetApp — ver tentare-os.md, cumplimiento
@@ -39,13 +44,21 @@ import { Button } from '@/components/ui/button';
 import { useCore } from '@/lib/core-context';
 import { authHeader } from '@/lib/api-client';
 import { capturarEvento } from '@/lib/posthog-cliente';
-import { debeMostrarModal } from '@/lib/growth/review-boost';
+import { cambiosAlMostrar, debeMostrarModal } from '@/lib/growth/review-boost';
 import { REVIEW_BOOST_PLATAFORMAS } from '@/lib/growth/review-boost-plataformas';
 import type { Studio } from '@/lib/types';
 
-type Pantalla = 'rating' | 'negativo' | 'positivo';
+type Pantalla = 'rating' | 'negativo' | 'positivo' | 'yaRespondido';
 
-async function enviarFeedback(rating: number, comentario?: string) {
+/** `updateStudio` devuelve `ResultadoEscritura`; el contexto lo tipa como `unknown`. */
+function escrituraOk(r: unknown): boolean {
+  return typeof r === 'object' && r !== null && (r as { ok?: unknown }).ok === true;
+}
+
+/** `recompensa`: si de verdad tiene el 20% (con un 409 puede no tenerlo). */
+type ResultadoFeedback = { ok: true; recompensa: boolean } | { ok: false };
+
+async function enviarFeedback(rating: number, comentario?: string): Promise<ResultadoFeedback> {
   // Auditoría 22-ago: sin try/catch, un fallo de red (offline, CORS) lanzaba
   // desde el llamante y dejaba el modal con las estrellas y el botón
   // `disabled` para siempre, sin mensaje. Aquí se normaliza a `false` y quien
@@ -62,9 +75,17 @@ async function enviarFeedback(rating: number, comentario?: string) {
     // el modal en rojo para siempre —el reintento siempre da 409— y, al no
     // marcar `respondidoRef`, lo reprogramaba para reaparecer a los 14 días y
     // volver a fallar. Encontrado revisando este mismo fix.
-    return res.ok || res.status === 409;
+    //
+    // Pero 409 NO significa «tiene recompensa»: también llega a quien ya había
+    // valorado con 3★ (sin recompensa). El servidor dice cuál es el caso.
+    if (res.ok) return { ok: true, recompensa: rating >= 4 };
+    if (res.status === 409) {
+      const cuerpo = await res.json().catch(() => null) as { recompensa?: unknown } | null;
+      return { ok: true, recompensa: cuerpo?.recompensa === true };
+    }
+    return { ok: false };
   } catch {
-    return false;
+    return { ok: false };
   }
 }
 
@@ -98,6 +119,9 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
   // render) rompe esa carrera: para cuando `setOpen(true)` corre, cualquier
   // clic en curso ya ha terminado de despacharse.
   const decididoRef = useRef(false);
+  // Lo apuntado al enseñarlo y si llegó a guardarse: si falló, se reintenta al
+  // cerrar sin responder (si no, volvería a salir en la próxima carga).
+  const vistoRef = useRef<{ cambios: Partial<Studio>; guardado: boolean } | null>(null);
 
   const elegible = rol === 'PROPIETARIO' && !!studio && debeMostrarModal({
     reviewBoostElegibleEn: studio.reviewBoostElegibleEn,
@@ -107,23 +131,25 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
   });
 
   useEffect(() => {
-    if (decididoRef.current || !elegible) return;
+    if (decididoRef.current || !elegible || !studio) return;
     decididoRef.current = true;
     setOpen(true);
     capturarEvento('review_boost_shown');
-  }, [elegible]);
+    const cambios = cambiosAlMostrar(studio);
+    const visto = { cambios, guardado: false };
+    vistoRef.current = visto;
+    void Promise.resolve(updateStudio(cambios)).then(r => { visto.guardado = escrituraOk(r); });
+  }, [elegible, studio, updateStudio]);
 
   if (!open) return null;
 
   function cerrar(sinResponder: boolean) {
     setOpen(false);
-    const cambios: Partial<Studio> = {};
-    if (!studio!.reviewBoostMostradoEn) cambios.reviewBoostMostradoEn = new Date().toISOString();
-    if (sinResponder && !respondidoRef.current) {
-      cambios.reviewBoostPospuestoEn = new Date().toISOString();
-      cambios.reviewBoostVecesMostrado = (studio!.reviewBoostVecesMostrado ?? 0) + 1;
-    }
-    if (Object.keys(cambios).length) void updateStudio(cambios);
+    // Lo normal es no escribir nada aquí: lo visto ya se apuntó al enseñarlo, y
+    // responder lo marca el servidor. Solo si aquella escritura falló y se
+    // cierra sin responder, se reintenta.
+    const visto = vistoRef.current;
+    if (sinResponder && !respondidoRef.current && visto && !visto.guardado) void updateStudio(visto.cambios);
   }
 
   async function elegirEstrellas(n: number) {
@@ -131,11 +157,11 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
     if (n >= 4) {
       setEnviando(true);
       setError(false);
-      const ok = await enviarFeedback(n);
+      const r = await enviarFeedback(n);
       setEnviando(false);
-      if (!ok) { setError(true); return; }
+      if (!r.ok) { setError(true); return; }
       respondidoRef.current = true;
-      setPantalla('positivo');
+      setPantalla(r.recompensa ? 'positivo' : 'yaRespondido');
     } else {
       setPantalla('negativo');
     }
@@ -144,9 +170,9 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
   async function enviarComentarioNegativo() {
     setEnviando(true);
     setError(false);
-    const ok = await enviarFeedback(rating, comentario);
+    const r = await enviarFeedback(rating, comentario);
     setEnviando(false);
-    if (!ok) { setError(true); return; }
+    if (!r.ok) { setError(true); return; }
     respondidoRef.current = true;
     cerrar(false);
   }
@@ -203,6 +229,18 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
               <Button onClick={() => void enviarComentarioNegativo()} disabled={enviando}>
                 Enviar
               </Button>
+            </div>
+          </>
+        )}
+
+        {pantalla === 'yaRespondido' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Ya nos habías dado tu opinión</DialogTitle>
+              <DialogDescription>Gracias de nuevo. No volveremos a preguntártelo.</DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end">
+              <Button variant="ghost" onClick={() => cerrar(false)}>Cerrar</Button>
             </div>
           </>
         )}
