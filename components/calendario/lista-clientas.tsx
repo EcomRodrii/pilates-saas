@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, RefreshCw, Repeat, X } from 'lucide-react';
+import { CheckCircle2, RefreshCw, Repeat, CalendarClock, X } from 'lucide-react';
 import { horaEstudio } from '@/lib/utils';
 import type { Reserva } from '@/lib/types';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -32,6 +32,15 @@ export interface ListaClientasProps {
    *  CONFIRMADA (repetir una lista de espera o pendiente de aprobar repite el
    *  estado, no la clase). */
   onRepetirSemanaSiguiente?: (reservaId: string) => void;
+  /** Atajo pedido tras feedback real de una propietaria en prueba: antes crear
+   *  una plaza fija solo se podía desde la ficha de la socia, sin ningún
+   *  enlace desde el calendario. Ancla al slot de ESTA sesión (sala/día/hora),
+   *  igual que `FichaPlazaFija`. Solo sobre CONFIRMADA, mismo criterio que
+   *  "Repetir". */
+  onHacerPlazaFija?: (reservaId: string) => void;
+  /** Si ya tiene una plaza fija que encaja con el slot de esta sesión, el
+   *  botón se oculta en vez de dejar crear un duplicado sin avisar. */
+  plazaFijaExistePara?: (socioId: string) => boolean;
   /** Punto de color del semáforo de salud (§11 ficha clínica) — ausente si el
    *  rol no lo puede ver (puedeVerSemaforo). Genérico a propósito: este
    *  componente no importa tipos de lib/ficha-clinica. */
@@ -56,7 +65,7 @@ const BOTON = 'flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bol
 
 export function ListaClientas({
   reservas, nombreClienta, onCheckin, checkinBloqueadoPor, onNoShow, onDeshacerCheckin, onRevertirNoShow, onAprobar, onRechazar, onQuitar,
-  onRepetirSemanaSiguiente, semaforoPorSocio, filaExtra,
+  onRepetirSemanaSiguiente, onHacerPlazaFija, plazaFijaExistePara, semaforoPorSocio, filaExtra,
 }: ListaClientasProps) {
   const visibles = reservas.filter(r => r.estado !== 'CANCELADA');
   // P1-4 (auditoría de producto): un clic en la X quitaba la reserva sin
@@ -140,6 +149,15 @@ export function ListaClientas({
                     className={`${BOTON} text-muted-foreground hover:bg-muted opacity-60 group-hover:opacity-100`}
                   >
                     <Repeat size={11} />Repetir
+                  </button>
+                )}
+                {onHacerPlazaFija && !plazaFijaExistePara?.(r.socioId) && (
+                  <button
+                    onClick={() => onHacerPlazaFija(r.id)}
+                    title="Que venga cada semana a este mismo hueco, sin tener que apuntarla clase a clase"
+                    className={`${BOTON} text-muted-foreground hover:bg-muted opacity-60 group-hover:opacity-100`}
+                  >
+                    <CalendarClock size={11} />Hacer fija
                   </button>
                 )}
               </>
