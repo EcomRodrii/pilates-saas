@@ -35,6 +35,7 @@ import { fetchAllRows } from '../supabase-data.ts';
 import { entregarPlanComprado, idsDe } from '../billing/entregar-plan-comprado.ts';
 import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar, consumirCodigoDescuentoSiAplica } from '../billing/confirmar-cobro.ts';
 import { metodoRealDeSesion } from '../billing/metodo-real-sesion.ts';
+import { reservarClasePagada } from '../billing/reservar-clase-pagada.ts';
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
 import { liberarCupoMatriculaUnaVez } from '../billing/matricula-online.ts';
@@ -634,7 +635,21 @@ async function entregar(
       metodoCobro: sesion ? await metodoRealDeSesion(stripe, sesion, cuenta) : 'TARJETA',
       paymentIntentId: piId, fuente: 'conciliador',
     });
-    if (!res.ok) throw new Error(`conciliador/recibo ${p.reciboId}: ${res.error}`);
+    if (!res.ok) {
+      // Un fallo de escritura se relanza, como siempre. Un recibo que no admite
+      // este cobro (cobrado con otro cargo, reembolso en curso) ya lo reportó
+      // `confirmarCobro`, y relanzar aquí cortaría cada hora el rescate de los
+      // demás cobros de este estudio: el bucle de `conciliarEstudio` no aísla
+      // un pendiente de otro.
+      if (res.codigo === 'PERSISTENCIA') throw new Error(`conciliador/recibo ${p.reciboId}: ${res.error}`);
+      if (res.codigo === 'NO_ENCONTRADO') {
+        Sentry.captureMessage('[conciliador] cobro de un recibo que no existe en este estudio', {
+          level: 'error', tags: { area: 'cobros', tipo: 'conciliado-fallido' },
+          extra: { sesionId: p.sesionId, studioId: p.studioId, reciboId: p.reciboId },
+        });
+      }
+      return;
+    }
 
     // Auditoría 26ª pasada, P-2: mismo guardado de método que las dos ramas del
     // webhook (guardar-metodo-de-compra.ts) — el conciliador es el camino REAL
@@ -780,43 +795,20 @@ async function entregar(
     // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
     // §4.2): si la compra venía con una clase concreta, la plaza también es
     // parte de lo pagado — la pantalla ya le dijo "reservada" a la socia.
-    // Idempotente por `res-web-<pi>` y serializado por el FOR UPDATE de
-    // `reservar_plaza`: la carrera con el webhook acaba en YA_RESERVADA (que
-    // se trata como éxito, sin consumir bono dos veces), no en plaza doble.
     // Con el retraso del conciliador la clase puede haber empezado o cerrado
     // su ventana de reserva — ese fallo acaba en Sentry + aviso al mostrador,
-    // que es justo lo que toca: que alguien llame a la socia hoy.
+    // que es justo lo que toca: que alguien llame a la socia hoy. Mismo bloque
+    // que las dos ramas del webhook, compartido en `reservarClasePagada`
+    // (idempotente por `res-web-<pi>`: la carrera con el webhook acaba en
+    // YA_RESERVADA, no en plaza doble).
     if (pi.metadata?.sesionId) {
-      try {
-        const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
-        const r = await reservarPlazaTrasPagoPublico({
-          studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id,
-          // Igual que el webhook: si la socia pagó por una CAMILLA/plaza
-          // concreta, el rescate tiene que darle ESA, no una cualquiera.
-          spotId: pi.metadata.spotId ?? null,
-        });
-        if (!r.ok) {
-          Sentry.captureMessage('[conciliador] plan entregado pero NO se pudo reservar la clase pagada', {
-            level: 'error',
-            tags: { area: 'cobros', tipo: 'conciliado-sin-plaza' },
-            extra: { studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id, motivo: r.motivo, detalle: r.detalle },
-          });
-          const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
-          await emitirReservaPagadaSinPlaza(admin, { studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId });
-        } else if (r.estado === 'LISTA_ESPERA') {
-          // Mismo caso que en el webhook: cobrado y en la cola, no confirmada.
-          // Se avisa aquí también porque el conciliador es el camino PRINCIPAL
-          // de rescate de este repo, no un plan B teórico.
-          const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
-          await emitirReservaPagadaSinPlaza(admin, {
-            studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, situacion: 'en-espera',
-          });
-        }
-      } catch (e) {
-        Sentry.captureException(e instanceof Error ? e : new Error('conciliador reservarPlazaTrasPagoPublico'), {
-          extra: { contexto: 'conciliador reservarPlazaTrasPagoPublico', studioId: p.studioId, sesionId: pi.metadata?.sesionId, paymentIntentId: pi.id },
-        });
-      }
+      await reservarClasePagada(admin, {
+        studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId,
+        // Igual que el webhook: si la socia pagó por una CAMILLA/plaza
+        // concreta, el rescate tiene que darle ESA, no una cualquiera.
+        paymentIntentId: pi.id, spotId: pi.metadata.spotId ?? null,
+        via: 'conciliador', referencia: { paymentIntentId: pi.id },
+      });
     }
   } else if (typeof sesion?.payment_intent === 'string') {
     // Sin esto, la compra es invisible a reembolsos y disputas: sus manejadores
@@ -832,10 +824,9 @@ async function entregar(
     } catch { /* el bono ya está entregado; esto es el remate, no el cobro */ }
   }
 
-  const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
-  await emitirPagoRealizado(admin, { studioId: p.studioId, reciboId: entrega.reciboId });
-  const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
-  await enviarEmailReciboWebhook(admin, { studioId: p.studioId, reciboId: entrega.reciboId });
+  // El aviso y el email de justificante los pide `entregarPlanComprado` (vía
+  // `aplicarEfectosCobro`) solo si esta llamada creó el recibo: si el webhook
+  // ya lo había entregado, el rescate no le reenvía el email a la socia.
 }
 
 export const conciliarCobrosDispatcher = inngest.createFunction(

@@ -1,6 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entregarPlanComprado, idsDe, type CompraPlan } from './entregar-plan-comprado.ts';
+import { entregarPlanComprado as entregarConEfectos, idsDe, type CompraPlan } from './entregar-plan-comprado.ts';
+import type { DependenciasEfectos } from './confirmar-cobro.ts';
+
+// El aviso y el email salen de módulos con alias `@/`, que este runner no
+// resuelve: se sustituyen por un registro. El sellado de factura sigue siendo
+// el real (contra el Supabase de mentira de abajo).
+let avisos: Array<{ paso: 'notificacion' | 'email'; reciboId: string }> = [];
+const SIN_RED: Partial<DependenciasEfectos> = {
+  notificar: async (_admin, p) => { avisos.push({ paso: 'notificacion', reciboId: p.reciboId }); },
+  enviarEmail: async (_admin, p) => { avisos.push({ paso: 'email', reciboId: p.reciboId }); },
+};
+const entregarPlanComprado = (admin: never, compra: CompraPlan) => entregarConEfectos(admin, compra, SIN_RED);
 
 // El botón "Contratar" del enlace público mandaba a Stripe con metadata.planId y
 // el webhook NUNCA leía ese campo: se cobraba y no se entregaba nada. Estos
@@ -14,7 +25,7 @@ const PLAN = {
 type Fila = Record<string, unknown>;
 
 /** Supabase de mentira: guarda lo insertado para poder comprobarlo. */
-function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fallaEn?: string } = {}) {
+function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fallaEn?: string; reciboYaExistia?: boolean } = {}) {
   const insertado: Record<string, Fila[]> = { socios: [], suscripciones: [], recibos: [] };
   const actualizado: Record<string, Fila[]> = { recibos: [] };
 
@@ -40,6 +51,8 @@ function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fal
         },
         insert(fila: Fila) {
           if (opts.fallaEn === tabla) return Promise.resolve({ error: { code: '42501', message: 'row-level security' } });
+          // Reintento: el recibo de esta compra ya lo creó un intento anterior.
+          if (opts.reciboYaExistia && tabla === 'recibos') return Promise.resolve({ error: { code: '23505', message: 'duplicate key' } });
           insertado[tabla]?.push(fila);
           return Promise.resolve({ error: null });
         },
@@ -200,7 +213,26 @@ test('marca conciliado_en aunque el sellado de factura falle (sin NIF configurad
   const conciliado = actualizado.recibos.find(f => 'conciliado_en' in f);
   assert.ok(conciliado, 'debe marcar conciliado_en/conciliado_por, igual que confirmarCobroRecibo');
   assert.equal(conciliado?.conciliado_por, 'webhook');
-  assert.equal(conciliado?.factura_pendiente_sellar, true, 'sin NIF, el sellado falla y queda pendiente de reintento');
+  assert.ok(actualizado.recibos.some(f => f.factura_pendiente_sellar === true),
+    'sin NIF, el sellado falla y queda pendiente de reintento');
+});
+
+// El email de justificante no es idempotente. El compare-and-set de esta vía
+// es el INSERT del recibo: solo quien lo CREA lo manda. Antes el webhook lo
+// reenviaba en cada reentrega del evento, que chocaba por PK y seguía.
+test('el email de justificante sale una vez: el reintento que choca por PK no lo reenvía', async () => {
+  const reciboId = idsDe(COMPRA.sessionId).reciboId;
+
+  avisos = [];
+  await entregarPlanComprado(fakeAdmin().admin, { ...COMPRA, socioId: 'soc-1' });
+  assert.deepEqual(avisos, [{ paso: 'notificacion', reciboId }, { paso: 'email', reciboId }],
+    'la compra nueva avisa y manda el justificante, en ese orden');
+
+  avisos = [];
+  const r = await entregarPlanComprado(fakeAdmin({ reciboYaExistia: true }).admin, { ...COMPRA, socioId: 'soc-1' });
+  assert.equal(r.ok, true, 'un reintento sigue siendo una entrega correcta');
+  assert.deepEqual(avisos, [{ paso: 'notificacion', reciboId }],
+    'el aviso se repite (lo deduplica el motor de avisos por recibo); el email no');
 });
 
 test('los ids se derivan de la sesión: un reintento de Stripe no duplica', async () => {
