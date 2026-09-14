@@ -17,13 +17,16 @@ const ORDEN: Record<LogLevel, number> = {
   ERROR: 3,
 };
 
+/** Banderas opcionales que se pueden fijar en `globalThis` para depurar. */
+type GlobalConLogs = typeof globalThis & { __LOG_LEVEL?: string; __STRIP_LOGS__?: boolean };
+
 function nivelMinimo(): LogLevel {
   if (typeof window === 'undefined') {
     // Server-side: siempre WARN
     return NIVEL_PRODUCCION;
   }
   // Client-side: respetar variable de entorno si existe, si no WARN
-  const envLevel = (globalThis as any).__LOG_LEVEL as string | undefined;
+  const envLevel = (globalThis as GlobalConLogs).__LOG_LEVEL;
   return (envLevel?.toUpperCase() as LogLevel) || NIVEL_PRODUCCION;
 }
 
@@ -33,16 +36,16 @@ function debeRegistrarse(nivel: LogLevel): boolean {
 }
 
 export const logger = {
-  debug(...args: any[]): void {
+  debug(...args: unknown[]): void {
     if (debeRegistrarse('DEBUG')) console.debug(...args);
   },
-  info(...args: any[]): void {
+  info(...args: unknown[]): void {
     if (debeRegistrarse('INFO')) console.info(...args);
   },
-  warn(...args: any[]): void {
+  warn(...args: unknown[]): void {
     if (debeRegistrarse('WARN')) console.warn(...args);
   },
-  error(...args: any[]): void {
+  error(...args: unknown[]): void {
     if (debeRegistrarse('ERROR')) console.error(...args);
   },
 };
@@ -53,10 +56,10 @@ export const logger = {
  */
 export function setupLogStripping(): void {
   if (typeof window === 'undefined') return;
-  if (!(globalThis as any).__STRIP_LOGS__) return;
+  if (!(globalThis as GlobalConLogs).__STRIP_LOGS__) return;
 
   const noOp = () => {};
-  (globalThis as any).console = {
+  globalThis.console = {
     ...console,
     log: noOp,
     debug: noOp,
