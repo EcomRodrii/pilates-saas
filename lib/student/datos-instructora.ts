@@ -8,6 +8,7 @@ import type {
 import type { AusenciaVista, PerfilInstructora, TipoAusencia } from '@/lib/student/perfil-instructora';
 import type { OpcionesNuevaClase } from '@/lib/student/nueva-clase';
 import type { AlumnaResumen, FichaAlumna } from '@/lib/student/alumnas-instructora';
+import type { SaludAlumna } from '@/lib/datos-salud/salud-para-instructora';
 
 // Adaptador de datos de la instructora en la app. Delgado a propósito, como
 // `datos.ts`: pide y devuelve; lo que decide vive en el servidor.
@@ -316,5 +317,23 @@ export async function getFichaAlumna(slug: string, socioId: string): Promise<Fic
     primeraClase: d.primeraClase === true,
     proximas: Array.isArray(d.proximas) ? d.proximas : [],
     pasadas: Array.isArray(d.pasadas) ? d.pasadas : [],
+  };
+}
+
+/**
+ * Los avisos de salud de una alumna suya y sus propias notas. Abrirlo queda
+ * registrado en el estudio. `null` si no existe o no es su alumna.
+ */
+export async function getSaludAlumna(slug: string, socioId: string): Promise<SaludAlumna | null> {
+  const res = await postInstructora('alumnas', { slug, accion: 'salud', socioId });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`instructora/alumnas:salud ${res.status}`);
+  const d = await res.json() as Partial<Extract<SaludAlumna, { consentimiento: 'VIGENTE' }>> & { consentimiento?: string };
+  if (d.consentimiento !== 'VIGENTE') return { consentimiento: 'SIN_CONSENTIMIENTO' };
+  return {
+    consentimiento: 'VIGENTE',
+    semaforo: d.semaforo === 'ROJO' || d.semaforo === 'AMBAR' ? d.semaforo : 'VERDE',
+    avisos: Array.isArray(d.avisos) ? d.avisos : [],
+    notas: Array.isArray(d.notas) ? d.notas : [],
   };
 }

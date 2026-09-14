@@ -134,6 +134,27 @@ test('las rutas de servidor que sirven salud aplican la regla de alumna asignada
   assert.match(helper, /\.is\('borrado_en', null\)/);
 });
 
+test('app de la instructora: la salud de una alumna sale con su regla, su consentimiento y la lectura apuntada antes', () => {
+  const servidor = leer('lib/portal-instructora/alumnas-servidor.ts');
+  const inicio = servidor.indexOf('export async function saludDeAlumna');
+  assert.ok(inicio >= 0, 'falta saludDeAlumna');
+  const fin = servidor.indexOf('\n}\n', inicio);
+  const salud = servidor.slice(inicio, fin < 0 ? undefined : fin);
+  const pos = (re: RegExp) => { const m = re.exec(salud); assert.ok(m, `saludDeAlumna: falta ${re}`); return m!.index; };
+  const regla = pos(/instructoraAtiendeSocia\(/);
+  const consentimiento = pos(/consentimiento !== 'VIGENTE'/);
+  const lecturaClinica = pos(/from\('condiciones_salud'\)/);
+  const registro = pos(/from\('lecturas_ficha_salud'\)\.insert\(/);
+  const falloCerrado = pos(/if \(eLectura\) throw/);
+  const devuelve = pos(/notas: notasPropias\(/);
+  assert.ok(regla < consentimiento && consentimiento < lecturaClinica, 'regla de alumna y consentimiento antes de leer salud');
+  assert.ok(registro < falloCerrado && falloCerrado < devuelve, 'la lectura se apunta, y si falla no se devuelve nada');
+  // Nunca las notas libres de la condición, y las notas de progreso solo suyas.
+  assert.doesNotMatch(salud, /select\('[^']*\bnotas\b[^']*'\)/);
+  assert.doesNotMatch(salud, /select\(\s*(?:'\*'|"\*"|\))/, 'un select de todo traería las notas libres');
+  assert.match(salud, /from\('notas_progreso'\)[\s\S]*?\.eq\('instructor_id', p\.instructorId\)/);
+});
+
 // ─── A15: consentimiento demostrable y revocable ─────────────────────────────
 
 test('consentimiento_salud_cambiar: solo service_role, bloquea la fila y apunta el evento', () => {
