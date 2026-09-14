@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { BloqueClase } from '@/components/calendario/bloque-clase';
 import { calcularScrollInicial } from '@/lib/calendario-scroll';
-import type { ColumnaDia } from '@/lib/calendario-columnas';
+import { plantillaColumnasSemana, type ColumnaDia } from '@/lib/calendario-columnas';
 import type { DatoSesion } from '@/components/calendario/vista-dia-salas';
 
 // Indexado por Date.getDay() (0=domingo…6=sábado, convención nativa de JS) —
@@ -93,7 +93,12 @@ export function VistaSemana({
     horas.push({ label: `${String(Math.floor(m / 60)).padStart(2, '0')}:00`, topPx: ((m - horaInicioMin) / 60) * pxPorHora });
   }
 
-  const anchoMinTotal = ANCHO_GUTTER_PX + columnas.length * ANCHO_MIN_COLUMNA_PX;
+  // Un día pesa lo que coincide en él (ver `plantillaColumnasSemana`). La MISMA
+  // plantilla va en la cabecera y en el cuerpo: por eso la cabecera es ahora
+  // `grid` y no `flex` — antes se alineaban solo porque las dos repartían a
+  // partes iguales, y con pesos distintos se habrían descolocado.
+  const { plantilla, anchoMin } = plantillaColumnasSemana(columnas, ANCHO_MIN_COLUMNA_PX);
+  const anchoMinTotal = ANCHO_GUTTER_PX + anchoMin;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
@@ -106,8 +111,8 @@ export function VistaSemana({
           en la dirección contraria. */}
       <div ref={scrollRef} data-testid="grid-semana-scroll" className="min-h-0 flex-1 overflow-auto">
         <div style={{ minWidth: anchoMinTotal }}>
-          <div className="sticky top-0 z-10 flex border-b border-border bg-card">
-            <div className="sticky left-0 z-10 w-14 flex-none bg-card" />
+          <div className="sticky top-0 z-10 grid border-b border-border bg-card" style={{ gridTemplateColumns: `${ANCHO_GUTTER_PX}px ${plantilla}` }}>
+            <div className="sticky left-0 z-10 bg-card" />
             {columnas.map((c, i) => {
               const esHoy = hoyIndex === i;
               return (
@@ -119,10 +124,10 @@ export function VistaSemana({
                 // palabra HOY.
                 <div
                   key={c.dia}
-                  className="relative min-w-0 flex-1 overflow-hidden border-l border-border/60 px-2 py-2 text-center"
+                  data-cabecera-dia={i}
+                  className="relative min-w-0 overflow-hidden border-l border-border/60 px-2 py-2 text-center"
                   style={{
                     background: esHoy ? 'color-mix(in srgb, var(--brand-medio) 10%, var(--card))' : undefined,
-                    minWidth: ANCHO_MIN_COLUMNA_PX,
                   }}
                 >
                   {esHoy && (
@@ -181,7 +186,7 @@ export function VistaSemana({
               ))}
             </div>
 
-            <div className="grid min-w-0 flex-1" style={{ gridTemplateColumns: `repeat(${columnas.length || 1}, minmax(${ANCHO_MIN_COLUMNA_PX}px, 1fr))` }}>
+            <div className="grid min-w-0 flex-1" style={{ gridTemplateColumns: plantilla }}>
               {columnas.map((c, i) => (
                 <div
                   key={c.dia}
@@ -219,7 +224,12 @@ export function VistaSemana({
                     onClickVacio({ diaColumna: i, offsetYPx: e.clientY - rect.top, pxPorHora });
                   }}
                 >
-                  {(c.cerrado || c.vacio) && (
+                  {/* Solo «Cerrado». Un día abierto sin clases ya lo dice su cabecera
+                      («Sin clases»), y repetirlo aquí lo dejaba flotando en mitad de la
+                      rejilla —a la altura del mediodía, en cada día vacío a la vez—, una
+                      franja de texto que se leía como una fila más del horario. En un día
+                      cerrado sí aporta: toda la columna es inservible. */}
+                  {c.cerrado && (
                     // pointer-events-none: sin esto, este rótulo (que cubre TODA
                     // la columna) se comía cualquier clic en un día cerrado antes
                     // de que llegara a onClickVacio — la comprobación de "clic en
@@ -229,7 +239,7 @@ export function VistaSemana({
                     // `--border` (#E7E7E0) es el token de las LÍNEAS y como
                     // tinta sobre blanco da 1,24:1 — invisible, no tenue.
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {c.cerrado ? 'Cerrado' : 'Sin clases'}
+                      Cerrado
                     </span>
                   )}
 

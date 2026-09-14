@@ -1029,3 +1029,29 @@ nextjs-portal { display: none !important; }
   0%, 100% { transform: scale(1); }
   50% { transform: scale(.82); }
 }
+
+/* Tarjetas de métricas del calendario en pantallas BAJAS.
+   Medido a 1280x720 (el portátil típico, menú grande): encima de la rejilla
+   había 489 px de cabecera, métricas, filtros y franja de decisiones, o sea el
+   68 % de la pantalla, y la semana se quedaba con 328 px — unas cinco horas.
+   Estas tarjetas se llevaban 102 px de eso. Por debajo de 860 px de alto pasan
+   de tres líneas a DOS: título y cifra arriba, el pie debajo.
+   ⚠️ El pie NO se esconde, aunque parezca contexto: dice «esta semana» o «esa
+   semana», y está ahí para que no se lean los números de la semana siguiente
+   como si fueran los de hoy (lo protege `calendario-momentos.spec.ts`). Lo
+   único que cae es la barra de ocupación, que repite la cifra de encima.
+   `!important` por el motivo de `.reserva-modal-edge`: pisa utilidades de
+   Tailwind de la misma capa, cuyo orden en la hoja final no está garantizado. */
+@media (max-height: 860px) {
+  .tarjeta-metrica {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: .5rem;
+    align-items: baseline;
+    padding-top: .375rem !important;
+    padding-bottom: .375rem !important;
+  }
+  .tarjeta-metrica .tm-valor { grid-row: 1; grid-column: 2; margin-top: 0 !important; }
+  .tarjeta-metrica .tm-pie { grid-column: 1 / -1; margin-top: 0 !important; }
+  .tarjeta-metrica .tm-barra { display: none !important; }
+}
