@@ -2306,7 +2306,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 ))}
               </ul>
               {!puedeCobrar && (
-                <p className="text-xs text-muted-foreground">Asignarla puede hacerlo quien lleve la caja, desde Ventas.</p>
+                <p className="text-xs text-muted-foreground">Asignarla puede hacerlo quien lleve la caja, desde Caja → Ventas.</p>
               )}
               <div className="flex flex-col gap-2 pt-1">
                 <button

@@ -1172,8 +1172,8 @@ export default function Productos() {
                       </p>
                     )}
                     {/* A qué clases sirve, sin abrir la tarifa. Venía de la
-                        tabla de Configuración → Planes y tarifas, que se ha
-                        quitado: con ocho o diez tarifas, lo que separa un bono
+                        antigua tabla «Planes y tarifas» de Configuración, que se
+                        ha quitado: con ocho o diez tarifas, lo que separa un bono
                         de Reformer de una fuga de ingresos no puede quedar
                         escondido dentro de cada una. */}
                     <p className="text-xs text-muted-foreground mt-0.5" data-testid="cobertura-plan">

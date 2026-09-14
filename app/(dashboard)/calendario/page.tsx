@@ -3379,7 +3379,7 @@ export default function Calendario() {
                       <p className="mt-1">
                         Todavía no lo tienes creado.{' '}
                         <Link href="/configuracion?tab=clases" className="underline font-semibold">
-                          Créalo en Mi estudio
+                          Créalo en Configuración
                         </Link>{' '}
                         y vuelve aquí.
                       </p>

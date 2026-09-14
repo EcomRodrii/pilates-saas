@@ -159,7 +159,7 @@ export default function ImportarSociasPage() {
           (clientas, bonos, horario, reservas, citas, pagos y recuperaciones — CSV o Excel) y los reconocemos
           solos. Con acta y deshacer.
         </span>
-        <span className="text-[13px] font-bold text-brand-secondary shrink-0">Ir a Migración →</span>
+        <span className="text-[13px] font-bold text-brand-secondary shrink-0">Ir a Traer mis datos →</span>
       </a>
 
       {/* Stepper */}

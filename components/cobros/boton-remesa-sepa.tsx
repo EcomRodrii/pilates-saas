@@ -17,7 +17,7 @@ export function BotonRemesaSepa() {
     if (generando) return;
     setAviso(null);
     if (!studio?.sepaAcreedorId || !studio?.sepaIban || !studio?.sepaTitular) {
-      setAviso('Falta configurar los datos de acreedor SEPA en Configuración → Mi estudio.');
+      setAviso('Falta configurar los datos de acreedor SEPA en Configuración → Estudio → Cobros.');
       return;
     }
     setGenerando(true);

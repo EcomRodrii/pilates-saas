@@ -288,7 +288,7 @@ export default function ImportarCitasPage() {
                 {resultado.sinServicioCatalogo > 0 && (
                   <p>
                     {resultado.sinServicioCatalogo} con un servicio que no está en tu catálogo: se importaron
-                    deduciendo el tipo del texto. Añádelos en Configuración → Servicios de cita si quieres
+                    deduciendo el tipo del texto. Añádelos en Configuración → Citas → Servicios si quieres
                     que se puedan reservar online.
                   </p>
                 )}
