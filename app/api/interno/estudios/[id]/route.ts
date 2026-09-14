@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
 
   const { data: studio } = await db.from('studios')
-    .select('id, slug, nombre, plan, email, telefono, direccion, creado_en, stripe_customer_id, stripe_account_id, owner_auth_user_id, suspendido_en, suspendido_motivo, review_boost_elegible_en, review_boost_mostrado_en, cadena_id')
+    .select('id, slug, nombre, plan, email, telefono, direccion, creado_en, stripe_customer_id, stripe_account_id, owner_auth_user_id, suspendido_en, suspendido_motivo, review_boost_elegible_en, review_boost_mostrado_en, cadena_id, trial_ends_at, subscription_status, subscription_id')
     .eq('id', id).maybeSingle();
   if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
 
@@ -115,6 +115,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       facturacionPropia30d: Math.round(facturacion30d * 100) / 100,
     },
     equipo: equipoFilas,
+    // Prueba gratuita local (lib/billing/trial.ts). Con esto la pantalla decide
+    // —con la misma regla que el servidor— si «Añadir 7 días» se puede dar.
+    prueba: {
+      finaliza: (studio.trial_ends_at as string | null) ?? null,
+      estado: (studio.subscription_status as string | null) ?? null,
+      conSuscripcionStripe: Boolean(studio.subscription_id),
+      esSede: Boolean(studio.cadena_id),
+    },
     reviewBoost: {
       elegibleEn: (studio.review_boost_elegible_en as string | null) ?? null,
       mostradoEn: (studio.review_boost_mostrado_en as string | null) ?? null,

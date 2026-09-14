@@ -111,6 +111,8 @@ export interface FichaEstudio {
     feedback: { rating: number; creadoEn: string } | null;
     recompensaCanjeada: boolean;
   };
+  /** Prueba gratuita local. `estado` es `studios.subscription_status` tal cual. */
+  prueba: { finaliza: string | null; estado: string | null; conSuscripcionStripe: boolean; esSede: boolean };
 }
 
 export const fetchSesionInterna = () => pedir<SesionInterna>('/sesion');
@@ -210,7 +212,7 @@ export const fetchAuditoria = (objetivoId?: string) =>
 // Acciones sobre un estudio. Devuelven el error del servidor tal cual: los
 // mensajes ya están escritos para leerse ("Escribe un motivo de al menos…").
 export const accionEstudio = (id: string, cuerpo: Record<string, unknown>) =>
-  pedir<{ ok: true; avisoStripe?: boolean; reviewBoostElegible?: boolean }>(`/estudios/${id}/acciones`, {
+  pedir<{ ok: true; avisoStripe?: boolean; reviewBoostElegible?: boolean; pruebaHasta?: string }>(`/estudios/${id}/acciones`, {
     method: 'POST', body: JSON.stringify(cuerpo),
   });
 

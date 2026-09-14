@@ -169,6 +169,48 @@ export function trialVigente(entrada: EntradaTrial, ahora: Date = new Date()): b
   return estadoTrial(entrada, ahora).enPrueba;
 }
 
+/** Días que añade «Añadir días de prueba» en /interno. */
+export const DIAS_AMPLIACION_PRUEBA = 7;
+
+export type AmpliacionPrueba = { ok: true; hasta: Date } | { ok: false; motivo: string };
+
+/**
+ * ¿Se le puede ampliar la prueba local a este estudio, y hasta cuándo?
+ *
+ * Cuenta desde lo que llegue más tarde, el fin actual o ahora: a una prueba que
+ * acabó ayer, sumarle 7 días a su fecha le daría 6, y a una vencida hace dos
+ * semanas, ninguno.
+ *
+ * ⚠️ Solo pruebas LOCALES. Con `subscriptionId`, NUNCA, sea cual sea el estado:
+ * `estadoTrial()` lee un 'trialing' con `subscription_id` como prueba de Stripe
+ * (SUSCRITO), y esa no la cierra nadie de este lado — sería acceso gratis para
+ * siempre. Los días gratis a quien ya está en Stripe se dan en Stripe.
+ */
+export function ampliacionDePrueba(
+  entrada: EntradaTrial & { esSede?: boolean },
+  dias: number = DIAS_AMPLIACION_PRUEBA,
+  ahora: Date = new Date(),
+): AmpliacionPrueba {
+  // `arrancar_prueba_gratuita` no le da prueba a una sede: vive de su cadena.
+  if (entrada.esSede) return { ok: false, motivo: 'Es una sede de cadena: no tiene prueba propia.' };
+  if (entrada.subscriptionId) {
+    return { ok: false, motivo: 'Tiene suscripción en Stripe: los días gratis se dan en Stripe.' };
+  }
+  const status = entrada.subscriptionStatus ?? null;
+  if (status !== 'trialing' && status !== 'trial_expirado') {
+    return {
+      ok: false,
+      motivo: status === 'active' || status === 'past_due'
+        ? 'Ya tiene un plan activo: no está en prueba.'
+        : 'No está en prueba gratuita.',
+    };
+  }
+  const fin = aFecha(entrada.trialEndsAt);
+  if (!fin) return { ok: false, motivo: 'No tiene fecha de fin de prueba.' };
+  const desde = fin.getTime() > ahora.getTime() ? fin : ahora;
+  return { ok: true, hasta: new Date(desde.getTime() + dias * MS_DIA) };
+}
+
 /**
  * Copy de la píldora del panel. Vive aquí y no en el componente porque es la
  * misma frase que usan la píldora, su detalle y la pantalla de suscripción, y

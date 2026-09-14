@@ -12,13 +12,20 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { accionEstudio } from '@/lib/interno/client';
+import { accionEstudio, type FichaEstudio } from '@/lib/interno/client';
+import { ampliacionDePrueba, estadoTrial, DIAS_AMPLIACION_PRUEBA } from '@/lib/billing/trial';
 import { PLANES, PLAN_INFO } from '@/lib/billing/entitlements';
 import { useSesionInterna } from '../../layout';
 import { tienePermiso } from '@/lib/interno/permisos';
 
-export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost }: {
+const dia = (iso: string) =>
+  new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+
+export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, prueba, alTerminar }: {
   id: string; plan: string; suspendido: boolean; motivo: string | null;
+  prueba: FichaEstudio['prueba'];
+  /** Recarga la ficha: es de cliente, así que `router.refresh()` no la repinta. */
+  alTerminar?: () => void;
   reviewBoost: { elegibleEn: string | null; mostradoEn: string | null; feedback: { rating: number; creadoEn: string } | null; recompensaCanjeada: boolean };
 }) {
   const sesion = useSesionInterna();
@@ -28,17 +35,33 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost }: {
   const [aviso, setAviso] = useState<string | null>(null);
   const [motivoNuevo, setMotivoNuevo] = useState('');
   const [suspendiendo, setSuspendiendo] = useState(false);
+  // Ampliar la prueba es dar acceso gratis: pide un segundo clic, como suspender.
+  const [confirmandoPrueba, setConfirmandoPrueba] = useState(false);
 
   // Quien no tenga studios.update no ve esto siquiera.
   if (!tienePermiso(sesion.permisos, 'studios.update')) return null;
+
+  // La misma regla que aplica el servidor: aquí solo sirve para avisar ANTES
+  // de pulsar, y para no ofrecer un botón que va a decir que no.
+  const entradaPrueba = {
+    trialEndsAt: prueba.finaliza, subscriptionStatus: prueba.estado,
+    subscriptionId: prueba.conSuscripcionStripe ? 'stripe' : null,
+  };
+  const trial = estadoTrial(entradaPrueba);
+  const ampliacion = ampliacionDePrueba({ ...entradaPrueba, esSede: prueba.esSede });
 
   async function ejecutar(cuerpo: Record<string, unknown>, exito?: string) {
     setOcupado(true); setError(null); setAviso(null);
     try {
       const r = await accionEstudio(id, cuerpo);
-      setSuspendiendo(false); setMotivoNuevo('');
-      setAviso(r.avisoStripe ? 'Plan cambiado. Ojo: esto NO cambia lo que se le cobra — eso se ajusta en Stripe.' : exito ?? 'Hecho.');
+      setSuspendiendo(false); setMotivoNuevo(''); setConfirmandoPrueba(false);
+      setAviso(
+        r.pruebaHasta ? `Prueba ampliada hasta el ${dia(r.pruebaHasta)}. Ya puede volver a entrar.`
+        : r.avisoStripe ? 'Plan cambiado. Ojo: esto NO cambia lo que se le cobra — eso se ajusta en Stripe.'
+        : exito ?? 'Hecho.',
+      );
       router.refresh();
+      alTerminar?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se ha podido completar.');
     } finally {
@@ -66,6 +89,47 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost }: {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="border-t border-border/60 pt-3">
+          <p className="text-[12.5px] font-semibold text-foreground mb-1">Prueba gratuita</p>
+          {prueba.finaliza && trial.enPrueba && (
+            <p className="text-[12.5px] text-muted-foreground">
+              En prueba hasta el {dia(prueba.finaliza)} · {trial.diasRestantes === 1 ? 'queda 1 día' : `quedan ${trial.diasRestantes} días`}.
+            </p>
+          )}
+          {prueba.finaliza && trial.agotada && (
+            <p className="text-[12.5px] text-muted-foreground">
+              La prueba terminó el {dia(prueba.finaliza)}: no puede entrar a su panel hasta que elija un plan.
+            </p>
+          )}
+          {ampliacion.ok ? (
+            !confirmandoPrueba ? (
+              <button type="button" disabled={ocupado} onClick={() => setConfirmandoPrueba(true)}
+                className="mt-2 px-3 py-1.5 rounded-lg text-[12.5px] font-bold bg-brand text-brand-foreground disabled:opacity-50">
+                Añadir {DIAS_AMPLIACION_PRUEBA} días…
+              </button>
+            ) : (
+              <div className="mt-2 flex flex-col gap-2">
+                <p className="text-[12.5px] text-foreground">
+                  Quedará en prueba hasta el <strong>{dia(ampliacion.hasta.toISOString())}</strong>, con todo su plan abierto y sin cobrarle nada.
+                </p>
+                <div className="flex gap-2">
+                  <button type="button" disabled={ocupado}
+                    onClick={() => ejecutar({ accion: 'ampliar-prueba' })}
+                    className="px-3 py-1.5 rounded-lg text-[12.5px] font-bold bg-brand text-brand-foreground disabled:opacity-50">
+                    Confirmar {DIAS_AMPLIACION_PRUEBA} días más
+                  </button>
+                  <button type="button" disabled={ocupado} onClick={() => setConfirmandoPrueba(false)}
+                    className="px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-muted-foreground hover:bg-muted">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )
+          ) : (
+            <p className="text-[12px] text-muted-foreground">{ampliacion.motivo}</p>
+          )}
         </div>
 
         <div className="border-t border-border/60 pt-3">
