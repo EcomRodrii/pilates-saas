@@ -15,6 +15,7 @@ import { calcularTicket, estadoStock, puedeAnadir, type LineaTicket } from '@/li
 import { cargarCatalogoPOS, esError, type CatalogoPOS } from '@/lib/pos/cliente';
 import { formatNumeroVenta } from '@/lib/pos/tipos';
 import { registrarVenta } from '@/lib/pos/cliente';
+import { cuotaSinClienta } from '@/lib/pos/cuota-exige-clienta';
 import type { CodigoDescuento } from '@/lib/types';
 import type { MetodoPago } from '@/lib/types';
 import { HojaCobro } from './hoja-cobro';
@@ -264,6 +265,15 @@ export function PosTerminal() {
   // queda SIN ENTREGAR hasta que alguien le ponga ficha desde Ventas. El aviso
   // informa; no impide.
   const bonoSinFicha = carrito.some((i) => i.tipo === 'PLAN') && !clienteId;
+
+  // Una CUOTA no (lib/pos/cuota-exige-clienta.ts): se renueva cada ciclo y
+  // tiene que ser de alguien. Vendida sin clienta quedaba sin entregar, y en el
+  // caso real se volvió a dar de alta desde el panel —dos recibos por un pago—.
+  // Aquí SÍ se bloquea «Cobrar»; el servidor lo rechaza igualmente.
+  const cuotaSinFicha = cuotaSinClienta(
+    carrito.filter((i) => i.tipo === 'PLAN').map((i) => catalogo?.planes.find((p) => p.id === i.referenciaId)?.tipo),
+    clienteId,
+  );
 
   // ── Cobro ─────────────────────────────────────────────────────────────────
   //
@@ -745,12 +755,15 @@ export function PosTerminal() {
                 onClick={() => { setVistaMovil('catalogo'); buscadorRef.current?.focus(); }}
                 className={cn(
                   'w-full h-12 px-3 rounded-xl border flex items-center gap-2.5 text-left transition-colors',
-                  bonoSinFicha ? 'border-warning/50 bg-warning/10' : 'border-border bg-background hover:border-foreground/30',
+                  cuotaSinFicha ? 'border-destructive/50 bg-destructive/10'
+                    : bonoSinFicha ? 'border-warning/50 bg-warning/10' : 'border-border bg-background hover:border-foreground/30',
                 )}
               >
-                <User size={15} className={bonoSinFicha ? 'text-warning' : 'text-muted-foreground'} />
-                <span className={cn('flex-1 text-[14px] truncate', cliente ? 'text-foreground font-medium' : bonoSinFicha ? 'text-warning font-medium' : 'text-muted-foreground')}>
-                  {cliente ? `${cliente.nombre} ${cliente.apellidos ?? ''}` : bonoSinFicha ? 'Sin ficha: el bono quedará por asignar' : 'Venta sin clienta'}
+                <User size={15} className={cuotaSinFicha ? 'text-destructive' : bonoSinFicha ? 'text-warning' : 'text-muted-foreground'} />
+                <span className={cn('flex-1 text-[14px] truncate', cliente ? 'text-foreground font-medium' : cuotaSinFicha ? 'text-destructive font-medium' : bonoSinFicha ? 'text-warning font-medium' : 'text-muted-foreground')}>
+                  {cliente ? `${cliente.nombre} ${cliente.apellidos ?? ''}`
+                    : cuotaSinFicha ? 'Una cuota necesita clienta: búscala arriba'
+                    : bonoSinFicha ? 'Sin ficha: el bono quedará por asignar' : 'Venta sin clienta'}
                 </span>
                 {cliente && (
                   <span
@@ -862,7 +875,8 @@ export function PosTerminal() {
 
               <button
                 onClick={() => setMostrarCobro(true)}
-                className="w-full h-16 rounded-2xl bg-brand text-brand-foreground text-[18px] font-extrabold active:scale-[0.99] transition-all"
+                disabled={cuotaSinFicha}
+                className="w-full h-16 rounded-2xl bg-brand text-brand-foreground text-[18px] font-extrabold active:scale-[0.99] transition-all disabled:opacity-40 disabled:active:scale-100"
               >
                 {`Cobrar ${formatEuro(ticket.total)}`}
               </button>
@@ -871,7 +885,10 @@ export function PosTerminal() {
         </aside>
       </div>
 
-      {mostrarCobro && (
+      {/* `!cuotaSinFicha` aquí y no solo en el botón: hay más de un sitio que
+          abre el cobro, y así ninguno puede llegar a la hoja con una cuota sin
+          clienta. */}
+      {mostrarCobro && !cuotaSinFicha && (
         <HojaCobro
           total={ticket.total}
           cobroDisponible={catalogo?.cobro ?? { stripeConectado: false, datafonoEmparejado: false }}
