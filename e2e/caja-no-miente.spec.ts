@@ -329,6 +329,34 @@ test('un bono SÍ se puede cobrar sin ficha, avisando de que queda por asignar',
   ).toBeNull();
 });
 
+test('una CUOTA no se puede cobrar sin ficha: se bloquea, se explica, y no sale ninguna venta', async ({ page }) => {
+  // A diferencia del bono, una cuota se renueva cada ciclo y tiene que ser de
+  // alguien. Vendida sin clienta quedaba sin entregar a nadie; en el caso real
+  // (10-sep) se volvió a dar de alta desde el panel y quedaron dos recibos
+  // cobrados por un solo pago. El bono de arriba sigue siendo la contraprueba:
+  // sin ficha se cobra.
+  const c = await montar(page, (route) => json(route, {}));
+  // Registrada DESPUÉS de montar(): gana sobre su catálogo, solo en este test.
+  await page.route('**/api/pos/catalogo**', (route) => json(route, {
+    ...CATALOGO,
+    planes: [...CATALOGO.planes, {
+      id: 'plan-cuota', nombre: 'Cuota mensual ilimitada', descripcion: null, precio: 89,
+      tipo: 'MENSUAL', sesiones: null, validezDias: null, ivaPct: 21,
+    }],
+  }));
+  await abrirCaja(page);
+
+  await page.getByRole('button', { name: /Cuota mensual ilimitada/ }).click();
+
+  await expect(page.getByText('Una cuota necesita clienta: búscala arriba')).toBeVisible();
+  await expect(page.getByText('Sin ficha: el bono quedará por asignar')).toHaveCount(0);
+  const cobrar = page.getByRole('button', { name: /^Cobrar/ });
+  await expect(cobrar).toBeDisabled();
+  await cobrar.click({ force: true });
+  await expect(page.getByRole('button', { name: /^Efectivo/ })).toHaveCount(0);
+  expect(c.ventas, 'con una cuota sin clienta no puede salir ninguna venta').toBe(0);
+});
+
 test('desde «Cobrado» se puede sacar la factura, sin salir del mostrador', async ({ page }) => {
   // «¿Me das la factura?» es la pregunta más normal del mostrador. La factura
   // se sellaba desde el primer día, pero había que salir del TPV, entrar en
