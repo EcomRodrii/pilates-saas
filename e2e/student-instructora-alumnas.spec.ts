@@ -28,8 +28,11 @@ function diaMas(n: number): string {
 
 const PROXIMA = { sesionId: 'ses-1', inicio: `${diaMas(2)}T08:00:00.000Z`, fecha: diaMas(2), hora: '10:00', tipo: 'Reformer', estado: 'viene' };
 
-async function montar(page: Page, opciones: { listarFalla?: boolean } = {}) {
-  const contador = { listar: 0, fichas: [] as string[] };
+async function montar(
+  page: Page,
+  opciones: { listarFalla?: boolean; saludFalla?: boolean; sinConsentimiento?: boolean } = {},
+) {
+  const contador = { listar: 0, fichas: [] as string[], salud: 0 };
   await montarPortal(page, { conSesion: true, sinSocia: true });
   await page.route('**/api/public/session**', (route) => json(route, { error: 'No hay ninguna socia' }, 404));
   await page.route('**/api/portal/instructora/sesion', (route) => json(route, { instructora: INSTRUCTORA }));
@@ -44,6 +47,18 @@ async function montar(page: Page, opciones: { listarFalla?: boolean } = {}) {
           { socioId: 'soc-aina', nombre: 'Aina P.', fotoUrl: null, primeraClase: true, proxima: PROXIMA },
           { socioId: 'soc-carmen', nombre: 'Carmen L.', fotoUrl: null, primeraClase: false, proxima: null },
         ],
+      });
+    }
+    if (cuerpo.accion === 'salud') {
+      contador.salud++;
+      // Si el estudio no puede apuntar la lectura, el servidor no devuelve nada.
+      if (opciones.saludFalla) return json(route, { error: 'No hemos podido abrir sus avisos de salud. Vuelve a intentarlo.' }, 500);
+      if (opciones.sinConsentimiento) return json(route, { consentimiento: 'SIN_CONSENTIMIENTO' });
+      return json(route, {
+        consentimiento: 'VIGENTE',
+        semaforo: 'AMBAR',
+        avisos: [{ etiqueta: 'Hernia discal', zona: 'COLUMNA', restricciones: ['Evitar flexión'], severidad: 'MEDIA' }],
+        notas: [{ id: 'n1', creadaEn: `${diaMas(-3)}T10:00:00.000Z`, textoLibre: 'Mejor movilidad de cadera', progreso: null, alertas: null, planProximaSesion: 'Trabajar puente' }],
       });
     }
     contador.fichas.push(cuerpo.socioId ?? '');
@@ -92,5 +107,47 @@ test.describe('«Tus alumnas» en la app de la instructora', () => {
     await expect(page.getByText('No hemos podido cargar tus alumnas.')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Todavía no tienes alumnas')).toHaveCount(0);
     expect(contador.listar).toBeGreaterThan(0);
+  });
+
+  test('la salud se abre a petición: avisos estructurados y sus notas', async ({ page }) => {
+    const contador = await montar(page);
+    await page.goto(`/portal/${SLUG}/equipo/alumnas/soc-aina`);
+    await expect(page.getByTestId('nombre-alumna')).toHaveText('Aina P.', { timeout: 30_000 });
+    // Abrirla queda registrado: entrar en la ficha no la pide sola.
+    expect(contador.salud).toBe(0);
+
+    await page.getByRole('button', { name: 'Ver sus avisos de salud' }).click();
+    const aviso = page.getByTestId('aviso-salud');
+    await expect(aviso).toContainText('Hernia discal', { timeout: 30_000 });
+    await expect(aviso).toContainText('Columna · Gravedad media');
+    await expect(aviso).toContainText('Evitar flexión');
+    await expect(page.getByTestId('salud-alumna')).toContainText('Adaptar ejercicios');
+    await expect(page.getByTestId('nota-propia')).toContainText('Mejor movilidad de cadera');
+    await expect(page.getByTestId('nota-propia')).toContainText('Próxima sesión: Trabajar puente');
+    expect(contador.salud).toBe(1);
+  });
+
+  test('si no se puede registrar la lectura, no enseña ningún aviso', async ({ page }) => {
+    const contador = await montar(page, { saludFalla: true });
+    await page.goto(`/portal/${SLUG}/equipo/alumnas/soc-aina`);
+    await page.getByRole('button', { name: 'Ver sus avisos de salud' }).click({ timeout: 30_000 });
+
+    // Acotado a la sección: Next también pinta un `role="alert"` (el anunciador de rutas).
+    await expect(page.getByTestId('salud-alumna').getByRole('alert'))
+      .toContainText('No hemos podido abrir sus avisos de salud', { timeout: 30_000 });
+    await expect(page.getByTestId('aviso-salud')).toHaveCount(0);
+    await expect(page.getByTestId('nota-propia')).toHaveCount(0);
+    expect(contador.salud).toBeGreaterThan(0);
+  });
+
+  test('sin consentimiento de salud no enseña nada que deje adivinar', async ({ page }) => {
+    const contador = await montar(page, { sinConsentimiento: true });
+    await page.goto(`/portal/${SLUG}/equipo/alumnas/soc-aina`);
+    await page.getByRole('button', { name: 'Ver sus avisos de salud' }).click({ timeout: 30_000 });
+
+    await expect(page.getByTestId('salud-alumna')).toContainText('No ha dado su consentimiento', { timeout: 30_000 });
+    await expect(page.getByTestId('aviso-salud')).toHaveCount(0);
+    await expect(page.getByText('Tus notas sobre ella')).toHaveCount(0);
+    expect(contador.salud).toBeGreaterThan(0);
   });
 });

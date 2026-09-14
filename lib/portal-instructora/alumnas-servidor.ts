@@ -3,6 +3,10 @@ import { filasDeSociaConInstructora } from '@/lib/datos-salud/acceso-servidor';
 import {
   VENTANA_ALUMNA_DIAS, instructoraAtiendeSocia, type ClaseOCitaDeSocia,
 } from '@/lib/datos-salud/acceso-instructora';
+import {
+  notasPropias, saludParaInstructora, type CondicionParaAviso, type SaludAlumna,
+} from '@/lib/datos-salud/salud-para-instructora';
+import type { SeveridadCondicion, ZonaCorporal } from '@/lib/types';
 import { fechaEnZona, horaEnZona, nombresParaLista } from '@/lib/student/agenda-instructora';
 import {
   estadoClaseAlumna, ordenarAlumnas, repartirClases,
@@ -21,8 +25,9 @@ import {
 // `instructor_id` del token. Una socia que no es suya responde igual que una
 // que no existe. De la socia sale lo mínimo (decisión del 14-sep-2026): nombre e
 // inicial del apellido, foto, sus clases con ESTA instructora y si es su primera
-// clase en el estudio. Nada de contacto, pagos, bonos, contrato ni salud (la
-// salud llega aparte, con consentimiento y registro de lectura).
+// clase en el estudio. Nada de contacto, pagos, bonos ni contrato. La salud va
+// aparte (`saludDeAlumna`): con consentimiento, avisos estructurados, solo sus
+// notas y la lectura registrada.
 
 const DIA_MS = 86_400_000;
 const MAX_ALUMNAS = 300;
@@ -225,5 +230,81 @@ export async function fichaDeAlumna(
     primeraClase: !vino,
     proximas,
     pasadas,
+  };
+}
+
+/** Notas suyas que se enseñan como mucho: la app no es un histórico clínico. */
+const MAX_NOTAS = 20;
+
+/**
+ * La salud de una alumna suya, en solo lectura (decisión del 14-sep-2026):
+ * con consentimiento vigente, avisos estructurados de sus condiciones activas y
+ * las notas de progreso que escribió ESTA instructora. `null` si no existe o no
+ * es su alumna (misma regla y mismo helper que `fichaDeAlumna`).
+ *
+ * ⚠️ Registro de lectura con FALLO CERRADO: si no se puede apuntar en
+ * `lecturas_ficha_salud` que la ha abierto, lanza y no sale nada. Sin
+ * consentimiento no se lee ninguna tabla clínica, así que tampoco se apunta.
+ */
+export async function saludDeAlumna(
+  p: { studioId: string; instructorId: string; socioId: string; lector: { userId: string; nombre: string } },
+  ahora: Date = new Date(),
+): Promise<SaludAlumna | null> {
+  const admin = adminOLanza();
+  const filas = await filasDeSociaConInstructora(admin, p.studioId, p.instructorId, p.socioId, ahora);
+  if (filas === null) throw new Error('No se ha podido comprobar si es su alumna');
+  if (!instructoraAtiendeSocia(filas, p.instructorId, ahora)) return null;
+
+  const { data: socio, error } = await admin.from('socios')
+    .select('id, consentimiento_salud_fecha, consentimiento_salud_revocado_en')
+    .eq('id', p.socioId).eq('studio_id', p.studioId).is('borrado_en', null).maybeSingle();
+  if (error) throw error;
+  if (!socio) return null;
+  const consentimiento = {
+    consentimientoFecha: (socio as { consentimiento_salud_fecha: string | null }).consentimiento_salud_fecha ?? null,
+    consentimientoRevocadoEn: (socio as { consentimiento_salud_revocado_en: string | null }).consentimiento_salud_revocado_en ?? null,
+  };
+  if (saludParaInstructora({ ...consentimiento, condiciones: [] }).consentimiento !== 'VIGENTE') {
+    return { consentimiento: 'SIN_CONSENTIMIENTO' };
+  }
+
+  // Solo las columnas que se enseñan: las notas libres de la condición ni se leen.
+  const [cond, notas] = await Promise.all([
+    admin.from('condiciones_salud').select('etiqueta, zona, restricciones, severidad, estado')
+      .eq('studio_id', p.studioId).eq('socio_id', p.socioId).eq('estado', 'ACTIVA'),
+    admin.from('notas_progreso')
+      .select('id, instructor_id, texto_libre, progreso, alertas, plan_proxima_sesion, creada_en')
+      .eq('studio_id', p.studioId).eq('socio_id', p.socioId).eq('instructor_id', p.instructorId)
+      .order('creada_en', { ascending: false }).limit(MAX_NOTAS),
+  ]);
+  if (cond.error) throw cond.error;
+  if (notas.error) throw notas.error;
+
+  const { error: eLectura } = await admin.from('lecturas_ficha_salud').insert({
+    studio_id: p.studioId, socio_id: p.socioId,
+    leido_por_user_id: p.lector.userId, leido_por_nombre: p.lector.nombre, leido_por_rol: 'INSTRUCTOR',
+  });
+  if (eLectura) throw eLectura;
+
+  const condiciones: CondicionParaAviso[] = (cond.data ?? []).map((c) => ({
+    etiqueta: c.etiqueta as string,
+    zona: (c.zona as ZonaCorporal | null) ?? null,
+    restricciones: (c.restricciones as string[] | null) ?? [],
+    severidad: c.severidad as SeveridadCondicion,
+    estado: c.estado as CondicionParaAviso['estado'],
+  }));
+  const salud = saludParaInstructora({ ...consentimiento, condiciones });
+  if (salud.consentimiento !== 'VIGENTE') return { consentimiento: 'SIN_CONSENTIMIENTO' };
+  return {
+    ...salud,
+    notas: notasPropias((notas.data ?? []).map((n) => ({
+      id: n.id as string,
+      instructorId: n.instructor_id as string,
+      creadaEn: n.creada_en as string,
+      textoLibre: (n.texto_libre as string | null) ?? '',
+      progreso: (n.progreso as string | null) ?? null,
+      alertas: (n.alertas as string | null) ?? null,
+      planProximaSesion: (n.plan_proxima_sesion as string | null) ?? null,
+    })), p.instructorId),
   };
 }
