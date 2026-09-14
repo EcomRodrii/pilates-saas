@@ -163,7 +163,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
 
   const configuracionInicial: PasoOnboarding[] = [
     { id: 'estudio', label: 'Configura los datos de tu estudio', descripcion: 'Nombre, NIF y contacto — aparecen en tus recibos y en tu página de reservas.', minutos: 3, done: !!d.nif, href: '/configuracion?tab=estudio' },
-    { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion?tab=estudio&sub=enlaces' },
+    { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion/apariencia' },
     { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas clientas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=clases-salas&sub=salas' },
     // Mismo criterio que «clientas»: el panel usa una sola palabra para la
     // clientela porque el equipo de un estudio de Pilates lo es casi siempre.
@@ -217,7 +217,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
   ];
 
   const portal: PasoOnboarding[] = [
-    { id: 'portal-contenido', label: 'Personaliza el contenido de tu portal', descripcion: 'El mensaje destacado y los banners que ven tus clientas al entrar en su app.', minutos: 3, done: d.contenidoPortalPersonalizado, href: '/configuracion?tab=estudio&sub=enlaces' },
+    { id: 'portal-contenido', label: 'Personaliza el contenido de tu portal', descripcion: 'El mensaje destacado y los banners que ven tus clientas al entrar en su app.', minutos: 3, done: d.contenidoPortalPersonalizado, href: '/configuracion?tab=descubre' },
   ];
 
   const categorias: CategoriaOnboarding[] = [

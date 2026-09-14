@@ -55,7 +55,7 @@ const CATEGORIAS_BASE: CategoriaFunciones[] = [
   {
     id: 'automatizaciones', label: 'Funciones inteligentes',
     funciones: [
-      { href: '/automatizaciones', label: 'Automatizaciones', descripcion: 'Recordatorios, recuperación de clientas ausentes y más, funcionando solas una vez activas.' },
+      { href: '/automatizaciones', label: 'Automatizaciones', descripcion: 'Recuperación de clientas ausentes, seguimiento de las nuevas y más, funcionando solas una vez activas. Los recordatorios de clase ya salen de serie.' },
     ],
   },
   {
