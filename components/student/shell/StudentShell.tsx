@@ -79,7 +79,7 @@ export function StudentShell({
           <OfflineBanner />
           {children}
         </main>
-        {!sinNav && <BottomNavigation badgeReservas={badgeReservas} modo={modo} />}
+        {!sinNav && <BottomNavigation badgeReservas={badgeReservas} />}
         {/* Anfitrión de las hojas (`Sheet`). Existe por dos motivos a la vez, y
             hacen falta LOS DOS:
               · fuera de `main`, para que ningún `.a-up` —cuyo `transform`
