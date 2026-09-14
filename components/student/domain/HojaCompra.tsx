@@ -8,6 +8,7 @@ import { MODO_TOKENS } from '@/lib/portal-paleta';
 import { comprobarCodigo, iniciarCompra, comprarConBizum, clavePublicableStripe } from '@/lib/student/comprar';
 import { euros } from '@/lib/student/formato';
 import { esSuscripcion } from '@/lib/student/tienda';
+import { bizumPermitidoPara } from '@/lib/billing/bizum-permitido';
 import { nombrePeriodo } from '@/lib/bono-logic';
 import type { PlanTarifa } from '@/lib/types';
 import { Sello } from '@/components/student/ui/Sello';
@@ -347,7 +348,7 @@ export function HojaCompra({ textosLegales,
             importeTotal={estado.importe}
             onProcesando={setConfirmando}
             onExito={() => { setConfirmando(false); setEstado({ fase: 'hecho' }); }}
-            onBizum={manejarBizum}
+            onBizum={plan && bizumPermitidoPara(plan.tipo) ? manejarBizum : undefined}
             onCerrar={onCerrar}
             />
           </>
