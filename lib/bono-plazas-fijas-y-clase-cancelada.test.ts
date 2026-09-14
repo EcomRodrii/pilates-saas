@@ -66,11 +66,18 @@ test('⚠️ I-2 · el panel no deja apuntar a nadie a una clase cancelada', () 
     'falta el guard de sesión cancelada: `reservar_plaza` no lo tiene y este camino la llama directa '
     + 'desde el navegador, saltándose `crearReservaPublica`, que sí lo rechaza.');
 
-  // El guard tiene que estar ANTES de la RPC: después no evita ni la reserva ni
-  // el consumo de bono, solo cambia lo que se pinta.
+  // El guard tiene que estar ANTES de pedir la reserva: después no evita ni la
+  // reserva ni el consumo de bono, solo cambia lo que se pinta. Desde que el
+  // panel reserva por el servidor, `crearReservaMostrador` repite el mismo guard
+  // (defensa en profundidad), pero el del cliente ahorra el viaje y la fila
+  // optimista.
   const posGuard = cuerpo.indexOf('sesion?.cancelada');
-  const posRpc = cuerpo.indexOf('dbReservarPlaza(');
-  assert.notEqual(posRpc, -1, 'ya no se llama a dbReservarPlaza desde addReserva: revisa este guardián');
-  assert.ok(posGuard < posRpc,
-    'el guard de clase cancelada tiene que ir ANTES de llamar a reservar_plaza, no después');
+  const posPeticion = cuerpo.indexOf("'/api/reservas/crear'");
+  assert.notEqual(posPeticion, -1, 'addReserva ya no reserva por /api/reservas/crear: revisa este guardián');
+  assert.ok(posGuard < posPeticion,
+    'el guard de clase cancelada tiene que ir ANTES de pedir la reserva, no después');
+  // Y el panel no vuelve a llamar a la RPC directo desde el navegador: por ahí
+  // no hay aviso a la alumna ni autorización de servidor.
+  assert.doesNotMatch(cuerpo, /dbReservarPlaza\(|rpc\('reservar_plaza'/,
+    'el panel vuelve a llamar a reservar_plaza desde el navegador: debe pasar por /api/reservas/crear');
 });

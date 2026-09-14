@@ -508,8 +508,10 @@ test('saldoSesionesBono respeta los tipos de clase del bono', () => {
 // aun así los dos caminos insertaban el recibo.
 test('⚠️ ningún camino de consumo de bono crea un recibo de «Renovación»', async () => {
   const { readFile } = await import('node:fs/promises');
+  // Eran dos gemelos. El de cliente (`consumirSesionBono`, studio-context) se
+  // borró cuando el panel pasó a reservar por el servidor: queda un solo sitio
+  // que descuenta, y ese es el que se vigila.
   const gemelos = [
-    { fichero: 'lib/studio-context.tsx', funcion: 'consumirSesionBono' },
     { fichero: 'lib/db/supabase-data-admin.ts', funcion: 'consumirBonoServidor' },
   ];
   for (const { fichero, funcion } of gemelos) {

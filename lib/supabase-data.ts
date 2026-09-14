@@ -3,7 +3,6 @@ import { conReintentoTransitorio } from '@/lib/reintento-transitorio';
 import { unaVez } from '@/lib/una-vez';
 import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion';
 import { mapLimit } from '@/lib/concurrency';
-import { mensajeDeErrorReserva } from '@/lib/reservas/errores-rpc';
 import { supabase } from '@/lib/db/supabase';
 import { actualizarFilaStudio } from '@/lib/db/actualizar-studio';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
@@ -3011,23 +3010,10 @@ export async function dbDeleteSesion(id: string): Promise<ResultadoEscritura> {
 // Reserva ATÓMICA desde el panel (sesión autenticada de staff): la RPC decide
 // aforo/lista de espera con bloqueo de fila y aísla por estudio. Sustituye al
 // insert directo (read-decide-insert no atómico → sobreventa).
-export async function dbReservarPlaza(
-  studioId: string, sesionId: string, socioId: string, reservaId: string,
-): Promise<{ estado: string; posicionEspera: number | null } | { error: string }> {
-  const { data, error } = await supabase.rpc('reservar_plaza', {
-    p_studio_id: studioId, p_sesion_id: sesionId, p_socio_id: socioId, p_reserva_id: reservaId,
-  });
-  if (error) {
-    reportDbError('[dbReservarPlaza]', error);
-    // Traducción COMPLETA (lib/reservas/errores-rpc.ts), no caso a caso: antes
-    // se traducían dos de los catorce códigos y el resto salía crudo a
-    // pantalla — apuntar a alguien ya apuntada mostraba «YA_RESERVADA».
-    const traducido = mensajeDeErrorReserva(error.message);
-    return { error: traducido ?? 'No se ha podido apuntar. Inténtalo otra vez.' };
-  }
-  const row = Array.isArray(data) ? data[0] : data;
-  return { estado: row?.estado ?? 'CONFIRMADA', posicionEspera: row?.posicion_espera ?? null };
-}
+// (Aquí estaba `dbReservarPlaza`, la llamada a `reservar_plaza` desde el
+// navegador. El panel reserva ahora por `/api/reservas/crear` →
+// `crearReservaMostrador`, que traduce los mismos códigos con
+// `mensajeDeErrorReserva` y además avisa a la alumna.)
 
 // Cancela (marca CANCELADA) todas las reservas activas de un lote de sesiones.
 // Cancelar una serie completa marcaba `sesiones.cancelada=true` pero dejaba las
