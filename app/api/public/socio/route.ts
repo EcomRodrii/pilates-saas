@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { registrarSociaPublica, actualizarSociaPublica, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { instructoraActivaEnEstudio } from '@/lib/auth-instructora';
+import { escaparLike } from '@/lib/escapar-like';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
@@ -80,6 +82,36 @@ export async function POST(req: NextRequest) {
     if (body.accion === 'registrar') {
       if (!body.id || !body.nombre) {
         return conCorsWidget(req, NextResponse.json({ error: 'Faltan datos de la socia' }, { status: 400 }));
+      }
+
+      // Una instructora del estudio NO se da de alta como alumna por esta vía
+      // (la app del estudio es también la de la instructora, 14-sep-2026).
+      // `acceso/verificar` lo intentaba en cuanto entraba: le firmaba el
+      // consentimiento de ALUMNA y le ocupaba cupo del plan del estudio. Si
+      // además quiere ser alumna, el estudio le crea la ficha y se vincula sola
+      // al entrar (claim por email en `resolverSociaAutenticada`).
+      //
+      // Fail-CLOSED: sin cliente de administración no se puede comprobar, y un
+      // fallo de la consulta lanza (→ `errorInterno`) en vez de dejar pasar el alta.
+      const adminGuardia = getSupabaseAdmin();
+      if (!adminGuardia) {
+        return conCorsWidget(req, NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 }));
+      }
+      if (!(await socioAutenticado(user.userId, body.studioId))
+          && await instructoraActivaEnEstudio(adminGuardia, user.userId, body.studioId)) {
+        // Excepción: una ficha de alumna SIN VINCULAR con su email —compró como
+        // invitada antes de tener cuenta—. Esa sí se deja adoptar a
+        // `registrarSociaPublica`; si no, lo que pagó se quedaría huérfano.
+        const { data: sinVincular, error: eSinVincular } = await adminGuardia
+          .from('socios').select('id')
+          .eq('studio_id', body.studioId).is('auth_user_id', null)
+          .ilike('email', escaparLike(user.email.trim()))
+          .limit(1);
+        if (eSinVincular) throw eSinVincular;
+        if (!sinVincular?.length) {
+          return conCorsWidget(req, NextResponse.json(
+            { error: 'Esta cuenta es de una instructora del estudio.', code: 'ES_INSTRUCTORA' }, { status: 409 }));
+        }
       }
 
       // ⚠️ TRAZA LEGAL. `socios.aceptacion_origen` tiene un CHECK

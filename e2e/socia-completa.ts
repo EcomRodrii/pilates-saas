@@ -209,6 +209,10 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   await page.route('**/api/public/aforo**', (r) => { contar(r); return r.fulfill(json({ sesionIds: [SESION_ID], aforoReservas: filasAforo })); });
 
   await ruta((p) => p === '/api/public/session', (r) => r.fulfill(json({ socioId: SOCIO_ID, nombre: 'Ana Test', email: 'socia-e2e@test.com' })));
+  // La app es también la de la instructora (14-sep-2026): el inicio pregunta si
+  // esta cuenta lo es. Una alumna recibe «no» (404), igual que en producción; el
+  // resultado se recuerda 12 h, así que es una petición por apertura como mucho.
+  await ruta((p) => p === '/api/portal/instructora/sesion', (r) => r.fulfill(json({ instructora: null }, 404)));
 
   // Avisos y preferencias.
   await ruta((p) => p === '/api/notifications', (r) => r.fulfill(json({
