@@ -937,12 +937,15 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // ── Equipo ──
   [`${EVENTOS.INSTRUCTORA_BAJA}#PROPIETARIO`]: {
     title: 'Una instructora no puede dar su clase',
-    body: '{instructora} no puede dar {clase} del {cuando}{motivo}. Buscando sustituta.',
+    // Sin el motivo ni el tipo de ausencia: pueden ser salud de una empleada y
+    // un push viaja por servicios de terceros y se queda en `notification`.
+    // El detalle está en el panel, para quien puede verlo.
+    body: '{instructora} no puede dar {clase} del {cuando}. Buscando sustituta.',
     deepLink: () => `/sustituciones`,
   },
   [`${EVENTOS.INSTRUCTORA_AUSENCIA}#PROPIETARIO`]: {
-    title: 'Ausencia registrada: {tipoTexto}',
-    body: '{instructora} no estará del {desde} al {hasta}{clases}.',
+    title: 'Ausencia en el equipo',
+    body: '{instructora} no estará disponible del {desde} al {hasta}{clases}.',
     deepLink: () => `/equipo`,
   },
   // ── Sistema ──

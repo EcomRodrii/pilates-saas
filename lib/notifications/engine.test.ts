@@ -7,7 +7,7 @@ import type { NotificationEvent } from './types.ts';
 
 test('equipo y sistema: reglas + plantillas que renderizan', () => {
   const casos: [string, Record<string, unknown>, RegExp][] = [
-    [EVENTOS.INSTRUCTORA_BAJA, { instructora: 'Marta', clase: 'Reformer', cuando: 'martes 9:00', motivo: ' (gripe)' }, /Marta.*Reformer.*gripe/],
+    [EVENTOS.INSTRUCTORA_BAJA, { instructora: 'Marta', clase: 'Reformer', cuando: 'martes 9:00' }, /Marta.*Reformer.*martes 9:00.*Buscando sustituta/],
     [EVENTOS.SISTEMA_STRIPE_DESCONECTADO, {}, /Stripe/],
     [EVENTOS.SISTEMA_EMAIL_FALLIDO, { error: 'domain not verified' }, /domain not verified/],
     [EVENTOS.TRIAL_EXPIRADO, {}, /datos están intactos/i],

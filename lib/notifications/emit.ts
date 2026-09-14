@@ -653,9 +653,14 @@ export async function emitirCanjeSolicitado(
 
 // La instructora avisa de que no puede dar una clase (baja desde su enlace):
 // la dueña se entera al instante, no al abrir el panel.
+//
+// ⚠️ El motivo NO viaja en el aviso (auditoría RGPD 2026-09): es texto libre y
+// a menudo es salud («gripe», «lesión»). Un push pasa por servicios de terceros
+// y la fila de `notification` se queda. El motivo sigue en la sustitución, en
+// el panel. Hay un test que lee esta función.
 export async function emitirInstructoraBaja(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; instructorId: string | null; motivo?: string | null; sustitucionId: string },
+  p: { studioId: string; sesionId: string; instructorId: string | null; sustitucionId: string },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
@@ -667,7 +672,6 @@ export async function emitirInstructoraBaja(
       data: {
         ...ctx,
         instructora: (instr?.nombre as string | null) ?? 'Una instructora',
-        motivo: p.motivo ? ` (${p.motivo})` : '',
       },
       resource: { type: 'sustitucion', id: p.sustitucionId },
       dedupKey: `instructora-baja:${p.sustitucionId}`,
@@ -680,15 +684,14 @@ export async function emitirInstructoraBaja(
 // Ausencia programada de una instructora (vacaciones / baja médica / otro).
 // Lo accionable no es la ausencia en sí, sino cuántas clases suyas quedan dentro
 // del periodo: eso es lo que la dueña tiene que cubrir.
-const TIPO_AUSENCIA: Record<string, string> = {
-  VACACIONES: 'vacaciones', BAJA_MEDICA: 'baja médica', OTRO: 'ausencia',
-};
-
+//
+// ⚠️ Sin el tipo (una «baja médica» es salud de una empleada) y sin el motivo:
+// solo quién, qué días y cuántas clases quedan. El detalle está en /equipo.
 export async function emitirInstructoraAusencia(
   admin: SupabaseClient,
   p: {
     studioId: string; ausenciaId: string; instructora: string;
-    tipo: string; desde: string; hasta: string; clasesAfectadas: number;
+    desde: string; hasta: string; clasesAfectadas: number;
   },
 ): Promise<void> {
   try {
@@ -697,7 +700,6 @@ export async function emitirInstructoraAusencia(
       type: EVENTOS.INSTRUCTORA_AUSENCIA, studioId: p.studioId,
       data: {
         instructora: p.instructora,
-        tipoTexto: TIPO_AUSENCIA[p.tipo] ?? 'ausencia',
         desde: fecha(p.desde), hasta: fecha(p.hasta),
         clases: p.clasesAfectadas > 0
           ? ` · ${p.clasesAfectadas} ${p.clasesAfectadas === 1 ? 'clase suya' : 'clases suyas'} en esas fechas por cubrir`

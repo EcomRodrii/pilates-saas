@@ -41,6 +41,18 @@ export function ausenciaHoy(
   return ausenciaEnFecha(ausencias, instructorId, new Date());
 }
 
+/**
+ * Lo que se lleva de una ausencia quien NO ve el detalle (recepción): quién y
+ * qué días, que es lo que hace falta para no asignarle una clase. El tipo sale
+ * como `OTRO` —la categoría neutra, que la UI pinta «ausente»— y el motivo
+ * vacío: una baja médica no puede distinguirse de unas vacaciones. Lo decide
+ * `puedeVerDetalleAusencias` (o que la ausencia sea de la propia instructora).
+ */
+export function ausenciaVisiblePara(a: AusenciaInstructora, verDetalle: boolean): AusenciaInstructora {
+  if (verDetalle) return a;
+  return { id: a.id, instructorId: a.instructorId, desde: a.desde, hasta: a.hasta, tipo: 'OTRO', motivo: null };
+}
+
 /** Texto corto para el selector: "Elena · de vacaciones". */
 export function sufijoAusencia(a: AusenciaInstructora | null): string {
   if (!a) return '';

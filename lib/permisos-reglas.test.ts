@@ -6,7 +6,7 @@ import {
   puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCentroNotificaciones,
   puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo,
   puedeGestionarFichaDe, puedeVerRetribucionDe, filtrarRetribucionVisible,
-  puedeGestionarCamposPersonalizados,
+  puedeGestionarCamposPersonalizados, puedeVerDetalleAusencias, puedeVerSolicitudesSoporte,
   puedeOperarClase, puedeEnviarEmail, TIPOS_EMAIL_PANEL, TIPOS_EMAIL_DE_CLASE,
   puedeGestionarAutomatizaciones, puedeVerContactoEquipo,
   puedeVerValoracionesDe, puedeVerResumenValoracionDe, puedeGestionarCalendario,
@@ -507,4 +507,26 @@ test('puedeGestionarCamposPersonalizados: solo la propietaria define qué se pre
   assert.equal(puedeGestionarCamposPersonalizados('MANAGER'), false);
   assert.equal(puedeGestionarCamposPersonalizados('RECEPCION'), false);
   assert.equal(puedeGestionarCamposPersonalizados('INSTRUCTOR'), false);
+});
+
+test('puedeVerDetalleAusencias: tipo y motivo solo para quien gestiona el equipo (igual que la RLS)', () => {
+  // Una baja médica es salud de una empleada. Recepción sigue sabiendo quién
+  // no está y qué días. Migr 20260914000209 (`ausencias_gestion`).
+  assert.equal(puedeVerDetalleAusencias('PROPIETARIO'), true);
+  assert.equal(puedeVerDetalleAusencias('MANAGER'), true);
+  assert.equal(puedeVerDetalleAusencias('RECEPCION'), false);
+  assert.equal(puedeVerDetalleAusencias('INSTRUCTOR'), false);
+  // Mismo criterio que gestionar el equipo, a propósito: si divergen, la RLS
+  // y la API dejarían de decir lo mismo.
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const) {
+    assert.equal(puedeVerDetalleAusencias(rol), puedeGestionarEquipo(rol));
+  }
+});
+
+test('puedeVerSolicitudesSoporte: solo la propietaria lee lo que el estudio escribe a Tentare', () => {
+  // Migr 20260914000205 (`soporte_leer_propietaria`).
+  assert.equal(puedeVerSolicitudesSoporte('PROPIETARIO'), true);
+  assert.equal(puedeVerSolicitudesSoporte('MANAGER'), false);
+  assert.equal(puedeVerSolicitudesSoporte('RECEPCION'), false);
+  assert.equal(puedeVerSolicitudesSoporte('INSTRUCTOR'), false);
 });

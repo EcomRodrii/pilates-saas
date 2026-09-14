@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { puedeGestionarEquipo, puedeVerDetalleAusencias } from '@/lib/permisos-reglas';
+import { ausenciaVisiblePara } from '@/lib/ausencias';
+import type { AusenciaInstructora } from '@/lib/api-client';
 import * as Sentry from '@sentry/nextjs';
 
 // Ausencias de instructoras (vacaciones / baja médica / otro). Al crearlas se
@@ -85,11 +87,19 @@ export async function GET(req: NextRequest) {
   if (instructorId) q = q.eq('instructor_id', instructorId);
   const { data } = await q;
 
+  // Tipo y motivo solo para quien gestiona el equipo, o para la instructora
+  // sobre las suyas (arriba ya se acotó a ellas). Recepción, que asigna clases
+  // en el calendario, se lleva quién y qué días. Espejo de la RLS
+  // `ausencias_gestion` (migr 20260914000209): esta ruta va con service-role y
+  // la RLS no la ve, así que el recorte tiene que estar AQUÍ también.
+  const verDetalle = staff.rol === 'INSTRUCTOR' || puedeVerDetalleAusencias(staff.rol);
+
   return NextResponse.json({
-    items: (data ?? []).map(r => ({
-      id: r.id, instructorId: r.instructor_id, tipo: r.tipo,
-      desde: r.desde, hasta: r.hasta, motivo: r.motivo ?? null,
-    })),
+    items: (data ?? []).map(r => ausenciaVisiblePara({
+      id: r.id as string, instructorId: r.instructor_id as string,
+      tipo: r.tipo as AusenciaInstructora['tipo'],
+      desde: r.desde as string, hasta: r.hasta as string, motivo: (r.motivo as string | null) ?? null,
+    }, verDetalle)),
   });
 }
 
@@ -215,7 +225,7 @@ export async function POST(req: NextRequest) {
   await emitirInstructoraAusencia(admin, {
     studioId: staff.studioId, ausenciaId: id,
     instructora: (instr.nombre as string | null) ?? 'Una instructora',
-    tipo: b.tipo, desde: b.desde!, hasta: b.hasta!, clasesAfectadas,
+    desde: b.desde!, hasta: b.hasta!, clasesAfectadas,
   });
 
   return NextResponse.json({ ok: true, id, clasesAfectadas });
