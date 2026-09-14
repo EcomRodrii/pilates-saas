@@ -53,13 +53,19 @@ async function montarDashboard(page: Page, opts: {
   });
 
   await page.route('**/rest/v1/**', route => json(route, []));
-  await page.route('**/rest/v1/studios**', route => json(route, {
-    id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID,
-    review_boost_elegible_en: elegible ? '2026-08-20T06:00:00Z' : null,
-    review_boost_mostrado_en: mostrado ? '2026-08-20T07:00:00Z' : null,
-    review_boost_pospuesto_en: null,
-    review_boost_veces_mostrado: 0,
-  }));
+  await page.route('**/rest/v1/studios**', route =>
+    // Al cerrar, el modal sella `review_boost_*` con un UPDATE que pide
+    // `select=id` y cuenta filas: con un objeto suelto contaría como no
+    // guardado y saldría el aviso global de escritura fallida (otro «Cerrar»).
+    route.request().method() === 'PATCH'
+      ? json(route, [{ id: STUDIO_ID }])
+      : json(route, {
+        id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID,
+        review_boost_elegible_en: elegible ? '2026-08-20T06:00:00Z' : null,
+        review_boost_mostrado_en: mostrado ? '2026-08-20T07:00:00Z' : null,
+        review_boost_pospuesto_en: null,
+        review_boost_veces_mostrado: 0,
+      }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/dashboard');
