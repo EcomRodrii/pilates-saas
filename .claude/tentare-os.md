@@ -188,6 +188,15 @@ Tentare se percibe como dos productos, no un panel único con roles:
 - **Tentare Manager** → propietaria, gerencia (`MANAGER`), recepción (`RECEPCION`).
 - **Tentare Core** → instructoras (`INSTRUCTOR`).
 
+⚠️ **Tentare Core está EN RETIRADA (decisión del fundador, 14-sep-2026).** La instructora
+trabaja ya en la app del estudio (`app/portal/[slug]/equipo`: agenda, bajas, sustituciones,
+pasar lista, disponibilidad, ausencias, tarifa y push; #1958, #1960, #1962, #1963, #1966)
+con el mismo login y sin selector. Paso 1, hecho: aviso en el panel
+(`components/layout/aviso-app-instructora.tsx`) que no bloquea nada. Paso 2: borrar las
+pantallas de INSTRUCTOR del panel cuando haya paridad (faltan crear sus clases, mensajería,
+sus alumnas y notas) y lleve ~2 semanas sin instructoras usándolo. **No construir funciones
+nuevas de Core**: van a la app del estudio.
+
 Esto es un **rebranding sobre una sola app role-gateada** (`app/(dashboard)/` +
 `lib/permisos-reglas.ts`), NO un split estructural — no hay `app/manager/` ni
 `app/core/`, y no se debe "terminar" ese split por iniciativa propia sin que se pida
