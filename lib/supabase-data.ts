@@ -25,6 +25,7 @@ import { saldoVivo } from '@/lib/creditos-caducidad';
 // `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
 // medianoche UTC — dos horas antes en verano — para todo el mundo.
 import { hoyISO } from '@/lib/student/formato';
+import { reservasPorAprobarDe, type FilaReservaPorAprobar, type ReservaPorAprobar } from '@/lib/reservas-por-aprobar';
 import { fusionarDatosPrivados, CAMPOS_PRIVADOS_SOCIO, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -6031,6 +6032,37 @@ export async function dbListarPenalizacionesPendientes(): Promise<PenalizacionPe
     id: p.id, socioId: p.socio_id, socioNombre: nombrePorId.get(p.socio_id) ?? 'Socia',
     importe: p.importe, tipo: p.tipo as 'CANCELACION_TARDIA' | 'NO_SHOW', detectadaEn: p.detectada_en,
   }));
+}
+
+// ── Reservas pendientes de aprobación ───────────────────────────────────────
+//
+// Igual que `dbListarPenalizacionesPendientes`: cliente con RLS y SIN
+// `studioId`. Mismo criterio que el recuento de la bandeja
+// (app/api/estado-estudio: PENDIENTE_APROBACION de clases que aún no han
+// empezado), para que la línea y su tarjeta cuenten lo mismo.
+//
+// ⚠️ `reservasPorAprobarDe` vuelve a filtrar en JS (estado + inicio futuro) y
+// ordena por inicio: los mocks de e2e contestan `rest/v1/reservas**` sin
+// aplicar filtros. Sin límite en la consulta: ordenar el padre por una columna
+// embebida no es fiable en PostgREST, y cortar antes de ordenar podría dejar
+// fuera justo las más próximas. Las pendientes de clases futuras son pocas.
+export async function dbListarReservasPorAprobar(): Promise<ReservaPorAprobar[]> {
+  const ahora = new Date();
+  const { data, error } = await supabase
+    .from('reservas')
+    .select('id, sesion_id, socio_id, estado, sesiones!inner(inicio, tipos_clase(nombre))')
+    .eq('estado', 'PENDIENTE_APROBACION')
+    .gt('sesiones.inicio', ahora.toISOString()) as { data: FilaReservaPorAprobar[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[dbListarReservasPorAprobar]', error); return []; }
+  const reservas = reservasPorAprobarDe(data, ahora);
+  if (!reservas.length) return [];
+  const socioIds = [...new Set(reservas.map(r => r.socioId).filter((x): x is string => Boolean(x)))];
+  const { data: socios } = socioIds.length
+    ? await supabase.from('socios').select('id, nombre, apellidos').in('id', socioIds)
+    : { data: [] as { id: string; nombre: string | null; apellidos: string | null }[] };
+  const nombrePorId = new Map((socios ?? []).map(s =>
+    [s.id as string, [s.nombre, s.apellidos].filter(Boolean).join(' ').trim()]));
+  return reservas.map(r => ({ ...r, socioNombre: (r.socioId && nombrePorId.get(r.socioId)) || 'Socia' }));
 }
 
 

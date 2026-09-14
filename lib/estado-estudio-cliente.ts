@@ -14,19 +14,11 @@
 import { useEffect, useState } from 'react';
 import { authHeader } from '@/lib/api-client';
 import { unaVez } from '@/lib/una-vez';
-import type { ClaveConteo, EstadoEstudio } from '@/lib/estado-estudio';
+import type { EstadoEstudio } from '@/lib/estado-estudio';
 
-/**
- * Dónde está, dentro de la propia bandeja, la tarjeta que resuelve cada línea
- * de «Decidir» sin `href`. La línea salta a este id y la tarjeta lo lleva: una
- * sola fuente para las dos puntas, para que no se desincronicen.
- */
-export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
-  penalizacionesPorAprobar: 'decidir-penalizaciones',
-  devolucionesPorRevisar: 'decidir-devoluciones',
-  canjesPorEntregar: 'decidir-canjes',
-  bajasPorRevisar: 'decidir-bajas-equipo',
-};
+// Definido en el módulo puro (con su test); se reexporta para que las tarjetas
+// y la bandeja lo sigan importando de aquí.
+export { ANCLA_DECIDIR } from '@/lib/estado-estudio';
 
 const FRESCO_MS = 30_000;
 const EVENTO = 'tentare-estado-estudio-cambiado';

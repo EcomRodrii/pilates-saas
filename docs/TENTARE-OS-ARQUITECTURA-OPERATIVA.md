@@ -71,9 +71,9 @@ función que ya existe en el mejor de los caminos, convertida en el único camin
 
 | Hecho | Dueño objetivo | Hoy |
 |---|---|---|
-| Reserva confirmada | `trasReservaConfirmada()` (bono + aviso + gamificación + analítica) | 5 copias + panel en cliente |
+| Reserva confirmada | `trasReservaCreada` / `trasPlazaConfirmada` / `trasPromocionDeEspera` (bono + aviso + gamificación + analítica) | ✓ hecho (#1980); el bono se descuenta una vez por reserva (#1991) |
 | Reserva cancelada | `ejecutarCancelacionReserva` | ✓ ya es el dueño; la cancelación de serie lo esquiva a propósito |
-| Cobro confirmado | una sola `confirmarCobro()` (recibo → entrega → factura → aviso) | 3 dueños + panel en cliente |
+| Cobro confirmado | una sola `confirmarCobro()` (recibo → entrega → factura → aviso) | en curso (#1987) |
 | Cobro fallido | `registrarFalloCobro` | ✓ ya es el dueño |
 | Baja de instructora | `crearBaja` | ✓ ya es el dueño (todas las puertas pasan por ahí) |
 | Sustitución resuelta | RPC `confirmar_sustitucion` + avisos | ✓ desde este cambio avisa a los tres implicados |
@@ -112,7 +112,8 @@ Un read model, no un motor: recuentos de estados que ya escriben los flujos.
 
 - **Decidir** — no avanza sin ti: clases sin cubrir, reservas por aprobar,
   cobros que Tentare no ha conseguido cobrar, penalizaciones, devoluciones,
-  automatizaciones esperando, recompensas por entregar.
+  automatizaciones esperando, recompensas por entregar, bajas de última hora
+  del equipo.
 - **Tentare lo está haciendo** — buscando sustituta, plazas ofrecidas a la lista
   de espera, cobros en reintento.
 - **Resuelto por Tentare** — clases cubiertas, acciones autónomas, mensajes
@@ -138,10 +139,9 @@ mezclan en el mismo contador.
 
 **Reserva** → comprobar plan/bono → consumir crédito → ocupar plaza (o lista de
 espera / pendiente de aprobación) → confirmar a la alumna → recordatorios de serie
-→ métricas/gamificación. *Falta:* que el panel pase por el mismo dueño (hoy la
-reserva de mostrador no avisa a la alumna y consume el bono en el cliente).
-Antes de «arreglarlo», confirmar con producto si una reserva hecha en el
-mostrador debe avisar (la alumna suele estar delante).
+→ métricas/gamificación. *Ya funciona así* (#1980): el mostrador reserva por
+`POST /api/reservas/crear` y la alumna recibe el aviso salvo que recepción
+desmarque «Avisar a la alumna».
 
 **Cancelación** → política → devolver crédito → liberar plaza → promover u
 ofrecer a la siguiente → avisar. *Ya funciona así* desde `ejecutarCancelacionReserva`.
@@ -151,12 +151,15 @@ ofrecer a la siguiente → avisar. *Ya funciona así* desde `ejecutarCancelacion
 instructora en la misma transacción → avisan a la sustituta, a las alumnas (si el
 estudio lo quiere) y **a la propietaria** («Clase cubierta. No tienes que hacer
 nada»). Si no hay a quién preguntar → `agotada` + aviso, nunca silencio.
-*Falta (P1):* escalar a Tentare Network cuando se agota el ranking interno
-(hoy las candidatas de Network solo se enseñan como enlaces).
+*Decisión del fundador:* Network **no** escala sola. Cuando el ranking interno
+se agota, Tentare propone profesionales de Network con la lista recalculada en
+ese momento (#1981); la propietaria se lo pide a cada una con un toque (#1979) y
+la clase se asigna a quien la cubre (#1989). Nunca un contacto automático.
 
 **Cobro** → recibo cobrado → entrega (bono/suscripción) → factura sellada →
-recibo por email → aviso al mostrador. *Falta:* un solo dueño (ver capa 1) y que
-`marcarCobrado` del panel deje de escribir desde el cliente.
+recibo por email → aviso al mostrador. *En curso* (#1987): un solo dueño de
+«recibo cobrado» (ver capa 1). Hasta que entre, `marcarCobrado` del panel sigue
+escribiendo desde el cliente.
 
 **Cobro fallido** → reintentos +1/+3/+7 días (en marcha, visible en la bandeja)
 → al agotarse, `FALLIDO` en «Decidir». *Ya funciona así*; la bandeja lo hace visible
@@ -196,12 +199,20 @@ nueva vive dentro de un módulo existente o no se construye.
   alguien a quien trabaja sola.
 
 **P1 — alto impacto (siguiente, con diseño propio y `tentare-stripe`/`tentare-supabase`)**
-- `trasReservaConfirmada()`: extraer las cinco copias a un único dueño.
-- Reserva de mostrador por servidor, reutilizando el núcleo de `crearReservaPublica`.
-- Un único dueño de «cobro confirmado», incluido el cobro manual del panel.
-- Network como escalado automático cuando el ranking interno se agota.
-- Plegar las tarjetas sueltas de aprobación de la home dentro de la bandeja
-  (acción en línea), para que haya un solo sitio donde decidir.
+- ✓ **Hecho (#1980):** un dueño por hecho de reserva (`trasReservaCreada` /
+  `trasPlazaConfirmada` / `trasPromocionDeEspera`) en vez de cinco copias; el
+  bono se descuenta una vez por reserva (#1991).
+- ✓ **Hecho (#1980):** reserva de mostrador por servidor (`POST /api/reservas/crear`).
+- **En curso (#1987):** un único dueño de «cobro confirmado», incluido el cobro
+  manual del panel.
+- ✗ **Descartado** (decisión del fundador): Network como escalado automático
+  cuando el ranking interno se agota. Sustituido por la propuesta con la lista
+  recalculada (#1981), la petición con un toque (#1979) y la asignación a quien
+  la cubre (#1989).
+- ✓ **Hecho (#1982, #2011 y el cambio de las reservas por aprobar):** plegar las
+  tarjetas sueltas de aprobación de la home dentro de la bandeja (acción en
+  línea): penalizaciones, devoluciones, canjes, bajas de última hora del equipo
+  y reservas por aprobar se deciden ahí, en un solo sitio.
 
 **P2 — consistencia**
 - Un solo sistema de recordatorios (hoy: email/WhatsApp + push + la regla antigua).

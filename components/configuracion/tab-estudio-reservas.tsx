@@ -404,7 +404,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               Requerir aprobación manual
-              <span className="block text-[11px] text-muted-foreground">La reserva no se confirma sola: queda pendiente hasta que la apruebes o la rechaces desde el calendario.</span>
+              <span className="block text-[11px] text-muted-foreground">La reserva no se confirma sola: queda pendiente hasta que la apruebes o la rechaces desde Inicio (Lo que espera tu visto bueno) o desde la clase en el calendario.</span>
             </span>
             <Toggle on={pol.requiereAprobacion} onChange={v => setPol(p => ({ ...p, requiereAprobacion: v }))} />
           </label>

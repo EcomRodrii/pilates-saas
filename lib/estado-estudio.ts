@@ -65,6 +65,23 @@ export interface ConteosEstudio {
 export type ClaveConteo = Exclude<keyof ConteosEstudio, 'sustitucionesConNetwork'>;
 export type Bandeja = 'decidir' | 'enMarcha' | 'resuelto';
 
+/**
+ * Dónde está, dentro de la propia bandeja, la tarjeta que resuelve cada línea
+ * de «Decidir» sin `href`. La línea salta a este id y la tarjeta lo lleva: una
+ * sola fuente para las dos puntas, para que no se desincronicen.
+ *
+ * Vive aquí, en el módulo puro, y no en `estado-estudio-cliente.ts` (que lo
+ * reexporta) para que un test fije que ninguna línea sin enlace se queda sin
+ * tarjeta a la que saltar.
+ */
+export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
+  reservasPorAprobar: 'decidir-reservas',
+  penalizacionesPorAprobar: 'decidir-penalizaciones',
+  devolucionesPorRevisar: 'decidir-devoluciones',
+  canjesPorEntregar: 'decidir-canjes',
+  bajasPorRevisar: 'decidir-bajas-equipo',
+};
+
 export interface LineaEstado {
   id: ClaveConteo;
   n: number;
@@ -97,7 +114,9 @@ interface DefLinea {
 const LINEAS: DefLinea[] = [
   { id: 'sustitucionesPorDecidir', bandeja: 'decidir', href: '/sustituciones',
     uno: 'Una clase sin cubrir necesita que decidas', varios: n => `${n} clases sin cubrir necesitan que decidas` },
-  { id: 'reservasPorAprobar', bandeja: 'decidir', href: '/calendario',
+  // Se aprueba o rechaza en su tarjeta de la bandeja; «Ver clase» sigue ahí
+  // para quien quiera mirar la clase antes de decidir.
+  { id: 'reservasPorAprobar', bandeja: 'decidir', href: null,
     uno: 'Una reserva espera tu aprobación', varios: n => `${n} reservas esperan tu aprobación` },
   { id: 'recibosFallidos', bandeja: 'decidir', href: '/cobros?tab=deudas',
     uno: 'Un cobro que Tentare no ha conseguido cobrar', varios: n => `${n} cobros que Tentare no ha conseguido cobrar` },

@@ -25,7 +25,9 @@ import {
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera, hoyEnEstudio, franjaLocalDe } from '@/lib/utils';
 import { horaInicioLocalDe, nombreDiaSemana } from '@/lib/plazas-fijas-slot';
-import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
+import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
+import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
+import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import type { CambioClaseSerie } from '@/lib/avisos-serie';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
@@ -548,24 +550,28 @@ export default function Calendario() {
   // Deshacer (punto 4), reutilizado por las 6 acciones de la franja.
   const { message: toastMsg, action: toastAction, show: showToast, dismiss: dismissToast } = useToast();
 
+  // Misma traducción de la respuesta que la bandeja de Inicio
+  // (`resultadoDecisionReserva`): aprobar puede acabar en lista de espera, y un
+  // 409 (ya la resolvió otra persona) también refresca, para que la lista deje
+  // de ofrecer los botones. Mientras viaja, Aprobar/Rechazar se apagan; el ref
+  // corta el doble toque antes de que React repinte.
+  const resolviendoRef = useRef(false);
+  const [resolviendoReserva, setResolviendoReserva] = useState<string | null>(null);
   const resolverPendiente = useCallback(async (reservaId: string, aprobar: boolean) => {
+    if (resolviendoRef.current) return;
+    resolviendoRef.current = true;
+    setResolviendoReserva(reservaId);
     try {
-      const res = await fetch('/api/reservas/resolver-pendiente', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ reservaId, aprobar }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { showToast(data?.error ?? 'No se pudo procesar la reserva'); return; }
-      if (data?.motivoUI === 'clase_ya_empezada') {
-        showToast('La clase ya ha comenzado. Esta reserva se ha cancelado automáticamente y ya no puede aprobarse.');
-      } else {
-        showToast(aprobar ? 'Reserva aprobada' : 'Reserva rechazada');
+      const r = resultadoDecisionReserva(aprobar, await decidirReservaPendiente(reservaId, aprobar));
+      showToast(r.mensaje);
+      if (r.quitar) {
+        invalidarEstadoEstudio();
+        resetDatosPilates();
+        void refrescarVista();
       }
-      resetDatosPilates();
-      void refrescarVista();
-    } catch {
-      showToast('No se pudo procesar la reserva. Revisa tu conexión.');
+    } finally {
+      resolviendoRef.current = false;
+      setResolviendoReserva(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showToast, resetDatosPilates]);
@@ -2938,6 +2944,7 @@ export default function Calendario() {
             onNoShow: marcarNoShow,
             onDeshacerCheckin: deshacerCheckin, onRevertirNoShow: revertirNoShow,
             onAprobar: id => resolverPendiente(id, true), onRechazar: id => resolverPendiente(id, false),
+            resolviendoId: resolviendoReserva,
             onQuitar: gestionaClientas ? (id: string) => {
               // P2 (auditoría de producto): mostrar el aviso si la reserva se
               // canceló pero no se pudo devolver el bono — antes se perdía en

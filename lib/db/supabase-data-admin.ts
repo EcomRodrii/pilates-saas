@@ -2870,7 +2870,7 @@ async function otorgarPrimeraReservaSiToca(admin: SupabaseClient, studioId: stri
 // extra.
 export async function resolverReservaPendiente(params: {
   studioId: string; reservaId: string; aprobar: boolean;
-}): Promise<{ ok: true; estado: string; motivoUI?: 'clase_ya_empezada' } | { error: string }> {
+}): Promise<{ ok: true; estado: string; motivoUI?: 'clase_ya_empezada' } | { error: string; yaNoPendiente?: true }> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
@@ -2883,7 +2883,7 @@ export async function resolverReservaPendiente(params: {
       // faltara (ver `completarConfirmacionTrasReintento`) y se contesta igual,
       // porque para quien pulsa ya no está pendiente.
       await completarConfirmacionTrasReintento(admin, { studioId: params.studioId, reservaId: params.reservaId });
-      return { error: 'Esta reserva ya no está pendiente de aprobación' };
+      return { error: 'Esta reserva ya no está pendiente de aprobación', yaNoPendiente: true };
     }
     // R-2: la RPC valida ahora el límite semanal del plan (el mismo bloque que
     // reservar_plaza). La excepción revierte todo, así que la reserva SIGUE
