@@ -8,6 +8,7 @@ import { Button } from '@/components/student/ui/Button';
 import { useAuthStudent } from '@/lib/student/auth';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
+import { useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { leerFirma, olvidarFirma } from '@/lib/student/consentimiento';
 import { errorDeRetornoOAuth } from '@/lib/student/oauth-retorno';
 import { supabasePortal } from '@/lib/db/supabase-portal';
@@ -41,6 +42,11 @@ function Verificar() {
   const href = usePortalHref();
   const { fijarPassword, entrarConGoogle } = useAuthStudent(slug);
   const { socia, usuarioEmail, autenticado, isLoading, refrescar } = useSesionStudent(slug);
+  // Una instructora del estudio NO se da de alta como alumna: entra a su parte
+  // (la app es la misma para las dos, 14-sep-2026). `forzar`: quien aterriza
+  // aquí viene de un enlace —invitación, recuperación, Google— y un «no es
+  // instructora» recordado de antes no puede decidir por ella.
+  const { instructora, isLoading: cargandoInstructora } = useSesionInstructora(slug, autenticado && !socia, true);
 
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
@@ -138,6 +144,10 @@ function Verificar() {
   useEffect(() => {
     if (isLoading || !autenticado || forzarPassword) return;
     if (socia) { r.replace(destinoTrasEntrar()); return; }
+    // Sin ficha de alumna: antes de intentar el alta, ¿es instructora del
+    // estudio? Entonces no hay alta de alumna que firmar — va a su parte.
+    if (cargandoInstructora) return;
+    if (instructora) { r.replace(href('/equipo')); return; }
     // Autenticada pero sin ficha en este estudio: se intenta firmar el alta.
     void firmarAlta().then((res) => {
       if (res.ok) { r.replace(destinoTrasEntrar()); return; }
@@ -157,7 +167,7 @@ function Verificar() {
     // `firmarAlta` se recrea en cada render y meterlo en las dependencias
     // volvería a lanzarlo en bucle; lo que decide es el estado de sesión.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, autenticado, socia, forzarPassword]);
+  }, [isLoading, autenticado, socia, forzarPassword, instructora, cargandoInstructora]);
 
   const guardar = async () => {
     if (pass.length < 8) { setErr('Mínimo 8 caracteres'); return; }
@@ -165,6 +175,15 @@ function Verificar() {
 
     const res = await fijarPassword(pass);
     if ('error' in res) { setCargando(false); setGlobal(res.error); return; }
+
+    // Una instructora que llega por la invitación del estudio solo elige su
+    // contraseña: no hay alta de alumna que firmar.
+    if (instructora) {
+      setCargando(false);
+      setListo(true);
+      setTimeout(() => r.replace(href('/equipo')), 900);
+      return;
+    }
 
     // Con contraseña puesta, se intenta también el alta si estaba pendiente.
     const alta = await firmarAlta();

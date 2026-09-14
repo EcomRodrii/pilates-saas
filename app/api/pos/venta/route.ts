@@ -10,6 +10,7 @@ import { uid } from '@/lib/utils';
 import { contextoCobroDe, proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
 import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
 import { mensajeErrorVenta, codigoDeErrorPg, type LineaVentaPeticion } from '@/lib/pos/tipos';
+import { cuotaSinClienta, MENSAJE_CUOTA_SIN_CLIENTA } from '@/lib/pos/cuota-exige-clienta';
 import type { MetodoPago } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -128,6 +129,24 @@ export async function POST(req: NextRequest) {
     const { data: socia } = await admin.from('socios')
       .select('id').eq('id', socioId).eq('studio_id', sesion.studioId).maybeSingle();
     if (!socia) return NextResponse.json({ error: 'Esa clienta no es de este estudio.' }, { status: 403 });
+  }
+
+  // Una CUOTA exige clienta (lib/pos/cuota-exige-clienta.ts). Un bono o una
+  // clase suelta pueden quedar «por asignar» —a propósito: la clase de prueba de
+  // alguien que no da sus datos—, una cuota no: se renueva cada ciclo y tiene
+  // que ser de alguien. La pantalla ya bloquea «Cobrar»; esto es la cerradura.
+  const idsDePlan = sane.lineas
+    .filter((l) => l.tipo === 'PLAN' && l.referenciaId)
+    .map((l) => l.referenciaId as string);
+  if (!socioId && idsDePlan.length > 0) {
+    const { data: planesVenta, error: errPlanes } = await admin.from('planes_tarifa')
+      .select('id, tipo').eq('studio_id', sesion.studioId).in('id', idsDePlan);
+    if (errPlanes) {
+      return errorInterno('[pos/venta] no se pudo leer el tipo de los planes', errPlanes, 'No se ha podido registrar la venta.');
+    }
+    if (cuotaSinClienta((planesVenta ?? []).map((p) => p.tipo as string), socioId)) {
+      return NextResponse.json({ error: MENSAJE_CUOTA_SIN_CLIENTA, codigo: 'CUOTA_SIN_CLIENTA' }, { status: 400 });
+    }
   }
 
   // Caja abierta, si la hay. La venta se apunta en ella; si no hay ninguna

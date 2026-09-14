@@ -14,6 +14,7 @@ import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
 import type { LeadStage } from '@/lib/types';
 import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
+import { asignarVentaAClienta, esError, ventasPorAsignarDePlan, type VentaPorAsignar } from '@/lib/pos/cliente';
 import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
@@ -248,6 +249,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     condicionesSalud, camposPersonalizados,
     facturas,
     emailsRebotados,
+    refrescarTrasVentaPOS,
   } = useStudio();
   // Las notas internas y las respuestas de sesión no vienen en el arranque
   // (#1375 las sacó y nadie escribió la carga posterior). Se piden aquí.
@@ -311,6 +313,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [reservasPage, setReservasPage] = useState(20);
   const [toast, setToast] = useState<string | null>(null);
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  // El plan que se iba a dar de alta y las ventas del TPV que ya lo cobraron sin
+  // clienta. `null` = no hay nada que avisar.
+  const [ventaPorAsignar, setVentaPorAsignar] = useState<{ planId: string; nombrePlan: string; ventas: VentaPorAsignar[] } | null>(null);
+  const [asignandoVenta, setAsignandoVenta] = useState(false);
   const [reactivando, setReactivando] = useState(false);
   const [reactivandoBuzon, setReactivandoBuzon] = useState(false);
   // I-8: `emailsRebotados` vive en el contexto y se carga UNA vez por sesión
@@ -601,17 +607,47 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // Solo ASIGNA. Quitar el plan ya no pasa por aquí: `assignPlan(id, null)`
   // protege a propósito los bonos con saldo, así que como «cancelar» mentía.
   // El tipo (sin `| null`) es lo que impide que vuelva a colarse.
-  async function cambiarPlan(planId: string, nombrePlan: string) {
+  async function cambiarPlan(planId: string, nombrePlan: string, opciones: { aunqueEsteCobradoEnTPV?: boolean } = {}) {
     if (cambiandoPlan) return;
     setCambiandoPlan(true);
     try {
+      // ⚠️ Antes de cobrar el plan: ¿está ya cobrado en el TPV sin clienta? El
+      // 10-sep se vendió una cuota así y, un minuto después, se dio de alta el
+      // mismo plan aquí: dos recibos por un solo pago. Si la consulta falla se
+      // sigue como siempre — el aviso ayuda, no bloquea el alta.
+      if (!opciones.aunqueEsteCobradoEnTPV) {
+        const r = await ventasPorAsignarDePlan(planId);
+        // `Array.isArray`: una respuesta con otra forma no puede tumbar el alta.
+        if (!esError(r) && Array.isArray(r.ventas) && r.ventas.length > 0) {
+          setShowChangePlan(false);
+          setVentaPorAsignar({ planId, nombrePlan, ventas: r.ventas });
+          return;
+        }
+      }
       await assignPlan(id, planId);
       setShowChangePlan(false);
+      setVentaPorAsignar(null);
       setToast(`Plan "${nombrePlan}" asignado`);
     } catch (e) {
       setToast(e instanceof Error ? e.message : ERROR_GENERICO);
     } finally {
       setCambiandoPlan(false);
+    }
+  }
+
+  // Asigna a esta clienta una venta del TPV cobrada sin ella: el servidor
+  // entrega el plan (`entregarVentaPOS`) sin volver a cobrarlo.
+  async function asignarVentaDelTPV(venta: VentaPorAsignar) {
+    if (asignandoVenta || !puedeCobrar) return;
+    setAsignandoVenta(true);
+    try {
+      const r = await asignarVentaAClienta(venta.id, id);
+      if (esError(r)) { setToast(r.error); return; }
+      setVentaPorAsignar(null);
+      setToast(`Venta nº ${venta.numero} asignada: plan entregado sin cobrarlo otra vez`);
+      await refrescarTrasVentaPOS();
+    } finally {
+      setAsignandoVenta(false);
     }
   }
 
@@ -2231,6 +2267,65 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               </button>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Aviso anti-duplicado: el plan que se va a dar de alta ya está cobrado en
+          el TPV sin clienta. Ver `cambiarPlan`. */}
+      <Dialog
+        open={ventaPorAsignar !== null && verFinanzas}
+        onOpenChange={open => { if (!open && !asignandoVenta && !cambiandoPlan) setVentaPorAsignar(null); }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-foreground">Este plan ya está cobrado en el TPV</DialogTitle>
+          </DialogHeader>
+          {ventaPorAsignar && (
+            <div className="space-y-3 mt-2">
+              <p className="text-sm text-muted-foreground">
+                «{ventaPorAsignar.nombrePlan}» se cobró en el mostrador sin clienta y está por asignar.
+                Si es de {socio.nombre}, asígnale esa venta: se le entrega el plan sin cobrarlo otra vez.
+              </p>
+              <ul className="space-y-2">
+                {ventaPorAsignar.ventas.map(v => (
+                  <li key={v.id} className="rounded-xl border border-border px-3 py-2.5">
+                    <p className="text-sm font-semibold text-foreground">Venta nº {v.numero} · {formatEuro(v.total)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(v.realizadaEn).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}
+                    </p>
+                    {puedeCobrar && (
+                      <button
+                        onClick={() => void asignarVentaDelTPV(v)}
+                        disabled={asignandoVenta || cambiandoPlan}
+                        className="mt-2 w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-brand-foreground disabled:opacity-40"
+                      >
+                        {asignandoVenta ? 'Asignando…' : `Asignar la venta nº ${v.numero} a ${socio.nombre}`}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {!puedeCobrar && (
+                <p className="text-xs text-muted-foreground">Asignarla puede hacerlo quien lleve la caja, desde Ventas.</p>
+              )}
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  onClick={() => void cambiarPlan(ventaPorAsignar.planId, ventaPorAsignar.nombrePlan, { aunqueEsteCobradoEnTPV: true })}
+                  disabled={cambiandoPlan || asignandoVenta}
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-40"
+                >
+                  Dar de alta igualmente (se cobra otra vez)
+                </button>
+                <button
+                  onClick={() => setVentaPorAsignar(null)}
+                  disabled={cambiandoPlan || asignandoVenta}
+                  className="w-full rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-40"
+                >
+                  Volver
+                </button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

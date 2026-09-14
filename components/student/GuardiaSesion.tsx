@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
+import { useSesionInstructora } from '@/lib/student/sesion-instructora';
 
 /**
  * Deja pasar solo a quien tiene sesión; al resto lo manda a acceso conservando
@@ -22,23 +23,34 @@ import { useSesionStudent } from '@/lib/student/sesion';
  *
  * Mientras resuelve NO se pinta el esqueleto de la app: enseñar la pantalla
  * llena y luego mandar a acceso es peor que esperar un instante.
+ *
+ * ⚠️ Con sesión pero SIN ficha de alumna puede ser una instructora del estudio
+ * (la app es la misma para las dos, decisión del 14-sep-2026). Las pantallas de
+ * alumna no le sirven —todo lo que piden exige ficha—, así que se la lleva a su
+ * parte. Solo se pregunta en ese caso: una alumna con ficha no paga la petición.
  */
 export function GuardiaSesion({ children }: { children: ReactNode }) {
   const r = useRouter();
   const path = usePathname();
   const { slug } = useEstudio();
   const href = usePortalHref();
-  const { autenticado, isLoading } = useSesionStudent(slug);
+  const { socia, autenticado, isLoading } = useSesionStudent(slug);
+  const sinFicha = !isLoading && autenticado && !socia;
+  const { instructora, isLoading: cargandoInstructora } = useSesionInstructora(slug, sinFicha);
 
   useEffect(() => {
-    if (isLoading || autenticado) return;
-    // `?next=` para volver justo a donde iba después de entrar. El destino se
-    // valida en la pantalla de acceso: solo se acepta una ruta de ESTE estudio.
-    const destino = `${href('/acceso/login')}?next=${encodeURIComponent(path)}`;
-    r.replace(destino);
-  }, [isLoading, autenticado, href, path, r]);
+    if (isLoading) return;
+    if (!autenticado) {
+      // `?next=` para volver justo a donde iba después de entrar. El destino se
+      // valida en la pantalla de acceso: solo se acepta una ruta de ESTE estudio.
+      const destino = `${href('/acceso/login')}?next=${encodeURIComponent(path)}`;
+      r.replace(destino);
+      return;
+    }
+    if (instructora) r.replace(href('/equipo'));
+  }, [isLoading, autenticado, instructora, href, path, r]);
 
-  if (isLoading || !autenticado) {
+  if (isLoading || !autenticado || (sinFicha && cargandoInstructora) || instructora) {
     return (
       <div className="shell" aria-busy="true">
         <div className="page px" style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 'calc(72px + var(--safe-top))' }}>

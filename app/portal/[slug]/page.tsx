@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
+import { useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { compararPorCaducidad } from '@/lib/student/bono-cubre';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
@@ -56,7 +57,15 @@ export default function InicioPage() {
   precargarFoto(estudio.fotoPortada, 640, SIZES_PORTADA);
   const href = usePortalHref();
   const router = useRouter();
-  const { socia } = useSesionStudent(estudio.slug);
+  const { socia, autenticado } = useSesionStudent(estudio.slug);
+  // La app es también la de la instructora (14-sep-2026): quien entra con su
+  // cuenta de instructora de este estudio va directa a su parte, aunque además
+  // sea alumna — allí tiene la agenda única con lo que da y lo que reserva.
+  const { instructora } = useSesionInstructora(estudio.slug, autenticado);
+  const destinoEquipo = href('/equipo');
+  useEffect(() => {
+    if (instructora) router.replace(destinoEquipo);
+  }, [instructora, destinoEquipo, router]);
   const hoy = hoyISO();
   // `null` hasta que hidrata; los filtros que lo usan lo tratan como «todavía no».
   const ahoraMs = useAhoraMs();
