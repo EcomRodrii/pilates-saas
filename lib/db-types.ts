@@ -1445,6 +1445,8 @@ export interface RowSustitucionContactos {
   token: string | null;
   enviado_en: string | null;
   respondido_en: string | null;
+  // migr 20260914110100.
+  token_hash: string | null;
 }
 
 export interface RowValoraciones {
@@ -2805,5 +2807,11 @@ export interface RowCicloEstudiosVencidos {
   cancelada_en: string | null;
   resumen: any;
   creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowKioskoTokens {
+  studio_id: string;
+  token_hash: string;
   actualizado_en: string;
 }
