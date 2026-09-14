@@ -28,6 +28,7 @@ import type {
 import type { CertificacionNetworkPublica } from '@/lib/network/publico';
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
+import type { EstadoCoberturaNetwork } from '@/lib/network/cobertura-sustitucion.ts';
 import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
 import type { EstudioListadoPublico } from '@/lib/network/publico-estudios.ts';
 import type { RowDocumentosSocio } from '@/lib/db-types';
@@ -475,6 +476,10 @@ export interface SustitucionPanel {
   ranking: SustitucionCandidata[];
   // Ausente en filas anteriores a la migración 20260818010000 → tratar como [].
   candidatos_network?: CandidatoNetworkSustitucion[] | null;
+  // En qué punto está cada profesional de Network propuesta, por perfilId.
+  // Ausente si el servidor no pudo calcularlo o el rol no contacta por Network
+  // → la tarjeta ofrece «Pedir que la cubra», como antes.
+  cobertura_network?: Record<string, EstadoCoberturaNetwork> | null;
   sesion_id: string;
   sesiones: { inicio: string; fin: string; tipo_clase_id: string | null; cancelada: boolean } | null;
   // Traza de contactos (embed). Ausente en respuestas antiguas → tratar como [].
@@ -2769,14 +2774,16 @@ export async function resolverVerificacionNetwork(
 }
 
 // Fase 9: contacto.
+// `sustitucionId`: la clase que se quiere cubrir, cuando se pide desde una
+// sustitución (el servidor la valida contra el estudio de la sesión).
 export async function contactarPerfilNetwork(
-  perfilId: string, mensaje: string,
+  perfilId: string, mensaje: string, sustitucionId?: string,
 ): Promise<{ ok: true; solicitudId: string } | { ok: false; error: string; status: number }> {
   try {
     const res = await fetch('/api/network/contacto', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ perfilId, mensaje: mensaje || null }),
+      body: JSON.stringify({ perfilId, mensaje: mensaje || null, ...(sustitucionId ? { sustitucionId } : {}) }),
     });
     const data = (await res.json().catch(() => ({}))) as { solicitudId?: string; error?: string };
     // `status` para que quien llama distinga «ya le habías pedido contacto»
