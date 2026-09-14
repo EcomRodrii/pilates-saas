@@ -133,6 +133,17 @@ export function asignarVentaAClienta(ventaId: string, socioId: string) {
   );
 }
 
+/** Una venta del TPV cobrada sin clienta con un plan todavía sin entregar. */
+export interface VentaPorAsignar { id: string; numero: number; total: number; realizadaEn: string }
+
+/**
+ * ¿Está este plan cobrado en el TPV y «por asignar»? Lo pregunta la ficha antes
+ * de dar de alta el plan, para no cobrarlo dos veces (ver la ruta).
+ */
+export function ventasPorAsignarDePlan(planId: string) {
+  return pedir<{ ventas: VentaPorAsignar[] }>(`/api/pos/ventas/por-asignar?planId=${encodeURIComponent(planId)}`);
+}
+
 export function devolverVenta(p: { ventaId: string; lineas?: { lineaId: string; cantidad: number }[]; motivo?: string }) {
   return pedir<{ ok: true; devolucionId: string; importe: number; esTotal: boolean; dineroDevuelto: boolean; creditosRetirados: number; enEfectivo: boolean }>(
     '/api/pos/devolucion', { method: 'POST', body: JSON.stringify(p) },
