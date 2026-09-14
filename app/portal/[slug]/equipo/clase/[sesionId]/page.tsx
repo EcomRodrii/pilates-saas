@@ -11,7 +11,8 @@ import { useAhoraMs } from '@/lib/student/use-ahora';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getClases } from '@/lib/student/datos';
-import { getAgendaInstructora, pedirBaja } from '@/lib/student/datos-instructora';
+import { getAgendaInstructora, getListaClase, pedirBaja } from '@/lib/student/datos-instructora';
+import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { puedePasarLista, puedePedirBaja, textoBaja } from '@/lib/student/agenda-instructora';
 import { addDias, etiquetaDia, hoyISO } from '@/lib/student/formato';
 import { Sheet } from '@/components/student/ui/Sheet';
@@ -56,16 +57,20 @@ export default function FichaClaseInstructoraPage() {
   const cargar = useCallback(async () => {
     // Monta antes que su guardia (es su padre): sin confirmar, no se pide nada.
     if (!esInstructora) return new Promise<never>(() => {});
-    const [agenda, publicas] = await Promise.all([
+    const [agenda, publicas, lista] = await Promise.all([
       getAgendaInstructora(estudio.slug, hoy, hasta),
       // La foto y la duración salen del catálogo de la app (ya en caché): así la
       // ficha se ve como la de la alumna sin una petición nueva.
       getClases(estudio.slug).catch(() => []),
+      // «Quién viene»: la misma lista que «Pasar lista» (nombre corto). Si falla,
+      // la ficha se enseña igual, sin esa sección.
+      getListaClase(estudio.slug, sesionId).catch(() => null),
     ]);
     const publica = publicas.find((c) => c.id === sesionId);
     return {
       clase: agenda.clases.find((c) => c.id === sesionId) ?? null,
       foto: publica?.fotoUrl || null,
+      quienViene: (lista?.alumnas ?? []).filter((a) => a.estado !== 'no-vino'),
     };
   }, [esInstructora, estudio.slug, hoy, hasta, sesionId]);
 
@@ -182,6 +187,36 @@ export default function FichaClaseInstructoraPage() {
           <Fila k="Reservas" v={`${clase.confirmadas} de ${clase.aforo} plazas`} />
           {clase.enEspera > 0 && <Fila k="Lista de espera" v={String(clase.enEspera)} />}
         </div>
+
+        {/* En una clase cancelada no hay a quién preparar, y sus alumnas pueden no
+            contar ya como «tuyas»: el enlace acabaría en «No encontramos a esta alumna». */}
+        {!clase.cancelada && (data?.quienViene.length ?? 0) > 0 && (
+          <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="quien-viene">
+            <h2 id="quien-viene" className="t-label">Quién viene</h2>
+            {data?.quienViene.map((a) => {
+              const contenido = (
+                <>
+                  <AvatarSocia nombre={a.nombre} size={32} />
+                  <span className="t-small trunc" style={{ flex: 1, fontWeight: 700 }}>{a.nombre}</span>
+                </>
+              );
+              const estilo = { padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 } as const;
+              return a.socioId ? (
+                <Link
+                  key={a.reservaId}
+                  href={href(`/equipo/alumnas/${encodeURIComponent(a.socioId)}`)}
+                  className="card card--tap"
+                  data-testid="quien-viene"
+                  style={estilo}
+                >
+                  {contenido}
+                </Link>
+              ) : (
+                <div key={a.reservaId} className="card" data-testid="quien-viene" style={estilo}>{contenido}</div>
+              );
+            })}
+          </section>
+        )}
 
         {!online && <OfflineState cuerpo="Puedes ver la clase, pero avisar al estudio necesita conexión." />}
       </div>

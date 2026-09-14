@@ -45,8 +45,12 @@ export async function instructorIdDeSesion(admin: SupabaseClient, sesion: Sesion
 /**
  * Reservas y citas de la socia con esa instructora dentro de la ventana. `null`
  * si alguna consulta falla: quien llama lo trata como «no» (falla cerrado).
+ *
+ * Exportada para «Tus alumnas» de la app de la instructora
+ * (lib/portal-instructora/alumnas-servidor.ts): la ficha de una alumna y su
+ * salud tienen que decidir «es su alumna» con la MISMA regla.
  */
-async function filasDeSociaConInstructora(
+export async function filasDeSociaConInstructora(
   admin: SupabaseClient, studioId: string, instructorId: string, socioId: string, ahora: Date,
 ): Promise<ClaseOCitaDeSocia[] | null> {
   const desde = new Date(ahora.getTime() - VENTANA_ALUMNA_DIAS * DIA_MS).toISOString();

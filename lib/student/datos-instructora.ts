@@ -7,6 +7,7 @@ import type {
 } from '@/lib/student/agenda-instructora';
 import type { AusenciaVista, PerfilInstructora, TipoAusencia } from '@/lib/student/perfil-instructora';
 import type { OpcionesNuevaClase } from '@/lib/student/nueva-clase';
+import type { AlumnaResumen, FichaAlumna } from '@/lib/student/alumnas-instructora';
 
 // Adaptador de datos de la instructora en la app. Delgado a propósito, como
 // `datos.ts`: pide y devuelve; lo que decide vive en el servidor.
@@ -124,7 +125,7 @@ export async function guardarDisponibilidadInstructora(
 }
 
 async function postInstructora(
-  ruta: 'ofertas' | 'lista' | 'perfil' | 'ausencias' | 'clases', cuerpo: Record<string, unknown>,
+  ruta: 'ofertas' | 'lista' | 'perfil' | 'ausencias' | 'clases' | 'alumnas', cuerpo: Record<string, unknown>,
 ): Promise<Response> {
   const auth = await portalAuthHeader();
   return fetch(`/api/portal/instructora/${ruta}`, {
@@ -291,4 +292,29 @@ export async function crearClaseInstructora(
   } catch {
     return { ok: false, error: 'Sin conexión: la clase no se ha creado.' };
   }
+}
+
+/** Sus alumnas (de sus clases de los últimos 30 días y los próximos 30). */
+export async function getAlumnasInstructora(slug: string): Promise<AlumnaResumen[]> {
+  const res = await postInstructora('alumnas', { slug, accion: 'listar' });
+  if (!res.ok) throw new Error(`instructora/alumnas ${res.status}`);
+  const d = await res.json() as { alumnas?: unknown };
+  return Array.isArray(d.alumnas) ? d.alumnas as AlumnaResumen[] : [];
+}
+
+/** La ficha mínima de una alumna suya. `null` si no existe o no es su alumna. */
+export async function getFichaAlumna(slug: string, socioId: string): Promise<FichaAlumna | null> {
+  const res = await postInstructora('alumnas', { slug, accion: 'ficha', socioId });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`instructora/alumnas ${res.status}`);
+  const d = await res.json() as Partial<FichaAlumna>;
+  if (!d.socioId) return null;
+  return {
+    socioId: d.socioId,
+    nombre: d.nombre ?? '',
+    fotoUrl: d.fotoUrl ?? null,
+    primeraClase: d.primeraClase === true,
+    proximas: Array.isArray(d.proximas) ? d.proximas : [],
+    pasadas: Array.isArray(d.pasadas) ? d.pasadas : [],
+  };
 }

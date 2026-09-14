@@ -97,6 +97,7 @@ export default function PerfilInstructoraPage() {
           items={[
             { label: 'Tu disponibilidad', href: href('/equipo/disponibilidad') },
             { label: 'Tus ausencias', href: href('/equipo/ausencias') },
+            { label: 'Tus alumnas', href: href('/equipo/alumnas') },
           ]}
         />
 

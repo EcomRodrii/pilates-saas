@@ -279,6 +279,8 @@ export function estadoEnLista(estadoReserva: string): EstadoEnLista | null {
 
 export interface AlumnaEnLista {
   reservaId: string;
+  /** Para abrir su ficha en «Tus alumnas». */
+  socioId?: string;
   /** Ver `nombresParaLista`. */
   nombre: string;
   estado: EstadoEnLista;
