@@ -13,14 +13,14 @@ function libroDesde(filasPorHoja: Record<string, (string | number)[][]>): ArrayB
   return buf;
 }
 
-test('parseXlsx lee cabecera y filas básicas', () => {
+test('parseXlsx lee cabecera y filas básicas', async () => {
   const data = libroDesde({ Hoja1: [['Nombre', 'Email'], ['Ana', 'ana@b.com'], ['Luis', 'luis@b.com']] });
-  const r = parseXlsx(data);
+  const r = await parseXlsx(data);
   assert.deepEqual(r.headers, ['Nombre', 'Email']);
   assert.deepEqual(r.rows, [['Ana', 'ana@b.com'], ['Luis', 'luis@b.com']]);
 });
 
-test('parseXlsx se salta preámbulo antes de la cabecera, igual que parseCsv', () => {
+test('parseXlsx se salta preámbulo antes de la cabecera, igual que parseCsv', async () => {
   const data = libroDesde({
     Hoja1: [
       ['Listado de clientas 2026'],
@@ -29,22 +29,22 @@ test('parseXlsx se salta preámbulo antes de la cabecera, igual que parseCsv', (
       ['Ana', 'ana@b.com'],
     ],
   });
-  const r = parseXlsx(data);
+  const r = await parseXlsx(data);
   assert.deepEqual(r.headers, ['Nombre', 'Email']);
   assert.deepEqual(r.rows, [['Ana', 'ana@b.com']]);
 });
 
-test('parseXlsx elige la hoja con más filas cuando el libro tiene varias', () => {
+test('parseXlsx elige la hoja con más filas cuando el libro tiene varias', async () => {
   const data = libroDesde({
     Notas: [['Solo un par de notas sueltas']],
     Clientas: [['Nombre', 'Email'], ['Ana', 'ana@b.com'], ['Luis', 'luis@b.com'], ['Marta', 'marta@b.com']],
   });
-  const r = parseXlsx(data);
+  const r = await parseXlsx(data);
   assert.deepEqual(r.headers, ['Nombre', 'Email']);
   assert.equal(r.rows.length, 3);
 });
 
-test('parseXlsx no tiene delimitador (concepto que no aplica a Excel)', () => {
+test('parseXlsx no tiene delimitador (concepto que no aplica a Excel)', async () => {
   const data = libroDesde({ Hoja1: [['Nombre'], ['Ana']] });
-  assert.equal(parseXlsx(data).delimiter, '');
+  assert.equal((await parseXlsx(data)).delimiter, '');
 });

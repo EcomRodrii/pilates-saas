@@ -67,3 +67,11 @@ next-env.d.ts
 
 # Capturas de scripts de comparación visual (se regeneran)
 .comparacion-visual/
+
+# Repo PÚBLICO: los informes internos, sus parches y los datos de trabajo de
+# una revisión viven fuera de él. Ya entraron una vez de paso en un commit que
+# hacía otra cosa (2026-09-14); `lib/repo-publico-guardia.test.ts` lo vigila
+# también en CI, esto evita que lleguen al índice con un `git add -A`.
+/auditoria-*.md
+/tentare.app-audit/
+*.patch

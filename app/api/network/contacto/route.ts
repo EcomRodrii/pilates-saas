@@ -5,6 +5,8 @@ import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
 import { emitirRedContactoSolicitado } from '@/lib/notifications/emit';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { ESTADOS_EN_JUEGO } from '@/lib/sustituciones/contacto';
+import { faltaColumnaSustitucion } from '@/lib/network/cobertura-sustitucion';
 
 // Contacto — docs/NETWORK-IMPLEMENTATION-PLAN.md §6/§9.
 //
@@ -40,21 +42,45 @@ export async function POST(req: NextRequest) {
   const limitadoUsuario = await enforceRateLimit(req, 'network-contacto-usuario', { max: 20, windowSeconds: 600 }, sesion.userId);
   if (limitadoUsuario) return limitadoUsuario;
 
-  const body = (await req.json().catch(() => null)) as { perfilId?: unknown; mensaje?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { perfilId?: unknown; mensaje?: unknown; sustitucionId?: unknown } | null;
   const perfilId = typeof body?.perfilId === 'string' ? body.perfilId : null;
   if (!perfilId) return errorPeticion('Falta el perfil.');
   const mensaje = body?.mensaje == null || body.mensaje === '' ? null : String(body.mensaje).trim();
+  // Desde una sustitución (PropuestasNetwork), la clase que se quiere cubrir.
+  // Llega del cuerpo: tiene que ser de ESTE estudio y seguir abierta. Nunca
+  // autoriza nada después — la asignación exige ficha activa en el equipo.
+  const sustitucionId = typeof body?.sustitucionId === 'string' && body.sustitucionId ? body.sustitucionId : null;
+
+  if (sustitucionId) {
+    const { data: sust, error: errSust } = await admin
+      .from('sustituciones').select('estado').eq('id', sustitucionId).eq('studio_id', sesion.studioId).maybeSingle();
+    if (errSust) return errorInterno('network:contacto:POST:sustitucion', errSust, 'No se ha podido enviar la solicitud.');
+    if (!sust) return errorPeticion('Esa sustitución no es de tu estudio.', 404);
+    // 422 y no 409: en /sustituciones un 409 se lee como «ya le habías pedido contacto».
+    if (!ESTADOS_EN_JUEGO.includes(sust.estado as string)) {
+      return errorPeticion('Esta sustitución ya está resuelta. Recarga la página.', 422);
+    }
+  }
 
   const { data: perfil } = await admin
     .from('red_perfiles').select('id, auth_user_id, nombre').eq('id', perfilId).eq('estado', 'published').maybeSingle();
   if (!perfil) return errorPeticion('Este perfil ya no está disponible.', 404);
 
-  const { data: solicitud, error } = await admin
+  const fila = { id: `redcontacto-${uid()}`, perfil_id: perfilId, studio_id: sesion.studioId, solicitado_por: sesion.userId, mensaje };
+  const conClase: Record<string, unknown> = sustitucionId ? { ...fila, sustitucion_id: sustitucionId } : fila;
+  let { data: solicitud, error } = await admin
     .from('red_solicitudes_contacto')
-    .insert({ id: `redcontacto-${uid()}`, perfil_id: perfilId, studio_id: sesion.studioId, solicitado_por: sesion.userId, mensaje })
+    .insert(conClase)
     .select('id')
     .single();
-  if (error) {
+  // Migración 20260914151252 sin aplicar todavía: la solicitud sale igual, sin
+  // recordar la clase. Perder ese dato es mejor que dejar a la propietaria sin
+  // poder pedir cobertura.
+  if (error && sustitucionId && faltaColumnaSustitucion(error)) {
+    ({ data: solicitud, error } = await admin.from('red_solicitudes_contacto').insert(fila).select('id').single());
+  }
+  if (error || !solicitud) {
+    if (!error) return errorInterno('network:contacto:POST', new Error('insert sin fila'), 'No se ha podido enviar la solicitud.');
     if (error.code === '23505') return errorPeticion('Ya tienes una solicitud pendiente con esta profesional.', 409);
     return errorInterno('network:contacto:POST', error, 'No se ha podido enviar la solicitud.');
   }

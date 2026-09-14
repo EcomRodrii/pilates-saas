@@ -15,7 +15,11 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import {
   puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
 } from '@/lib/sustituciones/recalculo';
-import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { puedeGestionarEquipo, puedeVer } from '@/lib/permisos-reglas';
+import {
+  estadosCoberturaPorPerfil, faltaColumnaSustitucion,
+  type EstadoCoberturaNetwork, type InstructorCobertura, type SolicitudCobertura,
+} from '@/lib/network/cobertura-sustitucion';
 import { devolverBonosPorCancelacionClase } from '@/lib/db/supabase-data-admin';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
@@ -143,8 +147,20 @@ export async function GET(req: NextRequest) {
   // join: el equipo de un estudio cabe de sobra en memoria.
   const equipo = await diagnosticarEquipo(admin, sesion.studioId);
 
+  // En qué punto está cada profesional de Network propuesta (pedida, aceptada,
+  // ya en el equipo). Solo para quien puede contactar desde Network — el mismo
+  // gate que pinta el botón — y best-effort como la traza: sin esto la tarjeta
+  // vuelve a ofrecer «Pedir que la cubra», que es lo que hacía antes.
+  const cobertura = puedeVer(sesion.rol, '/network/buscar')
+    ? await coberturaNetwork(admin, sesion.studioId, lista)
+    : new Map<string, Record<string, EstadoCoberturaNetwork>>();
+
   return NextResponse.json({
-    sustituciones: lista.map((s) => ({ ...s, sustitucion_contactos: contactosPorSust.get(s.id) ?? [] })),
+    sustituciones: lista.map((s) => ({
+      ...s,
+      sustitucion_contactos: contactosPorSust.get(s.id) ?? [],
+      ...(cobertura.has(s.id) ? { cobertura_network: cobertura.get(s.id) } : {}),
+    })),
     avisarAlumnas: !!estudio?.avisar_alumnas,
     modoAutonomia: (estudio?.modo_autonomia as string) ?? 'asistido',
     // Para pintar los modos Autónomo/Vacaciones bloqueados con candado en Base.
@@ -555,6 +571,81 @@ export async function PATCH(req: NextRequest) {
   }
 
   return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
+}
+
+/**
+ * Estado de cada profesional de Network propuesta en las sustituciones abiertas
+ * (lib/network/cobertura-sustitucion.ts), por sustitución y perfil. Todo acotado
+ * al estudio de la sesión: solicitudes de ESTE estudio y fichas de ESTE estudio.
+ *
+ * Tolera la migración 20260914151252 sin aplicar: sin `sustitucion_id` solo se
+ * pierde saber si una solicitud era para esta clase.
+ */
+async function coberturaNetwork(
+  admin: ReturnType<typeof getSupabaseAdmin> & {},
+  studioId: string,
+  lista: Array<{ id: string; estado: string; instructor_original_id: string | null; candidatos_network?: unknown }>,
+): Promise<Map<string, Record<string, EstadoCoberturaNetwork>>> {
+  const out = new Map<string, Record<string, EstadoCoberturaNetwork>>();
+  const abiertas = lista
+    .filter((s) => ESTADOS_EN_JUEGO.includes(s.estado))
+    .map((s) => ({
+      s,
+      perfilIds: (Array.isArray(s.candidatos_network) ? s.candidatos_network : [])
+        .map((c) => (c as { perfilId?: unknown })?.perfilId)
+        .filter((id): id is string => typeof id === 'string'),
+    }))
+    .filter((x) => x.perfilIds.length > 0);
+  if (abiertas.length === 0) return out;
+
+  try {
+    const perfilIds = Array.from(new Set(abiertas.flatMap((x) => x.perfilIds)));
+
+    const leerSolicitudes = (columnas: string) => admin
+      .from('red_solicitudes_contacto').select(columnas)
+      .eq('studio_id', studioId).in('perfil_id', perfilIds);
+    const [{ data: perfiles, error: errPerf }, solicitudesConClase] = await Promise.all([
+      admin.from('red_perfiles').select('id, auth_user_id').in('id', perfilIds),
+      leerSolicitudes('id, perfil_id, estado, creado_en, sustitucion_id'),
+    ]);
+    let { data: solicitudes, error: errSol } = solicitudesConClase;
+    if (errSol && faltaColumnaSustitucion(errSol)) {
+      ({ data: solicitudes, error: errSol } = await leerSolicitudes('id, perfil_id, estado, creado_en'));
+    }
+    if (errPerf || errSol) {
+      console.error('[sustituciones] no se pudo cargar la cobertura de Network', errPerf ?? errSol);
+      return out;
+    }
+
+    const filasPerfiles = (perfiles ?? []) as Array<{ id: string; auth_user_id: string | null }>;
+    const authIds = Array.from(new Set(filasPerfiles.map((p) => p.auth_user_id).filter((id): id is string => !!id)));
+    let fichas: InstructorCobertura[] = [];
+    if (authIds.length > 0) {
+      const { data, error } = await admin
+        .from('instructores').select('id, auth_user_id, activo, rol')
+        .eq('studio_id', studioId).in('auth_user_id', authIds);
+      if (error) {
+        console.error('[sustituciones] no se pudieron cargar las fichas de Network', error);
+        return out;
+      }
+      fichas = (data ?? []) as InstructorCobertura[];
+    }
+
+    for (const { s, perfilIds: ids } of abiertas) {
+      out.set(s.id, estadosCoberturaPorPerfil({
+        sustitucionId: s.id,
+        instructorOriginalId: s.instructor_original_id,
+        perfilIds: ids,
+        perfiles: filasPerfiles,
+        solicitudes: (solicitudes ?? []) as unknown as SolicitudCobertura[],
+        instructores: fichas,
+      }));
+    }
+    return out;
+  } catch (e) {
+    console.error('[sustituciones] no se pudo cargar la cobertura de Network', e);
+    return new Map();
+  }
 }
 
 /**

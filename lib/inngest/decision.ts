@@ -165,15 +165,22 @@ export const analizarEstudio = inngest.createFunction(
       return texto ? { ...r, titulo: texto.titulo, motivo: texto.motivo } : r;
     });
 
-    // Persistencia: un step por recomendación (durable, replay-safe — patrón
-    // "candidato-i" de automatizacionesDispatcher).
-    for (let i = 0; i < recomendacionesRedactadas.length; i++) {
-      const r = recomendacionesRedactadas[i];
-      await step.run(`persistir-${i}-${r.dedupeKey}`, () => dbUpsertRecomendacion(r));
+    // Persistencia: lote único de recomendaciones (50+ recomendaciones × 200
+    // estudios = 10.000+ steps/día sin esto). Cada recomendación es idempotente
+    // por dedupeKey, así que un replay de esta operación no duplica nada.
+    if (recomendacionesRedactadas.length > 0) {
+      await step.run('persistir-recomendaciones-lote', () =>
+        Promise.all(recomendacionesRedactadas.map(r => dbUpsertRecomendacion(r)))
+      );
     }
 
-    for (const exp of resultado.expiraciones) {
-      await step.run(`expirar-${exp.id}`, () => dbTransicionarRecomendacion(exp.id, studioId, 'PENDIENTE', 'EXPIRADA'));
+    // Igual: lote de expiraciones
+    if (resultado.expiraciones.length > 0) {
+      await step.run('expirar-lote', () =>
+        Promise.all(resultado.expiraciones.map(exp =>
+          dbTransicionarRecomendacion(exp.id, studioId, 'PENDIENTE', 'EXPIRADA')
+        ))
+      );
     }
 
     // ── Piloto automático (0047) ──────────────────────────────────────────────
@@ -284,9 +291,9 @@ export const analizarEstudio = inngest.createFunction(
     });
 
     if (resultado.nuevosHechosMemoria.length > 0) {
-      await step.run('memoria-automatica', async () => {
-        for (const h of resultado.nuevosHechosMemoria) await dbUpsertHechoMemoria(h);
-      });
+      await step.run('memoria-automatica', () =>
+        Promise.all(resultado.nuevosHechosMemoria.map(h => dbUpsertHechoMemoria(h)))
+      );
     }
 
     const resumenFinal = { ...resultado.resumenDiario, studioId, saludo: redaccion.saludo };

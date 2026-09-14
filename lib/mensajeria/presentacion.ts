@@ -28,6 +28,11 @@ export interface ResumenConversacion {
   leido_hasta_otros: string | null;
   ultimo_cuerpo: string | null;
   ultimo_remitente_auth_user_id: string | null;
+  /**
+   * Hilo instructora–alumna que quien pregunta lee sin participar (la
+   * propietaria). La RLS ya le impide escribir; esto decide la pantalla.
+   */
+  solo_lectura?: boolean;
 }
 
 export type ConversacionConResumen = RowConversaciones & ResumenConversacion;
@@ -193,6 +198,13 @@ export function estadoEntrega(
 // ── Texto ───────────────────────────────────────────────────────────────────
 
 /**
+ * Aviso fijo en los hilos instructora–alumna (decisión del 14-sep-2026): la
+ * propietaria puede leerlos, y quien escribe tiene que saberlo. Lo comparten la
+ * app del estudio y el panel.
+ */
+export const AVISO_ESTUDIO_PUEDE_LEER = 'El estudio también puede leer esta conversación.';
+
+/**
  * El texto que viaja en el push de un mensaje nuevo. En las conversaciones
  * instructora–alumna, ninguno («Ana te ha escrito»), en las dos direcciones
  * (decisión del 14-sep-2026): son las que más pueden hablar de lesiones, y un
@@ -200,6 +212,18 @@ export function estadoEntrega(
  */
 export function previsualizacionParaAviso(tipo: string, cuerpo: string): string | null {
   return tipo === 'ALUMNA_INSTRUCTORA' ? null : cuerpo.slice(0, 80);
+}
+
+/**
+ * Cómo se llama una conversación en la app de la alumna: el estudio, o el
+ * nombre de su instructora. «Tu instructora» solo si el servidor no lo trae.
+ */
+export function tituloConversacionAlumna(
+  c: { tipo: string; interlocutor?: { nombre: string } | null }, nombreEstudio: string,
+): string {
+  if (c.tipo === 'ALUMNA_MOSTRADOR') return nombreEstudio;
+  if (c.tipo === 'ALUMNA_INSTRUCTORA') return c.interlocutor?.nombre?.trim() || 'Tu instructora';
+  return 'Mensajes';
 }
 
 /** Previsualización de una línea: sin saltos de línea, sin cola de espacios. */

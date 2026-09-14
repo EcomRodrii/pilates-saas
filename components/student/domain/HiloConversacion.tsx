@@ -31,7 +31,7 @@ import { Icono } from '@/components/student/ui/Icono';
 // cualquier `<input>` normal, sin ninguna posición fija que reconciliar.
 
 export function HiloConversacion({
-  titulo, cargar, enviar, marcarLeido, miId, modo = 'alumna',
+  titulo, cargar, enviar, marcarLeido, miId, modo = 'alumna', aviso = null,
 }: {
   titulo: string;
   /** Estable (useCallback). Lanza si no se pueden leer los mensajes. */
@@ -40,6 +40,8 @@ export function HiloConversacion({
   marcarLeido: () => Promise<void>;
   miId: string | null;
   modo?: 'alumna' | 'instructora';
+  /** Aviso fijo bajo la cabecera (p.ej. que el estudio puede leer la conversación). */
+  aviso?: string | null;
 }) {
   const { toast } = useToast();
   const [borrador, setBorrador] = useState('');
@@ -95,6 +97,9 @@ export function HiloConversacion({
         }}
       >
         <PageHeader titulo={titulo} back />
+        {aviso && (
+          <p className="t-meta" data-testid="aviso-hilo" style={{ textAlign: 'center', margin: '6px 0 0', padding: '0 16px' }}>{aviso}</p>
+        )}
 
         <div className="px" style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {estado === 'loading' && <ListSkeleton n={5} h={40} />}

@@ -24,8 +24,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
-  agruparHilo, colorPersona, estadoEntrega, horaCorta, iniciales, selloLista, unaLinea,
-} from '@/lib/mensajeria/presentacion';
+  agruparHilo, colorPersona, estadoEntrega, horaCorta, iniciales, selloLista, unaLinea, AVISO_ESTUDIO_PUEDE_LEER } from '@/lib/mensajeria/presentacion';
 import type { Socio, Instructor } from '@/lib/types';
 import type { RowMensajes } from '@/lib/db-types';
 import type { ConversacionStaff } from '@/lib/mensajeria/tipos';
@@ -299,7 +298,7 @@ export interface ContextoAncla { titulo: string; detalle: string }
 
 export function HiloVista({
   conversacion, identidad, mensajes, authUserId, error, ancla,
-  cuerpo, enviando, onCuerpo, onEnviar, onVolver, onReintentar, escribiendoOtros,
+  cuerpo, enviando, onCuerpo, onEnviar, onVolver, onReintentar, escribiendoOtros, soloLectura = false,
 }: {
   conversacion: ConversacionStaff;
   identidad: Identidad;
@@ -314,6 +313,8 @@ export function HiloVista({
   onVolver: () => void;
   onReintentar: () => void;
   escribiendoOtros?: boolean;
+  /** Hilo instructora–alumna que la propietaria lee sin participar: sin compositor. */
+  soloLectura?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -376,6 +377,18 @@ export function HiloVista({
         </div>
       )}
 
+      {/* Aviso fijo (decisión del 14-sep-2026): la propietaria puede leer las
+          conversaciones instructora–alumna, y quien escribe tiene que saberlo. */}
+      {conversacion.tipo === 'ALUMNA_INSTRUCTORA' && (
+        <div className="px-4 py-2 border-b border-border shrink-0 bg-muted/40" data-testid="aviso-hilo">
+          <p className="text-[11px] text-muted-foreground">
+            {soloLectura
+              ? `Solo lectura · conversación entre ${identidad.instructor?.nombre ?? 'su instructora'} y ${identidad.nombre}`
+              : AVISO_ESTUDIO_PUEDE_LEER}
+          </p>
+        </div>
+      )}
+
       <div
         ref={scrollRef}
         role="log" aria-live="polite" aria-label="Mensajes de la conversación"
@@ -389,8 +402,8 @@ export function HiloVista({
           <EmptyState
             compacto
             icono={info.Icon}
-            titulo={`Todavía no has escrito a ${identidad.nombre}`}
-            descripcion="El primer mensaje lo ve al instante en su portal."
+            titulo={soloLectura ? 'Todavía no se han escrito' : `Todavía no has escrito a ${identidad.nombre}`}
+            descripcion={soloLectura ? 'Cuando se escriban, lo verás aquí.' : 'El primer mensaje lo ve al instante en su portal.'}
           />
         ) : (
           dias.map(dia => (
@@ -453,42 +466,48 @@ export function HiloVista({
         </div>
       )}
 
-      <div className="flex items-end gap-2 px-3 py-3 border-t border-border shrink-0">
-        <div className="flex-1 min-w-0 rounded-2xl border border-border bg-card focus-within:border-brand transition-colors">
-          <textarea
-            ref={areaRef}
-            value={cuerpo}
-            onChange={e => onCuerpo(e.target.value.slice(0, LIMITE_CUERPO))}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onEnviar(); }
-            }}
-            rows={1}
-            placeholder={`Escribe a ${identidad.nombre.split(' ')[0]}…`}
-            aria-label="Mensaje"
-            className="w-full resize-none bg-transparent px-3.5 py-2.5 text-sm text-foreground outline-none max-h-36"
-          />
-          {cuerpo.length > LIMITE_CUERPO - 400 && (
-            <p className="px-3.5 pb-1.5 text-[10px] text-muted-foreground text-right">
-              {LIMITE_CUERPO - cuerpo.length} caracteres
-            </p>
-          )}
+      {soloLectura ? (
+        <div className="px-4 py-3 border-t border-border shrink-0">
+          <p className="text-xs text-muted-foreground text-center">No puedes escribir en esta conversación: es de tu equipo con una alumna.</p>
         </div>
-        <button
-          onClick={onEnviar}
-          disabled={!puedeEnviar}
-          aria-label="Enviar mensaje"
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 mb-0.5"
-          style={{
-            backgroundColor: puedeEnviar ? 'var(--brand)' : 'var(--muted)',
-            color: puedeEnviar ? 'var(--brand-foreground)' : 'var(--muted-foreground)',
-            transform: puedeEnviar ? 'scale(1)' : 'scale(.92)',
-            cursor: puedeEnviar ? 'pointer' : 'default',
-            transition: 'background-color .2s cubic-bezier(.16,1,.3,1), transform .2s cubic-bezier(.16,1,.3,1), color .2s ease',
-          }}
-        >
-          {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} aria-hidden="true" />}
-        </button>
-      </div>
+      ) : (
+        <div className="flex items-end gap-2 px-3 py-3 border-t border-border shrink-0">
+          <div className="flex-1 min-w-0 rounded-2xl border border-border bg-card focus-within:border-brand transition-colors">
+            <textarea
+              ref={areaRef}
+              value={cuerpo}
+              onChange={e => onCuerpo(e.target.value.slice(0, LIMITE_CUERPO))}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onEnviar(); }
+              }}
+              rows={1}
+              placeholder={`Escribe a ${identidad.nombre.split(' ')[0]}…`}
+              aria-label="Mensaje"
+              className="w-full resize-none bg-transparent px-3.5 py-2.5 text-sm text-foreground outline-none max-h-36"
+            />
+            {cuerpo.length > LIMITE_CUERPO - 400 && (
+              <p className="px-3.5 pb-1.5 text-[10px] text-muted-foreground text-right">
+                {LIMITE_CUERPO - cuerpo.length} caracteres
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onEnviar}
+            disabled={!puedeEnviar}
+            aria-label="Enviar mensaje"
+            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 mb-0.5"
+            style={{
+              backgroundColor: puedeEnviar ? 'var(--brand)' : 'var(--muted)',
+              color: puedeEnviar ? 'var(--brand-foreground)' : 'var(--muted-foreground)',
+              transform: puedeEnviar ? 'scale(1)' : 'scale(.92)',
+              cursor: puedeEnviar ? 'pointer' : 'default',
+              transition: 'background-color .2s cubic-bezier(.16,1,.3,1), transform .2s cubic-bezier(.16,1,.3,1), color .2s ease',
+            }}
+          >
+            {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} aria-hidden="true" />}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -500,11 +519,15 @@ export function HiloVista({
 // cualquier app: escribes un nombre, ves caras, eliges.
 
 export function NuevaConversacion({
-  socios, instructores, puedeMostrador, onAbrir, onCerrar, error,
+  socios, instructores, puedeMostrador, verContacto, onAbrir, onCerrar, error,
 }: {
+  /** Las socias que se ofrecen. Para una instructora llegan ya acotadas a las
+   *  de sus clases (ver `sociasConRelacion`). */
   socios: Socio[];
   instructores: Instructor[];
   puedeMostrador: boolean;
+  /** Si se enseña (y se busca por) el email. Una instructora no ve contacto. */
+  verContacto: boolean;
   /** Devuelve el id de la conversación, o null si falló (el error lo pinta el
    *  contenedor vía `error`). */
   onAbrir: (tipo: 'ALUMNA_INSTRUCTORA' | 'ALUMNA_MOSTRADOR', socioId: string, instructorId?: string) => Promise<void>;
@@ -521,9 +544,9 @@ export function NuevaConversacion({
     const q = busqueda.trim().toLowerCase();
     const activos = socios.filter(s => s.activo !== false);
     return (q
-      ? activos.filter(s => `${s.nombre} ${s.apellidos} ${s.email}`.toLowerCase().includes(q))
+      ? activos.filter(s => `${s.nombre} ${s.apellidos}${verContacto ? ` ${s.email}` : ''}`.toLowerCase().includes(q))
       : activos).slice(0, 40);
-  }, [socios, busqueda]);
+  }, [socios, busqueda, verContacto]);
 
   async function abrir(tipo: 'ALUMNA_INSTRUCTORA' | 'ALUMNA_MOSTRADOR', instructorId?: string) {
     if (!socio) return;
@@ -554,7 +577,7 @@ export function NuevaConversacion({
             <input
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              placeholder="Busca por nombre o email…"
+              placeholder={verContacto ? 'Busca por nombre o email…' : 'Busca por nombre…'}
               aria-label="Buscar clienta"
               className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1 min-w-0"
             />
@@ -562,7 +585,11 @@ export function NuevaConversacion({
           <div className="max-h-56 overflow-y-auto -mx-1 px-1">
             {resultados.length === 0 ? (
               <p className="text-xs text-muted-foreground py-6 text-center">
-                Ninguna clienta coincide con «{busqueda.trim()}».
+                {busqueda.trim()
+                  ? <>Ninguna clienta coincide con «{busqueda.trim()}».</>
+                  : verContacto
+                    ? 'Todavía no hay clientas activas.'
+                    : 'Aún no hay alumnas con reserva en tus clases.'}
               </p>
             ) : (
               <ul className="space-y-0.5">
@@ -581,7 +608,9 @@ export function NuevaConversacion({
                         <span className="block text-[13px] font-semibold text-foreground truncate">
                           {s.nombre} {s.apellidos}
                         </span>
-                        <span className="block text-[11px] text-muted-foreground truncate">{s.email}</span>
+                        {verContacto && (
+                          <span className="block text-[11px] text-muted-foreground truncate">{s.email}</span>
+                        )}
                       </span>
                     </button>
                   </li>

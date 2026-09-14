@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { instructorasConRelacion } from './mensajeria-portal.ts';
+import { instructorasConRelacion, sociasConRelacion } from './mensajeria-portal.ts';
 import type { Instructor, Reserva, Sesion } from './types.ts';
 
 function instructor(id: string, activo = true): Instructor {
@@ -54,4 +54,40 @@ test('sin duplicar si hay varias clases con la misma instructora', () => {
   const reservas = [reserva('ses1', 'socio1', 'ASISTIDA'), reserva('ses2', 'socio1', 'CONFIRMADA')];
   const resultado = instructorasConRelacion(instructores, reservas, sesiones, 'socio1');
   assert.equal(resultado.length, 1);
+});
+
+// ── sociasConRelacion: el selector «Nueva» del panel para una INSTRUCTORA ────
+
+const socias = [{ id: 'socio1' }, { id: 'socio2' }, { id: 'socio3' }];
+
+test('sin instructorId no ofrece ninguna socia', () => {
+  const sesiones = [sesion('ses1', 'i1')];
+  const reservas = [reserva('ses1', 'socio1', 'ASISTIDA')];
+  assert.deepEqual(sociasConRelacion(socias, reservas, sesiones, null), []);
+});
+
+test('solo las socias con reserva CONFIRMADA/ASISTIDA/NO_ASISTIO en una clase suya', () => {
+  const sesiones = [sesion('ses1', 'i1'), sesion('ses2', 'i1')];
+  const reservas = [
+    reserva('ses1', 'socio1', 'CONFIRMADA'),
+    reserva('ses2', 'socio2', 'NO_ASISTIO'),
+    reserva('ses1', 'socio3', 'CANCELADA'),
+  ];
+  assert.deepEqual(sociasConRelacion(socias, reservas, sesiones, 'i1').map(s => s.id), ['socio1', 'socio2']);
+});
+
+test('la clase de una compañera no le da relación con esa socia', () => {
+  const sesiones = [sesion('ses1', 'i1'), sesion('ses2', 'i2')];
+  const reservas = [reserva('ses2', 'socio1', 'ASISTIDA')];
+  assert.deepEqual(sociasConRelacion(socias, reservas, sesiones, 'i1'), []);
+});
+
+test('lista de espera no cuenta y no duplica con varias clases', () => {
+  const sesiones = [sesion('ses1', 'i1'), sesion('ses2', 'i1')];
+  const reservas = [
+    reserva('ses1', 'socio1', 'LISTA_ESPERA'),
+    reserva('ses1', 'socio2', 'ASISTIDA'),
+    reserva('ses2', 'socio2', 'CONFIRMADA'),
+  ];
+  assert.deepEqual(sociasConRelacion(socias, reservas, sesiones, 'i1').map(s => s.id), ['socio2']);
 });

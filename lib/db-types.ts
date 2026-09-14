@@ -2144,6 +2144,8 @@ export interface RowRedSolicitudesContacto {
   estado: string;
   creado_en: string;
   resuelto_en: string | null;
+  // migr 20260914151252.
+  sustitucion_id: string | null;
 }
 
 export interface RowRedReportes {
