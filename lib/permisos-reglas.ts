@@ -192,8 +192,14 @@ export function puedeGestionarClientas(rol: Rol): boolean {
 // 20260731100000 le abrió el INSERT en `sesiones` SOLO cuando
 // `instructor_id = current_instructor_id()`. Esto es la barrera de UI; la
 // cerradura real es esa RLS.
-export function puedeCrearClasesPropias(rol: Rol): boolean {
-  return rol === 'PROPIETARIO' || rol === 'RECEPCION' || rol === 'MANAGER' || rol === 'INSTRUCTOR';
+//
+// Desde 20260914104856 lo decide además el estudio (`studios.instructoras_crean_clases`,
+// «la instructora crea sus clases / solo se le asignan»): con `false` la
+// instructora no crea, y la RLS de INSERT lo exige igual. Solo afecta a ella: el
+// resto de roles crea siempre. Sin el dato, `true` (el comportamiento de #550).
+export function puedeCrearClasesPropias(rol: Rol, instructorasCreanClases = true): boolean {
+  if (rol === 'INSTRUCTOR') return instructorasCreanClases;
+  return rol === 'PROPIETARIO' || rol === 'RECEPCION' || rol === 'MANAGER';
 }
 
 // Dar de alta y editar al EQUIPO. Es lo que distingue a un manager de recepción,

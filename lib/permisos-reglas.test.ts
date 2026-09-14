@@ -204,6 +204,14 @@ test('crear clases propias: todos los roles de panel, incluida la instructora (2
   assert.equal(puedeCrearClasesPropias('INSTRUCTOR'), true);
 });
 
+test('crear clases propias: si el estudio las asigna, la instructora no crea; el resto sí (20260914104856)', () => {
+  assert.equal(puedeCrearClasesPropias('INSTRUCTOR', false), false);
+  assert.equal(puedeCrearClasesPropias('INSTRUCTOR', true), true);
+  assert.equal(puedeCrearClasesPropias('PROPIETARIO', false), true);
+  assert.equal(puedeCrearClasesPropias('MANAGER', false), true);
+  assert.equal(puedeCrearClasesPropias('RECEPCION', false), true);
+});
+
 // ── Importar: la lista blanca por prefijo abría de más ────────────────────────
 // '/clientas' permitido implicaba '/clientas/importar' permitido. Seis pantallas
 // de importación quedaban a la vista de la instructora, que además es de quien
