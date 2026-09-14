@@ -59,9 +59,10 @@ test('una instructora no llega a la facturación ni a los informes', () => {
   }
 });
 
-test('una instructora sí llega a su trabajo', () => {
-  for (const ruta of ['/calendario', '/clientas', '/citas', '/dashboard']) {
-    assert.equal(puedeVer('INSTRUCTOR', ruta), true, ruta);
+test('Tentare Core retirado: una instructora no llega a ninguna pantalla del panel', () => {
+  // Su trabajo está en la app del estudio; DashboardShell la manda allí.
+  for (const ruta of ['/dashboard', '/calendario', '/clientas', '/citas', '/mensajeria', '/mi-perfil', '/comunidad', '/actualizaciones', '/calendario/pase']) {
+    assert.equal(puedeVer('INSTRUCTOR', ruta), false, ruta);
   }
 });
 
@@ -70,7 +71,9 @@ test('cualquier rol llega a su propio perfil, aunque no llegue a Configuración'
   // para esto: gestionar el nombre/email/contraseña propios no es
   // "configuración del negocio", y antes una instructora no llegaba ni a
   // intentarlo porque /configuracion entero está bloqueado para su rol.
-  for (const rol of ['PROPIETARIO', 'INSTRUCTOR', 'MANAGER', 'RECEPCION'] as const) {
+  // La instructora ya no: su perfil está en la app del estudio (Tentare Core
+  // retirado, 14-sep-2026).
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
     assert.equal(puedeVer(rol, '/mi-perfil'), true, rol);
   }
 });
@@ -226,12 +229,6 @@ test('la instructora no llega a ninguna pantalla de importación', () => {
   assert.equal(puedeVer('INSTRUCTOR', '/calendario/importar/reservas'), false);
 });
 
-test('bloquear la importación no le quita a la instructora su trabajo', () => {
-  assert.equal(puedeVer('INSTRUCTOR', '/clientas'), true);
-  assert.equal(puedeVer('INSTRUCTOR', '/clientas/abc-123'), true);
-  assert.equal(puedeVer('INSTRUCTOR', '/citas'), true);
-  assert.equal(puedeVer('INSTRUCTOR', '/calendario'), true);
-});
 
 test('recepción y propietaria sí importan: es trabajo de mostrador', () => {
   for (const rol of ['PROPIETARIO', 'RECEPCION'] as const) {
@@ -295,16 +292,16 @@ test('los helpers de UI reparten igual que las funciones de la RLS', () => {
 //
 // Ese mismo mecanismo de prefijos ya coló seis pantallas de importación donde
 // no debían, así que aquí queda escrito que esta herencia sí se quiere.
-test('la instructora puede leer un pase de acceso', () => {
-  assert.equal(puedeVer('INSTRUCTOR', '/calendario/pase'), true);
+test('el personal del panel puede leer un pase de acceso (la instructora pasa lista en la app)', () => {
+  assert.equal(puedeVer('INSTRUCTOR', '/calendario/pase'), false);
   assert.equal(puedeVer('RECEPCION', '/calendario/pase'), true);
   assert.equal(puedeVer('MANAGER', '/calendario/pase'), true);
   assert.equal(puedeVer('PROPIETARIO', '/calendario/pase'), true);
 });
 
-// ── Arquitectura de marca: Tentare Manager / Tentare Core ──────────────────
-test('la instructora ve Tentare Core, el resto Tentare Manager', () => {
-  assert.equal(nombreAppPorRol('INSTRUCTOR'), 'Tentare Core');
+// ── Arquitectura de marca: Tentare Manager (Tentare Core retirado) ─────────
+test('la instructora ve la marca paraguas, el resto Tentare Manager', () => {
+  assert.equal(nombreAppPorRol('INSTRUCTOR'), 'Tentare');
   assert.equal(nombreAppPorRol('PROPIETARIO'), 'Tentare Manager');
   assert.equal(nombreAppPorRol('MANAGER'), 'Tentare Manager');
   assert.equal(nombreAppPorRol('RECEPCION'), 'Tentare Manager');

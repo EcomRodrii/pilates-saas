@@ -101,26 +101,6 @@ test.describe('Buscador global (⌘K) — secciones del menú', () => {
     await expect(page.getByRole('button', { name: /^Equipo$/ })).toBeVisible();
   });
 
-  test('instructora: "Cobros" no está en su lista blanca y no aparece en Secciones', async ({ page }) => {
-    await mockBackend(page, { comoInstructora: true });
-    await seedAuth(page, 'auth-e2e-instructora', 'marta@example.com');
-    await page.goto('/dashboard');
-
-    const input = await abrirBuscador(page);
-    await input.fill('Cobros');
-    // Ni Secciones (nuevo) ni Acciones (ya filtraba por permiso) deben ofrecer
-    // una ruta fuera de PERMITIDO_INSTRUCTOR.
-    await expect(page.getByText('Secciones')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^Cobros$/ })).toHaveCount(0);
-  });
-
-  test('instructora: "Calendario", que sí está en su lista blanca, se sigue encontrando', async ({ page }) => {
-    await mockBackend(page, { comoInstructora: true });
-    await seedAuth(page, 'auth-e2e-instructora', 'marta@example.com');
-    await page.goto('/dashboard');
-
-    const input = await abrirBuscador(page);
-    await input.fill('Calendario');
-    await expect(page.getByRole('button', { name: /^Calendario$/ })).toBeVisible();
-  });
+  // Los casos de la instructora se fueron con Tentare Core (14-sep-2026): ya no
+  // abre el panel, así que tampoco su buscador (ver panel-instructora-a-la-app).
 });

@@ -1,26 +1,34 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  DIAS_OCULTO_TRAS_DESCARTAR, avisoAppDescartado, claveAvisoApp, hastaTrasDescartar, urlAppInstructora,
-} from './app-instructora.ts';
+import { destinoInstructoraEnPanel, urlAppInstructora } from './app-instructora.ts';
 
-test('«Ahora no» lo oculta una semana y después vuelve', () => {
-  const ahora = Date.parse('2026-09-14T10:00:00Z');
-  const guardado = hastaTrasDescartar(ahora);
-  assert.equal(avisoAppDescartado(guardado, ahora), true);
-  assert.equal(avisoAppDescartado(guardado, ahora + (DIAS_OCULTO_TRAS_DESCARTAR * 86_400_000) - 1), true);
-  assert.equal(avisoAppDescartado(guardado, ahora + DIAS_OCULTO_TRAS_DESCARTAR * 86_400_000), false);
-});
+const INSTRUCTORA_AQUI = { id: 'sede-a', rol: 'INSTRUCTOR' };
 
-test('sin nada guardado, o con algo ilegible, el aviso se ve', () => {
-  const ahora = Date.parse('2026-09-14T10:00:00Z');
-  assert.equal(avisoAppDescartado(null, ahora), false);
-  assert.equal(avisoAppDescartado('', ahora), false);
-  assert.equal(avisoAppDescartado('mañana', ahora), false);
-});
-
-test('la clave es por estudio y el enlace lleva a «Hoy» de su app', () => {
-  assert.notEqual(claveAvisoApp('sede-a'), claveAvisoApp('sede-b'));
+test('el enlace lleva a «Hoy» de la app de su estudio', () => {
   assert.equal(urlAppInstructora('pilates-centro'), '/portal/pilates-centro/equipo');
   assert.equal(urlAppInstructora('con espacio'), '/portal/con%20espacio/equipo');
+});
+
+test('una instructora confirmada, sin otra sede que gestione, va directa a la app', () => {
+  assert.equal(destinoInstructoraEnPanel([INSTRUCTORA_AQUI], 'sede-a'), 'app');
+  // Instructora en dos sedes: en ninguna gestiona, así que tampoco hay nada que elegir.
+  assert.equal(destinoInstructoraEnPanel([INSTRUCTORA_AQUI, { id: 'sede-b', rol: 'INSTRUCTOR' }], 'sede-a'), 'app');
+  // Sin rol conocido en la otra sede no se inventa que la gestiona.
+  assert.equal(destinoInstructoraEnPanel([INSTRUCTORA_AQUI, { id: 'sede-b', rol: null }], 'sede-a'), 'app');
+});
+
+test('si en otra sede gestiona, elige entre la app y cambiar de sede', () => {
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION']) {
+    assert.equal(destinoInstructoraEnPanel([INSTRUCTORA_AQUI, { id: 'sede-b', rol }], 'sede-a'), 'elegir', rol);
+  }
+});
+
+test('⚠️ sin confirmación de la BD no se saca a nadie del panel', () => {
+  // Si falla la lectura del equipo, el cliente resuelve INSTRUCTOR también para
+  // gerencia o recepción: solo `mis_estudios()` puede confirmarlo.
+  assert.equal(destinoInstructoraEnPanel([], 'sede-a'), 'sin-confirmar');
+  assert.equal(destinoInstructoraEnPanel([{ id: 'sede-b', rol: 'INSTRUCTOR' }], 'sede-a'), 'sin-confirmar');
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION', null]) {
+    assert.equal(destinoInstructoraEnPanel([{ id: 'sede-a', rol }], 'sede-a'), 'sin-confirmar', String(rol));
+  }
 });

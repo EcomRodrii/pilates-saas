@@ -581,14 +581,17 @@ function plantillasMensajeRecibido(): Record<string, Plantilla> {
     body: '{remitente} te ha escrito{previsualizacion}.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/notificaciones`,
   };
-  // La instructora lee sus conversaciones con alumnas en la app del estudio
-  // (Tentare Core en retirada). El canal de equipo sigue en el panel.
+  // La instructora lee sus mensajes en la app del estudio (Tentare Core se
+  // retiró el 14-sep-2026). El canal de equipo no está en la app —decisión
+  // expresa, sin uso medido—, así que un mensaje de equipo la lleva a «Hoy».
   const instructora: Plantilla = {
     title: 'Nuevo mensaje',
     body: '{remitente} te ha escrito{previsualizacion}.',
-    deepLink: (d: Datos) => (d.tipo === 'ALUMNA_INSTRUCTORA' && d.slug
-      ? `/portal/${s(d.slug)}/equipo/mensajes/${s(d.conversacionId)}`
-      : `/mensajeria?conversacion=${s(d.conversacionId)}`),
+    deepLink: (d: Datos) => (!d.slug
+      ? `/mensajeria?conversacion=${s(d.conversacionId)}`
+      : d.tipo === 'ALUMNA_INSTRUCTORA'
+        ? `/portal/${s(d.slug)}/equipo/mensajes/${s(d.conversacionId)}`
+        : `/portal/${s(d.slug)}/equipo`),
   };
   return {
     ...Object.fromEntries(
@@ -615,10 +618,16 @@ function plantillasMensajeDigest(): Record<string, Plantilla> {
   };
   return {
     ...Object.fromEntries(
-      (['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const).map(
+      (['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const).map(
         rol => [`${EVENTOS.MENSAJE_DIGEST_NO_LEIDO}#${rol}`, staff],
       ),
     ),
+    // La instructora, a sus mensajes de la app (Tentare Core retirado).
+    [`${EVENTOS.MENSAJE_DIGEST_NO_LEIDO}#INSTRUCTOR`]: {
+      title: staff.title,
+      body: staff.body,
+      deepLink: (d: Datos) => (d.slug ? `/portal/${s(d.slug)}/equipo/mensajes` : `/mensajeria`),
+    },
     [`${EVENTOS.MENSAJE_DIGEST_NO_LEIDO}#SOCIA`]: socia,
   };
 }
@@ -778,15 +787,17 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   // Los mismos dos eventos, contados desde el lado de quien imparte la clase:
   // no es "tu reserva", es tu turno de trabajo el que se cae o se mueve.
+  // A la app del estudio, no al panel: Tentare Core se retiró (14-sep-2026).
+  // Sin slug, al panel: la puerta la reencamina, mejor que un `/portal//…`.
   [`${EVENTOS.CLASE_CANCELADA}#INSTRUCTOR`]: {
     title: 'Se ha cancelado tu clase',
     body: 'Tu clase de {clase} del {cuando} se ha cancelado. No hace falta que vayas.',
-    deepLink: () => `/calendario`,
+    deepLink: (d: Datos) => (d.slug ? `/portal/${s(d.slug)}/equipo/agenda` : `/dashboard`),
   },
   [`${EVENTOS.CLASE_MODIFICADA}#INSTRUCTOR`]: {
     title: 'Tu clase ha cambiado',
     body: 'Tu clase de {clase} pasa a: {cuando} · {sala}. Revisa tu horario.',
-    deepLink: () => `/calendario`,
+    deepLink: (d: Datos) => (d.slug ? `/portal/${s(d.slug)}/equipo/agenda` : `/dashboard`),
   },
   // Sustitución aceptada → la instructora que cubre
   // Te piden cubrir una clase → la candidata a la que el motor pregunta. Lleva a
@@ -794,19 +805,19 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.SUSTITUCION_OFRECIDA}#INSTRUCTOR`]: {
     title: 'Te piden cubrir una clase',
     body: '{clase} el {cuando}{sala}. ¿Puedes cubrirla?',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/equipo`,
+    deepLink: (d: Datos) => (d.slug ? `/portal/${s(d.slug)}/equipo` : `/dashboard`),
   },
   // El estudio ha revisado su baja de última hora. Sin el resultado ni la nota:
   // la pantalla bloqueada la ve cualquiera. Lleva a «Hoy», donde está su baja.
   [`${EVENTOS.BAJA_REVISADA}#INSTRUCTOR`]: {
     title: 'El estudio ha revisado tu aviso',
     body: 'Sobre tu clase de {clase} del {cuando}. Lo tienes en la app.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/equipo`,
+    deepLink: (d: Datos) => (d.slug ? `/portal/${s(d.slug)}/equipo` : `/dashboard`),
   },
   [`${EVENTOS.SUSTITUCION_ACEPTADA}#INSTRUCTOR`]: {
     title: 'Nueva clase asignada',
     body: 'Cubrirás {clase} el {cuando}{sala}. ¡Gracias!',
-    deepLink: () => `/calendario`,
+    deepLink: (d: Datos) => (d.slug ? `/portal/${s(d.slug)}/equipo/agenda` : `/dashboard`),
   },
   // `{siguiente}` en vez de un "Busca otra opción" fijo: en modo autónomo el
   // motor ya ha pasado a la siguiente candidata por su cuenta, y decirle a la

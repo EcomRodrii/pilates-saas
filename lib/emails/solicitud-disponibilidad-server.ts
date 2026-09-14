@@ -24,7 +24,7 @@ export async function enviarEmailSolicitudDisponibilidad(params: {
     const html = await render(SolicitudDisponibilidadEmail(params));
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
-      from: remitentePorMarca('Tentare Core'),
+      from: remitentePorMarca('Tentare'),
       to: [params.to],
       subject: `${params.propietariaNombre} te pide tu disponibilidad — ${params.estudioNombre}`,
       html,

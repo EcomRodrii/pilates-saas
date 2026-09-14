@@ -48,10 +48,12 @@ test('ningún emisor a alumnas manda con la marca de la plataforma', () => {
 });
 
 test('los emails al EQUIPO sí conservan el nombre de producto', () => {
-  // Lo contrario también importa: «Tentare Manager»/«Tentare Core» son
-  // deliberados para el personal del estudio (ver nombreAppPorRol), y este
-  // test no debe empujar a quitarlos de ahí.
+  // Lo contrario también importa: «Tentare Manager» es deliberado para la
+  // gerencia (ver nombreAppPorRol), y este test no debe empujar a quitarlo.
+  // A las instructoras, desde que se retiró Tentare Core (14-sep-2026), la
+  // marca paraguas: ya no hay un producto del panel que nombrarles.
   const src = readFileSync(join(raiz, 'lib/sustituciones/email.ts'), 'utf8');
   assert.ok(src.includes("'Tentare Manager'"), 'los avisos a gerencia perdieron su marca de producto');
-  assert.ok(src.includes("'Tentare Core'"), 'los avisos a instructoras perdieron su marca de producto');
+  assert.ok(src.includes("'Tentare'"), 'los avisos a instructoras perdieron la marca de Tentare');
+  assert.ok(!src.includes("'Tentare Core'"), 'Tentare Core se retiró: no se firma con esa marca');
 });
