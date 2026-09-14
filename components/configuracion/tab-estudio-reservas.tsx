@@ -1,12 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
 import { Toggle, inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { obtenerConfirmacionRiesgo, actualizarConfirmacionRiesgo } from '@/lib/api-client';
+import { frasesPoliticaEstudio, type AjustePolitica } from '@/lib/politica-estudio-textos';
+import { InterruptorAvisarAlumnas } from '@/components/sustituciones/interruptor-avisar-alumnas';
+
+// «Cambiar» lleva al control que decide la frase. Algunos viven en «Opciones
+// avanzadas», plegado por defecto: se abre antes de ir, o el enlace no llevaría
+// a ningún sitio visible.
+function irAAjuste(ajuste: AjustePolitica, avanzadas: HTMLDetailsElement | null) {
+  const el = document.getElementById(`ajuste-${ajuste}`);
+  if (!el) return;
+  if (avanzadas?.contains(el)) avanzadas.open = true;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.querySelector<HTMLElement>('input, select, button')?.focus({ preventScroll: true });
+}
 
 // P2 (auditoría "Veredicto de Marta"): los 13 campos de este formulario iban
 // todos con el mismo peso visual en una sola columna — fácil confundir un
@@ -85,14 +98,20 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
 }
 
 export function TabEstudioReservas({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, updateStudio } = useStudio();
+  const { studio, updateStudio, reflejarStudioGuardado } = useStudio();
   const [pol, setPol] = useState(() => studioToPolitica(studio));
 
   const [studioAnterior, setStudioAnterior] = useState(studio);
   if (studio !== studioAnterior) {
     setStudioAnterior(studio);
-    setPol(studioToPolitica(studio));
+    // Solo si cambió lo que ESTE formulario edita. Guardar el aviso a las alumnas
+    // (que va por su endpoint y se refleja en `studio`) no puede tirar cambios de
+    // la política que estén a medio escribir.
+    if (JSON.stringify(studioToPolitica(studio)) !== JSON.stringify(studioToPolitica(studioAnterior))) {
+      setPol(studioToPolitica(studio));
+    }
   }
+  const avanzadasRef = useRef<HTMLDetailsElement>(null);
 
   // Sin límite máximo (null) no hay conflicto posible; con límite, mismo
   // criterio que el override por tipo de clase (#867): comparar en minutos.
@@ -133,9 +152,32 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
     return () => { vivo = false; };
   }, []);
 
+  // ⚠️ «Avisar a las alumnas» TAMPOCO viaja en `pol`, y este sí guarda al pulsar.
+  //
+  // Su único escritor es `/api/sustituciones` (action `config_avisar`). Aquí se
+  // enseña con el resto de lo que le pasa a una alumna cuando su clase cambia,
+  // con el MISMO componente que en Sustituciones (donde lo sigue cambiando la
+  // gerencia, que no entra en Configuración). NO espera al botón «Guardar»:
+  // meterlo ahí mezclaría dos endpoints en un solo «guardado», la trampa de
+  // «Guardado sin guardar» de #1971. Por eso va en su propia tarjeta.
+  const avisarGuardado = studio?.avisarAlumnas ?? null;
+
+  // Las frases cuentan lo GUARDADO, nunca lo que hay a medio editar en `pol`: si
+  // «Guardar» falla, la frase no puede haber cambiado.
+  const politicaGuardada = studioToPolitica(studio);
+  const frases = studio ? frasesPoliticaEstudio({ ...politicaGuardada, avisarAlumnas: avisarGuardado }) : [];
+
+  // Desde Sustituciones se llega con `#ajuste-avisar-alumnas`.
+  const studioCargado = studio !== null;
+  useEffect(() => {
+    if (!studioCargado) return;
+    const hash = window.location.hash;
+    if (hash.startsWith('#ajuste-')) irAAjuste(hash.slice('#ajuste-'.length) as AjustePolitica, avanzadasRef.current);
+  }, [studioCargado]);
+
   // Un solo botón para toda la tarjeta, pegado abajo, que dice si queda algo
   // pendiente — incluido el interruptor de confirmación.
-  const cambiaPolitica = JSON.stringify(pol) !== JSON.stringify(studioToPolitica(studio));
+  const cambiaPolitica = JSON.stringify(pol) !== JSON.stringify(politicaGuardada);
   const cambiaConfirmacion = confirmacion !== null && confirmacion !== confirmacionGuardada;
   const hayCambios = cambiaPolitica || cambiaConfirmacion;
 
@@ -160,6 +202,32 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
 
   return (
     <div className="space-y-5 max-w-2xl">
+      {studio && (
+        <div className={cn(cardCls, 'p-6')}>
+          <h3 id="politica-explicada" className="text-[14px] font-semibold text-foreground mb-1">Cuando algo cambia, Tentare…</h3>
+          <p className="text-[12px] text-muted-foreground mb-3">
+            Lo que pasa hoy con lo que tienes guardado. Si algo no es como lo quieres, cámbialo.
+          </p>
+          <ul aria-labelledby="politica-explicada" className="divide-y divide-border">
+            {frases.map(f => (
+              <li key={f.id} className="flex items-start justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
+                <span className="text-[13px] text-foreground">{f.texto}</span>
+                <a
+                  href={`#ajuste-${f.ajuste}`}
+                  onClick={e => { e.preventDefault(); irAAjuste(f.ajuste, avanzadasRef.current); }}
+                  className="shrink-0 text-[12px] font-medium text-foreground underline underline-offset-2 hover:no-underline"
+                >
+                  Cambiar
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-muted-foreground mt-3">
+            Son los valores de todo el estudio. Cada tipo de clase puede tener su propio plazo de cancelación, lista de
+            espera y plazo para aceptar una plaza, desde Configuración → Clases y salas.
+          </p>
+        </div>
+      )}
       <div className={cn(cardCls, 'p-6')}>
         <h3 className="text-[14px] font-semibold text-foreground mb-1">Reservas y cancelaciones</h3>
         <p className="text-[12px] text-muted-foreground mb-4">
@@ -167,7 +235,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
         </p>
         <div className="space-y-4">
           <p className={grupoCls}>General</p>
-          <div>
+          <div id="ajuste-ventana-cancelacion">
             <p className={labelCls}>Ventana de cancelación (horas)</p>
             <input
               type="number" min={0} max={168} className={inputCls}
@@ -178,20 +246,25 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               Cancelar con menos antelación se considera tardío. 0 = sin penalización.
             </p>
           </div>
-          <label className="flex items-center justify-between gap-4 cursor-pointer">
+          <label id="ajuste-devolver-tardia" className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               Devolver la sesión del bono en cancelaciones tardías
-              <span className="block text-[11px] text-muted-foreground">Desactivado: una cancelación tardía pierde la sesión (recomendado).</span>
+              <span className="block text-[11px] text-muted-foreground">Desactivado: una cancelación tardía pierde la sesión (recomendado). La plaza se libera igual.</span>
             </span>
             <Toggle on={pol.cancelacionDevolverBonoTardia} onChange={v => setPol(p => ({ ...p, cancelacionDevolverBonoTardia: v }))} />
           </label>
-          <label className="flex items-center justify-between gap-4 cursor-pointer">
+          {/* Desde #1342 este interruptor lo leen TODAS las cancelaciones de clase
+              entera, no solo las del panel: `devolverBonosPorCancelacionClase` es
+              también el camino del mínimo de asistentes y del cierre del centro.
+              La etiqueta decía «al cancelar tú», y eso dejaba fuera dos de tres. */}
+          <label id="ajuste-clase-devuelve-bono" className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
-              Devolver la sesión al cancelar tú una clase
+              Devolver la sesión al cancelar una clase entera
               <span className="block text-[11px] text-muted-foreground">
-                Cuando cancelas tú una clase completa (avería, baja de la instructora, mal
-                tiempo...), las socias apuntadas recuperan la sesión en su bono. Desactívalo
-                si prefieres que se les agote igual.
+                Las socias apuntadas recuperan la sesión en su bono. Vale para las clases que cancelas tú
+                (avería, baja de la instructora, mal tiempo...) y también para las que se cancelan solas por no
+                llegar al mínimo de asistentes o por un cierre del centro. Desactívalo si prefieres que se les
+                agote igual.
               </span>
             </span>
             <Toggle on={pol.cancelacionClaseDevuelveBono} onChange={v => setPol(p => ({ ...p, cancelacionClaseDevuelveBono: v }))} />
@@ -218,7 +291,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               enseñaba veinte opciones seguidas y lo básico se perdía entre
               penalizaciones y plazos (evaluación del 13-sep). Plegado no es
               escondido: todo sigue guardándose con el mismo botón. */}
-          <details className="group rounded-xl border border-border">
+          <details ref={avanzadasRef} className="group rounded-xl border border-border">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
               <span>
                 <span className="block text-[13px] font-semibold text-foreground">Opciones avanzadas</span>
@@ -342,10 +415,13 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             )}
           </div>
           <p className={grupoCls}>Lista de espera y confirmación</p>
-          <label className="flex items-center justify-between gap-4 cursor-pointer">
+          <label id="ajuste-lista-espera" className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               Permitir lista de espera
-              <span className="block text-[11px] text-muted-foreground">Con la clase llena, ¿se puede apuntar a la lista de espera?</span>
+              <span className="block text-[11px] text-muted-foreground">
+                Con la clase llena, la alumna puede apuntarse a la lista de espera. Vale para todo el estudio; cada
+                tipo de clase puede cambiarlo desde Configuración → Clases y salas.
+              </span>
             </span>
             <Toggle on={pol.permiteListaEspera} onChange={v => setPol(p => ({ ...p, permiteListaEspera: v }))} />
           </label>
@@ -358,7 +434,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               onChange={e => setPol(p => ({ ...p, listaEsperaPlazoAceptacionMinutos: Math.max(0, Number(e.target.value) || 0) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Al liberarse una plaza, hoy se confirma sola a la primera de la lista aunque no esté mirando el móvil en ese momento — y si no aparece, la plaza se pierde. Con un plazo (p.ej. 15 min), le das tiempo a confirmar que la quiere antes de dársela; si no contesta, pasa a la siguiente. Vacío o 0 = como hasta ahora, sin plazo.
+              Sin plazo, al liberarse una plaza se confirma sola a la primera de la lista aunque no esté mirando el móvil en ese momento — y si no aparece, la plaza se pierde. Con un plazo (p.ej. 15 min), le das tiempo a confirmar que la quiere antes de dársela; si no contesta, pasa a la siguiente. Vacío o 0 = sin plazo.
             </p>
           </div>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
@@ -434,7 +510,9 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               onChange={e => setPol(p => ({ ...p, minimoAsistentesPorClase: Math.max(0, Number(e.target.value) || 0) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Si a 2h del inicio no se alcanza, la clase se cancela automáticamente y se devuelve el bono a las apuntadas. Vacío o 0 = sin mínimo.
+              Si a 2h del inicio no se alcanza, la clase se cancela automáticamente{pol.cancelacionClaseDevuelveBono
+                ? ' y se devuelve la sesión a las apuntadas'
+                : ' sin devolver la sesión a las apuntadas: tienes desactivado «Devolver la sesión al cancelar una clase entera»'}. Vacío o 0 = sin mínimo.
             </p>
           </div>
           <p className={grupoCls}>Dinero y penalizaciones</p>
@@ -493,6 +571,16 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               : hayCambios ? 'Tienes cambios sin guardar.' : 'Sin cambios pendientes.'}
           </p>
         </div>
+      </div>
+      <div id="ajuste-avisar-alumnas" className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Avisos a las alumnas</h3>
+        <p className="text-[12px] text-muted-foreground mb-4">
+          Se guarda en cuanto lo pulsas, sin esperar a «Guardar política de reservas».
+        </p>
+        <InterruptorAvisarAlumnas
+          guardado={avisarGuardado}
+          onGuardado={v => reflejarStudioGuardado({ avisarAlumnas: v })}
+        />
       </div>
     </div>
   );

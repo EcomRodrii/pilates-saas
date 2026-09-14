@@ -40,7 +40,7 @@ const FAQ = [
   },
   {
     q: '¿Las alumnas se enteran de que cambia la instructora?',
-    a: 'Sí, si tienes encendido el aviso a las alumnas en Sustituciones (se activa una vez para todo el estudio): en cuanto la sustitución se confirma, les llega por email y en su app. Es el paso que más caro se paga cuando falla, y por eso no depende de que alguien se acuerde de escribirlo.',
+    a: 'Sí: el aviso a las alumnas viene encendido para todo el estudio (se cambia en Configuración). En cuanto la sustitución se confirma, les llega por email y en su app. Es el paso que más caro se paga cuando falla, y por eso no depende de que alguien se acuerde de escribirlo.',
   },
 ];
 

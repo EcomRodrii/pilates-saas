@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
-  cancelarClase, reprogramarClase, setAvisarAlumnas, setModoAutonomia, resumenValoraciones, generarEnlaceDisponibilidad, recalcularCandidatas,
+  cancelarClase, reprogramarClase, setModoAutonomia, resumenValoraciones, generarEnlaceDisponibilidad, recalcularCandidatas,
   pedirDisponibilidadMasiva, contactarPerfilNetwork,
   type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
-import { useRol, puedeVer } from '@/lib/permisos';
+import { useRol, puedeVer, puedeGestionarEquipo } from '@/lib/permisos';
+import { InterruptorAvisarAlumnas } from '@/components/sustituciones/interruptor-avisar-alumnas';
 import { mensajeCoberturaSustitucion, estadoContactoDesde, type EstadoContacto } from '@/lib/network/contacto-sustitucion';
 import type { EstadoCoberturaNetwork } from '@/lib/network/cobertura-sustitucion';
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
@@ -51,7 +52,8 @@ function fmtClase(inicio?: string | null): string {
 type AccionSust = 'cancelar' | 'reprogramar' | 'confirmar' | 'avisar' | 'volver-a-buscar' | 'descartar';
 
 export default function SustitucionesPage() {
-  const { instructores, sesiones, tiposClase } = useStudio();
+  const { instructores, sesiones, tiposClase, reflejarStudioGuardado } = useStudio();
+  const rolPanel = useRol();
   const [items, setItems] = useState<SustitucionPanel[]>([]);
   const [cargando, setCargando] = useState(true);
   const [nuevaBaja, setNuevaBaja] = useState(false);
@@ -64,7 +66,7 @@ export default function SustitucionesPage() {
   // dentro. Ahora es un banner en la propia página: no bloquea, se puede
   // cerrar, y el texto viene ya en español desde el servidor.
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
-  const [avisar, setAvisar] = useState(false);               // toggle avisar_alumnas
+  const [avisar, setAvisar] = useState(false);               // studios.avisar_alumnas (se cambia en Configuración)
   const [valoraciones, setValoraciones] = useState<ResumenValoraciones>({});
   const [ahoraMs, setAhoraMs] = useState(0);          // se fija al montar (evita Date.now en render)
   const [horarioCerrado, setHorarioCerrado] = useState<string | null>(null);
@@ -96,13 +98,6 @@ export default function SustitucionesPage() {
   }, []);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setAhoraMs(Date.now()); }, []);
-
-  async function toggleAvisar() {
-    const nuevo = !avisar;
-    setAvisar(nuevo); // optimista
-    const r = await setAvisarAlumnas(nuevo);
-    if ('error' in r) { setAvisar(!nuevo); setErrorAccion(r.error); }
-  }
 
   async function cambiarModo(nuevo: string) {
     if (nuevo === modo) return;
@@ -308,17 +303,35 @@ export default function SustitucionesPage() {
         }
       />
 
-      <label className="flex items-center gap-2.5 cursor-pointer text-[13px] text-muted-foreground select-none">
-        <button
-          type="button" role="switch" aria-checked={avisar} onClick={toggleAvisar}
-          aria-label="Avisar a las alumnas por email cuando se confirma sustituta o se cancela una clase"
-          className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${avisar ? 'bg-brand' : 'bg-muted'}`}
-        >
-          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${avisar ? 'translate-x-4' : ''}`} />
-        </button>
-        <Users size={14} className="shrink-0" />
-        Avisar a las alumnas por email cuando se confirma sustituta o se cancela una clase
-      </label>
+      {/* El aviso a las alumnas lo pueden cambiar quienes deja su único escritor
+          (`/api/sustituciones`, PROPIETARIO y MANAGER), y la gerencia no entra en
+          Configuración: por eso el interruptor sigue aquí. Es el MISMO componente
+          que en Configuración → Reservas y cancelaciones, y a esa pantalla solo se
+          enlaza a quien puede abrirla. Nada se pinta hasta haberlo leído: «no
+          avisa» mientras carga sería mentira. */}
+      {!cargando && (puedeGestionarEquipo(rolPanel) ? (
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
+          <InterruptorAvisarAlumnas
+            guardado={avisar}
+            onGuardado={v => { setAvisar(v); reflejarStudioGuardado({ avisarAlumnas: v }); }}
+          />
+          {puedeVer(rolPanel, '/configuracion') && (
+            <Link
+              href="/configuracion?tab=estudio&sub=reservas#ajuste-avisar-alumnas"
+              className="text-[12px] font-medium text-foreground underline underline-offset-2 hover:no-underline"
+            >
+              Qué más pasa cuando una clase cambia
+            </Link>
+          )}
+        </div>
+      ) : (
+        <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+          <Users size={14} className="shrink-0" aria-hidden />
+          {avisar
+            ? 'Tentare avisa a sus alumnas por email y en su app cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'
+            : 'Tentare no avisa a las alumnas cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'}
+        </p>
+      ))}
 
       {/* Modo de autonomía del motor: hasta ahora vivía solo en la BD sin UI —
           los 4 niveles que anuncia la web se eligen aquí. Autónomo y Vacaciones
@@ -464,8 +477,8 @@ export default function SustitucionesPage() {
         onOpenChange={abierto => { if (!abierto) setACancelar(null); }}
         titulo="¿Cancelar esta clase?"
         descripcion={avisar
-          ? 'Se avisará por email a las alumnas apuntadas.'
-          : 'El aviso a alumnas está desactivado: no se les enviará ningún email.'}
+          ? 'Se avisará a las alumnas apuntadas por email y en su app.'
+          : 'El aviso a las alumnas está desactivado: no les llegará ni email ni aviso en su app.'}
         textoConfirmar="Cancelar clase"
         destructivo
         onConfirm={() => { const s = aCancelar; setACancelar(null); if (s) void cancelar(s); }}
@@ -531,8 +544,8 @@ function ReprogramarDialog({ s, avisarActivo, enProceso, onClose, onConfirm }: {
         <p className="text-[13px] text-muted-foreground -mt-1">
           La clase se mueve al hueco nuevo con la misma duración y su instructora original.{' '}
           {avisarActivo
-            ? 'Las alumnas apuntadas recibirán un email con el cambio y mantienen su plaza.'
-            : 'El aviso a alumnas está desactivado: no se les enviará ningún email.'}
+            ? 'Las alumnas apuntadas recibirán el cambio por email y en su app, y mantienen su plaza.'
+            : 'El aviso a las alumnas está desactivado: no les llegará ni email ni aviso en su app.'}
         </p>
         <div className="grid grid-cols-2 gap-3">
           <div>

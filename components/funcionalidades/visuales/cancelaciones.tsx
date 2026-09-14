@@ -9,8 +9,10 @@ import { PanelClaro, PanelOscuro } from './comunes';
 //   · `studios.cancelacion_devolver_bono_tardia` (default false).
 //   · Guard de plaza fija: `res-pf-` no devuelve bono porque nunca lo consumió;
 //     su compensación es la recuperación.
-//   · `cancelarSesionPorMinimoNoAlcanzado` — la única cancelación de sesión
-//     completa que SÍ devuelve bono.
+//   · `studios.cancelacion_clase_devuelve_bono` (default true) — desde #1342 lo
+//     leen TODAS las cancelaciones de clase entera: la del panel, la de
+//     Sustituciones, el corte por mínimo de asistentes y el cierre del centro
+//     (`devolverBonosPorCancelacionClase`). Ninguna devuelve «siempre».
 //   · EstadoPenalizacion (lib/types.ts) para la máquina de estados de abajo.
 
 const CASOS = [
@@ -40,13 +42,13 @@ const CASOS = [
   },
   {
     q: 'Cancelas tú la clase entera',
-    bono: 'No se devuelve por defecto',
+    bono: 'Se devuelve, salvo que lo desactives',
     plaza: '—',
-    color: '#8E8E86',
+    color: '#4E9E7F',
   },
   {
     q: 'La clase se cae por falta de gente',
-    bono: 'Se devuelve, siempre',
+    bono: 'Igual: se devuelve, salvo que lo desactives',
     plaza: '—',
     color: '#4E9E7F',
   },
@@ -56,7 +58,7 @@ export function QuePasaConElBono() {
   return (
     <PanelClaro
       titulo="Quién recupera su sesión y quién no"
-      nota="Las dos últimas filas son la misma acción vista desde dos sitios, y por eso se comportan distinto: si cancelas tú una clase, es tu decisión; si se cae sola por no llegar al mínimo, no es decisión de nadie — y entonces el bono vuelve."
+      nota="Las dos últimas filas siguen el mismo ajuste: una clase entera que se cae —la cancelas tú, no llega al mínimo o cierras el centro— no la ha decidido la alumna, y por defecto recupera su sesión."
     >
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <table style={{ width: '100%', minWidth: 560, borderCollapse: 'separate', borderSpacing: 0, fontSize: 13.5 }}>

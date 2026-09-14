@@ -212,6 +212,12 @@ export function TabEstudioHorario({ showToast }: { showToast: (m: string) => voi
 // de para un día de la semana.
 // ─────────────────────────────────────────────────────────────────────────────
 function CierreDelCentro({ showToast }: { showToast: (m: string) => void }) {
+  // Cerrar pasa por `cancelarSesionPorMinimoNoAlcanzado` → `devolverBonosPorCancelacionClase`,
+  // que sigue «Devolver la sesión al cancelar una clase entera» como cualquier
+  // otra clase cancelada entera (#1342). Decir «se les devuelve» a secas mentía
+  // a quien lo tiene apagado.
+  const { studio } = useStudio();
+  const devuelveSesion = studio?.cancelacionClaseDevuelveBono ?? true;
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [motivo, setMotivo] = useState('');
@@ -249,7 +255,9 @@ function CierreDelCentro({ showToast }: { showToast: (m: string) => void }) {
         Cerrar el centro unos días
       </h3>
       <p className="text-[12px] text-muted-foreground mb-4">
-        Vacaciones, un puente, una reforma. Se cancelan las clases de esas fechas avisando a quien tuviera reserva, se les devuelve el bono, y a todo el estudio se le suman esos días a la caducidad de bonos y recuperaciones. Nadie podrá reservar en ese rango.
+        Vacaciones, un puente, una reforma. Se cancelan las clases de esas fechas avisando a quien tuviera reserva{devuelveSesion
+          ? ', se les devuelve la sesión del bono'
+          : ' (sin devolverles la sesión: lo tienes desactivado en Reservas y cancelaciones)'}, y a todo el estudio se le suman esos días a la caducidad de bonos y recuperaciones. Nadie podrá reservar en ese rango.
       </p>
 
       <div className="grid grid-cols-2 gap-3">
