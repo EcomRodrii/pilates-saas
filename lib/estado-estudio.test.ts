@@ -1,6 +1,53 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { construirEstadoEstudio, tituloDecidir } from './estado-estudio.ts';
+import { construirEstadoEstudio, contarConCandidatosNetwork, tituloDecidir } from './estado-estudio.ts';
+
+const SUFIJO = 'te proponemos profesionales de Tentare Network';
+
+test('Network: sufijo en la MISMA línea de clases sin cubrir, sin sumar al contador ni crear otra', () => {
+  const e = construirEstadoEstudio({ sustitucionesPorDecidir: 3, sustitucionesConNetwork: 2, reservasPorAprobar: 1 });
+  assert.deepEqual(e.decidir.map(l => l.id), ['sustitucionesPorDecidir', 'reservasPorAprobar']);
+  assert.equal(e.decidir[0].texto, `3 clases sin cubrir necesitan que decidas — en 2 ${SUFIJO}`);
+  assert.equal(e.decidir[0].n, 3);
+  assert.equal(e.nDecidir, 4);
+  assert.equal(e.titulo, '4 cosas esperan tu visto bueno');
+});
+
+test('Network: singular y plural del sufijo (cuenta clases, nunca nombres)', () => {
+  const una = construirEstadoEstudio({ sustitucionesPorDecidir: 1, sustitucionesConNetwork: 1 });
+  assert.equal(una.decidir[0].texto, `Una clase sin cubrir necesita que decidas — ${SUFIJO}`);
+  assert.equal(una.nDecidir, 1);
+  const enUna = construirEstadoEstudio({ sustitucionesPorDecidir: 3, sustitucionesConNetwork: 1 });
+  assert.equal(enUna.decidir[0].texto, `3 clases sin cubrir necesitan que decidas — en 1 ${SUFIJO}`);
+  assert.equal(enUna.nDecidir, 3);
+});
+
+test('Network: sin sufijo con 0, undefined (sin permiso) o null (falló)', () => {
+  for (const sustitucionesConNetwork of [0, undefined, null]) {
+    const e = construirEstadoEstudio({ sustitucionesPorDecidir: 2, sustitucionesConNetwork });
+    assert.equal(e.decidir[0].texto, '2 clases sin cubrir necesitan que decidas');
+    assert.equal(e.nDecidir, 2);
+  }
+});
+
+test('Network: nunca dice «en 3» de 2 clases, y sin clases por decidir no crea nada', () => {
+  const e = construirEstadoEstudio({ sustitucionesPorDecidir: 2, sustitucionesConNetwork: 5 });
+  assert.equal(e.decidir[0].texto, `2 clases sin cubrir necesitan que decidas — en 2 ${SUFIJO}`);
+  const vacio = construirEstadoEstudio({ sustitucionesPorDecidir: 0, sustitucionesConNetwork: 1 });
+  assert.deepEqual(vacio.decidir, []);
+  assert.equal(vacio.nDecidir, 0);
+  assert.doesNotMatch(vacio.titulo, /todo|bajo control|en orden|nada pendiente/i);
+});
+
+test('Network: solo cuenta arrays jsonb NO vacíos (NULL = no se buscó)', () => {
+  assert.equal(contarConCandidatosNetwork([
+    { candidatos_network: null },
+    { candidatos_network: [] },
+    { candidatos_network: [{ perfilId: 'p1' }] },
+    { candidatos_network: {} },
+    {},
+  ]), 1);
+});
 
 test('un rol que no ve ninguna fuente no recibe bandeja (instructora)', () => {
   const e = construirEstadoEstudio({});

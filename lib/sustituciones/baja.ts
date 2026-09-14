@@ -117,6 +117,7 @@ export async function crearBaja(
       especialidadNetwork: (tipoClase.data?.especialidad_network as EspecialidadNetwork | null) ?? null,
       ciudadEstudio: (estudio?.ciudad as string | null) ?? null,
       inicioSesionISO: clase.inicio as string,
+      studioId,
     });
   } catch (e) {
     console.error('[crearBaja:candidatosNetwork]', e);
@@ -202,8 +203,13 @@ export async function crearBaja(
   if (sinNadieAQuienPreguntar) {
     // Aviso por email siempre, venga de donde venga la baja: aunque la haya
     // marcado ella desde el panel, esperaba que Tentare buscara sola.
+    //
+    // Aquí NO se llama a refrescarCandidatosNetwork, a diferencia de los otros
+    // sitios donde se llega a 'agotada': los candidatos de Network se acaban de
+    // calcular unas líneas más arriba, con los mismos datos, hace menos de un
+    // segundo. Refrescar serían cuatro consultas para el mismo resultado.
     try {
-      await alertarPropietaria(admin, { studioId, sesion: sesionMin, tipo: 'agotada' });
+      await alertarPropietaria(admin, { studioId, sesion: sesionMin, tipo: 'agotada', nNetwork: candidatosNetwork.length });
     } catch (e) {
       console.error('[sustituciones] no se pudo avisar a la propietaria de la lista vacía', e);
     }

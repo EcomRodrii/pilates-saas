@@ -36,6 +36,13 @@
 export interface ConteosEstudio {
   // Decidir
   sustitucionesPorDecidir?: number | null;
+  /**
+   * De esas, las 'agotada' con candidatos de Tentare Network guardados. NO es
+   * una línea ni suma al contador: es un sufijo de `sustitucionesPorDecidir`
+   * (son las MISMAS clases, contarlas dos veces inflaría el «espera tu visto
+   * bueno»). Clases, nunca nombres.
+   */
+  sustitucionesConNetwork?: number | null;
   reservasPorAprobar?: number | null;
   recibosFallidos?: number | null;
   penalizacionesPorAprobar?: number | null;
@@ -52,7 +59,8 @@ export interface ConteosEstudio {
   mensajesAutomaticosHoy?: number | null;
 }
 
-export type ClaveConteo = keyof ConteosEstudio;
+// `sustitucionesConNetwork` no es una línea: solo modifica el texto de otra.
+export type ClaveConteo = Exclude<keyof ConteosEstudio, 'sustitucionesConNetwork'>;
 export type Bandeja = 'decidir' | 'enMarcha' | 'resuelto';
 
 export interface LineaEstado {
@@ -120,6 +128,23 @@ export function tituloDecidir(n: number): string {
   return n === 1 ? 'Una cosa espera tu visto bueno' : `${n} cosas esperan tu visto bueno`;
 }
 
+/**
+ * Sufijo de la línea «clases sin cubrir» cuando en alguna Tentare Network tiene
+ * a quién proponer. Cuenta CLASES, nunca nombres. Acotado a `nClases`: son un
+ * subconjunto de las mismas filas, pero salen de dos consultas y una carrera
+ * entre ambas no puede decir «en 3» de 2 clases.
+ */
+export function sufijoNetwork(nClases: number, nConNetwork: number | null | undefined): string {
+  if (typeof nConNetwork !== 'number' || !Number.isFinite(nConNetwork) || nConNetwork <= 0) return '';
+  if (nClases === 1) return ' — te proponemos profesionales de Tentare Network';
+  return ` — en ${Math.min(nConNetwork, nClases)} te proponemos profesionales de Tentare Network`;
+}
+
+/** Cuántas filas traen `candidatos_network` como array jsonb NO vacío (NULL = no se buscó). */
+export function contarConCandidatosNetwork(filas: ReadonlyArray<{ candidatos_network?: unknown }>): number {
+  return filas.filter(f => Array.isArray(f.candidatos_network) && f.candidatos_network.length > 0).length;
+}
+
 export function construirEstadoEstudio(c: ConteosEstudio): EstadoEstudio {
   const aplica = LINEAS.some(l => c[l.id] !== undefined);
   const porBandeja: Record<Bandeja, LineaEstado[]> = { decidir: [], enMarcha: [], resuelto: [] };
@@ -128,10 +153,9 @@ export function construirEstadoEstudio(c: ConteosEstudio): EstadoEstudio {
     const n = c[def.id];
     // undefined (sin permiso), null (falló) o 0: no hay nada que contar.
     if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) continue;
-    porBandeja[def.bandeja].push({
-      id: def.id, n, href: def.href,
-      texto: n === 1 ? def.uno : def.varios(n),
-    });
+    let texto = n === 1 ? def.uno : def.varios(n);
+    if (def.id === 'sustitucionesPorDecidir') texto += sufijoNetwork(n, c.sustitucionesConNetwork);
+    porBandeja[def.bandeja].push({ id: def.id, n, href: def.href, texto });
   }
 
   const nDecidir = porBandeja.decidir.reduce((s, l) => s + l.n, 0);

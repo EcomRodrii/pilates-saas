@@ -24,6 +24,7 @@ import {
   escalacionVigente,
 } from '@/lib/sustituciones/contacto';
 import { calcularVentanas } from '@/lib/sustituciones/ventanas';
+import { refrescarCandidatosNetwork } from '@/lib/network/candidatos-sustitucion.ts';
 import { tieneFeature } from '@/lib/billing/entitlements';
 
 // Modos que dejan al motor avanzar solo por el ranking.
@@ -113,10 +114,16 @@ export const escalarSustitucion = inngest.createFunction(
       }
 
       // Ranking agotado: marca 'agotada' (compare-and-set) y alerta a la dueña.
-      await admin.from('sustituciones')
+      const { data: agotada } = await admin.from('sustituciones')
         .update({ estado: 'agotada' })
-        .eq('id', sustitucionId).eq('studio_id', studioId).eq('estado', 'contactando');
-      await alertarPropietaria(admin, { studioId, sesion: v.sesion, tipo: 'agotada' });
+        .eq('id', sustitucionId).eq('studio_id', studioId).eq('estado', 'contactando')
+        .select('id').maybeSingle();
+      // Los candidatos de Network se guardaron al crear la baja y pueden llevar
+      // horas viejos: al quedarse sin nadie interno, se proponen los de AHORA.
+      // Best-effort (nunca lanza) y dentro de este mismo step: lo único que sale
+      // de aquí es un número para el email, nada que Inngest tenga que serializar.
+      const nNetwork = agotada ? await refrescarCandidatosNetwork(admin, { sustitucionId, studioId }) : null;
+      await alertarPropietaria(admin, { studioId, sesion: v.sesion, tipo: 'agotada', nNetwork: nNetwork ?? undefined });
       return { accion: 'agotada' as const };
     });
 

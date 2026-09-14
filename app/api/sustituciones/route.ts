@@ -8,6 +8,7 @@ import { inngest, EVENTS } from '@/lib/inngest/client';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
 import { contactarCandidata, ESTADOS_EN_JUEGO, type RankingItem } from '@/lib/sustituciones/contacto';
 import { crearBaja } from '@/lib/sustituciones/baja';
+import { refrescarCandidatosNetwork } from '@/lib/network/candidatos-sustitucion.ts';
 import { candidataDelEstudio } from '@/lib/sustituciones/candidata-del-estudio';
 import { featureDeEstudio } from '@/lib/billing/feature-estudio';
 import { tieneFeature } from '@/lib/billing/entitlements';
@@ -520,6 +521,11 @@ export async function PATCH(req: NextRequest) {
     if (!act || act.length === 0) {
       return NextResponse.json({ error: 'La sustitución ha cambiado mientras buscábamos. Recarga la página.' }, { status: 409 });
     }
+
+    // «Volver a buscar» también renueva la sugerencia de Tentare Network, que
+    // se congeló igual que el ranking al crear la baja. Best-effort: nunca
+    // lanza, y si falla se queda la lista que había.
+    await refrescarCandidatosNetwork(admin, { sustitucionId, studioId: sesion.studioId });
 
     return NextResponse.json({
       ok: true,
