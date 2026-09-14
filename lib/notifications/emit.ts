@@ -656,8 +656,9 @@ export async function emitirCanjeSolicitado(
 //
 // ⚠️ El motivo NO viaja en el aviso (auditoría RGPD 2026-09): es texto libre y
 // a menudo es salud («gripe», «lesión»). Un push pasa por servicios de terceros
-// y la fila de `notification` se queda. El motivo sigue en la sustitución, en
-// el panel. Hay un test que lee esta función.
+// y la fila de `notification` se queda. El motivo vive en `bajas_instructora`
+// (solo servidor) y en el panel solo lo ve quien gestiona el equipo. Hay un test
+// que lee esta función.
 export async function emitirInstructoraBaja(
   admin: SupabaseClient,
   p: { studioId: string; sesionId: string; instructorId: string | null; sustitucionId: string },

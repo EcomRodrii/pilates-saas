@@ -16,6 +16,7 @@ import {
   puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
 } from '@/lib/sustituciones/recalculo';
 import { puedeGestionarEquipo, puedeVer } from '@/lib/permisos-reglas';
+import { textoMotivoParaEstudio } from '@/lib/student/baja-instructora';
 import {
   estadosCoberturaPorPerfil, faltaColumnaSustitucion,
   type EstadoCoberturaNetwork, type InstructorCobertura, type SolicitudCobertura,
@@ -155,9 +156,17 @@ export async function GET(req: NextRequest) {
     ? await coberturaNetwork(admin, sesion.studioId, lista)
     : new Map<string, Record<string, EstadoCoberturaNetwork>>();
 
+  // El motivo de las bajas que pide la instructora vive aparte
+  // (`bajas_instructora`): a veces habla de su salud, así que solo lo ve quien
+  // gestiona el equipo. Recepción sigue viendo la baja, sin el porqué.
+  const motivoInstructora = puedeGestionarEquipo(sesion.rol)
+    ? await motivosDeInstructora(admin, sesion.studioId, lista)
+    : new Map<string, string>();
+
   return NextResponse.json({
     sustituciones: lista.map((s) => ({
       ...s,
+      ...(motivoInstructora.has(s.id) ? { motivo: motivoInstructora.get(s.id) } : {}),
       sustitucion_contactos: contactosPorSust.get(s.id) ?? [],
       ...(cobertura.has(s.id) ? { cobertura_network: cobertura.get(s.id) } : {}),
     })),
@@ -690,4 +699,30 @@ async function diagnosticarEquipo(
     console.error('[sustituciones] no se pudo diagnosticar el equipo', e);
     return { total: 0, sinDisponibilidad: [] };
   }
+}
+
+// Motivo (opción fija + nota) de las bajas que pidió la instructora, por
+// sustitución. Best-effort como la traza: si falla, la tarjeta sale sin motivo.
+async function motivosDeInstructora(
+  admin: ReturnType<typeof getSupabaseAdmin> & {},
+  studioId: string,
+  lista: Array<{ id: string; origen?: string | null }>,
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ids = lista.filter((s) => s.origen === 'instructora').map((s) => s.id);
+  if (ids.length === 0) return out;
+  const { data, error } = await admin
+    .from('bajas_instructora')
+    .select('sustitucion_id, categoria, motivo')
+    .eq('studio_id', studioId)
+    .in('sustitucion_id', ids);
+  if (error) {
+    console.error('[sustituciones] no se pudo cargar el motivo de las bajas', error);
+    return out;
+  }
+  for (const b of data ?? []) {
+    const texto = textoMotivoParaEstudio(b.categoria, b.motivo);
+    if (texto) out.set(b.sustitucion_id as string, texto);
+  }
+  return out;
 }

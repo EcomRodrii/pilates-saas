@@ -7,6 +7,7 @@ import type {
 } from '@/lib/student/agenda-instructora';
 import type { AusenciaVista, PerfilInstructora, TipoAusencia } from '@/lib/student/perfil-instructora';
 import { normalizarValoraciones } from '@/lib/student/valoraciones-instructora';
+import { normalizarRevision, type CategoriaBaja } from '@/lib/student/baja-instructora';
 import type { OpcionesNuevaClase } from '@/lib/student/nueva-clase';
 import type { AlumnaResumen, FichaAlumna } from '@/lib/student/alumnas-instructora';
 import type { SaludAlumna } from '@/lib/datos-salud/salud-para-instructora';
@@ -37,9 +38,10 @@ export async function getAgendaInstructora(slug: string, desde: string, hasta: s
   // ⚠️ Nunca dar por hecha la forma de la respuesta: un `{}` no puede tumbar la
   // pantalla (lo aprendió el dashboard del panel con un e2e ajeno).
   const d = await res.json() as Partial<AgendaInstructoraVista>;
+  const conRevision = <T extends { revision?: unknown }>(b: T) => ({ ...b, revision: normalizarRevision(b.revision) });
   return {
-    clases: Array.isArray(d.clases) ? d.clases : [],
-    bajas: Array.isArray(d.bajas) ? d.bajas : [],
+    clases: Array.isArray(d.clases) ? d.clases.map((c) => (c.baja ? { ...c, baja: conRevision(c.baja) } : c)) : [],
+    bajas: Array.isArray(d.bajas) ? d.bajas.map(conRevision) : [],
     puedeCrearClases: d.puedeCrearClases === true,
   };
 }
@@ -78,14 +80,16 @@ export type ResultadoPedirBaja =
  * mensaje que la pantalla sabe pintar, y nunca se da por hecha la baja sin la
  * respuesta del servidor (la clase sigue a su nombre hasta que él diga que sí).
  */
-export async function pedirBaja(slug: string, sesionId: string, motivo: string): Promise<ResultadoPedirBaja> {
+export async function pedirBaja(
+  slug: string, sesionId: string, motivo: string, categoria: CategoriaBaja | null = null,
+): Promise<ResultadoPedirBaja> {
   const auth = await portalAuthHeader();
   if (!auth.Authorization) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
   try {
     const res = await fetch('/api/portal/instructora/baja', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth },
-      body: JSON.stringify({ slug, sesionId, motivo: motivo.trim() || null }),
+      body: JSON.stringify({ slug, sesionId, motivo: motivo.trim() || null, categoria }),
     });
     if (res.status === 401) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
     const d = await res.json().catch(() => ({})) as { ok?: boolean; yaAvisada?: boolean; error?: string };
