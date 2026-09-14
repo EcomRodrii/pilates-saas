@@ -7,6 +7,7 @@
 // (email/WhatsApp diario de las clases del día, bucket B, sigue en Inngest).
 // ─────────────────────────────────────────────────────────────────────────────
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { exigirLectura } from '@/lib/exigir-lectura';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
@@ -34,24 +35,26 @@ async function recordatoriosGlobal(admin: SupabaseClient) {
   // el fan-out por estudio en una query global, cada lectura pasó de "las
   // filas de UN estudio" a "las de TODOS", y PostgREST corta en 1.000 filas
   // EN SILENCIO. Es exactamente el fallo que ya costó los backups (#684).
-  const { data: studiosActivos } = await fetchAllRows<{ id: string; slug: string | null }>(
+  const { data: studiosActivos, error: errStudios } = await fetchAllRows<{ id: string; slug: string | null }>(
     '(global)', 'studios',
     (from, to) => admin.from('studios').select('id, slug').is('suspendido_en', null).range(from, to),
   );
+  exigirLectura(errStudios, 'leyendo estudios');
   if (!studiosActivos.length) return { publicados: 0 };
   const slugById = new Map(studiosActivos.map((s) => [s.id, s.slug ?? '']));
 
-  const { data: sesiones } = await fetchAllRows<{ id: string; studio_id: string; inicio: string; tipo_clase_id: string | null }>(
+  const { data: sesiones, error: errSesiones } = await fetchAllRows<{ id: string; studio_id: string; inicio: string; tipo_clase_id: string | null }>(
     '(global)', 'sesiones',
     (from, to) => admin.from('sesiones')
       .select('id, studio_id, inicio, tipo_clase_id').eq('cancelada', false)
       .in('studio_id', studiosActivos.map((s) => s.id))
       .gte('inicio', desde).lte('inicio', hasta).range(from, to),
   );
+  exigirLectura(errSesiones, 'leyendo sesiones');
   if (!sesiones.length) return { publicados: 0 };
   const sesById = new Map(sesiones.map((s) => [s.id, s]));
 
-  const [{ data: tipos }, { data: reservas }] = await Promise.all([
+  const [{ data: tipos, error: errTipos }, { data: reservas, error: errReservas }] = await Promise.all([
     fetchAllRows<{ id: string; nombre: string }>(
       '(global)', 'tipos_clase',
       (from, to) => admin.from('tipos_clase').select('id, nombre')
@@ -63,17 +66,26 @@ async function recordatoriosGlobal(admin: SupabaseClient) {
         .eq('estado', 'CONFIRMADA').in('sesion_id', [...sesById.keys()]).range(from, to),
     ),
   ]);
+  // `errTipos` NO se exige: `tipos` solo da el nombre bonito de la clase y ya
+  // hay respaldo («tu clase»). Lanzar aquí dejaría sin recordatorio de 24 h y
+  // de 1 h a TODAS las socias por un fallo decorativo — y la ventana de 1 h
+  // solo tiene dos intentos. Se sigue con el mapa parcial.
+  if (errTipos) console.error('[recordatorios] no se pudieron leer los tipos de clase', errTipos);
+  exigirLectura(errReservas, 'leyendo reservas');
   const nombre = new Map(tipos.map((t) => [t.id, t.nombre]));
 
   // "No enviarle recordatorios" (B2.9). Se consulta aquí en lote.
   const socioIds = [...new Set(reservas.map(r => r.socio_id as string).filter(Boolean))];
-  const { data: exentosR } = socioIds.length
+  const { data: exentosR, error: errExentos } = socioIds.length
     ? await fetchAllRows<{ socio_id: string }>(
         '(global)', 'socio_excepciones',
         (from, to) => admin.from('socio_excepciones').select('socio_id')
           .eq('tipo', EXENCION_RECORDATORIO).in('socio_id', socioIds).range(from, to),
       )
-    : { data: [] as { socio_id: string }[] };
+    : { data: [] as { socio_id: string }[], error: null };
+  // Si esta falla, el barrido mandaría el recordatorio a quien pidió no
+  // recibirlo: tampoco vale seguir con la lista vacía.
+  exigirLectura(errExentos, 'leyendo excepciones de recordatorio');
   const exentos = new Set(exentosR.map(e => e.socio_id));
 
   let publicados = 0;

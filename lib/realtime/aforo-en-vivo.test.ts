@@ -82,9 +82,18 @@ test('solo escucha el staff del estudio o una socia activa suya', () => {
   const pol = sql.slice(sql.indexOf('create policy aforo_broadcast_lectura on'));
   assert.match(pol, /split_part\(realtime\.topic\(\), ':', 2\)/,
     'El estudio va en el 2º segmento del topic, como en el feed.');
-  assert.match(pol, /s\.auth_user_id = \(select auth\.uid\(\)\)/, 'vía socia');
   assert.match(pol, /public\.current_studio_id\(\)/, 'vía staff');
-  assert.match(pol, /s\.activo = true/,
+
+  // La vía socia puede estar escrita en la propia política o delegada en
+  // `es_socia_activa_de` — desde el 14-sep es lo segundo, porque la política
+  // que subconsultaba `socios` directamente se rompió con 42501 al revocarse
+  // el SELECT de esa tabla (y dejó el aforo en vivo mudo, sin error visible).
+  // El invariante NO cambia y se comprueba igual, un salto más abajo.
+  const fuenteSocia = /public\.es_socia_activa_de\(/.test(pol)
+    ? migracionViva('create or replace function public.es_socia_activa_de')
+    : pol;
+  assert.match(fuenteSocia, /s\.auth_user_id = \(select auth\.uid\(\)\)/, 'vía socia');
+  assert.match(fuenteSocia, /s\.activo = true/,
     'Una socia dada de baja no sigue escuchando el estudio.');
 });
 

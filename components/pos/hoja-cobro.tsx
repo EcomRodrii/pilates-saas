@@ -60,10 +60,16 @@ const ESPERA_MAX_MS = 90_000;
 const INTERVALO_MS = 1_500;
 
 export function HojaCobro({
-  total, cobroDisponible, onCobrar, onHecho, onCerrar,
+  total, cobroDisponible, bizumPermitido, onCobrar, onHecho, onCerrar,
 }: {
   total: number;
   cobroDisponible: { stripeConectado: boolean; datafonoEmparejado: boolean };
+  /**
+   * ¿Se puede ofrecer Bizum para ESTE ticket? Falso si lleva una cuota: Bizum
+   * no deja método guardado y la renovación no podría cobrarse sola
+   * (`lib/billing/bizum-permitido.ts`). El servidor lo rechaza igualmente.
+   */
+  bizumPermitido: boolean;
   /** Registra la venta en el servidor. Devuelve lo que respondió. */
   onCobrar: (metodo: MetodoPago, efectivoRecibido: number | null) => Promise<RespuestaVenta | { error: string }>;
   /** La venta quedó cobrada de verdad. Vacía el ticket. */
@@ -180,7 +186,7 @@ export function HojaCobro({
 
   const disponible = (m: MetodoPago) => {
     if (m === 'DATAFONO') return cobroDisponible.datafonoEmparejado;
-    if (m === 'BIZUM') return cobroDisponible.stripeConectado;
+    if (m === 'BIZUM') return cobroDisponible.stripeConectado && bizumPermitido;
     return true;
   };
 
@@ -273,7 +279,11 @@ export function HojaCobro({
                         ? ayuda
                         : valor === 'DATAFONO'
                           ? 'Empareja uno en Configuración → Integraciones'
-                          : 'Conecta Stripe en Configuración → Integraciones'}
+                          : valor === 'BIZUM' && !bizumPermitido
+                            // El motivo de verdad. «Conecta Stripe» aquí sería
+                            // mandar a arreglar algo que no está roto.
+                            ? 'No vale para una cuota: no deja método guardado'
+                            : 'Conecta Stripe en Configuración → Integraciones'}
                     </span>
                   </button>
                 );

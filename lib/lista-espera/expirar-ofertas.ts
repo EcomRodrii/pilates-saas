@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { expirarOfertaListaEspera } from '@/lib/db/supabase-data-admin';
+import { exigirLectura } from '@/lib/exigir-lectura';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { capturarMensaje } from '@/lib/sentry-cliente';
 
@@ -21,7 +22,7 @@ export async function barrerOfertasListaEsperaExpiradas(): Promise<{ expiradas: 
   // Paginado: query global (todos los estudios) y PostgREST corta a 1.000
   // filas en silencio. Una oferta que cayera fuera del corte no expiraría
   // nunca y bloquearía la plaza para la siguiente de la cola.
-  const { data: ofertas } = await fetchAllRows<{ id: string; studio_id: string; sesion_id: string | null; socio_id: string | null }>(
+  const { data: ofertas, error: errOfertas } = await fetchAllRows<{ id: string; studio_id: string; sesion_id: string | null; socio_id: string | null }>(
     '(global)', 'reservas',
     (from, to) => admin
       .from('reservas')
@@ -31,6 +32,12 @@ export async function barrerOfertasListaEsperaExpiradas(): Promise<{ expiradas: 
       .lte('oferta_expira_en', new Date().toISOString())
       .range(from, to),
   );
+  // Y si la lectura FALLA no es «no había nada»: Sentry contó 128 «Gateway
+  // Timeout» aquí entre el 17-ago y el 13-sep, todas con `desde: 0` (falla la
+  // primera página) → `ofertas` vacío → 200 «nada que expirar», y una plaza
+  // caducada que sigue bloqueada sin ofrecerse a la siguiente de la cola.
+  // Ojo: el 500 de la ruta se dispara por `fallos`, que en este caso es 0.
+  exigirLectura(errOfertas, 'leyendo ofertas de lista de espera');
   if (!ofertas.length) return { expiradas: 0, fallos: 0 };
   // Se cuentan los ÉXITOS, no las candidatas. Antes se devolvía
   // `ofertas.length` pasara lo que pasara, y `expirarOfertaListaEspera` traga

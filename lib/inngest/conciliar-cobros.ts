@@ -38,7 +38,7 @@ import { metodoRealDeSesion } from '../billing/metodo-real-sesion.ts';
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
-import { recibosCobradosSinFactura, type ReciboCobrado } from '../facturas-sin-sellar.ts';
+import { recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente, type ReciboCobrado } from '../facturas-sin-sellar.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Cuánto atrás se mira. Generoso a propósito: con el barrido cada 5 minutos
@@ -365,10 +365,13 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
   );
   const idsConFactura = new Set(facturadas.map(f => f.recibo_id as string));
 
-  const sinFactura: ReciboCobrado[] = recibosCobradosSinFactura(
-    cobrados.map(r => ({ id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro, metodoCobro: r.metodo_cobro })),
-    idsConFactura,
-  );
+  const filas = cobrados.map(r => ({ id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro, metodoCobro: r.metodo_cobro }));
+  // Dos preguntas distintas, dos cifras (C-3, 60ª pasada). Antes esta
+  // vigilancia filtraba por `emiteFacturaAutomatica` y por eso NUNCA podía
+  // avisar de un cobro en efectivo sin factura: 3 en producción, invisibles
+  // dos pasadas seguidas.
+  const sinFactura: ReciboCobrado[] = recibosCobradosSinFactura(filas, idsConFactura);
+  const averia: ReciboCobrado[] = recibosConFacturaAutomaticaAusente(filas, idsConFactura);
   if (sinFactura.length > 0) {
     const porEstudio: Record<string, number> = {};
     for (const r of sinFactura) porEstudio[r.studioId] = (porEstudio[r.studioId] ?? 0) + 1;
@@ -377,8 +380,12 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
       tags: { area: 'facturacion', tipo: 'cobrado-sin-factura' },
       extra: {
         total: sinFactura.length,
+        // Los que debían facturarse SOLOS y no lo hicieron: esto es avería de
+        // software. El resto es decisión de negocio (hoy, el efectivo).
+        averiaFacturaAutomatica: averia.length,
+        sinFacturaAutomaticaPorDecision: sinFactura.length - averia.length,
         porEstudio,
-        queHacer: 'Sellar factura retroactiva es decisión humana (implicación de trimestre fiscal) — revisar caso a caso con el asesor fiscal, nunca desde un cron.',
+        queHacer: 'Sellar factura retroactiva es decisión humana (implicación de trimestre fiscal) — revisar caso a caso con el asesor fiscal, nunca desde un cron. `averiaFacturaAutomatica` > 0 sí es un fallo del producto.',
       },
     });
   }

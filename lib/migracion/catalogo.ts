@@ -1,4 +1,7 @@
 import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
+// Con extensión `.ts`: `node --test` no resuelve los imports sin extensión, y
+// este módulo lo arrastra `lib/engines/backup-engine.test.ts`.
+import { conReintentoTransitorio } from '../reintento-transitorio.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Leer un catálogo ENTERO para deduplicar o emparejar durante una importación.
@@ -49,8 +52,24 @@ export async function leerCatalogoCompleto<T>(
 ): Promise<{ filas: T[]; truncado: boolean }> {
   const filas: T[] = [];
   for (let desde = 0; desde < tope; desde += PAGINA) {
-    const { data, error } = await construir(desde, desde + PAGINA - 1);
-    if (error) throw error;
+    // Reintento ante un 504 del pooler, igual que `fetchAllRows` desde la 59ª
+    // pasada (M-11). NO es simetría por gusto: este paginador es el que usa la
+    // copia de seguridad diaria (`lib/engines/backup-engine.ts`), y un solo
+    // "Gateway Timeout" en cualquiera de sus ~80 tablas tiraba el snapshot
+    // ENTERO de ese estudio. Medido el 14-sep: studio-1 llevaba CINCO noches
+    // seguidas sin copia automática (última DIARIA el 9-sep) con 140 sesiones
+    // y 222 reservas — o sea, sin nada que ver con el volumen. El arreglo de
+    // #1936 se hizo en `fetchAllRows` y no llegó a su gemelo, que es este.
+    const { resultado } = await conReintentoTransitorio(async () => {
+      const r = await construir(desde, desde + PAGINA - 1);
+      const mensaje = (r.error as { message?: unknown } | null)?.message;
+      return {
+        data: r.data,
+        error: r.error ? { message: typeof mensaje === 'string' ? mensaje : '', causa: r.error } : null,
+      };
+    });
+    const { data } = resultado;
+    if (resultado.error) throw resultado.error.causa;
     const pagina = data ?? [];
     filas.push(...pagina);
     if (pagina.length < PAGINA) return { filas, truncado: false };

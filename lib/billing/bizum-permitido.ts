@@ -55,3 +55,11 @@ export function tipoDeReciboParaBizum(
 export function ofrecerBizum(pedido: boolean, tipoPlan: string | null | undefined): boolean {
   return pedido && bizumPermitidoPara(tipoPlan);
 }
+
+/**
+ * Lo que se le dice a quien está en el mostrador. Vive aquí, con la regla, para
+ * que la frase no diverja entre las tres puertas del TPV (`/api/pos/venta`,
+ * `/api/pos/recibo` y la hoja de cobro).
+ */
+export const MENSAJE_BIZUM_EN_CUOTA =
+  'Bizum no sirve para una cuota: no deja método guardado y la renovación no podría cobrarse sola. Cobra con tarjeta o datáfono.';

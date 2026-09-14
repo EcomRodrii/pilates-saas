@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { MetodoPago } from '@/lib/types';
+import { MENSAJE_CUOTA_SIN_CLIENTA } from '@/lib/pos/cuota-exige-clienta';
 
 /** Estado del HECHO COMERCIAL. */
 export type EstadoVentaPOS = 'PENDIENTE_PAGO' | 'PAGADA' | 'ANULADA';
@@ -133,8 +134,13 @@ export function mensajeErrorVenta(codigo: string): string {
     // PLAN_SIN_CLIENTA ya no lo lanza la RPC (un bono se puede vender sin
     // ficha y asignarse después). Se conserva la traducción porque un
     // despliegue a medias podría seguir devolviéndolo, y un código crudo en
-    // pantalla es peor que una frase de más aquí.
+    // pantalla es peor que una frase de más aquí. Y no es hipotético: las dos
+    // migraciones de matrícula del 13-sep lo reinstalaron sin querer y estuvo
+    // un día bloqueando la venta sin ficha (60ª pasada, 14-sep).
     case 'PLAN_SIN_CLIENTA':         return `«${a}» es un bono: elige a nombre de quién va antes de cobrar.`;
+    // Lo que la RPC sí lanza desde la 60ª pasada, y solo para las cuotas:
+    // mismo criterio y misma frase que `cuotaSinClienta` en /api/pos/venta.
+    case 'CUOTA_SIN_CLIENTA':        return MENSAJE_CUOTA_SIN_CLIENTA;
     case 'VENTA_YA_ASIGNADA':        return 'Esa venta ya está a nombre de una clienta.';
     // 31ª pasada de auditoría: asignar una venta ya devuelta reentregaría un
     // bono/créditos por dinero que el estudio ya no tiene.

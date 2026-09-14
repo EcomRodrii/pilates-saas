@@ -8,7 +8,15 @@ import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-const EN_JUEGO = ['buscando', 'pendiente_aprobacion', 'contactando'];
+// `agotada` va en la lista a propósito: significa «se acabaron las candidatas y
+// nadie dijo que sí», NO «ya está cubierta». Quien abre el email justo entonces
+// es la única persona que puede salvar la clase, y sin este estado se le
+// enseñaba «Ya está cubierta. Otra persona la cogió antes» —falso— y cerraba.
+// La RPC `confirmar_sustitucion` sí la acepta (verificado en producción el
+// 14-sep, con rollback: devuelve `{"ok": true}` desde `agotada`) y el gemelo
+// autorizado `lib/sustituciones/contacto.ts` también la lleva. Esta pantalla
+// era la única de las tres que no.
+const EN_JUEGO = ['buscando', 'pendiente_aprobacion', 'contactando', 'agotada'];
 
 function cuandoTexto(inicio: string): string {
   const d = new Date(inicio);

@@ -11,6 +11,7 @@ import { contextoCobroDe, proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/term
 import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
 import { mensajeErrorVenta, codigoDeErrorPg, type LineaVentaPeticion } from '@/lib/pos/tipos';
 import { cuotaSinClienta, MENSAJE_CUOTA_SIN_CLIENTA } from '@/lib/pos/cuota-exige-clienta';
+import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import type { MetodoPago } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -138,15 +139,33 @@ export async function POST(req: NextRequest) {
   const idsDePlan = sane.lineas
     .filter((l) => l.tipo === 'PLAN' && l.referenciaId)
     .map((l) => l.referenciaId as string);
-  if (!socioId && idsDePlan.length > 0) {
+  let tiposDePlan: string[] = [];
+  // Solo cuando hace falta decidir algo: si la venta ya lleva clienta y no se
+  // cobra con Bizum, ninguno de los dos guards de abajo depende del tipo, y un
+  // 504 pasajero de `planes_tarifa` no puede tumbar una venta en efectivo que
+  // antes de este cambio ni siquiera hacía esta consulta.
+  if (idsDePlan.length > 0 && (!socioId || metodoPago === 'BIZUM')) {
     const { data: planesVenta, error: errPlanes } = await admin.from('planes_tarifa')
       .select('id, tipo').eq('studio_id', sesion.studioId).in('id', idsDePlan);
     if (errPlanes) {
       return errorInterno('[pos/venta] no se pudo leer el tipo de los planes', errPlanes, 'No se ha podido registrar la venta.');
     }
-    if (cuotaSinClienta((planesVenta ?? []).map((p) => p.tipo as string), socioId)) {
-      return NextResponse.json({ error: MENSAJE_CUOTA_SIN_CLIENTA, codigo: 'CUOTA_SIN_CLIENTA' }, { status: 400 });
-    }
+    tiposDePlan = (planesVenta ?? []).map((p) => p.tipo as string);
+  }
+  if (cuotaSinClienta(tiposDePlan, socioId)) {
+    return NextResponse.json({ error: MENSAJE_CUOTA_SIN_CLIENTA, codigo: 'CUOTA_SIN_CLIENTA' }, { status: 400 });
+  }
+
+  // Y Bizum fuera de las cuotas, por el MISMO módulo que usan el checkout
+  // online y las tres pantallas de compra (`lib/billing/bizum-permitido.ts`).
+  // #1954 lo cerró en los cuatro caminos de internet el mismo día en que
+  // #1956 convirtió al mostrador en el quinto que vende cuotas de verdad, así
+  // que aquí seguía abierto: Bizum no deja método guardado → el recibo de la
+  // renovación nace PENDIENTE y ni siquiera entra en el dunning
+  // (`lib/inngest/renovaciones.ts`). La cuota deja de cobrarse sola, en
+  // silencio. La pantalla también lo oculta; esto es la cerradura.
+  if (metodoPago === 'BIZUM' && tiposDePlan.some((t) => !bizumPermitidoPara(t))) {
+    return NextResponse.json({ error: MENSAJE_BIZUM_EN_CUOTA, codigo: 'BIZUM_EN_CUOTA' }, { status: 400 });
   }
 
   // Caja abierta, si la hay. La venta se apunta en ella; si no hay ninguna

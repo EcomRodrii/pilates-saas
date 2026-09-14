@@ -64,8 +64,15 @@ const vacio = (v: unknown) => v === undefined || v === null || v === '';
  * Lo que un formulario del panel puede mandar a `updateSocio`/`addSocio`.
  *
  *  · Sin permiso, ningún campo privado sale: el campo está oculto y su valor
- *    en el formulario es `''`, así que mandarlo BORRARÍA el NIF de la socia
- *    (y tras la migración de cierre, la BD lo rechaza con 42501).
+ *    en el formulario es `''`, así que mandarlo BORRARÍA el NIF de la socia.
+ *    ⚠️ Y esta comprobación es la ÚNICA que hay: la migración de cierre
+ *    (20260914080445) revocó el SELECT por columna, pero el UPDATE sigue
+ *    concedido —medido en producción el 14-sep:
+ *    `has_column_privilege('authenticated','socios','nif','UPDATE')` = true—
+ *    porque el formulario de la propietaria escribe esas columnas desde el
+ *    navegador. O sea que la BD NO rechaza el borrado con 42501, como decía
+ *    aquí antes. Escalón pendiente: mover esa escritura al servidor y revocar
+ *    también el UPDATE.
  *  · Con permiso y `original`, solo sale lo que CAMBIÓ. Si la RPC falló al
  *    cargar, el formulario enseña `''` donde había un NIF; sin esta
  *    comparación, guardar el teléfono lo habría vaciado.

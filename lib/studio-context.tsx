@@ -4946,42 +4946,64 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // La persistencia la hace ahora el servidor (evaluarLogrosServidor, en
       // checkinPublico/crearReservaPublica/cancelarReservaPublica). Aquí se sigue
       // calculando para que la pantalla del portal muestre el progreso al día.
-      if (!publicSlug) dbUpsertAchievementProgress(progresoActualizado);
+      if (publicSlug) return;
 
-      if (!completadoAhora) return;
+      if (!completadoAhora) {
+        dbUpsertAchievementProgress(progresoActualizado);
+        return;
+      }
 
-      const entry: AchievementHistory = {
-        id: `achh-${uid()}`, studioId, socioId, achievementId: def.id, nombre: def.nombre, icono: def.icono, creadoEn: now.toISOString(),
-      };
-      setAchievementHistory(prev => [entry, ...prev]);
-      if (!publicSlug) dbInsertAchievementHistory(entry);
+      // ⚠️ Desbloquear un logro NO es optimista (60ª auditoría, H-1). Con las
+      // políticas por rol del 14-sep, una INSTRUCTORA recibe 42501 al escribir
+      // `completado=true`, y como esto era fire-and-forget la pantalla lo daba
+      // por conseguido igual: historial duplicado en cada lista y créditos que
+      // nunca llegaban (`otorgar_credito_disparador` exige el progreso
+      // completado EN LA BASE, y responde CONDICION_NO_CUMPLIDA). Ahora manda
+      // lo que diga la base: si no se guardó, se deshace el estado local y no
+      // se anuncia nada. El sitio donde esto se cierra de verdad es mover la
+      // evaluación al servidor —`evaluarLogrosServidor` ya existe y hace este
+      // mismo upsert con service-role—, como se hizo para el portal.
+      void (async () => {
+        const guardado = await dbUpsertAchievementProgress(progresoActualizado);
+        if (!guardado.ok) {
+          setAchievementProgress(prev => progresoExistente
+            ? prev.map(p => p.id === progresoExistente.id ? progresoExistente : p)
+            : prev.filter(p => p.id !== progresoActualizado.id));
+          return;
+        }
 
-      if (def.creditosRecompensa > 0 && !publicSlug) {
+        const entry: AchievementHistory = {
+          id: `achh-${uid()}`, studioId, socioId, achievementId: def.id, nombre: def.nombre, icono: def.icono, creadoEn: now.toISOString(),
+        };
+        setAchievementHistory(prev => [entry, ...prev]);
+        dbInsertAchievementHistory(entry);
+
+        if (def.creditosRecompensa <= 0) return;
         // El importe se recalcula en servidor desde achievement_definitions (nunca
         // se confía en def.creditosRecompensa del cliente) — ver
         // dbOtorgarCreditoDisparador. En portal la concede el servidor
-        // (evaluarLogrosServidor); aquí solo se llama desde el panel.
-        void (async () => {
-          const res = await dbOtorgarCreditoDisparador(socioId, studioId, 'LOGRO', `${socioId}:${def.id}`, def.id);
-          if ('error' in res) return; // sin regla activa
-          if (!res.otorgado) return; // ya se había otorgado antes
-          // El importe y el texto salen de la RPC, no de `def`: el servidor los
-          // recalcula desde achievement_definitions y además ya ha escrito el
-          // apunte. Aquí solo se refleja lo que dice que ha pasado.
-          const transaccion: CreditTransaction = {
-            id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: res.creditos,
-            descripcion: res.descripcion ?? '', refId: def.id, creadoEn: now.toISOString(),
-          };
-          setCreditTransactions(prev => [transaccion, ...prev]);
-          setMemberCredits(prev => {
-            const existente = prev.find(m => m.socioId === socioId);
-            const actualizado: MemberCredits = existente
-              ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now.toISOString() }
-              : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, caducaEl: null, actualizadoEn: now.toISOString() };
-            return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
-          });
-        })();
-      }
+        // (evaluarLogrosServidor); aquí solo se llama desde el panel, y ya con
+        // el progreso confirmado en la base (si no, la RPC responde
+        // CONDICION_NO_CUMPLIDA y la socia se queda sin sus créditos).
+        const res = await dbOtorgarCreditoDisparador(socioId, studioId, 'LOGRO', `${socioId}:${def.id}`, def.id);
+        if ('error' in res) return; // sin regla activa
+        if (!res.otorgado) return; // ya se había otorgado antes
+        // El importe y el texto salen de la RPC, no de `def`: el servidor los
+        // recalcula desde achievement_definitions y además ya ha escrito el
+        // apunte. Aquí solo se refleja lo que dice que ha pasado.
+        const transaccion: CreditTransaction = {
+          id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: res.creditos,
+          descripcion: res.descripcion ?? '', refId: def.id, creadoEn: now.toISOString(),
+        };
+        setCreditTransactions(prev => [transaccion, ...prev]);
+        setMemberCredits(prev => {
+          const existente = prev.find(m => m.socioId === socioId);
+          const actualizado: MemberCredits = existente
+            ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now.toISOString() }
+            : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, caducaEl: null, actualizadoEn: now.toISOString() };
+          return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
+        });
+      })();
     });
   }
 
@@ -5068,24 +5090,37 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // Mismo caso que los logros: en portal RLS rechazaba esta escritura sin
         // remedio. La persistencia la hace evaluarRetosServidor; aquí se sigue
         // calculando para que la pantalla muestre el progreso al día.
-        if (!publicSlug) dbUpsertChallengeProgress(progresoActualizado);
+        if (publicSlug) return;
 
-        if (!completadoAhora) return;
+        if (!completadoAhora) {
+          dbUpsertChallengeProgress(progresoActualizado);
+          return;
+        }
 
-        const entry: ChallengeHistory = {
-          id: `chah-${uid()}`, studioId, socioId, challengeId: reto.id, nombre: reto.nombre, icono: reto.icono, creadoEn: now.toISOString(),
-        };
-        setChallengeHistory(prev => [entry, ...prev]);
-        if (!publicSlug) dbInsertChallengeHistory(entry);
+        // Gemelo exacto de H-1 en los logros (60ª auditoría): completar un reto
+        // tampoco puede darse por hecho antes de que la base lo acepte.
+        void (async () => {
+          const guardado = await dbUpsertChallengeProgress(progresoActualizado);
+          if (!guardado.ok) {
+            setChallengeProgress(prev => progresoExistente
+              ? prev.map(p => p.id === progresoExistente.id ? progresoExistente : p)
+              : prev.filter(p => p.id !== progresoActualizado.id));
+            return;
+          }
 
-        if (reto.creditosRecompensa > 0 && !publicSlug) {
-          // El importe se recalcula en servidor desde challenge_definitions (nunca
-          // se confía en reto.creditosRecompensa del cliente) — ver
-          // dbOtorgarCreditoDisparador. En portal la concede el servidor.
-          void (async () => {
+          const entry: ChallengeHistory = {
+            id: `chah-${uid()}`, studioId, socioId, challengeId: reto.id, nombre: reto.nombre, icono: reto.icono, creadoEn: now.toISOString(),
+          };
+          setChallengeHistory(prev => [entry, ...prev]);
+          dbInsertChallengeHistory(entry);
+
+          if (reto.creditosRecompensa > 0) {
+            // El importe se recalcula en servidor desde challenge_definitions (nunca
+            // se confía en reto.creditosRecompensa del cliente) — ver
+            // dbOtorgarCreditoDisparador. En portal la concede el servidor.
             const res = await dbOtorgarCreditoDisparador(socioId, studioId, 'RETO', `${socioId}:${reto.id}`, reto.id);
             if ('error' in res) return; // sin regla activa
-          if (!res.otorgado) return; // ya se había otorgado antes
+            if (!res.otorgado) return; // ya se había otorgado antes
             // Mismo motivo que en el logro: importe y texto del servidor, y el
             // apunte ya escrito por la RPC.
             const transaccion: CreditTransaction = {
@@ -5100,8 +5135,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
                 : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, caducaEl: null, actualizadoEn: now.toISOString() };
               return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
             });
-          })();
-        }
+          }
+        })();
       });
   }
 
