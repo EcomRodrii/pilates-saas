@@ -98,8 +98,8 @@ const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces
     icono: '💳', trigger: 'PAGO_PENDIENTE_DIAS', condicion: { dias: 3, diasSegundo: 8, diasEscalada: 15 }, pasos: [], activa: false,
   },
   // «Recordatorio de clase» (CLASE_MANANA) ya NO se ofrece: el recordatorio lo
-  // manda Tentare de serie a todos los estudios (lib/inngest/recordatorios.ts +
-  // el push de 24 h/1 h), así que encender esta regla era mandar DOS
+  // manda Tentare de serie a todos los estudios (lib/notificaciones/recordatorio-clase.ts:
+  // app 24 h y 1 h antes, email y WhatsApp 24 h antes), así que encender esta regla era mandar DOS
   // recordatorios por la misma clase. El trigger sigue existiendo en el motor
   // por si algún estudio lo tuviera encendido (0 en producción el 14-sep).
   {
@@ -141,14 +141,14 @@ const TRIGGERS_QUE_ESCRIBEN_A_CLIENTAS = new Set<AutomationRule['trigger']>([
 // «encenderlo» —y quien lo encendía mandaba dos—. Cada línea es un camino de
 // código que ya corre para todos los estudios sin configurar nada; si alguno
 // deja de ser así, se quita de aquí, no se deja como promesa:
-//   · recordatorio de clase → lib/inngest/recordatorios.ts + cron notif-recordatorios
+//   · recordatorio de clase → lib/notificaciones/recordatorio-clase.ts (cron notif-recordatorios)
 //   · confirmación al reservar → emitirReserva (RESERVA_CONFIRMADA, push)
 //   · lista de espera → cancelar_reserva_plaza / promocionar_siguiente_espera
 //   · bono agotado / a punto de caducar → emitirBonoAgotado + bonos-inactivas-cron
 //   · reintento de cobros → lib/inngest/dunning.ts (con tarjeta o SEPA guardados)
 //   · valoración después de clase → lib/inngest/valoraciones.ts
 const HECHO_DE_SERIE: string[] = [
-  'Recuerda cada clase a quien ha reservado: aviso en su app 24 h y 1 h antes, y email (o WhatsApp si lo tienes conectado).',
+  'Recuerda cada clase a quien ha reservado: 24 h antes por email y en su app (y por WhatsApp si lo tienes conectado), y 1 h antes en su app.',
   'Confirma cada reserva en la app de la alumna en cuanto la hace.',
   'Cuando alguien cancela, pasa la plaza a la siguiente de la lista de espera y se lo cuenta.',
   'Avisa a la alumna cuando su bono se queda sin clases o está a punto de caducar.',

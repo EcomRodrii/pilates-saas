@@ -1,3 +1,10 @@
+// ⚠️ EN TRANSICIÓN — el dueño del recordatorio de clase es ya
+// `enviarRecordatorioClase` (lib/notificaciones/recordatorio-clase.ts), que
+// llama el barrido de pg_cron `notif-recordatorios` cada 15 min: 24 h antes
+// app + email + WhatsApp, 1 h antes solo app. Esto sigue registrado para que
+// el despliegue no deje un hueco, y no duplica porque reclama las mismas filas
+// de `recordatorio_envios`. Se retira en su propio PR; no añadirle nada.
+//
 // Recordatorios de clase — mismo patrón durable que backups/dunning/valoraciones
 // (dispatcher cron → fan-out de un evento por estudio → worker por estudio).
 //
