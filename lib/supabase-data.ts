@@ -4658,7 +4658,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('stripeAccountId' in changes || 'sepaIban' in changes || 'sepaAcreedorId' in changes || 'sepaTitular' in changes) {
     return { ok: false, error: 'La cuenta de cobro se cambia desde Configuración → Cobros e Integraciones.' };
   }
-  // Igual con los dominios del widget (migr 20260914110200): van por
+  // Igual con los dominios del widget (migr 20260914011356): van por
   // /api/estudio/widget-dominios, que valida el formato y deja constancia.
   if ('widgetDominiosAutorizados' in changes) {
     return { ok: false, error: 'Los dominios del widget se cambian desde Configuración → API.' };
@@ -5226,7 +5226,7 @@ async function enTandas<T extends readonly unknown[] | []>(
 // cambia, solo se rompe la cadena de imports estática hacia supabase-admin.ts.
 // Socias para el PANEL (sesión de staff), en dos lecturas que se juntan por id:
 // lo público de la tabla y lo privado por `socios_datos_privados()`, que
-// devuelve CERO filas si el rol no puede verlo (M1 RGPD, migr 20260914160000).
+// devuelve CERO filas si el rol no puede verlo (M1 RGPD, migr 20260914025903).
 // Funciona igual con el SELECT de tabla de `authenticated` puesto (antes de la
 // migración de cierre) y sin él (después): no pide ninguna columna privada.
 //

@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 //
 // Antes los guardaba el navegador con un UPDATE directo de `studios`, sin
 // validar. Ahora `authenticated` no puede escribir la columna (migr
-// 20260914110200): decide desde qué webs se leen las respuestas del widget, así
+// 20260914011356): decide desde qué webs se leen las respuestas del widget, así
 // que la cambia solo la propietaria, con el formato validado aquí (origen https
 // exacto, sin rutas ni comodines) y con constancia en Actividad.
 // ─────────────────────────────────────────────────────────────────────────────

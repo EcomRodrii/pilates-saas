@@ -8,7 +8,7 @@
 -- anon, EXECUTE para authenticated + service_role. `confirmar_sustitucion`
 -- (INVOKER) mantiene el suyo: solo service_role.
 -- Cuerpos copiados de producción, con la guardia de servidor ya escrita como
--- `es_llamada_servicio()` (20260914100000); aparte de eso solo cambia el
+-- `es_llamada_servicio()` (20260913233644); aparte de eso solo cambia el
 -- bloque marcado.
 
 -- ── congelar_suscripcion ───────────────────────────────────────────────────

@@ -185,7 +185,7 @@ test('socios: authenticated pierde el grant de TABLA y ninguna columna de consen
 // Columnas que `authenticated` no debe escribir: las pone el servidor.
 //  · excluir_de_perfilado (#1922): la oposición al perfilado la cambia solo la
 //    propia socia por la ruta del portal (service_role); un trigger bloquea al staff.
-//  · cumple_mm_dd (M1, 20260914160000): columna GENERADA desde fecha_nacimiento;
+//  · cumple_mm_dd (M1, 20260914025903): columna GENERADA desde fecha_nacimiento;
 //    no la escribe nadie.
 const SOCIOS_SOLO_SERVIDOR = new Set<string>(['excluir_de_perfilado', 'cumple_mm_dd']);
 

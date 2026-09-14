@@ -213,7 +213,7 @@ export async function registrarConsentimientoSaludSocia(
   });
   if (error) return { error: 'No hemos podido guardar tu consentimiento.', status: 500 };
   // La RPC también se niega con una menor o sin fecha de nacimiento (migr
-  // 20260914150000): defensa en profundidad por si la ruta no lo hubiera visto.
+  // 20260914015114): defensa en profundidad por si la ruta no lo hubiera visto.
   const r = respuestaCambioConsentimiento(data);
   if (!r.ok) {
     return r.codigo

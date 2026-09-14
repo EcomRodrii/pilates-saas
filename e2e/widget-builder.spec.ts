@@ -300,7 +300,7 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
     await page.getByRole('button', { name: 'Añadir' }).click();
 
     // Primero el guardado real del dominio, por la ruta de servidor (el
-    // navegador ya no puede escribir la columna: migr 20260914110200)...
+    // navegador ya no puede escribir la columna: migr 20260914011356)...
     await expect.poll(
       () => envios.some(d => d.includes('https://otrodominio.com')),
       { timeout: 10_000 },

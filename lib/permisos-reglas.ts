@@ -131,7 +131,7 @@ export function puedeGestionarCamposPersonalizados(rol: Rol): boolean {
 // instructora trabajan con nombre, contacto y lo operativo; el cumpleaños les
 // llega sin año (`socios.cumple_mm_dd`).
 //
-// Espejo de `puede_ver_datos_privados_socia()` en SQL (migr 20260914160000):
+// Espejo de `puede_ver_datos_privados_socia()` en SQL (migr 20260914025903):
 // esa función decide qué devuelve la RPC `socios_datos_privados()` y, tras la
 // migración de cierre, quién puede escribir esas columnas. Esto solo esconde
 // los campos y evita mandarlos al guardar.

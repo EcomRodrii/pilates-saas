@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   const sustitucionId = claim.ref;
-  // La traza guarda solo el hash del token (migr 20260914110100). La firma ya
+  // La traza guarda solo el hash del token (migr 20260914011337). La firma ya
   // está verificada arriba; el hash solo sirve para encontrar SU contacto.
   const tokenHash = hashToken(String(body?.token));
 

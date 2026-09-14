@@ -184,7 +184,7 @@ create policy challenge_progress_update_instructora on public.challenge_progress
 -- ── otorgar_credito_disparador: rol de quien concede ──────────────────────
 -- Misma firma; los grants se reafirman al final (authenticated + service_role,
 -- sin PUBLIC ni anon). Las llamadas del servidor (service_role: portal, crons)
--- se reconocen con `es_llamada_servicio()` (20260914100000) y no pasan por la
+-- se reconocen con `es_llamada_servicio()` (20260913233644) y no pasan por la
 -- comprobación de rol. Un uid nulo que no venga del servidor NO se la salta.
 --
 -- Quien gestiona clientas (PROPIETARIO/MANAGER/RECEPCION) sigue igual. La

@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       //
       // Sin fecha de nacimiento no se da por adulta: criterio conservador, se le
       // pide la fecha en la misma pantalla y se decide con ella. La RPC repite
-      // la comprobación (migr 20260914150000).
+      // la comprobación (migr 20260914015114).
       const hoy = new Date();
       let porEdad = consentimientoSaludPorEdad(await leerFechaNacimiento(studioId, socioId), hoy);
       if (porEdad === 'FALTA_FECHA' && typeof body.fechaNacimiento === 'string' && body.fechaNacimiento.trim()) {
