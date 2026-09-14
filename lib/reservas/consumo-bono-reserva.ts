@@ -4,7 +4,7 @@
 // si el proceso moría entre crear la reserva y descontar, el reintento del
 // mismo intento no podía saber si ya se había hecho, y no descontaba (clase
 // servida sin cobrar el bono). `consumir_sesion_bono_reserva` (migr
-// 20260914130000) deja la DECISIÓN marcada en la reserva dentro de la misma
+// 20260914182637) deja la DECISIÓN marcada en la reserva dentro de la misma
 // transacción —«se descontó de tal bono» o «no había bono que cobrar»—, así que
 // volver a llamar es seguro: decide si falta y, si no, no hace nada.
 //
