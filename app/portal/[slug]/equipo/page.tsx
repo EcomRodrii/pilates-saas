@@ -68,7 +68,11 @@ export default function HoyInstructoraPage() {
                 {clasesHoy > 0 ? `Hoy das ${clasesHoy} ${clasesHoy === 1 ? 'clase' : 'clases'}` : 'Tu próxima clase'}
               </h2>
               {proxima ? (
-                <ClaseQueDaCard clase={proxima} conFecha={proxima.fecha === hoy ? undefined : etiquetaDia(proxima.fecha, hoy)} />
+                <ClaseQueDaCard
+                  clase={proxima}
+                  conFecha={proxima.fecha === hoy ? undefined : etiquetaDia(proxima.fecha, hoy)}
+                  href={href(`/equipo/clase/${encodeURIComponent(proxima.id)}`)}
+                />
               ) : ahoraMs != null && (
                 <EmptyState
                   ilustracion="calendario"

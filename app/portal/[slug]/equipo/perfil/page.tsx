@@ -47,6 +47,13 @@ export default function PerfilInstructoraPage() {
           </div>
         </div>
 
+        <ProfileSection
+          titulo="Tu trabajo"
+          items={[
+            { label: 'Tu disponibilidad', href: href('/equipo/disponibilidad') },
+          ]}
+        />
+
         {socia && (
           <ProfileSection
             titulo="También eres alumna"

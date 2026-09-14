@@ -74,7 +74,12 @@ export default function AgendaInstructoraPage() {
         )}
 
         {data && delDia.map((f) => (f.tipo === 'da' ? (
-          <ClaseQueDaCard key={`da-${f.clase.id}`} clase={f.clase} etiqueta={esAlumna ? 'Das clase' : undefined} />
+          <ClaseQueDaCard
+            key={`da-${f.clase.id}`}
+            clase={f.clase}
+            etiqueta={esAlumna ? 'Das clase' : undefined}
+            href={href(`/equipo/clase/${encodeURIComponent(f.clase.id)}`)}
+          />
         ) : (
           <Link
             key={`viene-${f.clase.reservaId}`}
