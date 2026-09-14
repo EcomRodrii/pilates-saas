@@ -13,8 +13,10 @@ import { SALIDAS } from './enlaces';
 //     tampoco — solo hay 12 bindings `{{ }}` en toda la sección y ninguno cae
 //     dentro de esta rejilla. Se porta tal cual.
 //  2. La lista de espera (`PLAZA`) — 4 fotogramas: clase llena → se libera un
-//     hueco → se avisa a quien tocaba → confirmada. El "radar 48h" es el
-//     mismo mecanismo que ya existe en producto.
+//     hueco → se avisa a quien tocaba → confirmada. El pie se llamaba «Radar
+//     48 h» y decía que se avisaba «a socias con bono activo que ya han hecho
+//     esta clase»: eso es el radar de ocupación (clases por debajo del 70 %,
+//     lo lanza la propietaria), no la lista de espera, que avisa a la cola.
 //  3. El aforo por reformer (`SPOTS`) — 3 fotogramas de cómo una alumna elige
 //     su máquina, "como en el cine".
 
@@ -45,10 +47,10 @@ interface FotogramaPlaza {
   radar: string;
 }
 const PLAZA: FotogramaPlaza[] = [
-  { count: '8 / 10', countFg: '#2F6B4F', llenas: 8, waitTxt: 'Lista de espera · nº 1', waitFg: '#8E8E86', waitBg: 'transparent', waitBd: 'transparent', radar: 'vigilando las próximas 48 h. Esta clase va bien.' },
+  { count: '8 / 10', countFg: '#2F6B4F', llenas: 8, waitTxt: 'Lista de espera · nº 1', waitFg: '#8E8E86', waitBg: 'transparent', waitBd: 'transparent', radar: 'Carmen es la primera de la cola.' },
   { count: '7 / 10', countFg: '#A8442A', llenas: 7, waitTxt: 'Lista de espera · nº 1', waitFg: '#8E8E86', waitBg: 'transparent', waitBd: 'transparent', radar: 'Ana cancela a las 17:40 · plaza libre detectada. Avisando a la lista…' },
-  { count: '7 / 10', countFg: '#8F6215', llenas: 7, waitTxt: 'Avisada · confirmando…', waitFg: '#8F6215', waitBg: 'rgba(143,98,21,.08)', waitBd: '#E5CE9C', radar: 'aviso solo a socias con bono activo que ya han hecho esta clase.' },
-  { count: '8 / 10', countFg: '#2F6B4F', llenas: 7, waitTxt: 'Confirmada ✓', waitFg: '#2F6B4F', waitBg: 'rgba(47,107,79,.08)', waitBd: 'rgba(47,107,79,.35)', radar: 'plaza recuperada a las 17:44. Sin mensajes tuyos, sin spam.' },
+  { count: '7 / 10', countFg: '#8F6215', llenas: 7, waitTxt: 'Avisada · confirmando…', waitFg: '#8F6215', waitBg: 'rgba(143,98,21,.08)', waitBd: '#E5CE9C', radar: 'la primera de la cola recibe el aviso en su móvil.' },
+  { count: '8 / 10', countFg: '#2F6B4F', llenas: 7, waitTxt: 'Confirmada ✓', waitFg: '#2F6B4F', waitBg: 'rgba(47,107,79,.08)', waitBd: 'rgba(47,107,79,.35)', radar: 'plaza recuperada a las 17:44. Sin mensajes tuyos.' },
 ];
 
 interface FotogramaSpot { sel: number; msg: string; dot: string; }
@@ -155,7 +157,7 @@ export function SeccionCalendarioReservas() {
               <span className="v5-fila-nombre">Carmen V. · lista de espera</span>
               <span className="v5-fila-estado" style={{ color: P.waitFg }}>{P.waitTxt}</span>
             </div>
-            <p className="v5-radar"><strong>Radar 48 h:</strong> {P.radar}</p>
+            <p className="v5-radar"><strong>Lista de espera:</strong> {P.radar}</p>
           </div>
 
           <div className="v5-micro" ref={refSpot as React.Ref<HTMLDivElement>}>

@@ -12,11 +12,13 @@
 // aplica el producto deja de ser posible por construcción.
 //
 // ⚠️ Segunda regla: aquí solo se listan funcionalidades que un estudio puede
-// USAR HOY. Lo congelado en `lib/frozen-features.ts` (Kiosko, Caja/POS, Oferta
-// digital, Comunidad, Chat de equipo) NO aparece, aunque el código exista: son
-// pantallas a las que nadie puede llegar. Marketing e IA sí están, porque
-// `MARKETING_MODULE_ENABLED` volvió a `true` el 2026-08-13 — el comentario de
-// /precios que las excluía se quedó desfasado desde entonces.
+// USAR HOY. Lo congelado en `lib/frozen-features.ts` (Kiosko, Oferta digital,
+// Chat de equipo) NO aparece, aunque el código exista: son pantallas a las que
+// nadie puede llegar. Y lo mismo con Marketing: `MARKETING_MODULE_ENABLED`
+// volvió a `false` el 2026-08-19, así que campañas, segmentación y el
+// asistente de redacción (solo se llama desde /marketing, que redirige fuera)
+// salieron de aquí. La feature `marketing` sigue en entitlements; lo que no se
+// hace es venderla mientras no se pueda usar.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { PLAN_ENTITLEMENTS, type Plan } from './entitlements.ts';
@@ -99,6 +101,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
       },
       { nombre: 'Ficha de alumna e historial', valor: TODOS },
       { nombre: 'Ficha de salud y notas de progreso', detalle: 'Con permisos aparte: recepción no ve el detalle clínico.', valor: TODOS },
+      { nombre: 'Notas de sesión y preparación de clase con IA', detalle: 'Un borrador de la nota de sesión y un resumen de las limitaciones de quien viene a clase.', valor: porFeature('ia') },
       { nombre: 'Campos personalizados y etiquetas', valor: TODOS },
       { nombre: 'Cuestionario de salud y consentimientos', valor: TODOS },
       { nombre: 'Importar tus alumnas desde otra plataforma', valor: TODOS },
@@ -171,11 +174,10 @@ export const CATEGORIAS: CategoriaPlan[] = [
     id: 'automatizaciones',
     titulo: 'Automatizaciones y avisos',
     filas: [
-      { nombre: 'Recordatorios de clase', detalle: 'Por email, WhatsApp o push, según lo que tengas conectado.', valor: TODOS },
+      { nombre: 'Recordatorios de clase', detalle: 'De serie: aviso al móvil y por email, o por WhatsApp si lo tienes conectado.', valor: TODOS },
       { nombre: 'Avisos de bono a punto de acabarse', valor: TODOS },
       { nombre: 'Aviso de alumna que lleva tiempo sin venir', valor: TODOS },
-      { nombre: 'Automatizaciones a tu medida', detalle: 'Tú eliges el disparador, la espera y el mensaje.', valor: TODOS },
-      { nombre: 'Redacción de mensajes automática', valor: porFeature('ia') },
+      { nombre: 'Automatizaciones con tus reglas', detalle: 'Ausencias, pagos pendientes, altas nuevas…: tú pones los umbrales y el mensaje.', valor: TODOS },
     ],
   },
   {
@@ -190,10 +192,8 @@ export const CATEGORIAS: CategoriaPlan[] = [
   },
   {
     id: 'marketing',
-    titulo: 'Marketing',
+    titulo: 'Fidelización',
     filas: [
-      { nombre: 'Campañas por email y WhatsApp', valor: porFeature('marketing') },
-      { nombre: 'Segmentación de alumnas', valor: porFeature('marketing') },
       { nombre: 'Retos, logros y rachas', detalle: 'Para que la alumna vuelva sin que se lo tengas que recordar.', valor: porFeature('gamificacion') },
     ],
   },
@@ -203,8 +203,8 @@ export const CATEGORIAS: CategoriaPlan[] = [
     filas: [
       { nombre: 'Portal de la alumna', detalle: 'Reserva, bonos, facturas y pase de acceso, desde el móvil.', valor: TODOS },
       { nombre: 'Se instala en la pantalla de inicio', valor: TODOS },
-      { nombre: 'Tu dirección propia', detalle: 'tentare.app/tu-estudio', valor: TODOS },
-      { nombre: 'App con tu marca', detalle: 'Tus colores, tu logo y tus pantallas: la alumna no ve Tentare.', valor: porFeature('marca') },
+      { nombre: 'Tu dirección propia', detalle: 'tentare.app/portal/tu-estudio', valor: TODOS },
+      { nombre: 'App con tu marca', detalle: 'Tus colores, tu logo y tus pantallas: lo que ve la alumna es tu estudio.', valor: porFeature('marca') },
     ],
   },
   {

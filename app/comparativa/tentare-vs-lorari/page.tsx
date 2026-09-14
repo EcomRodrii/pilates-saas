@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio de entrada', tentare: ['partial', 'Desde 29€/mes'], them: ['yes', 'Desde 12€/mes'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí'], them: ['partial', 'No lo especifica'] },
-  { feature: 'Facturación España (Veri*factu) nativa', tentare: ['yes', 'Nativo'], them: ['no', 'Sin mención pública'] },
+  { feature: 'Facturación España (Veri*factu) nativa', tentare: ['partial', 'Formato nativo; envío a la AEAT en construcción'], them: ['no', 'Sin mención pública'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí'], them: ['partial', 'No especifica el país'] },
   { feature: 'Sin comisión por captar clientas', tentare: ['yes', 'Sin marketplace'], them: ['yes', 'Sin marketplace'] },
   { feature: 'Sustitución de instructoras integrada', tentare: ['yes', 'Con niveles de autonomía'], them: ['no', 'No encontrada'] },

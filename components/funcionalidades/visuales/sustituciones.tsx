@@ -13,16 +13,16 @@ export function ResumenSustitucion() {
   return (
     <PanelOscuro titulo="Una baja, de principio a fin">
       <PasoVertical tono="oscuro" indice="1" titulo="Marta avisa desde su móvil">
-        Un enlace firmado. Sin instalar nada, sin crear cuenta.
+        Desde la app del estudio o con un enlace firmado. Sin instalar nada.
       </PasoVertical>
       <PasoVertical tono="oscuro" indice="2" titulo="Se calculan las candidatas">
         Quién puede dar esa clase, a esa hora, sin chocar con otra suya.
       </PasoVertical>
       <PasoVertical tono="oscuro" indice="3" titulo="Se contacta y se escala">
-        Email primero; si no contesta, recordatorio y siguiente candidata.
+        Con tu visto bueno —o sola, en autónomo—: email primero y, si no contesta, recordatorio.
       </PasoVertical>
       <PasoVertical tono="oscuro" indice="4" titulo="Lucía acepta" ultimo>
-        Calendario y horas al día, y las alumnas ya saben quién les da la clase.
+        La clase se reasigna sola, sus horas cuentan en la liquidación y, con el aviso activado, las alumnas saben quién se la da.
       </PasoVertical>
     </PanelOscuro>
   );
@@ -38,6 +38,7 @@ const PESOS = [
   { t: 'Ya ha dado este tipo de clase', d: 'Suma. Y si no lo ha dado nunca, resta fuerte: cubrir un reformer con quien solo ha dado mat no es cubrirlo.', signo: 'suma' as const },
   { t: 'Va holgada de horas este mes', d: 'Suma, comparando sus horas con la media de las candidatas elegibles. Reparte la carga en vez de quemar siempre a la misma.', signo: 'suma' as const },
   { t: 'Hace más de tres semanas que no sustituye', d: 'Suma. Evita que la sustitución caiga siempre sobre quien más dice que sí.', signo: 'suma' as const },
+  { t: 'Suele aceptar cuando se lo piden', d: 'Suma o resta, pero solo con al menos cinco ofertas anteriores. Sin ese historial no cuenta ni a favor ni en contra.', signo: 'suma' as const },
 ];
 
 export function ComoSeEligeLaCandidata() {
@@ -63,7 +64,7 @@ export function ComoSeEligeLaCandidata() {
         </div>
 
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#4E9E7F', marginBottom: 10 }}>Después, a quién CONVIENE avisar antes — tres pesos</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#4E9E7F', marginBottom: 10 }}>Después, a quién CONVIENE avisar antes — cuatro pesos</div>
           <div style={{ display: 'grid', gap: 9 }}>
             {PESOS.map((p) => (
               <div key={p.t} style={{ display: 'flex', gap: 12, background: '#F4F8F5', border: '1px solid #DFEBE3', borderRadius: 12, padding: '13px 15px' }}>
@@ -96,13 +97,13 @@ export function EscaladoEnElTiempo() {
           Por email, con un enlace para aceptar o rechazar de un toque.
         </PasoVertical>
         <PasoVertical indice="⏱" titulo="Pasada la primera ventana, recordatorio" color="#8E8E86">
-          Y esta vez también por WhatsApp o SMS si tiene teléfono. Un email a las 23:00 no se lee; un WhatsApp sí.
+          Y esta vez también por WhatsApp, si tu estudio lo tiene conectado y ella tiene teléfono. Un email a las 23:00 no se lee; un WhatsApp sí.
         </PasoVertical>
         <PasoVertical indice="⏱" titulo="Pasada la segunda, se pasa a la siguiente" color="#8E8E86">
-          La anterior deja de ser la candidata activa. Nadie tiene que decidir cuándo rendirse.
+          En autónomo, la anterior deja de ser la candidata activa y se avisa a la siguiente. En asistido, te avisa a ti para que decidas.
         </PasoVertical>
         <PasoVertical indice="!" titulo="Si se agota el top 3, avisa a la propietaria" color="#C2503A" ultimo>
-          Con las opciones sobre la mesa: reprogramar, cancelar avisando a las alumnas, o cubrirla tú. Nunca te enteras al llegar al estudio.
+          Con las opciones sobre la mesa: volver a buscar, reprogramar, cancelar avisando a las alumnas o pedir una instructora de Tentare Network. Nunca te enteras al llegar al estudio.
         </PasoVertical>
       </div>
     </PanelClaro>
@@ -111,7 +112,7 @@ export function EscaladoEnElTiempo() {
 
 const MODOS = [
   { n: 'Manual', nivel: 'Nivel 1', body: 'El sistema te propone a quién avisar. Tú das cada paso.', quien: 'Todos los planes' },
-  { n: 'Asistido', nivel: 'Nivel 2', body: 'Contacta a las candidatas y gestiona los recordatorios. Cuando una acepta, tú lo apruebas.', quien: 'Todos los planes' },
+  { n: 'Asistido', nivel: 'Nivel 2 · por defecto', body: 'Te propone la candidata y, con tu visto bueno, la contacta y le insiste. Si acepta, la clase se reasigna sola.', quien: 'Todos los planes' },
   { n: 'Autónomo', nivel: 'Nivel 3', body: 'Cubre la baja solo y te lo cuenta después.', quien: 'Plan Estudio o Cadena' },
   { n: 'Vacaciones', nivel: 'Nivel 3+', body: 'Opera de principio a fin sin molestarte, mientras estás fuera.', quien: 'Plan Estudio o Cadena' },
 ];

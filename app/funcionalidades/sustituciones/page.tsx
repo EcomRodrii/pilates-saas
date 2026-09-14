@@ -20,15 +20,15 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: '¿Y si ninguna instructora puede cubrirla?',
-    a: 'El sistema te avisa en cuanto se agotan las candidatas, con las opciones sobre la mesa: reprogramar la clase, cancelarla avisando a las alumnas, o cubrirla tú. Lo que nunca pasa es que te enteres al llegar al estudio.',
+    a: 'El sistema te avisa en cuanto se agotan las candidatas, con las opciones sobre la mesa: volver a buscar, reprogramar la clase, cancelarla avisando a las alumnas o pedir una instructora de Tentare Network. Lo que nunca pasa es que te enteres al llegar al estudio.',
   },
   {
     q: '¿La instructora tiene que instalar una app para avisar de su baja?',
-    a: 'No. Avisa desde un enlace firmado en el móvil, sin instalar nada ni crear cuenta. Es deliberado: cuanto menos cueste avisar, antes te enteras, y el margen para cubrir la clase es justo lo que estás comprando.',
+    a: 'No. Avisa desde la app del estudio, con la misma cuenta con la que ve su agenda, o desde un enlace firmado en el móvil, sin instalar nada ni crear cuenta. Es deliberado: cuanto menos cueste avisar, antes te enteras, y el margen para cubrir la clase es justo lo que estás comprando.',
   },
   {
     q: '¿Puedo seguir aprobando cada sustitución a mano?',
-    a: 'Sí, y es el modo por defecto. En asistido el sistema contacta a las candidatas y gestiona los recordatorios, pero la sustitución no se cierra hasta que tú la apruebas. Solo pasas a autónomo si quieres.',
+    a: 'Sí, y es el modo por defecto. En asistido el sistema te propone la candidata y no escribe a nadie hasta que das el visto bueno; a partir de ahí la contacta, le insiste y, si acepta, la clase se reasigna sola. Solo pasas a autónomo (plan Estudio o Cadena) si quieres.',
   },
   {
     q: '¿Cómo sabe el sistema quién puede dar cada clase?',
@@ -40,7 +40,7 @@ const FAQ = [
   },
   {
     q: '¿Las alumnas se enteran de que cambia la instructora?',
-    a: 'Sí, en cuanto la sustitución se confirma, por el canal de cada una. Es el paso que más caro se paga cuando falla, y por eso no depende de que alguien se acuerde de escribirlo.',
+    a: 'Sí, si tienes encendido el aviso a las alumnas en Sustituciones (se activa una vez para todo el estudio): en cuanto la sustitución se confirma, les llega por email y en su app. Es el paso que más caro se paga cuando falla, y por eso no depende de que alguien se acuerde de escribirlo.',
   },
 ];
 
@@ -50,7 +50,7 @@ export default function SustitucionesPage() {
       path={PATH}
       eyebrow="El corazón de Tentare"
       h1={<>La baja se cubre sola.</>}
-      intro={<>Una instructora avisa de que no puede dar su clase. Antes de que llegues a leer el mensaje, el sistema ya sabe quién puede cubrirla y está escribiéndoles por orden.</>}
+      intro={<>Una instructora avisa de que no puede dar su clase. Antes de que llegues a leer el mensaje, el sistema ya sabe quién puede cubrirla y te la propone. Con tu visto bueno —o solo, si lo dejas en autónomo— le escribe y le insiste.</>}
       chips={['Candidatas por disponibilidad real', 'Escalado automático', 'Cuatro niveles de autonomía']}
       foto={{ src: '/disciplinas/pilates.jpg', alt: 'Sala de reformers de un estudio de Pilates', encuadre: 'center 42%' }}
       captura={{ src: '/producto/sustituciones.png', alt: 'Pantalla de sustituciones de Tentare', pie: 'Las bajas abiertas y en qué punto está cada una.', ancho: 2880, alto: 1624 }}
@@ -99,8 +99,8 @@ export default function SustitucionesPage() {
         <EscaladoEnElTiempo />
         <p>
           El recordatorio cambia de canal a propósito. El primer aviso va por email, con un enlace para aceptar o rechazar
-          de un toque; el recordatorio va además por WhatsApp o SMS si la instructora tiene teléfono en su ficha. Es la
-          diferencia entre un aviso que se ve a la mañana siguiente y uno que se ve ahora.
+          de un toque; el recordatorio va además por WhatsApp si tu estudio lo tiene conectado y la instructora tiene
+          teléfono en su ficha. Es la diferencia entre un aviso que se ve a la mañana siguiente y uno que se ve ahora.
         </p>
       </Seccion>
 
@@ -111,9 +111,9 @@ export default function SustitucionesPage() {
         </p>
         <NivelesDeAutonomia />
         <p>
-          La mayoría de estudios arranca en <strong>asistido</strong> —el sistema hace el trabajo pesado y tú das el visto
-          bueno— y sube a autónomo cuando lleva unas semanas acertando. El modo Vacaciones existe porque el peor momento
-          para una baja es justo cuando la propietaria no está.
+          Todo estudio arranca en <strong>asistido</strong>, el modo por defecto —el sistema hace el trabajo pesado y tú das
+          el visto bueno—, y puede subir a autónomo (plan Estudio o Cadena) cuando lleva unas semanas acertando. El modo
+          Vacaciones existe porque el peor momento para una baja es justo cuando la propietaria no está.
         </p>
       </Seccion>
 
@@ -146,8 +146,8 @@ export default function SustitucionesPage() {
       <Seccion id="casos" titulo="Cuatro situaciones reales">
         <div style={{ margin: '24px 0 0' }}>
           <CasoDeUso hora="22:47" titulo="La baja de la noche anterior">
-            Marta avisa desde el sofá. Para cuando abres el móvil por la mañana, dos candidatas ya han recibido el aviso y
-            una ha aceptado. Tú apruebas y se acabó.
+            Marta avisa desde el sofá. Para cuando abres el móvil por la mañana, tienes la candidata propuesta: das el
+            visto bueno, le llega el aviso y, cuando acepta, la clase se reasigna sola. En autónomo, ni ese toque.
           </CasoDeUso>
           <CasoDeUso hora="07:40" titulo="La baja a dos horas de la clase">
             Aquí no hay margen para esperar 45 minutos entre avisos. Las ventanas se comprimen solas —el suelo son dos

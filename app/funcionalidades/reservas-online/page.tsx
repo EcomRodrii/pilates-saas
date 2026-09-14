@@ -93,10 +93,10 @@ export default function ReservasPage() {
           <Link href="/funcionalidades/app-para-alumnas">app de marca</Link>: sus reservas, sus bonos y su progreso viven
           en el mismo sitio, con tus colores y tu logo.
         </p>
-        <Limite titulo="Esa página no la indexamos en buscadores">
-          Es una decisión deliberada: la página de reservas de tu estudio funciona con normalidad y puedes compartirla donde
-          quieras, pero no la abrimos a los buscadores. Si tu prioridad es aparecer en Google por búsquedas locales, eso lo
-          resuelve tu ficha de negocio y tu propia web, no esta página.
+        <Limite titulo="Esa página no sustituye a tu ficha de Google">
+          La página de reservas de tu estudio está abierta a los buscadores, así que quien busque tu estudio por su nombre
+          puede llegar a ella; mientras la tengas oculta, no se indexa. Pero para aparecer en búsquedas locales lo que más
+          pesa sigue siendo tu ficha de negocio y tu propia web, no esta página.
         </Limite>
       </Seccion>
 

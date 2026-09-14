@@ -34,7 +34,7 @@ const FAQ = [
   },
   {
     q: '¿Y si alguien paga en efectivo o por Bizum?',
-    a: 'Se registra como cobro de mostrador y genera su factura igual. El objetivo es que el histórico refleje todo lo que entra, no solo lo que pasa por pasarela.',
+    a: 'El efectivo se registra como cobro de mostrador, para que el histórico refleje todo lo que entra y no solo lo que pasa por pasarela; su factura no sale sola, la generas desde el recibo si la clienta la pide. Bizum pasa por Stripe y vale para bonos y pagos sueltos: las cuotas mensuales se cobran solo con tarjeta o domiciliación.',
   },
 ];
 

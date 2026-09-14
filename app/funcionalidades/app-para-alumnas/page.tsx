@@ -26,7 +26,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo cambiar los colores y las fuentes?',
-    a: 'Sí, con un editor propio: cuatro temas de partida, paleta, tipografías, forma de los botones y qué bloques aparecen en su pantalla de inicio. Se previsualiza antes de publicarlo, así que nada cambia para tus alumnas hasta que tú lo publicas.',
+    a: 'Sí, con un editor propio (a partir del plan Estudio): paleta, tipografías, forma de los botones y qué bloques aparecen en su pantalla de inicio. Se previsualiza antes de publicarlo, así que nada cambia para tus alumnas hasta que tú lo publicas.',
   },
   {
     q: '¿Los avisos llegan al móvil de verdad?',
@@ -34,7 +34,7 @@ const FAQ = [
   },
   {
     q: '¿Aparece Tentare por algún lado?',
-    a: 'No en lo que ve tu alumna. El nombre de la app instalada, el icono, el color y los correos que recibe son de tu estudio. La app de marca está incluida a partir del plan Estudio.',
+    a: 'Apenas. El nombre de la app instalada, el icono, el color y los correos que recibe son de tu estudio; Tentare solo aparece en una línea discreta al pie de su perfil y de la página de reservas. La app de marca está incluida a partir del plan Estudio.',
   },
   {
     q: '¿Puede gestionar su plaza fija ella sola?',
@@ -90,8 +90,8 @@ export default function AppAlumnasPage() {
 
       <Seccion id="marca" titulo="Tu marca, hasta el icono">
         <p>
-          El editor de apariencia no es un selector de color primario. Se parte de uno de los cuatro temas base y se
-          ajusta lo que haga falta:
+          El editor de apariencia no es un selector de color primario. Se parte del aspecto de siempre y se ajusta lo
+          que haga falta:
         </p>
         <Rejilla
           columnas={2}

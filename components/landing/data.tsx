@@ -237,7 +237,7 @@ export const PLANS = [
   {
     name: 'Cadena',
     price: '149€',
-    desc: 'Multi-centro y white-label.',
+    desc: 'Varias sedes en un mismo panel.',
     features: ['Todo lo de Estudio', 'Varios centros', 'Soporte dedicado'],
     cta: 'Hablar con ventas',
     dark: false,
@@ -259,11 +259,11 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Es difícil de aprender a usar?',
-    a: 'No. Es lo primero que nos dicen las propietarias que lo prueban: si sabes usar WhatsApp, sabes usar Tentare. No hay formación que hacer ni manual que leer — el Centro de Control te dice cada mañana qué necesita tu atención. La mayoría de estudios ya están reservando y cobrando el primer día.',
+    a: 'No. Es lo primero que nos dicen las propietarias que lo prueban: si sabes usar WhatsApp, sabes usar Tentare. No hay formación que hacer ni manual que leer — la pantalla de inicio te enseña cada día lo que espera tu visto bueno. La mayoría de estudios ya están reservando y cobrando el primer día.',
   },
   {
     q: '¿Y si ninguna instructora acepta la sustitución?',
-    a: 'Nunca te deja colgada. Si nadie puede, te avisa enseguida con las opciones sobre la mesa: reprogramar, cancelar avisando a las alumnas, o cubrir tú. Tú eliges; él ejecuta.',
+    a: 'Nunca te deja colgada. Si nadie puede, te avisa enseguida con las opciones sobre la mesa: volver a buscar, reprogramar la clase, cancelarla avisando a las alumnas o pedir una instructora de Tentare Network. Tú eliges.',
   },
   {
     q: '¿Tengo que dar de alta a mis instructoras?',
@@ -271,7 +271,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Cómo avisáis a las alumnas?',
-    a: 'Por el canal de cada alumna: la app de marca, email o WhatsApp. Cuando cambia una clase, reciben el aviso al momento — sin que tengas que escribir nada.',
+    a: 'Por el canal de cada alumna: la app del estudio, email o WhatsApp. Cuando cambia una clase, reciben el aviso al momento — sin que tengas que escribir nada.',
   },
   {
     q: '¿Hay permanencia?',
@@ -283,7 +283,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Tengo que usar las sustituciones automáticas desde el principio?',
-    a: 'No. Puedes empezar solo con reservas y cobros y activar las sustituciones cuando te sientas cómoda. Muchos estudios arrancan en modo Manual y suben de nivel con el tiempo.',
+    a: 'No. Por defecto funcionan en modo asistido: Tentare te propone la candidata y no escribe a nadie sin tu visto bueno. Los modos autónomo y Vacaciones, que cubren la baja sin ti, los activas solo si quieres (plan Estudio o Cadena).',
   },
   {
     q: '¿Están seguros los datos de mi estudio y mis alumnas?',

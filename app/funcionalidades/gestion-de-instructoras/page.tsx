@@ -22,7 +22,7 @@ const FAQ = [
   },
   {
     q: '¿Pueden crear ellas sus propias clases?',
-    a: 'Sí, pero solo para sí mismas: sin elegir instructora, con el aforo de la sala y sin series recurrentes. Montar series sigue siendo trabajo de mostrador, que es donde se ve el horario completo.',
+    a: 'Sí, si el estudio lo permite —viene activado y se puede apagar—, y solo para sí mismas: desde la app del estudio, sin elegir instructora, con el aforo de la sala y sin series recurrentes. Montar series sigue siendo trabajo de mostrador, que es donde se ve el horario completo.',
   },
   {
     q: '¿Puede una instructora trabajar en dos sedes de mi cadena?',

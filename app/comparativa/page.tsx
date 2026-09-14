@@ -85,7 +85,7 @@ const ROWS: {
 }[] = [
   {
     feature: 'Facturación España (Veri*factu) nativa',
-    tentare: ['yes', 'Nativo'],
+    tentare: ['partial', 'Formato nativo; envío a la AEAT en construcción'],
     bsport: ['no', 'Vía ERP externo'],
     momence: ['no', 'No'],
     eversports: ['partial', 'Add-on de pago'],

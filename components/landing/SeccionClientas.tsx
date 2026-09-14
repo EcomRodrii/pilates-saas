@@ -11,8 +11,8 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 // informativa — con prefers-reduced-motion).
 
 const NORA_TXT = [
-  'Nora S. · bono agotado hoy → renovación enviada',
-  'Nora S. · renovado en un toque ✓',
+  'Nora S. · bono agotado hoy → aviso para renovar enviado',
+  'Nora S. · renovado desde su app ✓',
 ];
 
 // useSyncExternalStore y no un `matchMedia(...)` leído directo en el cuerpo:
@@ -63,7 +63,7 @@ export function SeccionClientas() {
                   <span className="v5-cli-boton">Enviar email</span>
                 </div>
                 <div className="v5-cli-bono">
-                  <div className="v5-cli-bono-fila"><span>Bono 10 clases</span><span className="v5-cli-bono-estado">10 de 10 · renovación enviada</span></div>
+                  <div className="v5-cli-bono-fila"><span>Bono 10 clases</span><span className="v5-cli-bono-estado">10 de 10 · aviso para renovar enviado</span></div>
                   <div className="v5-cli-barra"><div className="v5-cli-barra-rel" /></div>
                 </div>
                 <div className="v5-cli-dosgrid">
@@ -117,7 +117,7 @@ export function SeccionClientas() {
           <div className="v5-cli-cuando">
             <div><div className="v5-cli-cuando-tit" style={{ color: '#8E8E86' }}>CUANDO</div><div className="v5-cli-cuando-txt">Un recibo falla a las 18:05</div></div>
             <div className="v5-cli-cuando-col"><div className="v5-cli-cuando-tit" style={{ color: '#55622C' }}>TENTARE</div><div className="v5-cli-cuando-txt">Reintenta el cobro solo y avisa a la alumna por su canal, con su consentimiento</div></div>
-            <div className="v5-cli-cuando-col"><div className="v5-cli-cuando-tit" style={{ color: '#2F6B4F' }}>RESULTADO</div><div className="v5-cli-cuando-txt">Cobrado esa noche. Tú no perseguiste a nadie</div></div>
+            <div className="v5-cli-cuando-col"><div className="v5-cli-cuando-tit" style={{ color: '#2F6B4F' }}>RESULTADO</div><div className="v5-cli-cuando-txt">Cobrado en el reintento del día siguiente. Tú no perseguiste a nadie</div></div>
           </div>
         </div>
       </section>
