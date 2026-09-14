@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import { hoyEnEstudio } from '@/lib/utils';
-import { calcularFechaFinBono } from '@/lib/bono-logic';
+import { filaSuscripcionDeLinea } from '@/lib/pos/suscripcion-de-linea';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
 
@@ -102,26 +102,19 @@ export async function entregarVentaPOS(
 
     const { data: plan } = await admin
       .from('planes_tarifa')
-      .select('id, nombre, sesiones, validez_dias, tipo')
+      .select('id, nombre, sesiones, validez_dias, tipo, periodicidad_meses')
       .eq('id', linea.referencia_id).eq('studio_id', studioId)
       .maybeSingle();
     if (!plan) { avisos.push(`«${linea.nombre}» ya no existe en el catálogo.`); continue; }
 
     const suscripcionId = `sus-pos-${linea.id.replace(ID_SEGURO, '')}`;
-    const { error: errSus } = await admin.from('suscripciones').insert({
-      id: suscripcionId,
-      studio_id: studioId,
-      socio_id: venta.socio_id,
-      plan_id: plan.id,
-      estado: 'ACTIVA',
-      fecha_inicio: hoy,
-      // La caducidad la calcula la MISMA función que el resto del producto
-      // (`calcularFechaFinBono`, con el día del estudio y no UTC), no una
-      // fórmula propia del POS que se desviaría a la primera.
-      fecha_fin: calcularFechaFinBono(hoy, plan.validez_dias ?? null),
-      sesiones_restantes: plan.sesiones ?? null,
-      stripe_subscription_id: null,
-    });
+    // ⚠️ El ciclo lo calcula `cicloInicialDe`, la MISMA función que el resto de
+    // altas. Aquí se usaba `calcularFechaFinBono`, que es la cuenta de un bono:
+    // una CUOTA vendida en el mostrador nacía sin fecha de fin y no se renovaba
+    // nunca. Ver lib/pos/suscripcion-de-linea.ts.
+    const { error: errSus } = await admin.from('suscripciones').insert(
+      filaSuscripcionDeLinea(plan, { suscripcionId, studioId, socioId: venta.socio_id, hoy }),
+    );
     if (errSus && errSus.code !== YA_EXISTIA) {
       avisos.push(`«${plan.nombre}» no se pudo entregar.`);
       Sentry.captureMessage('[pos] venta cobrada pero el bono no se entregó', {
