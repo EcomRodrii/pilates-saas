@@ -5,6 +5,7 @@ import { getClases, getReservas } from '@/lib/student/datos';
 import type {
   BajaConClase, ClaseQueDa, ClaseQueReserva, EstadoEnLista, ListaDeClase, OfertaSustitucion,
 } from '@/lib/student/agenda-instructora';
+import type { AusenciaVista, PerfilInstructora, TipoAusencia } from '@/lib/student/perfil-instructora';
 
 // Adaptador de datos de la instructora en la app. Delgado a propósito, como
 // `datos.ts`: pide y devuelve; lo que decide vive en el servidor.
@@ -118,7 +119,9 @@ export async function guardarDisponibilidadInstructora(
   }
 }
 
-async function postInstructora(ruta: 'ofertas' | 'lista', cuerpo: Record<string, unknown>): Promise<Response> {
+async function postInstructora(
+  ruta: 'ofertas' | 'lista' | 'perfil' | 'ausencias', cuerpo: Record<string, unknown>,
+): Promise<Response> {
   const auth = await portalAuthHeader();
   return fetch(`/api/portal/instructora/${ruta}`, {
     method: 'POST',
@@ -193,5 +196,60 @@ export async function marcarAsistenciaEnLista(
     return { ok: true, estado: d.estado };
   } catch {
     return { ok: false, error: 'Sin conexión: no se ha guardado.' };
+  }
+}
+
+/** Sus estudios y su tarifa. Nunca da por hecha la forma de la respuesta. */
+export async function getPerfilInstructora(slug: string): Promise<PerfilInstructora> {
+  const res = await postInstructora('perfil', { slug });
+  if (!res.ok) throw new Error(`instructora/perfil ${res.status}`);
+  const d = await res.json() as Partial<PerfilInstructora>;
+  return {
+    estudios: Array.isArray(d.estudios) ? d.estudios : [],
+    tarifa: d.tarifa && typeof d.tarifa === 'object' ? d.tarifa : null,
+  };
+}
+
+export async function getAusenciasInstructora(slug: string): Promise<AusenciaVista[]> {
+  const res = await postInstructora('ausencias', { slug, accion: 'leer' });
+  if (!res.ok) throw new Error(`instructora/ausencias ${res.status}`);
+  const d = await res.json() as { items?: unknown };
+  return Array.isArray(d.items) ? d.items as AusenciaVista[] : [];
+}
+
+export type ResultadoCrearAusencia =
+  | { ok: true; clasesAfectadas: number }
+  | { ok: false; error: string; sesionCaducada?: boolean };
+
+/** Solo da por guardada la ausencia que el servidor confirma. No lanza nunca. */
+export async function crearAusenciaInstructora(
+  slug: string, datos: { tipo: TipoAusencia; desde: string; hasta: string; motivo: string },
+): Promise<ResultadoCrearAusencia> {
+  const auth = await portalAuthHeader();
+  if (!auth.Authorization) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+  try {
+    const res = await postInstructora('ausencias', { slug, accion: 'crear', ...datos, motivo: datos.motivo.trim() || null });
+    if (res.status === 401) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+    const d = await res.json().catch(() => ({})) as { ok?: boolean; clasesAfectadas?: unknown; error?: string };
+    if (!res.ok || !d.ok) return { ok: false, error: d.error || 'No hemos podido guardar tu ausencia. Vuelve a intentarlo.' };
+    return { ok: true, clasesAfectadas: typeof d.clasesAfectadas === 'number' ? d.clasesAfectadas : 0 };
+  } catch {
+    return { ok: false, error: 'Sin conexión: no se ha guardado tu ausencia.' };
+  }
+}
+
+export async function borrarAusenciaInstructora(
+  slug: string, id: string,
+): Promise<{ ok: true } | { ok: false; error: string; sesionCaducada?: boolean }> {
+  const auth = await portalAuthHeader();
+  if (!auth.Authorization) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+  try {
+    const res = await postInstructora('ausencias', { slug, accion: 'borrar', id });
+    if (res.status === 401) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+    const d = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+    if (!res.ok || !d.ok) return { ok: false, error: d.error || 'No hemos podido quitar la ausencia. Vuelve a intentarlo.' };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Sin conexión: la ausencia sigue guardada.' };
   }
 }

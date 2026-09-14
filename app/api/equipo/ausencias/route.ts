@@ -3,14 +3,13 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarEquipo, puedeVerDetalleAusencias } from '@/lib/permisos-reglas';
 import { ausenciaVisiblePara } from '@/lib/ausencias';
-import type { AusenciaInstructora } from '@/lib/api-client';
-import * as Sentry from '@sentry/nextjs';
+import { errorInterno } from '@/lib/errores-servidor';
+import { borrarAusencia, crearAusencia, listarAusencias } from '@/lib/sustituciones/ausencias-servidor';
 
-// Ausencias de instructoras (vacaciones / baja médica / otro). Al crearlas se
-// materializan los bloqueos día a día en instructora_disponibilidad_excepciones
-// (lo que ya lee rankear_candidatas), así la instructora deja de salir en el
-// ranking de sustituciones durante esas fechas. Borrar la ausencia borra sus
-// bloqueos en cascada (FK ON DELETE CASCADE).
+// Ausencias de instructoras (vacaciones / baja médica / otro), desde el panel.
+// La lógica (bloqueos materializados, marcha atrás, clases afectadas, aviso) vive
+// en `lib/sustituciones/ausencias-servidor.ts`, compartida con la app del
+// estudio; aquí se decide quién es quién y qué puede tocar.
 //
 // Todo acotado al estudio de la sesión de staff: nunca se fía del cliente.
 //
@@ -37,36 +36,6 @@ async function resolverPropioInstructorId(
   return (data?.[0]?.id as string | undefined) ?? null;
 }
 
-const TIPOS = ['VACACIONES', 'BAJA_MEDICA', 'OTRO'];
-const MAX_DIAS = 366; // tope defensivo: una ausencia no materializa años de bloqueos
-
-// Instante UTC del inicio (o fin) del día natural de Madrid para una fecha
-// YYYY-MM-DD, con el offset correcto para esa fecha concreta (CET +1 / CEST
-// +2). Se calcula a mediodía UTC de esa fecha para no caer justo en el
-// instante de un cambio de hora.
-function limiteDiaMadrid(fecha: string, finDelDia: boolean): string {
-  const partes = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Europe/Madrid', timeZoneName: 'shortOffset',
-  }).formatToParts(new Date(`${fecha}T12:00:00Z`));
-  const offset = partes.find(p => p.type === 'timeZoneName')?.value ?? 'GMT+1';
-  const horas = parseInt(offset.replace('GMT', '') || '+1', 10);
-  const signo = horas >= 0 ? '+' : '-';
-  const abs = String(Math.abs(horas)).padStart(2, '0');
-  const hora = finDelDia ? '23:59:59.999' : '00:00:00';
-  return `${fecha}T${hora}${signo}${abs}:00`;
-}
-
-function dias(desde: string, hasta: string): string[] {
-  const out: string[] = [];
-  const d = new Date(`${desde}T00:00:00Z`);
-  const fin = new Date(`${hasta}T00:00:00Z`);
-  while (d <= fin && out.length <= MAX_DIAS) {
-    out.push(d.toISOString().slice(0, 10));
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-  return out;
-}
-
 export async function GET(req: NextRequest) {
   const staff = await verificarSesionStaff(req);
   if (!staff) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -80,27 +49,22 @@ export async function GET(req: NextRequest) {
     instructorId = await resolverPropioInstructorId(admin, staff.userId, staff.studioId);
     if (!instructorId) return NextResponse.json({ items: [] });
   }
-  let q = admin.from('instructora_ausencias')
-    .select('id, instructor_id, tipo, desde, hasta, motivo')
-    .eq('studio_id', staff.studioId)
-    .order('desde', { ascending: false });
-  if (instructorId) q = q.eq('instructor_id', instructorId);
-  const { data } = await q;
 
-  // Tipo y motivo solo para quien gestiona el equipo, o para la instructora
-  // sobre las suyas (arriba ya se acotó a ellas). Recepción, que asigna clases
-  // en el calendario, se lleva quién y qué días. Espejo de la RLS
-  // `ausencias_gestion` (migr 20260914000209): esta ruta va con service-role y
-  // la RLS no la ve, así que el recorte tiene que estar AQUÍ también.
-  const verDetalle = staff.rol === 'INSTRUCTOR' || puedeVerDetalleAusencias(staff.rol);
+  try {
+    const items = await listarAusencias(admin, {
+      studioId: staff.studioId, alcance: instructorId ? { instructorId } : 'estudio',
+    });
 
-  return NextResponse.json({
-    items: (data ?? []).map(r => ausenciaVisiblePara({
-      id: r.id as string, instructorId: r.instructor_id as string,
-      tipo: r.tipo as AusenciaInstructora['tipo'],
-      desde: r.desde as string, hasta: r.hasta as string, motivo: (r.motivo as string | null) ?? null,
-    }, verDetalle)),
-  });
+    // Tipo y motivo solo para quien gestiona el equipo, o para la instructora
+    // sobre las suyas (arriba ya se acotó a ellas). Recepción, que asigna clases
+    // en el calendario, se lleva quién y qué días. Espejo de la RLS
+    // `ausencias_gestion` (migr 20260914000209): esta ruta va con service-role y
+    // la RLS no la ve, así que el recorte tiene que estar AQUÍ también.
+    const verDetalle = staff.rol === 'INSTRUCTOR' || puedeVerDetalleAusencias(staff.rol);
+    return NextResponse.json({ items: items.map(a => ausenciaVisiblePara(a, verDetalle)) });
+  } catch (err) {
+    return errorInterno('equipo:ausencias:GET', err, 'No se han podido cargar las ausencias');
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -125,110 +89,11 @@ export async function POST(req: NextRequest) {
     if (!instructorId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
-  const RE_FECHA = /^\d{4}-\d{2}-\d{2}$/;
-  if (!instructorId || !b?.tipo || !TIPOS.includes(b.tipo)) {
-    return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
-  }
-  if (!RE_FECHA.test(b.desde ?? '') || !RE_FECHA.test(b.hasta ?? '') || b.hasta! < b.desde!) {
-    return NextResponse.json({ error: 'Fechas no válidas' }, { status: 400 });
-  }
-
-  // La instructora debe ser de SU estudio.
-  const { data: instr } = await admin.from('instructores')
-    .select('id, nombre').eq('id', instructorId).eq('studio_id', staff.studioId).maybeSingle();
-  if (!instr) return NextResponse.json({ error: 'Instructora no encontrada' }, { status: 404 });
-
-  const fechas = dias(b.desde!, b.hasta!);
-  if (fechas.length > MAX_DIAS) {
-    return NextResponse.json({ error: 'El periodo es demasiado largo (máximo 1 año)' }, { status: 400 });
-  }
-
-  const id = `aus-${crypto.randomUUID()}`;
-  const { error } = await admin.from('instructora_ausencias').insert({
-    id, studio_id: staff.studioId, instructor_id: instructorId, tipo: b.tipo,
-    desde: b.desde, hasta: b.hasta, motivo: b.motivo?.trim().slice(0, 300) || null,
+  const r = await crearAusencia(admin, {
+    studioId: staff.studioId, instructorId, tipo: b?.tipo, desde: b?.desde, hasta: b?.hasta, motivo: b?.motivo,
   });
-  if (error) {
-    console.error('[equipo:ausencias]', error.message);
-    return NextResponse.json({ error: 'No se ha podido guardar la ausencia' }, { status: 500 });
-  }
-
-  // Materializa un bloqueo de TODO EL DÍA por fecha (hora_inicio/fin NULL).
-  const bloqueos = fechas.map(f => ({
-    id: `exc-${crypto.randomUUID()}`,
-    studio_id: staff.studioId, instructor_id: instructorId,
-    fecha: f, hora_inicio: null, hora_fin: null, tipo: 'bloqueo', ausencia_id: id,
-  }));
-  const { error: errExc } = await admin.from('instructora_disponibilidad_excepciones').insert(bloqueos);
-  if (errExc) {
-    // I-5 (auditoría 59ª pasada, 13-sep-2026): esto era un `console.error` y
-    // seguía a un 200 OK. El bloqueo materializado aquí es lo ÚNICO que ve el
-    // motor de sustituciones (`rankear_candidatas` mira
-    // `instructora_disponibilidad_excepciones`, nunca `instructora_ausencias`),
-    // así que una ausencia sin su bloqueo deja a la instructora ELEGIBLE para
-    // cubrir clases durante sus propias vacaciones — y la dueña, que la ve en
-    // la lista, no tiene forma de saberlo. Clase «desplegado, en verde y sin
-    // efecto».
-    //
-    // El insert de un array es una sola sentencia: si falla, no entró ninguna
-    // fila. Se retira la ausencia recién creada para no dejar el estado a
-    // medias y se devuelve error, que es lo que permite reintentar. El aviso
-    // del Notification Engine todavía no se ha emitido a estas alturas.
-    console.error('[equipo:ausencias] bloqueos', errExc.message);
-    Sentry.captureMessage('[equipo:ausencias] no se pudo materializar el bloqueo de disponibilidad', {
-      level: 'error', tags: { area: 'sustituciones' },
-      extra: { studioId: staff.studioId, instructorId, ausenciaId: id, error: errExc.message },
-    });
-    //
-    // El propio rollback puede fallar, y por la MISMA causa (BD caída). Si
-    // falla, la ausencia queda viva y sin bloqueos — justo el estado que este
-    // bloque intenta evitar—, así que el mensaje no puede decir «no se ha
-    // guardado»: sería un fracaso falso, y la dueña crearía una segunda
-    // ausencia dejando la primera huérfana para siempre.
-    const { error: errRollback } = await admin.from('instructora_ausencias')
-      .delete().eq('id', id).eq('studio_id', staff.studioId);
-    if (errRollback) {
-      Sentry.captureMessage('[equipo:ausencias] ausencia huérfana: sin bloqueo y sin poder retirarla', {
-        level: 'error', tags: { area: 'sustituciones' },
-        extra: { studioId: staff.studioId, instructorId, ausenciaId: id, error: errRollback.message },
-      });
-      return NextResponse.json(
-        { error: 'La ausencia se ha guardado, pero NO hemos podido bloquear esas fechas: bórrala y vuelve a crearla, o el motor de sustituciones seguirá proponiendo a esta instructora.' },
-        { status: 500 },
-      );
-    }
-    return NextResponse.json(
-      { error: 'No se ha podido bloquear la disponibilidad de esas fechas. La ausencia no se ha guardado: vuelve a intentarlo.' },
-      { status: 500 },
-    );
-  }
-
-  // Clases YA programadas de esa instructora dentro del periodo: es lo accionable
-  // (hay que cubrirlas). Se cuentan para devolverlo y para el aviso.
-  //
-  // `sesiones.inicio` se guarda en UTC absoluto, y el rango de la ausencia es
-  // por DÍA NATURAL DE MADRID (0084/0105 ya fijaron este mismo patrón para
-  // reservas). Comparar contra el literal sin zona horaria lo interpreta en
-  // UTC: una clase de madrugada (p. ej. 07:00 en Madrid = 05:00 UTC en
-  // verano) en el borde del periodo podía quedar fuera del recuento, o una
-  // del día siguiente aún no entrado en Madrid podía colarse — dejando
-  // "0 clases afectadas" cuando sí había una clase sin cubrir.
-  const { data: choques } = await admin.from('sesiones')
-    .select('id').eq('studio_id', staff.studioId).eq('instructor_id', instructorId)
-    .eq('cancelada', false)
-    .gte('inicio', limiteDiaMadrid(b.desde!, false)).lte('inicio', limiteDiaMadrid(b.hasta!, true));
-  const clasesAfectadas = choques?.length ?? 0;
-
-  // Notification Engine: la dueña ve la ausencia y, sobre todo, cuántas clases
-  // quedan sin cubrir en esas fechas.
-  const { emitirInstructoraAusencia } = await import('@/lib/notifications/emit');
-  await emitirInstructoraAusencia(admin, {
-    studioId: staff.studioId, ausenciaId: id,
-    instructora: (instr.nombre as string | null) ?? 'Una instructora',
-    desde: b.desde!, hasta: b.hasta!, clasesAfectadas,
-  });
-
-  return NextResponse.json({ ok: true, id, clasesAfectadas });
+  if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+  return NextResponse.json({ ok: true, id: r.id, clasesAfectadas: r.clasesAfectadas });
 }
 
 export async function DELETE(req: NextRequest) {
@@ -244,19 +109,15 @@ export async function DELETE(req: NextRequest) {
   const b = (await req.json().catch(() => null)) as { id?: string } | null;
   if (!b?.id) return NextResponse.json({ error: 'Falta id' }, { status: 400 });
 
-  let q = admin.from('instructora_ausencias')
-    .delete().eq('id', b.id).eq('studio_id', staff.studioId);
-  // Solo puede borrar la SUYA — nunca la de una compañera, aunque adivine el id.
+  // Quien gestiona el equipo borra cualquiera del estudio; la instructora, solo la suya.
+  let alcance: 'estudio' | { instructorId: string } = 'estudio';
   if (esInstructoraPropia) {
     const instructorId = await resolverPropioInstructorId(admin, staff.userId, staff.studioId);
     if (!instructorId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    q = q.eq('instructor_id', instructorId);
+    alcance = { instructorId };
   }
 
-  // .select('id') para saber si de verdad borró algo: sin esto, una
-  // instructora borrando el id de otra recibía "ok:true" sin haber tocado nada.
-  const { data, error } = await q.select('id');
-  if (error) return NextResponse.json({ error: 'No se ha podido borrar' }, { status: 500 });
-  if (!data || data.length === 0) return NextResponse.json({ error: 'Ausencia no encontrada' }, { status: 404 });
+  const r = await borrarAusencia(admin, { studioId: staff.studioId, id: b.id, alcance });
+  if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
   return NextResponse.json({ ok: true });
 }
