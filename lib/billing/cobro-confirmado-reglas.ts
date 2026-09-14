@@ -26,18 +26,25 @@ export type OrigenCobro = 'webhook' | 'conciliador' | 'tpv' | 'manual' | 'off_se
  *
  * - Lo que confirma Stripe acepta todo lo cobrable (`ESTADOS_COBRABLES`, la
  *   misma lista que deja pagar el checkout: si divergen, se cobra y no se
- *   entrega) MÁS `EN_CURSO`, que es justo el adeudo SEPA en vuelo que Stripe
- *   termina de liquidar.
+ *   entrega) MÁS `EN_CURSO`, que es el adeudo SEPA en vuelo que Stripe termina
+ *   de liquidar. Cerrar un `EN_CURSO` exige además que sea con ESE mismo cargo
+ *   (ver `filtroCargoEnCas`).
+ * - `admitirDevuelto: false` quita DEVUELTO: lo usa el camino de SEPA/tarjeta
+ *   guardada (`confirmarCobroExitoso`), que nunca lo admitió. Un adeudo se
+ *   puede devolver semanas después, y un evento viejo no puede resucitarlo.
  * - `manual` NUNCA acepta `EN_CURSO`: hay un cargo en vuelo y marcarlo a mano
  *   encima es la puerta al doble cobro. Solo Stripe puede cerrar ese estado.
  * - `off_session` acepta exactamente lo que comprobó antes de cobrar
  *   (PENDIENTE/FALLIDO). Si el recibo cambió entre esa lectura y el cargo, no se
  *   pisa: se reporta.
  */
-export function estadosAdmitidosPorOrigen(origen: OrigenCobro): EstadoRecibo[] {
-  if (origen === 'manual') return [...ESTADOS_COBRABLES];
+export function estadosAdmitidosPorOrigen(
+  origen: OrigenCobro,
+  opciones: { admitirDevuelto?: boolean } = {},
+): EstadoRecibo[] {
   if (origen === 'off_session') return ['PENDIENTE', 'FALLIDO'];
-  return [...ESTADOS_COBRABLES, 'EN_CURSO'];
+  const base: EstadoRecibo[] = origen === 'manual' ? [...ESTADOS_COBRABLES] : [...ESTADOS_COBRABLES, 'EN_CURSO'];
+  return opciones.admitirDevuelto === false ? base.filter(e => e !== 'DEVUELTO') : base;
 }
 
 export type ConciliadoPor = 'webhook' | 'conciliador' | 'tpv' | 'manual';
@@ -58,18 +65,27 @@ export function conciliadoPorDe(origen: OrigenCobro): ConciliadoPor | null {
 const REFERENCIA_STRIPE = /^[A-Za-z0-9_]{1,255}$/;
 
 /**
- * Filtro `.or()` que impide volver a COBRADO un recibo DEVUELTO cuyo cargo es
- * el mismo que llega ahora (la reentrega tardía de un `succeeded` ya devuelto).
- * Un DEVUELTO con OTRO cargo —la socia paga de nuevo una deuda devuelta por el
- * banco— sí puede cobrarse: es el caso para el que existe aceptar DEVUELTO.
+ * Filtro `.or()` del compare-and-set que ata DEVUELTO y EN_CURSO al cargo que
+ * llega:
+ *  · un DEVUELTO con ESTE mismo cargo no vuelve a COBRADO (reentrega tardía de
+ *    un pago ya devuelto); con otro cargo, o sin cargo guardado, sí — pagar de
+ *    nuevo una deuda devuelta por el banco (solo donde se admite DEVUELTO);
+ *  · un EN_CURSO solo lo cierra el MISMO cargo que está en vuelo. Si el recibo
+ *    no guarda cargo, se deja como estaba (lo cierra cualquiera): hoy todos los
+ *    caminos que ponen EN_CURSO guardan el cargo, así que no debería darse.
+ *  · el resto de estados, sin condición extra.
  *
  * `null` = sin cargo que comparar: no se añade filtro (mismo comportamiento que
- * antes para quien no aporta PaymentIntent).
+ * antes para quien no aporta PaymentIntent). Un id con caracteres fuera de lo
+ * esperado no se interpola: se excluyen DEVUELTO y EN_CURSO enteros.
  */
-export function filtroNoResucitarDevuelto(paymentIntentId: string | null): string | null {
+export function filtroCargoEnCas(paymentIntentId: string | null): string | null {
   if (!paymentIntentId) return null;
-  if (!REFERENCIA_STRIPE.test(paymentIntentId)) return 'estado.neq.DEVUELTO';
-  return `estado.neq.DEVUELTO,stripe_payment_intent_id.is.null,stripe_payment_intent_id.neq.${paymentIntentId}`;
+  if (!REFERENCIA_STRIPE.test(paymentIntentId)) return 'estado.not.in.(DEVUELTO,EN_CURSO)';
+  const pi = paymentIntentId;
+  return 'estado.not.in.(DEVUELTO,EN_CURSO),'
+    + `and(estado.eq.DEVUELTO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.neq.${pi})),`
+    + `and(estado.eq.EN_CURSO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.eq.${pi}))`;
 }
 
 export type FilaReciboSinCambios = { estado: string | null; stripe_payment_intent_id: string | null } | null;
@@ -80,7 +96,7 @@ export type DecisionSinFilas =
   | { tipo: 'ya_estaba' }
   /** Ya devuelto con ESTE mismo cargo: nunca se resucita. */
   | { tipo: 'devuelto' }
-  /** Ya cobrado con OTRO cargo: dinero cobrado dos veces. Se reporta. */
+  /** Cobrado, o en vuelo, con OTRO cargo: dinero cobrado dos veces. Se reporta. */
   | { tipo: 'otro_cobro'; anterior: string | null }
   /** Existe pero su estado (o un reembolso en curso) no admite este cobro. */
   | { tipo: 'no_cobrable'; estado: string | null };
@@ -93,7 +109,8 @@ export type DecisionSinFilas =
  * reentrega — que es lo que ya hacía cada camino por su cuenta.
  *
  * Un COBRADO SIN cargo guardado al que le llega uno es «otro cobro»: lo marcó
- * alguien a mano (o por otra vía sin Stripe) y además ha entrado un cargo.
+ * alguien a mano (o por otra vía sin Stripe) y además ha entrado un cargo. Un
+ * EN_CURSO con un cargo en vuelo distinto del que llega, también.
  */
 export function resolverSinFilas(fila: FilaReciboSinCambios, paymentIntentId: string | null): DecisionSinFilas {
   if (!fila) return { tipo: 'no_encontrado' };
@@ -105,10 +122,26 @@ export function resolverSinFilas(fila: FilaReciboSinCambios, paymentIntentId: st
   if (fila.estado === 'DEVUELTO' && paymentIntentId && anterior === paymentIntentId) {
     return { tipo: 'devuelto' };
   }
+  if (fila.estado === 'EN_CURSO' && paymentIntentId && anterior && anterior !== paymentIntentId) {
+    return { tipo: 'otro_cobro', anterior };
+  }
   return { tipo: 'no_cobrable', estado: fila.estado };
 }
 
 export type PasoEfecto = 'renovacion' | 'factura' | 'caja' | 'creditos' | 'notificacion' | 'email';
+
+/**
+ * ¿Este camino avisa al estudio de que ha entrado dinero (PAGO_REALIZADO +
+ * VENTA_REGISTRADA)? Decisión de producto: el refactor NO cambia qué avisos
+ * recibe un estudio, así que es exactamente lo que hacía cada camino:
+ *  · checkout (webhook y conciliador), TPV y compra web: sí;
+ *  · cobro automático con tarjeta guardada (dunning, charge-off-session,
+ *    cobrar-online, penalizaciones, ejecutor de decisiones): no;
+ *  · a mano: el panel no lo emitía; cuando pase por aquí (PR 3) se decide.
+ */
+export function origenNotifica(origen: OrigenCobro): boolean {
+  return origen === 'webhook' || origen === 'conciliador' || origen === 'tpv';
+}
 
 /**
  * Qué efectos tiene un cobro confirmado, y en qué orden. El orden importa:
@@ -118,7 +151,8 @@ export type PasoEfecto = 'renovacion' | 'factura' | 'caja' | 'creditos' | 'notif
  *     mandaba el email antes de sellar y salía sin número);
  *  3. caja — solo lo que pasa por el mostrador (`manual`/`tpv`);
  *  4. créditos RENOVACION_PLAN — solo si el recibo es una renovación;
- *  5. notificación (deduplicada por recibo en el motor de avisos);
+ *  5. notificación (deduplicada por recibo en el motor de avisos), solo en los
+ *     caminos que ya la emitían (`origenNotifica`);
  *  6. email — no es idempotente: solo quien ganó la transición lo pide.
  */
 export function efectosEnOrden(p: {
@@ -134,9 +168,19 @@ export function efectosEnOrden(p: {
   if (emiteFacturaAutomatica(p.metodo)) pasos.push('factura');
   if (p.origen === 'manual' || p.origen === 'tpv') pasos.push('caja');
   if (p.esRenovacion) pasos.push('creditos');
-  if (p.notificar !== false) pasos.push('notificacion');
+  if (p.notificar !== false && origenNotifica(p.origen)) pasos.push('notificacion');
   if (p.avisarSocia) pasos.push('email');
   return pasos;
+}
+
+/**
+ * Qué se vuelve a hacer cuando el cobro YA estaba (`ya_estaba`): solo el apunte
+ * de caja del mostrador. Es idempotente (`mov-rec-<recibo>`, ON CONFLICT) y el
+ * segundo camino que llega (TPV o webhook) lo repetía siempre, lo que reparaba
+ * un apunte fallido. Nada de email ni de créditos.
+ */
+export function efectosEnReentrega(origen: OrigenCobro): PasoEfecto[] {
+  return origen === 'manual' || origen === 'tpv' ? ['caja'] : [];
 }
 
 /**

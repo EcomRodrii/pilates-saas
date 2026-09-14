@@ -7,8 +7,7 @@ import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
 import { estadoCobroCuenta } from '@/lib/billing/cuenta-puede-cobrar';
 import { clasificarErrorCobro } from '@/lib/billing/clasificar-error-cobro';
 import { puedeIntentarCobro, type ReciboParaCobrar, type ViaCobro } from '@/lib/billing/cobro-permitido';
-import { confirmarCobro } from '@/lib/billing/confirmar-cobro';
-import { facturaIdMetodoGuardado } from '@/lib/billing/cobro-confirmado-reglas';
+import { cerrarCobroOffSession } from '@/lib/billing/confirmar-cobro';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -236,31 +235,15 @@ export async function cobrarReciboOffSession(params: {
       // `avisarSocia: false`: este camino síncrono nunca ha mandado email de
       // justificante, y empezar a hacerlo en cada cobro automático sería un
       // cambio de producto, no un arreglo.
-      const confirmado = await confirmarCobro(admin, {
-        studioId: params.studioId, reciboId: params.reciboId, metodo: metodo.metodo,
-        origen: 'off_session', paymentIntentId: paymentIntent.id,
-        avisarSocia: false, facturaId: facturaIdMetodoGuardado(params.reciboId, metodo.metodo),
+      // El cierre (y su aviso a Sentry si no se puede) vive junto al dueño
+      // único, donde tiene tests: `cerrarCobroOffSession`. Si devuelve
+      // `COBRADO_SIN_PERSISTIR` el llamante NO debe darlo por cerrado: antes
+      // marcaba el cobro como EJECUTADO y el fallo quedaba invisible.
+      const cierre = await cerrarCobroOffSession(admin, {
+        studioId: params.studioId, reciboId: params.reciboId, socioId: params.socioId,
+        metodo: metodo.metodo, paymentIntentId: paymentIntent.id,
       });
-      // `ya_estaba` = el webhook de este mismo cargo llegó antes: bien cerrado.
-      if (!confirmado.ok || confirmado.transicion === 'devuelto') {
-        const detalle = confirmado.ok ? 'el recibo figura devuelto con este cargo' : `${confirmado.codigo}: ${confirmado.error}`;
-        // La idempotency key evita el doble cargo, pero el recibo quedaría sin
-        // cerrar y podría reaparecer para cobro. No se traga.
-        Sentry.captureException(new Error(`Cobro OK en Stripe pero no se pudo marcar el recibo COBRADO: ${detalle}`), {
-          level: 'error',
-          tags: { area: 'cobros', tipo: 'reconciliacion' },
-          extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
-        });
-        // Además del aviso a Sentry, se devuelve un resultado DISTINGUIBLE: el
-        // llamante marcaba el cobro como EJECUTADO y respondía 200, así que el
-        // fallo de persistencia quedaba invisible para quien operaba.
-        return {
-          ok: true, status: paymentIntent.status, importe: recibo.importe,
-          aviso: 'COBRADO_SIN_PERSISTIR',
-          error: 'El cobro se completó en Stripe pero no se pudo marcar el recibo como COBRADO. Revísalo manualmente.',
-        };
-      }
-      return { ok: true, status: paymentIntent.status, importe: recibo.importe };
+      return { ok: true, status: paymentIntent.status, importe: recibo.importe, ...cierre };
     }
 
     // requires_action u otro estado no terminal: la tarjeta necesita

@@ -4,8 +4,6 @@ import { planificarTrasFallo, debeAutoCancelarSuscripcion, type PlanReintento } 
 import { enviarEmailImpago } from '../emails/impago-server.ts';
 import { penalizacionDelRecibo } from './penalizacion-aprobar-reglas.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
-import { confirmarCobro, aplicarEfectosCobro } from './confirmar-cobro.ts';
-import { facturaIdMetodoGuardado } from './cobro-confirmado-reglas.ts';
 
 // Registra un intento de cobro FALLIDO de un recibo y avanza su ciclo de dunning:
 // cuenta el intento, reprograma el siguiente reintento (+3 / +7 días) o marca el
@@ -193,60 +191,12 @@ export async function registrarFalloCobro(params: {
 // `studioId` viene siempre de una fuente fiable del llamante (la cuenta
 // Connect del evento, o el propio recibo ya scopeado por estudio), nunca de la
 // metadata del PaymentIntent.
-export async function confirmarCobroExitoso(params: {
-  admin: SupabaseClient;
-  reciboId: string;
-  studioId: string;
-  metodo: 'SEPA' | 'TARJETA';
-  /** El cargo real, para poder devolverlo desde el panel. Solo se escribe si viene. */
-  paymentIntentId?: string | null;
-  /** F-12/F-13: quién lo confirma, para `recibos.conciliado_por`. */
-  fuente: 'webhook' | 'conciliador';
-}): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { admin, reciboId, studioId, metodo, fuente } = params;
-  // TARJETA usa el MISMO id de factura que `cobrarReciboOffSession`: si el
-  // camino síncrono ya selló, esto colisiona y no duplica.
-  const facturaId = facturaIdMetodoGuardado(reciboId, metodo);
-
-  // La transición la decide el dueño único (lib/billing/confirmar-cobro.ts):
-  // compare-and-set con las guardas de estado y de reembolso, y un DEVUELTO
-  // con este mismo cargo no se resucita (un adeudo SEPA se puede devolver
-  // hasta 8 semanas después, así que succeeded → refunded → reentrega del
-  // succeeded original es real). Si gana, aplica renovación → factura →
-  // aviso → email, en ese orden: antes el email salía antes de sellar y el
-  // justificante llegaba sin número de factura.
-  const r = await confirmarCobro(admin, {
-    studioId, reciboId, metodo, origen: fuente,
-    paymentIntentId: params.paymentIntentId ?? null,
-    // Transición real: en SEPA es el camino normal; en TARJETA significa que el
-    // webhook acaba de RECUPERAR un cobro que el camino síncrono perdió —
-    // avisar a la socia es lo correcto: nadie más lo hará.
-    avisarSocia: true,
-    facturaId,
-  });
-  // 'Recibo no encontrado' lo usa el webhook para detectar un cobro que apunta
-  // a un recibo inexistente o de OTRO estudio.
-  if (!r.ok) {
-    // Un cobro real sobre un recibo ANULADO (el estudio lo perdonó al cancelar la
-    // cuota) o ya cobrado con otro cargo/sin cargo registrado: el dinero entró,
-    // no se renueva ni se sella nada y `confirmarCobro` ya avisó para
-    // devolverlo. No es un fallo que reintentar: el llamador lo verá igual.
-    if (r.codigo === 'NO_COBRABLE' && (r.estado === 'ANULADO' || r.estado === 'COBRADO')) return { ok: true };
-    return { ok: false, error: r.codigo === 'NO_ENCONTRADO' ? 'Recibo no encontrado' : r.error };
-  }
-
-  // Ya COBRADO con este cargo. En TARJETA es el caso NORMAL —el webhook llega
-  // para cada cargo y `cobrarReciboOffSession` ya lo confirmó de forma
-  // síncrona—; en SEPA, una reentrega. Se repara en silencio lo idempotente
-  // (la única red si el proceso murió entre la transición y sus efectos) pero
-  // SIN email: el email no es idempotente y ya lo pidió quien ganó.
-  if (r.transicion === 'ya_estaba') {
-    await aplicarEfectosCobro(admin, {
-      studioId, reciboId, metodo, origen: fuente, facturaId, avisarSocia: false, reparacion: true,
-    });
-  }
-  return { ok: true };
-}
+//
+// La implementación vive junto al dueño único (lib/billing/confirmar-cobro.ts),
+// que sí se puede probar con `node --test`; este módulo no, por la cascada de
+// imports de los avisos de impago. Se reexporta con el mismo nombre para no
+// tocar a sus llamadores (webhook y `lib/inngest/dunning.ts`).
+export { confirmarCobroExitoso } from './confirmar-cobro.ts';
 
 async function notificarFalloCobro(params: {
   admin: SupabaseClient;

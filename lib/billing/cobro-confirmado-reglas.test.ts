@@ -1,16 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  conciliadoPorDe, efectosEnOrden, esRenovacion, estadosAdmitidosPorOrigen, facturaIdCheckout,
-  facturaIdMetodoGuardado, facturaIdParaReintento, filtroNoResucitarDevuelto, refIdCreditoRenovacion,
-  resolverSinFilas, type OrigenCobro,
+  conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
+  facturaIdCheckout, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
+  refIdCreditoRenovacion, resolverSinFilas, type OrigenCobro,
 } from './cobro-confirmado-reglas.ts';
 import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
 
 // Las reglas de «este recibo está cobrado», sin BD ni Stripe. Lo que fijan
 // estos tests no se ve en ningún otro sitio: qué estados puede cerrar cada
-// camino, qué significa que el compare-and-set no toque filas, y en qué orden
-// salen los efectos.
+// camino, qué significa que el compare-and-set no toque filas, qué avisos
+// recibe el estudio y en qué orden salen los efectos.
 
 const ORIGENES: OrigenCobro[] = ['webhook', 'conciliador', 'tpv', 'manual', 'off_session'];
 
@@ -29,7 +29,13 @@ test('lo que confirma Stripe acepta todo lo cobrable y además EN_CURSO', () => 
   }
 });
 
-test('tarjeta guardada: solo lo que comprobó antes de cobrar', () => {
+test('SEPA / tarjeta guardada (admitirDevuelto:false): solo PENDIENTE, FALLIDO y EN_CURSO', () => {
+  for (const origen of ['webhook', 'conciliador'] as const) {
+    assert.deepEqual(estadosAdmitidosPorOrigen(origen, { admitirDevuelto: false }), ['PENDIENTE', 'FALLIDO', 'EN_CURSO']);
+  }
+});
+
+test('tarjeta guardada síncrona: solo lo que comprobó antes de cobrar', () => {
   assert.deepEqual(estadosAdmitidosPorOrigen('off_session'), ['PENDIENTE', 'FALLIDO']);
 });
 
@@ -45,21 +51,23 @@ test('conciliado_por: off_session no escribe nada que el CHECK no admita', () =>
   assert.equal(conciliadoPorDe('conciliador'), 'conciliador');
 });
 
-// ── No resucitar un devuelto ─────────────────────────────────────────────────
+// ── Filtro por cargo ─────────────────────────────────────────────────────────
 
 test('sin cargo no se añade filtro', () => {
-  assert.equal(filtroNoResucitarDevuelto(null), null);
+  assert.equal(filtroCargoEnCas(null), null);
 });
 
-test('con cargo: un DEVUELTO con ESE cargo queda fuera; con otro, dentro', () => {
+test('con cargo: DEVUELTO solo con otro cargo, EN_CURSO solo con el mismo', () => {
   assert.equal(
-    filtroNoResucitarDevuelto('pi_3Abc123'),
-    'estado.neq.DEVUELTO,stripe_payment_intent_id.is.null,stripe_payment_intent_id.neq.pi_3Abc123',
+    filtroCargoEnCas('pi_3Abc123'),
+    'estado.not.in.(DEVUELTO,EN_CURSO),'
+      + 'and(estado.eq.DEVUELTO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.neq.pi_3Abc123)),'
+      + 'and(estado.eq.EN_CURSO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.eq.pi_3Abc123))',
   );
 });
 
-test('un id con caracteres raros no se interpola: se excluye DEVUELTO entero', () => {
-  assert.equal(filtroNoResucitarDevuelto('pi_1,estado.eq.COBRADO'), 'estado.neq.DEVUELTO');
+test('un id con caracteres raros no se interpola: fuera DEVUELTO y EN_CURSO enteros', () => {
+  assert.equal(filtroCargoEnCas('pi_1,estado.eq.COBRADO'), 'estado.not.in.(DEVUELTO,EN_CURSO)');
 });
 
 // ── 0 filas ──────────────────────────────────────────────────────────────────
@@ -91,22 +99,48 @@ test('0 filas y COBRADO sin cargo guardado al que le llega uno: también otro co
   );
 });
 
+test('EN_CURSO con OTRO cargo en vuelo: otro cobro', () => {
+  assert.deepEqual(
+    resolverSinFilas({ estado: 'EN_CURSO', stripe_payment_intent_id: 'pi_en_vuelo' }, 'pi_2'),
+    { tipo: 'otro_cobro', anterior: 'pi_en_vuelo' },
+  );
+});
+
 test('DEVUELTO con el mismo cargo: no se resucita', () => {
   assert.deepEqual(resolverSinFilas({ estado: 'DEVUELTO', stripe_payment_intent_id: 'pi_1' }, 'pi_1'), { tipo: 'devuelto' });
 });
 
-test('DEVUELTO con otro cargo y 0 filas: hay un reembolso en curso, no se admite', () => {
+test('DEVUELTO con otro cargo, o sin cargo guardado, y 0 filas: no cobrable', () => {
   assert.deepEqual(
     resolverSinFilas({ estado: 'DEVUELTO', stripe_payment_intent_id: 'pi_1' }, 'pi_2'),
     { tipo: 'no_cobrable', estado: 'DEVUELTO' },
   );
+  assert.deepEqual(
+    resolverSinFilas({ estado: 'DEVUELTO', stripe_payment_intent_id: null }, 'pi_2'),
+    { tipo: 'no_cobrable', estado: 'DEVUELTO' },
+  );
 });
 
-test('EN_CURSO y 0 filas (p. ej. a mano): no cobrable', () => {
+test('EN_CURSO sin cargo entrante y 0 filas (p. ej. a mano): no cobrable', () => {
   assert.deepEqual(
     resolverSinFilas({ estado: 'EN_CURSO', stripe_payment_intent_id: 'pi_1' }, null),
     { tipo: 'no_cobrable', estado: 'EN_CURSO' },
   );
+});
+
+// ── Avisos al estudio ────────────────────────────────────────────────────────
+
+test('qué caminos avisan al estudio de que ha entrado dinero (no cambia con el refactor)', () => {
+  // Checkout (webhook y conciliador) y TPV sí; el cobro automático con tarjeta
+  // guardada no lo ha hecho nunca; el panel a mano tampoco lo emitía.
+  const esperado: Record<OrigenCobro, boolean> = {
+    webhook: true, conciliador: true, tpv: true, manual: false, off_session: false,
+  };
+  for (const o of ORIGENES) {
+    assert.equal(origenNotifica(o), esperado[o], o);
+    const pasos = efectosEnOrden({ origen: o, metodo: 'TARJETA', avisarSocia: false, esRenovacion: false });
+    assert.equal(pasos.includes('notificacion'), esperado[o], `${o}: efectosEnOrden tiene que seguir la misma regla`);
+  }
 });
 
 // ── Efectos ──────────────────────────────────────────────────────────────────
@@ -135,6 +169,12 @@ test('la caja solo cuenta lo que pasa por el mostrador', () => {
   for (const o of ORIGENES) {
     const tieneCaja = efectosEnOrden({ origen: o, metodo: 'TARJETA', avisarSocia: false, esRenovacion: false }).includes('caja');
     assert.equal(tieneCaja, o === 'manual' || o === 'tpv', o);
+  }
+});
+
+test('reentrega: solo se repite el apunte de caja del mostrador', () => {
+  for (const o of ORIGENES) {
+    assert.deepEqual(efectosEnReentrega(o), o === 'manual' || o === 'tpv' ? ['caja'] : [], o);
   }
 });
 
