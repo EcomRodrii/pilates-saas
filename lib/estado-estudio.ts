@@ -49,6 +49,8 @@ export interface ConteosEstudio {
   devolucionesPorRevisar?: number | null;
   automatizacionesEsperando?: number | null;
   canjesPorEntregar?: number | null;
+  /** Bajas de última hora del equipo esperando «Todo en orden» / «Lo hablamos». */
+  bajasPorRevisar?: number | null;
   // En marcha
   sustitucionesBuscando?: number | null;
   ofertasListaEspera?: number | null;
@@ -107,6 +109,10 @@ const LINEAS: DefLinea[] = [
     uno: 'Una automatización espera tu visto bueno', varios: n => `${n} automatizaciones esperan tu visto bueno` },
   { id: 'canjesPorEntregar', bandeja: 'decidir', href: null,
     uno: 'Una recompensa canjeada por entregar', varios: n => `${n} recompensas canjeadas por entregar` },
+  // La última: no corre prisa (la clase ya la cubre el motor o la decide la
+  // línea de arriba) y solo queda anotado, nunca es una sanción.
+  { id: 'bajasPorRevisar', bandeja: 'decidir', href: null,
+    uno: 'Una baja de última hora del equipo por revisar', varios: n => `${n} bajas de última hora del equipo por revisar` },
 
   { id: 'sustitucionesBuscando', bandeja: 'enMarcha', href: '/sustituciones',
     uno: 'Buscando sustituta para una clase', varios: n => `Buscando sustituta para ${n} clases` },

@@ -142,6 +142,10 @@ export const EVENTOS = {
   // El motor le pregunta a una candidata si cubre la clase. El email con su
   // enlace sigue saliendo igual; esto lleva la pregunta a la app del estudio.
   SUSTITUCION_OFRECIDA: 'sustitucion.ofrecida',
+  // El estudio ha revisado una baja de última hora de la instructora («Todo en
+  // orden» / «Lo hablamos»). Cierra el aviso de `instructora.baja`. El push NO
+  // dice qué se decidió: el resultado y la nota se leen dentro de la app.
+  BAJA_REVISADA: 'baja.revisada',
   PAGO_FALLIDO: 'pago.fallido',
   PAGO_REALIZADO: 'pago.realizado',
   // Mismo hecho que PAGO_REALIZADO (mismo recibo, mismo publish desde
@@ -334,6 +338,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Solo PUSH: el email con el enlace ya lo manda `contactarCandidata`; otro
   // email por lo mismo sería la misma pregunta dos veces.
   [EVENTOS.SUSTITUCION_OFRECIDA]:  { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
+  [EVENTOS.BAJA_REVISADA]:         { category: 'sustituciones', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
   // Sin EMAIL: el dunning ya manda su propio correo a la socia (1.er aviso).
   [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'mostrador-y-socia' },
   [EVENTOS.PAGO_REALIZADO]:        { category: 'pagos',    priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
@@ -789,6 +794,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.SUSTITUCION_OFRECIDA}#INSTRUCTOR`]: {
     title: 'Te piden cubrir una clase',
     body: '{clase} el {cuando}{sala}. ¿Puedes cubrirla?',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/equipo`,
+  },
+  // El estudio ha revisado su baja de última hora. Sin el resultado ni la nota:
+  // la pantalla bloqueada la ve cualquiera. Lleva a «Hoy», donde está su baja.
+  [`${EVENTOS.BAJA_REVISADA}#INSTRUCTOR`]: {
+    title: 'El estudio ha revisado tu aviso',
+    body: 'Sobre tu clase de {clase} del {cuando}. Lo tienes en la app.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/equipo`,
   },
   [`${EVENTOS.SUSTITUCION_ACEPTADA}#INSTRUCTOR`]: {

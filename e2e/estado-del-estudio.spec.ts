@@ -49,6 +49,7 @@ async function montar(
   page: Page,
   estado: { cuerpo?: unknown; status?: number },
   rest: Record<string, unknown[]> = {},
+  extra?: (page: Page) => Promise<void>,
 ) {
   const intentos = { n: 0 };
 
@@ -83,6 +84,8 @@ async function montar(
   for (const [tabla, filas] of Object.entries(rest)) {
     await page.route(`**/rest/v1/${tabla}**`, route => json(route, filas));
   }
+  // Rutas de API concretas de una prueba (después del genérico: gana).
+  if (extra) await extra(page);
 
   await page.goto('/dashboard');
   return intentos;
@@ -180,6 +183,72 @@ test.describe('Lo que se aprueba, dentro de la bandeja', () => {
     const bandeja = page.getByRole('region', { name: 'Lo que espera tu visto bueno' });
     await expect(bandeja.getByText('1 penalización pendiente de aprobar')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Nada espera tu visto bueno')).toBeHidden();
+  });
+
+  const CON_BAJA = {
+    aplica: true, nDecidir: 1, titulo: 'Una cosa espera tu visto bueno',
+    decidir: [{ id: 'bajasPorRevisar', n: 1, texto: 'Una baja de última hora del equipo por revisar', href: null }],
+    enMarcha: [], resuelto: [],
+  };
+  const BAJA = {
+    id: 'bi-1', instructora: 'Laura Martín', clase: 'Reformer', inicio: '2026-09-18T08:00:00Z',
+    antelacionMinutos: 180, motivo: 'Asunto personal · Un imprevisto',
+  };
+
+  function mockBajas(respuestaPost: { status: number; body: unknown }) {
+    const intentos = { post: 0, cuerpo: null as null | Record<string, unknown> };
+    let pendiente = true;
+    const registrar = async (page: Page) => {
+      await page.route('**/api/equipo/bajas-instructora**', route => {
+        if (route.request().method() === 'POST') {
+          intentos.post++;
+          intentos.cuerpo = JSON.parse(route.request().postData() || '{}');
+          pendiente = false;
+          return json(route, respuestaPost.body, respuestaPost.status);
+        }
+        return json(route, { bajas: pendiente ? [BAJA] : [] });
+      });
+    };
+    return { intentos, registrar };
+  }
+
+  test('la baja de última hora del equipo se revisa dentro de la bandeja, con su nota', async ({ page }) => {
+    const { intentos, registrar } = mockBajas({ status: 200, body: { ok: true } });
+    await montar(page, { cuerpo: CON_BAJA }, {}, registrar);
+
+    const tarjeta = page.getByTestId('bajas-por-revisar');
+    await expect(tarjeta).toContainText('Laura Martín · Reformer', { timeout: 30_000 });
+    await expect(tarjeta).toContainText('Avisó con 3 h de antelación');
+    await expect(tarjeta).toContainText('Asunto personal · Un imprevisto');
+    await expect(tarjeta).toContainText('no descuenta nada');
+    await expect(tarjeta).not.toContainText(/sanci|penaliz|no justific/i);
+
+    const linea = page.getByRole('region', { name: 'Lo que espera tu visto bueno' })
+      .getByRole('link', { name: /Una baja de última hora del equipo/ });
+    await expect(linea).toHaveAttribute('href', '#decidir-bajas-equipo');
+
+    await tarjeta.getByLabel(/Nota para la instructora/).fill('Lo vemos el jueves');
+    await tarjeta.getByRole('button', { name: 'Lo hablamos', exact: true }).click();
+
+    await expect(page.getByTestId('bajas-por-revisar')).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByText('Anotado: lo habláis')).toBeVisible();
+    expect(intentos.post).toBe(1);
+    expect(intentos.cuerpo).toEqual({ id: 'bi-1', decision: 'LO_HABLAMOS', nota: 'Lo vemos el jueves' });
+  });
+
+  test('si otra persona ya la revisó, lo dice y quita la fila en vez de anunciar que se ha guardado', async ({ page }) => {
+    const { intentos, registrar } = mockBajas({
+      status: 409, body: { error: 'Esta baja ya no está pendiente de revisar. Recarga la página.' },
+    });
+    await montar(page, { cuerpo: CON_BAJA }, {}, registrar);
+
+    const tarjeta = page.getByTestId('bajas-por-revisar');
+    await tarjeta.getByRole('button', { name: 'Todo en orden', exact: true }).click({ timeout: 30_000 });
+
+    await expect(page.getByText('Esta baja ya no está pendiente de revisar')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Anotado: todo en orden')).toHaveCount(0);
+    await expect(page.getByTestId('bajas-por-revisar')).toHaveCount(0);
+    expect(intentos.post).toBeGreaterThan(0);
   });
 });
 

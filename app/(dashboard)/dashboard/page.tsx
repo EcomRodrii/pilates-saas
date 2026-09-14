@@ -37,6 +37,8 @@ import { useAuth } from '@/lib/auth-context';
 import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
 import { CanjesPendientes } from '@/components/dashboard/canjes-pendientes';
+import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
 
@@ -503,6 +505,7 @@ export default function Dashboard() {
   // peor que no tener atajo.
   const gestionaClientas = puedeGestionarClientas(rolActual);
   const mueveDinero = puedeMoverDinero(rolActual);
+  const gestionaEquipo = puedeGestionarEquipo(rolActual);
 
   // ── Pagos pendientes ─────────────────────────────────────────────────────────
   const pendientes = useMemo(
@@ -688,6 +691,8 @@ export default function Dashboard() {
               {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
               {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
               {gestionaClientas && <CanjesPendientes onToast={showToast} />}
+              {/* El motivo de una baja puede ser salud: propietaria y gerencia, nunca recepción. */}
+              {gestionaEquipo && <BajasPorRevisar onToast={showToast} />}
             </>}
           />
         </div>

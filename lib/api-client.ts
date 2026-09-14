@@ -12,6 +12,7 @@ import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_IDS } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp, type ResultadoEscritura } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
+import type { DecisionEstudio } from '@/lib/student/baja-instructora';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
 import type { FaseTrial } from '@/lib/billing/trial';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
@@ -919,6 +920,51 @@ export async function aprobarPenalizacion(penalizacionId: string): Promise<Cobro
   if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
   const aviso = leerAvisoCobro(data);
   return aviso ? { ok: true, ...aviso } : { ok: true };
+}
+
+/** Una baja de última hora del equipo esperando revisión (GET /api/equipo/bajas-instructora). */
+export interface BajaPorRevisar {
+  id: string;
+  instructora: string;
+  clase: string;
+  inicio: string | null;
+  antelacionMinutos: number;
+  /** «No se encuentra bien · Fiebre», o null si no dio motivo. */
+  motivo: string | null;
+}
+
+// Sin dar por hecha la forma: esto se pinta dentro de la bandeja de la home.
+export async function listarBajasPorRevisar(): Promise<BajaPorRevisar[]> {
+  try {
+    const res = await fetch('/api/equipo/bajas-instructora', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const d = await res.json().catch(() => null) as { bajas?: unknown } | null;
+    if (!Array.isArray(d?.bajas)) return [];
+    return (d.bajas as Array<Partial<BajaPorRevisar> | null>).filter((b): b is BajaPorRevisar =>
+      !!b && typeof b.id === 'string' && typeof b.instructora === 'string' && typeof b.clase === 'string'
+      && typeof b.antelacionMinutos === 'number');
+  } catch {
+    return [];
+  }
+}
+
+// «Todo en orden» / «Lo hablamos», con nota opcional. El servidor solo la acepta
+// desde PENDIENTE: un 409 significa que otra persona ya la revisó.
+export async function revisarBajaInstructora(
+  id: string, decision: DecisionEstudio, nota: string,
+): Promise<{ ok: true } | { error: string; status: number }> {
+  try {
+    const res = await fetch('/api/equipo/bajas-instructora', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id, decision, nota: nota.trim() || null }),
+    });
+    const data = await res.json().catch(() => ({})) as { error?: string };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)), status: res.status };
+    return { ok: true };
+  } catch {
+    return { error: 'Sin conexión: no se ha guardado. Inténtalo de nuevo.', status: 0 };
+  }
 }
 
 // Devuelve el dinero de un recibo a la tarjeta de la socia.

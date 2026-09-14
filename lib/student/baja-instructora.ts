@@ -58,6 +58,22 @@ export function revisionInicial(antelacionMin: number): 'PENDIENTE' | null {
   return antelacionMin < MINUTOS_ULTIMA_HORA ? 'PENDIENTE' : null;
 }
 
+/** Lo que decide el estudio. `PENDIENTE` nunca llega desde el panel. */
+export type DecisionEstudio = 'EN_ORDEN' | 'LO_HABLAMOS';
+export const MAX_NOTA_ESTUDIO = 500;
+
+export function normalizarDecision(x: unknown): DecisionEstudio | null {
+  return x === 'EN_ORDEN' || x === 'LO_HABLAMOS' ? x : null;
+}
+
+/** «Avisó con 3 h de antelación», «con 40 min». Solo hechos, sin adjetivos. */
+export function textoAntelacion(minutos: number): string {
+  const m = Number.isFinite(minutos) ? Math.max(0, Math.floor(minutos)) : 0;
+  if (m < 60) return `Avisó con ${m} min de antelación`;
+  const h = Math.floor(m / 60);
+  return `Avisó con ${h} h de antelación`;
+}
+
 export interface RevisionVista {
   estado: RevisionBaja;
   /** Lo que el estudio le quiere decir. Solo con la revisión hecha. */
