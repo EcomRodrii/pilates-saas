@@ -1,5 +1,8 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { montar } from './panel-sembrado';
+import {
+  cuerpoRespuesta, decidirAntesDeCobrar, planificarTrasCobro, type Desenlace,
+} from '../lib/billing/penalizacion-aprobar-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Aprobar y cobrar» una penalización desde la bandeja de Inicio, cuando el
@@ -140,6 +143,64 @@ test.describe('Aprobar una penalización cuando el servidor no dice que sí', ()
     await expect(page.getByText('Esta penalización ya estaba cobrada: no se ha vuelto a cobrar.')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('#decidir-penalizaciones')).toHaveCount(0);
     await expect(page.getByText('Cobro aprobado')).toHaveCount(0);
+    expect(intentos.post).toBe(1);
+  });
+
+  // ── Respuestas construidas con las MISMAS reglas que usa la ruta ──────────
+  // Así el mock no puede divergir del cuerpo que el servidor manda de verdad.
+  const delServidor = (d: Desenlace) => ({ status: d.http, body: cuerpoRespuesta(d) });
+
+  test('Stripe no está listo: la fila se queda, dice qué revisar y se puede volver a aprobar', async ({ page }) => {
+    const d = planificarTrasCobro({ ok: false, errorCode: 'SIN_STRIPE_CONECTADO', error: 'El estudio no tiene Stripe conectado' }).desenlace;
+    const { intentos, tarjeta, boton } = await montarConPenalizacion(page, delServidor(d));
+    await boton.click();
+
+    await expect.poll(() => intentos.post).toBeGreaterThan(0);
+    await expect(tarjeta.getByText(/No se ha cobrado: este estudio no tiene Stripe conectado/)).toBeVisible({ timeout: 15_000 });
+    await expect(tarjeta.getByText(/Configuración → Integraciones/)).toBeVisible();
+    await expect(tarjeta.getByText(SIN_CONFIRMAR)).toHaveCount(0);
+    await expect(boton).toBeEnabled();
+    await expect(page.getByText('Cobro aprobado')).toHaveCount(0);
+
+    // Sigue pendiente de verdad: se puede volver a pulsar y sale otro POST.
+    const antes = intentos.post;
+    await boton.click();
+    await expect.poll(() => intentos.post).toBe(antes + 1);
+    await expect(tarjeta.getByText('María García Fernández')).toBeVisible();
+  });
+
+  test('una FALLIDA con el recibo ya cobrado se cierra como «ya estaba cobrada»', async ({ page }) => {
+    const plan = decidirAntesDeCobrar({ estado: 'FALLIDA', reciboId: 'rec-penaliz-pen-1' }, { ok: true, estado: 'COBRADO' });
+    if (!plan) throw new Error('las reglas deberían contestar sin cobrar');
+    const { intentos, tarjeta } = await montarConPenalizacion(page, delServidor(plan.desenlace));
+    await tarjeta.getByRole('button', { name: /Aprobar y cobrar/ }).click();
+
+    await expect(page.getByText('Esta penalización ya estaba cobrada: no se ha vuelto a cobrar.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#decidir-penalizaciones')).toHaveCount(0);
+    await expect(page.getByText('Cobro aprobado')).toHaveCount(0);
+    expect(intentos.post).toBeGreaterThan(0);
+  });
+
+  test('una FALLIDA con el recibo sin cobrar sigue siendo 409: la fila se va sin «Cobro aprobado»', async ({ page }) => {
+    const plan = decidirAntesDeCobrar({ estado: 'FALLIDA', reciboId: 'rec-penaliz-pen-1' }, { ok: true, estado: 'FALLIDO' });
+    if (!plan) throw new Error('las reglas deberían contestar sin cobrar');
+    const { intentos, tarjeta } = await montarConPenalizacion(page, delServidor(plan.desenlace));
+    await tarjeta.getByRole('button', { name: /Aprobar y cobrar/ }).click();
+
+    await expect(page.getByText('Esta penalización ya no está pendiente de aprobación.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#decidir-penalizaciones')).toHaveCount(0);
+    await expect(page.getByText('Cobro aprobado')).toHaveCount(0);
+    expect(intentos.post).toBeGreaterThan(0);
+  });
+
+  test('cobrado pero lo de después falló: dice «Cobrado» y que se revise el recibo, no «no se ha vuelto a cobrar»', async ({ page }) => {
+    const d = planificarTrasCobro({ ok: false, errorCode: 'ERROR_TRANSITORIO' }, { ok: true, estado: 'COBRADO' }).desenlace;
+    const { intentos, tarjeta } = await montarConPenalizacion(page, delServidor(d));
+    await tarjeta.getByRole('button', { name: /Aprobar y cobrar/ }).click();
+
+    await expect(page.getByText('Cobrado. No hemos podido completar el resto: revisa el recibo en Cobros.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#decidir-penalizaciones')).toHaveCount(0);
+    await expect(page.getByText(/no se ha vuelto a cobrar/)).toHaveCount(0);
     expect(intentos.post).toBe(1);
   });
 

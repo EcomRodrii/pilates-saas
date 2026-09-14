@@ -15,13 +15,19 @@ import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
+  DESDE_DETECTADA, escrituraAlCrearRecibo, escrituraTrasCobroAutomatico, type EstadoPenalizacion,
+} from '@/lib/billing/penalizacion-aprobar-reglas';
+import {
   terminosServicioPorDefecto, politicaPrivacidadPorDefecto, textoLegalCompleto,
 } from '@/lib/legal-textos';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: string; socio_id: string; reserva_id: string; tipo: string; importe: number }) {
-  const marcar = (estado: string) =>
-    admin.from('penalizaciones').update({ estado, procesada_en: new Date().toISOString() }).eq('id', pen.id);
+  // Compare-and-set: toda salida de DETECTADA exige que la fila siga DETECTADA
+  // (dos pasadas solapadas, o el trigger que la revierte entre medias).
+  const marcar = (estado: EstadoPenalizacion) =>
+    admin.from('penalizaciones').update({ estado, procesada_en: new Date().toISOString() })
+      .eq('id', pen.id).in('estado', [...DESDE_DETECTADA]);
 
   const { data: studio } = await admin
     .from('studios')
@@ -135,10 +141,11 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
 
   // El resultado SÍ se comprueba: es lo único que saca a la penalización de
   // DETECTADA, y tragárselo era lo que dejaba la puerta abierta al reintento.
-  const { error: errEstado } = await admin.from('penalizaciones').update({
+  const alCrear = escrituraAlCrearRecibo(automatico);
+  const { data: tocadas, error: errEstado } = await admin.from('penalizaciones').update({
     recibo_id: reciboId,
-    estado: automatico ? 'RECIBO_CREADO' : 'PENDIENTE_APROBACION',
-  }).eq('id', pen.id);
+    estado: alCrear.estado,
+  }).eq('id', pen.id).in('estado', [...alCrear.desde]).select('id');
   if (errEstado) {
     // Se sale sin cobrar. El recibo ya existe con su id derivado, así que el
     // próximo barrido lo reinserta (23505 → sigue), vuelve a intentar este
@@ -147,17 +154,24 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
     console.error('[penalizaciones] no se pudo marcar la penalización', pen.id, errEstado.message);
     return;
   }
+  if (!tocadas?.length) {
+    // Ya no estaba DETECTADA: otra pasada la tomó (y puede haberla cobrado ya),
+    // o el trigger la revirtió. Ni se reescribe ni se cobra.
+    return;
+  }
 
   if (automatico) {
     const resultado = await cobrarReciboOffSession({ reciboId, socioId: pen.socio_id, studioId: pen.studio_id });
     // COBRADO_SIN_PERSISTIR: el dinero entró en Stripe pero el recibo no
     // quedó marcado — no es un éxito limpio, necesita reconciliación manual
     // (mismo criterio que app/api/stripe/charge-off-session/route.ts).
-    const cobradaLimpio = resultado.ok && resultado.aviso !== 'COBRADO_SIN_PERSISTIR';
+    // Con CAS: FALLIDA solo desde RECIBO_CREADO (nunca encima de una COBRADA),
+    // y COBRADA también corrige una FALLIDA que otro dejó mientras se cobraba.
+    const tras = escrituraTrasCobroAutomatico(resultado);
     await admin.from('penalizaciones').update({
-      estado: cobradaLimpio ? 'COBRADA' : 'FALLIDA', procesada_en: new Date().toISOString(),
-    }).eq('id', pen.id);
-    if (cobradaLimpio) {
+      estado: tras.estado, procesada_en: new Date().toISOString(),
+    }).eq('id', pen.id).in('estado', [...tras.desde]);
+    if (tras.estado === 'COBRADA') {
       const { emitirPagoPenalizacion } = await import('@/lib/notifications/emit');
       await emitirPagoPenalizacion(admin, { studioId: pen.studio_id, socioId: pen.socio_id, importe: pen.importe, penalizacionId: pen.id });
     }

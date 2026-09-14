@@ -14,19 +14,20 @@
 // El doble CARGO ya lo impiden la Idempotency-Key y el guardia de estado del
 // recibo (`lib/billing/stripe-cobros.ts`); esto arregla el REGISTRO:
 //
-//   1. Toda escritura es compare-and-set sobre el estado (`desde`), y la ruta
-//      comprueba cuántas filas tocó.
-//   2. Un «no se ha podido cobrar» que no sea transitorio vuelve a leer el
-//      recibo antes de dar nada por fallido. Si el recibo está COBRADO, la
-//      penalización pasa a COBRADA y se contesta 200 «ya estaba cobrada».
+//   1. Toda escritura es compare-and-set sobre el estado (`desde`), y quien
+//      escribe comprueba cuántas filas tocó.
+//   2. Cualquier «no se ha podido cobrar» vuelve a leer el recibo antes de
+//      decidir. Si el recibo está COBRADO, la penalización pasa a COBRADA.
 //   3. COBRADA no se pisa nunca. Lo único que puede escribir COBRADA sobre
 //      FALLIDA es un cobro CONFIRMADO (recibo COBRADO): es corregir el registro
 //      con lo que ha pasado con el dinero, no una opinión.
+//   4. Si Stripe no está listo (sin configurar, sin conectar, cuenta sin poder
+//      cobrar) no se ha intentado cobrar: la penalización sigue pendiente.
 //
-// Sin imports de servidor: la tarjeta del panel también lo usa.
+// Sin imports de servidor: la tarjeta del panel y el cron también lo usan.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { ResultadoCobro } from './stripe-cobros.ts';
+import type { CobroErrorCode, ResultadoCobro } from './stripe-cobros.ts';
 import type { AvisoCobro } from './resultado-cobro.ts';
 
 /** `penalizaciones.estado` (CHECK de las migraciones 20260730225253 y 20260909220851). */
@@ -47,15 +48,27 @@ export const ESTADOS_QUE_CORRIGE_UN_COBRO: readonly EstadoPenalizacion[] =
 /** Solo lo que sigue pendiente de aprobar puede acabar FALLIDA desde aquí. */
 const SOLO_PENDIENTE: readonly EstadoPenalizacion[] = ['PENDIENTE_APROBACION'];
 
+/**
+ * Stripe no está listo para cobrar: el cargo NI SE INTENTÓ. `CUENTA_NO_LISTA`
+ * cubre también un fallo de red al leer la cuenta Connect. Terminalizar aquí
+ * dejaba la penalización FALLIDA para siempre por un problema de configuración.
+ */
+export const CODIGOS_STRIPE_NO_LISTO: readonly CobroErrorCode[] =
+  ['NO_CONFIGURADO', 'MODO_STRIPE_CRUZADO', 'SIN_STRIPE_CONECTADO', 'CUENTA_NO_LISTA'];
+
 export type TipoDesenlace =
   /** 200 · este intento ha cobrado (o ha salido el adeudo SEPA). */
   | 'COBRADA'
+  /** 200 · el cobro entró, pero lo de después (renovar, sellar factura…) falló. */
+  | 'COBRADA_INCOMPLETA'
   /** 200 · ya estaba cobrada: no se ha vuelto a cobrar. */
   | 'YA_COBRADA'
   /** 202 · el dinero entró, pero no ha quedado registrado. */
   | 'COBRADA_SIN_REGISTRAR'
   /** 503 · no se sabe si entró; reintentar es seguro. */
   | 'SIN_CONFIRMAR'
+  /** 503 · no se ha intentado cobrar: Stripe no está listo. Sigue pendiente. */
+  | 'STRIPE_NO_LISTO'
   /** 402 · no se ha podido cobrar; la penalización queda fallida. */
   | 'RECHAZADA'
   /** 409 · no se puede cobrar (sin tarjeta); la penalización queda fallida. */
@@ -68,12 +81,12 @@ export interface Desenlace {
   http: 200 | 202 | 402 | 409 | 503;
   /** Texto para el cuerpo (`error`). Ausente en los 200. */
   mensaje?: string;
-  /** Emitir PAGO_PENALIZACION (el motor deduplica por penalización). */
+  /** Emitir PAGO_PENALIZACION (el motor deduplica por `pago-penalizacion:<id>`). */
   notificar: boolean;
 }
 
 export interface Escritura {
-  estado: 'COBRADA' | 'FALLIDA';
+  estado: EstadoPenalizacion;
   /** Compare-and-set: solo se escribe si la fila está en uno de estos estados. */
   desde: readonly EstadoPenalizacion[];
 }
@@ -83,7 +96,7 @@ export interface Plan {
   desenlace: Desenlace;
 }
 
-/** Lo que devolvió la segunda lectura del recibo. `ok: false` = no se pudo leer. */
+/** Lo que devolvió la lectura del recibo. `ok: false` = no se pudo leer. */
 export type LecturaRecibo = { ok: true; estado: string | null } | { ok: false };
 
 type Cobro = Pick<ResultadoCobro, 'ok' | 'aviso' | 'errorCode' | 'error' | 'status'>;
@@ -93,6 +106,17 @@ const SIN_CONFIRMAR = 'No hemos podido confirmar el cobro. Puedes reintentar: si
 const SIN_REGISTRAR = 'Cobro completado en Stripe, pendiente de reconciliación manual.';
 const COBRADA_SIN_MARCAR = 'El cobro ha entrado, pero la penalización no se ha podido marcar como cobrada. Revísala antes de volver a cobrarla.';
 const QUEDA_FALLIDA = 'La penalización queda como no cobrada.';
+const SIGUE_PENDIENTE = 'La penalización sigue pendiente.';
+
+const STRIPE_NO_LISTO: Record<string, string> = {
+  SIN_STRIPE_CONECTADO: `No se ha cobrado: este estudio no tiene Stripe conectado. Conéctalo en Configuración → Integraciones. ${SIGUE_PENDIENTE}`,
+  CUENTA_NO_LISTA: `No se ha cobrado: no hemos podido confirmar que la cuenta de Stripe del estudio pueda cobrar. Revisa Configuración → Integraciones. ${SIGUE_PENDIENTE}`,
+  // Estos dos son de Tentare, no del estudio: mandarla a Integraciones sería mentir.
+  NO_CONFIGURADO: `No se ha cobrado: los cobros con tarjeta no están disponibles ahora mismo. No depende de tu estudio. ${SIGUE_PENDIENTE}`,
+  MODO_STRIPE_CRUZADO: `No se ha cobrado: los cobros con tarjeta no están disponibles ahora mismo. No depende de tu estudio. ${SIGUE_PENDIENTE}`,
+};
+
+export const TEXTO_COBRADA_INCOMPLETA = 'Cobrado. No hemos podido completar el resto: revisa el recibo en Cobros.';
 
 function conPunto(texto: string): string {
   const t = texto.trim();
@@ -101,33 +125,62 @@ function conPunto(texto: string): string {
 
 const desenlaces = {
   cobrada: (): Desenlace => ({ tipo: 'COBRADA', http: 200, notificar: true }),
+  cobradaIncompleta: (): Desenlace => ({ tipo: 'COBRADA_INCOMPLETA', http: 200, notificar: true }),
   yaCobrada: (): Desenlace => ({ tipo: 'YA_COBRADA', http: 200, notificar: false }),
   sinRegistrar: (mensaje: string): Desenlace => ({ tipo: 'COBRADA_SIN_REGISTRAR', http: 202, mensaje, notificar: false }),
   sinConfirmar: (): Desenlace => ({ tipo: 'SIN_CONFIRMAR', http: 503, mensaje: SIN_CONFIRMAR, notificar: false }),
+  stripeNoListo: (codigo: string): Desenlace =>
+    ({ tipo: 'STRIPE_NO_LISTO', http: 503, mensaje: STRIPE_NO_LISTO[codigo] ?? STRIPE_NO_LISTO.NO_CONFIGURADO, notificar: false }),
   noPendiente: (mensaje = NO_PENDIENTE): Desenlace => ({ tipo: 'NO_PENDIENTE', http: 409, mensaje, notificar: false }),
 };
 
+/** Una FALLIDA puede estar cobrada de verdad: antes de contestar 409 se mira su recibo. */
+export function hayQueLeerReciboAntesDeCobrar(pen: { estado: string; reciboId: string | null }): boolean {
+  return pen.estado === 'FALLIDA' && !!pen.reciboId;
+}
+
 /**
- * Antes de tocar Stripe. `null` = adelante. Una penalización ya COBRADA
- * contesta 200 «ya estaba cobrada» (el segundo toque que llega cuando el
- * primero ya terminó), no un 409 que suena a error.
+ * Antes de tocar Stripe. `null` = adelante. Si devuelve un plan, se ejecuta y
+ * se contesta sin cobrar.
+ *
+ * - COBRADA → 200 «ya estaba cobrada» (el segundo toque que llega cuando el
+ *   primero ya terminó), no un 409 que suena a error.
+ * - FALLIDA con el recibo COBRADO → COBRADA y 200. Pasa cuando la socia
+ *   completó el 3DS desde un enlace de pago, o cuando el webhook cerró un
+ *   COBRADO_SIN_PERSISTIR: el recibo se arregló y la penalización no.
  */
-export function decidirAntesDeCobrar(pen: { estado: string; reciboId: string | null }): Desenlace | null {
-  if (pen.estado === 'COBRADA') return desenlaces.yaCobrada();
-  if (pen.estado !== 'PENDIENTE_APROBACION' || !pen.reciboId) return desenlaces.noPendiente();
+export function decidirAntesDeCobrar(pen: { estado: string; reciboId: string | null }, recibo?: LecturaRecibo): Plan | null {
+  if (pen.estado === 'COBRADA') return { escritura: null, desenlace: desenlaces.yaCobrada() };
+  if (pen.estado === 'FALLIDA' && pen.reciboId && recibo?.ok && recibo.estado === 'COBRADO') {
+    return { escritura: { estado: 'COBRADA', desde: ['FALLIDA'] }, desenlace: desenlaces.yaCobrada() };
+  }
+  if (pen.estado !== 'PENDIENTE_APROBACION' || !pen.reciboId) return { escritura: null, desenlace: desenlaces.noPendiente() };
   return null;
 }
 
 /**
- * ¿Hay que volver a leer el recibo antes de decidir? Siempre que el cobro no
- * haya salido y no sea transitorio: el NO_PENDIENTE de la carrera, pero también
- * un rechazo que llega mientras otra petición está cobrando el mismo recibo.
+ * ¿Hay que volver a leer el recibo? Siempre que el cobro no haya salido: el
+ * NO_PENDIENTE de la carrera, un rechazo mientras otra petición cobra el mismo
+ * recibo, y también el transitorio — una excepción DESPUÉS de un cobro que sí
+ * entró (sellar la factura, renovar) llega como ERROR_TRANSITORIO con el
+ * recibo ya COBRADO.
  */
 export function hayQueReleerRecibo(cobro: Cobro): boolean {
-  return !cobro.ok && cobro.errorCode !== 'ERROR_TRANSITORIO';
+  return !cobro.ok;
 }
 
-/** Resultado del cobro (+ recibo releído si hacía falta) → escritura y respuesta. */
+/**
+ * Resultado del cobro (+ recibo releído si hacía falta) → escritura y respuesta.
+ *
+ * Matices que se quedan como están, a propósito:
+ * - SEPA `processing`: llega como `ok` y se registra COBRADA con 200, aunque el
+ *   adeudo tarde días y pueda devolverse. Si se devuelve, lo cierra el webhook,
+ *   no esta ruta.
+ * - Recibo `EN_CURSO` (un adeudo o una remesa ya lo están cobrando): no se
+ *   escribe y se contesta 409. La penalización sigue PENDIENTE_APROBACION y
+ *   reaparece al recargar; cuando el recibo quede COBRADO, el siguiente
+ *   «Aprobar» la cierra como «ya estaba cobrada» sin cobrar otra vez.
+ */
 export function planificarTrasCobro(cobro: Cobro, recibo?: LecturaRecibo): Plan {
   if (cobro.ok) {
     if (cobro.aviso === 'COBRADO_SIN_PERSISTIR') {
@@ -141,19 +194,33 @@ export function planificarTrasCobro(cobro: Cobro, recibo?: LecturaRecibo): Plan 
     return { escritura: { estado: 'COBRADA', desde: ESTADOS_QUE_CORRIGE_UN_COBRO }, desenlace: desenlaces.cobrada() };
   }
 
-  // D-5: transitorio = desenlace desconocido. Sigue PENDIENTE_APROBACION para
-  // poder reintentar con la MISMA Idempotency-Key.
-  if (cobro.errorCode === 'ERROR_TRANSITORIO') return { escritura: null, desenlace: desenlaces.sinConfirmar() };
+  const reciboCobrado = recibo?.ok === true && recibo.estado === 'COBRADO';
+
+  if (cobro.errorCode === 'ERROR_TRANSITORIO') {
+    // Recibo COBRADO tras un transitorio: el cargo entró y lo que falló fue lo
+    // de después. Se dice «cobrado» y se avisa a la socia (deduplicado). Si lo
+    // cobró otra petición a la vez es el mismo PaymentIntent (misma clave), así
+    // que «cobrado» sigue siendo cierto.
+    if (reciboCobrado) {
+      return { escritura: { estado: 'COBRADA', desde: ESTADOS_QUE_CORRIGE_UN_COBRO }, desenlace: desenlaces.cobradaIncompleta() };
+    }
+    // D-5: desenlace desconocido. Sigue PENDIENTE_APROBACION para poder
+    // reintentar con la MISMA Idempotency-Key.
+    return { escritura: null, desenlace: desenlaces.sinConfirmar() };
+  }
+
+  if (reciboCobrado) {
+    return { escritura: { estado: 'COBRADA', desde: ESTADOS_QUE_CORRIGE_UN_COBRO }, desenlace: desenlaces.yaCobrada() };
+  }
+
+  if (cobro.errorCode && CODIGOS_STRIPE_NO_LISTO.includes(cobro.errorCode)) {
+    return { escritura: null, desenlace: desenlaces.stripeNoListo(cobro.errorCode) };
+  }
 
   // Sin saber cómo está el recibo no se da nada por fallido: podría estar
   // cobrado y un FALLIDA aquí es justo el bug.
   if (!recibo || !recibo.ok) return { escritura: null, desenlace: desenlaces.sinConfirmar() };
 
-  if (recibo.estado === 'COBRADO') {
-    return { escritura: { estado: 'COBRADA', desde: ESTADOS_QUE_CORRIGE_UN_COBRO }, desenlace: desenlaces.yaCobrada() };
-  }
-  // Adeudo SEPA en curso: el dinero está en camino y quien lo lanzó ya registra
-  // la penalización. No se escribe nada.
   if (recibo.estado === 'EN_CURSO') {
     return { escritura: null, desenlace: desenlaces.noPendiente('Este cobro ya está en curso: no se ha vuelto a cobrar.') };
   }
@@ -206,13 +273,35 @@ export function cuerpoRespuesta(d: Desenlace, statusStripe?: string): Record<str
   return { error: d.mensaje, resultado: d.tipo };
 }
 
+// ── El cron (lib/inngest/penalizaciones.ts) ─────────────────────────────────
+//
+// Mismo compare-and-set: dos pasadas solapadas no pueden devolver una COBRADA
+// a PENDIENTE_APROBACION, ni cobrar una penalización que el trigger acaba de
+// revertir (OMITIDA_REVERTIDA) entre su SELECT y su UPDATE.
+
+/** Toda salida de DETECTADA (omitida, fallida, recibo creado, pendiente) exige que siga DETECTADA. */
+export const DESDE_DETECTADA: readonly EstadoPenalizacion[] = ['DETECTADA'];
+
+/** Tras crear el recibo: RECIBO_CREADO (automático) o PENDIENTE_APROBACION (manual), solo desde DETECTADA. */
+export function escrituraAlCrearRecibo(automatico: boolean): Escritura {
+  return { estado: automatico ? 'RECIBO_CREADO' : 'PENDIENTE_APROBACION', desde: DESDE_DETECTADA };
+}
+
+/** Tras el cobro automático: mismo criterio de siempre (limpio → COBRADA, si no FALLIDA), con CAS. */
+export function escrituraTrasCobroAutomatico(cobro: Pick<ResultadoCobro, 'ok' | 'aviso'>): Escritura {
+  const limpio = cobro.ok && cobro.aviso !== 'COBRADO_SIN_PERSISTIR';
+  return limpio
+    ? { estado: 'COBRADA', desde: ESTADOS_QUE_CORRIGE_UN_COBRO }
+    : { estado: 'FALLIDA', desde: ['RECIBO_CREADO'] };
+}
+
 // ── Lado de la tarjeta ──────────────────────────────────────────────────────
 
 /** Lo que devuelve `aprobarPenalizacion` (lib/api-client.ts). Nunca lanza. */
 export type AprobacionPenalizacion =
-  | { ok: true; yaCobrada?: boolean; aviso?: AvisoCobro; detalle?: string }
+  | { ok: true; yaCobrada?: boolean; incompleta?: boolean; aviso?: AvisoCobro; detalle?: string }
   /** `status: 0` = sin respuesta legible (red caída, cuerpo que no es el esperado). */
-  | { error: string; status: number };
+  | { error: string; status: number; resultado?: string };
 
 export const TEXTO_COBRO_SIN_CONFIRMAR = SIN_CONFIRMAR;
 const TEXTO_SIN_PERSISTIR_TARJETA = 'Se ha cobrado en Stripe, pero no ha quedado registrado: revísalo antes de volver a cobrarlo.';
@@ -231,12 +320,16 @@ export function respaldoAprobacion(status: number): string | null {
  */
 export function queHaceLaTarjeta(r: AprobacionPenalizacion): { quitarFila: boolean; mensaje: string } {
   if ('error' in r) {
+    // Stripe no está listo: sigue pendiente y el texto del servidor dice qué
+    // revisar. Nada se ha cobrado.
+    if (r.resultado === 'STRIPE_NO_LISTO') return { quitarFila: false, mensaje: r.error };
     // Sin respuesta o 5xx: el texto del servidor puede prometer un reintento
     // automático que en el camino manual no existe. Se dice lo que se sabe.
     if (r.status === 0 || r.status >= 500) return { quitarFila: false, mensaje: SIN_CONFIRMAR };
     return { quitarFila: r.status === 402 || r.status === 409, mensaje: r.error };
   }
   if (r.aviso === 'COBRADO_SIN_PERSISTIR') return { quitarFila: true, mensaje: r.detalle ?? TEXTO_SIN_PERSISTIR_TARJETA };
+  if (r.incompleta) return { quitarFila: true, mensaje: TEXTO_COBRADA_INCOMPLETA };
   if (r.yaCobrada) return { quitarFila: true, mensaje: 'Esta penalización ya estaba cobrada: no se ha vuelto a cobrar.' };
   return { quitarFila: true, mensaje: 'Cobro aprobado' };
 }

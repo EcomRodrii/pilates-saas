@@ -929,11 +929,16 @@ export async function aprobarPenalizacion(penalizacionId: string): Promise<Aprob
     const data: unknown = await res.json().catch(() => null);
     const d = (typeof data === 'object' && data !== null ? data : {}) as { ok?: unknown; error?: unknown; resultado?: unknown };
     if (!res.ok) {
-      return { error: mensajeSeguro(d.error, respaldoAprobacion(res.status) ?? mensajeHttp(res.status)), status: res.status };
+      return {
+        error: mensajeSeguro(d.error, respaldoAprobacion(res.status) ?? mensajeHttp(res.status)),
+        status: res.status,
+        ...(typeof d.resultado === 'string' ? { resultado: d.resultado } : {}),
+      };
     }
     if (d.ok !== true) return { error: TEXTO_COBRO_SIN_CONFIRMAR, status: 0 };
     const aviso = leerAvisoCobro(data);
     if (aviso) return { ok: true, ...aviso };
+    if (d.resultado === 'COBRADA_INCOMPLETA') return { ok: true, incompleta: true };
     return d.resultado === 'YA_COBRADA' ? { ok: true, yaCobrada: true } : { ok: true };
   } catch {
     return { error: TEXTO_COBRO_SIN_CONFIRMAR, status: 0 };

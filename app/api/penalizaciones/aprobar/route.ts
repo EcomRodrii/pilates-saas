@@ -6,8 +6,9 @@ import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
-  cuerpoRespuesta, decidirAntesDeCobrar, hayQueReleerRecibo, planificarTrasCobro, resolverEscrituraSinEfecto,
-  type Desenlace, type LecturaRecibo,
+  cuerpoRespuesta, decidirAntesDeCobrar, hayQueLeerReciboAntesDeCobrar, hayQueReleerRecibo,
+  planificarTrasCobro, resolverEscrituraSinEfecto,
+  type Desenlace, type LecturaRecibo, type Plan,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 
 export const dynamic = 'force-dynamic';
@@ -43,12 +44,51 @@ export async function POST(req: NextRequest) {
 
   const { data: pen } = await admin
     .from('penalizaciones')
-    .select('id, studio_id, socio_id, recibo_id, estado')
+    .select('id, studio_id, socio_id, recibo_id, estado, importe')
     .eq('id', body.penalizacionId).eq('studio_id', sesion.studioId).maybeSingle();
   if (!pen) return NextResponse.json({ error: 'Penalización no encontrada' }, { status: 404 });
 
-  const antes = decidirAntesDeCobrar({ estado: pen.estado, reciboId: pen.recibo_id });
-  if (antes) return NextResponse.json(cuerpoRespuesta(antes), { status: antes.http });
+  const leerRecibo = async (): Promise<LecturaRecibo> => {
+    const { data, error } = await admin
+      .from('recibos').select('estado')
+      .eq('id', pen.recibo_id).eq('studio_id', sesion.studioId).maybeSingle();
+    return error ? { ok: false } : { ok: true, estado: (data?.estado as string | undefined) ?? null };
+  };
+
+  // Compare-and-set del plan. Si no toca ninguna fila (o la escritura falla),
+  // se relee y se contesta con lo que hay, sin pisarlo.
+  const ejecutar = async (plan: Plan): Promise<Desenlace> => {
+    if (!plan.escritura) return plan.desenlace;
+    const { data: tocadas, error: errEscritura } = await admin
+      .from('penalizaciones')
+      .update({ estado: plan.escritura.estado, procesada_en: new Date().toISOString() })
+      .eq('id', pen.id).eq('studio_id', sesion.studioId)
+      .in('estado', [...plan.escritura.desde])
+      .select('id');
+    if (!errEscritura && tocadas?.length) return plan.desenlace;
+
+    const { data: ahora, error: errRelectura } = await admin
+      .from('penalizaciones').select('estado')
+      .eq('id', pen.id).eq('studio_id', sesion.studioId).maybeSingle();
+    const estadoActual = errRelectura ? null : ((ahora?.estado as string | undefined) ?? null);
+    const desenlace = resolverEscrituraSinEfecto(plan, estadoActual);
+    if (plan.escritura.estado === 'COBRADA' && desenlace.http === 202) {
+      Sentry.captureMessage('[penalizaciones/aprobar] cobro confirmado pero la penalización no quedó COBRADA', {
+        level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
+        extra: { penalizacionId: pen.id, reciboId: pen.recibo_id, estadoActual, error: errEscritura?.message },
+      });
+    }
+    return desenlace;
+  };
+
+  // Antes de cobrar: una FALLIDA cuyo recibo ya está COBRADO se corrige sin
+  // tocar Stripe; lo demás que no esté pendiente contesta sin cobrar.
+  const previo = { estado: pen.estado as string, reciboId: pen.recibo_id as string | null };
+  const antes = decidirAntesDeCobrar(previo, hayQueLeerReciboAntesDeCobrar(previo) ? await leerRecibo() : undefined);
+  if (antes) {
+    const d = await ejecutar(antes);
+    return NextResponse.json(cuerpoRespuesta(d), { status: d.http });
+  }
 
   // D-5: un fallo TRANSITORIO no escribe nada — la penalización sigue en
   // PENDIENTE_APROBACION y el reintento reutiliza la MISMA Idempotency-Key (el
@@ -58,50 +98,20 @@ export async function POST(req: NextRequest) {
     reciboId: pen.recibo_id, socioId: pen.socio_id, studioId: sesion.studioId,
   });
 
-  // Antes de dar un cobro por fallido, cómo está el recibo DE VERDAD: si otra
-  // petición acaba de cobrarlo, este NO_PENDIENTE es un «ya estaba cobrada».
-  let recibo: LecturaRecibo | undefined;
-  if (hayQueReleerRecibo(resultado)) {
-    const { data, error } = await admin
-      .from('recibos').select('estado')
-      .eq('id', pen.recibo_id).eq('studio_id', sesion.studioId).maybeSingle();
-    recibo = error ? { ok: false } : { ok: true, estado: (data?.estado as string | undefined) ?? null };
-  }
-
-  const plan = planificarTrasCobro(resultado, recibo);
-  let desenlace: Desenlace = plan.desenlace;
-
-  if (plan.escritura) {
-    const { data: tocadas, error: errEscritura } = await admin
-      .from('penalizaciones')
-      .update({ estado: plan.escritura.estado, procesada_en: new Date().toISOString() })
-      .eq('id', pen.id).eq('studio_id', sesion.studioId)
-      .in('estado', [...plan.escritura.desde])
-      .select('id');
-    if (errEscritura || !tocadas?.length) {
-      // Alguien la cambió entre medias (o la escritura falló): se relee y se
-      // contesta con lo que hay, sin pisarlo.
-      const { data: ahora, error: errRelectura } = await admin
-        .from('penalizaciones').select('estado')
-        .eq('id', pen.id).eq('studio_id', sesion.studioId).maybeSingle();
-      const estadoActual = errRelectura ? null : ((ahora?.estado as string | undefined) ?? null);
-      desenlace = resolverEscrituraSinEfecto(plan, estadoActual);
-      if (plan.escritura.estado === 'COBRADA' && desenlace.http === 202) {
-        Sentry.captureMessage('[penalizaciones/aprobar] cobro confirmado pero la penalización no quedó COBRADA', {
-          level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
-          extra: { penalizacionId: pen.id, reciboId: pen.recibo_id, estadoActual, error: errEscritura?.message },
-        });
-      }
-    }
-  }
+  // Antes de decidir un «no se ha cobrado», cómo está el recibo DE VERDAD: si
+  // otra petición acaba de cobrarlo, o si el cargo entró y lo que falló fue lo
+  // de después, el recibo ya está COBRADO.
+  const recibo = hayQueReleerRecibo(resultado) ? await leerRecibo() : undefined;
+  const desenlace = await ejecutar(planificarTrasCobro(resultado, recibo));
 
   if (desenlace.notificar) {
-    // Deduplicado por penalización en el motor: dos peticiones que cobran la
-    // misma no mandan dos avisos.
+    // Deduplicado por penalización en el motor (`pago-penalizacion:<id>`): dos
+    // peticiones que cobran la misma no mandan dos avisos. El importe sale de
+    // la penalización: tras una excepción `resultado.importe` no viene.
     const { emitirPagoPenalizacion } = await import('@/lib/notifications/emit');
     await emitirPagoPenalizacion(admin, {
       studioId: sesion.studioId, socioId: pen.socio_id,
-      importe: resultado.importe ?? 0, penalizacionId: pen.id,
+      importe: resultado.importe ?? Number(pen.importe ?? 0), penalizacionId: pen.id,
     });
   }
 
