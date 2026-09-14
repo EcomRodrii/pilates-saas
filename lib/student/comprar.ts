@@ -51,10 +51,12 @@ export type ComprobacionCodigo =
 /**
  * Comprueba un código con el servidor.
  *
- * ⚠️ Se manda el `socioId`: sin él, el servidor da por hecho que quien pregunta
- * es una clienta nueva, y un código «solo para nuevas» se confirmaría con
- * descuento a una socia de siempre… a la que luego se le cobraría el precio
- * entero. La regla la aplica el servidor con la misma función que el cobro.
+ * ⚠️ Se manda el `socioId` con el Bearer: sin él, el servidor da por hecho que
+ * quien pregunta es una clienta nueva, y un código «solo para nuevas» se
+ * confirmaría con descuento a una socia de siempre… a la que luego se le
+ * cobraría el precio entero. El servidor NO usa ese id: deriva la socia del
+ * token (401 si la sesión caducó) y aplica la regla con la misma función que el
+ * cobro.
  */
 export async function comprobarCodigo(
   studioId: string, codigo: string, subtotal: number, socioId: string | null,

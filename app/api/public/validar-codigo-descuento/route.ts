@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
-import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
+import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { validarCodigoPublico } from '@/lib/billing/validar-codigo-publico';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
@@ -36,37 +38,31 @@ export async function POST(req: NextRequest) {
     studioId?: string;
     codigo?: string;
     subtotal?: number;
-    /** La socia que pregunta, si la hay. Ver la nota de `esNueva`. */
+    /**
+     * Solo cuenta SI viene: la app de la alumna lo manda con su Bearer, y
+     * entonces la socia se deriva del token. Su valor no se usa nunca.
+     */
     socioId?: string | null;
   } | null;
   if (!body?.studioId || !body.codigo?.trim() || !(Number(body.subtotal) > 0)) {
     return conCorsWidget(req, NextResponse.json({ ok: false, motivo: 'Falta información' }, { status: 400 }));
   }
 
-  const { data: codigosRaw } = await admin
-    .from('codigos_descuento')
-    .select('*')
-    .eq('studio_id', body.studioId);
-  const codigos = (codigosRaw ?? []).map(r => mapCodigoDescuento(r as RowCodigosDescuento));
-  // ⚠️ `esNueva` DEBE salir de la misma función que usa el cobro, o la
-  // comprobación miente.
-  //
-  // Aquí estaba fijo a `true` porque el único llamador era "pagar y reservar
-  // sin login previo", donde por definición no hay `socioId`. Con la app de la
-  // alumna llamando también, ese atajo se rompía en el peor sitio: un código
-  // `soloNuevas` se le confirmaba con descuento a una socia de hace dos años, y
-  // el cobro —que sí calcula `esNueva` de verdad— lo ignoraba en silencio y le
-  // pasaba el precio entero.
-  //
-  // No se acepta un booleano del cliente: se acepta el `socioId` y lo decide el
-  // servidor. Y la dirección del posible engaño es la inofensiva: omitirlo solo
-  // da la comprobación PERMISIVA de siempre, que el cobro corrige después; no
-  // hay forma de conseguir un descuento que el cobro no fuera a aplicar.
-  const resultado = resolverDescuentoCheckout(codigos, body.codigo, {
-    hoyISO: new Date().toISOString(),
-    subtotal: Number(body.subtotal),
-    esNueva: await esSociaNueva(admin, body.studioId, body.socioId ?? null, null),
-    codigosYaUsados: await codigosYaUsadosPorSocia(admin, body.socioId ?? null),
-  });
-  return conCorsWidget(req, NextResponse.json(resultado));
+  // `esNueva` y los códigos ya canjeados son datos de la socia que pregunta:
+  // ver lib/billing/validar-codigo-publico.ts para quién se considera que es.
+  const { status, cuerpo } = await validarCodigoPublico(
+    { studioId: body.studioId, codigo: body.codigo, subtotal: Number(body.subtotal), pideSocia: Boolean(body.socioId) },
+    {
+      usuario: () => verificarUsuarioSupabase(req),
+      socioDelEstudio: socioAutenticado,
+      codigos: async (studioId) => {
+        const { data } = await admin.from('codigos_descuento').select('*').eq('studio_id', studioId);
+        return (data ?? []).map(r => mapCodigoDescuento(r as RowCodigosDescuento));
+      },
+      esNueva: (studioId, socioId) => esSociaNueva(admin, studioId, socioId, null),
+      codigosYaUsados: (socioId) => codigosYaUsadosPorSocia(admin, socioId),
+      hoyISO: new Date().toISOString(),
+    },
+  );
+  return conCorsWidget(req, NextResponse.json(cuerpo, { status }));
 }
