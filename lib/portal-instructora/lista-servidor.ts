@@ -19,6 +19,11 @@ import {
 // CONFIRMADA y NO retira créditos; el dedup por reserva evita el doble crédito
 // si se vuelve a marcar.
 //
+// Ojo con lo que se promete: la app no ESCRIBE `NO_ASISTIO`, pero una reserva
+// que queda en CONFIRMADA en una clase terminada la convierte en no-show el
+// barrido nocturno (`barrerNoShows`), igual que en el panel. Un «deshacer» por
+// error acaba ahí si nadie lo corrige antes.
+//
 // Service-role (la app no lee por RLS): la clase se busca SIEMPRE con
 // `studio_id` + `instructor_id` del token, y la reserva, dentro de esa clase.
 // De la alumna sale lo mínimo (RGPD): nombre e inicial del apellido.

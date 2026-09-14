@@ -63,8 +63,10 @@ export async function responderSustitucion(admin: SupabaseClient, p: RespuestaSu
     // arrebatándosela a quien el motor ya movió como candidata actual, sin
     // ningún error visible. Mismo criterio que ya usa la SSR: `null` = nunca
     // respondió, sigue siendo legítimo aceptar.
-    // En la app vale también para «No puedo»: un doble toque no puede avisar
-    // dos veces a la propietaria ni avanzar dos puestos del ranking.
+    // En la app vale también para «No puedo»: un segundo toque DESPUÉS del
+    // primero no avisa dos veces a la propietaria ni avanza dos puestos. Dos
+    // peticiones a la vez sí podrían (no hay compare-and-set sobre
+    // `candidata_actual`); es la misma carrera que ya tenía el enlace.
     const { data: contactos } = await admin
       .from('sustitucion_contactos')
       .select('instructor_id, canal, estado, enviado_en, respondido_en')
@@ -208,9 +210,12 @@ async function marcarContacto(admin: SupabaseClient, p: RespuestaSustitucion, es
   // Con una basta — `ultimaRespuestaDe` compara la última respuesta con el
   // último envío, así que el email y el WhatsApp de una misma ronda no hacen que
   // el enlace le vuelva a preguntar.
-  const { data: ultimo } = await admin.from('sustitucion_contactos').select('id')
+  // Se prefiere un aviso que llegó (`enviado`/`leido`); si todos fallaron, el
+  // último igualmente, para que la traza no se quede sin su respuesta.
+  const { data: avisos } = await admin.from('sustitucion_contactos').select('id, estado')
     .eq('sustitucion_id', p.sustitucionId).eq('studio_id', p.studioId).eq('instructor_id', p.instructorId)
-    .in('estado', ['enviado', 'leido'])
-    .order('enviado_en', { ascending: false }).limit(1).maybeSingle();
-  if (ultimo?.id) await admin.from('sustitucion_contactos').update(cambio).eq('id', ultimo.id as string);
+    .order('enviado_en', { ascending: false }).limit(10);
+  const filas = (avisos ?? []) as Array<{ id: string; estado: string }>;
+  const destino = filas.find((f) => f.estado === 'enviado' || f.estado === 'leido') ?? filas[0];
+  if (destino) await admin.from('sustitucion_contactos').update(cambio).eq('id', destino.id);
 }
