@@ -134,7 +134,7 @@ test('v2: "Recibe tu primera reserva" se marca con una reserva real, y con nada 
   assert.equal(paso({ ...VACIO_V2, numReservas: 1 }).done, true);
 });
 
-test('v2: "Funciones inteligentes" refleja las automatizaciones realmente activas por trigger', () => {
+test('v2: "Automatizaciones" refleja las automatizaciones realmente activas por trigger', () => {
   const r = calcularOnboarding({ ...VACIO_V2, automatizacionesActivas: new Set(['AUSENCIA_DIAS']) });
   const automatizaciones = r.categorias.find(c => c.id === 'automatizaciones')!;
   assert.equal(automatizaciones.pasos.find(p => p.id === 'ausencias')!.done, true);

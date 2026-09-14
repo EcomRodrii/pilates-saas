@@ -24,6 +24,8 @@ const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   { patron: /\b(en|a|desde) Mi estudio\b/, ahora: 'Configuración' },
   { patron: /Configuración → Servicios de cita/, ahora: 'Configuración → Citas → Servicios' },
   { patron: /Ir a Migración/, ahora: 'Traer mis datos' },
+  // No hay pantalla para emparejar un datáfono: no se manda a buscarla.
+  { patron: /Empareja uno en Configuración/, ahora: 'solo el estado («Sin datáfono emparejado»)' },
 ];
 
 function ficherosDe(dir: string): string[] {

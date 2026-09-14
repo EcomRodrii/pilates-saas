@@ -34,7 +34,7 @@ export const PASOS_TOUR: PasoTour[] = [
   },
   {
     id: 'automatizaciones', selector: 'automatizaciones-vista', ruta: '/automatizaciones',
-    titulo: 'Funciones inteligentes',
+    titulo: 'Automatizaciones',
     descripcion: 'Recuperación de clientas ausentes, seguimiento de las nuevas y más, funcionando solas una vez las activas. Los recordatorios de clase ya salen de serie.',
   },
   {

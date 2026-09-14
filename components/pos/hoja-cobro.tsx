@@ -272,13 +272,13 @@ export function HojaCobro({
                     <Icono size={22} className="text-foreground" />
                     <span className="text-[15px] font-semibold text-foreground">{label}</span>
                     <span className="text-[11px] text-muted-foreground">
-                      {/* Un método apagado tiene que decir QUÉ HACER, no solo
-                          que no está. «Sin datáfono emparejado» a alguien que
-                          está cobrando le suena a avería. */}
+                      {/* Un método apagado dice por qué. Del datáfono solo el
+                          estado: hoy no hay ninguna pantalla donde emparejar un
+                          lector, y mandar a buscarla era mandar a ninguna parte. */}
                       {ok
                         ? ayuda
                         : valor === 'DATAFONO'
-                          ? 'Empareja uno en Configuración → Integraciones'
+                          ? 'Sin datáfono emparejado'
                           : valor === 'BIZUM' && !bizumPermitido
                             // El motivo de verdad. «Conecta Stripe» aquí sería
                             // mandar a arreglar algo que no está roto.
