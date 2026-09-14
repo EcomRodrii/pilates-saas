@@ -37,6 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await dbLogActividadReciente({
     studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA',
     texto: `Descartada la recomendación: ${recomendacion.titulo}`, socioId: recomendacion.socioId,
+    origen: 'EQUIPO', // la descarta la propietaria
   });
 
   return NextResponse.json({ estado: 'RECHAZADA' });

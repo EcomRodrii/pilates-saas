@@ -75,6 +75,8 @@ export interface RowActividadReciente {
   enlace: string | null;
   creado_en: string | null;
   actor_nombre: string | null;
+  // migr 20260914234708.
+  origen: string | null;
 }
 
 export interface RowAutomationLogs {
