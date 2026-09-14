@@ -45,7 +45,11 @@ const SIN_NADA = {
   aplica: true, nDecidir: 0, titulo: 'Nada espera tu visto bueno', decidir: [], enMarcha: [], resuelto: [],
 };
 
-async function montar(page: Page, estado: { cuerpo?: unknown; status?: number }) {
+async function montar(
+  page: Page,
+  estado: { cuerpo?: unknown; status?: number },
+  rest: Record<string, unknown[]> = {},
+) {
   const intentos = { n: 0 };
 
   await page.addInitScript(([key, uid]) => {
@@ -75,6 +79,10 @@ async function montar(page: Page, estado: { cuerpo?: unknown; status?: number })
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
+  // Tablas concretas que una prueba quiere sembrar (después del genérico: gana).
+  for (const [tabla, filas] of Object.entries(rest)) {
+    await page.route(`**/rest/v1/${tabla}**`, route => json(route, filas));
+  }
 
   await page.goto('/dashboard');
   return intentos;
@@ -124,6 +132,54 @@ test.describe('Estado del estudio en Inicio', () => {
     await expect.poll(() => intentos.n).toBeGreaterThan(0);
     await expect(page.getByText('Nada espera tu visto bueno')).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Lo que espera tu visto bueno' })).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Un solo sitio para decidir: las tarjetas que resuelven lo que la bandeja
+// cuenta sin enlace (penalizaciones, devoluciones, canjes) viven DENTRO de ella,
+// bajo «Decidir», y ya no sueltas más abajo en la home.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PENALIZACION = { id: 'pen-1', socio_id: 'soc-1', importe: 12, tipo: 'NO_SHOW', detectada_en: '2026-09-10T09:00:00Z' };
+const CON_PENALIZACION_REST = {
+  penalizaciones: [PENALIZACION],
+  socios: [{ id: 'soc-1', nombre: 'María', apellidos: 'Soler' }],
+};
+
+test.describe('Lo que se aprueba, dentro de la bandeja', () => {
+  test('la penalización pendiente se aprueba DENTRO de la región, y su línea lleva a la tarjeta', async ({ page }) => {
+    await montar(page, {
+      cuerpo: {
+        aplica: true, nDecidir: 1, titulo: 'Una cosa espera tu visto bueno',
+        decidir: [{ id: 'penalizacionesPorAprobar', n: 1, texto: 'Una penalización espera tu visto bueno para cobrarse', href: null }],
+        enMarcha: [], resuelto: [],
+      },
+    }, CON_PENALIZACION_REST);
+
+    const bandeja = page.getByRole('region', { name: 'Lo que espera tu visto bueno' });
+    await expect(bandeja.getByText('1 penalización pendiente de aprobar')).toBeVisible({ timeout: 30_000 });
+    await expect(bandeja.getByText('María Soler')).toBeVisible();
+    await expect(bandeja.getByRole('button', { name: 'Aprobar y cobrar' })).toBeVisible();
+    // Una sola vez en la página: no queda una copia suelta más abajo.
+    await expect(page.getByText('1 penalización pendiente de aprobar')).toHaveCount(1);
+
+    // La línea ya no es texto muerto: lleva a su tarjeta y le pasa el foco.
+    const linea = bandeja.getByRole('link', { name: /Una penalización espera tu visto bueno/ });
+    await expect(linea).toHaveAttribute('href', '#decidir-penalizaciones');
+    await linea.click();
+    await expect(page.locator('#decidir-penalizaciones')).toBeFocused();
+    await expect(page).not.toHaveURL(/#decidir-/);
+  });
+
+  test('si el recuento aún dice «nada» y la tarjeta sí tiene algo, se ve la tarjeta y no se afirma «nada»', async ({ page }) => {
+    // El recuento lleva hasta 30 s de caché y la tarjeta lee en vivo: pueden
+    // no coincidir un momento. Lo que no puede pasar es enseñar las dos cosas.
+    await montar(page, { cuerpo: SIN_NADA }, CON_PENALIZACION_REST);
+
+    const bandeja = page.getByRole('region', { name: 'Lo que espera tu visto bueno' });
+    await expect(bandeja.getByText('1 penalización pendiente de aprobar')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Nada espera tu visto bueno')).toBeHidden();
   });
 });
 

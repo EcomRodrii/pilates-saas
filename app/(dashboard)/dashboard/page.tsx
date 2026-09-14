@@ -668,8 +668,29 @@ export default function Dashboard() {
             La bandeja única (lib/estado-estudio.ts): lo que no avanza sin ella,
             lo que Tentare está haciendo solo y lo que ya ha resuelto. No es solo
             de la propietaria: cada fuente va acotada por rol en el servidor, y a
-            quien no ve ninguna (instructora) no se le pinta nada. */}
-        <div {...wrap('estado')}><EstadoDelEstudio /></div>
+            quien no ve ninguna (instructora) no se le pinta nada.
+
+            Las tres tarjetas que resuelven aquí mismo lo que la bandeja cuenta
+            sin enlace (penalizaciones, devoluciones, canjes) van DENTRO, bajo
+            «Decidir»: un solo sitio para decidir. Cada una se oculta sola si no
+            tiene nada, y sus guardias son los mismos roles que exige el servidor
+            (`puedeMoverDinero` para aprobar el cobro o revertir, la RPC
+            `entregar_canje` para los canjes) — la UI no es el límite, pero
+            tampoco debe ofrecer un botón que va a rebotar.
+
+            `hidden={false}` a propósito: 'estado' es fija y el editor no la deja
+            ocultar, pero un `home.ocultos` guardado a mano sí la quitaría. Antes
+            estas tarjetas iban fuera del layout y no se podían esconder; meterlas
+            aquí no puede volverlas escondibles. */}
+        <div {...wrap('estado')} hidden={false}>
+          <EstadoDelEstudio
+            accionesEnLinea={<>
+              {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
+              {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
+              {gestionaClientas && <CanjesPendientes onToast={showToast} />}
+            </>}
+          />
+        </div>
 
         {/* ── Lo que necesita su atención (Decision OS) ──────────────────────── */}
         {/* El Brain vivía entero en /centro-de-control y esta pantalla —la que
@@ -783,22 +804,9 @@ export default function Dashboard() {
         </div>
         )}
 
-        {/* ── Penalizaciones pendientes de aprobar (Fase 3) ──────────────────── */}
-        {/* Sin `wrap()`: no es una sección del layout personalizable (HOME_SECCIONES),
-            solo se pinta si hay algo pendiente — se oculta sola (ver el componente). */}
-        {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
-            {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
-
-        {/* ── Recompensas pendientes de entregar ─────────────────────────────── */}
-        {/* Igual que las dos de arriba: se oculta sola y no es sección del
-            layout. Gateada por el MISMO rol que la RPC `entregar_canje` exige
-            en la base — la UI no es el límite, pero tampoco debe ofrecer un
-            botón que va a rebotar. */}
-        {gestionaClientas && <CanjesPendientes onToast={showToast} />}
-
         {/* ── Ventas recientes ────────────────────────────────────────────────── */}
-        {/* Vistazo rápido junto al toast+sonido de nueva venta (campana). Igual
-            que las dos de arriba: solo lectura, se oculta sola si no hay nada. */}
+        {/* Vistazo rápido junto al toast+sonido de nueva venta (campana). Solo
+            lectura, se oculta sola si no hay nada. */}
         {verFinanzas && <VentasRecientes />}
 
         {/* ── Revenue card (full width) ──────────────────────────────────────── */}

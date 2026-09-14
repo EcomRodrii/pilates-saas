@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Gift } from 'lucide-react';
 import { dbListarCanjesPendientes, dbEntregarCanje, getCurrentStudioId, type CanjePendiente } from '@/lib/supabase-data';
 import { nombreCreditos } from '@/lib/creditos-nombre';
-import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
+import { ANCLA_DECIDIR, invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import { useStudio } from '@/lib/studio-context';
 import { Button } from '@/components/ui/button';
 
@@ -75,7 +75,9 @@ export function CanjesPendientes({ onToast }: { onToast: (m: string) => void }) 
   if (!items?.length) return null;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4" data-testid="canjes-pendientes">
+    // Sin marco propio: vive dentro de la bandeja (EstadoDelEstudio), que ya lo pone.
+    <div id={ANCLA_DECIDIR.canjesPorEntregar} tabIndex={-1} data-testid="canjes-pendientes"
+      className="scroll-mt-20 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
       <div className="mb-3 flex items-center gap-2">
         <Gift className="size-4 text-brand-medio" />
         <p className="text-[13px] font-medium text-foreground">

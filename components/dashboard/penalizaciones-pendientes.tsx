@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { dbListarPenalizacionesPendientes, type PenalizacionPendiente } from '@/lib/supabase-data';
 import { aprobarPenalizacion } from '@/lib/api-client';
-import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
+import { ANCLA_DECIDIR, invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -47,7 +47,9 @@ export function PenalizacionesPendientes({ onToast }: { onToast: (m: string) => 
   if (!items?.length) return null;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    // Sin marco propio: vive dentro de la bandeja (EstadoDelEstudio), que ya lo pone.
+    <div id={ANCLA_DECIDIR.penalizacionesPorAprobar} tabIndex={-1}
+      className="scroll-mt-20 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
       <div className="mb-3 flex items-center gap-2">
         <AlertTriangle className="size-4 text-amber-500" />
         <p className="text-[13px] font-medium text-foreground">
