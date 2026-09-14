@@ -578,7 +578,7 @@ export async function PATCH(req: NextRequest) {
  * (lib/network/cobertura-sustitucion.ts), por sustitución y perfil. Todo acotado
  * al estudio de la sesión: solicitudes de ESTE estudio y fichas de ESTE estudio.
  *
- * Tolera la migración 20260914113000 sin aplicar: sin `sustitucion_id` solo se
+ * Tolera la migración 20260914151252 sin aplicar: sin `sustitucion_id` solo se
  * pierde saber si una solicitud era para esta clase.
  */
 async function coberturaNetwork(

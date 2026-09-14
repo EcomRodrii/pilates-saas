@@ -29,7 +29,7 @@ export interface SolicitudCobertura {
   perfil_id: string;
   estado: string;
   creado_en: string;
-  /** Ausente mientras la migración 20260914113000 no esté aplicada. */
+  /** Ausente mientras la migración 20260914151252 no esté aplicada. */
   sustitucion_id?: string | null;
 }
 

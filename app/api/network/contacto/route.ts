@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     .insert(conClase)
     .select('id')
     .single();
-  // Migración 20260914113000 sin aplicar todavía: la solicitud sale igual, sin
+  // Migración 20260914151252 sin aplicar todavía: la solicitud sale igual, sin
   // recordar la clase. Perder ese dato es mejor que dejar a la propietaria sin
   // poder pedir cobertura.
   if (error && sustitucionId && faltaColumnaSustitucion(error)) {

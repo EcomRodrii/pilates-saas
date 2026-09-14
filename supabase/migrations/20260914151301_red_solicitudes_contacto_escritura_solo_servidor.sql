@@ -26,7 +26,7 @@ revoke insert, update, delete on table public.red_solicitudes_contacto from anon
 --   select has_column_privilege('authenticated', 'public.red_solicitudes_contacto', 'studio_id', 'UPDATE');       -- false
 --   select has_column_privilege('authenticated', 'public.red_solicitudes_contacto', 'estado', 'UPDATE');          -- false
 --   select has_column_privilege('authenticated', 'public.red_solicitudes_contacto', 'sustitucion_id', 'UPDATE');  -- false
---     (sustitucion_id existe desde 20260914113000: aplicar esa antes que esta)
+--     (sustitucion_id existe desde 20260914151252: aplicar esa antes que esta)
 --   select has_table_privilege('authenticated', 'public.red_solicitudes_contacto', 'SELECT');  -- true (sin cambios)
 --   select has_table_privilege('service_role',  'public.red_solicitudes_contacto', 'INSERT');  -- true
 --   select has_table_privilege('service_role',  'public.red_solicitudes_contacto', 'UPDATE');  -- true
