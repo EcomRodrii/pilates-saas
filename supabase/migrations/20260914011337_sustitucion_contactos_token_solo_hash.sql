@@ -1,4 +1,4 @@
--- 20260914110100 · TENTARE — el enlace de «aceptar sustitución» deja de
+-- 20260914011337 · TENTARE — el enlace de «aceptar sustitución» deja de
 -- guardarse en claro, y el personal deja de leer la traza de contactos directo.
 --
 -- Auditoría RGPD/seguridad 2026-09-13 (anexo 02, M3; control C05).

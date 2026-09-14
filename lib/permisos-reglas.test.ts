@@ -6,11 +6,20 @@ import {
   puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCentroNotificaciones,
   puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo,
   puedeGestionarFichaDe, puedeVerRetribucionDe, filtrarRetribucionVisible,
-  puedeGestionarCamposPersonalizados, puedeVerDetalleAusencias, puedeVerSolicitudesSoporte,
+  puedeGestionarCamposPersonalizados, puedeVerDetalleAusencias, puedeVerSolicitudesSoporte, puedeVerDatosPrivadosSocia,
   puedeOperarClase, puedeEnviarEmail, TIPOS_EMAIL_PANEL, TIPOS_EMAIL_DE_CLASE,
   puedeGestionarAutomatizaciones, puedeVerContactoEquipo,
   puedeVerValoracionesDe, puedeVerResumenValoracionDe, puedeGestionarCalendario,
 } from './permisos-reglas.ts';
+
+// M1 (auditoría RGPD 2026-09-13). Espejo de `puede_ver_datos_privados_socia()`:
+// si esto cambia sin la función SQL, la UI enseña campos que la RPC devuelve vacíos.
+test('datos privados de la socia (NIF, dirección, nacimiento, firma, pago): solo propietaria y recepción', () => {
+  assert.equal(puedeVerDatosPrivadosSocia('PROPIETARIO'), true);
+  assert.equal(puedeVerDatosPrivadosSocia('RECEPCION'), true);
+  assert.equal(puedeVerDatosPrivadosSocia('MANAGER'), false);
+  assert.equal(puedeVerDatosPrivadosSocia('INSTRUCTOR'), false);
+});
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
 // `recibos`/`suscripciones`/`ventas_pos` era `studio_id = current_studio_id()`

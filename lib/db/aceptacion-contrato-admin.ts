@@ -68,7 +68,7 @@ export async function registrarAceptacionContrato(admin: SupabaseClient, p: {
   });
 
   if (error && rpcNoDesplegada(error)) {
-    // Código desplegado antes que la migración 20260914150100: se escriben las
+    // Código desplegado antes que la migración 20260914015133: se escriben las
     // columnas con los valores del SERVIDOR, sin historial, y se deja rastro en
     // los logs. En cuanto la migración esté aplicada, esta rama no se pisa.
     console.error('[aceptacion-contrato] RPC sin desplegar: se guarda sin historial', { code: error.code });

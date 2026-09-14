@@ -6,7 +6,7 @@ import { hashToken } from '@/lib/token-hash';
 
 // C-2: genera/rota el token de dispositivo del kiosko del estudio. Solo el
 // PROPIETARIO autenticado. En la BD se guarda SOLO su SHA-256, en
-// `kiosko_tokens` (service-role, sin grants a clientes; migr 20260914110000):
+// `kiosko_tokens` (service-role, sin grants a clientes; migr 20260914011331):
 // el token en claro sale una única vez en esta respuesta para copiarlo al
 // dispositivo de recepción, y nadie del equipo puede volver a leerlo. Rotar
 // sustituye el hash, así que el dispositivo anterior deja de valer.

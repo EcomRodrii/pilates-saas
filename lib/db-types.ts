@@ -748,6 +748,8 @@ export interface RowSocios {
   excluir_de_perfilado: boolean | null;
   // migr 20260913214142.
   consentimiento_salud_registrado_por_uid: string | null;
+  // migr 20260914025903.
+  cumple_mm_dd: string | null;
 }
 
 export interface RowSoporteSolicitudes {
@@ -1445,7 +1447,7 @@ export interface RowSustitucionContactos {
   token: string | null;
   enviado_en: string | null;
   respondido_en: string | null;
-  // migr 20260914110100.
+  // migr 20260914011337.
   token_hash: string | null;
 }
 

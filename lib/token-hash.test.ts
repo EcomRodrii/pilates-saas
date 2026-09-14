@@ -41,7 +41,7 @@ test('el kiosko guarda y valida solo el hash', () => {
   assert.doesNotMatch(admin, /select\('kiosk_token'\)/);
   assert.match(admin, /tokenCoincideConHash\(/);
 
-  const sql = leer('supabase/migrations/20260914110000_kiosko_token_solo_hash.sql');
+  const sql = leer('supabase/migrations/20260914011331_kiosko_token_solo_hash.sql');
   assert.match(sql, /revoke\s+all\s+on\s+public\.kiosko_tokens\s+from\s+public,\s*anon,\s*authenticated/i);
   assert.match(sql, /check\s*\(\s*kiosk_token\s+is\s+null\s*\)/i);
 });
@@ -60,7 +60,7 @@ test('el enlace de sustitución se guarda y se busca por hash, y el staff no lee
   assert.doesNotMatch(responder, /\.eq\('token'/);
   assert.match(responder, /\.eq\('token_hash', p\.contacto\.tokenHash\)/);
 
-  const sql = leer('supabase/migrations/20260914110100_sustitucion_contactos_token_solo_hash.sql');
+  const sql = leer('supabase/migrations/20260914011337_sustitucion_contactos_token_solo_hash.sql');
   assert.match(sql, /revoke\s+all\s+on\s+public\.sustitucion_contactos\s+from\s+anon,\s*authenticated/i);
   assert.match(sql, /drop\s+policy\s+if\s+exists\s+admin_sustitucion_contactos/i);
 });

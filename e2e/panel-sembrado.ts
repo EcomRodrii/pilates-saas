@@ -318,6 +318,9 @@ export async function montar(page: Page): Promise<CoberturaPanel> {
   await page.route('**/rest/v1/studios**', (r) => json(r, STUDIO_ROW));
   await page.route('**/rest/v1/instructores**', (r) => json(r, EQUIPO));
   await page.route('**/rest/v1/socios**', (r) => json(r, SOCIOS));
+  // NIF, firma y pago llegan aparte, por RPC (M1 RGPD). Las socias sembradas no
+  // tienen ninguno: la fusión por id no añade nada y el panel pinta igual.
+  await page.route('**/rest/v1/rpc/socios_datos_privados**', (r) => json(r, SOCIOS.map((s) => ({ id: s.id, nif: null, aceptacion_firma: null }))));
   await page.route('**/rest/v1/planes_tarifa**', (r) => json(r, PLANES));
   await page.route('**/rest/v1/suscripciones**', (r) => json(r, SUSCRIPCIONES));
   await page.route('**/rest/v1/salas**', (r) => json(r, SALAS));

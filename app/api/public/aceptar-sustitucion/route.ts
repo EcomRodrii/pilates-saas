@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       studioId: claim.studioId,
       instructorId: claim.instructorId,
       accion,
-      // La traza guarda solo el hash del token (migr 20260914110100). La firma ya
+      // La traza guarda solo el hash del token (migr 20260914011337). La firma ya
       // está verificada arriba; el hash solo sirve para encontrar SU contacto.
       contacto: { via: 'enlace', tokenHash: hashToken(String(body?.token)) },
     });

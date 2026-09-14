@@ -560,7 +560,7 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   const { sesiones, tiposClase, salas, instructores, studio, updateStudio, reflejarStudioGuardado } = useStudio();
 
   // Los dominios del widget los valida y guarda el servidor (solo la
-  // propietaria, migr 20260914110200); aquí se pinta lo que devolvió, nunca lo
+  // propietaria, migr 20260914011356); aquí se pinta lo que devolvió, nunca lo
   // que se mandó.
   async function guardarDominiosWidget(dominios: string[]): Promise<{ ok: boolean; error?: string }> {
     try {

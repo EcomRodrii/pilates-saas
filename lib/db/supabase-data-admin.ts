@@ -4630,7 +4630,7 @@ async function evaluarGamificacionServidor(
 
 // C-2: valida el token de dispositivo de kiosko de un estudio. Sin token
 // configurado el check-in público queda cerrado (devuelve false), que es el lado
-// seguro. La BD guarda solo el SHA-256 (`kiosko_tokens`, migr 20260914110000):
+// seguro. La BD guarda solo el SHA-256 (`kiosko_tokens`, migr 20260914011331):
 // se compara el hash del token recibido, en tiempo constante.
 
 export async function validarKioskToken(studioId: string, token: string | null): Promise<boolean> {
@@ -5283,7 +5283,9 @@ export async function contarSedesCadena(cadenaId: string): Promise<number> {
 export async function fetchAllStudioDataServidor(studioId?: string) {
   const db = getSupabaseAdmin() ?? supabase;
   const [critical, deferred] = await Promise.all([
-    fetchCriticalStudioDataCon(db, studioId),
+    // `columnas`: el servidor sigue leyendo las 12 columnas privadas de socias
+    // de la tabla (service_role). La RPC del panel le devolvería cero filas.
+    fetchCriticalStudioDataCon(db, studioId, { privadas: 'columnas' }),
     fetchDeferredStudioDataCon(db, studioId),
   ]);
   return { ...critical, ...deferred };
