@@ -822,6 +822,30 @@ export async function emitirSustitucionAceptada(
   }
 }
 
+// Te piden cubrir una clase: a la candidata a la que el motor acaba de preguntar.
+// La clase se resuelve desde la sustitución (quien contacta no la tiene a mano).
+// dedupKey por par (sustitución, candidata): un push por pregunta, no uno por
+// cada recordatorio.
+export async function emitirSustitucionOfrecida(
+  admin: SupabaseClient, p: { studioId: string; sustitucionId: string; instructorId: string },
+): Promise<void> {
+  try {
+    const { data: sust } = await admin.from('sustituciones')
+      .select('sesion_id').eq('id', p.sustitucionId).eq('studio_id', p.studioId).maybeSingle();
+    const sesionId = (sust?.sesion_id as string | null | undefined) ?? null;
+    if (!sesionId) return;
+    const ctx = await ctxSesion(admin, p.studioId, sesionId);
+    await publish({
+      type: EVENTOS.SUSTITUCION_OFRECIDA, studioId: p.studioId,
+      data: { ...ctx, instructorId: p.instructorId },
+      resource: { type: 'sustitucion', id: p.sustitucionId },
+      dedupKey: `sustitucion-ofrecida:${p.sustitucionId}:${p.instructorId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirSustitucionOfrecida:', e instanceof Error ? e.message : e);
+  }
+}
+
 // El Umbral (lib/decision/umbral.ts): el único mensaje del día, si lo hay.
 // dedupKey por fecha (no por dedupeKey de la candidata) — refuerza en este
 // nivel también "como mucho un push de este tipo al día por estudio".

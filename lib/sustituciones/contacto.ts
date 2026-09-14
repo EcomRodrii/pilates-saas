@@ -160,6 +160,15 @@ export async function contactarCandidata(
     studioId, sustitucionId, instructorId, canal: 'email', estado: 'enviado', token,
   });
 
+  // La misma pregunta, en la app del estudio: push a «Hoy», donde puede contestar
+  // sin abrir el correo. Solo en el primer contacto (el recordatorio ya sube de
+  // canal por WhatsApp). Nunca bloquea: el emisor se traga sus errores y el email
+  // sale igual.
+  if (!params.esRecordatorio) {
+    const { emitirSustitucionOfrecida } = await import('@/lib/notifications/emit');
+    await emitirSustitucionOfrecida(admin, { studioId, sustitucionId, instructorId });
+  }
+
   const envio = await enviarEmailContactoSustituta({
     to: cand.email,
     toName: cand.nombre,

@@ -11,6 +11,11 @@ import { useAuthStudent } from '@/lib/student/auth';
 import { useAsync } from '@/lib/student/useAsync';
 import { getPerfilInstructora } from '@/lib/student/datos-instructora';
 import { euros } from '@/lib/student/formato';
+import { useOnline } from '@/lib/student/useOnline';
+import { useToast } from '@/components/student/ui/Toast';
+import { activarPushStudent, contextoPushStudent, desactivarPushStudent } from '@/lib/student/push';
+import { estadoPush, textoPush } from '@/lib/student/push-estado';
+import { Button } from '@/components/student/ui/Button';
 import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
@@ -42,6 +47,33 @@ export default function PerfilInstructoraPage() {
   const tarifa = perfil?.tarifa ?? null;
   const estudios = perfil?.estudios ?? [];
 
+  // Avisos en ESTE dispositivo: el mismo registro que la app de la alumna
+  // (`lib/student/push.ts`, misma tabla y mismo motor). Sin él, «Te piden cubrir
+  // una clase» solo le llega por email. Se relee el estado real del navegador
+  // después de cada acción en vez de suponer el resultado.
+  const { online } = useOnline();
+  const { toast } = useToast();
+  const cargarPush = useCallback(async () => estadoPush(await contextoPushStudent(estudio.slug)), [estudio.slug]);
+  const { data: push, refrescar: refrescarPush } = useAsync(cargarPush, () => false);
+  const [ocupadoPush, setOcupadoPush] = useState(false);
+  const dispositivo = push ? textoPush(push) : null;
+
+  const alternarPush = async () => {
+    if (!dispositivo?.accion || ocupadoPush) return;
+    setOcupadoPush(true);
+    try {
+      if (dispositivo.accion === 'activar') {
+        const r = await activarPushStudent(estudio.id, estudio.slug);
+        if (!r.ok && r.motivo !== 'denied') toast('No hemos podido activar los avisos en este dispositivo.');
+      } else if (!(await desactivarPushStudent(estudio.slug))) {
+        toast('No hemos podido desactivar los avisos en este dispositivo.');
+      }
+      await refrescarPush();
+    } finally {
+      setOcupadoPush(false);
+    }
+  };
+
   const cerrarSesion = async () => {
     setSaliendo(true);
     await logout();
@@ -67,6 +99,38 @@ export default function PerfilInstructoraPage() {
             { label: 'Tus ausencias', href: href('/equipo/ausencias') },
           ]}
         />
+
+        {dispositivo && (
+          <section>
+            <p className="t-label" style={{ margin: '0 0 7px' }}>Avisos</p>
+            <div
+              className="card"
+              data-testid="push-dispositivo"
+              data-estado={push ?? undefined}
+              style={{ padding: '13px 15px', minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+            >
+              <span>
+                <span style={{ display: 'block', fontSize: 'var(--t-small)', fontWeight: 700 }}>{dispositivo.titulo}</span>
+                <span className="t-meta" style={{ display: 'block', marginTop: 1 }}>
+                  {dispositivo.accion === 'activar'
+                    ? 'Te avisaremos cuando te pidan cubrir una clase, aunque tengas la app cerrada.'
+                    : dispositivo.cuerpo}
+                </span>
+              </span>
+              {dispositivo.accion && (
+                <Button
+                  size="sm"
+                  variant={dispositivo.encendido ? 'ghost' : 'primary'}
+                  loading={ocupadoPush}
+                  disabled={!online}
+                  onClick={() => void alternarPush()}
+                >
+                  {dispositivo.encendido ? 'Desactivar' : 'Activar'}
+                </Button>
+              )}
+            </div>
+          </section>
+        )}
 
         {tarifa && (
           <section>

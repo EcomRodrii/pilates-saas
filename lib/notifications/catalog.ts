@@ -134,6 +134,9 @@ export const EVENTOS = {
   CLASE_SUSTITUTA: 'clase.sustituta',
   SUSTITUCION_ACEPTADA: 'sustitucion.aceptada',
   SUSTITUCION_RECHAZADA: 'sustitucion.rechazada',
+  // El motor le pregunta a una candidata si cubre la clase. El email con su
+  // enlace sigue saliendo igual; esto lleva la pregunta a la app del estudio.
+  SUSTITUCION_OFRECIDA: 'sustitucion.ofrecida',
   PAGO_FALLIDO: 'pago.fallido',
   PAGO_REALIZADO: 'pago.realizado',
   // Mismo hecho que PAGO_REALIZADO (mismo recibo, mismo publish desde
@@ -317,6 +320,9 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.CLASE_SUSTITUTA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
   [EVENTOS.SUSTITUCION_ACEPTADA]:  { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
   [EVENTOS.SUSTITUCION_RECHAZADA]: { category: 'sustituciones', priority: 'ALTA', canales: [],     audiencia: 'propietaria' },
+  // Solo PUSH: el email con el enlace ya lo manda `contactarCandidata`; otro
+  // email por lo mismo sería la misma pregunta dos veces.
+  [EVENTOS.SUSTITUCION_OFRECIDA]:  { category: 'sustituciones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'instructora-del-evento' },
   // Sin EMAIL: el dunning ya manda su propio correo a la socia (1.er aviso).
   [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'mostrador-y-socia' },
   [EVENTOS.PAGO_REALIZADO]:        { category: 'pagos',    priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
@@ -757,6 +763,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     deepLink: () => `/calendario`,
   },
   // Sustitución aceptada → la instructora que cubre
+  // Te piden cubrir una clase → la candidata a la que el motor pregunta. Lleva a
+  // «Hoy» de la app del estudio, donde está la tarjeta con «La cubro» / «No puedo».
+  [`${EVENTOS.SUSTITUCION_OFRECIDA}#INSTRUCTOR`]: {
+    title: 'Te piden cubrir una clase',
+    body: '{clase} el {cuando}{sala}. ¿Puedes cubrirla?',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/equipo`,
+  },
   [`${EVENTOS.SUSTITUCION_ACEPTADA}#INSTRUCTOR`]: {
     title: 'Nueva clase asignada',
     body: 'Cubrirás {clase} el {cuando}{sala}. ¡Gracias!',
