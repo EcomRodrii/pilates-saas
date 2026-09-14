@@ -78,6 +78,13 @@ import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores'
  * anunciaba «Reservada» igual — y la reserva no existía en ningún sitio.
  * Un resultado que puede ser `{ ok: false }` obliga a quien llama a mirar.
  */
+/** La próxima ocurrencia de una plaza fija que se acaba de reservar al
+ *  instante (o que ya lo estaba) — `null` si no hay ninguna sesión futura que
+ *  encaje todavía, o si el intento de reservarla falló (aforo lleno, sin
+ *  bono…). Quien lo pinte debe leer `null` como "sin novedad", nunca como
+ *  error: la plaza en sí se ha guardado igual. */
+export type ProximaOcurrenciaPlazaFija = { sesionId: string; fecha: string; hora: string } | null;
+
 export type ResultadoReserva =
   | {
       ok: true;
@@ -190,6 +197,7 @@ import { calcularRacha, claveMesActual, objetivoMensualAlcanzado, type RachaInfo
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, hoyEnEstudio } from '@/lib/utils';
+import { proximaSesionParaPlaza, horaInicioLocalDe } from '@/lib/plazas-fijas-slot';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import type { TabBarStyleId } from '@/lib/theme-schema';
@@ -321,8 +329,8 @@ interface StudioContextValue {
   plazasFijas: PlazaFija[];
   // F2 (B2.2): asignar devuelve el resultado para que la UI muestre el choque de
   // sitio (violación de la exclusión GiST). quitar = baja lógica (estado BAJA).
-  asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true } | { error: string }>;
-  editarPlazaFija: (id: string, cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>) => Promise<ResultadoEscritura>;
+  asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true; proximaOcurrencia: ProximaOcurrenciaPlazaFija } | { error: string }>;
+  editarPlazaFija: (id: string, cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>) => Promise<ResultadoEscritura & { proximaOcurrencia?: ProximaOcurrenciaPlazaFija }>;
   quitarPlazaFija: (id: string) => Promise<ResultadoEscritura>;
   // Feature #2 (ficha Lorari-vs-Tentare): autoservicio desde el portal — solo
   // tiene efecto con sesión de socia (ctxPublico presente); nunca desde staff,
@@ -1608,17 +1616,38 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
+  // La reserva REAL de una plaza fija la genera de normal un cron nocturno
+  // (`materializar_plazas_fijas`, 2:00 UTC) — quien la crea o la mueve desde el
+  // panel esperaba verla confirmada al momento, no al día siguiente (feedback
+  // real de una propietaria en prueba, 14-sep). Mejor esfuerzo: si algo falla
+  // aquí (aforo lleno, sin bono…) la plaza se guarda igual — el cron de esta
+  // noche la recogerá como cualquier otra.
+  async function materializarProximaOcurrenciaPlaza(pf: PlazaFija): Promise<ProximaOcurrenciaPlazaFija> {
+    if (pf.estado !== 'ACTIVA') return null;
+    // eslint-disable-next-line react-hooks/purity -- se llama desde un evento (guardar/editar plaza fija), nunca durante el render.
+    const ahoraMs = Date.now();
+    const sesion = proximaSesionParaPlaza(pf, sesiones, ahoraMs);
+    if (!sesion) return null;
+    const datos = { sesionId: sesion.id, fecha: hoyEnEstudio(new Date(sesion.inicio)), hora: horaInicioLocalDe(sesion.inicio).slice(0, 5) };
+    const yaApuntada = reservas.some(r => r.sesionId === sesion.id && r.socioId === pf.socioId && r.estado !== 'CANCELADA');
+    if (yaApuntada) return datos;
+    const res = await addReserva(sesion.id, pf.socioId, pf.spotId);
+    return res.ok ? datos : null;
+  }
+
   // F2 (B2.2): asignar plaza fija. NO optimista: puede fallar por la exclusión
   // GiST (sitio ya pillado en ese slot); sólo se añade al estado si la BD acepta.
   async function asignarPlazaFija(
     fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>,
-  ): Promise<{ ok: true } | { error: string }> {
+  ): Promise<{ ok: true; proximaOcurrencia: ProximaOcurrenciaPlazaFija } | { error: string }> {
     const nueva: PlazaFija = {
       ...fields, id: `pf-${uid()}`, studioId: getCurrentStudioId(), creadaEn: new Date().toISOString(),
     };
     const res = await dbInsertPlazaFija(nueva);
-    if ('ok' in res) setPlazasFijas(prev => [...prev, nueva]);
-    return res;
+    if (!('ok' in res)) return res;
+    setPlazasFijas(prev => [...prev, nueva]);
+    const proximaOcurrencia = await materializarProximaOcurrenciaPlaza(nueva);
+    return { ok: true, proximaOcurrencia };
   }
 
   // Cambiar el hueco de una plaza fija ya asignada (día, hora, sala, sitio o
@@ -1630,11 +1659,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   async function editarPlazaFija(
     id: string,
     cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>,
-  ): Promise<ResultadoEscritura> {
+  ): Promise<ResultadoEscritura & { proximaOcurrencia?: ProximaOcurrenciaPlazaFija }> {
     const res = await dbUpdatePlazaFija(id, cambios);
     if (!res.ok) return res;
     setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, ...cambios } : p));
-    return res;
+    const actual = plazasFijas.find(p => p.id === id);
+    const proximaOcurrencia = actual ? await materializarProximaOcurrenciaPlaza({ ...actual, ...cambios }) : null;
+    return { ok: true, proximaOcurrencia };
   }
 
   // Baja lógica (estado BAJA): deja de materializar; conserva el histórico.

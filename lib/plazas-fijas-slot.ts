@@ -114,3 +114,28 @@ export function plazasFijasSinSesion(
   }
   return out;
 }
+
+/**
+ * La sesión FUTURA más próxima que encaja con la plaza, o `null` si no hay
+ * ninguna cargada (fuera del horizonte pedido a la API, o de verdad no hay
+ * ninguna programada todavía). Sirve para reservar la próxima ocurrencia al
+ * instante al crear/editar la plaza, en vez de esperar al cron nocturno de
+ * `materializar_plazas_fijas` — quien la crea desde el panel espera verla
+ * confirmada ya, no al día siguiente.
+ */
+export function proximaSesionParaPlaza<S extends SesionSlot & { id: string; inicio: string; cancelada: boolean }>(
+  pf: PlazaFija,
+  sesiones: S[],
+  ahoraMs: number,
+): S | null {
+  let mejor: S | null = null;
+  for (const s of sesiones) {
+    if (s.cancelada) continue;
+    const t = Date.parse(s.inicio);
+    if (Number.isNaN(t) || t <= ahoraMs) continue;
+    if (mejor && t >= Date.parse(mejor.inicio)) continue;
+    if (!sesionEncajaEnPlaza(pf, s)) continue;
+    mejor = s;
+  }
+  return mejor;
+}

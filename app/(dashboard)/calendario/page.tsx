@@ -2158,7 +2158,9 @@ export default function Calendario() {
       estado: 'ACTIVA',
     });
     if ('error' in res) { showToast(res.error); return; }
-    showToast(`Plaza fija creada — ${nombreClientaResolver(r.socioId)} queda apuntada cada ${nombreDiaSemana(franja.dow)} a esta hora.`);
+    showToast(res.proximaOcurrencia
+      ? `Plaza fija creada — ya tiene reservada la clase del ${fechaLargaEstudio(new Date(`${res.proximaOcurrencia.fecha}T12:00:00`))}, y así cada ${nombreDiaSemana(franja.dow)}.`
+      : `Plaza fija creada — ${nombreClientaResolver(r.socioId)} queda apuntada cada ${nombreDiaSemana(franja.dow)} en cuanto haya clase programada.`);
   }
 
   function abrirIncidencia(sesionId: string) {
