@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { hashTextoLegal } from './legal-hash.ts';
-import { configLegalDe, textoLegalCompleto, datosLegalesDeFila } from './legal-textos.ts';
+import {
+  configLegalDe, configLegalDeFila, textoLegalCompleto, datosLegalesDeFila, textoLegalVigenteDeFila,
+} from './legal-textos.ts';
 
 // La cadena completa de la aceptación por compra, sin base de datos:
 // datos del estudio → texto legal efectivo → huella.
@@ -114,6 +118,67 @@ test('el sello se compone con los MISMOS datos que ve la compradora en el portal
   assert.match(delServidor, /Pilates Boutique SL/);
   assert.match(delServidor, /29005/);
   assert.match(delServidor, /24/);
+});
+
+// ── Lo que lee la alumna que se da de alta sola = lo que se sella ───────────
+//
+// El test de arriba rehace a mano lo que ve la compradora, y por eso no veía el
+// hueco: `studioPublico` (portal, `/reservar`, widget) componía los términos SIN
+// ventana de cancelación ni importe. La alumna leía «12 horas» y ningún cargo, y
+// `componerTextoLegalVigente` sellaba como aceptado el texto CON la cláusula.
+// Aquí se usa la función que usan los dos, y se comprueba que la usan.
+
+const FILA_CON_CARGO = {
+  nombre: 'Estudio de prueba', razon_social: 'Estudio de prueba SL', nif: 'B00000000',
+  direccion: 'Calle Falsa 1', ciudad: 'Ciudad', codigo_postal: '00000', email: 'hola@example.com',
+  cancelacion_ventana_horas: 24, penalizacion_importe_eur: 7.5,
+  politica_privacidad: null, terminos_servicio: null,
+};
+
+test('los términos del payload público son EXACTAMENTE el texto que se sella, con la cláusula y la ventana real', () => {
+  const publico = configLegalDeFila(FILA_CON_CARGO);        // lo que pone `studioPublico`
+  const sellado = textoLegalVigenteDeFila(FILA_CON_CARGO);  // lo que devuelve `componerTextoLegalVigente`
+
+  // Registro del portal y widget: los dos campos del payload, tal cual.
+  assert.equal(textoLegalCompleto({ politicaPrivacidad: publico.politicaPrivacidad, terminosServicio: publico.terminosServicio }), sellado);
+  // `studio-context` y la compra del portal: `configLegalDe(studio, studio)` sobre el payload.
+  const studio = { ...datosLegalesDeFila(FILA_CON_CARGO), ...publico };
+  assert.equal(textoLegalCompleto(configLegalDe(studio, studio)), sellado);
+  assert.equal(hashTextoLegal(textoLegalCompleto(publico)), hashTextoLegal(sellado));
+
+  assert.match(publico.terminosServicio, /7\.50 €/, 'la cláusula de cargo tiene que estar en lo que lee');
+  assert.match(publico.terminosServicio, /menos de 24 horas/);
+  assert.doesNotMatch(publico.terminosServicio, /menos de 12 horas/);
+});
+
+test('componer como lo hacía `studioPublico` (sin ventana ni importe) da OTRO texto: el que se enseñaba', () => {
+  const comoAntes = textoLegalCompleto(configLegalDe({
+    nombre: FILA_CON_CARGO.nombre, razonSocial: FILA_CON_CARGO.razon_social, nif: FILA_CON_CARGO.nif,
+    direccion: FILA_CON_CARGO.direccion, ciudad: FILA_CON_CARGO.ciudad, codigoPostal: FILA_CON_CARGO.codigo_postal,
+    email: FILA_CON_CARGO.email,
+  }, { politicaPrivacidad: null, terminosServicio: null }));
+  assert.notEqual(comoAntes, textoLegalVigenteDeFila(FILA_CON_CARGO));
+  assert.match(comoAntes, /menos de 12 horas/);
+  assert.doesNotMatch(comoAntes, /€/);
+});
+
+test('`studioPublico` y `componerTextoLegalVigente` componen con el mismo dueño, no a mano', () => {
+  const admin = readFileSync(join(import.meta.dirname, 'db/supabase-data-admin.ts'), 'utf8');
+  const ini = admin.indexOf('function studioPublico(');
+  const cuerpo = admin.slice(ini, admin.indexOf('\n}\n', ini));
+  assert.ok(ini > 0 && cuerpo.length > 0, 'no encuentro studioPublico');
+  assert.match(cuerpo, /configLegalDeFila\(r\b/);
+  assert.doesNotMatch(cuerpo, /configLegalDe\(\s*\{/, 'nada de componer los datos legales a mano');
+  assert.match(cuerpo, /penalizacionImporteEur: r\.penalizacion_importe_eur/);
+
+  const sellado = readFileSync(join(import.meta.dirname, 'legal-sellado.ts'), 'utf8');
+  const desde = sellado.indexOf('export async function componerTextoLegalVigente(');
+  const funcion = sellado.slice(desde, sellado.indexOf('\n}\n', desde));
+  assert.ok(desde > 0);
+  assert.match(funcion, /return textoLegalVigenteDeFila\(/);
+  for (const col of ['razon_social', 'codigo_postal', 'cancelacion_ventana_horas', 'penalizacion_importe_eur', 'politica_privacidad', 'terminos_servicio']) {
+    assert.ok(funcion.includes(col), `el select del sello tiene que traer ${col}`);
+  }
 });
 
 test('pasar la fila CRUDA produce un texto distinto — que es lo que ocurría', () => {

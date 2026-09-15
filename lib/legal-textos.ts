@@ -282,17 +282,33 @@ export function configLegalDe(
 }
 
 /**
- * El texto completo vigente de un estudio a partir de su fila de `studios`
- * (con `politica_privacidad` y `terminos_servicio`). Es lo que se compara con
- * lo que aceptó la socia antes de cobrarle una penalización. Pasa por
- * `configLegalDe` a propósito: el cron componía el texto con `??`, y unos
- * términos guardados como '' daban un texto distinto del que se enseña.
+ * Los dos documentos efectivos de un estudio a partir de su fila de `studios`
+ * (snake_case, con `politica_privacidad` y `terminos_servicio`). Único dueño de
+ * esa composición: de aquí salen lo que se ENSEÑA a la alumna (`studioPublico`,
+ * que alimenta portal, `/reservar` y el widget) y lo que se SELLA y se compara
+ * antes de cobrar (`textoLegalVigenteDeFila`).
+ *
+ * ⚠️ `studioPublico` componía a mano sin `cancelacion_ventana_horas` ni
+ * `penalizacion_importe_eur`: la alumna que se daba de alta sola leía 12 h y
+ * ninguna cláusula de cargo, y el servidor sellaba como aceptado el texto CON
+ * cláusula y con la ventana real.
  */
-export function textoLegalVigenteDeFila(fila: Record<string, unknown>): string {
-  return textoLegalCompleto(configLegalDe(datosLegalesDeFila(fila), {
+export function configLegalDeFila(fila: Record<string, unknown>): StudioConfig {
+  return configLegalDe(datosLegalesDeFila(fila), {
     politicaPrivacidad: (fila.politica_privacidad as string | null | undefined) ?? null,
     terminosServicio: (fila.terminos_servicio as string | null | undefined) ?? null,
-  }));
+  });
+}
+
+/**
+ * El texto completo vigente de un estudio a partir de su fila de `studios`. Es
+ * lo que se sella al aceptar y lo que se compara con lo que aceptó la socia
+ * antes de cobrarle una penalización. Pasa por `configLegalDe` a propósito: el
+ * cron componía el texto con `??`, y unos términos guardados como '' daban un
+ * texto distinto del que se enseña.
+ */
+export function textoLegalVigenteDeFila(fila: Record<string, unknown>): string {
+  return textoLegalCompleto(configLegalDeFila(fila));
 }
 
 /**

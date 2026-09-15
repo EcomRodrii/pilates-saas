@@ -95,6 +95,11 @@ export interface Escritura {
   estado: EstadoPenalizacion;
   /** Compare-and-set: solo se escribe si la fila está en uno de estos estados. */
   desde: readonly EstadoPenalizacion[];
+  /**
+   * En la misma escritura, `recibo_id = null`: el recibo se va a borrar y la FK
+   * (`penalizaciones.recibo_id`, sin ON DELETE) no lo deja mientras apunte a él.
+   */
+  soltarRecibo?: true;
 }
 
 export interface Plan {
@@ -158,12 +163,13 @@ export function mensajeSinConsentimiento(motivo: MotivoSinConsentimiento): strin
 /**
  * Aprobar a mano con un contrato que no recoge el cargo (las condiciones
  * pudieron cambiar entre la detección y la aprobación): no se toca Stripe, la
- * penalización sale de PENDIENTE_APROBACION a OMITIDA_SIN_CONSENTIMIENTO y la
- * fila se va de la tarjeta (409).
+ * penalización sale de PENDIENTE_APROBACION a OMITIDA_SIN_CONSENTIMIENTO soltando
+ * su recibo, la ruta lo borra (`cerrarSinConsentimiento`) y la fila se va de la
+ * tarjeta (409). Sin soltarlo, el recibo PENDIENTE seguía en Cobros.
  */
 export function planSinConsentimiento(motivo: MotivoSinConsentimiento): Plan {
   return {
-    escritura: { estado: 'OMITIDA_SIN_CONSENTIMIENTO', desde: ['PENDIENTE_APROBACION'] },
+    escritura: { estado: 'OMITIDA_SIN_CONSENTIMIENTO', desde: ['PENDIENTE_APROBACION'], soltarRecibo: true },
     desenlace: { tipo: 'SIN_CONSENTIMIENTO', http: 409, mensaje: mensajeSinConsentimiento(motivo), notificar: false },
   };
 }
@@ -435,8 +441,9 @@ export const CIERRE_RECIBO_FALLIDO: Escritura = { estado: 'FALLIDA', desde: ['RE
  *   socia puede estar pagando ese mismo recibo desde el portal (un FALLIDO es
  *   deuda cobrable); y un transitorio obligaría a volver a DETECTADA con el
  *   desenlace del cargo sin saber, donde el trigger la podría revertir con el
- *   dinero dentro. Para volver a intentarlo está «Cobrar online» en Cobros: si
- *   entra, el barrido la pasa a COBRADA.
+ *   dinero dentro. «Cobrar online» en Cobros tampoco la cobra
+ *   (`cobroManualDeRecibo`: solo RECIBO_CREADO). Si la socia lo paga por otro
+ *   camino, el barrido la pasa a COBRADA.
  * - El recibo ya no es cobrable (cobrado o anulado a mano, borrado) → se intenta
  *   igual: el guardia del recibo no cobra, y la relectura deja la penalización
  *   COBRADA o FALLIDA. Con alerta, porque no debería pasar.
@@ -660,6 +667,51 @@ export const ESTADOS_QUE_DEJAN_COBRAR_AL_DUNNING: readonly EstadoPenalizacion[] 
  */
 export function dunningPuedeCobrarPenalizacion(lectura: LecturaPenalizacion): boolean {
   return lectura.ok && ESTADOS_QUE_DEJAN_COBRAR_AL_DUNNING.includes(lectura.estado as EstadoPenalizacion);
+}
+
+// ── Cobrar a mano un recibo de penalización (Cobros, Automatizaciones) ──────
+//
+// «Cobrar online» (/api/cobros/cobrar-online) y la aprobación desde
+// Automatizaciones (/api/stripe/charge-off-session) cobran cualquier recibo
+// PENDIENTE o FALLIDO. El de una penalización PENDIENTE_APROBACION se cobraba así
+// sin pasar por la aprobación ni por el guardia de consentimiento, y el de una
+// OMITIDA_* (se decidió no cobrar) también.
+
+/** Con qué estado de la penalización se puede cobrar su recibo desde esas pantallas: el cobro ya decidido. */
+export const ESTADOS_QUE_DEJAN_COBRAR_A_MANO: readonly EstadoPenalizacion[] = ['RECIBO_CREADO'];
+
+export type VeredictoCobroManual = { ok: true } | { ok: false; http: 409 | 503; mensaje: string };
+
+const NO_DESDE_AQUI = 'Esta penalización no se puede cobrar desde aquí:';
+
+const POR_QUE_NO_A_MANO: Partial<Record<EstadoPenalizacion, string>> = {
+  DETECTADA: 'todavía se está comprobando si se puede cobrar.',
+  PENDIENTE_APROBACION: 'está esperando a que la apruebes en Inicio, en «penalizaciones pendientes de aprobar», que comprueba antes si el contrato de la alumna recoge el cargo.',
+  OMITIDA_SIN_TARJETA: 'se dejó sin cobrar porque la alumna no tenía un método de pago guardado.',
+  OMITIDA_SIN_CONSENTIMIENTO: 'se dejó sin cobrar porque el contrato que aceptó la alumna no recoge este cargo.',
+  OMITIDA_COMPENSADA: 'se dejó sin cobrar porque esa reserva ya dio una recuperación a la alumna.',
+  OMITIDA_REVERTIDA: 'se anuló al corregir la asistencia.',
+  COBRADA: 'ya consta como cobrada.',
+  FALLIDA: 'quedó como no cobrada y no se vuelve a intentar desde aquí.',
+  REEMBOLSADA: 'se devolvió a la alumna.',
+};
+
+/**
+ * ¿Se puede cobrar este recibo desde Cobros o Automatizaciones? Un recibo que no
+ * es de una penalización, siempre (sin leer nada). El de una penalización, solo
+ * con ella en RECIBO_CREADO; sin poder leerla, no (503, se puede reintentar).
+ * Una penalización que no apunta a este recibo (`estado: null`) tampoco.
+ */
+export function cobroManualDeRecibo(reciboId: string, lectura?: LecturaPenalizacion): VeredictoCobroManual {
+  // Por el prefijo y no por `penalizacionDelRecibo`: un `rec-penaliz-` sin id no
+  // puede colarse como recibo normal (su lectura sale `estado: null` y no se cobra).
+  if (!reciboId.startsWith(PREFIJO_RECIBO_PENALIZACION)) return { ok: true };
+  if (!lectura || !lectura.ok) {
+    return { ok: false, http: 503, mensaje: `${NO_DESDE_AQUI} no hemos podido comprobar en qué estado está. No se ha cobrado; inténtalo de nuevo en un momento.` };
+  }
+  if (ESTADOS_QUE_DEJAN_COBRAR_A_MANO.includes(lectura.estado as EstadoPenalizacion)) return { ok: true };
+  const porQue = POR_QUE_NO_A_MANO[lectura.estado as EstadoPenalizacion] ?? 'no tiene un cobro decidido.';
+  return { ok: false, http: 409, mensaje: `${NO_DESDE_AQUI} ${porQue}` };
 }
 
 /**

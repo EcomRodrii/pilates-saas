@@ -2,7 +2,7 @@ import 'server-only';
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
-import { configLegalDe } from '@/lib/legal-textos';
+import { configLegalDeFila } from '@/lib/legal-textos';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { tokenCoincideConHash } from '@/lib/token-hash';
 import { exigirLectura } from '@/lib/exigir-lectura';
@@ -357,22 +357,16 @@ function studioPublico(r: RowStudios) {
     // son exactamente los del separador entre dos textos vacíos. Las que se
     // registraron desde su app firmaron una raya horizontal.
     //
-    // Se compone aquí, donde los datos fiscales están, con la MISMA función que
-    // usa el panel. Y con la misma que sella la aceptación por compra, así que
-    // lo que se enseña, lo que se firma y lo que se sella no pueden separarse.
+    // Se compone aquí, donde los datos fiscales están, con `configLegalDeFila`:
+    // la MISMA que envuelve `textoLegalVigenteDeFila`, que es lo que se sella al
+    // aceptar y lo que se compara antes de cobrar una penalización.
+    //
+    // ⚠️ Antes se componía a mano sin `cancelacion_ventana_horas` ni
+    // `penalizacion_importe_eur`: la alumna que se daba de alta sola leía 12 h y
+    // ningún cargo, y quedaba sellado como aceptado el texto CON la cláusula y
+    // con la ventana real. Hay test que compara las dos salidas.
     ...(() => {
-      const efectivos = configLegalDe(
-        {
-          nombre: r.nombre, razonSocial: (r as { razon_social?: string | null }).razon_social ?? null,
-          nif: r.nif ?? null, direccion: r.direccion ?? null, ciudad: r.ciudad ?? null,
-          codigoPostal: (r as { codigo_postal?: string | null }).codigo_postal ?? null,
-          email: r.email ?? null,
-        },
-        {
-          politicaPrivacidad: (r as { politica_privacidad?: string | null }).politica_privacidad ?? null,
-          terminosServicio: (r as { terminos_servicio?: string | null }).terminos_servicio ?? null,
-        },
-      );
+      const efectivos = configLegalDeFila(r as unknown as Record<string, unknown>);
       return { politicaPrivacidad: efectivos.politicaPrivacidad, terminosServicio: efectivos.terminosServicio };
     })(),
     // Política pública que la página de reservas necesita para avisar a la socia
@@ -381,6 +375,10 @@ function studioPublico(r: RowStudios) {
     // el ajuste del estudio no tendría efecto donde se ve.
     rachaClasesSemana: (r as { racha_clases_semana?: number | null }).racha_clases_semana ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
+    // El importe de la penalización ya va dentro de los términos que se
+    // enseñan (arriba); viaja también suelto para que quien recomponga el texto
+    // en el cliente con `configLegalDe(studio, …)` tenga los mismos datos.
+    penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',

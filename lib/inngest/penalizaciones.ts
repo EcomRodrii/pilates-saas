@@ -18,7 +18,7 @@ import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
   BARRIDO_RECIBO_RESUELTO, DESDE_DETECTADA, crearReciboYCobrar, type EstadoPenalizacion,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
-import { seguirPenalizacionAlRecibo } from '@/lib/billing/penalizacion-recibo-server';
+import { borrarReciboDePenalizacionSinCobro, seguirPenalizacionAlRecibo } from '@/lib/billing/penalizacion-recibo-server';
 import {
   DEFINICIONES, ID_PENALIZACIONES_COBRADAS_SIN_DINERO, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR, avisoParaSentry,
 } from '@/lib/salud/comprobaciones.ts';
@@ -83,15 +83,24 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   });
   const sigue = await aplicarConsentimientoEnCron(veredicto, {
     marcarOmitida: async () => {
+      // `recibo_id: null` en la misma escritura: una DETECTADA puede apuntar ya a
+      // un recibo de una pasada anterior, y la FK no deja borrarlo mientras apunte.
       const { data, error } = await admin.from('penalizaciones')
-        .update({ estado: 'OMITIDA_SIN_CONSENTIMIENTO', procesada_en: new Date().toISOString() })
+        .update({ estado: 'OMITIDA_SIN_CONSENTIMIENTO', procesada_en: new Date().toISOString(), recibo_id: null })
         .eq('id', pen.id).in('estado', [...DESDE_DETECTADA]).select('id');
       if (error) console.error('[penalizaciones] no se pudo marcar sin consentimiento', pen.id, error.message);
       return { error: !!error, tocadas: data?.length ?? 0 };
     },
+    borrarRecibo: () => borrarReciboDePenalizacionSinCobro(admin, { studioId: pen.studio_id, reciboId: `rec-penaliz-${pen.id}` }),
     notificarBloqueo: async () => {
       const { emitirPenalizacionBloqueada } = await import('@/lib/notifications/emit');
       await emitirPenalizacionBloqueada(admin, { studioId: pen.studio_id, socioId: pen.socio_id, motivo: 'consentimiento', importe: pen.importe, penalizacionId: pen.id });
+    },
+    alertar: (motivoAlerta) => {
+      Sentry.captureMessage(`[penalizaciones] ${motivoAlerta}`, {
+        level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-sin-consentimiento' },
+        extra: { penalizacionId: pen.id, reciboId: `rec-penaliz-${pen.id}`, studioId: pen.studio_id },
+      });
     },
   });
   if (!sigue) return;
@@ -146,7 +155,8 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   //
   // Límite conocido, documentado allí: una penalización revertida desde
   // PENDIENTE_APROBACION deja su recibo PENDIENTE en Cobros (sin armar: el
-  // dunning no lo cobra), y el trigger no revierte nada desde RECIBO_CREADO.
+  // dunning no lo cobra, y «Cobrar online» tampoco, `cobroManualDeRecibo`), y
+  // el trigger no revierte nada desde RECIBO_CREADO.
   //
   // Si el cobro acaba en otro camino (el dunning, el webhook, Cobros), la
   // penalización se pone al día con `seguirPenalizacionAlRecibo`: lo llama el

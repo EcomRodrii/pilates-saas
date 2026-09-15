@@ -3,6 +3,8 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/billing/stripe-cobros';
+import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +46,16 @@ export async function POST(req: NextRequest) {
 
   const bloqueo = await bloqueoPorSuscripcion(sesion.studioId);
   if (bloqueo) return bloqueo;
+
+  // El recibo de una penalización solo con el cobro ya decidido (RECIBO_CREADO).
+  // Si no, se cobraba una PENDIENTE_APROBACION saltándose la aprobación y el
+  // guardia de consentimiento, o una que se decidió no cobrar.
+  const penalizacionNoCobrable = await bloqueoCobroManualDePenalizacion(getSupabaseAdmin(), {
+    studioId: sesion.studioId, reciboId: body.reciboId,
+  });
+  if (penalizacionNoCobrable) {
+    return NextResponse.json({ error: penalizacionNoCobrable.mensaje }, { status: penalizacionNoCobrable.http });
+  }
 
   const resultado = await cobrarReciboOffSession({
     reciboId: body.reciboId, socioId: body.socioId, studioId: sesion.studioId,
