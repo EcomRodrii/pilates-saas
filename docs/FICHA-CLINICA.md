@@ -233,7 +233,7 @@ Salvaguardas: copy "sugerencia, revísala"; nunca nombres de socias hacia fuera;
 
 ## 10. Recordatorios automáticos (spec #9)
 
-`condiciones_salud.revisar_en` vencido (o condición activa sin revisión > N días) genera un aviso en `notificaciones` (*"Esta lesión de Ana lleva 90 días sin revisión — solicitar actualización"*), reutilizando el **cron/inngest existente** (`app/api/cron/*`, patrón de `barrerNoShows` / `enviarRecordatoriosClasesProximas` en `supabase-data.ts`). Regla pura y testeable `recordatoriosRevision(condiciones, hoy)`; el cron solo la ejecuta y persiste.
+`condiciones_salud.revisar_en` vencido (o condición activa sin revisión > N días) genera un aviso en `notificaciones` (*"Esta lesión de Ana lleva 90 días sin revisión — solicitar actualización"*), reutilizando el **cron/inngest existente** (`app/api/cron/*`, patrón de `barrerNoShows` / el barrido de pg_cron `notif-recordatorios`). Regla pura y testeable `recordatoriosRevision(condiciones, hoy)`; el cron solo la ejecuta y persiste.
 
 ---
 

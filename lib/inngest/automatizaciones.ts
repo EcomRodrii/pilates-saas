@@ -390,12 +390,12 @@ export const automatizacionesDispatcher = inngest.createFunction(
   // dentro de las options, y el handler es el 2º argumento.
   { id: 'automatizaciones-dispatcher', triggers: [{ cron: '0 7 * * *' }] },
   async ({ step }) => {
-    const nowISO = await step.run('now', async () => new Date().toISOString());
-
     // Service-role, igual que decisionDispatcher: este código corre sin sesión,
     // así que con el cliente anónimo RLS devolvería CERO estudios y el cron
     // "completaría" sin procesar a nadie — en silencio y para todos los tenants.
-    const studios = await step.run('list-studios', async () => {
+    // La hora va dentro de este mismo step (un step menos por tic).
+    const { nowISO, studios } = await step.run('list-studios', async () => {
+      const nowISO = new Date().toISOString();
       // `suspendido_en`: un estudio suspendido por impago/abuso no debe seguir
       // recibiendo mensajes automáticos con IA a nombre del negocio.
       // Paginado: sin él, PostgREST corta a 1.000 en silencio y pasado ese
@@ -406,7 +406,22 @@ export const automatizacionesDispatcher = inngest.createFunction(
           .select('id, nombre, color_primario, logo_url').is('suspendido_en', null).range(from, to),
       );
       if (error) throw new Error(error.message);
-      return data;
+
+      // Solo abre evento para los estudios con algo que ejecutar: alguna regla o
+      // automatización activa. Los dos motores descartan todo lo demás
+      // (`automationRules.filter(r => r.activa)` y `automatizaciones.filter(x =>
+      // x.activa …)`), así que un estudio sin ninguna activa gastaba su run y dos
+      // steps cada día —incluida la carga pesada de `fetch-data`— para no hacer nada.
+      const [reglas, automatizaciones] = await Promise.all([
+        fetchAllRows<{ studio_id: string }>('(global)', 'automation_rules',
+          (from, to) => requireSupabaseAdmin().from('automation_rules').select('studio_id').eq('activa', true).range(from, to)),
+        fetchAllRows<{ studio_id: string }>('(global)', 'automatizaciones',
+          (from, to) => requireSupabaseAdmin().from('automatizaciones').select('studio_id').eq('activa', true).range(from, to)),
+      ]);
+      if (reglas.error) throw new Error(reglas.error.message);
+      if (automatizaciones.error) throw new Error(automatizaciones.error.message);
+      const conAlgoActivo = new Set([...reglas.data, ...automatizaciones.data].map(r => r.studio_id));
+      return { nowISO, studios: data.filter(s => conAlgoActivo.has(s.id)) };
     });
 
     await enviarFanOutEnLotes(

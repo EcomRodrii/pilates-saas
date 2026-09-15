@@ -5,8 +5,10 @@
 // 303 de IVA: cierra el día 1 del mes siguiente al trimestre natural
 // (abril/julio/octubre/enero).
 //
-// Cadencia diaria: solo hace algo el día 1 de esos 4 meses, el resto de días
-// es un no-op barato (early return antes de tocar Supabase). Sin fan-out por
+// Cadencia: el cron solo corre el día 1 de esos 4 meses. Antes era diario, y los
+// otros 361 días eran un no-op que igualmente gastaba una ejecución y un step de
+// Inngest. La comprobación de la fecha se queda: si Inngest lo reintenta o
+// alguien lo invoca a mano otro día, sigue sin hacer nada. Sin fan-out por
 // estudio — mismo patrón que minimo-asistentes.ts/penalizaciones.ts, `studios`
 // no es una tabla grande y se filtra de entrada por el toggle activo.
 //
@@ -31,7 +33,7 @@ function trimestreQueAcabaDeCerrar(hoy: Date): { anio: number; trimestre: 1 | 2 
 }
 
 export const cierreGestoriaAutomaticoDispatcher = inngest.createFunction(
-  { id: 'cierre-gestoria-automatico', triggers: [{ cron: '0 6 * * *' }] },
+  { id: 'cierre-gestoria-automatico', triggers: [{ cron: '0 6 1 1,4,7,10 *' }] },
   async ({ step }) => {
     return step.run('enviar', async () => {
       const admin = getSupabaseAdmin();

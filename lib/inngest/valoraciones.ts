@@ -6,6 +6,7 @@
 import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { idsEstudios } from './estudios.ts';
+import { fetchAllRows } from '@/lib/supabase-data';
 import { firmarTokenValoracion } from '@/lib/valoraciones/token';
 import { destinatariasValoracion } from '@/lib/valoraciones/destinatarias';
 import { enviarEmailPedirValoracion } from '@/lib/valoraciones/email';
@@ -23,6 +24,9 @@ function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
 }
 
+/** Cuánto hacia atrás se miran clases terminadas. La comparten el dispatcher y el worker. */
+const VENTANA_VALORACION_MS = 48 * 60 * 60 * 1000;
+
 // Dispatcher: cada 12 h (a las 00:15 y 12:15 UTC para no chocar con dunning 08:30
 // / decision 06:30·14:30 / automatizaciones 07:00). Una clase recién terminada
 // recibe la petición en <12 h. Auditoría #3 (2026-08-25): reducido de cada 6h
@@ -30,14 +34,33 @@ function appUrl(): string {
 export const valoracionesDispatcher = inngest.createFunction(
   { id: 'valoraciones-dispatcher', triggers: [{ cron: '15 */12 * * *' }] },
   async ({ step }) => {
-    const nowISO = await step.run('now', async () => new Date().toISOString());
-
-    const studios = await step.run('list-studios', async () => {
+    // La hora va dentro del step de la lista (un step menos por tic).
+    const { nowISO, studios } = await step.run('list-studios', async () => {
+      const nowISO = new Date().toISOString();
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
       // `suspendido_en`: un estudio suspendido no debe seguir pidiendo
       // valoraciones a sus socias en su nombre.
-      return idsEstudios(admin);
+      const activos = await idsEstudios(admin);
+
+      // Solo abre evento para los estudios con alguna clase que el worker vaya a
+      // mirar: las mismas condiciones que su consulta `clases-terminadas`, para
+      // todos los estudios a la vez. Un estudio sin clases terminadas en 48 h
+      // gastaba un run y un step cada 12 h para no encontrar nada.
+      const desdeISO = new Date(new Date(nowISO).getTime() - VENTANA_VALORACION_MS).toISOString();
+      const { data: clases, error } = await fetchAllRows<{ studio_id: string }>(
+        '(global)', 'sesiones',
+        (from, to) => admin.from('sesiones').select('studio_id')
+          .eq('cancelada', false)
+          .not('instructor_id', 'is', null)
+          .is('valoracion_pedida_en', null)
+          .lt('fin', nowISO)
+          .gt('fin', desdeISO)
+          .range(from, to),
+      );
+      if (error) throw new Error(error.message);
+      const conClases = new Set(clases.map(c => c.studio_id));
+      return { nowISO, studios: activos.filter(s => conClases.has(s.id)) };
     });
 
     await enviarFanOutEnLotes(step, 'fan-out-valoraciones', EVENTS.VALORACIONES_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
@@ -56,7 +79,7 @@ export const procesarValoracionesEstudio = inngest.createFunction(
   },
   async ({ event, step }) => {
     const { studioId, nowISO } = event.data as { studioId: string; nowISO: string };
-    const desdeISO = new Date(new Date(nowISO).getTime() - 48 * 60 * 60 * 1000).toISOString();
+    const desdeISO = new Date(new Date(nowISO).getTime() - VENTANA_VALORACION_MS).toISOString();
 
     const clases = await step.run('clases-terminadas', async () => {
       const admin = getSupabaseAdmin();
@@ -72,7 +95,28 @@ export const procesarValoracionesEstudio = inngest.createFunction(
         .gt('fin', desdeISO)
         .limit(200);
       if (error) throw new Error(error.message);
-      return data ?? [];
+      const sesiones = data ?? [];
+      if (sesiones.length === 0) return [];
+
+      // Solo las clases con alguna alumna ASISTIDA. Una clase sin nadie marcado
+      // (sin reservas, o sin lista pasada todavía) gastaba su step `pedir-…` en
+      // cada barrido de las 48 h para volver con la lista vacía. El step sigue
+      // comprobándolo, así que una clase que pase lista más tarde se recoge en el
+      // siguiente barrido igual que antes. En trozos de 100: `.in()` con 200 ids
+      // no cabe en la URL de PostgREST.
+      const conAsistencia = new Set<string>();
+      for (let i = 0; i < sesiones.length; i += 100) {
+        const ids = sesiones.slice(i, i + 100).map(s => s.id as string);
+        const { data: filas, error: errRes } = await fetchAllRows<{ sesion_id: string }>(
+          studioId, 'reservas',
+          (from, to) => admin.from('reservas').select('sesion_id')
+            .eq('studio_id', studioId).eq('estado', 'ASISTIDA').in('sesion_id', ids)
+            .range(from, to),
+        );
+        if (errRes) throw new Error(errRes.message);
+        for (const f of filas) conAsistencia.add(f.sesion_id);
+      }
+      return sesiones.filter(s => conAsistencia.has(s.id as string));
     });
 
     let clasesPedidas = 0, emailsEnviados = 0;

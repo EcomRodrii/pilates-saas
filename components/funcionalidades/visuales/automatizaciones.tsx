@@ -7,7 +7,7 @@ import { REGLAS as REGLAS_AVISOS } from '@/lib/notifications/catalog';
 // un estudio puede encender, con sus umbrales por defecto) y
 // lib/notifications/catalog.ts (los canales por evento). El recordatorio de
 // clase (CLASE_MANANA) sigue en TRIGGERS_IMPLEMENTADOS pero ya NO se ofrece:
-// va de serie para todos los estudios (lib/inngest/recordatorios.ts).
+// va de serie para todos los estudios (barrido de pg_cron `notif-recordatorios`).
 //
 // ⚠️ Solo se listan las reglas VIVAS. Existen otros 10 disparadores en el
 // código (`TriggerAutomatizacion`) que solo se configuran desde el módulo de

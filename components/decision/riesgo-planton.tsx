@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { obtenerConfirmacionRiesgo } from '@/lib/api-client';
 
 // Riesgo de plantón en las clases que vienen. El recordatorio genérico previo a
-// clase lo manda Tentare de serie (lib/inngest/recordatorios.ts), así que este panel por sí
+// clase lo manda Tentare de serie (barrido de pg_cron `notif-recordatorios`), así que este panel por sí
 // solo no envía nada — solo enseña al propietario dónde tiene plazas en riesgo.
 //
 // La regla que SÍ actúa es la "opción 2" (lib/confirmacion-riesgo): pedir

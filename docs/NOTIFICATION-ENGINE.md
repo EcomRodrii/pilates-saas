@@ -246,18 +246,18 @@ La cabecera dice que ningún módulo envía por su cuenta. Es la intención, y h
 tiene excepciones vivas. Antes de añadir `EMAIL` a una regla o de prometerle a
 alguien que un interruptor silencia algo, mira si su flujo ya está aquí:
 
-- **Recordatorio de clase — hay DOS caminos, por CANALES DISTINTOS.** El del
-  motor (`notif-automations.ts`, cron `*/15`) manda **in-app y push** a 24 h y a
-  1 h. El otro, `lib/inngest/recordatorios.ts` (cron `0 8 * * *`) →
-  `enviarRecordatoriosClasesProximas` (`lib/db/supabase-data-admin.ts`), manda
-  **email y WhatsApp** directos, sin pasar por `publish()`, y registrado en
-  producción (`app/api/inngest/route.ts`).
+- **Recordatorio de clase — un solo dueño, con email y WhatsApp fuera del motor.**
+  `enviarRecordatorioClase` (`lib/notificaciones/recordatorio-clase.ts`), llamado
+  solo por el barrido de pg_cron `notif-recordatorios` (cada 15 min): 24 h antes,
+  aviso en su app + **email + WhatsApp**; 1 h antes, solo el aviso. El email y el
+  WhatsApp salen directos, sin pasar por `publish()`. El camino de Inngest que los
+  mandaba a diario (`lib/inngest/recordatorios.ts`) se retiró en septiembre de
+  2026 porque duplicaba este.
 
-  No es un duplicado en el mismo canal —cada uno cubre los suyos— pero conviene
-  saber tres cosas antes de tocarlo:
+  Conviene saber tres cosas antes de tocarlo:
 
-  1. **La exención `socio_excepciones` tipo `SIN_RECORDATORIO` la respetan LOS
-     DOS.** El camino del motor no lo hacía: la propietaria marcaba "no enviarle
+  1. **La exención `socio_excepciones` tipo `SIN_RECORDATORIO` la respeta.**
+     Hubo un camino (el del motor) que no lo hacía: la propietaria marcaba "no enviarle
      recordatorios", dejaba de salir el correo y el móvil le seguía sonando con
      el push. Cualquier camino nuevo de recordatorio tiene que consultarla —
      `lib/excepciones.ts` promete que **todas** las automatizaciones que escriben
@@ -268,7 +268,7 @@ alguien que un interruptor silencia algo, mira si su flujo ya está aquí:
      `notif_whatsapp` (portal). Apagar "reservas" en el centro **no** silencia el
      correo, y no debería: ese interruptor no habla de correo.
   3. El WhatsApp de este camino usa las credenciales **Meta propias del estudio**
-     (`whatsappPorStudio`), no el Twilio de `channels.ts`. Son transportes
+     (`whatsappDelEstudio`), no el Twilio de `channels.ts`. Son transportes
      distintos: mover el recordatorio al motor no es cambiar una regla, es
      cambiarle el proveedor de WhatsApp a todos los estudios que lo tengan
      configurado.

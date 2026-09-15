@@ -30,10 +30,6 @@ import {
   procesarConfirmacionAskEstudio,
   confirmacionRiesgoCorteDispatcher,
 } from '@/lib/inngest/confirmacion-riesgo';
-import {
-  recordatoriosDispatcher,
-  procesarRecordatoriosEstudio,
-} from '@/lib/inngest/recordatorios';
 import { penalizacionesDispatcher } from '@/lib/inngest/penalizaciones';
 import { conciliarCobrosDispatcher, conciliarCobrosVigilancia } from '@/lib/inngest/conciliar-cobros';
 import { conciliarReembolsos } from '@/lib/inngest/conciliar-reembolsos';
@@ -66,8 +62,6 @@ export const { GET, POST, PUT } = serve({
     confirmacionRiesgoAskDispatcher,
     procesarConfirmacionAskEstudio,
     confirmacionRiesgoCorteDispatcher,
-    recordatoriosDispatcher,
-    procesarRecordatoriosEstudio,
     penalizacionesDispatcher,
     conciliarCobrosDispatcher,
     conciliarCobrosVigilancia,

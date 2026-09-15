@@ -75,10 +75,9 @@ export const EVENTS = {
   // estudio (fan-out del dispatcher cron). Reemplaza el route de Vercel Cron que
   // iteraba todos los estudios en serie dentro de una sola invocación acotada.
   BACKUPS_ESTUDIO: 'backups/studio.sweep',
-  // Recordatorios de clase (M-5, auditoría 2026-07-29) — mismo motivo que
-  // backups: reemplaza el route de Vercel Cron que recorría las sesiones
-  // próximas de TODOS los estudios en una sola invocación acotada.
-  RECORDATORIOS_ESTUDIO: 'recordatorios/studio.sweep',
+  // RECORDATORIOS_ESTUDIO eliminado (2026-09): el recordatorio de clase lo manda
+  // solo el barrido de pg_cron `notif-recordatorios`. El fan-out diario de
+  // Inngest por estudio mandaba lo mismo y costaba una ejecución por estudio al día.
   // Recordatorios de revisión de ficha clínica (M-5, auditoría 2026-07-29) —
   // mismo motivo: reemplaza el route de Vercel Cron que recorría las
   // condiciones de salud de TODOS los estudios en una sola invocación.

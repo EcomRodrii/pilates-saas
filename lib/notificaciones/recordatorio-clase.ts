@@ -14,10 +14,9 @@
 //
 // Lo llama únicamente el barrido global de pg_cron (`notif-recordatorios`, cada
 // 15 min) a través de `recordatorios-clase-cron.ts`. El camino viejo de Inngest
-// (`lib/inngest/recordatorios.ts`) sigue vivo durante la transición y reclama
-// la MISMA fila de `recordatorio_envios` antes de mandar el email: la clave de
-// idempotencia de Resend sola no basta, porque los dos envíos pueden estar a más
-// de 24 h de distancia (su ventana).
+// ya está retirado, pero el email sigue reclamando su fila de
+// `recordatorio_envios` antes de mandar, así que dos pasadas solapadas no lo
+// repiten.
 //
 // Sin imports de `@/...` a propósito: así se prueba con `node --test` y el
 // cliente REAL de supabase-js. Lo que necesita `@/` (Resend + plantillas, el
