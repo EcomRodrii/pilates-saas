@@ -1,18 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { resolverSesionStaff, type EstudioPropio, type FichaEquipo, type SesionStaff } from '@/lib/auth/sesion-staff-reglas';
 
-export interface SesionStaff {
-  userId: string;
-  studioId: string;
-  rol: 'PROPIETARIO' | 'RECEPCION' | 'INSTRUCTOR' | 'MANAGER';
-  // Nombre para mostrar (instructora → su nombre; propietaria → nombre del estudio).
-  nombre: string;
-  // Email de la cuenta autenticada (no el del estudio). Lo usan rutas que
-  // necesitan escribir AL usuario logueado — p. ej. el envío de prueba de una
-  // plantilla de email (P2-11): nunca a un destinatario que venga del body.
-  email: string | null;
-}
+export type { SesionStaff };
 
 // Verifica el JWT que el cliente manda en el header Authorization (obtenido
 // de supabase.auth.getSession() en el navegador) y resuelve a qué negocio
@@ -55,50 +46,31 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
   // ellas; una persona tiene una o dos, no es volumen.
   //
   // ⚠️ Lo que NO cambia, y no puede cambiar:
-  //   · `neq('activo', false)` sobre instructores. Este camino corre con
+  //   · La baja de `instructores.activo` se aplica. Este camino corre con
   //     SERVICE-ROLE, que se salta la RLS entera: sin ese filtro, la migración
   //     0130 cerraría la puerta de la base de datos y las rutas de API
-  //     seguirían abriendo la suya. Y es `neq(false)` y no `eq(true)` a
-  //     propósito: solo una baja EXPLÍCITA revoca, un nulo accidental no deja
-  //     a nadie fuera (mismo criterio que el `coalesce(activo, true)` de 0130).
+  //     seguirían abriendo la suya. Se trae `activo` sin filtrar y lo decide
+  //     `resolverSesionStaff` con `coalesce(activo, true)`, igual que la 0130.
+  //     Antes era `.neq('activo', false)` en la consulta, que en SQL deja fuera
+  //     también el nulo: la sede guardada sobre esa ficha valía para la base de
+  //     datos y no para el servidor.
   //   · El ORDEN (`studio_id` / `id` ascendente) para que, con varias sedes,
   //     se elija siempre la misma de forma determinista.
   const [{ data: activa }, { data: instructores }, { data: studios }] = await Promise.all([
     db.from('sesion_activa').select('studio_id').eq('auth_user_id', user.id).maybeSingle(),
-    db.from('instructores').select('studio_id, rol, nombre')
-      .eq('auth_user_id', user.id).neq('activo', false).order('studio_id', { ascending: true }),
+    db.from('instructores').select('studio_id, rol, nombre, activo')
+      .eq('auth_user_id', user.id).order('studio_id', { ascending: true }),
     db.from('studios').select('id, nombre')
       .eq('owner_auth_user_id', user.id).order('id', { ascending: true }),
   ]);
 
-  // Sede activa elegida explícitamente (selector multi-sede de una cadena). Se
-  // resuelve con service-role, así que la validación de acceso se hace aquí en
-  // TS: si la sede elegida ya no pertenece al usuario (revocada, cadena
-  // borrada), simplemente no aparece entre sus filas y se cae al criterio
-  // determinista de siempre.
-  const sedeActiva = activa?.studio_id as string | undefined;
-  if (sedeActiva) {
-    const comoInstructor = instructores?.find(i => i.studio_id === sedeActiva);
-    if (comoInstructor) {
-      return { userId: user.id, studioId: sedeActiva, rol: comoInstructor.rol, nombre: comoInstructor.nombre || 'Equipo', email: user.email ?? null };
-    }
-    const comoOwner = studios?.find(s => s.id === sedeActiva);
-    if (comoOwner) {
-      return { userId: user.id, studioId: sedeActiva, rol: 'PROPIETARIO', nombre: comoOwner.nombre || 'Estudio', email: user.email ?? null };
-    }
-  }
-
-  const instructor = instructores?.[0];
-  if (instructor) {
-    return { userId: user.id, studioId: instructor.studio_id, rol: instructor.rol, nombre: instructor.nombre || 'Equipo', email: user.email ?? null };
-  }
-
-  const studio = studios?.[0];
-  if (studio) {
-    return { userId: user.id, studioId: studio.id, rol: 'PROPIETARIO', nombre: studio.nombre || 'Estudio', email: user.email ?? null };
-  }
-
-  return null;
+  return resolverSesionStaff({
+    userId: user.id,
+    email: user.email ?? null,
+    sedeGuardada: activa?.studio_id as string | undefined,
+    fichas: instructores as FichaEquipo[] | null,
+    estudiosPropios: studios as EstudioPropio[] | null,
+  });
 }
 
 // Verifica el JWT de una SOCIA (portal de miembros con Supabase Auth) y
