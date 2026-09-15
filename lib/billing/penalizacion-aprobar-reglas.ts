@@ -609,8 +609,10 @@ export type LecturaPenalizacion = { ok: true; estado: string | null } | { ok: fa
  * - RECIBO_CREADO: el camino normal en automático, cobro decidido.
  * - COBRADA: con su recibo PENDIENTE y programado solo existe si un adeudo SEPA
  *   que salió en `processing` (dado por cobrado en la aprobación a mano) falló
- *   después y `registrarFalloCobro` devolvió el recibo al dunning. Dejarla fuera
- *   era no perseguir nunca esa deuda.
+ *   después y `registrarFalloCobro` devolvió el recibo al dunning. Ya no debería
+ *   durar: `registrarFalloCobro` la pasa a RECIBO_CREADO en ese momento
+ *   (`escrituraPorEstadoDelRecibo`). Se queda en la lista por si esa escritura no
+ *   llegó y aún no ha pasado el barrido: dejarla fuera era no perseguir la deuda.
  */
 export const ESTADOS_QUE_DEJAN_COBRAR_AL_DUNNING: readonly EstadoPenalizacion[] = ['RECIBO_CREADO', 'COBRADA'];
 
@@ -631,20 +633,45 @@ export function dunningPuedeCobrarPenalizacion(lectura: LecturaPenalizacion): bo
 }
 
 /**
- * Estado del recibo → escritura de la penalización. Solo resuelven dos:
+ * Estado del recibo → escritura de la penalización.
  * - COBRADO → COBRADA, desde lo mismo que corrige cualquier cobro confirmado.
  * - FALLIDO → FALLIDA, desde RECIBO_CREADO (el dunning lo agotó) y desde COBRADA
  *   (un adeudo SEPA dado por cobrado en `processing` que no llegó a entrar: con
  *   tarjeta un recibo COBRADO nunca pasa a FALLIDO, `registrarFalloCobro` lo
  *   excluye). Una PENDIENTE_APROBACION con el recibo fallido es cosa del estudio,
  *   y una DETECTADA la cierra el cron.
+ * - ⚠️ PENDIENTE → RECIBO_CREADO, solo desde COBRADA. Es el adeudo SEPA que falló
+ *   y `registrarFalloCobro` devolvió al dunning: el cobro sigue decidido y el
+ *   dunning lo persigue, pero el dinero NO está, y la liquidación de la
+ *   instructora imputa toda COBRADA. Ni FALLIDA ni REEMBOLSADA: las dos sacan el
+ *   recibo del dunning (`dunningPuedeCobrarPenalizacion`) y la deuda se
+ *   abandonaría. Dejarla COBRADA durante los reintentos tampoco: cada adeudo
+ *   tarda días en resolverse y la espera cruza liquidaciones.
+ * - ⚠️ DEVUELTO → FALLIDA, desde COBRADA y desde RECIBO_CREADO (un recibo marcado
+ *   devuelto antes de cobrarse ya no lo cobra el dunning, y RECIBO_CREADO diría
+ *   para siempre que se está cobrando). Un DEVUELTO sigue siendo deuda (el
+ *   panel lo deja cobrar otra vez), así que no REEMBOLSADA: si luego se cobra, el
+ *   barrido la vuelve a COBRADA con el mes en que entró de verdad. Reembolso y
+ *   disputa perdida escriben antes REEMBOLSADA (`marcarPenalizacionReembolsada`),
+ *   y esto es la red cuando esa escritura no llega, o cuando alguien cambió el
+ *   recibo a mano.
  * EN_CURSO no resuelve: remesas y reintentos manuales lo escriben sin pasar por
  * Stripe, así que no prueba nada. Se espera a COBRADO.
  */
 export function escrituraPorEstadoDelRecibo(estadoRecibo: string | null): Escritura | null {
   if (estadoRecibo === 'COBRADO') return { estado: 'COBRADA', desde: ESTADOS_QUE_CORRIGE_UN_COBRO };
   if (estadoRecibo === 'FALLIDO') return { estado: 'FALLIDA', desde: ['RECIBO_CREADO', 'COBRADA'] };
+  if (estadoRecibo === 'PENDIENTE') return { estado: 'RECIBO_CREADO', desde: ['COBRADA'] };
+  if (estadoRecibo === 'DEVUELTO') return { estado: 'FALLIDA', desde: ['COBRADA', 'RECIBO_CREADO'] };
   return null;
+}
+
+/** Motivo de revisión de la liquidación cuando una COBRADA deja de serlo por su recibo. */
+export function motivoRevisionPorRecibo(estadoRecibo: string | null, importe: number): string {
+  const eur = `${importe.toFixed(2)}€`;
+  if (estadoRecibo === 'PENDIENTE') return `Una penalización de ${eur} ya repartida aquí no ha entrado todavía: su recibo vuelve a estar pendiente de cobro.`;
+  if (estadoRecibo === 'DEVUELTO') return `Una penalización de ${eur} ya repartida aquí se ha marcado como devuelta.`;
+  return `Una penalización de ${eur} ya repartida aquí no se llegó a cobrar: el adeudo falló.`;
 }
 
 /**
@@ -661,16 +688,20 @@ export function hayQueRevisarLiquidacion(estadoPrevio: string | null, escritura:
  * pasada. Cada entrada tiene que poder escribirse con `escrituraPorEstadoDelRecibo`;
  * si no, el barrido la volvería a encontrar cada hora (hay test).
  */
-export const BARRIDO_RECIBO_RESUELTO: ReadonlyArray<{ estadoRecibo: 'COBRADO' | 'FALLIDO'; estados: readonly EstadoPenalizacion[] }> = [
+export const BARRIDO_RECIBO_RESUELTO: ReadonlyArray<{ estadoRecibo: 'COBRADO' | 'FALLIDO' | 'PENDIENTE' | 'DEVUELTO'; estados: readonly EstadoPenalizacion[] }> = [
   { estadoRecibo: 'COBRADO', estados: ['PENDIENTE_APROBACION', 'RECIBO_CREADO', 'FALLIDA'] },
   { estadoRecibo: 'FALLIDO', estados: ['RECIBO_CREADO', 'COBRADA'] },
+  // Una COBRADA sin el dinero: adeudo devuelto al dunning, o recibo marcado
+  // devuelto (a mano o por un reembolso cuya llamada a la nómina no llegó).
+  { estadoRecibo: 'PENDIENTE', estados: ['COBRADA'] },
+  { estadoRecibo: 'DEVUELTO', estados: ['COBRADA', 'RECIBO_CREADO'] },
 ];
 
 /** Acceso a datos de `seguirAlRecibo`, inyectado para probarlo sin Supabase. */
 export interface IoPenalizacionSigueAlRecibo {
   leerRecibo(): Promise<LecturaRecibo>;
-  /** CAS de la penalización a `e.estado`, con `procesada_en`. */
-  cerrarPenalizacion(e: Escritura): Promise<{ error: boolean; tocadas: number }>;
+  /** CAS de la penalización a `e.estado`, con `procesada_en`. `estadoRecibo`: el leído, para el motivo de revisión. */
+  cerrarPenalizacion(e: Escritura, estadoRecibo: string | null): Promise<{ error: boolean; tocadas: number }>;
   leerEstadoPenalizacion(): Promise<string | null>;
   /** PAGO_PENALIZACION, deduplicado por `pago-penalizacion:<id>`. */
   notificarPago(): Promise<void>;
@@ -693,7 +724,7 @@ export async function seguirAlRecibo(io: IoPenalizacionSigueAlRecibo): Promise<S
   if (!recibo.ok) return { paso: 'RECIBO_ILEGIBLE' };
   const escritura = escrituraPorEstadoDelRecibo(recibo.estado);
   if (!escritura) return { paso: 'RECIBO_SIN_RESOLVER' };
-  const cierre = await io.cerrarPenalizacion(escritura);
+  const cierre = await io.cerrarPenalizacion(escritura, recibo.estado);
   const aplicada = !cierre.error && cierre.tocadas > 0;
   const estado = aplicada ? escritura.estado : await io.leerEstadoPenalizacion();
   const notificada = escritura.estado === 'COBRADA' && estado === 'COBRADA';

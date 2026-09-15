@@ -189,7 +189,7 @@ export const DEFINICIONES: Definicion[] = [
   },
   {
     id: ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR,
-    que: 'Penalizaciones de cobro automático (RECIBO_CREADO) detectadas hace más de 1 hora cuyo recibo sigue PENDIENTE sin reintento programado.',
+    que: 'Penalizaciones con el cobro ya decidido (RECIBO_CREADO: cobro automático, o un adeudo que falló y se reintenta) detectadas hace más de 1 hora cuyo recibo sigue PENDIENTE sin reintento programado.',
     impacto:
       'Nadie las va a cobrar ni a reintentar: el cron de penalizaciones solo mira las DETECTADA y el dunning solo cobra ' +
       'recibos con reintento programado. Pasa si el proceso murió entre enlazar el recibo y programarlo, si no se pudo ' +

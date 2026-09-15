@@ -10,7 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import {
-  hayQueRevisarLiquidacion, penalizacionDelRecibo, seguirAlRecibo,
+  hayQueRevisarLiquidacion, motivoRevisionPorRecibo, penalizacionDelRecibo, seguirAlRecibo,
   type EstadoPenalizacion, type LecturaPenalizacion, type Seguimiento,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import {
@@ -70,13 +70,14 @@ export async function seguirPenalizacionAlRecibo(
           .eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
         return error ? { ok: false } : { ok: true, estado: (data?.estado as string | undefined) ?? null };
       },
-      cerrarPenalizacion: async (e) => {
+      cerrarPenalizacion: async (e, estadoRecibo) => {
         let desde: string[] = [...e.desde];
         let previa: (PenalizacionRepartida & { estado: string }) | null = null;
         if (e.desde.includes('COBRADA')) {
-          // Una COBRADA que pasa a FALLIDA (adeudo SEPA que no entró) pudo repartirse
-          // ya: se leen antes sus datos de cuando estaba cobrada, porque el UPDATE
-          // pisa `procesada_en`, que es lo que decide el periodo de la liquidación.
+          // Una COBRADA que deja de serlo (adeudo SEPA que no entró o que vuelve al
+          // dunning, recibo devuelto) pudo repartirse ya: se leen antes sus datos de
+          // cuando estaba cobrada, porque el UPDATE pisa `procesada_en`, que es lo
+          // que decide el periodo de la liquidación.
           const lectura = await penalizacion('estado, reserva_id, importe, procesada_en')
             .maybeSingle<PenalizacionRepartida & { estado: string }>();
           // Sin esa lectura no se escribe: la COBRADA pasaría a FALLIDA sin pedir la
@@ -99,7 +100,7 @@ export async function seguirPenalizacionAlRecibo(
         const tocadas = data?.length ?? 0;
         if (tocadas > 0 && previa?.reserva_id && hayQueRevisarLiquidacion(previa.estado, e)) {
           const revisada = await pedirRevisionLiquidacionPenalizacion(admin, p.studioId, previa,
-            `Una penalización de ${Number(previa.importe).toFixed(2)}€ ya repartida aquí no se llegó a cobrar: el adeudo falló.`);
+            motivoRevisionPorRecibo(estadoRecibo, Number(previa.importe)));
           if (!revisada) {
             Sentry.captureMessage('[penalizaciones] no se pudo pedir la revisión de la liquidación de una penalización no cobrada', {
               level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-recibo' },
