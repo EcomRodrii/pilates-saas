@@ -37,6 +37,7 @@ import {
   avisoPenalizacionesFueraDeRemesa,
   destinoDelReciboAnulado,
   devolucionEnMarcha,
+  PLAZO_DEVOLUCION_SIN_CONFIRMAR_DIAS,
   recibosParaRemesa,
   soltarReciboDePenalizacionAnulada,
   type IoReciboDePenalizacionAnulada,
@@ -1681,20 +1682,37 @@ test('⚠️ barrido de anuladas: un COBRADO con la devolución ya en marcha dej
   assert.equal(destinoDelReciboAnulado({ ...RECIBO_LIBRE, estado: 'EN_CURSO', devolucionEnMarcha: true }), 'AVISAR_NO_BORRABLE');
 });
 
+const AHORA_DEVOLUCION = new Date('2026-09-15T12:00:00Z');
+
 test('devolución en marcha: pedida y sin fallo, o devuelta entera', () => {
   const base = { importe: 15, importeDevuelto: null, reembolsoSolicitadoEn: null, reembolsoFallidoEn: null };
-  assert.equal(devolucionEnMarcha(base), false, 'nada pedido ni devuelto: hay que devolverlo');
-  assert.equal(devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: '2026-09-15T10:00:00Z' }), true);
-  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 15 }), true);
-  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 20 }), true);
+  assert.equal(devolucionEnMarcha(base, AHORA_DEVOLUCION), false, 'nada pedido ni devuelto: hay que devolverlo');
+  assert.equal(devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: '2026-09-15T10:00:00Z' }, AHORA_DEVOLUCION), true);
+  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 15 }, AHORA_DEVOLUCION), true);
+  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 20 }, AHORA_DEVOLUCION), true);
 });
 
 test('⚠️ devolución en marcha: una devolución que Stripe rechazó, o una parcial, sigue avisando', () => {
   const base = { importe: 15, importeDevuelto: null, reembolsoSolicitadoEn: null, reembolsoFallidoEn: null };
-  assert.equal(devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: '2026-09-15T10:00:00Z', reembolsoFallidoEn: '2026-09-15T11:00:00Z' }), false,
+  assert.equal(devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: '2026-09-15T10:00:00Z', reembolsoFallidoEn: '2026-09-15T11:00:00Z' }, AHORA_DEVOLUCION), false,
     'el webhook de un refund fallido deja la marca de solicitado');
-  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 5 }), false, 'parcial: aún falta dinero por devolver');
-  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 0 }), false);
+  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 5 }, AHORA_DEVOLUCION), false, 'parcial: aún falta dinero por devolver');
+  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 0 }, AHORA_DEVOLUCION), false);
+});
+
+test('⚠️ devolución pedida que nunca se confirma: pasados 7 días vuelve a avisar', () => {
+  const base = { importe: 15, importeDevuelto: null, reembolsoSolicitadoEn: null, reembolsoFallidoEn: null };
+  const hace = (horas: number) => new Date(AHORA_DEVOLUCION.getTime() - horas * 3600_000).toISOString();
+  assert.equal(PLAZO_DEVOLUCION_SIN_CONFIRMAR_DIAS, 7);
+  assert.equal(devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: hace(7 * 24 - 1) }, AHORA_DEVOLUCION), true, 'menos de 7 días: calla');
+  assert.equal(devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: hace(7 * 24) }, AHORA_DEVOLUCION), false, '7 días justos: avisa');
+  assert.equal(devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: hace(30 * 24) }, AHORA_DEVOLUCION), false);
+  assert.equal(devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: 'no-es-una-fecha' }, AHORA_DEVOLUCION), false, 'fecha ilegible: avisa');
+  // Devuelta entera ya no depende del plazo: está resuelta.
+  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 15, reembolsoSolicitadoEn: hace(30 * 24) }, AHORA_DEVOLUCION), true);
+  // Y el barrido vuelve a avisar del cobrado.
+  const marcha = devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: hace(8 * 24) }, AHORA_DEVOLUCION);
+  assert.equal(destinoDelReciboAnulado({ ...RECIBO_LIBRE, estado: 'COBRADO', devolucionEnMarcha: marcha }), 'AVISAR_COBRADO');
 });
 
 test('⚠️ el cron lee lo que corta el aviso del cobrado y se lo pasa al barrido', () => {
@@ -1703,6 +1721,7 @@ test('⚠️ el cron lee lo que corta el aviso del cobrado y se lo pasa al barri
   const funcion = fuente.slice(desde, fuente.indexOf('\n}\n', desde));
   assert.match(funcion, /recibos!inner\([^)]*importe, importe_devuelto, reembolso_solicitado_en, reembolso_fallido_en\)/);
   assert.match(funcion, /devolucionEnMarcha: !!recibo && devolucionEnMarcha\(\{/);
+  assert.match(funcion, /\}, new Date\(\)\),/, 'con el reloj de ahora: una devolución vieja sin confirmar vuelve a avisar');
 });
 
 test('barrido de anuladas: qué se hace con cada recibo', () => {
@@ -1858,10 +1877,12 @@ test('remesa: la pantalla dice cuántos se quedaron fuera y por qué, y nada si 
 test('⚠️ el botón de la remesa filtra las penalizaciones ANTES de generar el fichero y de marcar los recibos', () => {
   const fuente = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'components/cobros/boton-remesa-sepa.tsx'), 'utf8'));
   const lectura = fuente.indexOf('recibosParaRemesa(pendientes, await dbEstadosPenalizacionDeRecibos(pendientes.map(r => r.id)))');
-  const construir = fuente.indexOf('construirRemesa({', lectura);
-  const entran = fuente.indexOf('recibosPendientes: remesa.entran', construir);
-  const marcar = fuente.indexOf('await marcarRecibosEnviadosAlBanco(idsIncluidos)', entran);
-  assert.ok(lectura > 0 && construir > lectura && entran > construir && marcar > entran, 'leer → decidir → XML con lo que entra → marcar');
+  // Lo que entra de la remesa de penalizaciones es lo único que puede llegar al fichero.
+  const entran = fuente.indexOf('recibosSinCobroEnMarcha(remesa.entran,', lectura);
+  const porId = fuente.indexOf('const porId = new Map(libres.entran.map(r => [r.id, r]));', entran);
+  const marcar = fuente.indexOf('await prepararRemesa(previa.idsIncluidos, {', porId);
+  assert.ok(lectura > 0 && entran > lectura && porId > entran && marcar > porId, 'leer → decidir → marcar y generar con lo que entra');
+  assert.doesNotMatch(fuente, /recibosPendientes: pendientes/, 'nunca el fichero con todos los pendientes');
   assert.ok(fuente.includes('avisoPenalizacionesFueraDeRemesa(remesa)'), 'la pantalla dice cuántos quedaron fuera');
 
   const datos = readFileSync(join(import.meta.dirname, '../..', 'lib/supabase-data.ts'), 'utf8');

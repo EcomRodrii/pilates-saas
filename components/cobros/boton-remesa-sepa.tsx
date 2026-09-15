@@ -6,12 +6,17 @@
 import { useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { construirRemesa } from '@/lib/sepa-19-14';
-import { dbEstadosPenalizacionDeRecibos } from '@/lib/supabase-data';
+import { dbEstadosPenalizacionDeRecibos, dbLeerRecibosParaRemesa } from '@/lib/supabase-data';
 import { avisoPenalizacionesFueraDeRemesa, recibosParaRemesa } from '@/lib/billing/penalizacion-aprobar-reglas';
+import {
+  avisoCobrosEnMarchaFueraDeRemesa, avisoXmlFallido, avisoYaNoPendientes, prepararRemesa, recibosSinCobroEnMarcha,
+} from '@/lib/billing/remesa-sepa-reglas';
 import { Landmark } from 'lucide-react';
 
 export function BotonRemesaSepa() {
-  const { studio, recibos, socios, mandatosSepa, marcarRecibosEnviadosAlBanco } = useStudio();
+  const {
+    studio, recibos, socios, mandatosSepa, marcarRecibosEnviadosAlBanco, devolverRecibosAPendientesTrasRemesa,
+  } = useStudio();
   const [aviso, setAviso] = useState<string | null>(null);
   const [generando, setGenerando] = useState(false);
 
@@ -22,6 +27,7 @@ export function BotonRemesaSepa() {
       setAviso('Falta configurar los datos de acreedor SEPA en Configuración → Cobros y facturas → Domiciliaciones bancarias.');
       return;
     }
+    const acreedor = { nombre: studio.nombre, titular: studio.sepaTitular, iban: studio.sepaIban, idAcreedor: studio.sepaAcreedorId };
     setGenerando(true);
     const nombreSocio = (id: string) => {
       const s = socios.find(x => x.id === id);
@@ -31,15 +37,19 @@ export function BotonRemesaSepa() {
     const cobro = new Date(hoy.getTime() + 5 * 24 * 3600_000); // D+5 (margen SEPA CORE)
     try {
       // Los recibos de una penalización solo entran con su cobro aprobado (la
-      // misma regla que «Cobrar online»). Se decide ANTES de generar el fichero:
-      // lo que va en el XML es lo que el banco carga.
+      // misma regla que «Cobrar online»), y ninguno con un cobro ya en marcha
+      // (leído de la base ahora). Lo que va en el XML es lo que el banco carga.
       const pendientes = recibos.filter(r => r.estado === 'PENDIENTE');
       const remesa = recibosParaRemesa(pendientes, await dbEstadosPenalizacionDeRecibos(pendientes.map(r => r.id)));
-      const avisoPenalizaciones = avisoPenalizacionesFueraDeRemesa(remesa);
-      const { xml, nAdeudos, sinMandato, idsIncluidos } = construirRemesa({
-        acreedor: { nombre: studio.nombre, titular: studio.sepaTitular, iban: studio.sepaIban, idAcreedor: studio.sepaAcreedorId },
-        recibosPendientes: remesa.entran
-          .map(r => ({ id: r.id, socioId: r.socioId, importe: r.importe, concepto: r.concepto })),
+      const libres = recibosSinCobroEnMarcha(remesa.entran, await dbLeerRecibosParaRemesa(remesa.entran.map(r => r.id)));
+      const porId = new Map(libres.entran.map(r => [r.id, r]));
+      const construir = (ids: string[]) => construirRemesa({
+        acreedor,
+        // Un id que no esté aquí no entra, y `generarXml` lo detecta por la cuenta.
+        recibosPendientes: ids.flatMap(id => {
+          const r = porId.get(id);
+          return r ? [{ id: r.id, socioId: r.socioId, importe: r.importe, concepto: r.concepto }] : [];
+        }),
         mandatosVigentes: mandatosSepa
           .filter(m => m.estado === 'VIGENTE')
           .map(m => ({ socioId: m.socioId, iban: m.iban, refMandato: m.refMandato, fechaFirma: m.fechaFirma })),
@@ -48,25 +58,49 @@ export function BotonRemesaSepa() {
         creDtTm: hoy.toISOString().slice(0, 19),
         fechaCobro: cobro.toISOString().slice(0, 10),
       });
+      // Solo para saber quién tiene mandato: este fichero NO se descarga.
+      const previa = construir(libres.entran.map(r => r.id));
 
-      const extra = avisoPenalizaciones ? ` ${avisoPenalizaciones}` : '';
-      if (nAdeudos === 0) {
-        setAviso((sinMandato > 0
-          ? `Ningún recibo pendiente tiene mandato SEPA (${sinMandato} sin domiciliar). Añade el mandato en la ficha de cada clienta.`
-          : 'No hay recibos pendientes que remesar.') + extra);
+      const extras = [avisoPenalizacionesFueraDeRemesa(remesa), avisoCobrosEnMarchaFueraDeRemesa(libres)].filter(Boolean);
+      const extra = (caidos = 0) => [...(caidos > 0 ? [avisoYaNoPendientes(caidos)] : []), ...extras].map(t => ` ${t}`).join('');
+      if (previa.nAdeudos === 0) {
+        setAviso((previa.sinMandato > 0
+          ? `Ningún recibo pendiente tiene mandato SEPA (${previa.sinMandato} sin domiciliar). Añade el mandato en la ficha de cada clienta.`
+          : 'No hay recibos pendientes que remesar.') + extra());
         return;
       }
 
-      // Se marcan ANTES de disparar la descarga: si el marcado falla, no se
-      // ofrece un fichero que luego se podría volver a generar con los mismos
-      // recibos duplicados en una segunda remesa (doble cargo en el banco).
-      const res = await marcarRecibosEnviadosAlBanco(idsIncluidos);
-      if (!res.ok) {
+      // Se marca ANTES de generar el fichero, y el fichero lleva SOLO lo que se
+      // marcó: si otro canal lo cobró entre medias, no va al banco dos veces.
+      const r = await prepararRemesa(previa.idsIncluidos, {
+        marcar: async ids => {
+          const res = await marcarRecibosEnviadosAlBanco(ids);
+          return res.ok ? { ok: true, idsActualizados: res.idsActualizados ?? [] } : { ok: false };
+        },
+        generarXml: ids => {
+          const final = construir(ids);
+          if (final.nAdeudos !== ids.length) throw new Error('remesa: el fichero no lleva todos los recibos marcados');
+          return final.xml;
+        },
+        desmarcar: async ids => {
+          const res = await devolverRecibosAPendientesTrasRemesa(ids);
+          return res.ok ? { ok: true, idsActualizados: res.idsActualizados ?? [] } : { ok: false };
+        },
+      });
+      if (r.paso === 'SIN_MARCAR') {
         setAviso('No se pudo preparar la remesa. Inténtalo de nuevo.');
         return;
       }
+      if (r.paso === 'NINGUNO_PENDIENTE') {
+        setAviso(`No hay recibos pendientes que remesar.${extra(r.caidos)}`);
+        return;
+      }
+      if (r.paso === 'XML_FALLIDO') {
+        setAviso(avisoXmlFallido(r.sinDeshacer.length));
+        return;
+      }
 
-      const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' });
+      const blob = new Blob([r.xml], { type: 'application/xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -75,7 +109,10 @@ export function BotonRemesaSepa() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setAviso(`Fichero listo: ${nAdeudos} recibo(s), cargo el ${cobro.toLocaleDateString('es-ES')}.${sinMandato > 0 ? ` (${sinMandato} recibo(s) sin mandato quedaron fuera.)` : ''}${extra} Súbelo a tu banco.`);
+      setAviso(`Fichero listo: ${r.ids.length} recibo(s), cargo el ${cobro.toLocaleDateString('es-ES')}.${previa.sinMandato > 0 ? ` (${previa.sinMandato} recibo(s) sin mandato quedaron fuera.)` : ''}${extra(r.caidos)} Súbelo a tu banco.`);
+    } catch {
+      // Antes de marcar (lecturas o la previa del fichero): no se ha tocado nada.
+      setAviso('No se pudo preparar la remesa. Inténtalo de nuevo.');
     } finally {
       setGenerando(false);
     }

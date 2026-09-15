@@ -94,7 +94,10 @@ export async function POST(req: NextRequest) {
     const { data: conf, error } = await admin.rpc('confirmar_pago_venta_pos', {
       p_venta_id: ventaId,
       p_studio_id: sesion.studioId,
-      p_payment_intent_id: venta.stripe_payment_intent_id,
+      // Si la referencia era la sesión de Bizum (`cs_…`), el PaymentIntent que
+      // cobró (la RPC hace COALESCE: `null` deja el guardado).
+      p_payment_intent_id: estadoProveedor.paymentIntentId
+        ?? (venta.stripe_payment_intent_id.startsWith('cs_') ? null : venta.stripe_payment_intent_id),
       // Lo que dice el PROVEEDOR haber cobrado, no el total de la venta: pasar
       // `venta.total` comparaba el importe consigo mismo y dejaba inerte el
       // guardia `IMPORTE_NO_COINCIDE` por este camino. Si el proveedor no lo

@@ -28,6 +28,7 @@ import { hoyISO } from '@/lib/student/formato';
 import {
   cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA, type LecturaPenalizacionesDeRecibos,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
+import { COLUMNAS_COBRO_EN_MARCHA, type FilaReciboRemesa, type LecturaRecibosRemesa } from '@/lib/billing/remesa-sepa-reglas';
 import { reservasPorAprobarDe, type FilaReservaPorAprobar, type ReservaPorAprobar } from '@/lib/reservas-por-aprobar';
 import { fusionarDatosPrivados, CAMPOS_PRIVADOS_SOCIO, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -3151,6 +3152,26 @@ export async function dbEstadosPenalizacionDeRecibos(ids: string[]): Promise<Lec
   }
 }
 
+/**
+ * Remesa SEPA: estado y cobros en marcha de estos recibos, leídos en el momento
+ * (el arranque del panel no trae esas columnas). `ok: false` = no se pudo leer.
+ * Ver `lib/billing/remesa-sepa-reglas.ts`.
+ */
+export async function dbLeerRecibosParaRemesa(ids: string[]): Promise<LecturaRecibosRemesa> {
+  const filas = new Map<string, FilaReciboRemesa>();
+  if (ids.length === 0) return { ok: true, filas };
+  try {
+    const { data, error } = await supabase.from('recibos')
+      .select('id, estado, proximo_reintento, stripe_payment_intent_id, checkout_session_id, cobro_mostrador_pi')
+      .in('id', ids);
+    if (error) return { ok: false };
+    for (const fila of (data ?? []) as FilaReciboRemesa[]) filas.set(fila.id, fila);
+    return { ok: true, filas };
+  } catch {
+    return { ok: false };
+  }
+}
+
 // Marca un recibo como COBRADO de forma condicional (auditoría 2026-07-29,
 // M-2): dbUpdateRecibo hace un UPDATE incondicional, sin comprobar el estado
 // actual. El cerrojo de re-entrada en marcarCobrado (studio-context.tsx) frena
@@ -3266,6 +3287,8 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Prom
 // una factura duplicada en el llamante.
 export async function dbUpdateRecibosBatch(
   ids: string[], changes: Partial<Recibo>, soloSiEstadoActual?: Recibo['estado'],
+  // Remesa SEPA: solo los que no tienen un cobro en marcha, en el propio UPDATE.
+  opciones: { sinCobroEnMarcha?: boolean } = {},
 ): Promise<ResultadoEscritura & { idsActualizados?: string[]; idsSaltados?: string[] }> {
   if (ids.length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   const db: Record<string, unknown> = {};
@@ -3295,6 +3318,7 @@ export async function dbUpdateRecibosBatch(
   const filtroEstado = soloSiEstadoActual;
   if (filtroEstado) q = q.eq('estado', filtroEstado);
   else if (changes.estado === 'COBRADO') q = q.in('estado', ['PENDIENTE', 'FALLIDO', 'DEVUELTO']);
+  if (opciones.sinCobroEnMarcha) for (const col of COLUMNAS_COBRO_EN_MARCHA) q = q.is(col, null);
   const { data, error } = await q.select('id');
   if (error) return falloEscritura('[dbUpdateRecibosBatch]', error);
   return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string), idsSaltados };

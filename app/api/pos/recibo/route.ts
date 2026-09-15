@@ -118,9 +118,11 @@ export async function POST(req: NextRequest) {
     // recarga del navegador. No va en `stripe_payment_intent_id`: esa es la del
     // cargo bueno, y de ella cuelgan los reembolsos.
     //
-    // Compare-and-set sobre el estado leído, contando filas: si el recibo se
-    // borró o cambió mientras se arrancaba el cobro, no hay a qué apuntarlo.
-    const { data: tocadas, error: errRef } = await admin.from('recibos')
+    // Compare-and-set sobre el estado Y la referencia leídos, contando filas: si
+    // el recibo se borró o cambió mientras se arrancaba el cobro, no hay a qué
+    // apuntarlo; y si otro arranque simultáneo ya guardó la suya, no se pisa
+    // (su datáfono o su enlace seguirían vivos sin nadie que les pregunte).
+    const guardar = admin.from('recibos')
       .update({
         cobro_mostrador_pi: inicio.referencia,
         // P-1 (27ª pasada): solo Bizum la rellena — hace falta para poder
@@ -128,25 +130,30 @@ export async function POST(req: NextRequest) {
         // el PaymentIntent (que no invalida el enlace de pago).
         cobro_mostrador_checkout_session_id: inicio.checkoutSessionId ?? null,
       })
-      .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('estado', recibo.estado)
-      .select('id');
-    if (errRef) {
-      // El cobro ya está lanzado en Stripe; perder la referencia solo significa
-      // que el mostrador no podrá preguntar — el webhook lo cerrará igual.
-      console.error('[pos/recibo] no se pudo guardar la referencia del cobro', errRef);
-    }
+      .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('estado', recibo.estado);
+    const { data: tocadas, error: errRef } = await (recibo.cobro_mostrador_pi
+      ? guardar.eq('cobro_mostrador_pi', recibo.cobro_mostrador_pi)
+      : guardar.is('cobro_mostrador_pi', null)
+    ).select('id');
+    if (errRef) console.error('[pos/recibo] no se pudo guardar la referencia del cobro', errRef.message);
     if (trasGuardarReferencia({ error: !!errRef, tocadas: tocadas?.length ?? 0 }) === 'CANCELAR') {
-      // Se cancela en la cuenta Connect del estudio (`ctx.ctx.stripeAccount`) y
-      // se vuelve a preguntar: cancelar es best-effort y no dice si lo logró.
+      // Con error tampoco se sigue: sin la referencia guardada, el sondeo de
+      // `confirmar` diría «no llegó a iniciarse» con el datáfono o el enlace de
+      // Bizum vivos. Se cancela en la cuenta Connect del estudio
+      // (`ctx.ctx.stripeAccount`) y se vuelve a preguntar: cancelar es
+      // best-effort y no dice si lo logró.
+      const motivo = errRef ? 'ERROR_AL_GUARDAR' : 'CAMBIO';
       await prov.cancelar(ctx.ctx, inicio.referencia, inicio.checkoutSessionId ?? null);
       const tras = await prov.consultar(ctx.ctx, inicio.referencia);
-      const respuesta = respuestaTrasCancelar(tras.estado);
+      const respuesta = respuestaTrasCancelar(tras.estado, motivo);
       // Solo ids.
-      Sentry.captureMessage('[pos/recibo] el recibo cambió mientras se iniciaba el cobro', {
+      Sentry.captureMessage(errRef
+        ? '[pos/recibo] no se pudo guardar la referencia del cobro'
+        : '[pos/recibo] el recibo cambió mientras se iniciaba el cobro', {
         level: respuesta.confirmado ? 'warning' : 'error', tags: { area: 'cobros', tipo: 'pos-recibo' },
-        extra: { reciboId, studioId: sesion.studioId, referencia: inicio.referencia, pagoEstado: tras.estado },
+        extra: { reciboId, studioId: sesion.studioId, referencia: inicio.referencia, pagoEstado: tras.estado, motivo },
       });
-      return NextResponse.json({ error: respuesta.mensaje, pagoEstado: tras.estado }, { status: 409 });
+      return NextResponse.json({ error: respuesta.mensaje, pagoEstado: tras.estado }, { status: respuesta.http });
     }
 
     return NextResponse.json({

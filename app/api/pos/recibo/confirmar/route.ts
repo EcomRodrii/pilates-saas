@@ -125,7 +125,10 @@ export async function POST(req: NextRequest) {
         // migración 0100, anterior al TPV): un cobro por datáfono es una
         // tarjeta, y así se registra cuando no hay nada más fino que decir.
         metodoCobro: est.metodoReal ?? (metodo === 'DATAFONO' ? 'TARJETA' : metodo),
-        paymentIntentId: recibo.cobro_mostrador_pi,
+        // El PaymentIntent que cobró: si la referencia era la sesión de Bizum
+        // (`cs_…`), el que devuelve la consulta. Una sesión no se reembolsa.
+        paymentIntentId: est.paymentIntentId
+          ?? (recibo.cobro_mostrador_pi.startsWith('cs_') ? null : recibo.cobro_mostrador_pi),
         fuente: 'tpv',
       });
       if (!res.ok) {
