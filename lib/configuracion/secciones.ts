@@ -206,10 +206,9 @@ export const SECCIONES = [
     frase: 'Llévate una copia de los datos de tu estudio cuando quieras.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      // Dos exportaciones mientras se decide cuál se queda: cada frase dice qué
-      // saca y en qué formato, para que no parezcan la misma.
-      { id: 'exportar', titulo: 'Exportar mis datos', frase: 'Un archivo CSV por tabla (alumnas, reservas, suscripciones y bonos, recibos y pagos importados). No incluye ficha clínica ni notas de progreso.', guardado: 'accion' },
-      { id: 'integracion-excel', titulo: 'Exportar a Excel', frase: 'Tres archivos CSV que abre Excel: tus alumnas con su plan, su historial de reservas con asistencia y los recibos.', guardado: 'accion' },
+      // La única forma de llevarte tus datos: «Exportar a Excel» se retiró el
+      // 15-sep y su ancla vieja lleva aquí (lib/configuracion/destino.ts).
+      { id: 'exportar', titulo: 'Exportar mis datos', frase: 'Un archivo CSV por tabla, que abre Excel: alumnas, reservas, suscripciones y bonos, recibos y pagos importados. No incluye ficha clínica ni notas de progreso.', guardado: 'accion' },
     ],
   },
 ] as const satisfies readonly SeccionConfiguracion[];

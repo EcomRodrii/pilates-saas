@@ -59,7 +59,11 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=conexiones#integracion-stripe', { tab: 'cobros', ancla: 'integracion-stripe' }],
     ['/configuracion?tab=conexiones#integracion-whatsapp', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
     ['/configuracion?tab=integraciones#integracion-resend', { tab: 'comunicacion', ancla: 'integracion-resend' }],
-    ['/configuracion?tab=conexiones#integracion-excel', { tab: 'datos', ancla: 'integracion-excel' }],
+    // «Exportar a Excel» se retiró: su ancla lleva a la única exportación que queda.
+    ['/configuracion?tab=conexiones#integracion-excel', { tab: 'datos', ancla: 'exportar' }],
+    ['/configuracion?tab=integraciones#integracion-excel', { tab: 'datos', ancla: 'exportar' }],
+    ['/configuracion?tab=datos#integracion-excel', { tab: 'datos', ancla: 'exportar' }],
+    ['/configuracion#integracion-excel', { tab: 'datos', ancla: 'exportar' }],
     ['/configuracion?tab=estudio#marca', { tab: 'web', ancla: 'marca' }],
     ['/configuracion?tab=estudio#textos-de-tu-app', { tab: 'web', ancla: 'textos-de-tu-app' }],
     ['/configuracion?tab=estudio#catalogo-de-la-cadena', { tab: 'clases', ancla: 'catalogo-de-la-cadena' }],

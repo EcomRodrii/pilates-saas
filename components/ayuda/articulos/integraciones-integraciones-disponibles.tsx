@@ -11,8 +11,8 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 // 15-sep-2026: Configuración se reorganizó por preguntas y cada integración
 // está en la sección de lo que hace: Stripe en «Cobros y facturas», el
 // remitente, WhatsApp y Gmail en «Cómo me comunico», y el resto en
-// «Conexiones». «Exportar a Excel» no conecta nada y está en «Datos y
-// seguridad». Los nombres y frases de abajo son los de la pantalla
+// «Conexiones». Llevarte tus datos no es una integración: está en «Datos y
+// seguridad» («Exportar mis datos»). Los nombres y frases de abajo son los de la pantalla
 // (lib/configuracion/secciones.ts y tab-integraciones.tsx).
 
 const GRUPOS: { seccion: string; tarjetas: [string, string][] }[] = [
@@ -73,8 +73,8 @@ export default function Contenido() {
         datos de tu cuenta de Meta. Zapier funciona al revés: la conexión se autoriza desde Zapier, no desde Tentare.
       </p>
       <p>
-        Para llevarte tus datos a una hoja de cálculo no hace falta conectar nada: está en Configuración &gt; Datos y
-        seguridad.
+        Para llevarte tus datos a una hoja de cálculo no hace falta conectar nada: en Configuración &gt; Datos y
+        seguridad, «Exportar mis datos» te da un archivo por tabla que abre Excel.
       </p>
 
       <AyudaResultado>

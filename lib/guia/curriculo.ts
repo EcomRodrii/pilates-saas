@@ -747,7 +747,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Tus datos son tuyos',
-        texto: 'Puedes exportarlo todo a Excel cuando quieras, y la Libreta imprime tu estudio entero —cada alumna con su plan, sus sesiones y su plaza— en papel. Está ahí para que nunca te sientas atrapada.',
+        texto: 'En Configuración → Datos y seguridad te llevas tus datos cuando quieras: un archivo por tabla que abre Excel. Y la Libreta imprime tu estudio entero —cada alumna con su plan, sus sesiones y su plaza— en papel. Está ahí para que nunca te sientas atrapada.',
       },
     ],
     acciones: [

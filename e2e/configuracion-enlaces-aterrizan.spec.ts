@@ -78,7 +78,8 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     ['/configuracion?tab=estudio#marca', 'Mi app y mi web', '#marca'],
     ['/configuracion?tab=estudio#textos-de-tu-app', 'Mi app y mi web', '#textos-de-tu-app'],
     ['/configuracion?tab=conexiones#integracion-whatsapp', 'Cómo me comunico', '#integracion-whatsapp'],
-    ['/configuracion?tab=conexiones#integracion-excel', 'Datos y seguridad', '#integracion-excel'],
+    // «Exportar a Excel» se retiró: su enlace lleva a «Exportar mis datos».
+    ['/configuracion?tab=conexiones#integracion-excel', 'Datos y seguridad', '#exportar'],
   ];
 
   for (const [href, seccion, tarjeta] of ENLACES_VIEJOS) {
