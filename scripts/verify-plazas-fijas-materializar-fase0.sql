@@ -1,4 +1,4 @@
--- Drill de la materialización de plazas fijas (migr 20260914233741).
+-- Drill de la materialización de plazas fijas (migr 20260915001236).
 -- TODO dentro de una transacción que termina en ROLLBACK: no deja nada. Los ids
 -- del fixture llevan el prefijo `zzdrill-` para no chocar con datos reales.
 --
@@ -21,7 +21,7 @@
 \set ON_ERROR_STOP on
 begin;
 
-\i supabase/migrations/20260914233741_plazas_fijas_plan_vigente_autorizacion_y_retirada.sql
+\i supabase/migrations/20260915001236_plazas_fijas_plan_vigente_autorizacion_y_retirada.sql
 
 -- ── Fixture ──────────────────────────────────────────────────────────────────
 insert into studios (id, nombre) values ('zzdrill-st', 'Estudio PF');

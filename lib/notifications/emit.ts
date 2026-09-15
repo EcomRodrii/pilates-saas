@@ -160,7 +160,7 @@ export async function emitirReservaCancelada(
 // un "último periodo avisado" tipo Fase 2b de gestoría.
 // Los motivos que devuelve `plazas_fijas_sin_materializar`.
 // `suscripcion_pausada` es el nombre viejo de `sin_plan_vigente` (hasta la migr
-// 20260914233741): se sigue aceptando por si el código llega antes que la
+// 20260915001236): se sigue aceptando por si el código llega antes que la
 // migración, con el texto nuevo, que también es cierto para una pausa.
 export type MotivoPlazaNoMaterializada =
   | 'sesion_cancelada' | 'sin_plan_vigente' | 'suscripcion_pausada' | 'sin_autorizacion' | 'sin_aforo';

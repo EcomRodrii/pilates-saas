@@ -3382,7 +3382,7 @@ export async function ejecutarCancelacionReserva(
     // Solo `retirarReservasFuturasPlazaFija`: la cancela el servidor al pausar o
     // quitar la plaza fija, no la socia clase a clase. Se guarda en
     // `reservas.cancelada_motivo` para que el barrido semanal no la compense y
-    // la plaza pueda volver a reservarla si se reanuda (migr 20260914233741).
+    // la plaza pueda volver a reservarla si se reanuda (migr 20260915001236).
     motivoCancelacion?: 'plaza_fija_retirada';
   },
 ): Promise<{
