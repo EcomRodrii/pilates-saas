@@ -5,6 +5,7 @@ import { enviarEmailImpago } from '../emails/impago-server.ts';
 import { aplicarRenovacionServidor } from './renovacion-server.ts';
 import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
 import { hoyEnEstudio } from '../utils.ts';
+import { penalizacionDelRecibo } from './penalizacion-aprobar-reglas.ts';
 
 // Registra un intento de cobro FALLIDO de un recibo y avanza su ciclo de dunning:
 // cuenta el intento, reprograma el siguiente reintento (+3 / +7 días) o marca el
@@ -80,6 +81,25 @@ export async function registrarFalloCobro(params: {
       },
     });
     return null;
+  }
+
+  // Si el recibo es el de una penalización, la penalización refleja el fallo ya
+  // (`escrituraPorEstadoDelRecibo`): un adeudo SEPA dado por cobrado en
+  // `processing` que ahora falla deja de contar como COBRADA —la liquidación de
+  // la instructora la imputaba sin el dinero— y pasa a RECIBO_CREADO si vuelve al
+  // dunning, o a FALLIDA si se agotó. Cubre las tres llamadas (webhook, dunning y
+  // su red SEPA). Nunca lanza; lo que no escriba lo recoge el barrido horario del
+  // cron de penalizaciones. Import dinámico y solo para estos recibos: ese módulo
+  // usa alias `@/`, que `node --test` no resuelve.
+  if (penalizacionDelRecibo(reciboId)) {
+    try {
+      const { seguirPenalizacionAlRecibo } = await import('./penalizacion-recibo-server.ts');
+      await seguirPenalizacionAlRecibo(admin, { studioId, reciboId });
+    } catch (e) {
+      Sentry.captureException(e instanceof Error ? e : new Error('No se pudo reflejar el fallo de cobro en la penalización'), {
+        level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-recibo' }, extra: { reciboId, studioId },
+      });
+    }
   }
 
   // Hallazgo A (auditoría dunning 2026-08-10): al agotar los 3 reintentos la

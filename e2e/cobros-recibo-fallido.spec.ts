@@ -50,6 +50,10 @@ async function montar(page: Page, opts: {
   cobrarOnlineBody?: unknown;
   /** Retraso artificial antes de responder — para poder observar el estado de loading. */
   cobrarOnlineDelayMs?: number;
+  marcarDevueltoStatus?: number;
+  marcarDevueltoBody?: unknown;
+  /** Cuerpos enviados a /api/cobros/marcar-devuelto y escrituras directas a `recibos`. */
+  registro?: { devuelto: string[]; escriturasRecibos: number };
 }) {
   const llamadasCobrarOnline: string[] = [];
   await page.addInitScript(([key, uid]) => {
@@ -71,6 +75,10 @@ async function montar(page: Page, opts: {
     if (opts.cobrarOnlineDelayMs) await new Promise(r => setTimeout(r, opts.cobrarOnlineDelayMs));
     return json(route, opts.cobrarOnlineBody ?? { ok: true, status: 'succeeded' }, opts.cobrarOnlineStatus ?? 200);
   });
+  await page.route('**/api/cobros/marcar-devuelto', route => {
+    opts.registro?.devuelto.push(route.request().postData() ?? '');
+    return json(route, opts.marcarDevueltoBody ?? { ok: true, fechaDevolucion: '2026-09-15T09:00:00.000Z', yaEstaba: false }, opts.marcarDevueltoStatus ?? 200);
+  });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID, nif: 'B00000000' }));
@@ -79,7 +87,10 @@ async function montar(page: Page, opts: {
   await page.route('**/rest/v1/planes_tarifa**', route => json(route, PLANES));
   await page.route('**/rest/v1/suscripciones**', route => json(route, SUSCRIPCIONES));
   await page.route('**/rest/v1/recibos**', route => {
-    if (route.request().method() !== 'GET') return json(route, [{ id: 'rec-1' }]);
+    if (route.request().method() !== 'GET') {
+      if (opts.registro) opts.registro.escriturasRecibos++;
+      return json(route, [{ id: 'rec-1' }]);
+    }
     return json(route, recibo(opts.estado, opts.intentos ?? 0));
   });
 
@@ -130,6 +141,34 @@ test.describe('Recibo FALLIDO — recuperación manual desde Cobros', () => {
     await expect(page.getByText('No se pudo completar el cobro. Inténtalo de nuevo más tarde.')).toBeVisible({ timeout: 10_000 });
     // El botón se reactiva: no queda "clavado" pensando para siempre.
     await expect(btnOnline).toBeEnabled();
+  });
+
+  // «Marcar devuelto» pasa por servidor para que la nómina se entere si el recibo
+  // era de una penalización. Antes era un UPDATE directo desde el cliente.
+  test('«Marcar devuelto» va por la ruta de servidor, nunca con un UPDATE directo a recibos', async ({ page }) => {
+    const registro = { devuelto: [] as string[], escriturasRecibos: 0 };
+    await montar(page, { estado: 'FALLIDO', intentos: 3, registro });
+    await page.getByTitle('Marcar devuelto').click();
+
+    await expect.poll(() => registro.devuelto.length).toBeGreaterThan(0);
+    expect(JSON.parse(registro.devuelto[0])).toEqual({ reciboId: 'rec-1' });
+    await page.waitForTimeout(500);
+    expect(registro.escriturasRecibos).toBe(0);
+  });
+
+  test('si el servidor dice que no, se ve el motivo y el recibo sigue como estaba', async ({ page }) => {
+    const registro = { devuelto: [] as string[], escriturasRecibos: 0 };
+    await montar(page, {
+      estado: 'FALLIDO', intentos: 3, registro,
+      marcarDevueltoStatus: 409, marcarDevueltoBody: { error: 'Este recibo ya no se puede marcar como devuelto.' },
+    });
+    await page.getByTitle('Marcar devuelto').click();
+
+    // Contador: sin él, «no mintió» podría ser verdad por no haber intentado nada.
+    await expect.poll(() => registro.devuelto.length).toBeGreaterThan(0);
+    await expect(page.getByText('Este recibo ya no se puede marcar como devuelto.')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('No se pudo cobrar', { exact: true })).toBeVisible();
+    expect(registro.escriturasRecibos).toBe(0);
   });
 
   test('doble clic mientras carga no dispara una segunda request', async ({ page }) => {

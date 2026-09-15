@@ -881,6 +881,26 @@ export async function cobrarOnlineDirecto(params: { reciboId: string; socioId: s
   return aviso ? { ok: true, ...aviso } : { ok: true };
 }
 
+// «Marcar devuelto» desde Cobros. NUNCA lanza: sin respuesta legible no se
+// afirma nada, y la pantalla no marca el recibo.
+export async function marcarReciboDevueltoApi(reciboId: string): Promise<{ ok: true; fechaDevolucion: string } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/cobros/marcar-devuelto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reciboId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: unknown; error?: unknown; fechaDevolucion?: unknown };
+    if (!res.ok) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    if (data.ok !== true || typeof data.fechaDevolucion !== 'string') {
+      return { ok: false, error: 'No hemos podido confirmar la devolución. Recarga para ver cómo ha quedado.' };
+    }
+    return { ok: true, fechaDevolucion: data.fechaDevolucion };
+  } catch {
+    return { ok: false, error: 'No hemos podido confirmar la devolución. Comprueba tu conexión.' };
+  }
+}
+
 /**
  * Enlace para que una socia AUTORICE una tarjeta sin pagar nada (Stripe
  * Checkout en `mode: 'setup'`). Es la salida cuando un cobro off-session

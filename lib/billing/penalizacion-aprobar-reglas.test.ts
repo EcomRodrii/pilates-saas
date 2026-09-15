@@ -17,6 +17,7 @@ import {
   dunningPuedeCobrarPenalizacion,
   escrituraAlCrearRecibo,
   escrituraPorEstadoDelRecibo,
+  motivoRevisionPorRecibo,
   hayQueLeerReciboAntesDeCobrar,
   hayQueRevisarLiquidacion,
   hayQueReleerRecibo,
@@ -1011,10 +1012,15 @@ test('⚠️ el dunning solo cobra el recibo de una penalización con el cobro d
   assert.equal(dunningPuedeCobrarPenalizacion({ ok: false }), false, 'ilegible: se omite');
 });
 
-test('el estado del recibo decide: COBRADO → COBRADA, FALLIDO → FALLIDA desde RECIBO_CREADO o COBRADA, el resto no resuelve', () => {
+test('el estado del recibo decide: COBRADO → COBRADA, FALLIDO → FALLIDA, una COBRADA sin el dinero deja de serlo, EN_CURSO no resuelve', () => {
   assert.deepEqual(escrituraPorEstadoDelRecibo('COBRADO'), { estado: 'COBRADA', desde: ESTADOS_QUE_CORRIGE_UN_COBRO });
   assert.deepEqual(escrituraPorEstadoDelRecibo('FALLIDO'), { estado: 'FALLIDA', desde: ['RECIBO_CREADO', 'COBRADA'] });
-  for (const estado of ['PENDIENTE', 'EN_CURSO', 'ANULADA', 'DEVUELTO', null]) {
+  // PENDIENTE solo desde COBRADA: a una RECIBO_CREADO en pleno dunning no le pasa
+  // nada. DEVUELTO también cierra la RECIBO_CREADO (el dunning ya no lo cobra). Una
+  // DETECTADA o PENDIENTE_APROBACION no se toca: la cierra el cron o el estudio.
+  assert.deepEqual(escrituraPorEstadoDelRecibo('PENDIENTE'), { estado: 'RECIBO_CREADO', desde: ['COBRADA'] });
+  assert.deepEqual(escrituraPorEstadoDelRecibo('DEVUELTO'), { estado: 'FALLIDA', desde: ['COBRADA', 'RECIBO_CREADO'] });
+  for (const estado of ['EN_CURSO', 'ANULADA', null]) {
     assert.equal(escrituraPorEstadoDelRecibo(estado), null, String(estado));
   }
 });
@@ -1145,12 +1151,90 @@ test('⚠️ BLOQUEANTE B2: COBRADA por un processing de la aprobación a mano c
   assert.equal(hayQueRevisarLiquidacion('COBRADA', escrituraPorEstadoDelRecibo('FALLIDO')!), true);
 });
 
+// ── Una COBRADA sin el dinero ───────────────────────────────────────────────
+// La liquidación de la instructora imputa toda COBRADA. Dos caminos la dejaban
+// así con el dinero fuera: el adeudo SEPA que falla después de darse por cobrado
+// (aprobación a mano con `processing`) y el «Marcar devuelto» de Cobros.
+
+test('⚠️ adeudo SEPA fallido con reintento: COBRADA → RECIBO_CREADO en el momento, el dunning lo sigue persiguiendo y la liquidación pide revisión', async () => {
+  const m = mundo('COBRADA', { estado: 'PENDIENTE', armado: true }, RID); // registrarFalloCobro lo reprogramó
+  const s = await seguirAlRecibo(ioSeguimiento(m));
+  assert.deepEqual(s, { paso: 'ESCRITA', estado: 'RECIBO_CREADO', notificada: false });
+  assert.equal(hayQueRevisarLiquidacion('COBRADA', escrituraPorEstadoDelRecibo('PENDIENTE')!), true);
+  // Ni FALLIDA ni REEMBOLSADA: la deuda se abandonaría.
+  assert.equal(dunningPuedeCobrarPenalizacion({ ok: true, estado: m.pen.estado }), true);
+  assert.equal(loCobraElDunning(m), true);
+});
+
+test('…y el reintento cobra: vuelve a COBRADA (con aviso deduplicado). Si se agota: FALLIDA sin pedir una segunda revisión', async () => {
+  const cobra = mundo('RECIBO_CREADO', { estado: 'COBRADO', armado: false }, RID);
+  assert.equal((await seguirAlRecibo(ioSeguimiento(cobra))).paso, 'ESCRITA');
+  assert.equal(cobra.pen.estado, 'COBRADA');
+  assert.equal(cobra.avisos, 1);
+
+  const agota = mundo('RECIBO_CREADO', { estado: 'FALLIDO', armado: false }, RID);
+  await seguirAlRecibo(ioSeguimiento(agota));
+  assert.equal(agota.pen.estado, 'FALLIDA');
+  assert.equal(hayQueRevisarLiquidacion('RECIBO_CREADO', escrituraPorEstadoDelRecibo('FALLIDO')!), false, 'ya se pidió al salir de COBRADA');
+});
+
+test('⚠️ recibo DEVUELTO: COBRADA → FALLIDA, y si luego se cobra (en efectivo, por Cobros) vuelve a COBRADA', async () => {
+  const m = mundo('COBRADA', { estado: 'DEVUELTO', armado: false }, RID);
+  await seguirAlRecibo(ioSeguimiento(m));
+  assert.equal(m.pen.estado, 'FALLIDA', 'no REEMBOLSADA: un DEVUELTO sigue siendo deuda y un cobro posterior no la corregiría');
+  m.recibos.get(RID)!.estado = 'COBRADO';
+  await seguirAlRecibo(ioSeguimiento(m));
+  assert.equal(m.pen.estado, 'COBRADA');
+
+  // Una RECIBO_CREADO cuyo recibo se marca devuelto antes de cobrarse: FALLIDA,
+  // sin revisión (nunca estuvo en la nómina).
+  const sinCobrar = mundo('RECIBO_CREADO', { estado: 'DEVUELTO', armado: false }, RID);
+  await seguirAlRecibo(ioSeguimiento(sinCobrar));
+  assert.equal(sinCobrar.pen.estado, 'FALLIDA');
+  assert.equal(hayQueRevisarLiquidacion('RECIBO_CREADO', escrituraPorEstadoDelRecibo('DEVUELTO')!), false);
+});
+
+test('un recibo PENDIENTE o DEVUELTO no toca ninguna otra penalización (REEMBOLSADA incluida)', async () => {
+  const tocables: Record<string, string[]> = { PENDIENTE: ['COBRADA'], DEVUELTO: ['COBRADA', 'RECIBO_CREADO'] };
+  for (const estadoRecibo of ['PENDIENTE', 'DEVUELTO']) {
+    for (const estado of ESTADOS.filter(e => !tocables[estadoRecibo].includes(e))) {
+      const m = mundo(estado, { estado: estadoRecibo, armado: estadoRecibo === 'PENDIENTE' }, RID);
+      const s = await seguirAlRecibo(ioSeguimiento(m));
+      assert.equal(s.paso, 'SIN_EFECTO', `${estadoRecibo}/${estado}`);
+      assert.equal(m.pen.estado, estado, `${estadoRecibo}/${estado}`);
+    }
+  }
+});
+
+test('el barrido también recoge la COBRADA sin el dinero (red si la llamada en el momento no escribió)', () => {
+  assert.deepEqual(BARRIDO_RECIBO_RESUELTO.find(b => b.estadoRecibo === 'PENDIENTE')?.estados, ['COBRADA']);
+  assert.deepEqual(BARRIDO_RECIBO_RESUELTO.find(b => b.estadoRecibo === 'DEVUELTO')?.estados, ['COBRADA', 'RECIBO_CREADO']);
+});
+
+test('seguirAlRecibo pasa el estado del recibo leído, y el motivo de revisión dice qué ha pasado', async () => {
+  const vistos: (string | null)[] = [];
+  const m = mundo('COBRADA', { estado: 'DEVUELTO', armado: false }, RID);
+  const io = ioSeguimiento(m);
+  await seguirAlRecibo({ ...io, cerrarPenalizacion: (e, estadoRecibo) => { vistos.push(estadoRecibo); return io.cerrarPenalizacion(e, estadoRecibo); } });
+  assert.deepEqual(vistos, ['DEVUELTO']);
+
+  const motivos = ['PENDIENTE', 'DEVUELTO', 'FALLIDO'].map(e => motivoRevisionPorRecibo(e, 12.5));
+  assert.equal(new Set(motivos).size, 3);
+  for (const t of motivos) assert.ok(t.includes('12.50€'), t);
+  assert.match(motivos[0], /pendiente de cobro/);
+  assert.match(motivos[1], /devuelta/);
+});
+
 test('revisión de liquidación: solo cuando una COBRADA deja de serlo', () => {
   const fallida = escrituraPorEstadoDelRecibo('FALLIDO')!;
   const cobrada = escrituraPorEstadoDelRecibo('COBRADO')!;
+  const pendiente = escrituraPorEstadoDelRecibo('PENDIENTE')!;
+  const devuelta = escrituraPorEstadoDelRecibo('DEVUELTO')!;
   for (const estado of [...ESTADOS, null]) {
     assert.equal(hayQueRevisarLiquidacion(estado, fallida), estado === 'COBRADA', String(estado));
     assert.equal(hayQueRevisarLiquidacion(estado, cobrada), false, String(estado));
+    assert.equal(hayQueRevisarLiquidacion(estado, pendiente), estado === 'COBRADA', `PENDIENTE/${estado}`);
+    assert.equal(hayQueRevisarLiquidacion(estado, devuelta), estado === 'COBRADA', `DEVUELTO/${estado}`);
   }
 });
 
@@ -1188,11 +1272,15 @@ test('⚠️ seguir al recibo nunca pisa lo que no toca: REEMBOLSADA, OMITIDA_* 
 });
 
 test('seguir al recibo: recibo sin resolver o ilegible → no escribe ni avisa', async () => {
-  for (const estado of ['PENDIENTE', 'EN_CURSO', 'ANULADA']) {
+  for (const estado of ['EN_CURSO', 'ANULADA']) {
     const m = mundo('RECIBO_CREADO', { estado, armado: true }, RID);
     assert.deepEqual(await seguirAlRecibo(ioSeguimiento(m)), { paso: 'RECIBO_SIN_RESOLVER' }, estado);
     assert.equal(m.pen.estado, 'RECIBO_CREADO');
   }
+  // PENDIENTE solo resuelve una COBRADA: a una RECIBO_CREADO en pleno dunning no la toca.
+  const pendiente = mundo('RECIBO_CREADO', { estado: 'PENDIENTE', armado: true }, RID);
+  assert.deepEqual(await seguirAlRecibo(ioSeguimiento(pendiente)), { paso: 'SIN_EFECTO', estado: 'RECIBO_CREADO', notificada: false });
+  assert.equal(pendiente.pen.estado, 'RECIBO_CREADO');
   const m = mundo('RECIBO_CREADO', { estado: 'COBRADO', armado: false }, RID);
   assert.deepEqual(await seguirAlRecibo(ioSeguimiento(m, { errorLecturaRecibo: true })), { paso: 'RECIBO_ILEGIBLE' });
   assert.equal(m.pen.estado, 'RECIBO_CREADO');

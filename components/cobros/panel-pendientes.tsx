@@ -1116,7 +1116,10 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                                 Online
                               </button>
                               <button
-                                onClick={() => marcarDevuelto(r.id)}
+                                onClick={async () => {
+                                  const res = await marcarDevuelto(r.id);
+                                  if (!res.ok) onToast(res.error);
+                                }}
                                 className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-destructive/10 transition-colors"
                                 title="Marcar devuelto"
                               >
@@ -1161,7 +1164,10 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                                 </button>
                               )}
                               <button
-                                onClick={() => marcarDevuelto(r.id)}
+                                onClick={async () => {
+                                  const res = await marcarDevuelto(r.id);
+                                  if (!res.ok) onToast(res.error);
+                                }}
                                 className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-destructive/10 transition-colors"
                                 title="Devolver"
                               >

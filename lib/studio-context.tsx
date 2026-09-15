@@ -184,7 +184,7 @@ import type {
 } from '@/lib/types';
 import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados, marcarReciboDevueltoApi } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
@@ -4278,16 +4278,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function marcarDevuelto(reciboId: string): Promise<ResultadoEscritura> {
-    const fechaDev = new Date().toISOString();
     // Mismo criterio que marcarCobrado: un recibo devuelto es dinero que sale de
     // la caja del mes. Si la BD lo rechaza y la pantalla lo da por devuelto, el
     // cierre de caja cuadra contra algo que no está guardado.
-    const res = await dbUpdateRecibo(reciboId, { estado: 'DEVUELTO', fechaDevolucion: fechaDev });
+    // Por servidor, no con `dbUpdateRecibo`: si el recibo era de una penalización
+    // cobrada, la nómina de la instructora tiene que enterarse, y eso solo se
+    // puede hacer con service-role (lib/billing/marcar-devuelto.ts).
+    const res = await marcarReciboDevueltoApi(reciboId);
     if (!res.ok) return res;
     setRecibos(prev => prev.map(r =>
-      r.id === reciboId ? { ...r, estado: 'DEVUELTO' as const, fechaDevolucion: fechaDev } : r
+      r.id === reciboId ? { ...r, estado: 'DEVUELTO' as const, fechaDevolucion: res.fechaDevolucion, proximoReintento: null } : r
     ));
-    return res;
+    return { ok: true };
   }
 
   // La escritura vivía DENTRO del updater de setRecibos (un antipatrón aparte
