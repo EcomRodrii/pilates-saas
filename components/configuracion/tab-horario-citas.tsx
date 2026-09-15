@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
+import { btnSecondary, cardCls } from '@/components/configuracion/estilos';
+import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { queImparten } from '@/lib/equipo';
@@ -168,7 +169,7 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
     setDirty(true);
   }, []);
 
-  const guardar = useCallback(async () => {
+  const guardar = useCallback(async (): Promise<string | null> => {
     const franjas: Array<{ diaSemana: number; horaInicio: string; horaFin: string }> = [];
     for (const dowStr of Object.keys(draft)) {
       const dow = Number(dowStr);
@@ -177,15 +178,20 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
       }
     }
     const res = await setDisponibilidadCitas(selected, franjas);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) return res.error;
     setDraft(prev => {
       const norm: Draft = {};
       for (const dowStr of Object.keys(prev)) { const d = Number(dowStr); const m = mergeFranjas(prev[d]); if (m.length) norm[d] = m; }
       return norm;
     });
     setDirty(false);
-    showToast('Horario guardado');
-  }, [draft, selected, setDisponibilidadCitas, showToast]);
+    return null;
+  }, [draft, selected, setDisponibilidadCitas]);
+
+  const descartar = useCallback(() => {
+    setDraft(draftFromDisponibilidad(citasDisponibilidad, selected));
+    setDirty(false);
+  }, [citasDisponibilidad, selected]);
 
   if (activos.length === 0) {
     return (
@@ -265,19 +271,20 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
       </div>
 
       {/* Acciones */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <button className={cn(btnSecondary, 'flex items-center gap-1.5')} onClick={copiarLunes}>
-            <Copy size={14} />Copiar lunes a L–V
-          </button>
-          <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <Clock size={14} />{horas} h/semana
-          </span>
-        </div>
-        <button className={btnPrimary} onClick={guardar} disabled={!dirty}>
-          Guardar horario
+      <div className="flex flex-wrap items-center gap-3">
+        <button className={cn(btnSecondary, 'flex items-center gap-1.5')} onClick={copiarLunes}>
+          <Copy size={14} />Copiar lunes a L–V
         </button>
+        <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
+          <Clock size={14} />{horas} h/semana
+        </span>
       </div>
+      <BarraGuardar
+        seccion="clases"
+        cambios={dirty ? ['Horario de citas'] : []}
+        onGuardar={guardar}
+        onDescartar={descartar}
+      />
     </div>
   );
 }
