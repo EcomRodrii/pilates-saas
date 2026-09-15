@@ -29,6 +29,25 @@ import { TZ_ESTUDIO } from '@/lib/utils';
 // que /precios y el alta. Antes esta página tenía sus propios 4 bullets por
 // plan escritos a mano, y ya no coincidían con los de /precios.
 
+// ⚠️ `trial` es un campo NUEVO de /api/billing/status. Si no viene —un cliente
+// con el bundle viejo en caché, o el endpoint todavía sin desplegar— esta
+// pantalla NO puede quedarse enseñando el estado equivocado: es la factura del
+// estudio. De ahí el respaldo sobre los campos de siempre, que llevan ahí desde
+// el principio.
+function yaPagaSegun(e: EstadoBilling | null): boolean {
+  if (e?.trial) return e.trial.fase === 'SUSCRITO';
+  const status = e?.subscriptionStatus ?? null;
+  return status === 'active' || status === 'past_due' || status === 'trialing';
+}
+
+// Stripe vuelve aquí al acabar el Checkout con `?suscripcion=ok|cancel` (antes
+// volvía a Configuración, que no lo leía nadie). «ok» significa que Stripe ha
+// ACEPTADO el pago, no que el plan esté activo: eso lo escribe el webhook, que
+// puede llegar unos segundos después. Por eso el aviso sale del estado real y
+// se vuelve a preguntar un rato, en vez de felicitar a ciegas.
+const REINTENTOS_CONFIRMACION = 10;
+const ESPERA_CONFIRMACION_MS = 3000;
+
 export default function SuscripcionPage() {
   const { session, loading } = useAuth();
   const router = useRouter();
@@ -37,24 +56,41 @@ export default function SuscripcionPage() {
   const [elegido, setElegido] = useState<Plan>('ESTUDIO');
   const [accion, setAccion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Se lee una vez: la página no se pinta hasta tener sesión (ni en el
+  // servidor), así que no hay HTML que pueda desajustarse con esto.
+  const [retornoCheckout] = useState(() =>
+    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('suscripcion'));
+  const [confirmacionAgotada, setConfirmacionAgotada] = useState(false);
 
   useEffect(() => {
     if (!loading && !session) router.replace('/login');
   }, [loading, session, router]);
 
+  // Quitado de la URL en cuanto se ha leído: recargar mañana no debe repetir
+  // «estamos confirmando tu pago».
+  useEffect(() => {
+    if (retornoCheckout) window.history.replaceState(null, '', '/suscripcion');
+  }, [retornoCheckout]);
+
   useEffect(() => {
     if (!session) return;
     let vivo = true;
-    estadoBilling().then((e) => {
+    let intentos = 0;
+    let espera: ReturnType<typeof setTimeout> | undefined;
+    const cargar = () => estadoBilling().then((e) => {
       if (!vivo) return;
       setEstado(e);
       // Se preselecciona el plan que ya está probando: es el que ha estado
       // usando estos días, y el que menos sorpresas le va a dar.
       if (e?.plan === 'BASE' || e?.plan === 'ESTUDIO' || e?.plan === 'CADENA') setElegido(e.plan);
       setCargando(false);
+      if (retornoCheckout !== 'ok' || yaPagaSegun(e)) return;
+      if (++intentos >= REINTENTOS_CONFIRMACION) { setConfirmacionAgotada(true); return; }
+      espera = setTimeout(cargar, ESPERA_CONFIRMACION_MS);
     });
-    return () => { vivo = false; };
-  }, [session]);
+    cargar();
+    return () => { vivo = false; clearTimeout(espera); };
+  }, [session, retornoCheckout]);
 
   async function suscribir() {
     setError(null);
@@ -78,16 +114,8 @@ export default function SuscripcionPage() {
   const esPropietaria = estado?.esPropietaria ?? true;
   const stripeListo = estado?.configurado ?? false;
   const trial = estado?.trial;
-  const status = estado?.subscriptionStatus ?? null;
 
-  // ⚠️ `trial` es un campo NUEVO de /api/billing/status. Si no viene —un
-  // cliente con el bundle viejo en caché, o el endpoint todavía sin desplegar—
-  // esta pantalla NO puede quedarse enseñando el estado equivocado: es la
-  // factura del estudio. De ahí el respaldo sobre los campos de siempre, que
-  // llevan ahí desde el principio.
-  const yaPaga = trial
-    ? trial.fase === 'SUSCRITO'
-    : status === 'active' || status === 'past_due' || status === 'trialing';
+  const yaPaga = yaPagaSegun(estado);
   const enPrueba = trial
     ? trial.fase !== 'SUSCRITO' && trial.fase !== 'EXPIRADA' && trial.fase !== 'SIN_PRUEBA'
     : false;
@@ -136,6 +164,28 @@ export default function SuscripcionPage() {
 
         {/* ── Avisos ─────────────────────────────────────────────────────── */}
         <div aria-live="polite">
+          {retornoCheckout === 'ok' && !cargando && (
+            yaPaga ? (
+              <div className="mb-5 rounded-xl border border-success/25 bg-success/10 px-4 py-3 text-[13.5px] font-medium text-success">
+                Listo: tu suscripción está activa.
+              </div>
+            ) : confirmacionAgotada ? (
+              <div className="mb-5 rounded-xl border border-warning/25 bg-warning/10 px-4 py-3 text-[13.5px] text-warning">
+                Stripe ha aceptado el pago, pero su confirmación todavía no nos ha llegado y tu plan aún no aparece activo.
+                Vuelve a mirar en unos minutos; si sigue igual, escríbenos a soporte@tentare.app.
+              </div>
+            ) : (
+              <div className="mb-5 flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-[13.5px] text-muted-foreground">
+                <Loader2 size={15} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                Stripe ha aceptado el pago. Estamos esperando su confirmación para activar tu plan.
+              </div>
+            )
+          )}
+          {retornoCheckout === 'cancel' && (
+            <div className="mb-5 rounded-xl border border-border bg-card px-4 py-3 text-[13.5px] text-muted-foreground">
+              Has salido del pago sin terminarlo: no se ha cobrado nada.
+            </div>
+          )}
           {error && (
             <div role="alert" className="mb-5 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-[13.5px] font-medium text-destructive">
               {error}

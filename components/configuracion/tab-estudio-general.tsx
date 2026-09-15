@@ -78,16 +78,20 @@ function studioToForm(s: Studio | null): StudioForm {
 // ─── Piezas ──────────────────────────────────────────────────────────────────
 
 function Tarjeta({
+  id,
   titulo,
   ayuda,
   children,
 }: {
+  /** Ancla para enlazar directo a la tarjeta (`#datos-fiscales`). */
+  id?: string;
   titulo: string;
   ayuda?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn(cardCls, 'p-6')}>
+    // scroll-mt: la barra superior fija del móvil taparía el título al bajar.
+    <section id={id} className={cn(cardCls, 'p-6 scroll-mt-20')}>
       <h3 className="text-[14px] font-semibold text-foreground">{titulo}</h3>
       {ayuda && <p className="mt-1 mb-4 text-[12px] leading-relaxed text-muted-foreground">{ayuda}</p>}
       <div className={ayuda ? '' : 'mt-4'}>{children}</div>
@@ -570,7 +574,9 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
       </Tarjeta>
 
       {/* ─── Fiscal ─── */}
+      {/* `datos-fiscales`: lo enlaza «Poner mi NIF ahora» de Cobros → Facturas. */}
       <Tarjeta
+        id="datos-fiscales"
         titulo="Datos fiscales"
         ayuda={<>Lo que sale impreso en tus facturas. Los precios se tratan como <span className="font-medium text-foreground">IVA incluido</span>: el tipo solo cambia el desglose base/cuota, nunca el total que cobras.</>}
       >

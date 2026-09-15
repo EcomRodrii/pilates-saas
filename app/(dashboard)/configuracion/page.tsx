@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -13,6 +13,7 @@ import type { PlanTarifa, TipoClase } from '@/lib/types';
 import { NOMBRE_TIPO_PLAN } from '@/lib/planes/formulario';
 import { PageHeader } from '@/components/ui/page-header';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
+import { hrefDeSeccion, resolverDestino, type TabConfiguracion } from '@/lib/configuracion/destino';
 
 // Cada pestaña solo se ve una a la vez (activeTab) pero antes se importaban
 // las 10 de golpe: visitar "Planes" descargaba también el JS de
@@ -188,15 +189,10 @@ export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'clases-salas' | 'citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'descubre' | 'api' | 'campos' | 'cuestionario-salud' | 'plantillas' | 'backups' | 'perfil';
-
-// «Planes y tarifas» ya no es una pestaña de aquí: las tarifas se gestionan
-// solo en Paquetes (/productos). Eran dos pantallas para la misma tabla, con
-// campos distintos en cada una, y la dueña no sabía cuál mandaba (evaluación
-// del 13-sep). Un `?tab=planes` guardado en un enlace antiguo va a Paquetes.
-const TAB_MOVIDO_A_PAQUETES = 'planes';
-
-const TABS: { id: TabId; label: string }[] = [
+// Los ids, sus sub-pestañas y los enlaces antiguos (`?tab=salas`, `?tab=planes`,
+// `?tab=emails`...) viven en lib/configuracion/destino.ts: esta página solo
+// pinta. Aquí se quedan las etiquetas, en el orden en que se ven.
+const TABS: { id: TabConfiguracion; label: string }[] = [
   { id: 'clases-salas', label: 'Clases y salas' },
   { id: 'citas',       label: 'Citas' },
   { id: 'gamificacion', label: 'Logros y motivación' },
@@ -211,89 +207,95 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'perfil',      label: 'Mi perfil' },
 ];
 
-// Las 4 pestañas antiguas (Recompensas/Logros/Niveles/Retos) se unificaron en
-// "gamificacion" con sub-navegación interna (tab-gamificacion.tsx). Cualquier
-// enlace guardado con el id antiguo en ?tab= sigue funcionando: aterriza en
-// Gamificación, abierto directamente en esa sub-pestaña.
-const SUB_GAMIFICACION = new Set(['recompensas', 'logros', 'niveles', 'retos']);
-
-// Mismo patrón: Clases/Salas → "clases-salas", Servicios de cita/Horario de
-// citas → "citas". Los enlaces antiguos (onboarding, lista de tareas) usan
-// ?tab=clases y ?tab=salas y deben seguir aterrizando en la sub-pestaña correcta.
-const SUB_CLASES_SALAS = new Map([['clases', 'clases'], ['salas', 'salas']]);
-const SUB_CITAS = new Map([['servicios-cita', 'servicios'], ['horario-citas', 'horario']]);
-
-// Los 4 ids internos de las últimas pestañas (campos/plantillas/backups/perfil)
-// no se parecen a su etiqueta visible ("Campos de clienta"/"Emails"/"Copias de
-// seguridad"/"Mi perfil") — a diferencia de las 7 primeras, donde id y label
-// casi coinciden. Un `?tab=` escrito a mano o pegado desde fuera a partir de lo
-// que se VE en la pestaña (#848) caía en silencio a "Planes y tarifas" en la
-// carga directa, aunque un clic en la propia pestaña sí funcionara siempre
-// (ese camino nunca pasa por esta comprobación de la URL). Mismo patrón que
-// SUB_GAMIFICACION/SUB_CLASES_SALAS/SUB_CITAS más arriba.
-const TAB_ALIASES = new Map<string, TabId>([
-  ['campos-de-cliente', 'campos'],
-  ['emails', 'plantillas'],
-  ['copias-de-seguridad', 'backups'],
-  ['mi-perfil', 'perfil'],
-  ['salud', 'cuestionario-salud'],
-  ['cuestionario', 'cuestionario-salud'],
-]);
-
 // ─── Main page ────────────────────────────────────────────────────────────────
+
+// Lo que está abierto. `vista` solo cambia cuando el destino llega DE FUERA (la
+// carga, un enlace a esta misma página, Atrás): forma parte de la `key` de la
+// pestaña para que se monte otra vez y lea su `sub` inicial. Elegir a mano una
+// sub-pestaña no la toca, así que no desmonta nada.
+type Abierto = { tab: TabConfiguracion; sub?: string; ancla?: string; vista: number };
 
 export default function ConfiguracionPage() {
   const { studio } = useStudio();
-  const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabId>('clases-salas');
-  // Sub-pestaña con la que abrir Gamificación, si el ?tab= venía con un id
-  // antiguo (recompensas/logros/niveles/retos) de antes de la unificación.
-  const [gamificacionSub, setGamificacionSub] = useState<string | undefined>(undefined);
-  const [clasesSalasSub, setClasesSalasSub] = useState<string | undefined>(undefined);
-  const [citasSub, setCitasSub] = useState<string | undefined>(undefined);
-  // Sub-pestaña de "Estudio" (general/sedes/reservas/cobros/enlaces/legal),
-  // vía un ?sub= propio — no reescribe ningún id antiguo de ?tab=, porque
-  // "estudio" ya era su propio tab antes de tener sub-navegación.
-  const [estudioSub, setEstudioSub] = useState<string | undefined>(undefined);
+  // `null` hasta leer la URL: pintar antes la pestaña por defecto y cambiarla
+  // un render después era el parpadeo de «Clases y salas» en cada enlace.
+  const [abierto, setAbierto] = useState<Abierto | null>(null);
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const searchParams = useSearchParams();
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
-  useEffect(() => setMounted(true), []);
+  // ⚠️ #2008: tras cambiar la URL, `useSearchParams()` no se entera en el mismo
+  // render. Si la pestaña se derivara de él, cada clic volvería un instante a la
+  // URL de antes. Así que la URL se lee solo cuando cambia por algo que NO ha
+  // escrito esta página: `escritas` guarda lo que se pidió con router.replace y
+  // `vista` lo último que se sabe que hay en la barra.
+  const escritas = useRef<string[]>([]);
+  const urlVista = useRef<string | null>(null);
 
-  // Sincroniza el tab activo con ?tab= (incluye compatibilidad con los ids
-  // antiguos de gamificación). Mismo patrón ya usado en el resto del repo
-  // (calendario, sustituciones, equipo, cierre) para leer estado inicial de la URL.
   useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (!tab) return;
-    if (tab === TAB_MOVIDO_A_PAQUETES) {
-      router.replace('/productos');
+    const query = searchParams.toString();
+    if (query === urlVista.current) return;
+    urlVista.current = query;
+    const pos = escritas.current.indexOf(query);
+    if (pos !== -1) {
+      // Es la nuestra (o una intermedia de dos clics seguidos): el estado ya va
+      // por delante.
+      escritas.current.splice(0, pos + 1);
       return;
     }
-    if (SUB_GAMIFICACION.has(tab)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setGamificacionSub(tab);
-      setActiveTab('gamificacion');
-    } else if (SUB_CLASES_SALAS.has(tab)) {
-      setClasesSalasSub(SUB_CLASES_SALAS.get(tab));
-      setActiveTab('clases-salas');
-    } else if (SUB_CITAS.has(tab)) {
-      setCitasSub(SUB_CITAS.get(tab));
-      setActiveTab('citas');
-    } else if (TABS.some(t => t.id === tab)) {
-      setActiveTab(tab as TabId);
-    } else if (TAB_ALIASES.has(tab)) {
-      setActiveTab(TAB_ALIASES.get(tab)!);
+    escritas.current = [];
+    const destino = resolverDestino({
+      tab: searchParams.get('tab'),
+      sub: searchParams.get('sub'),
+      hash: window.location.hash,
+      params: new URLSearchParams(query),
+    });
+    if ('redirect' in destino) {
+      router.replace(destino.redirect);
+      return;
     }
-    if (tab === 'estudio') {
-      const sub = searchParams.get('sub');
-      if (sub) setEstudioSub(sub);
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Sincroniza con un sistema externo (la barra de direcciones) solo cuando cambia desde fuera; ver el comentario de `escritas`.
+    setAbierto(prev => {
+      // Mismo sitio que ya está abierto (p. ej. Integraciones limpiando el
+      // `?stripe_connected=1` de la URL): no se remonta la pestaña.
+      if (prev && prev.tab === destino.tab && prev.sub === destino.sub && !destino.ancla) return prev;
+      return { ...destino, vista: (prev?.vista ?? 0) + 1 };
+    });
   }, [searchParams, router]);
 
-  if (!mounted) return null;
+  // El ancla (`#datos-fiscales`) apunta a algo que aún no existe al cargar: la
+  // pestaña se descarga aparte y pinta un esqueleto hasta tener los datos del
+  // estudio. Se espera a que aparezca, se baja una vez y se deja de mirar.
+  const ancla = abierto?.ancla;
+  const vistaAncla = abierto?.vista;
+  useEffect(() => {
+    if (!ancla) return;
+    let intentos = 0;
+    const id = window.setInterval(() => {
+      const el = document.getElementById(ancla);
+      if (el) el.scrollIntoView({ block: 'start' });
+      if (el || ++intentos > 100) window.clearInterval(id);
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [ancla, vistaAncla]);
+
+  if (!abierto) return null;
+  const activeTab = abierto.tab;
+
+  function irA(tab: TabConfiguracion, sub?: string) {
+    setAbierto(prev => ({ tab, sub, vista: prev?.vista ?? 0 }));
+    // La URL dice lo que se ve, para que recargar, volver o compartir el
+    // enlace abra lo mismo. `replace` y no `push`: cambiar de pestaña no llena
+    // el historial de entradas por las que haya que retroceder una a una.
+    const href = hrefDeSeccion(tab, sub);
+    const query = href.slice(href.indexOf('?') + 1);
+    if (query === urlVista.current || escritas.current.at(-1) === query) return;
+    escritas.current.push(query);
+    router.replace(href, { scroll: false });
+  }
+
+  const alCambiarSub = (sub: string) => irA(activeTab, sub);
+  const clave = `${activeTab}-${abierto.vista}`;
 
   return (
     <div data-tour="configuracion-vista" className="space-y-6">
@@ -313,7 +315,8 @@ export default function ConfiguracionPage() {
         {TABS.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => irA(tab.id)}
+            aria-current={activeTab === tab.id ? 'page' : undefined}
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all whitespace-nowrap',
               activeTab === tab.id
@@ -328,14 +331,14 @@ export default function ConfiguracionPage() {
 
       {/* Tab content */}
       <ReanimarAlCambiar clave={activeTab} animClassName="tab-content-in">
-        {activeTab === 'clases-salas' && <TabClasesSalas showToast={showToast} sub={clasesSalasSub} />}
-        {activeTab === 'citas'       && <TabCitas       showToast={showToast} sub={citasSub} />}
-        {activeTab === 'gamificacion' && <TabGamificacion showToast={showToast} sub={gamificacionSub} studio={studio} />}
+        {activeTab === 'clases-salas' && <TabClasesSalas key={clave} showToast={showToast} sub={abierto.sub} onSubChange={alCambiarSub} />}
+        {activeTab === 'citas'       && <TabCitas       key={clave} showToast={showToast} sub={abierto.sub} onSubChange={alCambiarSub} />}
+        {activeTab === 'gamificacion' && <TabGamificacion key={clave} showToast={showToast} sub={abierto.sub} onSubChange={alCambiarSub} studio={studio} />}
         {activeTab === 'backups'     && <TabBackups      showToast={showToast} />}
         {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
-        {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} sub={estudioSub} />}
+        {activeTab === 'estudio'     && <TabEstudio      key={clave} showToast={showToast} sub={abierto.sub} onSubChange={alCambiarSub} />}
         {activeTab === 'descubre'    && <TabDescubre />}
-        {activeTab === 'api'         && <TabApi          showToast={showToast} />}
+        {activeTab === 'api'         && <TabApi          key={clave} showToast={showToast} sub={abierto.sub} onSubChange={alCambiarSub} />}
         {activeTab === 'campos'      && <TabCamposPersonalizados showToast={showToast} />}
         {activeTab === 'cuestionario-salud' && <TabCuestionarioSalud showToast={showToast} />}
         {activeTab === 'plantillas'  && <TabPlantillasEmail showToast={showToast} />}

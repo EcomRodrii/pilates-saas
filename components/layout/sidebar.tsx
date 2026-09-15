@@ -721,7 +721,9 @@ export function Sidebar() {
           style={{ borderColor: 'rgba(255,255,255,0.07)' }}
         >
           <div className={cn('flex items-center gap-2.5 rounded-lg', (collapsed && !horizontal) ? 'justify-center px-0 py-2' : 'px-2 py-2')}>
-            <Link href="/configuracion" title="Editar mi perfil" className="shrink-0">
+            {/* /mi-perfil y no Configuración: esa pestaña abría «Clases y
+                salas», y MANAGER/RECEPCION ni siquiera pueden entrar allí. */}
+            <Link href="/mi-perfil" title="Editar mi perfil" className="shrink-0">
               <ProfileAvatar avatarId={yo ? yo.avatar : studio?.avatarAdmin} fotoUrl={yo ? yo.fotoUrl : studio?.fotoUrl} nombre={userInitials} size="xs" />
             </Link>
             {(!collapsed || horizontal) && (

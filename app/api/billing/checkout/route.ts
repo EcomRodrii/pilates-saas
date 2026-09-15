@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       // incluido 'past_due' vía `suscripcionActiva()`.
       if (suscripcionActiva(cadena.subscription_status)) {
         return NextResponse.json(
-          { error: 'Ya tienes una suscripción activa. Gestiónala desde Configuración → Facturación.' },
+          { error: 'Ya tienes una suscripción activa. Gestiónala desde Suscripción.' },
           { status: 409 },
         );
       }
@@ -173,8 +173,8 @@ export async function POST(req: NextRequest) {
           metadata: { cadenaId: cadena.id, plan },
         },
         metadata: { cadenaId: cadena.id, plan },
-        success_url: `${appUrl}/configuracion?suscripcion=ok`,
-        cancel_url: `${appUrl}/configuracion?suscripcion=cancel`,
+        success_url: `${appUrl}/suscripcion?suscripcion=ok`,
+        cancel_url: `${appUrl}/suscripcion?suscripcion=cancel`,
         locale: 'es',
         ...(discounts ? { discounts } : { allow_promotion_codes: true }),
       }, {
@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
     // sigue viva. Dejarla pasar reabriría el mismo bug para ese estado.
     if (studio.subscription_id && suscripcionActiva(studio.subscription_status)) {
       return NextResponse.json(
-        { error: 'Ya tienes una suscripción activa. Gestiónala desde Configuración → Facturación.' },
+        { error: 'Ya tienes una suscripción activa. Gestiónala desde Suscripción.' },
         { status: 409 },
       );
     }
@@ -239,8 +239,8 @@ export async function POST(req: NextRequest) {
         metadata: { studioId: studio.id, plan },
       },
       metadata: { studioId: studio.id, plan },
-      success_url: `${appUrl}/configuracion?suscripcion=ok`,
-      cancel_url: `${appUrl}/configuracion?suscripcion=cancel`,
+      success_url: `${appUrl}/suscripcion?suscripcion=ok`,
+      cancel_url: `${appUrl}/suscripcion?suscripcion=cancel`,
       locale: 'es',
       ...(discounts ? { discounts } : { allow_promotion_codes: true }),
     }, {

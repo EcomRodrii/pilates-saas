@@ -14,6 +14,7 @@ import { TabEstudioReservas } from './tab-estudio-reservas';
 import { TabEstudioCobros } from './tab-estudio-cobros';
 import { TabEstudioEnlaces } from './tab-estudio-enlaces';
 import { TabEstudioLegal } from './tab-estudio-legal';
+import type { SubDe } from '@/lib/configuracion/destino';
 
 // La pestaña "Estudio" era un solo scroll de 11 tarjetas apiladas — desde el
 // nombre del estudio hasta los términos y condiciones, pasando por SEPA y la
@@ -21,7 +22,7 @@ import { TabEstudioLegal } from './tab-estudio-legal';
 // teléfono. Mismo patrón ya usado en "Clases y salas" y "Gamificación":
 // sub-navegación interna, un tema por pestaña. Los componentes de cada tema
 // no cambian de lógica, solo de dónde viven.
-type Sub = 'general' | 'sedes' | 'horario' | 'reservas' | 'cobros' | 'enlaces' | 'legal';
+type Sub = SubDe<'estudio'>;
 
 const SUBS_BASE: { id: Sub; label: string }[] = [
   { id: 'general', label: 'General' },
@@ -32,7 +33,7 @@ const SUBS_BASE: { id: Sub; label: string }[] = [
   { id: 'legal', label: 'Legal' },
 ];
 
-export function TabEstudio({ showToast, sub: subInicial }: { showToast: (m: string) => void; sub?: string }) {
+export function TabEstudio({ showToast, sub: subInicial, onSubChange }: { showToast: (m: string) => void; sub?: string; onSubChange?: (sub: Sub) => void }) {
   const { studio } = useStudio();
   const { user } = useAuth();
 
@@ -93,7 +94,7 @@ export function TabEstudio({ showToast, sub: subInicial }: { showToast: (m: stri
         </p>
       </div>
 
-      <Tabs value={sub} onValueChange={(v) => setSub(v as Sub)}>
+      <Tabs value={sub} onValueChange={(v) => { setSub(v as Sub); onSubChange?.(v as Sub); }}>
         <TabsList>
           {subs.map(s => (
             <TabsTrigger key={s.id} value={s.id}>{s.label}</TabsTrigger>
