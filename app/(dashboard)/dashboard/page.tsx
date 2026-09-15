@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
 import { cn, inicioDeSemana, finDeSemana, capitalizarPrimera } from '@/lib/utils';
+import { textoCobroEnLote } from '@/lib/cobros/texto-cobro-en-lote';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -967,9 +968,8 @@ export default function Dashboard() {
                   {pendientes.length > 1 && (
                     <button
                       onClick={() => {
-                        const n = pendientes.length;
                         void cobrarTodosPendientes().then(res => {
-                          showToast(res.ok ? `${n} recibo(s) cobrados` : res.error);
+                          showToast(res.ok ? textoCobroEnLote(res.cobrados ?? 0, res.saltados ?? []) : res.error);
                         });
                       }}
                       className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/10 transition-colors"

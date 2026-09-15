@@ -46,6 +46,7 @@ import {
   Bot, Loader2, Mic, RefreshCw, XCircle,
 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
+import { textoCobroEnLote } from '@/lib/cobros/texto-cobro-en-lote';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { Toast } from '@/components/ui/toast';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
@@ -1424,9 +1425,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         <BotonCobrarConMetodo
                           detalle={<>{pendientes.length} {pendientes.length === 1 ? 'recibo' : 'recibos'} — <span className="font-semibold text-foreground">{formatEuro(pendientes.reduce((t, r) => t + r.importe, 0))}</span></>}
                           onCobrar={metodo => {
-                            const n = pendientes.length;
                             return cobrarTodosPendientes(id, metodo).then(res => {
-                              setToast(res.ok ? `${n} ${n === 1 ? 'recibo cobrado' : 'recibos cobrados'}` : res.error);
+                              setToast(res.ok ? textoCobroEnLote(res.cobrados ?? 0, res.saltados ?? []) : res.error);
                             });
                           }}
                           className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg transition-colors"

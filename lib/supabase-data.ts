@@ -3240,7 +3240,7 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Prom
 // una factura duplicada en el llamante.
 export async function dbUpdateRecibosBatch(
   ids: string[], changes: Partial<Recibo>, soloSiEstadoActual?: Recibo['estado'],
-): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
+): Promise<ResultadoEscritura & { idsActualizados?: string[]; idsSaltados?: string[] }> {
   if (ids.length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
@@ -3251,13 +3251,15 @@ export async function dbUpdateRecibosBatch(
   if ('metodoCobro' in changes) db.metodo_cobro = changes.metodoCobro;
   if (Object.keys(db).length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   // Al cobrar, fuera los recibos de una penalización anulada: no se cobran, y no
-  // tumban el resto del lote. Quedan fuera de `idsActualizados`, así que el
-  // llamante no los da por cobrados.
+  // tumban el resto del lote. Quedan fuera de `idsActualizados` y vuelven en
+  // `idsSaltados`: quien cobra en el mostrador tiene que saber que ESE no se cobra.
   let idsACambiar = ids;
+  let idsSaltados: string[] = [];
   if (changes.estado === 'COBRADO') {
     const anulados = await recibosDePenalizacionAnulada(ids, 'cobrar-en-lote');
+    idsSaltados = ids.filter(id => anulados.has(id));
     idsACambiar = ids.filter(id => !anulados.has(id));
-    if (idsACambiar.length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
+    if (idsACambiar.length === 0) return { ...ESCRITURA_OK, idsActualizados: [], idsSaltados };
   }
   let q = supabase.from('recibos').update(db).in('id', idsACambiar);
   // Mismo criterio que dbMarcarCobrado: cobrar en lote también alcanza a los
@@ -3269,7 +3271,7 @@ export async function dbUpdateRecibosBatch(
   else if (changes.estado === 'COBRADO') q = q.in('estado', ['PENDIENTE', 'FALLIDO', 'DEVUELTO']);
   const { data, error } = await q.select('id');
   if (error) return falloEscritura('[dbUpdateRecibosBatch]', error);
-  return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string) };
+  return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string), idsSaltados };
 }
 
 export async function dbDeleteRecibo(id: string): Promise<ResultadoEscritura> {

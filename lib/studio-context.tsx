@@ -484,7 +484,8 @@ interface StudioContextValue {
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentarSelladoFactura: (reciboId: string) => Promise<ResultadoEscritura>;
   deleteRecibo: (id: string) => Promise<ResultadoEscritura>;
-  cobrarTodosPendientes: (socioId?: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura>;
+  /** `cobrados`: los que esta llamada cobró; `saltados`: penalizaciones anuladas que no se cobran. */
+  cobrarTodosPendientes: (socioId?: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura & { cobrados?: number; saltados?: Recibo[] }>;
   marcarRecibosEnviadosAlBanco: (ids: string[]) => Promise<ResultadoEscritura>;
 
   // Citas
@@ -4368,7 +4369,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  async function cobrarTodosPendientes(socioId?: string, metodo?: MetodoCobro): Promise<ResultadoEscritura> {
+  async function cobrarTodosPendientes(socioId?: string, metodo?: MetodoCobro): Promise<ResultadoEscritura & { cobrados?: number; saltados?: Recibo[] }> {
     // Con socioId, cobra SOLO los pendientes de esa socia (botón de la ficha de
     // socia). Sin él, cobra todos los del estudio (dashboard / página de Pagos).
     // Antes ignoraba cualquier filtro y desde la ficha cobraba —y sellaba una
@@ -4424,7 +4425,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     for (const recibo of cobradosAhora) {
       await aplicarRenovacionSuscripcion(recibo);
     }
-    return res;
+    const saltados = new Set(res.idsSaltados ?? []);
+    return { ...res, cobrados: cobradosAhora.length, saltados: pendientes.filter(r => saltados.has(r.id)) };
   }
 
   // ── Citas ────────────────────────────────────────────────────────────────────
