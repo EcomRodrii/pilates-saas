@@ -23,7 +23,7 @@ import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
 // y parecía un trazo duplicado, y el corazón tenía otra forma que el de la
 // barra. Ahora salen de `ui/Icono.tsx`, copiados del paquete sin retocar.
 
-type Acceso = { href: string; titulo: string; pie: string; icono: NombreIcono };
+export type Acceso = { href: string; titulo: string; pie: string; icono: NombreIcono };
 
 export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, hrefFavoritas }: {
   hrefReservar: string;
@@ -50,8 +50,20 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
     },
   ];
 
+  return <FilaAccesos accesos={accesos} />;
+}
+
+/**
+ * La fila de cuatro baldosas. Una sola pieza para la alumna y para la
+ * instructora (su «Hoy»), cada una con sus destinos: así las dos apps se ven
+ * iguales y no hay dos sitios que sepan dibujar una baldosa.
+ *
+ * `enLinea`: dentro de un contenedor que ya pone el margen lateral y el hueco
+ * entre bloques, sin repetirlos.
+ */
+export function FilaAccesos({ accesos, enLinea = false }: { accesos: Acceso[]; enLinea?: boolean }) {
   return (
-    <nav className="px" style={{ marginTop: 14 }} aria-label="Accesos rápidos">
+    <nav className={enLinea ? undefined : 'px'} style={{ marginTop: enLinea ? 0 : 14 }} aria-label="Accesos rápidos">
       <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, margin: 0, padding: 0, listStyle: 'none' }}>
         {accesos.map((a) => (
           // `display: flex` en el <li>: sin él la baldosa no estira hasta el

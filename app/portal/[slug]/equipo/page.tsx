@@ -12,7 +12,9 @@ import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { addDias, etiquetaDia, fechaLarga, hoyISO, saludo } from '@/lib/student/formato';
 import { getClases } from '@/lib/student/datos';
-import { getAgendaInstructora, getOfertasInstructora, responderOferta } from '@/lib/student/datos-instructora';
+import {
+  getAgendaInstructora, getHilosInstructora, getOfertasInstructora, getPerfilInstructora, responderOferta,
+} from '@/lib/student/datos-instructora';
 import { bajasEnCurso, proximaQueDa, puedePasarLista, textoBaja, type OfertaSustitucion } from '@/lib/student/agenda-instructora';
 import { textoRevision } from '@/lib/student/baja-instructora';
 import { agruparPorDia, cifraDuracion, lunesDe, resumenSemana } from '@/lib/student/semana-instructora';
@@ -22,6 +24,10 @@ import { OfertaSustitucionCard } from '@/components/student/domain/OfertaSustitu
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Foto, precargarFoto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
+import { FilaAccesos, type Acceso } from '@/components/student/domain/AccesosRapidos';
+import { useMiAuthUserId } from '@/lib/student/mensajeria';
+import { selloLista, tieneSinLeer, unaLinea } from '@/lib/mensajeria/presentacion';
+import { TEXTO_SIN_VALORACIONES, textoValoraciones } from '@/lib/student/valoraciones-instructora';
 
 // «Hoy» de la instructora: lo que el estudio le pide cubrir, su próxima clase,
 // su semana y el estado de las bajas que ha pedido. Es lo primero que ve al
@@ -83,6 +89,21 @@ export default function HoyInstructoraPage() {
   }, [esInstructora, slug, hoy]);
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
 
+  // Sus mensajes y sus valoraciones, cada uno con su petición: si falla uno, su
+  // tarjeta no sale y el resto de «Hoy» se ve igual (15-sep-2026: con solo la
+  // agenda, una instructora con pocas clases veía la pantalla vacía).
+  const cargarHilos = useCallback(
+    () => (esInstructora ? getHilosInstructora(slug) : new Promise<never>(() => {})),
+    [esInstructora, slug],
+  );
+  const { data: hilos } = useAsync(cargarHilos, () => false);
+  const cargarPerfil = useCallback(
+    () => (esInstructora ? getPerfilInstructora(slug) : new Promise<never>(() => {})),
+    [esInstructora, slug],
+  );
+  const { data: perfil } = useAsync(cargarPerfil, () => false);
+  const miId = useMiAuthUserId();
+
   const responder = async (oferta: OfertaSustitucion, accion: 'aceptar' | 'rechazar') => {
     if (respondiendo) return;
     // El estado de carga ANTES del await: que no se pueda pulsar dos veces.
@@ -129,6 +150,20 @@ export default function HoyInstructoraPage() {
     : 'Hoy no tienes clases';
 
   const enCurso = proxima != null && ahoraMs != null && Date.parse(proxima.inicio) <= ahoraMs;
+
+  const sinLeer = (hilos ?? []).filter((h) => tieneSinLeer(h, miId));
+  const hiloDestacado = sinLeer[0] ?? hilos?.[0] ?? null;
+  const valoracion = textoValoraciones(perfil?.valoraciones ?? null);
+  // Las cuatro cosas que hace fuera de su agenda, con la misma baldosa que la
+  // alumna. «Nueva clase» solo si el estudio le deja crearlas: un atajo que acaba
+  // en «no puedes» es peor que no tenerlo.
+  const accesos = ([
+    ...(data?.puedeCrearClases ? [{ href: href('/equipo/nueva-clase'), titulo: 'Nueva clase', pie: 'Crea una clase tuya', icono: 'mas' }] : []),
+    { href: href('/equipo/disponibilidad'), titulo: 'Disponible', pie: 'Cuándo puedes cubrir', icono: 'calendario' },
+    { href: href('/equipo/ausencias'), titulo: 'Ausencias', pie: 'Vacaciones y bajas', icono: 'aviso' },
+    { href: href('/equipo/alumnas'), titulo: 'Alumnas', pie: 'De tus clases', icono: 'instructoras' },
+    { href: href('/equipo/mensajes'), titulo: 'Mensajes', pie: 'Con tus alumnas', icono: 'comentario' },
+  ] as Acceso[]).slice(0, 4);
 
   return (
     <StudentShell modo="instructora" headerTransparente conLema>
@@ -244,6 +279,31 @@ export default function HoyInstructoraPage() {
               </div>
             </section>
 
+            <FilaAccesos accesos={accesos} enLinea />
+
+            {/* Mensajes: siempre que la bandeja cargue, también sin conversaciones —
+                es donde descubre que puede escribir a sus alumnas. */}
+            {hilos && (
+              <Link href={href('/equipo/mensajes')} className="card card--tap" data-testid="mensajes-hoy" style={{ display: 'block', padding: '13px 15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                  <p className="t-label" style={{ margin: 0 }}>Mensajes</p>
+                  <span style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>
+                    {sinLeer.length > 0 ? `${sinLeer.length} sin leer →` : 'Ver todo →'}
+                  </span>
+                </div>
+                <p style={{ margin: '7px 0 0', fontSize: 'var(--t-body)', lineHeight: 1.5, fontWeight: sinLeer.length > 0 ? 700 : 400, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {hiloDestacado
+                    ? (unaLinea(hiloDestacado.ultimo_cuerpo) || 'Sin mensajes todavía')
+                    : 'Aún no hablas con ninguna alumna. Escríbele desde su ficha, en «Alumnas».'}
+                </p>
+                {hiloDestacado && (
+                  <p style={{ margin: '6px 0 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>
+                    {hiloDestacado.alumna?.nombre ?? 'Alumna'} · {selloLista(hiloDestacado.ultimo_mensaje_en ?? hiloDestacado.creado_en)}
+                  </p>
+                )}
+              </Link>
+            )}
+
             {otrasDeHoy.length > 0 && (
               <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="hoy-otras">
                 <h2 id="hoy-otras" className="t-label">Más clases hoy</h2>
@@ -290,6 +350,24 @@ export default function HoyInstructoraPage() {
                   );
                 })}
               </section>
+            )}
+
+            {/* Su nota, la misma que en Perfil: solo el agregado protegido (al
+                menos 5 alumnas), nunca comentarios ni quién votó (14-sep-2026). */}
+            {perfil && (
+              <Link href={href('/equipo/perfil')} className="card card--tap" data-testid="valoraciones-hoy" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px' }}>
+                <span aria-hidden style={{ width: 38, height: 38, borderRadius: 999, background: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icono nombre="estrella" tamano={20} />
+                </span>
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span className="t-label" style={{ display: 'block' }}>Tus valoraciones</span>
+                  {valoracion ? (
+                    <span style={{ display: 'block', marginTop: 3, fontSize: 'var(--t-body)', fontWeight: 800 }}>{valoracion.nota}</span>
+                  ) : (
+                    <span style={{ display: 'block', marginTop: 3, fontSize: 'var(--t-small)', color: 'var(--muted-foreground)' }}>{TEXTO_SIN_VALORACIONES}</span>
+                  )}
+                </span>
+              </Link>
             )}
           </>
         )}

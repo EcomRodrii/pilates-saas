@@ -176,7 +176,7 @@ export default function DisponibilidadInstructoraPage() {
       {hayCambios && (
         <div
           style={{
-            position: 'fixed', left: 0, right: 0, bottom: 'calc(var(--nav-height) + var(--safe-bottom))',
+            position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-total)',
             zIndex: 39, padding: '10px 16px 12px',
             background: 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)',
             maxWidth: 640, margin: '0 auto',

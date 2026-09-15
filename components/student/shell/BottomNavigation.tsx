@@ -68,9 +68,19 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
   return (
     <nav
       aria-label="Principal"
-      style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 40, background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--muted)', paddingBottom: 'var(--safe-bottom)' }}
+      style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 40, background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--muted)',
+        // ⚠️ Antes: `var(--safe-bottom)` ENTERA + 10 px de relleno + el aire del
+        // botón de 48. En un iPhone con barra de inicio eran ~50 px en blanco bajo
+        // las etiquetas, y el fundador lo vio como una barra mal hecha (15-sep).
+        // La zona segura solo tiene que apartar el contenido de la barra de inicio,
+        // no sumarse a todo lo demás: se descuentan 14 px y nunca baja de 4.
+        // El valor vive en `--nav-pad-bottom` (student.css) porque lo usan también
+        // los botones fijos que se posan sobre la barra (`--nav-total`).
+        paddingBottom: 'var(--nav-pad-bottom)',
+      }}
     >
-      <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '9px 8px 10px' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '6px 8px 2px' }}>
         {tabs.map((t) => {
           const destino = base + t.ruta;
           // La raíz (Inicio / Hoy) solo se ilumina en su ruta exacta; el resto,
@@ -81,7 +91,7 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
               key={t.ruta || 'inicio'}
               href={destino}
               aria-current={on ? 'page' : undefined}
-              style={{ position: 'relative', minWidth: 56, minHeight: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, color: on ? 'var(--foreground)' : 'var(--subtle-foreground)', transition: 'color .2s' }}
+              style={{ position: 'relative', minWidth: 56, minHeight: 44, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, color: on ? 'var(--foreground)' : 'var(--subtle-foreground)', transition: 'color .2s' }}
             >
               <Icono nombre={t.icono} tamano={22} />
               <span style={{ fontSize: 'var(--t-micro)', fontWeight: 800 }}>{t.label}</span>
