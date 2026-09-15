@@ -59,6 +59,11 @@ import { DialogoDecision } from '@/components/calendario/dialogo-decision';
 import { VistaDiaSalas, type DatoSesion } from '@/components/calendario/vista-dia-salas';
 import { PrimerHorario } from '@/components/calendario/primer-horario';
 import { VistaSemana } from '@/components/calendario/vista-semana';
+import { VistaAgenda, CONSULTA_AGENDA, clasesDeAgenda, type DiaDeAgenda } from '@/components/calendario/vista-agenda';
+import { agendaDeDia, agendaDeSemana } from '@/lib/calendario-agenda';
+import { useCoincideMedio } from '@/lib/hooks/use-coincide-medio';
+import { createPortal } from 'react-dom';
+import { anfitrionPortal } from '@/lib/panel-portal';
 import { VistaMes } from '@/components/calendario/vista-mes';
 import { BuscadorRapido } from '@/components/calendario/buscador-rapido';
 import { PanelSesion, horaTextoSesion, type PestanaSesion } from '@/components/calendario/panel-sesion';
@@ -281,6 +286,10 @@ const DIA_PILLS: { label: string; day: number }[] = [
   { label: 'L', day: 1 }, { label: 'M', day: 2 }, { label: 'X', day: 3 },
   { label: 'J', day: 4 }, { label: 'V', day: 5 }, { label: 'S', day: 6 }, { label: 'D', day: 0 },
 ];
+
+// Botones Día · Semana · Mes · Horario. En el móvil reparten el ancho, miden
+// 44 px y van sin icono (con él, «Semana» no cabía en su cuarto de 375 px).
+const BOTON_VISTA = 'flex items-center justify-center gap-1.5 px-1.5 md:px-3 py-1.5 min-h-11 md:min-h-0 rounded-lg text-sm md:text-xs font-bold transition-colors [&>svg]:hidden sm:[&>svg]:block';
 
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
 
@@ -1972,6 +1981,41 @@ export default function Calendario() {
     return prepararColumnasDiaSemana(cols, dias, datosVista.horarioSemana);
   }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala, now, columnaPorFecha, dias]);
 
+  // ── Móvil: Día y Semana en lista ────────────────────────────────────────────
+  // En un teléfono la rejilla de horas no se leía: cabecera, filtros y franja de
+  // decisiones se comían ~600 px de 812 y la rejilla quedaba en una tira al fondo,
+  // con las clases a 9,5 px. Por debajo de `md` Día y Semana son una lista por
+  // hora (components/calendario/vista-agenda.tsx) hecha con las MISMAS columnas
+  // que la rejilla, y la página hace scroll entera. Arrastrar se queda en la
+  // tablet y el ordenador; en el móvil una clase se mueve desde «Editar».
+  const enMovil = useCoincideMedio(CONSULTA_AGENDA);
+  const agendaSemana = useMemo<DiaDeAgenda[]>(() => {
+    if (!datosVista) return [];
+    return agendaDeSemana(columnasSemana, datosVista.salas.map(s => s.id)).flatMap(d => {
+      const fecha = dias[d.indice];
+      if (!fecha) return [];
+      return [{
+        clave: localDate(fecha), fecha, esHoy: localDate(fecha) === todayStr, cerrado: d.cerrado,
+        sesiones: clasesDeAgenda(d.ids, datosPorSesionId, datosVista.salas),
+      }];
+    });
+  }, [datosVista, columnasSemana, dias, todayStr, datosPorSesionId]);
+  const agendaDia = useMemo<DiaDeAgenda[]>(() => {
+    if (!datosVista) return [];
+    return [{
+      clave: localDate(diaSeleccionado), fecha: diaSeleccionado, esHoy: localDate(diaSeleccionado) === todayStr, cerrado: false,
+      sesiones: clasesDeAgenda(agendaDeDia(columnasDia), datosPorSesionId, datosVista.salas),
+    }];
+  }, [datosVista, columnasDia, diaSeleccionado, todayStr, datosPorSesionId]);
+
+  // Lo mismo que hace un clic en un bloque de la rejilla: en modo selección
+  // marca, si no abre (o cierra) la ficha de la clase.
+  function seleccionarEnVista(id: string) {
+    if (modoSeleccion) { alternarMarcada(id); return; }
+    setSesionId(prev => (prev === id ? null : id));
+    setPestanaPanel('clientas');
+  }
+
   // ⚠️ Una clase que la cabecera cuenta y la rejilla no pinta.
   //
   // `VistaDiaSalas`/`VistaSemana` hacen `datos.get(s.id)` y, si no está, un
@@ -2608,7 +2652,11 @@ export default function Calendario() {
     // shell (pt-14/pb-20 en móvil sin Topbar; lg:pt-2/lg:pb-0 + Topbar
     // h-14+mb-2 en escritorio) — mismo patrón ya usado en
     // app/(dashboard)/chat/page.frozen.tsx para este mismo problema.
-    <div data-tour="calendario-vista" className="flex flex-col h-[calc(100vh-136px)] lg:h-[calc(100vh-72px)]">
+    // ⚠️ Solo desde `md`. En el móvil Día y Semana son una lista (VistaAgenda) y
+    // es la PÁGINA la que hace scroll: con la altura fija, la cabecera y los
+    // filtros se comían la pantalla y el calendario quedaba en una tira de
+    // ~100 px al fondo.
+    <div data-tour="calendario-vista" className="flex flex-col md:h-[calc(100vh-136px)] lg:h-[calc(100vh-72px)]">
     <LienzoCalendario>
     <div className="flex flex-col flex-1 min-h-0 rounded-3xl bg-card border border-border shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)] overflow-hidden">
       {/* ── Top header ─────────────────────────────────────────────────────────── */}
@@ -2647,22 +2695,23 @@ export default function Calendario() {
           )}
 
           {/* Punto 2: Día (por sala) / Semana (7 columnas) — vistas distintas, no un breakpoint. */}
-          <div className="flex items-center gap-0.5 bg-muted rounded-xl p-1">
+          {/* En el móvil ocupa el ancho, a partes iguales y a tamaño de dedo. */}
+          <div className="grid w-full grid-flow-col auto-cols-fr gap-0.5 bg-muted rounded-xl p-1 md:flex md:w-auto md:items-center">
             <button
               onClick={() => setVista('dia')}
-              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', vista === 'dia' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
+              className={cn(BOTON_VISTA, vista === 'dia' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
             >
               <Rows3 size={14} />Día
             </button>
             <button
               onClick={() => setVista('semana')}
-              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', vista === 'semana' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
+              className={cn(BOTON_VISTA, vista === 'semana' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
             >
               <LayoutGrid size={14} />Semana
             </button>
             <button
               onClick={() => setVista('mes')}
-              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', vista === 'mes' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
+              className={cn(BOTON_VISTA, vista === 'mes' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
             >
               <CalendarDays size={14} />Mes
             </button>
@@ -2670,7 +2719,7 @@ export default function Calendario() {
               <button
                 onClick={() => setVista('horario')}
                 title="Las clases que se repiten: hasta cuándo van y quién viene fija"
-                className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', vista === 'horario' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
+                className={cn(BOTON_VISTA, vista === 'horario' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
               >
                 <CalendarClock size={14} />Horario
               </button>
@@ -2682,17 +2731,17 @@ export default function Calendario() {
             <button
               onClick={() => vista === 'semana' ? cambiarSemana(-1) : vista === 'mes' ? cambiarMes(-1) : cambiarDia(-1)}
               aria-label={vista === 'semana' ? 'Semana anterior' : vista === 'mes' ? 'Mes anterior' : 'Día anterior'}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+              className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
-            <button onClick={irAHoy} className="px-3 py-1 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={irAHoy} className="px-3 py-1 min-h-11 md:min-h-0 text-sm md:text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
               Hoy
             </button>
             <button
               onClick={() => vista === 'semana' ? cambiarSemana(1) : vista === 'mes' ? cambiarMes(1) : cambiarDia(1)}
               aria-label={vista === 'semana' ? 'Semana siguiente' : vista === 'mes' ? 'Mes siguiente' : 'Día siguiente'}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+              className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <ChevronRight size={16} />
             </button>
@@ -2828,6 +2877,16 @@ export default function Calendario() {
               void cargarDatosVista(rango);
             }}
           />
+        ) : vista === 'dia' && enMovil ? (
+          <VistaAgenda
+            modo="dia"
+            dias={agendaDia}
+            seleccionadaId={sesionId}
+            marcadas={marcadas}
+            onSeleccionar={seleccionarEnVista}
+            atenuada={atenuada}
+            accionPara={accionParaBloque}
+          />
         ) : vista === 'dia' ? (
           <VistaDiaSalas
             columnas={columnasDia}
@@ -2851,6 +2910,15 @@ export default function Calendario() {
             datos={diasMes}
             hoyStr={todayStr}
             onSeleccionarDia={onSeleccionarDia}
+          />
+        ) : enMovil ? (
+          <VistaAgenda
+            modo="semana"
+            dias={agendaSemana}
+            seleccionadaId={sesionId}
+            marcadas={marcadas}
+            onSeleccionar={seleccionarEnVista}
+            atenuada={atenuada}
           />
         ) : (
           <VistaSemana
@@ -2884,8 +2952,12 @@ export default function Calendario() {
       {/* ── Selección múltiple: barra de acción ──────────────────────────────────
           Flotante y anclada abajo: en semana hay que poder seguir marcando
           clases de días distintos sin que la barra tape la rejilla. */}
-      {modoSeleccion && (
-        <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 pointer-events-none">
+      {/* En portal: `.panel-page-in` deja un transform en la página y un `fixed`
+          dentro se ancla a ella. Mientras la página no hacía scroll daba igual;
+          en el móvil sí lo hace (lista), y la barra se quedaba al final de la
+          página, fuera de la vista. Encima de la barra de navegación del móvil. */}
+      {modoSeleccion && createPortal(
+        <div className="fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] lg:bottom-4 z-40 flex justify-center px-4 pointer-events-none">
           <div className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.35)]">
             <span className="text-[13px] font-semibold text-foreground">
               {marcadas.size === 0
@@ -2916,7 +2988,8 @@ export default function Calendario() {
               Salir
             </button>
           </div>
-        </div>
+        </div>,
+        anfitrionPortal(),
       )}
 
       {/* ── Panel lateral de sesión (punto 5: 3 pestañas) ───────────────────────── */}

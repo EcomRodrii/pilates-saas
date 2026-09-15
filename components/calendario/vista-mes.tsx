@@ -58,7 +58,9 @@ export function VistaMes({ mesVisto, datos, hoyStr, onSeleccionarDia }: VistaMes
               type="button"
               onClick={() => onSeleccionarDia(fecha)}
               aria-label={dia.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-              className="flex flex-col items-start gap-1 border-b border-l border-border/60 p-2 text-left transition-colors hover:bg-muted/60 first:border-l-0 [&:nth-child(7n+1)]:border-l-0"
+              // En el móvil la página hace scroll y la rejilla ya no reparte un
+              // alto fijo: sin suelo, «1 clase» se montaba sobre la fila de abajo.
+              className="flex min-h-[4.5rem] md:min-h-0 flex-col items-start gap-1 border-b border-l border-border/60 p-2 text-left transition-colors hover:bg-muted/60 first:border-l-0 [&:nth-child(7n+1)]:border-l-0"
               style={{ background: esHoy ? 'var(--muted)' : undefined, opacity: fueraDeMes ? 0.4 : 1 }}
             >
               <span className="flex w-full items-center justify-between">

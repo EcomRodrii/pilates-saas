@@ -304,7 +304,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Mover una clase suelta',
-        texto: 'En el calendario puedes arrastrar una clase a otra hora. La duración se mantiene, y si al soltarla chocara con otra clase en la misma sala, Tentare te lo dice antes de guardar. Dos clases no pueden solapar en la misma sala: eso lo impide la propia base de datos, no un aviso que se pueda ignorar.',
+        texto: 'En el calendario, desde el ordenador o la tablet, puedes arrastrar una clase a otra hora (en el móvil, ábrela y pulsa «Editar»). La duración se mantiene, y si al soltarla chocara con otra clase en la misma sala, Tentare te lo dice antes de guardar. Dos clases no pueden solapar en la misma sala: eso lo impide la propia base de datos, no un aviso que se pueda ignorar.',
       },
       {
         titulo: 'Cancelar una clase',
