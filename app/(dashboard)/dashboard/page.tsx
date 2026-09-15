@@ -39,6 +39,7 @@ import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-
 import { CanjesPendientes } from '@/components/dashboard/canjes-pendientes';
 import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
 import { ReservasPorAprobar } from '@/components/dashboard/reservas-por-aprobar';
+import { SeriesPorRenovar } from '@/components/dashboard/series-por-renovar';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
@@ -676,8 +677,8 @@ export default function Dashboard() {
             quien no ve ninguna (instructora) no se le pinta nada.
 
             Las tarjetas que resuelven aquí mismo lo que la bandeja cuenta sin
-            enlace (reservas por aprobar, penalizaciones, devoluciones, canjes,
-            bajas de última hora del equipo) van DENTRO, bajo «Decidir»: un solo
+            enlace (reservas por aprobar, clases que se repiten y se acaban,
+            penalizaciones, devoluciones, canjes, bajas de última hora del equipo) van DENTRO, bajo «Decidir»: un solo
             sitio para decidir. Cada una se oculta sola si no tiene nada, y sus
             guardias son los mismos roles que exige el servidor
             (`puedeGestionarCalendario` para las reservas, `puedeMoverDinero`
@@ -695,6 +696,7 @@ export default function Dashboard() {
             accionesEnLinea={<>
               {/* La primera: es la única que puede caducar sola (la clase empieza). */}
               {gestionaCalendario && <ReservasPorAprobar onToast={showToast} />}
+              {gestionaCalendario && <SeriesPorRenovar onToast={showToast} />}
               {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
               {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
               {gestionaClientas && <CanjesPendientes onToast={showToast} />}

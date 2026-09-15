@@ -122,6 +122,7 @@ test('ninguna línea de «Decidir» sin enlace se queda sin tarjeta a la que sal
   const todas = construirEstadoEstudio({
     sustitucionesPorDecidir: 1, reservasPorAprobar: 1, recibosFallidos: 1, penalizacionesPorAprobar: 1,
     devolucionesPorRevisar: 1, automatizacionesEsperando: 1, canjesPorEntregar: 1, bajasPorRevisar: 1,
+    seriesPorRenovar: 1,
   });
   const sinEnlace = todas.decidir.filter(l => l.href === null);
   assert.ok(sinEnlace.length > 0);
@@ -138,4 +139,14 @@ test('las bajas de última hora del equipo esperan decisión, van las últimas y
   assert.equal(linea.texto, '2 bajas de última hora del equipo por revisar');
   assert.doesNotMatch(linea.texto, /sanci|penaliz|falta|justific/i);
   assert.equal(construirEstadoEstudio({ bajasPorRevisar: 1 }).decidir[0].texto, 'Una baja de última hora del equipo por revisar');
+});
+
+test('las clases que se repiten y se acaban esperan decisión en su tarjeta, antes que los canjes', () => {
+  const e = construirEstadoEstudio({ seriesPorRenovar: 2, canjesPorEntregar: 1, automatizacionesEsperando: 1 });
+  assert.deepEqual(e.decidir.map(l => l.id), ['automatizacionesEsperando', 'seriesPorRenovar', 'canjesPorEntregar']);
+  const linea = e.decidir.find(l => l.id === 'seriesPorRenovar')!;
+  assert.equal(linea.href, null);
+  assert.equal(linea.texto, '2 clases que se repiten están a punto de terminar');
+  assert.equal(ANCLA_DECIDIR.seriesPorRenovar, 'decidir-series');
+  assert.equal(construirEstadoEstudio({ seriesPorRenovar: 1 }).decidir[0].texto, 'Una clase que se repite está a punto de terminar');
 });

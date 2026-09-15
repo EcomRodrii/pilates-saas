@@ -51,6 +51,8 @@ export interface ConteosEstudio {
   canjesPorEntregar?: number | null;
   /** Bajas de última hora del equipo esperando «Todo en orden» / «Lo hablamos». */
   bajasPorRevisar?: number | null;
+  /** Clases que se repiten y terminan en 30 días (o terminaron hace menos de 14) sin renovar. */
+  seriesPorRenovar?: number | null;
   // En marcha
   sustitucionesBuscando?: number | null;
   ofertasListaEspera?: number | null;
@@ -80,6 +82,7 @@ export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
   devolucionesPorRevisar: 'decidir-devoluciones',
   canjesPorEntregar: 'decidir-canjes',
   bajasPorRevisar: 'decidir-bajas-equipo',
+  seriesPorRenovar: 'decidir-series',
 };
 
 export interface LineaEstado {
@@ -126,6 +129,10 @@ const LINEAS: DefLinea[] = [
     uno: 'Una devolución por revisar', varios: n => `${n} devoluciones por revisar` },
   { id: 'automatizacionesEsperando', bandeja: 'decidir', href: '/automatizaciones',
     uno: 'Una automatización espera tu visto bueno', varios: n => `${n} automatizaciones esperan tu visto bueno` },
+  // Una clase que se repite y se acaba: si nadie la renueva, ese hueco se queda
+  // sin clase y sus plazas fijas sin reserva. Se revisa y renueva en su tarjeta.
+  { id: 'seriesPorRenovar', bandeja: 'decidir', href: null,
+    uno: 'Una clase que se repite está a punto de terminar', varios: n => `${n} clases que se repiten están a punto de terminar` },
   { id: 'canjesPorEntregar', bandeja: 'decidir', href: null,
     uno: 'Una recompensa canjeada por entregar', varios: n => `${n} recompensas canjeadas por entregar` },
   // La última: no corre prisa (la clase ya la cubre el motor o la decide la

@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 
   const [
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
-    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar,
+    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
   ] = await Promise.all([
@@ -126,6 +126,17 @@ export async function GET(req: NextRequest) {
       if (propia) pendientes = pendientes.neq('instructor_id', propia);
       return contar('bajas-revisar', pendientes);
     }),
+    // Clases que se repiten y se acaban sin renovar: el mismo gate que
+    // renovarlas. La RPC ya descarta «no renovar», la cola cancelada a propósito
+    // y la que continúa en otra serie; aquí solo se cuentan.
+    si(gestionaCalendario, async () => {
+      const { data, error } = await admin.rpc('series_por_renovar', { p_studio_id: studioId, p_dias: 30 });
+      if (error) {
+        console.error('[estado-estudio:series-renovar]', error);
+        return null;
+      }
+      return Array.isArray(data) ? data.length : null;
+    }),
 
     // ── En marcha ──
     si(verSustituciones, () => contar('sust-buscando', admin.from('sustituciones')
@@ -155,7 +166,7 @@ export async function GET(req: NextRequest) {
 
   const conteos: ConteosEstudio = {
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
-    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar,
+    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
   };

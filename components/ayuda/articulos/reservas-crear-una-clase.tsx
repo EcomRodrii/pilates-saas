@@ -34,6 +34,10 @@ export default function Contenido() {
           El interruptor &ldquo;Repetir semanalmente&rdquo; convierte la clase en una serie. Al editar después una
           clase de la serie eliges si el cambio vale solo para esa clase o para esa y las siguientes, y
           &ldquo;Cancelar serie&rdquo; cancela esa clase y las que vienen detrás — ver <Link href="/ayuda/reservas/editar-o-cancelar-una-clase" style={{ color: 'inherit', textDecoration: 'underline' }}>editar o cancelar una clase</Link>.
+          {' '}Una serie dura las semanas que elijas. Cuando le queda un mes aparece en Inicio para que la renueves (o
+          digas que no), y también puedes renovarla cuando quieras desde la propia clase con &ldquo;Renovar serie&rdquo;:
+          se alarga la misma clase con su horario, sala, tipo, instructora, aforo y notas, las clases que ya están en
+          el calendario no se tocan y las alumnas con plaza fija siguen en su hueco.
         </p>
       </AyudaPaso>
 

@@ -2863,3 +2863,25 @@ export interface RowBajasInstructora {
   revisada_en: string | null;
   creado_en: string;
 }
+
+export interface RowSeries {
+  id: string;
+  studio_id: string;
+  semanas_periodo: number;
+  renovacion_automatica: boolean;
+  no_renovar: boolean;
+  creada_en: string;
+}
+
+export interface RowSeriesPeriodos {
+  serie_id: string;
+  periodo: number;
+  studio_id: string;
+  desde: string;
+  hasta: string;
+  origen: string;
+  creado_por: string | null;
+  sesiones_creadas: number;
+  omitidas: any;
+  creado_en: string;
+}
