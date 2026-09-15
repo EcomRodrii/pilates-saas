@@ -6,7 +6,9 @@
 
 export const MAX_SEMANAS_RENOVACION = 104;
 
-export type MotivoOmitida = 'ya_existe' | 'sala_ocupada';
+/** `cierre`: ese día el centro está cerrado (`cierres_estudio`), no se crea la clase. */
+export type MotivoOmitida = 'ya_existe' | 'sala_ocupada' | 'cierre';
+const MOTIVOS: readonly MotivoOmitida[] = ['ya_existe', 'sala_ocupada', 'cierre'];
 
 export interface ResultadoRenovarSerie {
   estado: 'renovada' | 'ya_renovada' | 'simulacion' | 'sin_cambios';
@@ -57,7 +59,7 @@ export function resultadoDeRpc(raw: unknown): ResultadoRenovarSerie | null {
   const omitidas = Array.isArray(r.omitidas)
     ? r.omitidas.flatMap(o => {
         const x = o as Record<string, unknown>;
-        return (x.motivo === 'ya_existe' || x.motivo === 'sala_ocupada') && typeof x.fecha === 'string'
+        return MOTIVOS.includes(x.motivo as MotivoOmitida) && typeof x.fecha === 'string'
           ? [{ fecha: x.fecha, motivo: x.motivo as MotivoOmitida }] : [];
       })
     : [];
@@ -142,12 +144,14 @@ export function textoTrasRenovar(r: ResultadoRenovarSerie): string {
     return `Esta clase ya estaba renovada: sigue hasta el ${fechaDMY(r.hasta)}`;
   }
   if (r.estado === 'sin_cambios') {
-    return 'No se ha creado ninguna clase: esas fechas ya estaban en el calendario o la sala está ocupada';
+    return 'No se ha creado ninguna clase: esas fechas ya estaban en el calendario, la sala está ocupada o el centro está cerrado';
   }
   const partes = [`Clase renovada: ${plural(r.creadas, 'clase más', 'clases más')}, hasta el ${fechaDMY(r.hasta)}`];
   const ocupadas = r.omitidas.filter(o => o.motivo === 'sala_ocupada').length;
   const yaEstaban = r.omitidas.filter(o => o.motivo === 'ya_existe').length;
+  const cerrado = r.omitidas.filter(o => o.motivo === 'cierre').length;
   if (ocupadas > 0) partes.push(`${plural(ocupadas, 'fecha no se ha creado', 'fechas no se han creado')} porque la sala está ocupada`);
+  if (cerrado > 0) partes.push(`${plural(cerrado, 'fecha no se ha creado', 'fechas no se han creado')} porque el centro está cerrado`);
   if (yaEstaban > 0) partes.push(`${plural(yaEstaban, 'ya estaba', 'ya estaban')} en el calendario`);
   if (r.sinInstructora.length > 0) {
     partes.push(`${plural(r.sinInstructora.length, 'queda', 'quedan')} sin instructora: asígnala en el calendario`);

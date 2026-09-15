@@ -75,6 +75,19 @@ test('nombreSerie usa los nombres del panel y no se inventa ninguno', () => {
   assert.equal(nombreSerie({ diaSemana: 3, hora: '09:30', salaId: null, tipoClaseId: 'x' }, id => tipos[id], id => salas[id]), 'Clase · Miércoles 09:30 · Sala');
 });
 
+test('un día de cierre del centro se omite con su motivo y se cuenta aparte', () => {
+  const r = resultadoDeRpc({
+    estado: 'renovada', periodo: 2, periodo_actual: 1, semanas: 3, desde: '2026-10-12', hasta: '2026-10-26',
+    creadas: 2, omitidas: [{ fecha: '2026-10-12', motivo: 'cierre' }], sin_instructora: [],
+    instructora_inactiva: false, plazas_fijas: 0, renovacion_automatica: false,
+  });
+  assert.deepEqual(r?.omitidas, [{ fecha: '2026-10-12', motivo: 'cierre' }]);
+  assert.equal(
+    textoTrasRenovar(r!),
+    'Clase renovada: 2 clases más, hasta el 26/10/2026 · 1 fecha no se ha creado porque el centro está cerrado',
+  );
+});
+
 test('semanasValidas: de 1 a 104, enteras', () => {
   assert.equal(semanasValidas(52), true);
   assert.equal(semanasValidas(0), false);

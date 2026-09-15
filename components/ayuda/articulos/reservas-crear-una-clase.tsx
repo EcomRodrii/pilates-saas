@@ -37,7 +37,7 @@ export default function Contenido() {
           {' '}Una serie dura las semanas que elijas. Cuando le queda un mes aparece en Inicio para que la renueves (o
           digas que no), y también puedes renovarla cuando quieras desde la propia clase, en &ldquo;Serie&rdquo; → &ldquo;Renovar serie&rdquo;:
           se alarga la misma clase con su horario, sala, tipo, instructora, aforo y notas, las clases que ya están en
-          el calendario no se tocan y las alumnas con plaza fija siguen en su hueco. Si no la renuevas, te avisamos a
+          el calendario no se tocan, los días de cierre del centro se saltan y las alumnas con plaza fija siguen en su hueco. Si no la renuevas, te avisamos a
           las dos semanas y a la semana del final (y el último día, también por email). Y si prefieres no depender
           de acordarte, marca &ldquo;Renovar sola&rdquo; al renovarla: un mes antes del final se renueva con las mismas
           semanas y te avisa.
