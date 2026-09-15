@@ -1,5 +1,5 @@
 -- Drill: el motor de plazas fijas no reserva sola una clase que empieza dentro
--- del plazo de cancelación (migr 20260915170000). TODO dentro de una
+-- del plazo de cancelación (migr 20260915170344). TODO dentro de una
 -- transacción que termina en ROLLBACK: no deja nada. Fixture con prefijo
 -- `zzdrill-`.
 --
@@ -14,7 +14,7 @@
 \set ON_ERROR_STOP on
 begin;
 
-\i supabase/migrations/20260915170000_plaza_fija_no_reserva_dentro_del_plazo.sql
+\i supabase/migrations/20260915170344_plaza_fija_no_reserva_dentro_del_plazo.sql
 
 insert into studios (id, nombre) values ('zzdrill-st', 'Estudio PF plazo');
 insert into salas (id, studio_id, nombre, capacidad) values
