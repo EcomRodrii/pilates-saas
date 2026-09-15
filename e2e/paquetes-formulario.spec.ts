@@ -99,7 +99,10 @@ async function mockBackend(page: Page, planesIniciales: Record<string, unknown>[
       return json(route, [], 201);
     }
     if (req.method() === 'DELETE') {
-      return route.fulfill({ status: 204, contentType: 'application/json', body: '[]' });
+      // Las filas borradas, como PostgREST con `select` (el guardado cuenta filas).
+      const planId = decodeURIComponent(req.url().match(/plan_id=eq\.([^&]+)/)?.[1] ?? '');
+      const quitados = vinculos.filter(v => v.plan_id === planId).length;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(Array.from({ length: quitados }, () => ({ plan_id: planId }))) });
     }
     return json(route, vinculos);
   });

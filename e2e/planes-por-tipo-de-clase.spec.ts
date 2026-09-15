@@ -112,10 +112,13 @@ async function mockBackend(page: Page, opts: {
     if (req.method() === 'DELETE') {
       // El guardado sincroniza: borra los vínculos del plan y reinserta.
       const planId = decodeURIComponent(req.url().match(/plan_id=eq\.([^&]+)/)?.[1] ?? '');
+      let quitados = 0;
       for (let i = vinculos.length - 1; i >= 0; i--) {
-        if (vinculos[i].plan_id === planId) vinculos.splice(i, 1);
+        if (vinculos[i].plan_id === planId) { vinculos.splice(i, 1); quitados++; }
       }
-      return route.fulfill({ status: 204, contentType: 'application/json', body: '[]' });
+      // Las filas borradas, como PostgREST con `select`: el guardado distingue
+      // «0 filas» (sin permiso) de «borrado».
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(Array.from({ length: quitados }, () => ({ plan_id: planId }))) });
     }
     return json(route, vinculos);
   });
