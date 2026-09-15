@@ -88,12 +88,12 @@ for (const vista of VISTAS) {
       expect(seSolapan(caja, b), `la burbuja (${Math.round(b.y)}) tapa el final (${Math.round(caja.y + caja.height)})`).toBe(false);
     });
 
-    // En Cobros y no en Mi estudio: desde el 15-sep (v2) los campos de Mi estudio
-    // van en un cajón, por encima de la burbuja.
+    // En «Cómo reservan mis alumnas»: desde el 15-sep (v2) los campos de Mi
+    // estudio y de Cobros y facturas van en un cajón, por encima de la burbuja.
     test('un campo enfocado no queda debajo de la burbuja', async ({ page }) => {
       await panel(page);
-      await ir(page, 'configuracion?tab=cobros');
-      const primero = page.getByRole('textbox', { name: 'Razón social' });
+      await ir(page, 'configuracion?tab=reservas');
+      const primero = page.getByLabel('Plazo para cancelar sin perder la sesión (horas antes)');
       await expect(primero).toBeVisible({ timeout: 30_000 });
       await expect(burbuja(page)).toBeVisible();
 
@@ -125,12 +125,12 @@ for (const vista of VISTAS) {
 
     test('con la barra de guardar a la vista, la burbuja se aparta', async ({ page }) => {
       await panel(page);
-      await ir(page, 'configuracion?tab=cobros');
-      const telefono = page.getByRole('textbox', { name: 'Razón social' });
+      await ir(page, 'configuracion?tab=marca');
+      const telefono = page.getByRole('textbox', { name: 'Tu lema' });
       await expect(telefono).toBeVisible({ timeout: 30_000 });
       await expect(burbuja(page)).toBeVisible();
 
-      await telefono.fill('Pilates Centro SL');
+      await telefono.fill('Cuerpo y mente');
       await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
       await expect(burbuja(page)).toBeHidden();
 
@@ -150,12 +150,12 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1280, height: 800
 
     test('con la barra de guardar a la vista se aparta, y vuelve al descartar', async ({ page }) => {
       await panel(page);
-      await ir(page, 'configuracion?tab=cobros');
-      const telefono = page.getByRole('textbox', { name: 'Razón social' });
+      await ir(page, 'configuracion?tab=marca');
+      const telefono = page.getByRole('textbox', { name: 'Tu lema' });
       await expect(telefono).toBeVisible({ timeout: 30_000 });
       await expect(burbuja(page)).toBeVisible();
 
-      await telefono.fill('Pilates Centro SL');
+      await telefono.fill('Cuerpo y mente');
       await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
       await expect(burbuja(page)).toBeHidden();
 

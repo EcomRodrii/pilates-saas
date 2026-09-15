@@ -1,46 +1,61 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useId, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { faltanDatosFiscales } from '@/lib/legal-textos';
-import { sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
+import { hayCambios, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import { hayPenalizacionConfigurada } from '@/lib/configuracion/penalizacion-activa';
-import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
+import { hrefDeTarjeta } from '@/lib/configuracion/destino';
+import { labelCls } from '@/components/configuracion/estilos';
+import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
+import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
 import { esClicNormal, useNavegacionConfig } from '@/components/configuracion/shell/contexto';
+
+// «Contrato y privacidad»: el cajón de su fila en Alta de alumnas. Los dos
+// documentos se guardan con UN «Guardar», que manda solo el que ha cambiado
+// (#2027): antes cada uno llevaba su botón, siempre a la vista y gris en reposo.
+//
+// Lo que no se puede perder:
+//  · si el componente monta antes de que `studioConfig` llegue de la BD, el
+//    texto de fábrica no puede machacar el propio del estudio al guardar: lo
+//    tocado a mano no lo pisa nada (lib/configuracion/formulario-sincronizado.ts);
+//  · el consentimiento de una penalización se compara por TEXTO COMPLETO: tocar
+//    una coma deja a todas las alumnas sin consentimiento hasta que vuelvan a
+//    aceptar. Solo se avisa —y se pregunta antes de guardar— si hay una
+//    penalización configurada; si no, el aviso sería falso.
 
 type Campo = 'politicaPrivacidad' | 'terminosServicio';
 type LegalForm = Record<Campo, string>;
 
-const TEXTOS: Record<Campo, { titulo: string; boton: string; guardado: string; aviso: string }> = {
-  politicaPrivacidad: {
+const DOCUMENTOS: { campo: Campo; titulo: string; ayuda: string; aviso: string; guardado: string }[] = [
+  {
+    campo: 'politicaPrivacidad',
     titulo: 'Política de privacidad',
-    boton: 'Guardar política',
-    guardado: 'Política de privacidad guardada',
+    ayuda: 'La acepta al registrarse, antes de terminar el alta.',
     aviso: 'Al cambiar la política de privacidad, todas tus alumnas tendrán que aceptarla de nuevo; hasta entonces no se les puede cobrar penalización.',
+    guardado: 'Política de privacidad guardada',
   },
-  terminosServicio: {
+  {
+    // Lo que se guarda al aceptar (`AceptacionContrato`): el texto legal completo
+    // tal cual se leyó, la fecha y el nombre con el que firmó.
+    campo: 'terminosServicio',
     titulo: 'Términos y condiciones',
-    boton: 'Guardar términos',
-    guardado: 'Términos y condiciones guardados',
+    ayuda: 'El contrato que acepta cada alumna al darse de alta.',
     aviso: 'Al cambiar los términos, todas tus alumnas tendrán que aceptarlos de nuevo; hasta entonces no se les puede cobrar penalización.',
+    guardado: 'Términos y condiciones guardados',
   },
-};
+];
 
-export function TabEstudioLegal({ showToast }: { showToast: (m: string) => void }) {
-  const { studioConfig, updateStudioConfig, studio, tiposClase } = useStudio();
+const deConfig = (c: LegalForm): LegalForm => ({ politicaPrivacidad: c.politicaPrivacidad, terminosServicio: c.terminosServicio });
+
+export function FormContratoYPrivacidad({ onGuardado }: PropsFormularioCajon) {
+  const { studioConfig, updateStudioConfig, studio, tiposClase, textosLegalesPropios } = useStudio();
   const nav = useNavegacionConfig();
-  const deConfig = (c: typeof studioConfig): LegalForm => ({
-    politicaPrivacidad: c.politicaPrivacidad,
-    terminosServicio: c.terminosServicio,
-  });
+  const uid = useId();
   const [form, setForm] = useState<LegalForm>(() => deConfig(studioConfig));
   const [base, setBase] = useState<LegalForm>(() => deConfig(studioConfig));
-  // Si el componente monta antes de que `studioConfig` llegue de la BD, el
-  // textarea enseñaba el texto por defecto y «Guardar» machacaba con él el
-  // texto propio del estudio. Mientras no se toque a mano, se sigue al contexto;
-  // lo tocado no lo pisa nada — ni la carga, ni guardar el OTRO documento.
   // Se ajusta DURANTE el render, no en un efecto: sin primer pintado viejo.
   const [configVista, setConfigVista] = useState(studioConfig);
   if (configVista !== studioConfig) {
@@ -50,103 +65,40 @@ export function TabEstudioLegal({ showToast }: { showToast: (m: string) => void 
     setBase(servidor);
   }
 
-  const guardandoRef = useRef<Partial<Record<Campo, boolean>>>({});
-  const [guardando, setGuardando] = useState<Partial<Record<Campo, boolean>>>({});
-  const [errores, setErrores] = useState<Partial<Record<Campo, string>>>({});
-
-  // El consentimiento se compara por TEXTO COMPLETO (lib/inngest/penalizaciones.ts):
-  // cualquier cambio en cualquiera de los dos documentos deja a todas las
-  // alumnas sin consentimiento vigente para cobrarles una penalización. Solo se
-  // avisa si de verdad hay una configurada — si no, el aviso sería falso.
   const hayPenalizacion = hayPenalizacionConfigurada(studio, tiposClase);
+  const cambiados = DOCUMENTOS.filter(d => form[d.campo] !== base[d.campo]);
+  // Con unos términos propios no se cobra ninguna penalización
+  // (lib/billing/penalizacion-consentimiento.ts, `terminos_propios`).
+  const sinPenalizaciones = hayPenalizacion && !!textosLegalesPropios?.terminosServicio;
 
-  function escribir(campo: Campo, valor: string) {
-    setForm(f => ({ ...f, [campo]: valor }));
-    setErrores(e => ({ ...e, [campo]: undefined }));
-  }
-
-  async function guardar(campo: Campo) {
-    // Un ref y no solo el `disabled`: dos toques seguidos llegan antes de que
-    // el botón se repinte deshabilitado.
-    if (guardandoRef.current[campo]) return;
-    guardandoRef.current = { ...guardandoRef.current, [campo]: true };
-    setGuardando(g => ({ ...g, [campo]: true }));
-    setErrores(e => ({ ...e, [campo]: undefined }));
-    const valor = form[campo];
-    try {
-      const r = await updateStudioConfig(
-        campo === 'politicaPrivacidad' ? { politicaPrivacidad: valor } : { terminosServicio: valor },
-      );
-      if (!r.ok) {
-        setErrores(e => ({ ...e, [campo]: r.error }));
-        showToast(r.error);
-        return;
-      }
-      setBase(b => ({ ...b, [campo]: valor }));
-      showToast(TEXTOS[campo].guardado);
-    } catch {
-      const mensaje = 'No se ha podido guardar. Revisa tu conexión.';
-      setErrores(e => ({ ...e, [campo]: mensaje }));
-      showToast(mensaje);
-    } finally {
-      guardandoRef.current = { ...guardandoRef.current, [campo]: false };
-      setGuardando(g => ({ ...g, [campo]: false }));
-    }
-  }
-
-  function pintarDocumento(campo: Campo, descripcion: React.ReactNode, antes?: React.ReactNode) {
-    const pendiente = form[campo] !== base[campo];
-    const ocupado = !!guardando[campo];
-    const error = errores[campo];
-    return (
-      <div className="border-border [&+&]:mt-6 [&+&]:border-t [&+&]:pt-6">
-        <h4 className="text-sm font-semibold text-foreground mb-1">{TEXTOS[campo].titulo}</h4>
-        <p className="text-[12px] text-muted-foreground mb-3">{descripcion}</p>
-        {antes}
-        <textarea
-          rows={8}
-          aria-label={TEXTOS[campo].titulo}
-          className="w-full rounded-lg border border-input bg-card px-3 py-2 text-base font-mono text-foreground transition-colors resize-y [@media(pointer:fine)]:text-[12px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          value={form[campo]}
-          onChange={(e) => escribir(campo, e.target.value)}
-        />
-        {hayPenalizacion && pendiente && (
-          <p className="flex items-start gap-2 mt-3 p-2.5 rounded-lg bg-warning/10 text-[12px] text-warning">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-            <span>{TEXTOS[campo].aviso}</span>
-          </p>
-        )}
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => guardar(campo)}
-            disabled={ocupado || !pendiente}
-            className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors disabled:opacity-40"
-          >
-            {ocupado ? 'Guardando…' : TEXTOS[campo].boton}
-          </button>
-          {pendiente && !ocupado && <span className="text-[12px] text-muted-foreground">Cambios sin guardar.</span>}
-        </div>
-        {error && <p role="alert" className="mt-2 text-[12px] font-medium text-destructive">{error}</p>}
-      </div>
-    );
+  async function alGuardar(): Promise<string | null> {
+    const cambios: Partial<LegalForm> = Object.fromEntries(cambiados.map(d => [d.campo, form[d.campo]]));
+    const r = await updateStudioConfig(cambios);
+    if (!r.ok) return r.error;
+    setBase(b => ({ ...b, ...cambios }));
+    onGuardado(cambiados.length === 1 ? cambiados[0].guardado : 'Contrato y privacidad guardados');
+    return null;
   }
 
   return (
-    <TarjetaAjuste id="contrato-y-privacidad">
-      {pintarDocumento(
-        'politicaPrivacidad',
-        'Se muestra a tus alumnas al registrarse, y tienen que aceptarlo antes de terminar el alta.',
-        /* Sin razón social / nombre no se puede identificar al responsable del
-           tratamiento, y lo que firme la alumna no sirve (RGPD art. 13.1.a).
-           Se avisa aquí, que es donde se nota. */
-        faltanDatosFiscales(studio ?? {}) && (
-          <p className="flex items-start gap-2 mb-3 p-2.5 rounded-lg bg-warning/10 text-[12px] text-warning">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5" aria-hidden />
+    <>
+      <div className="space-y-6 pb-6">
+        {sinPenalizaciones && (
+          <p className="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-foreground text-pretty">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-destructive" aria-hidden />
+            <span>Con términos propios no se cobran penalizaciones. Déjalos en blanco para usar los de Tentare.</span>
+          </p>
+        )}
+        {/* Sin razón social ni NIF no se identifica al responsable del
+            tratamiento, y lo que firme la alumna no sirve (RGPD art. 13.1.a). */}
+        {faltanDatosFiscales(studio ?? {}) && (
+          <p className="flex gap-2 rounded-lg bg-warning/10 px-3 py-2.5 text-sm text-foreground text-pretty">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
             <span>
-              Rellena la razón social y el NIF en{' '}
-              {/* Dentro de Configuración va por el shell, no por el router: ver `irA`. */}
+              Sin tu razón social y tu NIF, estos textos no dicen quién responde de los datos.{' '}
+              {/* Dentro de Configuración va por el shell, no por el router (#2030). */}
               <Link
-                href="/configuracion?tab=cobros#datos-fiscales"
+                href={hrefDeTarjeta('datos-fiscales')}
                 onClick={e => {
                   if (!nav || !esClicNormal(e)) return;
                   e.preventDefault();
@@ -154,20 +106,43 @@ export function TabEstudioLegal({ showToast }: { showToast: (m: string) => void 
                 }}
                 className="font-semibold underline underline-offset-2"
               >
-                Cobros y facturas → Datos fiscales e IVA
+                Poner mis datos fiscales
               </Link>
-              : sin ellos este documento no dice quién es el responsable de los datos y no cumple el RGPD.
             </span>
           </p>
-        ),
-      )}
-      {/* Lo que se guarda al aceptar (`AceptacionContrato`): el texto legal
-          completo tal cual se leyó (`versionTexto`), la fecha y el nombre que
-          escribió al firmar (`firma`, app/portal/[slug]/acceso/registro). */}
-      {pintarDocumento(
-        'terminosServicio',
-        'El contrato que acepta cada alumna al darse de alta. Queda guardado qué texto aceptó, cuándo y el nombre con el que lo aceptó.',
-      )}
-    </TarjetaAjuste>
+        )}
+
+        {DOCUMENTOS.map(d => (
+          <div key={d.campo}>
+            <label htmlFor={`${uid}-${d.campo}`} className={labelCls}>{d.titulo}</label>
+            <p className="mb-2 text-xs text-muted-foreground">{d.ayuda}</p>
+            <textarea
+              id={`${uid}-${d.campo}`}
+              rows={8}
+              className="w-full resize-y rounded-lg border border-input bg-card px-3 py-2 font-mono text-base text-foreground transition-colors [@media(pointer:fine)]:text-[12px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              value={form[d.campo]}
+              onChange={e => { const v = e.target.value; setForm(f => ({ ...f, [d.campo]: v })); }}
+            />
+            {hayPenalizacion && form[d.campo] !== base[d.campo] && (
+              <p className="mt-2 flex gap-2 rounded-lg bg-warning/10 p-2.5 text-xs text-foreground text-pretty">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                <span>{d.aviso}</span>
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+      <BarraGuardar
+        seccion="altas"
+        cambios={hayCambios(form, base) ? ['Contrato y privacidad'] : []}
+        confirmar={hayPenalizacion ? {
+          titulo: '¿Cambiar los textos que aceptan tus alumnas?',
+          descripcion: 'Tendrán que volver a aceptarlos, y hasta entonces no se les cobra ninguna penalización.',
+          textoConfirmar: 'Sí, cambiarlos',
+        } : null}
+        onGuardar={alGuardar}
+        onDescartar={() => setForm(base)}
+      />
+    </>
   );
 }

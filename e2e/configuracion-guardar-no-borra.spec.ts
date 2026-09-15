@@ -94,8 +94,9 @@ const FISCALES = ['iva_por_defecto', 'nif', 'razon_social'];
 const TEXTOS = ['anio_fundacion', 'descripcion', 'frase_heroe', 'frase_manuscrita', 'lema', 'normas_texto', 'subtitulo_heroe'];
 
 test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () => {
-  test('elegir el IVA no borra el NIF, y Guardar manda los dos y nada más', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=cobros', {
+  // Cobros y facturas en filas con su cajón (15-sep, v2): `#datos-fiscales` lo abre.
+  test('elegir el IVA no borra el NIF, pregunta antes, y Guardar manda los dos y nada más', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=cobros#datos-fiscales', {
       fila: { ...STUDIO_ROW, razon_social: 'Guardada SL', lema: 'Lema guardado', telefono: '600000000' },
     });
 
@@ -109,13 +110,19 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
     expect(patches).toHaveLength(0);
     await expect(nif).toHaveValue(NIF);
 
-    await page.getByRole('button', { name: 'Guardar datos fiscales' }).click();
+    // El IVA es dinero: primero la pregunta, y hasta confirmar no sale nada.
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    const pregunta = page.getByRole('dialog', { name: '¿Cambiar el IVA al 10 %?' });
+    await expect(pregunta).toBeVisible();
+    expect(patches).toHaveLength(0);
+    await pregunta.getByRole('button', { name: 'Sí, cambiar el IVA' }).click();
+
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
     expect(patches.at(-1)).toMatchObject({ nif: NIF, iva_por_defecto: 10, razon_social: 'Guardada SL' });
     expect(Object.keys(patches.at(-1)!).sort()).toEqual(FISCALES);
     await expect(page.getByText('Datos fiscales guardados')).toBeVisible();
-    // Guardado de verdad: la barra se va.
-    await expect(page.getByText('Tienes cambios sin guardar.')).toHaveCount(0);
+    // Guardado de verdad: el cajón se cierra, y con él la barra.
+    await expect(page.getByText(/Cambios sin guardar en/)).toHaveCount(0);
   });
 
   test('guardar el contacto manda solo esos tres campos', async ({ page }) => {
@@ -188,29 +195,29 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
 
   for (const respuesta of ['cero-filas', '403', 'abort'] as const) {
     test(`si el servidor dice que no (${respuesta}), no dice «guardados» y no pierde nada`, async ({ page }) => {
-      const { patches } = await montar(page, '/configuracion?tab=cobros', { respuesta });
+      const { patches } = await montar(page, '/configuracion?tab=cobros#datos-fiscales', { respuesta });
 
       const nif = page.getByRole('textbox', { name: 'NIF / CIF' });
       await expect(nif).toBeVisible({ timeout: 30_000 });
       await nif.fill(NIF);
-      await page.getByRole('button', { name: 'Guardar datos fiscales' }).click();
+      await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
       await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
       // Tiempo para que un «guardado» mentiroso apareciera si fuera a hacerlo.
       await page.waitForTimeout(800);
       await expect(page.getByText('Datos fiscales guardados')).toHaveCount(0);
       await expect(nif).toHaveValue(NIF);
-      await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+      await expect(page.getByText('Cambios sin guardar en: Datos fiscales e IVA')).toBeVisible();
     });
   }
 
-  test('doble toque en Guardar datos fiscales: una sola petición', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=cobros', { retrasoMs: 1_000 });
+  test('doble toque en Guardar los datos fiscales: una sola petición', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=cobros#datos-fiscales', { retrasoMs: 1_000 });
 
     const nif = page.getByRole('textbox', { name: 'NIF / CIF' });
     await expect(nif).toBeVisible({ timeout: 30_000 });
     await nif.fill(NIF);
-    await page.getByRole('button', { name: 'Guardar datos fiscales' }).dblclick();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).dblclick();
 
     await expect(page.getByText('Datos fiscales guardados')).toBeVisible({ timeout: 10_000 });
     await page.waitForTimeout(500);
@@ -224,31 +231,38 @@ function togglePermitirDevolver(page: Page) {
   return page.getByRole('switch', { name: 'Permitir devolver desde Tentare' });
 }
 
-test.describe('Cobros: Devoluciones no borra SEPA', () => {
-  test('guardar la política de devoluciones no borra los datos SEPA a medio escribir', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=estudio&sub=cobros');
+// Devoluciones tiene su cajón (15-sep, v2), y SEPA el suyo: ya no conviven en
+// pantalla, así que lo que se fija es que cada «Guardar» manda lo suyo y que,
+// siendo dinero, pregunta antes.
+const DEVOLUCIONES = ['reembolso_plazo_dias', 'reembolso_solo_sin_usar', 'reembolsos_activos'];
 
-    const acreedor = page.getByPlaceholder('ES00ZZZ00000000000');
-    await expect(acreedor).toBeVisible({ timeout: 30_000 });
-    await acreedor.fill('ES12ZZZ12345678');
-
-    await togglePermitirDevolver(page).click();
-    await page.getByRole('spinbutton').fill('30');
-    await page.getByRole('button', { name: 'Guardar política' }).click();
-
-    await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
-    expect(patches[0]).toMatchObject({ reembolsos_activos: true, reembolso_plazo_dias: 30 });
-    await expect(page.getByText('Política de devoluciones guardada')).toBeVisible();
-
-    await expect(acreedor).toHaveValue('ES12ZZZ12345678');
-  });
-
-  test('doble toque en Guardar política: una sola petición', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=estudio&sub=cobros', { retrasoMs: 1_000 });
+test.describe('Cobros: Devoluciones, en su cajón', () => {
+  test('guardar las devoluciones pregunta antes y manda solo sus tres campos', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=cobros#devoluciones');
 
     await expect(togglePermitirDevolver(page)).toBeVisible({ timeout: 30_000 });
     await togglePermitirDevolver(page).click();
-    await page.getByRole('button', { name: 'Guardar política' }).dblclick();
+    await page.getByRole('spinbutton').fill('30');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+
+    const pregunta = page.getByRole('dialog', { name: '¿Permitir devolver desde Tentare?' });
+    await expect(pregunta).toContainText('hasta 30 días');
+    expect(patches).toHaveLength(0);
+    await pregunta.getByRole('button', { name: 'Sí, permitirlo' }).click();
+
+    await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
+    expect(patches[0]).toMatchObject({ reembolsos_activos: true, reembolso_plazo_dias: 30 });
+    expect(Object.keys(patches[0]).sort()).toEqual(DEVOLUCIONES);
+    await expect(page.getByText('Política de devoluciones guardada')).toBeVisible();
+  });
+
+  test('doble toque al confirmar: una sola petición', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=cobros#devoluciones', { retrasoMs: 1_000 });
+
+    await expect(togglePermitirDevolver(page)).toBeVisible({ timeout: 30_000 });
+    await togglePermitirDevolver(page).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await page.getByRole('button', { name: 'Sí, permitirlo' }).dblclick();
 
     await expect(page.getByText('Política de devoluciones guardada')).toBeVisible({ timeout: 10_000 });
     await page.waitForTimeout(500);
@@ -256,12 +270,13 @@ test.describe('Cobros: Devoluciones no borra SEPA', () => {
   });
 
   test('si el servidor no lo guarda, no dice «guardada» y la política elegida se queda', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=estudio&sub=cobros', { respuesta: 'cero-filas' });
+    const { patches } = await montar(page, '/configuracion?tab=cobros#devoluciones', { respuesta: 'cero-filas' });
 
     await expect(togglePermitirDevolver(page)).toBeVisible({ timeout: 30_000 });
     await togglePermitirDevolver(page).click();
     await page.getByRole('spinbutton').fill('30');
-    await page.getByRole('button', { name: 'Guardar política' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await page.getByRole('button', { name: 'Sí, permitirlo' }).click();
 
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
     await page.waitForTimeout(800);
@@ -272,14 +287,14 @@ test.describe('Cobros: Devoluciones no borra SEPA', () => {
   });
 
   test('un plazo fuera de rango no se manda', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=estudio&sub=cobros');
+    const { patches } = await montar(page, '/configuracion?tab=cobros#devoluciones');
 
     await expect(togglePermitirDevolver(page)).toBeVisible({ timeout: 30_000 });
     await togglePermitirDevolver(page).click();
     await page.getByRole('spinbutton').fill('5000');
 
     await expect(page.getByText(/entre 0 y 365/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Guardar política' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
     await page.waitForTimeout(300);
     expect(patches).toHaveLength(0);
   });
@@ -296,7 +311,7 @@ test.describe('Legal', () => {
     const terminos = page.locator('textarea').nth(1);
     await expect(terminos).toBeVisible({ timeout: 30_000 });
     await terminos.fill('Condiciones nuevas del estudio.');
-    await page.getByRole('button', { name: 'Guardar términos' }).dblclick();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).dblclick();
 
     await expect(page.getByText('Términos y condiciones guardados')).toBeVisible({ timeout: 10_000 });
     await page.waitForTimeout(500);
@@ -304,19 +319,20 @@ test.describe('Legal', () => {
     expect(patches[0]).toMatchObject({ terminos_servicio: 'Condiciones nuevas del estudio.' });
   });
 
-  test('guardar la política de privacidad no borra los términos a medio escribir', async ({ page }) => {
+  // Los dos textos van en un cajón con un solo «Guardar» (15-sep, v2): manda
+  // SOLO el que ha cambiado, para no pisar con lo que tenía en memoria el otro.
+  test('guardar manda solo el texto que ha cambiado', async ({ page }) => {
     const { patches } = await montar(page, '/configuracion?tab=estudio&sub=legal');
 
     const politica = page.locator('textarea').nth(0);
     const terminos = page.locator('textarea').nth(1);
     await expect(terminos).toBeVisible({ timeout: 30_000 });
-    await terminos.fill('Condiciones nuevas del estudio.');
     await politica.fill('Política nueva del estudio.');
-    await page.getByRole('button', { name: 'Guardar política' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
     expect(patches[0]).toEqual({ politica_privacidad: 'Política nueva del estudio.' });
-    await expect(terminos).toHaveValue('Condiciones nuevas del estudio.');
+    await expect(page.getByText('Política de privacidad guardada')).toBeVisible();
   });
 
   test('si el servidor no lo guarda, no dice «guardados» y el texto se queda', async ({ page }) => {
@@ -325,7 +341,7 @@ test.describe('Legal', () => {
     const terminos = page.locator('textarea').nth(1);
     await expect(terminos).toBeVisible({ timeout: 30_000 });
     await terminos.fill('Condiciones nuevas del estudio.');
-    await page.getByRole('button', { name: 'Guardar términos' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
     await page.waitForTimeout(800);
@@ -353,7 +369,7 @@ test.describe('Legal', () => {
     await expect(terminos).toBeVisible({ timeout: 30_000 });
     await terminos.fill('Condiciones nuevas del estudio.');
     // Algo tiene que haber reaccionado al cambio antes de afirmar la ausencia.
-    await expect(page.getByRole('button', { name: 'Guardar términos' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeEnabled();
     await page.waitForTimeout(300);
     await expect(page.getByText(AVISO_CONSENTIMIENTO)).toHaveCount(0);
   });

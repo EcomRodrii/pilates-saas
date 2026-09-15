@@ -81,7 +81,8 @@ test.describe('⌘K encuentra los ajustes de Configuración', () => {
     await expect(page).toHaveURL(/\/configuracion\?tab=cobros#datos-fiscales$/, { timeout: 30_000 });
     await expect(input).toBeHidden();
     await expect(tituloSeccion(page, 'Cobros y facturas')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('heading', { level: 3, name: 'Datos fiscales e IVA', exact: true })).toBeInViewport({ timeout: 15_000 });
+    // Es una fila con su cajón (15-sep, v2): el ancla lo abre, con su título.
+    await expect(page.getByRole('heading', { level: 2, name: 'Datos fiscales e IVA', exact: true })).toBeInViewport({ timeout: 15_000 });
   });
 
   test('ya en Configuración, «lista de espera» cambia de sección y la URL la sigue', async ({ page }) => {

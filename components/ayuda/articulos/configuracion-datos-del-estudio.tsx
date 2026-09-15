@@ -12,6 +12,7 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 // 15-sep-2026 (v2): Mi estudio son filas que dicen lo guardado; cada una se abre
 // para cambiarla, con «Guardar». «Datos y contacto» se partió en «Nombre y
 // dirección» y «Contacto» (components/configuracion/tab-datos-contacto.tsx).
+// Cobros y facturas, igual: «Datos fiscales e IVA» es una fila con su cajón.
 export default function Contenido() {
   return (
     <>
@@ -24,9 +25,9 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Datos fiscales e IVA</h2>
       <p>
-        La razón social, el NIF/CIF y el IVA general están en Configuración &gt; Cobros y facturas, en «Datos fiscales e
-        IVA», con su propio botón «Guardar datos fiscales». Cambiar el IVA no toca las facturas ya emitidas y selladas
-        con Veri*Factu — solo afecta a partir de ese momento.
+        La razón social, el NIF/CIF y el IVA general están en Configuración &gt; Cobros y facturas, en la fila «Datos
+        fiscales e IVA»: tócala para cambiarlos y pulsa «Guardar». Si cambias el IVA, te pregunta antes. No toca las
+        facturas ya emitidas y selladas con Veri*Factu — solo afecta a partir de ese momento.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo te presentas</h2>

@@ -230,7 +230,16 @@ import type { AparienciaWidget } from '@/lib/reservar/apariencia-widget';
 // reglas para decidir qué firmó la clienta es exactamente lo que no puede pasar.
 // Se importa ADEMÁS de re-exportar: `export … from` reenvía el nombre pero no
 // lo trae al ámbito de este fichero, y aquí se usa (`studioConfig: StudioConfig`).
-import { configLegalDe, defaultStudioConfig, textoConsentimientoMarketing, type StudioConfig } from '@/lib/legal-textos';
+import { configLegalDe, defaultStudioConfig, textoConsentimientoMarketing, tieneTextoPropio, type StudioConfig } from '@/lib/legal-textos';
+
+/** Qué documentos ha reescrito el estudio, de lo GUARDADO (vacío = el de Tentare). Lo que no viene, se queda como estaba. */
+function textosPropiosDe(
+  guardados: Partial<Record<keyof StudioConfig, string | null>> | null | undefined,
+  antes: Record<keyof StudioConfig, boolean> = { politicaPrivacidad: false, terminosServicio: false },
+): Record<keyof StudioConfig, boolean> {
+  const de = (k: keyof StudioConfig) => (guardados && k in guardados ? tieneTextoPropio(guardados[k]) : antes[k]);
+  return { politicaPrivacidad: de('politicaPrivacidad'), terminosServicio: de('terminosServicio') };
+}
 import { registrarConsentimientoSaludApi, revocarConsentimientoSaludApi } from '@/lib/datos-salud/consentimiento-cliente';
 export { configLegalDe, defaultStudioConfig, type StudioConfig };
 
@@ -421,6 +430,8 @@ interface StudioContextValue {
   // plantilla la gestiona solo PROPIETARIO (RLS); la rellenan PROPIETARIO/
   // INSTRUCTOR en la ficha de la clienta. Sin canal público/portal.
   plantillasCuestionarioSalud: PlantillaCuestionarioSalud[];
+  /** `false` hasta que llegan las preguntas: sin ellas, «sin preguntas» sería inventado. */
+  cuestionarioSaludCargado: boolean;
   addPlantillaCuestionarioSalud: (fields: Omit<PlantillaCuestionarioSalud, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updatePlantillaCuestionarioSalud: (id: string, changes: Partial<Omit<PlantillaCuestionarioSalud, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deletePlantillaCuestionarioSalud: (id: string) => Promise<ResultadoEscritura>;
@@ -612,6 +623,8 @@ interface StudioContextValue {
 
   // Campos personalizados de socia
   camposPersonalizados: CampoPersonalizado[];
+  /** `false` hasta que llega la lista: se pide aparte, después de `dataLoaded`. */
+  camposPersonalizadosCargados: boolean;
   addCampoPersonalizado: (fields: Omit<CampoPersonalizado, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateCampoPersonalizado: (id: string, changes: Partial<Omit<CampoPersonalizado, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteCampoPersonalizado: (id: string) => Promise<ResultadoEscritura>;
@@ -639,6 +652,13 @@ interface StudioContextValue {
 
   // Studio config (policy, terms)
   studioConfig: StudioConfig;
+  /**
+   * ¿Ha escrito el estudio su propio texto? `studioConfig` ya trae el de Tentare
+   * en lo que está vacío, y no se puede saber mirándolo: con unos términos
+   * propios no se cobra ninguna penalización (lib/billing/penalizacion-consentimiento.ts).
+   * `null` = sin cargar.
+   */
+  textosLegalesPropios: Record<keyof StudioConfig, boolean> | null;
   updateStudioConfig: (changes: Partial<StudioConfig>) => Promise<ResultadoEscritura>;
 
   // Motor de automatización avanzado
@@ -840,6 +860,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [retoConteos, setRetoConteos] = useState<Record<string, number>>({});
   const [valoracionEstudio, setValoracionEstudio] = useState<{ media: number; total: number } | null>(null);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
+  const [camposPersonalizadosCargados, setCamposPersonalizadosCargados] = useState(false);
   const [segmentosClientes, setSegmentosClientes] = useState<SegmentoCliente[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
   const [plantillasEmailCargadas, setPlantillasEmailCargadas] = useState(false);
@@ -870,6 +891,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [respuestasSesion, setRespuestasSesion] = useState<RespuestaSesionRow[]>([]);
   const [emailsRebotados, setEmailsRebotados] = useState<Record<string, TipoRebote>>({});
   const [plantillasCuestionarioSalud, setPlantillasCuestionarioSalud] = useState<PlantillaCuestionarioSalud[]>([]);
+  const [cuestionarioSaludCargado, setCuestionarioSaludCargado] = useState(false);
   const [respuestasCuestionarioSalud, setRespuestasCuestionarioSalud] = useState<RespuestaCuestionarioSalud[]>([]);
 
   const [citas, setCitas] = useState<Cita[]>([]);
@@ -914,6 +936,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [challengeHistory, setChallengeHistory] = useState<ChallengeHistory[]>([]);
   const [backups, setBackups] = useState<BackupMeta[]>([]);
   const [studioConfig, setStudioConfig] = useState<StudioConfig>(defaultStudioConfig);
+  const [textosLegalesPropios, setTextosLegalesPropios] = useState<Record<keyof StudioConfig, boolean> | null>(null);
 
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
   const [automationLogs, setAutomationLogs] = useState<AutomationLog[]>([]);
@@ -1391,17 +1414,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setAutomationLogs(data.automationLogs);
       setStudio(data.studio);
       setStudioConfig(configLegalDe(data.studio, data.studioConfig));
+      setTextosLegalesPropios(textosPropiosDe(data.studioConfig));
       setDataLoaded(true);
 
       // Campos personalizados y plantillas de email: no son ruta crítica (solo
       // config + fichas), se cargan aparte sin bloquear el primer pintado.
-      dbFetchCamposPersonalizados().then(setCamposPersonalizados).catch(() => {});
+      dbFetchCamposPersonalizados().then(c => { setCamposPersonalizados(c); setCamposPersonalizadosCargados(true); }).catch(() => {});
       dbFetchSegmentosClientes().then(setSegmentosClientes).catch(() => {});
       dbFetchPlantillasEmail().then(p => { setPlantillasEmail(p); setPlantillasEmailCargadas(true); }).catch(() => {});
       dbFetchDependencySnapshots().then(setDependencySnapshots).catch(() => {});
       // RECEPCION/MANAGER simplemente reciben [] aquí (la RLS los excluye) —
       // no hace falta comprobar el rol en cliente antes de pedirlo.
-      dbFetchPlantillasCuestionarioSalud().then(setPlantillasCuestionarioSalud).catch(() => {});
+      dbFetchPlantillasCuestionarioSalud().then(p => { setPlantillasCuestionarioSalud(p); setCuestionarioSaludCargado(true); }).catch(() => {});
       dbFetchRespuestasCuestionarioSalud().then(setRespuestasCuestionarioSalud).catch(() => {});
 
       // 2ª ola (Fase C): historial/logs. No bloquea el primer pintado; estas
@@ -2553,6 +2577,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbUpdateStudioConfig(changes);
     if (!res.ok) return res;
     setStudioConfig(prev => ({ ...prev, ...changes }));
+    setTextosLegalesPropios(prev => prev && { ...prev, ...textosPropiosDe(changes, prev) });
     return res;
   }
 
@@ -5508,6 +5533,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     updateTipoClase,
     deleteTipoClase,
     camposPersonalizados,
+    camposPersonalizadosCargados,
     addCampoPersonalizado,
     updateCampoPersonalizado,
     deleteCampoPersonalizado,
@@ -5552,6 +5578,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     emailsRebotados,
     registrarRespuestaSesion,
     plantillasCuestionarioSalud,
+    cuestionarioSaludCargado,
     addPlantillaCuestionarioSalud,
     updatePlantillaCuestionarioSalud,
     deletePlantillaCuestionarioSalud,
@@ -5673,6 +5700,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     deleteDashboardChart: dashboardChartsStore.deleteDashboardChart,
     backups,
     studioConfig,
+    textosLegalesPropios,
     updateStudioConfig,
     resetDatosPilates,
     cargarGamificacion,
@@ -5718,10 +5746,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }), [
     planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, variantesEfectivas, navPortal, themeIdPublicado, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
-    camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
+    camposPersonalizados, camposPersonalizadosCargados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion, emailsRebotados,
-    plantillasCuestionarioSalud, respuestasCuestionarioSalud,
+    plantillasCuestionarioSalud, cuestionarioSaludCargado, respuestasCuestionarioSalud,
     citas, citasServicios, citasDisponibilidad, productosPOS, ventasPOS, campanas, automatizaciones,
     discountCodes.codigosDescuento,
     actividadReciente,
@@ -5734,7 +5762,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     challengeDefinitions, challengeProgress, challengeHistory,
     dashboardChartsStore.dashboardCharts,
     backups,
-    studioConfig,
+    studioConfig, textosLegalesPropios,
     automationRules, automationLogs, progressNotesStore.notasProgreso,
     dataLoaded, errorPublico, planMasElegidoId, sustitucionesConfirmadas,
     studio,
@@ -5796,6 +5824,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       progressNotesStore.setNotasProgreso(data.notasProgreso);
       setStudio(data.studio);
       setStudioConfig(configLegalDe(data.studio, data.studioConfig));
+      setTextosLegalesPropios(textosPropiosDe(data.studioConfig));
     }).catch(console.error);
   }
 

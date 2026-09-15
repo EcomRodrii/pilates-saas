@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useId, type ReactNode } from 'react';
-import type Stripe from 'stripe';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Check,
@@ -15,7 +14,7 @@ import { EstadoAjuste } from '@/components/configuracion/shell/estado-ajuste';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
-import { StripeIcon, WhatsAppAppIcon, ZoomIcon, GoogleCalendarIcon, GmailIcon, MailchimpIcon, ZapierIcon, KisiIcon, KlaviyoIcon } from '@/components/icons/brand-icons';
+import { WhatsAppAppIcon, ZoomIcon, GoogleCalendarIcon, GmailIcon, MailchimpIcon, ZapierIcon, KisiIcon, KlaviyoIcon } from '@/components/icons/brand-icons';
 import { authHeader } from '@/lib/api-client';
 import { saludIntegracion, textoSalud } from '@/lib/integraciones/salud';
 import { useWhatsappEmbeddedSignup } from '@/lib/hooks/use-whatsapp-embedded-signup';
@@ -58,23 +57,11 @@ type CatalogoIntegracion = {
 };
 
 // El nombre y la frase de las tarjetas que tienen sitio propio en otra sección
-// («Cobro con tarjeta (Stripe)» en Cobros y facturas, WhatsApp en Cómo me
-// comunico…) salen de lib/configuracion/secciones.ts: la fila que lleva hasta
+// (WhatsApp y Gmail en Cómo me comunico…) salen de lib/configuracion/secciones.ts: la fila que lleva hasta
 // aquí y la tarjeta tienen que llamarse igual.
 const deSecciones = (id: TarjetaId) => ({ nombre: tarjetaPorId(id).titulo, descripcion: tarjetaPorId(id).frase });
 
 const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
-  {
-    tipo: 'STRIPE',
-    // Solo «tarjeta»: con «SEPA» se confundía con la remesa de domiciliaciones,
-    // que es otra cosa y no pasa por Stripe.
-    ...deSecciones('integracion-stripe'),
-    Icon: StripeIcon,
-    placaPropia: true,
-    color: '#635BFF',
-    bg: '#F5F5F5',
-    campos: [],
-  },
   {
     tipo: 'RESEND',
     // "desde tu propio dominio" era falso: la dirección que FIRMA es siempre la
@@ -278,9 +265,9 @@ function NoDisponibleTodavia({ variable }: { variable: string }) {
 const urlDeLaSeccion = (tarjeta: TarjetaId) => hrefDeSeccion(seccionDeTarjeta(tarjeta));
 
 /**
- * Las integraciones, cada una en su sección: Stripe en «Cobros y facturas»; el
- * remitente de los correos, WhatsApp y Gmail en «Cómo me comunico»; el resto en
- * «Conexiones». `tipos` dice cuáles pinta ESTA sección, y solo esas piden sus
+ * Las integraciones, cada una en su sección: el remitente de los correos,
+ * WhatsApp y Gmail en «Cómo me comunico»; el resto en «Conexiones». Stripe es
+ * una fila de «Cobros y facturas» (cobro-con-tarjeta.tsx). `tipos` dice cuáles pinta ESTA sección, y solo esas piden sus
  * datos y leen su aviso de vuelta en la URL.
  *
  * `children` va entre las tarjetas principales y «Más integraciones» (en
@@ -295,9 +282,8 @@ export function TabIntegraciones({ showToast, tipos, children }: {
   // dentro del JSX y un hook no puede llamarse ahí. El sufijo por campo.key
   // hace único cada id.
   const uid = useId();
-  const { studio, updateStudio, reflejarStudioGuardado, integraciones, upsertIntegracion } = useStudio();
+  const { studio, updateStudio, integraciones, upsertIntegracion } = useStudio();
   const pinta = (tipo: TipoIntegracion) => tipos.includes(tipo);
-  const pintaStripe = pinta('STRIPE');
   const pintaZapier = pinta('ZAPIER');
   const [editando, setEditando] = useState<TipoIntegracion | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -358,74 +344,8 @@ export function TabIntegraciones({ showToast, tipos, children }: {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Stripe no usa el modal genérico de API keys: se conecta vía OAuth (Stripe
-  // Connect) para que cada estudio cobre en su propia cuenta, sin tocar
-  // ninguna clave.
-  const stripeConectado = !!studio?.stripeAccountId;
-  const stripeClientId = process.env.NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID;
+  // La vuelta de cada OAuth va a esta misma app.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '');
-  // C-8: el `state` ya no es el studioId en claro; lo emite firmado una ruta de
-  // servidor autenticada y el callback lo verifica. El botón lo pide y redirige.
-  const puedeConectarStripe = !!(stripeClientId && studio);
-  async function conectarStripe() {
-    if (!stripeClientId) return;
-    const res = await fetch('/api/integrations/oauth-state', {
-      method: 'POST',
-      // H-1: same-origin (el valor por defecto, explícito para que no se cambie): esta respuesta fija la cookie HttpOnly del flujo.
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ provider: 'stripe' }),
-    });
-    if (!res.ok) { showToast('No se pudo iniciar la conexión con Stripe'); return; }
-    const { state } = await res.json() as { state: string };
-    const redirect = encodeURIComponent(`${appUrl}/api/stripe/connect/callback`);
-    window.location.href = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${stripeClientId}&scope=read_write&redirect_uri=${redirect}&state=${encodeURIComponent(state)}`;
-  }
-
-  useEffect(() => {
-    if (!pinta('STRIPE')) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('stripe_connected')) {
-      showToast('Stripe conectado — ya puedes cobrar en tu propia cuenta');
-      window.history.replaceState({}, '', urlDeLaSeccion('integracion-stripe'));
-    } else if (params.get('stripe_connect_error')) {
-      showToast(`Error al conectar Stripe: ${params.get('stripe_connect_error')}`);
-      window.history.replaceState({}, '', urlDeLaSeccion('integracion-stripe'));
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // La cuenta de cobro ya no la escribe el navegador: la ruta comprueba que
-  // quien la desconecta es la dueña, guarda la cuenta anterior para atribuir
-  // los webhooks que lleguen tarde y deja constancia en Actividad.
-  const desconectarStripe = async () => {
-    try {
-      const res = await fetch('/api/integrations/stripe/desconectar', { method: 'POST', headers: await authHeader() });
-      const data = await res.json().catch(() => null) as { error?: string } | null;
-      if (!res.ok) { showToast(data?.error ?? 'No se ha podido desconectar Stripe'); return; }
-      reflejarStudioGuardado({ stripeAccountId: null });
-      showToast('Stripe desconectado');
-    } catch {
-      showToast('No se ha podido desconectar Stripe. Revisa tu conexión.');
-    }
-  };
-
-  // Bizum en un cargo directo exige la capacidad `bizum_payments` `active` en
-  // ESTA cuenta conectada, no solo pedida (#1874) — pedirla no la activa al
-  // instante. Antes de esto, la propietaria solo se enteraba de que Bizum no
-  // funcionaba cuando una socia se quejaba de un cobro roto (#1883); ahora se
-  // lo dice esta misma pantalla, sin que tenga que adivinar dónde arreglarlo.
-  const [bizumEstado, setBizumEstado] = useState<Stripe.Account.Capabilities['bizum_payments'] | null>(null);
-  useEffect(() => {
-    let cancelado = false;
-    (async () => {
-      if (!stripeConectado || !pintaStripe) { if (!cancelado) setBizumEstado(null); return; }
-      const res = await fetch('/api/integrations/stripe/bizum-estado', { headers: await authHeader() });
-      if (!res.ok || cancelado) return;
-      const data = await res.json() as { estado?: 'active' | 'pending' | 'inactive' };
-      if (!cancelado) setBizumEstado(data.estado ?? 'inactive');
-    })();
-    return () => { cancelado = true; };
-  }, [stripeConectado, pintaStripe]);
 
   // Google Calendar: OAuth real (ver lib/google-calendar.ts). A diferencia de
   // Stripe, desconectar y sincronizar pasan por rutas de servidor
@@ -805,7 +725,7 @@ export function TabIntegraciones({ showToast, tipos, children }: {
     showToast(`Te avisaremos cuando ${cat.nombre} esté disponible`);
   };
 
-  // Cada integración es su propia tarjeta con ancla (`#integracion-stripe`):
+  // Cada integración es su propia tarjeta con ancla (`#integracion-whatsapp`):
   // ahí llevan los enlaces y la vuelta de cada conexión.
   // `Titulo` baja a h4 dentro de «Más integraciones», que ya pone su h3.
   const pintarTarjeta = (cat: CatalogoIntegracion, Titulo: 'h3' | 'h4') => {
@@ -819,14 +739,13 @@ export function TabIntegraciones({ showToast, tipos, children }: {
           });
           const fallando = salud.estado === 'FALLANDO';
           const lineaSalud = textoSalud(salud);
-          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : cat.tipo === 'ZAPIER' ? zapierConectado : !!intg?.activo;
+          const conectado = cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : cat.tipo === 'ZAPIER' ? zapierConectado : !!intg?.activo;
           // Sin la clave OAuth en el servidor no hay nada que conectar: ese es el
           // ÚNICO estado. Antes la pastilla decía «No conectado» y debajo
           // «Todavía no disponible» — ¿lo conecto yo o no puedo? Mismas
           // condiciones que eligen `NoDisponibleTodavia` más abajo.
           const noDisponible = !conectado && (
-            (cat.tipo === 'STRIPE' && !puedeConectarStripe)
-            || (cat.tipo === 'GOOGLE_CALENDAR' && !puedeConectarGoogle)
+            (cat.tipo === 'GOOGLE_CALENDAR' && !puedeConectarGoogle)
             || (cat.tipo === 'GMAIL' && !puedeConectarGmail)
             || (cat.tipo === 'ZOOM' && !puedeConectarZoom)
             || (cat.tipo === 'KLAVIYO' && !puedeConectarKlaviyo)
@@ -881,16 +800,6 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                       {lineaSalud.texto}
                     </p>
                   )}
-                  {cat.tipo === 'STRIPE' && stripeConectado && bizumEstado && bizumEstado !== 'active' && (
-                    <p className="text-xs text-warning mt-1.5 leading-snug">
-                      Bizum todavía no está activo en tu cuenta de Stripe — tus alumnas no lo verán
-                      como opción de pago. Entra en{' '}
-                      <a href="https://dashboard.stripe.com/settings/payment_methods" target="_blank" rel="noreferrer" className="underline">
-                        tu Dashboard de Stripe → Métodos de pago
-                      </a>{' '}
-                      y actívalo (si te pide completar datos fiscales, hazlo ahí mismo).
-                    </p>
-                  )}
                   {cat.tipo === 'ZOOM' && zoomConectado && (
                     <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
                       Importante: en zoom.us → Configuración, desactiva &ldquo;Usar ID de reunión
@@ -910,14 +819,6 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                   >
                     <BellRing size={14} /> {avisado.has(cat.tipo) ? 'Ya te avisaremos' : 'Avísame cuando esté disponible'}
                   </button>
-                ) : cat.tipo === 'STRIPE' ? (
-                  stripeConectado ? (
-                    <button onClick={desconectarStripe} className={btnSecondary}>Desconectar</button>
-                  ) : puedeConectarStripe ? (
-                    <button type="button" onClick={conectarStripe} className={cn(btnPrimary, 'no-underline')}>Conectar con Stripe</button>
-                  ) : (
-                    <NoDisponibleTodavia variable="NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID" />
-                  )
                 ) : cat.tipo === 'GOOGLE_CALENDAR' ? (
                   googleConectado ? (
                     <>
@@ -1067,8 +968,8 @@ export function TabIntegraciones({ showToast, tipos, children }: {
   return (
     <div className="space-y-5">
       {principales.length > 0 && (
-        // Una sola tarjeta (Stripe en Cobros) va al ancho del resto de tarjetas
-        // de su sección; dos o más, en rejilla.
+        // Una sola tarjeta va al ancho del resto de tarjetas de su sección; dos o
+        // más, en rejilla.
         <div className={cn('grid grid-cols-1 gap-3', principales.length > 1 ? 'max-w-3xl @xl/config:grid-cols-2' : 'max-w-2xl')}>
           {principales.map(cat => pintarTarjeta(cat, 'h3'))}
           {/* CONGELADO (feature-freeze PMF): se quitó la tarjeta "Kiosko de check-in"

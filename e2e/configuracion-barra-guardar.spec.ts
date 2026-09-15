@@ -327,7 +327,8 @@ test.describe('Lo que se fue de las reglas de reserva se guarda en su sección, 
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test('Alta de alumnas: «Compra desde tu enlace» manda su columna y ninguna más', async ({ page }) => {
-    const { patches } = await abrir(page, 'configuracion?tab=altas');
+    // Una fila con su cajón desde el 15-sep (v2): el ancla lo abre.
+    const { patches } = await abrir(page, 'configuracion?tab=altas#compra-desde-tu-enlace');
     await expect(page.getByRole('radio', { name: /Que se registre antes de pagar/ })).toBeChecked({ timeout: 30_000 });
     await expect(barra(page)).toHaveCount(0);
 
