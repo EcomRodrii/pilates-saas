@@ -3513,14 +3513,21 @@ const TEXTOS_PLAZA_FIJA_ALUMNA: TextosPlazaFija = {
 // semanal (avisa con `SUPERA_LIMITE` y deja confirmar, decisión del fundador).
 // Al MOVER, suelta las reservas futuras del horario viejo con el mismo camino
 // que quitar (`retirarReservasFuturasPlazaFija`).
-async function guardarPlazaFijaDesdeSesion(
+/**
+ * Las comprobaciones de «guardar plaza fija», sin escribir nada: las comparten el
+ * panel al guardar y la petición de plaza fija desde la app de la alumna (que
+ * valida al pedir y guarda al aprobar). El límite semanal NO bloquea aquí: se
+ * devuelve `exceso` y decide quien llama (el panel pide confirmar; la petición se
+ * guarda marcada y decide el estudio).
+ */
+export async function validarPlazaFijaDesdeSesion(
   admin: SupabaseClient,
   params: { studioId: string; socioId: string; datos: Omit<DatosPlazaFija, 'socioId'>; plazaId?: string },
   textos: TextosPlazaFija,
-): Promise<ResultadoGuardarPlazaFija> {
+) {
   const { studioId, socioId, datos, plazaId } = params;
   if (datos.vigenciaHasta && datos.vigenciaHasta < datos.vigenciaDesde) {
-    return { ok: false, error: '«Hasta» no puede ser anterior a «Desde»: ese rango nunca estaría activo.' };
+    return { ok: false as const, error: '«Hasta» no puede ser anterior a «Desde»: ese rango nunca estaría activo.' };
   }
 
   const [{ data: ses }, { data: socio }] = await Promise.all([
@@ -3528,9 +3535,9 @@ async function guardarPlazaFijaDesdeSesion(
       .eq('id', datos.sesionId).eq('studio_id', studioId).maybeSingle(),
     admin.from('socios').select('id').eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
   ]);
-  if (!socio) return { ok: false, error: 'Clienta no encontrada' };
-  if (!ses) return { ok: false, error: 'Clase no encontrada' };
-  if (ses.cancelada) return { ok: false, error: 'Esta clase está cancelada: elige otra del horario.' };
+  if (!socio) return { ok: false as const, error: 'Clienta no encontrada' };
+  if (!ses) return { ok: false as const, error: 'Clase no encontrada' };
+  if (ses.cancelada) return { ok: false as const, error: 'Esta clase está cancelada: elige otra del horario.' };
   const tipoClaseId = (ses.tipo_clase_id as string | null) ?? null;
   const salaId = ses.sala_id as string;
 
@@ -3545,7 +3552,7 @@ async function guardarPlazaFijaDesdeSesion(
         .from('socio_tipos_clase_autorizados').select('tipo_clase_id')
         .eq('studio_id', studioId).eq('socio_id', socioId).eq('tipo_clase_id', tipoClaseId)
         .maybeSingle();
-      if (!permiso) return { ok: false, error: textos.sinAutorizacion };
+      if (!permiso) return { ok: false as const, error: textos.sinAutorizacion };
     }
   }
 
@@ -3555,12 +3562,12 @@ async function guardarPlazaFijaDesdeSesion(
   ]);
   const planes = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
   const cuota = cuotaParaPlazaFija(socioId, (susRows ?? []).map(mapSuscripcion), planes, hoyEnEstudio(), tipoClaseId);
-  if (!cuota) return { ok: false, error: textos.sinCuota };
+  if (!cuota) return { ok: false as const, error: textos.sinCuota };
 
   if (datos.spotId) {
     const { data: spot } = await admin.from('spots').select('id')
       .eq('id', datos.spotId).eq('studio_id', studioId).eq('sala_id', salaId).eq('activo', true).maybeSingle();
-    if (!spot) return { ok: false, error: 'Ese sitio no es de la sala de esta clase' };
+    if (!spot) return { ok: false as const, error: 'Ese sitio no es de la sala de esta clase' };
   }
 
   const { dow, hora, minuto } = franjaLocalDe(ses.inicio as string);
@@ -3570,23 +3577,37 @@ async function guardarPlazaFijaDesdeSesion(
     .eq('studio_id', studioId).eq('socio_id', socioId).in('estado', ['ACTIVA', 'PAUSADA']);
   const suyas = (suyasRows ?? []).map(r => plazaFijaDeFila(r as Record<string, unknown>));
   const anterior = plazaId ? suyas.find(p => p.id === plazaId) ?? null : null;
-  if (plazaId && !anterior) return { ok: false, error: 'Plaza fija no encontrada' };
+  if (plazaId && !anterior) return { ok: false as const, error: 'Plaza fija no encontrada' };
 
   // PAUSADA cuenta también: pausar y volver a la misma clase no puede dejar dos
   // filas para la misma franja.
   const duplicada = suyas.some(p => p.id !== plazaId
     && p.diaSemana === dow && normalizarHoraInicio(p.horaInicio) === horaInicio && p.salaId === salaId);
-  if (duplicada) return { ok: false, error: textos.duplicada };
+  if (duplicada) return { ok: false as const, error: textos.duplicada };
 
-  if (!plazaId && !datos.confirmarLimite) {
-    const activas = suyas.filter(p => p.estado === 'ACTIVA').length;
-    const exceso = superaLimiteSemanal(cuota, activas);
-    if (exceso) {
-      return {
-        ok: false, codigo: 'SUPERA_LIMITE', limite: exceso.limite,
-        error: `Su cuota es de ${exceso.limite} ${exceso.limite === 1 ? 'clase' : 'clases'} por semana y ya tiene ${activas} ${activas === 1 ? 'plaza fija' : 'plazas fijas'}.`,
-      };
-    }
+  const activas = suyas.filter(p => p.estado === 'ACTIVA').length;
+  const exceso = plazaId ? null : superaLimiteSemanal(cuota, activas);
+  return { ok: true as const, tipoClaseId, salaId, dow, horaInicio, suyas, anterior, activas, exceso };
+}
+
+async function guardarPlazaFijaDesdeSesion(
+  admin: SupabaseClient,
+  params: { studioId: string; socioId: string; datos: Omit<DatosPlazaFija, 'socioId'>; plazaId?: string },
+  textos: TextosPlazaFija,
+): Promise<ResultadoGuardarPlazaFija> {
+  const { studioId, socioId, datos, plazaId } = params;
+  // Las comprobaciones viven en `validarPlazaFijaDesdeSesion` (una sola copia, la
+  // que usa también la petición desde la app). Aquí solo se decide el límite
+  // semanal —el panel pide confirmarlo— y se escribe.
+  const v = await validarPlazaFijaDesdeSesion(admin, params, textos);
+  if (!v.ok) return { ok: false, error: v.error };
+  const { tipoClaseId, salaId, dow, horaInicio, anterior, activas, exceso } = v;
+
+  if (!plazaId && !datos.confirmarLimite && exceso) {
+    return {
+      ok: false, codigo: 'SUPERA_LIMITE', limite: exceso.limite,
+      error: `Su cuota es de ${exceso.limite} ${exceso.limite === 1 ? 'clase' : 'clases'} por semana y ya tiene ${activas} ${activas === 1 ? 'plaza fija' : 'plazas fijas'}.`,
+    };
   }
 
   const fila = {
