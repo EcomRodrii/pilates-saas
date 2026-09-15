@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, NO_DISPONIBLE_TODAVIA, TARJETA_DE_INTEGRACION, agruparConexiones, estadoDelPlan,
-  resumenAppsConAcceso, resumenConexion, resumenCreditosPorAccion, resumenDireccion, resumenReglasCreditos,
+  resumenAppsConAcceso, resumenConexion, resumenCreditosPorAccion, resumenDireccion, resumenPaginaPublica, resumenReglasCreditos,
   avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenCompraPublica,
   resumenContacto, resumenContrato, resumenCuestionarioSalud, resumenDatosExtra, resumenDatosFiscales, resumenDevoluciones,
   resumenDomiciliaciones, resumenGmail, resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan,
@@ -662,6 +662,12 @@ test('apps con acceso y la dirección corta de tu página', () => {
   // Antes de saber dónde está, la ruta sola; sin dirección, nada.
   assert.equal(resumenDireccion({ slug: 'pilates-centro', origen: '' }), '/reservar/pilates-centro');
   assert.equal(resumenDireccion({ slug: null, origen: 'https://tentare.example' }), null);
+
+  assert.equal(resumenPaginaPublica({ oculta: false, tieneClave: true }), 'Visible para todo el mundo');
+  assert.equal(resumenPaginaPublica({ oculta: true, tieneClave: false }), 'Oculta: no entra nadie');
+  assert.equal(resumenPaginaPublica({ oculta: true, tieneClave: true }), 'Oculta: solo entra quien tenga la clave');
+  // Sin saberlo, no se afirma que se ve.
+  assert.equal(resumenPaginaPublica(null), null);
 });
 
 test('Motivación: la pastilla del plan en la fila, y los créditos como los aplica el servidor', () => {

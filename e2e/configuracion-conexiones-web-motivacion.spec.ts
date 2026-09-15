@@ -15,7 +15,10 @@ import { montar, ir } from './panel-sembrado';
 //     contando que SÍ se intentó y que solo viajó su columna;
 //   · los créditos no se escriben al salir del campo sino con «Guardar», y si
 //     el servidor dice que no el cajón se queda abierto con lo escrito;
-//   · el plan va en la pastilla de la fila, no tapando la sección.
+//   · el plan va en la pastilla de la fila, no tapando la sección;
+//   · ocultar tu página (16-sep): la fila con su valor, un cajón que confirma la
+//     consecuencia antes de escribir y que, con un 500, se queda con el error;
+//   · escribir un número en una acción de créditos apagada la enciende (16-sep).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STUDIO_ID = 'studio-test';
@@ -51,9 +54,11 @@ async function abrir(page: Page, ruta: string, opts: {
   fila?: Record<string, unknown>;
   fallo?: 500;
   falloReglas?: 500;
+  falloPagina?: 500;
 } = {}) {
   const patches: Record<string, unknown>[] = [];
   const reglas: { metodo: string; cuerpo: unknown }[] = [];
+  const puts: { oculta: boolean; clave?: string }[] = [];
   await montar(page);
   // Después de `montar`: Playwright prueba las rutas en orden INVERSO al registro.
   await page.route('**/rest/v1/studios**', r => {
@@ -71,8 +76,15 @@ async function abrir(page: Page, ruta: string, opts: {
   });
   await page.route(u => u.pathname === '/api/oauth/consentimientos', r => json(r, { apps: [] }));
   await page.route(u => u.pathname === '/api/integrations/config', r => json(r, { config: { apiKey: 'kisi_example' } }));
+  await page.route(u => u.pathname === '/api/pagina-publica', r => {
+    if (r.request().method() === 'GET') return json(r, { oculta: false, tieneClave: false });
+    const cuerpo = r.request().postDataJSON() as { oculta: boolean; clave?: string };
+    puts.push(cuerpo);
+    if (opts.falloPagina === 500) return json(r, { error: 'No se ha podido cambiar la visibilidad de la página. Vuelve a intentarlo.' }, 500);
+    return json(r, { oculta: cuerpo.oculta, tieneClave: cuerpo.clave === undefined ? undefined : cuerpo.clave !== '' });
+  });
   await ir(page, ruta);
-  return { patches, reglas };
+  return { patches, reglas, puts };
 }
 
 const valor = (page: Page, id: string) => page.locator(`#${id} [data-resumen]`);
@@ -133,6 +145,7 @@ for (const vista of VISTAS) {
       // El botón de la fila (con el id) ocupa el fondo; el valor va a su lado, no dentro.
       await expect(page.locator('li:has(> #direccion-y-enlaces) [data-resumen]')).toHaveText(/\/reservar\/pilates-centro$/, { timeout: 30_000 });
       await expect(page.getByRole('button', { name: 'Copiar el enlace de tu página' })).toBeVisible();
+      await expect(valor(page, 'pagina-publica')).toHaveText('Visible para todo el mundo');
       await expect(page.getByRole('switch', { name: 'Aparecer en Tentare Network' })).toHaveAttribute('aria-checked', 'false');
       await expect(page.locator('#fila-herramienta-contenido-de-tu-app')).toBeVisible();
       await expect(page.locator('#fila-herramienta-widgets')).toBeVisible();
@@ -218,6 +231,73 @@ test.describe('Guardar de verdad', () => {
     expect(reglas).toHaveLength(1);
     expect(reglas[0].metodo).toBe('POST');
     expect(reglas[0].cuerpo).toMatchObject({ trigger: 'RENOVACION_PLAN', creditos: 40, activa: true });
+  });
+
+  test('escribir un número en una acción apagada la enciende, a la vista, y se guarda encendida', async ({ page }) => {
+    const { reglas } = await abrir(page, 'configuracion?tab=motivacion#creditos-por-accion');
+    await expect(titulo(page, 'Créditos por acción')).toBeVisible({ timeout: 30_000 });
+    const interruptor = cajon(page).getByRole('switch', { name: 'Renovar plan' });
+    await expect(interruptor).toHaveAttribute('aria-checked', 'false');
+
+    await cajon(page).getByRole('spinbutton', { name: 'Créditos por Renovar plan' }).fill('10');
+    // Antes de guardar: lo que se ve encendido es lo que se va a guardar.
+    await expect(interruptor).toHaveAttribute('aria-checked', 'true');
+    await expect(cajon(page).locator('[data-consecuencia]')).toHaveText('Así queda: 2 de 7 dan créditos · 10 por asistir.');
+    expect(reglas, 'escribir no guarda nada').toHaveLength(0);
+
+    await guardar(page).click();
+    await expect(page.getByText('Créditos por acción guardados')).toBeVisible({ timeout: 10_000 });
+    expect(reglas.length, 'intentos de escribir').toBeGreaterThan(0);
+    expect(reglas).toHaveLength(1);
+    expect(reglas[0].metodo).toBe('POST');
+    expect(reglas[0].cuerpo).toMatchObject({ trigger: 'RENOVACION_PLAN', creditos: 10, activa: true });
+  });
+
+  test('ocultar tu página: la fila dice cómo está, se confirma con la consecuencia y, con un 500, el cajón se queda con el error', async ({ page }) => {
+    const { puts } = await abrir(page, 'configuracion?tab=web', { falloPagina: 500 });
+    await expect(valor(page, 'pagina-publica')).toHaveText('Visible para todo el mundo', { timeout: 30_000 });
+    await page.screenshot({ path: test.info().outputPath('pagina-publica-fila-375.png') });
+
+    await page.locator('#pagina-publica').click();
+    await expect(titulo(page, 'Ocultar tu página')).toBeFocused();
+    await expect(cajon(page).getByRole('radio', { name: /^Visible/ })).toBeChecked();
+    await expect(guardar(page), 'sin cambios, sin «Guardar»').toHaveCount(0);
+    await cajon(page).getByRole('radio', { name: /^Oculta/ }).check();
+    await expect(cajon(page).getByLabel('Clave para dejar entrar (opcional)')).toBeVisible();
+    // Las opciones llevan `transition-colors` (150 ms): sin esperar, la captura sale a medio cambiar.
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: test.info().outputPath('pagina-publica-cajon-375.png') });
+
+    await guardar(page).click();
+    const confirmacion = page.getByRole('dialog').filter({ hasText: '¿Ocultar tu página?' });
+    await expect(confirmacion).toContainText('la app de tus alumnas');
+    expect(puts, 'sin confirmar no se escribe').toHaveLength(0);
+    await confirmacion.getByRole('button', { name: 'Ocultar', exact: true }).click();
+
+    await expect(cajon(page).getByRole('alert')).toHaveText(/^No se ha guardado: .+\. Tus cambios siguen aquí\.$/, { timeout: 10_000 });
+    // «No mintió» también sería verdad si nunca se hubiera intentado.
+    expect(puts.length, 'intentos de escribir').toBeGreaterThan(0);
+    expect(puts[0]).toEqual({ oculta: true });
+    await expect(titulo(page, 'Ocultar tu página')).toBeVisible();
+    await expect(cajon(page).getByRole('radio', { name: /^Oculta/ })).toBeChecked();
+    await expect(page.getByText('Tu página ya no se ve.')).toHaveCount(0);
+    await expect(valor(page, 'pagina-publica')).toHaveText('Visible para todo el mundo');
+  });
+
+  test('ocultar tu página con clave: con la respuesta del servidor se cierra y la fila lo dice', async ({ page }) => {
+    const { puts } = await abrir(page, 'configuracion?tab=web#pagina-publica');
+    await expect(titulo(page, 'Ocultar tu página')).toBeVisible({ timeout: 30_000 });
+    await cajon(page).getByRole('radio', { name: /^Oculta/ }).check();
+    await cajon(page).getByLabel('Clave para dejar entrar (opcional)').fill('clave-e2e');
+    await guardar(page).click();
+    const confirmacion = page.getByRole('dialog').filter({ hasText: '¿Ocultar tu página?' });
+    await expect(confirmacion).toContainText('Solo entra quien tenga la clave.');
+    await confirmacion.getByRole('button', { name: 'Ocultar', exact: true }).click();
+
+    await expect(page.getByText('Tu página ya no se ve.')).toBeVisible({ timeout: 10_000 });
+    expect(puts).toEqual([{ oculta: true, clave: 'clave-e2e' }]);
+    await expect(valor(page, 'pagina-publica')).toHaveText('Oculta: solo entra quien tenga la clave');
+    await expect(titulo(page, 'Ocultar tu página')).toHaveCount(0);
   });
 });
 

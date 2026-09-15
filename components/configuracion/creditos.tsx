@@ -7,7 +7,7 @@ import { REWARD_TRIGGERS } from '@/lib/engines/reward-engine';
 import { NOMBRE_CREDITOS_MAX, nombreCreditos, normalizarNombreCreditos } from '@/lib/creditos-nombre';
 import { sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import {
-  accionesAFormulario, accionesConCreditosMal, cambiosReglasCreditos, creditosValidos, enteroPositivo, escriturasDeAcciones,
+  accionesAFormulario, accionesConCreditosMal, cambiosReglasCreditos, creditosValidos, enteroPositivo, escribirCreditos, escriturasDeAcciones,
   reglasCreditosAFormulario, type AccionForm, type AccionesForm, type ReglasCreditosForm,
 } from '@/lib/configuracion/creditos';
 import { resumenCreditosPorAccion, resumenReglasCreditos } from '@/lib/configuracion/resumenes';
@@ -142,6 +142,10 @@ export function FormCreditosPorAccion({ onGuardado }: Pick<PropsFormularioCajon,
   );
   const cambiar = (trigger: string, cambio: Partial<AccionForm>) =>
     setForm(f => ({ ...f, [trigger]: { ...f[trigger], ...cambio } }));
+  // La cifra: más de 0 enciende la acción y 0 o vacío la apaga, a la vista y
+  // antes de guardar (16-sep). El interruptor, en cambio, no toca la cifra.
+  const escribir = (trigger: string, texto: string) =>
+    setForm(f => ({ ...f, [trigger]: escribirCreditos(f[trigger], texto) }));
 
   async function alGuardar(): Promise<string | null> {
     // Una a una y en orden: si una falla, las anteriores quedan guardadas (y la
@@ -184,7 +188,7 @@ export function FormCreditosPorAccion({ onGuardado }: Pick<PropsFormularioCajon,
                       aria-invalid={malAqui}
                       className={cn(inputCls, 'w-24 text-center', malAqui && 'border-destructive')}
                       value={f.creditos}
-                      onChange={e => cambiar(def.trigger, { creditos: e.target.value })}
+                      onChange={e => escribir(def.trigger, e.target.value)}
                     />
                     {moneda}
                   </label>
@@ -232,7 +236,7 @@ export function FormCreditosPorAccion({ onGuardado }: Pick<PropsFormularioCajon,
       <BarraGuardar
         seccion="motivacion"
         cambios={escrituras.length > 0 ? [tarjetaPorId('creditos-por-accion').titulo] : []}
-        bloqueo={mal.length > 0 ? `Pon un número de ${moneda} en cada acción (0 si no da nada).` : null}
+        bloqueo={mal.length > 0 ? `Pon un número de ${moneda} en cada acción encendida.` : null}
         onGuardar={alGuardar}
         onDescartar={() => setForm(accionesAFormulario(rewardRules))}
       />

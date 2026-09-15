@@ -997,6 +997,16 @@ export function resumenDireccion(e: { slug: string | null | undefined; origen: s
   return `${host}/reservar/${slug}`;
 }
 
+/**
+ * «Visible para todo el mundo» u oculta, y si con la clave se puede entrar.
+ * `null` = no se ha podido saber: la fila vuelve a su descripción.
+ */
+export function resumenPaginaPublica(e: { oculta: boolean; tieneClave: boolean } | null): string | null {
+  if (!e) return null;
+  if (!e.oculta) return 'Visible para todo el mundo';
+  return e.tieneClave ? 'Oculta: solo entra quien tenga la clave' : 'Oculta: no entra nadie';
+}
+
 // ─── Motivación ──────────────────────────────────────────────────────────────
 
 /**
