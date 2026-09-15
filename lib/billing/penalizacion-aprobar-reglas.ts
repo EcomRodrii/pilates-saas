@@ -108,9 +108,9 @@ const QUEDA_FALLIDA = 'La penalización queda como no cobrada.';
 const SIGUE_PENDIENTE = 'La penalización sigue pendiente.';
 
 const STRIPE_NO_LISTO: Record<string, string> = {
-  SIN_STRIPE_CONECTADO: `No se ha cobrado: este estudio no tiene Stripe conectado. Conéctalo en Configuración → Integraciones. ${SIGUE_PENDIENTE}`,
-  CUENTA_NO_LISTA: `No se ha cobrado: no hemos podido confirmar que la cuenta de Stripe del estudio pueda cobrar. Revisa Configuración → Integraciones. ${SIGUE_PENDIENTE}`,
-  // Estos dos son de Tentare, no del estudio: mandarla a Integraciones sería mentir.
+  SIN_STRIPE_CONECTADO: `No se ha cobrado: este estudio no tiene Stripe conectado. Conéctalo en Configuración → Cobros y facturas. ${SIGUE_PENDIENTE}`,
+  CUENTA_NO_LISTA: `No se ha cobrado: no hemos podido confirmar que la cuenta de Stripe del estudio pueda cobrar. Revísala en Configuración → Cobros y facturas. ${SIGUE_PENDIENTE}`,
+  // Estos dos son de Tentare, no del estudio: mandarla a su configuración sería mentir.
   NO_CONFIGURADO: `No se ha cobrado: los cobros con tarjeta no están disponibles ahora mismo. No depende de tu estudio. ${SIGUE_PENDIENTE}`,
   MODO_STRIPE_CRUZADO: `No se ha cobrado: los cobros con tarjeta no están disponibles ahora mismo. No depende de tu estudio. ${SIGUE_PENDIENTE}`,
 };

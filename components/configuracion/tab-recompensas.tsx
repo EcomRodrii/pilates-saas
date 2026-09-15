@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Coins, Flame, Gift, Plus, Pencil, Trash2, Check } from 'lucide-react';
+import { Coins, Flame, Plus, Pencil, Trash2, Check } from 'lucide-react';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import { useStudio } from '@/lib/studio-context';
 import { REWARD_TRIGGERS } from '@/lib/engines/reward-engine';
 import { sugerirRecompensas } from '@/lib/recompensas-sugeridas';
@@ -221,15 +222,17 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <>
+    <TarjetaAjuste id="reglas" marco={false}>
+    <div className="space-y-6">
       {/* Cómo se llaman. Va PRIMERO porque nombra todo lo que viene debajo. */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <Coins size={16} className="text-brand-secondary" />
-          <h3 className="text-[14px] font-semibold text-foreground">Cómo llamas a tus {moneda}</h3>
+          <Coins size={16} className="text-brand-secondary" aria-hidden />
+          <h4 className="text-[14px] font-semibold text-foreground">Cómo llamas a tus {moneda}</h4>
         </div>
         <p className="text-[12px] text-muted-foreground mb-3">
-          El nombre que verán tus clientas en su app. En plural: «puntos», «estrellas»…
+          El nombre que verán tus alumnas en su app. En plural: «puntos», «estrellas»…
           Déjalo vacío para usar «créditos».
         </p>
         <div className={cn(cardCls, 'p-4')}>
@@ -254,7 +257,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
         </div>
         <p className="text-[12px] text-muted-foreground mb-3">
           Meses que duran los {moneda} desde la última vez que se ganan. Cada vez que
-          una clienta gana, el plazo vuelve a empezar. Déjalo vacío para que no caduquen.
+          una alumna gana, el plazo vuelve a empezar. Déjalo vacío para que no caduquen.
         </p>
         <div className={cn(cardCls, 'p-4 flex items-center gap-2')}>
           <CampoNumero
@@ -276,7 +279,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
           <h3 className="text-[14px] font-semibold text-foreground">Racha</h3>
         </div>
         <p className="text-[12px] text-muted-foreground mb-3">
-          Cuántas clases tiene que hacer una clienta en una semana para mantener su racha.
+          Cuántas clases tiene que hacer una alumna en una semana para mantener su racha.
           La semana en curso nunca se la rompe: solo cuenta cuando termina.
         </p>
         <div className={cn(cardCls, 'p-4 flex items-center gap-2')}>
@@ -299,7 +302,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
           <h3 className="text-[14px] font-semibold text-foreground">{moneda} por acción</h3>
         </div>
         <p className="text-[12px] text-muted-foreground mb-3">
-          Cuántos {moneda} gana una clienta por cada acción. Cambia cualquier valor o desactívalo — nunca están fijos en el código.
+          Cuántos {moneda} gana una alumna por cada acción. Cambia cualquier valor o desactívalo — nunca están fijos en el código.
         </p>
         <div className={cn(cardCls, 'divide-y divide-[#F1F1F4]')}>
           {REWARD_TRIGGERS.map(def => {
@@ -369,18 +372,20 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
         </div>
       </div>
 
+    </div>
+    </TarjetaAjuste>
+
       {/* Catálogo de recompensas */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
-            <Gift size={16} className="text-brand-secondary" />
-            <h3 className="text-[14px] font-semibold text-foreground">Catálogo de recompensas</h3>
-          </div>
+      <TarjetaAjuste
+        id="recompensas"
+        marco={false}
+        acciones={
           <button onClick={openNuevo} className={btnPrimary}>
-            <Plus size={14} /> Nueva recompensa
+            <Plus size={14} aria-hidden /> Nueva recompensa
           </button>
-        </div>
-        <p className="text-[12px] text-muted-foreground mb-3">Lo que las clientas pueden canjear con sus {moneda}.</p>
+        }
+      >
+      <div>
 
         {rewardCatalog.length === 0 ? (
           // El catálogo vacío era un callejón: «aún no hay recompensas» y ahí
@@ -400,7 +405,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             ) : (
               <>
                 <p className="text-[12px] text-muted-foreground mt-1 mb-3">
-                  Tus clientas ya están acumulando {moneda}. Estas tres son un punto de partida —
+                  Tus alumnas ya están acumulando {moneda}. Estas tres son un punto de partida —
                   puedes editarlas o borrarlas después.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -458,6 +463,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
           </div>
         )}
       </div>
+      </TarjetaAjuste>
 
       {/* Modal crear/editar */}
       <Dialog open={modal !== null} onOpenChange={open => !open && setModal(null)}>
@@ -469,7 +475,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
                 <Field label="Icono"
-                  description="Un emoji. Es lo que verá la clienta en el catálogo de recompensas."
+                  description="Un emoji. Es lo que verá la alumna en el catálogo de recompensas."
                 >
                   <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
                 </Field>
@@ -511,8 +517,8 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Field label="Máximo por clienta (vacío = sin límite)"
-                  description="Cuántas veces puede canjearla la MISMA clienta. Sin esto, quien más créditos acumula puede llevarse el stock entero."
+                <Field label="Máximo por alumna (vacío = sin límite)"
+                  description="Cuántas veces puede canjearla la MISMA alumna. Sin esto, quien más créditos acumula puede llevarse el stock entero."
                 >
                   <input
                     type="number" min={1} className={inputCls}
@@ -543,7 +549,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
               </div>
             </div>
             <Field label="Qué pasa al canjearla"
-              description="«Clase gratis» se entrega sola: la clienta recibe una recuperación y puede reservar con ella cuando quiera. El resto se lo das tú en el estudio."
+              description="«Clase gratis» se entrega sola: la alumna recibe una recuperación y puede reservar con ella cuando quiera. El resto se lo das tú en el estudio."
             >
               <select
                 className={inputCls}
@@ -583,7 +589,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             <DialogTitle>Eliminar recompensa</DialogTitle>
           </DialogHeader>
           <p className="text-[13px] text-muted-foreground">
-            ¿Eliminar <strong className="text-foreground">{confirmDel?.nombre}</strong> del catálogo? Las clientas ya no podrán canjearla.
+            ¿Eliminar <strong className="text-foreground">{confirmDel?.nombre}</strong> del catálogo? Las alumnas ya no podrán canjearla.
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <button onClick={() => setConfirmDel(null)} className={btnSecondary}>Cancelar</button>
@@ -602,7 +608,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 

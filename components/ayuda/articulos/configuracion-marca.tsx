@@ -4,20 +4,25 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 // Reescrito el 14-sep-2026: la versión del 28-ago mandaba a «Editar marca y
 // apariencia» y a un editor de tema con borrador y «Publicar». Ese editor está
 // en mantenimiento desde el 7-sep y el botón ya no existe: el logo y el favicon
-// se suben en Estudio > General, y el color abre /configuracion/apariencia/panel,
+// se suben en Configuración y el color abre /configuracion/apariencia/panel,
 // que guarda al momento («Guardar colores»). La captura enseñaba el editor
 // cerrado y se quitó.
+//
+// 15-sep-2026: Configuración se reorganizó por preguntas. La tarjeta «Marca» se
+// pinta en «Mi estudio» (su sitio definitivo es «Mi app y mi web», que tiene
+// una fila que lleva hasta ella) y el nombre del estudio está en «Datos y
+// contacto».
 export default function Contenido() {
   return (
     <>
       <p>
-        En Configuración &gt; Estudio &gt; General, el bloque «Tu marca» tiene el nombre de tu estudio, que se guarda
-        con el botón «Guardar datos del estudio». Justo debajo, «Logo y favicon»: esos dos se guardan solos en cuanto
-        los subes, y subirlos no borra nada de lo que estés escribiendo en el resto de la pantalla.
+        En Configuración &gt; Mi estudio, «Datos y contacto» tiene el nombre de tu estudio, que se guarda con el botón
+        «Guardar datos del estudio». Justo debajo, «Marca»: el logo y el favicon se guardan solos en cuanto los subes,
+        y subirlos no borra nada de lo que estés escribiendo en el resto de la pantalla.
       </p>
 
       <p>
-        El color va desde «El color de tu marca», en el bloque «Tu marca»: abre «Personalizar tu panel», donde eliges tu
+        El color va desde «El color de tu marca», en esa misma tarjeta: abre «Personalizar tu panel», donde eliges tu
         color principal y el secundario y los pruebas antes de guardarlos. Lo ven tus alumnas en tu página de
         reservas y en su app.
       </p>

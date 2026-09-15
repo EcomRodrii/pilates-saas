@@ -62,7 +62,7 @@ export function identificacionResponsable(e: DatosEstudioLegal): string | null {
  *  clienta, así que la propietaria lo descubre la primera vez que da un alta. */
 const SIN_DATOS_FISCALES =
   '⚠️ El estudio todavía no ha completado sus datos fiscales (razón social, NIF y domicilio).\n' +
-  'Complétalos en Configuración → Estudio: sin ellos este documento no identifica al responsable\n' +
+  'Complétalos en Configuración → Mi estudio: sin ellos este documento no identifica al responsable\n' +
   'del tratamiento y no cumple el artículo 13 del RGPD.';
 
 export function politicaPrivacidadPorDefecto(e: DatosEstudioLegal = {}): string {

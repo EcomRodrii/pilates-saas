@@ -119,7 +119,7 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
               onClick={() => resolver(canje, 'CANCELADO')}
               disabled={ocupado}
               className={cn(btnSecondary, 'disabled:opacity-50')}
-              title={`Devuelve los ${moneda} a la socia y el stock al catálogo`}
+              title={`Devuelve los ${moneda} a la alumna y el stock al catálogo`}
             >
               <X size={14} /> Cancelar
             </button>
@@ -147,7 +147,7 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
             <input
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar por clienta, recompensa o código…"
+              placeholder="Buscar por alumna, recompensa o código…"
               aria-label="Buscar canjes"
               className="h-9 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-[13px]"
             />
@@ -169,11 +169,11 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
 
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <Clock size={16} className="text-brand-secondary" />
-          <h3 className="text-[14px] font-semibold text-foreground">Pendientes de entregar</h3>
+          <Clock size={16} className="text-brand-secondary" aria-hidden />
+          <h4 className="text-[14px] font-semibold text-foreground">Pendientes de entregar</h4>
         </div>
         <p className="text-[12px] text-muted-foreground mb-3">
-          Lo que tus clientas ya han pagado con sus {moneda} y esperan recibir. Cancelar
+          Lo que tus alumnas ya han pagado con sus {moneda} y esperan recibir. Cancelar
           se los devuelve y repone el stock.
         </p>
         {pendientes.length === 0 ? (
@@ -189,7 +189,7 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
 
       {resueltos.length > 0 && (
         <div>
-          <h3 className="text-[14px] font-semibold text-foreground mb-1">Historial</h3>
+          <h4 className="text-[14px] font-semibold text-foreground mb-1">Historial</h4>
           <p className="text-[12px] text-muted-foreground mb-3">Canjes ya entregados o cancelados.</p>
           <div className="space-y-3">
             {resueltos.map(c => <Fila key={c.id} canje={c} accionable={false} />)}

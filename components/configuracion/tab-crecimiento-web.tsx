@@ -104,8 +104,8 @@ export function TabCrecimientoWeb({ showToast: _showToast }: { showToast: (m: st
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <TrendingUp size={16} className="text-muted-foreground" />
-          <p className="text-[13px] font-semibold text-foreground">Crecimiento web</p>
+          <TrendingUp size={16} className="text-muted-foreground" aria-hidden />
+          <h4 className="text-[13px] font-semibold text-foreground">Visitas y reservas empezadas y terminadas</h4>
         </div>
         <div className="flex gap-1">
           {PERIOD_OPTS.map(opt => (

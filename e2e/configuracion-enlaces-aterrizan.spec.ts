@@ -5,13 +5,16 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 //
 // Hasta el 15-sep: la notificación «Canje pendiente de entregar» abría
 // Recompensas, «Configurar mis salas» abría Clases, la vuelta de conectar Stripe
-// abría Clases y salas —y el aviso de «conectado» no salía nunca, porque solo
-// lo pinta Integraciones—, y recargar después de cambiar de pestaña devolvía a
-// la primera. Nada fallaba: solo mandaba a otro sitio.
+// abría la primera pestaña —y el aviso de «conectado» no salía nunca—, y
+// recargar después de cambiar de pestaña devolvía a la primera. Nada fallaba:
+// solo mandaba a otro sitio.
 //
-// La traducción URL → pestaña está en lib/configuracion/destino.ts, con su test
-// unitario que barre el repo. Esto comprueba lo que ese test no ve: que la
-// página la aplica al montar, y que escribe la URL al elegir.
+// Ese mismo día Configuración se reorganizó por preguntas, y los enlaces viejos
+// (notificaciones ya enviadas, correos, callbacks de OAuth) tienen que seguir
+// llegando. La traducción URL → sección está en lib/configuracion/destino.ts,
+// con su test unitario que barre el repo. Esto comprueba lo que ese test no ve:
+// que la página la aplica al montar, que baja a la tarjeta y que escribe la URL
+// al elegir.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -21,7 +24,7 @@ const STORAGE_KEY = 'sb-example-auth-token';
 const STUDIO_ROW = {
   id: STUDIO_ID, nombre: 'Pilates Centro', slug: 'pilates-centro',
   owner_auth_user_id: AUTH_UID, email: 'duena@example.com', moneda: 'EUR', nif: 'B00000000',
-  // La gamificación vive tras un PlanGate: sin plan de pago no se renderiza.
+  // La motivación vive tras un PlanGate: sin plan de pago no se renderiza.
   plan: 'ESTUDIO', subscription_status: 'active',
 };
 
@@ -57,68 +60,90 @@ async function panel(page: Page) {
   await seedSesion(page);
 }
 
-const pestanas = (page: Page) => page.locator('[data-tour="configuracion-vista"]');
+const tituloSeccion = (page: Page, nombre: string) => page.getByRole('heading', { level: 2, name: nombre, exact: true });
+const rail = (page: Page) => page.getByRole('navigation', { name: 'Secciones de Configuración' });
 
 test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
-  test('la notificación de un canje abre Canjes, no Recompensas', async ({ page }) => {
+  // Los enlaces que de verdad hay repartidos por correos, notificaciones y la
+  // guía, con la sección y la tarjeta en la que tienen que caer.
+  const ENLACES_VIEJOS: [string, string, string][] = [
+    ['/configuracion?tab=gamificacion&sub=canjes', 'Motivación', '#canjes'],
+    ['/configuracion?tab=estudio&sub=legal', 'Alta de alumnas', '#contrato-y-privacidad'],
+    ['/configuracion?tab=estudio&sub=general#datos-fiscales', 'Mi estudio', '#datos-fiscales'],
+    ['/configuracion?tab=salas', 'Mi estudio', '#salas'],
+    ['/configuracion?tab=api&sub=crecimiento', 'Mi app y mi web', '#widgets'],
+    ['/configuracion?tab=emails', 'Cómo me comunico', '#correos-automaticos'],
+    ['/configuracion?tab=estudio&sub=salas', 'Mi estudio', '#salas'],
+  ];
+
+  for (const [href, seccion, tarjeta] of ENLACES_VIEJOS) {
+    test(`${href} abre «${seccion}» y baja a ${tarjeta}`, async ({ page }) => {
+      await panel(page);
+      await page.goto(href);
+
+      await expect(tituloSeccion(page, seccion)).toBeVisible({ timeout: 30_000 });
+      await expect(rail(page).getByRole('link', { name: seccion, exact: true })).toHaveAttribute('aria-current', 'page');
+      await expect(page.locator(tarjeta)).toBeInViewport({ timeout: 15_000 });
+    });
+  }
+
+  test('la vuelta de conectar Stripe abre Conexiones, enseña su aviso y limpia la URL', async ({ page }) => {
     await panel(page);
-    await page.goto('/configuracion?tab=gamificacion&sub=canjes');
-
-    await expect(page.getByRole('tab', { name: 'Canjes' })).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
-    await expect(page.getByRole('heading', { name: 'Pendientes de entregar' })).toBeVisible();
-  });
-
-  test('«Configurar mis salas» abre Salas, no Clases', async ({ page }) => {
-    await panel(page);
-    await page.goto('/configuracion?tab=clases-salas&sub=salas');
-
-    await expect(page.getByRole('tab', { name: 'Salas' })).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
-    await expect(page.getByRole('tab', { name: 'Clases' })).toHaveAttribute('aria-selected', 'false');
-  });
-
-  test('la vuelta de conectar Stripe abre Integraciones y enseña su aviso', async ({ page }) => {
-    await panel(page);
-    // Lo que manda /api/stripe/connect/callback al terminar. Sin `tab=`, como
-    // antes del arreglo: el parámetro de conexión basta para saber a dónde ir.
+    // Lo que manda /api/stripe/connect/callback al terminar. Sin `tab=`: el
+    // parámetro de conexión basta para saber a dónde ir.
     await page.goto('/configuracion?stripe_connected=1');
 
-    await expect(page.getByRole('heading', { name: 'Integraciones del negocio' })).toBeVisible({ timeout: 30_000 });
+    await expect(tituloSeccion(page, 'Conexiones')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Stripe conectado — ya puedes cobrar en tu propia cuenta')).toBeVisible();
-    // El aviso se consume y la URL se queda en la pestaña: recargar no lo repite
-    // ni devuelve a Clases y salas.
-    await expect(page).toHaveURL(/\/configuracion\?tab=integraciones$/);
-    await expect(pestanas(page).getByRole('button', { name: 'Integraciones', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#integracion-stripe')).toBeInViewport({ timeout: 15_000 });
+    // El aviso se consume y la URL se queda en la sección: recargar no lo repite.
+    await expect(page).toHaveURL(/\/configuracion\?tab=conexiones$/);
   });
 
-  test('«Poner mi NIF ahora» baja hasta Datos fiscales', async ({ page }) => {
+  test('lo que ya vive fuera de Configuración redirige: Mi perfil y las tarifas', async ({ page }) => {
     await panel(page);
-    await page.goto('/configuracion?tab=estudio&sub=general#datos-fiscales');
+    await page.goto('/configuracion?tab=perfil');
+    await expect(page).toHaveURL(/\/mi-perfil$/, { timeout: 30_000 });
 
-    await expect(page.locator('#datos-fiscales')).toBeInViewport({ timeout: 30_000 });
+    await page.goto('/configuracion?tab=planes');
+    await expect(page).toHaveURL(/\/productos$/, { timeout: 30_000 });
   });
 
-  test('elegir pestaña y sub-pestaña queda en la URL, sin llenar el historial, y recargar lo mantiene', async ({ page }) => {
+  test('elegir sección en la columna queda en la URL, sin llenar el historial, y recargar la mantiene', async ({ page }) => {
     await panel(page);
     await page.goto('/configuracion');
-    const nav = pestanas(page);
 
-    await expect(nav.getByRole('button', { name: 'Clases y salas', exact: true })).toHaveAttribute('aria-current', 'page', { timeout: 30_000 });
+    // Sin sección en la URL, en pantalla ancha se abre la primera.
+    await expect(tituloSeccion(page, 'Mi estudio')).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/configuracion$/);
     const historialAntes = await page.evaluate(() => history.length);
 
-    await nav.getByRole('button', { name: 'Integraciones', exact: true }).click();
-    await expect(page).toHaveURL(/\/configuracion\?tab=integraciones$/);
+    await rail(page).getByRole('link', { name: 'Conexiones', exact: true }).click();
+    await expect(page).toHaveURL(/\/configuracion\?tab=conexiones$/);
+    await expect(tituloSeccion(page, 'Conexiones')).toBeVisible();
 
-    await nav.getByRole('button', { name: 'Estudio', exact: true }).click();
-    await page.getByRole('tab', { name: 'Legal' }).click();
-    await expect(page).toHaveURL(/\/configuracion\?tab=estudio&sub=legal$/);
-    await expect(page.getByRole('tab', { name: 'Legal' })).toHaveAttribute('aria-selected', 'true');
+    await rail(page).getByRole('link', { name: 'Alta de alumnas', exact: true }).click();
+    await expect(page).toHaveURL(/\/configuracion\?tab=altas$/);
+    await expect(rail(page).getByRole('link', { name: 'Alta de alumnas', exact: true })).toHaveAttribute('aria-current', 'page');
 
-    // `replace`, no `push`: tres clics no son tres pasos atrás.
+    // `replace`, no `push`: dos clics en la columna no son dos pasos atrás.
     expect(await page.evaluate(() => history.length)).toBe(historialAntes);
 
     await page.reload();
-    await expect(page.getByRole('tab', { name: 'Legal' })).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
-    await expect(nav.getByRole('button', { name: 'Estudio', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(tituloSeccion(page, 'Alta de alumnas')).toBeVisible({ timeout: 30_000 });
+    await expect(rail(page).getByRole('link', { name: 'Alta de alumnas', exact: true })).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('una fila que apunta a otra sección lleva a la tarjeta de verdad', async ({ page }) => {
+    await panel(page);
+    await page.goto('/configuracion?tab=cobros');
+
+    await expect(tituloSeccion(page, 'Cobros y facturas')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('link', { name: /Datos fiscales e IVA/ }).click();
+
+    await expect(tituloSeccion(page, 'Mi estudio')).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/configuracion\?tab=estudio#datos-fiscales$/);
+    await expect(page.locator('#datos-fiscales')).toBeInViewport({ timeout: 15_000 });
   });
 });
 

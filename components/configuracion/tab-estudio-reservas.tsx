@@ -5,7 +5,8 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
-import { Toggle, inputCls, labelCls, cardCls } from '@/components/configuracion/estilos';
+import { Toggle, inputCls, labelCls } from '@/components/configuracion/estilos';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import { obtenerConfirmacionRiesgo, actualizarConfirmacionRiesgo } from '@/lib/api-client';
 import { frasesPoliticaEstudio, type AjustePolitica } from '@/lib/politica-estudio-textos';
 import { InterruptorAvisarAlumnas } from '@/components/sustituciones/interruptor-avisar-alumnas';
@@ -167,13 +168,10 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
   const politicaGuardada = studioToPolitica(studio);
   const frases = studio ? frasesPoliticaEstudio({ ...politicaGuardada, avisarAlumnas: avisarGuardado }) : [];
 
-  // Desde Sustituciones se llega con `#ajuste-avisar-alumnas`.
-  const studioCargado = studio !== null;
-  useEffect(() => {
-    if (!studioCargado) return;
-    const hash = window.location.hash;
-    if (hash.startsWith('#ajuste-')) irAAjuste(hash.slice('#ajuste-'.length) as AjustePolitica, avanzadasRef.current);
-  }, [studioCargado]);
+  // Llegar con un ancla (`#ajuste-avisar-alumnas` desde Sustituciones,
+  // `#compra-desde-tu-enlace` desde Alta de alumnas) lo resuelve el shell de
+  // Configuración para todas las secciones: abre «Opciones avanzadas» si el
+  // ajuste está dentro y le da el foco a su control (shell/config-shell.tsx).
 
   // Un solo botón para toda la tarjeta, pegado abajo, que dice si queda algo
   // pendiente — incluido el interruptor de confirmación.
@@ -201,14 +199,10 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <>
       {studio && (
-        <div className={cn(cardCls, 'p-6')}>
-          <h3 id="politica-explicada" className="text-[14px] font-semibold text-foreground mb-1">Cuando algo cambia, Tentare…</h3>
-          <p className="text-[12px] text-muted-foreground mb-3">
-            Lo que pasa hoy con lo que tienes guardado. Si algo no es como lo quieres, cámbialo.
-          </p>
-          <ul aria-labelledby="politica-explicada" className="divide-y divide-border">
+        <TarjetaAjuste id="politica-explicada">
+          <ul aria-labelledby="politica-explicada-titulo" className="divide-y divide-border">
             {frases.map(f => (
               <li key={f.id} className="flex items-start justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
                 <span className="text-[13px] text-foreground">{f.texto}</span>
@@ -224,26 +218,22 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           </ul>
           <p className="text-[11px] text-muted-foreground mt-3">
             Son los valores de todo el estudio. Cada tipo de clase puede tener su propio plazo de cancelación, lista de
-            espera y plazo para aceptar una plaza, desde Configuración → Clases y salas.
+            espera y plazo para aceptar una plaza, desde Configuración → Mis clases y citas → Tipos de clase.
           </p>
-        </div>
+        </TarjetaAjuste>
       )}
-      <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-foreground mb-1">Reservas y cancelaciones</h3>
-        <p className="text-[12px] text-muted-foreground mb-4">
-          Reglas que se aplican cuando una clienta reserva o cancela desde la página pública de reservas.
-        </p>
+      <TarjetaAjuste id="reglas-de-reserva">
         <div className="space-y-4">
           <p className={grupoCls}>General</p>
           <div id="ajuste-ventana-cancelacion">
-            <p className={labelCls}>Ventana de cancelación (horas)</p>
+            <p className={labelCls}>Plazo para cancelar sin perder la sesión (horas antes)</p>
             <input
               type="number" min={0} max={168} className={inputCls}
               value={pol.cancelacionVentanaHoras}
               onChange={e => setPol(p => ({ ...p, cancelacionVentanaHoras: Math.max(0, Number(e.target.value)) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Cancelar con menos antelación se considera tardío. 0 = sin penalización.
+              Cancelar con menos antelación se considera tardío. 0 = puede cancelar hasta el último momento.
             </p>
           </div>
           <label id="ajuste-devolver-tardia" className="flex items-center justify-between gap-4 cursor-pointer">
@@ -261,7 +251,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             <span className="text-[13px] text-foreground">
               Devolver la sesión al cancelar una clase entera
               <span className="block text-[11px] text-muted-foreground">
-                Las socias apuntadas recuperan la sesión en su bono. Vale para las clases que cancelas tú
+                Las alumnas apuntadas recuperan la sesión en su bono. Vale para las clases que cancelas tú
                 (avería, baja de la instructora, mal tiempo...) y también para las que se cancelan solas por no
                 llegar al mínimo de asistentes o por un cierre del centro. Desactívalo si prefieres que se les
                 agote igual.
@@ -272,11 +262,13 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               Exigir plan o bono activo para reservar
-              <span className="block text-[11px] text-muted-foreground">La clienta necesita una suscripción activa o bono con sesiones para reservar.</span>
+              <span className="block text-[11px] text-muted-foreground">La alumna necesita una suscripción activa o bono con sesiones para reservar.</span>
             </span>
             <Toggle on={pol.reservaExigirPlan} onChange={v => setPol(p => ({ ...p, reservaExigirPlan: v }))} />
           </label>
-          <label className="flex items-center justify-between gap-4 cursor-pointer">
+          {/* `ajuste-instructoras-crean-clases`: su sitio es «Mi equipo», que
+              enlaza aquí mientras este formulario no se parta. */}
+          <label id="ajuste-instructoras-crean-clases" className="flex scroll-mt-32 items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               Las instructoras pueden crear sus clases
               <span className="block text-[11px] text-muted-foreground">
@@ -305,8 +297,10 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           {/* Quién puede comprar desde el enlace público sin tener ficha. Antes
               no había ajuste: se cobraba y no se entregaba nada (el webhook
               ignoraba el plan comprado). */}
-          <div>
-            <p className={labelCls}>Si alguien compra un bono desde tu enlace público y aún no es clienta</p>
+          {/* `compra-desde-tu-enlace`: su sitio es «Alta de alumnas», que enlaza
+              aquí mientras este formulario no se parta. */}
+          <div id="compra-desde-tu-enlace" className="scroll-mt-32">
+            <p className={labelCls}>Si alguien compra un bono desde tu enlace público y aún no es alumna</p>
             <div className="space-y-2 mt-1.5">
               {([
                 ['EXIGIR_REGISTRO', 'Que se registre antes de pagar',
@@ -337,7 +331,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             </div>
           </div>
           <div>
-            <p className={labelCls}>Máximo de reservas simultáneas por clienta</p>
+            <p className={labelCls}>Reservas a la vez por alumna</p>
             <input
               type="number" min={0} max={99} className={inputCls}
               placeholder="Sin límite"
@@ -420,13 +414,13 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               Permitir lista de espera
               <span className="block text-[11px] text-muted-foreground">
                 Con la clase llena, la alumna puede apuntarse a la lista de espera. Vale para todo el estudio; cada
-                tipo de clase puede cambiarlo desde Configuración → Clases y salas.
+                tipo de clase puede cambiarlo desde Configuración → Mis clases y citas → Tipos de clase.
               </span>
             </span>
             <Toggle on={pol.permiteListaEspera} onChange={v => setPol(p => ({ ...p, permiteListaEspera: v }))} />
           </label>
           <div>
-            <p className={labelCls}>Plazo para aceptar una plaza liberada (minutos)</p>
+            <p className={labelCls}>Tiempo para aceptar una plaza que se libera (minutos)</p>
             <input
               type="number" min={0} className={inputCls}
               placeholder="Sin plazo (confirmación instantánea)"
@@ -479,7 +473,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           </label>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
-              Requerir aprobación manual
+              Aprobar cada reserva a mano
               <span className="block text-[11px] text-muted-foreground">La reserva no se confirma sola: queda pendiente hasta que la apruebes o la rechaces desde Inicio (Lo que espera tu visto bueno) o desde la clase en el calendario.</span>
             </span>
             <Toggle on={pol.requiereAprobacion} onChange={v => setPol(p => ({ ...p, requiereAprobacion: v }))} />
@@ -491,11 +485,11 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
                 Desactívalo si confías en que quien reserva viene: toda reserva confirmada se da por asistida sola al terminar la clase, sin que nadie tenga que escanear nada ni marcarla a mano.
               </span>
               <span className="block text-[11px] text-muted-foreground mt-1">
-                Es el valor por defecto: cada tipo de clase puede llevarte la contraria desde Configuración → Clases y salas.
+                Es el valor por defecto: cada tipo de clase puede llevarte la contraria desde Configuración → Mis clases y citas → Tipos de clase.
               </span>
               {!pol.requiereCheckinQr && !!pol.penalizacionImporteEur && pol.penalizacionAplicaNoShow && (
                 <span className="block text-[11px] text-amber-600 mt-1">
-                  Con esto desactivado y la penalización por no-show activa, nunca vas a poder cobrarla: toda reserva se da por asistida antes de que exista un &quot;no vino&quot; que penalizar. Puedes seguir marcando &quot;No asistió&quot; a mano desde Asistentes si lo ves en el momento.
+                  Con esto desactivado y el cargo por no venir sin avisar activo, nunca vas a poder cobrarlo: toda reserva se da por asistida antes de que exista un &quot;no vino&quot; que cobrar. Puedes seguir marcando &quot;No asistió&quot; a mano desde Asistentes si lo ves en el momento.
                 </span>
               )}
             </span>
@@ -515,37 +509,37 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
                 : ' sin devolver la sesión a las apuntadas: tienes desactivado «Devolver la sesión al cancelar una clase entera»'}. Vacío o 0 = sin mínimo.
             </p>
           </div>
-          <p className={grupoCls}>Dinero y penalizaciones</p>
+          <p className={grupoCls}>Si cancela tarde o no viene</p>
           <div>
-            <p className={labelCls}>Penalización por cancelación tardía o no-show (€)</p>
+            <p className={labelCls}>Cargo por cancelar tarde o no venir sin avisar (€)</p>
             <input
               type="number" min={0} step="0.01" className={inputCls}
-              placeholder="Sin penalización"
+              placeholder="Sin cargo"
               value={pol.penalizacionImporteEur || ''}
               onChange={e => setPol(p => ({ ...p, penalizacionImporteEur: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Se cobra a la tarjeta guardada de la socia (si tiene una) cuando cancela dentro de la ventana de cancelación o no se presenta. Vacío o 0 = sin cargo.
+              Se cobra a la tarjeta guardada de la alumna (si tiene una) cuando cancela dentro del plazo para cancelar o no se presenta. Vacío o 0 = sin cargo.
             </p>
           </div>
           {!!pol.penalizacionImporteEur && (
             <>
               <label className="flex items-center justify-between gap-4 cursor-pointer">
                 <span className="text-[13px] text-foreground">
-                  Aplicar a cancelaciones tardías
+                  Cobrar si cancela tarde
                 </span>
                 <Toggle on={pol.penalizacionAplicaCancelacionTardia} onChange={v => setPol(p => ({ ...p, penalizacionAplicaCancelacionTardia: v }))} />
               </label>
               <label className="flex items-center justify-between gap-4 cursor-pointer">
                 <span className="text-[13px] text-foreground">
-                  Aplicar a no-shows
+                  Cobrar también si no viene sin avisar
                 </span>
                 <Toggle on={pol.penalizacionAplicaNoShow} onChange={v => setPol(p => ({ ...p, penalizacionAplicaNoShow: v }))} />
               </label>
               <label className="flex items-center justify-between gap-4 cursor-pointer">
                 <span className="text-[13px] text-foreground">
                   Cobrar automáticamente
-                  <span className="block text-[11px] text-muted-foreground">Cuando esté desactivado, cada cargo esperará tu aprobación antes de tocar la tarjeta de la socia.</span>
+                  <span className="block text-[11px] text-muted-foreground">Cuando esté desactivado, cada cargo esperará tu aprobación antes de tocar la tarjeta de la alumna.</span>
                 </span>
                 <Toggle on={pol.penalizacionCobroAutomatico} onChange={v => setPol(p => ({ ...p, penalizacionCobroAutomatico: v }))} />
               </label>
@@ -554,7 +548,9 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             </div>
           </details>
         </div>
-        <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 flex flex-wrap items-center gap-3 rounded-b-xl border-t border-border bg-card px-6 py-3">
+        {/* Negativos iguales al padding de la tarjeta (p-4, y p-6 con sitio): la
+            barra ocupa el ancho entero y queda pegada al borde de abajo. */}
+        <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 flex flex-wrap items-center gap-3 rounded-b-xl border-t border-border bg-card px-4 py-3 @md/config:-mx-6 @md/config:-mb-6 @md/config:px-6">
           <button
             onClick={guardarPolitica}
             disabled={ventanaImposible || !hayCambios || guardando}
@@ -571,17 +567,15 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               : hayCambios ? 'Tienes cambios sin guardar.' : 'Sin cambios pendientes.'}
           </p>
         </div>
-      </div>
-      <div id="ajuste-avisar-alumnas" className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-foreground mb-1">Avisos a las alumnas</h3>
-        <p className="text-[12px] text-muted-foreground mb-4">
-          Se guarda en cuanto lo pulsas, sin esperar a «Guardar política de reservas».
-        </p>
+      </TarjetaAjuste>
+      {/* Guarda al pulsar y por su propio endpoint: tarjeta propia, y la marca
+          «Se guarda al momento» lo dice antes de tocarlo. */}
+      <TarjetaAjuste id="ajuste-avisar-alumnas">
         <InterruptorAvisarAlumnas
           guardado={avisarGuardado}
           onGuardado={v => reflejarStudioGuardado({ avisarAlumnas: v })}
         />
-      </div>
-    </div>
+      </TarjetaAjuste>
+    </>
   );
 }

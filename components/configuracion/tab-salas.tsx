@@ -323,7 +323,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[13px] font-medium text-foreground">Averías de máquina</p>
+            <h4 className="text-[13px] font-medium text-foreground">Averías de máquina</h4>
             <p className="text-[12px] text-muted-foreground">Una máquina averiada baja el aforo real de las clases de esa sala mientras dure.</p>
           </div>
           <button className={cn(btnSecondary, 'shrink-0')} onClick={abrirAveria} disabled={salas.length === 0}>
@@ -377,7 +377,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
           <div className="space-y-3 mt-2">
             <Field
               label="Nombre de la sala"
-              description="Como la llamáis en el estudio. La verá la clienta al reservar."
+              description="Como la llamáis en el estudio. La verá la alumna al reservar."
             >
               <input
                 className={inputCls}

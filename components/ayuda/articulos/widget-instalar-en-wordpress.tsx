@@ -4,7 +4,7 @@ import { AyudaPaso, AyudaResultado } from '@/components/ayuda/AyudaPasos';
 export default function Contenido() {
   return (
     <>
-      <AyudaPaso numero={1} titulo="Genera tu código en Configuración > API > Widgets">
+      <AyudaPaso numero={1} titulo="Genera tu código en Configuración > Mi app y mi web > Widgets para tu web">
         <p style={{ margin: 0 }}>
           Elige el widget, personalízalo y pulsa «Copiar código» — ver{' '}
           <Link href="/ayuda/widget/instalar-con-html" style={{ color: 'inherit', textDecoration: 'underline' }}>instalar el widget con HTML</Link> para el detalle de esta pantalla.

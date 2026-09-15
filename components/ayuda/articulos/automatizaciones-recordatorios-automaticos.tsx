@@ -26,10 +26,10 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué puedes activar o apagar</h2>
       <p>
         Estos avisos no se encienden ni se apagan: son parte del producto. La excepción es el correo del
-        recordatorio, que puedes apagar en Configuración &gt; Emails; apagarlo no apaga el aviso en su app ni el
+        recordatorio, que puedes apagar en Configuración &gt; Cómo me comunico; apagarlo no apaga el aviso en su app ni el
         WhatsApp. Lo que eliges tú es qué avisos te llegan
         a ti y por dónde, desde las preferencias de notificaciones, y el WhatsApp de tu estudio se conecta en
-        Configuración &gt; Integraciones.
+        Configuración &gt; Conexiones.
       </p>
 
       <AyudaResultado>

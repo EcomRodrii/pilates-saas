@@ -13,10 +13,12 @@ import type { CadenaTipoClase } from '@/lib/types';
 import {
   inputCls, labelCls, btnPrimary, btnSecondary, cardCls, ColorInput, ColorSwatch, NivelBadge,
 } from '@/components/configuracion/estilos';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
 // Multi-sede (plan CADENA): ver quiénes son, cambiarse entre ellas y añadir
-// una nueva. `sedes`/`cambiarmeASede` vienen del orquestador (tab-estudio.tsx)
-// porque también los necesita para decidir si esta sub-pestaña existe.
+// una nueva. `sedes`/`cambiarmeASede` vienen de la sección «Mi estudio»
+// (secciones/seccion-estudio.tsx) porque también los necesita para decidir si
+// esta tarjeta existe.
 export function TabEstudioSedes({
   showToast, sedes, refrescarSedes, cambiandoASede, cambiarmeASede, puedeAnadirSedes,
 }: {
@@ -74,14 +76,16 @@ export function TabEstudioSedes({
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <>
+    <TarjetaAjuste id="sedes" marco={false}>
+    <div className="space-y-5">
       {/* Con una sola sede no hay nada que listar (mismo criterio que el
           selector del menú de perfil). */}
       {sedes.length > 1 && (
         <div className={cn(cardCls, 'p-6')}>
-          <h3 className="text-[14px] font-semibold text-foreground mb-1 flex items-center gap-2">
-            <Building2 size={15} className="text-muted-foreground" /> Tus sedes
-          </h3>
+          <h4 className="text-[14px] font-semibold text-foreground mb-1 flex items-center gap-2">
+            <Building2 size={15} className="text-muted-foreground" aria-hidden /> Tus sedes
+          </h4>
           <p className="text-[12px] text-muted-foreground mb-4">
             {sedes.length} sedes en tu cadena. Cámbiate a cualquiera sin salir de aquí.
           </p>
@@ -130,9 +134,9 @@ export function TabEstudioSedes({
 
       {puedeAnadirSedes && (
         <div className={cn(cardCls, 'p-6')}>
-          <h3 className="text-[14px] font-semibold text-foreground mb-1 flex items-center gap-2">
-            <Building2 size={15} className="text-muted-foreground" /> Añadir sede
-          </h3>
+          <h4 className="text-[14px] font-semibold text-foreground mb-1 flex items-center gap-2">
+            <Building2 size={15} className="text-muted-foreground" aria-hidden /> Añadir sede
+          </h4>
           <p className="text-[12px] text-muted-foreground mb-4">
             Tu plan Cadena cubre todas tus sedes con una sola suscripción. La sede nueva queda operativa
             al momento — aparecerá en &ldquo;Tus sedes&rdquo; arriba, con un botón para cambiarte a ella.
@@ -157,8 +161,13 @@ export function TabEstudioSedes({
         </div>
       )}
 
-      {puedeAnadirSedes && studio?.cadenaId && <CatalogoCadena cadenaId={studio.cadenaId} showToast={showToast} />}
     </div>
+    </TarjetaAjuste>
+
+    {/* Su sitio es «Mis clases y citas», que tiene una fila que trae hasta
+        aquí mientras no salga de este componente. */}
+    {puedeAnadirSedes && studio?.cadenaId && <CatalogoCadena cadenaId={studio.cadenaId} showToast={showToast} />}
+    </>
   );
 }
 
@@ -225,12 +234,8 @@ function CatalogoCadena({ cadenaId, showToast }: { cadenaId: string; showToast: 
   }
 
   return (
-    <div className={cn(cardCls, 'p-6')}>
-      <h3 className="text-[14px] font-semibold text-foreground mb-1 flex items-center gap-2">
-        <Layers size={15} className="text-muted-foreground" /> Catálogo de clases de la cadena
-      </h3>
+    <TarjetaAjuste id="catalogo-de-la-cadena">
       <p className="text-[12px] text-muted-foreground mb-4">
-        Una plantilla compartida — se copia a cada sede al crearla, o con &ldquo;Aplicar catálogo&rdquo; en una sede ya existente.
         Editar aquí no cambia nada en las sedes que ya tienen esos tipos de clase.
       </p>
 
@@ -289,6 +294,6 @@ function CatalogoCadena({ cadenaId, showToast }: { cadenaId: string; showToast: 
           )}
         </div>
       </div>
-    </div>
+    </TarjetaAjuste>
   );
 }

@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   const whatsapp = whatsappDelEstudio(await dbGetIntegracionConfig(sesion.studioId, 'WHATSAPP'));
   if (!whatsapp) {
     return NextResponse.json(
-      { error: 'Conecta tu WhatsApp Business en Configuración → Integraciones' },
+      { error: 'Conecta tu WhatsApp Business en Configuración → Cómo me comunico' },
       { status: 503 },
     );
   }

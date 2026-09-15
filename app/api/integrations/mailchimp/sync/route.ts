@@ -64,6 +64,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, sincronizadas, errores, total: filas.length });
   } catch (err) {
     console.error('[integrations/mailchimp/sync]', err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: 'No se ha podido sincronizar con Mailchimp. Comprueba tu clave API desde Configuración → Integraciones.' }, { status: 502 });
+    return NextResponse.json({ error: 'No se ha podido sincronizar con Mailchimp. Comprueba tu clave API desde Configuración → Conexiones.' }, { status: 502 });
   }
 }

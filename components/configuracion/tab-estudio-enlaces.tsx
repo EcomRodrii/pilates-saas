@@ -6,11 +6,12 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { normalizarSlug, motivoSlugInvalido } from '@/lib/slug';
-import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls, Toggle } from '@/components/configuracion/estilos';
+import { inputCls, labelCls, btnPrimary, btnSecondary, Toggle } from '@/components/configuracion/estilos';
 import { copiarAlPortapapeles } from '@/lib/utils';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
-// Los widgets embebibles (antes aquí) viven ahora en su propio tab de
-// primer nivel — ver components/configuracion/tab-api.tsx.
+// Los widgets embebibles (antes aquí) tienen su propia tarjeta en «Mi app y mi
+// web» — ver components/configuracion/tab-api.tsx.
 
 // Enlaces públicos — dos cosas DISTINTAS que se confundían bajo el mismo
 // nombre "portal": la página de reservas (sin cuenta, para captar) y la app
@@ -22,12 +23,8 @@ export function TabEstudioEnlaces({ showToast }: { showToast: (m: string) => voi
   const { studio } = useStudio();
 
   return (
-    <div className="space-y-5 max-w-2xl">
-      <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-foreground mb-1">Enlaces públicos</h3>
-        <p className="text-[12px] text-muted-foreground mb-3">
-          Páginas de tu estudio para compartir con tus clientas.
-        </p>
+    <>
+      <TarjetaAjuste id="direccion-y-enlaces">
         {/* La dirección se generaba con el nombre al crear el estudio y no se
             podía cambiar nunca más: quien se rebautizaba se quedaba con la
             vieja. Y ni siquiera se veía escrita — solo había un enlace para
@@ -57,10 +54,10 @@ export function TabEstudioEnlaces({ showToast }: { showToast: (m: string) => voi
           {/* CONGELADO (feature-freeze PMF): se quitó el enlace "Modo quiosco" →
               /kiosk/[slug]. Ver lib/frozen-features.ts. */}
         </div>
-      </div>
+      </TarjetaAjuste>
 
       <TarjetaVisibilidadNetwork showToast={showToast} />
-    </div>
+    </>
   );
 }
 
@@ -87,11 +84,7 @@ function TarjetaVisibilidadNetwork({ showToast }: { showToast: (m: string) => vo
   }
 
   return (
-    <div className={cn(cardCls, 'p-6')}>
-      <h3 className="text-[14px] font-semibold text-foreground mb-1">Tentare Network</h3>
-      <p className="text-[12px] text-muted-foreground mb-3">
-        El directorio donde alumnas e instructoras buscan estudios en Tentare.
-      </p>
+    <TarjetaAjuste id="network">
       <div className="flex items-start justify-between gap-3 px-3.5 py-3 rounded-xl border border-border">
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-foreground">Aparecer en el directorio público de Network</p>
@@ -104,7 +97,7 @@ function TarjetaVisibilidadNetwork({ showToast }: { showToast: (m: string) => vo
           <Toggle on={visible} onChange={cambiar} ariaLabel="Aparecer en el directorio público de Network" />
         </div>
       </div>
-    </div>
+    </TarjetaAjuste>
   );
 }
 
@@ -127,7 +120,7 @@ function EnlacePortalSocias({ slug, showToast }: { slug: string; showToast: (m: 
       <Smartphone size={15} className="text-muted-foreground shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-semibold text-foreground">App de tus alumnas</p>
-        <p className="text-[11px] text-muted-foreground">Para clientas ya dadas de alta: reservan, ven su bono, vídeos y progreso. Se instala en el móvil.</p>
+        <p className="text-[11px] text-muted-foreground">Para alumnas ya dadas de alta: reservan, ven su bono, vídeos y progreso. Se instala en el móvil.</p>
       </div>
       <button
         onClick={copiar}
@@ -186,10 +179,10 @@ function DireccionPublica() {
       // verlo con la dirección vieja después de cambiarla es exactamente la
       // confusión que este cambio venía a quitar. Cambiar la dirección
       // pública se hace una vez cada mucho; una recarga ahí no molesta a nadie.
-      // `sub=enlaces` para aterrizar en ESTA sub-pestaña, no en la que esté
-      // activa por defecto — si no, la confirmación de abajo no se vería.
+      // El ancla para aterrizar en ESTA tarjeta, no arriba de la sección — si
+      // no, la confirmación de abajo no se vería.
       const anterior = encodeURIComponent(cuerpo?.anterior ?? '');
-      window.location.href = `/configuracion?tab=estudio&sub=enlaces&direccion-anterior=${anterior}`;
+      window.location.href = `/configuracion?tab=web&direccion-anterior=${anterior}#direccion-y-enlaces`;
       return;
     } catch {
       setError('No hay conexión con el servidor. Inténtalo de nuevo.');

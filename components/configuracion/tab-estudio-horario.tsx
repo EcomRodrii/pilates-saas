@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { CalendarOff, Copy, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import { Toggle, cardCls, btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
+import { Toggle, btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import type { DiaHorario } from '@/lib/types';
 
 // El calendario decía "Cerrado" en cualquier día sin clases, aunque el
@@ -118,15 +119,16 @@ export function TabEstudioHorario({ showToast }: { showToast: (m: string) => voi
     showToast(res.ok ? 'Horario guardado' : res.error);
   }
 
+  // Una tarjeta, «Horario y cierres», con dos partes: es la misma pregunta
+  // —cuándo abre este estudio— contestada para cada día de la semana y para
+  // unas fechas concretas.
   return (
-    <div className="space-y-5 max-w-2xl">
-      <div className={cn(cardCls, 'p-6')}>
-        <div className="flex items-start justify-between gap-3 mb-1">
-          <h3 className="text-[14px] font-semibold text-foreground flex items-center gap-1.5">
-            <Sparkles size={14} className="text-brand-medio" />
-            Horario del estudio
-          </h3>
-        </div>
+    <TarjetaAjuste id="horario-y-cierres">
+      <div>
+        <h4 className="text-sm font-semibold text-foreground flex items-center gap-1.5 mb-1">
+          <Sparkles size={14} className="text-brand-medio" aria-hidden />
+          Horario del estudio
+        </h4>
         <p className="text-[12px] text-muted-foreground mb-4">
           El calendario usa esto para saber si un día sin clases está{' '}
           <span className="font-medium text-foreground">cerrado</span> o simplemente{' '}
@@ -199,8 +201,10 @@ export function TabEstudioHorario({ showToast }: { showToast: (m: string) => voi
         </button>
       </div>
 
-      <CierreDelCentro showToast={showToast} />
-    </div>
+      <div className="mt-6 border-t border-border pt-6">
+        <CierreDelCentro showToast={showToast} />
+      </div>
+    </TarjetaAjuste>
   );
 }
 
@@ -249,15 +253,15 @@ function CierreDelCentro({ showToast }: { showToast: (m: string) => void }) {
   }
 
   return (
-    <div className={cn(cardCls, 'p-6')}>
-      <h3 className="text-[14px] font-semibold text-foreground flex items-center gap-1.5 mb-1">
-        <CalendarOff size={14} className="text-brand-medio" />
+    <div>
+      <h4 className="text-sm font-semibold text-foreground flex items-center gap-1.5 mb-1">
+        <CalendarOff size={14} className="text-brand-medio" aria-hidden />
         Cerrar el centro unos días
-      </h3>
+      </h4>
       <p className="text-[12px] text-muted-foreground mb-4">
         Vacaciones, un puente, una reforma. Se cancelan las clases de esas fechas avisando a quien tuviera reserva{devuelveSesion
           ? ', se les devuelve la sesión del bono'
-          : ' (sin devolverles la sesión: lo tienes desactivado en Reservas y cancelaciones)'}, y a todo el estudio se le suman esos días a la caducidad de bonos y recuperaciones. Nadie podrá reservar en ese rango.
+          : ' (sin devolverles la sesión: lo tienes desactivado en «Cómo reservan mis alumnas»)'}, y a todo el estudio se le suman esos días a la caducidad de bonos y recuperaciones. Nadie podrá reservar en ese rango.
       </p>
 
       <div className="grid grid-cols-2 gap-3">

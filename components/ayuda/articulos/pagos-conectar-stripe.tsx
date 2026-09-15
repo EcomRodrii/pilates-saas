@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { AyudaPaso, AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
-import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
 
+// 15-sep-2026: sin captura. La que había enseñaba la fila de pestañas de
+// Configuración de antes de reorganizarla por preguntas; mejor ninguna imagen
+// que una de una pantalla que ya no existe (mismo criterio que bonos-crear-un-plan).
 export default function Contenido() {
   return (
     <>
@@ -10,13 +12,11 @@ export default function Contenido() {
         hay cobro con tarjeta ni tarjeta guardada para renovaciones automáticas.
       </AyudaAntesDeEmpezar>
 
-      <AyudaPaso numero={1} titulo="Ve a Configuración > Integraciones">
-        <p>La tarjeta de Stripe es la primera de la lista — «Cobra suscripciones y bonos con tarjeta o SEPA. El dinero va directo a tu propia cuenta de Stripe».</p>
-        <AyudaCaptura
-          src="/help/pagos/configuracion-integraciones-stripe.png"
-          alt="Tarjeta de Stripe en Configuración > Integraciones, con el botón Conectar con Stripe"
-          caption="Configuración &gt; Integraciones — un clic, sin pegar ninguna clave."
-        />
+      <AyudaPaso numero={1} titulo="Ve a Configuración > Cobros y facturas">
+        <p>
+          Pulsa «Cobro con tarjeta (Stripe)»: te lleva a su tarjeta, que por ahora está en Conexiones. Pulsa «Conectar
+          con Stripe» — un clic, sin pegar ninguna clave.
+        </p>
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Completa la verificación de Stripe">

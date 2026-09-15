@@ -213,13 +213,13 @@ test('⚠️ Stripe no está listo: no se escribe, sigue pendiente, 503 que la t
   }
 });
 
-test('Stripe no está listo: lo del estudio manda a Integraciones; lo de Tentare, no', () => {
+test('Stripe no está listo: lo del estudio manda a Cobros y facturas; lo de Tentare, no', () => {
   for (const c of ['SIN_STRIPE_CONECTADO', 'CUENTA_NO_LISTA'] as const) {
-    assert.match(planificarTrasCobro(fallo(c), leido('PENDIENTE')).desenlace.mensaje ?? '', /Configuración → Integraciones/, c);
+    assert.match(planificarTrasCobro(fallo(c), leido('PENDIENTE')).desenlace.mensaje ?? '', /Configuración → Cobros y facturas/, c);
   }
   for (const c of ['NO_CONFIGURADO', 'MODO_STRIPE_CRUZADO'] as const) {
     const m = planificarTrasCobro(fallo(c), leido('PENDIENTE')).desenlace.mensaje ?? '';
-    assert.doesNotMatch(m, /Integraciones/, c);
+    assert.doesNotMatch(m, /Cobros y facturas|Integraciones/, c);
     assert.match(m, /No depende de tu estudio/, c);
   }
 });

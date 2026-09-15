@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import type { PlantillaCuestionarioSalud } from '@/lib/types';
 import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/components/configuracion/estilos';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
 const TIPOS_RESPUESTA: { id: PlantillaCuestionarioSalud['tipoRespuesta']; label: string }[] = [
   { id: 'texto',              label: 'Texto libre' },
@@ -105,22 +106,19 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
           voz alta: aquel lo rellena el personal en la ficha, este lo rellena
           la propia alumna desde su app. */}
       {puedeGestionar && (
-        <div className={cn(cardCls, 'p-6')}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-[14px] font-semibold text-foreground mb-1">Valoración inicial</h3>
-              <p className="text-[12px] text-muted-foreground">
-                Tus alumnas podrán contarte, desde su app, qué buscan, qué experiencia
-                traen y qué conviene tener en cuenta con ellas. Lo rellenan ellas mismas,
-                antes de sus primeras clases.
-              </p>
-            </div>
+        <TarjetaAjuste
+          id="valoracion-inicial"
+          acciones={
             <Toggle
               on={studio?.valoracionInicialActiva ?? false}
               onChange={(v) => { void cambiarValoracion(v); }}
               ariaLabel="Activar la valoración inicial para las alumnas"
             />
-          </div>
+          }
+        >
+          <p className="text-[12px] text-muted-foreground">
+            Lo rellenan ellas mismas: qué buscan, qué experiencia traen y qué conviene tener en cuenta con ellas.
+          </p>
           {studio?.valoracionInicialActiva && (
             <p className="mt-3 rounded-lg bg-muted/60 p-3 text-[12px] text-muted-foreground">
               La parte de molestias o lesiones solo se guarda si la alumna da su
@@ -128,15 +126,16 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
               y tú lo verás en su ficha, en la pestaña de Salud.
             </p>
           )}
-        </div>
+        </TarjetaAjuste>
       )}
 
+      <TarjetaAjuste id="cuestionario-de-salud" marco={false}>
+      <div className="space-y-5">
       {puedeGestionar && (
         <div className={cn(cardCls, 'p-6')}>
-          <h3 className="text-[14px] font-semibold text-foreground mb-1">{editId ? 'Editar pregunta' : 'Nueva pregunta del cuestionario'}</h3>
+          <h4 className="text-[14px] font-semibold text-foreground mb-1">{editId ? 'Editar pregunta' : 'Nueva pregunta del cuestionario'}</h4>
           <p className="text-[12px] text-muted-foreground mb-4">
-            Preguntas de salud propias del estudio. Solo las rellenan la propietaria o las instructoras, en la
-            pestaña «Salud» de la ficha de cada clienta — nunca la propia clienta desde fuera.
+            Se rellenan en la pestaña «Salud» de la ficha de cada alumna — nunca la propia alumna desde fuera.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
@@ -170,7 +169,7 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
       )}
 
       <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-foreground mb-4">Preguntas ({ordenadas.length})</h3>
+        <h4 className="text-[14px] font-semibold text-foreground mb-4">Preguntas ({ordenadas.length})</h4>
         {!puedeGestionar && ordenadas.length > 0 && (
           <p className="text-[12px] text-muted-foreground mb-3">Solo la propietaria puede añadir, editar o quitar preguntas.</p>
         )}
@@ -215,12 +214,14 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
           </ul>
         )}
       </div>
+      </div>
+      </TarjetaAjuste>
 
       <ConfirmDialog
         open={confirmDel !== null}
         onOpenChange={o => { if (!o) setConfirmDel(null); }}
         titulo="Eliminar pregunta"
-        descripcion="Se quita del cuestionario. Las respuestas ya guardadas en las clientas no se muestran, pero no se borran."
+        descripcion="Se quita del cuestionario. Las respuestas ya guardadas en las alumnas no se muestran, pero no se borran."
         textoConfirmar="Eliminar"
         destructivo
         onConfirm={async () => {

@@ -3,116 +3,216 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import {
-  SECCIONES_CONFIGURACION, TAB_POR_DEFECTO, hrefDeSeccion, reconoceTab, resolverDestino, resolverHref,
-  type TabConfiguracion,
+  ANCLAS, esAnclaConocida, hrefDeSeccion, reconoceSub, reconoceTab, resolverDestino, resolverHref,
+  seccionesVisibles,
 } from './destino.ts';
+import { SECCIONES, seccionAnfitriona, tarjetasDeFuera, type SeccionId, type TarjetaId } from './secciones.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los enlaces a Configuración aterrizan donde dicen.
 //
 // Tres cosas, de más concreta a más general:
-//   1. la tabla de casos: cada enlace viejo o roto que se encontró al auditar;
-//   2. que los ids de aquí son los que la página y sus pestañas pintan de
-//      verdad (si alguien añade una sub-pestaña y no la apunta aquí, ningún
-//      enlace podría llevar a ella);
+//   1. la tabla de casos: cada enlace viejo, cada sub-pestaña de antes y cada
+//      vuelta de una conexión, con la sección y la tarjeta a la que llega hoy;
+//   2. que los ids de secciones.ts son los que se pintan de verdad (si alguien
+//      renombra una tarjeta en un componente y no aquí, ningún enlace llegaría);
 //   3. un barrido del repo: todo `/configuracion?…` escrito a mano tiene que
-//      llegar a una pestaña y sub-pestaña que existan. Es el mismo tipo de
+//      llegar a una sección y a una tarjeta que existan. Es el mismo tipo de
 //      fallo que `sub=canjes` abriendo Recompensas: no rompe nada, solo manda
 //      a otro sitio.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RAIZ = join(import.meta.dirname, '..', '..');
 
-test('tabla: cada enlace llega a su pestaña y sub-pestaña', () => {
+test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
   const casos: [string, ReturnType<typeof resolverHref>][] = [
     // Los que aterrizaban mal (auditoría del 15-sep).
-    ['/configuracion?tab=gamificacion&sub=canjes', { tab: 'gamificacion', sub: 'canjes' }],
-    ['/configuracion?tab=clases-salas&sub=salas', { tab: 'clases-salas', sub: 'salas' }],
-    ['/configuracion?tab=estudio&sub=salas', { tab: 'clases-salas', sub: 'salas' }],
-    ['/configuracion?tab=estudio&sub=general#datos-fiscales', { tab: 'estudio', sub: 'general', ancla: 'datos-fiscales' }],
-    ['/configuracion?stripe_connected=1', { tab: 'integraciones' }],
-    ['/configuracion?stripe_connect_error=Stripe%20no%20configurado', { tab: 'integraciones' }],
-    ['/configuracion?gmail_connected=1', { tab: 'integraciones' }],
-    ['/configuracion?google_calendar_error=x', { tab: 'integraciones' }],
-    ['/configuracion?zoom_connected=1', { tab: 'integraciones' }],
-    ['/configuracion?klaviyo_error=x', { tab: 'integraciones' }],
-    ['/configuracion?whatsapp_connected=1', { tab: 'integraciones' }],
-    ['/configuracion?tab=integraciones&stripe_connected=1', { tab: 'integraciones' }],
+    ['/configuracion?tab=gamificacion&sub=canjes', { tab: 'motivacion', ancla: 'canjes' }],
+    ['/configuracion?tab=clases-salas&sub=salas', { tab: 'estudio', ancla: 'salas' }],
+    ['/configuracion?tab=estudio&sub=salas', { tab: 'estudio', ancla: 'salas' }],
+    ['/configuracion?tab=estudio&sub=general#datos-fiscales', { tab: 'estudio', ancla: 'datos-fiscales' }],
+    // Las vueltas de una conexión, sin `tab=` o con uno viejo.
+    ['/configuracion?stripe_connected=1', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?stripe_connect_error=Stripe%20no%20configurado', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?gmail_connected=1', { tab: 'conexiones', ancla: 'integracion-gmail' }],
+    ['/configuracion?gmail_error=x', { tab: 'conexiones', ancla: 'integracion-gmail' }],
+    ['/configuracion?google_calendar_connected=1', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
+    ['/configuracion?google_calendar_error=x', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
+    ['/configuracion?zoom_connected=1', { tab: 'conexiones', ancla: 'integracion-zoom' }],
+    ['/configuracion?zoom_error=x', { tab: 'conexiones', ancla: 'integracion-zoom' }],
+    ['/configuracion?klaviyo_connected=1', { tab: 'conexiones', ancla: 'mas-integraciones' }],
+    ['/configuracion?klaviyo_error=x', { tab: 'conexiones', ancla: 'mas-integraciones' }],
+    ['/configuracion?whatsapp_connected=1', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
+    ['/configuracion?tab=integraciones&stripe_connected=1', { tab: 'conexiones', ancla: 'integracion-stripe' }],
     ['/configuracion?suscripcion=ok', { redirect: '/suscripcion?suscripcion=ok' }],
     ['/configuracion?suscripcion=cancel', { redirect: '/suscripcion?suscripcion=cancel' }],
-    // Los alias que ya existían en page.tsx.
+    // Lo que ya vive fuera de Configuración.
     ['/configuracion?tab=planes', { redirect: '/productos' }],
-    ['/configuracion?tab=recompensas', { tab: 'gamificacion', sub: 'recompensas' }],
-    ['/configuracion?tab=retos', { tab: 'gamificacion', sub: 'retos' }],
-    ['/configuracion?tab=clases', { tab: 'clases-salas', sub: 'clases' }],
-    ['/configuracion?tab=salas', { tab: 'clases-salas', sub: 'salas' }],
-    ['/configuracion?tab=servicios-cita', { tab: 'citas', sub: 'servicios' }],
-    ['/configuracion?tab=horario-citas', { tab: 'citas', sub: 'horario' }],
-    ['/configuracion?tab=emails', { tab: 'plantillas' }],
-    ['/configuracion?tab=mi-perfil', { tab: 'perfil' }],
-    ['/configuracion?tab=campos-de-cliente', { tab: 'campos' }],
-    ['/configuracion?tab=copias-de-seguridad', { tab: 'backups' }],
-    ['/configuracion?tab=salud', { tab: 'cuestionario-salud' }],
-    ['/configuracion?tab=crecimiento-web', { tab: 'api', sub: 'crecimiento' }],
-    // Pestañas de hoy con sub-pestaña.
-    ['/configuracion?tab=citas&sub=horario', { tab: 'citas', sub: 'horario' }],
-    ['/configuracion?tab=estudio&sub=reservas', { tab: 'estudio', sub: 'reservas' }],
-    ['/configuracion?tab=api&sub=crecimiento', { tab: 'api', sub: 'crecimiento' }],
-    // Lo desconocido no rompe: cae a lo de por defecto.
-    ['/configuracion', { tab: TAB_POR_DEFECTO }],
-    ['/configuracion?tab=inventada', { tab: TAB_POR_DEFECTO }],
+    ['/configuracion?tab=perfil', { redirect: '/mi-perfil' }],
+    ['/configuracion?tab=mi-perfil', { redirect: '/mi-perfil' }],
+    // Las doce pestañas de antes.
+    ['/configuracion?tab=clases-salas', { tab: 'clases' }],
+    ['/configuracion?tab=citas', { tab: 'clases', ancla: 'servicios-de-cita' }],
+    ['/configuracion?tab=gamificacion', { tab: 'motivacion' }],
+    ['/configuracion?tab=integraciones', { tab: 'conexiones' }],
+    ['/configuracion?tab=estudio', { tab: 'estudio' }],
+    ['/configuracion?tab=descubre', { tab: 'web', ancla: 'contenido-de-tu-app' }],
+    ['/configuracion?tab=api', { tab: 'web', ancla: 'widgets' }],
+    ['/configuracion?tab=campos', { tab: 'altas', ancla: 'datos-extra-de-la-ficha' }],
+    ['/configuracion?tab=cuestionario-salud', { tab: 'altas', ancla: 'cuestionario-de-salud' }],
+    ['/configuracion?tab=plantillas', { tab: 'comunicacion', ancla: 'correos-automaticos' }],
+    ['/configuracion?tab=backups', { tab: 'datos', ancla: 'exportar' }],
+    // Sus sub-pestañas.
+    ['/configuracion?tab=clases-salas&sub=clases', { tab: 'clases', ancla: 'tipos-de-clase' }],
+    ['/configuracion?tab=citas&sub=servicios', { tab: 'clases', ancla: 'servicios-de-cita' }],
+    ['/configuracion?tab=citas&sub=horario', { tab: 'clases', ancla: 'horario-de-citas' }],
+    ['/configuracion?tab=gamificacion&sub=recompensas', { tab: 'motivacion', ancla: 'recompensas' }],
+    ['/configuracion?tab=gamificacion&sub=logros', { tab: 'motivacion', ancla: 'logros' }],
+    ['/configuracion?tab=gamificacion&sub=niveles', { tab: 'motivacion', ancla: 'niveles' }],
+    ['/configuracion?tab=gamificacion&sub=retos', { tab: 'motivacion', ancla: 'retos' }],
+    ['/configuracion?tab=estudio&sub=general', { tab: 'estudio' }],
+    ['/configuracion?tab=estudio&sub=sedes', { tab: 'estudio', ancla: 'sedes' }],
+    ['/configuracion?tab=estudio&sub=horario', { tab: 'estudio', ancla: 'horario-y-cierres' }],
+    ['/configuracion?tab=estudio&sub=reservas', { tab: 'reservas' }],
+    ['/configuracion?tab=estudio&sub=cobros', { tab: 'cobros' }],
+    ['/configuracion?tab=estudio&sub=enlaces', { tab: 'web', ancla: 'direccion-y-enlaces' }],
+    ['/configuracion?tab=estudio&sub=legal', { tab: 'altas', ancla: 'contrato-y-privacidad' }],
+    ['/configuracion?tab=api&sub=widgets', { tab: 'web', ancla: 'widgets' }],
+    ['/configuracion?tab=api&sub=crecimiento', { tab: 'web', ancla: 'widgets' }],
+    // Los alias que ya existían.
+    ['/configuracion?tab=recompensas', { tab: 'motivacion', ancla: 'recompensas' }],
+    ['/configuracion?tab=canjes', { tab: 'motivacion', ancla: 'canjes' }],
+    ['/configuracion?tab=logros', { tab: 'motivacion', ancla: 'logros' }],
+    ['/configuracion?tab=niveles', { tab: 'motivacion', ancla: 'niveles' }],
+    ['/configuracion?tab=retos', { tab: 'motivacion', ancla: 'retos' }],
+    ['/configuracion?tab=clases', { tab: 'clases' }],
+    ['/configuracion?tab=salas', { tab: 'estudio', ancla: 'salas' }],
+    ['/configuracion?tab=servicios-cita', { tab: 'clases', ancla: 'servicios-de-cita' }],
+    ['/configuracion?tab=horario-citas', { tab: 'clases', ancla: 'horario-de-citas' }],
+    ['/configuracion?tab=crecimiento-web', { tab: 'web', ancla: 'widgets' }],
+    ['/configuracion?tab=campos-de-cliente', { tab: 'altas', ancla: 'datos-extra-de-la-ficha' }],
+    ['/configuracion?tab=emails', { tab: 'comunicacion', ancla: 'correos-automaticos' }],
+    ['/configuracion?tab=copias-de-seguridad', { tab: 'datos', ancla: 'exportar' }],
+    ['/configuracion?tab=salud', { tab: 'altas', ancla: 'cuestionario-de-salud' }],
+    ['/configuracion?tab=cuestionario', { tab: 'altas', ancla: 'cuestionario-de-salud' }],
+    // Las anclas de hoy mandan, venga el `tab=` que venga.
+    ['/configuracion?tab=estudio&sub=reservas#ajuste-avisar-alumnas', { tab: 'reservas', ancla: 'ajuste-avisar-alumnas' }],
+    ['/configuracion?tab=cobros#datos-fiscales', { tab: 'estudio', ancla: 'datos-fiscales' }],
+    ['/configuracion?tab=reservas#ajuste-ventana-cancelacion', { tab: 'reservas', ancla: 'ajuste-ventana-cancelacion' }],
+    // Lo desconocido no rompe: abre la lista.
+    ['/configuracion', { tab: null }],
+    ['/configuracion?tab=inventada', { tab: null }],
+    ['/configuracion?tab=inventada#no-existe', { tab: null }],
     ['/configuracion?tab=estudio&sub=inventada', { tab: 'estudio' }],
-    ['/configuracion?tab=citas#no-es-un-id%22', { tab: 'citas' }],
+    ['/configuracion?tab=citas#no-es-un-id%22', { tab: 'clases', ancla: 'servicios-de-cita' }],
   ];
   for (const [href, esperado] of casos) {
     assert.deepEqual(resolverHref(href), esperado, href);
   }
 });
 
+test('las doce pestañas de antes y todas sus sub-pestañas tienen sitio hoy', () => {
+  // Lo que había hasta el 15-sep, copiado tal cual: es historia, no se toca.
+  const antes: Record<string, readonly string[]> = {
+    'clases-salas': ['clases', 'salas'],
+    citas: ['servicios', 'horario'],
+    gamificacion: ['recompensas', 'canjes', 'logros', 'niveles', 'retos'],
+    integraciones: [],
+    estudio: ['general', 'sedes', 'horario', 'reservas', 'cobros', 'enlaces', 'legal'],
+    descubre: [],
+    api: ['widgets', 'crecimiento'],
+    campos: [],
+    'cuestionario-salud': [],
+    plantillas: [],
+    backups: [],
+    perfil: [],
+  };
+  for (const [tab, subs] of Object.entries(antes)) {
+    assert.ok(reconoceTab(tab), `«${tab}» ya no lleva a ningún sitio`);
+    const destino = resolverHref(`/configuracion?tab=${tab}`);
+    assert.ok('redirect' in destino || destino.tab !== null, `«${tab}» abre la lista en vez de su sitio`);
+    for (const sub of subs) assert.ok(reconoceSub(tab, sub), `«${tab}&sub=${sub}» se pierde`);
+  }
+});
+
 test('los parámetros de conexión mandan sobre un tab= distinto, y el ancla conocida también', () => {
-  assert.deepEqual(resolverDestino({ tab: 'estudio', params: { stripe_connected: '1' } }), { tab: 'integraciones' });
-  assert.deepEqual(resolverDestino({ tab: 'citas', hash: '#datos-fiscales' }), { tab: 'estudio', sub: 'general', ancla: 'datos-fiscales' });
-  assert.deepEqual(resolverDestino({ tab: 'estudio', sub: 'cobros', hash: 'otra-cosa' }), { tab: 'estudio', sub: 'cobros', ancla: 'otra-cosa' });
+  assert.deepEqual(resolverDestino({ tab: 'estudio', params: { stripe_connected: '1' } }), { tab: 'conexiones', ancla: 'integracion-stripe' });
+  assert.deepEqual(resolverDestino({ tab: 'clases', hash: '#canjes' }), { tab: 'motivacion', ancla: 'canjes' });
+  assert.deepEqual(resolverDestino({ tab: 'cobros', hash: 'otra-cosa' }), { tab: 'cobros', ancla: 'otra-cosa' });
+});
+
+test('las anclas salen solas de secciones.ts, con la sección donde se pinta HOY la tarjeta', () => {
+  const tarjetas = SECCIONES.flatMap(s => s.tarjetas.map(t => t.id));
+  assert.deepEqual(Object.keys(ANCLAS).sort(), [...tarjetas].sort());
+  for (const id of tarjetas) {
+    assert.equal(ANCLAS[id], seccionAnfitriona(id));
+    assert.ok(esAnclaConocida(id));
+  }
+  // Hospedada: su casa definitiva es Cobros, pero hoy se pinta en Mi estudio.
+  assert.equal(ANCLAS['datos-fiscales'], 'estudio');
 });
 
 test('la URL que escribe la página vuelve a abrir lo mismo', () => {
-  for (const [tab, subs] of Object.entries(SECCIONES_CONFIGURACION) as [TabConfiguracion, readonly string[]][]) {
-    assert.deepEqual(resolverHref(hrefDeSeccion(tab)), { tab });
-    for (const sub of subs) assert.deepEqual(resolverHref(hrefDeSeccion(tab, sub)), { tab, sub });
+  for (const s of SECCIONES) {
+    assert.deepEqual(resolverHref(hrefDeSeccion(s.id)), { tab: s.id });
+    for (const t of s.tarjetas) {
+      const anfitriona = seccionAnfitriona(t.id);
+      assert.deepEqual(resolverHref(hrefDeSeccion(anfitriona, t.id)), { tab: anfitriona, ancla: t.id });
+    }
   }
-  // Una sub que no es de esa pestaña no se escribe.
-  assert.equal(hrefDeSeccion('citas', 'canjes'), '/configuracion?tab=citas');
+});
+
+test('la propietaria ve las once secciones y el resto de roles ninguna', () => {
+  assert.equal(seccionesVisibles('PROPIETARIO').length, 11);
+  assert.deepEqual(seccionesVisibles('RECEPCION'), []);
+  assert.deepEqual(seccionesVisibles('INSTRUCTOR'), []);
 });
 
 // ─── 2. Los ids de aquí son los que se pintan ───────────────────────────────
 
-function idsDe(fichero: string, patron: RegExp): string[] {
-  const fuente = readFileSync(join(RAIZ, fichero), 'utf8');
-  return [...new Set([...fuente.matchAll(patron)].map(m => m[1]))].sort();
+function fuentes(dir: string): string[] {
+  return (readdirSync(join(RAIZ, dir), { recursive: true }) as string[])
+    .map(r => join(dir, r))
+    .filter(r => /\.tsx?$/.test(r) && statSync(join(RAIZ, r)).isFile());
 }
 
-test('page.tsx tiene una pestaña, y la pinta, por cada id de destino.ts', () => {
-  const pagina = 'app/(dashboard)/configuracion/page.tsx';
-  const esperadas = Object.keys(SECCIONES_CONFIGURACION).sort();
-  assert.deepEqual(idsDe(pagina, /id: '([a-z-]+)'/g), esperadas, 'TABS de page.tsx ≠ SECCIONES_CONFIGURACION');
-  assert.deepEqual(idsDe(pagina, /activeTab === '([a-z-]+)'\s*&&/g), esperadas, 'alguna pestaña no se pinta');
+// Sin las filas `<TarjetaEnlace id="…">`: una fila que apunta a una tarjeta no
+// es la tarjeta, y contarla dejaría pasar un id que no se pinta en ningún sitio.
+const COMPONENTES = fuentes('components/configuracion')
+  .map(f => ({ f, codigo: readFileSync(join(RAIZ, f), 'utf8').replace(/<TarjetaEnlace id="[^"]*"/g, '') }));
+
+test('cada sección tiene su componente y el shell lo carga', () => {
+  const shell = readFileSync(join(RAIZ, 'components/configuracion/shell/config-shell.tsx'), 'utf8');
+  for (const s of SECCIONES) {
+    const fichero = `components/configuracion/secciones/seccion-${s.id}.tsx`;
+    assert.ok(existsSync(join(RAIZ, fichero)), `falta ${fichero}`);
+    assert.match(shell, new RegExp(`secciones/seccion-${s.id}'`), `el shell no carga «${s.id}»`);
+  }
 });
 
-test('cada pestaña con sub-navegación ofrece exactamente las sub-pestañas de destino.ts', () => {
-  const ficheros: Partial<Record<TabConfiguracion, [string, RegExp]>> = {
-    'clases-salas': ['components/configuracion/tab-clases-salas.tsx', /id: '([a-z-]+)'/g],
-    citas: ['components/configuracion/tab-citas.tsx', /id: '([a-z-]+)'/g],
-    gamificacion: ['components/configuracion/tab-gamificacion.tsx', /id: '([a-z-]+)'/g],
-    estudio: ['components/configuracion/tab-estudio.tsx', /id: '([a-z-]+)'/g],
-    api: ['components/configuracion/tab-api.tsx', /setSeccion\('([a-z-]+)'\)/g],
-  };
-  for (const [tab, subs] of Object.entries(SECCIONES_CONFIGURACION) as [TabConfiguracion, readonly string[]][]) {
-    const f = ficheros[tab];
-    if (!f) {
-      assert.equal(subs.length, 0, `«${tab}» declara sub-pestañas pero el test no sabe dónde se pintan`);
-      continue;
+test('cada tarjeta de secciones.ts existe de verdad como id en un componente', () => {
+  const faltan: string[] = [];
+  for (const s of SECCIONES) {
+    for (const { id } of s.tarjetas) {
+      const integracion = /^integracion-(.+)$/.exec(id);
+      const encontrada = integracion
+        // Las integraciones calculan su id del catálogo: `integracion-${tipo}`.
+        ? COMPONENTES.some(c => c.f.endsWith('tab-integraciones.tsx')
+          && c.codigo.includes(`tipo: '${integracion[1].toUpperCase()}'`)
+          && c.codigo.includes('`integracion-${'))
+        : COMPONENTES.some(c => c.codigo.includes(`id="${id}"`) || c.codigo.includes(`id: '${id}'`));
+      if (!encontrada) faltan.push(`${s.id}#${id}`);
     }
-    assert.deepEqual(idsDe(f[0], f[1]), [...subs].sort(), `sub-pestañas de «${tab}» (${f[0]})`);
+  }
+  assert.deepEqual(faltan, [], 'tarjetas sin ningún elemento con ese id');
+});
+
+test('cada sección enseña una fila hacia cada tarjeta suya que se pinta en otra', () => {
+  for (const s of SECCIONES) {
+    const codigo = readFileSync(join(RAIZ, `components/configuracion/secciones/seccion-${s.id}.tsx`), 'utf8');
+    const filas = [...codigo.matchAll(/<TarjetaEnlace id="([^"]+)"/g)].map(m => m[1]).sort();
+    const esperadas = tarjetasDeFuera(s.id as SeccionId).map(t => t.id).sort();
+    assert.deepEqual(filas, esperadas, `filas de «${s.id}»`);
   }
 });
 
@@ -122,20 +222,14 @@ const DIRECTORIOS = ['app', 'components', 'lib', 'e2e'];
 // El propio resolutor escribe plantillas (`?tab=${tab}`) y este test casos rotos a propósito.
 const EXCLUIDOS = new Set(['lib/configuracion/destino.ts', 'lib/configuracion/destino.test.ts']);
 
-function ficheros(dir: string): string[] {
-  return (readdirSync(join(RAIZ, dir), { recursive: true }) as string[])
-    .map(r => join(dir, r))
-    .filter(r => /\.tsx?$/.test(r) && !EXCLUIDOS.has(r) && statSync(join(RAIZ, r)).isFile());
-}
-
 function paginaExiste(ruta: string): boolean {
   return [join(RAIZ, 'app/(dashboard)', ruta, 'page.tsx'), join(RAIZ, 'app', ruta, 'page.tsx')].some(existsSync);
 }
 
-test('⚠️ todo `/configuracion?…` del repo llega a una pestaña y sub-pestaña que existen', () => {
+test('⚠️ todo `/configuracion?…` del repo llega a una sección y a una tarjeta que existen', () => {
   const rotos: string[] = [];
   let vistos = 0;
-  for (const f of DIRECTORIOS.flatMap(ficheros)) {
+  for (const f of DIRECTORIOS.flatMap(fuentes).filter(f => !EXCLUIDOS.has(f))) {
     readFileSync(join(RAIZ, f), 'utf8').split('\n').forEach((linea, i) => {
       for (const [bruto] of linea.matchAll(/\/configuracion\?[^'"`\s<>)\]]*/g)) {
         vistos++;
@@ -154,11 +248,17 @@ test('⚠️ todo `/configuracion?…` del repo llega a una pestaña y sub-pesta
           continue;
         }
         const tab = url.searchParams.get('tab');
-        if (tab !== null && !reconoceTab(tab)) rotos.push(`${donde} → «${tab}» no es ninguna pestaña`);
-        if (url.searchParams.get('sub') && !destino.sub) rotos.push(`${donde} → la sub-pestaña se pierde`);
+        const sub = url.searchParams.get('sub');
+        if (tab !== null && !reconoceTab(tab)) rotos.push(`${donde} → «${tab}» no es ninguna sección`);
+        if (tab !== null && sub && !reconoceSub(tab, sub)) rotos.push(`${donde} → la sub-pestaña «${sub}» se pierde`);
         if (url.hash && !destino.ancla) rotos.push(`${donde} → el ancla se pierde`);
-        const subs = SECCIONES_CONFIGURACION[destino.tab] as readonly string[];
-        if (destino.sub && !subs.includes(destino.sub)) rotos.push(`${donde} → «${destino.sub}» no es sub-pestaña de «${destino.tab}»`);
+        if (destino.ancla && url.hash && !esAnclaConocida(destino.ancla) && !/^ajuste-/.test(destino.ancla)) {
+          rotos.push(`${donde} → «#${destino.ancla}» no es ninguna tarjeta`);
+        }
+        if (destino.ancla && esAnclaConocida(destino.ancla)
+          && seccionAnfitriona(destino.ancla as TarjetaId) !== destino.tab) {
+          rotos.push(`${donde} → «#${destino.ancla}» no se pinta en «${destino.tab}»`);
+        }
       }
     });
   }

@@ -732,7 +732,7 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
       )}
 
       {/* Cuestionario de salud (Fase 1, ficha Lorari-vs-Tentare) — plantilla
-          configurable en Configuración > Cuestionario de salud; solo staff
+          configurable en Configuración > Alta de alumnas > Cuestionario de salud; solo staff
           rellena aquí, nunca la propia clienta. */}
       {preguntasActivas.length > 0 && (
         <div className="rounded-xl border border-border p-4 mb-5">

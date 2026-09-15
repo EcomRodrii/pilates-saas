@@ -283,7 +283,7 @@ export function HojaCobro({
                             // El motivo de verdad. «Conecta Stripe» aquí sería
                             // mandar a arreglar algo que no está roto.
                             ? 'No vale para una cuota: no deja método guardado'
-                            : 'Conecta Stripe en Configuración → Integraciones'}
+                            : 'Conecta Stripe en Configuración → Cobros y facturas'}
                     </span>
                   </button>
                 );

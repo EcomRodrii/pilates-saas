@@ -44,16 +44,12 @@ export function TabDescubre() {
     <div className="space-y-4">
       {/* Sin botones de «añadir» aquí: los trae la propia lista de la
           izquierda, y dos maneras de crear lo mismo en la misma pantalla es
-          justo lo que hace dudar de si son lo mismo. */}
-      <div>
-        <h2 className="text-[15px] font-semibold text-foreground">Descubre y tablón</h2>
-        <p className="text-[12.5px] text-muted-foreground mt-0.5 max-w-[62ch]">
-          Las tarjetas con foto que salen en «Descubre», en la pantalla de inicio de tus
-          alumnas, más el mensaje destacado y los avisos del tablón. Si no publicas
-          ninguna tarjeta, esa sección no aparece en su app. Cada tarjeta nace
-          oculta: ponle su foto y publícala cuando esté.
-        </p>
-      </div>
+          justo lo que hace dudar de si son lo mismo. El título y qué es esto
+          los pone la tarjeta que envuelve la pestaña (secciones/seccion-web). */}
+      <p className="text-[12.5px] text-muted-foreground max-w-[62ch]">
+        Si no publicas ninguna tarjeta, esa parte no aparece en su app. Cada tarjeta nace
+        oculta: ponle su foto y publícala cuando esté.
+      </p>
 
       {hook.aviso && (
         <p className="text-[12.5px] text-muted-foreground" role="status">{hook.aviso}</p>

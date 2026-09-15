@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
 import { AyudaPaso, AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
 // Reescrito el 28-ago-2026 tras verificar en vivo Configuración > API >
@@ -16,13 +15,10 @@ export default function Contenido() {
         (Wix, Squarespace, WordPress con el bloque adecuado…) tienen un bloque de «HTML personalizado» para esto.
       </AyudaAntesDeEmpezar>
 
-      <AyudaPaso numero={1} titulo="Ve a Configuración > API > Widgets">
-        <p>Elige el widget que quieres (el más habitual es «Horario y reserva de clases») y personalízalo: qué mostrar, colores, tipo de diseño. La vista previa de la derecha se actualiza al momento.</p>
-        <AyudaCaptura
-          src="/help/widget/configuracion-api-widget-full.png"
-          alt="Configuración > API > Widgets: elección de widget, personalización de apariencia y colores, vista previa en directo y código para pegar en la web"
-          caption="Elige, personaliza y copia — todo en la misma pantalla."
-        />
+      {/* 15-sep-2026: sin captura; enseñaba la fila de pestañas de Configuración
+          de antes de reorganizarla por preguntas. */}
+      <AyudaPaso numero={1} titulo="Ve a Configuración > Mi app y mi web > Widgets para tu web">
+        <p>Elige el widget que quieres (el más habitual es «Horario y reserva de clases») y personalízalo: qué mostrar, colores, tipo de diseño. La vista previa se actualiza al momento.</p>
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Copia el código y pégalo en tu web">

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Trophy, Plus, Pencil, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Sparkles } from 'lucide-react';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import { useStudio } from '@/lib/studio-context';
 import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
 import type { AchievementDefinition, AchievementMetric } from '@/lib/types';
@@ -64,21 +65,21 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
   const metricLabel = (m: AchievementMetric) => ACHIEVEMENT_METRICS.find(x => x.metric === m)?.nombre ?? m;
 
   return (
-    <div className="space-y-4 max-w-3xl">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Trophy size={16} className="text-brand-secondary" />
-          <h3 className="text-[14px] font-semibold text-foreground">Logros</h3>
-        </div>
-        <div className="flex gap-2">
+    <TarjetaAjuste
+      id="logros"
+      marco={false}
+      acciones={
+        <>
           <button onClick={cargarSugeridos} className={btnSecondary}>
-            <Sparkles size={14} className="inline mr-1" />Cargar sugeridos
+            <Sparkles size={14} className="inline mr-1" aria-hidden />Cargar sugeridos
           </button>
           <button onClick={openNuevo} className={btnPrimary}>
-            <Plus size={14} /> Nuevo logro
+            <Plus size={14} aria-hidden /> Nuevo logro
           </button>
-        </div>
-      </div>
+        </>
+      }
+    >
+    <div className="space-y-4">
       <p className="text-[12px] text-muted-foreground">
         El umbral de cada logro lo defines tú (5 clases, 10 clases, lo que sea) — nunca está fijo en el código.
       </p>
@@ -116,7 +117,7 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
                 <Field label="Icono"
-                  description="Un emoji. Es lo que verá la clienta en su perfil al conseguirlo."
+                  description="Un emoji. Es lo que verá la alumna en su perfil al conseguirlo."
                 >
                   <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
                 </Field>
@@ -177,5 +178,6 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
         </DialogContent>
       </Dialog>
     </div>
+    </TarjetaAjuste>
   );
 }

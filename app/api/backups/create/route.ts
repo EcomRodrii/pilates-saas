@@ -12,7 +12,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 // Además cada llamada dispara un volcado completo del negocio con service-role
 // (salta RLS) y la propia policy `admin_read_backups` (0000_base.sql) exige
 // PROPIETARIO para siquiera LEER la lista. La UI ya lo restringía
-// (components/configuracion/tab-backups.tsx:47) — el servidor no, que es donde
+// (la pestaña de copias de seguridad, retirada del panel el 15-sep) — el servidor no, que es donde
 // cuenta. Mismo criterio que su gemela /api/backups/restore.
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();

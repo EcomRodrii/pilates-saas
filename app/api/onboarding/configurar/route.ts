@@ -153,17 +153,17 @@ export async function POST(req: NextRequest) {
     if (salasNuevas.length) {
       const { error } = await admin.from('salas').insert(salasNuevas);
       if (error) return errorInterno('onboarding:configurar:salas', error,
-        'No se han podido crear tus salas. Puedes crearlas en Configuración → Salas.');
+        'No se han podido crear tus salas. Puedes crearlas en Configuración → Mi estudio → Salas.');
     }
     if (tiposNuevos.length) {
       const { error } = await admin.from('tipos_clase').insert(tiposNuevos);
       if (error) return errorInterno('onboarding:configurar:tipos', error,
-        'No se han podido crear tus tipos de clase. Puedes crearlos en Configuración → Clases.');
+        'No se han podido crear tus tipos de clase. Puedes crearlos en Configuración → Mis clases y citas.');
     }
     if (planesNuevos.length) {
       const { error } = await admin.from('planes_tarifa').insert(planesNuevos);
       if (error) return errorInterno('onboarding:configurar:planes', error,
-        'No se han podido crear tus bonos. Puedes crearlos en Configuración → Bonos y membresías.');
+        'No se han podido crear tus bonos. Puedes crearlos en Paquetes.');
     }
 
     // Su propia ficha de instructora, si ha dicho que da clases.

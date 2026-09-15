@@ -14,15 +14,27 @@ import { join } from 'node:path';
 
 const RAIZ = join(import.meta.dirname, '..');
 
-const DIRECTORIOS = ['app/(dashboard)', 'components', 'app/portal', 'lib/guia'];
-const FICHEROS = ['lib/onboarding.ts', 'lib/tour-pasos.ts', 'lib/funciones-catalogo.ts'];
+// `app/api` y los mensajes de `lib` también: sus errores llegan a la pantalla
+// tal cual («Conecta tu WhatsApp Business en Configuración → …»).
+const DIRECTORIOS = ['app/(dashboard)', 'components', 'app/portal', 'app/api', 'lib/guia'];
+const FICHEROS = [
+  'lib/onboarding.ts', 'lib/tour-pasos.ts', 'lib/funciones-catalogo.ts',
+  'lib/legal-textos.ts', 'lib/kisi-servidor.ts', 'lib/supabase-data.ts',
+  'lib/billing/penalizacion-aprobar-reglas.ts', 'lib/inngest/automatizaciones.ts',
+];
 const EXCLUIDOS = ['components/ayuda/articulos', 'components/landing'];
+
+// «Configuración → …» seguido del nombre de una pestaña de antes (15-sep:
+// Configuración se reorganizó por preguntas). Acepta →, > y &gt;.
+const PESTANAS_DE_ANTES = /Configuración\s*(?:→|>|&gt;|›)\s*(?:Estudio|Clases y salas|Clases|Salas|Citas|Integraciones|API|Emails|Logros y motivación|Descubre y tablón|Campos de clienta|Cuestionario de salud|Copias de seguridad|Perfil|Mi perfil|Cobros e Integraciones)\b/;
 
 const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   { patron: /Configuración → Planes/, ahora: 'Paquetes (/productos)' },
-  { patron: /Configuración → Mi estudio/, ahora: 'Configuración → Estudio' },
-  { patron: /\b(en|a|desde) Mi estudio\b/, ahora: 'Configuración' },
-  { patron: /Configuración → Servicios de cita/, ahora: 'Configuración → Citas → Servicios' },
+  {
+    patron: PESTANAS_DE_ANTES,
+    ahora: 'una sección de hoy: Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Conexiones o Datos y seguridad (lib/configuracion/secciones.ts)',
+  },
+  { patron: /Configuración → Servicios de cita/, ahora: 'Configuración → Mis clases y citas → Servicios de cita' },
   { patron: /Ir a Migración/, ahora: 'Traer mis datos' },
   // No hay pantalla para emparejar un datáfono: no se manda a buscarla.
   { patron: /Empareja uno en Configuración/, ahora: 'solo el estado («Sin datáfono emparejado»)' },
