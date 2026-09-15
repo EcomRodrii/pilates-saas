@@ -30,15 +30,29 @@ const PROXIMA = { sesionId: 'ses-1', inicio: `${diaMas(2)}T08:00:00.000Z`, fecha
 
 async function montar(
   page: Page,
-  opciones: { listarFalla?: boolean; saludFalla?: boolean; sinConsentimiento?: boolean } = {},
+  opciones: { listarFalla?: boolean; saludFalla?: boolean; sinConsentimiento?: boolean; notaFalla?: boolean } = {},
 ) {
-  const contador = { listar: 0, fichas: [] as string[], salud: 0 };
+  const contador = { listar: 0, fichas: [] as string[], salud: 0, notas: [] as Array<Record<string, unknown>> };
   await montarPortal(page, { conSesion: true, sinSocia: true });
   await page.route('**/api/public/session**', (route) => json(route, { error: 'No hay ninguna socia' }, 404));
   await page.route('**/api/portal/instructora/sesion', (route) => json(route, { instructora: INSTRUCTORA }));
   await page.route('**/api/portal/instructora/perfil', (route) => json(route, { estudios: [], tarifa: null }));
   await page.route('**/api/portal/instructora/alumnas', (route) => {
-    const cuerpo = JSON.parse(route.request().postData() || '{}') as { accion?: string; socioId?: string };
+    const cuerpo = JSON.parse(route.request().postData() || '{}') as {
+      accion?: string; socioId?: string; nota?: { textoLibre?: string; progreso?: string; alertas?: string; planProximaSesion?: string };
+    };
+    if (cuerpo.accion === 'nota') {
+      contador.notas.push(cuerpo as Record<string, unknown>);
+      if (opciones.notaFalla) return json(route, { error: 'No hemos podido guardar la nota. Vuelve a intentarlo.' }, 500);
+      const n = cuerpo.nota ?? {};
+      return json(route, {
+        ok: true,
+        nota: {
+          id: 'n2', creadaEn: new Date().toISOString(), textoLibre: n.textoLibre ?? '',
+          progreso: n.progreso || null, alertas: n.alertas || null, planProximaSesion: n.planProximaSesion || null,
+        },
+      });
+    }
     if (cuerpo.accion === 'listar') {
       contador.listar++;
       if (opciones.listarFalla) return json(route, { error: 'No hemos podido cargar tus alumnas.' }, 500);
@@ -149,6 +163,49 @@ test.describe('«Tus alumnas» en la app de la instructora', () => {
     await expect(page.getByTestId('salud-alumna')).toContainText('No ha dado su consentimiento', { timeout: 30_000 });
     await expect(page.getByTestId('aviso-salud')).toHaveCount(0);
     await expect(page.getByText('Tus notas sobre ella')).toHaveCount(0);
+    // Sin consentimiento tampoco se puede escribir una nota: es dato de salud.
+    await expect(page.getByTestId('escribir-nota')).toHaveCount(0);
     expect(contador.salud).toBeGreaterThan(0);
+    expect(contador.notas).toHaveLength(0);
+  });
+
+  test('escribe una nota de la sesión y aparece arriba en sus notas', async ({ page }) => {
+    const contador = await montar(page);
+    await page.goto(`/portal/${SLUG}/equipo/alumnas/soc-aina`);
+    await page.getByRole('button', { name: 'Ver sus avisos de salud' }).click({ timeout: 30_000 });
+    await page.getByTestId('escribir-nota').click({ timeout: 30_000 });
+
+    const hoja = page.getByRole('dialog');
+    // Por defecto, su última clase contigo.
+    await expect(hoja.getByLabel('Clase')).toHaveValue('ses-0');
+    await hoja.getByLabel('¿Qué tal ha ido?').fill('Controla mejor la respiración');
+    await hoja.getByLabel('Para la próxima sesión (opcional)').fill('Subir resistencia');
+    await page.getByTestId('guardar-nota').click();
+
+    await expect(page.getByTestId('nota-propia').first()).toContainText('Controla mejor la respiración', { timeout: 30_000 });
+    await expect(page.getByTestId('nota-propia').first()).toContainText('Próxima sesión: Subir resistencia');
+    await expect(page.getByTestId('nota-propia')).toHaveCount(2);
+    expect(contador.notas).toHaveLength(1);
+    expect(contador.notas[0]).toMatchObject({
+      accion: 'nota', socioId: 'soc-aina',
+      nota: { textoLibre: 'Controla mejor la respiración', planProximaSesion: 'Subir resistencia', sesionId: 'ses-0' },
+    });
+  });
+
+  test('si el servidor no guarda la nota, lo dice y no la pinta', async ({ page }) => {
+    const contador = await montar(page, { notaFalla: true });
+    await page.goto(`/portal/${SLUG}/equipo/alumnas/soc-aina`);
+    await page.getByRole('button', { name: 'Ver sus avisos de salud' }).click({ timeout: 30_000 });
+    await page.getByTestId('escribir-nota').click({ timeout: 30_000 });
+
+    const hoja = page.getByRole('dialog');
+    await hoja.getByLabel('¿Qué tal ha ido?').fill('Bien');
+    await page.getByTestId('guardar-nota').click();
+
+    await expect(hoja.getByRole('alert')).toContainText('No hemos podido guardar la nota', { timeout: 30_000 });
+    // Lo escrito sigue ahí para reintentar, y la lista no cambia.
+    await expect(hoja.getByLabel('¿Qué tal ha ido?')).toHaveValue('Bien');
+    await expect(page.getByTestId('nota-propia')).toHaveCount(1);
+    expect(contador.notas.length).toBeGreaterThan(0);
   });
 });
