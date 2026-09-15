@@ -55,7 +55,11 @@ const FAVICON_PUBLICADO = 'https://example.supabase.co/storage/v1/object/public/
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 
 /** Marca con el tema en memoria: el borrador (PUT) y lo publicado (POST publish), contados aparte. */
-async function montarMarca(page: Page, respuestaPublicar = 200) {
+async function montarMarca(
+  page: Page,
+  respuestaPublicar = 200,
+  mensajeError = 'No se han podido publicar los cambios de marca. Vuelve a intentarlo.',
+) {
   await montar(page);
   await page.route('**/rest/v1/studios**', r => json(r, ESTUDIO_CON_MARCA));
   await page.route('**/storage/v1/object/**', r => json(r, { Key: 'avatars/favicon-borrador-studio-test', Id: 'e2e' }));
@@ -70,7 +74,7 @@ async function montarMarca(page: Page, respuestaPublicar = 200) {
     const cuerpo = r.request().postDataJSON() as { campos?: Record<string, unknown> };
     publicaciones.push(cuerpo);
     if (respuestaPublicar !== 200) {
-      return json(r, { error: 'No se han podido publicar los cambios de marca. Vuelve a intentarlo.' }, respuestaPublicar);
+      return json(r, { error: mensajeError }, respuestaPublicar);
     }
     // Como el servidor: solo cambia lo que llega, y el favicon queda en su path publicado.
     const campos = cuerpo.campos ?? {};
@@ -176,6 +180,12 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     await ir(page, 'configuracion?tab=marca');
     await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeEnabled({ timeout: 30_000 });
 
+    // Solo lo subido desde aquí: el favicon se pinta en la página pública de
+    // reservas y el servidor no admite un enlace de fuera, así que no se ofrece.
+    const bloqueFavicon = page.getByRole('heading', { level: 4, name: 'Favicon', exact: true }).locator('..');
+    await expect(bloqueFavicon.getByRole('button', { name: /Subir favicon/ })).toBeVisible();
+    await expect(bloqueFavicon.getByRole('button', { name: 'o pegar un enlace' })).toHaveCount(0);
+
     await archivoFavicon(page).setInputFiles({ name: 'favicon.png', mimeType: 'image/png', buffer: PNG });
     await expect.poll(() => publicaciones.length).toBe(1);
     expect(publicaciones[0]).toEqual({
@@ -205,6 +215,22 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     expect(publicaciones.length).toBeGreaterThan(0);
     await expect(page.getByText('Favicon aplicado')).toHaveCount(0);
     await expect(page.getByText(/Guardad[oa]s?\b/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeVisible();
+  });
+
+  // Otra pestaña guardó la marca entre medias y el servidor no pudo escribir sin
+  // pisarla: responde 409 con un motivo que se puede leer, y se enseña TAL CUAL.
+  test('si otra pestaña acaba de cambiar la marca, lo dice y no da el favicon por aplicado', async ({ page }) => {
+    const conflicto = 'La marca acaba de cambiar desde otra pestaña. Recarga la página y vuelve a intentarlo.';
+    const { publicaciones } = await montarMarca(page, 409, conflicto);
+    await ir(page, 'configuracion?tab=marca');
+    await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeEnabled({ timeout: 30_000 });
+
+    await archivoFavicon(page).setInputFiles({ name: 'favicon.png', mimeType: 'image/png', buffer: PNG });
+    await expect(page.getByText(conflicto)).toBeVisible({ timeout: 15_000 });
+    // Verde por no haberlo intentado no vale.
+    expect(publicaciones.length).toBeGreaterThan(0);
+    await expect(page.getByText('Favicon aplicado')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeVisible();
   });
 
