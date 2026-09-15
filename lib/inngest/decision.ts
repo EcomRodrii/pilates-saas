@@ -56,8 +56,10 @@ export const decisionDispatcher = inngest.createFunction(
   async ({ step }) => {
     // La hora va DENTRO del step de la lista, no en uno propio: cada step es una
     // ejecución de Inngest, y el valor sigue siendo el mismo en los replays porque
-    // sale de un step igualmente.
-    const { nowISO, estudios } = await step.run('list-estudios-elegibles', async () => {
+    // sale de un step igualmente. Id nuevo a propósito: el step devuelve otra forma
+    // ({ nowISO, estudios }), y con el id viejo una ejecución a medias durante un
+    // despliegue recuperaría el array guardado y el fan-out fallaría para todos.
+    const { nowISO, estudios } = await step.run('list-estudios-con-hora', async () => {
       const nowISO = new Date().toISOString();
       // `suspendido_en`: un estudio suspendido no debe seguir generando/
       // ejecutando decisiones autónomas.

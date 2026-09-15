@@ -250,6 +250,12 @@ test('dispatchers: la hora no gasta un step propio', () => {
       if (!/cron:\s*'/.test(cuerpo)) continue;
       const id = cuerpo.match(/id:\s*'([^']+)'/)?.[1] ?? '(sin id)';
       assert.ok(!cuerpo.includes("step.run('now'"), `${rel} → '${id}': la hora va dentro del step que lee la lista`);
+      // Ese step devuelve ahora { nowISO, … }: con el id viejo, una ejecución a medias
+      // durante un despliegue recuperaría el array guardado y el fan-out fallaría.
+      assert.ok(
+        !/step\.run\('list-(studios|estudios-elegibles)'/.test(cuerpo),
+        `${rel} → '${id}': el step de la lista cambió de forma y tiene que cambiar de id`,
+      );
     }
   }
 });

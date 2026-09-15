@@ -34,8 +34,10 @@ const VENTANA_VALORACION_MS = 48 * 60 * 60 * 1000;
 export const valoracionesDispatcher = inngest.createFunction(
   { id: 'valoraciones-dispatcher', triggers: [{ cron: '15 */12 * * *' }] },
   async ({ step }) => {
-    // La hora va dentro del step de la lista (un step menos por tic).
-    const { nowISO, studios } = await step.run('list-studios', async () => {
+    // La hora va dentro del step de la lista (un step menos por tic). Id nuevo a
+    // propósito: devuelve otra forma, y con el id viejo una ejecución a medias
+    // durante un despliegue recuperaría el array guardado y el fan-out fallaría.
+    const { nowISO, studios } = await step.run('list-studios-con-hora', async () => {
       const nowISO = new Date().toISOString();
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
@@ -56,6 +58,8 @@ export const valoracionesDispatcher = inngest.createFunction(
           .is('valoracion_pedida_en', null)
           .lt('fin', nowISO)
           .gt('fin', desdeISO)
+          // Orden estable: paginar sin ORDER BY puede saltarse filas pasadas las 1.000.
+          .order('id')
           .range(from, to),
       );
       if (error) throw new Error(error.message);
@@ -111,7 +115,7 @@ export const procesarValoracionesEstudio = inngest.createFunction(
           studioId, 'reservas',
           (from, to) => admin.from('reservas').select('sesion_id')
             .eq('studio_id', studioId).eq('estado', 'ASISTIDA').in('sesion_id', ids)
-            .range(from, to),
+            .order('id').range(from, to),
         );
         if (errRes) throw new Error(errRes.message);
         for (const f of filas) conAsistencia.add(f.sesion_id);

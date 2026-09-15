@@ -393,8 +393,10 @@ export const automatizacionesDispatcher = inngest.createFunction(
     // Service-role, igual que decisionDispatcher: este código corre sin sesión,
     // así que con el cliente anónimo RLS devolvería CERO estudios y el cron
     // "completaría" sin procesar a nadie — en silencio y para todos los tenants.
-    // La hora va dentro de este mismo step (un step menos por tic).
-    const { nowISO, studios } = await step.run('list-studios', async () => {
+    // La hora va dentro de este mismo step (un step menos por tic). Id nuevo a
+    // propósito: devuelve otra forma, y con el id viejo una ejecución a medias
+    // durante un despliegue recuperaría el array guardado y el fan-out fallaría.
+    const { nowISO, studios } = await step.run('list-studios-con-hora', async () => {
       const nowISO = new Date().toISOString();
       // `suspendido_en`: un estudio suspendido por impago/abuso no debe seguir
       // recibiendo mensajes automáticos con IA a nombre del negocio.
@@ -414,9 +416,9 @@ export const automatizacionesDispatcher = inngest.createFunction(
       // steps cada día —incluida la carga pesada de `fetch-data`— para no hacer nada.
       const [reglas, automatizaciones] = await Promise.all([
         fetchAllRows<{ studio_id: string }>('(global)', 'automation_rules',
-          (from, to) => requireSupabaseAdmin().from('automation_rules').select('studio_id').eq('activa', true).range(from, to)),
+          (from, to) => requireSupabaseAdmin().from('automation_rules').select('studio_id').eq('activa', true).order('id').range(from, to)),
         fetchAllRows<{ studio_id: string }>('(global)', 'automatizaciones',
-          (from, to) => requireSupabaseAdmin().from('automatizaciones').select('studio_id').eq('activa', true).range(from, to)),
+          (from, to) => requireSupabaseAdmin().from('automatizaciones').select('studio_id').eq('activa', true).order('id').range(from, to)),
       ]);
       if (reglas.error) throw new Error(reglas.error.message);
       if (automatizaciones.error) throw new Error(automatizaciones.error.message);

@@ -73,8 +73,10 @@ async function datosParaEmail(admin: SupabaseClient, studioId: string, socioId: 
 export const confirmacionRiesgoAskDispatcher = inngest.createFunction(
   { id: 'confirmacion-riesgo-ask-dispatcher', triggers: [{ cron: '45 6,18 * * *' }] },
   async ({ step }) => {
-    // La hora va dentro del step de la lista (un step menos por tic).
-    const { nowISO, studios } = await step.run('list-studios', async () => {
+    // La hora va dentro del step de la lista (un step menos por tic). Id nuevo a
+    // propósito: devuelve otra forma, y con el id viejo una ejecución a medias
+    // durante un despliegue recuperaría el array guardado y el fan-out fallaría.
+    const { nowISO, studios } = await step.run('list-studios-con-hora', async () => {
       const nowISO = new Date().toISOString();
       const now = new Date(nowISO);
       // `suspendido_en`: un estudio suspendido no debe seguir pidiendo
@@ -83,7 +85,7 @@ export const confirmacionRiesgoAskDispatcher = inngest.createFunction(
       const { data, error } = await fetchAllRows<{ id: string }>(
         '(global)', 'studios',
         (from, to) => requireSupabaseAdmin().from('studios').select('id')
-          .eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null).range(from, to),
+          .eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null).order('id').range(from, to),
       );
       if (error) throw new Error(error.message);
       if (data.length === 0) return { nowISO, studios: data };
@@ -99,7 +101,7 @@ export const confirmacionRiesgoAskDispatcher = inngest.createFunction(
         '(global)', 'sesiones',
         (from, to) => admin.from('sesiones').select('id, inicio')
           .in('studio_id', data.map(s => s.id)).eq('cancelada', false)
-          .gte('inicio', desde).lte('inicio', hasta).range(from, to),
+          .gte('inicio', desde).lte('inicio', hasta).order('id').range(from, to),
       );
       if (errSes) throw new Error(errSes.message);
       const inicioPorSesion = new Map(sesiones.map(s => [s.id, s.inicio]));
@@ -110,7 +112,7 @@ export const confirmacionRiesgoAskDispatcher = inngest.createFunction(
         (from, to) => admin.from('reservas').select('studio_id, socio_id, sesion_id')
           .eq('estado', 'CONFIRMADA')
           .is('confirmacion_pedida_en', null)
-          .in('sesion_id', Array.from(inicioPorSesion.keys())).range(from, to),
+          .in('sesion_id', Array.from(inicioPorSesion.keys())).order('id').range(from, to),
       );
       if (errRes) throw new Error(errRes.message);
       const conCandidatas = new Set(reservas
@@ -252,7 +254,7 @@ async function leerParaRecordar(studioIds: string[], now: Date): Promise<FilaCor
     '(global)', 'sesiones',
     (from, to) => admin.from('sesiones').select('id, inicio')
       .in('studio_id', studioIds).eq('cancelada', false)
-      .gte('inicio', desde).lte('inicio', hasta).range(from, to),
+      .gte('inicio', desde).lte('inicio', hasta).order('id').range(from, to),
   );
   if (errSes) throw new Error(errSes.message);
   const sesionPorId = new Map(sesiones.map(s => [s.id, s.inicio]));
@@ -265,7 +267,7 @@ async function leerParaRecordar(studioIds: string[], now: Date): Promise<FilaCor
       .not('confirmacion_pedida_en', 'is', null)
       .is('confirmado_en', null)
       .is('recordatorio_confirmacion_en', null)
-      .in('sesion_id', Array.from(sesionPorId.keys())).range(from, to),
+      .in('sesion_id', Array.from(sesionPorId.keys())).order('id').range(from, to),
   );
   if (errRes) throw new Error(errRes.message);
 
@@ -287,7 +289,7 @@ async function leerPendientesDelCorte(studioIds: string[], nowISO: string, now: 
     '(global)', 'sesiones',
     (from, to) => admin.from('sesiones').select('id, inicio')
       .in('studio_id', studioIds).eq('cancelada', false)
-      .gt('inicio', nowISO).lte('inicio', hastaCorte).range(from, to),
+      .gt('inicio', nowISO).lte('inicio', hastaCorte).order('id').range(from, to),
   );
   if (errSes) throw new Error(errSes.message);
   const sesionPorId = new Map(sesiones.map(s => [s.id, s.inicio]));
@@ -299,7 +301,7 @@ async function leerPendientesDelCorte(studioIds: string[], nowISO: string, now: 
       .eq('estado', 'CONFIRMADA')
       .not('confirmacion_pedida_en', 'is', null)
       .is('confirmado_en', null)
-      .in('sesion_id', Array.from(sesionPorId.keys())).range(from, to),
+      .in('sesion_id', Array.from(sesionPorId.keys())).order('id').range(from, to),
   );
   if (errRes) throw new Error(errRes.message);
 
@@ -326,7 +328,7 @@ export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
       const { data, error } = await fetchAllRows<{ id: string }>(
         '(global)', 'studios',
         (from, to) => requireSupabaseAdmin().from('studios').select('id')
-          .eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null).range(from, to),
+          .eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null).order('id').range(from, to),
       );
       if (error) throw new Error(error.message);
       const studioIds = data.map(s => s.id);
