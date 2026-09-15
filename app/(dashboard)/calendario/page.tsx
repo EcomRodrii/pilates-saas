@@ -3916,7 +3916,7 @@ export default function Calendario() {
               distinto efecto: ahora esta se queda con lo que sí resuelve y
               señala a la otra. */}
           <Link
-            href="/configuracion?tab=clases-salas&sub=salas"
+            href="/configuracion?tab=estudio&abrir=salas"
             className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-medio hover:underline"
           >
             ¿Se ha averiado una máquina? Márcalo en Salas y baja el aforo solo

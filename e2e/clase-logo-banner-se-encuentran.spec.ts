@@ -65,7 +65,7 @@ async function abrirEditarClase(page: Page) {
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/tipos_clase**', route => json(route, [TIPO]));
 
-  await page.goto('/configuracion?tab=clases');
+  await page.goto('/configuracion?tab=clases&abrir=tipos-de-clase');
   await page.getByRole('button', { name: 'Editar' }).first().click({ timeout: 30_000 });
   await expect(page.getByText('Así la verá tu alumna')).toBeVisible({ timeout: 15_000 });
 }

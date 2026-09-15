@@ -188,9 +188,10 @@ test.describe('En el portátil', () => {
 
   test('los enlaces de antes (`?tab=`) siguen abriendo su sección', async ({ page }) => {
     await panel(page);
+    // (Los de las herramientas —canjes, correos— abren su pantalla: los prueba
+    // e2e/configuracion-herramientas.spec.ts.)
     const casos: [string, string, string | null][] = [
-      ['configuracion?tab=gamificacion&sub=canjes', 'Motivación', '#canjes'],
-      ['configuracion?tab=plantillas', 'Cómo me comunico', '#correos-automaticos'],
+      ['configuracion?tab=estudio&sub=legal', 'Alta de alumnas', '#contrato-y-privacidad'],
       ['configuracion?tab=estudio', 'Mi estudio', null],
     ];
     for (const [ruta, seccion, tarjeta] of casos) {

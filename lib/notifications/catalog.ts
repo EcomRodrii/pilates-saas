@@ -870,17 +870,17 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.CANJE_SOLICITADO}#PROPIETARIO`]: {
     title: 'Canje pendiente de entregar',
     body: '{socia} ha canjeado «{recompensa}» por {creditos} créditos.',
-    deepLink: () => `/configuracion?tab=gamificacion&sub=canjes`,
+    deepLink: () => `/dashboard#decidir-canjes`,
   },
   [`${EVENTOS.CANJE_SOLICITADO}#MANAGER`]: {
     title: 'Canje pendiente de entregar',
     body: '{socia} ha canjeado «{recompensa}» por {creditos} créditos.',
-    deepLink: () => `/configuracion?tab=gamificacion&sub=canjes`,
+    deepLink: () => `/dashboard#decidir-canjes`,
   },
   [`${EVENTOS.CANJE_SOLICITADO}#RECEPCION`]: {
     title: 'Canje pendiente de entregar',
     body: '{socia} ha canjeado «{recompensa}» por {creditos} créditos.',
-    deepLink: () => `/configuracion?tab=gamificacion&sub=canjes`,
+    deepLink: () => `/dashboard#decidir-canjes`,
   },
   [`${EVENTOS.VENTA_REGISTRADA}#PROPIETARIO`]: {
     title: 'Nueva venta',

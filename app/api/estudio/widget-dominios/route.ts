@@ -54,7 +54,7 @@ export async function PUT(req: NextRequest) {
   // Si falla la constancia no se deshace el cambio: ya está guardado.
   const { error: errLog } = await admin.from('actividad_reciente').insert({
     id: uid(), studio_id: studio.id, tipo: 'WIDGET_DOMINIOS_CAMBIADOS', texto,
-    socio_id: null, enlace: '/configuracion?tab=api', creado_en: new Date().toISOString(), actor_nombre: sesion.nombre,
+    socio_id: null, enlace: '/configuracion?tab=web&abrir=widgets', creado_en: new Date().toISOString(), actor_nombre: sesion.nombre,
   });
   if (errLog) console.error('[estudio:widget-dominios] no se pudo registrar la actividad', errLog.message);
 

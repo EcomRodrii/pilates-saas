@@ -1,11 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { DiaHorario } from '../types.ts';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
-  MAX_RESUMEN, MAX_REVISA, avisosDeConfiguracion, resumenHorario, resumenPlan, resumenesDeConfiguracion, revisaEsto, unir,
+  CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, avisosDeConfiguracion, resumenHerramienta, resumenHorario, resumenPlan,
+  resumenesDeConfiguracion, revisaEsto, unir,
   type DatosConfiguracion, type IntegracionResumible,
 } from './resumenes.ts';
-import { SECCIONES, seccionDeTarjeta } from './secciones.ts';
+import { HERRAMIENTAS, SECCIONES, seccionDeTarjeta } from './secciones.ts';
 
 // Los resúmenes del inicio de Configuración dicen cómo está cada sección. Un
 // resumen que no cuadra con lo guardado es peor que ninguno: la propietaria deja
@@ -271,5 +274,98 @@ test('cada aviso lleva a una tarjeta de su sección, y el copy dice «alumna»',
   }
   for (const r of Object.values(resumenesDeConfiguracion(todo))) {
     if (r.valor) assert.doesNotMatch(r.valor, /\b(client|soci)as?\b/i, r.valor);
+  }
+});
+
+// ─── Las filas de las herramientas ────────────────────────────────────────────
+
+const AHORA = Date.parse('2026-09-15T10:00:00Z');
+const AYER = '2026-09-14T10:00:00Z';
+const MANANA = '2026-09-16T10:00:00Z';
+
+test('herramientas: sin datos, ninguna dice nada; con ellos, lo que hay', () => {
+  for (const h of HERRAMIENTAS) assert.equal(resumenHerramienta(h.id, {}), null, h.id);
+
+  assert.equal(resumenHerramienta('tipos-de-clase', { numTiposClase: 4 }), '4 tipos de clase');
+  assert.equal(resumenHerramienta('tipos-de-clase', { numTiposClase: 1 }), '1 tipo de clase');
+  assert.equal(resumenHerramienta('tipos-de-clase', { numTiposClase: 0 }), 'Sin tipos de clase');
+  assert.equal(resumenHerramienta('tipos-de-clase', { numTiposClase: null }), null);
+});
+
+test('salas: cuántas y cuántas máquinas siguen en avería; una avería ya arreglada no cuenta', () => {
+  const salas = (averias: { hasta: string | null }[], numSalas = 2) => resumenHerramienta('salas', { salas: { numSalas, averias, ahoraMs: AHORA } });
+  assert.equal(salas([]), '2 salas');
+  assert.equal(salas([{ hasta: null }]), '2 salas · 1 máquina en avería');
+  assert.equal(salas([{ hasta: null }, { hasta: MANANA }]), '2 salas · 2 máquinas en avería');
+  assert.equal(salas([{ hasta: AYER }]), '2 salas');
+  assert.equal(salas([], 1), '1 sala');
+  assert.equal(salas([], 0), 'Sin salas');
+});
+
+test('correos: sin fila se envía, y solo `enviar: false` lo apaga', () => {
+  const correos = (filas: { tipo: string; enviar?: boolean | null }[]) => resumenHerramienta('correos-automaticos', { correos: filas });
+  assert.equal(correos([]), 'Los 6 correos se envían');
+  // Una fila con su texto pero encendida sigue enviándose.
+  assert.equal(correos([{ tipo: 'reserva', enviar: true }]), 'Los 6 correos se envían');
+  assert.equal(correos([{ tipo: 'reserva', enviar: false }, { tipo: 'impago', enviar: false }]), '4 de 6 correos se envían');
+  assert.equal(correos(CORREOS_AUTOMATICOS.map(tipo => ({ tipo, enviar: false }))), 'Ningún correo se envía');
+  // Un tipo que no es de la lista (recibo, factura) no cuenta.
+  assert.equal(correos([{ tipo: 'factura', enviar: false }]), 'Los 6 correos se envían');
+});
+
+test('la lista de correos del resumen es la de la pantalla de correos', () => {
+  const pantalla = readFileSync(join(import.meta.dirname, '../../components/configuracion/tab-plantillas-email.tsx'), 'utf8');
+  const tipos = [...pantalla.matchAll(/^\s+tipo: '([a-z]+)', label:/gm)].map(m => m[1]);
+  assert.deepEqual(tipos, [...CORREOS_AUTOMATICOS]);
+});
+
+test('contenido de tu app: el mensaje, y lo publicado que se ve hoy', () => {
+  const contenido = (c: Partial<{ mensajeDestacado: string | null; tarjetas: { activo: boolean; fechaInicio?: string | null; fechaFin?: string | null }[]; avisos: { activo: boolean }[] }>) =>
+    resumenHerramienta('contenido-de-tu-app', { contenido: { mensajeDestacado: null, tarjetas: [], avisos: [], ahoraMs: AHORA, ...c } });
+  assert.equal(contenido({}), 'Sin mensaje destacado');
+  assert.equal(contenido({ mensajeDestacado: '  ' }), 'Sin mensaje destacado');
+  assert.equal(
+    contenido({ mensajeDestacado: 'Taller el sábado', tarjetas: [{ activo: true }, { activo: true }], avisos: [{ activo: true }] }),
+    'Con mensaje destacado · 2 tarjetas · 1 aviso',
+  );
+  // Oculta, caducada o aún por empezar: no se ve, no cuenta.
+  assert.equal(
+    contenido({ tarjetas: [{ activo: false }, { activo: true, fechaFin: AYER }, { activo: true, fechaInicio: MANANA }, { activo: true }] }),
+    'Sin mensaje destacado · 1 tarjeta',
+  );
+  assert.equal(contenido({ avisos: [{ activo: true }, { activo: false }] }), 'Sin mensaje destacado · 1 aviso');
+});
+
+test('widgets: solo se dice lo que se sabe (las webs autorizadas); sin ninguna, su descripción', () => {
+  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://mi-estudio.example.com'] }), '1 web autorizada para el calendario');
+  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://a.example.com', 'https://b.example.com'] }), '2 webs autorizadas para el calendario');
+  assert.equal(resumenHerramienta('widgets', { widgetDominios: [] }), null);
+  assert.equal(resumenHerramienta('widgets', { widgetDominios: null }), null);
+});
+
+test('recompensas y logros: lo que hay en cada catálogo, y nada inventado mientras carga', () => {
+  const m = (recompensas: number, logros: number, niveles: number, retos: number) =>
+    resumenHerramienta('recompensas-y-logros', { motivacion: { recompensas, logros, niveles, retos } });
+  assert.equal(m(4, 3, 0, 2), '4 recompensas · 3 logros · 2 retos');
+  assert.equal(m(1, 1, 1, 1), '1 recompensa · 1 logro · 1 reto · 1 nivel');
+  assert.equal(m(0, 5, 0, 0), 'Sin recompensas · 5 logros');
+  assert.equal(m(0, 0, 0, 0), 'Sin recompensas ni logros todavía');
+  assert.equal(resumenHerramienta('recompensas-y-logros', { motivacion: null }), null);
+});
+
+test('ninguna fila de herramienta pasa de una línea del móvil ni dice «clienta»', () => {
+  const muchos = {
+    numTiposClase: 120,
+    salas: { numSalas: 12, averias: Array.from({ length: 11 }, () => ({ hasta: null })), ahoraMs: AHORA },
+    correos: [{ tipo: 'reserva', enviar: false }],
+    contenido: { mensajeDestacado: 'Hola', tarjetas: Array.from({ length: 20 }, () => ({ activo: true })), avisos: Array.from({ length: 30 }, () => ({ activo: true })), ahoraMs: AHORA },
+    widgetDominios: Array.from({ length: 12 }, (_, i) => `https://w${i}.example.com`),
+    motivacion: { recompensas: 120, logros: 340, niveles: 12, retos: 45 },
+  };
+  for (const h of HERRAMIENTAS) {
+    const v = resumenHerramienta(h.id, muchos);
+    assert.ok(v, h.id);
+    assert.ok(v.length <= MAX_RESUMEN, `${h.id}: «${v}» (${v.length})`);
+    assert.doesNotMatch(v, /\b(client|soci)as?\b/i, v);
   }
 });

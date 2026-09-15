@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MAX_AJUSTES_EN_BUSCADOR_GLOBAL, ajustesParaBuscadorGlobal, buscarAjustes, normalizar, sinTareasRepetidas } from './buscar.ts';
 import { buscarTareas } from '../tareas.ts';
-import { hrefDeSeccion, resolverHref } from './destino.ts';
+import { hrefDeLugar, resolverHref } from './destino.ts';
 import { FILAS_EXTERNAS, SECCIONES, seccionDeTarjeta, type TarjetaId } from './secciones.ts';
 
 // El buscador del inicio de Configuración. Lo que se fija: que las búsquedas
@@ -83,8 +83,8 @@ test('cada resultado abre una sección y una tarjeta que existen', () => {
         assert.ok(Object.values(FILAS_EXTERNAS).some(f => f.href === r.href), r.id);
         continue;
       }
-      const esperado = r.ancla ? { tab: r.seccion, ancla: r.ancla } : { tab: r.seccion };
-      assert.deepEqual(resolverHref(hrefDeSeccion(r.seccion, r.ancla)), esperado, r.id);
+      const esperado = { tab: r.seccion, ...(r.abrir ? { abrir: r.abrir } : {}), ...(r.ancla ? { ancla: r.ancla } : {}) };
+      assert.deepEqual(resolverHref(hrefDeLugar({ tab: r.seccion, abrir: r.abrir, ancla: r.ancla })), esperado, r.id);
       if (r.ancla) assert.equal(seccionDeTarjeta(r.ancla as TarjetaId), r.seccion, r.id);
     }
   }
@@ -115,6 +115,9 @@ test('⌘K: «IVA» da la tarjeta, su sección y el enlace a su ancla', () => {
     { donde: motivacion.donde, href: motivacion.href },
     { donde: 'Configuración', href: '/configuracion?tab=motivacion' },
   );
+  // Lo que vive en una herramienta abre la herramienta, no solo su sección.
+  const correos = ajustesParaBuscadorGlobal('recordatorio', PROPIETARIA).find(a => a.id === 'tarjeta-correos-automaticos')!;
+  assert.match(correos.href, /^\/configuracion\?tab=comunicacion&abrir=correos-automaticos(#|$)/);
 });
 
 test('⌘K: como mucho cinco, y vacío no busca', () => {
@@ -139,7 +142,11 @@ test('⌘K: sin filas de otra pantalla, y cada enlace abre la tarjeta que dice',
     for (const a of ajustesParaBuscadorGlobal(consulta, { ...PROPIETARIA, haySedes: true, esCadena: true })) {
       const destino = resolverHref(a.href);
       assert.ok(!('redirect' in destino) && destino.tab !== null, a.id);
-      if (a.id.startsWith('tarjeta-')) assert.equal(destino.ancla, a.id.slice('tarjeta-'.length), a.id);
+      // Una tarjeta abre su ancla; la tarjeta que ES una herramienta abre su pantalla.
+      if (a.id.startsWith('tarjeta-')) {
+        const id = a.id.slice('tarjeta-'.length);
+        assert.ok(!('redirect' in destino) && (destino.ancla === id || destino.abrir === id), a.id);
+      }
     }
   }
   // Las tarjetas que el estudio no tiene tampoco salen en ⌘K.

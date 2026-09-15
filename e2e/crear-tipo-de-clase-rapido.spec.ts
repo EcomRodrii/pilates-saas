@@ -82,7 +82,7 @@ async function mockBackend(page: Page) {
 }
 
 async function abrirClases(page: Page) {
-  await page.goto('/configuracion?tab=clases');
+  await page.goto('/configuracion?tab=clases&abrir=tipos-de-clase');
   await expect(page.getByRole('button', { name: 'Nuevo tipo de clase' })).toBeVisible({ timeout: 30_000 });
 }
 

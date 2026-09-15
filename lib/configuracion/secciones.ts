@@ -10,10 +10,11 @@
 // (lib/configuracion/destino.ts) y los tests comprueban que cada id existe de
 // verdad en algún componente.
 //
-// Cada tarjeta se pinta en su sección. Mientras se reordenaba (15-sep) algunas
-// vivieron un tiempo en el componente de otra, con una fila que apuntaba allí;
-// ya no queda ninguna. Si una tarjeta cambia de sección, basta con moverla
-// aquí: su ancla la sigue sola, y los enlaces guardados no se rompen.
+// Cada tarjeta se pinta en su sección, salvo las de una herramienta grande
+// (`herramienta`), que se pintan en la pantalla de esa herramienta y dejan en la
+// sección una fila con cómo está. Si una tarjeta cambia de sección o de
+// herramienta, basta con moverla aquí: su ancla la sigue sola, y los enlaces
+// guardados no se rompen.
 //
 // Pura y sin imports: la ejecuta `node --test` directamente.
 
@@ -37,6 +38,14 @@ export type RolConfiguracion = 'PROPIETARIO' | 'MANAGER' | 'RECEPCION' | 'INSTRU
 /** Tarjetas que solo existen en algunos estudios. */
 export type CondicionTarjeta = 'multiSede' | 'cadena';
 
+/**
+ * Las herramientas grandes: cada una tiene su propia pantalla
+ * (`?tab=<sección>&abrir=<herramienta>`) y en su sección es una sola fila que
+ * dice cómo está.
+ */
+export type HerramientaId =
+  | 'salas' | 'tipos-de-clase' | 'correos-automaticos' | 'recompensas-y-logros' | 'contenido-de-tu-app' | 'widgets';
+
 export interface TarjetaConfiguracion {
   readonly id: string;
   readonly titulo: string;
@@ -45,6 +54,8 @@ export interface TarjetaConfiguracion {
   /** Tarjetas que necesitan sitio (catálogos en rejilla, el constructor de widgets). */
   readonly ancho?: 'amplio';
   readonly condicion?: CondicionTarjeta;
+  /** Se pinta en la pantalla de esa herramienta, no en la sección. */
+  readonly herramienta?: HerramientaId;
   /**
    * Otras palabras con las que la propietaria busca esto en el buscador del
    * inicio («nif», «no viene»). Solo si el ajuste está DE VERDAD en esta
@@ -77,7 +88,7 @@ export const SECCIONES = [
     tarjetas: [
       { id: 'datos-y-contacto', titulo: 'Datos y contacto', frase: 'Nombre, teléfono, email, web y dirección. Salen en tu página de reservas y en el pie de tus correos.', guardado: 'barra', palabras: ['nombre', 'teléfono', 'email', 'dirección', 'web'] },
       { id: 'horario-y-cierres', titulo: 'Horario y cierres', frase: 'Cuándo abres cada semana y qué días cierras.', guardado: 'barra', palabras: ['apertura', 'abrir', 'cerrar', 'vacaciones', 'festivos'] },
-      { id: 'salas', titulo: 'Salas', frase: 'Tus salas y cuántas personas caben: esa cifra es el tope de plazas de cada clase.', guardado: 'catalogo', ancho: 'amplio', palabras: ['aforo', 'capacidad', 'plazas', 'averías', 'máquinas'] },
+      { id: 'salas', titulo: 'Salas', frase: 'Tus salas y cuántas personas caben: esa cifra es el tope de plazas de cada clase.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'salas', palabras: ['aforo', 'capacidad', 'plazas', 'averías', 'máquinas'] },
       { id: 'sedes', titulo: 'Sedes', frase: 'Tus otras sedes: cámbiate a una o añade otra.', guardado: 'accion', condicion: 'multiSede', palabras: ['cambiar de sede', 'centros', 'cadena'] },
     ],
   },
@@ -88,7 +99,7 @@ export const SECCIONES = [
     frase: 'Lo que ofreces: los tipos de clase que programas en la agenda y las citas individuales.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'tipos-de-clase', titulo: 'Tipos de clase', frase: 'Reformer, Suelo, Embarazadas…: nombre, duración, plazas y, si quieres, sus propias reglas de reserva.', guardado: 'catalogo', ancho: 'amplio', palabras: ['reformer', 'suelo', 'mat', 'duración'] },
+      { id: 'tipos-de-clase', titulo: 'Tipos de clase', frase: 'Reformer, Suelo, Embarazadas…: nombre, duración, plazas y, si quieres, sus propias reglas de reserva.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'tipos-de-clase', palabras: ['reformer', 'suelo', 'mat', 'duración'] },
       { id: 'catalogo-de-la-cadena', titulo: 'Catálogo de la cadena', frase: 'Tipos de clase comunes a tus sedes. Se copian a cada sede al crearla o al pulsar «Aplicar catálogo».', guardado: 'catalogo', condicion: 'cadena' },
       { id: 'servicios-de-cita', titulo: 'Servicios de cita', frase: 'Sesiones individuales, como una clase privada o una valoración.', guardado: 'catalogo', ancho: 'amplio' },
       { id: 'horario-de-citas', titulo: 'Horario de citas', frase: 'Las horas en que cada instructora acepta citas.', guardado: 'barra', ancho: 'amplio' },
@@ -144,7 +155,7 @@ export const SECCIONES = [
     frase: 'Los correos que Tentare envía sola a tus alumnas y los canales conectados para escribirles.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'correos-automaticos', titulo: 'Correos automáticos', frase: 'Bienvenida, reserva, recordatorio, cancelación…: apaga los que no quieras o cambia lo que dicen.', guardado: 'catalogo', palabras: ['emails', 'recordatorio', 'bienvenida', 'plantillas'] },
+      { id: 'correos-automaticos', titulo: 'Correos automáticos', frase: 'Bienvenida, reserva, recordatorio, cancelación…: apaga los que no quieras o cambia lo que dicen.', guardado: 'catalogo', herramienta: 'correos-automaticos', palabras: ['emails', 'recordatorio', 'bienvenida', 'plantillas'] },
       { id: 'integracion-resend', titulo: 'Nombre y respuesta de tus correos', frase: 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.', guardado: 'catalogo', palabras: ['remitente', 'emails'] },
       { id: 'integracion-whatsapp', titulo: 'WhatsApp', frase: 'Recordatorios y avisos desde tu número de WhatsApp Business.', guardado: 'accion', palabras: ['mensajes'] },
       { id: 'integracion-gmail', titulo: 'Contactos de Gmail', frase: 'Trae los contactos de tu Gmail como alumnas nuevas. Los correos no salen desde tu Gmail.', guardado: 'accion' },
@@ -159,11 +170,11 @@ export const SECCIONES = [
     palabras: ['gamificación', 'puntos'],
     tarjetas: [
       { id: 'reglas', titulo: 'Cómo funcionan tus créditos', frase: 'Cómo se llaman, cuánto duran, cuántas clases mantienen una racha y cuántos se ganan con cada cosa.', guardado: 'al-pulsar', palabras: ['racha', 'puntos'] },
-      { id: 'recompensas', titulo: 'Recompensas', frase: 'Lo que tus alumnas pueden canjear con sus créditos.', guardado: 'catalogo', palabras: ['premios'] },
-      { id: 'canjes', titulo: 'Canjes pendientes', frase: 'Recompensas pedidas que tienes que entregar.', guardado: 'accion' },
-      { id: 'logros', titulo: 'Logros', frase: 'Lo que desbloquean tus alumnas al llegar a una cifra que eliges, como 10 clases.', guardado: 'catalogo', palabras: ['insignias'] },
-      { id: 'niveles', titulo: 'Niveles', frase: 'El nivel sube con los créditos ganados en total; canjear nunca lo hace bajar.', guardado: 'catalogo' },
-      { id: 'retos', titulo: 'Retos', frase: 'Objetivos con fecha de inicio y fin: solo cuenta lo que pasa dentro de ese periodo.', guardado: 'catalogo', palabras: ['desafíos'] },
+      { id: 'recompensas', titulo: 'Recompensas', frase: 'Lo que tus alumnas pueden canjear con sus créditos.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['premios'] },
+      { id: 'canjes', titulo: 'Canjes pendientes', frase: 'Recompensas pedidas que tienes que entregar.', guardado: 'accion', herramienta: 'recompensas-y-logros' },
+      { id: 'logros', titulo: 'Logros', frase: 'Lo que desbloquean tus alumnas al llegar a una cifra que eliges, como 10 clases.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['insignias'] },
+      { id: 'niveles', titulo: 'Niveles', frase: 'El nivel sube con los créditos ganados en total; canjear nunca lo hace bajar.', guardado: 'catalogo', herramienta: 'recompensas-y-logros' },
+      { id: 'retos', titulo: 'Retos', frase: 'Objetivos con fecha de inicio y fin: solo cuenta lo que pasa dentro de ese periodo.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['desafíos'] },
     ],
   },
   // «Marca» salió de «Mi app y mi web» el 15-sep (v2): el logo estaba en una
@@ -191,8 +202,8 @@ export const SECCIONES = [
     tarjetas: [
       { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'La dirección de tu página de reservas y el enlace a la app de tus alumnas.', guardado: 'accion', palabras: ['enlace', 'página de reservas', 'url'] },
       { id: 'network', titulo: 'Aparecer en Tentare Network', frase: 'Tu estudio sale en el buscador de estudios de Tentare, aunque no tengan tu enlace.', guardado: 'al-pulsar', palabras: ['directorio', 'buscador de estudios'] },
-      { id: 'contenido-de-tu-app', titulo: 'Contenido de tu app', frase: 'Tarjetas de «Descubre», mensaje destacado y avisos del tablón en el inicio de su app.', guardado: 'catalogo', ancho: 'amplio', palabras: ['descubre', 'tablón', 'mensaje destacado'] },
-      { id: 'widgets', titulo: 'Widgets para tu web', frase: 'El horario, las citas o una clase concreta dentro de tu propia web, con un código para pegar.', guardado: 'accion', ancho: 'amplio', palabras: ['incrustar', 'código'] },
+      { id: 'contenido-de-tu-app', titulo: 'Contenido de tu app', frase: 'Tarjetas de «Descubre», mensaje destacado y avisos del tablón en el inicio de su app.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'contenido-de-tu-app', palabras: ['descubre', 'tablón', 'mensaje destacado'] },
+      { id: 'widgets', titulo: 'Widgets para tu web', frase: 'El horario, las citas o una clase concreta dentro de tu propia web, con un código para pegar.', guardado: 'accion', ancho: 'amplio', herramienta: 'widgets', palabras: ['incrustar', 'código', 'visitas'] },
     ],
   },
   {
@@ -335,6 +346,73 @@ export function esTarjetaId(v: string): v is TarjetaId {
 /** La sección donde se pinta la tarjeta. */
 export function seccionDeTarjeta(id: TarjetaId): SeccionId {
   return TARJETA_POR_ID.get(id)!.seccion;
+}
+
+// ─── Herramientas ────────────────────────────────────────────────────────────
+//
+// «Mi app y mi web» medía unas diez pantallas de móvil: un interruptor
+// («Aparecer en Tentare Network») iba justo encima del constructor de widgets
+// entero, con su vista previa y su código. El fundador: «secciones muy largas»,
+// «mezcla de cosas muy distintas». Lo que es una herramienta de trabajo —un
+// catálogo, un editor— sale a su propia pantalla, y en su sección queda una fila
+// que dice cómo está (lib/configuracion/resumenes.ts).
+//
+// Una herramienta de una sola tarjeta se llama como ella, y su pantalla es esa
+// tarjeta sin repetir el título. La de motivación junta cinco.
+
+export interface HerramientaConfiguracion {
+  readonly id: HerramientaId;
+  readonly seccion: SeccionId;
+  readonly titulo: string;
+  /** Una sola frase, bajo el título de su pantalla. */
+  readonly frase: string;
+  /** La línea de su fila cuando no se sabe cómo está. */
+  readonly resumen: string;
+}
+
+function deTarjeta(id: HerramientaId & TarjetaId, resumen: string): HerramientaConfiguracion {
+  const { tarjeta, seccion } = TARJETA_POR_ID.get(id)!;
+  return { id, seccion, titulo: tarjeta.titulo, frase: tarjeta.frase, resumen };
+}
+
+/** En el orden de las secciones, y dentro de cada una en el de sus tarjetas. */
+export const HERRAMIENTAS: readonly HerramientaConfiguracion[] = [
+  deTarjeta('salas', 'Tus salas, su aforo y las máquinas en avería'),
+  deTarjeta('tipos-de-clase', 'Nombre, duración, plazas y sus propias reglas'),
+  deTarjeta('correos-automaticos', 'Apágalos o cambia lo que dicen'),
+  {
+    id: 'recompensas-y-logros',
+    seccion: 'motivacion',
+    titulo: 'Recompensas, logros y retos',
+    frase: 'Lo que tus alumnas canjean con sus créditos, lo que desbloquean y los retos con fecha que ven en su app.',
+    resumen: 'Recompensas, canjes, logros, niveles y retos',
+  },
+  deTarjeta('contenido-de-tu-app', 'Mensaje destacado, tarjetas y avisos del tablón'),
+  deTarjeta('widgets', 'Tu horario y tus reservas dentro de tu web'),
+];
+
+const HERRAMIENTA_POR_ID = new Map<string, HerramientaConfiguracion>(HERRAMIENTAS.map(h => [h.id, h]));
+
+export function esHerramientaId(v: string): v is HerramientaId {
+  return HERRAMIENTA_POR_ID.has(v);
+}
+
+export function herramientaPorId(id: HerramientaId): HerramientaConfiguracion {
+  return HERRAMIENTA_POR_ID.get(id)!;
+}
+
+/** La herramienta en cuya pantalla se pinta la tarjeta, o `null` si va en su sección. */
+export function herramientaDeTarjeta(id: TarjetaId): HerramientaId | null {
+  return TARJETA_POR_ID.get(id)!.tarjeta.herramienta ?? null;
+}
+
+/** Las tarjetas de la pantalla de una herramienta, en su orden. */
+export function tarjetasDeHerramienta(id: HerramientaId): TarjetaId[] {
+  return [...TARJETA_POR_ID].filter(([, v]) => v.tarjeta.herramienta === id).map(([t]) => t as TarjetaId);
+}
+
+export function herramientasDeSeccion(id: SeccionId): HerramientaConfiguracion[] {
+  return HERRAMIENTAS.filter(h => h.seccion === id);
 }
 
 export function cumpleCondicion(

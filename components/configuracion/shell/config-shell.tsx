@@ -1,18 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { cn } from '@/lib/utils';
 import { useRol } from '@/lib/permisos';
 import { Toast, useToast } from '@/components/ui/toast';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { hrefDeSeccion, resolverDestino, resolverHref, seccionesVisibles } from '@/lib/configuracion/destino';
-import { seccionPorId, type SeccionId } from '@/lib/configuracion/secciones';
+import { hrefDeLugar, resolverDestino, resolverHref, seccionesVisibles } from '@/lib/configuracion/destino';
+import { herramientaPorId, seccionPorId, type HerramientaId, type SeccionId } from '@/lib/configuracion/secciones';
 import { ContextoNavegacionConfig, type NavegacionConfig } from './contexto';
 import { ListaSecciones } from './lista-secciones';
 import { CabeceraSeccion } from './cabecera-seccion';
+import { CabeceraHerramienta } from './cabecera-herramienta';
+import { idFilaHerramienta } from './fila-herramienta';
 import { InicioConfiguracion } from './inicio-configuracion';
 import { escucharEnlacesAConfiguracion } from './ir-a-configuracion';
 
@@ -36,6 +39,12 @@ import { escucharEnlacesAConfiguracion } from './ir-a-configuracion';
 //     y a la derecha lo que esté abierto. Saltar de una a otra en la columna es
 //     `replaceState`: no llena el historial. (Por qué la API nativa y no el
 //     router: ver `irA`.)
+//   · una HERRAMIENTA grande (`?tab=web&abrir=widgets`: widgets, correos, tipos
+//     de clase, salas, contenido de tu app, recompensas y logros) se abre desde
+//     la fila de su sección a pantalla propia y a todo el ancho, sin la columna,
+//     con «volver» a su sección. Volver —con el botón o con el atrás— deja el
+//     foco en su fila. Pintadas dentro de la sección, «Mi app y mi web» medía
+//     diez pantallas de móvil.
 //
 // Lo que cambia con la anchura se decide con CSS (`data-vista`, `md:`), nunca
 // con matchMedia: girar el iPad no desmonta nada ni pierde lo que se estaba
@@ -64,9 +73,33 @@ const COMPONENTES: Record<SeccionId, ComponentType<PropsSeccion>> = {
   panel: dynamic(() => import('@/components/configuracion/secciones/seccion-panel').then(m => m.SeccionPanel), { loading: cargando }),
 };
 
+// Y cada herramienta, en el suyo: el constructor de widgets no se descarga al
+// abrir «Mi app y mi web», solo al abrirlo a él.
+const COMPONENTES_HERRAMIENTA: Record<HerramientaId, ComponentType<PropsSeccion>> = {
+  salas: dynamic(() => import('@/components/configuracion/herramientas/herramienta-salas').then(m => m.HerramientaSalas), { loading: cargando }),
+  'tipos-de-clase': dynamic(() => import('@/components/configuracion/herramientas/herramienta-tipos-de-clase').then(m => m.HerramientaTiposDeClase), { loading: cargando }),
+  'correos-automaticos': dynamic(() => import('@/components/configuracion/herramientas/herramienta-correos-automaticos').then(m => m.HerramientaCorreosAutomaticos), { loading: cargando }),
+  'recompensas-y-logros': dynamic(() => import('@/components/configuracion/herramientas/herramienta-recompensas-y-logros').then(m => m.HerramientaRecompensasYLogros), { loading: cargando }),
+  'contenido-de-tu-app': dynamic(() => import('@/components/configuracion/herramientas/herramienta-contenido-de-tu-app').then(m => m.HerramientaContenidoDeTuApp), { loading: cargando }),
+  widgets: dynamic(() => import('@/components/configuracion/herramientas/herramienta-widgets').then(m => m.HerramientaWidgets), { loading: cargando }),
+};
+
+type Lugar = { tab: SeccionId | null; abrir?: HerramientaId; ancla?: string };
+
 // Lo que está abierto. `vista` cambia en cada navegación, para que el ancla se
 // busque otra vez aunque sea la misma.
-type Abierto = { tab: SeccionId | null; ancla?: string; vista: number };
+type Abierto = Lugar & { vista: number };
+
+/**
+ * Lo que de verdad se abre al pedir `tab` con esas opciones: un ancla de una
+ * tarjeta que vive en una herramienta (`#canjes`, desde el buscador) abre la
+ * herramienta. La misma regla que los enlaces (lib/configuracion/destino.ts).
+ */
+function lugarDe(tab: SeccionId | null, opciones: { ancla?: string; abrir?: HerramientaId } = {}): Lugar {
+  if (!tab) return { tab: null };
+  const destino = resolverDestino({ tab, hash: opciones.ancla ?? null, params: opciones.abrir ? { abrir: opciones.abrir } : {} });
+  return 'redirect' in destino ? { tab } : destino;
+}
 
 export function ConfigShell() {
   const router = useRouter();
@@ -81,6 +114,12 @@ export function ConfigShell() {
   // resultados, y el foco, el enlace que se pulsó.
   const [consulta, setConsulta] = useState('');
 
+  // Lo abierto, para quien lo lee fuera del render (navegar, marcar cambios).
+  // En `useLayoutEffect`: corre antes que los `useEffect` de los hijos, que son
+  // los que marcan cambios sin guardar.
+  const abiertoRef = useRef<Abierto | null>(null);
+  useLayoutEffect(() => { abiertoRef.current = abierto; }, [abierto]);
+
   // ⚠️ #2008: tras cambiar la URL, `useSearchParams()` no se entera en el mismo
   // render. Si la sección se derivara de él, cada clic volvería un instante a la
   // URL de antes. Así que la URL se lee solo cuando cambia por algo que NO ha
@@ -94,6 +133,9 @@ export function ConfigShell() {
   const filaOrigen = useRef<string | null>(null);
   const enfocarTitulo = useRef(false);
   const pushesDesdeLista = useRef(0);
+  // ¿La herramienta abierta se abrió con `push` desde la fila de su sección? Entonces
+  // «volver» es el atrás de siempre; si se llegó por un enlace, se sustituye.
+  const herramientaPorPush = useRef(false);
   const tituloRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -108,6 +150,7 @@ export function ConfigShell() {
       return;
     }
     escritas.current = [];
+    herramientaPorPush.current = false;
     const destino = resolverDestino({
       tab: searchParams.get('tab'),
       sub: searchParams.get('sub'),
@@ -122,28 +165,33 @@ export function ConfigShell() {
     setAbierto(prev => {
       // Mismo sitio que ya está abierto (p. ej. Conexiones limpiando el
       // `?stripe_connected=1` de la URL): no se toca nada.
-      if (prev && prev.tab === destino.tab && !destino.ancla) return prev;
-      return { tab: destino.tab, ancla: destino.ancla, vista: (prev?.vista ?? 0) + 1 };
+      if (prev && prev.tab === destino.tab && prev.abrir === destino.abrir && !destino.ancla) return prev;
+      return { tab: destino.tab, abrir: destino.abrir, ancla: destino.ancla, vista: (prev?.vista ?? 0) + 1 };
     });
   }, [searchParams, router]);
 
-  const irA = useCallback<NavegacionConfig['irA']>((tab, { ancla, modo = 'replace', origen } = {}) => {
+  const irA = useCallback<NavegacionConfig['irA']>((tabPedida, { ancla: anclaPedida, abrir: abrirPedida, modo = 'replace', origen } = {}) => {
+    const { tab, abrir, ancla } = lugarDe(tabPedida, { ancla: anclaPedida, abrir: abrirPedida });
     if (origen) filaOrigen.current = origen;
+    const antes = abiertoRef.current;
+    herramientaPorPush.current = !!(abrir && modo === 'push' && antes?.tab === tab && !antes?.abrir);
     if (tab && modo === 'push') {
-      pushesDesdeLista.current += 1;
+      // Abrir una herramienta desde su sección no aleja del inicio: el atrás
+      // vuelve primero a la sección.
+      if (!herramientaPorPush.current) pushesDesdeLista.current += 1;
       enfocarTitulo.current = !ancla;
     }
-    setAbierto(prev => ({ tab, ancla, vista: (prev?.vista ?? 0) + 1 }));
+    setAbierto(prev => ({ tab, abrir, ancla, vista: (prev?.vista ?? 0) + 1 }));
     // La URL dice lo que se ve, para que recargar, volver o compartir el enlace
     // abra lo mismo.
-    const query = tab ? `tab=${tab}` : '';
+    const query = tab ? `tab=${tab}${abrir ? `&abrir=${abrir}` : ''}` : '';
     if (query === urlVista.current) {
       // Misma sección: solo cambia el ancla, y eso no pasa por `useSearchParams`.
       if (!ancla) return;
     } else {
       escritas.current.push(query);
     }
-    const href = tab ? hrefDeSeccion(tab, ancla) : '/configuracion';
+    const href = tab ? hrefDeLugar({ tab, abrir, ancla }) : '/configuracion';
     // ⚠️ La API nativa del historial, NO `router.push/replace`. En el build de
     // producción, Next 16 guarda al cargar la ruta `/configuracion` con la URL de
     // llegada como canónica (`?tab=altas`), y una navegación posterior a la misma
@@ -159,35 +207,43 @@ export function ConfigShell() {
 
   // ── Salir con cambios sin guardar ──────────────────────────────────────────
   // Cada barra de guardar con cambios deja aquí su sección
-  // (shell/barra-guardar.tsx). Cambiar a OTRA sección, volver al inicio o irse
-  // a otra pantalla del panel pregunta antes; recargar o cerrar la pestaña lo
-  // pregunta el navegador (`beforeunload`, en la propia barra).
+  // (shell/barra-guardar.tsx), y un editor de una herramienta con cambios, la
+  // suya (el de un correo). Cambiar a OTRA sección o herramienta, volver al
+  // inicio o irse a otra pantalla del panel pregunta antes; recargar o cerrar la
+  // pestaña lo pregunta el navegador (`beforeunload`, en la barra o el editor).
   // ⚠️ El gesto de atrás del teléfono (popstate) no se puede frenar sin tocar el
   // historial a mano, y eso rompería la vuelta al inicio: ese no pregunta.
-  const sinGuardar = useRef(new Map<number, SeccionId>());
+  const sinGuardar = useRef(new Map<number, { seccion: SeccionId; abrir: HerramientaId | null }>());
   const ultimaMarca = useRef(0);
-  const [salida, setSalida] = useState<{ seccion: SeccionId; ir: () => void } | null>(null);
+  const [salida, setSalida] = useState<{ titulo: string; ir: () => void } | null>(null);
 
   const marcarSinGuardar = useCallback((seccion: SeccionId) => {
     const marca = ++ultimaMarca.current;
-    sinGuardar.current.set(marca, seccion);
+    // Lo que se ve al marcar: la sección, o la herramienta suya que está abierta.
+    const abrir = abiertoRef.current?.tab === seccion ? abiertoRef.current.abrir ?? null : null;
+    sinGuardar.current.set(marca, { seccion, abrir });
     return () => { sinGuardar.current.delete(marca); };
   }, []);
 
-  /** La sección con cambios que se perderían yendo a `destino` (`null` = fuera de ella). */
-  const seccionQueSePierde = useCallback((destino: SeccionId | null) => {
-    for (const s of sinGuardar.current.values()) if (s !== destino) return s;
+  /** El nombre de lo que tiene cambios que se perderían yendo a `destino` (`null` = fuera de Configuración). */
+  const cambiosQueSePierden = useCallback((destino: SeccionId | null, abrir: HerramientaId | null = null) => {
+    for (const m of sinGuardar.current.values()) {
+      if (m.seccion !== destino || m.abrir !== abrir) {
+        return m.abrir ? herramientaPorId(m.abrir).titulo : seccionPorId(m.seccion).titulo;
+      }
+    }
     return null;
   }, []);
 
   const irAPreguntando = useCallback<NavegacionConfig['irA']>((destino, opciones) => {
-    const pendiente = seccionQueSePierde(destino);
+    const lugar = lugarDe(destino, opciones);
+    const pendiente = cambiosQueSePierden(lugar.tab, lugar.abrir ?? null);
     if (pendiente) {
-      setSalida({ seccion: pendiente, ir: () => irA(destino, opciones) });
+      setSalida({ titulo: pendiente, ir: () => irA(destino, opciones) });
       return;
     }
     irA(destino, opciones);
-  }, [irA, seccionQueSePierde]);
+  }, [irA, cambiosQueSePierden]);
 
   // Un enlace a Configuración que no pinta el shell (la barra superior, ⌘K, un
   // aviso, el menú) mientras estás aquí: se abre con `irA`, como los suyos. Con
@@ -199,14 +255,14 @@ export function ConfigShell() {
       router.push(destino.redirect);
       return;
     }
-    (preguntar ? irAPreguntando : irA)(destino.tab, { ancla: destino.ancla, modo: 'push' });
+    (preguntar ? irAPreguntando : irA)(destino.tab, { ancla: destino.ancla, abrir: destino.abrir, modo: 'push' });
   }, [irA, irAPreguntando, router]);
 
   useEffect(() => escucharEnlacesAConfiguracion(href => irAHref(href, true)), [irAHref]);
 
   // Un enlace a otra pantalla (el menú, «Mi cuenta», un enlace dentro de una
-  // tarjeta): se para antes de que Next navegue. En captura, para llegar antes
-  // que el `onClick` del propio enlace.
+  // tarjeta, la fila de una herramienta): se para antes de que Next navegue. En
+  // captura, para llegar antes que el `onClick` del propio enlace.
   useEffect(() => {
     function alPulsar(e: MouseEvent) {
       if (sinGuardar.current.size === 0) return;
@@ -221,7 +277,7 @@ export function ConfigShell() {
       // Las filas de secciones van por `irA`, que ya pregunta. «Mi cuenta», en la
       // misma lista, es otra pantalla: esa sí se para aquí.
       if (url.pathname === window.location.pathname && enlace.closest('nav[aria-label="Secciones de Configuración"]')) return;
-      const pendiente = seccionQueSePierde(null);
+      const pendiente = cambiosQueSePierden(null);
       if (!pendiente) return;
       e.preventDefault();
       e.stopPropagation();
@@ -229,17 +285,18 @@ export function ConfigShell() {
       // A otra sección de aquí mismo (la barra superior, el menú): por el shell,
       // nunca por el router (#2030). A otra pantalla, navegación normal.
       const ir = url.pathname === window.location.pathname ? () => irAHref(ruta, false) : () => router.push(ruta);
-      setSalida({ seccion: pendiente, ir });
+      setSalida({ titulo: pendiente, ir });
     }
     document.addEventListener('click', alPulsar, true);
     return () => document.removeEventListener('click', alPulsar, true);
-  }, [router, seccionQueSePierde, irAHref]);
+  }, [router, cambiosQueSePierden, irAHref]);
 
   const nav = useMemo<NavegacionConfig>(() => ({ irA: irAPreguntando, marcarSinGuardar }), [irAPreguntando, marcarSinGuardar]);
 
   const tab = abierto?.tab ?? null;
   const vista = abierto?.vista;
   const ancla = abierto?.ancla;
+  const abrirAbierto = abierto?.abrir ?? null;
 
   // De vuelta en el inicio: el foco, al enlace que abrió la sección.
   useEffect(() => {
@@ -251,8 +308,34 @@ export function ConfigShell() {
     requestAnimationFrame(() => document.getElementById(fila)?.focus());
   }, [tab]);
 
-  // Sección abierta desde el inicio: arriba del todo y el foco en su título,
-  // para que un lector de pantalla diga dónde ha llegado.
+  // De vuelta de una herramienta a su sección —con «volver» o con el atrás—: el
+  // foco, a su fila. La sección se descarga aparte, así que se espera a que la
+  // fila exista.
+  const herramientaVista = useRef<HerramientaId | null>(null);
+  useEffect(() => {
+    if (abrirAbierto) {
+      herramientaVista.current = abrirAbierto;
+      return;
+    }
+    const cerrada = herramientaVista.current;
+    herramientaVista.current = null;
+    if (!cerrada || !tab || herramientaPorId(cerrada).seccion !== tab) return;
+    let intentos = 0;
+    const id = window.setInterval(() => {
+      const fila = document.getElementById(idFilaHerramienta(cerrada));
+      if (!fila) {
+        if (++intentos > 100) window.clearInterval(id);
+        return;
+      }
+      window.clearInterval(id);
+      fila.scrollIntoView({ block: 'center' });
+      fila.focus({ preventScroll: true });
+    }, 50);
+    return () => window.clearInterval(id);
+  }, [tab, abrirAbierto]);
+
+  // Sección o herramienta abierta desde una fila: arriba del todo y el foco en
+  // su título, para que un lector de pantalla diga dónde ha llegado.
   useEffect(() => {
     if (!tab || !enfocarTitulo.current) return;
     enfocarTitulo.current = false;
@@ -304,17 +387,31 @@ export function ConfigShell() {
   // Sin sección en la URL (o con una que este rol no abre): el inicio.
   const mostrada = permitida ? tab : null;
   const Seccion = mostrada ? COMPONENTES[mostrada] : null;
+  // Una herramienta solo se abre dentro de su propia sección.
+  const herramienta = mostrada && abrirAbierto && herramientaPorId(abrirAbierto).seccion === mostrada ? abrirAbierto : null;
+  const Herramienta = herramienta ? COMPONENTES_HERRAMIENTA[herramienta] : null;
 
   function volver() {
-    const pendiente = seccionQueSePierde(null);
+    // De una herramienta se vuelve a su sección; de una sección, al inicio.
+    const pendiente = cambiosQueSePierden(herramienta ? mostrada : null);
     if (pendiente) {
-      setSalida({ seccion: pendiente, ir: volverSinPreguntar });
+      setSalida({ titulo: pendiente, ir: volverSinPreguntar });
       return;
     }
     volverSinPreguntar();
   }
 
   function volverSinPreguntar() {
+    if (herramienta && mostrada) {
+      // Abierta desde su fila: el atrás de siempre. Por un enlace: su sección
+      // sustituye a la herramienta en el historial.
+      if (herramientaPorPush.current) {
+        router.back();
+        return;
+      }
+      irA(mostrada, { modo: 'replace' });
+      return;
+    }
     // Si se llegó desde el inicio con un solo paso, «volver» es el atrás de
     // siempre y el historial queda como estaba. Si se llegó por un enlace
     // (una notificación, otra sección), se sustituye por el inicio.
@@ -333,11 +430,15 @@ export function ConfigShell() {
   return (
     <ContextoNavegacionConfig.Provider value={nav}>
       {/* `config-tactil`: el tamaño mínimo de lo que se pulsa con el dedo (globals.css). */}
-      <div data-tour="configuracion-vista" data-vista={permitida ? 'detalle' : 'inicio'} className="group/config config-tactil space-y-6">
+      <div
+        data-tour="configuracion-vista"
+        data-vista={herramienta ? 'herramienta' : permitida ? 'detalle' : 'inicio'}
+        className="group/config config-tactil space-y-6"
+      >
         <PageHeader
           title="Configuración"
           description="Cómo está tu estudio y dónde se cambia cada cosa."
-          className="max-md:group-data-[vista=detalle]/config:sr-only"
+          className="max-md:group-data-[vista=detalle]/config:sr-only max-md:group-data-[vista=herramienta]/config:sr-only"
         />
 
         {tab !== null && !permitida && (
@@ -346,13 +447,30 @@ export function ConfigShell() {
           </p>
         )}
 
-        <div className="md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-6">
-          <div className="hidden md:sticky md:top-14 md:block md:max-h-[calc(100dvh-8rem)] md:self-start md:overflow-y-auto lg:top-[calc(var(--panel-sticky-top,0px)+4rem)]">
-            <ListaSecciones secciones={visibles} activa={mostrada} onElegir={id => irAPreguntando(id)} />
-          </div>
+        {/* Una herramienta va a todo el ancho: sin la columna de secciones. */}
+        <div className={cn(!herramienta && 'md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-6')}>
+          {!herramienta && (
+            <div className="hidden md:sticky md:top-14 md:block md:max-h-[calc(100dvh-8rem)] md:self-start md:overflow-y-auto lg:top-[calc(var(--panel-sticky-top,0px)+4rem)]">
+              <ListaSecciones secciones={visibles} activa={mostrada} onElegir={id => irAPreguntando(id)} />
+            </div>
+          )}
 
           <div className="@container/config min-w-0">
-            {mostrada && Seccion ? (
+            {herramienta && Herramienta && mostrada ? (
+              <section
+                key={`herramienta-${herramienta}`}
+                aria-labelledby="herramienta-titulo"
+                className="tab-content-in space-y-5 [&_:is(input,select,textarea)]:scroll-mb-48"
+              >
+                <CabeceraHerramienta
+                  herramienta={herramientaPorId(herramienta)}
+                  seccion={seccionPorId(mostrada)}
+                  tituloRef={tituloRef}
+                  onVolver={volver}
+                />
+                <Herramienta showToast={showToast} />
+              </section>
+            ) : mostrada && Seccion ? (
               <section
                 key={mostrada}
                 aria-labelledby="seccion-titulo"
@@ -370,7 +488,7 @@ export function ConfigShell() {
                 secciones={visibles}
                 consulta={consulta}
                 onConsulta={setConsulta}
-                onAbrir={(id, { ancla: tarjeta, origen }) => irAPreguntando(id, { ancla: tarjeta, modo: 'push', origen })}
+                onAbrir={(id, { ancla: tarjeta, abrir, origen }) => irAPreguntando(id, { ancla: tarjeta, abrir, modo: 'push', origen })}
               />
             )}
           </div>
@@ -382,7 +500,7 @@ export function ConfigShell() {
           open={salida !== null}
           onOpenChange={abiertoDialogo => { if (!abiertoDialogo) setSalida(null); }}
           titulo="¿Salir sin guardar?"
-          descripcion={salida ? `Los cambios de «${seccionPorId(salida.seccion).titulo}» se perderán.` : undefined}
+          descripcion={salida ? `Los cambios de «${salida.titulo}» se perderán.` : undefined}
           textoConfirmar="Salir sin guardar"
           textoCancelar="Seguir editando"
           destructivo

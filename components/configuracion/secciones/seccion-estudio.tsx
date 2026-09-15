@@ -8,16 +8,25 @@ import { CLAVE_CAMBIO_SEDE } from '@/components/layout/sede-activa';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { TabDatosContacto } from '@/components/configuracion/tab-datos-contacto';
 import { TabEstudioHorario } from '@/components/configuracion/tab-estudio-horario';
-import { TabSalas } from '@/components/configuracion/tab-salas';
 import { TabEstudioSedes } from '@/components/configuracion/tab-estudio-sedes';
-import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
+import { FilasHerramienta } from '@/components/configuracion/shell/fila-herramienta';
+import { resumenHerramienta } from '@/lib/configuracion/resumenes';
 
 // Mi estudio: quién eres, dónde estás y cuándo abres. La marca y los textos de
-// la app están en «Mi app y mi web», y los datos fiscales en «Cobros y
-// facturas»: cada uno con su propio «Guardar», que manda solo sus campos.
+// la app están en «Marca», y los datos fiscales en «Cobros y facturas»: cada uno
+// con su propio «Guardar», que manda solo sus campos. Las salas y sus averías
+// tienen su propia pantalla.
 export function SeccionEstudio({ showToast }: { showToast: (m: string) => void }) {
-  const { studio } = useStudio();
+  const { studio, dataLoaded, salas, bloqueosMaquina } = useStudio();
   const { user } = useAuth();
+
+  // Qué avería sigue abierta depende de la hora: se lee una vez al montar (leer
+  // el reloj en render es impuro), el mismo criterio que la lista de averías.
+  const [ahoraMs, setAhoraMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La hora del reloj no se puede derivar en render; es justo lo que prohíbe la regla de pureza.
+    setAhoraMs(Date.now());
+  }, []);
 
   // «Sedes» solo existe si hay algo que decidir ahí: más de una sede, o el plan
   // Cadena para poder añadir la segunda. Con un estudio normal (la inmensa
@@ -53,9 +62,14 @@ export function SeccionEstudio({ showToast }: { showToast: (m: string) => void }
     <>
       <TabDatosContacto showToast={showToast} />
       <TabEstudioHorario showToast={showToast} />
-      <TarjetaAjuste id="salas" marco={false}>
-        <TabSalas showToast={showToast} />
-      </TarjetaAjuste>
+      <FilasHerramienta
+        filas={[{
+          id: 'salas',
+          valor: resumenHerramienta('salas', {
+            salas: dataLoaded && ahoraMs > 0 ? { numSalas: salas.length, averias: bloqueosMaquina, ahoraMs } : null,
+          }),
+        }]}
+      />
       {haySedes && (
         <TabEstudioSedes
           showToast={showToast}

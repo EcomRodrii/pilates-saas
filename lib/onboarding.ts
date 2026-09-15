@@ -234,11 +234,11 @@ export function calcularOnboarding(d: DatosOnboarding): {
     // llevaba a Mi estudio y prometía «nombre y contacto», que no cuentan.
     { id: 'estudio', label: 'Pon tus datos fiscales', descripcion: 'Razón social y NIF: salen en cada factura de tus cobros.', minutos: 2, done: !!d.nif, href: '/configuracion?tab=cobros#datos-fiscales' },
     { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion?tab=marca' },
-    { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas clientas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=estudio#salas' },
+    { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas clientas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=estudio&abrir=salas' },
     // Mismo criterio que «clientas»: el panel usa una sola palabra para la
     // clientela porque el equipo de un estudio de Pilates lo es casi siempre.
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: 'Gestiona horarios, sustituciones, disponibilidad y estadísticas de tus instructoras.', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
-    { id: 'clase', label: 'Crea tu primera clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases#tipos-de-clase' },
+    { id: 'clase', label: 'Crea tu primera clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
     // El paso donde se pierde más de la mitad de los estudios (4 de 10 lo
     // superan). El calendario ya no recibe vacío: propone el horario a partir
     // de lo que contestó en el asistente.
@@ -287,7 +287,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
   ];
 
   const portal: PasoOnboarding[] = [
-    { id: 'portal-contenido', label: 'Personaliza el contenido de tu portal', descripcion: 'El mensaje destacado y los banners que ven tus clientas al entrar en su app.', minutos: 3, done: d.contenidoPortalPersonalizado, href: '/configuracion?tab=web#contenido-de-tu-app' },
+    { id: 'portal-contenido', label: 'Personaliza el contenido de tu portal', descripcion: 'El mensaje destacado y los banners que ven tus clientas al entrar en su app.', minutos: 3, done: d.contenidoPortalPersonalizado, href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
   ];
 
   const categorias: CategoriaOnboarding[] = [
@@ -383,7 +383,7 @@ export function calcularPasosOnboarding(d: DatosOnboardingLegacy): PasoOnboardin
   const base: PasoOnboarding[] = [
     { id: 'estudio', label: 'Configura tu estudio', descripcion: '', minutos: 3, done: !!d.nif, href: '/configuracion?tab=cobros#datos-fiscales' },
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: '', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
-    { id: 'clase', label: 'Crea tu primera clase', descripcion: '', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases' },
+    { id: 'clase', label: 'Crea tu primera clase', descripcion: '', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
     { id: 'horario', label: 'Configura tus horarios', descripcion: '', minutos: 5, done: d.numSesiones > 0, href: '/calendario' },
     { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: '', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1' },
     { id: 'pago', label: 'Activa los métodos de pago', descripcion: '', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=cobros#integracion-stripe' },

@@ -623,6 +623,8 @@ interface StudioContextValue {
 
   // Plantillas de email transaccional
   plantillasEmail: PlantillaEmail[];
+  /** `false` hasta que llega la lista: sin ella no se sabe cuáles están apagadas. */
+  plantillasEmailCargadas: boolean;
   upsertPlantillaEmail: (tipo: PlantillaEmail['tipo'], changes: CambiosPlantillaEmail) => Promise<ResultadoEscritura>;
 
   // Riesgo de concentración por instructor
@@ -662,6 +664,8 @@ interface StudioContextValue {
    * Es idempotente por estudio: entrar y salir de la pestaña no vuelve a pedir.
    */
   cargarGamificacion: () => void;
+  /** `true` cuando han llegado: antes, las listas vacías no quieren decir «no hay ninguno». */
+  gamificacionCargada: boolean;
   /** Servicios y horario de citas. La piden las dos pestañas de Configuración. */
   cargarAgendaCitas: () => void;
   /** Notas internas y respuestas de sesión. Las piden la ficha y el calendario. */
@@ -837,6 +841,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [segmentosClientes, setSegmentosClientes] = useState<SegmentoCliente[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
+  const [plantillasEmailCargadas, setPlantillasEmailCargadas] = useState(false);
+  const [gamificacionCargada, setGamificacionCargada] = useState(false);
   const [dependencySnapshots, setDependencySnapshots] = useState<InstructorDependencySnapshot[]>([]);
   const [instructores, setInstructores] = useState<Instructor[]>([]);
   const [spots, setSpots] = useState<Spot[]>([]);
@@ -1390,7 +1396,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // config + fichas), se cargan aparte sin bloquear el primer pintado.
       dbFetchCamposPersonalizados().then(setCamposPersonalizados).catch(() => {});
       dbFetchSegmentosClientes().then(setSegmentosClientes).catch(() => {});
-      dbFetchPlantillasEmail().then(setPlantillasEmail).catch(() => {});
+      dbFetchPlantillasEmail().then(p => { setPlantillasEmail(p); setPlantillasEmailCargadas(true); }).catch(() => {});
       dbFetchDependencySnapshots().then(setDependencySnapshots).catch(() => {});
       // RECEPCION/MANAGER simplemente reciben [] aquí (la RLS los excluye) —
       // no hace falta comprobar el rol en cliente antes de pedirlo.
@@ -5396,6 +5402,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setLevelDefinitions(g.levelDefinitions);
     setChallengeDefinitions(g.challengeDefinitions);
     setChallengeProgress(g.challengeProgress);
+    setGamificacionCargada(true);
   }), [cargarUnaVez]);
 
   const cargarAgendaCitas = useCallback(() => cargarUnaVez('citas', async sid => {
@@ -5667,6 +5674,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     updateStudioConfig,
     resetDatosPilates,
     cargarGamificacion,
+    gamificacionCargada,
+    plantillasEmailCargadas,
     cargarAgendaCitas,
     cargarFichaClienta,
     cargarDashboardCharts,
@@ -5717,7 +5726,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     content.videosOnDemand, content.postsComunidad, content.likedPostIds,
     integrationsStore.integraciones,
     rewardRules, rewardActions, rewardHistory, creditTransactions, memberCredits,
-    rewardCatalog, rewardRedemptions,
+    rewardCatalog, rewardRedemptions, gamificacionCargada, plantillasEmailCargadas,
     achievementDefinitions, achievementProgress, achievementHistory,
     levelDefinitions,
     challengeDefinitions, challengeProgress, challengeHistory,

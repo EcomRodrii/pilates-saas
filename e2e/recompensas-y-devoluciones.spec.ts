@@ -61,6 +61,13 @@ async function abrirRecompensas(page: Page) {
   await expect(page.getByText('Créditos por acción')).toBeVisible({ timeout: 30_000 });
 }
 
+/** El catálogo de recompensas tiene su propia pantalla desde el 15-sep (v2): la sección solo guarda las reglas. */
+async function abrirCatalogo(page: Page) {
+  await page.goto('/configuracion?tab=motivacion&abrir=recompensas-y-logros');
+  await expect(page.getByRole('heading', { level: 2, name: 'Recompensas, logros y retos' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Nueva recompensa' })).toBeVisible({ timeout: 30_000 });
+}
+
 test.describe('Catálogo vacío: por dónde empezar', () => {
   test('propone tres recompensas con el coste de ESTE estudio, y añadirlas escribe', async ({ page }) => {
     // El catálogo vacío era un callejón. Medido en producción: 1320 créditos
@@ -85,7 +92,7 @@ test.describe('Catálogo vacío: por dónde empezar', () => {
       return json(route, []);
     });
 
-    await abrirRecompensas(page);
+    await abrirCatalogo(page);
 
     // 12 clases × 20 = 240. Con una regla de 10 serían 120: el número NO es fijo.
     await expect(page.getByText('Clase invitada')).toBeVisible({ timeout: 30_000 });
@@ -108,7 +115,7 @@ test.describe('Catálogo vacío: por dónde empezar', () => {
     }]));
     await page.route('**/rest/v1/reward_catalog**', route => json(route, []));
 
-    await abrirRecompensas(page);
+    await abrirCatalogo(page);
     await expect(page.getByText(/Aún no hay recompensas/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: 'Añadir' })).toHaveCount(0);
   });

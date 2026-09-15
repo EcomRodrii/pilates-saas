@@ -81,11 +81,11 @@ async function base(page: Page) {
   await seedSesionDeDuena(page);
 }
 
-/** Abre Configuración › Logros y motivación › Canjes. */
+/** Abre Configuración › Motivación › Recompensas, logros y retos, donde están los canjes. */
 async function abrirCanjes(page: Page) {
-  await page.goto('/configuracion?tab=gamificacion');
-  // Desde el 15-sep todo Motivación es una sola pantalla, sin sub-pestañas.
-  await expect(page.getByRole('heading', { level: 2, name: 'Motivación' })).toBeVisible({ timeout: 30_000 });
+  await page.goto('/configuracion?tab=motivacion&abrir=recompensas-y-logros');
+  // Desde el 15-sep (v2) los catálogos y los canjes tienen su propia pantalla.
+  await expect(page.getByRole('heading', { level: 2, name: 'Recompensas, logros y retos' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Pendientes de entregar' })).toBeVisible({ timeout: 30_000 });
 }
 

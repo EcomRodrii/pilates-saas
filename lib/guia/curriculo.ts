@@ -159,7 +159,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Lo que leen tus alumnas',
-        texto: 'En Configuración → Mi estudio escribes tu nombre, tu teléfono y tu dirección, y en Mi app y mi web tu logo y los textos que aparecen en su app: cómo te presentas, tu lema, la frase de bienvenida y las normas del centro. No son adornos: son lo primero que lee alguien que todavía no te conoce.',
+        texto: 'En Configuración → Mi estudio escribes tu nombre, tu teléfono y tu dirección, y en Marca tu logo y los textos que aparecen en su app: cómo te presentas, tu lema, la frase de bienvenida y las normas del centro. No son adornos: son lo primero que lee alguien que todavía no te conoce.',
       },
       {
         titulo: 'Tu horario de apertura',
@@ -179,7 +179,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Configurar mis salas', href: '/configuracion?tab=estudio#salas' },
+      { label: 'Configurar mis salas', href: '/configuracion?tab=estudio&abrir=salas' },
       { label: 'Datos y textos de mi estudio', href: '/configuracion?tab=estudio' },
       { label: 'Mi horario de apertura', href: '/configuracion?tab=estudio#horario-y-cierres' },
     ],
@@ -274,7 +274,7 @@ export const CAPITULOS: CapituloGuia[] = [
         texto: 'Si tienes una clase a la que no debe apuntarse cualquiera —avanzado, pre y posparto—, puedes marcar que requiere autorización: entonces solo reservan las alumnas a las que se la hayas dado una a una.',
       },
     ],
-    acciones: [{ label: 'Crear un tipo de clase', href: '/configuracion?tab=clases' }],
+    acciones: [{ label: 'Crear un tipo de clase', href: '/configuracion?tab=clases&abrir=tipos-de-clase' }],
     consejo: 'Empieza con dos o tres tipos como mucho. Siempre puedes añadir más; lo difícil es reordenar un catálogo de doce cuando ya tienes alumnas reservando.',
     pasos: ['clase'],
   },
@@ -358,7 +358,7 @@ export const CAPITULOS: CapituloGuia[] = [
     ],
     acciones: [
       { label: 'Ver mi página de reservas', href: '/configuracion?tab=web#direccion-y-enlaces' },
-      { label: 'Meter el calendario en mi web', href: '/configuracion?tab=web#widgets' },
+      { label: 'Meter el calendario en mi web', href: '/configuracion?tab=web&abrir=widgets' },
     ],
     consejo: 'Antes de compartirlo, ábrelo tú desde el móvil y reserva una clase como si fueras una alumna. Es la mejor forma de ver lo que ve ella.',
     pasos: ['reservas', 'primera-reserva'],
@@ -580,7 +580,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Personalizar mi tablón', href: '/configuracion?tab=web#contenido-de-tu-app' },
+      { label: 'Personalizar mi tablón', href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
       { label: 'Mi logo y mi color', href: '/configuracion?tab=marca' },
       { label: 'El enlace de la app de mis alumnas', href: '/configuracion?tab=web#direccion-y-enlaces' },
     ],
@@ -711,7 +711,7 @@ export const CAPITULOS: CapituloGuia[] = [
     ],
     acciones: [
       { label: 'Activar mis automatizaciones', href: '/automatizaciones' },
-      { label: 'Mis correos', href: '/configuracion?tab=comunicacion#correos-automaticos' },
+      { label: 'Mis correos', href: '/configuracion?tab=comunicacion&abrir=correos-automaticos' },
       { label: 'Conectar WhatsApp', href: '/configuracion?tab=comunicacion#integracion-whatsapp' },
     ],
     consejo: 'Empieza por recuperar a quien no viene y vive con ello dos semanas. Encender cinco cosas a la vez hace imposible saber cuál funcionó.',

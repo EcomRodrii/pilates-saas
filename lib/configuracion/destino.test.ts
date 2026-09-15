@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import {
-  ANCLAS, RUTAS_ANTIGUAS, esAnclaConocida, hrefDeSeccion, reconoceSub, reconoceTab, resolverDestino, resolverHref,
-  seccionesVisibles,
+  ANCLAS, RUTAS_ANTIGUAS, esAnclaConocida, hrefDeHerramienta, hrefDeSeccion, hrefDeTarjeta, lugarDeTarjeta, reconoceSub,
+  reconoceTab, resolverDestino, resolverHref, seccionesVisibles,
 } from './destino.ts';
-import { SECCIONES, seccionDeTarjeta, type SeccionId, type TarjetaId } from './secciones.ts';
+import {
+  HERRAMIENTAS, SECCIONES, esHerramientaId, herramientaDeTarjeta, seccionDeTarjeta, type SeccionId, type TarjetaId,
+} from './secciones.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los enlaces a Configuración aterrizan donde dicen.
@@ -27,9 +29,10 @@ const RAIZ = join(import.meta.dirname, '..', '..');
 test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
   const casos: [string, ReturnType<typeof resolverHref>][] = [
     // Los que aterrizaban mal (auditoría del 15-sep).
-    ['/configuracion?tab=gamificacion&sub=canjes', { tab: 'motivacion', ancla: 'canjes' }],
-    ['/configuracion?tab=clases-salas&sub=salas', { tab: 'estudio', ancla: 'salas' }],
-    ['/configuracion?tab=estudio&sub=salas', { tab: 'estudio', ancla: 'salas' }],
+    // (Desde el 15-sep, v2, canjes y salas viven en la pantalla de su herramienta.)
+    ['/configuracion?tab=gamificacion&sub=canjes', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' }],
+    ['/configuracion?tab=clases-salas&sub=salas', { tab: 'estudio', abrir: 'salas' }],
+    ['/configuracion?tab=estudio&sub=salas', { tab: 'estudio', abrir: 'salas' }],
     ['/configuracion?tab=estudio&sub=general#datos-fiscales', { tab: 'cobros', ancla: 'datos-fiscales' }],
     // Las vueltas de una conexión, sin `tab=` o con uno viejo: a la sección que
     // pinta HOY su tarjeta, que es la única que enseña el aviso.
@@ -87,20 +90,20 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=gamificacion', { tab: 'motivacion' }],
     ['/configuracion?tab=integraciones', { tab: 'conexiones' }],
     ['/configuracion?tab=estudio', { tab: 'estudio' }],
-    ['/configuracion?tab=descubre', { tab: 'web', ancla: 'contenido-de-tu-app' }],
-    ['/configuracion?tab=api', { tab: 'web', ancla: 'widgets' }],
+    ['/configuracion?tab=descubre', { tab: 'web', abrir: 'contenido-de-tu-app' }],
+    ['/configuracion?tab=api', { tab: 'web', abrir: 'widgets' }],
     ['/configuracion?tab=campos', { tab: 'altas', ancla: 'datos-extra-de-la-ficha' }],
     ['/configuracion?tab=cuestionario-salud', { tab: 'altas', ancla: 'cuestionario-de-salud' }],
-    ['/configuracion?tab=plantillas', { tab: 'comunicacion', ancla: 'correos-automaticos' }],
+    ['/configuracion?tab=plantillas', { tab: 'comunicacion', abrir: 'correos-automaticos' }],
     ['/configuracion?tab=backups', { tab: 'datos', ancla: 'exportar' }],
     // Sus sub-pestañas.
-    ['/configuracion?tab=clases-salas&sub=clases', { tab: 'clases', ancla: 'tipos-de-clase' }],
+    ['/configuracion?tab=clases-salas&sub=clases', { tab: 'clases', abrir: 'tipos-de-clase' }],
     ['/configuracion?tab=citas&sub=servicios', { tab: 'clases', ancla: 'servicios-de-cita' }],
     ['/configuracion?tab=citas&sub=horario', { tab: 'clases', ancla: 'horario-de-citas' }],
-    ['/configuracion?tab=gamificacion&sub=recompensas', { tab: 'motivacion', ancla: 'recompensas' }],
-    ['/configuracion?tab=gamificacion&sub=logros', { tab: 'motivacion', ancla: 'logros' }],
-    ['/configuracion?tab=gamificacion&sub=niveles', { tab: 'motivacion', ancla: 'niveles' }],
-    ['/configuracion?tab=gamificacion&sub=retos', { tab: 'motivacion', ancla: 'retos' }],
+    ['/configuracion?tab=gamificacion&sub=recompensas', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'recompensas' }],
+    ['/configuracion?tab=gamificacion&sub=logros', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'logros' }],
+    ['/configuracion?tab=gamificacion&sub=niveles', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'niveles' }],
+    ['/configuracion?tab=gamificacion&sub=retos', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'retos' }],
     ['/configuracion?tab=estudio&sub=general', { tab: 'estudio' }],
     ['/configuracion?tab=estudio&sub=sedes', { tab: 'estudio', ancla: 'sedes' }],
     ['/configuracion?tab=estudio&sub=horario', { tab: 'estudio', ancla: 'horario-y-cierres' }],
@@ -108,21 +111,39 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=estudio&sub=cobros', { tab: 'cobros' }],
     ['/configuracion?tab=estudio&sub=enlaces', { tab: 'web', ancla: 'direccion-y-enlaces' }],
     ['/configuracion?tab=estudio&sub=legal', { tab: 'altas', ancla: 'contrato-y-privacidad' }],
-    ['/configuracion?tab=api&sub=widgets', { tab: 'web', ancla: 'widgets' }],
-    ['/configuracion?tab=api&sub=crecimiento', { tab: 'web', ancla: 'widgets' }],
+    ['/configuracion?tab=api&sub=widgets', { tab: 'web', abrir: 'widgets' }],
+    ['/configuracion?tab=api&sub=crecimiento', { tab: 'web', abrir: 'widgets' }],
     // Los alias que ya existían.
-    ['/configuracion?tab=recompensas', { tab: 'motivacion', ancla: 'recompensas' }],
-    ['/configuracion?tab=canjes', { tab: 'motivacion', ancla: 'canjes' }],
-    ['/configuracion?tab=logros', { tab: 'motivacion', ancla: 'logros' }],
-    ['/configuracion?tab=niveles', { tab: 'motivacion', ancla: 'niveles' }],
-    ['/configuracion?tab=retos', { tab: 'motivacion', ancla: 'retos' }],
+    ['/configuracion?tab=recompensas', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'recompensas' }],
+    ['/configuracion?tab=canjes', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' }],
+    ['/configuracion?tab=logros', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'logros' }],
+    ['/configuracion?tab=niveles', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'niveles' }],
+    ['/configuracion?tab=retos', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'retos' }],
     ['/configuracion?tab=clases', { tab: 'clases' }],
-    ['/configuracion?tab=salas', { tab: 'estudio', ancla: 'salas' }],
+    ['/configuracion?tab=salas', { tab: 'estudio', abrir: 'salas' }],
     ['/configuracion?tab=servicios-cita', { tab: 'clases', ancla: 'servicios-de-cita' }],
     ['/configuracion?tab=horario-citas', { tab: 'clases', ancla: 'horario-de-citas' }],
-    ['/configuracion?tab=crecimiento-web', { tab: 'web', ancla: 'widgets' }],
+    ['/configuracion?tab=crecimiento-web', { tab: 'web', abrir: 'widgets' }],
     ['/configuracion?tab=campos-de-cliente', { tab: 'altas', ancla: 'datos-extra-de-la-ficha' }],
-    ['/configuracion?tab=emails', { tab: 'comunicacion', ancla: 'correos-automaticos' }],
+    ['/configuracion?tab=emails', { tab: 'comunicacion', abrir: 'correos-automaticos' }],
+    // Las herramientas con pantalla propia (15-sep, v2): `abrir=` y las anclas de
+    // las tarjetas que se fueron a ellas.
+    ['/configuracion?tab=web&abrir=widgets', { tab: 'web', abrir: 'widgets' }],
+    ['/configuracion?abrir=salas', { tab: 'estudio', abrir: 'salas' }],
+    ['/configuracion?tab=clases&abrir=salas', { tab: 'estudio', abrir: 'salas' }],
+    ['/configuracion?tab=web&abrir=inventada', { tab: 'web' }],
+    ['/configuracion?tab=web#widgets', { tab: 'web', abrir: 'widgets' }],
+    ['/configuracion?tab=estudio#salas', { tab: 'estudio', abrir: 'salas' }],
+    ['/configuracion?tab=clases#tipos-de-clase', { tab: 'clases', abrir: 'tipos-de-clase' }],
+    ['/configuracion?tab=comunicacion#correos-automaticos', { tab: 'comunicacion', abrir: 'correos-automaticos' }],
+    ['/configuracion?tab=web#contenido-de-tu-app', { tab: 'web', abrir: 'contenido-de-tu-app' }],
+    ['/configuracion#canjes', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' }],
+    ['/configuracion?tab=motivacion&abrir=recompensas-y-logros#retos', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'retos' }],
+    ['/configuracion?tab=web&abrir=widgets#no-es-una-tarjeta', { tab: 'web', abrir: 'widgets', ancla: 'no-es-una-tarjeta' }],
+    // Un ancla de la sección cierra la herramienta: se ve la tarjeta que se pide.
+    ['/configuracion?tab=web&abrir=widgets#network', { tab: 'web', ancla: 'network' }],
+    // Las reglas de los créditos se quedan en la sección.
+    ['/configuracion?tab=motivacion#reglas', { tab: 'motivacion', ancla: 'reglas' }],
     ['/configuracion?tab=copias-de-seguridad', { tab: 'datos', ancla: 'exportar' }],
     ['/configuracion?tab=salud', { tab: 'altas', ancla: 'cuestionario-de-salud' }],
     ['/configuracion?tab=cuestionario', { tab: 'altas', ancla: 'cuestionario-de-salud' }],
@@ -184,7 +205,9 @@ test('las doce pestañas de antes y todas sus sub-pestañas tienen sitio hoy', (
 
 test('los parámetros de conexión mandan sobre un tab= distinto, y el ancla conocida también', () => {
   assert.deepEqual(resolverDestino({ tab: 'estudio', params: { stripe_connected: '1' } }), { tab: 'cobros', ancla: 'integracion-stripe' });
-  assert.deepEqual(resolverDestino({ tab: 'clases', hash: '#canjes' }), { tab: 'motivacion', ancla: 'canjes' });
+  assert.deepEqual(resolverDestino({ tab: 'clases', hash: '#canjes' }), { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' });
+  // Una herramienta abre su sección, con cualquier otro `tab=`.
+  assert.deepEqual(resolverDestino({ tab: 'cobros', params: { abrir: 'widgets' } }), { tab: 'web', abrir: 'widgets' });
   assert.deepEqual(resolverDestino({ tab: 'cobros', hash: 'otra-cosa' }), { tab: 'cobros', ancla: 'otra-cosa' });
 });
 
@@ -207,8 +230,16 @@ test('la URL que escribe la página vuelve a abrir lo mismo', () => {
   for (const s of SECCIONES) {
     assert.deepEqual(resolverHref(hrefDeSeccion(s.id)), { tab: s.id });
     for (const t of s.tarjetas) {
-      assert.deepEqual(resolverHref(hrefDeSeccion(s.id, t.id)), { tab: s.id, ancla: t.id });
+      assert.deepEqual(resolverHref(hrefDeTarjeta(t.id)), lugarDeTarjeta(t.id));
+      // Una tarjeta de una herramienta abre la herramienta, no su sección.
+      const h = herramientaDeTarjeta(t.id);
+      assert.equal(lugarDeTarjeta(t.id).abrir, h ?? undefined, t.id);
+      if (!h) assert.deepEqual(resolverHref(hrefDeSeccion(s.id, t.id)), { tab: s.id, ancla: t.id });
     }
+  }
+  for (const h of HERRAMIENTAS) {
+    assert.deepEqual(resolverHref(hrefDeHerramienta(h.id)), { tab: h.seccion, abrir: h.id });
+    assert.equal(hrefDeHerramienta(h.id), `/configuracion?tab=${h.seccion}&abrir=${h.id}`);
   }
 });
 
@@ -244,6 +275,14 @@ test('cada sección tiene su componente y el shell lo carga', () => {
     const fichero = `components/configuracion/secciones/seccion-${s.id}.tsx`;
     assert.ok(existsSync(join(RAIZ, fichero)), `falta ${fichero}`);
     assert.match(shell, new RegExp(`secciones/seccion-${s.id}'`), `el shell no carga «${s.id}»`);
+  }
+  // Y cada herramienta, su pantalla; y en su sección, su fila.
+  for (const h of HERRAMIENTAS) {
+    const fichero = `components/configuracion/herramientas/herramienta-${h.id}.tsx`;
+    assert.ok(existsSync(join(RAIZ, fichero)), `falta ${fichero}`);
+    assert.match(shell, new RegExp(`herramientas/herramienta-${h.id}'`), `el shell no carga «${h.id}»`);
+    const seccion = readFileSync(join(RAIZ, `components/configuracion/secciones/seccion-${h.seccion}.tsx`), 'utf8');
+    assert.match(seccion, new RegExp(`id: '${h.id}'`), `«${h.seccion}» no pinta la fila de «${h.id}»`);
   }
 });
 
@@ -322,9 +361,12 @@ test('⚠️ todo `/configuracion?…` del repo llega a una sección y a una tar
         }
         const tab = url.searchParams.get('tab');
         const sub = url.searchParams.get('sub');
+        const abrir = url.searchParams.get('abrir');
         if (tab !== null && !reconoceTab(tab)) rotos.push(`${donde} → «${tab}» no es ninguna sección`);
         if (tab !== null && sub && !reconoceSub(tab, sub)) rotos.push(`${donde} → la sub-pestaña «${sub}» se pierde`);
-        if (url.hash && !destino.ancla) rotos.push(`${donde} → el ancla se pierde`);
+        if (abrir !== null && !esHerramientaId(abrir)) rotos.push(`${donde} → «${abrir}» no es ninguna herramienta`);
+        // Un ancla que ES una herramienta (`#widgets`) abre su pantalla: no se pierde.
+        if (url.hash && !destino.ancla && !destino.abrir) rotos.push(`${donde} → el ancla se pierde`);
         if (destino.ancla && url.hash && !esAnclaConocida(destino.ancla) && !/^ajuste-/.test(destino.ancla)) {
           rotos.push(`${donde} → «#${destino.ancla}» no es ninguna tarjeta`);
         }
