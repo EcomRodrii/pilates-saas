@@ -2014,6 +2014,10 @@ export default function Calendario() {
   // `useAltoHastaElFondo`): con `calc(100vh - 72px)` la página se desplazaba y
   // la rejilla salía cortada abajo en cuanto había algo más encima.
   const refLienzo = useAltoHastaElFondo<HTMLDivElement>(useCoincideMedio('(min-width: 1024px)'));
+  // Letra grande en la semana solo donde sobra alto (el contrario de
+  // `escritorio-bajo`): en un monitor de 1080 las clases iban a 9–10,5 px y se
+  // perdían en la rejilla; en un portátil bajo cada hora a la vista cuenta más.
+  const letraGrande = useCoincideMedio('(min-width: 1024px) and (min-height: 901px)');
   const agendaSemana = useMemo<DiaDeAgenda[]>(() => {
     if (!datosVista) return [];
     return agendaDeSemana(columnasSemana, datosVista.salas.map(s => s.id)).flatMap(d => {
@@ -2971,7 +2975,10 @@ export default function Calendario() {
             // típica de pilates dura 50-55 min, así que eran casi todas. A 72, una de
             // 50 min mide 58 px. Las más cortas las resuelve `BloqueClase`
             // quitando líneas en vez de recortarlas.
-            pxPorHora={72}
+            // Con letra grande, 84: la tarjeta de tres líneas pide 64 px y una
+            // clase de 50 min tiene que seguir enseñándolas.
+            pxPorHora={letraGrande ? 84 : 72}
+            letra={letraGrande ? 'grande' : 'normal'}
             seleccionadaId={sesionId}
             marcadas={marcadas}
             onSeleccionar={id => { if (modoSeleccion) { alternarMarcada(id); return; } setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}

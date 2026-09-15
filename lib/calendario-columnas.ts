@@ -156,6 +156,8 @@ export function prepararColumnasDiaSemana(
 
 /** Por debajo de esto un carril no cabe «09:00 · Reformer» sin cortarse. */
 export const ANCHO_MIN_CARRIL_PX = 64;
+/** Lo mismo con la letra grande de las pantallas altas (`BloqueClase letra="grande"`). */
+export const ANCHO_MIN_CARRIL_GRANDE_PX = 76;
 
 /** Tope del peso de un día: sin él, un día con seis salas a la vez dejaría a
  *  los otros seis en su mínimo y la semana dejaría de leerse como semana. */
@@ -175,12 +177,13 @@ export const PESO_MAX_DIA = 4;
 export function plantillaColumnasSemana(
   columnas: Pick<ColumnaDia, 'sesiones'>[],
   anchoMinColumnaPx: number,
+  anchoMinCarrilPx: number = ANCHO_MIN_CARRIL_PX,
 ): { plantilla: string; anchoMin: number } {
   if (columnas.length === 0) return { plantilla: `minmax(${anchoMinColumnaPx}px, 1fr)`, anchoMin: anchoMinColumnaPx };
   let anchoMin = 0;
   const pistas = columnas.map((c) => {
     const carriles = Math.min(PESO_MAX_DIA, Math.max(1, ...c.sesiones.map((s) => s.totalCarriles)));
-    const min = Math.max(anchoMinColumnaPx, carriles * ANCHO_MIN_CARRIL_PX);
+    const min = Math.max(anchoMinColumnaPx, carriles * anchoMinCarrilPx);
     anchoMin += min;
     return `minmax(${min}px, ${carriles}fr)`;
   });

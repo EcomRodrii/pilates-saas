@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { plantillaColumnasSemana, ANCHO_MIN_CARRIL_PX, PESO_MAX_DIA } from './calendario-columnas.ts';
+import { plantillaColumnasSemana, ANCHO_MIN_CARRIL_PX, ANCHO_MIN_CARRIL_GRANDE_PX, PESO_MAX_DIA } from './calendario-columnas.ts';
 
 // Un día con `n` carriles. Solo importa `totalCarriles`: el resto de la sesión
 // no interviene en el reparto.
@@ -41,4 +41,11 @@ test('el ancho mínimo total es la suma de los mínimos, para el scroll horizont
 
 test('sin columnas devuelve una pista válida, no una plantilla vacía', () => {
   assert.equal(plantillaColumnasSemana([], MIN).plantilla, `minmax(${MIN}px, 1fr)`);
+});
+
+test('con letra grande el carril mínimo es el que se le pase', () => {
+  const r = plantillaColumnasSemana([dia(3, 3, 3), dia(1)], MIN, ANCHO_MIN_CARRIL_GRANDE_PX);
+  assert.equal(r.plantilla, `minmax(${3 * ANCHO_MIN_CARRIL_GRANDE_PX}px, 3fr) minmax(${MIN}px, 1fr)`);
+  assert.equal(r.anchoMin, 3 * ANCHO_MIN_CARRIL_GRANDE_PX + MIN);
+  assert.ok(ANCHO_MIN_CARRIL_GRANDE_PX > ANCHO_MIN_CARRIL_PX);
 });
