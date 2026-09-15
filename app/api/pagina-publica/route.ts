@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
-import { CLAVE_MAX, hashearClave } from '@/lib/publico/acceso-pagina';
+import {
+  CLAVE_MAX, hashearClave, estadoPaginaDesdeLectura, puedeCambiarVisibilidadPagina,
+} from '@/lib/publico/acceso-pagina';
 
 // Visibilidad de la página pública del estudio (/reservar/{slug}).
 //
@@ -14,25 +16,31 @@ import { CLAVE_MAX, hashearClave } from '@/lib/publico/acceso-pagina';
 // Autorización en la ruta y no en la RLS porque se escribe con service-role
 // (`auth.uid()` es NULL ahí, y cualquier guardia basada en él quedaría
 // bypaseada en silencio) — mismo criterio ya documentado para
-// `resolver_reserva_pendiente` y `crearReservaPublica`.
+// `resolver_reserva_pendiente` y `crearReservaPublica`. Por eso el rol se
+// comprueba aquí con el MISMO listón que la RLS de `studios`: solo la
+// propietaria (ver `puedeCambiarVisibilidadPagina`).
 
 /** GET → qué hay configurado ahora. Nunca devuelve el hash, solo si existe. */
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (!puedeCambiarVisibilidadPagina(sesion.rol))
+    return NextResponse.json({ error: 'Solo la propietaria del estudio puede ver y cambiar la visibilidad de la página.' }, { status: 403 });
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'No disponible' }, { status: 503 });
-  const { data } = await admin
-    .from('studios')
-    .select('pagina_publica_oculta, pagina_publica_clave_hash')
-    .eq('id', sesion.studioId)
-    .maybeSingle();
-
-  return NextResponse.json({
-    oculta: data?.pagina_publica_oculta === true,
-    tieneClave: typeof data?.pagina_publica_clave_hash === 'string' && data.pagina_publica_clave_hash.length > 0,
-  });
+  try {
+    const { data, error } = await admin
+      .from('studios')
+      .select('pagina_publica_oculta, pagina_publica_clave_hash')
+      .eq('id', sesion.studioId)
+      .maybeSingle();
+    const r = estadoPaginaDesdeLectura({ data, error });
+    return NextResponse.json(r.body, { status: r.status });
+  } catch (e) {
+    return errorInterno('pagina-publica:leer', e,
+      'No se ha podido leer la visibilidad de tu página. Vuelve a intentarlo.', 503);
+  }
 }
 
 /**
@@ -43,14 +51,15 @@ export async function GET(req: NextRequest) {
  *   · ausente  → no se toca la clave que hubiera
  *   · `''`     → se QUITA la clave (oculta sin forma de entrar)
  *   · texto    → se fija esa clave
+ *
+ * Cambiarla o quitarla deja sin efecto los pases de quien ya había entrado:
+ * llevan la huella de la clave anterior (ver `verificarAcceso`).
  */
 export async function PUT(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  // Mismo listón que editar la marca: es una decisión sobre la cara pública
-  // del negocio, no algo de mostrador.
-  if (sesion.rol !== 'PROPIETARIO' && sesion.rol !== 'MANAGER')
-    return NextResponse.json({ error: 'Solo la propietaria o la gerencia pueden cambiar la visibilidad de la página' }, { status: 403 });
+  if (!puedeCambiarVisibilidadPagina(sesion.rol))
+    return NextResponse.json({ error: 'Solo la propietaria del estudio puede cambiar la visibilidad de la página.' }, { status: 403 });
 
   const body = await req.json().catch(() => null) as { oculta?: unknown; clave?: unknown } | null;
   if (!body || typeof body.oculta !== 'boolean')

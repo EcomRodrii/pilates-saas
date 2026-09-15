@@ -110,7 +110,7 @@ export default async function ReservarSlugLayout({ children, params }: { childre
     const galleta = await cookies();
     const veredicto = veredictoPagina({
       oculta: true,
-      tieneClave: visitante.paginaTieneClave,
+      huellaClave: visitante.paginaHuellaClave,
       pase: galleta.get(nombreCookieAcceso(visitante.id))?.value,
       studioId: visitante.id,
     });
