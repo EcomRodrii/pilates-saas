@@ -9,7 +9,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 
 // Plaza fija desde la app de la alumna: PIDE y el estudio decide
-// (`solicitudes_plaza_fija`, migr 20260916120000). Antes creaba, pausaba,
+// (`solicitudes_plaza_fija`, migr 20260915231920). Antes creaba, pausaba,
 // reanudaba y quitaba su plaza ella sola. Decisión del fundador (16-sep-2026):
 // hasta que el estudio aprueba no cambia la plaza real, y cada puerta la abre su
 // ajuste del estudio (apagado, 403). Quitar o reanudar se habla con el estudio.
@@ -32,6 +32,14 @@ export async function POST(req: NextRequest) {
 
   if (!body?.studioId) {
     return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
+  }
+
+  // Cada petición nueva avisa al mostrador, y el dedupe va por petición: anular y
+  // volver a pedir manda otro push. Por eso PEDIR lleva un límite más corto que el
+  // resto de la ruta — nadie pide una plaza fija cinco veces en diez minutos.
+  if (body.accion === 'solicitar_plaza' || body.accion === 'solicitar_pausa') {
+    const limitePeticiones = await enforceRateLimit(req, 'public-plaza-fija-pedir', { max: 5, windowSeconds: 600 });
+    if (limitePeticiones) return limitePeticiones;
   }
 
   const user = await verificarUsuarioSupabase(req);

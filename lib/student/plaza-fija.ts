@@ -24,7 +24,7 @@ export interface PlazaFijaMin {
 
 export interface RecuperacionMin { id?: string; caducaEl: string; estado: 'DISPONIBLE' | 'USADA' | 'CADUCADA' | 'ANULADA' }
 
-/** Una petición suya sin contestar (migr 20260916120000): CREAR con su franja, PAUSAR con su plaza y fechas. */
+/** Una petición suya sin contestar (migr 20260915231920): CREAR con su franja, PAUSAR con su plaza y fechas. */
 export interface PeticionPlazaFijaMin {
   id: string;
   tipo: 'CREAR' | 'PAUSAR';

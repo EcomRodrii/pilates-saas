@@ -58,7 +58,7 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
     await expect(tarjeta.getByText('Activa')).toBeVisible();
   });
 
-  // Plaza fija desde su app (migr 20260916120000): PIDE, no cambia. El ajuste del
+  // Plaza fija desde su app (migr 20260915231920): PIDE, no cambia. El ajuste del
   // estudio lo resuelve el servidor (`lib/studio-seo.ts`), encendido en e2e con
   // `E2E_PLAZA_FIJA_APP` (playwright.config.ts).
   test('Bonos: pide una pausa de su plaza fija y queda a la espera del estudio', async ({ page }) => {

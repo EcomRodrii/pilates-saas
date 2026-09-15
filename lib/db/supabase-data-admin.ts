@@ -391,7 +391,7 @@ function studioPublico(r: RowStudios) {
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? true,
-    // Plaza fija desde la app (migr 20260916120000): la app solo enseña «pedir
+    // Plaza fija desde la app (migr 20260915231920): la app solo enseña «pedir
     // plaza fija» o «pedir una pausa» si el estudio lo permite. La puerta de
     // verdad es `/api/public/plaza-fija`, que con el ajuste apagado da 403.
     plazaFijaSolicitarDesdeApp: r.plaza_fija_solicitar_desde_app ?? false,
@@ -4155,7 +4155,7 @@ async function repasarPausasConSitioLibre(admin: SupabaseClient): Promise<void> 
 
 
 // ─── Plaza fija desde la app: peticiones que decide el estudio ────────────────
-// (migr 20260916120000). La alumna PIDE —una plaza o una pausa— y nada cambia
+// (migr 20260915231920). La alumna PIDE —una plaza o una pausa— y nada cambia
 // hasta que el estudio aprueba; cada puerta la abre su ajuste del estudio y, con
 // el ajuste apagado, 403. Pasar del límite semanal no bloquea la petición: se
 // enseña y decide el estudio. La vuelta de una pausa que no pudo volver sola llega
@@ -4364,6 +4364,19 @@ export async function resolverPeticionPlazaFija(
     if (errCerrar) throw new Error(errCerrar.message);
     return !!data;
   };
+  // Si la escritura que venía DESPUÉS de reclamarla falla, la petición vuelve a la
+  // bandeja: mejor pendiente otra vez que resuelta sin haber hecho nada.
+  const reabrir = async (desde: 'APROBADA' | 'RECHAZADA') => {
+    await admin.from('solicitudes_plaza_fija')
+      .update({ estado: 'PENDIENTE', resuelta_en: null, resuelta_por: null, motivo_rechazo: null })
+      .eq('id', sol.id).eq('studio_id', p.studioId).eq('estado', desde);
+  };
+  /** Lo que solo se sabe DESPUÉS de escribir (qué plaza salió, qué fechas). */
+  const anotar = async (extra: Record<string, unknown>) => {
+    const { error: errAnotar } = await admin.from('solicitudes_plaza_fija')
+      .update(extra).eq('id', sol.id).eq('studio_id', p.studioId);
+    if (errAnotar) capturarExcepcion(new Error(errAnotar.message), { tags: { area: 'plazas-fijas' }, extra: { solicitudId: sol.id } });
+  };
   const responder = async (respuesta: string) => {
     const { emitirRespuestaPlazaFija } = await import('@/lib/notifications/emit');
     await emitirRespuestaPlazaFija(admin, { studioId: p.studioId, solicitudId: sol.id, socioId: sol.socio_id, respuesta });
@@ -4401,6 +4414,13 @@ export async function resolverPeticionPlazaFija(
     if (!franjaActual || franjaActual.dow !== sol.dia_semana || horaActual !== normalizarHoraInicio(sol.hora_inicio ?? '')) {
       return { error: 'La clase que pidió ya no está en ese horario: dale la plaza desde su ficha o recházala.', status: 409 };
     }
+    // Se reclama ANTES de crear la plaza. Al revés —crear y luego reclamar— dos
+    // personas aprobando lo mismo a la vez (recepción en el iPad y la propietaria
+    // en el móvil, o un doble toque) crean DOS plazas en la misma franja: la
+    // comprobación de duplicada es un lee-y-escribe y la base no tiene índice
+    // único que lo impida. Con la socia reservada dos veces cada semana y nada en
+    // pantalla que lo diga.
+    if (!await cerrar('APROBADA')) return yaResuelta;
     const r = await guardarPlazaFijaStaff(admin, {
       studioId: p.studioId,
       datos: {
@@ -4409,11 +4429,12 @@ export async function resolverPeticionPlazaFija(
       },
     });
     if (!r.ok) {
+      await reabrir('APROBADA');
       return 'codigo' in r && r.codigo === 'SUPERA_LIMITE'
         ? { error: r.error, status: 409, codigo: 'SUPERA_LIMITE' }
         : { error: r.error, status: 400 };
     }
-    await cerrar('APROBADA', { resultado_plaza_id: r.plaza.id });
+    await anotar({ resultado_plaza_id: r.plaza.id });
     await responder(`Tu estudio te ha dado la plaza fija de ${franja}.${r.primeraFecha ? ' Ya tienes reservada la próxima clase.' : ''}`);
     return { ok: true, mensaje: 'Plaza fija dada' };
   }
@@ -4425,22 +4446,32 @@ export async function resolverPeticionPlazaFija(
       return { ok: true, mensaje: 'Petición rechazada' };
     }
     const pausa = { desde: sol.desde_propuesta as string, hasta: sol.hasta_propuesta as string };
+    // Reclamar primero, igual que al dar la plaza: pausar dos veces lo mismo sería
+    // inofensivo, pero así las tres aprobaciones se leen igual.
+    if (!await cerrar('APROBADA')) return yaResuelta;
     const r = await pausarPlazaFijaStaff(admin, { studioId: p.studioId, plazaId: sol.plaza_id as string, pausa });
-    if ('error' in r) return { error: r.error, status: 400 };
-    await cerrar('APROBADA', { desde_aprobada: pausa.desde, hasta_aprobada: pausa.hasta, resultado_plaza_id: r.plaza.id });
+    if ('error' in r) {
+      await reabrir('APROBADA');
+      return { error: r.error, status: 400 };
+    }
+    await anotar({ desde_aprobada: pausa.desde, hasta_aprobada: pausa.hasta, resultado_plaza_id: r.plaza.id });
     await responder(`Tu estudio ha aprobado la pausa de tu plaza fija del ${diaMes(pausa.desde)} al ${diaMes(pausa.hasta)}.`);
     return { ok: true, mensaje: 'Pausa aprobada' };
   }
 
   // REANUDAR
   if (p.aprobar) {
+    if (!await cerrar('APROBADA')) return yaResuelta;
     const v = await volverDePausaPlazaFija(admin, plaza as PlazaFijaServidor, { forzar: true });
-    if ('error' in v) return { error: v.error, status: 400 };
+    if ('error' in v) {
+      await reabrir('APROBADA');
+      return { error: v.error, status: 400 };
+    }
     if (v.accion !== 'VOLVER') {
+      await reabrir('APROBADA');
       return { error: 'Su sitio lo tiene ahora otra clienta: cámbiale el sitio desde su ficha o quítale la plaza.', status: 409 };
     }
-    // `volverDePausaPlazaFija` ya la ha dado por aprobada; queda quién lo decidió.
-    await admin.from('solicitudes_plaza_fija').update({ resuelta_por: p.userId }).eq('id', sol.id);
+    await anotar({ resultado_plaza_id: v.plaza.id });
     await responder(`Tu plaza fija de ${franja} vuelve después de tu pausa.`);
     return { ok: true, mensaje: 'Vuelve a su plaza fija' };
   }

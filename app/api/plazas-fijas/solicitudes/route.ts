@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 // Peticiones de plaza fija que esperan al estudio: las de la app de la alumna
 // (una plaza o una pausa) y las vueltas de una pausa que no pudieron volver solas
-// (`solicitudes_plaza_fija`, migr 20260916120000).
+// (`solicitudes_plaza_fija`, migr 20260915231920).
 //
 // ⚠️ Service-role: la tabla no tiene políticas RLS y todo pasa por aquí. Va
 // acotado al `studio_id` de la sesión y con los dos permisos de

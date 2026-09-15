@@ -1,7 +1,7 @@
 'use client';
 
 // Plaza fija desde la app de la alumna: PEDIR, nunca cambiar. La plaza real no se
-// toca hasta que el estudio aprueba (`/api/public/plaza-fija`, migr 20260916120000).
+// toca hasta que el estudio aprueba (`/api/public/plaza-fija`, migr 20260915231920).
 //
 // Mismo contrato que `confirmarReserva`: nunca lanza (cualquier fallo es un
 // resultado que la pantalla sabe pintar), no manda `socioId` —sale del JWT— y,

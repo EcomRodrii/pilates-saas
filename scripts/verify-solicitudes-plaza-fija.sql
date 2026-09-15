@@ -1,4 +1,4 @@
--- Drill de 20260916120000_solicitudes_plaza_fija.sql, en producción y sin dejar
+-- Drill de 20260915231920_solicitudes_plaza_fija.sql, en producción y sin dejar
 -- rastro: un único DO que termina en `raise exception 'DRILL_RESULT …'`, así que
 -- el error trae las cifras y deshace todo.
 --

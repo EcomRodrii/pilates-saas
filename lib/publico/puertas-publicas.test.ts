@@ -131,6 +131,11 @@ test('cita 1:1: crear pasa por el gate, cancelar no', () => {
 test('plaza fija: pedir una plaza pasa por el gate antes de escribir la petición', () => {
   const f = gateAntesDe('app/api/public/plaza-fija/route.ts', ['solicitarPlazaFijaAlumna(']);
   assert.ok(f.includes("if (body.accion === 'solicitar_plaza')"));
+  // Pedir una PAUSA (o anularla) no lleva gate a propósito: no reserva nada —al
+  // revés, suelta clases— y solo lo alcanza una socia ya autenticada por JWT. La
+  // página oculta cierra la puerta de entrar y reservar, no la de que quien ya
+  // está dentro pida dejar de venir unas semanas.
+  assert.ok(f.includes('solicitar_pausa'), 'si desaparece la acción, este razonamiento sobra');
 });
 
 test('checkout embebido: el gate va antes de la matrícula, de Stripe y de escribir la ficha', () => {

@@ -84,7 +84,7 @@ export interface StudioSeo {
   cancelacionVentanaHoras: number;
   /** Si el estudio admite apuntarse a una clase completa. */
   permiteListaEspera: boolean;
-  /** El estudio deja pedir plaza fija o una pausa desde la app (migr 20260916120000).
+  /** El estudio deja pedir plaza fija o una pausa desde la app (migr 20260915231920).
    *  Solo decide si se enseña el botón: la puerta es `/api/public/plaza-fija`. */
   plazaFijaSolicitarDesdeApp: boolean;
   plazaFijaPausaDesdeApp: boolean;

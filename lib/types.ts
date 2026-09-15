@@ -239,7 +239,7 @@ export interface Studio {
   // Qué pasa con las clases que su plaza fija ya tenía reservadas cuando la
   // alumna se queda sin cuota (migr 20260915215236). 'MANTENER' = como siempre.
   plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
-  /** Autoservicio de plaza fija desde la app (migr 20260916120000): la alumna pide y el estudio decide. */
+  /** Autoservicio de plaza fija desde la app (migr 20260915231920): la alumna pide y el estudio decide. */
   plazaFijaSolicitarDesdeApp: boolean;
   plazaFijaPausaDesdeApp: boolean;
   /** Las pausas NUEVAS dejan su sitio libre para otra clienta; las ya puestas no cambian. */

@@ -494,7 +494,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
           tipo: str(x.tipo), estado: str(x.estado), solicitadaEn: str(x.solicitada_en), plazoHasta: str(x.plazo_hasta), resueltaEn: str(x.resuelta_en), nota: str(x.nota),
         })),
         // Lo que pidió sobre su plaza fija y qué le contestaron, con el motivo que
-        // le escribieron (migr 20260916120000).
+        // le escribieron (migr 20260915231920).
         peticionesPlazaFija: peticionesPlazaFija.map(p => ({
           tipo: str(p.tipo), origen: str(p.origen), estado: str(p.estado),
           diaSemana: num(p.dia_semana), hora: str(p.hora_inicio),

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { plazaFijaEnClase, proyectarPlazasFijas, type PeticionPlazaFijaMin, type PlazaFijaMin } from './plaza-fija.ts';
 
-// Plaza fija desde la app: la alumna PIDE (migr 20260916120000). Aquí solo se
+// Plaza fija desde la app: la alumna PIDE (migr 20260915231920). Aquí solo se
 // decide qué se le enseña; el servidor vuelve a comprobarlo todo.
 
 // 2026-09-17 es jueves (dow 4).

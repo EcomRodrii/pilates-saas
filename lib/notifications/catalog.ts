@@ -116,7 +116,7 @@ export const EVENTOS = {
   // de RESERVA_CANCELADA: ahí existió una reserva y se deshizo; aquí no llegó
   // a crearse ninguna, así que ese evento mentiría.
   RESERVA_PLAZA_FIJA_NO_MATERIALIZADA: 'reserva.plaza_fija_no_materializada',
-  // Plaza fija desde la app (migr 20260916120000): la alumna PIDE y el estudio
+  // Plaza fija desde la app (migr 20260915231920): la alumna PIDE y el estudio
   // decide. La petición avisa al mostrador —también la vuelta de una pausa que no
   // pudo volver sola— y la respuesta, a la alumna.
   PLAZA_FIJA_PETICION: 'plaza_fija.peticion',
