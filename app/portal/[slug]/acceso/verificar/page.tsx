@@ -8,7 +8,7 @@ import { Button } from '@/components/student/ui/Button';
 import { useAuthStudent } from '@/lib/student/auth';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
-import { useSesionInstructora } from '@/lib/student/sesion-instructora';
+import { debeElegirComoEntrar, eligioEntrarComoAlumna, useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { leerFirma, olvidarFirma } from '@/lib/student/consentimiento';
 import { errorDeRetornoOAuth } from '@/lib/student/oauth-retorno';
 import { supabasePortal } from '@/lib/db/supabase-portal';
@@ -121,9 +121,19 @@ function Verificar() {
         // y lo descarta en silencio si no cuadra: el alta nunca depende de que
         // el enlace estuviera bien.
         referidoPor: leerReferidor(slug),
+        // Si el estudio la tiene como instructora, solo llega aquí habiendo
+        // elegido «alumna» en `/acceso/elegir`; sin esto el servidor la para.
+        eligioAlumna: eligioEntrarComoAlumna(slug, session.user.id),
       }),
     });
-    if (!res.ok) return { ok: false as const, motivo: 'servidor' as const };
+    if (!res.ok) {
+      // Las dos negativas que tienen salida propia: es instructora (va a su
+      // parte) o el estudio la tiene como instructora y aún no ha elegido.
+      const cuerpo = await res.json().catch(() => null) as { code?: unknown } | null;
+      if (cuerpo?.code === 'INVITACION_INSTRUCTORA') return { ok: false as const, motivo: 'invitacion-instructora' as const };
+      if (cuerpo?.code === 'ES_INSTRUCTORA') return { ok: false as const, motivo: 'es-instructora' as const };
+      return { ok: false as const, motivo: 'servidor' as const };
+    }
 
     olvidarFirma(slug);
     // Igual que la firma: el trámite terminó. Dejarlo permitiría que un
@@ -143,14 +153,29 @@ function Verificar() {
   // de entrada con la sesión ya guardada.
   useEffect(() => {
     if (isLoading || !autenticado || forzarPassword) return;
-    if (socia) { r.replace(destinoTrasEntrar()); return; }
+    if (socia) {
+      // Ya es alumna, pero el estudio también la ha dado de alta como
+      // instructora: se le pregunta por dónde entra. Una vez por inicio de
+      // sesión; si elige «alumna», no se le vuelve a preguntar.
+      void debeElegirComoEntrar(slug).then((elegir) => {
+        r.replace(elegir ? href('/acceso/elegir') : destinoTrasEntrar());
+      });
+      return;
+    }
     // Sin ficha de alumna: antes de intentar el alta, ¿es instructora del
     // estudio? Entonces no hay alta de alumna que firmar — va a su parte.
     if (cargandoInstructora) return;
     if (instructora) { r.replace(href('/equipo')); return; }
-    // Autenticada pero sin ficha en este estudio: se intenta firmar el alta.
-    void firmarAlta().then((res) => {
+    void (async () => {
+      // ⚠️ El estudio la tiene dada de alta como instructora y aún no ha entrado
+      // como tal: NO se la da de alta como alumna sin preguntar (15-sep-2026:
+      // aparecía como clienta en el panel). Elige ella.
+      if (await debeElegirComoEntrar(slug)) { r.replace(href('/acceso/elegir')); return; }
+      // Autenticada pero sin ficha en este estudio: se intenta firmar el alta.
+      const res = await firmarAlta();
       if (res.ok) { r.replace(destinoTrasEntrar()); return; }
+      if (res.motivo === 'invitacion-instructora') { r.replace(href('/acceso/elegir')); return; }
+      if (res.motivo === 'es-instructora') { r.replace(href('/equipo')); return; }
       // Sesión válida, sin ficha y sin firma: un alta a medias. Antes caía en
       // la pantalla de elegir contraseña, que no dice nada de lo que falta y
       // termina mandándola dentro sin ficha. Se le pide lo único que falta.
@@ -163,7 +188,7 @@ function Verificar() {
       // Google esto es más fácil de alcanzar que antes, porque el abandono
       // ocurre DESPUÉS de que gotrue haya creado la sesión.
       setGlobal('No hemos podido darte de alta en este estudio. Habla con el estudio o inténtalo de nuevo en un rato.');
-    });
+    })();
     // `firmarAlta` se recrea en cada render y meterlo en las dependencias
     // volvería a lanzarlo en bucle; lo que decide es el estado de sesión.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -197,6 +222,8 @@ function Verificar() {
     // `sessionStorage`, que en la pestaña que abre el correo nunca existe.
     // En producción hay 3 personas con identidad de Google y sin ficha.
     if (!alta.ok) {
+      if (alta.motivo === 'invitacion-instructora') { r.replace(href('/acceso/elegir')); return; }
+      if (alta.motivo === 'es-instructora') { r.replace(href('/equipo')); return; }
       if (alta.motivo === 'sin-firma') {
         // Le falta el consentimiento, y eso tiene pantalla: se la damos en vez
         // de dejarla dentro a medias.

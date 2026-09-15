@@ -372,6 +372,11 @@ export default function EquipoPage() {
         showToast('ok' in inv
           ? `${fields.nombre} ya está en tu equipo — invitación enviada a ${fields.email}`
           : `${fields.nombre} ya está en tu equipo, pero la invitación no salió: ${inv.error}`);
+      } else if (fields.email && fields.rol === 'INSTRUCTOR') {
+        // Desde el 15-sep-2026 una instructora con correo no necesita la
+        // invitación: entrando en la app del estudio con ese correo verificado
+        // elige «Como instructora» (`/api/portal/instructora/unirse`).
+        showToast(`${fields.nombre} ya está en tu equipo — puede entrar en la app del estudio con ${fields.email}`);
       } else if (fields.email) {
         showToast(`${fields.nombre} ya está en tu equipo — todavía sin invitar`);
       } else {

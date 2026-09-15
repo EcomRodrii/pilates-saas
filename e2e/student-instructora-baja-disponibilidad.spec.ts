@@ -77,14 +77,13 @@ test.describe('La instructora avisa de una baja y marca su disponibilidad', () =
     const contador = await montar(page);
     await page.goto(`/portal/${SLUG}/equipo/agenda`);
 
-    // Se llega a la ficha tocando la clase en la agenda (dos días vista).
-    const dias = page.getByRole('tab');
+    // Se llega a la ficha tocando la clase en la agenda. Desde #2034 la agenda
+    // enseña los 14 días seguidos, así que la clase ya está en la lista: no hace
+    // falta ir tocando días. Y tocar uno antes lanzaba un desplazamiento suave
+    // hasta ese día, con lo que el toque en la tarjeta caía a mitad de animación y
+    // no llegaba a la ficha (se quedaba en la agenda).
     const clase = page.getByTestId('clase-que-da');
-    await expect(dias.first()).toBeVisible({ timeout: 30_000 });
-    for (let i = 0; i < Math.min(await dias.count(), 14); i++) {
-      await dias.nth(i).click();
-      if (await clase.first().isVisible()) break;
-    }
+    await expect(clase.first()).toBeVisible({ timeout: 30_000 });
     await clase.first().click();
 
     await expect(page.getByRole('heading', { name: 'Reformer Flow', level: 1 })).toBeVisible({ timeout: 30_000 });

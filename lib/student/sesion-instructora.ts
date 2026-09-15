@@ -45,6 +45,98 @@ function recordarNoEs(slug: string, userId: string, noEs: boolean): void {
   }
 }
 
+// ── Instructora o alumna (decisión del fundador, 15-sep-2026) ────────────────
+//
+// La propietaria da de alta a una instructora con su correo. Cuando ella entra
+// en la app con ese correo, elige: entrar como instructora (une su cuenta a la
+// ficha) o como alumna (alta de alumna normal). Antes la app la daba de alta
+// como alumna sin preguntar.
+
+const claveEligioAlumna = (slug: string, userId: string) => `st_eligio_alumna:${slug}:${userId}`;
+
+/**
+ * Ya eligió «alumna» en este dispositivo: no se le vuelve a preguntar. Si más
+ * adelante quiere su parte de instructora, le vale el enlace de invitación.
+ */
+export function eligioEntrarComoAlumna(slug: string, userId: string): boolean {
+  try { return localStorage.getItem(claveEligioAlumna(slug, userId)) != null; } catch { return false; }
+}
+
+export async function recordarEleccionAlumna(slug: string): Promise<void> {
+  const { data: { session } } = await supabasePortal.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) return;
+  try { localStorage.setItem(claveEligioAlumna(slug, userId), String(Date.now())); } catch { /* modo privado */ }
+}
+
+// Un vuelo por (estudio, usuario) durante un minuto: `verificar` y la guardia
+// preguntan casi a la vez al aterrizar.
+const consultasEleccion = new Map<string, { en: number; valor: Promise<boolean> }>();
+
+/**
+ * ¿Hay que preguntarle si entra como instructora o como alumna? Sí cuando el
+ * estudio la tiene dada de alta como instructora con su correo, todavía no ha
+ * entrado como tal y no ha elegido ya «alumna».
+ *
+ * Sin el «no» recordado 12 h de `useSesionInstructora` a propósito: la dejaría
+ * dándose de alta como alumna. Un fallo cuenta como «no», y no pasa nada: el
+ * alta de alumna hace la misma comprobación en el servidor
+ * (`/api/public/socio`, `INVITACION_INSTRUCTORA`).
+ */
+export async function debeElegirComoEntrar(slug: string): Promise<boolean> {
+  const { data: { session } } = await supabasePortal.auth.getSession();
+  const userId = session?.user?.id;
+  if (!session?.access_token || !userId) return false;
+  if (eligioEntrarComoAlumna(slug, userId)) return false;
+
+  const clave = `${slug}:${userId}`;
+  const previa = consultasEleccion.get(clave);
+  if (previa && Date.now() - previa.en < 60_000) return previa.valor;
+
+  const token = session.access_token;
+  const valor = (async () => {
+    try {
+      const res = await fetch('/api/portal/instructora/sesion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ slug }),
+      });
+      if (res.status !== 404) return false;
+      const cuerpo = await res.json().catch(() => null) as { invitacionPendiente?: unknown } | null;
+      return cuerpo?.invitacionPendiente === true;
+    } catch {
+      return false;
+    }
+  })();
+  consultasEleccion.set(clave, { en: Date.now(), valor });
+  return valor;
+}
+
+/** «Entrar como instructora»: une su cuenta a la ficha que le creó el estudio. */
+export async function unirseComoInstructora(slug: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: { session } } = await supabasePortal.auth.getSession();
+  const userId = session?.user?.id;
+  if (!session?.access_token || !userId) return { ok: false, error: 'Tu sesión ha caducado. Vuelve a entrar.' };
+  try {
+    const res = await fetch('/api/portal/instructora/unirse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ slug }),
+    });
+    const cuerpo = await res.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+    if (!res.ok || !cuerpo?.ok) {
+      return { ok: false, error: cuerpo?.error || 'No hemos podido activar tu acceso. Inténtalo de nuevo en unos segundos.' };
+    }
+    // Lo que se sabía de ella («no es instructora») ya no vale.
+    cacheInstructora.vaciar();
+    consultasEleccion.clear();
+    recordarNoEs(slug, userId, false);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Sin conexión. Vuelve a intentarlo cuando tengas cobertura.' };
+  }
+}
+
 /**
  * @param activo  `false` = no preguntar (p. ej. mientras no hay sesión).
  * @param forzar  ignora lo recordado: para quien acaba de entrar por un enlace.

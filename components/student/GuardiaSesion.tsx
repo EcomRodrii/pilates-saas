@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
-import { useSesionInstructora } from '@/lib/student/sesion-instructora';
+import { debeElegirComoEntrar, useSesionInstructora } from '@/lib/student/sesion-instructora';
 
 /**
  * Deja pasar solo a quien tiene sesión; al resto lo manda a acceso conservando
@@ -27,7 +27,9 @@ import { useSesionInstructora } from '@/lib/student/sesion-instructora';
  * ⚠️ Con sesión pero SIN ficha de alumna puede ser una instructora del estudio
  * (la app es la misma para las dos, decisión del 14-sep-2026). Las pantallas de
  * alumna no le sirven —todo lo que piden exige ficha—, así que se la lleva a su
- * parte. Solo se pregunta en ese caso: una alumna con ficha no paga la petición.
+ * parte. Y si el estudio la tiene dada de alta como instructora pero aún no ha
+ * entrado como tal, a elegir cómo entra (15-sep-2026). Solo se pregunta en esos
+ * casos: una alumna con ficha no paga ninguna petición.
  */
 export function GuardiaSesion({ children }: { children: ReactNode }) {
   const r = useRouter();
@@ -38,6 +40,17 @@ export function GuardiaSesion({ children }: { children: ReactNode }) {
   const sinFicha = !isLoading && autenticado && !socia;
   const { instructora, isLoading: cargandoInstructora } = useSesionInstructora(slug, sinFicha);
 
+  const preguntarEleccion = sinFicha && !cargandoInstructora && !instructora;
+  const [eleccion, setEleccion] = useState<{ slug: string; elegir: boolean } | null>(null);
+  const elegir = preguntarEleccion && eleccion?.slug === slug ? eleccion.elegir : null;
+
+  useEffect(() => {
+    if (!preguntarEleccion) return;
+    let vivo = true;
+    void debeElegirComoEntrar(slug).then((valor) => { if (vivo) setEleccion({ slug, elegir: valor }); });
+    return () => { vivo = false; };
+  }, [preguntarEleccion, slug]);
+
   useEffect(() => {
     if (isLoading) return;
     if (!autenticado) {
@@ -47,10 +60,13 @@ export function GuardiaSesion({ children }: { children: ReactNode }) {
       r.replace(destino);
       return;
     }
-    if (instructora) r.replace(href('/equipo'));
-  }, [isLoading, autenticado, instructora, href, path, r]);
+    if (instructora) { r.replace(href('/equipo')); return; }
+    if (elegir) r.replace(href('/acceso/elegir'));
+  }, [isLoading, autenticado, instructora, elegir, href, path, r]);
 
-  if (isLoading || !autenticado || (sinFicha && cargandoInstructora) || instructora) {
+  const esperando = isLoading || !autenticado || (sinFicha && cargandoInstructora) || instructora
+    || (preguntarEleccion && elegir !== false);
+  if (esperando) {
     return (
       <div className="shell" aria-busy="true">
         <div className="page px" style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 'calc(72px + var(--safe-top))' }}>
