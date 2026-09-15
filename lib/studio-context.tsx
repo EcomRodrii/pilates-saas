@@ -1780,7 +1780,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
     return {
       ok: true, canceladas: canceladas.size, mantenidas: datos.mantenidas?.length ?? 0,
-      fallidas: datos.fallidas ?? 0, creadas: datos.creadas ?? 0,
+      fallidas: datos.fallidas ?? 0, creadas: datos.creadas ?? 0, sitioLibre: plaza.estado === 'PAUSADA',
     };
   }
 

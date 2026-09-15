@@ -1012,6 +1012,14 @@ export interface RowStudios {
   recibos_al_cancelar_cuota: string | null;
   // migr 20260915215311.
   renovar_sola_cuota_cancelada: boolean | null;
+  // migr 20260916120000.
+  plaza_fija_solicitar_desde_app: boolean | null;
+  // migr 20260916120000.
+  plaza_fija_pausa_desde_app: boolean | null;
+  // migr 20260916120000.
+  plaza_fija_pausa_libera_sitio: boolean | null;
+  // migr 20260916120000.
+  plaza_fija_fin_pausa: string | null;
 }
 
 export interface RowSuscripciones {
@@ -1623,6 +1631,8 @@ export interface RowPlazasFijas {
   pausa_desde: string | null;
   // migr 20260915094312.
   pausa_hasta: string | null;
+  // migr 20260916120000.
+  pausa_libera_sitio: boolean | null;
 }
 
 export interface RowRecuperaciones {
@@ -3025,15 +3035,30 @@ export interface RowSalesEvents {
   creado_en: string;
 }
 
-export interface RowCierresProrrogas {
-  cierre_id: string;
+export interface RowSolicitudesPlazaFija {
+  id: string;
   studio_id: string;
-  desde: string;
-  hasta: string;
-  dias: number;
-  bonos_ampliados: number;
-  recuperaciones_ampliadas: number;
-  aplicada_en: string;
+  socio_id: string;
+  tipo: string;
+  origen: string;
+  estado: string;
+  sesion_id: string | null;
+  dia_semana: number | null;
+  hora_inicio: string | null;
+  sala_id: string | null;
+  tipo_clase_id: string | null;
+  supera_limite: boolean;
+  plaza_id: string | null;
+  desde_propuesta: string | null;
+  hasta_propuesta: string | null;
+  desde_aprobada: string | null;
+  hasta_aprobada: string | null;
+  motivo_sistema: string | null;
+  motivo_rechazo: string | null;
+  resultado_plaza_id: string | null;
+  creada_en: string;
+  resuelta_en: string | null;
+  resuelta_por: string | null;
 }
 
 
@@ -4452,6 +4477,10 @@ export type StudiosInsert = {
   plaza_fija_sin_cuota?: string | null | null;
   recibos_al_cancelar_cuota?: string | null | null;
   renovar_sola_cuota_cancelada?: boolean | null | null;
+  plaza_fija_solicitar_desde_app?: boolean | null | null;
+  plaza_fija_pausa_desde_app?: boolean | null | null;
+  plaza_fija_pausa_libera_sitio?: boolean | null | null;
+  plaza_fija_fin_pausa?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -4577,6 +4606,10 @@ export type StudiosUpdate = {
   plaza_fija_sin_cuota?: string | null | null;
   recibos_al_cancelar_cuota?: string | null | null;
   renovar_sola_cuota_cancelada?: boolean | null | null;
+  plaza_fija_solicitar_desde_app?: boolean | null | null;
+  plaza_fija_pausa_desde_app?: boolean | null | null;
+  plaza_fija_pausa_libera_sitio?: boolean | null | null;
+  plaza_fija_fin_pausa?: string | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -5648,6 +5681,7 @@ export type PlazasFijasInsert = {
   creada_en?: string | null;
   pausa_desde?: string | null | null;
   pausa_hasta?: string | null | null;
+  pausa_libera_sitio?: boolean | null | null;
 }
 
 export type PlazasFijasUpdate = {
@@ -5665,6 +5699,7 @@ export type PlazasFijasUpdate = {
   creada_en?: string | null;
   pausa_desde?: string | null | null;
   pausa_hasta?: string | null | null;
+  pausa_libera_sitio?: boolean | null | null;
 }
 
 export type RecuperacionesInsert = {
@@ -8381,26 +8416,56 @@ export type SalesEventsUpdate = {
   creado_en?: string | null;
 }
 
-export type CierresProrrogasInsert = {
-  cierre_id?: string | null;
+export type SolicitudesPlazaFijaInsert = {
+  id?: string | null;
   studio_id?: string | null;
-  desde?: string | null;
-  hasta?: string | null;
-  dias?: number | null;
-  bonos_ampliados?: number | null;
-  recuperaciones_ampliadas?: number | null;
-  aplicada_en?: string | null;
+  socio_id?: string | null;
+  tipo?: string | null;
+  origen?: string | null;
+  estado?: string | null;
+  sesion_id?: string | null | null;
+  dia_semana?: number | null | null;
+  hora_inicio?: string | null | null;
+  sala_id?: string | null | null;
+  tipo_clase_id?: string | null | null;
+  supera_limite?: boolean | null;
+  plaza_id?: string | null | null;
+  desde_propuesta?: string | null | null;
+  hasta_propuesta?: string | null | null;
+  desde_aprobada?: string | null | null;
+  hasta_aprobada?: string | null | null;
+  motivo_sistema?: string | null | null;
+  motivo_rechazo?: string | null | null;
+  resultado_plaza_id?: string | null | null;
+  creada_en?: string | null;
+  resuelta_en?: string | null | null;
+  resuelta_por?: string | null | null;
 }
 
-export type CierresProrrogasUpdate = {
-  cierre_id?: string | null;
+export type SolicitudesPlazaFijaUpdate = {
+  id?: string | null;
   studio_id?: string | null;
-  desde?: string | null;
-  hasta?: string | null;
-  dias?: number | null;
-  bonos_ampliados?: number | null;
-  recuperaciones_ampliadas?: number | null;
-  aplicada_en?: string | null;
+  socio_id?: string | null;
+  tipo?: string | null;
+  origen?: string | null;
+  estado?: string | null;
+  sesion_id?: string | null | null;
+  dia_semana?: number | null | null;
+  hora_inicio?: string | null | null;
+  sala_id?: string | null | null;
+  tipo_clase_id?: string | null | null;
+  supera_limite?: boolean | null;
+  plaza_id?: string | null | null;
+  desde_propuesta?: string | null | null;
+  hasta_propuesta?: string | null | null;
+  desde_aprobada?: string | null | null;
+  hasta_aprobada?: string | null | null;
+  motivo_sistema?: string | null | null;
+  motivo_rechazo?: string | null | null;
+  resultado_plaza_id?: string | null | null;
+  creada_en?: string | null;
+  resuelta_en?: string | null | null;
+  resuelta_por?: string | null | null;
 }
 
 export type Database = {
@@ -9371,10 +9436,10 @@ export type Database = {
         Insert: SalesEventsInsert;
         Update: SalesEventsUpdate;
       };
-      cierres_prorrogas: {
-        Row: RowCierresProrrogas;
-        Insert: CierresProrrogasInsert;
-        Update: CierresProrrogasUpdate;
+      solicitudes_plaza_fija: {
+        Row: RowSolicitudesPlazaFija;
+        Insert: SolicitudesPlazaFijaInsert;
+        Update: SolicitudesPlazaFijaUpdate;
       };
     };
   };

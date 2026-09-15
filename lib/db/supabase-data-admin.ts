@@ -41,7 +41,11 @@ import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContr
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
-import { sesionEnPausa, validarPausa, type Pausa } from '@/lib/plazas-fijas-pausa';
+import { estadoPausa, sesionEnPausa, validarPausa, type Pausa } from '@/lib/plazas-fijas-pausa';
+import {
+  decidirVueltaDePausa, fechaLimiteDecidirVuelta, tocaLiberarSitio,
+  type HuecoParaVolver, type MotivoVueltaPendiente, type PoliticaFinPausa,
+} from '@/lib/plazas-fijas-solicitudes';
 import type { PlazaFija as PlazaFijaServidor } from '@/lib/types';
 import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
 import { validarCanje } from '@/lib/engines/reward-engine';
@@ -1661,6 +1665,13 @@ export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ cre
     soltadas = (await soltarReservasPlazaFijaSinCuota(admin)).canceladas.length;
   } catch (e) {
     capturarExcepcion(e, { tags: { area: 'plazas-fijas' }, extra: { paso: 'soltar-sin-cuota' } });
+  }
+  // Las pausas que sueltan o recuperan su sitio, antes del motor para que lo que
+  // vuelve quede reservado en esta misma pasada. Mismo criterio: best-effort.
+  try {
+    await repasarPausasConSitioLibre(admin);
+  } catch (e) {
+    capturarExcepcion(e, { tags: { area: 'plazas-fijas' }, extra: { paso: 'pausas-sitio-libre' } });
   }
 
   const { data, error } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: horizonteDias });
@@ -3469,7 +3480,7 @@ export async function valorarExperienciaReservaPublica(params: {
 // DERIVAN de esa sesión con franjaLocalDe, la misma función que ya usa el
 // motor de decisiones para agrupar franjas recurrentes — así el slot que se
 // guarda es siempre uno que la socia ha visto reservable de verdad.
-const COLUMNAS_PLAZA_FIJA = 'id, studio_id, socio_id, dia_semana, hora_inicio, sala_id, tipo_clase_id, spot_id, vigencia_desde, vigencia_hasta, estado, pausa_desde, pausa_hasta, creada_en';
+const COLUMNAS_PLAZA_FIJA = 'id, studio_id, socio_id, dia_semana, hora_inicio, sala_id, tipo_clase_id, spot_id, vigencia_desde, vigencia_hasta, estado, pausa_desde, pausa_hasta, pausa_libera_sitio, creada_en';
 
 function plazaFijaDeFila(r: Record<string, unknown>): PlazaFijaServidor {
   return {
@@ -3479,6 +3490,7 @@ function plazaFijaDeFila(r: Record<string, unknown>): PlazaFijaServidor {
     vigenciaDesde: r.vigencia_desde as string, vigenciaHasta: (r.vigencia_hasta as string | null) ?? null,
     estado: r.estado as PlazaFijaServidor['estado'], creadaEn: r.creada_en as string,
     pausaDesde: (r.pausa_desde as string | null) ?? null, pausaHasta: (r.pausa_hasta as string | null) ?? null,
+    pausaLiberaSitio: (r.pausa_libera_sitio as boolean | null) ?? false,
   };
 }
 
@@ -3832,17 +3844,19 @@ async function aplicarEstadoPlazaFija(
     const { data: fila } = await lectura.maybeSingle();
     if (!fila) return { error: 'Plaza fija no encontrada' as const };
     const actual = plazaFijaDeFila(fila as unknown as Record<string, unknown>);
+    // Una pausa que soltó su sitio no se reanuda cambiando el estado: vuelve por la
+    // misma puerta que la vuelta del cron, que comprueba que el sitio siga libre.
+    if (actual.estado === 'PAUSADA' && actual.pausaLiberaSitio) {
+      if (params.socioId) return { error: 'Tu plaza fija está en pausa: habla con tu estudio para volver.' };
+      const v = await volverDePausaPlazaFija(admin, actual, { forzar: true });
+      if ('error' in v) return { error: v.error };
+      if (v.accion !== 'VOLVER') return { error: mensajeSitioOcupado };
+      return { ok: true as const, canceladas: [], mantenidas: [], fallidas: 0 };
+    }
     if (actual.estado !== 'ACTIVA') {
-      const [{ data: susRows }, { data: planRows }, { data: activasRows }] = await Promise.all([
-        admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', actual.socioId).eq('estado', 'ACTIVA'),
-        admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
-        admin.from('plazas_fijas').select('id').eq('studio_id', params.studioId).eq('socio_id', actual.socioId).eq('estado', 'ACTIVA'),
-      ]);
-      const planes = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
-      const cuota = cuotaParaPlazaFija(actual.socioId, (susRows ?? []).map(mapSuscripcion), planes, hoyEnEstudio(), actual.tipoClaseId);
+      const { cuota, activas } = await cuotaParaReanudarPlaza(admin, actual);
       const textos = params.socioId ? TEXTOS_PLAZA_FIJA_ALUMNA : TEXTOS_PLAZA_FIJA_PANEL;
       if (!cuota) return { error: textos.sinCuota };
-      const activas = (activasRows ?? []).length;
       const exceso = params.socioId ? superaLimiteSemanal(cuota, activas) : null;
       if (exceso) {
         return { error: `Tu cuota es de ${exceso.limite} ${exceso.limite === 1 ? 'clase' : 'clases'} por semana y ya tienes ${activas} ${activas === 1 ? 'plaza fija activa' : 'plazas fijas activas'}.` };
@@ -3903,13 +3917,20 @@ export async function cambiarEstadoPlazaFijaStaff(
   return aplicarEstadoPlazaFija(admin, params, 'Ese sitio ya está asignado a otra clienta en ese día y hora');
 }
 
-// Pausa con fechas desde el panel (vacaciones, una lesión…). No cambia el
-// estado: la plaza sigue ACTIVA y con su sitio, y el motor se salta esas fechas
-// (lib/plazas-fijas-pausa.ts). Al ponerla se sueltan SOLO las clases de esas
-// fechas, por el mismo camino que quitar. Y el motor se vuelve a pasar por esta
-// plaza siempre: al quitar o acortar la pausa, las semanas que vuelven quedan
-// reservadas ya y no a las 2:00 (lo cancelado con `plaza_fija_retirada` se puede
-// volver a reservar; lo que canceló la socia, no).
+// Pausa con fechas desde el panel (vacaciones, una lesión…). El motor se salta
+// esas fechas (lib/plazas-fijas-pausa.ts) y al ponerla se sueltan SOLO las clases
+// de esas fechas, por el mismo camino que quitar.
+//
+// Qué pasa con su sitio lo decide el estudio al ponerla
+// (`studios.plaza_fija_pausa_libera_sitio`) y queda escrito en la plaza, así que
+// cambiar el ajuste no toca las pausas ya puestas:
+//   · conserva su sitio (lo de siempre): la plaza sigue ACTIVA, y el motor se
+//     vuelve a pasar por ella, así que al quitar o acortar la pausa las semanas que
+//     vuelven quedan reservadas ya y no a las 2:00 (lo cancelado con
+//     `plaza_fija_retirada` se puede volver a reservar; lo que canceló la socia, no);
+//   · su sitio queda libre: cuando la pausa empieza y le queda más de una semana, la
+//     plaza pasa a PAUSADA (`tocaLiberarSitio`). Desde ahí solo se puede cambiar
+//     hasta cuándo dura, y volver es `volverDePausaPlazaFija`.
 type ResultadoPausaServidor =
   | { ok: true; plaza: PlazaFijaServidor; canceladas: string[]; mantenidas: string[]; fallidas: number; creadas: number }
   | { error: string };
@@ -3918,13 +3939,61 @@ export async function pausarPlazaFijaStaff(
   admin: SupabaseClient, params: { studioId: string; plazaId: string; pausa: Pausa | null },
 ): Promise<ResultadoPausaServidor> {
   const { studioId, plazaId, pausa } = params;
+  const hoy = hoyEnEstudio();
   if (pausa) {
-    const motivo = validarPausa(pausa.desde, pausa.hasta, hoyEnEstudio());
+    const motivo = validarPausa(pausa.desde, pausa.hasta, hoy);
     if (motivo) return { error: motivo };
   }
-  // El filtro de estado va en la propia escritura: una plaza de baja no se pausa.
+  const [{ data: fila }, { data: studio }] = await Promise.all([
+    admin.from('plazas_fijas').select(COLUMNAS_PLAZA_FIJA).eq('id', plazaId).eq('studio_id', studioId).maybeSingle(),
+    admin.from('studios').select('plaza_fija_pausa_libera_sitio').eq('id', studioId).maybeSingle(),
+  ]);
+  if (!fila) return { error: 'Plaza fija no encontrada' };
+  const actual = plazaFijaDeFila(fila as unknown as Record<string, unknown>);
+  const conSitioLibre = actual.estado === 'PAUSADA' && actual.pausaLiberaSitio === true;
+  // Una plaza de baja, o pausada sin fechas, no se pausa.
+  if (actual.estado !== 'ACTIVA' && !conSitioLibre) return { error: 'Plaza fija no encontrada' };
+
+  if (conSitioLibre) {
+    if (!pausa) {
+      const v = await volverDePausaPlazaFija(admin, actual, { forzar: true });
+      if ('error' in v) return { error: v.error };
+      if (v.accion !== 'VOLVER') return { error: 'Su sitio lo tiene ahora otra clienta: cámbiale el sitio de la plaza fija o quítasela.' };
+      return { ok: true, plaza: v.plaza, canceladas: [], mantenidas: [], fallidas: 0, creadas: v.creadas };
+    }
+    // Hacer que empiece más tarde le devolvería un sitio que ya puede tener otra.
+    if (pausa.desde > hoy) return { error: 'La pausa ya ha empezado y su sitio está libre: solo puedes cambiar hasta cuándo dura, o quitarla.' };
+    const { data, error } = await admin.from('plazas_fijas')
+      .update({ pausa_desde: pausa.desde, pausa_hasta: pausa.hasta })
+      .eq('id', plazaId).eq('studio_id', studioId).eq('estado', 'PAUSADA').eq('pausa_libera_sitio', true)
+      .select(COLUMNAS_PLAZA_FIJA).maybeSingle();
+    if (error) {
+      capturarExcepcion(new Error(error.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId } });
+      return { error: 'No se pudo guardar la pausa' };
+    }
+    if (!data) return { error: 'Plaza fija no encontrada' };
+    const plaza = plazaFijaDeFila(data as unknown as Record<string, unknown>);
+    // El motor no le reserva nada mientras está PAUSADA: si la vuelta cae ahora en
+    // la última semana, el cron de esta noche la decide.
+    const retirada = await retirarReservasFuturasPlazaFija(admin, studioId, plaza, pausa);
+    return { ok: true, plaza, ...retirada, creadas: 0 };
+  }
+
+  // Cambiar una pausa que sigue en pie conserva cómo se puso; una nueva sigue el
+  // ajuste del estudio. Sin poder leerlo, conserva el sitio (lo de siempre).
+  const liberaSitio = !pausa
+    ? false
+    : estadoPausa(actual, hoy) !== 'sin_pausa'
+      ? actual.pausaLiberaSitio === true
+      : studio?.plaza_fija_pausa_libera_sitio === true;
+  const liberarYa = !!pausa && tocaLiberarSitio({ pausaDesde: pausa.desde, pausaHasta: pausa.hasta, liberaSitio }, hoy);
+
+  // El filtro de estado va en la propia escritura.
   const { data, error } = await admin.from('plazas_fijas')
-    .update({ pausa_desde: pausa?.desde ?? null, pausa_hasta: pausa?.hasta ?? null })
+    .update({
+      pausa_desde: pausa?.desde ?? null, pausa_hasta: pausa?.hasta ?? null, pausa_libera_sitio: liberaSitio,
+      ...(liberarYa ? { estado: 'PAUSADA' } : {}),
+    })
     .eq('id', plazaId).eq('studio_id', studioId).eq('estado', 'ACTIVA')
     .select(COLUMNAS_PLAZA_FIJA).maybeSingle();
   if (error) {
@@ -3937,6 +4006,7 @@ export async function pausarPlazaFijaStaff(
   const retirada = pausa
     ? await retirarReservasFuturasPlazaFija(admin, studioId, plaza, pausa)
     : { canceladas: [] as string[], mantenidas: [] as string[], fallidas: 0 };
+  if (liberarYa) return { ok: true, plaza, ...retirada, creadas: 0 };
 
   // Mejor esfuerzo, como al guardar: si el motor fallara, el cron de esta noche lo recoge.
   let creadas = 0;
@@ -3947,6 +4017,137 @@ export async function pausarPlazaFijaStaff(
     creadas = (n as number | null) ?? 0;
   }
   return { ok: true, plaza, ...retirada, creadas };
+}
+
+// Las dos reglas de dar una plaza que se vuelven a pasar al reanudarla: la cuota
+// que cubre su clase y cuántas plazas fijas ACTIVAS tiene ya, sin contar esta.
+async function cuotaParaReanudarPlaza(
+  admin: SupabaseClient, plaza: Pick<PlazaFijaServidor, 'id' | 'studioId' | 'socioId' | 'tipoClaseId'>,
+) {
+  const [{ data: susRows }, { data: planRows }, { data: activasRows }] = await Promise.all([
+    admin.from('suscripciones').select('*').eq('studio_id', plaza.studioId).eq('socio_id', plaza.socioId).eq('estado', 'ACTIVA'),
+    admin.from('planes_tarifa').select('*').eq('studio_id', plaza.studioId),
+    admin.from('plazas_fijas').select('id').eq('studio_id', plaza.studioId).eq('socio_id', plaza.socioId).eq('estado', 'ACTIVA').neq('id', plaza.id),
+  ]);
+  const planes = await hidratarTiposDePlanes(admin as never, plaza.studioId, (planRows ?? []).map(mapPlanTarifa));
+  const cuota = cuotaParaPlazaFija(plaza.socioId, (susRows ?? []).map(mapSuscripcion), planes, hoyEnEstudio(), plaza.tipoClaseId);
+  const activas = (activasRows ?? []).length;
+  return { cuota, activas, exceso: cuota ? superaLimiteSemanal(cuota, activas) : null };
+}
+
+export type ResultadoVueltaDePausa =
+  | { accion: 'VOLVER'; plaza: PlazaFijaServidor; creadas: number }
+  | { accion: 'PREGUNTAR'; motivo: MotivoVueltaPendiente }
+  | { accion: 'IMPOSIBLE'; motivo: 'SITIO_OCUPADO' }
+  | { error: string };
+
+// La vuelta de una pausa que dejó su sitio libre. Qué hacer lo decide
+// `decidirVueltaDePausa` (lógica pura); aquí se leen los datos y se escribe.
+//   · `forzar` = lo pide el estudio (quitar la pausa, reanudar o aprobar la vuelta):
+//     no mira cupo ni límite semanal, pero sí que tenga cuota, como reanudar desde
+//     el panel, y nunca le quita el sitio a otra clienta.
+//   · sin `forzar` = el cron: vuelve sola o deja la pregunta en la bandeja.
+// Al volver entra al final de la cola (`creada_en`): quien soltó su sitio no se
+// cuela delante de quien lo ha tenido mientras tanto.
+export async function volverDePausaPlazaFija(
+  admin: SupabaseClient, plaza: PlazaFijaServidor,
+  opciones: { forzar: boolean; politica?: PoliticaFinPausa; materializar?: boolean },
+): Promise<ResultadoVueltaDePausa> {
+  const extra = { studioId: plaza.studioId, plazaId: plaza.id };
+  const [{ data: hueco, error: errHueco }, { cuota, exceso }] = await Promise.all([
+    admin.rpc('plaza_fija_hueco_para_volver', { p_plaza_id: plaza.id }),
+    cuotaParaReanudarPlaza(admin, plaza),
+  ]);
+  if (errHueco || typeof hueco !== 'string') {
+    capturarExcepcion(new Error(errHueco?.message ?? 'hueco sin respuesta'), { tags: { area: 'plazas-fijas' }, extra });
+    return { error: 'No se pudo comprobar si su sitio sigue libre' };
+  }
+  if (opciones.forzar && !cuota) return { error: TEXTOS_PLAZA_FIJA_PANEL.sinCuota };
+
+  const decision = decidirVueltaDePausa({
+    politica: opciones.politica ?? 'PENDIENTE_CONFIRMAR', hueco: hueco as HuecoParaVolver,
+    tieneCuota: !!cuota, superaLimite: !!exceso, forzar: opciones.forzar,
+  });
+  if (decision.accion === 'IMPOSIBLE') return decision;
+  if (decision.accion === 'PREGUNTAR') {
+    const { error } = await admin.from('solicitudes_plaza_fija').insert({
+      studio_id: plaza.studioId, socio_id: plaza.socioId, tipo: 'REANUDAR', origen: 'SISTEMA',
+      plaza_id: plaza.id, motivo_sistema: decision.motivo,
+    });
+    // 23505: ya hay una pendiente para esta plaza; es la misma pregunta.
+    if (error && error.code !== '23505') {
+      capturarExcepcion(new Error(error.message), { tags: { area: 'plazas-fijas' }, extra });
+      return { error: 'No se pudo dejar la vuelta pendiente' };
+    }
+    return decision;
+  }
+
+  const { data, error } = await admin.from('plazas_fijas')
+    .update({ estado: 'ACTIVA', creada_en: new Date().toISOString() })
+    .eq('id', plaza.id).eq('studio_id', plaza.studioId).eq('estado', 'PAUSADA')
+    .select(COLUMNAS_PLAZA_FIJA).maybeSingle();
+  if (error) {
+    // Entre la comprobación y la escritura otra plaza se ha quedado su sitio.
+    if (error.message.includes('plazas_fijas_spot_sin_solape')) return { accion: 'IMPOSIBLE', motivo: 'SITIO_OCUPADO' };
+    capturarExcepcion(new Error(error.message), { tags: { area: 'plazas-fijas' }, extra });
+    return { error: 'No se pudo recuperar la plaza fija' };
+  }
+  if (!data) return { error: 'Plaza fija no encontrada' };
+  const vuelta = plazaFijaDeFila(data as unknown as Record<string, unknown>);
+
+  // Si la pregunta estaba en la bandeja, queda respondida.
+  const { error: errSolicitud } = await admin.from('solicitudes_plaza_fija')
+    .update({ estado: 'APROBADA', resuelta_en: new Date().toISOString(), resultado_plaza_id: vuelta.id })
+    .eq('plaza_id', vuelta.id).eq('tipo', 'REANUDAR').eq('estado', 'PENDIENTE');
+  if (errSolicitud) capturarExcepcion(new Error(errSolicitud.message), { tags: { area: 'plazas-fijas' }, extra });
+
+  let creadas = 0;
+  if (opciones.materializar !== false) {
+    const { data: n, error: errorMotor } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: 42, p_plaza_id: vuelta.id });
+    if (errorMotor) capturarExcepcion(new Error(errorMotor.message), { tags: { area: 'plazas-fijas' }, extra });
+    else creadas = (n as number | null) ?? 0;
+  }
+  return { accion: 'VOLVER', plaza: vuelta, creadas };
+}
+
+// Las pausas que dejan su sitio libre, antes del motor y en dos pasos: las que
+// empiezan (y les queda más de una semana) pasan a PAUSADA, y a las que les queda
+// una semana se les decide la vuelta. Lo que vuelve lo reserva el motor en esta
+// misma pasada. Una pausa que ya está en la bandeja no se vuelve a decidir: la
+// decide el estudio.
+async function repasarPausasConSitioLibre(admin: SupabaseClient): Promise<void> {
+  const hoy = hoyEnEstudio();
+  const limite = fechaLimiteDecidirVuelta(hoy);
+
+  const { error: errLiberar } = await admin.from('plazas_fijas')
+    .update({ estado: 'PAUSADA' })
+    .eq('estado', 'ACTIVA').eq('pausa_libera_sitio', true).lte('pausa_desde', hoy).gt('pausa_hasta', limite);
+  if (errLiberar) capturarExcepcion(new Error(errLiberar.message), { tags: { area: 'plazas-fijas' }, extra: { paso: 'liberar-sitio' } });
+
+  const { data: filas, error } = await admin.from('plazas_fijas').select(COLUMNAS_PLAZA_FIJA)
+    .eq('estado', 'PAUSADA').eq('pausa_libera_sitio', true).lte('pausa_hasta', limite);
+  if (error) throw new Error(`pausas por volver: ${error.message}`);
+  const plazas = (filas ?? []).map(f => plazaFijaDeFila(f as unknown as Record<string, unknown>));
+  if (plazas.length === 0) return;
+
+  const [{ data: pendientes, error: errPendientes }, { data: studios }] = await Promise.all([
+    admin.from('solicitudes_plaza_fija').select('plaza_id')
+      .eq('tipo', 'REANUDAR').eq('estado', 'PENDIENTE').in('plaza_id', plazas.map(p => p.id)),
+    admin.from('studios').select('id, plaza_fija_fin_pausa').in('id', [...new Set(plazas.map(p => p.studioId))]),
+  ]);
+  // Sin saber cuáles están ya en la bandeja no se decide nada: mañana se repite.
+  if (errPendientes) throw new Error(`vueltas pendientes: ${errPendientes.message}`);
+  const yaPreguntadas = new Set((pendientes ?? []).map(p => p.plaza_id));
+  const politicaDe = new Map((studios ?? []).map(s => [s.id, s.plaza_fija_fin_pausa as PoliticaFinPausa]));
+
+  await mapLimit(plazas.filter(p => !yaPreguntadas.has(p.id)), CONCURRENCIA_AVISOS, async (p) => {
+    try {
+      // Sin su ajuste, se pregunta: devolver una plaza sin permiso es peor que preguntar de más.
+      await volverDePausaPlazaFija(admin, p, { forzar: false, politica: politicaDe.get(p.studioId), materializar: false });
+    } catch (e) {
+      capturarExcepcion(e, { tags: { area: 'plazas-fijas' }, extra: { studioId: p.studioId, plazaId: p.id } });
+    }
+  });
 }
 
 export const pausarPlazaFijaPublica = (params: { studioId: string; socioId: string; authUserId: string; plazaId: string }) =>

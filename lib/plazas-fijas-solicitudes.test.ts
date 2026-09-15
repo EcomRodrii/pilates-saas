@@ -1,12 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decidirVueltaDePausa, textoMotivoVuelta, tocaDecidirVuelta } from './plazas-fijas-solicitudes.ts';
+import { decidirVueltaDePausa, textoMotivoVuelta, tocaDecidirVuelta, tocaLiberarSitio } from './plazas-fijas-solicitudes.ts';
 
 test('la vuelta se decide una semana antes del fin de la pausa, no antes', () => {
   assert.equal(tocaDecidirVuelta('2026-09-23', '2026-09-16'), true);
   assert.equal(tocaDecidirVuelta('2026-09-16', '2026-09-16'), true);
   assert.equal(tocaDecidirVuelta('2026-09-24', '2026-09-16'), false);
   assert.equal(tocaDecidirVuelta(null, '2026-09-16'), false);
+  // Cruza de mes sin liarse.
+  assert.equal(tocaDecidirVuelta('2026-10-05', '2026-09-28'), true);
+});
+
+test('el sitio se suelta cuando la pausa empieza y le queda más de una semana, y solo si se puso así', () => {
+  const pausa = { pausaDesde: '2026-09-16', pausaHasta: '2026-10-31', liberaSitio: true };
+  assert.equal(tocaLiberarSitio(pausa, '2026-09-16'), true);
+  assert.equal(tocaLiberarSitio(pausa, '2026-09-15'), false, 'antes de empezar la clase sigue siendo suya');
+  assert.equal(tocaLiberarSitio({ ...pausa, liberaSitio: false }, '2026-09-20'), false, 'las pausas puestas sin liberar no cambian');
+  assert.equal(tocaLiberarSitio(pausa, '2026-10-24'), false, 'en la última semana ya se decide la vuelta');
+  assert.equal(tocaLiberarSitio({ ...pausa, pausaHasta: '2026-09-22' }, '2026-09-16'), false, 'una pausa de una semana no suelta el sitio');
+  assert.equal(tocaLiberarSitio({ pausaDesde: null, pausaHasta: null, liberaSitio: true }, '2026-09-16'), false);
 });
 
 const base = { politica: 'RECUPERAR_SI_LIBRE' as const, hueco: 'OK' as const, tieneCuota: true, superaLimite: false };

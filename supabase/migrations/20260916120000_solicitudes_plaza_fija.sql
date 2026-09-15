@@ -15,10 +15,13 @@
 -- límite semanal no bloquea la petición: decide el estudio. Rechazar la vuelta de
 -- una pausa quita la plaza.
 --
--- Una pausa que libera el sitio deja la plaza en `estado = 'PAUSADA'` con sus
--- fechas: la exclusión GiST (0083) y el motor ya ignoran PAUSADA, así que el sitio
--- y el cupo quedan libres sin tocar ninguno de los dos. La vuelta la decide el cron
--- nocturno con `plaza_fija_hueco_para_volver`.
+-- Si una pausa libera el sitio se decide al ponerla y queda escrito en la PLAZA
+-- (`plazas_fijas.pausa_libera_sitio`): así encender el ajuste no cambia las pausas
+-- ya puestas. Cuando la pausa empieza (y le queda más de una semana), la plaza pasa
+-- a `estado = 'PAUSADA'` con sus fechas: la exclusión GiST (0083) y el motor ya
+-- ignoran PAUSADA, así que el sitio y el cupo quedan libres sin tocar ninguno de
+-- los dos. Antes de empezar sigue ACTIVA: hasta entonces la clase es suya. La
+-- vuelta la decide el cron nocturno con `plaza_fija_hueco_para_volver`.
 --
 -- La tabla va SIN políticas RLS y sin grants a anon/authenticated: todo pasa por
 -- el servidor (service_role), la alumna con su token y el estudio con su sesión.
@@ -40,6 +43,16 @@ alter table public.studios add constraint studios_plaza_fija_fin_pausa_check
 
 grant update (plaza_fija_solicitar_desde_app, plaza_fija_pausa_desde_app, plaza_fija_pausa_libera_sitio, plaza_fija_fin_pausa)
   on public.studios to authenticated;
+
+-- ── La marca de la pausa, en la plaza ────────────────────────────────────────
+-- La escribe solo el servidor al poner la pausa. Sin grant de columna nuevo: la
+-- RLS de `plazas_fijas` ya la cubre y el panel no la escribe.
+alter table public.plazas_fijas
+  add column if not exists pausa_libera_sitio boolean not null default false;
+
+alter table public.plazas_fijas drop constraint if exists plazas_fijas_libera_sitio_con_pausa;
+alter table public.plazas_fijas add constraint plazas_fijas_libera_sitio_con_pausa
+  check (not pausa_libera_sitio or pausa_desde is not null);
 
 -- ── Las solicitudes ──────────────────────────────────────────────────────────
 create table if not exists public.solicitudes_plaza_fija (

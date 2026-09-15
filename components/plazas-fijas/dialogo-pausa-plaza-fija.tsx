@@ -27,11 +27,19 @@ export function DialogoPausaPlazaFija({ plaza, nombre, onClose, onHecho }: {
   onClose: () => void;
   onHecho: (mensaje: string) => void;
 }) {
-  const { pausarPlazaFija } = useStudio();
+  const { pausarPlazaFija, studio } = useStudio();
   const uid = useId();
   const [hoy] = useState(() => hoyEnEstudio());
+  // Pausada con su sitio libre: la pausa sigue en pie hasta que se decide su vuelta.
+  const conSitioLibre = plaza.estado === 'PAUSADA' && plaza.pausaLiberaSitio === true;
   // Una pausa que ya terminó no se ofrece para cambiar: se pausa de nuevo.
-  const actual = estadoPausa(plaza, hoy) === 'sin_pausa' ? null : pausaDe(plaza);
+  const actual = conSitioLibre || estadoPausa(plaza, hoy) !== 'sin_pausa' ? pausaDe(plaza) : null;
+  // Mismo criterio que el servidor: cambiar una pausa conserva cómo se puso; una
+  // nueva sigue el ajuste del estudio.
+  const liberaSitio = actual ? plaza.pausaLiberaSitio === true : studio?.plazaFijaPausaLiberaSitio === true;
+  const alVolver = studio?.plazaFijaFinPausa === 'PENDIENTE_CONFIRMAR'
+    ? 'Tentare te pregunta si vuelve'
+    : 'vuelve sola si su sitio sigue libre; si no, Tentare te pregunta';
   const [desde, setDesde] = useState(actual?.desde ?? hoy);
   const [hasta, setHasta] = useState(actual?.hasta ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -57,15 +65,22 @@ export function DialogoPausaPlazaFija({ plaza, nombre, onClose, onHecho }: {
           <DialogTitle>{actual ? 'Cambiar la pausa' : 'Pausar plaza fija'}</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground -mt-1">
-          {nombre}. Entre estas fechas no se le reserva la clase, pero no pierde la plaza ni su sitio, y al acabar
-          vuelve sola.
+          {conSitioLibre
+            ? `${nombre}. Está en pausa y su sitio está libre para otra clienta. Una semana antes de acabar, ${alVolver}.`
+            : liberaSitio
+              ? `${nombre}. Entre estas fechas no se le reserva la clase y, si la pausa dura más de una semana, su sitio queda libre para otra clienta. Una semana antes de acabar, ${alVolver}.`
+              : `${nombre}. Entre estas fechas no se le reserva la clase, pero no pierde la plaza ni su sitio, y al acabar vuelve sola.`}
         </p>
 
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor={`${uid}-desde`} className={labelCls}>Desde</label>
-              <input id={`${uid}-desde`} type="date" className={inputCls} value={desde} onChange={e => setDesde(e.target.value)} />
+              {/* Ya empezó y su sitio está libre: retrasar el inicio le devolvería un sitio que puede tener otra. */}
+              <input
+                id={`${uid}-desde`} type="date" className={`${inputCls} disabled:opacity-60`} value={desde}
+                disabled={conSitioLibre} onChange={e => setDesde(e.target.value)}
+              />
             </div>
             <div>
               <label htmlFor={`${uid}-hasta`} className={labelCls}>Hasta</label>
@@ -78,8 +93,9 @@ export function DialogoPausaPlazaFija({ plaza, nombre, onClose, onHecho }: {
           </p>
           {actual && (
             <p className="text-[11px] text-muted-foreground">
-              Si la quitas o la acortas, se le reservan al momento las clases que vuelven, también la de hoy o mañana si
-              hay sitio: avísala para que no se le pase.
+              {conSitioLibre
+                ? 'Si la quitas, vuelve ya si su sitio sigue libre y se le reservan las clases que vuelven, también la de hoy o mañana si hay sitio: avísala para que no se le pase.'
+                : 'Si la quitas o la acortas, se le reservan al momento las clases que vuelven, también la de hoy o mañana si hay sitio: avísala para que no se le pase.'}
             </p>
           )}
           {aviso && <p role="alert" className="text-xs font-medium text-destructive">{aviso}</p>}

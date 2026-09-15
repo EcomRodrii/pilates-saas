@@ -9,7 +9,9 @@
 //
 // Puro: se prueba con `node --test`.
 
-export type PoliticaFinPausa = 'RECUPERAR_SI_LIBRE' | 'PENDIENTE_CONFIRMAR';
+import type { PoliticaFinPausa } from './types.ts';
+
+export type { PoliticaFinPausa };
 /** Lo que contesta `plaza_fija_hueco_para_volver`. */
 export type HuecoParaVolver = 'OK' | 'SIN_CUPO' | 'SITIO_OCUPADO';
 export type MotivoVueltaPendiente = 'SIN_CUPO' | 'SITIO_OCUPADO' | 'SIN_CUOTA' | 'SUPERA_LIMITE' | 'PREGUNTAR';
@@ -24,10 +26,26 @@ export const DIAS_ANTES_DE_DECIDIR_VUELTA = 7;
  * decisión no le da ninguna clase de dentro de la pausa. Fechas YYYY-MM-DD.
  */
 export function tocaDecidirVuelta(pausaHasta: string | null, hoy: string): boolean {
-  if (!pausaHasta) return false;
+  return !!pausaHasta && pausaHasta <= fechaLimiteDecidirVuelta(hoy);
+}
+
+/** Las pausas que acaban en esta fecha o antes ya tienen la vuelta por decidir. */
+export function fechaLimiteDecidirVuelta(hoy: string): string {
   const limite = new Date(`${hoy}T00:00:00Z`);
   limite.setUTCDate(limite.getUTCDate() + DIAS_ANTES_DE_DECIDIR_VUELTA);
-  return pausaHasta <= limite.toISOString().slice(0, 10);
+  return limite.toISOString().slice(0, 10);
+}
+
+/**
+ * ¿Toca dejar ya su sitio libre? Solo si la pausa se puso para liberarlo, ya ha
+ * empezado y le queda más de una semana. Antes de empezar la clase sigue siendo
+ * suya; en la última semana ya se está decidiendo la vuelta. Por eso una pausa de
+ * una semana o menos no llega a soltar el sitio.
+ */
+export function tocaLiberarSitio(
+  p: { pausaDesde: string | null; pausaHasta: string | null; liberaSitio: boolean }, hoy: string,
+): boolean {
+  return p.liberaSitio && !!p.pausaDesde && p.pausaDesde <= hoy && !tocaDecidirVuelta(p.pausaHasta, hoy);
 }
 
 export type DecisionVuelta =
@@ -40,9 +58,9 @@ export type DecisionVuelta =
  * - Sin `forzar` (el cron): vuelve sola solo si el estudio lo configuró así Y hay
  *   hueco, tiene cuota y no pasa de su límite semanal; si no, se le pregunta al
  *   estudio con el motivo.
- * - Con `forzar` (el estudio aprueba la vuelta): vuelve aunque falte cupo, pasa de
- *   su límite o no tenga cuota (el motor no le reservará sin cuota); lo único que
- *   no puede es quitarle el sitio concreto a otra alumna.
+ * - Con `forzar` (el estudio aprueba la vuelta): vuelve aunque falte cupo o pase de
+ *   su límite; lo único que no puede es quitarle el sitio concreto a otra alumna.
+ *   Que tenga cuota lo exige quien la llama, como al reanudar desde el panel.
  */
 export function decidirVueltaDePausa(p: {
   politica: PoliticaFinPausa;

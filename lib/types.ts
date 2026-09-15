@@ -239,6 +239,12 @@ export interface Studio {
   // Qué pasa con las clases que su plaza fija ya tenía reservadas cuando la
   // alumna se queda sin cuota (migr 20260915215236). 'MANTENER' = como siempre.
   plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
+  /** Autoservicio de plaza fija desde la app (migr 20260916120000): la alumna pide y el estudio decide. */
+  plazaFijaSolicitarDesdeApp: boolean;
+  plazaFijaPausaDesdeApp: boolean;
+  /** Las pausas NUEVAS dejan su sitio libre para otra clienta; las ya puestas no cambian. */
+  plazaFijaPausaLiberaSitio: boolean;
+  plazaFijaFinPausa: PoliticaFinPausa;
   // Qué pasa con el recibo PENDIENTE de una cuota al cancelarla (migr
   // 20260915215311; el trigger lo escribe en el recibo). Por defecto, como siempre.
   recibosAlCancelarCuota: 'MANTENER_CON_REINTENTOS' | 'MANTENER_SIN_REINTENTOS' | 'ANULAR';
@@ -755,6 +761,9 @@ export interface PlazaFija {
    *  sitio, pero esas semanas no se le reservan. Ver lib/plazas-fijas-pausa.ts. */
   pausaDesde?: string | null;
   pausaHasta?: string | null;
+  /** La pausa se puso con «su sitio queda libre»: al empezar pasa a PAUSADA y
+   *  la vuelta la decide el cron (lib/plazas-fijas-solicitudes.ts). */
+  pausaLiberaSitio?: boolean;
   creadaEn: string;
 }
 
@@ -1157,6 +1166,8 @@ export type EstadoPenalizacion =
  * como siempre (por defecto).
  */
 export type PoliticaPlazaFijaSinCuota = 'LIBERAR' | 'MANTENER_SIN_PENALIZAR' | 'MANTENER';
+/** Al acabar una pausa que soltó su sitio: vuelve sola si sigue libre, o se pregunta al estudio. */
+export type PoliticaFinPausa = 'RECUPERAR_SI_LIBRE' | 'PENDIENTE_CONFIRMAR';
 
 export interface Penalizacion {
   id: string;

@@ -939,6 +939,7 @@ export function mapPlazaFija(r: RowPlazasFijas): PlazaFija {
     estado: (r.estado as PlazaFija['estado']) ?? 'ACTIVA',
     pausaDesde: r.pausa_desde ?? null,
     pausaHasta: r.pausa_hasta ?? null,
+    pausaLiberaSitio: r.pausa_libera_sitio ?? false,
     creadaEn: r.creada_en,
   };
 }
@@ -4890,6 +4891,10 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
   if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
   if ('plazaFijaSinCuota' in changes) db.plaza_fija_sin_cuota = changes.plazaFijaSinCuota;
+  if ('plazaFijaSolicitarDesdeApp' in changes) db.plaza_fija_solicitar_desde_app = changes.plazaFijaSolicitarDesdeApp;
+  if ('plazaFijaPausaDesdeApp' in changes) db.plaza_fija_pausa_desde_app = changes.plazaFijaPausaDesdeApp;
+  if ('plazaFijaPausaLiberaSitio' in changes) db.plaza_fija_pausa_libera_sitio = changes.plazaFijaPausaLiberaSitio;
+  if ('plazaFijaFinPausa' in changes) db.plaza_fija_fin_pausa = changes.plazaFijaFinPausa;
   if ('recibosAlCancelarCuota' in changes) db.recibos_al_cancelar_cuota = changes.recibosAlCancelarCuota;
   if ('renovarSolaCuotaCancelada' in changes) db.renovar_sola_cuota_cancelada = changes.renovarSolaCuotaCancelada;
   if ('reembolsosActivos' in changes) db.reembolsos_activos = changes.reembolsosActivos;
@@ -5289,6 +5294,10 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
     plazaFijaSinCuota: (r.plaza_fija_sin_cuota as PoliticaPlazaFijaSinCuota | null) ?? 'MANTENER',
+    plazaFijaSolicitarDesdeApp: (r.plaza_fija_solicitar_desde_app as boolean | null) ?? false,
+    plazaFijaPausaDesdeApp: (r.plaza_fija_pausa_desde_app as boolean | null) ?? false,
+    plazaFijaPausaLiberaSitio: (r.plaza_fija_pausa_libera_sitio as boolean | null) ?? false,
+    plazaFijaFinPausa: (r.plaza_fija_fin_pausa as Studio['plazaFijaFinPausa'] | null) ?? 'RECUPERAR_SI_LIBRE',
     recibosAlCancelarCuota: (r.recibos_al_cancelar_cuota as Studio['recibosAlCancelarCuota'] | null) ?? 'MANTENER_CON_REINTENTOS',
     renovarSolaCuotaCancelada: r.renovar_sola_cuota_cancelada ?? true,
     reembolsosActivos: r.reembolsos_activos ?? false,
