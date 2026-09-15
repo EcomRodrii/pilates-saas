@@ -33,7 +33,8 @@ export default function Contenido() {
       </p>
       <p>
         La plaza se guarda como un <strong>hueco semanal</strong>, no como una lista de reservas. Al guardarla ya
-        se le reservan las clases de las seis semanas que vienen, y después Tentare sigue reservándolas cada noche.
+        se le reservan las clases de las seis semanas que vienen (menos las que ya empiezan dentro del plazo de
+        cancelación: esas no se le apuntan solas, porque no podría cancelarlas sin coste), y después Tentare sigue reservándolas cada noche.
       </p>
 
       <h2 style={h2}>Si cambias el horario de la clase</h2>
