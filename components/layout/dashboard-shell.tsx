@@ -33,7 +33,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // useCore() y no useStudio(): esto es el marco de las 50 rutas del panel y
   // solo mira `studio`. Con useStudio() se re-renderizaba (y recreaba Sidebar,
   // Topbar y AvisoCambioDeSede) ante cualquier cambio del god-context.
-  const { studio } = useCore();
+  const { studio, sinEstudio } = useCore();
   const { rol, puedeVer } = usePermisos();
   const router = useRouter();
   const pathname = usePathname();
@@ -113,13 +113,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // `&& studio === null` en el uso de abajo, no un reset síncrono aquí: así
   // el flag se invalida solo en cuanto `studio` resuelve, sin un segundo
   // setState en el cuerpo del efecto (react-hooks/set-state-in-effect).
+  //
+  // «Sin estudio» solo cuando la base de datos lo ha contestado (`sinEstudio`),
+  // nunca por reloj: con un temporizador de 6 s, una carga en frío lenta le
+  // decía a una propietaria de verdad «Esta cuenta no tiene ningún estudio»
+  // (visto en producción, 15-sep-2026). El reloj queda para lo único que puede
+  // afirmar —que tarda— y da una salida en vez de un skeleton para siempre.
   const [estudioTardaDemasiado, setEstudioTardaDemasiado] = useState(false);
   useEffect(() => {
-    if (!session || studio !== null) return;
-    const t = setTimeout(() => setEstudioTardaDemasiado(true), 6000);
+    if (!session || studio !== null || sinEstudio) return;
+    const t = setTimeout(() => setEstudioTardaDemasiado(true), 12_000);
     return () => clearTimeout(t);
-  }, [session, studio]);
-  const estudioNuncaResuelve = estudioTardaDemasiado && studio === null;
+  }, [session, studio, sinEstudio]);
+  const cuentaSinEstudio = sinEstudio && studio === null;
+  const estudioTarda = estudioTardaDemasiado && studio === null && !sinEstudio;
   // La instructora no pasa por aquí: tiene su propia puerta (abajo). Sin esta
   // excepción, con la lista blanca vacía, rebotaría a /dashboard en bucle.
   const esInstructora = rolResuelto && rol === 'INSTRUCTOR';
@@ -177,11 +184,35 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Nunca un skeleton para siempre: si a los 6 s la cuenta sigue sin estudio,
-  // no es una carga lenta — es una cuenta que no pertenece a este panel (p.
-  // ej. una de Tentare Network sin studio_id). Salida explícita, no un
-  // callejón sin salida.
-  if (estudioNuncaResuelve) {
+  // Carga lenta o fallida (la base de datos no ha dicho que no haya estudio):
+  // se dice lo que se sabe y se da una salida, nunca un skeleton para siempre.
+  if (estudioTarda) {
+    return (
+      <PanelPrivacyProvider>
+        <PanelThemeProvider className="min-h-dvh bg-background">
+          <main className="min-h-dvh flex items-center justify-center px-4">
+            <div className="max-w-sm text-center space-y-3">
+              <p className="text-[14px] text-foreground font-medium">Tu estudio está tardando en cargar.</p>
+              <p className="text-[13px] text-muted-foreground">
+                Puede ser la conexión. Si sigue así, vuelve a intentarlo.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="inline-block px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium"
+              >
+                Volver a intentarlo
+              </button>
+            </div>
+          </main>
+        </PanelThemeProvider>
+      </PanelPrivacyProvider>
+    );
+  }
+
+  // Cuenta que no pertenece a este panel (p. ej. una de Tentare Network sin
+  // studio_id): salida explícita, no un callejón sin salida.
+  if (cuentaSinEstudio) {
     return (
       <PanelPrivacyProvider>
         <PanelThemeProvider className="min-h-dvh bg-background">

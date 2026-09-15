@@ -104,7 +104,8 @@ test.describe('Una integración caída se ve sin ir a buscarla', () => {
   // forma». Se escribió, y resultó que asumía una garantía que el código no da:
   // PostgREST no devuelve un objeto en una lectura de tabla, y con ese mock lo
   // que falla es la carga entera del estudio, que cae —sin un solo error de
-  // JS— en la pantalla «Esta cuenta no tiene ningún estudio». Degrada bien; no
+  // JS— en «Tu estudio está tardando en cargar», con su botón de volver a
+  // intentarlo (antes, en falso, «Esta cuenta no tiene ningún estudio»). Degrada bien; no
   // hay bug que fijar aquí. La tolerancia a datos con otra forma SÍ se prueba,
   // donde sí es alcanzable: `integracionesCaidas` en lib/integraciones/salud.test.ts.
 });

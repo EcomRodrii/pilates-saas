@@ -267,13 +267,23 @@ export function getCurrentStudioId() {
 // reimplementar la misma lógica aquí— evita que cliente y RLS puedan
 // resolver sedes distintas para el mismo usuario.
 export async function resolveStudioId(): Promise<string | null> {
+  return (await resolverEstudioDeLaSesion()).studioId;
+}
+
+/**
+ * Lo mismo que `resolveStudioId`, pero separa «esta cuenta no tiene estudio»
+ * (`studioId: null`, `fallo: false`) de «no se ha podido preguntar»
+ * (`fallo: true`). Solo lo primero permite decirle a alguien que no tiene
+ * estudio: con un fallo, el panel se lo decía en falso a una propietaria.
+ */
+export async function resolverEstudioDeLaSesion(): Promise<{ studioId: string | null; fallo: boolean }> {
   const { data, error } = await supabase.rpc('current_studio_id');
   // A-3: la ÚNICA lectura que pide recarga tras refrescar la sesión — si esto
   // falla en el arranque, STUDIO_ID queda null y TODO lo demás devuelve []
   // hasta recargar; el resto de lecturas se recuperan solas con el siguiente
   // sondeo/clic una vez la sesión está renovada.
-  if (error) { reportDbError('[resolveStudioId]', error, { recargaTrasSesion: true }); return null; }
-  return (data as string | null) ?? null;
+  if (error) { reportDbError('[resolveStudioId]', error, { recargaTrasSesion: true }); return { studioId: null, fallo: true }; }
+  return { studioId: (data as string | null) ?? null, fallo: false };
 }
 
 // ─── Cliente de escritura sensible al entorno ────────────────────────────────

@@ -25,6 +25,12 @@ export interface CoreContextValue {
   studio: Studio | null;
   instructores: Instructor[];
   dataLoaded: boolean;
+  /**
+   * La base de datos ha contestado que esta sesión NO tiene estudio (p. ej. una
+   * cuenta de Tentare Network). No es lo mismo que `studio === null`, que
+   * también vale mientras carga o si la carga falla.
+   */
+  sinEstudio: boolean;
   updateStudio: (changes: Partial<Studio>) => Promise<unknown> | void;
   updateAvatarAdmin: (avatarId: string | null) => void;
   addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) => void;
@@ -54,6 +60,7 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     studio: core.studio,
     instructores: core.instructores,
     dataLoaded: core.dataLoaded,
+    sinEstudio: core.sinEstudio,
     updateStudio: core.updateStudio,
     updateAvatarAdmin: core.updateAvatarAdmin,
     addInstructor: core.addInstructor,
@@ -70,7 +77,7 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     // useMemo de useStudio(). Solo el ESTADO decide cuándo recalcular.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    core.studio, core.instructores, core.dataLoaded,
+    core.studio, core.instructores, core.dataLoaded, core.sinEstudio,
     core.navPortal, core.barraClasica, core.barraFlotante, core.tabBarStyle, core.variantes, core.themeIdPublicado,
   ]);
 
