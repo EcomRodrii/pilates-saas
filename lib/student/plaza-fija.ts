@@ -28,12 +28,21 @@ export interface PlazaFijaVista {
   salaId: string;
   tipoClaseId: string | null;
   estado: 'ACTIVA' | 'PAUSADA';
-  /** YYYY-MM-DD de la próxima ocurrencia (hoy incluido si la hora no ha pasado), saltándose la pausa. */
+  /** YYYY-MM-DD de la próxima clase de esta plaza (hoy incluido si la hora no ha pasado), saltándose la pausa. */
   proximaFecha: string | null;
+  /**
+   * El horario publicado llega más allá de su próxima semana y en su hueco no
+   * hay ninguna clase: la serie se acabó o se movió. Sin esto la app le
+   * enseñaba una «próxima» que no existía.
+   */
+  sinClase: boolean;
   vigenciaHasta: string | null;
   /** Pausa con fechas que aún no ha terminado; `enCurso` = hoy está dentro. */
   pausa: { desde: string; hasta: string; enCurso: boolean } | null;
 }
+
+/** Una clase del horario publicado, ya en fecha y hora del estudio. */
+export interface SesionSlotMin { fecha: string; hora: string; salaId: string; tipoClaseId: string; cancelada: boolean }
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
@@ -45,29 +54,57 @@ function sumarDias(iso: string, n: number): string {
 
 function dow(iso: string): number { return new Date(`${iso}T12:00:00`).getDay(); }
 
-/** La plaza fija vigente de la socia (la primera ACTIVA; si no, una PAUSADA), o null. */
-export function proyectarPlazaFija(plazas: PlazaFijaMin[], hoyISO: string, horaAhora = '00:00'): PlazaFijaVista | null {
+/**
+ * TODAS las plazas fijas vigentes de la socia, lunes primero. Antes se enseñaba
+ * una sola: quien venía lunes y miércoles veía solo una de las dos.
+ *
+ * La próxima fecha sale del horario publicado cuando llega (`sesiones`): la
+ * primera clase de verdad en su hueco. Si el horario no llega tan lejos, se
+ * cuenta por calendario, que es lo único que se puede saber.
+ */
+export function proyectarPlazasFijas(
+  plazas: PlazaFijaMin[], hoyISO: string, horaAhora = '00:00', sesiones?: SesionSlotMin[],
+): PlazaFijaVista[] {
   const vigentes = plazas.filter((p) => p.estado !== 'BAJA' && p.vigenciaDesde <= sumarDias(hoyISO, 7) && (!p.vigenciaHasta || p.vigenciaHasta >= hoyISO));
-  const p = vigentes.find((x) => x.estado === 'ACTIVA') ?? vigentes[0];
-  // El filtro de arriba ya descartó las BAJA, pero el tipo no lo sabe.
-  if (!p || p.estado === 'BAJA') return null;
-  const hora = p.horaInicio.slice(0, 5);
-  const pausaVigente = p.pausaDesde && p.pausaHasta && p.pausaHasta >= hoyISO
-    ? { desde: p.pausaDesde, hasta: p.pausaHasta, enCurso: p.pausaDesde <= hoyISO }
-    : null;
-  let proximaFecha: string | null = null;
-  if (p.estado === 'ACTIVA') {
-    let delta = (p.diaSemana - dow(hoyISO) + 7) % 7;
-    if (delta === 0 && hora < horaAhora) delta = 7;
-    let fecha = sumarDias(hoyISO, delta);
-    // Las semanas en pausa no se le reservan: su próxima es la primera después.
-    while (pausaVigente && fecha >= pausaVigente.desde && fecha <= pausaVigente.hasta) fecha = sumarDias(fecha, 7);
-    proximaFecha = (fecha >= p.vigenciaDesde && (!p.vigenciaHasta || fecha <= p.vigenciaHasta)) ? fecha : null;
+  const horizonte = (sesiones ?? []).reduce<string | null>((max, s) => (max === null || s.fecha > max ? s.fecha : max), null);
+  const vistas: PlazaFijaVista[] = [];
+  for (const p of vigentes) {
+    // El filtro de arriba ya descartó las BAJA, pero el tipo no lo sabe.
+    if (p.estado === 'BAJA') continue;
+    const hora = p.horaInicio.slice(0, 5);
+    const pausaVigente = p.pausaDesde && p.pausaHasta && p.pausaHasta >= hoyISO
+      ? { desde: p.pausaDesde, hasta: p.pausaHasta, enCurso: p.pausaDesde <= hoyISO }
+      : null;
+    const cuenta = (fecha: string) => fecha >= p.vigenciaDesde && (!p.vigenciaHasta || fecha <= p.vigenciaHasta)
+      && !(pausaVigente && fecha >= pausaVigente.desde && fecha <= pausaVigente.hasta);
+    let proximaFecha: string | null = null;
+    let sinClase = false;
+    if (p.estado === 'ACTIVA') {
+      let delta = (p.diaSemana - dow(hoyISO) + 7) % 7;
+      if (delta === 0 && hora < horaAhora) delta = 7;
+      let fecha = sumarDias(hoyISO, delta);
+      // Las semanas en pausa no se le reservan: su próxima es la primera después.
+      while (pausaVigente && fecha >= pausaVigente.desde && fecha <= pausaVigente.hasta) fecha = sumarDias(fecha, 7);
+      const porCalendario = (fecha >= p.vigenciaDesde && (!p.vigenciaHasta || fecha <= p.vigenciaHasta)) ? fecha : null;
+      proximaFecha = porCalendario;
+      if (sesiones) {
+        const enSuHueco = sesiones
+          .filter((s) => !s.cancelada && s.salaId === p.salaId && s.hora === hora && dow(s.fecha) === p.diaSemana
+            && (!p.tipoClaseId || s.tipoClaseId === p.tipoClaseId)
+            && (s.fecha > hoyISO || (s.fecha === hoyISO && s.hora >= horaAhora))
+            && cuenta(s.fecha))
+          .map((s) => s.fecha)
+          .sort();
+        if (enSuHueco.length > 0) proximaFecha = enSuHueco[0];
+        else if (porCalendario && horizonte && porCalendario <= horizonte) { proximaFecha = null; sinClase = true; }
+      }
+    }
+    vistas.push({
+      diaSemana: p.diaSemana, hora, salaId: p.salaId, tipoClaseId: p.tipoClaseId, estado: p.estado,
+      proximaFecha, sinClase, vigenciaHasta: p.vigenciaHasta, pausa: pausaVigente,
+    });
   }
-  return {
-    diaSemana: p.diaSemana, hora, salaId: p.salaId, tipoClaseId: p.tipoClaseId, estado: p.estado,
-    proximaFecha, vigenciaHasta: p.vigenciaHasta, pausa: pausaVigente,
-  };
+  return vistas.sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora));
 }
 
 export function nombreDia(diaSemana: number): string { return DIAS[diaSemana] ?? ''; }

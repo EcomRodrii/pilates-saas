@@ -29,7 +29,7 @@ function Bonos() {
     const [bonos, plazaFija] = await Promise.all([getBonos(estudio.slug), getPlazaFija(estudio.slug)]);
     return { bonos, plazaFija };
   }, [estudio.slug]);
-  const { data: cargado, estado, reintentar } = useAsync(cargar, (d) => d.bonos.length === 0 && !d.plazaFija.plaza && d.plazaFija.recuperaciones.disponibles === 0);
+  const { data: cargado, estado, reintentar } = useAsync(cargar, (d) => d.bonos.length === 0 && d.plazaFija.plazas.length === 0 && d.plazaFija.recuperaciones.disponibles === 0);
   const data = cargado?.bonos ?? null;
   const plazaFija = cargado?.plazaFija ?? null;
 
@@ -148,7 +148,7 @@ function Bonos() {
                 />
               )
             )}
-            {plazaFija && <PlazaFijaCard plaza={plazaFija.plaza} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
+            {plazaFija && <PlazaFijaCard plazas={plazaFija.plazas} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
             {activos.map((b) => <CreditCard key={b.id} bono={b} />)}
             {otros.length > 0 && <p className="t-label" style={{ margin: 'var(--s-2) 0 0' }}>Anteriores</p>}
             {otros.map((b) => <CreditCard key={b.id} bono={b} />)}

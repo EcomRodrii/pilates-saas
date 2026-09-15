@@ -183,6 +183,8 @@ export interface GamificacionVista {
 export interface PlazaFijaVista {
   diaSemana: number; hora: string; sala: string; tipo: string | null; estado: 'ACTIVA' | 'PAUSADA';
   proximaFecha: string | null; vigenciaHasta: string | null;
+  /** El horario publicado llega más allá y en su hueco no hay clase (ver lib/student/plaza-fija.ts). */
+  sinClase: boolean;
   /** Pausa con fechas que aún no ha terminado; `enCurso` = hoy está dentro. */
   pausa: { desde: string; hasta: string; enCurso: boolean } | null;
 }

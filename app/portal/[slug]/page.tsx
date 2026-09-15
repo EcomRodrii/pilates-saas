@@ -439,7 +439,7 @@ export default function InicioPage() {
 
             {/* ── PLAZA FIJA / RECUPERACIONES (F2) ────────────────────────
                 Solo si tiene: sin plaza ni recuperaciones no se pinta nada. */}
-            {plazaFija && <PlazaFijaCard compacta plaza={plazaFija.plaza} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
+            {plazaFija && <PlazaFijaCard compacta plazas={plazaFija.plazas} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
 
             {/* Nivel y créditos: solo si el estudio usa gamificación. */}
             {gamificacion && <NivelCard g={gamificacion} href={href('/logros')} creditosNombre={estudio.creditosNombre} />}
