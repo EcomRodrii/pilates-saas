@@ -31,13 +31,14 @@ import type { PlazaFijaVista } from '@/lib/student/tipos';
 // el diálogo de cancelar nunca decía que era su plaza fija. Comparación por
 // nombre (sala/tipo), no por id: `getPlazaFija` (F2) ya proyecta la plaza con
 // nombres resueltos para pintarla, y `Clase` no trae más que eso mismo.
-function esOcurrenciaDePlazaFija(plazas: PlazaFijaVista[], c: Clase): boolean {
-  // Cualquiera de sus plazas: quien viene lunes y miércoles tiene dos.
-  return plazas.some((plaza) => plaza.estado === 'ACTIVA'
+// De cuál de sus plazas es esta clase (quien viene lunes y miércoles tiene dos),
+// para que el aviso al cancelar nombre el día correcto. `null` = no es de ninguna.
+function plazaDeLaClase(plazas: PlazaFijaVista[], c: Clase): PlazaFijaVista | null {
+  return plazas.find((plaza) => plaza.estado === 'ACTIVA'
     && new Date(`${c.fecha}T12:00:00`).getDay() === plaza.diaSemana
     && c.hora === plaza.hora
     && c.sala === plaza.sala
-    && (!plaza.tipo || c.tipo === plaza.tipo));
+    && (!plaza.tipo || c.tipo === plaza.tipo)) ?? null;
 }
 
 // Mis clases (§A.9): próximas / historial, con cancelación y salida de la lista
@@ -100,7 +101,7 @@ export default function MisReservasPage() {
 
   const sel = items.find((x) => x.r.id === cancelId);
   const aviso = sel ? avisoCancelacion(sel.c, estudio.politicaCancelacionHoras) : null;
-  const selEsFija = sel && sel.r.estado !== 'en-espera' ? esOcurrenciaDePlazaFija(data?.plazas ?? [], sel.c) : false;
+  const selPlaza = sel && sel.r.estado !== 'en-espera' ? plazaDeLaClase(data?.plazas ?? [], sel.c) : null;
 
   // Sin `useCallback` a propósito: cierra sobre `sel`, que se deriva en el
   // render a partir de `data`, y el compilador de React no puede preservar esa
@@ -242,7 +243,7 @@ export default function MisReservasPage() {
                 const i = data.instructoras.find((x) => x.id === c.instructoraId);
                 const av = avisoCancelacion(c, estudio.politicaCancelacionHoras);
                 const espera = r.estado === 'en-espera';
-                const esFija = !espera && esOcurrenciaDePlazaFija(data.plaza, c);
+                const esFija = !espera && plazaDeLaClase(data.plazas, c) !== null;
                 // P-5: la oferta vive hasta `ofertaExpiraEn` — pasado ese
                 // instante el cron ya la ha caducado y el sitio no es suyo,
                 // aunque el catálogo todavía no se haya recargado.
@@ -374,10 +375,10 @@ export default function MisReservasPage() {
         loading={cancelando}
         onConfirm={confirmarCancelacion}
       >
-        {selEsFija && data?.plaza && (
+        {selPlaza && (
           <div style={{ background: 'var(--accent-soft)', borderRadius: 'var(--radius-sm)', padding: '11px 14px', marginTop: 13 }}>
             <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>
-              Esto NO cancela tu plaza fija de los {nombreDia(data.plaza.diaSemana)} — solo esta clase. Seguirás apuntada cada semana.
+              Esto NO cancela tu plaza fija de los {nombreDia(selPlaza.diaSemana)} — solo esta clase. Seguirás apuntada cada semana.
             </p>
           </div>
         )}
