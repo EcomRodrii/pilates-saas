@@ -62,7 +62,7 @@ export function CicloDeReserva() {
         La plaza se ocupa y se consume la sesión del bono, en una sola operación.
       </PasoVertical>
       <PasoVertical tono="oscuro" indice="4" titulo="Recibe su confirmación" ultimo>
-        Y el recordatorio el día antes, si tienes la regla encendida.
+        Y el recordatorio antes de la clase, sin tener que activar nada.
       </PasoVertical>
     </PanelOscuro>
   );

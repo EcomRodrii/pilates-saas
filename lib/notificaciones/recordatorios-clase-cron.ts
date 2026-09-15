@@ -4,7 +4,8 @@
 //
 // Es el ÚNICO que llama a `enviarRecordatorioClase`: 24 h antes, aviso en su app
 // + email + WhatsApp (si el estudio lo conectó); 1 h antes, solo el aviso en su
-// app. La lógica vive en `recordatorio-clase.ts` (probada con `node --test`);
+// app; y a quien reservó con las 24 h ya pasadas (y falta más de 1 h 15 min),
+// email + WhatsApp una vez en la pasada siguiente. La lógica vive en `recordatorio-clase.ts` (probada con `node --test`);
 // aquí solo se enchufan las piezas que necesitan `@/`.
 //
 // El camino viejo de Inngest (`lib/inngest/recordatorios.ts`, email y WhatsApp
