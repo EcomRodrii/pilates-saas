@@ -70,6 +70,13 @@ const VENTANA_ESPERAS_DIAS = 30;
 export const ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR = 'penalizaciones-recibo-sin-programar';
 
 /**
+ * Penalizaciones COBRADA con el recibo DEVUELTO. Exportado por lo mismo que la
+ * de arriba: el cron de penalizaciones la cuenta en cada pasada, DESPUÉS de su
+ * barrido, y manda el número a Sentry.
+ */
+export const ID_PENALIZACIONES_COBRADAS_SIN_DINERO = 'penalizaciones-cobradas-con-recibo-devuelto';
+
+/**
  * Qué mandar a Sentry con el resultado de una comprobación. `null` = en verde,
  * nada que mandar. Solo el número y el id de la comprobación: nunca filas, ids
  * de socias ni de estudios. Mensaje estable para que Sentry agrupe en un issue.
@@ -216,6 +223,25 @@ export const DEFINICIONES: Definicion[] = [
       .select('id', { count: 'exact', head: true })
       .eq('estado', 'COBRADO')
       .is('fecha_cobro', null),
+  },
+  {
+    id: ID_PENALIZACIONES_COBRADAS_SIN_DINERO,
+    que: 'Penalizaciones COBRADA cuyo recibo está DEVUELTO.',
+    impacto:
+      'La liquidación de la instructora suma toda penalización COBRADA, así que le está imputando un dinero que ya ' +
+      'volvió a la socia (reembolso, disputa perdida o recibo marcado como devuelto). Si la nómina se paga así, se le ' +
+      'paga de más. Revisa la penalización y la liquidación de ese mes antes de pagarla.',
+    // Una fila ya es fallo: quien marca el recibo DEVUELTO pone al día la
+    // penalización en la misma petición (`marcarPenalizacionReembolsada`), así
+    // que esto no tiene tránsito que esperar. Y el cron la cuenta después de su
+    // barrido: si aun así queda alguna, no la ha arreglado nadie.
+    umbralAviso: 1,
+    umbralFallo: 1,
+    contar: (admin) => admin
+      .from('penalizaciones')
+      .select('id, recibos!inner(estado)', { count: 'exact', head: true })
+      .eq('estado', 'COBRADA')
+      .eq('recibos.estado', 'DEVUELTO'),
   },
 ];
 
