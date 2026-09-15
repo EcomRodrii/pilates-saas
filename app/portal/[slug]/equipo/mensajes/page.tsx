@@ -36,7 +36,8 @@ export default function MensajesInstructoraPage() {
 
   return (
     <StudentShell modo="instructora">
-      <PageHeader titulo="Mensajes" back />
+      {/* Sin «Volver»: es una pestaña de la barra, no una pantalla dentro de Perfil. */}
+      <PageHeader titulo="Mensajes" />
       <div className="px" style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 560 }}>
         {estado === 'loading' && <ListSkeleton n={4} h={68} />}
         {estado === 'error' && <ErrorState titulo="No hemos podido cargar tus mensajes" onRetry={reintentar} />}

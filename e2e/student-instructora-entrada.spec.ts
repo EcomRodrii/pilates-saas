@@ -134,7 +134,12 @@ test.describe('La instructora entra en la app del estudio', () => {
     }
     await expect(reserva.first()).toContainText('Vienes a clase');
     await expect(page.getByTestId('clase-que-da').first()).toContainText('Das clase');
-    // Con doble rol, la barra sí ofrece reservar.
-    await expect(page.getByRole('link', { name: 'Reservar' })).toBeVisible();
+    // La barra es la de la instructora aunque también sea alumna: sus cinco
+    // destinos, y «Reservar» vive en Perfil (decisión del 15-sep-2026).
+    const barra = page.getByRole('navigation', { name: 'Principal' });
+    for (const destino of ['Hoy', 'Agenda', 'Alumnas', 'Mensajes', 'Perfil']) {
+      await expect(barra.getByRole('link', { name: destino, exact: true })).toBeVisible();
+    }
+    await expect(barra.getByRole('link', { name: 'Reservar', exact: true })).toHaveCount(0);
   });
 });

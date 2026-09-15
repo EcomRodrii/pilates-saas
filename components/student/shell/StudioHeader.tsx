@@ -34,6 +34,46 @@ export function altoCabecera(lema: string | null | undefined): number {
   return lema ? ALTO_CABECERA_CON_LEMA : ALTO_CABECERA;
 }
 
+/**
+ * A partir de esta proporción (ancho / alto) un logo es un lockup apaisado: el
+ * logotipo con el nombre al lado. En una barra de 26 px de alto y 132 de ancho
+ * como mucho, uno de 2000×200 se pinta a 132×13 y se ve como una raya — así lo
+ * describió el fundador. Además repetiría el nombre, que ya va escrito al lado.
+ */
+const PROPORCION_LOGO_APAISADO = 3.2;
+
+/**
+ * El logo del estudio si cabe en la barra; si no, el monograma. La proporción
+ * solo se sabe al cargar la imagen, así que hasta entonces se pinta el logo
+ * (lo normal es un isotipo) y, si resulta apaisado, cambia al monograma.
+ */
+function LogoOMonograma({ logoUrl, nombre, flotando }: { logoUrl: string | null; nombre: string; flotando: boolean }) {
+  const [apaisado, setApaisado] = useState<{ src: string; si: boolean } | null>(null);
+  const esApaisado = apaisado?.src === logoUrl && apaisado.si;
+  if (logoUrl && !esApaisado) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={urlServida(logoUrl, 132)}
+        alt=""
+        decoding="async"
+        onLoad={(e) => {
+          const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+          setApaisado({ src: logoUrl, si: h > 0 && w / h > PROPORCION_LOGO_APAISADO });
+        }}
+        style={{ height: 26, maxWidth: 132, objectFit: 'contain', flexShrink: 0 }}
+      />
+    );
+  }
+  // Sin logo (o con uno que no cabe), monograma con la inicial — el diseño lo
+  // declara como estado normal, no como respaldo de error (`logoUrl: null`).
+  return (
+    <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 999, background: flotando ? 'rgba(250,249,245,.22)' : 'var(--accent)', color: flotando ? 'var(--on-dark)' : 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--t-meta)', fontWeight: 800 }}>
+      {inicialDe(nombre)}
+    </span>
+  );
+}
+
 export function StudioHeader({ noLeidas = 0, transparente = false, conLema = false }: { noLeidas?: number; transparente?: boolean;
   /** Pinta el lema del estudio bajo su nombre. Solo donde hay sitio: sobre un
    *  héroe fotográfico. En las pantallas normales la barra mide 56 y no cabe. */
@@ -108,16 +148,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
             está el problema — el logo se acota, el nombre puede encogerse y
             elidirse, y la campana no se comprime nunca. */}
         <Link href={href()} aria-label={estudio.nombre} className="tap" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, color: flotando ? 'var(--on-dark)' : 'var(--foreground)' }}>
-          {estudio.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={urlServida(estudio.logoUrl, 132)} alt="" decoding="async" style={{ height: 26, maxWidth: 132, objectFit: 'contain', flexShrink: 0 }} />
-          ) : (
-            // Sin logo, monograma con la inicial — el diseño lo declara como
-            // estado normal, no como respaldo de error (`logoUrl: null`).
-            <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 999, background: flotando ? 'rgba(250,249,245,.22)' : 'var(--accent)', color: flotando ? 'var(--on-dark)' : 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--t-meta)', fontWeight: 800 }}>
-              {inicialDe(estudio.nombre)}
-            </span>
-          )}
+          <LogoOMonograma logoUrl={estudio.logoUrl} nombre={estudio.nombre} flotando={flotando} />
           {/* Con lema, nombre y lema van apilados. El `minWidth: 0` sube al
               contenedor para que el recorte de arriba siga funcionando. */}
           <span className="stack" style={{ ['--gap' as string]: '1px', minWidth: 0 }}>

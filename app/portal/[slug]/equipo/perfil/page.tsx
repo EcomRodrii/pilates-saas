@@ -99,8 +99,7 @@ export default function PerfilInstructoraPage() {
           items={[
             { label: 'Tu disponibilidad', href: href('/equipo/disponibilidad') },
             { label: 'Tus ausencias', href: href('/equipo/ausencias') },
-            { label: 'Tus alumnas', href: href('/equipo/alumnas') },
-            { label: 'Mensajes con tus alumnas', href: href('/equipo/mensajes') },
+            // Sus alumnas y sus mensajes están en la barra (15-sep-2026).
           ]}
         />
 

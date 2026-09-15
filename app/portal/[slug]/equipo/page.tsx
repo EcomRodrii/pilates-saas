@@ -15,6 +15,7 @@ import { getClases } from '@/lib/student/datos';
 import { getAgendaInstructora, getOfertasInstructora, responderOferta } from '@/lib/student/datos-instructora';
 import { bajasEnCurso, proximaQueDa, puedePasarLista, textoBaja, type OfertaSustitucion } from '@/lib/student/agenda-instructora';
 import { textoRevision } from '@/lib/student/baja-instructora';
+import { agruparPorDia, cifraDuracion, lunesDe, resumenSemana } from '@/lib/student/semana-instructora';
 import { ClaseQueDaCard } from '@/components/student/domain/ClaseQueDaCard';
 import { ProximaClaseQueDaCard } from '@/components/student/domain/ProximaClaseQueDaCard';
 import { OfertaSustitucionCard } from '@/components/student/domain/OfertaSustitucionCard';
@@ -22,16 +23,20 @@ import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components
 import { Foto, precargarFoto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
 
-// «Hoy» de la instructora: lo que el estudio le pide cubrir, su próxima clase y
-// el estado de las bajas que ha pedido. Es lo primero que ve al abrir la app del
-// estudio con su cuenta.
+// «Hoy» de la instructora: lo que el estudio le pide cubrir, su próxima clase,
+// su semana y el estado de las bajas que ha pedido. Es lo primero que ve al
+// abrir la app del estudio con su cuenta.
 //
 // Con la misma cara que el Inicio de la alumna: la portada del estudio con el
-// saludo encima y la próxima clase en la tarjeta verde noche. Antes era un
-// título y tarjetas blancas, y al lado de la app de la alumna parecía otra app.
+// saludo encima y la próxima clase en la tarjeta verde noche. Y con su SEMANA
+// (decisión del 15-sep-2026): con una clase al día la pantalla era una tarjeta y
+// un hueco, y lo que de verdad quiere saber al abrirla —cuánto trabaja esta
+// semana y qué tiene los próximos días— estaba escondido en la agenda.
 
 /** Cuántos días mira hacia delante para encontrar su próxima clase. */
 const DIAS_VISTA = 14;
+/** «Próximos días»: los que siguen a hoy, sin llegar a ser la agenda entera. */
+const DIAS_PROXIMOS = 6;
 
 // Lo leen el `<img>` y su precarga: si dijeran cosas distintas, la portada se
 // bajaría dos veces.
@@ -48,7 +53,9 @@ export default function HoyInstructoraPage() {
   // `null` hasta que hidrata: «la próxima» depende del reloj.
   const ahoraMs = useAhoraMs();
   const hoy = hoyISO();
-  const hasta = addDias(hoy, DIAS_VISTA - 1);
+  // El primitivo fuera: con `estudio.slug` en las dependencias el React Compiler
+  // no puede conservar la memoización (ver react-compiler-memoizacion-manual).
+  const slug = estudio.slug;
 
   const [respondiendo, setRespondiendo] = useState<{ id: string; accion: 'aceptar' | 'rechazar' } | null>(null);
   const [errorOferta, setErrorOferta] = useState<{ id: string; texto: string } | null>(null);
@@ -61,17 +68,19 @@ export default function HoyInstructoraPage() {
   const cargar = useCallback(async () => {
     if (!esInstructora) return new Promise<never>(() => {});
     const [agenda, ofertas, catalogo] = await Promise.all([
-      getAgendaInstructora(estudio.slug, hoy, hasta),
+      // Desde el LUNES y no desde hoy: el resumen cuenta la semana entera, también
+      // las clases que ya dio (cabe de sobra en el tope de la agenda, 31 días).
+      getAgendaInstructora(slug, lunesDe(hoy), addDias(hoy, DIAS_VISTA - 1)),
       // Si fallan las ofertas no se cae la agenda: la petición le llega también
       // por email, con su enlace.
-      getOfertasInstructora(estudio.slug).catch((): OfertaSustitucion[] => []),
+      getOfertasInstructora(slug).catch((): OfertaSustitucion[] => []),
       // Solo para la foto de la próxima clase (el catálogo ya está en caché). Sin
       // él, la tarjeta sale en verde noche liso.
-      getClases(estudio.slug).catch(() => []),
+      getClases(slug).catch(() => []),
     ]);
     const fotos = new Map(catalogo.map((c) => [c.id, c.fotoUrl || null]));
     return { ...agenda, ofertas, fotos };
-  }, [esInstructora, estudio.slug, hoy, hasta]);
+  }, [esInstructora, slug, hoy]);
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
 
   const responder = async (oferta: OfertaSustitucion, accion: 'aceptar' | 'rechazar') => {
@@ -99,11 +108,17 @@ export default function HoyInstructoraPage() {
     else toast(accion === 'aceptar' ? 'La clase es tuya. Ya está en tu agenda.' : 'Gracias por avisar. Buscaremos a otra persona.');
   };
 
-  const proxima = data && ahoraMs != null ? proximaQueDa(data.clases, ahoraMs) : null;
-  const deHoy = (data?.clases ?? []).filter((c) => c.fecha === hoy && !c.cancelada);
+  const clases = data?.clases ?? [];
+  const proxima = data && ahoraMs != null ? proximaQueDa(clases, ahoraMs) : null;
+  const deHoy = clases.filter((c) => c.fecha === hoy && !c.cancelada);
   // El resto de las de hoy, debajo de la próxima: «Hoy das 3 clases» y enseñar
   // una sola obligaba a ir a la agenda para ver las otras dos.
   const otrasDeHoy = ahoraMs == null ? [] : deHoy.filter((c) => c.id !== proxima?.id && Date.parse(c.fin) > ahoraMs);
+  const proximosDias = agruparPorDia(
+    clases.filter((c) => !c.cancelada && c.id !== proxima?.id),
+    (c) => c.fecha, addDias(hoy, 1), DIAS_PROXIMOS,
+  ).filter((d) => d.filas.length > 0);
+  const semana = resumenSemana(clases, hoy, ahoraMs);
   const bajas = bajasEnCurso(data?.bajas ?? [], ahoraMs);
   const ofertas = data?.ofertas ?? [];
   const primerNombre = (instructora?.nombre ?? '').split(' ')[0];
@@ -169,7 +184,7 @@ export default function HoyInstructoraPage() {
       </section>
 
       <div className="px stack" style={{ ['--gap' as string]: 'var(--s-5)', marginTop: 16 }}>
-        {estado === 'loading' && <ListSkeleton n={2} h={120} />}
+        {estado === 'loading' && <ListSkeleton n={3} h={110} />}
         {estado === 'error' && (
           <ErrorState cuerpo="No hemos podido cargar tu agenda. Tus clases siguen como estaban." onRetry={reintentar} />
         )}
@@ -217,12 +232,38 @@ export default function HoyInstructoraPage() {
               />
             )}
 
+            {/* Su semana en tres cifras. Todas salen de SUS clases de lunes a
+                domingo: no se estima nada, así que ninguna puede mentir. */}
+            <section aria-labelledby="hoy-semana" data-testid="resumen-semana">
+              <h2 id="hoy-semana" className="t-label" style={{ margin: '0 0 7px' }}>Tu semana</h2>
+              <div className="card" style={{ padding: '14px 6px', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                <Cifra valor={String(semana.clases)} texto={semana.clases === 1 ? 'clase' : 'clases'}
+                  detalle={semana.clases > 0 && semana.quedan < semana.clases ? `quedan ${semana.quedan}` : undefined} />
+                <Cifra {...cifraDuracion(semana.minutos)} separador />
+                <Cifra valor={String(semana.plazasOcupadas)} texto={semana.plazasOcupadas === 1 ? 'plaza ocupada' : 'plazas ocupadas'} separador />
+              </div>
+            </section>
+
             {otrasDeHoy.length > 0 && (
               <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="hoy-otras">
                 <h2 id="hoy-otras" className="t-label">Más clases hoy</h2>
                 {otrasDeHoy.map((c) => (
                   <ClaseQueDaCard key={c.id} clase={c} href={href(`/equipo/clase/${encodeURIComponent(c.id)}`)} />
                 ))}
+              </section>
+            )}
+
+            {proximosDias.length > 0 && (
+              <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="hoy-proximos">
+                <h2 id="hoy-proximos" className="t-label">Próximos días</h2>
+                {proximosDias.flatMap((d) => d.filas.map((c) => (
+                  <ClaseQueDaCard
+                    key={c.id}
+                    clase={c}
+                    conFecha={etiquetaDia(d.fecha, hoy)}
+                    href={href(`/equipo/clase/${encodeURIComponent(c.id)}`)}
+                  />
+                )))}
               </section>
             )}
 
@@ -254,5 +295,15 @@ export default function HoyInstructoraPage() {
         )}
       </div>
     </StudentShell>
+  );
+}
+
+function Cifra({ valor, texto, detalle, separador = false }: { valor: string; texto: string; detalle?: string; separador?: boolean }) {
+  return (
+    <div style={{ padding: '0 10px', textAlign: 'center', minWidth: 0, borderLeft: separador ? '1px solid var(--border)' : undefined }}>
+      <p className="t-num" style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.1 }}>{valor}</p>
+      <p className="t-meta" style={{ margin: '3px 0 0' }}>{texto}</p>
+      {detalle && <p className="t-meta" style={{ margin: '1px 0 0', color: 'var(--subtle-foreground)' }}>{detalle}</p>}
+    </div>
   );
 }
