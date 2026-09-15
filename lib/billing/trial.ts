@@ -206,8 +206,13 @@ export function ampliacionDePrueba(
     };
   }
   const fin = aFecha(entrada.trialEndsAt);
-  if (!fin) return { ok: false, motivo: 'No tiene fecha de fin de prueba.' };
-  const desde = fin.getTime() > ahora.getTime() ? fin : ahora;
+  // ⚠️ Si la fecha de fin es NULL (estado incoherente de `trial_expirado` sin fecha),
+  // usa `ahora` como base para calcular la nueva extensión. Esto permite "reparar"
+  // un estado roto sin bloquear al usuario — sigue siendo una ampliación legítima
+  // desde el momento presente. Causas conocidas de esta inconsistencia:
+  //   - Herencia de una cadena con trial_ends_at=NULL (bug de #2???)
+  //   - Corrupción de datos parcial
+  const desde = fin ? (fin.getTime() > ahora.getTime() ? fin : ahora) : ahora;
   return { ok: true, hasta: new Date(desde.getTime() + dias * MS_DIA) };
 }
 
