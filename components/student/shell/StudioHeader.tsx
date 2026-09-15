@@ -114,9 +114,9 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
     <header
       // Sobre la foto, el velo mide lo que la foto —el ancho del shell en cada
       // escalón— y no la ventana: pintaba una franja gris encima del crema.
-      className={flotando ? 'ancho-shell' : undefined}
+      className="ancho-shell"
       style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 46, paddingTop: 'var(--safe-top)',
+        position: 'fixed', top: 0, width: '100%', zIndex: 46, paddingTop: 'var(--safe-top)',
         // ⚠️ VELO PROPIO cuando flota, y no es adorno: MEDIDO fotografiando los
         // píxeles bajo el nombre del estudio con el texto oculto, sobre una
         // portada clara (#F2EFE9, una sala a contraluz — lo que sube media
