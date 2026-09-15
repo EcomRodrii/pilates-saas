@@ -23,7 +23,7 @@ import {
   Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
 } from 'lucide-react';
 import Link from 'next/link';
-import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera } from '@/lib/utils';
+import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera } from '@/lib/utils';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
 import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
 import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
@@ -76,6 +76,8 @@ import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 import { TentareOrb } from '@/components/marca/tentare-orb';
+import { DialogoRenovarSerie } from '@/components/series/dialogo-renovar-serie';
+import { nombreSerie } from '@/lib/series-renovacion';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -1462,6 +1464,9 @@ export default function Calendario() {
   const [confirmCancelar, setConfirmCancelar] = useState(false);
   const [confirmEliminar, setConfirmEliminar] = useState(false);
   const [confirmCancelarSerie, setConfirmCancelarSerie] = useState(false);
+  // «Renovar serie»: se guarda la serie y su nombre al abrir, porque el panel
+  // de la clase puede cerrarse (o cambiar de clase) con el diálogo abierto.
+  const [renovarSerieDe, setRenovarSerieDe] = useState<{ serieId: string; nombre: string } | null>(null);
   const apuntadasSesionActual = reservasActuales.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
 
   // Lo que se llevaría por delante "Cancelar serie": exactamente el mismo
@@ -2874,6 +2879,25 @@ export default function Calendario() {
                   <Copy size={12} />Duplicar serie
                 </button>
               )}
+              {sesionActual.serieId && !esInstructor && (
+                <button
+                  onClick={() => {
+                    const { dow, hora, minuto } = franjaLocalDe(sesionActual.inicio);
+                    setRenovarSerieDe({
+                      serieId: sesionActual.serieId!,
+                      nombre: nombreSerie(
+                        { diaSemana: dow, hora: `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`, salaId: sesionActual.salaId, tipoClaseId: sesionActual.tipoClaseId },
+                        id => tiposClase.find(t => t.id === id)?.nombre,
+                        id => salas.find(x => x.id === id)?.nombre,
+                      ),
+                    });
+                  }}
+                  title="Alarga esta misma clase más semanas, con la misma configuración"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors"
+                >
+                  <RefreshCw size={12} />Renovar serie
+                </button>
+              )}
               {/* P2 (auditoría "Veredicto de Marta"): en el momento de más
                   urgencia (baja de última hora) este botón se confundía con
                   "Incidencia" de al lado — mismo estilo, mismo tamaño. Le
@@ -3503,6 +3527,24 @@ export default function Calendario() {
         }))}
         initial={initialRecurrente}
       />
+
+      {renovarSerieDe && (
+        <DialogoRenovarSerie
+          serieId={renovarSerieDe.serieId}
+          nombre={renovarSerieDe.nombre}
+          onClose={() => setRenovarSerieDe(null)}
+          onHecho={(mensaje, renovada) => {
+            setRenovarSerieDe(null);
+            showToast(mensaje);
+            // Las clases nuevas las ha creado el servidor: se olvida la caché de
+            // todas las semanas y se vuelve a pedir la que se está viendo.
+            if (renovada) {
+              cacheVistaRef.current.clear();
+              void refrescarVista();
+            }
+          }}
+        />
+      )}
 
       {/* ── F0·E1: decisión al añadir a una socia sin bono válido ─────────────────── */}
       {avisoSinBono && (
