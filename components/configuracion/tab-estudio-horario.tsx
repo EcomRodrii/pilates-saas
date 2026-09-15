@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Copy } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { authHeader } from '@/lib/api-client';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { accionCierre, lineaCierre, repartirCierres, type CierreGuardado } from '@/lib/cierres/quitar-cierre';
 import { hayCambios as formularioCambiado, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import { rangoDeFechas } from '@/lib/configuracion/resumenes';
 import { Toggle, btnSecondary, inputCls } from '@/components/configuracion/estilos';
@@ -178,9 +181,139 @@ export function FormHorario({ onGuardado }: PropsFormularioCajon) {
 // Cerrar el centro: la semana de vacaciones, el puente, la reforma.
 //
 // Cancela clases y alarga la caducidad de TODOS los bonos del estudio: no es un
-// guardado más, así que «Guardar» pregunta antes (`confirmar`). La lista de
-// cierres y deshacer uno llegan aparte.
+// guardado más, así que «Guardar» pregunta antes (`confirmar`). Encima del
+// formulario va la lista de los cierres puestos (`ListaCierres`).
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Los cierres puestos: los que vienen, y los pasados plegados. Uno que viene se
+ * quita y uno en curso se reabre (lib/cierres/quitar-cierre.ts dice qué NO se
+ * deshace). Nada optimista: sale de la lista cuando el servidor lo ha borrado y
+ * la lista se ha vuelto a leer; si falla, lo dice y la lista sigue igual.
+ */
+export function ListaCierres({ cierres, clases, hoy, showToast, onQuitado }: {
+  /** `undefined` = cargando; `null` = no se han podido leer. */
+  cierres: readonly CierreGuardado[] | null | undefined;
+  /** Clases canceladas por cierre; sin entrada = no se sabe. */
+  clases: Readonly<Record<string, number | null>>;
+  hoy: string | null;
+  showToast: (m: string) => void;
+  /** Vuelve a leer los cierres (la lista y la fila de Mi estudio). */
+  onQuitado: () => Promise<void>;
+}) {
+  const [pidiendo, setPidiendo] = useState<CierreGuardado | null>(null);
+  const [quitando, setQuitando] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Contra el doble toque: el `disabled` llega un render tarde.
+  const enVuelo = useRef(false);
+
+  if (cierres === undefined || !hoy) {
+    return <p className="mb-5 border-b border-border pb-5 text-sm text-muted-foreground">Cargando tus cierres…</p>;
+  }
+  if (cierres === null) {
+    return (
+      <p role="alert" className="mb-5 rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-destructive text-pretty">
+        No hemos podido leer tus cierres. Recarga la página para verlos.
+      </p>
+    );
+  }
+
+  const dia = hoy;
+  const { proximos, pasados } = repartirCierres(cierres, dia);
+  const accion = pidiendo ? accionCierre(pidiendo, dia) : null;
+
+  async function quitar(c: CierreGuardado) {
+    const a = accionCierre(c, dia);
+    if (!a || enVuelo.current) return;
+    enVuelo.current = true;
+    setQuitando(c.id);
+    setError(null);
+    try {
+      const res = await fetch('/api/cierres', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ id: c.id, desde: c.desde, hasta: c.hasta }),
+      });
+      const data = await res.json().catch(() => null) as { error?: string } | null;
+      if (!res.ok) {
+        const motivo = (data?.error ?? 'el servidor no ha respondido').replace(/[.\s]+$/, '');
+        if (res.status === 409) {
+          // Ya no estaba como se veía: se relee para enseñar lo que hay de verdad.
+          setError(`No se ha quitado: ${motivo}. Te enseñamos cómo están ahora.`);
+          await onQuitado();
+        } else {
+          setError(`No se ha quitado: ${motivo[0].toLowerCase()}${motivo.slice(1)}. El cierre sigue puesto.`);
+        }
+        return;
+      }
+      await onQuitado();
+      showToast(a.hecho);
+    } catch {
+      setError('No se ha quitado: no hemos podido hablar con el servidor. El cierre sigue puesto.');
+    } finally {
+      enVuelo.current = false;
+      setQuitando(null);
+    }
+  }
+
+  const fila = (c: CierreGuardado) => {
+    const { fechas, detalle } = lineaCierre(c, dia, clases[c.id] ?? null);
+    const a = accionCierre(c, dia);
+    return (
+      <li key={c.id} data-cierre={c.id} className="flex items-center gap-3 py-2.5">
+        <div className="min-w-0 flex-1">
+          <p id={`cierre-${c.id}`} className="text-sm font-medium text-foreground">
+            {fechas}
+            {a?.momento === 'en_curso' && <span className="font-normal text-muted-foreground"> · cerrado ahora</span>}
+          </p>
+          {detalle && <p className="mt-0.5 text-[13px] text-muted-foreground text-pretty">{detalle}</p>}
+        </div>
+        {a && (
+          <button
+            type="button"
+            aria-describedby={`cierre-${c.id}`}
+            disabled={quitando !== null}
+            onClick={() => { setError(null); setPidiendo(c); }}
+            className={`${btnSecondary} shrink-0`}
+          >
+            {quitando === c.id ? 'Quitando…' : a.boton}
+          </button>
+        )}
+      </li>
+    );
+  };
+
+  return (
+    <>
+      <section aria-labelledby="cierres-que-vienen" className="mb-5 border-b border-border pb-5">
+        <h3 id="cierres-que-vienen" className="text-sm font-semibold text-foreground">Cierres que vienen</h3>
+        {proximos.length === 0
+          ? <p className="mt-1 text-sm text-muted-foreground">No tienes ningún cierre puesto.</p>
+          : <ul className="mt-1 divide-y divide-border">{proximos.map(fila)}</ul>}
+        {error && (
+          <p role="alert" className="mt-2 rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-destructive text-pretty">{error}</p>
+        )}
+        {pasados.length > 0 && (
+          <details className="mt-2">
+            <summary className="flex cursor-pointer items-center text-sm font-medium text-foreground">
+              Ver cierres pasados ({pasados.length})
+            </summary>
+            <ul className="divide-y divide-border">{pasados.map(fila)}</ul>
+          </details>
+        )}
+      </section>
+      <ConfirmDialog
+        open={!!accion}
+        onOpenChange={v => { if (!v) setPidiendo(null); }}
+        titulo={accion?.titulo ?? ''}
+        descripcion={accion?.descripcion}
+        textoConfirmar={accion?.textoConfirmar}
+        onConfirm={() => { if (pidiendo) void quitar(pidiendo); }}
+      />
+    </>
+  );
+}
+
 export function FormCerrarElCentro({ onGuardado }: PropsFormularioCajon) {
   // Cerrar pasa por `cancelarSesionPorMinimoNoAlcanzado` → `devolverBonosPorCancelacionClase`,
   // que sigue «Devolver la sesión al cancelar una clase entera» como cualquier
@@ -201,8 +334,10 @@ export function FormCerrarElCentro({ onGuardado }: PropsFormularioCajon) {
   const rango = listo ? rangoDeFechas(desde, hasta) : '';
 
   async function aplicar(): Promise<string | null> {
+    // ⚠️ Con la sesión: la ruta la lee de la cabecera (verificarSesionStaff) y
+    // sin ella respondía 401 siempre.
     const res = await fetch('/api/cierres', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ desde, hasta, motivo }),
     });
     const data = await res.json().catch(() => null);
@@ -222,6 +357,7 @@ export function FormCerrarElCentro({ onGuardado }: PropsFormularioCajon) {
   return (
     <>
       <div className="space-y-4 pb-6">
+        <h3 className="text-sm font-semibold text-foreground">Poner un cierre nuevo</h3>
         <div className="grid grid-cols-2 gap-3">
           <Campo label="Desde">
             {id => <input id={id} type="date" value={desde} onChange={e => setDesde(e.target.value)} className={inputCls} />}

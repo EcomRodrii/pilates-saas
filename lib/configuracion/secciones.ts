@@ -93,7 +93,7 @@ export const SECCIONES = [
       { id: 'nombre-y-direccion', titulo: 'Nombre y dirección', frase: 'Cómo se llama tu estudio y dónde está: sale en tu página de reservas y en tus correos.', guardado: 'barra', palabras: ['nombre', 'dirección', 'ciudad', 'código postal'] },
       { id: 'contacto', titulo: 'Contacto', frase: 'Dónde te escriben o te llaman tus alumnas, y tu web.', guardado: 'barra', palabras: ['teléfono', 'email', 'web'] },
       { id: 'horario', titulo: 'Horario', frase: 'Cuándo abres cada día: la agenda distingue un día cerrado de uno sin clases.', guardado: 'barra', palabras: ['apertura', 'abrir', 'días'] },
-      { id: 'cerrar-el-centro', titulo: 'Cerrar el centro', frase: 'Unos días de vacaciones, un puente o una reforma: se cancelan las clases de esas fechas.', guardado: 'barra', palabras: ['vacaciones', 'festivos', 'cierre'] },
+      { id: 'cerrar-el-centro', titulo: 'Cerrar el centro', frase: 'Vacaciones, un puente o una reforma: se cancelan sus clases, y aquí ves y quitas los cierres que pusiste.', guardado: 'barra', palabras: ['vacaciones', 'festivos', 'cierre'] },
       { id: 'salas', titulo: 'Salas', frase: 'Tus salas y cuántas personas caben: esa cifra es el tope de plazas de cada clase.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'salas', palabras: ['aforo', 'capacidad', 'plazas', 'averías', 'máquinas'] },
       { id: 'sedes', titulo: 'Sedes', frase: 'Tus otras sedes: cámbiate a una o añade otra.', guardado: 'accion', condicion: 'multiSede', palabras: ['cambiar de sede', 'centros', 'cadena'] },
     ],
