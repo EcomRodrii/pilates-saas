@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server';
 import { comprobarAdminInterno } from '@/lib/interno/auth.ts';
 import { tienePermiso } from '@/lib/interno/permisos.ts';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin.ts';
-import { obtenerLead, actualizarLead, moverLead } from '@/lib/sales/leads.ts';
+import { obtenerLead, actualizarLead, moverLead as _moverLead } from '@/lib/sales/leads.ts';
 
 export async function GET(
   request: NextRequest,

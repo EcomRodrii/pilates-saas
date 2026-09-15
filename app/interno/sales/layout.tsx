@@ -10,7 +10,7 @@ const SECCIONES = [
 ];
 
 export default function LayoutSales({ children }: { children: React.ReactNode }) {
-  const sesion = useSesionInterna();
+  const _sesion = useSesionInterna();
 
   return (
     <div className="flex gap-6">

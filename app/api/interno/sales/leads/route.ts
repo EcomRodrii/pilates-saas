@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     if (!admin) throw new Error('Base de datos no disponible');
 
     const { leads, total } = await listarLeads(admin, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       estado: estado as any,
       owner_id,
       ciudad,
