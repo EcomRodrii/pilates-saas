@@ -17,6 +17,18 @@ import { readFileSync } from 'node:fs';
 //
 // ⚠️ Los mensajes de fallo NO imprimen el email encontrado: los logs de Actions
 // de un repo público también son públicos. Se enseña enmascarado.
+//
+// ⚠️ Auditoría del 15-sep-2026: esta guardia miraba ficheros, nunca MENSAJES DE
+// COMMIT — y ahí es exactamente por donde entró el nombre real de una clienta
+// («Indira Herrero», studio-id incluido) en un commit ya en `main`. Borrar el
+// commit no lo saca del historial (reescribirlo es una decisión aparte, no
+// algo que se hace por iniciativa propia); lo que SÍ se puede cerrar sin
+// riesgo es que no vuelva a pasar. Este test solo detecta EMAILS (mismo patrón
+// que el resto del fichero) en los últimos commits — un nombre real de
+// persona no tiene un patrón fiable que buscar con una regex sin disparar
+// falsos positivos constantes, así que esa mitad sigue siendo una convención
+// («se describe el caso, no se nombra a quien lo sufre», tentare-os.md), no
+// una comprobación automática.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ficheros = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
@@ -63,8 +75,9 @@ const DOMINIOS_PERMITIDOS: RegExp[] = [
   /^(studiocarmen|estudioaura)\.es$/i,
 ];
 
-/** La plantilla por defecto de `supabase/config.toml` (comentada). */
-const DIRECCIONES_PERMITIDAS = new Set(['admin@email.com']);
+/** La plantilla por defecto de `supabase/config.toml` (comentada), y el
+ *  trailer `Co-Authored-By` que lleva cada commit de esta sesión. */
+const DIRECCIONES_PERMITIDAS = new Set(['admin@email.com', 'noreply@anthropic.com']);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -164,5 +177,48 @@ test('ningún email real en supabase/, scripts/, docs/, .claude/, .github/ ni la
     [],
     'El repo es público: nada de direcciones de personas reales. Usa @example.com / .invalid; '
       + 'si es un caso medido en producción, descríbelo sin pegar la dirección.',
+  );
+});
+
+// Acotado a los últimos N commits (no todo el historial): un clon superficial
+// (`actions/checkout` por defecto trae `fetch-depth: 1`) no tiene más que eso,
+// y mirar los recientes es lo que de verdad ataja el patrón — nadie mete un
+// email a propósito en un commit de hace un año para que se cuele hoy.
+function mensajesDeCommitsRecientes(n = 200): { hash: string; mensaje: string }[] {
+  let bruto: string;
+  try {
+    // `%x1f`/`%x1e` como separadores de campo/registro: un mensaje de commit
+    // lleva saltos de línea de sobra, así que uno de línea no basta.
+    bruto = execFileSync('git', ['log', '-n', String(n), '--format=%H%x1f%B%x1e'], {
+      encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+    });
+  } catch {
+    return []; // sin historial de git accesible: nada que mirar, no un fallo
+  }
+  return bruto.split('\x1e').filter(Boolean).map(registro => {
+    const [hash, mensaje] = registro.split('\x1f');
+    return { hash: hash ?? '', mensaje: mensaje ?? '' };
+  });
+}
+
+test('ningún email real en el mensaje de los últimos 200 commits', () => {
+  const email = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
+  const infractores: string[] = [];
+  for (const { hash, mensaje } of mensajesDeCommitsRecientes()) {
+    for (const m of new Set(mensaje.match(email) ?? [])) {
+      const dir = m.toLowerCase();
+      if (DIRECCIONES_PERMITIDAS.has(dir)) continue;
+      const dominio = dir.split('@')[1];
+      if (DOMINIOS_PERMITIDOS.some(r => r.test(dominio))) continue;
+      infractores.push(`${hash.slice(0, 8)}: ${enmascarar(m)}`);
+    }
+  }
+  assert.deepEqual(
+    infractores,
+    [],
+    'Un commit reciente lleva un email real en su mensaje (asunto o cuerpo). El repo es público — '
+      + 'igual que en el código, describe el caso sin pegar la dirección. Borrar el commit no basta: '
+      + 'ya está en el historial. Y lo mismo con nombres reales de socias/estudios, aunque esta '
+      + 'guardia no los pueda buscar con una regex fiable.',
   );
 });
