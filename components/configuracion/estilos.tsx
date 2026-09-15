@@ -22,14 +22,27 @@ import { NOMBRE_TIPO_PLAN } from '@/lib/planes/formulario';
 // antes, `black/10`, no se veía en ninguno de los dos.
 const FOCO = 'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
+// Un botón deshabilitado se tiene que LEER. `disabled:opacity-40` sobre el oliva
+// dejaba «Cerrar el centro esos días» a 1,41:1 —gris sobre gris, parecía roto—.
+// Con los tokens de «apagado» queda a 4,9:1 en claro y 5,6:1 en oscuro. El
+// contorno existe siempre (transparente) para que apagarse no mueva nada.
+const APAGADO = 'disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:brightness-100';
+
+// `border-input` y no `border-border`: el contorno de un campo es el de un
+// CONTROL y tiene que llegar a 3:1 (WCAG 1.4.11). Con `--border` se quedaba en
+// 1,24:1 y los campos vacíos de SEPA no se veían. Dentro de Configuración
+// `--input` vale 3,8:1 (claro) / 3,7:1 (oscuro): ver `.config-tactil` en
+// globals.css.
 export const inputCls =
-  `rounded-lg border border-border bg-card px-3 py-2 w-full min-h-11 text-base [@media(pointer:fine)]:min-h-9 [@media(pointer:fine)]:text-[13px] ${FOCO}`;
+  `rounded-lg border border-input bg-card px-3 py-2 w-full min-h-11 text-base [@media(pointer:fine)]:min-h-9 [@media(pointer:fine)]:text-[13px] ${FOCO}`;
 export const labelCls = 'text-[12px] font-medium text-foreground block mb-1';
 export const btnPrimary =
-  `bg-brand text-brand-foreground rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 min-h-11 [@media(pointer:fine)]:min-h-9 hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${FOCO}`;
+  `bg-brand text-brand-foreground border border-transparent rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 min-h-11 [@media(pointer:fine)]:min-h-9 hover:brightness-95 transition-colors ${APAGADO} ${FOCO}`;
 export const btnSecondary =
-  `bg-card border border-border rounded-lg px-4 py-2 text-[13px] text-foreground min-h-11 [@media(pointer:fine)]:min-h-9 hover:bg-muted transition-colors ${FOCO}`;
-export const cardCls = 'bg-card border border-border rounded-xl';
+  `bg-card border border-border rounded-lg px-4 py-2 text-[13px] text-foreground min-h-11 [@media(pointer:fine)]:min-h-9 hover:bg-muted transition-colors ${APAGADO} ${FOCO}`;
+// La sombra ayuda al borde a despegar la tarjeta del fondo sin oscurecerlo más:
+// una tarjeta agrupa, no es un control, y no debe pesar como un campo.
+export const cardCls = 'bg-card border border-border rounded-xl shadow-xs';
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
 
@@ -80,39 +93,9 @@ export function Field({
   );
 }
 
-// Un interruptor de verdad: `role="switch"` con `aria-checked`, para que un
-// lector de pantalla diga «activado/desactivado» (con `aria-pressed` decía
-// «botón, pulsado», que no es lo mismo) y la barra espaciadora lo cambie.
-//
-// El dibujo sigue midiendo 20×36; lo que se puede tocar llega a 44 px con un
-// `::before` invisible. `-inset-3.5` y no `-inset-3`: el pseudo-elemento se
-// coloca desde el borde de dentro, y el borde de 2 px se comería la diferencia.
-export function Toggle({ on, onChange, ariaLabel, disabled }: { on: boolean; onChange: (v: boolean) => void; ariaLabel?: string; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      onClick={() => { if (!disabled) onChange(!on); }}
-      disabled={disabled}
-      aria-checked={on}
-      aria-label={ariaLabel}
-      className={cn(
-        'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
-        'before:absolute before:-inset-3.5',
-        'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        on ? 'bg-primary' : 'bg-muted-foreground/40',
-        disabled && 'opacity-40 cursor-not-allowed'
-      )}
-    >
-      <span
-        className={cn(
-          'pointer-events-none inline-block h-4 w-4 rounded-full bg-card shadow ring-0 transition-transform duration-200',
-          on ? 'translate-x-4' : 'translate-x-0'
-        )}
-      />
-    </button>
-  );
-}
+// El interruptor es uno para todo el panel (components/ui/interruptor.tsx). Se
+// sigue exportando como `Toggle` para no tocar sus usos en cada pestaña.
+export { Interruptor as Toggle } from '@/components/ui/interruptor';
 
 export function ColorInput({
   value,
@@ -159,7 +142,7 @@ export function TipoPlanBadge({ tipo }: { tipo: PlanTarifa['tipo'] }) {
     PUNTUAL: 'bg-background text-muted-foreground',
   };
   return (
-    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium', map[tipo])}>
+    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', map[tipo])}>
       {NOMBRE_TIPO_PLAN[tipo]}
     </span>
   );
@@ -179,7 +162,7 @@ export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
     AVANZADO: 'Avanzado',
   };
   return (
-    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium', map[nivel])}>
+    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', map[nivel])}>
       {labels[nivel]}
     </span>
   );

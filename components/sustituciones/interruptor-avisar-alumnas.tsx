@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { setAvisarAlumnas } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import { Interruptor } from '@/components/ui/interruptor';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Avisar a las alumnas»: UN control, en dos pantallas, con UN escritor.
@@ -51,19 +52,13 @@ export function InterruptorAvisarAlumnas({ guardado, onGuardado, className }: {
   return (
     <div className={className}>
       <label className={cn('flex items-center gap-2.5 text-[13px] select-none', bloqueado ? 'cursor-default' : 'cursor-pointer')}>
-        <button
-          type="button" role="switch" aria-checked={!!guardado} aria-busy={enviando}
-          disabled={bloqueado} onClick={cambiar}
-          // `before:-inset-3`: el área que se toca llega a 44 px sin cambiar el dibujo.
-          className={cn('relative w-9 h-5 rounded-full transition-colors shrink-0 disabled:opacity-60 before:absolute before:-inset-3 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50', guardado ? 'bg-brand' : 'bg-muted')}
-        >
-          <span className={cn('absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform', guardado && 'translate-x-4')} />
-        </button>
+        {/* El nombre lo pone el <label>; el interruptor es el mismo de todo el panel. */}
+        <Interruptor on={!!guardado} disabled={guardado === null} ocupado={enviando} onChange={() => void cambiar()} />
         <span className="text-foreground">
           Avisar a las alumnas, por email y en su app, cuando por una baja su clase cambia de instructora, se mueve o se cancela
         </span>
       </label>
-      <p role="status" className="mt-1 min-h-[1em] text-[11px] text-muted-foreground">
+      <p role="status" className="mt-1 min-h-[1em] text-xs text-muted-foreground">
         {enviando
           ? 'Guardando…'
           : guardado === null
@@ -71,7 +66,7 @@ export function InterruptorAvisarAlumnas({ guardado, onGuardado, className }: {
             : resultado && 'ok' in resultado ? 'Guardado.' : 'Se guarda al pulsar.'}
       </p>
       {resultado && 'error' in resultado && (
-        <p role="alert" className="text-[11px] text-destructive">No se ha guardado: {resultado.error}</p>
+        <p role="alert" className="text-xs text-destructive">No se ha guardado: {resultado.error}</p>
       )}
     </div>
   );

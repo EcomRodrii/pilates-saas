@@ -106,12 +106,12 @@ function TarjetaTipoClase({
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1 px-4 pb-3">
           {visibles.map(chip => (
-            <span key={chip} className="rounded bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span key={chip} className="rounded bg-background px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
               {chip}
             </span>
           ))}
           {ocultos > 0 && (
-            <span className="rounded bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span className="rounded bg-background px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
               +{ocultos} regla{ocultos === 1 ? '' : 's'} propia{ocultos === 1 ? '' : 's'}
             </span>
           )}
@@ -121,14 +121,14 @@ function TarjetaTipoClase({
       <div className="mt-auto flex items-center gap-1 border-t border-background px-3 py-2">
         <button
           onClick={onEditar}
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
         >
           <Pencil size={11} />
           Editar
         </button>
         <button
           onClick={onEliminar}
-          className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2 size={11} />
           Eliminar

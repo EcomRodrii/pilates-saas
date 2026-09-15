@@ -11,24 +11,16 @@ import { CATEGORIAS_POR_ROL, CATEGORIA_ETIQUETA, canalesDisponibles } from '@/li
 import type { NotificationRole } from '@/lib/notifications/types';
 import { fetchPreferencias, guardarPreferencia } from '@/lib/notifications/client';
 import { activarPush, estadoPermiso } from '@/lib/notifications/push-client';
+import { Interruptor } from '@/components/ui/interruptor';
 
 type Headers = () => Promise<Record<string, string>>;
 interface Pref { inapp: boolean; push: boolean }
 const DEFECTO: Pref = { inapp: true, push: true };
 
+// El interruptor es el mismo de todo el panel (components/ui/interruptor.tsx): el
+// apagado de aquí era un gris al 25 % que no se distinguía de la tarjeta.
 function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={onChange}
-      className={`relative w-10 h-6 rounded-full transition-colors ${on ? 'bg-brand' : 'bg-muted-foreground/25'}`}
-    >
-      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : ''}`} />
-    </button>
-  );
+  return <Interruptor on={on} onChange={() => onChange()} ariaLabel={label} />;
 }
 
 export function NotificationPreferences({ role, studioId, getHeaders }: {

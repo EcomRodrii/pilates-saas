@@ -91,7 +91,7 @@ export function TabEstudioSedes({
                 <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border">
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-foreground truncate">{s.nombre}</p>
-                    {s.ciudad && <p className="text-[11px] text-muted-foreground truncate">{s.ciudad}</p>}
+                    {s.ciudad && <p className="text-xs text-muted-foreground truncate">{s.ciudad}</p>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {puedeAnadirSedes && (
@@ -99,7 +99,7 @@ export function TabEstudioSedes({
                         onClick={() => aplicarCatalogo(s.id, s.nombre)}
                         disabled={aplicandoCatalogo !== null}
                         title="Añade a esta sede los tipos de clase de la plantilla de cadena que todavía no tenga"
-                        className={cn(btnSecondary, 'disabled:opacity-50 text-[11px] px-2.5 py-1.5')}
+                        className={cn(btnSecondary, 'disabled:opacity-50 text-xs px-2.5 py-1.5')}
                       >
                         {aplicandoCatalogo === s.id ? <Loader2 size={12} className="animate-spin" /> : <Layers size={12} />}
                         Aplicar catálogo

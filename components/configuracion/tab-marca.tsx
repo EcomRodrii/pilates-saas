@@ -162,7 +162,7 @@ export function TabMarca({ showToast }: { showToast: (m: string) => void }) {
               textoSubir="Subir logo"
               textoCambiar="Cambiar logo"
               ayuda={
-                <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                   Sale en la app de tus alumnas y en el icono de sus notificaciones.
                   Recomendado: 512×512 px, cuadrado y sin márgenes de sobra.
                 </p>
@@ -188,7 +188,7 @@ export function TabMarca({ showToast }: { showToast: (m: string) => void }) {
                   textoSubir="Subir favicon"
                   textoCambiar="Cambiar favicon"
                   ayuda={
-                    <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                       El icono de la pestaña del navegador. Cuadrado y pequeño: 64×64 px basta.
                     </p>
                   }

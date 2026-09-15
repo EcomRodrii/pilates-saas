@@ -45,8 +45,10 @@ function irAAjuste(ajuste: AjustePolitica) {
   control?.focus({ preventScroll: true });
 }
 
-const grupoCls = 'text-[11px] font-bold uppercase tracking-wide text-muted-foreground';
-const ayudaCls = 'text-[11px] text-muted-foreground mt-1';
+// Título de grupo en frase normal y en tinta: en mayúsculas grises a 11 px se
+// leía como ruido, no como el nombre de lo que viene debajo.
+const grupoCls = 'text-sm font-semibold text-foreground';
+const ayudaCls = 'text-xs text-muted-foreground mt-1';
 
 function FilaInterruptor({ id, titulo, on, onChange, disabled, children }: {
   id?: string;
@@ -60,7 +62,7 @@ function FilaInterruptor({ id, titulo, on, onChange, disabled, children }: {
     <label id={id} className={cn('flex scroll-mt-32 items-center justify-between gap-4', disabled ? 'cursor-default' : 'cursor-pointer')}>
       <span className="text-[13px] text-foreground">
         {titulo}
-        {children && <span className="mt-0.5 block space-y-1 text-[11px] text-muted-foreground">{children}</span>}
+        {children && <span className="mt-0.5 block space-y-1 text-xs text-muted-foreground">{children}</span>}
       </span>
       <Toggle on={on} onChange={onChange} disabled={disabled} />
     </label>
@@ -352,7 +354,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
                 />
                 <span>
                   <span className="block text-[13px] font-medium text-foreground">{o.titulo(o.modo === 'con-plazo' ? minutosLista : null)}</span>
-                  <span className="mt-0.5 block text-[11px] text-muted-foreground">{o.detalle}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{o.detalle}</span>
                 </span>
               </label>
             );
@@ -367,7 +369,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
                 value={form.listaEspera.minutos}
                 onChange={e => setForm(f => ({ ...f, listaEspera: { ...f.listaEspera, minutos: e.target.value } }))}
               />
-              {!lista.ok && <p role="alert" className="mt-1 text-[11px] font-medium text-destructive">{lista.error}</p>}
+              {!lista.ok && <p role="alert" className="mt-1 text-xs font-medium text-destructive">{lista.error}</p>}
             </div>
           )}
         </fieldset>
@@ -417,7 +419,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             </>
           )}
           {cargoSinLista && (
-            <p className="text-[11px] text-amber-600">
+            <p className="text-xs text-warning">
               Sin «Pasar lista», nunca habrá un «no vino» que cobrar: márcalo a mano en Asistentes.
             </p>
           )}

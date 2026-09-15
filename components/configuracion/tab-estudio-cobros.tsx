@@ -8,7 +8,7 @@ import { authHeader } from '@/lib/api-client';
 import type { DatosSepa } from '@/lib/billing/cuenta-cobro';
 import { leerPlazoReembolso, PLAZO_REEMBOLSO_MAX_DIAS } from '@/lib/billing/politica-reembolso';
 import { hayCambios, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
-import { Toggle, inputCls, labelCls } from '@/components/configuracion/estilos';
+import { Toggle, btnPrimary, inputCls, labelCls } from '@/components/configuracion/estilos';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
 // ⚠️ Las dos tarjetas de esta pestaña se guardan cada una con su botón, y la de
@@ -94,7 +94,7 @@ export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void
             <input id={`${idSepa}-titular`} className={inputCls} value={form.sepaTitular} onChange={e => setForm(f => ({ ...f, sepaTitular: e.target.value }))} />
           </div>
         </div>
-        <button onClick={guardarSepa} disabled={guardando} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors disabled:opacity-60">
+        <button type="button" onClick={guardarSepa} disabled={guardando} className={cn(btnPrimary, 'mt-4')}>
           {guardando ? 'Guardando…' : 'Guardar datos SEPA'}
         </button>
       </TarjetaAjuste>
@@ -193,7 +193,7 @@ function PoliticaDevoluciones({ showToast }: { showToast: (m: string) => void })
       <div className="flex items-center justify-between py-2.5">
         <div className="pr-4">
           <p className="text-[13px] font-medium text-foreground">Permitir devolver desde Tentare</p>
-          <p className="text-[11px] text-muted-foreground">Solo la propietaria y recepción ven el botón.</p>
+          <p className="text-xs text-muted-foreground">Solo la propietaria y recepción ven el botón.</p>
         </div>
         <Toggle on={form.activos} onChange={v => cambiar({ activos: v })} ariaLabel="Permitir devolver desde Tentare" />
       </div>
@@ -215,11 +215,11 @@ function PoliticaDevoluciones({ showToast }: { showToast: (m: string) => void })
               onChange={e => cambiar({ plazo: e.target.value })}
             />
             {plazoInvalido ? (
-              <p role="alert" className="text-[11px] font-medium text-destructive mt-1">
+              <p role="alert" className="text-xs font-medium text-destructive mt-1">
                 {`Tienen que ser días enteros, entre 0 y ${PLAZO_REEMBOLSO_MAX_DIAS}. 0 = sin límite.`}
               </p>
             ) : (
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {plazoDias
                   ? `Pasados ${plazoDias} días ya no se podrá devolver desde aquí.`
                   : '0 = sin límite: se podrá devolver un cobro de cualquier fecha.'}
@@ -230,7 +230,7 @@ function PoliticaDevoluciones({ showToast }: { showToast: (m: string) => void })
           <div className="flex items-center justify-between py-1">
             <div className="pr-4">
               <p className="text-[13px] font-medium text-foreground">Solo bonos sin empezar</p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 No deja devolver un bono del que ya se han gastado sesiones. Los mensuales y las citas no se ven afectados.
               </p>
             </div>
@@ -239,15 +239,20 @@ function PoliticaDevoluciones({ showToast }: { showToast: (m: string) => void })
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          onClick={guardar}
-          disabled={guardando || !pendiente || plazoInvalido}
-          className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors disabled:opacity-40"
-        >
-          {guardando ? 'Guardando…' : 'Guardar política'}
-        </button>
-        {pendiente && !guardando && <span className="text-[12px] text-muted-foreground">Cambios sin guardar.</span>}
+      {/* Sin cambios no hay botón: un «Guardar política» gris permanente se leía
+          como roto o bloqueado. Con cambios aparece; si el plazo no vale, apagado
+          pero legible (`btnPrimary`) y con el motivo justo encima. */}
+      <div className="mt-4 flex min-h-9 flex-wrap items-center gap-3">
+        {pendiente || guardando ? (
+          <>
+            <button type="button" onClick={guardar} disabled={guardando || plazoInvalido} className={btnPrimary}>
+              {guardando ? 'Guardando…' : 'Guardar política'}
+            </button>
+            {!guardando && <span className="text-[13px] text-muted-foreground">Cambios sin guardar.</span>}
+          </>
+        ) : (
+          <span className="text-[13px] text-muted-foreground">Sin cambios</span>
+        )}
       </div>
       {error && <p role="alert" className="mt-2 text-[12px] font-medium text-destructive">{error}</p>}
     </TarjetaAjuste>

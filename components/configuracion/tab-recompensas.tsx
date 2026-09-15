@@ -10,7 +10,7 @@ import type { EfectoRecompensa, RewardCatalogItem } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { nombreCreditos, normalizarNombreCreditos, NOMBRE_CREDITOS_MAX } from '@/lib/creditos-nombre';
-import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls, Toggle } from '@/components/configuracion/estilos';
 
 // Valores de partida sugeridos — un punto de arranque, no un límite: el
 // estudio los edita libremente en cuanto carga esta pantalla.
@@ -313,7 +313,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
               <div key={def.trigger} className="flex items-center gap-3 p-4">
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold text-foreground">{def.nombre}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{def.descripcion}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{def.descripcion}</p>
                 </div>
                 {def.trigger === 'COMPRA' && (
                   <div className="flex flex-col items-center shrink-0">
@@ -347,28 +347,11 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                   className={cn(inputCls, 'w-20 text-center shrink-0')}
                   ariaLabel={`Créditos por ${def.nombre}`}
                 />
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={activa}
-                  aria-label={def.nombre}
-                  onClick={() => handleToggleActiva(def.trigger, def.nombre, def.descripcion)}
-                  className="w-11 h-6 rounded-full transition-colors relative shrink-0 before:absolute before:-inset-2.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                  style={{ backgroundColor: activa ? 'var(--foreground)' : 'var(--border)' }}
-                >
-                  {/* `left` con calc(100% - ...), no `translateX(22px)` fijo: la
-                      posición activa dependía de que el track midiera EXACTAMENTE
-                      44px (w-11) para no salirse — cualquier diferencia real de
-                      ancho (zoom del navegador, herencia de fuente) dejaba el
-                      thumb asomando por el borde derecho del track. Con `left`
-                      relativo al 100% del propio contenedor, el thumb nunca puede
-                      desbordar, mida lo que mida el track de verdad. Mismo patrón
-                      ya usado en app/(dashboard)/marketing/page.tsx. */}
-                  <span
-                    className="absolute top-0.5 w-5 h-5 rounded-full bg-card transition-all"
-                    style={{ left: activa ? 'calc(100% - 1.25rem - 0.125rem)' : '0.125rem' }}
-                  />
-                </button>
+                <Toggle
+                  on={activa}
+                  onChange={() => handleToggleActiva(def.trigger, def.nombre, def.descripcion)}
+                  ariaLabel={def.nombre}
+                />
               </div>
             );
           })}
@@ -416,10 +399,10 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                     <div key={sg.nombre} className={cn(cardCls, 'p-3 flex flex-col gap-1')}>
                       <span className="text-[18px]">{sg.icono}</span>
                       <p className="text-[13px] font-semibold text-foreground">{sg.nombre}</p>
-                      <p className="text-[11px] text-muted-foreground flex-1">{sg.descripcion}</p>
+                      <p className="text-xs text-muted-foreground flex-1">{sg.descripcion}</p>
                       <p className="text-[12px] font-semibold text-foreground">
                         {sg.costeCreditos} {moneda}
-                        <span className="text-[11px] font-normal text-muted-foreground"> · ~{sg.clasesEquivalentes} clases</span>
+                        <span className="text-xs font-normal text-muted-foreground"> · ~{sg.clasesEquivalentes} clases</span>
                       </p>
                       <button
                         onClick={() => anadirSugerida(sg)}
@@ -451,7 +434,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                       : ''}
                     {item.efecto === 'CLASE_GRATIS' ? ' · clase gratis automática' : ''}
                   </p>
-                  {!item.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactiva</span>}
+                  {!item.activo && <span className="text-xs font-bold uppercase text-muted-foreground">Inactiva</span>}
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button onClick={() => openEditar(item)} aria-label="Editar recompensa" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">

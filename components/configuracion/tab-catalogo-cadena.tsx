@@ -97,7 +97,7 @@ export function TabCatalogoCadena({ cadenaId, showToast }: { cadenaId: string; s
               <ColorSwatch color={t.color} size="sm" />
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-medium text-foreground truncate">{t.nombre}</p>
-                <p className="text-[11px] text-muted-foreground">{t.duracionMinutos} min</p>
+                <p className="text-xs text-muted-foreground">{t.duracionMinutos} min</p>
               </div>
               <NivelBadge nivel={t.nivel} />
               <button onClick={() => abrirEditar(t)} aria-label={`Editar ${t.nombre}`} className="p-1.5 rounded-lg text-muted-foreground hover:bg-background hover:text-foreground transition-colors">

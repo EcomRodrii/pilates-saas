@@ -138,7 +138,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
               <thead>
                 <tr className="border-b border-border">
                   {['Servicio', 'Tipo', 'Duración', 'Precio', 'La reservan solas', 'Acciones'].map(h => (
-                    <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                       {h}
                     </th>
                   ))}
@@ -151,7 +151,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
                       <div className="flex items-center gap-2">
                         <ColorSwatch color={s.color ?? '#6E7650'} size="sm" />
                         <span className="font-medium text-foreground">{s.nombre}</span>
-                        {!s.activo && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Inactivo</span>}
+                        {!s.activo && <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Inactivo</span>}
                       </div>
                     </td>
                     <td className="px-5 py-3 text-muted-foreground">{TIPOS.find(t => t.id === s.tipo)?.label ?? s.tipo}</td>
@@ -266,7 +266,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
             <div className="flex items-center justify-between pt-1">
               <div>
                 <span className={labelCls}>Tus alumnas pueden reservarla solas</span>
-                <p className="text-[11px] text-muted-foreground -mt-0.5">Sale en tu página de reservas y en la app de tus alumnas.</p>
+                <p className="text-xs text-muted-foreground -mt-0.5">Sale en tu página de reservas y en la app de tus alumnas.</p>
               </div>
               <Toggle on={form.autoReservable} onChange={v => setForm(f => ({ ...f, autoReservable: v }))} ariaLabel="Tus alumnas pueden reservarla solas" />
             </div>

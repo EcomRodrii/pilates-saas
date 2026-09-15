@@ -89,7 +89,7 @@ export function WhatsAppFab() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Cerrar ayuda por WhatsApp' : 'Ayuda por WhatsApp'}
         aria-expanded={open}
-        className="relative h-14 w-14 rounded-full bg-[#25D366] hover:bg-[#1EBE5A] shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+        className="panel-wa-fab-boton relative h-14 w-14 rounded-full bg-[#25D366] hover:bg-[#1EBE5A] shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
       >
         {!open && (
           <span className="absolute inset-0 rounded-full bg-[#25D366] animate-wa-fab-ring" aria-hidden />

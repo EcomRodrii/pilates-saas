@@ -156,7 +156,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
                     {c.etiqueta}
                     {c.requerido && <span className="ml-1.5 text-destructive">*</span>}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {TIPOS_CAMPO.find(t => t.id === c.tipo)?.label}
                     {c.tipo === 'seleccion' && c.opciones.length > 0 && ` · ${c.opciones.join(', ')}`}
                   </p>

@@ -23,7 +23,7 @@ export function TarjetaInstructorasCreanClases({ on, onCambiar }: { on: boolean;
       <label className="flex items-center justify-between gap-4 cursor-pointer">
         <span className="text-[13px] text-foreground">
           Las instructoras pueden crear sus clases
-          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+          <span className="mt-0.5 block text-xs text-muted-foreground">
             Desactivado: solo tienen las clases que les asignas, y pueden editar las suyas.
           </span>
         </span>
