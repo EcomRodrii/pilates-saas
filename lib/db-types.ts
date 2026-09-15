@@ -1002,6 +1002,8 @@ export interface RowStudios {
   subtitulo_heroe: string | null;
   // migr 20260914104856.
   instructoras_crean_clases: boolean | null;
+  // migr 20260916090000.
+  plaza_fija_sin_cuota: string | null;
 }
 
 export interface RowSuscripciones {
@@ -4435,6 +4437,7 @@ export type StudiosInsert = {
   frase_manuscrita?: string | null | null;
   subtitulo_heroe?: string | null | null;
   instructoras_crean_clases?: boolean | null | null;
+  plaza_fija_sin_cuota?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -4557,6 +4560,7 @@ export type StudiosUpdate = {
   frase_manuscrita?: string | null | null;
   subtitulo_heroe?: string | null | null;
   instructoras_crean_clases?: boolean | null | null;
+  plaza_fija_sin_cuota?: string | null | null;
 }
 
 export type SuscripcionesInsert = {

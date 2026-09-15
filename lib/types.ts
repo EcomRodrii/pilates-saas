@@ -233,6 +233,9 @@ export interface Studio {
   // false (default) = cada cargo espera aprobación manual antes de tocar la
   // tarjeta guardada. true = se cobra solo, como el cron de dunning.
   penalizacionCobroAutomatico: boolean;
+  // Qué pasa con las clases que su plaza fija ya tenía reservadas cuando la
+  // alumna se queda sin cuota (migr 20260916090000). 'MANTENER' = como siempre.
+  plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
   // true (default) = comportamiento de siempre: la socia enseña su pase
   // (QR o código corto) y alguien del estudio lo escanea/teclea antes de que
   // la reserva cuente como asistida. false = el estudio confía en que quien
@@ -1130,8 +1133,16 @@ export interface Recibo {
 // sin leer logs.
 export type EstadoPenalizacion =
   | 'DETECTADA' | 'OMITIDA_SIN_TARJETA' | 'OMITIDA_SIN_CONSENTIMIENTO'
-  | 'OMITIDA_COMPENSADA' | 'OMITIDA_REVERTIDA'
+  | 'OMITIDA_COMPENSADA' | 'OMITIDA_REVERTIDA' | 'OMITIDA_SIN_CUOTA'
   | 'PENDIENTE_APROBACION' | 'RECIBO_CREADO' | 'COBRADA' | 'FALLIDA';
+
+/**
+ * Qué pasa con las reservas de plaza fija ya hechas cuando la alumna se queda
+ * sin cuota. LIBERAR = se liberan sus clases futuras sin penalización;
+ * MANTENER_SIN_PENALIZAR = las conserva y no se le cobra si falta; MANTENER =
+ * como siempre (por defecto).
+ */
+export type PoliticaPlazaFijaSinCuota = 'LIBERAR' | 'MANTENER_SIN_PENALIZAR' | 'MANTENER';
 
 export interface Penalizacion {
   id: string;

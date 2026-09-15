@@ -52,6 +52,7 @@ import { Toast } from '@/components/ui/toast';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 import { FichaValoracion, FichaValoracionSalud } from '@/components/socios/valoracion-inicial-ficha';
 import { repartirHistorial } from '@/lib/valoracion-inicial';
+import { textoPlazaFijaSinCuota } from '@/lib/plazas-fijas-sin-cuota';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -2529,7 +2530,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   reservando hasta el {suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'} y no se le vuelve a cobrar.
                   Si la cancelas ahora, deja de poder reservar desde hoy.
                   {plazasFijas.some(p => p.socioId === id && p.estado !== 'BAJA') && (
-                    <> Su plaza fija se guarda, pero se sueltan las clases que ya tenía reservadas a partir de ese día.</>
+                    <> {textoPlazaFijaSinCuota(studio?.plazaFijaSinCuota ?? 'MANTENER', 'elegir', suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : null)}</>
                   )}
                 </p>
               ) : (
@@ -2539,7 +2540,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     <> Le quedan <strong className="text-destructive">{suscripcion!.sesionesRestantes} {suscripcion!.sesionesRestantes === 1 ? 'sesión' : 'sesiones'} sin usar</strong> que ya ha pagado, y las pierde.</>
                   )}
                   {plazasFijas.some(p => p.socioId === id && p.estado !== 'BAJA') && (
-                    <> Su plaza fija se guarda, pero se sueltan las clases que ya tenía reservadas.</>
+                    <> {textoPlazaFijaSinCuota(studio?.plazaFijaSinCuota ?? 'MANTENER', 'ahora')}</>
                   )}
                   {' '}Puedes volver a activarla después desde esta misma tarjeta.
                 </p>

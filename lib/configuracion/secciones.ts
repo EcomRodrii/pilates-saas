@@ -129,6 +129,7 @@ export const SECCIONES = [
       { id: 'lista-de-espera', titulo: 'Lista de espera', frase: 'Si una clase llena admite lista de espera y cuánto tiempo hay para aceptar una plaza que se libera.', guardado: 'barra', palabras: ['plaza libre', 'clase llena'] },
       { id: 'asistencia', titulo: 'Asistencia', frase: 'Si pasas lista en cada clase y si pides confirmación a quien suele faltar.', guardado: 'barra', palabras: ['pasar lista', 'check-in', 'qr'] },
       { id: 'si-cancela-tarde-o-no-viene', titulo: 'Si cancela tarde o no viene', frase: 'Un cargo fijo a su tarjeta guardada, si tiene una, cuando cancela tarde o no viene sin avisar.', guardado: 'barra', palabras: ['penalización', 'cargo', 'falta sin avisar'] },
+      { id: 'si-se-queda-sin-cuota', titulo: 'Si se queda sin cuota', frase: 'Qué pasa con las clases de su plaza fija cuando su cuota se cancela, se pausa o no se renueva.', guardado: 'barra', palabras: ['plaza fija', 'clases fijas', 'cuota', 'baja', 'impago', 'pausa'] },
       { id: 'ajuste-avisar-alumnas', titulo: 'Avisos a las alumnas', frase: 'Si por una baja una clase cambia de instructora, se mueve o se cancela, avisa a sus alumnas por email y en su app.', guardado: 'al-pulsar', palabras: ['sustitución', 'cambio de instructora'] },
     ],
   },

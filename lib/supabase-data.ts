@@ -178,6 +178,7 @@ import type {
   VentaPOS,
   VideoOnDemand,
   ValoracionSocia,
+  PoliticaPlazaFijaSinCuota,
 } from '@/lib/types';
 import type { Valoracion } from '@/lib/valoracion-inicial';
 
@@ -4859,6 +4860,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('penalizacionAplicaCancelacionTardia' in changes) db.penalizacion_aplica_cancelacion_tardia = changes.penalizacionAplicaCancelacionTardia;
   if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
   if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
+  if ('plazaFijaSinCuota' in changes) db.plaza_fija_sin_cuota = changes.plazaFijaSinCuota;
   if ('reembolsosActivos' in changes) db.reembolsos_activos = changes.reembolsosActivos;
   if ('reembolsoPlazoDias' in changes) db.reembolso_plazo_dias = changes.reembolsoPlazoDias;
   if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
@@ -5255,6 +5257,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
+    plazaFijaSinCuota: (r.plaza_fija_sin_cuota as PoliticaPlazaFijaSinCuota | null) ?? 'MANTENER',
     reembolsosActivos: r.reembolsos_activos ?? false,
     reembolsoPlazoDias: r.reembolso_plazo_dias ?? 14,
     reembolsoSoloSinUsar: r.reembolso_solo_sin_usar ?? true,

@@ -13,7 +13,8 @@ import { obtenerConfirmacionRiesgo, actualizarConfirmacionRiesgo } from '@/lib/a
 import { hrefDeHerramienta } from '@/lib/configuracion/destino';
 import { tarjetaPorId } from '@/lib/configuracion/secciones';
 import {
-  antelacionImposible, confirmarPenalizacion, consecuenciaRegla, formularioReglas, reglasDeTarjetaAGuardar, reglasGuardadas,
+  antelacionImposible, confirmarPenalizacion, confirmarPlazaFijaSinCuota, consecuenciaRegla, EXPLICACION_PLAZA_FIJA_SIN_CUOTA,
+  formularioReglas, OPCIONES_PLAZA_FIJA_SIN_CUOTA, reglasDeTarjetaAGuardar, reglasGuardadas,
   tarjetasConCambios, type ReglasReserva, type ReglasReservaForm, type TarjetaReglasId,
 } from '@/lib/configuracion/reglas-reserva';
 import { elegirModoListaEspera, valoresDeListaEspera, type ModoListaEspera } from '@/lib/configuracion/lista-espera-modo';
@@ -560,6 +561,56 @@ export function FormPenalizacion({ excepciones, ...props }: PropsCajonRegla) {
           terminosPropios: !!textosLegalesPropios?.terminosServicio,
           tiposConCargoPropio: tiposClase.filter(t => (t.penalizacionImporteEur ?? 0) > 0).length,
         })}
+      />
+    </>
+  );
+}
+
+// ── Si se queda sin cuota (plaza fija) ──────────────────────────────────────
+//
+// Una sola columna (`plaza_fija_sin_cuota`) con tres opciones. Pasar a «Liberar»
+// pregunta antes: cancela clases de alumnas (`confirmarPlazaFijaSinCuota`).
+
+export function FormSinCuota(props: PropsCajonRegla) {
+  const r = useRegla('si-se-queda-sin-cuota', props);
+  const { form, cambiar, guardado, enPantalla } = r;
+  return (
+    <>
+      <div className={CUERPO}>
+        <p className="text-sm text-muted-foreground text-pretty">{EXPLICACION_PLAZA_FIJA_SIN_CUOTA}</p>
+        <fieldset className="space-y-2">
+          <legend className="sr-only">Qué pasa con las clases que ya tenía reservadas</legend>
+          {OPCIONES_PLAZA_FIJA_SIN_CUOTA.map(o => {
+            const elegida = form.plazaFijaSinCuota === o.valor;
+            return (
+              <label
+                key={o.valor}
+                className={cn(
+                  'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                  elegida ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="si-se-queda-sin-cuota"
+                  className="mt-1 accent-[var(--brand)]"
+                  checked={elegida}
+                  onChange={() => cambiar('plazaFijaSinCuota', o.valor)}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">{o.titulo}</span>
+                  <span className="block text-sm text-muted-foreground text-pretty">{o.detalle}</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+        <Consecuencia texto={consecuenciaRegla('si-se-queda-sin-cuota', enPantalla)} />
+      </div>
+      <Barra
+        tarjeta="si-se-queda-sin-cuota"
+        r={r}
+        confirmar={confirmarPlazaFijaSinCuota(guardado.plazaFijaSinCuota, enPantalla.plazaFijaSinCuota)}
       />
     </>
   );

@@ -3261,8 +3261,12 @@ export async function ejecutarCancelacionReserva(
   // reporta, porque sin la etiqueta el barrido semanal podría compensarla y la
   // plaza no volvería a reservar esa clase al reanudarse.
   if (params.motivoCancelacion && seguiaActiva) {
+    // `cancelada_tardia: false`: soltarla no es una cancelación de la alumna. El
+    // trigger `marcar_cancelacion_tardia` la marcaría tardía si la clase empieza
+    // dentro del plazo (la política LIBERAR también suelta esas), y saldría así en
+    // sus datos y en las estadísticas del panel.
     const { error: errMotivo } = await admin.from('reservas')
-      .update({ cancelada_motivo: params.motivoCancelacion })
+      .update({ cancelada_motivo: params.motivoCancelacion, cancelada_tardia: false })
       .eq('id', params.reservaId).eq('studio_id', params.studioId).eq('estado', 'CANCELADA')
       .is('cancelada_motivo', null);
     if (errMotivo) {

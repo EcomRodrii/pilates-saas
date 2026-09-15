@@ -808,6 +808,14 @@ export function resumenRegla(
         tarde && falta ? null : tarde ? 'solo si cancela tarde' : falta ? 'solo si no viene' : 'sin aplicar a nada',
       ]);
     }
+    case 'si-se-queda-sin-cuota':
+      return unir([
+        // Cortos a propósito: con «12 tipos lo cambian» detrás tiene que caber en MAX_RESUMEN.
+        r.plazaFijaSinCuota === 'LIBERAR' ? 'se liberan sus clases'
+          : r.plazaFijaSinCuota === 'MANTENER_SIN_PENALIZAR' ? 'conserva, sin cargo'
+          : 'conserva sus clases',
+        excepciones,
+      ]);
   }
 }
 

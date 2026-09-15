@@ -130,6 +130,19 @@ export async function registrarFalloCobro(params: {
         level: 'error', tags: { area: 'cobros', tipo: 'dunning' }, extra: { reciboId, suscripcionId: rec.suscripcion_id },
       });
     }
+    // Sin cuota: si el estudio eligió «Liberar sus clases», fuera las de su plaza
+    // fija ya (con las otras políticas la BD no lista ninguna). El cron nocturno
+    // también lo haría, pero puede haber una clase mañana. Best-effort.
+    try {
+      if (rec.socio_id) {
+        const { soltarReservasPlazaFijaSinCuota } = await import('@/lib/db/supabase-data-admin');
+        await soltarReservasPlazaFijaSinCuota(admin, { studioId, socioId: rec.socio_id });
+      }
+    } catch (e) {
+      Sentry.captureException(e instanceof Error ? e : new Error('Fallo al soltar plazas fijas tras impago definitivo'), {
+        level: 'warning', tags: { area: 'plazas-fijas', tipo: 'dunning' }, extra: { reciboId, suscripcionId: rec.suscripcion_id },
+      });
+    }
   }
 
   if (plan.esPrimerFallo || plan.esDefinitivo) {

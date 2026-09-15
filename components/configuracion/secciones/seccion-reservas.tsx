@@ -1,6 +1,6 @@
 'use client';
 
-import { Ban, BellRing, CalendarCheck, ClipboardCheck, Coins, ListOrdered, RotateCcw, Timer, Undo2, Users, type LucideIcon } from 'lucide-react';
+import { Ban, BellRing, CalendarCheck, CalendarX, ClipboardCheck, Coins, ListOrdered, RotateCcw, Timer, Undo2, Users, type LucideIcon } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { setAvisarAlumnas } from '@/lib/api-client';
 import { hayPenalizacionConfigurada } from '@/lib/configuracion/penalizacion-activa';
@@ -9,7 +9,7 @@ import { resumenContrato, resumenRegla } from '@/lib/configuracion/resumenes';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaInformativa, FilaInterruptor, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import {
-  FormAsistencia, FormCancelarYRecuperar, FormClaseCancelada, FormListaEspera, FormPenalizacion, FormReservar,
+  FormAsistencia, FormCancelarYRecuperar, FormClaseCancelada, FormListaEspera, FormPenalizacion, FormReservar, FormSinCuota,
   useConfirmacionRiesgo, type PropsCajonRegla,
 } from '@/components/configuracion/tab-estudio-reservas';
 
@@ -31,6 +31,7 @@ import {
 
 const CAJONES = [
   'reservar', 'cancelar-y-recuperar', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
+  'si-se-queda-sin-cuota',
 ] as const satisfies readonly TarjetaReglasId[];
 
 const ICONOS: Record<TarjetaReglasId, LucideIcon> = {
@@ -40,6 +41,7 @@ const ICONOS: Record<TarjetaReglasId, LucideIcon> = {
   'lista-de-espera': ListOrdered,
   asistencia: ClipboardCheck,
   'si-cancela-tarde-o-no-viene': Coins,
+  'si-se-queda-sin-cuota': CalendarX,
 };
 
 export function SeccionReservas({ showToast }: { showToast: (m: string) => void }) {
@@ -115,6 +117,10 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
         />
       </GrupoFilas>
 
+      <GrupoFilas titulo="Plazas fijas">
+        {fila('si-se-queda-sin-cuota')}
+      </GrupoFilas>
+
       <GrupoFilas titulo="Tentare lo hace así">
         <FilaInformativa icono={Users} titulo="La plaza que se libera va a la primera de la lista" detalle="Por orden de llegada: al momento, o con el plazo para aceptarla que pongas en Lista de espera." />
         <FilaInformativa icono={Timer} titulo="Una clase sin su mínimo de alumnas se cancela 2 h antes" detalle="Solo si le pones un mínimo. Avisa a quien tenía plaza." />
@@ -138,6 +144,9 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
       </CajonAjuste>
       <CajonAjuste id="si-cancela-tarde-o-no-viene" abierto={cajon === 'si-cancela-tarde-o-no-viene'} onCerrar={cerrar}>
         <FormPenalizacion {...props('si-cancela-tarde-o-no-viene')} />
+      </CajonAjuste>
+      <CajonAjuste id="si-se-queda-sin-cuota" abierto={cajon === 'si-se-queda-sin-cuota'} onCerrar={cerrar}>
+        <FormSinCuota {...props('si-se-queda-sin-cuota')} />
       </CajonAjuste>
     </>
   );

@@ -1738,6 +1738,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // cuota ya está guardada y, si esto falla, lo hace el cron esa misma noche. Se
   // tachan solo las reservas que el servidor dice haber cancelado.
   async function soltarClasesPlazaFijaSinCuota(socioId: string): Promise<number> {
+    // Solo con «Liberar sus clases»: con las otras dos políticas no se suelta nada
+    // (la BD tampoco listaría ninguna; esto solo ahorra la petición).
+    if (studio?.plazaFijaSinCuota !== 'LIBERAR') return 0;
     if (!plazasFijas.some(p => p.socioId === socioId && p.estado !== 'BAJA')) return 0;
     const respuesta = await fetch('/api/plazas-fijas/soltar-sin-cuota', {
       method: 'POST',
