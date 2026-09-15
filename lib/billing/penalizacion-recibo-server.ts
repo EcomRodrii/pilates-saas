@@ -10,8 +10,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import {
-  hayQueRevisarLiquidacion, motivoRevisionPorRecibo, penalizacionDelRecibo, seguirAlRecibo,
-  type EstadoPenalizacion, type LecturaPenalizacion, type Seguimiento,
+  cobroManualDeRecibo, hayQueRevisarLiquidacion, motivoRevisionPorRecibo, penalizacionDelRecibo, seguirAlRecibo,
+  type EstadoPenalizacion, type LecturaPenalizacion, type Seguimiento, type VeredictoCobroManual,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import {
   pedirRevisionLiquidacionPenalizacion, type PenalizacionRepartida,
@@ -36,6 +36,49 @@ export async function desprogramarReciboDePenalizacion(
     .lte('proximo_reintento', p.hastaISO).select('id');
   if (error) console.error('[dunning] no se pudo desprogramar el recibo de la penalización', p.reciboId, error.message);
   return !error && (data?.length ?? 0) > 0;
+}
+
+/**
+ * Borra el recibo de una penalización que se ha decidido NO cobrar (hoy:
+ * OMITIDA_SIN_CONSENTIMIENTO, que ya soltó `recibo_id`). Compare-and-set: solo si
+ * sigue PENDIENTE, sin `proximo_reintento`, sin PaymentIntent enlazado y sin
+ * Checkout abierto — cualquier otra cosa puede tener dinero detrás y no se toca.
+ * Mismo patrón que el `borrarRecibo` del cron. Devuelve las filas tocadas.
+ */
+export async function borrarReciboDePenalizacionSinCobro(
+  admin: SupabaseClient, p: { studioId: string; reciboId: string },
+): Promise<{ error: boolean; tocadas: number }> {
+  if (!penalizacionDelRecibo(p.reciboId)) return { error: false, tocadas: 0 };
+  const { data, error } = await admin.from('recibos').delete()
+    .eq('id', p.reciboId).eq('studio_id', p.studioId)
+    .eq('estado', 'PENDIENTE').is('proximo_reintento', null)
+    .is('stripe_payment_intent_id', null).is('checkout_session_id', null)
+    .select('id');
+  if (error) console.error('[penalizaciones] no se pudo borrar el recibo de una penalización sin cobro', p.reciboId, error.message);
+  return { error: !!error, tocadas: data?.length ?? 0 };
+}
+
+/**
+ * Guardia de «Cobrar online» y de la aprobación desde Automatizaciones: el
+ * recibo de una penalización solo se cobra ahí con el cobro ya decidido
+ * (`cobroManualDeRecibo`). `null` = adelante (incluido cualquier recibo que no
+ * sea de una penalización, sin leer nada). Sin service-role o sin poder leer la
+ * penalización, no se cobra.
+ */
+export async function bloqueoCobroManualDePenalizacion(
+  admin: SupabaseClient | null, p: { studioId: string; reciboId: string },
+): Promise<Extract<VeredictoCobroManual, { ok: false }> | null> {
+  if (cobroManualDeRecibo(p.reciboId).ok) return null; // no es de una penalización: no se lee nada
+  let lectura: LecturaPenalizacion = { ok: false };
+  if (admin) {
+    try {
+      lectura = await leerPenalizacionDelRecibo(admin, p);
+    } catch {
+      lectura = { ok: false };
+    }
+  }
+  const veredicto = cobroManualDeRecibo(p.reciboId, lectura);
+  return veredicto.ok ? null : veredicto;
 }
 
 /** Estado de la penalización de un recibo `rec-penaliz-*`. Un recibo que no es de una: `estado: null`. */

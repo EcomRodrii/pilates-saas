@@ -5,6 +5,8 @@ import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { capturar } from '@/lib/analytics';
 import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/billing/stripe-cobros';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
+import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // Cobra un recibo pendiente usando la tarjeta ya guardada de la socia, sin
 // que ella tenga que hacer nada. Solo se llama cuando alguien del estudio
@@ -55,6 +57,16 @@ export async function POST(req: NextRequest) {
   // R7: un estudio con la suscripción caducada no puede cobrar a sus socias.
   const bloqueo = await bloqueoPorSuscripcion(sesion.studioId);
   if (bloqueo) return bloqueo;
+
+  // El recibo de una penalización solo con el cobro ya decidido (RECIBO_CREADO),
+  // igual que en «Cobrar online». La propuesta queda cerrada con el porqué.
+  const penalizacionNoCobrable = await bloqueoCobroManualDePenalizacion(getSupabaseAdmin(), {
+    studioId: sesion.studioId, reciboId: body.reciboId,
+  });
+  if (penalizacionNoCobrable) {
+    await dbUpdateAutomationLog(body.logId, sesion.studioId, { resultado: 'FALLIDO', detalle: penalizacionNoCobrable.mensaje });
+    return NextResponse.json({ error: penalizacionNoCobrable.mensaje }, { status: penalizacionNoCobrable.http });
+  }
 
   // A-10: la Idempotency-Key la deriva cobrarReciboOffSession del reciboId, para
   // que este disparador (aprobación manual) y el ejecutor del Decision OS

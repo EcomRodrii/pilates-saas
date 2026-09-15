@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  aplicarConsentimientoEnCron, consentimientoCubrePenalizacion,
+  aplicarConsentimientoEnCron, cerrarSinConsentimiento, consentimientoCubrePenalizacion,
   type EntradaConsentimiento, type MotivoSinConsentimiento, type VeredictoConsentimiento,
 } from './penalizacion-consentimiento.ts';
 import {
-  cuerpoRespuesta, mensajeSinConsentimiento, planSinConsentimiento, queHaceLaTarjeta, resolverEscrituraSinEfecto,
+  CIERRE_RECIBO_FALLIDO, VUELTA_A_DETECTADA,
+  cuerpoRespuesta, escrituraAlCrearRecibo, escrituraPorEstadoDelRecibo, mensajeSinConsentimiento, planSinConsentimiento,
+  queHaceLaTarjeta, resolverEscrituraSinEfecto,
 } from './penalizacion-aprobar-reglas.ts';
 import { terminosServicioPorDefecto, textoLegalVigenteDeFila } from '../legal-textos.ts';
 
@@ -165,22 +167,52 @@ test('términos guardados vacíos componen el MISMO texto que los de por defecto
 
 // ── El cron: no hay recibo sin consentimiento ──────────────────────────────
 
-function ioCron(marca = { error: false, tocadas: 1 }) {
+function ioCron(marca = { error: false, tocadas: 1 }, borrado = { error: false, tocadas: 0 }) {
   const llamadas: string[] = [];
   return {
     llamadas,
     io: {
       marcarOmitida: async () => { llamadas.push('marcarOmitida'); return marca; },
+      borrarRecibo: async () => { llamadas.push('borrarRecibo'); return borrado; },
       notificarBloqueo: async () => { llamadas.push('notificarBloqueo'); },
+      alertar: (m: string) => { llamadas.push(`alertar:${m}`); },
     },
   };
 }
 
-test('cron: sin consentimiento, OMITIDA_SIN_CONSENTIMIENTO + aviso, y no sigue a crear recibo', async () => {
+test('cron: sin consentimiento, OMITIDA_SIN_CONSENTIMIENTO, borra el recibo si lo hubiera, avisa, y no sigue', async () => {
   const { io, llamadas } = ioCron();
   const sigue = await aplicarConsentimientoEnCron({ ok: false, motivo: 'importe_distinto' }, io);
   assert.equal(sigue, false);
-  assert.deepEqual(llamadas, ['marcarOmitida', 'notificarBloqueo']);
+  // Sin recibo de una pasada anterior el borrado no toca nada, y eso no es una alerta.
+  assert.deepEqual(llamadas, ['marcarOmitida', 'borrarRecibo', 'notificarBloqueo']);
+});
+
+test('cron: una DETECTADA con recibo de una pasada anterior lo deja borrado', async () => {
+  const { io, llamadas } = ioCron({ error: false, tocadas: 1 }, { error: false, tocadas: 1 });
+  assert.equal(await aplicarConsentimientoEnCron({ ok: false, motivo: 'texto_distinto' }, io), false);
+  assert.deepEqual(llamadas, ['marcarOmitida', 'borrarRecibo', 'notificarBloqueo']);
+});
+
+test('cron: si el borrado falla, alerta y avisa igual (la penalización ya no se cobra), y no sigue', async () => {
+  const { io, llamadas } = ioCron({ error: false, tocadas: 1 }, { error: true, tocadas: 0 });
+  assert.equal(await aplicarConsentimientoEnCron({ ok: false, motivo: 'texto_distinto' }, io), false);
+  assert.deepEqual(llamadas, ['marcarOmitida', 'borrarRecibo', 'alertar:NO_SE_PUDO_BORRAR_RECIBO', 'notificarBloqueo']);
+});
+
+test('aprobar: con recibo que no se deja borrar (cobrado, programado, con Checkout) alerta; borrado, no', async () => {
+  for (const [borrado, esperado] of [
+    [{ error: false, tocadas: 1 }, { reciboBorrado: true, alerta: false }],
+    [{ error: false, tocadas: 0 }, { reciboBorrado: false, alerta: true }],
+    [{ error: true, tocadas: 0 }, { reciboBorrado: false, alerta: true }],
+  ] as const) {
+    const { io, llamadas } = ioCron(undefined, borrado);
+    const r = await cerrarSinConsentimiento(io, { habiaRecibo: true });
+    assert.equal(r.reciboBorrado, esperado.reciboBorrado);
+    assert.equal(llamadas.includes('alertar:NO_SE_PUDO_BORRAR_RECIBO'), esperado.alerta, JSON.stringify(borrado));
+    assert.equal(llamadas.at(-1), 'notificarBloqueo');
+    assert.ok(!llamadas.includes('marcarOmitida'), 'cerrar no escribe la penalización: eso lo hizo el plan');
+  }
 });
 
 test('cron: si el CAS no tocó nada (otra pasada, revertida) no avisa, y tampoco sigue', async () => {
@@ -204,6 +236,22 @@ test('cron: el guardia va antes de crear el recibo, y el recibo solo se crea si 
   const recibo = fuente.indexOf('await crearReciboYCobrar(');
   assert.ok(guardia > 0 && salida > guardia && recibo > salida, 'aplicarConsentimientoEnCron → if (!sigue) return → crearReciboYCobrar');
   assert.ok(!fuente.includes('?? terminosServicioPorDefecto'), 'el texto vigente se compone con configLegalDe, no con ??');
+  // La FK `penalizaciones.recibo_id` no tiene ON DELETE: sin soltarlo, el borrado falla siempre.
+  const marca = fuente.slice(fuente.indexOf('marcarOmitida: async'), fuente.indexOf('borrarRecibo: () =>'));
+  assert.match(marca, /estado: 'OMITIDA_SIN_CONSENTIMIENTO'[^}]*recibo_id: null/);
+  assert.match(fuente, /borrarRecibo: \(\) => borrarReciboDePenalizacionSinCobro\(admin, \{ studioId: pen\.studio_id, reciboId: `rec-penaliz-\$\{pen\.id\}` \}\)/);
+});
+
+test('el borrado del recibo es compare-and-set: PENDIENTE, sin programar, sin cobro enlazado, sin Checkout', () => {
+  const fuente = readFileSync(join(import.meta.dirname, 'penalizacion-recibo-server.ts'), 'utf8');
+  const desde = fuente.indexOf('export async function borrarReciboDePenalizacionSinCobro(');
+  const funcion = fuente.slice(desde, fuente.indexOf('\n}\n', desde));
+  assert.ok(desde > 0);
+  for (const filtro of [
+    ".eq('studio_id', p.studioId)", ".eq('estado', 'PENDIENTE')", ".is('proximo_reintento', null)",
+    ".is('stripe_payment_intent_id', null)", ".is('checkout_session_id', null)", ".select('id')",
+  ]) assert.ok(funcion.includes(filtro), `falta ${filtro}`);
+  assert.match(funcion, /if \(!penalizacionDelRecibo\(p\.reciboId\)\) return \{ error: false, tocadas: 0 \}/, 'solo recibos de penalización');
 });
 
 // ── La ruta de aprobar y la tarjeta ────────────────────────────────────────
@@ -214,7 +262,7 @@ const MOTIVOS: MotivoSinConsentimiento[] =
 test('aprobar sin consentimiento: OMITIDA_SIN_CONSENTIMIENTO solo desde PENDIENTE_APROBACION, 409, sin avisar de pago', () => {
   for (const m of MOTIVOS) {
     const plan = planSinConsentimiento(m);
-    assert.deepEqual(plan.escritura, { estado: 'OMITIDA_SIN_CONSENTIMIENTO', desde: ['PENDIENTE_APROBACION'] });
+    assert.deepEqual(plan.escritura, { estado: 'OMITIDA_SIN_CONSENTIMIENTO', desde: ['PENDIENTE_APROBACION'], soltarRecibo: true });
     assert.equal(plan.desenlace.tipo, 'SIN_CONSENTIMIENTO');
     assert.equal(plan.desenlace.http, 409);
     assert.equal(plan.desenlace.notificar, false);
@@ -246,4 +294,24 @@ test('la ruta comprueba el contrato antes de llamar a Stripe', () => {
   const guardia = fuente.indexOf('consentimientoCubrePenalizacion({');
   const cobro = fuente.indexOf('await cobrarReciboOffSession(');
   assert.ok(guardia > 0 && cobro > guardia, 'consentimientoCubrePenalizacion antes de cobrarReciboOffSession');
+});
+
+test('la ruta suelta el recibo en la misma escritura y lo borra solo si esa escritura tocó la fila', () => {
+  const fuente = readFileSync(join(import.meta.dirname, '../../app/api/penalizaciones/aprobar/route.ts'), 'utf8');
+  assert.match(fuente, /\.\.\.\(plan\.escritura\.soltarRecibo \? \{ recibo_id: null \} : \{\}\)/);
+  const plan = fuente.indexOf('await ejecutar(planSinConsentimiento(');
+  const siToco = fuente.indexOf("if (d.tipo === 'SIN_CONSENTIMIENTO') {", plan);
+  const cierre = fuente.indexOf('await cerrarSinConsentimiento({', siToco);
+  const cobro = fuente.indexOf('await cobrarReciboOffSession(');
+  assert.ok(plan > 0 && siToco > plan && cierre > siToco && cobro > cierre, 'plan → si tocó → cerrarSinConsentimiento, todo antes de cobrar');
+  assert.match(fuente.slice(cierre, cobro), /borrarReciboDePenalizacionSinCobro\(admin, \{ studioId: sesion\.studioId, reciboId: pen\.recibo_id as string \}\)/);
+  assert.match(fuente.slice(cierre, cobro), /\{ habiaRecibo: true \}/);
+});
+
+test('solo la omisión por consentimiento suelta el recibo', () => {
+  assert.equal(planSinConsentimiento('texto_distinto').escritura?.soltarRecibo, true);
+  for (const e of [escrituraAlCrearRecibo(true), escrituraAlCrearRecibo(false), VUELTA_A_DETECTADA, CIERRE_RECIBO_FALLIDO,
+    escrituraPorEstadoDelRecibo('COBRADO'), escrituraPorEstadoDelRecibo('FALLIDO'), escrituraPorEstadoDelRecibo('PENDIENTE'), escrituraPorEstadoDelRecibo('DEVUELTO')]) {
+    assert.equal(e?.soltarRecibo, undefined, JSON.stringify(e));
+  }
 });

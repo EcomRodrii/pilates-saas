@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { configLegalDe, textoLegalCompleto, datosLegalesDeFila } from '@/lib/legal-textos';
+import { textoLegalVigenteDeFila } from '@/lib/legal-textos';
 import { hashTextoLegal } from '@/lib/legal-hash';
 
 // Sella qué condiciones estaban vigentes cuando una clienta compra.
@@ -41,25 +41,18 @@ export async function componerTextoLegalVigente(
     .maybeSingle();
   if (error || !s) return null;
 
-  const e = s as Record<string, unknown>;
-  // La MISMA composición que firma la clienta en el portal: sus textos si los
-  // ha reescrito, y si no los de por defecto redactados con sus datos
-  // fiscales. `configLegalDe` vive en `lib/legal-textos.ts` justamente para
-  // que servidor y cliente no tengan dos reglas distintas.
+  // La MISMA composición que ve la alumna en el portal, `/reservar` y el widget
+  // (`studioPublico` usa `configLegalDeFila`, y esto `textoLegalVigenteDeFila`,
+  // que la envuelve): sus textos si los ha reescrito, y si no los de por defecto
+  // redactados con sus datos fiscales, su ventana de cancelación y, si tiene
+  // importe, la cláusula de penalización.
   //
   // ⚠️ El mapeo a camelCase es OBLIGATORIO y no cosmético: `DatosEstudioLegal`
   // tiene todos los campos opcionales, así que pasarle la fila cruda en
   // snake_case COMPILA y se traga en silencio `razon_social`, `codigo_postal`,
-  // `cancelacion_ventana_horas` y `penalizacion_importe_eur`. El resultado era
-  // un sello que certificaba un texto DISTINTO del que vio la compradora: con
-  // el nombre comercial en vez de la razón social que factura, sin código
-  // postal, con la ventana de cancelación por defecto y sin la cláusula de
-  // penalización. Es decir, prueba de un consentimiento que no se dio.
-  const config = configLegalDe(datosLegalesDeFila(e), {
-    politicaPrivacidad: (e.politica_privacidad as string | null) ?? null,
-    terminosServicio: (e.terminos_servicio as string | null) ?? null,
-  });
-  return textoLegalCompleto(config);
+  // `cancelacion_ventana_horas` y `penalizacion_importe_eur`. Por eso no se
+  // compone aquí a mano: un solo dueño, en `lib/legal-textos.ts`.
+  return textoLegalVigenteDeFila(s as Record<string, unknown>);
 }
 
 /**

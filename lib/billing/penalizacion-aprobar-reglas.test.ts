@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { CobroErrorCode, ResultadoCobro } from './stripe-cobros.ts';
 import { leerAvisoCobro } from './resultado-cobro.ts';
 import {
@@ -24,6 +26,9 @@ import {
   limpiezaTrasCasFallido,
   origenDelRecibo,
   penalizacionDelRecibo,
+  ESTADOS_QUE_DEJAN_COBRAR_A_MANO,
+  PREFIJO_RECIBO_PENALIZACION,
+  cobroManualDeRecibo,
   planificarCobroAutomatico,
   planificarTrasCobro,
   queHaceLaTarjeta,
@@ -1364,4 +1369,93 @@ test('respaldo: 402 y 409 tienen texto propio; el resto usa el genérico', () =>
   assert.match(respaldoAprobacion(402) ?? '', /no cobrada/);
   assert.match(respaldoAprobacion(409) ?? '', /ya no está pendiente/);
   assert.equal(respaldoAprobacion(500), null);
+});
+
+// ── Cobrar a mano un recibo de penalización (Cobros, Automatizaciones) ──────
+
+const TODOS_LOS_ESTADOS: EstadoPenalizacion[] = [
+  'DETECTADA', 'OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA',
+  'PENDIENTE_APROBACION', 'RECIBO_CREADO', 'COBRADA', 'FALLIDA', 'REEMBOLSADA',
+];
+const RECIBO_PEN = `${PREFIJO_RECIBO_PENALIZACION}pen-1`;
+const NO_DESDE_AQUI = /^Esta penalización no se puede cobrar desde aquí: /;
+
+test('cobrar a mano: un recibo que no es de una penalización pasa, sin necesitar lectura', () => {
+  for (const id of ['rec-renov-sus-1-2026-09', 'rec-1', 'penaliz-1']) {
+    assert.deepEqual(cobroManualDeRecibo(id), { ok: true });
+    assert.deepEqual(cobroManualDeRecibo(id, { ok: false }), { ok: true });
+  }
+});
+
+test('⚠️ cobrar a mano: el recibo de una penalización solo con RECIBO_CREADO', () => {
+  assert.deepEqual([...ESTADOS_QUE_DEJAN_COBRAR_A_MANO], ['RECIBO_CREADO']);
+  for (const estado of TODOS_LOS_ESTADOS) {
+    const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado });
+    if (estado === 'RECIBO_CREADO') {
+      assert.deepEqual(v, { ok: true });
+      continue;
+    }
+    assert.equal(v.ok, false, estado);
+    if (v.ok) continue;
+    assert.equal(v.http, 409, estado);
+    assert.match(v.mensaje, NO_DESDE_AQUI, estado);
+    assert.doesNotMatch(v.mensaje, /undefined|null/, estado);
+    assert.match(v.mensaje, /\.$/, estado);
+  }
+});
+
+test('⚠️ PENDIENTE_APROBACION no se cobra desde Cobros: dice dónde aprobarla, que es donde está el guardia', () => {
+  const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado: 'PENDIENTE_APROBACION' });
+  assert.equal(v.ok, false);
+  if (!v.ok) assert.match(v.mensaje, /apruebes en Inicio/);
+});
+
+test('cobrar a mano: cada estado bloqueado dice lo suyo', () => {
+  const mensajes = TODOS_LOS_ESTADOS.filter(e => e !== 'RECIBO_CREADO')
+    .map(estado => cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }))
+    .map(v => (v.ok ? '' : v.mensaje));
+  assert.equal(new Set(mensajes).size, mensajes.length);
+});
+
+test('cobrar a mano: sin poder leer la penalización, no se cobra (503, reintentable)', () => {
+  for (const lectura of [undefined, { ok: false } as const]) {
+    const v = cobroManualDeRecibo(RECIBO_PEN, lectura);
+    assert.equal(v.ok, false);
+    if (!v.ok) {
+      assert.equal(v.http, 503);
+      assert.match(v.mensaje, NO_DESDE_AQUI);
+      assert.match(v.mensaje, /No se ha cobrado/);
+    }
+  }
+});
+
+test('cobrar a mano: una penalización que no apunta a ese recibo, o un estado desconocido, no se cobra', () => {
+  for (const estado of [null, 'OTRO']) {
+    const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado });
+    assert.equal(v.ok, false, String(estado));
+    if (!v.ok) assert.equal(v.http, 409);
+  }
+  // Un `rec-penaliz-` sin id tampoco se cuela como recibo normal.
+  assert.equal(cobroManualDeRecibo(PREFIJO_RECIBO_PENALIZACION).ok, false);
+});
+
+test('las dos rutas que cobran a mano comprueban la penalización antes de llamar a Stripe', () => {
+  for (const ruta of ['app/api/cobros/cobrar-online/route.ts', 'app/api/stripe/charge-off-session/route.ts']) {
+    const fuente = readFileSync(join(import.meta.dirname, '../..', ruta), 'utf8');
+    const guardia = fuente.indexOf('await bloqueoCobroManualDePenalizacion(');
+    const salida = fuente.indexOf('if (penalizacionNoCobrable) {', guardia);
+    const respuesta = fuente.indexOf('{ status: penalizacionNoCobrable.http }', salida);
+    const cobro = fuente.indexOf('await cobrarReciboOffSession(');
+    assert.ok(guardia > 0 && salida > guardia && respuesta > salida && cobro > respuesta, `${ruta}: guardia → return → cobro`);
+  }
+});
+
+test('el guardia de servidor falla cerrado: sin service-role o con la lectura lanzando, no se cobra', () => {
+  const fuente = readFileSync(join(import.meta.dirname, 'penalizacion-recibo-server.ts'), 'utf8');
+  const desde = fuente.indexOf('export async function bloqueoCobroManualDePenalizacion(');
+  const funcion = fuente.slice(desde, fuente.indexOf('\n}\n', desde));
+  assert.ok(desde > 0);
+  assert.match(funcion, /let lectura: LecturaPenalizacion = \{ ok: false \};/);
+  assert.match(funcion, /catch \{\s*lectura = \{ ok: false \};/);
+  assert.match(funcion, /cobroManualDeRecibo\(p\.reciboId, lectura\)/);
 });

@@ -10,7 +10,8 @@ import {
   planSinConsentimiento, planificarTrasCobro, resolverEscrituraSinEfecto,
   type Desenlace, type LecturaRecibo, type Plan,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
-import { consentimientoCubrePenalizacion } from '@/lib/billing/penalizacion-consentimiento';
+import { cerrarSinConsentimiento, consentimientoCubrePenalizacion } from '@/lib/billing/penalizacion-consentimiento';
+import { borrarReciboDePenalizacionSinCobro } from '@/lib/billing/penalizacion-recibo-server';
 import { textoLegalVigenteDeFila } from '@/lib/legal-textos';
 
 export const dynamic = 'force-dynamic';
@@ -63,7 +64,12 @@ export async function POST(req: NextRequest) {
     if (!plan.escritura) return plan.desenlace;
     const { data: tocadas, error: errEscritura } = await admin
       .from('penalizaciones')
-      .update({ estado: plan.escritura.estado, procesada_en: new Date().toISOString() })
+      .update({
+        estado: plan.escritura.estado, procesada_en: new Date().toISOString(),
+        // Soltar el recibo en la MISMA escritura que cambia el estado: se va a
+        // borrar, y la FK no lo deja mientras la penalización apunte a él.
+        ...(plan.escritura.soltarRecibo ? { recibo_id: null } : {}),
+      })
       .eq('id', pen.id).eq('studio_id', sesion.studioId)
       .in('estado', [...plan.escritura.desde])
       .select('id');
@@ -130,13 +136,28 @@ export async function POST(req: NextRequest) {
   });
   if (!veredicto.ok) {
     const d = await ejecutar(planSinConsentimiento(veredicto.motivo));
-    // Solo si esta petición la sacó de pendiente; el motor deduplica por penalización igualmente.
+    // Solo si esta petición la sacó de pendiente (`SIN_CONSENTIMIENTO` = el CAS
+    // tocó la fila): se borra su recibo, que si no seguía PENDIENTE en Cobros, y
+    // se avisa. El motor deduplica el aviso por penalización igualmente.
     if (d.tipo === 'SIN_CONSENTIMIENTO') {
-      const { emitirPenalizacionBloqueada } = await import('@/lib/notifications/emit');
-      await emitirPenalizacionBloqueada(admin, {
-        studioId: sesion.studioId, socioId: pen.socio_id, motivo: 'consentimiento',
-        importe: Number(pen.importe ?? 0), penalizacionId: pen.id,
-      });
+      await cerrarSinConsentimiento({
+        borrarRecibo: () => borrarReciboDePenalizacionSinCobro(admin, { studioId: sesion.studioId, reciboId: pen.recibo_id as string }),
+        notificarBloqueo: async () => {
+          const { emitirPenalizacionBloqueada } = await import('@/lib/notifications/emit');
+          await emitirPenalizacionBloqueada(admin, {
+            studioId: sesion.studioId, socioId: pen.socio_id, motivo: 'consentimiento',
+            importe: Number(pen.importe ?? 0), penalizacionId: pen.id,
+          });
+        },
+        alertar: (motivo) => {
+          // Solo ids. Un recibo que no se pudo borrar ya no tiene penalización
+          // detrás: ni el dunning ni Cobros lo cobran, pero hay que anularlo a mano.
+          Sentry.captureMessage(`[penalizaciones/aprobar] ${motivo}`, {
+            level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-sin-consentimiento' },
+            extra: { penalizacionId: pen.id, reciboId: pen.recibo_id, studioId: sesion.studioId },
+          });
+        },
+      }, { habiaRecibo: true });
     }
     return NextResponse.json(cuerpoRespuesta(d), { status: d.http });
   }
