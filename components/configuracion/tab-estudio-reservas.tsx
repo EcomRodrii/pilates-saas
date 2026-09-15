@@ -186,9 +186,6 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               </li>
             ))}
           </ul>
-          <p className="text-[11px] text-muted-foreground mt-3">
-            Cada tipo de clase puede cambiar algunas en Mis clases y citas → Tipos de clase.
-          </p>
         </TarjetaAjuste>
       )}
 
@@ -388,8 +385,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             disabled={confirmacion === null || sinPlanConfirmacion}
           >
             <span className="block">
-              Si no confirma, se cancela su reserva. <strong className="font-semibold">No se le pide a todo el mundo</strong>: solo
-              a quien suele faltar.
+              Si no confirma, se cancela. <strong className="font-semibold">No se le pide a todo el mundo</strong>, solo a quien falta.
             </span>
             {sinPlanConfirmacion && (
               <span className="block">Esta regla va con el Centro de Control, y tu plan no lo incluye.</span>

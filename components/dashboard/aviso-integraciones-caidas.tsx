@@ -6,7 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import { integracionesCaidas, cuando } from '@/lib/integraciones/salud';
 import type { TipoIntegracion } from '@/lib/types';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
-import { seccionAnfitriona, type TarjetaId } from '@/lib/configuracion/secciones';
+import { seccionDeTarjeta, type TarjetaId } from '@/lib/configuracion/secciones';
 
 // Una integración caída, dicha donde la propietaria entra de verdad.
 //
@@ -47,7 +47,7 @@ const TARJETA: Partial<Record<TipoIntegracion, TarjetaId>> = {
 
 function hrefArreglar(tipo: TipoIntegracion): string {
   const tarjeta = TARJETA[tipo] ?? 'mas-integraciones';
-  return hrefDeSeccion(seccionAnfitriona(tarjeta), tarjeta);
+  return hrefDeSeccion(seccionDeTarjeta(tarjeta), tarjeta);
 }
 
 export function AvisoIntegracionesCaidas() {

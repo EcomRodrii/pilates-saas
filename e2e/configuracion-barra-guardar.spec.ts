@@ -440,3 +440,31 @@ for (const vista of VISTAS) {
     }
   });
 }
+
+// A 1024 px la columna es estrecha: la barra llega hasta el borde derecho y la
+// burbuja de WhatsApp tapaba «Guardar» (captura del 15-sep).
+test.describe('La barra de guardar en un portátil de 1024×768', () => {
+  test.use({ viewport: { width: 1024, height: 768 } });
+
+  test('la burbuja se aparta y «Guardar» se puede pulsar', async ({ page }) => {
+    const { patches } = await reservas(page);
+    const burbuja = page.getByRole('button', { name: 'Ayuda por WhatsApp' });
+    await expect(burbuja).toBeVisible();
+
+    await ventana(page).fill('6');
+    await expect(barra(page)).toBeVisible();
+    await expect(burbuja).toBeHidden();
+    const alcanzable = await page.evaluate(() => {
+      const boton = [...document.querySelectorAll<HTMLButtonElement>('[data-barra-guardar] button')].at(-1)!;
+      const r = boton.getBoundingClientRect();
+      const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!el && boton.contains(el);
+    });
+    expect(alcanzable, '«Guardar» no queda tapado').toBe(true);
+
+    await guardar(page).click();
+    await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
+    await expect(barra(page)).toHaveCount(0);
+    await expect(burbuja).toBeVisible();
+  });
+});

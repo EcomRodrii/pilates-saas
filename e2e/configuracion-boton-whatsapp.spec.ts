@@ -138,16 +138,26 @@ for (const vista of VISTAS) {
   });
 }
 
-test.describe('La burbuja de WhatsApp en escritorio', () => {
-  test.use({ viewport: { width: 1280, height: 800 } });
+// En escritorio también se aparta. Se creía que, sin navegación abajo, la barra
+// quedaba a la izquierda de la burbuja; a 1024 px la columna es estrecha y la
+// burbuja tapaba «Guardar» (captura del 15-sep).
+for (const viewport of [{ width: 1024, height: 768 }, { width: 1280, height: 800 }]) {
+  test.describe(`La burbuja de WhatsApp en escritorio ${viewport.width}×${viewport.height}`, () => {
+    test.use({ viewport });
 
-  test('no se aparta: sin navegación abajo, la barra de guardar no le cae debajo', async ({ page }) => {
-    await panel(page);
-    await ir(page, 'configuracion?tab=estudio');
-    const telefono = page.getByRole('textbox', { name: 'Teléfono' });
-    await expect(telefono).toBeVisible({ timeout: 30_000 });
-    await telefono.fill('600111222');
-    await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
-    await expect(burbuja(page)).toBeVisible();
+    test('con la barra de guardar a la vista se aparta, y vuelve al descartar', async ({ page }) => {
+      await panel(page);
+      await ir(page, 'configuracion?tab=estudio');
+      const telefono = page.getByRole('textbox', { name: 'Teléfono' });
+      await expect(telefono).toBeVisible({ timeout: 30_000 });
+      await expect(burbuja(page)).toBeVisible();
+
+      await telefono.fill('600111222');
+      await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+      await expect(burbuja(page)).toBeHidden();
+
+      await page.getByRole('button', { name: 'Descartar' }).click();
+      await expect(burbuja(page)).toBeVisible();
+    });
   });
-});
+}

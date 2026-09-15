@@ -141,8 +141,7 @@ export function useFormularioEstudio<T extends object>(
  * segura, `fixed bottom-0 z-30`): pegada a 0 quedaba debajo de ella.
  *
  * `data-barra-guardar`: mientras está, el botón flotante de ayuda por WhatsApp
- * se aparta en el móvil y el iPad (globals.css), porque caía encima de
- * «Guardar».
+ * se aparta (globals.css), porque caía encima de «Guardar».
  */
 export function BarraCambiosEstudio({
   visible,

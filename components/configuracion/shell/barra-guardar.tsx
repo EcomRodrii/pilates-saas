@@ -37,7 +37,8 @@ function textoDeError(error: string): string {
 //  · Por encima de la barra de navegación del móvil y el iPad (56 px + zona
 //    segura), que es `fixed bottom-0`.
 //  · `data-barra-guardar` SOLO mientras se ve: con él a la vista, la burbuja de
-//    WhatsApp se aparta en el móvil y el iPad (globals.css).
+//    WhatsApp se aparta (globals.css). En todos los anchos: a 1024 px tapaba
+//    «Guardar».
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function BarraGuardar({
