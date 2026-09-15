@@ -5,6 +5,7 @@ import { X, Moon, Sun, Palette, ChevronRight } from 'lucide-react';
 import { usePermisos } from '@/lib/permisos';
 import { usePanelTheme } from '@/lib/panel-theme';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
+import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 
 export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { rol } = usePermisos();
@@ -67,7 +68,8 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
               <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Tu estudio</p>
               <Link
                 href="/configuracion?tab=panel"
-                onClick={onClose}
+                // Desde otra sección de Configuración, por el shell (#2030).
+                onClick={e => { onClose(); alPulsarEnlaceAConfiguracion(e, '/configuracion?tab=panel'); }}
                 className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl bg-muted hover:bg-muted/70 transition-colors"
               >
                 <span className="flex items-center gap-2.5 text-[13px] font-semibold text-foreground">

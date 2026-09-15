@@ -20,6 +20,7 @@ import { fetchMisEstudios } from '@/lib/supabase-data';
 // mirando la A). Sin studioId a propósito — ver lib/notifications/ambito.ts.
 const AMBITO_STAFF: AmbitoNotif = { ambito: 'staff' };
 import { cn } from '@/lib/utils';
+import { irEnConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 
 const ACENTO: Record<string, string> = {
   CRITICA: 'bg-red-500', ALTA: 'bg-amber-500', MEDIA: 'bg-brand', BAJA: 'bg-muted-foreground/40', SILENCIOSA: 'bg-muted-foreground/40',
@@ -177,7 +178,8 @@ export function NotificationBell() {
       setUnread(u => Math.max(0, u - 1));
       await accionNotificacion(authHeader, AMBITO_STAFF, 'read', n.id);
     }
-    if (n.deepLink) { setAbierto(false); router.push(n.deepLink); }
+    // Un aviso que lleva a Configuración estando en ella: por el shell (#2030).
+    if (n.deepLink) { setAbierto(false); if (!irEnConfiguracion(n.deepLink)) router.push(n.deepLink); }
   }
 
   async function archivar(e: React.MouseEvent, n: NotifItem) {

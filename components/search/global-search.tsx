@@ -10,6 +10,7 @@ import { usePermisos } from '@/lib/permisos';
 import { buscarTareas, normalizar, rutaBase } from '@/lib/tareas';
 import { MODULOS } from '@/lib/nav-config';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
+import { irEnConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 
 export function GlobalSearch({
   collapsed,
@@ -156,7 +157,9 @@ export function GlobalSearch({
 
   const hasResults = modulosRes.length > 0 || tareasRes.length > 0 || sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0 || instructoresRes.length > 0;
 
-  function go(href: string) { router.push(href); setOpen(false); }
+  // Estando en Configuración, una tarea de Configuración («Datos fiscales») la
+  // abre el shell: con el router la dirección se quedaba pegada (#2030).
+  function go(href: string) { if (!irEnConfiguracion(href)) router.push(href); setOpen(false); }
 
   return (
     <>

@@ -8,12 +8,13 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { hrefDeSeccion, resolverDestino, seccionesVisibles } from '@/lib/configuracion/destino';
+import { hrefDeSeccion, resolverDestino, resolverHref, seccionesVisibles } from '@/lib/configuracion/destino';
 import { seccionPorId, type SeccionId } from '@/lib/configuracion/secciones';
 import { ContextoNavegacionConfig, type NavegacionConfig } from './contexto';
 import { ListaSecciones } from './lista-secciones';
 import { CabeceraSeccion } from './cabecera-seccion';
 import { InicioConfiguracion } from './inicio-configuracion';
+import { escucharEnlacesAConfiguracion } from './ir-a-configuracion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuración por preguntas.
@@ -188,6 +189,21 @@ export function ConfigShell() {
     irA(destino, opciones);
   }, [irA, seccionQueSePierde]);
 
+  // Un enlace a Configuración que no pinta el shell (la barra superior, ⌘K, un
+  // aviso, el menú) mientras estás aquí: se abre con `irA`, como los suyos. Con
+  // el router, en producción la dirección se quedaba en la sección de llegada
+  // (#2030; ver ir-a-configuracion.ts).
+  const irAHref = useCallback((href: string, preguntar: boolean) => {
+    const destino = resolverHref(href);
+    if ('redirect' in destino) {
+      router.push(destino.redirect);
+      return;
+    }
+    (preguntar ? irAPreguntando : irA)(destino.tab, { ancla: destino.ancla, modo: 'push' });
+  }, [irA, irAPreguntando, router]);
+
+  useEffect(() => escucharEnlacesAConfiguracion(href => irAHref(href, true)), [irAHref]);
+
   // Un enlace a otra pantalla (el menú, «Mi cuenta», un enlace dentro de una
   // tarjeta): se para antes de que Next navegue. En captura, para llegar antes
   // que el `onClick` del propio enlace.
@@ -209,11 +225,15 @@ export function ConfigShell() {
       if (!pendiente) return;
       e.preventDefault();
       e.stopPropagation();
-      setSalida({ seccion: pendiente, ir: () => router.push(`${url.pathname}${url.search}${url.hash}`) });
+      const ruta = `${url.pathname}${url.search}${url.hash}`;
+      // A otra sección de aquí mismo (la barra superior, el menú): por el shell,
+      // nunca por el router (#2030). A otra pantalla, navegación normal.
+      const ir = url.pathname === window.location.pathname ? () => irAHref(ruta, false) : () => router.push(ruta);
+      setSalida({ seccion: pendiente, ir });
     }
     document.addEventListener('click', alPulsar, true);
     return () => document.removeEventListener('click', alPulsar, true);
-  }, [router, seccionQueSePierde]);
+  }, [router, seccionQueSePierde, irAHref]);
 
   const nav = useMemo<NavegacionConfig>(() => ({ irA: irAPreguntando, marcarSinGuardar }), [irAPreguntando, marcarSinGuardar]);
 

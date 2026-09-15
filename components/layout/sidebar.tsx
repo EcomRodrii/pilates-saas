@@ -21,6 +21,7 @@ import { SedeActiva } from '@/components/layout/sede-activa';
 import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { huecosDelMenu, BARRA_ALTO_INICIAL } from '@/lib/panel-huecos';
+import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 
 export function useNavMode() {
   // Por defecto 'esencial' (los módulos del día a día, ESSENTIAL_HREFS): un
@@ -107,7 +108,8 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, conta
   return (
     <Link
       href={href}
-      onClick={onClick}
+      // «Configuración» estando en una de sus secciones: vuelve al inicio por el shell (#2030).
+      onClick={e => { onClick?.(); alPulsarEnlaceAConfiguracion(e, href); }}
       title={collapsed ? (contador ? `${label} (${contador} ${contadorEtiqueta})` : nuevo ? `${label} (nuevo)` : label) : undefined}
       className={cn(
         'flex items-center rounded-full text-[13px] font-medium transition-all relative',
@@ -135,6 +137,7 @@ function BottomNavItem({ href, label, Icon, contador, contadorEtiqueta }: { href
   return (
     <Link
       href={href}
+      onClick={e => alPulsarEnlaceAConfiguracion(e, href)}
       className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
     >
       <div className={cn(
@@ -226,7 +229,7 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={onClose}
+                  onClick={e => { onClose(); alPulsarEnlaceAConfiguracion(e, item.href); }}
                   className={cn(
                     'flex items-center gap-3.5 px-4 py-3.5 rounded-full text-[15px] font-medium transition-all mb-1',
                     active ? 'bg-brand text-brand-foreground font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5'

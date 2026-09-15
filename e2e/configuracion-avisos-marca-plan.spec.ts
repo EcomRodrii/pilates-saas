@@ -71,6 +71,23 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     await expect(page.getByRole('switch', { name: 'Modo oscuro' })).toBeVisible();
   });
 
+  // ⚠️ #2030: en el build de producción, un `<Link>` o `router.push` a otra
+  // sección desde /configuracion dejaba la dirección en la de llegada. En `next
+  // dev` no se reproduce; esto fija que el enlace de la barra superior llega y
+  // que la dirección lo dice, que es lo que CI (sobre el build) sí ve.
+  test('desde otra sección, la barra superior abre «Tu panel» y la dirección lo dice', async ({ page }) => {
+    await panel(page);
+    await ir(page, 'configuracion?tab=cobros');
+    await expect(tituloSeccion(page, 'Cobros y facturas')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Abrir menú de perfil' }).click();
+    await page.getByRole('button', { name: /^Apariencia/ }).click();
+    await page.getByRole('link', { name: /Personalizar tu panel/ }).click();
+
+    await expect(page).toHaveURL(/\/configuracion\?tab=panel$/, { timeout: 15_000 });
+    await expect(tituloSeccion(page, 'Tu panel')).toBeVisible({ timeout: 30_000 });
+  });
+
   test('las pantallas de antes llevan a su sección', async ({ page }) => {
     await panel(page);
     await page.goto('/configuracion/notificaciones');
