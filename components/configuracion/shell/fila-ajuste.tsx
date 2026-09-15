@@ -202,11 +202,13 @@ export function FilaInformativa({ icono, titulo, detalle }: { icono: LucideIcon;
  * del panel va por el shell y `pushState`: con el router, en producción la
  * dirección se quedaba en la sección de llegada (#2030).
  */
-export function FilaOtraSeccion({ id, icono, titulo, valor, seccion, ancla }: {
+export function FilaOtraSeccion({ id, icono, titulo, valor, descripcion, seccion, ancla }: {
   id: string;
   icono: LucideIcon;
   titulo: string;
-  valor: string;
+  /** Cómo está allí; `null` = no se sabe, y va la descripción. */
+  valor: string | null;
+  descripcion?: string;
   seccion: SeccionId;
   ancla?: TarjetaId;
 }) {
@@ -226,7 +228,7 @@ export function FilaOtraSeccion({ id, icono, titulo, valor, seccion, ancla }: {
         <IconoFila icono={icono} />
         <span className="min-w-0 flex-1">
           <TituloFila titulo={titulo} />
-          <ValorFila valor={valor} descripcion={valor} />
+          <ValorFila valor={valor} descripcion={descripcion ?? valor ?? ''} />
         </span>
         <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
       </a>

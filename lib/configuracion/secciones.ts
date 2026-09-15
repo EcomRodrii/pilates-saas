@@ -225,11 +225,20 @@ export const SECCIONES = [
   {
     id: 'equipo',
     titulo: 'Mi equipo',
-    resumen: 'Qué pueden hacer tus instructoras',
-    frase: 'Qué pueden hacer tus instructoras por su cuenta.',
+    resumen: 'Roles, sustituciones, pagos y la app de tus instructoras',
+    frase: 'Qué puede hacer cada persona de tu equipo, cómo se cubren las bajas y cómo les pagas.',
     roles: SOLO_PROPIETARIA,
+    // Filas con su valor de hoy (16-sep, v2), como el resto: el sí/no de crear
+    // clases se guarda al tocarlo, y lo que se gestiona en otra pantalla
+    // (Equipo, Sustituciones, Tarifas y liquidaciones) es una fila que lleva allí
+    // (`FILAS_A_OTRA_PANTALLA`). Qué hace cada rol se cuenta en filas de solo
+    // lectura (lib/configuracion/que-hace-cada-rol.ts): los roles se dan en Equipo.
+    palabras: ['roles', 'permisos', 'sustituciones', 'tarifa', 'liquidación'],
     tarjetas: [
-      { id: 'ajuste-instructoras-crean-clases', titulo: 'Las instructoras crean sus clases', frase: 'Si pueden crear clases nuevas o solo dar las que tú les asignas; siempre pueden editar las suyas.', guardado: 'barra', palabras: ['profesoras', 'permisos'] },
+      // «siempre pueden editar las suyas» dejó de ser verdad al retirarse Tentare
+      // Core (14-sep): la instructora solo trabaja en la app, y allí no edita clases.
+      { id: 'ajuste-instructoras-crean-clases', titulo: 'Las instructoras crean sus clases', frase: 'Si pueden crear clases suyas desde su app o solo dan las que tú les asignas.', guardado: 'al-pulsar', palabras: ['profesoras', 'nueva clase'] },
+      { id: 'app-de-tus-instructoras', titulo: 'La app de tus instructoras', frase: 'El enlace para que entren con su cuenta a su agenda, sus bajas, su disponibilidad y sus alumnas.', guardado: 'accion', palabras: ['app instructoras', 'profesoras', 'enlace'] },
     ],
   },
   {
@@ -338,6 +347,11 @@ export const FILAS_A_OTRA_PANTALLA = [
   { id: 'fila-paquetes', seccion: 'cobros', titulo: 'Paquetes', resumen: 'Tus planes, bonos y precios', href: '/productos' },
   { id: 'fila-cobros', seccion: 'cobros', titulo: 'Cobros', resumen: 'Quién te debe, lo cobrado y tus facturas', href: '/cobros' },
   { id: 'fila-automatizaciones', seccion: 'comunicacion', titulo: 'Automatizaciones', resumen: 'Lo que Tentare hace solo y las reglas que enciendes tú', href: '/automatizaciones' },
+  // El modo de autonomía y la tarifa se cambian en su pantalla: su único
+  // escritor es su ruta de servidor (`/api/sustituciones`, `/api/equipo/tarifas`).
+  { id: 'fila-sustituciones', seccion: 'equipo', titulo: 'Sustituciones', resumen: 'Cuánto decide Tentare cuando alguien no puede dar su clase', href: '/sustituciones' },
+  { id: 'fila-liquidaciones', seccion: 'equipo', titulo: 'Tarifas y liquidaciones', resumen: 'Lo que cobra cada instructora y lo que le debes cada mes', href: '/equipo/liquidaciones' },
+  { id: 'fila-equipo', seccion: 'equipo', titulo: 'Equipo', resumen: 'Da de alta a cada persona y elige su rol', href: '/equipo' },
 ] as const satisfies readonly FilaAOtraPantalla[];
 
 export interface GrupoConfiguracion {

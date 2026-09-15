@@ -104,7 +104,10 @@ export default function SustitucionesPage() {
     const anterior = modo;
     setModo(nuevo); // optimista
     const r = await setModoAutonomia(nuevo);
-    if ('error' in r) { setModo(anterior); setErrorAccion(r.error); }
+    if ('error' in r) { setModo(anterior); setErrorAccion(r.error); return; }
+    // Configuración → Mi equipo lo enseña desde el estudio cargado: sin esto,
+    // volver allí sin recargar diría el modo de antes.
+    reflejarStudioGuardado({ modoAutonomia: nuevo });
   }
   async function cancelar(s: SustitucionPanel) {
     // Estas acciones escriben y luego recargan: sin esto, un segundo clic

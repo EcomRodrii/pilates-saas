@@ -167,6 +167,12 @@ export interface Studio {
    *  `reflejarStudioGuardado`. `dbUpdateStudio` no lo mapea a propósito.
    *  null/ausente = no se ha leído: no se afirma nada. */
   avisarAlumnas?: boolean | null;
+  /** `studios.modo_autonomia` (migr 0039): 'manual' | 'asistido' | 'autonomo' |
+   *  'vacaciones'. SOLO LECTURA, como `avisarAlumnas`: su único escritor es
+   *  `/api/sustituciones` (action `config_modo`). Lo que se aplica de verdad
+   *  depende además del plan (`modoAutonomiaEfectivo`).
+   *  null/ausente = no se ha leído: no se afirma nada. */
+  modoAutonomia?: string | null;
   /** Caducidad de las recuperaciones que concede el estudio (migr 0086). La
    *  resuelve `calcular_caduca_recuperacion` dentro de `crear_recuperacion`:
    *  DIAS suma `recuperacionCaducidadDias`; FIN_MES y FIN_MES_SIGUIENTE la

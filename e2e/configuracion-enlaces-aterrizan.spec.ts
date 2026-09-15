@@ -165,7 +165,7 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
 
     await page.goto('/configuracion?tab=estudio&sub=reservas#ajuste-instructoras-crean-clases');
     await expect(tituloSeccion(page, 'Mi equipo')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('switch', { name: /Las instructoras pueden crear sus clases/ })).toBeFocused({ timeout: 15_000 });
+    await expect(page.getByRole('switch', { name: 'Las instructoras crean sus clases' })).toBeFocused({ timeout: 15_000 });
 
     // La tarjeta única de reglas se partió en cinco: su ancla lleva a la primera.
     await page.goto('/configuracion?tab=reservas#reglas-de-reserva');
@@ -188,7 +188,7 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     await expect(page.getByRole('radio', { name: /Que se registre antes de pagar/ })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/mientras terminamos de ordenarlo/)).toHaveCount(0);
     await page.goto('/configuracion?tab=equipo');
-    await expect(page.getByRole('switch', { name: /Las instructoras pueden crear sus clases/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('switch', { name: 'Las instructoras crean sus clases' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/mientras terminamos de ordenarlo/)).toHaveCount(0);
   });
 });

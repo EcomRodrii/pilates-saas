@@ -23,7 +23,8 @@ import { avisoVentaOnline } from '../onboarding.ts';
 import { cuando, saludIntegracion, type FilaSalud, type SaludIntegracion } from '../integraciones/salud.ts';
 import type { ReglasReserva, TarjetaReglasId } from './reglas-reserva.ts';
 import { nifEmisorValido, nifValido } from '../nif.ts';
-import { PLAN_INFO, type Plan } from '../billing/entitlements.ts';
+import { PLAN_INFO, tieneFeature, type Plan } from '../billing/entitlements.ts';
+import { urlAppInstructora } from '../avisos/app-instructora.ts';
 import type { FaseTrial } from '../billing/trial.ts';
 import { SECCIONES, seccionDeTarjeta, type HerramientaId, type SeccionId, type TarjetaId } from './secciones.ts';
 import { nombreCreditos } from '../creditos-nombre.ts';
@@ -993,8 +994,12 @@ export function resumenAppsConAcceso(apps: readonly { nombre: string }[] | null)
 export function resumenDireccion(e: { slug: string | null | undefined; origen: string }): string | null {
   const slug = limpio(e.slug);
   if (!slug) return null;
-  const host = e.origen.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
-  return `${host}/reservar/${slug}`;
+  return `${hostCorto(e.origen)}/reservar/${slug}`;
+}
+
+/** «https://www.tentare.es/» → «tentare.es». */
+function hostCorto(origen: string): string {
+  return origen.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
 }
 
 /**
@@ -1005,6 +1010,88 @@ export function resumenPaginaPublica(e: { oculta: boolean; tieneClave: boolean }
   if (!e) return null;
   if (!e.oculta) return 'Visible para todo el mundo';
   return e.tieneClave ? 'Oculta: solo entra quien tenga la clave' : 'Oculta: no entra nadie';
+}
+
+// ─── Mi equipo ───────────────────────────────────────────────────────────────
+//
+// Mismas reglas: `null` = sin cargar (o no se ha podido leer), y la fila enseña
+// su descripción. Lo que se cuenta sale de lo que el panel ya tiene (el equipo,
+// el estudio) salvo las tarifas, que se piden a su ruta al abrir la sección.
+
+/**
+ * «3 instructoras · 1 en recepción». Solo quien sigue en el equipo, y sin las
+ * propietarias: son quienes dan de alta, no a quien se da de alta. Si no cabe,
+ * cuántas personas son y lo primero.
+ */
+export function resumenEquipo(personas: readonly { rol: string; activo: boolean }[] | null): string | null {
+  if (!personas) return null;
+  const activas = personas.filter(p => p.activo);
+  const cuantas = (rol: string) => activas.filter(p => p.rol === rol).length;
+  const instructoras = cuantas('INSTRUCTOR');
+  const recepcion = cuantas('RECEPCION');
+  const responsables = cuantas('MANAGER');
+  const partes = [
+    instructoras > 0 ? contar(instructoras, 'instructora', 'instructoras') : null,
+    recepcion > 0 ? `${recepcion} en recepción` : null,
+    responsables > 0 ? contar(responsables, 'responsable de sede', 'responsables de sede') : null,
+  ].filter((p): p is string => !!p);
+  if (partes.length === 0) return 'Sin instructoras ni recepción todavía';
+  const todo = partes.join(' · ');
+  if (todo.length <= MAX_RESUMEN) return todo;
+  return `${contar(instructoras + recepcion + responsables, 'persona', 'personas')} · ${partes[0]}`;
+}
+
+/**
+ * «2 de 3 instructoras con tarifa por hora»: lo que valora cada clase en la
+ * liquidación (sin ella, «clases sin tarifa fijada — no se han valorado»).
+ * `instructoras`: las que siguen en el equipo con rol de instructora, como la
+ * pantalla de liquidaciones. `tarifas: null` = no se han podido leer: una lista
+ * vacía diría «ninguna», y no se sabe.
+ */
+export function resumenTarifas(
+  instructoras: readonly { id: string }[] | null,
+  tarifas: readonly { instructorId: string; tarifaHora: number | null }[] | null,
+): string | null {
+  if (!instructoras || !tarifas) return null;
+  if (instructoras.length === 0) return 'Sin instructoras todavía';
+  const conTarifa = new Set(tarifas.filter(t => t.tarifaHora != null).map(t => t.instructorId));
+  const con = instructoras.filter(i => conTarifa.has(i.id)).length;
+  if (con === 0) return 'Ninguna instructora con tarifa por hora';
+  return `${con} de ${contar(instructoras.length, 'instructora', 'instructoras')} con tarifa por hora`;
+}
+
+const MODO_SUSTITUCIONES: Record<string, { nombre: string; valor: string }> = {
+  manual: { nombre: 'Manual', valor: 'Manual: tú das cada paso' },
+  asistido: { nombre: 'Asistido', valor: 'Asistido: tú apruebas con un toque' },
+  autonomo: { nombre: 'Autónomo', valor: 'Autónomo: cubre las bajas y te lo cuenta' },
+  vacaciones: { nombre: 'Vacaciones', valor: 'Vacaciones: lo resuelve sin molestarte' },
+};
+
+/**
+ * El modo de Sustituciones que se APLICA, con las palabras de su pantalla. Sin el
+ * plan, autónomo y vacaciones funcionan como asistido (`modoAutonomiaEfectivo`,
+ * lib/sustituciones/contacto.ts), y eso es lo que se dice. `null` = sin leer.
+ */
+export function resumenModoSustituciones(s: { modoAutonomia?: string | null; plan?: string | null; subscriptionStatus?: string | null }): string | null {
+  const modo = s.modoAutonomia ? MODO_SUSTITUCIONES[s.modoAutonomia] : undefined;
+  if (!modo) return null;
+  const premium = s.modoAutonomia === 'autonomo' || s.modoAutonomia === 'vacaciones';
+  if (premium && !tieneFeature(s, 'sustitucionesAutonomas')) return `Asistido: tu plan no incluye «${modo.nombre}»`;
+  return modo.valor;
+}
+
+/** «Avisos a las alumnas», que vive en Cómo reservan mis alumnas. `null`/ausente = sin leer. */
+export function resumenAvisarAlumnas(avisar: boolean | null | undefined): string | null {
+  if (avisar === true) return 'Les avisa por email y en su app';
+  if (avisar === false) return 'No avisa a las alumnas';
+  return null;
+}
+
+/** «tentare.es/portal/pilates-centro/equipo»: donde entran tus instructoras. `null` = sin dirección. */
+export function resumenAppInstructoras(e: { slug: string | null | undefined; origen: string }): string | null {
+  const slug = limpio(e.slug);
+  if (!slug) return null;
+  return `${hostCorto(e.origen)}${urlAppInstructora(slug)}`;
 }
 
 // ─── Motivación ──────────────────────────────────────────────────────────────
