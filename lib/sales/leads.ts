@@ -2,11 +2,11 @@
 // Fase 1: operaciones básicas del CRM
 
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/db-types';
+import type { RowSalesLeads, RowSalesEvents } from '@/lib/db-types';
 
-type SalesLead = Database['public']['Tables']['sales_leads']['Row'];
-type SalesLeadInsert = Database['public']['Tables']['sales_leads']['Insert'];
-type SalesLeadUpdate = Database['public']['Tables']['sales_leads']['Update'];
+type SalesLead = RowSalesLeads;
+type SalesLeadInsert = Partial<RowSalesLeads>;
+type SalesLeadUpdate = Partial<RowSalesLeads>;
 
 export interface ListLeadsOptions {
   estado?: SalesLead['estado'];
@@ -73,7 +73,7 @@ export function extraerDominio(url: string | undefined | null): string | null {
  * Crear un lead nuevo
  */
 export async function crearLead(
-  admin: ReturnType<typeof createClient<Database>>,
+  admin: ReturnType<typeof createClient<any>>,
   data: {
     email: string;
     estudio_nombre?: string | null;
@@ -113,7 +113,7 @@ export async function crearLead(
  * Obtener un lead por ID
  */
 export async function obtenerLead(
-  admin: ReturnType<typeof createClient<Database>>,
+  admin: ReturnType<typeof createClient<any>>,
   lead_id: string
 ): Promise<SalesLead | null> {
   const { data, error } = await admin
@@ -134,7 +134,7 @@ export async function obtenerLead(
  * Listar leads con filtros
  */
 export async function listarLeads(
-  admin: ReturnType<typeof createClient<Database>>,
+  admin: ReturnType<typeof createClient<any>>,
   opciones: ListLeadsOptions = {}
 ): Promise<{ leads: SalesLead[]; total: number }> {
   const limit = opciones.limit || 50;
@@ -185,7 +185,7 @@ export async function listarLeads(
  * Mover lead entre estados (con validación de transición)
  */
 export async function moverLead(
-  admin: ReturnType<typeof createClient<Database>>,
+  admin: ReturnType<typeof createClient<any>>,
   opciones: MoveLeadOptions
 ): Promise<SalesLead> {
   // Validación: transiciones permitidas
@@ -249,7 +249,7 @@ export async function moverLead(
  * Actualizar campos de un lead
  */
 export async function actualizarLead(
-  admin: ReturnType<typeof createClient<Database>>,
+  admin: ReturnType<typeof createClient<any>>,
   lead_id: string,
   datos: SalesLeadUpdate,
   actor_id?: string
@@ -300,7 +300,7 @@ export async function actualizarLead(
  * Marcar como borrado (soft delete)
  */
 export async function borrarLead(
-  admin: ReturnType<typeof createClient<Database>>,
+  admin: ReturnType<typeof createClient<any>>,
   lead_id: string,
   actor_id: string
 ): Promise<void> {
@@ -326,7 +326,7 @@ export async function borrarLead(
  * Agregar o remover tag
  */
 export async function actualizarTags(
-  admin: ReturnType<typeof createClient<Database>>,
+  admin: ReturnType<typeof createClient<any>>,
   lead_id: string,
   tags: string[],
   actor_id: string
@@ -354,7 +354,7 @@ export async function actualizarTags(
  * Helper: crear evento de auditoría
  */
 async function crearEvento(
-  admin: ReturnType<typeof createClient<Database>>,
+  admin: ReturnType<typeof createClient<any>>,
   data: {
     lead_id?: string;
     tipo: string;
