@@ -1,6 +1,6 @@
 // Tokens de formulario para el autoservicio de Tentare Network
 // (app/network/*, fuera de (dashboard)) — copia deliberada de los mismos
-// valores que `app/(dashboard)/configuracion/page.tsx` exporta, NO un
+// valores que `components/configuracion/estilos.tsx` exporta, NO un
 // re-export de ese módulo.
 //
 // Antes estas 5 pantallas de autoservicio (`mi-perfil`, `inicio`,

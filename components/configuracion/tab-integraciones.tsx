@@ -18,7 +18,7 @@ import { authHeader } from '@/lib/api-client';
 import { saludIntegracion, textoSalud } from '@/lib/integraciones/salud';
 import { useWhatsappEmbeddedSignup } from '@/lib/hooks/use-whatsapp-embedded-signup';
 import type { TipoIntegracion } from '@/lib/types';
-import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import { uuidV4 } from '@/lib/utils';
 
 type CampoIntegracion = { key: string; label: string; placeholder: string; tipo?: 'text' | 'password' | 'checkbox' };

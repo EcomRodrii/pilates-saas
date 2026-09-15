@@ -20,7 +20,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { cn } from '@/lib/utils';
 import type { PlantillaCuestionarioSalud } from '@/lib/types';
-import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/components/configuracion/estilos';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 const TIPOS_RESPUESTA: { id: PlantillaCuestionarioSalud['tipoRespuesta']; label: string }[] = [

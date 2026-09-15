@@ -10,7 +10,7 @@ import {
 } from '@/lib/api-client';
 import { ESPECIALIDAD_LABEL, type EspecialidadNetwork } from '@/lib/network/catalogo';
 import { rangoAnios } from '@/lib/network/formato';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/configuracion/estilos';
 
 // Cola de verificaciones de Tentare Network — docs/NETWORK-IMPLEMENTATION-
 // PLAN.md §4. Solo PROPIETARIO/MANAGER llegan aquí (puedeGestionarEquipo,

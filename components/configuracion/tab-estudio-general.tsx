@@ -17,7 +17,7 @@ import {
 } from '@/lib/portal-storage';
 import { fetchThemeBorrador, fetchThemePublicado, guardarThemeBorrador } from '@/lib/api-client';
 import type { Studio } from '@/lib/types';
-import { inputCls, labelCls, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 
 // Quién es el estudio (identidad + fiscal) + los dos ajustes de una sola
 // línea (IVA, recargar datos) que no merecen sub-pestaña propia. Todo lo

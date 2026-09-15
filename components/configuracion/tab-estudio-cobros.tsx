@@ -8,7 +8,7 @@ import { authHeader } from '@/lib/api-client';
 import type { DatosSepa } from '@/lib/billing/cuenta-cobro';
 import { leerPlazoReembolso, PLAZO_REEMBOLSO_MAX_DIAS } from '@/lib/billing/politica-reembolso';
 import { hayCambios, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
-import { Toggle, inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Toggle, inputCls, labelCls, cardCls } from '@/components/configuracion/estilos';
 
 // ⚠️ Las dos tarjetas de esta pestaña se guardan cada una con su botón, y la de
 // Devoluciones escribe en `studio`. Antes cada formulario se recopiaba ENTERO al

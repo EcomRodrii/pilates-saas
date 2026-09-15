@@ -6,7 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import type { LevelDefinition } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 
 // Punto de partida opcional — el estudio decide si le sirve esta progresión
 // o prefiere otros nombres/umbrales/colores. Nunca se inserta solo.

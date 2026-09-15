@@ -21,7 +21,7 @@ import { useRol } from '@/lib/permisos';
 import { puedeGestionarPortalHome } from '@/lib/permisos-reglas';
 import { dbEmbudoWidget, dbEmbudoWidgetPorDia } from '@/lib/supabase-data';
 import { inicioDeSemana } from '@/lib/utils';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/configuracion/estilos';
 import { ChartLine } from '@/components/dashboard/custom-charts';
 import type { TipoEventoWidget } from '@/lib/reservar/eventos';
 

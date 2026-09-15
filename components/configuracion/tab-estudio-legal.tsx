@@ -7,7 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { faltanDatosFiscales } from '@/lib/legal-textos';
 import { sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import { hayPenalizacionConfigurada } from '@/lib/configuracion/penalizacion-activa';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/configuracion/estilos';
 
 type Campo = 'politicaPrivacidad' | 'terminosServicio';
 type LegalForm = Record<Campo, string>;

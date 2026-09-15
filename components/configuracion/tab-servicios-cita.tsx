@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ColorInput, ColorSwatch, Field, Toggle,
   btnPrimary, btnSecondary, cardCls, inputCls, labelCls,
-} from '@/app/(dashboard)/configuracion/page';
+} from '@/components/configuracion/estilos';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';

@@ -14,7 +14,7 @@ import {
 } from '@/lib/api-client';
 import { TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, ESPECIALIDAD_LABEL, HORARIO_LABEL } from '@/lib/network/catalogo';
 import type { VacanteNetwork, EstadoCandidatura } from '@/lib/network/tipos';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/configuracion/estilos';
 import { cn } from '@/lib/utils';
 
 const SECUENCIA: EstadoCandidatura[] = ['recibida', 'contactada', 'entrevista', 'propuesta', 'aceptada'];

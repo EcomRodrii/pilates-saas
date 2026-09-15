@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { fetchMisVacantesNetwork } from '@/lib/api-client';
 import { TIPO_TRABAJO_LABEL } from '@/lib/network/catalogo';
 import type { VacanteNetwork } from '@/lib/network/tipos';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/configuracion/estilos';
 import { cn } from '@/lib/utils';
 
 const ESTADO_LABEL: Record<VacanteNetwork['estado'], string> = {

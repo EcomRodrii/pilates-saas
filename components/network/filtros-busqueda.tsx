@@ -9,7 +9,7 @@ import {
   TARIFAS_RANGO_NETWORK, TARIFA_RANGO_LABEL,
 } from '@/lib/network/catalogo';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
-import { inputCls, labelCls } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls } from '@/components/configuracion/estilos';
 
 const EXPERIENCIA_OPCIONES = [
   { valor: null, etiqueta: 'Cualquiera' },

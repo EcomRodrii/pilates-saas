@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
-import { Toggle, inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Toggle, inputCls, labelCls, cardCls } from '@/components/configuracion/estilos';
 import { obtenerConfirmacionRiesgo, actualizarConfirmacionRiesgo } from '@/lib/api-client';
 import { frasesPoliticaEstudio, type AjustePolitica } from '@/lib/politica-estudio-textos';
 import { InterruptorAvisarAlumnas } from '@/components/sustituciones/interruptor-avisar-alumnas';
