@@ -1,5 +1,5 @@
 -- Drill: renovar una serie no crea clases en los días de cierre del centro
--- (migr 20260915180000). TODO dentro de una transacción que termina en ROLLBACK:
+-- (migr 20260915172901). TODO dentro de una transacción que termina en ROLLBACK:
 -- no deja nada. Fixture con prefijo `zzdrill-`.
 --
 -- Cómo correrlo (Supabase local, desde la raíz del repo):
@@ -14,7 +14,7 @@
 \set ON_ERROR_STOP on
 begin;
 
-\i supabase/migrations/20260915180000_series_no_crea_clases_en_dias_cerrados.sql
+\i supabase/migrations/20260915172901_series_no_crea_clases_en_dias_cerrados.sql
 
 insert into studios (id, nombre) values ('zzdrill-st', 'Estudio series cierre');
 insert into salas (id, studio_id, nombre, capacidad) values ('zzdrill-sala-a', 'zzdrill-st', 'Sala A', 6);
