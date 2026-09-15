@@ -87,6 +87,13 @@ completar su onboarding con datos ficticios al instante.
 
 Apunta su `acct_…`.
 
+Para comprobarla desde la terminal, **`stripe accounts retrieve` no sirve**: no
+acepta el id de una cuenta conectada. Pídela a la API directamente:
+
+```bash
+stripe get /v1/accounts/acct_TU_CUENTA_DE_TEST
+```
+
 ### 3. Base de datos aparte
 
 ⚠️ **El estudio de pruebas NO puede vivir en la base de producción.** Si se mete
@@ -170,25 +177,69 @@ Brain) funciona de punta a punta.
 Aquí está la parte que de verdad no se ha probado nunca: el checkout es la
 puerta fácil, pero el dunning, las renovaciones y las penalizaciones **solo
 corren por cron**, y en local nadie los dispara. Se hace con el servidor de
-desarrollo de Inngest:
+desarrollo de Inngest, y hacen falta **dos** cosas, no una.
+
+**a) `next dev` en modo dev de Inngest.** Un `npm run dev` a secas NO basta:
 
 ```bash
-npx inngest-cli@latest dev
+INNGEST_DEV=1 npm run dev
 ```
 
-Descubre solo `http://localhost:3000/api/inngest` (con `npm run dev` levantado)
-y abre un panel en `http://localhost:8288` donde se pueden **lanzar eventos** e
-**invocar funciones** a mano.
+⚠️ Sin esa variable el SDK de Inngest arranca en **modo cloud**, pide una clave
+de firma que en local no hay, y `GET`/`PUT /api/inngest` responden
+`500 {"code":"internal_server_error"}` (el error de verdad, «No signing key»,
+solo sale en el log del servidor). El servidor de Inngest dev no registra
+entonces **ninguna** función y el panel sale vacío, sin decir por qué. Con la
+variable puesta, `curl http://localhost:3000/api/inngest` devuelve
+`"mode":"dev"` y la lista de funciones (26 el 15-sep-2026).
+
+- ⚠️ **Nunca en el entorno de producción de Vercel.** Modo dev significa sin
+  clave de firma: `/api/inngest` dejaría de comprobar que quien llama es
+  Inngest, y detrás están los crons que cobran.
+- Si el `.env.local` de ese worktree es un **enlace** al de otro, pásala en la
+  línea de comandos como arriba en vez de escribirla en el fichero: editarlo
+  cambia también el entorno del otro worktree.
+
+**b) El servidor de Inngest, apuntando a la app:**
+
+```bash
+npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
+```
+
+Abre un panel en `http://localhost:8288` donde se pueden **lanzar eventos** e
+**invocar funciones** a mano. Si en *Functions* no aparece nada (p. ej. porque
+`next dev` arrancó después, o se reinició sin la variable), fuerza el registro:
+
+```bash
+curl -X PUT http://localhost:3000/api/inngest
+```
 
 **Las que van por evento, con su payload** — el `nowISO` no es decorativo:
 manda la ventana de tiempo, así que moviéndolo se prueba «mañana» sin esperar:
 
 | Evento | Payload | Qué ejerce |
 |---|---|---|
-| `dunning/studio.sweep` | `{"studioId":"studio-1","nowISO":"2026-08-13T08:30:00Z"}` | reintento de recibos impagados |
-| `renovaciones/studio.sweep` | `{"studioId":"studio-1","nowISO":"2026-08-13T08:00:00Z"}` | recibo de renovación de cuotas caducadas |
+| `dunning/studio.sweep` | `{"studioId":"studio-1","nowISO":"<fecha futura>"}` | reintento de recibos impagados |
+| `renovaciones/studio.sweep` | `{"studioId":"studio-1","nowISO":"<fecha>"}` | recibo de renovación de cuotas caducadas |
+
+Se pueden lanzar desde el panel o directamente contra el servidor dev (en local
+la clave de evento no se comprueba, vale cualquier texto):
+
+```bash
+curl -X POST http://localhost:8288/e/clave-local \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"dunning/studio.sweep","data":{"studioId":"studio-1","nowISO":"2026-12-01T08:30:00Z"}}'
+```
+
+El `nowISO` del dunning tiene que ser **posterior** al `proximo_reintento` del
+recibo, o el barrido no lo ve vencido y no hace nada. Para **agotar los
+reintentos sin esperar**, repite el evento moviendo `nowISO` **+4 días** y luego
+**+12 días** respecto al primero: cada fallo programa el siguiente intento a +3
+y +7 días de ese «ahora» (`OFFSETS_REINTENTO_DIAS` en `lib/billing/dunning.ts`),
+así que el tercer barrido deja el recibo en `FALLIDO`.
 
 **Las que solo tienen cron** se invocan desde el panel por su id, sin payload:
+*Functions* → filtra por el id → **Invoke** → **Invoke Function** en el diálogo.
 
 | Función | Id |
 |---|---|
