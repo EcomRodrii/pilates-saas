@@ -352,11 +352,12 @@ async function soltarRecibosDePenalizacionesAnuladas(admin: SupabaseClient) {
           estado: recibo?.estado ?? null,
           programado: !!recibo?.proximo_reintento,
           conCobroEnCamino: !!(recibo?.stripe_payment_intent_id || recibo?.checkout_session_id || recibo?.cobro_mostrador_pi),
-          // Cobrado y ya devolviéndose: no se avisa cada hora hasta que pase a DEVUELTO.
+          // Cobrado y ya devolviéndose: no se avisa cada hora hasta que pase a
+          // DEVUELTO, salvo que la devolución lleve demasiado sin confirmarse.
           devolucionEnMarcha: !!recibo && devolucionEnMarcha({
             importe: recibo.importe, importeDevuelto: recibo.importe_devuelto,
             reembolsoSolicitadoEn: recibo.reembolso_solicitado_en, reembolsoFallidoEn: recibo.reembolso_fallido_en,
-          }),
+          }, new Date()),
         });
       }
       if (filas.length < PAGINA_ANULADAS) break;

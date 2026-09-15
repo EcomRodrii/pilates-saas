@@ -988,15 +988,24 @@ export interface ReciboDePenalizacionAnulada {
  * Es lo que corta el aviso horario del barrido de anuladas: el recibo sigue
  * COBRADO hasta que el webhook lo pase a DEVUELTO, y mientras tanto avisaba cada
  * hora de algo que alguien ya estaba resolviendo.
+ *
+ * ⚠️ Pedida a secas solo calla `PLAZO_DEVOLUCION_SIN_CONFIRMAR_DIAS`: si el
+ * webhook no llega nunca, el recibo se quedaría COBRADO para siempre sin que nada
+ * volviera a avisar. Pasado el plazo (o con una fecha ilegible) se vuelve a avisar.
  */
+export const PLAZO_DEVOLUCION_SIN_CONFIRMAR_DIAS = 7;
+
 export function devolucionEnMarcha(r: {
   importe: number | null; importeDevuelto: number | null;
   reembolsoSolicitadoEn: string | null; reembolsoFallidoEn: string | null;
-}): boolean {
+}, ahora: Date): boolean {
   const importe = Number(r.importe ?? 0);
   const devuelto = Number(r.importeDevuelto ?? 0);
   if (devuelto > 0 && devuelto >= importe) return true;
-  return !!r.reembolsoSolicitadoEn && !r.reembolsoFallidoEn;
+  if (!r.reembolsoSolicitadoEn || r.reembolsoFallidoEn) return false;
+  const pedida = Date.parse(r.reembolsoSolicitadoEn);
+  if (!Number.isFinite(pedida)) return false;
+  return ahora.getTime() - pedida < PLAZO_DEVOLUCION_SIN_CONFIRMAR_DIAS * 24 * 3600_000;
 }
 
 /** Alertas del barrido a Sentry. Solo ids. */

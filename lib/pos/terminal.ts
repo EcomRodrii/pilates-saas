@@ -5,7 +5,7 @@ import type { MetodoPago } from '@/lib/types';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
-import { metodoRealBizum } from './metodo-real-bizum.ts';
+import { consultarCobroBizum, estadoDesdeStripe, type ConsultaCobro } from './consulta-stripe.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,8 +113,11 @@ export interface ProveedorTerminal {
    * (datáfono siempre es tarjeta; manual no lo sabe nadie más que quien
    * cobra). Quien llama debe usarlo por encima del método que él mismo pidió
    * (P-3, 27ª/28ª pasada) — nunca al revés.
+   *
+   * `paymentIntentId` = el PaymentIntent que cobró cuando la referencia no lo
+   * es (Bizum guardó la sesión `cs_…`). Quien cierra el cobro guarda ESE.
    */
-  consultar(ctx: ContextoCobro, referencia: string): Promise<{ estado: EstadoPagoPOS; error?: string; importeCentimos?: number | null; metadata?: Record<string, string>; metodoReal?: 'BIZUM' | 'TARJETA' }>;
+  consultar(ctx: ContextoCobro, referencia: string): Promise<ConsultaCobro>;
   /**
    * `checkoutSessionId`: solo lo usa Bizum (ver ResultadoInicio). Con él,
    * cancelar expira la Checkout Session en vez de solo el PaymentIntent — eso
@@ -125,22 +128,8 @@ export interface ProveedorTerminal {
   cancelar(ctx: ContextoCobro, referencia: string, checkoutSessionId?: string | null): Promise<void>;
 }
 
-// ─── Traducción de los estados de Stripe a los del POS ───────────────────────
-// Se traduce en un solo sitio, y a un vocabulario nuestro: `requires_action` no
-// significa nada en un mostrador. El default es ERROR, nunca PAGADO — un estado
-// que no reconocemos jamás puede leerse como "cobrado".
-function estadoDesdeStripe(status: Stripe.PaymentIntent.Status): EstadoPagoPOS {
-  switch (status) {
-    case 'succeeded':                return 'PAGADO';
-    case 'processing':               return 'PROCESANDO';
-    case 'requires_payment_method':  return 'PENDIENTE';
-    case 'requires_confirmation':
-    case 'requires_action':
-    case 'requires_capture':         return 'PROCESANDO';
-    case 'canceled':                 return 'CANCELADO';
-    default:                         return 'ERROR';
-  }
-}
+// La traducción de los estados de Stripe a los del POS (`estadoDesdeStripe`)
+// vive en `consulta-stripe.ts`, junto a la consulta de Bizum.
 
 // ─── Datáfono (Stripe Terminal) ──────────────────────────────────────────────
 
@@ -307,23 +296,14 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
     },
 
     async consultar(ctx, referencia) {
-      try {
-        const pi = await ctx.stripe.paymentIntents.retrieve(referencia, {}, { stripeAccount: ctx.stripeAccount });
-        return {
-          estado: estadoDesdeStripe(pi.status),
-          error: pi.last_payment_error?.message ?? undefined,
-          importeCentimos: pi.amount_received ?? null,
-          metadata: (pi.metadata ?? {}) as Record<string, string>,
-          // Solo hace falta mirar el cargo real si de verdad se cobró: pedir
-          // el cargo de un PI pendiente no tiene nada que resolver todavía.
-          metodoReal: pi.status === 'succeeded' ? await metodoRealBizum(ctx.stripe, pi, ctx.stripeAccount) : undefined,
-        };
-      } catch {
-        return { estado: 'PROCESANDO' };
-      }
+      // La referencia puede ser la sesión (`cs_…`) si Stripe aún no había
+      // creado el PaymentIntent: ver `consultarCobroBizum`.
+      return consultarCobroBizum(ctx.stripe, referencia, ctx.stripeAccount);
     },
 
-    async cancelar(ctx, referencia, checkoutSessionId) {
+    async cancelar(ctx, referencia, checkoutSessionIdGuardada) {
+      // Si la referencia ES la sesión, también sirve para expirarla.
+      const checkoutSessionId = checkoutSessionIdGuardada ?? (referencia.startsWith('cs_') ? referencia : null);
       // P-1 (27ª pasada): cancelar el PaymentIntent a secas NO invalida el
       // enlace de pago de una Checkout Session — Stripe no permite
       // cancelarlo directamente mientras la sesión sigue abierta (el intento

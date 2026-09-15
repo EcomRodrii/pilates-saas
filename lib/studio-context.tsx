@@ -497,7 +497,10 @@ interface StudioContextValue {
   deleteRecibo: (id: string) => Promise<ResultadoEscritura>;
   /** `cobrados`: los que esta llamada cobró; `saltados`: penalizaciones anuladas que no se cobran. */
   cobrarTodosPendientes: (socioId?: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura & { cobrados?: number; saltados?: Recibo[] }>;
-  marcarRecibosEnviadosAlBanco: (ids: string[]) => Promise<ResultadoEscritura>;
+  /** `idsActualizados`: los que se marcaron de verdad. Solo esos van en la remesa. */
+  marcarRecibosEnviadosAlBanco: (ids: string[]) => Promise<ResultadoEscritura & { idsActualizados?: string[] }>;
+  /** Deshace la marca de la remesa (EN_CURSO → PENDIENTE) si el fichero no se llegó a generar. */
+  devolverRecibosAPendientesTrasRemesa: (ids: string[]) => Promise<ResultadoEscritura & { idsActualizados?: string[] }>;
 
   // Citas
   citas: Cita[];
@@ -4383,15 +4386,30 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // veces metía los mismos recibos PENDIENTE en dos remesas distintas, con
   // riesgo real de doble cargo en la cuenta de la socia si ambas llegaban al
   // banco.
-  async function marcarRecibosEnviadosAlBanco(ids: string[]): Promise<ResultadoEscritura> {
-    if (ids.length === 0) return { ok: true };
-    const idsSet = new Set(ids);
-    // Solo si SIGUE pendiente: si otro canal (tarjeta, cobro manual) ya lo
-    // cobró entre preparar la remesa y este UPDATE, no se pisa su estado real.
-    const res = await dbUpdateRecibosBatch(ids, { estado: 'EN_CURSO' }, 'PENDIENTE');
+  //
+  // Solo si SIGUE pendiente y sin un cobro en marcha: si otro canal (tarjeta,
+  // Bizum, reintento, cobro manual) ya lo cobró o lo está cobrando entre preparar
+  // la remesa y este UPDATE, no se pisa su estado real. Y se devuelven los ids
+  // tocados de verdad: el fichero se genera SOLO con esos
+  // (`lib/billing/remesa-sepa-reglas.ts`).
+  async function marcarRecibosEnviadosAlBanco(ids: string[]): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
+    if (ids.length === 0) return { ok: true, idsActualizados: [] };
+    const res = await dbUpdateRecibosBatch(ids, { estado: 'EN_CURSO' }, 'PENDIENTE', { sinCobroEnMarcha: true });
     if (!res.ok) return res;
-    setRecibos(prev => prev.map(r => idsSet.has(r.id) && r.estado === 'PENDIENTE' ? { ...r, estado: 'EN_CURSO' as const } : r));
-    return res;
+    const marcados = new Set(res.idsActualizados ?? []);
+    setRecibos(prev => prev.map(r => marcados.has(r.id) ? { ...r, estado: 'EN_CURSO' as const } : r));
+    return { ok: true, idsActualizados: [...marcados] };
+  }
+
+  // Si el fichero falla después de marcar, los recibos no han ido al banco:
+  // vuelven a PENDIENTE, solo los que siguen EN_CURSO.
+  async function devolverRecibosAPendientesTrasRemesa(ids: string[]): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
+    if (ids.length === 0) return { ok: true, idsActualizados: [] };
+    const res = await dbUpdateRecibosBatch(ids, { estado: 'PENDIENTE' }, 'EN_CURSO');
+    if (!res.ok) return res;
+    const devueltos = new Set(res.idsActualizados ?? []);
+    setRecibos(prev => prev.map(r => devueltos.has(r.id) ? { ...r, estado: 'PENDIENTE' as const } : r));
+    return { ok: true, idsActualizados: [...devueltos] };
   }
 
   async function cobrarTodosPendientes(socioId?: string, metodo?: MetodoCobro): Promise<ResultadoEscritura & { cobrados?: number; saltados?: Recibo[] }> {
@@ -5612,6 +5630,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     deleteRecibo,
     cobrarTodosPendientes,
     marcarRecibosEnviadosAlBanco,
+    devolverRecibosAPendientesTrasRemesa,
     citas,
     addCita,
     updateCita,
