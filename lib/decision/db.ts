@@ -288,10 +288,18 @@ function mapOutcome(row: RowOutcomes): Outcome {
 // Registro de actividad para el flujo del Centro de Control: al aprobar/rechazar
 // una recomendación el propietario no veía NADA (ni una línea) — ahora queda
 // traza en el feed "Actividad" ("todo tenga conexión"). Enlace al Centro.
-export async function dbLogActividadReciente(a: { studioId: string; tipo: string; texto: string; socioId?: string | null }): Promise<void> {
+//
+// `origen` es obligatorio a propósito: quien llama decide si lo hizo una persona
+// del estudio ('EQUIPO', también cuando Tentare ejecuta lo que la propietaria
+// aprobó) o Tentare solo ('TENTARE', piloto automático). La RLS no deja escribir
+// 'TENTARE' desde el cliente; solo este camino de servidor puede.
+export async function dbLogActividadReciente(a: {
+  studioId: string; tipo: string; texto: string; socioId?: string | null; origen: 'EQUIPO' | 'TENTARE';
+}): Promise<void> {
   const { error } = await db().from('actividad_reciente').insert({
     id: uid(), studio_id: a.studioId, tipo: a.tipo, texto: a.texto,
     socio_id: a.socioId ?? null, enlace: '/centro-de-control', creado_en: new Date().toISOString(), actor_nombre: null,
+    origen: a.origen,
   });
   if (error) reportError('[dbLogActividadReciente]', error);
 }

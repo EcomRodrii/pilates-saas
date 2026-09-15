@@ -66,7 +66,7 @@ export function decidirEnvioGestoria(input: {
 }
 
 // Línea del feed de actividad (solo la ve la propietaria, RLS
-// `owner_actividad_reciente`) cuando cambia el destinatario guardado.
+// `actividad_reciente_lectura`) cuando cambia el destinatario guardado.
 export function textoCambioGestoria(anterior: string | null | undefined, nuevo: string): string {
   const antes = typeof anterior === 'string' && anterior.trim() !== '' ? anterior.trim() : 'ninguno';
   return `Email de la gestoría cambiado: ${antes} → ${nuevo.trim()}`;

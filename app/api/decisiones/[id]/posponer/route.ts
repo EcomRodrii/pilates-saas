@@ -30,6 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await dbLogActividadReciente({
     studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA',
     texto: `Pospuesta unos días: ${recomendacion.titulo}`, socioId: recomendacion.socioId,
+    origen: 'EQUIPO', // la pospone la propietaria
   });
 
   return NextResponse.json({ ok: true, expiraEn: nuevaExpiraEn });

@@ -499,6 +499,11 @@ export const ejecutarRecomendacion = inngest.createFunction(
     }
 
     const resueltoEn = await step.run('now', async () => new Date().toISOString());
+    // Quién firma la línea del feed: el piloto automático aprueba con
+    // resuelto_por='AUTONOMIA' (aprobar_recomendacion_autonoma) y eso lo hizo
+    // Tentare solo. Si la aprobó la propietaria, la decisión es suya y Tentare
+    // solo la ejecuta: es actividad del equipo.
+    const origenActividad = recomendacion.resueltoPor === 'AUTONOMIA' ? 'TENTARE' : 'EQUIPO';
 
     if (resultado.ok) {
       // A-17: el insert del outcome y la programación de la medición van GATEADOS
@@ -521,11 +526,11 @@ export const ejecutarRecomendacion = inngest.createFunction(
         // rastro alguno). El detalle ya dice qué pasó (email enviado / gestionada).
         const nombreSocia = typeof recomendacion.datosUsados.nombre === 'string' ? recomendacion.datosUsados.nombre : null;
         const textoAct = nombreSocia ? `${nombreSocia}: ${resultado.detalle}` : `Gestionada: ${recomendacion.titulo}`;
-        await step.run('log-actividad', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: textoAct, socioId: recomendacion.socioId }));
+        await step.run('log-actividad', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: textoAct, socioId: recomendacion.socioId, origen: origenActividad }));
       }
     } else {
       await step.run('marcar-fallida', () => dbTransicionarRecomendacion(recomendacionId, recomendacion.studioId, 'APROBADA', 'FALLIDA', { resueltoEn }));
-      await step.run('log-actividad-fallo', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: `No se pudo completar: ${recomendacion.titulo} — ${resultado.detalle}`, socioId: recomendacion.socioId }));
+      await step.run('log-actividad-fallo', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: `No se pudo completar: ${recomendacion.titulo} — ${resultado.detalle}`, socioId: recomendacion.socioId, origen: origenActividad }));
     }
 
     return resultado;
