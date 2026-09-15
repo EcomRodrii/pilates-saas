@@ -148,7 +148,9 @@ export default function NuevaClaseInstructoraPage() {
               </section>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {/* `minmax(0, 1fr)`: con `1fr` el campo de fecha no deja encoger la
+                columna y en un móvil se sale por la derecha. */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
               <Input
                 label="Día" type="date" value={fecha} min={hoy} max={addDias(hoy, MAX_DIAS_ANTELACION_NUEVA_CLASE)}
                 onChange={(e) => setFecha(e.target.value)} style={SIN_ZOOM}
