@@ -198,6 +198,26 @@ for (const [modo, selector] of [['claro', ':root'], ['oscuro', '.dark']] as cons
 }
 
 
+// ─── La acción principal (--primary) sobre las superficies ───────────────────
+// `.dark` no redefinía --primary y heredaba el #131313 de claro. La letra
+// blanca encima daba 18:1 —ningún barrido de TEXTO podía verlo—, pero el botón
+// se pintaba casi negro sobre fondo casi negro: 1,03:1 contra la página. Un
+// control pide 3:1 contra lo que tiene detrás (WCAG 1.4.11). Esto caza el token
+// sin arrancar nada; lo que se ve de verdad lo mide e2e/panel-contraste.spec.ts.
+
+for (const [modo, selector] of [['claro', ':root'], ['oscuro', '.dark']] as const) {
+  test(`--primary (${modo}): el botón se distingue de las superficies y su letra se lee`, () => {
+    const T = TOKENS[selector];
+    for (const sup of SUPERFICIES) {
+      const r = ratioContraste(T['primary'], T[sup]);
+      assert.ok(r !== null && r >= 3, `--primary (${T['primary']}) sobre --${sup} (${T[sup]}) da ${r?.toFixed(2)}:1, un control pide 3`);
+    }
+    const r = ratioContraste(T['primary-foreground'], T['primary']);
+    assert.ok(r !== null && r >= 4.5, `--primary-foreground sobre --primary da ${r?.toFixed(2)}:1, AA pide 4.5`);
+  });
+}
+
+
 // ─── Superficies del sidebar en modo oscuro ──────────────────────────────────
 // Las dos barras MÓVILES llevaban '#ffffff' fijo: en modo oscuro se quedaban
 // blancas, y con ellas el logo en tinta `auto`, que ahí pinta su versión

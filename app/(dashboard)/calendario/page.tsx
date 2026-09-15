@@ -2635,14 +2635,14 @@ export default function Calendario() {
             <div className="flex rounded-xl overflow-hidden bg-primary">
               <button
                 onClick={() => openNueva()}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white hover:bg-card/10 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-card/10 transition-colors"
               >
                 <Plus size={15} />Nueva clase
               </button>
               <button
                 onClick={() => setShowNuevaMenu(v => !v)}
                 aria-label="Más opciones para crear clase"
-                className="px-2 py-2 text-white hover:bg-card/10 transition-colors border-l border-white/20"
+                className="px-2 py-2 text-primary-foreground hover:bg-card/10 transition-colors border-l border-primary-foreground/20"
               >
                 <ChevronDown size={14} />
               </button>
@@ -2670,7 +2670,7 @@ export default function Calendario() {
           ) : creaClasesPropias && (
             <button
               onClick={() => openNueva()}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-card/10 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:bg-card/10 transition-colors"
             >
               <Plus size={15} />Nueva clase
             </button>

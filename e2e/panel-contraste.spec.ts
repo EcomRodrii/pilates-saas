@@ -230,3 +230,152 @@ for (const modo of ['claro', 'oscuro'] as const) {
     });
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El botón PRIMARIO en oscuro: que se vea el botón, no solo su letra.
+//
+// El barrido de arriba mide texto contra su fondo, y con eso un `bg-primary`
+// pasaba de sobra en oscuro: `.dark` no redefinía `--primary`, así que la letra
+// blanca sobre #131313 daba 18:1. Lo que no se veía era el BOTÓN — #131313
+// sobre la tarjeta #1E1E22, 1,1:1: un rótulo flotando sin control alrededor, en
+// Inicio, en Clientas y en cualquier pantalla con una acción principal.
+//
+// Por eso aquí se miden las DOS cosas: la letra contra el relleno (4,5:1, WCAG
+// 1.4.3) y el relleno —o el borde, si lo tiene— contra lo que hay detrás
+// (3:1, WCAG 1.4.11: el contorno de un control).
+//
+// ⚠️ Los colores se leen igual que en `oscuro-contraste.spec.ts`: oklab/oklch a
+// mano, porque `bg-primary/90` sale como `oklab(...)`. Lo que no se sabe leer
+// se cuenta y hace fallar — medir mal es peor que no medir.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface BotonPrimario { texto: string; letra: number | null; contorno: number; relleno: string; detras: string }
+
+async function medirPrimarios(page: import('@playwright/test').Page): Promise<{ botones: BotonPrimario[]; sinLeer: string[] }> {
+  return page.evaluate(() => {
+    type RGBA = [number, number, number, number];
+    const sinLeer: string[] = [];
+    const gamma = (v: number) => {
+      const c = v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(Math.max(v, 0), 1 / 2.4) - 0.055;
+      return Math.max(0, Math.min(255, Math.round(c * 255)));
+    };
+    function deOklab(L: number, a: number, b: number, alfa: number): RGBA {
+      const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+      const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+      const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+      return [
+        gamma(+4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+        gamma(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+        gamma(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s),
+        alfa,
+      ];
+    }
+    function aRGBA(css: string): RGBA | null {
+      const c = css.trim();
+      if (!c || c === 'transparent') return [0, 0, 0, 0];
+      const m = c.match(/^([a-z]+)\((.*)\)$/);
+      if (!m) return null;
+      const [, fn, cuerpo] = m;
+      const partes = cuerpo.replace(/,/g, ' ').replace('/', ' / ').split(/\s+/).filter(Boolean);
+      const barra = partes.indexOf('/');
+      const toks = barra >= 0 ? partes.slice(0, barra) : partes;
+      const alfaTok = barra >= 0 ? partes[barra + 1] : toks[3];
+      // ⚠️ Con su `%`: `oklab(56.4% …)` leído sin él mete una L de 56,4.
+      const val = (t: string | undefined, escalaPct: number) =>
+        t === undefined || t === 'none' ? 0 : t.endsWith('%') ? (parseFloat(t) / 100) * escalaPct : parseFloat(t);
+      const alfa = alfaTok === undefined ? 1 : val(alfaTok, 1);
+      if (fn === 'rgb' || fn === 'rgba') return [val(toks[0], 255), val(toks[1], 255), val(toks[2], 255), alfa];
+      if (fn === 'oklab') return deOklab(val(toks[0], 1), val(toks[1], 0.4), val(toks[2], 0.4), alfa);
+      if (fn === 'oklch') {
+        const C = val(toks[1], 0.4), h = (val(toks[2], 1) * Math.PI) / 180;
+        return deOklab(val(toks[0], 1), C * Math.cos(h), C * Math.sin(h), alfa);
+      }
+      if (fn === 'color' && toks[0] === 'srgb') {
+        return [val(toks[1], 1) * 255, val(toks[2], 1) * 255, val(toks[3], 1) * 255, alfa];
+      }
+      return null;
+    }
+    const leer = (css: string): RGBA => {
+      const c = aRGBA(css);
+      if (c) return c;
+      sinLeer.push(css);
+      return [0, 0, 0, 0];
+    };
+    const sobre = (f: RGBA, b: RGBA): RGBA => [0, 1, 2].map(i => f[i] * f[3] + b[i] * (1 - f[3])).concat(1) as RGBA;
+    const lin = (v: number) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+    const lum = (c: RGBA) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const ratio = (a: RGBA, b: RGBA) => {
+      const [x, y] = [lum(a), lum(b)];
+      return Math.round(((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)) * 100) / 100;
+    };
+    // Lo que hay detrás: capas translúcidas apiladas hasta dar con una opaca.
+    function fondoDe(el: HTMLElement | null): RGBA {
+      const capas: RGBA[] = [];
+      for (let n = el; n; n = n.parentElement) {
+        const c = leer(getComputedStyle(n).backgroundColor);
+        if (c[3] === 0) continue;
+        capas.push(c);
+        if (c[3] >= 0.999) break;
+      }
+      let base: RGBA = capas.length && capas[capas.length - 1][3] >= 0.999 ? capas.pop()! : [255, 255, 255, 1];
+      for (let i = capas.length - 1; i >= 0; i--) base = sobre(capas[i], base);
+      return base;
+    }
+    const css = (c: RGBA) => `rgb(${c.slice(0, 3).map(Math.round).join(', ')})`;
+
+    const botones: BotonPrimario[] = [];
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>('[class~="bg-primary"]'))) {
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      // Un punto de 8 px (el indicador de una opción elegida) no es un control.
+      if (cs.visibility === 'hidden' || cs.display === 'none' || r.width < 20 || r.height < 20) continue;
+      const detras = fondoDe(el.parentElement);
+      const relleno = sobre(leer(cs.backgroundColor), detras);
+      let contorno = ratio(relleno, detras);
+      if (parseFloat(cs.borderTopWidth) >= 1) {
+        contorno = Math.max(contorno, ratio(sobre(leer(cs.borderTopColor), detras), detras));
+      }
+      const texto = (el.innerText ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
+      botones.push({
+        texto,
+        letra: texto ? ratio(sobre(leer(cs.color), relleno), relleno) : null,
+        contorno,
+        relleno: css(relleno),
+        detras: css(detras),
+      });
+    }
+    return { botones, sinLeer };
+  });
+}
+
+test.describe('botón primario en oscuro — se ve el botón, no solo la letra', () => {
+  for (const ruta of ['dashboard', 'clientas']) {
+    test(ruta, async ({ page }) => {
+      await montar(page);
+      await enOscuro(page);
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await ir(page, ruta);
+      // Bajo carga, `ir` puede volver con la cabecera aún sin pintar: se espera
+      // al botón, y si no llega, el `toBeGreaterThan(0)` de abajo lo dice.
+      await page.locator('[class~="bg-primary"]:visible').first().waitFor({ timeout: 30_000 }).catch(() => {});
+
+      const { botones, sinLeer } = await medirPrimarios(page);
+      // La captura, con un botón primario a la vista: en Inicio quedan bajo el pliegue.
+      await page.locator('[class~="bg-primary"]:visible').filter({ hasText: /\S/ }).first()
+        .scrollIntoViewIfNeeded().catch(() => {});
+      await page.screenshot({ path: `test-results/primario-oscuro-${ruta}.png` });
+      console.log(`${ruta} (oscuro):\n` + botones.map(b =>
+        `  «${b.texto}» letra ${b.letra ?? '—'}:1 · contorno ${b.contorno}:1 (${b.relleno} sobre ${b.detras})`).join('\n'));
+
+      // Sin esto el test pasa en verde por no haber encontrado ningún botón.
+      expect(botones.length, `${ruta}: ningún bg-primary visible que medir`).toBeGreaterThan(0);
+      expect(sinLeer, 'colores que el medidor no sabe convertir').toEqual([]);
+      const conTexto = botones.filter(b => b.letra !== null);
+      expect(conTexto.length, `${ruta}: ningún botón primario con texto`).toBeGreaterThan(0);
+      for (const b of botones) {
+        expect(b.contorno, `«${b.texto}»: el botón no se distingue de lo que tiene detrás`).toBeGreaterThanOrEqual(3);
+        if (b.letra !== null) expect(b.letra, `«${b.texto}»: la letra no se lee sobre el botón`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+  }
+});

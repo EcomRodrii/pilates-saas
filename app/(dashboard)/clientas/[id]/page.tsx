@@ -1267,7 +1267,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         <div className="flex gap-2 pt-2 border-t border-border">
                           <button
                             onClick={handleSaveAiNote}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-bold hover:bg-[#2A2A24] transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-bold hover:bg-primary/90 transition-colors"
                           >
                             <CheckCircle2 size={12} /> Guardar nota
                           </button>

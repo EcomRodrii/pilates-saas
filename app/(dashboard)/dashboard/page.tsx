@@ -804,14 +804,14 @@ export default function Dashboard() {
                 ) : (
                   <p className="text-[13px] font-medium">
                     Sistema autónomo —{' '}
-                    <span className="text-amber-300">{pendingAdmin.length} caso{pendingAdmin.length > 1 ? 's' : ''} requiere tu atención</span>
+                    <span className="text-amber-300 dark:text-amber-800">{pendingAdmin.length} caso{pendingAdmin.length > 1 ? 's' : ''} requiere tu atención</span>
                   </p>
                 )}
-                <p className="mt-0.5 text-[11px] text-primary-foreground/50">
+                <p className="mt-0.5 text-[11px] text-primary-foreground/70">
                   {ejecutadas} acciones ejecutadas hoy{fallidas > 0 ? ` · ${fallidas} fallida${fallidas > 1 ? 's' : ''}` : ''}
                 </p>
               </div>
-              <ArrowUpRight className="size-4 shrink-0 text-primary-foreground/40" />
+              <ArrowUpRight className="size-4 shrink-0 text-primary-foreground/60" />
             </Link>
           );
         })()}
