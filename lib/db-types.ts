@@ -3035,6 +3035,17 @@ export interface RowSalesEvents {
   creado_en: string;
 }
 
+export interface RowCierresProrrogas {
+  cierre_id: string;
+  studio_id: string;
+  desde: string;
+  hasta: string;
+  dias: number;
+  bonos_ampliados: number;
+  recuperaciones_ampliadas: number;
+  aplicada_en: string;
+}
+
 export interface RowSolicitudesPlazaFija {
   id: string;
   studio_id: string;
@@ -8416,6 +8427,28 @@ export type SalesEventsUpdate = {
   creado_en?: string | null;
 }
 
+export type CierresProrrogasInsert = {
+  cierre_id?: string | null;
+  studio_id?: string | null;
+  desde?: string | null;
+  hasta?: string | null;
+  dias?: number | null;
+  bonos_ampliados?: number | null;
+  recuperaciones_ampliadas?: number | null;
+  aplicada_en?: string | null;
+}
+
+export type CierresProrrogasUpdate = {
+  cierre_id?: string | null;
+  studio_id?: string | null;
+  desde?: string | null;
+  hasta?: string | null;
+  dias?: number | null;
+  bonos_ampliados?: number | null;
+  recuperaciones_ampliadas?: number | null;
+  aplicada_en?: string | null;
+}
+
 export type SolicitudesPlazaFijaInsert = {
   id?: string | null;
   studio_id?: string | null;
@@ -9435,6 +9468,11 @@ export type Database = {
         Row: RowSalesEvents;
         Insert: SalesEventsInsert;
         Update: SalesEventsUpdate;
+      };
+      cierres_prorrogas: {
+        Row: RowCierresProrrogas;
+        Insert: CierresProrrogasInsert;
+        Update: CierresProrrogasUpdate;
       };
       solicitudes_plaza_fija: {
         Row: RowSolicitudesPlazaFija;
