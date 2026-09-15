@@ -58,6 +58,18 @@ export default function Contenido() {
         sigue ahí.
       </p>
 
+      <h2 style={h2}>Si se va de vacaciones</h2>
+      <p>
+        En su ficha, pulsa <strong>pausar</strong> en la plaza y elige desde y hasta cuándo. Esas semanas no se le
+        reserva la clase, pero <strong>no pierde la plaza ni su sitio</strong>, y al acabar la pausa vuelve sola, sin
+        que tengas que acordarte de reanudarla.
+      </p>
+      <p>
+        Las clases que ya tenía reservadas en esas fechas se cancelan sin penalización; si hay alguien en lista de
+        espera, entra en su lugar. Las que empiezan dentro del plazo de cancelación se mantienen. Si vuelve antes,
+        cambia las fechas o quita la pausa: las clases que quedan se le reservan al momento, si hay sitio.
+      </p>
+
       <h2 style={h2}>Quitar una plaza fija</h2>
       <p>
         Con la papelera de la plaza, en su ficha. Deja de reservarle esa clase y <strong>cancela las que ya

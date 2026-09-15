@@ -734,6 +734,10 @@ export interface PlazaFija {
   vigenciaDesde: string;       // YYYY-MM-DD
   vigenciaHasta: string | null;// null = indefinida
   estado: 'ACTIVA' | 'PAUSADA' | 'BAJA';
+  /** Pausa con fechas (YYYY-MM-DD, ambas incluidas): sigue ACTIVA y con su
+   *  sitio, pero esas semanas no se le reservan. Ver lib/plazas-fijas-pausa.ts. */
+  pausaDesde?: string | null;
+  pausaHasta?: string | null;
   creadaEn: string;
 }
 

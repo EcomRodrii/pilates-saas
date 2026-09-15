@@ -32,6 +32,22 @@ test('vigencia: terminada → null; la próxima fecha respeta vigenciaHasta', ()
   assert.equal(proyectarPlazaFija([plaza({ vigenciaHasta: '2026-09-06' })], HOY)?.proximaFecha, null);
 });
 
+test('pausa con fechas: la próxima se salta las semanas en pausa y la vista dice hasta cuándo', () => {
+  // Hoy viernes 4; los martes 8 y 15 caen en la pausa → próxima el 22.
+  const programada = proyectarPlazaFija([plaza({ pausaDesde: '2026-09-07', pausaHasta: '2026-09-20' })], HOY);
+  assert.equal(programada?.proximaFecha, '2026-09-22');
+  assert.deepEqual(programada?.pausa, { desde: '2026-09-07', hasta: '2026-09-20', enCurso: false });
+
+  const enCurso = proyectarPlazaFija([plaza({ pausaDesde: '2026-09-01', pausaHasta: '2026-09-10' })], HOY);
+  assert.equal(enCurso?.pausa?.enCurso, true);
+  assert.equal(enCurso?.proximaFecha, '2026-09-15');
+
+  // Terminada: ya no se enseña.
+  assert.equal(proyectarPlazaFija([plaza({ pausaDesde: '2026-08-01', pausaHasta: '2026-09-03' })], HOY)?.pausa, null);
+  // La pausa llega más allá del fin de la plaza: no queda próxima.
+  assert.equal(proyectarPlazaFija([plaza({ pausaDesde: '2026-09-07', pausaHasta: '2026-12-31', vigenciaHasta: '2026-10-31' })], HOY)?.proximaFecha, null);
+});
+
 test('recuperaciones: solo DISPONIBLE y no caducadas; caducidad más cercana primero', () => {
   const r = proyectarRecuperaciones([
     { caducaEl: '2026-09-20', estado: 'DISPONIBLE' },

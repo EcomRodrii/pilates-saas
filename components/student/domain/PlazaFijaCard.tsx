@@ -28,8 +28,17 @@ export function PlazaFijaCard({ plaza, recuperaciones, hrefHorario, compacta = f
               {plaza.proximaFecha ? ` · próxima ${etiquetaDia(plaza.proximaFecha).toLowerCase()}` : ''}
               {plaza.vigenciaHasta ? ` · hasta el ${fechaCorta(plaza.vigenciaHasta)}` : ''}
             </p>
+            {plaza.pausa && (
+              <p className="t-meta" style={{ margin: '2px 0 0' }}>
+                {plaza.pausa.enCurso
+                  ? `En pausa hasta el ${fechaCorta(plaza.pausa.hasta)}`
+                  : `Pausa del ${fechaCorta(plaza.pausa.desde)} al ${fechaCorta(plaza.pausa.hasta)}`}
+              </p>
+            )}
           </div>
-          <Badge tone={plaza.estado === 'ACTIVA' ? 'ok' : 'neutral'}>{plaza.estado === 'ACTIVA' ? 'Activa' : 'En pausa'}</Badge>
+          <Badge tone={plaza.estado === 'ACTIVA' && !plaza.pausa?.enCurso ? 'ok' : 'neutral'}>
+            {plaza.estado === 'ACTIVA' && !plaza.pausa?.enCurso ? 'Activa' : 'En pausa'}
+          </Badge>
         </div>
       )}
       {recuperaciones.disponibles > 0 && (

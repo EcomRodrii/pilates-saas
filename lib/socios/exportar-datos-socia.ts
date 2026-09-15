@@ -246,7 +246,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     // Sin `studio_id` en la tabla: se acota por la socia (ids globales únicos).
     leer(db, 'codigos_descuento_consumos', 'recibo_id, consumido_en', [['eq', 'socio_id', socioId]], 'consumido_en'),
     tabla('citas', 'id, instructor_id, tipo, inicio, fin, estado, precio, pagada, notas'),
-    tabla('plazas_fijas', 'id, dia_semana, hora_inicio, sala_id, tipo_clase_id, vigencia_desde, vigencia_hasta, estado, creada_en'),
+    tabla('plazas_fijas', 'id, dia_semana, hora_inicio, sala_id, tipo_clase_id, vigencia_desde, vigencia_hasta, estado, pausa_desde, pausa_hasta, creada_en'),
     tabla('recuperaciones', 'id, motivo, caduca_el, estado, creada_en'),
     tabla('member_credits', 'saldo, total_ganado, total_canjeado, caduca_el, actualizado_en', 'socio_id'),
     tabla('credit_transactions', 'id, tipo, creditos, descripcion, creado_en'),
@@ -395,6 +395,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
       plazasFijas: plazasFijas.map(p => ({
         diaSemana: num(p.dia_semana), hora: str(p.hora_inicio), clase: nombre(mTipo, p.tipo_clase_id), sala: nombre(mSala, p.sala_id),
         desde: str(p.vigencia_desde), hasta: str(p.vigencia_hasta), estado: str(p.estado),
+        pausaDesde: str(p.pausa_desde), pausaHasta: str(p.pausa_hasta),
       })),
       recuperaciones: recuperaciones.map(r => ({ motivo: str(r.motivo), caduca: str(r.caduca_el), estado: str(r.estado), creadaEn: str(r.creada_en) })),
       creditos: {
