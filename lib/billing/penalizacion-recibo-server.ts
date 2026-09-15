@@ -11,7 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import {
   cobroManualDeRecibo, hayQueRevisarLiquidacion, motivoRevisionPorRecibo, penalizacionDelRecibo, seguirAlRecibo,
-  type EstadoPenalizacion, type LecturaPenalizacion, type Seguimiento, type VeredictoCobroManual,
+  type ContextoCobroManual, type EstadoPenalizacion, type LecturaPenalizacion, type Seguimiento, type VeredictoCobroManual,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import {
   pedirRevisionLiquidacionPenalizacion, type PenalizacionRepartida,
@@ -64,9 +64,13 @@ export async function borrarReciboDePenalizacionSinCobro(
  * (`cobroManualDeRecibo`). `null` = adelante (incluido cualquier recibo que no
  * sea de una penalización, sin leer nada). Sin service-role o sin poder leer la
  * penalización, no se cobra.
+ *
+ * Lo usan también el ejecutor del Decision OS (`panel`) y el checkout de la alumna
+ * (`checkout_alumna`, que deja además pagar una FALLIDA). Lo que devuelve es un
+ * objeto plano: el ejecutor lo llama dentro de un `step.run`.
  */
 export async function bloqueoCobroManualDePenalizacion(
-  admin: SupabaseClient | null, p: { studioId: string; reciboId: string },
+  admin: SupabaseClient | null, p: { studioId: string; reciboId: string; contexto?: ContextoCobroManual },
 ): Promise<Extract<VeredictoCobroManual, { ok: false }> | null> {
   if (cobroManualDeRecibo(p.reciboId).ok) return null; // no es de una penalización: no se lee nada
   let lectura: LecturaPenalizacion = { ok: false };
@@ -77,7 +81,7 @@ export async function bloqueoCobroManualDePenalizacion(
       lectura = { ok: false };
     }
   }
-  const veredicto = cobroManualDeRecibo(p.reciboId, lectura);
+  const veredicto = cobroManualDeRecibo(p.reciboId, lectura, p.contexto);
   return veredicto.ok ? null : veredicto;
 }
 

@@ -7,6 +7,7 @@ import type { SnapshotEstudio, IntentoFallidoSnapshot } from './tipos.ts';
 import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
 import { franjaLocalDe } from '../utils.ts';
 import { tieneEntitlementActivo } from '../bono-logic.ts';
+import { PREFIJO_RECIBO_PENALIZACION } from '../billing/penalizacion-aprobar-reglas.ts';
 
 export interface IndicesSenal {
   socioPorId: Map<string, Socio>;
@@ -466,9 +467,18 @@ export function historialCobroDelEstudio(s: SnapshotEstudio): HistorialCobro {
   return { resueltos, cobrados };
 }
 
-/** Recibos PENDIENTE vencidos (0..maxDias días de retraso), particionados por si la socia tiene tarjeta guardada. */
+/**
+ * Recibos PENDIENTE vencidos (0..maxDias días de retraso), particionados por si la socia tiene tarjeta guardada.
+ *
+ * ⚠️ Sin los recibos de penalización (`rec-penaliz-*`). Nacen vencidos el mismo día
+ * (lib/inngest/penalizaciones.ts), así que una PENDIENTE_APROBACION entraba en «Se
+ * quedaron N pagos sin completar» y, al aprobarla, el ejecutor la cobraba sin pasar
+ * por la aprobación ni por el guardia de consentimiento. Su cobro lo llevan el cron,
+ * el dunning y la aprobación en Inicio; aquí no cuentan ni en la lista ni en el importe.
+ */
 export function pagosEnRiesgo(idx: IndicesSenal, now: Date, maxDias = 30): { conTarjeta: Recibo[]; sinTarjeta: Recibo[] } {
   const vencidos = idx.recibosPendientes.filter(r => {
+    if (r.id.startsWith(PREFIJO_RECIBO_PENALIZACION)) return false;
     const dias = Math.floor((now.getTime() - new Date(r.fechaVencimiento).getTime()) / MS_DIA);
     return dias >= 0 && dias <= maxDias;
   });

@@ -677,10 +677,33 @@ export function dunningPuedeCobrarPenalizacion(lectura: LecturaPenalizacion): bo
 // sin pasar por la aprobación ni por el guardia de consentimiento, y el de una
 // OMITIDA_* (se decidió no cobrar) también.
 
-/** Con qué estado de la penalización se puede cobrar su recibo desde esas pantallas: el cobro ya decidido. */
+/**
+ * Con qué estado de la penalización se puede cobrar su recibo desde esas pantallas
+ * (y desde el ejecutor del Decision OS, que cobra lo que se aprobó en «Se quedaron N
+ * pagos sin completar»): el cobro ya decidido.
+ */
 export const ESTADOS_QUE_DEJAN_COBRAR_A_MANO: readonly EstadoPenalizacion[] = ['RECIBO_CREADO'];
 
+/**
+ * Con qué estado puede la alumna PAGAR el recibo de su penalización en el checkout
+ * (/api/stripe/checkout). Además del cobro decidido, la FALLIDA: nadie la vuelve a
+ * cobrar sola (el dunning agotó el recibo, o se cerró sin cobrar) y sigue siendo una
+ * deuda suya que tiene que poder pagar. La paga ella, en ese momento; cuando el
+ * recibo queda COBRADO, el barrido del cron la pasa a COBRADA.
+ * Fuera DETECTADA y PENDIENTE_APROBACION (el estudio no la ha aprobado ni se ha
+ * comprobado su contrato), las OMITIDA_* (se decidió no cobrar), COBRADA y REEMBOLSADA.
+ */
+export const ESTADOS_QUE_DEJAN_PAGAR_A_LA_ALUMNA: readonly EstadoPenalizacion[] = ['RECIBO_CREADO', 'FALLIDA'];
+
+/** Quién cobra: el estudio (Cobros, Automatizaciones, Decision OS) o la alumna pagando en el checkout. */
+export type ContextoCobroManual = 'panel' | 'checkout_alumna';
+
 export type VeredictoCobroManual = { ok: true } | { ok: false; http: 409 | 503; mensaje: string };
+
+// A la alumna no se le cuentan los estados internos de la penalización.
+const ALUMNA_SIN_COMPROBAR = 'No hemos podido comprobar este cargo y no se te ha cobrado nada. Inténtalo de nuevo en un momento.';
+const ALUMNA_AUN_NO = 'Este cargo todavía no se puede pagar: tu estudio aún no lo ha confirmado.';
+const ALUMNA_NO_PENDIENTE = 'Este cargo ya no está pendiente de pago. Si tienes dudas, habla con tu estudio.';
 
 const NO_DESDE_AQUI = 'Esta penalización no se puede cobrar desde aquí:';
 
@@ -692,7 +715,12 @@ const POR_QUE_NO_A_MANO: Partial<Record<EstadoPenalizacion, string>> = {
   OMITIDA_COMPENSADA: 'se dejó sin cobrar porque esa reserva ya dio una recuperación a la alumna.',
   OMITIDA_REVERTIDA: 'se anuló al corregir la asistencia.',
   COBRADA: 'ya consta como cobrada.',
-  FALLIDA: 'quedó como no cobrada y no se vuelve a intentar desde aquí.',
+  // No se vuelve a cobrar con la tarjeta: tras agotar los reintentos sería un cargo
+  // nuevo mientras la alumna puede estar pagándola. Marcar el recibo cobrado sí es
+  // un camino real (Cobros → «Marcar cobrado»), y el barrido del cron pasa entonces
+  // la penalización a COBRADA. ⚠️ No decir «que la pague desde su app»: el checkout
+  // la acepta, pero la app de la alumna no tiene hoy ningún botón para pagar un recibo.
+  FALLIDA: 'quedó como no cobrada y no se vuelve a cobrar con su tarjeta. Si la alumna te la paga, marca su recibo como cobrado en Cobros y la penalización se pondrá al día sola.',
   REEMBOLSADA: 'se devolvió a la alumna.',
 };
 
@@ -701,15 +729,30 @@ const POR_QUE_NO_A_MANO: Partial<Record<EstadoPenalizacion, string>> = {
  * es de una penalización, siempre (sin leer nada). El de una penalización, solo
  * con ella en RECIBO_CREADO; sin poder leerla, no (503, se puede reintentar).
  * Una penalización que no apunta a este recibo (`estado: null`) tampoco.
+ *
+ * `checkout_alumna`: la alumna paga en el checkout. Deja además la FALLIDA
+ * (`ESTADOS_QUE_DEJAN_PAGAR_A_LA_ALUMNA`) y contesta con textos para ella.
  */
-export function cobroManualDeRecibo(reciboId: string, lectura?: LecturaPenalizacion): VeredictoCobroManual {
+export function cobroManualDeRecibo(
+  reciboId: string, lectura?: LecturaPenalizacion, contexto: ContextoCobroManual = 'panel',
+): VeredictoCobroManual {
   // Por el prefijo y no por `penalizacionDelRecibo`: un `rec-penaliz-` sin id no
   // puede colarse como recibo normal (su lectura sale `estado: null` y no se cobra).
   if (!reciboId.startsWith(PREFIJO_RECIBO_PENALIZACION)) return { ok: true };
+  const alumna = contexto === 'checkout_alumna';
   if (!lectura || !lectura.ok) {
-    return { ok: false, http: 503, mensaje: `${NO_DESDE_AQUI} no hemos podido comprobar en qué estado está. No se ha cobrado; inténtalo de nuevo en un momento.` };
+    return {
+      ok: false, http: 503,
+      mensaje: alumna ? ALUMNA_SIN_COMPROBAR : `${NO_DESDE_AQUI} no hemos podido comprobar en qué estado está. No se ha cobrado; inténtalo de nuevo en un momento.`,
+    };
   }
-  if (ESTADOS_QUE_DEJAN_COBRAR_A_MANO.includes(lectura.estado as EstadoPenalizacion)) return { ok: true };
+  const estado = lectura.estado as EstadoPenalizacion;
+  if (alumna) {
+    if (ESTADOS_QUE_DEJAN_PAGAR_A_LA_ALUMNA.includes(estado)) return { ok: true };
+    const aunNo = estado === 'DETECTADA' || estado === 'PENDIENTE_APROBACION';
+    return { ok: false, http: 409, mensaje: aunNo ? ALUMNA_AUN_NO : ALUMNA_NO_PENDIENTE };
+  }
+  if (ESTADOS_QUE_DEJAN_COBRAR_A_MANO.includes(estado)) return { ok: true };
   const porQue = POR_QUE_NO_A_MANO[lectura.estado as EstadoPenalizacion] ?? 'no tiene un cobro decidido.';
   return { ok: false, http: 409, mensaje: `${NO_DESDE_AQUI} ${porQue}` };
 }

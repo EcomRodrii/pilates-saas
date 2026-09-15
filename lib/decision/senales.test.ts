@@ -239,6 +239,23 @@ test('pagosEnRiesgo: particiona por tarjeta guardada', () => {
   assert.equal(sinTarjeta.length, 1);
 });
 
+test('⚠️ pagosEnRiesgo: el recibo de una penalización no cuenta, ni con tarjeta ni sin ella', () => {
+  const socios = [
+    socio({ id: 'conTarjeta', stripeCustomerId: 'cus_1', stripePaymentMethodId: 'pm_1' }),
+    socio({ id: 'sinTarjeta' }),
+  ];
+  // Nace vencido hoy (lib/inngest/penalizaciones.ts): justo dentro de la ventana.
+  const recibos = [
+    recibo({ id: 'rec-penaliz-pen-1', estado: 'PENDIENTE', socioId: 'conTarjeta', fechaVencimiento: diasAntes(0) }),
+    recibo({ id: 'rec-penaliz-pen-2', estado: 'PENDIENTE', socioId: 'sinTarjeta', fechaVencimiento: diasAntes(0) }),
+    recibo({ id: 'rec-cuota', estado: 'PENDIENTE', socioId: 'conTarjeta', fechaVencimiento: diasAntes(2) }),
+  ];
+  const idx = construirIndices(snapshot({ socios, recibos }));
+  const { conTarjeta, sinTarjeta } = pagosEnRiesgo(idx, NOW);
+  assert.deepEqual(conTarjeta.map(r => r.id), ['rec-cuota']);
+  assert.deepEqual(sinTarjeta.map(r => r.id), []);
+});
+
 test('pagosEnRiesgo: fuera de la ventana de días no cuenta', () => {
   const socios = [socio({ id: 'a', stripeCustomerId: 'cus', stripePaymentMethodId: 'pm' })];
   const recibos = [recibo({ estado: 'PENDIENTE', socioId: 'a', fechaVencimiento: diasAntes(45) })];

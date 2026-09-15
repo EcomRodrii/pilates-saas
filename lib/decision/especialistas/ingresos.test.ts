@@ -135,6 +135,22 @@ test('I2: pagos pendientes con tarjeta → una sola candidata agregada (nunca N 
   assert.equal(pagos[0].riesgo, 'PERDIDA');
 });
 
+test('⚠️ I2: el recibo de una penalización no entra en «pagos sin completar» ni suma al importe', () => {
+  const socios = [socio({ id: 'a', stripeCustomerId: 'cus_a', stripePaymentMethodId: 'pm_a' })];
+  const recibos = [
+    recibo({ id: 'rec-cuota-a', estado: 'PENDIENTE', socioId: 'a', importe: 60, fechaVencimiento: diasAntes(3) }),
+    recibo({ id: 'rec-penaliz-pen-1', estado: 'PENDIENTE', socioId: 'a', importe: 15, fechaVencimiento: diasAntes(0) }),
+  ];
+  const pagos = ingresos.detectar(snapshot({ socios, recibos }), memoriaVacia(), NOW).filter(c => c.tipo === 'RECUPERAR_PAGOS');
+  assert.equal(pagos.length, 1);
+  assert.deepEqual(pagos[0].accion.tipo === 'COBRAR_RECIBOS' && pagos[0].accion.reciboIds, ['rec-cuota-a']);
+  assert.equal(pagos[0].impacto?.valor, 60);
+
+  // Solo la penalización: ninguna candidata.
+  const solo = ingresos.detectar(snapshot({ socios, recibos: [recibos[1]] }), memoriaVacia(), NOW);
+  assert.equal(solo.find(c => c.tipo === 'RECUPERAR_PAGOS'), undefined);
+});
+
 test('I2: sin tarjeta guardada → sin candidata RECUPERAR_PAGOS', () => {
   const socios = [socio({ id: 'a' })];
   const recibos = [recibo({ estado: 'PENDIENTE', socioId: 'a', fechaVencimiento: diasAntes(3) })];
