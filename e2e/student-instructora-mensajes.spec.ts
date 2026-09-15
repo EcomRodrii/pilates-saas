@@ -63,7 +63,9 @@ async function montar(page: Page, o: { abrirSinClase?: boolean; enviarFalla?: bo
         contador.enviados.push(cuerpo.cuerpo ?? '');
         if (o.enviarFalla) return json(route, { error: 'No se ha podido enviar el mensaje. Vuelve a intentarlo.' }, 500);
         return json(route, {
-          mensaje: { id: 'm2', conversacion_id: 'conv-1', studio_id: 'st', remitente_auth_user_id: 'auth-ana', cuerpo: cuerpo.cuerpo, creado_en: new Date().toISOString() },
+          // La cuenta de la sesión del mock (`montarPortal`): así el mensaje que
+          // envía sale como suyo, a la derecha, igual que en la app de verdad.
+          mensaje: { id: 'm2', conversacion_id: 'conv-1', studio_id: 'st', remitente_auth_user_id: 'auth-marta', cuerpo: cuerpo.cuerpo, creado_en: new Date().toISOString() },
         });
       case 'leido':
         return route.fulfill({ status: 204 });

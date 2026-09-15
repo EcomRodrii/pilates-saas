@@ -14,6 +14,7 @@ import { getClases } from '@/lib/student/datos';
 import { getAgendaInstructora, getListaClase, pedirBaja } from '@/lib/student/datos-instructora';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { puedePasarLista, puedePedirBaja, textoBaja } from '@/lib/student/agenda-instructora';
+import { ocupacion, textoAperturaLista, textoPlazasLibres } from '@/lib/student/clase-vista';
 import { CATEGORIAS_BAJA, textoRevision, type CategoriaBaja } from '@/lib/student/baja-instructora';
 import { addDias, etiquetaDia, hoyISO } from '@/lib/student/formato';
 import { Sheet } from '@/components/student/ui/Sheet';
@@ -33,6 +34,11 @@ import { Icono } from '@/components/student/ui/Icono';
 // baja al motor de sustituciones y la clase sigue a su nombre hasta que alguien
 // la cubra o decida el estudio. Nada se da por hecho sin la respuesta del
 // servidor: tras avisar se RECARGA y lo que se pinta es el estado real.
+//
+// Pasada de diseño 6 (15-sep-2026): sin foto, la cabecera era un bloque negro de
+// 240 px casi vacío; ahora es el verde noche del kit y más baja. Lo que se mira
+// antes de clase —cuánto se ha llenado— va en grande, con su barra, y se dice
+// desde qué hora podrá pasar lista.
 
 /** Hasta dónde busca la clase: la ficha se abre desde la agenda, que mira menos. */
 const DIAS_BUSQUEDA = 30;
@@ -134,12 +140,16 @@ export default function FichaClaseInstructoraPage() {
   // última hora sigue siendo posible), así que la barra puede llevar dos botones.
   const listaAbierta = ahoraMs != null && puedePasarLista(clase, ahoraMs);
   const cuando = `${etiquetaDia(clase.fecha)} · ${clase.hora}`;
+  const plazas = ocupacion(clase);
+  const aperturaLista = ahoraMs != null ? textoAperturaLista(clase, ahoraMs) : null;
+  const vienen = data?.quienViene.length ?? 0;
 
   return (
     <StudentShell modo="instructora" headerTransparente>
-      {/* La misma cabecera de foto que la ficha de la alumna. Sin foto, la tinta
-          oscura del kit, para que el texto blanco se siga leyendo. */}
-      <section style={{ position: 'relative', height: 240, overflow: 'hidden', background: '#0F0F0C' }}>
+      {/* La misma cabecera de foto que la ficha de la alumna. Sin foto, el verde
+          noche del kit (el de «Pasar lista»), y más baja: era un bloque negro de
+          240 px con el texto abajo del todo. */}
+      <section style={{ position: 'relative', height: data?.foto ? 240 : 200, overflow: 'hidden', background: 'var(--accent-deep)' }}>
         {data?.foto && (
           <Foto
             src={data.foto}
@@ -191,18 +201,42 @@ export default function FichaClaseInstructoraPage() {
           </div>
         )}
 
+        {/* Cuánto se ha llenado, en grande: es lo primero que mira. */}
+        {!clase.cancelada && (
+          <section className="card card--pad-lg" aria-labelledby="ocupacion" data-testid="ocupacion-clase">
+            <p id="ocupacion" className="t-label" style={{ margin: 0 }}>Reservas</p>
+            <p aria-hidden style={{ margin: '6px 0 0', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span className="t-num" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1 }}>{plazas.confirmadas}</span>
+              <span style={{ fontSize: 'var(--t-body)', fontWeight: 600, color: 'var(--muted-foreground)' }}>de {plazas.aforo} plazas</span>
+            </p>
+            <div aria-hidden style={{ marginTop: 9, height: 6, borderRadius: 99, background: 'var(--muted)', overflow: 'hidden' }}>
+              <div style={{ width: `${plazas.porcentaje}%`, height: '100%', borderRadius: 99, background: 'var(--accent)' }} />
+            </div>
+            <p className="t-meta" style={{ margin: '7px 0 0' }}>
+              <span className="sr-only">{plazas.confirmadas} de {plazas.aforo} plazas reservadas. </span>
+              {[textoPlazasLibres(plazas), clase.enEspera > 0 ? `${clase.enEspera} en lista de espera` : null].filter(Boolean).join(' · ')}
+            </p>
+          </section>
+        )}
+
         <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--t-small)' }}>
           <Fila k="Cuándo" v={`${cuando} – ${clase.horaFin}`} />
           <Fila k="Dónde" v={[estudio.direccion, clase.sala].filter(Boolean).join(' · ') || '—'} />
-          <Fila k="Reservas" v={`${clase.confirmadas} de ${clase.aforo} plazas`} />
-          {clase.enEspera > 0 && <Fila k="Lista de espera" v={String(clase.enEspera)} />}
+          {clase.cancelada && <Fila k="Reservas" v={`${clase.confirmadas} de ${clase.aforo} plazas`} />}
         </div>
+
+        {aperturaLista && (
+          <p className="t-small t-dim" data-testid="apertura-lista" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icono nombre="calendario" tamano={16} />
+            {aperturaLista}
+          </p>
+        )}
 
         {/* En una clase cancelada no hay a quién preparar, y sus alumnas pueden no
             contar ya como «tuyas»: el enlace acabaría en «No encontramos a esta alumna». */}
         {!clase.cancelada && (data?.quienViene.length ?? 0) > 0 && (
           <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="quien-viene">
-            <h2 id="quien-viene" className="t-label">Quién viene</h2>
+            <h2 id="quien-viene" className="t-label">Quién viene · {vienen}</h2>
             {data?.quienViene.map((a) => {
               const contenido = (
                 <>

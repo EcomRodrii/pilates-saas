@@ -1,6 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { agruparAlumnas, normalizarBusqueda } from './alumnas-vista.ts';
+import { agruparAlumnas, normalizarBusqueda, resumenAsistencia, textoAsistencia } from './alumnas-vista.ts';
+
+test('asistencia con ella: solo cuentan las clases marcadas', () => {
+  const r = resumenAsistencia([
+    { estado: 'asistio' }, { estado: 'asistio' }, { estado: 'no-vino' }, { estado: 'sin-marcar' }, { estado: 'viene' },
+  ]);
+  assert.deepEqual(r, { vino: 2, noVino: 1, sinMarcar: 1 });
+  assert.equal(textoAsistencia(r), 'Vino a 2 de 3 clases contigo');
+  assert.equal(textoAsistencia({ vino: 1, noVino: 0, sinMarcar: 0 }), 'Vino a 1 de 1 clase contigo');
+  // Sin ninguna marcada no se dice nada: «0 de 0» no informa.
+  assert.equal(textoAsistencia({ vino: 0, noVino: 0, sinMarcar: 2 }), null);
+});
 
 const alumna = (nombre: string, proxima: { fecha: string; hora: string } | null = null) => ({ nombre, proxima });
 
