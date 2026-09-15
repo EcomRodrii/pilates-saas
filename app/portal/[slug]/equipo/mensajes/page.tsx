@@ -33,11 +33,17 @@ export default function MensajesInstructoraPage() {
     [esInstructora, estudio.slug],
   );
   const { data, estado, reintentar } = useAsync(cargar);
+  // Cuántas esperan respuesta, arriba: es lo que viene a mirar (pasada de diseño 6).
+  const pendientes = estado === 'ready' ? (data ?? []).filter((h) => tieneSinLeer(h, miId)).length : 0;
+  const sub = estado !== 'ready' ? undefined
+    : pendientes === 0 ? 'Con tus alumnas · todo leído'
+      : pendientes === 1 ? 'Con tus alumnas · 1 sin leer'
+        : `Con tus alumnas · ${pendientes} sin leer`;
 
   return (
     <StudentShell modo="instructora">
       {/* Sin «Volver»: es una pestaña de la barra, no una pantalla dentro de Perfil. */}
-      <PageHeader titulo="Mensajes" />
+      <PageHeader titulo="Mensajes" sub={sub} />
       <div className="px" style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 560 }}>
         {estado === 'loading' && <ListSkeleton n={4} h={68} />}
         {estado === 'error' && <ErrorState titulo="No hemos podido cargar tus mensajes" onRetry={reintentar} />}

@@ -13,12 +13,14 @@ import { useOnline } from '@/lib/student/useOnline';
 import { etiquetaDia, hoyISO } from '@/lib/student/formato';
 import { escribirAAlumna, getFichaAlumna, getSaludAlumna } from '@/lib/student/datos-instructora';
 import { textoEstadoClaseAlumna, type ClaseConAlumna } from '@/lib/student/alumnas-instructora';
+import { resumenAsistencia, textoAsistencia } from '@/lib/student/alumnas-vista';
 import { fechaEnZona } from '@/lib/student/agenda-instructora';
 import { SEMAFORO_META } from '@/lib/ficha-clinica';
 import { TEXTO_SEVERIDAD, TEXTO_ZONA, type SaludAlumna } from '@/lib/datos-salud/salud-para-instructora';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Badge } from '@/components/student/ui/Badge';
 import { Button } from '@/components/student/ui/Button';
+import { Icono } from '@/components/student/ui/Icono';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 
 // Ficha mínima de una alumna suya: nombre, foto, si es su primera clase en el
@@ -29,6 +31,10 @@ import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/
 // Su salud se abre a petición: solo avisos estructurados (con consentimiento) y
 // las notas que escribió ella. Abrirla queda registrado en el estudio, así que
 // no se pide sola al entrar en la ficha.
+//
+// Pasada de diseño 6 (15-sep-2026): lo que mira antes de clase va arriba. La
+// cabecera en verde noche (como «Pasar lista») con cómo ha venido a sus clases, y
+// su próxima clase contigo destacada; después la salud y el resto de clases.
 
 type FaseSalud =
   | { fase: 'cerrada' }
@@ -37,6 +43,13 @@ type FaseSalud =
   | { fase: 'lista'; salud: SaludAlumna };
 
 const TONO_SEMAFORO = { VERDE: 'ok', AMBAR: 'wait', ROJO: 'full' } as const;
+
+function tonoEstado(estado: ClaseConAlumna['estado']) {
+  if (estado === 'no-vino') return 'full' as const;
+  if (estado === 'en-espera' || estado === 'pendiente') return 'wait' as const;
+  if (estado === 'asistio') return 'ok' as const;
+  return 'neutral' as const;
+}
 
 function SeccionSalud({ slug, socioId, online }: { slug: string; socioId: string; online: boolean }) {
   const [estado, setEstado] = useState<FaseSalud>({ fase: 'cerrada' });
@@ -55,10 +68,15 @@ function SeccionSalud({ slug, socioId, online }: { slug: string; socioId: string
     <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="fa-salud" data-testid="salud-alumna">
       <h3 id="fa-salud" className="t-label">Salud</h3>
       {estado.fase !== 'lista' && (
-        <div className="card card--pad-lg stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
-          <p className="t-small">Sus avisos para adaptar la clase y tus notas sobre ella. El estudio apunta que los has consultado.</p>
+        <div className="card card--pad-lg" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+            <span aria-hidden style={{ width: 34, height: 34, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icono nombre="aviso" tamano={18} />
+            </span>
+            <p className="t-small" style={{ margin: 0 }}>Sus avisos para adaptar la clase y tus notas sobre ella. El estudio apunta que los has consultado.</p>
+          </div>
           {estado.fase === 'error' && (
-            <p className="t-small" role="alert" style={{ color: 'var(--destructive-foreground)' }}>
+            <p className="t-small" role="alert" style={{ margin: 0, color: 'var(--destructive-foreground)' }}>
               No hemos podido abrir sus avisos de salud. Vuelve a intentarlo.
             </p>
           )}
@@ -88,12 +106,12 @@ function SaludAbierta({ salud }: { salud: SaludAlumna }) {
         {salud.avisos.length === 0
           ? <p className="t-small t-dim">No tiene avisos de salud activos.</p>
           : salud.avisos.map((a, i) => (
-            <div key={i} data-testid="aviso-salud">
+            <div key={i} data-testid="aviso-salud" style={{ paddingTop: i > 0 ? 10 : 0, borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
               <p className="t-card-title">{a.etiqueta}</p>
               <p className="t-meta">
                 {[a.zona ? TEXTO_ZONA[a.zona] : null, `Gravedad ${TEXTO_SEVERIDAD[a.severidad].toLowerCase()}`].filter(Boolean).join(' · ')}
               </p>
-              {a.restricciones.length > 0 && <p className="t-small">{a.restricciones.join(' · ')}</p>}
+              {a.restricciones.length > 0 && <p className="t-small" style={{ marginTop: 2 }}>{a.restricciones.join(' · ')}</p>}
             </div>
           ))}
       </div>
@@ -170,6 +188,10 @@ export default function FichaAlumnaInstructoraPage() {
     );
   }
 
+  const asistencia = textoAsistencia(resumenAsistencia(data.pasadas));
+  const [proxima, ...otrasProximas] = data.proximas;
+  const tenue = 'color-mix(in srgb, var(--accent-deep-foreground) 78%, transparent)';
+
   const fila = (c: ClaseConAlumna, enlace: boolean) => {
     const contenido = (
       <>
@@ -177,9 +199,7 @@ export default function FichaAlumnaInstructoraPage() {
           <p className="t-card-title trunc">{c.tipo}</p>
           <p className="t-meta">{etiquetaDia(c.fecha, hoy)} · {c.hora}</p>
         </div>
-        <Badge tone={c.estado === 'no-vino' ? 'full' : c.estado === 'en-espera' || c.estado === 'pendiente' ? 'wait' : 'neutral'}>
-          {textoEstadoClaseAlumna(c.estado)}
-        </Badge>
+        <Badge tone={tonoEstado(c.estado)}>{textoEstadoClaseAlumna(c.estado)}</Badge>
       </>
     );
     const estilo = { padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 } as const;
@@ -197,34 +217,58 @@ export default function FichaAlumnaInstructoraPage() {
     <StudentShell modo="instructora">
       <PageHeader back titulo="Alumna" />
       <div className="px stack" style={{ ['--gap' as string]: 'var(--s-4)', marginTop: 14, paddingBottom: 24 }}>
-        <div className="card card--pad-lg" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <AvatarSocia nombre={data.nombre} fotoUrl={data.fotoUrl} size={64} />
-          <div style={{ minWidth: 0 }}>
-            <h2 className="t-h2 trunc" data-testid="nombre-alumna">{data.nombre}</h2>
-            {data.primeraClase && <div style={{ marginTop: 4 }}><Badge tone="ok">Primera clase en el estudio</Badge></div>}
+        {/* Quién es y cómo le va contigo, en el verde noche de «Pasar lista». */}
+        <section
+          aria-labelledby="nombre-alumna"
+          style={{ borderRadius: 'var(--radius-hero)', background: 'var(--accent-deep)', color: 'var(--accent-deep-foreground)', padding: '15px', boxShadow: 'var(--shadow-hero)' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+            <AvatarSocia nombre={data.nombre} fotoUrl={data.fotoUrl} size={56} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <h2 id="nombre-alumna" className="trunc" data-testid="nombre-alumna" style={{ margin: 0, fontSize: 'var(--t-h2)', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--on-dark)' }}>
+                {data.nombre}
+              </h2>
+              <p style={{ margin: '3px 0 0', fontSize: 'var(--t-meta)', fontWeight: 600, color: tenue }}>
+                {data.primeraClase ? 'Aún no ha venido a ninguna clase del estudio' : (asistencia ?? 'Todavía sin clases marcadas contigo')}
+              </p>
+            </div>
           </div>
           {/* Sin cuenta en la app no tiene dónde leer un mensaje: ni se ofrece. */}
           {data.tieneCuenta && (
-            <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-              <Button size="sm" variant="secondary" loading={abriendo} disabled={!online || abriendo} onClick={() => void escribir()}>
-                Escribir
-              </Button>
-            </div>
+            <Button
+              size="sm" full loading={abriendo} disabled={!online || abriendo} onClick={() => void escribir()}
+              style={{ marginTop: 12, background: 'var(--on-dark)', color: 'var(--accent-deep)', border: 'none' }}
+            >
+              Escribir
+            </Button>
           )}
-        </div>
+        </section>
+
+        {proxima && (
+          <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="fa-proxima">
+            <h3 id="fa-proxima" className="t-label">Su próxima clase contigo</h3>
+            {fila(proxima, true)}
+          </section>
+        )}
 
         <SeccionSalud slug={estudio.slug} socioId={data.socioId} online={online} />
 
-        <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="fa-proximas">
-          <h3 id="fa-proximas" className="t-label">Próximas clases contigo</h3>
-          {data.proximas.length === 0
-            ? <p className="t-small t-dim">No tiene clases próximas contigo.</p>
-            : data.proximas.map((c) => fila(c, true))}
-        </section>
+        {!proxima && (
+          <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="fa-proximas">
+            <h3 id="fa-proximas" className="t-label">Próximas clases contigo</h3>
+            <p className="t-small t-dim" style={{ margin: 0 }}>No tiene clases próximas contigo.</p>
+          </section>
+        )}
+        {otrasProximas.length > 0 && (
+          <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="fa-proximas">
+            <h3 id="fa-proximas" className="t-label">Después · {otrasProximas.length}</h3>
+            {otrasProximas.map((c) => fila(c, true))}
+          </section>
+        )}
 
         {data.pasadas.length > 0 && (
           <section className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }} aria-labelledby="fa-pasadas">
-            <h3 id="fa-pasadas" className="t-label">Clases pasadas contigo</h3>
+            <h3 id="fa-pasadas" className="t-label">Clases pasadas contigo · {data.pasadas.length}</h3>
             {data.pasadas.map((c) => fila(c, false))}
           </section>
         )}
