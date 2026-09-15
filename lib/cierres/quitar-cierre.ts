@@ -14,7 +14,7 @@
 // Restaurar clases o tocar bonos sería otra funcionalidad (y dinero): no se
 // finge aquí. Y como los días de más se quedan, volver a poner el cierre no los
 // suma otra vez: la prórroga queda apuntada en `cierres_prorrogas`, que no se
-// borra con el cierre (migr 20260915212126).
+// borra con el cierre (migr 20260915215613).
 //
 // ⚠️ Solo imports relativos con extensión: un alias `@/` tumba el test entero
 // sin que falle nada (ver dias-de-cierre.ts).

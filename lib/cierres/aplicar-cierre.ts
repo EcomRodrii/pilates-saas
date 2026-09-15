@@ -9,7 +9,7 @@
 //     cancelación NO es decisión de la socia, así que se le devuelve el bono.
 //   · Prorroga bonos y recuperaciones → la RPC `prorrogar_por_cierre`, que
 //     llama a `ampliar_caducidades` (#1621) UNA vez por día cerrado y lo apunta
-//     (migr 20260915212126).
+//     (migr 20260915215613).
 //   · Impedir reservar en esas fechas NO se hace aquí: vive en la RPC
 //     `reservar_plaza` (migr 20260905153105). Tiene que seguir siendo cierto
 //     para una sesión creada DESPUÉS de declarar el cierre, y eso solo lo
