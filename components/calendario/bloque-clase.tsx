@@ -5,6 +5,7 @@ import { Check, RefreshCw } from 'lucide-react';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { PINTA, type EstadoSesion } from '@/lib/calendario-estado';
 import { cn, horaEstudio } from '@/lib/utils';
+import { hexARgb, luminanciaRelativa } from '@/lib/wcag-contrast';
 import type { Sesion, TipoClase, Instructor, Reserva } from '@/lib/types';
 
 // Bloque de clase de la rejilla del Calendario — mismo componente para la
@@ -18,6 +19,18 @@ import type { Sesion, TipoClase, Instructor, Reserva } from '@/lib/types';
 /** Alto natural medido del bloque compacto con tres líneas y con dos. */
 const ALTO_TRES_LINEAS_PX = 55;
 const ALTO_DOS_LINEAS_PX = 42;
+
+// Cuánto tiñe el color del tipo de clase el bloque. `--calendario-tinte-clase`
+// (globals.css) está medido para los pasteles; un color OSCURO a esa proporción
+// convierte el bloque en un gris medio donde el nombre de la instructora
+// (`--muted-foreground`) no se lee: visto en producción con un tipo #1C1C28, al
+// 50 % queda #8E8E94 y la instructora a ~1,5:1. Con un color oscuro basta un
+// 8 %: el bloque ya lleva el color en su borde izquierdo, y el texto apagado
+// sigue por encima de 4,5:1.
+function tinteDelTipo(color: string): string {
+  const rgb = hexARgb(color);
+  return rgb && luminanciaRelativa(rgb) < 0.2 ? '8%' : 'var(--calendario-tinte-clase)';
+}
 
 export interface BloqueClaseProps {
   /** Con `serieId`, el bloque lleva la marca ↻ de clase que se repite. */
@@ -195,7 +208,7 @@ export function BloqueClase({
         background: seleccionada
           ? 'var(--muted)'
           : estado === 'PROGRAMADA' && tipo.color
-            ? `color-mix(in srgb, ${tipo.color} var(--calendario-tinte-clase), var(--card))`
+            ? `color-mix(in srgb, ${tipo.color} ${tinteDelTipo(tipo.color)}, var(--card))`
             : p.fondo,
         borderLeftColor: estado === 'PROGRAMADA' ? tipo.color : p.barra,
         opacity: arrastrando ? 0.85 : atenuada ? 0.35 : sesion.cancelada ? 0.6 : estado === 'FINALIZADA' ? 0.55 : 1,

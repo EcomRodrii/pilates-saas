@@ -33,6 +33,7 @@ import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto
 import { decidirReservaNueva, heredaOverride } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { sesionEncajaEnPlaza, claveFranjaDeSesion, type SesionSlot } from '@/lib/plazas-fijas-slot';
+import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { marcaReserva, textoTrasQuitar } from '@/lib/plazas-fijas-cancelacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
@@ -3255,8 +3256,13 @@ export default function Calendario() {
           subtitulo={nombreSerie(plazaFijaEnTarjeta, nombreTipoDe, nombreSalaDe)}
           clientas={socios
             .filter(s => s.activo && !plazaFijaEnTarjeta.plazasFijas.some(p => p.socioId === s.id))
-            .map(s => ({ id: s.id, nombre: `${s.nombre} ${s.apellidos}` }))
-            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))}
+            .map(s => ({
+              id: s.id,
+              nombre: `${s.nombre} ${s.apellidos}`,
+              sinCuota: !cuotaParaPlazaFija(s.id, suscripciones, planesTarifa, todayStr, plazaFijaEnTarjeta.tipoClaseId),
+            }))
+            // Primero las que pueden tenerla: con cuota que incluya la clase.
+            .sort((a, b) => Number(a.sinCuota) - Number(b.sinCuota) || a.nombre.localeCompare(b.nombre, 'es'))}
           onClose={() => setPlazaFijaEnTarjeta(null)}
           onElegir={socioId => {
             const t = plazaFijaEnTarjeta;
