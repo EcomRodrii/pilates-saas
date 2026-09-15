@@ -54,9 +54,13 @@ async function nombrePropietarioDe(studioId: string): Promise<{ nombrePropietari
 export const decisionDispatcher = inngest.createFunction(
   { id: 'decision-dispatcher', triggers: [{ cron: '30 14 * * *' }] },
   async ({ step }) => {
-    const nowISO = await step.run('now', async () => new Date().toISOString());
-
-    const estudios = await step.run('list-estudios-elegibles', async () => {
+    // La hora va DENTRO del step de la lista, no en uno propio: cada step es una
+    // ejecución de Inngest, y el valor sigue siendo el mismo en los replays porque
+    // sale de un step igualmente. Id nuevo a propósito: el step devuelve otra forma
+    // ({ nowISO, estudios }), y con el id viejo una ejecución a medias durante un
+    // despliegue recuperaría el array guardado y el fan-out fallaría para todos.
+    const { nowISO, estudios } = await step.run('list-estudios-con-hora', async () => {
+      const nowISO = new Date().toISOString();
       // `suspendido_en`: un estudio suspendido no debe seguir generando/
       // ejecutando decisiones autónomas.
       // Paginado (`fetchAllRows`), no un select suelto: PostgREST corta a 1.000
@@ -69,7 +73,7 @@ export const decisionDispatcher = inngest.createFunction(
       );
       if (error) throw new Error(error.message);
       const conPlan = data.filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
-      if (conPlan.length === 0) return [];
+      if (conPlan.length === 0) return { nowISO, estudios: [] as { id: string }[] };
 
       // El flag DECISIONES es un KILL-SWITCH, no un opt-in. Antes el cron exigía
       // flag `activo=true`, pero NADA lo activa nunca (dbSetFeatureFlag no tiene
@@ -82,7 +86,7 @@ export const decisionDispatcher = inngest.createFunction(
       const { data: flags } = await requireSupabaseAdmin()
         .from('decision_feature_flags').select('studio_id, activo').eq('flag', 'DECISIONES').in('studio_id', ids);
       const desactivados = new Set((flags ?? []).filter(f => f.activo === false).map(f => f.studio_id as string));
-      return conPlan.filter(s => !desactivados.has(s.id)).map(s => ({ id: s.id }));
+      return { nowISO, estudios: conPlan.filter(s => !desactivados.has(s.id)).map(s => ({ id: s.id })) };
     });
 
     await enviarFanOutEnLotes(step, 'fan-out-estudios', EVENTS.DECISION_ANALYZE, estudios, (e: { id: string }) => ({ studioId: e.id, disparadoPor: 'CRON' as const, nowISO }));
@@ -105,17 +109,26 @@ export const analizarEstudio = inngest.createFunction(
       dbInsertDecisionSession({ studioId, disparadoPor, algorithmVersion: ALGORITHM_VERSION, iniciadoEn: nowISO })
     );
 
-    const [snapshot, memoriaRows, pendientesActuales, resueltas90d, { nombrePropietario, nombreEstudio }, flagsRows, sociasExcluidasDePerfilado] = await Promise.all([
-      step.run('snapshot', () => construirSnapshot(studioId, now)),
-      step.run('memoria', () => dbListMemoriaRows(studioId)),
-      step.run('pendientes', () => dbListPendientes(studioId)),
-      step.run('resueltas', () => dbListResueltas90d(studioId, now)),
-      step.run('propietario', () => nombrePropietarioDe(studioId)),
-      step.run('flags', () => dbListFeatureFlagRows(studioId)),
-      // Art. 21 RGPD. Un array (no un Set): lo que devuelve un step pasa por
-      // JSON en el replay, mismo gotcha que flags/memoria. El Set lo arma el motor.
-      step.run('oposicion-perfilado', () => dbListSociasExcluidasDePerfilado(studioId)),
-    ]);
+    // Las siete lecturas van en UN step (antes siete): cada step es una ejecución
+    // de Inngest y estas solo leen, así que si falla una repetir las siete no
+    // tiene efectos. Siguen yendo en paralelo dentro del step. El snapshot ya era
+    // la salida grande: juntarlas apenas cambia el tamaño.
+    const lecturas = await step.run('lecturas', async () => {
+      const [snapshot, memoriaRows, pendientesActuales, resueltas90d, propietario, flagsRows, sociasExcluidasDePerfilado] = await Promise.all([
+        construirSnapshot(studioId, now),
+        dbListMemoriaRows(studioId),
+        dbListPendientes(studioId),
+        dbListResueltas90d(studioId, now),
+        nombrePropietarioDe(studioId),
+        dbListFeatureFlagRows(studioId),
+        // Art. 21 RGPD. Un array (no un Set): lo que devuelve un step pasa por
+        // JSON en el replay, mismo gotcha que flags/memoria. El Set lo arma el motor.
+        dbListSociasExcluidasDePerfilado(studioId),
+      ]);
+      return { snapshot, memoriaRows, pendientesActuales, resueltas90d, propietario, flagsRows, sociasExcluidasDePerfilado };
+    });
+    const { snapshot, memoriaRows, pendientesActuales, resueltas90d, flagsRows, sociasExcluidasDePerfilado } = lecturas;
+    const { nombrePropietario, nombreEstudio } = lecturas.propietario;
     // Se reconstruye FUERA del step: un Map no sobrevive la serialización a
     // JSON que Inngest hace entre steps (ver lib/decision/db.ts) — igual que
     // memoria, flagsRows llega como array de filas tras el replay.
@@ -233,7 +246,7 @@ export const analizarEstudio = inngest.createFunction(
     // expiración ya existentes). Las que el piloto automático ya va a resolver
     // solo (`autonomas`, arriba) no compiten por el mensaje: si el sistema ya
     // lo hace, no hace falta interrumpir para pedir permiso.
-    await step.run('umbral-mensaje-del-dia', async () => {
+    const elegirYGuardarMensajeDelDia = async () => {
       const fecha = nowISOStr.slice(0, 10);
       const idsAutonomas = new Set(autonomas.map(a => a.id));
       const dedupeKeysAutoResueltas = new Set(
@@ -288,25 +301,29 @@ export const analizarEstudio = inngest.createFunction(
         // lo mismo, la fila de hoy se archiva en vez de acumularse.
         asuntoKey: veredicto.candidata.dedupeKey,
       });
-    });
+    };
 
-    if (resultado.nuevosHechosMemoria.length > 0) {
-      await step.run('memoria-automatica', () =>
-        Promise.all(resultado.nuevosHechosMemoria.map(h => dbUpsertHechoMemoria(h)))
-      );
-    }
-
+    // El cierre va en UN step (antes hasta cuatro: umbral, memoria, resumen y
+    // finalizar), en el mismo orden. Todo lo de dentro se puede repetir sin
+    // efecto si el step se reintenta: el mensaje del día es un upsert por estudio y
+    // fecha y su aviso deduplica por lo mismo, la memoria y el resumen son upserts,
+    // y finalizar reescribe la misma fila de la sesión.
     const resumenFinal = { ...resultado.resumenDiario, studioId, saludo: redaccion.saludo };
-    const resumenDiarioId = await step.run('resumen-diario', () => dbUpsertResumenDiario(resumenFinal));
-
-    await step.run('finalizar-sesion', () => dbFinalizarDecisionSession(sessionId, {
-      finalizadoEn: new Date().toISOString(),
-      snapshotStats: { socios: snapshot.socios.length, sesiones: snapshot.sesiones.length, recibosPendientes: snapshot.recibos.filter(r => r.estado === 'PENDIENTE').length },
-      nCandidatasGeneradas: resultado.estadisticas.nCandidatasGeneradas,
-      nCandidatasDescartadas: resultado.estadisticas.nCandidatasDescartadas,
-      nRecomendacionesPersistidas: resultado.estadisticas.nRecomendacionesPersistidas,
-      resumenDiarioId, errores: null, estado: 'COMPLETADA',
-    }));
+    await step.run('cerrar-analisis', async () => {
+      await elegirYGuardarMensajeDelDia();
+      if (resultado.nuevosHechosMemoria.length > 0) {
+        await Promise.all(resultado.nuevosHechosMemoria.map(h => dbUpsertHechoMemoria(h)));
+      }
+      const resumenDiarioId = await dbUpsertResumenDiario(resumenFinal);
+      await dbFinalizarDecisionSession(sessionId, {
+        finalizadoEn: new Date().toISOString(),
+        snapshotStats: { socios: snapshot.socios.length, sesiones: snapshot.sesiones.length, recibosPendientes: snapshot.recibos.filter(r => r.estado === 'PENDIENTE').length },
+        nCandidatasGeneradas: resultado.estadisticas.nCandidatasGeneradas,
+        nCandidatasDescartadas: resultado.estadisticas.nCandidatasDescartadas,
+        nRecomendacionesPersistidas: resultado.estadisticas.nRecomendacionesPersistidas,
+        resumenDiarioId, errores: null, estado: 'COMPLETADA',
+      });
+    });
 
     return { studioId, sessionId, recomendaciones: recomendacionesRedactadas.length, prioridades: resultado.prioridadesHome.length };
   }

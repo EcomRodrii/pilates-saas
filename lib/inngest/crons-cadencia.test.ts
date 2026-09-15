@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const RAIZ = join(import.meta.dirname, '../..');
@@ -204,4 +204,58 @@ test('ningún cron de frecuencia sub-horaria puede hacer fan-out por estudio', (
     + 'clientes y revienta la cuota de Inngest. Usa una consulta global dentro del propio '
     + `cron (patrón de recordatoriosGlobal).\n  ${infractores.join('\n  ')}`,
   );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Consumo mínimo de Inngest (septiembre 2026). Cada run y cada step es una
+// ejecución facturable, haya trabajo o no. Estas guardias impiden que vuelvan
+// los que solo existían por costumbre.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('recordatorios de clase: fuera de Inngest (los manda solo el pg_cron notif-recordatorios)', () => {
+  const route = leer('app/api/inngest/route.ts');
+  assert.ok(
+    !route.includes('recordatoriosDispatcher') && !route.includes('procesarRecordatoriosEstudio'),
+    'el fan-out diario de Inngest duplicaba el barrido de pg_cron y costaba una ejecución por estudio al día',
+  );
+  assert.ok(!existsSync(join(RAIZ, 'lib/inngest/recordatorios.ts')), 'lib/inngest/recordatorios.ts no debe volver');
+});
+
+test('cierre-gestoria-automatico: el cron solo corre los días que puede hacer algo', () => {
+  assert.equal(
+    cronDe(leer('lib/inngest/cierre-gestoria-automatico.ts'), 'cierre-gestoria-automatico'), '0 6 1 1,4,7,10 *',
+    'solo actúa el día 1 de enero, abril, julio y octubre: un cron diario gastaba 361 ejecuciones al año para nada',
+  );
+});
+
+test('decision-analizar-estudio: las lecturas y el cierre van en un step cada uno', () => {
+  const fuente = leer('lib/inngest/decision.ts');
+  for (const id of [
+    'snapshot', 'memoria', 'pendientes', 'resueltas', 'propietario', 'flags', 'oposicion-perfilado',
+    'umbral-mensaje-del-dia', 'memoria-automatica', 'resumen-diario', 'finalizar-sesion',
+  ]) {
+    assert.ok(!fuente.includes(`step.run('${id}'`), `step '${id}' suelto: va dentro de 'lecturas' o de 'cerrar-analisis'`);
+  }
+});
+
+test('dispatchers: la hora no gasta un step propio', () => {
+  // Solo las funciones de cron: dentro de un run largo (p. ej. ejecutar una
+  // recomendación) un step `now` sí fija la hora a mitad de camino.
+  for (const rel of [
+    'lib/inngest/decision.ts', 'lib/inngest/automatizaciones.ts',
+    'lib/inngest/valoraciones.ts', 'lib/inngest/confirmacion-riesgo.ts',
+  ]) {
+    for (const bloque of leer(rel).split('inngest.createFunction').slice(1)) {
+      const cuerpo = bloque.split('\n);')[0];
+      if (!/cron:\s*'/.test(cuerpo)) continue;
+      const id = cuerpo.match(/id:\s*'([^']+)'/)?.[1] ?? '(sin id)';
+      assert.ok(!cuerpo.includes("step.run('now'"), `${rel} → '${id}': la hora va dentro del step que lee la lista`);
+      // Ese step devuelve ahora { nowISO, … }: con el id viejo, una ejecución a medias
+      // durante un despliegue recuperaría el array guardado y el fan-out fallaría.
+      assert.ok(
+        !/step\.run\('list-(studios|estudios-elegibles)'/.test(cuerpo),
+        `${rel} → '${id}': el step de la lista cambió de forma y tiene que cambiar de id`,
+      );
+    }
+  }
 });

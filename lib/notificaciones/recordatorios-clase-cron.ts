@@ -7,9 +7,8 @@
 // app. La lógica vive en `recordatorio-clase.ts` (probada con `node --test`);
 // aquí solo se enchufan las piezas que necesitan `@/`.
 //
-// ⚠️ Transición: `lib/inngest/recordatorios.ts` (email/WhatsApp diario a las
-// 08:00 UTC) sigue registrado hasta retirarlo en su propio PR. No duplica nada
-// porque reclama la misma fila de `recordatorio_envios` antes de mandar.
+// El camino viejo de Inngest (`lib/inngest/recordatorios.ts`, email y WhatsApp
+// diarios a las 08:00 UTC) ya está retirado: este barrido es el único.
 // ─────────────────────────────────────────────────────────────────────────────
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';

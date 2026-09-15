@@ -26,10 +26,11 @@ import { join } from 'node:path';
 const RAIZ = join(import.meta.dirname, '../..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8');
 
-// Los cinco barridos cuya lectura es global de verdad (sin `.eq('studio_id', …)`).
-// `recordatorios.ts` y `confirmacion-riesgo.ts` NO están aquí a propósito: hacen
-// fan-out por estudio y sus lecturas van acotadas a un `studioId`, así que su
-// techo es el de un solo estudio, no el de la plataforma.
+// Los barridos cuya lectura es global de verdad (sin `.eq('studio_id', …)`).
+// `valoraciones.ts` también: su dispatcher mira todos los estudios a la vez para
+// abrir evento solo a los que tienen trabajo. `confirmacion-riesgo.ts` hace lo
+// mismo y sus lecturas globales ya van con `fetchAllRows`, pero no está en la
+// lista: sus UPDATE con `.select('id')` darían falso positivo en esta heurística.
 // Los cinco salieron de Inngest a pg_cron (piloto de arquitectura, 2026-08-11)
 // — el riesgo de truncado silencioso es el mismo, solo cambió quién dispara
 // cada barrido.
@@ -40,6 +41,7 @@ const CRONS_GLOBALES = [
   'lib/minimo-asistentes/cancelar-por-minimo.ts',
   'lib/checkin/marcar-asistidas-automatico.ts',
   'lib/sustituciones/cerrar-vencidas.ts',
+  'lib/inngest/valoraciones.ts',
 ];
 
 // Tablas que crecen con el uso: una lectura suya sin paginar es la que rompe.
@@ -108,7 +110,6 @@ for (const rel of CRONS_POR_ESTUDIO) {
 // que lo señale. Umbral exacto: 1.000 estudios.
 const DISPATCHERS = [
   'lib/backups/ejecutar-copia-diaria.ts',
-  'lib/inngest/recordatorios.ts',
   'lib/inngest/renovaciones.ts',
   'lib/salud/generar-revisiones-todas.ts',
   'lib/inngest/valoraciones.ts',
