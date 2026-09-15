@@ -3,6 +3,10 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Un ordenador con poca pantalla de alto: los portátiles de 768 a 900 px (1366×768
+   de Windows, 1440×900 de MacBook). El calendario aprieta ahí su cabecera para
+   dejarle sitio a la rejilla. */
+@custom-variant escritorio-bajo (@media (min-width: 1024px) and (max-height: 900px));
 
 @theme inline {
   /* Tailwind v4 no trae un breakpoint entre el base (0) y `sm` (640px) —
@@ -1122,15 +1126,17 @@ body:has([data-barra-guardar]) .panel-wa-fab { display: none; }
    como si fueran los de hoy (lo protege `calendario-momentos.spec.ts`). Lo
    único que cae es la barra de ocupación, que repite la cifra de encima.
    `!important` por el motivo de `.reserva-modal-edge`: pisa utilidades de
-   Tailwind de la misma capa, cuyo orden en la hoja final no está garantizado. */
-@media (max-height: 860px) {
+   Tailwind de la misma capa, cuyo orden en la hoja final no está garantizado.
+   900 y no 860 (16-sep): el MacBook de 1440×900 se quedaba fuera por 40 px y
+   pagaba las tarjetas de tres líneas con 4,3 horas de rejilla a la vista. */
+@media (max-height: 900px) {
   .tarjeta-metrica {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: .5rem;
     align-items: baseline;
-    padding-top: .375rem !important;
-    padding-bottom: .375rem !important;
+    padding-top: .25rem !important;
+    padding-bottom: .25rem !important;
   }
   .tarjeta-metrica .tm-valor { grid-row: 1; grid-column: 2; margin-top: 0 !important; }
   .tarjeta-metrica .tm-pie { grid-column: 1 / -1; margin-top: 0 !important; }

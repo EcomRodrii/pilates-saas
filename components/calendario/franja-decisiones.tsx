@@ -31,7 +31,8 @@ export function FranjaDecisiones({
 
   return (
     <div
-      className="flex flex-none flex-wrap items-center gap-3 rounded-2xl border px-3.5 py-2.5"
+      // En un portátil bajo, más fina: está encima de la rejilla y cada píxel es rejilla.
+      className="flex flex-none flex-wrap items-center gap-3 rounded-2xl border px-3.5 py-2.5 escritorio-bajo:py-1"
       style={{ background: 'color-mix(in srgb, var(--destructive) 10%, var(--card))', borderColor: 'color-mix(in srgb, var(--destructive) 20%, transparent)' }}
     >
       <span

@@ -10,7 +10,9 @@ export function TarjetasMetricas({ tarjetas, onClickTarjeta }: {
   onClickTarjeta?: (i: number) => void;
 }) {
   return (
-    <div className="grid flex-none gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(215px,1fr))' }}>
+    // 200 px y no 215: con 215 las tres no cabían junto a los filtros ni en un
+    // monitor de 1920 px, y caían a dos columnas con la tercera sola debajo.
+    <div className="grid flex-none gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))' }}>
       {tarjetas.map((t, i) => (
         <button
           key={t.titulo}
