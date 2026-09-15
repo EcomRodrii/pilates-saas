@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { cargarEstudio } from '@/lib/student/estudio';
+import { getStudioSeo } from '@/lib/studio-seo';
 import { acentoCssText } from '@/lib/student/tema';
 import { StudentProvider } from '@/components/student/contexto';
 import { ToastProvider } from '@/components/student/ui/Toast';
@@ -113,9 +114,13 @@ export default async function StudentLayout({
   // API pública sigue respondiendo; la cerradura real es siempre la RLS).
   if (estudio.paginaOculta) {
     const galleta = await cookies();
+    // La huella se lee aquí, en servidor, y no viaja en `estudio`: ese objeto
+    // acaba en `StudentProvider` (cliente). `getStudioSeo` está cacheada por
+    // petición, así que es la misma consulta que ya hizo `cargarEstudio`.
+    const huella = (await getStudioSeo(slug))?.paginaHuellaClave ?? null;
     const veredicto = veredictoPagina({
       oculta: true,
-      tieneClave: estudio.paginaTieneClave,
+      huellaClave: huella,
       pase: galleta.get(nombreCookieAcceso(estudio.id))?.value,
       studioId: estudio.id,
     });

@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { huellaClave } from '@/lib/publico/acceso-pagina';
 
 // Columnas de `studios` que esta función lee, partidas en dos por una razón
 // operativa, no estética: las ESTABLES llevan meses en producción y ninguna
@@ -60,9 +61,11 @@ export interface StudioSeo {
    * página), y una segunda consulta sería la misma fila leída dos veces.
    */
   paginaOculta: boolean;
-  /** Solo si hay clave configurada. **El hash NUNCA sale de aquí**: se queda
-   *  en el servidor, y lo que viaja es este booleano. */
-  paginaTieneClave: boolean;
+  /** `huellaClave()` de la clave configurada, o `null` sin clave. **El hash
+   *  NUNCA sale de aquí**: la huella basta para decir si hay clave y para que
+   *  un pase de una clave cambiada o quitada no abra. Solo la leen los layouts
+   *  en servidor; no se pasa a ningún componente de cliente. */
+  paginaHuellaClave: string | null;
   /**
    * Datos de contacto y foto, para los datos estructurados de negocio local
    * (`lib/seo/estudio-jsonld.ts`). Son columnas VIEJAS de `studios`, no de una
@@ -181,7 +184,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // `page.route` no puede llegar a él y sin esto el camino de "oculta" no
       // es alcanzable por ningún test. Ausente = visible, como siempre.
       paginaOculta: process.env.E2E_PAGINA_OCULTA === '1' || process.env.E2E_PAGINA_OCULTA === 'con-clave',
-      paginaTieneClave: process.env.E2E_PAGINA_OCULTA === 'con-clave',
+      paginaHuellaClave: process.env.E2E_PAGINA_OCULTA === 'con-clave' ? 'huella-e2e' : null,
     } };
   }
   const admin = getSupabaseAdmin();
@@ -285,10 +288,11 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     // `=== true` y no un truthy: sin la columna todavía aplicada, «no sé» tiene
     // que significar «no oculta» y no esconder la página de todo el mundo.
     paginaOculta: visibilidad?.pagina_publica_oculta === true,
-    // ⚠️ El HASH no sale de aquí. Lo que viaja es si HAY clave, porque es lo
-    // único que la página necesita saber para decidir si enseña el formulario.
-    paginaTieneClave: typeof visibilidad?.pagina_publica_clave_hash === 'string'
-      && visibilidad.pagina_publica_clave_hash.length > 0,
+    // ⚠️ El HASH no sale de aquí. Lo que viaja es su huella: con ella el gate
+    // sabe si HAY clave (formulario sí/no) y si el pase es de la clave de ahora.
+    paginaHuellaClave: huellaClave(
+      typeof visibilidad?.pagina_publica_clave_hash === 'string' ? visibilidad.pagina_publica_clave_hash : null,
+    ),
   } };
 });
 

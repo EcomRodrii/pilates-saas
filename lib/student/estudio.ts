@@ -28,9 +28,10 @@ export interface EstudioStudent extends StudioConfig {
   /** Color de marca del estudio. Alimenta la familia de acento del diseño
    *  (lib/student/tema.ts); ningún componente lo lee directo. */
   colorPrimario: string;
-  /** Gate de página oculta, que el layout tiene que respetar igual que /reservar. */
+  /** Gate de página oculta, que el layout tiene que respetar igual que /reservar.
+   *  La huella de la clave NO va aquí: este objeto llega al cliente
+   *  (`StudentProvider`), y el layout la lee de `getStudioSeo` en servidor. */
   paginaOculta: boolean;
-  paginaTieneClave: boolean;
 }
 
 /**
@@ -109,6 +110,5 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     tema: {},
     colorPrimario: s.colorPrimario,
     paginaOculta: s.paginaOculta,
-    paginaTieneClave: s.paginaTieneClave,
   };
 }

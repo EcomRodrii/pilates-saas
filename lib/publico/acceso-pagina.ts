@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual, scryptSync, randomBytes } from 'crypto';
+import { createHash, createHmac, timingSafeEqual, scryptSync, randomBytes } from 'crypto';
 
 // Página pública oculta: el estudio puede tener su /reservar/{slug} escondido
 // mientras lo prepara, y opcionalmente abrirlo con una clave que le pasa a
@@ -86,29 +86,52 @@ function firmar(payloadB64: string, clave: string): string {
   return createHmac('sha256', clave).update(payloadB64).digest('base64url');
 }
 
+/**
+ * Huella corta de la clave GUARDADA (del hash, nunca de la clave), o `null` si
+ * no hay clave. Va dentro del pase firmado y se compara al entrar: así cambiar
+ * o quitar la clave cierra también a quien ya había entrado.
+ *
+ * sha256 sin secreto a propósito: no depende de ninguna variable de entorno
+ * (no puede tumbar la carga de un estudio visible), y no abre nada por sí sola
+ * — el pase sigue necesitando la firma HMAC. Tampoco sirve para adivinar la
+ * clave: la sal del scrypt no sale de aquí.
+ *
+ * Cada `hashearClave` lleva sal nueva, así que volver a guardar la MISMA clave
+ * también cambia la huella. Es lo esperable de «cambiar la clave».
+ */
+export function huellaClave(guardado: string | null | undefined): string | null {
+  if (!guardado) return null;
+  return createHash('sha256').update(guardado).digest('base64url').slice(0, 22);
+}
+
 export function firmarAcceso(
   studioId: string,
+  huella: string,
   ahora: number = Date.now(),
   claveFirma: string = secreto(),
 ): string {
-  const payloadB64 = Buffer.from(JSON.stringify({ tipo: TIPO, studioId, exp: ahora + TTL_MS })).toString('base64url');
+  const payloadB64 = Buffer.from(JSON.stringify({ tipo: TIPO, studioId, huella, exp: ahora + TTL_MS })).toString('base64url');
   return `${payloadB64}.${firmar(payloadB64, claveFirma)}`;
 }
 
 /**
- * ¿Este pase abre ESTE estudio, ahora?
+ * ¿Este pase abre ESTE estudio, con SU clave de ahora, en este momento?
  *
- * Comprueba las tres cosas por separado a propósito: firma (que no lo haya
+ * Comprueba cada cosa por separado a propósito: firma (que no lo haya
  * fabricado cualquiera), `tipo` (que no sea un token de otra cosa firmado con
- * el mismo secreto) y `studioId` (que no sea el de otro estudio).
+ * el mismo secreto), `studioId` (que no sea el de otro estudio) y `huella`
+ * (que la clave con la que se entró siga siendo la guardada). Sin clave
+ * guardada no abre ningún pase: un pase sin huella —los de antes de este
+ * cambio— tampoco.
  */
 export function verificarAcceso(
   token: string | null | undefined,
   studioId: string,
+  huellaGuardada: string | null | undefined,
   ahora: number = Date.now(),
   claveFirma: string = secreto(),
 ): boolean {
-  if (!token) return false;
+  if (!token || !huellaGuardada) return false;
   const punto = token.indexOf('.');
   if (punto <= 0) return false;
   const payloadB64 = token.slice(0, punto);
@@ -120,14 +143,54 @@ export function verificarAcceso(
 
   try {
     const data = JSON.parse(Buffer.from(payloadB64, 'base64url').toString()) as {
-      tipo?: unknown; studioId?: unknown; exp?: unknown;
+      tipo?: unknown; studioId?: unknown; huella?: unknown; exp?: unknown;
     };
     if (data.tipo !== TIPO) return false;
     if (typeof data.exp !== 'number' || data.exp < ahora) return false;
+    if (typeof data.huella !== 'string' || data.huella !== huellaGuardada) return false;
     return data.studioId === studioId;
   } catch {
     return false;
   }
+}
+
+// ── Quién la configura, y qué se contesta al leerla ─────────────────────────
+
+/**
+ * Solo la propietaria. Es el mismo listón que la RLS de `studios` (solo la
+ * dueña modifica su fila), que `/configuracion` (cerrada a MANAGER en
+ * `lib/permisos-reglas.ts`) y que publicar la marca (`/api/theme/publish`).
+ * La ruta escribe con service-role, así que esta comprobación ES la cerradura.
+ */
+export function puedeCambiarVisibilidadPagina(rol: string | null | undefined): boolean {
+  return rol === 'PROPIETARIO';
+}
+
+export type EstadoPaginaRespuesta =
+  | { status: 200; body: { oculta: boolean; tieneClave: boolean } }
+  | { status: 404 | 503; body: { error: string } };
+
+/**
+ * Traduce la lectura de `studios` a la respuesta del GET. ⚠️ Un error al leer
+ * NO es «visible»: con `data` en null por un fallo, contestar `oculta: false`
+ * haría que la pantalla enseñara como visible una página que quizá está
+ * escondida. Sin leer, no se afirma nada.
+ */
+export function estadoPaginaDesdeLectura(lectura: {
+  data: { pagina_publica_oculta?: boolean | null; pagina_publica_clave_hash?: string | null } | null;
+  error: unknown;
+}): EstadoPaginaRespuesta {
+  if (lectura.error)
+    return { status: 503, body: { error: 'No se ha podido leer la visibilidad de tu página. Vuelve a intentarlo.' } };
+  if (!lectura.data)
+    return { status: 404, body: { error: 'No se ha encontrado tu estudio. Recarga la página y vuelve a intentarlo.' } };
+  return {
+    status: 200,
+    body: {
+      oculta: lectura.data.pagina_publica_oculta === true,
+      tieneClave: huellaClave(lectura.data.pagina_publica_clave_hash) !== null,
+    },
+  };
 }
 
 // ── La decisión ─────────────────────────────────────────────────────────────
@@ -143,16 +206,19 @@ export type VeredictoPagina = 'abierta' | 'pide-clave' | 'cerrada';
  */
 export function veredictoPagina(opciones: {
   oculta: boolean;
-  tieneClave: boolean;
+  /** `huellaClave()` de la clave guardada ahora mismo; `null` = sin clave. */
+  huellaClave: string | null;
   pase: string | null | undefined;
   studioId: string;
   ahora?: number;
   claveFirma?: string;
 }): VeredictoPagina {
   if (!opciones.oculta) return 'abierta';
-  const { pase, studioId, ahora, claveFirma } = opciones;
-  // El pase vale aunque la clave se haya quitado después: quien ya entró no
-  // debería quedarse fuera por un cambio de configuración ajeno.
-  if (verificarAcceso(pase, studioId, ahora ?? Date.now(), claveFirma ?? secreto())) return 'abierta';
-  return opciones.tieneClave ? 'pide-clave' : 'cerrada';
+  const { huellaClave: huella, pase, studioId, ahora, claveFirma } = opciones;
+  // Sin clave no se mira ningún pase: «oculta sin clave» es «no entra nadie»,
+  // tampoco quien entró antes. Y un pase de otra clave (cambiada) no abre:
+  // decisión del equipo, cambiar o quitar la clave cierra a todo el mundo.
+  if (!huella) return 'cerrada';
+  if (verificarAcceso(pase, studioId, huella, ahora ?? Date.now(), claveFirma ?? secreto())) return 'abierta';
+  return 'pide-clave';
 }

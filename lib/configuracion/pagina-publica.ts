@@ -94,8 +94,8 @@ const AVISO = 'Tu página de reservas y la app de tus alumnas dirán «Estamos p
 
 /**
  * Lo que se pregunta antes de guardar: cambia lo que ven personas de fuera, así
- * que dice la consecuencia. El pase de quien entró con clave dura 30 días desde
- * que entró y no se anula al cambiar o quitar la clave (`veredictoPagina`).
+ * que dice la consecuencia. El pase de quien entró con clave lleva la huella de
+ * esa clave: cambiarla, quitarla o volver a guardarla lo anula (`veredictoPagina`).
  */
 export function confirmacionPaginaPublica(f: FormPaginaPublica, s: EstadoPaginaPublica): ConfirmacionPaginaPublica | null {
   const c = cuerpoPaginaPublica(f);
@@ -116,7 +116,7 @@ export function confirmacionPaginaPublica(f: FormPaginaPublica, s: EstadoPaginaP
   if (c.clave === '' && s.tieneClave) {
     return {
       titulo: '¿Quitar la clave?',
-      descripcion: 'No entrará nadie más. Quien ya entró con ella puede seguir 30 días desde que entró.',
+      descripcion: 'No entrará nadie más, tampoco quien ya había entrado con ella.',
       textoConfirmar: 'Quitar la clave',
     };
   }
@@ -124,7 +124,7 @@ export function confirmacionPaginaPublica(f: FormPaginaPublica, s: EstadoPaginaP
     return {
       titulo: s.tieneClave ? '¿Cambiar la clave?' : '¿Poner esta clave?',
       descripcion: s.tieneClave
-        ? 'La anterior deja de servir. Quien ya entró con ella puede seguir 30 días desde que entró.'
+        ? 'La anterior deja de servir, y quien ya había entrado tendrá que pedirte la nueva.'
         : 'Quien la tenga podrá ver tu página y la app de tus alumnas.',
       textoConfirmar: s.tieneClave ? 'Cambiar la clave' : 'Poner la clave',
     };
