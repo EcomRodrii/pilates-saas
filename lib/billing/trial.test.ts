@@ -188,6 +188,11 @@ test('con suscripción de Stripe NUNCA, ni siquiera cancelada: sería acceso inf
 test('sin prueba local, con plan manual o siendo sede, no se amplía', () => {
   assert.equal(ampliacionDePrueba({ trialEndsAt: null, subscriptionStatus: null, subscriptionId: null }, 7, AHORA).ok, false);
   assert.equal(ampliacionDePrueba({ trialEndsAt: dentroDe(-1), subscriptionStatus: 'active', subscriptionId: null }, 7, AHORA).ok, false);
-  assert.equal(ampliacionDePrueba({ trialEndsAt: null, subscriptionStatus: 'trial_expirado', subscriptionId: null }, 7, AHORA).ok, false);
+  // ⚠️ trial_expirado SIN fecha (NULL) AHORA SÍ se amplía: reparación de estado incoherente
+  // usando ahora() como base. Ver ampliacionDePrueba() para el contexto.
+  assert.deepEqual(
+    ampliacionDePrueba({ trialEndsAt: null, subscriptionStatus: 'trial_expirado', subscriptionId: null }, 7, AHORA),
+    { ok: true, hasta: new Date(dentroDe(7)) },
+  );
   assert.equal(ampliacionDePrueba({ trialEndsAt: dentroDe(-1), subscriptionStatus: 'trial_expirado', subscriptionId: null, esSede: true }, 7, AHORA).ok, false);
 });
