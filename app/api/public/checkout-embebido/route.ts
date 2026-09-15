@@ -20,6 +20,7 @@ import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula } from '@/li
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
+import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 
 // Fase 3 del "Booking Experience Engine" — checkout embebido dentro del widget
 // (Modo B): sustituye `stripe.checkout.sessions.create()` (redirect de página
@@ -121,6 +122,11 @@ export async function POST(req: NextRequest) {
   if (!body?.studioId) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
   }
+  // Con la página oculta no se compra ni se paga una clase desde fuera. Antes
+  // de leer el plan y, sobre todo, antes de gastar una plaza de matrícula o
+  // crear nada en Stripe.
+  const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
+  if (cerrada) return conCorsWidget(req, cerrada);
   if (!body.planId) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el plan a comprar' }, { status: 400 }));
   }

@@ -13,8 +13,12 @@
 //     app/portal/[slug]/layout.tsx);
 //   · `noindex` en /reservar y fuera del sitemap (app/sitemap.ts);
 //   · los widgets de <iframe> son /reservar?embed=1: enseñan el aviso. El
-//     calendario incrustado (widget.js) lee la API pública, que NO mira esto:
-//     sigue enseñando las clases (app/api/public/studio-data);
+//     calendario incrustado (widget.js) también: sin pase, la API pública no le
+//     da clases (app/api/public/studio-data), y el pase no llega desde la web
+//     del estudio, así que ahí no se reserva ni con la clave;
+//   · nadie reserva, compra ni se da de alta desde fuera: sin el pase de la
+//     clave vigente esas rutas contestan 403 (lib/publico/pagina-cerrada-peticion.ts).
+//     Con la clave, sí; cambiarla o quitarla anula el pase de quien ya entró;
 //   · Tentare Network no lo mira: si sale, sigue saliendo y su enlace lleva al aviso.
 //
 // Pura y sin `@/`: se prueba con `node --test`.
@@ -90,7 +94,7 @@ export interface ConfirmacionPaginaPublica {
   textoConfirmar: string;
 }
 
-const AVISO = 'Tu página de reservas y la app de tus alumnas dirán «Estamos preparando esta página».';
+const AVISO = 'Tu página y la app de tus alumnas dirán «Estamos preparando esta página».';
 
 /**
  * Lo que se pregunta antes de guardar: cambia lo que ven personas de fuera, así
@@ -102,7 +106,8 @@ export function confirmacionPaginaPublica(f: FormPaginaPublica, s: EstadoPaginaP
   if (c.oculta && !s.oculta) {
     return {
       titulo: '¿Ocultar tu página?',
-      descripcion: `${AVISO} ${tendraClave(c, s) ? 'Solo entra quien tenga la clave.' : 'No entrará nadie.'}`,
+      // Sin pase, las rutas que reservan y compran contestan 403: lo dice aquí.
+      descripcion: `${AVISO} ${tendraClave(c, s) ? 'Solo entra y reserva quien tenga la clave.' : 'Nadie de fuera podrá entrar ni reservar.'}`,
       textoConfirmar: 'Ocultar',
     };
   }
@@ -125,7 +130,7 @@ export function confirmacionPaginaPublica(f: FormPaginaPublica, s: EstadoPaginaP
       titulo: s.tieneClave ? '¿Cambiar la clave?' : '¿Poner esta clave?',
       descripcion: s.tieneClave
         ? 'La anterior deja de servir, y quien ya había entrado tendrá que pedirte la nueva.'
-        : 'Quien la tenga podrá ver tu página y la app de tus alumnas.',
+        : 'Quien la tenga podrá entrar y reservar en tu página y en la app de tus alumnas.',
       textoConfirmar: s.tieneClave ? 'Cambiar la clave' : 'Poner la clave',
     };
   }

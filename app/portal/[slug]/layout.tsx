@@ -110,8 +110,9 @@ export default async function StudentLayout({
   // M-2 (auditoría 58ª pasada): el gate de "página oculta" ya lo respeta
   // `/reservar` (app/reservar/[slug]/layout.tsx) pero aquí nunca se leía —
   // `estudio.paginaOculta` viaja desde `cargarEstudio` sin que nadie lo
-  // comprobara. Mismo criterio exacto: oculta la PÁGINA, no los datos (la
-  // API pública sigue respondiendo; la cerradura real es siempre la RLS).
+  // comprobara. Mismo criterio exacto. Las rutas de la alumna que reservan o
+  // compran siguen esta misma regla en servidor (lib/publico/pagina-cerrada-peticion.ts):
+  // si esta pantalla la deja fuera, ellas también.
   if (estudio.paginaOculta) {
     const galleta = await cookies();
     // La huella se lee aquí, en servidor, y no viaja en `estudio`: ese objeto

@@ -27,12 +27,14 @@ import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 
 const OPCIONES = [
   { oculta: false, titulo: 'Visible', detalle: 'Cualquiera con tu enlace reserva, y tus alumnas entran en su app.' },
-  { oculta: true, titulo: 'Oculta', detalle: 'Enseñan «Estamos preparando esta página». Con clave, entra quien tú quieras.' },
+  { oculta: true, titulo: 'Oculta', detalle: 'Enseñan «Estamos preparando esta página» y nadie reserva desde fuera. Con clave, entra y reserva quien tú quieras.' },
 ] as const;
 
 const SI_LA_OCULTAS = [
+  'Nadie reserva, compra ni se da de alta desde fuera. Quien entre con la clave, sí.',
   'Tus alumnas también ven el aviso al abrir su app, aunque tengan cuenta.',
-  'Los widgets de tu web enseñan el aviso, salvo el calendario incrustado, que sigue enseñando tus clases.',
+  'Los widgets de tu web enseñan el aviso, también el calendario incrustado: ahí no se reserva ni con la clave.',
+  'Si cambias o quitas la clave, quien ya había entrado se queda fuera.',
   'En Tentare Network sigues saliendo si lo tienes encendido, pero tu enlace lleva al aviso.',
   'Le pedimos a Google que no la enseñe.',
 ];

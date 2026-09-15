@@ -7,6 +7,7 @@ import { escaparLike } from '@/lib/escapar-like';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
+import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 import { firmaCompleta, type FirmaMinima } from '@/lib/student/consentimiento-regla';
 import { normalizarFirma } from '@/lib/datos-salud/consentimiento';
 import {
@@ -82,6 +83,10 @@ export async function POST(req: NextRequest) {
     // Alta de walk-in: autenticado por magic link pero aún sin ficha de socia.
     // El email lo pone el JWT (no el body) y se vincula auth_user_id.
     if (body.accion === 'registrar') {
+      // Con la página oculta nadie se da de alta desde fuera. `actualizar` (su
+      // ficha ya existente) sigue abierto.
+      const cerrada = await paginaCerradaParaPeticion(req, studioId);
+      if (cerrada) return conCorsWidget(req, cerrada);
       if (!body.id || !body.nombre) {
         return conCorsWidget(req, NextResponse.json({ error: 'Faltan datos de la socia' }, { status: 400 }));
       }

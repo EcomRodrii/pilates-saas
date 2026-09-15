@@ -291,7 +291,7 @@ test.describe('Guardar de verdad', () => {
     await cajon(page).getByLabel('Clave para dejar entrar (opcional)').fill('clave-e2e');
     await guardar(page).click();
     const confirmacion = page.getByRole('dialog').filter({ hasText: '¿Ocultar tu página?' });
-    await expect(confirmacion).toContainText('Solo entra quien tenga la clave.');
+    await expect(confirmacion).toContainText('Solo entra y reserva quien tenga la clave.');
     await confirmacion.getByRole('button', { name: 'Ocultar', exact: true }).click();
 
     await expect(page.getByText('Tu página ya no se ve.')).toBeVisible({ timeout: 10_000 });

@@ -5,6 +5,7 @@ import {
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 
 // Huecos reservables de una instructora para un servicio y un día (Madrid). No
 // requiere sesión: consultar disponibilidad es público (como el horario de
@@ -71,6 +72,9 @@ export async function POST(req: NextRequest) {
 
   try {
     if (body.accion === 'crear') {
+      // Con la página oculta no se reserva desde fuera; cancelar sigue abierto.
+      const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
+      if (cerrada) return cerrada;
       if (!body.servicioId || !body.instructorId || !body.inicioISO) {
         return NextResponse.json({ error: 'Faltan datos de la cita' }, { status: 400 });
       }

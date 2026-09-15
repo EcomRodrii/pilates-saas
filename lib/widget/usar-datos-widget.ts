@@ -65,6 +65,9 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   const [datos, setDatos] = useState<DatosCrudos>(VACIO);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Página oculta: el servidor no manda clases, solo el nombre para el aviso
+  // (`catalogoPaginaOculta`). `null` = página visible.
+  const [paginaOculta, setPaginaOculta] = useState<{ nombre: string } | null>(null);
 
   // `silencioso`: el tic de refresco periódico (más abajo) no debe tapar el
   // calendario con el estado de carga en cada pasada — eso convertiría "una
@@ -75,6 +78,16 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     if (!opts?.silencioso) setCargando(true);
     cargarDatosPublicos(slug, { liviano: true, baseUrl }).then(pub => {
       if (!pub || pub.error) { setError('No se ha podido cargar el estudio.'); setCargando(false); return; }
+      // Con la página oculta no hay nada que reservar: fuera lo que hubiera
+      // (el tic de refresco puede traer esto con el calendario ya pintado).
+      if (pub.paginaOculta === true) {
+        setDatos(VACIO);
+        setPaginaOculta({ nombre: typeof pub.nombre === 'string' ? pub.nombre : '' });
+        setError(null);
+        setCargando(false);
+        return;
+      }
+      setPaginaOculta(null);
       const aforo: Reserva[] = (pub.aforoReservas ?? []).map(
         (r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
           id: r.id, studioId: pub.studio?.id ?? '', sesionId: r.sesion_id, socioId: '',
@@ -265,7 +278,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   }, [socia, datos.studioId, baseUrl]);
 
   return {
-    slots, cargando, error, socia, usuarioEmail, autenticado, sesionCargando, refrescarSesion,
+    slots, cargando, error, paginaOculta, socia, usuarioEmail, autenticado, sesionCargando, refrescarSesion,
     studioId: datos.studioId || null,
     politicaPrivacidad: datos.politicaPrivacidad, terminosServicio: datos.terminosServicio,
     sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,

@@ -6,6 +6,7 @@ import {
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 
 // Autoservicio de plaza fija desde el portal (Feature #2, ficha Lorari-vs-Tentare):
 // la socia crea/pausa/reanuda/da de baja su propio hueco semanal recurrente.
@@ -34,6 +35,13 @@ export async function POST(req: NextRequest) {
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   try {
+    // Crear y reanudar RESERVAN (reanudar vuelve a materializar sus clases):
+    // con la página oculta, desde fuera no. Pausar y dar de baja sueltan
+    // plazas y siguen abiertos.
+    if (body.accion === 'crear' || body.accion === 'reanudar') {
+      const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
+      if (cerrada) return cerrada;
+    }
     if (body.accion === 'crear') {
       if (!body.sesionId) return NextResponse.json({ error: 'Falta la sesión' }, { status: 400 });
       const r = await crearPlazaFijaPublica({ studioId: body.studioId, sesionId: body.sesionId, socioId, authUserId: user.userId });

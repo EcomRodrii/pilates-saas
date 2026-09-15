@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
+import { AVISO_PAGINA_OCULTA } from '@/lib/publico/aviso-pagina-oculta';
 
 // Lo que ve alguien de fuera cuando el estudio tiene su página escondida
 // mientras la prepara.
@@ -61,7 +62,7 @@ export function PaginaOculta({
         <div className="space-y-1.5">
           <h1 className="text-[20px] font-bold text-foreground">{nombre}</h1>
           <p className="text-[14px] text-muted-foreground leading-snug">
-            Estamos preparando esta página. Vuelve dentro de poco.
+            {AVISO_PAGINA_OCULTA}
           </p>
         </div>
 

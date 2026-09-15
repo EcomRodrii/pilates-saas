@@ -103,9 +103,9 @@ export default async function ReservarSlugLayout({ children, params }: { childre
   // que sale por el cable no contiene la página, en vez de pintarla y taparla
   // con un cartel que cualquiera quita desde el inspector.
   //
-  // ⚠️ Esto oculta la PÁGINA, no los datos — la API pública del estudio sigue
-  // respondiendo. Es lo que se pidió («que no se vea todavía») y lo que se
-  // puede prometer; la cerradura de los datos en este repo es siempre la RLS.
+  // ⚠️ Esto oculta la PÁGINA. Reservar, comprar o darse de alta desde fuera lo
+  // cierran las propias rutas con la misma regla (lib/publico/pagina-cerrada-peticion.ts):
+  // un cartel no para a quien llama a la API directamente.
   if (visitante?.paginaOculta) {
     const galleta = await cookies();
     const veredicto = veredictoPagina({
