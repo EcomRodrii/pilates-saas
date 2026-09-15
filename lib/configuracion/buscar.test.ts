@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buscarAjustes, normalizar } from './buscar.ts';
+import { MAX_AJUSTES_EN_BUSCADOR_GLOBAL, ajustesParaBuscadorGlobal, buscarAjustes, normalizar, sinTareasRepetidas } from './buscar.ts';
+import { buscarTareas } from '../tareas.ts';
 import { hrefDeSeccion, resolverHref } from './destino.ts';
 import { FILAS_EXTERNAS, SECCIONES, seccionDeTarjeta, type TarjetaId } from './secciones.ts';
 
@@ -90,4 +91,81 @@ test('cada resultado abre una sección y una tarjeta que existen', () => {
   // Ids únicos: son los id de los enlaces.
   const todos = ids('a', { haySedes: true, esCadena: true });
   assert.equal(new Set(todos).size, todos.length);
+});
+
+// ── El grupo «Ajustes» de ⌘K ────────────────────────────────────────────────
+
+const PROPIETARIA = { rol: 'PROPIETARIO' } as const;
+
+test('⌘K: «IVA» da la tarjeta, su sección y el enlace a su ancla', () => {
+  assert.deepEqual(ajustesParaBuscadorGlobal('IVA', PROPIETARIA), [{
+    id: 'tarjeta-datos-fiscales',
+    titulo: 'Datos fiscales e IVA',
+    donde: 'Cobros y facturas',
+    href: '/configuracion?tab=cobros#datos-fiscales',
+  }]);
+  const espera = ajustesParaBuscadorGlobal('lista de espera', PROPIETARIA).find(a => a.id === 'tarjeta-lista-de-espera')!;
+  assert.deepEqual(
+    { donde: espera.donde, href: espera.href },
+    { donde: 'Cómo reservan mis alumnas', href: '/configuracion?tab=reservas#lista-de-espera' },
+  );
+  // Una sección entera lleva a la sección, y dice que es de Configuración.
+  const motivacion = ajustesParaBuscadorGlobal('motivación', PROPIETARIA).find(a => a.id === 'seccion-motivacion')!;
+  assert.deepEqual(
+    { donde: motivacion.donde, href: motivacion.href },
+    { donde: 'Configuración', href: '/configuracion?tab=motivacion' },
+  );
+});
+
+test('⌘K: como mucho cinco, y vacío no busca', () => {
+  // «e» casa con muchas más de cinco en el inicio: el tope se ejerce de verdad.
+  assert.ok(buscarAjustes('e').length > MAX_AJUSTES_EN_BUSCADOR_GLOBAL);
+  assert.equal(ajustesParaBuscadorGlobal('e', PROPIETARIA).length, MAX_AJUSTES_EN_BUSCADOR_GLOBAL);
+  assert.deepEqual(ajustesParaBuscadorGlobal('', PROPIETARIA), []);
+  assert.deepEqual(ajustesParaBuscadorGlobal('   ', PROPIETARIA), []);
+});
+
+test('⌘K: quien no entra en Configuración no ve ningún ajuste', () => {
+  for (const rol of ['RECEPCION', 'MANAGER', 'INSTRUCTOR', 'ROL-QUE-NO-EXISTE']) {
+    assert.deepEqual(ajustesParaBuscadorGlobal('IVA', { rol }), [], rol);
+    assert.deepEqual(ajustesParaBuscadorGlobal('e', { rol }), [], rol);
+  }
+});
+
+test('⌘K: sin filas de otra pantalla, y cada enlace abre la tarjeta que dice', () => {
+  // «Plan de Tentare» ya lo encuentra ⌘K por «Suscripción», su entrada del menú.
+  assert.deepEqual(ajustesParaBuscadorGlobal('suscripción', PROPIETARIA), []);
+  for (const consulta of ['a', 'e', 'o', 'iva', 'horario', 'sedes']) {
+    for (const a of ajustesParaBuscadorGlobal(consulta, { ...PROPIETARIA, haySedes: true, esCadena: true })) {
+      const destino = resolverHref(a.href);
+      assert.ok(!('redirect' in destino) && destino.tab !== null, a.id);
+      if (a.id.startsWith('tarjeta-')) assert.equal(destino.ancla, a.id.slice('tarjeta-'.length), a.id);
+    }
+  }
+  // Las tarjetas que el estudio no tiene tampoco salen en ⌘K.
+  assert.equal(ajustesParaBuscadorGlobal('sedes', PROPIETARIA).some(a => a.id === 'tarjeta-sedes'), false);
+  assert.ok(ajustesParaBuscadorGlobal('sedes', { ...PROPIETARIA, haySedes: true }).some(a => a.id === 'tarjeta-sedes'));
+});
+
+test('⌘K: una tarea que lleva a la misma tarjeta que un ajuste no sale dos veces', () => {
+  const ajustes = ajustesParaBuscadorGlobal('iva', PROPIETARIA);
+  const tareas = buscarTareas('iva', 5);
+  // La premisa: hoy «IVA» da las dos filas al mismo sitio.
+  assert.ok(tareas.some(t => t.id === 'datos-fiscales'));
+  const quedan = sinTareasRepetidas(tareas, ajustes);
+  assert.equal(quedan.some(t => t.id === 'datos-fiscales'), false);
+  // Solo sobra esa: las demás tareas siguen, en su orden.
+  assert.deepEqual(quedan.map(t => t.id), tareas.filter(t => t.id !== 'datos-fiscales').map(t => t.id));
+
+  const conHref = (href: string) => ({ href });
+  // Otra ancla de la misma sección es otro sitio.
+  assert.equal(sinTareasRepetidas([conHref('/configuracion?tab=cobros#integracion-stripe')], ajustes).length, 1);
+  // Un `?tab=` viejo cuenta como la sección que abre hoy.
+  assert.deepEqual(
+    sinTareasRepetidas([conHref('/configuracion?tab=clases-salas')], [conHref('/configuracion?tab=clases')]),
+    [],
+  );
+  // Fuera de Configuración, y sin ajustes, no se quita nada.
+  assert.equal(sinTareasRepetidas([conHref('/clientas?nuevo=1')], ajustes).length, 1);
+  assert.deepEqual(sinTareasRepetidas(tareas, []).map(t => t.id), tareas.map(t => t.id));
 });

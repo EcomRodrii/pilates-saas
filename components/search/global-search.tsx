@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { Search, ArrowRight, Calendar, CreditCard, X, Zap, Users } from 'lucide-react';
+import { Search, ArrowRight, Calendar, CreditCard, X, Zap, Users, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
 import { usePermisos } from '@/lib/permisos';
 import { buscarTareas, normalizar, rutaBase } from '@/lib/tareas';
 import { MODULOS } from '@/lib/nav-config';
+import { tieneFeature } from '@/lib/billing/entitlements';
+import { ajustesParaBuscadorGlobal, sinTareasRepetidas } from '@/lib/configuracion/buscar';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { irEnConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 
@@ -34,7 +36,7 @@ export function GlobalSearch({
   const setOpen = (v: boolean) => { setOpenInterno(v); onAbiertoChange?.(v); };
   const [query, setQuery] = useState('');
   const router = useRouter();
-  const { socios, sesiones, recibos, tiposClase, instructores } = useStudio();
+  const { studio, socios, sesiones, recibos, tiposClase, instructores } = useStudio();
   const inputRef = useRef<HTMLInputElement>(null);
 
   // El cierre con Escape lo gestiona DashboardSheet (useDialogA11y) cuando
@@ -111,7 +113,7 @@ export function GlobalSearch({
   // Las TAREAS van primero y salen incluso con la caja vacía: quien abre ⌘K sin
   // saber qué buscar ve de qué es capaz el programa. Es la vía para llegar a un
   // sitio sin conocer la estructura del menú.
-  const { puedeVer } = usePermisos();
+  const { rol, puedeVer } = usePermisos();
   const tareasRes = useMemo(
     () => buscarTareas(q, q ? 5 : 4).filter(t => puedeVer(rutaBase(t.href))),
     [q, puedeVer],
@@ -144,6 +146,18 @@ export function GlobalSearch({
       .map(x => x.m);
   }, [q, puedeVer]);
 
+  // Ajustes de Configuración («IVA» → Datos fiscales e IVA), con el mismo
+  // buscador que su inicio y solo las secciones que este rol abre. «Sedes» se
+  // busca por lo que dice el plan, igual que en el inicio de Configuración.
+  const haySedes = !!studio && (tieneFeature(studio, 'multiCentro') || !!studio.cadenaId);
+  const esCadena = !!studio?.cadenaId;
+  const ajustesRes = useMemo(
+    () => ajustesParaBuscadorGlobal(q, { rol, haySedes, esCadena }),
+    [q, rol, haySedes, esCadena],
+  );
+  // Una tarea que lleva a la misma tarjeta que un ajuste de la lista sobra.
+  const tareasSinRepetir = useMemo(() => sinTareasRepetidas(tareasRes, ajustesRes), [tareasRes, ajustesRes]);
+
   // Instructoras/equipo (#849): mismo criterio de nombre que sociosRes, y
   // acotado a quien ya puede ver /equipo (RECEPCION no) — el mismo guard que
   // ya bloquea esa sección en el menú, no uno nuevo.
@@ -155,7 +169,7 @@ export function GlobalSearch({
       : instructores.filter(i => i.activo).slice(0, 3);
   }, [instructores, puedeVerEquipo, q]);
 
-  const hasResults = modulosRes.length > 0 || tareasRes.length > 0 || sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0 || instructoresRes.length > 0;
+  const hasResults = modulosRes.length > 0 || ajustesRes.length > 0 || tareasSinRepetir.length > 0 || sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0 || instructoresRes.length > 0;
 
   // Estando en Configuración, una tarea de Configuración («Datos fiscales») la
   // abre el shell: con el router la dirección se quedaba pegada (#2030).
@@ -241,13 +255,35 @@ export function GlobalSearch({
                 </div>
               )}
 
+              {/* Ajustes de Configuración — «IVA» lleva a su tarjeta, no a la puerta */}
+              {ajustesRes.length > 0 && (
+                <div className="mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>
+                    Ajustes
+                  </p>
+                  {ajustesRes.map(a => (
+                    <button key={a.id} onClick={() => go(a.href)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-muted">
+                        <SlidersHorizontal size={14} style={{ color: 'var(--foreground)' }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{a.titulo}</p>
+                        <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>{a.donde}</p>
+                      </div>
+                      <ArrowRight size={14} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Tareas — primero: responde a "¿qué quiero hacer?" */}
-              {tareasRes.length > 0 && (
+              {tareasSinRepetir.length > 0 && (
                 <div className="mb-1">
                   <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>
                     {q ? 'Acciones' : '¿Qué quieres hacer?'}
                   </p>
-                  {tareasRes.map(t => (
+                  {tareasSinRepetir.map(t => (
                     <button key={t.id} onClick={() => go(t.href)}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-brand/10">
