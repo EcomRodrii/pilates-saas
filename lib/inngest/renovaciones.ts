@@ -18,6 +18,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { idsEstudios } from './estudios.ts';
 import { repartirVencidas } from '@/lib/billing/baja-al-vencer';
+import { puedeArmarReintento, type ReciboParaCobrar } from '@/lib/billing/cobro-permitido';
 
 export const renovacionesDispatcher = inngest.createFunction(
   { id: 'renovaciones-dispatcher', triggers: [{ cron: '0 8 * * *' }] },
@@ -109,7 +110,7 @@ async function adoptarRecibosCliente(studioId: string, nowISO: string, conMetodo
   if (!admin) throw new Error('Service role no configurada');
   const { data: candidatos, error: candErr } = await admin
     .from('recibos')
-    .select('id, socio_id, suscripcion_id')
+    .select('id, socio_id, suscripcion_id, estado, tras_cancelar_cuota')
     .eq('studio_id', studioId)
     .eq('estado', 'PENDIENTE')
     .is('proximo_reintento', null)
@@ -147,22 +148,42 @@ async function adoptarRecibosCliente(studioId: string, nowISO: string, conMetodo
   // que se da de baja al vencer. Defensa en profundidad: el efecto del
   // navegador ya no los crea, pero un panel abierto con código anterior sí
   // podría haberlo hecho.
-  const { data: conBaja, error: bajaErr } = await admin
+  //
+  // Cuota cancelada (auditoría de cobros, 16-sep): tampoco se adopta el recibo de
+  // una cuota que no está ACTIVA ni uno que ya marcó la cancelación
+  // (`tras_cancelar_cuota`): `puedeArmarReintento`, la misma regla que el cobro.
+  const idsSuscripcion = [...new Set((candidatos ?? []).map(r => r.suscripcion_id as string))];
+  if (idsSuscripcion.length === 0) return 0;
+  const { data: cuotas, error: bajaErr } = await admin
     .from('suscripciones')
-    .select('id')
+    .select('id, estado, baja_al_vencer')
     .eq('studio_id', studioId)
-    .eq('baja_al_vencer', true);
+    .in('id', idsSuscripcion);
   if (bajaErr) throw new Error(bajaErr.message);
-  const suscripcionesConBaja = new Set((conBaja ?? []).map(s => s.id as string));
+  const cuotaPorId = new Map((cuotas ?? []).map(s => [s.id as string, s]));
   const idsAAdoptar = (candidatos ?? [])
     .filter(r => conMetodoCobro.has(r.socio_id as string))
-    .filter(r => !suscripcionesConBaja.has(r.suscripcion_id as string))
+    .filter(r => {
+      const cuota = cuotaPorId.get(r.suscripcion_id as string);
+      if (!cuota || cuota.baja_al_vencer === true) return false;
+      return puedeArmarReintento(
+        { estado: r.estado as string, proximoReintento: null, trasCancelarCuota: (r.tras_cancelar_cuota as ReciboParaCobrar['trasCancelarCuota']) ?? null },
+        { estado: cuota.estado as string },
+      );
+    })
     .map(r => r.id as string);
   if (idsAAdoptar.length === 0) return 0;
+  // Compare-and-set: solo lo que sigue exactamente como se leyó (pendiente, sin
+  // reintento, sin checkout y sin marca de cancelación).
   const { data, error } = await admin
     .from('recibos')
     .update({ proximo_reintento: nowISO })
     .in('id', idsAAdoptar)
+    .eq('studio_id', studioId)
+    .eq('estado', 'PENDIENTE')
+    .is('proximo_reintento', null)
+    .is('checkout_session_id', null)
+    .is('tras_cancelar_cuota', null)
     .select('id');
   if (error) throw new Error(error.message);
   return (data ?? []).length;

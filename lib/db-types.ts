@@ -575,6 +575,10 @@ export interface RowRecibos {
   terminos_aceptados_en: string | null;
   // migr 20260908162951.
   cobro_mostrador_checkout_session_id: string | null;
+  // migr 20260915215311.
+  tras_cancelar_cuota: string | null;
+  // migr 20260915215311.
+  anulado_en: string | null;
 }
 
 export interface RowRewardActions {
@@ -1002,8 +1006,12 @@ export interface RowStudios {
   subtitulo_heroe: string | null;
   // migr 20260914104856.
   instructoras_crean_clases: boolean | null;
-  // migr 20260916090000.
+  // migr 20260915215236.
   plaza_fija_sin_cuota: string | null;
+  // migr 20260915215311.
+  recibos_al_cancelar_cuota: string | null;
+  // migr 20260915215311.
+  renovar_sola_cuota_cancelada: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -3943,6 +3951,8 @@ export type RecibosInsert = {
   terminos_hash?: string | null | null;
   terminos_aceptados_en?: string | null | null;
   cobro_mostrador_checkout_session_id?: string | null | null;
+  tras_cancelar_cuota?: string | null | null;
+  anulado_en?: string | null | null;
 }
 
 export type RecibosUpdate = {
@@ -3985,6 +3995,8 @@ export type RecibosUpdate = {
   terminos_hash?: string | null | null;
   terminos_aceptados_en?: string | null | null;
   cobro_mostrador_checkout_session_id?: string | null | null;
+  tras_cancelar_cuota?: string | null | null;
+  anulado_en?: string | null | null;
 }
 
 export type RewardActionsInsert = {
@@ -4438,6 +4450,8 @@ export type StudiosInsert = {
   subtitulo_heroe?: string | null | null;
   instructoras_crean_clases?: boolean | null | null;
   plaza_fija_sin_cuota?: string | null | null;
+  recibos_al_cancelar_cuota?: string | null | null;
+  renovar_sola_cuota_cancelada?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -4561,6 +4575,8 @@ export type StudiosUpdate = {
   subtitulo_heroe?: string | null | null;
   instructoras_crean_clases?: boolean | null | null;
   plaza_fija_sin_cuota?: string | null | null;
+  recibos_al_cancelar_cuota?: string | null | null;
+  renovar_sola_cuota_cancelada?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {

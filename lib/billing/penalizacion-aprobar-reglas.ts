@@ -716,7 +716,7 @@ export const ESTADOS_OMITIDA: readonly EstadoPenalizacion[] =
   ['OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA'];
 
 /**
- * Plaza fija sin cuota (política del estudio, migr 20260916090000): con LIBERAR o
+ * Plaza fija sin cuota (política del estudio, migr 20260915215236): con LIBERAR o
  * MANTENER_SIN_PENALIZAR, una clase que su plaza fija le había reservado
  * (`res-pf-*`) no se cobra si ya no tiene cuota que la cubra. Con MANTENER, las
  * reglas de siempre. `cubre` sale de `cuota_cubre_plaza_fija(…, false)`: la misma

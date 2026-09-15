@@ -1,7 +1,7 @@
 // Lo que dice la ficha de una clienta con plaza fija al cancelar, pausar o dar de
 // baja su cuota, según la política que eligió el estudio en Configuración
 // («Cómo reservan mis alumnas» → «Si se queda sin cuota»). Tiene que decir lo que
-// hace el código: `reservas_plaza_fija_sin_cuota` (migr 20260916090000) solo
+// hace el código: `reservas_plaza_fija_sin_cuota` (migr 20260915215236) solo
 // libera con LIBERAR, y el cron de penalizaciones no cobra con LIBERAR ni con
 // MANTENER_SIN_PENALIZAR. En las tres, el motor no le reserva clases nuevas.
 //

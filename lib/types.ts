@@ -6,7 +6,10 @@ export type Rol = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION' | 'MANAGER';
 export type EstadoSuscripcion = 'ACTIVA' | 'PAUSADA' | 'CANCELADA' | 'EXPIRADA';
 export type TipoPlan = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 // FALLIDO (0041): estado terminal tras agotar los reintentos de dunning (+1/+3/+7).
-export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO' | 'FALLIDO';
+// ANULADO: el estudio perdonó un recibo pendiente al cancelar la cuota
+// (política `recibos_al_cancelar_cuota`, migr 20260915215311). No se cobra ni
+// cuenta como deuda.
+export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO' | 'FALLIDO' | 'ANULADO';
 // Pagos España (0036): método recurrente preferido de la socia y método real de cada cobro.
 export type MetodoPagoPreferido = 'TARJETA' | 'SEPA';
 export type MetodoCobro = 'TARJETA' | 'SEPA' | 'BIZUM' | 'EFECTIVO' | 'TRANSFERENCIA';
@@ -234,7 +237,7 @@ export interface Studio {
   // tarjeta guardada. true = se cobra solo, como el cron de dunning.
   penalizacionCobroAutomatico: boolean;
   // Qué pasa con las clases que su plaza fija ya tenía reservadas cuando la
-  // alumna se queda sin cuota (migr 20260916090000). 'MANTENER' = como siempre.
+  // alumna se queda sin cuota (migr 20260915215236). 'MANTENER' = como siempre.
   plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
   // true (default) = comportamiento de siempre: la socia enseña su pase
   // (QR o código corto) y alguien del estudio lo escanea/teclea antes de que
@@ -1099,6 +1102,12 @@ export interface Recibo {
    * copy, y una decisión de dinero no puede depender de que nadie lo traduzca.
    */
   esRenovacion?: boolean;
+  /**
+   * Lo que decidió la política del estudio sobre este recibo al CANCELAR su cuota
+   * (migr 20260915215311). null = no estaba pendiente al cancelar, o la cuota
+   * sigue viva.
+   */
+  trasCancelarCuota?: 'REINTENTAR' | 'SIN_REINTENTOS' | 'ANULADO' | null;
   // Qué entregó este cobro, guardado al entregarlo. Sirve para poder OFRECER
   // deshacerlo si se devuelve el dinero: `suscripciones` no guarda histórico, así
   // que sin esto se pierde. `entregaAplicada` distingue tres cosas que no se

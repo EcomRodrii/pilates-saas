@@ -50,6 +50,20 @@ export async function POST(req: NextRequest) {
     const sus = (susRows ?? []).find(s => s.estado === 'ACTIVA') ?? (susRows ?? [])[0];
     if (!sus) return NextResponse.json({ error: 'No tienes ningún plan que renovar' }, { status: 404 });
 
+    // Renovar sola una cuota CANCELADA (también por impago) lo elige el estudio
+    // (`renovar_sola_cuota_cancelada`, por defecto sí, como hasta ahora).
+    if (sus.estado === 'CANCELADA') {
+      const { data: politica, error: polErr } = await admin
+        .from('studios').select('renovar_sola_cuota_cancelada').eq('id', body.studioId).maybeSingle();
+      if (polErr) throw new Error(polErr.message);
+      if (politica?.renovar_sola_cuota_cancelada === false) {
+        return NextResponse.json(
+          { error: 'Tu plan está cancelado. Para volver a activarlo, habla con tu estudio.' },
+          { status: 409 },
+        );
+      }
+    }
+
     const { data: plan, error: planErr } = await admin
       .from('planes_tarifa')
       .select('id, nombre, precio, tipo')

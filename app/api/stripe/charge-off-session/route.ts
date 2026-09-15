@@ -30,6 +30,10 @@ const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
   // Mal configurado el entorno, no culpa de quien pulsa: 503, como el resto de
   // "esto no está listo para cobrar" (ver lib/billing/modo-stripe.ts).
   MODO_STRIPE_CRUZADO: 503,
+  // Política de recibos al cancelar una cuota: el recibo no se puede cobrar así.
+  CUOTA_CANCELADA: 409,
+  RECIBO_ANULADO: 409,
+  SIN_REINTENTOS: 409,
 };
 
 export async function POST(req: NextRequest) {

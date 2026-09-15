@@ -4,7 +4,7 @@ import {
   ESTADOS_ANULADOS_PARA_EL_MOSTRADOR, ESTADOS_OMITIDA, omitirPorPlazaFijaSinCuota,
 } from './penalizacion-aprobar-reglas.ts';
 
-// Política del estudio para plazas fijas sin cuota (migr 20260916090000): con
+// Política del estudio para plazas fijas sin cuota (migr 20260915215236): con
 // LIBERAR o MANTENER_SIN_PENALIZAR no se cobra la penalización de una clase de su
 // plaza fija sin cuota. Con MANTENER, las reglas de siempre.
 

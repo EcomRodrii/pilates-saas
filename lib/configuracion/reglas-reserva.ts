@@ -293,7 +293,7 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       return `Si ${[tarde, falta].filter(Boolean).join(' o ')}, se le cobran ${euros(importe)} ${r.penalizacionCobroAutomatico ? 'sin esperar a que lo apruebes' : 'cuando lo apruebes'}.`;
     }
     case 'si-se-queda-sin-cuota':
-      // Lo que hace el código: `reservas_plaza_fija_sin_cuota` (migr 20260916090000)
+      // Lo que hace el código: `reservas_plaza_fija_sin_cuota` (migr 20260915215236)
       // solo lista con LIBERAR, y el cron de penalizaciones omite con
       // LIBERAR o MANTENER_SIN_PENALIZAR (`omitirPorPlazaFijaSinCuota`).
       switch (r.plazaFijaSinCuota) {

@@ -151,6 +151,7 @@ const ETIQUETA_ESTADO: Record<EstadoRecibo | 'TODOS' | 'SIN_COBRAR', string> = {
   FALLIDO:    'No se pudo cobrar',
   COBRADO:    'Cobrado',
   DEVUELTO:   'Devuelto por el banco',
+  ANULADO:    'Anulado al cancelar la cuota',
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────

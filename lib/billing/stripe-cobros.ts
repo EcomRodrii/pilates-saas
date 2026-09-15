@@ -8,6 +8,7 @@ import { clasificarErrorCobro } from '@/lib/billing/clasificar-error-cobro';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 import { hoyEnEstudio } from '@/lib/utils';
+import { puedeIntentarCobro, type ReciboParaCobrar, type ViaCobro } from '@/lib/billing/cobro-permitido';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -22,7 +23,9 @@ import { hoyEnEstudio } from '@/lib/utils';
 // idempotencyKey de Stripe: un reintento del step de Inngest tras un fallo de
 // red nunca duplica el cargo.
 
-export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'CUENTA_NO_LISTA' | 'FALLO_COBRO' | 'ERROR_TRANSITORIO' | 'SUSCRIPCION_PAUSADA' | 'MODO_STRIPE_CRUZADO';
+export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'CUENTA_NO_LISTA' | 'FALLO_COBRO' | 'ERROR_TRANSITORIO' | 'SUSCRIPCION_PAUSADA' | 'MODO_STRIPE_CRUZADO'
+  // Política de recibos al cancelar una cuota (migr 20260915215311, `cobro-permitido.ts`).
+  | 'CUOTA_CANCELADA' | 'RECIBO_ANULADO' | 'SIN_REINTENTOS';
 
 export interface ResultadoCobro {
   ok: boolean;
@@ -39,6 +42,8 @@ export async function cobrarReciboOffSession(params: {
   reciboId: string;
   socioId: string;
   studioId: string;
+  /** AUTOMATICO = el cobro diario (dunning). Por defecto STAFF: alguien lo pide, o lo aprobó. */
+  via?: ViaCobro;
 }): Promise<ResultadoCobro> {
   // A-10 + Dunning (0041): la Idempotency-Key de Stripe se ancla al recibo Y al
   // número de intento (intentos_reintento). Anclarla SOLO al recibo evitaba el
@@ -90,22 +95,47 @@ export async function cobrarReciboOffSession(params: {
   if (recibo.socio_id !== params.socioId) {
     return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
   }
-  // Se puede cobrar un recibo PENDIENTE o uno FALLIDO (recuperación manual tras
-  // agotar el dunning: si la socia paga más adelante, se vuelve a intentar). El
-  // barrido automático solo reintenta los PENDIENTE.
-  if (recibo.estado !== 'PENDIENTE' && recibo.estado !== 'FALLIDO') {
-    return { ok: false, error: 'Este recibo ya no está pendiente', errorCode: 'NO_PENDIENTE' };
-  }
-  // Congelaciones: si la suscripción del recibo está PAUSADA (staff la congeló
-  // a propósito), no se cobra. Sin esto, un recibo PENDIENTE generado ANTES de
-  // congelar seguía cobrándose durante la pausa, y encima aplicarRenovacionServidor
-  // reactivaba la suscripción al confirmar el cargo — deshaciendo la congelación
-  // sin que nadie lo pidiera.
+  // ¿Se puede intentar cobrar ahora? LA regla (`cobro-permitido.ts`), con el
+  // estado ACTUAL de la cuota, leído aquí mismo y no en el barrido: un recibo
+  // desprogramado o una cuota cancelada entre la lectura del dunning y este
+  // momento ya no se cobra.
+  //   · STAFF (por defecto): PENDIENTE o FALLIDO (recuperación manual tras
+  //     agotar el dunning); una cuota PAUSADA no se cobra (sin esto, un recibo
+  //     generado ANTES de congelar se cobraba durante la pausa y la renovación
+  //     reactivaba la suscripción sin que nadie lo pidiera).
+  //   · AUTOMATICO: además, reintento programado, sin la marca «sin reintentos»,
+  //     y una cuota CANCELADA solo si al cancelar se eligió seguir reintentando.
+  //   · ANULADO: nunca.
+  let cuota: { estado: string } | null = null;
   if (recibo.suscripcion_id) {
-    const { data: sus } = await admin
+    const { data: sus, error: susError } = await admin
       .from('suscripciones').select('estado').eq('id', recibo.suscripcion_id).eq('studio_id', params.studioId).maybeSingle();
-    if (sus?.estado === 'PAUSADA') {
-      return { ok: false, error: 'La suscripción está congelada: descongélala antes de cobrar este recibo', errorCode: 'SUSCRIPCION_PAUSADA' };
+    // Sin poder leer la cuota no se cobra: el siguiente intento lo repite.
+    if (susError) return { ok: false, error: 'No se ha podido comprobar la cuota de este recibo', errorCode: 'ERROR_TRANSITORIO' };
+    cuota = sus ? { estado: sus.estado as string } : null;
+  }
+  const permiso = puedeIntentarCobro(
+    {
+      estado: recibo.estado as string,
+      proximoReintento: (recibo.proximo_reintento as string | null) ?? null,
+      trasCancelarCuota: (recibo.tras_cancelar_cuota as ReciboParaCobrar['trasCancelarCuota']) ?? null,
+    },
+    cuota,
+    params.via ?? 'STAFF',
+  );
+  if (!permiso.ok) {
+    switch (permiso.motivo) {
+      case 'ANULADO':
+        return { ok: false, error: 'Este recibo está anulado: no se cobra', errorCode: 'RECIBO_ANULADO' };
+      case 'CUOTA_PAUSADA':
+        return { ok: false, error: 'La suscripción está congelada: descongélala antes de cobrar este recibo', errorCode: 'SUSCRIPCION_PAUSADA' };
+      case 'CUOTA_CANCELADA':
+        return { ok: false, error: 'La cuota de este recibo está cancelada: no se cobra sola', errorCode: 'CUOTA_CANCELADA' };
+      case 'SIN_REINTENTOS':
+        return { ok: false, error: 'Este recibo quedó sin cobros automáticos al cancelar la cuota', errorCode: 'SIN_REINTENTOS' };
+      case 'NO_PENDIENTE':
+      case 'SIN_REINTENTO_PROGRAMADO':
+        return { ok: false, error: 'Este recibo ya no está pendiente', errorCode: 'NO_PENDIENTE' };
     }
   }
   // Idempotency-Key anclada al recibo + nº de intento (ver nota al inicio).
@@ -175,9 +205,17 @@ export async function cobrarReciboOffSession(params: {
       // `studio_id` por el SELECT del arranque de la función), pero un
       // UPDATE de dinero nunca debe depender de que esa validación previa
       // se mantenga si el código de alrededor cambia.
-      const { error: updErr } = await admin
+      // Compare-and-set: si el recibo se anuló o se cobró por otro lado entre la
+      // comprobación y el adeudo, no se pisa (y se avisa: hay un adeudo en marcha).
+      const { data: enCursoRows, error: updErr } = await admin
         .from('recibos').update({ estado: 'EN_CURSO', metodo_cobro: 'SEPA', sepa_estado: 'processing', stripe_payment_intent_id: paymentIntent.id })
-        .eq('id', params.reciboId).eq('studio_id', params.studioId);
+        .eq('id', params.reciboId).eq('studio_id', params.studioId).in('estado', ['PENDIENTE', 'FALLIDO']).select('id');
+      if (!updErr && (enCursoRows ?? []).length === 0) {
+        Sentry.captureMessage('Adeudo SEPA enviado sobre un recibo que ya no estaba pendiente (¿anulado o cobrado?): revisar y devolver si toca', {
+          level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
+          extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
+        });
+      }
       if (updErr) {
         Sentry.captureException(new Error(`Adeudo SEPA enviado pero no se pudo marcar el recibo EN_CURSO: ${updErr.message}`), {
           level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
@@ -192,7 +230,7 @@ export async function cobrarReciboOffSession(params: {
       // idempotency key evita el doble cargo, pero el recibo quedaría PENDIENTE y
       // podría reaparecer para cobro → la reconciliación se rompe. Lo registramos
       // en Sentry con el reciboId/paymentIntent para reconciliación manual.
-      const { error: updErr } = await admin
+      const { data: cobradoRows, error: updErr } = await admin
         .from('recibos').update({
           // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date` — un ISO en
           // UTC fechaba el día anterior un cobro a la 01:30 de Madrid.
@@ -204,7 +242,17 @@ export async function cobrarReciboOffSession(params: {
           // existía desde 0000_base y que nadie rellenaba en este camino.
           stripe_payment_intent_id: paymentIntent.id,
           ...(esSepa ? { sepa_estado: 'succeeded' } : {}),
-        }).eq('id', params.reciboId).eq('studio_id', params.studioId);
+        // Compare-and-set: un recibo anulado (o cobrado por otro camino) entre la
+        // comprobación y el cargo no se pisa. El cargo ya entró: se avisa para
+        // devolverlo, con el mismo resultado distinguible que un fallo al guardar.
+        }).eq('id', params.reciboId).eq('studio_id', params.studioId).in('estado', ['PENDIENTE', 'FALLIDO']).select('id');
+      if (!updErr && (cobradoRows ?? []).length === 0) {
+        Sentry.captureMessage('Cobro OK en Stripe sobre un recibo que ya no estaba pendiente (¿anulado o cobrado?): revisar y devolver', {
+          level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
+          extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
+        });
+        return { ok: true, status: paymentIntent.status, importe: recibo.importe, aviso: 'COBRADO_SIN_PERSISTIR' };
+      }
       if (updErr) {
         Sentry.captureException(new Error(`Cobro OK en Stripe pero no se pudo marcar el recibo COBRADO: ${updErr.message}`), {
           level: 'error',

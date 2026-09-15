@@ -4151,6 +4151,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // una renovación que nunca llegó a recargar el bono.
   async function aplicarRenovacionSuscripcion(recibo: Recibo) {
     if (!recibo.suscripcionId) return;
+    // Deuda que quedó pendiente al cancelar la cuota: cobrarla no la reactiva ni
+    // entrega otro ciclo (mismo criterio que `aplicarRenovacionServidor`).
+    if (recibo.trasCancelarCuota) return;
     const sus = suscripciones.find(s => s.id === recibo.suscripcionId);
     if (!sus) return;
     const plan = planesTarifa.find(p => p.id === sus.planId);

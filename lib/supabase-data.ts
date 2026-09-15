@@ -495,6 +495,8 @@ export type FilaReciboPanel = Omit<RowRecibos,
   // renovación —vía `reciboToDb`— pero no la lee ni la pinta, igual que el
   // snapshot de entrega de la línea siguiente.
   | 'es_renovacion'
+  // Cuándo se anuló: basta con el estado ANULADO y `tras_cancelar_cuota` (migr 20260915215311).
+  | 'anulado_en'
   | 'entrega_tipo' | 'entrega_aplicada' | 'entrega_aplicada_en'
   | 'entrega_sesiones_antes'
   | 'entrega_fecha_fin_antes' | 'entrega_fecha_fin_despues'
@@ -1117,6 +1119,9 @@ export function mapRecibo(r: FilaReciboPanel): Recibo {
     intentosReintento: r.intentos_reintento,
     metodoCobro: (r.metodo_cobro as Recibo['metodoCobro']) ?? null,
     sepaEstado: r.sepa_estado ?? null,
+    // Lo que decidió la política del estudio al cancelar su cuota: la ficha y
+    // Cobros dicen con ello si se sigue cobrando solo, y cobrarlo no reactiva la cuota.
+    trasCancelarCuota: (r.tras_cancelar_cuota as Recibo['trasCancelarCuota']) ?? null,
     // Cuántas sesiones tenía el bono justo al entregarlo. Lo necesita el botón
     // de devolver de la ficha (`soloSinUsar`) para decidir lo MISMO que decide
     // el servidor: sin este dato la pantalla no puede evaluar esa regla y
@@ -5495,7 +5500,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     db.from('instructores').select('*').eq('studio_id', sid),
     fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia, cancelada_tardia').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
@@ -5681,7 +5686,7 @@ export async function fetchDatosTrasVentaPOS(studioId?: string) {
   // cadena de imports estática.
   const db = supabase;
   const [recibosRes, facturasRes, suscripcionesRes, ventasPOSRes, productosPOSRes] = await Promise.all([
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).range(from, to)),
     db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid),
     fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
