@@ -13,6 +13,7 @@ import {
   estadoClaseAlumna, ordenarAlumnas, repartirClases,
   type AlumnaResumen, type ClaseConAlumna, type FichaAlumna,
 } from '@/lib/student/alumnas-instructora';
+import { LIMITE_FILAS, sociasQueHanVenido } from '@/lib/portal-instructora/han-venido';
 
 // «Tus alumnas» de la instructora en la app del estudio. Lectura, más una sola
 // escritura: la nota de sesión (`guardarNotaDeSesion`, 15-sep-2026).
@@ -165,11 +166,17 @@ export async function alumnasDeInstructora(
   // Nombre corto persona a persona, igual que en su ficha: en una lista larga dos
   // «Laura M.» coinciden a menudo, y sacar ahí el apellido entero sería dar de más.
   const nombres = filasSocias.map((s) => nombresParaLista([{ nombre: s.nombre, apellidos: s.apellidos }])[0]);
-  // De 10 en 10: una consulta acotada por alumna, pero nunca cientos a la vez.
-  const vinieron: boolean[] = [];
-  for (const trozo of enTrozos(filasSocias, 10)) {
-    vinieron.push(...await Promise.all(trozo.map((s) => haVenidoAlgunaVez(admin, p.studioId, s.id))));
-  }
+  // Una consulta por trozo de alumnas, no una por alumna (ver `han-venido.ts`).
+  const vinieron = await sociasQueHanVenido(
+    filasSocias.map((s) => s.id),
+    async (trozo) => {
+      const { data, error } = await admin.from('reservas').select('socio_id')
+        .eq('studio_id', p.studioId).eq('estado', 'ASISTIDA').in('socio_id', trozo).limit(LIMITE_FILAS);
+      if (error) throw error;
+      return ((data ?? []) as Array<{ socio_id: string }>).map((r) => r.socio_id);
+    },
+    (id) => haVenidoAlgunaVez(admin, p.studioId, id),
+  );
 
   return ordenarAlumnas(filasSocias.map((s, i) => {
     const clases = (reservasDe.get(s.id) ?? [])
@@ -179,7 +186,7 @@ export async function alumnasDeInstructora(
       socioId: s.id,
       nombre: nombres[i],
       fotoUrl: s.foto_url ?? null,
-      primeraClase: !vinieron[i],
+      primeraClase: !vinieron.has(s.id),
       proxima: repartirClases(clases, ahoraMs).proximas[0] ?? null,
     };
   }));
