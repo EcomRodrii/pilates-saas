@@ -13,7 +13,7 @@ import {
   TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
 } from '@/lib/network/catalogo';
 import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/configuracion/estilos';
 
 // Tercera pieza de F2: comparación de 2-3 perfiles a la vez (tope
 // confirmado con el fundador). Mismo patrón que /network/buscar — Client

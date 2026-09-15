@@ -13,7 +13,7 @@ import { buscarPerfilesNetwork } from '@/lib/api-client';
 import { useCercaDeMi, distanciaDePerfil, ordenarPorCercania } from '@/lib/network/use-cerca-de-mi';
 import { encajeBusquedaDe } from '@/lib/network/encaje-busqueda';
 import type { FiltroBusquedaNetwork, OrdenarPorNetwork, PerfilNetworkPublico } from '@/lib/network/tipos';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/configuracion/estilos';
 import { EmptyState } from '@/components/ui/empty-state';
 
 const FILTRO_VACIO: FiltroBusquedaNetwork = {

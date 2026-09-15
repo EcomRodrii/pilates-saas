@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from '@/components/
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { InfoTip } from '@/components/ui/tooltip';
 import { CampoImagen } from '@/components/ui/campo-imagen';
-import { btnPrimary, btnSecondary, inputCls, Toggle } from '@/app/(dashboard)/configuracion/page';
+import { btnPrimary, btnSecondary, inputCls, Toggle } from '@/components/configuracion/estilos';
 import { OBJETIVOS } from '@/lib/reservar/objetivos';
 import { ESPECIALIDADES_NETWORK, ESPECIALIDAD_LABEL } from '@/lib/network/catalogo.ts';
 import { imagenDeClase, IMAGENES_CLASE, type FamiliaClase } from '@/lib/imagenes-por-defecto';

@@ -8,7 +8,7 @@ import { estadoReto } from '@/lib/engines/challenge-engine';
 import type { ChallengeDefinition, AchievementMetric } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 
 function isoToDateInput(iso: string): string {
   return iso ? iso.slice(0, 10) : '';

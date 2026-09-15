@@ -5,7 +5,7 @@ import { usePermisos } from '@/lib/permisos';
 import {
   useContenidoPortalEditor, ContenidoPortalList, ContenidoPortalPanel, MENSAJE_DESTACADO_ID,
 } from '@/components/theme/contenido-portal-editor';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/configuracion/estilos';
 import { cn } from '@/lib/utils';
 
 // «Descubre» y el tablón: lo que el estudio publica y leen sus alumnas.

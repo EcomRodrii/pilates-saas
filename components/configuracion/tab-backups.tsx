@@ -8,7 +8,7 @@ import { supabase } from '@/lib/db/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { BackupMeta, TipoBackup } from '@/lib/types';
-import { btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import { RESTAURACION_DISPONIBLE, MENSAJE_RESTAURACION_NO_DISPONIBLE } from '@/lib/backups/restauracion';
 import { ExportarDatosEstudio } from '@/components/billing/exportar-datos-estudio';
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { btnPrimary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { btnPrimary, cardCls } from '@/components/configuracion/estilos';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PanelTipoClase } from '@/components/configuracion/panel-tipo-clase';
 import { eliminarFotoClase, subirFotoClase, eliminarLogoClase, subirLogoClase } from '@/lib/portal-storage';

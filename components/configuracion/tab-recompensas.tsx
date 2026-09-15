@@ -9,7 +9,7 @@ import type { EfectoRecompensa, RewardCatalogItem } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { nombreCreditos, normalizarNombreCreditos, NOMBRE_CREDITOS_MAX } from '@/lib/creditos-nombre';
-import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 
 // Valores de partida sugeridos — un punto de arranque, no un límite: el
 // estudio los edita libremente en cuanto carga esta pantalla.

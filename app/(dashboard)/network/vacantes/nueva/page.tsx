@@ -12,7 +12,7 @@ import {
   TIPOS_TRABAJO_NETWORK, TIPO_TRABAJO_LABEL, TARIFAS_RANGO_NETWORK, TARIFA_RANGO_LABEL,
 } from '@/lib/network/catalogo';
 import type { EspecialidadNetwork, HorarioNetwork, TipoTrabajoNetwork, TarifaRangoNetwork } from '@/lib/network/catalogo';
-import { cardCls, inputCls, labelCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls, inputCls, labelCls } from '@/components/configuracion/estilos';
 
 export default function NuevaVacanteNetworkPage() {
   const router = useRouter();

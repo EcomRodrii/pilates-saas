@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { normalizarSlug, motivoSlugInvalido } from '@/lib/slug';
-import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls, Toggle } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls, Toggle } from '@/components/configuracion/estilos';
 import { copiarAlPortapapeles } from '@/lib/utils';
 
 // Los widgets embebibles (antes aquí) viven ahora en su propio tab de

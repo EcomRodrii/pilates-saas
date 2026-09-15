@@ -6,7 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeGestionarCamposPersonalizados } from '@/lib/permisos';
 import { cn } from '@/lib/utils';
 import type { CampoPersonalizado } from '@/lib/types';
-import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/components/configuracion/estilos';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 // ─── Campos personalizados de socia ──────────────────────────────────────────

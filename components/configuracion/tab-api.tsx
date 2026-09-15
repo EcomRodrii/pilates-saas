@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeGestionarAppsOAuth } from '@/lib/permisos';
 import { authHeader } from '@/lib/api-client';
-import { Field, ColorInput, Toggle, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, ColorInput, Toggle, cardCls } from '@/components/configuracion/estilos';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { TabCrecimientoWeb } from '@/components/configuracion/tab-crecimiento-web';
 import { ReservaCalendario } from '@/components/reserva/reserva-calendario';

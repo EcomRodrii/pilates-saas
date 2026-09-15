@@ -9,7 +9,7 @@ import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { GoogleIcon } from '@/components/icons/brand-icons';
 import { subirFotoAdmin, eliminarFotoAdmin, subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import { fetchTarifasEquipo } from '@/lib/api-client';
-import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls, cardCls } from '@/components/configuracion/estilos';
 import { useCuenta } from '@/components/auth/use-cuenta';
 import { ETIQUETA_ROL } from '@/lib/permisos-reglas';
 

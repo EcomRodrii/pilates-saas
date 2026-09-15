@@ -12,7 +12,7 @@ import {
 import type { CadenaTipoClase } from '@/lib/types';
 import {
   inputCls, labelCls, btnPrimary, btnSecondary, cardCls, ColorInput, ColorSwatch, NivelBadge,
-} from '@/app/(dashboard)/configuracion/page';
+} from '@/components/configuracion/estilos';
 
 // Multi-sede (plan CADENA): ver quiénes son, cambiarse entre ellas y añadir
 // una nueva. `sedes`/`cambiarmeASede` vienen del orquestador (tab-estudio.tsx)

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { CalendarOff, Copy, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import { Toggle, cardCls, btnPrimary, btnSecondary } from '@/app/(dashboard)/configuracion/page';
+import { Toggle, cardCls, btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
 import type { DiaHorario } from '@/lib/types';
 
 // El calendario decía "Cerrado" en cualquier día sin clases, aunque el

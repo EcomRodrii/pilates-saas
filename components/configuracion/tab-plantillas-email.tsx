@@ -7,7 +7,7 @@ import {
 import { useStudio } from '@/lib/studio-context';
 import { cn } from '@/lib/utils';
 import { FUENTES_EMAIL, type FuenteEmail, type PlantillaEmail, type TipoPlantillaEmail } from '@/lib/types';
-import { inputCls, btnPrimary, btnSecondary, cardCls, Field } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, btnPrimary, btnSecondary, cardCls, Field } from '@/components/configuracion/estilos';
 import { previsualizarPlantilla, enviarPruebaPlantilla } from '@/lib/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 

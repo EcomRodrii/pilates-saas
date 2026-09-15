@@ -7,7 +7,7 @@ import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
 import type { AchievementDefinition, AchievementMetric } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 
 // Punto de partida opcional (botón "Cargar logros sugeridos") — no se
 // insertan solos, el estudio decide si los quiere y puede editarlos después.

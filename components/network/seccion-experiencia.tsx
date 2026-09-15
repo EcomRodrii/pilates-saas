@@ -102,7 +102,7 @@ function PickerEstudio({ onElegir, onCancelar, enviando, v2 }: {
 // "experiencia" es un booleano ahí) sino también el badge "Experiencia
 // verificada" (Fase 8), que necesita saber si ALGUNA está `confirmada`.
 // `tokensNetworkV2`: este componente nació para /network/mi-perfil (tokens
-// shadcn del panel, `inputCls`/`labelCls`/`cardCls` de configuracion/page)
+// shadcn del panel, `inputCls`/`labelCls`/`cardCls` de configuracion/estilos)
 // y se reutilizó tal cual dentro del wizard de alta (NW_*, paleta propia
 // de components/network-v2/tokens.ts) — el resultado eran dos sistemas de
 // diseño distintos en la MISMA pantalla (radio de borde, tamaño de fuente y

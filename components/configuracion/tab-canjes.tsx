@@ -6,7 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import type { EstadoCanje, RewardRedemption } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { nombreCreditos } from '@/lib/creditos-nombre';
-import { btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 
 // Los canjes de las socias, y qué hacer con ellos.
 //
