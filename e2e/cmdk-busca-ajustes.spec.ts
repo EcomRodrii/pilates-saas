@@ -109,8 +109,10 @@ test.describe('⌘K encuentra los ajustes de Configuración', () => {
     const input = await abrirBuscador(page);
     await input.fill('IVA');
     // Primero algo que demuestre que la búsqueda ya corrió: sin eso, «no está»
-    // pasaría también antes de buscar.
-    await expect(page.getByText('Sin resultados para «IVA»')).toBeVisible();
+    // pasaría también antes de buscar. Recepción sí encuentra la acción de
+    // facturar («iva» es una de sus claves), que no sale con la caja vacía.
+    await expect(page.getByRole('button', { name: /Emitir una factura/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Dar de alta a una clienta/ })).toHaveCount(0);
     await expect(page.getByText('Ajustes', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Datos fiscales e IVA/ })).toHaveCount(0);
   });
