@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/nextjs';
 
 // 44ª pasada de auditoría, hallazgo H-2. Cuando `procesarReembolsoDeUnRecibo`
 // (lib/billing/procesar-reembolso.ts) marca DEVUELTO un recibo, este helper
@@ -41,43 +42,76 @@ export async function marcarPenalizacionReembolsada(
   }
   if (!pen?.reserva_id) return; // este recibo no era de una penalización cobrada
 
-  await pedirRevisionLiquidacionPenalizacion(admin, studioId, pen as PenalizacionRepartida,
+  const resultado = await pedirRevisionLiquidacionPenalizacion(admin, studioId, pen as PenalizacionRepartida,
     motivoRevisionPenalizacion(Number(pen.importe), causa));
+  // I-5 (auditoría 15-sep): 'ya_pagada' es el caso que de verdad duele — el
+  // dinero de esta penalización ya salió en una nómina PAGADA y nadie lo va a
+  // corregir solo. No se toca la nómina (ajuste manual, decisión de producto),
+  // pero SIEMPRE tiene que avisar — antes no avisaba nunca en este camino.
+  if (resultado === 'ya_pagada' || resultado === 'error') {
+    Sentry.captureMessage(
+      resultado === 'ya_pagada'
+        ? '[liquidacion] penalización reembolsada tras pagar la nómina que la repartió: revisión manual'
+        : '[liquidacion] no se pudo pedir la revisión de la liquidación de una penalización reembolsada',
+      { level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-revertida' },
+        extra: { studioId, reciboId, causa } },
+    );
+  }
 }
 
 export interface PenalizacionRepartida { reserva_id: string; importe: number | string | null; procesada_en: string | null }
 
+export type ResultadoRevisionLiquidacion = 'revisada' | 'sin_periodo' | 'ya_pagada' | 'error';
+
 /**
  * Marca para revisión la liquidación CONFIRMADA que ya repartió esta
  * penalización (nunca una PAGADA: eso es un ajuste manual). `pen` son los datos
- * de cuando estaba COBRADA: su `procesada_en` decide el periodo. `false` solo si
- * la escritura de la liquidación dio error; sin instructora o sin periodo no hay
- * nada que revisar.
+ * de cuando estaba COBRADA: su `procesada_en` decide el periodo.
+ *
+ * `'sin_periodo'`: no hay reserva/instructora/periodo — no hay nada que
+ * revisar todavía (p.ej. la liquidación de ese mes ni se ha generado). `'error'`:
+ * la escritura dio error de verdad. `'ya_pagada'`: el UPDATE no tocó ninguna
+ * fila porque la liquidación de ese periodo YA ESTÁ PAGADA — antes esto
+ * devolvía `true` igual que un éxito (I-5, auditoría 15-sep): 0 filas sin
+ * `error` no es lo mismo que "nada que hacer", y aquí es justo el caso en que
+ * el estudio pierde el reparto sin que nadie se entere.
  */
 export async function pedirRevisionLiquidacionPenalizacion(
   admin: SupabaseClient, studioId: string, pen: PenalizacionRepartida, motivo: string,
-): Promise<boolean> {
+): Promise<ResultadoRevisionLiquidacion> {
   const { data: reserva } = await admin.from('reservas').select('sesion_id')
     .eq('id', pen.reserva_id).maybeSingle();
   const sesionId = (reserva?.sesion_id as string | null) ?? null;
-  if (!sesionId) return true;
+  if (!sesionId) return 'sin_periodo';
 
   const { data: sesion } = await admin.from('sesiones').select('instructor_id')
     .eq('id', sesionId).maybeSingle();
   const instructorId = (sesion?.instructor_id as string | null) ?? null;
-  if (!instructorId) return true;
+  if (!instructorId) return 'sin_periodo';
 
   // Mismo criterio que generarLiquidacionBorrador: el periodo de una
   // penalización es el mes en que se COBRÓ, no el de la clase.
-  if (!pen.procesada_en) return true;
+  if (!pen.procesada_en) return 'sin_periodo';
   const fecha = new Date(pen.procesada_en);
   const anio = fecha.getUTCFullYear();
   const mes = fecha.getUTCMonth() + 1;
 
-  const { error } = await admin.from('liquidaciones_instructoras')
+  const { data: tocadas, error } = await admin.from('liquidaciones_instructoras')
     .update({ requiere_revision: true, revision_motivo: motivo })
     .eq('studio_id', studioId).eq('instructor_id', instructorId)
-    .eq('periodo_anio', anio).eq('periodo_mes', mes).eq('estado', 'CONFIRMADA');
-  if (error) console.error('[liquidacion] no se pudo pedir la revisión de la liquidación', studioId, error.message);
-  return !error;
+    .eq('periodo_anio', anio).eq('periodo_mes', mes).eq('estado', 'CONFIRMADA')
+    .select('id');
+  if (error) {
+    console.error('[liquidacion] no se pudo pedir la revisión de la liquidación', studioId, error.message);
+    return 'error';
+  }
+  if ((tocadas?.length ?? 0) > 0) return 'revisada';
+
+  // 0 filas sin error: o esa liquidación no existe todavía, o existe y ya
+  // está PAGADA (el UPDATE la excluye a propósito). Una lectura aparte, solo
+  // en este caso, distingue cuál de las dos es.
+  const { data: existente } = await admin.from('liquidaciones_instructoras')
+    .select('estado').eq('studio_id', studioId).eq('instructor_id', instructorId)
+    .eq('periodo_anio', anio).eq('periodo_mes', mes).maybeSingle();
+  return existente?.estado === 'PAGADA' ? 'ya_pagada' : 'sin_periodo';
 }
