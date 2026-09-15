@@ -28,6 +28,27 @@ export interface PoliticaReembolso {
   soloSinUsar: boolean;
 }
 
+/**
+ * Tope del plazo que se puede poner desde Configuración. No lo impone Stripe
+ * ni la columna (admite cualquier entero): está para que un cero de más no se
+ * guarde en silencio como «se puede devolver durante trece años».
+ */
+export const PLAZO_REEMBOLSO_MAX_DIAS = 365;
+
+/**
+ * El plazo tal y como se teclea → días enteros entre 0 (sin límite) y el tope.
+ * `null` si no lo es: vacío, negativo, con decimales o por encima del tope.
+ *
+ * Antes cualquier cosa rara se guardaba como 0, que aquí significa «sin
+ * límite» — lo MENOS restrictivo posible, y sin decírselo a nadie.
+ */
+export function leerPlazoReembolso(texto: string): number | null {
+  const limpio = texto.trim();
+  if (!/^\d{1,4}$/.test(limpio)) return null;
+  const dias = Number(limpio);
+  return dias <= PLAZO_REEMBOLSO_MAX_DIAS ? dias : null;
+}
+
 export interface ReciboParaReembolso {
   estado: string;
   importe: number;

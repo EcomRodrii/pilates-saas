@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useId } from 'react';
+import { useState, useCallback, useEffect, useId, useRef } from 'react';
 import Link from 'next/link';
 import { Palette, ChevronRight, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { nifValido } from '@/lib/nif';
+import { hayCambios as formularioCambiado, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import { CANALES, hrefCanal } from '@/lib/canales-estudio';
 import { CampoImagen } from '@/components/ui/campo-imagen';
 import {
@@ -38,13 +39,17 @@ import { inputCls, labelCls, btnSecondary, cardCls } from '@/app/(dashboard)/con
 // suelta: el IVA es un dato fiscal más y vive junto al NIF y la razón social,
 // no en un bloque aparte al final.
 //
-// ⚠️ Un solo GUARDAR para todos los campos de texto, en una barra que solo
-// aparece cuando hay algo sin guardar. Con cuatro tarjetas, cuatro botones
-// "Guardar" habrían sido peor que el problema que se venía a resolver: cuatro
-// oportunidades de escribir en una tarjeta, guardar en otra y perder lo
-// escrito. Logo, favicon e IVA quedan FUERA de esa barra a propósito — se
-// guardan solos en cuanto se tocan, y mezclarlos obligaría a pulsar Guardar
-// después de subir una imagen que ya está subida.
+// ⚠️ Un solo GUARDAR para todos los campos (IVA incluido), en una barra que
+// solo aparece cuando hay algo sin guardar. Con cuatro tarjetas, cuatro botones
+// "Guardar" habrían sido peor que el problema que se venía a resolver. Logo y
+// favicon quedan FUERA de esa barra a propósito —se guardan solos al subirlos—
+// y por eso viven en SU PROPIA tarjeta: mezclar en una tarjeta lo que se guarda
+// solo con lo que espera al botón es la trampa de #1971.
+//
+// ⚠️ Guardar el logo (o cualquier `updateStudio` en segundo plano, como el tour
+// marcándose visto) cambia `studio` de referencia. El formulario ya no se
+// recopia entero cuando pasa —eso borraba el NIF a medio escribir—: solo se
+// ponen al día los campos sin tocar (lib/configuracion/formulario-sincronizado.ts).
 
 type StudioForm = {
   nombre: string; razonSocial: string; nif: string;
@@ -52,6 +57,8 @@ type StudioForm = {
   telefono: string; email: string; sitioWeb: string;
   descripcion: string; anioFundacion: string; normasTexto: string;
   lema: string; fraseHeroe: string; fraseManuscrita: string; subtituloHeroe: string;
+  /** Como texto porque es el valor del `<select>`; se guarda como número. */
+  ivaPorDefecto: string;
 };
 
 function studioToForm(s: Studio | null): StudioForm {
@@ -72,6 +79,7 @@ function studioToForm(s: Studio | null): StudioForm {
     fraseHeroe: s?.fraseHeroe ?? '',
     fraseManuscrita: s?.fraseManuscrita ?? '',
     subtituloHeroe: s?.subtituloHeroe ?? '',
+    ivaPorDefecto: String(s?.ivaPorDefecto ?? 21),
   };
 }
 
@@ -138,6 +146,10 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
   const { resetDatosPilates, studio, updateStudio } = useStudio();
   const rol = useRol();
   const [form, setForm] = useState<StudioForm>(() => studioToForm(studio));
+  // Lo último que se sabe del servidor. Lo que difiere de aquí es lo tecleado,
+  // y es lo único que la barra de abajo tiene pendiente de guardar.
+  const [base, setBase] = useState<StudioForm>(() => studioToForm(studio));
+  const guardandoRef = useRef(false);
   const [guardando, setGuardando] = useState(false);
   const [subiendo, setSubiendo] = useState<'logo' | 'favicon' | null>(null);
 
@@ -182,17 +194,18 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
     return () => { vivo = false; };
   }, [puedeEditarFavicon]);
 
-  // Reajusta el formulario cuando `studio` cambia de referencia (llega de la
-  // BD, o se cambia de sede) — ajuste de estado durante el render, no un
-  // efecto: así no hay un primer pintado con el valor viejo.
+  // Se pone al día cuando `studio` cambia de referencia (llega de la BD, o se
+  // guarda el logo) — durante el render, no en un efecto: así no hay un primer
+  // pintado con el valor viejo. Lo que la propietaria ha tocado se queda.
   const [studioAnterior, setStudioAnterior] = useState(studio);
   if (studio !== studioAnterior) {
     setStudioAnterior(studio);
-    setForm(studioToForm(studio));
+    const servidor = studioToForm(studio);
+    setForm(sincronizarFormulario(form, base, servidor));
+    setBase(servidor);
   }
 
-  const guardado = studioToForm(studio);
-  const hayCambios = (Object.keys(form) as (keyof StudioForm)[]).some(k => form[k] !== guardado[k]);
+  const hayCambios = formularioCambiado(form, base);
 
   const handleReset = useCallback(() => {
     resetDatosPilates();
@@ -200,12 +213,16 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
   }, [resetDatosPilates, showToast]);
 
   async function guardarEstudio() {
+    if (guardandoRef.current) return;
     if (nifInvalido) { showToast('El NIF/CIF no es válido: revisa la letra o el dígito de control.'); return; }
     if (anioInvalido) { showToast('El año de apertura tiene que ser de cuatro cifras.'); return; }
-    const { anioFundacion, descripcion, normasTexto, sitioWeb, lema, fraseHeroe, fraseManuscrita, subtituloHeroe, ...resto } = form;
-    setGuardando(true);
-    const res = await updateStudio({
+    const enviado = form;
+    const { anioFundacion, descripcion, normasTexto, sitioWeb, lema, fraseHeroe, fraseManuscrita, subtituloHeroe, ivaPorDefecto, ...resto } = enviado;
+    const cambios: Partial<Studio> = {
       ...resto,
+      // Viaja con el NIF y la razón social. Lo lee el TPV
+      // (app/api/pos/catalogo) y el desglose de cada factura nueva.
+      ivaPorDefecto: Number(ivaPorDefecto),
       // Igual que `normasTexto`: en blanco se guarda como NULL, no como cadena
       // vacía — «no la ha puesto» y «la ha puesto vacía» tienen que ser lo
       // mismo para quien decide si pintar el enlace.
@@ -222,14 +239,26 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
       fraseHeroe: fraseHeroe.trim() || null,
       fraseManuscrita: fraseManuscrita.trim() || null,
       subtituloHeroe: subtituloHeroe.trim() || null,
-    });
-    setGuardando(false);
-    showToast(res.ok ? 'Datos del estudio guardados' : res.error);
-  }
-
-  async function guardarIva(tipo: number) {
-    const res = await updateStudio({ ivaPorDefecto: tipo });
-    showToast(res.ok ? `IVA general fijado en ${tipo}%` : res.error);
+    };
+    // Un ref y no solo el `disabled`: dos toques seguidos llegan antes de que
+    // el botón se repinte deshabilitado.
+    guardandoRef.current = true;
+    setGuardando(true);
+    try {
+      const res = await updateStudio(cambios);
+      // «Guardados» solo con la fila confirmada (updateStudio cuenta filas):
+      // si no, lo escrito se queda en pantalla y la barra sigue ahí.
+      if (!res.ok) { showToast(res.error); return; }
+      // Lo guardado, normalizado (recortes, vacío → NULL), pasa a ser la base.
+      // Lo que se haya tecleado MIENTRAS se guardaba no se pisa.
+      const guardado = studioToForm({ ...studio, ...cambios } as Studio);
+      setForm(f => sincronizarFormulario(f, enviado, guardado));
+      setBase(guardado);
+      showToast('Datos del estudio guardados');
+    } finally {
+      guardandoRef.current = false;
+      setGuardando(false);
+    }
   }
 
   // ── Logo: columna de `studios`, se guarda al momento ──
@@ -295,7 +324,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
       {/* ─── Tu marca ─── */}
       <Tarjeta
         titulo="Tu marca"
-        ayuda="El nombre y las imágenes con las que te reconocen tus alumnas: en su app, en tu página de reservas y en el icono de las notificaciones que les llegan."
+        ayuda="El nombre y el color con los que te reconocen tus alumnas: en su app y en tu página de reservas."
       >
         <div className="space-y-5">
           <Campo label="Nombre del estudio" ayuda="El nombre comercial, el que usa todo el mundo. La razón social va en los datos fiscales.">
@@ -304,77 +333,6 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
                 onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
             )}
           </Campo>
-
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <p className={labelCls}>Logo</p>
-              {/* Sin `respaldo`: el logo es la marca del estudio y no tiene
-                  imagen por defecto que valga — una genérica sería la marca de
-                  otro. Sin logo, la miniatura dice «Sin imagen», que aquí es
-                  la verdad. */}
-              <CampoImagen
-                etiqueta="logo"
-                valor={studio?.logoUrl}
-                onSubir={subirLogo}
-                onCambiar={guardarLogo}
-                ocupado={subiendo === 'logo'}
-                ajuste="contain"
-                clasePreview="w-12 h-12"
-                textoSubir="Subir logo"
-                textoCambiar="Cambiar logo"
-                ayuda={
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                    Sale en la app de tus alumnas y en el icono de sus notificaciones.
-                    Recomendado: 512×512 px, cuadrado y sin márgenes de sobra.
-                  </p>
-                }
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <p className={labelCls}>Favicon</p>
-              {puedeEditarFavicon ? (
-                <>
-                  {/* Tampoco lleva `respaldo`, por el mismo motivo que el logo:
-                      sin favicon la pestaña enseña el de Tentare, y poner ahí
-                      una imagen genérica de Pilates sería peor, no mejor. */}
-                  <CampoImagen
-                    etiqueta="favicon"
-                    valor={faviconBorrador ?? null}
-                    onSubir={subirFavicon}
-                    onCambiar={guardarFavicon}
-                    ocupado={subiendo === 'favicon' || faviconBorrador === undefined}
-                    ajuste="contain"
-                    clasePreview="w-12 h-12"
-                    textoSubir="Subir favicon"
-                    textoCambiar="Cambiar favicon"
-                    ayuda={
-                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                        El icono de la pestaña del navegador. Cuadrado y pequeño: 64×64 px basta.
-                      </p>
-                    }
-                  />
-                  {/* Decirlo o no decirlo no cambia el comportamiento, pero sí
-                      cambia si la propietaria se entera: el favicon se guarda
-                      en el borrador del tema y no se ve fuera hasta publicar. */}
-                  {faviconPendiente && (
-                    <p className="rounded-lg bg-warning/10 px-3 py-2 text-[11.5px] leading-relaxed text-warning-foreground">
-                      Guardado, pero todavía no se ve fuera: el favicon se aplica al{' '}
-                      <Link href="/configuracion/apariencia" className="font-semibold underline">
-                        publicar en Apariencia
-                      </Link>.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                  {rol === 'PROPIETARIO'
-                    ? 'El favicon forma parte de la app con tu marca, incluida a partir del plan Estudio.'
-                    : 'Solo la propietaria puede cambiar el favicon.'}
-                </p>
-              )}
-            </div>
-          </div>
 
           <Link
             href="/configuracion/apariencia/panel"
@@ -393,6 +351,86 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
             </span>
             <ChevronRight size={15} className="shrink-0 text-muted-foreground" />
           </Link>
+        </div>
+      </Tarjeta>
+
+      {/* ─── Logo y favicon ───
+          Tarjeta propia porque se guardan SOLOS al subirlos, sin la barra de
+          Guardar. En la misma tarjeta que el nombre, nadie sabía qué había
+          quedado guardado y qué no (#1971). */}
+      <Tarjeta
+        titulo="Logo y favicon"
+        ayuda="Se guardan en cuanto los subes, sin pulsar Guardar. Salen en la app de tus alumnas, en tu página de reservas y en el icono de las notificaciones que les llegan."
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <p className={labelCls}>Logo</p>
+            {/* Sin `respaldo`: el logo es la marca del estudio y no tiene
+                imagen por defecto que valga — una genérica sería la marca de
+                otro. Sin logo, la miniatura dice «Sin imagen», que aquí es
+                la verdad. */}
+            <CampoImagen
+              etiqueta="logo"
+              valor={studio?.logoUrl}
+              onSubir={subirLogo}
+              onCambiar={guardarLogo}
+              ocupado={subiendo === 'logo'}
+              ajuste="contain"
+              clasePreview="w-12 h-12"
+              textoSubir="Subir logo"
+              textoCambiar="Cambiar logo"
+              ayuda={
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  Sale en la app de tus alumnas y en el icono de sus notificaciones.
+                  Recomendado: 512×512 px, cuadrado y sin márgenes de sobra.
+                </p>
+              }
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <p className={labelCls}>Favicon</p>
+            {puedeEditarFavicon ? (
+              <>
+                {/* Tampoco lleva `respaldo`, por el mismo motivo que el logo:
+                    sin favicon la pestaña enseña el de Tentare, y poner ahí
+                    una imagen genérica de Pilates sería peor, no mejor. */}
+                <CampoImagen
+                  etiqueta="favicon"
+                  valor={faviconBorrador ?? null}
+                  onSubir={subirFavicon}
+                  onCambiar={guardarFavicon}
+                  ocupado={subiendo === 'favicon' || faviconBorrador === undefined}
+                  ajuste="contain"
+                  clasePreview="w-12 h-12"
+                  textoSubir="Subir favicon"
+                  textoCambiar="Cambiar favicon"
+                  ayuda={
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                      El icono de la pestaña del navegador. Cuadrado y pequeño: 64×64 px basta.
+                    </p>
+                  }
+                />
+                {/* Decirlo o no decirlo no cambia el comportamiento, pero sí
+                    cambia si la propietaria se entera: el favicon se guarda
+                    en el borrador del tema y no se ve fuera hasta publicar. */}
+                {faviconPendiente && (
+                  <p className="rounded-lg bg-warning/10 px-3 py-2 text-[11.5px] leading-relaxed text-warning-foreground">
+                    Guardado, pero todavía no se ve fuera: el favicon se aplica al{' '}
+                    <Link href="/configuracion/apariencia" className="font-semibold underline">
+                      publicar en Apariencia
+                    </Link>.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                {rol === 'PROPIETARIO'
+                  ? 'El favicon forma parte de la app con tu marca, incluida a partir del plan Estudio.'
+                  : 'Solo la propietaria puede cambiar el favicon.'}
+              </p>
+            )}
+          </div>
         </div>
       </Tarjeta>
 
@@ -601,20 +639,21 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
               />
             )}
           </Campo>
-          {/* El IVA se guarda solo al elegirlo, así que va fuera de la barra de
-              Guardar de abajo — y por eso se dice aquí, para que no parezca que
-              se ha quedado sin guardar. */}
+          {/* El IVA espera a «Guardar», como el NIF y la razón social de esta
+              misma tarjeta. Se guardaba solo al elegirlo: dos modelos en una
+              tarjeta (#1971), y encima reiniciaba el formulario y borraba el
+              NIF que estuvieras escribiendo. */}
           <Campo
             label="IVA general"
             className="sm:col-span-2"
-            ayuda="Se guarda al elegirlo y se aplica a las próximas facturas. Las ya emitidas y selladas (Veri*Factu) no cambian."
+            ayuda="Se aplica a las próximas facturas desde que guardas. Las ya emitidas y selladas (Veri*Factu) no cambian."
           >
             {id => (
               <select
                 id={id}
                 className={cn(inputCls, 'max-w-xs cursor-pointer')}
-                value={studio?.ivaPorDefecto ?? 21}
-                onChange={e => guardarIva(Number(e.target.value))}
+                value={form.ivaPorDefecto}
+                onChange={e => setForm(f => ({ ...f, ivaPorDefecto: e.target.value }))}
               >
                 <option value={21}>21 % — General</option>
                 <option value={10}>10 % — Reducido</option>
@@ -657,7 +696,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
             </p>
             <div className="flex shrink-0 gap-2">
               <button
-                onClick={() => setForm(studioToForm(studio))}
+                onClick={() => setForm(base)}
                 disabled={guardando}
                 className={cn(btnSecondary, 'text-[12px]')}
               >

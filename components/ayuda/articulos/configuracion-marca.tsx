@@ -11,12 +11,13 @@ export default function Contenido() {
   return (
     <>
       <p>
-        En Configuración &gt; Estudio &gt; General, el bloque «Tu marca» reúne lo que ven tus alumnas: el nombre de tu
-        estudio, tu logo y tu favicon, que subes ahí mismo.
+        En Configuración &gt; Estudio &gt; General, el bloque «Tu marca» tiene el nombre de tu estudio, que se guarda
+        con el botón «Guardar datos del estudio». Justo debajo, «Logo y favicon»: esos dos se guardan solos en cuanto
+        los subes, y subirlos no borra nada de lo que estés escribiendo en el resto de la pantalla.
       </p>
 
       <p>
-        El color va desde «El color de tu marca», en ese mismo bloque: abre «Personalizar tu panel», donde eliges tu
+        El color va desde «El color de tu marca», en el bloque «Tu marca»: abre «Personalizar tu panel», donde eliges tu
         color principal y el secundario y los pruebas antes de guardarlos. Lo ven tus alumnas en tu página de
         reservas y en su app.
       </p>
