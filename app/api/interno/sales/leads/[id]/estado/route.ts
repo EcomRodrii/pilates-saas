@@ -8,7 +8,7 @@ import { moverLead } from '@/lib/sales/leads.ts';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const res = await comprobarAdminInterno(request);
@@ -31,8 +31,9 @@ export async function PUT(
     const admin = getSupabaseAdmin();
     if (!admin) throw new Error('Base de datos no disponible');
 
+    const { id } = await params;
     const lead = await moverLead(admin, {
-      lead_id: params.id,
+      lead_id: id,
       nuevo_estado,
       actor_id: res.admin.userId,
       notas,

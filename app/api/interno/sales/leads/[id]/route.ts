@@ -9,7 +9,7 @@ import { obtenerLead, actualizarLead, moverLead as _moverLead } from '@/lib/sale
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const res = await comprobarAdminInterno(request);
@@ -25,7 +25,8 @@ export async function GET(
     const admin = getSupabaseAdmin();
     if (!admin) throw new Error('Base de datos no disponible');
 
-    const lead = await obtenerLead(admin, params.id);
+    const { id } = await params;
+    const lead = await obtenerLead(admin, id);
     if (!lead) {
       return Response.json({ error: 'Lead no encontrado' }, { status: 404 });
     }
@@ -40,7 +41,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const res = await comprobarAdminInterno(request);
@@ -66,7 +67,8 @@ export async function PATCH(
       );
     }
 
-    const lead = await actualizarLead(admin, params.id, body, res.admin.userId);
+    const { id } = await params;
+    const lead = await actualizarLead(admin, id, body, res.admin.userId);
     return Response.json(lead);
   } catch (error) {
     console.error('[/api/interno/sales/leads/[id]] PATCH:', error);
