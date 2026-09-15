@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
@@ -8,6 +9,7 @@ import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
 import { bloqueoCobroEnMostradorDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
+import { respuestaTrasCancelar, trasGuardarReferencia } from '@/lib/pos/referencia-cobro-recibo';
 import type { EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 
@@ -115,7 +117,10 @@ export async function POST(req: NextRequest) {
     // Se guarda el intento EN VUELO para poder volver a preguntar tras una
     // recarga del navegador. No va en `stripe_payment_intent_id`: esa es la del
     // cargo bueno, y de ella cuelgan los reembolsos.
-    const { error: errRef } = await admin.from('recibos')
+    //
+    // Compare-and-set sobre el estado leído, contando filas: si el recibo se
+    // borró o cambió mientras se arrancaba el cobro, no hay a qué apuntarlo.
+    const { data: tocadas, error: errRef } = await admin.from('recibos')
       .update({
         cobro_mostrador_pi: inicio.referencia,
         // P-1 (27ª pasada): solo Bizum la rellena — hace falta para poder
@@ -123,11 +128,25 @@ export async function POST(req: NextRequest) {
         // el PaymentIntent (que no invalida el enlace de pago).
         cobro_mostrador_checkout_session_id: inicio.checkoutSessionId ?? null,
       })
-      .eq('id', reciboId).eq('studio_id', sesion.studioId);
+      .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('estado', recibo.estado)
+      .select('id');
     if (errRef) {
       // El cobro ya está lanzado en Stripe; perder la referencia solo significa
       // que el mostrador no podrá preguntar — el webhook lo cerrará igual.
       console.error('[pos/recibo] no se pudo guardar la referencia del cobro', errRef);
+    }
+    if (trasGuardarReferencia({ error: !!errRef, tocadas: tocadas?.length ?? 0 }) === 'CANCELAR') {
+      // Se cancela en la cuenta Connect del estudio (`ctx.ctx.stripeAccount`) y
+      // se vuelve a preguntar: cancelar es best-effort y no dice si lo logró.
+      await prov.cancelar(ctx.ctx, inicio.referencia, inicio.checkoutSessionId ?? null);
+      const tras = await prov.consultar(ctx.ctx, inicio.referencia);
+      const respuesta = respuestaTrasCancelar(tras.estado);
+      // Solo ids.
+      Sentry.captureMessage('[pos/recibo] el recibo cambió mientras se iniciaba el cobro', {
+        level: respuesta.confirmado ? 'warning' : 'error', tags: { area: 'cobros', tipo: 'pos-recibo' },
+        extra: { reciboId, studioId: sesion.studioId, referencia: inicio.referencia, pagoEstado: tras.estado },
+      });
+      return NextResponse.json({ error: respuesta.mensaje, pagoEstado: tras.estado }, { status: 409 });
     }
 
     return NextResponse.json({

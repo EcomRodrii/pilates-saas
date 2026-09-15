@@ -25,7 +25,9 @@ import { saldoVivo } from '@/lib/creditos-caducidad';
 // `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
 // medianoche UTC — dos horas antes en verano — para todo el mundo.
 import { hoyISO } from '@/lib/student/formato';
-import { cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA } from '@/lib/billing/penalizacion-aprobar-reglas';
+import {
+  cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA, type LecturaPenalizacionesDeRecibos,
+} from '@/lib/billing/penalizacion-aprobar-reglas';
 import { reservasPorAprobarDe, type FilaReservaPorAprobar, type ReservaPorAprobar } from '@/lib/reservas-por-aprobar';
 import { fusionarDatosPrivados, CAMPOS_PRIVADOS_SOCIO, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -3123,6 +3125,30 @@ async function recibosDePenalizacionAnulada(ids: string[], origen: string): Prom
     });
   }
   return bloqueados;
+}
+
+// Remesa de domiciliaciones: estado de la penalización de cada recibo
+// `rec-penaliz-*` de `ids`, solo si apunta a ESE recibo (el mismo criterio que
+// `leerPenalizacionDelRecibo` en servidor). Lo decide `recibosParaRemesa`. La
+// remesa se genera en el navegador y no hay ruta de servidor, así que la lectura
+// va con la sesión del personal: la RLS de `penalizaciones` deja leer a
+// PROPIETARIO y RECEPCION, los roles que ven Cobros. Sin poder leer, `ok: false`,
+// y esos recibos se quedan fuera de la remesa.
+export async function dbEstadosPenalizacionDeRecibos(ids: string[]): Promise<LecturaPenalizacionesDeRecibos> {
+  const estadoPorRecibo = new Map<string, string>();
+  const penalizacionIds = [...new Set(ids.map(penalizacionDelRecibo).filter((id): id is string => !!id))];
+  if (penalizacionIds.length === 0) return { ok: true, estadoPorRecibo };
+  try {
+    const { data, error } = await supabase.from('penalizaciones').select('id, estado, recibo_id').in('id', penalizacionIds);
+    if (error) return { ok: false };
+    for (const fila of data ?? []) {
+      const reciboId = fila.recibo_id as string | null;
+      if (reciboId && penalizacionDelRecibo(reciboId) === fila.id) estadoPorRecibo.set(reciboId, fila.estado as string);
+    }
+    return { ok: true, estadoPorRecibo };
+  } catch {
+    return { ok: false };
+  }
 }
 
 // Marca un recibo como COBRADO de forma condicional (auditoría 2026-07-29,

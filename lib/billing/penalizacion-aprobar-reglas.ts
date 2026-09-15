@@ -798,6 +798,62 @@ export function cobroManualDeRecibo(
   return { ok: false, http: 409, mensaje: `${NO_DESDE_AQUI} ${porQue}` };
 }
 
+// ── Remesa de domiciliaciones (Cobros → «Preparar recibos para el banco») ──
+//
+// La remesa metía todo recibo PENDIENTE con mandato, también los `rec-penaliz-*`:
+// uno sin aprobar (PENDIENTE_APROBACION) se cargaba en la cuenta de la alumna sin
+// pasar por la aprobación ni por el guardia de consentimiento, y uno anulado
+// (OMITIDA_*) también. Es un cobro desde el panel como «Cobrar online», así que
+// con la misma regla: solo con la penalización en RECIBO_CREADO.
+
+/**
+ * Estado de la penalización de cada recibo `rec-penaliz-*`, por id del recibo (solo
+ * si la penalización apunta a ESE recibo). `ok: false` = no se pudo leer.
+ */
+export type LecturaPenalizacionesDeRecibos =
+  | { ok: true; estadoPorRecibo: ReadonlyMap<string, string> }
+  | { ok: false };
+
+export interface RemesaSinPenalizaciones<R> {
+  entran: R[];
+  /** Recibos de penalización sin el cobro decidido (sin aprobar, anulada, ya cobrada…). */
+  fueraSinAprobar: number;
+  /** Recibos de penalización que no se pudieron comprobar: fuera, por si acaso. */
+  fueraSinComprobar: number;
+}
+
+/**
+ * Qué recibos entran en la remesa. Un recibo que no es de una penalización, siempre.
+ * El de una penalización, con `cobroManualDeRecibo` en `'panel'`; sin poder leerla,
+ * fuera (un adeudo en el banco no se deshace con un clic).
+ */
+export function recibosParaRemesa<R extends { id: string }>(
+  recibos: readonly R[], lectura: LecturaPenalizacionesDeRecibos,
+): RemesaSinPenalizaciones<R> {
+  const out: RemesaSinPenalizaciones<R> = { entran: [], fueraSinAprobar: 0, fueraSinComprobar: 0 };
+  for (const r of recibos) {
+    if (cobroManualDeRecibo(r.id).ok) { out.entran.push(r); continue; }
+    if (!lectura.ok) { out.fueraSinComprobar++; continue; }
+    const veredicto = cobroManualDeRecibo(r.id, { ok: true, estado: lectura.estadoPorRecibo.get(r.id) ?? null }, 'panel');
+    if (veredicto.ok) out.entran.push(r);
+    else out.fueraSinAprobar++;
+  }
+  return out;
+}
+
+/** Lo que dice la pantalla de los recibos de penalización que se quedaron fuera. `null` si ninguno. */
+export function avisoPenalizacionesFueraDeRemesa(f: { fueraSinAprobar: number; fueraSinComprobar: number }): string | null {
+  const partes: string[] = [];
+  const recibos = (n: number) => (n === 1 ? '1 recibo de penalización' : `${n} recibos de penalización`);
+  if (f.fueraSinAprobar > 0) {
+    partes.push(`${recibos(f.fueraSinAprobar)} no ${f.fueraSinAprobar === 1 ? 'entra' : 'entran'}: su cobro no está aprobado (o se anuló).`);
+  }
+  if (f.fueraSinComprobar > 0) {
+    partes.push(`${recibos(f.fueraSinComprobar)} no ${f.fueraSinComprobar === 1 ? 'entra' : 'entran'}: no hemos podido comprobar si se puede cobrar. Vuelve a prepararlo en un momento.`);
+  }
+  return partes.length > 0 ? partes.join(' ') : null;
+}
+
 /**
  * Estado del recibo → escritura de la penalización.
  * - COBRADO → COBRADA, desde lo mismo que corrige cualquier cobro confirmado.
@@ -918,6 +974,29 @@ export interface ReciboDePenalizacionAnulada {
   programado: boolean;
   /** PaymentIntent, Checkout o cobro de mostrador enlazado: puede haber dinero en camino. */
   conCobroEnCamino: boolean;
+  /** Ya se ha pedido devolverlo, o ya se devolvió entero (`devolucionEnMarcha`). */
+  devolucionEnMarcha: boolean;
+}
+
+/**
+ * ¿Ya se está devolviendo el dinero de un recibo cobrado? Sí si la devolución ya
+ * cubre el importe (`importe_devuelto`, que escriben el webhook y el reembolso), o
+ * si Tentare la pidió (`reembolso_solicitado_en`) y Stripe no la ha rechazado
+ * (`reembolso_fallido_en`: el webhook de un refund fallido lo pone y deja la marca
+ * de solicitado tal cual, así que solicitado a secas no basta).
+ *
+ * Es lo que corta el aviso horario del barrido de anuladas: el recibo sigue
+ * COBRADO hasta que el webhook lo pase a DEVUELTO, y mientras tanto avisaba cada
+ * hora de algo que alguien ya estaba resolviendo.
+ */
+export function devolucionEnMarcha(r: {
+  importe: number | null; importeDevuelto: number | null;
+  reembolsoSolicitadoEn: string | null; reembolsoFallidoEn: string | null;
+}): boolean {
+  const importe = Number(r.importe ?? 0);
+  const devuelto = Number(r.importeDevuelto ?? 0);
+  if (devuelto > 0 && devuelto >= importe) return true;
+  return !!r.reembolsoSolicitadoEn && !r.reembolsoFallidoEn;
 }
 
 /** Alertas del barrido a Sentry. Solo ids. */
@@ -935,14 +1014,15 @@ export type DestinoReciboAnulado = 'BORRAR' | 'AVISAR_COBRADO' | 'AVISAR_NO_BORR
 
 /**
  * - PENDIENTE, sin programar y sin cobro en camino → se suelta y se borra.
- * - COBRADO → no se borra: el dinero entró y hay que devolverlo a mano.
+ * - COBRADO → no se borra: el dinero entró y hay que devolverlo a mano. Con la
+ *   devolución ya en marcha, nada: está resuelto y avisar cada hora es ruido.
  * - PENDIENTE con algo en camino, o EN_CURSO → no se borra: puede entrar dinero.
  * - FALLIDO, DEVUELTO u otro → nada. Nadie lo cobra solo (dunning, Cobros y el
  *   checkout leen la penalización), y el mostrador tampoco con la penalización
  *   anulada; ya tuvo un intento de cobro, así que su historia no se borra.
  */
 export function destinoDelReciboAnulado(r: ReciboDePenalizacionAnulada): DestinoReciboAnulado {
-  if (r.estado === 'COBRADO') return 'AVISAR_COBRADO';
+  if (r.estado === 'COBRADO') return r.devolucionEnMarcha ? 'NADA' : 'AVISAR_COBRADO';
   if (r.estado === 'PENDIENTE') return r.programado || r.conCobroEnCamino ? 'AVISAR_NO_BORRABLE' : 'BORRAR';
   if (r.estado === 'EN_CURSO') return 'AVISAR_NO_BORRABLE';
   return 'NADA';

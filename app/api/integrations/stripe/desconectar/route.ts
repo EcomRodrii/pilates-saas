@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
-import { puedeCambiarCuentaDeCobro } from '@/lib/billing/cuenta-cobro';
+import { desenlaceDesconexion, puedeCambiarCuentaDeCobro, TEXTO_CUENTA_STRIPE_CAMBIO } from '@/lib/billing/cuenta-cobro';
 import { uid } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -48,8 +48,9 @@ export async function POST(req: NextRequest) {
   if (!cuenta) return NextResponse.json({ ok: true, sinCambios: true });
 
   // Compare-and-set sobre la cuenta leída: si entre medias se reconectó otra,
-  // no se desconecta la nueva por error.
-  const { error: errUpd } = await admin
+  // no se desconecta la nueva por error. Y se cuentan las filas: sin ninguna,
+  // no se ha desconectado nada y decir «ok» sería mentir (`desenlaceDesconexion`).
+  const { data: tocadas, error: errUpd } = await admin
     .from('studios')
     .update({
       stripe_account_id: null,
@@ -57,10 +58,22 @@ export async function POST(req: NextRequest) {
       stripe_account_desconectado_en: new Date().toISOString(),
     })
     .eq('id', studio.id)
-    .eq('stripe_account_id', cuenta);
+    .eq('stripe_account_id', cuenta)
+    .select('id');
   if (errUpd) {
     return errorInterno('stripe:desconectar:actualizar', errUpd,
       'No se ha podido desconectar Stripe. Vuelve a intentarlo.');
+  }
+  if ((tocadas?.length ?? 0) === 0) {
+    const { data: ahora, error: errRelectura } = await admin
+      .from('studios').select('stripe_account_id').eq('id', studio.id).maybeSingle();
+    const relectura = errRelectura || !ahora
+      ? { ok: false as const }
+      : { ok: true as const, cuenta: (ahora.stripe_account_id as string | null) ?? null };
+    if (desenlaceDesconexion(0, relectura) === 'YA_DESCONECTADA') {
+      return NextResponse.json({ ok: true, sinCambios: true });
+    }
+    return NextResponse.json({ error: TEXTO_CUENTA_STRIPE_CAMBIO }, { status: 409 });
   }
 
   // Constancia en Actividad. Si falla, no se deshace la desconexión: ya está

@@ -17,7 +17,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
   BARRIDO_RECIBO_RESUELTO, DESDE_DETECTADA, ESTADOS_OMITIDA, ESTADOS_RECIBO_BARRIDO_ANULADAS, crearReciboYCobrar,
-  penalizacionDelRecibo, soltarReciboDePenalizacionAnulada, type EstadoPenalizacion,
+  devolucionEnMarcha, penalizacionDelRecibo, soltarReciboDePenalizacionAnulada, type EstadoPenalizacion,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { borrarReciboDePenalizacionSinCobro, seguirPenalizacionAlRecibo } from '@/lib/billing/penalizacion-recibo-server';
 import {
@@ -315,7 +315,7 @@ async function soltarRecibosDePenalizacionesAnuladas(admin: SupabaseClient) {
     for (;;) {
       const { data, error } = await admin
         .from('penalizaciones')
-        .select('id, studio_id, estado, recibo_id, recibos!inner(estado, proximo_reintento, stripe_payment_intent_id, checkout_session_id, cobro_mostrador_pi)')
+        .select('id, studio_id, estado, recibo_id, recibos!inner(estado, proximo_reintento, stripe_payment_intent_id, checkout_session_id, cobro_mostrador_pi, importe, importe_devuelto, reembolso_solicitado_en, reembolso_fallido_en)')
         .in('estado', [...ESTADOS_OMITIDA])
         .in('recibos.estado', [...ESTADOS_RECIBO_BARRIDO_ANULADAS])
         .gt('id', ultimoId)
@@ -352,6 +352,11 @@ async function soltarRecibosDePenalizacionesAnuladas(admin: SupabaseClient) {
           estado: recibo?.estado ?? null,
           programado: !!recibo?.proximo_reintento,
           conCobroEnCamino: !!(recibo?.stripe_payment_intent_id || recibo?.checkout_session_id || recibo?.cobro_mostrador_pi),
+          // Cobrado y ya devolviéndose: no se avisa cada hora hasta que pase a DEVUELTO.
+          devolucionEnMarcha: !!recibo && devolucionEnMarcha({
+            importe: recibo.importe, importeDevuelto: recibo.importe_devuelto,
+            reembolsoSolicitadoEn: recibo.reembolso_solicitado_en, reembolsoFallidoEn: recibo.reembolso_fallido_en,
+          }),
         });
       }
       if (filas.length < PAGINA_ANULADAS) break;
@@ -379,6 +384,10 @@ interface ReciboEmbebido {
   stripe_payment_intent_id: string | null;
   checkout_session_id: string | null;
   cobro_mostrador_pi: string | null;
+  importe: number | null;
+  importe_devuelto: number | null;
+  reembolso_solicitado_en: string | null;
+  reembolso_fallido_en: string | null;
 }
 
 /**
