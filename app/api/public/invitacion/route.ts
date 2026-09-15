@@ -20,24 +20,31 @@ export async function GET(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   const [{ data: instructor }, { data: studio }] = await Promise.all([
-    admin.from('instructores').select('nombre, email, auth_user_id, activo')
+    admin.from('instructores').select('nombre, email, auth_user_id, activo, rol')
       .eq('id', claim.instructorId).eq('studio_id', claim.studioId).maybeSingle(),
-    admin.from('studios').select('nombre, logo_url').eq('id', claim.studioId).maybeSingle(),
+    admin.from('studios').select('nombre, logo_url, slug').eq('id', claim.studioId).maybeSingle(),
   ]);
 
   if (!instructor || instructor.activo === false) {
     return NextResponse.json({ error: 'Esta invitación ya no está disponible.' }, { status: 404 });
   }
+  // `rol` y `slug` (15-sep-2026): la invitación de una INSTRUCTORA lleva a la
+  // app del estudio (`/portal/<slug>`), que es donde trabaja, y no al panel.
+  const comun = {
+    estudio: (studio?.nombre as string | null) ?? 'tu estudio',
+    rol: (instructor.rol as string | null) ?? null,
+    slug: (studio?.slug as string | null) ?? null,
+  };
   // Ya se registró: decirlo evita que repita el alta y acabe con una cuenta
   // suelta creada con otro correo, que es el fallo silencioso de este flujo.
   if (instructor.auth_user_id) {
-    return NextResponse.json({ yaVinculada: true, estudio: studio?.nombre ?? 'tu estudio' });
+    return NextResponse.json({ yaVinculada: true, ...comun });
   }
 
   return NextResponse.json({
     yaVinculada: false,
     nombre: instructor.nombre as string,
     email: instructor.email as string | null,
-    estudio: (studio?.nombre as string | null) ?? 'tu estudio',
+    ...comun,
   });
 }

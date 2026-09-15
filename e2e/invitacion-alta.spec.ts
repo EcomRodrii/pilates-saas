@@ -67,6 +67,40 @@ test.describe('Invitación: alta de la persona invitada', () => {
     expect(await page.evaluate(() => sessionStorage.getItem('pending_invitacion'))).toBe(TOKEN);
   });
 
+  test('«Ya tengo cuenta» abre el login en «iniciar sesión» con el token guardado', async ({ page }) => {
+    // Antes solo había «Crear mi cuenta», y quien ya tenía cuenta chocaba con
+    // «ya existe una cuenta con ese email» (15-sep-2026).
+    await page.route('**/api/**', route => json(route, {}));
+    await page.route('**/api/public/invitacion**', route => json(route, {
+      yaVinculada: false, nombre: 'Marta', email: 'marta@example.com', estudio: 'Studio Carmen', rol: 'RECEPCION', slug: 'studio-carmen',
+    }));
+
+    await page.goto(`/invitacion?token=${encodeURIComponent(TOKEN)}`);
+    await page.getByTestId('invitacion-ya-tengo-cuenta').click({ timeout: 30_000 });
+
+    await expect(page).toHaveURL(/\/login\?/, { timeout: 30_000 });
+    await expect(page).not.toHaveURL(/alta=1/);
+    await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
+    expect(await page.evaluate(() => sessionStorage.getItem('pending_invitacion'))).toBe(TOKEN);
+  });
+
+  test('la invitación de una instructora lleva a la app del estudio, no a crear cuenta de Tentare', async ({ page }) => {
+    await page.route('**/api/**', route => json(route, {}));
+    await page.route('**/api/public/invitacion**', route => json(route, {
+      yaVinculada: false, nombre: 'Marta', email: 'marta@example.com', estudio: 'Studio Carmen', rol: 'INSTRUCTOR', slug: 'studio-carmen',
+    }));
+
+    await page.goto(`/invitacion?token=${encodeURIComponent(TOKEN)}`);
+    const ir = page.getByTestId('invitacion-ir-a-la-app');
+    await expect(ir).toHaveText('Entrar en la app de Studio Carmen', { timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Crear mi cuenta' })).toHaveCount(0);
+
+    // El token viaja a la app del estudio, que es quien lo guarda y lo usa.
+    const destino = page.waitForURL(/\/portal\/studio-carmen\/acceso\/invitacion/, { timeout: 30_000 });
+    await ir.click();
+    await destino;
+  });
+
   test('sin ?alta=1 el login sigue abriendo en "iniciar sesión"', async ({ page }) => {
     await page.route('**/api/**', route => json(route, {}));
     await page.goto('/login');

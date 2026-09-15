@@ -18,6 +18,17 @@ interface Invitacion {
   nombre?: string;
   email?: string | null;
   estudio: string;
+  rol?: string | null;
+  slug?: string | null;
+}
+
+/**
+ * La invitación de una INSTRUCTORA va a la app del estudio (15-sep-2026): es
+ * donde trabaja desde que se retiró Tentare Core, y allí entra con la cuenta que
+ * ya tenga o la crea, sin el «ya existe una cuenta con ese email» del panel.
+ */
+function rutaApp(inv: Invitacion): string | null {
+  return inv.rol === 'INSTRUCTOR' && inv.slug ? `/portal/${encodeURIComponent(inv.slug)}` : null;
 }
 
 export default function PaginaInvitacion() {
@@ -46,7 +57,7 @@ export default function PaginaInvitacion() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void cargar(); }, [cargar]);
 
-  async function continuar() {
+  async function continuar(yaTieneCuenta = false) {
     // Si hay otra sesión abierta (el caso que rompía el flujo), se cierra antes
     // de mandar al alta: si no, el login rebota al panel de esa otra persona.
     if (user) await signOut();
@@ -62,9 +73,20 @@ export default function PaginaInvitacion() {
     // redirect URLs permitidas" que sí aplica al enlace del CORREO — ver
     // lib/equipo/invitacion-pendiente.ts) le da una segunda vía que no
     // depende de que ese storage sobreviva el salto.
+    //
+    // Sin `alta=1` si ya tiene cuenta: /login abre en «Iniciar sesión» y, al
+    // entrar, reclama con el mismo token. Antes solo había «Crear mi cuenta» y
+    // quien ya tenía cuenta chocaba con «ya existe una cuenta con ese email».
     const token = new URLSearchParams(window.location.search).get('token');
-    const destino = `/login?destino=/dashboard&alta=1${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+    const destino = `/login?destino=/dashboard${yaTieneCuenta ? '' : '&alta=1'}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
     window.location.href = destino;
+  }
+
+  function irALaApp(base: string) {
+    const token = new URLSearchParams(window.location.search).get('token');
+    window.location.href = token
+      ? `${base}/acceso/invitacion?token=${encodeURIComponent(token)}`
+      : base;
   }
 
   const caja = 'w-full max-w-sm rounded-2xl border border-border bg-card px-6 py-7 text-center flex flex-col gap-3';
@@ -89,6 +111,8 @@ export default function PaginaInvitacion() {
     );
   }
 
+  const app = rutaApp(inv);
+
   if (inv.yaVinculada) {
     return (
       <main className="min-h-dvh grid place-items-center px-6">
@@ -97,9 +121,31 @@ export default function PaginaInvitacion() {
           <p className="text-[13.5px] text-muted-foreground">
             Tu cuenta de <strong className="text-foreground">{inv.estudio}</strong> ya está activa. Entra normalmente.
           </p>
-          <a href="/login" className="mt-1 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13.5px] font-bold">
-            Iniciar sesión
+          <a href={app ?? '/login'} className="mt-1 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13.5px] font-bold">
+            {app ? `Abrir la app de ${inv.estudio}` : 'Iniciar sesión'}
           </a>
+        </div>
+      </main>
+    );
+  }
+
+  if (app) {
+    return (
+      <main className="min-h-dvh grid place-items-center px-6">
+        <div className={caja}>
+          <p className="text-[12px] font-bold uppercase tracking-wide text-brand-medio">Invitación</p>
+          <h1 className="text-[19px] font-bold text-foreground leading-tight">
+            {inv.nombre}, te han dado de alta en {inv.estudio}
+          </h1>
+          <p className="text-[13.5px] text-muted-foreground">
+            Tu agenda, tus alumnas y tus horarios están en la app de {inv.estudio}. Entra con la cuenta que ya tengas, o créala allí, y elige «Como instructora».
+          </p>
+          <button
+            type="button" onClick={() => irALaApp(app)} data-testid="invitacion-ir-a-la-app"
+            className="mt-1 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13.5px] font-bold"
+          >
+            Entrar en la app de {inv.estudio}
+          </button>
         </div>
       </main>
     );
@@ -138,10 +184,16 @@ export default function PaginaInvitacion() {
         )}
 
         <button
-          type="button" onClick={continuar}
+          type="button" onClick={() => void continuar()}
           className="mt-1 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13.5px] font-bold"
         >
           {user ? 'Cerrar sesión y crear mi cuenta' : 'Crear mi cuenta'}
+        </button>
+        <button
+          type="button" onClick={() => void continuar(true)} data-testid="invitacion-ya-tengo-cuenta"
+          className="px-4 py-2.5 rounded-xl border border-border text-[13.5px] font-semibold text-foreground hover:bg-muted"
+        >
+          Ya tengo cuenta: iniciar sesión
         </button>
       </div>
     </main>

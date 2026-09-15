@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { codigoDeError, emailYaEnUso, traducirAuth, type CodigoAuth } from './auth-errores.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
+import { olvidarInvitacionApp } from '@/lib/student/invitacion-app';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { mensajeSeguro } from '@/lib/errores';
 
@@ -245,7 +246,9 @@ export function useAuthStudent(slug: string) {
 
   // Cinturón además de los tirantes: el catálogo cacheado lleva la `socia` de
   // quien se va; `catalogo.ts` ya se vacía en SIGNED_OUT, pero aquí no cuesta.
-  const logout = useCallback(async () => { invalidarCatalogo(slug); await supabasePortal.auth.signOut(); }, [slug]);
+  // La invitación de equipo guardada se va con la sesión: en un dispositivo
+  // compartido no puede esperar a la siguiente persona (`invitacion-app-regla.ts`).
+  const logout = useCallback(async () => { invalidarCatalogo(slug); olvidarInvitacionApp(slug); await supabasePortal.auth.signOut(); }, [slug]);
 
   return { loginConPassword, enviarEnlace, registrarCuenta, fijarPassword, cambiarPassword, cambiarEmail, recuperar, entrarConGoogle, logout };
 }

@@ -24,7 +24,10 @@ function json(route: Route, body: unknown, status = 200) {
 }
 
 async function montar(page: Page, opciones: { pendiente: boolean; yaUnida: boolean; celdas: string[] }) {
-  const contador = { sesion: 0, unirse: 0, altaAlumna: 0, leer: 0, guardar: 0, cuerpoAlta: null as null | Record<string, unknown> };
+  const contador = {
+    sesion: 0, unirse: 0, altaAlumna: 0, leer: 0, guardar: 0,
+    cuerpoAlta: null as null | Record<string, unknown>, cuerpoUnirse: null as null | Record<string, unknown>,
+  };
   let unida = opciones.yaUnida;
   let celdas = opciones.celdas;
 
@@ -46,6 +49,7 @@ async function montar(page: Page, opciones: { pendiente: boolean; yaUnida: boole
   });
   await page.route('**/api/portal/instructora/unirse', (route) => {
     contador.unirse++;
+    contador.cuerpoUnirse = JSON.parse(route.request().postData() || '{}');
     unida = true;
     return json(route, { ok: true });
   });
@@ -130,6 +134,27 @@ test.describe('Instructora dada de alta con su correo', () => {
     expect(contador.sesion).toBeGreaterThan(0);
     expect(contador.cuerpoAlta?.eligioAlumna).toBe(false);
     await expect(page).not.toHaveURL(/\/acceso\/elegir/);
+  });
+
+  test('desde el correo de invitación: elige, se une con el enlace y va a sus horarios', async ({ page }) => {
+    test.setTimeout(120_000);
+    // Sin ficha pendiente por correo: la invitación es lo único que la trae aquí
+    // (entra con otra cuenta, o su cuenta es la de un estudio).
+    const contador = await montar(page, { pendiente: false, yaUnida: false, celdas: [] });
+    const enlace = 'eyJpbnN0cnVjdG9ySWQiOiJpbnMtMSJ9.ZmlybWFkZWxlbmxhY2U';
+    await page.goto(`/portal/${SLUG}/acceso/invitacion?token=${enlace}`);
+
+    // Con sesión, va directa a elegir; el enlace ya no está en la URL.
+    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/acceso/elegir$`), { timeout: 60_000 });
+    await expect(page.getByText('te ha invitado a su equipo')).toBeVisible();
+    expect(contador.altaAlumna).toBe(0);
+
+    await page.getByTestId('entrar-como-instructora').click();
+    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/equipo/disponibilidad$`), { timeout: 60_000 });
+    expect(contador.unirse).toBe(1);
+    expect(contador.cuerpoUnirse).toEqual({ slug: SLUG, token: enlace });
+    // Unida: el enlace se olvida y no vuelve a traerla a elegir.
+    expect(await page.evaluate((s) => localStorage.getItem(`st_invitacion_equipo:${s}`), SLUG)).toBeNull();
   });
 
   test('con horarios ya puestos, entra directa a «Hoy»', async ({ page }) => {

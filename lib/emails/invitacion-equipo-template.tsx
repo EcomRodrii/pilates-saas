@@ -24,9 +24,14 @@ const ROL_LABEL: Record<string, string> = {
 // la ficha con email pero no se avisaba a nadie — solo se enteraba si alguien
 // se lo decía de palabra. Un solo botón: el enlace lleva el token que vincula su
 // cuenta con esta ficha (app/api/equipo/reclamar).
+//
+// Desde el 15-sep-2026 la de una INSTRUCTORA lleva a la app del estudio, donde
+// trabaja (`/invitacion` la reenvía): ahí entra con la cuenta que ya tenga o la
+// crea, y elige «Como instructora». El resto de roles sigue yendo al panel.
 export function InvitacionEquipoEmail({ nombre, propietariaNombre, estudioNombre, logoUrl, colorPrimario, rol, url }: Props) {
   const rolLabel = ROL_LABEL[rol] ?? 'miembro del equipo';
   const marca = nombreAppPorRol((rol as Rol) ?? 'INSTRUCTOR');
+  const esApp = rol === 'INSTRUCTOR';
   return (
     <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} titulo="Te han invitado al equipo" preview={`${propietariaNombre} te ha invitado a ${estudioNombre}`}>
       <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 12px' }}>Hola <strong>{nombre}</strong>,</Text>
@@ -35,10 +40,12 @@ export function InvitacionEquipoEmail({ nombre, propietariaNombre, estudioNombre
       </Text>
       <Section style={{ backgroundColor: '#FAFAF7', borderRadius: 10, padding: '16px 20px', marginBottom: 24 }}>
         <Text style={{ color: '#6B7280', fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-          Este enlace es tuyo: al crear tu cuenta desde aquí queda vinculada a tu ficha, uses el correo que uses. No hace falta ningún código.
+          {esApp
+            ? `Este enlace es tuyo: te lleva a la app de ${estudioNombre}. Entra con la cuenta que ya tengas o créala allí —con Google o con un enlace a tu correo— y elige «Como instructora».`
+            : 'Este enlace es tuyo: al crear tu cuenta, o entrar con la que ya tienes, desde aquí queda vinculada a tu ficha, uses el correo que uses. No hace falta ningún código.'}
         </Text>
       </Section>
-      <EmailButton href={url} colorPrimario={colorPrimario}>Crear mi cuenta</EmailButton>
+      <EmailButton href={url} colorPrimario={colorPrimario}>{esApp ? 'Aceptar invitación' : 'Crear mi cuenta o entrar'}</EmailButton>
       <Text style={{ color: '#63635D', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
         Si no esperabas esta invitación, puedes ignorar este email.
       </Text>
