@@ -114,7 +114,7 @@ async function barrerEstudio(admin: Admin, studioId: string, hoy: string): Promi
         fallidas++;
         nota = errorRpc
           ? mensajeErrorRenovar(errorRpc.message)
-          : 'esas fechas ya estaban en el calendario o la sala está ocupada';
+          : 'esas fechas ya estaban en el calendario, la sala está ocupada o el centro está cerrado';
       }
     }
 
