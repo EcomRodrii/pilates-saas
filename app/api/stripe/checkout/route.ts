@@ -225,7 +225,7 @@ export async function POST(req: NextRequest) {
   } else if (body.planId) {
     // Comprar un plan (o pagar y reservar una clase) desde fuera, con la página
     // oculta, no. Solo esta rama: pagar un RECIBO que ya se debe sigue abierto
-    // (es dinero ya decidido, y el estudio manda ese enlace).
+    // (dinero ya decidido: lo cobra el dunning off-session, o la alumna desde Pagos si entra con la clave).
     const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
     if (cerrada) return conCorsWidget(req, cerrada);
     const { data: plan, error } = await admin
