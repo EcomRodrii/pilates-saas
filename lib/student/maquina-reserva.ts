@@ -101,7 +101,7 @@ export type EstadoFinal = Exclude<BookingState, 'idle' | 'reviewing' | 'submitti
 
 /** Copy LITERAL del paquete (§L: no cambiar). */
 export const COPY: Record<EstadoFinal, { titulo: string; cuerpo: string; tono: 'ok' | 'warn' | 'error' }> = {
-  confirmed: { titulo: 'Reserva confirmada', cuerpo: 'Te esperamos. Te avisamos el día antes.', tono: 'ok' },
+  confirmed: { titulo: 'Reserva confirmada', cuerpo: 'Te esperamos. Te recordaremos la clase antes de que empiece.', tono: 'ok' },
   waitlisted: { titulo: 'Estás en la lista de espera', cuerpo: 'Te avisamos al momento si se libera una plaza.', tono: 'warn' },
   full: { titulo: 'Se ha llenado mientras reservabas', cuerpo: 'Otra alumna ha cogido la última plaza. Puedes apuntarte a la lista de espera o elegir otra hora.', tono: 'warn' },
   conflict: { titulo: 'Ya tienes una clase a esa hora', cuerpo: 'Coincide con otra reserva tuya. Cancela una de las dos para continuar.', tono: 'warn' },

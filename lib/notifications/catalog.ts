@@ -955,8 +955,10 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   // ── Automatizaciones ──
   [`${EVENTOS.RECORDATORIO_24H}#SOCIA`]: {
-    title: 'Mañana tienes clase',
-    body: 'Recuerda: {clase} mañana a las {hora}. ¡Te esperamos!',
+    // 24 h ± 30 min antes: en los bordes de medianoche la clase es HOY, no
+    // «mañana». Sin día relativo, la frase es verdad siempre.
+    title: 'Tu clase es en 24 horas',
+    body: 'Recuerda: {clase} a las {hora}. ¡Te esperamos!',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   [`${EVENTOS.RECORDATORIO_1H}#SOCIA`]: {
