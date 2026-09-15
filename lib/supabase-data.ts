@@ -2663,7 +2663,7 @@ export async function dbListPlazasFijas(studioId: string): Promise<PlazaFija[]> 
 // Escribir plazas fijas ya NO se hace desde el navegador: crear, mover, pausar y
 // quitar van por `app/api/plazas-fijas` (reglas de cuota, límite y autorización,
 // y reserva con el mismo motor que cada noche). La RLS de escritura está cerrada
-// (migr 20260915004253).
+// (migr 20260915061357).
 
 // F2 (B2.3): recuperaciones. La caducidad + el tope (4) los resuelve la RPC.
 export async function dbCrearRecuperacion(

@@ -1,5 +1,5 @@
 -- Drill de `materializar_plazas_fijas(p_horizonte_dias, p_plaza_id)` y la regla
--- «plaza fija solo con cuota» (migr 20260915004253). TODO dentro de una
+-- «plaza fija solo con cuota» (migr 20260915061357). TODO dentro de una
 -- transacción que termina en ROLLBACK: no deja nada. Fixture con prefijo
 -- `zzdrill-`.
 --
@@ -17,7 +17,7 @@
 \set ON_ERROR_STOP on
 begin;
 
-\i supabase/migrations/20260915004253_plazas_fijas_materializa_una_plaza_y_solo_cuota.sql
+\i supabase/migrations/20260915061357_plazas_fijas_materializa_una_plaza_y_solo_cuota.sql
 
 insert into studios (id, nombre) values ('zzdrill-st', 'Estudio PF');
 insert into salas (id, studio_id, nombre, capacidad) values ('zzdrill-sala-a', 'zzdrill-st', 'Sala A', 6);
