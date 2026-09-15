@@ -563,8 +563,8 @@ export function Sidebar() {
           con ellas el logo, que en tinta `auto` pinta ahí su versión NEGATIVA
           y desaparecía sobre el blanco. */}
       <div
-        className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
-        style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
+        className="lg:hidden fixed top-0 z-30 flex items-center px-5 h-12 border-b"
+        style={{ width: '100%', backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
       >
         <LogoTentare formato="horizontal" tinta="auto" producto={producto} titulo={marca} alto={30} />
         {/* La píldora de la prueba también en móvil. `ml-auto` y no un
@@ -576,8 +576,8 @@ export function Sidebar() {
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around px-2 border-t"
-        style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+        className="lg:hidden fixed bottom-0 z-30 flex items-center justify-around px-2 border-t"
+        style={{ width: '100%', backgroundColor: 'var(--card)', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
         {bottomNavVisibles.map(item => (
           <BottomNavItem
