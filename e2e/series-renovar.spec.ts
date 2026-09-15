@@ -33,7 +33,7 @@ const ESTADO = {
   decidir: [{ id: 'seriesPorRenovar', n: 1, texto: 'Una clase que se repite está a punto de terminar', href: null }],
 };
 
-type Accion = 'simular' | 'renovar' | 'no_renovar';
+type Accion = 'simular' | 'renovar' | 'no_renovar' | 'automatica';
 type Respuesta = { status?: number; body: unknown };
 
 async function abrirInicio(page: Page, respuestas: Partial<Record<Accion, Respuesta>>) {
@@ -111,5 +111,38 @@ test.describe('Inicio · clases que se repiten y se acaban', () => {
     await expect(page.getByText(/No te lo volveremos a recordar/)).toBeVisible();
     expect(envios).toEqual([{ serieId: 'serie-e2e', accion: 'no_renovar' }]);
     await expect(page.getByTestId('serie-por-renovar')).toHaveCount(0);
+  });
+
+  test('«Renovar sola» se guarda en el servidor al marcarla', async ({ page }) => {
+    const { envios } = await abrirInicio(page, {
+      simular: { body: { ok: true, resultado: SIMULACION } },
+      automatica: { body: { ok: true } },
+    });
+    await page.getByRole('button', { name: `Revisar y renovar ${NOMBRE}` }).click();
+    const dialogo = page.getByRole('dialog');
+    const check = dialogo.getByRole('checkbox', { name: /Renovar sola cuando se vaya a acabar/ });
+    await expect(check).not.toBeChecked();
+    await check.click();
+
+    await expect(check).toBeChecked();
+    expect(envios.filter(e => e.accion === 'automatica')).toEqual([{ serieId: 'serie-e2e', accion: 'automatica', activar: true }]);
+    // Marcarla no renueva nada por sí sola.
+    expect(envios.some(e => e.accion === 'renovar')).toBe(false);
+  });
+
+  test('si no se puede guardar «Renovar sola», no se queda marcada y dice por qué', async ({ page }) => {
+    const { envios } = await abrirInicio(page, {
+      simular: { body: { ok: true, resultado: SIMULACION } },
+      automatica: { status: 500, body: { error: 'No se ha podido guardar.' } },
+    });
+    await page.getByRole('button', { name: `Revisar y renovar ${NOMBRE}` }).click();
+    const dialogo = page.getByRole('dialog');
+    const check = dialogo.getByRole('checkbox', { name: /Renovar sola cuando se vaya a acabar/ });
+    await check.click();
+
+    await expect(dialogo.getByText('No se ha podido guardar.')).toBeVisible();
+    // El intento SALIÓ de verdad: sin esto el test sería hueco.
+    expect(envios.filter(e => e.accion === 'automatica').length).toBeGreaterThan(0);
+    await expect(check).not.toBeChecked();
   });
 });

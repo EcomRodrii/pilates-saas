@@ -242,6 +242,12 @@ export const EVENTOS = {
   // posterior (auditoría 23ª pasada, hallazgo pendiente).
   TRIAL_PROXIMO_A_EXPIRAR: 'sistema.trial_proximo_a_expirar',
   TRIAL_EXPIRADO: 'sistema.trial_expirado',
+  // Series de clases que se acaban (lib/series/avisos-cron.ts): una clase que se
+  // repite y termina sin renovar. Dos niveles (push a 14 días; push + email a 7 y
+  // al terminar) y el aviso de las que se renovaron solas.
+  SERIES_POR_TERMINAR: 'clases.series_por_terminar',
+  SERIES_POR_TERMINAR_URGENTE: 'clases.series_por_terminar_urgente',
+  SERIES_RENOVADAS_SOLAS: 'clases.series_renovadas_solas',
   // El Umbral (lib/decision/umbral.ts): como mucho UN evento de este tipo al
   // día por estudio (reforzado por el UNIQUE(studio_id,fecha) de
   // decision_mensajes_dia) — nunca se dispara si el día es de silencio.
@@ -442,6 +448,12 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // real de socias en curso.
   [EVENTOS.TRIAL_PROXIMO_A_EXPIRAR]: { category: 'sistema', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   [EVENTOS.TRIAL_EXPIRADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  // Series que se acaban: con margen, MEDIA y solo push; cuando queda una semana
+  // o ya terminó, ALTA y también email. Gerencia (propietaria y manager): quien
+  // decide si la clase sigue. Que se renueve sola es BAJA: ya está resuelto.
+  [EVENTOS.SERIES_POR_TERMINAR]:         { category: 'clases', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'gerencia' },
+  [EVENTOS.SERIES_POR_TERMINAR_URGENTE]: { category: 'clases', priority: 'ALTA',  canales: ['PUSH', 'EMAIL'], audiencia: 'gerencia' },
+  [EVENTOS.SERIES_RENOVADAS_SOLAS]:      { category: 'clases', priority: 'BAJA',  canales: ['PUSH'], audiencia: 'gerencia' },
   // ALTA + PUSH+INAPP a propósito, nada más: el Umbral solo interrumpe cuando
   // cree que merece la pena — un canal más (EMAIL) diluiría esa
   // misma promesa. Sin EMAIL: el mensaje es del día, no algo para revisar
@@ -1046,6 +1058,23 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: 'Tus datos están intactos. Elige un plan para volver a entrar en tu estudio.',
     deepLink: () => `/suscripcion`,
   },
+  // Series que se acaban: {resumen} y {lista} los redacta el barrido
+  // (lib/series-avisos.ts), con todas las clases del estudio en un solo aviso.
+  ...paraRoles(EVENTOS.SERIES_POR_TERMINAR, ROLES_POR_AUDIENCIA.gerencia, {
+    title: '{resumen}',
+    body: '{lista}. Renuévalas, o di que no, desde Inicio.',
+    deepLink: () => `/dashboard#decidir-series`,
+  }),
+  ...paraRoles(EVENTOS.SERIES_POR_TERMINAR_URGENTE, ROLES_POR_AUDIENCIA.gerencia, {
+    title: '{resumen}',
+    body: '{lista}. Si no la renuevas, ese hueco se queda sin clase: renuévalas, o di que no, desde Inicio.',
+    deepLink: () => `/dashboard#decidir-series`,
+  }),
+  ...paraRoles(EVENTOS.SERIES_RENOVADAS_SOLAS, ROLES_POR_AUDIENCIA.gerencia, {
+    title: '{resumen}',
+    body: '{lista}. Con la misma configuración, y las plazas fijas siguen.',
+    deepLink: () => `/calendario`,
+  }),
   ...paraRoles(EVENTOS.AUTOMATIZACION_DISPARADA, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Automatización: {automatizacion}',
     body: 'Se ha disparado para {socia}.',

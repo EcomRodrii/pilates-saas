@@ -17,7 +17,7 @@ import {
   fechaDMY, MAX_SEMANAS_RENOVACION, semanasValidas, textoTrasRenovar,
   type MotivoOmitida, type ResultadoRenovarSerie,
 } from '@/lib/series-renovacion';
-import { renovarSerie, simularRenovacion } from '@/lib/series-renovacion-cliente';
+import { marcarRenovacionAutomatica, renovarSerie, simularRenovacion } from '@/lib/series-renovacion-cliente';
 
 const inputCls = 'w-24 text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring';
 const MOTIVO: Record<MotivoOmitida, string> = {
@@ -40,6 +40,11 @@ export function DialogoRenovarSerie({ serieId, nombre, onClose, onHecho }: {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Renovación automática: se guarda al marcarla, aparte de renovar ahora. No
+  // optimista: el check cambia cuando el servidor lo confirma.
+  const [automatica, setAutomatica] = useState(false);
+  const [guardandoAuto, setGuardandoAuto] = useState(false);
+  const [errorAuto, setErrorAuto] = useState<string | null>(null);
   // Solo vale la última simulación pedida: cambiar las semanas deprisa no puede
   // dejar en pantalla la respuesta de un número anterior.
   const turno = useRef(0);
@@ -52,6 +57,7 @@ export function DialogoRenovarSerie({ serieId, nombre, onClose, onHecho }: {
       if (!r.ok) { setError(r.error); return; }
       setSimulacion(r.resultado);
       setSemanas(String(r.resultado.semanas));
+      setAutomatica(r.resultado.renovacionAutomatica);
     });
   }, [serieId]);
 
@@ -85,6 +91,16 @@ export function DialogoRenovarSerie({ serieId, nombre, onClose, onHecho }: {
     setGuardando(false);
     if (!r.ok) { setError(r.error); return; }
     onHecho(textoTrasRenovar(r.resultado), r.resultado.estado === 'renovada' || r.resultado.estado === 'ya_renovada');
+  }
+
+  async function cambiarAutomatica(activar: boolean) {
+    if (guardandoAuto) return;
+    setGuardandoAuto(true);
+    setErrorAuto(null);
+    const r = await marcarRenovacionAutomatica(serieId, activar);
+    setGuardandoAuto(false);
+    if (!r.ok) { setErrorAuto(r.error); return; }
+    setAutomatica(activar);
   }
 
   const omitidas = simulacion?.omitidas ?? [];
@@ -156,6 +172,24 @@ export function DialogoRenovarSerie({ serieId, nombre, onClose, onHecho }: {
             </ul>
           )}
 
+          {simulacion && (
+            <label className="flex items-start gap-2.5 rounded-lg border border-border px-3 py-2.5 text-xs text-foreground">
+              <input
+                type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary"
+                checked={automatica} disabled={guardandoAuto || guardando}
+                onChange={e => void cambiarAutomatica(e.target.checked)}
+              />
+              <span>
+                <span className="font-semibold">Renovar sola cuando se vaya a acabar</span>
+                <span className="mt-0.5 block text-muted-foreground">
+                  Un mes antes del final se renueva con las mismas semanas que la última vez y te avisamos. Si algo lo
+                  impide, te lo decimos para que la revises.
+                </span>
+                {guardandoAuto && <span className="mt-0.5 block text-muted-foreground" role="status">Guardando…</span>}
+              </span>
+            </label>
+          )}
+          {errorAuto && <p role="alert" className="text-xs font-medium text-destructive">{errorAuto}</p>}
           {error && <p role="alert" className="text-xs font-medium text-destructive">{error}</p>}
         </div>
 

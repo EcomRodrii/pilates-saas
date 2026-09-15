@@ -85,6 +85,7 @@ export function SeriesPorRenovar({ onToast }: { onToast: (m: string) => void }) 
                 <p className={s.terminada ? 'text-[11px] font-medium text-destructive' : 'text-[11px] text-muted-foreground'}>
                   {textoFinSerie(s.ultimaFecha, hoy)}
                   {s.plazasFijas > 0 && ` · ${s.plazasFijas === 1 ? '1 alumna con plaza fija' : `${s.plazasFijas} alumnas con plaza fija`}`}
+                  {s.renovacionAutomatica && ' · se renueva sola'}
                 </p>
               </div>
               <div className="flex shrink-0 justify-end gap-2">
