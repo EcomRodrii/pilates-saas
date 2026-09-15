@@ -4,20 +4,17 @@ import { useState, useEffect, useId, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Check,
-  AlertTriangle,
   ExternalLink,
   BellRing,
   Clock,
-  Mail,
 } from 'lucide-react';
 import { EstadoAjuste } from '@/components/configuracion/shell/estado-ajuste';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
-import { WhatsAppAppIcon, ZoomIcon, GoogleCalendarIcon, GmailIcon, MailchimpIcon, ZapierIcon, KisiIcon, KlaviyoIcon } from '@/components/icons/brand-icons';
+import { ZoomIcon, GoogleCalendarIcon, MailchimpIcon, ZapierIcon, KisiIcon, KlaviyoIcon } from '@/components/icons/brand-icons';
 import { authHeader } from '@/lib/api-client';
 import { saludIntegracion, textoSalud } from '@/lib/integraciones/salud';
-import { useWhatsappEmbeddedSignup } from '@/lib/hooks/use-whatsapp-embedded-signup';
 import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import { uuidV4 } from '@/lib/utils';
@@ -41,7 +38,6 @@ type CatalogoIntegracion = {
   // caja y encima se ve más pequeño que el resto.
   placaPropia?: boolean;
   campos: CampoIntegracion[];
-  secretoEnv?: string;
   docsUrl?: string;
   categoria?: string;
   proximamente?: boolean;
@@ -61,36 +57,9 @@ type CatalogoIntegracion = {
 // aquí y la tarjeta tienen que llamarse igual.
 const deSecciones = (id: TarjetaId) => ({ nombre: tarjetaPorId(id).titulo, descripcion: tarjetaPorId(id).frase });
 
+// El remitente de los correos, WhatsApp y Gmail son filas de «Cómo me comunico»
+// desde el 15-sep (v2), con su estado y su cajón: canales-comunicacion.tsx.
 const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
-  {
-    tipo: 'RESEND',
-    // "desde tu propio dominio" era falso: la dirección que FIRMA es siempre la
-    // verificada de la plataforma (ver lib/emails/remitente.ts) — usar una del
-    // estudio sin verificar en Resend haría rebotar el correo, y verificar un
-    // dominio no se resuelve pegando un campo aquí. Lo que sí se puede dar al
-    // estudio es el nombre visible y la dirección de respuesta, que es
-    // exactamente lo que hacen estos dos campos: `fromName` → nombre y
-    // `fromEmail` → reply-to (lib/emails/plantillas-server.ts). «Resend» es el
-    // nombre del proveedor, que a la propietaria no le dice nada.
-    ...deSecciones('integracion-resend'),
-    // Un sobre, no la «R» de Resend: es el envío de correo de Tentare, no un
-    // servicio de terceros que la propietaria contrate o gestione.
-    Icon: Mail,
-    color: 'var(--foreground)',
-    bg: '#F5F5F5',
-    campos: [
-      // Etiquetas y ejemplos del ESTUDIO, no de Tentare: el placeholder anterior
-      // ('hola@tentare.es' / 'Tentare') invitaba a rellenarlo con nuestros
-      // datos, que es lo contrario de lo que hace el campo.
-      { key: 'fromEmail', label: 'Email para respuestas', placeholder: 'hola@tuestudio.es' },
-      { key: 'fromName', label: 'Nombre que verán tus alumnas', placeholder: 'Studio Pilates Barcelona' },
-    ],
-    secretoEnv: 'RESEND_API_KEY',
-    // Sin `docsUrl`: apuntaba a resend.com/api-keys, o sea a sacar una clave de
-    // API que la propietaria NO debe gestionar — el propio aviso de este modal
-    // dice que el proveedor de envío lo lleva Tentare. Mandarla ahí contradecía
-    // ese aviso dos líneas más abajo.
-  },
   {
     tipo: 'GOOGLE_CALENDAR',
     // Decía "sincroniza las clases con tu calendario" sin más. Es cierto, pero
@@ -102,51 +71,6 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     color: '#4285F4',
     bg: '#F5F5F5',
     categoria: 'Calendario',
-    campos: [],
-  },
-  {
-    tipo: 'WHATSAPP',
-    ...deSecciones('integracion-whatsapp'),
-    Icon: WhatsAppAppIcon,
-    placaPropia: true,
-    color: '#25D366',
-    bg: '#F5F5F5',
-    categoria: 'Mensajería',
-    campos: [
-      { key: 'token', label: 'Token de acceso', placeholder: 'EAAxxxxxxxxxxxx...', tipo: 'password' },
-      { key: 'phoneId', label: 'ID de número de teléfono', placeholder: '109xxxxxxxxxxx' },
-      { key: 'plantillaAprobada', label: 'Ya me aprobaron la plantilla "recordatorio_clase" en Meta', placeholder: '', tipo: 'checkbox' },
-      { key: 'plantillaHuecoAprobada', label: 'Ya me aprobaron la plantilla "hueco_disponible" en Meta', placeholder: '', tipo: 'checkbox' },
-      { key: 'plantillaSustitucionAprobada', label: 'Ya me aprobaron la plantilla "sustitucion_urgente" en Meta', placeholder: '', tipo: 'checkbox' },
-    ],
-    instrucciones: [
-      'Entra en developers.facebook.com/apps y crea (o abre) una app de tipo "Business".',
-      'Añade el producto "WhatsApp" a tu app.',
-      'En WhatsApp → Introducción, copia el "ID del número de teléfono".',
-      'En la misma pantalla, genera un token de acceso permanente (token de usuario del sistema — no el token temporal de 24h de prueba).',
-      'Pega aquí el token y el ID del número, y pulsa Guardar.',
-      'Los recordatorios los manda un proceso automático, no una respuesta tuya, así que Meta exige una plantilla aprobada para que lleguen pasadas 24h desde el último mensaje de la alumna. En WhatsApp Manager → Plantillas de mensaje, crea una con nombre exacto "recordatorio_clase", categoría "Utilidad", idioma "Español" y este cuerpo con 5 variables: «Recordatorio · {{1}}. Tienes {{2}} el {{3}} a las {{4}} en {{5}}.» Meta suele aprobarla en minutos — cuando lo haga, marca la casilla de abajo.',
-      'Los avisos de hueco libre («Rellenar hueco» y el radar de ocupación) necesitan su PROPIA plantilla, porque para Meta son marketing y no un aviso de servicio. Crea otra con nombre exacto "hueco_disponible", categoría "Marketing", idioma "Español" y este cuerpo con 6 variables: «¡Hola {{1}}! Se ha quedado un hueco en {{2}} el {{3}} a las {{4}} en {{5}}. Reserva tu plaza aquí: {{6}} ¡Te esperamos!» Cuando te la aprueben, marca su casilla — marcar la del recordatorio NO vale para esta.',
-      'Si usas las sustituciones, crea también "sustitucion_urgente", categoría "Marketing", idioma "Español", con este cuerpo de 4 variables: «Hola {{1}}, ¿puedes cubrir {{2}} el {{3}}? Confírmalo en un toque aquí: {{4}} Gracias por echar un cable.» Es la que se le manda a la instructora cuando no ha contestado al email, así que es la que más falta hace: sin ella solo le llega si te ha escrito por WhatsApp en las últimas 24 horas. Sí, "Marketing" aunque no venda nada: Meta reserva "Utilidad" para mensajes sobre el pedido o la cuenta de un CLIENTE, y pedirle a tu instructora que cubra una clase no lo es. Si eliges "Utilidad", te la cambian ellos.',
-      'Lo demás (campañas, automatizaciones y los mensajes sueltos de Mensajería) NO necesita plantilla y tampoco puede tenerla: el texto lo escribes tú y cambia cada vez, y Meta solo aprueba mensajes con un texto fijo. Esos llegan a quien te haya escrito en las últimas 24 horas; al resto Meta los rechaza y verás el motivo aquí mismo, en el estado de la integración.',
-    ],
-    // Sin `docsUrl`: era la documentación para programadores de Meta, en inglés.
-    // Los pasos que hacen falta ya van en `instrucciones`.
-    probarUrl: '/api/integrations/whatsapp/probar',
-  },
-  {
-    tipo: 'GMAIL',
-    // Prometía "envía emails desde el Gmail de la propietaria" y eso NO existe:
-    // `enviarEmailGmail` tiene un único llamador en todo el repo, el botón de
-    // "Enviar email de prueba" de esta misma tarjeta. Ningún correo a una
-    // alumna sale por Gmail — todos van por Resend. La otra mitad (traer
-    // contactos) sí es real. Dos estudios la tienen conectada desde el 16-ago,
-    // así que se corrige el texto; desactivarla les quitaría algo que usan.
-    ...deSecciones('integracion-gmail'),
-    Icon: GmailIcon,
-    color: '#EA4335',
-    bg: '#F5F5F5',
-    categoria: 'Correo',
     campos: [],
   },
   {
@@ -265,10 +189,10 @@ function NoDisponibleTodavia({ variable }: { variable: string }) {
 const urlDeLaSeccion = (tarjeta: TarjetaId) => hrefDeSeccion(seccionDeTarjeta(tarjeta));
 
 /**
- * Las integraciones, cada una en su sección: el remitente de los correos,
- * WhatsApp y Gmail en «Cómo me comunico»; el resto en «Conexiones». Stripe es
- * una fila de «Cobros y facturas» (cobro-con-tarjeta.tsx). `tipos` dice cuáles pinta ESTA sección, y solo esas piden sus
- * datos y leen su aviso de vuelta en la URL.
+ * Las integraciones de «Conexiones». Stripe es una fila de «Cobros y facturas»
+ * (cobro-con-tarjeta.tsx), y el remitente de los correos, WhatsApp y Gmail son
+ * filas de «Cómo me comunico» (canales-comunicacion.tsx). `tipos` dice cuáles
+ * pinta ESTA sección, y solo esas piden sus datos y leen su aviso de vuelta en la URL.
  *
  * `children` va entre las tarjetas principales y «Más integraciones» (en
  * Conexiones, «Aplicaciones con acceso»).
@@ -303,46 +227,6 @@ export function TabIntegraciones({ showToast, tipos, children }: {
   };
 
   const getIntegracion = (tipo: TipoIntegracion) => integraciones.find(i => i.tipo === tipo) ?? null;
-
-  // WhatsApp Embedded Signup v4 (ver WHATSAPP_AUDIT.md/META_SETUP.md): el
-  // botón "Conectar WhatsApp" solo aparece con NEXT_PUBLIC_META_APP_ID/
-  // NEXT_PUBLIC_META_CONFIG_ID configurados — sin ellos, la tarjeta cae al
-  // flujo manual existente (mismo criterio de degradación que Stripe/Google/
-  // Zoom/Klaviyo con sus respectivos client IDs, más arriba).
-  const whatsappSignup = useWhatsappEmbeddedSignup();
-  // Resumen de solo lectura de una conexión hecha por Embedded Signup —
-  // distinta del `form` de campos editables: si viniera de ahí, "Guardar"
-  // sobreescribiría el token con uno vacío (la API ya no lo manda al
-  // navegador para estas filas, ver /api/integrations/config). `null` cuando
-  // la fila es del flujo manual (o no hay fila todavía).
-  const [whatsappResumenMeta, setWhatsappResumenMeta] = useState<{ verifiedName: string; displayPhoneNumber: string } | null>(null);
-  const conectarWhatsappMeta = async () => {
-    const r = await whatsappSignup.conectar();
-    if (!r.ok) {
-      if (r.error) showToast(r.error);
-      return;
-    }
-    // El toast viaja en la URL (mismo patrón que stripe_connected/
-    // google_calendar_connected más abajo), NO se pinta aquí antes de
-    // recargar: showToast() es un setState de React, y window.location.reload()
-    // tira la página abajo antes de que React llegue a pintarlo — la
-    // propietaria solo vería la recarga, nunca la confirmación. El resto de
-    // la pantalla (badge de salud, panel entero) lee de `useStudio()`,
-    // cargada una vez al arrancar, así que hace falta recargar de todos
-    // modos — a diferencia de Stripe/Google/Zoom esto no es la vuelta de un
-    // redirect, así que el query param se añade aquí en vez de venir de un
-    // callback de servidor.
-    window.location.href = `${urlDeLaSeccion('integracion-whatsapp')}&whatsapp_connected=1`;
-  };
-
-  useEffect(() => {
-    if (!pinta('WHATSAPP')) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('whatsapp_connected')) {
-      showToast('WhatsApp conectado');
-      window.history.replaceState({}, '', urlDeLaSeccion('integracion-whatsapp'));
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // La vuelta de cada OAuth va a esta misma app.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '');
@@ -406,75 +290,6 @@ export function TabIntegraciones({ showToast, tipos, children }: {
       showToast(`Sincronizado: ${data.creadas} clases nuevas, ${data.actualizadas} actualizadas, ${data.borradas} eliminadas`);
     } finally {
       setSincronizando(false);
-    }
-  };
-
-  // Gmail: mismo patrón OAuth que Google Calendar (misma app, distinto scope
-  // y distinta ruta de callback — ver lib/gmail.ts). Un estudio puede tener
-  // las dos conectadas a la vez, o solo una.
-  const gmailConectado = !!studio?.gmailEmail;
-  const puedeConectarGmail = !!(googleClientId && studio);
-  async function conectarGmail() {
-    if (!googleClientId) return;
-    const res = await fetch('/api/integrations/oauth-state', {
-      method: 'POST',
-      // H-1: same-origin (el valor por defecto, explícito para que no se cambie): esta respuesta fija la cookie HttpOnly del flujo.
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ provider: 'gmail' }),
-    });
-    if (!res.ok) { showToast('No se pudo iniciar la conexión con Gmail'); return; }
-    const { state } = await res.json() as { state: string };
-    const redirect = encodeURIComponent(`${appUrl}/api/integrations/gmail/callback`);
-    const scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/userinfo.email');
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${redirect}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
-  }
-
-  useEffect(() => {
-    if (!pinta('GMAIL')) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('gmail_connected')) {
-      showToast('Gmail conectado');
-      window.history.replaceState({}, '', urlDeLaSeccion('integracion-gmail'));
-    } else if (params.get('gmail_error')) {
-      showToast(`Error al conectar Gmail: ${params.get('gmail_error')}`);
-      window.history.replaceState({}, '', urlDeLaSeccion('integracion-gmail'));
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const desconectarGmail = async () => {
-    const res = await fetch('/api/integrations/gmail/disconnect', { method: 'POST', headers: await authHeader() });
-    if (res.ok) {
-      const upd = await updateStudio({ gmailEmail: null });
-      showToast(upd.ok ? 'Gmail desconectado' : upd.error);
-    } else {
-      const data = await res.json().catch(() => null);
-      showToast(`No se pudo desconectar: ${data?.error ?? 'error desconocido'}`);
-    }
-  };
-
-  const [sincronizandoContactos, setSincronizandoContactos] = useState(false);
-  const sincronizarContactosGmail = async () => {
-    setSincronizandoContactos(true);
-    try {
-      const res = await fetch('/api/integrations/gmail/sync-contacts', { method: 'POST', headers: await authHeader() });
-      const data = await res.json();
-      if (!res.ok) { showToast(`Error al sincronizar contactos: ${data.error}`); return; }
-      showToast(`${data.creadas} alumnas nuevas desde tus contactos de Gmail (${data.yaExistian} ya existían)`);
-    } finally {
-      setSincronizandoContactos(false);
-    }
-  };
-
-  const [probandoGmail, setProbandoGmail] = useState(false);
-  const enviarPruebaGmail = async () => {
-    setProbandoGmail(true);
-    try {
-      const res = await fetch('/api/integrations/gmail/test', { method: 'POST', headers: await authHeader() });
-      const data = await res.json();
-      showToast(res.ok ? 'Email de prueba enviado — revisa tu bandeja de entrada' : `Error: ${data.error}`);
-    } finally {
-      setProbandoGmail(false);
     }
   };
 
@@ -671,14 +486,6 @@ export function TabIntegraciones({ showToast, tipos, children }: {
       const cfg = data.config ?? {};
       setConfigOriginal(cfg);
       setForm(cfg);
-      // `wabaId` solo lo rellena el callback de Embedded Signup — nunca el
-      // formulario manual. Presente = esta fila se conectó por Meta, y el
-      // modal muestra el resumen de solo lectura en vez de los campos.
-      setWhatsappResumenMeta(
-        cat.tipo === 'WHATSAPP' && cfg.wabaId
-          ? { verifiedName: cfg.verifiedName ?? '', displayPhoneNumber: cfg.displayPhoneNumber ?? '' }
-          : null,
-      );
       setEditando(cat.tipo);
     } catch {
       showToast('No se pudieron cargar las credenciales. Inténtalo otra vez.');
@@ -725,28 +532,27 @@ export function TabIntegraciones({ showToast, tipos, children }: {
     showToast(`Te avisaremos cuando ${cat.nombre} esté disponible`);
   };
 
-  // Cada integración es su propia tarjeta con ancla (`#integracion-whatsapp`):
+  // Cada integración es su propia tarjeta con ancla (`#integracion-zoom`):
   // ahí llevan los enlaces y la vuelta de cada conexión.
   // `Titulo` baja a h4 dentro de «Más integraciones», que ya pone su h3.
   const pintarTarjeta = (cat: CatalogoIntegracion, Titulo: 'h3' | 'h4') => {
           const intg = getIntegracion(cat.tipo);
-          // La salud SOLO aplica a las que viven en `integraciones` (WhatsApp,
-          // Kisi, Resend). Las de OAuth (Stripe, Google, Gmail...) no tienen
-          // fila aquí, así que salen APAGADA y la tarjeta queda igual que antes.
+          // La salud SOLO aplica a las que viven en `integraciones` (Kisi,
+          // Mailchimp). Las de OAuth (Google, Zoom...) no tienen fila aquí, así
+          // que salen APAGADA y la tarjeta queda igual que antes.
           const salud = saludIntegracion(intg && {
             activo: intg.activo, ultimoOkEn: intg.ultimoOkEn,
             ultimoError: intg.ultimoError, ultimoErrorEn: intg.ultimoErrorEn,
           });
           const fallando = salud.estado === 'FALLANDO';
           const lineaSalud = textoSalud(salud);
-          const conectado = cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : cat.tipo === 'ZAPIER' ? zapierConectado : !!intg?.activo;
+          const conectado = cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : cat.tipo === 'ZAPIER' ? zapierConectado : !!intg?.activo;
           // Sin la clave OAuth en el servidor no hay nada que conectar: ese es el
           // ÚNICO estado. Antes la pastilla decía «No conectado» y debajo
           // «Todavía no disponible» — ¿lo conecto yo o no puedo? Mismas
           // condiciones que eligen `NoDisponibleTodavia` más abajo.
           const noDisponible = !conectado && (
             (cat.tipo === 'GOOGLE_CALENDAR' && !puedeConectarGoogle)
-            || (cat.tipo === 'GMAIL' && !puedeConectarGmail)
             || (cat.tipo === 'ZOOM' && !puedeConectarZoom)
             || (cat.tipo === 'KLAVIYO' && !puedeConectarKlaviyo)
           );
@@ -832,22 +638,6 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                   ) : (
                     <NoDisponibleTodavia variable="NEXT_PUBLIC_GOOGLE_CLIENT_ID" />
                   )
-                ) : cat.tipo === 'GMAIL' ? (
-                  gmailConectado ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button onClick={sincronizarContactosGmail} disabled={sincronizandoContactos} className={cn(btnPrimary, sincronizandoContactos && 'opacity-50')}>
-                        {sincronizandoContactos ? 'Sincronizando…' : 'Sincronizar contactos'}
-                      </button>
-                      <button onClick={enviarPruebaGmail} disabled={probandoGmail} className={cn(btnSecondary, probandoGmail && 'opacity-50')}>
-                        {probandoGmail ? 'Enviando…' : 'Enviar email de prueba'}
-                      </button>
-                      <button onClick={desconectarGmail} className={btnSecondary}>Desconectar</button>
-                    </div>
-                  ) : puedeConectarGmail ? (
-                    <button type="button" onClick={conectarGmail} className={cn(btnPrimary, 'no-underline')}>Conectar con Gmail</button>
-                  ) : (
-                    <NoDisponibleTodavia variable="NEXT_PUBLIC_GOOGLE_CLIENT_ID" />
-                  )
                 ) : cat.tipo === 'ZOOM' ? (
                   zoomConectado ? (
                     <>
@@ -874,40 +664,9 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                   ) : (
                     <NoDisponibleTodavia variable="NEXT_PUBLIC_KLAVIYO_CLIENT_ID" />
                   )
-                ) : cat.tipo === 'WHATSAPP' ? (
-                  <>
-                    {conectado ? (
-                      <>
-                        <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(btnSecondary, abriendo === cat.tipo && 'opacity-60')}>
-                          Gestionar
-                        </button>
-                        {cat.probarUrl && (
-                          <button onClick={() => probarCampos(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
-                            {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
-                          </button>
-                        )}
-                      </>
-                    ) : whatsappSignup.disponible ? (
-                      <button type="button" onClick={conectarWhatsappMeta} disabled={whatsappSignup.conectando} className={cn(btnPrimary, whatsappSignup.conectando && 'opacity-50')}>
-                        {whatsappSignup.conectando ? 'Conectando…' : 'Conectar WhatsApp'}
-                      </button>
-                    ) : (
-                      <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(btnPrimary, abriendo === cat.tipo && 'opacity-60')}>
-                        Conectar
-                      </button>
-                    )}
-                    {/* Mismo enlace que ya tenía WhatsApp antes de esta rama dedicada
-                        (heredado de la rama genérica de abajo) — se perdía sin este. */}
-                    {cat.docsUrl && (
-                      <a href={cat.docsUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                        Docs <ExternalLink size={11} />
-                      </a>
-                    )}
-                  </>
                 ) : cat.tipo === 'MAILCHIMP' ? (
                   // Modal genérico de campos (Conectar/Gestionar) + Probar
-                  // conexión, igual que Kisi/WhatsApp — solo se añade el
+                  // conexión, igual que Kisi — solo se añade el
                   // botón de sincronización manual, que esos no tienen.
                   <>
                     <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(conectado ? btnSecondary : btnPrimary, abriendo === cat.tipo && 'opacity-60')}>
@@ -1005,31 +764,6 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                   Configurar {cat.nombre}
                 </DialogTitle>
               </DialogHeader>
-              {cat.tipo === 'WHATSAPP' && whatsappResumenMeta ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-success text-[13px] font-medium">
-                    <Check size={16} /> Conectado a través de Meta
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-3 space-y-0.5">
-                    <p className="text-[13px] font-semibold text-foreground">
-                      {whatsappResumenMeta.verifiedName || 'WhatsApp Business'}
-                    </p>
-                    <p className="text-[12px] text-muted-foreground">
-                      {whatsappResumenMeta.displayPhoneNumber || '—'}
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-snug">
-                    Los recordatorios automáticos se envían desde este número. No necesitas
-                    gestionar ningún token ni ID — eso lo hace Tentare por ti.
-                  </p>
-                  <div className="flex items-center justify-between pt-1">
-                    <button onClick={() => desconectar(cat)} className="text-[13px] font-medium text-destructive hover:underline">
-                      Desconectar
-                    </button>
-                    <button onClick={() => setEditando(null)} className={btnSecondary}>Cerrar</button>
-                  </div>
-                </div>
-              ) : (
               <div className="space-y-4">
                 {cat.instrucciones && cat.instrucciones.length > 0 && (
                   <ol className="space-y-1.5 text-[12px] text-muted-foreground bg-muted/50 rounded-lg p-3 list-decimal list-inside">
@@ -1059,16 +793,6 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                     />
                   </div>
                 ))}
-                {cat.secretoEnv && (
-                  <div className="flex items-start gap-2 bg-warning/10 border border-warning/30 rounded-lg p-3">
-                    <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
-                    <p className="text-xs text-warning leading-snug">
-                      El proveedor de envío lo gestiona Tentare a nivel de plataforma — aquí solo
-                      configuras tu remitente. Para enviar desde tu propio dominio, verifícalo con
-                      nosotros primero; te avisamos cuando esté listo.
-                    </p>
-                  </div>
-                )}
                 <div className="flex items-center justify-between pt-1">
                   {conectado ? (
                     <button onClick={() => desconectar(cat)} className="text-[13px] font-medium text-destructive hover:underline">
@@ -1083,13 +807,10 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                   </div>
                 </div>
               </div>
-              )}
             </DialogContent>
           </Dialog>
         );
       })()}
-      {/* El SDK de Meta solo se descarga donde está la tarjeta de WhatsApp. */}
-      {pinta('WHATSAPP') && whatsappSignup.script}
     </div>
   );
 }

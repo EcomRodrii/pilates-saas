@@ -88,38 +88,45 @@ for (const vista of VISTAS) {
       expect(seSolapan(caja, b), `la burbuja (${Math.round(b.y)}) tapa el final (${Math.round(caja.y + caja.height)})`).toBe(false);
     });
 
-    // En «Cómo reservan mis alumnas»: desde el 15-sep (v2) los campos de Mi
-    // estudio y de Cobros y facturas van en un cajón, por encima de la burbuja.
+    // Desde el 15-sep (v2) los campos de Mi estudio, Cobros y facturas y Cómo
+    // reservan mis alumnas van en un cajón. La burbuja sigue ahí debajo (sin
+    // cambios no hay barra que la aparte): lo que se fija es que el cajón queda
+    // POR ENCIMA, y que lo que hay en la esquina de cada campo enfocado —donde
+    // cae la burbuja— es el campo, no ella.
     test('un campo enfocado no queda debajo de la burbuja', async ({ page }) => {
       await panel(page);
       await ir(page, 'configuracion?tab=reservas');
-      const primero = page.getByLabel('Plazo para cancelar sin perder la sesión (horas antes)');
+      await page.locator('#reservar').click({ timeout: 30_000 });
+      const cajon = page.getByRole('dialog');
+      const primero = cajon.getByLabel('Días antes de la clase en que se abre la reserva');
       await expect(primero).toBeVisible({ timeout: 30_000 });
-      await expect(burbuja(page)).toBeVisible();
+      await expect.poll(async () => {
+        const b = await cajon.boundingBox();
+        return b ? Math.round(b.x + b.width) : null;
+      }).toBe(vista.viewport.width);
+      await expect(page.getByRole('button', { name: 'Ayuda por WhatsApp' })).toBeAttached();
 
       await primero.focus();
       const tapados: string[] = [];
       let medidos = 0;
-      for (let i = 0; i < 30; i++) {
-        await page.keyboard.press('Tab');
+      for (let i = 0; i < 20; i++) {
         const r = await page.evaluate(() => {
           const el = document.activeElement as HTMLElement | null;
-          if (!el?.closest('[data-tour="configuracion-vista"]') || !el.matches('input, select, textarea')) return null;
-          const fab = document.querySelector<HTMLElement>('button[aria-label="Ayuda por WhatsApp"]');
-          if (!fab || fab.getBoundingClientRect().height === 0) return 'sin-burbuja';
+          if (!el?.closest('[role="dialog"]') || !el.matches('input, select, textarea')) return null;
           const c = el.getBoundingClientRect();
-          const f = fab.getBoundingClientRect();
-          const solapa = c.left < f.right && f.left < c.right && c.top < f.bottom && f.top < c.bottom;
-          return solapa ? `${el.id || el.getAttribute('aria-label') || el.tagName} (${Math.round(c.bottom)} > ${Math.round(f.top)})` : '';
+          // El centro y la esquina de abajo a la derecha, que es donde cae la burbuja.
+          const puntos: [number, number][] = [[c.left + c.width / 2, c.top + c.height / 2], [c.right - 12, c.bottom - 12]];
+          const tapa = puntos.some(([x, y]) => !!document.elementFromPoint(x, y)?.closest('.panel-wa-fab'));
+          return tapa ? `${el.getAttribute('aria-label') || el.id || el.tagName} (${Math.round(c.bottom)})` : '';
         });
-        if (r === null) continue;
-        // Sin burbuja no hay nada que medir: eso lo comprueba el test de la barra.
-        if (r === 'sin-burbuja') break;
-        medidos++;
-        if (r) tapados.push(r);
+        if (r !== null) {
+          medidos++;
+          if (r) tapados.push(r);
+        }
+        await page.keyboard.press('Tab');
       }
       // Verde por vacío no: tiene que haber recorrido campos de verdad.
-      expect(medidos, 'campos recorridos con la burbuja a la vista').toBeGreaterThan(3);
+      expect(medidos, 'campos recorridos en el cajón').toBeGreaterThan(2);
       expect(tapados, `\n${tapados.join('\n')}\n`).toEqual([]);
     });
 

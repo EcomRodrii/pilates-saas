@@ -67,18 +67,23 @@ export function ValorFila({ valor, descripcion, entero, title }: {
   );
 }
 
-/** `valor`: cómo está (lib/configuracion/resumenes.ts); `null` = no se sabe, y va su descripción. */
+/**
+ * `valor`: cómo está (lib/configuracion/resumenes.ts); `null` = no se sabe, y va su descripción.
+ * `entero`: el valor puede ocupar dos líneas (con estado, o si lleva «2 tipos lo cambian», que cortado no se ve).
+ */
 export function FilaAjuste({
   id,
   icono,
   valor,
   estado,
+  entero,
   onAbrir,
 }: {
   id: TarjetaId;
   icono: LucideIcon;
   valor: string | null;
   estado?: ResumenFila['estado'];
+  entero?: boolean;
   onAbrir: (id: TarjetaId) => void;
 }) {
   const tarjeta = tarjetaPorId(id);
@@ -94,7 +99,7 @@ export function FilaAjuste({
         <IconoFila icono={icono} />
         <span className="min-w-0 flex-1">
           <TituloFila titulo={tarjeta.titulo} estado={estado} />
-          <ValorFila valor={valor} descripcion={tarjeta.frase} entero={!!estado} />
+          <ValorFila valor={valor} descripcion={tarjeta.frase} entero={entero || !!estado} />
         </span>
         <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
       </button>
@@ -168,6 +173,23 @@ export function FilaInterruptor({
         disabled={on === null}
         ocupado={pedido !== null}
       />
+    </li>
+  );
+}
+
+/**
+ * Lo que Tentare hace de serie y no se configura («Tentare lo hace así»): se
+ * cuenta en una fila, sin chevron ni interruptor, para que no parezca un ajuste
+ * que no lleva a ningún sitio. Cada frase, comprobada contra el código que lo hace.
+ */
+export function FilaInformativa({ icono, titulo, detalle }: { icono: LucideIcon; titulo: string; detalle?: string }) {
+  return (
+    <li data-fila-informativa="" className="flex min-h-16 items-center gap-3 px-4 py-3">
+      <IconoFila icono={icono} />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-medium text-foreground text-pretty">{titulo}</span>
+        {detalle && <span className="block text-sm text-muted-foreground text-pretty">{detalle}</span>}
+      </span>
     </li>
   );
 }

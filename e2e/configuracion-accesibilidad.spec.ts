@@ -136,7 +136,8 @@ test.describe('En pantalla ancha', () => {
       if (r.request().method() !== 'GET') escrituras++;
       return json(r, STUDIO);
     });
-    await ir(page, 'configuracion?tab=reservas');
+    // Dentro del cajón de «Reservar» (15-sep, v2), que se abre desde su fila.
+    await ir(page, 'configuracion?tab=reservas#reservar');
 
     const exigir = page.getByRole('switch', { name: /Exigir plan o bono activo/ });
     await expect(exigir).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });

@@ -80,7 +80,8 @@ test.describe('WhatsApp conectado por Embedded Signup: modal de solo lectura', (
         // estas filas) — se deja fuera a propósito, ni el mock lo manda.
       },
     });
-    await page.getByRole('button', { name: 'Gestionar' }).click({ timeout: 30_000 });
+    // Conectado, la fila de WhatsApp abre su cajón (15-sep, v2).
+    await page.locator('#integracion-whatsapp').click({ timeout: 30_000 });
 
     await expect(page.getByText('Conectado a través de Meta')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Studio Carmen Pilates')).toBeVisible();
@@ -98,10 +99,13 @@ test.describe('WhatsApp conectado por Embedded Signup: modal de solo lectura', (
       config: { wabaId: '123456789', phoneId: '987654321', verifiedName: 'Studio Carmen', displayPhoneNumber: '+34 611 222 333' },
       contadorDesconexion: contador,
     });
-    await page.getByRole('button', { name: 'Gestionar' }).click({ timeout: 30_000 });
+    // Conectado, la fila de WhatsApp abre su cajón (15-sep, v2).
+    await page.locator('#integracion-whatsapp').click({ timeout: 30_000 });
     await expect(page.getByText('Conectado a través de Meta')).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole('button', { name: 'Desconectar' }).click();
+    await page.getByRole('button', { name: 'Desconectar WhatsApp' }).click();
+    // Desconectar pregunta antes: sin confirmar no sale nada.
+    await page.getByRole('button', { name: 'Sí, desconectar' }).click();
 
     await expect.poll(() => contador.intentos, { timeout: 15_000 }).toBeGreaterThan(0);
   });
@@ -110,7 +114,8 @@ test.describe('WhatsApp conectado por Embedded Signup: modal de solo lectura', (
     await montarIntegraciones(page, {
       config: { token: 'EL-TOKEN-BUENO', phoneId: '123456' },
     });
-    await page.getByRole('button', { name: 'Gestionar' }).click({ timeout: 30_000 });
+    // Conectado, la fila de WhatsApp abre su cajón (15-sep, v2).
+    await page.locator('#integracion-whatsapp').click({ timeout: 30_000 });
 
     // Sin `wabaId`, esto NO es una conexión de Embedded Signup — el resumen
     // de solo lectura no debe aparecer, y el formulario de siempre sí.

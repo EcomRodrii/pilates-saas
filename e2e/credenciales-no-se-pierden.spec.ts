@@ -57,24 +57,24 @@ async function montarIntegraciones(page: Page, opts: { configFalla?: boolean } =
 }
 
 test.describe('Las credenciales se piden al abrir, y no se pierden', () => {
-  test('el modal se abre con el token que ya estaba guardado', async ({ page }) => {
+  test('el cajón se abre con el token que ya estaba guardado', async ({ page }) => {
     await montarIntegraciones(page);
-    // «Gestionar» solo lo tiene una integración conectada, y en este montaje la
-    // única conectada es WhatsApp.
-    await page.getByRole('button', { name: 'Gestionar' }).click({ timeout: 30_000 });
+    // Conectada, la fila de WhatsApp abre su cajón (15-sep, v2).
+    await page.locator('#integracion-whatsapp').click({ timeout: 30_000 });
 
     // El valor viene del endpoint, no del arranque del panel (que ya no lo trae).
     await expect(page.locator('input[value="EL-TOKEN-BUENO"]')).toBeVisible({ timeout: 15_000 });
   });
 
-  test('si no se pueden leer, el modal NO se abre en blanco', async ({ page }) => {
-    // Abrirlo vacío es lo que convierte un fallo de red en «he perdido mi
+  test('si no se pueden leer, el cajón NO enseña los campos en blanco', async ({ page }) => {
+    // Enseñarlos vacíos es lo que convierte un fallo de red en «he perdido mi
     // token»: se ven los campos en blanco, se pulsa Guardar y se sobrescribe.
     await montarIntegraciones(page, { configFalla: true });
-    await page.getByRole('button', { name: 'Gestionar' }).click({ timeout: 30_000 });
+    await page.locator('#integracion-whatsapp').click({ timeout: 30_000 });
 
-    await expect(page.getByText(/No se pudieron cargar las credenciales/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('dialog').getByRole('alert')).toContainText('No se han podido cargar tus datos de WhatsApp', { timeout: 15_000 });
     // Y ni rastro del formulario: sin campos no hay Guardar que pueda borrar nada.
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Guardar' })).toHaveCount(0);
   });
 });

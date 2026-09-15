@@ -137,6 +137,14 @@ const ANCLAS_RETIRADAS: Record<string, TarjetaId> = {
   // en dos y «Horario y cierres», en el horario y el cierre del centro.
   'datos-y-contacto': 'nombre-y-direccion',
   'horario-y-cierres': 'horario',
+  // «Cómo reservan mis alumnas» pasó a filas con cajón (15-sep, v2): los ajustes
+  // sueltos de dentro llevan al cajón donde están, y la explicación de lo
+  // guardado va ahora dentro de cada cajón.
+  'ajuste-ventana-cancelacion': 'cancelar-y-recuperar',
+  'ajuste-devolver-tardia': 'cancelar-y-recuperar',
+  'ajuste-clase-devuelve-bono': 'si-se-cancela-una-clase',
+  'ajuste-lista-espera': 'lista-de-espera',
+  'politica-explicada': 'cancelar-y-recuperar',
 };
 
 /**

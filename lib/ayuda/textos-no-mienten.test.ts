@@ -74,10 +74,15 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
   { patron: /Avisar a las alumnas por email/, ahora: 'el aviso llega por email y en su app, y se cambia en Configuración > Cómo reservan mis alumnas' },
   { patron: /lista de espera se activa por tipo de clase/, ahora: 'viene encendida para todo el estudio y cada tipo de clase puede apagarla' },
   { patron: /Devolver la\s+sesión al cancelar tú una clase/, ahora: 'se llama «Devolver la sesión al cancelar una clase entera» y decide también el mínimo de asistentes y el cierre' },
-  // 15-sep (PR C): las reglas de reserva ya no se pliegan: van en tarjetas.
+  // 15-sep (PR C): las reglas de reserva ya no se pliegan. Desde v2 son filas con
+  // su cajón, y la clase cancelada entera tiene la suya.
   {
-    patron: /Opciones avanzadas|Reservas y cancelaciones|bloque\s+«Recuperaciones»|Permitir lista de espera/,
-    ahora: 'Configuración > Cómo reservan mis alumnas, en tarjetas: Reservar, Cancelar y recuperar (con las recuperaciones), Lista de espera (sin lista / al momento / durante unos minutos), Asistencia y Si cancela tarde o no viene',
+    patron: /Opciones avanzadas|Reservas y cancelaciones|bloque\s+«Recuperaciones»|Permitir lista de espera|Cuando algo cambia, Tentare/,
+    ahora: 'Configuración > Cómo reservan mis alumnas, en filas: Reservar, Cancelar y recuperar (con las recuperaciones), Si se cancela una clase entera (con el mínimo), Lista de espera, Asistencia y Si cancela tarde o no viene',
+  },
+  {
+    patron: /(?:tarjeta|fila) «Cancelar y\s+recuperar»[^.]{0,80}(?:clase entera|mínimo)|(?:clase entera|mínimo)[^.]{0,120}en «Cancelar y\s+recuperar»/,
+    ahora: 'devolver la sesión al cancelar una clase entera y el mínimo de alumnas están en «Si se cancela una clase entera»',
   },
 ];
 
