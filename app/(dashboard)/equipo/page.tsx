@@ -31,6 +31,7 @@ import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 import { useRol } from '@/lib/permisos';
 import { rolesQuePuedeAsignar, puedeGestionarEquipo, ETIQUETA_ROL } from '@/lib/permisos-reglas';
 import { reiniciaAccesoAlCambiarEmail } from '@/lib/equipo/reinicio-acceso';
+import { cambiosDeFicha, type CamposFicha } from '@/lib/equipo/cambios-ficha';
 import {
   DIAS, DIAS_LARGOS, estado as estadoTarjeta, cifras as cifrasTarjeta, accion as accionTarjeta,
   filtrar as filtrarMiembros, ordenar as ordenarMiembros, ordenesDisponibles, situacionDe,
@@ -79,6 +80,21 @@ const ROL_DESC: Record<Rol, string> = {
 // modal (no al guardar) para poder subir la foto ANTES de que la instructora
 // exista en BD — el storage necesita una clave estable desde el primer upload.
 type Form = { tempId: string; nombre: string; email: string; telefono: string; color: string; avatar: string | null; fotoUrl: string | null; activo: boolean; rol: Rol; bio: string };
+/** Lo que se guarda de una ficha, normalizado igual al abrir y al guardar. */
+function fichaDesdeForm(f: Form): CamposFicha {
+  return {
+    nombre: f.nombre.trim(),
+    email: f.email.trim() || null,
+    telefono: f.telefono.trim() || null,
+    color: f.color,
+    avatar: f.avatar,
+    fotoUrl: f.fotoUrl,
+    activo: f.activo,
+    rol: f.rol,
+    bio: f.bio.trim() || null,
+  };
+}
+
 const emptyForm = (): Form => ({ tempId: `ins-${generarId()}`, nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, fotoUrl: null, activo: true, rol: 'INSTRUCTOR', bio: '' });
 
 const ORDEN_LABEL: Record<Orden, string> = {
@@ -125,6 +141,9 @@ export default function EquipoPage() {
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
+  // Cómo estaba la ficha al abrirla: al guardar solo se manda lo que difiere
+  // (ver `lib/equipo/cambios-ficha.ts`).
+  const [fichaAbierta, setFichaAbierta] = useState<CamposFicha | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [errorFoto, setErrorFoto] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -340,7 +359,9 @@ export default function EquipoPage() {
   function openEditar(m: MiembroCompleto) {
     const i = instructorDe(m);
     if (!i) return;
-    setForm({ tempId: i.id, nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, fotoUrl: i.fotoUrl ?? null, activo: i.activo, rol: i.rol, bio: i.bio ?? '' });
+    const abierto: Form = { tempId: i.id, nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, fotoUrl: i.fotoUrl ?? null, activo: i.activo, rol: i.rol, bio: i.bio ?? '' };
+    setForm(abierto);
+    setFichaAbierta(fichaDesdeForm(abierto));
     setEditId(i.id);
     const tarifaActual = tarifas[i.id];
     setTarifaHoraInput(tarifaActual == null ? '' : String(tarifaActual));
@@ -364,17 +385,7 @@ export default function EquipoPage() {
 
   async function guardar() {
     if (!form.nombre.trim()) return;
-    const fields = {
-      nombre: form.nombre.trim(),
-      email: form.email.trim() || null,
-      telefono: form.telefono.trim() || null,
-      color: form.color,
-      avatar: form.avatar,
-      fotoUrl: form.fotoUrl,
-      activo: form.activo,
-      rol: form.rol,
-      bio: form.bio.trim() || null,
-    };
+    const fields = fichaDesdeForm(form);
     if (modal === 'nuevo') {
       setGuardando(true);
       setErrorGuardar('');
@@ -397,10 +408,16 @@ export default function EquipoPage() {
         showToast(`${fields.nombre} ya está en tu equipo`);
       }
     } else if (editId) {
+      // Solo lo tocado: una pantalla abierta desde antes no puede reescribir el rol
+      // (u otro dato) que alguien cambió mientras en otro sitio.
+      const cambios = fichaAbierta ? cambiosDeFicha(fichaAbierta, fields) : fields;
+      const sinCambiosFicha = Object.keys(cambios).length === 0;
       // Misma regla que el servidor: con el correo nuevo tendrá que volver a entrar.
-      const reinicia = accesoSeReinicia(editId, fields.email);
-      const res = await updateInstructor(editId, fields);
-      if (!res.ok) { showToast(res.error); setModal(null); return; }
+      const reinicia = 'email' in cambios && accesoSeReinicia(editId, fields.email);
+      if (!sinCambiosFicha) {
+        const res = await updateInstructor(editId, cambios);
+        if (!res.ok) { showToast(res.error); setModal(null); return; }
+      }
       const tarifaAnterior = tarifas[editId] ?? null;
       const tarifaNueva = tarifaHoraInput.trim() === '' ? null : Number(tarifaHoraInput);
       const horasAnteriores = horasContrato[editId] ?? null;
@@ -413,7 +430,9 @@ export default function EquipoPage() {
       // Tarifa y horas viven en la misma fila, así que van en la MISMA llamada:
       // dos PATCH seguidos sobre `instructor_tarifas` se pisan el uno al otro
       // (el upsert manda la fila entera con lo que traiga cada uno).
-      if (tarifaNueva !== tarifaAnterior || horasNuevas !== horasAnteriores) {
+      const cambiaTarifa = tarifaNueva !== tarifaAnterior || horasNuevas !== horasAnteriores;
+      if (sinCambiosFicha && !cambiaTarifa) mensaje = 'No había cambios que guardar';
+      if (cambiaTarifa) {
         const r = await actualizarTarifaInstructor(editId, tarifaNueva, { horasSemanalesContrato: horasNuevas });
         if (r.ok) {
           setTarifas(prev => ({ ...prev, [editId]: tarifaNueva }));
