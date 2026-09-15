@@ -173,6 +173,43 @@ begin
   assert not has_table_privilege('authenticated', 'public.series_periodos', 'UPDATE'), 'i: authenticated UPDATE periodos';
   assert has_table_privilege('authenticated', 'public.series', 'SELECT'), 'i: authenticated SELECT series';
   assert not has_table_privilege('anon', 'public.series', 'SELECT'), 'i: anon SELECT series';
+  assert not has_table_privilege('authenticated', 'public.series', 'DELETE'), 'i: authenticated DELETE series';
+end $$;
+
+-- j) Aislamiento: otro estudio que reutiliza el `serie_id` de la serie 2 (con
+--    2 canceladas y su propia sala) no puede esconderla ni cambiar su plantilla.
+-- k) Tope: 5 días distintos × 104 semanas pasan de 400 clases.
+insert into studios (id, nombre) values ('zzdrill-otro', 'Otro estudio');
+insert into salas (id, studio_id, nombre, capacidad) values ('zzdrill-sala-o', 'zzdrill-otro', 'Sala O', 6);
+insert into tipos_clase (id, studio_id, nombre) values ('zzdrill-tc-o', 'zzdrill-otro', 'Mat');
+insert into sesiones (id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, serie_id)
+select 'zzdrill-ajena-' || k, 'zzdrill-otro', 'zzdrill-tc-o', 'zzdrill-sala-o', null,
+       ((fx.hoy + k) + time '09:00') at time zone 'Europe/Madrid', ((fx.hoy + k) + time '09:50') at time zone 'Europe/Madrid', 6, k > 11, 'zzdrill-serie2'
+from fx, (values (11), (12), (13)) as v(k);
+insert into sesiones (id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, serie_id)
+select 'zzdrill-s6-' || k, 'zzdrill-st', 'zzdrill-tc-a', 'zzdrill-sala-a', null,
+       ((fx.martes1 + 70 + k) + time '08:00') at time zone 'Europe/Madrid', ((fx.martes1 + 70 + k) + time '08:50') at time zone 'Europe/Madrid', 6, false, 'zzdrill-serie6'
+from fx, generate_series(0, 4) as k;
+
+do $$
+declare r jsonb; n int; x record;
+begin
+  select * into x from fx;
+
+  select count(*) into n from series_por_renovar('zzdrill-st', 30) t
+   where t.serie_id = 'zzdrill-serie2' and t.ultima_fecha = x.hoy + 10 and t.sala_id = 'zzdrill-sala-b' and t.hora = time '18:00';
+  assert n = 1, 'j: la serie 2 se esconde o toma la plantilla ajena (' || n || ')';
+
+  begin
+    perform renovar_serie('zzdrill-st', 'zzdrill-serie6', null, 104, null, 'manual', true);
+    raise exception 'k: no falló';
+  exception when others then
+    assert sqlerrm = 'DEMASIADAS_CLASES', 'k: ' || sqlerrm;
+  end;
+  r := renovar_serie('zzdrill-st', 'zzdrill-serie6', null, 80, null, 'manual', true);
+  assert r->>'estado' = 'simulacion' and (r->>'creadas')::int = 400, 'k: 80×5 debía simular 400, ' || (r->>'creadas');
+  select count(*) into n from sesiones where serie_id = 'zzdrill-serie6';
+  assert n = 5, 'k: la simulación dejó ' || n;
 end $$;
 
 rollback;

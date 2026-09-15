@@ -65,8 +65,8 @@ create policy series_periodos_lectura on public.series_periodos
 
 revoke all on table public.series from anon;
 revoke all on table public.series_periodos from anon;
-revoke insert, update, delete, truncate on table public.series from authenticated;
-revoke insert, update, delete, truncate on table public.series_periodos from authenticated;
+revoke all on table public.series from authenticated;
+revoke all on table public.series_periodos from authenticated;
 grant select on table public.series to authenticated;
 grant select on table public.series_periodos to authenticated;
 grant all on table public.series to service_role;
@@ -191,6 +191,7 @@ declare
   v_desde date;
   v_hasta date;
   v_res jsonb;
+  v_dias_semana integer;
   i integer;
 begin
   if p_origen not in ('manual', 'automatica') then
@@ -222,6 +223,16 @@ begin
     from public.sesiones s where s.serie_id = p_serie_id and s.studio_id = p_studio_id;
   if v_ultima_fecha is null then
     raise exception 'SERIE_SIN_CLASES';
+  end if;
+
+  -- Tope de clases por renovación: una serie de varios días a la semana por 104
+  -- semanas son cientos de inserts en una sola llamada.
+  select count(distinct extract(dow from s.inicio at time zone v_tz)) into v_dias_semana
+    from public.sesiones s
+   where s.serie_id = p_serie_id and s.studio_id = p_studio_id
+     and (s.inicio at time zone v_tz)::date > v_ultima_fecha - 7;
+  if v_semanas * v_dias_semana > 400 then
+    raise exception 'DEMASIADAS_CLASES';
   end if;
 
   begin
@@ -401,7 +412,7 @@ begin
      where u.viva is not null
        and u.viva between v_hoy - 14 and v_hoy + p_dias
        and (select count(*) from public.sesiones c
-             where c.serie_id = u.sid and coalesce(c.cancelada, false)
+             where c.serie_id = u.sid and c.studio_id = p_studio_id and coalesce(c.cancelada, false)
                and (c.inicio at time zone 'Europe/Madrid')::date > u.viva) < 2
   ),
   con_plantilla as (
@@ -410,7 +421,7 @@ begin
       from candidatas c
       cross join lateral (
         select s.* from public.sesiones s
-         where s.serie_id = c.sid and not coalesce(s.cancelada, false)
+         where s.serie_id = c.sid and s.studio_id = p_studio_id and not coalesce(s.cancelada, false)
          order by s.inicio desc limit 1
       ) pl
   )

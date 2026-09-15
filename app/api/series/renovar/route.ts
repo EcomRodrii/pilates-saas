@@ -25,14 +25,15 @@ type Accion = (typeof ACCIONES)[number];
 // la revisión): dos personas renovando a la vez, o un doble clic, reciben
 // 'ya_renovada' en vez de dos años de clases.
 export async function POST(req: NextRequest) {
-  const limited = await enforceRateLimit(req, 'series-renovar', { max: 30, windowSeconds: 60 });
-  if (limited) return limited;
-
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarCalendario(sesion.rol)) {
     return NextResponse.json({ error: 'No tienes permiso para renovar clases' }, { status: 403 });
   }
+  // Por estudio y detrás de la sesión: la propietaria y recepción suelen salir
+  // por la misma IP, y cada cambio de semanas en el diálogo es una simulación.
+  const limited = await enforceRateLimit(req, 'series-renovar', { max: 30, windowSeconds: 60 }, sesion.studioId);
+  if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as
     { serieId?: unknown; accion?: unknown; semanas?: unknown; periodoVisto?: unknown } | null;
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
       p_semanas: semanas, p_actor: sesion.userId, p_origen: 'manual', p_simular: accion === 'simular',
     });
     if (error) {
-      const conocido = ['SERIE_NO_ENCONTRADA', 'SERIE_SIN_CLASES', 'SEMANAS_INVALIDAS'].find(c => error.message.includes(c));
+      const conocido = ['SERIE_NO_ENCONTRADA', 'SERIE_SIN_CLASES', 'SEMANAS_INVALIDAS', 'DEMASIADAS_CLASES'].find(c => error.message.includes(c));
       if (!conocido) throw new Error(error.message);
       return NextResponse.json({ error: mensajeErrorRenovar(conocido) }, { status: conocido === 'SERIE_NO_ENCONTRADA' ? 404 : 400 });
     }

@@ -59,6 +59,7 @@ test('textoTrasRenovar cuenta lo creado, lo omitido y lo que hay que revisar', (
 test('mensajeErrorRenovar traduce los códigos de la RPC y no enseña errores crudos', () => {
   assert.equal(mensajeErrorRenovar('SERIE_SIN_CLASES'), 'Todas las clases de esta serie están canceladas: no hay nada que renovar.');
   assert.equal(mensajeErrorRenovar('P0001: SERIE_NO_ENCONTRADA'), 'No se ha encontrado esta clase.');
+  assert.match(mensajeErrorRenovar('DEMASIADAS_CLASES'), /más de 400/);
   assert.equal(mensajeErrorRenovar('duplicate key value violates unique constraint'), 'No se ha podido renovar la clase. Inténtalo de nuevo.');
 });
 
