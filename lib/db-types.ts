@@ -2893,3 +2893,124 @@ export interface RowSeriesPeriodos {
   omitidas: any;
   creado_en: string;
 }
+
+export interface RowSalesLeads {
+  id: string;
+  email: string;
+  nombre_contacto: string | null;
+  apellido_contacto: string | null;
+  estudio_nombre: string | null;
+  estudio_nombre_legal: string | null;
+  rol: string | null;
+  telefono: string | null;
+  ciudad: string | null;
+  provincia: string | null;
+  pais: string | null;
+  codigo_postal: string | null;
+  direccion: string | null;
+  website: string | null;
+  website_domain: string | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
+  linkedin_url: string | null;
+  software_actual: string | null;
+  numero_empleados: number | null;
+  clientes_aprox: number | null;
+  precio_mensual_aprox: string | null;
+  google_place_id: string | null;
+  phone_normalized: string | null;
+  phone_checked_at: string | null;
+  estado: string;
+  origen: string;
+  source_url: string | null;
+  source_created_at: string | null;
+  discovered_at: string | null;
+  last_verified_at: string | null;
+  email_status: string | null;
+  email_checked_at: string | null;
+  owner_id: string | null;
+  studio_id: string | null;
+  tags: string[] | null;
+  notas: string | null;
+  razon_perdida: string | null;
+  confidence: number | null;
+  creado_en: string;
+  actualizado_en: string;
+  borrado_en: string | null;
+}
+
+export interface RowSalesCampaigns {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  audience_count: number | null;
+  estado: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  scheduled_for: string | null;
+  borrado_en: string | null;
+}
+
+export interface RowSalesCampaignSteps {
+  id: string;
+  campaign_id: string;
+  orden: number;
+  asunto: string | null;
+  cuerpo: string | null;
+  delay_days: number | null;
+  conditions: any | null;
+  enabled: boolean | null;
+  created_at: string;
+}
+
+export interface RowSalesMessages {
+  id: string;
+  lead_id: string;
+  campaign_id: string | null;
+  campaign_step_id: string | null;
+  asunto: string | null;
+  cuerpo: string | null;
+  estado: string;
+  proveedor: string | null;
+  proveedor_id: string | null;
+  enviado_en: string | null;
+  entregado_en: string | null;
+  abierto_en: string | null;
+  respuesta_en: string | null;
+  error: string | null;
+  creado_en: string;
+}
+
+export interface RowSalesSuppressions {
+  id: string;
+  email: string | null;
+  dominio: string | null;
+  telefono: string | null;
+  razon: string;
+  source: string;
+  creado_en: string;
+}
+
+export interface RowSalesTasks {
+  id: string;
+  lead_id: string;
+  tipo: string;
+  asignado_a: string | null;
+  vencimiento: string | null;
+  prioridad: number | null;
+  estado: string;
+  notas: string | null;
+  creado_en: string;
+  actualizado_en: string;
+  borrado_en: string | null;
+}
+
+export interface RowSalesEvents {
+  id: string;
+  lead_id: string | null;
+  tipo: string;
+  actor_id: string | null;
+  detalles: any | null;
+  creado_en: string;
+}
