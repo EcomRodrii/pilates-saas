@@ -1,4 +1,4 @@
--- Drill de la renovación de series (migr 20260915110000). TODO dentro de una
+-- Drill de la renovación de series (migr 20260915094528). TODO dentro de una
 -- transacción que termina en ROLLBACK: no deja nada. Fixture con prefijo `zzdrill-`.
 --
 -- Cómo correrlo (Supabase local, desde la raíz del repo):
@@ -14,7 +14,7 @@
 \set ON_ERROR_STOP on
 begin;
 
-\i supabase/migrations/20260915110000_series_renovacion.sql
+\i supabase/migrations/20260915094528_series_renovacion.sql
 
 create temp table fx as
   select ((now() at time zone 'Europe/Madrid')::date + ((2 - extract(dow from (now() at time zone 'Europe/Madrid'))::int + 7) % 7) + 7) as martes1,

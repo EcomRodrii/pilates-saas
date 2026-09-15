@@ -15,7 +15,7 @@ type Accion = (typeof ACCIONES)[number];
 
 // Renovar una serie (una clase que se repite) desde el panel.
 //
-// Todo lo decide `renovar_serie` (migr 20260915110000) en una transacción con la
+// Todo lo decide `renovar_serie` (migr 20260915094528) en una transacción con la
 // fila de la serie bloqueada: qué clases crear, cuáles omitir y si alguien la ha
 // renovado ya. Esta ruta solo comprueba el rol —el mismo que crear o editar
 // clases— y saca el estudio de la sesión, nunca del body: la RPC va con

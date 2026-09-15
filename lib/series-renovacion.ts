@@ -1,7 +1,7 @@
 // Renovar una serie (una clase que se repite) antes de que se acabe.
 //
 // Qué se crea, qué se omite y si ya estaba renovada lo decide la base de datos
-// (`renovar_serie`, migr 20260915110000), en una transacción. Aquí solo se
+// (`renovar_serie`, migr 20260915094528), en una transacción. Aquí solo se
 // traduce su resultado a lo que la pantalla tiene que decir de verdad. Sin I/O.
 
 export const MAX_SEMANAS_RENOVACION = 104;
