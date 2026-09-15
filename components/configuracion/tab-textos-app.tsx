@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 import type { Studio } from '@/lib/types';
 import { inputCls } from '@/components/configuracion/estilos';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
-import { BarraCambiosEstudio, Campo, useFormularioEstudio } from '@/components/configuracion/formulario-estudio';
+import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
+import { Campo, useFormularioEstudio } from '@/components/configuracion/formulario-estudio';
 
 // «Textos de tu app», en Mi app y mi web: lo que leen tus alumnas. Guarda SOLO
 // estos siete campos (ver formulario-estudio.tsx).
@@ -28,17 +29,17 @@ function aFormulario(s: Studio | null): TextosAppForm {
 }
 
 export function TabTextosApp({ showToast }: { showToast: (m: string) => void }) {
-  const { form, setForm, hayCambios, guardando, guardar, descartar } = useFormularioEstudio(aFormulario, showToast);
+  const { form, setForm, hayCambios, guardar, descartar } = useFormularioEstudio(aFormulario, showToast);
 
   const anioInvalido = form.anioFundacion.trim() !== '' && !/^\d{4}$/.test(form.anioFundacion.trim());
 
-  function guardarTextos() {
-    if (anioInvalido) { showToast('El año de apertura tiene que ser de cuatro cifras.'); return; }
+  async function guardarTextos(): Promise<string | null> {
+    if (anioInvalido) return 'El año de apertura tiene que ser de cuatro cifras.';
     // Vacío se guarda como NULL, no como cadena vacía: el portal distingue «no
     // lo ha escrito» (no pinta ese bloque) de «lo ha escrito y está en blanco»,
     // que no significaría nada. La home de la alumna decide con eso si pinta la
     // línea o si el héroe se queda como estaba.
-    void guardar({
+    const res = await guardar({
       descripcion: form.descripcion.trim() || null,
       lema: form.lema.trim() || null,
       subtituloHeroe: form.subtituloHeroe.trim() || null,
@@ -46,7 +47,11 @@ export function TabTextosApp({ showToast }: { showToast: (m: string) => void }) 
       fraseManuscrita: form.fraseManuscrita.trim() || null,
       normasTexto: form.normasTexto.trim() || null,
       anioFundacion: form.anioFundacion.trim() ? Number(form.anioFundacion.trim()) : null,
-    }, 'Textos de tu app guardados');
+    }, null);
+    if (!res) return 'Ya se estaba guardando';
+    if (!res.ok) return res.error;
+    showToast('Textos de tu app guardados');
+    return null;
   }
 
   return (
@@ -164,10 +169,9 @@ export function TabTextosApp({ showToast }: { showToast: (m: string) => void }) 
         </div>
       </TarjetaAjuste>
 
-      <BarraCambiosEstudio
-        visible={hayCambios}
-        guardando={guardando}
-        textoGuardar="Guardar textos de tu app"
+      <BarraGuardar
+        seccion="marca"
+        cambios={hayCambios ? ['Textos de tu app'] : []}
         onGuardar={guardarTextos}
         onDescartar={descartar}
       />

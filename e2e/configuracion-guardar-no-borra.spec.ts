@@ -165,7 +165,7 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
     const lema = page.getByRole('textbox', { name: 'Tu lema' });
     await expect(lema).toBeVisible({ timeout: 30_000 });
     await lema.fill('Cuerpo y mente');
-    await page.getByRole('button', { name: 'Guardar textos de tu app' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
     expect(patches.at(-1)).toMatchObject({ lema: 'Cuerpo y mente' });
@@ -190,7 +190,7 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
     await expect(page.getByText('Logo actualizado')).toBeVisible();
 
     await expect(lema).toHaveValue('Cuerpo y mente');
-    await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+    await expect(page.getByText(/Cambios sin guardar en: Textos de tu app/)).toBeVisible();
   });
 
   for (const respuesta of ['cero-filas', '403', 'abort'] as const) {

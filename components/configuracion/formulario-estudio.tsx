@@ -1,12 +1,11 @@
 'use client';
 
 import { useId, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { hayCambios as formularioCambiado, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import type { Studio } from '@/lib/types';
 import type { ResultadoEscritura } from '@/lib/errores';
-import { labelCls, btnSecondary } from '@/components/configuracion/estilos';
+import { labelCls } from '@/components/configuracion/estilos';
 
 // Lo que comparten los formularios que editan la fila del estudio desde tres
 // secciones distintas: «Nombre y dirección» y «Contacto» (Mi estudio, cada uno en
@@ -76,7 +75,6 @@ export function useFormularioEstudio<T extends object>(
   const [form, setForm] = useState<T>(() => aFormulario(studio));
   const [base, setBase] = useState<T>(() => aFormulario(studio));
   const guardandoRef = useRef(false);
-  const [guardando, setGuardando] = useState(false);
 
   // Se pone al día cuando `studio` cambia de referencia (llega de la BD, se
   // guarda el logo u otro formulario) — durante el render, no en un efecto: así
@@ -101,7 +99,6 @@ export function useFormularioEstudio<T extends object>(
     if (guardandoRef.current) return null;
     const enviado = form;
     guardandoRef.current = true;
-    setGuardando(true);
     try {
       const res = await updateStudio(cambios);
       // Si no, lo escrito se queda en pantalla y la barra sigue ahí.
@@ -118,7 +115,6 @@ export function useFormularioEstudio<T extends object>(
       return res;
     } finally {
       guardandoRef.current = false;
-      setGuardando(false);
     }
   }
 
@@ -127,63 +123,7 @@ export function useFormularioEstudio<T extends object>(
     setForm,
     base,
     hayCambios: formularioCambiado(form, base),
-    guardando,
     guardar,
     descartar: () => setForm(base),
   };
-}
-
-/**
- * La barra de «Tienes cambios sin guardar» de un formulario. Solo aparece con
- * cambios sin guardar.
- *
- * `sticky` y no `fixed`: se queda dentro del bloque de su tarjeta, sin taparle
- * nada al menú. Por encima de la barra de navegación del móvil (56 px + zona
- * segura, `fixed bottom-0 z-30`): pegada a 0 quedaba debajo de ella.
- *
- * `data-barra-guardar`: mientras está, el botón flotante de ayuda por WhatsApp
- * se aparta (globals.css), porque caía encima de «Guardar».
- */
-export function BarraCambiosEstudio({
-  visible,
-  guardando,
-  textoGuardar,
-  onGuardar,
-  onDescartar,
-}: {
-  visible: boolean;
-  guardando: boolean;
-  textoGuardar: string;
-  onGuardar: () => void;
-  onDescartar: () => void;
-}) {
-  if (!visible) return null;
-  return (
-    <div
-      data-barra-guardar=""
-      className="sticky z-20 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] -mx-1 px-1 pb-1 lg:bottom-4"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur">
-        <p className="min-w-0 text-[12.5px] text-muted-foreground">
-          Tienes cambios sin guardar.
-        </p>
-        <div className="flex shrink-0 gap-2">
-          <button
-            onClick={onDescartar}
-            disabled={guardando}
-            className={cn(btnSecondary, 'text-[12px]')}
-          >
-            Descartar
-          </button>
-          <button
-            onClick={onGuardar}
-            disabled={guardando}
-            className="rounded-lg bg-brand px-4 py-2 text-[12px] font-medium text-brand-foreground transition-colors hover:brightness-95 disabled:opacity-40"
-          >
-            {guardando ? 'Guardando…' : textoGuardar}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }

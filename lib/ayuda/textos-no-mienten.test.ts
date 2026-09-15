@@ -58,7 +58,12 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
     patron: new RegExp(`Conexiones${FLECHA}(?:Stripe|WhatsApp|Gmail)|(?:WhatsApp|Gmail)[^.<]{0,60}Configuración${FLECHA}Conexiones`),
     ahora: 'Stripe está en Configuración > Cobros y facturas; WhatsApp, Gmail y el remitente, en Cómo me comunico',
   },
-  { patron: /Guardar datos del estudio/, ahora: 'cada parte tiene su botón: las filas de Mi estudio y de Cobros y facturas, cada una con «Guardar», y «Guardar textos de tu app»' },
+  { patron: /Guardar datos del estudio/, ahora: 'cada parte tiene su propio «Guardar»: las filas de Mi estudio y de Cobros y facturas, y la tarjeta de Textos de tu app' },
+  // I-14 (auditoría 15-sep): «Textos de tu app» pasó de su propio botón
+  // (`BarraCambiosEstudio`) a la `BarraGuardar` compartida, con la misma
+  // guardia de salida que el resto de secciones — el botón ya no dice
+  // «Guardar textos de tu app», solo «Guardar».
+  { patron: /Guardar textos de tu app/, ahora: 'el botón dice «Guardar», igual que el resto de tarjetas (BarraGuardar)' },
   // 15-sep (v2): Cobros y facturas y Alta de alumnas van en filas con su cajón,
   // y cada cajón se guarda con «Guardar». Stripe se conecta desde su fila.
   {
