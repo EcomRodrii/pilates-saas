@@ -12,7 +12,7 @@ type SalesLead = RowSalesLeads;
 const ESTADOS_PIPELINE = ['NUEVO', 'INVESTIGANDO', 'LISTO', 'CONTACTADO'] as const;
 
 export default function PageSalesOS() {
-  const sesion = useSesionInterna();
+  const _sesion = useSesionInterna();
   const [leads, setLeads] = useState<SalesLead[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);

@@ -2,7 +2,7 @@
 // Fase 1: operaciones básicas del CRM
 
 import { createClient } from '@supabase/supabase-js';
-import type { RowSalesLeads, RowSalesEvents } from '@/lib/db-types';
+import type { RowSalesLeads } from '@/lib/db-types';
 
 type SalesLead = RowSalesLeads;
 type SalesLeadInsert = Partial<RowSalesLeads>;
@@ -73,6 +73,7 @@ export function extraerDominio(url: string | undefined | null): string | null {
  * Crear un lead nuevo
  */
 export async function crearLead(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: ReturnType<typeof createClient<any>>,
   data: {
     email: string;
@@ -113,6 +114,7 @@ export async function crearLead(
  * Obtener un lead por ID
  */
 export async function obtenerLead(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: ReturnType<typeof createClient<any>>,
   lead_id: string
 ): Promise<SalesLead | null> {
@@ -134,6 +136,7 @@ export async function obtenerLead(
  * Listar leads con filtros
  */
 export async function listarLeads(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: ReturnType<typeof createClient<any>>,
   opciones: ListLeadsOptions = {}
 ): Promise<{ leads: SalesLead[]; total: number }> {
@@ -185,6 +188,7 @@ export async function listarLeads(
  * Mover lead entre estados (con validación de transición)
  */
 export async function moverLead(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: ReturnType<typeof createClient<any>>,
   opciones: MoveLeadOptions
 ): Promise<SalesLead> {
@@ -249,6 +253,7 @@ export async function moverLead(
  * Actualizar campos de un lead
  */
 export async function actualizarLead(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: ReturnType<typeof createClient<any>>,
   lead_id: string,
   datos: SalesLeadUpdate,
@@ -300,6 +305,7 @@ export async function actualizarLead(
  * Marcar como borrado (soft delete)
  */
 export async function borrarLead(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: ReturnType<typeof createClient<any>>,
   lead_id: string,
   actor_id: string
@@ -326,6 +332,7 @@ export async function borrarLead(
  * Agregar o remover tag
  */
 export async function actualizarTags(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: ReturnType<typeof createClient<any>>,
   lead_id: string,
   tags: string[],
@@ -354,6 +361,7 @@ export async function actualizarTags(
  * Helper: crear evento de auditoría
  */
 async function crearEvento(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: ReturnType<typeof createClient<any>>,
   data: {
     lead_id?: string;
