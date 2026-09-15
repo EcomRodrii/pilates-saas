@@ -9,9 +9,25 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // dinámicamente desde procesar-reembolso.ts, que también se ejecuta bajo
 // `node --test` (mismo criterio que ../notifications/emit.ts, importado
 // desde el mismo sitio).
+//
+// También lo llama `procesarDisputeClosed` cuando se PIERDE una disputa: para
+// la nómina el efecto es el mismo (el dinero ya no está, estado REEMBOLSADA;
+// el origen real queda en `devoluciones.origen = 'CHARGEBACK'`), pero el motivo
+// no. Un reembolso lo decidió el estudio y puede querer mantener el reparto; un
+// contracargo no lo decidió nadie del estudio, y lo normal es descontarlo.
+
+export type CausaReversionPenalizacion = 'reembolso' | 'disputa';
+
+export function motivoRevisionPenalizacion(importe: number, causa: CausaReversionPenalizacion): string {
+  const eur = `${importe.toFixed(2)}€`;
+  return causa === 'disputa'
+    ? `Una penalización de ${eur} ya repartida aquí se ha perdido en una disputa: el banco de la socia le ha devuelto el cargo.`
+    : `Una penalización de ${eur} ya repartida aquí se ha reembolsado a la socia.`;
+}
 
 export async function marcarPenalizacionReembolsada(
   admin: SupabaseClient, studioId: string, reciboId: string,
+  causa: CausaReversionPenalizacion = 'reembolso',
 ): Promise<void> {
   // Compare-and-set: solo una penalización COBRADA de verdad transiciona —
   // un reintento del webhook/cron sobre el mismo recibo no la reprocesa.
@@ -26,7 +42,7 @@ export async function marcarPenalizacionReembolsada(
   if (!pen?.reserva_id) return; // este recibo no era de una penalización cobrada
 
   await pedirRevisionLiquidacionPenalizacion(admin, studioId, pen as PenalizacionRepartida,
-    `Una penalización de ${Number(pen.importe).toFixed(2)}€ ya repartida aquí se ha reembolsado a la socia.`);
+    motivoRevisionPenalizacion(Number(pen.importe), causa));
 }
 
 export interface PenalizacionRepartida { reserva_id: string; importe: number | string | null; procesada_en: string | null }
