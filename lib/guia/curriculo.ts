@@ -175,13 +175,13 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Cerrar por vacaciones',
-        texto: 'Si cierras unos días, dilo en Horario → «Cerrar el centro unos días». Tentare cancela las clases de esas fechas, avisa a quien tuviera reserva, devuelve las sesiones de bono y —esto es lo que nadie hace a mano— alarga la caducidad de los bonos y las recuperaciones de todas tus alumnas tantos días como dure el cierre.',
+        texto: 'Si cierras unos días, dilo en «Cerrar el centro», dentro de Mi estudio. Tentare cancela las clases de esas fechas, avisa a quien tuviera reserva, devuelve las sesiones de bono y —esto es lo que nadie hace a mano— alarga la caducidad de los bonos y las recuperaciones de todas tus alumnas tantos días como dure el cierre.',
       },
     ],
     acciones: [
       { label: 'Configurar mis salas', href: '/configuracion?tab=estudio&abrir=salas' },
       { label: 'Datos y textos de mi estudio', href: '/configuracion?tab=estudio' },
-      { label: 'Mi horario de apertura', href: '/configuracion?tab=estudio#horario-y-cierres' },
+      { label: 'Mi horario de apertura', href: '/configuracion?tab=estudio#horario' },
     ],
     consejo: 'Si bajas la capacidad de una sala, Tentare te avisa de las clases futuras que se quedarían sobrevendidas antes de guardar. Léelo: esas plazas ya están vendidas.',
     pasos: ['salas'],

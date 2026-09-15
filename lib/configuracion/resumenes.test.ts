@@ -4,7 +4,8 @@ import type { DiaHorario } from '../types.ts';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, avisosDeConfiguracion, resumenHerramienta, resumenHorario, resumenPlan,
+  CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenContacto,
+  resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan, resumenSedes,
   resumenesDeConfiguracion, revisaEsto, unir,
   type DatosConfiguracion, type IntegracionResumible,
 } from './resumenes.ts';
@@ -245,7 +246,7 @@ test('pedir bono sin poder comprarlo online: a Stripe si se puede conectar, si n
 });
 
 test('un horario sin ningún día abierto se revisa; uno sin cargar, no', () => {
-  assert.deepEqual(avisosDeConfiguracion(con({ horarioSemana: CERRADO })).map(a => [a.seccion, a.ancla, a.etiqueta]), [['estudio', 'horario-y-cierres', 'Sin horario']]);
+  assert.deepEqual(avisosDeConfiguracion(con({ horarioSemana: CERRADO })).map(a => [a.seccion, a.ancla, a.etiqueta]), [['estudio', 'horario', 'Sin horario']]);
   assert.deepEqual(avisosDeConfiguracion(con({ horarioSemana: [] })), []);
   assert.deepEqual(avisosDeConfiguracion(con({ horarioSemana: undefined })), []);
 });
@@ -368,4 +369,59 @@ test('ninguna fila de herramienta pasa de una línea del móvil ni dice «client
     assert.ok(v.length <= MAX_RESUMEN, `${h.id}: «${v}» (${v.length})`);
     assert.doesNotMatch(v, /\b(client|soci)as?\b/i, v);
   }
+});
+
+// ─── Las filas de «Mi estudio» ────────────────────────────────────────────────
+
+test('nombre y dirección: lo guardado, lo vacío dicho como vacío y, sin cargar, nada', () => {
+  assert.equal(resumenNombreYDireccion({ nombre: 'Pilates Centro', direccion: 'Calle Mayor 4', ciudad: 'Almería' }), 'Pilates Centro · Calle Mayor 4 · Almería');
+  assert.equal(resumenNombreYDireccion({ nombre: 'Pilates Centro', direccion: null, ciudad: '  ' }), 'Pilates Centro · sin dirección');
+  assert.equal(resumenNombreYDireccion({ nombre: 'Pilates Centro', ciudad: 'Almería' }), 'Pilates Centro · Almería');
+  assert.equal(resumenNombreYDireccion({}), null);
+  // Una dirección que no cabe se salta entera; la ciudad sigue.
+  assert.equal(resumenNombreYDireccion({ nombre: 'Pilates Centro', direccion: 'Avenida de la Constitución 125, portal B, 2º', ciudad: 'Almería' }), 'Pilates Centro · Almería');
+});
+
+test('contacto: teléfono, email y web sin protocolo; vacío se dice, sin cargar no', () => {
+  assert.equal(resumenContacto({ telefono: '600 111 222', email: 'hola@example.com', sitioWeb: null }), '600 111 222 · hola@example.com');
+  assert.equal(resumenContacto({ telefono: null, email: null, sitioWeb: 'https://www.pilates.example.com/' }), 'Pilates.example.com');
+  assert.equal(resumenContacto({ telefono: '', email: null, sitioWeb: null }), 'Sin teléfono, email ni web');
+  assert.equal(resumenContacto({}), null);
+});
+
+test('el horario de la fila: por tramos de lunes a domingo, con horas y días cerrados', () => {
+  const tipico = semana(d => (d >= 1 && d <= 5 ? ['08:00', '22:00'] : d === 6 ? ['09:00', '14:00'] : null));
+  assert.equal(resumenHorarioSemana(tipico), 'L-V 8:00–22:00 · S 9:00–14:00 · D cerrado');
+  assert.equal(resumenHorarioSemana(semana(() => ['07:30', '21:30'])), 'Todos los días 7:30–21:30');
+  assert.equal(resumenHorarioSemana(CERRADO), 'Cerrado toda la semana');
+  assert.equal(resumenHorarioSemana(semana(d => (d === 0 || d === 6 ? null : ['08:00', '21:00']))), 'L-V 8:00–21:00 · S-D cerrado');
+  // Seis franjas distintas no caben en una línea: cuántos días abre.
+  assert.equal(resumenHorarioSemana(semana(d => (d === 0 ? null : [`0${d}:00`, '20:00']))), 'Abre 6 días a la semana');
+  // Incompleto: no se sabe, no se rellena con el de fábrica.
+  assert.equal(resumenHorarioSemana(undefined), null);
+  assert.equal(resumenHorarioSemana(tipico.slice(1)), null);
+  assert.equal(resumenHorarioSemana(tipico.map(d => (d.diaSemana === 2 ? { ...d, horaApertura: null } : d))), null);
+  for (const v of [tipico, CERRADO, semana(d => [`0${d + 1}:15`, '20:45'])].map(resumenHorarioSemana)) {
+    assert.ok(v && v.length <= MAX_RESUMEN, `«${v}»`);
+  }
+});
+
+test('los cierres: el próximo o el que está en curso, y cuántos más; los pasados no cuentan', () => {
+  const hoy = '2026-12-20';
+  assert.equal(rangoDeFechas('2026-12-24', '2026-12-26'), '24–26 dic');
+  assert.equal(rangoDeFechas('2026-12-30', '2027-01-02'), '30 dic–2 ene');
+  assert.equal(rangoDeFechas('2026-12-08', '2026-12-08'), '8 dic');
+  assert.equal(resumenCierres([], hoy), 'Sin cierres próximos');
+  assert.equal(resumenCierres([{ desde: '2026-08-01', hasta: '2026-08-15' }], hoy), 'Sin cierres próximos');
+  assert.equal(resumenCierres([{ desde: '2027-04-01', hasta: '2027-04-05' }, { desde: '2026-12-24', hasta: '2026-12-26' }], hoy), 'Cerrado 24–26 dic · 1 cierre más');
+  assert.equal(resumenCierres([{ desde: '2026-12-18', hasta: '2026-12-22' }], hoy), 'Cerrado hasta el 22 dic');
+  assert.equal(resumenCierres([{ desde: '2026-12-20', hasta: '2026-12-20' }], hoy), 'Cerrado hoy');
+  // Sin poder leerlos: la fila enseña su descripción.
+  assert.equal(resumenCierres(null, hoy), null);
+});
+
+test('las sedes: cuántas y en cuál estás; sin cargar, nada', () => {
+  assert.equal(resumenSedes([{ id: 'a', nombre: 'Pilates Centro' }, { id: 'b', nombre: 'Pilates Norte' }], 'a'), '2 sedes · estás en Pilates Centro');
+  assert.equal(resumenSedes([{ id: 'a', nombre: 'Pilates Centro' }], 'a'), 'Solo esta sede');
+  assert.equal(resumenSedes(null, 'a'), null);
 });

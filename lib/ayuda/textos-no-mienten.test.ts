@@ -58,7 +58,12 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
     patron: new RegExp(`Conexiones${FLECHA}(?:Stripe|WhatsApp|Gmail)|(?:WhatsApp|Gmail)[^.<]{0,60}Configuración${FLECHA}Conexiones`),
     ahora: 'Stripe está en Configuración > Cobros y facturas; WhatsApp, Gmail y el remitente, en Cómo me comunico',
   },
-  { patron: /Guardar datos del estudio/, ahora: 'cada tarjeta tiene su botón: «Guardar datos y contacto», «Guardar datos fiscales», «Guardar textos de tu app»' },
+  { patron: /Guardar datos del estudio/, ahora: 'cada parte tiene su botón: las filas de Mi estudio, «Guardar datos fiscales» y «Guardar textos de tu app»' },
+  // 15-sep (v2): Mi estudio va en filas con su cajón y un «Guardar» en cada una.
+  {
+    patron: /Guardar datos y contacto|«Datos y contacto» guarda|en «Datos y contacto»|Cerrar el centro unos días/,
+    ahora: 'Mi estudio en filas: «Nombre y dirección», «Contacto», «Horario» y «Cerrar el centro», cada una con su «Guardar»',
+  },
   // Tres textos que mentían sobre lo que HACE el producto, no sobre dónde está.
   { patron: /Avisar a las alumnas por email/, ahora: 'el aviso llega por email y en su app, y se cambia en Configuración > Cómo reservan mis alumnas' },
   { patron: /lista de espera se activa por tipo de clase/, ahora: 'viene encendida para todo el estudio y cada tipo de clase puede apagarla' },

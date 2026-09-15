@@ -19,7 +19,7 @@ export default function Contenido() {
         En Configuración &gt; Marca, la tarjeta «Logo y favicon» tiene el logo y el favicon: se guardan solos en cuanto
         los subes, y subirlos no borra nada de lo que estés escribiendo en «Textos de tu app», en esa misma sección. El
         favicon es el icono de la pestaña de tu página de reservas. El nombre de tu estudio está en
-        Configuración &gt; Mi estudio, en «Datos y contacto».
+        Configuración &gt; Mi estudio, en «Nombre y dirección».
       </p>
 
       <p>

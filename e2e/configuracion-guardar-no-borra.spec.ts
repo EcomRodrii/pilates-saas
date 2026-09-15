@@ -86,7 +86,10 @@ async function montar(
 // SOLO los campos de su tarjeta: si mandara los de otra, pisaría con lo que
 // tenía en memoria lo que se hubiera guardado después.
 
-const CONTACTO = ['ciudad', 'codigo_postal', 'direccion', 'email', 'nombre', 'sitio_web', 'telefono'];
+// Mi estudio en filas con su cajón (15-sep, v2): los siete campos de «Datos y
+// contacto» son dos cajones, y cada «Guardar» manda solo los suyos.
+const NOMBRE_Y_DIRECCION = ['ciudad', 'codigo_postal', 'direccion', 'nombre'];
+const CONTACTO = ['email', 'sitio_web', 'telefono'];
 const FISCALES = ['iva_por_defecto', 'nif', 'razon_social'];
 const TEXTOS = ['anio_fundacion', 'descripcion', 'frase_heroe', 'frase_manuscrita', 'lema', 'normas_texto', 'subtitulo_heroe'];
 
@@ -115,20 +118,36 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
     await expect(page.getByText('Tienes cambios sin guardar.')).toHaveCount(0);
   });
 
-  test('guardar datos y contacto manda solo esos siete campos', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=estudio', {
-      fila: { ...STUDIO_ROW, nif: NIF, lema: 'Lema guardado' },
+  test('guardar el contacto manda solo esos tres campos', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=estudio#contacto', {
+      fila: { ...STUDIO_ROW, nif: NIF, lema: 'Lema guardado', ciudad: 'Almería' },
     });
 
     const telefono = page.getByRole('textbox', { name: 'Teléfono' });
     await expect(telefono).toBeVisible({ timeout: 30_000 });
     await telefono.fill('600111222');
-    await page.getByRole('button', { name: 'Guardar datos y contacto' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
-    expect(patches.at(-1)).toMatchObject({ telefono: '600111222', nombre: 'Studio Carmen' });
+    expect(patches.at(-1)).toMatchObject({ telefono: '600111222', email: 'carmen@example.com' });
     expect(Object.keys(patches.at(-1)!).sort()).toEqual(CONTACTO);
-    await expect(page.getByText('Datos y contacto guardados')).toBeVisible();
+    await expect(page.getByText('Contacto guardado')).toBeVisible();
+  });
+
+  test('guardar nombre y dirección manda solo esos cuatro campos', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=estudio#nombre-y-direccion', {
+      fila: { ...STUDIO_ROW, nif: NIF, telefono: '600000000' },
+    });
+
+    const ciudad = page.getByRole('textbox', { name: 'Ciudad' });
+    await expect(ciudad).toBeVisible({ timeout: 30_000 });
+    await ciudad.fill('Almería');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+
+    await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    expect(patches.at(-1)).toMatchObject({ ciudad: 'Almería', nombre: 'Studio Carmen' });
+    expect(Object.keys(patches.at(-1)!).sort()).toEqual(NOMBRE_Y_DIRECCION);
+    await expect(page.getByText('Nombre y dirección guardados')).toBeVisible();
   });
 
   test('guardar los textos de tu app manda solo los textos', async ({ page }) => {

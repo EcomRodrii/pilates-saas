@@ -8,12 +8,18 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 // su propio botón: «Datos y contacto» (Mi estudio), «Datos fiscales e IVA»
 // (Cobros y facturas) y «Textos de tu app» (Mi app y mi web). La captura
 // enseñaba la fila de pestañas de antes y se quitó.
+//
+// 15-sep-2026 (v2): Mi estudio son filas que dicen lo guardado; cada una se abre
+// para cambiarla, con «Guardar». «Datos y contacto» se partió en «Nombre y
+// dirección» y «Contacto» (components/configuracion/tab-datos-contacto.tsx).
 export default function Contenido() {
   return (
     <>
       <p>
-        En Configuración &gt; Mi estudio, «Datos y contacto» guarda el nombre del estudio, el teléfono, el email de
-        contacto, la web, la dirección, la ciudad y el código postal, con su botón «Guardar datos y contacto».
+        En Configuración &gt; Mi estudio, cada fila dice lo que tienes guardado y, al tocarla, se abre para cambiarlo.
+        «Nombre y dirección» tiene el nombre del estudio, la dirección, la ciudad y el código postal; «Contacto», el
+        teléfono, el email de contacto y la web. Cada una se guarda con su botón «Guardar», que sale en cuanto cambias
+        algo.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Datos fiscales e IVA</h2>

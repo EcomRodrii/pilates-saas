@@ -106,7 +106,11 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=gamificacion&sub=retos', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'retos' }],
     ['/configuracion?tab=estudio&sub=general', { tab: 'estudio' }],
     ['/configuracion?tab=estudio&sub=sedes', { tab: 'estudio', ancla: 'sedes' }],
-    ['/configuracion?tab=estudio&sub=horario', { tab: 'estudio', ancla: 'horario-y-cierres' }],
+    ['/configuracion?tab=estudio&sub=horario', { tab: 'estudio', ancla: 'horario' }],
+    // Mi estudio en filas con cajón (15-sep, v2): las anclas de antes abren su cajón.
+    ['/configuracion?tab=estudio#horario-y-cierres', { tab: 'estudio', ancla: 'horario' }],
+    ['/configuracion?tab=estudio#datos-y-contacto', { tab: 'estudio', ancla: 'nombre-y-direccion' }],
+    ['/configuracion?tab=estudio#cerrar-el-centro', { tab: 'estudio', ancla: 'cerrar-el-centro' }],
     ['/configuracion?tab=estudio&sub=reservas', { tab: 'reservas' }],
     ['/configuracion?tab=estudio&sub=cobros', { tab: 'cobros' }],
     ['/configuracion?tab=estudio&sub=enlaces', { tab: 'web', ancla: 'direccion-y-enlaces' }],

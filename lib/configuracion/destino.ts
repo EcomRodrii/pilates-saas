@@ -83,7 +83,7 @@ const LEGADO_TAB: Record<string, Lugar> = {
 const LEGADO_SUB: Record<string, Lugar> = {
   'estudio/general': { tab: 'estudio' },
   'estudio/sedes': en('sedes'),
-  'estudio/horario': en('horario-y-cierres'),
+  'estudio/horario': en('horario'),
   'estudio/reservas': { tab: 'reservas' },
   'estudio/cobros': { tab: 'cobros' },
   'estudio/enlaces': en('direccion-y-enlaces'),
@@ -133,6 +133,10 @@ const ANCLAS_RETIRADAS: Record<string, TarjetaId> = {
   // La tarjeta «Marca» pasó a ser una sección (15-sep, v2): sus enlaces
   // (`?tab=web#marca`, `?tab=estudio#marca`) llevan a su logo y favicon.
   marca: 'logo-y-favicon',
+  // Mi estudio pasó a filas con cajón (15-sep, v2): «Datos y contacto» se partió
+  // en dos y «Horario y cierres», en el horario y el cierre del centro.
+  'datos-y-contacto': 'nombre-y-direccion',
+  'horario-y-cierres': 'horario',
 };
 
 /**

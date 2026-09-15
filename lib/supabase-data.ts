@@ -2642,6 +2642,24 @@ export async function dbListBloqueosMaquina(studioId: string): Promise<BloqueoMa
   return (data ?? []).map(mapBloqueoMaquina);
 }
 
+/**
+ * Los cierres del centro que aún no han terminado (`hasta >= hoy`, fecha del
+ * estudio). Solo se leen: crearlos va por /api/cierres, que cancela clases y
+ * prorroga bonos. `null` = no se han podido leer (no «no hay ninguno»).
+ */
+export async function dbListCierresProximos(studioId: string, hoy: string): Promise<{ id: string; desde: string; hasta: string; motivo: string | null }[] | null> {
+  try {
+    const { data, error } = await supabase
+      .from('cierres_estudio').select('id, desde, hasta, motivo').eq('studio_id', studioId)
+      .gte('hasta', hoy).order('desde', { ascending: true });
+    if (error) { reportDbError('[dbListCierresProximos]', error); return null; }
+    return (data ?? []) as { id: string; desde: string; hasta: string; motivo: string | null }[];
+  } catch (e) {
+    reportDbError('[dbListCierresProximos]', e);
+    return null;
+  }
+}
+
 export async function dbInsertBloqueoMaquina(b: BloqueoMaquina): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('bloqueos_maquina').insert(bloqueoMaquinaToDb(b));
   return error ? falloEscritura('[dbInsertBloqueoMaquina]', error) : ESCRITURA_OK;

@@ -32,42 +32,50 @@ export const ICONOS_HERRAMIENTA: Record<HerramientaId, LucideIcon> = {
 
 export const idFilaHerramienta = (id: HerramientaId) => `fila-herramienta-${id}`;
 
-const FILA = 'flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50';
+/** Una fila de Configuración: la de una herramienta y la que abre un cajón (fila-ajuste.tsx). */
+export const FILA = 'flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50';
+
+export function IconoFila({ icono: Icono }: { icono: LucideIcon }) {
+  return (
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+      <Icono size={20} aria-hidden />
+    </span>
+  );
+}
 
 /** `valor`: cómo está (lib/configuracion/resumenes.ts); `null` = no se sabe, y va su descripción. */
-export function FilasHerramienta({ filas }: { filas: readonly { id: HerramientaId; valor: string | null }[] }) {
+export function FilaHerramienta({ id, valor }: { id: HerramientaId; valor: string | null }) {
   const nav = useNavegacionConfig();
+  const h = herramientaPorId(id);
+  return (
+    <li>
+      <Link
+        id={idFilaHerramienta(id)}
+        href={hrefDeHerramienta(id)}
+        onClick={e => {
+          if (!nav || !esClicNormal(e)) return;
+          e.preventDefault();
+          nav.irA(h.seccion, { abrir: id, modo: 'push' });
+        }}
+        className={cn(FILA, 'scroll-mt-32 scroll-mb-32')}
+      >
+        <IconoFila icono={ICONOS_HERRAMIENTA[id]} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-semibold text-foreground">{h.titulo}</span>
+          <span data-resumen={valor ? 'valor' : 'descripcion'} className="block text-sm text-muted-foreground text-pretty">
+            {valor ?? h.resumen}
+          </span>
+        </span>
+        <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+      </Link>
+    </li>
+  );
+}
+
+export function FilasHerramienta({ filas }: { filas: readonly { id: HerramientaId; valor: string | null }[] }) {
   return (
     <ul className={cn(cardCls, 'max-w-2xl divide-y divide-border overflow-hidden')} data-tarjeta-ajuste="">
-      {filas.map(({ id, valor }) => {
-        const h = herramientaPorId(id);
-        const Icono = ICONOS_HERRAMIENTA[id];
-        return (
-          <li key={id}>
-            <Link
-              id={idFilaHerramienta(id)}
-              href={hrefDeHerramienta(id)}
-              onClick={e => {
-                if (!nav || !esClicNormal(e)) return;
-                e.preventDefault();
-                nav.irA(h.seccion, { abrir: id, modo: 'push' });
-              }}
-              className={cn(FILA, 'scroll-mt-32 scroll-mb-32')}
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-                <Icono size={20} aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-semibold text-foreground">{h.titulo}</span>
-                <span data-resumen={valor ? 'valor' : 'descripcion'} className="block text-sm text-muted-foreground text-pretty">
-                  {valor ?? h.resumen}
-                </span>
-              </span>
-              <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
-            </Link>
-          </li>
-        );
-      })}
+      {filas.map(f => <FilaHerramienta key={f.id} {...f} />)}
     </ul>
   );
 }

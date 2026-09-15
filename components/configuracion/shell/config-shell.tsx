@@ -291,12 +291,16 @@ export function ConfigShell() {
     return () => document.removeEventListener('click', alPulsar, true);
   }, [router, cambiosQueSePierden, irAHref]);
 
-  const nav = useMemo<NavegacionConfig>(() => ({ irA: irAPreguntando, marcarSinGuardar }), [irAPreguntando, marcarSinGuardar]);
-
   const tab = abierto?.tab ?? null;
   const vista = abierto?.vista;
   const ancla = abierto?.ancla;
   const abrirAbierto = abierto?.abrir ?? null;
+
+  const nav = useMemo<NavegacionConfig>(() => ({
+    irA: irAPreguntando,
+    marcarSinGuardar,
+    anclaAbierta: ancla ? { id: ancla, vista: vista ?? 0 } : null,
+  }), [irAPreguntando, marcarSinGuardar, ancla, vista]);
 
   // De vuelta en el inicio: el foco, al enlace que abrió la sección.
   useEffect(() => {

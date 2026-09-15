@@ -72,14 +72,15 @@ test.describe('Configuración > Estudio > Horario', () => {
       return json(route, {}, 200);
     });
 
+    // El enlace de antes abre el cajón «Horario» de Mi estudio (15-sep, v2).
     await page.goto('/configuracion?tab=estudio&sub=horario');
 
-    await expect(page.getByText('Horario del estudio')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { level: 2, name: 'Horario', exact: true })).toBeVisible({ timeout: 30_000 });
     // Lunes está abierto: sus inputs de hora son visibles.
-    const filaLunes = page.locator('div', { hasText: 'Lunes' }).last();
-    await expect(filaLunes).toBeVisible();
+    await expect(page.getByLabel('Abre el lunes')).toBeVisible();
     // Domingo está cerrado: se ve el texto "Cerrado" en su fila, no inputs de hora.
     await expect(page.getByText('Cerrado', { exact: true }).first()).toBeVisible();
+    await expect(page.getByLabel('Abre el domingo')).toHaveCount(0);
 
     let payloadGuardado: unknown[] | null = null;
     await page.route('**/rest/v1/studio_horario**', async route => {
@@ -90,7 +91,9 @@ test.describe('Configuración > Estudio > Horario', () => {
       return json(route, filas);
     });
 
-    await page.getByRole('button', { name: 'Guardar horario' }).click();
+    // «Guardar» sale con un cambio: se abre el sábado.
+    await page.getByRole('switch', { name: 'Abierto el sábado' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(page.getByText('Horario guardado')).toBeVisible({ timeout: 30_000 });
     expect(payloadGuardado).not.toBeNull();
     expect((payloadGuardado as unknown as unknown[]).length).toBe(7);
@@ -102,7 +105,7 @@ test.describe('Configuración > Estudio > Horario', () => {
     await page.route('**/rest/v1/studio_horario**', route => json(route, [filaHorario(0, false)]));
 
     await page.goto('/configuracion?tab=estudio&sub=horario');
-    await expect(page.getByText('Horario del estudio')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { level: 2, name: 'Horario', exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Cerrado', { exact: true }).first()).toBeVisible();
 
     await page.getByRole('button', { name: /Horario estándar/i }).click();
