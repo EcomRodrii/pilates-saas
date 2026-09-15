@@ -15,6 +15,7 @@ import type { HiloInstructora } from '@/lib/student/mensajes-instructora';
 import type { ResultadoAbrir, ResultadoEnviar } from '@/lib/student/mensajeria';
 import type { RowMensajes } from '@/lib/db-types';
 import { mensajeSeguro } from '@/lib/errores';
+import { faltaDisponibilidad } from '@/lib/student/disponibilidad-vista';
 
 // Adaptador de datos de la instructora en la app. Delgado a propósito, como
 // `datos.ts`: pide y devuelve; lo que decide vive en el servidor.
@@ -117,6 +118,20 @@ export async function getDisponibilidadInstructora(slug: string): Promise<string
   if (!res.ok) throw new Error(`instructora/disponibilidad ${res.status}`);
   const d = await res.json() as { celdas?: unknown };
   return Array.isArray(d.celdas) ? d.celdas.filter((c): c is string => typeof c === 'string') : [];
+}
+
+/**
+ * ¿No tiene ninguna franja? Para la pantalla obligatoria de horarios. Un fallo
+ * responde «no» (ver `faltaDisponibilidad`): nunca se la encierra por un error.
+ */
+export async function faltaDisponibilidadInstructora(slug: string): Promise<boolean> {
+  try {
+    const res = await postDisponibilidad(slug, { accion: 'leer' });
+    if (!res.ok) return false;
+    return faltaDisponibilidad(await res.json().catch(() => null));
+  } catch {
+    return false;
+  }
 }
 
 /** Reemplaza su disponibilidad. Solo da por guardado lo que el servidor confirma. */

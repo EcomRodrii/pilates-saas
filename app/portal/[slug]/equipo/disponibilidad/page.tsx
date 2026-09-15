@@ -1,10 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
-import { useEstudio } from '@/components/student/contexto';
+import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionInstructora } from '@/lib/student/sesion-instructora';
+import { useAuthStudent } from '@/lib/student/auth';
+import { faltaDisponibilidadSabida, recordarDisponibilidad } from '@/lib/student/disponibilidad-obligatoria';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
@@ -32,6 +35,12 @@ import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/
 //
 // Solo se da por guardado lo que el servidor confirma. Hasta entonces, la barra
 // dice que hay cambios sin guardar.
+//
+// Sin ninguna franja guardada es «Tus horarios», la pantalla obligatoria
+// (15-sep-2026): `GuardiaInstructora` no la deja ir a otra parte de la app hasta
+// marcar al menos una. Por eso ahí no hay pestañas ni «volver», y guardar la
+// lleva a «Hoy». Tampoco se guarda nunca una rejilla vacía desde la app: la
+// encerraría otra vez aquí.
 
 const SEMANAS_CLASES = 4;
 const CLAVES_FRANJAS = FRANJAS.map((f) => f.key);
@@ -53,6 +62,9 @@ export default function DisponibilidadInstructoraPage() {
   const { toast } = useToast();
   const { instructora } = useSesionInstructora(estudio.slug, true, true);
   const esInstructora = Boolean(instructora);
+  const r = useRouter();
+  const href = usePortalHref();
+  const { logout } = useAuthStudent(estudio.slug);
   const hoy = hoyISO();
   const hasta = addDias(hoy, SEMANAS_CLASES * 7 - 1);
 
@@ -75,6 +87,12 @@ export default function DisponibilidadInstructoraPage() {
   const actuales = editadas ?? guardadas;
   const hayCambios = editadas !== null && !mismas(editadas, guardadas);
   const textoResumen = textoResumenDisponibilidad(resumenDisponibilidad(actuales));
+  const ninguna = actuales.size === 0;
+  // Antes de cargar vale lo que ya sabe la guardia: así la barra de pestañas no
+  // aparece un instante para desaparecer.
+  const primera = data
+    ? data.celdas.length === 0
+    : Boolean(instructora && faltaDisponibilidadSabida(estudio.slug, instructora.instructorId) === true);
 
   // Salir con cambios sin guardar avisa: perderlos sin enterarse es lo peor.
   useEffect(() => {
@@ -99,13 +117,19 @@ export default function DisponibilidadInstructoraPage() {
   const alternarDiaEntero = (dow: number) => setEditadas(alternarDia(actuales, dow, CLAVES_FRANJAS));
 
   const guardar = async () => {
-    if (!editadas || guardando) return;
+    if (!editadas || guardando || editadas.size === 0) return;
     setGuardando(true);
-    const r = await guardarDisponibilidadInstructora(estudio.slug, [...editadas]);
-    if (!r.ok) {
+    const res = await guardarDisponibilidadInstructora(estudio.slug, [...editadas]);
+    if (!res.ok) {
       setGuardando(false);
       // Sus cambios se quedan en pantalla: puede reintentar sin volver a marcar.
-      toast(r.error);
+      toast(res.error);
+      return;
+    }
+    if (instructora) recordarDisponibilidad(estudio.slug, instructora.instructorId, editadas.size);
+    if (primera) {
+      toast('Horarios guardados');
+      r.replace(href('/equipo'));
       return;
     }
     await refrescar();
@@ -115,10 +139,12 @@ export default function DisponibilidadInstructoraPage() {
   };
 
   return (
-    <StudentShell modo="instructora">
-      <PageHeader titulo="Tu disponibilidad" sub="Cuándo puedes cubrir una clase" back />
+    <StudentShell modo="instructora" sinNav={primera}>
+      {primera
+        ? <PageHeader titulo="Tus horarios" sub="Antes de empezar, marca cuándo puedes dar clase" />
+        : <PageHeader titulo="Tu disponibilidad" sub="Cuándo puedes cubrir una clase" back />}
 
-      <div className="px stack" style={{ ['--gap' as string]: 'var(--s-4)', marginTop: 14, paddingBottom: hayCambios ? 90 : 0 }}>
+      <div className="px stack" style={{ ['--gap' as string]: 'var(--s-4)', marginTop: 14, paddingBottom: hayCambios || primera ? 110 : 0 }}>
         {estado === 'loading' && <ListSkeleton n={4} h={52} />}
         {estado === 'error' && (
           <ErrorState cuerpo="No hemos podido cargar tu disponibilidad." onRetry={reintentar} />
@@ -129,6 +155,11 @@ export default function DisponibilidadInstructoraPage() {
           <>
             {/* Lo primero, cuánto tiene marcado: sin franjas el motor no la propone
                 nunca, y eso tiene que verse antes que la rejilla, no en un párrafo. */}
+            {primera && (
+              <p className="t-body" data-testid="horarios-obligatorios" style={{ margin: 0, lineHeight: 1.5 }}>
+                {estudio.nombre} necesita saber cuándo puedes dar clase o cubrir a una compañera. Marca al menos una franja para entrar; luego la cambias cuando quieras desde «Disponible», en Hoy.
+              </p>
+            )}
             {textoResumen ? (
               <div className="card" data-testid="resumen-disponibilidad" style={{ padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span aria-hidden style={{ width: 38, height: 38, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -139,7 +170,7 @@ export default function DisponibilidadInstructoraPage() {
                   <span className="t-meta" style={{ display: 'block', marginTop: 2 }}>El estudio puede proponerte para cubrir una clase en esas franjas.</span>
                 </span>
               </div>
-            ) : (
+            ) : !primera && (
               <p className="note note--warn" data-testid="resumen-disponibilidad" style={{ margin: 0 }}>
                 No tienes ninguna franja marcada: el estudio no puede proponerte para cubrir clases.
               </p>
@@ -201,24 +232,38 @@ export default function DisponibilidadInstructoraPage() {
               ))}
             </div>
 
+            {primera && (
+              <button
+                type="button"
+                onClick={() => void logout().then(() => r.replace(href('/acceso/login')))}
+                className="tap t-meta"
+                style={{ alignSelf: 'center', border: 'none', background: 'none', fontFamily: 'inherit', padding: '8px 12px', color: 'var(--subtle-foreground)', textDecoration: 'underline' }}
+              >
+                ¿No eres tú? Salir
+              </button>
+            )}
           </>
         )}
       </div>
 
-      {hayCambios && (
+      {(hayCambios || primera) && (
         <div
           style={{
-            position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-total)',
-            zIndex: 39, padding: '10px 16px 12px',
+            // Sin pestañas debajo en «Tus horarios»: la barra va pegada abajo.
+            position: 'fixed', left: 0, right: 0, bottom: primera ? 0 : 'var(--nav-total)',
+            zIndex: 39, padding: primera ? '10px 16px calc(12px + var(--safe-bottom))' : '10px 16px 12px',
             background: 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)',
             maxWidth: 640, margin: '0 auto',
           }}
         >
-          <Button full loading={guardando} disabled={!online} onClick={() => void guardar()} style={{ height: 50, fontSize: 'var(--t-body)' }}>
-            Guardar disponibilidad
+          <Button full loading={guardando} disabled={!online || ninguna} onClick={() => void guardar()} style={{ height: 50, fontSize: 'var(--t-body)' }}>
+            {primera ? 'Guardar y entrar' : 'Guardar disponibilidad'}
           </Button>
           <p className="t-meta" style={{ marginTop: 6, textAlign: 'center' }}>
-            {online ? 'Tienes cambios sin guardar' : 'Sin conexión: guárdalo cuando vuelvas a tener cobertura'}
+            {!online ? 'Sin conexión: guárdalo cuando vuelvas a tener cobertura'
+              : ninguna ? 'Marca al menos una franja'
+                : primera ? 'Podrás cambiarlo cuando quieras'
+                  : 'Tienes cambios sin guardar'}
           </p>
         </div>
       )}

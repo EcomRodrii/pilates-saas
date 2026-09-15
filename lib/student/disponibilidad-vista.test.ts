@@ -1,6 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { alternarDia, diaEntero, resumenDisponibilidad, textoResumenDisponibilidad } from './disponibilidad-vista.ts';
+import {
+  alternarDia, diaEntero, faltaDisponibilidad, resumenDisponibilidad, textoResumenDisponibilidad,
+} from './disponibilidad-vista.ts';
+
+test('solo falta disponibilidad con una lista vacía explícita; lo dudoso deja pasar', () => {
+  assert.equal(faltaDisponibilidad({ celdas: [] }), true);
+  assert.equal(faltaDisponibilidad({ celdas: ['1-manana'] }), false);
+  // Lo que devuelve un mock comodín, un error o un cuerpo ilegible: «no lo sé».
+  assert.equal(faltaDisponibilidad({}), false);
+  assert.equal(faltaDisponibilidad({ error: 'No autorizado' }), false);
+  assert.equal(faltaDisponibilidad(null), false);
+  assert.equal(faltaDisponibilidad('[]'), false);
+  assert.equal(faltaDisponibilidad({ celdas: null }), false);
+});
 
 const FRANJAS = ['manana', 'media_manana', 'tarde', 'noche'];
 

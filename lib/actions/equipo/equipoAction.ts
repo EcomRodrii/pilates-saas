@@ -8,6 +8,8 @@ import { obtenerOFirmarEnlace, marcarEnlaceEnviadoPorEmail } from '@/lib/sustitu
 import { enviarEmailSolicitudDisponibilidad } from '@/lib/emails/solicitud-disponibilidad-server';
 import * as Sentry from '@sentry/nextjs';
 import { ErrorAccion } from '@/lib/actions/errores';
+import { reiniciaAccesoAlCambiarEmail } from '@/lib/equipo/reinicio-acceso';
+import type { Rol } from '@/lib/types';
 
 /**
  * equipoAction
@@ -175,7 +177,7 @@ async function editarInstructora(
 
   const { data: ficha } = await admin
     .from('instructores')
-    .select('id, studio_id, auth_user_id, rol, nombre, activo')
+    .select('id, studio_id, auth_user_id, rol, nombre, activo, email')
     .eq('id', id)
     .eq('studio_id', sesion.studioId)
     .maybeSingle();
@@ -216,6 +218,19 @@ async function editarInstructora(
 
   const pasaAInactiva = ficha.activo === true && update.activo === false;
 
+  // Cambiarle el correo le reinicia el acceso: entra con el nuevo (ver
+  // `lib/equipo/reinicio-acceso.ts`). Sin esto seguía unida a la cuenta del
+  // correo antiguo y, al entrar en la app con el nuevo, se la daba de alta como
+  // alumna (15-sep-2026).
+  const accesoReiniciado = 'email' in update && reiniciaAccesoAlCambiarEmail({
+    emailAntes: (ficha.email as string | null) ?? null,
+    emailNuevo: (update.email as string | null) ?? null,
+    tieneCuenta: Boolean(ficha.auth_user_id),
+    rol: (ficha.rol as Rol | null) ?? null,
+    esPropia,
+  });
+  if (accesoReiniciado) update.auth_user_id = null;
+
   const { error } = await admin
     .from('instructores')
     .update(update)
@@ -242,7 +257,7 @@ async function editarInstructora(
     }
   }
 
-  return { ok: true };
+  return { ok: true, accesoReiniciado };
 }
 
 async function bajaInstructora(

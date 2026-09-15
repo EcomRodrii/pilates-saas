@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { supabase } from '@/lib/db/supabase';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
 import { enlaceRevocado } from '@/lib/sustituciones/enlaces';
-import { enviarEmailAccesoActivado } from '@/lib/emails/acceso-activado-server';
+import { avisarAlEstudioAccesoActivado } from '@/lib/equipo/avisar-acceso-activado';
 import { MENSAJE_RECHAZO, motivoNoReclamable } from '@/lib/equipo/reclamar-reglas';
 import type { Rol } from '@/lib/types';
 import { ErrorAccion } from '@/lib/actions/errores';
@@ -19,27 +19,6 @@ import * as Sentry from '@sentry/nextjs';
 const ROLES: readonly string[] = ['PROPIETARIO', 'INSTRUCTOR', 'RECEPCION', 'MANAGER'];
 const ERROR_SISTEMA = 'No hemos podido activar tu acceso. Inténtalo de nuevo en unos segundos.';
 const ENLACE_NO_VALIDO = 'Este enlace ya no vale. Pídele a tu estudio que te lo envíe de nuevo.';
-
-async function avisarAlEstudio(admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>, studioId: string, nombreFicha: string, emailCuenta: string | null) {
-  try {
-    const { data: studio } = await admin
-      .from('studios')
-      .select('nombre, email, color_primario, logo_url')
-      .eq('id', studioId)
-      .maybeSingle();
-    if (!studio?.email) return;
-    await enviarEmailAccesoActivado({
-      to: studio.email as string,
-      nombre: nombreFicha,
-      emailCuenta,
-      estudioNombre: (studio.nombre as string | null) ?? 'tu estudio',
-      colorPrimario: studio.color_primario as string | null,
-      logoUrl: studio.logo_url as string | null,
-    });
-  } catch (e) {
-    console.error('[equipo:reclamar] aviso al estudio', e);
-  }
-}
 
 export async function equipoReclamarAction(input: { token?: string; jwt?: string }) {
   const token = typeof input?.token === 'string' ? input.token : null;
@@ -112,7 +91,7 @@ export async function equipoReclamarAction(input: { token?: string; jwt?: string
 
   const nueva = (tocadas?.length ?? 0) > 0;
   if (nueva) {
-    await avisarAlEstudio(admin, ficha.studio_id as string, ficha.nombre as string, user.email ?? null);
+    await avisarAlEstudioAccesoActivado(admin, ficha.studio_id as string, ficha.nombre as string, user.email ?? null);
   }
 
   return { vinculadas: nueva ? 1 : 0, estudioId: ficha.studio_id };

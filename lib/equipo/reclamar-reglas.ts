@@ -32,6 +32,16 @@ import type { Rol } from '../types';
 //
 // Lo que se pierde a cambio: quien no reciba el correo (o lo borre) necesita que
 // se lo reenvíen desde Equipo. Un clic de la dueña, y la pantalla ya lo ofrece.
+//
+// ── La segunda puerta: «Entrar como instructora» (15-sep-2026) ───────────────
+//
+// Decisión del fundador: quien entra en la app de un estudio con un correo que
+// ese estudio tiene dado de alta como instructora elige entrar como instructora
+// o como alumna (`/api/portal/instructora/unirse`). NO reabre lo de arriba: nada
+// se une solo al entrar. Hace falta lo mismo que daba el enlace —correo
+// verificado y un clic dentro de la app de ESE estudio, con su nombre delante—,
+// y solo vale para fichas de rol INSTRUCTOR. El resto de roles sigue exigiendo
+// el enlace firmado.
 
 export type MotivoRechazo =
   | 'ROL_NO_AUTORECLAMABLE'

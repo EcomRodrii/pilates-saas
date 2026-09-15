@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { resolverStudioPorSlug } from '@/lib/db/supabase-data-admin';
+import { escaparLike } from '@/lib/escapar-like';
 
 // La instructora dentro de la app del estudio (`app/portal/[slug]`).
 //
@@ -59,6 +60,42 @@ export async function instructoraActivaEnEstudio(
   if (!data) return null;
   const fila = data as { id: string; nombre: string | null; foto_url: string | null };
   return { instructorId: fila.id, nombre: fila.nombre || 'Instructora', fotoUrl: fila.foto_url ?? null };
+}
+
+/**
+ * La ficha de INSTRUCTORA de este estudio con este correo que todavía no se ha
+ * unido a ninguna cuenta —la han dado de alta en Equipo y aún no ha entrado—,
+ * o null.
+ *
+ * El caso (15-sep-2026): la propietaria da de alta a una instructora con su
+ * correo, ella entra en la app con ese correo sin pasar por la invitación, y la
+ * app —que la veía sin ficha de alumna y sin ficha de instructora UNIDA— la daba
+ * de alta como alumna: aparecía una clienta nueva en el panel.
+ *
+ * Decisión del fundador (15-sep-2026): en ese caso la app le deja ELEGIR, entrar
+ * como instructora o como alumna. Esto solo lee; la unión la hace
+ * `/api/portal/instructora/unirse` cuando ella lo pulsa, y ahí están las
+ * condiciones (ver `lib/equipo/reclamar-reglas.ts`).
+ *
+ * El correo tiene que ser el del TOKEN de quien pregunta: así solo se le dice a
+ * quien ya ha demostrado que es suyo, y no enseña nada sobre nadie más.
+ * `order('id')`: con dos fichas duplicadas por error, siempre la misma.
+ */
+export async function fichaInstructoraPendiente(
+  admin: Admin, email: string, studioId: string,
+): Promise<{ instructorId: string; nombre: string } | null> {
+  const limpio = email.trim();
+  if (!limpio || !studioId) return null;
+  const { data, error } = await admin
+    .from('instructores').select('id, nombre')
+    .eq('studio_id', studioId).is('auth_user_id', null)
+    .eq('rol', 'INSTRUCTOR').neq('activo', false)
+    .ilike('email', escaparLike(limpio))
+    .order('id')
+    .limit(1);
+  if (error) throw error;
+  const fila = (data ?? [])[0] as { id: string; nombre: string | null } | undefined;
+  return fila ? { instructorId: fila.id, nombre: fila.nombre || 'Instructora' } : null;
 }
 
 /**

@@ -38,6 +38,20 @@ export function alternarDia(celdas: ReadonlySet<string>, dow: number, franjas: r
   return siguiente;
 }
 
+/**
+ * ¿La respuesta de «leer disponibilidad» dice que no tiene NINGUNA franja?
+ *
+ * Solo `true` con una lista vacía explícita. Cualquier otra cosa —un error, un
+ * cuerpo raro, `{}`— es «no lo sé», y con «no lo sé» no se encierra a nadie en
+ * la pantalla de horarios: un fallo del servidor dejaría a la instructora sin
+ * poder abrir su agenda.
+ */
+export function faltaDisponibilidad(cuerpo: unknown): boolean {
+  if (typeof cuerpo !== 'object' || cuerpo === null) return false;
+  const celdas = (cuerpo as { celdas?: unknown }).celdas;
+  return Array.isArray(celdas) && celdas.length === 0;
+}
+
 export function diaEntero(celdas: ReadonlySet<string>, dow: number, franjas: readonly string[]): boolean {
   return franjas.every((f) => celdas.has(`${dow}-${f}`));
 }

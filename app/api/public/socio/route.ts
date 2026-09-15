@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { registrarSociaPublica, actualizarSociaPublica, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
-import { instructoraActivaEnEstudio } from '@/lib/auth-instructora';
+import { fichaInstructoraPendiente, instructoraActivaEnEstudio } from '@/lib/auth-instructora';
 import { escaparLike } from '@/lib/escapar-like';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -48,6 +48,8 @@ export async function POST(req: NextRequest) {
     referidoPor?: string | null;
     origenLead?: string | null;
     cambios?: Record<string, unknown>;
+    /** Invitada como instructora que ha pulsado «Entrar como alumna». */
+    eligioAlumna?: boolean;
   } | null;
 
   if (!body?.studioId) return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
@@ -97,20 +99,37 @@ export async function POST(req: NextRequest) {
       if (!adminGuardia) {
         return conCorsWidget(req, NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 }));
       }
-      if (!(await socioAutenticado(user.userId, body.studioId))
-          && await instructoraActivaEnEstudio(adminGuardia, user.userId, body.studioId)) {
-        // Excepción: una ficha de alumna SIN VINCULAR con su email —compró como
-        // invitada antes de tener cuenta—. Esa sí se deja adoptar a
-        // `registrarSociaPublica`; si no, lo que pagó se quedaría huérfano.
-        const { data: sinVincular, error: eSinVincular } = await adminGuardia
-          .from('socios').select('id')
-          .eq('studio_id', body.studioId).is('auth_user_id', null)
-          .ilike('email', escaparLike(user.email.trim()))
-          .limit(1);
-        if (eSinVincular) throw eSinVincular;
-        if (!sinVincular?.length) {
-          return conCorsWidget(req, NextResponse.json(
-            { error: 'Esta cuenta es de una instructora del estudio.', code: 'ES_INSTRUCTORA' }, { status: 409 }));
+      if (!(await socioAutenticado(user.userId, body.studioId))) {
+        const esInstructora = await instructoraActivaEnEstudio(adminGuardia, user.userId, body.studioId);
+        // ⚠️ Y la que el estudio tiene dada de alta como instructora y aún no ha
+        // entrado (15-sep-2026): su ficha existe pero no está unida a la cuenta,
+        // así que la comprobación de arriba no la ve y se la daba de alta como
+        // alumna sin preguntar. Ahora la app le deja elegir (`/acceso/elegir`),
+        // y solo si ha elegido «alumna» pasa el alta. `eligioAlumna` viene del
+        // cliente y está bien que así sea: solo quita ESTA pregunta, no la de
+        // arriba ni ninguna otra. El correo es el del TOKEN; aquí no se une nada.
+        const invitada = !esInstructora && body.eligioAlumna !== true
+          && (await fichaInstructoraPendiente(adminGuardia, user.email, body.studioId)) !== null;
+        if (esInstructora || invitada) {
+          // Excepción: una ficha de alumna SIN VINCULAR con su email —compró como
+          // invitada antes de tener cuenta—. Esa sí se deja adoptar a
+          // `registrarSociaPublica`; si no, lo que pagó se quedaría huérfano.
+          const { data: sinVincular, error: eSinVincular } = await adminGuardia
+            .from('socios').select('id')
+            .eq('studio_id', body.studioId).is('auth_user_id', null)
+            .ilike('email', escaparLike(user.email.trim()))
+            .limit(1);
+          if (eSinVincular) throw eSinVincular;
+          if (!sinVincular?.length) {
+            return conCorsWidget(req, NextResponse.json(
+              esInstructora
+                ? { error: 'Esta cuenta es de una instructora del estudio.', code: 'ES_INSTRUCTORA' }
+                : {
+                  error: 'Te han invitado como instructora de este estudio. Abre el enlace del correo de invitación para entrar.',
+                  code: 'INVITACION_INSTRUCTORA',
+                },
+              { status: 409 }));
+          }
         }
       }
 

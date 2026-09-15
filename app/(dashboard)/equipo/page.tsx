@@ -30,6 +30,7 @@ import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 import { useRol } from '@/lib/permisos';
 import { rolesQuePuedeAsignar, puedeGestionarEquipo, ETIQUETA_ROL } from '@/lib/permisos-reglas';
+import { reiniciaAccesoAlCambiarEmail } from '@/lib/equipo/reinicio-acceso';
 import {
   DIAS, DIAS_LARGOS, estado as estadoTarjeta, cifras as cifrasTarjeta, accion as accionTarjeta,
   filtrar as filtrarMiembros, ordenar as ordenarMiembros, ordenesDisponibles, situacionDe,
@@ -348,6 +349,19 @@ export default function EquipoPage() {
     setModal('editar');
   }
 
+  /** ¿Guardar este correo le reinicia el acceso? (`lib/equipo/reinicio-acceso.ts`) */
+  function accesoSeReinicia(id: string, emailNuevo: string | null): boolean {
+    const antes = instructores.find(x => x.id === id);
+    if (!antes) return false;
+    return reiniciaAccesoAlCambiarEmail({
+      emailAntes: antes.email ?? null,
+      emailNuevo,
+      tieneCuenta: Boolean(antes.authUserId),
+      rol: antes.rol ?? null,
+      esPropia: Boolean(tarjetas.find(t => t.id === id)?.esYo),
+    });
+  }
+
   async function guardar() {
     if (!form.nombre.trim()) return;
     const fields = {
@@ -372,19 +386,30 @@ export default function EquipoPage() {
         showToast('ok' in inv
           ? `${fields.nombre} ya está en tu equipo — invitación enviada a ${fields.email}`
           : `${fields.nombre} ya está en tu equipo, pero la invitación no salió: ${inv.error}`);
+      } else if (fields.email && fields.rol === 'INSTRUCTOR') {
+        // Desde el 15-sep-2026 una instructora con correo no necesita la
+        // invitación: entrando en la app del estudio con ese correo verificado
+        // elige «Como instructora» (`/api/portal/instructora/unirse`).
+        showToast(`${fields.nombre} ya está en tu equipo — todavía sin invitar, pero puede entrar en la app del estudio con ${fields.email}`);
       } else if (fields.email) {
         showToast(`${fields.nombre} ya está en tu equipo — todavía sin invitar`);
       } else {
         showToast(`${fields.nombre} ya está en tu equipo`);
       }
     } else if (editId) {
+      // Misma regla que el servidor: con el correo nuevo tendrá que volver a entrar.
+      const reinicia = accesoSeReinicia(editId, fields.email);
       const res = await updateInstructor(editId, fields);
       if (!res.ok) { showToast(res.error); setModal(null); return; }
       const tarifaAnterior = tarifas[editId] ?? null;
       const tarifaNueva = tarifaHoraInput.trim() === '' ? null : Number(tarifaHoraInput);
       const horasAnteriores = horasContrato[editId] ?? null;
       const horasNuevas = horasContratoInput.trim() === '' ? null : Number(horasContratoInput);
-      let mensaje = 'Cambios guardados';
+      let mensaje = !reinicia ? 'Cambios guardados'
+        : !fields.email ? `Cambios guardados — ${fields.nombre} se ha quedado sin acceso hasta que le pongas un correo`
+          : fields.rol === 'INSTRUCTOR'
+            ? `Cambios guardados — ${fields.nombre} tendrá que entrar con ${fields.email}: en la app del estudio o con la invitación`
+            : `Cambios guardados — ${fields.nombre} tendrá que entrar con ${fields.email}: envíale la invitación`;
       // Tarifa y horas viven en la misma fila, así que van en la MISMA llamada:
       // dos PATCH seguidos sobre `instructor_tarifas` se pisan el uno al otro
       // (el upsert manda la fila entera con lo que traiga cada uno).
@@ -632,6 +657,12 @@ export default function EquipoPage() {
               <div>
                 <label htmlFor={`${uid}-2`} className={labelCls}>Email</label>
                 <input id={`${uid}-2`} className={inputCls} value={form.email} placeholder="maria@tentare.es" onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                {modal === 'editar' && editId && accesoSeReinicia(editId, form.email.trim() || null) && (
+                  <p role="note" className="text-[11px] text-warning mt-1 flex items-start gap-1.5">
+                    <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                    Al guardar, dejará de entrar con su correo anterior y tendrá que volver a entrar con este.
+                  </p>
+                )}
               </div>
               <div>
                 <label htmlFor={`${uid}-3`} className={labelCls}>Teléfono</label>
@@ -672,7 +703,13 @@ export default function EquipoPage() {
               {form.email.trim() && (
                 <p className="text-[11px] text-muted-foreground mt-2 flex items-start gap-1.5">
                   <KeyRound size={12} className="shrink-0 mt-0.5" />
-                  Para acceder al panel, esta persona debe entrar en /login y crear una cuenta con el email <strong className="text-foreground">{form.email.trim()}</strong> — quedará vinculada automáticamente a este rol.
+                  {/* Antes decía que la cuenta «quedará vinculada automáticamente» al
+                      entrar con el email: eso se retiró (#471) y solo une el enlace
+                      de invitación o, para una instructora, «Como instructora» en
+                      la app del estudio (15-sep-2026). */}
+                  {form.rol === 'INSTRUCTOR'
+                    ? <>Para entrar, que abra la invitación del correo o entre en la app del estudio con <strong className="text-foreground">{form.email.trim()}</strong> y elija «Como instructora».</>
+                    : <>Para acceder al panel, esta persona tiene que abrir la invitación que le llega a <strong className="text-foreground">{form.email.trim()}</strong>.</>}
                 </p>
               )}
             </div>
