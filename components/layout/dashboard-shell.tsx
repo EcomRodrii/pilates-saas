@@ -68,9 +68,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
   // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción
   // activa. Con la enforcement apagada (por defecto) nunca redirige.
-  // `null` = todavía no resuelto: mientras tanto NO se pinta el dashboard real
-  // (antes se veía un flash del contenido del panel antes del redirect a
-  // /suscripcion en estudios bloqueados).
+  // `null` = todavía no resuelto, y el panel SE PINTA igual: solo `true` lo
+  // tapa con el esqueleto mientras rebota a /suscripcion. Antes también `null`
+  // lo tapaba, para que un estudio bloqueado no viera ni un instante el panel,
+  // y eso ponía a TODOS los estudios a esperar esta llamada antes de ver nada:
+  // medido en producción (15-sep), 400–740 ms por carga, la más lenta del
+  // arranque. Decisión del fundador: vale más que abra rápido para todos que
+  // tapar ese instante a los pocos bloqueados. La barrera de verdad sigue
+  // siendo el servidor.
   const [billingBloqueado, setBillingBloqueado] = useState<boolean | null>(null);
   useEffect(() => {
     if (loading || !session) return;
@@ -104,7 +109,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // (`/api/auth/destino-post-login`), pero esta pantalla necesita su PROPIA
   // red de seguridad: un enlace viejo, un bookmark o un `?destino=`
   // manipulado pueden seguir aterrizando aquí sin estudio.
-  const cargandoDatos = !!session && (studio === null || billingBloqueado !== false);
+  const cargandoDatos = !!session && (studio === null || billingBloqueado === true);
   // `&& studio === null` en el uso de abajo, no un reset síncrono aquí: así
   // el flag se invalida solo en cuanto `studio` resuelve, sin un segundo
   // setState en el cuerpo del efecto (react-hooks/set-state-in-effect).
@@ -259,7 +264,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               y un rail, y los dos traen su propio estado de carga.
               Lo que sí tenía era el problema contrario — MEDIDO en producción:
               el editor no se montaba hasta 2,6 s después del `load`, porque
-              `cargandoDatos` espera a `studio` Y al estado de facturación. Y
+              `cargandoDatos` esperaba a `studio` Y al estado de facturación
+              (hoy ya no espera a facturación, ver el gate de suscripción). Y
               detrás de ese `?` estaba la vista previa entera, que ni pedía su
               token. Dos intentos de arreglarlo por dentro del editor no
               movieron el número: el componente no llegaba a ejecutarse. */}
