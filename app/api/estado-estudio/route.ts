@@ -103,8 +103,23 @@ export async function GET(req: NextRequest) {
     // intenta nadie más que ella.
     si(verFinanzas, () => contar('recibos-fallidos', admin.from('recibos')
       .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'FALLIDO'))),
-    si(mueveDinero, () => contar('penalizaciones', admin.from('penalizaciones')
-      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE_APROBACION'))),
+    // I-9 (auditoría 15-sep): una penalización FALLIDA con su recibo huérfano
+    // (PENDIENTE, sin `proximo_reintento`) está fuera del dunning por diseño y
+    // sin estado FALLIDO propio, así que `recibos-fallidos` de arriba tampoco
+    // la cuenta — deuda real que no aparecía en ningún contador. Mismo bucket
+    // que PENDIENTE_APROBACION: las dos son "penalizaciones que esperan tu
+    // decisión para cobrarse" desde el punto de vista de la propietaria.
+    si(mueveDinero, async () => {
+      const [pendientes, falladasHuerfanas] = await Promise.all([
+        contar('penalizaciones-pendientes', admin.from('penalizaciones')
+          .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE_APROBACION')),
+        contar('penalizaciones-falladas-huerfanas', admin.from('penalizaciones')
+          .select('id, recibos!inner(estado, proximo_reintento)', HEAD).eq('studio_id', studioId)
+          .eq('estado', 'FALLIDA').eq('recibos.estado', 'PENDIENTE').is('recibos.proximo_reintento', null)),
+      ]);
+      if (pendientes === null || falladasHuerfanas === null) return null;
+      return pendientes + falladasHuerfanas;
+    }),
     si(mueveDinero, () => contar('devoluciones', admin.from('devoluciones')
       .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE_REVISION'))),
     si(gestionaAutomatizaciones, () => contar('auto-esperando', admin.from('automation_logs')
