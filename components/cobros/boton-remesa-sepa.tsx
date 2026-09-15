@@ -6,6 +6,8 @@
 import { useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { construirRemesa } from '@/lib/sepa-19-14';
+import { dbEstadosPenalizacionDeRecibos } from '@/lib/supabase-data';
+import { avisoPenalizacionesFueraDeRemesa, recibosParaRemesa } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { Landmark } from 'lucide-react';
 
 export function BotonRemesaSepa() {
@@ -28,10 +30,15 @@ export function BotonRemesaSepa() {
     const hoy = new Date();
     const cobro = new Date(hoy.getTime() + 5 * 24 * 3600_000); // D+5 (margen SEPA CORE)
     try {
+      // Los recibos de una penalización solo entran con su cobro aprobado (la
+      // misma regla que «Cobrar online»). Se decide ANTES de generar el fichero:
+      // lo que va en el XML es lo que el banco carga.
+      const pendientes = recibos.filter(r => r.estado === 'PENDIENTE');
+      const remesa = recibosParaRemesa(pendientes, await dbEstadosPenalizacionDeRecibos(pendientes.map(r => r.id)));
+      const avisoPenalizaciones = avisoPenalizacionesFueraDeRemesa(remesa);
       const { xml, nAdeudos, sinMandato, idsIncluidos } = construirRemesa({
         acreedor: { nombre: studio.nombre, titular: studio.sepaTitular, iban: studio.sepaIban, idAcreedor: studio.sepaAcreedorId },
-        recibosPendientes: recibos
-          .filter(r => r.estado === 'PENDIENTE')
+        recibosPendientes: remesa.entran
           .map(r => ({ id: r.id, socioId: r.socioId, importe: r.importe, concepto: r.concepto })),
         mandatosVigentes: mandatosSepa
           .filter(m => m.estado === 'VIGENTE')
@@ -42,10 +49,11 @@ export function BotonRemesaSepa() {
         fechaCobro: cobro.toISOString().slice(0, 10),
       });
 
+      const extra = avisoPenalizaciones ? ` ${avisoPenalizaciones}` : '';
       if (nAdeudos === 0) {
-        setAviso(sinMandato > 0
+        setAviso((sinMandato > 0
           ? `Ningún recibo pendiente tiene mandato SEPA (${sinMandato} sin domiciliar). Añade el mandato en la ficha de cada clienta.`
-          : 'No hay recibos pendientes que remesar.');
+          : 'No hay recibos pendientes que remesar.') + extra);
         return;
       }
 
@@ -67,7 +75,7 @@ export function BotonRemesaSepa() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setAviso(`Fichero listo: ${nAdeudos} recibo(s), cargo el ${cobro.toLocaleDateString('es-ES')}.${sinMandato > 0 ? ` (${sinMandato} recibo(s) sin mandato quedaron fuera.)` : ''} Súbelo a tu banco.`);
+      setAviso(`Fichero listo: ${nAdeudos} recibo(s), cargo el ${cobro.toLocaleDateString('es-ES')}.${sinMandato > 0 ? ` (${sinMandato} recibo(s) sin mandato quedaron fuera.)` : ''}${extra} Súbelo a tu banco.`);
     } finally {
       setGenerando(false);
     }

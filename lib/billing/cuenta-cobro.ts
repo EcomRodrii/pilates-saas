@@ -21,6 +21,24 @@ export function puedeCambiarCuentaDeCobro(p: { rol: Rol; esDuena: boolean }): bo
   return p.esDuena && p.rol === 'PROPIETARIO';
 }
 
+// Desconectar Stripe (`app/api/integrations/stripe/desconectar`) es un
+// compare-and-set sobre la cuenta leída. Si no toca ninguna fila, la cuenta
+// cambió entre medias: antes se contestaba «ok» igual y la pantalla decía
+// «Stripe desconectado» con otra cuenta conectada. Se relee:
+// - la cuenta ya no está (otra pestaña la desconectó a la vez) → hecho, sin cambios;
+// - hay otra, o no se pudo releer → 409, que recargue y vea la cuenta de verdad.
+export const TEXTO_CUENTA_STRIPE_CAMBIO = 'Tu cuenta de Stripe cambió mientras tanto: recarga la página.';
+
+export type DesenlaceDesconexion = 'DESCONECTADA' | 'YA_DESCONECTADA' | 'CAMBIO';
+
+export function desenlaceDesconexion(
+  tocadas: number, relectura?: { ok: true; cuenta: string | null } | { ok: false },
+): DesenlaceDesconexion {
+  if (tocadas > 0) return 'DESCONECTADA';
+  if (relectura?.ok && !relectura.cuenta) return 'YA_DESCONECTADA';
+  return 'CAMBIO';
+}
+
 // Identificador de cuenta conectada de Stripe. Solo lo produce Stripe (el
 // callback OAuth de Connect); se valida igual antes de guardarlo.
 export function esStripeAccountIdValido(valor: unknown): valor is string {

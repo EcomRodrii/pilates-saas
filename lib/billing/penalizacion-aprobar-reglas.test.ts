@@ -34,7 +34,10 @@ import {
   PREFIJO_RECIBO_PENALIZACION,
   TEXTO_PENALIZACION_ANULADA,
   cobroManualDeRecibo,
+  avisoPenalizacionesFueraDeRemesa,
   destinoDelReciboAnulado,
+  devolucionEnMarcha,
+  recibosParaRemesa,
   soltarReciboDePenalizacionAnulada,
   type IoReciboDePenalizacionAnulada,
   type ReciboDePenalizacionAnulada,
@@ -1666,7 +1669,41 @@ test('⚠️ «Marcar cobrado» (uno y en lote) pasa por el guardia del mostrado
 
 // ── El barrido: el recibo de una penalización anulada se suelta ─────────────
 
-const RECIBO_LIBRE: ReciboDePenalizacionAnulada = { estado: 'PENDIENTE', programado: false, conCobroEnCamino: false };
+const RECIBO_LIBRE: ReciboDePenalizacionAnulada = { estado: 'PENDIENTE', programado: false, conCobroEnCamino: false, devolucionEnMarcha: false };
+
+test('⚠️ barrido de anuladas: un COBRADO con la devolución ya en marcha deja de avisar cada hora', async () => {
+  assert.equal(destinoDelReciboAnulado({ ...RECIBO_LIBRE, estado: 'COBRADO', devolucionEnMarcha: true }), 'NADA');
+  const { io, llamadas } = ioAnulada();
+  assert.deepEqual(await soltarReciboDePenalizacionAnulada(io, { ...RECIBO_LIBRE, estado: 'COBRADO', devolucionEnMarcha: true }), { paso: 'NADA' });
+  assert.deepEqual(llamadas, [], 'ni escribe ni avisa');
+  // Solo corta el aviso del cobrado: un PENDIENTE o EN_CURSO no cambia.
+  assert.equal(destinoDelReciboAnulado({ ...RECIBO_LIBRE, devolucionEnMarcha: true }), 'BORRAR');
+  assert.equal(destinoDelReciboAnulado({ ...RECIBO_LIBRE, estado: 'EN_CURSO', devolucionEnMarcha: true }), 'AVISAR_NO_BORRABLE');
+});
+
+test('devolución en marcha: pedida y sin fallo, o devuelta entera', () => {
+  const base = { importe: 15, importeDevuelto: null, reembolsoSolicitadoEn: null, reembolsoFallidoEn: null };
+  assert.equal(devolucionEnMarcha(base), false, 'nada pedido ni devuelto: hay que devolverlo');
+  assert.equal(devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: '2026-09-15T10:00:00Z' }), true);
+  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 15 }), true);
+  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 20 }), true);
+});
+
+test('⚠️ devolución en marcha: una devolución que Stripe rechazó, o una parcial, sigue avisando', () => {
+  const base = { importe: 15, importeDevuelto: null, reembolsoSolicitadoEn: null, reembolsoFallidoEn: null };
+  assert.equal(devolucionEnMarcha({ ...base, reembolsoSolicitadoEn: '2026-09-15T10:00:00Z', reembolsoFallidoEn: '2026-09-15T11:00:00Z' }), false,
+    'el webhook de un refund fallido deja la marca de solicitado');
+  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 5 }), false, 'parcial: aún falta dinero por devolver');
+  assert.equal(devolucionEnMarcha({ ...base, importeDevuelto: 0 }), false);
+});
+
+test('⚠️ el cron lee lo que corta el aviso del cobrado y se lo pasa al barrido', () => {
+  const fuente = readFileSync(join(import.meta.dirname, '../inngest/penalizaciones.ts'), 'utf8');
+  const desde = fuente.indexOf('async function soltarRecibosDePenalizacionesAnuladas(');
+  const funcion = fuente.slice(desde, fuente.indexOf('\n}\n', desde));
+  assert.match(funcion, /recibos!inner\([^)]*importe, importe_devuelto, reembolso_solicitado_en, reembolso_fallido_en\)/);
+  assert.match(funcion, /devolucionEnMarcha: !!recibo && devolucionEnMarcha\(\{/);
+});
 
 test('barrido de anuladas: qué se hace con cada recibo', () => {
   assert.equal(destinoDelReciboAnulado(RECIBO_LIBRE), 'BORRAR');
@@ -1768,4 +1805,69 @@ test('⚠️ el cron barre las anuladas en cada pasada: CAS al soltar, borrado c
   assert.ok(volver.includes(".update({ recibo_id: reciboId })") && volver.includes(".is('recibo_id', null)"), 'volver a apuntar solo si sigue suelto');
   // Solo ids a Sentry.
   assert.ok(funcion.includes('extra: { penalizacionId: fila.id, reciboId, studioId: fila.studio_id, estadoPenalizacion: fila.estado }'));
+});
+
+// ── Remesa de domiciliaciones: el recibo de una penalización solo con su cobro decidido ──
+
+const REC = (id: string) => ({ id, socioId: 's1' });
+const RECIBO_NORMAL = 'rec-renov-sus-1-2026-09';
+const leidas = (estados: Record<string, string>) => ({ ok: true as const, estadoPorRecibo: new Map(Object.entries(estados)) });
+
+test('⚠️ remesa: el recibo de una penalización solo entra con ella en RECIBO_CREADO (la regla de «panel»)', () => {
+  for (const estado of ESTADOS) {
+    const r = recibosParaRemesa([REC(RECIBO_PEN)], leidas({ [RECIBO_PEN]: estado }));
+    const debe = estado === 'RECIBO_CREADO';
+    assert.equal(r.entran.length, debe ? 1 : 0, estado);
+    assert.equal(r.fueraSinAprobar, debe ? 0 : 1, estado);
+    assert.equal(r.entran.length === 1, cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }, 'panel').ok, `${estado}: misma regla que Cobrar online`);
+  }
+});
+
+test('⚠️ remesa: sin poder leer las penalizaciones, sus recibos se quedan fuera; los normales entran igual', () => {
+  const r = recibosParaRemesa([REC(RECIBO_NORMAL), REC(RECIBO_PEN)], { ok: false });
+  assert.deepEqual(r.entran.map(x => x.id), [RECIBO_NORMAL]);
+  assert.equal(r.fueraSinComprobar, 1);
+  assert.equal(r.fueraSinAprobar, 0);
+});
+
+test('remesa: una penalización que no apunta a su recibo (no está en el mapa) se queda fuera', () => {
+  const r = recibosParaRemesa([REC(RECIBO_PEN)], leidas({}));
+  assert.equal(r.entran.length, 0);
+  assert.equal(r.fueraSinAprobar, 1);
+});
+
+test('remesa: los recibos que no son de una penalización entran sin mirar nada, en su orden', () => {
+  const recibos = [REC('r-1'), REC(RECIBO_NORMAL), REC('r-2')];
+  const r = recibosParaRemesa(recibos, { ok: false });
+  assert.deepEqual(r.entran, recibos);
+  assert.deepEqual([r.fueraSinAprobar, r.fueraSinComprobar], [0, 0]);
+});
+
+test('remesa: la pantalla dice cuántos se quedaron fuera y por qué, y nada si no hay', () => {
+  assert.equal(avisoPenalizacionesFueraDeRemesa({ fueraSinAprobar: 0, fueraSinComprobar: 0 }), null);
+  assert.equal(avisoPenalizacionesFueraDeRemesa({ fueraSinAprobar: 1, fueraSinComprobar: 0 }),
+    '1 recibo de penalización no entra: su cobro no está aprobado (o se anuló).');
+  assert.equal(avisoPenalizacionesFueraDeRemesa({ fueraSinAprobar: 2, fueraSinComprobar: 0 }),
+    '2 recibos de penalización no entran: su cobro no está aprobado (o se anuló).');
+  const ambos = avisoPenalizacionesFueraDeRemesa({ fueraSinAprobar: 1, fueraSinComprobar: 3 }) ?? '';
+  assert.match(ambos, /^1 recibo de penalización no entra: .* 3 recibos de penalización no entran: no hemos podido comprobar/);
+  // Sin estados internos en pantalla.
+  assert.doesNotMatch(ambos, /RECIBO_CREADO|PENDIENTE_APROBACION|OMITIDA/);
+});
+
+test('⚠️ el botón de la remesa filtra las penalizaciones ANTES de generar el fichero y de marcar los recibos', () => {
+  const fuente = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'components/cobros/boton-remesa-sepa.tsx'), 'utf8'));
+  const lectura = fuente.indexOf('recibosParaRemesa(pendientes, await dbEstadosPenalizacionDeRecibos(pendientes.map(r => r.id)))');
+  const construir = fuente.indexOf('construirRemesa({', lectura);
+  const entran = fuente.indexOf('recibosPendientes: remesa.entran', construir);
+  const marcar = fuente.indexOf('await marcarRecibosEnviadosAlBanco(idsIncluidos)', entran);
+  assert.ok(lectura > 0 && construir > lectura && entran > construir && marcar > entran, 'leer → decidir → XML con lo que entra → marcar');
+  assert.ok(fuente.includes('avisoPenalizacionesFueraDeRemesa(remesa)'), 'la pantalla dice cuántos quedaron fuera');
+
+  const datos = readFileSync(join(import.meta.dirname, '../..', 'lib/supabase-data.ts'), 'utf8');
+  const helper = datos.slice(datos.indexOf('export async function dbEstadosPenalizacionDeRecibos('));
+  const cuerpo = helper.slice(0, helper.indexOf('\n}\n'));
+  assert.match(cuerpo, /if \(error\) return \{ ok: false \};/);
+  assert.match(cuerpo, /catch \{\s*return \{ ok: false \};/);
+  assert.match(cuerpo, /penalizacionDelRecibo\(reciboId\) === fila\.id/, 'solo si la penalización apunta a ESE recibo');
 });

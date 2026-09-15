@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  desenlaceDesconexion,
+  TEXTO_CUENTA_STRIPE_CAMBIO,
   esStripeAccountIdValido,
   ibanEnmascarado,
   puedeCambiarCuentaDeCobro,
@@ -136,4 +138,32 @@ test('las rutas de servidor comprueban la dueña antes de tocar la cuenta de cob
   // Y el inicio del OAuth de Stripe, que es la otra forma de cambiar la cuenta.
   const estado = leer('app/api/integrations/oauth-state/route.ts');
   assert.match(estado, /puedeCambiarCuentaDeCobro\(/);
+});
+
+// ── Desconectar Stripe: sin filas tocadas no se contesta «ok» ────────────────
+
+test('desconectar: con fila tocada, desconectada', () => {
+  assert.equal(desenlaceDesconexion(1), 'DESCONECTADA');
+});
+
+test('⚠️ desconectar: sin filas y con OTRA cuenta conectada (o sin poder releer) → cambio, no «ok»', () => {
+  assert.equal(desenlaceDesconexion(0, { ok: true, cuenta: 'acct_OTRA12345678' }), 'CAMBIO');
+  assert.equal(desenlaceDesconexion(0, { ok: false }), 'CAMBIO');
+  assert.equal(desenlaceDesconexion(0), 'CAMBIO');
+});
+
+test('desconectar: sin filas porque otra pestaña ya la desconectó → hecho, sin cambios', () => {
+  assert.equal(desenlaceDesconexion(0, { ok: true, cuenta: null }), 'YA_DESCONECTADA');
+});
+
+test('⚠️ la ruta de desconectar cuenta filas y responde 409 con el texto claro si no tocó ninguna', () => {
+  const src = leer('app/api/integrations/stripe/desconectar/route.ts');
+  const cas = src.indexOf(".eq('stripe_account_id', cuenta)");
+  const select = src.indexOf(".select('id');", cas);
+  const conteo = src.indexOf('if ((tocadas?.length ?? 0) === 0) {', select);
+  const conflicto = src.indexOf('NextResponse.json({ error: TEXTO_CUENTA_STRIPE_CAMBIO }, { status: 409 })', conteo);
+  const actividad = src.indexOf("from('actividad_reciente')");
+  assert.ok(cas > 0 && select > cas && conteo > select && conflicto > conteo, 'CAS → contar → 409');
+  assert.ok(actividad > conflicto, 'no se apunta en Actividad una desconexión que no ha pasado');
+  assert.equal(TEXTO_CUENTA_STRIPE_CAMBIO, 'Tu cuenta de Stripe cambió mientras tanto: recarga la página.');
 });
