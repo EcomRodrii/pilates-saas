@@ -224,8 +224,13 @@ for (const vista of VISTAS) {
         for (const t of seccion.tarjetas as readonly TarjetaConfiguracion[]) {
           if (t.condicion) continue; // sedes y catálogo de la cadena: solo con varias sedes
           // En la sección, una herramienta es su fila; sus tarjetas están en su pantalla.
+          // Se espera igual que a una tarjeta: en «Clases» y «Comunicación» la
+          // fila es lo primero de la sección y se miraba antes de que cargara.
           if (t.herramienta) {
-            if (!(await page.locator(`#fila-herramienta-${t.herramienta}`).count())) faltan.push(`${seccion.id}#fila-herramienta-${t.herramienta}`);
+            const fila = page.locator(`#fila-herramienta-${t.herramienta}`);
+            if (!(await fila.count())) {
+              await fila.waitFor({ state: 'attached', timeout: 10_000 }).catch(() => faltan.push(`${seccion.id}#fila-herramienta-${t.herramienta}`));
+            }
             continue;
           }
           if (!(await page.locator(`#${t.id}`).count())) {
