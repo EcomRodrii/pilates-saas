@@ -18,9 +18,10 @@
 // Pura: la ejecuta `node --test` directamente.
 
 import {
-  SECCIONES, esHerramientaId, esSeccionId, esTarjetaId, herramientaDeTarjeta, herramientaPorId, seccionDeTarjeta,
-  tarjetasDeHerramienta,
-  type HerramientaId, type RolConfiguracion, type SeccionConfiguracion, type SeccionId, type TarjetaId,
+  FILAS_EXTERNAS, SECCIONES, esHerramientaId, esSeccionId, esTarjetaId, externaVisible, herramientaDeTarjeta,
+  herramientaPorId, herramientaVisible, seccionDeTarjeta, tarjetaVisible, tarjetasDeHerramienta,
+  type FilaExterna, type HerramientaId, type RolConfiguracion, type SeccionConfiguracion, type SeccionId,
+  type TarjetaId,
 } from './secciones.ts';
 
 export type Destino =
@@ -257,7 +258,49 @@ export function hrefDeTarjeta(id: TarjetaId): string {
   return hrefDeLugar(lugarDeTarjeta(id));
 }
 
-/** Las secciones que un rol puede abrir, en el orden de la lista. */
+/**
+ * Las secciones que un rol puede abrir, en el orden de la lista, y DENTRO de
+ * cada una solo sus tarjetas: la gerencia abre «Mi estudio», pero no el nombre
+ * ni el contacto del estudio. Quien pinta la lista, quien la busca y quien
+ * resuelve un enlace usan esto y no `SECCIONES`, para que los tres digan lo
+ * mismo.
+ */
 export function seccionesVisibles(rol: RolConfiguracion | string): SeccionConfiguracion[] {
-  return SECCIONES.filter(s => (s.roles as readonly string[]).includes(rol));
+  const suyas: SeccionConfiguracion[] = [];
+  for (const s of SECCIONES as readonly SeccionConfiguracion[]) {
+    if (!(s.roles as readonly string[]).includes(rol)) continue;
+    const tarjetas = s.tarjetas.filter(t => tarjetaVisible(t.id as TarjetaId, rol));
+    if (tarjetas.length === 0) continue;
+    // La propietaria las ve todas: se devuelve la sección tal cual.
+    suyas.push(tarjetas.length === s.tarjetas.length ? s : { ...s, tarjetas });
+  }
+  return suyas;
+}
+
+/** Las filas que llevan a otra pantalla y este rol ve («Mi cuenta»). */
+export function externasVisibles(rol: RolConfiguracion | string): FilaExterna[] {
+  return Object.values(FILAS_EXTERNAS).filter(f => externaVisible(f, rol));
+}
+
+/**
+ * ¿Este rol puede abrir de verdad ese enlace a Configuración?
+ *
+ * Lo que no es Configuración no se juzga aquí (lo decide `puedeVer`): esto
+ * contesta por la sección, la herramienta y la tarjeta a las que lleva. Sin
+ * esto, un enlace de ⌘K aterrizaba en «Esta parte la gestiona la propietaria»,
+ * que es justo lo que un buscador no debe ofrecer.
+ */
+export function puedeAbrirEnConfiguracion(rol: RolConfiguracion | string, href: string): boolean {
+  const url = new URL(href, 'https://tentare.invalid');
+  if (url.pathname !== '/configuracion') return true;
+  const destino = resolverHref(href);
+  // Lleva fuera de Configuración (`?tab=planes` → /productos): lo juzga `puedeVer`.
+  if ('redirect' in destino) return true;
+  const visibles = seccionesVisibles(rol);
+  // El inicio lo abre quien tenga alguna sección.
+  if (destino.tab === null) return visibles.length > 0;
+  if (!visibles.some(s => s.id === destino.tab)) return false;
+  if (destino.abrir && !herramientaVisible(destino.abrir, rol)) return false;
+  if (destino.ancla && esTarjetaId(destino.ancla) && !tarjetaVisible(destino.ancla, rol)) return false;
+  return true;
 }

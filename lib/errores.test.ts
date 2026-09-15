@@ -146,3 +146,16 @@ test('⚠️ un 42501 SIN "anon" en el hint sigue siendo "no tienes permiso", no
   const r = mensajeDeFalloAlGuardar({ code: '42501', message: 'permission denied for table socios' });
   assert.match(r, /no tienes permiso/i);
 });
+
+// Las tres reglas de dinero de un tipo de clase las fija solo la propietaria
+// (trigger `tipos_clase_dinero_solo_propietaria`). «Vuelve a entrar e inténtalo
+// otra vez» sería un mal consejo: por mucho que vuelva a entrar, la gerencia no
+// las cambia. Se dice de quién es la decisión.
+test('el trigger de las reglas de dinero de un tipo de clase dice quién decide, no «vuelve a entrar»', () => {
+  const r = mensajeDeFalloAlGuardar({
+    code: '42501',
+    message: 'tipos_clase_dinero_solo_propietaria: la penalización, la ventana de cancelación y exigir plan los cambia la propietaria',
+  });
+  assert.equal(r, 'Esa regla la cambia la propietaria del estudio.');
+  assert.doesNotMatch(r, /vuelve a entrar/i);
+});

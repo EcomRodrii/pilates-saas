@@ -7,6 +7,8 @@ import {
   ETIQUETA_ROL, puedeGestionarClientas, puedeGestionarEquipo, puedeMoverDinero, puedeVer, puedeVerFichaClinica,
   puedeVerSemaforo, rolesQuePuedeAsignar,
 } from '../permisos-reglas.ts';
+import { seccionesVisibles } from './destino.ts';
+import { tarjetaVisible } from './secciones.ts';
 import { urlAppInstructora } from '../avisos/app-instructora.ts';
 import type { Rol } from '../types.ts';
 
@@ -23,27 +25,40 @@ test('los cuatro roles, de quien más puede a quien menos, con el nombre que tie
   for (const r of QUE_HACE_CADA_ROL) assert.equal(r.titulo, ETIQUETA_ROL[r.rol].label);
 });
 
-test('propietaria: todo, cobros incluidos, y es el único rol en Configuración, Informes y Automatizaciones', () => {
+test('propietaria: todo, cobros incluidos, única en Informes y Automatizaciones, y la única con TODA la Configuración', () => {
   assert.match(detalle('PROPIETARIO'), /cobros incluidos/);
   for (const ruta of ['/configuracion', '/informes', '/automatizaciones', '/cobros', '/equipo']) {
     assert.equal(puedeVer('PROPIETARIO', ruta), true, ruta);
   }
-  for (const ruta of ['/configuracion', '/informes', '/automatizaciones']) {
+  for (const ruta of ['/informes', '/automatizaciones']) {
     for (const rol of OTROS) assert.equal(puedeVer(rol, ruta), false, `${rol} ${ruta}`);
   }
+  // Configuración ya no es una puerta de sí/no: la gerencia entra a la operación
+  // de su sede, y «toda» sigue siendo solo de la propietaria.
+  assert.equal(seccionesVisibles('PROPIETARIO').length, 14);
+  assert.deepEqual(seccionesVisibles('MANAGER').map(s => s.id), ['estudio', 'clases']);
+  assert.deepEqual(seccionesVisibles('RECEPCION'), []);
 });
 
-test('responsable de sede: agenda, alumnas, sustituciones y equipo; da de alta a recepción e instructoras; ni cobros, ni informes, ni Configuración', () => {
+test('responsable de sede: agenda, alumnas, sustituciones y equipo, y en Configuración su horario, sus salas y sus clases; ni cobros ni informes', () => {
   for (const ruta of ['/calendario', '/clientas', '/sustituciones', '/equipo']) assert.equal(puedeVer('MANAGER', ruta), true, ruta);
   assert.equal(puedeGestionarClientas('MANAGER'), true);
   assert.equal(puedeGestionarEquipo('MANAGER'), true);
   assert.deepEqual(rolesQuePuedeAsignar('MANAGER'), ['RECEPCION', 'INSTRUCTOR']);
-  for (const ruta of ['/cobros', '/informes', '/configuracion']) assert.equal(puedeVer('MANAGER', ruta), false, ruta);
+  for (const ruta of ['/cobros', '/informes']) assert.equal(puedeVer('MANAGER', ruta), false, ruta);
   assert.equal(puedeMoverDinero('MANAGER'), false);
   assert.equal(puedeVerSemaforo('MANAGER'), true);
   assert.equal(puedeVerFichaClinica('MANAGER'), false);
-  assert.match(detalle('MANAGER'), /No ve cobros, informes ni Configuración/);
-  assert.match(detalle('MANAGER'), /solo el color del semáforo/);
+  assert.match(detalle('MANAGER'), /No ve cobros ni informes/);
+  // Lo que la frase promete de Configuración, tarjeta a tarjeta.
+  assert.match(detalle('MANAGER'), /en Configuración su horario, sus salas y sus clases/);
+  for (const id of ['horario', 'cerrar-el-centro', 'salas', 'tipos-de-clase', 'horario-de-citas'] as const) {
+    assert.equal(tarjetaVisible(id, 'MANAGER'), true, id);
+  }
+  // Y lo que no: el dinero, el contrato y la cuenta.
+  for (const id of ['nombre-y-direccion', 'contacto', 'sedes', 'servicios-de-cita', 'datos-fiscales'] as const) {
+    assert.equal(tarjetaVisible(id, 'MANAGER'), false, id);
+  }
 });
 
 test('recepción: agenda, alumnas y cobros; de la salud solo el semáforo; ni Equipo, ni Informes, ni Configuración', () => {
@@ -53,6 +68,7 @@ test('recepción: agenda, alumnas y cobros; de la salud solo el semáforo; ni Eq
   assert.equal(puedeVerSemaforo('RECEPCION'), true);
   assert.equal(puedeVerFichaClinica('RECEPCION'), false);
   for (const ruta of ['/equipo', '/informes', '/configuracion']) assert.equal(puedeVer('RECEPCION', ruta), false, ruta);
+  assert.deepEqual(seccionesVisibles('RECEPCION'), []);
   assert.match(detalle('RECEPCION'), /no entra en Equipo, Informes ni Configuración/);
 });
 

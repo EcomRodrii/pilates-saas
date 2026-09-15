@@ -25,6 +25,7 @@ import {
   resumenPenalizacion,
   resumenPlazoEspera,
   resumenSiNo,
+  valorReglaDeDinero,
   type ClaseForm,
   type TriEstado,
 } from '@/lib/configuracion/tipo-clase-form';
@@ -219,6 +220,25 @@ function CampoHeredado({
 }
 
 /**
+ * Una regla que esta persona LEE pero no cambia: las tres que acaban en dinero,
+ * cuando no es la propietaria (un trigger las rechaza con 42501).
+ *
+ * Se enseña el valor de hoy y de quién es la decisión, en vez de esconderla:
+ * quien lleva la sede tiene que poder saber qué se le cobra a una alumna suya
+ * por no venir, aunque el importe no lo ponga ella.
+ */
+function CampoSoloLectura({ label, valor }: { label: string; valor: string }) {
+  return (
+    <Campo label={label}>
+      <div className="rounded-lg bg-muted/60 px-3 py-2">
+        <p className="text-[12px] text-foreground">{valor}</p>
+        <p className="mt-0.5 text-[11.5px] text-muted-foreground">Lo decide la propietaria.</p>
+      </div>
+    </Campo>
+  );
+}
+
+/**
  * Sí / No para un override booleano ya personalizado.
  *
  * Es el MISMO control que la duración o el nivel a propósito: el primer intento
@@ -403,6 +423,7 @@ export function PanelTipoClase({
   setForm,
   studio,
   editando,
+  reglasDeDinero,
   guardando,
   errorGuardar,
   subiendoFoto,
@@ -420,6 +441,11 @@ export function PanelTipoClase({
   setForm: React.Dispatch<React.SetStateAction<ClaseForm>>;
   studio: Studio | null;
   editando: TipoClase | null;
+  /**
+   * ¿Puede cambiar las tres reglas que acaban en dinero (penalización, plazo
+   * para cancelar y exigir plan)? Solo la propietaria; con `false` se leen.
+   */
+  reglasDeDinero: boolean;
   guardando: boolean;
   errorGuardar: string | null;
   subiendoFoto: boolean;
@@ -737,24 +763,31 @@ export function PanelTipoClase({
           ayuda="Cuándo y cómo puede tu alumna coger sitio en esta clase. Sin tocar nada, valen las reglas de tu estudio."
           resumen={resumenSeccionReservas(form, studio)}
         >
-          <CampoHeredado
-            label="¿Hace falta bono o plan para reservar?"
-            ayuda="Si no hace falta, cualquiera con ficha puede coger sitio y ya lo cobras tú aparte."
-            heredado={form.reservaExigirPlan === 'hereda'}
-            onHeredar={() => setForm(f => ({ ...f, reservaExigirPlan: 'hereda' }))}
-            onPersonalizar={() =>
-              setForm(f => ({ ...f, reservaExigirPlan: studio?.reservaExigirPlan === false ? 'no' : 'si' }))
-            }
-            resumenEstudio={resumenSiNo(studio?.reservaExigirPlan ?? true, 'sí hace falta', 'no hace falta')}
-          >
-            <SiNo
-              etiquetaGrupo="¿Hace falta bono o plan para reservar?"
-              value={form.reservaExigirPlan === 'no' ? 'no' : 'si'}
-              onChange={v => setForm(f => ({ ...f, reservaExigirPlan: v }))}
-              etiquetaSi="Sí hace falta"
-              etiquetaNo="No hace falta"
+          {reglasDeDinero ? (
+            <CampoHeredado
+              label="¿Hace falta bono o plan para reservar?"
+              ayuda="Si no hace falta, cualquiera con ficha puede coger sitio y ya lo cobras tú aparte."
+              heredado={form.reservaExigirPlan === 'hereda'}
+              onHeredar={() => setForm(f => ({ ...f, reservaExigirPlan: 'hereda' }))}
+              onPersonalizar={() =>
+                setForm(f => ({ ...f, reservaExigirPlan: studio?.reservaExigirPlan === false ? 'no' : 'si' }))
+              }
+              resumenEstudio={resumenSiNo(studio?.reservaExigirPlan ?? true, 'sí hace falta', 'no hace falta')}
+            >
+              <SiNo
+                etiquetaGrupo="¿Hace falta bono o plan para reservar?"
+                value={form.reservaExigirPlan === 'no' ? 'no' : 'si'}
+                onChange={v => setForm(f => ({ ...f, reservaExigirPlan: v }))}
+                etiquetaSi="Sí hace falta"
+                etiquetaNo="No hace falta"
+              />
+            </CampoHeredado>
+          ) : (
+            <CampoSoloLectura
+              label="¿Hace falta bono o plan para reservar?"
+              valor={valorReglaDeDinero('reservaExigirPlan', form, studio ?? {})}
             />
-          </CampoHeredado>
+          )}
 
           <CampoHeredado
             label="¿Hasta cuándo se puede reservar?"
@@ -903,7 +936,9 @@ export function PanelTipoClase({
             label="¿Cuántas alumnas hacen falta para que la clase salga?"
             ayuda={(studio?.cancelacionClaseDevuelveBono ?? true)
               ? 'Si a 2 horas del inicio no se llega, la clase se cancela sola y se les devuelve la sesión.'
-              : 'Si a 2 horas del inicio no se llega, la clase se cancela sola, sin devolverles la sesión: lo tienes así en Configuración → Cómo reservan mis alumnas.'}
+              : reglasDeDinero
+                ? 'Si a 2 horas del inicio no se llega, la clase se cancela sola, sin devolverles la sesión: lo tienes así en Configuración → Cómo reservan mis alumnas.'
+                : 'Si a 2 horas del inicio no se llega, la clase se cancela sola, sin devolverles la sesión: así lo tiene puesto el estudio.'}
             heredado={form.minimoAsistentesPorClase.trim() === ''}
             onHeredar={() => setForm(f => ({ ...f, minimoAsistentesPorClase: '' }))}
             onPersonalizar={() =>
@@ -975,30 +1010,43 @@ export function PanelTipoClase({
           ayuda="Qué pasa cuando una alumna avisa tarde, o directamente no aparece."
           resumen={resumenSeccionCancelaciones(form, studio)}
         >
-          <CampoHeredado
-            label="¿Hasta cuándo puede cancelar sin perder la sesión?"
-            heredado={form.ventanaCancelacionHoras.trim() === ''}
-            onHeredar={() => setForm(f => ({ ...f, ventanaCancelacionHoras: '' }))}
-            onPersonalizar={() =>
-              setForm(f => ({ ...f, ventanaCancelacionHoras: String(studio?.cancelacionVentanaHoras ?? 12) }))
-            }
-            resumenEstudio={resumenHoras(studio?.cancelacionVentanaHoras ?? 12)}
-          >
-            <div className="flex items-center gap-2">
-              <input
-                className={cn(inputCls, 'w-28')}
-                type="number"
-                min={0}
-                placeholder="Ajuste del estudio"
-                value={form.ventanaCancelacionHoras}
-                onChange={e => setForm(f => ({ ...f, ventanaCancelacionHoras: e.target.value }))}
-                aria-label="Plazo para cancelar sin perder la sesión, en horas"
-              />
-              <span className="text-[12.5px] text-muted-foreground">horas antes de la clase</span>
-            </div>
-          </CampoHeredado>
+          {reglasDeDinero ? (
+            <CampoHeredado
+              label="¿Hasta cuándo puede cancelar sin perder la sesión?"
+              heredado={form.ventanaCancelacionHoras.trim() === ''}
+              onHeredar={() => setForm(f => ({ ...f, ventanaCancelacionHoras: '' }))}
+              onPersonalizar={() =>
+                setForm(f => ({ ...f, ventanaCancelacionHoras: String(studio?.cancelacionVentanaHoras ?? 12) }))
+              }
+              resumenEstudio={resumenHoras(studio?.cancelacionVentanaHoras ?? 12)}
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  className={cn(inputCls, 'w-28')}
+                  type="number"
+                  min={0}
+                  placeholder="Ajuste del estudio"
+                  value={form.ventanaCancelacionHoras}
+                  onChange={e => setForm(f => ({ ...f, ventanaCancelacionHoras: e.target.value }))}
+                  aria-label="Plazo para cancelar sin perder la sesión, en horas"
+                />
+                <span className="text-[12.5px] text-muted-foreground">horas antes de la clase</span>
+              </div>
+            </CampoHeredado>
+          ) : (
+            <CampoSoloLectura
+              label="¿Hasta cuándo puede cancelar sin perder la sesión?"
+              valor={valorReglaDeDinero('ventanaCancelacionHoras', form, studio ?? {})}
+            />
+          )}
 
-          <CampoHeredado
+          {!reglasDeDinero && (
+            <CampoSoloLectura
+              label="¿Se le cobra algo por cancelar tarde o no venir?"
+              valor={valorReglaDeDinero('penalizacionImporteEur', form, studio ?? {})}
+            />
+          )}
+          {reglasDeDinero && <CampoHeredado
             label="¿Se le cobra algo por cancelar tarde o no venir?"
             hint={
               <InfoTip label="Qué implica poner un importe aquí">
@@ -1028,11 +1076,12 @@ export function PanelTipoClase({
               />
               <span className="text-[12.5px] text-muted-foreground">€ · 0 = no se cobra nada</span>
             </div>
-          </CampoHeredado>
+          </CampoHeredado>}
           {/* Verdad del cobro (lib/billing/penalizacion-consentimiento.ts): el
               contrato que aceptan las alumnas lleva el plazo y el importe del
-              ESTUDIO, y lo que no está en él no se cobra. */}
-          {(form.ventanaCancelacionHoras.trim() !== '' || form.penalizacionImporteEur.trim() !== '') && (
+              ESTUDIO, y lo que no está en él no se cobra. Solo a quien puede
+              cambiarlos: a la gerencia le sobra un matiz que no puede accionar. */}
+          {reglasDeDinero && (form.ventanaCancelacionHoras.trim() !== '' || form.penalizacionImporteEur.trim() !== '') && (
             <p className="text-[12px] text-muted-foreground">
               Solo se cobra lo que recoge el contrato que aceptan tus alumnas, que usa el plazo y el importe del
               estudio: con otro importe aquí, o una cancelación tardía solo por el plazo de esta clase, no se cobra.
@@ -1048,7 +1097,9 @@ export function PanelTipoClase({
               <p className={ayudaCls}>
                 {zoomConectado
                   ? 'Cada sesión tendrá su propio enlace de Zoom, generado automáticamente.'
-                  : 'Necesitas conectar tu cuenta de Zoom en Configuración → Conexiones.'}
+                  : reglasDeDinero
+                    ? 'Necesitas conectar tu cuenta de Zoom en Configuración → Conexiones.'
+                    : 'La cuenta de Zoom la conecta la propietaria en Configuración → Conexiones.'}
               </p>
             </div>
             <div className="shrink-0 pt-0.5">

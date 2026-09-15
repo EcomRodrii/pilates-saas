@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FILAS_A_OTRA_PANTALLA, FILAS_EXTERNAS, GRUPOS, HERRAMIENTAS, MI_CUENTA, SECCIONES, cumpleCondicion, esHerramientaId, esSeccionId, esTarjetaId, herramientaDeTarjeta,
-  herramientaPorId, herramientasDeSeccion, seccionDeTarjeta, seccionPorId, tarjetaPorId, tarjetasDeHerramienta,
+  FILAS_A_OTRA_PANTALLA, FILAS_EXTERNAS, GRUPOS, HERRAMIENTAS, MI_CUENTA, SECCIONES, cumpleCondicion, esHerramientaId, esSeccionId, esTarjetaId, externaVisible, herramientaDeTarjeta,
+  herramientaPorId, herramientaVisible, herramientasDeSeccion, rolesDeTarjeta, seccionDeTarjeta, seccionPorId, tarjetaPorId, tarjetasDeHerramienta,
   type FilaExternaId, type TarjetaConfiguracion, type TarjetaId,
 } from './secciones.ts';
 import { TARJETAS_REGLAS } from './reglas-reserva.ts';
@@ -45,8 +45,48 @@ test('cada tarjeta tiene título, una línea que dice qué hace y un modo de gua
   }
 });
 
-test('la propietaria ve todas las secciones (el resto de roles no entra en Configuración)', () => {
+test('la propietaria ve todas las secciones y todas las tarjetas', () => {
   for (const s of SECCIONES) assert.ok((s.roles as readonly string[]).includes('PROPIETARIO'), s.id);
+  for (const t of todas) assert.ok(rolesDeTarjeta(t).includes('PROPIETARIO'), t.id);
+});
+
+// Una tarjeta sin `roles` es de la propietaria: lo nuevo nace cerrado, y abrir
+// algo a otro rol es una decisión que se escribe. La cerradura es la RLS.
+test('lo que ve la gerencia son las cinco tarjetas de la operación de su sede, y nada más', () => {
+  const suyas = todas.filter(t => rolesDeTarjeta(t).includes('MANAGER')).map(t => t.id);
+  assert.deepEqual(suyas, ['horario', 'cerrar-el-centro', 'salas', 'tipos-de-clase', 'horario-de-citas']);
+  // Ni recepción ni la instructora entran en ninguna.
+  for (const rol of ['RECEPCION', 'INSTRUCTOR'] as const) {
+    assert.deepEqual(todas.filter(t => rolesDeTarjeta(t).includes(rol)), [], rol);
+  }
+});
+
+test('los roles de una sección son los de sus tarjetas, juntos: ni una sección vacía ni una tarjeta inalcanzable', () => {
+  for (const s of SECCIONES) {
+    const deSusTarjetas = new Set((s.tarjetas as readonly TarjetaConfiguracion[]).flatMap(t => rolesDeTarjeta(t)));
+    assert.deepEqual(
+      [...s.roles].sort(),
+      [...deSusTarjetas].sort(),
+      `${s.id}: la sección se abre a ${[...s.roles]} y sus tarjetas, a ${[...deSusTarjetas]}`,
+    );
+  }
+});
+
+test('una herramienta se abre si este rol ve alguna de sus tarjetas', () => {
+  assert.equal(herramientaVisible('salas', 'MANAGER'), true);
+  assert.equal(herramientaVisible('tipos-de-clase', 'MANAGER'), true);
+  for (const id of ['correos-automaticos', 'recompensas-y-logros', 'contenido-de-tu-app', 'widgets'] as const) {
+    assert.equal(herramientaVisible(id, 'MANAGER'), false, id);
+    assert.equal(herramientaVisible(id, 'PROPIETARIO'), true, id);
+  }
+});
+
+test('«Plan de Tentare» es de la propietaria; a «Mi cuenta» llega todo el personal del panel', () => {
+  assert.equal(externaVisible(FILAS_EXTERNAS.plan, 'PROPIETARIO'), true);
+  assert.equal(externaVisible(FILAS_EXTERNAS.plan, 'MANAGER'), false);
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
+    assert.equal(externaVisible(FILAS_EXTERNAS['mi-cuenta'], rol), true, rol);
+  }
 });
 
 test('el copy dice «alumna», nunca «clienta» ni «socia»', () => {

@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  REGLAS_DE_DINERO,
   boolATri,
+  camposParaGuardar,
   claseToForm,
   emptyClaseForm,
   enPalabrasMinutos,
@@ -16,6 +18,7 @@ import {
   resumenPenalizacion,
   resumenPlazoEspera,
   triABool,
+  valorReglaDeDinero,
   type ClaseForm,
 } from './tipo-clase-form.ts';
 import type { TipoClase } from '../types.ts';
@@ -183,6 +186,60 @@ test('en la ficha de la clase, un aforo heredado no dice nada en vez de mentir',
 });
 
 // ─── Objetivos ───────────────────────────────────────────────────────────────
+
+// ─── Las tres reglas de dinero, cuando no las fija quien guarda ──────────────
+//
+// Un trigger de la base de datos las rechaza con 42501 si no es la propietaria
+// (`tipos_clase_dinero_solo_propietaria`). Mandar «los mismos valores» no vale:
+// basta un redondeo, o que otra pestaña las haya cambiado, para que salte. Lo
+// que se fija aquí es que NO VIAJAN.
+
+test('la propietaria manda las tres reglas de dinero, al crear y al editar', () => {
+  const f = form({ penalizacionImporteEur: '5', ventanaCancelacionHoras: '3', reservaExigirPlan: 'no' });
+  const nueva = camposParaGuardar(f, { modo: 'nueva', reglasDeDinero: true });
+  assert.equal(nueva.penalizacionImporteEur, 5);
+  assert.equal(nueva.ventanaCancelacionHoras, 3);
+  assert.equal(nueva.reservaExigirPlan, false);
+  assert.deepEqual(camposParaGuardar(f, { modo: 'editar', reglasDeDinero: true }), formACampos(f));
+});
+
+test('la gerencia crea la clase con las tres en «hereda», aunque el formulario traiga otra cosa', () => {
+  // El formulario no se las deja tocar, pero si llegaran con valor —un enlace
+  // viejo, un estado arrastrado— se crean heredando, que es lo único que el
+  // trigger admite de quien no es la propietaria.
+  const f = form({ penalizacionImporteEur: '5', ventanaCancelacionHoras: '3', reservaExigirPlan: 'no' });
+  const nueva = camposParaGuardar(f, { modo: 'nueva', reglasDeDinero: false });
+  for (const regla of REGLAS_DE_DINERO) assert.equal(nueva[regla], null, regla);
+  // Y lo demás se guarda igual: solo se recortan esas tres.
+  assert.equal(nueva.nombre, formACampos(f).nombre);
+  assert.equal(nueva.minimoAsistentesPorClase, formACampos(f).minimoAsistentesPorClase);
+});
+
+test('la gerencia edita sin mandarlas: las tres claves no están en el cambio', () => {
+  const f = form({ penalizacionImporteEur: '5', ventanaCancelacionHoras: '3', reservaExigirPlan: 'no', nombre: 'Reformer' });
+  const cambio = camposParaGuardar(f, { modo: 'editar', reglasDeDinero: false });
+  for (const regla of REGLAS_DE_DINERO) {
+    assert.equal(Object.hasOwn(cambio, regla), false, `${regla} no puede viajar en el UPDATE`);
+  }
+  assert.equal(cambio.nombre, 'Reformer');
+  assert.equal(cambio.requiereCheckinQr, null);
+});
+
+test('quien solo puede LEER una regla de dinero ve su valor, no un hueco', () => {
+  const estudio = { cancelacionVentanaHoras: 12, penalizacionImporteEur: 10, reservaExigirPlan: true };
+  // Heredadas: lo que pone el estudio.
+  const hereda = form();
+  assert.equal(valorReglaDeDinero('ventanaCancelacionHoras', hereda, estudio), 'Como tu estudio: hasta 12 horas antes');
+  assert.equal(valorReglaDeDinero('penalizacionImporteEur', hereda, estudio), 'Como tu estudio: 10,00 €');
+  assert.equal(valorReglaDeDinero('reservaExigirPlan', hereda, estudio), 'Como tu estudio: sí hace falta');
+  // Propias de esta clase: se distingue de lo heredado, o no se sabe qué manda.
+  const propia = form({ ventanaCancelacionHoras: '3', penalizacionImporteEur: '0', reservaExigirPlan: 'no' });
+  assert.equal(valorReglaDeDinero('ventanaCancelacionHoras', propia, estudio), 'Solo esta clase: hasta 3 horas antes');
+  assert.equal(valorReglaDeDinero('penalizacionImporteEur', propia, estudio), 'Solo esta clase: no se cobra nada');
+  assert.equal(valorReglaDeDinero('reservaExigirPlan', propia, estudio), 'Solo esta clase: no hace falta');
+  // Sin datos del estudio se cae a los mismos valores por defecto de siempre.
+  assert.equal(valorReglaDeDinero('ventanaCancelacionHoras', hereda, {}), 'Como tu estudio: hasta 12 horas antes');
+});
 
 test('un objetivo desconocido guardado en la BD no vuelve al formulario', () => {
   // resolverObjetivos ya lo garantiza; aquí se fija que el formulario lo usa y

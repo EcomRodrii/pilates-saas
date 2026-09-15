@@ -9,7 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import {
-  FILAS_EXTERNAS, GRUPOS, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
+  FILAS_EXTERNAS, GRUPOS, externaVisible, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
 } from '@/lib/configuracion/secciones';
 import { esClicNormal } from './contexto';
 
@@ -67,14 +67,18 @@ const icono = (actual: boolean) => cn('shrink-0', actual ? 'text-brand-foregroun
 
 export function ListaSecciones({
   secciones,
+  rol,
   activa,
   onElegir,
 }: {
   secciones: readonly SeccionConfiguracion[];
+  /** Para las filas de otra pantalla: «Plan de Tentare» es de la propietaria. */
+  rol: string;
   /** `null` = el inicio. */
   activa: SeccionId | null;
   onElegir: (id: SeccionId | null) => void;
 }) {
+  const externas = EXTERNAS.filter(id => externaVisible(FILAS_EXTERNAS[id], rol));
   const elegir = (id: SeccionId | null) => (e: MouseEvent) => {
     if (!esClicNormal(e)) return;
     e.preventDefault();
@@ -114,7 +118,7 @@ export function ListaSecciones({
       {/* «Plan de Tentare» y «Mi cuenta» tienen su propia pantalla. Van aparte
           para que no se lean como una sección más. */}
       <ul className="space-y-0.5 border-t border-border pt-2">
-        {EXTERNAS.map(id => {
+        {externas.map(id => {
           const fila = FILAS_EXTERNAS[id];
           const Icono = ICONOS_EXTERNAS[id];
           return (

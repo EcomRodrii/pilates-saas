@@ -37,8 +37,17 @@ const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatiza
 // /cierre abiertos, y en el menú lateral. Se bloquea la pantalla REAL y además
 // los alias, que siguen existiendo porque son urls de retorno vivas de Stripe.
 const BLOQUEADO_MANAGER = [
-  '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion',
+  '/marketing', '/contenido', '/automatizaciones', '/informes',
   '/centro-de-control',
+  // ⚠️ `/configuracion` YA NO está bloqueada: la gerencia lleva la operación de
+  // su sede (horario, cierres, salas y averías, tipos de clase y horario de
+  // citas), con `puede_gestionar_sede()` detrás. Lo que ve DENTRO lo decide
+  // `seccionesVisibles` (lib/configuracion/destino.ts) tarjeta a tarjeta, no
+  // esta lista, que es por RUTA.
+  // Estas dos SÍ, porque son rutas propias con sus APIs de propietaria: el
+  // editor de marca del portal y la pantalla vieja de avisos. Sin nombrarlas,
+  // abrir `/configuracion` las abriría por prefijo.
+  '/configuracion/apariencia', '/configuracion/notificaciones',
   // El Notification Center enseña el TÍTULO Y EL CUERPO de todo lo enviado por
   // el estudio, y ahí van los avisos de `pagos` con importe (pago fallido,
   // disputa, penalización). Dejarlo abierto al manager sería una puerta lateral
@@ -257,7 +266,9 @@ export function puedeGestionarPortalHome(rol: Rol): boolean {
 //     cuerpo nombra a la socia y revela que tiene ficha clínica pendiente de
 //     revisar. Es metadato clínico, no el detalle del §11 (no lleva condiciones
 //     ni motivo), pero la lista de quién tiene ficha ya es dato de salud.
-// Queda en el mismo escalón que /configuracion e /informes, ya solo-propietaria.
+// Queda en el mismo escalón que /informes, solo-propietaria (y que las partes de
+// /configuracion que siguen siéndolo: la gerencia entra, pero al horario, las
+// salas y las clases de su sede, no al dinero ni a la cuenta).
 //
 // Si algún día recepción necesita depurar entregas ("¿le llegó el recordatorio a
 // Marta?"), la vía es un endpoint acotado por socia y sin las categorías

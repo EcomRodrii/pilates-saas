@@ -137,10 +137,26 @@ test('el manager lleva su sede: horario, clientas, equipo, sustituciones', () =>
   assert.equal(puedeGestionarEquipo('MANAGER'), true);
 });
 
-test('el manager no ve el negocio: ni cobros, ni informes, ni ajustes', () => {
-  for (const ruta of ['/transacciones', '/informes', '/configuracion', '/marketing', '/centro-de-control']) {
+test('el manager no ve el negocio: ni cobros, ni informes, ni marketing', () => {
+  for (const ruta of ['/transacciones', '/informes', '/marketing', '/centro-de-control']) {
     assert.equal(puedeVer('MANAGER', ruta), false, ruta);
   }
+});
+
+// El manager SÍ entra en Configuración desde el 16-sep, pero solo a la operación
+// de su sede: qué ve dentro lo decide `seccionesVisibles`, no esta lista. Lo que
+// aquí se fija es la RUTA, y que las dos subrutas con API de propietaria siguen
+// cerradas — sin nombrarlas, abrir `/configuracion` las abriría por prefijo.
+test('el manager entra en Configuración, pero no en Apariencia ni en la pantalla vieja de avisos', () => {
+  assert.equal(puedeVer('MANAGER', '/configuracion'), true);
+  for (const ruta of ['/configuracion/apariencia', '/configuracion/notificaciones']) {
+    assert.equal(puedeVer('MANAGER', ruta), false, ruta);
+  }
+  // Las subrutas del editor de marca, también: `coincide()` es por prefijo.
+  assert.equal(puedeVer('MANAGER', '/configuracion/apariencia/editor'), false);
+  assert.equal(puedeVer('MANAGER', '/configuracion/apariencia/panel'), false);
+  // Recepción sigue fuera de Configuración entera.
+  assert.equal(puedeVer('RECEPCION', '/configuracion'), false);
 });
 
 // Este test existe porque el anterior daba falsa tranquilidad: comprobaba

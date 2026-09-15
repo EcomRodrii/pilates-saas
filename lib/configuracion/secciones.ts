@@ -57,6 +57,11 @@ export interface TarjetaConfiguracion {
   /** Se pinta en la pantalla de esa herramienta, no en la sección. */
   readonly herramienta?: HerramientaId;
   /**
+   * Quién la ve. Sin esto, solo la propietaria: lo nuevo nace cerrado. La
+   * cerradura es la RLS; esto solo no enseña lo que la base de datos rechazaría.
+   */
+  readonly roles?: readonly RolConfiguracion[];
+  /**
    * Otras palabras con las que la propietaria busca esto en el buscador del
    * inicio («nif», «no viene»). Solo si el ajuste está DE VERDAD en esta
    * tarjeta: un sinónimo que lleva a otra cosa es un enlace que miente.
@@ -71,12 +76,20 @@ export interface SeccionConfiguracion {
   readonly resumen: string;
   /** Una sola frase: qué se decide aquí. */
   readonly frase: string;
+  /** Quién abre la sección: los roles de sus tarjetas, juntos (lo comprueba su test). */
   readonly roles: readonly RolConfiguracion[];
   readonly tarjetas: readonly TarjetaConfiguracion[];
   readonly palabras?: readonly string[];
 }
 
 const SOLO_PROPIETARIA = ['PROPIETARIO'] as const;
+/**
+ * La operación de la sede: la gerencia la lleva con la propietaria (decisión del
+ * fundador, 15-sep). Espejo de `puedeGestionarSede` (lib/permisos-reglas.ts) y de
+ * `puede_gestionar_sede()` en la RLS: horario, cierres, salas y averías, tipos de
+ * clase y horario de citas. El dinero, el contrato y la cuenta no entran.
+ */
+const SEDE = ['PROPIETARIO', 'MANAGER'] as const;
 
 export const SECCIONES = [
   {
@@ -84,7 +97,7 @@ export const SECCIONES = [
     titulo: 'Mi estudio',
     resumen: 'Datos, horario, salas y sedes',
     frase: 'Quién eres, dónde estás y cuándo abres: lo que ven tus alumnas y lo que usa la agenda.',
-    roles: SOLO_PROPIETARIA,
+    roles: SEDE,
     // Cada tarjeta de Mi estudio es una FILA con su valor de hoy, y se cambia en
     // su cajón (15-sep, v2). «Datos y contacto» eran siete campos y un cajón
     // lleva como mucho seis: se partió en dos. Sus anclas de antes
@@ -92,9 +105,9 @@ export const SECCIONES = [
     tarjetas: [
       { id: 'nombre-y-direccion', titulo: 'Nombre y dirección', frase: 'Cómo se llama tu estudio y dónde está: sale en tu página de reservas y en tus correos.', guardado: 'barra', palabras: ['nombre', 'dirección', 'ciudad', 'código postal'] },
       { id: 'contacto', titulo: 'Contacto', frase: 'Dónde te escriben o te llaman tus alumnas, y tu web.', guardado: 'barra', palabras: ['teléfono', 'email', 'web'] },
-      { id: 'horario', titulo: 'Horario', frase: 'Cuándo abres cada día: la agenda distingue un día cerrado de uno sin clases.', guardado: 'barra', palabras: ['apertura', 'abrir', 'días'] },
-      { id: 'cerrar-el-centro', titulo: 'Cerrar el centro', frase: 'Vacaciones, un puente o una reforma: se cancelan sus clases, y aquí ves y quitas los cierres que pusiste.', guardado: 'barra', palabras: ['vacaciones', 'festivos', 'cierre'] },
-      { id: 'salas', titulo: 'Salas', frase: 'Tus salas y cuántas personas caben: esa cifra es el tope de plazas de cada clase.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'salas', palabras: ['aforo', 'capacidad', 'plazas', 'averías', 'máquinas'] },
+      { id: 'horario', titulo: 'Horario', frase: 'Cuándo abres cada día: la agenda distingue un día cerrado de uno sin clases.', guardado: 'barra', roles: SEDE, palabras: ['apertura', 'abrir', 'días'] },
+      { id: 'cerrar-el-centro', titulo: 'Cerrar el centro', frase: 'Vacaciones, un puente o una reforma: se cancelan sus clases, y aquí ves y quitas los cierres que pusiste.', guardado: 'barra', roles: SEDE, palabras: ['vacaciones', 'festivos', 'cierre'] },
+      { id: 'salas', titulo: 'Salas', frase: 'Tus salas y cuántas personas caben: esa cifra es el tope de plazas de cada clase.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'salas', roles: SEDE, palabras: ['aforo', 'capacidad', 'plazas', 'averías', 'máquinas'] },
       { id: 'sedes', titulo: 'Sedes', frase: 'Tus otras sedes: cámbiate a una o añade otra.', guardado: 'accion', condicion: 'multiSede', palabras: ['cambiar de sede', 'centros', 'cadena'] },
     ],
   },
@@ -103,12 +116,14 @@ export const SECCIONES = [
     titulo: 'Mis clases y citas',
     resumen: 'Tipos de clase y citas individuales',
     frase: 'Lo que ofreces: los tipos de clase que programas en la agenda y las citas individuales.',
-    roles: SOLO_PROPIETARIA,
+    roles: SEDE,
+    // Los servicios de cita llevan precio y el catálogo de la cadena es de todas
+    // las sedes: solo la propietaria.
     tarjetas: [
-      { id: 'tipos-de-clase', titulo: 'Tipos de clase', frase: 'Reformer, Suelo, Embarazadas…: nombre, duración, plazas y, si quieres, sus propias reglas de reserva.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'tipos-de-clase', palabras: ['reformer', 'suelo', 'mat', 'duración'] },
+      { id: 'tipos-de-clase', titulo: 'Tipos de clase', frase: 'Reformer, Suelo, Embarazadas…: nombre, duración, plazas y, si quieres, sus propias reglas de reserva.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'tipos-de-clase', roles: SEDE, palabras: ['reformer', 'suelo', 'mat', 'duración'] },
       { id: 'catalogo-de-la-cadena', titulo: 'Catálogo de la cadena', frase: 'Tipos de clase comunes a tus sedes. Se copian a cada sede al crearla o al pulsar «Aplicar catálogo».', guardado: 'catalogo', condicion: 'cadena' },
       { id: 'servicios-de-cita', titulo: 'Servicios de cita', frase: 'Sesiones individuales, como una clase privada o una valoración.', guardado: 'catalogo', ancho: 'amplio' },
-      { id: 'horario-de-citas', titulo: 'Horario de citas', frase: 'Las horas en que cada instructora acepta citas.', guardado: 'barra', ancho: 'amplio' },
+      { id: 'horario-de-citas', titulo: 'Horario de citas', frase: 'Las horas en que cada instructora acepta citas.', guardado: 'barra', ancho: 'amplio', roles: SEDE },
     ],
   },
   {
@@ -318,6 +333,8 @@ export interface FilaExterna {
   readonly resumen: string;
   readonly href: string;
   readonly palabras?: readonly string[];
+  /** Quién la ve. Sin esto, solo la propietaria. */
+  readonly roles?: readonly RolConfiguracion[];
 }
 
 /**
@@ -326,8 +343,10 @@ export interface FilaExterna {
  * del menú no se puede esconder (`NO_OCULTABLES`).
  */
 export const FILAS_EXTERNAS: Readonly<Record<FilaExternaId, FilaExterna>> = {
+  // Lo que paga el estudio a Tentare: la cuenta es de la propietaria.
   plan: { id: 'plan', titulo: 'Plan de Tentare', resumen: 'Lo que pagas tú a Tentare, no tus alumnas', href: '/suscripcion', palabras: ['suscripción', 'prueba gratuita', 'precio'] },
-  'mi-cuenta': { id: 'mi-cuenta', ...MI_CUENTA, resumen: 'Tu nombre, tu foto y cómo entras', palabras: ['perfil', 'foto'] },
+  // Su propio perfil: a /mi-perfil llega todo el personal del panel.
+  'mi-cuenta': { id: 'mi-cuenta', ...MI_CUENTA, resumen: 'Tu nombre, tu foto y cómo entras', palabras: ['perfil', 'foto'], roles: ['PROPIETARIO', 'MANAGER', 'RECEPCION'] },
 };
 
 /**
@@ -399,6 +418,21 @@ export function esTarjetaId(v: string): v is TarjetaId {
   return TARJETA_POR_ID.has(v);
 }
 
+/** Quién ve la tarjeta: la propietaria siempre; el resto, si la tarjeta lo dice. */
+export function rolesDeTarjeta(t: TarjetaConfiguracion): readonly RolConfiguracion[] {
+  return t.roles ?? SOLO_PROPIETARIA;
+}
+
+/** ¿Este rol ve (y puede tocar) esa tarjeta? */
+export function tarjetaVisible(id: TarjetaId, rol: RolConfiguracion | string): boolean {
+  return (rolesDeTarjeta(TARJETA_POR_ID.get(id)!.tarjeta) as readonly string[]).includes(rol);
+}
+
+/** ¿Este rol ve esa fila de otra pantalla («Plan de Tentare», «Mi cuenta»)? */
+export function externaVisible(f: FilaExterna, rol: RolConfiguracion | string): boolean {
+  return ((f.roles ?? SOLO_PROPIETARIA) as readonly string[]).includes(rol);
+}
+
 /** La sección donde se pinta la tarjeta. */
 export function seccionDeTarjeta(id: TarjetaId): SeccionId {
   return TARJETA_POR_ID.get(id)!.seccion;
@@ -465,6 +499,11 @@ export function herramientaDeTarjeta(id: TarjetaId): HerramientaId | null {
 /** Las tarjetas de la pantalla de una herramienta, en su orden. */
 export function tarjetasDeHerramienta(id: HerramientaId): TarjetaId[] {
   return [...TARJETA_POR_ID].filter(([, v]) => v.tarjeta.herramienta === id).map(([t]) => t as TarjetaId);
+}
+
+/** Una herramienta se abre si este rol ve alguna de sus tarjetas. */
+export function herramientaVisible(id: HerramientaId, rol: RolConfiguracion | string): boolean {
+  return tarjetasDeHerramienta(id).some(t => tarjetaVisible(t, rol));
 }
 
 export function herramientasDeSeccion(id: SeccionId): HerramientaConfiguracion[] {

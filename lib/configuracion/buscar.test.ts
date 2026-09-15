@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MAX_AJUSTES_EN_BUSCADOR_GLOBAL, ajustesParaBuscadorGlobal, buscarAjustes, normalizar, sinTareasRepetidas } from './buscar.ts';
 import { buscarTareas } from '../tareas.ts';
-import { hrefDeLugar, resolverHref } from './destino.ts';
+import { hrefDeLugar, resolverHref, seccionesVisibles } from './destino.ts';
 import { FILAS_EXTERNAS, SECCIONES, seccionDeTarjeta, type TarjetaId } from './secciones.ts';
 
 // El buscador del inicio de Configuración. Lo que se fija: que las búsquedas
@@ -76,6 +76,32 @@ test('solo busca en las secciones que se le pasan', () => {
   assert.deepEqual(ids('lista de espera', { secciones: soloCobros }), []);
 });
 
+// El buscador del inicio y el de ⌘K comparten `seccionesVisibles`, que recorta
+// también las TARJETAS: a la gerencia no puede salirle el IVA, que está en una
+// sección que no abre, ni el contacto, que está en una que sí.
+test('la gerencia solo encuentra lo suyo, ni una tarjeta más', () => {
+  const gerencia = seccionesVisibles('MANAGER');
+  assert.deepEqual(ids('horario', { secciones: gerencia }), ['tarjeta-horario', 'tarjeta-horario-de-citas']);
+  assert.ok(ids('salas', { secciones: gerencia }).includes('tarjeta-salas'));
+  assert.ok(ids('reformer', { secciones: gerencia }).includes('tarjeta-tipos-de-clase'));
+  for (const consulta of ['iva', 'nif', 'teléfono', 'logo', 'stripe', 'servicios de cita']) {
+    assert.deepEqual(ids(consulta, { secciones: gerencia }), [], consulta);
+  }
+});
+
+test('⌘K, gerencia: sus ajustes sí, el dinero y la cuenta no', () => {
+  const GERENCIA = { rol: 'MANAGER' } as const;
+  const horario = ajustesParaBuscadorGlobal('horario', GERENCIA).find(a => a.id === 'tarjeta-horario')!;
+  assert.deepEqual(
+    { donde: horario.donde, href: horario.href },
+    { donde: 'Mi estudio', href: '/configuracion?tab=estudio#horario' },
+  );
+  assert.deepEqual(ajustesParaBuscadorGlobal('IVA', GERENCIA), []);
+  // «Plan de Tentare» y «Mi cuenta» no salen en ⌘K por aquí para nadie (van por
+  // su entrada del menú), y recepción no abre Configuración: ni un resultado.
+  assert.deepEqual(ajustesParaBuscadorGlobal('horario', { rol: 'RECEPCION' }), []);
+});
+
 test('cada resultado abre una sección y una tarjeta que existen', () => {
   for (const consulta of ['a', 'e', 'o', 'iva', 'lista de espera', 'horario']) {
     for (const r of buscarAjustes(consulta, { haySedes: true, esCadena: true })) {
@@ -128,11 +154,17 @@ test('⌘K: como mucho cinco, y vacío no busca', () => {
   assert.deepEqual(ajustesParaBuscadorGlobal('   ', PROPIETARIA), []);
 });
 
+// ⚠️ MANAGER ya NO está en esta lista: desde el 16-sep entra en Configuración
+// para la operación de su sede, así que sí ve ajustes — los suyos, y solo esos,
+// que es lo que fija el test «⌘K, gerencia» de arriba. Un rol desconocido sigue
+// sin ver nada: la lista es blanca, y lo que no está no entra.
 test('⌘K: quien no entra en Configuración no ve ningún ajuste', () => {
-  for (const rol of ['RECEPCION', 'MANAGER', 'INSTRUCTOR', 'ROL-QUE-NO-EXISTE']) {
+  for (const rol of ['RECEPCION', 'INSTRUCTOR', 'ROL-QUE-NO-EXISTE']) {
     assert.deepEqual(ajustesParaBuscadorGlobal('IVA', { rol }), [], rol);
     assert.deepEqual(ajustesParaBuscadorGlobal('e', { rol }), [], rol);
   }
+  // Y a la gerencia, «IVA» tampoco: está en una sección que no abre.
+  assert.deepEqual(ajustesParaBuscadorGlobal('IVA', { rol: 'MANAGER' }), []);
 });
 
 test('⌘K: sin filas de otra pantalla, y cada enlace abre la tarjeta que dice', () => {

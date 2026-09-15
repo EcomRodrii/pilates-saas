@@ -96,7 +96,7 @@ for (const vista of VISTAS) {
       await expect(roles).toHaveCount(4);
       await expect(roles.nth(0)).toContainText('Propietaria');
       await expect(roles.nth(1)).toContainText('Responsable de sede');
-      await expect(roles.nth(1)).toContainText('No ve cobros, informes ni Configuración');
+      await expect(roles.nth(1)).toContainText('en Configuración su horario, sus salas y sus clases');
       await expect(roles.nth(2)).toContainText('Recepción');
       await expect(roles.nth(3)).toContainText('No entra en el panel');
 

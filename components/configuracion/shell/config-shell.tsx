@@ -10,7 +10,10 @@ import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { hrefDeLugar, resolverDestino, resolverHref, seccionesVisibles } from '@/lib/configuracion/destino';
-import { herramientaPorId, seccionPorId, type HerramientaId, type SeccionId } from '@/lib/configuracion/secciones';
+import {
+  esTarjetaId, herramientaPorId, herramientaVisible, seccionPorId, tarjetaVisible,
+  type HerramientaId, type SeccionId, type TarjetaId,
+} from '@/lib/configuracion/secciones';
 import { ContextoNavegacionConfig, type NavegacionConfig } from './contexto';
 import { ListaSecciones } from './lista-secciones';
 import { CabeceraSeccion } from './cabecera-seccion';
@@ -300,8 +303,14 @@ export function ConfigShell() {
 
   const tab = abierto?.tab ?? null;
   const vista = abierto?.vista;
-  const ancla = abierto?.ancla;
   const abrirAbierto = abierto?.abrir ?? null;
+  // El ancla de una tarjeta que este rol no ve se cae: la sección se abre igual,
+  // pero sin bajar a un sitio donde no hay nada suyo (la gerencia con
+  // `#contacto`). Lo que no es una tarjeta —`#ajuste-…`— pasa tal cual.
+  const anclaPedida = abierto?.ancla;
+  const ancla = anclaPedida && (!esTarjetaId(anclaPedida) || tarjetaVisible(anclaPedida as TarjetaId, rol))
+    ? anclaPedida
+    : undefined;
 
   const nav = useMemo<NavegacionConfig>(() => ({
     irA: irAPreguntando,
@@ -398,8 +407,13 @@ export function ConfigShell() {
   // Sin sección en la URL (o con una que este rol no abre): el inicio.
   const mostrada = permitida ? tab : null;
   const Seccion = mostrada ? COMPONENTES[mostrada] : null;
-  // Una herramienta solo se abre dentro de su propia sección.
-  const herramienta = mostrada && abrirAbierto && herramientaPorId(abrirAbierto).seccion === mostrada ? abrirAbierto : null;
+  // Una herramienta solo se abre dentro de su propia sección, y solo si este rol
+  // ve alguna de sus tarjetas.
+  const herramienta = mostrada && abrirAbierto
+    && herramientaPorId(abrirAbierto).seccion === mostrada
+    && herramientaVisible(abrirAbierto, rol)
+    ? abrirAbierto
+    : null;
   const Herramienta = herramienta ? COMPONENTES_HERRAMIENTA[herramienta] : null;
 
   function volver() {
@@ -462,7 +476,7 @@ export function ConfigShell() {
         <div className={cn(!herramienta && 'md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-6')}>
           {!herramienta && (
             <div className="hidden md:sticky md:top-14 md:block md:max-h-[calc(100dvh-8rem)] md:self-start md:overflow-y-auto lg:top-[calc(var(--panel-sticky-top,0px)+4rem)]">
-              <ListaSecciones secciones={visibles} activa={mostrada} onElegir={id => irAPreguntando(id)} />
+              <ListaSecciones secciones={visibles} rol={rol} activa={mostrada} onElegir={id => irAPreguntando(id)} />
             </div>
           )}
 
@@ -497,6 +511,7 @@ export function ConfigShell() {
             ) : visibles.length > 0 && (
               <InicioConfiguracion
                 secciones={visibles}
+                rol={rol}
                 consulta={consulta}
                 onConsulta={setConsulta}
                 onAbrir={(id, { ancla: tarjeta, abrir, origen }) => irAPreguntando(id, { ancla: tarjeta, abrir, modo: 'push', origen })}

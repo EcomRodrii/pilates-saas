@@ -114,6 +114,14 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
   if (code === 'PGRST303' || /\bjwt expired\b/i.test(msg) || esSesionAnonimaInesperada(e)) {
     return 'Tu sesión había caducado y se está renovando. Vuelve a intentarlo.';
   }
+  // Una regla de dinero de un tipo de clase que solo fija la propietaria
+  // (`tipos_clase_dinero_solo_propietaria`, migr 20260915224739). Es un 42501,
+  // pero «vuelve a entrar e inténtalo otra vez» sería un mal consejo: por mucho
+  // que vuelva a entrar, la gerencia no cambia la penalización, el plazo para
+  // cancelar ni el exigir plan. Se dice de quién es la decisión.
+  if (code === '42501' && /tipos_clase_dinero_solo_propietaria/i.test(msg)) {
+    return 'Esa regla la cambia la propietaria del estudio.';
+  }
   if (status === 401 || status === 403 || code === '42501' || /row-level security|permission denied/i.test(msg)) {
     return 'No tienes permiso para hacer este cambio. Vuelve a entrar e inténtalo otra vez.';
   }

@@ -12,8 +12,10 @@ import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 // misma escritura: cada interruptor guarda al pulsarlo y vuelve atrás si el
 // servidor dice que no.
 //
-// Cada rol ve SOLO sus categorías (`CATEGORIAS_POR_ROL`). Hoy Configuración es
-// solo de la propietaria; abrirla a otros roles es otra revisión (servidor y RLS).
+// Cada rol ve SOLO sus categorías (`CATEGORIAS_POR_ROL`). «Mis avisos» sigue
+// siendo solo de la propietaria, aunque la gerencia ya entre en Configuración
+// para la operación de su sede: abrirle esta sección es otra revisión (servidor
+// y RLS), no un efecto de aquella.
 export function SeccionAvisos() {
   const { studio } = useCore();
   const rol = useRol();
