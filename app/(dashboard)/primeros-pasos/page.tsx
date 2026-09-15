@@ -6,7 +6,7 @@ import {
   CheckCircle2, Circle, CircleDot, Clock, ArrowRight, Play, Compass, Lightbulb, BookOpen, ChevronDown,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { avisoVentaOnline, calcularOnboarding } from '@/lib/onboarding';
+import { avisoVentaOnline, calcularOnboarding, datosOnboardingDelEstudio } from '@/lib/onboarding';
 import { calcularProgresoGuia, porNivel, type CapituloConEstado } from '@/lib/guia/progreso';
 import { ETIQUETA_NIVEL, EXPLICACION_NIVEL, type NivelGuia } from '@/lib/guia/curriculo';
 import { useTour } from '@/lib/tour-context';
@@ -44,28 +44,10 @@ export default function PrimerosPasosPage() {
   // aquí: los hooks de abajo dejarían de ejecutarse en el primer render y
   // volverían en cuanto el contexto resuelve — el «Rendered more hooks than
   // during the previous render» que ya tumbó esta pantalla una vez.
-  const datos = studio ? calcularOnboarding({
-    nif: studio.nif,
-    stripeAccountId: studio.stripeAccountId,
-    slug: studio.slug,
-    colorPrimario: studio.colorPrimario,
-    temaPortal: studio.temaPortal,
-    logoUrl: studio.logoUrl,
-    numInstructores: instructores.length,
-    numInstructoresConCuenta: instructores.filter(i => i.authUserId).length,
-    numTiposClase: tiposClase.length,
-    numSesiones: sesiones.length,
-    numSocios: socios.length,
-    numReservas: reservas.length,
-    numSalas: salas.length,
-    numPlanesTarifa: planesTarifa.filter(p => p.activo && p.precio > 0).length,
-    numPlanesActivos: planesTarifa.filter(p => p.activo).length,
-    numPlanesBorrador: planesTarifa.filter(p => !p.activo || !(p.precio > 0)).length,
-    reservaExigirPlan: studio.reservaExigirPlan ?? true,
-    numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
-    contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
-    automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
-  }) : null;
+  const datos = studio ? calcularOnboarding(datosOnboardingDelEstudio({
+    studio, instructores, tiposClase, sesiones, socios, reservas,
+    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+  })) : null;
   // Mismo aviso que la tarjeta del dashboard y la pantalla de «listo»: se pinta
   // también cuando lo esencial está hecho, que es justo cuando se promete.
   const aviso = studio ? avisoVentaOnline({

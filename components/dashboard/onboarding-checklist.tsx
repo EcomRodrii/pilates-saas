@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight, Rocket, X, Lightbulb } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { avisoVentaOnline, calcularOnboarding } from '@/lib/onboarding';
+import { avisoVentaOnline, calcularOnboarding, datosOnboardingDelEstudio } from '@/lib/onboarding';
 import { calcularProgresoGuia } from '@/lib/guia/progreso';
 
 // Resumen compacto para el dashboard — el asistente completo (categorías,
@@ -25,34 +25,10 @@ export function OnboardingChecklist() {
 
   if (!studio || studio.onboardingDescartadoEn) return null;
 
-  const datos = {
-    nif: studio.nif,
-    stripeAccountId: studio.stripeAccountId,
-    slug: studio.slug,
-    colorPrimario: studio.colorPrimario,
-    temaPortal: studio.temaPortal,
-    logoUrl: studio.logoUrl,
-    numInstructores: instructores.length,
-    numInstructoresConCuenta: instructores.filter(i => i.authUserId).length,
-    numTiposClase: tiposClase.length,
-    numSesiones: sesiones.length,
-    numSocios: socios.length,
-    numReservas: reservas.length,
-    numSalas: salas.length,
-    // P1-6 (auditoría de producto): contar CUALQUIER fila marcaba «✓ Configura
-    // tus bonos» tachado aunque fuera el borrador que crea el wizard de
-    // bienvenida (`activo:false, precio:0` a propósito — nadie ha decidido el
-    // precio todavía). Falsa sensación de "ya puedo cobrar": el bono no
-    // aparece en la reserva pública hasta que la propietaria lo activa de
-    // verdad.
-    numPlanesTarifa: planesTarifa.filter(p => p.activo && p.precio > 0).length,
-    numPlanesActivos: planesTarifa.filter(p => p.activo).length,
-    numPlanesBorrador: planesTarifa.filter(p => !p.activo || !(p.precio > 0)).length,
-    reservaExigirPlan: studio.reservaExigirPlan ?? true,
-    numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
-    contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
-    automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
-  };
+  const datos = datosOnboardingDelEstudio({
+    studio, instructores, tiposClase, sesiones, socios, reservas,
+    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+  });
   const { totalPasos, totalCompletados, categorias } = calcularOnboarding(datos);
 
   if (totalCompletados === totalPasos) return null;

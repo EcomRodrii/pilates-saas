@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MI_CUENTA, SECCIONES, cumpleCondicion, esTarjetaId, seccionDeTarjeta, seccionPorId, tarjetaPorId,
+  GRUPOS, MI_CUENTA, SECCIONES, cumpleCondicion, esTarjetaId, seccionDeTarjeta, seccionPorId, tarjetaPorId,
   type TarjetaConfiguracion, type TarjetaId,
 } from './secciones.ts';
 import { TARJETAS_REGLAS } from './reglas-reserva.ts';
@@ -89,4 +89,33 @@ test('las tarjetas condicionales solo salen donde toca', () => {
 
 test('«Mi cuenta» lleva a su propia pantalla', () => {
   assert.equal(MI_CUENTA.href, '/mi-perfil');
+});
+
+test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mismo orden', () => {
+  assert.deepEqual(GRUPOS.map(g => g.titulo), ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conexiones y datos', 'Tu cuenta']);
+  const enGrupos = GRUPOS.flatMap(g => g.secciones);
+  // En el mismo orden que SECCIONES: la columna de la izquierda y el inicio no
+  // pueden contar dos órdenes distintos.
+  assert.deepEqual(enGrupos, SECCIONES.map(s => s.id));
+  // «Mi cuenta» va una vez, en el último.
+  assert.deepEqual(GRUPOS.filter(g => g.conMiCuenta).map(g => g.id), ['tu-cuenta']);
+  for (const g of GRUPOS) {
+    // Frase normal, no un rótulo en mayúsculas.
+    assert.notEqual(g.titulo, g.titulo.toUpperCase(), g.titulo);
+    assert.ok(g.titulo.length <= 20, `${g.titulo}: un título de grupo es corto`);
+  }
+});
+
+test('las palabras del buscador: en minúsculas, sin repetir y que no repiten el título', () => {
+  const conPalabras = [...SECCIONES, ...todas] as { id: string; titulo: string; palabras?: readonly string[] }[];
+  assert.ok(conPalabras.filter(x => x.palabras?.length).length > 20, 'casi ninguna tarjeta tiene palabras');
+  for (const x of conPalabras) {
+    const palabras = x.palabras ?? [];
+    assert.equal(new Set(palabras).size, palabras.length, `${x.id}: palabras repetidas`);
+    for (const p of palabras) {
+      assert.equal(p, p.trim().toLowerCase(), `${x.id}: «${p}»`);
+      assert.doesNotMatch(p, /\b(client|soci)as?\b/i, `${x.id}: «${p}»`);
+      assert.notEqual(p, x.titulo.toLowerCase(), `${x.id}: «${p}» ya es el título`);
+    }
+  }
 });

@@ -135,9 +135,11 @@ for (const vista of VISTAS) {
       await panel(page);
 
       await ir(page, 'configuracion');
-      await expect(page.getByRole('navigation', { name: 'Secciones de Configuración' })).toBeVisible({ timeout: 30_000 });
-      expect(await desborde(page), 'la lista se sale de lado').toBeLessThanOrEqual(0);
-      if (vista.tactil) expect(await objetivosPequenos(page), 'la lista').toEqual([]);
+      await expect(page.locator('#inicio-seccion-estudio')).toBeVisible({ timeout: 30_000 });
+      expect(await desborde(page), 'el inicio se sale de lado').toBeLessThanOrEqual(0);
+      if (vista.tactil) {
+        expect([...await camposPequenos(page), ...await objetivosPequenos(page)], 'el inicio').toEqual([]);
+      }
 
       const fallos: string[] = [];
       for (const seccion of SECCIONES) {
@@ -205,13 +207,18 @@ for (const vista of VISTAS) {
       test.setTimeout(240_000);
       await panel(page);
       await ir(page, 'configuracion');
+      const filaInicio = (id: string) => page.locator(`#inicio-seccion-${id}`);
+      await expect(filaInicio('estudio')).toBeVisible({ timeout: 30_000 });
+      // El inicio tiene todas las secciones, a cualquier anchura.
+      await expect(page.locator('[id^="inicio-seccion-"]')).toHaveCount(SECCIONES.length);
       const nav = page.getByRole('navigation', { name: 'Secciones de Configuración' });
-      await expect(nav).toBeVisible({ timeout: 30_000 });
-      await expect(nav.getByRole('link')).toHaveCount(SECCIONES.length + 1); // + «Mi cuenta»
+      if (vista.columna) await expect(nav.getByRole('link')).toHaveCount(SECCIONES.length + 2); // + «Configuración» y «Mi cuenta»
 
       const faltan: string[] = [];
       for (const seccion of SECCIONES) {
-        await nav.getByRole('link', { name: new RegExp(`^${seccion.titulo}`) }).click();
+        // Con columna se salta de sección en sección por ella; en el móvil, desde el inicio.
+        if (vista.columna) await nav.getByRole('link', { name: seccion.titulo, exact: true }).click();
+        else await filaInicio(seccion.id).click();
         await expect(titulo(page, seccion.titulo)).toBeVisible({ timeout: 30_000 });
 
         for (const t of seccion.tarjetas as readonly TarjetaConfiguracion[]) {
@@ -223,7 +230,7 @@ for (const vista of VISTAS) {
 
         if (!vista.columna) {
           await page.getByRole('button', { name: 'Volver a Configuración' }).click();
-          await expect(nav).toBeVisible();
+          await expect(filaInicio(seccion.id)).toBeVisible();
           // «Volver» es el atrás del navegador: se espera a que la URL llegue
           // antes del siguiente toque, como le pasa a una persona. Tocar otra
           // fila con el atrás aún en vuelo mezcla los dos pasos del historial.
