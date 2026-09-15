@@ -1270,3 +1270,38 @@ export async function emitirSolicitudDerechos(
     console.error('[notifications] emitirSolicitudDerechos:', e instanceof Error ? e.message : e);
   }
 }
+
+// Series de clases que se acaban (lib/series/avisos-cron.ts). Un aviso por
+// estudio y día con todas las clases juntas: el dedupKey lleva la fecha, y el
+// barrido guarda en `series` qué tramo se avisó de cada una. Devuelve si se ha
+// creado algún aviso: el barrido solo marca el tramo como avisado si es así, para
+// que un fallo no se coma el siguiente.
+export async function emitirSeriesPorTerminar(
+  admin: SupabaseClient, p: { studioId: string; fecha: string; urgente: boolean; resumen: string; lista: string },
+): Promise<boolean> {
+  try {
+    const creadas = await publish({
+      type: p.urgente ? EVENTOS.SERIES_POR_TERMINAR_URGENTE : EVENTOS.SERIES_POR_TERMINAR, studioId: p.studioId,
+      data: { resumen: p.resumen, lista: p.lista },
+      dedupKey: `series-por-terminar:${p.studioId}:${p.fecha}`,
+    });
+    return creadas.length > 0;
+  } catch (e) {
+    console.error('[notifications] emitirSeriesPorTerminar:', e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
+export async function emitirSeriesRenovadasSolas(
+  admin: SupabaseClient, p: { studioId: string; fecha: string; resumen: string; lista: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.SERIES_RENOVADAS_SOLAS, studioId: p.studioId,
+      data: { resumen: p.resumen, lista: p.lista },
+      dedupKey: `series-renovadas:${p.studioId}:${p.fecha}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirSeriesRenovadasSolas:', e instanceof Error ? e.message : e);
+  }
+}

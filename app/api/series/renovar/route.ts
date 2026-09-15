@@ -7,10 +7,11 @@ import { errorInterno } from '@/lib/errores-servidor';
 import {
   mensajeErrorRenovar, resultadoDeRpc, semanasValidas, seriePorRenovarDeFila, MAX_SEMANAS_RENOVACION,
 } from '@/lib/series-renovacion';
+import { reservarPlazasFijasRenovadas } from '@/lib/series/plazas-tras-renovar';
 
 export const dynamic = 'force-dynamic';
 
-const ACCIONES = ['simular', 'renovar', 'no_renovar', 'reactivar'] as const;
+const ACCIONES = ['simular', 'renovar', 'no_renovar', 'reactivar', 'automatica'] as const;
 type Accion = (typeof ACCIONES)[number];
 
 // Renovar una serie (una clase que se repite) desde el panel.
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as
-    { serieId?: unknown; accion?: unknown; semanas?: unknown; periodoVisto?: unknown } | null;
+    { serieId?: unknown; accion?: unknown; semanas?: unknown; periodoVisto?: unknown; activar?: unknown } | null;
   const serieId = typeof body?.serieId === 'string' ? body.serieId : '';
   const accion = ACCIONES.find(a => a === body?.accion) as Accion | undefined;
   if (!serieId || !accion) return NextResponse.json({ error: 'Falta la clase o la acción' }, { status: 400 });
@@ -45,9 +46,24 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   try {
+    if (accion === 'automatica') {
+      if (typeof body?.activar !== 'boolean') {
+        return NextResponse.json({ error: 'Falta si se activa o no la renovación automática' }, { status: 400 });
+      }
+      // Activarla también quita «no renovar»: son decisiones opuestas sobre la misma clase.
+      const cambios = body.activar ? { renovacion_automatica: true, no_renovar: false } : { renovacion_automatica: false };
+      const { data, error } = await admin.from('series')
+        .update(cambios)
+        .eq('id', serieId).eq('studio_id', sesion.studioId)
+        .select('id').maybeSingle();
+      if (error) throw error;
+      if (!data) return NextResponse.json({ error: mensajeErrorRenovar('SERIE_NO_ENCONTRADA') }, { status: 404 });
+      return NextResponse.json({ ok: true });
+    }
+
     if (accion === 'no_renovar' || accion === 'reactivar') {
       const { data, error } = await admin.from('series')
-        .update({ no_renovar: accion === 'no_renovar' })
+        .update(accion === 'no_renovar' ? { no_renovar: true, renovacion_automatica: false } : { no_renovar: false })
         .eq('id', serieId).eq('studio_id', sesion.studioId)
         .select('id').maybeSingle();
       if (error) throw error;
@@ -76,18 +92,8 @@ export async function POST(req: NextRequest) {
     const resultado = resultadoDeRpc(data);
     if (!resultado) throw new Error('renovar_serie devolvió una forma inesperada');
 
-    // Las plazas fijas del hueco no se copian: se anclan por día, hora y sala, y
-    // la clase renovada es la misma. Solo se pasa el motor por ellas para que
-    // queden reservadas ya y no a las 2:00. Mejor esfuerzo: el cron las recoge.
-    if (resultado.estado === 'renovada') {
-      const ids = Array.isArray((data as { plazas_fijas_ids?: unknown }).plazas_fijas_ids)
-        ? ((data as { plazas_fijas_ids: unknown[] }).plazas_fijas_ids).filter((x): x is string => typeof x === 'string')
-        : [];
-      for (const plazaId of ids) {
-        const { error: errorMotor } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: 42, p_plaza_id: plazaId });
-        if (errorMotor) console.error('[series/renovar] materializar plaza fija', errorMotor.message);
-      }
-    }
+    // Las plazas fijas del hueco siguen solas; se reservan ya, no a las 2:00.
+    if (resultado.estado === 'renovada') await reservarPlazasFijasRenovadas(admin, data);
 
     return NextResponse.json({ ok: true, resultado });
   } catch (err) {

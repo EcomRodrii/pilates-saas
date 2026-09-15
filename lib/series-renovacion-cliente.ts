@@ -50,3 +50,10 @@ export async function listarSeriesPorRenovar(): Promise<SeriePorRenovar[] | null
   const datos = (await respuesta.json().catch(() => null)) as { ok?: boolean; series?: unknown } | null;
   return datos?.ok === true && Array.isArray(datos.series) ? (datos.series as SeriePorRenovar[]) : null;
 }
+
+/** Activa o quita la renovación automática de una serie. */
+export async function marcarRenovacionAutomatica(serieId: string, activar: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+  const r = await post({ serieId, accion: 'automatica', activar });
+  if (r.ok && r.datos?.ok === true) return { ok: true };
+  return { ok: false, error: typeof r.datos?.error === 'string' ? r.datos.error : r.datos ? 'No se ha podido guardar.' : SIN_RED };
+}

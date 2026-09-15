@@ -7,7 +7,7 @@ import {
 
 const base: ResultadoRenovarSerie = {
   estado: 'renovada', periodo: 2, periodoActual: 1, semanas: 52, desde: '2026-10-12', hasta: '2027-10-04',
-  creadas: 52, omitidas: [], sinInstructora: [], instructoraInactiva: false, plazasFijas: 0,
+  creadas: 52, omitidas: [], sinInstructora: [], instructoraInactiva: false, plazasFijas: 0, renovacionAutomatica: false,
 };
 
 test('resultadoDeRpc traduce el jsonb de la base de datos y descarta lo que no tiene forma', () => {
@@ -19,7 +19,7 @@ test('resultadoDeRpc traduce el jsonb de la base de datos y descarta lo que no t
   assert.deepEqual(r, {
     estado: 'simulacion', periodo: 2, periodoActual: 1, semanas: 4, desde: '2026-10-12', hasta: '2026-11-02',
     creadas: 3, omitidas: [{ fecha: '2026-10-19', motivo: 'sala_ocupada' }], sinInstructora: ['2026-10-26'],
-    instructoraInactiva: false, plazasFijas: 2,
+    instructoraInactiva: false, plazasFijas: 2, renovacionAutomatica: false,
   });
   assert.equal(resultadoDeRpc({ estado: 'otra' }), null);
   assert.equal(resultadoDeRpc(null), null);
@@ -33,6 +33,8 @@ test('seriePorRenovarDeFila deja la hora en HH:MM', () => {
   assert.equal(s.hora, '18:00');
   assert.equal(s.tipoClaseId, null);
   assert.equal(s.plazasFijas, 5);
+  assert.equal(s.renovacionAutomatica, false);
+  assert.equal(s.avisoTramo, null);
 });
 
 test('textoFinSerie: futuro con cuenta atrás, hoy, mañana y ya terminada', () => {

@@ -22,6 +22,8 @@ export interface ResultadoRenovarSerie {
   sinInstructora: string[];
   instructoraInactiva: boolean;
   plazasFijas: number;
+  /** Si la serie se renueva sola cuando se va a acabar. */
+  renovacionAutomatica: boolean;
 }
 
 export interface SeriePorRenovar {
@@ -37,6 +39,10 @@ export interface SeriePorRenovar {
   semanasPeriodo: number;
   plazasFijas: number;
   terminada: boolean;
+  renovacionAutomatica: boolean;
+  /** Último aviso enviado (aviso14, aviso7, final) y a qué fecha de fin se refería. */
+  avisoTramo: string | null;
+  avisoFin: string | null;
 }
 
 const num = (v: unknown, def = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : def);
@@ -67,6 +73,7 @@ export function resultadoDeRpc(raw: unknown): ResultadoRenovarSerie | null {
     sinInstructora: Array.isArray(r.sin_instructora) ? r.sin_instructora.filter((f): f is string => typeof f === 'string') : [],
     instructoraInactiva: r.instructora_inactiva === true,
     plazasFijas: num(r.plazas_fijas),
+    renovacionAutomatica: r.renovacion_automatica === true,
   };
 }
 
@@ -84,6 +91,9 @@ export function seriePorRenovarDeFila(r: Record<string, unknown>): SeriePorRenov
     semanasPeriodo: num(r.semanas_periodo, 1),
     plazasFijas: num(r.plazas_fijas),
     terminada: r.terminada === true,
+    renovacionAutomatica: r.renovacion_automatica === true,
+    avisoTramo: typeof r.aviso_tramo === 'string' ? r.aviso_tramo : null,
+    avisoFin: typeof r.aviso_fin === 'string' ? r.aviso_fin : null,
   };
 }
 
@@ -104,6 +114,11 @@ export function nombreSerie(
 export function fechaDMY(ymd: string): string {
   const [y, m, d] = ymd.slice(0, 10).split('-');
   return y && m && d ? `${d}/${m}/${y}` : ymd;
+}
+
+/** Días de `hoy` a `fin` (negativo si ya pasó), en fechas YYYY-MM-DD. */
+export function diasHastaFin(hoy: string, fin: string): number {
+  return diasEntre(hoy, fin);
 }
 
 function diasEntre(desdeYmd: string, hastaYmd: string): number {
