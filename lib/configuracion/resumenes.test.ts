@@ -4,7 +4,9 @@ import type { DiaHorario } from '../types.ts';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenCompraPublica,
+  CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, NO_DISPONIBLE_TODAVIA, TARJETA_DE_INTEGRACION, agruparConexiones, estadoDelPlan,
+  resumenAppsConAcceso, resumenConexion, resumenCreditosPorAccion, resumenDireccion, resumenReglasCreditos,
+  avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenCompraPublica,
   resumenContacto, resumenContrato, resumenCuestionarioSalud, resumenDatosExtra, resumenDatosFiscales, resumenDevoluciones,
   resumenDomiciliaciones, resumenGmail, resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan,
   resumenPlanesActivos, resumenRegla, resumenRemitente, resumenSedes, resumenStripe, resumenWhatsapp, resumenesDeConfiguracion, revisaEsto, unir,
@@ -226,9 +228,13 @@ test('el NIF: vacío o de relleno no emite facturas; con el control mal, se revi
 test('una conexión que falla lleva a su tarjeta, y una que se recuperó no avisa', () => {
   const [whatsapp] = avisosDeConfiguracion(con({}, { integraciones: [fallando('WHATSAPP')] }));
   assert.deepEqual([whatsapp.seccion, whatsapp.ancla, whatsapp.etiqueta], ['comunicacion', 'integracion-whatsapp', 'Con problemas']);
-  // Kisi no tiene tarjeta propia: vive en «Más integraciones».
+  // Kisi tiene su fila en Conexiones desde el 15-sep (v2): antes iba a «Más integraciones».
   const [kisi] = avisosDeConfiguracion(con({}, { integraciones: [fallando('KISI')] }));
-  assert.deepEqual([kisi.seccion, kisi.ancla], ['conexiones', 'mas-integraciones']);
+  assert.deepEqual([kisi.seccion, kisi.ancla], ['conexiones', 'integracion-kisi']);
+  // Todas tienen su fila: ninguna aviso cae en una sección sin nada que tocar.
+  for (const [tipo, tarjeta] of Object.entries(TARJETA_DE_INTEGRACION)) {
+    assert.equal(tarjeta, `integracion-${tipo.toLowerCase()}`, tipo);
+  }
   const recuperada = { ...fallando('WHATSAPP'), ultimoOkEn: '2026-09-03T10:00:00Z' };
   assert.deepEqual(avisosDeConfiguracion(con({}, { integraciones: [recuperada] })), []);
   // Y la sección lo cuenta en su fila.
@@ -595,4 +601,89 @@ test('remitente: lo tuyo si está activo, un email a medio escribir no cuenta, y
   assert.equal(resumenRemitente({ ...estudio, propio: { activo: true, fromName: '', fromEmail: 'hola@' } }), 'Pilates Centro · responde a estudio@example.com');
   assert.equal(resumenRemitente({ nombreEstudio: 'Pilates Centro', emailEstudio: null, propio: { activo: false } }), 'Pilates Centro · sin email de respuesta');
   assert.equal(resumenRemitente({ ...estudio, propio: null }), null);
+});
+
+test('conexiones: un solo estado, por su cuenta o por su salud, y nunca «sin conectar» cuando no se puede', () => {
+  const apagada = { estado: 'APAGADA' } as const;
+  const bien = { estado: 'FUNCIONA', desde: '2026-08-18T10:00:00Z' } as const;
+  const mal = { estado: 'FALLANDO', desde: '2026-08-18T10:00:00Z', error: 'Invalid API key' } as const;
+  const paraQue = 'Conéctalo para copiar tus clases a tu calendario';
+
+  // Por cuenta (Google Calendar, Zoom, Klaviyo, Zapier).
+  assert.deepEqual(resumenConexion({ cuenta: 'estudio@example.com', salud: apagada, disponible: true, paraQue }), {
+    valor: 'estudio@example.com', estado: { tono: 'activo', etiqueta: 'Conectado' },
+  });
+  assert.deepEqual(resumenConexion({ cuenta: null, salud: apagada, disponible: true, paraQue }), { valor: paraQue, estado: { tono: 'neutro', etiqueta: 'Sin conectar' } });
+  assert.deepEqual(resumenConexion({ cuenta: ' ', salud: apagada, disponible: false, paraQue }), {
+    valor: NO_DISPONIBLE_TODAVIA, estado: { tono: 'neutro', etiqueta: 'No disponible todavía' },
+  });
+  // Conectada sigue conectada aunque Tentare haya quitado la clave: lo conectado sigue funcionando.
+  assert.equal(resumenConexion({ cuenta: 'estudio@example.com', salud: apagada, disponible: false, paraQue }).estado!.etiqueta, 'Conectado');
+  // Un fallo sin cuenta conectada no es de esta fila.
+  assert.equal(resumenConexion({ cuenta: null, salud: mal, disponible: true, paraQue }).estado!.etiqueta, 'Sin conectar');
+
+  // Por clave pegada (Kisi, Mailchimp): manda la salud, con la última vez que se usó.
+  assert.deepEqual(resumenConexion({ salud: apagada, disponible: true, paraQue: 'Conéctalo' }).estado, { tono: 'neutro', etiqueta: 'Sin conectar' });
+  assert.deepEqual(resumenConexion({ salud: { estado: 'SIN_PROBAR' }, disponible: true, paraQue }).estado, { tono: 'pendiente', etiqueta: 'Sin probar' });
+  assert.match(resumenConexion({ salud: bien, disponible: true, paraQue }).valor!, /^Funciona · última vez el 18 ago/);
+  const caida = resumenConexion({ salud: mal, disponible: true, paraQue });
+  assert.deepEqual(caida.estado, { tono: 'problema', etiqueta: 'Con problemas' });
+  assert.match(caida.valor!, /Invalid API key$/);
+});
+
+test('conexiones agrupadas: con problemas arriba, luego conectadas y sin conectar, y lo no disponible al final', () => {
+  const fila = (id: string, tono: 'activo' | 'pendiente' | 'problema' | 'neutro' | null, etiqueta = '') =>
+    ({ id, resumen: tono ? { valor: 'x', estado: { tono, etiqueta } } : null });
+  const grupos = agruparConexiones([
+    fila('google', 'neutro', 'No disponible todavía'),
+    fila('zoom', 'activo', 'Conectado'),
+    fila('kisi', 'neutro', 'Sin conectar'),
+    fila('zapier', null),
+    fila('mailchimp', 'problema', 'Con problemas'),
+    fila('klaviyo', 'pendiente', 'Sin probar'),
+  ]);
+  assert.deepEqual(grupos.map(g => [g.titulo, g.filas.map(f => f.id)]), [
+    ['Con problemas', ['mailchimp']],
+    ['Conectadas', ['zoom', 'klaviyo']],
+    ['Sin conectar', ['kisi', 'google', 'zapier']],
+  ]);
+  // Sin grupos vacíos.
+  assert.deepEqual(agruparConexiones([fila('kisi', 'neutro', 'Sin conectar')]).map(g => g.titulo), ['Sin conectar']);
+});
+
+test('apps con acceso y la dirección corta de tu página', () => {
+  assert.equal(resumenAppsConAcceso(null), null);
+  assert.equal(resumenAppsConAcceso([]), 'Ninguna app tiene acceso');
+  assert.equal(resumenAppsConAcceso([{ nombre: 'Zapier' }]), 'Zapier');
+  assert.equal(resumenAppsConAcceso([{ nombre: 'Zapier' }, { nombre: 'Make' }]), '2 apps: Zapier, Make');
+
+  assert.equal(resumenDireccion({ slug: 'pilates-centro', origen: 'https://www.tentare.example' }), 'tentare.example/reservar/pilates-centro');
+  assert.equal(resumenDireccion({ slug: 'pilates-centro', origen: 'http://localhost:3000/' }), 'localhost:3000/reservar/pilates-centro');
+  // Antes de saber dónde está, la ruta sola; sin dirección, nada.
+  assert.equal(resumenDireccion({ slug: 'pilates-centro', origen: '' }), '/reservar/pilates-centro');
+  assert.equal(resumenDireccion({ slug: null, origen: 'https://tentare.example' }), null);
+});
+
+test('Motivación: la pastilla del plan en la fila, y los créditos como los aplica el servidor', () => {
+  assert.deepEqual(estadoDelPlan({ enTuPlan: true, activo: true, planMinimo: 'Estudio' }), { tono: 'activo', etiqueta: 'Incluido en tu plan' });
+  assert.deepEqual(estadoDelPlan({ enTuPlan: false, activo: true, planMinimo: 'Estudio' }), { tono: 'neutro', etiqueta: 'Desde el plan Estudio' });
+  // Con el plan que la trae pero sin suscripción viva, no se le dice que se cambie de plan.
+  assert.deepEqual(estadoDelPlan({ enTuPlan: true, activo: false, planMinimo: 'Estudio' }), { tono: 'pendiente', etiqueta: 'Tu plan no está activo' });
+
+  assert.equal(resumenReglasCreditos({}), null);
+  assert.equal(resumenReglasCreditos({ creditosNombre: null, creditosCaducanMeses: null, rachaClasesSemana: null }), 'Se llaman créditos · no caducan · racha de 1 clase por semana');
+  assert.equal(resumenReglasCreditos({ creditosNombre: 'puntos', creditosCaducanMeses: 12, rachaClasesSemana: 2 }), 'Se llaman puntos · caducan a los 12 meses sin ganar · racha de 2 clases por semana');
+
+  const disparadores = ['ASISTENCIA_CLASE', 'RENOVACION_PLAN', 'COMPRA'];
+  assert.equal(resumenCreditosPorAccion(null, disparadores, 'puntos'), null);
+  assert.equal(resumenCreditosPorAccion([], disparadores, 'puntos'), 'Ninguna acción da puntos todavía');
+  // Apagada o a 0 no da nada.
+  assert.equal(resumenCreditosPorAccion([
+    { trigger: 'RENOVACION_PLAN', creditos: 40, activa: false },
+    { trigger: 'COMPRA', creditos: 0, activa: true },
+  ], disparadores, 'créditos'), 'Ninguna acción da créditos todavía');
+  assert.equal(resumenCreditosPorAccion([
+    { trigger: 'ASISTENCIA_CLASE', creditos: 10, activa: true },
+    { trigger: 'COMPRA', creditos: 1, activa: true },
+  ], disparadores, 'puntos'), '2 de 3 dan puntos · 10 por asistir');
 });

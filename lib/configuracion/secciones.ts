@@ -176,11 +176,15 @@ export const SECCIONES = [
     id: 'motivacion',
     titulo: 'Motivación',
     resumen: 'Créditos, recompensas, logros y retos',
-    frase: 'Premia la constancia de tus alumnas con créditos, logros, niveles y retos que ven en su app.',
+    frase: 'Premia la constancia de tus alumnas con créditos, logros y retos que ven en su app.',
     roles: SOLO_PROPIETARIA,
     palabras: ['gamificación', 'puntos'],
+    // Las reglas se guardaban al salir de cada campo; desde el 15-sep (v2) son
+    // dos filas con cajón y un solo «Guardar»: eran diez campos y un cajón
+    // lleva unos seis, así que lo que se gana con cada cosa va aparte.
     tarjetas: [
-      { id: 'reglas', titulo: 'Cómo funcionan tus créditos', frase: 'Cómo se llaman, cuánto duran, cuántas clases mantienen una racha y cuántos se ganan con cada cosa.', guardado: 'al-pulsar', palabras: ['racha', 'puntos'] },
+      { id: 'reglas', titulo: 'Cómo funcionan tus créditos', frase: 'Cómo se llaman, cuánto duran y cuántas clases por semana mantienen la racha de una alumna.', guardado: 'barra', palabras: ['racha', 'puntos', 'caducidad'] },
+      { id: 'creditos-por-accion', titulo: 'Créditos por acción', frase: 'Cuántos créditos gana una alumna con cada cosa: asistir, renovar, traer a alguien o comprar.', guardado: 'barra', palabras: ['referidos', 'asistencia', 'compra'] },
       { id: 'recompensas', titulo: 'Recompensas', frase: 'Lo que tus alumnas pueden canjear con sus créditos.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['premios'] },
       { id: 'canjes', titulo: 'Canjes pendientes', frase: 'Recompensas pedidas que tienes que entregar.', guardado: 'accion', herramienta: 'recompensas-y-logros' },
       { id: 'logros', titulo: 'Logros', frase: 'Lo que desbloquean tus alumnas al llegar a una cifra que eliges, como 10 clases.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['insignias'] },
@@ -233,11 +237,18 @@ export const SECCIONES = [
     resumen: 'Calendario, Zoom y otras apps',
     frase: 'Tentare conectado con otras herramientas que ya usas.',
     roles: SOLO_PROPIETARIA,
+    // Cada conexión es una FILA con UN estado y se agrupan por cómo están (15-sep,
+    // v2): «Más integraciones» juntaba cuatro tarjetas en una y su ancla lleva
+    // ahora a la primera (destino.ts). Stripe, WhatsApp y Gmail viven en Cobros y
+    // en Cómo me comunico.
     tarjetas: [
       { id: 'integracion-google_calendar', titulo: 'Google Calendar', frase: 'Copia las clases de las próximas 4 semanas a tu calendario al pulsar «Sincronizar ahora»; no se actualiza solo.', guardado: 'accion', palabras: ['calendario'] },
       { id: 'integracion-zoom', titulo: 'Zoom', frase: 'Crea una reunión de Zoom para cada clase de los tipos marcados como online.', guardado: 'accion', palabras: ['online', 'videollamada'] },
+      { id: 'integracion-kisi', titulo: 'Kisi', frase: 'Abre la puerta de tu estudio sola con cada check-in de tus alumnas.', guardado: 'accion', palabras: ['puerta', 'cerradura'] },
+      { id: 'integracion-klaviyo', titulo: 'Klaviyo', frase: 'Lleva a Klaviyo las alumnas que aceptaron recibir marketing, cada vez que pulsas «Sincronizar ahora».', guardado: 'accion', palabras: ['marketing', 'listas'] },
+      { id: 'integracion-mailchimp', titulo: 'Mailchimp', frase: 'Lleva a tu audiencia de Mailchimp las alumnas que aceptaron recibir marketing, al pulsar «Sincronizar ahora».', guardado: 'accion', palabras: ['marketing', 'newsletter', 'audiencia'] },
+      { id: 'integracion-zapier', titulo: 'Zapier', frase: 'Conecta Tentare con miles de apps. La conexión se autoriza desde Zapier, no desde aquí.', guardado: 'accion', palabras: ['automatizar', 'apps'] },
       { id: 'aplicaciones-con-acceso', titulo: 'Aplicaciones con acceso', frase: 'Apps como Zapier con permiso para ver datos de tu estudio; puedes quitárselo.', guardado: 'accion', palabras: ['zapier', 'permisos'] },
-      { id: 'mas-integraciones', titulo: 'Más integraciones', frase: 'Abrir la puerta con cada check-in (Kisi), llevar tus alumnas a tus listas de marketing (Klaviyo, Mailchimp) y conectar con otras apps (Zapier).', guardado: 'accion', palabras: ['kisi', 'puerta', 'klaviyo', 'mailchimp'] },
     ],
   },
   {

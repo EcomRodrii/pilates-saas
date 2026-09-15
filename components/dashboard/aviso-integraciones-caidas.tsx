@@ -6,7 +6,8 @@ import { useStudio } from '@/lib/studio-context';
 import { integracionesCaidas, cuando } from '@/lib/integraciones/salud';
 import type { TipoIntegracion } from '@/lib/types';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
-import { seccionDeTarjeta, type TarjetaId } from '@/lib/configuracion/secciones';
+import { TARJETA_DE_INTEGRACION } from '@/lib/configuracion/resumenes';
+import { seccionDeTarjeta } from '@/lib/configuracion/secciones';
 
 // Una integración caída, dicha donde la propietaria entra de verdad.
 //
@@ -35,18 +36,12 @@ const NOMBRE: Partial<Record<TipoIntegracion, string>> = {
 
 // Dónde se arregla cada una: WhatsApp y el remitente de los correos están en
 // «Cómo me comunico», Kisi y Mailchimp en «Conexiones». Mandar siempre a
-// Conexiones llevaba a una sección sin la tarjeta que había que tocar.
-const TARJETA: Partial<Record<TipoIntegracion, TarjetaId>> = {
-  WHATSAPP: 'integracion-whatsapp',
-  RESEND: 'integracion-resend',
-  GMAIL: 'integracion-gmail',
-  STRIPE: 'integracion-stripe',
-  GOOGLE_CALENDAR: 'integracion-google_calendar',
-  ZOOM: 'integracion-zoom',
-};
-
+// Conexiones llevaba a una sección sin la tarjeta que había que tocar. Cada una
+// tiene su fila desde el 15-sep (v2): la misma tabla que «Revisa esto».
 function hrefArreglar(tipo: TipoIntegracion): string {
-  const tarjeta = TARJETA[tipo] ?? 'mas-integraciones';
+  const tarjeta = TARJETA_DE_INTEGRACION[tipo];
+  // Un tipo que esta versión no conoce: a Conexiones, que es donde se buscaría.
+  if (!tarjeta) return hrefDeSeccion('conexiones');
   return hrefDeSeccion(seccionDeTarjeta(tarjeta), tarjeta);
 }
 

@@ -73,11 +73,15 @@ async function base(
 }
 
 async function abrirRecompensas(page: Page) {
-  await page.goto('/configuracion?tab=gamificacion');
-  // Desde el 15-sep todo Motivación es una sola pantalla, sin sub-pestañas.
-  await expect(page.getByRole('heading', { level: 2, name: 'Motivación' })).toBeVisible({ timeout: 30_000 });
+  // Desde el 15-sep (v2) las reglas de los créditos se cambian en su cajón y se
+  // guardan con UN «Guardar», no al salir del campo. El enlace viejo abre la sección.
+  await page.goto('/configuracion?tab=gamificacion#reglas');
+  await expect(page.getByRole('heading', { level: 2, name: 'Cómo funcionan tus créditos' })).toBeVisible({ timeout: 30_000 });
   return page.getByRole('textbox', { name: 'Nombre de tus créditos' });
 }
+
+const guardar = (page: Page) => page.getByRole('button', { name: 'Guardar', exact: true });
+const resumenReglas = (page: Page) => page.locator('#reglas [data-resumen]');
 
 test.describe('Cómo llama el estudio a sus créditos', () => {
   test('el nombre nuevo llega a la columna, no solo a la pantalla', async ({ page }) => {
@@ -88,13 +92,18 @@ test.describe('Cómo llama el estudio a sus créditos', () => {
     await expect(campo).toBeVisible({ timeout: 30_000 });
     await campo.fill('puntos');
     await campo.blur();
+    // Salir del campo ya no escribe: espera a «Guardar».
+    await page.waitForTimeout(300);
+    expect(patches).toHaveLength(0);
+    await guardar(page).click();
 
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
     // La columna, con su nombre de BD: es justo lo que la lista blanca omite.
-    expect(patches[0]).toMatchObject({ creditos_nombre: 'puntos' });
+    // Y SOLO esa (#2027): lo que no ha cambiado no viaja.
+    expect(patches[0]).toEqual({ creditos_nombre: 'puntos' });
 
-    // Y la propia pestaña pasa a hablar en esa moneda, no solo el campo.
-    await expect(page.getByRole('heading', { name: /puntos por acción/i })).toBeVisible();
+    // Y la sección pasa a hablar en esa moneda, no solo el campo.
+    await expect(resumenReglas(page)).toContainText('Se llaman puntos');
   });
 
   test('volver a «créditos» guarda NULL, no el literal', async ({ page }) => {
@@ -107,7 +116,7 @@ test.describe('Cómo llama el estudio a sus créditos', () => {
     const campo = await abrirRecompensas(page);
     await expect(campo).toHaveValue('puntos', { timeout: 30_000 });
     await campo.fill('  Créditos  ');
-    await campo.blur();
+    await guardar(page).click();
 
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
     // NULL y no el literal: guardarlo congelaría a ese estudio con esa palabra
@@ -123,10 +132,13 @@ test.describe('Cómo llama el estudio a sus créditos', () => {
     // Entrar y salir del campo sin tocarlo: el estudio ya tenía NULL.
     await campo.click();
     await campo.blur();
+    // Y escribir lo que ya había («créditos» es NULL): tampoco es un cambio.
+    await campo.fill('créditos');
 
     // Un `await` corto y comprobar que sigue en cero: sin esto el test pasaría
     // aunque el PATCH saliera un instante después.
     await page.waitForTimeout(500);
+    await expect(guardar(page), 'sin cambios no hay barra de guardar').toHaveCount(0);
     expect(patches).toHaveLength(0);
   });
 
@@ -139,16 +151,18 @@ test.describe('Cómo llama el estudio a sus créditos', () => {
     const campo = await abrirRecompensas(page);
     await expect(campo).toBeVisible({ timeout: 30_000 });
     await campo.fill('puntos');
-    await campo.blur();
+    await guardar(page).click();
 
     // Primero que lo INTENTÓ: sin esto, «no dijo que guardó» pasaría también
     // con un botón que no manda nada.
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
-    // `.first()`: el mismo texto sale en el toast de la pestaña y en el aviso
+    // `.first()`: el mismo texto sale en la barra del cajón y en el aviso
     // global de escritura fallida.
     await expect(page.getByText('No se ha guardado: tu usuario no puede cambiar los datos de este estudio.').first())
       .toBeVisible();
-    await expect(page.getByText('Nombre actualizado')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: /puntos por acción/i })).toHaveCount(0);
+    await expect(page.getByText('Créditos guardados')).toHaveCount(0);
+    // El cajón sigue abierto con lo escrito, y la fila, en lo guardado.
+    await expect(campo).toHaveValue('puntos');
+    await expect(resumenReglas(page)).toContainText('Se llaman créditos');
   });
 });

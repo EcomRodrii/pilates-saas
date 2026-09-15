@@ -25,7 +25,8 @@ import type { ReglasReserva, TarjetaReglasId } from './reglas-reserva.ts';
 import { nifEmisorValido, nifValido } from '../nif.ts';
 import { PLAN_INFO, type Plan } from '../billing/entitlements.ts';
 import type { FaseTrial } from '../billing/trial.ts';
-import { SECCIONES, esTarjetaId, seccionDeTarjeta, type HerramientaId, type SeccionId, type TarjetaId } from './secciones.ts';
+import { SECCIONES, seccionDeTarjeta, type HerramientaId, type SeccionId, type TarjetaId } from './secciones.ts';
+import { nombreCreditos } from '../creditos-nombre.ts';
 
 export const MAX_RESUMEN = 44;
 export const MAX_REVISA = 3;
@@ -179,6 +180,24 @@ const NOMBRE_INTEGRACION: Record<TipoIntegracion, string> = {
   ZAPIER: 'Zapier',
 };
 
+/**
+ * La fila donde se arregla cada integración. Todas tienen la suya desde el
+ * 15-sep (v2): Stripe en Cobros, el remitente, WhatsApp y Gmail en Cómo me
+ * comunico y el resto en Conexiones. La usan «Revisa esto» y el aviso de la home.
+ */
+export const TARJETA_DE_INTEGRACION: Readonly<Record<TipoIntegracion, TarjetaId>> = {
+  STRIPE: 'integracion-stripe',
+  RESEND: 'integracion-resend',
+  WHATSAPP: 'integracion-whatsapp',
+  GMAIL: 'integracion-gmail',
+  GOOGLE_CALENDAR: 'integracion-google_calendar',
+  ZOOM: 'integracion-zoom',
+  KISI: 'integracion-kisi',
+  KLAVIYO: 'integracion-klaviyo',
+  MAILCHIMP: 'integracion-mailchimp',
+  ZAPIER: 'integracion-zapier',
+};
+
 // ─── Lo que hay que revisar ──────────────────────────────────────────────────
 
 const en = (ancla: TarjetaId) => ({ ancla, seccion: seccionDeTarjeta(ancla) });
@@ -211,8 +230,9 @@ export function avisosDeConfiguracion(d: DatosConfiguracion): AvisoConfiguracion
   // 2. Una conexión que falló la última vez que se usó (lib/integraciones/salud.ts).
   for (const i of d.integraciones ?? []) {
     if (salud(i).estado !== 'FALLANDO') continue;
-    const propia = `integracion-${i.tipo.toLowerCase()}`;
-    const ancla: TarjetaId = esTarjetaId(propia) ? propia : 'mas-integraciones';
+    // Un tipo que esta versión no conoce no tiene dónde arreglarse.
+    const ancla = TARJETA_DE_INTEGRACION[i.tipo] as TarjetaId | undefined;
+    if (!ancla) continue;
     avisos.push({
       id: `integracion-${i.tipo.toLowerCase()}`,
       texto: `${NOMBRE_INTEGRACION[i.tipo] ?? i.tipo}: falló la última vez que se usó`,
@@ -885,4 +905,140 @@ export function resumenPlan(e: EstadoPlanResumible | null | undefined): ResumenS
     case 'SIN_PRUEBA':
       return nada;
   }
+}
+
+// ─── Conexiones ──────────────────────────────────────────────────────────────
+//
+// Una fila por conexión con UN estado —como Stripe, WhatsApp y Gmail— y las
+// filas agrupadas por cómo están: lo que falla, arriba.
+
+export const NO_DISPONIBLE_TODAVIA = 'Lo estamos terminando de conectar por nuestro lado';
+
+/**
+ * El estado de una conexión de «Conexiones».
+ * `cuenta`: las que se conectan entrando con tu cuenta (Google Calendar, Zoom,
+ * Klaviyo, Zapier) dicen con cuál, y `null` es sin conectar. Las que piden una
+ * clave pegada (Kisi, Mailchimp) no la pasan (`undefined`): manda su salud, que
+ * distingue «guardado sin usar» de «funciona». Un fallo solo es de la fila si
+ * está conectada.
+ */
+export function resumenConexion(e: {
+  cuenta?: string | null;
+  salud: SaludIntegracion;
+  /** ¿Tentare tiene puesta esa conexión? Sin ella no hay nada que conectar. */
+  disponible: boolean;
+  /** Lo que se gana conectándola, para la fila sin conectar. */
+  paraQue: string;
+}): ResumenFila {
+  const { salud } = e;
+  const porCuenta = e.cuenta !== undefined;
+  const cuenta = porCuenta ? limpio(e.cuenta) : null;
+  const conectada = porCuenta ? !!cuenta : salud.estado !== 'APAGADA';
+  if (conectada && salud.estado === 'FALLANDO') {
+    return { valor: `Falló el ${cuando(salud.desde)}: ${salud.error}`, estado: { tono: 'problema', etiqueta: 'Con problemas' } };
+  }
+  if (conectada) {
+    const ultima = salud.estado === 'FUNCIONA' ? `última vez el ${cuando(salud.desde)}` : null;
+    if (cuenta) return { valor: ultima ? `${cuenta} · ${ultima}` : cuenta, estado: { tono: 'activo', etiqueta: 'Conectado' } };
+    if (salud.estado === 'SIN_PROBAR') return { valor: 'Guardado, pero aún sin usar: pruébalo', estado: { tono: 'pendiente', etiqueta: 'Sin probar' } };
+    return { valor: `Funciona · ${ultima}`, estado: { tono: 'activo', etiqueta: 'Conectado' } };
+  }
+  if (e.disponible) return { valor: e.paraQue, estado: { tono: 'neutro', etiqueta: 'Sin conectar' } };
+  return { valor: NO_DISPONIBLE_TODAVIA, estado: { tono: 'neutro', etiqueta: 'No disponible todavía' } };
+}
+
+export type GrupoConexion = 'problemas' | 'conectadas' | 'sin-conectar';
+
+const TITULO_GRUPO_CONEXION: Record<GrupoConexion, string> = {
+  problemas: 'Con problemas',
+  conectadas: 'Conectadas',
+  'sin-conectar': 'Sin conectar',
+};
+
+/** Guardada sin probar cuenta como conectada: está encendida y hay algo que gestionar. */
+export function grupoDeConexion(r: ResumenFila | null): GrupoConexion {
+  const tono = r?.estado?.tono;
+  if (tono === 'problema') return 'problemas';
+  if (tono === 'activo' || tono === 'pendiente') return 'conectadas';
+  return 'sin-conectar';
+}
+
+/**
+ * «Con problemas», «Conectadas» y «Sin conectar», en ese orden y sin grupos
+ * vacíos. Dentro de cada uno se respeta el orden de llegada, salvo lo que aún no
+ * se puede conectar (o no se sabe), que va al final: no le pide nada.
+ */
+export function agruparConexiones<T extends { resumen: ResumenFila | null }>(filas: readonly T[]): { grupo: GrupoConexion; titulo: string; filas: T[] }[] {
+  const alFinal = (f: T) => (!f.resumen?.estado || f.resumen.estado.etiqueta === 'No disponible todavía' ? 1 : 0);
+  return (['problemas', 'conectadas', 'sin-conectar'] as const)
+    .map(grupo => ({
+      grupo,
+      titulo: TITULO_GRUPO_CONEXION[grupo],
+      filas: filas.filter(f => grupoDeConexion(f.resumen) === grupo).sort((a, b) => alFinal(a) - alFinal(b)),
+    }))
+    .filter(g => g.filas.length > 0);
+}
+
+/** «Zapier», «2 apps: Zapier, Make» o que ninguna tiene acceso. `null` = sin cargar. */
+export function resumenAppsConAcceso(apps: readonly { nombre: string }[] | null): string | null {
+  if (!apps) return null;
+  if (apps.length === 0) return 'Ninguna app tiene acceso';
+  const nombres = apps.map(a => a.nombre);
+  return apps.length === 1 ? nombres[0] : `${contar(apps.length, 'app', 'apps')}: ${nombres.join(', ')}`;
+}
+
+// ─── Mi app y mi web ─────────────────────────────────────────────────────────
+
+/** «tentare.es/reservar/pilates-centro»: la dirección corta de la página de reservas. `null` = sin dirección. */
+export function resumenDireccion(e: { slug: string | null | undefined; origen: string }): string | null {
+  const slug = limpio(e.slug);
+  if (!slug) return null;
+  const host = e.origen.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+  return `${host}/reservar/${slug}`;
+}
+
+// ─── Motivación ──────────────────────────────────────────────────────────────
+
+/**
+ * La pastilla del plan en las filas de Motivación, en vez de tapar la sección
+ * entera. `enTuPlan`: tu plan la incluye; `activo`: la suscripción está viva
+ * (`tieneFeature` exige las dos). `planMinimo`: el nombre del plan más barato que la trae.
+ */
+export function estadoDelPlan(e: { enTuPlan: boolean; activo: boolean; planMinimo: string | null }): { tono: TonoFila; etiqueta: string } {
+  if (e.enTuPlan && e.activo) return { tono: 'activo', etiqueta: 'Incluido en tu plan' };
+  if (e.enTuPlan) return { tono: 'pendiente', etiqueta: 'Tu plan no está activo' };
+  return { tono: 'neutro', etiqueta: e.planMinimo ? `Desde el plan ${e.planMinimo}` : 'No incluido en tu plan' };
+}
+
+/**
+ * «Se llaman puntos · caducan a los 12 meses sin ganar · racha de 2 clases por
+ * semana». Lo que no se ha tocado, como lo aplica el servidor: «créditos», no
+ * caducan y la racha pide 1 clase. `null` = sin cargar.
+ */
+export function resumenReglasCreditos(s: Partial<Pick<Studio, 'creditosNombre' | 'creditosCaducanMeses' | 'rachaClasesSemana'>>): string | null {
+  if (s.creditosNombre === undefined) return null;
+  const meses = s.creditosCaducanMeses ?? null;
+  const racha = s.rachaClasesSemana && s.rachaClasesSemana > 1 ? s.rachaClasesSemana : 1;
+  return unir([
+    `se llaman ${nombreCreditos(s.creditosNombre)}`,
+    meses ? `caducan a los ${contar(meses, 'mes', 'meses')} sin ganar` : 'no caducan',
+    `racha de ${contar(racha, 'clase', 'clases')} por semana`,
+  ], 90);
+}
+
+/**
+ * «3 de 7 dan puntos · 10 por asistir». Da créditos la regla GUARDADA, encendida
+ * y con más de 0: sin regla no se da nada. `null` = sin cargar.
+ */
+export function resumenCreditosPorAccion(
+  reglas: readonly { trigger: string; creditos: number; activa: boolean }[] | null,
+  disparadores: readonly string[],
+  moneda: string,
+): string | null {
+  if (!reglas) return null;
+  const dan = reglas.filter(r => disparadores.includes(r.trigger) && r.activa && r.creditos > 0);
+  const cuantas = new Set(dan.map(r => r.trigger)).size;
+  if (cuantas === 0) return `Ninguna acción da ${moneda} todavía`;
+  const asistir = dan.find(r => r.trigger === 'ASISTENCIA_CLASE');
+  return unir([`${cuantas} de ${disparadores.length} dan ${moneda}`, asistir ? `${asistir.creditos} por asistir` : null], 90);
 }

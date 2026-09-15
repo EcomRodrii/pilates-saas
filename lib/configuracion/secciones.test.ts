@@ -175,7 +175,7 @@ test('seis herramientas con pantalla propia, cada una de UNA sección y con sus 
 test('lo que se abre en un cajón cabe en su línea (≤ 120), y las filas a otra pantalla llevan a una que existe', () => {
   // Mi estudio, Cobros y facturas y Alta de alumnas son filas con cajón: su
   // frase es la ÚNICA línea de explicación de ese cajón (§5 de la reorganización).
-  for (const s of ['estudio', 'cobros', 'altas', 'reservas', 'comunicacion'] as const) {
+  for (const s of ['estudio', 'cobros', 'altas', 'reservas', 'comunicacion', 'motivacion', 'web', 'conexiones'] as const) {
     for (const t of seccionPorId(s).tarjetas) assert.ok(t.frase.length <= 120, `${t.id}: ${t.frase.length} caracteres`);
     assert.ok(seccionPorId(s).frase.length <= 90, `${s}: la frase de la sección`);
   }

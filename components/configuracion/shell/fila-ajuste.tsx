@@ -6,10 +6,12 @@ import { ArrowUpRight, ChevronRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { cardCls } from '@/components/configuracion/estilos';
 import { Interruptor } from '@/components/ui/interruptor';
-import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
+import { tarjetaPorId, type SeccionId, type TarjetaId } from '@/lib/configuracion/secciones';
+import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import type { ResumenFila } from '@/lib/configuracion/resumenes';
 import { FILA, IconoFila } from './fila-herramienta';
 import { EstadoAjuste } from './estado-ajuste';
+import { esClicNormal, useNavegacionConfig } from './contexto';
 
 // Una sección de Configuración como grupos de filas, no como formularios
 // apilados (§4.2). Cada fila dice qué es y cómo está HOY —«L-V 8:00–22:00 · D
@@ -190,6 +192,44 @@ export function FilaInformativa({ icono, titulo, detalle }: { icono: LucideIcon;
         <span className="block text-[15px] font-medium text-foreground text-pretty">{titulo}</span>
         {detalle && <span className="block text-sm text-muted-foreground text-pretty">{detalle}</span>}
       </span>
+    </li>
+  );
+}
+
+/**
+ * Una fila que lleva a OTRA sección de Configuración, a la fila donde está lo
+ * que se busca («Stripe» desde Conexiones). Es un enlace de verdad, pero dentro
+ * del panel va por el shell y `pushState`: con el router, en producción la
+ * dirección se quedaba en la sección de llegada (#2030).
+ */
+export function FilaOtraSeccion({ id, icono, titulo, valor, seccion, ancla }: {
+  id: string;
+  icono: LucideIcon;
+  titulo: string;
+  valor: string;
+  seccion: SeccionId;
+  ancla?: TarjetaId;
+}) {
+  const nav = useNavegacionConfig();
+  return (
+    <li>
+      <a
+        id={id}
+        href={hrefDeSeccion(seccion, ancla)}
+        onClick={e => {
+          if (!nav || !esClicNormal(e)) return;
+          e.preventDefault();
+          nav.irA(seccion, { ancla, modo: 'push' });
+        }}
+        className={cn(FILA, 'scroll-mt-32 scroll-mb-32')}
+      >
+        <IconoFila icono={icono} />
+        <span className="min-w-0 flex-1">
+          <TituloFila titulo={titulo} />
+          <ValorFila valor={valor} descripcion={valor} />
+        </span>
+        <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+      </a>
     </li>
   );
 }

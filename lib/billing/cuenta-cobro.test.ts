@@ -121,7 +121,11 @@ test('el navegador ya no escribe la cuenta de cobro ni la mapea en dbUpdateStudi
   for (const col of ['stripe_account_id', 'sepa_iban', 'sepa_acreedor_id', 'sepa_titular']) {
     assert.doesNotMatch(datos, new RegExp(`db\\.${col}\\s*=`), col);
   }
-  assert.doesNotMatch(leer('components/configuracion/tab-integraciones.tsx'), /updateStudio\(\{\s*stripeAccountId/);
+  // Stripe es una fila de Cobros (cobro-con-tarjeta.tsx) y el resto de conexiones,
+  // filas de Conexiones (conexiones.tsx) desde el 15-sep (v2): ninguna la escribe.
+  for (const f of ['components/configuracion/cobro-con-tarjeta.tsx', 'components/configuracion/conexiones.tsx']) {
+    assert.doesNotMatch(leer(f), /updateStudio\(\{\s*stripeAccountId/, f);
+  }
   assert.doesNotMatch(leer('components/configuracion/tab-estudio-cobros.tsx'), /updateStudio\(\{\s*sepa/);
 });
 

@@ -100,7 +100,8 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     ['/configuracion?tab=integraciones&gmail_connected=1', 'Cómo me comunico', 'Gmail conectado', '#integracion-gmail', 'comunicacion'],
     ['/configuracion?tab=conexiones&google_calendar_connected=1', 'Conexiones', 'Google Calendar conectado', '#integracion-google_calendar', 'conexiones'],
     ['/configuracion?tab=integraciones&zoom_error=denegado', 'Conexiones', 'Error al conectar Zoom: denegado', '#integracion-zoom', 'conexiones'],
-    ['/configuracion?tab=conexiones&klaviyo_connected=1', 'Conexiones', 'Klaviyo conectado', '#mas-integraciones', 'conexiones'],
+    // Klaviyo tiene su fila desde el 15-sep (v2): antes vivía en «Más integraciones».
+    ['/configuracion?tab=conexiones&klaviyo_connected=1', 'Conexiones', 'Klaviyo conectado', '#integracion-klaviyo', 'conexiones'],
     ['/configuracion?tab=conexiones&whatsapp_connected=1', 'Cómo me comunico', 'WhatsApp conectado', '#integracion-whatsapp', 'comunicacion'],
   ];
   for (const [href, seccion, aviso, tarjeta, tab] of VUELTAS) {

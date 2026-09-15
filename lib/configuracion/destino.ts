@@ -119,7 +119,7 @@ const PARAMS_DE_CONEXION: [string, TarjetaId][] = [
   ['gmail_connected', 'integracion-gmail'], ['gmail_error', 'integracion-gmail'],
   ['google_calendar_connected', 'integracion-google_calendar'], ['google_calendar_error', 'integracion-google_calendar'],
   ['zoom_connected', 'integracion-zoom'], ['zoom_error', 'integracion-zoom'],
-  ['klaviyo_connected', 'mas-integraciones'], ['klaviyo_error', 'mas-integraciones'],
+  ['klaviyo_connected', 'integracion-klaviyo'], ['klaviyo_error', 'integracion-klaviyo'],
   ['whatsapp_connected', 'integracion-whatsapp'],
 ];
 
@@ -145,6 +145,9 @@ const ANCLAS_RETIRADAS: Record<string, TarjetaId> = {
   'ajuste-clase-devuelve-bono': 'si-se-cancela-una-clase',
   'ajuste-lista-espera': 'lista-de-espera',
   'politica-explicada': 'cancelar-y-recuperar',
+  // «Conexiones» pasó a una fila por conexión (15-sep, v2): «Más integraciones»
+  // juntaba Kisi, Klaviyo, Mailchimp y Zapier, y su ancla lleva a la primera.
+  'mas-integraciones': 'integracion-kisi',
 };
 
 /**

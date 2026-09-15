@@ -1,32 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Coins, Flame, Plus, Pencil, Trash2, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import { useStudio } from '@/lib/studio-context';
-import { REWARD_TRIGGERS } from '@/lib/engines/reward-engine';
+import { CREDITOS_SUGERIDOS } from '@/lib/configuracion/creditos';
 import { sugerirRecompensas } from '@/lib/recompensas-sugeridas';
 import type { EfectoRecompensa, RewardCatalogItem } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { nombreCreditos, normalizarNombreCreditos, NOMBRE_CREDITOS_MAX } from '@/lib/creditos-nombre';
-import { Field, inputCls, btnPrimary, btnSecondary, cardCls, Toggle } from '@/components/configuracion/estilos';
-
-// Valores de partida sugeridos — un punto de arranque, no un límite: el
-// estudio los edita libremente en cuanto carga esta pantalla.
-const CREDITOS_SUGERIDOS: Record<string, number> = {
-  ASISTENCIA_CLASE: 10,
-  RENOVACION_PLAN: 40,
-  REFERIDO_AMIGO: 100,
-  SEMANA_COMPLETA: 30,
-  PRIMERA_RESERVA: 20,
-  OBJETIVO_MENSUAL: 50,
-  // ⚠️ Por compra los créditos van POR IMPORTE, no por suceso, y la RPC usa
-  // `unidad_euros = 1 €` cuando está vacío. Con la sugerencia alta que llevan
-  // los demás disparadores, encender esta regla habría dado 10 créditos POR
-  // EURO desde el primer segundo. 1 por euro es legible y se sube a mano.
-  COMPRA: 1,
-};
+import { nombreCreditos } from '@/lib/creditos-nombre';
+import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 
 const emptyCatalogForm = (): Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'> => ({
   nombre: '', descripcion: '', costeCreditos: 500, icono: '🎁', activo: true, stock: null, efecto: 'MANUAL',
@@ -37,74 +21,16 @@ const emptyCatalogForm = (): Omit<RewardCatalogItem, 'id' | 'studioId' | 'creado
 });
 
 
-// Un número que se guarda al salir del campo, no en cada tecla.
-//
-// Antes el `onChange` del input escribía en la BD por cada pulsación: teclear
-// "100" mandaba tres UPDATE (1, 10, 100) sin await ni debounce. Además de ser
-// ruidoso, si llegaban desordenados quedaba guardado el valor intermedio.
-// Ahora el valor vive en local mientras se escribe y se persiste en blur (o con
-// Enter), una sola vez y esperando el resultado.
-function CampoNumero({
-  valor, onGuardar, className, placeholder, title, ariaLabel,
-}: {
-  valor: number | null;
-  onGuardar: (n: number | null) => Promise<{ ok: boolean; error?: string }>;
-  className?: string;
-  placeholder?: string;
-  title?: string;
-  ariaLabel?: string;
-}) {
-  const [texto, setTexto] = useState(valor === null ? '' : String(valor));
-  const [guardando, setGuardando] = useState(false);
-  const [ultimoGuardado, setUltimoGuardado] = useState(valor);
-
-  // Si el valor cambia por fuera (otra pestaña, recarga) y no se está editando,
-  // el campo sigue al dato real.
-  if (valor !== ultimoGuardado && !guardando) {
-    setUltimoGuardado(valor);
-    setTexto(valor === null ? '' : String(valor));
-  }
-
-  async function guardar() {
-    const n = parseInt(texto, 10);
-    const limpio = Number.isFinite(n) && n > 0 ? n : null;
-    if (limpio === valor) return; // nada que guardar
-    setGuardando(true);
-    const res = await onGuardar(limpio);
-    setGuardando(false);
-    // Si la BD lo rechaza, el campo vuelve a lo que hay guardado de verdad.
-    if (!res.ok) setTexto(valor === null ? '' : String(valor));
-  }
-
-  return (
-    <input
-      type="number"
-      min={0}
-      placeholder={placeholder}
-      aria-label={ariaLabel}
-      title={title}
-      value={texto}
-      disabled={guardando}
-      onChange={e => setTexto(e.target.value)}
-      onBlur={guardar}
-      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-      className={className}
-    />
-  );
-}
-
 /**
- * `parte`: las reglas («Cómo funcionan tus créditos») van en la sección
- * Motivación y el catálogo de recompensas en su pantalla de herramienta
- * (15-sep, v2). Sin ella, las dos, como antes.
+ * El catálogo de recompensas, en la pantalla de su herramienta. Cómo funcionan
+ * los créditos y cuántos se ganan con cada cosa se cambian en los cajones de la
+ * sección Motivación (creditos.tsx, 15-sep, v2).
  */
-export function TabRecompensas({ showToast, parte }: { showToast: (m: string) => void; parte?: 'reglas' | 'catalogo' }) {
-  const conReglas = parte !== 'catalogo';
-  const conCatalogo = parte !== 'reglas';
+export function TabRecompensas({ showToast }: { showToast: (m: string) => void }) {
   const {
-    rewardRules, addRewardRule, updateRewardRule,
+    rewardRules,
     rewardCatalog, addRewardCatalogItem, updateRewardCatalogItem, deleteRewardCatalogItem,
-    studio, updateStudio,
+    studio,
   } = useStudio();
 
   // El nombre que este estudio le da a su moneda. Se usa en TODA esta pestaña,
@@ -137,43 +63,6 @@ export function TabRecompensas({ showToast, parte }: { showToast: (m: string) =>
     return rewardRules.find(r => r.trigger === trigger) ?? null;
   }
 
-  function handleCreditosChange(trigger: string, nombre: string, descripcion: string, creditos: number) {
-    const existente = reglaDe(trigger);
-    return existente
-      ? updateRewardRule(existente.id, { creditos })
-      : addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos, activa: true });
-  }
-
-  async function handleToggleActiva(trigger: string, nombre: string, descripcion: string) {
-    const existente = reglaDe(trigger);
-    const res = existente
-      ? await updateRewardRule(existente.id, { activa: !existente.activa })
-      : await addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos: CREDITOS_SUGERIDOS[trigger] ?? 0, activa: true });
-    // El toggle es la única acción de esta pantalla sin sitio donde enseñar el
-    // fallo en el propio control: se avisa por toast.
-    if (!res.ok) showToast(res.error);
-  }
-
-  // Cada cuántos euros se dan los créditos (solo COMPRA). Sin esto la regla
-  // existía en la base y NADIE podía encenderla: `otorgar_creditos_compra`
-  // busca una regla COMPRA activa con `unidad_euros`, y no había forma de
-  // crearla desde ninguna pantalla. Una función que nadie puede activar es
-  // código muerto que parece una funcionalidad.
-  function handleUnidadChange(trigger: string, nombre: string, descripcion: string, unidadEuros: number | null) {
-    const existente = reglaDe(trigger);
-    return existente
-      ? updateRewardRule(existente.id, { unidadEuros })
-      : addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos: CREDITOS_SUGERIDOS[trigger] ?? 0, activa: true, unidadEuros });
-  }
-
-  // Tope mensual de referidos premiados (solo REFERIDO_AMIGO). Vacío o 0 = sin tope.
-  function handleTopeChange(trigger: string, nombre: string, descripcion: string, topeMensual: number | null) {
-    const existente = reglaDe(trigger);
-    return existente
-      ? updateRewardRule(existente.id, { topeMensual })
-      : addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos: CREDITOS_SUGERIDOS[trigger] ?? 0, activa: true, topeMensual });
-  }
-
   function openNuevo() { setForm(emptyCatalogForm()); setEditId(null); setModal('nuevo'); }
   function openEditar(item: RewardCatalogItem) {
     setForm({
@@ -201,176 +90,8 @@ export function TabRecompensas({ showToast, parte }: { showToast: (m: string) =>
     showToast(modal === 'nuevo' ? 'Recompensa creada' : 'Recompensa actualizada');
   }
 
-  // `CampoNumero` ya normaliza (>0 o null), ya evita guardar sin cambios y ya
-  // revierte el campo si la base rechaza. Aquí solo queda guardar y decirlo.
-  // (Y el 0 → null de ahí importa: guardar 0 haría que `caduca_creditos`
-  // devolviera hoy y todo el saldo del estudio muriera esta noche.)
-  async function guardarCaducidad(meses: number | null) {
-    const res = await updateStudio({ creditosCaducanMeses: meses });
-    showToast(res.ok ? (meses ? `Caducan a los ${meses} meses` : 'Ya no caducan') : res.error);
-    return res;
-  }
-
-  // La racha vive en la app de la alumna, pero el criterio es del estudio: uno
-  // que da clase tres veces por semana no mide lo mismo con «al menos una».
-  async function guardarRacha(clases: number | null) {
-    const res = await updateStudio({ rachaClasesSemana: clases });
-    showToast(res.ok
-      ? (clases && clases > 1 ? `La racha pide ${clases} clases por semana` : 'La racha pide 1 clase por semana')
-      : res.error);
-    return res;
-  }
-
-  async function guardarMoneda(valor: string) {
-    const limpio = normalizarNombreCreditos(valor);
-    if ((studio?.creditosNombre ?? null) === limpio) return;
-    const res = await updateStudio({ creditosNombre: limpio });
-    showToast(res.ok ? 'Nombre actualizado' : res.error);
-  }
-
   return (
     <>
-    {conReglas && (
-    <TarjetaAjuste id="reglas" marco={false}>
-    <div className="space-y-6">
-      {/* Cómo se llaman. Va PRIMERO porque nombra todo lo que viene debajo. */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Coins size={16} className="text-brand-secondary" aria-hidden />
-          <h4 className="text-[14px] font-semibold text-foreground">Cómo llamas a tus {moneda}</h4>
-        </div>
-        <p className="text-[12px] text-muted-foreground mb-3">
-          El nombre que verán tus alumnas en su app. En plural: «puntos», «estrellas»…
-          Déjalo vacío para usar «créditos».
-        </p>
-        <div className={cn(cardCls, 'p-4')}>
-          <input
-            className={cn(inputCls, 'max-w-[220px]')}
-            defaultValue={studio?.creditosNombre ?? ''}
-            placeholder="créditos"
-            maxLength={NOMBRE_CREDITOS_MAX}
-            aria-label="Nombre de tus créditos"
-            onBlur={e => void guardarMoneda(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-          />
-        </div>
-      </div>
-
-      {/* Caducidad. Va junto al nombre porque las dos son «cómo funcionan
-          tus créditos», antes de cuántos se dan y en qué se gastan. */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Coins size={16} className="text-brand-secondary" />
-          <h3 className="text-[14px] font-semibold text-foreground">Cuánto duran</h3>
-        </div>
-        <p className="text-[12px] text-muted-foreground mb-3">
-          Meses que duran los {moneda} desde la última vez que se ganan. Cada vez que
-          una alumna gana, el plazo vuelve a empezar. Déjalo vacío para que no caduquen.
-        </p>
-        <div className={cn(cardCls, 'p-4 flex items-center gap-2')}>
-          <CampoNumero
-            valor={studio?.creditosCaducanMeses ?? null}
-            onGuardar={guardarCaducidad}
-            placeholder="∞"
-            className={cn(inputCls, 'w-20 text-center')}
-            title="Meses que duran los créditos (vacío = no caducan)"
-            ariaLabel="Meses hasta que caducan"
-          />
-          <span className="text-[12px] text-muted-foreground">meses</span>
-        </div>
-      </div>
-
-      {/* Racha */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Flame size={16} className="text-brand-secondary" />
-          <h3 className="text-[14px] font-semibold text-foreground">Racha</h3>
-        </div>
-        <p className="text-[12px] text-muted-foreground mb-3">
-          Cuántas clases tiene que hacer una alumna en una semana para mantener su racha.
-          La semana en curso nunca se la rompe: solo cuenta cuando termina.
-        </p>
-        <div className={cn(cardCls, 'p-4 flex items-center gap-2')}>
-          <CampoNumero
-            valor={studio?.rachaClasesSemana ?? null}
-            onGuardar={guardarRacha}
-            placeholder="1"
-            className={cn(inputCls, 'w-20 text-center')}
-            title="Clases por semana para mantener la racha (vacío = 1)"
-            ariaLabel="Clases por semana para la racha"
-          />
-          <span className="text-[12px] text-muted-foreground">clases por semana</span>
-        </div>
-      </div>
-
-      {/* Reglas de créditos */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Coins size={16} className="text-brand-secondary" />
-          <h3 className="text-[14px] font-semibold text-foreground">{moneda} por acción</h3>
-        </div>
-        <p className="text-[12px] text-muted-foreground mb-3">
-          Cuántos {moneda} gana una alumna por cada acción. Cambia cualquier valor o desactívalo — nunca están fijos en el código.
-        </p>
-        <div className={cn(cardCls, 'divide-y divide-[#F1F1F4]')}>
-          {REWARD_TRIGGERS.map(def => {
-            const regla = reglaDe(def.trigger);
-            const creditos = regla?.creditos ?? CREDITOS_SUGERIDOS[def.trigger] ?? 0;
-            const activa = regla?.activa ?? true;
-            return (
-              <div key={def.trigger} className="flex items-center gap-3 p-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-foreground">{def.nombre}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{def.descripcion}</p>
-                </div>
-                {def.trigger === 'COMPRA' && (
-                  <div className="flex flex-col items-center shrink-0">
-                    <CampoNumero
-                      valor={regla?.unidadEuros ?? null}
-                      onGuardar={n => handleUnidadChange(def.trigger, def.nombre, def.descripcion, n && n > 0 ? n : null)}
-                      placeholder="1"
-                      className={cn(inputCls, 'w-16 text-center')}
-                      title="Cada cuántos euros de compra se dan los créditos (vacío = cada euro)"
-                      ariaLabel="Euros por cada premio de compra"
-                    />
-                    <span className="text-[9px] text-muted-foreground mt-0.5">por cada € </span>
-                  </div>
-                )}
-                {def.trigger === 'REFERIDO_AMIGO' && (
-                  <div className="flex flex-col items-center shrink-0">
-                    <CampoNumero
-                      valor={regla?.topeMensual ?? null}
-                      onGuardar={n => handleTopeChange(def.trigger, def.nombre, def.descripcion, n)}
-                      placeholder="∞"
-                      className={cn(inputCls, 'w-16 text-center')}
-                      title="Máximo de referidos premiados al mes (vacío = sin tope)"
-                      ariaLabel={`Tope mensual de ${def.nombre}`}
-                    />
-                    <span className="text-[9px] text-muted-foreground mt-0.5">tope/mes</span>
-                  </div>
-                )}
-                <CampoNumero
-                  valor={creditos}
-                  onGuardar={n => handleCreditosChange(def.trigger, def.nombre, def.descripcion, Math.max(0, n ?? 0))}
-                  className={cn(inputCls, 'w-20 text-center shrink-0')}
-                  ariaLabel={`Créditos por ${def.nombre}`}
-                />
-                <Toggle
-                  on={activa}
-                  onChange={() => handleToggleActiva(def.trigger, def.nombre, def.descripcion)}
-                  ariaLabel={def.nombre}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-    </div>
-    </TarjetaAjuste>
-    )}
-
-      {conCatalogo && (<>
       {/* Catálogo de recompensas */}
       <TarjetaAjuste
         id="recompensas"
@@ -396,7 +117,7 @@ export function TabRecompensas({ showToast, parte }: { showToast: (m: string) =>
             <p className="text-[13px] text-foreground font-semibold">Aún no hay recompensas en el catálogo.</p>
             {sugeridas.length === 0 ? (
               <p className="text-[12px] text-muted-foreground mt-1">
-                Enciende arriba los {moneda} por asistir y aquí te propondremos por dónde empezar.
+                Enciende los {moneda} por asistir en «Créditos por acción», en Motivación, y aquí te propondremos por dónde empezar.
               </p>
             ) : (
               <>
@@ -604,7 +325,6 @@ export function TabRecompensas({ showToast, parte }: { showToast: (m: string) =>
           </div>
         </DialogContent>
       </Dialog>
-      </>)}
     </>
   );
 }

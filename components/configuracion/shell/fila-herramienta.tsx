@@ -6,7 +6,9 @@ import { cn } from '@/lib/utils';
 import { cardCls } from '@/components/configuracion/estilos';
 import { hrefDeHerramienta } from '@/lib/configuracion/destino';
 import { herramientaPorId, type HerramientaId } from '@/lib/configuracion/secciones';
+import type { ResumenFila } from '@/lib/configuracion/resumenes';
 import { esClicNormal, useNavegacionConfig } from './contexto';
+import { EstadoAjuste } from './estado-ajuste';
 
 // La fila de una herramienta grande dentro de su sección: su nombre, cómo está
 // y a un toque su pantalla (`?tab=…&abrir=…`).
@@ -43,8 +45,11 @@ export function IconoFila({ icono: Icono }: { icono: LucideIcon }) {
   );
 }
 
-/** `valor`: cómo está (lib/configuracion/resumenes.ts); `null` = no se sabe, y va su descripción. */
-export function FilaHerramienta({ id, valor }: { id: HerramientaId; valor: string | null }) {
+/**
+ * `valor`: cómo está (lib/configuracion/resumenes.ts); `null` = no se sabe, y va su descripción.
+ * `estado`: su ÚNICA pastilla, si la lleva (el plan, en Motivación).
+ */
+export function FilaHerramienta({ id, valor, estado }: { id: HerramientaId; valor: string | null; estado?: ResumenFila['estado'] }) {
   const nav = useNavegacionConfig();
   const h = herramientaPorId(id);
   return (
@@ -61,7 +66,10 @@ export function FilaHerramienta({ id, valor }: { id: HerramientaId; valor: strin
       >
         <IconoFila icono={ICONOS_HERRAMIENTA[id]} />
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold text-foreground">{h.titulo}</span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-[15px] font-semibold text-foreground">{h.titulo}</span>
+            {estado && <EstadoAjuste tono={estado.tono}>{estado.etiqueta}</EstadoAjuste>}
+          </span>
           <span data-resumen={valor ? 'valor' : 'descripcion'} className="block text-sm text-muted-foreground text-pretty">
             {valor ?? h.resumen}
           </span>

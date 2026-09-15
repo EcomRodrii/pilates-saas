@@ -9,6 +9,7 @@ import {
 import {
   HERRAMIENTAS, SECCIONES, esHerramientaId, herramientaDeTarjeta, seccionDeTarjeta, type SeccionId, type TarjetaId,
 } from './secciones.ts';
+import { TARJETA_DE_INTEGRACION } from './resumenes.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los enlaces a Configuración aterrizan donde dicen.
@@ -44,15 +45,17 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?google_calendar_error=x', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?zoom_connected=1', { tab: 'conexiones', ancla: 'integracion-zoom' }],
     ['/configuracion?zoom_error=x', { tab: 'conexiones', ancla: 'integracion-zoom' }],
-    ['/configuracion?klaviyo_connected=1', { tab: 'conexiones', ancla: 'mas-integraciones' }],
-    ['/configuracion?klaviyo_error=x', { tab: 'conexiones', ancla: 'mas-integraciones' }],
+    ['/configuracion?klaviyo_connected=1', { tab: 'conexiones', ancla: 'integracion-klaviyo' }],
+    ['/configuracion?klaviyo_error=x', { tab: 'conexiones', ancla: 'integracion-klaviyo' }],
+    // «Más integraciones» se partió en una fila por conexión (15-sep, v2): su ancla, a la primera.
+    ['/configuracion?tab=conexiones#mas-integraciones', { tab: 'conexiones', ancla: 'integracion-kisi' }],
     ['/configuracion?whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
     // Lo que mandaban los cinco callbacks y el Embedded Signup hasta el 15-sep.
     ['/configuracion?tab=integraciones&stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
     ['/configuracion?tab=integraciones&gmail_connected=1', { tab: 'comunicacion', ancla: 'integracion-gmail' }],
     ['/configuracion?tab=integraciones&google_calendar_connected=1', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?tab=integraciones&zoom_error=x', { tab: 'conexiones', ancla: 'integracion-zoom' }],
-    ['/configuracion?tab=integraciones&klaviyo_connected=1', { tab: 'conexiones', ancla: 'mas-integraciones' }],
+    ['/configuracion?tab=integraciones&klaviyo_connected=1', { tab: 'conexiones', ancla: 'integracion-klaviyo' }],
     ['/configuracion?tab=conexiones&whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
     // Lo que mandan hoy.
     ['/configuracion?tab=cobros&stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
@@ -296,50 +299,36 @@ test('cada tarjeta de secciones.ts existe de verdad como id en un componente', (
   const faltan: string[] = [];
   for (const s of SECCIONES) {
     for (const { id } of s.tarjetas) {
-      const integracion = /^integracion-(.+)$/.exec(id);
-      const encontrada = COMPONENTES.some(c => c.codigo.includes(`id="${id}"`) || c.codigo.includes(`id: '${id}'`))
-        // Las integraciones calculan su id del catálogo: `integracion-${tipo}`.
-        || (!!integracion && COMPONENTES.some(c => c.f.endsWith('tab-integraciones.tsx')
-          && c.codigo.includes(`tipo: '${integracion[1].toUpperCase()}'`)
-          && c.codigo.includes('`integracion-${')));
+      const encontrada = COMPONENTES.some(c => c.codigo.includes(`id="${id}"`) || c.codigo.includes(`id: '${id}'`));
       if (!encontrada) faltan.push(`${s.id}#${id}`);
     }
   }
   assert.deepEqual(faltan, [], 'tarjetas sin ningún elemento con ese id');
 });
 
-test('cada integración del catálogo la pinta la sección de su tarjeta, y solo esa', () => {
-  // `tipos` de TabIntegraciones, sección a sección. Una integración con tarjeta
-  // propia (`integracion-stripe`) va a la sección de esa tarjeta; las de «Más
-  // integraciones», a la de esa tarjeta. Si una sección la pintara y otra la
-  // tuviera en secciones.ts, su ancla y la vuelta de su conexión llevarían a
-  // una sección donde no está.
-  const catalogo = readFileSync(join(RAIZ, 'components/configuracion/tab-integraciones.tsx'), 'utf8');
-  const tiposCatalogo = [...catalogo.matchAll(/^\s{4}tipo: '([A-Z_]+)',$/gm)].map(m => m[1]);
-  const mas = /MAS_INTEGRACIONES = new Set<TipoIntegracion>\(\[([^\]]+)\]\)/.exec(catalogo)![1]
-    .match(/[A-Z_]+/g)!;
-  assert.ok(tiposCatalogo.length >= 6, `solo se han leído ${tiposCatalogo.length} integraciones del catálogo`);
-  // El remitente, WhatsApp y Gmail salieron del catálogo a filas con cajón en
-  // «Cómo me comunico» (15-sep, v2), como Stripe a Cobros: no pueden pintarse
-  // también como tarjeta de integraciones en otra sección.
-  for (const tipo of ['STRIPE', 'RESEND', 'WHATSAPP', 'GMAIL']) assert.ok(!tiposCatalogo.includes(tipo), `«${tipo}» sigue en el catálogo`);
-  const canales = readFileSync(join(RAIZ, 'components/configuracion/canales-comunicacion.tsx'), 'utf8');
-  for (const id of ['integracion-whatsapp', 'integracion-gmail']) {
-    assert.equal(seccionDeTarjeta(id as TarjetaId), 'comunicacion');
-    assert.match(canales, new RegExp(`id="${id}"`), `«${id}» no tiene fila`);
-  }
+test('cada integración tiene su fila en la sección de su tarjeta, y solo en esa', () => {
+  // Desde el 15-sep (v2) no hay catálogo de tarjetas de integraciones: cada una
+  // es una fila con UN estado. Stripe en Cobros, el remitente, WhatsApp y Gmail
+  // en Cómo me comunico, y el resto en Conexiones. Si una sección la pintara y
+  // otra la tuviera en secciones.ts, su ancla, «Revisa esto» y la vuelta de su
+  // conexión llevarían a una sección donde no está.
+  assert.ok(!existsSync(join(RAIZ, 'components/configuracion/tab-integraciones.tsx')), 'vuelve a haber un catálogo de tarjetas de integraciones');
+  const FICHEROS: Partial<Record<SeccionId, string[]>> = {
+    cobros: ['secciones/seccion-cobros.tsx', 'cobro-con-tarjeta.tsx'],
+    comunicacion: ['secciones/seccion-comunicacion.tsx', 'canales-comunicacion.tsx'],
+    conexiones: ['secciones/seccion-conexiones.tsx', 'conexiones.tsx'],
+  };
+  const leer = (s: SeccionId) => (FICHEROS[s] ?? []).map(f => readFileSync(join(RAIZ, 'components/configuracion', f), 'utf8')).join('\n');
+  const tieneFila = (codigo: string, id: string) => codigo.includes(`id="${id}"`) || codigo.includes(`id: '${id}'`);
 
-  const pintadaEn = new Map<string, SeccionId[]>();
-  for (const s of SECCIONES) {
-    const codigo = readFileSync(join(RAIZ, `components/configuracion/secciones/seccion-${s.id}.tsx`), 'utf8');
-    const lista = /const INTEGRACIONES = \[([^\]]*)\]/.exec(codigo)?.[1].match(/[A-Z_]+/g) ?? [];
-    for (const tipo of lista) pintadaEn.set(tipo, [...(pintadaEn.get(tipo) ?? []), s.id]);
-  }
-
-  for (const tipo of tiposCatalogo) {
-    const tarjeta = (mas.includes(tipo) ? 'mas-integraciones' : `integracion-${tipo.toLowerCase()}`) as TarjetaId;
+  for (const [tipo, tarjeta] of Object.entries(TARJETA_DE_INTEGRACION)) {
     assert.ok(esAnclaConocida(tarjeta), `«${tipo}» no tiene tarjeta en secciones.ts`);
-    assert.deepEqual(pintadaEn.get(tipo), [seccionDeTarjeta(tarjeta)], `«${tipo}»`);
+    const suya = seccionDeTarjeta(tarjeta);
+    assert.ok(FICHEROS[suya], `«${tipo}» está en «${suya}», que no tiene filas de conexiones`);
+    assert.ok(tieneFila(leer(suya), tarjeta), `«${tipo}»: «${suya}» no pinta la fila #${tarjeta}`);
+    for (const otra of Object.keys(FICHEROS) as SeccionId[]) {
+      if (otra !== suya) assert.ok(!tieneFila(leer(otra), tarjeta), `«${tipo}» también se pinta en «${otra}»`);
+    }
   }
 });
 
