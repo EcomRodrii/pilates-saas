@@ -12,7 +12,9 @@
 //   · a las alumnas ya se les avisó, y quitarlo no avisa a nadie;
 //   · la sesión devuelta y los días de más de los bonos se quedan.
 // Restaurar clases o tocar bonos sería otra funcionalidad (y dinero): no se
-// finge aquí.
+// finge aquí. Y como los días de más se quedan, volver a poner el cierre no los
+// suma otra vez: la prórroga queda apuntada en `cierres_prorrogas`, que no se
+// borra con el cierre (migr 20260915212126).
 //
 // ⚠️ Solo imports relativos con extensión: un alias `@/` tumba el test entero
 // sin que falle nada (ver dias-de-cierre.ts).
@@ -48,7 +50,8 @@ export interface AccionCierre {
 /** Lo que NO vuelve, dicho igual en los dos casos. */
 export const LO_QUE_NO_VUELVE =
   'Las clases canceladas no vuelven, ni sus reservas: créalas otra vez si las quieres. ' +
-  'Los bonos se quedan con sus días de más y no se avisa a nadie.';
+  'Los bonos se quedan con sus días de más y no se avisa a nadie. ' +
+  'Si vuelves a cerrar esos días, a los bonos no se les suman otra vez.';
 
 /**
  * Qué se ofrece para un cierre. `null` = ya pasó: no hay nada que reabrir, y

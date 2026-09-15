@@ -7,8 +7,9 @@
 //   · Cancela las clases del rango y avisa → `cancelarSesionPorMotivo`, la
 //     misma que usa el corte por mínimo de asistentes. Comparten criterio: la
 //     cancelación NO es decisión de la socia, así que se le devuelve el bono.
-//   · Prorroga bonos y recuperaciones → la RPC `ampliar_caducidades` (#1621),
-//     con el mismo tope de 365 días que ya valida ella.
+//   · Prorroga bonos y recuperaciones → la RPC `prorrogar_por_cierre`, que
+//     llama a `ampliar_caducidades` (#1621) UNA vez por día cerrado y lo apunta
+//     (migr 20260915212126).
 //   · Impedir reservar en esas fechas NO se hace aquí: vive en la RPC
 //     `reservar_plaza` (migr 20260905153105). Tiene que seguir siendo cierto
 //     para una sesión creada DESPUÉS de declarar el cierre, y eso solo lo
@@ -34,6 +35,11 @@ export interface ResumenCierre {
   cierreId: string;
   dias: number;
   clasesCanceladas: number;
+  /** Días sumados ahora a las caducidades. */
+  diasProrrogados: number;
+  /** Días del cierre que ya se habían sumado antes (reintento, o un cierre
+   *  quitado y vuelto a poner, o solapado con otro): no se suman otra vez. */
+  diasYaProrrogados: number;
   bonosAmpliados: number;
   recuperacionesAmpliadas: number;
   /** Lo que no se pudo hacer, con su motivo. Se informa, no se esconde. */
@@ -84,29 +90,37 @@ export async function aplicarCierreEstudio(params: {
     else clasesCanceladas++;
   }
 
+  // La prórroga se suma UNA vez por día cerrado, no una vez por llamada, y eso
+  // lo garantiza la RPC en una transacción: apunta lo prorrogado en
+  // `cierres_prorrogas`, que sobrevive a quitar el cierre. Por eso se llama
+  // también en el camino del duplicado (23505): si el intento anterior se cortó
+  // ANTES de prorrogar, este lo termina; si llegó a prorrogar, no suma nada.
+  // ⚠️ Nunca `ampliar_caducidades` directo desde aquí: no deja rastro y un
+  // reintento, o quitar y volver a poner el cierre, alargaría los bonos otra vez.
+  let diasProrrogados = 0;
+  let diasYaProrrogados = 0;
   let bonosAmpliados = 0;
   let recuperacionesAmpliadas = 0;
   if (dias >= 1 && dias <= MAX_DIAS_PRORROGA) {
-    const { data: socios, error: errSocios } = await admin
-      .from('socios').select('id').eq('studio_id', params.studioId).is('borrado_en', null);
-    if (errSocios) {
-      incidencias.push(`No se pudieron prorrogar las caducidades: ${errSocios.message}`);
-    } else if (socios?.length) {
-      const { data: ampliado, error: errAmp } = await admin.rpc('ampliar_caducidades', {
-        p_studio_id: params.studioId,
-        p_socio_ids: socios.map(s => s.id as string),
-        p_dias: dias,
-      });
-      if (errAmp) incidencias.push(`No se pudieron prorrogar las caducidades: ${errAmp.message}`);
-      else {
-        const fila = Array.isArray(ampliado) ? ampliado[0] : ampliado;
-        bonosAmpliados = Number(fila?.bonos_ampliados ?? 0);
-        recuperacionesAmpliadas = Number(fila?.recuperaciones_ampliadas ?? 0);
-      }
+    const { data: prorroga, error: errProrroga } = await admin.rpc('prorrogar_por_cierre', {
+      p_studio_id: params.studioId,
+      p_cierre_id: cierreId,
+    });
+    if (errProrroga) incidencias.push(`No se pudieron prorrogar las caducidades: ${errProrroga.message}`);
+    else {
+      const fila = Array.isArray(prorroga) ? prorroga[0] : prorroga;
+      diasProrrogados = Number(fila?.dias_prorrogados ?? 0);
+      diasYaProrrogados = Number(fila?.dias_ya_prorrogados ?? 0);
+      bonosAmpliados = Number(fila?.bonos_prorrogados ?? 0);
+      recuperacionesAmpliadas = Number(fila?.recuperaciones_prorrogadas ?? 0);
     }
   } else if (dias > MAX_DIAS_PRORROGA) {
     incidencias.push(`El cierre dura ${dias} días: las caducidades no se prorrogan solas por encima de ${MAX_DIAS_PRORROGA}.`);
   }
 
-  return { cierreId, dias, clasesCanceladas, bonosAmpliados, recuperacionesAmpliadas, incidencias };
+  return {
+    cierreId, dias, clasesCanceladas,
+    diasProrrogados, diasYaProrrogados, bonosAmpliados, recuperacionesAmpliadas,
+    incidencias,
+  };
 }

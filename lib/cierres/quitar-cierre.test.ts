@@ -48,6 +48,9 @@ test('la advertencia no promete nada de lo que no se hace', () => {
   assert.doesNotMatch(LO_QUE_NO_VUELVE, /restaur|se avisa a tus|recuperan/i);
   assert.match(LO_QUE_NO_VUELVE, /no vuelven/);
   assert.match(LO_QUE_NO_VUELVE, /no se avisa a nadie/);
+  // Y dice qué pasa con los días de más si el cierre se vuelve a poner: no se
+  // suman otra vez (prorrogar_por_cierre, ver prorroga-una-vez.test.ts).
+  assert.match(LO_QUE_NO_VUELVE, /Si vuelves a cerrar esos días, a los bonos no se les suman otra vez\./);
 });
 
 test('reparte: los que vienen del más cercano al más lejano; los pasados, el más reciente primero', () => {

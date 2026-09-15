@@ -49,7 +49,9 @@ export async function POST(req: NextRequest) {
 // Quitar un cierre que viene, o reabrir uno en curso. Solo borra la fila: las
 // clases canceladas, sus reservas, los avisos y los días de más de los bonos
 // NO se deshacen (lib/cierres/quitar-cierre.ts lo explica y la confirmación lo
-// dice). Uno que ya pasó no se toca: no hay días que reabrir.
+// dice). Uno que ya pasó no se toca: no hay días que reabrir. Tampoco se toca
+// `cierres_prorrogas`: es lo que impide sumar otra vez esos días si el cierre se
+// vuelve a poner.
 //
 // Compare-and-set: se borra solo si la fila sigue siendo la que vio la
 // pantalla (mismo id, mismas fechas, del estudio de la sesión y sin haber

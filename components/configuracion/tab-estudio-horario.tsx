@@ -6,6 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { accionCierre, lineaCierre, repartirCierres, type CierreGuardado } from '@/lib/cierres/quitar-cierre';
+import { notaDiasYaProrrogados } from '@/lib/cierres/dias-de-cierre';
 import { hayCambios as formularioCambiado, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import { rangoDeFechas } from '@/lib/configuracion/resumenes';
 import { Toggle, btnSecondary, inputCls } from '@/components/configuracion/estilos';
@@ -348,6 +349,8 @@ export function FormCerrarElCentro({ onGuardado }: PropsFormularioCajon) {
     const partes = [`${plural(data.dias, 'día cerrado', 'días cerrados')}`];
     if (data.clasesCanceladas) partes.push(plural(data.clasesCanceladas, 'clase cancelada', 'clases canceladas'));
     if (data.bonosAmpliados) partes.push(plural(data.bonosAmpliados, 'bono prorrogado', 'bonos prorrogados'));
+    const yaProrrogados = notaDiasYaProrrogados(data.dias, data.diasYaProrrogados);
+    if (yaProrrogados) partes.push(yaProrrogados);
     // Las incidencias no se esconden detrás del mensaje de éxito.
     if (data.incidencias?.length) partes.push(`con avisos: ${data.incidencias[0]}`);
     onGuardado(partes.join(' · '));
@@ -374,6 +377,7 @@ export function FormCerrarElCentro({ onGuardado }: PropsFormularioCajon) {
             Del {rango} nadie podrá reservar. Se cancelan sus clases avisando a quien tenía reserva
             {devuelveSesion ? ', que recupera la sesión del bono' : ', sin devolverle la sesión'}, y los bonos y
             recuperaciones de todas tus alumnas duran {dias === 1 ? '1 día' : `${dias} días`} más.
+            Si alguno de esos días ya lo habías cerrado antes, no se suma dos veces.
           </p>
         )}
       </div>
