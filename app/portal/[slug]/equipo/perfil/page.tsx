@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
@@ -20,6 +21,7 @@ import { Button } from '@/components/student/ui/Button';
 import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
+import { Icono } from '@/components/student/ui/Icono';
 
 // Perfil de la instructora en la app del estudio: quién es, su trabajo
 // (disponibilidad y ausencias), su tarifa, sus estudios, lo que puede hacer como
@@ -86,13 +88,30 @@ export default function PerfilInstructoraPage() {
     <StudentShell modo="instructora">
       <PageHeader titulo="Perfil" />
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '16px', marginTop: 14 }}>
-        <div className="card card--pad-lg row" style={{ ['--gap' as string]: '13px' }}>
+        {/* La cabecera es la puerta a sus datos, como en el perfil de la alumna:
+            antes era decorado y no había forma de cambiar ni la foto ni el nombre. */}
+        <Link
+          href={href('/equipo/perfil/datos')}
+          className="card card--pad-lg card--tap row"
+          style={{ ['--gap' as string]: '13px' }}
+        >
           <AvatarSocia nombre={instructora?.nombre} fotoUrl={instructora?.fotoUrl ?? null} size={56} />
           <div className="trunc">
             <p className="t-card-title trunc">{instructora?.nombre ?? 'Tu perfil'}</p>
             <p className="t-meta" style={{ marginTop: 1 }}>Instructora en {estudio.nombre}</p>
           </div>
-        </div>
+          <span aria-hidden className="push t-faint" style={{ display: 'flex' }}>
+            <Icono nombre="chevron-derecha" tamano={18} />
+          </span>
+        </Link>
+
+        <ProfileSection
+          titulo="Cuenta"
+          items={[
+            { label: 'Tus datos', href: href('/equipo/perfil/datos') },
+            { label: 'Contraseña', href: href('/equipo/perfil/seguridad') },
+          ]}
+        />
 
         <ProfileSection
           titulo="Tu trabajo"

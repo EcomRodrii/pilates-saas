@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { subirFoto, quitarFoto } from '@/lib/student/foto-perfil';
+import { subirFoto, quitarFoto, type ResultadoFoto } from '@/lib/student/foto-perfil';
 import { motivoFotoInvalida } from '@/lib/foto-perfil-regla';
 import { Button } from '@/components/student/ui/Button';
 import { Icono } from '@/components/student/ui/Icono';
@@ -15,12 +15,15 @@ import { Icono } from '@/components/student/ui/Icono';
 // ⚠️ Se enseña una PREVISUALIZACIÓN local en cuanto elige el archivo, antes de
 // que termine la subida, y se REVIERTE si el servidor dice que no. Sin eso, la
 // alumna elige una foto y no pasa nada visible durante segundos en móvil.
-export function FotoPerfil({ studioId, url, iniciales, onCambio }: {
+export function FotoPerfil({ studioId, url, iniciales, onCambio, subir, quitar: quitarDe }: {
   studioId: string;
   /** La que tiene ahora, o `null` si nunca puso ninguna. */
   url: string | null;
   iniciales: string;
   onCambio: (url: string | null) => void;
+  /** Otra forma de subir y quitar (la instructora tiene su propia ruta). Sin ellas, la de la alumna. */
+  subir?: (file: File) => Promise<ResultadoFoto>;
+  quitar?: () => Promise<{ ok: boolean; error?: string }>;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -43,7 +46,7 @@ export function FotoPerfil({ studioId, url, iniciales, onCambio }: {
     const local = URL.createObjectURL(file);
     setPrevia(local);
     setSubiendo(true);
-    const r = await subirFoto(studioId, file);
+    const r = subir ? await subir(file) : await subirFoto(studioId, file);
     setSubiendo(false);
     URL.revokeObjectURL(local);
 
@@ -58,7 +61,7 @@ export function FotoPerfil({ studioId, url, iniciales, onCambio }: {
     if (subiendo) return;
     setError(null);
     setSubiendo(true);
-    const r = await quitarFoto(studioId);
+    const r = quitarDe ? await quitarDe() : await quitarFoto(studioId);
     setSubiendo(false);
     if (r.ok) { onCambio(null); return; }
     setError(r.error ?? 'No hemos podido quitar la foto.');
@@ -93,7 +96,8 @@ export function FotoPerfil({ studioId, url, iniciales, onCambio }: {
             aria-hidden
             style={{
               position: 'absolute', inset: 0, borderRadius: 'var(--radius-pill)',
-              background: `url(${mostrada}) center/cover`,
+              // Entrecomillada: un `)` o un espacio en la URL rompía el fondo.
+              background: `url(${JSON.stringify(mostrada)}) center/cover`,
             }}
           />
         )}
