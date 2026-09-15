@@ -145,6 +145,23 @@ for (const vista of VISTAS) {
       await expect(page.getByText('Tienes cambios sin guardar.')).toHaveCount(0);
       await expect(burbuja(page)).toBeVisible();
     });
+
+    // En Marca, un campo alto enfocado caía debajo de la burbuja aunque aún no
+    // hubiera cambios (sin barra que la apartara): mientras se escribe, se aparta.
+    test('en Marca, mientras se escribe en un campo, la burbuja se aparta', async ({ page }) => {
+      await panel(page);
+      await ir(page, 'configuracion?tab=marca');
+      const lema = page.getByRole('textbox', { name: 'Tu lema' });
+      await expect(lema).toBeVisible({ timeout: 30_000 });
+      await expect(burbuja(page)).toBeVisible();
+
+      await lema.focus();
+      await expect(page.getByText('Tienes cambios sin guardar.')).toHaveCount(0);
+      await expect(burbuja(page)).toBeHidden();
+
+      await lema.evaluate(el => (el as HTMLElement).blur());
+      await expect(burbuja(page)).toBeVisible();
+    });
   });
 }
 

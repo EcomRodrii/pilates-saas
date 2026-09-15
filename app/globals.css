@@ -902,6 +902,13 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
    la barra se ve, que es mientras hay cambios sin guardar
    (shell/barra-guardar.tsx): una sección entera sin tocar no esconde la burbuja. */
 body:has([data-barra-guardar]) .panel-wa-fab { display: none; }
+/* Y mientras se escribe en un campo de Configuración en el móvil o el iPad: con
+   el teclado abierto queda poco alto, y un campo alto (el lema de Marca) caía
+   debajo de la burbuja aunque no hubiera cambios todavía. En escritorio no:
+   aparecer y desaparecer a cada clic en un campo sería más ruido que ayuda. */
+@media (max-width: 1023px), (pointer: coarse) {
+  body:has(.config-tactil :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), textarea, select, [contenteditable="true"]):focus) .panel-wa-fab { display: none; }
+}
 
 /* ── Motion de marca ───────────────────────────────────────────────────────
    Tres de las diez del kit (docs/marca/animaciones/tentare-motion.css); las
