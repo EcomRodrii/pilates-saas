@@ -24,7 +24,7 @@ import {
 
 export type Destino =
   | { redirect: string }
-  /** `tab: null` = ninguna sección: en el móvil, la lista; en pantalla ancha, la primera. */
+  /** `tab: null` = ninguna sección: el inicio de Configuración, en todas las anchuras. */
   | { tab: SeccionId | null; ancla?: string };
 
 type Lugar = { tab: SeccionId; ancla?: string };
@@ -138,7 +138,7 @@ export function esAnclaConocida(ancla: string): boolean {
 /**
  * Traduce la URL de `/configuracion` a la sección que hay que abrir.
  *
- * Nunca falla: lo desconocido abre la lista (`tab: null`). Lo que sí garantiza
+ * Nunca falla: lo desconocido abre el inicio (`tab: null`). Lo que sí garantiza
  * es que todo lo que conoce llega a su sitio, y que un ancla conocida manda
  * sobre el `tab=` que venga (si no, se haría scroll a nada).
  */

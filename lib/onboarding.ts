@@ -70,6 +70,70 @@ export function avisoVentaOnline(
   return 'Una alumna nueva todavía no puede reservar desde tu página: pides bono para reservar y, sin Stripe, no puede comprarlo online. Conecta Stripe o véndeselo tú en el mostrador.';
 }
 
+/**
+ * Lo que el panel ya tiene cargado (`useStudio()`) y hace falta para el checklist.
+ * Tipos estructurales a propósito: este fichero es puro y no importa nada.
+ */
+export interface FuenteOnboarding {
+  studio: {
+    nif: string | null;
+    stripeAccountId: string | null;
+    slug: string | null;
+    colorPrimario: string | null;
+    temaPortal: string | null;
+    logoUrl: string | null;
+    reservaExigirPlan?: boolean | null;
+  };
+  instructores: readonly { authUserId?: string | null }[];
+  tiposClase: readonly unknown[];
+  sesiones: readonly unknown[];
+  socios: readonly unknown[];
+  reservas: readonly unknown[];
+  salas: readonly unknown[];
+  planesTarifa: readonly { activo: boolean; precio: number }[];
+  suscripciones: readonly { estado: string }[];
+  automationRules: readonly { activa: boolean; trigger: string }[];
+  contenidoPortal: { mensajeDestacado?: unknown } | null;
+}
+
+/**
+ * De lo cargado a `DatosOnboarding`, en UN sitio. Lo copiaban a mano la tarjeta
+ * del Inicio, la guía y cada capítulo, y ya divergían (un capítulo no pasaba las
+ * tarifas en borrador). Ahora lo usa también el inicio de Configuración: los
+ * cuatro dicen el mismo «N de M».
+ */
+export function datosOnboardingDelEstudio(f: FuenteOnboarding): DatosOnboarding {
+  const { studio, planesTarifa } = f;
+  return {
+    nif: studio.nif,
+    stripeAccountId: studio.stripeAccountId,
+    slug: studio.slug,
+    colorPrimario: studio.colorPrimario,
+    temaPortal: studio.temaPortal,
+    logoUrl: studio.logoUrl,
+    numInstructores: f.instructores.length,
+    numInstructoresConCuenta: f.instructores.filter(i => i.authUserId).length,
+    numTiposClase: f.tiposClase.length,
+    numSesiones: f.sesiones.length,
+    numSocios: f.socios.length,
+    numReservas: f.reservas.length,
+    numSalas: f.salas.length,
+    // P1-6 (auditoría de producto): contar CUALQUIER fila marcaba «✓ Configura
+    // tus bonos» tachado aunque fuera el borrador que crea el wizard de
+    // bienvenida (`activo:false, precio:0` a propósito — nadie ha decidido el
+    // precio todavía). Falsa sensación de "ya puedo cobrar": el bono no
+    // aparece en la reserva pública hasta que la propietaria lo activa de
+    // verdad.
+    numPlanesTarifa: planesTarifa.filter(p => p.activo && p.precio > 0).length,
+    numPlanesActivos: planesTarifa.filter(p => p.activo).length,
+    numPlanesBorrador: planesTarifa.filter(p => !p.activo || !(p.precio > 0)).length,
+    reservaExigirPlan: studio.reservaExigirPlan ?? true,
+    numSuscripcionesActivas: f.suscripciones.filter(s => s.estado === 'ACTIVA').length,
+    contenidoPortalPersonalizado: !!f.contenidoPortal?.mensajeDestacado,
+    automatizacionesActivas: new Set(f.automationRules.filter(r => r.activa).map(r => r.trigger)),
+  };
+}
+
 export interface PasoOnboarding {
   id: string;
   label: string;
@@ -161,14 +225,18 @@ export function calcularOnboarding(d: DatosOnboarding): {
 } {
   const marcaPersonalizada = !!d.logoUrl || (!!d.colorPrimario && d.colorPrimario !== '#4F46E5') || (!!d.temaPortal && d.temaPortal !== 'original');
 
+  // Los enlaces van a la sección y la tarjeta de hoy. Los ids viejos
+  // (`clases-salas&sub=salas`, `descubre`) seguían llegando por destino.ts, pero
+  // la marca mandaba a /configuracion/apariencia, que está en mantenimiento, y
+  // desde el inicio de Configuración este es el «Siguiente» que se ofrece.
   const configuracionInicial: PasoOnboarding[] = [
     { id: 'estudio', label: 'Configura los datos de tu estudio', descripcion: 'Nombre, NIF y contacto — aparecen en tus recibos y en tu página de reservas.', minutos: 3, done: !!d.nif, href: '/configuracion?tab=estudio' },
-    { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion/apariencia' },
-    { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas clientas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=clases-salas&sub=salas' },
+    { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion?tab=web#marca' },
+    { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas clientas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=estudio#salas' },
     // Mismo criterio que «clientas»: el panel usa una sola palabra para la
     // clientela porque el equipo de un estudio de Pilates lo es casi siempre.
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: 'Gestiona horarios, sustituciones, disponibilidad y estadísticas de tus instructoras.', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
-    { id: 'clase', label: 'Crea tu primera clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases-salas' },
+    { id: 'clase', label: 'Crea tu primera clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases#tipos-de-clase' },
     // El paso donde se pierde más de la mitad de los estudios (4 de 10 lo
     // superan). El calendario ya no recibe vacío: propone el horario a partir
     // de lo que contestó en el asistente.
@@ -217,7 +285,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
   ];
 
   const portal: PasoOnboarding[] = [
-    { id: 'portal-contenido', label: 'Personaliza el contenido de tu portal', descripcion: 'El mensaje destacado y los banners que ven tus clientas al entrar en su app.', minutos: 3, done: d.contenidoPortalPersonalizado, href: '/configuracion?tab=descubre' },
+    { id: 'portal-contenido', label: 'Personaliza el contenido de tu portal', descripcion: 'El mensaje destacado y los banners que ven tus clientas al entrar en su app.', minutos: 3, done: d.contenidoPortalPersonalizado, href: '/configuracion?tab=web#contenido-de-tu-app' },
   ];
 
   const categorias: CategoriaOnboarding[] = [

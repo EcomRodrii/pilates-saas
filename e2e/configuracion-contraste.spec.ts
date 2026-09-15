@@ -297,7 +297,8 @@ async function abrir(page: Page, ruta: string, tituloSeccion: string | null) {
   if (tituloSeccion) {
     await expect(page.getByRole('heading', { level: 2, name: tituloSeccion, exact: true })).toBeVisible({ timeout: 30_000 });
   } else {
-    await expect(page.getByRole('navigation', { name: 'Secciones de Configuración' }).first()).toBeVisible({ timeout: 30_000 });
+    // El inicio: sus filas, y ya con el valor de cada sección (datos cargados).
+    await expect(page.locator('#inicio-seccion-estudio [data-resumen="valor"]')).toBeVisible({ timeout: 30_000 });
   }
   await page.waitForFunction(() => !document.querySelector('[data-tour="configuracion-vista"] .animate-pulse'), null, { timeout: 15_000 }).catch(() => {});
   // El fundido de entrada de la sección: a mitad, los colores son mezclas.

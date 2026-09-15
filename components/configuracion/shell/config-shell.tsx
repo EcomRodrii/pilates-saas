@@ -13,6 +13,7 @@ import { seccionPorId, type SeccionId } from '@/lib/configuracion/secciones';
 import { ContextoNavegacionConfig, type NavegacionConfig } from './contexto';
 import { ListaSecciones } from './lista-secciones';
 import { CabeceraSeccion } from './cabecera-seccion';
+import { InicioConfiguracion } from './inicio-configuracion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuración por preguntas.
@@ -21,15 +22,23 @@ import { CabeceraSeccion } from './cabecera-seccion';
 // en el móvil sin nada que dijera que había más) y dentro sub-pestañas y
 // «Opciones avanzadas». Ahora:
 //
-//   · móvil (<768): una LISTA de once secciones; tocar una abre su DETALLE a
-//     pantalla completa, con flecha de volver. `pushState`, para que el gesto
-//     de atrás del teléfono vuelva a la lista.
-//   · 768 en adelante: la lista es una columna fija a la izquierda y la sección
-//     a la derecha. `replaceState`: saltar de una a otra no llena el historial.
-//     (Por qué la API nativa y no el router: ver `irA`.)
+//   · `/configuracion` sin sección es el INICIO, en todas las anchuras
+//     (inicio-configuracion.tsx): cómo está el estudio, qué hay que revisar y
+//     cada sección con su valor de hoy. Tocar una fila abre la sección con
+//     `pushState`, para que el atrás del navegador —o el gesto del teléfono—
+//     vuelva al inicio con el foco en esa fila.
+//     Hasta el 15-sep, a partir de 768 px no había inicio: se abría la primera
+//     sección y la propietaria caía en el formulario de datos sin ver nada.
+//   · móvil (<768): el inicio o la sección, a pantalla completa y con flecha de
+//     volver.
+//   · 768 en adelante: la columna de la izquierda (el inicio y las secciones)
+//     y a la derecha lo que esté abierto. Saltar de una a otra en la columna es
+//     `replaceState`: no llena el historial. (Por qué la API nativa y no el
+//     router: ver `irA`.)
 //
-// Lista o detalle se decide con CSS (`data-vista`), nunca con matchMedia: girar
-// el iPad no desmonta nada ni pierde lo que se estaba escribiendo.
+// Lo que cambia con la anchura se decide con CSS (`data-vista`, `md:`), nunca
+// con matchMedia: girar el iPad no desmonta nada ni pierde lo que se estaba
+// escribiendo.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type PropsSeccion = { showToast: (m: string) => void };
@@ -63,6 +72,10 @@ export function ConfigShell() {
   // `null` hasta leer la URL: pintar antes una sección y cambiarla un render
   // después era un parpadeo en cada enlace.
   const [abierto, setAbierto] = useState<Abierto | null>(null);
+  // Lo escrito en el buscador del inicio. Vive aquí y no en el inicio, que se
+  // desmonta al abrir una sección: volver tiene que encontrar los mismos
+  // resultados, y el foco, el enlace que se pulsó.
+  const [consulta, setConsulta] = useState('');
 
   // ⚠️ #2008: tras cambiar la URL, `useSearchParams()` no se entera en el mismo
   // render. Si la sección se derivara de él, cada clic volvería un instante a la
@@ -72,8 +85,8 @@ export function ConfigShell() {
   const escritas = useRef<string[]>([]);
   const urlVista = useRef<string | null>(null);
 
-  // Foco: la fila de la lista que abrió el detalle (a ella se vuelve), si hay
-  // que llevar el foco al título, y cuántos `push` van desde la lista.
+  // Foco: el enlace del inicio que abrió la sección (a él se vuelve), si hay
+  // que llevar el foco al título, y cuántos `push` van desde el inicio.
   const filaOrigen = useRef<string | null>(null);
   const enfocarTitulo = useRef(false);
   const pushesDesdeLista = useRef(0);
@@ -142,11 +155,11 @@ export function ConfigShell() {
 
   // ── Salir con cambios sin guardar ──────────────────────────────────────────
   // Cada barra de guardar con cambios deja aquí su sección
-  // (shell/barra-guardar.tsx). Cambiar a OTRA sección, volver a la lista o irse
+  // (shell/barra-guardar.tsx). Cambiar a OTRA sección, volver al inicio o irse
   // a otra pantalla del panel pregunta antes; recargar o cerrar la pestaña lo
   // pregunta el navegador (`beforeunload`, en la propia barra).
   // ⚠️ El gesto de atrás del teléfono (popstate) no se puede frenar sin tocar el
-  // historial a mano, y eso rompería la vuelta a la lista: ese no pregunta.
+  // historial a mano, y eso rompería la vuelta al inicio: ese no pregunta.
   const sinGuardar = useRef(new Map<number, SeccionId>());
   const ultimaMarca = useRef(0);
   const [salida, setSalida] = useState<{ seccion: SeccionId; ir: () => void } | null>(null);
@@ -205,7 +218,7 @@ export function ConfigShell() {
   const vista = abierto?.vista;
   const ancla = abierto?.ancla;
 
-  // De vuelta en la lista: el foco, a la fila que abrió la sección.
+  // De vuelta en el inicio: el foco, al enlace que abrió la sección.
   useEffect(() => {
     if (tab) return;
     pushesDesdeLista.current = 0;
@@ -215,8 +228,8 @@ export function ConfigShell() {
     requestAnimationFrame(() => document.getElementById(fila)?.focus());
   }, [tab]);
 
-  // Sección abierta desde la lista del móvil: arriba del todo y el foco en su
-  // título, para que un lector de pantalla diga dónde ha llegado.
+  // Sección abierta desde el inicio: arriba del todo y el foco en su título,
+  // para que un lector de pantalla diga dónde ha llegado.
   useEffect(() => {
     if (!tab || !enfocarTitulo.current) return;
     enfocarTitulo.current = false;
@@ -265,8 +278,8 @@ export function ConfigShell() {
 
   const visibles = seccionesVisibles(rol);
   const permitida = tab !== null && visibles.some(s => s.id === tab);
-  // Sin sección en la URL, en pantalla ancha se abre la primera sin tocar la URL.
-  const mostrada = permitida ? tab : (visibles[0]?.id ?? null);
+  // Sin sección en la URL (o con una que este rol no abre): el inicio.
+  const mostrada = permitida ? tab : null;
   const Seccion = mostrada ? COMPONENTES[mostrada] : null;
 
   function volver() {
@@ -279,11 +292,11 @@ export function ConfigShell() {
   }
 
   function volverSinPreguntar() {
-    // Si se llegó desde la lista con un solo paso, «volver» es el atrás de
+    // Si se llegó desde el inicio con un solo paso, «volver» es el atrás de
     // siempre y el historial queda como estaba. Si se llegó por un enlace
-    // (una notificación, otra sección), se sustituye por la lista.
+    // (una notificación, otra sección), se sustituye por el inicio.
     //
-    // ⚠️ Con el atrás, la lista NO se pinta antes de que la URL cambie: si se
+    // ⚠️ Con el atrás, el inicio NO se pinta antes de que la URL cambie: si se
     // pintara al momento, un segundo toque rápido en otra fila hacía su `push`
     // con el atrás aún en vuelo y el historial se descolocaba (medido en e2e:
     // acababa fuera del panel). La vuelta la aplica el efecto de la URL.
@@ -297,10 +310,10 @@ export function ConfigShell() {
   return (
     <ContextoNavegacionConfig.Provider value={nav}>
       {/* `config-tactil`: el tamaño mínimo de lo que se pulsa con el dedo (globals.css). */}
-      <div data-tour="configuracion-vista" data-vista={permitida ? 'detalle' : 'lista'} className="group/config config-tactil space-y-6">
+      <div data-tour="configuracion-vista" data-vista={permitida ? 'detalle' : 'inicio'} className="group/config config-tactil space-y-6">
         <PageHeader
           title="Configuración"
-          description="Cómo funciona tu estudio: tus clases, cómo reservan tus alumnas, cómo cobras y qué ven en su app."
+          description="Cómo está tu estudio y dónde se cambia cada cosa."
           className="max-md:group-data-[vista=detalle]/config:sr-only"
         />
 
@@ -311,20 +324,12 @@ export function ConfigShell() {
         )}
 
         <div className="md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-6">
-          <div className="md:hidden max-md:group-data-[vista=detalle]/config:hidden">
-            <ListaSecciones
-              variant="lista"
-              secciones={visibles}
-              activa={null}
-              onElegir={(id, fila) => irAPreguntando(id, { modo: 'push', origen: fila })}
-            />
-          </div>
           <div className="hidden md:sticky md:top-14 md:block md:max-h-[calc(100dvh-8rem)] md:self-start md:overflow-y-auto lg:top-[calc(var(--panel-sticky-top,0px)+4rem)]">
-            <ListaSecciones variant="rail" secciones={visibles} activa={mostrada} onElegir={id => irAPreguntando(id)} />
+            <ListaSecciones secciones={visibles} activa={mostrada} onElegir={id => irAPreguntando(id)} />
           </div>
 
-          <div className="@container/config min-w-0 max-md:group-data-[vista=lista]/config:hidden">
-            {mostrada && Seccion && (
+          <div className="@container/config min-w-0">
+            {mostrada && Seccion ? (
               <section
                 key={mostrada}
                 aria-labelledby="seccion-titulo"
@@ -337,6 +342,13 @@ export function ConfigShell() {
                 <CabeceraSeccion seccion={seccionPorId(mostrada)} tituloRef={tituloRef} onVolver={volver} />
                 <Seccion showToast={showToast} />
               </section>
+            ) : visibles.length > 0 && (
+              <InicioConfiguracion
+                secciones={visibles}
+                consulta={consulta}
+                onConsulta={setConsulta}
+                onAbrir={(id, { ancla: tarjeta, origen }) => irAPreguntando(id, { ancla: tarjeta, modo: 'push', origen })}
+              />
             )}
           </div>
         </div>

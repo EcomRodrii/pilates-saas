@@ -5,8 +5,8 @@ import { SECCIONES } from '../lib/configuracion/secciones';
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuración se recorre sin ver la pantalla y sin perderse.
 //
-// Una lista que abre un detalle a pantalla completa es fácil de hacer mal: el
-// lector de pantalla se queda leyendo la lista que ya no se ve, «Volver» deja
+// Un inicio que abre una sección a pantalla completa es fácil de hacer mal: el
+// lector de pantalla se queda leyendo el inicio que ya no se ve, «Volver» deja
 // el foco arriba del todo y hay que recorrer once filas otra vez para seguir
 // donde se estaba. Aquí se fija (§5 y §6.7 de la reorganización):
 //   · abrir una sección lleva el foco a su título;
@@ -15,7 +15,7 @@ import { SECCIONES } from '../lib/configuracion/secciones';
 //   · la columna de pantalla ancha no roba el foco al enlace pulsado;
 //   · llegar por un ancla pone el foco en el título de esa tarjeta;
 //   · los interruptores son interruptores (`role="switch"`) con nombre;
-//   · los títulos no se saltan niveles.
+//   · los títulos no se saltan niveles, tampoco en el inicio.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STUDIO = {
@@ -35,22 +35,22 @@ async function panel(page: Page) {
 
 const titulo = (page: Page, nombre: string) => page.getByRole('heading', { level: 2, name: nombre, exact: true });
 
-test.describe('En el móvil: lista, sección y vuelta', () => {
+test.describe('En el móvil: inicio, sección y vuelta', () => {
   test.use({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
 
   test('abrir una sección enfoca su título, y volver devuelve el foco a su fila', async ({ page }) => {
     await panel(page);
     await ir(page, 'configuracion');
-    const fila = page.locator('#lista-seccion-reservas');
+    const fila = page.locator('#inicio-seccion-reservas');
     await expect(fila).toBeVisible({ timeout: 30_000 });
     const historial = await page.evaluate(() => history.length);
 
     await fila.click();
     await expect(titulo(page, 'Cómo reservan mis alumnas')).toBeFocused({ timeout: 30_000 });
     await expect(page).toHaveURL(/\/configuracion\?tab=reservas$/);
-    // `push`: el gesto de atrás del teléfono tiene que poder volver a la lista.
+    // `push`: el gesto de atrás del teléfono tiene que poder volver al inicio.
     expect(await page.evaluate(() => history.length)).toBe(historial + 1);
-    // La lista no se queda debajo, leyéndose sin verse.
+    // El inicio no se queda debajo, leyéndose sin verse.
     await expect(fila).toBeHidden();
 
     await page.getByRole('button', { name: 'Volver a Configuración' }).click();
@@ -59,10 +59,10 @@ test.describe('En el móvil: lista, sección y vuelta', () => {
     await expect(page).toHaveURL(/\/configuracion$/);
   });
 
-  test('el gesto de atrás del teléfono también vuelve a la lista', async ({ page }) => {
+  test('el gesto de atrás del teléfono también vuelve al inicio', async ({ page }) => {
     await panel(page);
     await ir(page, 'configuracion');
-    const fila = page.locator('#lista-seccion-cobros');
+    const fila = page.locator('#inicio-seccion-cobros');
     await expect(fila).toBeVisible({ timeout: 30_000 });
 
     await fila.click();
@@ -76,13 +76,13 @@ test.describe('En el móvil: lista, sección y vuelta', () => {
     await expect(page).toHaveURL(/\/configuracion$/);
   });
 
-  test('llegando por un enlace, la flecha lleva a la lista sin salir de Configuración', async ({ page }) => {
+  test('llegando por un enlace, la flecha lleva al inicio sin salir de Configuración', async ({ page }) => {
     await panel(page);
     await ir(page, 'configuracion?tab=altas');
     await expect(titulo(page, 'Alta de alumnas')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Volver a Configuración' }).click();
-    await expect(page.getByRole('navigation', { name: 'Secciones de Configuración' })).toBeVisible();
+    await expect(page.locator('#inicio-seccion-altas')).toBeVisible();
     await expect(page).toHaveURL(/\/configuracion$/);
   });
 });
@@ -147,14 +147,18 @@ test.describe('En pantalla ancha', () => {
     expect(escrituras, 'cambiar el interruptor no escribe hasta «Guardar»').toBe(0);
   });
 
-  test('en cada sección los títulos no se saltan niveles y cada interruptor tiene nombre', async ({ page }) => {
+  test('en el inicio y en cada sección los títulos no se saltan niveles y cada interruptor tiene nombre', async ({ page }) => {
     test.setTimeout(180_000);
     await panel(page);
     const fallos: string[] = [];
 
-    for (const seccion of SECCIONES) {
-      await ir(page, `configuracion?tab=${seccion.id}`);
-      await expect(titulo(page, seccion.titulo)).toBeVisible({ timeout: 30_000 });
+    const pantallas = [
+      { id: 'inicio', ruta: 'configuracion', listo: page.locator('#inicio-seccion-estudio') },
+      ...SECCIONES.map(s => ({ id: s.id, ruta: `configuracion?tab=${s.id}`, listo: titulo(page, s.titulo) })),
+    ];
+    for (const pantalla of pantallas) {
+      await ir(page, pantalla.ruta);
+      await expect(pantalla.listo).toBeVisible({ timeout: 30_000 });
       await page.waitForTimeout(800);
 
       const { niveles, sinNombre } = await page.evaluate(() => {
@@ -178,13 +182,13 @@ test.describe('En pantalla ancha', () => {
         return { niveles, sinNombre };
       });
 
-      if (!niveles[0]?.startsWith('1:')) fallos.push(`${seccion.id}: no empieza por el h1 (${niveles[0]})`);
+      if (!niveles[0]?.startsWith('1:')) fallos.push(`${pantalla.id}: no empieza por el h1 (${niveles[0]})`);
       for (let i = 1; i < niveles.length; i++) {
         const antes = Number(niveles[i - 1][0]);
         const ahora = Number(niveles[i][0]);
-        if (ahora > antes + 1) fallos.push(`${seccion.id}: salta de «${niveles[i - 1]}» a «${niveles[i]}»`);
+        if (ahora > antes + 1) fallos.push(`${pantalla.id}: salta de «${niveles[i - 1]}» a «${niveles[i]}»`);
       }
-      for (const s of sinNombre) fallos.push(`${seccion.id}: interruptor sin nombre ${s}`);
+      for (const s of sinNombre) fallos.push(`${pantalla.id}: interruptor sin nombre ${s}`);
     }
 
     expect(fallos, `\n${fallos.join('\n')}\n`).toEqual([]);

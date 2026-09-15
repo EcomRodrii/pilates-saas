@@ -134,8 +134,11 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     await panel(page);
     await page.goto('/configuracion');
 
-    // Sin sección en la URL, en pantalla ancha se abre la primera.
-    await expect(tituloSeccion(page, 'Mi estudio')).toBeVisible({ timeout: 30_000 });
+    // Sin sección en la URL, también en pantalla ancha se ve el inicio: ya no se
+    // abre la primera sección por su cuenta.
+    await expect(page.locator('#inicio-seccion-estudio')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#seccion-titulo')).toHaveCount(0);
+    await expect(rail(page).getByRole('link', { name: 'Configuración', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page).toHaveURL(/\/configuracion$/);
     const historialAntes = await page.evaluate(() => history.length);
 

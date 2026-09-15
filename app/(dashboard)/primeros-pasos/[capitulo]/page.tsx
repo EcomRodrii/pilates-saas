@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, Circle, Clock, ArrowRight, ArrowLeft, Lightbulb, Play, ExternalLink } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { calcularOnboarding } from '@/lib/onboarding';
+import { calcularOnboarding, datosOnboardingDelEstudio } from '@/lib/onboarding';
 import { calcularProgresoGuia } from '@/lib/guia/progreso';
 import { CAPITULOS, capituloPorId, ETIQUETA_NIVEL } from '@/lib/guia/curriculo';
 import { useTour } from '@/lib/tour-context';
@@ -35,25 +35,10 @@ export default function CapituloPage({ params }: { params: Promise<{ capitulo: s
   const capitulo = capituloPorId(id);
   if (!capitulo) notFound();
 
-  const datos = studio ? calcularOnboarding({
-    nif: studio.nif,
-    stripeAccountId: studio.stripeAccountId,
-    slug: studio.slug,
-    colorPrimario: studio.colorPrimario,
-    temaPortal: studio.temaPortal,
-    logoUrl: studio.logoUrl,
-    numInstructores: instructores.length,
-    numInstructoresConCuenta: instructores.filter(i => i.authUserId).length,
-    numTiposClase: tiposClase.length,
-    numSesiones: sesiones.length,
-    numSocios: socios.length,
-    numReservas: reservas.length,
-    numSalas: salas.length,
-    numPlanesTarifa: planesTarifa.filter(p => p.activo && p.precio > 0).length,
-    numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
-    contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
-    automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
-  }) : null;
+  const datos = studio ? calcularOnboarding(datosOnboardingDelEstudio({
+    studio, instructores, tiposClase, sesiones, socios, reservas,
+    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+  })) : null;
 
   const item = datos
     ? calcularProgresoGuia(datos.categorias).capitulos.find(c => c.capitulo.id === id) ?? null
