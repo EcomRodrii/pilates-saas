@@ -1648,9 +1648,21 @@ export async function aplicarCatalogoCadena(params: { cadenaId: string; studioId
 // Mismo límite que el resto de abanicos contra Supabase de este repo.
 const CONCURRENCIA_AVISOS = 8;
 
-export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ creadas: number; noMaterializadas: number }> {
+export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ creadas: number; noMaterializadas: number; soltadas: number }> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
+
+  // Primero se suelta lo que ya no tiene cuota. Aquí se cubren TODOS los caminos
+  // por los que una alumna se queda sin ella (vence, se cancela por impago, se
+  // pausa, se cambia por un bono); el panel lo hace además al momento. Best-effort:
+  // un fallo aquí no puede dejar sin materializar al resto de estudios.
+  let soltadas = 0;
+  try {
+    soltadas = (await soltarReservasPlazaFijaSinCuota(admin)).canceladas.length;
+  } catch (e) {
+    capturarExcepcion(e, { tags: { area: 'plazas-fijas' }, extra: { paso: 'soltar-sin-cuota' } });
+  }
+
   const { data, error } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: horizonteDias });
   if (error) throw new Error(error.message);
 
@@ -1691,7 +1703,7 @@ export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ cre
     console.error('[materializarPlazasFijas] aviso de huecos:', e instanceof Error ? e.message : e);
   }
 
-  return { creadas: (data as number) ?? 0, noMaterializadas };
+  return { creadas: (data as number) ?? 0, noMaterializadas, soltadas };
 }
 
 
@@ -3739,6 +3751,43 @@ async function retirarReservasFuturasPlazaFija(
     }
   }
   return { canceladas, mantenidas: mantener, fallidas };
+}
+
+// Quien se queda sin cuota (cancelada, cambiada por un bono, pausada o vencida)
+// deja de tener las clases que el motor de plaza fija ya le había reservado:
+// antes seguían CONFIRMADAS hasta 6 semanas, ocupando sitio y expuestas al
+// barrido de faltas. Qué se suelta lo decide la BD (`reservas_plaza_fija_sin_cuota`,
+// con la misma regla de cuota que usa el motor para reservar). Cada una se
+// cancela como al quitar la plaza: lista de espera y avisos, sin penalización ni
+// recuperación, y con `plaza_fija_retirada`, que deja que el motor se las vuelva
+// a reservar si recupera la cuota. La plaza no se toca: conserva su sitio.
+// Sin `studioId` barre todos los estudios (cron nocturno).
+export async function soltarReservasPlazaFijaSinCuota(
+  admin: SupabaseClient, filtro: { studioId?: string; socioId?: string } = {},
+): Promise<{ canceladas: string[]; fallidas: number }> {
+  const { data, error } = await admin.rpc('reservas_plaza_fija_sin_cuota', {
+    p_studio_id: filtro.studioId ?? null, p_socio_id: filtro.socioId ?? null,
+  });
+  if (error) throw new Error(`reservas_plaza_fija_sin_cuota: ${error.message}`);
+  const filas = (data as { studio_id: string; reserva_id: string }[] | null) ?? [];
+
+  const canceladas: string[] = [];
+  let fallidas = 0;
+  // En serie, como la retirada: cada una puede promocionar la lista de espera de
+  // su clase, y son pocas.
+  for (const f of filas) {
+    const r = await ejecutarCancelacionReserva(admin, {
+      studioId: f.studio_id, reservaId: f.reserva_id, socioId: null, omitirPenalizacion: true,
+      otorgarRecuperacionPlazaFija: false, motivoCancelacion: 'plaza_fija_retirada',
+    });
+    if ('error' in r) {
+      fallidas++;
+      capturarExcepcion(new Error(r.error), { tags: { area: 'plazas-fijas' }, extra: { studioId: f.studio_id, reservaId: f.reserva_id } });
+    } else {
+      canceladas.push(f.reserva_id);
+    }
+  }
+  return { canceladas, fallidas };
 }
 
 async function aplicarEstadoPlazaFija(

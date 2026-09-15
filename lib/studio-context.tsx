@@ -1731,6 +1731,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true, canceladas: canceladas.size, mantenidas: datos.mantenidas?.length ?? 0, fallidas: datos.fallidas ?? 0 };
   }
 
+  // Sin cuota, la plaza fija no puede seguir ocupando clases. Tras cancelar,
+  // pausar, programar la baja o cambiar la cuota, el servidor suelta las clases
+  // que el motor ya le había reservado y que no cubre ninguna cuota; qué se suelta
+  // lo decide la BD, así que llamarlo de más no cancela nada. Best-effort: la
+  // cuota ya está guardada y, si esto falla, lo hace el cron esa misma noche. Se
+  // tachan solo las reservas que el servidor dice haber cancelado.
+  async function soltarClasesPlazaFijaSinCuota(socioId: string): Promise<number> {
+    if (!plazasFijas.some(p => p.socioId === socioId && p.estado !== 'BAJA')) return 0;
+    const respuesta = await fetch('/api/plazas-fijas/soltar-sin-cuota', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ socioId }),
+    }).catch(() => null);
+    const datos = await respuesta?.json().catch(() => null) as { canceladas?: string[] } | null;
+    const canceladas = new Set(respuesta?.ok ? datos?.canceladas ?? [] : []);
+    if (canceladas.size > 0) {
+      setReservas(prev => prev.map(r => canceladas.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+    }
+    return canceladas.size;
+  }
+
   // Pausa con fechas (vacaciones, lesión…): no cambia el estado, la plaza sigue
   // ACTIVA con su sitio y el motor se salta esas semanas. Va por el servidor
   // porque suelta las clases ya reservadas en esas fechas y, al quitar o acortar
@@ -2910,6 +2931,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     });
     const nuevosRecibos = [reciboPlan, reciboMatricula].filter((r): r is Recibo => r !== null);
     if (nuevosRecibos.length > 0) setRecibos(prev => [...prev, ...nuevosRecibos]);
+    // Cambiar la cuota por un bono (o quitar el plan) deja su plaza fija sin
+    // cuota: fuera las clases que ya tenía reservadas. Si el plan nuevo también
+    // cubre, la BD no suelta nada.
+    if (desactivadas.size > 0) await soltarClasesPlazaFijaSinCuota(socioId);
 
     const socio = socios.find(s => s.id === socioId);
     addActividadReciente(
@@ -2932,6 +2957,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbCongelarSuscripcion(susId, getCurrentStudioId(), motivo ?? null);
     if (!res.ok) return res;
     setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'PAUSADA' as const } : s));
+    // Pausada no cubre: fuera las clases de su plaza fija (al reanudar, el motor
+    // se las vuelve a reservar esa noche).
+    await soltarClasesPlazaFijaSinCuota(sus.socioId);
     return res;
   }
 
@@ -3007,6 +3035,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbUpdateSuscripcion(susId, { estado: 'CANCELADA' });
     if (!res.ok) return res;
     setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'CANCELADA' as const } : s));
+    await soltarClasesPlazaFijaSinCuota(sus.socioId);
 
     // El rastro que ya dejaba el camino viejo (`assignPlan` registra «quitó el
     // plan»): sin esto, cancelar una suscripción sería lo único de esta
@@ -3041,6 +3070,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbUpdateSuscripcion(susId, { bajaAlVencer: programar });
     if (!res.ok) return res;
     setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, bajaAlVencer: programar } : s));
+    // Con la baja programada, lo reservado DESPUÉS de su fin ya no lo cubre.
+    if (programar) await soltarClasesPlazaFijaSinCuota(sus.socioId);
 
     const socio = socios.find(s => s.id === sus.socioId);
     addActividadReciente(

@@ -46,7 +46,9 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page) {
+// `rutasExtra` se registra DESPUÉS de los comodines: Playwright resuelve en orden
+// inverso al de registro, así que registrarla antes de llamar a `montar` la tapa.
+async function montar(page: Page, rutasExtra?: () => Promise<void>) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -80,6 +82,7 @@ async function montar(page: Page) {
     }
     return json(route, [SUS_BONO]);
   });
+  if (rutasExtra) await rutasExtra();
 
   await page.goto('/clientas/soc-1');
   await expect(page.getByText('Ana Gil')).toBeVisible({ timeout: 30_000 });
@@ -107,6 +110,33 @@ test('cancelar un bono con saldo escribe de verdad — y avisa de lo que se pier
   expect(patch!.cuerpo).toContain('CANCELADA');
 
   await expect(page.getByText('Suscripción cancelada')).toBeVisible();
+});
+
+test('con plaza fija, cancelar pide al servidor soltar sus clases y lo avisa antes', async ({ page }) => {
+  // Antes, cancelar la cuota dejaba CONFIRMADAS hasta 6 semanas de clases de su
+  // plaza fija: ocupaban sitio y, si no iba, el barrido de faltas podía
+  // penalizarla. Con contador: que la pantalla lo diga no prueba que se pidiera.
+  const soltar: string[] = [];
+  const escrituras = await montar(page, async () => {
+    await page.route('**/rest/v1/plazas_fijas**', route => json(route, [{
+      id: 'pf-1', studio_id: STUDIO_ID, socio_id: 'soc-1', sala_id: 'sala-1', spot_id: null, tipo_clase_id: null,
+      dia_semana: 2, hora_inicio: '10:00:00', estado: 'ACTIVA', vigencia_desde: '2026-08-01', vigencia_hasta: null,
+      pausa_desde: null, pausa_hasta: null, creada_en: '2026-08-01T09:00:00Z',
+    }]));
+    await page.route('**/api/plazas-fijas/soltar-sin-cuota', route => {
+      soltar.push(route.request().postData() ?? '');
+      return json(route, { canceladas: [], fallidas: 0 });
+    });
+  });
+
+  await page.getByRole('button', { name: 'Cancelar suscripción' }).click();
+  const dialogo = page.getByRole('dialog');
+  await expect(dialogo).toContainText('Su plaza fija se guarda, pero se sueltan las clases que ya tenía reservadas');
+  await dialogo.getByRole('button', { name: 'Cancelar suscripción' }).click();
+
+  await expect.poll(() => escrituras.length, { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect.poll(() => soltar.length, { timeout: 10_000 }).toBeGreaterThan(0);
+  expect(JSON.parse(soltar[0])).toEqual({ socioId: 'soc-1' });
 });
 
 test('se puede echar atrás: «Volver» no escribe nada', async ({ page }) => {

@@ -2528,12 +2528,18 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   Lo habitual es darla de baja <strong className="text-foreground">al final del periodo</strong>: {socio.nombre} sigue
                   reservando hasta el {suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'} y no se le vuelve a cobrar.
                   Si la cancelas ahora, deja de poder reservar desde hoy.
+                  {plazasFijas.some(p => p.socioId === id && p.estado !== 'BAJA') && (
+                    <> Su plaza fija se guarda, pero se sueltan las clases que ya tenía reservadas a partir de ese día.</>
+                  )}
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   {plan?.nombre ? `«${plan.nombre}» dejará` : 'La suscripción dejará'} de estar activa: {socio.nombre} no podrá reservar con ella y no se le volverá a cobrar.
                   {(suscripcion?.sesionesRestantes ?? 0) > 0 && (
                     <> Le quedan <strong className="text-destructive">{suscripcion!.sesionesRestantes} {suscripcion!.sesionesRestantes === 1 ? 'sesión' : 'sesiones'} sin usar</strong> que ya ha pagado, y las pierde.</>
+                  )}
+                  {plazasFijas.some(p => p.socioId === id && p.estado !== 'BAJA') && (
+                    <> Su plaza fija se guarda, pero se sueltan las clases que ya tenía reservadas.</>
                   )}
                   {' '}Puedes volver a activarla después desde esta misma tarjeta.
                 </p>

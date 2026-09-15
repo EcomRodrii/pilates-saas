@@ -207,6 +207,15 @@ async function generarRecibosRenovacion(studioId: string, nowISO: string, conMet
       .eq('baja_al_vencer', true)
       .in('id', cancelar.map(s => s.id));
     if (bajaErr) throw new Error(bajaErr.message);
+    // Sin cuota, fuera las clases que su plaza fija ya tenía reservadas (el cron
+    // nocturno también lo haría, pero puede haber una clase mañana). Best-effort:
+    // un fallo aquí no puede tumbar las renovaciones del resto.
+    try {
+      const { soltarReservasPlazaFijaSinCuota } = await import('@/lib/db/supabase-data-admin');
+      await soltarReservasPlazaFijaSinCuota(admin, { studioId });
+    } catch (e) {
+      console.error('[renovaciones] soltar plazas fijas sin cuota:', e instanceof Error ? e.message : e);
+    }
   }
   if (vencidas.length === 0) return 0;
 

@@ -32,6 +32,14 @@ export default function Contenido() {
         igualmente.
       </p>
       <p>
+        Si se queda <strong>sin cuota</strong> —la cancelas, la pausas, la cambias por un bono o se da de baja— la
+        plaza sigue guardada con su sitio, pero <strong>se sueltan las clases que ya tenía reservadas</strong>, sin
+        penalización; si hay alguien en lista de espera, entra en su lugar. Las que empiezan dentro del plazo de
+        cancelación se mantienen. Desde su ficha pasa al momento; si ocurre por otro lado (por ejemplo, la cuota se
+        cancela sola porque no se pudo cobrar), esa misma noche. Mientras solo esté <strong>pendiente de cobrar la
+        renovación</strong>, conserva sus clases. Cuando vuelva a tener cuota, se le reservan otra vez.
+      </p>
+      <p>
         La plaza se guarda como un <strong>hueco semanal</strong>, no como una lista de reservas. Al guardarla ya
         se le reservan las clases de las seis semanas que vienen (menos las que ya empiezan dentro del plazo de
         cancelación: esas no se le apuntan solas, porque no podría cancelarlas sin coste), y después Tentare sigue reservándolas cada noche.
