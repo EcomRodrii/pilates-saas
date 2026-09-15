@@ -148,7 +148,7 @@ const TRIGGERS_QUE_ESCRIBEN_A_CLIENTAS = new Set<AutomationRule['trigger']>([
 //   · reintento de cobros → lib/inngest/dunning.ts (con tarjeta o SEPA guardados)
 //   · valoración después de clase → lib/inngest/valoraciones.ts
 const HECHO_DE_SERIE: string[] = [
-  'Recuerda cada clase a quien ha reservado: 24 h antes por email y en su app (y por WhatsApp si lo tienes conectado), y 1 h antes en su app.',
+  'Recuerda cada clase a quien ha reservado: 24 h antes por email y en su app (y por WhatsApp si lo tienes conectado), y 1 h antes en su app. Si reserva con menos de 24 h, el email y el WhatsApp le llegan poco después de reservar (si falta más de 1 h y cuarto).',
   'Confirma cada reserva en la app de la alumna en cuanto la hace.',
   'Cuando alguien cancela, pasa la plaza a la siguiente de la lista de espera y se lo cuenta.',
   'Avisa a la alumna cuando su bono se queda sin clases o está a punto de caducar.',

@@ -63,7 +63,7 @@ const PLANTILLAS_META: {
     avisoAlApagar: 'Solo verá la confirmación en pantalla al reservar y en su portal.',
   },
   {
-    tipo: 'recordatorio', label: 'Recordatorio de clase', cuando: 'Se envía 24 h antes. Apagarlo no apaga el aviso en su app.',
+    tipo: 'recordatorio', label: 'Recordatorio de clase', cuando: 'Se envía 24 h antes; si reserva más tarde, poco después de reservar (si falta más de 1 h y cuarto). Apagarlo no apaga el aviso en su app.',
     asuntoDefault: 'Recordatorio — {clase}',
     introDefault: 'Hola {nombre}, te esperamos en tu próxima clase. Aquí tienes los detalles.',
     variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{clase}', que: 'el nombre de la clase' }],

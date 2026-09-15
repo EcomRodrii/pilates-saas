@@ -4,9 +4,10 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import {
   barrerRecordatoriosClase, canalesRecordatorio, claveIdempotenciaRecordatorio, datosClaseRecordatorio,
-  enviarEmailRecordatorio, enviarRecordatorioClase, franjaRecordatorio, ventanaFranja,
+  enviarEmailRecordatorio, enviarRecordatorioClase, franjaRecordatorio, ventanaBarrido, ventanaFranja,
   type EntradaCanalesRecordatorio, type EnviarEmail, type PuertosRecordatorio, type ReservaParaRecordar,
 } from './recordatorio-clase.ts';
+import { fechaLargaEstudio } from '../utils.ts';
 import { EVENTOS } from '../notifications/catalog.ts';
 import type { NotificationEvent } from '../notifications/types.ts';
 
@@ -19,16 +20,15 @@ test('franja de 24 h: [23,5 h, 24,5 h] con los dos extremos dentro', () => {
   assert.equal(franjaRecordatorio(new Date(AHORA + 23.5 * H), AHORA), '24h');
   assert.equal(franjaRecordatorio(new Date(AHORA + 24 * H), AHORA), '24h');
   assert.equal(franjaRecordatorio(new Date(AHORA + 24.5 * H), AHORA), '24h');
-  assert.equal(franjaRecordatorio(new Date(AHORA + 23.5 * H - 1), AHORA), null);
+  assert.equal(franjaRecordatorio(new Date(AHORA + 23.5 * H - 1), AHORA), 'tardia');
   assert.equal(franjaRecordatorio(new Date(AHORA + 24.5 * H + 1), AHORA), null);
 });
 
-test('franja de 1 h: [45 min, 75 min]; fuera de las dos, nada', () => {
+test('franja de 1 h: [45 min, 75 min]; por debajo, nada', () => {
   assert.equal(franjaRecordatorio(new Date(AHORA + 0.75 * H), AHORA), '1h');
   assert.equal(franjaRecordatorio(new Date(AHORA + 1.25 * H), AHORA), '1h');
   assert.equal(franjaRecordatorio(new Date(AHORA + 0.75 * H - 1), AHORA), null);
-  assert.equal(franjaRecordatorio(new Date(AHORA + 1.25 * H + 1), AHORA), null);
-  assert.equal(franjaRecordatorio(new Date(AHORA + 12 * H), AHORA), null);
+  assert.equal(franjaRecordatorio(new Date(AHORA + 1.25 * H + 1), AHORA), 'tardia');
   assert.equal(franjaRecordatorio(new Date(AHORA - 1 * H), AHORA), null);
   assert.equal(franjaRecordatorio('no es una fecha', AHORA), null);
 });
@@ -464,5 +464,191 @@ test('si no se pueden leer las exenciones, el barrido lanza (no avisa a quien pi
   try {
     await assert.rejects(barrerRecordatoriosClase(m.admin, m.puertos, AHORA), /excepciones de recordatorio/);
     assert.equal(m.eventos.length + m.llamadasResend.length, 0);
+  } finally { m.desmontar(); }
+});
+
+// ─── Franja tardía: quien reserva con la de 24 h ya pasada ──────────────────
+
+const WHATSAPP_CONECTADO = { studio_id: 'studio-1', tipo: 'WHATSAPP', activo: true, config: { token: 't', phoneId: '1' } };
+
+/** Clase a `horas` de AHORA, con WhatsApp conectado. */
+function tablasClaseA(horas: number): Record<string, Fila[]> {
+  const tablas = tablasBase();
+  tablas.sesiones[0].inicio = new Date(AHORA + horas * H).toISOString();
+  tablas.integraciones.push({ ...WHATSAPP_CONECTADO });
+  return tablas;
+}
+
+const lecturasDe = (m: ReturnType<typeof montar>, tabla: string) =>
+  m.peticiones.filter((p) => p.metodo === 'GET' && p.url.pathname.endsWith(`/${tabla}`)).length;
+
+test('franja tardía: entre la de 1 h y la de 24 h, y el barrido lee las tres de una vez', () => {
+  assert.equal(franjaRecordatorio(new Date(AHORA + 10 * H), AHORA), 'tardia');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 23.5 * H), AHORA), '24h');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 1.25 * H), AHORA), '1h');
+  assert.deepEqual(ventanaBarrido(AHORA), { desdeISO: '2026-09-15T08:45:00.000Z', hastaISO: '2026-09-16T08:30:00.000Z' });
+});
+
+test('tardía: email y WhatsApp sin push, y nunca un canal ya reclamado', () => {
+  const T: EntradaCanalesRecordatorio = { ...BASE, franja: 'tardia' };
+  assert.deepEqual(canalesRecordatorio(T), { push: false, email: true, whatsapp: true });
+  assert.deepEqual(canalesRecordatorio({ ...T, yaReclamado: { email: true } }), { push: false, email: false, whatsapp: true });
+  assert.deepEqual(canalesRecordatorio({ ...T, yaReclamado: { email: true, whatsapp: true } }), NADA);
+  assert.deepEqual(canalesRecordatorio({ ...T, plantillaEmailEncendida: false }), { push: false, email: false, whatsapp: true });
+  assert.deepEqual(canalesRecordatorio({ ...T, preferencias: { email: true, whatsapp: false } }), { push: false, email: true, whatsapp: false });
+  assert.deepEqual(canalesRecordatorio({ ...T, exenta: true }), NADA);
+  for (const estado of ['ASISTIDA', 'CANCELADA', 'LISTA_ESPERA']) assert.deepEqual(canalesRecordatorio({ ...T, estado }), NADA, estado);
+  // En la de 24 h no cuenta: ahí lo resuelve el INSERT del reclamo.
+  assert.deepEqual(canalesRecordatorio({ ...BASE, yaReclamado: { email: true, whatsapp: true } }), TODOS);
+});
+
+test('reserva 10 h antes de la clase: la pasada manda email y WhatsApp una vez, sin push de 24 h; la siguiente, nada', async () => {
+  const m = montar({ tablas: tablasClaseA(10) });
+  try {
+    const r1 = await barrerRecordatoriosClase(m.admin, m.puertos, AHORA);
+    const r2 = await barrerRecordatoriosClase(m.admin, m.puertos, AHORA + 15 * 60_000);
+
+    assert.equal(r1.emails.enviados, 1);
+    assert.equal(r1.whatsapp.enviados, 1);
+    assert.equal(m.llamadasResend.length, 1);
+    assert.equal(m.llamadasResend[0].clave, 'recordatorio-ses-1-soc-1');
+    assert.equal(m.llamadasMeta.length, 1);
+    assert.equal(r1.publicados + r2.publicados, 0, 'el push de 24 h no se repite para quien reserva tarde');
+    assert.equal(m.eventos.length, 0);
+    assert.deepEqual({ ...r2.emails, ...r2.whatsapp }, { enviados: 0, yaEnviados: 0, fallidos: 0, omitidos: 0, sinEmail: 0 });
+    assert.equal(reclamos(m.tablas, 'EMAIL').length, 1);
+    assert.equal(reclamos(m.tablas, 'WHATSAPP').length, 1);
+    assert.equal(lecturasDe(m, 'socios'), 1, 'con los dos reclamos hechos, la segunda pasada ni lee su ficha');
+
+    // Y a su hora, el push de 1 h de siempre, sin otro email.
+    await barrerRecordatoriosClase(m.admin, m.puertos, AHORA + 9 * H);
+    assert.deepEqual(m.eventos.map((e) => e.type), [EVENTOS.RECORDATORIO_1H]);
+    assert.equal(m.llamadasResend.length + m.llamadasMeta.length, 2);
+  } finally { m.desmontar(); }
+});
+
+test('reserva normal ya avisada en su franja de 24 h: las pasadas tardías no mandan ni leen nada más', async () => {
+  const m = montar({ tablas: tablasClaseA(24) });
+  try {
+    await barrerRecordatoriosClase(m.admin, m.puertos, AHORA);
+    for (const h of [1, 6, 12, 22.7]) await barrerRecordatoriosClase(m.admin, m.puertos, AHORA + h * H);
+    assert.equal(m.llamadasResend.length, 1);
+    assert.equal(m.llamadasMeta.length, 1);
+    assert.deepEqual(m.eventos.map((e) => e.type), [EVENTOS.RECORDATORIO_24H]);
+    assert.equal(m.peticiones.filter((p) => p.metodo === 'POST').length, 2, 'ningún reclamo más tras el de 24 h');
+    assert.equal(lecturasDe(m, 'socios'), 1);
+  } finally { m.desmontar(); }
+});
+
+test('despliegue: la fila EMAIL que dejó el camino viejo basta para no repetir el correo', async () => {
+  const tablas = tablasClaseA(10);
+  tablas.integraciones = [];
+  tablas.recordatorio_envios.push({ sesion_id: 'ses-1', socio_id: 'soc-1', canal: 'EMAIL' });
+  const m = montar({ tablas });
+  try {
+    await barrerRecordatoriosClase(m.admin, m.puertos, AHORA);
+    assert.equal(m.llamadasResend.length, 0);
+    assert.equal(lecturasDe(m, 'socios'), 0, 'sin WhatsApp conectado no le queda canal: ni se lee su ficha');
+  } finally { m.desmontar(); }
+
+  // Aunque no se pueda leer la lista de reclamos: la PK sigue parando el duplicado.
+  const tablas2 = tablasClaseA(10);
+  tablas2.recordatorio_envios.push({ sesion_id: 'ses-1', socio_id: 'soc-1', canal: 'EMAIL' }, { sesion_id: 'ses-1', socio_id: 'soc-1', canal: 'WHATSAPP' });
+  const caida = montar({ tablas: tablas2, caidas: new Set(['recordatorio_envios']) });
+  try {
+    const r = await barrerRecordatoriosClase(caida.admin, caida.puertos, AHORA);
+    assert.deepEqual(r.lecturasDegradadas, ['reclamos de recordatorio']);
+    assert.equal(r.emails.yaEnviados, 1);
+    assert.equal(caida.llamadasResend.length + caida.llamadasMeta.length, 0);
+  } finally { caida.desmontar(); }
+});
+
+test('clase a menos de 1 h 15 min: sin email tardío, solo el push de 1 h; a 1 h 30 min, sí', async () => {
+  const tablas = tablasClaseA(1.2);
+  tablas.sesiones.push({ ...tablas.sesiones[0], id: 'ses-2', inicio: new Date(AHORA + 1.5 * H).toISOString() });
+  tablas.reservas.push({ id: 'res-2', studio_id: 'studio-1', socio_id: 'soc-1', sesion_id: 'ses-2', estado: 'CONFIRMADA' });
+  const m = montar({ tablas });
+  try {
+    await barrerRecordatoriosClase(m.admin, m.puertos, AHORA);
+    assert.deepEqual(m.eventos.map((e) => e.dedupKey), ['recordatorio-1h:res-1']);
+    assert.deepEqual(m.llamadasResend.map((l) => l.clave), ['recordatorio-ses-2-soc-1']);
+    assert.deepEqual(reclamos(m.tablas, 'EMAIL').map((f) => f.sesion_id), ['ses-2']);
+  } finally { m.desmontar(); }
+});
+
+test('tardía con la plantilla apagada: sin email, el WhatsApp según su preferencia', async () => {
+  const tablas = tablasClaseA(10);
+  tablas.plantillas_email.push({ studio_id: 'studio-1', tipo: 'recordatorio', enviar: false, activa: true });
+  const m = montar({ tablas });
+  try {
+    await barrerRecordatoriosClase(m.admin, m.puertos, AHORA);
+    await barrerRecordatoriosClase(m.admin, m.puertos, AHORA + 15 * 60_000);
+    assert.equal(m.llamadasResend.length, 0);
+    assert.equal(m.llamadasMeta.length, 1);
+    assert.equal(reclamos(m.tablas, 'EMAIL').length, 0);
+    assert.equal(lecturasDe(m, 'socios'), 1, 'con el correo apagado y el WhatsApp ya enviado, no hay nada que volver a mirar');
+  } finally { m.desmontar(); }
+
+  const sinWhatsApp = tablasClaseA(10);
+  sinWhatsApp.plantillas_email.push({ studio_id: 'studio-1', tipo: 'recordatorio', enviar: false, activa: true });
+  sinWhatsApp.notification_preference.push({ user_id: 'auth-1', category: 'reservas', email: true, whatsapp: false });
+  const m2 = montar({ tablas: sinWhatsApp });
+  try {
+    await barrerRecordatoriosClase(m2.admin, m2.puertos, AHORA);
+    assert.equal(m2.llamadasResend.length + m2.llamadasMeta.length, 0);
+    assert.equal(m2.tablas.recordatorio_envios.length, 0);
+  } finally { m2.desmontar(); }
+});
+
+test('tardía ASISTIDA, cancelada o en clase cancelada: nada por ningún canal', async () => {
+  const variantes: [string, (t: Record<string, Fila[]>) => void][] = [
+    ['ASISTIDA', (t) => { t.reservas[0].estado = 'ASISTIDA'; }],
+    ['CANCELADA', (t) => { t.reservas[0].estado = 'CANCELADA'; }],
+    ['clase cancelada', (t) => { t.sesiones[0].cancelada = true; }],
+  ];
+  for (const [nombre, aplicar] of variantes) {
+    const tablas = tablasClaseA(10);
+    aplicar(tablas);
+    const m = montar({ tablas });
+    try {
+      await barrerRecordatoriosClase(m.admin, m.puertos, AHORA);
+      assert.equal(m.eventos.length + m.llamadasResend.length + m.llamadasMeta.length, 0, nombre);
+      assert.equal(m.tablas.recordatorio_envios.length, 0, nombre);
+    } finally { m.desmontar(); }
+  }
+});
+
+test('tardía con Resend 500: se suelta el reclamo y la pasada siguiente lo manda una vez', async () => {
+  const tablas = tablasClaseA(10);
+  tablas.integraciones = [];
+  const m = montar({ tablas, resend: [500] });
+  try {
+    const r1 = await barrerRecordatoriosClase(m.admin, m.puertos, AHORA);
+    assert.equal(r1.emails.fallidos, 1);
+    assert.equal(reclamos(m.tablas, 'EMAIL').length, 0);
+    const r2 = await barrerRecordatoriosClase(m.admin, m.puertos, AHORA + 15 * 60_000);
+    assert.equal(r2.emails.enviados, 1);
+    await barrerRecordatoriosClase(m.admin, m.puertos, AHORA + 30 * 60_000);
+    assert.equal(m.llamadasResend.length, 2, 'un fallo + un envío bueno, y ninguno más');
+    assert.equal(m.eventos.length, 0);
+  } finally { m.desmontar(); }
+});
+
+test('clase esta tarde: el correo y el WhatsApp dan su día de verdad, sin «mañana»', async () => {
+  const m = montar({ tablas: tablasClaseA(10) });
+  const datos: Parameters<EnviarEmail>[0]['data'][] = [];
+  const enviar = m.puertos.enviarEmail;
+  m.puertos.enviarEmail = async (p) => { datos.push(p.data); return enviar(p); };
+  try {
+    await barrerRecordatoriosClase(m.admin, m.puertos, AHORA);
+    assert.equal(datos.length, 1);
+    // 08:00Z = 10:00 en Madrid; la clase, diez horas después: hoy a las 20:00.
+    assert.equal(datos[0].fecha, fechaLargaEstudio(new Date(AHORA)));
+    assert.match(datos[0].fecha, /^martes, 15 de septiembre$/);
+    assert.equal(datos[0].hora, '20:00');
+    assert.doesNotMatch(JSON.stringify(datos[0]), /mañana/i);
+    const texto = (m.llamadasMeta[0] as { text: { body: string } }).text.body;
+    assert.match(texto, /el martes, 15 de septiembre a las 20:00/);
+    assert.doesNotMatch(texto, /mañana/i);
   } finally { m.desmontar(); }
 });

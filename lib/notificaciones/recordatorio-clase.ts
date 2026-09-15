@@ -9,6 +9,9 @@
 // Decisión del fundador (final):
 //   · 24 h antes → aviso en su app + email + WhatsApp (si el estudio lo conectó).
 //   · 1 h antes  → solo aviso en su app.
+//   · Si reservó con la franja de 24 h ya pasada y aún falta más de 1 h 15 min,
+//     la pasada siguiente le manda el email y el WhatsApp UNA vez (franja
+//     `tardia`, mismos reclamos). El push de 24 h no se repite.
 //   · Apagar la plantilla «Recordatorio de clase» calla SOLO el email.
 //   · Nunca a una reserva que no esté CONFIRMADA (ASISTIDA incluida).
 //
@@ -47,37 +50,51 @@ const CONCURRENCIA_ENVIOS = 4;
 
 // ── Franjas ──────────────────────────────────────────────────────────────────
 
-export type FranjaRecordatorio = '24h' | '1h';
+/**
+ * `tardia` = quien reservó cuando la franja de 24 h ya había pasado. No es una
+ * franja de push: solo recupera el email y el WhatsApp que no llegó a tener.
+ */
+export type FranjaRecordatorio = '24h' | '1h' | 'tardia';
+type FranjaPush = Exclude<FranjaRecordatorio, 'tardia'>;
 
 // Horas ABSOLUTAS hasta el inicio, no «misma hora local del día anterior»: la
 // víspera del cambio de hora, 24 h antes de una clase de las 10:00 son las
 // 11:00 (o las 09:00) en el reloj del estudio. El texto sí va en hora del
 // estudio (`horaEstudio`, TZ_ESTUDIO). Anchura: el cron corre cada 15 min, así
 // que la de 24 h (1 h) tiene cuatro pasadas y la de 1 h (30 min), dos.
-export const FRANJAS_RECORDATORIO: Record<FranjaRecordatorio, { centroH: number; margenH: number }> = {
+export const FRANJAS_RECORDATORIO: Record<FranjaPush, { centroH: number; margenH: number }> = {
   '24h': { centroH: 24, margenH: 0.5 },
   '1h': { centroH: 1, margenH: 0.25 },
 };
 
 const HORA_MS = 3_600_000;
 
+// Franja tardía: ENTRE las dos de push, sin tocar ninguna — (1 h 15 min,
+// 23 h 30 min). Por debajo de 1 h 15 min solo queda el push de 1 h: un correo
+// que llegara minutos antes que ese push sería ruido, no un recordatorio.
 export function franjaRecordatorio(inicio: string | Date, ahoraMs: number): FranjaRecordatorio | null {
   const inicioMs = new Date(inicio).getTime();
   if (!Number.isFinite(inicioMs)) return null;
-  for (const franja of Object.keys(FRANJAS_RECORDATORIO) as FranjaRecordatorio[]) {
+  for (const franja of Object.keys(FRANJAS_RECORDATORIO) as FranjaPush[]) {
     const { desdeMs, hastaMs } = limitesFranja(franja, ahoraMs);
     if (inicioMs >= desdeMs && inicioMs <= hastaMs) return franja;
   }
+  if (inicioMs > limitesFranja('1h', ahoraMs).hastaMs && inicioMs < limitesFranja('24h', ahoraMs).desdeMs) return 'tardia';
   return null;
 }
 
 /** Inicios de clase que caen en la franja, ambos extremos incluidos. */
-export function ventanaFranja(franja: FranjaRecordatorio, ahoraMs: number): { desdeISO: string; hastaISO: string } {
+export function ventanaFranja(franja: FranjaPush, ahoraMs: number): { desdeISO: string; hastaISO: string } {
   const { desdeMs, hastaMs } = limitesFranja(franja, ahoraMs);
   return { desdeISO: new Date(desdeMs).toISOString(), hastaISO: new Date(hastaMs).toISOString() };
 }
 
-function limitesFranja(franja: FranjaRecordatorio, ahoraMs: number) {
+/** Lo que lee el barrido: desde el inicio de la de 1 h hasta el final de la de 24 h (las tres franjas, contiguas). */
+export function ventanaBarrido(ahoraMs: number): { desdeISO: string; hastaISO: string } {
+  return { desdeISO: ventanaFranja('1h', ahoraMs).desdeISO, hastaISO: ventanaFranja('24h', ahoraMs).hastaISO };
+}
+
+function limitesFranja(franja: FranjaPush, ahoraMs: number) {
   const { centroH, margenH } = FRANJAS_RECORDATORIO[franja];
   return { desdeMs: ahoraMs + (centroH - margenH) * HORA_MS, hastaMs: ahoraMs + (centroH + margenH) * HORA_MS };
 }
@@ -96,6 +113,12 @@ export interface EntradaCanalesRecordatorio {
   whatsappConectado: boolean;
   tieneEmail: boolean;
   tieneTelefono: boolean;
+  /**
+   * Solo cuenta en la franja tardía: canales con fila en `recordatorio_envios`.
+   * En la de 24 h lo resuelve el propio INSERT del reclamo (cuatro pasadas); la
+   * tardía dura hasta 22 h, y un INSERT por reserva cada 15 min sería absurdo.
+   */
+  yaReclamado?: { email?: boolean; whatsapp?: boolean } | null;
 }
 
 export interface CanalesRecordatorio { push: boolean; email: boolean; whatsapp: boolean }
@@ -108,12 +131,15 @@ export function canalesRecordatorio(e: EntradaCanalesRecordatorio): CanalesRecor
   // El aviso en su app sale siempre; sus preferencias de push las aplica el
   // motor de notificaciones, no esto.
   if (e.franja === '1h') return { push: true, email: false, whatsapp: false };
-  return {
-    push: true,
-    // La plantilla apagada calla SOLO el correo: ni el push ni el WhatsApp.
-    email: e.plantillaEmailEncendida && (e.preferencias?.email ?? true) && e.tieneEmail,
-    whatsapp: e.whatsappConectado && (e.preferencias?.whatsapp ?? true) && e.tieneTelefono,
-  };
+  // La plantilla apagada calla SOLO el correo: ni el push ni el WhatsApp.
+  const email = e.plantillaEmailEncendida && (e.preferencias?.email ?? true) && e.tieneEmail;
+  const whatsapp = e.whatsappConectado && (e.preferencias?.whatsapp ?? true) && e.tieneTelefono;
+  if (e.franja === 'tardia') {
+    // Reservó con la franja de 24 h ya pasada: recupera el email y el WhatsApp
+    // UNA vez. El push no se repite: el suyo es el de 1 h.
+    return { push: false, email: email && !e.yaReclamado?.email, whatsapp: whatsapp && !e.yaReclamado?.whatsapp };
+  }
+  return { push: true, email, whatsapp };
 }
 
 // ── Contenido ────────────────────────────────────────────────────────────────
@@ -258,6 +284,8 @@ export interface ReservaParaRecordar {
   preferencias: { email?: boolean | null; whatsapp?: boolean | null } | null;
   plantillaEmailEncendida: boolean;
   whatsapp: WhatsAppDelEstudio | null;
+  /** Ver `EntradaCanalesRecordatorio.yaReclamado` (solo franja tardía). */
+  yaReclamado?: { email: boolean; whatsapp: boolean } | null;
 }
 
 export interface PuertosRecordatorio {
@@ -298,6 +326,7 @@ export async function enviarRecordatorioClase(
     whatsappConectado: !!reserva.whatsapp,
     tieneEmail: !!socia?.email,
     tieneTelefono: !!socia?.telefono,
+    yaReclamado: reserva.yaReclamado,
   };
   const canales = canalesRecordatorio(entrada);
   const sinEmail = !!socia && !socia.email && canalesRecordatorio({ ...entrada, tieneEmail: true }).email;
@@ -382,43 +411,41 @@ export async function barrerRecordatoriosClase(
   const studioPorId = new Map(studios.map((s) => [s.id, s]));
   const studioIds = studios.map((s) => s.id);
 
-  // Una lectura por franja, no «las próximas 25 h»: solo interesan las clases
-  // que empiezan justo dentro de una de las dos.
+  // UNA lectura para las tres franjas, que son contiguas (de 45 min a 24 h 30
+  // min): las clases del próximo día. `franjaRecordatorio` decide la de cada una.
+  // `order('id')`: sin orden, dos páginas de PostgREST pueden repetir o saltarse filas.
   type Sesion = { id: string; studio_id: string; inicio: string; tipo_clase_id: string | null; sala_id: string | null; instructor_id: string | null; zoom_join_url: string | null };
-  const leerSesiones = (franja: FranjaRecordatorio) => {
-    const { desdeISO, hastaISO } = ventanaFranja(franja, ahoraMs);
-    return leer<Sesion>('sesiones', (from, to) => admin.from('sesiones')
-      .select('id, studio_id, inicio, tipo_clase_id, sala_id, instructor_id, zoom_join_url')
-      .eq('cancelada', false).in('studio_id', studioIds)
-      .gte('inicio', desdeISO).lte('inicio', hastaISO).range(from, to));
-  };
-  const [s24, s1] = await Promise.all([leerSesiones('24h'), leerSesiones('1h')]);
-  exigirLectura(s24.error ?? s1.error, 'leyendo sesiones');
+  const { desdeISO, hastaISO } = ventanaBarrido(ahoraMs);
+  const { data: sesionesVentana, error: errSesiones } = await leer<Sesion>('sesiones', (from, to) => admin.from('sesiones')
+    .select('id, studio_id, inicio, tipo_clase_id, sala_id, instructor_id, zoom_join_url')
+    .eq('cancelada', false).in('studio_id', studioIds)
+    .gte('inicio', desdeISO).lte('inicio', hastaISO).order('id').range(from, to));
+  exigirLectura(errSesiones, 'leyendo sesiones');
   const franjaDe = new Map<string, FranjaRecordatorio>();
   const sesPorId = new Map<string, Sesion>();
-  for (const s of [...s24.data, ...s1.data]) {
+  for (const s of sesionesVentana) {
     const franja = franjaRecordatorio(s.inicio, ahoraMs);
     if (!franja) continue;
     franjaDe.set(s.id, franja);
     sesPorId.set(s.id, s);
   }
   if (!sesPorId.size) return resumen;
-  const sesiones24 = [...sesPorId.values()].filter((s) => franjaDe.get(s.id) === '24h');
+  const idsTardias = [...sesPorId.keys()].filter((id) => franjaDe.get(id) === 'tardia');
 
-  const [tipos, reservasR, salas, instructores] = await Promise.all([
+  type Reserva = { id: string; studio_id: string; socio_id: string | null; sesion_id: string; estado: string };
+  const [tipos, reservasR, reclamosR] = await Promise.all([
     leer<{ id: string; nombre: string | null }>('tipos_clase', (from, to) => admin.from('tipos_clase')
-      .select('id, nombre').in('id', uniq([...sesPorId.values()].map((s) => s.tipo_clase_id))).range(from, to)),
+      .select('id, nombre').in('id', uniq([...sesPorId.values()].map((s) => s.tipo_clase_id))).order('id').range(from, to)),
     // Solo CONFIRMADA: ASISTIDA ya pasó lista, y el resto no tiene plaza.
-    leer<{ id: string; studio_id: string; socio_id: string | null; sesion_id: string; estado: string }>('reservas', (from, to) => admin.from('reservas')
+    leer<Reserva>('reservas', (from, to) => admin.from('reservas')
       .select('id, studio_id, socio_id, sesion_id, estado')
-      .eq('estado', 'CONFIRMADA').in('sesion_id', [...sesPorId.keys()]).range(from, to)),
-    sesiones24.length
-      ? leer<{ id: string; nombre: string | null }>('salas', (from, to) => admin.from('salas')
-          .select('id, nombre').in('id', uniq(sesiones24.map((s) => s.sala_id))).range(from, to))
-      : { data: [], error: null },
-    sesiones24.length
-      ? leer<{ id: string; nombre: string | null }>('instructores', (from, to) => admin.from('instructores')
-          .select('id, nombre').in('id', uniq(sesiones24.map((s) => s.instructor_id))).range(from, to))
+      .eq('estado', 'CONFIRMADA').in('sesion_id', [...sesPorId.keys()]).order('id').range(from, to)),
+    // Franja tardía: qué canales ya salieron — en su franja de 24 h, por el
+    // camino viejo de Inngest (reclamaba las mismas filas) o en otra pasada.
+    idsTardias.length
+      ? leer<{ sesion_id: string; socio_id: string; canal: string }>('recordatorio_envios', (from, to) => admin.from('recordatorio_envios')
+          .select('sesion_id, socio_id, canal').in('sesion_id', idsTardias)
+          .order('sesion_id').order('socio_id').order('canal').range(from, to))
       : { data: [], error: null },
   ]);
   exigirLectura(reservasR.error, 'leyendo reservas');
@@ -426,48 +453,43 @@ export async function barrerRecordatoriosClase(
   // dejaría sin aviso a TODAS por un fallo de adorno — y la franja de 1 h solo
   // tiene dos pasadas. Se sigue con lo que haya.
   if (tipos.error) degradada('tipos de clase', tipos.error);
-  if (salas.error) degradada('salas', salas.error);
-  if (instructores.error) degradada('instructores', instructores.error);
-  const reservas = reservasR.data.filter((r) => r.socio_id && sesPorId.has(r.sesion_id));
-  if (!reservas.length) return resumen;
+  // Sin la lista de reclamos no se duplica nada: cada reserva tardía intenta su
+  // reclamo y la PK de `recordatorio_envios` para a las que ya lo tenían.
+  if (reclamosR.error) degradada('reclamos de recordatorio', reclamosR.error);
+  const reclamados = new Set(reclamosR.data.map((c) => `${c.sesion_id}:${c.socio_id}:${c.canal}`));
+  const yaReclamado = (r: Reserva) => ({
+    email: reclamados.has(`${r.sesion_id}:${r.socio_id}:EMAIL`),
+    whatsapp: reclamados.has(`${r.sesion_id}:${r.socio_id}:WHATSAPP`),
+  });
+  const esTardia = (r: Reserva) => franjaDe.get(r.sesion_id) === 'tardia';
+  const conSocia = reservasR.data.filter((r) => r.socio_id && sesPorId.has(r.sesion_id));
+  // Lo normal en la franja tardía es que ya tuviera su recordatorio de 24 h:
+  // esas no pasan de aquí y no cuestan ninguna lectura más.
+  const tardiasPendientes = conSocia.filter((r) => {
+    if (!esTardia(r)) return false;
+    const y = yaReclamado(r);
+    return !y.email || !y.whatsapp;
+  });
   const nombreTipo = new Map(tipos.data.map((t) => [t.id, t.nombre]));
-  const nombreSala = new Map(salas.data.map((t) => [t.id, t.nombre]));
-  const nombreInstructora = new Map(instructores.data.map((t) => [t.id, t.nombre]));
 
-  const socioIds = uniq(reservas.map((r) => r.socio_id));
-  const { data: exentosR, error: errExentos } = await leer<{ socio_id: string }>('socio_excepciones', (from, to) => admin
-    .from('socio_excepciones').select('socio_id').eq('tipo', EXENCION_RECORDATORIO).in('socio_id', socioIds).range(from, to));
-  // Si esta falla, se mandaría el aviso a quien pidió no recibirlo: no vale
-  // seguir con la lista vacía.
-  exigirLectura(errExentos, 'leyendo excepciones de recordatorio');
-  const exentas = new Set(exentosR.map((e) => e.socio_id));
-
-  // Lo que solo hace falta para email/WhatsApp (franja de 24 h, no exentas).
-  const reservas24 = reservas.filter((r) => franjaDe.get(r.sesion_id) === '24h' && !exentas.has(r.socio_id as string));
-  const studios24 = uniq(reservas24.map((r) => r.studio_id));
-  type Socia = { id: string; nombre: string | null; email: string | null; telefono: string | null; auth_user_id: string | null };
-  const sociaPorId = new Map<string, Socia>();
-  const prefsPorAuth = new Map<string, { email: boolean | null; whatsapp: boolean | null }>();
+  // Interruptores del estudio (WhatsApp conectado, correo del recordatorio
+  // apagado), ANTES de leer fichas: una tardía solo sigue si le queda un canal
+  // que su estudio usa. Sin esto, en un estudio sin WhatsApp cada reserva ya
+  // avisada volvería a leer su ficha cada 15 min por un reclamo de WHATSAPP que
+  // nunca va a tener.
   const whatsappPorStudio = new Map<string, WhatsAppDelEstudio>();
   const plantillaApagada = new Set<string>();
-  // Sin ficha o sin preferencias leídas no se sabe a quién ni si quiere: esa
-  // pasada no manda email/WhatsApp y no reclama nada, así que la siguiente
-  // dentro de la franja lo intenta de nuevo. El push sale igual.
-  let contactoLeido = true;
-  if (reservas24.length) {
-    const [sociosR, integracionesR, plantillasR] = await Promise.all([
-      leer<Socia>('socios', (from, to) => admin.from('socios')
-        .select('id, nombre, email, telefono, auth_user_id').in('id', uniq(reservas24.map((r) => r.socio_id))).range(from, to)),
+  const studiosContacto = uniq([...conSocia.filter((r) => franjaDe.get(r.sesion_id) === '24h'), ...tardiasPendientes].map((r) => r.studio_id));
+  if (studiosContacto.length) {
+    const [integracionesR, plantillasR] = await Promise.all([
       leer<{ studio_id: string; activo: boolean | null; config: Record<string, string> | null }>('integraciones', (from, to) => admin
-        .from('integraciones').select('studio_id, activo, config').eq('tipo', 'WHATSAPP').in('studio_id', studios24).range(from, to)),
+        .from('integraciones').select('studio_id, activo, config').eq('tipo', 'WHATSAPP').in('studio_id', studiosContacto).order('studio_id').range(from, to)),
       // `enviar`, NO `activa`: `activa=false` solo descarta la personalización
       // (el correo sale con el texto de fábrica). Mismo criterio que
       // `envioDesactivado` en lib/emails/plantillas-server.ts.
       leer<{ studio_id: string }>('plantillas_email', (from, to) => admin.from('plantillas_email')
-        .select('studio_id').eq('tipo', 'recordatorio').eq('enviar', false).in('studio_id', studios24).range(from, to)),
+        .select('studio_id').eq('tipo', 'recordatorio').eq('enviar', false).in('studio_id', studiosContacto).order('studio_id').range(from, to)),
     ]);
-    if (sociosR.error) { degradada('socias', sociosR.error); contactoLeido = false; }
-    for (const s of sociosR.data) sociaPorId.set(s.id, s);
     if (integracionesR.error) degradada('integraciones de WhatsApp', integracionesR.error);
     for (const row of integracionesR.data) {
       const creds = whatsappDelEstudio({ activo: !!row.activo, config: row.config });
@@ -477,6 +499,50 @@ export async function barrerRecordatoriosClase(
     // `enviarEmailTransaccional` vuelve a mirar el interruptor antes de mandar.
     if (plantillasR.error) degradada('plantillas de email', plantillasR.error);
     for (const p of plantillasR.data) plantillaApagada.add(p.studio_id);
+  }
+
+  const reservas = conSocia.filter((r) => {
+    if (!esTardia(r)) return true;
+    const y = yaReclamado(r);
+    return (!y.email && !plantillaApagada.has(r.studio_id)) || (!y.whatsapp && whatsappPorStudio.has(r.studio_id));
+  });
+  if (!reservas.length) return resumen;
+
+  const socioIds = uniq(reservas.map((r) => r.socio_id));
+  const { data: exentosR, error: errExentos } = await leer<{ socio_id: string }>('socio_excepciones', (from, to) => admin
+    .from('socio_excepciones').select('socio_id').eq('tipo', EXENCION_RECORDATORIO).in('socio_id', socioIds).order('socio_id').range(from, to));
+  // Si esta falla, se mandaría el aviso a quien pidió no recibirlo: no vale
+  // seguir con la lista vacía.
+  exigirLectura(errExentos, 'leyendo excepciones de recordatorio');
+  const exentas = new Set(exentosR.map((e) => e.socio_id));
+
+  // Lo que solo hace falta para email/WhatsApp (franjas de 24 h y tardía, no exentas).
+  const reservasContacto = reservas.filter((r) => franjaDe.get(r.sesion_id) !== '1h' && !exentas.has(r.socio_id as string));
+  const sesionesContacto = uniq(reservasContacto.map((r) => r.sesion_id)).map((id) => sesPorId.get(id) as Sesion);
+  type Socia = { id: string; nombre: string | null; email: string | null; telefono: string | null; auth_user_id: string | null };
+  const sociaPorId = new Map<string, Socia>();
+  const prefsPorAuth = new Map<string, { email: boolean | null; whatsapp: boolean | null }>();
+  const nombreSala = new Map<string, string | null>();
+  const nombreInstructora = new Map<string, string | null>();
+  // Sin ficha o sin preferencias leídas no se sabe a quién ni si quiere: esa
+  // pasada no manda email/WhatsApp y no reclama nada, así que la siguiente
+  // dentro de la franja lo intenta de nuevo. El push sale igual.
+  let contactoLeido = true;
+  if (reservasContacto.length) {
+    const [sociosR, salas, instructores] = await Promise.all([
+      leer<Socia>('socios', (from, to) => admin.from('socios')
+        .select('id, nombre, email, telefono, auth_user_id').in('id', uniq(reservasContacto.map((r) => r.socio_id))).order('id').range(from, to)),
+      leer<{ id: string; nombre: string | null }>('salas', (from, to) => admin.from('salas')
+        .select('id, nombre').in('id', uniq(sesionesContacto.map((s) => s.sala_id))).order('id').range(from, to)),
+      leer<{ id: string; nombre: string | null }>('instructores', (from, to) => admin.from('instructores')
+        .select('id, nombre').in('id', uniq(sesionesContacto.map((s) => s.instructor_id))).order('id').range(from, to)),
+    ]);
+    if (sociosR.error) { degradada('socias', sociosR.error); contactoLeido = false; }
+    for (const s of sociosR.data) sociaPorId.set(s.id, s);
+    if (salas.error) degradada('salas', salas.error);
+    for (const t of salas.data) nombreSala.set(t.id, t.nombre);
+    if (instructores.error) degradada('instructores', instructores.error);
+    for (const t of instructores.data) nombreInstructora.set(t.id, t.nombre);
 
     const authIds = uniq([...sociaPorId.values()].map((s) => s.auth_user_id));
     if (authIds.length) {
@@ -514,6 +580,7 @@ export async function barrerRecordatoriosClase(
       preferencias: ficha?.auth_user_id ? prefsPorAuth.get(ficha.auth_user_id) ?? null : null,
       plantillaEmailEncendida: !plantillaApagada.has(ses.studio_id),
       whatsapp: whatsappPorStudio.get(ses.studio_id) ?? null,
+      yaReclamado: franja === 'tardia' ? yaReclamado(r) : null,
     };
     try {
       const res = await enviarRecordatorioClase(admin, reserva, franja, puertos);

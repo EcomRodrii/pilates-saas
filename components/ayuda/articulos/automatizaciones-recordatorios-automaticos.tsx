@@ -17,7 +17,11 @@ export default function Contenido() {
 
       <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
         <li>Confirmación en su app al reservar una clase.</li>
-        <li>Recordatorio de cada clase: 24 h antes por email y en su app (y por WhatsApp si lo conectas), y 1 h antes en su app.</li>
+        <li>
+          Recordatorio de cada clase: 24 h antes por email y en su app (y por WhatsApp si lo conectas), y 1 h antes en su
+          app. Si reserva cuando ya faltan menos de 24 h, el email (y el WhatsApp) le llega en los minutos siguientes a
+          reservar, siempre que falte más de 1 h y cuarto para la clase.
+        </li>
         <li>Aviso de que un bono está a punto de caducar o se ha quedado sin clases.</li>
         <li>Aviso a la propietaria cuando una sustitución se queda sin candidatas.</li>
         <li>«Clase cubierta» cuando una sustituta acepta la clase.</li>
