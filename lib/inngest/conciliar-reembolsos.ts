@@ -46,6 +46,10 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
 import { origenDeReembolso } from '@/lib/billing/registrar-devolucion';
+import {
+  ESTADOS_DISPUTA_CERRADA, ESTADOS_DISPUTA_SIN_RESCATE, clasificarReciboConDisputa, referenciasChargebackPorComprobar,
+  type ReciboConDisputa,
+} from '@/lib/billing/disputas-por-conciliar';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const VENTANA_HORAS = 24;
@@ -347,7 +351,7 @@ async function conciliarDisputesEstudio(
     // UPDATE de `disputa_estado` no discrimina por valor previo. Un estado
     // cerrado (`lost`/`won`/`warning_closed`/…) aplica el cierre, que sí
     // mueve dinero si es `lost`.
-    const cerrada = dispute.status === 'lost' || dispute.status === 'won' || dispute.status === 'warning_closed';
+    const cerrada = ESTADOS_DISPUTA_CERRADA.includes(dispute.status);
     const resultado = cerrada
       ? await procesarDisputeClosed(admin, {
           studioId: studio.id, reciboId, disputeStatus: dispute.status, disputeId: dispute.id,
@@ -402,31 +406,69 @@ async function conciliarDisputesEstudio(
 // abierta hace 75 días sigue siendo candidata mientras no se resuelva.
 //
 // Sin riesgo de doble procesamiento con `conciliarDisputesEstudio` ni con el
-// webhook: `procesarDisputeClosed` ya es idempotente (el UPDATE va
-// condicionado a que la disputa siga abierta — ver procesar-reembolso.ts) y
+// webhook: en `procesarDisputeClosed` el sellado de `disputa_estado` es un
+// valor absoluto, el paso a DEVUELTO lleva `.neq('estado','DEVUELTO')` y
 // `registrarDevolucion` tiene UNIQUE por `referencia`. Que las dos funciones
 // se solapen alguna vez sobre la misma disputa no duplica ningún efecto.
-const ESTADOS_DISPUTA_CERRADA = ['lost', 'won', 'warning_closed'];
-
+//
+// También rescata la disputa PERDIDA a medio aplicar (el proceso murió entre
+// sellar `lost` y terminar el cierre). Qué recibo cuenta como tal, y por qué
+// `lost` + estado ≠ DEVUELTO no basta, está en lib/billing/disputas-por-conciliar.ts.
+// Coste acotado: las perdidas ya aplicadas se descartan con la anotación en
+// `devoluciones` ANTES de llamar a Stripe, y esa consulta solo se hace si hay
+// alguna perdida pendiente de decidir.
 async function conciliarDisputasAbiertasEstudio(
   admin: SupabaseClient,
   stripe: Stripe,
   studio: { id: string; stripe_account_id: string },
 ): Promise<number> {
   let cerradas = 0;
+  const ahora = new Date();
 
-  const { data: abiertas } = await fetchAllRows<{ id: string; disputa_stripe_id: string }>(
+  const { data: conDisputa } = await fetchAllRows<ReciboConDisputa>(
     studio.id, 'recibos',
     (from, to) => admin
       .from('recibos')
-      .select('id, disputa_stripe_id')
+      .select('id, disputa_stripe_id, disputa_estado, estado, fecha_devolucion')
       .eq('studio_id', studio.id)
       .not('disputa_stripe_id', 'is', null)
-      .not('disputa_estado', 'in', `(${ESTADOS_DISPUTA_CERRADA.join(',')})`)
+      .not('disputa_estado', 'in', `(${ESTADOS_DISPUTA_SIN_RESCATE.join(',')})`)
       .range(from, to),
   );
 
-  for (const rec of abiertas) {
+  // `null` = no se sabe qué chargebacks están ya anotados → ninguna perdida se
+  // rescata en esta pasada (fail-closed: sin saberlo, no se mueve el estado de
+  // un recibo que alguien pudo haber cobrado a mano).
+  let anotadas: Set<string> | null = new Set();
+  const referencias = referenciasChargebackPorComprobar(conDisputa, ahora);
+  if (referencias.length) {
+    const { data: devs, error: errDevs } = await admin.from('devoluciones')
+      .select('referencia')
+      .eq('studio_id', studio.id)
+      .in('referencia', referencias);
+    if (errDevs) {
+      anotadas = null;
+      Sentry.captureMessage('[conciliar-reembolsos] no se pudo comprobar qué disputas perdidas ya están anotadas', {
+        level: 'error', tags: { area: 'cobros', tipo: 'conciliar-disputas-perdidas' },
+        extra: { studioId: studio.id, detalle: errDevs.message },
+      });
+    } else {
+      anotadas = new Set((devs ?? []).map(d => d.referencia as string));
+    }
+  }
+
+  for (const rec of conDisputa) {
+    const accion = clasificarReciboConDisputa(rec, anotadas, ahora);
+    if (accion === 'ignorar') continue;
+    if (accion === 'dudosa') {
+      Sentry.captureMessage('[conciliar-reembolsos] disputa perdida sin anotar sobre un recibo tocado a mano: no se toca', {
+        level: 'warning', tags: { area: 'cobros', tipo: 'conciliar-disputas-perdidas' },
+        extra: { studioId: studio.id, reciboId: rec.id, disputeId: rec.disputa_stripe_id, estado: rec.estado },
+      });
+      continue;
+    }
+    const rescate = accion === 'rescatar';
+
     let dispute: Stripe.Dispute;
     try {
       dispute = await stripe.disputes.retrieve(rec.disputa_stripe_id, {}, { stripeAccount: studio.stripe_account_id });
@@ -438,7 +480,19 @@ async function conciliarDisputasAbiertasEstudio(
       continue;
     }
 
-    if (!ESTADOS_DISPUTA_CERRADA.includes(dispute.status)) continue; // sigue abierta, nada que hacer todavía.
+    if (rescate) {
+      // `lost` es terminal en Stripe: si ahora dice otra cosa, lo que no cuadra
+      // es nuestro recibo, y eso no se arregla moviendo su estado a ciegas.
+      if (dispute.status !== 'lost') {
+        Sentry.captureMessage('[conciliar-reembolsos] recibo con disputa perdida que Stripe no da por perdida: no se toca', {
+          level: 'error', tags: { area: 'cobros', tipo: 'conciliar-disputas-perdidas' },
+          extra: { studioId: studio.id, reciboId: rec.id, disputeId: dispute.id, disputeStatus: dispute.status },
+        });
+        continue;
+      }
+    } else if (!ESTADOS_DISPUTA_CERRADA.includes(dispute.status)) {
+      continue; // sigue abierta, nada que hacer todavía.
+    }
 
     const resultado = await procesarDisputeClosed(admin, {
       studioId: studio.id, reciboId: rec.id, disputeStatus: dispute.status, disputeId: dispute.id,
@@ -465,7 +519,9 @@ async function conciliarDisputasAbiertasEstudio(
     }
     if (resultado.huboEfecto) {
       cerradas++;
-      Sentry.captureMessage('[conciliar-reembolsos] cierre tardío de disputa recuperado (fuera de la ventana de 24h del otro barrido)', {
+      Sentry.captureMessage(rescate
+        ? '[conciliar-reembolsos] disputa perdida a medio aplicar recuperada'
+        : '[conciliar-reembolsos] cierre tardío de disputa recuperado (fuera de la ventana de 24h del otro barrido)', {
         level: 'warning', tags: { area: 'cobros', tipo: 'conciliado' },
         extra: { studioId: studio.id, reciboId: rec.id, disputeId: dispute.id, disputeStatus: dispute.status },
       });
