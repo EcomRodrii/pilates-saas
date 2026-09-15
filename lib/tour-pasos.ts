@@ -15,7 +15,7 @@ export const PASOS_TOUR: PasoTour[] = [
   {
     id: 'calendario', selector: 'calendario-vista', ruta: '/calendario',
     titulo: 'Tu calendario',
-    descripcion: 'Crea clases, arrastra para reprogramar y gestiona sustituciones cuando una instructora avisa de que falta — todo desde aquí.',
+    descripcion: 'Crea clases, muévelas de hora (arrastrando, en el ordenador o la tablet) y gestiona sustituciones cuando una instructora avisa de que falta — todo desde aquí.',
   },
   {
     id: 'clientas', selector: 'clientas-lista', ruta: '/clientas',

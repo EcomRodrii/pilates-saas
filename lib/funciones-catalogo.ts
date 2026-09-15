@@ -25,7 +25,7 @@ const CATEGORIAS_BASE: CategoriaFunciones[] = [
   {
     id: 'reservas', label: 'Reservas y calendario',
     funciones: [
-      { href: '/calendario', label: 'Calendario', descripcion: 'Crea clases, arrastra para reprogramar y gestiona el horario completo del estudio.' },
+      { href: '/calendario', label: 'Calendario', descripcion: 'Crea clases, muévelas de hora (arrastrando, en el ordenador o la tablet) y gestiona el horario completo del estudio.' },
       { href: '/citas', label: 'Citas', descripcion: 'Servicios con hora concreta: valoraciones, sesiones 1 a 1, lo que no encaja en una clase colectiva.' },
       { href: '/sustituciones', label: 'Sustituciones', descripcion: 'Cuando una instructora avisa de que no puede, Tentare busca sustituta sola y avisa a las alumnas antes de que cuelgues el teléfono.' },
     ],
