@@ -16,16 +16,18 @@ export function ElegirClienta({ titulo, subtitulo, clientas, onElegir, onClose }
   titulo: string;
   /** La clase para la que se elige, p. ej. «Reformer · Martes 18:00 · Sala 1». */
   subtitulo: string;
-  clientas: { id: string; nombre: string }[];
+  /** `sinCuota`: no tiene una cuota que incluya esta clase. Sale al final y no
+   *  se puede elegir: la plaza fija va con la cuota (con bono, clase a clase). */
+  clientas: { id: string; nombre: string; sinCuota?: boolean }[];
   onElegir: (socioId: string) => void;
   onClose: () => void;
 }) {
   const uid = useId();
   const [busqueda, setBusqueda] = useState('');
-  const resultados = useMemo(() => {
+  const { resultados, total } = useMemo(() => {
     const q = normalizar(busqueda);
     const lista = q ? clientas.filter(c => normalizar(c.nombre).includes(q)) : clientas;
-    return lista.slice(0, VISIBLES);
+    return { resultados: lista.slice(0, VISIBLES), total: lista.length };
   }, [busqueda, clientas]);
 
   return (
@@ -50,14 +52,18 @@ export function ElegirClienta({ titulo, subtitulo, clientas, onElegir, onClose }
             {resultados.map(c => (
               <li key={c.id} className="border-t border-border first:border-t-0">
                 <button
-                  type="button" onClick={() => onElegir(c.id)}
-                  className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                  type="button" onClick={() => onElegir(c.id)} disabled={c.sinCuota}
+                  className="w-full flex items-center justify-between gap-3 text-left px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent"
                 >
-                  {c.nombre}
+                  <span className="truncate">{c.nombre}</span>
+                  {c.sinCuota && <span className="shrink-0 text-xs">Sin cuota</span>}
                 </button>
               </li>
             ))}
           </ul>
+        )}
+        {total > resultados.length && (
+          <p className="text-xs text-muted-foreground -mt-2">Hay {total - resultados.length} más: busca por nombre.</p>
         )}
       </DialogContent>
     </Dialog>

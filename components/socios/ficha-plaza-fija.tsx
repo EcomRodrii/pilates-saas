@@ -22,6 +22,7 @@ import { Plus, Trash2, Pencil, CalendarClock, Pause } from 'lucide-react';
 import { IconoAviso } from '@/lib/iconos';
 import { plazasFijasSinSesion } from '@/lib/plazas-fijas-slot';
 import { estadoPausa } from '@/lib/plazas-fijas-pausa';
+import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { hoyEnEstudio } from '@/lib/utils';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { DialogoPausaPlazaFija } from '@/components/plazas-fijas/dialogo-pausa-plaza-fija';
@@ -60,7 +61,7 @@ function textoPlazaQuitada(canceladas: number, mantenidas: number, fallidas: num
 }
 
 export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
-  const { plazasFijas, quitarPlazaFija, salas, tiposClase, spots, sesiones } = useStudio();
+  const { plazasFijas, quitarPlazaFija, salas, tiposClase, spots, sesiones, suscripciones, planesTarifa } = useStudio();
   // null = cerrado; { plaza: null } = asignando una nueva; { plaza } = cambiando esa.
   const [dialogo, setDialogo] = useState<{ plaza: PlazaFija | null } | null>(null);
   const [aPausar, setAPausar] = useState<PlazaFija | null>(null);
@@ -92,7 +93,10 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
     <div className="border border-border rounded-xl p-5">
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-foreground">Plaza fija</p>
+          <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
+            <CalendarClock size={15} className="shrink-0 text-muted-foreground" aria-hidden />
+            Plaza fija
+          </p>
           <p className="text-xs text-muted-foreground">Viene siempre a la misma clase: se le reserva sola cada semana, sin que tengas que apuntarla clase a clase.</p>
         </div>
         <button
@@ -115,6 +119,11 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
             const sinClase = huerfanas.has(p.id);
             const hora = p.horaInicio.slice(0, 5);
             const pausa = hoy ? estadoPausa(p, hoy) : 'sin_pausa';
+            // Sin una cuota que incluya la clase, el motor no le reserva nada: la
+            // plaza sigue ahí, pero en silencio. Visto en producción con una
+            // clienta de bono agotado y plaza fija, sin ningún aviso.
+            const sinCuota = hoy !== null && p.estado === 'ACTIVA'
+              && !cuotaParaPlazaFija(socioId, suscripciones, planesTarifa, hoy, p.tipoClaseId);
             return (
               <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
                 <div className="min-w-0">
@@ -139,6 +148,12 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                     <p role="status" title={AVISO_SIN_CLASE} className="text-[11px] font-medium text-warning mt-1 flex items-center gap-1">
                       <IconoAviso size={12} className="shrink-0" aria-hidden />
                       Sin clase en este horario — cámbiala a la clase nueva
+                    </p>
+                  )}
+                  {sinCuota && (
+                    <p role="status" className="text-[11px] font-medium text-warning mt-1 flex items-center gap-1">
+                      <IconoAviso size={12} className="shrink-0" aria-hidden />
+                      Sin cuota que incluya esta clase: no se le reserva nada hasta que tenga una
                     </p>
                   )}
                 </div>

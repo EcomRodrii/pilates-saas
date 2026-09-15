@@ -22,6 +22,7 @@ import { IconoAviso } from '@/lib/iconos';
 import { franjasSemanales, nombreDiaSemana, plazaEnFranja, type FranjaSemanal } from '@/lib/plazas-fijas-slot';
 import { cn, fechaCortaEstudio, hoyEnEstudio } from '@/lib/utils';
 import type { ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
+import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import type { PlazaFija } from '@/lib/types';
 
 export type PlazaFijaGuardada = Extract<ResultadoGuardarPlazaFija, { ok: true }>;
@@ -63,7 +64,7 @@ export interface DialogoPlazaFijaProps {
 export function DialogoPlazaFija({
   socioId, plaza = null, claveInicial = null, spotInicial = null, onClose, onGuardada,
 }: DialogoPlazaFijaProps) {
-  const { sesiones, plazasFijas, salas, tiposClase, spots, asignarPlazaFija, moverPlazaFija } = useStudio();
+  const { sesiones, plazasFijas, salas, tiposClase, spots, asignarPlazaFija, moverPlazaFija, suscripciones, planesTarifa } = useStudio();
   const uid = useId();
 
   // La hora entra por estado (no `Date.now()` en un memo), mismo patrón que la
@@ -109,6 +110,14 @@ export function DialogoPlazaFija({
   const ocupados = new Set(franja ? franja.fijas.filter(p => p.id !== plaza?.id && p.spotId).map(p => p.spotId as string) : []);
   const spotId = spotsSala.some(s => s.id === spotElegido && !ocupados.has(s.id)) ? spotElegido : '';
   const rangoInvertido = !!hasta && hasta < desde;
+  // Se dice ANTES de elegir: sin cuota el servidor no la deja guardar, y
+  // enterarse al pulsar «Asignar» después de buscar la clase es tarde. No
+  // bloquea el botón — la última palabra es del servidor, que ve todas las
+  // suscripciones y no solo las que tiene cargadas el panel.
+  const hoy = hoyEnEstudio();
+  const sinNingunaCuota = ahoraMs > 0 && !cuotaParaPlazaFija(socioId, suscripciones, planesTarifa, hoy, null);
+  const cuotaNoIncluyeClase = !sinNingunaCuota && !!franja
+    && !cuotaParaPlazaFija(socioId, suscripciones, planesTarifa, hoy, franja.tipoClaseId);
   const puedeGuardar = !!franja && !!desde && !rangoInvertido && !guardando;
 
   async function guardar(confirmarLimite: boolean) {
@@ -139,6 +148,13 @@ export function DialogoPlazaFija({
           Elige la clase a la que viene cada semana. Se le reservan ya las próximas 6 semanas, y después solas cada
           noche. Hace falta una cuota activa que incluya esa clase; con bono se reserva clase a clase.
         </p>
+        {(sinNingunaCuota || cuotaNoIncluyeClase) && (
+          <p role="status" className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-xs font-medium text-warning">
+            {sinNingunaCuota
+              ? 'No tiene ninguna cuota activa, así que no se le puede dar plaza fija todavía. Asígnale primero una cuota.'
+              : 'Su cuota no incluye esta clase: elige una clase que cubra, o cámbiale la cuota.'}
+          </p>
+        )}
 
         <div className="space-y-4">
           <div>

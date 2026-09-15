@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
-  CalendarDays, CalendarClock,
+  CalendarDays, CalendarClock, ChevronDown,
   UserPlus, UserCheck, Pencil, Trash2, Copy,
   Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
 } from 'lucide-react';
@@ -33,6 +33,7 @@ import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto
 import { decidirReservaNueva, heredaOverride } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { sesionEncajaEnPlaza, claveFranjaDeSesion, type SesionSlot } from '@/lib/plazas-fijas-slot';
+import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { marcaReserva, textoTrasQuitar } from '@/lib/plazas-fijas-cancelacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
@@ -1473,6 +1474,11 @@ export default function Calendario() {
   // «Renovar serie»: se guarda la serie y su nombre al abrir, porque el panel
   // de la clase puede cerrarse (o cambiar de clase) con el diálogo abierto.
   const [renovarSerieDe, setRenovarSerieDe] = useState<{ serieId: string; nombre: string } | null>(null);
+  // Las acciones de la serie (duplicar, renovar, cancelar) van plegadas bajo
+  // «Serie»: con todas a la vista, el panel de una clase de serie llevaba nueve
+  // botones en tres filas (visto en producción). Se guarda de QUÉ clase se
+  // abrieron, así al cambiar de clase vuelven a salir plegadas sin un efecto.
+  const [serieAbiertaDe, setSerieAbiertaDe] = useState<string | null>(null);
   const apuntadasSesionActual = reservasActuales.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
 
   // Lo que se llevaría por delante "Cancelar serie": exactamente el mismo
@@ -2941,27 +2947,14 @@ export default function Calendario() {
                 <Copy size={12} />Duplicar
               </button>
               {sesionActual.serieId && (
-                <button onClick={() => openDuplicarSerie(sesionActual)} title="Repite todo lo que queda de esta serie, empezando justo después de su última clase" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
-                  <Copy size={12} />Duplicar serie
-                </button>
-              )}
-              {sesionActual.serieId && !esInstructor && (
                 <button
-                  onClick={() => {
-                    const { dow, hora, minuto } = franjaLocalDe(sesionActual.inicio);
-                    setRenovarSerieDe({
-                      serieId: sesionActual.serieId!,
-                      nombre: nombreSerie(
-                        { diaSemana: dow, hora: `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`, salaId: sesionActual.salaId, tipoClaseId: sesionActual.tipoClaseId },
-                        id => tiposClase.find(t => t.id === id)?.nombre,
-                        id => salas.find(x => x.id === id)?.nombre,
-                      ),
-                    });
-                  }}
-                  title="Alarga esta misma clase más semanas, con la misma configuración"
+                  onClick={() => setSerieAbiertaDe(prev => (prev === sesionActual.id ? null : sesionActual.id))}
+                  aria-expanded={serieAbiertaDe === sesionActual.id}
+                  title="Duplicar, renovar o cancelar la serie de esta clase"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors"
                 >
-                  <RefreshCw size={12} />Renovar serie
+                  <RefreshCw size={12} />Serie
+                  <ChevronDown size={12} aria-hidden className={cn('transition-transform', serieAbiertaDe === sesionActual.id && 'rotate-180')} />
                 </button>
               )}
               {/* P2 (auditoría "Veredicto de Marta"): en el momento de más
@@ -2987,24 +2980,50 @@ export default function Calendario() {
               <button onClick={() => setConfirmCancelar(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
                 <X size={12} />Cancelar
               </button>
-              {/* Con 1 sola clase viva por delante haría lo mismo que
-                  "Cancelar", así que no se ofrece. Fuera del rol INSTRUCTOR:
-                  la RLS le deja tocar únicamente sus propias clases, así que
-                  un batch sobre la serie podría cancelar media y decir que
-                  fue bien. */}
-              {sesionesSerieRestantes.length > 1 && !esInstructor && (
-                <button
-                  onClick={() => setConfirmCancelarSerie(true)}
-                  title="Cancela esta clase y todas las siguientes de la serie"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors"
-                >
-                  <X size={12} />Cancelar serie
-                </button>
-              )}
               {!esInstructor && (
                 <button onClick={() => setConfirmEliminar(true)} aria-label="Eliminar sesión" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto">
                   <Trash2 size={12} />
                 </button>
+              )}
+              {sesionActual.serieId && serieAbiertaDe === sesionActual.id && (
+                <div className="basis-full flex flex-wrap gap-2 rounded-lg bg-muted/60 p-2" data-testid="acciones-serie">
+                  <button onClick={() => openDuplicarSerie(sesionActual)} title="Repite todo lo que queda de esta serie, empezando justo después de su última clase" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border bg-card text-foreground hover:bg-muted transition-colors">
+                    <Copy size={12} />Duplicar serie
+                  </button>
+                  {!esInstructor && (
+                    <button
+                      onClick={() => {
+                        const { dow, hora, minuto } = franjaLocalDe(sesionActual.inicio);
+                        setRenovarSerieDe({
+                          serieId: sesionActual.serieId!,
+                          nombre: nombreSerie(
+                            { diaSemana: dow, hora: `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`, salaId: sesionActual.salaId, tipoClaseId: sesionActual.tipoClaseId },
+                            id => tiposClase.find(t => t.id === id)?.nombre,
+                            id => salas.find(x => x.id === id)?.nombre,
+                          ),
+                        });
+                      }}
+                      title="Alarga esta misma clase más semanas, con la misma configuración"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border bg-card text-foreground hover:bg-muted transition-colors"
+                    >
+                      <RefreshCw size={12} />Renovar serie
+                    </button>
+                  )}
+                  {/* Con 1 sola clase viva por delante haría lo mismo que
+                      "Cancelar", así que no se ofrece. Fuera del rol INSTRUCTOR:
+                      la RLS le deja tocar únicamente sus propias clases, así que
+                      un batch sobre la serie podría cancelar media y decir que
+                      fue bien. */}
+                  {sesionesSerieRestantes.length > 1 && !esInstructor && (
+                    <button
+                      onClick={() => setConfirmCancelarSerie(true)}
+                      title="Cancela esta clase y todas las siguientes de la serie"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border bg-card text-muted-foreground hover:bg-muted transition-colors"
+                    >
+                      <X size={12} />Cancelar serie
+                    </button>
+                  )}
+                </div>
               )}
             </>
           ) : null}
@@ -3255,8 +3274,13 @@ export default function Calendario() {
           subtitulo={nombreSerie(plazaFijaEnTarjeta, nombreTipoDe, nombreSalaDe)}
           clientas={socios
             .filter(s => s.activo && !plazaFijaEnTarjeta.plazasFijas.some(p => p.socioId === s.id))
-            .map(s => ({ id: s.id, nombre: `${s.nombre} ${s.apellidos}` }))
-            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))}
+            .map(s => ({
+              id: s.id,
+              nombre: `${s.nombre} ${s.apellidos}`,
+              sinCuota: !cuotaParaPlazaFija(s.id, suscripciones, planesTarifa, todayStr, plazaFijaEnTarjeta.tipoClaseId),
+            }))
+            // Primero las que pueden tenerla: con cuota que incluya la clase.
+            .sort((a, b) => Number(a.sinCuota) - Number(b.sinCuota) || a.nombre.localeCompare(b.nombre, 'es'))}
           onClose={() => setPlazaFijaEnTarjeta(null)}
           onElegir={socioId => {
             const t = plazaFijaEnTarjeta;
