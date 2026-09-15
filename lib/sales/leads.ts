@@ -35,12 +35,24 @@ export function normalizarEmail(email: string): string {
 /**
  * Normalizar teléfono a E.164 (básico: solo España)
  * +34 XXX XXX XXX → +34XXXXXXXXX
+ * 0034 XXX XXX → +34XXXXXXXXX
+ * 0 XXX XXX → +34XXXXXXXXX
  */
 export function normalizarTelefono(telefono: string | undefined | null): string | null {
   if (!telefono) return null;
   const limpio = telefono.replace(/\D/g, '');
+  if (!limpio) return null;
+
+  // Remover prefijo 0034 (formato antiguo español con dos ceros)
+  if (limpio.startsWith('0034')) return `+34${limpio.slice(4)}`;
+
+  // Ya empieza con 34 (vino como +34)
   if (limpio.startsWith('34')) return `+${limpio}`;
+
+  // Empieza con 0 (vino como 0 XXX XXX)
   if (limpio.startsWith('0')) return `+34${limpio.slice(1)}`;
+
+  // Cualquier otro caso: asumir es local sin prefijo
   return `+34${limpio}`;
 }
 
