@@ -11,6 +11,20 @@ import { DEFAULT_THEME, themeConfigSchema } from './theme-schema.ts';
 import { cumpleContraste } from './wcag-contrast.ts';
 import { mezclarHex } from './color-utils.ts';
 
+test('validarContrasteTheme: el favicon no cambia el veredicto', () => {
+  // publicarTheme/publicarCamposTheme (lib/theme-data.ts) miran el contraste
+  // antes de copiar el favicon y escriben ese mismo tema con la URL final. Solo
+  // es correcto mientras el favicon no entre en el chequeo.
+  const sinContraste = { ...DEFAULT_THEME, primary: '#FFFFFF', background: '#FFFFFF' };
+  assert.equal(validarContrasteTheme(sinContraste).ok, false);
+  for (const t of [DEFAULT_THEME, sinContraste]) {
+    assert.deepEqual(
+      validarContrasteTheme({ ...t, faviconUrl: 'https://p.supabase.co/storage/v1/object/public/avatars/favicon-s1?v=1' }),
+      validarContrasteTheme({ ...t, faviconUrl: null }),
+    );
+  }
+});
+
 test('foregroundParaFondo: blanco sobre fondo oscuro, negro sobre fondo claro', () => {
   assert.equal(foregroundParaFondo('#131313'), '#FFFFFF');
   assert.equal(foregroundParaFondo('#FFFFFF'), '#131313');

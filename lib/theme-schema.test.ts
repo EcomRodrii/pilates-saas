@@ -10,6 +10,7 @@ import {
   CAMPOS_DEL_TEMA,
   CAMPOS_DEL_ESTUDIO,
   RESERVAR_VACIO_TITULO_MAX,
+  themeDraftSchema,
   type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
 
 test('themeConfigSchema acepta un tema completo válido', () => {
@@ -54,6 +55,20 @@ test('resolveTheme: fallback POR TOKEN ante un valor inválido', () => {
   const r = resolveTheme({ primary: '#123456', secondary: 'no-es-hex' });
   assert.equal(r.primary, '#123456'); // válido, se respeta
   assert.equal(r.secondary, DEFAULT_THEME.secondary); // inválido → default, sin tumbar el resto
+});
+
+test('faviconUrl: solo https y acotado — se rechaza al guardar y se ignora al leer', () => {
+  for (const mala of [
+    'javascript:alert(1)',
+    'data:image/png;base64,AAAA',
+    'http://x.com/f.ico',
+    'ftp://x.com/f.ico',
+    `https://x.com/${'a'.repeat(600)}`,
+  ]) {
+    assert.equal(themeDraftSchema.safeParse({ faviconUrl: mala }).success, false, mala);
+    assert.equal(resolveTheme({ faviconUrl: mala }).faviconUrl, null, mala);
+  }
+  assert.equal(themeDraftSchema.safeParse({ faviconUrl: null }).success, true, 'quitarlo sigue valiendo');
 });
 
 test('resolveTheme: faviconUrl inválido → null', () => {

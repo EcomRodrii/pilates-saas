@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
-import { getThemeBorrador, getThemePublicado } from '@/lib/theme-data';
+import { ponerFaviconSiNoHay } from '@/lib/theme-data';
 import { uid } from '@/lib/utils';
 import {
   planificarConfiguracion, planVacio, HORARIO_POR_DEFECTO, type RespuestasOperativa,
@@ -66,36 +66,19 @@ export async function POST(req: NextRequest) {
   // imagen que ella acaba de elegir, y duplicarla en `favicon-<id>` solo
   // añadiría un fichero que mantener sincronizado.
   //
-  // ⚠️ Se parte de `getThemePublicado`/`getThemeBorrador` y no de un objeto
-  // vacío: sin fila en `studio_theme`, esas funciones caen al preset viejo del
-  // estudio (`studios.tema_portal`). Escribir `{ faviconUrl }` a secas crearía
-  // la fila y ese preset dejaría de aplicarse — le cambiaríamos los colores del
-  // portal por poner un favicon.
-  //
-  // Y solo si NO tiene ya uno: elegir un favicon a mano gana siempre.
+  // ⚠️ `ponerFaviconSiNoHay` (lib/theme-data.ts) parte del preset viejo del
+  // estudio (`studios.tema_portal`) si aún no hay fila en `studio_theme`, y no
+  // de un objeto vacío: escribir `{ faviconUrl }` a secas crearía la fila y ese
+  // preset dejaría de aplicarse — le cambiaríamos los colores del portal por
+  // poner un favicon. Solo lo pone si NO tiene ya uno (elegir un favicon a mano
+  // gana siempre), no pisa lo que otra pestaña acabe de guardar, y se salta un
+  // logo que no sea un fichero de nuestro Storage (lib/theme-favicon.ts).
   let faviconPuesto = false;
   try {
     const { data: filaStudio } = await admin
       .from('studios').select('logo_url').eq('id', studioId).maybeSingle();
     const logoUrl = (filaStudio?.logo_url as string | null) ?? null;
-    if (logoUrl) {
-      const publicado = await getThemePublicado(studioId);
-      if (!publicado.faviconUrl) {
-        const borrador = await getThemeBorrador(studioId);
-        const ahora = new Date().toISOString();
-        const { error } = await admin.from('studio_theme').upsert(
-          {
-            studio_id: studioId,
-            config_draft: { ...borrador, faviconUrl: logoUrl },
-            config_published: { ...publicado, faviconUrl: logoUrl },
-            actualizado_en: ahora,
-          },
-          { onConflict: 'studio_id' },
-        );
-        if (error) console.error('[onboarding:configurar:favicon]', error);
-        else faviconPuesto = true;
-      }
-    }
+    if (logoUrl) faviconPuesto = await ponerFaviconSiNoHay(studioId, logoUrl);
   } catch (err) {
     // Fallo suave: un favicon no justifica que el asistente diga que no ha
     // podido preparar el estudio.

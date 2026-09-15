@@ -168,6 +168,7 @@ export function TabMarca({ showToast }: { showToast: (m: string) => void }) {
                   clasePreview="w-12 h-12"
                   textoSubir="Subir favicon"
                   textoCambiar="Cambiar favicon"
+                  conEnlace={false}
                   ayuda={
                     <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                       El icono de la pestaña de tu página de reservas. Se aplica al momento. Cuadrado y pequeño: 64×64 px basta.

@@ -37,6 +37,7 @@ export function CampoImagen({
   textoSubir = 'Subir imagen',
   textoCambiar = 'Cambiar imagen',
   ayuda,
+  conEnlace = true,
 }: {
   /** Para los `aria-label`. No se pinta: el título ya lo pone quien llama. */
   etiqueta: string;
@@ -55,6 +56,13 @@ export function CampoImagen({
   textoSubir?: string;
   textoCambiar?: string;
   ayuda?: React.ReactNode;
+  /**
+   * `false` quita «o pegar un enlace». Es para el favicon: se pinta en la página
+   * pública de reservas y solo se admite un fichero subido desde aquí
+   * (lib/theme-favicon.ts), así que ofrecer un enlace sería ofrecer algo que el
+   * servidor va a rechazar.
+   */
+  conEnlace?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
@@ -125,15 +133,17 @@ export function CampoImagen({
         <input ref={ref} type="file" accept="image/*" hidden onChange={alElegir} aria-label={`Archivo de ${etiqueta}`} />
       </div>
 
-      <button
-        type="button"
-        onClick={() => { setVerEnlace((v) => !v); setError(''); }}
-        className="text-[11px] text-muted-foreground underline mt-1.5"
-      >
-        {verEnlace ? 'Ocultar el enlace' : 'o pegar un enlace'}
-      </button>
+      {conEnlace && (
+        <button
+          type="button"
+          onClick={() => { setVerEnlace((v) => !v); setError(''); }}
+          className="text-[11px] text-muted-foreground underline mt-1.5"
+        >
+          {verEnlace ? 'Ocultar el enlace' : 'o pegar un enlace'}
+        </button>
+      )}
 
-      {verEnlace && (
+      {conEnlace && verEnlace && (
         <div className="mt-1.5 space-y-1.5">
           <input
             className="w-full text-[13px] px-3 py-2 rounded-xl border border-border bg-background"

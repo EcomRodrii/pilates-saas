@@ -14,6 +14,7 @@
 import { z } from 'zod';
 import { NAV_SEG_IDS, NAV_ICONOS_DISPONIBLES, DEFAULT_NAV_CONFIG, migrarNavConfigRaw } from './portal-nav.ts';
 import { VARIANTES_PORTAL, type EjeVariante } from './theme-variantes.ts';
+import { FAVICON_URL_MAX, faviconConFormaValida } from './theme-favicon.ts';
 
 /** Hex de 3 o 6 dígitos. */
 export const hexSchema = z
@@ -186,7 +187,14 @@ const fontIdSchema = z.enum(FUENTES.map((f) => f.id) as [FontId, ...FontId[]]);
 // significar "hereda", así que el control no tenía forma de no
 // pisar nada).
 const radiusSchema = z.enum(RADIOS.map((r) => r.id) as [RadiusId, ...RadiusId[]]).nullable();
-const faviconSchema = z.string().url().nullable();
+// https, sin credenciales y acotada — ver lib/theme-favicon.ts. Que además sea
+// un fichero del PROPIO estudio no se puede comprobar aquí (el esquema no sabe
+// de qué estudio es): eso lo hace lib/theme-data.ts al escribir y al leer.
+const faviconSchema = z
+  .string()
+  .max(FAVICON_URL_MAX)
+  .refine(faviconConFormaValida, 'El favicon tiene que ser un enlace https')
+  .nullable();
 
 /**
  * Lo que se ve al compartir el enlace del estudio (WhatsApp, Instagram) y en

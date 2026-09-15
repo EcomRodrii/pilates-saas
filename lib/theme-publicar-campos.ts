@@ -31,6 +31,36 @@ export function fusionarCampos<T extends object>(
 }
 
 /**
+ * Lo validado, pero SOLO con las claves que venían en el cuerpo.
+ *
+ * ⚠️ Zod 4 aplica los `.default()` también dentro de `.partial()`: validar
+ * `{ primary, secondary }` con el esquema del tema devuelve además
+ * `faviconUrl: null` y el resto de valores de fábrica. Así, publicar solo los
+ * colores QUITABA el favicon, y un borrador parcial devolvía a su valor por
+ * defecto todo lo que no traía.
+ */
+export function soloLoEnviado<T extends object>(crudo: unknown, validado: T): Partial<T> {
+  if (!crudo || typeof crudo !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(validado).filter(([clave]) => Object.prototype.hasOwnProperty.call(crudo, clave)),
+  ) as Partial<T>;
+}
+
+/**
+ * El `actualizado_en` que se escribe al guardar el tema. Es también la VERSIÓN
+ * con la que `lib/theme-data.ts` comprueba que nadie ha escrito entre su lectura
+ * y su escritura, así que tiene que salir ESTRICTAMENTE mayor que la leída
+ * aunque el reloj de esta instancia vaya por detrás del de la que escribió
+ * antes: si saliera igual, la escritura de otra pestaña pasaría la comprobación
+ * y volvería a perderse en silencio. Postgres guarda microsegundos; el
+ * milisegundo siguiente sigue siendo mayor.
+ */
+export function siguienteVersionTheme(anterior: string | null, ahora: number = Date.now()): string {
+  const previa = anterior ? Date.parse(anterior) : NaN;
+  return new Date(Number.isNaN(previa) ? ahora : Math.max(ahora, previa + 1)).toISOString();
+}
+
+/**
  * ¿Es el favicon subido al path de BORRADOR de este estudio
  * (`favicon-borrador-<studioId>`)? Solo entonces hay que copiar el archivo al
  * path publicado. Un enlace pegado, o el favicon ya publicado, se publica tal
