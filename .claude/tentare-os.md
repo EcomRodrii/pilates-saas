@@ -523,6 +523,21 @@ anteriores, pero aquí más seria por ser dinero real: recomendado probar el
 primer cobro en un estudio de prueba antes de activar la regla para clientes
 reales.
 
+**Cobro automático: la penalización sigue a su recibo (2026-09-15).** En
+automático los reintentos son del dunning, no del cron: un rechazo real (o sin
+tarjeta) deja RECIBO_CREADO con el recibo armado, y un adeudo SEPA en
+`processing` no se da por cobrado. La penalización la cierra `seguirAlRecibo`
+(`lib/billing/penalizacion-aprobar-reglas.ts`) leyendo el ESTADO del recibo
+(COBRADO → COBRADA, FALLIDO → FALLIDA), lo llame el dunning al terminar con el
+recibo o el barrido horario del cron, que cubre también el webhook y Cobros.
+⚠️ El dunning solo cobra un recibo `rec-penaliz-*` con la penalización en
+RECIBO_CREADO o COBRADA (esta última, un SEPA que falló después), y el cron
+saca del dunning el recibo de toda FALLIDA que escribe. ⚠️ Un recibo que ya está
+FALLIDO **no se vuelve a cobrar solo**: la penalización queda FALLIDA (clave de
+idempotencia nueva + la socia pagando desde el portal = dos cargos). El dueño
+único de «recibo cobrado» (#1987) puede llamar a `seguirPenalizacionAlRecibo`
+como un efecto más; no hay que copiar nada.
+
 Con Fase 3 cerrada, las 13 reglas de reserva/cancelación pedidas
 originalmente están **completas**.
 

@@ -16,8 +16,9 @@ import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
-  DESDE_DETECTADA, crearReciboYCobrar, type EstadoPenalizacion,
+  BARRIDO_RECIBO_RESUELTO, DESDE_DETECTADA, crearReciboYCobrar, type EstadoPenalizacion,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
+import { seguirPenalizacionAlRecibo } from '@/lib/billing/penalizacion-recibo-server';
 import {
   DEFINICIONES, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR, avisoParaSentry,
 } from '@/lib/salud/comprobaciones.ts';
@@ -131,10 +132,9 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   // PENDIENTE_APROBACION deja su recibo PENDIENTE en Cobros (sin armar: el
   // dunning no lo cobra), y el trigger no revierte nada desde RECIBO_CREADO.
   //
-  // ⚠️ Pendiente, documentado allí también: en automático, si el dunning cobra
-  // después un recibo `rec-penaliz-*`, no actualiza su penalización (se queda
-  // FALLIDA o RECIBO_CREADO con el dinero dentro). Resolver antes de que ningún
-  // estudio active el cobro automático de penalizaciones.
+  // Si el cobro acaba en otro camino (el dunning, el webhook, Cobros), la
+  // penalización se pone al día con `seguirPenalizacionAlRecibo`: lo llama el
+  // dunning y lo barre `seguirRecibosResueltos`, más abajo.
   await crearReciboYCobrar({
     insertarRecibo: async () => {
       const { error } = await admin.from('recibos').insert({
@@ -181,9 +181,13 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
       if (error) console.error('[penalizaciones] no se pudo borrar el recibo sin penalización', reciboId, error.message);
     },
     desarmarRecibo: async () => {
-      const { error } = await admin.from('recibos').update({ proximo_reintento: null })
-        .eq('id', reciboId).eq('studio_id', pen.studio_id).eq('estado', 'PENDIENTE');
+      // Con `.select('id')`: quien llama necesita saber si tocó el recibo, y si
+      // no, lo relee antes de devolver nada a DETECTADA.
+      const { data, error } = await admin.from('recibos').update({ proximo_reintento: null })
+        .eq('id', reciboId).eq('studio_id', pen.studio_id).eq('estado', 'PENDIENTE')
+        .select('id');
       if (error) console.error('[penalizaciones] no se pudo desprogramar el recibo', reciboId, error.message);
+      return { error: !!error, tocadas: data?.length ?? 0 };
     },
     armarRecibo: async () => {
       const { data, error } = await admin.from('recibos').update({ proximo_reintento: new Date().toISOString() })
@@ -239,6 +243,35 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
 }
 
 /**
+ * La penalización sigue a su recibo aunque lo haya resuelto otro camino: el
+ * dunning (si su llamada a `seguirPenalizacionAlRecibo` no llegó a escribir), el
+ * webhook que reconcilia un cargo con tarjeta cuya respuesta se perdió, o alguien
+ * que lo cobró desde Cobros. Sin cron nuevo, de paso por esta pasada. En un
+ * sistema sano las dos consultas vuelven vacías.
+ */
+async function seguirRecibosResueltos(admin: SupabaseClient) {
+  for (const { estadoRecibo, estados } of BARRIDO_RECIBO_RESUELTO) {
+    try {
+      const { data, error } = await admin
+        .from('penalizaciones')
+        .select('studio_id, recibo_id, recibos!inner(estado)')
+        .in('estado', [...estados])
+        .eq('recibos.estado', estadoRecibo)
+        .limit(200);
+      if (error) throw new Error(error.message);
+      for (const fila of data ?? []) {
+        await seguirPenalizacionAlRecibo(admin, { studioId: fila.studio_id as string, reciboId: fila.recibo_id as string });
+      }
+    } catch (e) {
+      Sentry.captureMessage('[penalizaciones] barrido de recibos resueltos', {
+        level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-recibo' },
+        extra: { estadoRecibo, error: e instanceof Error ? e.message : String(e) },
+      });
+    }
+  }
+}
+
+/**
  * Vigilancia sin cron nuevo (Inngest va cerca del límite del plan): de paso por
  * esta pasada, cuántas penalizaciones RECIBO_CREADO llevan más de 1 h con el
  * recibo PENDIENTE sin programar. Es la MISMA comprobación que sirve
@@ -282,7 +315,8 @@ export const penalizacionesDispatcher = inngest.createFunction(
         await procesarUna(admin, pen as never);
       }
       // Después de procesar, y también cuando no había nada DETECTADA: lo que
-      // vigila no depende de que haya trabajo nuevo.
+      // barre y lo que vigila no depende de que haya trabajo nuevo.
+      await seguirRecibosResueltos(admin);
       await vigilarRecibosSinProgramar(admin);
       return { procesadas: pendientes?.length ?? 0 };
     });

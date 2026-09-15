@@ -25,29 +25,43 @@ export async function marcarPenalizacionReembolsada(
   }
   if (!pen?.reserva_id) return; // este recibo no era de una penalización cobrada
 
+  await pedirRevisionLiquidacionPenalizacion(admin, studioId, pen as PenalizacionRepartida,
+    `Una penalización de ${Number(pen.importe).toFixed(2)}€ ya repartida aquí se ha reembolsado a la socia.`);
+}
+
+export interface PenalizacionRepartida { reserva_id: string; importe: number | string | null; procesada_en: string | null }
+
+/**
+ * Marca para revisión la liquidación CONFIRMADA que ya repartió esta
+ * penalización (nunca una PAGADA: eso es un ajuste manual). `pen` son los datos
+ * de cuando estaba COBRADA: su `procesada_en` decide el periodo. `false` solo si
+ * la escritura de la liquidación dio error; sin instructora o sin periodo no hay
+ * nada que revisar.
+ */
+export async function pedirRevisionLiquidacionPenalizacion(
+  admin: SupabaseClient, studioId: string, pen: PenalizacionRepartida, motivo: string,
+): Promise<boolean> {
   const { data: reserva } = await admin.from('reservas').select('sesion_id')
-    .eq('id', pen.reserva_id as string).maybeSingle();
+    .eq('id', pen.reserva_id).maybeSingle();
   const sesionId = (reserva?.sesion_id as string | null) ?? null;
-  if (!sesionId) return;
+  if (!sesionId) return true;
 
   const { data: sesion } = await admin.from('sesiones').select('instructor_id')
     .eq('id', sesionId).maybeSingle();
   const instructorId = (sesion?.instructor_id as string | null) ?? null;
-  if (!instructorId) return;
+  if (!instructorId) return true;
 
   // Mismo criterio que generarLiquidacionBorrador: el periodo de una
   // penalización es el mes en que se COBRÓ, no el de la clase.
-  const procesadaEn = pen.procesada_en as string | null;
-  if (!procesadaEn) return;
-  const fecha = new Date(procesadaEn);
+  if (!pen.procesada_en) return true;
+  const fecha = new Date(pen.procesada_en);
   const anio = fecha.getUTCFullYear();
   const mes = fecha.getUTCMonth() + 1;
 
-  await admin.from('liquidaciones_instructoras')
-    .update({
-      requiere_revision: true,
-      revision_motivo: `Una penalización de ${Number(pen.importe).toFixed(2)}€ ya repartida aquí se ha reembolsado a la socia.`,
-    })
+  const { error } = await admin.from('liquidaciones_instructoras')
+    .update({ requiere_revision: true, revision_motivo: motivo })
     .eq('studio_id', studioId).eq('instructor_id', instructorId)
     .eq('periodo_anio', anio).eq('periodo_mes', mes).eq('estado', 'CONFIRMADA');
+  if (error) console.error('[liquidacion] no se pudo pedir la revisión de la liquidación', studioId, error.message);
+  return !error;
 }
