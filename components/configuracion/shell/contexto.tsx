@@ -10,8 +10,14 @@ import type { SeccionId } from '@/lib/configuracion/secciones';
 export type ModoNavegacion = 'push' | 'replace';
 
 export interface NavegacionConfig {
-  /** `null` = la lista. */
+  /** `null` = la lista. Si hay cambios sin guardar en otra sección, pregunta antes. */
   irA: (tab: SeccionId | null, opciones?: { ancla?: string; modo?: ModoNavegacion; origen?: string }) => void;
+  /**
+   * La barra de guardar de `seccion` tiene cambios: salir de ella tiene que
+   * preguntar. Devuelve con qué quitar la marca (al guardar, descartar o
+   * desmontarse).
+   */
+  marcarSinGuardar: (seccion: SeccionId) => () => void;
 }
 
 export const ContextoNavegacionConfig = createContext<NavegacionConfig | null>(null);

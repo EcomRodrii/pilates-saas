@@ -182,9 +182,9 @@ export default function LeerPasePage() {
           <p className="text-sm font-semibold">El check-in por QR está desactivado</p>
           <p className="text-sm opacity-70">
             Este estudio da por asistida cada reserva confirmada al terminar la clase, sin pedir ningún pase.
-            Puedes activarlo de nuevo en Configuración → Cómo reservan mis alumnas.
+            Puedes activarlo de nuevo en Configuración → Cómo reservan mis alumnas, con «Pasar lista» en la tarjeta «Asistencia».
           </p>
-          <Link href="/configuracion?tab=reservas" className="text-sm font-bold underline mt-1">
+          <Link href="/configuracion?tab=reservas#asistencia" className="text-sm font-bold underline mt-1">
             Ir a Configuración
           </Link>
         </div>

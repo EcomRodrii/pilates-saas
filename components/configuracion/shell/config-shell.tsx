@@ -7,6 +7,7 @@ import { useRol } from '@/lib/permisos';
 import { Toast, useToast } from '@/components/ui/toast';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PageHeader } from '@/components/ui/page-header';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { hrefDeSeccion, resolverDestino, seccionesVisibles } from '@/lib/configuracion/destino';
 import { seccionPorId, type SeccionId } from '@/lib/configuracion/secciones';
 import { ContextoNavegacionConfig, type NavegacionConfig } from './contexto';
@@ -139,7 +140,66 @@ export function ConfigShell() {
     else window.history.replaceState(null, '', href);
   }, []);
 
-  const nav = useMemo<NavegacionConfig>(() => ({ irA }), [irA]);
+  // ── Salir con cambios sin guardar ──────────────────────────────────────────
+  // Cada barra de guardar con cambios deja aquí su sección
+  // (shell/barra-guardar.tsx). Cambiar a OTRA sección, volver a la lista o irse
+  // a otra pantalla del panel pregunta antes; recargar o cerrar la pestaña lo
+  // pregunta el navegador (`beforeunload`, en la propia barra).
+  // ⚠️ El gesto de atrás del teléfono (popstate) no se puede frenar sin tocar el
+  // historial a mano, y eso rompería la vuelta a la lista: ese no pregunta.
+  const sinGuardar = useRef(new Map<number, SeccionId>());
+  const ultimaMarca = useRef(0);
+  const [salida, setSalida] = useState<{ seccion: SeccionId; ir: () => void } | null>(null);
+
+  const marcarSinGuardar = useCallback((seccion: SeccionId) => {
+    const marca = ++ultimaMarca.current;
+    sinGuardar.current.set(marca, seccion);
+    return () => { sinGuardar.current.delete(marca); };
+  }, []);
+
+  /** La sección con cambios que se perderían yendo a `destino` (`null` = fuera de ella). */
+  const seccionQueSePierde = useCallback((destino: SeccionId | null) => {
+    for (const s of sinGuardar.current.values()) if (s !== destino) return s;
+    return null;
+  }, []);
+
+  const irAPreguntando = useCallback<NavegacionConfig['irA']>((destino, opciones) => {
+    const pendiente = seccionQueSePierde(destino);
+    if (pendiente) {
+      setSalida({ seccion: pendiente, ir: () => irA(destino, opciones) });
+      return;
+    }
+    irA(destino, opciones);
+  }, [irA, seccionQueSePierde]);
+
+  // Un enlace a otra pantalla (el menú, «Mi cuenta», un enlace dentro de una
+  // tarjeta): se para antes de que Next navegue. En captura, para llegar antes
+  // que el `onClick` del propio enlace.
+  useEffect(() => {
+    function alPulsar(e: MouseEvent) {
+      if (sinGuardar.current.size === 0) return;
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const enlace = e.target instanceof Element ? e.target.closest<HTMLAnchorElement>('a[href]') : null;
+      if (!enlace || (enlace.target && enlace.target !== '_self') || enlace.hasAttribute('download')) return;
+      const url = new URL(enlace.href, window.location.href);
+      // A otra web: lo pregunta el navegador.
+      if (url.origin !== window.location.origin) return;
+      // Mismo sitio, como mucho otro `#ancla`: no se pierde nada.
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      // Las filas de secciones van por `irA`, que ya pregunta. «Mi cuenta», en la
+      // misma lista, es otra pantalla: esa sí se para aquí.
+      if (url.pathname === window.location.pathname && enlace.closest('nav[aria-label="Secciones de Configuración"]')) return;
+      const pendiente = seccionQueSePierde(null);
+      if (!pendiente) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setSalida({ seccion: pendiente, ir: () => router.push(`${url.pathname}${url.search}${url.hash}`) });
+    }
+    document.addEventListener('click', alPulsar, true);
+    return () => document.removeEventListener('click', alPulsar, true);
+  }, [router, seccionQueSePierde]);
+
+  const nav = useMemo<NavegacionConfig>(() => ({ irA: irAPreguntando, marcarSinGuardar }), [irAPreguntando, marcarSinGuardar]);
 
   const tab = abierto?.tab ?? null;
   const vista = abierto?.vista;
@@ -210,6 +270,15 @@ export function ConfigShell() {
   const Seccion = mostrada ? COMPONENTES[mostrada] : null;
 
   function volver() {
+    const pendiente = seccionQueSePierde(null);
+    if (pendiente) {
+      setSalida({ seccion: pendiente, ir: volverSinPreguntar });
+      return;
+    }
+    volverSinPreguntar();
+  }
+
+  function volverSinPreguntar() {
     // Si se llegó desde la lista con un solo paso, «volver» es el atrás de
     // siempre y el historial queda como estaba. Si se llegó por un enlace
     // (una notificación, otra sección), se sustituye por la lista.
@@ -247,11 +316,11 @@ export function ConfigShell() {
               variant="lista"
               secciones={visibles}
               activa={null}
-              onElegir={(id, fila) => irA(id, { modo: 'push', origen: fila })}
+              onElegir={(id, fila) => irAPreguntando(id, { modo: 'push', origen: fila })}
             />
           </div>
           <div className="hidden md:sticky md:top-14 md:block md:max-h-[calc(100dvh-8rem)] md:self-start md:overflow-y-auto lg:top-[calc(var(--panel-sticky-top,0px)+4rem)]">
-            <ListaSecciones variant="rail" secciones={visibles} activa={mostrada} onElegir={id => irA(id)} />
+            <ListaSecciones variant="rail" secciones={visibles} activa={mostrada} onElegir={id => irAPreguntando(id)} />
           </div>
 
           <div className="@container/config min-w-0 max-md:group-data-[vista=lista]/config:hidden">
@@ -273,6 +342,17 @@ export function ConfigShell() {
         </div>
 
         {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+
+        <ConfirmDialog
+          open={salida !== null}
+          onOpenChange={abiertoDialogo => { if (!abiertoDialogo) setSalida(null); }}
+          titulo="¿Salir sin guardar?"
+          descripcion={salida ? `Los cambios de «${seccionPorId(salida.seccion).titulo}» se perderán.` : undefined}
+          textoConfirmar="Salir sin guardar"
+          textoCancelar="Seguir editando"
+          destructivo
+          onConfirm={() => salida?.ir()}
+        />
       </div>
     </ContextoNavegacionConfig.Provider>
   );

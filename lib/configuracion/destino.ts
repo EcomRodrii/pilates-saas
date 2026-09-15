@@ -18,7 +18,7 @@
 // Pura: la ejecuta `node --test` directamente.
 
 import {
-  SECCIONES, esSeccionId, esTarjetaId, seccionAnfitriona,
+  SECCIONES, esSeccionId, esTarjetaId, seccionDeTarjeta,
   type RolConfiguracion, type SeccionConfiguracion, type SeccionId, type TarjetaId,
 } from './secciones.ts';
 
@@ -29,7 +29,7 @@ export type Destino =
 
 type Lugar = { tab: SeccionId; ancla?: string };
 
-const en = (ancla: TarjetaId): Lugar => ({ tab: seccionAnfitriona(ancla), ancla });
+const en = (ancla: TarjetaId): Lugar => ({ tab: seccionDeTarjeta(ancla), ancla });
 
 // `?tab=` que ya no es una sección. Van los ids de las doce pestañas de antes y
 // los alias que ya existían entonces (#848): lo que SE VEÍA en la pestaña.
@@ -108,14 +108,17 @@ const PARAMS_DE_CONEXION: [string, TarjetaId][] = [
 ];
 
 // Tarjetas que ya no existen, con la que hace hoy su trabajo. «Exportar a Excel»
-// se retiró el 15-sep: queda una sola exportación, «Exportar mis datos».
+// se retiró el 15-sep: queda una sola exportación, «Exportar mis datos». Las
+// reglas de reserva eran una sola tarjeta hasta que se partieron en cinco: su
+// ancla lleva a la primera.
 const ANCLAS_RETIRADAS: Record<string, TarjetaId> = {
   'integracion-excel': 'exportar',
+  'reglas-de-reserva': 'reservar',
 };
 
-/** Cada tarjeta, con la sección donde se pinta hoy. Derivado: nadie lo escribe a mano. */
+/** Cada tarjeta, con su sección. Derivado: nadie lo escribe a mano. */
 export const ANCLAS: Readonly<Record<string, SeccionId>> = Object.fromEntries(
-  SECCIONES.flatMap(s => s.tarjetas.map(t => [t.id, seccionAnfitriona(t.id)] as const)),
+  SECCIONES.flatMap(s => s.tarjetas.map(t => [t.id, seccionDeTarjeta(t.id)] as const)),
 );
 
 /** ¿`tab` es una sección, un id viejo que sabemos a dónde llevar, o algo que ya vive fuera? */

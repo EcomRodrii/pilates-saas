@@ -47,8 +47,8 @@ export function WhatsAppFab() {
     // un iPad con barra de inicio quedaba montado sobre la navegación. Ahora va
     // 16 px por encima de ella, y el panel deja sitio debajo del contenido
     // (dashboard-shell.tsx) para que la última fila no quede bajo el botón.
-    // `panel-wa-fab`: se aparta mientras hay una barra de guardar a la vista
-    // (globals.css), porque caía justo encima de «Guardar».
+    // `panel-wa-fab`: se aparta mientras hay una barra de guardar a la vista, en
+    // cualquier ancho (globals.css), porque caía justo encima de «Guardar».
     <div ref={ref} className="panel-wa-fab fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] right-4 lg:bottom-6 lg:right-6 z-40 flex flex-col items-end gap-3">
       {open && (
         <div className="w-72 rounded-2xl bg-card border border-border shadow-xl p-4 animate-sheet-pop-in origin-bottom-right">

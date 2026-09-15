@@ -53,7 +53,7 @@ async function montar(page: Page) {
   await page.goto('/configuracion?tab=estudio&sub=reservas');
 }
 
-test.describe('Reservas y cancelaciones: solo lo que sí se decidió nace activado', () => {
+test.describe('Cómo reservan mis alumnas: solo lo que sí se decidió nace activado', () => {
   test('sin dato del servidor, "exigir plan" arranca activado y "devolver bono" no', async ({ page }) => {
     await montar(page);
 

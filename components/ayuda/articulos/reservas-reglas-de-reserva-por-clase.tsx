@@ -17,7 +17,7 @@ export default function Contenido() {
         <li><strong>Exigir plan o bono activo</strong> — sin un plan que cubra ese tipo de clase, no se puede reservar.</li>
         <li><strong>Antelación mínima</strong> — cuánto tiempo antes del inicio deja de poder reservarse.</li>
         <li><strong>Antelación máxima</strong> — con cuánta anticipación se abre la reserva (para no llenar una clase con semanas de adelanto si no quieres).</li>
-        <li><strong>Permitir lista de espera</strong> — si una clase llena admite lista de espera o simplemente deja de aceptar reservas.</li>
+        <li><strong>Lista de espera</strong> — si una clase llena admite lista de espera o simplemente deja de aceptar reservas.</li>
       </ul>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Aprobación manual</h2>
@@ -35,8 +35,9 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Dónde se configuran</h2>
       <p>
-        Los valores del estudio están en Configuración &gt; Cómo reservan mis alumnas (casi todos, dentro de
-        &ldquo;Opciones avanzadas&rdquo;); los de un tipo de clase concreto, al editar ese tipo en Configuración &gt; Mis
+        Los valores del estudio están en Configuración &gt; Cómo reservan mis alumnas, repartidos en tarjetas:
+        &ldquo;Reservar&rdquo; (plan o bono y antelación) y &ldquo;Lista de espera&rdquo;; la aprobación a mano también
+        está en &ldquo;Reservar&rdquo;. Los de un tipo de clase concreto, al editar ese tipo en Configuración &gt; Mis
         clases y citas. Mientras un tipo de clase muestra &ldquo;Ajuste del estudio&rdquo;, usa el del estudio; pulsa
         &ldquo;Personalizar&rdquo; para darle el suyo.
       </p>

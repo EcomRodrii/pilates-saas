@@ -143,7 +143,7 @@ test.describe('En pantalla ancha', () => {
     await exigir.focus();
     await page.keyboard.press('Space');
     await expect(exigir).toHaveAttribute('aria-checked', 'false');
-    await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+    await expect(page.getByText('Cambios sin guardar en: Reservar')).toBeVisible();
     expect(escrituras, 'cambiar el interruptor no escribe hasta «Guardar»').toBe(0);
   });
 

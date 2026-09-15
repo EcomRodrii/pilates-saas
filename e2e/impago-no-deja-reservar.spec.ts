@@ -71,13 +71,12 @@ test('el interruptor de impago llega hasta la columna, no solo al toast', async 
   const patches: string[] = [];
   await abrirReservas(page, patches);
 
-  // Vive en «Opciones avanzadas», plegado por defecto desde el 13-sep.
-  await page.locator('summary', { hasText: 'Opciones avanzadas' }).click({ timeout: 30_000 });
-  const toggle = page.getByText('No dejar reservar con un pago fallido');
+  // Vive en la tarjeta «Reservar».
+  const toggle = page.locator('#reservar').getByText('No dejar reservar con un pago fallido');
   await expect(toggle).toBeVisible({ timeout: 30_000 });
   await toggle.click();
 
-  await page.getByRole('button', { name: /Guardar/ }).first().click();
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
   await expect.poll(() => patches.length, { timeout: 15_000 }).toBeGreaterThan(0);
   const cuerpo = patches.join(' ');
@@ -89,11 +88,11 @@ test('el interruptor de recuperaciones automáticas también llega a la columna'
   const patches: string[] = [];
   await abrirReservas(page, patches);
 
-  await page.locator('summary', { hasText: 'Opciones avanzadas' }).click({ timeout: 30_000 });
-  const toggle = page.getByText('Dar recuperaciones solas al cerrar la semana');
+  // Vive en la tarjeta «Cancelar y recuperar».
+  const toggle = page.locator('#cancelar-y-recuperar').getByText('Dar recuperaciones solas al cerrar la semana');
   await expect(toggle).toBeVisible({ timeout: 30_000 });
   await toggle.click();
-  await page.getByRole('button', { name: /Guardar/ }).first().click();
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
   await expect.poll(() => patches.length, { timeout: 15_000 }).toBeGreaterThan(0);
   expect(patches.join(' '), 'la lista blanca se comió el campo').toContain('recuperacion_auto_semanal');

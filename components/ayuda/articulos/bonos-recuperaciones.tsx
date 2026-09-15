@@ -27,8 +27,8 @@ export default function Contenido() {
 
       <h2 style={h2}>Cuánto duran</h2>
       <p>
-        Lo decides tú en <strong>Configuración → Cómo reservan mis alumnas</strong>, en el bloque
-        «Recuperaciones». Tres opciones: al final del mes siguiente (lo que viene puesto), al final del mes en
+        Lo decides tú en <strong>Configuración → Cómo reservan mis alumnas</strong>, en la tarjeta «Cancelar y
+        recuperar». Tres opciones: al final del mes siguiente (lo que viene puesto), al final del mes en
         curso, o un número de días que elijas.
       </p>
       <p>

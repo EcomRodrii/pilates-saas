@@ -19,7 +19,7 @@ import { useWhatsappEmbeddedSignup } from '@/lib/hooks/use-whatsapp-embedded-sig
 import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import { uuidV4 } from '@/lib/utils';
-import { seccionAnfitriona, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
+import { seccionDeTarjeta, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
@@ -267,7 +267,7 @@ function NoDisponibleTodavia({ variable }: { variable: string }) {
 // La sección que pinta una tarjeta, para dejar la URL limpia al volver de una
 // conexión. Sale de lib/configuracion/secciones.ts: si la tarjeta cambia de
 // sección, la vuelta la sigue sin tocar nada aquí.
-const urlDeLaSeccion = (tarjeta: TarjetaId) => hrefDeSeccion(seccionAnfitriona(tarjeta));
+const urlDeLaSeccion = (tarjeta: TarjetaId) => hrefDeSeccion(seccionDeTarjeta(tarjeta));
 
 /**
  * Las integraciones, cada una en su sección: Stripe en «Cobros y facturas»; el

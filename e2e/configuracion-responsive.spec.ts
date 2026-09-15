@@ -1,6 +1,6 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
-import { SECCIONES, tarjetasDeFuera, tarjetasPintadasEn } from '../lib/configuracion/secciones';
+import { SECCIONES, type TarjetaConfiguracion } from '../lib/configuracion/secciones';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuración cabe en un móvil, en el iPad de recepción y en un portátil.
@@ -157,10 +157,10 @@ for (const vista of VISTAS) {
       await abrir(page, { id: 'reservas', titulo: 'Cómo reservan mis alumnas' });
 
       await page.getByLabel('Plazo para cancelar sin perder la sesión (horas antes)').fill('24');
-      await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+      const barra = page.locator('[data-barra-guardar]');
+      await expect(barra).toContainText('Cambios sin guardar en: Cancelar y recuperar');
 
-      const barra = page.locator('#reglas-de-reserva p[role="status"]').locator('..');
-      await page.locator('#reglas-de-reserva').evaluate(el => el.scrollIntoView({ block: 'start' }));
+      await page.locator('#reservar').evaluate(el => el.scrollIntoView({ block: 'start' }));
       await page.waitForTimeout(300);
 
       const limite = () => page.evaluate(() => {
@@ -175,23 +175,29 @@ for (const vista of VISTAS) {
       const cajaBarra = (await barra.boundingBox())!;
       expect(cajaBarra.y + cajaBarra.height, 'la barra de guardar, debajo de la navegación').toBeLessThanOrEqual(arriba + 0.5);
 
-      // Campo a campo con el teclado: ninguno queda tapado por la barra ni por la nav.
-      await page.getByLabel('Plazo para cancelar sin perder la sesión (horas antes)').focus();
+      // Campo a campo con el teclado, por las cinco tarjetas: ninguno queda tapado
+      // por la barra ni por la nav.
+      await page.locator('#reservar input').first().focus();
       const tapados: string[] = [];
-      for (let i = 0; i < 40; i++) {
+      let medidos = 0;
+      for (let i = 0; i < 60; i++) {
         await page.keyboard.press('Tab');
         const r = await page.evaluate(() => {
           const el = document.activeElement as HTMLElement | null;
-          if (!el?.closest('#reglas-de-reserva') || !el.matches('input, select, textarea')) return null;
-          const barraEl = document.querySelector('#reglas-de-reserva p[role="status"]')!.parentElement!;
+          if (!el?.closest('section[aria-labelledby="seccion-titulo"]') || !el.matches('input, select, textarea')) return null;
+          const barraEl = document.querySelector('[data-barra-guardar]')!;
           const campo = el.getBoundingClientRect();
           const b = barraEl.getBoundingClientRect();
           const nav = [...document.querySelectorAll('nav')].find(n => getComputedStyle(n).position === 'fixed' && getComputedStyle(n).display !== 'none' && n.getBoundingClientRect().bottom >= window.innerHeight - 1);
           const tope = Math.min(b.top, nav ? nav.getBoundingClientRect().top : window.innerHeight);
           return campo.bottom > tope + 0.5 ? `${el.id || el.getAttribute('aria-label') || el.tagName} (${Math.round(campo.bottom)} > ${Math.round(tope)})` : '';
         });
+        if (r === null) continue;
+        medidos++;
         if (r) tapados.push(r);
       }
+      // Verde por vacío no: tiene que haber recorrido campos de verdad.
+      expect(medidos, 'campos recorridos').toBeGreaterThan(5);
       expect(tapados, `\n${tapados.join('\n')}\n`).toEqual([]);
     });
 
@@ -208,18 +214,11 @@ for (const vista of VISTAS) {
         await nav.getByRole('link', { name: new RegExp(`^${seccion.titulo}`) }).click();
         await expect(titulo(page, seccion.titulo)).toBeVisible({ timeout: 30_000 });
 
-        for (const t of tarjetasPintadasEn(seccion.id)) {
+        for (const t of seccion.tarjetas as readonly TarjetaConfiguracion[]) {
           if (t.condicion) continue; // sedes y catálogo de la cadena: solo con varias sedes
           if (!(await page.locator(`#${t.id}`).count())) {
             await page.locator(`#${t.id}`).waitFor({ state: 'attached', timeout: 10_000 }).catch(() => faltan.push(`${seccion.id}#${t.id}`));
           }
-        }
-        for (const t of tarjetasDeFuera(seccion.id)) {
-          if (t.condicion) continue;
-          // La sección se descarga aparte: la fila puede tardar un poco en pintarse.
-          await page.getByRole('link', { name: new RegExp(`^${t.titulo.replace(/[()]/g, '\\$&')}`) })
-            .waitFor({ state: 'visible', timeout: 10_000 })
-            .catch(() => faltan.push(`${seccion.id}: fila hacia «${t.titulo}»`));
         }
 
         if (!vista.columna) {

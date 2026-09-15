@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MI_CUENTA, SECCIONES, cumpleCondicion, esSeccionId, esTarjetaId, seccionAnfitriona, seccionDeTarjeta,
-  tarjetaPorId, tarjetasDeFuera, tarjetasPintadasEn,
+  MI_CUENTA, SECCIONES, cumpleCondicion, esTarjetaId, seccionDeTarjeta, seccionPorId, tarjetaPorId,
   type TarjetaConfiguracion, type TarjetaId,
 } from './secciones.ts';
+import { TARJETAS_REGLAS } from './reglas-reserva.ts';
 
 // Los nombres y frases de Configuración son copy aprobado, y lo que se decide
 // aquí lo pinta la pantalla tal cual. Estos tests no juzgan el texto: fijan lo
@@ -55,31 +55,28 @@ test('el copy dice «alumna», nunca «clienta» ni «socia»', () => {
   for (const texto of textos) assert.doesNotMatch(texto, /\b(client|soci)as?\b/i, texto);
 });
 
-test('una tarjeta hospedada en otra sección apunta a una sección que existe y no es la suya', () => {
+test('cada tarjeta es de UNA sección, y ya ninguna se pinta en la de otra', () => {
   for (const s of SECCIONES) {
     for (const t of s.tarjetas as readonly TarjetaConfiguracion[]) {
-      if (!t.hospedadaEn) continue;
-      assert.ok(esSeccionId(t.hospedadaEn), `${t.id}: «${t.hospedadaEn}» no es una sección`);
-      assert.notEqual(t.hospedadaEn, s.id, `${t.id}: hospedarse en su propia sección no significa nada`);
+      const id = t.id as TarjetaId;
+      assert.equal(seccionDeTarjeta(id), s.id);
+      assert.equal(tarjetaPorId(id), t);
+      assert.ok(esTarjetaId(id));
+      assert.equal('hospedadaEn' in t, false, `${t.id}: ya no hay tarjetas de paso en otra sección`);
     }
   }
+  // Las dos que vivían dentro de las reglas de reserva, ya en su sitio (15-sep).
+  assert.equal(seccionDeTarjeta('compra-desde-tu-enlace'), 'altas');
+  assert.equal(seccionDeTarjeta('ajuste-instructoras-crean-clases'), 'equipo');
 });
 
-test('cada tarjeta se pinta en UN solo sitio, y cada sección sabe cuáles le vienen de fuera', () => {
-  const pintadas = SECCIONES.flatMap(s => tarjetasPintadasEn(s.id).map(t => t.id));
-  assert.deepEqual([...pintadas].sort(), todas.map(t => t.id).sort());
-  for (const t of todas) {
-    const id = t.id as TarjetaId;
-    assert.equal(seccionAnfitriona(id), t.hospedadaEn ?? seccionDeTarjeta(id));
-    assert.equal(tarjetaPorId(id), t);
-    assert.ok(esTarjetaId(id));
-  }
-  // Desde el 15-sep solo quedan dos tarjetas hospedadas, las que viven dentro de
-  // las reglas de reserva (PR C las saca de ahí).
-  assert.deepEqual(todas.filter(t => t.hospedadaEn).map(t => t.id).sort(), ['ajuste-instructoras-crean-clases', 'compra-desde-tu-enlace']);
-  assert.deepEqual(tarjetasDeFuera('altas').map(t => t.id), ['compra-desde-tu-enlace']);
-  assert.deepEqual(tarjetasDeFuera('cobros'), []);
-  assert.deepEqual(tarjetasDeFuera('datos'), []);
+test('«Cómo reservan mis alumnas»: la explicación, las cinco tarjetas de la barra y el aviso, en ese orden', () => {
+  const ids = seccionPorId('reservas').tarjetas.map(t => t.id);
+  assert.deepEqual(ids, ['politica-explicada', ...TARJETAS_REGLAS, 'ajuste-avisar-alumnas']);
+  // Las cinco esperan a la barra; la explicación solo lee y el aviso se guarda al pulsar.
+  for (const id of TARJETAS_REGLAS) assert.equal(tarjetaPorId(id).guardado, 'barra', id);
+  assert.equal(tarjetaPorId('politica-explicada').guardado, 'lectura');
+  assert.equal(tarjetaPorId('ajuste-avisar-alumnas').guardado, 'al-pulsar');
 });
 
 test('las tarjetas condicionales solo salen donde toca', () => {

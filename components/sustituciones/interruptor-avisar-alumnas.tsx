@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 // El escritor es `/api/sustituciones` (action `config_avisar`), que lo permite a
 // PROPIETARIO y MANAGER. Por eso el control sigue en Sustituciones —la gerencia
 // lo ha cambiado siempre desde ahí, y Configuración es solo de la propietaria—
-// y además aparece en Configuración → Reservas y cancelaciones, junto a lo
+// y además aparece en Configuración → Cómo reservan mis alumnas, junto a lo
 // demás que le pasa a una alumna cuando su clase cambia.
 //
 // Las dos pantallas enseñan lo GUARDADO, sin estado optimista: el interruptor

@@ -10,15 +10,10 @@
 // (lib/configuracion/destino.ts) y los tests comprueban que cada id existe de
 // verdad en algún componente.
 //
-// ⚠️ `hospedadaEn`: el orden aprobado mueve tarjetas entre componentes. Mientras
-// una tarjeta siga pintándose dentro del componente de otra sección, `hospedadaEn`
-// dice DÓNDE está de verdad: el ancla lleva allí y en su sección definitiva se
-// pinta una fila que apunta. Mover la tarjeta = borrar esta propiedad, y ningún
-// enlace guardado se rompe. Desde el 15-sep solo quedan las dos que viven dentro
-// de las reglas de reserva («Compra desde tu enlace» y «Las instructoras crean
-// sus clases»); los datos fiscales, la marca, los textos, Stripe, WhatsApp,
-// Gmail, el remitente, el catálogo de la cadena y las aplicaciones con acceso ya
-// están en su sección.
+// Cada tarjeta se pinta en su sección. Mientras se reordenaba (15-sep) algunas
+// vivieron un tiempo en el componente de otra, con una fila que apuntaba allí;
+// ya no queda ninguna. Si una tarjeta cambia de sección, basta con moverla
+// aquí: su ancla la sigue sola, y los enlaces guardados no se rompen.
 //
 // Pura y sin imports: la ejecuta `node --test` directamente.
 
@@ -50,8 +45,6 @@ export interface TarjetaConfiguracion {
   /** Tarjetas que necesitan sitio (catálogos en rejilla, el constructor de widgets). */
   readonly ancho?: 'amplio';
   readonly condicion?: CondicionTarjeta;
-  /** Dónde se pinta de verdad mientras no se mueva de componente (ver arriba). */
-  readonly hospedadaEn?: SeccionId;
 }
 
 export interface SeccionConfiguracion {
@@ -102,7 +95,11 @@ export const SECCIONES = [
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'politica-explicada', titulo: 'Cuando algo cambia, Tentare…', frase: 'Lo que pasa hoy con lo que tienes guardado. Si algo no es como quieres, cámbialo.', guardado: 'lectura' },
-      { id: 'reglas-de-reserva', titulo: 'Reservar, cancelar y lista de espera', frase: 'Quién puede reservar y con cuánta antelación, hasta cuándo se cancela, la lista de espera, pasar lista y el cargo si alguien no viene.', guardado: 'barra' },
+      { id: 'reservar', titulo: 'Reservar', frase: 'Quién puede reservar, con cuánta antelación y cuántas reservas a la vez.', guardado: 'barra' },
+      { id: 'cancelar-y-recuperar', titulo: 'Cancelar y recuperar', frase: 'Hasta cuándo se cancela sin perder la sesión, qué pasa si se cancela una clase entera y cómo funcionan las recuperaciones.', guardado: 'barra' },
+      { id: 'lista-de-espera', titulo: 'Lista de espera', frase: 'Si una clase llena admite lista de espera y cuánto tiempo hay para aceptar una plaza que se libera.', guardado: 'barra' },
+      { id: 'asistencia', titulo: 'Asistencia', frase: 'Si pasas lista en cada clase y si pides confirmación a quien suele faltar.', guardado: 'barra' },
+      { id: 'si-cancela-tarde-o-no-viene', titulo: 'Si cancela tarde o no viene', frase: 'Un cargo fijo a su tarjeta guardada, si tiene una, cuando cancela tarde o no viene sin avisar.', guardado: 'barra' },
       { id: 'ajuste-avisar-alumnas', titulo: 'Avisos a las alumnas', frase: 'Si por una baja una clase cambia de instructora, se mueve o se cancela, se lo contamos a sus alumnas por email y en su app.', guardado: 'al-pulsar' },
     ],
   },
@@ -127,7 +124,7 @@ export const SECCIONES = [
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'contrato-y-privacidad', titulo: 'Contrato y privacidad', frase: 'Los textos que acepta cada alumna al darse de alta. Queda guardado qué texto aceptó, cuándo y el nombre con el que lo aceptó.', guardado: 'barra' },
-      { id: 'compra-desde-tu-enlace', titulo: 'Compra desde tu enlace', frase: 'Si alguien que aún no es alumna compra un bono en tu página: que se registre antes de pagar o que pague directamente.', guardado: 'barra', hospedadaEn: 'reservas' },
+      { id: 'compra-desde-tu-enlace', titulo: 'Compra desde tu enlace', frase: 'Si alguien que aún no es alumna compra un bono en tu página: que se registre antes de pagar o que pague directamente.', guardado: 'barra' },
       { id: 'datos-extra-de-la-ficha', titulo: 'Datos extra de la ficha', frase: 'Preguntas tuyas, como su objetivo o cómo te conoció. Salen al darla de alta y en su ficha.', guardado: 'catalogo' },
       { id: 'valoracion-inicial', titulo: 'Valoración inicial', frase: 'Tus alumnas te cuentan desde su app qué buscan y qué conviene tener en cuenta, antes de sus primeras clases.', guardado: 'al-pulsar' },
       { id: 'cuestionario-de-salud', titulo: 'Cuestionario de salud', frase: 'Preguntas de salud que rellenáis tú o tus instructoras en la ficha de cada alumna; ella no lo rellena.', guardado: 'catalogo' },
@@ -153,7 +150,7 @@ export const SECCIONES = [
     frase: 'Qué pueden hacer tus instructoras por su cuenta.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'ajuste-instructoras-crean-clases', titulo: 'Las instructoras crean sus clases', frase: 'Si pueden crear clases nuevas o solo dar las que tú les asignas; siempre pueden editar las suyas.', guardado: 'barra', hospedadaEn: 'reservas' },
+      { id: 'ajuste-instructoras-crean-clases', titulo: 'Las instructoras crean sus clases', frase: 'Si pueden crear clases nuevas o solo dar las que tú les asignas; siempre pueden editar las suyas.', guardado: 'barra' },
     ],
   },
   {
@@ -239,26 +236,9 @@ export function esTarjetaId(v: string): v is TarjetaId {
   return TARJETA_POR_ID.has(v);
 }
 
-/** La sección donde está la tarjeta en su orden definitivo. */
+/** La sección donde se pinta la tarjeta. */
 export function seccionDeTarjeta(id: TarjetaId): SeccionId {
   return TARJETA_POR_ID.get(id)!.seccion;
-}
-
-/** La sección donde se pinta HOY: su casa, o la que la hospeda mientras tanto. */
-export function seccionAnfitriona(id: TarjetaId): SeccionId {
-  const { tarjeta, seccion } = TARJETA_POR_ID.get(id)!;
-  return tarjeta.hospedadaEn ?? seccion;
-}
-
-/** Las tarjetas que se pintan de verdad en una sección (las suyas y las que hospeda). */
-export function tarjetasPintadasEn(seccion: SeccionId): TarjetaConfiguracion[] {
-  return SECCIONES.flatMap(s => s.tarjetas as readonly TarjetaConfiguracion[])
-    .filter(t => seccionAnfitriona(t.id as TarjetaId) === seccion);
-}
-
-/** Las tarjetas de una sección que viven en otra y aquí son solo una fila que lleva allí. */
-export function tarjetasDeFuera(seccion: SeccionId): TarjetaConfiguracion[] {
-  return (seccionPorId(seccion).tarjetas as readonly TarjetaConfiguracion[]).filter(t => t.hospedadaEn);
 }
 
 export function cumpleCondicion(

@@ -844,13 +844,14 @@ nextjs-portal { display: none !important; }
    ansioso ni compita con el resto del panel. */
 @keyframes wa-fab-ring { 0% { transform: scale(1); opacity: .55; } 70%, 100% { transform: scale(1.9); opacity: 0; } }
 .animate-wa-fab-ring { animation: wa-fab-ring 2.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite; }
-/* Con la barra de navegación abajo (<1024), la burbuja cae encima de las barras
-   de «Guardar» de Configuración, que también van pegadas abajo: mientras haya
-   una en la página (`data-barra-guardar`), se aparta. En escritorio no hay nav
-   abajo y la barra queda a la izquierda de la burbuja. */
-@media (width < 64rem) {
-  body:has([data-barra-guardar]) .panel-wa-fab { display: none; }
-}
+/* La burbuja cae encima de las barras de «Guardar» de Configuración, que también
+   van pegadas abajo: mientras haya una a la vista, se aparta. En TODOS los
+   anchos: se creía que en escritorio la barra quedaba a la izquierda de la
+   burbuja, y a 1024 px (columna estrecha, con la lista de secciones al lado)
+   la burbuja tapaba justo «Guardar». `data-barra-guardar` solo existe mientras
+   la barra se ve, que es mientras hay cambios sin guardar
+   (shell/barra-guardar.tsx): una sección entera sin tocar no esconde la burbuja. */
+body:has([data-barra-guardar]) .panel-wa-fab { display: none; }
 
 /* ── Motion de marca ───────────────────────────────────────────────────────
    Tres de las diez del kit (docs/marca/animaciones/tentare-motion.css); las

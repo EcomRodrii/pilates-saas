@@ -116,7 +116,8 @@ async function montar(page: Page, opts: {
 
 const explicacion = (page: Page) => page.getByRole('list', { name: 'Cuando algo cambia, Tentare…' });
 const fraseDe = (page: Page, texto: string | RegExp) => explicacion(page).getByRole('listitem').filter({ hasText: texto });
-const guardarPolitica = (page: Page) => page.getByRole('button', { name: 'Guardar política de reservas' });
+const guardarPolitica = (page: Page) => page.getByRole('button', { name: 'Guardar', exact: true });
+const sinGuardar = (page: Page, tarjetas: string) => page.getByText(`Cambios sin guardar en: ${tarjetas}`);
 const tarjetaAvisos = (page: Page) => page.locator('#ajuste-avisar-alumnas');
 const interruptorAvisar = (page: Page) => page.getByRole('switch', { name: /Avisar a las alumnas, por email y en su app/ });
 
@@ -137,12 +138,11 @@ test('las frases dicen lo que el estudio tiene guardado, y «Cambiar» lleva a s
     /avisa a sus alumnas por email y en su app\./,
   ]);
 
-  // La lista de espera vive en «Opciones avanzadas», plegado: «Cambiar» lo abre.
-  const toggleEspera = page.getByRole('switch', { name: /Permitir lista de espera/ });
-  await expect(toggleEspera).toBeHidden();
+  // La lista de espera es un control de tres opciones: «Cambiar» lleva a la elegida.
+  const conPlazo = page.getByRole('radio', { name: /Se le ofrece durante 15 minutos/ });
   await fraseDe(page, /lista de espera/).getByRole('link', { name: 'Cambiar' }).click();
-  await expect(toggleEspera).toBeVisible();
-  await expect(toggleEspera).toBeFocused();
+  await expect(conPlazo).toBeChecked();
+  await expect(conPlazo).toBeFocused();
 
   await fraseDe(page, /avisa a sus alumnas/).getByRole('link', { name: 'Cambiar' }).click();
   await expect(interruptorAvisar(page)).toBeFocused();
@@ -181,15 +181,16 @@ for (const fallo of [400, 500, 'red'] as const) {
     await expect(toggle).toBeFocused();
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-checked', 'false');
-    await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+    await expect(sinGuardar(page, 'Cancelar y recuperar')).toBeVisible();
 
     await guardarPolitica(page).click();
     await expect.poll(() => patchesStudio.length, { timeout: 15_000 }).toBeGreaterThan(0);
     // Termina el intento (el botón se apaga mientras guarda) antes de mirar.
     await expect(guardarPolitica(page)).toBeEnabled({ timeout: 15_000 });
 
-    await expect(page.getByText(/Política de reservas guardada/)).toHaveCount(0);
-    await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+    await expect(page.getByText(/Reglas de reserva guardadas/)).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Cambios sin guardar' }).getByRole('alert')).toContainText('No se ha guardado');
+    await expect(sinGuardar(page, 'Cancelar y recuperar')).toBeVisible();
     await expect(frase).toContainText('devuelve la sesión a quien tenía plaza');
     await expect(frase).not.toContainText('no devuelve');
     // Y el aviso a las alumnas no viaja nunca por aquí.
@@ -207,7 +208,7 @@ test('«Guardar» sale bien: la frase cambia', async ({ page }) => {
   await page.getByRole('switch', { name: /Devolver la sesión al cancelar una clase entera/ }).click();
   await guardarPolitica(page).click();
 
-  await expect(page.getByText('Política de reservas guardada')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Reglas de reserva guardadas')).toBeVisible({ timeout: 15_000 });
   await expect(frase).toContainText('no devuelve la sesión a quien tenía plaza');
   expect(patchesStudio.length).toBeGreaterThan(0);
   expect(patchesStudio[patchesStudio.length - 1]).toContain('"cancelacion_clase_devuelve_bono":false');
@@ -241,7 +242,7 @@ test('el aviso a las alumnas: sin optimismo, doble toque = una escritura, y la f
   // Un cambio de la política a medio escribir: guardar el aviso no puede tirarlo.
   const ventana = page.locator('#ajuste-ventana-cancelacion input');
   await ventana.fill('6');
-  await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+  await expect(sinGuardar(page, 'Cancelar y recuperar')).toBeVisible();
 
   const toggle = interruptorAvisar(page);
   await toggle.dblclick();
@@ -257,7 +258,7 @@ test('el aviso a las alumnas: sin optimismo, doble toque = una escritura, y la f
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
   await expect(fraseDe(page, /Sustituciones/)).toContainText('no avisa a sus alumnas');
   await expect(ventana).toHaveValue('6');
-  await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+  await expect(sinGuardar(page, 'Cancelar y recuperar')).toBeVisible();
   // La frase de cancelación sigue en lo guardado (24 h), no en lo escrito (6).
   await expect(fraseDe(page, /Si una alumna cancela/)).toContainText('más de 24 h');
   expect(patchesStudio).toHaveLength(0);
@@ -270,7 +271,7 @@ test('Sustituciones, propietaria: el mismo interruptor y el enlace a Configuraci
   const toggle = interruptorAvisar(page);
   await expect(toggle).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
   const enlace = page.getByRole('link', { name: 'Qué más pasa cuando una clase cambia' });
-  await expect(enlace).toHaveAttribute('href', '/configuracion?tab=estudio&sub=reservas#ajuste-avisar-alumnas');
+  await expect(enlace).toHaveAttribute('href', '/configuracion?tab=reservas#ajuste-avisar-alumnas');
 
   await enlace.click();
   await expect(interruptorAvisar(page)).toBeFocused({ timeout: 30_000 });
@@ -286,7 +287,7 @@ test('Sustituciones, gerencia: lo sigue cambiando aquí, sin enlace a una pantal
   await expect(page.getByRole('link', { name: 'Qué más pasa cuando una clase cambia' })).toHaveCount(0);
   // El marco del panel tiene su propio enlace de cuenta a /configuracion; lo que
   // no puede aparecer es el que lleva a Reservas, la pantalla que este rol no abre.
-  await expect(page.locator('a[href*="sub=reservas"]')).toHaveCount(0);
+  await expect(page.locator('a[href*="tab=reservas"]')).toHaveCount(0);
 
   await toggle.click();
   await expect(page.getByText('Guardado.')).toBeVisible({ timeout: 15_000 });
@@ -316,6 +317,6 @@ test('Sustituciones, recepción: lo que pasa y quién lo decide, sin interruptor
   await expect(interruptorAvisar(page)).toHaveCount(0);
   // El marco del panel tiene su propio enlace de cuenta a /configuracion; lo que
   // no puede aparecer es el que lleva a Reservas, la pantalla que este rol no abre.
-  await expect(page.locator('a[href*="sub=reservas"]')).toHaveCount(0);
+  await expect(page.locator('a[href*="tab=reservas"]')).toHaveCount(0);
   expect(patchesAvisar).toHaveLength(0);
 });

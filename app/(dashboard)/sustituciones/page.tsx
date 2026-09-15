@@ -306,7 +306,7 @@ export default function SustitucionesPage() {
       {/* El aviso a las alumnas lo pueden cambiar quienes deja su único escritor
           (`/api/sustituciones`, PROPIETARIO y MANAGER), y la gerencia no entra en
           Configuración: por eso el interruptor sigue aquí. Es el MISMO componente
-          que en Configuración → Reservas y cancelaciones, y a esa pantalla solo se
+          que en Configuración → Cómo reservan mis alumnas, y a esa pantalla solo se
           enlaza a quien puede abrirla. Nada se pinta hasta haberlo leído: «no
           avisa» mientras carga sería mentira. */}
       {!cargando && (puedeGestionarEquipo(rolPanel) ? (
@@ -317,7 +317,7 @@ export default function SustitucionesPage() {
           />
           {puedeVer(rolPanel, '/configuracion') && (
             <Link
-              href="/configuracion?tab=estudio&sub=reservas#ajuste-avisar-alumnas"
+              href="/configuracion?tab=reservas#ajuste-avisar-alumnas"
               className="text-[12px] font-medium text-foreground underline underline-offset-2 hover:no-underline"
             >
               Qué más pasa cuando una clase cambia
