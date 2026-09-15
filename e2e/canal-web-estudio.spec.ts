@@ -56,6 +56,8 @@ async function montar(page: Page, sitioWebGuardado: string | null = null) {
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/configuracion?tab=estudio');
+  // La web vive en el cajón de «Contacto» (Mi estudio en filas, 15-sep).
+  await page.locator('#contacto').click({ timeout: 30_000 });
   return { patches };
 }
 
@@ -69,7 +71,7 @@ test.describe('La web del estudio, junto al teléfono y el email', () => {
 
     await Promise.all([
       page.waitForRequest(r => r.url().includes('/rest/v1/studios') && r.method() === 'PATCH'),
-      page.getByRole('button', { name: 'Guardar datos y contacto' }).click(),
+      page.getByRole('button', { name: 'Guardar', exact: true }).click(),
     ]);
     expect(patches.at(-1)!.sitio_web).toBe('estudiocarmen.es');
   });
@@ -89,7 +91,7 @@ test.describe('La web del estudio, junto al teléfono y el email', () => {
 
     await Promise.all([
       page.waitForRequest(r => r.url().includes('/rest/v1/studios') && r.method() === 'PATCH'),
-      page.getByRole('button', { name: 'Guardar datos y contacto' }).click(),
+      page.getByRole('button', { name: 'Guardar', exact: true }).click(),
     ]);
     expect(patches.at(-1)!.sitio_web).toBeNull();
   });
