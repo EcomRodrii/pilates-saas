@@ -6,6 +6,8 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { comprobarFaltaDisponibilidad, faltaDisponibilidadSabida } from '@/lib/student/disponibilidad-obligatoria';
+import { useOnline } from '@/lib/student/useOnline';
+import { ErrorState, OfflineState } from '@/components/student/ui/States';
 
 /**
  * La guardia de las pantallas de la instructora (`/portal/<slug>/equipo/**`).
@@ -21,16 +23,24 @@ import { comprobarFaltaDisponibilidad, faltaDisponibilidadSabida } from '@/lib/s
  * ⚠️ Es de USABILIDAD, no de seguridad (mismo criterio que `GuardiaSesion`). La
  * cerradura está en cada ruta de `/api/portal/instructora/**`, que verifica el
  * token y el slug con `verificarInstructoraEnEstudio`.
+ *
+ * ⚠️ I-13 (auditoría 15-sep): un fallo de red/servidor al preguntar
+ * `useSesionInstructora` daba el MISMO `instructora: null` que "confirmado, no
+ * lo es" — así que sin conexión la instructora se veía expulsada al inicio de
+ * la app en cada cambio de pestaña (esta guardia siempre `forzar=true`, sin
+ * caché de "no"). `error` distingue las dos cosas: con error se queda aquí y
+ * ofrece reintentar, en vez de sacarla.
  */
 export function GuardiaInstructora({ children }: { children: ReactNode }) {
   const r = useRouter();
   const path = usePathname();
   const { slug } = useEstudio();
   const href = usePortalHref();
+  const { online } = useOnline();
   const { autenticado, isLoading } = useSesionStudent(slug);
   // Aquí se pregunta siempre al servidor: quien está en estas pantallas ya
   // debería serlo, y un «no» recordado de hace horas no puede echarla.
-  const { instructora, isLoading: cargandoInstructora } = useSesionInstructora(slug, autenticado, true);
+  const { instructora, isLoading: cargandoInstructora, error, refrescar } = useSesionInstructora(slug, autenticado, true);
 
   const instructorId = instructora?.instructorId ?? null;
   const enHorarios = path.endsWith('/equipo/disponibilidad');
@@ -56,9 +66,20 @@ export function GuardiaInstructora({ children }: { children: ReactNode }) {
       return;
     }
     if (cargandoInstructora) return;
+    if (error) return; // no se sabe todavía si lo es: no se saca a nadie a ciegas
     if (!instructora) { r.replace(href()); return; }
     if (faltaHorarios && !enHorarios) r.replace(href('/equipo/disponibilidad'));
-  }, [isLoading, autenticado, cargandoInstructora, instructora, faltaHorarios, enHorarios, href, path, r]);
+  }, [isLoading, autenticado, cargandoInstructora, error, instructora, faltaHorarios, enHorarios, href, path, r]);
+
+  if (!isLoading && autenticado && !cargandoInstructora && error) {
+    return (
+      <div className="shell">
+        <div className="page px" style={{ paddingTop: 'calc(72px + var(--safe-top))' }}>
+          {online ? <ErrorState onRetry={refrescar} /> : <OfflineState />}
+        </div>
+      </div>
+    );
+  }
 
   // ⚠️ Sin `isLoading` (15-sep-2026): esa bandera sigue encendida hasta que
   // responde `/api/public/session` —la ficha de ALUMNA, que aquí no se usa—,
