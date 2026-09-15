@@ -34,6 +34,7 @@ import { decidirReservaNueva, heredaOverride } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { sesionEncajaEnPlaza, claveFranjaDeSesion, type SesionSlot } from '@/lib/plazas-fijas-slot';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { marcaReserva, textoTrasQuitar } from '@/lib/plazas-fijas-cancelacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
@@ -537,7 +538,7 @@ interface DatosVista {
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
-    suscripciones, planesTarifa, studio, plazasFijas,
+    suscripciones, planesTarifa, studio, plazasFijas, recuperaciones,
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
@@ -2927,12 +2928,15 @@ export default function Calendario() {
             onAprobar: id => resolverPendiente(id, true), onRechazar: id => resolverPendiente(id, false),
             resolviendoId: resolviendoReserva,
             onQuitar: gestionaClientas ? (id: string) => {
-              // P2 (auditoría de producto): mostrar el aviso si la reserva se
-              // canceló pero no se pudo devolver el bono — antes se perdía en
-              // silencio (fire-and-forget, solo Sentry se enteraba).
+              const marca = marcaReserva({ id }, recuperaciones); // antes de cancelar
+              // P2: el aviso de bono no devuelto, y lo que decidió el servidor
+              // sobre la plaza fija y la recuperación.
               void cancelarReserva(id).then(async res => {
                 if (!res.ok) showToast(res.error);
-                else if (res.avisoBono) showToast(res.avisoBono);
+                else {
+                  const texto = [textoTrasQuitar(res, marca), res.avisoBono].filter(Boolean).join(' · ');
+                  if (texto) showToast(texto);
+                }
                 // ⚠️ Sin esto el contador se quedaba en «8/8» con la alumna ya
                 // fuera de la lista: `cancelarReserva` actualiza `reservas` del
                 // contexto (de donde sale la lista) y NO `datosVista` (de donde
@@ -2943,6 +2947,7 @@ export default function Calendario() {
             } : undefined,
             onRepetirSemanaSiguiente: gestionaClientas ? repetirSemanaSiguiente : undefined,
             onHacerPlazaFija: gestionaClientas ? hacerPlazaFija : undefined,
+            marcaDe: r => marcaReserva(r, recuperaciones),
             plazaFijaExistePara: socioId => plazasFijas.some(p => p.socioId === socioId && p.estado !== 'BAJA'
               && sesionActual && sesionEncajaEnPlaza(p, sesionActual)),
             semaforoPorSocio: verSemaforo ? (socioId => {
