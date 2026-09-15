@@ -4959,8 +4959,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
 
 // Horario semanal del estudio (studio_horario, migr 20260804210500). Un solo
 // upsert de las 7 filas — el guardado de la rejilla de Configuración es "todo
-// o nada", no autoguardado por fila. La RLS (studio_horario_escritura) exige
-// PROPIETARIO; si el rol no cuadra, Supabase devuelve 0 filas afectadas sin
+// o nada", no autoguardado por fila. La RLS de escritura de studio_horario exige
+// `puede_gestionar_sede()` (propietaria o gerencia); si el rol no cuadra, Supabase devuelve 0 filas afectadas sin
 // error explícito, así que se verifica el conteo, no solo la ausencia de error.
 export async function dbUpdateHorarioEstudio(dias: DiaHorario[]): Promise<ResultadoEscritura> {
   const filas = dias.map(d => ({

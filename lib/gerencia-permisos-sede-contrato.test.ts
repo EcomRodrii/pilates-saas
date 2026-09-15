@@ -211,3 +211,12 @@ test('R2: cero filas es un fallo con mensaje, no «Guardado»', () => {
   const motivo = cuerpoDe('sinFilasTocadas');
   assert.match(motivo, /\.select\('id'\)\.eq\('id', id\)\.maybeSingle\(\)/, 'distingue permiso de fila que ya no está');
 });
+
+test('importar horario: crear tipos de clase nuevos exige lo mismo que la RLS (recepción solo usa los que existen)', () => {
+  const ruta = sinLineasComentadasTs(readFileSync(join(RAIZ, 'app/api/clases/import/route.ts'), 'utf8'));
+  const guardia = ruta.indexOf('nuevosTipos.length > 0 && !puedeGestionarSede(sesion.rol)');
+  const insert = ruta.indexOf(".from('tipos_clase').insert(");
+  assert.ok(guardia > 0, 'la ruta comprueba puedeGestionarSede antes de crear tipos');
+  assert.ok(insert > guardia, 'la comprobación va antes del insert en tipos_clase');
+  assert.match(ruta.slice(guardia, insert), /status: 403/);
+});
