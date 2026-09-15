@@ -1,17 +1,19 @@
-// El buscador del inicio de Configuración.
+// El buscador de ajustes: el del inicio de Configuración y el grupo «Ajustes»
+// de ⌘K.
 //
-// «¿Dónde se cambia el IVA?» no tenía respuesta: ⌘K solo busca las pantallas
-// del menú, y Configuración son once secciones con cuarenta tarjetas. Esto busca
-// en los títulos de lib/configuracion/secciones.ts y en sus `palabras`, sin
-// índice aparte: si una tarjeta cambia de nombre o de sección, el buscador la
-// sigue sola, igual que sus enlaces.
+// «¿Dónde se cambia el IVA?» no tenía respuesta: ⌘K solo buscaba las pantallas
+// del menú, y Configuración son catorce secciones con cuarenta tarjetas. Esto
+// busca en los títulos de lib/configuracion/secciones.ts y en sus `palabras`,
+// sin índice aparte: si una tarjeta cambia de nombre o de sección, los dos
+// buscadores la siguen solos, igual que sus enlaces.
 //
 // Pura: la ejecuta `node --test` directamente.
 
 import {
   FILAS_EXTERNAS, GRUPOS, SECCIONES, cumpleCondicion,
-  type FilaExterna, type SeccionConfiguracion, type SeccionId, type TarjetaConfiguracion, type TarjetaId,
+  type FilaExterna, type RolConfiguracion, type SeccionConfiguracion, type SeccionId, type TarjetaConfiguracion, type TarjetaId,
 } from './secciones.ts';
+import { hrefDeSeccion, resolverHref, seccionesVisibles } from './destino.ts';
 
 export interface ResultadoAjuste {
   /** Único en la lista: sirve de id del enlace. */
@@ -83,4 +85,67 @@ export function buscarAjustes(
     }
   }
   return resultados;
+}
+
+/** Un ajuste en ⌘K: «Datos fiscales e IVA · Cobros y facturas», con su enlace. */
+export interface AjusteEnBuscadorGlobal {
+  id: string;
+  titulo: string;
+  /** La sección donde está; «Configuración» si el resultado es la sección. */
+  donde: string;
+  /** La sección y, si es una tarjeta, su ancla: `/configuracion?tab=cobros#datos-fiscales`. */
+  href: string;
+}
+
+export const MAX_AJUSTES_EN_BUSCADOR_GLOBAL = 5;
+
+/**
+ * Lo que enseña el grupo «Ajustes» de ⌘K: la misma búsqueda que el inicio,
+ * acotada a las secciones que este rol abre (las mismas que la columna de
+ * Configuración) y a cinco. Un rol que no entra en Configuración no ve ninguna:
+ * un resultado que lleva a una pantalla cerrada es un enlace que miente.
+ *
+ * Sin las filas de otra pantalla («Plan de Tentare», «Mi cuenta»): no son un
+ * ajuste con su tarjeta, y ⌘K ya las encuentra por su entrada del menú.
+ */
+export function ajustesParaBuscadorGlobal(
+  consulta: string,
+  opciones: { rol: RolConfiguracion | string; haySedes?: boolean; esCadena?: boolean },
+): AjusteEnBuscadorGlobal[] {
+  const secciones = seccionesVisibles(opciones.rol);
+  if (secciones.length === 0) return [];
+  return buscarAjustes(consulta, { secciones, externas: [], haySedes: opciones.haySedes, esCadena: opciones.esCadena })
+    .flatMap(r => r.seccion
+      ? [{ id: r.id, titulo: r.titulo, donde: r.donde ?? 'Configuración', href: hrefDeSeccion(r.seccion, r.ancla) }]
+      : [])
+    .slice(0, MAX_AJUSTES_EN_BUSCADOR_GLOBAL);
+}
+
+/**
+ * Dónde acaba de verdad un enlace: ruta, sección (`tab`) y ancla. Los de
+ * Configuración pasan por `resolverHref`, así que un `?tab=` viejo cuenta como
+ * la sección que abre hoy.
+ */
+function destinoDe(href: string): string {
+  const url = new URL(href, 'https://tentare.invalid');
+  if (url.pathname === '/configuracion') {
+    const d = resolverHref(href);
+    if ('redirect' in d) return d.redirect;
+    return `/configuracion|${d.tab ?? ''}|${d.ancla ?? ''}`;
+  }
+  return `${url.pathname}|${url.searchParams.get('tab') ?? ''}|${url.hash.replace(/^#/, '')}`;
+}
+
+/**
+ * Las tareas de ⌘K sin las que llevan al mismo sitio que un ajuste ya en la
+ * lista: «IVA» enseñaba «Datos fiscales e IVA» y «Poner los datos fiscales y el
+ * IVA», dos filas a la misma tarjeta. Se queda el ajuste, que dice dónde está.
+ */
+export function sinTareasRepetidas<T extends { href: string }>(
+  tareas: readonly T[],
+  ajustes: readonly { href: string }[],
+): T[] {
+  if (ajustes.length === 0) return [...tareas];
+  const destinos = new Set(ajustes.map(a => destinoDe(a.href)));
+  return tareas.filter(t => !destinos.has(destinoDe(t.href)));
 }
