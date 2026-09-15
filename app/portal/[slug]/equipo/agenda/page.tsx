@@ -98,6 +98,9 @@ export default function AgendaInstructoraPage() {
             data-testid="clase-que-reserva"
             style={{ ['--gap' as string]: 'var(--s-3)', padding: 'var(--s-4)' }}
           >
+            {/* La misma barra que las que da (`ClaseQueDaCard`), en neutro: sin
+                ella, en la misma lista las dos tarjetas no casaban. */}
+            <span aria-hidden style={{ width: 4, alignSelf: 'stretch', borderRadius: 4, background: 'var(--border-strong)', flexShrink: 0 }} />
             <div className="stack" style={{ ['--gap' as string]: 'var(--s-1)', minWidth: 0, flex: 1 }}>
               <p className="t-meta">{f.clase.hora}{f.clase.sala ? ` · ${f.clase.sala}` : ''}</p>
               <p className="t-card-title trunc">{f.clase.tipo}</p>

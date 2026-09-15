@@ -132,7 +132,10 @@ export default function AusenciasInstructoraPage() {
             })}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {/* `minmax(0, 1fr)` y no `1fr`: con `1fr` la columna no baja del ancho
+              mínimo del campo de fecha, y en un móvil «Hasta» se salía por la
+              derecha y la pantalla entera se podía arrastrar de lado. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
             <Input label="Desde" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} style={SIN_ZOOM} />
             <Input label="Hasta" type="date" value={hasta} min={desde} onChange={(e) => setHasta(e.target.value)} style={SIN_ZOOM} />
           </div>
