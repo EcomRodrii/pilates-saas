@@ -334,11 +334,13 @@ export function cuerpoRespuesta(d: Desenlace, statusStripe?: string): Record<str
 // cobra el recibo de una penalización sin cobro decidido
 // (`dunningPuedeCobrarPenalizacion`, más abajo).
 //
-// Límite conocido (sin migración): el trigger de no-show solo revierte desde
-// DETECTADA o PENDIENTE_APROBACION, y nunca toca recibos.
-// - Revertida desde PENDIENTE_APROBACION: su recibo sigue PENDIENTE en Cobros
-//   sin penalización detrás, pero sin `proximo_reintento`, así que el dunning
-//   no lo cobra. Hay que anularlo a mano.
+// Sin migración: el trigger de no-show solo revierte desde DETECTADA o
+// PENDIENTE_APROBACION, y nunca toca recibos.
+// - Revertida desde PENDIENTE_APROBACION: su recibo se quedaba PENDIENTE en
+//   Cobros, y el mostrador o «Marcar cobrado» lo cobraban. Ahora lo suelta y lo
+//   borra el barrido horario del cron (`soltarReciboDePenalizacionAnulada`, más
+//   abajo), y mientras tanto esos dos caminos no lo cobran
+//   (`cobroManualDeRecibo` con `'mostrador'`).
 // - Desde RECIBO_CREADO el trigger no revierte nada: en automático el cobro ya
 //   está decidido y el recibo armado. Corregir la asistencia después exige
 //   anular o devolver a mano, que es lo que el propio trigger ya asume.
@@ -695,10 +697,32 @@ export const ESTADOS_QUE_DEJAN_COBRAR_A_MANO: readonly EstadoPenalizacion[] = ['
  */
 export const ESTADOS_QUE_DEJAN_PAGAR_A_LA_ALUMNA: readonly EstadoPenalizacion[] = ['RECIBO_CREADO', 'FALLIDA'];
 
-/** Quién cobra: el estudio (Cobros, Automatizaciones, Decision OS) o la alumna pagando en el checkout. */
-export type ContextoCobroManual = 'panel' | 'checkout_alumna';
+/**
+ * Quién cobra: el estudio con la tarjeta guardada (Cobros, Automatizaciones,
+ * Decision OS), la alumna pagando en el checkout, o el personal en el mostrador
+ * (datáfono/Bizum del TPV y «Marcar cobrado», también en lote).
+ */
+export type ContextoCobroManual = 'panel' | 'checkout_alumna' | 'mostrador';
 
-export type VeredictoCobroManual = { ok: true } | { ok: false; http: 409 | 503; mensaje: string };
+/**
+ * `sinComprobar`: solo en el mostrador, cuando no se pudo leer la penalización y
+ * se deja cobrar igual. Quien llama lo registra en Sentry.
+ */
+export type VeredictoCobroManual = { ok: true; sinComprobar?: true } | { ok: false; http: 409 | 503; mensaje: string };
+
+/** Las OMITIDA_*: se decidió no cobrar. */
+export const ESTADOS_OMITIDA: readonly EstadoPenalizacion[] =
+  ['OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA'];
+
+/**
+ * Con qué estados NO se cobra en el mostrador: la penalización está anulada (se
+ * decidió no cobrarla) o el dinero ya volvió. El resto sí: PENDIENTE_APROBACION,
+ * RECIBO_CREADO, FALLIDA… hay una persona delante cobrando a la alumna, que es
+ * una forma de aprobarla.
+ */
+export const ESTADOS_ANULADOS_PARA_EL_MOSTRADOR: readonly EstadoPenalizacion[] = [...ESTADOS_OMITIDA, 'REEMBOLSADA'];
+
+export const TEXTO_PENALIZACION_ANULADA = 'Esta penalización está anulada: no se cobra.';
 
 // A la alumna no se le cuentan los estados internos de la penalización.
 const ALUMNA_SIN_COMPROBAR = 'No hemos podido comprobar este cargo y no se te ha cobrado nada. Inténtalo de nuevo en un momento.';
@@ -732,6 +756,17 @@ const POR_QUE_NO_A_MANO: Partial<Record<EstadoPenalizacion, string>> = {
  *
  * `checkout_alumna`: la alumna paga en el checkout. Deja además la FALLIDA
  * (`ESTADOS_QUE_DEJAN_PAGAR_A_LA_ALUMNA`) y contesta con textos para ella.
+ *
+ * `mostrador`: solo se bloquea una penalización anulada
+ * (`ESTADOS_ANULADOS_PARA_EL_MOSTRADOR`). Aquí la lectura es la penalización POR
+ * SU ID, apunte o no a este recibo: el barrido suelta `recibo_id` antes de borrar
+ * el recibo, y si el borrado no llega el recibo sigue ahí. `estado: null` (no
+ * existe) deja cobrar.
+ * ⚠️ Sin poder leerla, también deja cobrar (`sinComprobar`), a diferencia de los
+ * otros dos contextos: el mostrador no cobra solo, hay una persona delante con la
+ * alumna pagando, y bloquearlo por un fallo de lectura deja sin cobrar cuotas
+ * reales por algo que casi nunca es una penalización anulada. Quien llama lo
+ * registra en Sentry.
  */
 export function cobroManualDeRecibo(
   reciboId: string, lectura?: LecturaPenalizacion, contexto: ContextoCobroManual = 'panel',
@@ -739,6 +774,12 @@ export function cobroManualDeRecibo(
   // Por el prefijo y no por `penalizacionDelRecibo`: un `rec-penaliz-` sin id no
   // puede colarse como recibo normal (su lectura sale `estado: null` y no se cobra).
   if (!reciboId.startsWith(PREFIJO_RECIBO_PENALIZACION)) return { ok: true };
+  if (contexto === 'mostrador') {
+    if (!lectura || !lectura.ok) return { ok: true, sinComprobar: true };
+    return ESTADOS_ANULADOS_PARA_EL_MOSTRADOR.includes(lectura.estado as EstadoPenalizacion)
+      ? { ok: false, http: 409, mensaje: TEXTO_PENALIZACION_ANULADA }
+      : { ok: true };
+  }
   const alumna = contexto === 'checkout_alumna';
   if (!lectura || !lectura.ok) {
     return {
@@ -855,6 +896,109 @@ export async function seguirAlRecibo(io: IoPenalizacionSigueAlRecibo): Promise<S
   const notificada = escritura.estado === 'COBRADA' && estado === 'COBRADA';
   if (notificada) await io.notificarPago();
   return aplicada ? { paso: 'ESCRITA', estado: escritura.estado, notificada } : { paso: 'SIN_EFECTO', estado, notificada };
+}
+
+// ── El barrido: el recibo de una penalización anulada se suelta ─────────────
+//
+// En manual el recibo nace con la penalización en PENDIENTE_APROBACION. Si luego
+// se corrige el no-show, el trigger la pasa a OMITIDA_REVERTIDA y no toca el
+// recibo: quedaba PENDIENTE en Cobros, y el mostrador o «Marcar cobrado» lo
+// cobraban. Ese dinero entraba de una penalización anulada, fuera de la
+// liquidación, y ningún barrido lo miraba (las OMITIDA_* no están en
+// `BARRIDO_RECIBO_RESUELTO`). Lo mismo con OMITIDA_SIN_TARJETA u
+// OMITIDA_COMPENSADA de una DETECTADA que ya tenía recibo de una pasada anterior.
+//
+// Sin tocar el trigger: el cron pasa cada hora, y mientras tanto el mostrador no
+// cobra una penalización anulada.
+
+/** Lo que se lee del recibo en el barrido. */
+export interface ReciboDePenalizacionAnulada {
+  estado: string | null;
+  /** `proximo_reintento` puesto: el dunning lo tiene en cola. */
+  programado: boolean;
+  /** PaymentIntent, Checkout o cobro de mostrador enlazado: puede haber dinero en camino. */
+  conCobroEnCamino: boolean;
+}
+
+/** Alertas del barrido a Sentry. Solo ids. */
+export type AlertaReciboAnulado =
+  /** Se cobró antes de soltarlo: hay que devolverlo a mano. Se queda apuntado. */
+  | 'RECIBO_COBRADO_DE_PENALIZACION_ANULADA'
+  /** Programado, en curso o con un cobro en camino: no se borra. */
+  | 'RECIBO_NO_BORRABLE_DE_PENALIZACION_ANULADA'
+  /** Soltado, pero el borrado no tocó fila: se vuelve a apuntar. */
+  | 'NO_SE_PUDO_BORRAR_RECIBO'
+  /** Y además no se pudo volver a apuntar: el recibo queda sin penalización que apunte a él. */
+  | 'NO_SE_PUDO_VOLVER_A_APUNTAR';
+
+export type DestinoReciboAnulado = 'BORRAR' | 'AVISAR_COBRADO' | 'AVISAR_NO_BORRABLE' | 'NADA';
+
+/**
+ * - PENDIENTE, sin programar y sin cobro en camino → se suelta y se borra.
+ * - COBRADO → no se borra: el dinero entró y hay que devolverlo a mano.
+ * - PENDIENTE con algo en camino, o EN_CURSO → no se borra: puede entrar dinero.
+ * - FALLIDO, DEVUELTO u otro → nada. Nadie lo cobra solo (dunning, Cobros y el
+ *   checkout leen la penalización), y el mostrador tampoco con la penalización
+ *   anulada; ya tuvo un intento de cobro, así que su historia no se borra.
+ */
+export function destinoDelReciboAnulado(r: ReciboDePenalizacionAnulada): DestinoReciboAnulado {
+  if (r.estado === 'COBRADO') return 'AVISAR_COBRADO';
+  if (r.estado === 'PENDIENTE') return r.programado || r.conCobroEnCamino ? 'AVISAR_NO_BORRABLE' : 'BORRAR';
+  if (r.estado === 'EN_CURSO') return 'AVISAR_NO_BORRABLE';
+  return 'NADA';
+}
+
+/** Estados del recibo que el barrido lee. Fuera los que dan `NADA`, para no releerlos cada hora. */
+export const ESTADOS_RECIBO_BARRIDO_ANULADAS = ['PENDIENTE', 'COBRADO', 'EN_CURSO'] as const;
+
+/** Acceso a datos del barrido, inyectado para probar el orden sin Supabase. */
+export interface IoReciboDePenalizacionAnulada {
+  /** CAS: `recibo_id = null`, solo si la penalización sigue OMITIDA_* y apuntando a este recibo. */
+  soltarRecibo(): Promise<{ error: boolean; tocadas: number }>;
+  /** `borrarReciboDePenalizacionSinCobro`: PENDIENTE, sin programar, sin cobro en camino. */
+  borrarRecibo(): Promise<{ error: boolean; tocadas: number }>;
+  /** CAS: `recibo_id = <este recibo>`, solo si la penalización sigue sin apuntar a ninguno. */
+  volverAApuntar(): Promise<{ error: boolean; tocadas: number }>;
+  alertar(motivo: AlertaReciboAnulado): void;
+}
+
+export type SueltaReciboAnulado =
+  | { paso: 'BORRADO' }
+  | { paso: 'AVISADO'; motivo: AlertaReciboAnulado }
+  | { paso: 'NADA' }
+  /** El CAS no tocó fila: la penalización cambió entre medias. */
+  | { paso: 'SIN_EFECTO' }
+  /** Error al soltar: no se borra nada, la hora siguiente lo repite. */
+  | { paso: 'ERROR_SOLTAR' }
+  | { paso: 'NO_BORRADO'; reapuntado: boolean };
+
+/**
+ * Soltar primero y borrar después: la FK `penalizaciones.recibo_id` no tiene ON
+ * DELETE y no deja borrar un recibo apuntado. Si el borrado no toca fila (se
+ * cobró o se programó entre la lectura y el DELETE, o dio error), se vuelve a
+ * apuntar: así lo ve el barrido siguiente, que avisa si se cobró, y los guardias
+ * que leen por `recibo_id` (Cobros, dunning, checkout) siguen viendo la
+ * penalización anulada.
+ */
+export async function soltarReciboDePenalizacionAnulada(
+  io: IoReciboDePenalizacionAnulada, recibo: ReciboDePenalizacionAnulada,
+): Promise<SueltaReciboAnulado> {
+  const destino = destinoDelReciboAnulado(recibo);
+  if (destino === 'NADA') return { paso: 'NADA' };
+  if (destino !== 'BORRAR') {
+    const motivo = destino === 'AVISAR_COBRADO' ? 'RECIBO_COBRADO_DE_PENALIZACION_ANULADA' : 'RECIBO_NO_BORRABLE_DE_PENALIZACION_ANULADA';
+    io.alertar(motivo);
+    return { paso: 'AVISADO', motivo };
+  }
+  const suelta = await io.soltarRecibo();
+  if (suelta.error) return { paso: 'ERROR_SOLTAR' };
+  if (suelta.tocadas === 0) return { paso: 'SIN_EFECTO' };
+  const borrado = await io.borrarRecibo();
+  if (!borrado.error && borrado.tocadas > 0) return { paso: 'BORRADO' };
+  const vuelta = await io.volverAApuntar();
+  const reapuntado = !vuelta.error && vuelta.tocadas > 0;
+  io.alertar(reapuntado ? 'NO_SE_PUDO_BORRAR_RECIBO' : 'NO_SE_PUDO_VOLVER_A_APUNTAR');
+  return { paso: 'NO_BORRADO', reapuntado };
 }
 
 // ── Lado de la tarjeta ──────────────────────────────────────────────────────

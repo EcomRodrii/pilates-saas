@@ -249,7 +249,7 @@ test('el borrado del recibo es compare-and-set: PENDIENTE, sin programar, sin co
   assert.ok(desde > 0);
   for (const filtro of [
     ".eq('studio_id', p.studioId)", ".eq('estado', 'PENDIENTE')", ".is('proximo_reintento', null)",
-    ".is('stripe_payment_intent_id', null)", ".is('checkout_session_id', null)", ".select('id')",
+    ".is('stripe_payment_intent_id', null)", ".is('checkout_session_id', null)", ".is('cobro_mostrador_pi', null)", ".select('id')",
   ]) assert.ok(funcion.includes(filtro), `falta ${filtro}`);
   assert.match(funcion, /if \(!penalizacionDelRecibo\(p\.reciboId\)\) return \{ error: false, tocadas: 0 \}/, 'solo recibos de penalización');
 });

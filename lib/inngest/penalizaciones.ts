@@ -16,7 +16,8 @@ import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
-  BARRIDO_RECIBO_RESUELTO, DESDE_DETECTADA, crearReciboYCobrar, type EstadoPenalizacion,
+  BARRIDO_RECIBO_RESUELTO, DESDE_DETECTADA, ESTADOS_OMITIDA, ESTADOS_RECIBO_BARRIDO_ANULADAS, crearReciboYCobrar,
+  penalizacionDelRecibo, soltarReciboDePenalizacionAnulada, type EstadoPenalizacion,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { borrarReciboDePenalizacionSinCobro, seguirPenalizacionAlRecibo } from '@/lib/billing/penalizacion-recibo-server';
 import {
@@ -153,10 +154,9 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   // puede confirmar, devolver a DETECTADA sin cobrar) → cobrar → releer el
   // recibo → cerrar con CAS. Aquí solo va el acceso a datos.
   //
-  // Límite conocido, documentado allí: una penalización revertida desde
-  // PENDIENTE_APROBACION deja su recibo PENDIENTE en Cobros (sin armar: el
-  // dunning no lo cobra, y «Cobrar online» tampoco, `cobroManualDeRecibo`), y
-  // el trigger no revierte nada desde RECIBO_CREADO.
+  // Documentado allí: el trigger revierte una PENDIENTE_APROBACION sin tocar su
+  // recibo (lo suelta y lo borra `soltarRecibosDePenalizacionesAnuladas`, más
+  // abajo), y no revierte nada desde RECIBO_CREADO.
   //
   // Si el cobro acaba en otro camino (el dunning, el webhook, Cobros), la
   // penalización se pone al día con `seguirPenalizacionAlRecibo`: lo llama el
@@ -298,6 +298,90 @@ async function seguirRecibosResueltos(admin: SupabaseClient) {
 }
 
 /**
+ * El recibo de una penalización anulada (OMITIDA_*) se suelta y se borra
+ * (`soltarReciboDePenalizacionAnulada`). El trigger de no-show revierte la
+ * penalización sin tocar su recibo, que se quedaba PENDIENTE en Cobros al alcance
+ * del mostrador. Si ya se cobró, no se borra: se avisa a Sentry y se queda
+ * apuntado para devolverlo a mano. En un sistema sano vuelve vacía.
+ *
+ * Paginado por id (orden estable): lo que se borra sale del conjunto, lo que se
+ * queda (cobrado, con un cobro en camino) no tapa lo de detrás.
+ */
+const PAGINA_ANULADAS = 200;
+
+async function soltarRecibosDePenalizacionesAnuladas(admin: SupabaseClient) {
+  let ultimoId = '';
+  try {
+    for (;;) {
+      const { data, error } = await admin
+        .from('penalizaciones')
+        .select('id, studio_id, estado, recibo_id, recibos!inner(estado, proximo_reintento, stripe_payment_intent_id, checkout_session_id, cobro_mostrador_pi)')
+        .in('estado', [...ESTADOS_OMITIDA])
+        .in('recibos.estado', [...ESTADOS_RECIBO_BARRIDO_ANULADAS])
+        .gt('id', ultimoId)
+        .order('id', { ascending: true })
+        .limit(PAGINA_ANULADAS);
+      if (error) throw new Error(error.message);
+      const filas = (data ?? []) as unknown as FilaPenalizacionAnulada[];
+      for (const fila of filas) {
+        const reciboId = fila.recibo_id;
+        // Solo su propio recibo (`rec-penaliz-<id>`): cualquier otro puntero no es de este barrido.
+        if (!reciboId || penalizacionDelRecibo(reciboId) !== fila.id) continue;
+        const recibo = Array.isArray(fila.recibos) ? fila.recibos[0] : fila.recibos;
+        const cas = async (q: PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>, que: string) => {
+          const { data: tocadas, error: err } = await q;
+          if (err) console.error(`[penalizaciones] no se pudo ${que}`, fila.id, err.message);
+          return { error: !!err, tocadas: tocadas?.length ?? 0 };
+        };
+        await soltarReciboDePenalizacionAnulada({
+          soltarRecibo: () => cas(admin.from('penalizaciones').update({ recibo_id: null })
+            .eq('id', fila.id).eq('studio_id', fila.studio_id).eq('recibo_id', reciboId)
+            .in('estado', [...ESTADOS_OMITIDA]).select('id'), 'soltar el recibo de la penalización anulada'),
+          borrarRecibo: () => borrarReciboDePenalizacionSinCobro(admin, { studioId: fila.studio_id, reciboId }),
+          volverAApuntar: () => cas(admin.from('penalizaciones').update({ recibo_id: reciboId })
+            .eq('id', fila.id).eq('studio_id', fila.studio_id).is('recibo_id', null).select('id'),
+          'volver a apuntar el recibo de la penalización anulada'),
+          alertar: (motivo) => {
+            // Solo ids: ni nombre, ni email, ni importe de la socia.
+            Sentry.captureMessage(`[penalizaciones] ${motivo}`, {
+              level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-anulada' },
+              extra: { penalizacionId: fila.id, reciboId, studioId: fila.studio_id, estadoPenalizacion: fila.estado },
+            });
+          },
+        }, {
+          estado: recibo?.estado ?? null,
+          programado: !!recibo?.proximo_reintento,
+          conCobroEnCamino: !!(recibo?.stripe_payment_intent_id || recibo?.checkout_session_id || recibo?.cobro_mostrador_pi),
+        });
+      }
+      if (filas.length < PAGINA_ANULADAS) break;
+      ultimoId = filas[filas.length - 1].id;
+    }
+  } catch (e) {
+    Sentry.captureMessage('[penalizaciones] barrido de recibos de penalizaciones anuladas', {
+      level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-anulada' },
+      extra: { error: e instanceof Error ? e.message : String(e) },
+    });
+  }
+}
+
+interface FilaPenalizacionAnulada {
+  id: string;
+  studio_id: string;
+  estado: string;
+  recibo_id: string | null;
+  recibos: ReciboEmbebido | ReciboEmbebido[] | null;
+}
+
+interface ReciboEmbebido {
+  estado: string | null;
+  proximo_reintento: string | null;
+  stripe_payment_intent_id: string | null;
+  checkout_session_id: string | null;
+  cobro_mostrador_pi: string | null;
+}
+
+/**
  * Vigilancia sin cron nuevo (Inngest va cerca del límite del plan): de paso por
  * esta pasada, las comprobaciones de /api/health/flujos que tocan penalizaciones.
  * Nadie sondea ese endpoint, así que si no se cuentan aquí no avisan a nadie. A
@@ -352,6 +436,7 @@ export const penalizacionesDispatcher = inngest.createFunction(
       // Después de procesar, y también cuando no había nada DETECTADA: lo que
       // barre y lo que vigila no depende de que haya trabajo nuevo.
       await seguirRecibosResueltos(admin);
+      await soltarRecibosDePenalizacionesAnuladas(admin);
       await vigilarPenalizaciones(admin);
       return { procesadas: pendientes?.length ?? 0 };
     });

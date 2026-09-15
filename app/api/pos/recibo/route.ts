@@ -7,6 +7,7 @@ import { contextoCobroDe, proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/term
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
+import { bloqueoCobroEnMostradorDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import type { EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 
@@ -70,6 +71,17 @@ export async function POST(req: NextRequest) {
   // devuelto.
   if (!esReciboCobrable(recibo)) {
     return NextResponse.json({ error: 'Ese recibo ya no se puede cobrar.' }, { status: 409 });
+  }
+
+  // El recibo de una penalización anulada (asistencia corregida, sin tarjeta,
+  // compensada) o reembolsada no se cobra: el trigger que la anula no toca su
+  // recibo, y hasta que el barrido del cron lo suelta seguía PENDIENTE aquí.
+  // Si no se puede leer la penalización, deja cobrar (ver la función).
+  const penalizacionAnulada = await bloqueoCobroEnMostradorDePenalizacion(admin, {
+    studioId: sesion.studioId, reciboId, origen: 'pos-recibo',
+  });
+  if (penalizacionAnulada) {
+    return NextResponse.json({ error: penalizacionAnulada.mensaje }, { status: penalizacionAnulada.http });
   }
 
   // Bizum fuera de las cuotas, con el MISMO veredicto que /api/stripe/checkout.

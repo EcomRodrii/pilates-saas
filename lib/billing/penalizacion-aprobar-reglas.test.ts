@@ -28,8 +28,16 @@ import {
   penalizacionDelRecibo,
   ESTADOS_QUE_DEJAN_COBRAR_A_MANO,
   ESTADOS_QUE_DEJAN_PAGAR_A_LA_ALUMNA,
+  ESTADOS_ANULADOS_PARA_EL_MOSTRADOR,
+  ESTADOS_OMITIDA,
+  ESTADOS_RECIBO_BARRIDO_ANULADAS,
   PREFIJO_RECIBO_PENALIZACION,
+  TEXTO_PENALIZACION_ANULADA,
   cobroManualDeRecibo,
+  destinoDelReciboAnulado,
+  soltarReciboDePenalizacionAnulada,
+  type IoReciboDePenalizacionAnulada,
+  type ReciboDePenalizacionAnulada,
   planificarCobroAutomatico,
   planificarTrasCobro,
   queHaceLaTarjeta,
@@ -1567,4 +1575,197 @@ test('⚠️ el ejecutor del Decision OS pasa el recibo de una penalización por
     'bucle → ¿penalización? → step de guardia → saltar con motivo → cobrar');
   // El step de cobro no cambia de id: lo nuevo es un step aparte.
   assert.equal(fuente.split('step.run(`cobrar-${info.id}`').length - 1, 1);
+});
+
+// ── El mostrador: datáfono/Bizum del TPV y «Marcar cobrado» ────────────────
+
+test('⚠️ mostrador: el recibo de una penalización anulada (OMITIDA_*) o reembolsada no se cobra; el resto, sí', () => {
+  assert.deepEqual([...ESTADOS_OMITIDA], TODOS_LOS_ESTADOS.filter(e => e.startsWith('OMITIDA_')));
+  assert.deepEqual([...ESTADOS_ANULADOS_PARA_EL_MOSTRADOR], [...ESTADOS_OMITIDA, 'REEMBOLSADA']);
+  for (const estado of TODOS_LOS_ESTADOS) {
+    const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }, 'mostrador');
+    if (estado.startsWith('OMITIDA_') || estado === 'REEMBOLSADA') {
+      assert.deepEqual(v, { ok: false, http: 409, mensaje: TEXTO_PENALIZACION_ANULADA }, estado);
+    } else {
+      assert.deepEqual(v, { ok: true }, estado);
+    }
+  }
+  assert.equal(TEXTO_PENALIZACION_ANULADA, 'Esta penalización está anulada: no se cobra.');
+});
+
+test('mostrador: con una persona delante, PENDIENTE_APROBACION, RECIBO_CREADO y FALLIDA se cobran (a diferencia de Cobros)', () => {
+  for (const estado of ['PENDIENTE_APROBACION', 'RECIBO_CREADO', 'FALLIDA'] as const) {
+    assert.deepEqual(cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }, 'mostrador'), { ok: true }, estado);
+  }
+  assert.equal(cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado: 'PENDIENTE_APROBACION' }).ok, false, 'Cobros sigue sin cobrarla');
+});
+
+test('⚠️ mostrador: sin poder leer la penalización deja cobrar, marcado para registrarlo; los otros contextos siguen cerrados', () => {
+  for (const lectura of [undefined, { ok: false } as const]) {
+    assert.deepEqual(cobroManualDeRecibo(RECIBO_PEN, lectura, 'mostrador'), { ok: true, sinComprobar: true });
+    assert.equal(cobroManualDeRecibo(RECIBO_PEN, lectura, 'panel').ok, false);
+    assert.equal(cobroManualDeRecibo(RECIBO_PEN, lectura, 'checkout_alumna').ok, false);
+  }
+});
+
+test('mostrador: una penalización que no existe, o un recibo que no es de una, se cobra sin marca', () => {
+  for (const estado of [null, 'OTRO']) {
+    assert.deepEqual(cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }, 'mostrador'), { ok: true }, String(estado));
+  }
+  assert.deepEqual(cobroManualDeRecibo('rec-renov-sus-1-2026-09', { ok: false }, 'mostrador'), { ok: true });
+  assert.deepEqual(cobroManualDeRecibo('rec-renov-sus-1-2026-09', undefined, 'mostrador'), { ok: true });
+});
+
+test('⚠️ el mostrador del TPV comprueba la penalización antes de arrancar el cobro', () => {
+  const fuente = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/pos/recibo/route.ts'), 'utf8'));
+  const cobrable = fuente.indexOf('if (!esReciboCobrable(recibo)) {');
+  const guardia = fuente.indexOf('await bloqueoCobroEnMostradorDePenalizacion(admin, {', cobrable);
+  const salida = fuente.indexOf('if (penalizacionAnulada) {', guardia);
+  const respuesta = fuente.indexOf('{ status: penalizacionAnulada.http }', salida);
+  const contexto = fuente.indexOf('await contextoCobroDe(');
+  const iniciar = fuente.indexOf('await prov.iniciar(');
+  assert.ok(cobrable > 0 && guardia > cobrable && salida > guardia && respuesta > salida, 'recibo cobrable → guardia → return');
+  assert.ok(contexto > respuesta && iniciar > respuesta, 'la guardia va antes de tocar el proveedor');
+});
+
+test('⚠️ el guardia del mostrador falla ABIERTO y lo registra: lee la penalización por su id, apunte o no al recibo', () => {
+  const fuente = readFileSync(join(import.meta.dirname, 'penalizacion-recibo-server.ts'), 'utf8');
+  const desde = fuente.indexOf('export async function bloqueoCobroEnMostradorDePenalizacion(');
+  const funcion = fuente.slice(desde, fuente.indexOf('\n}\n', desde));
+  assert.ok(desde > 0);
+  assert.match(funcion, /lectura = await leerPenalizacionPorIdDelRecibo\(admin, p\);/);
+  assert.match(funcion, /catch \{\s*lectura = \{ ok: false \};/);
+  assert.match(funcion, /cobroManualDeRecibo\(p\.reciboId, lectura, 'mostrador'\)/);
+  assert.match(funcion, /if \(veredicto\.ok && veredicto\.sinComprobar\) \{\s*\/\/ Solo ids\.\s*Sentry\.captureMessage\(/);
+  const lectura = fuente.slice(fuente.indexOf('export async function leerPenalizacionPorIdDelRecibo('));
+  const cuerpo = lectura.slice(0, lectura.indexOf('\n}\n'));
+  assert.match(cuerpo, /\.eq\('id', penalizacionId\)\.eq\('studio_id', p\.studioId\)\.maybeSingle\(\)/);
+  assert.doesNotMatch(cuerpo, /recibo_id/, 'el barrido suelta `recibo_id` antes de borrar: el guardia no puede depender de él');
+});
+
+test('⚠️ «Marcar cobrado» (uno y en lote) pasa por el guardia del mostrador antes de escribir', () => {
+  const fuente = readFileSync(join(import.meta.dirname, '../..', 'lib/supabase-data.ts'), 'utf8');
+  const helper = fuente.slice(fuente.indexOf('async function recibosDePenalizacionAnulada('));
+  const cuerpoHelper = helper.slice(0, helper.indexOf('\n}\n'));
+  assert.match(cuerpoHelper, /cobroManualDeRecibo\(reciboId, lectura, 'mostrador'\)/);
+  assert.match(cuerpoHelper, /catch \{\s*estados = null;/);
+  assert.match(cuerpoHelper, /if \(error\) estados = null;/);
+
+  const marcar = fuente.slice(fuente.indexOf('export async function dbMarcarCobrado('));
+  const cuerpoMarcar = marcar.slice(0, marcar.indexOf('\n}\n'));
+  const guardia = cuerpoMarcar.indexOf("(await recibosDePenalizacionAnulada([id], 'marcar-cobrado')).has(id)");
+  assert.ok(guardia > 0 && cuerpoMarcar.indexOf('.update(db)') > guardia, 'guardia antes del UPDATE');
+  assert.match(cuerpoMarcar, /return \{ ok: false, error: TEXTO_PENALIZACION_ANULADA \};/);
+
+  const lote = fuente.slice(fuente.indexOf('export async function dbUpdateRecibosBatch('));
+  const cuerpoLote = lote.slice(0, lote.indexOf('\n}\n'));
+  const guardiaLote = cuerpoLote.indexOf("await recibosDePenalizacionAnulada(ids, 'cobrar-en-lote')");
+  assert.ok(guardiaLote > 0 && cuerpoLote.indexOf(".update(db).in('id', idsACambiar)") > guardiaLote, 'filtro antes del UPDATE');
+  assert.match(cuerpoLote, /if \(changes\.estado === 'COBRADO'\) \{/);
+});
+
+// ── El barrido: el recibo de una penalización anulada se suelta ─────────────
+
+const RECIBO_LIBRE: ReciboDePenalizacionAnulada = { estado: 'PENDIENTE', programado: false, conCobroEnCamino: false };
+
+test('barrido de anuladas: qué se hace con cada recibo', () => {
+  assert.equal(destinoDelReciboAnulado(RECIBO_LIBRE), 'BORRAR');
+  assert.equal(destinoDelReciboAnulado({ ...RECIBO_LIBRE, programado: true }), 'AVISAR_NO_BORRABLE');
+  assert.equal(destinoDelReciboAnulado({ ...RECIBO_LIBRE, conCobroEnCamino: true }), 'AVISAR_NO_BORRABLE');
+  assert.equal(destinoDelReciboAnulado({ ...RECIBO_LIBRE, estado: 'EN_CURSO' }), 'AVISAR_NO_BORRABLE');
+  assert.equal(destinoDelReciboAnulado({ ...RECIBO_LIBRE, estado: 'COBRADO' }), 'AVISAR_COBRADO');
+  for (const estado of ['FALLIDO', 'DEVUELTO', null, 'OTRO']) {
+    assert.equal(destinoDelReciboAnulado({ ...RECIBO_LIBRE, estado }), 'NADA', String(estado));
+  }
+});
+
+test('barrido de anuladas: la consulta lee justo los estados de recibo con algo que hacer', () => {
+  const conAlgo = ['PENDIENTE', 'COBRADO', 'EN_CURSO', 'FALLIDO', 'DEVUELTO']
+    .filter(estado => destinoDelReciboAnulado({ ...RECIBO_LIBRE, estado }) !== 'NADA');
+  assert.deepEqual([...ESTADOS_RECIBO_BARRIDO_ANULADAS].sort(), conAlgo.sort());
+});
+
+function ioAnulada(r: { suelta?: { error: boolean; tocadas: number }; borrado?: { error: boolean; tocadas: number }; vuelta?: { error: boolean; tocadas: number } } = {}) {
+  const llamadas: string[] = [];
+  const io: IoReciboDePenalizacionAnulada = {
+    soltarRecibo: async () => { llamadas.push('soltarRecibo'); return r.suelta ?? { error: false, tocadas: 1 }; },
+    borrarRecibo: async () => { llamadas.push('borrarRecibo'); return r.borrado ?? { error: false, tocadas: 1 }; },
+    volverAApuntar: async () => { llamadas.push('volverAApuntar'); return r.vuelta ?? { error: false, tocadas: 1 }; },
+    alertar: (motivo) => { llamadas.push(`alertar:${motivo}`); },
+  };
+  return { io, llamadas };
+}
+
+test('⚠️ barrido de anuladas: suelta el puntero ANTES de borrar (la FK no deja), y nada más', async () => {
+  const { io, llamadas } = ioAnulada();
+  assert.deepEqual(await soltarReciboDePenalizacionAnulada(io, RECIBO_LIBRE), { paso: 'BORRADO' });
+  assert.deepEqual(llamadas, ['soltarRecibo', 'borrarRecibo']);
+});
+
+test('⚠️ barrido de anuladas: un recibo COBRADO no se toca: se avisa y se queda apuntado para devolverlo a mano', async () => {
+  const { io, llamadas } = ioAnulada();
+  assert.deepEqual(await soltarReciboDePenalizacionAnulada(io, { ...RECIBO_LIBRE, estado: 'COBRADO' }),
+    { paso: 'AVISADO', motivo: 'RECIBO_COBRADO_DE_PENALIZACION_ANULADA' });
+  assert.deepEqual(llamadas, ['alertar:RECIBO_COBRADO_DE_PENALIZACION_ANULADA']);
+});
+
+test('barrido de anuladas: con un cobro en camino, programado o en curso, no se escribe nada y se avisa', async () => {
+  for (const recibo of [{ ...RECIBO_LIBRE, programado: true }, { ...RECIBO_LIBRE, conCobroEnCamino: true }, { ...RECIBO_LIBRE, estado: 'EN_CURSO' }]) {
+    const { io, llamadas } = ioAnulada();
+    assert.equal((await soltarReciboDePenalizacionAnulada(io, recibo)).paso, 'AVISADO');
+    assert.deepEqual(llamadas, ['alertar:RECIBO_NO_BORRABLE_DE_PENALIZACION_ANULADA'], JSON.stringify(recibo));
+  }
+});
+
+test('barrido de anuladas: FALLIDO o DEVUELTO, ni escribe ni avisa', async () => {
+  for (const estado of ['FALLIDO', 'DEVUELTO']) {
+    const { io, llamadas } = ioAnulada();
+    assert.deepEqual(await soltarReciboDePenalizacionAnulada(io, { ...RECIBO_LIBRE, estado }), { paso: 'NADA' });
+    assert.deepEqual(llamadas, []);
+  }
+});
+
+test('barrido de anuladas: si soltar da error o no toca fila, no se borra nada', async () => {
+  const conError = ioAnulada({ suelta: { error: true, tocadas: 0 } });
+  assert.deepEqual(await soltarReciboDePenalizacionAnulada(conError.io, RECIBO_LIBRE), { paso: 'ERROR_SOLTAR' });
+  assert.deepEqual(conError.llamadas, ['soltarRecibo']);
+  const sinFila = ioAnulada({ suelta: { error: false, tocadas: 0 } });
+  assert.deepEqual(await soltarReciboDePenalizacionAnulada(sinFila.io, RECIBO_LIBRE), { paso: 'SIN_EFECTO' });
+  assert.deepEqual(sinFila.llamadas, ['soltarRecibo']);
+});
+
+test('⚠️ barrido de anuladas: si el borrado no toca fila (se cobró entre medias) o falla, vuelve a apuntar y avisa', async () => {
+  for (const borrado of [{ error: false, tocadas: 0 }, { error: true, tocadas: 0 }]) {
+    const { io, llamadas } = ioAnulada({ borrado });
+    assert.deepEqual(await soltarReciboDePenalizacionAnulada(io, RECIBO_LIBRE), { paso: 'NO_BORRADO', reapuntado: true });
+    assert.deepEqual(llamadas, ['soltarRecibo', 'borrarRecibo', 'volverAApuntar', 'alertar:NO_SE_PUDO_BORRAR_RECIBO'], JSON.stringify(borrado));
+  }
+  for (const vuelta of [{ error: false, tocadas: 0 }, { error: true, tocadas: 0 }]) {
+    const { io, llamadas } = ioAnulada({ borrado: { error: false, tocadas: 0 }, vuelta });
+    assert.deepEqual(await soltarReciboDePenalizacionAnulada(io, RECIBO_LIBRE), { paso: 'NO_BORRADO', reapuntado: false });
+    assert.equal(llamadas.at(-1), 'alertar:NO_SE_PUDO_VOLVER_A_APUNTAR');
+  }
+});
+
+test('⚠️ el cron barre las anuladas en cada pasada: CAS al soltar, borrado compartido, orden estable, antes de la vigilancia', () => {
+  const fuente = readFileSync(join(import.meta.dirname, '../inngest/penalizaciones.ts'), 'utf8');
+  const barrido = fuente.indexOf('await seguirRecibosResueltos(admin);');
+  const anuladas = fuente.indexOf('await soltarRecibosDePenalizacionesAnuladas(admin);');
+  const vigilancia = fuente.indexOf('await vigilarPenalizaciones(admin);');
+  assert.ok(barrido > 0 && anuladas > barrido && vigilancia > anuladas, 'barrido → anuladas → vigilancia');
+
+  const desde = fuente.indexOf('async function soltarRecibosDePenalizacionesAnuladas(');
+  const funcion = fuente.slice(desde, fuente.indexOf('\n}\n', desde));
+  assert.match(funcion, /\.in\('estado', \[\.\.\.ESTADOS_OMITIDA\]\)\s*\.in\('recibos\.estado', \[\.\.\.ESTADOS_RECIBO_BARRIDO_ANULADAS\]\)/);
+  assert.match(funcion, /\.gt\('id', ultimoId\)\s*\.order\('id', \{ ascending: true \}\)\s*\.limit\(PAGINA_ANULADAS\)/);
+  assert.match(funcion, /if \(filas\.length < PAGINA_ANULADAS\) break;/);
+  const soltar = funcion.slice(funcion.indexOf('soltarRecibo: () =>'), funcion.indexOf('borrarRecibo: () =>'));
+  for (const filtro of [".update({ recibo_id: null })", ".eq('recibo_id', reciboId)", ".in('estado', [...ESTADOS_OMITIDA])", ".select('id')"]) {
+    assert.ok(soltar.includes(filtro), `soltar: falta ${filtro}`);
+  }
+  assert.match(funcion, /borrarRecibo: \(\) => borrarReciboDePenalizacionSinCobro\(admin, \{ studioId: fila\.studio_id, reciboId \}\)/);
+  const volver = funcion.slice(funcion.indexOf('volverAApuntar: () =>'), funcion.indexOf('alertar: (motivo) =>'));
+  assert.ok(volver.includes(".update({ recibo_id: reciboId })") && volver.includes(".is('recibo_id', null)"), 'volver a apuntar solo si sigue suelto');
+  // Solo ids a Sentry.
+  assert.ok(funcion.includes('extra: { penalizacionId: fila.id, reciboId, studioId: fila.studio_id, estadoPenalizacion: fila.estado }'));
 });
