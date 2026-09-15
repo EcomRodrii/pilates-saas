@@ -107,7 +107,7 @@ export function InicioConfiguracion({
     numTiposClase: tiposClase.length,
     numPlanesActivos: planesTarifa.filter(p => p.activo).length,
     integraciones,
-    // El mismo criterio que la tarjeta de Stripe (tab-integraciones.tsx).
+    // El mismo criterio que la fila de Stripe (cobro-con-tarjeta.tsx).
     stripeDisponible: !!process.env.NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID,
     colorPropio: fuera?.colorPropio ?? null,
     panel: fuera?.menuPosition ? { menuPosition: fuera.menuPosition, oscuro: dark } : null,

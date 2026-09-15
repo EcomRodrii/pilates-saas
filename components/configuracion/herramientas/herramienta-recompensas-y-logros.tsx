@@ -16,8 +16,8 @@ import { TabRetos } from '@/components/configuracion/tab-retos';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
 // Los catálogos de Motivación: recompensas, canjes, logros, niveles y retos.
-// Cómo funcionan tus créditos (nombre, caducidad, racha y cuántos se ganan) se
-// queda en la sección: es un ajuste, no un catálogo.
+// Cómo funcionan tus créditos (nombre, caducidad, racha) y cuántos se ganan con
+// cada cosa se quedan en la sección, en sus cajones: son ajustes, no catálogos.
 export function HerramientaRecompensasYLogros({ showToast }: { showToast: (m: string) => void }) {
   const { studio, cargarGamificacion } = useStudio();
 
@@ -27,7 +27,7 @@ export function HerramientaRecompensasYLogros({ showToast }: { showToast: (m: st
 
   return (
     <PlanGate studio={studio ?? {}} feature="gamificacion">
-      <TabRecompensas showToast={showToast} parte="catalogo" />
+      <TabRecompensas showToast={showToast} />
       <TarjetaAjuste id="canjes" marco={false}>
         <div className="space-y-4">
           <CanjesPorEntregar />

@@ -13,7 +13,8 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 // remitente, WhatsApp y Gmail en «Cómo me comunico», y el resto en
 // «Conexiones». Llevarte tus datos no es una integración: está en «Datos y
 // seguridad» («Exportar mis datos»). Los nombres y frases de abajo son los de la pantalla
-// (lib/configuracion/secciones.ts y tab-integraciones.tsx).
+// (lib/configuracion/secciones.ts): desde el 15-sep (v2) cada integración es una fila
+// con su estado, agrupadas en Conexiones por cómo están.
 
 const GRUPOS: { seccion: string; tarjetas: [string, string][] }[] = [
   {
@@ -36,9 +37,9 @@ const GRUPOS: { seccion: string; tarjetas: [string, string][] }[] = [
       ['Google Calendar', 'Copia las clases de las próximas 4 semanas a tu calendario al pulsar «Sincronizar ahora»; no se actualiza solo.'],
       ['Zoom', 'Crea una reunión de Zoom para cada clase de los tipos marcados como online.'],
       ['Kisi', 'Abre la puerta de tu estudio sola con cada check-in de tus alumnas.'],
-      ['Klaviyo', 'Envía a tu cuenta de Klaviyo las alumnas que han consentido marketing por email.'],
-      ['Zapier', 'Conecta Tentare con miles de apps: crea reservas, sincroniza alumnas o avisa por Slack cuando pasa algo en tu estudio.'],
-      ['Mailchimp', 'Envía a tu audiencia de Mailchimp las alumnas que han consentido marketing por email — pegando tu clave API.'],
+      ['Klaviyo', 'Lleva a Klaviyo las alumnas que aceptaron recibir marketing, cada vez que pulsas «Sincronizar ahora».'],
+      ['Mailchimp', 'Lleva a tu audiencia de Mailchimp las alumnas que aceptaron recibir marketing, al pulsar «Sincronizar ahora».'],
+      ['Zapier', 'Conecta Tentare con miles de apps. La conexión se autoriza desde Zapier, no desde aquí.'],
     ],
   },
 ];

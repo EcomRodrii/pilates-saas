@@ -1,248 +1,266 @@
 'use client';
 
-import { useState } from 'react';
-import { Calendar as CalendarLinkIcon, Check, Copy, ExternalLink, Smartphone } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ComponentType } from 'react';
+import { Calendar as CalendarLinkIcon, Check, ChevronRight, Copy, ExternalLink, Link2, Smartphone } from 'lucide-react';
+import { cn, copiarAlPortapapeles } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { normalizarSlug, motivoSlugInvalido } from '@/lib/slug';
-import { inputCls, labelCls, btnPrimary, btnSecondary, Toggle } from '@/components/configuracion/estilos';
-import { copiarAlPortapapeles } from '@/lib/utils';
-import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
+import { resumenDireccion } from '@/lib/configuracion/resumenes';
+import { tarjetaPorId } from '@/lib/configuracion/secciones';
+import { btnSecondary, inputCls } from '@/components/configuracion/estilos';
+import { Campo } from '@/components/configuracion/formulario-estudio';
+import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
+import { IconoFila } from '@/components/configuracion/shell/fila-herramienta';
+import { TituloFila, ValorFila } from '@/components/configuracion/shell/fila-ajuste';
+import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
 
-// Los widgets embebibles (antes aquí) tienen su propia tarjeta en «Mi app y mi
-// web» — ver components/configuracion/tab-api.tsx.
+// ─────────────────────────────────────────────────────────────────────────────
+// «Dirección y enlaces», en Mi app y mi web (15-sep, v2): una fila con la
+// dirección corta de tu página y «Copiar», y un cajón con la dirección, que se
+// cambia con «Guardar», y los dos enlaces que se comparten.
+//
+// Son dos cosas DISTINTAS que se confundían bajo «portal»: la página de reservas
+// (sin cuenta, para captar) y la app de tus alumnas (con cuenta, instalable).
+//
+// Aparecer en Tentare Network es un sí/no de su sección (FilaInterruptor).
+// Los widgets tienen su pantalla (tab-api.tsx).
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Enlaces públicos — dos cosas DISTINTAS que se confundían bajo el mismo
-// nombre "portal": la página de reservas (sin cuenta, para captar) y la app
-// de socias (con cuenta, instalable). Antes solo se enseñaba la primera,
-// llamándola "portal", y la segunda no se podía copiar desde ningún sitio
-// del panel — la propietaria no tenía forma de dársela a sus alumnas salvo
-// que ellas la encontraran solas navegando.
-export function TabEstudioEnlaces({ showToast }: { showToast: (m: string) => void }) {
-  const { studio } = useStudio();
+const sinSuscripcion = () => () => {};
 
-  return (
-    <>
-      <TarjetaAjuste id="direccion-y-enlaces">
-        {/* La dirección se generaba con el nombre al crear el estudio y no se
-            podía cambiar nunca más: quien se rebautizaba se quedaba con la
-            vieja. Y ni siquiera se veía escrita — solo había un enlace para
-            abrirla. */}
-        <DireccionPublica />
-        <div className="space-y-2">
-          {/* F4·E5: enlace derivado de la sede activa; sin slug no se pinta (nunca un /reservar/ roto). */}
-          {studio?.slug && (
-          <a
-            href={`/reservar/${studio.slug}`}
-            target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-border hover:bg-muted transition-colors"
-          >
-            <CalendarLinkIcon size={15} className="text-muted-foreground shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-foreground">Página pública de reservas</p>
-              <p className="text-xs text-muted-foreground">Sin cuenta: cualquiera reserva una clase suelta. El enlace para Instagram, la puerta, los folletos.</p>
-            </div>
-            <ExternalLink size={14} className="text-muted-foreground shrink-0" />
-          </a>
-          )}
-          {/* La app de socias (app/portal/[slug]) es OTRA cosa: instalable, con
-              su bono/plan, vídeos y progreso. No tiene botón de "abrir" aquí
-              porque sin sesión de socia no lleva a ningún sitio útil — lo que
-              hace falta es copiar el enlace para pasárselo. */}
-          {studio?.slug && <EnlacePortalSocias slug={studio.slug} showToast={showToast} />}
-          {/* CONGELADO (feature-freeze PMF): se quitó el enlace "Modo quiosco" →
-              /kiosk/[slug]. Ver lib/frozen-features.ts. */}
-        </div>
-      </TarjetaAjuste>
-
-      <TarjetaVisibilidadNetwork showToast={showToast} />
-    </>
-  );
+/** El origen de la app: `''` al pintar en el servidor y el de verdad en el navegador. */
+function useOrigen(): string {
+  return useSyncExternalStore(sinSuscripcion, () => window.location.origin, () => '');
 }
 
-// Tentare Network F4 — opt-in al directorio público (`visible_en_network`,
-// migr 20260824230506). Apagado por defecto: distinto de los enlaces de
-// arriba, que solo los encuentra quien ya los tiene — este además pone al
-// estudio delante de gente que todavía no lo conocía, así que lo enciende
-// la propietaria a propósito, nunca por defecto. Mismo patrón de guardado
-// inmediato al tocar el interruptor que el resto del panel (p. ej. los
-// `Toggle` de tab-campos-personalizados.tsx), sin botón "Guardar" aparte.
-function TarjetaVisibilidadNetwork({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, updateStudio } = useStudio();
-  const [guardando, setGuardando] = useState(false);
-  const visible = studio?.visibleEnNetwork ?? false;
-
-  async function cambiar(v: boolean) {
-    if (guardando) return;
-    setGuardando(true);
-    const res = await updateStudio({ visibleEnNetwork: v });
-    setGuardando(false);
-    showToast(res.ok
-      ? (v ? 'Tu estudio ya aparece en el directorio de Network' : 'Tu estudio ha dejado de aparecer en el directorio de Network')
-      : res.error);
-  }
-
-  return (
-    <TarjetaAjuste id="network">
-      <div className="flex items-start justify-between gap-3 px-3.5 py-3 rounded-xl border border-border">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-foreground">Aparecer en el directorio público de Network</p>
-          <p className="text-[12px] text-muted-foreground mt-0.5 leading-relaxed">
-            Las alumnas podrán encontrar tu estudio buscando en Tentare Network,
-            aunque no tengan todavía el enlace de tu página de reservas.
-          </p>
-        </div>
-        <div className="shrink-0 pt-0.5">
-          <Toggle on={visible} onChange={cambiar} ariaLabel="Aparecer en el directorio público de Network" />
-        </div>
-      </div>
-    </TarjetaAjuste>
-  );
-}
-
-function EnlacePortalSocias({ slug, showToast }: { slug: string; showToast: (m: string) => void }) {
+/**
+ * Copia y SOLO entonces dice «Copiado». `writeText` rechaza en Safari sin gesto
+ * o sin permiso, y tres pantallas decían «Copiado» con el portapapeles vacío
+ * (#994): `copiarAlPortapapeles` devuelve si de verdad se escribió.
+ */
+function BotonCopiar({ texto, que, showToast, compacto, className }: {
+  texto: string;
+  /** Lo que se copia, para el aviso y el nombre del botón: «El enlace de tu página». */
+  que: string;
+  showToast: (m: string) => void;
+  /** En una fila estrecha, solo el icono: con la palabra, a 375 px la dirección se quedaba en «localhost:3217/r…». */
+  compacto?: boolean;
+  className?: string;
+}) {
   const [copiado, setCopiado] = useState(false);
+  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (temporizador.current) clearTimeout(temporizador.current); }, []);
 
   async function copiar() {
-    const link = `${window.location.origin}/portal/${slug}`;
-    if (!(await copiarAlPortapapeles(link))) {
-      showToast('No se pudo copiar. Selecciona el enlace y cópialo a mano.');
+    if (!(await copiarAlPortapapeles(texto))) {
+      showToast('No se ha podido copiar. Selecciona el enlace y cópialo a mano.');
       return;
     }
     setCopiado(true);
-    showToast('Enlace copiado');
-    setTimeout(() => setCopiado(false), 2000);
+    showToast(`${que} copiado`);
+    if (temporizador.current) clearTimeout(temporizador.current);
+    temporizador.current = setTimeout(() => setCopiado(false), 2000);
   }
 
   return (
-    <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-border">
-      <Smartphone size={15} className="text-muted-foreground shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold text-foreground">App de tus alumnas</p>
-        <p className="text-xs text-muted-foreground">Para alumnas ya dadas de alta: reservan, ven su bono, vídeos y progreso. Se instala en el móvil.</p>
-      </div>
-      <button
-        onClick={copiar}
-        className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors"
-      >
-        {copiado ? <Check size={14} className="text-success" /> : <Copy size={14} />}
-        {copiado ? 'Copiado' : 'Copiar'}
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={() => { void copiar(); }}
+      aria-label={`Copiar ${que.charAt(0).toLowerCase()}${que.slice(1)}`}
+      className={cn(btnSecondary, 'inline-flex shrink-0 items-center justify-center gap-1.5', compacto && 'px-3 @md/config:px-4', className)}
+    >
+      {copiado ? <Check size={14} className="text-success" aria-hidden /> : <Copy size={14} aria-hidden />}
+      <span className={compacto ? 'hidden @md/config:inline' : undefined}>{copiado ? 'Copiado' : 'Copiar'}</span>
+    </button>
   );
 }
 
-// ─── Dirección pública del estudio ───────────────────────────────────────────
-//
-// Cambiarla afecta a todo lo ya compartido: la bio de Instagram, el QR de la
-// puerta, los folletos. Por eso se dice ANTES —no después— que la anterior va a
-// seguir funcionando: sin esa frase, nadie con un negocio en marcha se atreve a
-// tocar el botón, y con ella el cambio deja de dar miedo porque deja de ser
-// irreversible.
-function DireccionPublica() {
+/**
+ * La fila: toca y abre su cajón; «Copiar», encima, copia la dirección. Son dos
+ * botones hermanos —el de la fila ocupa todo el fondo— y no uno dentro de otro,
+ * que un lector de pantalla no sabe anunciar.
+ */
+export function FilaDireccionYEnlaces({ onAbrir, showToast }: { onAbrir: () => void; showToast: (m: string) => void }) {
+  const { studio, dataLoaded } = useStudio();
+  const origen = useOrigen();
+  const textoId = useId();
+  const tarjeta = tarjetaPorId('direccion-y-enlaces');
+  const slug = dataLoaded ? studio?.slug ?? null : null;
+  return (
+    <li className="relative flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted">
+      <button
+        id="direccion-y-enlaces"
+        type="button"
+        aria-haspopup="dialog"
+        aria-labelledby={textoId}
+        onClick={onAbrir}
+        className="absolute inset-0 size-full scroll-mt-32 scroll-mb-32 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
+      />
+      <span className="pointer-events-none shrink-0"><IconoFila icono={Link2} /></span>
+      <span id={textoId} className="pointer-events-none min-w-0 flex-1">
+        <TituloFila titulo={tarjeta.titulo} />
+        <ValorFila valor={resumenDireccion({ slug, origen })} descripcion={tarjeta.frase} />
+      </span>
+      {slug && <BotonCopiar texto={`${origen}/reservar/${slug}`} que="El enlace de tu página" showToast={showToast} compacto className="relative z-10" />}
+      <ChevronRight size={18} className="pointer-events-none shrink-0 text-muted-foreground" aria-hidden />
+    </li>
+  );
+}
+
+function EnlacePublico({ icono: Icono, titulo, detalle, url, que, abrir, showToast }: {
+  icono: ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>;
+  titulo: string;
+  detalle: string;
+  url: string;
+  que: string;
+  abrir?: boolean;
+  showToast: (m: string) => void;
+}) {
+  return (
+    <li className="flex flex-col gap-2 py-3">
+      <span className="flex items-start gap-2.5">
+        <Icono size={16} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-foreground">{titulo}</span>
+          <span className="block text-sm text-muted-foreground text-pretty">{detalle}</span>
+          <span className="mt-1 block select-all break-all text-sm text-foreground">{url}</span>
+        </span>
+      </span>
+      <span className="flex flex-wrap gap-2 pl-[26px]">
+        <BotonCopiar texto={url} que={que} showToast={showToast} />
+        {abrir && (
+          <a href={url} target="_blank" rel="noopener noreferrer" className={cn(btnSecondary, 'inline-flex items-center gap-1.5')}>
+            Abrir <ExternalLink size={14} aria-hidden />
+          </a>
+        )}
+      </span>
+    </li>
+  );
+}
+
+/**
+ * El cajón. La dirección se generaba con el nombre al crear el estudio y no se
+ * podía cambiar nunca más; ahora sí, y ANTES de guardar se dice que la anterior
+ * sigue funcionando (0115): sin esa frase nadie con el QR ya impreso se atreve.
+ */
+export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajon, 'showToast'>) {
   const { studio } = useStudio();
-  const [editando, setEditando] = useState(false);
-  const [valor, setValor] = useState('');
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // La confirmación viaja en la URL y no en un efecto: leerla al pintar evita
-  // un setState dentro de useEffect (cascada de renders) y además sobrevive a
-  // la recarga sin guardar nada en ningún sitio.
+  const origen = useOrigen();
+  const slug = studio?.slug ?? '';
+  const [valor, setValor] = useState(slug);
+  // Si llega la dirección después de abrir, se pone si no se había tocado.
+  const [slugVisto, setSlugVisto] = useState(slug);
+  if (slug !== slugVisto) {
+    setSlugVisto(slug);
+    if (valor === slugVisto) setValor(slug);
+  }
+  const [redirigir, setRedirigir] = useState<string | null>(null);
+
+  // Se recarga en vez de tocar el estado a mano: el enlace de la página se
+  // deriva de `studio.slug` en todo el panel, y verlo con la dirección vieja
+  // después de cambiarla es justo la confusión que esto venía a quitar. Va en un
+  // efecto y no en el guardado: así la barra ya se ha ido y no pregunta
+  // «¿salir sin guardar?» por algo que sí se ha guardado.
+  useEffect(() => {
+    if (redirigir) window.location.href = redirigir;
+  }, [redirigir]);
+
+  // La confirmación viaja en la URL: sobrevive a la recarga sin guardar nada.
   const hecho = typeof window === 'undefined'
     ? null
     : new URLSearchParams(window.location.search).get('direccion-anterior');
 
-  const slug = studio?.slug ?? '';
+  if (!slug) {
+    return <p className="pb-6 text-sm text-muted-foreground text-pretty">Tu estudio todavía no tiene dirección de reservas.</p>;
+  }
+
   const propuesto = normalizarSlug(valor);
   // El aviso sale mientras se escribe y con la MISMA función que valida el
   // servidor: si no, se ve algo válido que luego se rechaza al guardar.
   const motivo = valor ? motivoSlugInvalido(propuesto) : null;
+  const cambia = !!propuesto && propuesto !== slug && !redirigir;
 
-  function abrir() {
-    setValor(slug); setError(null); setEditando(true);
+  async function alGuardar(): Promise<string | null> {
+    const res = await fetch('/api/estudio/direccion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ slug: propuesto }),
+    });
+    const cuerpo = (await res.json().catch(() => ({}))) as { error?: string; anterior?: string };
+    if (!res.ok) return cuerpo.error ?? 'No se ha podido cambiar la dirección.';
+    const anterior = encodeURIComponent(cuerpo.anterior ?? '');
+    setRedirigir(`/configuracion?tab=web&direccion-anterior=${anterior}#direccion-y-enlaces`);
+    return null;
   }
-
-  async function guardar() {
-    if (guardando || motivo || !propuesto) return;
-    setGuardando(true); setError(null);
-    try {
-      const res = await fetch('/api/estudio/direccion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ slug: propuesto }),
-      });
-      const cuerpo = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(cuerpo?.error ?? 'No se ha podido cambiar la dirección.'); return; }
-      // Se recarga en vez de tocar el estado a mano: el enlace de «Página
-      // pública de reservas» de justo debajo se deriva de `studio.slug`, y
-      // verlo con la dirección vieja después de cambiarla es exactamente la
-      // confusión que este cambio venía a quitar. Cambiar la dirección
-      // pública se hace una vez cada mucho; una recarga ahí no molesta a nadie.
-      // El ancla para aterrizar en ESTA tarjeta, no arriba de la sección — si
-      // no, la confirmación de abajo no se vería.
-      const anterior = encodeURIComponent(cuerpo?.anterior ?? '');
-      window.location.href = `/configuracion?tab=web&direccion-anterior=${anterior}#direccion-y-enlaces`;
-      return;
-    } catch {
-      setError('No hay conexión con el servidor. Inténtalo de nuevo.');
-    } finally {
-      setGuardando(false);
-    }
-  }
-
-  if (!slug && !editando) return null;
 
   return (
-    <div className="mb-4 rounded-xl border border-border p-4">
-      <p className={cn(labelCls, 'mb-1')}>Dirección de tu página de reservas</p>
-
-      {!editando ? (
-        <div className="flex items-center gap-2 flex-wrap">
-          <code className="text-[12px] text-foreground bg-muted rounded-lg px-2 py-1 break-all">
-            /reservar/{slug}
-          </code>
-          <button onClick={abrir} className="text-[12px] font-semibold underline text-muted-foreground hover:text-foreground">
-            Cambiar
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[12px] text-muted-foreground shrink-0">/reservar/</span>
-            <input
-              aria-label="Dirección de tu página de reservas"
-              className={inputCls}
-              value={valor}
-              onChange={e => { setValor(e.target.value); setError(null); }}
-              placeholder="mi-estudio"
-            />
-          </div>
-          {propuesto && propuesto !== valor && (
-            <p className="text-xs text-muted-foreground">Quedará así: <b>/reservar/{propuesto}</b></p>
-          )}
-          {motivo && <p role="alert" className="text-xs text-destructive">{motivo}</p>}
-          {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
-          <p className="text-xs leading-snug text-muted-foreground">
-            Tu dirección actual <b>/reservar/{slug}</b> seguirá funcionando: quien
-            entre por ella llegará igual a tu página de reservas. Nada de lo
-            que ya has compartido deja de servir.
+    <>
+      <div className="flex flex-col gap-6 pb-6">
+        {hecho && (
+          <p role="status" className="rounded-lg bg-muted px-3 py-2.5 text-sm text-foreground text-pretty">
+            Hecho. <b>/reservar/{hecho}</b> sigue llevando aquí, así que lo que ya habías compartido sigue funcionando.
           </p>
-          <div className="flex gap-2 pt-1">
-            <button onClick={guardar} disabled={guardando || !!motivo || !propuesto} className={cn(btnPrimary, 'disabled:opacity-60')}>
-              {guardando ? 'Cambiando…' : 'Cambiar dirección'}
-            </button>
-            <button onClick={() => setEditando(false)} className={btnSecondary}>Cancelar</button>
-          </div>
-        </div>
-      )}
+        )}
+        <Campo
+          label="Dirección de tu página de reservas"
+          error={motivo}
+          ayuda={(
+            <>
+              {propuesto && propuesto !== valor && <>Quedará así: <b>/reservar/{propuesto}</b>. </>}
+              La de ahora, <b>/reservar/{slug}</b>, seguirá funcionando: lo que ya has compartido no deja de servir.
+            </>
+          )}
+        >
+          {id => (
+            <span className="flex items-center gap-1.5">
+              <span className="shrink-0 text-sm text-muted-foreground">/reservar/</span>
+              <input
+                id={id}
+                className={inputCls}
+                value={valor}
+                placeholder="mi-estudio"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                aria-invalid={!!motivo}
+                onChange={e => setValor(e.target.value)}
+              />
+            </span>
+          )}
+        </Campo>
 
-      {hecho && (
-        <p role="status" className="mt-2 text-xs text-muted-foreground">
-          Hecho. <b>/reservar/{hecho}</b> sigue llevando aquí, así que los enlaces
-          que ya habías compartido siguen funcionando.
-        </p>
-      )}
-    </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Tus enlaces</h3>
+          <ul className="mt-1 flex flex-col divide-y divide-border">
+            <EnlacePublico
+              icono={CalendarLinkIcon}
+              titulo="Página de reservas"
+              detalle="Sin cuenta: cualquiera reserva una clase suelta. Para Instagram, la puerta o tus folletos."
+              url={`${origen}/reservar/${slug}`}
+              que="El enlace de tu página"
+              abrir
+              showToast={showToast}
+            />
+            {/* Sin sesión de alumna no lleva a nada útil: se copia para pasarlo, no se abre. */}
+            <EnlacePublico
+              icono={Smartphone}
+              titulo="App de tus alumnas"
+              detalle="Para alumnas ya dadas de alta: reservan, ven su bono y su progreso. Se instala en el móvil."
+              url={`${origen}/portal/${slug}`}
+              que="El enlace de la app"
+              showToast={showToast}
+            />
+          </ul>
+        </div>
+      </div>
+      <BarraGuardar
+        seccion="web"
+        cambios={cambia ? [tarjetaPorId('direccion-y-enlaces').titulo] : []}
+        bloqueo={motivo ? 'Corrige la dirección para poder guardar.' : null}
+        onGuardar={alGuardar}
+        onDescartar={() => setValor(slug)}
+      />
+    </>
   );
 }

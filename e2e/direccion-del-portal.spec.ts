@@ -66,11 +66,16 @@ async function mockBackend(page: Page, opts: { fallaCambio?: { status: number; b
   return { cambios };
 }
 
+// Desde el 15-sep (v2) «Dirección y enlaces» es una fila con la dirección corta
+// y un cajón donde se cambia con «Guardar». El enlace viejo abre ese cajón.
 async function abrirEstudio(page: Page) {
   await page.goto('/configuracion?tab=estudio&sub=enlaces');
-  await expect(page.getByText('/reservar/pilates-boutique-mar').first())
-    .toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { level: 2, name: 'Dirección y enlaces' })).toBeVisible({ timeout: 30_000 });
+  await expect(campoDireccion(page)).toHaveValue('pilates-boutique-mar', { timeout: 30_000 });
 }
+
+const campoDireccion = (page: Page) => page.getByRole('textbox', { name: 'Dirección de tu página de reservas' });
+const guardar = (page: Page) => page.getByRole('button', { name: 'Guardar', exact: true });
 
 test.describe('La dirección del portal', () => {
   test('se puede ver escrita, no solo abrir', async ({ page }) => {
@@ -80,7 +85,11 @@ test.describe('La dirección del portal', () => {
     await seedSesionDeDuena(page);
     await abrirEstudio(page);
 
-    await expect(page.getByRole('button', { name: 'Cambiar' })).toBeVisible();
+    // En su fila, detrás del cajón, y entera dentro de él.
+    await expect(page.locator('[data-resumen="valor"]').filter({ hasText: '/reservar/pilates-boutique-mar' })).toHaveCount(1);
+    await expect(page.getByRole('dialog').getByText(/\/reservar\/pilates-boutique-mar$/).first()).toBeVisible();
+    // Sin cambios, ni barra ni «Guardar» gris en reposo.
+    await expect(guardar(page)).toHaveCount(0);
   });
 
   test('al cambiarla se avisa ANTES de que la anterior sigue funcionando', async ({ page }) => {
@@ -90,15 +99,14 @@ test.describe('La dirección del portal', () => {
     await seedSesionDeDuena(page);
     await abrirEstudio(page);
 
-    await page.getByRole('button', { name: 'Cambiar' }).click();
     await expect(page.getByText(/seguirá funcionando/i)).toBeVisible();
 
-    const campo = page.getByRole('textbox', { name: 'Dirección de tu página de reservas' });
+    const campo = campoDireccion(page);
     await campo.fill('estudio Núñez');
     // Se enseña cómo va a quedar antes de guardar: nadie sabe qué es un slug.
     await expect(page.getByText('/reservar/estudio-nunez')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Cambiar dirección' }).click();
+    await guardar(page).click();
 
     await expect.poll(() => cambios.length, { timeout: 15_000 }).toBe(1);
     expect(cambios[0], 'se manda ya normalizado').toMatchObject({ slug: 'estudio-nunez' });
@@ -109,12 +117,12 @@ test.describe('La dirección del portal', () => {
     await seedSesionDeDuena(page);
     await abrirEstudio(page);
 
-    await page.getByRole('button', { name: 'Cambiar' }).click();
-    const campo = page.getByRole('textbox', { name: 'Dirección de tu página de reservas' });
-    const boton = page.getByRole('button', { name: 'Cambiar dirección' });
+    const campo = campoDireccion(page);
+    const boton = guardar(page);
     // `role="alert"` lo usa también el anunciador de rutas de Next, que está
-    // siempre presente y vacío: hay que acotar al aviso propio.
-    const aviso = page.getByRole('alert').filter({ hasText: /./ });
+    // siempre presente y vacío: hay que acotar al aviso propio. El primero es
+    // el del campo; la barra repite que hay que corregirlo.
+    const aviso = page.getByRole('alert').filter({ hasText: /./ }).first();
 
     await campo.fill('ab');
     await expect(aviso).toContainText('al menos 3');
@@ -136,12 +144,10 @@ test.describe('La dirección del portal', () => {
     await seedSesionDeDuena(page);
     await abrirEstudio(page);
 
-    await page.getByRole('button', { name: 'Cambiar' }).click();
-    await page.getByRole('textbox', { name: 'Dirección de tu página de reservas' }).fill('pilates-centro');
-    await page.getByRole('button', { name: 'Cambiar dirección' }).click();
+    await campoDireccion(page).fill('pilates-centro');
+    await guardar(page).click();
 
     await expect(page.getByRole('alert').filter({ hasText: /./ })).toContainText('ya está en uso');
-    await expect(page.getByRole('textbox', { name: 'Dirección de tu página de reservas' }))
-      .toHaveValue('pilates-centro');
+    await expect(campoDireccion(page)).toHaveValue('pilates-centro');
   });
 });

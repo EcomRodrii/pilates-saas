@@ -53,13 +53,13 @@ async function base(page: Page) {
 }
 
 
-/** Abre Configuración › Logros y motivación › Recompensas (subpestaña con carga diferida). */
+/** Abre Configuración › Motivación › «Créditos por acción», que desde el 15-sep (v2) es un cajón con un solo «Guardar». */
 async function abrirRecompensas(page: Page) {
-  await page.goto('/configuracion?tab=gamificacion');
-  // Desde el 15-sep todo Motivación es una sola pantalla, sin sub-pestañas.
-  await expect(page.getByRole('heading', { level: 2, name: 'Motivación' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Créditos por acción')).toBeVisible({ timeout: 30_000 });
+  await page.goto('/configuracion?tab=gamificacion#creditos-por-accion');
+  await expect(page.getByRole('heading', { level: 2, name: 'Créditos por acción' })).toBeVisible({ timeout: 30_000 });
 }
+
+const guardar = (page: Page) => page.getByRole('button', { name: 'Guardar', exact: true });
 
 /** El catálogo de recompensas tiene su propia pantalla desde el 15-sep (v2): la sección solo guarda las reglas. */
 async function abrirCatalogo(page: Page) {
@@ -122,7 +122,7 @@ test.describe('Catálogo vacío: por dónde empezar', () => {
 });
 
 test.describe('Créditos por acción: una escritura, no una por tecla', () => {
-  test('teclear un número manda UN solo guardado, al salir del campo', async ({ page }) => {
+  test('teclear un número no escribe nada hasta «Guardar», y entonces UNA vez', async ({ page }) => {
     const escrituras: string[] = [];
     await base(page);
     await page.route('**/rest/v1/reward_rules**', route => {
@@ -136,14 +136,17 @@ test.describe('Créditos por acción: una escritura, no una por tecla', () => {
 
     await campo.fill('');
     await campo.pressSequentially('100', { delay: 60 });
-    // Mientras se escribe no se ha guardado nada todavía.
+    // Ni mientras se escribe ni al salir del campo: espera a «Guardar».
+    await campo.blur();
+    await page.waitForTimeout(300);
     expect(escrituras).toHaveLength(0);
 
-    await campo.blur();
+    await guardar(page).click();
     await expect.poll(() => escrituras.length, { timeout: 10_000 }).toBe(1);
   });
 
-  test('si la BD rechaza, el campo vuelve al valor guardado', async ({ page }) => {
+  test('si la BD rechaza, no dice «Guardado»: el cajón se queda con lo escrito y la fila con lo guardado', async ({ page }) => {
+    const escrituras: string[] = [];
     await base(page);
     await page.route('**/rest/v1/reward_rules**', route => {
       if (route.request().method() === 'GET') {
@@ -152,6 +155,7 @@ test.describe('Créditos por acción: una escritura, no una por tecla', () => {
           descripcion: null, creditos: 10, activa: true, tope_mensual: null, creado_en: '2026-01-01T00:00:00Z',
         }]);
       }
+      escrituras.push(route.request().method());
       return json(route, { message: 'new row violates row-level security policy' }, 403);
     });
 
@@ -160,9 +164,14 @@ test.describe('Créditos por acción: una escritura, no una por tecla', () => {
     await expect(campo).toHaveValue('10');
 
     await campo.fill('99');
-    await campo.blur();
+    await guardar(page).click();
 
-    // No se queda un 99 en pantalla que no existe en la base de datos.
-    await expect(campo).toHaveValue('10', { timeout: 10_000 });
+    await expect(page.getByRole('dialog').first().getByRole('alert')).toHaveText(/^No se ha guardado: .+\. Tus cambios siguen aquí\.$/, { timeout: 10_000 });
+    // «No dijo Guardado» también sería verdad si nunca se hubiera intentado.
+    expect(escrituras.length, 'intentos de escribir').toBeGreaterThan(0);
+    await expect(page.getByText('Créditos por acción guardados')).toHaveCount(0);
+    await expect(campo).toHaveValue('99');
+    // La fila no enseña un 99 que no existe en la base de datos.
+    await expect(page.locator('#creditos-por-accion [data-resumen]')).toContainText('10 por asistir');
   });
 });

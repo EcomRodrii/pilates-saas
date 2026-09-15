@@ -10,6 +10,7 @@ import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import { hayCambios } from '@/lib/configuracion/formulario-sincronizado';
 import { resumenGmail, resumenRemitente, resumenWhatsapp, type ResumenFila } from '@/lib/configuracion/resumenes';
 import { seccionDeTarjeta, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
+import type { TipoIntegracion } from '@/lib/types';
 import { useWhatsappEmbeddedSignup } from '@/lib/hooks/use-whatsapp-embedded-signup';
 import { GmailIcon, WhatsAppAppIcon } from '@/components/icons/brand-icons';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -40,11 +41,14 @@ import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajo
 // blanco: se verían vacíos, se pulsaría «Guardar» y se borraría un token bueno.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Credenciales = Record<string, string>;
-type Carga = Credenciales | 'cargando' | 'error';
+// Las piezas de una fila de conexión (useCredenciales, FilaCanal, el aviso de
+// vuelta…) las usan también las de «Conexiones» (conexiones.tsx).
+
+export type Credenciales = Record<string, string>;
+export type Carga = Credenciales | 'cargando' | 'error';
 
 /** Las credenciales guardadas de una integración, pedidas al servidor. */
-function useCredenciales(tipo: 'RESEND' | 'WHATSAPP') {
+export function useCredenciales(tipo: TipoIntegracion) {
   const [carga, setCarga] = useState<Carga>('cargando');
   useEffect(() => {
     let vivo = true;
@@ -64,7 +68,7 @@ function useCredenciales(tipo: 'RESEND' | 'WHATSAPP') {
 }
 
 /** Lo que lee el cajón mientras llegan las credenciales, o si no llegan. */
-function EsperandoCredenciales({ carga, que }: { carga: 'cargando' | 'error'; que: string }) {
+export function EsperandoCredenciales({ carga, que }: { carga: 'cargando' | 'error'; que: string }) {
   return carga === 'cargando'
     ? <p role="status" className="pb-6 text-sm text-muted-foreground">Cargando…</p>
     : <p role="alert" className="pb-6 text-sm font-medium text-destructive text-pretty">No se han podido cargar {que}. Cierra y vuelve a intentarlo.</p>;
@@ -80,19 +84,21 @@ function Logo({ children }: { children: ReactNode }) {
 }
 
 /** Una fila de canal: abre su cajón (`onAbrir`) o lleva su acción en la fila. */
-function FilaCanal({ id, logo, resumen, accion, onAbrir }: {
+export function FilaCanal({ id, logo, resumen, accion, onAbrir, title }: {
   id: TarjetaId;
   logo: ReactNode;
   /** `null` = sin cargar: va su descripción, sin estado. */
   resumen: ResumenFila | null;
   accion?: ReactNode;
   onAbrir?: () => void;
+  /** Para quien opera la plataforma (qué variable falta), nunca en el texto. */
+  title?: string;
 }) {
   const tarjeta = tarjetaPorId(id);
   const texto = (
     <span className="min-w-0 flex-1">
       <TituloFila titulo={tarjeta.titulo} estado={resumen?.estado} />
-      <ValorFila valor={resumen?.valor ?? null} descripcion={tarjeta.frase} entero />
+      <ValorFila valor={resumen?.valor ?? null} descripcion={tarjeta.frase} entero title={title} />
     </span>
   );
   if (onAbrir) {
@@ -116,7 +122,7 @@ function FilaCanal({ id, logo, resumen, accion, onAbrir }: {
 }
 
 /** La vuelta de una conexión trae su aviso en la URL: se enseña y se limpia. */
-function useAvisoDeVuelta(tarjeta: TarjetaId, avisos: Record<string, (valor: string) => string>, showToast: (m: string) => void) {
+export function useAvisoDeVuelta(tarjeta: TarjetaId, avisos: Record<string, (valor: string) => string>, showToast: (m: string) => void) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     for (const [param, texto] of Object.entries(avisos)) {
@@ -129,7 +135,7 @@ function useAvisoDeVuelta(tarjeta: TarjetaId, avisos: Record<string, (valor: str
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-const CUERPO = 'flex flex-col gap-5 pb-6';
+export const CUERPO = 'flex flex-col gap-5 pb-6';
 const EMAIL_VALIDO = /^[^@\s]+@[^@\s.]+\.[^@\s]+$/;
 
 // ── Nombre y respuesta de tus correos ───────────────────────────────────────
