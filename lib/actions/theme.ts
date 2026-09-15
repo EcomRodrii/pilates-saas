@@ -1,7 +1,16 @@
 'use server';
 
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
-import { getThemePublicado, getThemeBorrador, guardarBorradorTheme } from '@/lib/theme-data';
+import {
+  getThemePublicado,
+  getThemeBorrador,
+  guardarBorradorTheme,
+  faviconPermitido,
+  ConflictoTheme,
+  MENSAJE_CONFLICTO_THEME,
+  MENSAJE_FAVICON_AJENO,
+} from '@/lib/theme-data';
+import { soloLoEnviado } from '@/lib/theme-publicar-campos';
 import { themeDraftSchema } from '@/lib/theme-schema';
 import { featureDeEstudio } from '@/lib/billing/feature-estudio';
 import { ErrorAccion } from '@/lib/actions/errores';
@@ -37,9 +46,18 @@ export async function guardarThemeAction(body: unknown) {
     throw new ErrorAccion('Los cambios de marca no son válidos.', 400);
   }
 
+  // Solo lo que ha llegado: zod rellena con valores de fábrica lo que no viene,
+  // y el borrador perdería esas claves (ver `soloLoEnviado`).
+  const parche = soloLoEnviado(body, parsed.data);
+  // Mismo criterio que publicar: el favicon, solo un fichero de este estudio.
+  if (!faviconPermitido(parche.faviconUrl, sesion.studioId)) {
+    throw new ErrorAccion(MENSAJE_FAVICON_AJENO, 400);
+  }
+
   try {
-    return await guardarBorradorTheme(sesion.studioId, parsed.data);
+    return await guardarBorradorTheme(sesion.studioId, parche);
   } catch (e) {
+    if (e instanceof ConflictoTheme) throw new ErrorAccion(MENSAJE_CONFLICTO_THEME, 409);
     // Sin esto la escritura fallaba MUDA: ni log ni Sentry. Mismo criterio
     // que `errorInterno` — el detalle se queda en el servidor, al navegador
     // va una frase fija.

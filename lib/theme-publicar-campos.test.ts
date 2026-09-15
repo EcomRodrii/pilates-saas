@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CAMPOS_PUBLICABLES, esFaviconDeBorrador, fusionarCampos } from './theme-publicar-campos.ts';
+import { CAMPOS_PUBLICABLES, esFaviconDeBorrador, fusionarCampos, siguienteVersionTheme, soloLoEnviado } from './theme-publicar-campos.ts';
+import { themeDraftSchema } from './theme-schema.ts';
 
 // Publicar el color o el favicon desde Configuración › Marca. Lo que se fija:
 // que solo cambia lo tocado, que nada del borrador sale a lo publicado sin
@@ -41,6 +42,30 @@ test('solo se copia el archivo del favicon si es el borrador de ESTE estudio', (
   assert.equal(esFaviconDeBorrador('https://x.supabase.co/storage/v1/object/public/avatars/favicon-borrador-s2', 's1'), false, 'de otro estudio');
   assert.equal(esFaviconDeBorrador('https://example.com/mi-favicon.png', 's1'), false, 'un enlace pegado');
   assert.equal(esFaviconDeBorrador('no es una url', 's1'), false);
+});
+
+test('publicar los colores no manda también un favicon vacío: los valores por defecto de zod no se cuelan', () => {
+  const esquema = themeDraftSchema.pick({ primary: true, secondary: true, faviconUrl: true }).strict();
+  const colores = { primary: '#224466', secondary: '#D9C29E' };
+  // La premisa: zod 4 SÍ rellena el favicon aunque no venga.
+  assert.equal(esquema.parse(colores).faviconUrl, null);
+  assert.deepEqual(soloLoEnviado(colores, esquema.parse(colores)), colores);
+  assert.deepEqual(soloLoEnviado({ faviconUrl: null }, esquema.parse({ faviconUrl: null })), { faviconUrl: null },
+    'quitarlo a propósito sí viaja');
+  assert.deepEqual(soloLoEnviado({}, esquema.parse({})), {}, 'un cuerpo vacío se queda vacío (y el route responde 400)');
+  assert.deepEqual(soloLoEnviado(null, { primary: '#224466' }), {});
+  const borrador = soloLoEnviado({ seoTitulo: 'Hola' }, themeDraftSchema.parse({ seoTitulo: 'Hola' }));
+  assert.deepEqual(borrador, { seoTitulo: 'Hola' }, 'un borrador parcial no devuelve a fábrica lo que no trae');
+});
+
+test('la versión que se escribe supera siempre a la leída, aunque el reloj vaya por detrás', () => {
+  const leida = '2026-09-15T10:00:00.500+00:00';
+  assert.equal(siguienteVersionTheme(leida, Date.parse('2026-09-15T10:00:05.000Z')), '2026-09-15T10:00:05.000Z');
+  assert.equal(siguienteVersionTheme(leida, Date.parse('2026-09-15T09:00:00.000Z')), '2026-09-15T10:00:00.501Z', 'reloj atrasado');
+  assert.equal(siguienteVersionTheme(leida, Date.parse(leida)), '2026-09-15T10:00:00.501Z', 'el mismo milisegundo');
+  assert.equal(siguienteVersionTheme('2026-09-15T10:00:00.500999+00:00', 0), '2026-09-15T10:00:00.501Z', 'microsegundos de Postgres');
+  assert.equal(siguienteVersionTheme(null, 1000), new Date(1000).toISOString(), 'fila sin versión');
+  assert.equal(siguienteVersionTheme('basura', 1000), new Date(1000).toISOString());
 });
 
 test('Marca solo publica suelto el color y el favicon', () => {

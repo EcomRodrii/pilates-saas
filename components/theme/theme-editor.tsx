@@ -1285,6 +1285,7 @@ export function AjustesCategoriaPanel({
         clasePreview="w-12 h-12"
         textoSubir="Subir favicon"
         textoCambiar="Cambiar favicon"
+        conEnlace={false}
       />
     </div>
   );
