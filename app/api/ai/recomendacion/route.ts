@@ -12,6 +12,13 @@ const client = new Anthropic();
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Genera el texto de mensajes de marketing a socias (REACTIVACION, CROSS_SELL)
+  // o de aviso a la propietaria (CLASE_LLENA) — mismo alcance que
+  // /api/ai/campana-asistente: comunicación con clientas, fuera de la lista
+  // blanca de instructora/recepción/manager en permisos-reglas.ts.
+  if (sesion.rol !== 'PROPIETARIO') {
+    return NextResponse.json({ error: 'Solo la propietaria puede generar estas recomendaciones' }, { status: 403 });
+  }
   const limited = await enforceRateLimit(req, 'ai-recomendacion', { max: 20, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;
   const bloqueoIA = await bloqueoPorFeature(sesion.studioId, 'ia');
