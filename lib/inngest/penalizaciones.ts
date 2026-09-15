@@ -22,12 +22,11 @@ import { seguirPenalizacionAlRecibo } from '@/lib/billing/penalizacion-recibo-se
 import {
   DEFINICIONES, ID_PENALIZACIONES_COBRADAS_SIN_DINERO, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR, avisoParaSentry,
 } from '@/lib/salud/comprobaciones.ts';
-import {
-  terminosServicioPorDefecto, politicaPrivacidadPorDefecto, textoLegalCompleto,
-} from '@/lib/legal-textos';
+import { textoLegalVigenteDeFila } from '@/lib/legal-textos';
+import { aplicarConsentimientoEnCron, consentimientoCubrePenalizacion } from '@/lib/billing/penalizacion-consentimiento';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: string; socio_id: string; reserva_id: string; tipo: string; importe: number }) {
+async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: string; socio_id: string; reserva_id: string; tipo: string; importe: number; detectada_en: string }) {
   // Compare-and-set: toda salida de DETECTADA exige que la fila siga DETECTADA
   // (dos pasadas solapadas, o el trigger que la revierte entre medias).
   const marcar = (estado: EstadoPenalizacion) =>
@@ -55,26 +54,47 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
     .eq('id', pen.socio_id).maybeSingle();
   if (!socio) { await marcar('FALLIDA'); return; }
 
+  // La clase: para la ventana del contrato (cancelación tardía) y para el
+  // concepto del recibo. Un error de lectura no escribe nada: la próxima pasada
+  // lo repite. Una reserva o clase que no existe sí se decide (sin datos, no se cobra).
+  const { data: reserva, error: errReserva } = await admin.from('reservas').select('sesion_id').eq('id', pen.reserva_id).maybeSingle();
+  if (errReserva) return;
+  const { data: sesion, error: errSesion } = reserva?.sesion_id
+    ? await admin.from('sesiones').select('inicio, tipo_clase_id').eq('id', reserva.sesion_id).maybeSingle()
+    : { data: null, error: null };
+  if (errSesion) return;
+
   // Guard de consentimiento (§7 del plan): AceptacionContrato.versionTexto es
   // el TEXTO COMPLETO que la socia aceptó, no un número de versión — se
-  // compara contra el texto vigente hoy. Si no coincide (cambió, o nunca
-  // aceptó ninguno), no hay consentimiento vigente para este cargo.
-  const datosLegales = {
-    nombre: studio.nombre, razonSocial: studio.razon_social, nif: studio.nif,
-    direccion: studio.direccion, ciudad: studio.ciudad, codigoPostal: studio.codigo_postal,
-    email: studio.email, cancelacionVentanaHoras: studio.cancelacion_ventana_horas,
-    penalizacionImporteEur: studio.penalizacion_importe_eur,
-  };
-  const textoVigente = textoLegalCompleto({
-    politicaPrivacidad: studio.politica_privacidad ?? politicaPrivacidadPorDefecto(datosLegales),
-    terminosServicio: studio.terminos_servicio ?? terminosServicioPorDefecto(datosLegales),
+  // compara contra el texto vigente hoy. Y además, que ese texto recoja ESTE
+  // cargo: la detección usa el importe y la ventana del tipo de clase, y el
+  // contrato solo los del estudio (`lib/billing/penalizacion-consentimiento.ts`).
+  // Sin eso, no se crea recibo ni se cobra.
+  const veredicto = consentimientoCubrePenalizacion({
+    studio: {
+      terminosServicio: studio.terminos_servicio,
+      penalizacionImporteEur: studio.penalizacion_importe_eur,
+      cancelacionVentanaHoras: studio.cancelacion_ventana_horas,
+    },
+    penalizacion: { tipo: pen.tipo, importe: pen.importe, detectadaEn: pen.detectada_en },
+    sesion: sesion ? { inicio: sesion.inicio as string | null } : null,
+    textoAceptado: socio.aceptacion_version,
+    textoActual: textoLegalVigenteDeFila(studio),
   });
-  if (socio.aceptacion_version !== textoVigente) {
-    await marcar('OMITIDA_SIN_CONSENTIMIENTO');
-    const { emitirPenalizacionBloqueada } = await import('@/lib/notifications/emit');
-    await emitirPenalizacionBloqueada(admin, { studioId: pen.studio_id, socioId: pen.socio_id, motivo: 'consentimiento', importe: pen.importe, penalizacionId: pen.id });
-    return;
-  }
+  const sigue = await aplicarConsentimientoEnCron(veredicto, {
+    marcarOmitida: async () => {
+      const { data, error } = await admin.from('penalizaciones')
+        .update({ estado: 'OMITIDA_SIN_CONSENTIMIENTO', procesada_en: new Date().toISOString() })
+        .eq('id', pen.id).in('estado', [...DESDE_DETECTADA]).select('id');
+      if (error) console.error('[penalizaciones] no se pudo marcar sin consentimiento', pen.id, error.message);
+      return { error: !!error, tocadas: data?.length ?? 0 };
+    },
+    notificarBloqueo: async () => {
+      const { emitirPenalizacionBloqueada } = await import('@/lib/notifications/emit');
+      await emitirPenalizacionBloqueada(admin, { studioId: pen.studio_id, socioId: pen.socio_id, motivo: 'consentimiento', importe: pen.importe, penalizacionId: pen.id });
+    },
+  });
+  if (!sigue) return;
 
   // Guard de tarjeta (decisión de producto: silencioso, sin bloquear nada).
   if (!socio.stripe_customer_id || !socio.stripe_payment_method_id) {
@@ -91,10 +111,6 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   if (recuperacion) { await marcar('OMITIDA_COMPENSADA'); return; }
 
   // Nombre de la clase para el concepto del recibo.
-  const { data: reserva } = await admin.from('reservas').select('sesion_id').eq('id', pen.reserva_id).maybeSingle();
-  const { data: sesion } = reserva?.sesion_id
-    ? await admin.from('sesiones').select('tipo_clase_id').eq('id', reserva.sesion_id).maybeSingle()
-    : { data: null };
   const { data: tipo } = sesion?.tipo_clase_id
     ? await admin.from('tipos_clase').select('nombre').eq('id', sesion.tipo_clase_id).maybeSingle()
     : { data: null };
@@ -317,7 +333,7 @@ export const penalizacionesDispatcher = inngest.createFunction(
       if (!admin) return { skipped: 'sin service-role' };
       const { data: pendientes } = await admin
         .from('penalizaciones')
-        .select('id, studio_id, socio_id, reserva_id, tipo, importe')
+        .select('id, studio_id, socio_id, reserva_id, tipo, importe, detectada_en')
         .eq('estado', 'DETECTADA')
         .limit(200);
       for (const pen of pendientes ?? []) {

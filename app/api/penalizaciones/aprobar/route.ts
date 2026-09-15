@@ -7,9 +7,11 @@ import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
   cuerpoRespuesta, decidirAntesDeCobrar, hayQueLeerReciboAntesDeCobrar, hayQueReleerRecibo,
-  planificarTrasCobro, resolverEscrituraSinEfecto,
+  planSinConsentimiento, planificarTrasCobro, resolverEscrituraSinEfecto,
   type Desenlace, type LecturaRecibo, type Plan,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
+import { consentimientoCubrePenalizacion } from '@/lib/billing/penalizacion-consentimiento';
+import { textoLegalVigenteDeFila } from '@/lib/legal-textos';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   const { data: pen } = await admin
     .from('penalizaciones')
-    .select('id, studio_id, socio_id, recibo_id, estado, importe')
+    .select('id, studio_id, socio_id, reserva_id, recibo_id, estado, importe, tipo, detectada_en')
     .eq('id', body.penalizacionId).eq('studio_id', sesion.studioId).maybeSingle();
   if (!pen) return NextResponse.json({ error: 'Penalización no encontrada' }, { status: 404 });
 
@@ -87,6 +89,55 @@ export async function POST(req: NextRequest) {
   const antes = decidirAntesDeCobrar(previo, hayQueLeerReciboAntesDeCobrar(previo) ? await leerRecibo() : undefined);
   if (antes) {
     const d = await ejecutar(antes);
+    return NextResponse.json(cuerpoRespuesta(d), { status: d.http });
+  }
+
+  // El contrato que aceptó tiene que recoger ESTE cargo, comprobado ahora y no
+  // en la detección: las condiciones pueden haber cambiado mientras esperaba
+  // aprobación (`lib/billing/penalizacion-consentimiento.ts`). Si no se puede
+  // leer lo necesario, no se cobra y se puede reintentar.
+  const { data: reserva, error: errReserva } = await admin
+    .from('reservas').select('sesion_id').eq('id', pen.reserva_id).eq('studio_id', sesion.studioId).maybeSingle();
+  const { data: clase, error: errClase } = reserva?.sesion_id
+    ? await admin.from('sesiones').select('inicio').eq('id', reserva.sesion_id).maybeSingle()
+    : { data: null, error: null };
+  const { data: studio, error: errStudio } = await admin
+    .from('studios')
+    .select(`
+      nombre, razon_social, nif, direccion, ciudad, codigo_postal, email,
+      cancelacion_ventana_horas, penalizacion_importe_eur, politica_privacidad, terminos_servicio
+    `)
+    .eq('id', sesion.studioId).maybeSingle();
+  const { data: socio, error: errSocio } = await admin
+    .from('socios').select('aceptacion_version')
+    .eq('id', pen.socio_id).eq('studio_id', sesion.studioId).maybeSingle();
+  if (errReserva || errClase || errStudio || errSocio || !studio) {
+    return NextResponse.json(
+      { error: 'No hemos podido comprobar el contrato que aceptó. No se ha cobrado: puedes reintentar.' },
+      { status: 503 },
+    );
+  }
+  const veredicto = consentimientoCubrePenalizacion({
+    studio: {
+      terminosServicio: studio.terminos_servicio,
+      penalizacionImporteEur: studio.penalizacion_importe_eur,
+      cancelacionVentanaHoras: studio.cancelacion_ventana_horas,
+    },
+    penalizacion: { tipo: pen.tipo as string, importe: pen.importe, detectadaEn: pen.detectada_en as string | null },
+    sesion: clase ? { inicio: clase.inicio as string | null } : null,
+    textoAceptado: (socio?.aceptacion_version as string | null | undefined) ?? null,
+    textoActual: textoLegalVigenteDeFila(studio),
+  });
+  if (!veredicto.ok) {
+    const d = await ejecutar(planSinConsentimiento(veredicto.motivo));
+    // Solo si esta petición la sacó de pendiente; el motor deduplica por penalización igualmente.
+    if (d.tipo === 'SIN_CONSENTIMIENTO') {
+      const { emitirPenalizacionBloqueada } = await import('@/lib/notifications/emit');
+      await emitirPenalizacionBloqueada(admin, {
+        studioId: sesion.studioId, socioId: pen.socio_id, motivo: 'consentimiento',
+        importe: Number(pen.importe ?? 0), penalizacionId: pen.id,
+      });
+    }
     return NextResponse.json(cuerpoRespuesta(d), { status: d.http });
   }
 

@@ -1029,6 +1029,15 @@ export function PanelTipoClase({
               <span className="text-[12.5px] text-muted-foreground">€ · 0 = no se cobra nada</span>
             </div>
           </CampoHeredado>
+          {/* Verdad del cobro (lib/billing/penalizacion-consentimiento.ts): el
+              contrato que aceptan las alumnas lleva el plazo y el importe del
+              ESTUDIO, y lo que no está en él no se cobra. */}
+          {(form.ventanaCancelacionHoras.trim() !== '' || form.penalizacionImporteEur.trim() !== '') && (
+            <p className="text-[12px] text-muted-foreground">
+              Solo se cobra lo que recoge el contrato que aceptan tus alumnas, que usa el plazo y el importe del
+              estudio: con otro importe aquí, o una cancelación tardía solo por el plazo de esta clase, no se cobra.
+            </p>
+          )}
         </Seccion>
 
         {/* NIVEL 4 — online */}
