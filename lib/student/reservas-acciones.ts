@@ -21,6 +21,12 @@ export type ResultadoCancelar =
       recuperacionCreada: boolean;
       /** YYYY-MM-DD hasta el que puede usarla. */
       recuperacionCaducaEl: string | null;
+      /**
+       * Plaza fija cancelada a tiempo en un estudio que reparte las recuperaciones
+       * al cerrar la semana: no se crea ahora, sino entonces y solo si no usa el
+       * hueco que acaba de liberar.
+       */
+      recuperacionAlCerrarSemana: boolean;
       /** `false` si estaba en lista de espera: salir de la cola no devuelve nada. */
       eraConfirmada: boolean;
     }
@@ -52,7 +58,7 @@ export async function cancelarReserva(
     }
 
     const cuerpo = (await res.json().catch(() => null)) as
-      | { ok?: true; tardia?: boolean; bonoDevuelto?: boolean; eraConfirmada?: boolean; recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; error?: string }
+      | { ok?: true; tardia?: boolean; bonoDevuelto?: boolean; eraConfirmada?: boolean; recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean; error?: string }
       | null;
 
     if (!res.ok || !cuerpo?.ok) {
@@ -69,6 +75,7 @@ export async function cancelarReserva(
       eraConfirmada: cuerpo.eraConfirmada === true,
       recuperacionCreada: cuerpo.recuperacionCreada === true,
       recuperacionCaducaEl: cuerpo.recuperacionCaducaEl ?? null,
+      recuperacionAlCerrarSemana: cuerpo.recuperacionAlCerrarSemana === true,
     };
   } catch {
     // Se cayó la red a mitad. No sabemos si llegó a cancelarse, así que NO se

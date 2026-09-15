@@ -725,7 +725,8 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     deepLink: (d: Datos) => `/reservar/${s(d.slug)}`,
   },
   // {motivoTexto} explica por qué, igual que en RESERVA_CANCELADA — mismo
-  // patrón, tres motivos posibles según plazas_fijas_sin_materializar.
+  // patrón, un texto por motivo de plazas_fijas_sin_materializar
+  // (`MotivoPlazaNoMaterializada` en emit.ts).
   [`${EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA}#SOCIA`]: {
     title: 'Tu plaza fija no se ha reservado esta semana',
     body: 'No hemos podido confirmar tu plaza fija en {clase} del {cuando}.{motivoTexto}',

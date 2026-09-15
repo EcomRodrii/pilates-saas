@@ -30,6 +30,22 @@ export function planCubreTipoClase(plan: PlanTarifa, tipoClaseId?: string | null
   return tipos.includes(tipoClaseId);
 }
 
+// ¿Le sirve de algo a la socia una recuperación de esta clase con este plan?
+// Solo si el plan le limita las clases por semana y cubre esa clase:
+// `reservar_plaza` únicamente gasta una recuperación al toparse con el límite.
+// Sin límite puede volver a reservar sin tope, y una recuperación le ocuparía el
+// tope de 4 vivas con algo que nunca va a poder usar.
+//
+// Mismo criterio en los dos sitios que reparten recuperaciones sin que nadie las
+// pida: el barrido de fin de semana (lib/recuperaciones/otorgar-semanales.ts) y
+// la cancelación de una clase de plaza fija (supabase-data-admin).
+// ⚠️ Mira el techo TOTAL (`limiteSemanal`), no `limitePorTipo`: es lo que ya
+// hacía el barrido. Una cuota con solo sublímites por actividad no reparte
+// recuperaciones automáticas por ningún camino.
+export function planLimitaSemanaDeClase(plan: PlanTarifa, tipoClaseId?: string | null): boolean {
+  return (plan.limiteSemanal ?? 0) > 0 && planCubreTipoClase(plan, tipoClaseId);
+}
+
 // Encuentra la suscripción activa de bono/puntual de la socia sobre la que se
 // descuenta o devuelve una sesión. Devuelve null si no aplica (sin suscripción
 // activa, plan no de sesiones, o saldo no gestionado por sesiones).

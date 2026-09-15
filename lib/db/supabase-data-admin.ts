@@ -40,7 +40,9 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, avisaBonoAgotado, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
+import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
+import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
 import { validarCanje } from '@/lib/engines/reward-engine';
 import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
@@ -1661,7 +1663,7 @@ export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ cre
         try {
           await emitirPlazaFijaNoMaterializada(admin, {
             studioId: f.studio_id, sesionId: f.sesion_id, socioId: f.socio_id,
-            motivo: f.motivo as 'sesion_cancelada' | 'suscripcion_pausada' | 'sin_aforo',
+            motivo: f.motivo as MotivoPlazaNoMaterializada,
           });
         } catch (e) {
           // `mapLimit` exige que la tarea no lance. Y un aviso que falla no
@@ -3299,13 +3301,49 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
 // compensación — mismo hecho de negocio, resultado distinto según quién
 // pulsara el botón. Extraído a su propia función para que cualquier llamador
 // nuevo lo tenga por construcción, en vez de copiar el bloque una tercera vez.
+//
+// Y con LA MISMA regla que el resto de recuperaciones automáticas (15-sep-2026).
+// Antes se daba siempre, y eso fallaba de tres maneras:
+//  · cancelando TARDE también: la compensación no dependía del plazo;
+//  · con un plan SIN límite semanal, donde `reservar_plaza` nunca la gasta: le
+//    ocupaba el tope de 4 vivas con algo inservible;
+//  · con límite semanal, cancelar ya le libera el hueco de esa semana, así que
+//    podía coger otra clase Y quedarse la recuperación — una clase de regalo.
+// Ahora: solo si canceló a tiempo y su plan le limita la semana
+// (`planLimitaSemanaDeClase`). Si el estudio reparte al cerrar la semana
+// (`recuperacion_auto_semanal`), no se crea aquí: la creará el barrido y solo si
+// no usa el hueco (ver lib/recuperaciones/otorgar-semanales.ts). Si no, se crea
+// al cancelar, como hasta ahora.
 async function otorgarRecuperacionPlazaFijaSiAplica(
   admin: SupabaseClient,
   params: { studioId: string; socioId: string; reservaId: string; eraConfirmada: boolean },
-): Promise<{ recuperacionCreada: boolean; recuperacionCaducaEl: string | null }> {
-  if (!params.reservaId.startsWith('res-pf-') || !params.eraConfirmada) {
-    return { recuperacionCreada: false, recuperacionCaducaEl: null };
-  }
+): Promise<{ recuperacionCreada: boolean; recuperacionCaducaEl: string | null; recuperacionAlCerrarSemana: boolean }> {
+  const nada = { recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false };
+  if (!params.reservaId.startsWith('res-pf-') || !params.eraConfirmada) return nada;
+
+  // `cancelada_tardia` la escribe el trigger al cancelar, con la ventana del
+  // tipo de clase por encima de la del estudio. NULL = no se sabe: no se da.
+  const { data: reserva } = await admin
+    .from('reservas').select('sesion_id, cancelada_tardia')
+    .eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
+  if (!reserva || reserva.cancelada_tardia !== false) return nada;
+
+  const [{ data: ses }, { data: estudio }, { data: susRows }, { data: planRows }] = await Promise.all([
+    admin.from('sesiones').select('tipo_clase_id').eq('id', reserva.sesion_id as string).maybeSingle(),
+    admin.from('studios').select('recuperacion_auto_semanal').eq('id', params.studioId).maybeSingle(),
+    admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('estado', 'ACTIVA'),
+    admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
+  ]);
+  const planes = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
+  const planPorId = new Map(planes.map(p => [p.id, p]));
+  const tipoClaseId = (ses?.tipo_clase_id as string | null | undefined) ?? null;
+  const leSirve = (susRows ?? []).map(mapSuscripcion).some(s => {
+    const plan = s.planId ? planPorId.get(s.planId) : undefined;
+    return !!plan && planLimitaSemanaDeClase(plan, tipoClaseId);
+  });
+  if (!leSirve) return nada;
+  if (estudio?.recuperacion_auto_semanal === true) return { ...nada, recuperacionAlCerrarSemana: true };
+
   const recupId = `recup-${uid()}`;
   const { data } = await admin.rpc('crear_recuperacion', {
     p_id: recupId,
@@ -3323,7 +3361,7 @@ async function otorgarRecuperacionPlazaFijaSiAplica(
     const { data: fila } = await admin.from('recuperaciones').select('caduca_el').eq('id', recupId).maybeSingle();
     recuperacionCaducaEl = (fila?.caduca_el as string | undefined) ?? null;
   }
-  return { recuperacionCreada, recuperacionCaducaEl };
+  return { recuperacionCreada, recuperacionCaducaEl, recuperacionAlCerrarSemana: false };
 }
 
 export async function ejecutarCancelacionReserva(
@@ -3341,6 +3379,11 @@ export async function ejecutarCancelacionReserva(
     // una cuenta que se está borrando no va a volver a canjear nada, y crear
     // la fila ahí es puro ruido sobre un socio_id a punto de desaparecer.
     otorgarRecuperacionPlazaFija?: boolean;
+    // Solo `retirarReservasFuturasPlazaFija`: la cancela el servidor al pausar o
+    // quitar la plaza fija, no la socia clase a clase. Se guarda en
+    // `reservas.cancelada_motivo` para que el barrido semanal no la compense y
+    // la plaza pueda volver a reservarla si se reanuda (migr 20260914233741).
+    motivoCancelacion?: 'plaza_fija_retirada';
   },
 ): Promise<{
   ok: true; tardia: boolean; bonoDevuelto: boolean; eraConfirmada: boolean;
@@ -3353,7 +3396,19 @@ export async function ejecutarCancelacionReserva(
   // D-1: expuestos aquí (y no calculados aparte por cada caller) para que
   // mostrador y portal enseñen el mismo "recupérala antes del [fecha]".
   recuperacionCreada: boolean; recuperacionCaducaEl: string | null;
+  recuperacionAlCerrarSemana: boolean;
 } | { error: string }> {
+  // Con motivo, se mira ANTES si la reserva seguía activa: `cancelar_reserva_plaza`
+  // no falla sobre una reserva ya CANCELADA (sale sin tocar nada), así que sin
+  // esto, si la socia la cancelaba ella misma justo antes, su cancelación
+  // quedaría etiquetada como retirada de la plaza.
+  let seguiaActiva = false;
+  if (params.motivoCancelacion) {
+    const { data: previa } = await admin.from('reservas')
+      .select('estado').eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
+    seguiaActiva = previa?.estado === 'CONFIRMADA' || previa?.estado === 'LISTA_ESPERA';
+  }
+
   const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
     p_omitir_penalizacion: params.omitirPenalizacion ?? false
@@ -3364,6 +3419,24 @@ export async function ejecutarCancelacionReserva(
     return { error: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;
+
+  // El motivo va DESPUÉS de la RPC, solo si la reserva seguía activa antes de
+  // llamarla y solo sobre una fila ya CANCELADA sin motivo: si la cancelación no
+  // llegó a hacerse, o la había hecho otra persona, no hay nada que etiquetar.
+  // Un fallo aquí no deshace la cancelación (ya está hecha y bien hecha); se
+  // reporta, porque sin la etiqueta el barrido semanal podría compensarla y la
+  // plaza no volvería a reservar esa clase al reanudarse.
+  if (params.motivoCancelacion && seguiaActiva) {
+    const { error: errMotivo } = await admin.from('reservas')
+      .update({ cancelada_motivo: params.motivoCancelacion })
+      .eq('id', params.reservaId).eq('studio_id', params.studioId).eq('estado', 'CANCELADA')
+      .is('cancelada_motivo', null);
+    if (errMotivo) {
+      capturarExcepcion(new Error(errMotivo.message), {
+        tags: { area: 'plazas-fijas' }, extra: { reservaId: params.reservaId, motivo: params.motivoCancelacion },
+      });
+    }
+  }
 
   // Sesión cancelada + política (C-2): decide si se devuelve el bono. Una
   // cancelación tardía (dentro de la ventana) no lo devuelve, salvo que el
@@ -3450,20 +3523,20 @@ export async function ejecutarCancelacionReserva(
   }
 
   const eraConfirmada = row?.era_confirmada === true;
-  const { recuperacionCreada, recuperacionCaducaEl } =
+  const { recuperacionCreada, recuperacionCaducaEl, recuperacionAlCerrarSemana } =
     params.otorgarRecuperacionPlazaFija !== false && cancelada?.socio_id
       ? await otorgarRecuperacionPlazaFijaSiAplica(admin, {
           studioId: params.studioId, socioId: cancelada.socio_id as string,
           reservaId: params.reservaId, eraConfirmada,
         })
-      : { recuperacionCreada: false, recuperacionCaducaEl: null };
+      : { recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false };
 
   return {
     ok: true as const, tardia, bonoDevuelto, eraConfirmada,
     promovidaSocioId: (row?.promovida_socio_id as string | null) ?? null,
     ofertaSocioId: (row?.oferta_socio_id as string | null) ?? null,
     ofertaExpiraEn: (row?.oferta_expira_en as string | null) ?? null,
-    recuperacionCreada, recuperacionCaducaEl,
+    recuperacionCreada, recuperacionCaducaEl, recuperacionAlCerrarSemana,
   };
 }
 
@@ -3639,31 +3712,136 @@ export async function crearPlazaFijaPublica(params: {
   return { ok: true as const, id, reservaEstaSemana };
 }
 
+type EstadoPlazaFija = 'ACTIVA' | 'PAUSADA' | 'BAJA';
+type PlazaParaRetirar = Parameters<typeof reservasARetirarDePlaza>[0];
+type ReservaParaRetirar = Parameters<typeof reservasARetirarDePlaza>[2][number];
+type ResultadoEstadoPlazaFija =
+  | { ok: true; canceladas: string[]; mantenidas: string[]; fallidas: number }
+  | { error: string };
+
+// Pausar o quitar una plaza fija SUELTA las clases que ya le había reservado
+// (antes seguían confirmadas hasta 6 semanas). Qué se suelta lo decide
+// `reservasARetirarDePlaza` (lógica pura): sus reservas activas futuras en ese
+// horario, salvo las CONFIRMADAS que ya están dentro del plazo de cancelación.
+//
+// Cada una pasa por `ejecutarCancelacionReserva`, el mismo camino que cualquier
+// cancelación: promociona la lista de espera y avisa a quien entra. Sin
+// penalización ni recuperación (no lo ha decidido la socia clase a clase), y con
+// `cancelada_motivo = 'plaza_fija_retirada'`, que hace que el barrido semanal no
+// la compense y que, al reanudar, la materialización vuelva a reservarla.
+async function retirarReservasFuturasPlazaFija(
+  admin: SupabaseClient, studioId: string, plaza: PlazaParaRetirar,
+): Promise<{ canceladas: string[]; mantenidas: string[]; fallidas: number }> {
+  const ahoraMs = Date.now();
+  // Se parte de SUS reservas activas (pocas), no de las sesiones futuras de la
+  // sala (pueden ser cientos con una serie larga).
+  const { data: resRows } = await admin
+    .from('reservas').select('id, sesion_id, socio_id, estado')
+    .eq('studio_id', studioId).eq('socio_id', plaza.socioId).in('estado', ['CONFIRMADA', 'LISTA_ESPERA']);
+  const reservas = (resRows ?? []).map(r => ({
+    id: r.id as string, sesionId: r.sesion_id as string, socioId: r.socio_id as string, estado: r.estado,
+  })) as ReservaParaRetirar[];
+  if (reservas.length === 0) return { canceladas: [], mantenidas: [], fallidas: 0 };
+
+  const { data: sesRows } = await admin
+    .from('sesiones').select('id, sala_id, tipo_clase_id, inicio, cancelada')
+    .eq('studio_id', studioId).in('id', [...new Set(reservas.map(r => r.sesionId))])
+    .gt('inicio', new Date(ahoraMs).toISOString());
+  // `tipoClaseId` '' = clase sin tipo: `SesionSlot` lo tipa como string, y tanto
+  // el emparejamiento como `resolverVentanaCancelacion` lo tratan como «sin tipo».
+  const sesiones = (sesRows ?? []).map(s => ({
+    id: s.id as string, salaId: s.sala_id as string, tipoClaseId: (s.tipo_clase_id as string | null) ?? '',
+    inicio: s.inicio as string, cancelada: (s.cancelada as boolean | null) ?? false,
+  }));
+
+  // La ventana ya resuelta por tipo de clase (manda sobre la del estudio), igual
+  // que la que usa la cancelación para decidir si es tardía.
+  const pol = await cargarPoliticaEstudio(admin, studioId);
+  const ventanaPorTipo = new Map<string, number>();
+  for (const tipo of new Set(sesiones.map(s => s.tipoClaseId))) {
+    ventanaPorTipo.set(tipo, await resolverVentanaCancelacion(admin, studioId, tipo || null, pol.ventanaHoras));
+  }
+  const tipoDeSesion = new Map(sesiones.map(s => [s.id, s.tipoClaseId]));
+  const { retirar, mantener } = reservasARetirarDePlaza(
+    plaza, sesiones, reservas, ahoraMs,
+    sesionId => ventanaPorTipo.get(tipoDeSesion.get(sesionId) ?? '') ?? pol.ventanaHoras,
+  );
+
+  const canceladas: string[] = [];
+  let fallidas = 0;
+  // En serie a propósito: cada una puede promocionar la lista de espera de su
+  // clase y avisar a quien entra, y son pocas (su horario en ~6 semanas).
+  for (const reservaId of retirar) {
+    const r = await ejecutarCancelacionReserva(admin, {
+      studioId, reservaId, socioId: null, omitirPenalizacion: true,
+      otorgarRecuperacionPlazaFija: false, motivoCancelacion: 'plaza_fija_retirada',
+    });
+    if ('error' in r) {
+      fallidas++;
+      capturarExcepcion(new Error(r.error), { tags: { area: 'plazas-fijas' }, extra: { studioId, reservaId } });
+    } else {
+      canceladas.push(reservaId);
+    }
+  }
+  return { canceladas, mantenidas: mantener, fallidas };
+}
+
+async function aplicarEstadoPlazaFija(
+  admin: SupabaseClient,
+  params: { studioId: string; plazaId: string; estado: EstadoPlazaFija; socioId?: string },
+  mensajeSitioOcupado: string,
+): Promise<ResultadoEstadoPlazaFija> {
+  let consulta = admin.from('plazas_fijas')
+    .update({ estado: params.estado })
+    .eq('id', params.plazaId).eq('studio_id', params.studioId);
+  // `.eq('socio_id', ...)` en el UPDATE, no solo en un SELECT previo: así
+  // ninguna socia puede pausar/dar de baja la plaza fija de otra aunque
+  // adivine su id — el filtro de propiedad vive en la propia escritura.
+  if (params.socioId) consulta = consulta.eq('socio_id', params.socioId);
+  const { data, error } = await consulta
+    .select('id, studio_id, socio_id, dia_semana, hora_inicio, sala_id, tipo_clase_id, spot_id, vigencia_desde, vigencia_hasta, estado, creada_en')
+    .maybeSingle();
+  if (error) {
+    // Reanudar una plaza con spot propio puede chocar si ese sitio se le dio
+    // a otra socia mientras estaba en pausa (plazas_fijas_spot_sin_solape).
+    if (error.message.includes('plazas_fijas_spot_sin_solape')) return { error: mensajeSitioOcupado };
+    return { error: 'No se pudo actualizar la plaza fija' as const };
+  }
+  if (!data) return { error: 'Plaza fija no encontrada' as const };
+  // Reanudar no reserva nada al momento: la materialización de esta noche la
+  // recoge, incluidas las clases que se soltaron al pausar.
+  if (params.estado === 'ACTIVA') return { ok: true as const, canceladas: [], mantenidas: [], fallidas: 0 };
+
+  const plaza = {
+    id: data.id, studioId: data.studio_id, socioId: data.socio_id, diaSemana: data.dia_semana,
+    horaInicio: data.hora_inicio, salaId: data.sala_id, tipoClaseId: data.tipo_clase_id ?? null,
+    spotId: data.spot_id ?? null, vigenciaDesde: data.vigencia_desde, vigenciaHasta: data.vigencia_hasta ?? null,
+    estado: data.estado, creadaEn: data.creada_en,
+  } as PlazaParaRetirar;
+  const retirada = await retirarReservasFuturasPlazaFija(admin, params.studioId, plaza);
+  return { ok: true as const, ...retirada };
+}
+
 async function cambiarEstadoPlazaFijaPublica(params: {
-  studioId: string; socioId: string; authUserId: string; plazaId: string; estado: 'ACTIVA' | 'PAUSADA' | 'BAJA';
-}): Promise<{ ok: true } | { error: string }> {
+  studioId: string; socioId: string; authUserId: string; plazaId: string; estado: EstadoPlazaFija;
+}): Promise<ResultadoEstadoPlazaFija> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
+  return aplicarEstadoPlazaFija(
+    admin,
+    { studioId: params.studioId, plazaId: params.plazaId, estado: params.estado, socioId: params.socioId },
+    'Ese sitio ya no está libre en ese horario — contacta con el estudio',
+  );
+}
 
-  // `.eq('socio_id', ...)` en el UPDATE, no solo en un SELECT previo: así
-  // ninguna socia puede pausar/dar de baja la plaza fija de otra aunque
-  // adivine su id — el filtro de propiedad vive en la propia escritura.
-  const { data, error } = await admin.from('plazas_fijas')
-    .update({ estado: params.estado })
-    .eq('id', params.plazaId).eq('studio_id', params.studioId).eq('socio_id', params.socioId)
-    .select('id').maybeSingle();
-  if (error) {
-    // Reanudar una plaza con spot propio puede chocar si ese sitio se le dio
-    // a otra socia mientras estaba en pausa (plazas_fijas_spot_sin_solape).
-    if (error.message.includes('plazas_fijas_spot_sin_solape')) {
-      return { error: 'Ese sitio ya no está libre en ese horario — contacta con el estudio' as const };
-    }
-    return { error: 'No se pudo actualizar la plaza fija' as const };
-  }
-  if (!data) return { error: 'Plaza fija no encontrada' as const };
-  return { ok: true as const };
+// Panel: la ruta `app/api/plazas-fijas/estado` ya ha comprobado el rol
+// (`puedeGestionarClientas`) y saca el estudio de la sesión de staff.
+export async function cambiarEstadoPlazaFijaStaff(
+  admin: SupabaseClient, params: { studioId: string; plazaId: string; estado: EstadoPlazaFija },
+): Promise<ResultadoEstadoPlazaFija> {
+  return aplicarEstadoPlazaFija(admin, params, 'Ese sitio ya está asignado a otra clienta en ese día y hora');
 }
 
 export const pausarPlazaFijaPublica = (params: { studioId: string; socioId: string; authUserId: string; plazaId: string }) =>
