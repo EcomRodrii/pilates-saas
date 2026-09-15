@@ -1,51 +1,100 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nombreDia, proyectarPlazaFija, proyectarRecuperaciones } from './plaza-fija.ts';
+import { nombreDia, proyectarPlazasFijas, proyectarRecuperaciones, type SesionSlotMin } from './plaza-fija.ts';
 
 // 2026-09-04 es viernes (dow 5).
 const HOY = '2026-09-04';
-const plaza = (p: Partial<Parameters<typeof proyectarPlazaFija>[0][0]> = {}) => ({
+const plaza = (p: Partial<Parameters<typeof proyectarPlazasFijas>[0][0]> = {}) => ({
   diaSemana: 2, horaInicio: '18:00:00', salaId: 'sala-1', tipoClaseId: 'tc-r', vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA' as const, ...p,
+});
+const una = (...args: Parameters<typeof proyectarPlazasFijas>) => proyectarPlazasFijas(...args)[0];
+const sesion = (s: Partial<SesionSlotMin> = {}): SesionSlotMin => ({
+  fecha: '2026-09-08', hora: '18:00', salaId: 'sala-1', tipoClaseId: 'tc-r', cancelada: false, ...s,
 });
 
 test('próxima ocurrencia: el martes que viene, con la hora sin segundos', () => {
-  const v = proyectarPlazaFija([plaza()], HOY);
+  const v = una([plaza()], HOY);
   assert.equal(v?.proximaFecha, '2026-09-08');
   assert.equal(v?.hora, '18:00');
+  assert.equal(v?.sinClase, false);
   assert.equal(nombreDia(v!.diaSemana), 'martes');
 });
 
 test('si es hoy y la hora no ha pasado, es hoy; si ya pasó, la semana que viene', () => {
-  assert.equal(proyectarPlazaFija([plaza({ diaSemana: 5 })], HOY, '17:00')?.proximaFecha, HOY);
-  assert.equal(proyectarPlazaFija([plaza({ diaSemana: 5 })], HOY, '18:30')?.proximaFecha, '2026-09-11');
+  assert.equal(una([plaza({ diaSemana: 5 })], HOY, '17:00')?.proximaFecha, HOY);
+  assert.equal(una([plaza({ diaSemana: 5 })], HOY, '18:30')?.proximaFecha, '2026-09-11');
 });
 
-test('BAJA no cuenta; PAUSADA se enseña sin próxima fecha; ACTIVA gana a PAUSADA', () => {
-  assert.equal(proyectarPlazaFija([plaza({ estado: 'BAJA' })], HOY), null);
-  const pausada = proyectarPlazaFija([plaza({ estado: 'PAUSADA' })], HOY);
+test('BAJA no cuenta; PAUSADA se enseña sin próxima fecha', () => {
+  assert.deepEqual(proyectarPlazasFijas([plaza({ estado: 'BAJA' })], HOY), []);
+  const pausada = una([plaza({ estado: 'PAUSADA' })], HOY);
   assert.equal(pausada?.estado, 'PAUSADA'); assert.equal(pausada?.proximaFecha, null);
-  assert.equal(proyectarPlazaFija([plaza({ estado: 'PAUSADA', diaSemana: 1 }), plaza({ diaSemana: 3 })], HOY)?.diaSemana, 3);
 });
 
-test('vigencia: terminada → null; la próxima fecha respeta vigenciaHasta', () => {
-  assert.equal(proyectarPlazaFija([plaza({ vigenciaHasta: '2026-08-31' })], HOY), null);
-  assert.equal(proyectarPlazaFija([plaza({ vigenciaHasta: '2026-09-06' })], HOY)?.proximaFecha, null);
+test('enseña TODAS sus plazas, lunes primero (antes solo se veía una)', () => {
+  const v = proyectarPlazasFijas([
+    plaza({ diaSemana: 0, horaInicio: '10:00:00' }),
+    plaza({ diaSemana: 3, horaInicio: '09:00:00' }),
+    plaza({ diaSemana: 1, horaInicio: '19:00:00', estado: 'PAUSADA' }),
+    plaza({ diaSemana: 3, horaInicio: '08:00:00' }),
+  ], HOY);
+  assert.deepEqual(v.map((p) => `${p.diaSemana} ${p.hora}`), ['1 19:00', '3 08:00', '3 09:00', '0 10:00']);
+});
+
+test('vigencia: terminada → no sale; la próxima fecha respeta vigenciaHasta', () => {
+  assert.deepEqual(proyectarPlazasFijas([plaza({ vigenciaHasta: '2026-08-31' })], HOY), []);
+  assert.equal(una([plaza({ vigenciaHasta: '2026-09-06' })], HOY)?.proximaFecha, null);
 });
 
 test('pausa con fechas: la próxima se salta las semanas en pausa y la vista dice hasta cuándo', () => {
   // Hoy viernes 4; los martes 8 y 15 caen en la pausa → próxima el 22.
-  const programada = proyectarPlazaFija([plaza({ pausaDesde: '2026-09-07', pausaHasta: '2026-09-20' })], HOY);
+  const programada = una([plaza({ pausaDesde: '2026-09-07', pausaHasta: '2026-09-20' })], HOY);
   assert.equal(programada?.proximaFecha, '2026-09-22');
   assert.deepEqual(programada?.pausa, { desde: '2026-09-07', hasta: '2026-09-20', enCurso: false });
 
-  const enCurso = proyectarPlazaFija([plaza({ pausaDesde: '2026-09-01', pausaHasta: '2026-09-10' })], HOY);
+  const enCurso = una([plaza({ pausaDesde: '2026-09-01', pausaHasta: '2026-09-10' })], HOY);
   assert.equal(enCurso?.pausa?.enCurso, true);
   assert.equal(enCurso?.proximaFecha, '2026-09-15');
 
   // Terminada: ya no se enseña.
-  assert.equal(proyectarPlazaFija([plaza({ pausaDesde: '2026-08-01', pausaHasta: '2026-09-03' })], HOY)?.pausa, null);
+  assert.equal(una([plaza({ pausaDesde: '2026-08-01', pausaHasta: '2026-09-03' })], HOY)?.pausa, null);
   // La pausa llega más allá del fin de la plaza: no queda próxima.
-  assert.equal(proyectarPlazaFija([plaza({ pausaDesde: '2026-09-07', pausaHasta: '2026-12-31', vigenciaHasta: '2026-10-31' })], HOY)?.proximaFecha, null);
+  assert.equal(una([plaza({ pausaDesde: '2026-09-07', pausaHasta: '2026-12-31', vigenciaHasta: '2026-10-31' })], HOY)?.proximaFecha, null);
+});
+
+// ── La próxima, del horario publicado ────────────────────────────────────────
+
+test('con horario: la próxima es la primera clase de verdad en su hueco (una cancelada no cuenta)', () => {
+  const v = una([plaza()], HOY, '00:00', [
+    sesion({ fecha: '2026-09-08', cancelada: true }),
+    sesion({ fecha: '2026-09-15' }),
+    sesion({ fecha: '2026-09-15', hora: '19:00' }),
+  ]);
+  assert.equal(v?.proximaFecha, '2026-09-15');
+  assert.equal(v?.sinClase, false);
+});
+
+test('si el horario publicado llega más allá y en su hueco no hay clase, lo dice en vez de inventar una próxima', () => {
+  // Hay horario hasta el 30, pero nada los martes a las 18:00 en su sala y tipo.
+  const v = una([plaza()], HOY, '00:00', [
+    sesion({ fecha: '2026-09-30', hora: '10:00' }),
+    sesion({ fecha: '2026-09-15', tipoClaseId: 'tc-otro' }),
+    sesion({ fecha: '2026-09-22', salaId: 'sala-2' }),
+  ]);
+  assert.equal(v?.proximaFecha, null);
+  assert.equal(v?.sinClase, true);
+});
+
+test('si el horario publicado no llega a su próxima semana, se cuenta por calendario', () => {
+  const v = una([plaza()], HOY, '00:00', [sesion({ fecha: '2026-09-05', hora: '10:00' })]);
+  assert.equal(v?.proximaFecha, '2026-09-08');
+  assert.equal(v?.sinClase, false);
+});
+
+test('una clase de hoy que ya ha empezado no es la próxima', () => {
+  const martes = '2026-09-08';
+  const v = una([plaza()], martes, '18:30', [sesion({ fecha: martes }), sesion({ fecha: '2026-09-15' })]);
+  assert.equal(v?.proximaFecha, '2026-09-15');
 });
 
 test('recuperaciones: solo DISPONIBLE y no caducadas; caducidad más cercana primero', () => {

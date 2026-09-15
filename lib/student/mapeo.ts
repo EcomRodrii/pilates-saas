@@ -4,11 +4,11 @@
 // `hoyEnEstudio` vive en lib/utils.ts y la comparte con `bono-logic.ts`, que
 // es quien fija la regla de vigencia en servidor. Import relativo por el
 // mismo motivo que el resto del fichero.
-import { hoyEnEstudio } from '../utils.ts';
+import { horaEstudio, hoyEnEstudio } from '../utils.ts';
 import { imagenDeClase } from '../imagenes-por-defecto.ts';
 import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
-import { proyectarPlazaFija as plazaFijaDe, proyectarRecuperaciones as recuperacionesDe, type PlazaFijaMin, type RecuperacionMin } from './plaza-fija.ts';
+import { proyectarPlazasFijas as plazasFijasDe, proyectarRecuperaciones as recuperacionesDe, type PlazaFijaMin, type RecuperacionMin } from './plaza-fija.ts';
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
 // traduce el nivel de una CLASE (PRINCIPIANTE → Iniciación). Nada que ver.
 import { canjesDe, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type RetoDef } from './gamificacion.ts';
@@ -450,13 +450,20 @@ export function proyectarGamificacion(d: PayloadMin, hoyISO: string): Gamificaci
   };
 }
 
-/** La plaza fija vigente, con nombres de sala y tipo. `null` sin plaza (o sin sesión). */
-export function proyectarPlazaFija(d: PayloadMin, hoyISO: string, horaAhora = '00:00'): PlazaFijaVista | null {
-  const p = plazaFijaDe(d.socia?.plazasFijas ?? [], hoyISO, horaAhora);
-  if (!p) return null;
-  const sala = (d.salas ?? []).find((s) => s.id === p.salaId)?.nombre ?? 'Sala';
-  const tipo = p.tipoClaseId ? ((d.tiposClase ?? []).find((t) => t.id === p.tipoClaseId)?.nombre ?? null) : null;
-  return { diaSemana: p.diaSemana, hora: p.hora, sala, tipo, estado: p.estado, proximaFecha: p.proximaFecha, vigenciaHasta: p.vigenciaHasta, pausa: p.pausa };
+/** Todas sus plazas fijas vigentes (lunes primero), con nombres de sala y tipo. Vacío sin plaza (o sin sesión). */
+export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = '00:00'): PlazaFijaVista[] {
+  // La próxima sale del horario publicado —la clase de verdad en su hueco—, en
+  // fecha y hora del estudio, no del móvil.
+  const sesiones = (d.sesiones ?? []).map((s) => ({
+    fecha: hoyEnEstudio(new Date(s.inicio)), hora: horaEstudio(s.inicio),
+    salaId: s.salaId, tipoClaseId: s.tipoClaseId, cancelada: s.cancelada,
+  }));
+  return plazasFijasDe(d.socia?.plazasFijas ?? [], hoyISO, horaAhora, sesiones).map((p) => ({
+    diaSemana: p.diaSemana, hora: p.hora,
+    sala: (d.salas ?? []).find((s) => s.id === p.salaId)?.nombre ?? 'Sala',
+    tipo: p.tipoClaseId ? ((d.tiposClase ?? []).find((t) => t.id === p.tipoClaseId)?.nombre ?? null) : null,
+    estado: p.estado, proximaFecha: p.proximaFecha, sinClase: p.sinClase, vigenciaHasta: p.vigenciaHasta, pausa: p.pausa,
+  }));
 }
 
 /** Recuperaciones que aún puede usar. */

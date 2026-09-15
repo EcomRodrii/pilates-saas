@@ -31,13 +31,13 @@ import type { PlazaFijaVista } from '@/lib/student/tipos';
 // el diálogo de cancelar nunca decía que era su plaza fija. Comparación por
 // nombre (sala/tipo), no por id: `getPlazaFija` (F2) ya proyecta la plaza con
 // nombres resueltos para pintarla, y `Clase` no trae más que eso mismo.
-function esOcurrenciaDePlazaFija(plaza: PlazaFijaVista | null, c: Clase): boolean {
-  if (!plaza || plaza.estado !== 'ACTIVA') return false;
-  if (new Date(`${c.fecha}T12:00:00`).getDay() !== plaza.diaSemana) return false;
-  if (c.hora !== plaza.hora) return false;
-  if (c.sala !== plaza.sala) return false;
-  if (plaza.tipo && c.tipo !== plaza.tipo) return false;
-  return true;
+function esOcurrenciaDePlazaFija(plazas: PlazaFijaVista[], c: Clase): boolean {
+  // Cualquiera de sus plazas: quien viene lunes y miércoles tiene dos.
+  return plazas.some((plaza) => plaza.estado === 'ACTIVA'
+    && new Date(`${c.fecha}T12:00:00`).getDay() === plaza.diaSemana
+    && c.hora === plaza.hora
+    && c.sala === plaza.sala
+    && (!plaza.tipo || c.tipo === plaza.tipo));
 }
 
 // Mis clases (§A.9): próximas / historial, con cancelación y salida de la lista
@@ -70,10 +70,10 @@ export default function MisReservasPage() {
   const ahoraMs = useAhoraMs();
 
   const cargar = useCallback(async () => {
-    const [reservas, clases, instructoras, { plaza }] = await Promise.all([
+    const [reservas, clases, instructoras, { plazas }] = await Promise.all([
       getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug),
     ]);
-    return { reservas, clases, instructoras, plaza };
+    return { reservas, clases, instructoras, plazas };
   }, [estudio.slug]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
@@ -100,7 +100,7 @@ export default function MisReservasPage() {
 
   const sel = items.find((x) => x.r.id === cancelId);
   const aviso = sel ? avisoCancelacion(sel.c, estudio.politicaCancelacionHoras) : null;
-  const selEsFija = sel && sel.r.estado !== 'en-espera' ? esOcurrenciaDePlazaFija(data?.plaza ?? null, sel.c) : false;
+  const selEsFija = sel && sel.r.estado !== 'en-espera' ? esOcurrenciaDePlazaFija(data?.plazas ?? [], sel.c) : false;
 
   // Sin `useCallback` a propósito: cierra sobre `sel`, que se deriva en el
   // render a partir de `data`, y el compilador de React no puede preservar esa
