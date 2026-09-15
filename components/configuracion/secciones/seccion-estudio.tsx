@@ -6,11 +6,14 @@ import { Building2, CalendarOff, Clock, MapPin, Phone } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
 import { hoyEnEstudio } from '@/lib/utils';
-import { fetchMisEstudios, cambiarSedeActiva, dbListCierresProximos, type SedeSeleccionable } from '@/lib/supabase-data';
+import {
+  fetchMisEstudios, cambiarSedeActiva, dbContarClasesCanceladasPorCierre, dbListCierres, type SedeSeleccionable,
+} from '@/lib/supabase-data';
+import { seSolapaConOtro, type CierreGuardado } from '@/lib/cierres/quitar-cierre';
 import { CLAVE_CAMBIO_SEDE } from '@/components/layout/sede-activa';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { FormContacto, FormNombreYDireccion } from '@/components/configuracion/tab-datos-contacto';
-import { FormCerrarElCentro, FormHorario } from '@/components/configuracion/tab-estudio-horario';
+import { FormCerrarElCentro, FormHorario, ListaCierres } from '@/components/configuracion/tab-estudio-horario';
 import { FormSedes } from '@/components/configuracion/tab-estudio-sedes';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
@@ -36,6 +39,10 @@ const CAJONES = ['nombre-y-direccion', 'contacto', 'horario', 'cerrar-el-centro'
 const FILAS_DATOS = [{ id: 'nombre-y-direccion', icono: MapPin }, { id: 'contacto', icono: Phone }] as const;
 const FILAS_HORARIO = [{ id: 'horario', icono: Clock }, { id: 'cerrar-el-centro', icono: CalendarOff }] as const;
 const FILA_SEDES = { id: 'sedes', icono: Building2 } as const;
+
+/** Clases canceladas de cada cierre; los que se pisan con otro no se cuentan (no se sabe de cuál es cada clase). */
+const contarClases = (studioId: string, cierres: readonly CierreGuardado[]) =>
+  dbContarClasesCanceladasPorCierre(studioId, cierres.filter(c => !seSolapaConOtro(c, cierres)));
 
 export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
   const { studio, dataLoaded, salas, bloqueosMaquina } = useStudio();
@@ -79,16 +86,33 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
 
   const haySedes = (sedes?.length ?? 0) > 1 || puedeAnadirSedes;
 
-  // Los cierres que vienen: el panel no los carga al arrancar, se piden aquí.
-  const [cierres, setCierres] = useState<{ desde: string; hasta: string }[] | null>(null);
+  // Los cierres (los que vienen y los pasados): el panel no los carga al
+  // arrancar, se piden aquí. Una sola lista para la fila y para el cajón, así
+  // la fila dice lo mismo que la lista tras quitar uno. `undefined` = cargando,
+  // `null` = no se han podido leer.
+  const [cierres, setCierres] = useState<CierreGuardado[] | null | undefined>(undefined);
+  const [clasesPorCierre, setClasesPorCierre] = useState<Record<string, number | null>>({});
   const [recargaCierres, setRecargaCierres] = useState(0);
   const studioId = studio?.id;
   useEffect(() => {
-    if (!studioId || !hoy) return;
+    if (!studioId) return;
     let vivo = true;
-    dbListCierresProximos(studioId, hoy).then(r => { if (vivo) setCierres(r); });
+    dbListCierres(studioId).then(r => {
+      if (!vivo) return;
+      setCierres(r);
+      if (r) contarClases(studioId, r).then(c => { if (vivo) setClasesPorCierre(c); });
+    });
     return () => { vivo = false; };
-  }, [studioId, hoy, recargaCierres]);
+  }, [studioId, recargaCierres]);
+
+  // Tras quitar uno: se espera a la lista releída, para que el cierre no salga
+  // de ella antes de que la base de datos lo diga.
+  async function recargarCierres() {
+    if (!studioId) return;
+    const r = await dbListCierres(studioId);
+    setCierres(r);
+    if (r) contarClases(studioId, r).then(setClasesPorCierre);
+  }
 
   // El cajón abierto: un enlace con ancla abre el suyo (shell/cajon-ajuste.tsx).
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
@@ -102,7 +126,7 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
     'nombre-y-direccion': dataLoaded && studio ? resumenNombreYDireccion(studio) : null,
     contacto: dataLoaded && studio ? resumenContacto(studio) : null,
     horario: resumenHorarioSemana(studio?.horarioSemana),
-    'cerrar-el-centro': hoy ? resumenCierres(cierres, hoy) : null,
+    'cerrar-el-centro': hoy ? resumenCierres(cierres ?? null, hoy) : null,
     sedes: resumenSedes(sedes, studio?.id),
   };
 
@@ -140,6 +164,13 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
         <FormHorario {...props} />
       </CajonAjuste>
       <CajonAjuste id="cerrar-el-centro" abierto={cajon === 'cerrar-el-centro'} onCerrar={cerrar}>
+        <ListaCierres
+          cierres={cierres}
+          clases={clasesPorCierre}
+          hoy={hoy}
+          showToast={showToast}
+          onQuitado={recargarCierres}
+        />
         <FormCerrarElCentro
           {...props}
           onGuardado={texto => { setRecargaCierres(n => n + 1); guardado(texto); }}

@@ -14,7 +14,8 @@ import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos'
 // de cliente— pero eran una arista latente: bastaba con que alguien usara una
 // de esas funciones aquí para enganchar `resend` + `@react-email` al grafo del
 // layout raíz, que es cliente.)
-import { uid } from '@/lib/utils';
+import { uid, inicioDelDiaEstudio, finDelDiaEstudio } from '@/lib/utils';
+import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
@@ -2657,21 +2658,44 @@ export async function dbListBloqueosMaquina(studioId: string): Promise<BloqueoMa
 }
 
 /**
- * Los cierres del centro que aún no han terminado (`hasta >= hoy`, fecha del
- * estudio). Solo se leen: crearlos va por /api/cierres, que cancela clases y
- * prorroga bonos. `null` = no se han podido leer (no «no hay ninguno»).
+ * Todos los cierres del centro, los que vienen y los pasados (un estudio pone
+ * unos pocos al año). Solo se leen: crearlos y quitarlos va por /api/cierres.
+ * `null` = no se han podido leer (no «no hay ninguno»).
  */
-export async function dbListCierresProximos(studioId: string, hoy: string): Promise<{ id: string; desde: string; hasta: string; motivo: string | null }[] | null> {
+export async function dbListCierres(studioId: string): Promise<CierreGuardado[] | null> {
   try {
     const { data, error } = await supabase
       .from('cierres_estudio').select('id, desde, hasta, motivo').eq('studio_id', studioId)
-      .gte('hasta', hoy).order('desde', { ascending: true });
-    if (error) { reportDbError('[dbListCierresProximos]', error); return null; }
-    return (data ?? []) as { id: string; desde: string; hasta: string; motivo: string | null }[];
+      .order('desde', { ascending: true });
+    if (error) { reportDbError('[dbListCierres]', error); return null; }
+    return (data ?? []) as CierreGuardado[];
   } catch (e) {
-    reportDbError('[dbListCierresProximos]', e);
+    reportDbError('[dbListCierres]', e);
     return null;
   }
+}
+
+/**
+ * Cuántas clases canceladas POR CIERRE (`cancelada_motivo = 'cierre_centro'`)
+ * caen en los días de cada cierre, en días del estudio. Con `count` y sin
+ * traer filas: no le afecta el tope de 1.000. `null` en un cierre = no se ha
+ * podido contar. Quien llama deja fuera los que se solapan (`seSolapaConOtro`).
+ */
+export async function dbContarClasesCanceladasPorCierre(studioId: string, cierres: readonly CierreGuardado[]): Promise<Record<string, number | null>> {
+  const cuentas = await mapLimit([...cierres], 4, async c => {
+    try {
+      const { count, error } = await supabase
+        .from('sesiones').select('id', { count: 'exact', head: true })
+        .eq('studio_id', studioId).eq('cancelada', true).eq('cancelada_motivo', 'cierre_centro')
+        .gte('inicio', inicioDelDiaEstudio(c.desde)).lt('inicio', finDelDiaEstudio(c.hasta));
+      if (error) { reportDbError('[dbContarClasesCanceladasPorCierre]', error); return null; }
+      return count ?? null;
+    } catch (e) {
+      reportDbError('[dbContarClasesCanceladasPorCierre]', e);
+      return null;
+    }
+  });
+  return Object.fromEntries(cierres.map((c, i) => [c.id, cuentas[i]]));
 }
 
 export async function dbInsertBloqueoMaquina(b: BloqueoMaquina): Promise<ResultadoEscritura> {
