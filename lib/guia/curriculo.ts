@@ -581,7 +581,7 @@ export const CAPITULOS: CapituloGuia[] = [
     ],
     acciones: [
       { label: 'Personalizar mi tablón', href: '/configuracion?tab=web#contenido-de-tu-app' },
-      { label: 'Mis colores y mi menú', href: '/configuracion/apariencia/panel' },
+      { label: 'Mi logo y mi color', href: '/configuracion?tab=marca' },
       { label: 'El enlace de la app de mis alumnas', href: '/configuracion?tab=web#direccion-y-enlaces' },
     ],
     consejo: 'Pídele a una alumna de confianza que la instale y te cuente qué no entiende. Vale más que cualquier cosa que puedas mirar tú desde el panel.',

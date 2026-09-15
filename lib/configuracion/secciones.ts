@@ -3,7 +3,7 @@
 //
 // Configuración eran doce pestañas con nombres de código («API», «Campos de
 // clienta», «Integraciones del negocio») y hasta cuatro niveles de
-// sub-navegación. Ahora son once preguntas que se hace una propietaria —«cómo
+// sub-navegación. Ahora son catorce preguntas que se hace una propietaria —«cómo
 // reservan mis alumnas», «cómo me comunico»— y cada respuesta es una lista de
 // tarjetas. Esta lista es la ÚNICA fuente de esos nombres y frases: la pantalla
 // los pinta de aquí, los enlaces antiguos se traducen contra ella
@@ -19,7 +19,7 @@
 
 export type SeccionId =
   | 'estudio' | 'clases' | 'reservas' | 'cobros' | 'altas' | 'comunicacion'
-  | 'equipo' | 'web' | 'motivacion' | 'conexiones' | 'datos';
+  | 'motivacion' | 'marca' | 'web' | 'equipo' | 'conexiones' | 'datos' | 'avisos' | 'panel';
 
 /**
  * Cómo se guarda lo que hay dentro. Solo `al-pulsar` se anuncia en pantalla
@@ -78,7 +78,7 @@ export const SECCIONES = [
       { id: 'datos-y-contacto', titulo: 'Datos y contacto', frase: 'Nombre, teléfono, email, web y dirección. Salen en tu página de reservas y en el pie de tus correos.', guardado: 'barra', palabras: ['nombre', 'teléfono', 'email', 'dirección', 'web'] },
       { id: 'horario-y-cierres', titulo: 'Horario y cierres', frase: 'Cuándo abres cada semana y qué días cierras.', guardado: 'barra', palabras: ['apertura', 'abrir', 'cerrar', 'vacaciones', 'festivos'] },
       { id: 'salas', titulo: 'Salas', frase: 'Tus salas y cuántas personas caben: esa cifra es el tope de plazas de cada clase.', guardado: 'catalogo', ancho: 'amplio', palabras: ['aforo', 'capacidad', 'plazas', 'averías', 'máquinas'] },
-      { id: 'sedes', titulo: 'Sedes', frase: 'Tus otras sedes: cámbiate a una o añade otra.', guardado: 'accion', condicion: 'multiSede' },
+      { id: 'sedes', titulo: 'Sedes', frase: 'Tus otras sedes: cámbiate a una o añade otra.', guardado: 'accion', condicion: 'multiSede', palabras: ['cambiar de sede', 'centros', 'cadena'] },
     ],
   },
   {
@@ -166,15 +166,29 @@ export const SECCIONES = [
       { id: 'retos', titulo: 'Retos', frase: 'Objetivos con fecha de inicio y fin: solo cuenta lo que pasa dentro de ese periodo.', guardado: 'catalogo', palabras: ['desafíos'] },
     ],
   },
+  // «Marca» salió de «Mi app y mi web» el 15-sep (v2): el logo estaba en una
+  // sección y el color en otra pantalla (/configuracion/apariencia/panel).
+  {
+    id: 'marca',
+    titulo: 'Marca',
+    resumen: 'Logo, color y textos de tu app',
+    frase: 'Cómo te reconocen tus alumnas: tu logo, tu color y cómo te presentas en su app.',
+    roles: SOLO_PROPIETARIA,
+    palabras: ['imagen', 'identidad'],
+    tarjetas: [
+      // Era `marca`, que ahora es el id de la sección: su ancla vieja lleva aquí (destino.ts).
+      { id: 'logo-y-favicon', titulo: 'Logo y favicon', frase: 'Se aplican al momento: el logo, en la app de tus alumnas, y el favicon, en la pestaña de tu página de reservas.', guardado: 'al-pulsar', palabras: ['icono', 'imagen'] },
+      { id: 'color-de-marca', titulo: 'El color de tu marca', frase: 'Tiñe tu panel, tu página de reservas y la app de tus alumnas. Lo ves aplicado mientras lo eliges.', guardado: 'accion', palabras: ['colores', 'tema', 'apariencia'] },
+      { id: 'textos-de-tu-app', titulo: 'Textos de tu app', frase: 'Tu presentación, lema, frases de bienvenida y normas del centro. Lo que dejes vacío no se muestra.', guardado: 'barra', palabras: ['presentación', 'lema', 'normas'] },
+    ],
+  },
   {
     id: 'web',
     titulo: 'Mi app y mi web',
-    resumen: 'Marca, textos, enlaces y widgets',
+    resumen: 'Enlaces, Network, contenido de tu app y widgets',
     frase: 'Cómo se ve tu estudio por fuera: la app de tus alumnas, tu página de reservas y tu web.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'marca', titulo: 'Marca', frase: 'Logo, favicon y el color de tu marca. El logo se guarda al subirlo; el favicon se ve al publicar en Apariencia.', guardado: 'al-pulsar', palabras: ['logo', 'favicon', 'color'] },
-      { id: 'textos-de-tu-app', titulo: 'Textos de tu app', frase: 'Tu presentación, lema, frases de bienvenida y normas del centro. Lo que dejes vacío no se muestra.', guardado: 'barra', palabras: ['presentación', 'lema', 'normas'] },
       { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'La dirección de tu página de reservas y el enlace a la app de tus alumnas.', guardado: 'accion', palabras: ['enlace', 'página de reservas', 'url'] },
       { id: 'network', titulo: 'Aparecer en Tentare Network', frase: 'Tu estudio sale en el buscador de estudios de Tentare, aunque no tengan tu enlace.', guardado: 'al-pulsar', palabras: ['directorio', 'buscador de estudios'] },
       { id: 'contenido-de-tu-app', titulo: 'Contenido de tu app', frase: 'Tarjetas de «Descubre», mensaje destacado y avisos del tablón en el inicio de su app.', guardado: 'catalogo', ancho: 'amplio', palabras: ['descubre', 'tablón', 'mensaje destacado'] },
@@ -216,6 +230,34 @@ export const SECCIONES = [
       { id: 'exportar', titulo: 'Exportar mis datos', frase: 'Un archivo CSV por tabla, que abre Excel: alumnas, reservas, suscripciones y bonos, recibos y pagos importados. No incluye ficha clínica ni notas de progreso.', guardado: 'accion', palabras: ['descargar', 'copia', 'csv', 'excel'] },
     ],
   },
+  // «Mis avisos» y «Tu panel» eran pantallas sueltas que no enlazaba nadie
+  // (/configuracion/notificaciones) o que se abrían desde Apariencia
+  // (/configuracion/apariencia/panel). Sus URLs siguen llevando aquí (destino.ts).
+  {
+    id: 'avisos',
+    titulo: 'Mis avisos',
+    resumen: 'Qué avisos te llegan y por dónde',
+    frase: 'Los avisos que te llegan a ti, no los de tus alumnas.',
+    roles: SOLO_PROPIETARIA,
+    palabras: ['notificaciones', 'alertas'],
+    tarjetas: [
+      { id: 'tus-avisos', titulo: 'Tipos de aviso', frase: 'Enciende o apaga cada tipo de aviso, dentro del panel o como notificación push.', guardado: 'al-pulsar', palabras: ['push', 'móvil'] },
+    ],
+  },
+  {
+    id: 'panel',
+    titulo: 'Tu panel',
+    resumen: 'Menú, Inicio y modo claro u oscuro',
+    frase: 'Cómo se ordena tu panel: el menú y el Inicio los ve todo tu equipo, y el modo oscuro solo tú.',
+    roles: SOLO_PROPIETARIA,
+    palabras: ['personalizar'],
+    tarjetas: [
+      { id: 'menu-del-panel', titulo: 'Tu menú', frase: 'Ordena los módulos dentro de su grupo y esconde los que no uses. Inicio, Configuración y Suscripción siempre se ven.', guardado: 'barra', palabras: ['módulos', 'ocultar', 'orden'] },
+      { id: 'inicio-del-panel', titulo: 'Tu Inicio', frase: 'Ordena y esconde las secciones de tu pantalla de Inicio. Los avisos de estado van siempre arriba.', guardado: 'barra', palabras: ['secciones', 'pantalla principal'] },
+      { id: 'posicion-del-menu', titulo: 'Dónde va el menú', frase: 'A la izquierda o arriba, en el ordenador. En el móvil el menú no cambia.', guardado: 'barra', palabras: ['izquierda', 'arriba'] },
+      { id: 'claro-u-oscuro', titulo: 'Claro u oscuro', frase: 'Solo para ti y en este navegador: no cambia nada a nadie más de tu equipo.', guardado: 'al-pulsar', palabras: ['modo oscuro', 'noche'] },
+    ],
+  },
 ] as const satisfies readonly SeccionConfiguracion[];
 
 export type TarjetaId = (typeof SECCIONES)[number]['tarjetas'][number]['id'];
@@ -223,12 +265,34 @@ export type TarjetaId = (typeof SECCIONES)[number]['tarjetas'][number]['id'];
 /** «Mi cuenta» no es una sección: es la última fila, que lleva a /mi-perfil. */
 export const MI_CUENTA = { titulo: 'Mi cuenta', resumen: 'Tu nombre, tu foto y cómo entras.', href: '/mi-perfil' } as const;
 
+export type FilaExternaId = 'plan' | 'mi-cuenta';
+
+/** Una fila del inicio que lleva a OTRA pantalla del panel, no a una sección. */
+export interface FilaExterna {
+  readonly id: FilaExternaId;
+  readonly titulo: string;
+  /** La línea corta, cuando no se sabe cómo está. */
+  readonly resumen: string;
+  readonly href: string;
+  readonly palabras?: readonly string[];
+}
+
+/**
+ * «Plan de Tentare» enseña cómo está tu suscripción y lleva a /suscripcion, que
+ * se queda como pantalla propia: a ella vuelve Stripe tras pagar, y su entrada
+ * del menú no se puede esconder (`NO_OCULTABLES`).
+ */
+export const FILAS_EXTERNAS: Readonly<Record<FilaExternaId, FilaExterna>> = {
+  plan: { id: 'plan', titulo: 'Plan de Tentare', resumen: 'Lo que pagas tú a Tentare, no tus alumnas', href: '/suscripcion', palabras: ['suscripción', 'prueba gratuita', 'precio'] },
+  'mi-cuenta': { id: 'mi-cuenta', ...MI_CUENTA, resumen: 'Tu nombre, tu foto y cómo entras', palabras: ['perfil', 'foto'] },
+};
+
 export interface GrupoConfiguracion {
   readonly id: string;
   readonly titulo: string;
   readonly secciones: readonly SeccionId[];
-  /** «Mi cuenta» va en su propio grupo: no es una sección, es otra pantalla. */
-  readonly conMiCuenta?: true;
+  /** Filas que llevan a otra pantalla, detrás de las secciones del grupo. */
+  readonly externas?: readonly FilaExternaId[];
 }
 
 /**
@@ -241,10 +305,10 @@ export interface GrupoConfiguracion {
 export const GRUPOS: readonly GrupoConfiguracion[] = [
   { id: 'lo-basico', titulo: 'Lo básico', secciones: ['estudio', 'clases', 'reservas', 'cobros'] },
   { id: 'tus-alumnas', titulo: 'Tus alumnas', secciones: ['altas', 'comunicacion', 'motivacion'] },
-  { id: 'tu-imagen', titulo: 'Tu imagen', secciones: ['web'] },
+  { id: 'tu-imagen', titulo: 'Tu imagen', secciones: ['marca', 'web'] },
   { id: 'equipo', titulo: 'Equipo', secciones: ['equipo'] },
   { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', secciones: ['conexiones', 'datos'] },
-  { id: 'tu-cuenta', titulo: 'Tu cuenta', secciones: [], conMiCuenta: true },
+  { id: 'tu-cuenta', titulo: 'Tu cuenta', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
 ];
 
 const SECCION_POR_ID = new Map<string, SeccionConfiguracion>(SECCIONES.map(s => [s.id, s]));

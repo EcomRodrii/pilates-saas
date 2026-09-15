@@ -8,12 +8,13 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { hrefDeSeccion, resolverDestino, seccionesVisibles } from '@/lib/configuracion/destino';
+import { hrefDeSeccion, resolverDestino, resolverHref, seccionesVisibles } from '@/lib/configuracion/destino';
 import { seccionPorId, type SeccionId } from '@/lib/configuracion/secciones';
 import { ContextoNavegacionConfig, type NavegacionConfig } from './contexto';
 import { ListaSecciones } from './lista-secciones';
 import { CabeceraSeccion } from './cabecera-seccion';
 import { InicioConfiguracion } from './inicio-configuracion';
+import { escucharEnlacesAConfiguracion } from './ir-a-configuracion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuración por preguntas.
@@ -54,10 +55,13 @@ const COMPONENTES: Record<SeccionId, ComponentType<PropsSeccion>> = {
   altas: dynamic(() => import('@/components/configuracion/secciones/seccion-altas').then(m => m.SeccionAltas), { loading: cargando }),
   comunicacion: dynamic(() => import('@/components/configuracion/secciones/seccion-comunicacion').then(m => m.SeccionComunicacion), { loading: cargando }),
   equipo: dynamic(() => import('@/components/configuracion/secciones/seccion-equipo').then(m => m.SeccionEquipo), { loading: cargando }),
+  marca: dynamic(() => import('@/components/configuracion/secciones/seccion-marca').then(m => m.SeccionMarca), { loading: cargando }),
   web: dynamic(() => import('@/components/configuracion/secciones/seccion-web').then(m => m.SeccionWeb), { loading: cargando }),
   motivacion: dynamic(() => import('@/components/configuracion/secciones/seccion-motivacion').then(m => m.SeccionMotivacion), { loading: cargando }),
   conexiones: dynamic(() => import('@/components/configuracion/secciones/seccion-conexiones').then(m => m.SeccionConexiones), { loading: cargando }),
   datos: dynamic(() => import('@/components/configuracion/secciones/seccion-datos').then(m => m.SeccionDatos), { loading: cargando }),
+  avisos: dynamic(() => import('@/components/configuracion/secciones/seccion-avisos').then(m => m.SeccionAvisos), { loading: cargando }),
+  panel: dynamic(() => import('@/components/configuracion/secciones/seccion-panel').then(m => m.SeccionPanel), { loading: cargando }),
 };
 
 // Lo que está abierto. `vista` cambia en cada navegación, para que el ancla se
@@ -185,6 +189,21 @@ export function ConfigShell() {
     irA(destino, opciones);
   }, [irA, seccionQueSePierde]);
 
+  // Un enlace a Configuración que no pinta el shell (la barra superior, ⌘K, un
+  // aviso, el menú) mientras estás aquí: se abre con `irA`, como los suyos. Con
+  // el router, en producción la dirección se quedaba en la sección de llegada
+  // (#2030; ver ir-a-configuracion.ts).
+  const irAHref = useCallback((href: string, preguntar: boolean) => {
+    const destino = resolverHref(href);
+    if ('redirect' in destino) {
+      router.push(destino.redirect);
+      return;
+    }
+    (preguntar ? irAPreguntando : irA)(destino.tab, { ancla: destino.ancla, modo: 'push' });
+  }, [irA, irAPreguntando, router]);
+
+  useEffect(() => escucharEnlacesAConfiguracion(href => irAHref(href, true)), [irAHref]);
+
   // Un enlace a otra pantalla (el menú, «Mi cuenta», un enlace dentro de una
   // tarjeta): se para antes de que Next navegue. En captura, para llegar antes
   // que el `onClick` del propio enlace.
@@ -206,11 +225,15 @@ export function ConfigShell() {
       if (!pendiente) return;
       e.preventDefault();
       e.stopPropagation();
-      setSalida({ seccion: pendiente, ir: () => router.push(`${url.pathname}${url.search}${url.hash}`) });
+      const ruta = `${url.pathname}${url.search}${url.hash}`;
+      // A otra sección de aquí mismo (la barra superior, el menú): por el shell,
+      // nunca por el router (#2030). A otra pantalla, navegación normal.
+      const ir = url.pathname === window.location.pathname ? () => irAHref(ruta, false) : () => router.push(ruta);
+      setSalida({ seccion: pendiente, ir });
     }
     document.addEventListener('click', alPulsar, true);
     return () => document.removeEventListener('click', alPulsar, true);
-  }, [router, seccionQueSePierde]);
+  }, [router, seccionQueSePierde, irAHref]);
 
   const nav = useMemo<NavegacionConfig>(() => ({ irA: irAPreguntando, marcarSinGuardar }), [irAPreguntando, marcarSinGuardar]);
 

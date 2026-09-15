@@ -1,6 +1,6 @@
 'use client';
 
-// El estado de «Personalizar tu panel»: menú (orden, ocultos y posición) e
+// El estado de «Tu panel» (Configuración): menú (orden, ocultos y posición) e
 // Inicio (orden y ocultos), sobre el MISMO `studio_layout`.
 //
 // ⚠️ Un solo hook para las tres cosas del menú y las dos de Inicio, y un solo
@@ -28,6 +28,10 @@ export interface GrupoModulos {
   label?: string;
   items: ItemOrdenable[];
 }
+
+/** Qué partes del mismo documento se han tocado: la barra de guardar lo dice por tarjeta. */
+export interface CambiosPanel { menu: boolean; inicio: boolean; posicion: boolean }
+const SIN_CAMBIOS: CambiosPanel = { menu: false, inicio: false, posicion: false };
 
 // Las de HOME_FIJAS_PRIMERO no se listan: son avisos de estado que aparecen y
 // desaparecen solos, no contenido que tenga sentido arrastrar (mismo criterio
@@ -62,13 +66,12 @@ export function usePersonalizacionPanel() {
   const [homeOcultos, setHomeOcultos] = useState<Set<string>>(new Set());
   const [estado, setEstado] = useState<'cargando' | 'listo' | 'error'>('cargando');
   const [guardando, setGuardando] = useState(false);
-  const [sucio, setSucio] = useState(false);
-  const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
+  const [cambios, setCambios] = useState<CambiosPanel>(SIN_CAMBIOS);
 
   // ⚠️ `puedeVer` cambia de identidad en cada render, así que con él como
-  // dependencia el efecto de carga se re-ejecutaba SIEMPRE — y su `setSucio(false)`
-  // borraba «tienes cambios sin guardar» al instante. Ocultar un módulo parecía
-  // no hacer nada y el botón de guardar no llegaba a aparecer nunca.
+  // dependencia el efecto de carga se re-ejecutaba SIEMPRE — y su reseteo de
+  // cambios borraba «tienes cambios sin guardar» al instante. Ocultar un módulo
+  // parecía no hacer nada y el botón de guardar no llegaba a aparecer nunca.
   const puedeVerRef = useRef(puedeVer);
   useEffect(() => { puedeVerRef.current = puedeVer; });
 
@@ -95,7 +98,7 @@ export function usePersonalizacionPanel() {
         ]);
         setHomeOcultos(new Set(l.home.ocultos));
         setEstado('listo');
-        setSucio(false);
+        setCambios(SIN_CAMBIOS);
       })
       .catch(() => {
         // Fallar en ABIERTO: se listan los módulos con su orden de fábrica en
@@ -111,10 +114,11 @@ export function usePersonalizacionPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { cargar(); }, []);
 
-  const tocado = () => { setSucio(true); setAviso(null); };
+  const tocado = (parte: keyof CambiosPanel) => setCambios(c => (c[parte] ? c : { ...c, [parte]: true }));
 
   return {
-    estado, guardando, sucio, aviso,
+    estado, guardando, cambios,
+    sucio: cambios.menu || cambios.inicio || cambios.posicion,
     grupos, modulosOcultos, posicion, seccionesHome, homeOcultos,
     secciones: SECCIONES_HOME,
 
@@ -122,23 +126,23 @@ export function usePersonalizacionPanel() {
     // un id solo puede moverse dentro del suyo.
     moverModulo: (iGrupo: number, e: DragEndEvent) => {
       setGrupos(p => p.map((g, i) => (i === iGrupo ? { ...g, items: mover(g.items, e, x => x.id) } : g)));
-      tocado();
+      tocado('menu');
     },
     ocultarModulo: (id: string) => {
       if (NO_OCULTABLES.includes(id)) return;
       setModulosOcultos(p => { const n = new Set(p); if (!n.delete(id)) n.add(id); return n; });
-      tocado();
+      tocado('menu');
     },
-    moverSeccion: (e: DragEndEvent) => { setSeccionesHome(p => mover(p, e, x => x)); tocado(); },
+    moverSeccion: (e: DragEndEvent) => { setSeccionesHome(p => mover(p, e, x => x)); tocado('inicio'); },
     ocultarSeccion: (id: string) => {
       setHomeOcultos(p => { const n = new Set(p); if (!n.delete(id)) n.add(id); return n; });
-      tocado();
+      tocado('inicio');
     },
-    elegirPosicion: (p: MenuPosicion) => { setPosicion(p); tocado(); },
+    elegirPosicion: (p: MenuPosicion) => { setPosicion(p); tocado('posicion'); },
 
-    async guardar() {
+    /** `null` = guardado de verdad (el PUT respondió bien); un texto = no, y por qué. */
+    async guardar(): Promise<string | null> {
       setGuardando(true);
-      setAviso(null);
       try {
         await guardarLayoutApi({
           // Se aplana en el orden que se ve: los grupos en su orden natural y,
@@ -150,10 +154,10 @@ export function usePersonalizacionPanel() {
         });
         // El menú escucha esto y se recoloca en el sitio, sin recargar.
         window.dispatchEvent(new CustomEvent('tentare-layout-changed'));
-        setSucio(false);
-        setAviso({ tipo: 'ok', texto: 'Guardado y aplicado.' });
+        setCambios(SIN_CAMBIOS);
+        return null;
       } catch (e) {
-        setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
+        return mensajeSeguro((e as Error).message, ERROR_RED);
       } finally {
         setGuardando(false);
       }

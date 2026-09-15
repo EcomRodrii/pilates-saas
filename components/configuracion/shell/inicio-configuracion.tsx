@@ -1,19 +1,25 @@
 'use client';
 
-import { useId, type MouseEvent } from 'react';
+import { useEffect, useId, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ChevronRight, CircleUser, Clock, Search } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Clock, Search } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { usePanelTheme } from '@/lib/panel-theme';
 import { cn } from '@/lib/utils';
+import { estadoBilling, fetchLayout, fetchThemePublicado } from '@/lib/api-client';
+import { tieneFeature } from '@/lib/billing/entitlements';
+import { DEFAULT_THEME } from '@/lib/theme-schema';
 import { cardCls, inputCls } from '@/components/configuracion/estilos';
 import { hrefDeSeccion, resolverHref } from '@/lib/configuracion/destino';
-import { GRUPOS, MI_CUENTA, type SeccionConfiguracion, type SeccionId } from '@/lib/configuracion/secciones';
-import { resumenesDeConfiguracion, revisaEsto, type DatosConfiguracion } from '@/lib/configuracion/resumenes';
+import { FILAS_EXTERNAS, GRUPOS, type SeccionConfiguracion, type SeccionId } from '@/lib/configuracion/secciones';
+import {
+  resumenPlan, resumenesDeConfiguracion, revisaEsto, type DatosConfiguracion, type EstadoPlanResumible,
+} from '@/lib/configuracion/resumenes';
 import { buscarAjustes } from '@/lib/configuracion/buscar';
 import { calcularOnboarding, datosOnboardingDelEstudio, type PasoOnboarding } from '@/lib/onboarding';
 import { calcularProgresoGuia } from '@/lib/guia/progreso';
 import { EstadoAjuste } from './estado-ajuste';
-import { ICONOS_SECCION } from './lista-secciones';
+import { ICONOS_EXTERNAS, ICONOS_SECCION } from './lista-secciones';
 import { esClicNormal } from './contexto';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -31,9 +37,13 @@ import { esClicNormal } from './contexto';
 //   3. «Pon tu estudio a punto»: el MISMO número que la tarjeta del Inicio y la
 //      guía (`calcularProgresoGuia`). Desaparece cuando está hecho;
 //   4. las secciones en seis grupos, cada una con su valor de hoy
-//      (lib/configuracion/resumenes.ts) y, si toca, su estado.
+//      (lib/configuracion/resumenes.ts) y, si toca, su estado. «Tu cuenta»
+//      lleva además «Plan de Tentare» y «Mi cuenta», que abren otra pantalla.
 //
-// Todo sale de lo que el panel ya tiene cargado al arrancar: no pide nada.
+// Casi todo sale de lo que el panel ya tiene cargado. Lo que no está en
+// `useStudio` —cómo va tu plan, el color publicado y dónde va el menú— se lee
+// de lo mismo que ya piden la barra superior y el menú; si una lectura falla, su
+// fila enseña su descripción y no adivina.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FILA = 'flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50';
@@ -60,6 +70,30 @@ export function InicioConfiguracion({
     instructores, sesiones, socios, reservas, suscripciones, automationRules, contenidoPortal,
   } = useStudio();
   const idBuscador = useId();
+  const { dark } = usePanelTheme();
+
+  // El plan sale de /api/billing/status, lo mismo que la píldora de la prueba:
+  // si se contara con el reloj del navegador, las dos podrían no coincidir. El
+  // menú ya está en caché desde que lo pintó la barra lateral.
+  const [fuera, setFuera] = useState<{
+    plan: EstadoPlanResumible | null;
+    colorPropio: boolean | null;
+    menuPosition: 'lateral' | 'superior' | null;
+  } | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    Promise.allSettled([estadoBilling(), fetchThemePublicado(), fetchLayout()]).then(([plan, tema, layout]) => {
+      if (!vivo) return;
+      const primario = tema.status === 'fulfilled' ? tema.value?.primary : undefined;
+      const posicion = layout.status === 'fulfilled' ? layout.value?.menuPosition : undefined;
+      setFuera({
+        plan: plan.status === 'fulfilled' ? plan.value : null,
+        colorPropio: typeof primario === 'string' ? primario.toLowerCase() !== DEFAULT_THEME.primary.toLowerCase() : null,
+        menuPosition: posicion === 'lateral' || posicion === 'superior' ? posicion : null,
+      });
+    });
+    return () => { vivo = false; };
+  }, []);
 
   // Hasta tener los datos no se resume nada: «Sin salas» con las salas aún en
   // camino sería mentira. Las filas enseñan entretanto su descripción.
@@ -75,6 +109,8 @@ export function InicioConfiguracion({
     integraciones,
     // El mismo criterio que la tarjeta de Stripe (tab-integraciones.tsx).
     stripeDisponible: !!process.env.NEXT_PUBLIC_STRIPE_CONNECT_CLIENT_ID,
+    colorPropio: fuera?.colorPropio ?? null,
+    panel: fuera?.menuPosition ? { menuPosition: fuera.menuPosition, oscuro: dark } : null,
   } : null;
   const resumenes = datos ? resumenesDeConfiguracion(datos) : null;
   const avisos = datos ? revisaEsto(datos) : [];
@@ -87,8 +123,11 @@ export function InicioConfiguracion({
     : null;
   const aPunto = progreso && progreso.esencialTotal > 0 && progreso.esencialHechos < progreso.esencialTotal ? progreso : null;
 
+  // «Sedes» se busca por lo que dice el plan, no por las sedes que carga «Mi
+  // estudio» al abrirse: el buscador no espera a ninguna sección.
+  const haySedes = !!studio && (tieneFeature(studio, 'multiCentro') || !!studio.cadenaId);
   const resultados = consulta.trim()
-    ? buscarAjustes(consulta, { secciones, esCadena: !!studio?.cadenaId })
+    ? buscarAjustes(consulta, { secciones, haySedes, esCadena: !!studio?.cadenaId })
     : null;
 
   const abrir = (tab: SeccionId, origen: string, ancla?: string) => (e: MouseEvent) => {
@@ -128,9 +167,13 @@ export function InicioConfiguracion({
           <ul className={LISTA} aria-label="Resultados de la búsqueda">
             {resultados.map(r => {
               const id = `inicio-buscar-${r.id}`;
+              // Una sección se abre por el shell; «Plan de Tentare» es otra pantalla.
+              const enlace = r.seccion
+                ? { href: hrefDeSeccion(r.seccion, r.ancla), onClick: abrir(r.seccion, id, r.ancla) }
+                : { href: r.href ?? '/configuracion' };
               return (
                 <li key={r.id}>
-                  <Link id={id} href={hrefDeSeccion(r.seccion, r.ancla)} onClick={abrir(r.seccion, id, r.ancla)} className={FILA}>
+                  <Link id={id} {...enlace} className={FILA}>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[15px] font-semibold text-foreground">{r.titulo}</span>
                       <span className="block text-sm text-muted-foreground">{r.donde ?? 'Sección de Configuración'}</span>
@@ -192,7 +235,7 @@ export function InicioConfiguracion({
             const suyas = grupo.secciones
               .map(id => secciones.find(s => s.id === id))
               .filter((s): s is SeccionConfiguracion => !!s);
-            if (suyas.length === 0 && !grupo.conMiCuenta) return null;
+            if (suyas.length === 0 && !grupo.externas?.length) return null;
             return (
               <section key={grupo.id} aria-labelledby={`inicio-grupo-${grupo.id}`} className="space-y-2">
                 <h2 id={`inicio-grupo-${grupo.id}`} className={TITULO_GRUPO}>{grupo.titulo}</h2>
@@ -220,18 +263,28 @@ export function InicioConfiguracion({
                       </li>
                     );
                   })}
-                  {grupo.conMiCuenta && (
-                    <li>
-                      <Link id="inicio-mi-cuenta" href={MI_CUENTA.href} className={FILA}>
-                        <span className={CAJA_ICONO}><CircleUser size={20} aria-hidden /></span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[15px] font-semibold text-foreground">{MI_CUENTA.titulo}</span>
-                          <span className="block text-sm text-muted-foreground">{MI_CUENTA.resumen}</span>
-                        </span>
-                        <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
-                      </Link>
-                    </li>
-                  )}
+                  {(grupo.externas ?? []).map(idFila => {
+                    const f = FILAS_EXTERNAS[idFila];
+                    const Icono = ICONOS_EXTERNAS[idFila];
+                    const resumen = idFila === 'plan' ? resumenPlan(fuera?.plan) : null;
+                    return (
+                      <li key={idFila}>
+                        <Link id={`inicio-${idFila}`} href={f.href} className={FILA}>
+                          <span className={CAJA_ICONO}><Icono size={20} aria-hidden /></span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="text-[15px] font-semibold text-foreground">{f.titulo}</span>
+                              {resumen?.estado && <EstadoAjuste tono={resumen.estado.tono}>{resumen.estado.etiqueta}</EstadoAjuste>}
+                            </span>
+                            <span data-resumen={resumen?.valor ? 'valor' : 'descripcion'} className="line-clamp-2 block text-sm text-muted-foreground">
+                              {resumen?.valor ?? f.resumen}
+                            </span>
+                          </span>
+                          <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             );

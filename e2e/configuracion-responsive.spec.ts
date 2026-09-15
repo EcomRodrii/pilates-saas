@@ -212,7 +212,7 @@ for (const vista of VISTAS) {
       // El inicio tiene todas las secciones, a cualquier anchura.
       await expect(page.locator('[id^="inicio-seccion-"]')).toHaveCount(SECCIONES.length);
       const nav = page.getByRole('navigation', { name: 'Secciones de Configuración' });
-      if (vista.columna) await expect(nav.getByRole('link')).toHaveCount(SECCIONES.length + 2); // + «Configuración» y «Mi cuenta»
+      if (vista.columna) await expect(nav.getByRole('link')).toHaveCount(SECCIONES.length + 3); // + «Configuración», «Plan de Tentare» y «Mi cuenta»
 
       const faltan: string[] = [];
       for (const seccion of SECCIONES) {

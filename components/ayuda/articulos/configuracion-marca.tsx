@@ -8,22 +8,23 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 // que guarda al momento («Guardar colores»). La captura enseñaba el editor
 // cerrado y se quitó.
 //
-// 15-sep-2026: Configuración se reorganizó por preguntas. La tarjeta «Marca»
-// está en «Mi app y mi web», y el nombre del estudio en «Datos y contacto», en
-// «Mi estudio».
+// 15-sep-2026: Configuración se reorganizó por preguntas. «Marca» es una
+// sección, con el logo, el color y los textos de tu app juntos; el nombre del
+// estudio sigue en «Datos y contacto», en «Mi estudio». El color ya no abre otra
+// pantalla, y el favicon se publica al subirlo (components/configuracion/tab-marca.tsx).
 export default function Contenido() {
   return (
     <>
       <p>
-        En Configuración &gt; Mi app y mi web, la tarjeta «Marca» tiene el logo y el favicon: se guardan solos en cuanto
-        los subes, y subirlos no borra nada de lo que estés escribiendo en «Textos de tu app», justo debajo. El nombre de
-        tu estudio está en Configuración &gt; Mi estudio, en «Datos y contacto».
+        En Configuración &gt; Marca, la tarjeta «Logo y favicon» tiene el logo y el favicon: se guardan solos en cuanto
+        los subes, y subirlos no borra nada de lo que estés escribiendo en «Textos de tu app», en esa misma sección. El
+        favicon es el icono de la pestaña de tu página de reservas. El nombre de tu estudio está en
+        Configuración &gt; Mi estudio, en «Datos y contacto».
       </p>
 
       <p>
-        El color va desde «El color de tu marca», en esa misma tarjeta: abre «Personalizar tu panel», donde eliges tu
-        color principal y el secundario y los pruebas antes de guardarlos. Lo ven tus alumnas en tu página de
-        reservas y en su app.
+        El color está en esa misma sección, en «El color de tu marca»: eliges tu color principal y el secundario y los
+        pruebas antes de guardarlos. Lo ven tus alumnas en tu página de reservas y en su app.
       </p>
 
       <AyudaResultado>

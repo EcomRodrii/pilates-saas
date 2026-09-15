@@ -26,6 +26,7 @@ import {
   DEFAULT_THEME,
 } from '@/lib/theme-schema';
 import { presetAThemeConfig } from '@/lib/theme-runtime';
+import { esFaviconDeBorrador, fusionarCampos, type CamposPublicables } from '@/lib/theme-publicar-campos';
 
 /**
  * Tema derivado del preset viejo del estudio (`studios.tema_portal`). Se usa
@@ -127,6 +128,9 @@ async function publicarFavicon(
     await admin.storage.from(AVATARS_BUCKET).remove([pathPublicado]);
     return null;
   }
+  // Un enlace pegado, o el favicon que ya estaba publicado, sale tal cual:
+  // copiar el archivo de borrador en su lugar publicaría otra imagen.
+  if (!esFaviconDeBorrador(faviconBorradorUrl, studioId)) return faviconBorradorUrl;
   const pathBorrador = `favicon-borrador-${studioId}`;
   const { error } = await admin.storage.from(AVATARS_BUCKET).copy(pathBorrador, pathPublicado);
   if (error) return faviconBorradorUrl; // best-effort: deja la URL de borrador antes que perder la referencia
@@ -169,6 +173,53 @@ export async function publicarTheme(studioId: string): Promise<ThemeConfig> {
   // El tema publicado viaja dentro del catálogo público cacheado: sin esto,
   // publicar deja la base de datos correcta y el portal sirviendo el tema
   // anterior hasta un minuto. Ver `invalidarCatalogoPublico`.
+  invalidarCatalogoPublico(studioId);
+  return publicado;
+}
+
+/**
+ * Publica SOLO unos campos (el color, el favicon) encima de lo PUBLICADO y deja
+ * ese mismo cambio en el borrador, sin tocar nada más de él. Lo usa
+ * Configuración › Marca: publicar el borrador entero sacaría a producción lo que
+ * el editor del portal dejara a medias, y reescribir el borrador desde lo
+ * publicado borraba el favicon pendiente. El contraste lo comprueba el route
+ * handler antes de llamar aquí.
+ */
+export async function publicarCamposTheme(studioId: string, campos: CamposPublicables): Promise<ThemeConfig> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('THEME_SIN_ADMIN');
+
+  const { data: fila } = await admin
+    .from('studio_theme')
+    .select('config_draft, config_published')
+    .eq('studio_id', studioId)
+    .maybeSingle();
+
+  const publicadoActual = fila?.config_published
+    ? resolveTheme(fila.config_published)
+    : await themeDesdePreset(admin, studioId);
+  const borradorActual = fila?.config_draft ? resolveTheme(fila.config_draft) : publicadoActual;
+
+  const cambios: Partial<ThemeConfig> = { ...campos };
+  if (campos.faviconUrl !== undefined) {
+    cambios.faviconUrl = await publicarFavicon(admin, studioId, campos.faviconUrl);
+  }
+  const { publicado, borrador } = fusionarCampos(publicadoActual, borradorActual, cambios);
+
+  const ahora = new Date().toISOString();
+  const { error } = await admin
+    .from('studio_theme')
+    .upsert(
+      {
+        studio_id: studioId,
+        config_draft: borrador,
+        config_published: publicado,
+        actualizado_en: ahora,
+        publicado_en: ahora,
+      },
+      { onConflict: 'studio_id' },
+    );
+  if (error) throw new Error(`THEME_PUBLICAR_CAMPOS: ${error.message}`);
   invalidarCatalogoPublico(studioId);
   return publicado;
 }

@@ -16,12 +16,12 @@ import { Wrench, SlidersHorizontal, ChevronRight } from 'lucide-react';
 // Lo publicado NO se toca: el portal y la página de reservas siguen con el tema
 // que ya tuvieran. Esto solo cierra la puerta de EDICIÓN.
 //
-// ⚠️ LA SALIDA TIENE QUE DECIR QUE EL COLOR SÍ SE CAMBIA. «Personalizar tu
-// panel» edita el color del tema PUBLICADO, que es el mismo que ve el portal
-// (ver el comentario de `apariencia/panel/page.tsx`). Esta pantalla lo
-// presentaba como «los colores de tu software» y una propietaria que quería su
-// color en la página de reservas se fue creyendo que no podía (evaluación del
-// 13-sep). Lo cerrado es la portada y el diseño del portal, no el color.
+// ⚠️ LA SALIDA TIENE QUE DECIR QUE EL COLOR SÍ SE CAMBIA. «El color de tu
+// marca» (Configuración › Marca, tab-color-marca.tsx) edita el tema PUBLICADO,
+// que es el mismo que ve el portal. Esta pantalla lo presentaba como «los
+// colores de tu software» y una propietaria que quería su color en la página de
+// reservas se fue creyendo que no podía (evaluación del 13-sep). Lo cerrado es
+// la portada y el diseño del portal, no el color.
 // ─────────────────────────────────────────────────────────────────────────────
 export const metadata = { title: 'Apariencia' };
 
@@ -32,7 +32,7 @@ export default function AparienciaPage() {
 
       {/* Lo que SÍ se puede tocar va primero: es lo que ha venido a hacer. */}
       <Link
-        href="/configuracion/apariencia/panel"
+        href="/configuracion?tab=marca#color-de-marca"
         className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-5 transition-colors hover:border-brand"
       >
         <span className="flex items-start gap-3">
@@ -41,11 +41,11 @@ export default function AparienciaPage() {
           </span>
           <span>
             <span className="block text-[15px] font-semibold text-foreground">
-              Tu color y tu panel
+              El color de tu marca
             </span>
             <span className="mt-1 block text-[13px] leading-relaxed text-muted-foreground">
-              El color de tu marca —el mismo que ven tus alumnas en tu página de reservas y en su
-              app—, qué módulos aparecen en tu menú y en qué orden, y las secciones de tu Inicio.
+              El mismo que ven tus alumnas en tu página de reservas y en su app. Está en
+              Configuración, en Marca, junto a tu logo.
             </span>
           </span>
         </span>
@@ -63,8 +63,8 @@ export default function AparienciaPage() {
             </p>
             <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
               Estamos rehaciendo el editor de la portada, la tipografía y las secciones del portal de
-              tus alumnas. Mientras tanto eso no se puede editar; tu logo se cambia en Configuración →
-              Mi app y mi web → Marca, y tu color, aquí arriba.
+              tus alumnas. Mientras tanto eso no se puede editar; tu logo y tu color se cambian en
+              Configuración → Marca, y tu menú y tu Inicio, en Configuración → Tu panel.
             </p>
             <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
               Lo que ya tienes publicado <strong className="font-semibold text-foreground">sigue

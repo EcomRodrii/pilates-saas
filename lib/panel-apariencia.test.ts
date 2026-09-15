@@ -30,7 +30,12 @@ const leerCodigo = (p: string) =>
 
 const APARIENCIA = 'app/(dashboard)/configuracion/apariencia/page.tsx';
 const EDITOR = 'app/(dashboard)/configuracion/apariencia/editor/page.tsx';
-const PANEL = 'app/(dashboard)/configuracion/apariencia/panel/page.tsx';
+// «Personalizar tu panel» vive hoy dentro de Configuración: el menú, el Inicio,
+// la posición y claro/oscuro en «Tu panel»; el color, en «Marca». Su ruta de
+// antes redirige.
+const PANEL = 'components/configuracion/secciones/seccion-panel.tsx';
+const COLOR = 'components/configuracion/tab-color-marca.tsx';
+const PANEL_ANTIGUO = 'app/(dashboard)/configuracion/apariencia/panel/page.tsx';
 
 // ── El mantenimiento, cerrado por las DOS puertas ────────────────────────────
 test('la pantalla de Apariencia dice que está en mantenimiento', () => {
@@ -87,16 +92,18 @@ test('el editor NO se borra: solo se cierra la puerta', () => {
 });
 
 // ── El botón y sus tres cosas ────────────────────────────────────────────────
-test('Apariencia ofrece UNA salida, a personalizar el panel', () => {
+test('Apariencia ofrece UNA salida, al color de tu marca', () => {
   const src = leer(APARIENCIA);
   const enlaces = [...src.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
-  assert.deepEqual(enlaces, ['/configuracion/apariencia/panel'],
+  assert.deepEqual(enlaces, ['/configuracion?tab=marca#color-de-marca'],
     'Un solo botón: era el encargo, y dos destinos aquí es una pantalla de menú.');
 });
 
-test('la pantalla del panel trae las cinco cosas', () => {
+test('«Tu panel» y «El color de tu marca» traen las cinco cosas, y la ruta de antes lleva allí', () => {
   const src = leer(PANEL);
-  assert.match(src, /publicarThemeApi/, 'faltan los colores');
+  assert.match(leer(COLOR), /publicarThemeApi/, 'faltan los colores');
+  assert.match(leer(PANEL_ANTIGUO), /redirect\(RUTAS_ANTIGUAS\['\/configuracion\/apariencia\/panel'\]\)/,
+    'Quien tenga la pantalla de antes en marcadores tiene que llegar a «Tu panel».');
   assert.match(src, /p\.modulos/, 'faltan los módulos del menú');
   assert.match(src, /p\.seccionesHome/, 'faltan las secciones de Inicio');
   assert.match(src, /elegirPosicion/, 'falta la posición del menú');
@@ -150,7 +157,7 @@ test('lo pegado arriba se clava DEBAJO del menú, no encima', () => {
 });
 
 test('guardar el color repinta el panel sin recargar', () => {
-  const src = leer(PANEL);
+  const src = leer(COLOR);
   // `PanelThemeProvider` ya escucha este evento. No dispararlo fue exactamente
   // por qué la primera versión «no hacía nada» al guardar un color.
   assert.match(src, /dispatchEvent\(new CustomEvent\('tentare-theme-changed'\)\)/);
@@ -168,21 +175,24 @@ test('guardar el menú lo recoloca sin recargar', () => {
 test('no se puede guardar encima de un layout que no se ha podido leer', () => {
   const hook = leer('components/panel/use-personalizacion-panel.ts');
   assert.match(hook, /setEstado\('error'\)/);
-  assert.match(leer(PANEL), /disabled=\{p\.guardando \|\| p\.estado === 'error'\}/,
+  assert.match(leer(PANEL), /bloqueo=\{p\.estado === 'error'/,
     'Guardar sobre una lectura fallida borraría el menú que el estudio ya tenía.');
 });
 
-test('el color se guarda sobre lo PUBLICADO, no sobre el borrador', () => {
-  const src = leer(PANEL);
-  // `guardarBorradorTheme` fusiona sobre el borrador actual. Si hubiera uno a
-  // medias del editor viejo, publicar sacaría a producción cambios que nadie
-  // pidió sacar.
-  assert.match(src, /guardarThemeBorrador\(\{ \.\.\.base, primary, secondary \}\)/,
+test('el color se publica solo, sobre lo PUBLICADO, sin reescribir el borrador', () => {
+  const src = leer(COLOR);
+  // Publicar el borrador entero sacaría a producción lo que el editor viejo
+  // dejara a medias; reescribirlo desde lo publicado borraba el favicon
+  // pendiente. Se mandan los dos colores y el servidor fusiona solo esos.
+  assert.match(src, /publicarThemeApi\(\{ primary, secondary \}\)/,
     'Publicar tiene que ser predecible: publicado + los colores, y nada más.');
+  assert.ok(!/guardarThemeBorrador/.test(src), 'El color no reescribe el borrador.');
+  assert.match(leer('lib/theme-data.ts'), /export async function publicarCamposTheme[\s\S]*fusionarCampos\(/,
+    'La fusión de solo esos campos vive en el servidor.');
 });
 
 test('un color sin contraste no llega a publicarse en silencio', () => {
-  const src = leer(PANEL);
+  const src = leer(COLOR);
   assert.match(src, /if \(!res\.ok\)/, 'no se mira el veredicto de publicar');
   assert.match(src, /res\.errores\[0\]\?\.mensaje/,
     'Se enseña el motivo real del rechazo, no un genérico.');

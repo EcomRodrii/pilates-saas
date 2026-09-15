@@ -114,6 +114,18 @@ const PARAMS_DE_CONEXION: [string, TarjetaId][] = [
 const ANCLAS_RETIRADAS: Record<string, TarjetaId> = {
   'integracion-excel': 'exportar',
   'reglas-de-reserva': 'reservar',
+  // La tarjeta «Marca» pasó a ser una sección (15-sep, v2): sus enlaces
+  // (`?tab=web#marca`, `?tab=estudio#marca`) llevan a su logo y favicon.
+  marca: 'logo-y-favicon',
+};
+
+/**
+ * Pantallas sueltas que hoy son una sección de Configuración. Sus páginas
+ * redirigen con esto, para que un marcador o un enlace de la guía no se rompan.
+ */
+export const RUTAS_ANTIGUAS: Readonly<Record<string, string>> = {
+  '/configuracion/notificaciones': hrefDeSeccion('avisos'),
+  '/configuracion/apariencia/panel': hrefDeSeccion('panel'),
 };
 
 /** Cada tarjeta, con su sección. Derivado: nadie lo escribe a mano. */

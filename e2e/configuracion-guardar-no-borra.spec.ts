@@ -132,7 +132,7 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
   });
 
   test('guardar los textos de tu app manda solo los textos', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=web', {
+    const { patches } = await montar(page, '/configuracion?tab=marca', {
       fila: { ...STUDIO_ROW, nif: NIF, razon_social: 'Guardada SL' },
     });
 
@@ -148,7 +148,7 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
   });
 
   test('pegar el logo no borra los textos a medio escribir, y solo manda el logo', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=web');
+    const { patches } = await montar(page, '/configuracion?tab=marca');
 
     const lema = page.getByRole('textbox', { name: 'Tu lema' });
     await expect(lema).toBeVisible({ timeout: 30_000 });

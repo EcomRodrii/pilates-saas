@@ -127,7 +127,7 @@ export const TAREAS: Tarea[] = [
   {
     id: 'marca',
     label: 'Personalizar los colores y el logo',
-    href: '/configuracion/apariencia/panel',
+    href: '/configuracion?tab=marca',
     claves: ['marca', 'logo', 'color', 'apariencia', 'tema', 'personalizar'],
   },
 
