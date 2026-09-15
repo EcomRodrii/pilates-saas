@@ -40,11 +40,22 @@ begin
 
   select count(*) into v_sin_cuota_global from public.reservas_plaza_fija_sin_cuota();
 
+  -- Una plaza cuyo hueco TIENE clases en las próximas semanas que su cuota cubre:
+  -- sin esto se puede elegir una plaza sin clases y todo sale 0 (falso «OK»).
   select pf.id, pf.socio_id, pf.studio_id, su.id
     into v_plaza, v_socio, v_studio, v_sus
   from plazas_fijas pf
   join suscripciones su on su.socio_id = pf.socio_id and su.studio_id = pf.studio_id
   join planes_tarifa pt on pt.id = su.plan_id and pt.tipo = 'MENSUAL'
+  where exists (
+    select 1 from sesiones s
+    where s.studio_id = pf.studio_id and s.sala_id = pf.sala_id and coalesce(s.cancelada, false) = false
+      and s.inicio >= now() + interval '3 days' and s.inicio < now() + interval '42 days'
+      and extract(dow from s.inicio at time zone 'Europe/Madrid') = pf.dia_semana
+      and (s.inicio at time zone 'Europe/Madrid')::time = pf.hora_inicio
+      and (pf.tipo_clase_id is null or s.tipo_clase_id = pf.tipo_clase_id)
+      and public.plan_cubre_tipo_clase(su.plan_id, s.tipo_clase_id)
+  )
   order by pf.creada_en
   limit 1;
 
