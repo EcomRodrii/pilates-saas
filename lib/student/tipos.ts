@@ -16,6 +16,10 @@ export interface StudioConfig {
   logoUrl: string | null; iconoUrl: string; fotoPortada: string;
   telefono: string; email: string; disciplinas: Disciplina[];
   politicaCancelacionHoras: number; soportaListaEspera: boolean;
+  /** El estudio deja pedir plaza fija / una pausa desde la app. Solo decide si se enseña el botón:
+   *  la puerta de verdad es `/api/public/plaza-fija`. Ausente = no. */
+  puedePedirPlazaFija?: boolean;
+  puedePedirPausa?: boolean;
   /** Cómo llama el estudio a sus créditos. `null` = el nombre por defecto. */
   creditosNombre: string | null;
   /** Lema corto bajo el nombre, en la cabecera sobre el héroe. `null` = no se pinta. */
@@ -181,7 +185,11 @@ export interface GamificacionVista {
 
 /** Plaza fija vigente de la alumna, ya con nombres (F2). */
 export interface PlazaFijaVista {
+  /** Para pedir una pausa de esta plaza. `null` si el payload no lo trae. */
+  id: string | null;
   diaSemana: number; hora: string; sala: string; tipo: string | null; estado: 'ACTIVA' | 'PAUSADA';
+  /** La pausa que ha pedido y el estudio aún no ha contestado. */
+  pausaPedida: { id: string; desde: string; hasta: string } | null;
   proximaFecha: string | null; vigenciaHasta: string | null;
   /** El horario publicado llega más allá y en su hueco no hay clase (ver lib/student/plaza-fija.ts). */
   sinClase: boolean;

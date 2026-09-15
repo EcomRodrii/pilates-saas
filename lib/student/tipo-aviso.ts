@@ -31,7 +31,8 @@
 export type TipoAviso = 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar' | 'atencion';
 
 /**
- * Los 21 eventos con audiencia `socia-*` del catálogo, uno a uno.
+ * Los eventos con audiencia `socia-*` del catálogo, uno a uno (un guardia de
+ * `tipo-aviso.test.ts` falla si entra uno nuevo y no se le da cara aquí).
  *
  * `atencion` (⚠️) agrupa lo que salió mal o le cuesta dinero. No es un tipo
  * inventado por gusto: sin él, la única alternativa honesta para una
@@ -71,6 +72,9 @@ const POR_EVENTO: Record<string, TipoAviso> = {
   'clase.sustituta': 'estudio',
   'comunidad.post_nuevo': 'estudio',
   'documento_socio.nuevo': 'estudio',
+  // La respuesta a lo que pidió: puede ser que sí o que no, así que ni se
+  // celebra ni se lee como una avería. El texto lo dice.
+  'plaza_fija.respuesta': 'estudio',
 };
 
 /** Los eventos nombrados aquí. Lo usa el guardia de `tipo-aviso.test.ts`. */

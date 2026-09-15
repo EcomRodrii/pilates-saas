@@ -1012,13 +1012,13 @@ export interface RowStudios {
   recibos_al_cancelar_cuota: string | null;
   // migr 20260915215311.
   renovar_sola_cuota_cancelada: boolean | null;
-  // migr 20260916120000.
+  // migr 20260915231920.
   plaza_fija_solicitar_desde_app: boolean | null;
-  // migr 20260916120000.
+  // migr 20260915231920.
   plaza_fija_pausa_desde_app: boolean | null;
-  // migr 20260916120000.
+  // migr 20260915231920.
   plaza_fija_pausa_libera_sitio: boolean | null;
-  // migr 20260916120000.
+  // migr 20260915231920.
   plaza_fija_fin_pausa: string | null;
 }
 
@@ -1631,7 +1631,7 @@ export interface RowPlazasFijas {
   pausa_desde: string | null;
   // migr 20260915094312.
   pausa_hasta: string | null;
-  // migr 20260916120000.
+  // migr 20260915231920.
   pausa_libera_sitio: boolean | null;
 }
 

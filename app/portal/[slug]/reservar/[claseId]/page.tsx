@@ -12,6 +12,9 @@ import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase, tieneBonoQueNoCubre } from '@/lib/student/bono-cubre';
 import { catalogo } from '@/lib/student/catalogo';
 import { confirmarReserva } from '@/lib/student/reservar';
+import { proyectarPlazaFijaEnClase } from '@/lib/student/mapeo';
+import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
+import type { PlazaFijaEnClase } from '@/lib/student/plaza-fija';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
 import type { BookingState } from '@/lib/student/tipos';
@@ -66,6 +69,11 @@ export default function FichaClasePage() {
   // acaba de pulsar la alumna (y se revierte si el servidor dice que no).
   const [favoritaLocal, setFavoritaLocal] = useState<boolean | null>(null);
   const [verInstructora, setVerInstructora] = useState(false);
+  // Lo que ella acaba de pedir (confirmado por el servidor, nunca optimista): el
+  // payload cacheado aún dice que no lo ha pedido.
+  const [plazaFijaLocal, setPlazaFijaLocal] = useState<PlazaFijaEnClase | null>(null);
+  const [pfEnviando, setPfEnviando] = useState(false);
+  const [pfError, setPfError] = useState('');
 
   const cargar = useCallback(async () => {
     // `getClases` sale del MISMO payload que `getClase`: la ficha de la
@@ -81,6 +89,12 @@ export default function FichaClasePage() {
     return {
       clase, reservas, bonos, instructoras, favoritos, clases,
       spots: payload?.spots, aforoReservas: payload?.aforoReservas,
+      // Si esta clase se repite y aún no es suya, se le puede ofrecer pedirla
+      // como plaza fija. Lo decide `lib/student/plaza-fija.ts`; el servidor lo
+      // vuelve a comprobar al pedirla.
+      plazaFija: clase && payload
+        ? proyectarPlazaFijaEnClase(payload, { id: clase.id, fecha: clase.fecha, hora: clase.hora, salaId: clase.salaId })
+        : null,
     };
   }, [estudio.slug, claseId]);
 
@@ -91,6 +105,28 @@ export default function FichaClasePage() {
   useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
 
   const clase = data?.clase ?? null;
+  const plazaFija = plazaFijaLocal ?? data?.plazaFija ?? null;
+
+  /** Pedir la plaza fija de esta franja. No la da: la decide el estudio. */
+  const pedirPlaza = useCallback(async () => {
+    if (!clase || pfEnviando) return;
+    setPfEnviando(true);
+    setPfError('');
+    const r = await pedirPlazaFija(estudio.slug, estudio.id, clase.id);
+    setPfEnviando(false);
+    if (!r.ok) { setPfError(r.error); return; }
+    setPlazaFijaLocal(r.solicitudId ? { estado: 'PEDIDA', peticionId: r.solicitudId } : { estado: 'TIENE_PLAZA' });
+  }, [clase, estudio.slug, estudio.id, pfEnviando]);
+
+  const anularPlazaFija = useCallback(async (peticionId: string) => {
+    if (pfEnviando) return;
+    setPfEnviando(true);
+    setPfError('');
+    const r = await anularPeticionPlazaFija(estudio.slug, estudio.id, peticionId);
+    setPfEnviando(false);
+    if (!r.ok) { setPfError(r.error); return; }
+    setPlazaFijaLocal({ estado: 'PUEDE_PEDIR' });
+  }, [estudio.slug, estudio.id, pfEnviando]);
   const inst = data?.instructoras.find((i) => i.id === clase?.instructoraId);
   const disp = clase ? disponibilidad(clase, data?.reservas ?? [], estudio.soportaListaEspera) : 'disponible';
   // El bono que de VERDAD cubre esta clase: un plan puede estar acotado a
@@ -303,6 +339,30 @@ export default function FichaClasePage() {
               : 'Ya no devuelve la sesión'}
           />
         </div>
+
+        {/* Plaza fija: PEDIRLA, no darla. El estudio decide y ella lo ve en su app.
+            Solo si el estudio lo permite y la clase se repite cada semana. */}
+        {estudio.puedePedirPlazaFija && plazaFija && (plazaFija.estado === 'PUEDE_PEDIR' || plazaFija.estado === 'PEDIDA') && (
+          <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+            <p className="t-label" style={{ margin: 0 }}>Plaza fija</p>
+            {plazaFija.estado === 'PEDIDA' ? (
+              <>
+                <p className="t-meta" style={{ margin: 0 }}>Ya la has pedido: tu estudio te contestará aquí.</p>
+                <Button variant="ghost" size="sm" loading={pfEnviando} onClick={() => void anularPlazaFija(plazaFija.peticionId)}>
+                  Anular la petición
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="t-meta" style={{ margin: 0 }}>
+                  ¿Vienes cada semana a esta clase? Pídesela a tu estudio y, si dice que sí, te la reserva cada semana.
+                </p>
+                <Button variant="secondary" size="sm" loading={pfEnviando} onClick={() => void pedirPlaza()}>Pedir plaza fija</Button>
+              </>
+            )}
+            {pfError && <p role="alert" className="t-meta" style={{ margin: 0 }}>{pfError}</p>}
+          </div>
+        )}
 
         {!online && <OfflineState cuerpo="Puedes ver la clase, pero reservar necesita conexión." />}
       </div>

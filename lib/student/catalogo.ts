@@ -125,6 +125,12 @@ export interface PayloadPublico {
     recibos: Recibo[];
     favoritos?: FavoritoClase[];
     plazasFijas?: PlazaFija[];
+    /** Sus peticiones de plaza fija sin contestar (`fetchPublicStudioData`). */
+    peticionesPlazaFija?: {
+      id: string; tipo: 'CREAR' | 'PAUSAR'; plazaId: string | null;
+      diaSemana: number | null; horaInicio: string | null; salaId: string | null;
+      desde: string | null; hasta: string | null;
+    }[];
     recuperaciones?: Recuperacion[];
     /** Gamificación — lo que lleva ELLA. El progreso lo calcula el servidor. */
     memberCredits?: MemberCredits[];

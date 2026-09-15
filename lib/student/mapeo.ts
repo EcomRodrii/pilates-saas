@@ -8,7 +8,10 @@ import { horaEstudio, hoyEnEstudio } from '../utils.ts';
 import { imagenDeClase } from '../imagenes-por-defecto.ts';
 import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
-import { proyectarPlazasFijas as plazasFijasDe, proyectarRecuperaciones as recuperacionesDe, type PlazaFijaMin, type RecuperacionMin } from './plaza-fija.ts';
+import {
+  plazaFijaEnClase as plazaFijaEnClaseDe, proyectarPlazasFijas as plazasFijasDe, proyectarRecuperaciones as recuperacionesDe,
+  type PeticionPlazaFijaMin, type PlazaFijaEnClase, type PlazaFijaMin, type RecuperacionMin,
+} from './plaza-fija.ts';
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
 // traduce el nivel de una CLASE (PRINCIPIANTE → Iniciación). Nada que ver.
 import { canjesDe, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type RetoDef } from './gamificacion.ts';
@@ -249,6 +252,8 @@ export interface PayloadMin {
     /** Tipos de clase marcados como favoritos (`favoritos_clase`). */
     favoritos?: { tipoClaseId: string }[];
     plazasFijas?: PlazaFijaMin[];
+    /** Sus peticiones de plaza fija sin contestar (solo las que pidió ella). */
+    peticionesPlazaFija?: PeticionPlazaFijaMin[];
     recuperaciones?: RecuperacionMin[];
     // `caducaEl` viaja porque la pantalla avisa antes de que se pierdan. Sin
   // nombrarlo aquí llegaría `undefined` en silencio, como todo en esta frontera.
@@ -458,12 +463,23 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
     fecha: hoyEnEstudio(new Date(s.inicio)), hora: horaEstudio(s.inicio),
     salaId: s.salaId, tipoClaseId: s.tipoClaseId, cancelada: s.cancelada,
   }));
-  return plazasFijasDe(d.socia?.plazasFijas ?? [], hoyISO, horaAhora, sesiones).map((p) => ({
-    diaSemana: p.diaSemana, hora: p.hora,
+  return plazasFijasDe(d.socia?.plazasFijas ?? [], hoyISO, horaAhora, sesiones, d.socia?.peticionesPlazaFija ?? []).map((p) => ({
+    id: p.id, diaSemana: p.diaSemana, hora: p.hora,
     sala: (d.salas ?? []).find((s) => s.id === p.salaId)?.nombre ?? 'Sala',
     tipo: p.tipoClaseId ? ((d.tiposClase ?? []).find((t) => t.id === p.tipoClaseId)?.nombre ?? null) : null,
     estado: p.estado, proximaFecha: p.proximaFecha, sinClase: p.sinClase, vigenciaHasta: p.vigenciaHasta, pausa: p.pausa,
+    pausaPedida: p.pausaPedida,
   }));
+}
+
+/** Si en la ficha de esta clase se le ofrece pedir plaza fija. Las fechas, en la zona del estudio. */
+export function proyectarPlazaFijaEnClase(
+  d: PayloadMin, clase: { id: string; fecha: string; hora: string; salaId: string },
+): PlazaFijaEnClase {
+  const sesiones = (d.sesiones ?? []).map((s) => ({
+    id: s.id, fecha: hoyEnEstudio(new Date(s.inicio)), hora: horaEstudio(s.inicio), salaId: s.salaId, cancelada: s.cancelada,
+  }));
+  return plazaFijaEnClaseDe(clase, sesiones, d.socia?.plazasFijas ?? [], d.socia?.peticionesPlazaFija ?? []);
 }
 
 /** Recuperaciones que aún puede usar. */

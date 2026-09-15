@@ -58,6 +58,55 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
     await expect(tarjeta.getByText('Activa')).toBeVisible();
   });
 
+  // Plaza fija desde su app (migr 20260916120000): PIDE, no cambia. El ajuste del
+  // estudio lo resuelve el servidor (`lib/studio-seo.ts`), encendido en e2e con
+  // `E2E_PLAZA_FIJA_APP` (playwright.config.ts).
+  test('Bonos: pide una pausa de su plaza fija y queda a la espera del estudio', async ({ page }) => {
+    await montar(page);
+    let intentos = 0;
+    let cuerpo: Record<string, unknown> | null = null;
+    await page.route('**/api/public/plaza-fija', (r) => {
+      intentos++;
+      cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, solicitudId: 'spf-1' }) });
+    });
+
+    await page.goto(`${base}/bonos`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await tarjeta.getByRole('button', { name: 'Pedir una pausa' }).click();
+    // El reloj de `sembrarSociaLista` es el 2026-08-12.
+    await page.getByLabel('Hasta').fill('2026-08-26');
+    await page.getByRole('button', { name: 'Pedir la pausa' }).click();
+
+    // Un camino que no llega a pedir nada «no miente», y no probaría nada.
+    await expect(tarjeta.getByText(/Pausa pedida del .* esperando a tu estudio/)).toBeVisible({ timeout: 30_000 });
+    expect(intentos).toBeGreaterThan(0);
+    expect(cuerpo).toMatchObject({ accion: 'solicitar_pausa', plazaId: 'pf-1', hasta: '2026-08-26' });
+    // Hasta que el estudio conteste, su plaza sigue igual.
+    await expect(tarjeta.getByText('Activa')).toBeVisible();
+  });
+
+  test('si el servidor dice que no, la app no dice que sí', async ({ page }) => {
+    await montar(page);
+    let intentos = 0;
+    await page.route('**/api/public/plaza-fija', (r) => {
+      intentos++;
+      return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Ya has pedido una pausa para esta plaza fija: tu estudio te contestará.' }) });
+    });
+
+    await page.goto(`${base}/bonos`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await tarjeta.getByRole('button', { name: 'Pedir una pausa' }).click();
+    await page.getByLabel('Hasta').fill('2026-08-26');
+    await page.getByRole('button', { name: 'Pedir la pausa' }).click();
+
+    await expect(page.getByText(/Ya has pedido una pausa para esta plaza fija/)).toBeVisible({ timeout: 30_000 });
+    expect(intentos).toBeGreaterThan(0);
+    await expect(page.getByText(/Pausa pedida del/)).toHaveCount(0);
+  });
+
   test('al cancelar una ocurrencia de plaza fija, el toast dice que hay una clase para recuperar y hasta cuándo', async ({ page }) => {
     await montar(page, { cancelacion: { ok: true, tardia: false, bonoDevuelto: false, eraConfirmada: true, recuperacionCreada: true, recuperacionCaducaEl: '2026-09-11' } });
     await page.goto(`${base}/mis-reservas`);

@@ -102,6 +102,25 @@ export default function Contenido() {
         espera, entra en su lugar. Las que empiezan dentro del plazo de cancelación se mantienen. Si vuelve antes,
         cambia las fechas o quita la pausa: las clases que quedan se le reservan al momento, si hay sitio.
       </p>
+      <p>
+        Si prefieres que durante una pausa larga <strong>su sitio quede libre</strong> para otra alumna, actívalo en
+        Configuración → «Cómo reservan mis alumnas» → «Si pausa su plaza fija». Vale para las pausas nuevas —las que ya
+        tengas puestas siguen igual— y solo suelta el sitio en pausas de más de una semana. Una semana antes de que
+        acabe, Tentare le devuelve la plaza si su sitio sigue libre y tiene cuota, o te lo pregunta en Inicio, según lo
+        que elijas ahí. Si le dices que no vuelva, se le quita la plaza fija.
+      </p>
+
+      <h2 style={h2}>Si te la piden desde su app</h2>
+      <p>
+        De serie, las plazas fijas se dan en recepción. En Configuración → «Cómo reservan mis alumnas» → «Peticiones
+        desde su app» puedes dejar que tus alumnas <strong>pidan</strong> una plaza fija desde la clase que están
+        viendo, o una pausa de la suya. Son peticiones: <strong>hasta que las apruebas no cambia nada</strong>.
+      </p>
+      <p>
+        Te llega un aviso y las decides en Inicio, en «{'Una petición de plaza fija espera tu respuesta'}». Si con esa
+        plaza pasaría del límite de clases por semana de su cuota, te lo decimos ahí y decides tú. Ella ve tu respuesta
+        en su app, con el motivo que escribas si no la apruebas.
+      </p>
 
       <h2 style={h2}>Quitar una plaza fija</h2>
       <p>

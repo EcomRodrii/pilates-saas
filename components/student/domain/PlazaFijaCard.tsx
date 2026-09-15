@@ -1,10 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import type { PlazaFijaVista, RecuperacionesVista } from '@/lib/student/tipos';
 import { etiquetaDia, fechaCorta } from '@/lib/student/formato';
 import { nombreDia } from '@/lib/student/plaza-fija';
+import { anularPeticionPlazaFija, pedirPausaPlazaFija } from '@/lib/student/plaza-fija-peticion';
+import { validarPausa } from '@/lib/plazas-fijas-pausa';
+import { hoyEnEstudio } from '@/lib/utils';
+import { useEstudio } from '@/components/student/contexto';
 import { Badge } from '@/components/student/ui/Badge';
+import { Button } from '@/components/student/ui/Button';
+import { Input } from '@/components/student/ui/Input';
+import { Sheet } from '@/components/student/ui/Sheet';
 
 // «Tu plaza fija» + «Recuperaciones» (F2, el caso canónico del producto).
 // Mismo idioma que CreditCard: tarjeta, rótulo t-label, cifra grande, meta.
@@ -14,9 +22,56 @@ import { Badge } from '@/components/student/ui/Badge';
 // Todas sus plazas, no una: quien viene lunes y miércoles veía solo una de las
 // dos. Y si en su hueco ya no hay clase, lo dice en vez de enseñar una
 // «próxima» que no existe (lib/student/plaza-fija.ts).
+type PausaPedida = { id: string; desde: string; hasta: string } | null;
+
 export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = false }: {
   plazas: PlazaFijaVista[]; recuperaciones: RecuperacionesVista; hrefHorario: string; compacta?: boolean;
 }) {
+  const { estudio } = useEstudio();
+  // Pedir una pausa NO la aplica: hasta que el estudio contesta, la plaza sigue
+  // igual. Lo que cambia aquí es solo lo que ella ya ha pedido (lo confirmado por
+  // el servidor, nunca optimista), por si la pantalla no se recarga.
+  const [pedidas, setPedidas] = useState<Record<string, PausaPedida>>({});
+  const [pidiendo, setPidiendo] = useState<PlazaFijaVista | null>(null);
+  const [hoy] = useState(() => hoyEnEstudio());
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState('');
+
+  const pausaPedidaDe = (p: PlazaFijaVista): PausaPedida =>
+    (p.id && p.id in pedidas ? pedidas[p.id] : p.pausaPedida);
+  // Hasta que no hay «hasta» no se riñe: es el campo que falta, no un error.
+  const aviso = hasta ? validarPausa(desde, hasta, hoy) : null;
+
+  function abrir(p: PlazaFijaVista) {
+    setPidiendo(p);
+    setDesde(hoy);
+    setHasta('');
+    setError('');
+  }
+
+  async function enviar() {
+    if (!pidiendo?.id || enviando) return;
+    setEnviando(true);
+    setError('');
+    const r = await pedirPausaPlazaFija(estudio.slug, estudio.id, pidiendo.id, { desde, hasta });
+    setEnviando(false);
+    if (!r.ok) { setError(r.error); return; }
+    setPedidas((prev) => ({ ...prev, [pidiendo.id as string]: r.solicitudId ? { id: r.solicitudId, desde, hasta } : null }));
+    setPidiendo(null);
+  }
+
+  async function anular(p: PlazaFijaVista, peticionId: string) {
+    if (!p.id || enviando) return;
+    setEnviando(true);
+    setError('');
+    const r = await anularPeticionPlazaFija(estudio.slug, estudio.id, peticionId);
+    setEnviando(false);
+    if (!r.ok) { setError(r.error); return; }
+    setPedidas((prev) => ({ ...prev, [p.id as string]: null }));
+  }
+
   if (plazas.length === 0 && recuperaciones.disponibles === 0) return null;
   return (
     <div className="card" data-testid="plaza-fija" style={{ padding: compacta ? '13px 15px' : '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -26,6 +81,10 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
           {plazas.map((plaza, i) => {
             const activa = plaza.estado === 'ACTIVA' && !plaza.pausa?.enCurso;
             const dia = nombreDia(plaza.diaSemana);
+            const pedida = pausaPedidaDe(plaza);
+            // Una pausa se pide sobre una plaza activa que no tenga ya una.
+            const puedePedirPausa = estudio.puedePedirPausa === true && !!plaza.id
+              && plaza.estado === 'ACTIVA' && !plaza.pausa && !pedida;
             return (
               <div
                 key={`${plaza.diaSemana}-${plaza.hora}-${plaza.sala}`}
@@ -51,6 +110,18 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
                         ? `En pausa hasta el ${fechaCorta(plaza.pausa.hasta)}`
                         : `Pausa del ${fechaCorta(plaza.pausa.desde)} al ${fechaCorta(plaza.pausa.hasta)}`}
                     </p>
+                  )}
+                  {pedida && (
+                    <p className="t-meta" style={{ margin: '2px 0 0' }}>
+                      Pausa pedida del {fechaCorta(pedida.desde)} al {fechaCorta(pedida.hasta)} · esperando a tu estudio
+                    </p>
+                  )}
+                  {(puedePedirPausa || pedida) && (
+                    <div style={{ marginTop: 6 }}>
+                      {pedida
+                        ? <Button variant="ghost" size="sm" loading={enviando} onClick={() => void anular(plaza, pedida.id)}>Anular la petición</Button>
+                        : <Button variant="secondary" size="sm" onClick={() => abrir(plaza)}>Pedir una pausa</Button>}
+                    </div>
                   )}
                 </div>
                 <Badge tone={plaza.sinClase ? 'few' : activa ? 'ok' : 'neutral'}>
@@ -85,6 +156,27 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
           <Link href={hrefHorario} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>Reservar →</Link>
         </div>
       )}
+
+      {error && !pidiendo && <p role="alert" className="t-meta" style={{ margin: 0 }}>{error}</p>}
+
+      <Sheet open={pidiendo !== null} onClose={() => { if (!enviando) setPidiendo(null); }} label="Pedir una pausa">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800 }}>Pedir una pausa</p>
+          <p className="t-meta" style={{ margin: 0 }}>
+            Tu estudio la revisa y te contesta aquí. Hasta entonces tu plaza fija sigue igual.
+          </p>
+          <Input label="Desde" type="date" min={hoy} value={desde} onChange={(e) => { setError(''); setDesde(e.target.value); }} />
+          <Input
+            label="Hasta" type="date" min={desde || hoy} value={hasta}
+            onChange={(e) => { setError(''); setHasta(e.target.value); }}
+            error={aviso ?? undefined}
+          />
+          {error && <p role="alert" className="t-meta" style={{ margin: 0 }}>{error}</p>}
+          <Button full loading={enviando} disabled={!desde || !hasta || !!aviso} onClick={() => void enviar()}>
+            Pedir la pausa
+          </Button>
+        </div>
+      </Sheet>
     </div>
   );
 }
