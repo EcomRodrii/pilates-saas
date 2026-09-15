@@ -249,7 +249,7 @@ export function DetalleCobroConTarjeta({ c, onGuardado }: { c: CobroConTarjeta }
         open={preguntando}
         onOpenChange={setPreguntando}
         titulo="¿Desconectar Stripe?"
-        descripcion="Hasta que lo vuelvas a conectar, tus alumnas no podrán pagarte con tarjeta."
+        descripcion="Hasta que lo vuelvas a conectar no se cobrará nada por Stripe: ni pagos con tarjeta o Bizum, ni los cobros automáticos de cuotas y penalizaciones, ni devoluciones desde Tentare. Las remesas de tu banco siguen funcionando."
         textoConfirmar="Sí, desconectar"
         destructivo
         onConfirm={() => { void desconectar(); }}

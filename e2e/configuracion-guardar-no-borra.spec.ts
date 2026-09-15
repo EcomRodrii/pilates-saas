@@ -302,7 +302,7 @@ test.describe('Cobros: Devoluciones, en su cajón', () => {
 
 // ─── Legal ───────────────────────────────────────────────────────────────────
 
-const AVISO_CONSENTIMIENTO = /tendrán que aceptarlos de nuevo/;
+const AVISO_CONSENTIMIENTO = /no se les cobrará ninguna penalización hasta que acepten el texto nuevo/;
 
 test.describe('Legal', () => {
   test('doble toque en Guardar términos: una sola petición', async ({ page }) => {

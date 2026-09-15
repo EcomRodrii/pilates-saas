@@ -434,7 +434,7 @@ test('datos fiscales: razón social, NIF e IVA; con el NIF mal, qué pasa con tu
   // Sin razón social no se inventa: va lo que hay.
   assert.equal(resumenDatosFiscales({ razonSocial: ' ', nif: NIF_BUENO.toLowerCase(), ivaPorDefecto: 10 }).valor, `${NIF_BUENO} · IVA 10 %`);
   assert.deepEqual(resumenDatosFiscales({ nif: 'B12345670', ivaPorDefecto: 21 }), {
-    valor: 'Revisa el NIF: tus facturas saldrían mal', estado: { tono: 'pendiente', etiqueta: 'Revisa el NIF' },
+    valor: 'Revisa el NIF: tus facturas salen con uno que Hacienda no reconoce', estado: { tono: 'pendiente', etiqueta: 'Revisa el NIF' },
   });
   assert.deepEqual(resumenDatosFiscales({ nif: '', ivaPorDefecto: 21 }).estado, { tono: 'problema', etiqueta: 'Falta el NIF' });
   assert.deepEqual(resumenDatosFiscales({ nif: 'B12345678' }).estado, { tono: 'problema', etiqueta: 'NIF no válido' });
@@ -468,7 +468,7 @@ test('domiciliaciones y devoluciones: lo guardado, lo que falta y, sin cargar, n
   assert.equal(resumenDomiciliaciones({}), null);
 
   assert.equal(resumenDevoluciones({ reembolsosActivos: false, reembolsoPlazoDias: 30 }), 'Apagadas: devuelves desde Stripe');
-  assert.equal(resumenDevoluciones({ reembolsosActivos: true, reembolsoPlazoDias: 14, reembolsoSoloSinUsar: true }), 'Hasta 14 días · solo bonos sin empezar');
+  assert.equal(resumenDevoluciones({ reembolsosActivos: true, reembolsoPlazoDias: 14, reembolsoSoloSinUsar: true }), 'Hasta 14 días · bonos, solo sin empezar');
   assert.equal(resumenDevoluciones({ reembolsosActivos: true, reembolsoPlazoDias: 0, reembolsoSoloSinUsar: false }), 'Sin plazo');
   assert.equal(resumenDevoluciones({ reembolsosActivos: true, reembolsoPlazoDias: 1, reembolsoSoloSinUsar: false }), 'Hasta 1 día');
   assert.equal(resumenDevoluciones({}), null);

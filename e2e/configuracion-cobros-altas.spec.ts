@@ -92,7 +92,7 @@ for (const vista of VISTAS) {
       await abrir(page, 'configuracion?tab=cobros');
       await expect(valor(page, 'datos-fiscales')).toHaveText(`Pilates Centro SL · ${NIF} · IVA 21 %`, { timeout: 30_000 });
       await expect(valor(page, 'domiciliaciones')).toHaveText('Listas para remesas');
-      await expect(valor(page, 'devoluciones')).toHaveText('Hasta 14 días · solo bonos sin empezar');
+      await expect(valor(page, 'devoluciones')).toHaveText('Hasta 14 días · bonos, solo sin empezar');
       await expect(valor(page, 'fila-paquetes')).toHaveText('3 planes a la venta');
 
       // UN estado, sin la pareja «No conectado» + «Todavía no disponible». Cuál

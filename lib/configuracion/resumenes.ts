@@ -600,7 +600,7 @@ export function resumenDatosFiscales(s: Partial<Pick<Studio, 'razonSocial' | 'ni
   const aviso = avisoNif(s.nif);
   if (aviso) {
     return {
-      valor: aviso.tono === 'pendiente' ? 'Revisa el NIF: tus facturas saldrían mal' : aviso.texto,
+      valor: aviso.tono === 'pendiente' ? 'Revisa el NIF: tus facturas salen con uno que Hacienda no reconoce' : aviso.texto,
       estado: { tono: aviso.tono, etiqueta: aviso.etiqueta },
     };
   }
@@ -628,7 +628,7 @@ export function resumenStripe(e: {
 }): ResumenFila {
   if (e.conectado && e.fallando) return { valor: 'Falló la última vez que se usó', estado: { tono: 'problema', etiqueta: 'Con problemas' } };
   if (e.conectado) {
-    const valor = e.bizum === 'active' ? 'Tarjeta y Bizum' : e.bizum ? 'Tarjeta · Bizum sin activar' : 'Cobras con tarjeta en tu cuenta';
+    const valor = e.bizum === 'active' ? 'Tarjeta y Bizum' : e.bizum ? 'Tarjeta · Bizum sin activar' : 'Cuenta de Stripe conectada';
     return { valor, estado: { tono: 'activo', etiqueta: 'Conectado' } };
   }
   if (e.disponible) return { valor: 'Conéctalo para cobrar con tarjeta', estado: { tono: 'neutro', etiqueta: 'Sin conectar' } };
@@ -646,7 +646,7 @@ export function resumenDomiciliaciones(s: Partial<Pick<Studio, 'sepaAcreedorId' 
   return `Falta ${faltan.join(' y ')}`;
 }
 
-/** «Hasta 14 días · solo bonos sin empezar», o que se devuelve desde Stripe. */
+/** «Hasta 14 días · bonos, solo sin empezar», o que se devuelve desde Stripe. */
 export function resumenDevoluciones(s: Partial<Pick<Studio, 'reembolsosActivos' | 'reembolsoPlazoDias' | 'reembolsoSoloSinUsar'>>): string | null {
   if (s.reembolsosActivos === undefined) return null;
   if (!s.reembolsosActivos) return 'Apagadas: devuelves desde Stripe';
@@ -654,7 +654,7 @@ export function resumenDevoluciones(s: Partial<Pick<Studio, 'reembolsosActivos' 
   const plazo = s.reembolsoPlazoDias ?? 14;
   return unir([
     plazo > 0 ? `hasta ${contar(plazo, 'día', 'días')}` : 'sin plazo',
-    (s.reembolsoSoloSinUsar ?? true) ? 'solo bonos sin empezar' : null,
+    (s.reembolsoSoloSinUsar ?? true) ? 'bonos, solo sin empezar' : null,
   ]);
 }
 

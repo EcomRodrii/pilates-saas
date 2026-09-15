@@ -121,7 +121,7 @@ function confirmacion(antes: DevolucionesForm, ahora: Politica) {
   if (!antes.activos && ahora.reembolsosActivos) {
     return {
       titulo: '¿Permitir devolver desde Tentare?',
-      descripcion: `Tú y recepción veréis «Devolver» en los pagos de cada alumna (${politica.toLowerCase()}). Cada devolución mueve dinero de verdad a su tarjeta.`,
+      descripcion: `Tú y recepción veréis «Devolver» en los pagos de cada alumna (${politica.toLowerCase()}). Cada devolución mueve dinero de verdad a su forma de pago original.`,
       textoConfirmar: 'Sí, permitirlo',
     };
   }

@@ -47,7 +47,7 @@ export function TituloFila({ titulo, estado }: { titulo: string; estado?: Resume
 /**
  * El valor, en UNA línea (§4.2): lo que no cabe a 375 px se corta con «…» y está
  * entero en el cajón. La descripción —si no se sabe el valor— y lo que acompaña
- * a un estado («Revisa el NIF: tus facturas saldrían mal») pueden ocupar dos:
+ * a un estado («Revisa el NIF: tus facturas salen con uno que Hacienda no reconoce») pueden ocupar dos:
  * cortado, un aviso deja de decir qué pasa.
  */
 export function ValorFila({ valor, descripcion, entero, title }: {

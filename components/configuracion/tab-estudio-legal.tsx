@@ -34,7 +34,7 @@ const DOCUMENTOS: { campo: Campo; titulo: string; ayuda: string; aviso: string; 
     campo: 'politicaPrivacidad',
     titulo: 'Política de privacidad',
     ayuda: 'La acepta al registrarse, antes de terminar el alta.',
-    aviso: 'Al cambiar la política de privacidad, todas tus alumnas tendrán que aceptarla de nuevo; hasta entonces no se les puede cobrar penalización.',
+    aviso: 'Si lo cambias, a tus alumnas actuales no se les cobrará ninguna penalización hasta que acepten el texto nuevo.',
     guardado: 'Política de privacidad guardada',
   },
   {
@@ -43,7 +43,7 @@ const DOCUMENTOS: { campo: Campo; titulo: string; ayuda: string; aviso: string; 
     campo: 'terminosServicio',
     titulo: 'Términos y condiciones',
     ayuda: 'El contrato que acepta cada alumna al darse de alta.',
-    aviso: 'Al cambiar los términos, todas tus alumnas tendrán que aceptarlos de nuevo; hasta entonces no se les puede cobrar penalización.',
+    aviso: 'Si lo cambias, a tus alumnas actuales no se les cobrará ninguna penalización hasta que acepten el texto nuevo.',
     guardado: 'Términos y condiciones guardados',
   },
 ];
@@ -86,7 +86,7 @@ export function FormContratoYPrivacidad({ onGuardado }: PropsFormularioCajon) {
         {sinPenalizaciones && (
           <p className="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-foreground text-pretty">
             <AlertTriangle size={16} className="mt-0.5 shrink-0 text-destructive" aria-hidden />
-            <span>Con términos propios no se cobran penalizaciones. Déjalos en blanco para usar los de Tentare.</span>
+            <span>Con términos propios no se cobra ninguna penalización. Si borras el texto se usan los de Tentare, que solo incluyen el cargo si el importe está puesto en el estudio, y solo se cobrará a quien acepte ese texto.</span>
           </p>
         )}
         {/* Sin razón social ni NIF no se identifica al responsable del
@@ -137,7 +137,7 @@ export function FormContratoYPrivacidad({ onGuardado }: PropsFormularioCajon) {
         cambios={hayCambios(form, base) ? ['Contrato y privacidad'] : []}
         confirmar={hayPenalizacion ? {
           titulo: '¿Cambiar los textos que aceptan tus alumnas?',
-          descripcion: 'Tendrán que volver a aceptarlos, y hasta entonces no se les cobra ninguna penalización.',
+          descripcion: 'Solo se cobra una penalización a quien aceptó exactamente el texto vigente. Si lo cambias, a tus alumnas actuales no se les cobrará ninguna hasta que acepten el nuevo. Con términos propios no se cobran nunca.',
           textoConfirmar: 'Sí, cambiarlos',
         } : null}
         onGuardar={alGuardar}
