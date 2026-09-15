@@ -16,6 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { accesoProducto, tieneFeature, entitlementsDe, type Entitlements } from './entitlements.ts';
+import { estadoTrial } from './trial.ts';
 
 /** Motivo de denegación (sin acoplar a HTTP: el status es orientativo del código). */
 export type Denegacion = {
@@ -30,17 +31,25 @@ export function billingEnforced(): boolean {
   return process.env.BILLING_ENFORCED === 'true';
 }
 
-type StudioBilling = { plan: string | null; subscriptionStatus: string | null };
+type StudioBilling = {
+  plan: string | null;
+  subscriptionStatus: string | null;
+  trialEndsAt: string | null;
+  subscriptionId: string | null;
+};
 
 async function cargarBilling(admin: SupabaseClient | null, studioId: string): Promise<StudioBilling | null> {
   if (!admin) return null; // sin service-role no podemos comprobar → fail-open
   const { data } = await admin
     .from('studios')
-    .select('plan, subscription_status')
+    .select('plan, subscription_status, trial_ends_at, subscription_id')
     .eq('id', studioId)
     .single();
   if (!data) return null;
-  return { plan: data.plan, subscriptionStatus: data.subscription_status };
+  return {
+    plan: data.plan, subscriptionStatus: data.subscription_status,
+    trialEndsAt: data.trial_ends_at, subscriptionId: data.subscription_id,
+  };
 }
 
 /**
@@ -83,7 +92,17 @@ export async function evaluarSuscripcion(admin: SupabaseClient | null, studioId:
   if (!billingEnforced()) return null;
   const billing = await cargarBilling(admin, studioId);
   if (!billing) return null;
-  if (accesoProducto({ subscriptionStatus: billing.subscriptionStatus })) return null;
+  // I-8 (auditoría 15-sep): `accesoProducto` por sí solo da por bueno un
+  // 'trialing' cuya prueba local ya venció (el pg_cron que lo pasa a
+  // 'trial_expirado' corre cada 15 min, no al instante) — mismo criterio que
+  // ya compone `/api/billing/status`. Sin `estadoTrial()` aquí, encender
+  // BILLING_ENFORCED con una prueba caducada sin barrer todavía dejaría
+  // pasar a alguien que el gate real ya rechazaría.
+  const trial = estadoTrial({
+    trialEndsAt: billing.trialEndsAt, subscriptionStatus: billing.subscriptionStatus,
+    subscriptionId: billing.subscriptionId,
+  });
+  if (accesoProducto({ subscriptionStatus: billing.subscriptionStatus }) && !trial.agotada) return null;
   return {
     status: 402,
     error: 'Tu suscripción no está activa. Reactívala en Suscripción para seguir operando.',
