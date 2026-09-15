@@ -9,7 +9,7 @@ export default function Contenido() {
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Abre el cobro en la ficha de la clienta">
-        <p>El botón «Devolver» de la ficha aparece cuando has activado tu política de devoluciones en Configuración &gt; Estudio &gt; Cobros. El «Devolver» de la pantalla de Cobros solo lo apunta como devuelto: no mueve dinero.</p>
+        <p>El botón «Devolver» de la ficha aparece cuando has activado tu política de devoluciones en Configuración &gt; Cobros y facturas &gt; Devoluciones. El «Devolver» de la pantalla de Cobros solo lo apunta como devuelto: no mueve dinero.</p>
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Pide el reembolso">

@@ -125,7 +125,7 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Dar recuperación</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">Le concedes una clase a recuperar. Si no pones fecha, caduca según la política del estudio (Configuración → Estudio → Reservas y cancelaciones).</p>
+            <p className="text-xs text-muted-foreground">Le concedes una clase a recuperar. Si no pones fecha, caduca según la política del estudio (Configuración → Cómo reservan mis alumnas).</p>
             <div>
               <label htmlFor="recup-motivo" className={labelCls}>Motivo (opcional)</label>
               <input id="recup-motivo" className={inputCls} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ej: avisó que el martes no podía" />

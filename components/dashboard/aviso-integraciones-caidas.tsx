@@ -73,10 +73,10 @@ export function AvisoIntegracionesCaidas() {
             Mientras tanto, lo que se mandaba por ahí no está llegando a tus clientas.
           </p>
           <Link
-            href="/configuracion?tab=integraciones"
+            href="/configuracion?tab=conexiones"
             className="inline-flex items-center mt-2.5 text-[12px] font-semibold text-destructive hover:underline"
           >
-            Arreglarlo en Integraciones →
+            Arreglarlo en Configuración →
           </Link>
         </div>
       </div>

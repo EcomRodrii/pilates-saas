@@ -243,7 +243,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
         ) : (
           <>
             {/* Desktop table */}
-            <table className="w-full text-[13px] hidden sm:table">
+            <table className="w-full text-[13px] hidden @xl/config:table">
               <thead>
                 <tr className="border-b border-border">
                   {['Nombre', 'Capacidad', 'Color', 'Acciones'].map(h => (
@@ -294,7 +294,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
             </table>
 
             {/* Mobile cards */}
-            <div className="sm:hidden divide-y divide-background">
+            <div className="@xl/config:hidden divide-y divide-background">
               {salas.map(sala => (
                 <div key={sala.id} className="p-4 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -323,7 +323,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[13px] font-medium text-foreground">Averías de máquina</p>
+            <h4 className="text-[13px] font-medium text-foreground">Averías de máquina</h4>
             <p className="text-[12px] text-muted-foreground">Una máquina averiada baja el aforo real de las clases de esa sala mientras dure.</p>
           </div>
           <button className={cn(btnSecondary, 'shrink-0')} onClick={abrirAveria} disabled={salas.length === 0}>
@@ -368,7 +368,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
 
       {/* Modal */}
       <Dialog open={modal !== null} onOpenChange={open => !open && closeModal()}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">
               {modal === 'nueva' ? 'Nueva sala' : 'Editar sala'}
@@ -377,7 +377,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
           <div className="space-y-3 mt-2">
             <Field
               label="Nombre de la sala"
-              description="Como la llamáis en el estudio. La verá la clienta al reservar."
+              description="Como la llamáis en el estudio. La verá la alumna al reservar."
             >
               <input
                 className={inputCls}
@@ -464,7 +464,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
 
       {/* Modal avería */}
       <Dialog open={averiaModal} onOpenChange={open => !open && setAveriaModal(false)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">Marcar avería</DialogTitle>
           </DialogHeader>
@@ -514,7 +514,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
           admitiendo gente hasta su aforo antiguo. Aquí se dice y se ofrece
           arreglarlo de una vez. */}
       <Dialog open={!!avisoAforo} onOpenChange={open => !open && setAvisoAforo(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Tienes clases con más plazas que la sala</DialogTitle>
           </DialogHeader>
@@ -582,7 +582,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       {/* Sala con clases: no se puede borrar (FK sesiones.sala_id). En vez del
           diálogo destructivo, explicamos qué hacer. */}
       <Dialog open={!!bloqueada} onOpenChange={open => !open && setBloqueada(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <div className="flex flex-col items-center text-center gap-4 py-2">
             <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
               <AlertTriangle size={20} className="text-destructive" />

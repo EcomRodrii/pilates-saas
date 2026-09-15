@@ -1,128 +1,137 @@
 // A dónde lleva de verdad un enlace a `/configuracion`.
 //
-// Un enlace que aterriza en otra pestaña es peor que no tener enlace: la
-// propietaria pulsa «Ver canjes», ve Recompensas y deja de fiarse del botón.
-// Pasaba con varios a la vez (auditoría del 15-sep): `sub=` solo se leía en
-// «Estudio», los callbacks de OAuth volvían sin `tab=` y su aviso de
-// «conectado» no salía nunca, y `#datos-fiscales` apuntaba a un id que no
-// existía.
+// Un enlace que aterriza en otro sitio es peor que no tener enlace: la
+// propietaria pulsa «Ver canjes», ve otra cosa y deja de fiarse del botón. Pasó
+// con varios a la vez (auditoría del 15-sep).
 //
-// Esta función es la ÚNICA que traduce una URL a pestaña + sub-pestaña. La usa
-// la página al montar y al volver atrás, y la usa el test que recorre el repo
-// buscando cada `/configuracion?` escrito a mano. Cuando Configuración se
-// reorganice, los ids viejos se apuntan aquí a su sitio nuevo (ALIAS_TAB,
-// ALIAS_SUB, ANCLAS) y ningún enlace guardado se rompe.
+// Esta función es la ÚNICA que traduce una URL a sección + tarjeta. La usa la
+// página al montar y al volver atrás, y la usa el test que recorre el repo
+// buscando cada `/configuracion?` escrito a mano.
 //
-// Pura y sin imports: la ejecuta `node --test` directamente.
+// Configuración se reorganizó por preguntas (15-sep): las doce pestañas de antes
+// y sus sub-pestañas son hoy once secciones. Los enlaces viejos siguen vivos en
+// notificaciones ya enviadas, correos, la guía y los callbacks de OAuth, así que
+// cada `tab`/`sub` antiguo apunta aquí a su sección y a su tarjeta. Las anclas
+// salen solas de lib/configuracion/secciones.ts: cuando una tarjeta cambie de
+// sección, sus enlaces la siguen sin tocar nada aquí.
+//
+// Pura: la ejecuta `node --test` directamente.
 
-/**
- * Las pestañas de hoy y sus sub-pestañas, en el orden en que se ven. Una lista
- * vacía = la pestaña no tiene sub-navegación. El primer id es el que abre por
- * defecto. Los componentes de cada pestaña tipan sus `SUBS` contra esto, y el
- * test comprueba que no falte ninguna.
- */
-export const SECCIONES_CONFIGURACION = {
-  'clases-salas': ['clases', 'salas'],
-  citas: ['servicios', 'horario'],
-  gamificacion: ['recompensas', 'canjes', 'logros', 'niveles', 'retos'],
-  integraciones: [],
-  // «sedes» solo se pinta con varias sedes o plan Cadena; si no está, la
-  // pestaña cae a «general» sola (tab-estudio.tsx).
-  estudio: ['general', 'sedes', 'horario', 'reservas', 'cobros', 'enlaces', 'legal'],
-  descubre: [],
-  api: ['widgets', 'crecimiento'],
-  campos: [],
-  'cuestionario-salud': [],
-  plantillas: [],
-  backups: [],
-  perfil: [],
-} as const satisfies Record<string, readonly string[]>;
-
-export type TabConfiguracion = keyof typeof SECCIONES_CONFIGURACION;
-export type SubDe<T extends TabConfiguracion> = (typeof SECCIONES_CONFIGURACION)[T][number];
-
-export const TAB_POR_DEFECTO: TabConfiguracion = 'clases-salas';
+import {
+  SECCIONES, esSeccionId, esTarjetaId, seccionAnfitriona,
+  type RolConfiguracion, type SeccionConfiguracion, type SeccionId, type TarjetaId,
+} from './secciones.ts';
 
 export type Destino =
   | { redirect: string }
-  | { tab: TabConfiguracion; sub?: string; ancla?: string };
+  /** `tab: null` = ninguna sección: en el móvil, la lista; en pantalla ancha, la primera. */
+  | { tab: SeccionId | null; ancla?: string };
 
-type Seccion = { tab: TabConfiguracion; sub?: string };
+type Lugar = { tab: SeccionId; ancla?: string };
 
-// Ids de `?tab=` que ya no son una pestaña, y dónde viven hoy:
-// - Recompensas/Logros/Niveles/Retos se unificaron en «gamificacion».
-// - Clases/Salas en «clases-salas»; Servicios/Horario de citas en «citas».
-// - «Crecimiento web» fue pestaña propia (Fase 8) y ahora está dentro de API.
-// - Los alias escritos a partir de lo que SE VE en la pestaña (#848): el id
-//   interno de «Emails» es «plantillas», el de «Mi perfil» es «perfil»...
-const ALIAS_TAB: Record<string, Seccion> = {
-  recompensas: { tab: 'gamificacion', sub: 'recompensas' },
-  canjes: { tab: 'gamificacion', sub: 'canjes' },
-  logros: { tab: 'gamificacion', sub: 'logros' },
-  niveles: { tab: 'gamificacion', sub: 'niveles' },
-  retos: { tab: 'gamificacion', sub: 'retos' },
-  clases: { tab: 'clases-salas', sub: 'clases' },
-  salas: { tab: 'clases-salas', sub: 'salas' },
-  'servicios-cita': { tab: 'citas', sub: 'servicios' },
-  'horario-citas': { tab: 'citas', sub: 'horario' },
-  'crecimiento-web': { tab: 'api', sub: 'crecimiento' },
-  'campos-de-cliente': { tab: 'campos' },
-  emails: { tab: 'plantillas' },
-  'copias-de-seguridad': { tab: 'backups' },
-  'mi-perfil': { tab: 'perfil' },
-  salud: { tab: 'cuestionario-salud' },
-  cuestionario: { tab: 'cuestionario-salud' },
+const en = (ancla: TarjetaId): Lugar => ({ tab: seccionAnfitriona(ancla), ancla });
+
+// `?tab=` que ya no es una sección. Van los ids de las doce pestañas de antes y
+// los alias que ya existían entonces (#848): lo que SE VEÍA en la pestaña.
+// ⚠️ `estudio` y `clases` coinciden con ids de hoy y por eso no están aquí:
+// mandan como sección nueva.
+const LEGADO_TAB: Record<string, Lugar> = {
+  'clases-salas': { tab: 'clases' },
+  citas: en('servicios-de-cita'),
+  'servicios-cita': en('servicios-de-cita'),
+  'horario-citas': en('horario-de-citas'),
+  salas: en('salas'),
+  gamificacion: { tab: 'motivacion' },
+  recompensas: en('recompensas'),
+  canjes: en('canjes'),
+  logros: en('logros'),
+  niveles: en('niveles'),
+  retos: en('retos'),
+  integraciones: { tab: 'conexiones' },
+  descubre: en('contenido-de-tu-app'),
+  api: en('widgets'),
+  'crecimiento-web': en('widgets'),
+  campos: en('datos-extra-de-la-ficha'),
+  'campos-de-cliente': en('datos-extra-de-la-ficha'),
+  'cuestionario-salud': en('cuestionario-de-salud'),
+  salud: en('cuestionario-de-salud'),
+  cuestionario: en('cuestionario-de-salud'),
+  plantillas: en('correos-automaticos'),
+  emails: en('correos-automaticos'),
+  backups: en('exportar'),
+  'copias-de-seguridad': en('exportar'),
 };
 
-// Sub-pestañas que se buscaron donde no estaban. `estudio/salas` lo escribía el
-// calendario («márcalo en Salas»), y Salas vive en «Clases y salas».
-const ALIAS_SUB: Record<string, Seccion> = {
-  'estudio/salas': { tab: 'clases-salas', sub: 'salas' },
+// `tab/sub` de las sub-pestañas de antes. `estudio/salas` lo escribía el
+// calendario («márcalo en Salas») cuando Salas vivía en otra pestaña.
+const LEGADO_SUB: Record<string, Lugar> = {
+  'estudio/general': { tab: 'estudio' },
+  'estudio/sedes': en('sedes'),
+  'estudio/horario': en('horario-y-cierres'),
+  'estudio/reservas': { tab: 'reservas' },
+  'estudio/cobros': { tab: 'cobros' },
+  'estudio/enlaces': en('direccion-y-enlaces'),
+  'estudio/legal': en('contrato-y-privacidad'),
+  'estudio/salas': en('salas'),
+  'clases-salas/clases': en('tipos-de-clase'),
+  'clases-salas/salas': en('salas'),
+  'citas/servicios': en('servicios-de-cita'),
+  'citas/horario': en('horario-de-citas'),
+  'gamificacion/recompensas': en('recompensas'),
+  'gamificacion/canjes': en('canjes'),
+  'gamificacion/logros': en('logros'),
+  'gamificacion/niveles': en('niveles'),
+  'gamificacion/retos': en('retos'),
+  'api/widgets': en('widgets'),
+  'api/crecimiento': en('widgets'),
 };
 
 // Lo que ya no está en Configuración. «Planes y tarifas» se gestiona solo en
-// Paquetes desde el 13-sep: eran dos pantallas para la misma tabla.
+// Paquetes desde el 13-sep; «Mi perfil» tiene su propia pantalla, a la que
+// llegan todos los roles.
 const REDIRECCION_TAB: Record<string, string> = {
   planes: '/productos',
+  perfil: '/mi-perfil',
+  'mi-perfil': '/mi-perfil',
 };
 
-// Un ancla con sección propia: el id solo existe dentro de esa sub-pestaña, así
-// que el ancla manda sobre el `tab=` que venga (si no, se hace scroll a nada).
-const ANCLAS: Record<string, Seccion> = {
-  'datos-fiscales': { tab: 'estudio', sub: 'general' },
-};
-
-// Los avisos de vuelta de una conexión (OAuth, Embedded Signup de WhatsApp)
-// solo los pinta la pestaña Integraciones: si la URL trae uno, se abre esa,
-// venga el `tab=` que venga — si no, el aviso no sale nunca.
-const PARAMS_DE_INTEGRACIONES = [
-  'stripe_connected', 'stripe_connect_error',
-  'gmail_connected', 'gmail_error',
-  'google_calendar_connected', 'google_calendar_error',
-  'zoom_connected', 'zoom_error',
-  'klaviyo_connected', 'klaviyo_error',
-  'whatsapp_connected',
+// Los avisos de vuelta de una conexión (OAuth, Embedded Signup de WhatsApp) los
+// pinta el componente que tiene esa tarjeta: si la URL trae uno, se abre su
+// sección venga el `tab=` que venga — si no, el aviso no sale nunca.
+const PARAMS_DE_CONEXION: [string, TarjetaId][] = [
+  ['stripe_connected', 'integracion-stripe'], ['stripe_connect_error', 'integracion-stripe'],
+  ['gmail_connected', 'integracion-gmail'], ['gmail_error', 'integracion-gmail'],
+  ['google_calendar_connected', 'integracion-google_calendar'], ['google_calendar_error', 'integracion-google_calendar'],
+  ['zoom_connected', 'integracion-zoom'], ['zoom_error', 'integracion-zoom'],
+  ['klaviyo_connected', 'mas-integraciones'], ['klaviyo_error', 'mas-integraciones'],
+  ['whatsapp_connected', 'integracion-whatsapp'],
 ];
 
-function esTab(v: string): v is TabConfiguracion {
-  return Object.hasOwn(SECCIONES_CONFIGURACION, v);
-}
+/** Cada tarjeta, con la sección donde se pinta hoy. Derivado: nadie lo escribe a mano. */
+export const ANCLAS: Readonly<Record<string, SeccionId>> = Object.fromEntries(
+  SECCIONES.flatMap(s => s.tarjetas.map(t => [t.id, seccionAnfitriona(t.id)] as const)),
+);
 
-function esSubDe(tab: TabConfiguracion, sub: string): boolean {
-  return (SECCIONES_CONFIGURACION[tab] as readonly string[]).includes(sub);
-}
-
-/** ¿`tab` es una pestaña de hoy o un id viejo que sabemos a dónde llevar? */
+/** ¿`tab` es una sección, un id viejo que sabemos a dónde llevar, o algo que ya vive fuera? */
 export function reconoceTab(tab: string): boolean {
-  return esTab(tab) || Object.hasOwn(ALIAS_TAB, tab) || Object.hasOwn(REDIRECCION_TAB, tab);
+  return esSeccionId(tab) || Object.hasOwn(LEGADO_TAB, tab) || Object.hasOwn(REDIRECCION_TAB, tab);
+}
+
+/** ¿Esa sub-pestaña vieja tiene sitio hoy? */
+export function reconoceSub(tab: string, sub: string): boolean {
+  return Object.hasOwn(LEGADO_SUB, `${tab}/${sub}`);
+}
+
+export function esAnclaConocida(ancla: string): boolean {
+  return esTarjetaId(ancla);
 }
 
 /**
- * Traduce la URL de `/configuracion` a la pestaña que hay que abrir.
+ * Traduce la URL de `/configuracion` a la sección que hay que abrir.
  *
- * Nunca falla: un `tab` desconocido abre la pestaña por defecto y un `sub`
- * desconocido la sub-pestaña por defecto (el componente decide cuál). Lo que sí
- * garantiza es que todo lo que conoce llega a su sitio.
+ * Nunca falla: lo desconocido abre la lista (`tab: null`). Lo que sí garantiza
+ * es que todo lo que conoce llega a su sitio, y que un ancla conocida manda
+ * sobre el `tab=` que venga (si no, se haría scroll a nada).
  */
 export function resolverDestino(entrada: {
   tab?: string | null;
@@ -134,7 +143,7 @@ export function resolverDestino(entrada: {
     ? entrada.params
     : new URLSearchParams(entrada.params ?? {});
   const tab = entrada.tab ?? '';
-  const subPedida = entrada.sub ?? '';
+  const sub = entrada.sub ?? '';
 
   // Stripe Checkout volvía aquí con `?suscripcion=ok|cancel`, que no leía
   // nadie. Ya vuelve a /suscripcion; esto recoge las sesiones que se abrieron
@@ -145,25 +154,19 @@ export function resolverDestino(entrada: {
   }
   if (Object.hasOwn(REDIRECCION_TAB, tab)) return { redirect: REDIRECCION_TAB[tab] };
 
-  let seccion: Seccion;
-  if (PARAMS_DE_INTEGRACIONES.some(p => params.has(p))) {
-    seccion = { tab: 'integraciones' };
-  } else if (esTab(tab)) {
-    seccion = { tab };
-    if (subPedida) {
-      if (esSubDe(tab, subPedida)) seccion.sub = subPedida;
-      else if (Object.hasOwn(ALIAS_SUB, `${tab}/${subPedida}`)) seccion = { ...ALIAS_SUB[`${tab}/${subPedida}`] };
-    }
-  } else if (Object.hasOwn(ALIAS_TAB, tab)) {
-    seccion = { ...ALIAS_TAB[tab] };
-  } else {
-    seccion = { tab: TAB_POR_DEFECTO };
-  }
+  let lugar: Lugar | null = null;
+  const conexion = PARAMS_DE_CONEXION.find(([p]) => params.has(p));
+  if (conexion) lugar = en(conexion[1]);
+  else if (sub && reconoceSub(tab, sub)) lugar = { ...LEGADO_SUB[`${tab}/${sub}`] };
+  else if (esSeccionId(tab)) lugar = { tab };
+  else if (Object.hasOwn(LEGADO_TAB, tab)) lugar = { ...LEGADO_TAB[tab] };
 
   const ancla = (entrada.hash ?? '').replace(/^#/, '');
-  if (!/^[a-z0-9][a-z0-9-]*$/i.test(ancla)) return seccion;
-  if (Object.hasOwn(ANCLAS, ancla)) return { ...ANCLAS[ancla], ancla };
-  return { ...seccion, ancla };
+  if (/^[a-z0-9][a-z0-9_-]*$/i.test(ancla)) {
+    if (esTarjetaId(ancla)) return en(ancla);
+    if (lugar) return { tab: lugar.tab, ancla };
+  }
+  return lugar ?? { tab: null };
 }
 
 /** Lo mismo, a partir de una URL entera (`/configuracion?tab=…#…`). */
@@ -177,9 +180,12 @@ export function resolverHref(href: string): Destino {
   });
 }
 
-/** La URL canónica de una sección, la que la página escribe al elegirla. */
-export function hrefDeSeccion(tab: TabConfiguracion, sub?: string): string {
-  return sub && esSubDe(tab, sub)
-    ? `/configuracion?tab=${tab}&sub=${sub}`
-    : `/configuracion?tab=${tab}`;
+/** La URL canónica de una sección (y de una tarjeta suya), la que escribe la página. */
+export function hrefDeSeccion(tab: SeccionId, ancla?: string): string {
+  return `/configuracion?tab=${tab}${ancla ? `#${ancla}` : ''}`;
+}
+
+/** Las secciones que un rol puede abrir, en el orden de la lista. */
+export function seccionesVisibles(rol: RolConfiguracion | string): SeccionConfiguracion[] {
+  return SECCIONES.filter(s => (s.roles as readonly string[]).includes(rol));
 }

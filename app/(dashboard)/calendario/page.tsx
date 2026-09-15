@@ -3743,7 +3743,7 @@ export default function Calendario() {
           {/* ⚠️ El ejemplo de este campo era «reformer averiado», y aquí eso no
               hace nada: es una nota de texto. Quien de verdad baja el aforo de
               todas las clases de esa sala es «Averías de máquina»
-              (Configuración → Salas), y con el ejemplo anterior la propietaria
+              (en Salas, dentro de Configuración), y con el ejemplo anterior la propietaria
               escribía la avería aquí, se quedaba tranquila y seguía vendiendo
               una plaza que no existía. Dos cosas con el mismo vocabulario y
               distinto efecto: ahora esta se queda con lo que sí resuelve y

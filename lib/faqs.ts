@@ -15,7 +15,7 @@ export const FAQS: FaqItem[] = [
   { categoria: 'Reservas', pregunta: '¿Qué pasa si una clase está completa?', respuesta: 'La clienta entra automáticamente en lista de espera. Si se libera una plaza (cancelación), sube la primera de la lista y se le notifica.' },
   { categoria: 'Reservas', pregunta: '¿Puedo cancelar una clase y avisar a los inscritos?', respuesta: 'Sí, desde Calendario > clase > Cancelar. Se marca como cancelada y las clientas con reserva reciben un aviso.' },
   { categoria: 'Planes y cobros', pregunta: '¿Cómo creo un nuevo plan o bono?', respuesta: 'En Paquetes > Crear. Define nombre, tipo (mensual, bono o puntual), precio y sesiones incluidas.' },
-  { categoria: 'Planes y cobros', pregunta: '¿Cómo cobro a una clienta?', respuesta: 'Desde Cobros > Quién me debe puedes marcar un recibo como cobrado manualmente, o conectar Stripe en Configuración > Integraciones para cobros automáticos con tarjeta guardada.' },
+  { categoria: 'Planes y cobros', pregunta: '¿Cómo cobro a una clienta?', respuesta: 'Desde Cobros > Quién me debe puedes marcar un recibo como cobrado manualmente, o conectar Stripe en Configuración > Cobros y facturas para cobros automáticos con tarjeta guardada.' },
   { categoria: 'Planes y cobros', pregunta: '¿Se generan facturas automáticamente?', respuesta: 'Sí, cada cobro genera su factura correspondiente, disponible en Cobros > Facturas y descargable en PDF.' },
   // ⚠️ Aquí vivían las dos preguntas de "Portal de clientas". El portal de la
   // alumna se retiró, y una ayuda que sigue mandando a una pantalla que ya no
@@ -23,13 +23,13 @@ export const FAQS: FaqItem[] = [
   // tres rondas cazando: la dueña lo lee, se lo repite a su clienta, y la
   // manda a la nada. Se sustituyen por lo que SÍ es cierto hoy.
   { categoria: 'Reservas', pregunta: '¿Cómo se apunta una clienta nueva?', respuesta: 'Sola, desde tu página pública de reservas: solo necesita su email. Tú no tienes que darla de alta ni enviarle nada. Si prefieres hacerlo tú, la das de alta desde Clientas > Nueva clienta.' },
-  { categoria: 'Gamificación', pregunta: '¿Qué son los créditos y cómo se ganan?', respuesta: 'Recompensan acciones como asistir a clase, completar una semana o renovar un plan. Tú decides cuántos créditos vale cada una en Configuración > Logros y motivación > Recompensas.' },
-  { categoria: 'Gamificación', pregunta: '¿Para qué sirven los créditos?', respuesta: 'Las clientas los canjean por recompensas de tu catálogo (Configuración > Logros y motivación > Recompensas > Catálogo de recompensas) — una clase gratis, merchandising, lo que tú ofrezcas.' },
-  { categoria: 'Gamificación', pregunta: '¿Cómo funcionan los logros?', respuesta: 'Se desbloquean automáticamente al alcanzar un umbral (ej. 10 clases asistidas). Los defines en Configuración > Logros y motivación > Logros, con su icono y créditos de regalo.' },
-  { categoria: 'Gamificación', pregunta: '¿Y los niveles (Bronce, Plata...)?', respuesta: 'Se calculan sobre el total histórico de créditos ganados por la clienta. Configúralos en Configuración > Logros y motivación > Niveles — nombres, colores y umbrales son totalmente tuyos.' },
+  { categoria: 'Gamificación', pregunta: '¿Qué son los créditos y cómo se ganan?', respuesta: 'Recompensan acciones como asistir a clase, completar una semana o renovar un plan. Tú decides cuántos créditos vale cada una en Configuración > Motivación > Cómo funcionan tus créditos.' },
+  { categoria: 'Gamificación', pregunta: '¿Para qué sirven los créditos?', respuesta: 'Las clientas los canjean por recompensas de tu catálogo (Configuración > Motivación > Recompensas) — una clase gratis, merchandising, lo que tú ofrezcas.' },
+  { categoria: 'Gamificación', pregunta: '¿Cómo funcionan los logros?', respuesta: 'Se desbloquean automáticamente al alcanzar un umbral (ej. 10 clases asistidas). Los defines en Configuración > Motivación > Logros, con su icono y créditos de regalo.' },
+  { categoria: 'Gamificación', pregunta: '¿Y los niveles (Bronce, Plata...)?', respuesta: 'Se calculan sobre el total histórico de créditos ganados por la clienta. Configúralos en Configuración > Motivación > Niveles — nombres, colores y umbrales son totalmente tuyos.' },
   { categoria: 'Gamificación', pregunta: '¿Qué es la racha?', respuesta: 'Cuenta las semanas consecutivas en las que la clienta ha asistido a al menos una clase. Se muestra en su Home y le avisa si está en riesgo de perderla.' },
   { categoria: 'Automatización', pregunta: '¿Qué hace el sistema autónomo / Automatizaciones?', respuesta: 'Detecta situaciones (clientas inactivas, clientas nuevas que no reservan, pagos pendientes...) y sugiere o ejecuta las acciones que tú enciendas. El recordatorio de clase no hay que activarlo: Tentare lo manda de serie.' },
   { categoria: 'Equipo', pregunta: '¿Puedo dar acceso a mi equipo?', respuesta: 'Sí, en Equipo puedes invitar instructoras o recepción con permisos distintos a los tuyos como propietaria.' },
-  { categoria: 'Cuenta', pregunta: '¿Cómo cambio los datos de mi estudio?', respuesta: 'En Configuración > Estudio > General: nombre, NIF, dirección, logo y, desde «El color de tu marca», tu color.' },
+  { categoria: 'Cuenta', pregunta: '¿Cómo cambio los datos de mi estudio?', respuesta: 'En Configuración > Mi estudio: nombre, NIF, dirección, logo y, desde «El color de tu marca», tu color.' },
 ];
 

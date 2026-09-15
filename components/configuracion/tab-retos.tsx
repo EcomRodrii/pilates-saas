@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Target, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import { useStudio } from '@/lib/studio-context';
 import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
 import { estadoReto } from '@/lib/engines/challenge-engine';
@@ -66,18 +67,18 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
   const ordenados = [...challengeDefinitions].sort((a, b) => b.fechaInicio.localeCompare(a.fechaInicio));
 
   return (
-    <div className="space-y-4 max-w-3xl">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Target size={16} className="text-brand-secondary" />
-          <h3 className="text-[14px] font-semibold text-foreground">Retos</h3>
-        </div>
+    <TarjetaAjuste
+      id="retos"
+      marco={false}
+      acciones={
         <button onClick={openNuevo} className={btnPrimary}>
-          <Plus size={14} /> Nuevo reto
+          <Plus size={14} aria-hidden /> Nuevo reto
         </button>
-      </div>
+      }
+    >
+    <div className="space-y-4">
       <p className="text-[12px] text-muted-foreground">
-        A diferencia de un logro, un reto tiene fecha de inicio y fin — solo cuenta lo que pasa dentro de ese periodo.
+        A diferencia de un logro, un reto no dura para siempre.
       </p>
 
       {ordenados.length === 0 ? (
@@ -85,7 +86,7 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
           <p className="text-[13px] text-muted-foreground">Aún no hay retos configurados.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 @md/config:grid-cols-2 gap-3">
           {ordenados.map(c => {
             const est = estadoReto(c, false, now);
             const badge = ESTADO_LABEL[est];
@@ -130,7 +131,7 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
                 <Field label="Icono"
-                  description="Un emoji. Es la cara del reto en la app de la clienta."
+                  description="Un emoji. Es la cara del reto en la app de la alumna."
                 >
                   <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
                 </Field>
@@ -218,7 +219,7 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
           <DialogHeader>
             <DialogTitle>Eliminar reto</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este reto? El progreso de las clientas en él se perderá.</p>
+          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este reto? El progreso de las alumnas en él se perderá.</p>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setBorrarId(null)} className={btnSecondary}>Cancelar</button>
             <button onClick={confirmarBorrar} className="px-4 py-2 rounded-xl bg-destructive text-white text-[13px] font-semibold hover:bg-red-700">Eliminar</button>
@@ -226,5 +227,6 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
         </DialogContent>
       </Dialog>
     </div>
+    </TarjetaAjuste>
   );
 }

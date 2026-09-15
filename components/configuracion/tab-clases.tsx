@@ -269,7 +269,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 @xl/config:grid-cols-2 @4xl/config:grid-cols-3">
         {tiposClase.map(tc => (
           <TarjetaTipoClase
             key={tc.id}

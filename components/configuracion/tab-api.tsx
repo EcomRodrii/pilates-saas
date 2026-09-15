@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Building2, Calendar, CalendarCheck, Check, Clock, ClipboardCheck, Code2, Copy, Plug, type LucideIcon } from 'lucide-react';
+import { Building2, Calendar, CalendarCheck, Check, Clock, ClipboardCheck, Code2, Copy, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeGestionarAppsOAuth } from '@/lib/permisos';
 import { authHeader } from '@/lib/api-client';
-import { Field, ColorInput, Toggle, cardCls } from '@/components/configuracion/estilos';
+import { Field, ColorInput, Toggle, cardCls, inputCls } from '@/components/configuracion/estilos';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { TabCrecimientoWeb } from '@/components/configuracion/tab-crecimiento-web';
 import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
@@ -18,7 +18,7 @@ import { luminancia } from '@/lib/reservar/apariencia-widget';
 import { SelectorFuente } from '@/components/ui/selector-fuente';
 import { scriptSnippetIframe } from '@/lib/reservar/snippet-embed';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
-import type { SubDe } from '@/lib/configuracion/destino';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
 const COLOR_WIDGET_POR_DEFECTO = '#343825';
 
@@ -58,7 +58,7 @@ const COLOR_WIDGET_POR_DEFECTO = '#343825';
 const WIDGETS = [
   { id: 'clases', tabParam: 'clases', nombre: 'Horario y reserva de clases', desc: 'El calendario en vivo. Reservan sin salir de tu web.', alto: 640, requiereSesion: false, modo: 'iframe' },
   { id: 'citas', tabParam: 'citas', nombre: 'Citas', desc: 'Para servicios con hora concreta (valoraciones, sesiones 1 a 1...). Usa los servicios de cita que ya tengas configurados.', alto: 640, requiereSesion: false, modo: 'iframe' },
-  { id: 'misreservas', tabParam: 'misreservas', nombre: 'Mis reservas', desc: 'Para clientas ya dadas de alta: ven y cancelan sus reservas sin entrar en la app completa.', alto: 520, requiereSesion: false, modo: 'iframe' },
+  { id: 'misreservas', tabParam: 'misreservas', nombre: 'Mis reservas', desc: 'Para alumnas ya dadas de alta: ven y cancelan sus reservas sin entrar en la app completa.', alto: 520, requiereSesion: false, modo: 'iframe' },
   { id: 'estudio', tabParam: 'estudio', nombre: 'El estudio', desc: 'Descripción, horario general y políticas — para tu página "Sobre nosotras".', alto: 480, requiereSesion: false, modo: 'iframe' },
   { id: 'clase-concreta', tabParam: 'clases', nombre: 'Reserva esta clase', desc: 'Apunta directo a una clase concreta — para un post, una story o un newsletter, en vez de al calendario entero.', alto: 640, requiereSesion: true, modo: 'iframe' },
   { id: 'embed-script', tabParam: 'clases', nombre: 'Calendario embebido (integración directa)', desc: 'El mismo calendario, pero integrado de verdad en tu web — sin marco ni recuadro, con tu tipografía alrededor. Requiere autorizar tu dominio en «Personaliza».', alto: 0, requiereSesion: false, modo: 'script' },
@@ -421,62 +421,50 @@ function CampoColor({ etiqueta, descripcion, valor, porDefecto, onChange }: {
   );
 }
 
-// "Crecimiento web" vivía como pestaña propia de primer nivel (Fase 8) — se
-// mueve aquí dentro porque es la misma superficie de negocio que "API": el
-// widget público es el canal, esto es su cuadro de mando. Es una sub-pestaña
-// más (`?tab=api&sub=crecimiento`): los ids salen de lib/configuracion/destino.ts,
-// y así un `?tab=crecimiento-web` antiguo aterriza aquí y recargar no la pierde.
-type Seccion = SubDe<'api'>;
+// «Cómo le va a tu página» (antes «Crecimiento web», una pestaña propia en la
+// Fase 8) vive dentro de la misma tarjeta: el widget público es el canal y
+// esto es su cuadro de mando. Un enlace viejo `?tab=api&sub=crecimiento` abre
+// esta tarjeta (lib/configuracion/destino.ts).
+type Vista = 'widgets' | 'crecimiento';
 
-export function TabApi({ showToast, sub: subInicial, onSubChange }: { showToast: (m: string) => void; sub?: string; onSubChange?: (sub: Seccion) => void }) {
+export function TabApi({ showToast }: { showToast: (m: string) => void }) {
   const { studio } = useStudio();
   const rol = useRol();
-  const [seccion, setSeccionLocal] = useState<Seccion>(subInicial === 'crecimiento' ? 'crecimiento' : 'widgets');
-  const setSeccion = (s: Seccion) => { setSeccionLocal(s); onSubChange?.(s); };
+  const [vista, setVista] = useState<Vista>('widgets');
 
   if (!studio?.slug) return null;
 
   return (
-    // max-w-5xl (no el max-w-2xl del resto de pestañas de una columna): el
-    // builder es un layout de dos columnas config + preview/código, y a 2xl la
-    // vista previa quedaba aplastada en ~250px.
-    <div className="space-y-5 max-w-5xl">
-      <div>
-        <h2 className="text-[16px] font-semibold text-foreground">API</h2>
-        <p className="text-[13px] text-muted-foreground mt-0.5">
-          Pon Tentare en tu propia web: seis widgets, uno por cada cosa que
-          hace tu estudio, y qué tal les está yendo.
-        </p>
-      </div>
-      <div className="flex gap-1.5">
-        <button
-          onClick={() => setSeccion('widgets')}
-          className={cn(
-            'px-3 py-1.5 rounded-full text-[12px] font-semibold border transition-colors',
-            seccion === 'widgets' ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
-          )}
-        >
-          Widgets
-        </button>
-        <button
-          onClick={() => setSeccion('crecimiento')}
-          className={cn(
-            'px-3 py-1.5 rounded-full text-[12px] font-semibold border transition-colors',
-            seccion === 'crecimiento' ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
-          )}
-        >
-          Crecimiento web
-        </button>
-      </div>
-      {seccion === 'widgets' ? (
-        <>
-          <WidgetEmbebible slug={studio.slug} showToast={showToast} />
-          {puedeGestionarAppsOAuth(rol) && <AppsConectadas showToast={showToast} />}
-        </>
-      ) : (
-        <TabCrecimientoWeb showToast={showToast} />
-      )}
-    </div>
+    <>
+      {/* Ancha (`ancho: 'amplio'` en secciones.ts): el constructor es config +
+          vista previa/código, y en una columna estrecha la vista previa quedaba
+          aplastada en ~250px. */}
+      <TarjetaAjuste id="widgets" marco={false}>
+        <div className="space-y-5">
+          <div role="group" aria-label="Qué ver" className="flex flex-wrap gap-1.5">
+            {([['widgets', 'Widgets'], ['crecimiento', 'Cómo le va a tu página']] as const).map(([id, etiqueta]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setVista(id)}
+                aria-pressed={vista === id}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-[12px] font-semibold border transition-colors',
+                  vista === id ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+                )}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+          {vista === 'widgets'
+            ? <WidgetEmbebible slug={studio.slug} showToast={showToast} />
+            : <TabCrecimientoWeb showToast={showToast} />}
+        </div>
+      </TarjetaAjuste>
+      {/* Su sitio es «Conexiones», que tiene una fila que trae hasta aquí. */}
+      {puedeGestionarAppsOAuth(rol) && <AppsConectadas showToast={showToast} />}
+    </>
   );
 }
 
@@ -502,8 +490,9 @@ function AppsConectadas({ showToast }: { showToast: (m: string) => void }) {
       const headers = await authHeader();
       const res = await fetch('/api/oauth/consentimientos', { headers });
       if (!res.ok || cancelado) return;
-      const data = await res.json();
-      if (!cancelado) setApps(data.apps);
+      const data = await res.json() as { apps?: unknown };
+      // Una respuesta sin `apps` no puede tumbar la sección entera.
+      if (!cancelado) setApps(Array.isArray(data.apps) ? data.apps as AppConectada[] : []);
     })();
     return () => { cancelado = true; };
   }, []);
@@ -525,14 +514,7 @@ function AppsConectadas({ showToast }: { showToast: (m: string) => void }) {
   if (apps === null) return null;
 
   return (
-    <div className={cn(cardCls, 'p-6')}>
-      <div className="flex items-center gap-2 mb-1">
-        <Plug size={15} className="text-muted-foreground" />
-        <h3 className="text-[14px] font-semibold text-foreground">Aplicaciones conectadas</h3>
-      </div>
-      <p className="text-[12px] text-muted-foreground mb-4">
-        Apps de terceros — como Zapier (conecta Tentare con miles de otras apps sin programar) — con permiso para acceder a los datos de tu estudio.
-      </p>
+    <TarjetaAjuste id="aplicaciones-con-acceso">
       {apps.length === 0 ? (
         <p className="text-[12px] text-muted-foreground">Ninguna aplicación conectada todavía.</p>
       ) : (
@@ -554,7 +536,7 @@ function AppsConectadas({ showToast }: { showToast: (m: string) => void }) {
           ))}
         </div>
       )}
-    </div>
+    </TarjetaAjuste>
   );
 }
 
@@ -756,14 +738,13 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
 
   return (
     <div className={cn(cardCls, 'p-6')}>
-      <h3 className="text-[14px] font-semibold text-foreground mb-1">Widgets para tu web</h3>
       <p className="text-[12px] text-muted-foreground mb-5">
         Elige cuál quieres y pega su código en WordPress, Squarespace, Wix o
         en el HTML de tu web si la has hecho con código propio.
       </p>
 
       <BloqueSeccion titulo="Elige tu widget">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 @md/config:grid-cols-2 gap-2">
           {WIDGETS.map(w => {
             const Icono = WIDGET_ICONOS[w.id];
             const seleccionado = activo === w.id;
@@ -798,7 +779,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
 
       <div className="h-px bg-border my-6" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-x-8 gap-y-6">
+      <div className="grid grid-cols-1 @3xl/config:grid-cols-[360px_1fr] gap-x-8 gap-y-6">
         <div className="space-y-7 min-w-0">
           {(conFiltros || widget.requiereSesion) && (
             <BloqueSeccion titulo="Elige qué mostrar">
@@ -809,7 +790,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
                       <select
                         value={sesionElegida}
                         onChange={e => setSesionElegida(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground"
+                        className={inputCls}
                       >
                         <option value="">Elige una clase próxima…</option>
                         {proximasSesiones.map(s => {
@@ -835,12 +816,12 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
                 {conFiltros && (
                   <>
                     <FilaAjuste
-                      etiqueta="Filtro de tiempo inicial"
-                      descripcion="Con qué ventana de días abre el calendario en tu web."
+                      etiqueta="Qué días enseña al abrir"
+                      descripcion="Con qué días abre el calendario en tu web."
                     >
                       <Pills
-                        label="Filtro de tiempo inicial"
-                        opciones={[{ valor: 'todo', nombre: 'Mostrar todo' }, { valor: 'hoy', nombre: 'Hoy' }] as const}
+                        label="Qué días enseña al abrir"
+                        opciones={[{ valor: 'todo', nombre: 'Todos los próximos' }, { valor: 'hoy', nombre: 'Solo hoy' }] as const}
                         valor={config.vista}
                         onChange={v => cambiar({ vista: v })}
                       />
@@ -922,7 +903,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
                 onChange={v => cambiar({ marca: v })}
               />
               <CampoColor
-                etiqueta="Color negro"
+                etiqueta="Color del texto"
                 descripcion="El color del texto principal — para una web oscura, uno claro."
                 valor={config.negro}
                 porDefecto={MODO_TOKENS.dia.ink}
@@ -967,7 +948,9 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
 
         <div className="space-y-6 min-w-0">
           <BloqueSeccion titulo="Vista previa">
-            <div className="rounded-xl border border-border bg-background overflow-y-auto" style={{ maxHeight: 640 }}>
+            {/* `data-vista-previa`: lo de dentro tiene que ser idéntico a lo que ve la
+                visitante, así que no le llega el tamaño táctil de Configuración. */}
+            <div data-vista-previa="" className="rounded-xl border border-border bg-background overflow-y-auto" style={{ maxHeight: 640 }}>
               {widget.modo === 'script' ? (
                 <PreviewWidgetScript slug={slug} config={configEfectiva} />
               ) : listo ? (
@@ -1192,7 +1175,8 @@ function GestionDominios({ dominios, onGuardar, showToast }: {
           onChange={e => setNuevo(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); anadir(); } }}
           placeholder="midominio.com"
-          className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground"
+          aria-label="Dominio que quieres autorizar"
+          className={cn(inputCls, 'flex-1')}
         />
         <button
           onClick={anadir}

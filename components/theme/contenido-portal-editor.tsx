@@ -214,7 +214,7 @@ function BannerPanel({ banner, onToast }: { banner: BannerPortal; onToast: (m: s
         </button>
         <input ref={fileRef} type="file" accept="image/*" onChange={handleFoto} className="hidden" />
         <div className="flex flex-col items-center gap-2 shrink-0 ml-auto">
-          <Toggle on={banner.activo} onChange={v => guardarCampo({ activo: v })} />
+          <Toggle on={banner.activo} onChange={v => guardarCampo({ activo: v })} ariaLabel="Banner visible en su app" />
           <button type="button" onClick={() => setConfirmDel(true)} className="text-muted-foreground hover:text-destructive" aria-label="Eliminar banner">
             <Trash2 size={16} />
           </button>
@@ -312,7 +312,7 @@ function NovedadPanel({ novedad, onToast }: { novedad: NovedadEstudio; onToast: 
           onChange={e => guardarCampo({ emoji: e.target.value || null })}
         />
         <div className="flex flex-col items-center gap-2 shrink-0 ml-auto">
-          <Toggle on={novedad.activo} onChange={v => guardarCampo({ activo: v })} />
+          <Toggle on={novedad.activo} onChange={v => guardarCampo({ activo: v })} ariaLabel="Aviso visible en su app" />
           <button type="button" onClick={() => setConfirmDel(true)} className="text-muted-foreground hover:text-destructive" aria-label="Eliminar aviso">
             <Trash2 size={16} />
           </button>

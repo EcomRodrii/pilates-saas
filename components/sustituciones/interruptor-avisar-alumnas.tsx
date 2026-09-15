@@ -54,7 +54,8 @@ export function InterruptorAvisarAlumnas({ guardado, onGuardado, className }: {
         <button
           type="button" role="switch" aria-checked={!!guardado} aria-busy={enviando}
           disabled={bloqueado} onClick={cambiar}
-          className={cn('relative w-9 h-5 rounded-full transition-colors shrink-0 disabled:opacity-60', guardado ? 'bg-brand' : 'bg-muted')}
+          // `before:-inset-3`: el área que se toca llega a 44 px sin cambiar el dibujo.
+          className={cn('relative w-9 h-5 rounded-full transition-colors shrink-0 disabled:opacity-60 before:absolute before:-inset-3 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50', guardado ? 'bg-brand' : 'bg-muted')}
         >
           <span className={cn('absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform', guardado && 'translate-x-4')} />
         </button>

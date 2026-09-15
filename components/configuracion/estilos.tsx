@@ -12,13 +12,23 @@ import { NOMBRE_TIPO_PLAN } from '@/lib/planes/formulario';
 // cada pestaña importaba de la página que a su vez la carga: un ciclo.
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
+//
+// ⚠️ Táctil primero. Con el dedo (`pointer: coarse`: móvil y también el iPad de
+// recepción, que es `md` o más ancho) los campos miden 44 px y el texto 16 px:
+// por debajo de 16 px iOS amplía la página al enfocar un campo y la deja
+// descolocada. Con ratón (`pointer: fine`) vuelven a la densidad de escritorio.
+// Se usa la variante de media y NO `md:`, porque el iPad es ancho y táctil a la
+// vez. El anillo de foco es el token `ring` (se ve en claro y en oscuro); el de
+// antes, `black/10`, no se veía en ninguno de los dos.
+const FOCO = 'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+
 export const inputCls =
-  'rounded-lg border border-border px-3 py-2 text-[13px] w-full focus:outline-none focus:ring-2 focus:ring-black/10';
+  `rounded-lg border border-border bg-card px-3 py-2 w-full min-h-11 text-base [@media(pointer:fine)]:min-h-9 [@media(pointer:fine)]:text-[13px] ${FOCO}`;
 export const labelCls = 'text-[12px] font-medium text-foreground block mb-1';
 export const btnPrimary =
-  'bg-brand text-brand-foreground rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
+  `bg-brand text-brand-foreground rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 min-h-11 [@media(pointer:fine)]:min-h-9 hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${FOCO}`;
 export const btnSecondary =
-  'bg-card border border-border rounded-lg px-4 py-2 text-[13px] text-foreground hover:bg-muted transition-colors';
+  `bg-card border border-border rounded-lg px-4 py-2 text-[13px] text-foreground min-h-11 [@media(pointer:fine)]:min-h-9 hover:bg-muted transition-colors ${FOCO}`;
 export const cardCls = 'bg-card border border-border rounded-xl';
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
@@ -70,16 +80,26 @@ export function Field({
   );
 }
 
+// Un interruptor de verdad: `role="switch"` con `aria-checked`, para que un
+// lector de pantalla diga «activado/desactivado» (con `aria-pressed` decía
+// «botón, pulsado», que no es lo mismo) y la barra espaciadora lo cambie.
+//
+// El dibujo sigue midiendo 20×36; lo que se puede tocar llega a 44 px con un
+// `::before` invisible. `-inset-3.5` y no `-inset-3`: el pseudo-elemento se
+// coloca desde el borde de dentro, y el borde de 2 px se comería la diferencia.
 export function Toggle({ on, onChange, ariaLabel, disabled }: { on: boolean; onChange: (v: boolean) => void; ariaLabel?: string; disabled?: boolean }) {
   return (
     <button
       type="button"
+      role="switch"
       onClick={() => { if (!disabled) onChange(!on); }}
       disabled={disabled}
-      aria-pressed={on}
+      aria-checked={on}
       aria-label={ariaLabel}
       className={cn(
         'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
+        'before:absolute before:-inset-3.5',
+        'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
         on ? 'bg-primary' : 'bg-muted-foreground/40',
         disabled && 'opacity-40 cursor-not-allowed'
       )}

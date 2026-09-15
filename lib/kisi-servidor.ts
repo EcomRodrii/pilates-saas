@@ -28,7 +28,7 @@ export async function abrirPuertaDelEstudio(studioId: string): Promise<Resultado
     if (r.locks.length > 1) {
       return {
         ok: false,
-        error: 'Tienes varias cerraduras en Kisi: indica el ID de la puerta del estudio en Configuración → Integraciones → Kisi',
+        error: 'Tienes varias cerraduras en Kisi: indica el ID de la puerta del estudio en Configuración → Conexiones → Kisi',
         status: 400,
       };
     }

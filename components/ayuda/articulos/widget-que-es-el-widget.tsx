@@ -1,25 +1,21 @@
 import Link from 'next/link';
-import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
 import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
-// Reescrito el 28-ago-2026 tras verificar en vivo Configuración > API >
-// Widgets: no es un único widget, son seis, generados y personalizados desde
-// el panel, con vista previa en directo y el código ya listo para copiar.
+// Reescrito el 28-ago-2026 tras verificar en vivo la pestaña de widgets: no es
+// un único widget, son seis, generados y personalizados desde el panel, con
+// vista previa en directo y el código ya listo para copiar.
+//
+// 15-sep-2026: Configuración se reorganizó por preguntas y los widgets están en
+// «Mi app y mi web». La captura enseñaba la fila de pestañas de antes y se quitó.
 export default function Contenido() {
   return (
     <>
       <p>
-        Desde Configuración &gt; API tienes seis widgets distintos para tu web, cada uno para una cosa: un
-        calendario en vivo, tus citas, «mis reservas» para clientas ya dadas de alta, la ficha de tu estudio, el
-        enlace directo a una clase concreta, y una versión sin marco ni recuadro para quien quiera integrarlo del
-        todo en su diseño.
+        Desde Configuración &gt; Mi app y mi web &gt; Widgets para tu web tienes seis widgets distintos para tu web,
+        cada uno para una cosa: un calendario en vivo, tus citas, «mis reservas» para alumnas ya dadas de alta, la
+        ficha de tu estudio, el enlace directo a una clase concreta, y una versión sin marco ni recuadro para quien
+        quiera integrarlo del todo en su diseño.
       </p>
-
-      <AyudaCaptura
-        src="/help/widget/configuracion-api-dominios.png"
-        alt="Configuración > API > Widgets: los seis tipos de widget disponibles, con vista previa en directo"
-        caption="Configuración &gt; API &gt; Widgets — elige, personaliza y copia."
-      />
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>El más habitual: Horario y reserva de clases</h2>
       <p>

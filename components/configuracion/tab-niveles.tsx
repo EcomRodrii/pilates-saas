@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Medal, Plus, Pencil, Trash2, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, Sparkles } from 'lucide-react';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import { useStudio } from '@/lib/studio-context';
 import type { LevelDefinition } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -63,23 +64,23 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
   }
 
   return (
-    <div className="space-y-4 max-w-3xl">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Medal size={16} className="text-brand-secondary" />
-          <h3 className="text-[14px] font-semibold text-foreground">Niveles</h3>
-        </div>
-        <div className="flex gap-2">
+    <TarjetaAjuste
+      id="niveles"
+      marco={false}
+      acciones={
+        <>
           <button onClick={cargarSugeridos} className={btnSecondary}>
-            <Sparkles size={14} className="inline mr-1" />Cargar sugeridos
+            <Sparkles size={14} className="inline mr-1" aria-hidden />Cargar sugeridos
           </button>
           <button onClick={openNuevo} className={btnPrimary}>
-            <Plus size={14} /> Nuevo nivel
+            <Plus size={14} aria-hidden /> Nuevo nivel
           </button>
-        </div>
-      </div>
+        </>
+      }
+    >
+    <div className="space-y-4">
       <p className="text-[12px] text-muted-foreground">
-        El nivel se calcula sobre el total histórico de créditos ganados por la clienta, no sobre su saldo — canjear recompensas nunca le hace bajar de nivel.
+        Se calcula sobre el total histórico de créditos ganados por la alumna, no sobre su saldo.
       </p>
 
       {ordenados.length === 0 ? (
@@ -121,7 +122,7 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
                 <Field label="Icono"
-                  description="Un emoji. Acompaña al nombre del nivel en el perfil de la clienta."
+                  description="Un emoji. Acompaña al nombre del nivel en el perfil de la alumna."
                 >
                   <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
                 </Field>
@@ -183,7 +184,7 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
           <DialogHeader>
             <DialogTitle>Eliminar nivel</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este nivel? Las clientas que lo tengan alcanzado pasarán a mostrarse en el nivel inmediatamente inferior.</p>
+          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este nivel? Las alumnas que lo tengan alcanzado pasarán a mostrarse en el nivel inmediatamente inferior.</p>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setBorrarId(null)} className={btnSecondary}>Cancelar</button>
             <button onClick={confirmarBorrar} className="px-4 py-2 rounded-xl bg-destructive text-white text-[13px] font-semibold hover:bg-red-700">Eliminar</button>
@@ -191,5 +192,6 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
         </DialogContent>
       </Dialog>
     </div>
+    </TarjetaAjuste>
   );
 }

@@ -45,7 +45,7 @@ export const PASOS_TOUR: PasoTour[] = [
   {
     id: 'configuracion', selector: 'configuracion-vista', ruta: '/configuracion',
     titulo: 'Configuración',
-    descripcion: 'Clases, salas, integraciones y todo lo demás que define cómo funciona tu estudio en Tentare. Las tarifas están en Paquetes.',
+    descripcion: 'Cómo funciona tu estudio, por preguntas: tus clases, cómo reservan tus alumnas, cómo cobras y qué ven en su app. Las tarifas están en Paquetes.',
   },
 ];
 

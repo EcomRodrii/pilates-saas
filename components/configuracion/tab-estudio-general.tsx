@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect, useId, useRef } from 'react';
+import { useState, useEffect, useId, useRef } from 'react';
 import Link from 'next/link';
-import { Palette, ChevronRight, RotateCcw } from 'lucide-react';
+import { Palette, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
@@ -17,12 +17,18 @@ import {
 } from '@/lib/portal-storage';
 import { fetchThemeBorrador, fetchThemePublicado, guardarThemeBorrador } from '@/lib/api-client';
 import type { Studio } from '@/lib/types';
-import { inputCls, labelCls, btnSecondary, cardCls } from '@/components/configuracion/estilos';
+import { inputCls, labelCls, btnSecondary } from '@/components/configuracion/estilos';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
-// Quién es el estudio (identidad + fiscal) + los dos ajustes de una sola
-// línea (IVA, recargar datos) que no merecen sub-pestaña propia. Todo lo
-// demás de la antigua "Estudio" (sedes, política de reservas, SEPA, enlaces,
-// legal) vive ahora en su propia sub-pestaña — ver tab-estudio.tsx.
+// Quién es el estudio: datos y contacto, marca, los textos de su app y los
+// datos fiscales, con un solo «Guardar». Se pinta en «Mi estudio»; la marca y
+// los textos tienen su sitio en «Mi app y mi web» y los datos fiscales en
+// «Cobros y facturas», y allí hay una fila que trae hasta aquí mientras este
+// formulario no se parta (lib/configuracion/secciones.ts, `hospedadaEn`).
+//
+// «Recargar datos» se quitó (15-sep): volvía a leer del servidor, no borraba ni
+// cambiaba nada, y en una pantalla de ajustes solo hacía dudar de si lo demás
+// estaba guardado.
 //
 // ─── Cómo está agrupado, y por qué ───────────────────────────────────────────
 //
@@ -85,28 +91,6 @@ function studioToForm(s: Studio | null): StudioForm {
 
 // ─── Piezas ──────────────────────────────────────────────────────────────────
 
-function Tarjeta({
-  id,
-  titulo,
-  ayuda,
-  children,
-}: {
-  /** Ancla para enlazar directo a la tarjeta (`#datos-fiscales`). */
-  id?: string;
-  titulo: string;
-  ayuda?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    // scroll-mt: la barra superior fija del móvil taparía el título al bajar.
-    <section id={id} className={cn(cardCls, 'p-6 scroll-mt-20')}>
-      <h3 className="text-[14px] font-semibold text-foreground">{titulo}</h3>
-      {ayuda && <p className="mt-1 mb-4 text-[12px] leading-relaxed text-muted-foreground">{ayuda}</p>}
-      <div className={ayuda ? '' : 'mt-4'}>{children}</div>
-    </section>
-  );
-}
-
 /**
  * Campo de texto con etiqueta ASOCIADA de verdad.
  *
@@ -143,7 +127,7 @@ function Campo({
 // ─── La pantalla ─────────────────────────────────────────────────────────────
 
 export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => void }) {
-  const { resetDatosPilates, studio, updateStudio } = useStudio();
+  const { studio, updateStudio } = useStudio();
   const rol = useRol();
   const [form, setForm] = useState<StudioForm>(() => studioToForm(studio));
   // Lo último que se sabe del servidor. Lo que difiere de aquí es lo tecleado,
@@ -206,11 +190,6 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
   }
 
   const hayCambios = formularioCambiado(form, base);
-
-  const handleReset = useCallback(() => {
-    resetDatosPilates();
-    showToast('Datos recargados');
-  }, [resetDatosPilates, showToast]);
 
   async function guardarEstudio() {
     if (guardandoRef.current) return;
@@ -321,19 +300,76 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
 
   return (
     <div className="max-w-2xl space-y-5 pb-24">
-      {/* ─── Tu marca ─── */}
-      <Tarjeta
-        titulo="Tu marca"
-        ayuda="El nombre y el color con los que te reconocen tus alumnas: en su app y en tu página de reservas."
-      >
-        <div className="space-y-5">
-          <Campo label="Nombre del estudio" ayuda="El nombre comercial, el que usa todo el mundo. La razón social va en los datos fiscales.">
+      {/* ─── Datos y contacto ─── */}
+      <TarjetaAjuste id="datos-y-contacto">
+        <div className="grid grid-cols-1 gap-5 @md/config:grid-cols-2">
+          <Campo label="Nombre del estudio" className="@md/config:col-span-2" ayuda="El nombre comercial, el que usa todo el mundo. La razón social va en los datos fiscales.">
             {id => (
               <input id={id} className={inputCls} value={form.nombre}
                 onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
             )}
           </Campo>
+          <Campo label="Teléfono">
+            {id => (
+              <input id={id} className={inputCls} type="tel" value={form.telefono}
+                onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+            )}
+          </Campo>
+          <Campo label="Email de contacto">
+            {id => (
+              <input id={id} className={inputCls} type="email" value={form.email}
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            )}
+          </Campo>
+          {/* La web va aquí y no con las redes: no es una red social, es un
+              dato de contacto —hermano del teléfono y el email— y la usan
+              sitios que no cargan el tema, empezando por el pie de tus
+              correos. Ver lib/canales-estudio.ts. */}
+          <Campo
+            label="Web"
+            className="@md/config:col-span-2"
+            ayuda={webNoResuelve
+              ? 'No parece una dirección web: no se verá en tu página ni en tus correos.'
+              : undefined}
+          >
+            {id => (
+              <input
+                id={id}
+                className={inputCls}
+                value={form.sitioWeb}
+                placeholder={CANALES.web.placeholder}
+                onChange={e => setForm(f => ({ ...f, sitioWeb: e.target.value }))}
+              />
+            )}
+          </Campo>
+          <Campo label="Dirección" className="@md/config:col-span-2">
+            {id => (
+              <input id={id} className={inputCls} value={form.direccion}
+                onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
+            )}
+          </Campo>
+          <Campo label="Ciudad">
+            {id => (
+              <input id={id} className={inputCls} value={form.ciudad}
+                onChange={e => setForm(f => ({ ...f, ciudad: e.target.value }))} />
+            )}
+          </Campo>
+          <Campo label="Código postal">
+            {id => (
+              <input id={id} className={inputCls} inputMode="numeric" value={form.codigoPostal}
+                onChange={e => setForm(f => ({ ...f, codigoPostal: e.target.value }))} />
+            )}
+          </Campo>
+        </div>
+      </TarjetaAjuste>
 
+      {/* ─── Marca ───
+          Logo y favicon se guardan SOLOS al subirlos, sin la barra de Guardar,
+          y el color se cambia en Apariencia: nada de esta tarjeta espera al
+          botón. Por eso el nombre del estudio, que sí lo espera, no está aquí
+          (mezclar los dos modelos en una tarjeta es la trampa de #1971). */}
+      <TarjetaAjuste id="marca">
+        <div className="space-y-5">
           <Link
             href="/configuracion/apariencia/panel"
             className="flex items-center justify-between rounded-xl border border-border px-3.5 py-3 transition-colors hover:bg-muted"
@@ -351,20 +387,10 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
             </span>
             <ChevronRight size={15} className="shrink-0 text-muted-foreground" />
           </Link>
-        </div>
-      </Tarjeta>
 
-      {/* ─── Logo y favicon ───
-          Tarjeta propia porque se guardan SOLOS al subirlos, sin la barra de
-          Guardar. En la misma tarjeta que el nombre, nadie sabía qué había
-          quedado guardado y qué no (#1971). */}
-      <Tarjeta
-        titulo="Logo y favicon"
-        ayuda="Se guardan en cuanto los subes, sin pulsar Guardar. Salen en la app de tus alumnas, en tu página de reservas y en el icono de las notificaciones que les llegan."
-      >
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 @md/config:grid-cols-2">
           <div className="space-y-1.5">
-            <p className={labelCls}>Logo</p>
+            <h4 className={labelCls}>Logo</h4>
             {/* Sin `respaldo`: el logo es la marca del estudio y no tiene
                 imagen por defecto que valga — una genérica sería la marca de
                 otro. Sin logo, la miniatura dice «Sin imagen», que aquí es
@@ -389,7 +415,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
           </div>
 
           <div className="space-y-1.5">
-            <p className={labelCls}>Favicon</p>
+            <h4 className={labelCls}>Favicon</h4>
             {puedeEditarFavicon ? (
               <>
                 {/* Tampoco lleva `respaldo`, por el mismo motivo que el logo:
@@ -431,74 +457,12 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
               </p>
             )}
           </div>
+          </div>
         </div>
-      </Tarjeta>
+      </TarjetaAjuste>
 
-      {/* ─── Contacto ─── */}
-      <Tarjeta
-        titulo="Contacto y dirección"
-        ayuda="Por dónde te encuentran y te escriben. Sale en tu página de reservas y en el pie de tus correos."
-      >
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Campo label="Teléfono">
-            {id => (
-              <input id={id} className={inputCls} type="tel" value={form.telefono}
-                onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
-            )}
-          </Campo>
-          <Campo label="Email de contacto">
-            {id => (
-              <input id={id} className={inputCls} type="email" value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-            )}
-          </Campo>
-          {/* La web va aquí y no en «Marca y colores» junto a las redes: no es
-              una red social, es un dato de contacto —hermano del teléfono y el
-              email— y la usan sitios que no cargan el tema, empezando por el
-              pie de tus correos. Ver lib/canales-estudio.ts. */}
-          <Campo
-            label="Web"
-            className="sm:col-span-2"
-            ayuda={webNoResuelve
-              ? 'No parece una dirección web: no se verá en tu página ni en tus correos.'
-              : undefined}
-          >
-            {id => (
-              <input
-                id={id}
-                className={inputCls}
-                value={form.sitioWeb}
-                placeholder={CANALES.web.placeholder}
-                onChange={e => setForm(f => ({ ...f, sitioWeb: e.target.value }))}
-              />
-            )}
-          </Campo>
-          <Campo label="Dirección" className="sm:col-span-2">
-            {id => (
-              <input id={id} className={inputCls} value={form.direccion}
-                onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
-            )}
-          </Campo>
-          <Campo label="Ciudad">
-            {id => (
-              <input id={id} className={inputCls} value={form.ciudad}
-                onChange={e => setForm(f => ({ ...f, ciudad: e.target.value }))} />
-            )}
-          </Campo>
-          <Campo label="Código postal">
-            {id => (
-              <input id={id} className={inputCls} inputMode="numeric" value={form.codigoPostal}
-                onChange={e => setForm(f => ({ ...f, codigoPostal: e.target.value }))} />
-            )}
-          </Campo>
-        </div>
-      </Tarjeta>
-
-      {/* ─── Copy público ─── */}
-      <Tarjeta
-        titulo="Lo que leen tus alumnas"
-        ayuda="Textos tuyos, no ajustes. Cada uno tiene su sitio, y si lo dejas vacío ese bloque no se pinta."
-      >
+      {/* ─── Textos de tu app ─── */}
+      <TarjetaAjuste id="textos-de-tu-app">
         <div className="space-y-5">
           <Campo
             label="Cómo te presentas"
@@ -609,16 +573,16 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
             )}
           </Campo>
         </div>
-      </Tarjeta>
+      </TarjetaAjuste>
 
-      {/* ─── Fiscal ─── */}
+      {/* ─── Datos fiscales e IVA ─── */}
       {/* `datos-fiscales`: lo enlaza «Poner mi NIF ahora» de Cobros → Facturas. */}
-      <Tarjeta
-        id="datos-fiscales"
-        titulo="Datos fiscales"
-        ayuda={<>Lo que sale impreso en tus facturas. Los precios se tratan como <span className="font-medium text-foreground">IVA incluido</span>: el tipo solo cambia el desglose base/cuota, nunca el total que cobras.</>}
-      >
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <TarjetaAjuste id="datos-fiscales">
+        <p className="mb-4 text-[12px] leading-relaxed text-muted-foreground">
+          Los precios se tratan como <span className="font-medium text-foreground">IVA incluido</span>: el tipo solo
+          cambia el desglose base/cuota, nunca el total que cobras.
+        </p>
+        <div className="grid grid-cols-1 gap-5 @md/config:grid-cols-2">
           <Campo label="Razón social" ayuda="El nombre legal, si no coincide con el comercial.">
             {id => (
               <input id={id} className={inputCls} value={form.razonSocial}
@@ -645,7 +609,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
               NIF que estuvieras escribiendo. */}
           <Campo
             label="IVA general"
-            className="sm:col-span-2"
+            className="@md/config:col-span-2"
             ayuda="Se aplica a las próximas facturas desde que guardas. Las ya emitidas y selladas (Veri*Factu) no cambian."
           >
             {id => (
@@ -663,33 +627,15 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
             )}
           </Campo>
         </div>
-      </Tarjeta>
-
-      {/* Recargar datos: NO borra nada, solo vuelve a leer del servidor. Antes se
-          llamaba "Restablecer datos de demo" y avisaba de una pérdida irreversible
-          que nunca ocurría — el pánico lo causaba el texto, no la acción. */}
-      <Tarjeta
-        titulo="Recargar datos"
-        ayuda="Vuelve a leer socias, sesiones y pagos desde el servidor. No borra ni cambia nada."
-      >
-        <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 p-4">
-          <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-foreground">Sincronizar con el servidor</p>
-            <p className="mt-0.5 text-[12px] text-muted-foreground">Útil si algo no se ha actualizado en pantalla.</p>
-          </div>
-          <button onClick={handleReset} className={cn(btnSecondary, 'ml-4 flex shrink-0 items-center gap-1.5')}>
-            <RotateCcw size={12} />
-            Recargar
-          </button>
-        </div>
-      </Tarjeta>
+      </TarjetaAjuste>
 
       {/* ─── Barra de guardado ───
-          Solo aparece con cambios sin guardar. `sticky bottom-0` y no `fixed`:
-          se queda dentro de la columna del panel, sin taparle nada al sidebar
-          ni pelearse con la barra inferior del móvil. */}
+          Solo aparece con cambios sin guardar. `sticky` y no `fixed`: se queda
+          dentro de la columna del panel, sin taparle nada al sidebar. Por encima
+          de la barra de navegación del móvil (56 px + zona segura, `fixed
+          bottom-0 z-30`): pegada a 0 quedaba debajo de ella. */}
       {hayCambios && (
-        <div className="sticky bottom-0 -mx-1 px-1 pb-1">
+        <div className="sticky z-20 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] -mx-1 px-1 pb-1 lg:bottom-4">
           <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur">
             <p className="min-w-0 text-[12.5px] text-muted-foreground">
               Tienes cambios sin guardar.

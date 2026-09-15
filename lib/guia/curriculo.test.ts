@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CAPITULOS, NIVELES, capituloPorId } from './curriculo.ts';
+import { SECCIONES, esTarjetaId } from '../configuracion/secciones.ts';
 import { calcularProgresoGuia } from './progreso.ts';
 import { calcularOnboarding, type DatosOnboarding } from '../onboarding.ts';
 
@@ -22,10 +23,13 @@ import { calcularOnboarding, type DatosOnboarding } from '../onboarding.ts';
 
 const RAIZ = join(import.meta.dirname, '..', '..');
 
-/** Los ids de pestaña que `/configuracion` acepta de verdad. */
+/**
+ * Las secciones que `/configuracion` abre de verdad. La guía usa las de hoy, no
+ * los ids viejos que destino.ts todavía sabe traducir: un enlace nuevo escrito
+ * con un id viejo funcionaría, pero enseña a copiar lo que ya no existe.
+ */
 function tabsDeConfiguracion(): string[] {
-  const fuente = readFileSync(join(RAIZ, 'app/(dashboard)/configuracion/page.tsx'), 'utf8');
-  return [...fuente.matchAll(/id: '([a-z-]+)'/g)].map(m => m[1]);
+  return SECCIONES.map(s => s.id);
 }
 
 /** Un estudio recién creado: nada configurado. */
@@ -80,14 +84,20 @@ test('⚠️ todos los enlaces de la guía apuntan a una ruta que existe', () =>
         assert.ok(accion.tour, `${cap.id}: «${accion.label}» no lleva a ningún sitio ni hace nada`);
         continue;
       }
-      const [ruta, query] = accion.href.split('?');
+      const [sinAncla, ancla] = accion.href.split('#');
+      const [ruta, query] = sinAncla.split('?');
 
-      // 1) La pestaña de configuración tiene que existir. Este es el fallo real
-      //    que tenía el ⌘K: `?tab=salas` cae en la pestaña por defecto y la
+      // 1) La sección de configuración tiene que existir. Este es el fallo real
+      //    que tenía el ⌘K: `?tab=salas` cae en la pantalla por defecto y la
       //    propietaria cree que el botón no funciona.
       const tab = new URLSearchParams(query ?? '').get('tab');
       if (ruta === '/configuracion' && tab && !tabs.includes(tab)) {
         rotos.push(`${cap.id}: «${accion.label}» → ?tab=${tab} no existe (válidos: ${tabs.join(', ')})`);
+        continue;
+      }
+      // Y la tarjeta a la que baja, también: un ancla que no existe no baja a nada.
+      if (ruta === '/configuracion' && ancla && !esTarjetaId(ancla)) {
+        rotos.push(`${cap.id}: «${accion.label}» → #${ancla} no es ninguna tarjeta de Configuración`);
         continue;
       }
 

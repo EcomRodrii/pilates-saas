@@ -159,7 +159,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Lo que leen tus alumnas',
-        texto: 'En Configuración → Estudio → General escribes tu nombre, tu logo, tu teléfono y tu dirección, pero también los textos que aparecen en su app: cómo te presentas, tu lema, la frase de bienvenida y las normas del centro. No son adornos: son lo primero que lee alguien que todavía no te conoce.',
+        texto: 'En Configuración → Mi estudio escribes tu nombre, tu logo, tu teléfono y tu dirección, pero también los textos que aparecen en su app: cómo te presentas, tu lema, la frase de bienvenida y las normas del centro. No son adornos: son lo primero que lee alguien que todavía no te conoce.',
       },
       {
         titulo: 'Tu horario de apertura',
@@ -179,9 +179,9 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Configurar mis salas', href: '/configuracion?tab=clases-salas&sub=salas' },
-      { label: 'Datos y textos de mi estudio', href: '/configuracion?tab=estudio&sub=general' },
-      { label: 'Mi horario de apertura', href: '/configuracion?tab=estudio&sub=horario' },
+      { label: 'Configurar mis salas', href: '/configuracion?tab=estudio#salas' },
+      { label: 'Datos y textos de mi estudio', href: '/configuracion?tab=estudio' },
+      { label: 'Mi horario de apertura', href: '/configuracion?tab=estudio#horario-y-cierres' },
     ],
     consejo: 'Si bajas la capacidad de una sala, Tentare te avisa de las clases futuras que se quedarían sobrevendidas antes de guardar. Léelo: esas plazas ya están vendidas.',
     pasos: ['salas'],
@@ -274,7 +274,7 @@ export const CAPITULOS: CapituloGuia[] = [
         texto: 'Si tienes una clase a la que no debe apuntarse cualquiera —avanzado, pre y posparto—, puedes marcar que requiere autorización: entonces solo reservan las alumnas a las que se la hayas dado una a una.',
       },
     ],
-    acciones: [{ label: 'Crear un tipo de clase', href: '/configuracion?tab=clases-salas' }],
+    acciones: [{ label: 'Crear un tipo de clase', href: '/configuracion?tab=clases' }],
     consejo: 'Empieza con dos o tres tipos como mucho. Siempre puedes añadir más; lo difícil es reordenar un catálogo de doce cuando ya tienes alumnas reservando.',
     pasos: ['clase'],
   },
@@ -357,8 +357,8 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Ver mi página de reservas', href: '/configuracion?tab=estudio&sub=enlaces' },
-      { label: 'Meter el calendario en mi web', href: '/configuracion?tab=api' },
+      { label: 'Ver mi página de reservas', href: '/configuracion?tab=web#direccion-y-enlaces' },
+      { label: 'Meter el calendario en mi web', href: '/configuracion?tab=web#widgets' },
     ],
     consejo: 'Antes de compartirlo, ábrelo tú desde el móvil y reserva una clase como si fueras una alumna. Es la mejor forma de ver lo que ve ella.',
     pasos: ['reservas', 'primera-reserva'],
@@ -409,7 +409,7 @@ export const CAPITULOS: CapituloGuia[] = [
         texto: 'Todo esto se decide una vez para el estudio entero. Si una clase concreta necesita otra regla, se cambia solo ahí y el resto sigue heredando. No configures clase por clase: configura el estudio y haz excepciones.',
       },
     ],
-    acciones: [{ label: 'Configurar mis reglas de reserva', href: '/configuracion?tab=estudio&sub=reservas' }],
+    acciones: [{ label: 'Configurar mis reglas de reserva', href: '/configuracion?tab=reservas' }],
     consejo: 'Empieza con las reglas de fábrica durante un mes. Cambia solo lo que te haya dado un problema real — es mucho más fácil endurecer una regla que relajarla cuando tus alumnas ya se acostumbraron.',
     pasos: [],
   },
@@ -492,7 +492,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Conectar Stripe', href: '/configuracion?tab=integraciones' },
+      { label: 'Conectar Stripe', href: '/configuracion?tab=cobros#integracion-stripe' },
       { label: 'Ver quién me debe', href: '/cobros' },
     ],
     consejo: 'Antes de cobrarle a nadie de verdad, haz una compra de prueba desde tu propia página con un importe pequeño. Ver el recibo aparecer solo es la mejor forma de fiarte del sistema.',
@@ -572,7 +572,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Tu tablón',
-        texto: 'En «Descubre y tablón» pones el mensaje destacado que ven al entrar y los avisos del estudio. Cada tarjeta nace oculta: no se publica hasta que tú lo dices.',
+        texto: 'En «Contenido de tu app» (Configuración → Mi app y mi web) pones el mensaje destacado que ven al entrar y los avisos del estudio. Cada tarjeta nace oculta: no se publica hasta que tú lo dices.',
       },
       {
         titulo: 'El editor de marca completo, ahora mismo',
@@ -580,9 +580,9 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Personalizar mi tablón', href: '/configuracion?tab=descubre' },
+      { label: 'Personalizar mi tablón', href: '/configuracion?tab=web#contenido-de-tu-app' },
       { label: 'Mis colores y mi menú', href: '/configuracion/apariencia/panel' },
-      { label: 'El enlace de la app de mis alumnas', href: '/configuracion?tab=estudio&sub=enlaces' },
+      { label: 'El enlace de la app de mis alumnas', href: '/configuracion?tab=web#direccion-y-enlaces' },
     ],
     consejo: 'Pídele a una alumna de confianza que la instale y te cuente qué no entiende. Vale más que cualquier cosa que puedas mirar tú desde el panel.',
     pasos: ['portal-contenido', 'marca'],
@@ -605,7 +605,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Lo que hace falta',
-        texto: 'Tu NIF y tu razón social, en Configuración → Estudio → General. El NIF se valida: uno de relleno no cuela. Sin él, Tentare cobra igual pero no emite ninguna factura, y te lo avisa en rojo en la pantalla de Facturas.',
+        texto: 'Tu NIF y tu razón social, en Configuración → Mi estudio, en «Datos fiscales e IVA». El NIF se valida: uno de relleno no cuela. Sin él, Tentare cobra igual pero no emite ninguna factura, y te lo avisa en rojo en la pantalla de Facturas.',
       },
       {
         titulo: 'Se emiten solas',
@@ -621,7 +621,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Poner mis datos fiscales', href: '/configuracion?tab=estudio&sub=general' },
+      { label: 'Poner mis datos fiscales', href: '/configuracion?tab=cobros#datos-fiscales' },
       { label: 'Ver mis facturas', href: '/cobros?tab=facturas' },
       { label: 'Cierre para la gestoría', href: '/cierre' },
     ],
@@ -711,8 +711,8 @@ export const CAPITULOS: CapituloGuia[] = [
     ],
     acciones: [
       { label: 'Activar mis automatizaciones', href: '/automatizaciones' },
-      { label: 'Mis correos', href: '/configuracion?tab=plantillas' },
-      { label: 'Conectar WhatsApp', href: '/configuracion?tab=integraciones' },
+      { label: 'Mis correos', href: '/configuracion?tab=comunicacion#correos-automaticos' },
+      { label: 'Conectar WhatsApp', href: '/configuracion?tab=comunicacion#integracion-whatsapp' },
     ],
     consejo: 'Empieza por recuperar a quien no viene y vive con ello dos semanas. Encender cinco cosas a la vez hace imposible saber cuál funcionó.',
     pasos: ['ausencias', 'nuevas'],

@@ -402,7 +402,7 @@ export async function POST(req: NextRequest) {
     .eq('id', body.studioId)
     .single();
   if (!studio?.stripe_account_id) {
-    return conCorsWidget(req, NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Integraciones antes de cobrar.' }, { status: 409 }));
+    return conCorsWidget(req, NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Cobros y facturas antes de cobrar.' }, { status: 409 }));
   }
 
   // P-1 (auditoría 26ª pasada): la matrícula se cobra la PRIMERA vez que esta

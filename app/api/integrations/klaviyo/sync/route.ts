@@ -70,6 +70,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, sincronizadas: perfiles.length, total: filas.length });
   } catch (err) {
     console.error('[integrations/klaviyo/sync]', err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: 'No se ha podido sincronizar con Klaviyo. Vuelve a conectar la cuenta desde Configuración → Integraciones.' }, { status: 502 });
+    return NextResponse.json({ error: 'No se ha podido sincronizar con Klaviyo. Vuelve a conectar la cuenta desde Configuración → Conexiones.' }, { status: 502 });
   }
 }

@@ -19,7 +19,7 @@ export default function Contenido() {
 
       <ComoSolucionarlo>
         <p style={{ margin: '0 0 12px' }}>Comprueba el número en la ficha de la persona, con el prefijo de país incluido.</p>
-        <p style={{ margin: 0 }}>Si nunca le llega ningún WhatsApp desde Tentare, comprueba en Configuración &gt; Integraciones que tu WhatsApp está conectado — si no lo está, esos avisos se envían solo por email.</p>
+        <p style={{ margin: 0 }}>Si nunca le llega ningún WhatsApp desde Tentare, comprueba en Configuración &gt; Conexiones que tu WhatsApp está conectado — si no lo está, esos avisos se envían solo por email.</p>
       </ComoSolucionarlo>
 
       <AyudaResultado>

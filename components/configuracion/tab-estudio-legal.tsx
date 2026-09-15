@@ -1,13 +1,14 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { faltanDatosFiscales } from '@/lib/legal-textos';
 import { sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import { hayPenalizacionConfigurada } from '@/lib/configuracion/penalizacion-activa';
-import { cardCls } from '@/components/configuracion/estilos';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
+import { esClicNormal, useNavegacionConfig } from '@/components/configuracion/shell/contexto';
 
 type Campo = 'politicaPrivacidad' | 'terminosServicio';
 type LegalForm = Record<Campo, string>;
@@ -29,6 +30,7 @@ const TEXTOS: Record<Campo, { titulo: string; boton: string; guardado: string; a
 
 export function TabEstudioLegal({ showToast }: { showToast: (m: string) => void }) {
   const { studioConfig, updateStudioConfig, studio, tiposClase } = useStudio();
+  const nav = useNavegacionConfig();
   const deConfig = (c: typeof studioConfig): LegalForm => ({
     politicaPrivacidad: c.politicaPrivacidad,
     terminosServicio: c.terminosServicio,
@@ -97,14 +99,14 @@ export function TabEstudioLegal({ showToast }: { showToast: (m: string) => void 
     const ocupado = !!guardando[campo];
     const error = errores[campo];
     return (
-      <div className={cn(cardCls, 'p-6')}>
-        <h3 className="text-[14px] font-semibold text-foreground mb-1">{TEXTOS[campo].titulo}</h3>
+      <div className="border-border [&+&]:mt-6 [&+&]:border-t [&+&]:pt-6">
+        <h4 className="text-sm font-semibold text-foreground mb-1">{TEXTOS[campo].titulo}</h4>
         <p className="text-[12px] text-muted-foreground mb-3">{descripcion}</p>
         {antes}
         <textarea
           rows={8}
           aria-label={TEXTOS[campo].titulo}
-          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-mono text-foreground focus:outline-none focus:border-muted-foreground transition-colors resize-y"
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-base font-mono text-foreground transition-colors resize-y [@media(pointer:fine)]:text-[12px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           value={form[campo]}
           onChange={(e) => escribir(campo, e.target.value)}
         />
@@ -130,27 +132,42 @@ export function TabEstudioLegal({ showToast }: { showToast: (m: string) => void 
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <TarjetaAjuste id="contrato-y-privacidad">
       {pintarDocumento(
         'politicaPrivacidad',
-        'Este texto se muestra a las clientas al registrarse y deben aceptarlo antes de completar la inscripción.',
+        'Se muestra a tus alumnas al registrarse, y tienen que aceptarlo antes de terminar el alta.',
         /* Sin razón social / nombre no se puede identificar al responsable del
-           tratamiento, y lo que firme la clienta no sirve (RGPD art. 13.1.a).
-           Se avisa aquí, que es donde se arregla. */
+           tratamiento, y lo que firme la alumna no sirve (RGPD art. 13.1.a).
+           Se avisa aquí, que es donde se nota. */
         faltanDatosFiscales(studio ?? {}) && (
           <p className="flex items-start gap-2 mb-3 p-2.5 rounded-lg bg-warning/10 text-[12px] text-warning">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" aria-hidden />
             <span>
-              Rellena en Estudio → General la razón social y el NIF: sin ellos este documento no dice quién
-              es el responsable de los datos y no cumple el RGPD.
+              Rellena la razón social y el NIF en{' '}
+              {/* Dentro de Configuración va por el shell, no por el router: ver `irA`. */}
+              <Link
+                href="/configuracion?tab=estudio#datos-fiscales"
+                onClick={e => {
+                  if (!nav || !esClicNormal(e)) return;
+                  e.preventDefault();
+                  nav.irA('estudio', { ancla: 'datos-fiscales', modo: 'push' });
+                }}
+                className="font-semibold underline underline-offset-2"
+              >
+                Mi estudio → Datos fiscales e IVA
+              </Link>
+              : sin ellos este documento no dice quién es el responsable de los datos y no cumple el RGPD.
             </span>
           </p>
         ),
       )}
+      {/* Lo que se guarda al aceptar (`AceptacionContrato`): el texto legal
+          completo tal cual se leyó (`versionTexto`), la fecha y el nombre que
+          escribió al firmar (`firma`, app/portal/[slug]/acceso/registro). */}
       {pintarDocumento(
         'terminosServicio',
-        'Contrato que acepta cada clienta al inscribirse. Queda registrado con su firma digital.',
+        'El contrato que acepta cada alumna al darse de alta. Queda guardado qué texto aceptó, cuándo y el nombre con el que lo aceptó.',
       )}
-    </div>
+    </TarjetaAjuste>
   );
 }

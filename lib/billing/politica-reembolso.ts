@@ -119,7 +119,7 @@ export function evaluarReembolso(
 ): Veredicto {
   if (!politica.activos) {
     return no('DESACTIVADA',
-      'Las devoluciones desde Tentare están desactivadas. Puedes activarlas en Configuración → Estudio → Cobros, o devolver desde Stripe.');
+      'Las devoluciones desde Tentare están desactivadas. Puedes activarlas en Configuración → Cobros y facturas → Devoluciones, o devolver desde Stripe.');
   }
 
   // DEVUELTO antes que el resto: es el caso que más se intenta dos veces (dos

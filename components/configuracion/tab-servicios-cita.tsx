@@ -114,9 +114,11 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between gap-3">
+        {/* «La reservan solas» = `auto_reservable`: es lo que filtra la reserva
+            pública (/reservar) y la tienda de la app de la alumna. */}
         <p className="text-[13px] text-muted-foreground">
           {servicios.length} servicio{servicios.length !== 1 ? 's' : ''} de cita ·{' '}
-          los marcados como <span className="font-medium text-foreground">auto-reservables</span> aparecen en la reserva pública
+          los que <span className="font-medium text-foreground">la reservan solas</span> salen en tu página de reservas y en la app de tus alumnas
         </p>
         <button className={btnPrimary} onClick={openNueva}>
           <Plus size={14} />
@@ -127,15 +129,15 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         {servicios.length === 0 ? (
           <div className="px-5 py-10 text-center text-[13px] text-muted-foreground">
-            No hay servicios de cita. Crea uno (p. ej. &quot;Clase privada&quot;, &quot;Evaluación inicial&quot;) para que las clientas puedan reservarlo.
+            No hay servicios de cita. Crea uno (p. ej. &quot;Clase privada&quot;, &quot;Evaluación inicial&quot;) para que tus alumnas puedan reservarlo.
           </div>
         ) : (
           <>
             {/* Desktop table */}
-            <table className="w-full text-[13px] hidden sm:table">
+            <table className="w-full text-[13px] hidden @xl/config:table">
               <thead>
                 <tr className="border-b border-border">
-                  {['Servicio', 'Tipo', 'Duración', 'Precio', 'Auto-reserva', 'Acciones'].map(h => (
+                  {['Servicio', 'Tipo', 'Duración', 'Precio', 'La reservan solas', 'Acciones'].map(h => (
                     <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                       {h}
                     </th>
@@ -176,7 +178,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
             </table>
 
             {/* Mobile cards */}
-            <div className="sm:hidden divide-y divide-background">
+            <div className="@xl/config:hidden divide-y divide-background">
               {servicios.map(s => (
                 <div key={s.id} className="p-4 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -184,7 +186,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
                     <div className="min-w-0">
                       <p className="font-medium text-foreground text-[14px] truncate">{s.nombre}</p>
                       <p className="text-[12px] text-muted-foreground">
-                        {s.duracionMin} min · {s.precio != null ? `${s.precio} €` : 'sin precio'} · {s.autoReservable ? 'auto-reserva' : 'solo panel'}
+                        {s.duracionMin} min · {s.precio != null ? `${s.precio} €` : 'sin precio'} · {s.autoReservable ? 'la reservan solas' : 'solo desde el panel'}
                       </p>
                     </div>
                   </div>
@@ -205,7 +207,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
 
       {/* Modal */}
       <Dialog open={modal !== null} onOpenChange={open => !open && closeModal()}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">
               {modal === 'nueva' ? 'Nuevo servicio de cita' : 'Editar servicio'}
@@ -214,7 +216,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
           <div className="space-y-3 mt-2">
             <Field
               label="Nombre del servicio"
-              description="Como lo verá la clienta al pedir cita. Ej: «Valoración postural»."
+              description="Como lo verá la alumna al pedir cita. Ej: «Valoración postural»."
             >
               <input className={inputCls} value={form.nombre}
                 onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
@@ -259,18 +261,18 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
             >
               <input className={inputCls} value={form.descripcion}
                 onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
-                placeholder="Breve descripción para la clienta" />
+                placeholder="Breve descripción para la alumna" />
             </Field>
             <div className="flex items-center justify-between pt-1">
               <div>
-                <span className={labelCls}>Auto-reservable</span>
-                <p className="text-[11px] text-muted-foreground -mt-0.5">La clienta puede reservarlo sola en el portal.</p>
+                <span className={labelCls}>Tus alumnas pueden reservarla solas</span>
+                <p className="text-[11px] text-muted-foreground -mt-0.5">Sale en tu página de reservas y en la app de tus alumnas.</p>
               </div>
-              <Toggle on={form.autoReservable} onChange={v => setForm(f => ({ ...f, autoReservable: v }))} />
+              <Toggle on={form.autoReservable} onChange={v => setForm(f => ({ ...f, autoReservable: v }))} ariaLabel="Tus alumnas pueden reservarla solas" />
             </div>
             <div className="flex items-center justify-between">
               <span className={labelCls}>Activo</span>
-              <Toggle on={form.activo} onChange={v => setForm(f => ({ ...f, activo: v }))} />
+              <Toggle on={form.activo} onChange={v => setForm(f => ({ ...f, activo: v }))} ariaLabel="Activo" />
             </div>
           </div>
           <div className="flex gap-2 mt-4">

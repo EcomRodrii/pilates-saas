@@ -278,7 +278,7 @@ function Alta({ mis, onCreado }: { mis: readonly string[]; onCreado: () => void 
           <dd className="font-mono text-foreground">{entregar.password}</dd>
         </dl>
         <p className="mt-2.5 text-[12px] text-muted-foreground">
-          Dile que la cambie en Configuración → Perfil en cuanto entre: mientras no lo
+          Dile que la cambie en Mi perfil en cuanto entre: mientras no lo
           haga, tú también conoces su contraseña y sus acciones no son del todo suyas.
         </p>
         <button

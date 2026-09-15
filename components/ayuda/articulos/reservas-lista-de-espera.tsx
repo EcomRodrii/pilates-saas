@@ -5,8 +5,8 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        La lista de espera viene encendida para todo el estudio (Configuración &gt; Estudio &gt; Reservas y
-        cancelaciones), y cada tipo de clase puede llevarle la contraria: apagarla en unas clases y dejarla en otras
+        La lista de espera viene encendida para todo el estudio (Configuración &gt; Cómo reservan mis
+        alumnas), y cada tipo de clase puede llevarle la contraria: apagarla en unas clases y dejarla en otras
         (ver <Link href="/ayuda/reservas/reglas-de-reserva-por-clase" style={{ color: 'inherit', textDecoration: 'underline' }}>reglas de reserva por tipo de clase</Link>).
       </AyudaAntesDeEmpezar>
 

@@ -138,7 +138,7 @@ test('las frases dicen lo que el estudio tiene guardado, y «Cambiar» lleva a s
   ]);
 
   // La lista de espera vive en «Opciones avanzadas», plegado: «Cambiar» lo abre.
-  const toggleEspera = page.getByRole('button', { name: /Permitir lista de espera/ });
+  const toggleEspera = page.getByRole('switch', { name: /Permitir lista de espera/ });
   await expect(toggleEspera).toBeHidden();
   await fraseDe(page, /lista de espera/).getByRole('link', { name: 'Cambiar' }).click();
   await expect(toggleEspera).toBeVisible();
@@ -177,10 +177,10 @@ for (const fallo of [400, 500, 'red'] as const) {
 
     const frase = fraseDe(page, /Si se cancela una clase entera/);
     await frase.getByRole('link', { name: 'Cambiar' }).click();
-    const toggle = page.getByRole('button', { name: /Devolver la sesión al cancelar una clase entera/ });
+    const toggle = page.getByRole('switch', { name: /Devolver la sesión al cancelar una clase entera/ });
     await expect(toggle).toBeFocused();
     await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
     await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
 
     await guardarPolitica(page).click();
@@ -204,7 +204,7 @@ test('«Guardar» sale bien: la frase cambia', async ({ page }) => {
 
   const frase = fraseDe(page, /Si se cancela una clase entera/);
   await frase.getByRole('link', { name: 'Cambiar' }).click();
-  await page.getByRole('button', { name: /Devolver la sesión al cancelar una clase entera/ }).click();
+  await page.getByRole('switch', { name: /Devolver la sesión al cancelar una clase entera/ }).click();
   await guardarPolitica(page).click();
 
   await expect(page.getByText('Política de reservas guardada')).toBeVisible({ timeout: 15_000 });

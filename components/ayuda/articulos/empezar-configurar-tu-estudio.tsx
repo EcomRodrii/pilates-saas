@@ -5,7 +5,7 @@ export default function Contenido() {
   return (
     <>
       <p>
-        En Configuración &gt; Estudio &gt; General pones los datos que verán tus alumnas y los que necesitas para facturar
+        En Configuración &gt; Mi estudio pones los datos que verán tus alumnas y los que necesitas para facturar
         correctamente: nombre, NIF, dirección, y el color y logo de tu marca.
       </p>
 

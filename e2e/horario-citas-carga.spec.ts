@@ -85,7 +85,7 @@ test.describe('Horario de citas', () => {
     });
 
     await page.goto('/configuracion?tab=horario-citas');
-    await expect(page.getByRole('heading', { name: 'Citas' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Horario de citas', exact: true })).toBeVisible({ timeout: 30_000 });
 
     // Las dos franjas del lunes, con sus horas. Si la tabla no se carga, aquí
     // pone «Sin disponibilidad» y el test cae — que es lo que se busca.

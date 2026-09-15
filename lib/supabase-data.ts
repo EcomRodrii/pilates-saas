@@ -4680,12 +4680,12 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   // Connect. Se corta aquí para que un caller nuevo reciba un error claro en vez
   // de un 42501 a medias con el resto de campos.
   if ('stripeAccountId' in changes || 'sepaIban' in changes || 'sepaAcreedorId' in changes || 'sepaTitular' in changes) {
-    return { ok: false, error: 'La cuenta de cobro se cambia desde Configuración → Cobros e Integraciones.' };
+    return { ok: false, error: 'La cuenta de cobro se cambia desde Configuración → Cobros y facturas.' };
   }
   // Igual con los dominios del widget (migr 20260914011356): van por
   // /api/estudio/widget-dominios, que valida el formato y deja constancia.
   if ('widgetDominiosAutorizados' in changes) {
-    return { ok: false, error: 'Los dominios del widget se cambian desde Configuración → API.' };
+    return { ok: false, error: 'Los dominios del widget se cambian desde Configuración → Mi app y mi web → Widgets para tu web.' };
   }
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;

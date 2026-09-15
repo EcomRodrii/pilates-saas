@@ -74,8 +74,8 @@ async function base(
 
 async function abrirRecompensas(page: Page) {
   await page.goto('/configuracion?tab=gamificacion');
-  await expect(page.getByRole('heading', { name: 'Logros y motivación' })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('tab', { name: 'Recompensas' }).click();
+  // Desde el 15-sep todo Motivación es una sola pantalla, sin sub-pestañas.
+  await expect(page.getByRole('heading', { level: 2, name: 'Motivación' })).toBeVisible({ timeout: 30_000 });
   return page.getByRole('textbox', { name: 'Nombre de tus créditos' });
 }
 

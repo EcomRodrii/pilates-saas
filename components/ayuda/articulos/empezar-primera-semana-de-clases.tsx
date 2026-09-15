@@ -5,7 +5,7 @@ export default function Contenido() {
   return (
     <>
       <AyudaPaso numero={1} titulo="Crea tus salas y tipos de clase">
-        <p>Desde Configuración &gt; Clases y salas: cada sala con su capacidad real, y cada tipo de clase (Reformer, Mat, lo que dé tu estudio).</p>
+        <p>Las salas, cada una con su capacidad real, en Configuración &gt; Mi estudio; los tipos de clase (Reformer, Mat, lo que dé tu estudio), en Configuración &gt; Mis clases y citas.</p>
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Da de alta a tu equipo, si lo tienes">

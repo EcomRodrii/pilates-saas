@@ -330,7 +330,7 @@ export async function POST(req: NextRequest) {
     .eq('id', body.studioId)
     .maybeSingle();
   if (!studio?.stripe_account_id) {
-    return conCorsWidget(req, NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Integraciones antes de cobrar.' }, { status: 409 }));
+    return conCorsWidget(req, NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Cobros y facturas antes de cobrar.' }, { status: 409 }));
   }
   const stripeAccount = studio.stripe_account_id;
 

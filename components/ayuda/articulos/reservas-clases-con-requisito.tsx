@@ -13,7 +13,7 @@ export default function Contenido() {
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Marca la clase">
-        En <strong>Configuración → Clases y salas</strong>, edita el tipo de clase y activa{' '}
+        En <strong>Configuración → Mis clases y citas</strong>, edita el tipo de clase y activa{' '}
         <strong>«Solo para alumnas autorizadas»</strong>.
       </AyudaPaso>
 

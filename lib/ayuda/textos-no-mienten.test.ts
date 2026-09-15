@@ -40,11 +40,17 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
   { patron: /\bDashboard\b/, ahora: 'la entrada del menú se llama Inicio' },
   { patron: /Tentare Core/, ahora: 'la instructora trabaja en la app del estudio' },
   { patron: new RegExp(`Configuración${FLECHA}Suscripción`), ahora: 'Suscripción es su propia entrada del menú, no una pestaña' },
-  // «Logros» a secas era la pestaña vieja; «Logros y motivación» es la de hoy.
-  { patron: new RegExp(`Configuración${FLECHA}(?:Recompensas|Niveles|Retos|Logros(?! y motivación))\\b`), ahora: 'van dentro de Configuración > Logros y motivación' },
-  { patron: new RegExp(`Configuración${FLECHA}Reservas`), ahora: 'es Configuración > Estudio > Reservas y cancelaciones' },
+  // Configuración se reorganizó por preguntas el 15-sep: las pestañas de antes
+  // («Logros y motivación», «Estudio», «API»…) ya no existen.
+  { patron: new RegExp(`Configuración${FLECHA}(?:Recompensas|Niveles|Retos|Logros)\\b`), ahora: 'van dentro de Configuración > Motivación' },
+  { patron: /Logros y motivación/, ahora: 'la sección se llama Motivación' },
+  { patron: new RegExp(`Configuración${FLECHA}Reservas`), ahora: 'es Configuración > Cómo reservan mis alumnas' },
+  {
+    patron: new RegExp(`Configuración${FLECHA}(?:Estudio|Clases y salas|Citas|Integraciones|API|Emails|Descubre y tablón|Campos de clienta|Cuestionario de salud|Copias de seguridad)\\b`),
+    ahora: 'es una sección de hoy (lib/configuracion/secciones.ts): Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Conexiones o Datos y seguridad',
+  },
   // Tres textos que mentían sobre lo que HACE el producto, no sobre dónde está.
-  { patron: /Avisar a las alumnas por email/, ahora: 'el aviso llega por email y en su app, y se cambia en Configuración > Estudio > Reservas y cancelaciones' },
+  { patron: /Avisar a las alumnas por email/, ahora: 'el aviso llega por email y en su app, y se cambia en Configuración > Cómo reservan mis alumnas' },
   { patron: /lista de espera se activa por tipo de clase/, ahora: 'viene encendida para todo el estudio y cada tipo de clase puede apagarla' },
   { patron: /Devolver la\s+sesión al cancelar tú una clase/, ahora: 'se llama «Devolver la sesión al cancelar una clase entera» y decide también el mínimo de asistentes y el cierre' },
 ];

@@ -28,7 +28,12 @@ async function authHeader(): Promise<Record<string, string>> {
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
-export function ExportarDatosEstudio({ id, className }: { id?: string; className?: string }) {
+export function ExportarDatosEstudio({ id, className, sinCabecera = false }: {
+  id?: string;
+  className?: string;
+  /** Dentro de una tarjeta que ya pone su título y su explicación (Configuración → Datos y seguridad). */
+  sinCabecera?: boolean;
+}) {
   const [exportando, setExportando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLElement>(null);
@@ -63,15 +68,8 @@ export function ExportarDatosEstudio({ id, className }: { id?: string; className
     }
   }
 
-  return (
-    <section ref={ref} id={id} aria-labelledby={id ? `${id}-titulo` : undefined} className={cn('space-y-3 scroll-mt-6', className)}>
-      <div className="flex items-center gap-2">
-        <Download size={16} className="text-brand-secondary" aria-hidden="true" />
-        <h3 id={id ? `${id}-titulo` : undefined} className="text-[14px] font-semibold text-foreground">Exportar datos del estudio</h3>
-      </div>
-      <p className="text-[12px] text-muted-foreground">
-        Un CSV por tabla con los datos de todo el estudio, listo para abrir en Excel o llevarte a otra plataforma. No incluye ficha clínica ni notas de progreso. Para entregar a una clienta sus propios datos, usa «Descargar sus datos» en su ficha.
-      </p>
+  const botones = (
+    <>
       <div className="flex flex-wrap gap-2">
         {EXPORTABLES.map(e => (
           <button
@@ -86,6 +84,32 @@ export function ExportarDatosEstudio({ id, className }: { id?: string; className
         ))}
       </div>
       {error && <p role="alert" className="text-[12px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>}
+    </>
+  );
+
+  // Dentro de Configuración, el título y la explicación los pone la tarjeta
+  // que lo envuelve: aquí solo queda lo que no dice ella.
+  if (sinCabecera) {
+    return (
+      <div className={cn('space-y-3', className)}>
+        <p className="text-sm text-muted-foreground">
+          Para entregar a una alumna sus propios datos, usa «Descargar sus datos» en su ficha.
+        </p>
+        {botones}
+      </div>
+    );
+  }
+
+  return (
+    <section ref={ref} id={id} aria-labelledby={id ? `${id}-titulo` : undefined} className={cn('space-y-3 scroll-mt-6', className)}>
+      <div className="flex items-center gap-2">
+        <Download size={16} className="text-brand-secondary" aria-hidden="true" />
+        <h3 id={id ? `${id}-titulo` : undefined} className="text-[14px] font-semibold text-foreground">Exportar datos del estudio</h3>
+      </div>
+      <p className="text-[12px] text-muted-foreground">
+        Un CSV por tabla con los datos de todo el estudio, listo para abrir en Excel o llevarte a otra plataforma. No incluye ficha clínica ni notas de progreso. Para entregar a una clienta sus propios datos, usa «Descargar sus datos» en su ficha.
+      </p>
+      {botones}
     </section>
   );
 }

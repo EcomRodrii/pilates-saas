@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     .lte('inicio', hasta);
 
   if (error) return errorInterno('google-calendar:sync', error,
-    'No se ha podido sincronizar con Google Calendar. Vuelve a conectar la cuenta desde Configuración → Integraciones.');
+    'No se ha podido sincronizar con Google Calendar. Vuelve a conectar la cuenta desde Configuración → Conexiones.');
 
   const filas = (sesiones ?? []) as unknown as SesionConRelaciones[];
   let creadas = 0, actualizadas = 0, borradas = 0, fallidas = 0;

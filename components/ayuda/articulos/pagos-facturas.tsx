@@ -24,7 +24,7 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Datos fiscales</h2>
       <p>
         Los datos que aparecen en tus facturas (nombre fiscal, NIF, dirección) salen de lo que tengas configurado en
-        Configuración &gt; Estudio — revísalos antes de tu primer cobro real.
+        Configuración &gt; Mi estudio, en «Datos fiscales e IVA» — revísalos antes de tu primer cobro real.
       </p>
 
       <AyudaResultado>

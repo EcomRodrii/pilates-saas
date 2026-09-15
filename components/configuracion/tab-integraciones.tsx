@@ -20,6 +20,8 @@ import { useWhatsappEmbeddedSignup } from '@/lib/hooks/use-whatsapp-embedded-sig
 import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import { uuidV4 } from '@/lib/utils';
+import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
+import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
 type CampoIntegracion = { key: string; label: string; placeholder: string; tipo?: 'text' | 'password' | 'checkbox' };
 
@@ -53,11 +55,18 @@ type CatalogoIntegracion = {
   probarUrl?: string;
 };
 
+// El nombre y la frase de las tarjetas que tienen sitio propio en otra sección
+// («Cobro con tarjeta (Stripe)» en Cobros y facturas, WhatsApp en Cómo me
+// comunico…) salen de lib/configuracion/secciones.ts: la fila que lleva hasta
+// aquí y la tarjeta tienen que llamarse igual.
+const deSecciones = (id: TarjetaId) => ({ nombre: tarjetaPorId(id).titulo, descripcion: tarjetaPorId(id).frase });
+
 const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'STRIPE',
-    nombre: 'Stripe',
-    descripcion: 'Cobra suscripciones y bonos con tarjeta o SEPA. El dinero va directo a tu propia cuenta de Stripe — conéctala con un clic, sin claves.',
+    // Solo «tarjeta»: con «SEPA» se confundía con la remesa de domiciliaciones,
+    // que es otra cosa y no pasa por Stripe.
+    ...deSecciones('integracion-stripe'),
     Icon: StripeIcon,
     placaPropia: true,
     color: '#635BFF',
@@ -66,15 +75,15 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   },
   {
     tipo: 'RESEND',
-    nombre: 'Resend',
     // "desde tu propio dominio" era falso: la dirección que FIRMA es siempre la
     // verificada de la plataforma (ver lib/emails/remitente.ts) — usar una del
     // estudio sin verificar en Resend haría rebotar el correo, y verificar un
     // dominio no se resuelve pegando un campo aquí. Lo que sí se puede dar al
     // estudio es el nombre visible y la dirección de respuesta, que es
-    // exactamente lo que hacen estos dos campos desde que dejaron de ser
-    // decorativos (antes se guardaban y no los leía ni una línea del producto).
-    descripcion: 'Pon tu nombre y tu dirección de respuesta en los correos a tus alumnas: bienvenida, recibos, recordatorios y campañas.',
+    // exactamente lo que hacen estos dos campos: `fromName` → nombre y
+    // `fromEmail` → reply-to (lib/emails/plantillas-server.ts). «Resend» es el
+    // nombre del proveedor, que a la propietaria no le dice nada.
+    ...deSecciones('integracion-resend'),
     Icon: ResendIcon,
     placaPropia: true,
     color: 'var(--foreground)',
@@ -94,12 +103,11 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   },
   {
     tipo: 'GOOGLE_CALENDAR',
-    nombre: 'Google Calendar',
     // Decía "sincroniza las clases con tu calendario" sin más. Es cierto, pero
     // solo cuando ella pulsa "Sincronizar ahora": no hay ningún proceso que
     // empuje una clase nueva, movida o cancelada por su cuenta. Dicho así, se
     // entiende igual que "sincronizado" y espera que se mantenga solo.
-    descripcion: 'Copia las clases de las próximas 4 semanas a tu calendario de Google cada vez que pulses «Sincronizar ahora». No se actualiza solo. Conexión OAuth — no necesitas pegar ninguna clave.',
+    ...deSecciones('integracion-google_calendar'),
     Icon: GoogleCalendarIcon,
     color: '#4285F4',
     bg: '#F5F5F5',
@@ -108,8 +116,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   },
   {
     tipo: 'WHATSAPP',
-    nombre: 'WhatsApp Business',
-    descripcion: 'Envía recordatorios de clase, avisos de hueco libre, campañas y avisos a tu equipo por WhatsApp desde tu propio número de WhatsApp Business.',
+    ...deSecciones('integracion-whatsapp'),
     Icon: WhatsAppAppIcon,
     placaPropia: true,
     color: '#25D366',
@@ -128,7 +135,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
       'En WhatsApp → Introducción, copia el "ID del número de teléfono".',
       'En la misma pantalla, genera un token de acceso permanente (token de usuario del sistema — no el token temporal de 24h de prueba).',
       'Pega aquí el token y el ID del número, y pulsa Guardar.',
-      'Los recordatorios los manda un proceso automático, no una respuesta tuya, así que Meta exige una plantilla aprobada para que lleguen pasadas 24h desde el último mensaje de la clienta. En WhatsApp Manager → Plantillas de mensaje, crea una con nombre exacto "recordatorio_clase", categoría "Utilidad", idioma "Español" y este cuerpo con 5 variables: «Recordatorio · {{1}}. Tienes {{2}} el {{3}} a las {{4}} en {{5}}.» Meta suele aprobarla en minutos — cuando lo haga, marca la casilla de abajo.',
+      'Los recordatorios los manda un proceso automático, no una respuesta tuya, así que Meta exige una plantilla aprobada para que lleguen pasadas 24h desde el último mensaje de la alumna. En WhatsApp Manager → Plantillas de mensaje, crea una con nombre exacto "recordatorio_clase", categoría "Utilidad", idioma "Español" y este cuerpo con 5 variables: «Recordatorio · {{1}}. Tienes {{2}} el {{3}} a las {{4}} en {{5}}.» Meta suele aprobarla en minutos — cuando lo haga, marca la casilla de abajo.',
       'Los avisos de hueco libre («Rellenar hueco» y el radar de ocupación) necesitan su PROPIA plantilla, porque para Meta son marketing y no un aviso de servicio. Crea otra con nombre exacto "hueco_disponible", categoría "Marketing", idioma "Español" y este cuerpo con 6 variables: «¡Hola {{1}}! Se ha quedado un hueco en {{2}} el {{3}} a las {{4}} en {{5}}. Reserva tu plaza aquí: {{6}} ¡Te esperamos!» Cuando te la aprueben, marca su casilla — marcar la del recordatorio NO vale para esta.',
       'Si usas las sustituciones, crea también "sustitucion_urgente", categoría "Marketing", idioma "Español", con este cuerpo de 4 variables: «Hola {{1}}, ¿puedes cubrir {{2}} el {{3}}? Confírmalo en un toque aquí: {{4}} Gracias por echar un cable.» Es la que se le manda a la instructora cuando no ha contestado al email, así que es la que más falta hace: sin ella solo le llega si te ha escrito por WhatsApp en las últimas 24 horas. Sí, "Marketing" aunque no venda nada: Meta reserva "Utilidad" para mensajes sobre el pedido o la cuenta de un CLIENTE, y pedirle a tu instructora que cubra una clase no lo es. Si eliges "Utilidad", te la cambian ellos.',
       'Lo demás (campañas, automatizaciones y los mensajes sueltos de Mensajería) NO necesita plantilla y tampoco puede tenerla: el texto lo escribes tú y cambia cada vez, y Meta solo aprueba mensajes con un texto fijo. Esos llegan a quien te haya escrito en las últimas 24 horas; al resto Meta los rechaza y verás el motivo aquí mismo, en el estado de la integración.',
@@ -138,8 +145,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   },
   {
     tipo: 'EXCEL',
-    nombre: 'Exportar a Excel',
-    descripcion: 'Descarga tus clientas, su historial de reservas y asistencia, y los recibos en archivos compatibles con Excel.',
+    ...deSecciones('integracion-excel'),
     Icon: ExcelIcon,
     color: '#1D6F42',
     bg: '#E7F4EC',
@@ -148,14 +154,13 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   },
   {
     tipo: 'GMAIL',
-    nombre: 'Gmail',
     // Prometía "envía emails desde el Gmail de la propietaria" y eso NO existe:
     // `enviarEmailGmail` tiene un único llamador en todo el repo, el botón de
     // "Enviar email de prueba" de esta misma tarjeta. Ningún correo a una
     // alumna sale por Gmail — todos van por Resend. La otra mitad (traer
     // contactos) sí es real. Dos estudios la tienen conectada desde el 16-ago,
     // así que se corrige el texto; desactivarla les quitaría algo que usan.
-    descripcion: 'Trae los contactos de tu Gmail como clientas nuevas. Los correos a tus alumnas los sigue enviando Tentare, no tu Gmail. Conexión OAuth — no necesitas pegar ninguna clave.',
+    ...deSecciones('integracion-gmail'),
     Icon: GmailIcon,
     color: '#EA4335',
     bg: '#F5F5F5',
@@ -164,13 +169,12 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   },
   {
     tipo: 'ZOOM',
-    nombre: 'Zoom',
     // Cableada de verdad (2026-08-20, pedido explícito del fundador):
     // crearReunionZoom() ya tiene llamador — lib/zoom-sync.ts, cron cada
     // 15 min (app/api/cron/zoom-sync/route.ts) — para cada tipo de clase con
-    // esOnline=true (Configuración → Clases). Antes estaba en "Próximamente"
-    // porque conectar Zoom no hacía nada; ya no es el caso.
-    descripcion: 'Crea automáticamente una reunión de Zoom única para cada sesión de los tipos de clase que marques como "online" (Configuración → Clases y salas) — nunca tienes que ir copiando enlaces a mano. Puedes desconectar el acceso cuando quieras; las clases ya creadas y actualizadas dejan de sincronizarse, no se borra nada retroactivamente.',
+    // esOnline=true (Mis clases y citas → Tipos de clase). Antes estaba en
+    // "Próximamente" porque conectar Zoom no hacía nada; ya no es el caso.
+    ...deSecciones('integracion-zoom'),
     Icon: ZoomIcon,
     placaPropia: true,
     color: '#0B5CFF',
@@ -181,7 +185,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'KISI',
     nombre: 'Kisi',
-    descripcion: 'Ofrece acceso seguro y rápido a tu estudio. Gestiona el estado de tus clientes en tiempo real.',
+    descripcion: 'Abre la puerta de tu estudio sola con cada check-in de tus alumnas.',
     Icon: KisiIcon,
     placaPropia: true,
     color: '#4857F7',
@@ -209,7 +213,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     nombre: 'Klaviyo',
     // Funciona de verdad, pero igual que Google Calendar: solo cuando ella
     // pulsa. Sin decirlo, "sincroniza" se lee como continuo.
-    descripcion: 'Envía a tu cuenta de Klaviyo las clientas que han consentido marketing por email, cada vez que pulses «Sincronizar ahora». Conexión OAuth — no necesitas pegar ninguna clave.',
+    descripcion: 'Envía a tu cuenta de Klaviyo las alumnas que han consentido marketing por email, cada vez que pulses «Sincronizar ahora». Se conecta entrando con tu cuenta; no tienes que copiar ninguna clave.',
     Icon: KlaviyoIcon,
     color: '#232325',
     bg: '#F5F5F5',
@@ -219,7 +223,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'ZAPIER',
     nombre: 'Zapier',
-    descripcion: 'Conecta Tentare con miles de apps: crea reservas, sincroniza clientas o avisa por Slack cuando pasa algo en tu estudio. La conexión se autoriza desde Zapier, no desde aquí.',
+    descripcion: 'Conecta Tentare con miles de apps: crea reservas, sincroniza alumnas o avisa por Slack cuando pasa algo en tu estudio. La conexión se autoriza desde Zapier, no desde aquí.',
     Icon: ZapierIcon,
     placaPropia: true,
     color: '#FF4F00',
@@ -234,7 +238,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     // (a diferencia de Klaviyo/Google) — la propietaria pega su propia clave
     // API, igual que ya hace con Kisi. Solo sube cuando ella pulsa
     // «Sincronizar ahora», nada se mantiene solo.
-    descripcion: 'Envía a tu audiencia de Mailchimp las clientas que han consentido marketing por email, cada vez que pulses «Sincronizar ahora». Pega tu clave API — no hace falta autorizar nada más.',
+    descripcion: 'Envía a tu audiencia de Mailchimp las alumnas que han consentido marketing por email, cada vez que pulses «Sincronizar ahora». Pega tu clave API — no hace falta autorizar nada más.',
     Icon: MailchimpIcon,
     placaPropia: true,
     color: '#FFE01B',
@@ -344,14 +348,14 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     // modos — a diferencia de Stripe/Google/Zoom esto no es la vuelta de un
     // redirect, así que el query param se añade aquí en vez de venir de un
     // callback de servidor.
-    window.location.href = `/configuracion?tab=integraciones&whatsapp_connected=1`;
+    window.location.href = `/configuracion?tab=conexiones&whatsapp_connected=1`;
   };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('whatsapp_connected')) {
       showToast('WhatsApp conectado');
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -383,10 +387,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const params = new URLSearchParams(window.location.search);
     if (params.get('stripe_connected')) {
       showToast('Stripe conectado — ya puedes cobrar en tu propia cuenta');
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     } else if (params.get('stripe_connect_error')) {
       showToast(`Error al conectar Stripe: ${params.get('stripe_connect_error')}`);
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -454,10 +458,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const params = new URLSearchParams(window.location.search);
     if (params.get('google_calendar_connected')) {
       showToast('Google Calendar conectado');
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     } else if (params.get('google_calendar_error')) {
       showToast(`Error al conectar Google Calendar: ${params.get('google_calendar_error')}`);
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -509,10 +513,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const params = new URLSearchParams(window.location.search);
     if (params.get('gmail_connected')) {
       showToast('Gmail conectado');
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     } else if (params.get('gmail_error')) {
       showToast(`Error al conectar Gmail: ${params.get('gmail_error')}`);
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -534,7 +538,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       const res = await fetch('/api/integrations/gmail/sync-contacts', { method: 'POST', headers: await authHeader() });
       const data = await res.json();
       if (!res.ok) { showToast(`Error al sincronizar contactos: ${data.error}`); return; }
-      showToast(`${data.creadas} clientas nuevas desde tus contactos de Gmail (${data.yaExistian} ya existían)`);
+      showToast(`${data.creadas} alumnas nuevas desde tus contactos de Gmail (${data.yaExistian} ya existían)`);
     } finally {
       setSincronizandoContactos(false);
     }
@@ -582,10 +586,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const params = new URLSearchParams(window.location.search);
     if (params.get('zoom_connected')) {
       showToast('Zoom conectado');
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     } else if (params.get('zoom_error')) {
       showToast(`Error al conectar Zoom: ${params.get('zoom_error')}`);
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -641,10 +645,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const params = new URLSearchParams(window.location.search);
     if (params.get('klaviyo_connected')) {
       showToast('Klaviyo conectado');
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     } else if (params.get('klaviyo_error')) {
       showToast(`Error al conectar Klaviyo: ${params.get('klaviyo_error')}`);
-      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
+      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -665,7 +669,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     try {
       const res = await fetch('/api/integrations/klaviyo/sync', { method: 'POST', headers: await authHeader() });
       const data = await res.json();
-      showToast(res.ok ? `${data.sincronizadas} clientas sincronizadas con Klaviyo` : `Error: ${data.error ?? 'no se pudo sincronizar'}`);
+      showToast(res.ok ? `${data.sincronizadas} alumnas sincronizadas con Klaviyo` : `Error: ${data.error ?? 'no se pudo sincronizar'}`);
     } finally {
       setSincronizandoKlaviyo(false);
     }
@@ -682,7 +686,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     try {
       const res = await fetch('/api/integrations/mailchimp/sync', { method: 'POST', headers: await authHeader() });
       const data = await res.json();
-      showToast(res.ok ? `${data.sincronizadas} clientas sincronizadas con Mailchimp` : `Error: ${data.error ?? 'no se pudo sincronizar'}`);
+      showToast(res.ok ? `${data.sincronizadas} alumnas sincronizadas con Mailchimp` : `Error: ${data.error ?? 'no se pudo sincronizar'}`);
     } finally {
       setSincronizandoMailchimp(false);
     }
@@ -861,20 +865,13 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
     descargarCsv(`tentare-historial-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(hRows));
 
-    showToast('Exportación descargada (clientas, historial y recibos)');
+    showToast('Exportación descargada (alumnas, historial y recibos)');
   };
 
-  return (
-    <div className="space-y-4 max-w-3xl">
-      <div>
-        <h3 className="text-[14px] font-semibold text-foreground">Integraciones del negocio</h3>
-        <p className="text-[12px] text-muted-foreground mt-0.5">
-          Conecta Tentare con las herramientas que ya usas. Cada negocio configura las suyas.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {CATALOGO_INTEGRACIONES.map(cat => {
+  // Cada integración es su propia tarjeta con ancla (`#integracion-stripe`):
+  // las filas de «Cobros y facturas» y «Cómo me comunico» llevan hasta ella.
+  // `Titulo` baja a h4 dentro de «Más integraciones», que ya pone su h3.
+  const pintarTarjeta = (cat: CatalogoIntegracion, Titulo: 'h3' | 'h4') => {
           const intg = getIntegracion(cat.tipo);
           // La salud SOLO aplica a las que viven en `integraciones` (WhatsApp,
           // Kisi, Resend). Las de OAuth (Stripe, Google, Gmail...) no tienen
@@ -887,7 +884,12 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
           const lineaSalud = textoSalud(salud);
           const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : cat.tipo === 'ZAPIER' ? zapierConectado : !!intg?.activo;
           return (
-            <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
+            <section
+              key={cat.tipo}
+              id={`integracion-${cat.tipo.toLowerCase()}`}
+              aria-labelledby={`integracion-${cat.tipo.toLowerCase()}-titulo`}
+              className={cn(cardCls, 'p-4 flex flex-col scroll-mt-32')}
+            >
               <div className="flex items-start gap-3">
                 <div
                   className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', cat.placaPropia && 'overflow-hidden')}
@@ -896,7 +898,13 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-[14px] font-semibold text-foreground">{cat.nombre}</p>
+                    <Titulo
+                      id={`integracion-${cat.tipo.toLowerCase()}-titulo`}
+                      tabIndex={-1}
+                      className="text-[14px] font-semibold text-foreground outline-none"
+                    >
+                      {cat.nombre}
+                    </Titulo>
                     {cat.proximamente ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning/10 text-warning">
                         Próximamente
@@ -929,7 +937,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   )}
                   {cat.tipo === 'STRIPE' && stripeConectado && bizumEstado && bizumEstado !== 'active' && (
                     <p className="text-[11px] text-warning mt-1.5 leading-snug">
-                      Bizum todavía no está activo en tu cuenta de Stripe — tus socias no lo verán
+                      Bizum todavía no está activo en tu cuenta de Stripe — tus alumnas no lo verán
                       como opción de pago. Entra en{' '}
                       <a href="https://dashboard.stripe.com/settings/payment_methods" target="_blank" rel="noreferrer" className="underline">
                         tu Dashboard de Stripe → Métodos de pago
@@ -1103,14 +1111,28 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   </>
                 )}
               </div>
-            </div>
+            </section>
           );
-        })}
+  };
 
+  // Lo que casi ningún estudio necesita el primer día, aparte y con su título:
+  // la puerta (Kisi), las listas de marketing y Zapier.
+  const MAS_INTEGRACIONES = new Set<TipoIntegracion>(['KISI', 'KLAVIYO', 'ZAPIER', 'MAILCHIMP']);
+
+  return (
+    <div className="space-y-5">
+      <div className="grid max-w-3xl grid-cols-1 gap-3 @xl/config:grid-cols-2">
+        {CATALOGO_INTEGRACIONES.filter(c => !MAS_INTEGRACIONES.has(c.tipo)).map(cat => pintarTarjeta(cat, 'h3'))}
         {/* CONGELADO (feature-freeze PMF): se quitó la tarjeta "Kiosko de check-in"
             (generación del token del dispositivo). La ruta /api/kiosk/token sigue
             existiendo pero ya no se llama desde el frontend. Ver lib/frozen-features.ts. */}
       </div>
+
+      <TarjetaAjuste id="mas-integraciones" marco={false} className="max-w-3xl">
+        <div className="grid grid-cols-1 gap-3 @xl/config:grid-cols-2">
+          {CATALOGO_INTEGRACIONES.filter(c => MAS_INTEGRACIONES.has(c.tipo)).map(cat => pintarTarjeta(cat, 'h4'))}
+        </div>
+      </TarjetaAjuste>
 
       {/* Config modal */}
       {editando && (() => {

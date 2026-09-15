@@ -156,7 +156,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/configuracion': {
     titulo: 'Configuración',
     resumen:
-      'Los cimientos: tus datos fiscales, las salas, los tipos de clase, las reglas de reserva y con qué se conecta Tentare. Se toca poco, pero de aquí salen las reglas del resto.',
+      'Cómo funciona tu estudio, por preguntas: tus datos y salas, tus clases, cómo reservan tus alumnas, cómo cobras y qué ven en su app. Se toca poco, pero de aquí salen las reglas del resto.',
     ahorra: 'Repetir la misma configuración cada vez que creas una clase.',
     destino: { categoria: 'configuracion', slug: 'datos-del-estudio' },
   },

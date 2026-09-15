@@ -64,7 +64,7 @@ export default function AparienciaPage() {
             <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
               Estamos rehaciendo el editor de la portada, la tipografía y las secciones del portal de
               tus alumnas. Mientras tanto eso no se puede editar; tu logo se cambia en Configuración →
-              Estudio y tu color, aquí arriba.
+              Mi estudio → Marca y tu color, aquí arriba.
             </p>
             <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
               Lo que ya tienes publicado <strong className="font-semibold text-foreground">sigue

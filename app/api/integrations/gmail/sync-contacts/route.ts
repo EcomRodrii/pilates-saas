@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     contactos = await listarContactosGmail(accessToken);
   } catch (err) {
     return errorInterno('gmail:sync-contacts:listar', err,
-      'No se han podido leer los contactos de Gmail. Vuelve a conectar la cuenta desde Configuración → Integraciones.');
+      'No se han podido leer los contactos de Gmail. Vuelve a conectar la cuenta desde Configuración → Cómo me comunico.');
   }
 
   // Auditoría 22-ago: sin paginar, PostgREST corta en 1000 filas EN SILENCIO

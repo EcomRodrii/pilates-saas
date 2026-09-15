@@ -76,7 +76,7 @@ test.describe('Una integración caída se ve sin ir a buscarla', () => {
     await expect(page.getByText(/Session has expired/)).toBeVisible();
     // Y qué está costando mientras tanto.
     await expect(page.getByText(/no está llegando a tus clientas/)).toBeVisible();
-    await expect(page.getByRole('link', { name: /Arreglarlo en Integraciones/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Arreglarlo en Configuración/ })).toBeVisible();
   });
 
   test('funcionando no interrumpe: cero píxeles', async ({ page }) => {

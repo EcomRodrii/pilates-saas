@@ -1002,10 +1002,10 @@ export function PanelTipoClase({
             label="¿Se le cobra algo por cancelar tarde o no venir?"
             hint={
               <InfoTip label="Qué implica poner un importe aquí">
-                Se cobra a la tarjeta guardada de la socia, si tiene una. Aquí solo cambias el IMPORTE para este
-                tipo de clase: a qué motivos se aplica (tardía, no-show, o ambos) y si el cobro es automático o
-                espera tu aprobación se decide en Configuración → Estudio → Reservas y cancelaciones, y afecta
-                también a esta clase.
+                Se cobra a la tarjeta guardada de la alumna, si tiene una. Aquí solo cambias el IMPORTE para este
+                tipo de clase: a qué se aplica (cancelar tarde, no venir sin avisar, o ambos) y si el cobro es
+                automático o espera tu aprobación se decide en Configuración → Cómo reservan mis alumnas, y
+                afecta también a esta clase.
               </InfoTip>
             }
             heredado={form.penalizacionImporteEur.trim() === ''}
@@ -1039,7 +1039,7 @@ export function PanelTipoClase({
               <p className={ayudaCls}>
                 {zoomConectado
                   ? 'Cada sesión tendrá su propio enlace de Zoom, generado automáticamente.'
-                  : 'Necesitas conectar tu cuenta de Zoom en Configuración → Integraciones.'}
+                  : 'Necesitas conectar tu cuenta de Zoom en Configuración → Conexiones.'}
               </p>
             </div>
             <div className="shrink-0 pt-0.5">

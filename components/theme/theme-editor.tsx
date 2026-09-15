@@ -1128,7 +1128,7 @@ export function AjustesCategoriaPanel({
       <div className="space-y-3">
         <p className="text-[11.5px] text-muted-foreground">
           Se ven en el pie de tu página pública de reservas. Deja en blanco la que no uses.
-          Tu web se pone en <strong>Configuración → Estudio</strong>: no es una red social y la
+          Tu web se pone en <strong>Configuración → Mi estudio</strong>: no es una red social y la
           usan también tus correos.
         </p>
         <div className="space-y-2">

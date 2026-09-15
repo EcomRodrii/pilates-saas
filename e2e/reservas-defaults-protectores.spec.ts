@@ -58,13 +58,13 @@ test.describe('Reservas y cancelaciones: solo lo que sí se decidió nace activa
     await montar(page);
 
     // El <label> hace de nombre accesible del botón (elemento "labelable").
-    const toggleDevolver = page.getByRole('button', { name: /Devolver la sesión del bono/ });
-    const toggleExigir = page.getByRole('button', { name: /Exigir plan o bono activo/ });
+    const toggleDevolver = page.getByRole('switch', { name: /Devolver la sesión del bono/ });
+    const toggleExigir = page.getByRole('switch', { name: /Exigir plan o bono activo/ });
 
-    await expect(toggleExigir).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 });
+    await expect(toggleExigir).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
     // Aparcada (#427): activarla por defecto habría quitado la penalización
     // por cancelar tarde a los estudios reales sin que nadie lo decidiera.
-    await expect(toggleDevolver).toHaveAttribute('aria-pressed', 'false');
+    await expect(toggleDevolver).toHaveAttribute('aria-checked', 'false');
   });
 
   test('el texto sigue llamando "(recomendado)" a la opción que protege de verdad', async ({ page }) => {

@@ -167,8 +167,8 @@ export function RiesgoPlanton() {
       <p className="px-1 text-[11px] text-muted-foreground">
         Basado en su historial reciente de asistencia.{' '}
         {activo
-          ? 'Con la confirmación activada, se les pide venir y se libera su plaza si no responden a tiempo. Se cambia en Configuración → Estudio → Reservas y cancelaciones.'
-          : 'Solo informativo — no se envía ningún aviso automático. Se activa en Configuración → Estudio → Reservas y cancelaciones.'}
+          ? 'Con la confirmación activada, se les pide venir y se libera su plaza si no responden a tiempo. Se cambia en Configuración → Cómo reservan mis alumnas.'
+          : 'Solo informativo — no se envía ningún aviso automático. Se activa en Configuración → Cómo reservan mis alumnas.'}
       </p>
     </div>
   );
