@@ -84,7 +84,8 @@ async function mockBackend(page: Page, opts: { tiposIniciales?: Record<string, u
       const id = decodeURIComponent(req.url().match(/id=eq\.([^&]+)/)?.[1] ?? '');
       const i = tipos.findIndex(t => t.id === id);
       if (i >= 0) tipos[i] = { ...tipos[i], ...cambios };
-      return json(route, [], 200);
+      // Como PostgREST con `select('id')`: la fila tocada.
+      return json(route, id ? [{ id }] : [], 200);
     }
     return json(route, tipos);
   });

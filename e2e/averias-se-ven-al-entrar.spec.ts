@@ -65,7 +65,8 @@ async function montar(page: Page) {
     const req = route.request();
     if (req.method() === 'PATCH') {
       patches.push({ url: req.url(), body: req.postDataJSON() });
-      return json(route, []);
+      // Como PostgREST con `select('id')`: devuelve la fila tocada, no vacío.
+      return json(route, [{ id: AVERIA_ROW.id }]);
     }
     lecturas.push(req.url());
     return json(route, [AVERIA_ROW]);

@@ -114,7 +114,8 @@ async function mockBackend(page: Page, opts: {
     const req = route.request();
     if (req.method() === 'PATCH') {
       salasPatch.push(JSON.parse(req.postData() || '{}'));
-      return json(route, [], 200);
+      // Como PostgREST con `select('id')`: la fila tocada.
+      return json(route, [{ id: decodeURIComponent(req.url().match(/id=eq\.([^&]+)/)?.[1] ?? 'sala-1') }], 200);
     }
     return json(route, opts.salas);
   });

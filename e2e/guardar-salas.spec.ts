@@ -103,7 +103,8 @@ async function mockBackend(page: Page, opts: {
         const i = salasGuardadas.findIndex(s => s.id === id);
         if (i >= 0) salasGuardadas.splice(i, 1);
       }
-      return route.fulfill({ status: 204, contentType: 'application/json', body: '[]' });
+      // Con `select('id')` el borrado devuelve la fila borrada, no un 204 vacío.
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(id ? [{ id }] : []) });
     }
     return json(route, salasGuardadas);
   });
