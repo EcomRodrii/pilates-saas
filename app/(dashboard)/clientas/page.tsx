@@ -285,6 +285,9 @@ export default function Socios() {
   // Tras dar de alta (o cambiar a) una cuota: a quién se le ofrece plaza fija, y
   // para quién está abierto el diálogo si dice que sí.
   const [ofrecerPlazaFija, setOfrecerPlazaFija] = useState<{ socioId: string; nombre: string; plan: string } | null>(null);
+  // Lo último que se ofreció, para pintar el texto mientras la ventana se cierra
+  // (si no, el párrafo desaparece a mitad de la animación y la ventana da un salto).
+  const [ultimaOferta, setUltimaOferta] = useState<{ nombre: string; plan: string } | null>(null);
   const [plazaFijaPara, setPlazaFijaPara] = useState<string | null>(null);
   // Esta pantalla no tiene toast: lo que ha guardado el diálogo se dice arriba.
   const [avisoPlazaFija, setAvisoPlazaFija] = useState<string | null>(null);
@@ -701,7 +704,10 @@ export default function Socios() {
   function ofrecerPlazaFijaSiCuota(socioId: string, planId: string, nombre: string) {
     const plan = planesTarifa.find(p => p.id === planId);
     const yaTiene = plazasFijas.some(p => p.socioId === socioId && p.estado !== 'BAJA');
-    if (plan?.tipo === 'MENSUAL' && !yaTiene) setOfrecerPlazaFija({ socioId, nombre, plan: plan.nombre });
+    if (plan?.tipo === 'MENSUAL' && !yaTiene) {
+      setUltimaOferta({ nombre, plan: plan.nombre });
+      setOfrecerPlazaFija({ socioId, nombre, plan: plan.nombre });
+    }
   }
 
   async function handleCrear() {
@@ -1709,9 +1715,9 @@ export default function Socios() {
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-foreground">¿Le das una plaza fija?</DialogTitle>
           </DialogHeader>
-          {ofrecerPlazaFija && (
+          {ultimaOferta && (
             <p className="text-sm text-muted-foreground mt-1">
-              {ofrecerPlazaFija.nombre} ya tiene «{ofrecerPlazaFija.plan}». Si viene siempre a la misma clase, elige
+              {ultimaOferta.nombre} ya tiene «{ultimaOferta.plan}». Si viene siempre a la misma clase, elige
               cuál: se le reserva sola cada semana, sin apuntarla a mano.
             </p>
           )}

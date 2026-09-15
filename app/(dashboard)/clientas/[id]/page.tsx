@@ -321,6 +321,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // Tras asignar una cuota: el nombre del plan mientras se pregunta si le da
   // plaza fija, y el diálogo de plaza fija si dice que sí.
   const [ofrecerPlazaFija, setOfrecerPlazaFija] = useState<string | null>(null);
+  // El nombre del plan se guarda aparte: al cerrar, `ofrecerPlazaFija` pasa a null
+  // antes de que acabe la animación y la ventana decía ««» ya está asignado» un
+  // instante (visto en producción).
+  const [planOfrecido, setPlanOfrecido] = useState('');
   const [dialogoPlazaFija, setDialogoPlazaFija] = useState(false);
   const [asignandoVenta, setAsignandoVenta] = useState(false);
   const [reactivando, setReactivando] = useState(false);
@@ -331,7 +335,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // Optimista y local a esta ficha: en cuanto Resend confirma la reactivación,
   // se oculta el aviso aquí mismo sin esperar a la próxima carga completa.
   const [buzonesReactivados, setBuzonesReactivados] = useState<Set<string>>(new Set());
-  const [confirmarCancelarSus, setConfirmarCancelarSus] = useState(false);
+  // Qué pregunta el diálogo se decide AL ABRIRLO: si se recalculara al pintar,
+  // al cancelar la suscripción cambiaría de texto y de botones mientras se
+  // cierra (visto en producción: «Cancelar ahora» enseñaba un instante una
+  // segunda confirmación que ya no hacía nada).
+  const [confirmarCancelarSus, setConfirmarCancelarSus] = useState<'elegir' | 'confirmar' | null>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   // ── AI instructor notes ────────────────────────────────────────────────────
@@ -612,7 +620,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   function ofrecerPlazaFijaSiCuota(planId: string, nombrePlan: string) {
     const esCuota = planesTarifa.find(p => p.id === planId)?.tipo === 'MENSUAL';
     const yaTiene = plazasFijas.some(p => p.socioId === id && p.estado !== 'BAJA');
-    if (esCuota && !yaTiene) setOfrecerPlazaFija(nombrePlan);
+    if (esCuota && !yaTiene) {
+      setPlanOfrecido(nombrePlan);
+      setOfrecerPlazaFija(nombrePlan);
+    }
   }
 
   // Cambiar el plan es cobrar. El toast «Plan "X" asignado» saltaba antes de que
@@ -674,13 +685,20 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // con sesiones sin gastar no hacía NADA y aun así decía «Plan retirado»
   // (7 de las 27 socias con tarjeta, medido en producción). Ver
   // `cancelarSuscripcion` en studio-context.
+  function abrirCancelarSus() {
+    if (!suscripcion) return;
+    setConfirmarCancelarSus(
+      puedeProgramarBaja(suscripcion, plan, localDate(now)) && !suscripcion.bajaAlVencer ? 'elegir' : 'confirmar',
+    );
+  }
+
   async function handleCancelarSuscripcion() {
     if (!suscripcion || cambiandoPlan) return;
     setCambiandoPlan(true);
     try {
       const res = await cancelarSuscripcion(suscripcion.id);
       setToast(res.ok ? 'Suscripción cancelada' : res.error);
-      if (res.ok) setConfirmarCancelarSus(false);
+      if (res.ok) setConfirmarCancelarSus(null);
     } finally {
       setCambiandoPlan(false);
     }
@@ -697,7 +715,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       setToast(programar
         ? `Se dará de baja el ${suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'}`
         : 'Baja programada quitada: seguirá renovando');
-      setConfirmarCancelarSus(false);
+      setConfirmarCancelarSus(null);
     } finally {
       setCambiandoPlan(false);
     }
@@ -1034,7 +1052,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               </button>
                             )}
                             <button
-                              onClick={() => setConfirmarCancelarSus(true)}
+                              onClick={() => abrirCancelarSus()}
                               disabled={cambiandoPlan}
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 disabled:opacity-40 transition-colors text-muted-foreground"
                             >
@@ -2232,7 +2250,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <DialogTitle className="text-lg font-semibold text-foreground">¿Le das una plaza fija?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground mt-1">
-            «{ofrecerPlazaFija}» ya está asignado. Si {socio.nombre} viene siempre a la misma clase, elige cuál: se le
+            «{planOfrecido}» ya está asignado. Si {socio.nombre} viene siempre a la misma clase, elige cuál: se le
             reserva sola cada semana, sin apuntarla a mano.
           </p>
           <div className="flex flex-col gap-2 pt-2">
@@ -2279,7 +2297,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 pinta. */}
             {suscripcion && suscripcion.estado !== 'CANCELADA' && (
               <button
-                onClick={() => { setShowChangePlan(false); setConfirmarCancelarSus(true); }}
+                onClick={() => { setShowChangePlan(false); abrirCancelarSus(); }}
                 disabled={cambiandoPlan}
                 className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-muted disabled:opacity-40"
                 style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
@@ -2495,7 +2513,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
           ha pagado, así que se dice cuántas quedan antes de pulsar — es la
           diferencia entre una decisión y un susto. Con una cuota mensual no hay
           saldo que perder y el texto no lo inventa. */}
-      <Dialog open={confirmarCancelarSus && !!suscripcion} onOpenChange={open => !open && setConfirmarCancelarSus(false)}>
+      <Dialog open={!!confirmarCancelarSus && !!suscripcion} onOpenChange={open => !open && setConfirmarCancelarSus(null)}>
         <DialogContent className="max-w-sm">
           <div className="flex flex-col items-center text-center gap-4 py-2">
             <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-destructive/10">
@@ -2503,7 +2521,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             </div>
             <div>
               <h3 className="text-base font-semibold text-foreground mb-1">Cancelar la suscripción</h3>
-              {suscripcion && puedeProgramarBaja(suscripcion, plan, localDate(now)) && !suscripcion.bajaAlVencer ? (
+              {suscripcion && confirmarCancelarSus === 'elegir' ? (
                 // Una cuota con fecha de renovación: lo normal es dejarla
                 // terminar el periodo que ya ha pagado (evaluación del 13-sep).
                 <p className="text-sm text-muted-foreground">
@@ -2521,7 +2539,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 </p>
               )}
             </div>
-            {suscripcion && puedeProgramarBaja(suscripcion, plan, localDate(now)) && !suscripcion.bajaAlVencer ? (
+            {suscripcion && confirmarCancelarSus === 'elegir' ? (
               <div className="flex flex-col gap-2 w-full">
                 <button onClick={() => handleProgramarBaja(true)} disabled={cambiandoPlan} className="w-full py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-50 transition-colors">
                   {cambiandoPlan ? 'Guardando…' : `Dar de baja el ${suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'}`}
@@ -2529,13 +2547,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <button onClick={handleCancelarSuscripcion} disabled={cambiandoPlan} className="w-full py-2.5 rounded-xl text-sm font-bold text-destructive border border-destructive/30 hover:bg-destructive/10 disabled:opacity-50 transition-colors">
                   Cancelar ahora
                 </button>
-                <button onClick={() => setConfirmarCancelarSus(false)} className="w-full py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted">
+                <button onClick={() => setConfirmarCancelarSus(null)} className="w-full py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted">
                   Volver
                 </button>
               </div>
             ) : (
             <div className="flex gap-3 w-full">
-              <button onClick={() => setConfirmarCancelarSus(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted">
+              <button onClick={() => setConfirmarCancelarSus(null)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted">
                 Volver
               </button>
               <button onClick={handleCancelarSuscripcion} disabled={cambiandoPlan} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 transition-colors">
