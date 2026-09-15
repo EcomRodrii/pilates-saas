@@ -49,7 +49,9 @@ export function TabTextosApp({ showToast }: { showToast: (m: string) => void }) 
       anioFundacion: form.anioFundacion.trim() ? Number(form.anioFundacion.trim()) : null,
     }, null);
     if (!res) return 'Ya se estaba guardando';
-    return res.ok ? null : res.error;
+    if (!res.ok) return res.error;
+    showToast('Textos de tu app guardados');
+    return null;
   }
 
   return (

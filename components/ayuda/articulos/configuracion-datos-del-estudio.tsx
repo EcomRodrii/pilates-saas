@@ -34,8 +34,8 @@ export default function Contenido() {
       <p>
         «Textos de tu app», en Configuración &gt; Marca, son textos libres para tu página de reservas y la app
         de tus alumnas: cómo te presentas, tu lema, las frases de bienvenida y de portada, y las normas del centro. Se
-        guardan con «Guardar textos de tu app». Si dejas un texto vacío, ese bloque simplemente no se pinta — no hay
-        texto de relleno.
+        guardan con «Guardar», igual que el resto de tarjetas. Si dejas un texto vacío, ese bloque simplemente no se
+        pinta — no hay texto de relleno.
       </p>
 
       <p>

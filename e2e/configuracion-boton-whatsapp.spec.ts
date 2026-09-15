@@ -36,6 +36,7 @@ async function panel(page: Page) {
 }
 
 const burbuja = (page: Page) => page.getByRole('button', { name: 'Ayuda por WhatsApp' });
+const barra = (page: Page) => page.getByRole('region', { name: 'Cambios sin guardar' });
 const titulo = (page: Page, nombre: string) => page.getByRole('heading', { level: 2, name: nombre, exact: true });
 
 type Caja = { x: number; y: number; width: number; height: number };
@@ -138,11 +139,11 @@ for (const vista of VISTAS) {
       await expect(burbuja(page)).toBeVisible();
 
       await telefono.fill('Cuerpo y mente');
-      await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+      await expect(barra(page)).toBeVisible();
       await expect(burbuja(page)).toBeHidden();
 
       await page.getByRole('button', { name: 'Descartar' }).click();
-      await expect(page.getByText('Tienes cambios sin guardar.')).toHaveCount(0);
+      await expect(barra(page)).toHaveCount(0);
       await expect(burbuja(page)).toBeVisible();
     });
 
@@ -156,7 +157,7 @@ for (const vista of VISTAS) {
       await expect(burbuja(page)).toBeVisible();
 
       await lema.focus();
-      await expect(page.getByText('Tienes cambios sin guardar.')).toHaveCount(0);
+      await expect(barra(page)).toHaveCount(0);
       await expect(burbuja(page)).toBeHidden();
 
       await lema.evaluate(el => (el as HTMLElement).blur());
@@ -180,7 +181,7 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1280, height: 800
       await expect(burbuja(page)).toBeVisible();
 
       await telefono.fill('Cuerpo y mente');
-      await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+      await expect(barra(page)).toBeVisible();
       await expect(burbuja(page)).toBeHidden();
 
       await page.getByRole('button', { name: 'Descartar' }).click();
