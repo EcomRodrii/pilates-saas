@@ -9,6 +9,7 @@ import {
   debeElegirComoEntrar, recordarEleccionAlumna, unirseComoInstructora,
 } from '@/lib/student/sesion-instructora';
 import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
+import { invitacionApp } from '@/lib/student/invitacion-app';
 
 /**
  * «¿Cómo quieres entrar?» — instructora o alumna (decisión del fundador,
@@ -34,6 +35,8 @@ export default function ElegirComoEntrar() {
   const { socia, usuarioEmail, autenticado, isLoading } = useSesionStudent(slug);
   const { logout } = useAuthStudent(slug);
   const [puedeElegir, setPuedeElegir] = useState(false);
+  // Llegó por el correo de invitación (y no por coincidir el correo).
+  const [porInvitacion, setPorInvitacion] = useState(false);
   const [enviando, setEnviando] = useState<'instructora' | 'alumna' | null>(null);
   const [error, setError] = useState('');
 
@@ -45,6 +48,7 @@ export default function ElegirComoEntrar() {
       if (!vivo) return;
       // Nada que elegir: `verificar` y el inicio ya saben a dónde va cada una.
       if (!elegir) { r.replace(socia ? href() : href('/acceso/verificar')); return; }
+      setPorInvitacion(invitacionApp(slug) !== null);
       setPuedeElegir(true);
     });
     return () => { vivo = false; };
@@ -79,7 +83,9 @@ export default function ElegirComoEntrar() {
       <div>
         <h2 className="t-h1">¿Cómo quieres entrar?</h2>
         <p className="t-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
-          {estudio.nombre} te tiene en su equipo con <b>{usuarioEmail ?? 'tu correo'}</b>.
+          {porInvitacion
+            ? <>{estudio.nombre} te ha invitado a su equipo. Estás entrando con <b>{usuarioEmail ?? 'tu cuenta'}</b>.</>
+            : <>{estudio.nombre} te tiene en su equipo con <b>{usuarioEmail ?? 'tu correo'}</b>.</>}
         </p>
       </div>
 

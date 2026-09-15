@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
-import { debeElegirComoEntrar, useSesionInstructora } from '@/lib/student/sesion-instructora';
+import { debeElegirComoEntrar, hayInvitacionParaEstaSesion, useSesionInstructora } from '@/lib/student/sesion-instructora';
 
 /**
  * Deja pasar solo a quien tiene sesión; al resto lo manda a acceso conservando
@@ -50,6 +50,15 @@ export function GuardiaSesion({ children }: { children: ReactNode }) {
     void debeElegirComoEntrar(slug).then((valor) => { if (vivo) setEleccion({ slug, elegir: valor }); });
     return () => { vivo = false; };
   }, [preguntarEleccion, slug]);
+
+  // Ya es alumna y acaba de abrir el correo de invitación del estudio: a elegir
+  // cómo entra. Solo mira el almacén del dispositivo, sin petición.
+  useEffect(() => {
+    if (isLoading || !autenticado || !socia) return;
+    let vivo = true;
+    void hayInvitacionParaEstaSesion(slug).then((hay) => { if (vivo && hay) r.replace(href('/acceso/elegir')); });
+    return () => { vivo = false; };
+  }, [isLoading, autenticado, socia, slug, href, r]);
 
   useEffect(() => {
     if (isLoading) return;

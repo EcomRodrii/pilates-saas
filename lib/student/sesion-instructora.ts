@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { CacheSesion, claveSesion } from '@/lib/widget/sesion-cache';
+import { invitacionDeLaCuenta, olvidarInvitacionApp } from '@/lib/student/invitacion-app';
 
 // ¿La cuenta que ha entrado en la app es instructora de ESTE estudio?
 //
@@ -63,10 +64,22 @@ export function eligioEntrarComoAlumna(slug: string, userId: string): boolean {
 }
 
 export async function recordarEleccionAlumna(slug: string): Promise<void> {
+  // Eligió alumna: la invitación guardada ya no pinta nada en este dispositivo.
+  olvidarInvitacionApp(slug);
   const { data: { session } } = await supabasePortal.auth.getSession();
   const userId = session?.user?.id;
   if (!userId) return;
   try { localStorage.setItem(claveEligioAlumna(slug, userId), String(Date.now())); } catch { /* modo privado */ }
+}
+
+/**
+ * ¿Hay una invitación de equipo guardada para la cuenta que ha entrado? Sin
+ * petición: solo el almacén del dispositivo, atado a esta cuenta.
+ */
+export async function hayInvitacionParaEstaSesion(slug: string): Promise<boolean> {
+  const { data: { session } } = await supabasePortal.auth.getSession();
+  const userId = session?.user?.id;
+  return Boolean(userId && invitacionDeLaCuenta(slug, userId));
 }
 
 // Un vuelo por (estudio, usuario) durante un minuto: `verificar` y la guardia
@@ -87,6 +100,8 @@ export async function debeElegirComoEntrar(slug: string): Promise<boolean> {
   const { data: { session } } = await supabasePortal.auth.getSession();
   const userId = session?.user?.id;
   if (!session?.access_token || !userId) return false;
+  // Viene del correo de invitación: se le pregunta, aunque antes eligiera alumna.
+  if (invitacionDeLaCuenta(slug, userId)) return true;
   if (eligioEntrarComoAlumna(slug, userId)) return false;
 
   const clave = `${slug}:${userId}`;
@@ -112,21 +127,29 @@ export async function debeElegirComoEntrar(slug: string): Promise<boolean> {
   return valor;
 }
 
-/** «Entrar como instructora»: une su cuenta a la ficha que le creó el estudio. */
+/**
+ * «Entrar como instructora»: une su cuenta a la ficha que le creó el estudio.
+ * Con el enlace de invitación guardado, por él; si no, por su correo.
+ */
 export async function unirseComoInstructora(slug: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: { session } } = await supabasePortal.auth.getSession();
   const userId = session?.user?.id;
   if (!session?.access_token || !userId) return { ok: false, error: 'Tu sesión ha caducado. Vuelve a entrar.' };
+  const enlace = invitacionDeLaCuenta(slug, userId);
   try {
     const res = await fetch('/api/portal/instructora/unirse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ slug }),
+      body: JSON.stringify(enlace ? { slug, token: enlace } : { slug }),
     });
     const cuerpo = await res.json().catch(() => null) as { ok?: boolean; error?: string } | null;
     if (!res.ok || !cuerpo?.ok) {
+      // Un enlace que el servidor rechaza no se reintenta solo: fuera, para que
+      // no la vuelva a traer aquí cada vez que entre.
+      if (enlace && [400, 404, 409].includes(res.status)) olvidarInvitacionApp(slug);
       return { ok: false, error: cuerpo?.error || 'No hemos podido activar tu acceso. Inténtalo de nuevo en unos segundos.' };
     }
+    olvidarInvitacionApp(slug);
     // Lo que se sabía de ella («no es instructora») ya no vale.
     cacheInstructora.vaciar();
     consultasEleccion.clear();

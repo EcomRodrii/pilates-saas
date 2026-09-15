@@ -5,6 +5,7 @@ import { supabase } from '@/lib/db/supabase';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
 import { enlaceRevocado } from '@/lib/sustituciones/enlaces';
 import { avisarAlEstudioAccesoActivado } from '@/lib/equipo/avisar-acceso-activado';
+import { conservarEstudioDelPanel } from '@/lib/equipo/conservar-estudio-panel';
 import { MENSAJE_RECHAZO, motivoNoReclamable } from '@/lib/equipo/reclamar-reglas';
 import type { Rol } from '@/lib/types';
 import { ErrorAccion } from '@/lib/actions/errores';
@@ -75,6 +76,19 @@ export async function equipoReclamarAction(input: { token?: string; jwt?: string
     // ninguno de los 4 textos reales de MENSAJE_RECHAZO casaba, así que los
     // cuatro caían en el 500 por defecto.
     throw new ErrorAccion(MENSAJE_RECHAZO[motivo], motivo === 'FICHA_INACTIVA' ? 404 : 409);
+  }
+
+  // Unirse no puede cambiarle a nadie el estudio en el que abre su panel: una
+  // propietaria (o quien ya trabaja en varias sedes) que acepta esta invitación
+  // sin sede guardada acabaría abriendo el panel de ESTE estudio. Ver
+  // `lib/equipo/conservar-estudio-panel.ts`.
+  if (ficha.auth_user_id !== user.id) {
+    try {
+      await conservarEstudioDelPanel(admin, user.id);
+    } catch (e) {
+      Sentry.captureException(e, { tags: { area: 'equipo', accion: 'reclamar' } });
+      throw new ErrorAccion(ERROR_SISTEMA, 500);
+    }
   }
 
   const { data: tocadas, error: errUpdate } = await admin
