@@ -17,7 +17,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
   BARRIDO_RECIBO_RESUELTO, DESDE_DETECTADA, ESTADOS_OMITIDA, ESTADOS_RECIBO_BARRIDO_ANULADAS, crearReciboYCobrar,
-  devolucionEnMarcha, penalizacionDelRecibo, soltarReciboDePenalizacionAnulada, type EstadoPenalizacion,
+  devolucionEnMarcha, omitirPorPlazaFijaSinCuota, penalizacionDelRecibo, soltarReciboDePenalizacionAnulada, type EstadoPenalizacion,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { borrarReciboDePenalizacionSinCobro, seguirPenalizacionAlRecibo } from '@/lib/billing/penalizacion-recibo-server';
 import {
@@ -39,10 +39,46 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
     .select(`
       id, nombre, razon_social, nif, direccion, ciudad, codigo_postal, email,
       cancelacion_ventana_horas, penalizacion_importe_eur, penalizacion_cobro_automatico,
-      stripe_account_id, suspendido_en, politica_privacidad, terminos_servicio
+      stripe_account_id, suspendido_en, politica_privacidad, terminos_servicio, plaza_fija_sin_cuota
     `)
     .eq('id', pen.studio_id).maybeSingle();
   if (!studio || studio.suspendido_en) return; // estudio suspendido: no se persigue cobro en su nombre
+
+  // La clase: para la política de plaza fija sin cuota, la ventana del contrato
+  // (cancelación tardía) y el concepto del recibo. Va antes de la guardia de
+  // Stripe para decidir la política en la primera pasada, no cuando se conecte.
+  // Un error de lectura no escribe nada: la próxima pasada lo repite. Una reserva
+  // o clase que no existe sí se decide (sin datos, no se cobra).
+  const { data: reserva, error: errReserva } = await admin.from('reservas').select('sesion_id').eq('id', pen.reserva_id).maybeSingle();
+  if (errReserva) return;
+  const { data: sesion, error: errSesion } = reserva?.sesion_id
+    ? await admin.from('sesiones').select('inicio, tipo_clase_id').eq('id', reserva.sesion_id).maybeSingle()
+    : { data: null, error: null };
+  if (errSesion) return;
+
+  // Plaza fija sin cuota: el estudio eligió no cobrar (LIBERAR o
+  // MANTENER_SIN_PENALIZAR). Antes que el consentimiento, para no avisar de un
+  // «cargo bloqueado» que nunca se iba a cobrar.
+  if (sesion && pen.reserva_id.startsWith('res-pf-')
+    && (studio.plaza_fija_sin_cuota === 'LIBERAR' || studio.plaza_fija_sin_cuota === 'MANTENER_SIN_PENALIZAR')) {
+    const fecha = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date(sesion.inicio as string));
+    const { data: cubre, error: errCuota } = await admin.rpc('cuota_cubre_plaza_fija', {
+      p_studio_id: pen.studio_id, p_socio_id: pen.socio_id, p_tipo_clase_id: sesion.tipo_clase_id, p_fecha: fecha, p_exigir_vigente: false,
+    });
+    if (errCuota) return; // sin saber si tiene cuota no se decide nada: la próxima pasada lo repite
+    if (omitirPorPlazaFijaSinCuota({ politica: studio.plaza_fija_sin_cuota, reservaId: pen.reserva_id, cubre: cubre === true })) {
+      // `recibo_id: null` en la misma escritura, como la de consentimiento: una
+      // DETECTADA puede apuntar ya a un recibo de una pasada anterior.
+      const { data: tocadas, error: errMarca } = await admin.from('penalizaciones')
+        .update({ estado: 'OMITIDA_SIN_CUOTA', procesada_en: new Date().toISOString(), recibo_id: null })
+        .eq('id', pen.id).in('estado', [...DESDE_DETECTADA]).select('id');
+      if (errMarca) { console.error('[penalizaciones] no se pudo marcar sin cuota', pen.id, errMarca.message); return; }
+      if ((tocadas?.length ?? 0) > 0) {
+        await borrarReciboDePenalizacionSinCobro(admin, { studioId: pen.studio_id, reciboId: `rec-penaliz-${pen.id}` });
+      }
+      return;
+    }
+  }
 
   // Guard de Stripe Connect: sin cuenta conectada no hay a quién cobrar. NO se
   // marca omitida — cuando el estudio conecte Stripe, el próximo barrido la
@@ -54,16 +90,6 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
     .select('id, nombre, email, stripe_customer_id, stripe_payment_method_id, aceptacion_version')
     .eq('id', pen.socio_id).maybeSingle();
   if (!socio) { await marcar('FALLIDA'); return; }
-
-  // La clase: para la ventana del contrato (cancelación tardía) y para el
-  // concepto del recibo. Un error de lectura no escribe nada: la próxima pasada
-  // lo repite. Una reserva o clase que no existe sí se decide (sin datos, no se cobra).
-  const { data: reserva, error: errReserva } = await admin.from('reservas').select('sesion_id').eq('id', pen.reserva_id).maybeSingle();
-  if (errReserva) return;
-  const { data: sesion, error: errSesion } = reserva?.sesion_id
-    ? await admin.from('sesiones').select('inicio, tipo_clase_id').eq('id', reserva.sesion_id).maybeSingle()
-    : { data: null, error: null };
-  if (errSesion) return;
 
   // Guard de consentimiento (§7 del plan): AceptacionContrato.versionTexto es
   // el TEXTO COMPLETO que la socia aceptó, no un número de versión — se

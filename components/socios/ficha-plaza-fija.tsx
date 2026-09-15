@@ -22,6 +22,7 @@ import { Plus, Trash2, Pencil, CalendarClock, Pause } from 'lucide-react';
 import { IconoAviso } from '@/lib/iconos';
 import { plazasFijasSinSesion } from '@/lib/plazas-fijas-slot';
 import { estadoPausa } from '@/lib/plazas-fijas-pausa';
+import { fechaLimiteDecidirVuelta } from '@/lib/plazas-fijas-solicitudes';
 import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { hoyEnEstudio } from '@/lib/utils';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
@@ -119,6 +120,13 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
             const sinClase = huerfanas.has(p.id);
             const hora = p.horaInicio.slice(0, 5);
             const pausa = hoy ? estadoPausa(p, hoy) : 'sin_pausa';
+            // Una pausa que soltó su sitio sigue PAUSADA hasta que se decide su vuelta,
+            // también cuando sus fechas ya acabaron.
+            const conSitioLibre = p.estado === 'PAUSADA' && p.pausaLiberaSitio === true;
+            const vueltaPorDecidir = conSitioLibre && pausa === 'sin_pausa';
+            // Mismo corte que el servidor: solo suelta el sitio si dura más de una semana.
+            const soltaraSitio = p.pausaLiberaSitio === true && !!p.pausaDesde && !!p.pausaHasta
+              && p.pausaHasta > fechaLimiteDecidirVuelta(p.pausaDesde);
             // Sin una cuota que incluya la clase, el motor no le reserva nada: la
             // plaza sigue ahí, pero en silencio. Visto en producción con una
             // clienta de bono agotado y plaza fija, sin ningún aviso.
@@ -130,7 +138,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                   <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                     <CalendarClock size={14} className="text-muted-foreground shrink-0" />
                     {diaLabel(p.diaSemana)} · {hora}
-                    {p.estado === 'PAUSADA' && <span className="text-[11px] font-medium text-muted-foreground">· en pausa</span>}
+                    {p.estado === 'PAUSADA' && !conSitioLibre && <span className="text-[11px] font-medium text-muted-foreground">· en pausa</span>}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {sala?.nombre ?? 'Sala'}{spot ? ` · ${spot.nombre}` : ''}{tipo ? ` · ${tipo.nombre}` : ''}
@@ -140,8 +148,14 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                     <p className="text-[11px] font-semibold text-foreground mt-1 flex items-center gap-1">
                       <Pause size={11} className="shrink-0 text-muted-foreground" aria-hidden />
                       {pausa === 'en_curso'
-                        ? `En pausa hasta el ${fechaCorta(p.pausaHasta)}`
-                        : `Pausa programada del ${fechaCorta(p.pausaDesde)} al ${fechaCorta(p.pausaHasta)}`}
+                        ? `En pausa hasta el ${fechaCorta(p.pausaHasta)}${conSitioLibre ? ' · su sitio está libre' : ''}`
+                        : `Pausa programada del ${fechaCorta(p.pausaDesde)} al ${fechaCorta(p.pausaHasta)}${soltaraSitio ? ' · su sitio quedará libre' : ''}`}
+                    </p>
+                  )}
+                  {vueltaPorDecidir && (
+                    <p role="status" className="text-[11px] font-medium text-warning mt-1 flex items-center gap-1">
+                      <IconoAviso size={12} className="shrink-0" aria-hidden />
+                      Su pausa acabó el {fechaCorta(p.pausaHasta)} y su sitio está libre: decide su vuelta en Inicio
                     </p>
                   )}
                   {sinClase && (
@@ -158,7 +172,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
-                  {p.estado === 'ACTIVA' && (
+                  {(p.estado === 'ACTIVA' || conSitioLibre) && (
                     <button
                       onClick={() => setAPausar(p)}
                       title={pausa === 'sin_pausa' ? 'Pausar unas fechas (vacaciones, lesión…)' : 'Cambiar o quitar la pausa'}

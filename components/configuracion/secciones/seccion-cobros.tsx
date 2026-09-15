@@ -1,13 +1,13 @@
 'use client';
 
-import { Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
+import { Ban, Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import {
-  resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenPlanesActivos,
+  resumenAlCancelarCuota, resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenPlanesActivos,
 } from '@/lib/configuracion/resumenes';
 import { FILAS_A_OTRA_PANTALLA, type TarjetaId } from '@/lib/configuracion/secciones';
 import { FormDatosFiscales } from '@/components/configuracion/tab-datos-fiscales';
-import { FormDevoluciones, FormDomiciliaciones } from '@/components/configuracion/tab-estudio-cobros';
+import { FormAlCancelarCuota, FormDevoluciones, FormDomiciliaciones } from '@/components/configuracion/tab-estudio-cobros';
 import { DetalleCobroConTarjeta, FilaCobroConTarjeta, useCobroConTarjeta } from '@/components/configuracion/cobro-con-tarjeta';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
@@ -18,14 +18,15 @@ import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/
 // botón de acción, un «Guardar datos SEPA» siempre a la vista y un «Guardar
 // política» gris en reposo—. Ahora cada cosa es una fila con su valor de hoy, y
 // lo que se abre se guarda con el «Guardar» de su cajón; lo que mueve dinero
-// (el IVA, las devoluciones) pregunta antes con la consecuencia.
+// (el IVA, las devoluciones, qué pasa al cancelar una cuota) pregunta antes con
+// la consecuencia.
 //
 // Las anclas de las filas (`#datos-fiscales`, `#integracion-stripe`…) abren su
 // cajón. Stripe solo tiene cajón cuando está conectado: sin conectar, su acción
 // va en la misma fila.
 
-type CajonId = Extract<TarjetaId, 'datos-fiscales' | 'integracion-stripe' | 'domiciliaciones' | 'devoluciones'>;
-const CAJONES = ['datos-fiscales', 'integracion-stripe', 'domiciliaciones', 'devoluciones'] as const satisfies readonly CajonId[];
+type CajonId = Extract<TarjetaId, 'datos-fiscales' | 'integracion-stripe' | 'domiciliaciones' | 'devoluciones' | 'si-se-cancela-una-cuota'>;
+const CAJONES = ['datos-fiscales', 'integracion-stripe', 'domiciliaciones', 'devoluciones', 'si-se-cancela-una-cuota'] as const satisfies readonly CajonId[];
 
 type FilaDeCobros = Extract<(typeof FILAS_A_OTRA_PANTALLA)[number], { seccion: 'cobros' }>;
 const esDeCobros = (f: (typeof FILAS_A_OTRA_PANTALLA)[number]): f is FilaDeCobros => f.seccion === 'cobros';
@@ -60,6 +61,7 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
         <FilaCobroConTarjeta c={stripe} onAbrir={() => abrir('integracion-stripe')} />
         <FilaAjuste id="domiciliaciones" icono={Landmark} valor={cargado ? resumenDomiciliaciones(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="devoluciones" icono={RotateCcw} valor={cargado ? resumenDevoluciones(cargado) : null} onAbrir={abrir} />
+        <FilaAjuste id="si-se-cancela-una-cuota" icono={Ban} valor={cargado ? resumenAlCancelarCuota(cargado) : null} onAbrir={abrir} />
       </GrupoFilas>
 
       <GrupoFilas titulo="En otras pantallas">
@@ -87,6 +89,9 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
       </CajonAjuste>
       <CajonAjuste id="devoluciones" abierto={cajon === 'devoluciones'} onCerrar={cerrar}>
         <FormDevoluciones {...props} />
+      </CajonAjuste>
+      <CajonAjuste id="si-se-cancela-una-cuota" abierto={cajon === 'si-se-cancela-una-cuota'} onCerrar={cerrar}>
+        <FormAlCancelarCuota {...props} />
       </CajonAjuste>
     </>
   );

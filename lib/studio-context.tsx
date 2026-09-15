@@ -349,10 +349,9 @@ interface StudioContextValue {
   // que sigue usando asignarPlazaFija/quitarPlazaFija de arriba.
   // primeraFecha: la próxima clase de la plaza si ya quedó reservada (el
   // servidor reserva las próximas semanas al crearla).
-  crearPlazaFijaPropia: (sesionId: string) => Promise<{ ok: true; primeraFecha: string | null } | { ok: false; error: string }>;
-  pausarPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
-  reanudarPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
-  darDeBajaPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
+  solicitarPlazaFijaPropia: (sesionId: string) => Promise<ResultadoEscritura>;
+  solicitarPausaPlazaFijaPropia: (plazaId: string, pausa: Pausa) => Promise<ResultadoEscritura>;
+  cancelarPeticionPlazaFijaPropia: (solicitudId: string) => Promise<ResultadoEscritura>;
   recuperaciones: Recuperacion[];
   // F2 (B2.9): excepciones "porque lo digo yo". Toggle: poner (upsert) / quitar (delete).
   socioExcepciones: SocioExcepcion[];
@@ -1731,6 +1730,30 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true, canceladas: canceladas.size, mantenidas: datos.mantenidas?.length ?? 0, fallidas: datos.fallidas ?? 0 };
   }
 
+  // Sin cuota, la plaza fija no puede seguir ocupando clases. Tras cancelar,
+  // pausar, programar la baja o cambiar la cuota, el servidor suelta las clases
+  // que el motor ya le había reservado y que no cubre ninguna cuota; qué se suelta
+  // lo decide la BD, así que llamarlo de más no cancela nada. Best-effort: la
+  // cuota ya está guardada y, si esto falla, lo hace el cron esa misma noche. Se
+  // tachan solo las reservas que el servidor dice haber cancelado.
+  async function soltarClasesPlazaFijaSinCuota(socioId: string): Promise<number> {
+    // Solo con «Liberar sus clases»: con las otras dos políticas no se suelta nada
+    // (la BD tampoco listaría ninguna; esto solo ahorra la petición).
+    if (studio?.plazaFijaSinCuota !== 'LIBERAR') return 0;
+    if (!plazasFijas.some(p => p.socioId === socioId && p.estado !== 'BAJA')) return 0;
+    const respuesta = await fetch('/api/plazas-fijas/soltar-sin-cuota', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ socioId }),
+    }).catch(() => null);
+    const datos = await respuesta?.json().catch(() => null) as { canceladas?: string[] } | null;
+    const canceladas = new Set(respuesta?.ok ? datos?.canceladas ?? [] : []);
+    if (canceladas.size > 0) {
+      setReservas(prev => prev.map(r => canceladas.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+    }
+    return canceladas.size;
+  }
+
   // Pausa con fechas (vacaciones, lesión…): no cambia el estado, la plaza sigue
   // ACTIVA con su sitio y el motor se salta esas semanas. Va por el servidor
   // porque suelta las clases ya reservadas en esas fechas y, al quitar o acortar
@@ -1756,41 +1779,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
     return {
       ok: true, canceladas: canceladas.size, mantenidas: datos.mantenidas?.length ?? 0,
-      fallidas: datos.fallidas ?? 0, creadas: datos.creadas ?? 0,
+      fallidas: datos.fallidas ?? 0, creadas: datos.creadas ?? 0, sitioLibre: plaza.estado === 'PAUSADA',
     };
   }
 
-  // Feature #2 (ficha Lorari-vs-Tentare): autoservicio de plaza fija desde el
-  // portal. Solo tiene efecto con sesión de socia — sin `cpub` no hay a quién
-  // atribuírsela, así que se rechaza en vez de intentar algo con studioId
-  // vacío (mismo guard que el resto de escrituras públicas de este contexto).
-  async function crearPlazaFijaPropia(
-    sesionId: string,
-  ): Promise<{ ok: true; primeraFecha: string | null } | { ok: false; error: string }> {
+  // Plaza fija desde la app: la alumna PIDE y el estudio decide; hasta que
+  // aprueba no cambia nada, así que aquí no hay nada optimista que pintar.
+  // Solo con sesión de socia — sin `cpub` no hay a quién atribuírsela, así que se
+  // rechaza en vez de intentar algo con studioId vacío (mismo guard que el resto
+  // de escrituras públicas de este contexto).
+  async function pedirPlazaFija(cuerpo: Record<string, unknown>): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (!cpub) return { ok: false, error: 'No disponible' };
-    const r = await postPublico('/api/public/plaza-fija', { accion: 'crear', studioId: cpub.studioId, sesionId });
-    if (!r.ok) return r;
-    // El servidor reserva ya las próximas semanas con el mismo motor que cada
-    // noche; `primeraFecha` es la próxima clase si quedó reservada.
-    const datos = r.datos as { primeraFecha?: string | null } | null;
-    return { ok: true, primeraFecha: datos?.primeraFecha ?? null };
-  }
-
-  async function cambiarEstadoPlazaFijaPropia(id: string, accion: 'pausar' | 'reanudar' | 'dar_de_baja'): Promise<ResultadoEscritura> {
-    const cpub = ctxPublico();
-    if (!cpub) return { ok: false, error: 'No disponible' };
-    // Optimista: la propia socia ya sabe qué acaba de pulsar. `postPublico`
-    // re-sincroniza en su `finally`, así que un rechazo (p.ej. choque de sitio
-    // al reanudar) se corrige solo.
-    const estadoNuevo = accion === 'pausar' ? 'PAUSADA' : accion === 'reanudar' ? 'ACTIVA' : 'BAJA';
-    setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, estado: estadoNuevo as PlazaFija['estado'] } : p));
-    const r = await postPublico('/api/public/plaza-fija', { accion, studioId: cpub.studioId, plazaId: id });
+    const r = await postPublico('/api/public/plaza-fija', { ...cuerpo, studioId: cpub.studioId });
     return r.ok ? { ok: true } : r;
   }
-  const pausarPlazaFijaPropia = (id: string) => cambiarEstadoPlazaFijaPropia(id, 'pausar');
-  const reanudarPlazaFijaPropia = (id: string) => cambiarEstadoPlazaFijaPropia(id, 'reanudar');
-  const darDeBajaPlazaFijaPropia = (id: string) => cambiarEstadoPlazaFijaPropia(id, 'dar_de_baja');
+  const solicitarPlazaFijaPropia = (sesionId: string) => pedirPlazaFija({ accion: 'solicitar_plaza', sesionId });
+  const solicitarPausaPlazaFijaPropia = (plazaId: string, pausa: Pausa) =>
+    pedirPlazaFija({ accion: 'solicitar_pausa', plazaId, desde: pausa.desde, hasta: pausa.hasta });
+  const cancelarPeticionPlazaFijaPropia = (solicitudId: string) => pedirPlazaFija({ accion: 'cancelar_peticion', solicitudId });
 
   // F2 (B2.3): concede una recuperación (dueña-first). La caducidad y el tope (4)
   // los resuelve la RPC; al crearla, recargamos la lista para reflejar caduca_el.
@@ -2910,6 +2917,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     });
     const nuevosRecibos = [reciboPlan, reciboMatricula].filter((r): r is Recibo => r !== null);
     if (nuevosRecibos.length > 0) setRecibos(prev => [...prev, ...nuevosRecibos]);
+    // Cambiar la cuota por un bono (o quitar el plan) deja su plaza fija sin
+    // cuota: fuera las clases que ya tenía reservadas. Si el plan nuevo también
+    // cubre, la BD no suelta nada.
+    if (desactivadas.size > 0) await soltarClasesPlazaFijaSinCuota(socioId);
 
     const socio = socios.find(s => s.id === socioId);
     addActividadReciente(
@@ -2932,6 +2943,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbCongelarSuscripcion(susId, getCurrentStudioId(), motivo ?? null);
     if (!res.ok) return res;
     setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'PAUSADA' as const } : s));
+    // Pausada no cubre: fuera las clases de su plaza fija (al reanudar, el motor
+    // se las vuelve a reservar esa noche).
+    await soltarClasesPlazaFijaSinCuota(sus.socioId);
     return res;
   }
 
@@ -3007,6 +3021,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbUpdateSuscripcion(susId, { estado: 'CANCELADA' });
     if (!res.ok) return res;
     setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'CANCELADA' as const } : s));
+    await soltarClasesPlazaFijaSinCuota(sus.socioId);
 
     // El rastro que ya dejaba el camino viejo (`assignPlan` registra «quitó el
     // plan»): sin esto, cancelar una suscripción sería lo único de esta
@@ -3041,6 +3056,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbUpdateSuscripcion(susId, { bajaAlVencer: programar });
     if (!res.ok) return res;
     setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, bajaAlVencer: programar } : s));
+    // Con la baja programada, lo reservado DESPUÉS de su fin ya no lo cubre.
+    if (programar) await soltarClasesPlazaFijaSinCuota(sus.socioId);
 
     const socio = socios.find(s => s.id === sus.socioId);
     addActividadReciente(
@@ -4117,6 +4134,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // una renovación que nunca llegó a recargar el bono.
   async function aplicarRenovacionSuscripcion(recibo: Recibo) {
     if (!recibo.suscripcionId) return;
+    // Deuda que quedó pendiente al cancelar la cuota: cobrarla no la reactiva ni
+    // entrega otro ciclo (mismo criterio que `aplicarRenovacionServidor`).
+    if (recibo.trasCancelarCuota) return;
     const sus = suscripciones.find(s => s.id === recibo.suscripcionId);
     if (!sus) return;
     const plan = planesTarifa.find(p => p.id === sus.planId);
@@ -5545,10 +5565,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     moverPlazaFija,
     quitarPlazaFija,
     pausarPlazaFija,
-    crearPlazaFijaPropia,
-    pausarPlazaFijaPropia,
-    reanudarPlazaFijaPropia,
-    darDeBajaPlazaFijaPropia,
+    solicitarPlazaFijaPropia,
+    solicitarPausaPlazaFijaPropia,
+    cancelarPeticionPlazaFijaPropia,
     darRecuperacion,
     anularRecuperacion,
     ampliarCaducidades,

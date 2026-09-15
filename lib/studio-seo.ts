@@ -12,7 +12,8 @@ const COLUMNAS_ESTABLES =
   'id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, '
   + 'codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera';
 const COLUMNAS_JOVENES =
-  'creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, imagen_bienvenida_url';
+  'creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, imagen_bienvenida_url, '
+  + 'plaza_fija_solicitar_desde_app, plaza_fija_pausa_desde_app';
 
 /** La fila tal y como la lee esta función: las jóvenes pueden no venir. */
 interface FilaStudio {
@@ -25,6 +26,7 @@ interface FilaStudio {
   creditos_nombre?: string | null; lema?: string | null; frase_heroe?: string | null;
   frase_manuscrita?: string | null; subtitulo_heroe?: string | null;
   imagen_bienvenida_url?: string | null;
+  plaza_fija_solicitar_desde_app?: boolean | null; plaza_fija_pausa_desde_app?: boolean | null;
 }
 
 /**
@@ -82,6 +84,10 @@ export interface StudioSeo {
   cancelacionVentanaHoras: number;
   /** Si el estudio admite apuntarse a una clase completa. */
   permiteListaEspera: boolean;
+  /** El estudio deja pedir plaza fija o una pausa desde la app (migr 20260915231920).
+   *  Solo decide si se enseña el botón: la puerta es `/api/public/plaza-fija`. */
+  plazaFijaSolicitarDesdeApp: boolean;
+  plazaFijaPausaDesdeApp: boolean;
   /** Cómo llama el estudio a su moneda de fidelización. `null` = la del producto. */
   creditosNombre: string | null;
   /**
@@ -163,6 +169,9 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // un iPhone. Con esto, el guardia de `student-iphone` puede fallar.
       fotoUrl: 'https://ejemplo.supabase.co/storage/v1/object/public/avatars/admin-studio-1',
       cancelacionVentanaHoras: 12, permiteListaEspera: true,
+      // Apagado como en producción; la spec que prueba pedir plaza o pausa lo enciende.
+      plazaFijaSolicitarDesdeApp: process.env.E2E_PLAZA_FIJA_APP === '1',
+      plazaFijaPausaDesdeApp: process.env.E2E_PLAZA_FIJA_APP === '1',
       creditosNombre: process.env.E2E_CREDITOS_NOMBRE ?? null,
       // ⚠️ Puestos POR DEFECTO, al revés que el logo. Se deciden en el SERVIDOR
       // (`page.route` no llega), y dejarlos vacíos significaba que la cabecera
@@ -279,6 +288,10 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     // usa el servidor al resolver la cancelación.
     cancelacionVentanaHoras: (data.cancelacion_ventana_horas as number | null) ?? 12,
     permiteListaEspera: (data.permite_lista_espera as boolean | null) ?? true,
+    // Sin la columna todavía aplicada, «no sé» es «no se puede pedir»: enseñar el
+    // botón sin que el servidor lo acepte sería prometerle algo que da 403.
+    plazaFijaSolicitarDesdeApp: (data.plaza_fija_solicitar_desde_app as boolean | null) === true,
+    plazaFijaPausaDesdeApp: (data.plaza_fija_pausa_desde_app as boolean | null) === true,
     creditosNombre: (data.creditos_nombre as string | null) ?? null,
     lema: (data.lema as string | null) ?? null,
     fraseHeroe: (data.frase_heroe as string | null) ?? null,

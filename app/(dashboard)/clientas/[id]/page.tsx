@@ -36,6 +36,8 @@ import { ERROR_GENERICO } from '@/lib/errores';
 import { EstadoSuscripcion } from '@/components/suscripciones/estado-suscripcion';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
 import { puedeProgramarBaja } from '@/lib/billing/baja-al-vencer';
+import { textoCobrosAlCancelar, type ReciboPendienteDeLaCuota } from '@/lib/billing/texto-cancelar-cuota';
+import { dbRecibosPendientesDeCuota } from '@/lib/supabase-data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import { normalizarEmail, motivoLegible } from '@/lib/emails/rebotes';
@@ -52,6 +54,7 @@ import { Toast } from '@/components/ui/toast';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 import { FichaValoracion, FichaValoracionSalud } from '@/components/socios/valoracion-inicial-ficha';
 import { repartirHistorial } from '@/lib/valoracion-inicial';
+import { textoPlazaFijaSinCuota } from '@/lib/plazas-fijas-sin-cuota';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -340,6 +343,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // cierra (visto en producción: «Cancelar ahora» enseñaba un instante una
   // segunda confirmación que ya no hacía nada).
   const [confirmarCancelarSus, setConfirmarCancelarSus] = useState<'elegir' | 'confirmar' | null>(null);
+  // Los recibos pendientes de esa cuota, leídos al abrir la ventana (ver `abrirCancelarSus`).
+  const [pendientesCuota, setPendientesCuota] = useState<ReciboPendienteDeLaCuota[]>([]);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   // ── AI instructor notes ────────────────────────────────────────────────────
@@ -687,6 +692,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // `cancelarSuscripcion` en studio-context.
   function abrirCancelarSus() {
     if (!suscripcion) return;
+    // Sus recibos pendientes, leídos al abrir: la ventana dice qué pasará con
+    // ellos según la política del estudio (`textoCobrosAlCancelar`).
+    setPendientesCuota([]);
+    void dbRecibosPendientesDeCuota(suscripcion.id).then(setPendientesCuota);
     setConfirmarCancelarSus(
       puedeProgramarBaja(suscripcion, plan, localDate(now)) && !suscripcion.bajaAlVencer ? 'elegir' : 'confirmar',
     );
@@ -872,12 +881,16 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   {/* Current plan card */}
                   <div className="border border-border rounded-xl overflow-hidden">
                     <div className="flex items-center justify-between px-5 py-3.5 bg-muted border-b border-border">
-                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Plan activo</span>
+                      {/* Visto en producción (15-sep): decía «PLAN ACTIVO» encima de «Cancelada». */}
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        {!suscripcion ? 'Plan' : suscripcion.estado === 'CANCELADA' ? 'Plan cancelado' : suscripcion.estado === 'PAUSADA' ? 'Plan pausado' : 'Plan activo'}
+                      </span>
                       {verFinanzas && (
                         <button
                           onClick={() => setShowChangePlan(true)}
                           className="text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
-                          style={{ backgroundColor: '#FFF2F7', color: 'var(--brand)' }}
+                          // Con el color del estudio, no el rosa de la plantilla vieja (#FFF2F7).
+                          style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 10%, var(--card))', color: 'var(--brand)' }}
                         >
                           {plan ? 'Cambiar plan' : 'Asignar plan'}
                         </button>
@@ -912,7 +925,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold mt-1.5" style={{ color: 'var(--warning)' }}>
                                   <span className="inline-flex items-center gap-1">
                                     <Calendar size={12} />
-                                    Se da de baja el {suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'} · no se le volverá a cobrar
+                                    Se da de baja el {suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'} · no se generarán más cobros de esta cuota
                                   </span>
                                   {puedeCobrar && (
                                     <button
@@ -2526,14 +2539,25 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 // terminar el periodo que ya ha pagado (evaluación del 13-sep).
                 <p className="text-sm text-muted-foreground">
                   Lo habitual es darla de baja <strong className="text-foreground">al final del periodo</strong>: {socio.nombre} sigue
-                  reservando hasta el {suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'} y no se le vuelve a cobrar.
-                  Si la cancelas ahora, deja de poder reservar desde hoy.
+                  reservando hasta el {suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'}.{' '}
+                  {textoCobrosAlCancelar(studio?.recibosAlCancelarCuota ?? 'MANTENER_CON_REINTENTOS', pendientesCuota, 'al-final')}{' '}
+                  Si la cancelas ahora, deja de poder reservar desde hoy
+                  {pendientesCuota.length > 0
+                    ? `: ${textoCobrosAlCancelar(studio?.recibosAlCancelarCuota ?? 'MANTENER_CON_REINTENTOS', pendientesCuota, 'ahora').replace('No se generarán cobros nuevos de esta cuota. ', '')}`
+                    : '.'}
+                  {plazasFijas.some(p => p.socioId === id && p.estado !== 'BAJA') && (
+                    <> {textoPlazaFijaSinCuota(studio?.plazaFijaSinCuota ?? 'MANTENER', 'elegir', suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : null)}</>
+                  )}
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  {plan?.nombre ? `«${plan.nombre}» dejará` : 'La suscripción dejará'} de estar activa: {socio.nombre} no podrá reservar con ella y no se le volverá a cobrar.
+                  {plan?.nombre ? `«${plan.nombre}» dejará` : 'La suscripción dejará'} de estar activa: {socio.nombre} no podrá reservar con ella.{' '}
+                  {textoCobrosAlCancelar(studio?.recibosAlCancelarCuota ?? 'MANTENER_CON_REINTENTOS', pendientesCuota, 'ahora')}
                   {(suscripcion?.sesionesRestantes ?? 0) > 0 && (
                     <> Le quedan <strong className="text-destructive">{suscripcion!.sesionesRestantes} {suscripcion!.sesionesRestantes === 1 ? 'sesión' : 'sesiones'} sin usar</strong> que ya ha pagado, y las pierde.</>
+                  )}
+                  {plazasFijas.some(p => p.socioId === id && p.estado !== 'BAJA') && (
+                    <> {textoPlazaFijaSinCuota(studio?.plazaFijaSinCuota ?? 'MANTENER', 'ahora')}</>
                   )}
                   {' '}Puedes volver a activarla después desde esta misma tarjeta.
                 </p>

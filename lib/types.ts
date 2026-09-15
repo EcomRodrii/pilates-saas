@@ -6,7 +6,10 @@ export type Rol = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION' | 'MANAGER';
 export type EstadoSuscripcion = 'ACTIVA' | 'PAUSADA' | 'CANCELADA' | 'EXPIRADA';
 export type TipoPlan = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 // FALLIDO (0041): estado terminal tras agotar los reintentos de dunning (+1/+3/+7).
-export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO' | 'FALLIDO';
+// ANULADO: el estudio perdonó un recibo pendiente al cancelar la cuota
+// (política `recibos_al_cancelar_cuota`, migr 20260915215311). No se cobra ni
+// cuenta como deuda.
+export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO' | 'FALLIDO' | 'ANULADO';
 // Pagos España (0036): método recurrente preferido de la socia y método real de cada cobro.
 export type MetodoPagoPreferido = 'TARJETA' | 'SEPA';
 export type MetodoCobro = 'TARJETA' | 'SEPA' | 'BIZUM' | 'EFECTIVO' | 'TRANSFERENCIA';
@@ -233,6 +236,20 @@ export interface Studio {
   // false (default) = cada cargo espera aprobación manual antes de tocar la
   // tarjeta guardada. true = se cobra solo, como el cron de dunning.
   penalizacionCobroAutomatico: boolean;
+  // Qué pasa con las clases que su plaza fija ya tenía reservadas cuando la
+  // alumna se queda sin cuota (migr 20260915215236). 'MANTENER' = como siempre.
+  plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
+  /** Autoservicio de plaza fija desde la app (migr 20260915231920): la alumna pide y el estudio decide. */
+  plazaFijaSolicitarDesdeApp: boolean;
+  plazaFijaPausaDesdeApp: boolean;
+  /** Las pausas NUEVAS dejan su sitio libre para otra clienta; las ya puestas no cambian. */
+  plazaFijaPausaLiberaSitio: boolean;
+  plazaFijaFinPausa: PoliticaFinPausa;
+  // Qué pasa con el recibo PENDIENTE de una cuota al cancelarla (migr
+  // 20260915215311; el trigger lo escribe en el recibo). Por defecto, como siempre.
+  recibosAlCancelarCuota: 'MANTENER_CON_REINTENTOS' | 'MANTENER_SIN_REINTENTOS' | 'ANULAR';
+  // Si la alumna puede renovar sola desde su app una cuota cancelada (por defecto, sí).
+  renovarSolaCuotaCancelada: boolean;
   // true (default) = comportamiento de siempre: la socia enseña su pase
   // (QR o código corto) y alguien del estudio lo escanea/teclea antes de que
   // la reserva cuente como asistida. false = el estudio confía en que quien
@@ -744,6 +761,9 @@ export interface PlazaFija {
    *  sitio, pero esas semanas no se le reservan. Ver lib/plazas-fijas-pausa.ts. */
   pausaDesde?: string | null;
   pausaHasta?: string | null;
+  /** La pausa se puso con «su sitio queda libre»: al empezar pasa a PAUSADA y
+   *  la vuelta la decide el cron (lib/plazas-fijas-solicitudes.ts). */
+  pausaLiberaSitio?: boolean;
   creadaEn: string;
 }
 
@@ -1096,6 +1116,12 @@ export interface Recibo {
    * copy, y una decisión de dinero no puede depender de que nadie lo traduzca.
    */
   esRenovacion?: boolean;
+  /**
+   * Lo que decidió la política del estudio sobre este recibo al CANCELAR su cuota
+   * (migr 20260915215311). null = no estaba pendiente al cancelar, o la cuota
+   * sigue viva.
+   */
+  trasCancelarCuota?: 'REINTENTAR' | 'SIN_REINTENTOS' | 'ANULADO' | null;
   // Qué entregó este cobro, guardado al entregarlo. Sirve para poder OFRECER
   // deshacerlo si se devuelve el dinero: `suscripciones` no guarda histórico, así
   // que sin esto se pierde. `entregaAplicada` distingue tres cosas que no se
@@ -1130,8 +1156,18 @@ export interface Recibo {
 // sin leer logs.
 export type EstadoPenalizacion =
   | 'DETECTADA' | 'OMITIDA_SIN_TARJETA' | 'OMITIDA_SIN_CONSENTIMIENTO'
-  | 'OMITIDA_COMPENSADA' | 'OMITIDA_REVERTIDA'
+  | 'OMITIDA_COMPENSADA' | 'OMITIDA_REVERTIDA' | 'OMITIDA_SIN_CUOTA'
   | 'PENDIENTE_APROBACION' | 'RECIBO_CREADO' | 'COBRADA' | 'FALLIDA';
+
+/**
+ * Qué pasa con las reservas de plaza fija ya hechas cuando la alumna se queda
+ * sin cuota. LIBERAR = se liberan sus clases futuras sin penalización;
+ * MANTENER_SIN_PENALIZAR = las conserva y no se le cobra si falta; MANTENER =
+ * como siempre (por defecto).
+ */
+export type PoliticaPlazaFijaSinCuota = 'LIBERAR' | 'MANTENER_SIN_PENALIZAR' | 'MANTENER';
+/** Al acabar una pausa que soltó su sitio: vuelve sola si sigue libre, o se pregunta al estudio. */
+export type PoliticaFinPausa = 'RECUPERAR_SI_LIBRE' | 'PENDIENTE_CONFIRMAR';
 
 export interface Penalizacion {
   id: string;

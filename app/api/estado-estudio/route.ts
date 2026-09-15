@@ -70,6 +70,7 @@ export async function GET(req: NextRequest) {
   const [
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
+    plazasFijasPorDecidir,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
   ] = await Promise.all([
@@ -152,6 +153,9 @@ export async function GET(req: NextRequest) {
       }
       return Array.isArray(data) ? data.length : null;
     }),
+    // Mismos dos permisos que resolverlas (`/api/plazas-fijas/solicitudes`).
+    si(gestionaClientas && gestionaCalendario, () => contar('plazas-fijas-decidir', admin.from('solicitudes_plaza_fija')
+      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE'))),
 
     // ── En marcha ──
     si(verSustituciones, () => contar('sust-buscando', admin.from('sustituciones')
@@ -182,6 +186,7 @@ export async function GET(req: NextRequest) {
   const conteos: ConteosEstudio = {
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
+    plazasFijasPorDecidir,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
   };

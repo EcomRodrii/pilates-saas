@@ -8,6 +8,8 @@
 // servidor con su propia regla.
 
 export interface PlazaFijaMin {
+  /** Hace falta para pedir una pausa de ESTA plaza. */
+  id?: string;
   diaSemana: number;          // 0=domingo … 6=sábado
   horaInicio: string;         // 'HH:MM[:SS]'
   salaId: string;
@@ -22,7 +24,20 @@ export interface PlazaFijaMin {
 
 export interface RecuperacionMin { id?: string; caducaEl: string; estado: 'DISPONIBLE' | 'USADA' | 'CADUCADA' | 'ANULADA' }
 
+/** Una petición suya sin contestar (migr 20260915231920): CREAR con su franja, PAUSAR con su plaza y fechas. */
+export interface PeticionPlazaFijaMin {
+  id: string;
+  tipo: 'CREAR' | 'PAUSAR';
+  plazaId: string | null;
+  diaSemana: number | null;
+  horaInicio: string | null;
+  salaId: string | null;
+  desde: string | null;
+  hasta: string | null;
+}
+
 export interface PlazaFijaVista {
+  id: string | null;
   diaSemana: number;
   hora: string;               // 'HH:MM'
   salaId: string;
@@ -39,6 +54,8 @@ export interface PlazaFijaVista {
   vigenciaHasta: string | null;
   /** Pausa con fechas que aún no ha terminado; `enCurso` = hoy está dentro. */
   pausa: { desde: string; hasta: string; enCurso: boolean } | null;
+  /** La pausa que ha pedido y el estudio aún no ha contestado. */
+  pausaPedida: { id: string; desde: string; hasta: string } | null;
 }
 
 /** Una clase del horario publicado, ya en fecha y hora del estudio. */
@@ -64,6 +81,7 @@ function dow(iso: string): number { return new Date(`${iso}T12:00:00`).getDay();
  */
 export function proyectarPlazasFijas(
   plazas: PlazaFijaMin[], hoyISO: string, horaAhora = '00:00', sesiones?: SesionSlotMin[],
+  peticiones: PeticionPlazaFijaMin[] = [],
 ): PlazaFijaVista[] {
   const vigentes = plazas.filter((p) => p.estado !== 'BAJA' && p.vigenciaDesde <= sumarDias(hoyISO, 7) && (!p.vigenciaHasta || p.vigenciaHasta >= hoyISO));
   const horizonte = (sesiones ?? []).reduce<string | null>((max, s) => (max === null || s.fecha > max ? s.fecha : max), null);
@@ -99,15 +117,47 @@ export function proyectarPlazasFijas(
         else if (porCalendario && horizonte && porCalendario <= horizonte) { proximaFecha = null; sinClase = true; }
       }
     }
+    const pedida = p.id ? peticiones.find((x) => x.tipo === 'PAUSAR' && x.plazaId === p.id && x.desde && x.hasta) : undefined;
     vistas.push({
+      id: p.id ?? null,
       diaSemana: p.diaSemana, hora, salaId: p.salaId, tipoClaseId: p.tipoClaseId, estado: p.estado,
       proximaFecha, sinClase, vigenciaHasta: p.vigenciaHasta, pausa: pausaVigente,
+      pausaPedida: pedida ? { id: pedida.id, desde: pedida.desde as string, hasta: pedida.hasta as string } : null,
     });
   }
   return vistas.sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora));
 }
 
 export function nombreDia(diaSemana: number): string { return DIAS[diaSemana] ?? ''; }
+
+export type PlazaFijaEnClase =
+  | { estado: 'PUEDE_PEDIR' }
+  | { estado: 'PEDIDA'; peticionId: string }
+  | { estado: 'TIENE_PLAZA' }
+  | { estado: 'NO_SE_REPITE' };
+
+/**
+ * Qué ofrecer en la ficha de una clase sobre su plaza fija. Solo se pide en una
+ * clase que se repite (otra clase en su misma sala, día y hora), y no si ya la
+ * tiene —activa o en pausa— o ya la ha pedido. El servidor lo vuelve a comprobar
+ * todo al pedir y al dar la plaza: esto solo decide si enseñar el botón.
+ */
+export function plazaFijaEnClase(
+  clase: { id: string; fecha: string; hora: string; salaId: string },
+  sesiones: { id: string; fecha: string; hora: string; salaId: string; cancelada: boolean }[],
+  plazas: PlazaFijaMin[],
+  peticiones: PeticionPlazaFijaMin[],
+): PlazaFijaEnClase {
+  const dia = dow(clase.fecha);
+  const mismaFranja = (d: number | null, hora: string | null, sala: string | null) =>
+    d === dia && (hora ?? '').slice(0, 5) === clase.hora && sala === clase.salaId;
+  if (plazas.some((p) => p.estado !== 'BAJA' && mismaFranja(p.diaSemana, p.horaInicio, p.salaId))) return { estado: 'TIENE_PLAZA' };
+  const pedida = peticiones.find((p) => p.tipo === 'CREAR' && mismaFranja(p.diaSemana, p.horaInicio, p.salaId));
+  if (pedida) return { estado: 'PEDIDA', peticionId: pedida.id };
+  const repite = sesiones.some((s) => s.id !== clase.id && s.fecha !== clase.fecha && !s.cancelada
+    && s.salaId === clase.salaId && s.hora === clase.hora && dow(s.fecha) === dia);
+  return repite ? { estado: 'PUEDE_PEDIR' } : { estado: 'NO_SE_REPITE' };
+}
 
 export interface RecuperacionVista {
   caducaEl: string;

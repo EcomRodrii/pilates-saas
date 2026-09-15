@@ -67,7 +67,7 @@ import {
 // (`app/api/penalizaciones/aprobar`) y el cron solo ejecutan lo que sale de aquí.
 
 const ESTADOS: EstadoPenalizacion[] = [
-  'DETECTADA', 'OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA',
+  'DETECTADA', 'OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA',
   'PENDIENTE_APROBACION', 'RECIBO_CREADO', 'COBRADA', 'FALLIDA', 'REEMBOLSADA',
 ];
 const CODIGOS: CobroErrorCode[] = [
@@ -1387,7 +1387,7 @@ test('respaldo: 402 y 409 tienen texto propio; el resto usa el genérico', () =>
 // ── Cobrar a mano un recibo de penalización (Cobros, Automatizaciones) ──────
 
 const TODOS_LOS_ESTADOS: EstadoPenalizacion[] = [
-  'DETECTADA', 'OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA',
+  'DETECTADA', 'OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA',
   'PENDIENTE_APROBACION', 'RECIBO_CREADO', 'COBRADA', 'FALLIDA', 'REEMBOLSADA',
 ];
 const RECIBO_PEN = `${PREFIJO_RECIBO_PENALIZACION}pen-1`;

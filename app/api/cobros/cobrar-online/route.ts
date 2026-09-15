@@ -30,6 +30,10 @@ const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
   ERROR_TRANSITORIO: 503,
   SUSCRIPCION_PAUSADA: 409,
   MODO_STRIPE_CRUZADO: 503,
+  // Política de recibos al cancelar una cuota: el recibo no se puede cobrar así.
+  CUOTA_CANCELADA: 409,
+  RECIBO_ANULADO: 409,
+  SIN_REINTENTOS: 409,
 };
 
 export async function POST(req: NextRequest) {

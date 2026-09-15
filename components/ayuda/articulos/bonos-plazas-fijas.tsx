@@ -31,6 +31,32 @@ export default function Contenido() {
         tiene un máximo de clases por semana y ya tiene esas plazas fijas, te avisa antes y puedes asignarla
         igualmente.
       </p>
+      <h2 style={h2}>Si se queda sin cuota</h2>
+      <p>
+        Cuando su cuota deja de estar activa —la cancelas, la pausas, termina tras darse de baja o se cancela porque no
+        se pudo cobrar— su plaza fija <strong>sigue guardada con su sitio</strong> y ya no se le reservan clases nuevas.
+        Qué pasa con las que ya tenía reservadas <strong>lo eliges tú</strong>, en Configuración → «Cómo reservan mis
+        alumnas» → «Si se queda sin cuota»:
+      </p>
+      <ul style={{ margin: '0 0 12px', paddingLeft: 20 }}>
+        <li>
+          <strong>Como hasta ahora</strong> (si no eliges nada): conserva esas clases y se aplican tus reglas de
+          siempre.
+        </li>
+        <li>
+          <strong>Mantenerlas sin penalización</strong>: conserva esas clases, y si no viene o cancela tarde no se le
+          cobra.
+        </li>
+        <li>
+          <strong>Liberar sus clases</strong>: se cancelan todas sus reservas futuras de plaza fija, también las de
+          dentro de tu plazo de cancelación, sin penalización; si hay alguien en lista de espera, entra en su lugar. Desde
+          su ficha pasa al momento; si ocurre por otro lado, esa misma noche.
+        </li>
+      </ul>
+      <p>
+        Mientras solo esté <strong>pendiente de cobrar la renovación</strong>, su cuota sigue activa y no cambia nada.
+        Las clases que ya pasaron no se tocan nunca, y cuando vuelva a tener cuota se le reservan otra vez.
+      </p>
       <p>
         La plaza se guarda como un <strong>hueco semanal</strong>, no como una lista de reservas. Al guardarla ya
         se le reservan las clases de las seis semanas que vienen (menos las que ya empiezan dentro del plazo de
@@ -75,6 +101,25 @@ export default function Contenido() {
         Las clases que ya tenía reservadas en esas fechas se cancelan sin penalización; si hay alguien en lista de
         espera, entra en su lugar. Las que empiezan dentro del plazo de cancelación se mantienen. Si vuelve antes,
         cambia las fechas o quita la pausa: las clases que quedan se le reservan al momento, si hay sitio.
+      </p>
+      <p>
+        Si prefieres que durante una pausa larga <strong>su sitio quede libre</strong> para otra alumna, actívalo en
+        Configuración → «Cómo reservan mis alumnas» → «Si pausa su plaza fija». Vale para las pausas nuevas —las que ya
+        tengas puestas siguen igual— y solo suelta el sitio en pausas de más de una semana. Una semana antes de que
+        acabe, Tentare le devuelve la plaza si su sitio sigue libre y tiene cuota, o te lo pregunta en Inicio, según lo
+        que elijas ahí. Si le dices que no vuelva, se le quita la plaza fija.
+      </p>
+
+      <h2 style={h2}>Si te la piden desde su app</h2>
+      <p>
+        De serie, las plazas fijas se dan en recepción. En Configuración → «Cómo reservan mis alumnas» → «Peticiones
+        desde su app» puedes dejar que tus alumnas <strong>pidan</strong> una plaza fija desde la clase que están
+        viendo, o una pausa de la suya. Son peticiones: <strong>hasta que las apruebas no cambia nada</strong>.
+      </p>
+      <p>
+        Te llega un aviso y las decides en Inicio, en «{'Una petición de plaza fija espera tu respuesta'}». Si con esa
+        plaza pasaría del límite de clases por semana de su cuota, te lo decimos ahí y decides tú. Ella ve tu respuesta
+        en su app, con el motivo que escribas si no la apruebas.
       </p>
 
       <h2 style={h2}>Quitar una plaza fija</h2>

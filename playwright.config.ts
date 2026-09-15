@@ -171,6 +171,11 @@ export default defineConfig({
     timeout: 180_000,
     env: {
       E2E_TEST: '1',
+      // Plaza fija desde la app: el ajuste lo resuelve el SERVIDOR
+      // (`lib/studio-seo.ts`), así que `page.route` no llega. Encendido aquí para
+      // que la spec de la alumna pueda pedir plaza y pausa; en producción viene
+      // apagado de serie.
+      E2E_PLAZA_FIJA_APP: '1',
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://example.supabase.co',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'dummy-anon-key-for-ci',
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'dummy-service-role-key-for-ci',

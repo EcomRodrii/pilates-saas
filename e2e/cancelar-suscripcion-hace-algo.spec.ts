@@ -46,7 +46,9 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page) {
+// `rutasExtra` se registra DESPUÉS de los comodines: Playwright resuelve en orden
+// inverso al de registro, así que registrarla antes de llamar a `montar` la tapa.
+async function montar(page: Page, rutasExtra?: () => Promise<void>) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -80,6 +82,7 @@ async function montar(page: Page) {
     }
     return json(route, [SUS_BONO]);
   });
+  if (rutasExtra) await rutasExtra();
 
   await page.goto('/clientas/soc-1');
   await expect(page.getByText('Ana Gil')).toBeVisible({ timeout: 30_000 });
@@ -107,6 +110,56 @@ test('cancelar un bono con saldo escribe de verdad — y avisa de lo que se pier
   expect(patch!.cuerpo).toContain('CANCELADA');
 
   await expect(page.getByText('Suscripción cancelada')).toBeVisible();
+});
+
+// Qué pasa con las clases de su plaza fija lo elige el estudio (16-sep):
+// `plaza_fija_sin_cuota`. Antes, cancelar la cuota dejaba CONFIRMADAS hasta 6
+// semanas de clases para todos, sin elegir.
+const PLAZA_FIJA = {
+  id: 'pf-1', studio_id: STUDIO_ID, socio_id: 'soc-1', sala_id: 'sala-1', spot_id: null, tipo_clase_id: null,
+  dia_semana: 2, hora_inicio: '10:00:00', estado: 'ACTIVA', vigencia_desde: '2026-08-01', vigencia_hasta: null,
+  pausa_desde: null, pausa_hasta: null, creada_en: '2026-08-01T09:00:00Z',
+};
+
+async function montarConPlazaFija(page: Page, politica: 'LIBERAR' | 'MANTENER') {
+  const soltar: string[] = [];
+  const escrituras = await montar(page, async () => {
+    await page.route('**/rest/v1/studios**', route => json(route, { ...STUDIO_ROW, plaza_fija_sin_cuota: politica }));
+    await page.route('**/rest/v1/plazas_fijas**', route => json(route, [PLAZA_FIJA]));
+    await page.route('**/api/plazas-fijas/soltar-sin-cuota', route => {
+      soltar.push(route.request().postData() ?? '');
+      return json(route, { canceladas: [], fallidas: 0 });
+    });
+  });
+  return { escrituras, soltar };
+}
+
+test('con «Liberar sus clases», cancelar lo avisa antes y pide al servidor liberarlas', async ({ page }) => {
+  // Con contador: que la pantalla lo diga no prueba que se pidiera.
+  const { escrituras, soltar } = await montarConPlazaFija(page, 'LIBERAR');
+
+  await page.getByRole('button', { name: 'Cancelar suscripción' }).click();
+  const dialogo = page.getByRole('dialog');
+  await expect(dialogo).toContainText('se liberan todas las clases que ya tenía reservadas');
+  await dialogo.getByRole('button', { name: 'Cancelar suscripción' }).click();
+
+  await expect.poll(() => escrituras.length, { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect.poll(() => soltar.length, { timeout: 10_000 }).toBeGreaterThan(0);
+  expect(JSON.parse(soltar[0])).toEqual({ socioId: 'soc-1' });
+});
+
+test('sin elegir política («Como hasta ahora»), cancelar dice que conserva sus clases y no libera nada', async ({ page }) => {
+  const { escrituras, soltar } = await montarConPlazaFija(page, 'MANTENER');
+
+  await page.getByRole('button', { name: 'Cancelar suscripción' }).click();
+  const dialogo = page.getByRole('dialog');
+  await expect(dialogo).toContainText('conserva las clases ya reservadas');
+  await dialogo.getByRole('button', { name: 'Cancelar suscripción' }).click();
+
+  // Control positivo: la cancelación sí salió; lo que no sale es la liberación.
+  await expect.poll(() => escrituras.length, { timeout: 10_000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(1500);
+  expect(soltar).toHaveLength(0);
 });
 
 test('se puede echar atrás: «Volver» no escribe nada', async ({ page }) => {

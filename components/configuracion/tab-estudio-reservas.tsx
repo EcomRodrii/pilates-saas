@@ -13,7 +13,9 @@ import { obtenerConfirmacionRiesgo, actualizarConfirmacionRiesgo } from '@/lib/a
 import { hrefDeHerramienta } from '@/lib/configuracion/destino';
 import { tarjetaPorId } from '@/lib/configuracion/secciones';
 import {
-  antelacionImposible, confirmarPenalizacion, consecuenciaRegla, formularioReglas, reglasDeTarjetaAGuardar, reglasGuardadas,
+  antelacionImposible, confirmarPenalizacion, confirmarPlazaFijaSinCuota, consecuenciaRegla, EXPLICACION_PAUSA_PLAZA_FIJA,
+  EXPLICACION_PLAZA_FIJA_DESDE_APP, EXPLICACION_PLAZA_FIJA_SIN_CUOTA, formularioReglas, OPCIONES_FIN_PAUSA,
+  OPCIONES_PLAZA_FIJA_SIN_CUOTA, reglasDeTarjetaAGuardar, reglasGuardadas,
   tarjetasConCambios, type ReglasReserva, type ReglasReservaForm, type TarjetaReglasId,
 } from '@/lib/configuracion/reglas-reserva';
 import { elegirModoListaEspera, valoresDeListaEspera, type ModoListaEspera } from '@/lib/configuracion/lista-espera-modo';
@@ -561,6 +563,143 @@ export function FormPenalizacion({ excepciones, ...props }: PropsCajonRegla) {
           tiposConCargoPropio: tiposClase.filter(t => (t.penalizacionImporteEur ?? 0) > 0).length,
         })}
       />
+    </>
+  );
+}
+
+// ── Si se queda sin cuota (plaza fija) ──────────────────────────────────────
+//
+// Una sola columna (`plaza_fija_sin_cuota`) con tres opciones. Pasar a «Liberar»
+// pregunta antes: cancela clases de alumnas (`confirmarPlazaFijaSinCuota`).
+
+export function FormSinCuota(props: PropsCajonRegla) {
+  const r = useRegla('si-se-queda-sin-cuota', props);
+  const { form, cambiar, guardado, enPantalla } = r;
+  return (
+    <>
+      <div className={CUERPO}>
+        <p className="text-sm text-muted-foreground text-pretty">{EXPLICACION_PLAZA_FIJA_SIN_CUOTA}</p>
+        <fieldset className="space-y-2">
+          <legend className="sr-only">Qué pasa con las clases que ya tenía reservadas</legend>
+          {OPCIONES_PLAZA_FIJA_SIN_CUOTA.map(o => {
+            const elegida = form.plazaFijaSinCuota === o.valor;
+            return (
+              <label
+                key={o.valor}
+                className={cn(
+                  'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                  elegida ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="si-se-queda-sin-cuota"
+                  className="mt-1 accent-[var(--brand)]"
+                  checked={elegida}
+                  onChange={() => cambiar('plazaFijaSinCuota', o.valor)}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">{o.titulo}</span>
+                  <span className="block text-sm text-muted-foreground text-pretty">{o.detalle}</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+        <Consecuencia texto={consecuenciaRegla('si-se-queda-sin-cuota', enPantalla)} />
+      </div>
+      <Barra
+        tarjeta="si-se-queda-sin-cuota"
+        r={r}
+        confirmar={confirmarPlazaFijaSinCuota(guardado.plazaFijaSinCuota, enPantalla.plazaFijaSinCuota)}
+      />
+    </>
+  );
+}
+
+// ── Peticiones desde su app (plaza fija) ────────────────────────────────────
+//
+// Dos puertas (`plaza_fija_solicitar_desde_app`, `plaza_fija_pausa_desde_app`):
+// la alumna pide y el estudio decide en Inicio
+// (components/dashboard/plazas-fijas-por-decidir.tsx). Encenderlas no cambia nada
+// de lo que ya hay, así que no pregunta.
+
+export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
+  const r = useRegla('plaza-fija-desde-la-app', props);
+  const { form, cambiar, enPantalla } = r;
+  return (
+    <>
+      <div className={CUERPO}>
+        <p className="text-sm text-muted-foreground text-pretty">{EXPLICACION_PLAZA_FIJA_DESDE_APP}</p>
+        <InterruptorCampo
+          titulo="Pueden pedir plaza fija"
+          detalle="Desde una clase que se repite cada semana, en su app."
+          on={form.plazaFijaSolicitarDesdeApp}
+          onChange={v => cambiar('plazaFijaSolicitarDesdeApp', v)}
+        />
+        <InterruptorCampo
+          titulo="Pueden pedir una pausa"
+          detalle="De su plaza fija, con las fechas que elijan."
+          on={form.plazaFijaPausaDesdeApp}
+          onChange={v => cambiar('plazaFijaPausaDesdeApp', v)}
+        />
+        <Consecuencia texto={consecuenciaRegla('plaza-fija-desde-la-app', enPantalla)} />
+      </div>
+      <Barra tarjeta="plaza-fija-desde-la-app" r={r} />
+    </>
+  );
+}
+
+// ── Si pausa su plaza fija ──────────────────────────────────────────────────
+//
+// `plaza_fija_pausa_libera_sitio` y `plaza_fija_fin_pausa`. Solo vale para las
+// pausas nuevas: queda escrito en cada plaza al ponerla (`pausarPlazaFijaStaff`).
+
+export function FormPausaPlazaFija(props: PropsCajonRegla) {
+  const r = useRegla('si-pausa-su-plaza-fija', props);
+  const { form, cambiar, enPantalla } = r;
+  return (
+    <>
+      <div className={CUERPO}>
+        <p className="text-sm text-muted-foreground text-pretty">{EXPLICACION_PAUSA_PLAZA_FIJA}</p>
+        <InterruptorCampo
+          titulo="Su sitio queda libre para otra alumna"
+          detalle="Mientras dura la pausa, si dura más de una semana. Apagado: conserva su plaza y su sitio."
+          on={form.plazaFijaPausaLiberaSitio}
+          onChange={v => cambiar('plazaFijaPausaLiberaSitio', v)}
+        />
+        {form.plazaFijaPausaLiberaSitio && (
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-sm font-medium text-foreground">Al terminar la pausa</legend>
+            {OPCIONES_FIN_PAUSA.map(o => {
+              const elegida = form.plazaFijaFinPausa === o.valor;
+              return (
+                <label
+                  key={o.valor}
+                  className={cn(
+                    'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                    elegida ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="si-pausa-su-plaza-fija"
+                    className="mt-1 accent-[var(--brand)]"
+                    checked={elegida}
+                    onChange={() => cambiar('plazaFijaFinPausa', o.valor)}
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-foreground">{o.titulo}</span>
+                    <span className="block text-sm text-muted-foreground text-pretty">{o.detalle}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </fieldset>
+        )}
+        <Consecuencia texto={consecuenciaRegla('si-pausa-su-plaza-fija', enPantalla)} />
+      </div>
+      <Barra tarjeta="si-pausa-su-plaza-fija" r={r} />
     </>
   );
 }

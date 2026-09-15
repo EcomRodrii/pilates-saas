@@ -19,13 +19,14 @@
 //
 // Puro: se prueba con `node --test`. El `import type` desaparece al ejecutarlo.
 
-import type { Studio, TipoClase } from '../types.ts';
+import type { PoliticaFinPausa, PoliticaPlazaFijaSinCuota, Studio, TipoClase } from '../types.ts';
 import { heredaOverride } from '../booking-logic.ts';
 import { frasesPoliticaEstudio } from '../politica-estudio-textos.ts';
 import { listaEsperaDesdeValores, valoresDeListaEspera, type ListaEsperaElegida } from './lista-espera-modo.ts';
 
 export type TarjetaReglasId =
-  | 'reservar' | 'cancelar-y-recuperar' | 'si-se-cancela-una-clase' | 'lista-de-espera' | 'asistencia' | 'si-cancela-tarde-o-no-viene';
+  | 'reservar' | 'cancelar-y-recuperar' | 'si-se-cancela-una-clase' | 'lista-de-espera' | 'asistencia' | 'si-cancela-tarde-o-no-viene'
+  | 'si-se-queda-sin-cuota' | 'plaza-fija-desde-la-app' | 'si-pausa-su-plaza-fija';
 
 /** Las columnas de `studios` que guarda esta sección. */
 export interface ReglasReserva {
@@ -49,6 +50,11 @@ export interface ReglasReserva {
   penalizacionAplicaCancelacionTardia: boolean;
   penalizacionAplicaNoShow: boolean;
   penalizacionCobroAutomatico: boolean;
+  plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
+  plazaFijaSolicitarDesdeApp: boolean;
+  plazaFijaPausaDesdeApp: boolean;
+  plazaFijaPausaLiberaSitio: boolean;
+  plazaFijaFinPausa: PoliticaFinPausa;
 }
 
 /** En qué tarjeta vive cada columna. Cada columna, en una sola. */
@@ -59,11 +65,15 @@ export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (ke
   'lista-de-espera': ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos'],
   asistencia: ['requiereCheckinQr'],
   'si-cancela-tarde-o-no-viene': ['penalizacionImporteEur', 'penalizacionAplicaCancelacionTardia', 'penalizacionAplicaNoShow', 'penalizacionCobroAutomatico'],
+  'si-se-queda-sin-cuota': ['plazaFijaSinCuota'],
+  'plaza-fija-desde-la-app': ['plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp'],
+  'si-pausa-su-plaza-fija': ['plazaFijaPausaLiberaSitio', 'plazaFijaFinPausa'],
 };
 
 /** El orden en que se pintan las filas. */
 export const TARJETAS_REGLAS: readonly TarjetaReglasId[] = [
   'reservar', 'cancelar-y-recuperar', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
+  'si-se-queda-sin-cuota', 'plaza-fija-desde-la-app', 'si-pausa-su-plaza-fija',
 ];
 
 /**
@@ -92,6 +102,12 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     penalizacionAplicaCancelacionTardia: s?.penalizacionAplicaCancelacionTardia ?? true,
     penalizacionAplicaNoShow: s?.penalizacionAplicaNoShow ?? true,
     penalizacionCobroAutomatico: s?.penalizacionCobroAutomatico ?? false,
+    plazaFijaSinCuota: s?.plazaFijaSinCuota ?? 'MANTENER',
+    // Sin elegir, como hasta ahora: nada desde la app y la pausa conserva su sitio.
+    plazaFijaSolicitarDesdeApp: s?.plazaFijaSolicitarDesdeApp ?? false,
+    plazaFijaPausaDesdeApp: s?.plazaFijaPausaDesdeApp ?? false,
+    plazaFijaPausaLiberaSitio: s?.plazaFijaPausaLiberaSitio ?? false,
+    plazaFijaFinPausa: s?.plazaFijaFinPausa ?? 'RECUPERAR_SI_LIBRE',
   };
 }
 
@@ -231,6 +247,13 @@ function cambiaRegla(tarjeta: TarjetaReglasId, t: TipoConReglas, e: ReglasReserv
     case 'si-cancela-tarde-o-no-viene':
       // `coalesce(tc.penalizacion_importe_eur, st.penalizacion_importe_eur)`: un 0 propio apaga el cargo.
       return cifra(heredaOverride(t.penalizacionImporteEur, e.penalizacionImporteEur)) !== cifra(e.penalizacionImporteEur);
+    case 'si-se-queda-sin-cuota':
+      // Sin override por tipo de clase: va sobre la cuota de la alumna, no sobre la clase.
+      return false;
+    case 'plaza-fija-desde-la-app':
+    case 'si-pausa-su-plaza-fija':
+      // Van sobre su plaza fija, no sobre la clase: sin override por tipo.
+      return false;
   }
 }
 
@@ -284,7 +307,84 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       if (!tarde && !falta) return `Tal como está, nunca se cobran los ${euros(importe)}: elige cuándo se aplican.`;
       return `Si ${[tarde, falta].filter(Boolean).join(' o ')}, se le cobran ${euros(importe)} ${r.penalizacionCobroAutomatico ? 'sin esperar a que lo apruebes' : 'cuando lo apruebes'}.`;
     }
+    case 'si-se-queda-sin-cuota':
+      // Lo que hace el código: `reservas_plaza_fija_sin_cuota` (migr 20260915215236)
+      // solo lista con LIBERAR, y el cron de penalizaciones omite con
+      // LIBERAR o MANTENER_SIN_PENALIZAR (`omitirPorPlazaFijaSinCuota`).
+      switch (r.plazaFijaSinCuota) {
+        case 'LIBERAR':
+          return 'Si una alumna con plaza fija se queda sin cuota, se liberan sus clases futuras sin penalización. Su plaza, la serie y las clases pasadas no cambian.';
+        case 'MANTENER_SIN_PENALIZAR':
+          return 'Si una alumna con plaza fija se queda sin cuota, conserva las clases ya reservadas y no se le cobra si falta.';
+        case 'MANTENER':
+          return 'Si una alumna con plaza fija se queda sin cuota, conserva las clases ya reservadas con tus reglas de siempre.';
+      }
+    case 'plaza-fija-desde-la-app': {
+      // Las puertas de `/api/public/plaza-fija`: con el ajuste apagado, 403.
+      const puede = [r.plazaFijaSolicitarDesdeApp ? 'una plaza fija' : null, r.plazaFijaPausaDesdeApp ? 'una pausa' : null].filter(Boolean);
+      if (puede.length === 0) return 'Desde su app no piden nada: las plazas fijas y las pausas se dan en recepción.';
+      return `Desde su app pueden pedir ${puede.join(' o ')}. No cambia nada hasta que lo apruebes en Inicio.`;
+    }
+    case 'si-pausa-su-plaza-fija':
+      // Lo que hacen `tocaLiberarSitio` y `decidirVueltaDePausa` (lib/plazas-fijas-solicitudes.ts).
+      if (!r.plazaFijaPausaLiberaSitio) return 'Durante una pausa conserva su plaza y su sitio, y al acabar vuelve sola.';
+      return r.plazaFijaFinPausa === 'PENDIENTE_CONFIRMAR'
+        ? 'Si la pausa dura más de una semana, su sitio queda libre. Una semana antes de acabar te pregunta en Inicio si vuelve.'
+        : 'Si la pausa dura más de una semana, su sitio queda libre. Una semana antes de acabar vuelve sola si su sitio sigue libre y tiene cuota; si no, te pregunta en Inicio.';
   }
+}
+
+// ─── Si se queda sin cuota (plaza fija) ─────────────────────────────────────
+//
+// La política la elige el estudio (decisión del fundador, 16-sep: Tentare no
+// impone una forma de trabajar). En las tres, el motor no le reserva clases
+// NUEVAS sin cuota y lo que ya pasó no se toca.
+
+/** Lo que se lee arriba del cajón: cuándo se aplica y qué no cambia nunca. */
+export const EXPLICACION_PLAZA_FIJA_SIN_CUOTA =
+  'Cuando la cuota de una alumna con plaza fija deja de estar activa —la cancelas, la pausas, termina tras darse de baja o se cancela porque no se pudo cobrar— su plaza fija sigue guardada y no se le reservan clases nuevas. Aquí eliges qué pasa con las que ya tenía reservadas. Mientras la renovación solo esté pendiente de cobro, su cuota sigue activa. Las clases que ya pasaron no se tocan nunca.';
+
+export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaSinCuota; titulo: string; detalle: string }[] = [
+  { valor: 'MANTENER', titulo: 'Como hasta ahora', detalle: 'Conserva las clases que ya tenía reservadas y se aplican tus reglas de siempre.' },
+  { valor: 'MANTENER_SIN_PENALIZAR', titulo: 'Mantenerlas sin penalización', detalle: 'Conserva las clases que ya tenía reservadas; si no viene o cancela tarde, no se le cobra.' },
+  {
+    valor: 'LIBERAR',
+    titulo: 'Liberar sus clases',
+    detalle: 'Se cancelan todas sus reservas futuras de plaza fija, también las de dentro de tu plazo de cancelación, sin penalización. Si hay lista de espera, entra la siguiente.',
+  },
+];
+
+// ─── Plaza fija desde su app, y sus pausas ───────────────────────────────────
+//
+// Decisiones del fundador (16-sep): el estudio pone las reglas y Tentare las
+// cumple. Todo apagado de serie, como hasta ahora.
+
+export const EXPLICACION_PLAZA_FIJA_DESDE_APP =
+  'Tus alumnas pueden pedir desde su app una plaza fija en la clase que están viendo, o una pausa de la suya. Te llega un aviso y lo decides en Inicio; hasta que lo apruebas no cambia nada. Si con esa plaza pasaría del límite de clases por semana de su cuota, te lo decimos y decides tú.';
+
+export const EXPLICACION_PAUSA_PLAZA_FIJA =
+  'Vale para las pausas nuevas, las pongas tú o las pida ella; las que ya están puestas siguen como estaban. Las clases de esas fechas se cancelan sin penalización y las que ya pasaron no se tocan.';
+
+export const OPCIONES_FIN_PAUSA: readonly { valor: PoliticaFinPausa; titulo: string; detalle: string }[] = [
+  { valor: 'RECUPERAR_SI_LIBRE', titulo: 'Vuelve sola si puede', detalle: 'Si su sitio sigue libre, tiene cuota y no pasa de su límite por semana. Si no, te pregunta en Inicio.' },
+  { valor: 'PENDIENTE_CONFIRMAR', titulo: 'Preguntarme siempre', detalle: 'Una semana antes de acabar la pausa te pregunta en Inicio si vuelve.' },
+];
+
+/**
+ * Lo que se pregunta antes de pasar a «Liberar»: cancela clases de alumnas, y
+ * quien ya esté sin cuota pierde las suyas esa misma noche (el cron nocturno de
+ * plazas fijas suelta antes de materializar). Volver a conservar no pregunta.
+ */
+export function confirmarPlazaFijaSinCuota(
+  antes: PoliticaPlazaFijaSinCuota,
+  ahora: PoliticaPlazaFijaSinCuota,
+): { titulo: string; descripcion: string; textoConfirmar: string } | undefined {
+  if (ahora !== 'LIBERAR' || antes === 'LIBERAR') return undefined;
+  return {
+    titulo: '¿Liberar sus clases?',
+    descripcion: 'Desde ahora, cuando una alumna con plaza fija se quede sin cuota se cancelarán sus clases futuras, también las de los próximos días, sin penalización. Si ya hay alumnas en ese caso, sus clases se liberan esta noche.',
+    textoConfirmar: 'Sí, liberarlas',
+  };
 }
 
 /**

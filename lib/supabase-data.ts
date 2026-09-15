@@ -178,6 +178,7 @@ import type {
   VentaPOS,
   VideoOnDemand,
   ValoracionSocia,
+  PoliticaPlazaFijaSinCuota,
 } from '@/lib/types';
 import type { Valoracion } from '@/lib/valoracion-inicial';
 
@@ -511,6 +512,8 @@ export type FilaReciboPanel = Omit<RowRecibos,
   // renovación —vía `reciboToDb`— pero no la lee ni la pinta, igual que el
   // snapshot de entrega de la línea siguiente.
   | 'es_renovacion'
+  // Cuándo se anuló: basta con el estado ANULADO y `tras_cancelar_cuota` (migr 20260915215311).
+  | 'anulado_en'
   | 'entrega_tipo' | 'entrega_aplicada' | 'entrega_aplicada_en'
   | 'entrega_sesiones_antes'
   | 'entrega_fecha_fin_antes' | 'entrega_fecha_fin_despues'
@@ -953,6 +956,7 @@ export function mapPlazaFija(r: RowPlazasFijas): PlazaFija {
     estado: (r.estado as PlazaFija['estado']) ?? 'ACTIVA',
     pausaDesde: r.pausa_desde ?? null,
     pausaHasta: r.pausa_hasta ?? null,
+    pausaLiberaSitio: r.pausa_libera_sitio ?? false,
     creadaEn: r.creada_en,
   };
 }
@@ -1133,6 +1137,9 @@ export function mapRecibo(r: FilaReciboPanel): Recibo {
     intentosReintento: r.intentos_reintento,
     metodoCobro: (r.metodo_cobro as Recibo['metodoCobro']) ?? null,
     sepaEstado: r.sepa_estado ?? null,
+    // Lo que decidió la política del estudio al cancelar su cuota: la ficha y
+    // Cobros dicen con ello si se sigue cobrando solo, y cobrarlo no reactiva la cuota.
+    trasCancelarCuota: (r.tras_cancelar_cuota as Recibo['trasCancelarCuota']) ?? null,
     // Cuántas sesiones tenía el bono justo al entregarlo. Lo necesita el botón
     // de devolver de la ficha (`soloSinUsar`) para decidir lo MISMO que decide
     // el servidor: sin este dato la pantalla no puede evaluar esa regla y
@@ -2015,6 +2022,30 @@ export async function dbFetchCamposPersonalizados(): Promise<CampoPersonalizado[
     .order('orden', { ascending: true });
   if (error) { reportDbError('[dbFetchCamposPersonalizados]', error); return []; }
   return (data ?? []).map(r => mapCampoPersonalizado(r as RowCamposPersonalizados));
+}
+
+/**
+ * Los recibos PENDIENTES de una cuota, con lo que hace falta para decir la verdad
+ * en la ventana de cancelar (`textoCobrosAlCancelar`): si tienen un cobro
+ * automático programado y si hay un pago en marcha. El arranque del panel no trae
+ * esas columnas, así que se leen al abrir la ventana. Con error, lista vacía: la
+ * ventana dice solo lo que es seguro («no se generarán cobros nuevos»).
+ */
+export async function dbRecibosPendientesDeCuota(
+  suscripcionId: string,
+): Promise<{ importe: number; conReintento: boolean; pagoEnMarcha: boolean }[]> {
+  const { data, error } = await supabase
+    .from('recibos')
+    .select('importe, proximo_reintento, stripe_payment_intent_id, checkout_session_id, cobro_mostrador_pi')
+    .eq('studio_id', STUDIO_ID)
+    .eq('suscripcion_id', suscripcionId)
+    .eq('estado', 'PENDIENTE');
+  if (error) { reportDbError('[dbRecibosPendientesDeCuota]', error); return []; }
+  return (data ?? []).map(r => ({
+    importe: Number(r.importe) || 0,
+    conReintento: r.proximo_reintento != null,
+    pagoEnMarcha: r.stripe_payment_intent_id != null || r.checkout_session_id != null || r.cobro_mostrador_pi != null,
+  }));
 }
 
 export async function dbInsertCampoPersonalizado(campo: CampoPersonalizado): Promise<ResultadoEscritura> {
@@ -4929,6 +4960,13 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('penalizacionAplicaCancelacionTardia' in changes) db.penalizacion_aplica_cancelacion_tardia = changes.penalizacionAplicaCancelacionTardia;
   if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
   if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
+  if ('plazaFijaSinCuota' in changes) db.plaza_fija_sin_cuota = changes.plazaFijaSinCuota;
+  if ('plazaFijaSolicitarDesdeApp' in changes) db.plaza_fija_solicitar_desde_app = changes.plazaFijaSolicitarDesdeApp;
+  if ('plazaFijaPausaDesdeApp' in changes) db.plaza_fija_pausa_desde_app = changes.plazaFijaPausaDesdeApp;
+  if ('plazaFijaPausaLiberaSitio' in changes) db.plaza_fija_pausa_libera_sitio = changes.plazaFijaPausaLiberaSitio;
+  if ('plazaFijaFinPausa' in changes) db.plaza_fija_fin_pausa = changes.plazaFijaFinPausa;
+  if ('recibosAlCancelarCuota' in changes) db.recibos_al_cancelar_cuota = changes.recibosAlCancelarCuota;
+  if ('renovarSolaCuotaCancelada' in changes) db.renovar_sola_cuota_cancelada = changes.renovarSolaCuotaCancelada;
   if ('reembolsosActivos' in changes) db.reembolsos_activos = changes.reembolsosActivos;
   if ('reembolsoPlazoDias' in changes) db.reembolso_plazo_dias = changes.reembolsoPlazoDias;
   if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
@@ -5325,6 +5363,13 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
+    plazaFijaSinCuota: (r.plaza_fija_sin_cuota as PoliticaPlazaFijaSinCuota | null) ?? 'MANTENER',
+    plazaFijaSolicitarDesdeApp: (r.plaza_fija_solicitar_desde_app as boolean | null) ?? false,
+    plazaFijaPausaDesdeApp: (r.plaza_fija_pausa_desde_app as boolean | null) ?? false,
+    plazaFijaPausaLiberaSitio: (r.plaza_fija_pausa_libera_sitio as boolean | null) ?? false,
+    plazaFijaFinPausa: (r.plaza_fija_fin_pausa as Studio['plazaFijaFinPausa'] | null) ?? 'RECUPERAR_SI_LIBRE',
+    recibosAlCancelarCuota: (r.recibos_al_cancelar_cuota as Studio['recibosAlCancelarCuota'] | null) ?? 'MANTENER_CON_REINTENTOS',
+    renovarSolaCuotaCancelada: r.renovar_sola_cuota_cancelada ?? true,
     reembolsosActivos: r.reembolsos_activos ?? false,
     reembolsoPlazoDias: r.reembolso_plazo_dias ?? 14,
     reembolsoSoloSinUsar: r.reembolso_solo_sin_usar ?? true,
@@ -5562,7 +5607,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     db.from('instructores').select('*').eq('studio_id', sid),
     fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia, cancelada_tardia').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
@@ -5748,7 +5793,7 @@ export async function fetchDatosTrasVentaPOS(studioId?: string) {
   // cadena de imports estática.
   const db = supabase;
   const [recibosRes, facturasRes, suscripcionesRes, ventasPOSRes, productosPOSRes] = await Promise.all([
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).range(from, to)),
     db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid),
     fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),

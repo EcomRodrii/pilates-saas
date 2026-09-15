@@ -130,6 +130,19 @@ export async function registrarFalloCobro(params: {
         level: 'error', tags: { area: 'cobros', tipo: 'dunning' }, extra: { reciboId, suscripcionId: rec.suscripcion_id },
       });
     }
+    // Sin cuota: si el estudio eligió «Liberar sus clases», fuera las de su plaza
+    // fija ya (con las otras políticas la BD no lista ninguna). El cron nocturno
+    // también lo haría, pero puede haber una clase mañana. Best-effort.
+    try {
+      if (rec.socio_id) {
+        const { soltarReservasPlazaFijaSinCuota } = await import('@/lib/db/supabase-data-admin');
+        await soltarReservasPlazaFijaSinCuota(admin, { studioId, socioId: rec.socio_id });
+      }
+    } catch (e) {
+      Sentry.captureException(e instanceof Error ? e : new Error('Fallo al soltar plazas fijas tras impago definitivo'), {
+        level: 'warning', tags: { area: 'plazas-fijas', tipo: 'dunning' }, extra: { reciboId, suscripcionId: rec.suscripcion_id },
+      });
+    }
   }
 
   if (plan.esPrimerFallo || plan.esDefinitivo) {
@@ -223,6 +236,15 @@ export async function confirmarCobroExitoso(params: {
     // sus efectos. Un adeudo SEPA se puede devolver hasta 8 semanas después,
     // así que succeeded → refunded → reentrega del succeeded es real.
     if (existe.estado === 'DEVUELTO') return { ok: true };
+    // ANULADO (el estudio lo perdonó al cancelar la cuota): si aun así llega un
+    // cobro, NO se renueva ni se sella factura sobre un recibo anulado. El dinero
+    // entró: se avisa para devolverlo.
+    if (existe.estado === 'ANULADO') {
+      Sentry.captureMessage('[confirmarCobroExitoso] cobro sobre un recibo ANULADO: hay que devolverlo', {
+        level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' }, extra: { reciboId, studioId, esSepa },
+      });
+      return { ok: true };
+    }
     // Ya COBRADO, vía TARJETA: es el caso NORMAL, no una reentrega rara — el
     // webhook llega para cada cargo y `cobrarReciboOffSession` ya lo persistió
     // todo de forma síncrona. Se repara en silencio lo idempotente (renovación

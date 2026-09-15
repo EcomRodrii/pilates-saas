@@ -53,6 +53,8 @@ export interface ConteosEstudio {
   bajasPorRevisar?: number | null;
   /** Clases que se repiten y terminan en 30 días (o terminaron hace menos de 14) sin renovar. */
   seriesPorRenovar?: number | null;
+  /** Peticiones de plaza fija (plaza, pausa o la vuelta de una pausa) que esperan al estudio. */
+  plazasFijasPorDecidir?: number | null;
   // En marcha
   sustitucionesBuscando?: number | null;
   ofertasListaEspera?: number | null;
@@ -83,6 +85,7 @@ export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
   canjesPorEntregar: 'decidir-canjes',
   bajasPorRevisar: 'decidir-bajas-equipo',
   seriesPorRenovar: 'decidir-series',
+  plazasFijasPorDecidir: 'decidir-plazas-fijas',
 };
 
 export interface LineaEstado {
@@ -133,6 +136,9 @@ const LINEAS: DefLinea[] = [
   // sin clase y sus plazas fijas sin reserva. Se revisa y renueva en su tarjeta.
   { id: 'seriesPorRenovar', bandeja: 'decidir', href: null,
     uno: 'Una clase que se repite está a punto de terminar', varios: n => `${n} clases que se repiten están a punto de terminar` },
+  // Nada cambia hasta que decide: la alumna sigue sin su plaza o sin su pausa.
+  { id: 'plazasFijasPorDecidir', bandeja: 'decidir', href: null,
+    uno: 'Una petición de plaza fija espera tu respuesta', varios: n => `${n} peticiones de plaza fija esperan tu respuesta` },
   { id: 'canjesPorEntregar', bandeja: 'decidir', href: null,
     uno: 'Una recompensa canjeada por entregar', varios: n => `${n} recompensas canjeadas por entregar` },
   // La última: no corre prisa (la clase ya la cubre el motor o la decide la

@@ -177,7 +177,24 @@ export const procesarDunningEstudio = inngest.createFunction(
             return { tipo: 'omitido' as const, errorCode: 'PENALIZACION_SIN_COBRO_DECIDIDO' as const };
           }
         }
-        const cobro = await cobrarReciboOffSession({ reciboId: r.id, socioId: r.socio_id, studioId });
+        // AUTOMATICO: el cobro comprueba el estado ACTUAL de la cuota y la marca que
+        // dejó la cancelación (`cobro-permitido.ts`).
+        const cobro = await cobrarReciboOffSession({ reciboId: r.id, socioId: r.socio_id, studioId, via: 'AUTOMATICO' });
+        // Cuota cancelada sin «seguir reintentando», recibo marcado sin reintentos o
+        // anulado: se desprograma para no volver a intentarlo cada día. Compare-and-set
+        // sobre PENDIENTE; cobrarlo a mano sigue siendo posible (salvo anulado).
+        if (cobro.errorCode === 'CUOTA_CANCELADA' || cobro.errorCode === 'SIN_REINTENTOS' || cobro.errorCode === 'RECIBO_ANULADO') {
+          const admin = getSupabaseAdmin();
+          if (!admin) throw new Error('Service role no configurada');
+          const { error: errDesprogramar } = await admin.from('recibos').update({ proximo_reintento: null })
+            .eq('id', r.id).eq('studio_id', studioId).eq('estado', 'PENDIENTE').not('proximo_reintento', 'is', null);
+          if (errDesprogramar) {
+            Sentry.captureMessage('[dunning] no se pudo desprogramar un recibo que ya no se cobra solo', {
+              level: 'warning', tags: { area: 'cobros', tipo: 'dunning' }, extra: { reciboId: r.id, studioId, motivo: cobro.errorCode },
+            });
+          }
+          return { tipo: 'omitido' as const, errorCode: cobro.errorCode };
+        }
         if (cobro.ok) {
           // Tarjeta cobrada (succeeded) o adeudo SEPA enviado (processing → EN_CURSO,
           // se resolverá por webhook). No hay que avanzar el dunning aquí.

@@ -39,6 +39,7 @@ import type { MotivoSinConsentimiento } from './penalizacion-consentimiento.ts';
 export type EstadoPenalizacion =
   | 'DETECTADA'
   | 'OMITIDA_SIN_TARJETA' | 'OMITIDA_SIN_CONSENTIMIENTO' | 'OMITIDA_COMPENSADA' | 'OMITIDA_REVERTIDA'
+  | 'OMITIDA_SIN_CUOTA'
   | 'PENDIENTE_APROBACION' | 'RECIBO_CREADO' | 'COBRADA' | 'FALLIDA' | 'REEMBOLSADA';
 
 /**
@@ -712,7 +713,19 @@ export type VeredictoCobroManual = { ok: true; sinComprobar?: true } | { ok: fal
 
 /** Las OMITIDA_*: se decidió no cobrar. */
 export const ESTADOS_OMITIDA: readonly EstadoPenalizacion[] =
-  ['OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA'];
+  ['OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA'];
+
+/**
+ * Plaza fija sin cuota (política del estudio, migr 20260915215236): con LIBERAR o
+ * MANTENER_SIN_PENALIZAR, una clase que su plaza fija le había reservado
+ * (`res-pf-*`) no se cobra si ya no tiene cuota que la cubra. Con MANTENER, las
+ * reglas de siempre. `cubre` sale de `cuota_cubre_plaza_fija(…, false)`: la misma
+ * regla que usa el motor, con la gracia de la renovación por cobrar.
+ */
+export function omitirPorPlazaFijaSinCuota(p: { politica: string | null | undefined; reservaId: string; cubre: boolean }): boolean {
+  const politicaNoCobra = p.politica === 'LIBERAR' || p.politica === 'MANTENER_SIN_PENALIZAR';
+  return politicaNoCobra && p.reservaId.startsWith('res-pf-') && !p.cubre;
+}
 
 /**
  * Con qué estados NO se cobra en el mostrador: la penalización está anulada (se
@@ -738,6 +751,7 @@ const POR_QUE_NO_A_MANO: Partial<Record<EstadoPenalizacion, string>> = {
   OMITIDA_SIN_CONSENTIMIENTO: 'se dejó sin cobrar porque el contrato que aceptó la alumna no recoge este cargo.',
   OMITIDA_COMPENSADA: 'se dejó sin cobrar porque esa reserva ya dio una recuperación a la alumna.',
   OMITIDA_REVERTIDA: 'se anuló al corregir la asistencia.',
+  OMITIDA_SIN_CUOTA: 'se dejó sin cobrar porque era una clase de su plaza fija y ya no tenía cuota, como elegiste en Configuración.',
   COBRADA: 'ya consta como cobrada.',
   // No se vuelve a cobrar con la tarjeta: tras agotar los reintentos sería un cargo
   // nuevo mientras la alumna puede estar pagándola. Marcar el recibo cobrado sí es

@@ -130,9 +130,16 @@ export async function confirmarCobroRecibo(
     // Se distinguen por el PaymentIntent: si el recibo ya guarda uno y llega
     // otro distinto, no es un reintento. Generalizado del webhook (F-13): el
     // conciliador antes no tenía esta protección en absoluto.
+    // Y una tercera: el recibo estaba ANULADO (perdonado al cancelar la cuota).
+    // El dinero entró igual y no se marca ni se entrega nada: se avisa para devolverlo.
+    const { data: previo } = await admin.from('recibos')
+      .select('stripe_payment_intent_id, estado').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
+    if (previo?.estado === 'ANULADO') {
+      Sentry.captureMessage('[confirmarCobroRecibo] pago sobre un recibo ANULADO: hay que devolverlo', {
+        level: 'error', extra: { reciboId, studioId, fuente, paymentIntentId },
+      });
+    }
     if (paymentIntentId) {
-      const { data: previo } = await admin.from('recibos')
-        .select('stripe_payment_intent_id').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
       const anterior = (previo?.stripe_payment_intent_id as string | null) ?? null;
       if (anterior && anterior !== paymentIntentId) {
         Sentry.captureMessage('[confirmarCobroRecibo] SEGUNDO cobro del mismo recibo: hay que devolver uno', {

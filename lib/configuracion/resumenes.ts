@@ -690,6 +690,19 @@ export function resumenDevoluciones(s: Partial<Pick<Studio, 'reembolsosActivos' 
   ]);
 }
 
+/** «Si se cancela una cuota»: qué pasa con su recibo pendiente y si la renueva ella. */
+export function resumenAlCancelarCuota(
+  s: Partial<Pick<Studio, 'recibosAlCancelarCuota' | 'renovarSolaCuotaCancelada'>>,
+): string | null {
+  if (s.recibosAlCancelarCuota === undefined) return null;
+  return unir([
+    s.recibosAlCancelarCuota === 'ANULAR' ? 'el pendiente se anula'
+      : s.recibosAlCancelarCuota === 'MANTENER_SIN_REINTENTOS' ? 'pendiente, sin cobro automático'
+      : 'el pendiente se sigue cobrando',
+    s.renovarSolaCuotaCancelada === false ? 'no la renueva ella' : null,
+  ]);
+}
+
 /**
  * De quién son los textos que acepta la alumna. Con unos términos PROPIOS no se
  * cobra ninguna penalización (`consentimientoCubrePenalizacion`: la cláusula del
@@ -818,6 +831,29 @@ export function resumenRegla(
         tarde && falta ? null : tarde ? 'solo si cancela tarde' : falta ? 'solo si no viene' : 'sin aplicar a nada',
       ]);
     }
+    case 'si-se-queda-sin-cuota':
+      return unir([
+        // Cortos a propósito: con «12 tipos lo cambian» detrás tiene que caber en MAX_RESUMEN.
+        r.plazaFijaSinCuota === 'LIBERAR' ? 'se liberan sus clases'
+          : r.plazaFijaSinCuota === 'MANTENER_SIN_PENALIZAR' ? 'conserva, sin cargo'
+          : 'conserva sus clases',
+        excepciones,
+      ]);
+    case 'plaza-fija-desde-la-app':
+      return unir([
+        r.plazaFijaSolicitarDesdeApp && r.plazaFijaPausaDesdeApp ? 'piden plaza y pausa'
+          : r.plazaFijaSolicitarDesdeApp ? 'piden plaza fija'
+          : r.plazaFijaPausaDesdeApp ? 'piden pausas'
+          : 'solo en recepción',
+        excepciones,
+      ]);
+    case 'si-pausa-su-plaza-fija':
+      return unir([
+        !r.plazaFijaPausaLiberaSitio ? 'conserva su sitio'
+          : r.plazaFijaFinPausa === 'PENDIENTE_CONFIRMAR' ? 'sitio libre, te pregunta'
+          : 'sitio libre, vuelve sola',
+        excepciones,
+      ]);
   }
 }
 

@@ -29,6 +29,8 @@ const BADGE: Record<EstadoRecibo, { bg: string; text: string; label: string }> =
   DEVUELTO:  { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)', label: 'Devuelto' },
   EN_CURSO:  { bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', text: 'var(--info)', label: 'En curso' },
   FALLIDO:   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)', label: 'Fallido' },
+  // Perdonado al cancelar la cuota: no se cobra ni es deuda.
+  ANULADO:   { bg: 'var(--muted)', text: 'var(--muted-foreground)', label: 'Anulado' },
 };
 // ⚠️ Aquí no puede entrar un hex a pelo. «Fallido» llevaba `#7A2F1D`, un rojo
 // elegido a ojo para fondo claro, mientras su gemelo «Devuelto» —mismo fondo,

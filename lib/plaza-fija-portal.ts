@@ -28,8 +28,8 @@ export function esSlotRecurrente(ses: Sesion, sesiones: Sesion[], ahora: Date): 
  * ¿La socia ya tiene una plaza fija (ACTIVA o PAUSADA) en este mismo slot?
  * PAUSADA cuenta también: sin esto, pausar y volver a esta misma clase
  * reaparecía el botón y dejaba crear una segunda fila para el mismo slot —
- * el dedup del servidor (crearPlazaFijaPublica) cubre lo mismo, esto es
- * defensa en profundidad para no ni ofrecer el botón.
+ * el dedup del servidor (`validarPlazaFijaDesdeSesion`, al pedirla y al darla)
+ * cubre lo mismo, esto es defensa en profundidad para no ni ofrecer el botón.
  */
 export function yaTienePlazaFijaEnSlot(ses: Sesion, socioId: string, plazasFijas: PlazaFija[]): boolean {
   const franja = franjaLocalDe(ses.inicio);

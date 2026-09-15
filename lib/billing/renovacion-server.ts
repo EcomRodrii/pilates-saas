@@ -76,7 +76,7 @@ export async function aplicarRenovacionServidor(
   try {
     const { data: rec } = await admin
       .from('recibos')
-      .select('suscripcion_id, entrega_tipo, entrega_aplicada, es_renovacion')
+      .select('suscripcion_id, entrega_tipo, entrega_aplicada, es_renovacion, tras_cancelar_cuota')
       .eq('id', reciboId)
       .eq('studio_id', studioId)
       .maybeSingle();
@@ -117,6 +117,13 @@ export async function aplicarRenovacionServidor(
     // cobrar sin entregar— ni del texto del concepto, que es copy. Va marcada
     // en el recibo por quien lo crea. Ver `recibos.es_renovacion`.
     if (rec.es_renovacion !== true) return guardar(SIN_ENTREGA);
+
+    // Deuda que quedó pendiente al CANCELAR la cuota (política de recibos al
+    // cancelar, migr 20260915215311): cobrarla salda lo que debía, pero no
+    // reactiva la cuota ni entrega otro ciclo. Sin esto, pagar la deuda de una
+    // cuota cancelada deshacía la cancelación sin que nadie lo pidiera. Un recibo
+    // de renovación creado DESPUÉS de cancelar no lleva la marca y sí renueva.
+    if (rec.tras_cancelar_cuota != null) return guardar(SIN_ENTREGA);
 
     const { data: sus } = await admin
       .from('suscripciones')

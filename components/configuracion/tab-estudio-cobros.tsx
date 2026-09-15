@@ -8,7 +8,7 @@ import { authHeader } from '@/lib/api-client';
 import type { DatosSepa } from '@/lib/billing/cuenta-cobro';
 import { leerPlazoReembolso, PLAZO_REEMBOLSO_MAX_DIAS } from '@/lib/billing/politica-reembolso';
 import { hayCambios, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
-import { resumenDevoluciones } from '@/lib/configuracion/resumenes';
+import { resumenAlCancelarCuota, resumenDevoluciones } from '@/lib/configuracion/resumenes';
 import { Toggle, inputCls } from '@/components/configuracion/estilos';
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
@@ -222,6 +222,136 @@ export function FormDevoluciones({ onGuardado }: PropsFormularioCajon) {
         cambios={hayCambios(form, base) ? ['Devoluciones'] : []}
         bloqueo={plazoInvalido ? 'Corrige el plazo para poder guardar.' : null}
         confirmar={confirmacion(base, politica)}
+        onGuardar={alGuardar}
+        onDescartar={() => setForm(base)}
+      />
+    </>
+  );
+}
+
+// ── Si se cancela una cuota ──────────────────────────────────────────────────
+// Lo elige el estudio (decisión del fundador, 16-sep). Una cuota cancelada nunca
+// genera cobros nuevos; lo que se elige es qué pasa con el recibo que ya estaba
+// PENDIENTE (el trigger de la migr 20260915215311 lo escribe en el recibo al
+// cancelar) y si la alumna puede renovarla sola desde su app. Es dinero:
+// «Guardar» pregunta antes, con lo que va a pasar.
+
+type PoliticaRecibos = Studio['recibosAlCancelarCuota'];
+type CuotaCanceladaForm = { recibos: PoliticaRecibos; renovarSola: boolean };
+
+function studioToCuotaCancelada(s: Partial<Pick<Studio, 'recibosAlCancelarCuota' | 'renovarSolaCuotaCancelada'>> | null): CuotaCanceladaForm {
+  return {
+    recibos: s?.recibosAlCancelarCuota ?? 'MANTENER_CON_REINTENTOS',
+    renovarSola: s?.renovarSolaCuotaCancelada ?? true,
+  };
+}
+
+const OPCIONES_RECIBO_AL_CANCELAR: readonly { valor: PoliticaRecibos; titulo: string; detalle: string }[] = [
+  {
+    valor: 'MANTENER_CON_REINTENTOS',
+    titulo: 'Sigue debiéndolo y se sigue intentando cobrar',
+    detalle: 'El recibo sigue en «Quién me debe» y, si tenía cobros automáticos programados, se siguen intentando.',
+  },
+  {
+    valor: 'MANTENER_SIN_REINTENTOS',
+    titulo: 'Sigue debiéndolo, sin cobros automáticos',
+    detalle: 'El recibo sigue en «Quién me debe», pero solo se cobra si lo cobras tú o lo paga ella.',
+  },
+  {
+    valor: 'ANULAR',
+    titulo: 'Se anula',
+    detalle: 'El recibo se anula y deja de deberlo. Si tiene un pago en marcha no se puede anular: se queda pendiente, sin cobros automáticos.',
+  },
+];
+
+function confirmacionCuotaCancelada(antes: CuotaCanceladaForm, ahora: CuotaCanceladaForm) {
+  if (ahora.recibos === 'ANULAR' && antes.recibos !== 'ANULAR') {
+    return {
+      titulo: '¿Anular el recibo pendiente al cancelar?',
+      descripcion: 'Desde ahora, al cancelar una cuota su recibo pendiente se anula y la alumna deja de deberlo. Lo que ya estaba cancelado antes no cambia.',
+      textoConfirmar: 'Sí, anularlo',
+    };
+  }
+  return {
+    titulo: '¿Cambiar qué pasa al cancelar una cuota?',
+    descripcion: `Desde ahora: ${resumenAlCancelarCuota({ recibosAlCancelarCuota: ahora.recibos, renovarSolaCuotaCancelada: ahora.renovarSola }) ?? ''}. Lo que ya estaba cancelado antes no cambia.`,
+    textoConfirmar: 'Sí, cambiarlo',
+  };
+}
+
+export function FormAlCancelarCuota({ onGuardado }: PropsFormularioCajon) {
+  const { studio, updateStudio } = useStudio();
+  const [form, setForm] = useState<CuotaCanceladaForm>(() => studioToCuotaCancelada(studio));
+  const [base, setBase] = useState<CuotaCanceladaForm>(() => studioToCuotaCancelada(studio));
+
+  const [anterior, setAnterior] = useState(studio);
+  if (studio !== anterior) {
+    setAnterior(studio);
+    const servidor = studioToCuotaCancelada(studio);
+    setForm(sincronizarFormulario(form, base, servidor));
+    setBase(servidor);
+  }
+
+  async function alGuardar(): Promise<string | null> {
+    const enviado = form;
+    // «Guardado» solo con la fila confirmada (updateStudio cuenta filas).
+    const res = await updateStudio({ recibosAlCancelarCuota: form.recibos, renovarSolaCuotaCancelada: form.renovarSola });
+    if (!res.ok) return res.error;
+    setForm(f => sincronizarFormulario(f, enviado, enviado));
+    setBase(enviado);
+    onGuardado('Guardado qué pasa al cancelar una cuota');
+    return null;
+  }
+
+  return (
+    <>
+      <div className="space-y-5 pb-6">
+        <p className="text-sm text-muted-foreground text-pretty">
+          Al cancelar una cuota —la cancelas tú, cambia de plan, termina tras darse de baja o se cancela porque no se pudo
+          cobrar— nunca se generan cobros nuevos de esa cuota. Aquí eliges qué pasa con el recibo que ya estaba pendiente.
+          Los que fallaron o se devolvieron no cambian.
+        </p>
+        <fieldset className="space-y-2">
+          <legend className="sr-only">Qué pasa con su recibo pendiente</legend>
+          {OPCIONES_RECIBO_AL_CANCELAR.map(o => {
+            const elegida = form.recibos === o.valor;
+            return (
+              <label
+                key={o.valor}
+                className={cn(
+                  'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                  elegida ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="recibo-al-cancelar-cuota"
+                  className="mt-1 accent-[var(--brand)]"
+                  checked={elegida}
+                  onChange={() => setForm(f => ({ ...f, recibos: o.valor }))}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">{o.titulo}</span>
+                  <span className="block text-sm text-muted-foreground text-pretty">{o.detalle}</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Dejar que la renueve ella desde su app</p>
+            <p className="text-sm text-muted-foreground text-pretty">
+              Con la cuota cancelada, puede volver a pagarla desde su app. Desactivado: la app le dice que hable con el estudio.
+            </p>
+          </div>
+          <Toggle on={form.renovarSola} onChange={v => setForm(f => ({ ...f, renovarSola: v }))} ariaLabel="Dejar que la renueve ella desde su app" />
+        </div>
+      </div>
+      <BarraGuardar
+        seccion="cobros"
+        cambios={hayCambios(form, base) ? ['Si se cancela una cuota'] : []}
+        confirmar={confirmacionCuotaCancelada(base, form)}
         onGuardar={alGuardar}
         onDescartar={() => setForm(base)}
       />

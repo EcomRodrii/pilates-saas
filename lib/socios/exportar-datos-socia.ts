@@ -50,6 +50,9 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   codigos_descuento_consumos: { seccion: 'pagos' },
   citas: { seccion: 'citas' },
   plazas_fijas: { seccion: 'plazasFijas' },
+  // En «otros», con las solicitudes de derechos: `plazasFijas` es la lista de sus
+  // plazas y esto es lo que PIDIÓ sobre ellas, con lo que le contestaron.
+  solicitudes_plaza_fija: { seccion: 'otros' },
   recuperaciones: { seccion: 'recuperaciones' },
   member_credits: { seccion: 'creditos' },
   credit_transactions: { seccion: 'creditos' },
@@ -228,7 +231,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
 
   const [
     reservas, suscripciones, recibos, pagosHistoricos, ventas, devoluciones, penalizaciones, mandatos, codigos,
-    citas, plazasFijas, recuperaciones,
+    citas, plazasFijas, peticionesPlazaFija, recuperaciones,
     saldo, movimientos, canjes, recompensas, logros, progresoLogros, retos, progresoRetos, participacionesRetos,
     participaciones, valoraciones, preferenciasClase, favoritos, documentos,
     comunicaciones, excepciones, autorizadas, eventos, solicitudes, consentimientosSalud, aceptacionesContrato, memoria, recomendaciones,
@@ -247,6 +250,9 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     leer(db, 'codigos_descuento_consumos', 'recibo_id, consumido_en', [['eq', 'socio_id', socioId]], 'consumido_en'),
     tabla('citas', 'id, instructor_id, tipo, inicio, fin, estado, precio, pagada, notas'),
     tabla('plazas_fijas', 'id, dia_semana, hora_inicio, sala_id, tipo_clase_id, vigencia_desde, vigencia_hasta, estado, pausa_desde, pausa_hasta, creada_en'),
+    // Lo que pidió sobre su plaza fija y qué le contestó el estudio, con el motivo
+    // que le escribieron: es suyo y se lo lleva.
+    tabla('solicitudes_plaza_fija', 'id, tipo, origen, estado, plaza_id, dia_semana, hora_inicio, sala_id, desde_propuesta, hasta_propuesta, desde_aprobada, hasta_aprobada, motivo_sistema, motivo_rechazo, creada_en, resuelta_en'),
     tabla('recuperaciones', 'id, motivo, caduca_el, estado, creada_en'),
     tabla('member_credits', 'saldo, total_ganado, total_canjeado, caduca_el, actualizado_en', 'socio_id'),
     tabla('credit_transactions', 'id, tipo, creditos, descripcion, creado_en'),
@@ -486,6 +492,16 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
         eventosAsistidos: eventos.map(e => ({ fecha: str(e.creado_en) })),
         solicitudesDerechos: solicitudes.map(x => ({
           tipo: str(x.tipo), estado: str(x.estado), solicitadaEn: str(x.solicitada_en), plazoHasta: str(x.plazo_hasta), resueltaEn: str(x.resuelta_en), nota: str(x.nota),
+        })),
+        // Lo que pidió sobre su plaza fija y qué le contestaron, con el motivo que
+        // le escribieron (migr 20260915231920).
+        peticionesPlazaFija: peticionesPlazaFija.map(p => ({
+          tipo: str(p.tipo), origen: str(p.origen), estado: str(p.estado),
+          diaSemana: num(p.dia_semana), hora: str(p.hora_inicio),
+          desdePedida: str(p.desde_propuesta), hastaPedida: str(p.hasta_propuesta),
+          desdeAprobada: str(p.desde_aprobada), hastaAprobada: str(p.hasta_aprobada),
+          motivo: str(p.motivo_sistema), motivoDelEstudio: str(p.motivo_rechazo),
+          pedidaEn: str(p.creada_en), resueltaEn: str(p.resuelta_en),
         })),
         perfilado: {
           hechos: memoria.map(m => ({ clave: str(m.clave), origen: str(m.origen), evidencia: str(m.evidencia), activo: bool(m.activa), fecha: str(m.creado_en), caduca: str(m.expira_en) })),

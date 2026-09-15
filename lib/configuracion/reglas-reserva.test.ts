@@ -23,11 +23,14 @@ const COLUMNAS_DE_ANTES = [
 ];
 // Se guardan ahora en «Alta de alumnas» y «Mi equipo».
 const MUDADAS = ['compraPublicaModo', 'instructorasCreanClases'];
+// Llegadas después, cada una con su tarjeta y su motivo. 16-sep: qué pasa con las
+// clases de su plaza fija cuando se queda sin cuota (la elige el estudio).
+const NUEVAS = ['plazaFijaSinCuota', 'plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp', 'plazaFijaPausaLiberaSitio', 'plazaFijaFinPausa'];
 
-test('la sección guarda las columnas de antes, menos las dos que se fueron a su sitio, y ninguna nueva', () => {
+test('la sección guarda las columnas de antes, menos las dos que se fueron a su sitio, más las nuevas con nombre', () => {
   const r = reglasAGuardar(formularioReglas(null), reglasGuardadas(null));
   assert.ok(r.ok);
-  assert.deepEqual(Object.keys(r.reglas).sort(), COLUMNAS_DE_ANTES.filter(c => !MUDADAS.includes(c)).sort());
+  assert.deepEqual(Object.keys(r.reglas).sort(), [...COLUMNAS_DE_ANTES.filter(c => !MUDADAS.includes(c)), ...NUEVAS].sort());
 });
 
 test('cada columna vive en UNA tarjeta, y entre todas están todas', () => {
@@ -45,6 +48,11 @@ test('sin dato del servidor, los mismos valores por defecto que el formulario de
     recuperacionAutoSemanal: false, permiteListaEspera: true, listaEsperaPlazoAceptacionMinutos: 0,
     requiereCheckinQr: true, penalizacionImporteEur: null, penalizacionAplicaCancelacionTardia: true,
     penalizacionAplicaNoShow: true, penalizacionCobroAutomatico: false,
+    // Sin elegir: como siempre (decisión del fundador, 16-sep).
+    plazaFijaSinCuota: 'MANTENER',
+    // Plaza fija desde la app y sus pausas: todo apagado, como hasta ahora (16-sep).
+    plazaFijaSolicitarDesdeApp: false, plazaFijaPausaDesdeApp: false,
+    plazaFijaPausaLiberaSitio: false, plazaFijaFinPausa: 'RECUPERAR_SI_LIBRE',
   });
 });
 

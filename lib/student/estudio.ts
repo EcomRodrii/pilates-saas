@@ -99,6 +99,10 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     // Igual: base del estudio; `permite_lista_espera` admite override por tipo
     // de clase y la disponibilidad real la devuelve `reservar_plaza`.
     soportaListaEspera: s.permiteListaEspera,
+    // Plaza fija desde la app: solo si el estudio lo permite (Configuración →
+    // «Peticiones desde su app»). Nada más que el botón; el servidor decide.
+    puedePedirPlazaFija: s.plazaFijaSolicitarDesdeApp,
+    puedePedirPausa: s.plazaFijaPausaDesdeApp,
     // Se pasa CRUDO (puede ser null): el respaldo lo pone `nombreCreditos`
     // en el momento de pintar, para que panel y portal usen la misma palabra.
     creditosNombre: s.creditosNombre,

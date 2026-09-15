@@ -39,6 +39,7 @@ import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pend
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
 import { CanjesPendientes } from '@/components/dashboard/canjes-pendientes';
 import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
+import { PlazasFijasPorDecidir } from '@/components/dashboard/plazas-fijas-por-decidir';
 import { ReservasPorAprobar } from '@/components/dashboard/reservas-por-aprobar';
 import { SeriesPorRenovar } from '@/components/dashboard/series-por-renovar';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
@@ -698,6 +699,8 @@ export default function Dashboard() {
               {/* La primera: es la única que puede caducar sola (la clase empieza). */}
               {gestionaCalendario && <ReservasPorAprobar onToast={showToast} />}
               {gestionaCalendario && <SeriesPorRenovar onToast={showToast} />}
+              {/* Aprobar da, pausa o devuelve una plaza y reserva o cancela clases: los dos permisos. */}
+              {gestionaClientas && gestionaCalendario && <PlazasFijasPorDecidir onToast={showToast} />}
               {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
               {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
               {gestionaClientas && <CanjesPendientes onToast={showToast} />}

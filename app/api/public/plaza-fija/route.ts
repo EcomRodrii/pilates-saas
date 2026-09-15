@@ -1,32 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  crearPlazaFijaPublica, pausarPlazaFijaPublica, reanudarPlazaFijaPublica, darDeBajaPlazaFijaPublica,
-  socioAutenticado,
+  cancelarPeticionPlazaFijaAlumna, socioAutenticado, solicitarPausaPlazaFijaAlumna, solicitarPlazaFijaAlumna,
 } from '@/lib/db/supabase-data-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 
-// Autoservicio de plaza fija desde el portal (Feature #2, ficha Lorari-vs-Tentare):
-// la socia crea/pausa/reanuda/da de baja su propio hueco semanal recurrente.
-// Antes era gestión exclusiva de staff (FichaPlazaFija, panel).
+// Plaza fija desde la app de la alumna: PIDE y el estudio decide
+// (`solicitudes_plaza_fija`, migr 20260915231920). Antes creaba, pausaba,
+// reanudaba y quitaba su plaza ella sola. Decisión del fundador (16-sep-2026):
+// hasta que el estudio aprueba no cambia la plaza real, y cada puerta la abre su
+// ajuste del estudio (apagado, 403). Quitar o reanudar se habla con el estudio.
 // SEGURIDAD: igual que /api/public/reserva, la identidad sale del JWT
-// verificado, nunca del body — nadie puede tocar la plaza fija de otra socia
-// conociendo su id.
+// verificado, nunca del body — nadie pide nada sobre la plaza fija de otra
+// socia conociendo su id.
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-plaza-fija', { max: 20, windowSeconds: 60 });
   if (limited) return limited;
 
   const body = await req.json().catch(() => null) as {
-    accion?: 'crear' | 'pausar' | 'reanudar' | 'dar_de_baja';
+    accion?: unknown;
     studioId?: string;
-    sesionId?: string;
-    plazaId?: string;
+    sesionId?: unknown;
+    plazaId?: unknown;
+    desde?: unknown;
+    hasta?: unknown;
+    solicitudId?: unknown;
   } | null;
 
   if (!body?.studioId) {
     return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
+  }
+
+  // Cada petición nueva avisa al mostrador, y el dedupe va por petición: anular y
+  // volver a pedir manda otro push. Por eso PEDIR lleva un límite más corto que el
+  // resto de la ruta — nadie pide una plaza fija cinco veces en diez minutos.
+  if (body.accion === 'solicitar_plaza' || body.accion === 'solicitar_pausa') {
+    const limitePeticiones = await enforceRateLimit(req, 'public-plaza-fija-pedir', { max: 5, windowSeconds: 600 });
+    if (limitePeticiones) return limitePeticiones;
   }
 
   const user = await verificarUsuarioSupabase(req);
@@ -34,31 +47,36 @@ export async function POST(req: NextRequest) {
   const socioId = await socioAutenticado(user.userId, body.studioId);
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+  const texto = (v: unknown) => (typeof v === 'string' && v ? v : null);
+
   try {
-    // Crear y reanudar RESERVAN (reanudar vuelve a materializar sus clases):
-    // con la página oculta, desde fuera no. Pausar y dar de baja sueltan
-    // plazas y siguen abiertos.
-    if (body.accion === 'crear' || body.accion === 'reanudar') {
+    if (body.accion === 'solicitar_plaza') {
+      // Una plaza fija son reservas cada semana: con la página oculta, desde fuera no.
       const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
       if (cerrada) return cerrada;
+      const sesionId = texto(body.sesionId);
+      if (!sesionId) return NextResponse.json({ error: 'Falta la clase' }, { status: 400 });
+      const r = await solicitarPlazaFijaAlumna(admin, { studioId: body.studioId, socioId, sesionId });
+      return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
     }
-    if (body.accion === 'crear') {
-      if (!body.sesionId) return NextResponse.json({ error: 'Falta la sesión' }, { status: 400 });
-      const r = await crearPlazaFijaPublica({ studioId: body.studioId, sesionId: body.sesionId, socioId, authUserId: user.userId });
-      if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
-      return NextResponse.json(r);
+    if (body.accion === 'solicitar_pausa') {
+      const plazaId = texto(body.plazaId);
+      const desde = texto(body.desde);
+      const hasta = texto(body.hasta);
+      if (!plazaId || !desde || !hasta) return NextResponse.json({ error: 'Faltan la plaza fija o las fechas de la pausa' }, { status: 400 });
+      const r = await solicitarPausaPlazaFijaAlumna(admin, { studioId: body.studioId, socioId, plazaId, desde, hasta });
+      return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
     }
-    if (body.accion === 'pausar' || body.accion === 'reanudar' || body.accion === 'dar_de_baja') {
-      if (!body.plazaId) return NextResponse.json({ error: 'Falta la plaza fija' }, { status: 400 });
-      const fn = body.accion === 'pausar' ? pausarPlazaFijaPublica
-        : body.accion === 'reanudar' ? reanudarPlazaFijaPublica
-        : darDeBajaPlazaFijaPublica;
-      const r = await fn({ studioId: body.studioId, plazaId: body.plazaId, socioId, authUserId: user.userId });
-      if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
-      return NextResponse.json(r);
+    if (body.accion === 'cancelar_peticion') {
+      const solicitudId = texto(body.solicitudId);
+      if (!solicitudId) return NextResponse.json({ error: 'Falta la petición' }, { status: 400 });
+      const r = await cancelarPeticionPlazaFijaAlumna(admin, { studioId: body.studioId, socioId, solicitudId });
+      return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
     }
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
   } catch (err) {
-    return errorInterno('public/plaza-fija:POST', err, 'No se ha podido procesar la plaza fija.');
+    return errorInterno('public/plaza-fija:POST', err, 'No se ha podido enviar la petición de plaza fija.');
   }
 }

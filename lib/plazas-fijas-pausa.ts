@@ -7,6 +7,10 @@
 // reserva la clase y `plazas_fijas_sin_materializar` no avisa de nada. Al acabar
 // vuelve sola: nadie tiene que acordarse de reanudarla.
 //
+// Salvo si el estudio elige que las pausas dejen su sitio libre: entonces, al
+// empezar, la plaza pasa a PAUSADA y la vuelta la decide el cron
+// (lib/plazas-fijas-solicitudes.ts).
+//
 // Mismo criterio que el SQL (migr 20260915094312): si aquel cambia, este también.
 // Lógica pura: «hoy» entra por parámetro.
 
@@ -61,7 +65,7 @@ export function validarPausa(desde: string, hasta: string, hoy: string): string 
 }
 
 export type ResultadoPausaPlazaFija =
-  | { ok: true; canceladas: number; mantenidas: number; fallidas: number; creadas: number }
+  | { ok: true; canceladas: number; mantenidas: number; fallidas: number; creadas: number; sitioLibre?: boolean }
   | { ok: false; error: string };
 
 function fechaDMY(ymd: string): string {
@@ -71,10 +75,11 @@ function fechaDMY(ymd: string): string {
 
 /** Lo que ha pasado de verdad al guardar o quitar la pausa, con las cifras del servidor. */
 export function textoTrasPausa(
-  r: { canceladas: number; mantenidas: number; fallidas: number; creadas: number },
+  r: { canceladas: number; mantenidas: number; fallidas: number; creadas: number; sitioLibre?: boolean },
   pausa: Pausa | null,
 ): string {
   const partes = [pausa ? `Plaza fija en pausa del ${fechaDMY(pausa.desde)} al ${fechaDMY(pausa.hasta)}` : 'Pausa quitada'];
+  if (pausa && r.sitioLibre) partes.push('su sitio queda libre mientras tanto');
   if (r.canceladas > 0) partes.push(r.canceladas === 1 ? '1 clase cancelada' : `${r.canceladas} clases canceladas`);
   if (r.mantenidas > 0) {
     partes.push(r.mantenidas === 1
