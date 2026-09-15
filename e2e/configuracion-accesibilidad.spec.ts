@@ -105,6 +105,23 @@ test.describe('En pantalla ancha', () => {
     await expect(enlace).toBeFocused();
   });
 
+  test('llegando por un enlace, cambiar de sección cambia también la dirección', async ({ page }) => {
+    // Solo falla en el build de producción (#2030): Next guardaba al cargar la
+    // ruta con la URL de llegada, y una navegación del router a otra sección
+    // reescribía `?tab=altas`. La sección cambiaba y la barra no.
+    await panel(page);
+    await ir(page, 'configuracion?tab=altas');
+    await expect(titulo(page, 'Alta de alumnas')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('navigation', { name: 'Secciones de Configuración' })
+      .getByRole('link', { name: 'Cobros y facturas', exact: true }).click();
+    await expect(titulo(page, 'Cobros y facturas')).toBeVisible();
+    await expect(page).toHaveURL(/\/configuracion\?tab=cobros$/);
+
+    await page.reload();
+    await expect(titulo(page, 'Cobros y facturas')).toBeVisible({ timeout: 30_000 });
+  });
+
   test('llegar por el ancla de una tarjeta pone el foco en su título', async ({ page }) => {
     await panel(page);
     await ir(page, 'configuracion?tab=cobros#devoluciones');

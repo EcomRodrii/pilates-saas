@@ -8,6 +8,7 @@ import { faltanDatosFiscales } from '@/lib/legal-textos';
 import { sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import { hayPenalizacionConfigurada } from '@/lib/configuracion/penalizacion-activa';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
+import { esClicNormal, useNavegacionConfig } from '@/components/configuracion/shell/contexto';
 
 type Campo = 'politicaPrivacidad' | 'terminosServicio';
 type LegalForm = Record<Campo, string>;
@@ -29,6 +30,7 @@ const TEXTOS: Record<Campo, { titulo: string; boton: string; guardado: string; a
 
 export function TabEstudioLegal({ showToast }: { showToast: (m: string) => void }) {
   const { studioConfig, updateStudioConfig, studio, tiposClase } = useStudio();
+  const nav = useNavegacionConfig();
   const deConfig = (c: typeof studioConfig): LegalForm => ({
     politicaPrivacidad: c.politicaPrivacidad,
     terminosServicio: c.terminosServicio,
@@ -142,7 +144,16 @@ export function TabEstudioLegal({ showToast }: { showToast: (m: string) => void 
             <AlertTriangle size={14} className="shrink-0 mt-0.5" aria-hidden />
             <span>
               Rellena la razón social y el NIF en{' '}
-              <Link href="/configuracion?tab=estudio#datos-fiscales" className="font-semibold underline underline-offset-2">
+              {/* Dentro de Configuración va por el shell, no por el router: ver `irA`. */}
+              <Link
+                href="/configuracion?tab=estudio#datos-fiscales"
+                onClick={e => {
+                  if (!nav || !esClicNormal(e)) return;
+                  e.preventDefault();
+                  nav.irA('estudio', { ancla: 'datos-fiscales', modo: 'push' });
+                }}
+                className="font-semibold underline underline-offset-2"
+              >
                 Mi estudio → Datos fiscales e IVA
               </Link>
               : sin ellos este documento no dice quién es el responsable de los datos y no cumple el RGPD.

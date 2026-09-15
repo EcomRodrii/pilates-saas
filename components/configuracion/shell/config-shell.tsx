@@ -21,10 +21,11 @@ import { CabeceraSeccion } from './cabecera-seccion';
 // «Opciones avanzadas». Ahora:
 //
 //   · móvil (<768): una LISTA de once secciones; tocar una abre su DETALLE a
-//     pantalla completa, con flecha de volver. `router.push`, para que el gesto
+//     pantalla completa, con flecha de volver. `pushState`, para que el gesto
 //     de atrás del teléfono vuelva a la lista.
 //   · 768 en adelante: la lista es una columna fija a la izquierda y la sección
-//     a la derecha. `router.replace`: saltar de una a otra no llena el historial.
+//     a la derecha. `replaceState`: saltar de una a otra no llena el historial.
+//     (Por qué la API nativa y no el router: ver `irA`.)
 //
 // Lista o detalle se decide con CSS (`data-vista`), nunca con matchMedia: girar
 // el iPad no desmonta nada ni pierde lo que se estaba escribiendo.
@@ -125,9 +126,18 @@ export function ConfigShell() {
       escritas.current.push(query);
     }
     const href = tab ? hrefDeSeccion(tab, ancla) : '/configuracion';
-    if (modo === 'push') router.push(href, { scroll: false });
-    else router.replace(href, { scroll: false });
-  }, [router]);
+    // ⚠️ La API nativa del historial, NO `router.push/replace`. En el build de
+    // producción, Next 16 guarda al cargar la ruta `/configuracion` con la URL de
+    // llegada como canónica (`?tab=altas`), y una navegación posterior a la misma
+    // ruta reutiliza esa entrada: el router escribía `?tab=altas` otra vez y la
+    // lista se veía con la sección en la barra (CI, #2030; en `next dev` no pasa).
+    // Aquí no hay nada que pedir al servidor —es la misma página—, y Next
+    // sincroniza `useSearchParams` con `pushState`/`replaceState` (docs:
+    // «Linking and Navigating», native History API). Tampoco remonta la página,
+    // que con el router sí ocurría al cambiar los parámetros.
+    if (modo === 'push') window.history.pushState(null, '', href);
+    else window.history.replaceState(null, '', href);
+  }, []);
 
   const nav = useMemo<NavegacionConfig>(() => ({ irA }), [irA]);
 
