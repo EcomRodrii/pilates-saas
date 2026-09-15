@@ -18,18 +18,34 @@
 // Pura: la ejecuta `node --test` directamente.
 
 import {
-  SECCIONES, esSeccionId, esTarjetaId, seccionDeTarjeta,
-  type RolConfiguracion, type SeccionConfiguracion, type SeccionId, type TarjetaId,
+  SECCIONES, esHerramientaId, esSeccionId, esTarjetaId, herramientaDeTarjeta, herramientaPorId, seccionDeTarjeta,
+  tarjetasDeHerramienta,
+  type HerramientaId, type RolConfiguracion, type SeccionConfiguracion, type SeccionId, type TarjetaId,
 } from './secciones.ts';
 
 export type Destino =
   | { redirect: string }
-  /** `tab: null` = ninguna sección: el inicio de Configuración, en todas las anchuras. */
-  | { tab: SeccionId | null; ancla?: string };
+  /**
+   * `tab: null` = ninguna sección: el inicio de Configuración, en todas las anchuras.
+   * `abrir` = la pantalla de una herramienta de esa sección (`?abrir=widgets`).
+   */
+  | { tab: SeccionId | null; abrir?: HerramientaId; ancla?: string };
 
-type Lugar = { tab: SeccionId; ancla?: string };
+type Lugar = { tab: SeccionId; abrir?: HerramientaId; ancla?: string };
 
-const en = (ancla: TarjetaId): Lugar => ({ tab: seccionDeTarjeta(ancla), ancla });
+/**
+ * Dónde se pinta una tarjeta. Las de una herramienta, en su pantalla (15-sep,
+ * v2): `#widgets` o `?tab=api` llevan al constructor, no a una sección donde
+ * solo queda su fila. Si la tarjeta ES la herramienta, sobra el ancla.
+ */
+export function lugarDeTarjeta(ancla: TarjetaId): Lugar {
+  const tab = seccionDeTarjeta(ancla);
+  const abrir = herramientaDeTarjeta(ancla);
+  if (!abrir) return { tab, ancla };
+  return tarjetasDeHerramienta(abrir).length === 1 ? { tab, abrir } : { tab, abrir, ancla };
+}
+
+const en = lugarDeTarjeta;
 
 // `?tab=` que ya no es una sección. Van los ids de las doce pestañas de antes y
 // los alias que ya existían entonces (#848): lo que SE VEÍA en la pestaña.
@@ -165,6 +181,7 @@ export function resolverDestino(entrada: {
     : new URLSearchParams(entrada.params ?? {});
   const tab = entrada.tab ?? '';
   const sub = entrada.sub ?? '';
+  const abrir = params.get('abrir') ?? '';
 
   // Stripe Checkout volvía aquí con `?suscripcion=ok|cancel`, que no leía
   // nadie. Ya vuelve a /suscripcion; esto recoge las sesiones que se abrieron
@@ -178,6 +195,8 @@ export function resolverDestino(entrada: {
   let lugar: Lugar | null = null;
   const conexion = PARAMS_DE_CONEXION.find(([p]) => params.has(p));
   if (conexion) lugar = en(conexion[1]);
+  // Una herramienta abre SU sección, venga el `tab=` que venga.
+  else if (esHerramientaId(abrir)) lugar = { tab: herramientaPorId(abrir).seccion, abrir };
   else if (sub && reconoceSub(tab, sub)) lugar = { ...LEGADO_SUB[`${tab}/${sub}`] };
   else if (esSeccionId(tab)) lugar = { tab };
   else if (Object.hasOwn(LEGADO_TAB, tab)) lugar = { ...LEGADO_TAB[tab] };
@@ -186,7 +205,7 @@ export function resolverDestino(entrada: {
   if (/^[a-z0-9][a-z0-9_-]*$/i.test(ancla)) {
     if (esTarjetaId(ancla)) return en(ancla);
     if (Object.hasOwn(ANCLAS_RETIRADAS, ancla)) return en(ANCLAS_RETIRADAS[ancla]);
-    if (lugar) return { tab: lugar.tab, ancla };
+    if (lugar) return { ...lugar, ancla };
   }
   return lugar ?? { tab: null };
 }
@@ -204,7 +223,23 @@ export function resolverHref(href: string): Destino {
 
 /** La URL canónica de una sección (y de una tarjeta suya), la que escribe la página. */
 export function hrefDeSeccion(tab: SeccionId, ancla?: string): string {
-  return `/configuracion?tab=${tab}${ancla ? `#${ancla}` : ''}`;
+  return hrefDeLugar({ tab, ancla });
+}
+
+/** La URL canónica de lo que se ve: sección, herramienta abierta y ancla. */
+export function hrefDeLugar(lugar: { tab: SeccionId; abrir?: HerramientaId | null; ancla?: string | null }): string {
+  const { tab, abrir, ancla } = lugar;
+  return `/configuracion?tab=${tab}${abrir ? `&abrir=${abrir}` : ''}${ancla ? `#${ancla}` : ''}`;
+}
+
+/** La pantalla de una herramienta. */
+export function hrefDeHerramienta(id: HerramientaId): string {
+  return hrefDeLugar({ tab: herramientaPorId(id).seccion, abrir: id });
+}
+
+/** Donde se pinta una tarjeta, esté en su sección o en una herramienta. */
+export function hrefDeTarjeta(id: TarjetaId): string {
+  return hrefDeLugar(lugarDeTarjeta(id));
 }
 
 /** Las secciones que un rol puede abrir, en el orden de la lista. */

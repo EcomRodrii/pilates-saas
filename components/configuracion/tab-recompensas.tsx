@@ -93,7 +93,14 @@ function CampoNumero({
   );
 }
 
-export function TabRecompensas({ showToast }: { showToast: (m: string) => void }) {
+/**
+ * `parte`: las reglas («Cómo funcionan tus créditos») van en la sección
+ * Motivación y el catálogo de recompensas en su pantalla de herramienta
+ * (15-sep, v2). Sin ella, las dos, como antes.
+ */
+export function TabRecompensas({ showToast, parte }: { showToast: (m: string) => void; parte?: 'reglas' | 'catalogo' }) {
+  const conReglas = parte !== 'catalogo';
+  const conCatalogo = parte !== 'reglas';
   const {
     rewardRules, addRewardRule, updateRewardRule,
     rewardCatalog, addRewardCatalogItem, updateRewardCatalogItem, deleteRewardCatalogItem,
@@ -223,6 +230,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
 
   return (
     <>
+    {conReglas && (
     <TarjetaAjuste id="reglas" marco={false}>
     <div className="space-y-6">
       {/* Cómo se llaman. Va PRIMERO porque nombra todo lo que viene debajo. */}
@@ -360,7 +368,9 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
 
     </div>
     </TarjetaAjuste>
+    )}
 
+      {conCatalogo && (<>
       {/* Catálogo de recompensas */}
       <TarjetaAjuste
         id="recompensas"
@@ -594,6 +604,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
           </div>
         </DialogContent>
       </Dialog>
+      </>)}
     </>
   );
 }

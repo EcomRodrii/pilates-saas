@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { cardCls } from '@/components/configuracion/estilos';
-import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
+import { tarjetaPorId, tarjetasDeHerramienta, type TarjetaId } from '@/lib/configuracion/secciones';
 import { EstadoAjuste } from './estado-ajuste';
 
 // Una tarjeta de Configuración: un título que dice QUÉ es, una línea que dice
@@ -33,6 +33,21 @@ export function TarjetaAjuste({
 }) {
   const tarjeta = tarjetaPorId(id);
   const tituloId = `${id}-titulo`;
+  // La tarjeta que ES una herramienta (el constructor de widgets, los correos):
+  // su pantalla ya lleva su título y su frase arriba, no se repiten.
+  if (tarjeta.herramienta && tarjetasDeHerramienta(tarjeta.herramienta).length === 1) {
+    return (
+      <section
+        id={id}
+        aria-labelledby="herramienta-titulo"
+        data-tarjeta-ajuste=""
+        className={cn('scroll-mt-32', marco && cn(cardCls, 'p-4 @md/config:p-6'), className)}
+      >
+        {acciones && <div className="mb-4 flex flex-wrap items-center justify-end gap-2">{acciones}</div>}
+        {children}
+      </section>
+    );
+  }
   return (
     // scroll-mt: al llegar por un ancla, las barras fijas del móvil taparían el título.
     <section

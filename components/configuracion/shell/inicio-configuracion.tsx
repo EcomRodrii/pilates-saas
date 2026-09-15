@@ -10,8 +10,8 @@ import { estadoBilling, fetchLayout, fetchThemePublicado } from '@/lib/api-clien
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { DEFAULT_THEME } from '@/lib/theme-schema';
 import { cardCls, inputCls } from '@/components/configuracion/estilos';
-import { hrefDeSeccion, resolverHref } from '@/lib/configuracion/destino';
-import { FILAS_EXTERNAS, GRUPOS, type SeccionConfiguracion, type SeccionId } from '@/lib/configuracion/secciones';
+import { hrefDeLugar, hrefDeSeccion, resolverHref } from '@/lib/configuracion/destino';
+import { FILAS_EXTERNAS, GRUPOS, type HerramientaId, type SeccionConfiguracion, type SeccionId } from '@/lib/configuracion/secciones';
 import {
   resumenPlan, resumenesDeConfiguracion, revisaEsto, type DatosConfiguracion, type EstadoPlanResumible,
 } from '@/lib/configuracion/resumenes';
@@ -51,7 +51,7 @@ const LISTA = cn(cardCls, 'divide-y divide-border overflow-hidden');
 const TITULO_GRUPO = 'px-1 text-sm font-semibold text-foreground';
 const CAJA_ICONO = 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground';
 
-type Abrir = (tab: SeccionId, opciones: { ancla?: string; origen: string }) => void;
+type Abrir = (tab: SeccionId, opciones: { ancla?: string; abrir?: HerramientaId; origen: string }) => void;
 
 export function InicioConfiguracion({
   secciones,
@@ -130,10 +130,10 @@ export function InicioConfiguracion({
     ? buscarAjustes(consulta, { secciones, haySedes, esCadena: !!studio?.cadenaId })
     : null;
 
-  const abrir = (tab: SeccionId, origen: string, ancla?: string) => (e: MouseEvent) => {
+  const abrir = (tab: SeccionId, origen: string, ancla?: string, herramienta?: HerramientaId) => (e: MouseEvent) => {
     if (!esClicNormal(e)) return;
     e.preventDefault();
-    onAbrir(tab, { ancla, origen });
+    onAbrir(tab, { ancla, abrir: herramienta, origen });
   };
 
   return (
@@ -168,8 +168,9 @@ export function InicioConfiguracion({
             {resultados.map(r => {
               const id = `inicio-buscar-${r.id}`;
               // Una sección se abre por el shell; «Plan de Tentare» es otra pantalla.
+              // Una tarjeta de una herramienta abre la pantalla de esa herramienta.
               const enlace = r.seccion
-                ? { href: hrefDeSeccion(r.seccion, r.ancla), onClick: abrir(r.seccion, id, r.ancla) }
+                ? { href: hrefDeLugar({ tab: r.seccion, abrir: r.abrir, ancla: r.ancla }), onClick: abrir(r.seccion, id, r.ancla, r.abrir) }
                 : { href: r.href ?? '/configuracion' };
               return (
                 <li key={r.id}>
@@ -304,6 +305,7 @@ function SiguientePaso({ paso, onAbrir }: { paso: PasoOnboarding; onAbrir: Abrir
   const destino = /^\/configuracion(?:[?#]|$)/.test(paso.href) ? resolverHref(paso.href) : null;
   const tab = destino && !('redirect' in destino) ? destino.tab : null;
   const ancla = destino && !('redirect' in destino) ? destino.ancla : undefined;
+  const herramienta = destino && !('redirect' in destino) ? destino.abrir : undefined;
   const id = 'inicio-siguiente-paso';
   return (
     <Link
@@ -313,7 +315,7 @@ function SiguientePaso({ paso, onAbrir }: { paso: PasoOnboarding; onAbrir: Abrir
       onClick={e => {
         if (!tab || !esClicNormal(e)) return;
         e.preventDefault();
-        onAbrir(tab, { ancla, origen: id });
+        onAbrir(tab, { ancla, abrir: herramienta, origen: id });
       }}
       className="-mx-2 flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >

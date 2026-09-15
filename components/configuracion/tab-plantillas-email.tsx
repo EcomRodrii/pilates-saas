@@ -11,6 +11,8 @@ import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/co
 import { EstadoAjuste } from '@/components/configuracion/shell/estado-ajuste';
 import { previsualizarPlantilla, enviarPruebaPlantilla } from '@/lib/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useNavegacionConfig } from '@/components/configuracion/shell/contexto';
 
 // ─── Plantillas de email transaccional ───────────────────────────────────────
 //
@@ -150,15 +152,15 @@ function cuerpoDePartida(meta: Meta, intro: string): string {
 // role="switch"> de verdad. Mientras se guarda no se deja tocar, y el `title`
 // repite el nombre para quien pasa el ratón.
 
-function Interruptor({ on, onChange, label, ocupado }: {
-  on: boolean; onChange: () => void; label: string; ocupado: boolean;
+function Interruptor({ on, onChange, label, ocupado, className }: {
+  on: boolean; onChange: () => void; label: string; ocupado: boolean; className?: string;
 }) {
-  return <Toggle on={on} onChange={() => onChange()} ariaLabel={label} title={label} ocupado={ocupado} />;
+  return <Toggle on={on} onChange={() => onChange()} ariaLabel={label} title={label} ocupado={ocupado} className={className} />;
 }
 
 // Dónde va la pastilla de estado en cada fila de la lista: debajo del texto en
 // columna estrecha, al lado desde 32 rem (ver la rejilla de la fila).
-const COLOCA_ESTADO = 'col-start-1 row-start-2 whitespace-normal @lg/config:col-start-2 @lg/config:row-start-1';
+const COLOCA_ESTADO = 'whitespace-normal @lg/config:justify-self-end';
 
 // ─── Barra de formato ────────────────────────────────────────────────────────
 // Los asteriscos los pone la aplicación. Envuelve lo seleccionado, y si no hay
@@ -272,19 +274,28 @@ function VistaPreviaViva({ tipo, borrador }: { tipo: TipoPlantillaEmail; borrado
 // ─── Editor de una plantilla ─────────────────────────────────────────────────
 
 function EditorPlantilla({
-  meta, plantilla, onGuardar, showToast, onCerrar,
+  meta, plantilla, onGuardar, showToast, onCerrar, onSucio,
 }: {
   meta: Meta;
   plantilla: PlantillaEmail | undefined;
-  onGuardar: (cambios: Partial<PlantillaEmail>) => Promise<void>;
+  /** `null` = guardado de verdad; un texto = no se ha guardado, y por qué. */
+  onGuardar: (cambios: Partial<PlantillaEmail>) => Promise<string | null>;
   showToast: (m: string) => void;
   onCerrar: () => void;
+  /** Hay algo escrito que no está guardado: cerrar tiene que preguntar. */
+  onSucio: (sucio: boolean) => void;
 }) {
   const [b, setB] = useState<Borrador>(() => borradorDe(plantilla));
   const set = <K extends keyof Borrador>(k: K, v: Borrador[K]) => setB(prev => ({ ...prev, [k]: v }));
   const areaCuerpo = useRef<HTMLTextAreaElement>(null);
   const [guardando, setGuardando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+
+  // Comparado con lo guardado, no con «ha tocado algo»: escribir y borrar lo
+  // mismo no es un cambio que se pierda.
+  const sucio = JSON.stringify(b) !== JSON.stringify(borradorDe(plantilla));
+  useEffect(() => { onSucio(sucio); }, [sucio, onSucio]);
 
   const modoLibre = b.cuerpo.trim() !== '';
 
@@ -326,9 +337,11 @@ function EditorPlantilla({
   }, [b.cuerpo]);
 
   async function guardar() {
+    if (guardando) return;
     setGuardando(true);
+    setErrorGuardar(null);
     const oNulo = (v: string) => (v.trim() ? v.trim() : null);
-    await onGuardar({
+    const fallo = await onGuardar({
       // Editar y guardar es querer que se aplique. Si la fila venía con
       // activa=false (del interruptor que ya no se enseña), guardar sin esto
       // dejaría el correo saliendo por defecto y parecería que no se guardó.
@@ -339,6 +352,9 @@ function EditorPlantilla({
       pie: oNulo(b.pie), fuente: fuenteValida(b.fuente),
     });
     setGuardando(false);
+    // Si no se ha guardado, el editor se queda abierto con lo escrito: cerrarlo
+    // y dejar solo un aviso era perder el correo que se estaba redactando.
+    if (fallo) { setErrorGuardar(fallo); return; }
     onCerrar();
   }
 
@@ -536,6 +552,12 @@ function EditorPlantilla({
           los campos y los botones. Ocupando el ancho entero se leen como una
           barra de pie del diálogo, que es lo que son. */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 lg:col-span-2">
+        {errorGuardar && (
+          <p role="alert" className="w-full text-sm font-medium text-destructive text-pretty">
+            {/^no se ha guardado/i.test(errorGuardar.trim()) ? '' : 'No se ha guardado: '}
+            {errorGuardar.trim().replace(/[.\s]+$/, '')}. Tus cambios siguen aquí.
+          </p>
+        )}
         <button
           type="button"
           onClick={() => setB(VACIO)}
@@ -560,11 +582,35 @@ function EditorPlantilla({
 
 export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => void }) {
   const { plantillasEmail, upsertPlantillaEmail } = useStudio();
+  const nav = useNavegacionConfig();
   const [abierta, setAbierta] = useState<TipoPlantillaEmail | null>(null);
   // Qué interruptor está guardando ahora mismo. Sin esto se puede pulsar dos
   // veces seguidas y la segunda escritura sale con el valor de antes.
   const [cambiando, setCambiando] = useState<TipoPlantillaEmail | null>(null);
   const metaAbierta = PLANTILLAS_META.find(m => m.tipo === abierta);
+
+  // ── Salir con un correo a medio escribir ──────────────────────────────────
+  // Cerrar el editor (Escape, la X, fuera) pregunta antes. Irse de la pantalla
+  // (volver, el menú, otra sección) lo pregunta el shell, con la misma marca que
+  // usan las barras de guardar; recargar o cerrar la pestaña, el navegador.
+  const [sucio, setSucio] = useState(false);
+  const [preguntarCerrar, setPreguntarCerrar] = useState(false);
+  useEffect(() => {
+    if (!sucio || !nav) return;
+    return nav.marcarSinGuardar('comunicacion');
+  }, [sucio, nav]);
+  useEffect(() => {
+    if (!sucio) return;
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [sucio]);
+
+  function cerrarEditor() {
+    setAbierta(null);
+    setSucio(false);
+    setPreguntarCerrar(false);
+  }
 
   // Encender/apagar un correo. Al apagarlo se dice en el mismo momento qué deja
   // de recibir la clienta: es una decisión de la propietaria, pero no a ciegas.
@@ -591,27 +637,29 @@ export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => vo
           const enviar = p?.enviar ?? true;
           const r = resumen(borradorDe(p), p?.activa ?? true);
           return (
-            <div key={meta.tipo} className="flex w-full items-center gap-2 pr-4">
+            <div key={meta.tipo} data-correo={meta.tipo} className="flex w-full items-start gap-2 pr-4 @lg/config:items-center">
               {/* El interruptor va FUERA del botón que abre el editor: un botón
                   dentro de otro botón no es HTML válido, y además apagar un
                   correo no debe abrir de paso la pantalla de edición. */}
               <button
                 type="button"
                 onClick={() => setAbierta(meta.tipo)}
-                // Rejilla y no fila: a 375 px la pastilla de estado, el lápiz y el
-                // interruptor dejaban al título una palabra por línea y la
-                // descripción en «Se …». En columna estrecha la pastilla baja
-                // bajo el texto; desde 32 rem vuelve a su lado.
-                className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 p-4 text-left hover:bg-muted/50 @lg/config:grid-cols-[minmax(0,1fr)_auto_auto] @lg/config:gap-x-4"
+                // En columna estrecha, todo apilado: título con su lápiz, la
+                // frase entera y la pastilla debajo. En una sola fila, a 375 px
+                // el título, la pastilla, el lápiz y el interruptor dejaban la
+                // frase en «Se envía…» cortada. Desde 32 rem la pastilla vuelve
+                // a su lado.
+                className="grid min-w-0 flex-1 grid-cols-1 justify-items-start gap-y-1.5 p-4 text-left hover:bg-muted/50 @lg/config:grid-cols-[minmax(0,1fr)_auto] @lg/config:items-center @lg/config:gap-x-4"
               >
                 <div className="min-w-0">
-                  <p className={cn('text-[14px] font-semibold', enviar ? 'text-foreground' : 'text-muted-foreground')}>
+                  <p className={cn('flex items-center gap-1.5 text-[14px] font-semibold', enviar ? 'text-foreground' : 'text-muted-foreground')}>
                     {meta.label}
+                    <Pencil size={14} aria-hidden className="shrink-0 text-muted-foreground" />
                   </p>
                   {/* Apagado, el hueco lo ocupa la consecuencia: mientras siga
                       así, lo que importa no es cuándo se enviaba sino qué ha
-                      dejado de llegarle a la clienta. */}
-                  <p className="truncate text-[12px] text-muted-foreground">
+                      dejado de llegarle a la alumna. Entera: nada de cortarla. */}
+                  <p data-cuando="" className="text-[12px] text-muted-foreground text-pretty">
                     {enviar ? meta.cuando : meta.avisoAlApagar}
                   </p>
                 </div>
@@ -622,20 +670,28 @@ export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => vo
                 {!enviar
                   ? <EstadoAjuste tono="neutro" icono={MailX} className={COLOCA_ESTADO}>Apagado</EstadoAjuste>
                   : <EstadoAjuste tono={r.tocado ? 'personalizado' : 'neutro'} className={COLOCA_ESTADO}>{r.texto}</EstadoAjuste>}
-                <Pencil size={14} className="col-start-2 row-span-2 row-start-1 shrink-0 text-muted-foreground @lg/config:col-start-3 @lg/config:row-span-1" />
               </button>
               <Interruptor
                 on={enviar}
                 ocupado={cambiando === meta.tipo}
                 onChange={() => void cambiarEnvio(meta, !enviar)}
                 label={enviar ? `Dejar de enviar «${meta.label}»` : `Volver a enviar «${meta.label}»`}
+                className="mt-4 @lg/config:mt-0"
               />
             </div>
           );
         })}
       </div>
 
-      <Dialog open={!!metaAbierta} onOpenChange={open => { if (!open) setAbierta(null); }}>
+      <Dialog
+        open={!!metaAbierta}
+        onOpenChange={open => {
+          if (open) return;
+          // Escape, la X o tocar fuera con un correo a medio escribir: antes, preguntar.
+          if (sucio) setPreguntarCerrar(true);
+          else cerrarEditor();
+        }}
+      >
         <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-5xl">
           {metaAbierta && (
             <>
@@ -647,11 +703,25 @@ export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => vo
                 meta={metaAbierta}
                 plantilla={plantillasEmail.find(x => x.tipo === metaAbierta.tipo)}
                 showToast={showToast}
-                onCerrar={() => setAbierta(null)}
+                onCerrar={cerrarEditor}
+                onSucio={setSucio}
                 onGuardar={async cambios => {
                   const res = await upsertPlantillaEmail(metaAbierta.tipo, cambios);
-                  showToast(res.ok ? 'Guardado' : res.error);
+                  if (!res.ok) return res.error;
+                  showToast('Guardado');
+                  return null;
                 }}
+              />
+              {/* Dentro del editor: un diálogo encima de otro tiene que ser su hijo. */}
+              <ConfirmDialog
+                open={preguntarCerrar}
+                onOpenChange={v => { if (!v) setPreguntarCerrar(false); }}
+                titulo="¿Salir sin guardar?"
+                descripcion={`Los cambios de «${metaAbierta.label}» se perderán.`}
+                textoConfirmar="Salir sin guardar"
+                textoCancelar="Seguir editando"
+                destructivo
+                onConfirm={cerrarEditor}
               />
             </>
           )}

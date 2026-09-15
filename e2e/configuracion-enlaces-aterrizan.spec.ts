@@ -67,13 +67,10 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
   // Los enlaces que de verdad hay repartidos por correos, notificaciones y la
   // guía, con la sección y la tarjeta en la que tienen que caer.
   const ENLACES_VIEJOS: [string, string, string][] = [
-    ['/configuracion?tab=gamificacion&sub=canjes', 'Motivación', '#canjes'],
     ['/configuracion?tab=estudio&sub=legal', 'Alta de alumnas', '#contrato-y-privacidad'],
     ['/configuracion?tab=estudio&sub=general#datos-fiscales', 'Cobros y facturas', '#datos-fiscales'],
-    ['/configuracion?tab=salas', 'Mi estudio', '#salas'],
-    ['/configuracion?tab=api&sub=crecimiento', 'Mi app y mi web', '#widgets'],
-    ['/configuracion?tab=emails', 'Cómo me comunico', '#correos-automaticos'],
-    ['/configuracion?tab=estudio&sub=salas', 'Mi estudio', '#salas'],
+    // Canjes, salas, widgets y correos tienen su propia pantalla desde el
+    // 15-sep (v2): sus enlaces los prueba e2e/configuracion-herramientas.spec.ts.
     // Tarjetas que cambiaron de sección el 15-sep: su enlace de antes las sigue.
     // «Marca» es una sección desde el 15-sep (v2): el ancla de la tarjeta de antes lleva al logo.
     ['/configuracion?tab=estudio#marca', 'Marca', '#logo-y-favicon'],

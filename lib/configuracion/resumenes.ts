@@ -24,7 +24,7 @@ import { saludIntegracion, type FilaSalud, type SaludIntegracion } from '../inte
 import { nifEmisorValido, nifValido } from '../nif.ts';
 import { PLAN_INFO, type Plan } from '../billing/entitlements.ts';
 import type { FaseTrial } from '../billing/trial.ts';
-import { SECCIONES, esTarjetaId, seccionDeTarjeta, type SeccionId, type TarjetaId } from './secciones.ts';
+import { SECCIONES, esTarjetaId, seccionDeTarjeta, type HerramientaId, type SeccionId, type TarjetaId } from './secciones.ts';
 
 export const MAX_RESUMEN = 44;
 export const MAX_REVISA = 3;
@@ -359,6 +359,112 @@ export function resumenesDeConfiguracion(d: DatosConfiguracion): Record<SeccionI
     const aviso = avisos.find(a => a.seccion === id);
     return [id, { valor: valorDe(id, d), estado: aviso ? { tono: aviso.tono, etiqueta: aviso.etiqueta } : null }];
   })) as Record<SeccionId, ResumenSeccion>;
+}
+
+// ─── Las herramientas ────────────────────────────────────────────────────────
+//
+// Cada herramienta grande tiene su pantalla y, en su sección, una fila con cómo
+// está («2 salas · 1 máquina en avería»). Las mismas reglas que las secciones:
+// un campo `null` o ausente es «no se sabe», y entonces la fila enseña su
+// descripción.
+
+/** Los correos automáticos que se pueden apagar y editar, en el orden de su lista. */
+export const CORREOS_AUTOMATICOS = ['bienvenida', 'reserva', 'recordatorio', 'cancelacion', 'promocion', 'impago'] as const;
+
+/** Algo que se ve entre dos fechas, o siempre si no las tiene. */
+type ConVigencia = { activo: boolean; fechaInicio?: string | null; fechaFin?: string | null };
+
+export interface DatosHerramientas {
+  numTiposClase?: number | null;
+  salas?: {
+    numSalas: number;
+    /** Averías de máquina: `hasta: null` = sin fecha de arreglo. */
+    averias: readonly { hasta: string | null }[];
+    ahoraMs: number;
+  } | null;
+  /** Las filas de `plantillas_email`. Sin fila, el correo se envía. */
+  correos?: readonly { tipo: string; enviar?: boolean | null }[] | null;
+  contenido?: {
+    mensajeDestacado: string | null;
+    tarjetas: readonly ConVigencia[];
+    avisos: readonly ConVigencia[];
+    ahoraMs: number;
+  } | null;
+  /** Las webs donde está autorizado el calendario embebido. */
+  widgetDominios?: readonly string[] | null;
+  motivacion?: { recompensas: number; logros: number; niveles: number; retos: number } | null;
+}
+
+function enVigor(x: ConVigencia, ahoraMs: number): boolean {
+  if (!x.activo) return false;
+  if (x.fechaInicio && Date.parse(x.fechaInicio) > ahoraMs) return false;
+  if (x.fechaFin && Date.parse(x.fechaFin) < ahoraMs) return false;
+  return true;
+}
+
+/** La línea de la fila de una herramienta, o `null` si no se sabe cómo está. */
+export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): string | null {
+  switch (id) {
+    case 'tipos-de-clase': {
+      const n = d.numTiposClase;
+      if (n == null) return null;
+      return n === 0 ? 'Sin tipos de clase' : contar(n, 'tipo de clase', 'tipos de clase');
+    }
+
+    case 'salas': {
+      if (!d.salas) return null;
+      const { numSalas, averias, ahoraMs } = d.salas;
+      if (numSalas === 0) return 'Sin salas';
+      // El mismo criterio que la lista de averías: sin arreglo, o con arreglo aún por llegar.
+      const rotas = averias.filter(a => !a.hasta || Date.parse(a.hasta) > ahoraMs).length;
+      return unir([
+        contar(numSalas, 'sala', 'salas'),
+        rotas > 0 ? contar(rotas, 'máquina en avería', 'máquinas en avería') : null,
+      ]);
+    }
+
+    case 'correos-automaticos': {
+      if (!d.correos) return null;
+      const total = CORREOS_AUTOMATICOS.length;
+      const apagados = new Set(d.correos.filter(c => c.enviar === false).map(c => c.tipo));
+      const salen = CORREOS_AUTOMATICOS.filter(t => !apagados.has(t)).length;
+      if (salen === total) return `Los ${total} correos se envían`;
+      if (salen === 0) return 'Ningún correo se envía';
+      return `${salen} de ${total} correos se envían`;
+    }
+
+    case 'contenido-de-tu-app': {
+      if (!d.contenido) return null;
+      const { mensajeDestacado, tarjetas, avisos, ahoraMs } = d.contenido;
+      const nTarjetas = tarjetas.filter(t => enVigor(t, ahoraMs)).length;
+      const nAvisos = avisos.filter(a => enVigor(a, ahoraMs)).length;
+      return unir([
+        mensajeDestacado?.trim() ? 'con mensaje destacado' : 'sin mensaje destacado',
+        // Solo las que se ven hoy: publicadas y dentro de sus fechas.
+        nTarjetas > 0 ? contar(nTarjetas, 'tarjeta', 'tarjetas') : null,
+        nAvisos > 0 ? contar(nAvisos, 'aviso', 'avisos') : null,
+      ]);
+    }
+
+    case 'widgets': {
+      // No se sabe qué widgets tiene pegados en su web: solo dónde autorizó el
+      // calendario embebido. Sin ninguna, la fila cuenta qué hay dentro.
+      const n = d.widgetDominios?.length ?? 0;
+      return n > 0 ? `${contar(n, 'web autorizada', 'webs autorizadas')} para el calendario` : null;
+    }
+
+    case 'recompensas-y-logros': {
+      if (!d.motivacion) return null;
+      const { recompensas, logros, niveles, retos } = d.motivacion;
+      if (recompensas + logros + niveles + retos === 0) return 'Sin recompensas ni logros todavía';
+      return unir([
+        recompensas > 0 ? contar(recompensas, 'recompensa', 'recompensas') : 'sin recompensas',
+        logros > 0 ? contar(logros, 'logro', 'logros') : null,
+        retos > 0 ? contar(retos, 'reto', 'retos') : null,
+        niveles > 0 ? contar(niveles, 'nivel', 'niveles') : null,
+      ]);
+    }
+  }
 }
 
 // ─── Plan de Tentare ─────────────────────────────────────────────────────────

@@ -11,9 +11,9 @@
 
 import {
   FILAS_EXTERNAS, GRUPOS, SECCIONES, cumpleCondicion,
-  type FilaExterna, type RolConfiguracion, type SeccionConfiguracion, type SeccionId, type TarjetaConfiguracion, type TarjetaId,
+  type FilaExterna, type HerramientaId, type RolConfiguracion, type SeccionConfiguracion, type SeccionId, type TarjetaConfiguracion, type TarjetaId,
 } from './secciones.ts';
-import { hrefDeSeccion, resolverHref, seccionesVisibles } from './destino.ts';
+import { hrefDeLugar, lugarDeTarjeta, resolverHref, seccionesVisibles } from './destino.ts';
 
 export interface ResultadoAjuste {
   /** Único en la lista: sirve de id del enlace. */
@@ -23,6 +23,8 @@ export interface ResultadoAjuste {
   donde: string | null;
   /** `null` = no es una sección: una fila que lleva a otra pantalla (`href`). */
   seccion: SeccionId | null;
+  /** La herramienta en cuya pantalla está la tarjeta (el constructor de widgets…). */
+  abrir?: HerramientaId;
   ancla?: TarjetaId;
   href?: string;
 }
@@ -74,7 +76,13 @@ export function buscarAjustes(
     for (const t of s.tarjetas as readonly TarjetaConfiguracion[]) {
       if (!cumpleCondicion(t.condicion, { haySedes, esCadena })) continue;
       if (casa(buscadas, [t.titulo, ...(t.palabras ?? [])])) {
-        resultados.push({ id: `tarjeta-${t.id}`, titulo: t.titulo, donde: s.titulo, seccion: s.id, ancla: t.id as TarjetaId });
+        // Una tarjeta de una herramienta abre su pantalla: en la sección solo está su fila.
+        const { abrir, ancla } = lugarDeTarjeta(t.id as TarjetaId);
+        resultados.push({
+          id: `tarjeta-${t.id}`, titulo: t.titulo, donde: s.titulo, seccion: s.id,
+          ...(abrir ? { abrir } : {}),
+          ...(ancla ? { ancla: ancla as TarjetaId } : {}),
+        });
       }
     }
   }
@@ -116,7 +124,7 @@ export function ajustesParaBuscadorGlobal(
   if (secciones.length === 0) return [];
   return buscarAjustes(consulta, { secciones, externas: [], haySedes: opciones.haySedes, esCadena: opciones.esCadena })
     .flatMap(r => r.seccion
-      ? [{ id: r.id, titulo: r.titulo, donde: r.donde ?? 'Configuración', href: hrefDeSeccion(r.seccion, r.ancla) }]
+      ? [{ id: r.id, titulo: r.titulo, donde: r.donde ?? 'Configuración', href: hrefDeLugar({ tab: r.seccion, abrir: r.abrir, ancla: r.ancla }) }]
       : [])
     .slice(0, MAX_AJUSTES_EN_BUSCADOR_GLOBAL);
 }

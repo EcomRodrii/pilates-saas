@@ -25,7 +25,7 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo te presentas</h2>
       <p>
-        «Textos de tu app», en Configuración &gt; Mi app y mi web, son textos libres para tu página de reservas y la app
+        «Textos de tu app», en Configuración &gt; Marca, son textos libres para tu página de reservas y la app
         de tus alumnas: cómo te presentas, tu lema, las frases de bienvenida y de portada, y las normas del centro. Se
         guardan con «Guardar textos de tu app». Si dejas un texto vacío, ese bloque simplemente no se pinta — no hay
         texto de relleno.

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext } from 'react';
-import type { SeccionId } from '@/lib/configuracion/secciones';
+import type { HerramientaId, SeccionId } from '@/lib/configuracion/secciones';
 
 // Navegar DENTRO de Configuración sin perder la protección de #2008: quien
 // cambia de sección no escribe la URL a mano, se lo pide al shell, que apunta
@@ -10,11 +10,15 @@ import type { SeccionId } from '@/lib/configuracion/secciones';
 export type ModoNavegacion = 'push' | 'replace';
 
 export interface NavegacionConfig {
-  /** `null` = la lista. Si hay cambios sin guardar en otra sección, pregunta antes. */
-  irA: (tab: SeccionId | null, opciones?: { ancla?: string; modo?: ModoNavegacion; origen?: string }) => void;
   /**
-   * La barra de guardar de `seccion` tiene cambios: salir de ella tiene que
-   * preguntar. Devuelve con qué quitar la marca (al guardar, descartar o
+   * `null` = la lista. `abrir` = la pantalla de una herramienta de esa sección.
+   * Si hay cambios sin guardar en lo que se deja, pregunta antes.
+   */
+  irA: (tab: SeccionId | null, opciones?: { ancla?: string; abrir?: HerramientaId; modo?: ModoNavegacion; origen?: string }) => void;
+  /**
+   * Lo que se ve ahora (`seccion`, o una herramienta suya) tiene cambios sin
+   * guardar: salir tiene que preguntar. El shell apunta también la herramienta
+   * abierta. Devuelve con qué quitar la marca (al guardar, descartar o
    * desmontarse).
    */
   marcarSinGuardar: (seccion: SeccionId) => () => void;

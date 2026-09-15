@@ -223,6 +223,16 @@ for (const vista of VISTAS) {
 
         for (const t of seccion.tarjetas as readonly TarjetaConfiguracion[]) {
           if (t.condicion) continue; // sedes y catálogo de la cadena: solo con varias sedes
+          // En la sección, una herramienta es su fila; sus tarjetas están en su pantalla.
+          // Se espera igual que a una tarjeta: en «Clases» y «Comunicación» la
+          // fila es lo primero de la sección y se miraba antes de que cargara.
+          if (t.herramienta) {
+            const fila = page.locator(`#fila-herramienta-${t.herramienta}`);
+            if (!(await fila.count())) {
+              await fila.waitFor({ state: 'attached', timeout: 10_000 }).catch(() => faltan.push(`${seccion.id}#fila-herramienta-${t.herramienta}`));
+            }
+            continue;
+          }
           if (!(await page.locator(`#${t.id}`).count())) {
             await page.locator(`#${t.id}`).waitFor({ state: 'attached', timeout: 10_000 }).catch(() => faltan.push(`${seccion.id}#${t.id}`));
           }
@@ -241,20 +251,20 @@ for (const vista of VISTAS) {
     });
 
     if (vista.nombre.startsWith('iPad')) {
-      test('8 · girar el iPad deja la misma sección y la misma tarjeta', async ({ page }) => {
+      test('8 · girar el iPad deja la misma herramienta abierta', async ({ page }) => {
         await panel(page);
-        await ir(page, 'configuracion?tab=web#widgets');
-        await expect(titulo(page, 'Mi app y mi web')).toBeVisible({ timeout: 30_000 });
+        await ir(page, 'configuracion?tab=web&abrir=widgets');
+        await expect(titulo(page, 'Widgets para tu web')).toBeVisible({ timeout: 30_000 });
         await expect(page.locator('#widgets')).toBeVisible({ timeout: 15_000 });
 
         await page.setViewportSize({ width: 1024, height: 768 });
-        await expect(titulo(page, 'Mi app y mi web')).toBeVisible();
-        await expect(page).toHaveURL(/\?tab=web#widgets$/);
+        await expect(titulo(page, 'Widgets para tu web')).toBeVisible();
+        await expect(page).toHaveURL(/\?tab=web&abrir=widgets$/);
         await expect(page.locator('#widgets')).toBeVisible();
 
         await page.setViewportSize({ width: 768, height: 1024 });
-        await expect(titulo(page, 'Mi app y mi web')).toBeVisible();
-        await expect(page).toHaveURL(/\?tab=web#widgets$/);
+        await expect(titulo(page, 'Widgets para tu web')).toBeVisible();
+        await expect(page).toHaveURL(/\?tab=web&abrir=widgets$/);
       });
     }
 
@@ -262,9 +272,10 @@ for (const vista of VISTAS) {
       test('11 · los modales dejan margen a los lados y no sacan la página de lado', async ({ page }) => {
         await panel(page);
         const modales: [{ id: string; titulo: string }, () => Promise<void>][] = [
-          [{ id: 'estudio', titulo: 'Mi estudio' }, () => page.getByRole('button', { name: 'Nueva sala' }).click()],
+          // Salas y correos, en la pantalla de su herramienta (15-sep, v2).
+          [{ id: 'estudio&abrir=salas', titulo: 'Salas' }, () => page.getByRole('button', { name: 'Nueva sala' }).click()],
           [{ id: 'clases', titulo: 'Mis clases y citas' }, () => page.getByRole('button', { name: 'Nuevo servicio' }).click()],
-          [{ id: 'comunicacion', titulo: 'Cómo me comunico' }, () => page.getByRole('button', { name: /Bienvenida/ }).click()],
+          [{ id: 'comunicacion&abrir=correos-automaticos', titulo: 'Correos automáticos' }, () => page.getByRole('button', { name: /Bienvenida/ }).click()],
         ];
         for (const [seccion, abrirModal] of modales) {
           await abrir(page, seccion);

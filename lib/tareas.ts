@@ -97,13 +97,13 @@ export const TAREAS: Tarea[] = [
   {
     id: 'nueva-sala',
     label: 'Añadir una sala',
-    href: '/configuracion?tab=clases-salas&sub=salas',
+    href: '/configuracion?tab=estudio&abrir=salas',
     claves: ['sala', 'espacio', 'aforo', 'capacidad'],
   },
   {
     id: 'nuevo-tipo-clase',
     label: 'Crear un tipo de clase',
-    href: '/configuracion?tab=clases-salas',
+    href: '/configuracion?tab=clases&abrir=tipos-de-clase',
     claves: ['tipo de clase', 'disciplina', 'reformer', 'mat', 'modalidad'],
   },
   {

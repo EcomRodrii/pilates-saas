@@ -9,12 +9,13 @@ import {
   ExternalLink,
   BellRing,
   Clock,
+  Mail,
 } from 'lucide-react';
 import { EstadoAjuste } from '@/components/configuracion/shell/estado-ajuste';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
-import { StripeIcon, WhatsAppAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon, GmailIcon, MailchimpIcon, ZapierIcon, KisiIcon, KlaviyoIcon } from '@/components/icons/brand-icons';
+import { StripeIcon, WhatsAppAppIcon, ZoomIcon, GoogleCalendarIcon, GmailIcon, MailchimpIcon, ZapierIcon, KisiIcon, KlaviyoIcon } from '@/components/icons/brand-icons';
 import { authHeader } from '@/lib/api-client';
 import { saludIntegracion, textoSalud } from '@/lib/integraciones/salud';
 import { useWhatsappEmbeddedSignup } from '@/lib/hooks/use-whatsapp-embedded-signup';
@@ -85,8 +86,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     // `fromEmail` → reply-to (lib/emails/plantillas-server.ts). «Resend» es el
     // nombre del proveedor, que a la propietaria no le dice nada.
     ...deSecciones('integracion-resend'),
-    Icon: ResendIcon,
-    placaPropia: true,
+    // Un sobre, no la «R» de Resend: es el envío de correo de Tentare, no un
+    // servicio de terceros que la propietaria contrate o gestione.
+    Icon: Mail,
     color: 'var(--foreground)',
     bg: '#F5F5F5',
     campos: [
@@ -141,7 +143,8 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
       'Si usas las sustituciones, crea también "sustitucion_urgente", categoría "Marketing", idioma "Español", con este cuerpo de 4 variables: «Hola {{1}}, ¿puedes cubrir {{2}} el {{3}}? Confírmalo en un toque aquí: {{4}} Gracias por echar un cable.» Es la que se le manda a la instructora cuando no ha contestado al email, así que es la que más falta hace: sin ella solo le llega si te ha escrito por WhatsApp en las últimas 24 horas. Sí, "Marketing" aunque no venda nada: Meta reserva "Utilidad" para mensajes sobre el pedido o la cuenta de un CLIENTE, y pedirle a tu instructora que cubra una clase no lo es. Si eliges "Utilidad", te la cambian ellos.',
       'Lo demás (campañas, automatizaciones y los mensajes sueltos de Mensajería) NO necesita plantilla y tampoco puede tenerla: el texto lo escribes tú y cambia cada vez, y Meta solo aprueba mensajes con un texto fijo. Esos llegan a quien te haya escrito en las últimas 24 horas; al resto Meta los rechaza y verás el motivo aquí mismo, en el estado de la integración.',
     ],
-    docsUrl: 'https://developers.facebook.com/docs/whatsapp/cloud-api/get-started',
+    // Sin `docsUrl`: era la documentación para programadores de Meta, en inglés.
+    // Los pasos que hacen falta ya van en `instrucciones`.
     probarUrl: '/api/integrations/whatsapp/probar',
   },
   {

@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  FILAS_EXTERNAS, GRUPOS, MI_CUENTA, SECCIONES, cumpleCondicion, esTarjetaId, seccionDeTarjeta, seccionPorId, tarjetaPorId,
+  FILAS_EXTERNAS, GRUPOS, HERRAMIENTAS, MI_CUENTA, SECCIONES, cumpleCondicion, esHerramientaId, esTarjetaId, herramientaDeTarjeta,
+  herramientaPorId, herramientasDeSeccion, seccionDeTarjeta, seccionPorId, tarjetaPorId, tarjetasDeHerramienta,
   type FilaExternaId, type TarjetaConfiguracion, type TarjetaId,
 } from './secciones.ts';
 import { TARJETAS_REGLAS } from './reglas-reserva.ts';
@@ -132,6 +133,42 @@ test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mism
     assert.notEqual(g.titulo, g.titulo.toUpperCase(), g.titulo);
     assert.ok(g.titulo.length <= 20, `${g.titulo}: un título de grupo es corto`);
   }
+});
+
+test('seis herramientas con pantalla propia, cada una de UNA sección y con sus tarjetas seguidas', () => {
+  assert.deepEqual(HERRAMIENTAS.map(h => h.id), [
+    'salas', 'tipos-de-clase', 'correos-automaticos', 'recompensas-y-logros', 'contenido-de-tu-app', 'widgets',
+  ]);
+  for (const h of HERRAMIENTAS) {
+    assert.ok(esHerramientaId(h.id));
+    assert.equal(herramientaPorId(h.id), h);
+    const suyas = tarjetasDeHerramienta(h.id);
+    assert.ok(suyas.length > 0, `${h.id}: una herramienta sin tarjetas no abre nada`);
+    for (const t of suyas) {
+      assert.equal(seccionDeTarjeta(t), h.seccion, `${h.id}#${t}`);
+      assert.equal(herramientaDeTarjeta(t), h.id);
+    }
+    // Seguidas en su sección: una herramienta no se parte en dos filas.
+    const ids = seccionPorId(h.seccion).tarjetas.map(t => t.id) as string[];
+    const posiciones = suyas.map(t => ids.indexOf(t));
+    assert.deepEqual(posiciones, posiciones.map((_, i) => posiciones[0] + i), `${h.id}: tarjetas no seguidas`);
+    // Copy: una frase, un resumen corto y «alumna».
+    assert.ok(h.frase.endsWith('.') && h.frase.split(/(?<=[.!?])\s+(?=[¿¡«A-ZÁÉÍÓÚÑ])/).length === 1, `${h.id}: una sola frase`);
+    assert.ok(h.resumen.trim() && !h.resumen.endsWith('.') && h.resumen.length <= 60, `${h.id}: resumen`);
+    for (const texto of [h.titulo, h.frase, h.resumen]) assert.doesNotMatch(texto, /\b(client|soci)as?\b/i, texto);
+  }
+  // La de una sola tarjeta se llama como ella: su pantalla no repite el título.
+  for (const h of HERRAMIENTAS.filter(x => tarjetasDeHerramienta(x.id).length === 1)) {
+    const [t] = tarjetasDeHerramienta(h.id);
+    assert.equal(t, h.id);
+    assert.equal(h.titulo, tarjetaPorId(t).titulo);
+    assert.equal(h.frase, tarjetaPorId(t).frase);
+  }
+  assert.deepEqual(tarjetasDeHerramienta('recompensas-y-logros'), ['recompensas', 'canjes', 'logros', 'niveles', 'retos']);
+  // Las reglas de los créditos son un ajuste: se quedan en la sección.
+  assert.equal(herramientaDeTarjeta('reglas'), null);
+  assert.deepEqual(herramientasDeSeccion('web').map(h => h.id), ['contenido-de-tu-app', 'widgets']);
+  assert.deepEqual(herramientasDeSeccion('reservas'), []);
 });
 
 test('las palabras del buscador: en minúsculas, sin repetir y que no repiten el título', () => {

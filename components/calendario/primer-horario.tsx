@@ -178,7 +178,7 @@ export function PrimerHorario({
         {puedeCrear && (
           <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px]">
             {tiposClase.length === 0 && (
-              <Link href="/configuracion?tab=clases-salas" className="font-semibold text-brand-medio hover:underline">
+              <Link href="/configuracion?tab=clases&abrir=tipos-de-clase" className="font-semibold text-brand-medio hover:underline">
                 Crear tus tipos de clase
               </Link>
             )}
