@@ -2875,9 +2875,9 @@ export interface RowSeries {
   renovacion_automatica: boolean;
   no_renovar: boolean;
   creada_en: string;
-  // migr 20260915120000.
+  // migr 20260915122409.
   aviso_tramo: string | null;
-  // migr 20260915120000.
+  // migr 20260915122409.
   aviso_fin: string | null;
 }
 

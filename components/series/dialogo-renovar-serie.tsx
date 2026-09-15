@@ -41,9 +41,13 @@ export function DialogoRenovarSerie({ serieId, nombre, onClose, onHecho }: {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Renovación automática: se guarda al marcarla, aparte de renovar ahora. No
-  // optimista: el check cambia cuando el servidor lo confirma.
+  // optimista: `automatica` solo cambia cuando el servidor lo confirma. Mientras
+  // viaja, la casilla enseña el valor pedido (`pendienteAuto`); al volver se pinta
+  // siempre desde el estado, así que un «no» la desmarca de verdad (con la casilla
+  // controlada sin cambio de estado, el navegador la dejaba marcada).
   const [automatica, setAutomatica] = useState(false);
-  const [guardandoAuto, setGuardandoAuto] = useState(false);
+  const [pendienteAuto, setPendienteAuto] = useState<boolean | null>(null);
+  const guardandoAuto = pendienteAuto !== null;
   const [errorAuto, setErrorAuto] = useState<string | null>(null);
   // Solo vale la última simulación pedida: cambiar las semanas deprisa no puede
   // dejar en pantalla la respuesta de un número anterior.
@@ -95,12 +99,12 @@ export function DialogoRenovarSerie({ serieId, nombre, onClose, onHecho }: {
 
   async function cambiarAutomatica(activar: boolean) {
     if (guardandoAuto) return;
-    setGuardandoAuto(true);
+    setPendienteAuto(activar);
     setErrorAuto(null);
     const r = await marcarRenovacionAutomatica(serieId, activar);
-    setGuardandoAuto(false);
-    if (!r.ok) { setErrorAuto(r.error); return; }
-    setAutomatica(activar);
+    if (r.ok) setAutomatica(activar);
+    else setErrorAuto(r.error);
+    setPendienteAuto(null);
   }
 
   const omitidas = simulacion?.omitidas ?? [];
@@ -176,7 +180,7 @@ export function DialogoRenovarSerie({ serieId, nombre, onClose, onHecho }: {
             <label className="flex items-start gap-2.5 rounded-lg border border-border px-3 py-2.5 text-xs text-foreground">
               <input
                 type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary"
-                checked={automatica} disabled={guardandoAuto || guardando}
+                checked={pendienteAuto ?? automatica} disabled={guardandoAuto || guardando}
                 onChange={e => void cambiarAutomatica(e.target.checked)}
               />
               <span>

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 // Puede renovar varias series seguidas (cada una, hasta 400 clases).
 export const maxDuration = 120;
 
-// Disparado por Postgres (pg_cron + pg_net, migr 20260915120000), una vez al día
+// Disparado por Postgres (pg_cron + pg_net, migr 20260915122409), una vez al día
 // a las 7:00 UTC. Autenticado con SUPABASE_CRON_SECRET (Vault) — mismo patrón que
 // notif-trial. Renueva las series con renovación automática y avisa de las que
 // se acaban (lib/series/avisos-cron.ts).

@@ -1,4 +1,4 @@
--- Drill de avisos y renovación automática de series (migr 20260915120000). TODO
+-- Drill de avisos y renovación automática de series (migr 20260915122409). TODO
 -- dentro de una transacción que termina en ROLLBACK: no deja nada (tampoco el
 -- job de pg_cron). Fixture con prefijo `zzdrill-`.
 --
@@ -14,7 +14,7 @@
 \set ON_ERROR_STOP on
 begin;
 
-\i supabase/migrations/20260915120000_series_avisos_y_renovacion_automatica.sql
+\i supabase/migrations/20260915122409_series_avisos_y_renovacion_automatica.sql
 
 create temp table fx as select (now() at time zone 'Europe/Madrid')::date as hoy;
 
