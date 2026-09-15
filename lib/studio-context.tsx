@@ -452,7 +452,7 @@ interface StudioContextValue {
   // recuperacionCreada/recuperacionCaducaEl: solo la vía pública los rellena
   // (al cancelar una ocurrencia de plaza fija, ver cancelarReservaPublica) —
   // el panel de staff los deja undefined, no aplica ahí.
-  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; avisoBono?: string }>;
+  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean; avisoBono?: string }>;
   // Fase 2b: acepta una oferta de plaza de lista de espera dentro de su plazo.
   // Solo tiene sentido desde el portal (socia con sesión iniciada) — ver
   // app/api/reservas/aceptar-oferta-espera/route.ts.
@@ -3626,6 +3626,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }).catch(() => null);
     const datos = await respuesta?.json().catch(() => null) as {
       promovidaSocioId?: string | null; ofertaSocioId?: string | null; ofertaExpiraEn?: string | null; error?: string;
+      recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean;
     } | null;
     if (!respuesta?.ok || !datos) {
       // Revierte el optimista: el servidor rechazó la cancelación, así que la
@@ -3639,6 +3640,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return { ok: false, error: datos?.error ?? 'No se pudo cancelar la reserva' };
     }
     const { promovidaSocioId, ofertaSocioId, ofertaExpiraEn } = datos;
+    // Lo que decidió el servidor sobre la recuperación (clase de plaza fija): el
+    // mostrador lo enseña tal cual, en vez de callarlo como antes.
+    const recuperacion = {
+      recuperacionCreada: datos.recuperacionCreada === true,
+      recuperacionCaducaEl: datos.recuperacionCaducaEl ?? null,
+      recuperacionAlCerrarSemana: datos.recuperacionAlCerrarSemana === true,
+    };
 
     // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
     // confirma sola. Refleja en el estado local la oferta que el servidor
@@ -3649,10 +3657,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setReservas(prev => prev.map(r =>
         (r.sesionId === sesionId && r.socioId === ofertaSocioId && r.estado === 'LISTA_ESPERA')
           ? { ...r, ofertaExpiraEn: ofertaExpiraEn ?? null } : r));
-      return { ok: true };
+      return { ok: true, ...recuperacion };
     }
 
-    if (!promovidaSocioId || !sesionId) return { ok: true };
+    if (!promovidaSocioId || !sesionId) return { ok: true, ...recuperacion };
 
     // Refleja en el estado local la promoción REAL decidida por el servidor —
     // el bono ya se le consumió y el email/notificación ya se le mandó ahí.
@@ -3667,7 +3675,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const clase = tipo?.nombre ?? 'la clase';
     toastAviso.show(`Lista de espera promovida: ${nombre} ha pasado de lista de espera a confirmada en ${clase}.`);
     addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, promovidaSocioId, `/socios/${promovidaSocioId}`);
-    return { ok: true };
+    return { ok: true, ...recuperacion };
   }
 
   // Fase 2b: acepta una oferta de plaza de lista de espera. Solo tiene sentido
