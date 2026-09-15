@@ -411,6 +411,9 @@ export function impagosManualesPorSocio(idx: IndicesSenal, now: Date, maxDias = 
   const porSocio = new Map<string, Recibo[]>();
   for (const r of idx.recibosPendientes) {
     if (!r.socioId) continue;
+    // Una penalización no se reclama a la alumna antes de que el estudio la apruebe:
+    // su recibo nace PENDIENTE también mientras espera el visto bueno (o ya anulada).
+    if (r.id.startsWith(PREFIJO_RECIBO_PENALIZACION)) continue;
     const socio = idx.socioPorId.get(r.socioId);
     if (!socio?.activo) continue;
     // Con tarjeta guardada → es trabajo de RECUPERAR_PAGOS (reintento auto), no de aquí.
