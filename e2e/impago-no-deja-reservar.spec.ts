@@ -71,8 +71,9 @@ test('el interruptor de impago llega hasta la columna, no solo al toast', async 
   const patches: string[] = [];
   await abrirReservas(page, patches);
 
-  // Vive en la tarjeta «Reservar».
-  const toggle = page.locator('#reservar').getByText('No dejar reservar con un pago fallido');
+  // Vive en el cajón de «Reservar» (15-sep, v2): la fila lo abre.
+  await page.locator('#reservar').click({ timeout: 30_000 });
+  const toggle = page.getByRole('dialog').getByText('No dejar reservar con un pago fallido');
   await expect(toggle).toBeVisible({ timeout: 30_000 });
   await toggle.click();
 
@@ -88,8 +89,9 @@ test('el interruptor de recuperaciones automáticas también llega a la columna'
   const patches: string[] = [];
   await abrirReservas(page, patches);
 
-  // Vive en la tarjeta «Cancelar y recuperar».
-  const toggle = page.locator('#cancelar-y-recuperar').getByText('Dar recuperaciones solas al cerrar la semana');
+  // Vive en el cajón de «Cancelar y recuperar».
+  await page.locator('#cancelar-y-recuperar').click({ timeout: 30_000 });
+  const toggle = page.getByRole('dialog').getByText('Dar recuperaciones solas al cerrar la semana');
   await expect(toggle).toBeVisible({ timeout: 30_000 });
   await toggle.click();
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();

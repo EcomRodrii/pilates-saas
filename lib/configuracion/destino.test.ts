@@ -168,9 +168,11 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion#reglas-de-reserva', { tab: 'reservas', ancla: 'reservar' }],
     ['/configuracion?tab=reservas#asistencia', { tab: 'reservas', ancla: 'asistencia' }],
     ['/configuracion?tab=estudio#lista-de-espera', { tab: 'reservas', ancla: 'lista-de-espera' }],
-    // Los ajustes sueltos de dentro siguen llevando a su control.
-    ['/configuracion?tab=reservas#ajuste-ventana-cancelacion', { tab: 'reservas', ancla: 'ajuste-ventana-cancelacion' }],
-    ['/configuracion?tab=reservas#ajuste-lista-espera', { tab: 'reservas', ancla: 'ajuste-lista-espera' }],
+    // Los ajustes sueltos de dentro llevan a la fila cuyo cajón los tiene (15-sep, v2).
+    ['/configuracion?tab=reservas#ajuste-ventana-cancelacion', { tab: 'reservas', ancla: 'cancelar-y-recuperar' }],
+    ['/configuracion?tab=reservas#ajuste-lista-espera', { tab: 'reservas', ancla: 'lista-de-espera' }],
+    ['/configuracion?tab=reservas#ajuste-clase-devuelve-bono', { tab: 'reservas', ancla: 'si-se-cancela-una-clase' }],
+    ['/configuracion?tab=reservas#politica-explicada', { tab: 'reservas', ancla: 'cancelar-y-recuperar' }],
     // Lo desconocido no rompe: abre la lista.
     ['/configuracion', { tab: null }],
     ['/configuracion?tab=inventada', { tab: null }],
@@ -316,7 +318,16 @@ test('cada integración del catálogo la pinta la sección de su tarjeta, y solo
   const tiposCatalogo = [...catalogo.matchAll(/^\s{4}tipo: '([A-Z_]+)',$/gm)].map(m => m[1]);
   const mas = /MAS_INTEGRACIONES = new Set<TipoIntegracion>\(\[([^\]]+)\]\)/.exec(catalogo)![1]
     .match(/[A-Z_]+/g)!;
-  assert.ok(tiposCatalogo.length >= 9, `solo se han leído ${tiposCatalogo.length} integraciones del catálogo`);
+  assert.ok(tiposCatalogo.length >= 6, `solo se han leído ${tiposCatalogo.length} integraciones del catálogo`);
+  // El remitente, WhatsApp y Gmail salieron del catálogo a filas con cajón en
+  // «Cómo me comunico» (15-sep, v2), como Stripe a Cobros: no pueden pintarse
+  // también como tarjeta de integraciones en otra sección.
+  for (const tipo of ['STRIPE', 'RESEND', 'WHATSAPP', 'GMAIL']) assert.ok(!tiposCatalogo.includes(tipo), `«${tipo}» sigue en el catálogo`);
+  const canales = readFileSync(join(RAIZ, 'components/configuracion/canales-comunicacion.tsx'), 'utf8');
+  for (const id of ['integracion-whatsapp', 'integracion-gmail']) {
+    assert.equal(seccionDeTarjeta(id as TarjetaId), 'comunicacion');
+    assert.match(canales, new RegExp(`id="${id}"`), `«${id}» no tiene fila`);
+  }
 
   const pintadaEn = new Map<string, SeccionId[]>();
   for (const s of SECCIONES) {

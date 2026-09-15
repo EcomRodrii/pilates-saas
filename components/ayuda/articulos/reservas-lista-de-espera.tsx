@@ -24,7 +24,7 @@ export default function Contenido() {
         la siguiente.
       </p>
       <p>
-        Se elige en la tarjeta &ldquo;Lista de espera&rdquo;, con una de tres opciones: sin lista de espera, se da a la
+        Se elige en la fila &ldquo;Lista de espera&rdquo;, con una de tres opciones: sin lista de espera, se da a la
         primera al momento, o se le ofrece durante los minutos que pongas.
       </p>
 

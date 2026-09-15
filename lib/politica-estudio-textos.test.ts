@@ -17,12 +17,25 @@ const frase = (p: PoliticaEstudio, id: string) => frasesPoliticaEstudio(p).find(
 
 test('de fábrica: lo que hace hoy un estudio que no ha tocado nada', () => {
   assert.deepEqual(textos(FABRICA), [
-    'Si una alumna cancela con más de 12 h de antelación, recupera la sesión de su bono.',
-    'Si cancela con menos de 12 h, no la recupera.',
-    'Si se cancela una clase entera —la cancelas tú, no llega al mínimo de asistentes o cierras el centro—, devuelve la sesión a quien tenía plaza.',
-    'Si alguien cancela y se libera una plaza, se la da al momento a la primera de la lista de espera.',
-    'Si una clase cambia de instructora, se mueve o se cancela desde Sustituciones, avisa a sus alumnas por email y en su app.',
+    'Si cancela con más de 12 h de antelación, recupera la sesión.',
+    'Si cancela con menos de 12 h, no recupera la sesión.',
+    'Si se cancela una clase entera —la cancelas tú, por el mínimo o por un cierre—, devuelve la sesión.',
+    'Si se libera una plaza, se la da al momento a la primera de la lista de espera.',
+    'Si una clase cambia de instructora, se mueve o se cancela en Sustituciones, avisa a sus alumnas por email y en su app.',
   ]);
+});
+
+test('cada frase se lee sola en su cajón: una línea (≤ 120) y la fila donde va', () => {
+  for (const p of combinaciones()) {
+    for (const f of frasesPoliticaEstudio(p)) {
+      assert.ok(f.texto.length <= 120, `«${f.texto}» son ${f.texto.length} caracteres`);
+      // Suelta, «no la recupera» no dice qué no se recupera.
+      assert.doesNotMatch(f.texto, /\bla recupera\b/, f.texto);
+    }
+  }
+  assert.equal(frase(FABRICA, 'cancela-tarde')!.tarjeta, 'cancelar-y-recuperar');
+  assert.equal(frase(FABRICA, 'estudio-cancela')!.tarjeta, 'si-se-cancela-una-clase');
+  assert.equal(frase(FABRICA, 'plaza-liberada')!.tarjeta, 'lista-de-espera');
 });
 
 test('cancelación: ventana × devolver en tardías', () => {
@@ -32,10 +45,10 @@ test('cancelación: ventana × devolver en tardías', () => {
       const aTiempo = frase(p, 'cancela-a-tiempo');
       const tarde = frase(p, 'cancela-tarde');
       if (ventana > 0) {
-        assert.equal(aTiempo?.texto, `Si una alumna cancela con más de ${ventana} h de antelación, recupera la sesión de su bono.`);
+        assert.equal(aTiempo?.texto, `Si cancela con más de ${ventana} h de antelación, recupera la sesión.`);
         assert.equal(tarde?.texto, tardia
-          ? `Si cancela con menos de ${ventana} h, también la recupera.`
-          : `Si cancela con menos de ${ventana} h, no la recupera.`);
+          ? `Si cancela con menos de ${ventana} h, también recupera la sesión.`
+          : `Si cancela con menos de ${ventana} h, no recupera la sesión.`);
       } else {
         // `esCancelacionTardia`/la RPC: ventana ≤ 0 = nunca tardía. Hablar de
         // «cancelar tarde» ahí sería inventarse una regla.
@@ -49,9 +62,9 @@ test('cancelación: ventana × devolver en tardías', () => {
 
 test('clase cancelada entera: el mínimo y el cierre siguen al mismo interruptor', () => {
   assert.match(frase({ ...FABRICA, cancelacionClaseDevuelveBono: true }, 'estudio-cancela')!.texto,
-    /mínimo de asistentes o cierras el centro—, devuelve la sesión/);
+    /por el mínimo o por un cierre—, devuelve la sesión/);
   const apagado = frase({ ...FABRICA, cancelacionClaseDevuelveBono: false }, 'estudio-cancela')!.texto;
-  assert.match(apagado, /mínimo de asistentes o cierras el centro—, no devuelve la sesión/);
+  assert.match(apagado, /por el mínimo o por un cierre—, no devuelve la sesión/);
   // Desde #1342 no hay ningún camino que devuelva «siempre».
   assert.ok(!textos({ ...FABRICA, cancelacionClaseDevuelveBono: false }).some(t => /siempre/.test(t)));
 });
@@ -61,14 +74,14 @@ test('lista de espera: permitida × plazo de aceptación', () => {
     for (const plazo of [0, -5, 15, 60, 90]) {
       const f = frase({ ...FABRICA, permiteListaEspera: permite, listaEsperaPlazoAceptacionMinutos: plazo }, 'plaza-liberada')!;
       if (!permite) {
-        assert.equal(f.texto, 'Si una clase está llena, no deja apuntarse a la lista de espera.');
+        assert.equal(f.texto, 'Con la clase llena, nadie más puede apuntarse a la lista de espera.');
         assert.deepEqual(f.respaldo, ['permiteListaEspera']);
       } else if (plazo <= 0) {
-        assert.equal(f.texto, 'Si alguien cancela y se libera una plaza, se la da al momento a la primera de la lista de espera.');
+        assert.equal(f.texto, 'Si se libera una plaza, se la da al momento a la primera de la lista de espera.');
       } else {
         const esperado = plazo === 60 ? '1 h' : `${plazo} min`;
         assert.equal(f.texto,
-          `Si alguien cancela y se libera una plaza, se la ofrece a la primera de la lista de espera, que tiene ${esperado} para aceptarla; si no, pasa a la siguiente.`);
+          `Si se libera una plaza, la primera de la lista tiene ${esperado} para aceptarla; si no, pasa a la siguiente.`);
       }
     }
   }
@@ -111,7 +124,7 @@ test('cada combinación: toda frase tiene respaldo, y solo su respaldo la mueve'
     assert.equal(new Set(frases.map(f => f.id)).size, frases.length, 'una frase por hecho');
     for (const f of frases) {
       assert.ok(f.respaldo.length > 0, `«${f.texto}» no tiene ningún valor detrás`);
-      assert.ok(f.ajuste, `«${f.texto}» no lleva a ningún control`);
+      assert.ok(f.tarjeta, `«${f.texto}» no dice en qué cajón se lee`);
       for (const campo of CAMPOS.filter(c => !f.respaldo.includes(c))) {
         for (const otro of VARIANTES[campo] as unknown[]) {
           const movida = frasesPoliticaEstudio({ ...p, [campo]: otro }).find(x => x.id === f.id);

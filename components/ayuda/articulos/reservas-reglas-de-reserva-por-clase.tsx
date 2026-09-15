@@ -35,9 +35,9 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Dónde se configuran</h2>
       <p>
-        Los valores del estudio están en Configuración &gt; Cómo reservan mis alumnas, repartidos en tarjetas:
+        Los valores del estudio están en Configuración &gt; Cómo reservan mis alumnas, una fila por regla:
         &ldquo;Reservar&rdquo; (plan o bono y antelación) y &ldquo;Lista de espera&rdquo;; la aprobación a mano también
-        está en &ldquo;Reservar&rdquo;. Los de un tipo de clase concreto, al editar ese tipo en Configuración &gt; Mis
+        está en &ldquo;Reservar&rdquo;. Si algún tipo de clase la cambia, su fila lo dice (&ldquo;2 tipos lo cambian&rdquo;). Los de un tipo de clase concreto, al editar ese tipo en Configuración &gt; Mis
         clases y citas. Mientras un tipo de clase muestra &ldquo;Ajuste del estudio&rdquo;, usa el del estudio; pulsa
         &ldquo;Personalizar&rdquo; para darle el suyo.
       </p>

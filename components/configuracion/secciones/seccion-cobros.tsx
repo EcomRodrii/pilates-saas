@@ -27,7 +27,10 @@ import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/
 type CajonId = Extract<TarjetaId, 'datos-fiscales' | 'integracion-stripe' | 'domiciliaciones' | 'devoluciones'>;
 const CAJONES = ['datos-fiscales', 'integracion-stripe', 'domiciliaciones', 'devoluciones'] as const satisfies readonly CajonId[];
 
-const ICONOS_OTRA_PANTALLA = { 'fila-paquetes': Package, 'fila-cobros': Wallet } as const;
+type FilaDeCobros = Extract<(typeof FILAS_A_OTRA_PANTALLA)[number], { seccion: 'cobros' }>;
+const esDeCobros = (f: (typeof FILAS_A_OTRA_PANTALLA)[number]): f is FilaDeCobros => f.seccion === 'cobros';
+
+const ICONOS_OTRA_PANTALLA: Record<FilaDeCobros['id'], typeof Package> = { 'fila-paquetes': Package, 'fila-cobros': Wallet };
 
 export function SeccionCobros({ showToast }: { showToast: (m: string) => void }) {
   const { studio, dataLoaded, planesTarifa } = useStudio();
@@ -41,7 +44,7 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
 
   const cargado = dataLoaded ? studio : null;
   const fiscales = cargado ? resumenDatosFiscales(cargado) : null;
-  const valorOtraPantalla: Record<(typeof FILAS_A_OTRA_PANTALLA)[number]['id'], string | null> = {
+  const valorOtraPantalla: Record<FilaDeCobros['id'], string | null> = {
     'fila-paquetes': resumenPlanesActivos(dataLoaded ? planesTarifa : null),
     'fila-cobros': null,
   };
@@ -60,7 +63,7 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
       </GrupoFilas>
 
       <GrupoFilas titulo="En otras pantallas">
-        {FILAS_A_OTRA_PANTALLA.filter(f => f.seccion === 'cobros').map(f => (
+        {FILAS_A_OTRA_PANTALLA.filter(esDeCobros).map(f => (
           <FilaExterna
             key={f.id}
             id={f.id}

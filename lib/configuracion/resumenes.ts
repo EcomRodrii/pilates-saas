@@ -20,7 +20,8 @@
 
 import type { DiaHorario, Studio, TipoIntegracion } from '../types.ts';
 import { avisoVentaOnline } from '../onboarding.ts';
-import { saludIntegracion, type FilaSalud, type SaludIntegracion } from '../integraciones/salud.ts';
+import { cuando, saludIntegracion, type FilaSalud, type SaludIntegracion } from '../integraciones/salud.ts';
+import type { ReglasReserva, TarjetaReglasId } from './reglas-reserva.ts';
 import { nifEmisorValido, nifValido } from '../nif.ts';
 import { PLAN_INFO, type Plan } from '../billing/entitlements.ts';
 import type { FaseTrial } from '../billing/trial.ts';
@@ -710,6 +711,131 @@ export function resumenPlanesActivos(planes: readonly { activo: boolean }[] | nu
   if (!planes) return null;
   const n = planes.filter(p => p.activo).length;
   return n === 0 ? 'Ningún plan a la venta' : contar(n, 'plan a la venta', 'planes a la venta');
+}
+
+// ─── Las filas de «Cómo reservan mis alumnas» ───────────────────────────────
+//
+// Cada regla dice cómo está hoy, con lo principal delante: «Hasta 12 h antes»,
+// «Plaza al momento», «5 € · lo apruebas tú». Si algún tipo de clase la cambia,
+// va justo detrás («· 2 tipos lo cambian»), antes que el detalle: `unir` salta
+// lo que no cabe y eso es lo que no se puede perder.
+
+const tiposQueLaCambian = (n: number) => (n > 0 ? contar(n, 'tipo lo cambia', 'tipos lo cambian') : null);
+const euros = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2).replace('.', ',')} €`;
+
+/**
+ * `r`: las reglas GUARDADAS (reglas-reserva.ts). `excepciones`: cuántos tipos de
+ * clase la cambian. `pideConfirmacion`: la confirmación de asistencia, que vive
+ * en otro endpoint; `null` = sin leer, y no se dice nada de ella.
+ */
+export function resumenRegla(
+  tarjeta: TarjetaReglasId,
+  r: ReglasReserva,
+  e: { excepciones: number; pideConfirmacion?: boolean | null },
+): string | null {
+  const excepciones = tiposQueLaCambian(e.excepciones);
+  switch (tarjeta) {
+    case 'reservar': {
+      const dias = r.reservaAntelacionMaximaDias;
+      return unir([
+        dias == null ? 'cualquier antelación' : dias === 0 ? 'se abre al empezar' : `hasta ${contar(dias, 'día', 'días')} antes`,
+        excepciones,
+        // Aprobar a mano cambia más la vida de la alumna que pedir bono: va antes.
+        r.requiereAprobacion ? 'la apruebas tú' : null,
+        r.reservaExigirPlan ? 'con plan o bono' : 'sin plan ni bono',
+      ]);
+    }
+    case 'cancelar-y-recuperar': {
+      const v = r.cancelacionVentanaHoras;
+      return unir([
+        v > 0 ? `hasta ${numero(v)} h antes` : 'sin plazo para cancelar',
+        excepciones,
+        v > 0 ? (r.cancelacionDevolverBonoTardia ? 'después también recupera' : 'después pierde la sesión') : null,
+      ]);
+    }
+    case 'si-se-cancela-una-clase':
+      return unir([
+        r.cancelacionClaseDevuelveBono ? 'devuelve la sesión' : 'no devuelve la sesión',
+        excepciones,
+        r.minimoAsistentesPorClase > 0 ? `mínimo ${contar(r.minimoAsistentesPorClase, 'alumna', 'alumnas')}` : 'sin mínimo',
+      ]);
+    case 'lista-de-espera': {
+      const plazo = r.listaEsperaPlazoAceptacionMinutos;
+      return unir([
+        !r.permiteListaEspera ? 'sin lista de espera' : plazo > 0 ? `oferta de ${duracion(plazo)}` : 'plaza al momento',
+        excepciones,
+      ]);
+    }
+    case 'asistencia':
+      return unir([
+        r.requiereCheckinQr ? 'se pasa lista' : 'sin pasar lista',
+        excepciones,
+        e.pideConfirmacion === true ? 'pide confirmar a quien falta' : null,
+      ]);
+    case 'si-cancela-tarde-o-no-viene': {
+      const importe = r.penalizacionImporteEur ?? 0;
+      if (importe <= 0) return unir(['sin cargo', excepciones]);
+      const tarde = r.penalizacionAplicaCancelacionTardia;
+      const falta = r.penalizacionAplicaNoShow;
+      return unir([
+        euros(importe),
+        excepciones,
+        r.penalizacionCobroAutomatico ? 'se cobra solo' : 'lo apruebas tú',
+        tarde && falta ? null : tarde ? 'solo si cancela tarde' : falta ? 'solo si no viene' : 'sin aplicar a nada',
+      ]);
+    }
+  }
+}
+
+// ─── Las filas de «Cómo me comunico» ─────────────────────────────────────────
+//
+// WhatsApp y Gmail, con UN estado cada uno (como Stripe): la pastilla y la línea
+// de debajo nunca se contradicen.
+
+/**
+ * WhatsApp según su salud (lib/integraciones/salud.ts). Recién guardado y sin
+ * usar NO es «Conectado»: es justo la mentira que la salud vino a quitar.
+ */
+export function resumenWhatsapp(s: SaludIntegracion): ResumenFila {
+  switch (s.estado) {
+    case 'APAGADA':
+      return { valor: 'Conéctalo para mandar recordatorios por WhatsApp', estado: { tono: 'neutro', etiqueta: 'Sin conectar' } };
+    case 'SIN_PROBAR':
+      return { valor: 'Guardado, pero aún sin usar: pruébalo', estado: { tono: 'pendiente', etiqueta: 'Sin probar' } };
+    case 'FUNCIONA':
+      return { valor: `Funciona · última vez el ${cuando(s.desde)}`, estado: { tono: 'activo', etiqueta: 'Conectado' } };
+    case 'FALLANDO':
+      return { valor: `Falló el ${cuando(s.desde)}: ${s.error}`, estado: { tono: 'problema', etiqueta: 'Con problemas' } };
+  }
+}
+
+/** «Contactos de Gmail»: conectado (con qué cuenta), sin conectar, o nada que conectar todavía. */
+export function resumenGmail(e: { email: string | null | undefined; disponible: boolean }): ResumenFila {
+  const email = limpio(e.email);
+  if (email) return { valor: email, estado: { tono: 'activo', etiqueta: 'Conectado' } };
+  if (e.disponible) return { valor: 'Conéctalo para traer tus contactos', estado: { tono: 'neutro', etiqueta: 'Sin conectar' } };
+  return { valor: 'Lo estamos terminando de conectar por nuestro lado', estado: { tono: 'neutro', etiqueta: 'No disponible todavía' } };
+}
+
+const EMAIL_VALIDO = /^[^@\s]+@[^@\s.]+\.[^@\s]+$/;
+
+/**
+ * «Pilates Centro · responde a hola@example.com». Lo mismo que aplica al enviar
+ * (`resolverRemitenteResend` + `marcaDesdeFila`): lo tuyo solo si está activo, un
+ * email a medio escribir no cuenta, y lo que no pones sale del estudio.
+ * `propio: null` = no se ha podido leer.
+ */
+export function resumenRemitente(e: {
+  propio: { activo: boolean; fromName?: string | null; fromEmail?: string | null } | null;
+  nombreEstudio: string | null | undefined;
+  emailEstudio: string | null | undefined;
+}): string | null {
+  if (!e.propio) return null;
+  const nombre = (e.propio.activo ? limpio(e.propio.fromName) : null) ?? limpio(e.nombreEstudio);
+  const propio = e.propio.activo ? limpio(e.propio.fromEmail) : null;
+  const email = (propio && EMAIL_VALIDO.test(propio) ? propio : null) ?? limpio(e.emailEstudio);
+  // Más largo que una línea del móvil a propósito: se corta con «…» y está entero en su cajón.
+  return unir([nombre ?? 'sin nombre', email ? `responde a ${email}` : 'sin email de respuesta'], 90);
 }
 
 // ─── Plan de Tentare ─────────────────────────────────────────────────────────

@@ -6,10 +6,11 @@ import { join } from 'node:path';
 import {
   CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenCompraPublica,
   resumenContacto, resumenContrato, resumenCuestionarioSalud, resumenDatosExtra, resumenDatosFiscales, resumenDevoluciones,
-  resumenDomiciliaciones, resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan,
-  resumenPlanesActivos, resumenSedes, resumenStripe, resumenesDeConfiguracion, revisaEsto, unir,
+  resumenDomiciliaciones, resumenGmail, resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan,
+  resumenPlanesActivos, resumenRegla, resumenRemitente, resumenSedes, resumenStripe, resumenWhatsapp, resumenesDeConfiguracion, revisaEsto, unir,
   type DatosConfiguracion, type IntegracionResumible,
 } from './resumenes.ts';
+import { TARJETAS_REGLAS, reglasGuardadas } from './reglas-reserva.ts';
 import { HERRAMIENTAS, SECCIONES, seccionDeTarjeta } from './secciones.ts';
 
 // Los resúmenes del inicio de Configuración dicen cómo está cada sección. Un
@@ -526,4 +527,69 @@ test('las filas de cobros y altas caben en una línea del móvil (los avisos van
     assert.ok(v && v.length <= MAX_RESUMEN, `«${v}» no cabe`);
     assert.doesNotMatch(v, /\b(client|soci)as?\b/i, v);
   }
+});
+
+// ─── Las filas de «Cómo reservan mis alumnas» y «Cómo me comunico» ───────────
+
+test('reglas de reserva: lo principal delante, y los tipos que la cambian antes que el detalle', () => {
+  const r = reglasGuardadas(null);
+  const sin = { excepciones: 0 };
+  assert.equal(resumenRegla('reservar', r, sin), 'Cualquier antelación · con plan o bono');
+  assert.equal(resumenRegla('reservar', { ...r, reservaAntelacionMaximaDias: 30, requiereAprobacion: true }, sin), 'Hasta 30 días antes · la apruebas tú');
+  assert.equal(resumenRegla('cancelar-y-recuperar', r, sin), 'Hasta 12 h antes · después pierde la sesión');
+  assert.equal(resumenRegla('cancelar-y-recuperar', { ...r, cancelacionVentanaHoras: 0 }, sin), 'Sin plazo para cancelar');
+  assert.equal(resumenRegla('si-se-cancela-una-clase', r, sin), 'Devuelve la sesión · sin mínimo');
+  assert.equal(resumenRegla('si-se-cancela-una-clase', { ...r, cancelacionClaseDevuelveBono: false, minimoAsistentesPorClase: 3 }, sin), 'No devuelve la sesión · mínimo 3 alumnas');
+  assert.equal(resumenRegla('lista-de-espera', r, sin), 'Plaza al momento');
+  assert.equal(resumenRegla('lista-de-espera', { ...r, listaEsperaPlazoAceptacionMinutos: 30 }, sin), 'Oferta de 30 min');
+  assert.equal(resumenRegla('lista-de-espera', { ...r, permiteListaEspera: false, listaEsperaPlazoAceptacionMinutos: 30 }, sin), 'Sin lista de espera');
+  assert.equal(resumenRegla('asistencia', r, { excepciones: 0, pideConfirmacion: true }), 'Se pasa lista · pide confirmar a quien falta');
+  // Sin leer la confirmación (su endpoint), no se dice nada de ella.
+  assert.equal(resumenRegla('asistencia', { ...r, requiereCheckinQr: false }, { excepciones: 0, pideConfirmacion: null }), 'Sin pasar lista');
+  assert.equal(resumenRegla('si-cancela-tarde-o-no-viene', r, sin), 'Sin cargo');
+  assert.equal(resumenRegla('si-cancela-tarde-o-no-viene', { ...r, penalizacionImporteEur: 5 }, sin), '5 € · lo apruebas tú');
+  assert.equal(resumenRegla('si-cancela-tarde-o-no-viene', { ...r, penalizacionImporteEur: 7.5, penalizacionCobroAutomatico: true, penalizacionAplicaCancelacionTardia: false }, sin),
+    '7,50 € · se cobra solo · solo si no viene');
+
+  // Los tipos que la cambian no se pierden nunca por falta de sitio.
+  assert.equal(resumenRegla('cancelar-y-recuperar', r, { excepciones: 2 }), 'Hasta 12 h antes · 2 tipos lo cambian');
+  assert.equal(resumenRegla('lista-de-espera', r, { excepciones: 1 }), 'Plaza al momento · 1 tipo lo cambia');
+  const peores = { ...r, reservaAntelacionMaximaDias: 365, cancelacionVentanaHoras: 168, minimoAsistentesPorClase: 12, penalizacionImporteEur: 12.5 };
+  for (const t of TARJETAS_REGLAS) {
+    for (const v of [r, peores]) {
+      const texto = resumenRegla(t, v, { excepciones: 12, pideConfirmacion: true });
+      assert.ok(texto && texto.length <= MAX_RESUMEN, `${t}: «${texto}» no cabe`);
+      assert.match(texto, /12 tipos lo cambian/, `${t}: «${texto}» se come las excepciones`);
+    }
+  }
+});
+
+test('WhatsApp: un solo estado, y guardado sin usar no es «Conectado»', () => {
+  assert.deepEqual(resumenWhatsapp({ estado: 'APAGADA' }).estado, { tono: 'neutro', etiqueta: 'Sin conectar' });
+  assert.deepEqual(resumenWhatsapp({ estado: 'SIN_PROBAR' }).estado, { tono: 'pendiente', etiqueta: 'Sin probar' });
+  const bien = resumenWhatsapp({ estado: 'FUNCIONA', desde: '2026-08-18T10:00:00Z' });
+  assert.deepEqual(bien.estado, { tono: 'activo', etiqueta: 'Conectado' });
+  assert.match(bien.valor!, /^Funciona · última vez el 18 ago/);
+  const mal = resumenWhatsapp({ estado: 'FALLANDO', desde: '2026-08-18T10:00:00Z', error: 'Session has expired' });
+  assert.deepEqual(mal.estado, { tono: 'problema', etiqueta: 'Con problemas' });
+  // El motivo del servicio va en la fila: distingue un token caducado de un número mal puesto.
+  assert.match(mal.valor!, /Session has expired$/);
+});
+
+test('Gmail: conectado con su cuenta, sin conectar, o nada que conectar todavía', () => {
+  assert.deepEqual(resumenGmail({ email: 'estudio@example.com', disponible: false }), { valor: 'estudio@example.com', estado: { tono: 'activo', etiqueta: 'Conectado' } });
+  assert.deepEqual(resumenGmail({ email: null, disponible: true }).estado, { tono: 'neutro', etiqueta: 'Sin conectar' });
+  assert.deepEqual(resumenGmail({ email: ' ', disponible: false }), {
+    valor: 'Lo estamos terminando de conectar por nuestro lado', estado: { tono: 'neutro', etiqueta: 'No disponible todavía' },
+  });
+});
+
+test('remitente: lo tuyo si está activo, un email a medio escribir no cuenta, y lo que falta sale del estudio', () => {
+  const estudio = { nombreEstudio: 'Pilates Centro', emailEstudio: 'estudio@example.com' };
+  assert.equal(resumenRemitente({ ...estudio, propio: { activo: true, fromName: 'Pilates Almería', fromEmail: 'hola@example.com' } }), 'Pilates Almería · responde a hola@example.com');
+  // Apagada, el envío no la lee: se dice lo que sale de verdad.
+  assert.equal(resumenRemitente({ ...estudio, propio: { activo: false, fromName: 'Pilates Almería', fromEmail: 'hola@example.com' } }), 'Pilates Centro · responde a estudio@example.com');
+  assert.equal(resumenRemitente({ ...estudio, propio: { activo: true, fromName: '', fromEmail: 'hola@' } }), 'Pilates Centro · responde a estudio@example.com');
+  assert.equal(resumenRemitente({ nombreEstudio: 'Pilates Centro', emailEstudio: null, propio: { activo: false } }), 'Pilates Centro · sin email de respuesta');
+  assert.equal(resumenRemitente({ ...estudio, propio: null }), null);
 });

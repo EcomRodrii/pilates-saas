@@ -77,8 +77,9 @@ async function abrir(page: Page, opts: { conPlan: boolean }) {
 test('el interruptor vive con las reglas de reserva y guarda por su endpoint', async ({ page }) => {
   const { puts, patches } = await abrir(page, { conPlan: true });
 
-  // Vive en la tarjeta «Asistencia», a la vista.
-  const tarjeta = page.locator('#asistencia');
+  // Vive en el cajón de «Asistencia» (15-sep, v2): la fila lo abre.
+  await page.locator('#asistencia').click({ timeout: 30_000 });
+  const tarjeta = page.getByRole('dialog');
   const fila = tarjeta.getByText('Pedir confirmación a quien suele no venir');
   await expect(fila).toBeVisible({ timeout: 30_000 });
   // La letra pequeña tiene que decir a quién se le pide: «se cancela la reserva»
@@ -107,8 +108,16 @@ test('el interruptor vive con las reglas de reserva y guarda por su endpoint', a
 test('sin plan no se pulsa, y se dice por qué', async ({ page }) => {
   const { puts } = await abrir(page, { conPlan: false });
 
-  const fila = page.locator('#asistencia').getByText('Pedir confirmación a quien suele no venir');
+  await page.locator('#asistencia').click({ timeout: 30_000 });
+  const fila = page.getByRole('dialog').getByText('Pedir confirmación a quien suele no venir');
   await expect(fila).toBeVisible({ timeout: 30_000 });
+  // El cajón entra deslizándose desde la derecha: el clic forzado de abajo se
+  // da cuando ha llegado, no a medio camino (fuera de la pantalla).
+  const ancho = page.viewportSize()!.width;
+  await expect.poll(async () => {
+    const b = await page.getByRole('dialog').boundingBox();
+    return b ? Math.round(b.x + b.width) : null;
+  }).toBe(ancho);
   await expect(page.getByText(/Esta regla va con el Centro de Control/)).toBeVisible();
 
   // Deshabilitado DE VERDAD, no solo apagado: un interruptor que se deja pulsar

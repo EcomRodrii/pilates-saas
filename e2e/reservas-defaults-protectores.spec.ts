@@ -61,14 +61,21 @@ test.describe('Cómo reservan mis alumnas: solo lo que sí se decidió nace acti
     const toggleDevolver = page.getByRole('switch', { name: /Devolver la sesión del bono/ });
     const toggleExigir = page.getByRole('switch', { name: /Exigir plan o bono activo/ });
 
+    // Cada una en el cajón de su fila (15-sep, v2).
+    await page.locator('#reservar').click({ timeout: 30_000 });
     await expect(toggleExigir).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    await page.locator('#cancelar-y-recuperar').click();
     // Aparcada (#427): activarla por defecto habría quitado la penalización
     // por cancelar tarde a los estudios reales sin que nadie lo decidiera.
-    await expect(toggleDevolver).toHaveAttribute('aria-checked', 'false');
+    await expect(toggleDevolver).toHaveAttribute('aria-checked', 'false', { timeout: 15_000 });
   });
 
   test('el texto sigue llamando "(recomendado)" a la opción que protege de verdad', async ({ page }) => {
     await montar(page);
+    await page.locator('#cancelar-y-recuperar').click({ timeout: 30_000 });
     await expect(page.getByText('Devolver la sesión del bono en cancelaciones tardías')).toBeVisible({ timeout: 30_000 });
 
     // Protectora = que la cancelación tardía SÍ pierda la sesión. Esa es la

@@ -74,12 +74,11 @@ test('cada tarjeta es de UNA sección, y ya ninguna se pinta en la de otra', () 
   assert.equal(seccionDeTarjeta('ajuste-instructoras-crean-clases'), 'equipo');
 });
 
-test('«Cómo reservan mis alumnas»: la explicación, las cinco tarjetas de la barra y el aviso, en ese orden', () => {
+test('«Cómo reservan mis alumnas»: las seis reglas con su cajón y el aviso, en ese orden', () => {
   const ids = seccionPorId('reservas').tarjetas.map(t => t.id);
-  assert.deepEqual(ids, ['politica-explicada', ...TARJETAS_REGLAS, 'ajuste-avisar-alumnas']);
-  // Las cinco esperan a la barra; la explicación solo lee y el aviso se guarda al pulsar.
+  assert.deepEqual(ids, [...TARJETAS_REGLAS, 'ajuste-avisar-alumnas']);
+  // Las reglas esperan al «Guardar» de su cajón; el aviso se guarda al pulsar.
   for (const id of TARJETAS_REGLAS) assert.equal(tarjetaPorId(id).guardado, 'barra', id);
-  assert.equal(tarjetaPorId('politica-explicada').guardado, 'lectura');
   assert.equal(tarjetaPorId('ajuste-avisar-alumnas').guardado, 'al-pulsar');
 });
 
@@ -176,7 +175,7 @@ test('seis herramientas con pantalla propia, cada una de UNA sección y con sus 
 test('lo que se abre en un cajón cabe en su línea (≤ 120), y las filas a otra pantalla llevan a una que existe', () => {
   // Mi estudio, Cobros y facturas y Alta de alumnas son filas con cajón: su
   // frase es la ÚNICA línea de explicación de ese cajón (§5 de la reorganización).
-  for (const s of ['estudio', 'cobros', 'altas'] as const) {
+  for (const s of ['estudio', 'cobros', 'altas', 'reservas', 'comunicacion'] as const) {
     for (const t of seccionPorId(s).tarjetas) assert.ok(t.frase.length <= 120, `${t.id}: ${t.frase.length} caracteres`);
     assert.ok(seccionPorId(s).frase.length <= 90, `${s}: la frase de la sección`);
   }

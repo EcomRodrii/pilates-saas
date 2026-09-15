@@ -50,7 +50,7 @@ const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   // barra de guardar. «Reservas y cancelaciones» era el nombre de antes.
   {
     patron: /Reservas y cancelaciones|Guardar política de reservas/,
-    ahora: 'Configuración → Cómo reservan mis alumnas, con sus tarjetas (Reservar, Cancelar y recuperar, Lista de espera, Asistencia, Si cancela tarde o no viene) y un solo «Guardar»',
+    ahora: 'Configuración → Cómo reservan mis alumnas, en filas con su cajón (Reservar, Cancelar y recuperar, Si se cancela una clase entera, Lista de espera, Asistencia, Si cancela tarde o no viene), cada una con su «Guardar»',
   },
   // 15-sep (v2): Mi estudio va en filas con su cajón. «Datos y contacto» se
   // partió en «Nombre y dirección» y «Contacto», y el cierre es una fila propia.

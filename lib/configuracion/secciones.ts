@@ -115,16 +115,21 @@ export const SECCIONES = [
     id: 'reservas',
     titulo: 'Cómo reservan mis alumnas',
     resumen: 'Reservar, cancelar, lista de espera y faltas',
-    frase: 'Las reglas de todo el estudio para reservar, cancelar y apuntarse a la lista de espera; cada tipo de clase puede cambiar algunas.',
+    frase: 'Las reglas del estudio para reservar y cancelar; cada tipo de clase puede cambiar algunas.',
     roles: SOLO_PROPIETARIA,
+    // Cada tarjeta es una FILA con su valor de hoy y se cambia en su cajón
+    // (15-sep, v2). «Cuando algo cambia, Tentare…» ya no es una tarjeta: cada
+    // frase va como consecuencia dentro del cajón de su regla. «Cancelar y
+    // recuperar» eran siete campos y un cajón lleva seis: lo de la clase entera
+    // salió a su propia fila.
     tarjetas: [
-      { id: 'politica-explicada', titulo: 'Cuando algo cambia, Tentare…', frase: 'Lo que pasa hoy con lo que tienes guardado. Si algo no es como quieres, cámbialo.', guardado: 'lectura' },
       { id: 'reservar', titulo: 'Reservar', frase: 'Quién puede reservar, con cuánta antelación y cuántas reservas a la vez.', guardado: 'barra', palabras: ['antelación', 'bono', 'plan', 'aprobar reservas', 'impago'] },
-      { id: 'cancelar-y-recuperar', titulo: 'Cancelar y recuperar', frase: 'Hasta cuándo se cancela sin perder la sesión, qué pasa si se cancela una clase entera y cómo funcionan las recuperaciones.', guardado: 'barra', palabras: ['cancelación', 'plazo', 'recuperaciones', 'mínimo de asistentes'] },
+      { id: 'cancelar-y-recuperar', titulo: 'Cancelar y recuperar', frase: 'Hasta cuándo se cancela sin perder la sesión y cuánto dura una recuperación.', guardado: 'barra', palabras: ['cancelación', 'plazo', 'recuperaciones'] },
+      { id: 'si-se-cancela-una-clase', titulo: 'Si se cancela una clase entera', frase: 'Si tus alumnas recuperan la sesión cuando una clase no sale, y cuántas hacen falta para que salga.', guardado: 'barra', palabras: ['mínimo de asistentes', 'clase cancelada'] },
       { id: 'lista-de-espera', titulo: 'Lista de espera', frase: 'Si una clase llena admite lista de espera y cuánto tiempo hay para aceptar una plaza que se libera.', guardado: 'barra', palabras: ['plaza libre', 'clase llena'] },
       { id: 'asistencia', titulo: 'Asistencia', frase: 'Si pasas lista en cada clase y si pides confirmación a quien suele faltar.', guardado: 'barra', palabras: ['pasar lista', 'check-in', 'qr'] },
       { id: 'si-cancela-tarde-o-no-viene', titulo: 'Si cancela tarde o no viene', frase: 'Un cargo fijo a su tarjeta guardada, si tiene una, cuando cancela tarde o no viene sin avisar.', guardado: 'barra', palabras: ['penalización', 'cargo', 'falta sin avisar'] },
-      { id: 'ajuste-avisar-alumnas', titulo: 'Avisos a las alumnas', frase: 'Si por una baja una clase cambia de instructora, se mueve o se cancela, se lo contamos a sus alumnas por email y en su app.', guardado: 'al-pulsar', palabras: ['sustitución', 'cambio de instructora'] },
+      { id: 'ajuste-avisar-alumnas', titulo: 'Avisos a las alumnas', frase: 'Si por una baja una clase cambia de instructora, se mueve o se cancela, avisa a sus alumnas por email y en su app.', guardado: 'al-pulsar', palabras: ['sustitución', 'cambio de instructora'] },
     ],
   },
   {
@@ -158,7 +163,7 @@ export const SECCIONES = [
     id: 'comunicacion',
     titulo: 'Cómo me comunico',
     resumen: 'Correos, WhatsApp y Gmail',
-    frase: 'Los correos que Tentare envía sola a tus alumnas y los canales conectados para escribirles.',
+    frase: 'Los correos que Tentare envía sola a tus alumnas y los canales para escribirles.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'correos-automaticos', titulo: 'Correos automáticos', frase: 'Bienvenida, reserva, recordatorio, cancelación…: apaga los que no quieras o cambia lo que dicen.', guardado: 'catalogo', herramienta: 'correos-automaticos', palabras: ['emails', 'recordatorio', 'bienvenida', 'plantillas'] },
@@ -320,6 +325,7 @@ export interface FilaAOtraPantalla {
 export const FILAS_A_OTRA_PANTALLA = [
   { id: 'fila-paquetes', seccion: 'cobros', titulo: 'Paquetes', resumen: 'Tus planes, bonos y precios', href: '/productos' },
   { id: 'fila-cobros', seccion: 'cobros', titulo: 'Cobros', resumen: 'Quién te debe, lo cobrado y tus facturas', href: '/cobros' },
+  { id: 'fila-automatizaciones', seccion: 'comunicacion', titulo: 'Automatizaciones', resumen: 'Lo que Tentare hace solo y las reglas que enciendes tú', href: '/automatizaciones' },
 ] as const satisfies readonly FilaAOtraPantalla[];
 
 export interface GrupoConfiguracion {

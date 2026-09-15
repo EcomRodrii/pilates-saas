@@ -40,6 +40,10 @@ const STUDIO = {
   owner_auth_user_id: 'auth-e2e-duena', email: 'cloe@example.com', moneda: 'EUR',
   iva_por_defecto: 21, nif: 'B12345678', direccion: 'Calle Mayor 4', ciudad: 'Almería',
   plan: 'ESTUDIO', subscription_status: 'active',
+  // Desde el 15-sep (v2) el único interruptor a la vista en Reservas es el aviso
+  // a las alumnas (el resto va en cajones): encendido, para medir uno encendido.
+  // Los apagados se miden dentro del cajón de «Cancelar y recuperar».
+  avisar_alumnas: true,
 };
 
 const json = (r: Route, b: unknown, s = 200) =>
@@ -190,7 +194,9 @@ function medir(page: Page): Promise<Resultado> {
       || (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)
       || el.tagName.toLowerCase();
 
-    const raiz = document.querySelector('[data-tour="configuracion-vista"]');
+    // Con un cajón abierto (15-sep, v2: los campos de Reservas viven ahí), se mide
+    // el cajón; si no, la sección.
+    const raiz = document.querySelector('[role="dialog"]') ?? document.querySelector('[data-tour="configuracion-vista"]');
     if (!raiz) return { tarjetas: [], campos: [], interruptores: [], estados: [], textos: [], botonesApagados: [], rail: null, sinLeer: ['sin raíz'] };
 
     // ── Tarjetas contra el fondo de la página ──
@@ -245,7 +251,10 @@ function medir(page: Page): Promise<Resultado> {
     // ── Letra pequeña dentro de las tarjetas (ayudas, notas, avisos) ──
     const fuera = 'button, a, [role="switch"], [data-estado-ajuste], input, select, textarea, [data-vista-previa], iframe, svg, [aria-hidden="true"], .sr-only, [disabled]';
     const textos: (Medida & { px: number })[] = [];
-    for (const caja of cajas.filter(c => c.tagName !== 'UL')) {
+    // Un cajón no tiene tarjetas con borde: su letra pequeña (la ayuda de cada
+    // campo) se mide en el cajón entero.
+    const conLetraPequena = raiz.matches('[role="dialog"]') ? [raiz] : cajas.filter(c => c.tagName !== 'UL');
+    for (const caja of conLetraPequena) {
       for (const el of caja.querySelectorAll<HTMLElement>('*')) {
         if (el.closest(fuera) || pastillas.has(el) || !visible(el)) continue;
         const propio = [...el.childNodes].some(n => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim().length > 1);
@@ -324,6 +333,10 @@ const PANTALLAS = [
   { ruta: 'configuracion?tab=cobros', titulo: 'Cobros y facturas' },
   { ruta: 'configuracion?tab=comunicacion', titulo: 'Cómo me comunico' },
   { ruta: 'configuracion?tab=reservas', titulo: 'Cómo reservan mis alumnas' },
+  // Desde el 15-sep (v2) los campos y los interruptores de Reservas van en su
+  // cajón: el ancla lo abre y se mide dentro (campos, apagados y ayudas).
+  { ruta: 'configuracion?tab=reservas#cancelar-y-recuperar', titulo: 'Cómo reservan mis alumnas' },
+  { ruta: 'configuracion?tab=reservas#reservar', titulo: 'Cómo reservan mis alumnas' },
 ] as const;
 
 for (const vista of VISTAS) {
@@ -338,6 +351,27 @@ for (const vista of VISTAS) {
       const rails: NonNullable<Resultado['rail']>[] = [];
       for (const p of PANTALLAS) {
         await abrir(page, p.ruta, p.titulo);
+        if (p.ruta.includes('#')) {
+          // Ir a la misma dirección con otra ancla no recarga la página, y el
+          // cajón puede no abrirse: se abre desde su fila, como lo hace ella.
+          const cajon = page.getByRole('dialog');
+          const id = p.ruta.split('#')[1];
+          // Si sigue abierto el cajón de la pantalla anterior, se cierra: se mide el que toca.
+          if (!(await page.locator(`#${id}-titulo`).count())) {
+            if (await cajon.count()) {
+              await page.keyboard.press('Escape');
+              await expect(cajon).toHaveCount(0);
+            }
+            await page.locator(`#${id}`).click();
+          }
+          await expect(page.locator(`#${id}-titulo`)).toBeVisible();
+          // Entra deslizándose y fundiéndose: se mide cuando ha llegado.
+          await expect.poll(async () => {
+            const b = await cajon.boundingBox();
+            return b ? Math.round(b.x + b.width) : null;
+          }, { timeout: 15_000 }).toBe(page.viewportSize()!.width);
+          await page.waitForTimeout(400);
+        }
         const r = await medir(page);
         const aqui = (xs: Medida[]) => xs.map(x => ({ ...x, que: `${p.ruta.replace('configuracion?tab=', '')} · ${x.que}` }));
         todo.tarjetas.push(...aqui(r.tarjetas));

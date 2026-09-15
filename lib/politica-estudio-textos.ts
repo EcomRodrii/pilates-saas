@@ -1,12 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// «Cuando algo cambia, Tentare…»: lo que hace el producto con los valores que
-// el estudio tiene GUARDADOS, dicho en frases.
+// Lo que hace el producto con los valores que el estudio tiene GUARDADOS (o
+// con los que está eligiendo en un cajón), dicho en frases.
 //
 // Tres decisiones que afectan a cada alumna —recuperar la sesión, la plaza que
 // se libera, el aviso cuando cambia la instructora— vivían como interruptores
 // sueltos, uno de ellos fuera de Configuración. Los 12 estudios de producción
 // siguen con los valores de fábrica sin haberlos elegido: esto no los cambia,
 // los explica.
+//
+// Hasta el 15-sep iban en una lista («Cuando algo cambia, Tentare…»); desde las
+// filas con cajón (v2), cada frase es la línea de consecuencia del cajón de su
+// regla (`tarjeta`), así que tiene que leerse SOLA y caber en una línea (≤ 120).
 //
 // Regla: ninguna frase sin un valor detrás. Cada una declara en `respaldo` qué
 // campos la deciden, y el test comprueba que cambiar cualquier otro campo no la
@@ -37,19 +41,21 @@ export interface PoliticaEstudio {
   avisarAlumnas: boolean | null;
 }
 
-/** El control de Configuración que cambia cada frase. */
-export type AjustePolitica =
-  | 'ventana-cancelacion'
-  | 'devolver-tardia'
-  | 'clase-devuelve-bono'
-  | 'lista-espera'
-  | 'avisar-alumnas';
+/**
+ * La fila de «Cómo reservan mis alumnas» en cuyo cajón se lee la frase (sus ids
+ * en lib/configuracion/secciones.ts). Sin importarlo: este fichero es puro.
+ */
+export type FilaPolitica =
+  | 'cancelar-y-recuperar'
+  | 'si-se-cancela-una-clase'
+  | 'lista-de-espera'
+  | 'ajuste-avisar-alumnas';
 
 export interface FrasePolitica {
   id: 'cancela-a-tiempo' | 'cancela-tarde' | 'estudio-cancela' | 'plaza-liberada' | 'cambia-la-clase';
   texto: string;
   respaldo: (keyof PoliticaEstudio)[];
-  ajuste: AjustePolitica;
+  tarjeta: FilaPolitica;
 }
 
 function duracion(minutos: number): string {
@@ -63,53 +69,53 @@ export function frasesPoliticaEstudio(p: PoliticaEstudio): FrasePolitica[] {
   if (ventana > 0) {
     frases.push({
       id: 'cancela-a-tiempo',
-      texto: `Si una alumna cancela con más de ${ventana} h de antelación, recupera la sesión de su bono.`,
+      texto: `Si cancela con más de ${ventana} h de antelación, recupera la sesión.`,
       respaldo: ['cancelacionVentanaHoras'],
-      ajuste: 'ventana-cancelacion',
+      tarjeta: 'cancelar-y-recuperar',
     });
     frases.push({
       id: 'cancela-tarde',
       texto: p.cancelacionDevolverBonoTardia
-        ? `Si cancela con menos de ${ventana} h, también la recupera.`
-        : `Si cancela con menos de ${ventana} h, no la recupera.`,
+        ? `Si cancela con menos de ${ventana} h, también recupera la sesión.`
+        : `Si cancela con menos de ${ventana} h, no recupera la sesión.`,
       respaldo: ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia'],
-      ajuste: 'devolver-tardia',
+      tarjeta: 'cancelar-y-recuperar',
     });
   } else {
     // Sin ventana no hay cancelación tardía: «devolver en tardías» no decide nada.
     frases.push({
       id: 'cancela-a-tiempo',
-      texto: 'Si una alumna cancela, recupera la sesión de su bono cancele cuando cancele: no hay plazo de cancelación.',
+      texto: 'Recupera la sesión cancele cuando cancele: no hay plazo de cancelación.',
       respaldo: ['cancelacionVentanaHoras'],
-      ajuste: 'ventana-cancelacion',
+      tarjeta: 'cancelar-y-recuperar',
     });
   }
 
   frases.push({
     id: 'estudio-cancela',
     texto: p.cancelacionClaseDevuelveBono
-      ? 'Si se cancela una clase entera —la cancelas tú, no llega al mínimo de asistentes o cierras el centro—, devuelve la sesión a quien tenía plaza.'
-      : 'Si se cancela una clase entera —la cancelas tú, no llega al mínimo de asistentes o cierras el centro—, no devuelve la sesión a quien tenía plaza.',
+      ? 'Si se cancela una clase entera —la cancelas tú, por el mínimo o por un cierre—, devuelve la sesión.'
+      : 'Si se cancela una clase entera —la cancelas tú, por el mínimo o por un cierre—, no devuelve la sesión.',
     respaldo: ['cancelacionClaseDevuelveBono'],
-    ajuste: 'clase-devuelve-bono',
+    tarjeta: 'si-se-cancela-una-clase',
   });
 
   if (!p.permiteListaEspera) {
     frases.push({
       id: 'plaza-liberada',
-      texto: 'Si una clase está llena, no deja apuntarse a la lista de espera.',
+      texto: 'Con la clase llena, nadie más puede apuntarse a la lista de espera.',
       respaldo: ['permiteListaEspera'],
-      ajuste: 'lista-espera',
+      tarjeta: 'lista-de-espera',
     });
   } else {
     const plazo = p.listaEsperaPlazoAceptacionMinutos > 0 ? p.listaEsperaPlazoAceptacionMinutos : 0;
     frases.push({
       id: 'plaza-liberada',
       texto: plazo > 0
-        ? `Si alguien cancela y se libera una plaza, se la ofrece a la primera de la lista de espera, que tiene ${duracion(plazo)} para aceptarla; si no, pasa a la siguiente.`
-        : 'Si alguien cancela y se libera una plaza, se la da al momento a la primera de la lista de espera.',
+        ? `Si se libera una plaza, la primera de la lista tiene ${duracion(plazo)} para aceptarla; si no, pasa a la siguiente.`
+        : 'Si se libera una plaza, se la da al momento a la primera de la lista de espera.',
       respaldo: ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos'],
-      ajuste: 'lista-espera',
+      tarjeta: 'lista-de-espera',
     });
   }
 
@@ -117,10 +123,10 @@ export function frasesPoliticaEstudio(p: PoliticaEstudio): FrasePolitica[] {
     frases.push({
       id: 'cambia-la-clase',
       texto: p.avisarAlumnas
-        ? 'Si una clase cambia de instructora, se mueve o se cancela desde Sustituciones, avisa a sus alumnas por email y en su app.'
-        : 'Si una clase cambia de instructora, se mueve o se cancela desde Sustituciones, no avisa a sus alumnas.',
+        ? 'Si una clase cambia de instructora, se mueve o se cancela en Sustituciones, avisa a sus alumnas por email y en su app.'
+        : 'Si una clase cambia de instructora, se mueve o se cancela en Sustituciones, no avisa a sus alumnas.',
       respaldo: ['avisarAlumnas'],
-      ajuste: 'avisar-alumnas',
+      tarjeta: 'ajuste-avisar-alumnas',
     });
   }
 

@@ -154,52 +154,56 @@ for (const vista of VISTAS) {
       expect(fallos, `\n${fallos.join('\n')}\n`).toEqual([]);
     });
 
-    test('4 · la barra de guardar queda por encima de la navegación, también al ir campo a campo', async ({ page }) => {
+    // Desde el 15-sep (v2) las reglas de reserva se cambian en un cajón: su barra
+    // va pegada al borde de abajo del cajón, que tapa la navegación.
+    test('4 · la barra de guardar de un cajón queda a la vista, también al ir campo a campo', async ({ page }) => {
       await panel(page);
       await abrir(page, { id: 'reservas', titulo: 'Cómo reservan mis alumnas' });
 
-      await page.getByLabel('Plazo para cancelar sin perder la sesión (horas antes)').fill('24');
-      const barra = page.locator('[data-barra-guardar]');
-      await expect(barra).toContainText('Cambios sin guardar en: Cancelar y recuperar');
+      await page.locator('#reservar').click();
+      const cajon = page.getByRole('dialog');
+      await expect(titulo(page, 'Reservar')).toBeFocused();
+      // Entra deslizándose desde la derecha: se mide cuando ha llegado.
+      await expect.poll(async () => {
+        const b = await cajon.boundingBox();
+        return b ? Math.round(b.x + b.width) : null;
+      }).toBe(vista.uso.viewport.width);
+      await cajon.getByLabel('Días antes de la clase en que se abre la reserva').fill('30');
+      const barra = cajon.locator('[data-barra-guardar]');
+      await expect(barra).toContainText('Cambios sin guardar en: Reservar');
 
-      await page.locator('#reservar').evaluate(el => el.scrollIntoView({ block: 'start' }));
-      await page.waitForTimeout(300);
-
-      const limite = () => page.evaluate(() => {
-        const nav = [...document.querySelectorAll('nav')].find(n => {
-          const cs = getComputedStyle(n);
-          return cs.position === 'fixed' && cs.display !== 'none' && n.getBoundingClientRect().bottom >= window.innerHeight - 1;
-        });
-        return { arriba: nav ? nav.getBoundingClientRect().top : window.innerHeight, hayNav: !!nav };
-      });
-      const { arriba, hayNav } = await limite();
-      expect(hayNav, 'la barra de navegación inferior').toBe(vista.conNavInferior);
       const cajaBarra = (await barra.boundingBox())!;
-      expect(cajaBarra.y + cajaBarra.height, 'la barra de guardar, debajo de la navegación').toBeLessThanOrEqual(arriba + 0.5);
+      expect(cajaBarra.y + cajaBarra.height, 'la barra de guardar, dentro de la pantalla').toBeLessThanOrEqual(vista.uso.viewport.height + 0.5);
+      const alcanzable = await page.evaluate(() => {
+        const boton = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] [data-barra-guardar] button')].at(-1)!;
+        const r = boton.getBoundingClientRect();
+        const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return !!el && boton.contains(el);
+      });
+      expect(alcanzable, '«Guardar» se puede pulsar').toBe(true);
 
-      // Campo a campo con el teclado, por las cinco tarjetas: ninguno queda tapado
-      // por la barra ni por la nav.
-      await page.locator('#reservar input').first().focus();
+      // Campo a campo con el teclado, por el cajón: ninguno queda tapado por la barra.
+      await cajon.locator('input').first().focus();
       const tapados: string[] = [];
       let medidos = 0;
-      for (let i = 0; i < 60; i++) {
-        await page.keyboard.press('Tab');
+      // Se mide ANTES de pasar al siguiente: el primero también cuenta.
+      for (let i = 0; i < 20; i++) {
         const r = await page.evaluate(() => {
           const el = document.activeElement as HTMLElement | null;
-          if (!el?.closest('section[aria-labelledby="seccion-titulo"]') || !el.matches('input, select, textarea')) return null;
-          const barraEl = document.querySelector('[data-barra-guardar]')!;
+          if (!el?.closest('[role="dialog"]') || !el.matches('input, select, textarea')) return null;
+          const barraEl = document.querySelector('[role="dialog"] [data-barra-guardar]')!;
           const campo = el.getBoundingClientRect();
-          const b = barraEl.getBoundingClientRect();
-          const nav = [...document.querySelectorAll('nav')].find(n => getComputedStyle(n).position === 'fixed' && getComputedStyle(n).display !== 'none' && n.getBoundingClientRect().bottom >= window.innerHeight - 1);
-          const tope = Math.min(b.top, nav ? nav.getBoundingClientRect().top : window.innerHeight);
+          const tope = Math.min(barraEl.getBoundingClientRect().top, window.innerHeight);
           return campo.bottom > tope + 0.5 ? `${el.id || el.getAttribute('aria-label') || el.tagName} (${Math.round(campo.bottom)} > ${Math.round(tope)})` : '';
         });
-        if (r === null) continue;
-        medidos++;
-        if (r) tapados.push(r);
+        if (r !== null) {
+          medidos++;
+          if (r) tapados.push(r);
+        }
+        await page.keyboard.press('Tab');
       }
       // Verde por vacío no: tiene que haber recorrido campos de verdad.
-      expect(medidos, 'campos recorridos').toBeGreaterThan(5);
+      expect(medidos, 'campos recorridos').toBeGreaterThan(2);
       expect(tapados, `\n${tapados.join('\n')}\n`).toEqual([]);
     });
 

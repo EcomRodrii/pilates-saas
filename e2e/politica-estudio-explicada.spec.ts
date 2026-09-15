@@ -1,17 +1,18 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// «Cuando algo cambia, Tentare…» en Configuración → Estudio → Reservas.
+// Lo que le pasa a cada alumna con lo que el estudio tiene guardado, en
+// Configuración → Cómo reservan mis alumnas.
 //
 // Tres decisiones que le pasan a cada alumna —recuperar la sesión, la plaza que
-// se libera, el aviso cuando cambia su clase— eran interruptores sueltos. Ahora
-// se dicen en frases.
+// se libera, el aviso cuando cambia su clase— eran interruptores sueltos. Desde
+// el 15-sep (v2) cada una es una FILA con su valor de hoy, y dentro de su cajón
+// una línea dice lo que va a pasar.
 //
 // Lo que protege este spec no es el texto, es que el texto no mienta:
-//  · las frases salen de lo GUARDADO: si «Guardar» falla, no cambian;
-//  · el aviso a las alumnas tiene un solo escritor (`/api/sustituciones`), el
-//    mismo control en las dos pantallas, sin estado optimista: si el servidor
-//    dice que no, el interruptor no se ha movido y se dice por qué;
+//  · las filas salen de lo GUARDADO: si «Guardar» falla, no cambian;
+//  · el aviso a las alumnas tiene un solo escritor (`/api/sustituciones`): si el
+//    servidor dice que no, el interruptor vuelve a lo guardado y se dice por qué;
 //  · la gerencia (MANAGER) lo sigue pudiendo cambiar desde Sustituciones, y no se
 //    le enlaza a Configuración, que no puede abrir.
 // ⚠️ Cada camino de fallo cuenta peticiones: «no dijo Guardado» también es
@@ -114,41 +115,42 @@ async function montar(page: Page, opts: {
   return { patchesStudio, patchesAvisar };
 }
 
-const explicacion = (page: Page) => page.getByRole('list', { name: 'Cuando algo cambia, Tentare…' });
-const fraseDe = (page: Page, texto: string | RegExp) => explicacion(page).getByRole('listitem').filter({ hasText: texto });
+const valorFila = (page: Page, id: string) => page.locator(`#${id} [data-resumen]`);
 const guardarPolitica = (page: Page) => page.getByRole('button', { name: 'Guardar', exact: true });
-const sinGuardar = (page: Page, tarjetas: string) => page.getByText(`Cambios sin guardar en: ${tarjetas}`);
-const tarjetaAvisos = (page: Page) => page.locator('#ajuste-avisar-alumnas');
+const sinGuardar = (page: Page, tarjeta: string) => page.getByText(`Cambios sin guardar en: ${tarjeta}`);
+const filaAvisos = (page: Page) => page.locator('#ajuste-avisar-alumnas');
+// En Configuración, la fila; en Sustituciones, su interruptor de siempre.
+const avisosEnConfiguracion = (page: Page) => page.getByRole('switch', { name: 'Avisos a las alumnas' });
 const interruptorAvisar = (page: Page) => page.getByRole('switch', { name: /Avisar a las alumnas, por email y en su app/ });
+const consecuencia = (page: Page) => page.getByRole('dialog').locator('[data-consecuencia]');
 
 async function abrirReservas(page: Page) {
   await page.goto('/configuracion?tab=estudio&sub=reservas');
-  await expect(explicacion(page)).toBeVisible({ timeout: 30_000 });
+  await expect(avisosEnConfiguracion(page)).toBeVisible({ timeout: 30_000 });
 }
 
-test('las frases dicen lo que el estudio tiene guardado, y «Cambiar» lleva a su control', async ({ page }) => {
+test('las filas dicen lo que el estudio tiene guardado, y cada cajón lo que va a pasar', async ({ page }) => {
   await montar(page);
   await abrirReservas(page);
 
-  await expect(explicacion(page).getByRole('listitem')).toHaveText([
-    /Si una alumna cancela con más de 24 h de antelación, recupera la sesión de su bono\./,
-    /Si cancela con menos de 24 h, no la recupera\./,
-    /Si se cancela una clase entera —la cancelas tú, no llega al mínimo de asistentes o cierras el centro—, devuelve la sesión a quien tenía plaza\./,
-    /se la ofrece a la primera de la lista de espera, que tiene 15 min para aceptarla; si no, pasa a la siguiente\./,
-    /avisa a sus alumnas por email y en su app\./,
-  ]);
+  await expect(valorFila(page, 'cancelar-y-recuperar')).toHaveText('Hasta 24 h antes · después pierde la sesión');
+  await expect(valorFila(page, 'si-se-cancela-una-clase')).toHaveText('Devuelve la sesión · sin mínimo');
+  await expect(valorFila(page, 'lista-de-espera')).toHaveText('Oferta de 15 min');
+  await expect(avisosEnConfiguracion(page)).toHaveAttribute('aria-checked', 'true');
 
-  // La lista de espera es un control de tres opciones: «Cambiar» lleva a la elegida.
-  const conPlazo = page.getByRole('radio', { name: /Se le ofrece durante 15 minutos/ });
-  await fraseDe(page, /lista de espera/).getByRole('link', { name: 'Cambiar' }).click();
-  await expect(conPlazo).toBeChecked();
-  await expect(conPlazo).toBeFocused();
+  await page.locator('#cancelar-y-recuperar').click();
+  await expect(consecuencia(page)).toHaveText('Si cancela con menos de 24 h, no recupera la sesión.');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
-  await fraseDe(page, /avisa a sus alumnas/).getByRole('link', { name: 'Cambiar' }).click();
-  await expect(interruptorAvisar(page)).toBeFocused();
+  // El ancla de antes de un ajuste suelto lleva al cajón donde está hoy.
+  await page.goto('/configuracion?tab=reservas#ajuste-lista-espera');
+  await expect(page.getByRole('heading', { level: 2, name: 'Lista de espera', exact: true })).toBeFocused({ timeout: 30_000 });
+  await expect(page.getByRole('radio', { name: /Se le ofrece durante 15 minutos/ })).toBeChecked();
+  await expect(consecuencia(page)).toHaveText('Si se libera una plaza, la primera de la lista tiene 15 min para aceptarla; si no, pasa a la siguiente.');
 });
 
-test('con otros valores guardados, otras frases', async ({ page }) => {
+test('con otros valores guardados, otras filas', async ({ page }) => {
   await montar(page, {
     fila: {
       cancelacion_ventana_horas: 0,
@@ -159,29 +161,25 @@ test('con otros valores guardados, otras frases', async ({ page }) => {
   });
   await abrirReservas(page);
 
-  await expect(explicacion(page).getByRole('listitem')).toHaveText([
-    /recupera la sesión de su bono cancele cuando cancele: no hay plazo de cancelación\./,
-    /cierras el centro—, no devuelve la sesión a quien tenía plaza\./,
-    /Si una clase está llena, no deja apuntarse a la lista de espera\./,
-    /se cancela desde Sustituciones, no avisa a sus alumnas\./,
-  ]);
-  // Sin ventana no hay «cancelar tarde» del que hablar.
-  await expect(explicacion(page)).not.toContainText('menos de');
-  await expect(interruptorAvisar(page)).toHaveAttribute('aria-checked', 'false');
+  await expect(valorFila(page, 'cancelar-y-recuperar')).toHaveText('Sin plazo para cancelar');
+  await expect(valorFila(page, 'si-se-cancela-una-clase')).toHaveText('No devuelve la sesión · sin mínimo');
+  await expect(valorFila(page, 'lista-de-espera')).toHaveText('Sin lista de espera');
+  await expect(avisosEnConfiguracion(page)).toHaveAttribute('aria-checked', 'false');
+  // Sin plazo no hay «cancelar tarde» del que hablar.
+  await page.locator('#cancelar-y-recuperar').click();
+  await expect(consecuencia(page)).toHaveText('Recupera la sesión cancele cuando cancele: no hay plazo de cancelación.');
 });
 
 for (const fallo of [400, 500, 'red'] as const) {
-  test(`«Guardar» falla (${fallo}): ni «guardada» ni frase nueva`, async ({ page }) => {
+  test(`«Guardar» falla (${fallo}): ni «guardada» ni fila nueva`, async ({ page }) => {
     const { patchesStudio, patchesAvisar } = await montar(page, { falloStudio: fallo });
     await abrirReservas(page);
 
-    const frase = fraseDe(page, /Si se cancela una clase entera/);
-    await frase.getByRole('link', { name: 'Cambiar' }).click();
+    await page.locator('#si-se-cancela-una-clase').click();
     const toggle = page.getByRole('switch', { name: /Devolver la sesión al cancelar una clase entera/ });
-    await expect(toggle).toBeFocused();
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-checked', 'false');
-    await expect(sinGuardar(page, 'Cancelar y recuperar')).toBeVisible();
+    await expect(sinGuardar(page, 'Si se cancela una clase entera')).toBeVisible();
 
     await guardarPolitica(page).click();
     await expect.poll(() => patchesStudio.length, { timeout: 15_000 }).toBeGreaterThan(0);
@@ -190,81 +188,70 @@ for (const fallo of [400, 500, 'red'] as const) {
 
     await expect(page.getByText(/Reglas de reserva guardadas/)).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Cambios sin guardar' }).getByRole('alert')).toContainText('No se ha guardado');
-    await expect(sinGuardar(page, 'Cancelar y recuperar')).toBeVisible();
-    await expect(frase).toContainText('devuelve la sesión a quien tenía plaza');
-    await expect(frase).not.toContainText('no devuelve');
-    // Y el aviso a las alumnas no viaja nunca por aquí.
+    await expect(sinGuardar(page, 'Si se cancela una clase entera')).toBeVisible();
+    await expect(valorFila(page, 'si-se-cancela-una-clase')).toHaveText('Devuelve la sesión · sin mínimo');
+    // Solo sus dos columnas, y el aviso a las alumnas no viaja nunca por aquí.
+    expect(Object.keys(JSON.parse(patchesStudio[0])).sort()).toEqual(['cancelacion_clase_devuelve_bono', 'minimo_asistentes_por_clase']);
     expect(patchesStudio.join(' ')).not.toContain('avisar_alumnas');
     expect(patchesAvisar).toHaveLength(0);
   });
 }
 
-test('«Guardar» sale bien: la frase cambia', async ({ page }) => {
+test('«Guardar» sale bien: la fila cambia', async ({ page }) => {
   const { patchesStudio } = await montar(page);
   await abrirReservas(page);
 
-  const frase = fraseDe(page, /Si se cancela una clase entera/);
-  await frase.getByRole('link', { name: 'Cambiar' }).click();
+  await page.locator('#si-se-cancela-una-clase').click();
   await page.getByRole('switch', { name: /Devolver la sesión al cancelar una clase entera/ }).click();
+  await expect(consecuencia(page)).toContainText('no devuelve la sesión');
   await guardarPolitica(page).click();
 
   await expect(page.getByText('Reglas de reserva guardadas')).toBeVisible({ timeout: 15_000 });
-  await expect(frase).toContainText('no devuelve la sesión a quien tenía plaza');
+  await expect(valorFila(page, 'si-se-cancela-una-clase')).toHaveText('No devuelve la sesión · sin mínimo');
   expect(patchesStudio.length).toBeGreaterThan(0);
   expect(patchesStudio[patchesStudio.length - 1]).toContain('"cancelacion_clase_devuelve_bono":false');
 });
 
 for (const fallo of [400, 500, 'red'] as const) {
-  test(`el aviso a las alumnas falla (${fallo}): el interruptor no se ha movido y dice por qué`, async ({ page }) => {
+  test(`el aviso a las alumnas falla (${fallo}): el interruptor vuelve a lo guardado y dice por qué`, async ({ page }) => {
     const { patchesAvisar, patchesStudio } = await montar(page, { falloAvisar: fallo });
     await abrirReservas(page);
 
-    const toggle = interruptorAvisar(page);
+    const toggle = avisosEnConfiguracion(page);
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await expect(toggle).toBeEnabled();
     await toggle.click();
 
     await expect.poll(() => patchesAvisar.length, { timeout: 15_000 }).toBeGreaterThan(0);
-    await expect(tarjetaAvisos(page).getByRole('alert')).toContainText('No se ha guardado', { timeout: 15_000 });
+    await expect(filaAvisos(page).getByRole('alert')).toContainText('No se ha guardado', { timeout: 15_000 });
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
     await expect(toggle).toBeEnabled();
-    await expect(tarjetaAvisos(page).getByText('Guardado.')).toHaveCount(0);
-    await expect(fraseDe(page, /Sustituciones/)).toContainText('avisa a sus alumnas por email y en su app');
     // Por su endpoint, nunca por el PATCH de `studios`.
     expect(patchesAvisar[0]).toEqual({ action: 'config_avisar', avisar: false });
     expect(patchesStudio).toHaveLength(0);
   });
 }
 
-test('el aviso a las alumnas: sin optimismo, doble toque = una escritura, y la frase cambia', async ({ page }) => {
+test('el aviso a las alumnas: doble toque = una escritura, y se queda en lo guardado de verdad', async ({ page }) => {
   const { patchesAvisar, patchesStudio } = await montar(page, { retrasoAvisarMs: 1500 });
   await abrirReservas(page);
 
-  // Un cambio de la política a medio escribir: guardar el aviso no puede tirarlo.
-  const ventana = page.locator('#ajuste-ventana-cancelacion input');
-  await ventana.fill('6');
-  await expect(sinGuardar(page, 'Cancelar y recuperar')).toBeVisible();
-
-  const toggle = interruptorAvisar(page);
+  const toggle = avisosEnConfiguracion(page);
+  await expect(toggle).toBeEnabled();
   await toggle.dblclick();
-  // Mientras el servidor no contesta, sigue diciendo lo guardado.
-  await expect(tarjetaAvisos(page).getByText('Guardando…')).toBeVisible();
-  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  // Mientras el servidor no contesta, está ocupado y no se deja tocar.
+  await expect(toggle).toHaveAttribute('aria-busy', 'true');
 
-  await expect(tarjetaAvisos(page).getByText('Guardado.')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Aviso a las alumnas desactivado')).toBeVisible({ timeout: 15_000 });
   await page.waitForTimeout(800);
   expect(patchesAvisar).toHaveLength(1);
   expect(patchesAvisar[0]).toEqual({ action: 'config_avisar', avisar: false });
-
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
-  await expect(fraseDe(page, /Sustituciones/)).toContainText('no avisa a sus alumnas');
-  await expect(ventana).toHaveValue('6');
-  await expect(sinGuardar(page, 'Cancelar y recuperar')).toBeVisible();
-  // La frase de cancelación sigue en lo guardado (24 h), no en lo escrito (6).
-  await expect(fraseDe(page, /Si una alumna cancela/)).toContainText('más de 24 h');
+  await expect(filaAvisos(page).getByRole('alert')).toHaveCount(0);
   expect(patchesStudio).toHaveLength(0);
 });
 
-test('Sustituciones, propietaria: el mismo interruptor y el enlace a Configuración', async ({ page }) => {
+test('Sustituciones, propietaria: el mismo ajuste y el enlace a Configuración', async ({ page }) => {
   const { patchesAvisar } = await montar(page);
   await page.goto('/sustituciones');
 
@@ -274,7 +261,7 @@ test('Sustituciones, propietaria: el mismo interruptor y el enlace a Configuraci
   await expect(enlace).toHaveAttribute('href', '/configuracion?tab=reservas#ajuste-avisar-alumnas');
 
   await enlace.click();
-  await expect(interruptorAvisar(page)).toBeFocused({ timeout: 30_000 });
+  await expect(avisosEnConfiguracion(page)).toBeFocused({ timeout: 30_000 });
   expect(patchesAvisar).toHaveLength(0);
 });
 
