@@ -8,6 +8,8 @@ import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
+import { cobroManualDeRecibo } from '@/lib/billing/penalizacion-aprobar-reglas';
+import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { remitentePorMarca } from '../emails/remitente.ts';
 import { uid } from '@/lib/utils';
@@ -495,6 +497,19 @@ export const ejecutarRecomendacion = inngest.createFunction(
       const detalles: string[] = [];
       for (const info of recibosInfo) {
         if (!info.socio_id) { detalles.push(`${info.id}: sin socia asociada`); continue; }
+        // El recibo de una penalización solo se cobra con el cobro ya decidido
+        // (RECIBO_CREADO), el mismo guardia que «Cobrar online». `pagosEnRiesgo` ya
+        // no los propone; esto cubre una recomendación creada antes de ese filtro
+        // o una penalización que cambió de estado entre proponer y aprobar.
+        // Step PROPIO, nuevo (no se muta `cobrar-*`, que cambiaría su id en los
+        // replays), y solo para esos recibos: el resto no gasta un step más. Lo que
+        // devuelve es `null` o un objeto plano, que se serializa sin perder nada.
+        if (!cobroManualDeRecibo(info.id).ok) {
+          const bloqueo = await step.run(`guardia-penalizacion-${info.id}`, () =>
+            bloqueoCobroManualDePenalizacion(requireSupabaseAdmin(), { studioId: recomendacion.studioId, reciboId: info.id })
+          );
+          if (bloqueo) { detalles.push(`${info.id}: ${bloqueo.mensaje}`); continue; }
+        }
         // A-10: sin idempotencyKey explícita — cobrarReciboOffSession la deriva del
         // reciboId, de modo que este ejecutor y la aprobación manual comparten la
         // misma clave y Stripe no duplica el cargo del mismo recibo.

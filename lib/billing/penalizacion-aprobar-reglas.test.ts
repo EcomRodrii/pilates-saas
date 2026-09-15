@@ -27,6 +27,7 @@ import {
   origenDelRecibo,
   penalizacionDelRecibo,
   ESTADOS_QUE_DEJAN_COBRAR_A_MANO,
+  ESTADOS_QUE_DEJAN_PAGAR_A_LA_ALUMNA,
   PREFIJO_RECIBO_PENALIZACION,
   cobroManualDeRecibo,
   planificarCobroAutomatico,
@@ -1457,5 +1458,113 @@ test('el guardia de servidor falla cerrado: sin service-role o con la lectura la
   assert.ok(desde > 0);
   assert.match(funcion, /let lectura: LecturaPenalizacion = \{ ok: false \};/);
   assert.match(funcion, /catch \{\s*lectura = \{ ok: false \};/);
-  assert.match(funcion, /cobroManualDeRecibo\(p\.reciboId, lectura\)/);
+  assert.match(funcion, /cobroManualDeRecibo\(p\.reciboId, lectura, p\.contexto\)/);
+});
+
+test('cobrar a mano: una FALLIDA dice qué hacer, sin prometer un pago desde la app que no existe', () => {
+  const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado: 'FALLIDA' });
+  assert.equal(v.ok, false);
+  if (v.ok) return;
+  assert.equal(v.http, 409);
+  assert.match(v.mensaje, /marca su recibo como cobrado en Cobros/);
+  assert.doesNotMatch(v.mensaje, /desde su app/);
+});
+
+// ── La alumna paga su recibo en el checkout (/api/stripe/checkout) ─────────
+
+test('⚠️ checkout de la alumna: el recibo de una penalización solo con RECIBO_CREADO o FALLIDA', () => {
+  assert.deepEqual([...ESTADOS_QUE_DEJAN_PAGAR_A_LA_ALUMNA], ['RECIBO_CREADO', 'FALLIDA']);
+  for (const estado of TODOS_LOS_ESTADOS) {
+    const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }, 'checkout_alumna');
+    if (estado === 'RECIBO_CREADO' || estado === 'FALLIDA') {
+      assert.deepEqual(v, { ok: true }, estado);
+      continue;
+    }
+    assert.equal(v.ok, false, estado);
+    if (v.ok) continue;
+    assert.equal(v.http, 409, estado);
+    // Texto para la alumna: ni estados internos, ni mandarla a Inicio o a Cobros.
+    assert.doesNotMatch(v.mensaje, /penalización|Inicio|Cobros|apruebes|undefined|null|[A-Z]{2,}_[A-Z]/, estado);
+    assert.match(v.mensaje, /\.$/, estado);
+  }
+});
+
+test('⚠️ checkout de la alumna: PENDIENTE_APROBACION y DETECTADA «todavía no», el resto «ya no»', () => {
+  for (const estado of ['DETECTADA', 'PENDIENTE_APROBACION'] as const) {
+    const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }, 'checkout_alumna');
+    assert.ok(!v.ok && /todavía no se puede pagar/.test(v.mensaje), estado);
+  }
+  for (const estado of ['OMITIDA_SIN_CONSENTIMIENTO', 'COBRADA', 'REEMBOLSADA'] as const) {
+    const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }, 'checkout_alumna');
+    assert.ok(!v.ok && /ya no está pendiente de pago/.test(v.mensaje), estado);
+  }
+});
+
+test('checkout de la alumna: sin poder leer la penalización no se abre sesión (503), y lo que no es de una penalización pasa', () => {
+  for (const lectura of [undefined, { ok: false } as const]) {
+    const v = cobroManualDeRecibo(RECIBO_PEN, lectura, 'checkout_alumna');
+    assert.ok(!v.ok);
+    if (!v.ok) {
+      assert.equal(v.http, 503);
+      assert.match(v.mensaje, /no se te ha cobrado nada/);
+    }
+  }
+  for (const estado of [null, 'OTRO']) {
+    assert.equal(cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }, 'checkout_alumna').ok, false, String(estado));
+  }
+  // Un `rec-penaliz-` sin id: la lectura del servidor sale `estado: null` (no hay
+  // penalización que buscar), y no se cuela como recibo normal.
+  assert.equal(cobroManualDeRecibo(PREFIJO_RECIBO_PENALIZACION, { ok: true, estado: null }, 'checkout_alumna').ok, false);
+  assert.equal(cobroManualDeRecibo(PREFIJO_RECIBO_PENALIZACION, undefined, 'checkout_alumna').ok, false);
+  assert.deepEqual(cobroManualDeRecibo('rec-renov-sus-1-2026-09', { ok: false }, 'checkout_alumna'), { ok: true });
+});
+
+test('el contexto por defecto sigue siendo el del estudio: una FALLIDA no se cobra desde Cobros', () => {
+  assert.equal(cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado: 'FALLIDA' }).ok, false);
+  assert.equal(cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado: 'FALLIDA' }, 'panel').ok, false);
+});
+
+function sinComentarios(fuente: string): string {
+  return fuente.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
+
+test('⚠️ el checkout comprueba la penalización antes de reutilizar o crear una sesión de Stripe', () => {
+  const fuente = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/stripe/checkout/route.ts'), 'utf8'));
+  const cobrable = fuente.indexOf('esReciboCobrable(');
+  const guardia = fuente.indexOf('await bloqueoCobroManualDePenalizacion(admin,', cobrable);
+  const salida = fuente.indexOf('if (penalizacionNoPagable) {', guardia);
+  const respuesta = fuente.indexOf('{ status: penalizacionNoPagable.http }', salida);
+  const reutilizar = fuente.indexOf('stripe.checkout.sessions.retrieve(');
+  const crear = fuente.indexOf('stripe.checkout.sessions.create(');
+  assert.ok(cobrable > 0 && guardia > cobrable && salida > guardia && respuesta > salida, 'recibo cobrable → guardia → return');
+  assert.ok(reutilizar > respuesta && crear > respuesta, 'la guardia va antes de tocar Stripe');
+  assert.match(fuente.slice(guardia, salida), /contexto: 'checkout_alumna'/);
+});
+
+test('⚠️ el checkout no devuelve la URL si guardar la sesión no tocó el recibo: la expira', () => {
+  const fuente = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/stripe/checkout/route.ts'), 'utf8'));
+  const desde = fuente.indexOf('.update({ checkout_session_id: session.id })');
+  const url = fuente.indexOf('NextResponse.json({ url: session.url })', desde);
+  assert.ok(desde > 0 && url > desde);
+  const bloque = fuente.slice(desde, url);
+  assert.match(bloque, /\.select\('id'\)/, 'sin `select` no se sabe cuántas filas tocó');
+  assert.match(bloque, /const reciboDesaparecido = !errGuardar && \(guardadas\?\.length \?\? 0\) === 0;/);
+  assert.match(bloque, /if \(errGuardar \|\| reciboDesaparecido\) \{/);
+  assert.match(bloque, /sessions\.expire\(session\.id, undefined, \{\s*stripeAccount: studio\.stripe_account_id,\s*idempotencyKey: `checkout-expirar-\$\{session\.id\}`/);
+  assert.match(bloque, /catch \(errExpirar\) \{\s*Sentry\.captureException\(/);
+  assert.match(bloque, /return conCorsWidget\(req, reciboDesaparecido/);
+});
+
+test('⚠️ el ejecutor del Decision OS pasa el recibo de una penalización por el guardia, en su propio step, antes de cobrar', () => {
+  const fuente = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'lib/inngest/decision.ts'), 'utf8'));
+  const bucle = fuente.indexOf('for (const info of recibosInfo) {');
+  const esPenalizacion = fuente.indexOf('if (!cobroManualDeRecibo(info.id).ok) {', bucle);
+  const step = fuente.indexOf('await step.run(`guardia-penalizacion-${info.id}`, () =>', esPenalizacion);
+  const guardia = fuente.indexOf('bloqueoCobroManualDePenalizacion(requireSupabaseAdmin(), { studioId: recomendacion.studioId, reciboId: info.id })', step);
+  const salta = fuente.indexOf('if (bloqueo) { detalles.push(`${info.id}: ${bloqueo.mensaje}`); continue; }', guardia);
+  const cobro = fuente.indexOf('await step.run(`cobrar-${info.id}`, () =>', salta);
+  assert.ok(bucle > 0 && esPenalizacion > bucle && step > esPenalizacion && guardia > step && salta > guardia && cobro > salta,
+    'bucle → ¿penalización? → step de guardia → saltar con motivo → cobrar');
+  // El step de cobro no cambia de id: lo nuevo es un step aparte.
+  assert.equal(fuente.split('step.run(`cobrar-${info.id}`').length - 1, 1);
 });

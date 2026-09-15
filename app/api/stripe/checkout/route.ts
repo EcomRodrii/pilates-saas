@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
@@ -191,6 +193,18 @@ export async function POST(req: NextRequest) {
     // deuda tiene que poder pagarse.
     if (!esReciboCobrable(recibo as Parameters<typeof esReciboCobrable>[0])) {
       return conCorsWidget(req, NextResponse.json({ error: 'Este recibo ya no está pendiente de cobro' }, { status: 409 }));
+    }
+    // El recibo de una penalización (`rec-penaliz-*`) solo se paga con el cobro
+    // decidido (RECIBO_CREADO) o con la penalización FALLIDA, que es deuda de la
+    // alumna. Si no, se pagaba una PENDIENTE_APROBACION saltándose la aprobación y
+    // el guardia de consentimiento, o una que se decidió no cobrar. Sin poder leer
+    // la penalización, no se abre sesión (503). Va ANTES de reutilizar una sesión
+    // abierta: una sesión vieja tampoco puede servir de puerta.
+    const penalizacionNoPagable = await bloqueoCobroManualDePenalizacion(admin, {
+      studioId: body.studioId, reciboId: body.reciboId, contexto: 'checkout_alumna',
+    });
+    if (penalizacionNoPagable) {
+      return conCorsWidget(req, NextResponse.json({ error: penalizacionNoPagable.mensaje }, { status: penalizacionNoPagable.http }));
     }
     importe = Number(recibo.importe);
     concepto = recibo.concepto;
@@ -637,24 +651,44 @@ export async function POST(req: NextRequest) {
     // la siguiente petición crearía otra: exactamente el bug que cierra esto.
     // Regla de la casa: cero escritura optimista en el camino del dinero.
     if (body.reciboId) {
-      const { error: errGuardar } = await admin
+      const { data: guardadas, error: errGuardar } = await admin
         .from('recibos')
         .update({ checkout_session_id: session.id })
         .eq('id', body.reciboId)
-        .eq('studio_id', body.studioId);
-      if (errGuardar) {
-        console.error('[stripe/checkout] no se pudo registrar la sesión', session.id, errGuardar);
-        await stripe.checkout.sessions
-          .expire(session.id, undefined, { stripeAccount: studio.stripe_account_id })
-          .catch(() => { /* si ni siquiera se puede expirar, el aviso de arriba es el rastro */ });
+        .eq('studio_id', body.studioId)
+        .select('id');
+      // Sin error pero sin tocar ninguna fila: el recibo ya no existe (se borró
+      // entre la lectura de arriba y aquí, p. ej. el de una penalización que se
+      // decidió no cobrar). Devolver la URL sería abrir un pago de algo que Tentare
+      // ya no tiene: el dinero entraría sin ningún recibo que marcar.
+      const reciboDesaparecido = !errGuardar && (guardadas?.length ?? 0) === 0;
+      if (errGuardar || reciboDesaparecido) {
+        if (errGuardar) console.error('[stripe/checkout] no se pudo registrar la sesión', session.id, errGuardar);
+        try {
+          await stripe.checkout.sessions.expire(session.id, undefined, {
+            stripeAccount: studio.stripe_account_id,
+            idempotencyKey: `checkout-expirar-${session.id}`,
+          });
+        } catch (errExpirar) {
+          // Queda viva una sesión pagable que Tentare no conoce: que se vea. Solo ids.
+          Sentry.captureException(
+            errExpirar instanceof Error ? errExpirar : new Error('No se pudo expirar la sesión de Checkout'),
+            {
+              tags: { area: 'stripe-checkout' },
+              extra: {
+                sessionId: session.id, reciboId: body.reciboId, studioId: body.studioId,
+                motivo: reciboDesaparecido ? 'recibo_desaparecido' : 'no_se_pudo_registrar',
+              },
+            },
+          );
+        }
         // La compra no sigue adelante: la plaza de matrícula gratis vuelve.
         if (cupoMatriculaReservado) {
           await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
         }
-        return conCorsWidget(req, NextResponse.json(
-          { error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' },
-          { status: 500 },
-        ));
+        return conCorsWidget(req, reciboDesaparecido
+          ? NextResponse.json({ error: 'Este recibo ya no está pendiente de cobro' }, { status: 409 })
+          : NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' }, { status: 500 }));
       }
     }
 

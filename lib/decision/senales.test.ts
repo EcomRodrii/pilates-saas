@@ -5,7 +5,7 @@ import type { SnapshotEstudio } from './tipos.ts';
 import {
   construirIndices, frecuenciaHabitual, frecuenciaHabitualPorTipoClase, diasSinVenir, umbralAnomalo, ausenciaAnomala,
   renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, riesgoNoShowDeSocio,
-  pagosEnRiesgo, agruparFranjasRecurrentes, demandaInsatisfecha, intentosFallidosRecientes,
+  pagosEnRiesgo, impagosManualesPorSocio, agruparFranjasRecurrentes, demandaInsatisfecha, intentosFallidosRecientes,
   variacionOcupacionFranja, claveFranjaDe, franjaLocalDe, type FranjaRecurrente,
 } from './senales.ts';
 
@@ -237,6 +237,33 @@ test('pagosEnRiesgo: particiona por tarjeta guardada', () => {
   const { conTarjeta, sinTarjeta } = pagosEnRiesgo(idx, NOW);
   assert.equal(conTarjeta.length, 1);
   assert.equal(sinTarjeta.length, 1);
+});
+
+test('⚠️ pagosEnRiesgo: el recibo de una penalización no cuenta, ni con tarjeta ni sin ella', () => {
+  const socios = [
+    socio({ id: 'conTarjeta', stripeCustomerId: 'cus_1', stripePaymentMethodId: 'pm_1' }),
+    socio({ id: 'sinTarjeta' }),
+  ];
+  // Nace vencido hoy (lib/inngest/penalizaciones.ts): justo dentro de la ventana.
+  const recibos = [
+    recibo({ id: 'rec-penaliz-pen-1', estado: 'PENDIENTE', socioId: 'conTarjeta', fechaVencimiento: diasAntes(0) }),
+    recibo({ id: 'rec-penaliz-pen-2', estado: 'PENDIENTE', socioId: 'sinTarjeta', fechaVencimiento: diasAntes(0) }),
+    recibo({ id: 'rec-cuota', estado: 'PENDIENTE', socioId: 'conTarjeta', fechaVencimiento: diasAntes(2) }),
+  ];
+  const idx = construirIndices(snapshot({ socios, recibos }));
+  const { conTarjeta, sinTarjeta } = pagosEnRiesgo(idx, NOW);
+  assert.deepEqual(conTarjeta.map(r => r.id), ['rec-cuota']);
+  assert.deepEqual(sinTarjeta.map(r => r.id), []);
+});
+
+test('⚠️ impagosManualesPorSocio: el recibo de una penalización no se reclama', () => {
+  const socios = [socio({ id: 'sinTarjeta' })];
+  const recibos = [
+    recibo({ id: 'rec-penaliz-pen-1', estado: 'PENDIENTE', socioId: 'sinTarjeta', fechaVencimiento: diasAntes(3) }),
+    recibo({ id: 'rec-cuota', estado: 'PENDIENTE', socioId: 'sinTarjeta', fechaVencimiento: diasAntes(3) }),
+  ];
+  const idx = construirIndices(snapshot({ socios, recibos }));
+  assert.deepEqual((impagosManualesPorSocio(idx, NOW).get('sinTarjeta') ?? []).map(r => r.id), ['rec-cuota']);
 });
 
 test('pagosEnRiesgo: fuera de la ventana de días no cuenta', () => {
