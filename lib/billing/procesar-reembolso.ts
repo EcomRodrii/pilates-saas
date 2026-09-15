@@ -333,6 +333,25 @@ export async function procesarDisputeClosed(
 
   let huboEfecto = false;
   if (p.disputeStatus === 'lost') {
+    // Gemelo de H-2 en `procesarReembolsoDeUnRecibo`: un contracargo perdido
+    // sobre el recibo de una penalización también la saca de COBRADA y avisa
+    // a la nómina. Faltaba aquí — la penalización seguía imputándose a la
+    // instructora con el dinero ya fuera.
+    //
+    // ⚠️ SIEMPRE que se pierde, no solo cuando el flip a DEVUELTO toca fila
+    // (a diferencia del reembolso). El «Marcar devuelto» manual del panel pasa
+    // el recibo a DEVUELTO sin llamar al helper, y si después llega `lost` el
+    // `.neq` no casa: gateado por la transición, la penalización se quedaba
+    // COBRADA para siempre. Repetirlo es seguro: el helper hace
+    // compare-and-set desde COBRADA y solo toca la liquidación si transiciona.
+    // Best-effort, fuera de `ok`/`huboEfecto`: el dinero ya salió.
+    try {
+      const { marcarPenalizacionReembolsada } = await import('../equipo/liquidacion-penalizacion-revertida.ts');
+      await marcarPenalizacionReembolsada(admin, p.studioId, p.reciboId, 'disputa');
+    } catch (e) {
+      console.error(`[${p.fuente}] disputa perdida: no se pudo comprobar si el recibo era de una penalización`, p.reciboId, e instanceof Error ? e.message : e);
+    }
+
     // ⚠️ `charge_refunded` = el estudio reembolsó DURANTE la disputa. Ese
     // dinero ya lo anota `charge.refunded`/`procesarChargeRefunded` con la
     // misma referencia (`chargeId:acumulado`), así que `registrarDevolucion`

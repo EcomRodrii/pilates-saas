@@ -80,12 +80,13 @@ function fakeAdmin(opts: { reciboYaDevuelto?: boolean; devolucionYaExistia?: boo
     from(tabla: string) {
       let updated: boolean | 'insert' = false;
       let selectedAfterUpdate = false;
+      let filaUpdate: Fila | null = null;
       const c = {
         select() { if (updated) selectedAfterUpdate = true; return c; },
         eq() { return c; },
         neq() { return c; },
         insert(fila: Fila) { inserts.push({ tabla, fila }); updated = 'insert'; return c; },
-        update(fila: Fila) { updates.push({ tabla, fila }); updated = true; return c; },
+        update(fila: Fila) { updates.push({ tabla, fila }); updated = true; filaUpdate = fila; return c; },
         maybeSingle() {
           if (tabla === 'recibos' && !updated) {
             // Snapshot que lee `registrarDevolucion` antes de anotar.
@@ -112,9 +113,13 @@ function fakeAdmin(opts: { reciboYaDevuelto?: boolean; devolucionYaExistia?: boo
         // que un test pueda distinguir "escribió" de "no escribió nada"
         // (auditoría 22ª pasada; antes el fake devolvía siempre `{error:null}`
         // y cualquier éxito falso pasaba en verde).
+        // `reciboYaDevuelto` también aquí, pero solo para el flip a DEVUELTO:
+        // el guardia `.neq('estado','DEVUELTO')` descarta esa fila, no el
+        // sellado de `disputa_estado` que va antes.
         then(res: (v: { data: Fila[] | null; error: null }) => unknown) {
+          const flipYaAplicado = opts.reciboYaDevuelto && filaUpdate?.estado === 'DEVUELTO';
           const data = selectedAfterUpdate
-            ? (opts.reciboInexistente ? [] : [{ id: RECIBO.id }])
+            ? (opts.reciboInexistente || flipYaAplicado ? [] : [{ id: RECIBO.id }])
             : null;
           return Promise.resolve({ data, error: null }).then(res);
         },
@@ -224,6 +229,43 @@ test('disputa GANADA: solo sella el estado, nunca toca recibos.estado', async ()
   assert.equal(r.huboEfecto, false, 'ganar la disputa no mueve dinero');
   assert.equal(updates.some(u => u.tabla === 'recibos' && u.fila.estado === 'DEVUELTO'), false);
   assert.equal(inserts.filter(i => i.tabla === 'devoluciones').length, 0);
+});
+
+// Gemelo de H-2 (44ª pasada) en el camino de disputa: perder una disputa sobre
+// el recibo de una penalización tiene que sacarla de COBRADA, o la liquidación
+// de la instructora la sigue imputando con el dinero ya fuera.
+test('disputa PERDIDA: intenta revertir la penalización del recibo aunque ya estuviera DEVUELTO', async () => {
+  // `reciboYaDevuelto`: el «Marcar devuelto» manual del panel se adelantó y el
+  // flip no casa. Guardián por mutación: si la llamada al helper se condiciona
+  // a que el flip toque fila, este test vuelve a fallar.
+  const { admin, updates } = fakeAdmin({ reciboYaDevuelto: true });
+  const r = await procesarDisputeClosed(admin, {
+    studioId: 'studio-1', reciboId: 'rec-penaliz-pen-1', disputeStatus: 'lost', disputeId: 'du_1',
+    chargeId: 'ch_1', amount: 1000, fuente: 'webhook',
+  });
+  assert.equal(r.ok, true);
+  const pen = updates.find(u => u.tabla === 'penalizaciones');
+  assert.ok(pen, 'debe intentar el compare-and-set de la penalización');
+  assert.equal(pen.fila.estado, 'REEMBOLSADA');
+});
+
+test('disputa GANADA: no toca la penalización', async () => {
+  const { admin, updates } = fakeAdmin();
+  await procesarDisputeClosed(admin, {
+    studioId: 'studio-1', reciboId: 'rec-penaliz-pen-1', disputeStatus: 'won', disputeId: 'du_1',
+    chargeId: 'ch_1', amount: 1000, fuente: 'webhook',
+  });
+  assert.equal(updates.some(u => u.tabla === 'penalizaciones'), false, 'ganar la disputa no mueve dinero');
+});
+
+test('disputa PERDIDA: si el cierre no se pudo escribir, no toca la penalización', async () => {
+  const { admin, updates } = fakeAdmin({ reciboInexistente: true });
+  const r = await procesarDisputeClosed(admin, {
+    studioId: 'studio-1', reciboId: 'rec-de-otro-estudio', disputeStatus: 'lost', disputeId: 'du_1',
+    chargeId: 'ch_1', amount: 1000, fuente: 'webhook',
+  });
+  assert.equal(r.ok, false);
+  assert.equal(updates.some(u => u.tabla === 'penalizaciones'), false);
 });
 
 test('ORIGENES_CON_RECIBO sigue siendo la lista compartida (webhook y cron no pueden divergir)', () => {
