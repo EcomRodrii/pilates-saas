@@ -189,6 +189,44 @@ export async function emitirPlazaFijaNoMaterializada(
   }
 }
 
+// Plaza fija desde la app: una petición (de la alumna, o la vuelta de una pausa
+// que no pudo volver sola) avisa al mostrador. Una por petición: la dedupKey es
+// la solicitud, así que un doble toque no manda dos.
+export async function emitirPeticionPlazaFija(
+  admin: SupabaseClient, p: { studioId: string; solicitudId: string; socioId: string; peticion: string },
+): Promise<void> {
+  try {
+    const { data: socio } = await admin.from('socios').select('nombre, apellidos')
+      .eq('id', p.socioId).eq('studio_id', p.studioId).maybeSingle();
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    await publish({
+      type: EVENTOS.PLAZA_FIJA_PETICION, studioId: p.studioId,
+      data: { socioId: p.socioId, socia, peticion: p.peticion },
+      resource: { type: 'socio', id: p.socioId },
+      dedupKey: `plaza-fija-peticion:${p.solicitudId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPeticionPlazaFija:', e instanceof Error ? e.message : e);
+  }
+}
+
+// …y la respuesta del estudio, a la alumna: la frase entera, con su motivo si lo hay.
+export async function emitirRespuestaPlazaFija(
+  admin: SupabaseClient, p: { studioId: string; solicitudId: string; socioId: string; respuesta: string },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.PLAZA_FIJA_RESPUESTA, studioId: p.studioId,
+      data: { socioId: p.socioId, respuesta: p.respuesta, slug: (studio?.slug as string | null) ?? '' },
+      resource: { type: 'socio', id: p.socioId },
+      dedupKey: `plaza-fija-respuesta:${p.solicitudId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRespuestaPlazaFija:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Reserva pendiente de aprobar: avisa al mostrador (propietaria/manager/
 // recepción) de que hace falta decidir antes de que empiece la clase.
 export async function emitirReservaPendienteAprobacion(

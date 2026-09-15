@@ -1,6 +1,6 @@
 'use client';
 
-import { Ban, BellRing, CalendarCheck, CalendarX, ClipboardCheck, Coins, ListOrdered, RotateCcw, Timer, Undo2, Users, type LucideIcon } from 'lucide-react';
+import { Ban, BellRing, CalendarCheck, CalendarX, ClipboardCheck, Coins, ListOrdered, Pause, RotateCcw, Smartphone, Timer, Undo2, Users, type LucideIcon } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { setAvisarAlumnas } from '@/lib/api-client';
 import { hayPenalizacionConfigurada } from '@/lib/configuracion/penalizacion-activa';
@@ -9,7 +9,8 @@ import { resumenContrato, resumenRegla } from '@/lib/configuracion/resumenes';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaInformativa, FilaInterruptor, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import {
-  FormAsistencia, FormCancelarYRecuperar, FormClaseCancelada, FormListaEspera, FormPenalizacion, FormReservar, FormSinCuota,
+  FormAsistencia, FormCancelarYRecuperar, FormClaseCancelada, FormListaEspera, FormPausaPlazaFija, FormPenalizacion,
+  FormPlazaFijaDesdeApp, FormReservar, FormSinCuota,
   useConfirmacionRiesgo, type PropsCajonRegla,
 } from '@/components/configuracion/tab-estudio-reservas';
 
@@ -31,7 +32,7 @@ import {
 
 const CAJONES = [
   'reservar', 'cancelar-y-recuperar', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
-  'si-se-queda-sin-cuota',
+  'si-se-queda-sin-cuota', 'plaza-fija-desde-la-app', 'si-pausa-su-plaza-fija',
 ] as const satisfies readonly TarjetaReglasId[];
 
 const ICONOS: Record<TarjetaReglasId, LucideIcon> = {
@@ -42,6 +43,8 @@ const ICONOS: Record<TarjetaReglasId, LucideIcon> = {
   asistencia: ClipboardCheck,
   'si-cancela-tarde-o-no-viene': Coins,
   'si-se-queda-sin-cuota': CalendarX,
+  'plaza-fija-desde-la-app': Smartphone,
+  'si-pausa-su-plaza-fija': Pause,
 };
 
 export function SeccionReservas({ showToast }: { showToast: (m: string) => void }) {
@@ -119,6 +122,8 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
 
       <GrupoFilas titulo="Plazas fijas">
         {fila('si-se-queda-sin-cuota')}
+        {fila('plaza-fija-desde-la-app')}
+        {fila('si-pausa-su-plaza-fija')}
       </GrupoFilas>
 
       <GrupoFilas titulo="Tentare lo hace así">
@@ -147,6 +152,12 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
       </CajonAjuste>
       <CajonAjuste id="si-se-queda-sin-cuota" abierto={cajon === 'si-se-queda-sin-cuota'} onCerrar={cerrar}>
         <FormSinCuota {...props('si-se-queda-sin-cuota')} />
+      </CajonAjuste>
+      <CajonAjuste id="plaza-fija-desde-la-app" abierto={cajon === 'plaza-fija-desde-la-app'} onCerrar={cerrar}>
+        <FormPlazaFijaDesdeApp {...props('plaza-fija-desde-la-app')} />
+      </CajonAjuste>
+      <CajonAjuste id="si-pausa-su-plaza-fija" abierto={cajon === 'si-pausa-su-plaza-fija'} onCerrar={cerrar}>
+        <FormPausaPlazaFija {...props('si-pausa-su-plaza-fija')} />
       </CajonAjuste>
     </>
   );

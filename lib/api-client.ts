@@ -1019,6 +1019,60 @@ export async function revisarBajaInstructora(
   }
 }
 
+// Peticiones de plaza fija (`/api/plazas-fijas/solicitudes`). Misma forma que
+// devuelve `listarPeticionesPlazaFija` en el servidor.
+export interface PeticionPlazaFija {
+  id: string;
+  tipo: 'CREAR' | 'PAUSAR' | 'REANUDAR';
+  socioId: string;
+  socia: string;
+  franja: string;
+  superaLimite: boolean;
+  desde: string | null;
+  hasta: string | null;
+  motivoSistema: 'SIN_CUPO' | 'SITIO_OCUPADO' | 'SIN_CUOTA' | 'SUPERA_LIMITE' | 'PREGUNTAR' | null;
+  creadaEn: string;
+}
+
+// Sin dar por hecha la forma: esto se pinta dentro de la bandeja de la home.
+export async function listarPeticionesPlazaFija(): Promise<PeticionPlazaFija[]> {
+  try {
+    const res = await fetch('/api/plazas-fijas/solicitudes', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const d = await res.json().catch(() => null) as { peticiones?: unknown } | null;
+    if (!Array.isArray(d?.peticiones)) return [];
+    return (d.peticiones as Array<Partial<PeticionPlazaFija> | null>).filter((p): p is PeticionPlazaFija =>
+      !!p && typeof p.id === 'string' && typeof p.socia === 'string' && typeof p.franja === 'string'
+      && (p.tipo === 'CREAR' || p.tipo === 'PAUSAR' || p.tipo === 'REANUDAR'));
+  } catch {
+    return [];
+  }
+}
+
+// El servidor solo resuelve desde PENDIENTE: un 409 sin código es que otra persona
+// ya la decidió; con `SUPERA_LIMITE`, que ahora pasaría del límite de su cuota.
+export async function resolverPeticionPlazaFija(
+  id: string, aprobar: boolean, motivo: string, confirmarLimite = false,
+): Promise<{ ok: true; mensaje: string } | { error: string; status: number; codigo?: 'SUPERA_LIMITE' }> {
+  try {
+    const res = await fetch('/api/plazas-fijas/solicitudes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id, aprobar, motivo: motivo.trim() || null, confirmarLimite }),
+    });
+    const data = await res.json().catch(() => ({})) as { error?: string; codigo?: string; mensaje?: string };
+    if (!res.ok) {
+      return {
+        error: mensajeSeguro(data.error, mensajeHttp(res.status)), status: res.status,
+        codigo: data.codigo === 'SUPERA_LIMITE' ? 'SUPERA_LIMITE' : undefined,
+      };
+    }
+    return { ok: true, mensaje: typeof data.mensaje === 'string' ? data.mensaje : 'Hecho' };
+  } catch {
+    return { error: 'Sin conexión: no se ha guardado. Inténtalo de nuevo.', status: 0 };
+  }
+}
+
 // Aprobar o rechazar una reserva pendiente de aprobación. Devuelve la respuesta
 // cruda (`status: 0` = sin red): qué decir y si la fila sobra lo decide
 // `resultadoDecisionReserva`, la misma traducción para la bandeja de Inicio y

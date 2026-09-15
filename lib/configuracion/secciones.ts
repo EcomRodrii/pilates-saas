@@ -130,6 +130,8 @@ export const SECCIONES = [
       { id: 'asistencia', titulo: 'Asistencia', frase: 'Si pasas lista en cada clase y si pides confirmación a quien suele faltar.', guardado: 'barra', palabras: ['pasar lista', 'check-in', 'qr'] },
       { id: 'si-cancela-tarde-o-no-viene', titulo: 'Si cancela tarde o no viene', frase: 'Un cargo fijo a su tarjeta guardada, si tiene una, cuando cancela tarde o no viene sin avisar.', guardado: 'barra', palabras: ['penalización', 'cargo', 'falta sin avisar'] },
       { id: 'si-se-queda-sin-cuota', titulo: 'Si se queda sin cuota', frase: 'Qué pasa con las clases de su plaza fija cuando su cuota se cancela, se pausa o no se renueva.', guardado: 'barra', palabras: ['plaza fija', 'clases fijas', 'cuota', 'baja', 'impago', 'pausa'] },
+      { id: 'plaza-fija-desde-la-app', titulo: 'Peticiones desde su app', frase: 'Si tus alumnas pueden pedir una plaza fija o una pausa desde su app, para que lo apruebes tú.', guardado: 'barra', palabras: ['plaza fija', 'pausa', 'app', 'autoservicio', 'pedir'] },
+      { id: 'si-pausa-su-plaza-fija', titulo: 'Si pausa su plaza fija', frase: 'Si durante una pausa su sitio queda libre para otra alumna, y qué pasa al terminar.', guardado: 'barra', palabras: ['plaza fija', 'pausa', 'vacaciones', 'sitio', 'volver'] },
       { id: 'ajuste-avisar-alumnas', titulo: 'Avisos a las alumnas', frase: 'Si por una baja una clase cambia de instructora, se mueve o se cancela, avisa a sus alumnas por email y en su app.', guardado: 'al-pulsar', palabras: ['sustitución', 'cambio de instructora'] },
     ],
   },

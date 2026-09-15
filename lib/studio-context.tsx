@@ -349,10 +349,9 @@ interface StudioContextValue {
   // que sigue usando asignarPlazaFija/quitarPlazaFija de arriba.
   // primeraFecha: la próxima clase de la plaza si ya quedó reservada (el
   // servidor reserva las próximas semanas al crearla).
-  crearPlazaFijaPropia: (sesionId: string) => Promise<{ ok: true; primeraFecha: string | null } | { ok: false; error: string }>;
-  pausarPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
-  reanudarPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
-  darDeBajaPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
+  solicitarPlazaFijaPropia: (sesionId: string) => Promise<ResultadoEscritura>;
+  solicitarPausaPlazaFijaPropia: (plazaId: string, pausa: Pausa) => Promise<ResultadoEscritura>;
+  cancelarPeticionPlazaFijaPropia: (solicitudId: string) => Promise<ResultadoEscritura>;
   recuperaciones: Recuperacion[];
   // F2 (B2.9): excepciones "porque lo digo yo". Toggle: poner (upsert) / quitar (delete).
   socioExcepciones: SocioExcepcion[];
@@ -1784,37 +1783,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     };
   }
 
-  // Feature #2 (ficha Lorari-vs-Tentare): autoservicio de plaza fija desde el
-  // portal. Solo tiene efecto con sesión de socia — sin `cpub` no hay a quién
-  // atribuírsela, así que se rechaza en vez de intentar algo con studioId
-  // vacío (mismo guard que el resto de escrituras públicas de este contexto).
-  async function crearPlazaFijaPropia(
-    sesionId: string,
-  ): Promise<{ ok: true; primeraFecha: string | null } | { ok: false; error: string }> {
+  // Plaza fija desde la app: la alumna PIDE y el estudio decide; hasta que
+  // aprueba no cambia nada, así que aquí no hay nada optimista que pintar.
+  // Solo con sesión de socia — sin `cpub` no hay a quién atribuírsela, así que se
+  // rechaza en vez de intentar algo con studioId vacío (mismo guard que el resto
+  // de escrituras públicas de este contexto).
+  async function pedirPlazaFija(cuerpo: Record<string, unknown>): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (!cpub) return { ok: false, error: 'No disponible' };
-    const r = await postPublico('/api/public/plaza-fija', { accion: 'crear', studioId: cpub.studioId, sesionId });
-    if (!r.ok) return r;
-    // El servidor reserva ya las próximas semanas con el mismo motor que cada
-    // noche; `primeraFecha` es la próxima clase si quedó reservada.
-    const datos = r.datos as { primeraFecha?: string | null } | null;
-    return { ok: true, primeraFecha: datos?.primeraFecha ?? null };
-  }
-
-  async function cambiarEstadoPlazaFijaPropia(id: string, accion: 'pausar' | 'reanudar' | 'dar_de_baja'): Promise<ResultadoEscritura> {
-    const cpub = ctxPublico();
-    if (!cpub) return { ok: false, error: 'No disponible' };
-    // Optimista: la propia socia ya sabe qué acaba de pulsar. `postPublico`
-    // re-sincroniza en su `finally`, así que un rechazo (p.ej. choque de sitio
-    // al reanudar) se corrige solo.
-    const estadoNuevo = accion === 'pausar' ? 'PAUSADA' : accion === 'reanudar' ? 'ACTIVA' : 'BAJA';
-    setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, estado: estadoNuevo as PlazaFija['estado'] } : p));
-    const r = await postPublico('/api/public/plaza-fija', { accion, studioId: cpub.studioId, plazaId: id });
+    const r = await postPublico('/api/public/plaza-fija', { ...cuerpo, studioId: cpub.studioId });
     return r.ok ? { ok: true } : r;
   }
-  const pausarPlazaFijaPropia = (id: string) => cambiarEstadoPlazaFijaPropia(id, 'pausar');
-  const reanudarPlazaFijaPropia = (id: string) => cambiarEstadoPlazaFijaPropia(id, 'reanudar');
-  const darDeBajaPlazaFijaPropia = (id: string) => cambiarEstadoPlazaFijaPropia(id, 'dar_de_baja');
+  const solicitarPlazaFijaPropia = (sesionId: string) => pedirPlazaFija({ accion: 'solicitar_plaza', sesionId });
+  const solicitarPausaPlazaFijaPropia = (plazaId: string, pausa: Pausa) =>
+    pedirPlazaFija({ accion: 'solicitar_pausa', plazaId, desde: pausa.desde, hasta: pausa.hasta });
+  const cancelarPeticionPlazaFijaPropia = (solicitudId: string) => pedirPlazaFija({ accion: 'cancelar_peticion', solicitudId });
 
   // F2 (B2.3): concede una recuperación (dueña-first). La caducidad y el tope (4)
   // los resuelve la RPC; al crearla, recargamos la lista para reflejar caduca_el.
@@ -5582,10 +5565,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     moverPlazaFija,
     quitarPlazaFija,
     pausarPlazaFija,
-    crearPlazaFijaPropia,
-    pausarPlazaFijaPropia,
-    reanudarPlazaFijaPropia,
-    darDeBajaPlazaFijaPropia,
+    solicitarPlazaFijaPropia,
+    solicitarPausaPlazaFijaPropia,
+    cancelarPeticionPlazaFijaPropia,
     darRecuperacion,
     anularRecuperacion,
     ampliarCaducidades,

@@ -116,6 +116,11 @@ export const EVENTOS = {
   // de RESERVA_CANCELADA: ahí existió una reserva y se deshizo; aquí no llegó
   // a crearse ninguna, así que ese evento mentiría.
   RESERVA_PLAZA_FIJA_NO_MATERIALIZADA: 'reserva.plaza_fija_no_materializada',
+  // Plaza fija desde la app (migr 20260916120000): la alumna PIDE y el estudio
+  // decide. La petición avisa al mostrador —también la vuelta de una pausa que no
+  // pudo volver sola— y la respuesta, a la alumna.
+  PLAZA_FIJA_PETICION: 'plaza_fija.peticion',
+  PLAZA_FIJA_RESPUESTA: 'plaza_fija.respuesta',
   // I-3 (auditoría 19-ago): checkout embebido — el pago se confirmó y el
   // plan ya se entregó, pero la clase concreta que la socia intentaba
   // reservar no se pudo confirmar (aforo lleno/cancelada entre crear el
@@ -307,6 +312,9 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // esta requiere una acción de la propietaria/mostrador antes de que empiece
   // la clase.
   [EVENTOS.RESERVA_PENDIENTE_APROBACION]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'mostrador' },
+  // MEDIA: ninguna caduca en horas (una reserva por aprobar sí, la clase empieza).
+  [EVENTOS.PLAZA_FIJA_PETICION]: { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'mostrador' },
+  [EVENTOS.PLAZA_FIJA_RESPUESTA]: { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // ALTA + PUSH, mismo criterio que RESERVA_PENDIENTE_APROBACION: hay dinero
   // ya cobrado y una clienta que cree tener plaza sin tenerla — el mostrador
   // tiene que resolverlo hoy, no cuando alguien mire el panel por casualidad.
@@ -743,6 +751,29 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Tu plaza fija no se ha reservado esta semana',
     body: 'No hemos podido confirmar tu plaza fija en {clase} del {cuando}.{motivoTexto}',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
+  },
+  // Plaza fija desde la app → mostrador. `{peticion}` llega ya redactada por tipo
+  // (pedir plaza, pedir pausa, la vuelta de una pausa) desde emit.ts.
+  [`${EVENTOS.PLAZA_FIJA_PETICION}#PROPIETARIO`]: {
+    title: 'Plaza fija por decidir',
+    body: '{socia} {peticion}.',
+    deepLink: () => '/dashboard',
+  },
+  [`${EVENTOS.PLAZA_FIJA_PETICION}#MANAGER`]: {
+    title: 'Plaza fija por decidir',
+    body: '{socia} {peticion}.',
+    deepLink: () => '/dashboard',
+  },
+  [`${EVENTOS.PLAZA_FIJA_PETICION}#RECEPCION`]: {
+    title: 'Plaza fija por decidir',
+    body: '{socia} {peticion}.',
+    deepLink: () => '/dashboard',
+  },
+  // …y la respuesta, a la alumna. `{respuesta}` es la frase entera (aprobada o no, con su motivo).
+  [`${EVENTOS.PLAZA_FIJA_RESPUESTA}#SOCIA`]: {
+    title: 'Tu plaza fija',
+    body: '{respuesta}',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}`,
   },
   // Reserva pendiente de aprobar → mostrador (propietaria/manager/recepción)
   [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#PROPIETARIO`]: {

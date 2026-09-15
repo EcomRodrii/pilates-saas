@@ -43,7 +43,7 @@ import { sesionEncajaEnPlaza, normalizarHoraInicio } from '@/lib/plazas-fijas-sl
 import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { estadoPausa, sesionEnPausa, validarPausa, type Pausa } from '@/lib/plazas-fijas-pausa';
 import {
-  decidirVueltaDePausa, fechaLimiteDecidirVuelta, tocaLiberarSitio,
+  decidirVueltaDePausa, fechaLimiteDecidirVuelta, textoMotivoVuelta, tocaLiberarSitio,
   type HuecoParaVolver, type MotivoVueltaPendiente, type PoliticaFinPausa,
 } from '@/lib/plazas-fijas-solicitudes';
 import type { PlazaFija as PlazaFijaServidor } from '@/lib/types';
@@ -391,6 +391,11 @@ function studioPublico(r: RowStudios) {
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? true,
+    // Plaza fija desde la app (migr 20260916120000): la app solo enseña «pedir
+    // plaza fija» o «pedir una pausa» si el estudio lo permite. La puerta de
+    // verdad es `/api/public/plaza-fija`, que con el ajuste apagado da 403.
+    plazaFijaSolicitarDesdeApp: r.plaza_fija_solicitar_desde_app ?? false,
+    plazaFijaPausaDesdeApp: r.plaza_fija_pausa_desde_app ?? false,
     // El portal lo usa para decidir si el botón "Ver mi acceso" abre el pase
     // QR o lleva directo a la reserva (migr 20260809020328). Sin esta línea
     // `studio.requiereCheckinQr` siempre llegaba `undefined` al cliente y el
@@ -1020,7 +1025,7 @@ export async function fetchPublicStudioData(
   }
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes, recupRes] =
+  const [susRes, resRes, recRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes, recupRes, peticionesRes] =
     await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
@@ -1043,6 +1048,11 @@ export async function fetchPublicStudioData(
       // fija (cancelarReservaPublica), pero antes de esto solo se cargaban en
       // el snapshot de staff — la socia nunca los veía en su propio portal.
       admin.from('recuperaciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      // Sus peticiones de plaza fija sin contestar: la app enseña «pendiente» y le
+      // deja anularlas. Solo las que pidió ella; la vuelta de una pausa la decide el estudio.
+      admin.from('solicitudes_plaza_fija')
+        .select('id, tipo, plaza_id, dia_semana, hora_inicio, sala_id, desde_propuesta, hasta_propuesta, creada_en')
+        .eq('studio_id', studioId).eq('socio_id', sid).eq('origen', 'ALUMNA').eq('estado', 'PENDIENTE'),
     ]);
 
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
@@ -1081,6 +1091,11 @@ export async function fetchPublicStudioData(
       favoritos: (favRes.data ?? []).map((r) => mapFavoritoClase(r as RowFavoritosClase)),
       retosApuntados: (retoRes.data ?? []).map((r) => mapRetoParticipacion(r as RowRetoParticipaciones).retoKey),
       recuperaciones: (recupRes.data ?? []).map(mapRecuperacion),
+      peticionesPlazaFija: (peticionesRes.data ?? []).map(p => ({
+        id: p.id, tipo: p.tipo as 'CREAR' | 'PAUSAR', plazaId: p.plaza_id ?? null,
+        diaSemana: p.dia_semana ?? null, horaInicio: p.hora_inicio ?? null, salaId: p.sala_id ?? null,
+        desde: p.desde_propuesta ?? null, hasta: p.hasta_propuesta ?? null, creadaEn: p.creada_en,
+      })),
     },
   };
 }
@@ -3699,21 +3714,6 @@ export async function guardarPlazaFijaStaff(
   );
 }
 
-// App de la alumna: crea su plaza desde la clase que está viendo, desde hoy y sin
-// fin. Mismas reglas que el panel; el límite semanal, sin confirmación.
-export async function crearPlazaFijaPublica(params: {
-  studioId: string; sesionId: string; socioId: string; authUserId: string;
-}): Promise<ResultadoGuardarPlazaFija> {
-  const admin = getSupabaseAdmin();
-  if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
-  if (!socia) return { ok: false, error: 'No autorizado' };
-  return guardarPlazaFijaDesdeSesion(admin, {
-    studioId: params.studioId, socioId: params.socioId,
-    datos: { sesionId: params.sesionId, spotId: null, vigenciaDesde: hoyEnEstudio(), vigenciaHasta: null },
-  }, TEXTOS_PLAZA_FIJA_ALUMNA);
-}
-
 type EstadoPlazaFija = 'ACTIVA' | 'PAUSADA' | 'BAJA';
 type PlazaParaRetirar = Parameters<typeof reservasARetirarDePlaza>[0];
 type ReservaParaRetirar = Parameters<typeof reservasARetirarDePlaza>[2][number];
@@ -3881,6 +3881,16 @@ async function aplicarEstadoPlazaFija(
     return { error: 'No se pudo actualizar la plaza fija' as const };
   }
   if (!data) return { error: 'Plaza fija no encontrada' as const };
+  // Quitada la plaza, lo que se pidiera sobre ella (una pausa, su vuelta) ya no
+  // tiene respuesta posible: sale de la bandeja.
+  if (params.estado === 'BAJA') {
+    const { error: errSolicitudes } = await admin.from('solicitudes_plaza_fija')
+      .update({ estado: 'CADUCADA', resuelta_en: new Date().toISOString() })
+      .eq('studio_id', params.studioId).eq('plaza_id', params.plazaId).eq('estado', 'PENDIENTE');
+    if (errSolicitudes) {
+      capturarExcepcion(new Error(errSolicitudes.message), { tags: { area: 'plazas-fijas' }, extra: { studioId: params.studioId, plazaId: params.plazaId } });
+    }
+  }
   // Reanudar no reserva nada al momento: la materialización de esta noche la
   // recoge, incluidas las clases que se soltaron al pausar.
   if (params.estado === 'ACTIVA') return { ok: true as const, canceladas: [], mantenidas: [], fallidas: 0 };
@@ -3893,20 +3903,6 @@ async function aplicarEstadoPlazaFija(
   } as PlazaParaRetirar;
   const retirada = await retirarReservasFuturasPlazaFija(admin, params.studioId, plaza);
   return { ok: true as const, ...retirada };
-}
-
-async function cambiarEstadoPlazaFijaPublica(params: {
-  studioId: string; socioId: string; authUserId: string; plazaId: string; estado: EstadoPlazaFija;
-}): Promise<ResultadoEstadoPlazaFija> {
-  const admin = getSupabaseAdmin();
-  if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
-  if (!socia) return { error: 'No autorizado' as const };
-  return aplicarEstadoPlazaFija(
-    admin,
-    { studioId: params.studioId, plazaId: params.plazaId, estado: params.estado, socioId: params.socioId },
-    'Ese sitio ya no está libre en ese horario — contacta con el estudio',
-  );
 }
 
 // Panel: la ruta `app/api/plazas-fijas/estado` ya ha comprobado el rol
@@ -4070,14 +4066,21 @@ export async function volverDePausaPlazaFija(
   });
   if (decision.accion === 'IMPOSIBLE') return decision;
   if (decision.accion === 'PREGUNTAR') {
-    const { error } = await admin.from('solicitudes_plaza_fija').insert({
+    const { data: pregunta, error } = await admin.from('solicitudes_plaza_fija').insert({
       studio_id: plaza.studioId, socio_id: plaza.socioId, tipo: 'REANUDAR', origen: 'SISTEMA',
       plaza_id: plaza.id, motivo_sistema: decision.motivo,
-    });
-    // 23505: ya hay una pendiente para esta plaza; es la misma pregunta.
+    }).select('id').single();
+    // 23505: ya hay una pendiente para esta plaza; es la misma pregunta y ya se avisó.
     if (error && error.code !== '23505') {
       capturarExcepcion(new Error(error.message), { tags: { area: 'plazas-fijas' }, extra });
       return { error: 'No se pudo dejar la vuelta pendiente' };
+    }
+    if (pregunta) {
+      const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
+      await emitirPeticionPlazaFija(admin, {
+        studioId: plaza.studioId, solicitudId: pregunta.id, socioId: plaza.socioId,
+        peticion: `acaba su pausa el ${diaMes(plaza.pausaHasta)} y no ha vuelto sola a su plaza fija de ${franjaParaAlumna(plaza.diaSemana, plaza.horaInicio)}: ${textoMotivoVuelta(decision.motivo)}`,
+      });
     }
     return decision;
   }
@@ -4150,12 +4153,310 @@ async function repasarPausasConSitioLibre(admin: SupabaseClient): Promise<void> 
   });
 }
 
-export const pausarPlazaFijaPublica = (params: { studioId: string; socioId: string; authUserId: string; plazaId: string }) =>
-  cambiarEstadoPlazaFijaPublica({ ...params, estado: 'PAUSADA' });
-export const reanudarPlazaFijaPublica = (params: { studioId: string; socioId: string; authUserId: string; plazaId: string }) =>
-  cambiarEstadoPlazaFijaPublica({ ...params, estado: 'ACTIVA' });
-export const darDeBajaPlazaFijaPublica = (params: { studioId: string; socioId: string; authUserId: string; plazaId: string }) =>
-  cambiarEstadoPlazaFijaPublica({ ...params, estado: 'BAJA' });
+
+// ─── Plaza fija desde la app: peticiones que decide el estudio ────────────────
+// (migr 20260916120000). La alumna PIDE —una plaza o una pausa— y nada cambia
+// hasta que el estudio aprueba; cada puerta la abre su ajuste del estudio y, con
+// el ajuste apagado, 403. Pasar del límite semanal no bloquea la petición: se
+// enseña y decide el estudio. La vuelta de una pausa que no pudo volver sola llega
+// como REANUDAR (origen SISTEMA), y rechazarla quita la plaza.
+// Identidad: `socioId` sale siempre del JWT (la ruta), nunca del body.
+
+const DIAS_PLURAL = ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'];
+const DIAS_TITULO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const franjaParaAlumna = (dow: number, hora: string) => `los ${DIAS_PLURAL[dow] ?? ''} a las ${hora.slice(0, 5)}`;
+const diaMes = (ymd: string | null | undefined) => {
+  if (!ymd) return '';
+  const [, m, d] = ymd.split('-');
+  return `${Number(d)}/${Number(m)}`;
+};
+
+export type ResultadoPeticionAlumna = { ok: true; solicitudId: string } | { error: string; status: number };
+
+export async function solicitarPlazaFijaAlumna(
+  admin: SupabaseClient, p: { studioId: string; socioId: string; sesionId: string },
+): Promise<ResultadoPeticionAlumna> {
+  const { data: studio, error: errStudio } = await admin.from('studios')
+    .select('plaza_fija_solicitar_desde_app').eq('id', p.studioId).maybeSingle();
+  if (errStudio) throw new Error(errStudio.message);
+  if (studio?.plaza_fija_solicitar_desde_app !== true) {
+    return { error: 'Tu estudio da las plazas fijas en recepción: pídesela a ellos.', status: 403 };
+  }
+  // Las mismas comprobaciones que dar la plaza: lo que no se le podría dar, no se pide.
+  const v = await validarPlazaFijaDesdeSesion(admin, {
+    studioId: p.studioId, socioId: p.socioId,
+    datos: { sesionId: p.sesionId, spotId: null, vigenciaDesde: hoyEnEstudio(), vigenciaHasta: null },
+  }, TEXTOS_PLAZA_FIJA_ALUMNA);
+  if (!v.ok) return { error: v.error, status: v.error === 'Clase no encontrada' ? 404 : 400 };
+
+  const { data, error } = await admin.from('solicitudes_plaza_fija').insert({
+    studio_id: p.studioId, socio_id: p.socioId, tipo: 'CREAR', sesion_id: p.sesionId,
+    dia_semana: v.dow, hora_inicio: v.horaInicio, sala_id: v.salaId, tipo_clase_id: v.tipoClaseId,
+    supera_limite: !!v.exceso,
+  }).select('id').single();
+  if (error) {
+    if (error.code === '23505') return { error: 'Ya has pedido esta plaza fija: tu estudio te contestará.', status: 409 };
+    throw new Error(error.message);
+  }
+  const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
+  await emitirPeticionPlazaFija(admin, {
+    studioId: p.studioId, solicitudId: data.id, socioId: p.socioId,
+    peticion: `pide plaza fija ${franjaParaAlumna(v.dow, v.horaInicio)}${v.exceso ? `, y pasaría del límite de ${v.exceso.limite} por semana de su cuota` : ''}`,
+  });
+  return { ok: true, solicitudId: data.id };
+}
+
+export async function solicitarPausaPlazaFijaAlumna(
+  admin: SupabaseClient, p: { studioId: string; socioId: string; plazaId: string; desde: string; hasta: string },
+): Promise<ResultadoPeticionAlumna> {
+  const hoy = hoyEnEstudio();
+  const [{ data: studio, error: errStudio }, { data: fila }] = await Promise.all([
+    admin.from('studios').select('plaza_fija_pausa_desde_app').eq('id', p.studioId).maybeSingle(),
+    // La propiedad va en la lectura: nadie pide la pausa de la plaza de otra.
+    admin.from('plazas_fijas').select(COLUMNAS_PLAZA_FIJA)
+      .eq('id', p.plazaId).eq('studio_id', p.studioId).eq('socio_id', p.socioId).maybeSingle(),
+  ]);
+  if (errStudio) throw new Error(errStudio.message);
+  if (studio?.plaza_fija_pausa_desde_app !== true) {
+    return { error: 'Tu estudio gestiona las pausas en recepción: pídesela a ellos.', status: 403 };
+  }
+  if (!fila) return { error: 'Plaza fija no encontrada', status: 404 };
+  const plaza = plazaFijaDeFila(fila as unknown as Record<string, unknown>);
+  if (plaza.estado !== 'ACTIVA') return { error: 'Tu plaza fija ya está en pausa.', status: 400 };
+  if (estadoPausa(plaza, hoy) !== 'sin_pausa') {
+    return { error: 'Tu plaza fija ya tiene una pausa: si quieres cambiarla, habla con tu estudio.', status: 400 };
+  }
+  const motivo = validarPausa(p.desde, p.hasta, hoy);
+  if (motivo) return { error: motivo, status: 400 };
+
+  const { data, error } = await admin.from('solicitudes_plaza_fija').insert({
+    studio_id: p.studioId, socio_id: p.socioId, tipo: 'PAUSAR', plaza_id: plaza.id,
+    desde_propuesta: p.desde, hasta_propuesta: p.hasta,
+  }).select('id').single();
+  if (error) {
+    if (error.code === '23505') return { error: 'Ya has pedido una pausa para esta plaza fija: tu estudio te contestará.', status: 409 };
+    throw new Error(error.message);
+  }
+  const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
+  await emitirPeticionPlazaFija(admin, {
+    studioId: p.studioId, solicitudId: data.id, socioId: p.socioId,
+    peticion: `pide pausar su plaza fija de ${franjaParaAlumna(plaza.diaSemana, plaza.horaInicio)} del ${diaMes(p.desde)} al ${diaMes(p.hasta)}`,
+  });
+  return { ok: true, solicitudId: data.id };
+}
+
+/** Solo las suyas, solo pendientes y solo las que pidió ella (la vuelta de una pausa la decide el estudio). */
+export async function cancelarPeticionPlazaFijaAlumna(
+  admin: SupabaseClient, p: { studioId: string; socioId: string; solicitudId: string },
+): Promise<{ ok: true } | { error: string; status: number }> {
+  const { data, error } = await admin.from('solicitudes_plaza_fija')
+    .update({ estado: 'CANCELADA', resuelta_en: new Date().toISOString() })
+    .eq('id', p.solicitudId).eq('studio_id', p.studioId).eq('socio_id', p.socioId)
+    .eq('origen', 'ALUMNA').eq('estado', 'PENDIENTE')
+    .select('id').maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return { error: 'Esta petición ya no está pendiente: tu estudio ya la ha contestado.', status: 409 };
+  return { ok: true };
+}
+
+export interface PeticionPlazaFijaPanel {
+  id: string;
+  tipo: 'CREAR' | 'PAUSAR' | 'REANUDAR';
+  socioId: string;
+  socia: string;
+  /** «Martes 10:00 · Reformer» */
+  franja: string;
+  superaLimite: boolean;
+  /** PAUSAR: las fechas que pide. REANUDAR: `hasta` es el fin de su pausa. */
+  desde: string | null;
+  hasta: string | null;
+  motivoSistema: MotivoVueltaPendiente | null;
+  creadaEn: string;
+}
+
+type FilaPeticion = {
+  id: string; tipo: PeticionPlazaFijaPanel['tipo']; socio_id: string; plaza_id: string | null;
+  sesion_id: string | null; dia_semana: number | null; hora_inicio: string | null; tipo_clase_id: string | null;
+  supera_limite: boolean; desde_propuesta: string | null; hasta_propuesta: string | null;
+  motivo_sistema: string | null; creada_en: string;
+};
+const COLUMNAS_PETICION = 'id, tipo, socio_id, plaza_id, sesion_id, dia_semana, hora_inicio, tipo_clase_id, supera_limite, desde_propuesta, hasta_propuesta, motivo_sistema, creada_en';
+
+/** Las pendientes del estudio, la más antigua primero. La ruta ya ha comprobado el rol. */
+export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId: string): Promise<PeticionPlazaFijaPanel[]> {
+  const { data, error } = await admin.from('solicitudes_plaza_fija').select(COLUMNAS_PETICION)
+    .eq('studio_id', studioId).eq('estado', 'PENDIENTE').order('creada_en', { ascending: true }).limit(50);
+  if (error) throw new Error(error.message);
+  const filas = (data ?? []) as unknown as FilaPeticion[];
+  if (filas.length === 0) return [];
+
+  const plazaIds = [...new Set(filas.map(f => f.plaza_id).filter((x): x is string => !!x))];
+  const socioIds = [...new Set(filas.map(f => f.socio_id))];
+  const [plazasRes, sociosRes] = await Promise.all([
+    plazaIds.length
+      ? admin.from('plazas_fijas').select(COLUMNAS_PLAZA_FIJA).eq('studio_id', studioId).in('id', plazaIds)
+      : Promise.resolve({ data: [], error: null }),
+    admin.from('socios').select('id, nombre, apellidos').eq('studio_id', studioId).in('id', socioIds),
+  ]);
+  if (plazasRes.error) throw new Error(plazasRes.error.message);
+  if (sociosRes.error) throw new Error(sociosRes.error.message);
+  const plazas = new Map((plazasRes.data ?? []).map(r => {
+    const pf = plazaFijaDeFila(r as unknown as Record<string, unknown>);
+    return [pf.id, pf] as const;
+  }));
+  const tipoIds = [...new Set([
+    ...filas.map(f => f.tipo_clase_id), ...[...plazas.values()].map(pf => pf.tipoClaseId),
+  ].filter((x): x is string => !!x))];
+  const { data: tipos, error: errTipos } = tipoIds.length
+    ? await admin.from('tipos_clase').select('id, nombre').eq('studio_id', studioId).in('id', tipoIds)
+    : { data: [] as { id: string; nombre: string }[], error: null };
+  if (errTipos) throw new Error(errTipos.message);
+  const nombreTipo = new Map((tipos ?? []).map(t => [t.id as string, t.nombre as string]));
+  const nombreSocia = new Map((sociosRes.data ?? []).map(s =>
+    [s.id as string, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Una clienta']));
+
+  return filas.flatMap((f): PeticionPlazaFijaPanel[] => {
+    const plaza = f.plaza_id ? plazas.get(f.plaza_id) : null;
+    // Una pausa o su vuelta sobre una plaza que ya no existe no tiene nada que decidir.
+    if (f.tipo !== 'CREAR' && !plaza) return [];
+    const dow = plaza ? plaza.diaSemana : f.dia_semana ?? 0;
+    const hora = (plaza ? plaza.horaInicio : f.hora_inicio ?? '').slice(0, 5);
+    const tipo = nombreTipo.get((plaza ? plaza.tipoClaseId : f.tipo_clase_id) ?? '');
+    return [{
+      id: f.id, tipo: f.tipo, socioId: f.socio_id, socia: nombreSocia.get(f.socio_id) ?? 'Una clienta',
+      franja: `${DIAS_TITULO[dow] ?? ''} ${hora}${tipo ? ` · ${tipo}` : ''}`,
+      superaLimite: f.supera_limite,
+      desde: f.tipo === 'PAUSAR' ? f.desde_propuesta : null,
+      hasta: f.tipo === 'PAUSAR' ? f.hasta_propuesta : f.tipo === 'REANUDAR' ? plaza?.pausaHasta ?? null : null,
+      motivoSistema: (f.motivo_sistema as MotivoVueltaPendiente | null) ?? null,
+      creadaEn: f.creada_en,
+    }];
+  });
+}
+
+export type ResultadoResolverPeticion =
+  | { ok: true; mensaje: string }
+  | { error: string; status: number; codigo?: 'SUPERA_LIMITE' };
+
+// Aprobar o rechazar una petición. Aprobar reutiliza las mismas puertas que el
+// mostrador (dar la plaza, pausarla, volver de la pausa), así que vuelve a pasar
+// todas sus reglas en el momento de decidir, no en el de pedir. Rechazar la vuelta
+// de una pausa quita la plaza (la pantalla lo pide confirmar).
+export async function resolverPeticionPlazaFija(
+  admin: SupabaseClient,
+  p: { studioId: string; userId: string; solicitudId: string; aprobar: boolean; motivo: string | null; confirmarLimite: boolean },
+): Promise<ResultadoResolverPeticion> {
+  const { data: fila, error } = await admin.from('solicitudes_plaza_fija').select(`${COLUMNAS_PETICION}, estado`)
+    .eq('id', p.solicitudId).eq('studio_id', p.studioId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!fila) return { error: 'Petición no encontrada', status: 404 };
+  const sol = fila as unknown as FilaPeticion & { estado: string };
+  const yaResuelta = { error: 'Esta petición ya está resuelta. Recarga la página.', status: 409 } as const;
+  if (sol.estado !== 'PENDIENTE') return yaResuelta;
+
+  const ahora = () => new Date().toISOString();
+  // Compare-and-set desde PENDIENTE: dos personas decidiendo a la vez no se pisan.
+  const cerrar = async (estado: 'APROBADA' | 'RECHAZADA', extra: Record<string, unknown> = {}) => {
+    const { data, error: errCerrar } = await admin.from('solicitudes_plaza_fija')
+      .update({ estado, resuelta_en: ahora(), resuelta_por: p.userId, ...extra })
+      .eq('id', sol.id).eq('studio_id', p.studioId).eq('estado', 'PENDIENTE')
+      .select('id').maybeSingle();
+    if (errCerrar) throw new Error(errCerrar.message);
+    return !!data;
+  };
+  const responder = async (respuesta: string) => {
+    const { emitirRespuestaPlazaFija } = await import('@/lib/notifications/emit');
+    await emitirRespuestaPlazaFija(admin, { studioId: p.studioId, solicitudId: sol.id, socioId: sol.socio_id, respuesta });
+  };
+  const conMotivo = (frase: string) => (p.motivo ? `${frase}: ${p.motivo}` : `${frase}.`);
+
+  let plaza: PlazaFijaServidor | null = null;
+  if (sol.plaza_id) {
+    const { data: filaPlaza } = await admin.from('plazas_fijas').select(COLUMNAS_PLAZA_FIJA)
+      .eq('id', sol.plaza_id).eq('studio_id', p.studioId).maybeSingle();
+    plaza = filaPlaza ? plazaFijaDeFila(filaPlaza as unknown as Record<string, unknown>) : null;
+    if (!plaza || plaza.estado === 'BAJA') {
+      await admin.from('solicitudes_plaza_fija').update({ estado: 'CADUCADA', resuelta_en: ahora() })
+        .eq('id', sol.id).eq('estado', 'PENDIENTE');
+      return { error: 'Esa plaza fija ya no existe: la petición se ha quitado de la lista.', status: 409 };
+    }
+  }
+  const franja = plaza
+    ? franjaParaAlumna(plaza.diaSemana, plaza.horaInicio)
+    : franjaParaAlumna(sol.dia_semana ?? 0, sol.hora_inicio ?? '');
+
+  if (sol.tipo === 'CREAR') {
+    if (!p.aprobar) {
+      if (!await cerrar('RECHAZADA', { motivo_rechazo: p.motivo })) return yaResuelta;
+      await responder(conMotivo(`Tu estudio no puede darte la plaza fija de ${franja}`));
+      return { ok: true, mensaje: 'Petición rechazada' };
+    }
+    // La plaza es la franja que pidió. Si su clase ya no existe o ha cambiado de
+    // hora, darla desde esa clase le daría OTRA franja.
+    const { data: ses } = sol.sesion_id
+      ? await admin.from('sesiones').select('inicio').eq('id', sol.sesion_id).eq('studio_id', p.studioId).maybeSingle()
+      : { data: null };
+    const franjaActual = ses?.inicio ? franjaLocalDe(ses.inicio as string) : null;
+    const horaActual = franjaActual ? `${String(franjaActual.hora).padStart(2, '0')}:${String(franjaActual.minuto).padStart(2, '0')}:00` : null;
+    if (!franjaActual || franjaActual.dow !== sol.dia_semana || horaActual !== normalizarHoraInicio(sol.hora_inicio ?? '')) {
+      return { error: 'La clase que pidió ya no está en ese horario: dale la plaza desde su ficha o recházala.', status: 409 };
+    }
+    const r = await guardarPlazaFijaStaff(admin, {
+      studioId: p.studioId,
+      datos: {
+        socioId: sol.socio_id, sesionId: sol.sesion_id as string, spotId: null,
+        vigenciaDesde: hoyEnEstudio(), vigenciaHasta: null, confirmarLimite: p.confirmarLimite,
+      },
+    });
+    if (!r.ok) {
+      return 'codigo' in r && r.codigo === 'SUPERA_LIMITE'
+        ? { error: r.error, status: 409, codigo: 'SUPERA_LIMITE' }
+        : { error: r.error, status: 400 };
+    }
+    await cerrar('APROBADA', { resultado_plaza_id: r.plaza.id });
+    await responder(`Tu estudio te ha dado la plaza fija de ${franja}.${r.primeraFecha ? ' Ya tienes reservada la próxima clase.' : ''}`);
+    return { ok: true, mensaje: 'Plaza fija dada' };
+  }
+
+  if (sol.tipo === 'PAUSAR') {
+    if (!p.aprobar) {
+      if (!await cerrar('RECHAZADA', { motivo_rechazo: p.motivo })) return yaResuelta;
+      await responder(conMotivo('Tu estudio no ha aprobado la pausa de tu plaza fija'));
+      return { ok: true, mensaje: 'Petición rechazada' };
+    }
+    const pausa = { desde: sol.desde_propuesta as string, hasta: sol.hasta_propuesta as string };
+    const r = await pausarPlazaFijaStaff(admin, { studioId: p.studioId, plazaId: sol.plaza_id as string, pausa });
+    if ('error' in r) return { error: r.error, status: 400 };
+    await cerrar('APROBADA', { desde_aprobada: pausa.desde, hasta_aprobada: pausa.hasta, resultado_plaza_id: r.plaza.id });
+    await responder(`Tu estudio ha aprobado la pausa de tu plaza fija del ${diaMes(pausa.desde)} al ${diaMes(pausa.hasta)}.`);
+    return { ok: true, mensaje: 'Pausa aprobada' };
+  }
+
+  // REANUDAR
+  if (p.aprobar) {
+    const v = await volverDePausaPlazaFija(admin, plaza as PlazaFijaServidor, { forzar: true });
+    if ('error' in v) return { error: v.error, status: 400 };
+    if (v.accion !== 'VOLVER') {
+      return { error: 'Su sitio lo tiene ahora otra clienta: cámbiale el sitio desde su ficha o quítale la plaza.', status: 409 };
+    }
+    // `volverDePausaPlazaFija` ya la ha dado por aprobada; queda quién lo decidió.
+    await admin.from('solicitudes_plaza_fija').update({ resuelta_por: p.userId }).eq('id', sol.id);
+    await responder(`Tu plaza fija de ${franja} vuelve después de tu pausa.`);
+    return { ok: true, mensaje: 'Vuelve a su plaza fija' };
+  }
+  // Rechazar la vuelta quita la plaza. Primero se reclama la petición (nadie la
+  // aprueba mientras tanto); si quitar la plaza falla, vuelve a quedar pendiente.
+  if (!await cerrar('RECHAZADA', { motivo_rechazo: p.motivo })) return yaResuelta;
+  const baja = await cambiarEstadoPlazaFijaStaff(admin, { studioId: p.studioId, plazaId: sol.plaza_id as string, estado: 'BAJA' });
+  if ('error' in baja) {
+    await admin.from('solicitudes_plaza_fija')
+      .update({ estado: 'PENDIENTE', resuelta_en: null, resuelta_por: null, motivo_rechazo: null })
+      .eq('id', sol.id).eq('estado', 'RECHAZADA');
+    return { error: baja.error, status: 400 };
+  }
+  await responder(conMotivo(`Tu plaza fija de ${franja} no continúa después de tu pausa`));
+  return { ok: true, mensaje: 'Plaza fija quitada' };
+}
 
 // ─── Citas 1:1 auto-reservables (0046) — escrituras/lecturas públicas ─────────
 // Mismo patrón de seguridad que las reservas: service-role + validación de que la

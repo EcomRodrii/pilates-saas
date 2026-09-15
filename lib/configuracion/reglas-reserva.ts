@@ -19,14 +19,14 @@
 //
 // Puro: se prueba con `node --test`. El `import type` desaparece al ejecutarlo.
 
-import type { PoliticaPlazaFijaSinCuota, Studio, TipoClase } from '../types.ts';
+import type { PoliticaFinPausa, PoliticaPlazaFijaSinCuota, Studio, TipoClase } from '../types.ts';
 import { heredaOverride } from '../booking-logic.ts';
 import { frasesPoliticaEstudio } from '../politica-estudio-textos.ts';
 import { listaEsperaDesdeValores, valoresDeListaEspera, type ListaEsperaElegida } from './lista-espera-modo.ts';
 
 export type TarjetaReglasId =
   | 'reservar' | 'cancelar-y-recuperar' | 'si-se-cancela-una-clase' | 'lista-de-espera' | 'asistencia' | 'si-cancela-tarde-o-no-viene'
-  | 'si-se-queda-sin-cuota';
+  | 'si-se-queda-sin-cuota' | 'plaza-fija-desde-la-app' | 'si-pausa-su-plaza-fija';
 
 /** Las columnas de `studios` que guarda esta sección. */
 export interface ReglasReserva {
@@ -51,6 +51,10 @@ export interface ReglasReserva {
   penalizacionAplicaNoShow: boolean;
   penalizacionCobroAutomatico: boolean;
   plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
+  plazaFijaSolicitarDesdeApp: boolean;
+  plazaFijaPausaDesdeApp: boolean;
+  plazaFijaPausaLiberaSitio: boolean;
+  plazaFijaFinPausa: PoliticaFinPausa;
 }
 
 /** En qué tarjeta vive cada columna. Cada columna, en una sola. */
@@ -62,12 +66,14 @@ export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (ke
   asistencia: ['requiereCheckinQr'],
   'si-cancela-tarde-o-no-viene': ['penalizacionImporteEur', 'penalizacionAplicaCancelacionTardia', 'penalizacionAplicaNoShow', 'penalizacionCobroAutomatico'],
   'si-se-queda-sin-cuota': ['plazaFijaSinCuota'],
+  'plaza-fija-desde-la-app': ['plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp'],
+  'si-pausa-su-plaza-fija': ['plazaFijaPausaLiberaSitio', 'plazaFijaFinPausa'],
 };
 
 /** El orden en que se pintan las filas. */
 export const TARJETAS_REGLAS: readonly TarjetaReglasId[] = [
   'reservar', 'cancelar-y-recuperar', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
-  'si-se-queda-sin-cuota',
+  'si-se-queda-sin-cuota', 'plaza-fija-desde-la-app', 'si-pausa-su-plaza-fija',
 ];
 
 /**
@@ -97,6 +103,11 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     penalizacionAplicaNoShow: s?.penalizacionAplicaNoShow ?? true,
     penalizacionCobroAutomatico: s?.penalizacionCobroAutomatico ?? false,
     plazaFijaSinCuota: s?.plazaFijaSinCuota ?? 'MANTENER',
+    // Sin elegir, como hasta ahora: nada desde la app y la pausa conserva su sitio.
+    plazaFijaSolicitarDesdeApp: s?.plazaFijaSolicitarDesdeApp ?? false,
+    plazaFijaPausaDesdeApp: s?.plazaFijaPausaDesdeApp ?? false,
+    plazaFijaPausaLiberaSitio: s?.plazaFijaPausaLiberaSitio ?? false,
+    plazaFijaFinPausa: s?.plazaFijaFinPausa ?? 'RECUPERAR_SI_LIBRE',
   };
 }
 
@@ -239,6 +250,10 @@ function cambiaRegla(tarjeta: TarjetaReglasId, t: TipoConReglas, e: ReglasReserv
     case 'si-se-queda-sin-cuota':
       // Sin override por tipo de clase: va sobre la cuota de la alumna, no sobre la clase.
       return false;
+    case 'plaza-fija-desde-la-app':
+    case 'si-pausa-su-plaza-fija':
+      // Van sobre su plaza fija, no sobre la clase: sin override por tipo.
+      return false;
   }
 }
 
@@ -304,6 +319,18 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
         case 'MANTENER':
           return 'Si una alumna con plaza fija se queda sin cuota, conserva las clases ya reservadas con tus reglas de siempre.';
       }
+    case 'plaza-fija-desde-la-app': {
+      // Las puertas de `/api/public/plaza-fija`: con el ajuste apagado, 403.
+      const puede = [r.plazaFijaSolicitarDesdeApp ? 'una plaza fija' : null, r.plazaFijaPausaDesdeApp ? 'una pausa' : null].filter(Boolean);
+      if (puede.length === 0) return 'Desde su app no piden nada: las plazas fijas y las pausas se dan en recepción.';
+      return `Desde su app pueden pedir ${puede.join(' o ')}. No cambia nada hasta que lo apruebes en Inicio.`;
+    }
+    case 'si-pausa-su-plaza-fija':
+      // Lo que hacen `tocaLiberarSitio` y `decidirVueltaDePausa` (lib/plazas-fijas-solicitudes.ts).
+      if (!r.plazaFijaPausaLiberaSitio) return 'Durante una pausa conserva su plaza y su sitio, y al acabar vuelve sola.';
+      return r.plazaFijaFinPausa === 'PENDIENTE_CONFIRMAR'
+        ? 'Si la pausa dura más de una semana, su sitio queda libre. Una semana antes de acabar te pregunta en Inicio si vuelve.'
+        : 'Si la pausa dura más de una semana, su sitio queda libre. Una semana antes de acabar vuelve sola si su sitio sigue libre y tiene cuota; si no, te pregunta en Inicio.';
   }
 }
 
@@ -325,6 +352,22 @@ export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaS
     titulo: 'Liberar sus clases',
     detalle: 'Se cancelan todas sus reservas futuras de plaza fija, también las de dentro de tu plazo de cancelación, sin penalización. Si hay lista de espera, entra la siguiente.',
   },
+];
+
+// ─── Plaza fija desde su app, y sus pausas ───────────────────────────────────
+//
+// Decisiones del fundador (16-sep): el estudio pone las reglas y Tentare las
+// cumple. Todo apagado de serie, como hasta ahora.
+
+export const EXPLICACION_PLAZA_FIJA_DESDE_APP =
+  'Tus alumnas pueden pedir desde su app una plaza fija en la clase que están viendo, o una pausa de la suya. Te llega un aviso y lo decides en Inicio; hasta que lo apruebas no cambia nada. Si con esa plaza pasaría del límite de clases por semana de su cuota, te lo decimos y decides tú.';
+
+export const EXPLICACION_PAUSA_PLAZA_FIJA =
+  'Vale para las pausas nuevas, las pongas tú o las pida ella; las que ya están puestas siguen como estaban. Las clases de esas fechas se cancelan sin penalización y las que ya pasaron no se tocan.';
+
+export const OPCIONES_FIN_PAUSA: readonly { valor: PoliticaFinPausa; titulo: string; detalle: string }[] = [
+  { valor: 'RECUPERAR_SI_LIBRE', titulo: 'Vuelve sola si puede', detalle: 'Si su sitio sigue libre, tiene cuota y no pasa de su límite por semana. Si no, te pregunta en Inicio.' },
+  { valor: 'PENDIENTE_CONFIRMAR', titulo: 'Preguntarme siempre', detalle: 'Una semana antes de acabar la pausa te pregunta en Inicio si vuelve.' },
 ];
 
 /**

@@ -829,6 +829,21 @@ export function resumenRegla(
           : 'conserva sus clases',
         excepciones,
       ]);
+    case 'plaza-fija-desde-la-app':
+      return unir([
+        r.plazaFijaSolicitarDesdeApp && r.plazaFijaPausaDesdeApp ? 'piden plaza y pausa'
+          : r.plazaFijaSolicitarDesdeApp ? 'piden plaza fija'
+          : r.plazaFijaPausaDesdeApp ? 'piden pausas'
+          : 'solo en recepción',
+        excepciones,
+      ]);
+    case 'si-pausa-su-plaza-fija':
+      return unir([
+        !r.plazaFijaPausaLiberaSitio ? 'conserva su sitio'
+          : r.plazaFijaFinPausa === 'PENDIENTE_CONFIRMAR' ? 'sitio libre, te pregunta'
+          : 'sitio libre, vuelve sola',
+        excepciones,
+      ]);
   }
 }
 

@@ -128,9 +128,9 @@ test('cita 1:1: crear pasa por el gate, cancelar no', () => {
   gateAntesDe('app/api/public/citas/route.ts', ['crearCitaPublica(', "body.accion === 'cancelar'"], { despuesDe: ["body.accion === 'crear'"] });
 });
 
-test('plaza fija: crear y reanudar pasan por el gate antes de escribir', () => {
-  const f = gateAntesDe('app/api/public/plaza-fija/route.ts', ['crearPlazaFijaPublica(', 'await fn(']);
-  assert.ok(f.includes("if (body.accion === 'crear' || body.accion === 'reanudar')"));
+test('plaza fija: pedir una plaza pasa por el gate antes de escribir la petición', () => {
+  const f = gateAntesDe('app/api/public/plaza-fija/route.ts', ['solicitarPlazaFijaAlumna(']);
+  assert.ok(f.includes("if (body.accion === 'solicitar_plaza')"));
 });
 
 test('checkout embebido: el gate va antes de la matrícula, de Stripe y de escribir la ficha', () => {
