@@ -2893,3 +2893,6431 @@ export interface RowSeriesPeriodos {
   omitidas: any;
   creado_en: string;
 }
+
+export interface RowSalesLeads {
+  id: string;
+  email: string;
+  nombre_contacto: string | null;
+  apellido_contacto: string | null;
+  estudio_nombre: string | null;
+  estudio_nombre_legal: string | null;
+  rol: string | null;
+  telefono: string | null;
+  ciudad: string | null;
+  provincia: string | null;
+  pais: string | null;
+  codigo_postal: string | null;
+  direccion: string | null;
+  website: string | null;
+  website_domain: string | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
+  linkedin_url: string | null;
+  software_actual: string | null;
+  numero_empleados: number | null;
+  clientes_aprox: number | null;
+  precio_mensual_aprox: string | null;
+  google_place_id: string | null;
+  phone_normalized: string | null;
+  phone_checked_at: string | null;
+  estado: string;
+  origen: string;
+  source_url: string | null;
+  source_created_at: string | null;
+  discovered_at: string | null;
+  last_verified_at: string | null;
+  email_status: string | null;
+  email_checked_at: string | null;
+  owner_id: string | null;
+  studio_id: string | null;
+  tags: string[] | null;
+  notas: string | null;
+  razon_perdida: string | null;
+  confidence: number | null;
+  creado_en: string;
+  actualizado_en: string;
+  borrado_en: string | null;
+}
+
+export interface RowSalesCampaigns {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  audience_count: number | null;
+  estado: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  scheduled_for: string | null;
+  borrado_en: string | null;
+}
+
+export interface RowSalesCampaignSteps {
+  id: string;
+  campaign_id: string;
+  orden: number;
+  asunto: string | null;
+  cuerpo: string | null;
+  delay_days: number | null;
+  conditions: any | null;
+  enabled: boolean | null;
+  created_at: string;
+}
+
+export interface RowSalesMessages {
+  id: string;
+  lead_id: string;
+  campaign_id: string | null;
+  campaign_step_id: string | null;
+  asunto: string | null;
+  cuerpo: string | null;
+  estado: string;
+  proveedor: string | null;
+  proveedor_id: string | null;
+  enviado_en: string | null;
+  entregado_en: string | null;
+  abierto_en: string | null;
+  respuesta_en: string | null;
+  error: string | null;
+  creado_en: string;
+}
+
+export interface RowSalesSuppressions {
+  id: string;
+  email: string | null;
+  dominio: string | null;
+  telefono: string | null;
+  razon: string;
+  source: string;
+  creado_en: string;
+}
+
+export interface RowSalesTasks {
+  id: string;
+  lead_id: string;
+  tipo: string;
+  asignado_a: string | null;
+  vencimiento: string | null;
+  prioridad: number | null;
+  estado: string;
+  notas: string | null;
+  creado_en: string;
+  actualizado_en: string;
+  borrado_en: string | null;
+}
+
+export interface RowSalesEvents {
+  id: string;
+  lead_id: string | null;
+  tipo: string;
+  actor_id: string | null;
+  detalles: any | null;
+  creado_en: string;
+}
+
+
+export type ReservasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  sesion_id?: string | null | null;
+  socio_id?: string | null | null;
+  estado?: string | null;
+  spot_id?: string | null | null;
+  posicion_espera?: number | null | null;
+  check_in_en?: string | null | null;
+  creado_en?: string | null | null;
+  confirmacion_pedida_en?: string | null | null;
+  confirmado_en?: string | null | null;
+  recordatorio_confirmacion_en?: string | null | null;
+  oferta_expira_en?: string | null | null;
+  valoracion_experiencia?: number | null | null;
+  cancelada_tardia?: boolean | null | null;
+  bono_suscripcion_id?: string | null | null;
+  bono_decidido_en?: string | null | null;
+  bono_consumo_rastreado?: boolean | null | null;
+  cancelada_motivo?: string | null | null;
+}
+
+export type ReservasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  sesion_id?: string | null | null;
+  socio_id?: string | null | null;
+  estado?: string | null;
+  spot_id?: string | null | null;
+  posicion_espera?: number | null | null;
+  check_in_en?: string | null | null;
+  creado_en?: string | null | null;
+  confirmacion_pedida_en?: string | null | null;
+  confirmado_en?: string | null | null;
+  recordatorio_confirmacion_en?: string | null | null;
+  oferta_expira_en?: string | null | null;
+  valoracion_experiencia?: number | null | null;
+  cancelada_tardia?: boolean | null | null;
+  bono_suscripcion_id?: string | null | null;
+  bono_decidido_en?: string | null | null;
+  bono_consumo_rastreado?: boolean | null | null;
+  cancelada_motivo?: string | null | null;
+}
+
+export type AchievementDefinitionsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  metric?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  umbral?: number | null;
+  icono?: string | null;
+  creditos_recompensa?: number | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type AchievementDefinitionsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  metric?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  umbral?: number | null;
+  icono?: string | null;
+  creditos_recompensa?: number | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type AchievementHistoryInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  achievement_id?: string | null | null;
+  nombre?: string | null;
+  icono?: string | null;
+  creado_en?: string | null;
+}
+
+export type AchievementHistoryUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  achievement_id?: string | null | null;
+  nombre?: string | null;
+  icono?: string | null;
+  creado_en?: string | null;
+}
+
+export type AchievementProgressInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  achievement_id?: string | null | null;
+  progreso_actual?: number | null;
+  completado?: boolean | null;
+  completado_en?: string | null | null;
+}
+
+export type AchievementProgressUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  achievement_id?: string | null | null;
+  progreso_actual?: number | null;
+  completado?: boolean | null;
+  completado_en?: string | null | null;
+}
+
+export type ActividadRecienteInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  texto?: string | null;
+  socio_id?: string | null | null;
+  enlace?: string | null | null;
+  creado_en?: string | null | null;
+  actor_nombre?: string | null | null;
+  origen?: string | null | null;
+}
+
+export type ActividadRecienteUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  texto?: string | null;
+  socio_id?: string | null | null;
+  enlace?: string | null | null;
+  creado_en?: string | null | null;
+  actor_nombre?: string | null | null;
+  origen?: string | null | null;
+}
+
+export type AutomationLogsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  rule_id?: string | null | null;
+  rule_name?: string | null | null;
+  socio_id?: string | null | null;
+  socio_nombre?: string | null | null;
+  paso_index?: number | null | null;
+  accion?: string | null | null;
+  resultado?: string | null | null;
+  detalle?: string | null | null;
+  ejecutado_en?: string | null | null;
+  proxima_accion_en?: string | null | null;
+  recibo_id?: string | null | null;
+  automatizacion_id?: string | null | null;
+  mensaje_cliente?: string | null | null;
+}
+
+export type AutomationLogsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  rule_id?: string | null | null;
+  rule_name?: string | null | null;
+  socio_id?: string | null | null;
+  socio_nombre?: string | null | null;
+  paso_index?: number | null | null;
+  accion?: string | null | null;
+  resultado?: string | null | null;
+  detalle?: string | null | null;
+  ejecutado_en?: string | null | null;
+  proxima_accion_en?: string | null | null;
+  recibo_id?: string | null | null;
+  automatizacion_id?: string | null | null;
+  mensaje_cliente?: string | null | null;
+}
+
+export type AutomationRulesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  icono?: string | null | null;
+  trigger?: string | null;
+  condicion?: any | null | null;
+  pasos?: any | null | null;
+  activa?: boolean | null | null;
+  ejecutada_veces?: number | null | null;
+  ultima_ejecucion?: string | null | null;
+  creada_en?: string | null | null;
+}
+
+export type AutomationRulesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  icono?: string | null | null;
+  trigger?: string | null;
+  condicion?: any | null | null;
+  pasos?: any | null | null;
+  activa?: boolean | null | null;
+  ejecutada_veces?: number | null | null;
+  ultima_ejecucion?: string | null | null;
+  creada_en?: string | null | null;
+}
+
+export type AutomatizacionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  trigger?: string | null;
+  accion?: string | null;
+  asunto?: string | null | null;
+  mensaje?: string | null | null;
+  activa?: boolean | null | null;
+  ejecutadas?: number | null | null;
+  creada_en?: string | null | null;
+  pasos?: unknown | null | null;
+}
+
+export type AutomatizacionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  trigger?: string | null;
+  accion?: string | null;
+  asunto?: string | null | null;
+  mensaje?: string | null | null;
+  activa?: boolean | null | null;
+  ejecutadas?: number | null | null;
+  creada_en?: string | null | null;
+  pasos?: unknown | null | null;
+}
+
+export type BackupsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  datos?: any | null;
+  creado_en?: string | null;
+  storage_key?: string | null | null;
+}
+
+export type BackupsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  datos?: any | null;
+  creado_en?: string | null;
+  storage_key?: string | null | null;
+}
+
+export type CampanasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  tipo?: string | null;
+  asunto?: string | null | null;
+  contenido?: string | null | null;
+  estado?: string | null | null;
+  destinatarios?: string | null | null;
+  enviados?: number | null | null;
+  abiertos?: number | null | null;
+  clics?: number | null | null;
+  creada_en?: string | null | null;
+  enviada_en?: string | null | null;
+  programada_en?: string | null | null;
+  objetivo?: string | null | null;
+  presupuesto?: number | null | null;
+  publicaciones?: unknown | null | null;
+}
+
+export type CampanasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  tipo?: string | null;
+  asunto?: string | null | null;
+  contenido?: string | null | null;
+  estado?: string | null | null;
+  destinatarios?: string | null | null;
+  enviados?: number | null | null;
+  abiertos?: number | null | null;
+  clics?: number | null | null;
+  creada_en?: string | null | null;
+  enviada_en?: string | null | null;
+  programada_en?: string | null | null;
+  objetivo?: string | null | null;
+  presupuesto?: number | null | null;
+  publicaciones?: unknown | null | null;
+}
+
+export type ChallengeDefinitionsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  icono?: string | null;
+  metric?: string | null;
+  objetivo?: number | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  creditos_recompensa?: number | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type ChallengeDefinitionsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  icono?: string | null;
+  metric?: string | null;
+  objetivo?: number | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  creditos_recompensa?: number | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type ChallengeHistoryInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  challenge_id?: string | null | null;
+  nombre?: string | null;
+  icono?: string | null;
+  creado_en?: string | null;
+}
+
+export type ChallengeHistoryUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  challenge_id?: string | null | null;
+  nombre?: string | null;
+  icono?: string | null;
+  creado_en?: string | null;
+}
+
+export type ChallengeProgressInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  challenge_id?: string | null | null;
+  progreso_actual?: number | null;
+  completado?: boolean | null;
+  completado_en?: string | null | null;
+}
+
+export type ChallengeProgressUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  challenge_id?: string | null | null;
+  progreso_actual?: number | null;
+  completado?: boolean | null;
+  completado_en?: string | null | null;
+}
+
+export type CitasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  instructor_id?: string | null | null;
+  tipo?: string | null;
+  inicio?: string | null;
+  fin?: string | null;
+  notas?: string | null | null;
+  estado?: string | null;
+  precio?: number | null | null;
+  creado_en?: string | null | null;
+  pagada?: boolean | null | null;
+  servicio_id?: string | null | null;
+}
+
+export type CitasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  instructor_id?: string | null | null;
+  tipo?: string | null;
+  inicio?: string | null;
+  fin?: string | null;
+  notas?: string | null | null;
+  estado?: string | null;
+  precio?: number | null | null;
+  creado_en?: string | null | null;
+  pagada?: boolean | null | null;
+  servicio_id?: string | null | null;
+}
+
+export type CodigosDescuentoInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  codigo?: string | null;
+  descripcion?: string | null | null;
+  tipo?: string | null;
+  valor?: number | null;
+  usos?: number | null | null;
+  usos_max?: number | null | null;
+  expira?: string | null | null;
+  activo?: boolean | null | null;
+  creado_en?: string | null | null;
+  min_importe?: number | null | null;
+  solo_nuevas?: boolean | null | null;
+}
+
+export type CodigosDescuentoUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  codigo?: string | null;
+  descripcion?: string | null | null;
+  tipo?: string | null;
+  valor?: number | null;
+  usos?: number | null | null;
+  usos_max?: number | null | null;
+  expira?: string | null | null;
+  activo?: boolean | null | null;
+  creado_en?: string | null | null;
+  min_importe?: number | null | null;
+  solo_nuevas?: boolean | null | null;
+}
+
+export type CreditTransactionsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  tipo?: string | null;
+  creditos?: number | null;
+  descripcion?: string | null;
+  ref_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type CreditTransactionsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  tipo?: string | null;
+  creditos?: number | null;
+  descripcion?: string | null;
+  ref_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type DashboardChartsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  tipo?: string | null;
+  metrica?: string | null;
+  agrupacion?: string | null;
+  rango?: number | null;
+  color?: string | null;
+  creado_en?: string | null;
+}
+
+export type DashboardChartsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  tipo?: string | null;
+  metrica?: string | null;
+  agrupacion?: string | null;
+  rango?: number | null;
+  color?: string | null;
+  creado_en?: string | null;
+}
+
+export type FacturasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  recibo_id?: string | null | null;
+  numero_completo?: string | null;
+  fecha_emision?: string | null;
+  receptor_nombre?: string | null | null;
+  receptor_nif?: string | null | null;
+  base_imponible?: number | null | null;
+  tipo_iva?: number | null | null;
+  cuota_iva?: number | null | null;
+  total?: number | null | null;
+  verifactu_hash?: string | null | null;
+  verifactu_prev_hash?: string | null | null;
+  verifactu_ts?: string | null | null;
+  verifactu_seq?: number | null | null;
+  fiskaly_invoice_id?: string | null | null;
+  verifactu_qr_url?: string | null | null;
+  verifactu_qr_imagen?: string | null | null;
+  verifactu_estado?: string | null | null;
+  verifactu_csv?: string | null | null;
+  serie?: string | null | null;
+  tipo?: string | null | null;
+  rectifica_a?: string | null | null;
+  tipo_rectificativa?: string | null | null;
+  importe_rectificacion?: number | null | null;
+  venta_pos_id?: string | null | null;
+  concepto?: string | null | null;
+}
+
+export type FacturasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  recibo_id?: string | null | null;
+  numero_completo?: string | null;
+  fecha_emision?: string | null;
+  receptor_nombre?: string | null | null;
+  receptor_nif?: string | null | null;
+  base_imponible?: number | null | null;
+  tipo_iva?: number | null | null;
+  cuota_iva?: number | null | null;
+  total?: number | null | null;
+  verifactu_hash?: string | null | null;
+  verifactu_prev_hash?: string | null | null;
+  verifactu_ts?: string | null | null;
+  verifactu_seq?: number | null | null;
+  fiskaly_invoice_id?: string | null | null;
+  verifactu_qr_url?: string | null | null;
+  verifactu_qr_imagen?: string | null | null;
+  verifactu_estado?: string | null | null;
+  verifactu_csv?: string | null | null;
+  serie?: string | null | null;
+  tipo?: string | null | null;
+  rectifica_a?: string | null | null;
+  tipo_rectificativa?: string | null | null;
+  importe_rectificacion?: number | null | null;
+  venta_pos_id?: string | null | null;
+  concepto?: string | null | null;
+}
+
+export type InstructoresInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  email?: string | null | null;
+  telefono?: string | null | null;
+  color?: string | null | null;
+  activo?: boolean | null | null;
+  rol?: string | null | null;
+  auth_user_id?: string | null | null;
+  avatar?: string | null | null;
+  foto_url?: string | null | null;
+  bio?: string | null | null;
+  tipo_contrato?: string | null | null;
+}
+
+export type InstructoresUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  email?: string | null | null;
+  telefono?: string | null | null;
+  color?: string | null | null;
+  activo?: boolean | null | null;
+  rol?: string | null | null;
+  auth_user_id?: string | null | null;
+  avatar?: string | null | null;
+  foto_url?: string | null | null;
+  bio?: string | null | null;
+  tipo_contrato?: string | null | null;
+}
+
+export type IntegracionCredencialesInsert = {
+  studio_id?: string | null;
+  provider?: string | null;
+  access_token?: string | null | null;
+  refresh_token?: string | null | null;
+  expires_at?: string | null | null;
+  actualizado_en?: string | null | null;
+  metadata?: any | null | null;
+}
+
+export type IntegracionCredencialesUpdate = {
+  studio_id?: string | null;
+  provider?: string | null;
+  access_token?: string | null | null;
+  refresh_token?: string | null | null;
+  expires_at?: string | null | null;
+  actualizado_en?: string | null | null;
+  metadata?: any | null | null;
+}
+
+export type IntegracionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  activo?: boolean | null;
+  config?: any | null;
+  actualizado_en?: string | null;
+  ultimo_ok_en?: string | null | null;
+  ultimo_error?: string | null | null;
+  ultimo_error_en?: string | null | null;
+  phone_number_id?: string | null | null;
+}
+
+export type IntegracionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  activo?: boolean | null;
+  config?: any | null;
+  actualizado_en?: string | null;
+  ultimo_ok_en?: string | null | null;
+  ultimo_error?: string | null | null;
+  ultimo_error_en?: string | null | null;
+  phone_number_id?: string | null | null;
+}
+
+export type LevelDefinitionsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  orden?: number | null;
+  umbral_creditos?: number | null;
+  color?: string | null;
+  icono?: string | null;
+  beneficios?: string | null | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type LevelDefinitionsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  orden?: number | null;
+  umbral_creditos?: number | null;
+  color?: string | null;
+  icono?: string | null;
+  beneficios?: string | null | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type MemberCreditsInsert = {
+  socio_id?: string | null;
+  studio_id?: string | null;
+  saldo?: number | null;
+  total_ganado?: number | null;
+  total_canjeado?: number | null;
+  actualizado_en?: string | null;
+  caduca_el?: string | null | null;
+}
+
+export type MemberCreditsUpdate = {
+  socio_id?: string | null;
+  studio_id?: string | null;
+  saldo?: number | null;
+  total_ganado?: number | null;
+  total_canjeado?: number | null;
+  actualizado_en?: string | null;
+  caduca_el?: string | null | null;
+}
+
+export type MensajesEquipoInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  autor_instructor_id?: string | null | null;
+  autor_nombre?: string | null;
+  texto?: string | null;
+  creado_en?: string | null | null;
+  canal_id?: string | null | null;
+}
+
+export type MensajesEquipoUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  autor_instructor_id?: string | null | null;
+  autor_nombre?: string | null;
+  texto?: string | null;
+  creado_en?: string | null | null;
+  canal_id?: string | null | null;
+}
+
+export type NotasInternasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  texto?: string | null;
+  tipo?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type NotasInternasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  texto?: string | null;
+  tipo?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type NotasProgresoInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  instructor_id?: string | null | null;
+  sesion_id?: string | null | null;
+  texto_libre?: string | null | null;
+  progreso?: string | null | null;
+  alertas?: string | null | null;
+  plan_proxima_sesion?: string | null | null;
+  ejercicios_casa?: string | null | null;
+  creada_en?: string | null | null;
+}
+
+export type NotasProgresoUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  instructor_id?: string | null | null;
+  sesion_id?: string | null | null;
+  texto_libre?: string | null | null;
+  progreso?: string | null | null;
+  alertas?: string | null | null;
+  plan_proxima_sesion?: string | null | null;
+  ejercicios_casa?: string | null | null;
+  creada_en?: string | null | null;
+}
+
+export type NotificacionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  titulo?: string | null;
+  texto?: string | null;
+  leida?: boolean | null | null;
+  tipo?: string | null | null;
+  enlace?: string | null | null;
+  creada_en?: string | null | null;
+}
+
+export type NotificacionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  titulo?: string | null;
+  texto?: string | null;
+  leida?: boolean | null | null;
+  tipo?: string | null | null;
+  enlace?: string | null | null;
+  creada_en?: string | null | null;
+}
+
+export type PlanesTarifaInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  precio?: number | null;
+  tipo?: string | null;
+  sesiones?: number | null | null;
+  activo?: boolean | null | null;
+  validez_dias?: number | null | null;
+  limite_semanal?: number | null | null;
+  oferta_hasta?: string | null | null;
+  periodicidad_meses?: number | null | null;
+  matricula?: number | null | null;
+  matricula_gratis_hasta?: string | null | null;
+  matricula_gratis_cupos?: number | null | null;
+  matricula_gratis_usados?: number | null | null;
+}
+
+export type PlanesTarifaUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  precio?: number | null;
+  tipo?: string | null;
+  sesiones?: number | null | null;
+  activo?: boolean | null | null;
+  validez_dias?: number | null | null;
+  limite_semanal?: number | null | null;
+  oferta_hasta?: string | null | null;
+  periodicidad_meses?: number | null | null;
+  matricula?: number | null | null;
+  matricula_gratis_hasta?: string | null | null;
+  matricula_gratis_cupos?: number | null | null;
+  matricula_gratis_usados?: number | null | null;
+}
+
+export type PostsComunidadInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  autor_id?: string | null | null;
+  autor_nombre?: string | null;
+  autor_inicial?: string | null | null;
+  texto?: string | null;
+  likes?: number | null | null;
+  comentarios_count?: number | null | null;
+  fijado?: boolean | null | null;
+  creado_en?: string | null | null;
+  audiencia?: string | null | null;
+  imagen_url?: string | null | null;
+  tipo?: string | null | null;
+  evento_fecha?: string | null | null;
+  evento_aforo?: number | null | null;
+  evento_lugar?: string | null | null;
+}
+
+export type PostsComunidadUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  autor_id?: string | null | null;
+  autor_nombre?: string | null;
+  autor_inicial?: string | null | null;
+  texto?: string | null;
+  likes?: number | null | null;
+  comentarios_count?: number | null | null;
+  fijado?: boolean | null | null;
+  creado_en?: string | null | null;
+  audiencia?: string | null | null;
+  imagen_url?: string | null | null;
+  tipo?: string | null | null;
+  evento_fecha?: string | null | null;
+  evento_aforo?: number | null | null;
+  evento_lugar?: string | null | null;
+}
+
+export type PreferenciasSocioInsert = {
+  socio_id?: string | null;
+  studio_id?: string | null;
+  disponibilidad?: any | null;
+  instructor_favorito_id?: string | null | null;
+  tipo_clase_favorita?: string | null | null;
+  duracion_preferida?: number | null | null;
+  nivel?: string | null | null;
+  notif_email?: boolean | null;
+  notif_whatsapp?: boolean | null;
+  actualizado_en?: string | null;
+}
+
+export type PreferenciasSocioUpdate = {
+  socio_id?: string | null;
+  studio_id?: string | null;
+  disponibilidad?: any | null;
+  instructor_favorito_id?: string | null | null;
+  tipo_clase_favorita?: string | null | null;
+  duracion_preferida?: number | null | null;
+  nivel?: string | null | null;
+  notif_email?: boolean | null;
+  notif_whatsapp?: boolean | null;
+  actualizado_en?: string | null;
+}
+
+export type ProductosPosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  categoria?: string | null;
+  precio?: number | null;
+  activo?: boolean | null | null;
+  stock?: number | null | null;
+  stock_minimo?: number | null | null;
+  iva_pct?: number | null | null;
+  descripcion?: string | null | null;
+  imagen_url?: string | null | null;
+  sku?: string | null | null;
+  codigo_barras?: string | null | null;
+  orden?: number | null | null;
+}
+
+export type ProductosPosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  categoria?: string | null;
+  precio?: number | null;
+  activo?: boolean | null | null;
+  stock?: number | null | null;
+  stock_minimo?: number | null | null;
+  iva_pct?: number | null | null;
+  descripcion?: string | null | null;
+  imagen_url?: string | null | null;
+  sku?: string | null | null;
+  codigo_barras?: string | null | null;
+  orden?: number | null | null;
+}
+
+export type RecibosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  suscripcion_id?: string | null | null;
+  concepto?: string | null;
+  importe?: number | null;
+  estado?: string | null;
+  fecha_vencimiento?: string | null;
+  fecha_cobro?: string | null | null;
+  fecha_devolucion?: string | null | null;
+  intentos_reintento?: number | null | null;
+  metodo_cobro?: string | null | null;
+  sepa_estado?: string | null | null;
+  proximo_reintento?: string | null | null;
+  disputa_estado?: string | null | null;
+  disputa_stripe_id?: string | null | null;
+  stripe_payment_intent_id?: string | null | null;
+  entrega_tipo?: string | null | null;
+  entrega_aplicada?: boolean | null | null;
+  entrega_aplicada_en?: string | null | null;
+  entrega_sesiones_antes?: number | null | null;
+  entrega_sesiones_despues?: number | null | null;
+  entrega_fecha_fin_antes?: string | null | null;
+  entrega_fecha_fin_despues?: string | null | null;
+  entrega_estado_antes?: string | null | null;
+  importe_devuelto?: number | null | null;
+  reembolso_solicitado_en?: string | null | null;
+  reembolso_stripe_id?: string | null | null;
+  checkout_session_id?: string | null | null;
+  reembolso_fallido_en?: string | null | null;
+  reembolso_fallo_motivo?: string | null | null;
+  conciliado_en?: string | null | null;
+  conciliado_por?: string | null | null;
+  factura_pendiente_sellar?: boolean | null | null;
+  es_renovacion?: boolean | null | null;
+  cobro_mostrador_pi?: string | null | null;
+  terminos_hash?: string | null | null;
+  terminos_aceptados_en?: string | null | null;
+  cobro_mostrador_checkout_session_id?: string | null | null;
+}
+
+export type RecibosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  suscripcion_id?: string | null | null;
+  concepto?: string | null;
+  importe?: number | null;
+  estado?: string | null;
+  fecha_vencimiento?: string | null;
+  fecha_cobro?: string | null | null;
+  fecha_devolucion?: string | null | null;
+  intentos_reintento?: number | null | null;
+  metodo_cobro?: string | null | null;
+  sepa_estado?: string | null | null;
+  proximo_reintento?: string | null | null;
+  disputa_estado?: string | null | null;
+  disputa_stripe_id?: string | null | null;
+  stripe_payment_intent_id?: string | null | null;
+  entrega_tipo?: string | null | null;
+  entrega_aplicada?: boolean | null | null;
+  entrega_aplicada_en?: string | null | null;
+  entrega_sesiones_antes?: number | null | null;
+  entrega_sesiones_despues?: number | null | null;
+  entrega_fecha_fin_antes?: string | null | null;
+  entrega_fecha_fin_despues?: string | null | null;
+  entrega_estado_antes?: string | null | null;
+  importe_devuelto?: number | null | null;
+  reembolso_solicitado_en?: string | null | null;
+  reembolso_stripe_id?: string | null | null;
+  checkout_session_id?: string | null | null;
+  reembolso_fallido_en?: string | null | null;
+  reembolso_fallo_motivo?: string | null | null;
+  conciliado_en?: string | null | null;
+  conciliado_por?: string | null | null;
+  factura_pendiente_sellar?: boolean | null | null;
+  es_renovacion?: boolean | null | null;
+  cobro_mostrador_pi?: string | null | null;
+  terminos_hash?: string | null | null;
+  terminos_aceptados_en?: string | null | null;
+  cobro_mostrador_checkout_session_id?: string | null | null;
+}
+
+export type RewardActionsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  trigger?: string | null;
+  ref_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type RewardActionsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  trigger?: string | null;
+  ref_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type RewardCatalogInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  coste_creditos?: number | null;
+  icono?: string | null;
+  activo?: boolean | null;
+  stock?: number | null | null;
+  creado_en?: string | null;
+  efecto?: string | null | null;
+  limite_por_socia?: number | null | null;
+  disponible_desde?: string | null | null;
+  disponible_hasta?: string | null | null;
+}
+
+export type RewardCatalogUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  coste_creditos?: number | null;
+  icono?: string | null;
+  activo?: boolean | null;
+  stock?: number | null | null;
+  creado_en?: string | null;
+  efecto?: string | null | null;
+  limite_por_socia?: number | null | null;
+  disponible_desde?: string | null | null;
+  disponible_hasta?: string | null | null;
+}
+
+export type RewardHistoryInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  rule_id?: string | null | null;
+  action_id?: string | null | null;
+  creditos?: number | null;
+  descripcion?: string | null;
+  creado_en?: string | null;
+}
+
+export type RewardHistoryUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  rule_id?: string | null | null;
+  action_id?: string | null | null;
+  creditos?: number | null;
+  descripcion?: string | null;
+  creado_en?: string | null;
+}
+
+export type RewardRedemptionsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  catalog_item_id?: string | null | null;
+  creditos_gastados?: number | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  codigo?: string | null | null;
+  entregado_en?: string | null | null;
+  entregado_por?: string | null | null;
+  recuperacion_id?: string | null | null;
+}
+
+export type RewardRedemptionsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  catalog_item_id?: string | null | null;
+  creditos_gastados?: number | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  codigo?: string | null | null;
+  entregado_en?: string | null | null;
+  entregado_por?: string | null | null;
+  recuperacion_id?: string | null | null;
+}
+
+export type RewardRulesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  trigger?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  creditos?: number | null;
+  activa?: boolean | null;
+  creado_en?: string | null;
+  tope_mensual?: number | null | null;
+  unidad_euros?: number | null | null;
+}
+
+export type RewardRulesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  trigger?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  creditos?: number | null;
+  activa?: boolean | null;
+  creado_en?: string | null;
+  tope_mensual?: number | null | null;
+  unidad_euros?: number | null | null;
+}
+
+export type SalasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  capacidad?: number | null;
+  color?: string | null | null;
+  foto_url?: string | null | null;
+}
+
+export type SalasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  capacidad?: number | null;
+  color?: string | null | null;
+  foto_url?: string | null | null;
+}
+
+export type SesionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo_clase_id?: string | null | null;
+  sala_id?: string | null | null;
+  instructor_id?: string | null | null;
+  inicio?: string | null;
+  fin?: string | null;
+  aforo_maximo?: number | null;
+  cancelada?: boolean | null | null;
+  notas?: string | null | null;
+  precio_puntual?: number | null | null;
+  google_event_id?: string | null | null;
+  serie_id?: string | null | null;
+  valoracion_pedida_en?: string | null | null;
+  cancelada_motivo?: string | null | null;
+  incidencia_texto?: string | null | null;
+  zoom_meeting_id?: number | null | null;
+  zoom_join_url?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type SesionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo_clase_id?: string | null | null;
+  sala_id?: string | null | null;
+  instructor_id?: string | null | null;
+  inicio?: string | null;
+  fin?: string | null;
+  aforo_maximo?: number | null;
+  cancelada?: boolean | null | null;
+  notas?: string | null | null;
+  precio_puntual?: number | null | null;
+  google_event_id?: string | null | null;
+  serie_id?: string | null | null;
+  valoracion_pedida_en?: string | null | null;
+  cancelada_motivo?: string | null | null;
+  incidencia_texto?: string | null | null;
+  zoom_meeting_id?: number | null | null;
+  zoom_join_url?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type SociosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  apellidos?: string | null;
+  email?: string | null | null;
+  telefono?: string | null | null;
+  nif?: string | null | null;
+  fecha_alta?: string | null | null;
+  activo?: boolean | null | null;
+  lead_stage?: string | null | null;
+  tags?: string[] | null | null;
+  aceptacion_fecha?: string | null | null;
+  aceptacion_firma?: string | null | null;
+  aceptacion_version?: string | null | null;
+  stripe_customer_id?: string | null | null;
+  stripe_payment_method_id?: string | null | null;
+  avatar?: string | null | null;
+  referido_por?: string | null | null;
+  fecha_nacimiento?: string | null | null;
+  foto_url?: string | null | null;
+  auth_user_id?: string | null | null;
+  direccion?: string | null | null;
+  borrado_en?: string | null | null;
+  campos_extra?: Record<string, string | number | boolean | null> | null | null;
+  metodo_pago_preferido?: string | null | null;
+  sepa_mandate_id?: string | null | null;
+  sepa_payment_method_id?: string | null | null;
+  aceptacion_origen?: string | null | null;
+  aceptacion_por?: string | null | null;
+  consentimiento_salud_fecha?: string | null | null;
+  consentimiento_salud_registrado_por?: string | null | null;
+  consentimiento_salud_revocado_en?: string | null | null;
+  tarjeta_exp_mes?: number | null | null;
+  tarjeta_exp_anio?: number | null | null;
+  tarjeta_marca?: string | null | null;
+  tarjeta_ultimos4?: string | null | null;
+  origen_lead?: string | null | null;
+  consentimiento_marketing_en?: string | null | null;
+  consentimiento_marketing_texto?: string | null | null;
+  consentimiento_marketing_por?: string | null | null;
+  visible_en_clase?: boolean | null | null;
+  usuario?: string | null | null;
+  consentimiento_salud_texto?: string | null | null;
+  objetivo_clases_mes?: number | null | null;
+  excluir_de_perfilado?: boolean | null | null;
+  consentimiento_salud_registrado_por_uid?: string | null | null;
+  cumple_mm_dd?: string | null | null;
+}
+
+export type SociosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  apellidos?: string | null;
+  email?: string | null | null;
+  telefono?: string | null | null;
+  nif?: string | null | null;
+  fecha_alta?: string | null | null;
+  activo?: boolean | null | null;
+  lead_stage?: string | null | null;
+  tags?: string[] | null | null;
+  aceptacion_fecha?: string | null | null;
+  aceptacion_firma?: string | null | null;
+  aceptacion_version?: string | null | null;
+  stripe_customer_id?: string | null | null;
+  stripe_payment_method_id?: string | null | null;
+  avatar?: string | null | null;
+  referido_por?: string | null | null;
+  fecha_nacimiento?: string | null | null;
+  foto_url?: string | null | null;
+  auth_user_id?: string | null | null;
+  direccion?: string | null | null;
+  borrado_en?: string | null | null;
+  campos_extra?: Record<string, string | number | boolean | null> | null | null;
+  metodo_pago_preferido?: string | null | null;
+  sepa_mandate_id?: string | null | null;
+  sepa_payment_method_id?: string | null | null;
+  aceptacion_origen?: string | null | null;
+  aceptacion_por?: string | null | null;
+  consentimiento_salud_fecha?: string | null | null;
+  consentimiento_salud_registrado_por?: string | null | null;
+  consentimiento_salud_revocado_en?: string | null | null;
+  tarjeta_exp_mes?: number | null | null;
+  tarjeta_exp_anio?: number | null | null;
+  tarjeta_marca?: string | null | null;
+  tarjeta_ultimos4?: string | null | null;
+  origen_lead?: string | null | null;
+  consentimiento_marketing_en?: string | null | null;
+  consentimiento_marketing_texto?: string | null | null;
+  consentimiento_marketing_por?: string | null | null;
+  visible_en_clase?: boolean | null | null;
+  usuario?: string | null | null;
+  consentimiento_salud_texto?: string | null | null;
+  objetivo_clases_mes?: number | null | null;
+  excluir_de_perfilado?: boolean | null | null;
+  consentimiento_salud_registrado_por_uid?: string | null | null;
+  cumple_mm_dd?: string | null | null;
+}
+
+export type SoporteSolicitudesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  mensaje?: string | null;
+  contacto?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type SoporteSolicitudesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  mensaje?: string | null;
+  contacto?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type SpotsInsert = {
+  id?: string | null;
+  sala_id?: string | null | null;
+  studio_id?: string | null;
+  numero?: number | null;
+  nombre?: string | null | null;
+  fila?: number | null | null;
+  columna?: number | null | null;
+  tipo?: string | null | null;
+  activo?: boolean | null | null;
+}
+
+export type SpotsUpdate = {
+  id?: string | null;
+  sala_id?: string | null | null;
+  studio_id?: string | null;
+  numero?: number | null;
+  nombre?: string | null | null;
+  fila?: number | null | null;
+  columna?: number | null | null;
+  tipo?: string | null | null;
+  activo?: boolean | null | null;
+}
+
+export type StudiosInsert = {
+  id?: string | null;
+  nombre?: string | null;
+  nif?: string | null | null;
+  razon_social?: string | null | null;
+  direccion?: string | null | null;
+  ciudad?: string | null | null;
+  codigo_postal?: string | null | null;
+  email?: string | null | null;
+  telefono?: string | null | null;
+  color_primario?: string | null | null;
+  plan?: string | null | null;
+  creado_en?: string | null | null;
+  owner_auth_user_id?: string | null | null;
+  slug?: string | null | null;
+  stripe_account_id?: string | null | null;
+  avatar_admin?: string | null | null;
+  tema_portal?: string | null | null;
+  google_calendar_email?: string | null | null;
+  cancelacion_ventana_horas?: number | null | null;
+  cancelacion_devolver_bono_tardia?: boolean | null | null;
+  reserva_exigir_plan?: boolean | null | null;
+  reserva_max_simultaneas?: number | null | null;
+  stripe_customer_id?: string | null | null;
+  subscription_id?: string | null | null;
+  subscription_status?: string | null | null;
+  current_period_end?: string | null | null;
+  kiosk_token?: string | null | null;
+  stripe_terminal_reader_id?: string | null | null;
+  stripe_terminal_location_id?: string | null | null;
+  logo_url?: string | null | null;
+  iva_por_defecto?: number | null | null;
+  dep_umbral_alto?: number | null | null;
+  dep_umbral_medio?: number | null | null;
+  dep_ventana_dias?: number | null | null;
+  modo_autonomia?: string | null | null;
+  umbral_score_autonomo?: number | null | null;
+  avisar_alumnas?: boolean | null | null;
+  onboarding_descartado_en?: string | null | null;
+  pedir_confirmacion_riesgo?: boolean | null | null;
+  gmail_email?: string | null | null;
+  zoom_email?: string | null | null;
+  gestoria_email?: string | null | null;
+  cadena_id?: string | null | null;
+  foto_url?: string | null | null;
+  fiskaly_signer_id?: string | null | null;
+  fiskaly_client_id?: string | null | null;
+  recuperacion_caducidad_tipo?: string | null | null;
+  recuperacion_caducidad_dias?: number | null | null;
+  sepa_acreedor_id?: string | null | null;
+  sepa_iban?: string | null | null;
+  sepa_titular?: string | null | null;
+  politica_privacidad?: string | null | null;
+  terminos_servicio?: string | null | null;
+  compra_publica_modo?: string | null | null;
+  como_nos_conocio?: string | null | null;
+  bienvenida_vista_en?: string | null | null;
+  onb_centros?: string | null | null;
+  onb_software_anterior?: string | null | null;
+  onb_alumnos_activos?: string | null | null;
+  onb_importar_datos?: string | null | null;
+  onb_prioridad?: string[] | null | null;
+  onb_ayuda_alta?: string | null | null;
+  descripcion?: string | null | null;
+  anio_fundacion?: number | null | null;
+  suspendido_en?: string | null | null;
+  suspendido_motivo?: string | null | null;
+  suspendido_por?: string | null | null;
+  reserva_ventana_minima_minutos?: number | null | null;
+  reserva_antelacion_maxima_dias?: number | null | null;
+  permite_lista_espera?: boolean | null | null;
+  requiere_aprobacion?: boolean | null | null;
+  lista_espera_plazo_aceptacion_minutos?: number | null | null;
+  penalizacion_importe_eur?: number | null | null;
+  penalizacion_aplica_no_show?: boolean | null | null;
+  penalizacion_aplica_cancelacion_tardia?: boolean | null | null;
+  penalizacion_cobro_automatico?: boolean | null | null;
+  decision_contrato_visto_en?: string | null | null;
+  minimo_asistentes_por_clase?: number | null | null;
+  hora_apertura?: string | null | null;
+  hora_cierre?: string | null | null;
+  instructor_reparto_penalizacion_pct?: number | null | null;
+  tour_visto_en?: string | null | null;
+  gestoria_envio_automatico?: string | null | null;
+  gestoria_ultimo_envio_periodo?: string | null | null;
+  requiere_checkin_qr?: boolean | null | null;
+  imagen_bienvenida_url?: string | null | null;
+  reembolsos_activos?: boolean | null | null;
+  reembolso_plazo_dias?: number | null | null;
+  reembolso_solo_sin_usar?: boolean | null | null;
+  pagina_publica_oculta?: boolean | null | null;
+  pagina_publica_clave_hash?: string | null | null;
+  tipo_cuenta?: string | null | null;
+  normas_texto?: string | null | null;
+  klaviyo_account_name?: string | null | null;
+  widget_dominios_autorizados?: string[] | null | null;
+  trial_ends_at?: string | null | null;
+  widget_builder?: Record<string, unknown> | null | null;
+  sitio_web?: string | null | null;
+  review_boost_elegible_en?: string | null | null;
+  review_boost_mostrado_en?: string | null | null;
+  review_boost_pospuesto_en?: string | null | null;
+  review_boost_veces_mostrado?: number | null | null;
+  cancelacion_clase_devuelve_bono?: boolean | null | null;
+  lat?: number | null | null;
+  lng?: number | null | null;
+  visible_en_network?: boolean | null | null;
+  stripe_account_id_anterior?: string | null | null;
+  stripe_account_desconectado_en?: string | null | null;
+  bloquear_reserva_impago?: boolean | null | null;
+  recuperacion_auto_semanal?: boolean | null | null;
+  creditos_nombre?: string | null | null;
+  creditos_caducan_meses?: number | null | null;
+  racha_clases_semana?: number | null | null;
+  valoracion_inicial_activa?: boolean | null | null;
+  lema?: string | null | null;
+  frase_heroe?: string | null | null;
+  frase_manuscrita?: string | null | null;
+  subtitulo_heroe?: string | null | null;
+  instructoras_crean_clases?: boolean | null | null;
+}
+
+export type StudiosUpdate = {
+  id?: string | null;
+  nombre?: string | null;
+  nif?: string | null | null;
+  razon_social?: string | null | null;
+  direccion?: string | null | null;
+  ciudad?: string | null | null;
+  codigo_postal?: string | null | null;
+  email?: string | null | null;
+  telefono?: string | null | null;
+  color_primario?: string | null | null;
+  plan?: string | null | null;
+  creado_en?: string | null | null;
+  owner_auth_user_id?: string | null | null;
+  slug?: string | null | null;
+  stripe_account_id?: string | null | null;
+  avatar_admin?: string | null | null;
+  tema_portal?: string | null | null;
+  google_calendar_email?: string | null | null;
+  cancelacion_ventana_horas?: number | null | null;
+  cancelacion_devolver_bono_tardia?: boolean | null | null;
+  reserva_exigir_plan?: boolean | null | null;
+  reserva_max_simultaneas?: number | null | null;
+  stripe_customer_id?: string | null | null;
+  subscription_id?: string | null | null;
+  subscription_status?: string | null | null;
+  current_period_end?: string | null | null;
+  kiosk_token?: string | null | null;
+  stripe_terminal_reader_id?: string | null | null;
+  stripe_terminal_location_id?: string | null | null;
+  logo_url?: string | null | null;
+  iva_por_defecto?: number | null | null;
+  dep_umbral_alto?: number | null | null;
+  dep_umbral_medio?: number | null | null;
+  dep_ventana_dias?: number | null | null;
+  modo_autonomia?: string | null | null;
+  umbral_score_autonomo?: number | null | null;
+  avisar_alumnas?: boolean | null | null;
+  onboarding_descartado_en?: string | null | null;
+  pedir_confirmacion_riesgo?: boolean | null | null;
+  gmail_email?: string | null | null;
+  zoom_email?: string | null | null;
+  gestoria_email?: string | null | null;
+  cadena_id?: string | null | null;
+  foto_url?: string | null | null;
+  fiskaly_signer_id?: string | null | null;
+  fiskaly_client_id?: string | null | null;
+  recuperacion_caducidad_tipo?: string | null | null;
+  recuperacion_caducidad_dias?: number | null | null;
+  sepa_acreedor_id?: string | null | null;
+  sepa_iban?: string | null | null;
+  sepa_titular?: string | null | null;
+  politica_privacidad?: string | null | null;
+  terminos_servicio?: string | null | null;
+  compra_publica_modo?: string | null | null;
+  como_nos_conocio?: string | null | null;
+  bienvenida_vista_en?: string | null | null;
+  onb_centros?: string | null | null;
+  onb_software_anterior?: string | null | null;
+  onb_alumnos_activos?: string | null | null;
+  onb_importar_datos?: string | null | null;
+  onb_prioridad?: string[] | null | null;
+  onb_ayuda_alta?: string | null | null;
+  descripcion?: string | null | null;
+  anio_fundacion?: number | null | null;
+  suspendido_en?: string | null | null;
+  suspendido_motivo?: string | null | null;
+  suspendido_por?: string | null | null;
+  reserva_ventana_minima_minutos?: number | null | null;
+  reserva_antelacion_maxima_dias?: number | null | null;
+  permite_lista_espera?: boolean | null | null;
+  requiere_aprobacion?: boolean | null | null;
+  lista_espera_plazo_aceptacion_minutos?: number | null | null;
+  penalizacion_importe_eur?: number | null | null;
+  penalizacion_aplica_no_show?: boolean | null | null;
+  penalizacion_aplica_cancelacion_tardia?: boolean | null | null;
+  penalizacion_cobro_automatico?: boolean | null | null;
+  decision_contrato_visto_en?: string | null | null;
+  minimo_asistentes_por_clase?: number | null | null;
+  hora_apertura?: string | null | null;
+  hora_cierre?: string | null | null;
+  instructor_reparto_penalizacion_pct?: number | null | null;
+  tour_visto_en?: string | null | null;
+  gestoria_envio_automatico?: string | null | null;
+  gestoria_ultimo_envio_periodo?: string | null | null;
+  requiere_checkin_qr?: boolean | null | null;
+  imagen_bienvenida_url?: string | null | null;
+  reembolsos_activos?: boolean | null | null;
+  reembolso_plazo_dias?: number | null | null;
+  reembolso_solo_sin_usar?: boolean | null | null;
+  pagina_publica_oculta?: boolean | null | null;
+  pagina_publica_clave_hash?: string | null | null;
+  tipo_cuenta?: string | null | null;
+  normas_texto?: string | null | null;
+  klaviyo_account_name?: string | null | null;
+  widget_dominios_autorizados?: string[] | null | null;
+  trial_ends_at?: string | null | null;
+  widget_builder?: Record<string, unknown> | null | null;
+  sitio_web?: string | null | null;
+  review_boost_elegible_en?: string | null | null;
+  review_boost_mostrado_en?: string | null | null;
+  review_boost_pospuesto_en?: string | null | null;
+  review_boost_veces_mostrado?: number | null | null;
+  cancelacion_clase_devuelve_bono?: boolean | null | null;
+  lat?: number | null | null;
+  lng?: number | null | null;
+  visible_en_network?: boolean | null | null;
+  stripe_account_id_anterior?: string | null | null;
+  stripe_account_desconectado_en?: string | null | null;
+  bloquear_reserva_impago?: boolean | null | null;
+  recuperacion_auto_semanal?: boolean | null | null;
+  creditos_nombre?: string | null | null;
+  creditos_caducan_meses?: number | null | null;
+  racha_clases_semana?: number | null | null;
+  valoracion_inicial_activa?: boolean | null | null;
+  lema?: string | null | null;
+  frase_heroe?: string | null | null;
+  frase_manuscrita?: string | null | null;
+  subtitulo_heroe?: string | null | null;
+  instructoras_crean_clases?: boolean | null | null;
+}
+
+export type SuscripcionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  plan_id?: string | null | null;
+  estado?: string | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null | null;
+  sesiones_restantes?: number | null | null;
+  stripe_subscription_id?: string | null | null;
+  baja_al_vencer?: boolean | null | null;
+}
+
+export type SuscripcionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  plan_id?: string | null | null;
+  estado?: string | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null | null;
+  sesiones_restantes?: number | null | null;
+  stripe_subscription_id?: string | null | null;
+  baja_al_vencer?: boolean | null | null;
+}
+
+export type TiposClaseInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  color?: string | null | null;
+  duracion_minutos?: number | null | null;
+  descripcion?: string | null | null;
+  nivel?: string | null | null;
+  foto_url?: string | null | null;
+  ventana_cancelacion_horas?: number | null | null;
+  reserva_exigir_plan?: boolean | null | null;
+  reserva_ventana_minima_minutos?: number | null | null;
+  reserva_antelacion_maxima_dias?: number | null | null;
+  permite_lista_espera?: boolean | null | null;
+  requiere_aprobacion?: boolean | null | null;
+  lista_espera_plazo_aceptacion_minutos?: number | null | null;
+  penalizacion_importe_eur?: number | null | null;
+  minimo_asistentes_por_clase?: number | null | null;
+  objetivos?: string[] | null | null;
+  especialidad_network?: string | null | null;
+  es_online?: boolean | null | null;
+  aforo_por_defecto?: number | null | null;
+  requiere_autorizacion?: boolean | null | null;
+  logo_url?: string | null | null;
+  requiere_checkin_qr?: boolean | null | null;
+}
+
+export type TiposClaseUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  color?: string | null | null;
+  duracion_minutos?: number | null | null;
+  descripcion?: string | null | null;
+  nivel?: string | null | null;
+  foto_url?: string | null | null;
+  ventana_cancelacion_horas?: number | null | null;
+  reserva_exigir_plan?: boolean | null | null;
+  reserva_ventana_minima_minutos?: number | null | null;
+  reserva_antelacion_maxima_dias?: number | null | null;
+  permite_lista_espera?: boolean | null | null;
+  requiere_aprobacion?: boolean | null | null;
+  lista_espera_plazo_aceptacion_minutos?: number | null | null;
+  penalizacion_importe_eur?: number | null | null;
+  minimo_asistentes_por_clase?: number | null | null;
+  objetivos?: string[] | null | null;
+  especialidad_network?: string | null | null;
+  es_online?: boolean | null | null;
+  aforo_por_defecto?: number | null | null;
+  requiere_autorizacion?: boolean | null | null;
+  logo_url?: string | null | null;
+  requiere_checkin_qr?: boolean | null | null;
+}
+
+export type UsuariosInsert = {
+  id?: string | null;
+  studio_id?: string | null | null;
+  rol?: string | null | null;
+  nombre?: string | null | null;
+  email?: string | null | null;
+  telefono?: string | null | null;
+  avatar_url?: string | null | null;
+}
+
+export type UsuariosUpdate = {
+  id?: string | null;
+  studio_id?: string | null | null;
+  rol?: string | null | null;
+  nombre?: string | null | null;
+  email?: string | null | null;
+  telefono?: string | null | null;
+  avatar_url?: string | null | null;
+}
+
+export type VentasPosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  items?: any | null;
+  subtotal?: number | null;
+  descuento?: number | null | null;
+  total?: number | null;
+  metodo_pago?: string | null;
+  notas?: string | null | null;
+  realizada_en?: string | null | null;
+  stripe_payment_intent_id?: string | null | null;
+  devuelta_en?: string | null | null;
+  importe_devuelto?: number | null | null;
+  conciliado_en?: string | null | null;
+  conciliado_por?: string | null | null;
+  numero?: number | null | null;
+  estado?: string | null | null;
+  pago_estado?: string | null | null;
+  pago_actualizado_en?: string | null | null;
+  pago_error?: string | null | null;
+  base_imponible?: number | null | null;
+  iva_total?: number | null | null;
+  efectivo_recibido?: number | null | null;
+  cambio?: number | null | null;
+  vendido_por?: string | null | null;
+  vendido_por_nombre?: string | null | null;
+  caja_id?: string | null | null;
+  recibo_id?: string | null | null;
+  idempotencia_clave?: string | null | null;
+  anulada_en?: string | null | null;
+  anulada_por?: string | null | null;
+  anulada_motivo?: string | null | null;
+  checkout_session_id?: string | null | null;
+  matricula_cupo_plan_id?: string | null | null;
+}
+
+export type VentasPosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  items?: any | null;
+  subtotal?: number | null;
+  descuento?: number | null | null;
+  total?: number | null;
+  metodo_pago?: string | null;
+  notas?: string | null | null;
+  realizada_en?: string | null | null;
+  stripe_payment_intent_id?: string | null | null;
+  devuelta_en?: string | null | null;
+  importe_devuelto?: number | null | null;
+  conciliado_en?: string | null | null;
+  conciliado_por?: string | null | null;
+  numero?: number | null | null;
+  estado?: string | null | null;
+  pago_estado?: string | null | null;
+  pago_actualizado_en?: string | null | null;
+  pago_error?: string | null | null;
+  base_imponible?: number | null | null;
+  iva_total?: number | null | null;
+  efectivo_recibido?: number | null | null;
+  cambio?: number | null | null;
+  vendido_por?: string | null | null;
+  vendido_por_nombre?: string | null | null;
+  caja_id?: string | null | null;
+  recibo_id?: string | null | null;
+  idempotencia_clave?: string | null | null;
+  anulada_en?: string | null | null;
+  anulada_por?: string | null | null;
+  anulada_motivo?: string | null | null;
+  checkout_session_id?: string | null | null;
+  matricula_cupo_plan_id?: string | null | null;
+}
+
+export type VideosOnDemandInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  titulo?: string | null;
+  descripcion?: string | null | null;
+  categoria?: string | null;
+  duracion_minutos?: number | null | null;
+  nivel?: string | null | null;
+  instructor_id?: string | null | null;
+  vistas?: number | null | null;
+  likes?: number | null | null;
+  activo?: boolean | null | null;
+  creado_en?: string | null | null;
+  stream_uid?: string | null | null;
+}
+
+export type VideosOnDemandUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  titulo?: string | null;
+  descripcion?: string | null | null;
+  categoria?: string | null;
+  duracion_minutos?: number | null | null;
+  nivel?: string | null | null;
+  instructor_id?: string | null | null;
+  vistas?: number | null | null;
+  likes?: number | null | null;
+  activo?: boolean | null | null;
+  creado_en?: string | null | null;
+  stream_uid?: string | null | null;
+}
+
+export type DecisionSessionsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  disparado_por?: string | null;
+  algorithm_version?: string | null;
+  iniciado_en?: string | null | null;
+  finalizado_en?: string | null | null;
+  snapshot_stats?: any | null | null;
+  n_candidatas_generadas?: number | null;
+  n_candidatas_descartadas?: number | null;
+  n_recomendaciones_persistidas?: number | null;
+  resumen_diario_id?: string | null | null;
+  errores?: any | null | null;
+  estado?: string | null;
+}
+
+export type DecisionSessionsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  disparado_por?: string | null;
+  algorithm_version?: string | null;
+  iniciado_en?: string | null | null;
+  finalizado_en?: string | null | null;
+  snapshot_stats?: any | null | null;
+  n_candidatas_generadas?: number | null;
+  n_candidatas_descartadas?: number | null;
+  n_recomendaciones_persistidas?: number | null;
+  resumen_diario_id?: string | null | null;
+  errores?: any | null | null;
+  estado?: string | null;
+}
+
+export type RecomendacionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  decision_session_id?: string | null;
+  algorithm_version?: string | null;
+  especialista?: string | null;
+  tipo?: string | null;
+  dedupe_key?: string | null;
+  titulo?: string | null;
+  motivo?: string | null;
+  datos_usados?: any | null;
+  riesgo?: string | null;
+  impacto?: any | null | null;
+  confianza?: any | null;
+  score?: number | null;
+  prioridad?: string | null;
+  nivel_autonomia?: number | null;
+  accion?: any | null;
+  socio_id?: string | null | null;
+  sesion_id?: string | null | null;
+  recibo_id?: string | null | null;
+  tiempo_estimado_min?: number | null;
+  estado?: string | null;
+  vista_en?: string | null | null;
+  expira_en?: string | null;
+  creado_en?: string | null | null;
+  resuelto_en?: string | null | null;
+  resuelto_por?: string | null | null;
+}
+
+export type RecomendacionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  decision_session_id?: string | null;
+  algorithm_version?: string | null;
+  especialista?: string | null;
+  tipo?: string | null;
+  dedupe_key?: string | null;
+  titulo?: string | null;
+  motivo?: string | null;
+  datos_usados?: any | null;
+  riesgo?: string | null;
+  impacto?: any | null | null;
+  confianza?: any | null;
+  score?: number | null;
+  prioridad?: string | null;
+  nivel_autonomia?: number | null;
+  accion?: any | null;
+  socio_id?: string | null | null;
+  sesion_id?: string | null | null;
+  recibo_id?: string | null | null;
+  tiempo_estimado_min?: number | null;
+  estado?: string | null;
+  vista_en?: string | null | null;
+  expira_en?: string | null;
+  creado_en?: string | null | null;
+  resuelto_en?: string | null | null;
+  resuelto_por?: string | null | null;
+}
+
+export type RecomendacionOutcomesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  recomendacion_id?: string | null;
+  evento?: string | null;
+  outcome?: string | null;
+  senal_observada?: string | null | null;
+  ventana_dias?: number | null;
+  medido_en?: string | null | null;
+  creado_en?: string | null | null;
+  impacto_real?: any | null | null;
+  confianza_medicion?: string | null | null;
+}
+
+export type RecomendacionOutcomesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  recomendacion_id?: string | null;
+  evento?: string | null;
+  outcome?: string | null;
+  senal_observada?: string | null | null;
+  ventana_dias?: number | null;
+  medido_en?: string | null | null;
+  creado_en?: string | null | null;
+  impacto_real?: any | null | null;
+  confianza_medicion?: string | null | null;
+}
+
+export type MemoriaSocioInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  clave?: string | null;
+  valor?: any | null;
+  nivel?: string | null;
+  confianza?: string | null;
+  origen?: string | null;
+  creado_por?: string | null | null;
+  evidencia?: string | null;
+  activa?: boolean | null;
+  expira_en?: string | null | null;
+  creado_en?: string | null | null;
+  actualizado_en?: string | null | null;
+}
+
+export type MemoriaSocioUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  clave?: string | null;
+  valor?: any | null;
+  nivel?: string | null;
+  confianza?: string | null;
+  origen?: string | null;
+  creado_por?: string | null | null;
+  evidencia?: string | null;
+  activa?: boolean | null;
+  expira_en?: string | null | null;
+  creado_en?: string | null | null;
+  actualizado_en?: string | null | null;
+}
+
+export type ResumenDiarioInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  fecha?: string | null;
+  estado_general?: string | null;
+  saludo?: string | null;
+  mientras_dormias?: any | null;
+  n_decisiones?: number | null;
+  tiempo_estimado_min?: number | null;
+  impacto_total?: any | null | null;
+  generado_en?: string | null | null;
+}
+
+export type ResumenDiarioUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  fecha?: string | null;
+  estado_general?: string | null;
+  saludo?: string | null;
+  mientras_dormias?: any | null;
+  n_decisiones?: number | null;
+  tiempo_estimado_min?: number | null;
+  impacto_total?: any | null | null;
+  generado_en?: string | null | null;
+}
+
+export type DecisionFeatureFlagsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  flag?: string | null;
+  activo?: boolean | null;
+  activado_en?: string | null | null;
+  activado_por?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type DecisionFeatureFlagsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  flag?: string | null;
+  activo?: boolean | null;
+  activado_en?: string | null | null;
+  activado_por?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type CondicionesSaludInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  categoria?: string | null;
+  etiqueta?: string | null;
+  zona?: string | null | null;
+  restricciones?: string[] | null;
+  severidad?: string | null;
+  estado?: string | null;
+  inicio?: string | null;
+  fin?: string | null | null;
+  revisar_en?: string | null | null;
+  notas?: string | null | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null | null;
+  actualizado_en?: string | null | null;
+}
+
+export type CondicionesSaludUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  categoria?: string | null;
+  etiqueta?: string | null;
+  zona?: string | null | null;
+  restricciones?: string[] | null;
+  severidad?: string | null;
+  estado?: string | null;
+  inicio?: string | null;
+  fin?: string | null | null;
+  revisar_en?: string | null | null;
+  notas?: string | null | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null | null;
+  actualizado_en?: string | null | null;
+}
+
+export type RespuestasSesionInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  sesion_id?: string | null | null;
+  respuesta?: string | null;
+  nota?: string | null | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type RespuestasSesionUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  sesion_id?: string | null | null;
+  respuesta?: string | null;
+  nota?: string | null | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type ReconciliacionesPosInsert = {
+  payment_intent_id?: string | null;
+  studio_id?: string | null;
+  importe?: number | null;
+  concepto?: string | null | null;
+  estado?: string | null;
+  venta_id?: string | null | null;
+  creado_en?: string | null;
+  reconciliado_en?: string | null | null;
+}
+
+export type ReconciliacionesPosUpdate = {
+  payment_intent_id?: string | null;
+  studio_id?: string | null;
+  importe?: number | null;
+  concepto?: string | null | null;
+  estado?: string | null;
+  venta_id?: string | null | null;
+  creado_en?: string | null;
+  reconciliado_en?: string | null | null;
+}
+
+export type ComentariosComunidadInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  post_id?: string | null;
+  autor_id?: string | null | null;
+  autor_nombre?: string | null;
+  autor_inicial?: string | null | null;
+  texto?: string | null;
+  creado_en?: string | null | null;
+}
+
+export type ComentariosComunidadUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  post_id?: string | null;
+  autor_id?: string | null | null;
+  autor_nombre?: string | null;
+  autor_inicial?: string | null | null;
+  texto?: string | null;
+  creado_en?: string | null | null;
+}
+
+export type CamposPersonalizadosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  etiqueta?: string | null;
+  tipo?: string | null;
+  opciones?: string[] | null | null;
+  requerido?: boolean | null;
+  orden?: number | null;
+  activo?: boolean | null;
+  creado_en?: string | null | null;
+}
+
+export type CamposPersonalizadosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  etiqueta?: string | null;
+  tipo?: string | null;
+  opciones?: string[] | null | null;
+  requerido?: boolean | null;
+  orden?: number | null;
+  activo?: boolean | null;
+  creado_en?: string | null | null;
+}
+
+export type PlantillasEmailInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  asunto?: string | null | null;
+  intro?: string | null | null;
+  activa?: boolean | null;
+  actualizado_en?: string | null | null;
+  cuerpo?: string | null | null;
+  boton_texto?: string | null | null;
+  color_cabecera?: string | null | null;
+  color_boton?: string | null | null;
+  logo_url?: string | null | null;
+  pie?: string | null | null;
+  fuente?: string | null | null;
+  enviar?: boolean | null | null;
+}
+
+export type PlantillasEmailUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  asunto?: string | null | null;
+  intro?: string | null | null;
+  activa?: boolean | null;
+  actualizado_en?: string | null | null;
+  cuerpo?: string | null | null;
+  boton_texto?: string | null | null;
+  color_cabecera?: string | null | null;
+  color_boton?: string | null | null;
+  logo_url?: string | null | null;
+  pie?: string | null | null;
+  fuente?: string | null | null;
+  enviar?: boolean | null | null;
+}
+
+export type InstructorDependencySnapshotsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  periodo_inicio?: string | null;
+  periodo_fin?: string | null;
+  ventana_dias?: number | null;
+  alumnas_total?: number | null;
+  alumnas_cautivas_count?: number | null;
+  ingresos_cautivos?: number | null;
+  ingresos_total_estudio?: number | null;
+  porcentaje_facturacion?: number | null;
+  nivel_riesgo?: string | null;
+  detalle?: Array<{ socioId: string; nombre: string; gasto: number; pctConInstructor: number }> | null | null;
+  calculado_en?: string | null | null;
+}
+
+export type InstructorDependencySnapshotsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  periodo_inicio?: string | null;
+  periodo_fin?: string | null;
+  ventana_dias?: number | null;
+  alumnas_total?: number | null;
+  alumnas_cautivas_count?: number | null;
+  ingresos_cautivos?: number | null;
+  ingresos_total_estudio?: number | null;
+  porcentaje_facturacion?: number | null;
+  nivel_riesgo?: string | null;
+  detalle?: Array<{ socioId: string; nombre: string; gasto: number; pctConInstructor: number }> | null | null;
+  calculado_en?: string | null | null;
+}
+
+export type StudioThemeInsert = {
+  studio_id?: string | null;
+  config_draft?: any | null | null;
+  config_published?: any | null | null;
+  actualizado_en?: string | null | null;
+  publicado_en?: string | null | null;
+}
+
+export type StudioThemeUpdate = {
+  studio_id?: string | null;
+  config_draft?: any | null | null;
+  config_published?: any | null | null;
+  actualizado_en?: string | null | null;
+  publicado_en?: string | null | null;
+}
+
+export type StudioLayoutInsert = {
+  studio_id?: string | null;
+  config?: any | null | null;
+  actualizado_en?: string | null | null;
+}
+
+export type StudioLayoutUpdate = {
+  studio_id?: string | null;
+  config?: any | null | null;
+  actualizado_en?: string | null | null;
+}
+
+export type PostLikesInsert = {
+  post_id?: string | null;
+  user_id?: string | null;
+  studio_id?: string | null;
+  creado_en?: string | null;
+}
+
+export type PostLikesUpdate = {
+  post_id?: string | null;
+  user_id?: string | null;
+  studio_id?: string | null;
+  creado_en?: string | null;
+}
+
+export type CanalesEquipoInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  creado_en?: string | null;
+}
+
+export type CanalesEquipoUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  creado_en?: string | null;
+}
+
+export type RateLimitsInsert = {
+  bucket_key?: string | null;
+  count?: number | null;
+  reset_at?: string | null;
+}
+
+export type RateLimitsUpdate = {
+  bucket_key?: string | null;
+  count?: number | null;
+  reset_at?: string | null;
+}
+
+export type WebhookEventsInsert = {
+  id?: string | null;
+  tipo?: string | null | null;
+  recibido_en?: string | null;
+  estado?: string | null | null;
+  reclamado_en?: string | null | null;
+}
+
+export type WebhookEventsUpdate = {
+  id?: string | null;
+  tipo?: string | null | null;
+  recibido_en?: string | null;
+  estado?: string | null | null;
+  reclamado_en?: string | null | null;
+}
+
+export type InstructoraDisponibilidadInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  dia_semana?: number | null;
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
+  creado_en?: string | null | null;
+}
+
+export type InstructoraDisponibilidadUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  dia_semana?: number | null;
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
+  creado_en?: string | null | null;
+}
+
+export type InstructoraDisponibilidadExcepcionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  fecha?: string | null;
+  hora_inicio?: string | null | null;
+  hora_fin?: string | null | null;
+  tipo?: string | null;
+  creado_en?: string | null | null;
+  ausencia_id?: string | null | null;
+}
+
+export type InstructoraDisponibilidadExcepcionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  fecha?: string | null;
+  hora_inicio?: string | null | null;
+  hora_fin?: string | null | null;
+  tipo?: string | null;
+  creado_en?: string | null | null;
+  ausencia_id?: string | null | null;
+}
+
+export type SustitucionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  sesion_id?: string | null;
+  instructor_original_id?: string | null | null;
+  motivo?: string | null | null;
+  estado?: string | null;
+  ranking?: any | null;
+  candidata_actual?: number | null;
+  sustituta_final_id?: string | null | null;
+  aprobada_por?: string | null | null;
+  aprobada_at?: string | null | null;
+  creado_en?: string | null | null;
+  resuelto_en?: string | null | null;
+  origen?: string | null | null;
+  candidatos_network?: any | null;
+}
+
+export type SustitucionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  sesion_id?: string | null;
+  instructor_original_id?: string | null | null;
+  motivo?: string | null | null;
+  estado?: string | null;
+  ranking?: any | null;
+  candidata_actual?: number | null;
+  sustituta_final_id?: string | null | null;
+  aprobada_por?: string | null | null;
+  aprobada_at?: string | null | null;
+  creado_en?: string | null | null;
+  resuelto_en?: string | null | null;
+  origen?: string | null | null;
+  candidatos_network?: any | null;
+}
+
+export type SustitucionContactosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  sustitucion_id?: string | null;
+  instructor_id?: string | null;
+  canal?: string | null;
+  estado?: string | null;
+  token?: string | null | null;
+  enviado_en?: string | null | null;
+  respondido_en?: string | null | null;
+  token_hash?: string | null | null;
+}
+
+export type SustitucionContactosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  sustitucion_id?: string | null;
+  instructor_id?: string | null;
+  canal?: string | null;
+  estado?: string | null;
+  token?: string | null | null;
+  enviado_en?: string | null | null;
+  respondido_en?: string | null | null;
+  token_hash?: string | null | null;
+}
+
+export type ValoracionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  sesion_id?: string | null;
+  socio_id?: string | null;
+  puntuacion?: number | null;
+  comentario?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type ValoracionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  sesion_id?: string | null;
+  socio_id?: string | null;
+  puntuacion?: number | null;
+  comentario?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type CitasServiciosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  tipo?: string | null;
+  duracion_min?: number | null;
+  precio?: number | null | null;
+  auto_reservable?: boolean | null;
+  color?: string | null | null;
+  descripcion?: string | null | null;
+  activo?: boolean | null;
+  orden?: number | null;
+  creado_en?: string | null | null;
+}
+
+export type CitasServiciosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  tipo?: string | null;
+  duracion_min?: number | null;
+  precio?: number | null | null;
+  auto_reservable?: boolean | null;
+  color?: string | null | null;
+  descripcion?: string | null | null;
+  activo?: boolean | null;
+  orden?: number | null;
+  creado_en?: string | null | null;
+}
+
+export type CitasDisponibilidadInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  dia_semana?: number | null;
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
+  creado_en?: string | null | null;
+}
+
+export type CitasDisponibilidadUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  dia_semana?: number | null;
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
+  creado_en?: string | null | null;
+}
+
+export type DecisionAutonomiaConfigInsert = {
+  studio_id?: string | null;
+  activa?: boolean | null;
+  tipos_permitidos?: string[] | null;
+  max_diario?: number | null;
+  actualizado_en?: string | null | null;
+  actualizado_por?: string | null | null;
+}
+
+export type DecisionAutonomiaConfigUpdate = {
+  studio_id?: string | null;
+  activa?: boolean | null;
+  tipos_permitidos?: string[] | null;
+  max_diario?: number | null;
+  actualizado_en?: string | null | null;
+  actualizado_por?: string | null | null;
+}
+
+export type InstructorEnlacesVigentesInsert = {
+  instructor_id?: string | null;
+  studio_id?: string | null;
+  scope?: string | null;
+  token?: string | null;
+  actualizado_en?: string | null;
+  email_enviado_en?: string | null | null;
+}
+
+export type InstructorEnlacesVigentesUpdate = {
+  instructor_id?: string | null;
+  studio_id?: string | null;
+  scope?: string | null;
+  token?: string | null;
+  actualizado_en?: string | null;
+  email_enviado_en?: string | null | null;
+}
+
+export type IngresosManualesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  fecha?: string | null;
+  concepto?: string | null;
+  cliente?: string | null | null;
+  nif?: string | null | null;
+  base_imponible?: number | null;
+  tipo_iva?: number | null;
+  cuota_iva?: number | null;
+  total?: number | null;
+  nota?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type IngresosManualesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  fecha?: string | null;
+  concepto?: string | null;
+  cliente?: string | null | null;
+  nif?: string | null | null;
+  base_imponible?: number | null;
+  tipo_iva?: number | null;
+  cuota_iva?: number | null;
+  total?: number | null;
+  nota?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type CadenasInsert = {
+  id?: string | null;
+  nombre?: string | null;
+  owner_auth_user_id?: string | null;
+  plan?: string | null | null;
+  stripe_customer_id?: string | null | null;
+  subscription_id?: string | null | null;
+  subscription_status?: string | null | null;
+  current_period_end?: string | null | null;
+  creado_en?: string | null;
+  layout_config?: any | null | null;
+}
+
+export type CadenasUpdate = {
+  id?: string | null;
+  nombre?: string | null;
+  owner_auth_user_id?: string | null;
+  plan?: string | null | null;
+  stripe_customer_id?: string | null | null;
+  subscription_id?: string | null | null;
+  subscription_status?: string | null | null;
+  current_period_end?: string | null | null;
+  creado_en?: string | null;
+  layout_config?: any | null | null;
+}
+
+export type SesionActivaInsert = {
+  auth_user_id?: string | null;
+  studio_id?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type SesionActivaUpdate = {
+  auth_user_id?: string | null;
+  studio_id?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type AvisosHuecoInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  sesion_id?: string | null;
+  socio_id?: string | null;
+  resultado?: string | null;
+  detalle?: string | null | null;
+  enviado_en?: string | null;
+  canal?: string | null | null;
+}
+
+export type AvisosHuecoUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  sesion_id?: string | null;
+  socio_id?: string | null;
+  resultado?: string | null;
+  detalle?: string | null | null;
+  enviado_en?: string | null;
+  canal?: string | null | null;
+}
+
+export type CongelacionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  suscripcion_id?: string | null;
+  desde?: string | null;
+  hasta?: string | null | null;
+  dias_aplicados?: number | null | null;
+  motivo?: string | null | null;
+  creada_en?: string | null;
+}
+
+export type CongelacionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  suscripcion_id?: string | null;
+  desde?: string | null;
+  hasta?: string | null | null;
+  dias_aplicados?: number | null | null;
+  motivo?: string | null | null;
+  creada_en?: string | null;
+}
+
+export type MigracionBatchesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  creado_en?: string | null;
+  ids_creados?: any | null;
+  deshecho_en?: string | null | null;
+  resumen?: any | null | null;
+}
+
+export type MigracionBatchesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  creado_en?: string | null;
+  ids_creados?: any | null;
+  deshecho_en?: string | null | null;
+  resumen?: any | null | null;
+}
+
+export type BloqueosMaquinaInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  sala_id?: string | null;
+  spot_id?: string | null | null;
+  desde?: string | null;
+  hasta?: string | null | null;
+  motivo?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type BloqueosMaquinaUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  sala_id?: string | null;
+  spot_id?: string | null | null;
+  desde?: string | null;
+  hasta?: string | null | null;
+  motivo?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type PlazasFijasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  dia_semana?: number | null;
+  hora_inicio?: string | null;
+  sala_id?: string | null;
+  tipo_clase_id?: string | null | null;
+  spot_id?: string | null | null;
+  vigencia_desde?: string | null;
+  vigencia_hasta?: string | null | null;
+  estado?: string | null;
+  creada_en?: string | null;
+  pausa_desde?: string | null | null;
+  pausa_hasta?: string | null | null;
+}
+
+export type PlazasFijasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  dia_semana?: number | null;
+  hora_inicio?: string | null;
+  sala_id?: string | null;
+  tipo_clase_id?: string | null | null;
+  spot_id?: string | null | null;
+  vigencia_desde?: string | null;
+  vigencia_hasta?: string | null | null;
+  estado?: string | null;
+  creada_en?: string | null;
+  pausa_desde?: string | null | null;
+  pausa_hasta?: string | null | null;
+}
+
+export type RecuperacionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  origen_reserva_id?: string | null | null;
+  motivo?: string | null | null;
+  caduca_el?: string | null;
+  estado?: string | null;
+  usada_en_reserva_id?: string | null | null;
+  creada_en?: string | null;
+}
+
+export type RecuperacionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  origen_reserva_id?: string | null | null;
+  motivo?: string | null | null;
+  caduca_el?: string | null;
+  estado?: string | null;
+  usada_en_reserva_id?: string | null | null;
+  creada_en?: string | null;
+}
+
+export type SocioExcepcionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo?: string | null;
+  motivo?: string | null | null;
+  creada_en?: string | null;
+}
+
+export type SocioExcepcionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo?: string | null;
+  motivo?: string | null | null;
+  creada_en?: string | null;
+}
+
+export type MandatosSepaInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  iban?: string | null;
+  ref_mandato?: string | null;
+  fecha_firma?: string | null;
+  estado?: string | null;
+  creada_en?: string | null;
+}
+
+export type MandatosSepaUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  iban?: string | null;
+  ref_mandato?: string | null;
+  fecha_firma?: string | null;
+  estado?: string | null;
+  creada_en?: string | null;
+}
+
+export type NotificationInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  recipient_role?: string | null;
+  recipient_user_id?: string | null | null;
+  recipient_socio_id?: string | null | null;
+  recipient_instructor_id?: string | null | null;
+  event_type?: string | null;
+  category?: string | null;
+  priority?: string | null;
+  title?: string | null;
+  body?: string | null;
+  resource_type?: string | null | null;
+  resource_id?: string | null | null;
+  deep_link?: string | null | null;
+  data?: any | null | null;
+  dedup_key?: string | null | null;
+  read_at?: string | null | null;
+  archived_at?: string | null | null;
+  created_at?: string | null;
+}
+
+export type NotificationUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  recipient_role?: string | null;
+  recipient_user_id?: string | null | null;
+  recipient_socio_id?: string | null | null;
+  recipient_instructor_id?: string | null | null;
+  event_type?: string | null;
+  category?: string | null;
+  priority?: string | null;
+  title?: string | null;
+  body?: string | null;
+  resource_type?: string | null | null;
+  resource_id?: string | null | null;
+  deep_link?: string | null | null;
+  data?: any | null | null;
+  dedup_key?: string | null | null;
+  read_at?: string | null | null;
+  archived_at?: string | null | null;
+  created_at?: string | null;
+}
+
+export type NotificationDeliveryInsert = {
+  id?: string | null;
+  notification_id?: string | null;
+  studio_id?: string | null;
+  channel?: string | null;
+  status?: string | null;
+  attempts?: number | null;
+  error?: string | null | null;
+  provider_id?: string | null | null;
+  created_at?: string | null;
+  sent_at?: string | null | null;
+  delivered_at?: string | null | null;
+}
+
+export type NotificationDeliveryUpdate = {
+  id?: string | null;
+  notification_id?: string | null;
+  studio_id?: string | null;
+  channel?: string | null;
+  status?: string | null;
+  attempts?: number | null;
+  error?: string | null | null;
+  provider_id?: string | null | null;
+  created_at?: string | null;
+  sent_at?: string | null | null;
+  delivered_at?: string | null | null;
+}
+
+export type NotificationPreferenceInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  user_id?: string | null;
+  category?: string | null;
+  inapp?: boolean | null;
+  push?: boolean | null;
+  email?: boolean | null;
+  whatsapp?: boolean | null;
+  sms?: boolean | null;
+  updated_at?: string | null;
+}
+
+export type NotificationPreferenceUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  user_id?: string | null;
+  category?: string | null;
+  inapp?: boolean | null;
+  push?: boolean | null;
+  email?: boolean | null;
+  whatsapp?: boolean | null;
+  sms?: boolean | null;
+  updated_at?: string | null;
+}
+
+export type PushSubscriptionInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  user_id?: string | null;
+  endpoint?: string | null;
+  p256dh?: string | null;
+  auth?: string | null;
+  user_agent?: string | null | null;
+  failure_count?: number | null;
+  created_at?: string | null;
+  last_used_at?: string | null | null;
+}
+
+export type PushSubscriptionUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  user_id?: string | null;
+  endpoint?: string | null;
+  p256dh?: string | null;
+  auth?: string | null;
+  user_agent?: string | null | null;
+  failure_count?: number | null;
+  created_at?: string | null;
+  last_used_at?: string | null | null;
+}
+
+export type NotificationTemplateInsert = {
+  id?: string | null;
+  studio_id?: string | null | null;
+  event_type?: string | null;
+  locale?: string | null;
+  title_tpl?: string | null;
+  body_tpl?: string | null;
+  updated_at?: string | null;
+}
+
+export type NotificationTemplateUpdate = {
+  id?: string | null;
+  studio_id?: string | null | null;
+  event_type?: string | null;
+  locale?: string | null;
+  title_tpl?: string | null;
+  body_tpl?: string | null;
+  updated_at?: string | null;
+}
+
+export type InstructoraAusenciasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  tipo?: string | null;
+  desde?: string | null;
+  hasta?: string | null;
+  motivo?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type InstructoraAusenciasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  tipo?: string | null;
+  desde?: string | null;
+  hasta?: string | null;
+  motivo?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type PlanTiposClaseInsert = {
+  plan_id?: string | null;
+  tipo_clase_id?: string | null;
+  studio_id?: string | null;
+  limite_semanal?: number | null | null;
+}
+
+export type PlanTiposClaseUpdate = {
+  plan_id?: string | null;
+  tipo_clase_id?: string | null;
+  studio_id?: string | null;
+  limite_semanal?: number | null | null;
+}
+
+export type StudioSlugsAntiguosInsert = {
+  slug?: string | null;
+  studio_id?: string | null;
+  creado_en?: string | null;
+}
+
+export type StudioSlugsAntiguosUpdate = {
+  slug?: string | null;
+  studio_id?: string | null;
+  creado_en?: string | null;
+}
+
+export type PlataformaLeadInsert = {
+  id?: string | null;
+  email?: string | null;
+  nombre?: string | null | null;
+  estudio?: string | null | null;
+  telefono?: string | null | null;
+  ciudad?: string | null | null;
+  software_actual?: string | null | null;
+  mensaje?: string | null | null;
+  origen?: string | null;
+  estado?: string | null;
+  motivo_perdida?: string | null | null;
+  proximo_paso?: string | null | null;
+  proxima_fecha?: string | null | null;
+  studio_id?: string | null | null;
+  notas?: string | null | null;
+  responsable?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  web?: string | null | null;
+  instagram?: string | null | null;
+}
+
+export type PlataformaLeadUpdate = {
+  id?: string | null;
+  email?: string | null;
+  nombre?: string | null | null;
+  estudio?: string | null | null;
+  telefono?: string | null | null;
+  ciudad?: string | null | null;
+  software_actual?: string | null | null;
+  mensaje?: string | null | null;
+  origen?: string | null;
+  estado?: string | null;
+  motivo_perdida?: string | null | null;
+  proximo_paso?: string | null | null;
+  proxima_fecha?: string | null | null;
+  studio_id?: string | null | null;
+  notas?: string | null | null;
+  responsable?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  web?: string | null | null;
+  instagram?: string | null | null;
+}
+
+export type LecturasFichaSaludInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  leido_por_user_id?: string | null;
+  leido_por_nombre?: string | null;
+  leido_por_rol?: string | null;
+  leido_en?: string | null;
+}
+
+export type LecturasFichaSaludUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  leido_por_user_id?: string | null;
+  leido_por_nombre?: string | null;
+  leido_por_rol?: string | null;
+  leido_en?: string | null;
+}
+
+export type PlataformaAdminInsert = {
+  auth_user_id?: string | null;
+  nombre?: string | null;
+  cargo?: string | null | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type PlataformaAdminUpdate = {
+  auth_user_id?: string | null;
+  nombre?: string | null;
+  cargo?: string | null | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type PlataformaPermisoInsert = {
+  auth_user_id?: string | null;
+  permiso?: string | null;
+  concedido_en?: string | null;
+  concedido_por?: string | null | null;
+}
+
+export type PlataformaPermisoUpdate = {
+  auth_user_id?: string | null;
+  permiso?: string | null;
+  concedido_en?: string | null;
+  concedido_por?: string | null | null;
+}
+
+export type PlataformaAuditoriaInsert = {
+  id?: number | null;
+  ocurrido_en?: string | null;
+  actor_auth_user_id?: string | null | null;
+  actor_nombre?: string | null;
+  accion?: string | null;
+  objetivo_tipo?: string | null | null;
+  objetivo_id?: string | null | null;
+  resumen?: string | null;
+  antes?: any | null | null;
+  despues?: any | null | null;
+  ip?: string | null | null;
+  user_agent?: string | null | null;
+}
+
+export type PlataformaAuditoriaUpdate = {
+  id?: number | null;
+  ocurrido_en?: string | null;
+  actor_auth_user_id?: string | null | null;
+  actor_nombre?: string | null;
+  accion?: string | null;
+  objetivo_tipo?: string | null | null;
+  objetivo_id?: string | null | null;
+  resumen?: string | null;
+  antes?: any | null | null;
+  despues?: any | null | null;
+  ip?: string | null | null;
+  user_agent?: string | null | null;
+}
+
+export type PenalizacionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  reserva_id?: string | null;
+  tipo?: string | null;
+  importe?: number | null;
+  estado?: string | null;
+  recibo_id?: string | null | null;
+  detectada_en?: string | null;
+  procesada_en?: string | null | null;
+}
+
+export type PenalizacionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  reserva_id?: string | null;
+  tipo?: string | null;
+  importe?: number | null;
+  estado?: string | null;
+  recibo_id?: string | null | null;
+  detectada_en?: string | null;
+  procesada_en?: string | null | null;
+}
+
+export type InstructorTarifasInsert = {
+  instructor_id?: string | null;
+  studio_id?: string | null;
+  tarifa_hora?: number | null | null;
+  moneda?: string | null;
+  actualizado_en?: string | null;
+  actualizado_por?: string | null | null;
+  base_mensual_eur?: number | null | null;
+  recargo_sustitucion_pct?: number | null | null;
+  horas_semanales_contrato?: number | null | null;
+}
+
+export type InstructorTarifasUpdate = {
+  instructor_id?: string | null;
+  studio_id?: string | null;
+  tarifa_hora?: number | null | null;
+  moneda?: string | null;
+  actualizado_en?: string | null;
+  actualizado_por?: string | null | null;
+  base_mensual_eur?: number | null | null;
+  recargo_sustitucion_pct?: number | null | null;
+  horas_semanales_contrato?: number | null | null;
+}
+
+export type FavoritosClaseInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo_clase_id?: string | null;
+  created_at?: string | null;
+}
+
+export type FavoritosClaseUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo_clase_id?: string | null;
+  created_at?: string | null;
+}
+
+export type ContenidoPortalInsert = {
+  studio_id?: string | null;
+  mensaje_destacado?: string | null | null;
+  updated_at?: string | null;
+}
+
+export type ContenidoPortalUpdate = {
+  studio_id?: string | null;
+  mensaje_destacado?: string | null | null;
+  updated_at?: string | null;
+}
+
+export type ContenidoPortalBannersInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  imagen_url?: string | null;
+  titulo?: string | null | null;
+  texto?: string | null | null;
+  link_tipo?: string | null;
+  link_valor?: string | null;
+  ubicacion?: string[] | null;
+  activo?: boolean | null;
+  orden?: number | null;
+  fecha_inicio?: string | null | null;
+  fecha_fin?: string | null | null;
+  created_by?: string | null | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type ContenidoPortalBannersUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  imagen_url?: string | null;
+  titulo?: string | null | null;
+  texto?: string | null | null;
+  link_tipo?: string | null;
+  link_valor?: string | null;
+  ubicacion?: string[] | null;
+  activo?: boolean | null;
+  orden?: number | null;
+  fecha_inicio?: string | null | null;
+  fecha_fin?: string | null | null;
+  created_by?: string | null | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type DecisionMensajesDiaInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  fecha?: string | null;
+  tipo?: string | null;
+  recomendacion_id?: string | null | null;
+  dedupe_key?: string | null | null;
+  motivo_motor?: string | null | null;
+  motivo_silencio?: string | null | null;
+  enviado_en?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type DecisionMensajesDiaUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  fecha?: string | null;
+  tipo?: string | null;
+  recomendacion_id?: string | null | null;
+  dedupe_key?: string | null | null;
+  motivo_motor?: string | null | null;
+  motivo_silencio?: string | null | null;
+  enviado_en?: string | null | null;
+  creado_en?: string | null | null;
+}
+
+export type ComunicacionesSocioInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo?: string | null;
+  asunto?: string | null;
+  estado?: string | null;
+  error?: string | null | null;
+  resend_id?: string | null | null;
+  creado_por?: string | null | null;
+  creado_por_nombre?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type ComunicacionesSocioUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo?: string | null;
+  asunto?: string | null;
+  estado?: string | null;
+  error?: string | null | null;
+  resend_id?: string | null | null;
+  creado_por?: string | null | null;
+  creado_por_nombre?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type ChangelogVersionesInsert = {
+  id?: string | null;
+  version?: string | null;
+  titulo?: string | null;
+  fecha_publicacion?: string | null;
+  estado?: string | null;
+  publicado_en?: string | null | null;
+  creado_en?: string | null;
+  creado_por?: string | null | null;
+}
+
+export type ChangelogVersionesUpdate = {
+  id?: string | null;
+  version?: string | null;
+  titulo?: string | null;
+  fecha_publicacion?: string | null;
+  estado?: string | null;
+  publicado_en?: string | null | null;
+  creado_en?: string | null;
+  creado_por?: string | null | null;
+}
+
+export type ChangelogCambiosInsert = {
+  id?: string | null;
+  version_id?: string | null;
+  etiqueta?: string | null;
+  texto?: string | null;
+  orden?: number | null;
+  imagen_url?: string | null | null;
+}
+
+export type ChangelogCambiosUpdate = {
+  id?: string | null;
+  version_id?: string | null;
+  etiqueta?: string | null;
+  texto?: string | null;
+  orden?: number | null;
+  imagen_url?: string | null | null;
+}
+
+export type IntentosReservaFallidosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  sesion_id?: string | null | null;
+  tipo_clase_id?: string | null | null;
+  motivo?: string | null;
+  creado_en?: string | null;
+}
+
+export type IntentosReservaFallidosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  sesion_id?: string | null | null;
+  tipo_clase_id?: string | null | null;
+  motivo?: string | null;
+  creado_en?: string | null;
+}
+
+export type LiquidacionesInstructorasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  periodo_anio?: number | null;
+  periodo_mes?: number | null;
+  base_eur?: string | null | null;
+  n_clases_propias?: number | null;
+  variable_propias_eur?: number | null;
+  n_clases_sustitucion?: number | null;
+  variable_sustitucion_eur?: number | null;
+  n_penalizaciones?: number | null;
+  reparto_penalizaciones_eur?: number | null;
+  n_clases_sin_tarifa?: number | null;
+  total_eur?: number | null | null;
+  detalle?: any | null;
+  estado?: string | null;
+  confirmada_en?: string | null | null;
+  confirmada_por?: string | null | null;
+  pagada_en?: string | null | null;
+  pagada_por?: string | null | null;
+  referencia_pago?: string | null | null;
+  generada_en?: string | null;
+  requiere_revision?: boolean | null | null;
+  revision_motivo?: string | null | null;
+}
+
+export type LiquidacionesInstructorasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  periodo_anio?: number | null;
+  periodo_mes?: number | null;
+  base_eur?: string | null | null;
+  n_clases_propias?: number | null;
+  variable_propias_eur?: number | null;
+  n_clases_sustitucion?: number | null;
+  variable_sustitucion_eur?: number | null;
+  n_penalizaciones?: number | null;
+  reparto_penalizaciones_eur?: number | null;
+  n_clases_sin_tarifa?: number | null;
+  total_eur?: number | null | null;
+  detalle?: any | null;
+  estado?: string | null;
+  confirmada_en?: string | null | null;
+  confirmada_por?: string | null | null;
+  pagada_en?: string | null | null;
+  pagada_por?: string | null | null;
+  referencia_pago?: string | null | null;
+  generada_en?: string | null;
+  requiere_revision?: boolean | null | null;
+  revision_motivo?: string | null | null;
+}
+
+export type RetoParticipacionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  reto_key?: string | null;
+  created_at?: string | null;
+}
+
+export type RetoParticipacionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  reto_key?: string | null;
+  created_at?: string | null;
+}
+
+export type StudioHorarioInsert = {
+  studio_id?: string | null;
+  dia_semana?: number | null;
+  abierto?: boolean | null;
+  hora_apertura?: string | null | null;
+  hora_cierre?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type StudioHorarioUpdate = {
+  studio_id?: string | null;
+  dia_semana?: number | null;
+  abierto?: boolean | null;
+  hora_apertura?: string | null | null;
+  hora_cierre?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type InstructorBajasSeguimientoInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  instructor_nombre?: string | null;
+  fecha_baja?: string | null;
+  nivel_riesgo_al_salir?: string | null;
+  porcentaje_facturacion_al_salir?: number | null;
+  alumnas_cautivas_count?: number | null;
+  alumnas_cautivas?: any | null;
+  evaluado_en?: string | null | null;
+  alumnas_retenidas_count?: number | null | null;
+}
+
+export type InstructorBajasSeguimientoUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  instructor_nombre?: string | null;
+  fecha_baja?: string | null;
+  nivel_riesgo_al_salir?: string | null;
+  porcentaje_facturacion_al_salir?: number | null;
+  alumnas_cautivas_count?: number | null;
+  alumnas_cautivas?: any | null;
+  evaluado_en?: string | null | null;
+  alumnas_retenidas_count?: number | null | null;
+}
+
+export type DevolucionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  recibo_id?: string | null;
+  socio_id?: string | null | null;
+  suscripcion_id?: string | null | null;
+  origen?: string | null;
+  importe_cobrado?: number | null;
+  importe_devuelto?: number | null;
+  stripe_charge_id?: string | null | null;
+  referencia?: string | null;
+  estado?: string | null;
+  propuesta?: any | null | null;
+  aplicado?: any | null | null;
+  detectada_en?: string | null;
+  resuelta_en?: string | null | null;
+  resuelta_por?: string | null | null;
+  fallo_en?: string | null | null;
+  fallo_motivo?: string | null | null;
+  venta_pos_id?: string | null | null;
+}
+
+export type DevolucionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  recibo_id?: string | null;
+  socio_id?: string | null | null;
+  suscripcion_id?: string | null | null;
+  origen?: string | null;
+  importe_cobrado?: number | null;
+  importe_devuelto?: number | null;
+  stripe_charge_id?: string | null | null;
+  referencia?: string | null;
+  estado?: string | null;
+  propuesta?: any | null | null;
+  aplicado?: any | null | null;
+  detectada_en?: string | null;
+  resuelta_en?: string | null | null;
+  resuelta_por?: string | null | null;
+  fallo_en?: string | null | null;
+  fallo_motivo?: string | null | null;
+  venta_pos_id?: string | null | null;
+}
+
+export type CadenaTiposClaseInsert = {
+  id?: string | null;
+  cadena_id?: string | null;
+  nombre?: string | null;
+  color?: string | null | null;
+  duracion_minutos?: number | null | null;
+  descripcion?: string | null | null;
+  nivel?: string | null | null;
+  foto_url?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type CadenaTiposClaseUpdate = {
+  id?: string | null;
+  cadena_id?: string | null;
+  nombre?: string | null;
+  color?: string | null | null;
+  duracion_minutos?: number | null | null;
+  descripcion?: string | null | null;
+  nivel?: string | null | null;
+  foto_url?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type PagosHistoricosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  fecha?: string | null;
+  concepto?: string | null | null;
+  importe?: number | null;
+  medio_pago?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type PagosHistoricosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  fecha?: string | null;
+  concepto?: string | null | null;
+  importe?: number | null;
+  medio_pago?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type ResumenSemanalEnviosInsert = {
+  studio_id?: string | null;
+  semana_lunes?: string | null;
+  enviado_en?: string | null;
+}
+
+export type ResumenSemanalEnviosUpdate = {
+  studio_id?: string | null;
+  semana_lunes?: string | null;
+  enviado_en?: string | null;
+}
+
+export type PlantillasCuestionarioSaludInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  pregunta?: string | null;
+  tipo_respuesta?: string | null;
+  opciones?: string[] | null;
+  orden?: number | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type PlantillasCuestionarioSaludUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  pregunta?: string | null;
+  tipo_respuesta?: string | null;
+  opciones?: string[] | null;
+  orden?: number | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type RespuestasCuestionarioSaludInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  pregunta_id?: string | null;
+  respuesta?: string | null | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type RespuestasCuestionarioSaludUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  pregunta_id?: string | null;
+  respuesta?: string | null | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type RedPerfilesInsert = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  nombre?: string | null;
+  foto_url?: string | null | null;
+  ciudad?: string | null | null;
+  zona?: string | null | null;
+  radio_km?: number | null | null;
+  descripcion?: string | null | null;
+  especialidades?: string[] | null;
+  anios_experiencia?: number | null | null;
+  tarifa_rango?: string | null | null;
+  disponibilidad_estado?: string | null;
+  disponibilidad_horarios?: string[] | null;
+  tipo_trabajo?: string[] | null;
+  email_contacto?: string | null | null;
+  telefono_contacto?: string | null | null;
+  estado?: string | null;
+  identidad_verificada_en?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  ultimo_acceso_en?: string | null | null;
+  slug?: string | null | null;
+  destacado?: boolean | null | null;
+  idiomas?: string[] | null | null;
+  instagram?: string | null | null;
+  linkedin?: string | null | null;
+  web?: string | null | null;
+  lat?: number | null | null;
+  lng?: number | null | null;
+  mostrar_estudios_actuales?: boolean | null | null;
+}
+
+export type RedPerfilesUpdate = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  nombre?: string | null;
+  foto_url?: string | null | null;
+  ciudad?: string | null | null;
+  zona?: string | null | null;
+  radio_km?: number | null | null;
+  descripcion?: string | null | null;
+  especialidades?: string[] | null;
+  anios_experiencia?: number | null | null;
+  tarifa_rango?: string | null | null;
+  disponibilidad_estado?: string | null;
+  disponibilidad_horarios?: string[] | null;
+  tipo_trabajo?: string[] | null;
+  email_contacto?: string | null | null;
+  telefono_contacto?: string | null | null;
+  estado?: string | null;
+  identidad_verificada_en?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  ultimo_acceso_en?: string | null | null;
+  slug?: string | null | null;
+  destacado?: boolean | null | null;
+  idiomas?: string[] | null | null;
+  instagram?: string | null | null;
+  linkedin?: string | null | null;
+  web?: string | null | null;
+  lat?: number | null | null;
+  lng?: number | null | null;
+  mostrar_estudios_actuales?: boolean | null | null;
+}
+
+export type RedExperienciasInsert = {
+  id?: string | null;
+  perfil_id?: string | null;
+  studio_id?: string | null | null;
+  nombre_estudio?: string | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null | null;
+  especialidades?: string[] | null;
+  descripcion?: string | null | null;
+  estado_verificacion?: string | null;
+  creado_en?: string | null;
+}
+
+export type RedExperienciasUpdate = {
+  id?: string | null;
+  perfil_id?: string | null;
+  studio_id?: string | null | null;
+  nombre_estudio?: string | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null | null;
+  especialidades?: string[] | null;
+  descripcion?: string | null | null;
+  estado_verificacion?: string | null;
+  creado_en?: string | null;
+}
+
+export type RedVerificacionesExperienciaInsert = {
+  id?: string | null;
+  experiencia_id?: string | null;
+  studio_id?: string | null;
+  solicitado_por?: string | null;
+  solicitado_en?: string | null;
+  resuelto_en?: string | null | null;
+  resuelto_por?: string | null | null;
+  estado?: string | null;
+}
+
+export type RedVerificacionesExperienciaUpdate = {
+  id?: string | null;
+  experiencia_id?: string | null;
+  studio_id?: string | null;
+  solicitado_por?: string | null;
+  solicitado_en?: string | null;
+  resuelto_en?: string | null | null;
+  resuelto_por?: string | null | null;
+  estado?: string | null;
+}
+
+export type RedReferenciasInsert = {
+  id?: string | null;
+  perfil_id?: string | null;
+  nombre_referente?: string | null;
+  email_referente?: string | null;
+  relacion?: string | null | null;
+  token?: string | null;
+  token_expira_en?: string | null;
+  solicitado_en?: string | null;
+  resuelto_en?: string | null | null;
+  estado?: string | null;
+}
+
+export type RedReferenciasUpdate = {
+  id?: string | null;
+  perfil_id?: string | null;
+  nombre_referente?: string | null;
+  email_referente?: string | null;
+  relacion?: string | null | null;
+  token?: string | null;
+  token_expira_en?: string | null;
+  solicitado_en?: string | null;
+  resuelto_en?: string | null | null;
+  estado?: string | null;
+}
+
+export type RedSolicitudesContactoInsert = {
+  id?: string | null;
+  perfil_id?: string | null;
+  studio_id?: string | null;
+  solicitado_por?: string | null;
+  mensaje?: string | null | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  resuelto_en?: string | null | null;
+  sustitucion_id?: string | null | null;
+}
+
+export type RedSolicitudesContactoUpdate = {
+  id?: string | null;
+  perfil_id?: string | null;
+  studio_id?: string | null;
+  solicitado_por?: string | null;
+  mensaje?: string | null | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  resuelto_en?: string | null | null;
+  sustitucion_id?: string | null | null;
+}
+
+export type RedReportesInsert = {
+  id?: string | null;
+  perfil_id?: string | null;
+  reportado_por?: string | null | null;
+  motivo?: string | null;
+  detalle?: string | null | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  revisado_en?: string | null | null;
+  revisado_por?: string | null | null;
+}
+
+export type RedReportesUpdate = {
+  id?: string | null;
+  perfil_id?: string | null;
+  reportado_por?: string | null | null;
+  motivo?: string | null;
+  detalle?: string | null | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  revisado_en?: string | null | null;
+  revisado_por?: string | null | null;
+}
+
+export type RedFavoritosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  perfil_id?: string | null;
+  creado_por?: string | null;
+  creado_en?: string | null;
+}
+
+export type RedFavoritosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  perfil_id?: string | null;
+  creado_por?: string | null;
+  creado_en?: string | null;
+}
+
+export type RedResenasInsert = {
+  id?: string | null;
+  perfil_id?: string | null | null;
+  studio_id?: string | null;
+  solicitud_id?: string | null | null;
+  autor?: string | null;
+  puntuacion?: number | null;
+  comentario?: string | null | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  moderado_en?: string | null | null;
+  moderado_por?: string | null | null;
+  reserva_id?: string | null | null;
+}
+
+export type RedResenasUpdate = {
+  id?: string | null;
+  perfil_id?: string | null | null;
+  studio_id?: string | null;
+  solicitud_id?: string | null | null;
+  autor?: string | null;
+  puntuacion?: number | null;
+  comentario?: string | null | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  moderado_en?: string | null | null;
+  moderado_por?: string | null | null;
+  reserva_id?: string | null | null;
+}
+
+export type RedMensajesInsert = {
+  id?: string | null;
+  solicitud_id?: string | null;
+  remitente?: string | null;
+  cuerpo?: string | null;
+  creado_en?: string | null;
+  leido_en?: string | null | null;
+}
+
+export type RedMensajesUpdate = {
+  id?: string | null;
+  solicitud_id?: string | null;
+  remitente?: string | null;
+  cuerpo?: string | null;
+  creado_en?: string | null;
+  leido_en?: string | null | null;
+}
+
+export type RedPerfilesIdentidadInsert = {
+  perfil_id?: string | null;
+  apellido1?: string | null | null;
+  apellido2?: string | null | null;
+  fecha_nacimiento?: string | null | null;
+  pais_residencia?: string | null | null;
+  tipo_documento?: string | null | null;
+  numero_documento?: string | null | null;
+  direccion_cp?: string | null | null;
+  direccion_ciudad?: string | null | null;
+  direccion_provincia?: string | null | null;
+  direccion_pais?: string | null | null;
+  telefono_verificado_en?: string | null | null;
+  email_verificado_en?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type RedPerfilesIdentidadUpdate = {
+  perfil_id?: string | null;
+  apellido1?: string | null | null;
+  apellido2?: string | null | null;
+  fecha_nacimiento?: string | null | null;
+  pais_residencia?: string | null | null;
+  tipo_documento?: string | null | null;
+  numero_documento?: string | null | null;
+  direccion_cp?: string | null | null;
+  direccion_ciudad?: string | null | null;
+  direccion_provincia?: string | null | null;
+  direccion_pais?: string | null | null;
+  telefono_verificado_en?: string | null | null;
+  email_verificado_en?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type RedVerificacionesIdentidadInsert = {
+  id?: string | null;
+  perfil_id?: string | null;
+  estado?: string | null;
+  motivo_rechazo?: string | null | null;
+  documento_path?: string | null;
+  creado_en?: string | null;
+  resuelto_en?: string | null | null;
+  resuelto_por?: string | null | null;
+  documento_path_reverso?: string | null | null;
+  documento_borrado_en?: string | null | null;
+}
+
+export type RedVerificacionesIdentidadUpdate = {
+  id?: string | null;
+  perfil_id?: string | null;
+  estado?: string | null;
+  motivo_rechazo?: string | null | null;
+  documento_path?: string | null;
+  creado_en?: string | null;
+  resuelto_en?: string | null | null;
+  resuelto_por?: string | null | null;
+  documento_path_reverso?: string | null | null;
+  documento_borrado_en?: string | null | null;
+}
+
+export type RedCertificacionesInsert = {
+  id?: string | null;
+  perfil_id?: string | null;
+  nombre?: string | null;
+  institucion?: string | null;
+  anio?: number | null | null;
+  duracion?: string | null | null;
+  documento_path?: string | null;
+  estado?: string | null;
+  motivo_rechazo?: string | null | null;
+  creado_en?: string | null;
+  resuelto_en?: string | null | null;
+  resuelto_por?: string | null | null;
+  documento_borrado_en?: string | null | null;
+}
+
+export type RedCertificacionesUpdate = {
+  id?: string | null;
+  perfil_id?: string | null;
+  nombre?: string | null;
+  institucion?: string | null;
+  anio?: number | null | null;
+  duracion?: string | null | null;
+  documento_path?: string | null;
+  estado?: string | null;
+  motivo_rechazo?: string | null | null;
+  creado_en?: string | null;
+  resuelto_en?: string | null | null;
+  resuelto_por?: string | null | null;
+  documento_borrado_en?: string | null | null;
+}
+
+export type ThemeImportsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  manifest?: any | null;
+  storage_prefix?: string | null;
+  entry_html?: string | null | null;
+  estado?: string | null;
+  detalle?: string | null | null;
+  creado_en?: string | null;
+  creado_por?: string | null | null;
+  publicado?: boolean | null | null;
+  publicado_en?: string | null | null;
+  rutas_editadas?: string[] | null | null;
+}
+
+export type ThemeImportsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  manifest?: any | null;
+  storage_prefix?: string | null;
+  entry_html?: string | null | null;
+  estado?: string | null;
+  detalle?: string | null | null;
+  creado_en?: string | null;
+  creado_por?: string | null | null;
+  publicado?: boolean | null | null;
+  publicado_en?: string | null | null;
+  rutas_editadas?: string[] | null | null;
+}
+
+export type OauthClientesInsert = {
+  id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  client_secret_hash?: string | null;
+  redirect_uris?: string[] | null;
+  es_confidencial?: boolean | null;
+  logo_url?: string | null | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type OauthClientesUpdate = {
+  id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  client_secret_hash?: string | null;
+  redirect_uris?: string[] | null;
+  es_confidencial?: boolean | null;
+  logo_url?: string | null | null;
+  activo?: boolean | null;
+  creado_en?: string | null;
+}
+
+export type OauthConsentimientosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  cliente_id?: string | null;
+  otorgado_por?: string | null;
+  scopes?: string[] | null;
+  otorgado_en?: string | null;
+  revocado_en?: string | null | null;
+}
+
+export type OauthConsentimientosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  cliente_id?: string | null;
+  otorgado_por?: string | null;
+  scopes?: string[] | null;
+  otorgado_en?: string | null;
+  revocado_en?: string | null | null;
+}
+
+export type OauthCodigosAutorizacionInsert = {
+  codigo?: string | null;
+  studio_id?: string | null;
+  cliente_id?: string | null;
+  auth_user_id?: string | null;
+  scopes?: string[] | null;
+  redirect_uri?: string | null;
+  code_challenge?: string | null;
+  code_challenge_method?: string | null;
+  cadena_id?: string | null;
+  expira_en?: string | null;
+  usado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type OauthCodigosAutorizacionUpdate = {
+  codigo?: string | null;
+  studio_id?: string | null;
+  cliente_id?: string | null;
+  auth_user_id?: string | null;
+  scopes?: string[] | null;
+  redirect_uri?: string | null;
+  code_challenge?: string | null;
+  code_challenge_method?: string | null;
+  cadena_id?: string | null;
+  expira_en?: string | null;
+  usado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type OauthTokensInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  cliente_id?: string | null;
+  auth_user_id?: string | null;
+  scopes?: string[] | null;
+  access_token_hash?: string | null;
+  refresh_token_hash?: string | null;
+  access_token_expira_en?: string | null;
+  refresh_token_expira_en?: string | null;
+  cadena_id?: string | null;
+  revocado_en?: string | null | null;
+  reemplazado_por?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type OauthTokensUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  cliente_id?: string | null;
+  auth_user_id?: string | null;
+  scopes?: string[] | null;
+  access_token_hash?: string | null;
+  refresh_token_hash?: string | null;
+  access_token_expira_en?: string | null;
+  refresh_token_expira_en?: string | null;
+  cadena_id?: string | null;
+  revocado_en?: string | null | null;
+  reemplazado_por?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type OauthAuditoriaAccesosInsert = {
+  id?: number | null;
+  token_id?: string | null | null;
+  studio_id?: string | null;
+  cliente_id?: string | null;
+  scope_usado?: string | null | null;
+  metodo?: string | null;
+  ruta?: string | null;
+  status_code?: number | null;
+  ip?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type OauthAuditoriaAccesosUpdate = {
+  id?: number | null;
+  token_id?: string | null | null;
+  studio_id?: string | null;
+  cliente_id?: string | null;
+  scope_usado?: string | null | null;
+  metodo?: string | null;
+  ruta?: string | null;
+  status_code?: number | null;
+  ip?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type WidgetEventosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  session_id?: string | null;
+  tipo?: string | null;
+  sesion_clase_id?: string | null | null;
+  origen?: string | null | null;
+  creado_en?: string | null;
+  socio_id?: string | null | null;
+}
+
+export type WidgetEventosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  session_id?: string | null;
+  tipo?: string | null;
+  sesion_clase_id?: string | null | null;
+  origen?: string | null | null;
+  creado_en?: string | null;
+  socio_id?: string | null | null;
+}
+
+export type TareasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  titulo?: string | null;
+  descripcion?: string | null | null;
+  estado?: string | null;
+  origen?: string | null;
+  creado_en?: string | null;
+  completado_en?: string | null | null;
+}
+
+export type TareasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  titulo?: string | null;
+  descripcion?: string | null | null;
+  estado?: string | null;
+  origen?: string | null;
+  creado_en?: string | null;
+  completado_en?: string | null | null;
+}
+
+export type RedFormalizacionesInsert = {
+  id?: string | null;
+  solicitud_id?: string | null;
+  propuesto_por?: string | null;
+  tipo_contrato?: string | null;
+  estudio_confirmado_en?: string | null | null;
+  instructora_confirmada_en?: string | null | null;
+  estado?: string | null;
+  instructor_id?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type RedFormalizacionesUpdate = {
+  id?: string | null;
+  solicitud_id?: string | null;
+  propuesto_por?: string | null;
+  tipo_contrato?: string | null;
+  estudio_confirmado_en?: string | null | null;
+  instructora_confirmada_en?: string | null | null;
+  estado?: string | null;
+  instructor_id?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type RedVacantesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  publicado_por?: string | null;
+  titulo?: string | null;
+  especialidades?: string[] | null;
+  horarios?: string[] | null;
+  tipo_trabajo?: string | null;
+  tarifa_rango?: string | null;
+  requisitos?: string | null | null;
+  descripcion?: string | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  cerrado_en?: string | null | null;
+}
+
+export type RedVacantesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  publicado_por?: string | null;
+  titulo?: string | null;
+  especialidades?: string[] | null;
+  horarios?: string[] | null;
+  tipo_trabajo?: string | null;
+  tarifa_rango?: string | null;
+  requisitos?: string | null | null;
+  descripcion?: string | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  cerrado_en?: string | null | null;
+}
+
+export type RedCandidaturasInsert = {
+  id?: string | null;
+  vacante_id?: string | null;
+  perfil_id?: string | null;
+  studio_id?: string | null;
+  mensaje?: string | null | null;
+  notas_estudio?: string | null | null;
+  estado?: string | null;
+  solicitud_id?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  resuelto_en?: string | null | null;
+}
+
+export type RedCandidaturasUpdate = {
+  id?: string | null;
+  vacante_id?: string | null;
+  perfil_id?: string | null;
+  studio_id?: string | null;
+  mensaje?: string | null | null;
+  notas_estudio?: string | null | null;
+  estado?: string | null;
+  solicitud_id?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  resuelto_en?: string | null | null;
+}
+
+export type RecordatorioEnviosInsert = {
+  sesion_id?: string | null;
+  socio_id?: string | null;
+  canal?: string | null;
+  enviado_en?: string | null;
+}
+
+export type RecordatorioEnviosUpdate = {
+  sesion_id?: string | null;
+  socio_id?: string | null;
+  canal?: string | null;
+  enviado_en?: string | null;
+}
+
+export type SegmentosClientesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  condiciones?: any | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type SegmentosClientesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  condiciones?: any | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type MensajesEntrantesMedicionInsert = {
+  id?: string | null;
+  canal?: string | null;
+  de_numero?: string | null;
+  para_numero?: string | null;
+  cuerpo?: string | null | null;
+  twilio_sid?: string | null;
+  creado_en?: string | null;
+}
+
+export type MensajesEntrantesMedicionUpdate = {
+  id?: string | null;
+  canal?: string | null;
+  de_numero?: string | null;
+  para_numero?: string | null;
+  cuerpo?: string | null | null;
+  twilio_sid?: string | null;
+  creado_en?: string | null;
+}
+
+export type CodigosDescuentoConsumosInsert = {
+  recibo_id?: string | null;
+  codigo_id?: string | null;
+  consumido_en?: string | null;
+  socio_id?: string | null | null;
+}
+
+export type CodigosDescuentoConsumosUpdate = {
+  recibo_id?: string | null;
+  codigo_id?: string | null;
+  consumido_en?: string | null;
+  socio_id?: string | null | null;
+}
+
+export type ReviewBoostFeedbackInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  rating?: number | null;
+  comentario?: string | null | null;
+  fuente?: string | null;
+  estado?: string | null;
+  creado_en?: string | null;
+}
+
+export type ReviewBoostFeedbackUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  rating?: number | null;
+  comentario?: string | null | null;
+  fuente?: string | null;
+  estado?: string | null;
+  creado_en?: string | null;
+}
+
+export type ReviewBoostRecompensasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  feedback_id?: string | null;
+  stripe_coupon_id?: string | null;
+  concedida_en?: string | null;
+  canjeada_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type ReviewBoostRecompensasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  feedback_id?: string | null;
+  stripe_coupon_id?: string | null;
+  concedida_en?: string | null;
+  canjeada_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type MenuNovedadesInsert = {
+  href?: string | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type MenuNovedadesUpdate = {
+  href?: string | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type RedPerfilesAlumnaInsert = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  nombre?: string | null;
+  foto_url?: string | null | null;
+  ciudad?: string | null | null;
+  zona?: string | null | null;
+  lat?: number | null | null;
+  lng?: number | null | null;
+  intereses?: string[] | null;
+  disponibilidad_horarios?: string[] | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type RedPerfilesAlumnaUpdate = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  nombre?: string | null;
+  foto_url?: string | null | null;
+  ciudad?: string | null | null;
+  zona?: string | null | null;
+  lat?: number | null | null;
+  lng?: number | null | null;
+  intereses?: string[] | null;
+  disponibilidad_horarios?: string[] | null;
+  estado?: string | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type RedPerfilMediaInsert = {
+  id?: string | null;
+  perfil_id?: string | null;
+  tipo?: string | null;
+  path?: string | null;
+  orden?: number | null;
+  creado_en?: string | null;
+}
+
+export type RedPerfilMediaUpdate = {
+  id?: string | null;
+  perfil_id?: string | null;
+  tipo?: string | null;
+  path?: string | null;
+  orden?: number | null;
+  creado_en?: string | null;
+}
+
+export type RedFavoritosAlumnaInsert = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  tipo?: string | null;
+  studio_id?: string | null | null;
+  perfil_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type RedFavoritosAlumnaUpdate = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  tipo?: string | null;
+  studio_id?: string | null | null;
+  perfil_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type ConversacionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  titulo?: string | null | null;
+  ancla_sesion_id?: string | null | null;
+  ancla_reserva_id?: string | null | null;
+  creado_en?: string | null;
+  ultimo_mensaje_en?: string | null;
+  mostrador_leido_hasta?: string | null | null;
+}
+
+export type ConversacionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  titulo?: string | null | null;
+  ancla_sesion_id?: string | null | null;
+  ancla_reserva_id?: string | null | null;
+  creado_en?: string | null;
+  ultimo_mensaje_en?: string | null;
+  mostrador_leido_hasta?: string | null | null;
+}
+
+export type ConversacionParticipantesInsert = {
+  conversacion_id?: string | null;
+  auth_user_id?: string | null;
+  rol_en_conversacion?: string | null;
+  socio_id?: string | null | null;
+  leido_hasta?: string | null;
+  unido_en?: string | null;
+}
+
+export type ConversacionParticipantesUpdate = {
+  conversacion_id?: string | null;
+  auth_user_id?: string | null;
+  rol_en_conversacion?: string | null;
+  socio_id?: string | null | null;
+  leido_hasta?: string | null;
+  unido_en?: string | null;
+}
+
+export type MensajesInsert = {
+  id?: string | null;
+  conversacion_id?: string | null;
+  studio_id?: string | null;
+  remitente_auth_user_id?: string | null | null;
+  cuerpo?: string | null;
+  creado_en?: string | null;
+}
+
+export type MensajesUpdate = {
+  id?: string | null;
+  conversacion_id?: string | null;
+  studio_id?: string | null;
+  remitente_auth_user_id?: string | null | null;
+  cuerpo?: string | null;
+  creado_en?: string | null;
+}
+
+export type DocumentosSocioInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  categoria?: string | null;
+  titulo?: string | null;
+  storage_path?: string | null;
+  subido_por?: string | null | null;
+  caduca_en?: string | null | null;
+  creado_en?: string | null;
+  borrado_en?: string | null | null;
+}
+
+export type DocumentosSocioUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  categoria?: string | null;
+  titulo?: string | null;
+  storage_path?: string | null;
+  subido_por?: string | null | null;
+  caduca_en?: string | null | null;
+  creado_en?: string | null;
+  borrado_en?: string | null | null;
+}
+
+export type PostEventoAsistentesInsert = {
+  post_id?: string | null;
+  socio_id?: string | null;
+  creado_en?: string | null;
+}
+
+export type PostEventoAsistentesUpdate = {
+  post_id?: string | null;
+  socio_id?: string | null;
+  creado_en?: string | null;
+}
+
+export type SocioCompanerasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  solicitante_id?: string | null;
+  destinataria_id?: string | null;
+  estado?: string | null;
+  bloqueada_por?: string | null | null;
+  creado_en?: string | null;
+  resuelto_en?: string | null | null;
+}
+
+export type SocioCompanerasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  solicitante_id?: string | null;
+  destinataria_id?: string | null;
+  estado?: string | null;
+  bloqueada_por?: string | null | null;
+  creado_en?: string | null;
+  resuelto_en?: string | null | null;
+}
+
+export type NovedadesEstudioInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  titulo?: string | null;
+  texto?: string | null | null;
+  emoji?: string | null | null;
+  activo?: boolean | null;
+  fecha_inicio?: string | null | null;
+  fecha_fin?: string | null | null;
+  created_by?: string | null | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type NovedadesEstudioUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  titulo?: string | null;
+  texto?: string | null | null;
+  emoji?: string | null | null;
+  activo?: boolean | null;
+  fecha_inicio?: string | null | null;
+  fecha_fin?: string | null | null;
+  created_by?: string | null | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type WebhookReembolsosInsert = {
+  id?: string | null;
+  pi_stripe_id?: string | null;
+  charge_stripe_id?: string | null;
+  recibo_id?: string | null | null;
+  amount_refunded_cents?: number | null;
+  total_charge_cents?: number | null;
+  es_reembolso_total?: boolean | null;
+  procesado_en?: string | null;
+}
+
+export type WebhookReembolsosUpdate = {
+  id?: string | null;
+  pi_stripe_id?: string | null;
+  charge_stripe_id?: string | null;
+  recibo_id?: string | null | null;
+  amount_refunded_cents?: number | null;
+  total_charge_cents?: number | null;
+  es_reembolso_total?: boolean | null;
+  procesado_en?: string | null;
+}
+
+export type WebhookDisputasInsert = {
+  id?: string | null;
+  pi_stripe_id?: string | null;
+  dispute_stripe_id?: string | null;
+  recibo_id?: string | null | null;
+  dispute_status?: string | null;
+  procesado_en?: string | null;
+}
+
+export type WebhookDisputasUpdate = {
+  id?: string | null;
+  pi_stripe_id?: string | null;
+  dispute_stripe_id?: string | null;
+  recibo_id?: string | null | null;
+  dispute_status?: string | null;
+  procesado_en?: string | null;
+}
+
+export type AyudaFeedbackInsert = {
+  id?: string | null;
+  articulo_slug?: string | null;
+  categoria_slug?: string | null;
+  valoracion?: string | null;
+  url?: string | null;
+  creado_en?: string | null;
+}
+
+export type AyudaFeedbackUpdate = {
+  id?: string | null;
+  articulo_slug?: string | null;
+  categoria_slug?: string | null;
+  valoracion?: string | null;
+  url?: string | null;
+  creado_en?: string | null;
+}
+
+export type PlataformaProspeccionEmailInsert = {
+  id?: string | null;
+  lead_id?: string | null;
+  asunto?: string | null;
+  cuerpo?: string | null;
+  estado?: string | null;
+  aprobado_por?: string | null | null;
+  aprobado_en?: string | null | null;
+  enviado_en?: string | null | null;
+  error?: string | null | null;
+  generado_en?: string | null;
+  creado_en?: string | null;
+}
+
+export type PlataformaProspeccionEmailUpdate = {
+  id?: string | null;
+  lead_id?: string | null;
+  asunto?: string | null;
+  cuerpo?: string | null;
+  estado?: string | null;
+  aprobado_por?: string | null | null;
+  aprobado_en?: string | null | null;
+  enviado_en?: string | null | null;
+  error?: string | null | null;
+  generado_en?: string | null;
+  creado_en?: string | null;
+}
+
+export type DecisionSnapshotsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  snapshot_data?: any | null;
+  cacheado_en?: string | null;
+  valido_hasta?: string | null;
+  es_valido?: boolean | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type DecisionSnapshotsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  snapshot_data?: any | null;
+  cacheado_en?: string | null;
+  valido_hasta?: string | null;
+  es_valido?: boolean | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type SocioTiposClaseAutorizadosInsert = {
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo_clase_id?: string | null;
+  autorizada_en?: string | null;
+  autorizada_por?: string | null | null;
+}
+
+export type SocioTiposClaseAutorizadosUpdate = {
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo_clase_id?: string | null;
+  autorizada_en?: string | null;
+  autorizada_por?: string | null | null;
+}
+
+export type CierresEstudioInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  desde?: string | null;
+  hasta?: string | null;
+  motivo?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type CierresEstudioUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  desde?: string | null;
+  hasta?: string | null;
+  motivo?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type CajasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  estado?: string | null;
+  fondo_inicial?: number | null;
+  abierta_en?: string | null;
+  abierta_por?: string | null | null;
+  abierta_por_nombre?: string | null | null;
+  cerrada_en?: string | null | null;
+  cerrada_por?: string | null | null;
+  cerrada_por_nombre?: string | null | null;
+  efectivo_contado?: number | null | null;
+  efectivo_esperado?: number | null | null;
+  diferencia?: number | null | null;
+  notas_cierre?: string | null | null;
+}
+
+export type CajasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  estado?: string | null;
+  fondo_inicial?: number | null;
+  abierta_en?: string | null;
+  abierta_por?: string | null | null;
+  abierta_por_nombre?: string | null | null;
+  cerrada_en?: string | null | null;
+  cerrada_por?: string | null | null;
+  cerrada_por_nombre?: string | null | null;
+  efectivo_contado?: number | null | null;
+  efectivo_esperado?: number | null | null;
+  diferencia?: number | null | null;
+  notas_cierre?: string | null | null;
+}
+
+export type MovimientosCajaInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  caja_id?: string | null;
+  tipo?: string | null;
+  importe?: number | null;
+  metodo_pago?: string | null;
+  concepto?: string | null;
+  referencia?: string | null | null;
+  metadata?: any | null;
+  creado_en?: string | null;
+  creado_por?: string | null | null;
+  creado_por_nombre?: string | null | null;
+}
+
+export type MovimientosCajaUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  caja_id?: string | null;
+  tipo?: string | null;
+  importe?: number | null;
+  metodo_pago?: string | null;
+  concepto?: string | null;
+  referencia?: string | null | null;
+  metadata?: any | null;
+  creado_en?: string | null;
+  creado_por?: string | null | null;
+  creado_por_nombre?: string | null | null;
+}
+
+export type VentasPosLineasInsert = {
+  id?: string | null;
+  venta_id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  referencia_id?: string | null | null;
+  nombre?: string | null;
+  precio_unitario?: number | null;
+  cantidad?: number | null;
+  iva_pct?: number | null;
+  descuento?: number | null;
+  base_imponible?: number | null;
+  iva_importe?: number | null;
+  total?: number | null;
+  suscripcion_id?: string | null | null;
+  devuelta_cantidad?: number | null;
+  orden?: number | null;
+}
+
+export type VentasPosLineasUpdate = {
+  id?: string | null;
+  venta_id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  referencia_id?: string | null | null;
+  nombre?: string | null;
+  precio_unitario?: number | null;
+  cantidad?: number | null;
+  iva_pct?: number | null;
+  descuento?: number | null;
+  base_imponible?: number | null;
+  iva_importe?: number | null;
+  total?: number | null;
+  suscripcion_id?: string | null | null;
+  devuelta_cantidad?: number | null;
+  orden?: number | null;
+}
+
+export type MovimientosStockInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  producto_id?: string | null;
+  tipo?: string | null;
+  cantidad?: number | null;
+  stock_anterior?: number | null | null;
+  stock_resultante?: number | null;
+  motivo?: string | null | null;
+  coste_unitario?: number | null | null;
+  creado_por?: string | null | null;
+  creado_por_nombre?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type MovimientosStockUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  producto_id?: string | null;
+  tipo?: string | null;
+  cantidad?: number | null;
+  stock_anterior?: number | null | null;
+  stock_resultante?: number | null;
+  motivo?: string | null | null;
+  coste_unitario?: number | null | null;
+  creado_por?: string | null | null;
+  creado_por_nombre?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type TerminosVersionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  hash?: string | null;
+  texto?: string | null;
+  creado_en?: string | null;
+}
+
+export type TerminosVersionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  hash?: string | null;
+  texto?: string | null;
+  creado_en?: string | null;
+}
+
+export type ValoracionesInicialesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  estado?: string | null;
+  objetivos?: string[] | null;
+  objetivo_principal?: string | null | null;
+  experiencia?: string | null | null;
+  nivel?: string | null | null;
+  actividad_habitual?: string | null;
+  frecuencia?: string | null | null;
+  expectativas?: string | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  completada_en?: string | null | null;
+}
+
+export type ValoracionesInicialesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  estado?: string | null;
+  objetivos?: string[] | null;
+  objetivo_principal?: string | null | null;
+  experiencia?: string | null | null;
+  nivel?: string | null | null;
+  actividad_habitual?: string | null;
+  frecuencia?: string | null | null;
+  expectativas?: string | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  completada_en?: string | null | null;
+}
+
+export type ValoracionesInicialesSaludInsert = {
+  valoracion_id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tiene_molestias?: boolean | null | null;
+  zonas?: string[] | null;
+  detalle?: string | null;
+  estado_cuerpo?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type ValoracionesInicialesSaludUpdate = {
+  valoracion_id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tiene_molestias?: boolean | null | null;
+  zonas?: string[] | null;
+  detalle?: string | null;
+  estado_cuerpo?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type VerifactuTransmisionLockInsert = {
+  id?: string | null;
+  en_curso?: boolean | null;
+  iniciado_en?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type VerifactuTransmisionLockUpdate = {
+  id?: string | null;
+  en_curso?: boolean | null;
+  iniciado_en?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type EmailRebotesInsert = {
+  email?: string | null;
+  tipo?: string | null;
+  motivo?: string | null | null;
+  email_id?: string | null | null;
+  detectado_en?: string | null;
+}
+
+export type EmailRebotesUpdate = {
+  email?: string | null;
+  tipo?: string | null;
+  motivo?: string | null | null;
+  email_id?: string | null | null;
+  detectado_en?: string | null;
+}
+
+export type MatriculaCupoLiberacionesInsert = {
+  payment_intent_id?: string | null;
+  plan_id?: string | null;
+  studio_id?: string | null;
+  liberado_en?: string | null;
+}
+
+export type MatriculaCupoLiberacionesUpdate = {
+  payment_intent_id?: string | null;
+  plan_id?: string | null;
+  studio_id?: string | null;
+  liberado_en?: string | null;
+}
+
+export type SupresionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  auth_user_id?: string | null | null;
+  solicitada_en?: string | null;
+  ejecutada_en?: string | null | null;
+  ejecutada_por?: string | null | null;
+  origen?: string | null;
+  terceros_pendientes?: any | null;
+  reaplicada_en?: string | null | null;
+}
+
+export type SupresionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  auth_user_id?: string | null | null;
+  solicitada_en?: string | null;
+  ejecutada_en?: string | null | null;
+  ejecutada_por?: string | null | null;
+  origen?: string | null;
+  terceros_pendientes?: any | null;
+  reaplicada_en?: string | null | null;
+}
+
+export type SolicitudesDerechosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo?: string | null;
+  estado?: string | null;
+  solicitada_en?: string | null;
+  plazo_hasta?: string | null;
+  resuelta_en?: string | null | null;
+  resuelta_por?: string | null | null;
+  nota?: string | null | null;
+}
+
+export type SolicitudesDerechosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo?: string | null;
+  estado?: string | null;
+  solicitada_en?: string | null;
+  plazo_hasta?: string | null;
+  resuelta_en?: string | null | null;
+  resuelta_por?: string | null | null;
+  nota?: string | null | null;
+}
+
+export type ConsentimientosSaludEventosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo?: string | null;
+  en?: string | null;
+  origen?: string | null;
+  texto?: string | null | null;
+  firma?: string | null | null;
+  actor_uid?: string | null | null;
+  actor_rol?: string | null | null;
+}
+
+export type ConsentimientosSaludEventosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  tipo?: string | null;
+  en?: string | null;
+  origen?: string | null;
+  texto?: string | null | null;
+  firma?: string | null | null;
+  actor_uid?: string | null | null;
+  actor_rol?: string | null | null;
+}
+
+export type CicloEstudiosVencidosInsert = {
+  id?: number | null;
+  studio_id?: string | null;
+  trial_ends_at?: string | null;
+  fase?: string | null;
+  programada_para?: string | null;
+  ejecutada_en?: string | null | null;
+  cancelada_en?: string | null | null;
+  resumen?: any | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type CicloEstudiosVencidosUpdate = {
+  id?: number | null;
+  studio_id?: string | null;
+  trial_ends_at?: string | null;
+  fase?: string | null;
+  programada_para?: string | null;
+  ejecutada_en?: string | null | null;
+  cancelada_en?: string | null | null;
+  resumen?: any | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type KioskoTokensInsert = {
+  studio_id?: string | null;
+  token_hash?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type KioskoTokensUpdate = {
+  studio_id?: string | null;
+  token_hash?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type AceptacionesContratoEventosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  en?: string | null;
+  origen?: string | null;
+  texto_hash?: string | null;
+  texto_cliente_coincide?: boolean | null | null;
+  firma?: string | null;
+  introducida_por?: string | null | null;
+  actor_uid?: string | null | null;
+  actor_rol?: string | null | null;
+  ip_hmac?: string | null | null;
+  user_agent?: string | null | null;
+}
+
+export type AceptacionesContratoEventosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  en?: string | null;
+  origen?: string | null;
+  texto_hash?: string | null;
+  texto_cliente_coincide?: boolean | null | null;
+  firma?: string | null;
+  introducida_por?: string | null | null;
+  actor_uid?: string | null | null;
+  actor_rol?: string | null | null;
+  ip_hmac?: string | null | null;
+  user_agent?: string | null | null;
+}
+
+export type BajasInstructoraInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  sustitucion_id?: string | null;
+  sesion_id?: string | null;
+  categoria?: string | null | null;
+  motivo?: string | null | null;
+  antelacion_minutos?: number | null;
+  revision?: string | null | null;
+  nota_estudio?: string | null | null;
+  revisada_por?: string | null | null;
+  revisada_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type BajasInstructoraUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  sustitucion_id?: string | null;
+  sesion_id?: string | null;
+  categoria?: string | null | null;
+  motivo?: string | null | null;
+  antelacion_minutos?: number | null;
+  revision?: string | null | null;
+  nota_estudio?: string | null | null;
+  revisada_por?: string | null | null;
+  revisada_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type SeriesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  semanas_periodo?: number | null;
+  renovacion_automatica?: boolean | null;
+  no_renovar?: boolean | null;
+  creada_en?: string | null;
+  aviso_tramo?: string | null | null;
+  aviso_fin?: string | null | null;
+}
+
+export type SeriesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  semanas_periodo?: number | null;
+  renovacion_automatica?: boolean | null;
+  no_renovar?: boolean | null;
+  creada_en?: string | null;
+  aviso_tramo?: string | null | null;
+  aviso_fin?: string | null | null;
+}
+
+export type SeriesPeriodosInsert = {
+  serie_id?: string | null;
+  periodo?: number | null;
+  studio_id?: string | null;
+  desde?: string | null;
+  hasta?: string | null;
+  origen?: string | null;
+  creado_por?: string | null | null;
+  sesiones_creadas?: number | null;
+  omitidas?: any | null;
+  creado_en?: string | null;
+}
+
+export type SeriesPeriodosUpdate = {
+  serie_id?: string | null;
+  periodo?: number | null;
+  studio_id?: string | null;
+  desde?: string | null;
+  hasta?: string | null;
+  origen?: string | null;
+  creado_por?: string | null | null;
+  sesiones_creadas?: number | null;
+  omitidas?: any | null;
+  creado_en?: string | null;
+}
+
+export type SalesLeadsInsert = {
+  id?: string | null;
+  email?: string | null;
+  nombre_contacto?: string | null | null;
+  apellido_contacto?: string | null | null;
+  estudio_nombre?: string | null | null;
+  estudio_nombre_legal?: string | null | null;
+  rol?: string | null | null;
+  telefono?: string | null | null;
+  ciudad?: string | null | null;
+  provincia?: string | null | null;
+  pais?: string | null | null;
+  codigo_postal?: string | null | null;
+  direccion?: string | null | null;
+  website?: string | null | null;
+  website_domain?: string | null | null;
+  instagram_url?: string | null | null;
+  facebook_url?: string | null | null;
+  linkedin_url?: string | null | null;
+  software_actual?: string | null | null;
+  numero_empleados?: number | null | null;
+  clientes_aprox?: number | null | null;
+  precio_mensual_aprox?: string | null | null;
+  google_place_id?: string | null | null;
+  phone_normalized?: string | null | null;
+  phone_checked_at?: string | null | null;
+  estado?: string | null;
+  origen?: string | null;
+  source_url?: string | null | null;
+  source_created_at?: string | null | null;
+  discovered_at?: string | null | null;
+  last_verified_at?: string | null | null;
+  email_status?: string | null | null;
+  email_checked_at?: string | null | null;
+  owner_id?: string | null | null;
+  studio_id?: string | null | null;
+  tags?: string[] | null | null;
+  notas?: string | null | null;
+  razon_perdida?: string | null | null;
+  confidence?: number | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  borrado_en?: string | null | null;
+}
+
+export type SalesLeadsUpdate = {
+  id?: string | null;
+  email?: string | null;
+  nombre_contacto?: string | null | null;
+  apellido_contacto?: string | null | null;
+  estudio_nombre?: string | null | null;
+  estudio_nombre_legal?: string | null | null;
+  rol?: string | null | null;
+  telefono?: string | null | null;
+  ciudad?: string | null | null;
+  provincia?: string | null | null;
+  pais?: string | null | null;
+  codigo_postal?: string | null | null;
+  direccion?: string | null | null;
+  website?: string | null | null;
+  website_domain?: string | null | null;
+  instagram_url?: string | null | null;
+  facebook_url?: string | null | null;
+  linkedin_url?: string | null | null;
+  software_actual?: string | null | null;
+  numero_empleados?: number | null | null;
+  clientes_aprox?: number | null | null;
+  precio_mensual_aprox?: string | null | null;
+  google_place_id?: string | null | null;
+  phone_normalized?: string | null | null;
+  phone_checked_at?: string | null | null;
+  estado?: string | null;
+  origen?: string | null;
+  source_url?: string | null | null;
+  source_created_at?: string | null | null;
+  discovered_at?: string | null | null;
+  last_verified_at?: string | null | null;
+  email_status?: string | null | null;
+  email_checked_at?: string | null | null;
+  owner_id?: string | null | null;
+  studio_id?: string | null | null;
+  tags?: string[] | null | null;
+  notas?: string | null | null;
+  razon_perdida?: string | null | null;
+  confidence?: number | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  borrado_en?: string | null | null;
+}
+
+export type SalesCampaignsInsert = {
+  id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  audience_count?: number | null | null;
+  estado?: string | null;
+  created_by?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  scheduled_for?: string | null | null;
+  borrado_en?: string | null | null;
+}
+
+export type SalesCampaignsUpdate = {
+  id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  audience_count?: number | null | null;
+  estado?: string | null;
+  created_by?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  scheduled_for?: string | null | null;
+  borrado_en?: string | null | null;
+}
+
+export type SalesCampaignStepsInsert = {
+  id?: string | null;
+  campaign_id?: string | null;
+  orden?: number | null;
+  asunto?: string | null | null;
+  cuerpo?: string | null | null;
+  delay_days?: number | null | null;
+  conditions?: any | null | null;
+  enabled?: boolean | null | null;
+  created_at?: string | null;
+}
+
+export type SalesCampaignStepsUpdate = {
+  id?: string | null;
+  campaign_id?: string | null;
+  orden?: number | null;
+  asunto?: string | null | null;
+  cuerpo?: string | null | null;
+  delay_days?: number | null | null;
+  conditions?: any | null | null;
+  enabled?: boolean | null | null;
+  created_at?: string | null;
+}
+
+export type SalesMessagesInsert = {
+  id?: string | null;
+  lead_id?: string | null;
+  campaign_id?: string | null | null;
+  campaign_step_id?: string | null | null;
+  asunto?: string | null | null;
+  cuerpo?: string | null | null;
+  estado?: string | null;
+  proveedor?: string | null | null;
+  proveedor_id?: string | null | null;
+  enviado_en?: string | null | null;
+  entregado_en?: string | null | null;
+  abierto_en?: string | null | null;
+  respuesta_en?: string | null | null;
+  error?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type SalesMessagesUpdate = {
+  id?: string | null;
+  lead_id?: string | null;
+  campaign_id?: string | null | null;
+  campaign_step_id?: string | null | null;
+  asunto?: string | null | null;
+  cuerpo?: string | null | null;
+  estado?: string | null;
+  proveedor?: string | null | null;
+  proveedor_id?: string | null | null;
+  enviado_en?: string | null | null;
+  entregado_en?: string | null | null;
+  abierto_en?: string | null | null;
+  respuesta_en?: string | null | null;
+  error?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type SalesSuppressionsInsert = {
+  id?: string | null;
+  email?: string | null | null;
+  dominio?: string | null | null;
+  telefono?: string | null | null;
+  razon?: string | null;
+  source?: string | null;
+  creado_en?: string | null;
+}
+
+export type SalesSuppressionsUpdate = {
+  id?: string | null;
+  email?: string | null | null;
+  dominio?: string | null | null;
+  telefono?: string | null | null;
+  razon?: string | null;
+  source?: string | null;
+  creado_en?: string | null;
+}
+
+export type SalesTasksInsert = {
+  id?: string | null;
+  lead_id?: string | null;
+  tipo?: string | null;
+  asignado_a?: string | null | null;
+  vencimiento?: string | null | null;
+  prioridad?: number | null | null;
+  estado?: string | null;
+  notas?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  borrado_en?: string | null | null;
+}
+
+export type SalesTasksUpdate = {
+  id?: string | null;
+  lead_id?: string | null;
+  tipo?: string | null;
+  asignado_a?: string | null | null;
+  vencimiento?: string | null | null;
+  prioridad?: number | null | null;
+  estado?: string | null;
+  notas?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  borrado_en?: string | null | null;
+}
+
+export type SalesEventsInsert = {
+  id?: string | null;
+  lead_id?: string | null | null;
+  tipo?: string | null;
+  actor_id?: string | null | null;
+  detalles?: any | null | null;
+  creado_en?: string | null;
+}
+
+export type SalesEventsUpdate = {
+  id?: string | null;
+  lead_id?: string | null | null;
+  tipo?: string | null;
+  actor_id?: string | null | null;
+  detalles?: any | null | null;
+  creado_en?: string | null;
+}
+
+export type Database = {
+  public: {
+    Tables: {
+      reservas: {
+        Row: RowReservas;
+        Insert: ReservasInsert;
+        Update: ReservasUpdate;
+      };
+      achievement_definitions: {
+        Row: RowAchievementDefinitions;
+        Insert: AchievementDefinitionsInsert;
+        Update: AchievementDefinitionsUpdate;
+      };
+      achievement_history: {
+        Row: RowAchievementHistory;
+        Insert: AchievementHistoryInsert;
+        Update: AchievementHistoryUpdate;
+      };
+      achievement_progress: {
+        Row: RowAchievementProgress;
+        Insert: AchievementProgressInsert;
+        Update: AchievementProgressUpdate;
+      };
+      actividad_reciente: {
+        Row: RowActividadReciente;
+        Insert: ActividadRecienteInsert;
+        Update: ActividadRecienteUpdate;
+      };
+      automation_logs: {
+        Row: RowAutomationLogs;
+        Insert: AutomationLogsInsert;
+        Update: AutomationLogsUpdate;
+      };
+      automation_rules: {
+        Row: RowAutomationRules;
+        Insert: AutomationRulesInsert;
+        Update: AutomationRulesUpdate;
+      };
+      automatizaciones: {
+        Row: RowAutomatizaciones;
+        Insert: AutomatizacionesInsert;
+        Update: AutomatizacionesUpdate;
+      };
+      backups: {
+        Row: RowBackups;
+        Insert: BackupsInsert;
+        Update: BackupsUpdate;
+      };
+      campanas: {
+        Row: RowCampanas;
+        Insert: CampanasInsert;
+        Update: CampanasUpdate;
+      };
+      challenge_definitions: {
+        Row: RowChallengeDefinitions;
+        Insert: ChallengeDefinitionsInsert;
+        Update: ChallengeDefinitionsUpdate;
+      };
+      challenge_history: {
+        Row: RowChallengeHistory;
+        Insert: ChallengeHistoryInsert;
+        Update: ChallengeHistoryUpdate;
+      };
+      challenge_progress: {
+        Row: RowChallengeProgress;
+        Insert: ChallengeProgressInsert;
+        Update: ChallengeProgressUpdate;
+      };
+      citas: {
+        Row: RowCitas;
+        Insert: CitasInsert;
+        Update: CitasUpdate;
+      };
+      codigos_descuento: {
+        Row: RowCodigosDescuento;
+        Insert: CodigosDescuentoInsert;
+        Update: CodigosDescuentoUpdate;
+      };
+      credit_transactions: {
+        Row: RowCreditTransactions;
+        Insert: CreditTransactionsInsert;
+        Update: CreditTransactionsUpdate;
+      };
+      dashboard_charts: {
+        Row: RowDashboardCharts;
+        Insert: DashboardChartsInsert;
+        Update: DashboardChartsUpdate;
+      };
+      facturas: {
+        Row: RowFacturas;
+        Insert: FacturasInsert;
+        Update: FacturasUpdate;
+      };
+      instructores: {
+        Row: RowInstructores;
+        Insert: InstructoresInsert;
+        Update: InstructoresUpdate;
+      };
+      integracion_credenciales: {
+        Row: RowIntegracionCredenciales;
+        Insert: IntegracionCredencialesInsert;
+        Update: IntegracionCredencialesUpdate;
+      };
+      integraciones: {
+        Row: RowIntegraciones;
+        Insert: IntegracionesInsert;
+        Update: IntegracionesUpdate;
+      };
+      level_definitions: {
+        Row: RowLevelDefinitions;
+        Insert: LevelDefinitionsInsert;
+        Update: LevelDefinitionsUpdate;
+      };
+      member_credits: {
+        Row: RowMemberCredits;
+        Insert: MemberCreditsInsert;
+        Update: MemberCreditsUpdate;
+      };
+      mensajes_equipo: {
+        Row: RowMensajesEquipo;
+        Insert: MensajesEquipoInsert;
+        Update: MensajesEquipoUpdate;
+      };
+      notas_internas: {
+        Row: RowNotasInternas;
+        Insert: NotasInternasInsert;
+        Update: NotasInternasUpdate;
+      };
+      notas_progreso: {
+        Row: RowNotasProgreso;
+        Insert: NotasProgresoInsert;
+        Update: NotasProgresoUpdate;
+      };
+      notificaciones: {
+        Row: RowNotificaciones;
+        Insert: NotificacionesInsert;
+        Update: NotificacionesUpdate;
+      };
+      planes_tarifa: {
+        Row: RowPlanesTarifa;
+        Insert: PlanesTarifaInsert;
+        Update: PlanesTarifaUpdate;
+      };
+      posts_comunidad: {
+        Row: RowPostsComunidad;
+        Insert: PostsComunidadInsert;
+        Update: PostsComunidadUpdate;
+      };
+      preferencias_socio: {
+        Row: RowPreferenciasSocio;
+        Insert: PreferenciasSocioInsert;
+        Update: PreferenciasSocioUpdate;
+      };
+      productos_pos: {
+        Row: RowProductosPos;
+        Insert: ProductosPosInsert;
+        Update: ProductosPosUpdate;
+      };
+      recibos: {
+        Row: RowRecibos;
+        Insert: RecibosInsert;
+        Update: RecibosUpdate;
+      };
+      reward_actions: {
+        Row: RowRewardActions;
+        Insert: RewardActionsInsert;
+        Update: RewardActionsUpdate;
+      };
+      reward_catalog: {
+        Row: RowRewardCatalog;
+        Insert: RewardCatalogInsert;
+        Update: RewardCatalogUpdate;
+      };
+      reward_history: {
+        Row: RowRewardHistory;
+        Insert: RewardHistoryInsert;
+        Update: RewardHistoryUpdate;
+      };
+      reward_redemptions: {
+        Row: RowRewardRedemptions;
+        Insert: RewardRedemptionsInsert;
+        Update: RewardRedemptionsUpdate;
+      };
+      reward_rules: {
+        Row: RowRewardRules;
+        Insert: RewardRulesInsert;
+        Update: RewardRulesUpdate;
+      };
+      salas: {
+        Row: RowSalas;
+        Insert: SalasInsert;
+        Update: SalasUpdate;
+      };
+      sesiones: {
+        Row: RowSesiones;
+        Insert: SesionesInsert;
+        Update: SesionesUpdate;
+      };
+      socios: {
+        Row: RowSocios;
+        Insert: SociosInsert;
+        Update: SociosUpdate;
+      };
+      soporte_solicitudes: {
+        Row: RowSoporteSolicitudes;
+        Insert: SoporteSolicitudesInsert;
+        Update: SoporteSolicitudesUpdate;
+      };
+      spots: {
+        Row: RowSpots;
+        Insert: SpotsInsert;
+        Update: SpotsUpdate;
+      };
+      studios: {
+        Row: RowStudios;
+        Insert: StudiosInsert;
+        Update: StudiosUpdate;
+      };
+      suscripciones: {
+        Row: RowSuscripciones;
+        Insert: SuscripcionesInsert;
+        Update: SuscripcionesUpdate;
+      };
+      tipos_clase: {
+        Row: RowTiposClase;
+        Insert: TiposClaseInsert;
+        Update: TiposClaseUpdate;
+      };
+      usuarios: {
+        Row: RowUsuarios;
+        Insert: UsuariosInsert;
+        Update: UsuariosUpdate;
+      };
+      ventas_pos: {
+        Row: RowVentasPos;
+        Insert: VentasPosInsert;
+        Update: VentasPosUpdate;
+      };
+      videos_on_demand: {
+        Row: RowVideosOnDemand;
+        Insert: VideosOnDemandInsert;
+        Update: VideosOnDemandUpdate;
+      };
+      decision_sessions: {
+        Row: RowDecisionSessions;
+        Insert: DecisionSessionsInsert;
+        Update: DecisionSessionsUpdate;
+      };
+      recomendaciones: {
+        Row: RowRecomendaciones;
+        Insert: RecomendacionesInsert;
+        Update: RecomendacionesUpdate;
+      };
+      recomendacion_outcomes: {
+        Row: RowRecomendacionOutcomes;
+        Insert: RecomendacionOutcomesInsert;
+        Update: RecomendacionOutcomesUpdate;
+      };
+      memoria_socio: {
+        Row: RowMemoriaSocio;
+        Insert: MemoriaSocioInsert;
+        Update: MemoriaSocioUpdate;
+      };
+      resumen_diario: {
+        Row: RowResumenDiario;
+        Insert: ResumenDiarioInsert;
+        Update: ResumenDiarioUpdate;
+      };
+      decision_feature_flags: {
+        Row: RowDecisionFeatureFlags;
+        Insert: DecisionFeatureFlagsInsert;
+        Update: DecisionFeatureFlagsUpdate;
+      };
+      condiciones_salud: {
+        Row: RowCondicionesSalud;
+        Insert: CondicionesSaludInsert;
+        Update: CondicionesSaludUpdate;
+      };
+      respuestas_sesion: {
+        Row: RowRespuestasSesion;
+        Insert: RespuestasSesionInsert;
+        Update: RespuestasSesionUpdate;
+      };
+      reconciliaciones_pos: {
+        Row: RowReconciliacionesPos;
+        Insert: ReconciliacionesPosInsert;
+        Update: ReconciliacionesPosUpdate;
+      };
+      comentarios_comunidad: {
+        Row: RowComentariosComunidad;
+        Insert: ComentariosComunidadInsert;
+        Update: ComentariosComunidadUpdate;
+      };
+      campos_personalizados: {
+        Row: RowCamposPersonalizados;
+        Insert: CamposPersonalizadosInsert;
+        Update: CamposPersonalizadosUpdate;
+      };
+      plantillas_email: {
+        Row: RowPlantillasEmail;
+        Insert: PlantillasEmailInsert;
+        Update: PlantillasEmailUpdate;
+      };
+      instructor_dependency_snapshots: {
+        Row: RowInstructorDependencySnapshots;
+        Insert: InstructorDependencySnapshotsInsert;
+        Update: InstructorDependencySnapshotsUpdate;
+      };
+      studio_theme: {
+        Row: RowStudioTheme;
+        Insert: StudioThemeInsert;
+        Update: StudioThemeUpdate;
+      };
+      studio_layout: {
+        Row: RowStudioLayout;
+        Insert: StudioLayoutInsert;
+        Update: StudioLayoutUpdate;
+      };
+      post_likes: {
+        Row: RowPostLikes;
+        Insert: PostLikesInsert;
+        Update: PostLikesUpdate;
+      };
+      canales_equipo: {
+        Row: RowCanalesEquipo;
+        Insert: CanalesEquipoInsert;
+        Update: CanalesEquipoUpdate;
+      };
+      rate_limits: {
+        Row: RowRateLimits;
+        Insert: RateLimitsInsert;
+        Update: RateLimitsUpdate;
+      };
+      webhook_events: {
+        Row: RowWebhookEvents;
+        Insert: WebhookEventsInsert;
+        Update: WebhookEventsUpdate;
+      };
+      instructora_disponibilidad: {
+        Row: RowInstructoraDisponibilidad;
+        Insert: InstructoraDisponibilidadInsert;
+        Update: InstructoraDisponibilidadUpdate;
+      };
+      instructora_disponibilidad_excepciones: {
+        Row: RowInstructoraDisponibilidadExcepciones;
+        Insert: InstructoraDisponibilidadExcepcionesInsert;
+        Update: InstructoraDisponibilidadExcepcionesUpdate;
+      };
+      sustituciones: {
+        Row: RowSustituciones;
+        Insert: SustitucionesInsert;
+        Update: SustitucionesUpdate;
+      };
+      sustitucion_contactos: {
+        Row: RowSustitucionContactos;
+        Insert: SustitucionContactosInsert;
+        Update: SustitucionContactosUpdate;
+      };
+      valoraciones: {
+        Row: RowValoraciones;
+        Insert: ValoracionesInsert;
+        Update: ValoracionesUpdate;
+      };
+      citas_servicios: {
+        Row: RowCitasServicios;
+        Insert: CitasServiciosInsert;
+        Update: CitasServiciosUpdate;
+      };
+      citas_disponibilidad: {
+        Row: RowCitasDisponibilidad;
+        Insert: CitasDisponibilidadInsert;
+        Update: CitasDisponibilidadUpdate;
+      };
+      decision_autonomia_config: {
+        Row: RowDecisionAutonomiaConfig;
+        Insert: DecisionAutonomiaConfigInsert;
+        Update: DecisionAutonomiaConfigUpdate;
+      };
+      instructor_enlaces_vigentes: {
+        Row: RowInstructorEnlacesVigentes;
+        Insert: InstructorEnlacesVigentesInsert;
+        Update: InstructorEnlacesVigentesUpdate;
+      };
+      ingresos_manuales: {
+        Row: RowIngresosManuales;
+        Insert: IngresosManualesInsert;
+        Update: IngresosManualesUpdate;
+      };
+      cadenas: {
+        Row: RowCadenas;
+        Insert: CadenasInsert;
+        Update: CadenasUpdate;
+      };
+      sesion_activa: {
+        Row: RowSesionActiva;
+        Insert: SesionActivaInsert;
+        Update: SesionActivaUpdate;
+      };
+      avisos_hueco: {
+        Row: RowAvisosHueco;
+        Insert: AvisosHuecoInsert;
+        Update: AvisosHuecoUpdate;
+      };
+      congelaciones: {
+        Row: RowCongelaciones;
+        Insert: CongelacionesInsert;
+        Update: CongelacionesUpdate;
+      };
+      migracion_batches: {
+        Row: RowMigracionBatches;
+        Insert: MigracionBatchesInsert;
+        Update: MigracionBatchesUpdate;
+      };
+      bloqueos_maquina: {
+        Row: RowBloqueosMaquina;
+        Insert: BloqueosMaquinaInsert;
+        Update: BloqueosMaquinaUpdate;
+      };
+      plazas_fijas: {
+        Row: RowPlazasFijas;
+        Insert: PlazasFijasInsert;
+        Update: PlazasFijasUpdate;
+      };
+      recuperaciones: {
+        Row: RowRecuperaciones;
+        Insert: RecuperacionesInsert;
+        Update: RecuperacionesUpdate;
+      };
+      socio_excepciones: {
+        Row: RowSocioExcepciones;
+        Insert: SocioExcepcionesInsert;
+        Update: SocioExcepcionesUpdate;
+      };
+      mandatos_sepa: {
+        Row: RowMandatosSepa;
+        Insert: MandatosSepaInsert;
+        Update: MandatosSepaUpdate;
+      };
+      notification: {
+        Row: RowNotification;
+        Insert: NotificationInsert;
+        Update: NotificationUpdate;
+      };
+      notification_delivery: {
+        Row: RowNotificationDelivery;
+        Insert: NotificationDeliveryInsert;
+        Update: NotificationDeliveryUpdate;
+      };
+      notification_preference: {
+        Row: RowNotificationPreference;
+        Insert: NotificationPreferenceInsert;
+        Update: NotificationPreferenceUpdate;
+      };
+      push_subscription: {
+        Row: RowPushSubscription;
+        Insert: PushSubscriptionInsert;
+        Update: PushSubscriptionUpdate;
+      };
+      notification_template: {
+        Row: RowNotificationTemplate;
+        Insert: NotificationTemplateInsert;
+        Update: NotificationTemplateUpdate;
+      };
+      instructora_ausencias: {
+        Row: RowInstructoraAusencias;
+        Insert: InstructoraAusenciasInsert;
+        Update: InstructoraAusenciasUpdate;
+      };
+      plan_tipos_clase: {
+        Row: RowPlanTiposClase;
+        Insert: PlanTiposClaseInsert;
+        Update: PlanTiposClaseUpdate;
+      };
+      studio_slugs_antiguos: {
+        Row: RowStudioSlugsAntiguos;
+        Insert: StudioSlugsAntiguosInsert;
+        Update: StudioSlugsAntiguosUpdate;
+      };
+      plataforma_lead: {
+        Row: RowPlataformaLead;
+        Insert: PlataformaLeadInsert;
+        Update: PlataformaLeadUpdate;
+      };
+      lecturas_ficha_salud: {
+        Row: RowLecturasFichaSalud;
+        Insert: LecturasFichaSaludInsert;
+        Update: LecturasFichaSaludUpdate;
+      };
+      plataforma_admin: {
+        Row: RowPlataformaAdmin;
+        Insert: PlataformaAdminInsert;
+        Update: PlataformaAdminUpdate;
+      };
+      plataforma_permiso: {
+        Row: RowPlataformaPermiso;
+        Insert: PlataformaPermisoInsert;
+        Update: PlataformaPermisoUpdate;
+      };
+      plataforma_auditoria: {
+        Row: RowPlataformaAuditoria;
+        Insert: PlataformaAuditoriaInsert;
+        Update: PlataformaAuditoriaUpdate;
+      };
+      penalizaciones: {
+        Row: RowPenalizaciones;
+        Insert: PenalizacionesInsert;
+        Update: PenalizacionesUpdate;
+      };
+      instructor_tarifas: {
+        Row: RowInstructorTarifas;
+        Insert: InstructorTarifasInsert;
+        Update: InstructorTarifasUpdate;
+      };
+      favoritos_clase: {
+        Row: RowFavoritosClase;
+        Insert: FavoritosClaseInsert;
+        Update: FavoritosClaseUpdate;
+      };
+      contenido_portal: {
+        Row: RowContenidoPortal;
+        Insert: ContenidoPortalInsert;
+        Update: ContenidoPortalUpdate;
+      };
+      contenido_portal_banners: {
+        Row: RowContenidoPortalBanners;
+        Insert: ContenidoPortalBannersInsert;
+        Update: ContenidoPortalBannersUpdate;
+      };
+      decision_mensajes_dia: {
+        Row: RowDecisionMensajesDia;
+        Insert: DecisionMensajesDiaInsert;
+        Update: DecisionMensajesDiaUpdate;
+      };
+      comunicaciones_socio: {
+        Row: RowComunicacionesSocio;
+        Insert: ComunicacionesSocioInsert;
+        Update: ComunicacionesSocioUpdate;
+      };
+      changelog_versiones: {
+        Row: RowChangelogVersiones;
+        Insert: ChangelogVersionesInsert;
+        Update: ChangelogVersionesUpdate;
+      };
+      changelog_cambios: {
+        Row: RowChangelogCambios;
+        Insert: ChangelogCambiosInsert;
+        Update: ChangelogCambiosUpdate;
+      };
+      intentos_reserva_fallidos: {
+        Row: RowIntentosReservaFallidos;
+        Insert: IntentosReservaFallidosInsert;
+        Update: IntentosReservaFallidosUpdate;
+      };
+      liquidaciones_instructoras: {
+        Row: RowLiquidacionesInstructoras;
+        Insert: LiquidacionesInstructorasInsert;
+        Update: LiquidacionesInstructorasUpdate;
+      };
+      reto_participaciones: {
+        Row: RowRetoParticipaciones;
+        Insert: RetoParticipacionesInsert;
+        Update: RetoParticipacionesUpdate;
+      };
+      studio_horario: {
+        Row: RowStudioHorario;
+        Insert: StudioHorarioInsert;
+        Update: StudioHorarioUpdate;
+      };
+      instructor_bajas_seguimiento: {
+        Row: RowInstructorBajasSeguimiento;
+        Insert: InstructorBajasSeguimientoInsert;
+        Update: InstructorBajasSeguimientoUpdate;
+      };
+      devoluciones: {
+        Row: RowDevoluciones;
+        Insert: DevolucionesInsert;
+        Update: DevolucionesUpdate;
+      };
+      cadena_tipos_clase: {
+        Row: RowCadenaTiposClase;
+        Insert: CadenaTiposClaseInsert;
+        Update: CadenaTiposClaseUpdate;
+      };
+      pagos_historicos: {
+        Row: RowPagosHistoricos;
+        Insert: PagosHistoricosInsert;
+        Update: PagosHistoricosUpdate;
+      };
+      resumen_semanal_envios: {
+        Row: RowResumenSemanalEnvios;
+        Insert: ResumenSemanalEnviosInsert;
+        Update: ResumenSemanalEnviosUpdate;
+      };
+      plantillas_cuestionario_salud: {
+        Row: RowPlantillasCuestionarioSalud;
+        Insert: PlantillasCuestionarioSaludInsert;
+        Update: PlantillasCuestionarioSaludUpdate;
+      };
+      respuestas_cuestionario_salud: {
+        Row: RowRespuestasCuestionarioSalud;
+        Insert: RespuestasCuestionarioSaludInsert;
+        Update: RespuestasCuestionarioSaludUpdate;
+      };
+      red_perfiles: {
+        Row: RowRedPerfiles;
+        Insert: RedPerfilesInsert;
+        Update: RedPerfilesUpdate;
+      };
+      red_experiencias: {
+        Row: RowRedExperiencias;
+        Insert: RedExperienciasInsert;
+        Update: RedExperienciasUpdate;
+      };
+      red_verificaciones_experiencia: {
+        Row: RowRedVerificacionesExperiencia;
+        Insert: RedVerificacionesExperienciaInsert;
+        Update: RedVerificacionesExperienciaUpdate;
+      };
+      red_referencias: {
+        Row: RowRedReferencias;
+        Insert: RedReferenciasInsert;
+        Update: RedReferenciasUpdate;
+      };
+      red_solicitudes_contacto: {
+        Row: RowRedSolicitudesContacto;
+        Insert: RedSolicitudesContactoInsert;
+        Update: RedSolicitudesContactoUpdate;
+      };
+      red_reportes: {
+        Row: RowRedReportes;
+        Insert: RedReportesInsert;
+        Update: RedReportesUpdate;
+      };
+      red_favoritos: {
+        Row: RowRedFavoritos;
+        Insert: RedFavoritosInsert;
+        Update: RedFavoritosUpdate;
+      };
+      red_resenas: {
+        Row: RowRedResenas;
+        Insert: RedResenasInsert;
+        Update: RedResenasUpdate;
+      };
+      red_mensajes: {
+        Row: RowRedMensajes;
+        Insert: RedMensajesInsert;
+        Update: RedMensajesUpdate;
+      };
+      red_perfiles_identidad: {
+        Row: RowRedPerfilesIdentidad;
+        Insert: RedPerfilesIdentidadInsert;
+        Update: RedPerfilesIdentidadUpdate;
+      };
+      red_verificaciones_identidad: {
+        Row: RowRedVerificacionesIdentidad;
+        Insert: RedVerificacionesIdentidadInsert;
+        Update: RedVerificacionesIdentidadUpdate;
+      };
+      red_certificaciones: {
+        Row: RowRedCertificaciones;
+        Insert: RedCertificacionesInsert;
+        Update: RedCertificacionesUpdate;
+      };
+      theme_imports: {
+        Row: RowThemeImports;
+        Insert: ThemeImportsInsert;
+        Update: ThemeImportsUpdate;
+      };
+      oauth_clientes: {
+        Row: RowOauthClientes;
+        Insert: OauthClientesInsert;
+        Update: OauthClientesUpdate;
+      };
+      oauth_consentimientos: {
+        Row: RowOauthConsentimientos;
+        Insert: OauthConsentimientosInsert;
+        Update: OauthConsentimientosUpdate;
+      };
+      oauth_codigos_autorizacion: {
+        Row: RowOauthCodigosAutorizacion;
+        Insert: OauthCodigosAutorizacionInsert;
+        Update: OauthCodigosAutorizacionUpdate;
+      };
+      oauth_tokens: {
+        Row: RowOauthTokens;
+        Insert: OauthTokensInsert;
+        Update: OauthTokensUpdate;
+      };
+      oauth_auditoria_accesos: {
+        Row: RowOauthAuditoriaAccesos;
+        Insert: OauthAuditoriaAccesosInsert;
+        Update: OauthAuditoriaAccesosUpdate;
+      };
+      widget_eventos: {
+        Row: RowWidgetEventos;
+        Insert: WidgetEventosInsert;
+        Update: WidgetEventosUpdate;
+      };
+      tareas: {
+        Row: RowTareas;
+        Insert: TareasInsert;
+        Update: TareasUpdate;
+      };
+      red_formalizaciones: {
+        Row: RowRedFormalizaciones;
+        Insert: RedFormalizacionesInsert;
+        Update: RedFormalizacionesUpdate;
+      };
+      red_vacantes: {
+        Row: RowRedVacantes;
+        Insert: RedVacantesInsert;
+        Update: RedVacantesUpdate;
+      };
+      red_candidaturas: {
+        Row: RowRedCandidaturas;
+        Insert: RedCandidaturasInsert;
+        Update: RedCandidaturasUpdate;
+      };
+      recordatorio_envios: {
+        Row: RowRecordatorioEnvios;
+        Insert: RecordatorioEnviosInsert;
+        Update: RecordatorioEnviosUpdate;
+      };
+      segmentos_clientes: {
+        Row: RowSegmentosClientes;
+        Insert: SegmentosClientesInsert;
+        Update: SegmentosClientesUpdate;
+      };
+      mensajes_entrantes_medicion: {
+        Row: RowMensajesEntrantesMedicion;
+        Insert: MensajesEntrantesMedicionInsert;
+        Update: MensajesEntrantesMedicionUpdate;
+      };
+      codigos_descuento_consumos: {
+        Row: RowCodigosDescuentoConsumos;
+        Insert: CodigosDescuentoConsumosInsert;
+        Update: CodigosDescuentoConsumosUpdate;
+      };
+      review_boost_feedback: {
+        Row: RowReviewBoostFeedback;
+        Insert: ReviewBoostFeedbackInsert;
+        Update: ReviewBoostFeedbackUpdate;
+      };
+      review_boost_recompensas: {
+        Row: RowReviewBoostRecompensas;
+        Insert: ReviewBoostRecompensasInsert;
+        Update: ReviewBoostRecompensasUpdate;
+      };
+      menu_novedades: {
+        Row: RowMenuNovedades;
+        Insert: MenuNovedadesInsert;
+        Update: MenuNovedadesUpdate;
+      };
+      red_perfiles_alumna: {
+        Row: RowRedPerfilesAlumna;
+        Insert: RedPerfilesAlumnaInsert;
+        Update: RedPerfilesAlumnaUpdate;
+      };
+      red_perfil_media: {
+        Row: RowRedPerfilMedia;
+        Insert: RedPerfilMediaInsert;
+        Update: RedPerfilMediaUpdate;
+      };
+      red_favoritos_alumna: {
+        Row: RowRedFavoritosAlumna;
+        Insert: RedFavoritosAlumnaInsert;
+        Update: RedFavoritosAlumnaUpdate;
+      };
+      conversaciones: {
+        Row: RowConversaciones;
+        Insert: ConversacionesInsert;
+        Update: ConversacionesUpdate;
+      };
+      conversacion_participantes: {
+        Row: RowConversacionParticipantes;
+        Insert: ConversacionParticipantesInsert;
+        Update: ConversacionParticipantesUpdate;
+      };
+      mensajes: {
+        Row: RowMensajes;
+        Insert: MensajesInsert;
+        Update: MensajesUpdate;
+      };
+      documentos_socio: {
+        Row: RowDocumentosSocio;
+        Insert: DocumentosSocioInsert;
+        Update: DocumentosSocioUpdate;
+      };
+      post_evento_asistentes: {
+        Row: RowPostEventoAsistentes;
+        Insert: PostEventoAsistentesInsert;
+        Update: PostEventoAsistentesUpdate;
+      };
+      socio_companeras: {
+        Row: RowSocioCompaneras;
+        Insert: SocioCompanerasInsert;
+        Update: SocioCompanerasUpdate;
+      };
+      novedades_estudio: {
+        Row: RowNovedadesEstudio;
+        Insert: NovedadesEstudioInsert;
+        Update: NovedadesEstudioUpdate;
+      };
+      webhook_reembolsos: {
+        Row: RowWebhookReembolsos;
+        Insert: WebhookReembolsosInsert;
+        Update: WebhookReembolsosUpdate;
+      };
+      webhook_disputas: {
+        Row: RowWebhookDisputas;
+        Insert: WebhookDisputasInsert;
+        Update: WebhookDisputasUpdate;
+      };
+      ayuda_feedback: {
+        Row: RowAyudaFeedback;
+        Insert: AyudaFeedbackInsert;
+        Update: AyudaFeedbackUpdate;
+      };
+      plataforma_prospeccion_email: {
+        Row: RowPlataformaProspeccionEmail;
+        Insert: PlataformaProspeccionEmailInsert;
+        Update: PlataformaProspeccionEmailUpdate;
+      };
+      decision_snapshots: {
+        Row: RowDecisionSnapshots;
+        Insert: DecisionSnapshotsInsert;
+        Update: DecisionSnapshotsUpdate;
+      };
+      socio_tipos_clase_autorizados: {
+        Row: RowSocioTiposClaseAutorizados;
+        Insert: SocioTiposClaseAutorizadosInsert;
+        Update: SocioTiposClaseAutorizadosUpdate;
+      };
+      cierres_estudio: {
+        Row: RowCierresEstudio;
+        Insert: CierresEstudioInsert;
+        Update: CierresEstudioUpdate;
+      };
+      cajas: {
+        Row: RowCajas;
+        Insert: CajasInsert;
+        Update: CajasUpdate;
+      };
+      movimientos_caja: {
+        Row: RowMovimientosCaja;
+        Insert: MovimientosCajaInsert;
+        Update: MovimientosCajaUpdate;
+      };
+      ventas_pos_lineas: {
+        Row: RowVentasPosLineas;
+        Insert: VentasPosLineasInsert;
+        Update: VentasPosLineasUpdate;
+      };
+      movimientos_stock: {
+        Row: RowMovimientosStock;
+        Insert: MovimientosStockInsert;
+        Update: MovimientosStockUpdate;
+      };
+      terminos_versiones: {
+        Row: RowTerminosVersiones;
+        Insert: TerminosVersionesInsert;
+        Update: TerminosVersionesUpdate;
+      };
+      valoraciones_iniciales: {
+        Row: RowValoracionesIniciales;
+        Insert: ValoracionesInicialesInsert;
+        Update: ValoracionesInicialesUpdate;
+      };
+      valoraciones_iniciales_salud: {
+        Row: RowValoracionesInicialesSalud;
+        Insert: ValoracionesInicialesSaludInsert;
+        Update: ValoracionesInicialesSaludUpdate;
+      };
+      verifactu_transmision_lock: {
+        Row: RowVerifactuTransmisionLock;
+        Insert: VerifactuTransmisionLockInsert;
+        Update: VerifactuTransmisionLockUpdate;
+      };
+      email_rebotes: {
+        Row: RowEmailRebotes;
+        Insert: EmailRebotesInsert;
+        Update: EmailRebotesUpdate;
+      };
+      matricula_cupo_liberaciones: {
+        Row: RowMatriculaCupoLiberaciones;
+        Insert: MatriculaCupoLiberacionesInsert;
+        Update: MatriculaCupoLiberacionesUpdate;
+      };
+      supresiones: {
+        Row: RowSupresiones;
+        Insert: SupresionesInsert;
+        Update: SupresionesUpdate;
+      };
+      solicitudes_derechos: {
+        Row: RowSolicitudesDerechos;
+        Insert: SolicitudesDerechosInsert;
+        Update: SolicitudesDerechosUpdate;
+      };
+      consentimientos_salud_eventos: {
+        Row: RowConsentimientosSaludEventos;
+        Insert: ConsentimientosSaludEventosInsert;
+        Update: ConsentimientosSaludEventosUpdate;
+      };
+      ciclo_estudios_vencidos: {
+        Row: RowCicloEstudiosVencidos;
+        Insert: CicloEstudiosVencidosInsert;
+        Update: CicloEstudiosVencidosUpdate;
+      };
+      kiosko_tokens: {
+        Row: RowKioskoTokens;
+        Insert: KioskoTokensInsert;
+        Update: KioskoTokensUpdate;
+      };
+      aceptaciones_contrato_eventos: {
+        Row: RowAceptacionesContratoEventos;
+        Insert: AceptacionesContratoEventosInsert;
+        Update: AceptacionesContratoEventosUpdate;
+      };
+      bajas_instructora: {
+        Row: RowBajasInstructora;
+        Insert: BajasInstructoraInsert;
+        Update: BajasInstructoraUpdate;
+      };
+      series: {
+        Row: RowSeries;
+        Insert: SeriesInsert;
+        Update: SeriesUpdate;
+      };
+      series_periodos: {
+        Row: RowSeriesPeriodos;
+        Insert: SeriesPeriodosInsert;
+        Update: SeriesPeriodosUpdate;
+      };
+      sales_leads: {
+        Row: RowSalesLeads;
+        Insert: SalesLeadsInsert;
+        Update: SalesLeadsUpdate;
+      };
+      sales_campaigns: {
+        Row: RowSalesCampaigns;
+        Insert: SalesCampaignsInsert;
+        Update: SalesCampaignsUpdate;
+      };
+      sales_campaign_steps: {
+        Row: RowSalesCampaignSteps;
+        Insert: SalesCampaignStepsInsert;
+        Update: SalesCampaignStepsUpdate;
+      };
+      sales_messages: {
+        Row: RowSalesMessages;
+        Insert: SalesMessagesInsert;
+        Update: SalesMessagesUpdate;
+      };
+      sales_suppressions: {
+        Row: RowSalesSuppressions;
+        Insert: SalesSuppressionsInsert;
+        Update: SalesSuppressionsUpdate;
+      };
+      sales_tasks: {
+        Row: RowSalesTasks;
+        Insert: SalesTasksInsert;
+        Update: SalesTasksUpdate;
+      };
+      sales_events: {
+        Row: RowSalesEvents;
+        Insert: SalesEventsInsert;
+        Update: SalesEventsUpdate;
+      };
+    };
+  };
+};
