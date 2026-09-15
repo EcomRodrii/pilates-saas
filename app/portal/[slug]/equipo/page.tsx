@@ -87,7 +87,9 @@ export default function HoyInstructoraPage() {
     const fotos = new Map(catalogo.map((c) => [c.id, c.fotoUrl || null]));
     return { ...agenda, ofertas, fotos };
   }, [esInstructora, slug, hoy]);
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
+  // Con clave: volver a «Hoy» pinta al momento lo último visto y refresca por
+  // detrás (medido: cada vuelta eran 4-5 peticiones con esqueleto).
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `instr:${slug}:hoy:${hoy}`);
 
   // Sus mensajes y sus valoraciones, cada uno con su petición: si falla uno, su
   // tarjeta no sale y el resto de «Hoy» se ve igual (15-sep-2026: con solo la
@@ -96,12 +98,12 @@ export default function HoyInstructoraPage() {
     () => (esInstructora ? getHilosInstructora(slug) : new Promise<never>(() => {})),
     [esInstructora, slug],
   );
-  const { data: hilos } = useAsync(cargarHilos, () => false);
+  const { data: hilos } = useAsync(cargarHilos, () => false, `instr:${slug}:hilos`);
   const cargarPerfil = useCallback(
     () => (esInstructora ? getPerfilInstructora(slug) : new Promise<never>(() => {})),
     [esInstructora, slug],
   );
-  const { data: perfil } = useAsync(cargarPerfil, () => false);
+  const { data: perfil } = useAsync(cargarPerfil, () => false, `instr:${slug}:perfil`);
   const miId = useMiAuthUserId();
 
   const responder = async (oferta: OfertaSustitucion, accion: 'aceptar' | 'rechazar') => {

@@ -32,7 +32,8 @@ export default function MensajesInstructoraPage() {
     () => (esInstructora ? getHilosInstructora(estudio.slug) : new Promise<never>(() => {})),
     [esInstructora, estudio.slug],
   );
-  const { data, estado, reintentar } = useAsync(cargar);
+  // Misma clave que la tarjeta de mensajes de «Hoy»: son los mismos hilos.
+  const { data, estado, reintentar } = useAsync(cargar, undefined, `instr:${estudio.slug}:hilos`);
   // Cuántas esperan respuesta, arriba: es lo que viene a mirar (pasada de diseño 6).
   const pendientes = estado === 'ready' ? (data ?? []).filter((h) => tieneSinLeer(h, miId)).length : 0;
   const sub = estado !== 'ready' ? undefined
