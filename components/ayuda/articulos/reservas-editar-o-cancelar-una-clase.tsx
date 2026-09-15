@@ -22,7 +22,7 @@ export default function Contenido() {
       <p>
         Si la clase forma parte de una serie recurrente, al guardar eliges &ldquo;Guardar solo esta clase&rdquo; o
         &ldquo;Guardar esta y las siguientes&rdquo;. Para cancelar pasa lo mismo: &ldquo;Cancelar&rdquo; quita solo
-        esa clase y &ldquo;Cancelar serie&rdquo;, esa y las siguientes.
+        esa clase y &ldquo;Cancelar serie&rdquo; (dentro del botón &ldquo;Serie&rdquo;), esa y las siguientes.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cancelar una clase</h2>
