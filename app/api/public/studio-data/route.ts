@@ -4,6 +4,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
+import { nombreCookieAcceso } from '@/lib/publico/acceso-pagina';
 
 // Datos para las páginas públicas (reserva/portal/kiosk): catálogo público del
 // estudio + (si hay socia autenticada) SUS datos.
@@ -38,7 +39,9 @@ export async function POST(req: NextRequest) {
     const data = await fetchPublicStudioData(
       slug,
       user ? { authUserId: user.userId, email: user.email } : undefined,
-      { liviano },
+      // Con la página oculta, sin este pase solo se devuelve el aviso (ver
+      // `catalogoPaginaOculta`). Desde la web del estudio no llega nunca.
+      { liviano, paseAcceso: (studioId) => req.cookies.get(nombreCookieAcceso(studioId))?.value },
     );
     if (!data) {
       return conCorsWidget(req, NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 }));

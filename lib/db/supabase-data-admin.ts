@@ -10,6 +10,7 @@ import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-est
 import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
 import { mapLimit } from '@/lib/concurrency';
 import { getLayout } from '@/lib/layout-data';
+import { puertaPublica, catalogoPaginaOculta } from '@/lib/publico/acceso-pagina';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
@@ -528,7 +529,11 @@ export async function fetchAforoPublico(slug: string): Promise<
 export async function fetchPublicStudioData(
   slug: string,
   usuario?: { authUserId: string; email: string },
-  opts?: { liviano?: boolean },
+  opts?: {
+    liviano?: boolean;
+    /** El pase de la página oculta de ESTE estudio (su cookie), si llega. */
+    paseAcceso?: (studioId: string) => string | null | undefined;
+  },
 ) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada (SUPABASE_SERVICE_ROLE_KEY)');
@@ -538,6 +543,15 @@ export async function fetchPublicStudioData(
   const studioRow = resuelto.row as unknown as RowStudios;
   const studioId: string = studioRow.id;
   const liviano = opts?.liviano ?? false;
+
+  // Página oculta (decisión del fundador, 16-sep): sin el pase de su clave
+  // vigente no sale el catálogo —ni clases, ni planes, ni los datos de la
+  // socia—, solo lo justo para pintar el aviso. Antes de todo lo demás, también
+  // de la caché. El `select('*')` de `resolverStudioPorSlug` ya trae las dos
+  // columnas: no hay consulta de más.
+  if (puertaPublica({ lectura: { data: studioRow, error: null }, pase: opts?.paseAcceso?.(studioId), studioId }) !== 'abierta') {
+    return catalogoPaginaOculta(studioRow.nombre);
+  }
 
   // Auditoría integral 2026-08-21 (rendimiento, hallazgo P0-1): antes el
   // llamador (app/api/public/studio-data/route.ts) resolvía el estudio por

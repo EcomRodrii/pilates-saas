@@ -33,6 +33,7 @@ import { MiCuenta, HojaCuentaWidget } from '@/components/cuenta-widget/mi-cuenta
 import type { PropsListaPlanesLazy } from '@/components/checkout-widget/checkout-lazy-mount';
 import widgetCss from './widget.css';
 import { canonicalizarOrigen } from '@/lib/legal-info';
+import { AVISO_PAGINA_OCULTA } from '@/lib/publico/aviso-pagina-oculta';
 
 // Tema base (modo día): el widget no lee el editor de Apariencia del panel —
 // eso pinta /reservar/[slug] entero (fondo, tipografía, textos), un alcance
@@ -115,7 +116,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   slug: string; tema?: ModoTokens; config?: ConfigWidget; filtros?: FiltrosSlots;
 }) {
   const {
-    slots, cargando, error, studioId, socia, autenticado, sesionCargando, refrescarSesion,
+    slots, cargando, error, paginaOculta, studioId, socia, autenticado, sesionCargando, refrescarSesion,
     politicaPrivacidad, terminosServicio, onReservar, onCancelar, onAceptarOferta,
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
     stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
@@ -298,6 +299,20 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
         {Array.from({ length: columnasEsqueleto }).map((_, i) => (
           <div key={i} style={{ height: 96, borderRadius: 8, background: 'linear-gradient(100deg, #ECECEC 40%, #E0E0E0 50%, #ECECEC 60%)', backgroundSize: '200% 100%', animation: 'widget-skeleton-shimmer 1.1s linear infinite' }} />
         ))}
+      </div>
+    );
+  }
+  // Página oculta: el mismo aviso que /reservar y la app, y nada más. Ni
+  // calendario, ni «Planes», ni «Iniciar sesión», ni enlace para reservar: con
+  // la página oculta, desde la web del estudio no se reserva (el pase de la
+  // clave no llega hasta aquí).
+  if (paginaOculta) {
+    return (
+      <div role="status" style={{ padding: '40px 24px', textAlign: 'center' }}>
+        {paginaOculta.nombre && (
+          <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: tema.ink }}>{paginaOculta.nombre}</p>
+        )}
+        <p style={{ margin: '6px 0 0', fontSize: 14, lineHeight: 1.4, color: tema.muted }}>{AVISO_PAGINA_OCULTA}</p>
       </div>
     );
   }

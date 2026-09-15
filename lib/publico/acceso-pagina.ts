@@ -4,12 +4,14 @@ import { createHash, createHmac, timingSafeEqual, scryptSync, randomBytes } from
 // mientras lo prepara, y opcionalmente abrirlo con una clave que le pasa a
 // quien quiera enseñárselo.
 //
-// ⚠️ **Qué protege esto, dicho claro, porque la diferencia importa**: oculta
-// la PÁGINA, no los DATOS. El horario y los precios de un estudio se sirven
-// además por su API pública, que sigue respondiendo — esto no es una cerradura
-// sobre esos datos, y en este repo la cerradura real es siempre la RLS. Lo que
-// sí garantiza, que es para lo que se pide: que nadie llegue por casualidad,
-// que Google no lo indexe (`noindex`), y que enseñarlo antes de tiempo sea una
+// ⚠️ **Qué protege esto, dicho claro, porque la diferencia importa**: la PÁGINA
+// y lo que se ESCRIBE desde fuera. Sin el pase de la clave vigente, las rutas
+// públicas que reservan, compran o dan de alta contestan 403 (`puertaPublica`,
+// lib/publico/pagina-cerrada-peticion.ts) y el catálogo público no enseña
+// clases. Otras lecturas públicas (aforo, huecos de citas) siguen respondiendo:
+// la cerradura de los DATOS en este repo es siempre la RLS. Lo que garantiza:
+// que nadie llegue por casualidad, que nadie de fuera reserve ni compre, que
+// Google no lo indexe (`noindex`), y que enseñarlo antes de tiempo sea una
 // decisión y no un descuido.
 //
 // Cero dependencias nuevas: `scrypt` y HMAC salen de `node:crypto`.
@@ -221,4 +223,73 @@ export function veredictoPagina(opciones: {
   if (!huella) return 'cerrada';
   if (verificarAcceso(pase, studioId, huella, ahora ?? Date.now(), claveFirma ?? secreto())) return 'abierta';
   return 'pide-clave';
+}
+
+// ── Las puertas que escriben ────────────────────────────────────────────────
+
+/** Lo que se contesta a quien intenta reservar, comprar o darse de alta desde
+ *  fuera con la página oculta. Sin jerga: lo lee alguien que no sabe qué es
+ *  «ocultar la página». */
+export const MENSAJE_NO_ACEPTA_RESERVAS = 'Este estudio está preparando su página y todavía no acepta reservas.';
+
+export type PuertaPublica = 'abierta' | 'cerrada' | 'sin-leer';
+
+/**
+ * ¿Deja pasar esta puerta pública (reservar, comprar, alta…) a esta petición?
+ *
+ * Decisión del fundador (16-sep): con la página oculta NO se reserva desde
+ * fuera. Antes «ocultar» solo escondía las pantallas y las rutas seguían
+ * escribiendo. Es la MISMA regla que `veredictoPagina`, leída desde una ruta:
+ * pasa quien entró con la clave vigente de ESE estudio, nadie más.
+ *
+ *  · `sin-leer`: la lectura falló. No se afirma que esté visible ni oculta; la
+ *    ruta contesta lo que ya contesta ante un fallo de lectura.
+ *  · Estudio que no existe → `abierta`: no hay nada oculto que guardar, y la
+ *    propia ruta responde lo de siempre.
+ *  · Sin secreto para comprobar el pase (entorno mal configurado) → `cerrada`:
+ *    con la página oculta, no poder comprobar la llave no abre la puerta.
+ */
+export function puertaPublica(opciones: {
+  lectura: {
+    data: { pagina_publica_oculta?: boolean | null; pagina_publica_clave_hash?: string | null } | null;
+    error: unknown;
+  };
+  pase: string | null | undefined;
+  studioId: string;
+  ahora?: number;
+  claveFirma?: string;
+}): PuertaPublica {
+  const { lectura, pase, studioId, ahora, claveFirma } = opciones;
+  if (lectura.error) return 'sin-leer';
+  if (!lectura.data || lectura.data.pagina_publica_oculta !== true) return 'abierta';
+  try {
+    const veredicto = veredictoPagina({
+      oculta: true,
+      huellaClave: huellaClave(lectura.data.pagina_publica_clave_hash),
+      pase, studioId, ahora, claveFirma,
+    });
+    return veredicto === 'abierta' ? 'abierta' : 'cerrada';
+  } catch {
+    return 'cerrada';
+  }
+}
+
+/**
+ * Lo que devuelve el catálogo público (`/api/public/studio-data`) con la página
+ * oculta y sin pase: el nombre para pintar el aviso y nada más. Ni clases, ni
+ * planes, ni los datos de la socia. 200 y no un error: quien lo pide no ha
+ * fallado, y el calendario incrustado pinta el aviso con esto.
+ */
+export function catalogoPaginaOculta(nombre: string | null | undefined): { paginaOculta: true; nombre: string } {
+  return { paginaOculta: true, nombre: nombre ?? '' };
+}
+
+/** La respuesta de una puerta que no deja pasar, o `null` si deja. */
+export function respuestaPuertaPublica(puerta: PuertaPublica):
+  | { status: 403; body: { error: string; codigo: 'PAGINA_OCULTA' } }
+  | { status: 503; body: { error: string } }
+  | null {
+  if (puerta === 'cerrada') return { status: 403, body: { error: MENSAJE_NO_ACEPTA_RESERVAS, codigo: 'PAGINA_OCULTA' } };
+  if (puerta === 'sin-leer') return { status: 503, body: { error: 'No se ha podido comprobar el estudio. Vuelve a intentarlo.' } };
+  return null;
 }

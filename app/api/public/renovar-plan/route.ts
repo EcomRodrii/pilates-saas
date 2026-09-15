@@ -5,6 +5,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
+import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 
 // "Renovar en un toque" desde el portal: garantiza que exista el recibo de
 // renovación del plan de la socia y devuelve su id — el portal lo paga acto
@@ -28,6 +29,11 @@ export async function POST(req: NextRequest) {
 
   const socioId = await socioAutenticado(user.userId, body.studioId);
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Renovar es COMPRAR otro ciclo: crea el recibo que se paga a continuación.
+  // La app de la alumna enseña el aviso sin pase (app/portal/[slug]/layout.tsx),
+  // y esta puerta sigue su mismo criterio.
+  const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
+  if (cerrada) return cerrada;
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });

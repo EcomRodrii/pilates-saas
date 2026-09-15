@@ -40,9 +40,9 @@ test('cuándo hay algo que guardar, y la clave corta se para antes de llegar al 
 test('se confirma con su consecuencia, y cada texto cabe en su línea', () => {
   const ocultar = confirmacionPaginaPublica({ oculta: true, clave: '', quitarClave: false }, visible)!;
   assert.equal(ocultar.titulo, '¿Ocultar tu página?');
-  assert.match(ocultar.descripcion, /app de tus alumnas.*No entrará nadie\.$/);
+  assert.match(ocultar.descripcion, /app de tus alumnas.*Nadie de fuera podrá entrar ni reservar\.$/);
   const conClave = confirmacionPaginaPublica({ oculta: true, clave: 'secreta1', quitarClave: false }, visible)!;
-  assert.match(conClave.descripcion, /Solo entra quien tenga la clave\.$/);
+  assert.match(conClave.descripcion, /Solo entra y reserva quien tenga la clave\.$/);
   assert.equal(confirmacionPaginaPublica({ oculta: false, clave: '', quitarClave: false }, ocultaConClave)!.textoConfirmar, 'Enseñarla');
   assert.equal(confirmacionPaginaPublica({ oculta: true, clave: '', quitarClave: true }, ocultaConClave)!.titulo, '¿Quitar la clave?');
   assert.equal(confirmacionPaginaPublica({ oculta: true, clave: 'otra-clave', quitarClave: false }, ocultaConClave)!.titulo, '¿Cambiar la clave?');

@@ -5,6 +5,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { bloqueoPorSuspension } from '@/lib/billing/billing-guard';
+import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 
 // Crear o cancelar una reserva desde las páginas públicas (reserva/portal).
 // SEGURIDAD: exige sesión real de socia (JWT de Supabase Auth) y deriva su id
@@ -50,6 +51,10 @@ export async function POST(req: NextRequest) {
       // reserva ya existente tiene que seguir funcionando aunque el estudio
       // esté suspendido; bloquearlo atraparía a una socia en una reserva que
       // no puede soltar.
+      // Con la página oculta no se reserva desde fuera (solo CREAR: cancelar o
+      // valorar lo ya reservado sigue abierto, por el mismo motivo de arriba).
+      const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
+      if (cerrada) return conCorsWidget(req, cerrada);
       const bloqueo = await bloqueoPorSuspension(body.studioId);
       if (bloqueo) return conCorsWidget(req, bloqueo);
       if (!body.sesionId) return conCorsWidget(req, NextResponse.json({ error: 'Falta la sesión' }, { status: 400 }));

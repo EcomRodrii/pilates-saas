@@ -4,6 +4,7 @@ import { aceptarOfertaListaEspera, socioAutenticado } from '@/lib/db/supabase-da
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
+import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 
 // Fase 5 (Booking Engine — widget): equivalente CORS-aware de
 // app/api/reservas/aceptar-oferta-espera/route.ts, para el Modo B (bundle
@@ -29,6 +30,9 @@ export async function POST(req: NextRequest) {
   if (!user) return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 401 }));
   const socioId = await socioAutenticado(user.userId, body.studioId);
   if (!socioId) return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 401 }));
+  // Aceptar la plaza la CONFIRMA: con la página oculta, desde fuera no.
+  const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
+  if (cerrada) return conCorsWidget(req, cerrada);
 
   try {
     const r = await aceptarOfertaListaEspera({ studioId: body.studioId, reservaId: body.reservaId, socioId });

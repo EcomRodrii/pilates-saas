@@ -25,6 +25,7 @@ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { telefonoValido } from '@/lib/csv';
+import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -222,6 +223,11 @@ export async function POST(req: NextRequest) {
       suscripcion_id: (recibo.suscripcion_id as string | null) ?? null,
     });
   } else if (body.planId) {
+    // Comprar un plan (o pagar y reservar una clase) desde fuera, con la página
+    // oculta, no. Solo esta rama: pagar un RECIBO que ya se debe sigue abierto
+    // (es dinero ya decidido, y el estudio manda ese enlace).
+    const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
+    if (cerrada) return conCorsWidget(req, cerrada);
     const { data: plan, error } = await admin
       .from('planes_tarifa')
       .select('nombre, precio, studio_id, activo, matricula, tipo')

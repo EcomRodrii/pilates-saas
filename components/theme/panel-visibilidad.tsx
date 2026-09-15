@@ -71,7 +71,7 @@ export function PanelVisibilidad() {
       <div className="space-y-1.5">
         {([
           { valor: false, Icono: Eye, titulo: 'Visible', ayuda: 'Cualquiera con el enlace puede reservar.' },
-          { valor: true, Icono: EyeOff, titulo: 'Oculta', ayuda: 'Nadie la ve y Google no la indexa.' },
+          { valor: true, Icono: EyeOff, titulo: 'Oculta', ayuda: 'Nadie la ve ni reserva desde fuera, y Google no la indexa.' },
         ] as const).map(({ valor, Icono, titulo, ayuda }) => (
           <button
             key={String(valor)}

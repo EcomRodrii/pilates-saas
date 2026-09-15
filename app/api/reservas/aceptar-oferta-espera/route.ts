@@ -3,6 +3,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { aceptarOfertaListaEspera, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,10 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   const socioId = await socioAutenticado(user.userId, body.studioId);
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // La llama la app de la alumna, que con la página oculta enseña el aviso sin
+  // pase (app/portal/[slug]/layout.tsx): mismo criterio aquí.
+  const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
+  if (cerrada) return cerrada;
 
   try {
     const r = await aceptarOfertaListaEspera({ studioId: body.studioId, reservaId: body.reservaId, socioId });
