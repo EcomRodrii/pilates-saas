@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useRol } from '@/lib/permisos';
-import { Toast, useToast } from '@/components/ui/toast';
+import { Toast, useToast, type MostrarToast } from '@/components/ui/toast';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -51,7 +51,7 @@ import { escucharEnlacesAConfiguracion } from './ir-a-configuracion';
 // escribiendo.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type PropsSeccion = { showToast: (m: string) => void };
+type PropsSeccion = { showToast: MostrarToast };
 
 // Una sección se ve cada vez: cada una en su propio trozo de JS, que solo se
 // descarga al abrirla.
@@ -105,7 +105,14 @@ export function ConfigShell() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rol = useRol();
-  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const { message: toastMsg, variant: toastVariant, show, showError, dismiss: dismissToast } = useToast();
+  // Auditoría 15-sep (C-4): las secciones ya podían avisar de un fallo, pero el
+  // toast no distinguía color/aria de un éxito — este wrapper es lo único que
+  // hace falta para que `{ variant: 'error' }` se vea de verdad como error.
+  const showToast: MostrarToast = useCallback(
+    (mensaje, opciones) => { if (opciones?.variant === 'error') showError(mensaje); else show(mensaje); },
+    [show, showError],
+  );
   // `null` hasta leer la URL: pintar antes una sección y cambiarla un render
   // después era un parpadeo en cada enlace.
   const [abierto, setAbierto] = useState<Abierto | null>(null);
@@ -498,7 +505,7 @@ export function ConfigShell() {
           </div>
         </div>
 
-        {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+        {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
 
         <ConfirmDialog
           open={salida !== null}

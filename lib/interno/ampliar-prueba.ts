@@ -17,7 +17,7 @@ import {
 } from '../retencion/ciclo-estudios-vencidos.ts';
 
 export type ResultadoAmpliacion =
-  | { ok: true; nombre: string; trialAntes: string; estadoAntes: string; hasta: string }
+  | { ok: true; nombre: string; trialAntes: string | null; estadoAntes: string; hasta: string }
   | { ok: false; status: 404 | 409 | 500; error: string };
 
 export async function ampliarPruebaEstudio(
@@ -41,8 +41,12 @@ export async function ampliarPruebaEstudio(
     subscriptionId: (e.subscription_id as string | null) ?? null, esSede: Boolean(e.cadena_id),
   }, undefined, ahora);
   if (!ampliacion.ok) return { ok: false, status: 409, error: ampliacion.motivo };
-  // Los garantiza `ampliacionDePrueba` (hay fecha y estado de prueba); el `if` es para el tipo.
-  if (!trialAntes || !estadoAntes) return { ok: false, status: 409, error: 'No está en prueba gratuita.' };
+  // Solo el ESTADO es obligatorio. `trialAntes` puede ser NULL a propósito desde
+  // #2036: un estudio en 'trial_expirado' SIN fecha de fin es el estado roto que
+  // esa PR vino a reparar, y `ampliacionDePrueba` ya lo acepta usando `ahora` como
+  // base. Este `if` seguía exigiendo la fecha y devolvía 409 justo en ese caso, así
+  // que #2036 arreglaba la regla pura y el botón seguía fallando igual.
+  if (!estadoAntes) return { ok: false, status: 409, error: 'No está en prueba gratuita.' };
 
   // ── ¿Siguen ahí sus datos? ────────────────────────────────────────────────
   // «Volver a entrar» a un estudio con los datos borrados (o a medio borrar) no
@@ -89,12 +93,20 @@ export async function ampliarPruebaEstudio(
   // → 409, en vez de sumar dos veces o pisar lo que otro escribió. La ida y
   // vuelta del texto de `trial_ends_at` es exacta, microsegundos incluidos
   // (comprobado en producción el 14-sep).
-  const { data: escritas, error: errEscribir } = await db.from('studios')
+  //
+  // ⚠️ `trial_ends_at` NULL necesita `.is()`, no `.eq()`: PostgREST traduce
+  // `.eq('trial_ends_at', null)` a `trial_ends_at=eq.null`, y en SQL `x = NULL`
+  // nunca es cierto — el CAS no casaría NUNCA la fila y el 409 saltaría siempre,
+  // justo en el estado roto que esto viene a reparar. Mismo motivo por el que
+  // `subscription_id` ya se comparaba con `.is()` arriba.
+  const base = db.from('studios')
     .update({ trial_ends_at: hasta, current_period_end: hasta, subscription_status: 'trialing' })
     .eq('id', studioId)
     .is('subscription_id', null)
-    .eq('trial_ends_at', trialAntes)
-    .eq('subscription_status', estadoAntes)
+    .eq('subscription_status', estadoAntes);
+  const { data: escritas, error: errEscribir } = await (
+    trialAntes === null ? base.is('trial_ends_at', null) : base.eq('trial_ends_at', trialAntes)
+  )
     // Sin `select`, PostgREST no devuelve filas y el 409 saltaría SIEMPRE.
     .select('id');
   if (errEscribir) return { ok: false, status: 500, error: 'No se ha podido ampliar la prueba.' };
