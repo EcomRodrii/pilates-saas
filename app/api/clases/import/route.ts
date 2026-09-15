@@ -7,7 +7,7 @@ import { uid, TZ_ESTUDIO } from '@/lib/utils';
 import type { FilaClase } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { catalogo } from '@/lib/migracion/catalogo';
-import { puedeGestionarClientas } from '@/lib/permisos-reglas';
+import { puedeGestionarClientas, puedeGestionarSede } from '@/lib/permisos-reglas';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { capturar } from '@/lib/analytics';
 
@@ -143,6 +143,14 @@ export async function POST(req: NextRequest) {
       duracion_minutos: dur > 0 ? dur : 60,
       descripcion: null, nivel: 'TODOS', foto_url: null,
     });
+  }
+  // Crear tipos de clase es de la propietaria y la gerencia (misma regla que la RLS de
+  // `tipos_clase`); recepción importa horario solo con los tipos que ya existen.
+  if (nuevosTipos.length > 0 && !puedeGestionarSede(sesion.rol)) {
+    const nombres = nuevosTipos.map(t => `«${t.nombre as string}»`).join(', ');
+    return NextResponse.json({
+      error: `Estas clases no existen todavía en tu estudio: ${nombres}. Solo la propietaria o la gerencia pueden crearlas: pídeselo o usa el nombre de una clase que ya tengas.`,
+    }, { status: 403 });
   }
   if (nuevosTipos.length > 0) {
     const { error } = await admin.from('tipos_clase').insert(nuevosTipos);

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { puedeVer } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { registrarDominiosWalletEstudio } from '@/lib/billing/dominios-wallets';
 
@@ -20,8 +19,11 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  // Mismo gate que la pantalla que lo dispara (Configuración → API/Widget).
-  if (!puedeVer(sesion.rol, '/configuracion')) {
+  // Solo la propietaria, igual que el guardado del dominio
+  // (/api/estudio/widget-dominios): registra sobre la cuenta de Stripe del
+  // estudio. No se cuelga de `puedeVer('/configuracion')`, porque Configuración
+  // también la ve la gerencia para la operación de su sede y esto es dinero.
+  if (sesion.rol !== 'PROPIETARIO') {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
 

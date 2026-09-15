@@ -429,6 +429,23 @@ function falloEscritura(tag: string, error: unknown): ResultadoEscritura {
   return { ok: false, error: mensajeDeFalloAlGuardar(error) };
 }
 
+/**
+ * Por qué un UPDATE o DELETE no tocó ninguna fila.
+ *
+ * Sin contar filas, uno que la RLS deja en cero vuelve con `error: null` y la
+ * pantalla dice «Guardado» sin haber guardado nada (mismo caso que
+ * `dbUpdatePlanTarifa`). Hay dos causas y se dicen distintas: si la fila se
+ * sigue viendo —la lectura de estas tablas está abierta a todo el estudio—, lo
+ * que faltó fue el permiso; si no, ya no está.
+ */
+async function sinFilasTocadas(tabla: string, id: string, sinPermiso: string): Promise<ResultadoEscritura> {
+  const { data } = await supabase.from(tabla).select('id').eq('id', id).maybeSingle();
+  return {
+    ok: false,
+    error: data ? sinPermiso : 'Eso ya no existe: alguien lo ha cambiado o borrado. Recarga la página.',
+  };
+}
+
 // ─── Mappers: DB (snake_case) → TS (camelCase) ───────────────────────────────
 
 
@@ -2331,18 +2348,26 @@ async function sincronizarTiposDePlan(
 
   // Los topes, antes del borrado: un tope es MÁS restrictivo, así que fallar
   // aquí deja el plan como estaba, nunca más abierto de lo pedido.
+  // Se cuentan filas en el UPDATE y el DELETE: si la RLS (`puede_mover_dinero()`)
+  // los deja en cero, vuelven sin error y la tarifa diría que sí sin cambiar. La
+  // tabla no tiene `id`: su clave es (plan_id, tipo_clase_id).
+  const SIN_PERMISO_COBERTURA = 'No tienes permiso para cambiar a qué clases se aplica una tarifa. Pídeselo a la propietaria o a recepción.';
   for (const t of aActualizar) {
-    const { error } = await supabase.from('plan_tipos_clase')
+    const { data: tocadas, error } = await supabase.from('plan_tipos_clase')
       .update({ limite_semanal: limiteDe(t) })
-      .eq('plan_id', planId).eq('tipo_clase_id', t);
+      .eq('plan_id', planId).eq('tipo_clase_id', t)
+      .select('plan_id');
     if (error) return falloEscritura('[sincronizarTiposDePlan:limite]', error);
+    if (!tocadas?.length) return { ok: false, error: SIN_PERMISO_COBERTURA };
   }
 
   // Y ahora sí quitar lo que sobra.
   if (aBorrar.length > 0) {
-    const { error } = await supabase
-      .from('plan_tipos_clase').delete().eq('plan_id', planId).in('tipo_clase_id', aBorrar);
+    const { data: borradas, error } = await supabase
+      .from('plan_tipos_clase').delete().eq('plan_id', planId).in('tipo_clase_id', aBorrar)
+      .select('plan_id');
     if (error) return falloEscritura('[sincronizarTiposDePlan:delete]', error);
+    if (!borradas?.length) return { ok: false, error: SIN_PERMISO_COBERTURA };
   }
 
   return ESCRITURA_OK;
@@ -2449,14 +2474,21 @@ export async function dbUpdateServicioCita(id: string, changes: Partial<Servicio
   if ('descripcion' in changes) db.descripcion = changes.descripcion ?? null;
   if ('activo' in changes) db.activo = changes.activo;
   if ('orden' in changes) db.orden = changes.orden;
-  const { error } = await supabase.from('citas_servicios').update(db).eq('id', id);
-  return error ? falloEscritura('[dbUpdateServicioCita]', error) : ESCRITURA_OK;
+  // Servicios y precios: la RLS exige `puede_configurar_negocio()` (propietaria).
+  const { data: tocadas, error } = await supabase.from('citas_servicios').update(db).eq('id', id).select('id');
+  if (error) return falloEscritura('[dbUpdateServicioCita]', error);
+  if (!tocadas?.length) return sinFilasTocadas('citas_servicios', id, SIN_PERMISO_SERVICIOS_CITA);
+  return ESCRITURA_OK;
 }
 
 export async function dbDeleteServicioCita(id: string): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('citas_servicios').delete().eq('id', id);
-  return error ? falloEscritura('[dbDeleteServicioCita]', error) : ESCRITURA_OK;
+  const { data: borradas, error } = await supabase.from('citas_servicios').delete().eq('id', id).select('id');
+  if (error) return falloEscritura('[dbDeleteServicioCita]', error);
+  if (!borradas?.length) return sinFilasTocadas('citas_servicios', id, SIN_PERMISO_SERVICIOS_CITA);
+  return ESCRITURA_OK;
 }
+
+const SIN_PERMISO_SERVICIOS_CITA = 'Solo la propietaria puede cambiar los servicios de citas y sus precios.';
 
 // ─── Citas: horario fino por instructora (0046) — reemplazo atómico de franjas ─
 // El editor guarda TODAS las franjas de una instructora a la vez: borramos las
@@ -2464,10 +2496,23 @@ export async function dbDeleteServicioCita(id: string): Promise<ResultadoEscritu
 export async function dbReplaceDisponibilidadCitas(
   studioId: string, instructorId: string, franjas: DisponibilidadCita[],
 ): Promise<ResultadoEscritura> {
-  const { error: delErr } = await supabase.from('citas_disponibilidad')
-    .delete().eq('studio_id', studioId).eq('instructor_id', instructorId);
+  const { data: borradas, error: delErr } = await supabase.from('citas_disponibilidad')
+    .delete().eq('studio_id', studioId).eq('instructor_id', instructorId)
+    .select('id');
   if (delErr) return falloEscritura('[dbReplaceDisponibilidadCitas:del]', delErr);
-  if (franjas.length === 0) return ESCRITURA_OK;
+  if (franjas.length === 0) {
+    // Vaciar el horario es el único caso sin INSERT detrás que falle en voz alta.
+    // Cero borradas puede ser que no hubiera nada (bien) o que la RLS
+    // (`puede_gestionar_sede()`) no dejara borrar: si quedan franjas, fue eso.
+    if (!borradas?.length) {
+      const { data: quedan } = await supabase.from('citas_disponibilidad')
+        .select('id').eq('studio_id', studioId).eq('instructor_id', instructorId).limit(1);
+      if (quedan?.length) {
+        return { ok: false, error: 'No tienes permiso para cambiar el horario de citas. Pídeselo a la propietaria o a la responsable de sede.' };
+      }
+    }
+    return ESCRITURA_OK;
+  }
   const rows = franjas.map((f) => ({
     id: f.id,
     studio_id: f.studioId ?? studioId,
@@ -2704,9 +2749,15 @@ export async function dbInsertBloqueoMaquina(b: BloqueoMaquina): Promise<Resulta
 }
 
 // Cerrar una avería = fijar `hasta` (por defecto ahora → la máquina vuelve al aforo).
+// La RLS exige `puede_gestionar_sede()`: sin contar filas, quitar una avería sin
+// permiso diría que la máquina vuelve al aforo cuando sigue bloqueada.
 export async function dbCerrarBloqueoMaquina(id: string, hastaISO: string): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('bloqueos_maquina').update({ hasta: hastaISO }).eq('id', id);
-  return error ? falloEscritura('[dbCerrarBloqueoMaquina]', error) : ESCRITURA_OK;
+  const { data: tocadas, error } = await supabase.from('bloqueos_maquina').update({ hasta: hastaISO }).eq('id', id).select('id');
+  if (error) return falloEscritura('[dbCerrarBloqueoMaquina]', error);
+  if (!tocadas?.length) {
+    return sinFilasTocadas('bloqueos_maquina', id, 'No tienes permiso para cambiar las averías. Pídeselo a la propietaria o a la responsable de sede.');
+  }
+  return ESCRITURA_OK;
 }
 
 // F2 (B2.2): plazas fijas. Capa de datos (la materialización + UI llegan en 4b/4c).
@@ -4530,13 +4581,23 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('especialidadNetwork' in changes) db.especialidad_network = changes.especialidadNetwork;
   if ('esOnline' in changes) db.es_online = changes.esOnline;
   if ('aforoPorDefecto' in changes) db.aforo_por_defecto = changes.aforoPorDefecto;
-  const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
-  return error ? falloEscritura('[dbUpdateTipoClase]', error) : ESCRITURA_OK;
+  // Alta y edición: `puede_gestionar_sede()`. Las reglas de dinero (penalización,
+  // ventana de cancelación, exigir plan) las rechaza un trigger con 42501 si no
+  // es la propietaria, y eso sí llega como error.
+  const { data: tocadas, error } = await supabase.from('tipos_clase').update(db).eq('id', id).select('id');
+  if (error) return falloEscritura('[dbUpdateTipoClase]', error);
+  if (!tocadas?.length) {
+    return sinFilasTocadas('tipos_clase', id, 'No tienes permiso para cambiar los tipos de clase. Pídeselo a la propietaria o a la responsable de sede.');
+  }
+  return ESCRITURA_OK;
 }
 
 export async function dbDeleteTipoClase(id: string): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('tipos_clase').delete().eq('id', id);
-  if (!error) return ESCRITURA_OK;
+  const { data: borradas, error } = await supabase.from('tipos_clase').delete().eq('id', id).select('id');
+  if (!error) {
+    if (!borradas?.length) return sinFilasTocadas('tipos_clase', id, 'Solo la propietaria puede borrar un tipo de clase.');
+    return ESCRITURA_OK;
+  }
   // Mismo caso que dbDeleteSala: un 23503 en el DELETE no es "falta un dato" (el
   // genérico lo leería como un INSERT y diría "vuelve a crearlo"): el tipo SÍ
   // existe, pero `sesiones.tipo_clase_id` lo referencia con FK NO ACTION y
@@ -4667,13 +4728,22 @@ export async function dbUpdateSala(id: string, changes: Partial<Sala>): Promise<
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('capacidad' in changes) db.capacidad = changes.capacidad;
   if ('color' in changes) db.color = changes.color;
-  const { error } = await supabase.from('salas').update(db).eq('id', id);
-  return error ? falloEscritura('[dbUpdateSala]', error) : ESCRITURA_OK;
+  // La RLS exige `puede_gestionar_sede()`: sin contar filas, un cambio sin
+  // permiso volvería sin error y la pantalla diría «Guardado».
+  const { data: tocadas, error } = await supabase.from('salas').update(db).eq('id', id).select('id');
+  if (error) return falloEscritura('[dbUpdateSala]', error);
+  if (!tocadas?.length) return sinFilasTocadas('salas', id, SIN_PERMISO_SALAS);
+  return ESCRITURA_OK;
 }
 
+const SIN_PERMISO_SALAS = 'No tienes permiso para cambiar las salas. Pídeselo a la propietaria o a la responsable de sede.';
+
 export async function dbDeleteSala(id: string): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('salas').delete().eq('id', id);
-  if (!error) return ESCRITURA_OK;
+  const { data: borradas, error } = await supabase.from('salas').delete().eq('id', id).select('id');
+  if (!error) {
+    if (!borradas?.length) return sinFilasTocadas('salas', id, SIN_PERMISO_SALAS);
+    return ESCRITURA_OK;
+  }
   // 23503 en un DELETE no es "falta un dato" (el genérico lo lee como un INSERT
   // y dice "vuelve a crearlo"): la sala SÍ existe, pero `sesiones.sala_id` la
   // referencia con FK NO ACTION y Postgres bloquea el borrado. Es una condición
@@ -4889,8 +4959,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
 
 // Horario semanal del estudio (studio_horario, migr 20260804210500). Un solo
 // upsert de las 7 filas — el guardado de la rejilla de Configuración es "todo
-// o nada", no autoguardado por fila. La RLS (studio_horario_escritura) exige
-// PROPIETARIO; si el rol no cuadra, Supabase devuelve 0 filas afectadas sin
+// o nada", no autoguardado por fila. La RLS de escritura de studio_horario exige
+// `puede_gestionar_sede()` (propietaria o gerencia); si el rol no cuadra, Supabase devuelve 0 filas afectadas sin
 // error explícito, así que se verifica el conteo, no solo la ausencia de error.
 export async function dbUpdateHorarioEstudio(dias: DiaHorario[]): Promise<ResultadoEscritura> {
   const filas = dias.map(d => ({
