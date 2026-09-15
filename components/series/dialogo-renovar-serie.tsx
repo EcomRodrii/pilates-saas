@@ -23,6 +23,7 @@ const inputCls = 'w-24 text-sm rounded-lg border border-border bg-background px-
 const MOTIVO: Record<MotivoOmitida, string> = {
   sala_ocupada: 'la sala está ocupada a esa hora',
   ya_existe: 'ya hay una clase igual en el calendario',
+  cierre: 'el centro está cerrado ese día',
 };
 const OMITIDAS_VISIBLES = 5;
 
