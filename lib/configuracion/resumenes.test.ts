@@ -267,6 +267,15 @@ test('«Revisa esto»: por prioridad, como mucho tres, y vacío si no hay nada',
   assert.deepEqual(revisaEsto(todo).map(a => a.id), ['nif', 'integracion-whatsapp', 'venta-online']);
   assert.deepEqual(revisaEsto(ESTUDIO), []);
 
+  // Por rol, y por TARJETA, no por sección: la gerencia abre «Mi estudio», así
+  // que le toca el horario sin ningún día abierto, pero no el NIF ni WhatsApp,
+  // que se arreglan en secciones que no abre. Mandarla ahí sería una puerta
+  // cerrada.
+  assert.deepEqual(revisaEsto(todo, 'MANAGER').map(a => a.id), ['horario']);
+  assert.deepEqual(revisaEsto(todo, 'RECEPCION'), []);
+  assert.deepEqual(resumenesDeConfiguracion(todo, 'MANAGER').cobros.estado, null);
+  assert.deepEqual(resumenesDeConfiguracion(todo, 'MANAGER').estudio.estado, { tono: 'pendiente', etiqueta: 'Sin horario' });
+
   // Dos avisos en Cobros: la fila enseña el primero.
   assert.deepEqual(resumenesDeConfiguracion(todo).cobros.estado, { tono: 'problema', etiqueta: 'Falta el NIF' });
   assert.deepEqual(resumenesDeConfiguracion(todo).estudio.estado, { tono: 'pendiente', etiqueta: 'Sin horario' });

@@ -171,6 +171,89 @@ export function formACampos(form: ClaseForm): Omit<TipoClase, 'id' | 'studioId' 
   };
 }
 
+// ─── Las tres reglas que acaban en dinero ────────────────────────────────────
+//
+// La penalización, el plazo para cancelar y el exigir plan o bono los fija solo
+// la propietaria: un trigger de la base de datos rechaza con 42501 que los toque
+// nadie más (`tipos_clase_dinero_solo_propietaria`, migr 20260915224739). La
+// gerencia edita el resto del tipo de clase.
+//
+// Lo más robusto NO es mandar los mismos valores —un redondeo o una carrera con
+// otra pestaña bastarían para que el trigger saltara—, sino no mandarlos: al
+// editar se quitan del cambio, y al crear van en `null`, que es «hereda del
+// estudio» y es lo único que el trigger admite de quien no es la propietaria.
+
+export const REGLAS_DE_DINERO = ['penalizacionImporteEur', 'ventanaCancelacionHoras', 'reservaExigirPlan'] as const;
+
+export type ReglaDeDinero = (typeof REGLAS_DE_DINERO)[number];
+
+type CamposTipoClase = Omit<TipoClase, 'id' | 'studioId' | 'fotoUrl' | 'logoUrl'>;
+
+/**
+ * Lo que se manda a guardar, según quién guarda.
+ *
+ * `reglasDeDinero: false` (la gerencia): al CREAR van en `null` —hereda— y al
+ * EDITAR no viajan, así que el tipo de clase se queda con lo que la propietaria
+ * dejara puesto.
+ */
+// Al crear siempre viaja el tipo entero (con `null` en las tres si no es la
+// propietaria); al editar, solo lo que cambia. Dos firmas para que quien llama
+// no tenga que afirmar con un `as` lo que ya se sabe aquí.
+export function camposParaGuardar(
+  form: ClaseForm,
+  opciones: { modo: 'nueva'; reglasDeDinero: boolean },
+): CamposTipoClase;
+export function camposParaGuardar(
+  form: ClaseForm,
+  opciones: { modo: 'editar'; reglasDeDinero: boolean },
+): Partial<CamposTipoClase>;
+export function camposParaGuardar(
+  form: ClaseForm,
+  opciones: { modo: 'nueva' | 'editar'; reglasDeDinero: boolean },
+): CamposTipoClase | Partial<CamposTipoClase> {
+  const campos = formACampos(form);
+  if (opciones.reglasDeDinero) return campos;
+  if (opciones.modo === 'nueva') {
+    return { ...campos, penalizacionImporteEur: null, ventanaCancelacionHoras: null, reservaExigirPlan: null };
+  }
+  const { penalizacionImporteEur: _p, ventanaCancelacionHoras: _v, reservaExigirPlan: _e, ...resto } = campos;
+  return resto;
+}
+
+/** Lo que el estudio tiene puesto en las tres reglas, para poder leerlas sin tocarlas. */
+export interface ReglasDeDineroDelEstudio {
+  cancelacionVentanaHoras?: number | null;
+  penalizacionImporteEur?: number | null;
+  reservaExigirPlan?: boolean | null;
+}
+
+/**
+ * Lo que dice una regla de dinero cuando solo se puede LEER: lo que tiene hoy
+ * esta clase, o lo que hereda del estudio. Esconderla sin más dejaría a la
+ * gerencia sin saber qué se le cobra a una alumna de su sede.
+ */
+export function valorReglaDeDinero(
+  regla: ReglaDeDinero,
+  form: ClaseForm,
+  estudio: ReglasDeDineroDelEstudio,
+): string {
+  if (regla === 'ventanaCancelacionHoras') {
+    const propio = form.ventanaCancelacionHoras.trim();
+    return propio === ''
+      ? `Como tu estudio: ${resumenHoras(estudio.cancelacionVentanaHoras ?? 12)}`
+      : `Solo esta clase: ${resumenHoras(Number(propio))}`;
+  }
+  if (regla === 'penalizacionImporteEur') {
+    const propio = form.penalizacionImporteEur.trim();
+    return propio === ''
+      ? `Como tu estudio: ${resumenPenalizacion(estudio.penalizacionImporteEur ?? null)}`
+      : `Solo esta clase: ${resumenPenalizacion(Number(propio))}`;
+  }
+  return form.reservaExigirPlan === 'hereda'
+    ? `Como tu estudio: ${resumenSiNo(estudio.reservaExigirPlan ?? true, 'sí hace falta', 'no hace falta')}`
+    : `Solo esta clase: ${resumenSiNo(form.reservaExigirPlan === 'si', 'sí hace falta', 'no hace falta')}`;
+}
+
 /**
  * Los dos campos van en unidades distintas (min vs días) y ambos son overrides
  * opcionales (#867): solo se comparan cuando ESTE tipo de clase fija los dos

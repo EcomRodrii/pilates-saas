@@ -10,6 +10,7 @@ import {
   type SustitucionPanel, type ResumenValoraciones,
 } from '@/lib/api-client';
 import { useRol, puedeVer, puedeGestionarEquipo } from '@/lib/permisos';
+import { seccionesVisibles } from '@/lib/configuracion/destino';
 import { InterruptorAvisarAlumnas } from '@/components/sustituciones/interruptor-avisar-alumnas';
 import { mensajeCoberturaSustitucion, estadoContactoDesde, type EstadoContacto } from '@/lib/network/contacto-sustitucion';
 import type { EstadoCoberturaNetwork } from '@/lib/network/cobertura-sustitucion';
@@ -307,18 +308,18 @@ export default function SustitucionesPage() {
       />
 
       {/* El aviso a las alumnas lo pueden cambiar quienes deja su único escritor
-          (`/api/sustituciones`, PROPIETARIO y MANAGER), y la gerencia no entra en
-          Configuración: por eso el interruptor sigue aquí. Es el MISMO componente
-          que en Configuración → Cómo reservan mis alumnas, y a esa pantalla solo se
-          enlaza a quien puede abrirla. Nada se pinta hasta haberlo leído: «no
-          avisa» mientras carga sería mentira. */}
+          (`/api/sustituciones`, PROPIETARIO y MANAGER), y la gerencia no abre
+          «Cómo reservan mis alumnas» —entra en Configuración, pero a la operación
+          de su sede—: por eso el interruptor sigue aquí. Es el MISMO componente
+          que en esa sección, y a ella solo se enlaza a quien puede abrirla. Nada
+          se pinta hasta haberlo leído: «no avisa» mientras carga sería mentira. */}
       {!cargando && (puedeGestionarEquipo(rolPanel) ? (
         <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
           <InterruptorAvisarAlumnas
             guardado={avisar}
             onGuardado={v => { setAvisar(v); reflejarStudioGuardado({ avisarAlumnas: v }); }}
           />
-          {puedeVer(rolPanel, '/configuracion') && (
+          {seccionesVisibles(rolPanel).some(s => s.id === 'reservas') && (
             <Link
               href="/configuracion?tab=reservas#ajuste-avisar-alumnas"
               className="text-[12px] font-medium text-foreground underline underline-offset-2 hover:no-underline"

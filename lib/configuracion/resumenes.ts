@@ -26,7 +26,7 @@ import { nifEmisorValido, nifValido } from '../nif.ts';
 import { PLAN_INFO, tieneFeature, type Plan } from '../billing/entitlements.ts';
 import { urlAppInstructora } from '../avisos/app-instructora.ts';
 import type { FaseTrial } from '../billing/trial.ts';
-import { SECCIONES, seccionDeTarjeta, type HerramientaId, type SeccionId, type TarjetaId } from './secciones.ts';
+import { SECCIONES, seccionDeTarjeta, tarjetaVisible, type HerramientaId, type RolConfiguracion, type SeccionId, type TarjetaId } from './secciones.ts';
 import { nombreCreditos } from '../creditos-nombre.ts';
 
 export const MAX_RESUMEN = 44;
@@ -267,9 +267,16 @@ export function avisosDeConfiguracion(d: DatosConfiguracion): AvisoConfiguracion
   return avisos;
 }
 
-/** «Revisa esto»: los primeros `MAX_REVISA`. Vacío = no se pinta el bloque. */
-export function revisaEsto(d: DatosConfiguracion): AvisoConfiguracion[] {
-  return avisosDeConfiguracion(d).slice(0, MAX_REVISA);
+/**
+ * «Revisa esto»: los primeros `MAX_REVISA` de los que este rol puede arreglar.
+ *
+ * Con el rol se filtran por su TARJETA, no por su sección: la gerencia abre «Mi
+ * estudio», así que le toca el horario sin ningún día abierto, pero no el NIF,
+ * que se arregla en Cobros. Proponerle algo que no puede tocar sería mandarla a
+ * una puerta cerrada.
+ */
+export function revisaEsto(d: DatosConfiguracion, rol: RolConfiguracion | string = 'PROPIETARIO'): AvisoConfiguracion[] {
+  return avisosDeConfiguracion(d).filter(a => tarjetaVisible(a.ancla, rol)).slice(0, MAX_REVISA);
 }
 
 // ─── El valor de cada sección ────────────────────────────────────────────────
@@ -374,9 +381,12 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
   }
 }
 
-/** Valor y estado de cada sección. */
-export function resumenesDeConfiguracion(d: DatosConfiguracion): Record<SeccionId, ResumenSeccion> {
-  const avisos = avisosDeConfiguracion(d);
+/** Valor y estado de cada sección. El estado, solo con lo que este rol arregla. */
+export function resumenesDeConfiguracion(
+  d: DatosConfiguracion,
+  rol: RolConfiguracion | string = 'PROPIETARIO',
+): Record<SeccionId, ResumenSeccion> {
+  const avisos = avisosDeConfiguracion(d).filter(a => tarjetaVisible(a.ancla, rol));
   return Object.fromEntries(SECCIONES.map(({ id }) => {
     const aviso = avisos.find(a => a.seccion === id);
     return [id, { valor: valorDe(id, d), estado: aviso ? { tono: aviso.tono, etiqueta: aviso.etiqueta } : null }];

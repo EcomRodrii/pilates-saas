@@ -5,6 +5,7 @@ import type { MostrarToast } from '@/components/ui/toast';
 import { Building2, CalendarOff, Clock, MapPin, Phone } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
+import { useRol } from '@/lib/permisos';
 import { hoyEnEstudio } from '@/lib/utils';
 import {
   fetchMisEstudios, cambiarSedeActiva, dbContarClasesCanceladasPorCierre, dbListCierres, type SedeSeleccionable,
@@ -21,7 +22,7 @@ import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramien
 import {
   resumenCierres, resumenContacto, resumenHerramienta, resumenHorarioSemana, resumenNombreYDireccion, resumenSedes,
 } from '@/lib/configuracion/resumenes';
-import type { TarjetaId } from '@/lib/configuracion/secciones';
+import { tarjetaVisible, type TarjetaId } from '@/lib/configuracion/secciones';
 
 // Mi estudio: quién eres, dónde estás y cuándo abres, en filas que dicen cómo
 // está cada cosa HOY. Tocar una abre su cajón (shell/cajon-ajuste.tsx), con su
@@ -47,6 +48,12 @@ const contarClases = (studioId: string, cierres: readonly CierreGuardado[]) =>
 export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
   const { studio, dataLoaded, salas, bloqueosMaquina } = useStudio();
   const { user } = useAuth();
+  // La gerencia lleva la operación de la sede: el horario, los cierres y las
+  // salas. El nombre, el contacto y las sedes son de la propietaria, y su RLS lo
+  // exige igual — aquí solo se deja de enseñar lo que se rechazaría.
+  const rol = useRol();
+  const ve = (id: TarjetaId) => tarjetaVisible(id, rol);
+  const veSedes = ve('sedes');
 
   // Qué avería sigue abierta y qué cierre ya pasó dependen de la hora: se lee
   // una vez al montar (leer el reloj en render es impuro).
@@ -64,11 +71,12 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
   const [sedes, setSedes] = useState<SedeSeleccionable[] | null>(null);
   const [cambiandoASede, setCambiandoASede] = useState<string | null>(null);
   useEffect(() => {
-    if (!user) return;
+    // Sin la fila de sedes no hay nada que leer: no se pide.
+    if (!user || !veSedes) return;
     let vivo = true;
     fetchMisEstudios().then(r => { if (vivo) setSedes(r); });
     return () => { vivo = false; };
-  }, [user]);
+  }, [user, veSedes]);
 
   function cambiarmeASede(id: string) {
     if (!user || id === studio?.id || cambiandoASede) return;
@@ -84,7 +92,7 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
     });
   }
 
-  const haySedes = (sedes?.length ?? 0) > 1 || puedeAnadirSedes;
+  const haySedes = veSedes && ((sedes?.length ?? 0) > 1 || puedeAnadirSedes);
 
   // Los cierres (los que vienen y los pasados): el panel no los carga al
   // arrancar, se piden aquí. Una sola lista para la fila y para el cajón, así
@@ -115,7 +123,7 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
   }
 
   // El cajón abierto: un enlace con ancla abre el suyo (shell/cajon-ajuste.tsx).
-  const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
+  const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES.filter(ve));
 
   function guardado(texto: string) {
     cerrar();
@@ -141,12 +149,14 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
 
   return (
     <>
-      <GrupoFilas titulo="Datos y contacto">
-        {FILAS_DATOS.map(f => <FilaAjuste key={f.id} {...f} valor={valores[f.id]} onAbrir={abrir} />)}
-      </GrupoFilas>
+      {FILAS_DATOS.some(f => ve(f.id)) && (
+        <GrupoFilas titulo="Datos y contacto">
+          {FILAS_DATOS.filter(f => ve(f.id)).map(f => <FilaAjuste key={f.id} {...f} valor={valores[f.id]} onAbrir={abrir} />)}
+        </GrupoFilas>
+      )}
 
       <GrupoFilas titulo="Horario y cierres">
-        {FILAS_HORARIO.map(f => <FilaAjuste key={f.id} {...f} valor={valores[f.id]} onAbrir={abrir} />)}
+        {FILAS_HORARIO.filter(f => ve(f.id)).map(f => <FilaAjuste key={f.id} {...f} valor={valores[f.id]} onAbrir={abrir} />)}
       </GrupoFilas>
 
       <GrupoFilas titulo="Dónde das clase">
@@ -154,12 +164,16 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
         {haySedes && <FilaAjuste {...FILA_SEDES} valor={valores.sedes} onAbrir={abrir} />}
       </GrupoFilas>
 
-      <CajonAjuste id="nombre-y-direccion" abierto={cajon === 'nombre-y-direccion'} onCerrar={cerrar}>
-        <FormNombreYDireccion {...props} />
-      </CajonAjuste>
-      <CajonAjuste id="contacto" abierto={cajon === 'contacto'} onCerrar={cerrar}>
-        <FormContacto {...props} />
-      </CajonAjuste>
+      {ve('nombre-y-direccion') && (
+        <CajonAjuste id="nombre-y-direccion" abierto={cajon === 'nombre-y-direccion'} onCerrar={cerrar}>
+          <FormNombreYDireccion {...props} />
+        </CajonAjuste>
+      )}
+      {ve('contacto') && (
+        <CajonAjuste id="contacto" abierto={cajon === 'contacto'} onCerrar={cerrar}>
+          <FormContacto {...props} />
+        </CajonAjuste>
+      )}
       <CajonAjuste id="horario" abierto={cajon === 'horario'} onCerrar={cerrar}>
         <FormHorario {...props} />
       </CajonAjuste>

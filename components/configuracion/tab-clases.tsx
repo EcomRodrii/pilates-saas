@@ -8,11 +8,12 @@ import { eliminarFotoClase, subirFotoClase, eliminarLogoClase, subirLogoClase } 
 import { colorSalaPorDefecto } from '@/components/configuracion/tab-salas';
 import { useStudio } from '@/lib/studio-context';
 import { imagenDeClase } from '@/lib/imagenes-por-defecto';
+import { useRol } from '@/lib/permisos';
 import {
   NIVEL_LABELS,
+  camposParaGuardar,
   claseToForm,
   emptyClaseForm,
-  formACampos,
   plazasSiPropias,
   type ClaseForm,
 } from '@/lib/configuracion/tipo-clase-form';
@@ -60,7 +61,8 @@ function TarjetaTipoClase({
 }: {
   tc: TipoClase;
   onEditar: () => void;
-  onEliminar: () => void;
+  /** Sin esto no se enseña «Eliminar»: borrar un tipo es de la propietaria. */
+  onEliminar?: () => void;
 }) {
   const chips = overridesDeTipoClase(tc);
   const visibles = chips.slice(0, 3);
@@ -126,13 +128,15 @@ function TarjetaTipoClase({
           <Pencil size={11} />
           Editar
         </button>
-        <button
-          onClick={onEliminar}
-          className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-        >
-          <Trash2 size={11} />
-          Eliminar
-        </button>
+        {onEliminar && (
+          <button
+            onClick={onEliminar}
+            className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 size={11} />
+            Eliminar
+          </button>
+        )}
       </div>
     </div>
   );
@@ -140,6 +144,10 @@ function TarjetaTipoClase({
 
 export function TabClases({ showToast }: { showToast: (m: string) => void }) {
   const { studio, tiposClase, addTipoClase, updateTipoClase, deleteTipoClase } = useStudio();
+  // La gerencia da de alta y edita tipos de clase, pero no borra ninguno ni toca
+  // las tres reglas que acaban en dinero: un trigger las rechaza con 42501
+  // (`tipos_clase_dinero_solo_propietaria`). La cerradura es esa, no esto.
+  const reglasDeDinero = useRol() === 'PROPIETARIO';
 
   const [modal, setModal] = useState<'nueva' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -218,13 +226,13 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
   const closeModal = useCallback(() => { setModal(null); setErrorGuardar(null); }, []);
 
   const guardar = useCallback(async () => {
-    const fields = formACampos(form);
     if (modal === 'nueva') {
       // Esperamos a la base de datos antes de decir que está creado.
       setGuardando(true);
       setErrorGuardar(null);
       // Las dos imágenes nacen vacías: sus campos ni siquiera se enseñan al
       // crear, porque para subirlas a Storage hace falta el id de la clase.
+      const fields = camposParaGuardar(form, { modo: 'nueva', reglasDeDinero });
       const res = await addTipoClase({ ...fields, fotoUrl: null, logoUrl: null });
       setGuardando(false);
       if (!res.ok) { setErrorGuardar(res.error); return; }
@@ -232,13 +240,15 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     } else if (editId) {
       setGuardando(true);
       setErrorGuardar(null);
-      const res = await updateTipoClase(editId, fields);
+      // Sin las reglas de dinero si no es la propietaria: no se mandan los
+      // mismos valores, se dejan fuera del cambio (ver `camposParaGuardar`).
+      const res = await updateTipoClase(editId, camposParaGuardar(form, { modo: 'editar', reglasDeDinero }));
       setGuardando(false);
       if (!res.ok) { setErrorGuardar(res.error); return; }
       showToast('Tipo de clase actualizado');
     }
     setModal(null);
-  }, [modal, editId, form, addTipoClase, updateTipoClase, showToast]);
+  }, [modal, editId, form, reglasDeDinero, addTipoClase, updateTipoClase, showToast]);
 
   const handleDelete = useCallback(async () => {
     if (!confirmDel) return;
@@ -275,7 +285,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
             key={tc.id}
             tc={tc}
             onEditar={() => openEditar(tc)}
-            onEliminar={() => setConfirmDel(tc.id)}
+            onEliminar={reglasDeDinero ? () => setConfirmDel(tc.id) : undefined}
           />
         ))}
       </div>
@@ -287,6 +297,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
         setForm={setForm}
         studio={studio}
         editando={editando}
+        reglasDeDinero={reglasDeDinero}
         guardando={guardando}
         errorGuardar={errorGuardar}
         subiendoFoto={subiendoFoto}

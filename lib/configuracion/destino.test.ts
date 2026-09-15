@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import {
-  ANCLAS, RUTAS_ANTIGUAS, esAnclaConocida, hrefDeHerramienta, hrefDeSeccion, hrefDeTarjeta, lugarDeTarjeta, reconoceSub,
-  reconoceTab, resolverDestino, resolverHref, seccionesVisibles,
+  ANCLAS, RUTAS_ANTIGUAS, esAnclaConocida, hrefDeHerramienta, hrefDeSeccion, hrefDeTarjeta, lugarDeTarjeta,
+  puedeAbrirEnConfiguracion, reconoceSub, reconoceTab, resolverDestino, resolverHref, seccionesVisibles,
 } from './destino.ts';
 import {
-  HERRAMIENTAS, SECCIONES, esHerramientaId, herramientaDeTarjeta, seccionDeTarjeta, type SeccionId, type TarjetaId,
+  HERRAMIENTAS, SECCIONES, esHerramientaId, herramientaDeTarjeta, seccionDeTarjeta, seccionPorId,
+  type SeccionId, type TarjetaId,
 } from './secciones.ts';
 import { TARJETA_DE_INTEGRACION } from './resumenes.ts';
 
@@ -261,10 +262,45 @@ test('las pantallas sueltas de antes llevan a su sección, y sus páginas rediri
   }
 });
 
-test('la propietaria ve las catorce secciones y el resto de roles ninguna', () => {
+test('la propietaria ve las catorce secciones; la gerencia, dos y solo con sus tarjetas; recepción e instructora, ninguna', () => {
   assert.equal(seccionesVisibles('PROPIETARIO').length, 14);
   assert.deepEqual(seccionesVisibles('RECEPCION'), []);
   assert.deepEqual(seccionesVisibles('INSTRUCTOR'), []);
+
+  // La gerencia abre «Mi estudio» y «Mis clases y citas», pero dentro solo lo
+  // que lleva de su sede: ni el nombre del estudio, ni las sedes, ni los
+  // servicios de cita (que llevan precio).
+  const gerencia = seccionesVisibles('MANAGER');
+  assert.deepEqual(gerencia.map(s => s.id), ['estudio', 'clases']);
+  assert.deepEqual(gerencia[0].tarjetas.map(t => t.id), ['horario', 'cerrar-el-centro', 'salas']);
+  assert.deepEqual(gerencia[1].tarjetas.map(t => t.id), ['tipos-de-clase', 'horario-de-citas']);
+  // Y a la propietaria no se le recorta ninguna.
+  for (const s of seccionesVisibles('PROPIETARIO')) {
+    assert.equal(s.tarjetas.length, seccionPorId(s.id).tarjetas.length, s.id);
+  }
+});
+
+test('un enlace a Configuración solo se ofrece a quien puede abrirlo de verdad', () => {
+  // La propietaria, todo.
+  for (const href of ['/configuracion', '/configuracion?tab=cobros#datos-fiscales', '/configuracion?tab=estudio&abrir=salas']) {
+    assert.equal(puedeAbrirEnConfiguracion('PROPIETARIO', href), true, href);
+  }
+  // La gerencia: lo suyo sí.
+  assert.equal(puedeAbrirEnConfiguracion('MANAGER', '/configuracion'), true);
+  assert.equal(puedeAbrirEnConfiguracion('MANAGER', '/configuracion?tab=estudio&abrir=salas'), true);
+  assert.equal(puedeAbrirEnConfiguracion('MANAGER', '/configuracion?tab=estudio#horario'), true);
+  assert.equal(puedeAbrirEnConfiguracion('MANAGER', '/configuracion?tab=clases&abrir=tipos-de-clase'), true);
+  // Una sección que no abre, una tarjeta que no ve dentro de una que sí, y una
+  // herramienta ajena: las tres, no.
+  assert.equal(puedeAbrirEnConfiguracion('MANAGER', '/configuracion?tab=cobros#datos-fiscales'), false);
+  assert.equal(puedeAbrirEnConfiguracion('MANAGER', '/configuracion?tab=estudio#contacto'), false);
+  assert.equal(puedeAbrirEnConfiguracion('MANAGER', '/configuracion?tab=web&abrir=widgets'), false);
+  // Recepción no abre ni el inicio.
+  assert.equal(puedeAbrirEnConfiguracion('RECEPCION', '/configuracion'), false);
+  // Lo que no es Configuración no se juzga aquí (lo decide `puedeVer`), y un
+  // `?tab=` que lleva fuera tampoco: `?tab=planes` redirige a /productos.
+  assert.equal(puedeAbrirEnConfiguracion('MANAGER', '/calendario'), true);
+  assert.equal(puedeAbrirEnConfiguracion('MANAGER', '/configuracion?tab=planes'), true);
 });
 
 // ─── 2. Los ids de aquí son los que se pintan ───────────────────────────────

@@ -11,6 +11,7 @@ import { buscarTareas, normalizar, rutaBase } from '@/lib/tareas';
 import { MODULOS } from '@/lib/nav-config';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { ajustesParaBuscadorGlobal, sinTareasRepetidas } from '@/lib/configuracion/buscar';
+import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { irEnConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 
@@ -115,8 +116,11 @@ export function GlobalSearch({
   // sitio sin conocer la estructura del menú.
   const { rol, puedeVer } = usePermisos();
   const tareasRes = useMemo(
-    () => buscarTareas(q, q ? 5 : 4).filter(t => puedeVer(rutaBase(t.href))),
-    [q, puedeVer],
+    // Y, si la tarea lleva a Configuración, que este rol abra de verdad esa
+    // sección y esa tarjeta: `puedeVer('/configuracion')` ya no basta desde que
+    // la gerencia entra solo a la operación de su sede.
+    () => buscarTareas(q, q ? 5 : 4).filter(t => puedeVer(rutaBase(t.href)) && puedeAbrirEnConfiguracion(rol, t.href)),
+    [q, puedeVer, rol],
   );
 
   // Secciones del menú lateral (Calendario, Cobros...) como resultado de

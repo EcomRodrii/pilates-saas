@@ -8,7 +8,7 @@ export default function Contenido() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, margin: '20px 0' }}>
         {[
           ['Propietaria', 'Control total: puede ver y editar todo, incluida la facturación y los datos del estudio.'],
-          ['Responsable de sede', 'Lleva el día a día de la sede: horario, clientas, lista de espera, sustituciones y equipo. No ve facturación ni informes de ingresos, y no puede dar acceso de propietaria a nadie.'],
+          ['Responsable de sede', 'Lleva el día a día de la sede: horario, clientas, lista de espera, sustituciones y equipo, y en Configuración el horario del centro, los cierres, las salas y los tipos de clase. No ve facturación ni informes de ingresos, y no puede dar acceso de propietaria a nadie.'],
           ['Recepción', 'Reservas, clientas, cobros y caja — sin acceso a marketing, informes ni ajustes del negocio. En la ficha de salud solo ve el semáforo de color, nunca el detalle clínico.'],
           ['Instructora', 'La app del estudio: sus clases, sus bajas, su disponibilidad y sus alumnas. Si lo permites en Configuración > Mi equipo, crea sus propias clases; no entra en el panel ni ve la facturación.'],
         ].map(([rol, texto]) => (

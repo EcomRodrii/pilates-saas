@@ -10,7 +10,7 @@ import { estadoBilling, fetchLayout, fetchThemePublicado } from '@/lib/api-clien
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { DEFAULT_THEME } from '@/lib/theme-schema';
 import { cardCls, inputCls } from '@/components/configuracion/estilos';
-import { hrefDeLugar, hrefDeSeccion, resolverHref } from '@/lib/configuracion/destino';
+import { externasVisibles, hrefDeLugar, hrefDeSeccion, resolverHref } from '@/lib/configuracion/destino';
 import { FILAS_EXTERNAS, GRUPOS, type HerramientaId, type SeccionConfiguracion, type SeccionId } from '@/lib/configuracion/secciones';
 import {
   resumenPlan, resumenesDeConfiguracion, revisaEsto, type DatosConfiguracion, type EstadoPlanResumible,
@@ -55,11 +55,14 @@ type Abrir = (tab: SeccionId, opciones: { ancla?: string; abrir?: HerramientaId;
 
 export function InicioConfiguracion({
   secciones,
+  rol,
   consulta,
   onConsulta,
   onAbrir,
 }: {
   secciones: readonly SeccionConfiguracion[];
+  /** Decide qué se revisa, qué filas de otra pantalla salen y si va la guía. */
+  rol: string;
   consulta: string;
   onConsulta: (valor: string) => void;
   /** `origen` es el id del enlace pulsado, para devolverle el foco al volver. */
@@ -112,8 +115,12 @@ export function InicioConfiguracion({
     colorPropio: fuera?.colorPropio ?? null,
     panel: fuera?.menuPosition ? { menuPosition: fuera.menuPosition, oscuro: dark } : null,
   } : null;
-  const resumenes = datos ? resumenesDeConfiguracion(datos) : null;
-  const avisos = datos ? revisaEsto(datos) : [];
+  // Por rol: a la gerencia no se le propone arreglar el NIF, que se toca en
+  // Cobros y ella no abre.
+  const resumenes = datos ? resumenesDeConfiguracion(datos, rol) : null;
+  const avisos = datos ? revisaEsto(datos, rol) : [];
+  const externas = externasVisibles(rol);
+  const idsExternas = new Set(externas.map(f => f.id));
 
   const progreso = cargado
     ? calcularProgresoGuia(calcularOnboarding(datosOnboardingDelEstudio({
@@ -121,13 +128,17 @@ export function InicioConfiguracion({
       salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
     })).categorias)
     : null;
-  const aPunto = progreso && progreso.esencialTotal > 0 && progreso.esencialHechos < progreso.esencialTotal ? progreso : null;
+  // «Pon tu estudio a punto» es la guía de la PROPIETARIA: sus pasos son el NIF,
+  // Stripe, la marca y el contrato, ninguno de la gerencia. Contarle un «3 de 8»
+  // que no puede mover sería un recado para otra persona.
+  const aPunto = rol === 'PROPIETARIO' && progreso && progreso.esencialTotal > 0
+    && progreso.esencialHechos < progreso.esencialTotal ? progreso : null;
 
   // «Sedes» se busca por lo que dice el plan, no por las sedes que carga «Mi
   // estudio» al abrirse: el buscador no espera a ninguna sección.
   const haySedes = !!studio && (tieneFeature(studio, 'multiCentro') || !!studio.cadenaId);
   const resultados = consulta.trim()
-    ? buscarAjustes(consulta, { secciones, haySedes, esCadena: !!studio?.cadenaId })
+    ? buscarAjustes(consulta, { secciones, externas, haySedes, esCadena: !!studio?.cadenaId })
     : null;
 
   const abrir = (tab: SeccionId, origen: string, ancla?: string, herramienta?: HerramientaId) => (e: MouseEvent) => {
@@ -236,7 +247,8 @@ export function InicioConfiguracion({
             const suyas = grupo.secciones
               .map(id => secciones.find(s => s.id === id))
               .filter((s): s is SeccionConfiguracion => !!s);
-            if (suyas.length === 0 && !grupo.externas?.length) return null;
+            const externasDelGrupo = (grupo.externas ?? []).filter(id => idsExternas.has(id));
+            if (suyas.length === 0 && externasDelGrupo.length === 0) return null;
             return (
               <section key={grupo.id} aria-labelledby={`inicio-grupo-${grupo.id}`} className="space-y-2">
                 <h2 id={`inicio-grupo-${grupo.id}`} className={TITULO_GRUPO}>{grupo.titulo}</h2>
@@ -264,7 +276,7 @@ export function InicioConfiguracion({
                       </li>
                     );
                   })}
-                  {(grupo.externas ?? []).map(idFila => {
+                  {externasDelGrupo.map(idFila => {
                     const f = FILAS_EXTERNAS[idFila];
                     const Icono = ICONOS_EXTERNAS[idFila];
                     const resumen = idFila === 'plan' ? resumenPlan(fuera?.plan) : null;
