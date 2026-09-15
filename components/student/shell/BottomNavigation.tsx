@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEstudio } from '@/components/student/contexto';
-import { useSesionStudent } from '@/lib/student/sesion';
 import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
 
 // Nav inferior. Del paquete (`components/shell/BottomNavigation.tsx`): mismos
@@ -44,16 +43,17 @@ const TABS: Tab[] = [
 ];
 
 // La misma barra para la instructora (decisión del 14-sep-2026: una sola app),
-// con sus destinos. «Reservar» solo si además es alumna del estudio: la agenda
-// es única y ahí ve también las clases a las que viene.
-function tabsInstructora(esTambienAlumna: boolean): Tab[] {
-  return [
-    { ruta: '/equipo', label: 'Hoy', icono: 'inicio' },
-    { ruta: '/equipo/agenda', label: 'Agenda', icono: 'calendario' },
-    ...(esTambienAlumna ? [{ ruta: '/reservar', label: 'Reservar', icono: 'reservar' as NombreIcono }] : []),
-    { ruta: '/equipo/perfil', label: 'Perfil', icono: 'perfil' },
-  ];
-}
+// con sus cinco destinos, como la de la alumna (decisión del 15-sep-2026: con
+// tres pestañas la barra se veía a medio hacer y sus alumnas y mensajes
+// quedaban escondidos dentro de Perfil). Si además es alumna, «Reservar» vive
+// en Perfil y su agenda única ya le enseña las clases a las que viene.
+const TABS_INSTRUCTORA: Tab[] = [
+  { ruta: '/equipo', label: 'Hoy', icono: 'inicio' },
+  { ruta: '/equipo/agenda', label: 'Agenda', icono: 'calendario' },
+  { ruta: '/equipo/alumnas', label: 'Alumnas', icono: 'instructoras' },
+  { ruta: '/equipo/mensajes', label: 'Mensajes', icono: 'comentario' },
+  { ruta: '/equipo/perfil', label: 'Perfil', icono: 'perfil' },
+];
 
 export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
   badgeReservas?: number;
@@ -61,10 +61,8 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
 }) {
   const path = usePathname();
   const { slug } = useEstudio();
-  // No cuesta petición: la sesión está en caché compartida con la cabecera.
-  const { socia } = useSesionStudent(slug);
   const base = `/portal/${encodeURIComponent(slug)}`;
-  const tabs = modo === 'instructora' ? tabsInstructora(Boolean(socia)) : TABS;
+  const tabs = modo === 'instructora' ? TABS_INSTRUCTORA : TABS;
   const raiz = modo === 'instructora' ? '/equipo' : '';
 
   return (

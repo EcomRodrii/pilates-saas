@@ -34,7 +34,8 @@ export default function AlumnasInstructoraPage() {
 
   return (
     <StudentShell modo="instructora">
-      <PageHeader back titulo="Tus alumnas" sub="De tus clases de los últimos 30 días y los próximos 30" />
+      {/* Sin «Volver»: es una pestaña de la barra, no una pantalla dentro de Perfil. */}
+      <PageHeader titulo="Tus alumnas" sub="De tus clases de los últimos 30 días y los próximos 30" />
       <div className="px stack" style={{ ['--gap' as string]: 'var(--s-2)', marginTop: 14, paddingBottom: 24 }}>
         {estado === 'loading' && <ListSkeleton n={4} h={64} />}
         {estado === 'error' && <ErrorState cuerpo="No hemos podido cargar tus alumnas." onRetry={reintentar} />}

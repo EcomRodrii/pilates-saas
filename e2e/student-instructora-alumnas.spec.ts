@@ -76,7 +76,8 @@ test.describe('«Tus alumnas» en la app de la instructora', () => {
   test('desde Perfil ve sus alumnas con lo mínimo y abre la ficha de una', async ({ page }) => {
     const contador = await montar(page);
     await page.goto(`/portal/${SLUG}/equipo/perfil`);
-    await page.getByRole('link', { name: 'Tus alumnas', exact: true }).click({ timeout: 30_000 });
+    // Sus alumnas están en la barra de abajo, no dentro de Perfil (15-sep-2026).
+    await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Alumnas', exact: true }).click({ timeout: 30_000 });
 
     const aina = page.getByTestId('alumna').filter({ hasText: 'Aina P.' });
     await expect(aina).toContainText('Primera clase', { timeout: 30_000 });
