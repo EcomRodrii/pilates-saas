@@ -332,14 +332,11 @@ export function puedeGestionarAppsOAuth(rol: Rol): boolean {
 // la regla de aquí es la cerradura de la ruta, no solo la de la UI.
 
 // Actuar sobre UNA clase concreta: avisar a sus alumnas de que se cancela o
-// cambia, o abrir la puerta al marcar asistencia en ella. Espejo de la RLS de
-// UPDATE en `sesiones` (migr 20260730012600): mostrador y manager sobre
-// cualquiera; la instructora solo sobre las suyas, que son las que ya puede
-// editar, cancelar y pasar lista desde el calendario.
-// Tentare Core retirado (14-sep-2026): la instructora ya no opera clases desde el
-// panel (apuntar alumnas, Kisi, email de cancelación), ni siquiera las suyas. Se
-// conserva el segundo argumento para no tocar a los llamadores; ya no decide nada.
-export function puedeOperarClase(rol: Rol, _esClasePropia = false): boolean {
+// cambia, o abrir la puerta al marcar asistencia en ella: mostrador y manager,
+// sobre cualquiera. Tentare Core retirado (14-sep-2026): la instructora ya no
+// opera clases desde el panel (apuntar alumnas, Kisi, email de cancelación), ni
+// siquiera las suyas.
+export function puedeOperarClase(rol: Rol): boolean {
   return puedeGestionarCalendario(rol);
 }
 
@@ -363,13 +360,12 @@ export const TIPOS_EMAIL_DE_CLASE: readonly TipoEmailPanel[] = ['reserva', 'prom
 //     no, ni la suya: Tentare Core retirado, 14-sep-2026).
 //   · reserva/promocion/cambio/recordatorio → calendario. Desde el panel no los
 //     llama nadie hoy (el servidor los manda por su cuenta).
-// `esClasePropia` ya no decide nada (ver `puedeOperarClase`); se conserva la firma.
-export function puedeEnviarEmail(rol: Rol, tipo: string, esClasePropia = false): boolean {
+export function puedeEnviarEmail(rol: Rol, tipo: string): boolean {
   switch (tipo) {
     case 'recibo': return puedeMoverDinero(rol);
     case 'bienvenida':
     case 'automatizacion': return puedeGestionarClientas(rol);
-    case 'cancelacion': return puedeOperarClase(rol, esClasePropia);
+    case 'cancelacion': return puedeOperarClase(rol);
     case 'reserva':
     case 'promocion':
     case 'cambio':

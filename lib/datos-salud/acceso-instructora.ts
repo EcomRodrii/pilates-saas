@@ -50,26 +50,3 @@ export function instructoraAtiendeSocia(
     && dentroDeVentanaAlumna(f.inicio, ahora),
   );
 }
-
-export type AccesoSaludSocia = 'PERMITIDO' | 'SIN_ROL_CLINICO' | 'NO_ES_SU_ALUMNA';
-
-/**
- * `atiende` solo se mira para INSTRUCTOR. Falla cerrado: un rol desconocido o
- * ausente no ve nada.
- */
-export function accesoSaludSocia(rol: string | null | undefined, atiende: boolean): AccesoSaludSocia {
-  if (rol === 'PROPIETARIO') return 'PERMITIDO';
-  if (rol === 'INSTRUCTOR') return atiende ? 'PERMITIDO' : 'NO_ES_SU_ALUMNA';
-  return 'SIN_ROL_CLINICO';
-}
-
-export const MENSAJE_NO_ES_SU_ALUMNA =
-  `Solo puedes ver y registrar datos de salud de las alumnas de tus clases (de los últimos ${VENTANA_ALUMNA_DIAS} días o de los próximos ${VENTANA_ALUMNA_DIAS}). Si necesitas esta ficha, pídesela a la dirección del estudio.`;
-
-export const MENSAJE_SIN_ROL_CLINICO = 'No tienes permiso para ver datos de salud.';
-
-export function mensajeAccesoSalud(acceso: AccesoSaludSocia): string | null {
-  if (acceso === 'NO_ES_SU_ALUMNA') return MENSAJE_NO_ES_SU_ALUMNA;
-  if (acceso === 'SIN_ROL_CLINICO') return MENSAJE_SIN_ROL_CLINICO;
-  return null;
-}

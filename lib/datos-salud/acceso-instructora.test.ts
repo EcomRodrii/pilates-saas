@@ -1,8 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  instructoraAtiendeSocia, dentroDeVentanaAlumna, accesoSaludSocia, mensajeAccesoSalud,
-  VENTANA_ALUMNA_DIAS, type ClaseOCitaDeSocia,
+  instructoraAtiendeSocia, dentroDeVentanaAlumna, VENTANA_ALUMNA_DIAS, type ClaseOCitaDeSocia,
 } from './acceso-instructora.ts';
 
 const AHORA = new Date('2026-09-13T10:00:00Z');
@@ -47,21 +46,4 @@ test('sin instructora resuelta o sin filas: no (falla cerrado)', () => {
 test('basta con una fila buena entre varias malas', () => {
   const filas = [fila({ estado: 'CANCELADA' }), fila({ instructorId: 'ins-2' }), fila({ inicio: dias(-2) })];
   assert.equal(instructoraAtiendeSocia(filas, 'ins-1', AHORA), true);
-});
-
-test('propietaria ve todas; instructora solo si atiende; el resto nunca', () => {
-  assert.equal(accesoSaludSocia('PROPIETARIO', false), 'PERMITIDO');
-  assert.equal(accesoSaludSocia('INSTRUCTOR', true), 'PERMITIDO');
-  assert.equal(accesoSaludSocia('INSTRUCTOR', false), 'NO_ES_SU_ALUMNA');
-  assert.equal(accesoSaludSocia('RECEPCION', true), 'SIN_ROL_CLINICO');
-  assert.equal(accesoSaludSocia('MANAGER', true), 'SIN_ROL_CLINICO');
-  assert.equal(accesoSaludSocia(null, true), 'SIN_ROL_CLINICO');
-  assert.equal(accesoSaludSocia('ALGO_RARO', true), 'SIN_ROL_CLINICO');
-});
-
-test('el mensaje a la instructora dice por qué y a quién pedirlo, no «vacío»', () => {
-  const m = mensajeAccesoSalud('NO_ES_SU_ALUMNA')!;
-  assert.match(m, /alumnas de tus clases/);
-  assert.match(m, /30 días/);
-  assert.equal(mensajeAccesoSalud('PERMITIDO'), null);
 });

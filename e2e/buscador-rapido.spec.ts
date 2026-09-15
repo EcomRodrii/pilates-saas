@@ -5,8 +5,8 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // instructora/sala/tipo sin navegar semana a semana. Busca sobre TODO el
 // estudio (contexto completo, no /api/calendario) — por eso el punto crítico
 // a probar es que una instructora NO vea en los resultados clases de sus
-// compañeras, replicando la misma regla que filtrarSesionesPorRol aplica en
-// la rejilla (lib/calendario-datos.ts).
+// compañeras (red de debajo: desde el retiro de Tentare Core la instructora ya
+// no llega al calendario del panel).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STUDIO_ID = 'studio-test';
@@ -86,8 +86,7 @@ async function mockBackend(page: Page, rol: string) {
   await page.route('**/rest/v1/salas**', route => json(route, [SALA]));
   await page.route('**/rest/v1/sesiones**', route => json(route, [SESION_MARTA, SESION_LAURA]));
   await page.route('**/api/calendario**', route => json(route, {
-    // Rol PROPIETARIO/RECEPCION ve ambas; INSTRUCTOR (Marta) solo la suya —
-    // mismo filtrado que hace el servidor de verdad (filtrarSesionesPorRol).
+    // Rol PROPIETARIO/RECEPCION ve ambas; INSTRUCTOR (Marta) solo la suya.
     sesiones: (rol === 'INSTRUCTOR' ? [SESION_MARTA] : [SESION_MARTA, SESION_LAURA]).map(sesionApi),
     reservas: [], sustituciones: [],
     salas: [SALA].map(salaApi), instructores: EQUIPO.map(instructorApi),

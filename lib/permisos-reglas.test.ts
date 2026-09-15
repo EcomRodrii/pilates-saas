@@ -338,11 +338,10 @@ const TODOS_LOS_ROLES = ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as
 
 test('actuar sobre una clase: mostrador y manager cualquiera; la instructora, ninguna desde el panel', () => {
   for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
-    assert.equal(puedeOperarClase(rol, false), true, rol);
+    assert.equal(puedeOperarClase(rol), true, rol);
   }
   // Tentare Core retirado (14-sep-2026): ni la suya.
-  assert.equal(puedeOperarClase('INSTRUCTOR', true), false);
-  assert.equal(puedeOperarClase('INSTRUCTOR', false), false);
+  assert.equal(puedeOperarClase('INSTRUCTOR'), false);
 });
 
 test('emails del panel: cada tipo con su rol (clase ajena)', () => {
@@ -359,7 +358,7 @@ test('emails del panel: cada tipo con su rol (clase ajena)', () => {
   assert.deepEqual(Object.keys(permitidos).sort(), [...TIPOS_EMAIL_PANEL].sort(), 'un tipo nuevo necesita su rol aquí');
   for (const tipo of TIPOS_EMAIL_PANEL) {
     for (const rol of TODOS_LOS_ROLES) {
-      assert.equal(puedeEnviarEmail(rol, tipo, false), permitidos[tipo].includes(rol), `${tipo} · ${rol}`);
+      assert.equal(puedeEnviarEmail(rol, tipo), permitidos[tipo].includes(rol), `${tipo} · ${rol}`);
     }
   }
 });
@@ -373,12 +372,12 @@ test('un justificante de pago lo manda quien mueve dinero, sin excepciones', () 
 test('la instructora no manda ningún email del panel, ni el de cancelación de su clase', () => {
   // Tentare Core retirado (14-sep-2026): cancelar y avisar es trabajo de mostrador.
   for (const tipo of TIPOS_EMAIL_PANEL) {
-    assert.equal(puedeEnviarEmail('INSTRUCTOR', tipo, true), false, tipo);
+    assert.equal(puedeEnviarEmail('INSTRUCTOR', tipo), false, tipo);
   }
 });
 
 test('un tipo de email que no está en el catálogo no lo manda nadie', () => {
-  for (const rol of TODOS_LOS_ROLES) assert.equal(puedeEnviarEmail(rol, 'libre', true), false, rol);
+  for (const rol of TODOS_LOS_ROLES) assert.equal(puedeEnviarEmail(rol, 'libre'), false, rol);
   for (const tipo of TIPOS_EMAIL_DE_CLASE) assert.ok(TIPOS_EMAIL_PANEL.includes(tipo), tipo);
 });
 

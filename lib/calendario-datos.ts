@@ -71,19 +71,6 @@ export function ocultarImporteSiCorresponde(sesiones: SesionCalendario[], rol: R
   return sesiones.map(s => ({ ...s, precioPuntual: null }));
 }
 
-// INSTRUCTOR ve solo sus propias clases (punto 6) — la RLS ya lo garantiza a
-// nivel de fila, esto es la forma del payload confirmándolo también en TS,
-// por si esta ruta alguna vez se sirve con un cliente que no sea admin.
-export function filtrarSesionesPorRol(
-  sesiones: SesionCalendario[],
-  rol: Rol,
-  instructorId: string | null,
-): SesionCalendario[] {
-  if (rol !== 'INSTRUCTOR') return sesiones;
-  if (!instructorId) return [];
-  return sesiones.filter(s => s.instructorId === instructorId);
-}
-
 // El equipo va entero en el payload (nombre y color pintan la rejilla), pero el
 // contacto de las compañeras solo a quien organiza el calendario. La ficha
 // propia se queda intacta: el calendario se reconoce a sí mismo por

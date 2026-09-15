@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  enriquecerSesiones, ocultarImporteSiCorresponde, filtrarSesionesPorRol, instructoresVisiblesPorRol,
+  enriquecerSesiones, ocultarImporteSiCorresponde, instructoresVisiblesPorRol,
 } from './calendario-datos.ts';
 import type { Sesion, Instructor } from './types.ts';
 
@@ -63,8 +63,7 @@ test('PROPIETARIO: ve el importe y todas las sesiones del estudio', () => {
     [sesion({ id: 's1', instructorId: 'julia' }), sesion({ id: 's2', instructorId: 'maria' })],
     [],
   );
-  const conImporte = ocultarImporteSiCorresponde(enr, 'PROPIETARIO');
-  const finales = filtrarSesionesPorRol(conImporte, 'PROPIETARIO', null);
+  const finales = ocultarImporteSiCorresponde(enr, 'PROPIETARIO');
   assert.equal(finales.length, 2);
   assert.ok(finales.every(s => s.precioPuntual === 15));
 });
@@ -77,32 +76,13 @@ test('RECEPCION: SÍ ve el importe (cobra en mostrador, puedeMoverDinero la incl
   assert.equal(conImporte[0].precioPuntual, 15);
 });
 
-test('INSTRUCTOR: solo ve sus propias sesiones, y sin importe', () => {
+test('INSTRUCTOR: sin importe (el calendario del panel ya le da 403; esto es la red de debajo)', () => {
   const enr = enriquecerSesiones(
     [sesion({ id: 's1', instructorId: 'julia' }), sesion({ id: 's2', instructorId: 'maria' })],
     [],
   );
   const sinImporte = ocultarImporteSiCorresponde(enr, 'INSTRUCTOR');
   assert.ok(sinImporte.every(s => s.precioPuntual === null));
-
-  const soloSuyas = filtrarSesionesPorRol(sinImporte, 'INSTRUCTOR', 'julia');
-  assert.equal(soloSuyas.length, 1);
-  assert.equal(soloSuyas[0].id, 's1');
-});
-
-test('INSTRUCTOR sin ficha resuelta (instructorId null) no ve ninguna sesión, no todas', () => {
-  const enr = enriquecerSesiones([sesion({ id: 's1', instructorId: 'julia' })], []);
-  const finales = filtrarSesionesPorRol(enr, 'INSTRUCTOR', null);
-  assert.equal(finales.length, 0);
-});
-
-test('MANAGER: mismo contrato que PROPIETARIO para sesiones (ve todas)', () => {
-  const enr = enriquecerSesiones(
-    [sesion({ id: 's1', instructorId: 'julia' }), sesion({ id: 's2', instructorId: 'maria' })],
-    [],
-  );
-  const finales = filtrarSesionesPorRol(enr, 'MANAGER', null);
-  assert.equal(finales.length, 2);
 });
 
 // ── instructoresVisiblesPorRol ───────────────────────────────────────────────

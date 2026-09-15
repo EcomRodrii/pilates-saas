@@ -35,7 +35,6 @@ import { decidirReservaNueva, heredaOverride } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { sesionEncajaEnPlaza, type SesionSlot } from '@/lib/plazas-fijas-slot';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
-import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
@@ -656,7 +655,6 @@ export default function Calendario() {
   const [initialRecurrente, setInitialRecurrente] = useState<RecurringFormData | undefined>(undefined);
   const [showNuevaMenu, setShowNuevaMenu] = useState(false);
   const [showCobertura, setShowCobertura] = useState(false);
-  const [showNoPuedoAsistir, setShowNoPuedoAsistir] = useState(false);
   const [ausencias, setAusencias] = useState<AusenciaInstructora[]>([]);
   useEffect(() => { let vivo = true; listarAusencias().then(r => { if (vivo) setAusencias(r); }); return () => { vivo = false; }; }, []);
 
@@ -817,10 +815,9 @@ export default function Calendario() {
     inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
   })), [sesiones]);
 
-  // ── Buscador rápido (Fase 2): sobre TODO el estudio, no solo `datosVista` —
-  // misma regla de visibilidad que filtrarSesionesPorRol (lib/calendario-datos.ts),
-  // replicada aquí porque estos datos vienen del contexto completo, no del
-  // endpoint ya filtrado por rol.
+  // ── Buscador rápido (Fase 2): sobre TODO el estudio, no solo `datosVista`,
+  // porque estos datos vienen del contexto completo. El filtro de instructora
+  // es la red de debajo: desde el retiro de Tentare Core ella no llega aquí.
   const candidatasBusqueda = useMemo<SesionBuscable[]>(() => {
     const tiposById = new Map(tiposClase.map(t => [t.id, t]));
     const salasById = new Map(salas.map(s => [s.id, s]));
@@ -2886,25 +2883,19 @@ export default function Calendario() {
                   <Copy size={12} />Duplicar serie
                 </button>
               )}
-              {esInstructor ? (
-                <button onClick={() => setShowNoPuedoAsistir(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
-                  <UserCheck size={12} />No puedo asistir
-                </button>
-              ) : (
-                // P2 (auditoría "Veredicto de Marta"): en el momento de más
-                // urgencia (baja de última hora) este botón se confundía con
-                // "Incidencia" de al lado — mismo estilo, mismo tamaño. Le
-                // damos el acento de aviso para que destaque como la acción
-                // de la instructora ausente, no de la sala.
-                <button
-                  onClick={() => setShowCobertura(true)}
-                  disabled={sesionYaEmpezada(sesionActual.inicio)}
-                  title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_YA_EMPEZADA : 'La instructora no puede dar esta clase: buscar quién la sustituya'}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  <UserCheck size={12} />Buscar sustituta
-                </button>
-              )}
+              {/* P2 (auditoría "Veredicto de Marta"): en el momento de más
+                  urgencia (baja de última hora) este botón se confundía con
+                  "Incidencia" de al lado — mismo estilo, mismo tamaño. Le
+                  damos el acento de aviso para que destaque como la acción
+                  de la instructora ausente, no de la sala. */}
+              <button
+                onClick={() => setShowCobertura(true)}
+                disabled={sesionYaEmpezada(sesionActual.inicio)}
+                title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_YA_EMPEZADA : 'La instructora no puede dar esta clase: buscar quién la sustituya'}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <UserCheck size={12} />Buscar sustituta
+              </button>
               <button
                 onClick={() => abrirIncidencia(sesionActual.id)}
                 title="Anotar un problema de sala o equipo en esta clase (no es para avisar de una instructora ausente)"
@@ -3182,12 +3173,6 @@ export default function Calendario() {
         ausencias={ausencias}
         onAsignar={asignarSustituta}
         guardando={guardandoSesion}
-      />
-
-      <NoPuedoAsistirDialog
-        open={showNoPuedoAsistir}
-        onOpenChange={setShowNoPuedoAsistir}
-        sesion={sesionActual}
       />
 
       <ConfirmDialog

@@ -4099,15 +4099,6 @@ export async function dbSemaforoSaludEstudio(studioId: string): Promise<Map<stri
   return m;
 }
 
-// ¿Esta INSTRUCTORA atiende a esta socia? Misma función que usa la RLS de las
-// tablas de salud (migr 20260913214116). `null` si la llamada falla: quien la
-// use no debe tomarlo por un «no».
-export async function dbInstructoraAtiendeSocia(socioId: string): Promise<boolean | null> {
-  const { data, error } = await supabase.rpc('instructora_atiende_socia', { p_socio_id: socioId });
-  if (error) { reportDbError('[dbInstructoraAtiendeSocia]', error); return null; }
-  return data === true;
-}
-
 export async function dbInsertRespuestaSesion(r: RespuestaSesionRow): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('respuestas_sesion').insert(respuestaSesionToDb(r));
   return error ? falloEscritura('[dbInsertRespuestaSesion]', error) : ESCRITURA_OK;

@@ -25,8 +25,6 @@ import { dbRegistrarLecturaFichaSalud, getCurrentStudioId } from '@/lib/supabase
 import { textoConsentimientoSaludPanel } from '@/lib/legal-textos';
 import { consentimientoSaludPorEdad, EDAD_MINIMA_CONSENTIMIENTO_SALUD } from '@/lib/datos-salud/edad';
 import type { FirmanteConsentimiento } from '@/lib/datos-salud/consentimiento';
-import { useAccesoSaludSocia } from '@/lib/hooks/use-acceso-salud-socia';
-import { MENSAJE_NO_ES_SU_ALUMNA } from '@/lib/datos-salud/acceso-instructora';
 import { sugerirAdaptacionesSocio, type AdaptacionSocioIA } from '@/lib/ai/ficha-clinica-socio-client';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { TentareOrb } from '@/components/marca/tentare-orb';
@@ -491,19 +489,15 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
   const rol = useRol();
   const socio = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
 
-  // Una instructora solo ve la salud de SUS alumnas (migr 20260913214116). Si
-  // esta no lo es, la RLS le devuelve vacío: la pantalla lo dice en vez de
-  // pintar «Ficha de salud vacía» y un «Añadir condición» que se rechazaría.
-  // 'ERROR' (la comprobación no respondió) no bloquea: manda la RLS.
-  const acceso = useAccesoSaludSocia(rol, socioId);
-  const fichaVisible = acceso === 'PERMITIDO' || acceso === 'ERROR';
+  // En el panel solo la propietaria abre esta ficha (`puedeVerFichaClinica`);
+  // la instructora ve la salud de sus alumnas en la app del estudio.
 
   // Auditoría RGPD de LECTURA (no de escritura): quién abre esta pestaña, de
   // qué socia, y cuándo. Best-effort — un fallo aquí no debe impedir ver la
   // ficha. Una vez por montaje (abrir/cerrar y volver a abrir es una lectura
   // nueva legítima, no hace falta deduplicar). Solo si de verdad se enseña.
   useEffect(() => {
-    if (!user?.id || !fichaVisible) return;
+    if (!user?.id) return;
     const yo = instructores.find(i => i.authUserId === user.id);
     const studioId = getCurrentStudioId();
     if (!studioId) return;
@@ -514,7 +508,7 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
       leidoPorRol: rol,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socioId, user?.id, fichaVisible]);
+  }, [socioId, user?.id]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<CondicionSalud | null>(null);
   // Borrar una condición de la ficha clínica es destructivo y sobre dato de
@@ -641,21 +635,6 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
     if (!res.ok) { onToast(res.error); return; }
     setDialogOpen(false);
     setEditando(null);
-  }
-
-  // Instructora sin relación con esta clienta: se explica por qué no ve nada,
-  // en vez de enseñar una ficha vacía (que parecería que no tiene nada).
-  if (acceso === 'NO_ES_SU_ALUMNA') {
-    return (
-      <div role="status" className="py-12 px-6 text-center border border-dashed border-border rounded-xl">
-        <ShieldCheck size={28} className="mx-auto text-muted-foreground mb-3" aria-hidden />
-        <p className="text-sm font-semibold text-foreground">No puedes ver la ficha de salud de esta clienta</p>
-        <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">{MENSAJE_NO_ES_SU_ALUMNA}</p>
-      </div>
-    );
-  }
-  if (acceso === 'CARGANDO') {
-    return <p role="status" className="py-12 text-center text-xs text-muted-foreground">Comprobando el acceso a la ficha de salud…</p>;
   }
 
   const inicial: FormState = editando

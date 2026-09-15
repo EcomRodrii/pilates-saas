@@ -15,7 +15,6 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SesionStaff } from '@/lib/auth-server';
-import { instructorIdDeSesion } from '@/lib/datos-salud/acceso-servidor';
 import { puedeOperarClase } from '@/lib/permisos-reglas';
 import { fechaLargaEstudio, horaEstudio, cuandoEstudio } from '@/lib/utils';
 
@@ -50,7 +49,7 @@ async function nombresPorId(admin: SupabaseClient, tabla: string, ids: string[])
 /**
  * Las clases pedidas que son del estudio y que quien llama puede tocar, con los
  * textos del aviso sacados de la BD. `ajenas` cuenta las que existen pero no
- * son suyas (una instructora con la clase de otra). `null` si la consulta falla.
+ * puede tocar (un rol que no opera clases). `null` si la consulta falla.
  */
 export async function clasesParaAviso(
   admin: SupabaseClient, staff: SesionStaff, ids: readonly string[],
@@ -64,8 +63,9 @@ export async function clasesParaAviso(
   if (error) return null;
   const filas = (data ?? []) as FilaSesion[];
 
-  const propio = staff.rol === 'INSTRUCTOR' ? await instructorIdDeSesion(admin, staff) : null;
-  const permitidas = filas.filter(f => puedeOperarClase(staff.rol, !!propio && f.instructor_id === propio));
+  // Depende solo del rol (la instructora ya no opera clases desde el panel):
+  // o todas o ninguna.
+  const permitidas = puedeOperarClase(staff.rol) ? filas : [];
 
   const unir = (k: 'tipo_clase_id' | 'sala_id' | 'instructor_id') =>
     [...new Set(permitidas.map(f => f[k]).filter((v): v is string => !!v))];

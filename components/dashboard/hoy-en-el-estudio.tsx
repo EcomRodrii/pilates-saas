@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { useAuth } from '@/lib/auth-context';
 import { useRol } from '@/lib/permisos';
 import { puedeVer } from '@/lib/permisos-reglas';
 import { authHeader } from '@/lib/api-client';
@@ -12,7 +11,6 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { TentareOrb } from '@/components/marca/tentare-orb';
 import { Toast, useToast } from '@/components/ui/toast';
 import { RellenarHuecoPanel } from './rellenar-hueco-panel';
-import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
 import { PINTA } from '@/lib/calendario-estado';
 import { detectarConflictos, hayConflicto } from '@/lib/calendar-logic';
 import {
@@ -73,7 +71,6 @@ function tituloDia(fecha: string, hoy: string): string {
 
 export function HoyEnElEstudio() {
   const { tiposClase } = useStudio();
-  const { user } = useAuth();
   const rol = useRol();
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
 
@@ -180,15 +177,6 @@ export function HoyEnElEstudio() {
 
   const puedeCalendario = puedeVer(rol, '/calendario');
 
-  // El atajo de la instructora: avisar de que no puede dar SU clase sin pasar
-  // por el calendario. Venía de la tarjeta «Clases de hoy» que esta sección
-  // sustituye, y se conserva tal cual — mismo diálogo, mismo motor de
-  // sustituciones detrás (`crearBaja`), aquí solo cambia desde dónde se abre.
-  const miInstructorId = rol === 'INSTRUCTOR'
-    ? datos.instructores.find(i => i.authUserId === user?.id)?.id ?? null
-    : null;
-  const [bajaDe, setBajaDe] = useState<string | null>(null);
-  const sesionBaja = bajaDe ? sesionById.get(bajaDe) ?? null : null;
   const esHoy = fecha !== null && fecha === hoy;
 
   // ── Cabecera ───────────────────────────────────────────────────────────────
@@ -315,11 +303,6 @@ export function HoyEnElEstudio() {
                 instructor={instructorById.get(c.instructorId) ?? null}
                 puedeCalendario={puedeCalendario}
                 onRellenar={() => setHuecoAbierto(c.sesionId)}
-                onNoPuedoAsistir={
-                  miInstructorId && c.instructorId === miInstructorId && !c.finalizada && c.estado !== 'CANCELADA'
-                    ? () => setBajaDe(c.sesionId)
-                    : null
-                }
               />
             ))}
           </ul>
@@ -343,16 +326,6 @@ export function HoyEnElEstudio() {
         onCambio={refrescar}
       />
 
-      <NoPuedoAsistirDialog
-        open={bajaDe !== null}
-        onOpenChange={(v) => { if (!v) setBajaDe(null); }}
-        sesion={sesionBaja ? {
-          id: sesionBaja.id,
-          inicio: sesionBaja.inicio,
-          tipoClase: { nombre: tipoById.get(sesionBaja.tipoClaseId)?.nombre ?? 'Clase' },
-        } : null}
-      />
-
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </section>
   );
@@ -362,7 +335,7 @@ export function HoyEnElEstudio() {
 
 function FilaClase({
   clase, anterior, ahora, mostrarAhora, tipoNombre, tipoColor, salaNombre, instructor,
-  puedeCalendario, onRellenar, onNoPuedoAsistir,
+  puedeCalendario, onRellenar,
 }: {
   clase: ClaseDelDia;
   anterior: ClaseDelDia | null;
@@ -374,8 +347,6 @@ function FilaClase({
   instructor: Instructor | null;
   puedeCalendario: boolean;
   onRellenar: () => void;
-  /** null salvo que la clase sea de quien está mirando (instructora). */
-  onNoPuedoAsistir: (() => void) | null;
 }) {
   const pinta = PINTA[clase.estado];
   const problema = clase.senal === 'PROBLEMA';
@@ -509,15 +480,6 @@ function FilaClase({
         {/* Acción */}
         <div className="col-start-2 flex flex-col items-start gap-1 sm:col-start-5 sm:items-end sm:justify-self-end">
           <AccionClase clase={clase} puedeCalendario={puedeCalendario} onRellenar={onRellenar} />
-          {onNoPuedoAsistir && (
-            <button
-              type="button"
-              onClick={onNoPuedoAsistir}
-              className="text-[11px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-destructive hover:underline"
-            >
-              No puedo asistir
-            </button>
-          )}
         </div>
       </li>
     </>
