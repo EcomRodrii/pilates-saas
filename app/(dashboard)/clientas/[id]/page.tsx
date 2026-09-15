@@ -18,6 +18,7 @@ import { asignarVentaAClienta, esError, ventasPorAsignarDePlan, type VentaPorAsi
 import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
+import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
 import { FichaClasesAutorizadas } from '@/components/socios/ficha-clases-autorizadas';
 import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
@@ -238,7 +239,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
   const {
     studio,
-    socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
+    socios, suscripciones, planesTarifa, recibos, reservas, sesiones, plazasFijas,
     tiposClase, salas, instructores, notasInternas, valoracionesSocias,
     cargarFichaClienta,
     updateSocio, deleteSocio, assignPlan, marcarCobrado, addRecibo, cobrarTodosPendientes,
@@ -316,6 +317,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // El plan que se iba a dar de alta y las ventas del TPV que ya lo cobraron sin
   // clienta. `null` = no hay nada que avisar.
   const [ventaPorAsignar, setVentaPorAsignar] = useState<{ planId: string; nombrePlan: string; ventas: VentaPorAsignar[] } | null>(null);
+  // Tras asignar una cuota: el nombre del plan mientras se pregunta si le da
+  // plaza fija, y el diálogo de plaza fija si dice que sí.
+  const [ofrecerPlazaFija, setOfrecerPlazaFija] = useState<string | null>(null);
+  const [dialogoPlazaFija, setDialogoPlazaFija] = useState(false);
   const [asignandoVenta, setAsignandoVenta] = useState(false);
   const [reactivando, setReactivando] = useState(false);
   const [reactivandoBuzon, setReactivandoBuzon] = useState(false);
@@ -600,6 +605,15 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     }
   }
 
+  // La plaza fija va con la cuota (con bono se reserva clase a clase), así que el
+  // momento de darla es justo al asignar la cuota: es cuando se sabe a qué clase
+  // viene. Solo se pregunta; con un bono, o si ya tiene plaza fija, nada.
+  function ofrecerPlazaFijaSiCuota(planId: string, nombrePlan: string) {
+    const esCuota = planesTarifa.find(p => p.id === planId)?.tipo === 'MENSUAL';
+    const yaTiene = plazasFijas.some(p => p.socioId === id && p.estado !== 'BAJA');
+    if (esCuota && !yaTiene) setOfrecerPlazaFija(nombrePlan);
+  }
+
   // Cambiar el plan es cobrar. El toast «Plan "X" asignado» saltaba antes de que
   // el servidor hubiera contestado —y saltaba igual cuando contestaba que no—,
   // así que una instructora sin permiso veía el mismo mensaje de éxito que la
@@ -628,6 +642,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       setShowChangePlan(false);
       setVentaPorAsignar(null);
       setToast(`Plan "${nombrePlan}" asignado`);
+      ofrecerPlazaFijaSiCuota(planId, nombrePlan);
     } catch (e) {
       setToast(e instanceof Error ? e.message : ERROR_GENERICO);
     } finally {
@@ -643,9 +658,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     try {
       const r = await asignarVentaAClienta(venta.id, id);
       if (esError(r)) { setToast(r.error); return; }
+      const entregado = ventaPorAsignar;
       setVentaPorAsignar(null);
       setToast(`Venta nº ${venta.numero} asignada: plan entregado sin cobrarlo otra vez`);
       await refrescarTrasVentaPOS();
+      if (entregado) ofrecerPlazaFijaSiCuota(entregado.planId, entregado.nombrePlan);
     } finally {
       setAsignandoVenta(false);
     }
@@ -2194,6 +2211,44 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Tras asignar una cuota: ¿viene siempre a la misma clase? */}
+      <Dialog open={ofrecerPlazaFija !== null} onOpenChange={open => { if (!open) setOfrecerPlazaFija(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-foreground">¿Le das una plaza fija?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mt-1">
+            «{ofrecerPlazaFija}» ya está asignado. Si {socio.nombre} viene siempre a la misma clase, elige cuál: se le
+            reserva sola cada semana, sin apuntarla a mano.
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              onClick={() => { setOfrecerPlazaFija(null); setDialogoPlazaFija(true); }}
+              className="w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-brand-foreground"
+            >
+              Elegir su clase
+            </button>
+            <button
+              onClick={() => setOfrecerPlazaFija(null)}
+              className="w-full rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              Ahora no
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {dialogoPlazaFija && (
+        <DialogoPlazaFija
+          socioId={id}
+          onClose={() => setDialogoPlazaFija(false)}
+          onGuardada={(r, movida) => {
+            setDialogoPlazaFija(false);
+            setToast(textoPlazaGuardada(r, movida));
+          }}
+        />
+      )}
 
       {/* Change plan */}
       <Dialog open={showChangePlan && verFinanzas} onOpenChange={open => !open && setShowChangePlan(false)}>

@@ -14,10 +14,16 @@ export default function Contenido() {
 
       <h2 style={{ ...h2, marginTop: 4 }}>Cómo se asigna</h2>
       <p>
-        En la ficha de la alumna, bloque <strong>«Plaza fija»</strong> → «Añadir», o desde una clase del
-        calendario con <strong>«Hacer fija»</strong> junto a su nombre. En los dos casos <strong>eliges la
+        En la ficha de la alumna, bloque <strong>«Plaza fija»</strong> → «Añadir»; desde una clase del
+        calendario con <strong>«Hacer fija»</strong> junto a su nombre; o en la vista <strong>«Horario»</strong>
+        del calendario con «+ Plaza fija» en la clase. En todos los casos <strong>eliges la
         clase</strong> de tu horario a la que viene cada semana (y, si tu sala tiene máquinas numeradas, su
         sitio). Ves cuántas plazas fijas tiene ya cada clase.
+      </p>
+      <p>
+        Y al asignarle una <strong>cuota</strong> —desde su ficha, o al darla de alta o editarla con una cuota— te
+        preguntamos si le das plaza fija, que es justo cuando sabes a qué clase viene: «Elegir su clase» abre el
+        mismo diálogo y «Ahora no» no guarda nada. Con un bono, o si ya tiene plaza fija, no se pregunta.
       </p>
       <p>
         Hace falta que tenga una <strong>cuota</strong> activa que incluya esa clase. Con bono no se puede: las
