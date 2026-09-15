@@ -126,7 +126,14 @@ function PageHeader({
           // ragged pegada al borde derecho, que es como se veían Cobros y
           // Clientas en un teléfono—. Alineados a la izquierda caen a plomo
           // con el <h1>.
-          className="flex shrink-0 flex-wrap items-center sm:justify-end gap-2"
+          //
+          // `max-w-full`: con `shrink-0` la barra mide su ancho natural aunque
+          // no quepa en la cabecera, y entonces su `flex-wrap` nunca reparte
+          // nada — se sale por la derecha y la tarjeta del Calendario (con
+          // `overflow-hidden`) la recorta. Medido en producción a 1360 px: la
+          // barra ocupaba 1136 de 991 px y «Clase recurrente» quedaba entero
+          // fuera de la vista. Con el tope, baja a una segunda fila.
+          className="flex max-w-full shrink-0 flex-wrap items-center sm:justify-end gap-2"
         >
           {actions}
         </div>
