@@ -239,6 +239,11 @@ export interface Studio {
   // Qué pasa con las clases que su plaza fija ya tenía reservadas cuando la
   // alumna se queda sin cuota (migr 20260915215236). 'MANTENER' = como siempre.
   plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
+  // Qué pasa con el recibo PENDIENTE de una cuota al cancelarla (migr
+  // 20260915215311; el trigger lo escribe en el recibo). Por defecto, como siempre.
+  recibosAlCancelarCuota: 'MANTENER_CON_REINTENTOS' | 'MANTENER_SIN_REINTENTOS' | 'ANULAR';
+  // Si la alumna puede renovar sola desde su app una cuota cancelada (por defecto, sí).
+  renovarSolaCuotaCancelada: boolean;
   // true (default) = comportamiento de siempre: la socia enseña su pase
   // (QR o código corto) y alguien del estudio lo escanea/teclea antes de que
   // la reserva cuente como asistida. false = el estudio confía en que quien

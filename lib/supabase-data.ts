@@ -2006,6 +2006,30 @@ export async function dbFetchCamposPersonalizados(): Promise<CampoPersonalizado[
   return (data ?? []).map(r => mapCampoPersonalizado(r as RowCamposPersonalizados));
 }
 
+/**
+ * Los recibos PENDIENTES de una cuota, con lo que hace falta para decir la verdad
+ * en la ventana de cancelar (`textoCobrosAlCancelar`): si tienen un cobro
+ * automático programado y si hay un pago en marcha. El arranque del panel no trae
+ * esas columnas, así que se leen al abrir la ventana. Con error, lista vacía: la
+ * ventana dice solo lo que es seguro («no se generarán cobros nuevos»).
+ */
+export async function dbRecibosPendientesDeCuota(
+  suscripcionId: string,
+): Promise<{ importe: number; conReintento: boolean; pagoEnMarcha: boolean }[]> {
+  const { data, error } = await supabase
+    .from('recibos')
+    .select('importe, proximo_reintento, stripe_payment_intent_id, checkout_session_id, cobro_mostrador_pi')
+    .eq('studio_id', STUDIO_ID)
+    .eq('suscripcion_id', suscripcionId)
+    .eq('estado', 'PENDIENTE');
+  if (error) { reportDbError('[dbRecibosPendientesDeCuota]', error); return []; }
+  return (data ?? []).map(r => ({
+    importe: Number(r.importe) || 0,
+    conReintento: r.proximo_reintento != null,
+    pagoEnMarcha: r.stripe_payment_intent_id != null || r.checkout_session_id != null || r.cobro_mostrador_pi != null,
+  }));
+}
+
 export async function dbInsertCampoPersonalizado(campo: CampoPersonalizado): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('campos_personalizados').insert(campoToDb(campo));
   return error ? falloEscritura('[dbInsertCampoPersonalizado]', error) : ESCRITURA_OK;
@@ -4866,6 +4890,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
   if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
   if ('plazaFijaSinCuota' in changes) db.plaza_fija_sin_cuota = changes.plazaFijaSinCuota;
+  if ('recibosAlCancelarCuota' in changes) db.recibos_al_cancelar_cuota = changes.recibosAlCancelarCuota;
+  if ('renovarSolaCuotaCancelada' in changes) db.renovar_sola_cuota_cancelada = changes.renovarSolaCuotaCancelada;
   if ('reembolsosActivos' in changes) db.reembolsos_activos = changes.reembolsosActivos;
   if ('reembolsoPlazoDias' in changes) db.reembolso_plazo_dias = changes.reembolsoPlazoDias;
   if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
@@ -5263,6 +5289,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
     plazaFijaSinCuota: (r.plaza_fija_sin_cuota as PoliticaPlazaFijaSinCuota | null) ?? 'MANTENER',
+    recibosAlCancelarCuota: (r.recibos_al_cancelar_cuota as Studio['recibosAlCancelarCuota'] | null) ?? 'MANTENER_CON_REINTENTOS',
+    renovarSolaCuotaCancelada: r.renovar_sola_cuota_cancelada ?? true,
     reembolsosActivos: r.reembolsos_activos ?? false,
     reembolsoPlazoDias: r.reembolso_plazo_dias ?? 14,
     reembolsoSoloSinUsar: r.reembolso_solo_sin_usar ?? true,

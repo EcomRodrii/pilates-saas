@@ -680,6 +680,19 @@ export function resumenDevoluciones(s: Partial<Pick<Studio, 'reembolsosActivos' 
   ]);
 }
 
+/** «Si se cancela una cuota»: qué pasa con su recibo pendiente y si la renueva ella. */
+export function resumenAlCancelarCuota(
+  s: Partial<Pick<Studio, 'recibosAlCancelarCuota' | 'renovarSolaCuotaCancelada'>>,
+): string | null {
+  if (s.recibosAlCancelarCuota === undefined) return null;
+  return unir([
+    s.recibosAlCancelarCuota === 'ANULAR' ? 'el pendiente se anula'
+      : s.recibosAlCancelarCuota === 'MANTENER_SIN_REINTENTOS' ? 'pendiente, sin cobro automático'
+      : 'el pendiente se sigue cobrando',
+    s.renovarSolaCuotaCancelada === false ? 'no la renueva ella' : null,
+  ]);
+}
+
 /**
  * De quién son los textos que acepta la alumna. Con unos términos PROPIOS no se
  * cobra ninguna penalización (`consentimientoCubrePenalizacion`: la cláusula del

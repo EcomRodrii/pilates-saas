@@ -144,6 +144,7 @@ export const SECCIONES = [
       { id: 'integracion-stripe', titulo: 'Cobro con tarjeta (Stripe)', frase: 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.', guardado: 'accion', palabras: ['pago online', 'tarjeta'] },
       { id: 'domiciliaciones', titulo: 'Domiciliaciones bancarias', frase: 'Los datos que pide tu banco para cobrar recibos domiciliados. Con ellos generas la remesa en Cobros.', guardado: 'barra', palabras: ['sepa', 'banco', 'remesa', 'recibos'] },
       { id: 'devoluciones', titulo: 'Devoluciones', frase: 'Permite devolver un cobro desde la ficha de la alumna; el dinero vuelve a su tarjeta.', guardado: 'barra', palabras: ['reembolso', 'devolver'] },
+      { id: 'si-se-cancela-una-cuota', titulo: 'Si se cancela una cuota', frase: 'Qué pasa con su recibo pendiente al cancelarla, y si la alumna puede renovarla sola desde su app.', guardado: 'barra', palabras: ['recibo pendiente', 'deuda', 'anular recibo', 'reintentos', 'impago', 'renovar'] },
     ],
   },
   {
