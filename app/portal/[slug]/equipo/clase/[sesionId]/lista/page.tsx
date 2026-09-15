@@ -106,18 +106,51 @@ export default function PasarListaPage() {
       : 'La lista de esta clase ya está cerrada. Si falta alguien por marcar, díselo al estudio.';
   const hayNoVino = alumnas.some((a) => a.estado === 'no-vino');
 
+  // El número grande y la barra son solo para la vista; lo que leen un lector de
+  // pantalla y los tests es `resumen-lista`.
+  const porcentaje = total > 0 ? Math.round((vinieron / total) * 100) : 0;
+  const tenue = 'color-mix(in srgb, var(--accent-deep-foreground) 80%, transparent)';
+
   return (
     <StudentShell modo="instructora">
-      <PageHeader back titulo="Pasar lista" sub={`${clase.tipo} · ${etiquetaDia(clase.fecha)} · ${clase.hora}`} />
+      <PageHeader back titulo="Pasar lista" />
       <div className="px stack" style={{ ['--gap' as string]: 'var(--s-3)', marginTop: 14, paddingBottom: 24 }}>
-        <p className="t-small t-dim">
-          Marca a quien ha venido. Si alguien no viene, no tienes que hacer nada: lo gestiona el estudio.
-        </p>
+        {/* La clase y cuántas han venido, en la tarjeta verde noche de «Tu próxima
+            clase»: es lo que mira de un vistazo con la sala llenándose. Antes era
+            una línea de subtítulo y una etiqueta pequeña encima de la lista. */}
+        <section
+          aria-label={`Lista de ${clase.tipo}`}
+          data-testid="cabecera-lista"
+          style={{ borderRadius: 'var(--radius-hero)', background: 'var(--accent-deep)', color: 'var(--accent-deep-foreground)', padding: '14px 15px 15px', boxShadow: 'var(--shadow-hero)' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <p className="t-label" style={{ color: abierta ? 'var(--on-dark)' : 'var(--accent-deep-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span aria-hidden style={{ width: 6, height: 6, borderRadius: 99, background: abierta ? '#FAF9F5' : 'var(--accent-deep-muted)', animation: abierta ? 'apPulse 1.6s infinite' : undefined }} />
+              {abierta ? 'Lista abierta' : clase.cancelada ? 'Clase cancelada' : 'Lista cerrada'}
+            </p>
+            <span className="t-num" style={{ fontSize: 'var(--t-meta)', fontWeight: 600, color: 'var(--accent-deep-muted)', whiteSpace: 'nowrap' }}>
+              {etiquetaDia(clase.fecha)} · {clase.hora}–{clase.horaFin}
+            </span>
+          </div>
+          <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--on-dark)' }}>{clase.tipo}</p>
+          {total > 0 && (
+            <>
+              <p aria-hidden style={{ margin: '12px 0 0', display: 'flex', alignItems: 'baseline', gap: 6, color: 'var(--on-dark)' }}>
+                <span className="t-num" style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1 }}>{vinieron}</span>
+                <span style={{ fontSize: 'var(--t-body)', fontWeight: 600, color: tenue }}>de {total}</span>
+              </p>
+              <div aria-hidden style={{ marginTop: 8, height: 6, borderRadius: 99, background: 'color-mix(in srgb, var(--accent-deep-foreground) 18%, transparent)', overflow: 'hidden' }}>
+                <div style={{ width: `${porcentaje}%`, height: '100%', borderRadius: 99, background: 'var(--on-dark)', transition: 'width .3s' }} />
+              </div>
+              <p aria-live="polite" data-testid="resumen-lista" style={{ margin: '6px 0 0', fontSize: 'var(--t-meta)', fontWeight: 600, color: tenue }}>
+                {vinieron} de {total} {total === 1 ? 'ha venido' : 'han venido'}
+              </p>
+            </>
+          )}
+        </section>
 
         {aviso && (
-          <div className="card" role="status" data-testid="aviso-lista" style={{ padding: '12px 14px' }}>
-            <p className="t-small" style={{ fontWeight: 700 }}>{aviso}</p>
-          </div>
+          <p role="status" data-testid="aviso-lista" className="note note--warn" style={{ margin: 0 }}>{aviso}</p>
         )}
         {!online && <OfflineState cuerpo="Para marcar asistencia necesitas conexión." />}
 
@@ -129,8 +162,8 @@ export default function PasarListaPage() {
           />
         ) : (
           <>
-            <p className="t-label" aria-live="polite" data-testid="resumen-lista">
-              {vinieron} de {total} {total === 1 ? 'ha venido' : 'han venido'}
+            <p className="t-small t-dim" style={{ margin: 0 }}>
+              Toca «Asistió» cuando llegue cada una. Si alguien no viene, no hagas nada: lo gestiona el estudio.
             </p>
             <ul className="stack" style={{ ['--gap' as string]: 'var(--s-2)', listStyle: 'none', margin: 0, padding: 0 }}>
               {alumnas.map((a) => {
@@ -141,11 +174,20 @@ export default function PasarListaPage() {
                     key={a.reservaId}
                     className="card"
                     data-testid="alumna-en-lista"
-                    style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
+                    style={{
+                      padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12,
+                      // La fila de quien ya ha venido se tiñe: se ve de un vistazo quién falta.
+                      background: asistio ? 'var(--accent-soft)' : undefined,
+                      borderColor: asistio ? 'color-mix(in srgb, var(--accent) 35%, transparent)' : undefined,
+                      transition: 'background .2s, border-color .2s',
+                    }}
                   >
-                    <AvatarSocia nombre={a.nombre} size={36} />
+                    <AvatarSocia nombre={a.nombre} size={42} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p className="t-card-title trunc">{a.nombre}</p>
+                      <p className="t-meta" style={{ marginTop: 1 }}>
+                        {a.estado === 'no-vino' ? 'Lo marcó el estudio' : asistio ? 'Ha venido' : 'Por marcar'}
+                      </p>
                       {errorFila?.id === a.reservaId && (
                         <p role="alert" className="t-small" style={{ color: 'var(--destructive-foreground)', fontWeight: 700, marginTop: 2 }}>
                           {errorFila.texto}

@@ -14,6 +14,9 @@ import {
 } from '@/lib/student/datos-instructora';
 import { clasesLocalesDesdeAgenda } from '@/lib/student/agenda-instructora';
 import { DIAS, FRANJAS, celdaKey } from '@/lib/sustituciones/franjas';
+import {
+  alternarDia, diaEntero, resumenDisponibilidad, textoResumenDisponibilidad,
+} from '@/lib/student/disponibilidad-vista';
 import { celdasDesdeClases } from '@/lib/sustituciones/disponibilidad-desde-clases';
 import { Button } from '@/components/student/ui/Button';
 import { Icono } from '@/components/student/ui/Icono';
@@ -31,6 +34,12 @@ import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/
 // dice que hay cambios sin guardar.
 
 const SEMANAS_CLASES = 4;
+const CLAVES_FRANJAS = FRANJAS.map((f) => f.key);
+
+/** «06:00» → «6»: la cabecera de cada columna tiene que caber en un móvil. */
+function horaCorta(hhmm: string): string {
+  return hhmm === '23:59' ? 'cierre' : String(Number(hhmm.slice(0, 2)));
+}
 
 function mismas(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   if (a.size !== b.size) return false;
@@ -65,6 +74,7 @@ export default function DisponibilidadInstructoraPage() {
   const guardadas = new Set(data?.celdas ?? []);
   const actuales = editadas ?? guardadas;
   const hayCambios = editadas !== null && !mismas(editadas, guardadas);
+  const textoResumen = textoResumenDisponibilidad(resumenDisponibilidad(actuales));
 
   // Salir con cambios sin guardar avisa: perderlos sin enterarse es lo peor.
   useEffect(() => {
@@ -85,6 +95,8 @@ export default function DisponibilidadInstructoraPage() {
     for (const c of data?.desdeClases ?? []) s.add(c);
     setEditadas(s);
   };
+
+  const alternarDiaEntero = (dow: number) => setEditadas(alternarDia(actuales, dow, CLAVES_FRANJAS));
 
   const guardar = async () => {
     if (!editadas || guardando) return;
@@ -115,9 +127,26 @@ export default function DisponibilidadInstructoraPage() {
 
         {data && (
           <>
-            <p className="t-small t-dim" style={{ lineHeight: 1.5 }}>
-              Marca las franjas en las que podrías cubrir a una compañera. Si no marcas ninguna, el
-              estudio no puede proponerte como sustituta.
+            {/* Lo primero, cuánto tiene marcado: sin franjas el motor no la propone
+                nunca, y eso tiene que verse antes que la rejilla, no en un párrafo. */}
+            {textoResumen ? (
+              <div className="card" data-testid="resumen-disponibilidad" style={{ padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span aria-hidden style={{ width: 38, height: 38, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icono nombre="hecho" tamano={20} />
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 'var(--t-body)', fontWeight: 800 }}>{textoResumen}</span>
+                  <span className="t-meta" style={{ display: 'block', marginTop: 2 }}>El estudio puede proponerte para cubrir una clase en esas franjas.</span>
+                </span>
+              </div>
+            ) : (
+              <p className="note note--warn" data-testid="resumen-disponibilidad" style={{ margin: 0 }}>
+                No tienes ninguna franja marcada: el estudio no puede proponerte para cubrir clases.
+              </p>
+            )}
+
+            <p className="t-small t-dim" style={{ lineHeight: 1.5, margin: 0 }}>
+              Toca las franjas en las que podrías cubrir a una compañera. Tocando el día, lo marcas entero.
             </p>
 
             {data.desdeClases.length > 0 && (
@@ -127,18 +156,24 @@ export default function DisponibilidadInstructoraPage() {
             )}
 
             <div
+              className="card"
               role="group"
               aria-label="Disponibilidad por día y franja"
-              style={{ display: 'grid', gridTemplateColumns: `minmax(72px, auto) repeat(${FRANJAS.length}, minmax(0, 1fr))`, gap: 6, alignItems: 'center' }}
+              style={{ padding: '12px 10px', display: 'grid', gridTemplateColumns: `minmax(64px, auto) repeat(${FRANJAS.length}, minmax(0, 1fr))`, gap: 6, alignItems: 'center' }}
             >
               <span />
+              {/* Nombre y horas en la cabecera de cada columna: antes las horas iban
+                  en una línea suelta debajo de la rejilla, lejos de donde se toca. */}
               {FRANJAS.map((f) => (
-                <span key={f.key} className="t-micro" style={{ textAlign: 'center', fontWeight: 800, color: 'var(--muted-foreground)', lineHeight: 1.2 }}>
-                  {f.label}
+                <span key={f.key} style={{ textAlign: 'center', lineHeight: 1.15 }}>
+                  <span className="t-micro" style={{ display: 'block', fontWeight: 800, color: 'var(--foreground)' }}>{f.label}</span>
+                  <span className="t-micro t-num" style={{ display: 'block', marginTop: 2, color: 'var(--subtle-foreground)' }}>
+                    {horaCorta(f.horaInicio)}–{horaCorta(f.horaFin)}
+                  </span>
                 </span>
               ))}
               {DIAS.map((d) => (
-                <FilaDia key={d.dow} etiqueta={d.label}>
+                <FilaDia key={d.dow} etiqueta={d.label} entero={diaEntero(actuales, d.dow, CLAVES_FRANJAS)} onAlternar={() => alternarDiaEntero(d.dow)}>
                   {FRANJAS.map((f) => {
                     const clave = celdaKey(d.dow, f.key);
                     const on = actuales.has(clave);
@@ -166,9 +201,6 @@ export default function DisponibilidadInstructoraPage() {
               ))}
             </div>
 
-            <p className="t-meta" style={{ lineHeight: 1.5 }}>
-              {FRANJAS.map((f) => `${f.label}: ${f.horaInicio}–${f.horaFin === '23:59' ? 'cierre' : f.horaFin}`).join(' · ')}
-            </p>
           </>
         )}
       </div>
@@ -194,11 +226,26 @@ export default function DisponibilidadInstructoraPage() {
   );
 }
 
-/** El nombre del día y sus cuatro celdas, dentro de la misma rejilla. */
-function FilaDia({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+/**
+ * El nombre del día y sus cuatro celdas, dentro de la misma rejilla. El nombre
+ * es un botón que marca o quita el día entero de una vez: lo normal es tener
+ * libre el día completo, y eran cuatro toques.
+ */
+function FilaDia({ etiqueta, entero, onAlternar, children }: {
+  etiqueta: string; entero: boolean; onAlternar: () => void; children: React.ReactNode;
+}) {
+  const dia = etiqueta.toLowerCase();
   return (
     <>
-      <span className="t-small" style={{ fontWeight: 700 }}>{etiqueta}</span>
+      <button
+        type="button"
+        onClick={onAlternar}
+        aria-label={entero ? `Quitar el ${dia} entero` : `Marcar el ${dia} entero`}
+        className="tap"
+        style={{ minHeight: 44, padding: '0 4px', border: 'none', background: 'none', fontFamily: 'inherit', textAlign: 'left', fontSize: 'var(--t-small)', fontWeight: 700, color: entero ? 'var(--accent)' : 'var(--foreground)' }}
+      >
+        {etiqueta}
+      </button>
       {children}
     </>
   );
