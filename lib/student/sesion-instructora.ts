@@ -165,13 +165,21 @@ export async function unirseComoInstructora(slug: string): Promise<{ ok: true } 
  * @param forzar  ignora lo recordado: para quien acaba de entrar por un enlace.
  */
 export function useSesionInstructora(slug: string, activo = true, forzar = false) {
-  const [resuelto, setResuelto] = useState<{ slug: string; valor: InstructoraSesion | null } | null>(null);
+  // I-13 (auditoría 15-sep): antes un `null` significaba dos cosas a la vez —
+  // «no es instructora» (confirmado) y «no hemos podido preguntarlo» (red,
+  // 5xx, excepción) — y `GuardiaInstructora` leía cualquier `null` como el
+  // primer caso, echando a la instructora al inicio de la app sin explicar
+  // nada. `error: true` es el tercer estado: ningún consumidor que solo lea
+  // `instructora` cambia de comportamiento (sigue siendo `null` mientras hay
+  // error), pero quien SÍ mire `error` puede distinguir "no lo es" de "no lo
+  // sabemos todavía".
+  const [resuelto, setResuelto] = useState<{ slug: string; valor: InstructoraSesion | null; error: boolean } | null>(null);
 
   const resolver = useCallback(async (forzarAhora: boolean, ignorarMemoria = false) => {
     const { data: { session: sb } } = await supabasePortal.auth.getSession();
     const userId = sb?.user?.id;
-    if (!sb?.access_token || !userId) { setResuelto({ slug, valor: null }); return; }
-    if (!forzarAhora && noEsReciente(slug, userId)) { setResuelto({ slug, valor: null }); return; }
+    if (!sb?.access_token || !userId) { setResuelto({ slug, valor: null, error: false }); return; }
+    if (!forzarAhora && noEsReciente(slug, userId)) { setResuelto({ slug, valor: null, error: false }); return; }
     const token = sb.access_token;
     const clave = claveSesion('', slug, userId);
     // ⚠️ Rendimiento (15-sep-2026): `forzar` lo pasan la guardia y TODAS las
@@ -197,9 +205,9 @@ export function useSesionInstructora(slug: string, activo = true, forzar = false
         return cuerpo.instructora ?? null;
       }, Date.now(), forzarAhora && !reutilizar);
       recordarNoEs(slug, userId, valor === null);
-      setResuelto({ slug, valor });
+      setResuelto({ slug, valor, error: false });
     } catch {
-      setResuelto({ slug, valor: null });
+      setResuelto({ slug, valor: null, error: true });
     }
   }, [slug]);
 
@@ -218,6 +226,9 @@ export function useSesionInstructora(slug: string, activo = true, forzar = false
   return {
     instructora: activo && listo ? resuelto.valor : null,
     isLoading: activo && !listo,
+    /** `true` solo cuando el último intento falló por red/servidor — nunca
+     *  cuando la respuesta confirmó que no es instructora. */
+    error: activo && listo ? resuelto.error : false,
     refrescar,
   };
 }

@@ -142,4 +142,27 @@ test.describe('La instructora entra en la app del estudio', () => {
     }
     await expect(barra.getByRole('link', { name: 'Reservar', exact: true })).toHaveCount(0);
   });
+
+  // I-13 (auditoría 15-sep): un fallo de red/servidor al preguntar si es
+  // instructora daba el MISMO resultado que "confirmado, no lo es" — la
+  // guardia la mandaba al inicio de la app de alumna sin explicar nada, y como
+  // pregunta con `forzar=true` en cada pantalla, cada cambio de pestaña era
+  // otra oportunidad de perderla. Con contador de intentos: "no la expulsó" no
+  // puede ser verdad solo porque no llegó a preguntar nada.
+  test('un fallo de red al preguntar si es instructora no la expulsa a la app de alumna', async ({ page }) => {
+    await montarPortal(page, { conSesion: true, sinSocia: true });
+    await page.route('**/api/public/session**', (route) => json(route, { error: 'No hay ninguna socia' }, 404));
+    let llamadas = 0;
+    await page.route('**/api/portal/instructora/sesion', (route) => {
+      llamadas++;
+      return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'boom' }) });
+    });
+    await page.goto(`/portal/${SLUG}/equipo`);
+
+    // Se queda en su propia pantalla, ofreciendo reintentar…
+    await expect(page.getByRole('button', { name: 'Intentar de nuevo' })).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/equipo$`));
+    // …en vez de acabar en el inicio de alumna, que es lo que pasaba antes.
+    expect(llamadas).toBeGreaterThan(0);
+  });
 });
