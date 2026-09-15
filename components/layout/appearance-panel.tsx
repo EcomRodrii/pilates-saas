@@ -66,7 +66,7 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
             <div className="border-t border-muted pt-5">
               <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Tu estudio</p>
               <Link
-                href="/configuracion/apariencia/panel"
+                href="/configuracion?tab=panel"
                 onClick={onClose}
                 className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl bg-muted hover:bg-muted/70 transition-colors"
               >
@@ -77,7 +77,7 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
                 <ChevronRight size={16} className="text-muted-foreground" />
               </Link>
               <p className="text-[11.5px] text-muted-foreground mt-3">
-                Los colores, qué módulos ves en el menú y en qué orden, y dónde va el menú.
+                Qué módulos ves en el menú y en qué orden, tu Inicio y dónde va el menú. Tu color está en Configuración → Marca.
               </p>
             </div>
           )}

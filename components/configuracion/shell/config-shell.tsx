@@ -54,10 +54,13 @@ const COMPONENTES: Record<SeccionId, ComponentType<PropsSeccion>> = {
   altas: dynamic(() => import('@/components/configuracion/secciones/seccion-altas').then(m => m.SeccionAltas), { loading: cargando }),
   comunicacion: dynamic(() => import('@/components/configuracion/secciones/seccion-comunicacion').then(m => m.SeccionComunicacion), { loading: cargando }),
   equipo: dynamic(() => import('@/components/configuracion/secciones/seccion-equipo').then(m => m.SeccionEquipo), { loading: cargando }),
+  marca: dynamic(() => import('@/components/configuracion/secciones/seccion-marca').then(m => m.SeccionMarca), { loading: cargando }),
   web: dynamic(() => import('@/components/configuracion/secciones/seccion-web').then(m => m.SeccionWeb), { loading: cargando }),
   motivacion: dynamic(() => import('@/components/configuracion/secciones/seccion-motivacion').then(m => m.SeccionMotivacion), { loading: cargando }),
   conexiones: dynamic(() => import('@/components/configuracion/secciones/seccion-conexiones').then(m => m.SeccionConexiones), { loading: cargando }),
   datos: dynamic(() => import('@/components/configuracion/secciones/seccion-datos').then(m => m.SeccionDatos), { loading: cargando }),
+  avisos: dynamic(() => import('@/components/configuracion/secciones/seccion-avisos').then(m => m.SeccionAvisos), { loading: cargando }),
+  panel: dynamic(() => import('@/components/configuracion/secciones/seccion-panel').then(m => m.SeccionPanel), { loading: cargando }),
 };
 
 // Lo que está abierto. `vista` cambia en cada navegación, para que el ancla se

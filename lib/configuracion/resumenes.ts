@@ -22,6 +22,8 @@ import type { DiaHorario, Studio, TipoIntegracion } from '../types.ts';
 import { avisoVentaOnline } from '../onboarding.ts';
 import { saludIntegracion, type FilaSalud, type SaludIntegracion } from '../integraciones/salud.ts';
 import { nifEmisorValido, nifValido } from '../nif.ts';
+import { PLAN_INFO, type Plan } from '../billing/entitlements.ts';
+import type { FaseTrial } from '../billing/trial.ts';
 import { SECCIONES, esTarjetaId, seccionDeTarjeta, type SeccionId, type TarjetaId } from './secciones.ts';
 
 export const MAX_RESUMEN = 44;
@@ -73,6 +75,22 @@ export interface DatosConfiguracion {
    * criterio que la tarjeta de Stripe).
    */
   stripeDisponible: boolean;
+  /**
+   * ¿El color PUBLICADO de la marca es otro que el de fábrica? Sale del tema
+   * (/api/theme), no de `studios.color_primario`, que publicar no toca. Ausente
+   * o `null` = no se sabe.
+   */
+  colorPropio?: boolean | null;
+  /** Cómo tiene montado el panel quien mira. Ausente o `null` = no se sabe. */
+  panel?: { menuPosition: 'lateral' | 'superior'; oscuro: boolean } | null;
+}
+
+/** Lo que dice /api/billing/status, que es lo mismo que pinta la píldora de la prueba. */
+export interface EstadoPlanResumible {
+  plan?: string | null;
+  subscriptionStatus?: string | null;
+  /** Derivado EN SERVIDOR. Sin él (un servidor sin desplegar) no se adivina nada. */
+  trial?: { fase: FaseTrial; diasRestantes: number } | null;
 }
 
 // ─── Piezas ───────────────────────────────────────────────────────────────────
@@ -290,10 +308,22 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
       if (s.instructorasCreanClases === undefined) return null;
       return s.instructorasCreanClases ? 'Las instructoras crean sus clases' : 'Las instructoras no crean clases';
 
-    case 'web':
+    case 'marca':
       return unir([
         s.logoUrl === undefined ? null : s.logoUrl ? 'con logo' : 'sin logo',
+        d.colorPropio == null ? null : d.colorPropio ? 'tu color' : 'color de Tentare',
+      ]);
+
+    case 'web':
+      return unir([
         s.visibleEnNetwork === undefined ? null : s.visibleEnNetwork ? 'en Tentare Network' : 'fuera de Tentare Network',
+      ]);
+
+    case 'panel':
+      if (!d.panel) return null;
+      return unir([
+        d.panel.menuPosition === 'superior' ? 'menú arriba' : 'menú a la izquierda',
+        d.panel.oscuro ? 'modo oscuro' : 'modo claro',
       ]);
 
     case 'conexiones': {
@@ -313,8 +343,10 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
       return lista.length <= MAX_RESUMEN ? lista : `${nombres[0]} y más, conectados`;
     }
 
-    // La motivación se carga al abrir su sección, y exportar no tiene un estado.
+    // La motivación y tus avisos se cargan al abrir su sección, y exportar no
+    // tiene un estado.
     case 'motivacion':
+    case 'avisos':
     case 'datos':
       return null;
   }
@@ -327,4 +359,50 @@ export function resumenesDeConfiguracion(d: DatosConfiguracion): Record<SeccionI
     const aviso = avisos.find(a => a.seccion === id);
     return [id, { valor: valorDe(id, d), estado: aviso ? { tono: aviso.tono, etiqueta: aviso.etiqueta } : null }];
   })) as Record<SeccionId, ResumenSeccion>;
+}
+
+// ─── Plan de Tentare ─────────────────────────────────────────────────────────
+
+const NOMBRE_PLAN: Record<string, string> = Object.fromEntries(
+  (Object.keys(PLAN_INFO) as Plan[]).map(p => [p, PLAN_INFO[p].nombre]),
+);
+
+/**
+ * La fila «Plan de Tentare»: el plan, cómo está y, si hay que hacer algo, qué.
+ * Lo que no encaja en ninguno de esos casos no se resume: sin prueba local y
+ * sin una suscripción viva no se sabe qué decir, y se calla.
+ */
+export function resumenPlan(e: EstadoPlanResumible | null | undefined): ResumenSeccion {
+  const nada: ResumenSeccion = { valor: null, estado: null };
+  if (!e?.trial) return nada;
+  const nombre = e.plan ? NOMBRE_PLAN[e.plan] ?? null : null;
+  const { fase, diasRestantes } = e.trial;
+
+  switch (fase) {
+    case 'PLENA':
+    case 'HOLGADA':
+    case 'AVISO':
+    case 'ULTIMO_DIA': {
+      const quedan = diasRestantes === 1 ? 'queda 1 día' : `quedan ${diasRestantes} días`;
+      return {
+        valor: unir([nombre ? `prueba del plan ${nombre}` : 'en prueba', quedan]),
+        // Solo el último día: antes la píldora de la barra ya lo cuenta sin alarmar.
+        estado: fase === 'ULTIMO_DIA' ? { tono: 'pendiente', etiqueta: 'Elige tu plan' } : null,
+      };
+    }
+    case 'EXPIRADA':
+      return { valor: 'Prueba terminada', estado: { tono: 'problema', etiqueta: 'Elige un plan' } };
+    case 'SUSCRITO': {
+      if (!nombre) return nada;
+      if (e.subscriptionStatus === 'active') return { valor: `Plan ${nombre} · activo`, estado: null };
+      if (e.subscriptionStatus === 'trialing') return { valor: `Plan ${nombre} · en prueba`, estado: null };
+      // Stripe no pudo cobrar la cuota y lo está reintentando.
+      if (e.subscriptionStatus === 'past_due') {
+        return { valor: `Plan ${nombre} · falló el último cobro`, estado: { tono: 'problema', etiqueta: 'Revisa el pago' } };
+      }
+      return nada;
+    }
+    case 'SIN_PRUEBA':
+      return nada;
+  }
 }

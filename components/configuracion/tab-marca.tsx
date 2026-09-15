@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Palette, ChevronRight } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
@@ -15,10 +13,11 @@ import { fetchThemeBorrador, fetchThemePublicado, guardarThemeBorrador } from '@
 import { labelCls } from '@/components/configuracion/estilos';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
-// «Marca», en Mi app y mi web. Logo y favicon se guardan SOLOS al subirlos, sin
-// ninguna barra de Guardar, y el color se cambia en Apariencia: nada de esta
-// tarjeta espera a un botón. Por eso ningún campo de texto vive aquí (mezclar
-// los dos modelos en una tarjeta es la trampa de #1971).
+// «Logo y favicon», en la sección Marca. Se guardan SOLOS al subirlos, sin
+// ninguna barra de Guardar, y el color tiene su propia tarjeta al lado
+// (tab-color-marca.tsx): nada de esta tarjeta espera a un botón. Por eso ningún
+// campo de texto vive aquí (mezclar los dos modelos en una tarjeta es la trampa
+// de #1971).
 //
 // ⚠️ Guardar el logo es un `updateStudio({ logoUrl })` y cambia `studio` de
 // referencia: los formularios de al lado («Textos de tu app») no pierden lo que
@@ -124,26 +123,8 @@ export function TabMarca({ showToast }: { showToast: (m: string) => void }) {
   }
 
   return (
-    <TarjetaAjuste id="marca">
-      <div className="space-y-5">
-        <Link
-          href="/configuracion/apariencia/panel"
-          className="flex items-center justify-between rounded-xl border border-border px-3.5 py-3 transition-colors hover:bg-muted"
-        >
-          <span className="min-w-0">
-            <span className="flex items-center gap-2.5 text-[13px] font-semibold text-foreground">
-              <Palette size={15} className="shrink-0 text-muted-foreground" />
-              El color de tu marca
-            </span>
-            {/* Prometía «tipografía y portada», que están en mantenimiento
-                (Apariencia, 7-sep). El color sí: es el que ve el portal. */}
-            <span className="mt-0.5 block text-[11.5px] text-muted-foreground">
-              Lo ven tus alumnas en tu página de reservas y en su app. Lo pruebas antes de guardarlo.
-            </span>
-          </span>
-          <ChevronRight size={15} className="shrink-0 text-muted-foreground" />
-        </Link>
-
+    <TarjetaAjuste id="logo-y-favicon">
+      <div>
         <div className="grid grid-cols-1 gap-5 @md/config:grid-cols-2">
           <div className="space-y-1.5">
             <h4 className={labelCls}>Logo</h4>
@@ -195,13 +176,13 @@ export function TabMarca({ showToast }: { showToast: (m: string) => void }) {
                 />
                 {/* Decirlo o no decirlo no cambia el comportamiento, pero sí
                     cambia si la propietaria se entera: el favicon se guarda
-                    en el borrador del tema y no se ve fuera hasta publicar. */}
+                    en el borrador del tema y no se ve fuera hasta publicar.
+                    Antes decía «al publicar en Apariencia», que está en
+                    mantenimiento y no tiene ningún botón de publicar. */}
                 {faviconPendiente && (
-                  <p className="rounded-lg bg-warning/10 px-3 py-2 text-[11.5px] leading-relaxed text-warning-foreground">
-                    Guardado, pero todavía no se ve fuera: el favicon se aplica al{' '}
-                    <Link href="/configuracion/apariencia" className="font-semibold underline">
-                      publicar en Apariencia
-                    </Link>.
+                  <p className="rounded-lg bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning-foreground">
+                    Guardado, pero todavía no se ve fuera: el favicon se publica desde el editor del portal, que está en
+                    mantenimiento.
                   </p>
                 )}
               </>

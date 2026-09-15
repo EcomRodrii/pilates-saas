@@ -230,8 +230,10 @@ export function calcularOnboarding(d: DatosOnboarding): {
   // la marca mandaba a /configuracion/apariencia, que está en mantenimiento, y
   // desde el inicio de Configuración este es el «Siguiente» que se ofrece.
   const configuracionInicial: PasoOnboarding[] = [
-    { id: 'estudio', label: 'Configura los datos de tu estudio', descripcion: 'Nombre, NIF y contacto — aparecen en tus recibos y en tu página de reservas.', minutos: 3, done: !!d.nif, href: '/configuracion?tab=estudio' },
-    { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion?tab=web#marca' },
+    // Se da por hecho con el NIF, que vive en «Datos fiscales e IVA»: el paso
+    // llevaba a Mi estudio y prometía «nombre y contacto», que no cuentan.
+    { id: 'estudio', label: 'Pon tus datos fiscales', descripcion: 'Razón social y NIF: salen en cada factura de tus cobros.', minutos: 2, done: !!d.nif, href: '/configuracion?tab=cobros#datos-fiscales' },
+    { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion?tab=marca' },
     { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas clientas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=estudio#salas' },
     // Mismo criterio que «clientas»: el panel usa una sola palabra para la
     // clientela porque el equipo de un estudio de Pilates lo es casi siempre.
@@ -379,7 +381,7 @@ export interface DatosOnboardingLegacy {
 
 export function calcularPasosOnboarding(d: DatosOnboardingLegacy): PasoOnboarding[] {
   const base: PasoOnboarding[] = [
-    { id: 'estudio', label: 'Configura tu estudio', descripcion: '', minutos: 3, done: !!d.nif, href: '/configuracion?tab=estudio' },
+    { id: 'estudio', label: 'Configura tu estudio', descripcion: '', minutos: 3, done: !!d.nif, href: '/configuracion?tab=cobros#datos-fiscales' },
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: '', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
     { id: 'clase', label: 'Crea tu primera clase', descripcion: '', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases' },
     { id: 'horario', label: 'Configura tus horarios', descripcion: '', minutos: 5, done: d.numSesiones > 0, href: '/calendario' },

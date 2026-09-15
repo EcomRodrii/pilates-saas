@@ -1,26 +1,9 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { RUTAS_ANTIGUAS } from '@/lib/configuracion/destino';
 
-import { PageHeader } from '@/components/ui/page-header';
-import { NotificationPreferences } from '@/components/notifications/notification-preferences';
-import { authHeader } from '@/lib/api-client';
-import { useCore } from '@/lib/core-context';
-import { useRol } from '@/lib/permisos';
-
-// Preferencias de notificación del staff. Cada rol (propietaria / instructora /
-// recepción) ve SOLO sus categorías (CATEGORIAS_POR_ROL): antes se forzaba
-// 'PROPIETARIO' y una instructora/recepción veía categorías que nunca recibe.
+// «Notificaciones» es hoy «Mis avisos», una sección de Configuración con el
+// mismo componente y la misma escritura (secciones/seccion-avisos.tsx). Esta
+// pantalla no la enlazaba nadie, pero puede estar en un marcador: redirige.
 export default function ConfiguracionNotificacionesPage() {
-  const { studio } = useCore();
-  const rol = useRol();
-  return (
-    <div className="max-w-2xl">
-      <PageHeader
-        title="Notificaciones"
-        description="Elige qué avisos quieres recibir y por dónde. Los cambios se guardan solos."
-      />
-      {studio?.id
-        ? <NotificationPreferences role={rol} studioId={studio.id} getHeaders={authHeader} />
-        : <p className="text-[13px] text-muted-foreground">Cargando…</p>}
-    </div>
-  );
+  redirect(RUTAS_ANTIGUAS['/configuracion/notificaciones']);
 }

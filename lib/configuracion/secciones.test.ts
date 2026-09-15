@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  GRUPOS, MI_CUENTA, SECCIONES, cumpleCondicion, esTarjetaId, seccionDeTarjeta, seccionPorId, tarjetaPorId,
-  type TarjetaConfiguracion, type TarjetaId,
+  FILAS_EXTERNAS, GRUPOS, MI_CUENTA, SECCIONES, cumpleCondicion, esTarjetaId, seccionDeTarjeta, seccionPorId, tarjetaPorId,
+  type FilaExternaId, type TarjetaConfiguracion, type TarjetaId,
 } from './secciones.ts';
 import { TARJETAS_REGLAS } from './reglas-reserva.ts';
 
@@ -13,8 +13,8 @@ import { TARJETAS_REGLAS } from './reglas-reserva.ts';
 
 const todas = SECCIONES.flatMap(s => s.tarjetas as readonly TarjetaConfiguracion[]);
 
-test('once secciones, y ningún id repetido: ni entre secciones ni entre tarjetas de secciones distintas', () => {
-  assert.equal(SECCIONES.length, 11);
+test('catorce secciones, y ningún id repetido: ni entre secciones ni entre tarjetas de secciones distintas', () => {
+  assert.equal(SECCIONES.length, 14);
   const ids = [...SECCIONES.map(s => s.id), ...todas.map(t => t.id)];
   assert.deepEqual(ids.filter((id, i) => ids.indexOf(id) !== i), [], 'ids repetidos');
   for (const t of todas) assert.match(t.id, /^[a-z0-9][a-z0-9_-]*$/, `«${t.id}» no sirve como ancla de URL`);
@@ -51,6 +51,7 @@ test('el copy dice «alumna», nunca «clienta» ni «socia»', () => {
     ...SECCIONES.flatMap(s => [s.titulo, s.resumen, s.frase]),
     ...todas.flatMap(t => [t.titulo, t.frase]),
     MI_CUENTA.titulo, MI_CUENTA.resumen,
+    ...Object.values(FILAS_EXTERNAS).flatMap(f => [f.titulo, f.resumen]),
   ];
   for (const texto of textos) assert.doesNotMatch(texto, /\b(client|soci)as?\b/i, texto);
 });
@@ -91,14 +92,41 @@ test('«Mi cuenta» lleva a su propia pantalla', () => {
   assert.equal(MI_CUENTA.href, '/mi-perfil');
 });
 
+test('«Marca» junta logo, color y textos; «Tu cuenta», avisos, panel, plan y cuenta', () => {
+  assert.deepEqual(seccionPorId('marca').tarjetas.map(t => t.id), ['logo-y-favicon', 'color-de-marca', 'textos-de-tu-app']);
+  assert.deepEqual(seccionPorId('avisos').tarjetas.map(t => t.id), ['tus-avisos']);
+  assert.deepEqual(seccionPorId('panel').tarjetas.map(t => t.id), ['menu-del-panel', 'inicio-del-panel', 'posicion-del-menu', 'claro-u-oscuro']);
+  // Ni el logo ni los textos se quedan también en «Mi app y mi web».
+  assert.equal(seccionDeTarjeta('textos-de-tu-app'), 'marca');
+  const cuenta = GRUPOS.find(g => g.id === 'tu-cuenta')!;
+  assert.deepEqual(cuenta.secciones, ['avisos', 'panel']);
+  assert.deepEqual(cuenta.externas, ['plan', 'mi-cuenta']);
+  assert.deepEqual(GRUPOS.find(g => g.id === 'tu-imagen')!.secciones, ['marca', 'web']);
+  // Claro u oscuro es de este navegador: se guarda al pulsar, nunca con la barra del menú.
+  assert.equal(tarjetaPorId('claro-u-oscuro').guardado, 'al-pulsar');
+  for (const id of ['menu-del-panel', 'inicio-del-panel', 'posicion-del-menu'] as const) assert.equal(tarjetaPorId(id).guardado, 'barra');
+});
+
+test('las filas que llevan a otra pantalla: «Plan de Tentare» a /suscripcion y «Mi cuenta» a /mi-perfil', () => {
+  assert.equal(FILAS_EXTERNAS.plan.href, '/suscripcion');
+  assert.equal(FILAS_EXTERNAS['mi-cuenta'].href, MI_CUENTA.href);
+  for (const [id, f] of Object.entries(FILAS_EXTERNAS)) {
+    assert.equal(f.id, id);
+    assert.ok(f.resumen.trim() && !f.resumen.endsWith('.'), `${id}: el resumen es una etiqueta, sin punto final`);
+    assert.ok(f.resumen.length <= 60, `${id}: el resumen no cabe en dos líneas del móvil`);
+  }
+});
+
 test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mismo orden', () => {
   assert.deepEqual(GRUPOS.map(g => g.titulo), ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conexiones y datos', 'Tu cuenta']);
   const enGrupos = GRUPOS.flatMap(g => g.secciones);
   // En el mismo orden que SECCIONES: la columna de la izquierda y el inicio no
   // pueden contar dos órdenes distintos.
   assert.deepEqual(enGrupos, SECCIONES.map(s => s.id));
-  // «Mi cuenta» va una vez, en el último.
-  assert.deepEqual(GRUPOS.filter(g => g.conMiCuenta).map(g => g.id), ['tu-cuenta']);
+  // Cada fila externa va una vez, y todas en el último grupo.
+  const externas = GRUPOS.flatMap(g => g.externas ?? []);
+  assert.deepEqual([...externas].sort(), (Object.keys(FILAS_EXTERNAS) as FilaExternaId[]).sort());
+  assert.deepEqual(GRUPOS.filter(g => g.externas?.length).map(g => g.id), ['tu-cuenta']);
   for (const g of GRUPOS) {
     // Frase normal, no un rótulo en mayúsculas.
     assert.notEqual(g.titulo, g.titulo.toUpperCase(), g.titulo);
@@ -107,7 +135,7 @@ test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mism
 });
 
 test('las palabras del buscador: en minúsculas, sin repetir y que no repiten el título', () => {
-  const conPalabras = [...SECCIONES, ...todas] as { id: string; titulo: string; palabras?: readonly string[] }[];
+  const conPalabras = [...SECCIONES, ...todas, ...Object.values(FILAS_EXTERNAS)] as { id: string; titulo: string; palabras?: readonly string[] }[];
   assert.ok(conPalabras.filter(x => x.palabras?.length).length > 20, 'casi ninguna tarjeta tiene palabras');
   for (const x of conPalabras) {
     const palabras = x.palabras ?? [];

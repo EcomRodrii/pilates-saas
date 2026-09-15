@@ -86,10 +86,10 @@ test.describe('Apariencia — mantenimiento y salida', () => {
     // Evaluación del 13-sep: la pantalla no decía que el color del portal SÍ
     // se cambia, y una propietaria se fue creyendo que no podía. La salida
     // tiene que decirlo y llevar a donde se cambia.
-    const salida = page.getByRole('link', { name: /Tu color y tu panel/ });
+    const salida = page.getByRole('link', { name: /El color de tu marca/ });
     await expect(salida).toBeVisible();
     await expect(salida).toContainText('ven tus alumnas en tu página de reservas');
-    await expect(salida).toHaveAttribute('href', '/configuracion/apariencia/panel');
+    await expect(salida).toHaveAttribute('href', '/configuracion?tab=marca#color-de-marca');
   });
 
   test('el editor no se abre ni escribiendo la URL', async ({ page }) => {
@@ -100,15 +100,17 @@ test.describe('Apariencia — mantenimiento y salida', () => {
 });
 
 test.describe('Personalizar tu panel', () => {
+  // Desde el 15-sep (v2) vive dentro de Configuración: la ruta de antes lleva
+  // a «Tu panel», y el color está en «Marca».
   test('trae las cinco cosas', async ({ page }) => {
     await montar(page);
     await page.goto('/configuracion/apariencia/panel');
-    for (const t of [
-      'Los colores de tu software', 'Los módulos de tu menú',
-      'Las secciones de tu Inicio', 'Dónde va el menú', 'Claro u oscuro',
-    ]) {
-      await expect(page.getByRole('heading', { name: t })).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/configuracion\?tab=panel$/, { timeout: 30_000 });
+    for (const t of ['Tu menú', 'Tu Inicio', 'Dónde va el menú', 'Claro u oscuro']) {
+      await expect(page.getByRole('heading', { name: t, exact: true })).toBeVisible({ timeout: 30_000 });
     }
+    await page.goto('/configuracion?tab=marca');
+    await expect(page.getByRole('heading', { name: 'El color de tu marca', exact: true })).toBeVisible({ timeout: 30_000 });
   });
 
   test('los módulos que no se pueden esconder salen con candado, no sin control', async ({ page }) => {
@@ -127,7 +129,7 @@ test.describe('Personalizar tu panel', () => {
     const { puts } = await montar(page);
     await page.goto('/configuracion/apariencia/panel');
     await page.getByRole('button', { name: /Fijo arriba/ }).click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(() => puts.length).toBeGreaterThan(0);
     expect(puts[0].menuPosition).toBe('superior');
     // ⚠️ El orden y los ocultos viajan en el MISMO guardado: si fueran
@@ -141,7 +143,7 @@ test.describe('Personalizar tu panel', () => {
     const { puts } = await montar(page);
     await page.goto('/configuracion/apariencia/panel');
     await page.getByRole('button', { name: 'Ocultar Informes' }).click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(() => puts.length).toBeGreaterThan(0);
     expect(puts[0].ocultos).toContain('/informes');
   });
@@ -184,7 +186,7 @@ test.describe('Reordenar módulos', () => {
     await page.mouse.up();
     // El botón solo existe si algo cambió de verdad: su sola aparición ya
     // descarta el fallo original («arrastro y no pasa nada»).
-    await page.getByRole('button', { name: 'Guardar cambios' }).click({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click({ timeout: 15_000 });
     await expect.poll(() => puts.length).toBeGreaterThan(0);
     const orden = puts[0].orden as string[];
     expect(orden.indexOf('/citas')).toBeGreaterThanOrEqual(0);

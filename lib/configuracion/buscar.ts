@@ -9,8 +9,8 @@
 // Pura: la ejecuta `node --test` directamente.
 
 import {
-  SECCIONES, cumpleCondicion,
-  type SeccionConfiguracion, type SeccionId, type TarjetaConfiguracion, type TarjetaId,
+  FILAS_EXTERNAS, GRUPOS, SECCIONES, cumpleCondicion,
+  type FilaExterna, type SeccionConfiguracion, type SeccionId, type TarjetaConfiguracion, type TarjetaId,
 } from './secciones.ts';
 
 export interface ResultadoAjuste {
@@ -19,8 +19,10 @@ export interface ResultadoAjuste {
   titulo: string;
   /** La sección donde está. `null` si el resultado ES la sección. */
   donde: string | null;
-  seccion: SeccionId;
+  /** `null` = no es una sección: una fila que lleva a otra pantalla (`href`). */
+  seccion: SeccionId | null;
   ancla?: TarjetaId;
+  href?: string;
 }
 
 /** Sin tildes, en minúsculas y con un solo espacio: «Cancelación» casa con «cancelacion». */
@@ -42,17 +44,24 @@ function casa(palabrasBuscadas: readonly string[], textos: readonly string[]): b
 }
 
 /**
- * Secciones y tarjetas en cuyo título o `palabras` están TODAS las palabras
- * buscadas, en el orden de la lista. Las tarjetas que este estudio no tiene
- * (sedes, catálogo de la cadena) no salen: llevarían a nada.
+ * Secciones, tarjetas y filas de otra pantalla («Plan de Tentare») en cuyo
+ * título o `palabras` están TODAS las palabras buscadas, en el orden del
+ * inicio. Las tarjetas que este estudio no tiene (sedes, catálogo de la cadena)
+ * no salen: llevarían a nada. Cuáles tiene lo dice quien llama, con lo que ya
+ * sabe (el plan): el buscador no espera a que ninguna sección cargue sus datos.
  */
 export function buscarAjustes(
   consulta: string,
-  opciones: { secciones?: readonly SeccionConfiguracion[]; haySedes?: boolean; esCadena?: boolean } = {},
+  opciones: {
+    secciones?: readonly SeccionConfiguracion[];
+    externas?: readonly FilaExterna[];
+    haySedes?: boolean;
+    esCadena?: boolean;
+  } = {},
 ): ResultadoAjuste[] {
   const buscadas = trocear(consulta);
   if (buscadas.length === 0) return [];
-  const { secciones = SECCIONES, haySedes = false, esCadena = false } = opciones;
+  const { secciones = SECCIONES, externas = Object.values(FILAS_EXTERNAS), haySedes = false, esCadena = false } = opciones;
 
   const resultados: ResultadoAjuste[] = [];
   // `SECCIONES` es `as const`: vista con su tipo ancho, `palabras` existe en todas.
@@ -65,6 +74,12 @@ export function buscarAjustes(
       if (casa(buscadas, [t.titulo, ...(t.palabras ?? [])])) {
         resultados.push({ id: `tarjeta-${t.id}`, titulo: t.titulo, donde: s.titulo, seccion: s.id, ancla: t.id as TarjetaId });
       }
+    }
+  }
+  for (const f of externas) {
+    if (casa(buscadas, [f.titulo, ...(f.palabras ?? [])])) {
+      const grupo = GRUPOS.find(g => g.externas?.includes(f.id));
+      resultados.push({ id: `externa-${f.id}`, titulo: f.titulo, donde: grupo?.titulo ?? null, seccion: null, href: f.href });
     }
   }
   return resultados;

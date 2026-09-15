@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import {
-  ANCLAS, esAnclaConocida, hrefDeSeccion, reconoceSub, reconoceTab, resolverDestino, resolverHref,
+  ANCLAS, RUTAS_ANTIGUAS, esAnclaConocida, hrefDeSeccion, reconoceSub, reconoceTab, resolverDestino, resolverHref,
   seccionesVisibles,
 } from './destino.ts';
 import { SECCIONES, seccionDeTarjeta, type SeccionId, type TarjetaId } from './secciones.ts';
@@ -64,8 +64,15 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=integraciones#integracion-excel', { tab: 'datos', ancla: 'exportar' }],
     ['/configuracion?tab=datos#integracion-excel', { tab: 'datos', ancla: 'exportar' }],
     ['/configuracion#integracion-excel', { tab: 'datos', ancla: 'exportar' }],
-    ['/configuracion?tab=estudio#marca', { tab: 'web', ancla: 'marca' }],
-    ['/configuracion?tab=estudio#textos-de-tu-app', { tab: 'web', ancla: 'textos-de-tu-app' }],
+    // «Marca» salió de «Mi app y mi web» (v2): la tarjeta de antes es hoy una
+    // sección, y su ancla lleva al logo.
+    ['/configuracion?tab=estudio#marca', { tab: 'marca', ancla: 'logo-y-favicon' }],
+    ['/configuracion?tab=web#marca', { tab: 'marca', ancla: 'logo-y-favicon' }],
+    ['/configuracion?tab=estudio#textos-de-tu-app', { tab: 'marca', ancla: 'textos-de-tu-app' }],
+    ['/configuracion?tab=web#textos-de-tu-app', { tab: 'marca', ancla: 'textos-de-tu-app' }],
+    ['/configuracion?tab=marca', { tab: 'marca' }],
+    ['/configuracion?tab=avisos', { tab: 'avisos' }],
+    ['/configuracion?tab=panel', { tab: 'panel' }],
     ['/configuracion?tab=estudio#catalogo-de-la-cadena', { tab: 'clases', ancla: 'catalogo-de-la-cadena' }],
     ['/configuracion?tab=web#aplicaciones-con-acceso', { tab: 'conexiones', ancla: 'aplicaciones-con-acceso' }],
     ['/configuracion?suscripcion=ok', { redirect: '/suscripcion?suscripcion=ok' }],
@@ -205,8 +212,17 @@ test('la URL que escribe la página vuelve a abrir lo mismo', () => {
   }
 });
 
-test('la propietaria ve las once secciones y el resto de roles ninguna', () => {
-  assert.equal(seccionesVisibles('PROPIETARIO').length, 11);
+test('las pantallas sueltas de antes llevan a su sección, y sus páginas redirigen con eso', () => {
+  assert.deepEqual(resolverHref(RUTAS_ANTIGUAS['/configuracion/notificaciones']), { tab: 'avisos' });
+  assert.deepEqual(resolverHref(RUTAS_ANTIGUAS['/configuracion/apariencia/panel']), { tab: 'panel' });
+  for (const ruta of Object.keys(RUTAS_ANTIGUAS)) {
+    const pagina = readFileSync(join(RAIZ, 'app/(dashboard)', ruta, 'page.tsx'), 'utf8');
+    assert.ok(pagina.includes(`redirect(RUTAS_ANTIGUAS['${ruta}'])`), `${ruta}: la página no redirige a su sección`);
+  }
+});
+
+test('la propietaria ve las catorce secciones y el resto de roles ninguna', () => {
+  assert.equal(seccionesVisibles('PROPIETARIO').length, 14);
   assert.deepEqual(seccionesVisibles('RECEPCION'), []);
   assert.deepEqual(seccionesVisibles('INSTRUCTOR'), []);
 });

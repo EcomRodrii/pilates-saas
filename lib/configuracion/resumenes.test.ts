@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { DiaHorario } from '../types.ts';
 import {
-  MAX_RESUMEN, MAX_REVISA, avisosDeConfiguracion, resumenHorario, resumenesDeConfiguracion, revisaEsto, unir,
+  MAX_RESUMEN, MAX_REVISA, avisosDeConfiguracion, resumenHorario, resumenPlan, resumenesDeConfiguracion, revisaEsto, unir,
   type DatosConfiguracion, type IntegracionResumible,
 } from './resumenes.ts';
 import { SECCIONES, seccionDeTarjeta } from './secciones.ts';
@@ -63,10 +63,15 @@ test('cada sección resume lo guardado, y las que no se pueden saber no dicen na
   assert.equal(r.altas.valor, 'Se registra antes de pagar');
   assert.equal(r.comunicacion.valor, 'WhatsApp sin conectar');
   assert.equal(r.equipo.valor, 'Las instructoras crean sus clases');
-  assert.equal(r.web.valor, 'Sin logo · fuera de Tentare Network');
-  // Nada conectado que se sepa, la motivación se carga aparte y exportar no tiene estado.
+  assert.equal(r.web.valor, 'Fuera de Tentare Network');
+  // Sin el tema cargado, del color no se dice nada.
+  assert.equal(r.marca.valor, 'Sin logo');
+  // Nada conectado que se sepa, la motivación y tus avisos se cargan aparte,
+  // el panel no se ha leído y exportar no tiene estado.
   assert.equal(r.conexiones.valor, null);
   assert.equal(r.motivacion.valor, null);
+  assert.equal(r.avisos.valor, null);
+  assert.equal(r.panel.valor, null);
   assert.equal(r.datos.valor, null);
   for (const s of SECCIONES) assert.equal(r[s.id].estado, null, `${s.id}: sin nada que revisar no hay estado`);
 });
@@ -93,7 +98,41 @@ test('cambiar un valor guardado cambia su resumen', () => {
 
   assert.equal(valor(con({ compraPublicaModo: 'CREAR_FICHA' }), 'altas'), 'Paga sin registrarse antes');
   assert.equal(valor(con({ instructorasCreanClases: false }), 'equipo'), 'Las instructoras no crean clases');
-  assert.equal(valor(con({ logoUrl: 'https://example.com/logo.png', visibleEnNetwork: true }), 'web'), 'Con logo · en Tentare Network');
+  assert.equal(valor(con({ logoUrl: 'https://example.com/logo.png', visibleEnNetwork: true }), 'web'), 'En Tentare Network');
+  assert.equal(valor(con({ logoUrl: 'https://example.com/logo.png' }, { colorPropio: true }), 'marca'), 'Con logo · tu color');
+  assert.equal(valor(con({}, { colorPropio: false }), 'marca'), 'Sin logo · color de Tentare');
+  assert.equal(valor(con({}, { panel: { menuPosition: 'lateral', oscuro: false } }), 'panel'), 'Menú a la izquierda · modo claro');
+  assert.equal(valor(con({}, { panel: { menuPosition: 'superior', oscuro: true } }), 'panel'), 'Menú arriba · modo oscuro');
+});
+
+test('el plan de Tentare: prueba con sus días, activo o terminado; y sin estado del servidor, nada', () => {
+  const trial = (fase: 'PLENA' | 'HOLGADA' | 'AVISO' | 'ULTIMO_DIA' | 'EXPIRADA' | 'SIN_PRUEBA' | 'SUSCRITO', diasRestantes = 0) =>
+    ({ fase, diasRestantes });
+  assert.deepEqual(resumenPlan({ plan: 'ESTUDIO', subscriptionStatus: 'trialing', trial: trial('HOLGADA', 5) }), { valor: 'Prueba del plan Estudio · quedan 5 días', estado: null });
+  assert.deepEqual(resumenPlan({ plan: 'BASE', subscriptionStatus: 'trialing', trial: trial('ULTIMO_DIA', 1) }), {
+    valor: 'Prueba del plan Base · queda 1 día', estado: { tono: 'pendiente', etiqueta: 'Elige tu plan' },
+  });
+  assert.deepEqual(resumenPlan({ plan: 'ESTUDIO', subscriptionStatus: 'trial_expirado', trial: trial('EXPIRADA') }), {
+    valor: 'Prueba terminada', estado: { tono: 'problema', etiqueta: 'Elige un plan' },
+  });
+  assert.deepEqual(resumenPlan({ plan: 'CADENA', subscriptionStatus: 'active', trial: trial('SUSCRITO') }), { valor: 'Plan Cadena · activo', estado: null });
+  assert.deepEqual(resumenPlan({ plan: 'ESTUDIO', subscriptionStatus: 'past_due', trial: trial('SUSCRITO') }), {
+    valor: 'Plan Estudio · falló el último cobro', estado: { tono: 'problema', etiqueta: 'Revisa el pago' },
+  });
+  // Lo que no se sabe no se adivina: sin `trial` (un servidor sin desplegar),
+  // sin prueba ni suscripción, o con un plan que no conocemos.
+  const nada = { valor: null, estado: null };
+  assert.deepEqual(resumenPlan(null), nada);
+  assert.deepEqual(resumenPlan({ plan: 'ESTUDIO', subscriptionStatus: 'active' }), nada);
+  assert.deepEqual(resumenPlan({ plan: 'BASE', subscriptionStatus: null, trial: trial('SIN_PRUEBA') }), nada);
+  assert.deepEqual(resumenPlan({ plan: 'RARO', subscriptionStatus: 'active', trial: trial('SUSCRITO') }), nada);
+  assert.equal(resumenPlan({ plan: 'RARO', trial: trial('PLENA', 7) }).valor, 'En prueba · quedan 7 días');
+  for (const plan of ['BASE', 'ESTUDIO', 'CADENA']) {
+    for (const d of [trial('PLENA', 7), trial('SUSCRITO')]) {
+      const v = resumenPlan({ plan, subscriptionStatus: 'past_due', trial: d }).valor;
+      if (v) assert.ok(v.length <= MAX_RESUMEN, `«${v}» mide ${v.length}`);
+    }
+  }
 });
 
 test('comunicación y conexiones: solo lo que se sabe conectado, y cómo va', () => {

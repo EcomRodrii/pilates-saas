@@ -75,8 +75,9 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     ['/configuracion?tab=emails', 'Cómo me comunico', '#correos-automaticos'],
     ['/configuracion?tab=estudio&sub=salas', 'Mi estudio', '#salas'],
     // Tarjetas que cambiaron de sección el 15-sep: su enlace de antes las sigue.
-    ['/configuracion?tab=estudio#marca', 'Mi app y mi web', '#marca'],
-    ['/configuracion?tab=estudio#textos-de-tu-app', 'Mi app y mi web', '#textos-de-tu-app'],
+    // «Marca» es una sección desde el 15-sep (v2): el ancla de la tarjeta de antes lleva al logo.
+    ['/configuracion?tab=estudio#marca', 'Marca', '#logo-y-favicon'],
+    ['/configuracion?tab=estudio#textos-de-tu-app', 'Marca', '#textos-de-tu-app'],
     ['/configuracion?tab=conexiones#integracion-whatsapp', 'Cómo me comunico', '#integracion-whatsapp'],
     // «Exportar a Excel» se retiró: su enlace lleva a «Exportar mis datos».
     ['/configuracion?tab=conexiones#integracion-excel', 'Datos y seguridad', '#exportar'],

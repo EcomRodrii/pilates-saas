@@ -3,12 +3,14 @@
 import type { MouseEvent } from 'react';
 import Link from 'next/link';
 import {
-  Building2, Calendar, CalendarCheck, CircleUser, CreditCard, Download, Globe, Mail, Plug,
-  Settings, Trophy, UserCog, UserPlus, type LucideIcon,
+  Bell, Building2, Calendar, CalendarCheck, CircleUser, CreditCard, Download, Globe, Mail, Palette, PanelLeft, Plug,
+  Receipt, Settings, Trophy, UserCog, UserPlus, type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
-import { MI_CUENTA, type SeccionConfiguracion, type SeccionId } from '@/lib/configuracion/secciones';
+import {
+  FILAS_EXTERNAS, GRUPOS, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
+} from '@/lib/configuracion/secciones';
 import { esClicNormal } from './contexto';
 
 // La columna de secciones, a partir de 768 px: el inicio de Configuración y
@@ -29,11 +31,22 @@ export const ICONOS_SECCION: Record<SeccionId, LucideIcon> = {
   altas: UserPlus,
   comunicacion: Mail,
   equipo: UserCog,
+  marca: Palette,
   web: Globe,
   motivacion: Trophy,
   conexiones: Plug,
   datos: Download,
+  avisos: Bell,
+  panel: PanelLeft,
 };
+
+export const ICONOS_EXTERNAS: Record<FilaExternaId, LucideIcon> = {
+  plan: Receipt,
+  'mi-cuenta': CircleUser,
+};
+
+/** Las filas que llevan a otra pantalla, en el orden del inicio. */
+const EXTERNAS = GRUPOS.flatMap(g => g.externas ?? []);
 
 const foco = 'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
@@ -98,17 +111,25 @@ export function ListaSecciones({
         })}
       </ul>
 
-      {/* «Mi cuenta» no es configuración del estudio: es de quien entra, y tiene
-          su propia pantalla. Va aparte para que no se lea como una sección más. */}
-      <div className="border-t border-border pt-2">
-        <Link
-          href={MI_CUENTA.href}
-          className={cn('flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted', foco)}
-        >
-          <CircleUser size={16} className="shrink-0 text-muted-foreground" aria-hidden />
-          <span className="min-w-0 flex-1">{MI_CUENTA.titulo}</span>
-        </Link>
-      </div>
+      {/* «Plan de Tentare» y «Mi cuenta» tienen su propia pantalla. Van aparte
+          para que no se lean como una sección más. */}
+      <ul className="space-y-0.5 border-t border-border pt-2">
+        {EXTERNAS.map(id => {
+          const fila = FILAS_EXTERNAS[id];
+          const Icono = ICONOS_EXTERNAS[id];
+          return (
+            <li key={id}>
+              <Link
+                href={fila.href}
+                className={cn('flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted', foco)}
+              >
+                <Icono size={16} className="shrink-0 text-muted-foreground" aria-hidden />
+                <span className="min-w-0 flex-1">{fila.titulo}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }

@@ -27,7 +27,7 @@ export default function Contenido() {
 
       <AyudaPaso numero={2} titulo="Elige tu plan de prueba">
         <p>
-          Puedes cambiarlo más adelante desde Suscripción, en el menú, sin perder nada de lo que hayas
+          Puedes cambiarlo más adelante desde Suscripción, en el menú, o desde Configuración &gt; Plan de Tentare, sin perder nada de lo que hayas
           configurado durante la prueba.
         </p>
         <AyudaCaptura

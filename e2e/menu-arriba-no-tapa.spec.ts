@@ -33,7 +33,7 @@ async function panelConMenuArriba(page: Page, ancho: number) {
   // «Todo», que es cuando la barra envuelve en varias filas y hay algo que tapar.
   await page.addInitScript(() => localStorage.setItem('nav-mode', 'avanzado'));
   await page.setViewportSize({ width: ancho, height: 900 });
-  await ir(page, 'configuracion/apariencia/panel');
+  await ir(page, 'configuracion?tab=panel');
 }
 
 /** El borde inferior de la barra y el borde superior de lo pegado. */
