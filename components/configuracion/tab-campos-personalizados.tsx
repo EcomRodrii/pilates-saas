@@ -104,7 +104,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
       <div role="note" className="flex gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3">
         <ShieldAlert size={18} className="mt-0.5 shrink-0 text-warning" aria-hidden />
         <div className="text-sm text-foreground">
-          <p className="font-semibold">No los uses para datos de salud</p>
+          <p className="font-semibold">No uses estos campos para datos de salud</p>
           <p className="text-pretty text-muted-foreground">
             Los ve todo tu equipo. Lesiones o embarazo van en la pestaña Salud de cada alumna.
           </p>
