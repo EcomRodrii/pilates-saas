@@ -154,7 +154,7 @@ export function puedeGestionarCalendario(rol: Rol): boolean {
 // Llevar la operación de la sede en Configuración: horario del estudio, cierres
 // del centro, salas y averías, tipos de clase (alta y edición) y horario de
 // citas. Propietaria y gerencia; recepción no. Espejo de
-// `puede_gestionar_sede()` (migr 20260916002000_permisos_de_sede_para_la_gerencia).
+// `puede_gestionar_sede()` (migr 20260915224739_permisos_de_sede_para_la_gerencia).
 //
 // No abre el dinero: servicios y precios de citas, las reglas de dinero de un
 // tipo de clase y borrar un tipo siguen siendo de la propietaria, y lo que

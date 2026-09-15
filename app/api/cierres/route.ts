@@ -22,7 +22,7 @@ export const maxDuration = 300;
 //
 // Declarar y quitar cierres es de la propietaria y la gerencia; recepción no
 // (decisión de producto). Mismo criterio que la RLS de `cierres_estudio`
-// (`puede_gestionar_sede()`, migr 20260916002000).
+// (`puede_gestionar_sede()`, migr 20260915224739).
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function POST(req: NextRequest) {

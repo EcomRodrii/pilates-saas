@@ -276,7 +276,7 @@ test('los helpers de UI reparten igual que las funciones de la RLS', () => {
     { tabla: 'comentarios_comunidad (ajeno)', helper: puedeModerarComunidad, rls: ['PROPIETARIO', 'MANAGER', 'RECEPCION'] },
     // studio_horario, cierres_estudio, salas, spots, bloqueos_maquina,
     // citas_disponibilidad, tipos_clase (alta/edición) → puede_gestionar_sede(),
-    // migr 20260916002000. plan_tipos_clase → puede_mover_dinero(), igual que
+    // migr 20260915224739. plan_tipos_clase → puede_mover_dinero(), igual que
     // planes_tarifa.
     { tabla: 'operación de sede (horario, cierres, salas, averías, tipos, horario de citas)', helper: puedeGestionarSede, rls: ['PROPIETARIO', 'MANAGER'] },
     { tabla: 'plan_tipos_clase', helper: puedeMoverDinero, rls: ['PROPIETARIO', 'RECEPCION'] },
