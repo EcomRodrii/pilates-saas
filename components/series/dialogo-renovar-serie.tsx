@@ -61,7 +61,9 @@ export function DialogoRenovarSerie({ serieId, nombre, onClose, onHecho }: {
       if (!r.ok) { setError(r.error); return; }
       setSimulacion(r.resultado);
       setSemanas(String(r.resultado.semanas));
-      setAutomatica(r.resultado.renovacionAutomatica);
+      // Estrictamente booleano: con `undefined` la casilla deja de estar controlada
+      // y el navegador la deja marcada aunque el servidor diga que no.
+      setAutomatica(r.resultado.renovacionAutomatica === true);
     });
   }, [serieId]);
 

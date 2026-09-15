@@ -26,7 +26,7 @@ const NOMBRE = 'Reformer · Martes 18:00 · Sala Reformer';
 const SIMULACION = {
   estado: 'simulacion', periodo: 2, periodoActual: 1, semanas: 52, desde: '2026-10-13', hasta: '2027-10-05',
   creadas: 51, omitidas: [{ fecha: '2026-12-22', motivo: 'sala_ocupada' }], sinInstructora: [],
-  instructoraInactiva: false, plazasFijas: 3,
+  instructoraInactiva: false, plazasFijas: 3, renovacionAutomatica: false,
 };
 const ESTADO = {
   aplica: true, enMarcha: [], resuelto: [], nDecidir: 1, titulo: 'Una cosa espera tu visto bueno',
