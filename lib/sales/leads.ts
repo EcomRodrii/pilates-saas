@@ -2,7 +2,7 @@
 // Fase 1: operaciones básicas del CRM
 
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/database.types.ts';
+import type { Database } from '@/lib/db-types';
 
 type SalesLead = Database['public']['Tables']['sales_leads']['Row'];
 type SalesLeadInsert = Database['public']['Tables']['sales_leads']['Insert'];

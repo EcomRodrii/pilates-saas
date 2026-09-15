@@ -5,7 +5,7 @@ import { Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { Input } from '@/components/ui/input.tsx';
 import { useSesionInterna } from '../layout.tsx';
-import type { Database } from '@/lib/database.types.ts';
+import type { Database } from '@/lib/db-types';
 
 type SalesLead = Database['public']['Tables']['sales_leads']['Row'];
 

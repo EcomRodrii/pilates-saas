@@ -204,5 +204,40 @@ for name in order:
     out.append('}')
     out.append('')
 
+# Generar tipos Insert y Update (todas las columnas opcionales para Insert,
+# todas opcionales para Update ya que son partial updates)
+out.append('')
+for name in order:
+    pascal_name = pascal(name)
+    # Insert: todas las columnas opcionales
+    out.append(f'export type {pascal_name}Insert = {{')
+    for col, ts in tables[name].items():
+        # Para insert, hacer toda columna opcional: opcional con `?` y permitir null
+        out.append(f'  {col}?: {ts} | null;')
+    out.append('}')
+    out.append('')
+    # Update: todas las columnas opcionales
+    out.append(f'export type {pascal_name}Update = {{')
+    for col, ts in tables[name].items():
+        # Para update, igual que insert
+        out.append(f'  {col}?: {ts} | null;')
+    out.append('}')
+    out.append('')
+
+# Generar el tipo Database que agrupa todas las tablas
+out.append('export type Database = {')
+out.append('  public: {')
+out.append('    Tables: {')
+for name in order:
+    pascal_name = pascal(name)
+    out.append(f'      {name}: {{')
+    out.append(f'        Row: Row{pascal_name};')
+    out.append(f'        Insert: {pascal_name}Insert;')
+    out.append(f'        Update: {pascal_name}Update;')
+    out.append('      };')
+out.append('    };')
+out.append('  };')
+out.append('};')
+
 open('lib/db-types.ts','w').write('\n'.join(out))
 print(f'{len(order)} interfaces generadas desde supabase/migrations/*.sql')
