@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { BloqueClase } from '@/components/calendario/bloque-clase';
 import { calcularScrollInicial } from '@/lib/calendario-scroll';
-import { plantillaColumnasSemana, type ColumnaDia } from '@/lib/calendario-columnas';
+import { plantillaColumnasSemana, ANCHO_MIN_CARRIL_GRANDE_PX, type ColumnaDia } from '@/lib/calendario-columnas';
 import type { DatoSesion } from '@/components/calendario/vista-dia-salas';
 
 // Indexado por Date.getDay() (0=domingo…6=sábado, convención nativa de JS) —
@@ -34,6 +34,9 @@ export interface VistaSemanaProps {
   horaInicioMin: number;
   horaFinMin: number;
   pxPorHora: number;
+  /** `grande` en pantallas con alto de sobra: letra más grande en clases,
+   *  cabecera y horas. Pide más `pxPorHora` y carriles más anchos. */
+  letra?: 'normal' | 'grande';
   seleccionadaId: string | null;
   /** Ids marcados en una selección múltiple. La decisión de qué hace un clic
    *  (abrir la clase o marcarla) vive en page.tsx: aquí solo se pintan. */
@@ -51,7 +54,7 @@ export interface VistaSemanaProps {
 }
 
 export function VistaSemana({
-  columnas, datos, fechasSemana, hoyIndex, ahoraMin, horaInicioMin, horaFinMin, pxPorHora,
+  columnas, datos, fechasSemana, hoyIndex, ahoraMin, horaInicioMin, horaFinMin, pxPorHora, letra = 'normal',
   seleccionadaId, marcadas, onSeleccionar, atenuada, arrastrable, onMoverSesion, onClickVacio,
 }: VistaSemanaProps) {
   const altoTotal = ((horaFinMin - horaInicioMin) / 60) * pxPorHora;
@@ -97,7 +100,8 @@ export function VistaSemana({
   // plantilla va en la cabecera y en el cuerpo: por eso la cabecera es ahora
   // `grid` y no `flex` — antes se alineaban solo porque las dos repartían a
   // partes iguales, y con pesos distintos se habrían descolocado.
-  const { plantilla, anchoMin } = plantillaColumnasSemana(columnas, ANCHO_MIN_COLUMNA_PX);
+  const grande = letra === 'grande';
+  const { plantilla, anchoMin } = plantillaColumnasSemana(columnas, ANCHO_MIN_COLUMNA_PX, grande ? ANCHO_MIN_CARRIL_GRANDE_PX : undefined);
   const anchoMinTotal = ANCHO_GUTTER_PX + anchoMin;
 
   return (
@@ -109,7 +113,7 @@ export function VistaSemana({
           vez de desincronizarse (dos scrolls separados no se sincronizan
           solos). El gutter de horas va `sticky left-0` por el mismo motivo,
           en la dirección contraria. */}
-      <div ref={scrollRef} data-testid="grid-semana-scroll" className="min-h-0 flex-1 overflow-auto">
+      <div ref={scrollRef} data-testid="grid-semana-scroll" data-px-por-hora={pxPorHora} data-letra={letra} className="min-h-0 flex-1 overflow-auto">
         <div style={{ minWidth: anchoMinTotal }}>
           <div className="sticky top-0 z-10 grid border-b border-border bg-card" style={{ gridTemplateColumns: `${ANCHO_GUTTER_PX}px ${plantilla}` }}>
             <div className="sticky left-0 z-10 bg-card" />
@@ -140,7 +144,7 @@ export function VistaSemana({
                   <p className="flex items-center justify-center gap-1.5 min-w-0">
                     {c.hayAtencion && <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--destructive)' }} />}
                     <span
-                      className="text-[11px] font-bold uppercase tracking-wide"
+                      className={`${grande ? 'text-xs' : 'text-[11px]'} font-bold uppercase tracking-wide`}
                       style={{ color: esHoy ? 'var(--brand-medio)' : 'var(--muted-foreground)' }}
                     >
                       {NOMBRE_DIA_POR_WEEKDAY[fechasSemana[i]?.getDay() ?? i]}
@@ -157,7 +161,7 @@ export function VistaSemana({
                     )}
                   </p>
                   <p
-                    className="mt-0.5 truncate text-[10.5px]"
+                    className={`mt-0.5 truncate ${grande ? 'text-[11.5px]' : 'text-[10.5px]'}`}
                     style={{ color: esHoy ? 'var(--brand-medio)' : 'var(--muted-foreground)', fontWeight: esHoy ? 700 : undefined }}
                   >
                     {esHoy
@@ -178,7 +182,7 @@ export function VistaSemana({
                   // cada hora sobre su línea, pero en la de arriba del todo
                   // esos 6 px la sacan del contenedor y se monta sobre el borde
                   // redondeado y la cabecera de días.
-                  className={`absolute right-2 text-[10.5px] font-semibold tabular-nums text-muted-foreground${h.topPx > 0 ? ' -translate-y-1.5' : ''}`}
+                  className={`absolute right-2 ${grande ? 'text-[11.5px]' : 'text-[10.5px]'} font-semibold tabular-nums text-muted-foreground${h.topPx > 0 ? ' -translate-y-1.5' : ''}`}
                   style={{ top: h.topPx }}
                 >
                   {h.label}
@@ -258,6 +262,7 @@ export function VistaSemana({
                       reservasSesion={d.reservasSesion}
                       estado={d.estado}
                       modo="compacto"
+                      letra={letra}
                       seleccionada={seleccionadaId === s.id}
                       marcada={marcadas?.has(s.id)}
                       atenuada={atenuada?.(d)}

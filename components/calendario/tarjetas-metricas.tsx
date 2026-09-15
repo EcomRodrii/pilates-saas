@@ -23,7 +23,9 @@ export function TarjetasMetricas({ tarjetas, onClickTarjeta }: {
         >
           <p className="text-[9.5px] font-bold uppercase tracking-wide text-muted-foreground">{t.titulo}</p>
           <p className="tm-valor mt-1 truncate text-[15px] font-bold tracking-tight text-foreground">{t.valor}</p>
-          <p className="tm-pie mt-0.5 truncate text-[11px] text-muted-foreground">{t.pie}</p>
+          {/* Dos líneas y no `truncate`: junto a los filtros, en un MacBook Pro de
+              1512 px, «clases que no llenan · revisa su hora» salía cortado. */}
+          <p className="tm-pie mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{t.pie}</p>
           {t.barra && (
             <span className="tm-barra mt-1.5 block h-[3px] overflow-hidden rounded-full bg-border">
               <span

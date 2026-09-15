@@ -19,6 +19,9 @@ import type { Sesion, TipoClase, Instructor, Reserva } from '@/lib/types';
 /** Alto natural medido del bloque compacto con tres líneas y con dos. */
 const ALTO_TRES_LINEAS_PX = 55;
 const ALTO_DOS_LINEAS_PX = 42;
+/** Lo mismo con `letra="grande"`, medido igual (lo vigila `e2e/calendario-escritorio.spec.ts`). */
+const ALTO_TRES_LINEAS_GRANDE_PX = 64;
+const ALTO_DOS_LINEAS_GRANDE_PX = 48;
 
 // Cuánto tiñe el color del tipo de clase el bloque. `--calendario-tinte-clase`
 // (globals.css) está medido para los pasteles; un color OSCURO a esa proporción
@@ -40,6 +43,9 @@ export interface BloqueClaseProps {
   reservasSesion: Pick<Reserva, 'estado'>[];
   estado: EstadoSesion;
   modo: 'ancho' | 'compacto';
+  /** Solo en `compacto`: `grande` sube la letra en pantallas con alto de sobra.
+   *  Quien lo pide tiene que dar más píxeles por hora, o las líneas no caben. */
+  letra?: 'normal' | 'grande';
   seleccionada: boolean;
   /** Marcada dentro de una selección múltiple (reasignar varias a la vez).
    *  Es distinto de `seleccionada`, que es «esta es la que tienes abierta». */
@@ -82,11 +88,12 @@ function limitesDeArrastre(el: HTMLElement): { minX: number; maxX: number; minY:
 }
 
 export function BloqueClase({
-  sesion, tipo, instructor, reservasSesion, estado, modo, seleccionada, marcada,
+  sesion, tipo, instructor, reservasSesion, estado, modo, letra = 'normal', seleccionada, marcada,
   atenuada, style, onSeleccionar, accion, arrastrable, onMover,
 }: BloqueClaseProps) {
   const p = PINTA[estado];
   const ancho = modo === 'ancho';
+  const grande = !ancho && letra === 'grande';
 
   // `limites` se mide UNA vez, al empezar el gesto: cuánto puede desplazarse el
   // bloque en cada sentido sin salirse de la rejilla que contiene todas las
@@ -177,7 +184,8 @@ export function BloqueClase({
   const altoDisponible = typeof style.height === 'number' ? style.height : null;
   const lineasCompacto = altoDisponible == null
     ? (duracionMin >= 40 ? 3 : 2)
-    : altoDisponible >= ALTO_TRES_LINEAS_PX ? 3 : altoDisponible >= ALTO_DOS_LINEAS_PX ? 2 : 1;
+    : altoDisponible >= (grande ? ALTO_TRES_LINEAS_GRANDE_PX : ALTO_TRES_LINEAS_PX) ? 3
+      : altoDisponible >= (grande ? ALTO_DOS_LINEAS_GRANDE_PX : ALTO_DOS_LINEAS_PX) ? 2 : 1;
 
   return (
     <div
@@ -226,7 +234,7 @@ export function BloqueClase({
         'absolute flex flex-col overflow-hidden rounded-r-md border border-border/60 border-l-[3px]',
         'transition-transform duration-150 hover:-translate-y-px hover:shadow-md hover:z-20',
         arrastrable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-        ancho ? 'gap-1 p-2' : 'gap-0.5 px-1.5 py-1',
+        ancho ? 'gap-1 p-2' : grande ? 'gap-0.5 px-2 py-1' : 'gap-0.5 px-1.5 py-1',
         // El aro va por fuera del borde para que se vea sobre cualquier color
         // de tipo de clase; con un `border` se perdía en los tonos oscuros.
         marcada && 'ring-2 ring-brand ring-offset-1 ring-offset-card z-30',
@@ -246,7 +254,7 @@ export function BloqueClase({
       )}
       <span className="flex items-center gap-1.5 min-w-0">
         <span
-          className={cn('font-bold tabular-nums whitespace-nowrap', ancho ? 'text-xs' : 'text-[9.5px]')}
+          className={cn('font-bold tabular-nums whitespace-nowrap', ancho ? 'text-xs' : grande ? 'text-[11px]' : 'text-[9.5px]')}
           style={{ color: p.tinta }}
         >
           {horaTexto}
@@ -256,7 +264,7 @@ export function BloqueClase({
             alto que mide `e2e/calendario-semana-legible.spec.ts`. */}
         {sesion.serieId && (
           <span role="img" aria-label="Se repite cada semana" title="Se repite cada semana" className="shrink-0 inline-flex" style={{ color: p.tinta }}>
-            <RefreshCw size={ancho ? 11 : 9} strokeWidth={2.5} aria-hidden />
+            <RefreshCw size={ancho || grande ? 11 : 9} strokeWidth={2.5} aria-hidden />
           </span>
         )}
         {ancho && estado !== 'PROGRAMADA' && (
@@ -271,7 +279,7 @@ export function BloqueClase({
           // Una sola línea: hora y CLASE, que es lo que identifica el bloque. La
           // ocupación cede el sitio; se ve al abrirla.
           <span
-            className="min-w-0 truncate text-[10.5px] font-semibold leading-tight"
+            className={cn('min-w-0 truncate font-semibold leading-tight', grande ? 'text-[12.5px]' : 'text-[10.5px]')}
             style={{ color: p.tinta, textDecoration: sesion.cancelada ? 'line-through' : 'none' }}
           >
             {tipo.nombre}
@@ -288,7 +296,7 @@ export function BloqueClase({
              para volverlo ilegible. Mismo criterio que la barra del bono en la
              app de la alumna (#1832). */
           <span
-            className="ml-auto text-[9.5px] font-bold tabular-nums whitespace-nowrap"
+            className={cn('ml-auto font-bold tabular-nums whitespace-nowrap', grande ? 'text-[11px]' : 'text-[9.5px]')}
             style={{ color: p.tinta }}
           >
             {confirmadas}/{sesion.aforoMaximo}
@@ -298,7 +306,7 @@ export function BloqueClase({
 
       {(ancho || lineasCompacto >= 2) && (
         <span
-          className={cn('font-semibold leading-tight truncate', ancho ? 'text-[15px]' : 'text-[10.5px]')}
+          className={cn('font-semibold leading-tight truncate', ancho ? 'text-[15px]' : grande ? 'text-[12.5px]' : 'text-[10.5px]')}
           style={{ color: p.tinta, textDecoration: sesion.cancelada ? 'line-through' : 'none' }}
         >
           {tipo.nombre}
@@ -313,7 +321,7 @@ export function BloqueClase({
       )}
 
       {!ancho && lineasCompacto === 3 && (
-        <span className="text-[9px] leading-tight truncate" style={{ color: estado === 'PROGRAMADA' ? 'var(--muted-foreground)' : p.tinta }}>
+        <span className={cn('leading-tight truncate', grande ? 'text-[11px]' : 'text-[9px]')} style={{ color: estado === 'PROGRAMADA' ? 'var(--muted-foreground)' : p.tinta }}>
           {instructor?.nombre ?? 'Sin instructora'}
           {enEspera > 0 ? ` · ${enEspera} en espera` : ''}
         </span>
