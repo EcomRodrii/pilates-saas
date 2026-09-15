@@ -287,6 +287,17 @@
   --card-foreground: #EDEDE8;
   --popover: #1E1E22;
   --popover-foreground: #EDEDE8;
+  /* La acción principal es la TINTA del modo, como en claro (#131313 sobre
+     papel). Sin redefinir, `bg-primary` heredaba ese casi negro y se pintaba
+     sobre un fondo casi negro: la letra blanca daba 18:1 —por eso ningún
+     barrido de texto lo cazó— pero el botón en sí medía 1,03:1 contra la
+     página y 1,12:1 contra una tarjeta. No se ve un control, se ve un rótulo
+     flotando. Invertido: 15,36:1 de letra y 14,15–15,36:1 de contorno
+     (e2e/panel-contraste.spec.ts, «botón primario en oscuro»).
+     No es un token de marca: `panel-theme` escribe `--brand*` en línea y
+     nunca `--primary`, así que la marca blanca no lo pisa. */
+  --primary: #EDEDE8;
+  --primary-foreground: #16161A;
   --secondary: #26262B;
   --secondary-foreground: #EDEDE8;
   --muted: #232327;
@@ -600,10 +611,10 @@ nextjs-portal { display: none !important; }
      control: a 3:1 sería una rejilla de cajas compitiendo con los campos.
    · `--input` (contorno de campo, `inputCls`): 3,82:1 / 3,68:1 sobre la tarjeta.
      Es el contorno de un CONTROL, y WCAG 1.4.11 pide 3:1.
-   · `--primary` en oscuro: `.dark` no lo redefine, y todo lo pintado con
-     `bg-primary` (el interruptor, antes) quedaba casi negro sobre la tarjeta
-     casi negra — 1,12:1. Aquí vuelve a ser la tinta del modo. Fuera de
-     Configuración sigue igual: sus botones `bg-primary` son otra decisión.
+   · `--primary` en oscuro ya NO se pisa aquí: esto nació redefiniéndolo solo
+     en Configuración (1,12:1 sobre la tarjeta), y ahora lo redefine `.dark`
+     para todo el panel con los mismos valores. Volver a ponerlo aquí sería una
+     segunda fuente de verdad que diverge en cuanto una cambie.
    ⚠️ Los tokens de MARCA no se tocan: los pisa `panel-theme` en línea con el
    tema del estudio. Ni las paletas categóricas. */
 .config-tactil {
@@ -613,8 +624,6 @@ nextjs-portal { display: none !important; }
 .dark .config-tactil {
   --border: #414147;
   --input: #76767B;
-  --primary: #EDEDE8;
-  --primary-foreground: #16161A;
 }
 
 /* Dentro de Configuración, la burbuja de WhatsApp no manda. Verde saturado era

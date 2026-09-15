@@ -10,8 +10,9 @@ import { cn } from '@/lib/utils';
 //
 // Se lee igual en claro y en oscuro (medido en e2e/configuracion-contraste.spec.ts):
 //   · encendido: pista rellena de TINTA (`--foreground`) y bola del color de la
-//     tarjeta. Ni `--primary` —no se redefine en `.dark`, y el encendido quedaba
-//     a 1,12:1, más apagado que el apagado— ni la marca: con marca blanca puede
+//     tarjeta. Ni `--primary` —cuando se escribió, `.dark` no lo redefinía y el
+//     encendido quedaba a 1,12:1, más apagado que el apagado; hoy sí, pero un
+//     interruptor no tiene por qué seguir a la acción principal— ni la marca: con marca blanca puede
 //     ser un pastel, y en oscuro `panel-theme` deja el oliva en línea sobre un
 //     fondo casi negro (1,5:1).
 //   · apagado: pista del color de la tarjeta con CONTORNO de 2 px en
