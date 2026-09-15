@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
   // H-1: la cookie del flujo es de un solo uso — se borra en TODAS las salidas.
   const redirigir = (query: string) => {
-    const res = NextResponse.redirect(`${appUrl}/configuracion?${query}`);
+    const res = NextResponse.redirect(`${appUrl}/configuracion?tab=integraciones&${query}`);
     borrarCookieOAuth(res, 'stripe');
     return res;
   };
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
         ? await admin.from('actividad_reciente').insert({
           id: uid(), studio_id: studioId, tipo: 'CUENTA_COBRO_CAMBIADA',
           texto: `Stripe conectado al estudio (cuenta terminada en ${token.stripe_user_id.slice(-4)})`,
-          socio_id: null, enlace: '/configuracion', creado_en: new Date().toISOString(), actor_nombre: null,
+          socio_id: null, enlace: '/configuracion?tab=integraciones', creado_en: new Date().toISOString(), actor_nombre: null,
         })
         : { error: null };
       if (errLog) console.error('[stripe/connect/callback] registro de actividad', errLog.message);

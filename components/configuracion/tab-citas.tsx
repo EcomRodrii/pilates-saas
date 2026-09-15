@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { TabServiciosCita } from './tab-servicios-cita';
 import { TabHorarioCitas } from './tab-horario-citas';
+import type { SubDe } from '@/lib/configuracion/destino';
 
 // Servicios de cita y Horario de citas eran 2 pestañas sueltas en el nivel
 // superior de Configuración, pero ambas configuran el mismo dominio (las
@@ -11,13 +12,13 @@ import { TabHorarioCitas } from './tab-horario-citas';
 // su propia sub-navegación, mismo patrón que Gamificación y Clases y salas.
 // Los 2 componentes internos no se tocan: siguen siendo el mismo CRUD de
 // siempre, solo cambia dónde viven.
-type Sub = 'servicios' | 'horario';
+type Sub = SubDe<'citas'>;
 const SUBS: { id: Sub; label: string }[] = [
   { id: 'servicios', label: 'Servicios' },
   { id: 'horario', label: 'Horario' },
 ];
 
-export function TabCitas({ showToast, sub: subInicial }: { showToast: (m: string) => void; sub?: string }) {
+export function TabCitas({ showToast, sub: subInicial, onSubChange }: { showToast: (m: string) => void; sub?: string; onSubChange?: (sub: Sub) => void }) {
   const [sub, setSub] = useState<Sub>(SUBS.some(s => s.id === subInicial) ? (subInicial as Sub) : 'servicios');
 
   return (
@@ -29,7 +30,7 @@ export function TabCitas({ showToast, sub: subInicial }: { showToast: (m: string
         </p>
       </div>
 
-      <Tabs value={sub} onValueChange={(v) => setSub(v as Sub)}>
+      <Tabs value={sub} onValueChange={(v) => { setSub(v as Sub); onSubChange?.(v as Sub); }}>
         <TabsList>
           {SUBS.map(s => (
             <TabsTrigger key={s.id} value={s.id}>{s.label}</TabsTrigger>

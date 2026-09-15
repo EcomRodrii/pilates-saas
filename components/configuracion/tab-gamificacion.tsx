@@ -10,6 +10,7 @@ import { TabRetos } from './tab-retos';
 import { PlanGate } from '@/components/ui/plan-gate';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
+import type { SubDe } from '@/lib/configuracion/destino';
 
 // Antes Recompensas/Logros/Niveles/Retos eran 4 pestañas sueltas en el nivel
 // superior de Configuración, todas para la misma función (la gamificación que
@@ -18,7 +19,7 @@ import type { Studio } from '@/lib/types';
 // para que el nivel superior no se llene de entradas que en realidad son una
 // misma pieza. Los 4 componentes internos no se tocan: siguen siendo el mismo
 // CRUD de siempre, solo cambia dónde viven.
-type Sub = 'recompensas' | 'canjes' | 'logros' | 'niveles' | 'retos';
+type Sub = SubDe<'gamificacion'>;
 const SUBS: { id: Sub; label: string }[] = [
   { id: 'recompensas', label: 'Recompensas' },
   // «Canjes» es lo ÚNICO accionable de esta pestaña: el resto es configuración
@@ -29,7 +30,7 @@ const SUBS: { id: Sub; label: string }[] = [
   { id: 'retos', label: 'Retos' },
 ];
 
-export function TabGamificacion({ showToast, sub: subInicial, studio }: { showToast: (m: string) => void; sub?: string; studio?: Studio | null }) {
+export function TabGamificacion({ showToast, sub: subInicial, onSubChange, studio }: { showToast: (m: string) => void; sub?: string; onSubChange?: (sub: Sub) => void; studio?: Studio | null }) {
   const [sub, setSub] = useState<Sub>(SUBS.some(s => s.id === subInicial) ? (subInicial as Sub) : 'recompensas');
   const { cargarGamificacion } = useStudio();
 
@@ -50,7 +51,7 @@ export function TabGamificacion({ showToast, sub: subInicial, studio }: { showTo
       </div>
 
       <PlanGate studio={studio ?? {}} feature="gamificacion">
-        <Tabs value={sub} onValueChange={(v) => setSub(v as Sub)}>
+        <Tabs value={sub} onValueChange={(v) => { setSub(v as Sub); onSubChange?.(v as Sub); }}>
           <TabsList>
             {SUBS.map(s => (
               <TabsTrigger key={s.id} value={s.id}>{s.label}</TabsTrigger>

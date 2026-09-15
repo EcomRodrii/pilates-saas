@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
   // H-1: la cookie del flujo es de un solo uso — se borra en TODAS las salidas.
   const redirigir = (query: string) => {
-    const res = NextResponse.redirect(`${appUrl}/configuracion?${query}`);
+    const res = NextResponse.redirect(`${appUrl}/configuracion?tab=integraciones&${query}`);
     borrarCookieOAuth(res, 'klaviyo');
     return res;
   };

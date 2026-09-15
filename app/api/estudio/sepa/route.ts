@@ -66,7 +66,7 @@ export async function PUT(req: NextRequest) {
   const { error: errLog } = await admin.from('actividad_reciente').insert({
     id: uid(), studio_id: studio.id, tipo: 'CUENTA_COBRO_CAMBIADA',
     texto: `Datos SEPA de la remesa actualizados (${ibanEnmascarado(datos.sepaIban)})`,
-    socio_id: null, enlace: '/configuracion', creado_en: new Date().toISOString(), actor_nombre: sesion.nombre,
+    socio_id: null, enlace: '/configuracion?tab=estudio&sub=cobros', creado_en: new Date().toISOString(), actor_nombre: sesion.nombre,
   });
   if (errLog) console.error('[estudio:sepa] no se pudo registrar la actividad', errLog.message);
 

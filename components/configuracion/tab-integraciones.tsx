@@ -344,14 +344,14 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     // modos — a diferencia de Stripe/Google/Zoom esto no es la vuelta de un
     // redirect, así que el query param se añade aquí en vez de venir de un
     // callback de servidor.
-    window.location.href = `${window.location.pathname}?whatsapp_connected=1`;
+    window.location.href = `/configuracion?tab=integraciones&whatsapp_connected=1`;
   };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('whatsapp_connected')) {
       showToast('WhatsApp conectado');
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -383,10 +383,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const params = new URLSearchParams(window.location.search);
     if (params.get('stripe_connected')) {
       showToast('Stripe conectado — ya puedes cobrar en tu propia cuenta');
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     } else if (params.get('stripe_connect_error')) {
       showToast(`Error al conectar Stripe: ${params.get('stripe_connect_error')}`);
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -454,10 +454,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const params = new URLSearchParams(window.location.search);
     if (params.get('google_calendar_connected')) {
       showToast('Google Calendar conectado');
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     } else if (params.get('google_calendar_error')) {
       showToast(`Error al conectar Google Calendar: ${params.get('google_calendar_error')}`);
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -509,10 +509,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const params = new URLSearchParams(window.location.search);
     if (params.get('gmail_connected')) {
       showToast('Gmail conectado');
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     } else if (params.get('gmail_error')) {
       showToast(`Error al conectar Gmail: ${params.get('gmail_error')}`);
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -582,10 +582,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const params = new URLSearchParams(window.location.search);
     if (params.get('zoom_connected')) {
       showToast('Zoom conectado');
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     } else if (params.get('zoom_error')) {
       showToast(`Error al conectar Zoom: ${params.get('zoom_error')}`);
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -641,10 +641,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     const params = new URLSearchParams(window.location.search);
     if (params.get('klaviyo_connected')) {
       showToast('Klaviyo conectado');
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     } else if (params.get('klaviyo_error')) {
       showToast(`Error al conectar Klaviyo: ${params.get('klaviyo_error')}`);
-      window.history.replaceState({}, '', '/configuracion');
+      window.history.replaceState({}, '', '/configuracion?tab=integraciones');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

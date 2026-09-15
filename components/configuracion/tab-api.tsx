@@ -18,6 +18,7 @@ import { luminancia } from '@/lib/reservar/apariencia-widget';
 import { SelectorFuente } from '@/components/ui/selector-fuente';
 import { scriptSnippetIframe } from '@/lib/reservar/snippet-embed';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
+import type { SubDe } from '@/lib/configuracion/destino';
 
 const COLOR_WIDGET_POR_DEFECTO = '#343825';
 
@@ -422,15 +423,16 @@ function CampoColor({ etiqueta, descripcion, valor, porDefecto, onChange }: {
 
 // "Crecimiento web" vivía como pestaña propia de primer nivel (Fase 8) — se
 // mueve aquí dentro porque es la misma superficie de negocio que "API": el
-// widget público es el canal, esto es su cuadro de mando. Sub-navegación
-// local (no el `sub` de page.tsx, que reconstruye la URL con `?tab=`): esta
-// pantalla no tenía deep-link propio antes y no hace falta inventarlo ahora.
-type Seccion = 'widgets' | 'crecimiento';
+// widget público es el canal, esto es su cuadro de mando. Es una sub-pestaña
+// más (`?tab=api&sub=crecimiento`): los ids salen de lib/configuracion/destino.ts,
+// y así un `?tab=crecimiento-web` antiguo aterriza aquí y recargar no la pierde.
+type Seccion = SubDe<'api'>;
 
-export function TabApi({ showToast }: { showToast: (m: string) => void }) {
+export function TabApi({ showToast, sub: subInicial, onSubChange }: { showToast: (m: string) => void; sub?: string; onSubChange?: (sub: Seccion) => void }) {
   const { studio } = useStudio();
   const rol = useRol();
-  const [seccion, setSeccion] = useState<Seccion>('widgets');
+  const [seccion, setSeccionLocal] = useState<Seccion>(subInicial === 'crecimiento' ? 'crecimiento' : 'widgets');
+  const setSeccion = (s: Seccion) => { setSeccionLocal(s); onSubChange?.(s); };
 
   if (!studio?.slug) return null;
 
