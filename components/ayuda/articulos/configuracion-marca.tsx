@@ -11,15 +11,14 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 // 15-sep-2026: Configuración se reorganizó por preguntas. «Marca» es una
 // sección, con el logo, el color y los textos de tu app juntos; el nombre del
 // estudio sigue en «Datos y contacto», en «Mi estudio». El color ya no abre otra
-// pantalla, y el favicon no se publica mientras el editor del portal esté en
-// mantenimiento (components/configuracion/tab-marca.tsx).
+// pantalla, y el favicon se publica al subirlo (components/configuracion/tab-marca.tsx).
 export default function Contenido() {
   return (
     <>
       <p>
         En Configuración &gt; Marca, la tarjeta «Logo y favicon» tiene el logo y el favicon: se guardan solos en cuanto
         los subes, y subirlos no borra nada de lo que estés escribiendo en «Textos de tu app», en esa misma sección. El
-        favicon no se publica mientras el editor del portal esté en mantenimiento. El nombre de tu estudio está en
+        favicon es el icono de la pestaña de tu página de reservas. El nombre de tu estudio está en
         Configuración &gt; Mi estudio, en «Datos y contacto».
       </p>
 

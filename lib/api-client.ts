@@ -98,12 +98,21 @@ export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeCon
   return res.json();
 }
 
+import type { CamposPublicables } from '@/lib/theme-publicar-campos';
+
 export type ResultadoPublicar =
   | { ok: true; theme: ThemeConfig }
   | { ok: false; errores: ErrorContraste[] };
 
-export async function publicarThemeApi(): Promise<ResultadoPublicar> {
-  const res = await fetch('/api/theme/publish', { method: 'POST', headers: await authHeader() });
+/**
+ * Publica la marca. Sin `campos`, el borrador entero (el editor del portal).
+ * Con `campos` (el color o el favicon, desde Configuración › Marca), solo esos,
+ * encima de lo publicado y sin tocar el resto del borrador.
+ */
+export async function publicarThemeApi(campos?: CamposPublicables): Promise<ResultadoPublicar> {
+  const res = await fetch('/api/theme/publish', campos
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeader()) }, body: JSON.stringify({ campos }) }
+    : { method: 'POST', headers: await authHeader() });
   if (res.status === 422) {
     const b = (await res.json()) as { errores?: ErrorContraste[] };
     return { ok: false, errores: b.errores ?? [{ mensaje: 'Contraste insuficiente', categoriaId: 'color-marca' }] };

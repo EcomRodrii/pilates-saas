@@ -179,13 +179,16 @@ test('no se puede guardar encima de un layout que no se ha podido leer', () => {
     'Guardar sobre una lectura fallida borraría el menú que el estudio ya tenía.');
 });
 
-test('el color se guarda sobre lo PUBLICADO, no sobre el borrador', () => {
+test('el color se publica solo, sobre lo PUBLICADO, sin reescribir el borrador', () => {
   const src = leer(COLOR);
-  // `guardarBorradorTheme` fusiona sobre el borrador actual. Si hubiera uno a
-  // medias del editor viejo, publicar sacaría a producción cambios que nadie
-  // pidió sacar.
-  assert.match(src, /guardarThemeBorrador\(\{ \.\.\.base, primary, secondary \}\)/,
+  // Publicar el borrador entero sacaría a producción lo que el editor viejo
+  // dejara a medias; reescribirlo desde lo publicado borraba el favicon
+  // pendiente. Se mandan los dos colores y el servidor fusiona solo esos.
+  assert.match(src, /publicarThemeApi\(\{ primary, secondary \}\)/,
     'Publicar tiene que ser predecible: publicado + los colores, y nada más.');
+  assert.ok(!/guardarThemeBorrador/.test(src), 'El color no reescribe el borrador.');
+  assert.match(leer('lib/theme-data.ts'), /export async function publicarCamposTheme[\s\S]*fusionarCampos\(/,
+    'La fusión de solo esos campos vive en el servidor.');
 });
 
 test('un color sin contraste no llega a publicarse en silencio', () => {

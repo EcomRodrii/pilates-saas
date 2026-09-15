@@ -44,6 +44,44 @@ async function panel(page: Page, opciones: { respuestaPreferencias?: number; bil
 
 const tituloSeccion = (page: Page, nombre: string) => page.getByRole('heading', { level: 2, name: nombre, exact: true });
 
+// El favicon solo se ofrece con la marca en el plan (Estudio en adelante).
+const ESTUDIO_CON_MARCA = {
+  id: 'studio-test', nombre: 'Pilates Centro', slug: 'pilates-centro',
+  owner_auth_user_id: 'auth-e2e-duena', email: 'cloe@example.com', moneda: 'EUR',
+  iva_por_defecto: 21, nif: 'B12345678', plan: 'ESTUDIO', subscription_status: 'active',
+};
+const FAVICON_PUBLICADO = 'https://example.supabase.co/storage/v1/object/public/avatars/favicon-studio-test?v=1';
+// Un PNG de 1×1: pasa la validación de formato y tamaño del cliente.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+
+/** Marca con el tema en memoria: el borrador (PUT) y lo publicado (POST publish), contados aparte. */
+async function montarMarca(page: Page, respuestaPublicar = 200) {
+  await montar(page);
+  await page.route('**/rest/v1/studios**', r => json(r, ESTUDIO_CON_MARCA));
+  await page.route('**/storage/v1/object/**', r => json(r, { Key: 'avatars/favicon-borrador-studio-test', Id: 'e2e' }));
+  let tema: Record<string, unknown> = { primary: '#343825', secondary: '#D9C29E', logoUrl: null, radius: 12, faviconUrl: null };
+  let borradores = 0;
+  const publicaciones: { campos?: Record<string, unknown> }[] = [];
+  await page.route(u => u.pathname === '/api/theme', r => {
+    if (r.request().method() === 'PUT') { borradores += 1; return json(r, tema); }
+    return json(r, tema);
+  });
+  await page.route(u => u.pathname === '/api/theme/publish', r => {
+    const cuerpo = r.request().postDataJSON() as { campos?: Record<string, unknown> };
+    publicaciones.push(cuerpo);
+    if (respuestaPublicar !== 200) {
+      return json(r, { error: 'No se han podido publicar los cambios de marca. Vuelve a intentarlo.' }, respuestaPublicar);
+    }
+    // Como el servidor: solo cambia lo que llega, y el favicon queda en su path publicado.
+    const campos = cuerpo.campos ?? {};
+    tema = { ...tema, ...campos, ...(campos.faviconUrl ? { faviconUrl: FAVICON_PUBLICADO } : {}) };
+    return json(r, tema);
+  });
+  return { publicaciones, borradores: () => borradores };
+}
+
+const archivoFavicon = (page: Page) => page.locator('input[type="file"][aria-label="Archivo de favicon"]');
+
 test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () => {
   test.use({ viewport: { width: 1024, height: 768 } });
 
@@ -129,6 +167,45 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     expect(escrituras.length).toBeGreaterThan(0);
     await expect(interruptor).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByText(/Guardad[oa]s?\b/)).toHaveCount(0);
+  });
+
+  // El favicon subido en Marca se quedaba en el borrador (solo lo publicaba el
+  // editor del portal, en mantenimiento), y guardar el color lo borraba.
+  test('subir un favicon lo publica, y guardar después el color no lo toca', async ({ page }) => {
+    const { publicaciones, borradores } = await montarMarca(page);
+    await ir(page, 'configuracion?tab=marca');
+    await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeEnabled({ timeout: 30_000 });
+
+    await archivoFavicon(page).setInputFiles({ name: 'favicon.png', mimeType: 'image/png', buffer: PNG });
+    await expect.poll(() => publicaciones.length).toBe(1);
+    expect(publicaciones[0]).toEqual({
+      campos: { faviconUrl: expect.stringMatching(/\/storage\/v1\/object\/public\/avatars\/favicon-borrador-studio-test\?v=\d+$/) },
+    });
+    await expect(page.getByText('Favicon aplicado')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Cambiar favicon/ })).toBeVisible();
+
+    await page.getByRole('textbox', { name: 'Color principal en hexadecimal' }).fill('#224466');
+    await page.getByRole('button', { name: 'Guardar colores' }).click();
+    await expect.poll(() => publicaciones.length).toBe(2);
+    // Solo los dos colores: el servidor publica eso encima de lo publicado, así
+    // que el favicon ni viaja ni se pisa, y el borrador no se reescribe.
+    expect(publicaciones[1]).toEqual({ campos: { primary: '#224466', secondary: '#D9C29E' } });
+    expect(borradores()).toBe(0);
+    await expect(page.getByRole('button', { name: /Cambiar favicon/ })).toBeVisible();
+  });
+
+  test('si publicar el favicon falla, lo dice y se queda el de antes', async ({ page }) => {
+    const { publicaciones } = await montarMarca(page, 500);
+    await ir(page, 'configuracion?tab=marca');
+    await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeEnabled({ timeout: 30_000 });
+
+    await archivoFavicon(page).setInputFiles({ name: 'favicon.png', mimeType: 'image/png', buffer: PNG });
+    await expect(page.getByText(/No se ha(n)? podido publicar/)).toBeVisible({ timeout: 15_000 });
+    // Verde por no haberlo intentado no vale.
+    expect(publicaciones.length).toBeGreaterThan(0);
+    await expect(page.getByText('Favicon aplicado')).toHaveCount(0);
+    await expect(page.getByText(/Guardad[oa]s?\b/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeVisible();
   });
 
   test('«Plan de Tentare» dice cómo va la prueba y lleva a /suscripcion', async ({ page }) => {

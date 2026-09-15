@@ -177,7 +177,7 @@ export const SECCIONES = [
     palabras: ['imagen', 'identidad'],
     tarjetas: [
       // Era `marca`, que ahora es el id de la sección: su ancla vieja lleva aquí (destino.ts).
-      { id: 'logo-y-favicon', titulo: 'Logo y favicon', frase: 'Tu logo, que sale al momento en la app de tus alumnas, y el icono de la pestaña del navegador.', guardado: 'al-pulsar', palabras: ['icono', 'imagen'] },
+      { id: 'logo-y-favicon', titulo: 'Logo y favicon', frase: 'Se aplican al momento: el logo, en la app de tus alumnas, y el favicon, en la pestaña de tu página de reservas.', guardado: 'al-pulsar', palabras: ['icono', 'imagen'] },
       { id: 'color-de-marca', titulo: 'El color de tu marca', frase: 'Tiñe tu panel, tu página de reservas y la app de tus alumnas. Lo ves aplicado mientras lo eliges.', guardado: 'accion', palabras: ['colores', 'tema', 'apariencia'] },
       { id: 'textos-de-tu-app', titulo: 'Textos de tu app', frase: 'Tu presentación, lema, frases de bienvenida y normas del centro. Lo que dejes vacío no se muestra.', guardado: 'barra', palabras: ['presentación', 'lema', 'normas'] },
     ],

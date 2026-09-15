@@ -4,8 +4,8 @@
 // «El color de tu marca», en Configuración › Marca.
 //
 // Vivía en «Personalizar tu panel» (/configuracion/apariencia/panel), a una
-// pantalla del logo. Se trae tal cual: la misma lectura, la misma vista previa y
-// el mismo guardado.
+// pantalla del logo. La misma lectura y la misma vista previa; al guardar se
+// publican solo los dos colores.
 //
 // ⚠️ No es un color «del panel»: es el `primary`/`secondary` del tema PUBLICADO,
 // el mismo que ven las alumnas en su app y en tu página de reservas. Un color
@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { fetchThemePublicado, guardarThemeBorrador, publicarThemeApi } from '@/lib/api-client';
+import { fetchThemePublicado, publicarThemeApi } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { ThemeConfig } from '@/lib/theme-schema';
 import { btnPrimary, btnSecondary, inputCls, labelCls } from '@/components/configuracion/estilos';
@@ -81,10 +81,6 @@ export function TabColorMarca({ showToast }: { showToast: (m: string) => void })
   // Y si se sale sin guardar, se deshace: el proveedor vuelve a leer del
   // servidor. Sin esto, un color probado y descartado se quedaría puesto hasta
   // recargar, que es peor que no tener vista previa.
-  const publicadoRef = useRef<ThemeConfig | null>(null);
-  // En su propio efecto: el compilador de React rechaza escribir un ref
-  // durante el render, y con razón.
-  useEffect(() => { publicadoRef.current = publicado; }, [publicado]);
   const guardadoRef = useRef(false);
   useEffect(() => () => {
     if (!guardadoRef.current) {
@@ -98,16 +94,15 @@ export function TabColorMarca({ showToast }: { showToast: (m: string) => void })
   const validos = HEX.test(primary) && HEX.test(secondary);
 
   const guardarColor = useCallback(async () => {
-    const base = publicadoRef.current;
-    if (!base || !HEX.test(primary) || !HEX.test(secondary)) return;
+    if (!publicado || !HEX.test(primary) || !HEX.test(secondary)) return;
     setGuardandoColor(true);
     try {
-      // ⚠️ El parche se construye sobre lo PUBLICADO, no sobre el borrador.
-      // `guardarBorradorTheme` fusiona sobre el borrador actual, así que un
-      // borrador a medias del editor antiguo se habría publicado sin que nadie
-      // lo pidiera. Así, publicar es «lo que ya se ve» + estos dos colores.
-      await guardarThemeBorrador({ ...base, primary, secondary });
-      const res = await publicarThemeApi();
+      // ⚠️ Solo los dos colores. El servidor los publica encima de lo PUBLICADO
+      // y los deja en el borrador sin tocar nada más: ni sale a producción lo
+      // que el editor del portal dejara a medias, ni se pierde el favicon
+      // (lib/theme-publicar-campos.ts). Antes se reescribía el borrador entero
+      // desde lo publicado, y el favicon pendiente desaparecía.
+      const res = await publicarThemeApi({ primary, secondary });
       if (!res.ok) {
         showToast(res.errores[0]?.mensaje ?? 'Ese color no tiene contraste suficiente para leerse encima.');
         return;
@@ -123,7 +118,7 @@ export function TabColorMarca({ showToast }: { showToast: (m: string) => void })
     } finally {
       setGuardandoColor(false);
     }
-  }, [primary, secondary, showToast]);
+  }, [publicado, primary, secondary, showToast]);
 
   return (
     <TarjetaAjuste id="color-de-marca">
