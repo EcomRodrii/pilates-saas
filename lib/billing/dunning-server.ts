@@ -236,6 +236,15 @@ export async function confirmarCobroExitoso(params: {
     // sus efectos. Un adeudo SEPA se puede devolver hasta 8 semanas después,
     // así que succeeded → refunded → reentrega del succeeded es real.
     if (existe.estado === 'DEVUELTO') return { ok: true };
+    // ANULADO (el estudio lo perdonó al cancelar la cuota): si aun así llega un
+    // cobro, NO se renueva ni se sella factura sobre un recibo anulado. El dinero
+    // entró: se avisa para devolverlo.
+    if (existe.estado === 'ANULADO') {
+      Sentry.captureMessage('[confirmarCobroExitoso] cobro sobre un recibo ANULADO: hay que devolverlo', {
+        level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' }, extra: { reciboId, studioId, esSepa },
+      });
+      return { ok: true };
+    }
     // Ya COBRADO, vía TARJETA: es el caso NORMAL, no una reentrega rara — el
     // webhook llega para cada cargo y `cobrarReciboOffSession` ya lo persistió
     // todo de forma síncrona. Se repara en silencio lo idempotente (renovación
