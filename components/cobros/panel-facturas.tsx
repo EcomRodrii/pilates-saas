@@ -273,7 +273,7 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
               las facturas se emiten solas al cobrar.
             </p>
             <Link
-              href="/configuracion?tab=estudio&sub=general#datos-fiscales"
+              href="/configuracion?tab=cobros#datos-fiscales"
               className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold text-destructive hover:underline"
             >
               Poner mi NIF ahora

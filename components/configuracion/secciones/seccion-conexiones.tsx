@@ -2,20 +2,17 @@
 
 import { useRol, puedeGestionarAppsOAuth } from '@/lib/permisos';
 import { TabIntegraciones } from '@/components/configuracion/tab-integraciones';
-import { TarjetaEnlace } from '@/components/configuracion/shell/tarjeta-enlace';
+import { TabAppsConectadas } from '@/components/configuracion/tab-apps-conectadas';
 
-// Conexiones: Tentare con otras herramientas.
-//
-// ⚠️ TabIntegraciones se pinta entero aquí, incluidos Stripe, WhatsApp, Gmail
-// y el remitente de los correos, que tienen su sitio en «Cobros y facturas» y
-// «Cómo me comunico» (allí hay una fila que trae hasta aquí).
+const INTEGRACIONES = ['GOOGLE_CALENDAR', 'ZOOM', 'KISI', 'KLAVIYO', 'ZAPIER', 'MAILCHIMP'] as const;
+
+// Conexiones: Tentare con otras herramientas. Stripe, WhatsApp, Gmail y el
+// remitente de los correos están en «Cobros y facturas» y «Cómo me comunico».
 export function SeccionConexiones({ showToast }: { showToast: (m: string) => void }) {
   const rol = useRol();
   return (
-    <>
-      <TabIntegraciones showToast={showToast} />
-      {/* Mismo criterio que la tarjeta a la que lleva (AppsConectadas). */}
-      {puedeGestionarAppsOAuth(rol) && <TarjetaEnlace id="aplicaciones-con-acceso" />}
-    </>
+    <TabIntegraciones showToast={showToast} tipos={INTEGRACIONES}>
+      {puedeGestionarAppsOAuth(rol) && <TabAppsConectadas showToast={showToast} />}
+    </TabIntegraciones>
   );
 }

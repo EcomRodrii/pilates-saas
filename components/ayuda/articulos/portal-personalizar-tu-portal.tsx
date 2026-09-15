@@ -18,7 +18,7 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Lo que sí puedes cambiar hoy</h2>
       <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
-        <li><strong>Tu logo</strong>, en Configuración &gt; Mi estudio, en «Marca».</li>
+        <li><strong>Tu logo</strong>, en Configuración &gt; Mi app y mi web, en «Marca».</li>
         <li><strong>Tu color</strong>, desde «El color de tu marca», en esa misma tarjeta.</li>
         <li><strong>Los textos con los que te presentas</strong> en tu página de reservas, en «Textos de tu app», en esa misma pantalla.</li>
       </ul>

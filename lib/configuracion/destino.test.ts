@@ -30,20 +30,40 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=gamificacion&sub=canjes', { tab: 'motivacion', ancla: 'canjes' }],
     ['/configuracion?tab=clases-salas&sub=salas', { tab: 'estudio', ancla: 'salas' }],
     ['/configuracion?tab=estudio&sub=salas', { tab: 'estudio', ancla: 'salas' }],
-    ['/configuracion?tab=estudio&sub=general#datos-fiscales', { tab: 'estudio', ancla: 'datos-fiscales' }],
-    // Las vueltas de una conexión, sin `tab=` o con uno viejo.
-    ['/configuracion?stripe_connected=1', { tab: 'conexiones', ancla: 'integracion-stripe' }],
-    ['/configuracion?stripe_connect_error=Stripe%20no%20configurado', { tab: 'conexiones', ancla: 'integracion-stripe' }],
-    ['/configuracion?gmail_connected=1', { tab: 'conexiones', ancla: 'integracion-gmail' }],
-    ['/configuracion?gmail_error=x', { tab: 'conexiones', ancla: 'integracion-gmail' }],
+    ['/configuracion?tab=estudio&sub=general#datos-fiscales', { tab: 'cobros', ancla: 'datos-fiscales' }],
+    // Las vueltas de una conexión, sin `tab=` o con uno viejo: a la sección que
+    // pinta HOY su tarjeta, que es la única que enseña el aviso.
+    ['/configuracion?stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
+    ['/configuracion?stripe_connect_error=Stripe%20no%20configurado', { tab: 'cobros', ancla: 'integracion-stripe' }],
+    ['/configuracion?gmail_connected=1', { tab: 'comunicacion', ancla: 'integracion-gmail' }],
+    ['/configuracion?gmail_error=x', { tab: 'comunicacion', ancla: 'integracion-gmail' }],
     ['/configuracion?google_calendar_connected=1', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?google_calendar_error=x', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?zoom_connected=1', { tab: 'conexiones', ancla: 'integracion-zoom' }],
     ['/configuracion?zoom_error=x', { tab: 'conexiones', ancla: 'integracion-zoom' }],
     ['/configuracion?klaviyo_connected=1', { tab: 'conexiones', ancla: 'mas-integraciones' }],
     ['/configuracion?klaviyo_error=x', { tab: 'conexiones', ancla: 'mas-integraciones' }],
-    ['/configuracion?whatsapp_connected=1', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
-    ['/configuracion?tab=integraciones&stripe_connected=1', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
+    // Lo que mandaban los cinco callbacks y el Embedded Signup hasta el 15-sep.
+    ['/configuracion?tab=integraciones&stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=integraciones&gmail_connected=1', { tab: 'comunicacion', ancla: 'integracion-gmail' }],
+    ['/configuracion?tab=integraciones&google_calendar_connected=1', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
+    ['/configuracion?tab=integraciones&zoom_error=x', { tab: 'conexiones', ancla: 'integracion-zoom' }],
+    ['/configuracion?tab=integraciones&klaviyo_connected=1', { tab: 'conexiones', ancla: 'mas-integraciones' }],
+    ['/configuracion?tab=conexiones&whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
+    // Lo que mandan hoy.
+    ['/configuracion?tab=cobros&stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=comunicacion&gmail_connected=1', { tab: 'comunicacion', ancla: 'integracion-gmail' }],
+    ['/configuracion?tab=comunicacion&whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
+    // Tarjetas que cambiaron de sección el 15-sep: su ancla las sigue.
+    ['/configuracion?tab=conexiones#integracion-stripe', { tab: 'cobros', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=conexiones#integracion-whatsapp', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
+    ['/configuracion?tab=integraciones#integracion-resend', { tab: 'comunicacion', ancla: 'integracion-resend' }],
+    ['/configuracion?tab=conexiones#integracion-excel', { tab: 'datos', ancla: 'integracion-excel' }],
+    ['/configuracion?tab=estudio#marca', { tab: 'web', ancla: 'marca' }],
+    ['/configuracion?tab=estudio#textos-de-tu-app', { tab: 'web', ancla: 'textos-de-tu-app' }],
+    ['/configuracion?tab=estudio#catalogo-de-la-cadena', { tab: 'clases', ancla: 'catalogo-de-la-cadena' }],
+    ['/configuracion?tab=web#aplicaciones-con-acceso', { tab: 'conexiones', ancla: 'aplicaciones-con-acceso' }],
     ['/configuracion?suscripcion=ok', { redirect: '/suscripcion?suscripcion=ok' }],
     ['/configuracion?suscripcion=cancel', { redirect: '/suscripcion?suscripcion=cancel' }],
     // Lo que ya vive fuera de Configuración.
@@ -97,7 +117,9 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=cuestionario', { tab: 'altas', ancla: 'cuestionario-de-salud' }],
     // Las anclas de hoy mandan, venga el `tab=` que venga.
     ['/configuracion?tab=estudio&sub=reservas#ajuste-avisar-alumnas', { tab: 'reservas', ancla: 'ajuste-avisar-alumnas' }],
-    ['/configuracion?tab=cobros#datos-fiscales', { tab: 'estudio', ancla: 'datos-fiscales' }],
+    ['/configuracion?tab=cobros#datos-fiscales', { tab: 'cobros', ancla: 'datos-fiscales' }],
+    ['/configuracion?tab=estudio#datos-fiscales', { tab: 'cobros', ancla: 'datos-fiscales' }],
+    ['/configuracion?tab=altas#compra-desde-tu-enlace', { tab: 'reservas', ancla: 'compra-desde-tu-enlace' }],
     ['/configuracion?tab=reservas#ajuste-ventana-cancelacion', { tab: 'reservas', ancla: 'ajuste-ventana-cancelacion' }],
     // Lo desconocido no rompe: abre la lista.
     ['/configuracion', { tab: null }],
@@ -136,7 +158,7 @@ test('las doce pestañas de antes y todas sus sub-pestañas tienen sitio hoy', (
 });
 
 test('los parámetros de conexión mandan sobre un tab= distinto, y el ancla conocida también', () => {
-  assert.deepEqual(resolverDestino({ tab: 'estudio', params: { stripe_connected: '1' } }), { tab: 'conexiones', ancla: 'integracion-stripe' });
+  assert.deepEqual(resolverDestino({ tab: 'estudio', params: { stripe_connected: '1' } }), { tab: 'cobros', ancla: 'integracion-stripe' });
   assert.deepEqual(resolverDestino({ tab: 'clases', hash: '#canjes' }), { tab: 'motivacion', ancla: 'canjes' });
   assert.deepEqual(resolverDestino({ tab: 'cobros', hash: 'otra-cosa' }), { tab: 'cobros', ancla: 'otra-cosa' });
 });
@@ -148,8 +170,11 @@ test('las anclas salen solas de secciones.ts, con la sección donde se pinta HOY
     assert.equal(ANCLAS[id], seccionAnfitriona(id));
     assert.ok(esAnclaConocida(id));
   }
-  // Hospedada: su casa definitiva es Cobros, pero hoy se pinta en Mi estudio.
-  assert.equal(ANCLAS['datos-fiscales'], 'estudio');
+  // Ya en su sección.
+  assert.equal(ANCLAS['datos-fiscales'], 'cobros');
+  // Hospedada: su casa definitiva es Alta de alumnas, pero hoy se pinta dentro
+  // de las reglas de reserva.
+  assert.equal(ANCLAS['compra-desde-tu-enlace'], 'reservas');
 });
 
 test('la URL que escribe la página vuelve a abrir lo mismo', () => {
@@ -195,12 +220,11 @@ test('cada tarjeta de secciones.ts existe de verdad como id en un componente', (
   for (const s of SECCIONES) {
     for (const { id } of s.tarjetas) {
       const integracion = /^integracion-(.+)$/.exec(id);
-      const encontrada = integracion
+      const encontrada = COMPONENTES.some(c => c.codigo.includes(`id="${id}"`) || c.codigo.includes(`id: '${id}'`))
         // Las integraciones calculan su id del catálogo: `integracion-${tipo}`.
-        ? COMPONENTES.some(c => c.f.endsWith('tab-integraciones.tsx')
+        || (!!integracion && COMPONENTES.some(c => c.f.endsWith('tab-integraciones.tsx')
           && c.codigo.includes(`tipo: '${integracion[1].toUpperCase()}'`)
-          && c.codigo.includes('`integracion-${'))
-        : COMPONENTES.some(c => c.codigo.includes(`id="${id}"`) || c.codigo.includes(`id: '${id}'`));
+          && c.codigo.includes('`integracion-${')));
       if (!encontrada) faltan.push(`${s.id}#${id}`);
     }
   }
@@ -213,6 +237,32 @@ test('cada sección enseña una fila hacia cada tarjeta suya que se pinta en otr
     const filas = [...codigo.matchAll(/<TarjetaEnlace id="([^"]+)"/g)].map(m => m[1]).sort();
     const esperadas = tarjetasDeFuera(s.id as SeccionId).map(t => t.id).sort();
     assert.deepEqual(filas, esperadas, `filas de «${s.id}»`);
+  }
+});
+
+test('cada integración del catálogo la pinta la sección de su tarjeta, y solo esa', () => {
+  // `tipos` de TabIntegraciones, sección a sección. Una integración con tarjeta
+  // propia (`integracion-stripe`) va a la sección de esa tarjeta; las de «Más
+  // integraciones», a la de esa tarjeta. Si una sección la pintara y otra la
+  // tuviera en secciones.ts, su ancla y la vuelta de su conexión llevarían a
+  // una sección donde no está.
+  const catalogo = readFileSync(join(RAIZ, 'components/configuracion/tab-integraciones.tsx'), 'utf8');
+  const tiposCatalogo = [...catalogo.matchAll(/^\s{4}tipo: '([A-Z_]+)',$/gm)].map(m => m[1]);
+  const mas = /MAS_INTEGRACIONES = new Set<TipoIntegracion>\(\[([^\]]+)\]\)/.exec(catalogo)![1]
+    .match(/[A-Z_]+/g)!;
+  assert.ok(tiposCatalogo.length >= 9, `solo se han leído ${tiposCatalogo.length} integraciones del catálogo`);
+
+  const pintadaEn = new Map<string, SeccionId[]>();
+  for (const s of SECCIONES) {
+    const codigo = readFileSync(join(RAIZ, `components/configuracion/secciones/seccion-${s.id}.tsx`), 'utf8');
+    const lista = /const INTEGRACIONES = \[([^\]]*)\]/.exec(codigo)?.[1].match(/[A-Z_]+/g) ?? [];
+    for (const tipo of lista) pintadaEn.set(tipo, [...(pintadaEn.get(tipo) ?? []), s.id]);
+  }
+
+  for (const tipo of tiposCatalogo) {
+    const tarjeta = (mas.includes(tipo) ? 'mas-integraciones' : `integracion-${tipo.toLowerCase()}`) as TarjetaId;
+    assert.ok(esAnclaConocida(tarjeta), `«${tipo}» no tiene tarjeta en secciones.ts`);
+    assert.deepEqual(pintadaEn.get(tipo), [seccionAnfitriona(tarjeta)], `«${tipo}»`);
   }
 });
 

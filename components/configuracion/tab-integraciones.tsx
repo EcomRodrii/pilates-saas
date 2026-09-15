@@ -1,26 +1,26 @@
 'use client';
 
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect, useId, type ReactNode } from 'react';
 import type Stripe from 'stripe';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Check,
   AlertTriangle,
-  FileSpreadsheet,
   ExternalLink,
   BellRing,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
-import { StripeIcon, WhatsAppAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon, GmailIcon, MailchimpIcon, ZapierIcon, ExcelIcon, KisiIcon, KlaviyoIcon } from '@/components/icons/brand-icons';
+import { StripeIcon, WhatsAppAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon, GmailIcon, MailchimpIcon, ZapierIcon, KisiIcon, KlaviyoIcon } from '@/components/icons/brand-icons';
 import { authHeader } from '@/lib/api-client';
 import { saludIntegracion, textoSalud } from '@/lib/integraciones/salud';
 import { useWhatsappEmbeddedSignup } from '@/lib/hooks/use-whatsapp-embedded-signup';
 import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import { uuidV4 } from '@/lib/utils';
-import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
+import { seccionAnfitriona, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
+import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
 type CampoIntegracion = { key: string; label: string; placeholder: string; tipo?: 'text' | 'password' | 'checkbox' };
@@ -41,7 +41,6 @@ type CatalogoIntegracion = {
   campos: CampoIntegracion[];
   secretoEnv?: string;
   docsUrl?: string;
-  accion?: 'exportar';
   categoria?: string;
   proximamente?: boolean;
   // Pasos numerados que se enseñan en el modal ANTES de los campos — cada
@@ -142,15 +141,6 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     ],
     docsUrl: 'https://developers.facebook.com/docs/whatsapp/cloud-api/get-started',
     probarUrl: '/api/integrations/whatsapp/probar',
-  },
-  {
-    tipo: 'EXCEL',
-    ...deSecciones('integracion-excel'),
-    Icon: ExcelIcon,
-    color: '#1D6F42',
-    bg: '#E7F4EC',
-    campos: [],
-    accion: 'exportar',
   },
   {
     tipo: 'GMAIL',
@@ -260,27 +250,6 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   },
 ];
 
-function toCsv(rows: (string | number | null)[][]): string {
-  const esc = (v: string | number | null) => {
-    const s = v === null || v === undefined ? '' : String(v);
-    return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  return rows.map(r => r.map(esc).join(';')).join('\r\n');
-}
-
-function descargarCsv(nombre: string, contenido: string) {
-  // BOM para que Excel reconozca UTF-8
-  const blob = new Blob(['﻿' + contenido], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nombre;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 // Cuando una integración no está lista, lo que faltaba era una variable de
 // entorno del SERVIDOR — y eso se le enseñaba tal cual a la dueña del estudio:
 // "Falta configurar NEXT_PUBLIC_ZOOM_CLIENT_ID". Ella lleva un estudio de
@@ -295,12 +264,33 @@ function NoDisponibleTodavia({ variable }: { variable: string }) {
   );
 }
 
-export function TabIntegraciones({ showToast }: { showToast: (m: string) => void }) {
+// La sección que pinta una tarjeta, para dejar la URL limpia al volver de una
+// conexión. Sale de lib/configuracion/secciones.ts: si la tarjeta cambia de
+// sección, la vuelta la sigue sin tocar nada aquí.
+const urlDeLaSeccion = (tarjeta: TarjetaId) => hrefDeSeccion(seccionAnfitriona(tarjeta));
+
+/**
+ * Las integraciones, cada una en su sección: Stripe en «Cobros y facturas»; el
+ * remitente de los correos, WhatsApp y Gmail en «Cómo me comunico»; el resto en
+ * «Conexiones». `tipos` dice cuáles pinta ESTA sección, y solo esas piden sus
+ * datos y leen su aviso de vuelta en la URL.
+ *
+ * `children` va entre las tarjetas principales y «Más integraciones» (en
+ * Conexiones, «Aplicaciones con acceso»).
+ */
+export function TabIntegraciones({ showToast, tipos, children }: {
+  showToast: (m: string) => void;
+  tipos: readonly TipoIntegracion[];
+  children?: ReactNode;
+}) {
   // Declarado en el componente, NO dentro del modal: ese modal es una IIFE
   // dentro del JSX y un hook no puede llamarse ahí. El sufijo por campo.key
   // hace único cada id.
   const uid = useId();
-  const { studio, updateStudio, reflejarStudioGuardado, integraciones, upsertIntegracion, socios, suscripciones, planesTarifa, recibos, reservas, sesiones, tiposClase } = useStudio();
+  const { studio, updateStudio, reflejarStudioGuardado, integraciones, upsertIntegracion } = useStudio();
+  const pinta = (tipo: TipoIntegracion) => tipos.includes(tipo);
+  const pintaStripe = pinta('STRIPE');
+  const pintaZapier = pinta('ZAPIER');
   const [editando, setEditando] = useState<TipoIntegracion | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [probando, setProbando] = useState<TipoIntegracion | null>(null);
@@ -348,14 +338,15 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     // modos — a diferencia de Stripe/Google/Zoom esto no es la vuelta de un
     // redirect, así que el query param se añade aquí en vez de venir de un
     // callback de servidor.
-    window.location.href = `/configuracion?tab=conexiones&whatsapp_connected=1`;
+    window.location.href = `${urlDeLaSeccion('integracion-whatsapp')}&whatsapp_connected=1`;
   };
 
   useEffect(() => {
+    if (!pinta('WHATSAPP')) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('whatsapp_connected')) {
       showToast('WhatsApp conectado');
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('integracion-whatsapp'));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -384,13 +375,14 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   }
 
   useEffect(() => {
+    if (!pinta('STRIPE')) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('stripe_connected')) {
       showToast('Stripe conectado — ya puedes cobrar en tu propia cuenta');
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('integracion-stripe'));
     } else if (params.get('stripe_connect_error')) {
       showToast(`Error al conectar Stripe: ${params.get('stripe_connect_error')}`);
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('integracion-stripe'));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -418,14 +410,14 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   useEffect(() => {
     let cancelado = false;
     (async () => {
-      if (!stripeConectado) { if (!cancelado) setBizumEstado(null); return; }
+      if (!stripeConectado || !pintaStripe) { if (!cancelado) setBizumEstado(null); return; }
       const res = await fetch('/api/integrations/stripe/bizum-estado', { headers: await authHeader() });
       if (!res.ok || cancelado) return;
       const data = await res.json() as { estado?: 'active' | 'pending' | 'inactive' };
       if (!cancelado) setBizumEstado(data.estado ?? 'inactive');
     })();
     return () => { cancelado = true; };
-  }, [stripeConectado]);
+  }, [stripeConectado, pintaStripe]);
 
   // Google Calendar: OAuth real (ver lib/google-calendar.ts). A diferencia de
   // Stripe, desconectar y sincronizar pasan por rutas de servidor
@@ -455,13 +447,14 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   const [sincronizando, setSincronizando] = useState(false);
 
   useEffect(() => {
+    if (!pinta('GOOGLE_CALENDAR')) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('google_calendar_connected')) {
       showToast('Google Calendar conectado');
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('integracion-google_calendar'));
     } else if (params.get('google_calendar_error')) {
       showToast(`Error al conectar Google Calendar: ${params.get('google_calendar_error')}`);
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('integracion-google_calendar'));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -510,13 +503,14 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   }
 
   useEffect(() => {
+    if (!pinta('GMAIL')) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('gmail_connected')) {
       showToast('Gmail conectado');
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('integracion-gmail'));
     } else if (params.get('gmail_error')) {
       showToast(`Error al conectar Gmail: ${params.get('gmail_error')}`);
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('integracion-gmail'));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -583,13 +577,14 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   }
 
   useEffect(() => {
+    if (!pinta('ZOOM')) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('zoom_connected')) {
       showToast('Zoom conectado');
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('integracion-zoom'));
     } else if (params.get('zoom_error')) {
       showToast(`Error al conectar Zoom: ${params.get('zoom_error')}`);
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('integracion-zoom'));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -642,13 +637,14 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   }
 
   useEffect(() => {
+    if (!pinta('KLAVIYO')) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('klaviyo_connected')) {
       showToast('Klaviyo conectado');
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('mas-integraciones'));
     } else if (params.get('klaviyo_error')) {
       showToast(`Error al conectar Klaviyo: ${params.get('klaviyo_error')}`);
-      window.history.replaceState({}, '', '/configuracion?tab=conexiones');
+      window.history.replaceState({}, '', urlDeLaSeccion('mas-integraciones'));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -698,6 +694,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   // lib/oauth-server.ts) y permite revocar el acceso.
   const [zapierConsentimiento, setZapierConsentimiento] = useState<{ scopes: string[]; otorgadoEn: string } | null | undefined>(undefined);
   useEffect(() => {
+    // Solo donde se pinta Zapier: en las otras secciones no hay nada que enseñar con esto.
+    if (!pintaZapier) return;
     let cancelado = false;
     (async () => {
       const headers = await authHeader();
@@ -708,7 +706,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       if (!cancelado) setZapierConsentimiento(zapier ? { scopes: zapier.scopes, otorgadoEn: zapier.otorgadoEn } : null);
     })();
     return () => { cancelado = true; };
-  }, []);
+  }, [pintaZapier]);
   const zapierConectado = !!zapierConsentimiento;
   const [revocandoZapier, setRevocandoZapier] = useState(false);
   const revocarZapier = async () => {
@@ -799,77 +797,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     showToast(`Te avisaremos cuando ${cat.nombre} esté disponible`);
   };
 
-  const exportarExcel = () => {
-    const fmtEur = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    // P0-35: índices por socio en UNA pasada, en vez de suscripciones.find/filter
-    // por cada socio y socios.find por cada recibo (doble bucle O(N×M)).
-    const planById = new Map(planesTarifa.map(p => [p.id, p]));
-    const susPorSocio = new Map<string, typeof suscripciones>();
-    for (const x of suscripciones) {
-      const arr = susPorSocio.get(x.socioId);
-      if (arr) arr.push(x); else susPorSocio.set(x.socioId, [x]);
-    }
-    const socioById = new Map(socios.map(s => [s.id, s]));
-    // Hoja socias con su plan y estado de suscripción
-    const rows: (string | number | null)[][] = [
-      ['Nombre', 'Apellidos', 'Email', 'Teléfono', 'NIF', 'Alta', 'Activa', 'Plan', 'Estado suscripción', 'Sesiones restantes'],
-    ];
-    for (const s of socios) {
-      const lista = susPorSocio.get(s.id) ?? [];
-      const sus = lista.find(x => x.estado === 'ACTIVA') ?? lista[lista.length - 1] ?? null;
-      const plan = sus ? planById.get(sus.planId) ?? null : null;
-      rows.push([
-        s.nombre, s.apellidos, s.email, s.telefono ?? '', s.nif ?? '',
-        s.fechaAlta?.slice(0, 10) ?? '', s.activo ? 'Sí' : 'No',
-        plan?.nombre ?? '', sus?.estado ?? '', sus?.sesionesRestantes ?? '',
-      ]);
-    }
-    descargarCsv(`tentare-clientas-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows));
-
-    // Hoja recibos
-    const rRows: (string | number | null)[][] = [
-      ['Concepto', 'Clienta', 'Importe (€)', 'Estado', 'Vencimiento', 'Cobro'],
-    ];
-    for (const r of recibos) {
-      const s = r.socioId ? socioById.get(r.socioId) : undefined;
-      rRows.push([
-        r.concepto, s ? `${s.nombre} ${s.apellidos}` : '', fmtEur(r.importe),
-        r.estado, r.fechaVencimiento?.slice(0, 10) ?? '', r.fechaCobro?.slice(0, 10) ?? '',
-      ]);
-    }
-    descargarCsv(`tentare-recibos-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rRows));
-
-    // Hoja historial: cada reserva con su clase, fecha y asistencia — es el
-    // "exportas tu historial" prometido en la FAQ pública, no solo el censo.
-    const sesionById = new Map(sesiones.map(s => [s.id, s]));
-    const tipoById = new Map(tiposClase.map(t => [t.id, t]));
-    const hRows: (string | number | null)[][] = [
-      ['Clienta', 'Email', 'Clase', 'Fecha', 'Hora', 'Estado', 'Check-in'],
-    ];
-    const reservasOrdenadas = [...reservas].sort((a, b) => {
-      const ia = sesionById.get(a.sesionId)?.inicio ?? '';
-      const ib = sesionById.get(b.sesionId)?.inicio ?? '';
-      return ib.localeCompare(ia);
-    });
-    for (const r of reservasOrdenadas) {
-      const s = socioById.get(r.socioId);
-      const ses = sesionById.get(r.sesionId);
-      const ini = ses ? new Date(ses.inicio) : null;
-      hRows.push([
-        s ? `${s.nombre} ${s.apellidos}` : '', s?.email ?? '',
-        ses ? tipoById.get(ses.tipoClaseId)?.nombre ?? '' : '',
-        ini ? ini.toLocaleDateString('es-ES') : '',
-        ini ? ini.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '',
-        r.estado, r.checkInEn ? 'Sí' : 'No',
-      ]);
-    }
-    descargarCsv(`tentare-historial-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(hRows));
-
-    showToast('Exportación descargada (alumnas, historial y recibos)');
-  };
-
   // Cada integración es su propia tarjeta con ancla (`#integracion-stripe`):
-  // las filas de «Cobros y facturas» y «Cómo me comunico» llevan hasta ella.
+  // ahí llevan los enlaces y la vuelta de cada conexión.
   // `Titulo` baja a h4 dentro de «Más integraciones», que ya pone su h3.
   const pintarTarjeta = (cat: CatalogoIntegracion, Titulo: 'h3' | 'h4') => {
           const intg = getIntegracion(cat.tipo);
@@ -909,7 +838,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning/10 text-warning">
                         Próximamente
                       </span>
-                    ) : cat.accion !== 'exportar' && (
+                    ) : (
                       <span className={cn(
                         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
                         // Verde SOLO si el servicio respondió la última vez. Con
@@ -963,10 +892,6 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                     className={cn(btnSecondary, avisado.has(cat.tipo) && 'opacity-50')}
                   >
                     <BellRing size={14} /> {avisado.has(cat.tipo) ? 'Ya te avisaremos' : 'Avísame cuando esté disponible'}
-                  </button>
-                ) : cat.accion === 'exportar' ? (
-                  <button onClick={exportarExcel} className={btnPrimary}>
-                    <FileSpreadsheet size={14} /> Descargar Excel
                   </button>
                 ) : cat.tipo === 'STRIPE' ? (
                   stripeConectado ? (
@@ -1119,20 +1044,31 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   // la puerta (Kisi), las listas de marketing y Zapier.
   const MAS_INTEGRACIONES = new Set<TipoIntegracion>(['KISI', 'KLAVIYO', 'ZAPIER', 'MAILCHIMP']);
 
+  const principales = CATALOGO_INTEGRACIONES.filter(c => pinta(c.tipo) && !MAS_INTEGRACIONES.has(c.tipo));
+  const mas = CATALOGO_INTEGRACIONES.filter(c => pinta(c.tipo) && MAS_INTEGRACIONES.has(c.tipo));
+
   return (
     <div className="space-y-5">
-      <div className="grid max-w-3xl grid-cols-1 gap-3 @xl/config:grid-cols-2">
-        {CATALOGO_INTEGRACIONES.filter(c => !MAS_INTEGRACIONES.has(c.tipo)).map(cat => pintarTarjeta(cat, 'h3'))}
-        {/* CONGELADO (feature-freeze PMF): se quitó la tarjeta "Kiosko de check-in"
-            (generación del token del dispositivo). La ruta /api/kiosk/token sigue
-            existiendo pero ya no se llama desde el frontend. Ver lib/frozen-features.ts. */}
-      </div>
-
-      <TarjetaAjuste id="mas-integraciones" marco={false} className="max-w-3xl">
-        <div className="grid grid-cols-1 gap-3 @xl/config:grid-cols-2">
-          {CATALOGO_INTEGRACIONES.filter(c => MAS_INTEGRACIONES.has(c.tipo)).map(cat => pintarTarjeta(cat, 'h4'))}
+      {principales.length > 0 && (
+        // Una sola tarjeta (Stripe en Cobros) va al ancho del resto de tarjetas
+        // de su sección; dos o más, en rejilla.
+        <div className={cn('grid grid-cols-1 gap-3', principales.length > 1 ? 'max-w-3xl @xl/config:grid-cols-2' : 'max-w-2xl')}>
+          {principales.map(cat => pintarTarjeta(cat, 'h3'))}
+          {/* CONGELADO (feature-freeze PMF): se quitó la tarjeta "Kiosko de check-in"
+              (generación del token del dispositivo). La ruta /api/kiosk/token sigue
+              existiendo pero ya no se llama desde el frontend. Ver lib/frozen-features.ts. */}
         </div>
-      </TarjetaAjuste>
+      )}
+
+      {children}
+
+      {mas.length > 0 && (
+        <TarjetaAjuste id="mas-integraciones" marco={false} className="max-w-3xl">
+          <div className="grid grid-cols-1 gap-3 @xl/config:grid-cols-2">
+            {mas.map(cat => pintarTarjeta(cat, 'h4'))}
+          </div>
+        </TarjetaAjuste>
+      )}
 
       {/* Config modal */}
       {editando && (() => {
@@ -1234,7 +1170,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
           </Dialog>
         );
       })()}
-      {whatsappSignup.script}
+      {/* El SDK de Meta solo se descarga donde está la tarjeta de WhatsApp. */}
+      {pinta('WHATSAPP') && whatsappSignup.script}
     </div>
   );
 }

@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   const { error: errLog } = await admin.from('actividad_reciente').insert({
     id: uid(), studio_id: studio.id, tipo: 'CUENTA_COBRO_CAMBIADA',
     texto: `Stripe desconectado del estudio (cuenta terminada en ${cuenta.slice(-4)})`,
-    socio_id: null, enlace: '/configuracion?tab=integraciones', creado_en: new Date().toISOString(), actor_nombre: sesion.nombre,
+    socio_id: null, enlace: '/configuracion?tab=cobros#integracion-stripe', creado_en: new Date().toISOString(), actor_nombre: sesion.nombre,
   });
   if (errLog) console.error('[stripe:desconectar] no se pudo registrar la actividad', errLog.message);
 

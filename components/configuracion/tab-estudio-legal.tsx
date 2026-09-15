@@ -146,15 +146,15 @@ export function TabEstudioLegal({ showToast }: { showToast: (m: string) => void 
               Rellena la razón social y el NIF en{' '}
               {/* Dentro de Configuración va por el shell, no por el router: ver `irA`. */}
               <Link
-                href="/configuracion?tab=estudio#datos-fiscales"
+                href="/configuracion?tab=cobros#datos-fiscales"
                 onClick={e => {
                   if (!nav || !esClicNormal(e)) return;
                   e.preventDefault();
-                  nav.irA('estudio', { ancla: 'datos-fiscales', modo: 'push' });
+                  nav.irA('cobros', { ancla: 'datos-fiscales', modo: 'push' });
                 }}
                 className="font-semibold underline underline-offset-2"
               >
-                Mi estudio → Datos fiscales e IVA
+                Cobros y facturas → Datos fiscales e IVA
               </Link>
               : sin ellos este documento no dice quién es el responsable de los datos y no cumple el RGPD.
             </span>

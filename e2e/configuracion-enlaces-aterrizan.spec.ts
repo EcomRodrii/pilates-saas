@@ -69,11 +69,16 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
   const ENLACES_VIEJOS: [string, string, string][] = [
     ['/configuracion?tab=gamificacion&sub=canjes', 'Motivación', '#canjes'],
     ['/configuracion?tab=estudio&sub=legal', 'Alta de alumnas', '#contrato-y-privacidad'],
-    ['/configuracion?tab=estudio&sub=general#datos-fiscales', 'Mi estudio', '#datos-fiscales'],
+    ['/configuracion?tab=estudio&sub=general#datos-fiscales', 'Cobros y facturas', '#datos-fiscales'],
     ['/configuracion?tab=salas', 'Mi estudio', '#salas'],
     ['/configuracion?tab=api&sub=crecimiento', 'Mi app y mi web', '#widgets'],
     ['/configuracion?tab=emails', 'Cómo me comunico', '#correos-automaticos'],
     ['/configuracion?tab=estudio&sub=salas', 'Mi estudio', '#salas'],
+    // Tarjetas que cambiaron de sección el 15-sep: su enlace de antes las sigue.
+    ['/configuracion?tab=estudio#marca', 'Mi app y mi web', '#marca'],
+    ['/configuracion?tab=estudio#textos-de-tu-app', 'Mi app y mi web', '#textos-de-tu-app'],
+    ['/configuracion?tab=conexiones#integracion-whatsapp', 'Cómo me comunico', '#integracion-whatsapp'],
+    ['/configuracion?tab=conexiones#integracion-excel', 'Datos y seguridad', '#integracion-excel'],
   ];
 
   for (const [href, seccion, tarjeta] of ENLACES_VIEJOS) {
@@ -87,18 +92,33 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     });
   }
 
-  test('la vuelta de conectar Stripe abre Conexiones, enseña su aviso y limpia la URL', async ({ page }) => {
-    await panel(page);
-    // Lo que manda /api/stripe/connect/callback al terminar. Sin `tab=`: el
-    // parámetro de conexión basta para saber a dónde ir.
-    await page.goto('/configuracion?stripe_connected=1');
+  // La vuelta de cada conexión: los cinco callbacks de OAuth y el Embedded
+  // Signup de WhatsApp. Cada aviso lo pinta la sección que tiene su tarjeta; si
+  // la URL llevara a otra, el aviso no saldría nunca. Con el `tab=` que
+  // mandaban hasta el 15-sep, con el de hoy y sin ninguno.
+  const VUELTAS: [string, string, string, string, string][] = [
+    ['/configuracion?stripe_connected=1', 'Cobros y facturas', 'Stripe conectado — ya puedes cobrar en tu propia cuenta', '#integracion-stripe', 'cobros'],
+    ['/configuracion?tab=integraciones&gmail_connected=1', 'Cómo me comunico', 'Gmail conectado', '#integracion-gmail', 'comunicacion'],
+    ['/configuracion?tab=conexiones&google_calendar_connected=1', 'Conexiones', 'Google Calendar conectado', '#integracion-google_calendar', 'conexiones'],
+    ['/configuracion?tab=integraciones&zoom_error=denegado', 'Conexiones', 'Error al conectar Zoom: denegado', '#integracion-zoom', 'conexiones'],
+    ['/configuracion?tab=conexiones&klaviyo_connected=1', 'Conexiones', 'Klaviyo conectado', '#mas-integraciones', 'conexiones'],
+    ['/configuracion?tab=conexiones&whatsapp_connected=1', 'Cómo me comunico', 'WhatsApp conectado', '#integracion-whatsapp', 'comunicacion'],
+  ];
+  for (const [href, seccion, aviso, tarjeta, tab] of VUELTAS) {
+    test(`la vuelta ${href} abre «${seccion}», enseña su aviso y limpia la URL`, async ({ page }) => {
+      await panel(page);
+      await page.goto(href);
 
-    await expect(tituloSeccion(page, 'Conexiones')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Stripe conectado — ya puedes cobrar en tu propia cuenta')).toBeVisible();
-    await expect(page.locator('#integracion-stripe')).toBeInViewport({ timeout: 15_000 });
-    // El aviso se consume y la URL se queda en la sección: recargar no lo repite.
-    await expect(page).toHaveURL(/\/configuracion\?tab=conexiones$/);
-  });
+      await expect(tituloSeccion(page, seccion)).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText(aviso)).toBeVisible();
+      await expect(page.locator(tarjeta)).toBeInViewport({ timeout: 15_000 });
+      // El aviso se consume y la URL se queda en la sección: recargar no lo repite.
+      await expect(page).toHaveURL(new RegExp(`/configuracion\\?tab=${tab}$`));
+      // Y limpiar la URL no cambia de sección.
+      await page.waitForTimeout(500);
+      await expect(tituloSeccion(page, seccion)).toBeVisible();
+    });
+  }
 
   test('lo que ya vive fuera de Configuración redirige: Mi perfil y las tarifas', async ({ page }) => {
     await panel(page);
@@ -136,14 +156,24 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
 
   test('una fila que apunta a otra sección lleva a la tarjeta de verdad', async ({ page }) => {
     await panel(page);
+    await page.goto('/configuracion?tab=altas');
+
+    await expect(tituloSeccion(page, 'Alta de alumnas')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('link', { name: /Compra desde tu enlace/ }).click();
+
+    await expect(tituloSeccion(page, 'Cómo reservan mis alumnas')).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/configuracion\?tab=reservas#compra-desde-tu-enlace$/);
+    await expect(page.locator('#compra-desde-tu-enlace')).toBeInViewport({ timeout: 15_000 });
+  });
+
+  test('las tarjetas que ya están en su sección no dejan filas que apunten a otra', async ({ page }) => {
+    await panel(page);
     await page.goto('/configuracion?tab=cobros');
-
     await expect(tituloSeccion(page, 'Cobros y facturas')).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('link', { name: /Datos fiscales e IVA/ }).click();
-
-    await expect(tituloSeccion(page, 'Mi estudio')).toBeVisible({ timeout: 30_000 });
-    await expect(page).toHaveURL(/\/configuracion\?tab=estudio#datos-fiscales$/);
-    await expect(page.locator('#datos-fiscales')).toBeInViewport({ timeout: 15_000 });
+    // El formulario de verdad, no una fila que lleve a Mi estudio.
+    await expect(page.getByRole('textbox', { name: 'NIF / CIF' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#integracion-stripe')).toBeAttached();
+    await expect(page.getByText(/mientras terminamos de ordenarlo/)).toHaveCount(0);
   });
 });
 

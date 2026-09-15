@@ -49,6 +49,16 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
     patron: new RegExp(`Configuración${FLECHA}(?:Estudio|Clases y salas|Citas|Integraciones|API|Emails|Descubre y tablón|Campos de clienta|Cuestionario de salud|Copias de seguridad)\\b`),
     ahora: 'es una sección de hoy (lib/configuracion/secciones.ts): Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Conexiones o Datos y seguridad',
   },
+  // 15-sep (PR B): cada ajuste se fue a su sección.
+  {
+    patron: new RegExp(`Mi estudio${FLECHA}(?:Marca|Datos fiscales|Textos de tu app)|Mi estudio, en «(?:Marca|Datos fiscales e IVA|Textos de tu app)»`),
+    ahora: '«Marca» y «Textos de tu app» están en Configuración > Mi app y mi web; «Datos fiscales e IVA», en Cobros y facturas',
+  },
+  {
+    patron: new RegExp(`Conexiones${FLECHA}(?:Stripe|WhatsApp|Gmail)|(?:WhatsApp|Gmail)[^.<]{0,60}Configuración${FLECHA}Conexiones`),
+    ahora: 'Stripe está en Configuración > Cobros y facturas; WhatsApp, Gmail y el remitente, en Cómo me comunico',
+  },
+  { patron: /Guardar datos del estudio/, ahora: 'cada tarjeta tiene su botón: «Guardar datos y contacto», «Guardar datos fiscales», «Guardar textos de tu app»' },
   // Tres textos que mentían sobre lo que HACE el producto, no sobre dónde está.
   { patron: /Avisar a las alumnas por email/, ahora: 'el aviso llega por email y en su app, y se cambia en Configuración > Cómo reservan mis alumnas' },
   { patron: /lista de espera se activa por tipo de clase/, ahora: 'viene encendida para todo el estudio y cada tipo de clase puede apagarla' },

@@ -240,7 +240,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
         {canal === 'WHATSAPP' && (
           <p className="text-xs text-muted-foreground mt-1.5">
             Solo llega a quien tenga teléfono guardado. Necesitas tu número de WhatsApp conectado en{' '}
-            <Link href="/configuracion?tab=conexiones#integracion-whatsapp" className="underline underline-offset-2">Configuración</Link>.
+            <Link href="/configuracion?tab=comunicacion#integracion-whatsapp" className="underline underline-offset-2">Configuración</Link>.
           </p>
         )}
       </div>

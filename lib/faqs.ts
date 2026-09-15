@@ -30,6 +30,6 @@ export const FAQS: FaqItem[] = [
   { categoria: 'Gamificación', pregunta: '¿Qué es la racha?', respuesta: 'Cuenta las semanas consecutivas en las que la clienta ha asistido a al menos una clase. Se muestra en su Home y le avisa si está en riesgo de perderla.' },
   { categoria: 'Automatización', pregunta: '¿Qué hace el sistema autónomo / Automatizaciones?', respuesta: 'Detecta situaciones (clientas inactivas, clientas nuevas que no reservan, pagos pendientes...) y sugiere o ejecuta las acciones que tú enciendas. El recordatorio de clase no hay que activarlo: Tentare lo manda de serie.' },
   { categoria: 'Equipo', pregunta: '¿Puedo dar acceso a mi equipo?', respuesta: 'Sí, en Equipo puedes invitar instructoras o recepción con permisos distintos a los tuyos como propietaria.' },
-  { categoria: 'Cuenta', pregunta: '¿Cómo cambio los datos de mi estudio?', respuesta: 'En Configuración > Mi estudio: nombre, NIF, dirección, logo y, desde «El color de tu marca», tu color.' },
+  { categoria: 'Cuenta', pregunta: '¿Cómo cambio los datos de mi estudio?', respuesta: 'En Configuración > Mi estudio, el nombre, el teléfono y la dirección; en Cobros y facturas, el NIF y el IVA; y en Mi app y mi web, el logo y, desde «El color de tu marca», tu color.' },
 ];
 

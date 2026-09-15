@@ -79,7 +79,9 @@ test.describe('Tus sedes (Configuración > Estudio)', () => {
     await seedSesionDeDuena(page);
     await page.goto('/configuracion?tab=estudio&sub=sedes');
 
-    await expect(page.getByRole('heading', { name: 'Marca' })).toBeVisible({ timeout: 30_000 });
+    // Algo de Mi estudio tiene que estar pintado antes de afirmar la ausencia.
+    // («Marca» ya no vale: desde el 15-sep está en Mi app y mi web.)
+    await expect(page.getByRole('heading', { name: 'Datos y contacto' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('heading', { name: 'Tus sedes' })).toHaveCount(0);
   });
 
