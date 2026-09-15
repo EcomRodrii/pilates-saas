@@ -46,7 +46,7 @@ export default function PerfilInstructoraPage() {
   );
   // Si el perfil no carga, el resto de la pantalla sigue sirviendo: solo faltan
   // la tarifa y los estudios.
-  const { data: perfil } = useAsync(cargar, () => false);
+  const { data: perfil } = useAsync(cargar, () => false, `instr:${estudio.slug}:perfil`);
   const tarifa = perfil?.tarifa ?? null;
   const estudios = perfil?.estudios ?? [];
   const valoracion = textoValoraciones(perfil?.valoraciones ?? null);

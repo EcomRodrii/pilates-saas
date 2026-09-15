@@ -288,7 +288,7 @@ export default function FichaAlumnaInstructoraPage() {
     () => (esInstructora ? getFichaAlumna(estudio.slug, socioId) : new Promise<never>(() => {})),
     [esInstructora, estudio.slug, socioId],
   );
-  const { data, estado, reintentar } = useAsync(cargar, (d) => !d);
+  const { data, estado, reintentar } = useAsync(cargar, (d) => !d, `instr:${estudio.slug}:alumna:${socioId}`);
 
   if (estado === 'loading') {
     return (

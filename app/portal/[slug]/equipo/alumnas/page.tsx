@@ -38,7 +38,7 @@ export default function AlumnasInstructoraPage() {
     () => (esInstructora ? getAlumnasInstructora(estudio.slug) : new Promise<never>(() => {})),
     [esInstructora, estudio.slug],
   );
-  const { data, estado, reintentar } = useAsync(cargar, () => false);
+  const { data, estado, reintentar } = useAsync(cargar, () => false, `instr:${estudio.slug}:alumnas`);
 
   const total = data?.length ?? 0;
   const { conProxima, sinProxima } = agruparAlumnas(data ?? [], busqueda);

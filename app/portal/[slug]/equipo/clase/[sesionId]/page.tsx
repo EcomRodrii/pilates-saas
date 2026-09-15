@@ -82,7 +82,7 @@ export default function FichaClaseInstructoraPage() {
     };
   }, [esInstructora, estudio.slug, hoy, hasta, sesionId]);
 
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d.clase);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d.clase, `instr:${estudio.slug}:clase:${sesionId}:${hoy}`);
   const clase = data?.clase ?? null;
 
   const avisar = async () => {

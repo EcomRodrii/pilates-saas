@@ -64,7 +64,9 @@ export default function AgendaInstructoraPage() {
     return { filas: unirAgenda(agenda.clases, viene), puedeCrearClases: agenda.puedeCrearClases };
   }, [esInstructora, estudio.slug, hoy, hasta, esAlumna]);
 
-  const { data, estado, reintentar } = useAsync(cargar, () => false);
+  // Con clave (lectura): volver a la agenda la pinta al momento y la refresca por
+  // detrás. La forma cambia si además es alumna, así que va en la clave.
+  const { data, estado, reintentar } = useAsync(cargar, () => false, `instr:${estudio.slug}:agenda:${hoy}:${esAlumna ? 'con-reservas' : 'solo-da'}`);
   const dias = agruparPorDia(data?.filas ?? [], (f) => f.clase.fecha, hoy, DIAS);
   const sinNada = Boolean(data) && dias.every((d) => d.filas.length === 0);
 

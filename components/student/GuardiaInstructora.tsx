@@ -50,9 +50,9 @@ export function GuardiaInstructora({ children }: { children: ReactNode }) {
   }, [slug, instructorId]);
 
   useEffect(() => {
-    if (isLoading) return;
+    // Al login solo cuando ya se sabe que NO hay sesión.
     if (!autenticado) {
-      r.replace(`${href('/acceso/login')}?next=${encodeURIComponent(path)}`);
+      if (!isLoading) r.replace(`${href('/acceso/login')}?next=${encodeURIComponent(path)}`);
       return;
     }
     if (cargandoInstructora) return;
@@ -60,7 +60,11 @@ export function GuardiaInstructora({ children }: { children: ReactNode }) {
     if (faltaHorarios && !enHorarios) r.replace(href('/equipo/disponibilidad'));
   }, [isLoading, autenticado, cargandoInstructora, instructora, faltaHorarios, enHorarios, href, path, r]);
 
-  if (isLoading || !autenticado || cargandoInstructora || !instructora || faltaHorarios === null || (faltaHorarios && !enHorarios)) {
+  // ⚠️ Sin `isLoading` (15-sep-2026): esa bandera sigue encendida hasta que
+  // responde `/api/public/session` —la ficha de ALUMNA, que aquí no se usa—,
+  // aunque `autenticado` ya se sabe en local. Esperarla era una petición más en
+  // serie antes de pintar cada pantalla de la instructora.
+  if (!autenticado || cargandoInstructora || !instructora || faltaHorarios === null || (faltaHorarios && !enHorarios)) {
     return (
       <div className="shell" aria-busy="true">
         <div className="page px" style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 'calc(72px + var(--safe-top))' }}>

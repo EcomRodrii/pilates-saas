@@ -100,7 +100,9 @@ export async function agendaDeInstructora(p: {
   // lo escribió ella y no hace falta devolvérselo.
   const idsBajas = todas.map((s) => ultimaBajaPorSesion.get(s.id)?.id).filter((x): x is string => !!x);
 
-  const [tipos, salas, reservas, sustitutas, revisiones] = await Promise.all([
+  // `estudio` va en el mismo `Promise.all` (15-sep-2026): antes se leía sola al
+  // final, un viaje más en serie en Hoy, Agenda, Clase y Disponibilidad.
+  const [tipos, salas, reservas, sustitutas, revisiones, estudioRes] = await Promise.all([
     tipoIds.length
       ? admin.from('tipos_clase').select('id, nombre, color').eq('studio_id', p.studioId).in('id', tipoIds)
       : vacio,
@@ -118,6 +120,7 @@ export async function agendaDeInstructora(p: {
       ? admin.from('bajas_instructora').select('sustitucion_id, revision, nota_estudio, revisada_en')
           .eq('studio_id', p.studioId).eq('instructor_id', p.instructorId).in('sustitucion_id', idsBajas)
       : vacio,
+    admin.from('studios').select('instructoras_crean_clases').eq('id', p.studioId).maybeSingle(),
   ]);
   for (const r of [tipos, salas, reservas, sustitutas]) if (r.error) throw r.error;
   // La revisión es un extra: si falla, la agenda se sirve igual, sin ella.
@@ -187,10 +190,8 @@ export async function agendaDeInstructora(p: {
 
   // Solo decide si se enseña «Nueva clase»: si esta lectura falla, el botón no
   // sale y la agenda se sirve igual (crear vuelve a comprobar el ajuste).
-  const { data: estudio, error: eEstudio } = await admin.from('studios')
-    .select('instructoras_crean_clases').eq('id', p.studioId).maybeSingle();
-  const puedeCrearClases = !eEstudio
-    && (estudio as { instructoras_crean_clases?: boolean } | null)?.instructoras_crean_clases === true;
+  const puedeCrearClases = !estudioRes.error
+    && (estudioRes.data as { instructoras_crean_clases?: boolean } | null)?.instructoras_crean_clases === true;
 
   return { clases, bajas, puedeCrearClases };
 }

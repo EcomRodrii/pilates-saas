@@ -167,14 +167,25 @@ export async function unirseComoInstructora(slug: string): Promise<{ ok: true } 
 export function useSesionInstructora(slug: string, activo = true, forzar = false) {
   const [resuelto, setResuelto] = useState<{ slug: string; valor: InstructoraSesion | null } | null>(null);
 
-  const resolver = useCallback(async (forzarAhora: boolean) => {
+  const resolver = useCallback(async (forzarAhora: boolean, ignorarMemoria = false) => {
     const { data: { session: sb } } = await supabasePortal.auth.getSession();
     const userId = sb?.user?.id;
     if (!sb?.access_token || !userId) { setResuelto({ slug, valor: null }); return; }
     if (!forzarAhora && noEsReciente(slug, userId)) { setResuelto({ slug, valor: null }); return; }
     const token = sb.access_token;
+    const clave = claveSesion('', slug, userId);
+    // ⚠️ Rendimiento (15-sep-2026): `forzar` lo pasan la guardia y TODAS las
+    // pantallas de la instructora, así que se saltaba la caché en cada cambio de
+    // pestaña — medido en producción, una petición de ~400 ms por navegación
+    // antes de pintar nada. Ahora `forzar` sigue ignorando el «NO es
+    // instructora» recordado (localStorage y memoria: por eso existe), pero
+    // reutiliza un «SÍ lo es» confirmado en esta pestaña hace menos de 5 min.
+    // Una baja en ese rato no abre nada: cada ruta `/api/portal/instructora/**`
+    // vuelve a verificar y responde 401. `refrescar()` sí pregunta siempre.
+    const guardada = cacheInstructora.guardado.get(clave);
+    const reutilizar = !ignorarMemoria && guardada?.valor != null && Date.now() - guardada.cuando < cacheInstructora.ttlMs;
     try {
-      const valor = await cacheInstructora.obtener(claveSesion('', slug, userId), async () => {
+      const valor = await cacheInstructora.obtener(clave, async () => {
         const res = await fetch('/api/portal/instructora/sesion', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -184,7 +195,7 @@ export function useSesionInstructora(slug: string, activo = true, forzar = false
         if (!res.ok) throw new Error(`instructora/sesion ${res.status}`);
         const cuerpo = await res.json() as { instructora?: InstructoraSesion | null };
         return cuerpo.instructora ?? null;
-      }, Date.now(), forzarAhora);
+      }, Date.now(), forzarAhora && !reutilizar);
       recordarNoEs(slug, userId, valor === null);
       setResuelto({ slug, valor });
     } catch {
@@ -202,7 +213,7 @@ export function useSesionInstructora(slug: string, activo = true, forzar = false
     return () => sub.subscription.unsubscribe();
   }, [activo, forzar, resolver]);
 
-  const refrescar = useCallback(() => resolver(true), [resolver]);
+  const refrescar = useCallback(() => resolver(true, true), [resolver]);
   const listo = resuelto?.slug === slug;
   return {
     instructora: activo && listo ? resuelto.valor : null,

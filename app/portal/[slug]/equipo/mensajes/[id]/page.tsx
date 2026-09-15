@@ -8,7 +8,8 @@ import { useMiAuthUserId } from '@/lib/student/mensajeria';
 import {
   enviarEnHiloInstructora, getHilosInstructora, getMensajesHilo, marcarHiloLeidoInstructora,
 } from '@/lib/student/datos-instructora';
-import type { AlumnaDelHilo } from '@/lib/student/mensajes-instructora';
+import type { AlumnaDelHilo, HiloInstructora } from '@/lib/student/mensajes-instructora';
+import { vistaGuardada } from '@/lib/student/useAsync';
 import { HiloConversacion } from '@/components/student/domain/HiloConversacion';
 import { AVISO_ESTUDIO_PUEDE_LEER } from '@/lib/mensajeria/presentacion';
 
@@ -28,6 +29,13 @@ export default function HiloInstructoraPage() {
   const cargar = useCallback(async () => {
     // Monta antes que su guardia (es su padre): sin confirmar, no se pide nada.
     if (!esInstructora) return new Promise<never>(() => {});
+    // Si la bandeja ya se vio, la alumna ya se conoce: no hace falta volver a
+    // pedir todos los hilos (4-5 consultas) solo para la cabecera.
+    const conocida = vistaGuardada<HiloInstructora[]>(`instr:${estudio.slug}:hilos`)?.find((h) => h.id === id)?.alumna;
+    if (conocida) {
+      setAlumna(conocida);
+      return getMensajesHilo(estudio.slug, id);
+    }
     const [mensajes, hilos] = await Promise.all([
       getMensajesHilo(estudio.slug, id),
       getHilosInstructora(estudio.slug).catch(() => null),
