@@ -25,6 +25,10 @@ const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 const SCRYPT_LONGITUD = 32;
 
+/** Tope de la clave. Ninguna clave para enseñar una página pasa de aquí, y sin
+ *  tope cualquiera podría mandar textos enormes a derivar con scrypt. */
+export const CLAVE_MAX = 200;
+
 export function nombreCookieAcceso(studioId: string): string {
   // Por estudio: entrar en el de una amiga no puede abrirte el de otra.
   return `acceso-publico-${studioId}`;
@@ -54,6 +58,8 @@ export function hashearClave(clave: string, saltHex?: string): string {
  */
 export function verificarClave(clave: string, guardado: string | null | undefined): boolean {
   if (!guardado) return false;
+  // Más larga que el tope no puede ser la guardada: no se deriva.
+  if (clave.length > CLAVE_MAX) return false;
   const partes = guardado.split('$');
   if (partes.length !== 3 || partes[0] !== 'scrypt') return false;
   const [, salt, hashHex] = partes;

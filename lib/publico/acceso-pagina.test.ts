@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import {
   hashearClave, verificarClave, firmarAcceso, verificarAcceso, veredictoPagina,
-  nombreCookieAcceso,
+  nombreCookieAcceso, CLAVE_MAX,
 } from './acceso-pagina.ts';
 
 const SECRETO = 'secreto-de-prueba-no-usar-en-serio';
@@ -31,6 +31,13 @@ test('una clave equivocada no entra, y un hash corrupto tampoco abre', () => {
   assert.equal(verificarClave('x', 'bcrypt$sal$hash'), false);
   assert.equal(verificarClave('x', 'scrypt$sal$'), false);
   assert.equal(verificarClave('x', 'scrypt$sal$zzzz'), false);
+});
+
+test('una clave más larga que el tope no entra ni se deriva', () => {
+  const tope = 'a'.repeat(CLAVE_MAX);
+  assert.ok(verificarClave(tope, hashearClave(tope)), 'la del tope justo sigue valiendo');
+  assert.equal(verificarClave(`${tope}a`, hashearClave(tope)), false);
+  assert.equal(verificarClave('x'.repeat(1_000_000), hashearClave('correcta')), false);
 });
 
 test('acentos y formas Unicode distintas de la MISMA clave abren igual', () => {

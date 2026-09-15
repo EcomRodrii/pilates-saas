@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
-import { hashearClave } from '@/lib/publico/acceso-pagina';
+import { CLAVE_MAX, hashearClave } from '@/lib/publico/acceso-pagina';
 
 // Visibilidad de la página pública del estudio (/reservar/{slug}).
 //
@@ -63,6 +63,8 @@ export async function PUT(req: NextRequest) {
   const clave = typeof body.clave === 'string' ? body.clave.trim() : undefined;
   if (clave !== undefined && clave !== '' && clave.length < 6)
     return NextResponse.json({ error: 'La clave necesita al menos 6 caracteres.' }, { status: 400 });
+  if (clave !== undefined && clave.length > CLAVE_MAX)
+    return NextResponse.json({ error: `La clave puede tener como mucho ${CLAVE_MAX} caracteres.` }, { status: 400 });
 
   const cambios: Record<string, unknown> = { pagina_publica_oculta: body.oculta };
   if (clave !== undefined) cambios.pagina_publica_clave_hash = clave === '' ? null : hashearClave(clave);
@@ -70,8 +72,11 @@ export async function PUT(req: NextRequest) {
   try {
     const admin = getSupabaseAdmin();
     if (!admin) return NextResponse.json({ error: 'No disponible' }, { status: 503 });
-    const { error } = await admin.from('studios').update(cambios).eq('id', sesion.studioId);
+    const { data: filas, error } = await admin.from('studios').update(cambios).eq('id', sesion.studioId).select('id');
     if (error) throw error;
+    // Sin fila tocada no se ha guardado nada: no se dice que sí.
+    if (!filas || filas.length === 0)
+      return NextResponse.json({ error: 'No se ha encontrado tu estudio. Recarga la página y vuelve a intentarlo.' }, { status: 404 });
     return NextResponse.json({
       oculta: body.oculta,
       tieneClave: clave === undefined ? undefined : clave !== '',
