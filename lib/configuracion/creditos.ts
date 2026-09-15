@@ -14,6 +14,10 @@
 // pantalla de antes la pintaba ENCENDIDA con la cifra sugerida; aquí sale
 // apagada, con esa cifra lista para cuando la encienda.
 //
+// ⚠️ Escribir el número ENCIENDE la acción (decisión del fundador, 16-sep): la
+// dueña escribía «10» en «Asistir a clase», guardaba, y se guardaba apagada —
+// creía dar 10 créditos por asistir y no daba nada. `escribirCreditos`.
+//
 // Pura y sin `@/`: se prueba con `node --test`.
 
 import { REWARD_TRIGGERS } from '../engines/reward-engine.ts';
@@ -115,9 +119,27 @@ export function creditosValidos(texto: string): boolean {
   return /^\d+$/.test(texto.trim());
 }
 
-/** Los disparadores cuya cifra de créditos no es un número: no se puede guardar. */
+/**
+ * Lo que pasa al escribir la cifra de una acción, en pantalla y antes de guardar:
+ *   · más de 0 la enciende (apagada, lo escrito no daría nada);
+ *   · 0 o vacío la apaga;
+ *   · algo a medias que no es un entero («1.5») no toca su interruptor.
+ * Apagarla con su interruptor no pasa por aquí: el número se queda como estaba.
+ */
+export function escribirCreditos(accion: AccionForm, texto: string): AccionForm {
+  const limpio = texto.trim();
+  const activa = creditosValidos(limpio) && enteroPositivo(limpio) !== null
+    ? true
+    : limpio === '' || /^0+$/.test(limpio) ? false : accion.activa;
+  return { ...accion, creditos: texto, activa };
+}
+
+/**
+ * Las acciones ENCENDIDAS cuya cifra no es un número: no se puede guardar. Una
+ * apagada y vacía se guarda con 0 (vaciarla es apagarla).
+ */
 export function accionesConCreditosMal(form: AccionesForm): RewardTrigger[] {
-  return REWARD_TRIGGERS.map(d => d.trigger).filter(t => form[t] && !creditosValidos(form[t].creditos));
+  return REWARD_TRIGGERS.map(d => d.trigger).filter(t => form[t]?.activa && !creditosValidos(form[t].creditos));
 }
 
 function valores(trigger: RewardTrigger, f: AccionForm): ValoresRegla {
