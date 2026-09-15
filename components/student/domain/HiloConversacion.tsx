@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useAsync } from '@/lib/student/useAsync';
 import type { ResultadoEnviar } from '@/lib/student/mensajeria';
 import { agruparHilo, horaCorta } from '@/lib/mensajeria/presentacion';
 import type { RowMensajes } from '@/lib/db-types';
+import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { useToast } from '@/components/student/ui/Toast';
 import { Icono } from '@/components/student/ui/Icono';
@@ -29,9 +32,16 @@ import { Icono } from '@/components/student/ui/Icono';
 // a pantalla completa (mensajes con scroll propio, compositor como último
 // hijo normal) — así el compositor sube con el teclado solo, como hace
 // cualquier `<input>` normal, sin ninguna posición fija que reconciliar.
+//
+// Pasada de diseño (15-sep-2026): con `avatar`, la cabecera es la de un chat —
+// foto, nombre y quién es— y, con `hrefPerfil`, lleva a su ficha. El aviso de
+// que el estudio puede leer va en una etiqueta, y una conversación vacía enseña
+// con quién vas a hablar en vez de una línea suelta. Sin `avatar`, la cabecera
+// de siempre.
 
 export function HiloConversacion({
   titulo, cargar, enviar, marcarLeido, miId, modo = 'alumna', aviso = null,
+  avatar = null, subtitulo = null, hrefPerfil = null,
 }: {
   titulo: string;
   /** Estable (useCallback). Lanza si no se pueden leer los mensajes. */
@@ -42,6 +52,12 @@ export function HiloConversacion({
   modo?: 'alumna' | 'instructora';
   /** Aviso fijo bajo la cabecera (p.ej. que el estudio puede leer la conversación). */
   aviso?: string | null;
+  /** Con quién se habla: pinta la cabecera de chat. */
+  avatar?: { nombre: string; fotoUrl: string | null } | null;
+  /** «Tu alumna», «Tu instructora»… bajo el nombre. */
+  subtitulo?: string | null;
+  /** Su ficha, si la hay: el enlace «Ver ficha» de la cabecera. */
+  hrefPerfil?: string | null;
 }) {
   const { toast } = useToast();
   const [borrador, setBorrador] = useState('');
@@ -76,6 +92,7 @@ export function HiloConversacion({
 
   const dias = agruparHilo(mensajes, new Date());
   const listo = estado === 'ready' || estado === 'empty';
+  const puedeEnviar = Boolean(borrador.trim()) && !enviando;
 
   return (
     <StudentShell sinNav modo={modo}>
@@ -96,9 +113,20 @@ export function HiloConversacion({
           display: 'flex', flexDirection: 'column',
         }}
       >
-        <PageHeader titulo={titulo} back />
+        {avatar
+          ? <CabeceraChat titulo={titulo} avatar={avatar} subtitulo={subtitulo} hrefPerfil={hrefPerfil} />
+          : <PageHeader titulo={titulo} back />}
         {aviso && (
-          <p className="t-meta" data-testid="aviso-hilo" style={{ textAlign: 'center', margin: '6px 0 0', padding: '0 16px' }}>{aviso}</p>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 16px 0' }}>
+            {/* Sin icono: el del kit es un «!», y esto informa, no alerta. */}
+            <p
+              className="t-meta"
+              data-testid="aviso-hilo"
+              style={{ margin: 0, padding: '5px 12px', borderRadius: 999, background: 'var(--muted)', color: 'var(--muted-foreground)', textAlign: 'center' }}
+            >
+              {aviso}
+            </p>
+          </div>
         )}
 
         <div className="px" style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -107,7 +135,9 @@ export function HiloConversacion({
           {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver este hilo." />}
           {listo && dias.map((dia) => (
             <div key={dia.etiqueta}>
-              <p style={{ textAlign: 'center', margin: '10px 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>{dia.etiqueta}</p>
+              <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
+                <span style={{ padding: '3px 10px', borderRadius: 999, background: 'var(--muted)', fontSize: 'var(--t-micro)', fontWeight: 700, color: 'var(--subtle-foreground)' }}>{dia.etiqueta}</span>
+              </div>
               {dia.bloques.map((bloque, i) => {
                 const mio = bloque.remitenteAuthUserId === miId;
                 return (
@@ -117,9 +147,10 @@ export function HiloConversacion({
                         key={m.id}
                         data-testid="mensaje"
                         style={{
-                          maxWidth: '80%', padding: '9px 12px', borderRadius: 16,
-                          borderBottomRightRadius: mio ? 4 : 16, borderBottomLeftRadius: mio ? 16 : 4,
-                          background: mio ? 'var(--accent)' : 'var(--muted)', color: mio ? 'var(--accent-foreground)' : 'var(--foreground)',
+                          maxWidth: '80%', padding: '9px 12px', borderRadius: 18,
+                          borderBottomRightRadius: mio ? 6 : 18, borderBottomLeftRadius: mio ? 18 : 6,
+                          background: mio ? 'var(--accent)' : 'var(--card)', color: mio ? 'var(--accent-foreground)' : 'var(--foreground)',
+                          border: mio ? 'none' : '1px solid var(--border)',
                           fontSize: 'var(--t-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                         }}
                       >
@@ -138,7 +169,15 @@ export function HiloConversacion({
               aterriza aquí con cero mensajes. Se deriva de los mensajes, que es
               el dato real. */}
           {listo && mensajes.length === 0 && (
-            <p className="t-meta" style={{ textAlign: 'center', margin: '20px 0' }}>Este es el comienzo de tu conversación.</p>
+            avatar ? (
+              <div data-testid="hilo-vacio" style={{ margin: 'auto 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textAlign: 'center', padding: '24px 12px' }}>
+                <AvatarSocia nombre={avatar.nombre} fotoUrl={avatar.fotoUrl} size={64} />
+                <p className="t-card-title" style={{ margin: 0 }}>{titulo}</p>
+                <p className="t-meta" style={{ margin: 0 }}>Este es el comienzo de tu conversación.</p>
+              </div>
+            ) : (
+              <p className="t-meta" style={{ textAlign: 'center', margin: '20px 0' }}>Este es el comienzo de tu conversación.</p>
+            )
           )}
           <div ref={finRef} />
         </div>
@@ -156,18 +195,21 @@ export function HiloConversacion({
                 placeholder="Escribe un mensaje…"
                 aria-label="Escribe un mensaje"
                 className="input"
-                style={{ flex: 1, resize: 'none', fontSize: 'var(--t-body)', minHeight: 40, maxHeight: 120, padding: '9px 12px' }}
+                style={{ flex: 1, resize: 'none', fontSize: 'var(--t-body)', minHeight: 42, maxHeight: 120, padding: '10px 14px', borderRadius: 21 }}
               />
               <button
                 type="button"
                 onClick={() => void mandar()}
-                disabled={!borrador.trim() || enviando}
+                disabled={!puedeEnviar}
                 aria-label="Enviar"
+                className="tap"
                 style={{
-                  width: 40, height: 40, flexShrink: 0, borderRadius: 999, border: 'none',
-                  background: 'var(--accent)', color: 'var(--accent-foreground)',
+                  width: 42, height: 42, flexShrink: 0, borderRadius: 999, border: 'none',
+                  // Sin nada escrito, gris de «aún no»; con texto, el color del estudio.
+                  background: puedeEnviar ? 'var(--accent)' : 'var(--muted)',
+                  color: puedeEnviar ? 'var(--accent-foreground)' : 'var(--subtle-foreground)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  opacity: !borrador.trim() || enviando ? 0.5 : 1,
+                  transition: 'background .15s',
                 }}
               >
                 <Icono nombre="enviar" />
@@ -177,5 +219,35 @@ export function HiloConversacion({
         )}
       </div>
     </StudentShell>
+  );
+}
+
+/** Cabecera de chat: volver, foto, nombre, quién es y, si la hay, su ficha. */
+function CabeceraChat({ titulo, avatar, subtitulo, hrefPerfil }: {
+  titulo: string;
+  avatar: { nombre: string; fotoUrl: string | null };
+  subtitulo: string | null;
+  hrefPerfil: string | null;
+}) {
+  const r = useRouter();
+  return (
+    <div className="px" style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 8, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
+      <button
+        type="button" onClick={() => r.back()} aria-label="Volver" className="tap tap--icono"
+        style={{ width: 36, height: 36, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+      >
+        <Icono nombre="flecha-izquierda" tamano={18} />
+      </button>
+      <AvatarSocia nombre={avatar.nombre} fotoUrl={avatar.fotoUrl} size={40} />
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <h1 className="trunc" style={{ margin: 0, fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--foreground)' }}>{titulo}</h1>
+        {subtitulo && <p className="t-meta trunc" style={{ margin: '1px 0 0' }}>{subtitulo}</p>}
+      </div>
+      {hrefPerfil && (
+        <Link href={hrefPerfil} className="btn btn--sm btn--secondary tap" data-testid="ver-ficha-hilo" style={{ flexShrink: 0 }}>
+          Ver ficha
+        </Link>
+      )}
+    </div>
   );
 }
