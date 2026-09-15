@@ -33,6 +33,7 @@
 
 import type { CobroErrorCode, ResultadoCobro } from './stripe-cobros.ts';
 import type { AvisoCobro } from './resultado-cobro.ts';
+import type { MotivoSinConsentimiento } from './penalizacion-consentimiento.ts';
 
 /** `penalizaciones.estado` (CHECK de las migraciones 20260730225253 y 20260909220851). */
 export type EstadoPenalizacion =
@@ -76,6 +77,8 @@ export type TipoDesenlace =
   | 'NO_COBRABLE'
   /** 409 · ya no está pendiente de aprobar (otra persona, otro proceso). */
   | 'NO_PENDIENTE'
+  /** 409 · el contrato que aceptó no recoge este cargo: no se cobra y queda OMITIDA_SIN_CONSENTIMIENTO. */
+  | 'SIN_CONSENTIMIENTO'
   /** Solo el cron automático · adeudo SEPA saliendo: no se da por cobrada hasta que el recibo quede COBRADO. */
   | 'ADEUDO_EN_CURSO';
 
@@ -137,6 +140,33 @@ const desenlaces = {
   noPendiente: (mensaje = NO_PENDIENTE): Desenlace => ({ tipo: 'NO_PENDIENTE', http: 409, mensaje, notificar: false }),
   adeudoEnCurso: (): Desenlace => ({ tipo: 'ADEUDO_EN_CURSO', http: 200, notificar: false }),
 };
+
+const SIN_CONSENTIMIENTO: Record<MotivoSinConsentimiento, string> = {
+  texto_distinto: 'No se ha cobrado: esta alumna no ha aceptado las condiciones vigentes de tu estudio, así que el contrato no recoge este cargo.',
+  terminos_propios: 'No se ha cobrado: tu estudio usa sus propias condiciones y no podemos comprobar que recojan este cargo.',
+  estudio_sin_penalizacion: 'No se ha cobrado: el contrato que aceptó esta alumna no recoge ningún cargo por cancelar tarde o no venir.',
+  importe_distinto: 'No se ha cobrado: el contrato que aceptó esta alumna no recoge este importe, solo el del estudio.',
+  ventana_distinta: 'No se ha cobrado: según el plazo del contrato que aceptó esta alumna, esta cancelación no fue tardía.',
+  sin_datos: 'No se ha cobrado: no hemos podido comprobar que el contrato que aceptó esta alumna recoja este cargo.',
+};
+
+/** Lo que dice la tarjeta cuando el contrato no cubre el cargo. */
+export function mensajeSinConsentimiento(motivo: MotivoSinConsentimiento): string {
+  return `${SIN_CONSENTIMIENTO[motivo] ?? SIN_CONSENTIMIENTO.sin_datos} La penalización queda sin cobrar.`;
+}
+
+/**
+ * Aprobar a mano con un contrato que no recoge el cargo (las condiciones
+ * pudieron cambiar entre la detección y la aprobación): no se toca Stripe, la
+ * penalización sale de PENDIENTE_APROBACION a OMITIDA_SIN_CONSENTIMIENTO y la
+ * fila se va de la tarjeta (409).
+ */
+export function planSinConsentimiento(motivo: MotivoSinConsentimiento): Plan {
+  return {
+    escritura: { estado: 'OMITIDA_SIN_CONSENTIMIENTO', desde: ['PENDIENTE_APROBACION'] },
+    desenlace: { tipo: 'SIN_CONSENTIMIENTO', http: 409, mensaje: mensajeSinConsentimiento(motivo), notificar: false },
+  };
+}
 
 /** Una FALLIDA puede estar cobrada de verdad: antes de contestar 409 se mira su recibo. */
 export function hayQueLeerReciboAntesDeCobrar(pen: { estado: string; reciboId: string | null }): boolean {

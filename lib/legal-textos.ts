@@ -89,13 +89,27 @@ DERECHOS
 Puede ejercer sus derechos de acceso, rectificación, supresión, limitación, portabilidad y oposición ${paraEjercer}. También puede reclamar ante la Agencia Española de Protección de Datos (www.aepd.es).`;
 }
 
+/** ¿El estudio ha reescrito este documento a mano? Vacío es "no", igual que en `configLegalDe`. */
+export function tieneTextoPropio(guardado?: string | null): boolean {
+  return !vacio(guardado);
+}
+
+/**
+ * Las horas de cancelación que dice el contrato por defecto. Una sola fuente:
+ * el guardia de penalizaciones comprueba contra ESTE número, no contra el que
+ * use la detección, que puede venir del tipo de clase.
+ */
+export function horasCancelacionContrato(e: Pick<DatosEstudioLegal, 'cancelacionVentanaHoras'>): number {
+  // La ventana real configurada en el estudio, no un 12 clavado en el texto.
+  return typeof e.cancelacionVentanaHoras === 'number' && e.cancelacionVentanaHoras > 0
+    ? e.cancelacionVentanaHoras
+    : 12;
+}
+
 export function terminosServicioPorDefecto(e: DatosEstudioLegal = {}): string {
   const responsable = identificacionResponsable(e);
   const nombreEstudio = !vacio(e.nombre) ? e.nombre!.trim() : 'el Estudio';
-  // La ventana real configurada en el estudio, no un 12 clavado en el texto.
-  const horas = typeof e.cancelacionVentanaHoras === 'number' && e.cancelacionVentanaHoras > 0
-    ? e.cancelacionVentanaHoras
-    : 12;
+  const horas = horasCancelacionContrato(e);
   // Fase 3: solo aparece si el estudio tiene la regla activa (importe > 0) —
   // un estudio sin ella no debe mostrar (ni pedir aceptar) una cláusula que
   // no le aplica. Condicionar el TEXTO es también lo que hace que el guard de
@@ -265,6 +279,20 @@ export function configLegalDe(
     politicaPrivacidad: vacio(guardados?.politicaPrivacidad) ? politicaPrivacidadPorDefecto(e) : guardados!.politicaPrivacidad!,
     terminosServicio: vacio(guardados?.terminosServicio) ? terminosServicioPorDefecto(e) : guardados!.terminosServicio!,
   };
+}
+
+/**
+ * El texto completo vigente de un estudio a partir de su fila de `studios`
+ * (con `politica_privacidad` y `terminos_servicio`). Es lo que se compara con
+ * lo que aceptó la socia antes de cobrarle una penalización. Pasa por
+ * `configLegalDe` a propósito: el cron componía el texto con `??`, y unos
+ * términos guardados como '' daban un texto distinto del que se enseña.
+ */
+export function textoLegalVigenteDeFila(fila: Record<string, unknown>): string {
+  return textoLegalCompleto(configLegalDe(datosLegalesDeFila(fila), {
+    politicaPrivacidad: (fila.politica_privacidad as string | null | undefined) ?? null,
+    terminosServicio: (fila.terminos_servicio as string | null | undefined) ?? null,
+  }));
 }
 
 /**
