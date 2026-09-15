@@ -5235,6 +5235,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     // Sin la columna (un mock, una fila recortada) no se inventa el default de la
     // BD: null = «no lo sabemos», y la pantalla no afirma que avise ni que no.
     avisarAlumnas: typeof r.avisar_alumnas === 'boolean' ? r.avisar_alumnas : null,
+    // Igual: sin la columna no se inventa «asistido» (el default de la BD).
+    modoAutonomia: typeof r.modo_autonomia === 'string' ? r.modo_autonomia : null,
     recuperacionCaducidadTipo: (r.recuperacion_caducidad_tipo as 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE') ?? 'FIN_MES_SIGUIENTE',
     recuperacionCaducidadDias: r.recuperacion_caducidad_dias ?? null,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,

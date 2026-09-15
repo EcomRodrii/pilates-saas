@@ -172,10 +172,25 @@ test('seis herramientas con pantalla propia, cada una de UNA sección y con sus 
   assert.deepEqual(herramientasDeSeccion('reservas'), []);
 });
 
+test('«Mi equipo»: crear clases se guarda al tocarlo y la app es una acción; lo demás lleva a su pantalla', () => {
+  assert.deepEqual(seccionPorId('equipo').tarjetas.map(t => t.id), ['ajuste-instructoras-crean-clases', 'app-de-tus-instructoras']);
+  assert.equal(tarjetaPorId('ajuste-instructoras-crean-clases').guardado, 'al-pulsar');
+  assert.equal(tarjetaPorId('app-de-tus-instructoras').guardado, 'accion');
+  // Con Tentare Core retirado la instructora no edita clases en ningún sitio: la frase no puede prometerlo.
+  assert.doesNotMatch(tarjetaPorId('ajuste-instructoras-crean-clases').frase, /editar/);
+  assert.deepEqual(
+    FILAS_A_OTRA_PANTALLA.filter(f => f.seccion === 'equipo').map(f => f.href),
+    ['/sustituciones', '/equipo/liquidaciones', '/equipo'],
+  );
+  for (const p of ['roles', 'permisos', 'sustituciones', 'tarifa', 'liquidación']) {
+    assert.ok((seccionPorId('equipo').palabras ?? []).includes(p), `el buscador no encuentra Mi equipo por «${p}»`);
+  }
+});
+
 test('lo que se abre en un cajón cabe en su línea (≤ 120), y las filas a otra pantalla llevan a una que existe', () => {
   // Mi estudio, Cobros y facturas y Alta de alumnas son filas con cajón: su
   // frase es la ÚNICA línea de explicación de ese cajón (§5 de la reorganización).
-  for (const s of ['estudio', 'cobros', 'altas', 'reservas', 'comunicacion', 'motivacion', 'web', 'conexiones'] as const) {
+  for (const s of ['estudio', 'cobros', 'altas', 'reservas', 'comunicacion', 'motivacion', 'web', 'conexiones', 'equipo'] as const) {
     for (const t of seccionPorId(s).tarjetas) assert.ok(t.frase.length <= 120, `${t.id}: ${t.frase.length} caracteres`);
     assert.ok(seccionPorId(s).frase.length <= 90, `${s}: la frase de la sección`);
   }

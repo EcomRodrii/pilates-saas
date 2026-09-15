@@ -30,16 +30,17 @@ import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajo
 const sinSuscripcion = () => () => {};
 
 /** El origen de la app: `''` al pintar en el servidor y el de verdad en el navegador. */
-function useOrigen(): string {
+export function useOrigen(): string {
   return useSyncExternalStore(sinSuscripcion, () => window.location.origin, () => '');
 }
 
 /**
  * Copia y SOLO entonces dice «Copiado». `writeText` rechaza en Safari sin gesto
  * o sin permiso, y tres pantallas decían «Copiado» con el portapapeles vacío
- * (#994): `copiarAlPortapapeles` devuelve si de verdad se escribió.
+ * (#994): `copiarAlPortapapeles` devuelve si de verdad se escribió. También lo
+ * usa «La app de tus instructoras», en Mi equipo.
  */
-function BotonCopiar({ texto, que, showToast, compacto, className }: {
+export function BotonCopiar({ texto, que, showToast, compacto, className }: {
   texto: string;
   /** Lo que se copia, para el aviso y el nombre del botón: «El enlace de tu página». */
   que: string;

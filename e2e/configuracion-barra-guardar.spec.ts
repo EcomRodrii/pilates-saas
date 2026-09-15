@@ -3,7 +3,9 @@ import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La barra de guardar de Configuración: en el cajón de cada regla de «Cómo
-// reservan mis alumnas» y en las secciones que aún guardan con barra (Mi equipo).
+// reservan mis alumnas» y en la sección que aún guarda con barra: Tu panel (menú,
+// Inicio y posición son un mismo documento). Mi equipo se guarda al tocar desde
+// el 16-sep (configuracion-mi-equipo.spec.ts).
 //
 // Desde el 15-sep (v2) cada regla de reserva se cambia en su cajón, y su
 // «Guardar» manda SOLO sus columnas (#2027). Lo que se fija aquí:
@@ -57,6 +59,9 @@ const FILA: Record<string, unknown> = {
 const CANCELAR = ['cancelacion_ventana_horas', 'cancelacion_devolver_bono_tardia', 'recuperacion_caducidad_tipo', 'recuperacion_caducidad_dias', 'recuperacion_auto_semanal'];
 const deFila = (columnas: string[]) => Object.fromEntries(columnas.map(c => [c, FILA[c]]));
 
+// Cómo está montado el panel: lo lee Tu panel al abrirse y lo devuelve al guardar.
+const LAYOUT = { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } };
+
 type Fallo = 400 | 500 | 'red' | 'cero-filas';
 
 const json = (r: Route, b: unknown, s = 200) =>
@@ -65,6 +70,7 @@ const json = (r: Route, b: unknown, s = 200) =>
 async function abrir(page: Page, ruta: string, opts: { fallo?: Fallo; retrasoMs?: number; falloConfirmacion?: boolean } = {}) {
   const patches: Record<string, unknown>[] = [];
   const puts: unknown[] = [];
+  const layouts: unknown[] = [];
   await montar(page);
   // Después de `montar`: Playwright prueba las rutas en orden INVERSO al registro.
   await page.route('**/rest/v1/studios**', async r => {
@@ -84,8 +90,12 @@ async function abrir(page: Page, ruta: string, opts: { fallo?: Fallo; retrasoMs?
       ? json(r, { error: 'No se ha podido cambiar el ajuste' }, 500)
       : json(r, r.request().postDataJSON());
   });
+  await page.route('**/api/layout**', r => {
+    if (r.request().method() !== 'GET') layouts.push(r.request().postDataJSON());
+    return json(r, LAYOUT);
+  });
   await ir(page, ruta);
-  return { patches, puts };
+  return { patches, puts, layouts };
 }
 
 const barra = (page: Page) => page.getByRole('region', { name: 'Cambios sin guardar' });
@@ -94,7 +104,7 @@ const descartar = (page: Page) => page.getByRole('button', { name: 'Descartar', 
 const ventana = (page: Page) => page.getByLabel('Plazo para cancelar sin perder la sesión (horas antes)');
 const titulo = (page: Page, nombre: string) => page.getByRole('heading', { level: 2, name: nombre, exact: true });
 const valorFila = (page: Page, id: string) => page.locator(`#${id} [data-resumen]`);
-const interruptorEquipo = (page: Page) => page.getByRole('switch', { name: /Las instructoras pueden crear sus clases/ });
+const fijoArriba = (page: Page) => page.getByRole('button', { name: /^Fijo arriba/ });
 
 /** Abre Reservas, espera a que la fila haya llegado (24 h no es el valor de fábrica) y abre el cajón de esa regla. */
 async function cajonDe(page: Page, id: string, nombre: string, opts?: Parameters<typeof abrir>[2]) {
@@ -105,10 +115,15 @@ async function cajonDe(page: Page, id: string, nombre: string, opts?: Parameters
   return r;
 }
 
-/** Mi equipo guarda aún con la barra de la sección. */
-async function equipo(page: Page, opts?: Parameters<typeof abrir>[2]) {
-  const r = await abrir(page, 'configuracion?tab=equipo', opts);
-  await expect(interruptorEquipo(page)).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
+/**
+ * Tu panel guarda aún con la barra de la sección. Se espera a que haya leído cómo
+ * está el panel: lo tocado antes se perdería al llegar la lectura.
+ */
+async function tuPanel(page: Page) {
+  const r = await abrir(page, 'configuracion?tab=panel');
+  await expect(page.locator('#menu-del-panel')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('#menu-del-panel')).not.toContainText('Cargando…', { timeout: 30_000 });
+  await expect(fijoArriba(page)).toHaveAttribute('aria-pressed', 'false');
   return r;
 }
 
@@ -294,20 +309,20 @@ test.describe('Una sección con barra: salir con cambios pregunta', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test('cambiar de sección con cambios pregunta; «Seguir editando» no pierde nada', async ({ page }) => {
-    await equipo(page);
-    await interruptorEquipo(page).click();
+    await tuPanel(page);
+    await fijoArriba(page).click();
     expect(await pideConfirmarAlSalir(page), 'con cambios, recargar o cerrar pregunta').toBe(true);
 
     const rail = page.getByRole('navigation', { name: 'Secciones de Configuración' });
     await rail.getByRole('link', { name: 'Cobros y facturas', exact: true }).click();
     const dialogo = page.getByRole('dialog', { name: '¿Salir sin guardar?' });
     await expect(dialogo).toBeVisible();
-    await expect(dialogo).toContainText('Los cambios de «Mi equipo» se perderán.');
+    await expect(dialogo).toContainText('Los cambios de «Tu panel» se perderán.');
     await dialogo.getByRole('button', { name: 'Seguir editando' }).click();
     await expect(dialogo).toHaveCount(0);
-    await expect(titulo(page, 'Mi equipo')).toBeVisible();
-    await expect(page).toHaveURL(/\?tab=equipo$/);
-    await expect(interruptorEquipo(page)).toHaveAttribute('aria-checked', 'false');
+    await expect(titulo(page, 'Tu panel')).toBeVisible();
+    await expect(page).toHaveURL(/\?tab=panel$/);
+    await expect(fijoArriba(page)).toHaveAttribute('aria-pressed', 'true');
 
     // Otra sección, confirmando.
     await rail.getByRole('link', { name: 'Cobros y facturas', exact: true }).click();
@@ -318,20 +333,20 @@ test.describe('Una sección con barra: salir con cambios pregunta', () => {
   });
 
   test('ir a otra pantalla del panel con cambios también pregunta', async ({ page }) => {
-    await equipo(page);
-    await interruptorEquipo(page).click();
+    await tuPanel(page);
+    await fijoArriba(page).click();
 
     // «Mi cuenta» está en la lista de secciones, pero es otra pantalla.
     await page.getByRole('navigation', { name: 'Secciones de Configuración' }).getByRole('link', { name: 'Mi cuenta' }).click();
     const dialogo = page.getByRole('dialog', { name: '¿Salir sin guardar?' });
     await expect(dialogo).toBeVisible();
-    await expect(page).toHaveURL(/\/configuracion\?tab=equipo$/);
+    await expect(page).toHaveURL(/\/configuracion\?tab=panel$/);
     await dialogo.getByRole('button', { name: 'Salir sin guardar' }).click();
     await expect(page).toHaveURL(/\/mi-perfil$/, { timeout: 30_000 });
   });
 
   test('sin cambios, cambiar de sección no pregunta nada', async ({ page }) => {
-    await equipo(page);
+    await tuPanel(page);
     await page.getByRole('navigation', { name: 'Secciones de Configuración' })
       .getByRole('link', { name: 'Cobros y facturas', exact: true }).click();
     await expect(titulo(page, 'Cobros y facturas')).toBeVisible();
@@ -356,28 +371,6 @@ test.describe('Lo que se fue de las reglas de reserva se guarda en su sección, 
     expect(patches).toEqual([{ compra_publica_modo: 'CREAR_FICHA' }]);
     await expect(barra(page)).toHaveCount(0);
   });
-
-  test('Mi equipo: «Las instructoras crean sus clases» manda su columna y ninguna más', async ({ page }) => {
-    const { patches } = await equipo(page);
-
-    await interruptorEquipo(page).click();
-    await expect(barra(page)).toContainText('Cambios sin guardar en: Las instructoras crean sus clases');
-    await guardar(page).click();
-
-    await expect(page.getByText('Ajuste de tu equipo guardado')).toBeVisible({ timeout: 15_000 });
-    expect(patches).toEqual([{ instructoras_crean_clases: false }]);
-  });
-
-  test('Mi equipo: si el servidor dice que no, la barra se queda y el interruptor también', async ({ page }) => {
-    const { patches } = await equipo(page, { fallo: 'cero-filas' });
-    await interruptorEquipo(page).click();
-    await guardar(page).click();
-
-    await expect.poll(() => patches.length, { timeout: 15_000 }).toBeGreaterThan(0);
-    await expect(barra(page).getByRole('alert')).toContainText('No se ha guardado');
-    await expect(interruptorEquipo(page)).toHaveAttribute('aria-checked', 'false');
-    await expect(page.getByText('Ajuste de tu equipo guardado')).toHaveCount(0);
-  });
 });
 
 const VISTAS = [
@@ -390,8 +383,8 @@ for (const vista of VISTAS) {
     test.use({ viewport: vista.viewport, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
 
     test('queda por encima de la navegación de abajo, arriba y al final de la sección', async ({ page }) => {
-      await equipo(page);
-      await interruptorEquipo(page).click();
+      await tuPanel(page);
+      await fijoArriba(page).click();
       await expect(barra(page)).toBeVisible();
 
       for (const donde of ['arriba', 'abajo'] as const) {
@@ -420,12 +413,12 @@ for (const vista of VISTAS) {
     });
 
     test('la burbuja de WhatsApp solo se aparta mientras se ve la barra', async ({ page }) => {
-      await equipo(page);
+      await tuPanel(page);
       const burbuja = page.getByRole('button', { name: 'Ayuda por WhatsApp' });
       // Sin cambios, la sección entera no la esconde.
       await expect(burbuja).toBeVisible();
 
-      await interruptorEquipo(page).click();
+      await fijoArriba(page).click();
       await expect(barra(page)).toBeVisible();
       await expect(burbuja).toBeHidden();
 
@@ -436,21 +429,21 @@ for (const vista of VISTAS) {
 
     if (vista.viewport.width < 768) {
       test('«Volver a Configuración» con cambios pregunta antes', async ({ page }) => {
-        await equipo(page);
-        await interruptorEquipo(page).click();
+        await tuPanel(page);
+        await fijoArriba(page).click();
         await page.getByRole('button', { name: 'Volver a Configuración' }).click();
 
         const dialogo = page.getByRole('dialog', { name: '¿Salir sin guardar?' });
         await expect(dialogo).toBeVisible();
         await dialogo.getByRole('button', { name: 'Seguir editando' }).click();
-        await expect(titulo(page, 'Mi equipo')).toBeVisible();
-        await expect(interruptorEquipo(page)).toHaveAttribute('aria-checked', 'false');
+        await expect(titulo(page, 'Tu panel')).toBeVisible();
+        await expect(fijoArriba(page)).toHaveAttribute('aria-pressed', 'true');
 
         await page.getByRole('button', { name: 'Volver a Configuración' }).click();
         await dialogo.getByRole('button', { name: 'Salir sin guardar' }).click();
         // En el móvil, volver lleva al inicio de Configuración (sus grupos de secciones).
         await expect(page.locator('[aria-labelledby^="inicio-grupo-"]').first()).toBeVisible();
-        await expect(titulo(page, 'Mi equipo')).toBeHidden();
+        await expect(titulo(page, 'Tu panel')).toBeHidden();
       });
     }
   });
@@ -462,11 +455,11 @@ test.describe('La barra de guardar en un portátil de 1024×768', () => {
   test.use({ viewport: { width: 1024, height: 768 } });
 
   test('la burbuja se aparta y «Guardar» se puede pulsar', async ({ page }) => {
-    const { patches } = await equipo(page);
+    const { layouts } = await tuPanel(page);
     const burbuja = page.getByRole('button', { name: 'Ayuda por WhatsApp' });
     await expect(burbuja).toBeVisible();
 
-    await interruptorEquipo(page).click();
+    await fijoArriba(page).click();
     await expect(barra(page)).toBeVisible();
     await expect(burbuja).toBeHidden();
     const alcanzable = await page.evaluate(() => {
@@ -478,7 +471,7 @@ test.describe('La barra de guardar en un portátil de 1024×768', () => {
     expect(alcanzable, '«Guardar» no queda tapado').toBe(true);
 
     await guardar(page).click();
-    await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
+    await expect.poll(() => layouts.length, { timeout: 15_000 }).toBe(1);
     await expect(barra(page)).toHaveCount(0);
     await expect(burbuja).toBeVisible();
   });

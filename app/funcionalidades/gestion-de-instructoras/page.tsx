@@ -94,7 +94,7 @@ export default function InstructorasPage() {
         <QuienVeQue />
         <p>
           Dos casos concretos por los que esto importa: recepción no ve el detalle de salud de una alumna —lo necesita quien
-          da la clase, no quien cobra—, y una instructora no puede crear ni borrar clases de otras, solo editar las suyas.
+          da la clase, no quien cobra—, y una instructora no entra en el panel: trabaja desde la app del estudio con sus clases y sus alumnas.
         </p>
       </Seccion>
 

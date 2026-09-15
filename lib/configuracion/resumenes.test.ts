@@ -10,6 +10,7 @@ import {
   resumenContacto, resumenContrato, resumenCuestionarioSalud, resumenDatosExtra, resumenDatosFiscales, resumenDevoluciones,
   resumenDomiciliaciones, resumenGmail, resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan,
   resumenPlanesActivos, resumenRegla, resumenRemitente, resumenSedes, resumenStripe, resumenWhatsapp, resumenesDeConfiguracion, revisaEsto, unir,
+  resumenAppInstructoras, resumenAvisarAlumnas, resumenEquipo, resumenModoSustituciones, resumenTarifas,
   type DatosConfiguracion, type IntegracionResumible,
 } from './resumenes.ts';
 import { TARJETAS_REGLAS, reglasGuardadas } from './reglas-reserva.ts';
@@ -692,4 +693,77 @@ test('Motivación: la pastilla del plan en la fila, y los créditos como los apl
     { trigger: 'ASISTENCIA_CLASE', creditos: 10, activa: true },
     { trigger: 'COMPRA', creditos: 1, activa: true },
   ], disparadores, 'puntos'), '2 de 3 dan puntos · 10 por asistir');
+});
+
+// ─── Mi equipo ───────────────────────────────────────────────────────────────
+
+test('Mi equipo: quién hay por rol, sin propietarias ni bajas; si no cabe, cuántas y lo primero', () => {
+  const p = (rol: string, activo = true) => ({ rol, activo });
+  assert.equal(resumenEquipo(null), null);
+  assert.equal(resumenEquipo([p('PROPIETARIO')]), 'Sin instructoras ni recepción todavía');
+  assert.equal(
+    resumenEquipo([p('PROPIETARIO'), p('INSTRUCTOR'), p('INSTRUCTOR'), p('RECEPCION'), p('INSTRUCTOR', false)]),
+    '2 instructoras · 1 en recepción',
+  );
+  assert.equal(resumenEquipo([p('INSTRUCTOR'), p('MANAGER')]), '1 instructora · 1 responsable de sede');
+  const muchas = [...Array.from({ length: 5 }, () => p('INSTRUCTOR')), p('RECEPCION'), p('RECEPCION'), p('MANAGER'), p('MANAGER')];
+  assert.equal(resumenEquipo(muchas), '9 personas · 5 instructoras');
+});
+
+test('Mi equipo: las instructoras con tarifa por hora; sin poder leer las tarifas, nada', () => {
+  const instructoras = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  assert.equal(resumenTarifas(null, []), null);
+  // No leídas no es «ninguna».
+  assert.equal(resumenTarifas(instructoras, null), null);
+  assert.equal(resumenTarifas([], []), 'Sin instructoras todavía');
+  assert.equal(resumenTarifas(instructoras, []), 'Ninguna instructora con tarifa por hora');
+  // Una fila sin tarifa por hora (solo base mensual) no cuenta, ni la de alguien que no es instructora.
+  assert.equal(resumenTarifas(instructoras, [
+    { instructorId: 'a', tarifaHora: 22 }, { instructorId: 'b', tarifaHora: null }, { instructorId: 'recepcion', tarifaHora: 15 },
+  ]), '1 de 3 instructoras con tarifa por hora');
+  assert.equal(resumenTarifas([{ id: 'a' }], [{ instructorId: 'a', tarifaHora: 22 }]), '1 de 1 instructora con tarifa por hora');
+});
+
+test('Mi equipo: el modo de Sustituciones que se aplica de verdad, con el plan; sin leerlo, nada', () => {
+  const estudio = { plan: 'ESTUDIO', subscriptionStatus: 'active' };
+  assert.equal(resumenModoSustituciones(estudio), null);
+  assert.equal(resumenModoSustituciones({ ...estudio, modoAutonomia: null }), null);
+  assert.equal(resumenModoSustituciones({ ...estudio, modoAutonomia: 'inventado' }), null);
+  assert.equal(resumenModoSustituciones({ ...estudio, modoAutonomia: 'manual' }), 'Manual: tú das cada paso');
+  assert.equal(resumenModoSustituciones({ ...estudio, modoAutonomia: 'asistido' }), 'Asistido: tú apruebas con un toque');
+  assert.equal(resumenModoSustituciones({ ...estudio, modoAutonomia: 'autonomo' }), 'Autónomo: cubre las bajas y te lo cuenta');
+  assert.equal(resumenModoSustituciones({ ...estudio, modoAutonomia: 'vacaciones' }), 'Vacaciones: lo resuelve sin molestarte');
+  // Sin el plan, el motor lo rebaja a asistido (`modoAutonomiaEfectivo`): se dice eso, no lo guardado.
+  assert.equal(resumenModoSustituciones({ plan: 'BASE', subscriptionStatus: 'active', modoAutonomia: 'autonomo' }), 'Asistido: tu plan no incluye «Autónomo»');
+  assert.equal(resumenModoSustituciones({ plan: 'BASE', subscriptionStatus: 'active', modoAutonomia: 'vacaciones' }), 'Asistido: tu plan no incluye «Vacaciones»');
+  assert.equal(resumenModoSustituciones({ plan: 'BASE', subscriptionStatus: 'active', modoAutonomia: 'asistido' }), 'Asistido: tú apruebas con un toque');
+});
+
+test('Mi equipo: el aviso a las alumnas y la dirección de la app de tus instructoras', () => {
+  assert.equal(resumenAvisarAlumnas(true), 'Les avisa por email y en su app');
+  assert.equal(resumenAvisarAlumnas(false), 'No avisa a las alumnas');
+  assert.equal(resumenAvisarAlumnas(null), null);
+  assert.equal(resumenAvisarAlumnas(undefined), null);
+  assert.equal(resumenAppInstructoras({ slug: 'pilates-centro', origen: 'https://www.tentare.es/' }), 'tentare.es/portal/pilates-centro/equipo');
+  assert.equal(resumenAppInstructoras({ slug: '  ', origen: 'https://tentare.es' }), null);
+  assert.equal(resumenAppInstructoras({ slug: null, origen: 'https://tentare.es' }), null);
+});
+
+test('las filas de Mi equipo caben en una línea del móvil y dicen «alumna» e «instructora»', () => {
+  const p = (rol: string) => ({ rol, activo: true });
+  const valores = [
+    resumenEquipo([p('INSTRUCTOR'), p('INSTRUCTOR'), p('RECEPCION'), p('MANAGER')]),
+    resumenEquipo([...Array.from({ length: 12 }, () => p('INSTRUCTOR')), p('RECEPCION'), p('RECEPCION'), p('MANAGER'), p('MANAGER')]),
+    resumenEquipo([p('PROPIETARIO')]),
+    resumenTarifas(Array.from({ length: 15 }, (_, i) => ({ id: `i${i}` })), Array.from({ length: 12 }, (_, i) => ({ instructorId: `i${i}`, tarifaHora: 20 }))),
+    resumenTarifas([{ id: 'a' }], []),
+    ...['manual', 'asistido', 'autonomo', 'vacaciones'].map(modoAutonomia => resumenModoSustituciones({ plan: 'ESTUDIO', subscriptionStatus: 'active', modoAutonomia })),
+    ...['autonomo', 'vacaciones'].map(modoAutonomia => resumenModoSustituciones({ plan: 'BASE', subscriptionStatus: 'active', modoAutonomia })),
+    resumenAvisarAlumnas(true),
+    resumenAvisarAlumnas(false),
+  ];
+  for (const v of valores) {
+    assert.ok(v && v.length <= MAX_RESUMEN, `«${v}» no cabe`);
+    assert.doesNotMatch(v, /\b(client|soci|profesor)as?\b/i, v);
+  }
 });

@@ -2265,6 +2265,21 @@ export async function fetchTarifasEquipo(): Promise<TarifaInstructor[]> {
   }
 }
 
+/**
+ * Como `fetchTarifasEquipo`, pero `null` si no se han podido leer: ahí una lista
+ * vacía diría «nadie tiene tarifa», y no se sabe (Configuración → Mi equipo).
+ */
+export async function leerTarifasEquipo(): Promise<TarifaInstructor[] | null> {
+  try {
+    const res = await fetch('/api/equipo/tarifas', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { items?: unknown };
+    return Array.isArray(data.items) ? (data.items as TarifaInstructor[]) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function actualizarTarifaInstructor(
   instructorId: string, tarifaHora: number | null,
   extra?: {
