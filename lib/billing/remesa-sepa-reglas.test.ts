@@ -150,7 +150,7 @@ test('⚠️ el botón lee los cobros en marcha, marca con prepararRemesa y desc
 test('⚠️ marcar exige PENDIENTE y sin cobro en marcha en el UPDATE; deshacer exige EN_CURSO', () => {
   const contexto = leer('lib/studio-context.tsx');
   assert.ok(contexto.includes("dbUpdateRecibosBatch(ids, { estado: 'EN_CURSO' }, 'PENDIENTE', { sinCobroEnMarcha: true })"));
-  assert.ok(contexto.includes("dbUpdateRecibosBatch(ids, { estado: 'PENDIENTE' }, 'EN_CURSO')"));
+  assert.ok(contexto.includes("dbUpdateRecibosBatch(ids, { estado: 'PENDIENTE' }, 'EN_CURSO', { sinCobroEnMarcha: true })"));
 
   const datos = leer('lib/supabase-data.ts');
   assert.ok(cuerpoDe(datos, 'export async function dbUpdateRecibosBatch(')

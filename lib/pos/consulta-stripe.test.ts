@@ -53,13 +53,13 @@ test('⚠️ sesión caducada → EXPIRADO, sin preguntar por un PaymentIntent q
   assert.deepEqual(llamadas, [`sesion:cs_1:${CUENTA}`]);
 });
 
-test('sesión abierta, o completada con el pago sin entrar → PROCESANDO', async () => {
-  for (const sesion of [
-    { id: 'cs_1', status: 'open', payment_status: 'unpaid', payment_intent: null },
-    { id: 'cs_1', status: 'complete', payment_status: 'unpaid', payment_intent: 'pi_1' },
-  ]) {
+test('sesión abierta → PENDIENTE; completada con el pago sin entrar → PROCESANDO', async () => {
+  for (const [sesion, estado] of [
+    [{ id: 'cs_1', status: 'open', payment_status: 'unpaid', payment_intent: null }, 'PENDIENTE'],
+    [{ id: 'cs_1', status: 'complete', payment_status: 'unpaid', payment_intent: 'pi_1' }, 'PROCESANDO'],
+  ] as const) {
     const { stripe, llamadas } = doble({ sesion, pis: { pi_1: PI_PAGADO } });
-    assert.deepEqual(await consultarCobroBizum(stripe, 'cs_1', CUENTA), { estado: 'PROCESANDO' }, sesion.status);
+    assert.deepEqual(await consultarCobroBizum(stripe, 'cs_1', CUENTA), { estado }, sesion.status);
     assert.deepEqual(llamadas, [`sesion:cs_1:${CUENTA}`], 'sin pago no se mira nada más');
   }
 });

@@ -68,7 +68,9 @@ export async function consultarCobroBizum(
         metadata: (sesion.metadata ?? {}) as Record<string, string>,
       };
     }
-    // Abierta, o completada con el pago aún sin entrar.
+    // Abierta: la alumna aún no ha pagado («Esperando el pago»). Completada con el
+    // pago sin entrar: en curso.
+    if (sesion.status === 'open') return { estado: 'PENDIENTE' };
     return { estado: 'PROCESANDO' };
   } catch {
     return { estado: 'PROCESANDO' };

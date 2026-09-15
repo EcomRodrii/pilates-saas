@@ -4405,7 +4405,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // vuelven a PENDIENTE, solo los que siguen EN_CURSO.
   async function devolverRecibosAPendientesTrasRemesa(ids: string[]): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
     if (ids.length === 0) return { ok: true, idsActualizados: [] };
-    const res = await dbUpdateRecibosBatch(ids, { estado: 'PENDIENTE' }, 'EN_CURSO');
+    // Sin un cobro en marcha: un SEPA de Stripe que cayera entre marcar y deshacer
+    // también pone EN_CURSO, y ese no vuelve a pendiente.
+    const res = await dbUpdateRecibosBatch(ids, { estado: 'PENDIENTE' }, 'EN_CURSO', { sinCobroEnMarcha: true });
     if (!res.ok) return res;
     const devueltos = new Set(res.idsActualizados ?? []);
     setRecibos(prev => prev.map(r => devueltos.has(r.id) ? { ...r, estado: 'PENDIENTE' as const } : r));

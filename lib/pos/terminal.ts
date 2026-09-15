@@ -272,8 +272,9 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
         }, { stripeAccount: ctx.stripeAccount });
 
         if (!sesion.url) return { ok: false, error: 'Stripe no devolvió el enlace de pago.' };
-        // La referencia es el PaymentIntent, no la sesión: es lo que confirma
-        // el webhook y lo que se puede reembolsar después.
+        // La referencia es el PaymentIntent si Stripe ya lo creó; casi siempre
+        // aún no existe y es la sesión (`cs_`), que se consulta como sesión
+        // (lib/pos/consulta-stripe.ts). Al cobrar se guarda el PaymentIntent.
         const pi = typeof sesion.payment_intent === 'string'
           ? sesion.payment_intent
           : sesion.payment_intent?.id ?? sesion.id;
