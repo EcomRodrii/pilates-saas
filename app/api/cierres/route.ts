@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
+import { puedeGestionarSede } from '@/lib/permisos-reglas';
 import { aplicarCierreEstudio } from '@/lib/cierres/aplicar-cierre';
 import { accionCierre } from '@/lib/cierres/quitar-cierre';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -19,12 +19,16 @@ export const maxDuration = 300;
 // criterio que el resto de rutas. Y el rol se comprueba AQUÍ, no en la RPC:
 // `aplicarCierreEstudio` trabaja con service-role, donde `auth.uid()` es NULL y
 // cualquier guardia basada en él quedaría bypaseada en silencio.
+//
+// Declarar y quitar cierres es de la propietaria y la gerencia; recepción no
+// (decisión de producto). Mismo criterio que la RLS de `cierres_estudio`
+// (`puede_gestionar_sede()`, migr 20260916002000).
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (!puedeGestionarCalendario(sesion.rol)) {
+  if (!puedeGestionarSede(sesion.rol)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
 
@@ -60,7 +64,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (!puedeGestionarCalendario(sesion.rol)) {
+  if (!puedeGestionarSede(sesion.rol)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
 

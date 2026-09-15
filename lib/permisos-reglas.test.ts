@@ -10,6 +10,7 @@ import {
   puedeOperarClase, puedeEnviarEmail, TIPOS_EMAIL_PANEL, TIPOS_EMAIL_DE_CLASE,
   puedeGestionarAutomatizaciones, puedeVerContactoEquipo,
   puedeVerValoracionesDe, puedeVerResumenValoracionDe, puedeGestionarCalendario,
+  puedeGestionarSede,
 } from './permisos-reglas.ts';
 
 // M1 (auditoría RGPD 2026-09-13). Espejo de `puede_ver_datos_privados_socia()`:
@@ -273,6 +274,12 @@ test('los helpers de UI reparten igual que las funciones de la RLS', () => {
     { tabla: 'posts_comunidad (ajeno)', helper: puedeModerarComunidad, rls: ['PROPIETARIO', 'MANAGER', 'RECEPCION'] },
     // comentarios_comunidad_editar/borrar → mismo criterio
     { tabla: 'comentarios_comunidad (ajeno)', helper: puedeModerarComunidad, rls: ['PROPIETARIO', 'MANAGER', 'RECEPCION'] },
+    // studio_horario, cierres_estudio, salas, spots, bloqueos_maquina,
+    // citas_disponibilidad, tipos_clase (alta/edición) → puede_gestionar_sede(),
+    // migr 20260916002000. plan_tipos_clase → puede_mover_dinero(), igual que
+    // planes_tarifa.
+    { tabla: 'operación de sede (horario, cierres, salas, averías, tipos, horario de citas)', helper: puedeGestionarSede, rls: ['PROPIETARIO', 'MANAGER'] },
+    { tabla: 'plan_tipos_clase', helper: puedeMoverDinero, rls: ['PROPIETARIO', 'RECEPCION'] },
   ];
 
   for (const { tabla, helper, rls } of ESPEJO) {
@@ -283,6 +290,28 @@ test('los helpers de UI reparten igual que las funciones de la RLS', () => {
       );
     }
   }
+});
+
+// La gerencia lleva la operación de su sede (decisión del 15-sep): horario,
+// cierres, salas y averías, tipos de clase y horario de citas. Espejo de
+// `puede_gestionar_sede()`; el contrato de la migración está en
+// lib/gerencia-permisos-sede-contrato.test.ts.
+test('operación de sede: propietaria y gerencia; recepción e instructora no', () => {
+  assert.equal(puedeGestionarSede('PROPIETARIO'), true);
+  assert.equal(puedeGestionarSede('MANAGER'), true);
+  assert.equal(puedeGestionarSede('RECEPCION'), false);
+  assert.equal(puedeGestionarSede('INSTRUCTOR'), false);
+});
+
+test('operación de sede no es calendario: recepción organiza clases pero no cierra el centro', () => {
+  assert.equal(puedeGestionarCalendario('RECEPCION'), true);
+  assert.equal(puedeGestionarSede('RECEPCION'), false);
+});
+
+test('operación de sede no abre el dinero a la gerencia', () => {
+  assert.equal(puedeGestionarSede('MANAGER'), true);
+  assert.equal(puedeMoverDinero('MANAGER'), false);
+  assert.equal(puedeVerFinanzas('MANAGER'), false);
 });
 
 // El lector de pases cuelga de /calendario A PROPÓSITO. La lista blanca se

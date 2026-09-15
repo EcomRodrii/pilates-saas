@@ -151,6 +151,18 @@ export function puedeGestionarCalendario(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER' || rol === 'RECEPCION';
 }
 
+// Llevar la operación de la sede en Configuración: horario del estudio, cierres
+// del centro, salas y averías, tipos de clase (alta y edición) y horario de
+// citas. Propietaria y gerencia; recepción no. Espejo de
+// `puede_gestionar_sede()` (migr 20260916002000_permisos_de_sede_para_la_gerencia).
+//
+// No abre el dinero: servicios y precios de citas, las reglas de dinero de un
+// tipo de clase y borrar un tipo siguen siendo de la propietaria, y lo que
+// cubre una tarifa, de quien mueve dinero.
+export function puedeGestionarSede(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER';
+}
+
 // Moderar Comunidad: editar/fijar/borrar el post o comentario de OTRA
 // persona. Espejo TS de `posts_comunidad_editar`/`comentarios_comunidad_editar`
 // (migr 20260902104439, F-18) — INSTRUCTOR queda fuera aquí, no porque no
