@@ -182,6 +182,17 @@ const NOMBRE_INTEGRACION: Record<TipoIntegracion, string> = {
 
 const en = (ancla: TarjetaId) => ({ ancla, seccion: seccionDeTarjeta(ancla) });
 
+/** Qué le pasa al NIF guardado, o `null` si está bien. El mismo aviso en «Revisa esto» y en su fila. */
+export function avisoNif(guardado: string | null): Pick<AvisoConfiguracion, 'texto' | 'etiqueta' | 'tono'> | null {
+  const nif = (guardado ?? '').trim();
+  if (!nif) return { texto: 'Falta tu NIF: tus cobros se quedan sin factura', etiqueta: 'Falta el NIF', tono: 'problema' };
+  if (!nifEmisorValido(nif)) return { texto: 'Tu NIF no es válido: tus cobros se quedan sin factura', etiqueta: 'NIF no válido', tono: 'problema' };
+  // Con formato de NIF pero la letra o el dígito de control no cuadran: la
+  // factura sale, con un NIF que Hacienda no reconoce.
+  if (!nifValido(nif)) return { texto: 'Revisa tu NIF: la letra o el dígito de control no cuadran', etiqueta: 'Revisa el NIF', tono: 'pendiente' };
+  return null;
+}
+
 /**
  * Todo lo que está roto o sin hacer, en orden de prioridad: lo que ya tiene
  * consecuencias (facturas que no salen, una conexión que falla) antes que lo
@@ -193,18 +204,8 @@ export function avisosDeConfiguracion(d: DatosConfiguracion): AvisoConfiguracion
 
   // 1. El NIF. Con uno vacío o de relleno no se emite ninguna factura: es el
   //    mismo criterio que el aviso de Cobros → Facturas (`nifEmisorValido`).
-  if (s.nif !== undefined) {
-    const nif = (s.nif ?? '').trim();
-    if (!nif) {
-      avisos.push({ id: 'nif', texto: 'Falta tu NIF: tus cobros se quedan sin factura', etiqueta: 'Falta el NIF', tono: 'problema', ...en('datos-fiscales') });
-    } else if (!nifEmisorValido(nif)) {
-      avisos.push({ id: 'nif', texto: 'Tu NIF no es válido: tus cobros se quedan sin factura', etiqueta: 'NIF no válido', tono: 'problema', ...en('datos-fiscales') });
-    } else if (!nifValido(nif)) {
-      // Con formato de NIF pero la letra o el dígito de control no cuadran: la
-      // factura sale, con un NIF que Hacienda no reconoce.
-      avisos.push({ id: 'nif', texto: 'Revisa tu NIF: la letra o el dígito de control no cuadran', etiqueta: 'Revisa el NIF', tono: 'pendiente', ...en('datos-fiscales') });
-    }
-  }
+  const nif = s.nif === undefined ? null : avisoNif(s.nif);
+  if (nif) avisos.push({ id: 'nif', ...nif, ...en('datos-fiscales') });
 
   // 2. Una conexión que falló la última vez que se usó (lib/integraciones/salud.ts).
   for (const i of d.integraciones ?? []) {
@@ -287,8 +288,7 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
 
     case 'altas':
       return unir([
-        s.compraPublicaModo === 'EXIGIR_REGISTRO' ? 'se registra antes de pagar'
-          : s.compraPublicaModo === 'CREAR_FICHA' ? 'paga sin registrarse antes' : null,
+        resumenCompraPublica(s.compraPublicaModo),
         s.valoracionInicialActiva === true ? 'valoración inicial activa'
           : s.valoracionInicialActiva === false ? 'sin valoración inicial' : null,
       ]);
@@ -572,6 +572,144 @@ export function resumenSedes(sedes: readonly { id: string; nombre: string }[] | 
   if (sedes.length <= 1) return 'Solo esta sede';
   const aqui = sedes.find(s => s.id === actual)?.nombre;
   return unir([contar(sedes.length, 'sede', 'sedes'), aqui ? `estás en ${aqui}` : null]);
+}
+
+// ─── Las filas de «Cobros y facturas» y «Alta de alumnas» ───────────────────
+//
+// Mismas reglas que las de Mi estudio. Algunas filas llevan además UN estado
+// (la pastilla): Stripe siempre, porque es lo primero que se pregunta —¿lo
+// tengo conectado?—, y el resto solo si hay algo que revisar.
+
+/** El tono de la pastilla de una fila: los de `EstadoAjuste` (shell/estado-ajuste.tsx). */
+export type TonoFila = 'activo' | 'pendiente' | 'problema' | 'neutro';
+
+export interface ResumenFila {
+  /** Lo que se ve bajo el título; `null` = no se sabe, y va la descripción. */
+  valor: string | null;
+  estado: { tono: TonoFila; etiqueta: string } | null;
+}
+
+const NADA: ResumenFila = { valor: null, estado: null };
+
+/**
+ * «Pilates Centro SL · B12345674 · IVA 21 %». Con el NIF mal, lo que pasa con
+ * tus facturas y la misma pastilla que en «Revisa esto».
+ */
+export function resumenDatosFiscales(s: Partial<Pick<Studio, 'razonSocial' | 'nif' | 'ivaPorDefecto'>>): ResumenFila {
+  if (s.nif === undefined) return NADA;
+  const aviso = avisoNif(s.nif);
+  if (aviso) {
+    return {
+      valor: aviso.tono === 'pendiente' ? 'Revisa el NIF: tus facturas salen con uno que Hacienda no reconoce' : aviso.texto,
+      estado: { tono: aviso.tono, etiqueta: aviso.etiqueta },
+    };
+  }
+  return {
+    valor: unir([
+      limpio(s.razonSocial),
+      s.nif!.trim().toUpperCase(),
+      typeof s.ivaPorDefecto === 'number' ? `IVA ${numero(s.ivaPorDefecto)} %` : null,
+    ]),
+    estado: null,
+  };
+}
+
+/**
+ * «Cobro con tarjeta (Stripe)»: UN estado, sin una frase debajo que lo
+ * contradiga (decía «No conectado» y «Todavía no disponible» a la vez).
+ * `bizum`: la capacidad de la cuenta conectada; `null` = no se sabe.
+ */
+export function resumenStripe(e: {
+  conectado: boolean;
+  /** ¿Tentare tiene puesta la conexión? Sin ella no hay nada que conectar. */
+  disponible: boolean;
+  fallando: boolean;
+  bizum: 'active' | 'pending' | 'inactive' | null;
+}): ResumenFila {
+  if (e.conectado && e.fallando) return { valor: 'Falló la última vez que se usó', estado: { tono: 'problema', etiqueta: 'Con problemas' } };
+  if (e.conectado) {
+    const valor = e.bizum === 'active' ? 'Tarjeta y Bizum' : e.bizum ? 'Tarjeta · Bizum sin activar' : 'Cuenta de Stripe conectada';
+    return { valor, estado: { tono: 'activo', etiqueta: 'Conectado' } };
+  }
+  if (e.disponible) return { valor: 'Conéctalo para cobrar con tarjeta', estado: { tono: 'neutro', etiqueta: 'Sin conectar' } };
+  return { valor: 'Lo estamos terminando de conectar por nuestro lado', estado: { tono: 'neutro', etiqueta: 'No disponible todavía' } };
+}
+
+/** «Listas para remesas», «Sin configurar» o lo que falta. `null` = sin cargar. */
+export function resumenDomiciliaciones(s: Partial<Pick<Studio, 'sepaAcreedorId' | 'sepaIban' | 'sepaTitular'>>): string | null {
+  if (s.sepaAcreedorId === undefined && s.sepaIban === undefined && s.sepaTitular === undefined) return null;
+  const faltan = ([['el identificador', s.sepaAcreedorId], ['el IBAN', s.sepaIban], ['el titular', s.sepaTitular]] as const)
+    .filter(([, v]) => !limpio(v))
+    .map(([nombre]) => nombre);
+  if (faltan.length === 0) return 'Listas para remesas';
+  if (faltan.length === 3) return 'Sin configurar';
+  return `Falta ${faltan.join(' y ')}`;
+}
+
+/** «Hasta 14 días · bonos, solo sin empezar», o que se devuelve desde Stripe. */
+export function resumenDevoluciones(s: Partial<Pick<Studio, 'reembolsosActivos' | 'reembolsoPlazoDias' | 'reembolsoSoloSinUsar'>>): string | null {
+  if (s.reembolsosActivos === undefined) return null;
+  if (!s.reembolsosActivos) return 'Apagadas: devuelves desde Stripe';
+  // Los mismos valores por defecto que lee el servidor (app/api/reembolsos).
+  const plazo = s.reembolsoPlazoDias ?? 14;
+  return unir([
+    plazo > 0 ? `hasta ${contar(plazo, 'día', 'días')}` : 'sin plazo',
+    (s.reembolsoSoloSinUsar ?? true) ? 'bonos, solo sin empezar' : null,
+  ]);
+}
+
+/**
+ * De quién son los textos que acepta la alumna. Con unos términos PROPIOS no se
+ * cobra ninguna penalización (`consentimientoCubrePenalizacion`: la cláusula del
+ * cargo solo va en los de Tentare), así que si hay una configurada, se dice.
+ */
+export function resumenContrato(e: {
+  propios: { politicaPrivacidad: boolean; terminosServicio: boolean } | null;
+  hayPenalizacion: boolean;
+}): ResumenFila {
+  if (!e.propios) return NADA;
+  const { terminosServicio: terminos, politicaPrivacidad: privacidad } = e.propios;
+  if (terminos && e.hayPenalizacion) {
+    return { valor: 'Con términos propios no se cobran penalizaciones', estado: { tono: 'problema', etiqueta: 'Con problemas' } };
+  }
+  const valor = terminos && privacidad ? 'Tus términos y tu privacidad'
+    : terminos ? 'Tus términos · privacidad de Tentare'
+    : privacidad ? 'Términos de Tentare · tu privacidad'
+    : 'Los textos de Tentare';
+  return { valor, estado: null };
+}
+
+/** El modo de «Compra desde tu enlace». */
+export function resumenCompraPublica(modo: Studio['compraPublicaModo'] | undefined): string | null {
+  if (modo === 'EXIGIR_REGISTRO') return 'Se registra antes de pagar';
+  if (modo === 'CREAR_FICHA') return 'Paga sin registrarse antes';
+  return null;
+}
+
+/** Los datos extra que se piden hoy (los apagados no salen en el alta). `null` = sin cargar. */
+export function resumenDatosExtra(campos: readonly { activo: boolean; requerido: boolean }[] | null): string | null {
+  if (!campos) return null;
+  const activos = campos.filter(c => c.activo);
+  if (activos.length === 0) return 'Ninguno';
+  const obligatorios = activos.filter(c => c.requerido).length;
+  return unir([
+    contar(activos.length, 'dato extra', 'datos extra'),
+    obligatorios > 0 ? contar(obligatorios, 'obligatorio', 'obligatorios') : null,
+  ]);
+}
+
+/** Las preguntas activas del cuestionario de salud. `null` = sin cargar. */
+export function resumenCuestionarioSalud(preguntas: readonly { activo: boolean }[] | null): string | null {
+  if (!preguntas) return null;
+  const n = preguntas.filter(p => p.activo).length;
+  return n === 0 ? 'Sin preguntas' : contar(n, 'pregunta', 'preguntas');
+}
+
+/** Los planes a la venta, para la fila que lleva a Paquetes. `null` = sin cargar. */
+export function resumenPlanesActivos(planes: readonly { activo: boolean }[] | null): string | null {
+  if (!planes) return null;
+  const n = planes.filter(p => p.activo).length;
+  return n === 0 ? 'Ningún plan a la venta' : contar(n, 'plan a la venta', 'planes a la venta');
 }
 
 // ─── Plan de Tentare ─────────────────────────────────────────────────────────

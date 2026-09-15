@@ -5,6 +5,7 @@ import { ArrowLeft, X } from 'lucide-react';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
+import { useNavegacionConfig } from './contexto';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El cajón donde se cambia una fila de Configuración (§4.3 de la reorganización).
@@ -46,6 +47,40 @@ export interface PropsFormularioCajon {
   showToast: (m: string) => void;
   /** Guardado de verdad: quien abrió el cajón lo cierra y lo cuenta. */
   onGuardado: (texto: string) => void;
+}
+
+/**
+ * Qué cajón de una sección está abierto. Un enlace con el ancla de una fila
+ * (`#horario`, `#datos-fiscales`) abre el suyo, también la misma ancla pedida
+ * otra vez (`anclaAbierta` cambia en cada navegación). Cerrar quita el ancla de
+ * la dirección si se llegó por ella, para que recargar no lo vuelva a abrir.
+ */
+export function useCajonAbierto<T extends TarjetaId>(ids: readonly T[]) {
+  const nav = useNavegacionConfig();
+  const anclaAbierta = nav?.anclaAbierta ?? null;
+  const deEstaSeccion = (id: string | undefined): T | null => (id && (ids as readonly string[]).includes(id) ? id as T : null);
+  const [cajon, setCajon] = useState<T | null>(() => deEstaSeccion(anclaAbierta?.id));
+  const [anclaVista, setAnclaVista] = useState(anclaAbierta);
+  if (anclaAbierta !== anclaVista) {
+    setAnclaVista(anclaAbierta);
+    const id = deEstaSeccion(anclaAbierta?.id);
+    if (id) setCajon(id);
+  }
+
+  function abrir(id: TarjetaId) {
+    const propio = deEstaSeccion(id);
+    if (propio) setCajon(propio);
+  }
+
+  function cerrar() {
+    const id = cajon;
+    setCajon(null);
+    if (id && window.location.hash === `#${id}`) {
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
+    }
+  }
+
+  return { cajon, abrir, cerrar };
 }
 
 const BOTON = 'size-11 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';

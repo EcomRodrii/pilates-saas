@@ -58,7 +58,13 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
     patron: new RegExp(`Conexiones${FLECHA}(?:Stripe|WhatsApp|Gmail)|(?:WhatsApp|Gmail)[^.<]{0,60}Configuración${FLECHA}Conexiones`),
     ahora: 'Stripe está en Configuración > Cobros y facturas; WhatsApp, Gmail y el remitente, en Cómo me comunico',
   },
-  { patron: /Guardar datos del estudio/, ahora: 'cada parte tiene su botón: las filas de Mi estudio, «Guardar datos fiscales» y «Guardar textos de tu app»' },
+  { patron: /Guardar datos del estudio/, ahora: 'cada parte tiene su botón: las filas de Mi estudio y de Cobros y facturas, cada una con «Guardar», y «Guardar textos de tu app»' },
+  // 15-sep (v2): Cobros y facturas y Alta de alumnas van en filas con su cajón,
+  // y cada cajón se guarda con «Guardar». Stripe se conecta desde su fila.
+  {
+    patron: /Guardar datos fiscales|Guardar datos SEPA|Guardar política de devoluciones|«Guardar política»|Guardar términos|Conectar con Stripe/,
+    ahora: 'cada fila de Cobros y facturas y de Alta de alumnas se abre y se guarda con «Guardar»; Stripe, con «Conectar» en su fila',
+  },
   // 15-sep (v2): Mi estudio va en filas con su cajón y un «Guardar» en cada una.
   {
     patron: /Guardar datos y contacto|«Datos y contacto» guarda|en «Datos y contacto»|Cerrar el centro unos días/,

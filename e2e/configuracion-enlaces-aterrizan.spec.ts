@@ -176,13 +176,14 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     await panel(page);
     await page.goto('/configuracion?tab=cobros');
     await expect(tituloSeccion(page, 'Cobros y facturas')).toBeVisible({ timeout: 30_000 });
-    // El formulario de verdad, no una fila que lleve a Mi estudio.
+    // Su fila, que abre su cajón aquí (15-sep, v2), no una que lleve a Mi estudio.
+    await page.locator('#datos-fiscales').click({ timeout: 15_000 });
     await expect(page.getByRole('textbox', { name: 'NIF / CIF' })).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('#integracion-stripe')).toBeAttached();
     await expect(page.getByText(/mientras terminamos de ordenarlo/)).toHaveCount(0);
 
     // Las dos últimas que vivían en otra sección, con su control de verdad.
-    await page.goto('/configuracion?tab=altas');
+    await page.goto('/configuracion?tab=altas#compra-desde-tu-enlace');
     await expect(page.getByRole('radio', { name: /Que se registre antes de pagar/ })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/mientras terminamos de ordenarlo/)).toHaveCount(0);
     await page.goto('/configuracion?tab=equipo');

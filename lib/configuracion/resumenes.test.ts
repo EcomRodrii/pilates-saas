@@ -4,9 +4,10 @@ import type { DiaHorario } from '../types.ts';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenContacto,
-  resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan, resumenSedes,
-  resumenesDeConfiguracion, revisaEsto, unir,
+  CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenCompraPublica,
+  resumenContacto, resumenContrato, resumenCuestionarioSalud, resumenDatosExtra, resumenDatosFiscales, resumenDevoluciones,
+  resumenDomiciliaciones, resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan,
+  resumenPlanesActivos, resumenSedes, resumenStripe, resumenesDeConfiguracion, revisaEsto, unir,
   type DatosConfiguracion, type IntegracionResumible,
 } from './resumenes.ts';
 import { HERRAMIENTAS, SECCIONES, seccionDeTarjeta } from './secciones.ts';
@@ -424,4 +425,105 @@ test('las sedes: cuántas y en cuál estás; sin cargar, nada', () => {
   assert.equal(resumenSedes([{ id: 'a', nombre: 'Pilates Centro' }, { id: 'b', nombre: 'Pilates Norte' }], 'a'), '2 sedes · estás en Pilates Centro');
   assert.equal(resumenSedes([{ id: 'a', nombre: 'Pilates Centro' }], 'a'), 'Solo esta sede');
   assert.equal(resumenSedes(null, 'a'), null);
+});
+
+// ─── Las filas de «Cobros y facturas» y «Alta de alumnas» ────────────────────
+
+test('datos fiscales: razón social, NIF e IVA; con el NIF mal, qué pasa con tus facturas y la pastilla de «Revisa esto»', () => {
+  assert.deepEqual(resumenDatosFiscales({ razonSocial: 'Pilates Centro SL', nif: NIF_BUENO, ivaPorDefecto: 21 }), { valor: `Pilates Centro SL · ${NIF_BUENO} · IVA 21 %`, estado: null });
+  // Sin razón social no se inventa: va lo que hay.
+  assert.equal(resumenDatosFiscales({ razonSocial: ' ', nif: NIF_BUENO.toLowerCase(), ivaPorDefecto: 10 }).valor, `${NIF_BUENO} · IVA 10 %`);
+  assert.deepEqual(resumenDatosFiscales({ nif: 'B12345670', ivaPorDefecto: 21 }), {
+    valor: 'Revisa el NIF: tus facturas salen con uno que Hacienda no reconoce', estado: { tono: 'pendiente', etiqueta: 'Revisa el NIF' },
+  });
+  assert.deepEqual(resumenDatosFiscales({ nif: '', ivaPorDefecto: 21 }).estado, { tono: 'problema', etiqueta: 'Falta el NIF' });
+  assert.deepEqual(resumenDatosFiscales({ nif: 'B12345678' }).estado, { tono: 'problema', etiqueta: 'NIF no válido' });
+  // La pastilla de la fila es la misma que la de «Revisa esto».
+  for (const nif of ['', 'B12345678', 'B12345670']) {
+    const aviso = avisosDeConfiguracion(con({ nif })).find(a => a.id === 'nif')!;
+    assert.deepEqual(resumenDatosFiscales({ nif }).estado, { tono: aviso.tono, etiqueta: aviso.etiqueta });
+  }
+  assert.deepEqual(resumenDatosFiscales({}), { valor: null, estado: null });
+});
+
+test('Stripe: un solo estado, y nunca «sin conectar» cuando no se puede conectar', () => {
+  const base = { conectado: false, disponible: false, fallando: false, bizum: null };
+  assert.deepEqual(resumenStripe(base), {
+    valor: 'Lo estamos terminando de conectar por nuestro lado', estado: { tono: 'neutro', etiqueta: 'No disponible todavía' },
+  });
+  assert.deepEqual(resumenStripe({ ...base, disponible: true }), { valor: 'Conéctalo para cobrar con tarjeta', estado: { tono: 'neutro', etiqueta: 'Sin conectar' } });
+  assert.deepEqual(resumenStripe({ ...base, conectado: true }).estado, { tono: 'activo', etiqueta: 'Conectado' });
+  // Conectado aunque Tentare haya quitado la clave: lo conectado sigue cobrando.
+  assert.equal(resumenStripe({ ...base, conectado: true, bizum: 'active' }).valor, 'Tarjeta y Bizum');
+  assert.equal(resumenStripe({ ...base, conectado: true, disponible: true, bizum: 'pending' }).valor, 'Tarjeta · Bizum sin activar');
+  assert.deepEqual(resumenStripe({ ...base, conectado: true, fallando: true }).estado, { tono: 'problema', etiqueta: 'Con problemas' });
+  // Un fallo sin cuenta conectada no es de esta fila.
+  assert.equal(resumenStripe({ ...base, disponible: true, fallando: true }).estado!.etiqueta, 'Sin conectar');
+});
+
+test('domiciliaciones y devoluciones: lo guardado, lo que falta y, sin cargar, nada', () => {
+  assert.equal(resumenDomiciliaciones({ sepaAcreedorId: 'ES12ZZZ12345678', sepaIban: 'ES00 0000', sepaTitular: 'Pilates Centro SL' }), 'Listas para remesas');
+  assert.equal(resumenDomiciliaciones({ sepaAcreedorId: null, sepaIban: '', sepaTitular: null }), 'Sin configurar');
+  assert.equal(resumenDomiciliaciones({ sepaAcreedorId: 'ES12ZZZ12345678', sepaIban: null, sepaTitular: '' }), 'Falta el IBAN y el titular');
+  assert.equal(resumenDomiciliaciones({}), null);
+
+  assert.equal(resumenDevoluciones({ reembolsosActivos: false, reembolsoPlazoDias: 30 }), 'Apagadas: devuelves desde Stripe');
+  assert.equal(resumenDevoluciones({ reembolsosActivos: true, reembolsoPlazoDias: 14, reembolsoSoloSinUsar: true }), 'Hasta 14 días · bonos, solo sin empezar');
+  assert.equal(resumenDevoluciones({ reembolsosActivos: true, reembolsoPlazoDias: 0, reembolsoSoloSinUsar: false }), 'Sin plazo');
+  assert.equal(resumenDevoluciones({ reembolsosActivos: true, reembolsoPlazoDias: 1, reembolsoSoloSinUsar: false }), 'Hasta 1 día');
+  assert.equal(resumenDevoluciones({}), null);
+});
+
+test('contrato: de quién son los textos, y con términos propios y penalización, que no se cobra', () => {
+  const propios = (terminosServicio: boolean, politicaPrivacidad: boolean) => ({ terminosServicio, politicaPrivacidad });
+  assert.deepEqual(resumenContrato({ propios: propios(false, false), hayPenalizacion: true }), { valor: 'Los textos de Tentare', estado: null });
+  assert.equal(resumenContrato({ propios: propios(true, false), hayPenalizacion: false }).valor, 'Tus términos · privacidad de Tentare');
+  assert.equal(resumenContrato({ propios: propios(false, true), hayPenalizacion: true }).valor, 'Términos de Tentare · tu privacidad');
+  assert.equal(resumenContrato({ propios: propios(true, true), hayPenalizacion: false }).valor, 'Tus términos y tu privacidad');
+  // Solo los TÉRMINOS propios bloquean el cobro (`terminos_propios`); la privacidad, no.
+  assert.deepEqual(resumenContrato({ propios: propios(true, true), hayPenalizacion: true }), {
+    valor: 'Con términos propios no se cobran penalizaciones', estado: { tono: 'problema', etiqueta: 'Con problemas' },
+  });
+  assert.deepEqual(resumenContrato({ propios: null, hayPenalizacion: true }), { valor: null, estado: null });
+});
+
+test('alta de alumnas: compra desde tu enlace, datos extra y cuestionario; sin cargar, nada', () => {
+  assert.equal(resumenCompraPublica('EXIGIR_REGISTRO'), 'Se registra antes de pagar');
+  assert.equal(resumenCompraPublica('CREAR_FICHA'), 'Paga sin registrarse antes');
+  assert.equal(resumenCompraPublica(undefined), null);
+
+  const campo = (activo: boolean, requerido = false) => ({ activo, requerido });
+  assert.equal(resumenDatosExtra([campo(true, true), campo(true), campo(true), campo(false, true)]), '3 datos extra · 1 obligatorio');
+  assert.equal(resumenDatosExtra([campo(true)]), '1 dato extra');
+  // Uno apagado no se pide en el alta: no cuenta.
+  assert.equal(resumenDatosExtra([campo(false)]), 'Ninguno');
+  assert.equal(resumenDatosExtra([]), 'Ninguno');
+  assert.equal(resumenDatosExtra(null), null);
+
+  assert.equal(resumenCuestionarioSalud([{ activo: true }, { activo: true }, { activo: false }]), '2 preguntas');
+  assert.equal(resumenCuestionarioSalud([{ activo: false }]), 'Sin preguntas');
+  assert.equal(resumenCuestionarioSalud(null), null);
+
+  assert.equal(resumenPlanesActivos([{ activo: true }, { activo: false }]), '1 plan a la venta');
+  assert.equal(resumenPlanesActivos([]), 'Ningún plan a la venta');
+  assert.equal(resumenPlanesActivos(null), null);
+});
+
+test('las filas de cobros y altas caben en una línea del móvil (los avisos van enteros) y dicen «alumna»', () => {
+  const valores = [
+    resumenDatosFiscales({ razonSocial: 'Pilates Centro SL', nif: NIF_BUENO, ivaPorDefecto: 21 }).valor,
+    resumenDomiciliaciones({ sepaAcreedorId: 'x', sepaIban: null, sepaTitular: null }),
+    resumenDomiciliaciones({ sepaAcreedorId: null, sepaIban: 'x', sepaTitular: null }),
+    resumenDevoluciones({ reembolsosActivos: true, reembolsoPlazoDias: 365, reembolsoSoloSinUsar: true }),
+    resumenContrato({ propios: { terminosServicio: true, politicaPrivacidad: false }, hayPenalizacion: false }).valor,
+    resumenContrato({ propios: { terminosServicio: false, politicaPrivacidad: true }, hayPenalizacion: false }).valor,
+    resumenDatosExtra([{ activo: true, requerido: true }, { activo: true, requerido: true }]),
+    resumenStripe({ conectado: true, disponible: true, fallando: false, bizum: 'pending' }).valor,
+    resumenStripe({ conectado: false, disponible: true, fallando: false, bizum: null }).valor,
+    resumenPlanesActivos([{ activo: true }, { activo: true }]),
+  ];
+  for (const v of valores) {
+    assert.ok(v && v.length <= MAX_RESUMEN, `«${v}» no cabe`);
+    assert.doesNotMatch(v, /\b(client|soci)as?\b/i, v);
+  }
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
@@ -8,14 +8,22 @@ import { authHeader } from '@/lib/api-client';
 import type { DatosSepa } from '@/lib/billing/cuenta-cobro';
 import { leerPlazoReembolso, PLAZO_REEMBOLSO_MAX_DIAS } from '@/lib/billing/politica-reembolso';
 import { hayCambios, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
-import { Toggle, btnPrimary, inputCls, labelCls } from '@/components/configuracion/estilos';
-import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
+import { resumenDevoluciones } from '@/lib/configuracion/resumenes';
+import { Toggle, inputCls } from '@/components/configuracion/estilos';
+import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
+import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
+import { Campo } from '@/components/configuracion/formulario-estudio';
 
-// ⚠️ Las dos tarjetas de esta pestaña se guardan cada una con su botón, y la de
-// Devoluciones escribe en `studio`. Antes cada formulario se recopiaba ENTERO al
-// cambiar `studio`, así que guardar la política de devoluciones borraba los
-// datos SEPA a medio escribir. Ahora un campo solo se pone al día si no se ha
-// tocado (lib/configuracion/formulario-sincronizado.ts).
+// Los cajones de «Domiciliaciones bancarias» y «Devoluciones», en Cobros y
+// facturas. Cada uno se guarda con el «Guardar» de su barra, que solo aparece
+// con cambios: ni un «Guardar datos SEPA» siempre a la vista ni un «Guardar
+// política» gris en reposo.
+//
+// ⚠️ Un campo solo se pone al día con `studio` si no se ha tocado
+// (lib/configuracion/formulario-sincronizado.ts): guardar otra cosa cambia
+// `studio` de referencia y no puede borrar lo que se está escribiendo.
+
+// ── Domiciliaciones bancarias ────────────────────────────────────────────────
 
 type SepaForm = { sepaAcreedorId: string; sepaIban: string; sepaTitular: string };
 
@@ -27,14 +35,11 @@ function studioToSepa(s: DatosSepa | null): SepaForm {
   };
 }
 
-export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void }) {
+export function FormDomiciliaciones({ onGuardado }: PropsFormularioCajon) {
   const { studio, reflejarStudioGuardado } = useStudio();
   const [form, setForm] = useState<SepaForm>(() => studioToSepa(studio));
-  const idSepa = useId();
   // Lo último que se sabe del servidor: lo que difiere de aquí es lo tecleado.
   const [base, setBase] = useState<SepaForm>(() => studioToSepa(studio));
-  const guardandoRef = useRef(false);
-  const [guardando, setGuardando] = useState(false);
 
   const [studioAnterior, setStudioAnterior] = useState(studio);
   if (studio !== studioAnterior) {
@@ -44,77 +49,64 @@ export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void
     setBase(servidor);
   }
 
-  // Los datos SEPA son la cuenta donde entra el dinero de la remesa: los valida
-  // y guarda el servidor (solo la dueña), y aquí se pinta lo que devolvió ya
-  // normalizado — nunca lo que se tecleó.
-  async function guardarSepa() {
-    if (guardandoRef.current) return;
-    guardandoRef.current = true;
-    setGuardando(true);
+  const campo = (k: keyof SepaForm) => (e: ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setForm(f => ({ ...f, [k]: v }));
+  };
+
+  // Es la cuenta donde entra el dinero de la remesa: la valida y la guarda el
+  // servidor (solo la dueña), y aquí se pinta lo que devolvió ya normalizado,
+  // nunca lo que se tecleó.
+  async function alGuardar(): Promise<string | null> {
     const enviado = form;
-    try {
-      const res = await fetch('/api/estudio/sepa', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify(enviado),
-      });
-      const data = await res.json().catch(() => null) as { datos?: DatosSepa; error?: string } | null;
-      if (!res.ok || !data?.datos) { showToast(data?.error ?? 'No se han podido guardar los datos SEPA'); return; }
-      reflejarStudioGuardado(data.datos);
-      const guardado = studioToSepa(data.datos);
-      setForm(f => sincronizarFormulario(f, enviado, guardado));
-      setBase(guardado);
-      showToast('Datos SEPA guardados');
-    } catch {
-      showToast('No se han podido guardar los datos SEPA. Revisa tu conexión.');
-    } finally {
-      guardandoRef.current = false;
-      setGuardando(false);
-    }
+    const res = await fetch('/api/estudio/sepa', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(enviado),
+    });
+    const data = await res.json().catch(() => null) as { datos?: DatosSepa; error?: string } | null;
+    if (!res.ok || !data?.datos) return data?.error ?? 'No se han podido guardar los datos de tu banco';
+    reflejarStudioGuardado(data.datos);
+    const guardado = studioToSepa(data.datos);
+    setForm(f => sincronizarFormulario(f, enviado, guardado));
+    setBase(guardado);
+    onGuardado('Datos de domiciliación guardados');
+    return null;
   }
 
   return (
     <>
-      <TarjetaAjuste id="domiciliaciones">
-        <p className="text-[12px] text-muted-foreground mb-4">
-          El identificador de acreedor te lo da tu banco al darte de alta en los recibos domiciliados (SEPA).
-          La remesa se genera en Cobros → Generar remesa SEPA.
-        </p>
-        <div className="grid grid-cols-1 @md/config:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor={`${idSepa}-acreedor`} className={labelCls}>Identificador de acreedor SEPA</label>
-            <input id={`${idSepa}-acreedor`} className={inputCls} value={form.sepaAcreedorId} onChange={e => setForm(f => ({ ...f, sepaAcreedorId: e.target.value }))} placeholder="ES00ZZZ00000000000" />
-          </div>
-          <div>
-            <label htmlFor={`${idSepa}-iban`} className={labelCls}>IBAN de la cuenta del estudio</label>
-            <input id={`${idSepa}-iban`} className={inputCls} value={form.sepaIban} onChange={e => setForm(f => ({ ...f, sepaIban: e.target.value }))} placeholder="ES00 0000 0000 0000 0000 0000" />
-          </div>
-          <div>
-            <label htmlFor={`${idSepa}-titular`} className={labelCls}>Titular de la cuenta</label>
-            <input id={`${idSepa}-titular`} className={inputCls} value={form.sepaTitular} onChange={e => setForm(f => ({ ...f, sepaTitular: e.target.value }))} />
-          </div>
-        </div>
-        <button type="button" onClick={guardarSepa} disabled={guardando} className={cn(btnPrimary, 'mt-4')}>
-          {guardando ? 'Guardando…' : 'Guardar datos SEPA'}
-        </button>
-      </TarjetaAjuste>
-
-      <PoliticaDevoluciones showToast={showToast} />
+      <div className="grid grid-cols-1 gap-5 pb-6">
+        <Campo label="Identificador de acreedor" ayuda="Te lo da tu banco al darte de alta en los recibos domiciliados.">
+          {id => <input id={id} className={inputCls} value={form.sepaAcreedorId} onChange={campo('sepaAcreedorId')} placeholder="ES00ZZZ00000000000" autoCapitalize="characters" />}
+        </Campo>
+        <Campo label="IBAN de la cuenta del estudio">
+          {id => <input id={id} className={inputCls} value={form.sepaIban} onChange={campo('sepaIban')} placeholder="ES00 0000 0000 0000 0000 0000" autoCapitalize="characters" />}
+        </Campo>
+        <Campo label="Titular de la cuenta">
+          {id => <input id={id} className={inputCls} value={form.sepaTitular} onChange={campo('sepaTitular')} />}
+        </Campo>
+      </div>
+      <BarraGuardar
+        seccion="cobros"
+        cambios={hayCambios(form, base) ? ['Domiciliaciones bancarias'] : []}
+        onGuardar={alGuardar}
+        onDescartar={() => setForm(base)}
+      />
     </>
   );
 }
 
-// ── Política de devoluciones ─────────────────────────────────────────────────
-// Apagada de fábrica a propósito: mientras lo esté, en la ficha de la clienta
+// ── Devoluciones ─────────────────────────────────────────────────────────────
+// Apagadas de fábrica a propósito: mientras lo estén, en la ficha de la alumna
 // no aparece ningún botón de devolver, y el endpoint rechaza aunque se le llame
-// a mano. Se puede seguir devolviendo desde Stripe como hasta ahora — Tentare
-// se entera igual por el webhook.
+// a mano. Se puede seguir devolviendo desde Stripe — Tentare se entera igual por
+// el webhook. Es dinero: «Guardar» pregunta antes, con lo que va a pasar.
 
 type DevolucionesForm = { activos: boolean; plazo: string; soloSinUsar: boolean };
+type Politica = Pick<Studio, 'reembolsosActivos' | 'reembolsoPlazoDias' | 'reembolsoSoloSinUsar'>;
 
-function studioToDevoluciones(
-  s: Pick<Studio, 'reembolsosActivos' | 'reembolsoPlazoDias' | 'reembolsoSoloSinUsar'> | null,
-): DevolucionesForm {
+function studioToDevoluciones(s: Politica | null): DevolucionesForm {
   // Los mismos valores por defecto que lee el servidor (app/api/reembolsos).
   return {
     activos: s?.reembolsosActivos ?? false,
@@ -123,14 +115,30 @@ function studioToDevoluciones(
   };
 }
 
-function PoliticaDevoluciones({ showToast }: { showToast: (m: string) => void }) {
+/** Lo que se pregunta antes de guardar: qué cambia para la propietaria y su recepción. */
+function confirmacion(antes: DevolucionesForm, ahora: Politica) {
+  const politica = resumenDevoluciones(ahora) ?? '';
+  if (!antes.activos && ahora.reembolsosActivos) {
+    return {
+      titulo: '¿Permitir devolver desde Tentare?',
+      descripcion: `Tú y recepción veréis «Devolver» en los pagos de cada alumna (${politica.toLowerCase()}). Cada devolución mueve dinero de verdad a su forma de pago original.`,
+      textoConfirmar: 'Sí, permitirlo',
+    };
+  }
+  if (antes.activos && !ahora.reembolsosActivos) {
+    return {
+      titulo: '¿Dejar de devolver desde Tentare?',
+      descripcion: 'Desaparece «Devolver» de las fichas. Podrás seguir devolviendo desde Stripe.',
+      textoConfirmar: 'Sí, dejar de devolver',
+    };
+  }
+  return { titulo: '¿Cambiar las devoluciones?', descripcion: `Desde ahora: ${politica.toLowerCase()}.`, textoConfirmar: 'Sí, cambiarlas' };
+}
+
+export function FormDevoluciones({ onGuardado }: PropsFormularioCajon) {
   const { studio, updateStudio } = useStudio();
-  const idPlazo = useId();
   const [form, setForm] = useState<DevolucionesForm>(() => studioToDevoluciones(studio));
   const [base, setBase] = useState<DevolucionesForm>(() => studioToDevoluciones(studio));
-  const guardandoRef = useRef(false);
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const [anterior, setAnterior] = useState(studio);
   if (studio !== anterior) {
@@ -144,117 +152,79 @@ function PoliticaDevoluciones({ showToast }: { showToast: (m: string) => void })
   // Con la política apagada el plazo ni se ve: no se bloquea por algo que no se
   // puede corregir en pantalla (se guarda el que ya había).
   const plazoInvalido = form.activos && plazoDias === null;
-  const pendiente = hayCambios(form, base);
+  const politica: Politica = {
+    reembolsosActivos: form.activos,
+    reembolsoPlazoDias: plazoDias ?? leerPlazoReembolso(base.plazo) ?? 14,
+    reembolsoSoloSinUsar: form.soloSinUsar,
+  };
 
-  function cambiar(cambio: Partial<DevolucionesForm>) {
-    setForm(f => ({ ...f, ...cambio }));
-    setError(null);
-  }
+  const cambiar = (cambio: Partial<DevolucionesForm>) => setForm(f => ({ ...f, ...cambio }));
 
-  async function guardar() {
-    // Un ref y no solo el `disabled`: dos toques seguidos llegan antes de que
-    // el botón se repinte deshabilitado.
-    if (guardandoRef.current || plazoInvalido) return;
-    guardandoRef.current = true;
-    setGuardando(true);
-    setError(null);
+  async function alGuardar(): Promise<string | null> {
     const enviado = form;
-    const cambios = {
-      reembolsosActivos: enviado.activos,
-      reembolsoPlazoDias: plazoDias ?? leerPlazoReembolso(base.plazo) ?? 14,
-      reembolsoSoloSinUsar: enviado.soloSinUsar,
-    };
-    try {
-      const res = await updateStudio(cambios);
-      // «Guardada» solo con la fila confirmada (updateStudio cuenta filas).
-      if (!res.ok) { setError(res.error); showToast(res.error); return; }
-      const guardado = studioToDevoluciones(cambios);
-      setForm(f => sincronizarFormulario(f, enviado, guardado));
-      setBase(guardado);
-      showToast('Política de devoluciones guardada');
-    } catch {
-      const mensaje = 'No se ha podido guardar la política de devoluciones. Revisa tu conexión.';
-      setError(mensaje);
-      showToast(mensaje);
-    } finally {
-      guardandoRef.current = false;
-      setGuardando(false);
-    }
+    const cambios = politica;
+    // «Guardada» solo con la fila confirmada (updateStudio cuenta filas).
+    const res = await updateStudio(cambios);
+    if (!res.ok) return res.error;
+    const guardado = studioToDevoluciones(cambios);
+    setForm(f => sincronizarFormulario(f, enviado, guardado));
+    setBase(guardado);
+    onGuardado('Política de devoluciones guardada');
+    return null;
   }
 
   return (
-    <TarjetaAjuste id="devoluciones">
-      <p className="text-[12px] text-muted-foreground mb-4">
-        Con esto activado aparece un botón para devolver en la pestaña <strong>Pagos</strong> de cada alumna,
-        y el recibo queda marcado como devuelto. Si lo dejas apagado, puedes seguir devolviendo desde
-        Stripe: Tentare se entera igual.
-      </p>
-
-      <div className="flex items-center justify-between py-2.5">
-        <div className="pr-4">
-          <p className="text-[13px] font-medium text-foreground">Permitir devolver desde Tentare</p>
-          <p className="text-xs text-muted-foreground">Solo la propietaria y recepción ven el botón.</p>
-        </div>
-        <Toggle on={form.activos} onChange={v => cambiar({ activos: v })} ariaLabel="Permitir devolver desde Tentare" />
-      </div>
-
-      {form.activos && (
-        <div className="mt-2 pt-3 border-t border-border space-y-4">
-          <div className="max-w-[240px]">
-            <label className={labelCls} htmlFor={idPlazo}>Plazo para devolver (días desde el cobro)</label>
-            <input
-              id={idPlazo}
-              className={cn(inputCls, plazoInvalido && 'border-destructive')}
-              type="number"
-              min={0}
-              max={PLAZO_REEMBOLSO_MAX_DIAS}
-              step={1}
-              inputMode="numeric"
-              aria-invalid={plazoInvalido}
-              value={form.plazo}
-              onChange={e => cambiar({ plazo: e.target.value })}
-            />
-            {plazoInvalido ? (
-              <p role="alert" className="text-xs font-medium text-destructive mt-1">
-                {`Tienen que ser días enteros, entre 0 y ${PLAZO_REEMBOLSO_MAX_DIAS}. 0 = sin límite.`}
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-1">
-                {plazoDias
-                  ? `Pasados ${plazoDias} días ya no se podrá devolver desde aquí.`
-                  : '0 = sin límite: se podrá devolver un cobro de cualquier fecha.'}
-              </p>
-            )}
+    <>
+      <div className="space-y-5 pb-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Permitir devolver desde Tentare</p>
+            <p className="text-sm text-muted-foreground text-pretty">Tú y recepción veis «Devolver» en sus pagos.</p>
           </div>
-
-          <div className="flex items-center justify-between py-1">
-            <div className="pr-4">
-              <p className="text-[13px] font-medium text-foreground">Solo bonos sin empezar</p>
-              <p className="text-xs text-muted-foreground">
-                No deja devolver un bono del que ya se han gastado sesiones. Los mensuales y las citas no se ven afectados.
-              </p>
-            </div>
-            <Toggle on={form.soloSinUsar} onChange={v => cambiar({ soloSinUsar: v })} ariaLabel="Solo bonos sin empezar" />
-          </div>
+          <Toggle on={form.activos} onChange={v => cambiar({ activos: v })} ariaLabel="Permitir devolver desde Tentare" />
         </div>
-      )}
 
-      {/* Sin cambios no hay botón: un «Guardar política» gris permanente se leía
-          como roto o bloqueado. Con cambios aparece; si el plazo no vale, apagado
-          pero legible (`btnPrimary`) y con el motivo justo encima. */}
-      <div className="mt-4 flex min-h-9 flex-wrap items-center gap-3">
-        {pendiente || guardando ? (
+        {form.activos && (
           <>
-            <button type="button" onClick={guardar} disabled={guardando || plazoInvalido} className={btnPrimary}>
-              {guardando ? 'Guardando…' : 'Guardar política'}
-            </button>
-            {!guardando && <span className="text-[13px] text-muted-foreground">Cambios sin guardar.</span>}
+            <Campo
+              label="Plazo para devolver (días desde el cobro)"
+              error={plazoInvalido ? `Tienen que ser días enteros, entre 0 y ${PLAZO_REEMBOLSO_MAX_DIAS}. 0 = sin límite.` : null}
+              ayuda={plazoDias ? `Pasados ${plazoDias} días ya no se podrá devolver desde aquí.` : '0 = sin límite: cualquier cobro, sea de cuando sea.'}
+            >
+              {id => (
+                <input
+                  id={id}
+                  className={cn(inputCls, 'max-w-40', plazoInvalido && 'border-destructive')}
+                  type="number"
+                  min={0}
+                  max={PLAZO_REEMBOLSO_MAX_DIAS}
+                  step={1}
+                  inputMode="numeric"
+                  aria-invalid={plazoInvalido}
+                  value={form.plazo}
+                  onChange={e => cambiar({ plazo: e.target.value })}
+                />
+              )}
+            </Campo>
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Solo bonos sin empezar</p>
+                <p className="text-sm text-muted-foreground text-pretty">Un bono con sesiones gastadas no se devuelve. Mensuales y citas, sí.</p>
+              </div>
+              <Toggle on={form.soloSinUsar} onChange={v => cambiar({ soloSinUsar: v })} ariaLabel="Solo bonos sin empezar" />
+            </div>
           </>
-        ) : (
-          <span className="text-[13px] text-muted-foreground">Sin cambios</span>
         )}
       </div>
-      {error && <p role="alert" className="mt-2 text-[12px] font-medium text-destructive">{error}</p>}
-    </TarjetaAjuste>
+      <BarraGuardar
+        seccion="cobros"
+        cambios={hayCambios(form, base) ? ['Devoluciones'] : []}
+        bloqueo={plazoInvalido ? 'Corrige el plazo para poder guardar.' : null}
+        confirmar={confirmacion(base, politica)}
+        onGuardar={alGuardar}
+        onDescartar={() => setForm(base)}
+      />
+    </>
   );
 }

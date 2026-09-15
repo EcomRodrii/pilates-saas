@@ -11,10 +11,9 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import { FormContacto, FormNombreYDireccion } from '@/components/configuracion/tab-datos-contacto';
 import { FormCerrarElCentro, FormHorario } from '@/components/configuracion/tab-estudio-horario';
 import { FormSedes } from '@/components/configuracion/tab-estudio-sedes';
-import { CajonAjuste } from '@/components/configuracion/shell/cajon-ajuste';
+import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
-import { useNavegacionConfig } from '@/components/configuracion/shell/contexto';
 import {
   resumenCierres, resumenContacto, resumenHerramienta, resumenHorarioSemana, resumenNombreYDireccion, resumenSedes,
 } from '@/lib/configuracion/resumenes';
@@ -31,8 +30,7 @@ import type { TarjetaId } from '@/lib/configuracion/secciones';
 
 type CajonId = Extract<TarjetaId, 'nombre-y-direccion' | 'contacto' | 'horario' | 'cerrar-el-centro' | 'sedes'>;
 
-const CAJONES: readonly string[] = ['nombre-y-direccion', 'contacto', 'horario', 'cerrar-el-centro', 'sedes'] satisfies CajonId[];
-const esCajon = (id: string | undefined): id is CajonId => !!id && CAJONES.includes(id);
+const CAJONES = ['nombre-y-direccion', 'contacto', 'horario', 'cerrar-el-centro', 'sedes'] as const satisfies readonly CajonId[];
 
 const FILAS_DATOS = [{ id: 'nombre-y-direccion', icono: MapPin }, { id: 'contacto', icono: Phone }] as const;
 const FILAS_HORARIO = [{ id: 'horario', icono: Clock }, { id: 'cerrar-el-centro', icono: CalendarOff }] as const;
@@ -41,7 +39,6 @@ const FILA_SEDES = { id: 'sedes', icono: Building2 } as const;
 export function SeccionEstudio({ showToast }: { showToast: (m: string) => void }) {
   const { studio, dataLoaded, salas, bloqueosMaquina } = useStudio();
   const { user } = useAuth();
-  const nav = useNavegacionConfig();
 
   // Qué avería sigue abierta y qué cierre ya pasó dependen de la hora: se lee
   // una vez al montar (leer el reloj en render es impuro).
@@ -92,29 +89,8 @@ export function SeccionEstudio({ showToast }: { showToast: (m: string) => void }
     return () => { vivo = false; };
   }, [studioId, hoy, recargaCierres]);
 
-  // El cajón abierto. Un enlace con ancla abre el suyo, también la misma ancla
-  // pedida otra vez (`anclaAbierta` cambia en cada navegación).
-  const anclaAbierta = nav?.anclaAbierta ?? null;
-  const idAncla = anclaAbierta?.id;
-  const [cajon, setCajon] = useState<CajonId | null>(esCajon(idAncla) ? idAncla : null);
-  const [anclaVista, setAnclaVista] = useState(anclaAbierta);
-  if (anclaAbierta !== anclaVista) {
-    setAnclaVista(anclaAbierta);
-    if (esCajon(idAncla)) setCajon(idAncla);
-  }
-
-  function abrir(id: TarjetaId) {
-    if (esCajon(id)) setCajon(id);
-  }
-
-  function cerrar() {
-    const id = cajon;
-    setCajon(null);
-    // Llegó por un enlace (`#horario`): la dirección deja de decir que está abierto.
-    if (id && window.location.hash === `#${id}`) {
-      window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
-    }
-  }
+  // El cajón abierto: un enlace con ancla abre el suyo (shell/cajon-ajuste.tsx).
+  const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
 
   function guardado(texto: string) {
     cerrar();

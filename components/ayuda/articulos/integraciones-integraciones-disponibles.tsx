@@ -19,7 +19,7 @@ const GRUPOS: { seccion: string; tarjetas: [string, string][] }[] = [
   {
     seccion: 'Cobros y facturas',
     tarjetas: [
-      ['Cobro con tarjeta (Stripe)', 'Conecta tu cuenta de Stripe para cobrar bonos y cuotas con tarjeta. El dinero entra directo en tu cuenta.'],
+      ['Cobro con tarjeta (Stripe)', 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.'],
     ],
   },
   {

@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import {
-  FILAS_EXTERNAS, GRUPOS, HERRAMIENTAS, MI_CUENTA, SECCIONES, cumpleCondicion, esHerramientaId, esTarjetaId, herramientaDeTarjeta,
+  FILAS_A_OTRA_PANTALLA, FILAS_EXTERNAS, GRUPOS, HERRAMIENTAS, MI_CUENTA, SECCIONES, cumpleCondicion, esHerramientaId, esSeccionId, esTarjetaId, herramientaDeTarjeta,
   herramientaPorId, herramientasDeSeccion, seccionDeTarjeta, seccionPorId, tarjetaPorId, tarjetasDeHerramienta,
   type FilaExternaId, type TarjetaConfiguracion, type TarjetaId,
 } from './secciones.ts';
@@ -169,6 +171,21 @@ test('seis herramientas con pantalla propia, cada una de UNA sección y con sus 
   assert.equal(herramientaDeTarjeta('reglas'), null);
   assert.deepEqual(herramientasDeSeccion('web').map(h => h.id), ['contenido-de-tu-app', 'widgets']);
   assert.deepEqual(herramientasDeSeccion('reservas'), []);
+});
+
+test('lo que se abre en un cajón cabe en su línea (≤ 120), y las filas a otra pantalla llevan a una que existe', () => {
+  // Mi estudio, Cobros y facturas y Alta de alumnas son filas con cajón: su
+  // frase es la ÚNICA línea de explicación de ese cajón (§5 de la reorganización).
+  for (const s of ['estudio', 'cobros', 'altas'] as const) {
+    for (const t of seccionPorId(s).tarjetas) assert.ok(t.frase.length <= 120, `${t.id}: ${t.frase.length} caracteres`);
+    assert.ok(seccionPorId(s).frase.length <= 90, `${s}: la frase de la sección`);
+  }
+  for (const f of FILAS_A_OTRA_PANTALLA) {
+    assert.ok(esSeccionId(f.seccion), f.id);
+    assert.ok(existsSync(join(import.meta.dirname, '../../app/(dashboard)', f.href, 'page.tsx')), `${f.id}: ${f.href} no es una pantalla`);
+    assert.ok(f.resumen.length <= 60 && !f.resumen.endsWith('.'), f.id);
+    assert.doesNotMatch(`${f.titulo} ${f.resumen}`, /\b(client|soci)as?\b/i, f.id);
+  }
 });
 
 test('las palabras del buscador: en minúsculas, sin repetir y que no repiten el título', () => {

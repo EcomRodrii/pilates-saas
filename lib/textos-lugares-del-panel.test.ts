@@ -54,6 +54,12 @@ const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   },
   // 15-sep (v2): Mi estudio va en filas con su cajón. «Datos y contacto» se
   // partió en «Nombre y dirección» y «Contacto», y el cierre es una fila propia.
+  // 15-sep (v2): Cobros y facturas y Alta de alumnas, igual. Sus botones de
+  // antes ya no existen: nadie puede mandar a pulsarlos.
+  {
+    patron: /Guardar datos fiscales|Guardar datos SEPA|Guardar política de devoluciones|Guardar términos|Conectar con Stripe/,
+    ahora: 'filas con su cajón en Cobros y facturas y en Alta de alumnas, cada una con «Guardar»; Stripe se conecta con «Conectar» en su fila',
+  },
   {
     patron: /Guardar datos y contacto|Cerrar el centro unos días|Cerrar el centro esos días/,
     ahora: 'Mi estudio en filas: «Nombre y dirección», «Contacto», «Horario» y «Cerrar el centro», cada una con su «Guardar»',

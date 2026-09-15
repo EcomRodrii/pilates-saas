@@ -135,7 +135,7 @@ export const SECCIONES = [
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'datos-fiscales', titulo: 'Datos fiscales e IVA', frase: 'Razón social, NIF e IVA de tus facturas. Cambiar el IVA solo afecta a las facturas nuevas.', guardado: 'barra', palabras: ['nif', 'cif', 'razón social', 'facturas', 'impuestos'] },
-      { id: 'integracion-stripe', titulo: 'Cobro con tarjeta (Stripe)', frase: 'Conecta tu cuenta de Stripe para cobrar bonos y cuotas con tarjeta. El dinero entra directo en tu cuenta.', guardado: 'accion', palabras: ['pago online', 'tarjeta'] },
+      { id: 'integracion-stripe', titulo: 'Cobro con tarjeta (Stripe)', frase: 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.', guardado: 'accion', palabras: ['pago online', 'tarjeta'] },
       { id: 'domiciliaciones', titulo: 'Domiciliaciones bancarias', frase: 'Los datos que pide tu banco para cobrar recibos domiciliados. Con ellos generas la remesa en Cobros.', guardado: 'barra', palabras: ['sepa', 'banco', 'remesa', 'recibos'] },
       { id: 'devoluciones', titulo: 'Devoluciones', frase: 'Permite devolver un cobro desde la ficha de la alumna; el dinero vuelve a su tarjeta.', guardado: 'barra', palabras: ['reembolso', 'devolver'] },
     ],
@@ -147,10 +147,10 @@ export const SECCIONES = [
     frase: 'Lo que acepta y rellena una alumna nueva, y qué datos guardas de cada una.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'contrato-y-privacidad', titulo: 'Contrato y privacidad', frase: 'Los textos que acepta cada alumna al darse de alta. Queda guardado qué texto aceptó, cuándo y el nombre con el que lo aceptó.', guardado: 'barra', palabras: ['términos', 'condiciones', 'rgpd', 'firma'] },
+      { id: 'contrato-y-privacidad', titulo: 'Contrato y privacidad', frase: 'Los textos que acepta cada alumna al darse de alta. Se guarda qué aceptó, cuándo y con qué nombre.', guardado: 'barra', palabras: ['términos', 'condiciones', 'rgpd', 'firma'] },
       { id: 'compra-desde-tu-enlace', titulo: 'Compra desde tu enlace', frase: 'Si alguien que aún no es alumna compra un bono en tu página: que se registre antes de pagar o que pague directamente.', guardado: 'barra', palabras: ['registro', 'comprar un bono'] },
       { id: 'datos-extra-de-la-ficha', titulo: 'Datos extra de la ficha', frase: 'Preguntas tuyas, como su objetivo o cómo te conoció. Salen al darla de alta y en su ficha.', guardado: 'catalogo', palabras: ['campos', 'preguntas'] },
-      { id: 'valoracion-inicial', titulo: 'Valoración inicial', frase: 'Tus alumnas te cuentan desde su app qué buscan y qué conviene tener en cuenta, antes de sus primeras clases.', guardado: 'al-pulsar', palabras: ['objetivos'] },
+      { id: 'valoracion-inicial', titulo: 'Valoración inicial', frase: 'Tus alumnas te cuentan qué buscan antes de sus primeras clases.', guardado: 'al-pulsar', palabras: ['objetivos'] },
       { id: 'cuestionario-de-salud', titulo: 'Cuestionario de salud', frase: 'Preguntas de salud que rellenáis tú o tus instructoras en la ficha de cada alumna; ella no lo rellena.', guardado: 'catalogo', palabras: ['lesiones'] },
     ],
   },
@@ -303,6 +303,24 @@ export const FILAS_EXTERNAS: Readonly<Record<FilaExternaId, FilaExterna>> = {
   plan: { id: 'plan', titulo: 'Plan de Tentare', resumen: 'Lo que pagas tú a Tentare, no tus alumnas', href: '/suscripcion', palabras: ['suscripción', 'prueba gratuita', 'precio'] },
   'mi-cuenta': { id: 'mi-cuenta', ...MI_CUENTA, resumen: 'Tu nombre, tu foto y cómo entras', palabras: ['perfil', 'foto'] },
 };
+
+/**
+ * Filas DENTRO de una sección que llevan a otra pantalla del panel, con su icono
+ * de salida: lo que se configura aquí y se usa allí. No son pantallas nuevas.
+ */
+export interface FilaAOtraPantalla {
+  readonly id: string;
+  readonly seccion: SeccionId;
+  readonly titulo: string;
+  /** La línea corta, cuando no se sabe cómo está. */
+  readonly resumen: string;
+  readonly href: string;
+}
+
+export const FILAS_A_OTRA_PANTALLA = [
+  { id: 'fila-paquetes', seccion: 'cobros', titulo: 'Paquetes', resumen: 'Tus planes, bonos y precios', href: '/productos' },
+  { id: 'fila-cobros', seccion: 'cobros', titulo: 'Cobros', resumen: 'Quién te debe, lo cobrado y tus facturas', href: '/cobros' },
+] as const satisfies readonly FilaAOtraPantalla[];
 
 export interface GrupoConfiguracion {
   readonly id: string;

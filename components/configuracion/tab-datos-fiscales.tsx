@@ -4,14 +4,18 @@ import { cn } from '@/lib/utils';
 import { nifValido } from '@/lib/nif';
 import type { Studio } from '@/lib/types';
 import { inputCls } from '@/components/configuracion/estilos';
-import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
-import { BarraCambiosEstudio, Campo, useFormularioEstudio } from '@/components/configuracion/formulario-estudio';
+import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
+import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
+import { Campo, useFormularioEstudio } from '@/components/configuracion/formulario-estudio';
 
-// «Datos fiscales e IVA», en Cobros y facturas: lo que va en tus facturas.
-// Guarda SOLO razón social, NIF e IVA (ver formulario-estudio.tsx).
+// «Datos fiscales e IVA»: el cajón de su fila en Cobros y facturas. Guarda SOLO
+// razón social, NIF e IVA (formulario-estudio.tsx, #2027), y «Guardado» solo con
+// la fila confirmada: si no, el cajón se queda abierto con lo escrito.
 //
-// `datos-fiscales` es un ancla con enlaces de verdad: «Poner mi NIF ahora» de
-// Cobros → Facturas, el aviso de Contrato y privacidad y la guía.
+// `#datos-fiscales` es un ancla con enlaces de verdad —«Poner mi NIF ahora» de
+// Cobros → Facturas, el aviso del contrato, la guía— y abre este cajón.
+//
+// Cambiar el IVA es dinero: pregunta antes de guardar, con lo que cambia.
 
 type DatosFiscalesForm = {
   razonSocial: string;
@@ -28,83 +32,73 @@ function aFormulario(s: Studio | null): DatosFiscalesForm {
   };
 }
 
-export function TabDatosFiscales({ showToast }: { showToast: (m: string) => void }) {
-  const { form, setForm, hayCambios, guardando, guardar, descartar } = useFormularioEstudio(aFormulario, showToast);
+const TIPOS_IVA = [['21', '21 % — General'], ['10', '10 % — Reducido'], ['4', '4 % — Superreducido'], ['0', '0 % — Exento']] as const;
+
+export function FormDatosFiscales({ showToast, onGuardado }: PropsFormularioCajon) {
+  const { form, setForm, base, hayCambios, guardar, descartar } = useFormularioEstudio(aFormulario, showToast);
 
   const nifInvalido = form.nif.trim() !== '' && !nifValido(form.nif);
+  const cambiaIva = form.ivaPorDefecto !== base.ivaPorDefecto;
 
-  function guardarDatosFiscales() {
-    if (nifInvalido) { showToast('El NIF/CIF no es válido: revisa la letra o el dígito de control.'); return; }
-    void guardar({
+  async function alGuardar(): Promise<string | null> {
+    const res = await guardar({
       razonSocial: form.razonSocial,
       nif: form.nif,
-      // Viaja con el NIF y la razón social. Lo lee el TPV
-      // (app/api/pos/catalogo) y el desglose de cada factura nueva.
+      // Lo lee el TPV (app/api/pos/catalogo) y el desglose de cada factura nueva.
       ivaPorDefecto: Number(form.ivaPorDefecto),
-    }, 'Datos fiscales guardados');
+    }, null);
+    if (!res) return 'Ya se estaba guardando';
+    if (!res.ok) return res.error;
+    onGuardado('Datos fiscales guardados');
+    return null;
   }
 
   return (
-    <div className="max-w-2xl space-y-3">
-      <TarjetaAjuste id="datos-fiscales">
-        <p className="mb-4 text-[12px] leading-relaxed text-muted-foreground">
-          Los precios se tratan como <span className="font-medium text-foreground">IVA incluido</span>: el tipo solo
-          cambia el desglose base/cuota, nunca el total que cobras.
-        </p>
-        <div className="grid grid-cols-1 gap-5 @md/config:grid-cols-2">
-          <Campo label="Razón social" ayuda="El nombre legal, si no coincide con el comercial.">
-            {id => (
-              <input id={id} className={inputCls} value={form.razonSocial}
-                onChange={e => setForm(f => ({ ...f, razonSocial: e.target.value }))} />
-            )}
-          </Campo>
-          <Campo
-            label="NIF / CIF"
-            error={nifInvalido ? 'Revisa el NIF/CIF: la letra o el dígito de control no cuadran.' : null}
-          >
-            {id => (
-              <input
-                id={id}
-                className={cn(inputCls, nifInvalido && 'border-destructive')}
-                value={form.nif}
-                aria-invalid={nifInvalido}
-                onChange={e => setForm(f => ({ ...f, nif: e.target.value }))}
-              />
-            )}
-          </Campo>
-          {/* El IVA espera a «Guardar», como el NIF y la razón social de esta
-              misma tarjeta. Se guardaba solo al elegirlo: dos modelos en una
-              tarjeta (#1971), y encima reiniciaba el formulario y borraba el
-              NIF que estuvieras escribiendo. */}
-          <Campo
-            label="IVA general"
-            className="@md/config:col-span-2"
-            ayuda="Se aplica a las próximas facturas desde que guardas. Las ya emitidas y selladas (Veri*Factu) no cambian."
-          >
-            {id => (
-              <select
-                id={id}
-                className={cn(inputCls, 'max-w-xs cursor-pointer')}
-                value={form.ivaPorDefecto}
-                onChange={e => setForm(f => ({ ...f, ivaPorDefecto: e.target.value }))}
-              >
-                <option value={21}>21 % — General</option>
-                <option value={10}>10 % — Reducido</option>
-                <option value={4}>4 % — Superreducido</option>
-                <option value={0}>0 % — Exento</option>
-              </select>
-            )}
-          </Campo>
-        </div>
-      </TarjetaAjuste>
-
-      <BarraCambiosEstudio
-        visible={hayCambios}
-        guardando={guardando}
-        textoGuardar="Guardar datos fiscales"
-        onGuardar={guardarDatosFiscales}
+    <>
+      <div className="grid grid-cols-1 gap-5 pb-6">
+        <Campo label="Razón social" ayuda="El nombre legal, si no es el de tu estudio.">
+          {id => (
+            <input id={id} className={inputCls} value={form.razonSocial}
+              onChange={e => { const v = e.target.value; setForm(f => ({ ...f, razonSocial: v })); }} />
+          )}
+        </Campo>
+        <Campo label="NIF / CIF" error={nifInvalido ? 'La letra o el dígito de control no cuadran.' : null}>
+          {id => (
+            <input
+              id={id}
+              className={cn(inputCls, nifInvalido && 'border-destructive')}
+              value={form.nif}
+              autoCapitalize="characters"
+              aria-invalid={nifInvalido}
+              onChange={e => { const v = e.target.value; setForm(f => ({ ...f, nif: v })); }}
+            />
+          )}
+        </Campo>
+        <Campo label="IVA general" ayuda="Tus precios llevan el IVA incluido: cambia el desglose, no el total.">
+          {id => (
+            <select
+              id={id}
+              className={cn(inputCls, 'cursor-pointer @sm/config:max-w-xs')}
+              value={form.ivaPorDefecto}
+              onChange={e => { const v = e.target.value; setForm(f => ({ ...f, ivaPorDefecto: v })); }}
+            >
+              {TIPOS_IVA.map(([valor, texto]) => <option key={valor} value={valor}>{texto}</option>)}
+            </select>
+          )}
+        </Campo>
+      </div>
+      <BarraGuardar
+        seccion="cobros"
+        cambios={hayCambios ? ['Datos fiscales e IVA'] : []}
+        bloqueo={nifInvalido ? 'Revisa el NIF antes de guardar.' : null}
+        confirmar={cambiaIva ? {
+          titulo: `¿Cambiar el IVA al ${form.ivaPorDefecto} %?`,
+          descripcion: `Tus facturas nuevas llevarán un ${form.ivaPorDefecto} % de IVA. Lo que cobras no cambia, y las facturas ya emitidas tampoco.`,
+          textoConfirmar: 'Sí, cambiar el IVA',
+        } : null}
+        onGuardar={alGuardar}
         onDescartar={descartar}
       />
-    </div>
+    </>
   );
 }
