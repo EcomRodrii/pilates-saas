@@ -54,6 +54,23 @@ function formVacio(salaId: string): Form {
 
 const AVISO_SIN_CLASE = 'No hay ninguna clase programada ese día a esa hora en esa sala en las próximas semanas. Si la clase se movió, ajusta la plaza fija a su horario nuevo.';
 
+// Lo que ha pasado de verdad al quitar la plaza, con las cifras del servidor.
+function textoPlazaQuitada(canceladas: number, mantenidas: number, fallidas: number): string {
+  const partes = ['Plaza fija quitada'];
+  if (canceladas > 0) partes.push(canceladas === 1 ? '1 clase cancelada' : `${canceladas} clases canceladas`);
+  if (mantenidas > 0) {
+    partes.push(mantenidas === 1
+      ? '1 se mantiene por estar dentro del plazo de cancelación'
+      : `${mantenidas} se mantienen por estar dentro del plazo de cancelación`);
+  }
+  if (fallidas > 0) {
+    partes.push(fallidas === 1
+      ? '1 no se pudo cancelar: revísala en el calendario'
+      : `${fallidas} no se pudieron cancelar: revísalas en el calendario`);
+  }
+  return partes.join(' · ');
+}
+
 export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
   const { plazasFijas, asignarPlazaFija, editarPlazaFija, quitarPlazaFija, salas, tiposClase, spots, sesiones } = useStudio();
   const uid = useId();
@@ -214,6 +231,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                   <button
                     onClick={() => setABorrar(p)}
                     title="Quitar plaza fija"
+                    aria-label={`Quitar la plaza fija del ${diaLabel(p.diaSemana)} ${p.horaInicio.slice(0, 5)}`}
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted"
                   >
                     <Trash2 size={14} />
@@ -312,13 +330,14 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
         open={aBorrar !== null}
         onOpenChange={a => { if (!a) setABorrar(null); }}
         titulo={aBorrar ? `¿Quitar la plaza fija del ${diaLabel(aBorrar.diaSemana)} ${aBorrar.horaInicio.slice(0, 5)}?` : ''}
-        descripcion="Deja de generar reservas automáticas. Las reservas ya creadas no se tocan."
+        descripcion="Deja de reservarle esa clase cada semana y cancela las que ya tenía apuntadas en ese horario, sin penalización; si hay alguien en lista de espera, entra en su lugar. Las que empiezan dentro del plazo de cancelación se mantienen."
         textoConfirmar="Quitar"
         destructivo
         onConfirm={async () => {
           if (aBorrar) {
             const res = await quitarPlazaFija(aBorrar.id);
             if (!res.ok) { onToast(res.error); return; }
+            onToast(textoPlazaQuitada(res.canceladas ?? 0, res.mantenidas ?? 0, res.fallidas ?? 0));
           }
           setABorrar(null);
         }}

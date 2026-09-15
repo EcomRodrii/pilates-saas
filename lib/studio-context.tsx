@@ -330,7 +330,7 @@ interface StudioContextValue {
   // sitio (violación de la exclusión GiST). quitar = baja lógica (estado BAJA).
   asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true; proximaOcurrencia: ProximaOcurrenciaPlazaFija } | { error: string }>;
   editarPlazaFija: (id: string, cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>) => Promise<ResultadoEscritura & { proximaOcurrencia?: ProximaOcurrenciaPlazaFija }>;
-  quitarPlazaFija: (id: string) => Promise<ResultadoEscritura>;
+  quitarPlazaFija: (id: string) => Promise<ResultadoEscritura & { canceladas?: number; mantenidas?: number; fallidas?: number }>;
   // Feature #2 (ficha Lorari-vs-Tentare): autoservicio desde el portal — solo
   // tiene efecto con sesión de socia (ctxPublico presente); nunca desde staff,
   // que sigue usando asignarPlazaFija/quitarPlazaFija de arriba.
@@ -1670,11 +1670,28 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   // Baja lógica (estado BAJA): deja de materializar; conserva el histórico.
-  async function quitarPlazaFija(id: string): Promise<ResultadoEscritura> {
-    const res = await dbUpdatePlazaFija(id, { estado: 'BAJA' });
-    if (!res.ok) return res;
+  // Quitar pasa por el servidor: además de dar la plaza de baja, suelta las
+  // clases que ya había reservado (promociona la lista de espera y avisa a quien
+  // entra). Antes era un UPDATE directo y esas reservas seguían confirmadas.
+  // NO optimista: lo que se pinta es lo que el servidor dice que ha cancelado.
+  async function quitarPlazaFija(id: string): Promise<ResultadoEscritura & { canceladas?: number; mantenidas?: number; fallidas?: number }> {
+    const respuesta = await fetch('/api/plazas-fijas/estado', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ plazaId: id, estado: 'BAJA' }),
+    }).catch(() => null);
+    const datos = await respuesta?.json().catch(() => null) as {
+      ok?: boolean; canceladas?: string[]; mantenidas?: string[]; fallidas?: number; error?: string;
+    } | null;
+    if (!respuesta?.ok || !datos?.ok) {
+      return { ok: false, error: datos?.error ?? 'No se pudo quitar la plaza fija' };
+    }
     setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, estado: 'BAJA' as const } : p));
-    return res;
+    const canceladas = new Set(datos.canceladas ?? []);
+    if (canceladas.size > 0) {
+      setReservas(prev => prev.map(r => canceladas.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+    }
+    return { ok: true, canceladas: canceladas.size, mantenidas: datos.mantenidas?.length ?? 0, fallidas: datos.fallidas ?? 0 };
   }
 
   // Feature #2 (ficha Lorari-vs-Tentare): autoservicio de plaza fija desde el

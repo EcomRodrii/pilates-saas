@@ -19,7 +19,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { mapPlanTarifa, mapSuscripcion, hidratarTiposDePlanes } from '@/lib/supabase-data';
-import { planCubreTipoClase } from '@/lib/bono-logic.ts';
+import { planCubreTipoClase, planLimitaSemanaDeClase } from '@/lib/bono-logic.ts';
 import { inicioDelDiaEstudio, finDelDiaEstudio, fechaCortaEstudio, uid } from '@/lib/utils';
 import { derechoDeRecuperaciones } from './derecho-semanal.ts';
 import { semanaCerrada } from './otorgar-semanales-fechas.ts';
@@ -77,7 +77,7 @@ export async function otorgarRecuperacionesSemanales(
     const tipoDeSesion = new Map(sesiones.map(s => [s.id as string, (s.tipo_clase_id as string | null) ?? null]));
 
     const { data: reservas } = await admin
-      .from('reservas').select('id, socio_id, sesion_id, estado, cancelada_tardia, creado_en')
+      .from('reservas').select('id, socio_id, sesion_id, estado, cancelada_tardia, cancelada_motivo, creado_en')
       .eq('studio_id', studioId)
       .in('sesion_id', sesiones.map(s => s.id as string));
     if (!reservas?.length) continue;
@@ -98,8 +98,8 @@ export async function otorgarRecuperacionesSemanales(
 
       for (const sus of susActivas) {
         const plan = sus.planId ? planPorId.get(sus.planId) : null;
-        const limite = plan?.limiteSemanal ?? null;
-        if (!plan || limite == null || limite <= 0) continue;
+        if (!plan || !planLimitaSemanaDeClase(plan)) continue;
+        const limite = plan.limiteSemanal ?? 0;
 
         const cubre = (sesionId: string) => planCubreTipoClase(plan, tipoDeSesion.get(sesionId) ?? null);
 
@@ -107,8 +107,11 @@ export async function otorgarRecuperacionesSemanales(
           (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA') && cubre(r.sesion_id as string)).length;
         // `cancelada_tardia === false` a propósito, no `!== true`: NULL es «no
         // se sabe» (cancelada antes de existir la columna) y eso no se compensa.
+        // `cancelada_motivo` NULL: una clase soltada al pausar o quitar la plaza
+        // fija ('plaza_fija_retirada') no la canceló ella clase a clase.
         const canceladas = suyas
-          .filter(r => r.estado === 'CANCELADA' && r.cancelada_tardia === false && cubre(r.sesion_id as string))
+          .filter(r => r.estado === 'CANCELADA' && r.cancelada_tardia === false && r.cancelada_motivo == null
+            && cubre(r.sesion_id as string))
           .sort((a, b) => String(a.creado_en).localeCompare(String(b.creado_en)));
 
         const derecho = derechoDeRecuperaciones(limite, usadas, canceladas.length);

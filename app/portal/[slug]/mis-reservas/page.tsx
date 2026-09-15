@@ -128,7 +128,9 @@ export default function MisReservasPage() {
       ? 'Has salido de la lista de espera'
       : res.recuperacionCreada
         ? `Cancelada · tienes una clase para recuperar${res.recuperacionCaducaEl ? ` hasta el ${fechaCorta(res.recuperacionCaducaEl)}` : ''} ✓`
-        : res.bonoDevuelto
+        : res.recuperacionAlCerrarSemana
+          ? 'Cancelada · si no usas ese hueco esta semana, al acabarla tendrás una clase para recuperar ✓'
+          : res.bonoDevuelto
           ? 'Cancelada · sesión devuelta a tu bono ✓'
           : 'Cancelada — la sesión no se devuelve');
     // Y se recarga: la plaza vuelve al aforo y puede haber promocionado a

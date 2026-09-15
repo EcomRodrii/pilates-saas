@@ -36,7 +36,7 @@ const CASOS = [
   },
   {
     q: 'Cancela una plaza fija',
-    bono: 'Nunca se descontó — recibe una recuperación',
+    bono: 'Nunca se descontó — si cancela a tiempo, recupera la clase',
     plaza: 'Se libera',
     color: '#3E7C86',
   },

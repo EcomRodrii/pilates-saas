@@ -158,17 +158,26 @@ export async function emitirReservaCancelada(
 // por (sesión, socia) — con el UNIQUE(studio_id, dedup_key) del motor, cada
 // semana que falla genera como mucho un aviso, para siempre, sin necesidad de
 // un "último periodo avisado" tipo Fase 2b de gestoría.
+// Los motivos que devuelve `plazas_fijas_sin_materializar`.
+// `suscripcion_pausada` es el nombre viejo de `sin_plan_vigente` (hasta la migr
+// 20260915001236): se sigue aceptando por si el código llega antes que la
+// migración, con el texto nuevo, que también es cierto para una pausa.
+export type MotivoPlazaNoMaterializada =
+  | 'sesion_cancelada' | 'sin_plan_vigente' | 'suscripcion_pausada' | 'sin_autorizacion' | 'sin_aforo';
+
 export async function emitirPlazaFijaNoMaterializada(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; socioId: string; motivo: 'sesion_cancelada' | 'suscripcion_pausada' | 'sin_aforo' },
+  p: { studioId: string; sesionId: string; socioId: string; motivo: MotivoPlazaNoMaterializada },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
     const motivoTexto = p.motivo === 'sesion_cancelada'
       ? ' Esa clase está cancelada esta semana.'
-      : p.motivo === 'suscripcion_pausada'
-        ? ' Tu suscripción está en pausa, así que no la hemos reservado por ti.'
-        : ' Esta semana está completa — resérvala manualmente si quieres entrar en lista de espera.';
+      : p.motivo === 'sin_plan_vigente' || p.motivo === 'suscripcion_pausada'
+        ? ' Tu plan no está activo o no incluye esta clase, así que no la hemos reservado por ti.'
+        : p.motivo === 'sin_autorizacion'
+          ? ' Esta clase necesita que el estudio te dé acceso: escríbeles y te la abren.'
+          : ' Esta semana está completa — resérvala manualmente si quieres entrar en lista de espera.';
     await publish({
       type: EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, motivoTexto },

@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: '¿Tengo que cancelarle yo la reserva o dársela de baja de la plaza fija?',
-    a: 'No. Lo hace ella desde su portal, dentro de la ventana que hayas configurado — sin escribirte para avisarte. Si tiene plaza fija, también la pausa o la retoma cuando quiera. A tu panel llega ya resuelto.',
+    a: 'No. Lo hace ella desde su portal, dentro de la ventana que hayas configurado — sin escribirte para avisarte. Si tiene plaza fija, cancela solo esa clase y su plaza sigue ahí la semana siguiente. A tu panel llega ya resuelto.',
   },
   {
     q: '¿Tengo que cobrar por cancelar tarde?',
@@ -87,8 +87,8 @@ export default function CancelacionesPage() {
       <Seccion id="bono" titulo="Qué pasa con su bono">
         <p>
           Todo esto lo hace <strong>ella</strong>, desde su portal, dentro de la ventana que tú configuraste — no un paso
-          de mostrador que tengas que resolver a mano. Cancela, ve si recupera la sesión, y si tiene plaza fija, la
-          pausa o la retoma cuando quiera. A ti te llega hecho, no por hacer.
+          de mostrador que tengas que resolver a mano. Cancela y ve si recupera la sesión; si tiene plaza fija, cancela
+          solo esa clase y la semana siguiente su plaza sigue ahí. A ti te llega hecho, no por hacer.
         </p>
         <QuePasaConElBono />
         <p>
@@ -102,8 +102,9 @@ export default function CancelacionesPage() {
           un solo ajuste para los tres casos.
         </p>
         <Limite titulo="Una plaza fija no devuelve bono, devuelve recuperación">
-          Porque nunca consumió uno: sus reservas se crean solas cada semana sin descontar sesiones. Su compensación es un
-          crédito con fecha de caducidad. Sin esa distinción, cancelar una plaza fija regalaría las dos cosas a la vez.
+          Porque nunca consumió uno: sus reservas se crean solas cada semana sin descontar sesiones. Si cancela a tiempo y
+          su plan le limita las clases por semana, su compensación es un crédito con fecha de caducidad. Sin esa distinción,
+          cancelar una plaza fija regalaría las dos cosas a la vez.
         </Limite>
       </Seccion>
 

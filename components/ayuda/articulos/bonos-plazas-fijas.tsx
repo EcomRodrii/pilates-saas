@@ -45,9 +45,18 @@ export default function Contenido() {
       <h2 style={h2}>Cuando una semana no puede venir</h2>
       <p>
         Que cancele esa clase desde su app como cualquier otra. Al ser plaza fija no se le devuelve sesión de
-        bono —no se le había descontado ninguna—, sino que se le guarda una{' '}
+        bono —no se le había descontado ninguna—. Si cancela a tiempo y su plan le limita las clases por
+        semana, se le guarda una{' '}
         <Link href="/ayuda/bonos/recuperaciones" style={enlace}>recuperación</Link>. La semana siguiente su plaza
         sigue ahí.
+      </p>
+
+      <h2 style={h2}>Quitar una plaza fija</h2>
+      <p>
+        Con la papelera de la plaza, en su ficha. Deja de reservarle esa clase y <strong>cancela las que ya
+        tenía apuntadas</strong> en ese horario, sin penalización; si hay alguien en lista de espera, entra en su
+        lugar. Las que empiezan dentro del plazo de cancelación se mantienen: esas se cancelan desde el
+        calendario, con las reglas de siempre.
       </p>
 
       <AyudaResultado>

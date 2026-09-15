@@ -16,7 +16,7 @@ export default function Contenido() {
       <p>Las formas más habituales, y conviene distinguirlas:</p>
       <ul style={{ paddingLeft: 20, lineHeight: 1.7 }}>
         <li><strong>Se la concedes tú</strong> desde su ficha, con el botón «Dar recuperación». Es lo normal cuando avisa de que no puede venir y quieres compensarla.</li>
-        <li><strong>Se genera sola</strong> cuando se cancela una clase de su plaza fija, desde su app o desde el mostrador. Ahí no se le devuelve sesión de bono, porque no se le había descontado ninguna: la recuperación es la compensación.</li>
+        <li><strong>Se genera sola</strong> cuando cancela <strong>a tiempo</strong> una clase de su plaza fija, desde su app o desde el mostrador, si su plan le limita las clases por semana. Ahí no se le devuelve sesión de bono, porque no se le había descontado ninguna: la recuperación es la compensación. Sin límite semanal no se crea, porque puede volver a reservar cuando quiera y no le serviría de nada. Y si tienes activado el reparto al cerrar la semana (el punto siguiente), tampoco se crea al cancelar: le llega al cerrarla, y solo si no volvió a usar ese hueco.</li>
         <li><strong>Sola al cerrar la semana</strong>, si activas «Dar recuperaciones solas al cerrar la semana»: a quien canceló a tiempo y no pudo recuperar el hueco, solo en planes con límite semanal.</li>
       </ul>
       <p>

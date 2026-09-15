@@ -59,7 +59,11 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, opts: { sesiones: unknown[]; patchStatus?: number; patchBody?: unknown }) {
+async function montar(page: Page, opts: {
+  sesiones: unknown[]; patchStatus?: number; patchBody?: unknown;
+  /** Respuesta de `POST /api/plazas-fijas/estado` (quitar). */
+  estadoStatus?: number; estadoBody?: unknown;
+}) {
   await page.clock.setFixedTime(new Date(AHORA));
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -96,6 +100,13 @@ async function montar(page: Page, opts: { sesiones: unknown[]; patchStatus?: num
     }
     return json(route, [PLAZA_ROW]);
   });
+  // Quitar va por el servidor (suelta las clases ya reservadas), no por un
+  // PATCH con RLS. Registrada después del catch-all `**/api/**`: gana ésta.
+  const cambiosEstado: Record<string, unknown>[] = [];
+  await page.route('**/api/plazas-fijas/estado', route => {
+    cambiosEstado.push(route.request().postDataJSON());
+    return json(route, opts.estadoBody ?? { ok: true, canceladas: [], mantenidas: [], fallidas: 0 }, opts.estadoStatus ?? 200);
+  });
 
   await page.goto('/clientas/soc-1');
   await expect(page.getByText('Ana Gil')).toBeVisible({ timeout: 30_000 });
@@ -103,7 +114,7 @@ async function montar(page: Page, opts: { sesiones: unknown[]; patchStatus?: num
   // instante de "Sin plaza fija" antes. Se espera la plaza, nunca se aserta
   // la ausencia del vacío.
   await expect(page.getByText('Martes · 10:00')).toBeVisible({ timeout: 15_000 });
-  return { patches };
+  return { patches, cambiosEstado };
 }
 
 test.describe('Plaza fija: editar el slot desde la ficha', () => {
@@ -164,5 +175,38 @@ test.describe('Plaza fija: editar el slot desde la ficha', () => {
     await expect(dialogo.getByText('No hay ninguna clase programada ese día a esa hora')).toBeVisible();
     await dialogo.getByLabel('Hora').fill('12:00');
     await expect(dialogo.getByText('No hay ninguna clase programada ese día a esa hora')).toHaveCount(0);
+  });
+});
+
+test.describe('Plaza fija: quitarla suelta las clases que ya tenía reservadas', () => {
+  test('quitar va por el servidor y dice qué clases ha cancelado y cuáles se mantienen', async ({ page }) => {
+    const { cambiosEstado, patches } = await montar(page, {
+      sesiones: martesSemanales('08:00'),
+      estadoBody: { ok: true, canceladas: ['r-1', 'r-2'], mantenidas: ['r-3'], fallidas: 0 },
+    });
+    await page.getByRole('button', { name: 'Quitar la plaza fija del Martes 10:00' }).click();
+    // El aviso dice lo que va a pasar de verdad (antes: «las reservas ya creadas no se tocan»).
+    await expect(page.getByText(/cancela las que ya tenía apuntadas en ese horario/)).toBeVisible();
+    await page.getByRole('button', { name: 'Quitar', exact: true }).click();
+
+    await expect(page.getByText('Plaza fija quitada · 2 clases canceladas · 1 se mantiene por estar dentro del plazo de cancelación')).toBeVisible();
+    expect(cambiosEstado).toEqual([{ plazaId: 'pf-1', estado: 'BAJA' }]);
+    // Ya no es un PATCH directo con RLS: por ese camino las reservas seguían confirmadas.
+    expect(patches.length).toBe(0);
+  });
+
+  test('si el servidor dice que no, se enseña el motivo y la plaza sigue en la lista', async ({ page }) => {
+    const { cambiosEstado } = await montar(page, {
+      sesiones: martesSemanales('08:00'),
+      estadoStatus: 403,
+      estadoBody: { error: 'No tienes permiso para cambiar plazas fijas' },
+    });
+    await page.getByRole('button', { name: 'Quitar la plaza fija del Martes 10:00' }).click();
+    await page.getByRole('button', { name: 'Quitar', exact: true }).click();
+
+    await expect(page.getByText('No tienes permiso para cambiar plazas fijas')).toBeVisible();
+    // El intento SALIÓ de verdad: sin esto el test sería hueco.
+    expect(cambiosEstado.length).toBeGreaterThan(0);
+    await expect(page.getByText('Martes · 10:00')).toBeVisible();
   });
 });
