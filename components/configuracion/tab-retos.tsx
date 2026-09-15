@@ -98,15 +98,15 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-[13px] font-semibold text-foreground">{c.nombre}</p>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: badge.bg, color: badge.text }}>
                       {badge.label}
                     </span>
                   </div>
                   <p className="text-[12px] text-muted-foreground">{metricLabel(c.metric)} · objetivo {c.objetivo}{c.creditosRecompensa > 0 ? ` · +${c.creditosRecompensa} créditos` : ''}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {new Date(c.fechaInicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} — {new Date(c.fechaFin).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                   </p>
-                  {!c.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactivo</span>}
+                  {!c.activo && <span className="text-xs font-bold uppercase text-muted-foreground">Inactivo</span>}
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
                   <button onClick={() => openEditar(c)} aria-label="Editar reto" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">

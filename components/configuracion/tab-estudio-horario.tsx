@@ -172,7 +172,7 @@ export function TabEstudioHorario({ showToast }: { showToast: (m: string) => voi
                     aria-label={`Abre el ${NOMBRES_DIA[local].toLowerCase()}`}
                     value={fila.horaApertura}
                     onChange={e => actualizarFila(local, { horaApertura: e.target.value })}
-                    className="min-h-11 min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-1 text-base tabular-nums [@media(pointer:fine)]:min-h-8 [@media(pointer:fine)]:text-[12px] @lg/config:w-[118px] @lg/config:flex-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    className="min-h-11 min-w-0 flex-1 rounded-md border border-input bg-card px-2 py-1 text-base tabular-nums [@media(pointer:fine)]:min-h-8 [@media(pointer:fine)]:text-[12px] @lg/config:w-[118px] @lg/config:flex-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   />
                   <span className="text-[11px] text-muted-foreground shrink-0">–</span>
                   <input
@@ -180,7 +180,7 @@ export function TabEstudioHorario({ showToast }: { showToast: (m: string) => voi
                     aria-label={`Cierra el ${NOMBRES_DIA[local].toLowerCase()}`}
                     value={fila.horaCierre}
                     onChange={e => actualizarFila(local, { horaCierre: e.target.value })}
-                    className="min-h-11 min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-1 text-base tabular-nums [@media(pointer:fine)]:min-h-8 [@media(pointer:fine)]:text-[12px] @lg/config:w-[118px] @lg/config:flex-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    className="min-h-11 min-w-0 flex-1 rounded-md border border-input bg-card px-2 py-1 text-base tabular-nums [@media(pointer:fine)]:min-h-8 [@media(pointer:fine)]:text-[12px] @lg/config:w-[118px] @lg/config:flex-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   />
                   </div>
                   <div className="flex-1 min-w-[60px] hidden @2xl/config:block">

@@ -8,7 +8,9 @@ import {
   AlertTriangle,
   ExternalLink,
   BellRing,
+  Clock,
 } from 'lucide-react';
+import { EstadoAjuste } from '@/components/configuracion/shell/estado-ajuste';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
@@ -256,10 +258,13 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
 // pilates; eso no es un mensaje para ella, y además no puede hacer nada al
 // respecto porque no es suyo, es nuestro. Se le dice lo que sí le sirve saber, y
 // el nombre de la variable queda en el `title` para quien opera la plataforma.
+//
+// El estado —«No disponible todavía»— ya lo dice la pastilla de la tarjeta; aquí
+// solo lo que añade: que no le toca hacer nada.
 function NoDisponibleTodavia({ variable }: { variable: string }) {
   return (
-    <p className="text-[11px] text-muted-foreground" title={`Falta configurar ${variable} en el servidor`}>
-      Todavía no disponible. Lo estamos terminando de conectar por nuestro lado.
+    <p className="text-xs text-muted-foreground" title={`Falta configurar ${variable} en el servidor`}>
+      Lo estamos terminando de conectar por nuestro lado; no tienes que hacer nada.
     </p>
   );
 }
@@ -812,6 +817,17 @@ export function TabIntegraciones({ showToast, tipos, children }: {
           const fallando = salud.estado === 'FALLANDO';
           const lineaSalud = textoSalud(salud);
           const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : cat.tipo === 'ZAPIER' ? zapierConectado : !!intg?.activo;
+          // Sin la clave OAuth en el servidor no hay nada que conectar: ese es el
+          // ÚNICO estado. Antes la pastilla decía «No conectado» y debajo
+          // «Todavía no disponible» — ¿lo conecto yo o no puedo? Mismas
+          // condiciones que eligen `NoDisponibleTodavia` más abajo.
+          const noDisponible = !conectado && (
+            (cat.tipo === 'STRIPE' && !puedeConectarStripe)
+            || (cat.tipo === 'GOOGLE_CALENDAR' && !puedeConectarGoogle)
+            || (cat.tipo === 'GMAIL' && !puedeConectarGmail)
+            || (cat.tipo === 'ZOOM' && !puedeConectarZoom)
+            || (cat.tipo === 'KLAVIYO' && !puedeConectarKlaviyo)
+          );
           return (
             <section
               key={cat.tipo}
@@ -820,13 +836,17 @@ export function TabIntegraciones({ showToast, tipos, children }: {
               className={cn(cardCls, 'p-4 flex flex-col scroll-mt-32')}
             >
               <div className="flex items-start gap-3">
-                <div
-                  className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', cat.placaPropia && 'overflow-hidden')}
-                  style={cat.placaPropia ? undefined : { backgroundColor: cat.bg }}>
-                  <cat.Icon size={cat.placaPropia ? 40 : 26} style={cat.placaPropia ? undefined : { color: cat.color }} />
+                {/* El logo en placa neutra y en grises. A color (Stripe morado,
+                    WhatsApp verde, Gmail multicolor) era lo más saturado de
+                    Configuración y no le dice nada a la propietaria; a color se
+                    queda en su ventana de configuración. */}
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border border-border bg-muted">
+                  <span className="flex grayscale" aria-hidden>
+                    <cat.Icon size={cat.placaPropia ? 40 : 22} style={cat.placaPropia ? undefined : { color: 'var(--foreground)' }} />
+                  </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <Titulo
                       id={`integracion-${cat.tipo.toLowerCase()}-titulo`}
                       tabIndex={-1}
@@ -835,29 +855,23 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                       {cat.nombre}
                     </Titulo>
                     {cat.proximamente ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning/10 text-warning">
-                        Próximamente
-                      </span>
+                      <EstadoAjuste tono="pendiente">Próximamente</EstadoAjuste>
+                    ) : noDisponible ? (
+                      <EstadoAjuste tono="neutro" icono={Clock}>No disponible todavía</EstadoAjuste>
                     ) : (
-                      <span className={cn(
-                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
-                        // Verde SOLO si el servicio respondió la última vez. Con
-                        // el token caducado esto seguía diciendo «Conectado»
-                        // mientras las clientas dejaban de recibir nada.
-                        fallando ? 'bg-destructive/10 text-destructive'
-                          : conectado ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
-                      )}>
-                        <span className={cn('w-1.5 h-1.5 rounded-full',
-                          fallando ? 'bg-destructive' : conectado ? 'bg-success' : 'bg-muted-foreground')} />
+                      // Verde SOLO si el servicio respondió la última vez. Con
+                      // el token caducado esto seguía diciendo «Conectado»
+                      // mientras las clientas dejaban de recibir nada.
+                      <EstadoAjuste tono={fallando ? 'problema' : conectado ? 'activo' : 'neutro'}>
                         {fallando ? 'Con problemas' : conectado ? 'Conectado' : 'No conectado'}
-                      </span>
+                      </EstadoAjuste>
                     )}
                   </div>
-                  {cat.categoria && <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mt-0.5">{cat.categoria}</p>}
+                  {cat.categoria && <p className="text-xs text-muted-foreground mt-0.5">{cat.categoria}</p>}
                   <p className="text-[12px] text-muted-foreground mt-1 leading-snug">{cat.descripcion}</p>
                   {lineaSalud && (
                     <p className={cn(
-                      'text-[11px] mt-1.5 leading-snug',
+                      'text-xs mt-1.5 leading-snug',
                       lineaSalud.tono === 'error' ? 'text-destructive font-semibold'
                         : lineaSalud.tono === 'ok' ? 'text-success' : 'text-muted-foreground',
                     )}>
@@ -865,7 +879,7 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                     </p>
                   )}
                   {cat.tipo === 'STRIPE' && stripeConectado && bizumEstado && bizumEstado !== 'active' && (
-                    <p className="text-[11px] text-warning mt-1.5 leading-snug">
+                    <p className="text-xs text-warning mt-1.5 leading-snug">
                       Bizum todavía no está activo en tu cuenta de Stripe — tus alumnas no lo verán
                       como opción de pago. Entra en{' '}
                       <a href="https://dashboard.stripe.com/settings/payment_methods" target="_blank" rel="noreferrer" className="underline">
@@ -875,7 +889,7 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                     </p>
                   )}
                   {cat.tipo === 'ZOOM' && zoomConectado && (
-                    <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
+                    <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
                       Importante: en zoom.us → Configuración, desactiva &ldquo;Usar ID de reunión
                       personal (PMI) al programar&rdquo; — con PMI activado, todas las clases
                       compartirían la misma sala en vez de tener cada una la suya. Tu cuenta
@@ -1100,7 +1114,7 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                       {whatsappResumenMeta.displayPhoneNumber || '—'}
                     </p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground leading-snug">
+                  <p className="text-xs text-muted-foreground leading-snug">
                     Los recordatorios automáticos se envían desde este número. No necesitas
                     gestionar ningún token ni ID — eso lo hace Tentare por ti.
                   </p>
@@ -1144,7 +1158,7 @@ export function TabIntegraciones({ showToast, tipos, children }: {
                 {cat.secretoEnv && (
                   <div className="flex items-start gap-2 bg-warning/10 border border-warning/30 rounded-lg p-3">
                     <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-warning leading-snug">
+                    <p className="text-xs text-warning leading-snug">
                       El proveedor de envío lo gestiona Tentare a nivel de plataforma — aquí solo
                       configuras tu remitente. Para enviar desde tu propio dominio, verifícalo con
                       nosotros primero; te avisamos cuando esté listo.

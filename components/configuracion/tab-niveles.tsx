@@ -100,7 +100,7 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-foreground">{l.nombre}</p>
                 <p className="text-[12px] text-muted-foreground">Desde {l.umbralCreditos} créditos ganados</p>
-                {!l.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactivo</span>}
+                {!l.activo && <span className="text-xs font-bold uppercase text-muted-foreground">Inactivo</span>}
               </div>
               <button onClick={() => openEditar(l)} aria-label="Editar nivel" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
                 <Pencil size={14} />

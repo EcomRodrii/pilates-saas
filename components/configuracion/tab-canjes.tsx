@@ -126,7 +126,7 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
           </div>
         ) : (
           <span className={cn(
-            'text-[10px] font-bold uppercase tracking-wide shrink-0',
+            'text-xs font-bold uppercase tracking-wide shrink-0',
             canje.estado === 'ENTREGADO' ? 'text-brand-secondary' : 'text-muted-foreground',
           )}>
             {ETIQUETA[canje.estado]}

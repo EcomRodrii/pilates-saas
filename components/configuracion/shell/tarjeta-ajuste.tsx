@@ -1,10 +1,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { cardCls } from '@/components/configuracion/estilos';
 import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
+import { EstadoAjuste } from './estado-ajuste';
 
 // Una tarjeta de Configuración: un título que dice QUÉ es, una línea que dice
 // qué hace y, si se guarda sola, que lo diga antes de tocar nada.
@@ -51,7 +52,7 @@ export function TarjetaAjuste({
             <h3 id={tituloId} tabIndex={-1} className="text-base font-semibold text-foreground text-balance outline-none">
               {tarjeta.titulo}
             </h3>
-            {tarjeta.guardado === 'al-pulsar' && <Badge variant="secondary">Se guarda al momento</Badge>}
+            {tarjeta.guardado === 'al-pulsar' && <EstadoAjuste tono="neutro" icono={Zap}>Se guarda al momento</EstadoAjuste>}
           </div>
           <p className="mt-1 text-sm text-muted-foreground text-pretty">{tarjeta.frase}</p>
         </div>

@@ -73,14 +73,25 @@ export function ListaSecciones({
                 }}
                 className={rail
                   ? cn(
-                    'relative flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted',
+                    // La fila activa, en el mismo lenguaje que el menú principal:
+                    // relleno de marca y texto de marca. Antes era `bg-muted` sobre
+                    // el fondo —1,07:1— y solo una raya de 3 px decía dónde estabas.
+                    // ⚠️ El contorno no es decoración: en oscuro `panel-theme` deja
+                    // el oliva en línea sobre un fondo casi negro (1,5:1), y con
+                    // marca blanca pastel el relleno se funde con el fondo claro.
+                    // En los dos casos el color de TEXTO de la marca contrasta con
+                    // el fondo, así que el borde en ese color sostiene los 3:1.
+                    // Transparente en las demás para que activar no mueva 1 px.
+                    'relative flex min-h-11 items-center gap-2.5 rounded-lg border border-transparent px-3 py-2 text-sm transition-colors',
                     foco,
-                    actual && 'bg-muted font-semibold before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-brand',
+                    actual
+                      ? 'border-brand-foreground/50 bg-brand font-semibold text-brand-foreground'
+                      : 'text-foreground hover:bg-muted',
                   )
                   : cn('flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted focus-visible:ring-inset', foco)}
               >
                 {rail ? (
-                  <Icono size={16} className="shrink-0 text-muted-foreground" aria-hidden />
+                  <Icono size={16} className={cn('shrink-0', actual ? 'text-brand-foreground' : 'text-muted-foreground')} aria-hidden />
                 ) : (
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
                     <Icono size={20} aria-hidden />

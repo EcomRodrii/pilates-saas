@@ -130,7 +130,12 @@ export function BarraGuardar({
               <Button type="button" variant="outline" size="lg" onClick={descartar} disabled={guardando}>
                 Descartar
               </Button>
-              <Button type="button" size="lg" onClick={guardar} disabled={guardando || !!bloqueo}>
+              {/* Apagado (un plazo imposible) tiene que seguir leyéndose: la
+                  opacidad del `Button` dejaba el oliva a medio fundir. */}
+              <Button
+                type="button" size="lg" onClick={guardar} disabled={guardando || !!bloqueo}
+                className="disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+              >
                 {guardando ? 'Guardando…' : 'Guardar'}
               </Button>
             </div>

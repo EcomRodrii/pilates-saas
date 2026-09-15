@@ -41,7 +41,7 @@ export function TabEstudioEnlaces({ showToast }: { showToast: (m: string) => voi
             <CalendarLinkIcon size={15} className="text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-foreground">Página pública de reservas</p>
-              <p className="text-[11px] text-muted-foreground">Sin cuenta: cualquiera reserva una clase suelta. El enlace para Instagram, la puerta, los folletos.</p>
+              <p className="text-xs text-muted-foreground">Sin cuenta: cualquiera reserva una clase suelta. El enlace para Instagram, la puerta, los folletos.</p>
             </div>
             <ExternalLink size={14} className="text-muted-foreground shrink-0" />
           </a>
@@ -120,7 +120,7 @@ function EnlacePortalSocias({ slug, showToast }: { slug: string; showToast: (m: 
       <Smartphone size={15} className="text-muted-foreground shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-semibold text-foreground">App de tus alumnas</p>
-        <p className="text-[11px] text-muted-foreground">Para alumnas ya dadas de alta: reservan, ven su bono, vídeos y progreso. Se instala en el móvil.</p>
+        <p className="text-xs text-muted-foreground">Para alumnas ya dadas de alta: reservan, ven su bono, vídeos y progreso. Se instala en el móvil.</p>
       </div>
       <button
         onClick={copiar}
@@ -219,11 +219,11 @@ function DireccionPublica() {
             />
           </div>
           {propuesto && propuesto !== valor && (
-            <p className="text-[11px] text-muted-foreground">Quedará así: <b>/reservar/{propuesto}</b></p>
+            <p className="text-xs text-muted-foreground">Quedará así: <b>/reservar/{propuesto}</b></p>
           )}
-          {motivo && <p role="alert" className="text-[11px] text-destructive">{motivo}</p>}
-          {error && <p role="alert" className="text-[11px] text-destructive">{error}</p>}
-          <p className="text-[11px] leading-snug text-muted-foreground">
+          {motivo && <p role="alert" className="text-xs text-destructive">{motivo}</p>}
+          {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+          <p className="text-xs leading-snug text-muted-foreground">
             Tu dirección actual <b>/reservar/{slug}</b> seguirá funcionando: quien
             entre por ella llegará igual a tu página de reservas. Nada de lo
             que ya has compartido deja de servir.
@@ -238,7 +238,7 @@ function DireccionPublica() {
       )}
 
       {hecho && (
-        <p role="status" className="mt-2 text-[11px] text-muted-foreground">
+        <p role="status" className="mt-2 text-xs text-muted-foreground">
           Hecho. <b>/reservar/{hecho}</b> sigue llevando aquí, así que los enlaces
           que ya habías compartido siguen funcionando.
         </p>

@@ -149,8 +149,8 @@ export function TabCrecimientoWeb({ showToast: _showToast }: { showToast: (m: st
       </p>
 
       {studio?.slug && (
-        <p className="text-[11px] text-muted-foreground">
-          Datos del widget público en <code className="text-[10.5px]">/reservar/{studio.slug}</code>.
+        <p className="text-xs text-muted-foreground">
+          Datos del widget público en <code className="text-xs">/reservar/{studio.slug}</code>.
         </p>
       )}
     </div>

@@ -249,7 +249,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                   {['Nombre', 'Capacidad', 'Color', 'Acciones'].map(h => (
                     <th
                       key={h}
-                      className="text-left px-5 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide"
+                      className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide"
                     >
                       {h}
                     </th>
@@ -406,7 +406,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                 bajar-capacidad-de-sala.spec.ts dejó de encontrar el campo
                 por su etiqueta). */}
             {form.capacidad !== '' && !capacidadValida && (
-              <p role="alert" className="text-[11px] text-destructive -mt-2.5">
+              <p role="alert" className="text-xs text-destructive -mt-2.5">
                 Tiene que ser un número de al menos 1 persona.
               </p>
             )}

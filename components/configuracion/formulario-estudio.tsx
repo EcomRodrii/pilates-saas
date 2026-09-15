@@ -54,8 +54,8 @@ export function Campo({
       <label className={labelCls} htmlFor={id}>{label}</label>
       {children(id)}
       {error
-        ? <p role="alert" className="mt-1 text-[11px] font-medium text-destructive">{error}</p>
-        : ayuda && <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{ayuda}</p>}
+        ? <p role="alert" className="mt-1 text-xs font-medium text-destructive">{error}</p>
+        : ayuda && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{ayuda}</p>}
     </div>
   );
 }

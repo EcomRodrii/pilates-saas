@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Bold, Italic, Link2, List, Heading, Loader2, Send, Check, Undo2, Pencil,
+  Bold, Italic, Link2, List, Heading, Loader2, Send, Check, Undo2, Pencil, MailX,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { cn } from '@/lib/utils';
 import { FUENTES_EMAIL, type FuenteEmail, type PlantillaEmail, type TipoPlantillaEmail } from '@/lib/types';
-import { inputCls, btnPrimary, btnSecondary, cardCls, Field } from '@/components/configuracion/estilos';
+import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/components/configuracion/estilos';
+import { EstadoAjuste } from '@/components/configuracion/shell/estado-ajuste';
 import { previsualizarPlantilla, enviarPruebaPlantilla } from '@/lib/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -145,34 +146,19 @@ function cuerpoDePartida(meta: Meta, intro: string): string {
 }
 
 // ─── Interruptor de encendido/apagado ────────────────────────────────────────
-// Mismo patrón que el de preferencias de notificación: un <button role="switch">
-// de verdad, no un div con onClick — un lector de pantalla tiene que poder
-// decir "activado/desactivado" y la barra espaciadora tiene que funcionar.
+// El mismo de todo el panel (components/ui/interruptor.tsx): un <button
+// role="switch"> de verdad. Mientras se guarda no se deja tocar, y el `title`
+// repite el nombre para quien pasa el ratón.
 
 function Interruptor({ on, onChange, label, ocupado }: {
   on: boolean; onChange: () => void; label: string; ocupado: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      title={label}
-      disabled={ocupado}
-      onClick={onChange}
-      className={cn(
-        'relative h-6 w-10 shrink-0 rounded-full transition-colors disabled:opacity-50 before:absolute before:-inset-2.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        on ? 'bg-brand' : 'bg-muted-foreground/25',
-      )}
-    >
-      <span className={cn(
-        'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
-        on && 'translate-x-4',
-      )} />
-    </button>
-  );
+  return <Toggle on={on} onChange={() => onChange()} ariaLabel={label} title={label} ocupado={ocupado} />;
 }
+
+// Dónde va la pastilla de estado en cada fila de la lista: debajo del texto en
+// columna estrecha, al lado desde 32 rem (ver la rejilla de la fila).
+const COLOCA_ESTADO = 'col-start-1 row-start-2 whitespace-normal @lg/config:col-start-2 @lg/config:row-start-1';
 
 // ─── Barra de formato ────────────────────────────────────────────────────────
 // Los asteriscos los pone la aplicación. Envuelve lo seleccionado, y si no hay
@@ -248,7 +234,7 @@ function VistaPreviaViva({ tipo, borrador }: { tipo: TipoPlantillaEmail; borrado
   return (
     <div className="flex h-full flex-col gap-2">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Así lo recibe tu alumna
         </p>
         {cargando && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
@@ -256,7 +242,7 @@ function VistaPreviaViva({ tipo, borrador }: { tipo: TipoPlantillaEmail; borrado
 
       {/* La línea de bandeja: el asunto es lo único que se ve antes de abrir. */}
       <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">En su bandeja</p>
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">En su bandeja</p>
         <p className="truncate text-[13px] font-semibold text-foreground">
           {preview?.subject ?? '…'}
         </p>
@@ -276,7 +262,7 @@ function VistaPreviaViva({ tipo, borrador }: { tipo: TipoPlantillaEmail; borrado
             />
           )}
       </div>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Con una alumna de ejemplo (Ana García) y una clase de ejemplo.
       </p>
     </div>
@@ -406,7 +392,7 @@ function EditorPlantilla({
             )}
           >
             <span className="block text-[13px] font-semibold text-foreground">Cambiar solo el saludo</span>
-            <span className="block text-[11px] text-muted-foreground">El diseño de Tentare, con tus palabras.</span>
+            <span className="block text-xs text-muted-foreground">El diseño de Tentare, con tus palabras.</span>
           </button>
           <button
             type="button"
@@ -418,7 +404,7 @@ function EditorPlantilla({
             )}
           >
             <span className="block text-[13px] font-semibold text-foreground">Escribir el correo entero</span>
-            <span className="block text-[11px] text-muted-foreground">Tú decides qué va y en qué orden.</span>
+            <span className="block text-xs text-muted-foreground">Tú decides qué va y en qué orden.</span>
           </button>
         </div>
 
@@ -442,7 +428,7 @@ function EditorPlantilla({
             />
 
             <div className="rounded-xl border border-border p-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Añadir al correo
               </p>
               <div className="flex flex-wrap gap-2">
@@ -464,7 +450,7 @@ function EditorPlantilla({
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Se colocan donde tengas el cursor. Puedes quitarlos: si borras
                 «{meta.datosLabel.toLowerCase()}», el correo sale sin esos datos.
               </p>
@@ -476,10 +462,10 @@ function EditorPlantilla({
         <details className="rounded-xl border border-border">
           <summary className="cursor-pointer list-none px-4 py-3 text-[13px] font-medium text-foreground">
             Colores, logo y pie
-            <span className="ml-2 text-[11px] font-normal text-muted-foreground">opcional</span>
+            <span className="ml-2 text-xs font-normal text-muted-foreground">opcional</span>
           </summary>
           <div className="space-y-4 border-t border-border p-4">
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Si no tocas nada se usan los de tu estudio. El color del texto del botón se
               calcula solo para que se lea sobre el fondo que elijas.
             </p>
@@ -502,7 +488,7 @@ function EditorPlantilla({
             </div>
             {(b.colorCabecera || b.colorBoton) && (
               <button type="button" onClick={() => { set('colorCabecera', ''); set('colorBoton', ''); }}
-                className="text-[11px] text-muted-foreground underline underline-offset-2">
+                className="text-xs text-muted-foreground underline underline-offset-2">
                 Volver a los colores de mi estudio
               </button>
             )}
@@ -612,9 +598,13 @@ export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => vo
               <button
                 type="button"
                 onClick={() => setAbierta(meta.tipo)}
-                className="flex min-w-0 flex-1 items-center gap-4 p-4 text-left hover:bg-muted/50"
+                // Rejilla y no fila: a 375 px la pastilla de estado, el lápiz y el
+                // interruptor dejaban al título una palabra por línea y la
+                // descripción en «Se …». En columna estrecha la pastilla baja
+                // bajo el texto; desde 32 rem vuelve a su lado.
+                className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 p-4 text-left hover:bg-muted/50 @lg/config:grid-cols-[minmax(0,1fr)_auto_auto] @lg/config:gap-x-4"
               >
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                   <p className={cn('text-[14px] font-semibold', enviar ? 'text-foreground' : 'text-muted-foreground')}>
                     {meta.label}
                   </p>
@@ -627,16 +617,12 @@ export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => vo
                 </div>
                 {/* Apagado gana a personalizado: da igual lo bonito que esté
                     el correo si no sale, así que el estado que se lee de un
-                    vistazo es ese. Contorno en vez de relleno para que no se
-                    confunda con la etiqueta negra de "personalizado". */}
-                <span className={cn(
-                  'shrink-0 rounded-full px-2.5 py-1 text-[11px]',
-                  !enviar ? 'border border-border text-muted-foreground'
-                    : r.tocado ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground',
-                )}>
-                  {enviar ? r.texto : 'Apagado'}
-                </span>
-                <Pencil size={14} className="shrink-0 text-muted-foreground" />
+                    vistazo es ese. Cada uno con su icono, no solo su color; y
+                    puede partirse en dos líneas para caber a 375 px. */}
+                {!enviar
+                  ? <EstadoAjuste tono="neutro" icono={MailX} className={COLOCA_ESTADO}>Apagado</EstadoAjuste>
+                  : <EstadoAjuste tono={r.tocado ? 'personalizado' : 'neutro'} className={COLOCA_ESTADO}>{r.texto}</EstadoAjuste>}
+                <Pencil size={14} className="col-start-2 row-span-2 row-start-1 shrink-0 text-muted-foreground @lg/config:col-start-3 @lg/config:row-span-1" />
               </button>
               <Interruptor
                 on={enviar}
