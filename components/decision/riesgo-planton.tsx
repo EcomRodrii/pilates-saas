@@ -126,7 +126,7 @@ export function RiesgoPlanton() {
         </h2>
         {activo !== null && (
           <Link
-            href="/configuracion?tab=estudio&sub=reservas"
+            href="/configuracion?tab=reservas#asistencia"
             className="text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
           >
             Pedir confirmación: <span className="font-semibold">{activo ? 'activada' : 'desactivada'}</span>

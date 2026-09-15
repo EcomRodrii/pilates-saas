@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { hayCambios as formularioCambiado, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import type { Studio } from '@/lib/types';
+import type { ResultadoEscritura } from '@/lib/errores';
 import { labelCls, btnSecondary } from '@/components/configuracion/estilos';
 
 // Lo que comparten los formularios que editan la fila del estudio desde tres
@@ -90,22 +91,30 @@ export function useFormularioEstudio<T extends object>(
   /**
    * Manda `cambios` —que tienen que ser los campos de este formulario y nada
    * más— y solo con la fila confirmada los da por guardados.
+   *
+   * `textoGuardado: null` = quien llama cuenta el resultado (la barra de
+   * guardar de la sección): aquí no se enseña nada, ni el éxito ni el error.
+   * Devuelve `null` si ya había un guardado en vuelo.
    */
-  async function guardar(cambios: Partial<Studio>, textoGuardado: string) {
-    if (guardandoRef.current) return;
+  async function guardar(cambios: Partial<Studio>, textoGuardado: string | null): Promise<ResultadoEscritura | null> {
+    if (guardandoRef.current) return null;
     const enviado = form;
     guardandoRef.current = true;
     setGuardando(true);
     try {
       const res = await updateStudio(cambios);
       // Si no, lo escrito se queda en pantalla y la barra sigue ahí.
-      if (!res.ok) { showToast(res.error); return; }
+      if (!res.ok) {
+        if (textoGuardado !== null) showToast(res.error);
+        return res;
+      }
       // Lo guardado, normalizado (recortes, vacío → NULL), pasa a ser la base.
       // Lo que se haya tecleado MIENTRAS se guardaba no se pisa.
       const guardado = aFormulario({ ...studio, ...cambios } as Studio);
       setForm(f => sincronizarFormulario(f, enviado, guardado));
       setBase(guardado);
-      showToast(textoGuardado);
+      if (textoGuardado !== null) showToast(textoGuardado);
+      return res;
     } finally {
       guardandoRef.current = false;
       setGuardando(false);
@@ -115,6 +124,7 @@ export function useFormularioEstudio<T extends object>(
   return {
     form,
     setForm,
+    base,
     hayCambios: formularioCambiado(form, base),
     guardando,
     guardar,

@@ -892,7 +892,7 @@ export function PanelTipoClase({
                   placeholder="Ajuste del estudio"
                   value={form.listaEsperaPlazoAceptacionMinutos}
                   onChange={e => setForm(f => ({ ...f, listaEsperaPlazoAceptacionMinutos: e.target.value }))}
-                  aria-label="Plazo para aceptar una plaza liberada, en minutos"
+                  aria-label="Tiempo para aceptar una plaza que se libera, en minutos"
                 />
                 <span className="text-[12.5px] text-muted-foreground">minutos · 0 = se le asigna al instante</span>
               </div>
@@ -903,7 +903,7 @@ export function PanelTipoClase({
             label="¿Cuántas alumnas hacen falta para que la clase salga?"
             ayuda={(studio?.cancelacionClaseDevuelveBono ?? true)
               ? 'Si a 2 horas del inicio no se llega, la clase se cancela sola y se les devuelve la sesión.'
-              : 'Si a 2 horas del inicio no se llega, la clase se cancela sola, sin devolverles la sesión: lo tienes así en Reservas y cancelaciones.'}
+              : 'Si a 2 horas del inicio no se llega, la clase se cancela sola, sin devolverles la sesión: lo tienes así en Configuración → Cómo reservan mis alumnas.'}
             heredado={form.minimoAsistentesPorClase.trim() === ''}
             onHeredar={() => setForm(f => ({ ...f, minimoAsistentesPorClase: '' }))}
             onPersonalizar={() =>
@@ -961,7 +961,7 @@ export function PanelTipoClase({
                   «no vino» que cobrar. */}
               {form.requiereCheckinQr === 'no' && !!studio?.penalizacionImporteEur && studio?.penalizacionAplicaNoShow && (
                 <p className="text-[12px] text-amber-600">
-                  Con la penalización por no presentarse activa, en esta clase nunca vas a poder cobrarla:
+                  Con el cargo por no venir sin avisar activo, en esta clase nunca vas a poder cobrarlo:
                   todas cuentan como asistidas. Puedes seguir marcando «No asistió» a mano desde Asistentes.
                 </p>
               )}
@@ -989,10 +989,10 @@ export function PanelTipoClase({
                 className={cn(inputCls, 'w-28')}
                 type="number"
                 min={0}
-                placeholder="Ventana del estudio"
+                placeholder="Ajuste del estudio"
                 value={form.ventanaCancelacionHoras}
                 onChange={e => setForm(f => ({ ...f, ventanaCancelacionHoras: e.target.value }))}
-                aria-label="Ventana de cancelación, en horas"
+                aria-label="Plazo para cancelar sin perder la sesión, en horas"
               />
               <span className="text-[12.5px] text-muted-foreground">horas antes de la clase</span>
             </div>
@@ -1024,7 +1024,7 @@ export function PanelTipoClase({
                 placeholder="Ajuste del estudio"
                 value={form.penalizacionImporteEur}
                 onChange={e => setForm(f => ({ ...f, penalizacionImporteEur: e.target.value }))}
-                aria-label="Penalización en euros"
+                aria-label="Cargo por cancelar tarde o no venir sin avisar, en euros"
               />
               <span className="text-[12.5px] text-muted-foreground">€ · 0 = no se cobra nada</span>
             </div>

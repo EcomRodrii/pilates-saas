@@ -6,7 +6,7 @@ import {
   ANCLAS, esAnclaConocida, hrefDeSeccion, reconoceSub, reconoceTab, resolverDestino, resolverHref,
   seccionesVisibles,
 } from './destino.ts';
-import { SECCIONES, seccionAnfitriona, tarjetasDeFuera, type SeccionId, type TarjetaId } from './secciones.ts';
+import { SECCIONES, seccionDeTarjeta, type SeccionId, type TarjetaId } from './secciones.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los enlaces a Configuración aterrizan donde dicen.
@@ -123,8 +123,22 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=estudio&sub=reservas#ajuste-avisar-alumnas', { tab: 'reservas', ancla: 'ajuste-avisar-alumnas' }],
     ['/configuracion?tab=cobros#datos-fiscales', { tab: 'cobros', ancla: 'datos-fiscales' }],
     ['/configuracion?tab=estudio#datos-fiscales', { tab: 'cobros', ancla: 'datos-fiscales' }],
-    ['/configuracion?tab=altas#compra-desde-tu-enlace', { tab: 'reservas', ancla: 'compra-desde-tu-enlace' }],
+    // Las dos que vivían dentro de las reglas de reserva, ya en su sección: sus
+    // enlaces viejos las siguen.
+    ['/configuracion?tab=altas#compra-desde-tu-enlace', { tab: 'altas', ancla: 'compra-desde-tu-enlace' }],
+    ['/configuracion?tab=reservas#compra-desde-tu-enlace', { tab: 'altas', ancla: 'compra-desde-tu-enlace' }],
+    ['/configuracion?tab=estudio&sub=reservas#compra-desde-tu-enlace', { tab: 'altas', ancla: 'compra-desde-tu-enlace' }],
+    ['/configuracion?tab=equipo#ajuste-instructoras-crean-clases', { tab: 'equipo', ancla: 'ajuste-instructoras-crean-clases' }],
+    ['/configuracion?tab=reservas#ajuste-instructoras-crean-clases', { tab: 'equipo', ancla: 'ajuste-instructoras-crean-clases' }],
+    ['/configuracion?tab=estudio&sub=reservas#ajuste-instructoras-crean-clases', { tab: 'equipo', ancla: 'ajuste-instructoras-crean-clases' }],
+    // La tarjeta única de reglas se partió en cinco: su ancla lleva a la primera.
+    ['/configuracion?tab=reservas#reglas-de-reserva', { tab: 'reservas', ancla: 'reservar' }],
+    ['/configuracion#reglas-de-reserva', { tab: 'reservas', ancla: 'reservar' }],
+    ['/configuracion?tab=reservas#asistencia', { tab: 'reservas', ancla: 'asistencia' }],
+    ['/configuracion?tab=estudio#lista-de-espera', { tab: 'reservas', ancla: 'lista-de-espera' }],
+    // Los ajustes sueltos de dentro siguen llevando a su control.
     ['/configuracion?tab=reservas#ajuste-ventana-cancelacion', { tab: 'reservas', ancla: 'ajuste-ventana-cancelacion' }],
+    ['/configuracion?tab=reservas#ajuste-lista-espera', { tab: 'reservas', ancla: 'ajuste-lista-espera' }],
     // Lo desconocido no rompe: abre la lista.
     ['/configuracion', { tab: null }],
     ['/configuracion?tab=inventada', { tab: null }],
@@ -167,26 +181,26 @@ test('los parámetros de conexión mandan sobre un tab= distinto, y el ancla con
   assert.deepEqual(resolverDestino({ tab: 'cobros', hash: 'otra-cosa' }), { tab: 'cobros', ancla: 'otra-cosa' });
 });
 
-test('las anclas salen solas de secciones.ts, con la sección donde se pinta HOY la tarjeta', () => {
+test('las anclas salen solas de secciones.ts, con la sección de cada tarjeta', () => {
   const tarjetas = SECCIONES.flatMap(s => s.tarjetas.map(t => t.id));
   assert.deepEqual(Object.keys(ANCLAS).sort(), [...tarjetas].sort());
   for (const id of tarjetas) {
-    assert.equal(ANCLAS[id], seccionAnfitriona(id));
+    assert.equal(ANCLAS[id], seccionDeTarjeta(id));
     assert.ok(esAnclaConocida(id));
   }
-  // Ya en su sección.
   assert.equal(ANCLAS['datos-fiscales'], 'cobros');
-  // Hospedada: su casa definitiva es Alta de alumnas, pero hoy se pinta dentro
-  // de las reglas de reserva.
-  assert.equal(ANCLAS['compra-desde-tu-enlace'], 'reservas');
+  assert.equal(ANCLAS['compra-desde-tu-enlace'], 'altas');
+  assert.equal(ANCLAS['ajuste-instructoras-crean-clases'], 'equipo');
+  // Una tarjeta retirada no es de ninguna sección, pero su ancla se sigue entendiendo.
+  assert.equal(Object.hasOwn(ANCLAS, 'reglas-de-reserva'), false);
+  assert.ok(esAnclaConocida('reglas-de-reserva'));
 });
 
 test('la URL que escribe la página vuelve a abrir lo mismo', () => {
   for (const s of SECCIONES) {
     assert.deepEqual(resolverHref(hrefDeSeccion(s.id)), { tab: s.id });
     for (const t of s.tarjetas) {
-      const anfitriona = seccionAnfitriona(t.id);
-      assert.deepEqual(resolverHref(hrefDeSeccion(anfitriona, t.id)), { tab: anfitriona, ancla: t.id });
+      assert.deepEqual(resolverHref(hrefDeSeccion(s.id, t.id)), { tab: s.id, ancla: t.id });
     }
   }
 });
@@ -205,10 +219,8 @@ function fuentes(dir: string): string[] {
     .filter(r => /\.tsx?$/.test(r) && statSync(join(RAIZ, r)).isFile());
 }
 
-// Sin las filas `<TarjetaEnlace id="…">`: una fila que apunta a una tarjeta no
-// es la tarjeta, y contarla dejaría pasar un id que no se pinta en ningún sitio.
 const COMPONENTES = fuentes('components/configuracion')
-  .map(f => ({ f, codigo: readFileSync(join(RAIZ, f), 'utf8').replace(/<TarjetaEnlace id="[^"]*"/g, '') }));
+  .map(f => ({ f, codigo: readFileSync(join(RAIZ, f), 'utf8') }));
 
 test('cada sección tiene su componente y el shell lo carga', () => {
   const shell = readFileSync(join(RAIZ, 'components/configuracion/shell/config-shell.tsx'), 'utf8');
@@ -235,15 +247,6 @@ test('cada tarjeta de secciones.ts existe de verdad como id en un componente', (
   assert.deepEqual(faltan, [], 'tarjetas sin ningún elemento con ese id');
 });
 
-test('cada sección enseña una fila hacia cada tarjeta suya que se pinta en otra', () => {
-  for (const s of SECCIONES) {
-    const codigo = readFileSync(join(RAIZ, `components/configuracion/secciones/seccion-${s.id}.tsx`), 'utf8');
-    const filas = [...codigo.matchAll(/<TarjetaEnlace id="([^"]+)"/g)].map(m => m[1]).sort();
-    const esperadas = tarjetasDeFuera(s.id as SeccionId).map(t => t.id).sort();
-    assert.deepEqual(filas, esperadas, `filas de «${s.id}»`);
-  }
-});
-
 test('cada integración del catálogo la pinta la sección de su tarjeta, y solo esa', () => {
   // `tipos` de TabIntegraciones, sección a sección. Una integración con tarjeta
   // propia (`integracion-stripe`) va a la sección de esa tarjeta; las de «Más
@@ -266,7 +269,7 @@ test('cada integración del catálogo la pinta la sección de su tarjeta, y solo
   for (const tipo of tiposCatalogo) {
     const tarjeta = (mas.includes(tipo) ? 'mas-integraciones' : `integracion-${tipo.toLowerCase()}`) as TarjetaId;
     assert.ok(esAnclaConocida(tarjeta), `«${tipo}» no tiene tarjeta en secciones.ts`);
-    assert.deepEqual(pintadaEn.get(tipo), [seccionAnfitriona(tarjeta)], `«${tipo}»`);
+    assert.deepEqual(pintadaEn.get(tipo), [seccionDeTarjeta(tarjeta)], `«${tipo}»`);
   }
 });
 
@@ -309,8 +312,8 @@ test('⚠️ todo `/configuracion?…` del repo llega a una sección y a una tar
         if (destino.ancla && url.hash && !esAnclaConocida(destino.ancla) && !/^ajuste-/.test(destino.ancla)) {
           rotos.push(`${donde} → «#${destino.ancla}» no es ninguna tarjeta`);
         }
-        if (destino.ancla && esAnclaConocida(destino.ancla)
-          && seccionAnfitriona(destino.ancla as TarjetaId) !== destino.tab) {
+        if (destino.ancla && esAnclaConocida(destino.ancla) && Object.hasOwn(ANCLAS, destino.ancla)
+          && seccionDeTarjeta(destino.ancla as TarjetaId) !== destino.tab) {
           rotos.push(`${donde} → «#${destino.ancla}» no se pinta en «${destino.tab}»`);
         }
       }

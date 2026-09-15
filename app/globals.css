@@ -846,8 +846,10 @@ nextjs-portal { display: none !important; }
 .animate-wa-fab-ring { animation: wa-fab-ring 2.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite; }
 /* Con la barra de navegación abajo (<1024), la burbuja cae encima de las barras
    de «Guardar» de Configuración, que también van pegadas abajo: mientras haya
-   una en la página (`data-barra-guardar`), se aparta. En escritorio no hay nav
-   abajo y la barra queda a la izquierda de la burbuja. */
+   una a la vista, se aparta. `data-barra-guardar` solo existe mientras la barra
+   se ve, que es mientras hay cambios sin guardar (shell/barra-guardar.tsx): una
+   sección entera sin tocar no esconde la burbuja. En escritorio no hay nav abajo
+   y la barra queda a la izquierda de la burbuja. */
 @media (width < 64rem) {
   body:has([data-barra-guardar]) .panel-wa-fab { display: none; }
 }

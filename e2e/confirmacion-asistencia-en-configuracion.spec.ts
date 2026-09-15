@@ -77,36 +77,37 @@ async function abrir(page: Page, opts: { conPlan: boolean }) {
 test('el interruptor vive con las reglas de reserva y guarda por su endpoint', async ({ page }) => {
   const { puts, patches } = await abrir(page, { conPlan: true });
 
-  // Vive en «Opciones avanzadas», plegado por defecto desde el 13-sep.
-  await page.locator('summary', { hasText: 'Opciones avanzadas' }).click({ timeout: 30_000 });
-  const fila = page.getByText('Pedir confirmación a quien suele no venir');
+  // Vive en la tarjeta «Asistencia», a la vista.
+  const tarjeta = page.locator('#asistencia');
+  const fila = tarjeta.getByText('Pedir confirmación a quien suele no venir');
   await expect(fila).toBeVisible({ timeout: 30_000 });
   // La letra pequeña tiene que decir a quién se le pide: «se cancela la reserva»
   // sin ese matiz se lee como que le pasa a cualquiera que reserve.
-  await expect(page.getByText(/No se le pide a todo el mundo/)).toBeVisible();
+  await expect(tarjeta.getByText(/No se le pide a todo el mundo/)).toBeVisible();
 
   await fila.click();
 
-  // Desde el 13-sep espera al botón como el resto de la tarjeta: pulsar solo
-  // cambia la pantalla y avisa de que hay algo sin guardar.
-  await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
+  // Espera a la barra como el resto de la sección: pulsar solo cambia la
+  // pantalla y avisa de dónde hay algo sin guardar.
+  await expect(page.getByText('Cambios sin guardar en: Asistencia')).toBeVisible();
   expect(puts, 'pulsar el interruptor no escribe hasta «Guardar»').toHaveLength(0);
-  await page.getByRole('button', { name: 'Guardar política de reservas' }).click();
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
   // Y al guardar, por SU endpoint.
   await expect.poll(() => puts.length, { timeout: 15_000 }).toBeGreaterThan(0);
   expect(puts[puts.length - 1]).toEqual({ activo: true });
+  await expect(page.getByText('Reglas de reserva guardadas')).toBeVisible();
 
   // ⚠️ Y NO viaja en el PATCH de `studios`: por ahí no hay comprobación de plan.
+  // Sin nada más cambiado, ni siquiera hay PATCH.
   expect(patches.join(' ')).not.toContain('pedir_confirmacion_riesgo');
+  expect(patches).toHaveLength(0);
 });
 
 test('sin plan no se pulsa, y se dice por qué', async ({ page }) => {
   const { puts } = await abrir(page, { conPlan: false });
 
-  // Vive en «Opciones avanzadas», plegado por defecto desde el 13-sep.
-  await page.locator('summary', { hasText: 'Opciones avanzadas' }).click({ timeout: 30_000 });
-  const fila = page.getByText('Pedir confirmación a quien suele no venir');
+  const fila = page.locator('#asistencia').getByText('Pedir confirmación a quien suele no venir');
   await expect(fila).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Esta regla va con el Centro de Control/)).toBeVisible();
 

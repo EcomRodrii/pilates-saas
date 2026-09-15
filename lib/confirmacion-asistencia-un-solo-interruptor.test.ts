@@ -3,8 +3,8 @@
 //
 // La regla vivía sola en Centro de Control, bajo un desplegable cerrado por
 // defecto: se cancelaban reservas y la propietaria no encontraba dónde se
-// decidía eso. Se ha movido a Configuración → Reservas y cancelaciones, con las
-// otras trece reglas de reserva.
+// decidía eso. Se ha movido a Configuración → Cómo reservan mis alumnas, a la
+// tarjeta «Asistencia», con el resto de reglas de reserva.
 //
 // Estructural a propósito. Lo que hay que impedir no es un cálculo mal hecho:
 //   · que vuelva a haber DOS interruptores para la misma columna (y con ello,
@@ -65,6 +65,6 @@ test('Centro de Control informa y enlaza, pero ya no escribe', () => {
     'Dos interruptores para la misma columna es como se acaba discutiendo cuál manda.');
   assert.match(src, /obtenerConfirmacionRiesgo/,
     'Sigue enseñando si la regla está encendida: quitarlo obliga a adivinarlo.');
-  assert.match(src, /\/configuracion\?tab=estudio&sub=reservas/,
+  assert.match(src, /\/configuracion\?tab=reservas#asistencia/,
     'Y tiene que llevar a donde se decide, no solo decir que se decide en otro sitio.');
 });

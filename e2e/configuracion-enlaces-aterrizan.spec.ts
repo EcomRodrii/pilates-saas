@@ -155,16 +155,20 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     await expect(rail(page).getByRole('link', { name: 'Alta de alumnas', exact: true })).toHaveAttribute('aria-current', 'page');
   });
 
-  test('una fila que apunta a otra sección lleva a la tarjeta de verdad', async ({ page }) => {
+  test('lo que salió de las reglas de reserva: sus enlaces viejos llevan a su sección', async ({ page }) => {
     await panel(page);
-    await page.goto('/configuracion?tab=altas');
-
+    await page.goto('/configuracion?tab=reservas#compra-desde-tu-enlace');
     await expect(tituloSeccion(page, 'Alta de alumnas')).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('link', { name: /Compra desde tu enlace/ }).click();
-
-    await expect(tituloSeccion(page, 'Cómo reservan mis alumnas')).toBeVisible({ timeout: 30_000 });
-    await expect(page).toHaveURL(/\/configuracion\?tab=reservas#compra-desde-tu-enlace$/);
     await expect(page.locator('#compra-desde-tu-enlace')).toBeInViewport({ timeout: 15_000 });
+
+    await page.goto('/configuracion?tab=estudio&sub=reservas#ajuste-instructoras-crean-clases');
+    await expect(tituloSeccion(page, 'Mi equipo')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('switch', { name: /Las instructoras pueden crear sus clases/ })).toBeFocused({ timeout: 15_000 });
+
+    // La tarjeta única de reglas se partió en cinco: su ancla lleva a la primera.
+    await page.goto('/configuracion?tab=reservas#reglas-de-reserva');
+    await expect(tituloSeccion(page, 'Cómo reservan mis alumnas')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#reservar-titulo')).toBeFocused({ timeout: 15_000 });
   });
 
   test('las tarjetas que ya están en su sección no dejan filas que apunten a otra', async ({ page }) => {
@@ -174,6 +178,14 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     // El formulario de verdad, no una fila que lleve a Mi estudio.
     await expect(page.getByRole('textbox', { name: 'NIF / CIF' })).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('#integracion-stripe')).toBeAttached();
+    await expect(page.getByText(/mientras terminamos de ordenarlo/)).toHaveCount(0);
+
+    // Las dos últimas que vivían en otra sección, con su control de verdad.
+    await page.goto('/configuracion?tab=altas');
+    await expect(page.getByRole('radio', { name: /Que se registre antes de pagar/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/mientras terminamos de ordenarlo/)).toHaveCount(0);
+    await page.goto('/configuracion?tab=equipo');
+    await expect(page.getByRole('switch', { name: /Las instructoras pueden crear sus clases/ })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/mientras terminamos de ordenarlo/)).toHaveCount(0);
   });
 });

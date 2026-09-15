@@ -23,6 +23,10 @@ export default function Contenido() {
         si no la acepta a tiempo, pierde el turno por completo (no pasa al final de la cola) y la plaza se ofrece a
         la siguiente.
       </p>
+      <p>
+        Se elige en la tarjeta &ldquo;Lista de espera&rdquo;, con una de tres opciones: sin lista de espera, se da a la
+        primera al momento, o se le ofrece durante los minutos que pongas.
+      </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué ve la alumna</h2>
       <p>

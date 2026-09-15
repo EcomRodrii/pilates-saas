@@ -46,6 +46,12 @@ const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
     patron: /Conexiones\s*(?:→|>|&gt;|›)\s*(?:Stripe|WhatsApp|Gmail|Cobro con tarjeta)|(?:WhatsApp|Gmail)[^.<'"`]{0,60}Configuración\s*(?:→|>|&gt;|›)\s*Conexiones/,
     ahora: 'Stripe en Cobros y facturas; WhatsApp, Gmail y el remitente en Cómo me comunico',
   },
+  // 15-sep (PR C): las reglas de reserva se partieron en tarjetas con una sola
+  // barra de guardar. «Reservas y cancelaciones» era el nombre de antes.
+  {
+    patron: /Reservas y cancelaciones|Guardar política de reservas/,
+    ahora: 'Configuración → Cómo reservan mis alumnas, con sus tarjetas (Reservar, Cancelar y recuperar, Lista de espera, Asistencia, Si cancela tarde o no viene) y un solo «Guardar»',
+  },
   { patron: /Ir a Migración/, ahora: 'Traer mis datos' },
   // No hay pantalla para emparejar un datáfono: no se manda a buscarla.
   { patron: /Empareja uno en Configuración/, ahora: 'solo el estado («Sin datáfono emparejado»)' },

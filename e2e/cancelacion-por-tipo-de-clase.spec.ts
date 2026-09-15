@@ -100,7 +100,7 @@ async function abrirClases(page: Page) {
 /** La ventana de cancelación vive plegada dentro de su sección. */
 const SECCION_CANCELACIONES = 'Si cancelan o no vienen';
 const PERSONALIZAR_VENTANA = 'Personalizar: ¿Hasta cuándo puede cancelar sin perder la sesión?';
-const CAMPO_VENTANA = 'Ventana de cancelación, en horas';
+const CAMPO_VENTANA = 'Plazo para cancelar sin perder la sesión, en horas';
 
 test.describe('Ventana de cancelación por tipo de clase', () => {
   test('poner una ventana propia se guarda y sigue ahí al recargar', async ({ page }) => {
