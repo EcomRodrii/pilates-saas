@@ -35,6 +35,17 @@ const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
     ahora: 'una sección de hoy: Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Conexiones o Datos y seguridad (lib/configuracion/secciones.ts)',
   },
   { patron: /Configuración → Servicios de cita/, ahora: 'Configuración → Mis clases y citas → Servicios de cita' },
+  // 15-sep (PR B): cada ajuste se fue a su sección. Mi estudio ya no tiene la
+  // marca, los textos de la app ni los datos fiscales, y Conexiones ya no tiene
+  // Stripe, WhatsApp ni Gmail.
+  {
+    patron: /Mi estudio\s*(?:→|>|&gt;|›)\s*(?:Marca|Datos fiscales|Textos de tu app)|Mi estudio, en «(?:Marca|Datos fiscales e IVA|Textos de tu app)»/,
+    ahora: '«Marca» y «Textos de tu app» en Mi app y mi web; «Datos fiscales e IVA» en Cobros y facturas',
+  },
+  {
+    patron: /Conexiones\s*(?:→|>|&gt;|›)\s*(?:Stripe|WhatsApp|Gmail|Cobro con tarjeta)|(?:WhatsApp|Gmail)[^.<'"`]{0,60}Configuración\s*(?:→|>|&gt;|›)\s*Conexiones/,
+    ahora: 'Stripe en Cobros y facturas; WhatsApp, Gmail y el remitente en Cómo me comunico',
+  },
   { patron: /Ir a Migración/, ahora: 'Traer mis datos' },
   // No hay pantalla para emparejar un datáfono: no se manda a buscarla.
   { patron: /Empareja uno en Configuración/, ahora: 'solo el estado («Sin datáfono emparejado»)' },

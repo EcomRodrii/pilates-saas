@@ -110,12 +110,18 @@ export const TAREAS: Tarea[] = [
     id: 'datos-estudio',
     label: 'Configurar los datos del estudio',
     href: '/configuracion?tab=estudio',
-    claves: ['estudio', 'datos fiscales', 'nif', 'direccion', 'iva', 'cancelacion'],
+    claves: ['estudio', 'direccion', 'telefono', 'cancelacion'],
+  },
+  {
+    id: 'datos-fiscales',
+    label: 'Poner los datos fiscales y el IVA',
+    href: '/configuracion?tab=cobros#datos-fiscales',
+    claves: ['datos fiscales', 'nif', 'cif', 'razon social', 'iva', 'factura'],
   },
   {
     id: 'metodos-pago',
     label: 'Activar los cobros con tarjeta',
-    href: '/configuracion?tab=integraciones',
+    href: '/configuracion?tab=cobros#integracion-stripe',
     claves: ['stripe', 'pago', 'tarjeta', 'bizum', 'sepa', 'cobrar online', 'pasarela'],
   },
   {

@@ -125,7 +125,7 @@ export default function PrimerosPasosPage() {
                 </p>
                 {aviso && (
                   <Link
-                    href="/configuracion?tab=integraciones"
+                    href="/configuracion?tab=cobros#integracion-stripe"
                     className="mt-3 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-[12.5px] leading-snug text-foreground hover:bg-warning/15"
                   >
                     <Lightbulb size={14} className="mt-[2px] shrink-0 text-warning" aria-hidden />

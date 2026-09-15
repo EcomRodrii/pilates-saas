@@ -1029,12 +1029,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.SISTEMA_STRIPE_DESCONECTADO}#PROPIETARIO`]: {
     title: 'Stripe desconectado — no puedes cobrar',
     body: 'Se ha desconectado tu cuenta de Stripe: los cobros automáticos están parados. Vuelve a conectarla para seguir cobrando.',
-    deepLink: () => `/configuracion?tab=integraciones`,
+    deepLink: () => `/configuracion?tab=cobros#integracion-stripe`,
   },
   [`${EVENTOS.SISTEMA_EMAIL_FALLIDO}#PROPIETARIO`]: {
     title: 'Fallan los envíos de email',
     body: 'Hoy no se han podido entregar algunos correos a tus clientas (último error: {error}). Revisa la configuración de email.',
-    deepLink: () => `/configuracion?tab=integraciones`,
+    deepLink: () => `/configuracion?tab=comunicacion`,
   },
   [`${EVENTOS.TRIAL_PROXIMO_A_EXPIRAR}#PROPIETARIO`]: {
     title: 'Prueba gratuita · {dias} días',

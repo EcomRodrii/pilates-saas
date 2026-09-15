@@ -107,6 +107,12 @@ const PARAMS_DE_CONEXION: [string, TarjetaId][] = [
   ['whatsapp_connected', 'integracion-whatsapp'],
 ];
 
+// Tarjetas que ya no existen, con la que hace hoy su trabajo. «Exportar a Excel»
+// se retiró el 15-sep: queda una sola exportación, «Exportar mis datos».
+const ANCLAS_RETIRADAS: Record<string, TarjetaId> = {
+  'integracion-excel': 'exportar',
+};
+
 /** Cada tarjeta, con la sección donde se pinta hoy. Derivado: nadie lo escribe a mano. */
 export const ANCLAS: Readonly<Record<string, SeccionId>> = Object.fromEntries(
   SECCIONES.flatMap(s => s.tarjetas.map(t => [t.id, seccionAnfitriona(t.id)] as const)),
@@ -123,7 +129,7 @@ export function reconoceSub(tab: string, sub: string): boolean {
 }
 
 export function esAnclaConocida(ancla: string): boolean {
-  return esTarjetaId(ancla);
+  return esTarjetaId(ancla) || Object.hasOwn(ANCLAS_RETIRADAS, ancla);
 }
 
 /**
@@ -164,6 +170,7 @@ export function resolverDestino(entrada: {
   const ancla = (entrada.hash ?? '').replace(/^#/, '');
   if (/^[a-z0-9][a-z0-9_-]*$/i.test(ancla)) {
     if (esTarjetaId(ancla)) return en(ancla);
+    if (Object.hasOwn(ANCLAS_RETIRADAS, ancla)) return en(ANCLAS_RETIRADAS[ancla]);
     if (lugar) return { tab: lugar.tab, ancla };
   }
   return lugar ?? { tab: null };

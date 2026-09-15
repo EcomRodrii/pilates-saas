@@ -79,11 +79,22 @@ async function montar(
   return { patches };
 }
 
-// ─── General ─────────────────────────────────────────────────────────────────
+// ─── Datos del estudio: tres formularios, cada uno con lo suyo ──────────────
+//
+// Hasta el 15-sep eran UN formulario («Guardar datos del estudio») que mandaba
+// diecisiete campos a la vez. Partido en tres secciones, cada «Guardar» manda
+// SOLO los campos de su tarjeta: si mandara los de otra, pisaría con lo que
+// tenía en memoria lo que se hubiera guardado después.
 
-test.describe('General: guardar una cosa no borra otra', () => {
-  test('elegir el IVA no borra el NIF, y Guardar manda los dos', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=estudio&sub=general');
+const CONTACTO = ['ciudad', 'codigo_postal', 'direccion', 'email', 'nombre', 'sitio_web', 'telefono'];
+const FISCALES = ['iva_por_defecto', 'nif', 'razon_social'];
+const TEXTOS = ['anio_fundacion', 'descripcion', 'frase_heroe', 'frase_manuscrita', 'lema', 'normas_texto', 'subtitulo_heroe'];
+
+test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () => {
+  test('elegir el IVA no borra el NIF, y Guardar manda los dos y nada más', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=cobros', {
+      fila: { ...STUDIO_ROW, razon_social: 'Guardada SL', lema: 'Lema guardado', telefono: '600000000' },
+    });
 
     const nif = page.getByRole('textbox', { name: 'NIF / CIF' });
     await expect(nif).toBeVisible({ timeout: 30_000 });
@@ -92,22 +103,56 @@ test.describe('General: guardar una cosa no borra otra', () => {
 
     // Margen para que un guardado instantáneo, si lo hubiera, vuelva y repinte.
     await page.waitForTimeout(800);
+    expect(patches).toHaveLength(0);
     await expect(nif).toHaveValue(NIF);
 
-    await page.getByRole('button', { name: 'Guardar datos del estudio' }).click();
+    await page.getByRole('button', { name: 'Guardar datos fiscales' }).click();
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
-    expect(patches.at(-1)).toMatchObject({ nif: NIF, iva_por_defecto: 10 });
-    await expect(page.getByText('Datos del estudio guardados')).toBeVisible();
+    expect(patches.at(-1)).toMatchObject({ nif: NIF, iva_por_defecto: 10, razon_social: 'Guardada SL' });
+    expect(Object.keys(patches.at(-1)!).sort()).toEqual(FISCALES);
+    await expect(page.getByText('Datos fiscales guardados')).toBeVisible();
     // Guardado de verdad: la barra se va.
     await expect(page.getByText('Tienes cambios sin guardar.')).toHaveCount(0);
   });
 
-  test('pegar el logo no borra la razón social a medio escribir', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=estudio&sub=general');
+  test('guardar datos y contacto manda solo esos siete campos', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=estudio', {
+      fila: { ...STUDIO_ROW, nif: NIF, lema: 'Lema guardado' },
+    });
 
-    const razon = page.getByRole('textbox', { name: 'Razón social' });
-    await expect(razon).toBeVisible({ timeout: 30_000 });
-    await razon.fill('Estudio de Ejemplo SL');
+    const telefono = page.getByRole('textbox', { name: 'Teléfono' });
+    await expect(telefono).toBeVisible({ timeout: 30_000 });
+    await telefono.fill('600111222');
+    await page.getByRole('button', { name: 'Guardar datos y contacto' }).click();
+
+    await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    expect(patches.at(-1)).toMatchObject({ telefono: '600111222', nombre: 'Studio Carmen' });
+    expect(Object.keys(patches.at(-1)!).sort()).toEqual(CONTACTO);
+    await expect(page.getByText('Datos y contacto guardados')).toBeVisible();
+  });
+
+  test('guardar los textos de tu app manda solo los textos', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=web', {
+      fila: { ...STUDIO_ROW, nif: NIF, razon_social: 'Guardada SL' },
+    });
+
+    const lema = page.getByRole('textbox', { name: 'Tu lema' });
+    await expect(lema).toBeVisible({ timeout: 30_000 });
+    await lema.fill('Cuerpo y mente');
+    await page.getByRole('button', { name: 'Guardar textos de tu app' }).click();
+
+    await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    expect(patches.at(-1)).toMatchObject({ lema: 'Cuerpo y mente' });
+    expect(Object.keys(patches.at(-1)!).sort()).toEqual(TEXTOS);
+    await expect(page.getByText('Textos de tu app guardados')).toBeVisible();
+  });
+
+  test('pegar el logo no borra los textos a medio escribir, y solo manda el logo', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=web');
+
+    const lema = page.getByRole('textbox', { name: 'Tu lema' });
+    await expect(lema).toBeVisible({ timeout: 30_000 });
+    await lema.fill('Cuerpo y mente');
 
     await page.getByRole('button', { name: 'o pegar un enlace' }).first().click();
     await page.getByRole('textbox', { name: 'Enlace de logo' }).fill('https://example.com/logo.png');
@@ -115,30 +160,43 @@ test.describe('General: guardar una cosa no borra otra', () => {
 
     // El logo se guarda solo, y tiene que haber salido de verdad.
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
-    expect(patches.at(-1)).toMatchObject({ logo_url: 'https://example.com/logo.png' });
+    expect(patches.at(-1)).toEqual({ logo_url: 'https://example.com/logo.png' });
     await expect(page.getByText('Logo actualizado')).toBeVisible();
 
-    await expect(razon).toHaveValue('Estudio de Ejemplo SL');
+    await expect(lema).toHaveValue('Cuerpo y mente');
     await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
   });
 
   for (const respuesta of ['cero-filas', '403', 'abort'] as const) {
     test(`si el servidor dice que no (${respuesta}), no dice «guardados» y no pierde nada`, async ({ page }) => {
-      const { patches } = await montar(page, '/configuracion?tab=estudio&sub=general', { respuesta });
+      const { patches } = await montar(page, '/configuracion?tab=cobros', { respuesta });
 
       const nif = page.getByRole('textbox', { name: 'NIF / CIF' });
       await expect(nif).toBeVisible({ timeout: 30_000 });
       await nif.fill(NIF);
-      await page.getByRole('button', { name: 'Guardar datos del estudio' }).click();
+      await page.getByRole('button', { name: 'Guardar datos fiscales' }).click();
 
       await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
       // Tiempo para que un «guardado» mentiroso apareciera si fuera a hacerlo.
       await page.waitForTimeout(800);
-      await expect(page.getByText('Datos del estudio guardados')).toHaveCount(0);
+      await expect(page.getByText('Datos fiscales guardados')).toHaveCount(0);
       await expect(nif).toHaveValue(NIF);
       await expect(page.getByText('Tienes cambios sin guardar.')).toBeVisible();
     });
   }
+
+  test('doble toque en Guardar datos fiscales: una sola petición', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=cobros', { retrasoMs: 1_000 });
+
+    const nif = page.getByRole('textbox', { name: 'NIF / CIF' });
+    await expect(nif).toBeVisible({ timeout: 30_000 });
+    await nif.fill(NIF);
+    await page.getByRole('button', { name: 'Guardar datos fiscales' }).dblclick();
+
+    await expect(page.getByText('Datos fiscales guardados')).toBeVisible({ timeout: 10_000 });
+    await page.waitForTimeout(500);
+    expect(patches).toHaveLength(1);
+  });
 });
 
 // ─── Cobros ──────────────────────────────────────────────────────────────────

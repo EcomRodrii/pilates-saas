@@ -29,7 +29,7 @@ export default function Contenido() {
         recordatorio, que puedes apagar en Configuración &gt; Cómo me comunico; apagarlo no apaga el aviso en su app ni el
         WhatsApp. Lo que eliges tú es qué avisos te llegan
         a ti y por dónde, desde las preferencias de notificaciones, y el WhatsApp de tu estudio se conecta en
-        Configuración &gt; Conexiones.
+        Configuración &gt; Cómo me comunico.
       </p>
 
       <AyudaResultado>

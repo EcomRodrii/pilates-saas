@@ -5,6 +5,8 @@ import { PlugZap } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { integracionesCaidas, cuando } from '@/lib/integraciones/salud';
 import type { TipoIntegracion } from '@/lib/types';
+import { hrefDeSeccion } from '@/lib/configuracion/destino';
+import { seccionAnfitriona, type TarjetaId } from '@/lib/configuracion/secciones';
 
 // Una integración caída, dicha donde la propietaria entra de verdad.
 //
@@ -30,6 +32,23 @@ const NOMBRE: Partial<Record<TipoIntegracion, string>> = {
   KISI: 'Kisi',
   RESEND: 'Email (Resend)',
 };
+
+// Dónde se arregla cada una: WhatsApp y el remitente de los correos están en
+// «Cómo me comunico», Kisi y Mailchimp en «Conexiones». Mandar siempre a
+// Conexiones llevaba a una sección sin la tarjeta que había que tocar.
+const TARJETA: Partial<Record<TipoIntegracion, TarjetaId>> = {
+  WHATSAPP: 'integracion-whatsapp',
+  RESEND: 'integracion-resend',
+  GMAIL: 'integracion-gmail',
+  STRIPE: 'integracion-stripe',
+  GOOGLE_CALENDAR: 'integracion-google_calendar',
+  ZOOM: 'integracion-zoom',
+};
+
+function hrefArreglar(tipo: TipoIntegracion): string {
+  const tarjeta = TARJETA[tipo] ?? 'mas-integraciones';
+  return hrefDeSeccion(seccionAnfitriona(tarjeta), tarjeta);
+}
 
 export function AvisoIntegracionesCaidas() {
   const { integraciones } = useStudio();
@@ -73,7 +92,7 @@ export function AvisoIntegracionesCaidas() {
             Mientras tanto, lo que se mandaba por ahí no está llegando a tus clientas.
           </p>
           <Link
-            href="/configuracion?tab=conexiones"
+            href={hrefArreglar(caidas[0].integracion.tipo)}
             className="inline-flex items-center mt-2.5 text-[12px] font-semibold text-destructive hover:underline"
           >
             Arreglarlo en Configuración →

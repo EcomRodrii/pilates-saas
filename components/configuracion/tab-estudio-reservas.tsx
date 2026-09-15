@@ -550,8 +550,11 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           </details>
         </div>
         {/* Negativos iguales al padding de la tarjeta (p-4, y p-6 con sitio): la
-            barra ocupa el ancho entero y queda pegada al borde de abajo. */}
-        <div className="sticky z-10 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] lg:bottom-4 -mx-4 -mb-4 mt-4 flex flex-wrap items-center gap-3 rounded-b-xl border-t border-border bg-card px-4 py-3 @md/config:-mx-6 @md/config:-mb-6 @md/config:px-6">
+            barra ocupa el ancho entero y queda pegada al borde de abajo.
+            `data-barra-guardar`: esta barra está siempre, así que en el móvil y
+            el iPad la burbuja de WhatsApp no se pinta en esta sección (caía
+            encima de ella; globals.css). */}
+        <div data-barra-guardar="" className="sticky z-10 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] lg:bottom-4 -mx-4 -mb-4 mt-4 flex flex-wrap items-center gap-3 rounded-b-xl border-t border-border bg-card px-4 py-3 @md/config:-mx-6 @md/config:-mb-6 @md/config:px-6">
           <button
             onClick={guardarPolitica}
             disabled={ventanaImposible || !hayCambios || guardando}

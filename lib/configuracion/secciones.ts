@@ -10,12 +10,15 @@
 // (lib/configuracion/destino.ts) y los tests comprueban que cada id existe de
 // verdad en algún componente.
 //
-// ⚠️ `hospedadaEn`: el orden aprobado mueve tarjetas entre componentes (los
-// datos fiscales a «Cobros y facturas», Stripe a «Cobros y facturas»…). Mientras
-// esa tarjeta siga pintándose dentro del componente de otra sección, `hospedadaEn`
+// ⚠️ `hospedadaEn`: el orden aprobado mueve tarjetas entre componentes. Mientras
+// una tarjeta siga pintándose dentro del componente de otra sección, `hospedadaEn`
 // dice DÓNDE está de verdad: el ancla lleva allí y en su sección definitiva se
 // pinta una fila que apunta. Mover la tarjeta = borrar esta propiedad, y ningún
-// enlace guardado se rompe.
+// enlace guardado se rompe. Desde el 15-sep solo quedan las dos que viven dentro
+// de las reglas de reserva («Compra desde tu enlace» y «Las instructoras crean
+// sus clases»); los datos fiscales, la marca, los textos, Stripe, WhatsApp,
+// Gmail, el remitente, el catálogo de la cadena y las aplicaciones con acceso ya
+// están en su sección.
 //
 // Pura y sin imports: la ejecuta `node --test` directamente.
 
@@ -86,7 +89,7 @@ export const SECCIONES = [
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'tipos-de-clase', titulo: 'Tipos de clase', frase: 'Reformer, Suelo, Embarazadas…: nombre, duración, plazas y, si quieres, sus propias reglas de reserva.', guardado: 'catalogo', ancho: 'amplio' },
-      { id: 'catalogo-de-la-cadena', titulo: 'Catálogo de la cadena', frase: 'Tipos de clase comunes a tus sedes. Se copian a cada sede al crearla o al pulsar «Aplicar catálogo».', guardado: 'catalogo', condicion: 'cadena', hospedadaEn: 'estudio' },
+      { id: 'catalogo-de-la-cadena', titulo: 'Catálogo de la cadena', frase: 'Tipos de clase comunes a tus sedes. Se copian a cada sede al crearla o al pulsar «Aplicar catálogo».', guardado: 'catalogo', condicion: 'cadena' },
       { id: 'servicios-de-cita', titulo: 'Servicios de cita', frase: 'Sesiones individuales, como una clase privada o una valoración.', guardado: 'catalogo', ancho: 'amplio' },
       { id: 'horario-de-citas', titulo: 'Horario de citas', frase: 'Las horas en que cada instructora acepta citas.', guardado: 'barra', ancho: 'amplio' },
     ],
@@ -110,8 +113,8 @@ export const SECCIONES = [
     frase: 'Cómo te pagan tus alumnas y qué sale en tus facturas.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'datos-fiscales', titulo: 'Datos fiscales e IVA', frase: 'Razón social, NIF e IVA de tus facturas. Cambiar el IVA solo afecta a las facturas nuevas.', guardado: 'barra', hospedadaEn: 'estudio' },
-      { id: 'integracion-stripe', titulo: 'Cobro con tarjeta (Stripe)', frase: 'Conecta tu cuenta de Stripe para cobrar bonos y cuotas con tarjeta. El dinero entra directo en tu cuenta.', guardado: 'accion', hospedadaEn: 'conexiones' },
+      { id: 'datos-fiscales', titulo: 'Datos fiscales e IVA', frase: 'Razón social, NIF e IVA de tus facturas. Cambiar el IVA solo afecta a las facturas nuevas.', guardado: 'barra' },
+      { id: 'integracion-stripe', titulo: 'Cobro con tarjeta (Stripe)', frase: 'Conecta tu cuenta de Stripe para cobrar bonos y cuotas con tarjeta. El dinero entra directo en tu cuenta.', guardado: 'accion' },
       { id: 'domiciliaciones', titulo: 'Domiciliaciones bancarias', frase: 'Los datos que pide tu banco para cobrar recibos domiciliados. Con ellos generas la remesa en Cobros.', guardado: 'barra' },
       { id: 'devoluciones', titulo: 'Devoluciones', frase: 'Permite devolver un cobro desde la ficha de la alumna; el dinero vuelve a su tarjeta.', guardado: 'barra' },
     ],
@@ -138,9 +141,9 @@ export const SECCIONES = [
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'correos-automaticos', titulo: 'Correos automáticos', frase: 'Bienvenida, reserva, recordatorio, cancelación…: apaga los que no quieras o cambia lo que dicen.', guardado: 'catalogo' },
-      { id: 'integracion-resend', titulo: 'Nombre y respuesta de tus correos', frase: 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.', guardado: 'catalogo', hospedadaEn: 'conexiones' },
-      { id: 'integracion-whatsapp', titulo: 'WhatsApp', frase: 'Recordatorios y avisos desde tu número de WhatsApp Business.', guardado: 'accion', hospedadaEn: 'conexiones' },
-      { id: 'integracion-gmail', titulo: 'Contactos de Gmail', frase: 'Trae los contactos de tu Gmail como alumnas nuevas. Los correos no salen desde tu Gmail.', guardado: 'accion', hospedadaEn: 'conexiones' },
+      { id: 'integracion-resend', titulo: 'Nombre y respuesta de tus correos', frase: 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.', guardado: 'catalogo' },
+      { id: 'integracion-whatsapp', titulo: 'WhatsApp', frase: 'Recordatorios y avisos desde tu número de WhatsApp Business.', guardado: 'accion' },
+      { id: 'integracion-gmail', titulo: 'Contactos de Gmail', frase: 'Trae los contactos de tu Gmail como alumnas nuevas. Los correos no salen desde tu Gmail.', guardado: 'accion' },
     ],
   },
   {
@@ -160,8 +163,8 @@ export const SECCIONES = [
     frase: 'Cómo se ve tu estudio por fuera: la app de tus alumnas, tu página de reservas y tu web.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'marca', titulo: 'Marca', frase: 'Logo, favicon y el color de tu marca. El logo se guarda al subirlo; el favicon se ve al publicar en Apariencia.', guardado: 'al-pulsar', hospedadaEn: 'estudio' },
-      { id: 'textos-de-tu-app', titulo: 'Textos de tu app', frase: 'Tu presentación, lema, frases de bienvenida y normas del centro. Lo que dejes vacío no se muestra.', guardado: 'barra', hospedadaEn: 'estudio' },
+      { id: 'marca', titulo: 'Marca', frase: 'Logo, favicon y el color de tu marca. El logo se guarda al subirlo; el favicon se ve al publicar en Apariencia.', guardado: 'al-pulsar' },
+      { id: 'textos-de-tu-app', titulo: 'Textos de tu app', frase: 'Tu presentación, lema, frases de bienvenida y normas del centro. Lo que dejes vacío no se muestra.', guardado: 'barra' },
       { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'La dirección de tu página de reservas y el enlace a la app de tus alumnas.', guardado: 'accion' },
       { id: 'network', titulo: 'Aparecer en Tentare Network', frase: 'Tu estudio sale en el buscador de estudios de Tentare, aunque no tengan tu enlace.', guardado: 'al-pulsar' },
       { id: 'contenido-de-tu-app', titulo: 'Contenido de tu app', frase: 'Tarjetas de «Descubre», mensaje destacado y avisos del tablón en el inicio de su app.', guardado: 'catalogo', ancho: 'amplio' },
@@ -192,8 +195,7 @@ export const SECCIONES = [
     tarjetas: [
       { id: 'integracion-google_calendar', titulo: 'Google Calendar', frase: 'Copia las clases de las próximas 4 semanas a tu calendario al pulsar «Sincronizar ahora»; no se actualiza solo.', guardado: 'accion' },
       { id: 'integracion-zoom', titulo: 'Zoom', frase: 'Crea una reunión de Zoom para cada clase de los tipos marcados como online.', guardado: 'accion' },
-      { id: 'integracion-excel', titulo: 'Exportar a Excel', frase: 'Tus alumnas, su historial de reservas y asistencia, y los recibos, en archivos que abre Excel.', guardado: 'accion' },
-      { id: 'aplicaciones-con-acceso', titulo: 'Aplicaciones con acceso', frase: 'Apps como Zapier con permiso para ver datos de tu estudio; puedes quitárselo.', guardado: 'accion', hospedadaEn: 'web' },
+      { id: 'aplicaciones-con-acceso', titulo: 'Aplicaciones con acceso', frase: 'Apps como Zapier con permiso para ver datos de tu estudio; puedes quitárselo.', guardado: 'accion' },
       { id: 'mas-integraciones', titulo: 'Más integraciones', frase: 'Abrir la puerta con cada check-in (Kisi), llevar tus alumnas a tus listas de marketing (Klaviyo, Mailchimp) y conectar con otras apps (Zapier).', guardado: 'accion' },
     ],
   },
@@ -204,7 +206,9 @@ export const SECCIONES = [
     frase: 'Llévate una copia de los datos de tu estudio cuando quieras.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'exportar', titulo: 'Exportar mis datos', frase: 'Un archivo por tabla para Excel o para llevarte a otra plataforma. No incluye ficha clínica ni notas de progreso.', guardado: 'accion' },
+      // La única forma de llevarte tus datos: «Exportar a Excel» se retiró el
+      // 15-sep y su ancla vieja lleva aquí (lib/configuracion/destino.ts).
+      { id: 'exportar', titulo: 'Exportar mis datos', frase: 'Un archivo CSV por tabla, que abre Excel: alumnas, reservas, suscripciones y bonos, recibos y pagos importados. No incluye ficha clínica ni notas de progreso.', guardado: 'accion' },
     ],
   },
 ] as const satisfies readonly SeccionConfiguracion[];

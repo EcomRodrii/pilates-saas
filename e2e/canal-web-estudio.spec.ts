@@ -69,7 +69,7 @@ test.describe('La web del estudio, junto al teléfono y el email', () => {
 
     await Promise.all([
       page.waitForRequest(r => r.url().includes('/rest/v1/studios') && r.method() === 'PATCH'),
-      page.getByRole('button', { name: 'Guardar datos del estudio' }).click(),
+      page.getByRole('button', { name: 'Guardar datos y contacto' }).click(),
     ]);
     expect(patches.at(-1)!.sitio_web).toBe('estudiocarmen.es');
   });
@@ -89,7 +89,7 @@ test.describe('La web del estudio, junto al teléfono y el email', () => {
 
     await Promise.all([
       page.waitForRequest(r => r.url().includes('/rest/v1/studios') && r.method() === 'PATCH'),
-      page.getByRole('button', { name: 'Guardar datos del estudio' }).click(),
+      page.getByRole('button', { name: 'Guardar datos y contacto' }).click(),
     ]);
     expect(patches.at(-1)!.sitio_web).toBeNull();
   });

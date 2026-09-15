@@ -52,7 +52,8 @@ async function montarIntegraciones(page: Page, opts: { configFalla?: boolean } =
     ? json(route, { error: 'boom' }, 500)
     : json(route, { config: { token: 'EL-TOKEN-BUENO', phoneId: '123456' } }));
 
-  await page.goto('/configuracion?tab=integraciones');
+  // WhatsApp está en «Cómo me comunico» desde el 15-sep.
+  await page.goto('/configuracion?tab=comunicacion');
 }
 
 test.describe('Las credenciales se piden al abrir, y no se pierden', () => {

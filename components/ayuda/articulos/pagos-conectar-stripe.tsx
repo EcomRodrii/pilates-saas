@@ -14,8 +14,8 @@ export default function Contenido() {
 
       <AyudaPaso numero={1} titulo="Ve a Configuración > Cobros y facturas">
         <p>
-          Pulsa «Cobro con tarjeta (Stripe)»: te lleva a su tarjeta, que por ahora está en Conexiones. Pulsa «Conectar
-          con Stripe» — un clic, sin pegar ninguna clave.
+          En la tarjeta «Cobro con tarjeta (Stripe)», pulsa «Conectar con Stripe» — un clic, sin pegar ninguna
+          clave.
         </p>
       </AyudaPaso>
 

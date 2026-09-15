@@ -159,7 +159,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Lo que leen tus alumnas',
-        texto: 'En Configuración → Mi estudio escribes tu nombre, tu logo, tu teléfono y tu dirección, pero también los textos que aparecen en su app: cómo te presentas, tu lema, la frase de bienvenida y las normas del centro. No son adornos: son lo primero que lee alguien que todavía no te conoce.',
+        texto: 'En Configuración → Mi estudio escribes tu nombre, tu teléfono y tu dirección, y en Mi app y mi web tu logo y los textos que aparecen en su app: cómo te presentas, tu lema, la frase de bienvenida y las normas del centro. No son adornos: son lo primero que lee alguien que todavía no te conoce.',
       },
       {
         titulo: 'Tu horario de apertura',
@@ -605,7 +605,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Lo que hace falta',
-        texto: 'Tu NIF y tu razón social, en Configuración → Mi estudio, en «Datos fiscales e IVA». El NIF se valida: uno de relleno no cuela. Sin él, Tentare cobra igual pero no emite ninguna factura, y te lo avisa en rojo en la pantalla de Facturas.',
+        texto: 'Tu NIF y tu razón social, en Configuración → Cobros y facturas, en «Datos fiscales e IVA». El NIF se valida: uno de relleno no cuela. Sin él, Tentare cobra igual pero no emite ninguna factura, y te lo avisa en rojo en la pantalla de Facturas.',
       },
       {
         titulo: 'Se emiten solas',
@@ -747,7 +747,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Tus datos son tuyos',
-        texto: 'Puedes exportarlo todo a Excel cuando quieras, y la Libreta imprime tu estudio entero —cada alumna con su plan, sus sesiones y su plaza— en papel. Está ahí para que nunca te sientas atrapada.',
+        texto: 'En Configuración → Datos y seguridad te llevas tus datos cuando quieras: un archivo por tabla que abre Excel. Y la Libreta imprime tu estudio entero —cada alumna con su plan, sus sesiones y su plaza— en papel. Está ahí para que nunca te sientas atrapada.',
       },
     ],
     acciones: [

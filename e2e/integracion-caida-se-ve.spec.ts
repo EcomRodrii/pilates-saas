@@ -76,7 +76,10 @@ test.describe('Una integración caída se ve sin ir a buscarla', () => {
     await expect(page.getByText(/Session has expired/)).toBeVisible();
     // Y qué está costando mientras tanto.
     await expect(page.getByText(/no está llegando a tus clientas/)).toBeVisible();
-    await expect(page.getByRole('link', { name: /Arreglarlo en Configuración/ })).toBeVisible();
+    // Y lleva a donde está la tarjeta de WhatsApp (Cómo me comunico), no a una
+    // sección sin ella.
+    await expect(page.getByRole('link', { name: /Arreglarlo en Configuración/ }))
+      .toHaveAttribute('href', '/configuracion?tab=comunicacion#integracion-whatsapp');
   });
 
   test('funcionando no interrumpe: cero píxeles', async ({ page }) => {

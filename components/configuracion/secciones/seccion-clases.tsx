@@ -6,7 +6,7 @@ import { TabClases } from '@/components/configuracion/tab-clases';
 import { TabServiciosCita } from '@/components/configuracion/tab-servicios-cita';
 import { TabHorarioCitas } from '@/components/configuracion/tab-horario-citas';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
-import { TarjetaEnlace } from '@/components/configuracion/shell/tarjeta-enlace';
+import { TabCatalogoCadena } from '@/components/configuracion/tab-catalogo-cadena';
 
 // Mis clases y citas: lo que ofreces.
 export function SeccionClases({ showToast }: { showToast: (m: string) => void }) {
@@ -21,7 +21,7 @@ export function SeccionClases({ showToast }: { showToast: (m: string) => void })
       <TarjetaAjuste id="tipos-de-clase" marco={false}>
         <TabClases showToast={showToast} />
       </TarjetaAjuste>
-      {esCadena && <TarjetaEnlace id="catalogo-de-la-cadena" />}
+      {esCadena && studio?.cadenaId && <TabCatalogoCadena cadenaId={studio.cadenaId} showToast={showToast} />}
       <TarjetaAjuste id="servicios-de-cita" marco={false}>
         <TabServiciosCita showToast={showToast} />
       </TarjetaAjuste>

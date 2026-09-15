@@ -6,18 +6,15 @@ import { useAuth } from '@/lib/auth-context';
 import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/lib/supabase-data';
 import { CLAVE_CAMBIO_SEDE } from '@/components/layout/sede-activa';
 import { tieneFeature } from '@/lib/billing/entitlements';
-import { TabEstudioGeneral } from '@/components/configuracion/tab-estudio-general';
+import { TabDatosContacto } from '@/components/configuracion/tab-datos-contacto';
 import { TabEstudioHorario } from '@/components/configuracion/tab-estudio-horario';
 import { TabSalas } from '@/components/configuracion/tab-salas';
 import { TabEstudioSedes } from '@/components/configuracion/tab-estudio-sedes';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
-// Mi estudio: quién eres, dónde estás y cuándo abres.
-//
-// ⚠️ Mientras no se parta el formulario de TabEstudioGeneral, aquí se pintan
-// también la marca, los textos de la app y los datos fiscales, que tienen su
-// sitio en «Mi app y mi web» y «Cobros y facturas» (allí hay una fila que trae
-// hasta aquí). Ver `hospedadaEn` en lib/configuracion/secciones.ts.
+// Mi estudio: quién eres, dónde estás y cuándo abres. La marca y los textos de
+// la app están en «Mi app y mi web», y los datos fiscales en «Cobros y
+// facturas»: cada uno con su propio «Guardar», que manda solo sus campos.
 export function SeccionEstudio({ showToast }: { showToast: (m: string) => void }) {
   const { studio } = useStudio();
   const { user } = useAuth();
@@ -54,7 +51,7 @@ export function SeccionEstudio({ showToast }: { showToast: (m: string) => void }
 
   return (
     <>
-      <TabEstudioGeneral showToast={showToast} />
+      <TabDatosContacto showToast={showToast} />
       <TabEstudioHorario showToast={showToast} />
       <TarjetaAjuste id="salas" marco={false}>
         <TabSalas showToast={showToast} />

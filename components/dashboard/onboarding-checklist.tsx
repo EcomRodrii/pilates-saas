@@ -105,7 +105,7 @@ export function OnboardingChecklist() {
           siguiente paso porque rompe justo lo que el titular promete. */}
       {aviso && (
         <Link
-          href="/configuracion?tab=integraciones"
+          href="/configuracion?tab=cobros#integracion-stripe"
           className="mt-3 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 transition-colors hover:bg-warning/15"
         >
           <AlertTriangle size={14} className="mt-[2px] shrink-0 text-warning" aria-hidden />

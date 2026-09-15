@@ -66,7 +66,8 @@ async function montarIntegraciones(page: Page, opts: {
   // Registrada al final para ganar al comodín `**/api/**`.
   await page.route('**/api/integrations/config**', route => json(route, { config: opts.config }));
 
-  await page.goto('/configuracion?tab=integraciones');
+  // WhatsApp está en «Cómo me comunico» desde el 15-sep.
+  await page.goto('/configuracion?tab=comunicacion');
 }
 
 test.describe('WhatsApp conectado por Embedded Signup: modal de solo lectura', () => {

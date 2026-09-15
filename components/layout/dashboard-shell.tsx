@@ -132,7 +132,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <PanelPrivacyProvider>
         <PanelThemeProvider className="min-h-dvh bg-background">
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh">
-            <div className="pt-14 lg:pt-2 pb-32 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+            <div className="pt-14 lg:pt-2 pb-[calc(9rem+env(safe-area-inset-bottom,0px))] lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <PanelSkeleton />
             </div>
           </main>
@@ -163,7 +163,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <PanelPrivacyProvider>
         <PanelThemeProvider className="min-h-dvh bg-background">
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh">
-            <div className="pt-14 lg:pt-2 pb-32 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+            <div className="pt-14 lg:pt-2 pb-[calc(9rem+env(safe-area-inset-bottom,0px))] lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <PanelSkeleton />
             </div>
           </main>
@@ -291,7 +291,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 TODAS las rutas), así que decidirlo por estado propio haría que
                 el hueco y la barra discreparan medio segundo en cada carga.
                 En móvil no cambia nada: ya era barra arriba, y `pt-14` manda. */}
-            <div className="pt-14 lg:pt-[var(--panel-top)] pb-32 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+            <div className="pt-14 lg:pt-[var(--panel-top)] pb-[calc(9rem+env(safe-area-inset-bottom,0px))] lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <Topbar />
               <PanelPageTransition>
                 {cargandoDatos ? <PanelSkeleton /> : (

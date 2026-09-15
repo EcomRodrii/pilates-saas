@@ -8,17 +8,16 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 // que guarda al momento («Guardar colores»). La captura enseñaba el editor
 // cerrado y se quitó.
 //
-// 15-sep-2026: Configuración se reorganizó por preguntas. La tarjeta «Marca» se
-// pinta en «Mi estudio» (su sitio definitivo es «Mi app y mi web», que tiene
-// una fila que lleva hasta ella) y el nombre del estudio está en «Datos y
-// contacto».
+// 15-sep-2026: Configuración se reorganizó por preguntas. La tarjeta «Marca»
+// está en «Mi app y mi web», y el nombre del estudio en «Datos y contacto», en
+// «Mi estudio».
 export default function Contenido() {
   return (
     <>
       <p>
-        En Configuración &gt; Mi estudio, «Datos y contacto» tiene el nombre de tu estudio, que se guarda con el botón
-        «Guardar datos del estudio». Justo debajo, «Marca»: el logo y el favicon se guardan solos en cuanto los subes,
-        y subirlos no borra nada de lo que estés escribiendo en el resto de la pantalla.
+        En Configuración &gt; Mi app y mi web, la tarjeta «Marca» tiene el logo y el favicon: se guardan solos en cuanto
+        los subes, y subirlos no borra nada de lo que estés escribiendo en «Textos de tu app», justo debajo. El nombre de
+        tu estudio está en Configuración &gt; Mi estudio, en «Datos y contacto».
       </p>
 
       <p>

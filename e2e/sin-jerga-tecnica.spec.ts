@@ -71,20 +71,27 @@ async function textoVisible(page: Page, ancla: RegExp): Promise<string> {
 }
 
 test.describe('Nada de jerga técnica en pantalla', () => {
-  test('Integraciones: las que no están listas se explican sin variables de entorno', async ({ page }) => {
-    await montar(page, '/configuracion?tab=integraciones');
-    await expect(page.getByText('Integraciones').first()).toBeVisible({ timeout: 30_000 });
+  // Desde el 15-sep las integraciones están repartidas en tres secciones: se
+  // barren las tres. El ancla es el título de una tarjeta de cada una: está
+  // tanto si el mensaje es el bueno como si alguien vuelve a colar la variable.
+  const SECCIONES_CON_INTEGRACIONES: [string, RegExp][] = [
+    ['/configuracion?tab=integraciones', /Google Calendar/],
+    ['/configuracion?tab=cobros', /Cobro con tarjeta \(Stripe\)/],
+    ['/configuracion?tab=comunicacion', /Contactos de Gmail/],
+  ];
+  for (const [ruta, ancla] of SECCIONES_CON_INTEGRACIONES) {
+    test(`Integraciones en ${ruta}: las que no están listas se explican sin variables de entorno`, async ({ page }) => {
+      await montar(page, ruta);
 
-    // 'Google Calendar' es el título de una tarjeta: está tanto si el mensaje es
-    // el bueno como si alguien vuelve a colar el nombre de la variable.
-    const texto = await textoVisible(page, /Google Calendar/);
-    for (const patron of JERGA) {
-      expect(texto, `se coló jerga técnica: ${patron}`).not.toMatch(patron);
-    }
+      const texto = await textoVisible(page, ancla);
+      for (const patron of JERGA) {
+        expect(texto, `se coló jerga técnica: ${patron}`).not.toMatch(patron);
+      }
 
-    // Y lo que sí ve: algo que entiende y que le dice de quién es el problema.
-    await expect(page.getByText(/Lo estamos terminando de conectar por nuestro lado/).first()).toBeVisible();
-  });
+      // Y lo que sí ve: algo que entiende y que le dice de quién es el problema.
+      await expect(page.getByText(/Lo estamos terminando de conectar por nuestro lado/).first()).toBeVisible();
+    });
+  }
 
   test('Suscripción sin pagos configurados: le decimos qué hacer, no qué claves poner', async ({ page }) => {
     await montar(page, '/suscripcion');

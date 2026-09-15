@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils';
 // blob, no un <a href> directo: la API exige el JWT en un header Authorization,
 // que un enlace no puede mandar.
 //
-// Vive aquí y no solo en Configuración → Copias de seguridad porque un estudio
+// Vive aquí y no solo en Configuración → Datos y seguridad (la única exportación
+// del estudio desde el 15-sep) porque un estudio
 // con la prueba agotada NO llega al panel (dashboard-shell lo manda a
 // /suscripcion), y es justo a quien el aviso de borrado le dice «exporta tus
 // datos». La API (/api/exportar/mis-datos) solo exige sesión de PROPIETARIO, sin

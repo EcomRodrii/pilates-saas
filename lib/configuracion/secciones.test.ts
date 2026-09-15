@@ -74,7 +74,11 @@ test('cada tarjeta se pinta en UN solo sitio, y cada sección sabe cuáles le vi
     assert.equal(tarjetaPorId(id), t);
     assert.ok(esTarjetaId(id));
   }
-  assert.deepEqual(tarjetasDeFuera('cobros').map(t => t.id), ['datos-fiscales', 'integracion-stripe']);
+  // Desde el 15-sep solo quedan dos tarjetas hospedadas, las que viven dentro de
+  // las reglas de reserva (PR C las saca de ahí).
+  assert.deepEqual(todas.filter(t => t.hospedadaEn).map(t => t.id).sort(), ['ajuste-instructoras-crean-clases', 'compra-desde-tu-enlace']);
+  assert.deepEqual(tarjetasDeFuera('altas').map(t => t.id), ['compra-desde-tu-enlace']);
+  assert.deepEqual(tarjetasDeFuera('cobros'), []);
   assert.deepEqual(tarjetasDeFuera('datos'), []);
 });
 

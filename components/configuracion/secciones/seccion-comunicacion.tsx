@@ -1,8 +1,10 @@
 'use client';
 
 import { TabPlantillasEmail } from '@/components/configuracion/tab-plantillas-email';
+import { TabIntegraciones } from '@/components/configuracion/tab-integraciones';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
-import { TarjetaEnlace } from '@/components/configuracion/shell/tarjeta-enlace';
+
+const INTEGRACIONES = ['RESEND', 'WHATSAPP', 'GMAIL'] as const;
 
 // Cómo me comunico: los correos que salen solos y los canales conectados.
 export function SeccionComunicacion({ showToast }: { showToast: (m: string) => void }) {
@@ -11,9 +13,7 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
       <TarjetaAjuste id="correos-automaticos" marco={false}>
         <TabPlantillasEmail showToast={showToast} />
       </TarjetaAjuste>
-      <TarjetaEnlace id="integracion-resend" />
-      <TarjetaEnlace id="integracion-whatsapp" />
-      <TarjetaEnlace id="integracion-gmail" />
+      <TabIntegraciones showToast={showToast} tipos={INTEGRACIONES} />
     </>
   );
 }

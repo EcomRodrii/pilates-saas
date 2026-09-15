@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { Building2, Calendar, CalendarCheck, Check, Clock, ClipboardCheck, Code2, Copy, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import { useRol, puedeGestionarAppsOAuth } from '@/lib/permisos';
 import { authHeader } from '@/lib/api-client';
 import { Field, ColorInput, Toggle, cardCls, inputCls } from '@/components/configuracion/estilos';
 import { copiarAlPortapapeles } from '@/lib/utils';
@@ -429,7 +428,6 @@ type Vista = 'widgets' | 'crecimiento';
 
 export function TabApi({ showToast }: { showToast: (m: string) => void }) {
   const { studio } = useStudio();
-  const rol = useRol();
   const [vista, setVista] = useState<Vista>('widgets');
 
   if (!studio?.slug) return null;
@@ -462,81 +460,7 @@ export function TabApi({ showToast }: { showToast: (m: string) => void }) {
             : <TabCrecimientoWeb showToast={showToast} />}
         </div>
       </TarjetaAjuste>
-      {/* Su sitio es «Conexiones», que tiene una fila que trae hasta aquí. */}
-      {puedeGestionarAppsOAuth(rol) && <AppsConectadas showToast={showToast} />}
     </>
-  );
-}
-
-// Apps de terceros con acceso OAuth al estudio (Zapier, y quien se registre
-// después). Solo PROPIETARIO/MANAGER — mismo criterio que quién puede
-// autorizar la conexión (puedeGestionarAppsOAuth, ver lib/permisos-reglas.ts).
-interface AppConectada {
-  clienteId: string;
-  nombre: string;
-  descripcion: string | null;
-  logoUrl: string | null;
-  scopes: string[];
-  otorgadoEn: string;
-}
-
-function AppsConectadas({ showToast }: { showToast: (m: string) => void }) {
-  const [apps, setApps] = useState<AppConectada[] | null>(null);
-  const [revocando, setRevocando] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelado = false;
-    (async () => {
-      const headers = await authHeader();
-      const res = await fetch('/api/oauth/consentimientos', { headers });
-      if (!res.ok || cancelado) return;
-      const data = await res.json() as { apps?: unknown };
-      // Una respuesta sin `apps` no puede tumbar la sección entera.
-      if (!cancelado) setApps(Array.isArray(data.apps) ? data.apps as AppConectada[] : []);
-    })();
-    return () => { cancelado = true; };
-  }, []);
-
-  async function revocar(clienteId: string) {
-    setRevocando(clienteId);
-    const headers = await authHeader();
-    const res = await fetch('/api/oauth/revoke', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify({ clienteId }),
-    });
-    setRevocando(null);
-    if (!res.ok) { showToast('No se pudo revocar el acceso'); return; }
-    setApps(prev => (prev ?? []).filter(a => a.clienteId !== clienteId));
-    showToast('Acceso revocado');
-  }
-
-  if (apps === null) return null;
-
-  return (
-    <TarjetaAjuste id="aplicaciones-con-acceso">
-      {apps.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground">Ninguna aplicación conectada todavía.</p>
-      ) : (
-        <div className="space-y-2">
-          {apps.map(a => (
-            <div key={a.clienteId} className="flex items-center justify-between border border-border rounded-lg px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium text-foreground truncate">{a.nombre}</p>
-                <p className="text-[11px] text-muted-foreground truncate">{a.scopes.join(', ')}</p>
-              </div>
-              <button
-                onClick={() => revocar(a.clienteId)}
-                disabled={revocando === a.clienteId}
-                className="shrink-0 px-3 py-1.5 rounded-lg border border-border text-[12px] text-foreground hover:bg-muted transition-colors disabled:opacity-40"
-              >
-                {revocando === a.clienteId ? 'Revocando…' : 'Revocar acceso'}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </TarjetaAjuste>
   );
 }
 
