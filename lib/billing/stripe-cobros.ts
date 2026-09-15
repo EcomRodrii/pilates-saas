@@ -5,9 +5,7 @@ import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
 import { clasificarErrorCobro } from '@/lib/billing/clasificar-error-cobro';
-import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
-import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
-import { hoyEnEstudio } from '@/lib/utils';
+import { cerrarCobroOffSession } from '@/lib/billing/confirmar-cobro';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -188,53 +186,26 @@ export async function cobrarReciboOffSession(params: {
     }
 
     if (paymentIntent.status === 'succeeded') {
-      // I6: Stripe YA cobró. Si el update del recibo falla, no lo tragamos: la
-      // idempotency key evita el doble cargo, pero el recibo quedaría PENDIENTE y
-      // podría reaparecer para cobro → la reconciliación se rompe. Lo registramos
-      // en Sentry con el reciboId/paymentIntent para reconciliación manual.
-      const { error: updErr } = await admin
-        .from('recibos').update({
-          // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date` — un ISO en
-          // UTC fechaba el día anterior un cobro a la 01:30 de Madrid.
-          estado: 'COBRADO', fecha_cobro: hoyEnEstudio(), metodo_cobro: metodo.metodo,
-          // El hilo de vuelta a Stripe. Antes solo se guardaba en la rama SEPA
-          // `processing`, así que un cobro con tarjeta que salía BIEN no dejaba
-          // ninguna forma de llegar a su cargo — y sin eso no se puede devolver
-          // desde el panel (`app/api/reembolsos`). Cuesta una columna que ya
-          // existía desde 0000_base y que nadie rellenaba en este camino.
-          stripe_payment_intent_id: paymentIntent.id,
-          ...(esSepa ? { sepa_estado: 'succeeded' } : {}),
-        }).eq('id', params.reciboId).eq('studio_id', params.studioId);
-      if (updErr) {
-        Sentry.captureException(new Error(`Cobro OK en Stripe pero no se pudo marcar el recibo COBRADO: ${updErr.message}`), {
-          level: 'error',
-          tags: { area: 'cobros', tipo: 'reconciliacion' },
-          extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
-        });
-        // Además del aviso a Sentry, se devuelve un resultado DISTINGUIBLE: el
-        // llamante marcaba el cobro como EJECUTADO y respondía 200, así que el
-        // fallo de persistencia quedaba invisible para quien operaba.
-        return {
-          ok: true, status: paymentIntent.status, importe: recibo.importe,
-          aviso: 'COBRADO_SIN_PERSISTIR',
-          error: 'El cobro se completó en Stripe pero no se pudo marcar el recibo como COBRADO. Revísalo manualmente.',
-        };
-      }
-      // Post-cobro, en el servidor (antes solo pasaba al "marcar cobrado" a
-      // mano en el panel): renovar la suscripción del recibo (refill de bono /
-      // extensión del mensual) y sellar su factura. Ambos son best-effort e
-      // idempotentes — el cobro ya está hecho y persistido.
-      await aplicarRenovacionServidor(admin, { studioId: params.studioId, reciboId: params.reciboId });
-      const sellado = await sellarFacturaDeRecibo(admin, {
-        studioId: params.studioId, reciboId: params.reciboId, facturaId: `fac-off-${params.reciboId}`,
+      // I6: Stripe YA cobró. La transición a COBRADO la hace el dueño único
+      // (lib/billing/confirmar-cobro.ts) con compare-and-set: antes esto era un
+      // UPDATE sin filtro de estado sobre la lectura de arriba, y si el recibo
+      // cambiaba entre medias (lo cobraba el mostrador, lo cerraba el webhook)
+      // se pisaba sin enterarse nadie. Si gana, aplica renovación y factura (y
+      // marca `factura_pendiente_sellar` si el sellado falla); guarda además el
+      // cargo, sin el cual no se puede devolver desde el panel.
+      //
+      // `avisarSocia: false`: este camino síncrono nunca ha mandado email de
+      // justificante, y empezar a hacerlo en cada cobro automático sería un
+      // cambio de producto, no un arreglo.
+      // El cierre (y su aviso a Sentry si no se puede) vive junto al dueño
+      // único, donde tiene tests: `cerrarCobroOffSession`. Si devuelve
+      // `COBRADO_SIN_PERSISTIR` el llamante NO debe darlo por cerrado: antes
+      // marcaba el cobro como EJECUTADO y el fallo quedaba invisible.
+      const cierre = await cerrarCobroOffSession(admin, {
+        studioId: params.studioId, reciboId: params.reciboId, socioId: params.socioId,
+        metodo: metodo.metodo, paymentIntentId: paymentIntent.id,
       });
-      if (!sellado.ok) {
-        Sentry.captureMessage('[cobrarReciboOffSession] cobro OK pero factura sin sellar', {
-          level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
-          extra: { reciboId: params.reciboId, error: sellado.error },
-        });
-      }
-      return { ok: true, status: paymentIntent.status, importe: recibo.importe };
+      return { ok: true, status: paymentIntent.status, importe: recibo.importe, ...cierre };
     }
 
     // requires_action u otro estado no terminal: la tarjeta necesita

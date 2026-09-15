@@ -2,9 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import { planificarTrasFallo, debeAutoCancelarSuscripcion, type PlanReintento } from './dunning.ts';
 import { enviarEmailImpago } from '../emails/impago-server.ts';
-import { aplicarRenovacionServidor } from './renovacion-server.ts';
-import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
-import { hoyEnEstudio } from '../utils.ts';
 
 // Registra un intento de cobro FALLIDO de un recibo y avanza su ciclo de dunning:
 // cuenta el intento, reprograma el siguiente reintento (+3 / +7 días) o marca el
@@ -152,106 +149,12 @@ export async function registrarFalloCobro(params: {
 // `studioId` viene siempre de una fuente fiable del llamante (la cuenta
 // Connect del evento, o el propio recibo ya scopeado por estudio), nunca de la
 // metadata del PaymentIntent.
-export async function confirmarCobroExitoso(params: {
-  admin: SupabaseClient;
-  reciboId: string;
-  studioId: string;
-  metodo: 'SEPA' | 'TARJETA';
-  /** El cargo real, para poder devolverlo desde el panel. Solo se escribe si viene. */
-  paymentIntentId?: string | null;
-  /** F-12/F-13: quién lo confirma, para `recibos.conciliado_por`. */
-  fuente: 'webhook' | 'conciliador';
-}): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { admin, reciboId, studioId, metodo, fuente } = params;
-  const esSepa = metodo === 'SEPA';
-  const ahoraISO = new Date().toISOString();
-  // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date`, no `timestamptz` como
-  // `conciliado_en` — con `ahoraISO` un cobro a la 01:30 de Madrid se fechaba
-  // el día anterior (mismo bug que ya documenta `hoyEnEstudio`).
-  const hoy = hoyEnEstudio(new Date(ahoraISO));
-  const { data: rec, error: updErr } = await admin.from('recibos')
-    .update({
-      estado: 'COBRADO', fecha_cobro: hoy, metodo_cobro: metodo,
-      ...(esSepa ? { sepa_estado: 'succeeded' } : {}),
-      ...(params.paymentIntentId ? { stripe_payment_intent_id: params.paymentIntentId } : {}),
-      conciliado_en: ahoraISO, conciliado_por: fuente,
-    })
-    // Mismo guardia de estados que el camino de checkout (webhook/route.ts) y
-    // el conciliador: quedan fuera COBRADO —para no reescribir fecha_cobro con
-    // un evento tardío o reentregado— y sobre todo DEVUELTO, para no RESUCITAR
-    // un recibo ya devuelto. Un adeudo SEPA se puede devolver hasta 8 semanas
-    // después, así que la secuencia succeeded → refunded → reentrega del
-    // succeeded original es perfectamente posible; sin este `.in(...)` volvía a
-    // COBRADO con fecha_devolucion puesta Y re-ejecutaba renovación,
-    // notificación y email de recibo.
-    .eq('id', reciboId).eq('studio_id', studioId)
-    .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO'])
-    .select('id').maybeSingle();
-  if (updErr) return { ok: false, error: updErr.message };
-  // 0 filas tiene ahora DOS causas y hay que distinguirlas, porque el llamador
-  // (webhook: 'Recibo no encontrado') usa una de ellas para detectar un cobro
-  // que apunta a un recibo de OTRO estudio. Sin esta segunda consulta, ese
-  // aviso cross-tenant se volvía inalcanzable y el caso pasaba en silencio.
-  // Mismo criterio que el gemelo de checkout en webhook/route.ts.
-  if (!rec) {
-    const { data: existe } = await admin.from('recibos')
-      .select('id, estado').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
-    // No existe (o es de otro estudio): sigue siendo un error para el llamador,
-    // que lo usa para detectar un cobro que apunta a otro tenant.
-    if (!existe) return { ok: false, error: 'Recibo no encontrado' };
-    // DEVUELTO es el caso que motivó el guardia: NO se resucita ni se repiten
-    // sus efectos. Un adeudo SEPA se puede devolver hasta 8 semanas después,
-    // así que succeeded → refunded → reentrega del succeeded es real.
-    if (existe.estado === 'DEVUELTO') return { ok: true };
-    // Ya COBRADO, vía TARJETA: es el caso NORMAL, no una reentrega rara — el
-    // webhook llega para cada cargo y `cobrarReciboOffSession` ya lo persistió
-    // todo de forma síncrona. Se repara en silencio lo idempotente (renovación
-    // y sellado, la única red si el proceso murió entre el UPDATE y la
-    // renovación) pero SIN notificación ni email: el camino síncrono de
-    // tarjeta nunca los ha enviado, y mandarlos aquí estrenaría un email por
-    // cada cobro normal — un cambio de producto disfrazado de reconciliación.
-    if (!esSepa) {
-      await aplicarRenovacionServidor(admin, { studioId, reciboId });
-      try {
-        const sell = await sellarFacturaDeRecibo(admin, { studioId, reciboId, facturaId: `fac-off-${reciboId}` });
-        // Solo consola, sin Sentry: en esta rama el sellado ya lo intentó (y
-        // reportó, si falló) la vía síncrona segundos antes — capturarlo aquí
-        // también duplicaría el aviso en CADA cobro de un estudio sin NIF.
-        if (!sell.ok) console.error('[confirmarCobroExitoso] reparación: factura sin sellar', reciboId, sell.error);
-      } catch (e) {
-        console.error('[confirmarCobroExitoso] reparación: fallo al sellar', reciboId, e);
-      }
-      return { ok: true };
-    }
-    // Ya COBRADO, vía SEPA: es una reentrega del evento. Se deja caer al bloque
-    // de abajo igual que hace el gemelo de checkout, porque esos pasos son
-    // idempotentes y son la ÚNICA red si el proceso murió entre el UPDATE y la
-    // renovación (el conciliador no lo repara: solo mira recibos EN_CURSO).
-  }
-
-  // Transición real (o reentrega SEPA): efectos completos. En TARJETA llegar
-  // aquí significa que el webhook acaba de RECUPERAR un cobro que el camino
-  // síncrono perdió — avisar a la socia es lo correcto: nadie más lo hará.
-  await aplicarRenovacionServidor(admin, { studioId, reciboId });
-  const { emitirPagoRealizado } = await import('../notifications/emit.ts');
-  await emitirPagoRealizado(admin, { studioId, reciboId });
-  const { enviarEmailReciboWebhook } = await import('../emails/enviar-recibo-webhook.ts');
-  await enviarEmailReciboWebhook(admin, { studioId, reciboId });
-  try {
-    // TARJETA usa el MISMO id de factura que `cobrarReciboOffSession`
-    // (`fac-off-…`): si el camino síncrono ya selló, esto colisiona y no
-    // duplica (el sellado además dedupea por recibo_id, cinturón y tirantes).
-    const sell = await sellarFacturaDeRecibo(admin, {
-      studioId, reciboId, facturaId: esSepa ? `fac-sepa-${reciboId}` : `fac-off-${reciboId}`,
-    });
-    if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
-  } catch (e) {
-    Sentry.captureException(e instanceof Error ? e : new Error('Fallo al sellar la factura del cobro'), {
-      level: 'warning', tags: { area: 'facturacion', tipo: esSepa ? 'sepa_ciclo' : 'tarjeta_recibo' }, extra: { reciboId },
-    });
-  }
-  return { ok: true };
-}
+//
+// La implementación vive junto al dueño único (lib/billing/confirmar-cobro.ts),
+// que sí se puede probar con `node --test`; este módulo no, por la cascada de
+// imports de los avisos de impago. Se reexporta con el mismo nombre para no
+// tocar a sus llamadores (webhook y `lib/inngest/dunning.ts`).
+export { confirmarCobroExitoso } from './confirmar-cobro.ts';
 
 async function notificarFalloCobro(params: {
   admin: SupabaseClient;

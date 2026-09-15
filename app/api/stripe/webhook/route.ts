@@ -12,6 +12,7 @@ import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
 import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
+import { reservarClasePagada } from '@/lib/billing/reservar-clase-pagada';
 import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 import { metodoRealDeSesion } from '@/lib/billing/metodo-real-sesion';
@@ -683,52 +684,23 @@ async function procesarEvento(
         await consumirCodigoDescuentoSiAplica(admin, {
           codigoDescuentoId, reciboId: entrega.reciboId, studioId, socioId: entrega.socioId, fuente: 'stripe webhook',
         });
-        const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
-        await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
-        const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
-        await enviarEmailReciboWebhook(admin, { studioId, reciboId: entrega.reciboId });
+        // El aviso y el email de justificante ya los ha pedido
+        // `entregarPlanComprado` (vía `aplicarEfectosCobro`): después de sellar
+        // la factura, y solo si esta llamada creó el recibo — antes una
+        // reentrega del evento volvía a mandar el email.
 
         // "Pagar y reservar sin login previo" con Bizum (fallback de Modo B,
-        // docs/reserva-sin-login-diseno.md §4.2): mismo bloque que la rama
-        // gemela de `payment_intent.succeeded` (checkout embebido) más abajo
-        // en este fichero — ahí está el comentario largo de por qué es
-        // `error` y no `warning`, y por qué es best-effort. Este camino
-        // (Checkout Session hospedada) necesitaba el MISMO tratamiento
-        // porque es el ÚNICO sitio donde Bizum puede pagar "pagar y reservar
-        // sin login": el checkout embebido no admite Bizum en su Payment
-        // Element (es un método con redirect), así que este es el camino
-        // real por el que Bizum reserva una clase.
-        if (session.metadata?.sesionId && typeof session.payment_intent === 'string') {
-          const piIdReserva = session.payment_intent;
-          try {
-            const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
-            const r = await reservarPlazaTrasPagoPublico({
-              studioId, sesionId: session.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: piIdReserva,
-              spotId: session.metadata?.spotId ?? null,
-            });
-            if (!r.ok) {
-              Sentry.captureMessage('[stripe webhook] checkout (Bizum sin login): plan entregado pero NO se pudo reservar la clase', {
-                level: 'error',
-                extra: { studioId, sesionId: session.metadata.sesionId, socioId: entrega.socioId, sessionId: session.id, motivo: r.motivo, detalle: r.detalle },
-              });
-              const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
-              await emitirReservaPagadaSinPlaza(admin, { studioId, sesionId: session.metadata.sesionId, socioId: entrega.socioId });
-            } else if (r.estado === 'LISTA_ESPERA') {
-              const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
-              await emitirReservaPagadaSinPlaza(admin, {
-                studioId, sesionId: session.metadata.sesionId, socioId: entrega.socioId, situacion: 'en-espera',
-              });
-            }
-          } catch (e) {
-            Sentry.captureException(e, { extra: { contexto: 'reservarPlazaTrasPagoPublico', studioId, sesionId: session.metadata.sesionId, sessionId: session.id } });
-          }
-        } else if (session.metadata?.sesionId) {
-          // No debería pasar (una Checkout Session 'payment' completada trae
-          // siempre su payment_intent como string), pero si pasara sería
-          // exactamente el mismo problema que el `motivo: r.motivo` de arriba:
-          // dinero cobrado, clase sin reservar, y nadie enterándose.
-          Sentry.captureMessage('[stripe webhook] checkout (Bizum sin login): sin payment_intent para reservar la clase', {
-            level: 'error', extra: { studioId, sesionId: session.metadata.sesionId, sessionId: session.id },
+        // docs/reserva-sin-login-diseno.md §4.2). Este camino (Checkout Session
+        // hospedada) es el ÚNICO por el que Bizum reserva una clase: el checkout
+        // embebido no admite Bizum en su Payment Element (es un método con
+        // redirect). El bloque es el mismo que el del checkout embebido y el
+        // conciliador, compartido en `reservarClasePagada`.
+        if (session.metadata?.sesionId) {
+          await reservarClasePagada(admin, {
+            studioId, sesionId: session.metadata.sesionId, socioId: entrega.socioId,
+            paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+            spotId: session.metadata?.spotId ?? null,
+            via: 'checkout', referencia: { sessionId: session.id },
           });
         }
 
@@ -885,6 +857,9 @@ async function procesarEvento(
           metodoCobro,
           paymentIntentId: pi.id,
           fuente: 'tpv',
+          // El apunte de caja es un efecto del cobro: lo hace quien gana la
+          // transición (este webhook o el TPV releyendo el cobro), una vez.
+          actor: { userId: null, nombre: 'Datáfono' },
         });
         if (!res.ok) {
           Sentry.captureMessage('[stripe webhook] recibo cobrado en mostrador sin poder cerrarlo', {
@@ -896,11 +871,6 @@ async function procesarEvento(
           return NextResponse.json({ error: 'Fallo al cerrar el recibo' }, { status: 500 });
         }
 
-        // El dinero pasó por el mostrador. Idempotente por id derivado del
-        // recibo, así que el TPV llegando también no lo duplica.
-        await admin.rpc('apuntar_cobro_en_caja', {
-          p_studio_id: studioId, p_recibo_id: reciboIdPos, p_por: null, p_por_nombre: 'Datáfono',
-        });
         await admin.from('recibos').update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
           .eq('id', reciboIdPos).eq('studio_id', studioId);
 
@@ -1176,56 +1146,22 @@ async function procesarEvento(
         socioId: entrega.socioId, fuente: 'stripe webhook: checkout embebido',
       });
 
-      const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
-      await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
-      const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
-      await enviarEmailReciboWebhook(admin, { studioId, reciboId: entrega.reciboId });
+      // El aviso y el email de justificante ya los ha pedido
+      // `entregarPlanComprado` (vía `aplicarEfectosCobro`), después de sellar
+      // y solo si esta llamada creó el recibo.
 
       // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
       // §4.2): si el checkout venía con una clase concreta, reservarla ahora
-      // que el plan que la cubre ya está entregado. Best-effort a propósito,
-      // igual que el guardado de tarjeta de arriba: el dinero y el plan ya
-      // se entregaron, un fallo aquí no debe hacer que Stripe reintente el
-      // cobro — se reporta a Sentry y queda para conciliación manual.
+      // que el plan que la cubre ya está entregado. Best-effort, y con alerta
+      // `error` + aviso al mostrador si no hay plaza: la pantalla ya le dijo a
+      // la socia que estaba reservada (handlePagoExitoso pasa a 'done' sin
+      // volver a preguntar). Ver `reservarClasePagada`.
       if (pi.metadata.sesionId) {
-        try {
-          const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
-          const r = await reservarPlazaTrasPagoPublico({
-            studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id,
-            spotId: pi.metadata.spotId ?? null,
-          });
-          if (!r.ok) {
-            // `error`, no `warning`: la socia ha PAGADO por una clase concreta
-            // y se ha quedado sin plaza. La pantalla ya le ha dicho que estaba
-            // reservada (handlePagoExitoso pasa a 'done' sin volver a preguntar
-            // al servidor), así que nadie más se va a enterar. Con `warning` no
-            // saltaba ninguna alerta y esto se descubría por la socia.
-            Sentry.captureMessage('[stripe webhook] checkout embebido: plan entregado pero NO se pudo reservar la clase', {
-              level: 'error',
-              extra: { studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id, motivo: r.motivo, detalle: r.detalle },
-            });
-            // I-3 (auditoría 19-ago): además de la alerta de Sentry, avisa al
-            // mostrador dentro del propio panel — Sentry lo ve el equipo
-            // técnico, esto lo ve quien puede llamar a la socia hoy mismo.
-            // Best-effort: que falle este aviso no debe tumbar el webhook.
-            const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
-            await emitirReservaPagadaSinPlaza(admin, { studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId });
-          } else if (r.estado === 'LISTA_ESPERA') {
-            // Pagó y la clase se llenó entre crear el PaymentIntent y confirmar
-            // el pago: `reservar_plaza` la metió en la cola (ok:true), así que
-            // hasta ahora esto no avisaba a NADIE. Desde el panel es una fila de
-            // lista de espera igual que la de quien se apuntó por gusto — pero
-            // aquí hay dinero cobrado. El aviso no cambia nada del flujo: si se
-            // libera plaza, la promoción automática sigue siendo el camino
-            // normal; esto solo hace que el mostrador pueda llamarla hoy.
-            const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
-            await emitirReservaPagadaSinPlaza(admin, {
-              studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, situacion: 'en-espera',
-            });
-          }
-        } catch (e) {
-          Sentry.captureException(e, { extra: { contexto: 'reservarPlazaTrasPagoPublico', studioId, sesionId: pi.metadata.sesionId, paymentIntentId: pi.id } });
-        }
+        await reservarClasePagada(admin, {
+          studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId,
+          paymentIntentId: pi.id, spotId: pi.metadata.spotId ?? null,
+          via: 'embebido', referencia: { paymentIntentId: pi.id },
+        });
       }
 
       // R4: señal de GMV (analítica de producto, no-op si POSTHOG_KEY no está).
@@ -1254,7 +1190,9 @@ async function procesarEvento(
         });
         return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
       }
-      const confirmado = await confirmarCobroExitoso({ admin, reciboId, studioId, metodo: 'SEPA', fuente: 'webhook' });
+      // Con el cargo: se guarda para poder devolverlo desde el panel, y es lo
+      // que distingue una reentrega de un recibo ya devuelto con este adeudo.
+      const confirmado = await confirmarCobroExitoso({ admin, reciboId, studioId, metodo: 'SEPA', paymentIntentId: pi.id, fuente: 'webhook' });
       if (!confirmado.ok) {
         // "Recibo no encontrado" es o bien el recibo ya no existe o es de otro
         // estudio (intento de confirmar un cobro ajeno) — se registra y se
