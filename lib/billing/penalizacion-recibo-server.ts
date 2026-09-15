@@ -39,11 +39,13 @@ export async function desprogramarReciboDePenalizacion(
 }
 
 /**
- * Borra el recibo de una penalización que se ha decidido NO cobrar (hoy:
- * OMITIDA_SIN_CONSENTIMIENTO, que ya soltó `recibo_id`). Compare-and-set: solo si
- * sigue PENDIENTE, sin `proximo_reintento`, sin PaymentIntent enlazado y sin
- * Checkout abierto — cualquier otra cosa puede tener dinero detrás y no se toca.
- * Mismo patrón que el `borrarRecibo` del cron. Devuelve las filas tocadas.
+ * Borra el recibo de una penalización que se ha decidido NO cobrar
+ * (OMITIDA_SIN_CONSENTIMIENTO, y cualquier OMITIDA_* desde el barrido del cron,
+ * que ya soltaron `recibo_id`). Compare-and-set: solo si sigue PENDIENTE, sin
+ * `proximo_reintento`, sin PaymentIntent enlazado, sin Checkout abierto y sin un
+ * cobro de mostrador en vuelo (datáfono o Bizum del TPV) — cualquier otra cosa
+ * puede tener dinero detrás y no se toca. Mismo patrón que el `borrarRecibo` del
+ * cron. Devuelve las filas tocadas.
  */
 export async function borrarReciboDePenalizacionSinCobro(
   admin: SupabaseClient, p: { studioId: string; reciboId: string },
@@ -53,6 +55,7 @@ export async function borrarReciboDePenalizacionSinCobro(
     .eq('id', p.reciboId).eq('studio_id', p.studioId)
     .eq('estado', 'PENDIENTE').is('proximo_reintento', null)
     .is('stripe_payment_intent_id', null).is('checkout_session_id', null)
+    .is('cobro_mostrador_pi', null)
     .select('id');
   if (error) console.error('[penalizaciones] no se pudo borrar el recibo de una penalización sin cobro', p.reciboId, error.message);
   return { error: !!error, tocadas: data?.length ?? 0 };
@@ -83,6 +86,55 @@ export async function bloqueoCobroManualDePenalizacion(
   }
   const veredicto = cobroManualDeRecibo(p.reciboId, lectura, p.contexto);
   return veredicto.ok ? null : veredicto;
+}
+
+/**
+ * Guardia del mostrador (datáfono/Bizum del TPV): el recibo de una penalización
+ * anulada no se cobra (`cobroManualDeRecibo` con `'mostrador'`). `null` =
+ * adelante. Lee la penalización POR SU ID, apunte o no a este recibo.
+ *
+ * ⚠️ Falla ABIERTO a propósito: sin service-role o sin poder leerla, deja cobrar y
+ * lo registra en Sentry. Hay una persona cobrando delante de la alumna, y parar el
+ * mostrador por un fallo de lectura deja sin cobrar cuotas de verdad; el caso que
+ * se evita (una penalización anulada con su recibo aún sin soltar) es mucho más
+ * raro, y el barrido del cron lo suelta cada hora.
+ */
+export async function bloqueoCobroEnMostradorDePenalizacion(
+  admin: SupabaseClient | null, p: { studioId: string; reciboId: string; origen: string },
+): Promise<Extract<VeredictoCobroManual, { ok: false }> | null> {
+  if (cobroManualDeRecibo(p.reciboId).ok) return null; // no es de una penalización: no se lee nada
+  let lectura: LecturaPenalizacion = { ok: false };
+  if (admin) {
+    try {
+      lectura = await leerPenalizacionPorIdDelRecibo(admin, p);
+    } catch {
+      lectura = { ok: false };
+    }
+  }
+  const veredicto = cobroManualDeRecibo(p.reciboId, lectura, 'mostrador');
+  if (veredicto.ok && veredicto.sinComprobar) {
+    // Solo ids.
+    Sentry.captureMessage('[penalizaciones] cobro en mostrador sin poder comprobar la penalización', {
+      level: 'warning', tags: { area: 'cobros', tipo: 'penalizacion-mostrador' },
+      extra: { reciboId: p.reciboId, studioId: p.studioId, origen: p.origen },
+    });
+  }
+  return veredicto.ok ? null : veredicto;
+}
+
+/**
+ * Estado de la penalización de un recibo `rec-penaliz-<id>` buscada solo por su
+ * id (y estudio), sin exigir que apunte al recibo. `estado: null` = no existe.
+ */
+export async function leerPenalizacionPorIdDelRecibo(
+  admin: SupabaseClient, p: { studioId: string; reciboId: string },
+): Promise<LecturaPenalizacion> {
+  const penalizacionId = penalizacionDelRecibo(p.reciboId);
+  if (!penalizacionId) return { ok: true, estado: null };
+  const { data, error } = await admin.from('penalizaciones').select('estado')
+    .eq('id', penalizacionId).eq('studio_id', p.studioId).maybeSingle();
+  if (error) return { ok: false };
+  return { ok: true, estado: (data?.estado as string | undefined) ?? null };
 }
 
 /** Estado de la penalización de un recibo `rec-penaliz-*`. Un recibo que no es de una: `estado: null`. */

@@ -25,6 +25,7 @@ import { saldoVivo } from '@/lib/creditos-caducidad';
 // `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
 // medianoche UTC — dos horas antes en verano — para todo el mundo.
 import { hoyISO } from '@/lib/student/formato';
+import { cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { reservasPorAprobarDe, type FilaReservaPorAprobar, type ReservaPorAprobar } from '@/lib/reservas-por-aprobar';
 import { fusionarDatosPrivados, CAMPOS_PRIVADOS_SOCIO, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -3081,6 +3082,49 @@ export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
   return error ? falloEscritura('[dbInsertRecibo]', error) : ESCRITURA_OK;
 }
 
+// Guardia del mostrador para «Marcar cobrado» (uno o en lote): de `ids`, los
+// recibos de una penalización anulada (OMITIDA_*) o reembolsada, que no se cobran
+// (`cobroManualDeRecibo` con `'mostrador'`). El trigger que anula la penalización
+// no toca su recibo, y hasta que el barrido del cron lo suelta sigue PENDIENTE.
+//
+// Lee la penalización por su id con la sesión del personal: la RLS de
+// `penalizaciones` deja leer a PROPIETARIO y RECEPCION, los mismos roles que
+// `puedeMoverDinero`. ⚠️ Si no se puede leer, deja cobrar y lo registra: hay una
+// persona cobrando delante de la alumna, y parar el cobro por un fallo de lectura
+// deja sin cobrar cuotas de verdad por un caso raro que el cron suelta cada hora.
+async function recibosDePenalizacionAnulada(ids: string[], origen: string): Promise<Set<string>> {
+  const bloqueados = new Set<string>();
+  const dePenalizacion = ids.filter(id => !cobroManualDeRecibo(id).ok);
+  if (dePenalizacion.length === 0) return bloqueados;
+  const penalizacionIds = dePenalizacion.map(penalizacionDelRecibo).filter((id): id is string => !!id);
+  let estados: Map<string, string> | null = new Map();
+  if (penalizacionIds.length > 0) {
+    try {
+      const { data, error } = await supabase.from('penalizaciones').select('id, estado').in('id', penalizacionIds);
+      if (error) estados = null;
+      else for (const fila of data ?? []) estados.set(fila.id as string, fila.estado as string);
+    } catch {
+      estados = null;
+    }
+  }
+  let sinComprobar = false;
+  for (const reciboId of dePenalizacion) {
+    const penalizacionId = penalizacionDelRecibo(reciboId);
+    const lectura = estados ? { ok: true as const, estado: (penalizacionId && estados.get(penalizacionId)) || null } : { ok: false as const };
+    const veredicto = cobroManualDeRecibo(reciboId, lectura, 'mostrador');
+    if (!veredicto.ok) bloqueados.add(reciboId);
+    else if (veredicto.sinComprobar) sinComprobar = true;
+  }
+  if (sinComprobar) {
+    // Solo ids.
+    capturarMensaje('[penalizaciones] cobro en mostrador sin poder comprobar la penalización', 'warning', {
+      tags: { area: 'cobros', tipo: 'penalizacion-mostrador' },
+      extra: { origen, reciboIds: dePenalizacion },
+    });
+  }
+  return bloqueados;
+}
+
 // Marca un recibo como COBRADO de forma condicional (auditoría 2026-07-29,
 // M-2): dbUpdateRecibo hace un UPDATE incondicional, sin comprobar el estado
 // actual. El cerrojo de re-entrada en marcarCobrado (studio-context.tsx) frena
@@ -3093,6 +3137,9 @@ export async function dbMarcarCobrado(
   id: string,
   changes: { fechaCobro: string; metodoCobro?: MetodoCobro },
 ): Promise<ResultadoEscritura & { yaEstaba?: boolean }> {
+  if ((await recibosDePenalizacionAnulada([id], 'marcar-cobrado')).has(id)) {
+    return { ok: false, error: TEXTO_PENALIZACION_ANULADA };
+  }
   const db: Record<string, unknown> = { estado: 'COBRADO', fecha_cobro: changes.fechaCobro };
   if (changes.metodoCobro) db.metodo_cobro = changes.metodoCobro;
   // ⚠️ PENDIENTE, FALLIDO y DEVUELTO — los tres son deuda viva y los tres se
@@ -3193,7 +3240,7 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Prom
 // una factura duplicada en el llamante.
 export async function dbUpdateRecibosBatch(
   ids: string[], changes: Partial<Recibo>, soloSiEstadoActual?: Recibo['estado'],
-): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
+): Promise<ResultadoEscritura & { idsActualizados?: string[]; idsSaltados?: string[] }> {
   if (ids.length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
@@ -3203,7 +3250,18 @@ export async function dbUpdateRecibosBatch(
   // Sin esta línea, «Cobrar pendientes» con método elegido lo perdía en silencio.
   if ('metodoCobro' in changes) db.metodo_cobro = changes.metodoCobro;
   if (Object.keys(db).length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
-  let q = supabase.from('recibos').update(db).in('id', ids);
+  // Al cobrar, fuera los recibos de una penalización anulada: no se cobran, y no
+  // tumban el resto del lote. Quedan fuera de `idsActualizados` y vuelven en
+  // `idsSaltados`: quien cobra en el mostrador tiene que saber que ESE no se cobra.
+  let idsACambiar = ids;
+  let idsSaltados: string[] = [];
+  if (changes.estado === 'COBRADO') {
+    const anulados = await recibosDePenalizacionAnulada(ids, 'cobrar-en-lote');
+    idsSaltados = ids.filter(id => anulados.has(id));
+    idsACambiar = ids.filter(id => !anulados.has(id));
+    if (idsACambiar.length === 0) return { ...ESCRITURA_OK, idsActualizados: [], idsSaltados };
+  }
+  let q = supabase.from('recibos').update(db).in('id', idsACambiar);
   // Mismo criterio que dbMarcarCobrado: cobrar en lote también alcanza a los
   // FALLIDO y DEVUELTO, que son deuda viva. Antes solo casaba PENDIENTE, así
   // que un cobro masivo saltaba en silencio justo los recibos problemáticos —
@@ -3213,7 +3271,7 @@ export async function dbUpdateRecibosBatch(
   else if (changes.estado === 'COBRADO') q = q.in('estado', ['PENDIENTE', 'FALLIDO', 'DEVUELTO']);
   const { data, error } = await q.select('id');
   if (error) return falloEscritura('[dbUpdateRecibosBatch]', error);
-  return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string) };
+  return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string), idsSaltados };
 }
 
 export async function dbDeleteRecibo(id: string): Promise<ResultadoEscritura> {
