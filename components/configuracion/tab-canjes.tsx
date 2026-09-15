@@ -149,7 +149,7 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
               onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar por alumna, recompensa o código…"
               aria-label="Buscar canjes"
-              className="h-9 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-[13px]"
+              className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-base [@media(pointer:fine)]:h-9 [@media(pointer:fine)]:text-[13px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             />
           </div>
           {(['TODOS', 'ENTREGADO', 'CANCELADO'] as const).map(f => (

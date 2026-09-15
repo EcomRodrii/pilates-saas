@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Building2, Check, Loader2, Layers, Pencil, Trash2, X } from 'lucide-react';
 import { cn, uid } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -30,6 +30,7 @@ export function TabEstudioSedes({
   puedeAnadirSedes: boolean;
 }) {
   const { studio } = useStudio();
+  const idSede = useId();
   const [nuevaSede, setNuevaSede] = useState({ nombre: '', ciudad: '', telefono: '' });
   const [creandoSede, setCreandoSede] = useState(false);
   const [aplicandoCatalogo, setAplicandoCatalogo] = useState<string | null>(null);
@@ -141,18 +142,18 @@ export function TabEstudioSedes({
             Tu plan Cadena cubre todas tus sedes con una sola suscripción. La sede nueva queda operativa
             al momento — aparecerá en &ldquo;Tus sedes&rdquo; arriba, con un botón para cambiarte a ella.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 @md/config:grid-cols-3 gap-4">
             <div>
-              <p className={labelCls}>Nombre</p>
-              <input className={inputCls} value={nuevaSede.nombre} onChange={e => setNuevaSede(s => ({ ...s, nombre: e.target.value }))} />
+              <label htmlFor={`${idSede}-nombre`} className={labelCls}>Nombre</label>
+              <input id={`${idSede}-nombre`} className={inputCls} value={nuevaSede.nombre} onChange={e => setNuevaSede(s => ({ ...s, nombre: e.target.value }))} />
             </div>
             <div>
-              <p className={labelCls}>Ciudad</p>
-              <input className={inputCls} value={nuevaSede.ciudad} onChange={e => setNuevaSede(s => ({ ...s, ciudad: e.target.value }))} />
+              <label htmlFor={`${idSede}-ciudad`} className={labelCls}>Ciudad</label>
+              <input id={`${idSede}-ciudad`} className={inputCls} value={nuevaSede.ciudad} onChange={e => setNuevaSede(s => ({ ...s, ciudad: e.target.value }))} />
             </div>
             <div>
-              <p className={labelCls}>Teléfono</p>
-              <input className={inputCls} value={nuevaSede.telefono} onChange={e => setNuevaSede(s => ({ ...s, telefono: e.target.value }))} />
+              <label htmlFor={`${idSede}-telefono`} className={labelCls}>Teléfono</label>
+              <input id={`${idSede}-telefono`} className={inputCls} value={nuevaSede.telefono} onChange={e => setNuevaSede(s => ({ ...s, telefono: e.target.value }))} />
             </div>
           </div>
           <button onClick={anadirSede} disabled={creandoSede} className={cn(btnPrimary, 'mt-4', creandoSede && 'opacity-50')}>
@@ -181,6 +182,7 @@ const formVacio = { nombre: '', color: '#4F46E5', duracionMinutos: '60', nivel: 
 // ya tenga una sede.
 function CatalogoCadena({ cadenaId, showToast }: { cadenaId: string; showToast: (m: string) => void }) {
   const [items, setItems] = useState<CadenaTipoClase[]>([]);
+  const idCat = useId();
   const [cargando, setCargando] = useState(true);
   const [form, setForm] = useState(formVacio);
   const [editId, setEditId] = useState<string | null>(null);
@@ -253,10 +255,10 @@ function CatalogoCadena({ cadenaId, showToast }: { cadenaId: string; showToast: 
                 <p className="text-[11px] text-muted-foreground">{t.duracionMinutos} min</p>
               </div>
               <NivelBadge nivel={t.nivel} />
-              <button onClick={() => abrirEditar(t)} className="p-1.5 rounded-lg text-muted-foreground hover:bg-background hover:text-foreground transition-colors">
+              <button onClick={() => abrirEditar(t)} aria-label={`Editar ${t.nombre}`} className="p-1.5 rounded-lg text-muted-foreground hover:bg-background hover:text-foreground transition-colors">
                 <Pencil size={14} />
               </button>
-              <button onClick={() => borrar(t.id)} className="p-1.5 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+              <button onClick={() => borrar(t.id)} aria-label={`Quitar ${t.nombre} de la plantilla`} className="p-1.5 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
                 <Trash2 size={14} />
               </button>
             </div>
@@ -264,26 +266,26 @@ function CatalogoCadena({ cadenaId, showToast }: { cadenaId: string; showToast: 
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-        <div className="sm:col-span-2">
-          <p className={labelCls}>Nombre</p>
-          <input className={inputCls} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej: Reformer" />
+      <div className="grid grid-cols-1 @md/config:grid-cols-4 gap-3 items-end">
+        <div className="@md/config:col-span-2">
+          <label htmlFor={`${idCat}-nombre`} className={labelCls}>Nombre</label>
+          <input id={`${idCat}-nombre`} className={inputCls} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej: Reformer" />
         </div>
         <div>
-          <p className={labelCls}>Duración (min)</p>
-          <input type="number" min={1} className={inputCls} value={form.duracionMinutos} onChange={e => setForm(f => ({ ...f, duracionMinutos: e.target.value }))} />
+          <label htmlFor={`${idCat}-duracion`} className={labelCls}>Duración (min)</label>
+          <input id={`${idCat}-duracion`} type="number" min={1} className={inputCls} value={form.duracionMinutos} onChange={e => setForm(f => ({ ...f, duracionMinutos: e.target.value }))} />
         </div>
         <div>
-          <p className={labelCls}>Nivel</p>
-          <select className={inputCls} value={form.nivel} onChange={e => setForm(f => ({ ...f, nivel: e.target.value as CadenaTipoClase['nivel'] }))}>
+          <label htmlFor={`${idCat}-nivel`} className={labelCls}>Nivel</label>
+          <select id={`${idCat}-nivel`} className={inputCls} value={form.nivel} onChange={e => setForm(f => ({ ...f, nivel: e.target.value as CadenaTipoClase['nivel'] }))}>
             {NIVELES.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
-        <div className="sm:col-span-2">
+        <div className="@md/config:col-span-2">
           <p className={labelCls}>Color</p>
           <ColorInput value={form.color} onChange={v => setForm(f => ({ ...f, color: v }))} />
         </div>
-        <div className="sm:col-span-2 flex items-center gap-2">
+        <div className="@md/config:col-span-2 flex items-center gap-2">
           <button onClick={guardar} disabled={guardando} className={cn(btnPrimary, guardando && 'opacity-50')}>
             {guardando ? 'Guardando…' : editId ? 'Guardar cambios' : 'Añadir a la plantilla'}
           </button>

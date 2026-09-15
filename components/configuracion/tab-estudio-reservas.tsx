@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -101,6 +101,7 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
 export function TabEstudioReservas({ showToast }: { showToast: (m: string) => void }) {
   const { studio, updateStudio, reflejarStudioGuardado } = useStudio();
   const [pol, setPol] = useState(() => studioToPolitica(studio));
+  const idCampo = useId();
 
   const [studioAnterior, setStudioAnterior] = useState(studio);
   if (studio !== studioAnterior) {
@@ -226,10 +227,10 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
         <div className="space-y-4">
           <p className={grupoCls}>General</p>
           <div id="ajuste-ventana-cancelacion">
-            <p className={labelCls}>Plazo para cancelar sin perder la sesión (horas antes)</p>
+            <label htmlFor={`${idCampo}-ventana`} className={labelCls}>Plazo para cancelar sin perder la sesión (horas antes)</label>
             <input
               type="number" min={0} max={168} className={inputCls}
-              value={pol.cancelacionVentanaHoras}
+              id={`${idCampo}-ventana`} value={pol.cancelacionVentanaHoras}
               onChange={e => setPol(p => ({ ...p, cancelacionVentanaHoras: Math.max(0, Number(e.target.value)) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -300,8 +301,8 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           {/* `compra-desde-tu-enlace`: su sitio es «Alta de alumnas», que enlaza
               aquí mientras este formulario no se parta. */}
           <div id="compra-desde-tu-enlace" className="scroll-mt-32">
-            <p className={labelCls}>Si alguien compra un bono desde tu enlace público y aún no es alumna</p>
-            <div className="space-y-2 mt-1.5">
+            <p id={`${idCampo}-compra`} className={labelCls}>Si alguien compra un bono desde tu enlace público y aún no es alumna</p>
+            <div role="radiogroup" aria-labelledby={`${idCampo}-compra`} className="space-y-2 mt-1.5">
               {([
                 ['EXIGIR_REGISTRO', 'Que se registre antes de pagar',
                  'Le pedimos su email y que acepte tus condiciones, y luego paga. Es lo más limpio: nadie paga sin haber aceptado el contrato.'],
@@ -331,11 +332,11 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             </div>
           </div>
           <div>
-            <p className={labelCls}>Reservas a la vez por alumna</p>
+            <label htmlFor={`${idCampo}-a-la-vez`} className={labelCls}>Reservas a la vez por alumna</label>
             <input
               type="number" min={0} max={99} className={inputCls}
               placeholder="Sin límite"
-              value={pol.reservaMaxSimultaneas ?? ''}
+              id={`${idCampo}-a-la-vez`} value={pol.reservaMaxSimultaneas ?? ''}
               onChange={e => setPol(p => ({ ...p, reservaMaxSimultaneas: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -347,10 +348,10 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               pero no había forma de cambiarla sin entrar a SQL. */}
           <p className={grupoCls}>Recuperaciones</p>
           <div>
-            <p className={labelCls}>Cuándo caduca una recuperación</p>
+            <label htmlFor={`${idCampo}-caducidad`} className={labelCls}>Cuándo caduca una recuperación</label>
             <select
               className={inputCls}
-              value={pol.recuperacionCaducidadTipo}
+              id={`${idCampo}-caducidad`} value={pol.recuperacionCaducidadTipo}
               onChange={e => setPol(p => ({ ...p, recuperacionCaducidadTipo: e.target.value as PoliticaForm['recuperacionCaducidadTipo'] }))}
             >
               <option value="FIN_MES_SIGUIENTE">Al final del mes siguiente</option>
@@ -363,11 +364,11 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           </div>
           {pol.recuperacionCaducidadTipo === 'DIAS' && (
             <div>
-              <p className={labelCls}>Días de validez</p>
+              <label htmlFor={`${idCampo}-dias`} className={labelCls}>Días de validez</label>
               <input
                 type="number" min={1} max={365} className={inputCls}
                 placeholder="30"
-                value={pol.recuperacionCaducidadDias ?? ''}
+                id={`${idCampo}-dias`} value={pol.recuperacionCaducidadDias ?? ''}
                 onChange={e => setPol(p => ({ ...p, recuperacionCaducidadDias: e.target.value === '' ? null : Math.max(1, Number(e.target.value)) }))}
               />
               <p className="text-[11px] text-muted-foreground mt-1">
@@ -380,10 +381,10 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               desde Clases → editar tipo de clase. */}
           <p className={grupoCls}>Antelación</p>
           <div>
-            <p className={labelCls}>Antelación mínima para reservar (minutos)</p>
+            <label htmlFor={`${idCampo}-antelacion-minima`} className={labelCls}>Antelación mínima para reservar (minutos)</label>
             <input
               type="number" min={0} className={inputCls}
-              value={pol.reservaVentanaMinimaMinutos}
+              id={`${idCampo}-antelacion-minima`} value={pol.reservaVentanaMinimaMinutos}
               onChange={e => setPol(p => ({ ...p, reservaVentanaMinimaMinutos: Math.max(0, Number(e.target.value)) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -391,11 +392,11 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             </p>
           </div>
           <div>
-            <p className={labelCls}>Antelación máxima para reservar (días)</p>
+            <label htmlFor={`${idCampo}-antelacion-maxima`} className={labelCls}>Antelación máxima para reservar (días)</label>
             <input
               type="number" min={0} className={inputCls}
               placeholder="Sin límite"
-              value={pol.reservaAntelacionMaximaDias ?? ''}
+              id={`${idCampo}-antelacion-maxima`} value={pol.reservaAntelacionMaximaDias ?? ''}
               onChange={e => setPol(p => ({ ...p, reservaAntelacionMaximaDias: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -420,11 +421,11 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             <Toggle on={pol.permiteListaEspera} onChange={v => setPol(p => ({ ...p, permiteListaEspera: v }))} />
           </label>
           <div>
-            <p className={labelCls}>Tiempo para aceptar una plaza que se libera (minutos)</p>
+            <label htmlFor={`${idCampo}-plazo-espera`} className={labelCls}>Tiempo para aceptar una plaza que se libera (minutos)</label>
             <input
               type="number" min={0} className={inputCls}
               placeholder="Sin plazo (confirmación instantánea)"
-              value={pol.listaEsperaPlazoAceptacionMinutos || ''}
+              id={`${idCampo}-plazo-espera`} value={pol.listaEsperaPlazoAceptacionMinutos || ''}
               onChange={e => setPol(p => ({ ...p, listaEsperaPlazoAceptacionMinutos: Math.max(0, Number(e.target.value) || 0) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -496,11 +497,11 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             <Toggle on={pol.requiereCheckinQr} onChange={v => setPol(p => ({ ...p, requiereCheckinQr: v }))} />
           </label>
           <div>
-            <p className={labelCls}>Mínimo de asistentes para mantener la clase</p>
+            <label htmlFor={`${idCampo}-minimo`} className={labelCls}>Mínimo de asistentes para mantener la clase</label>
             <input
               type="number" min={0} className={inputCls}
               placeholder="Sin mínimo"
-              value={pol.minimoAsistentesPorClase || ''}
+              id={`${idCampo}-minimo`} value={pol.minimoAsistentesPorClase || ''}
               onChange={e => setPol(p => ({ ...p, minimoAsistentesPorClase: Math.max(0, Number(e.target.value) || 0) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -511,11 +512,11 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           </div>
           <p className={grupoCls}>Si cancela tarde o no viene</p>
           <div>
-            <p className={labelCls}>Cargo por cancelar tarde o no venir sin avisar (€)</p>
+            <label htmlFor={`${idCampo}-cargo`} className={labelCls}>Cargo por cancelar tarde o no venir sin avisar (€)</label>
             <input
               type="number" min={0} step="0.01" className={inputCls}
               placeholder="Sin cargo"
-              value={pol.penalizacionImporteEur || ''}
+              id={`${idCampo}-cargo`} value={pol.penalizacionImporteEur || ''}
               onChange={e => setPol(p => ({ ...p, penalizacionImporteEur: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -550,7 +551,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
         </div>
         {/* Negativos iguales al padding de la tarjeta (p-4, y p-6 con sitio): la
             barra ocupa el ancho entero y queda pegada al borde de abajo. */}
-        <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 flex flex-wrap items-center gap-3 rounded-b-xl border-t border-border bg-card px-4 py-3 @md/config:-mx-6 @md/config:-mb-6 @md/config:px-6">
+        <div className="sticky z-10 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] lg:bottom-4 -mx-4 -mb-4 mt-4 flex flex-wrap items-center gap-3 rounded-b-xl border-t border-border bg-card px-4 py-3 @md/config:-mx-6 @md/config:-mb-6 @md/config:px-6">
           <button
             onClick={guardarPolitica}
             disabled={ventanaImposible || !hayCambios || guardando}

@@ -230,7 +230,7 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
         {DIAS.map(dia => {
           const franjas = draft[dia.dow] ?? [];
           return (
-            <div key={dia.dow} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div key={dia.dow} className="px-4 py-3 flex flex-col @md/config:flex-row @md/config:items-center gap-3">
               <div className="w-24 shrink-0 flex items-center gap-2">
                 <span className="text-[13px] font-semibold text-foreground">{dia.label}</span>
               </div>
@@ -241,12 +241,14 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
                 {franjas.map((f, idx) => (
                   <div key={idx} className="flex items-center gap-1 bg-muted rounded-lg px-2 py-1">
                     <input type="time" value={f.horaInicio}
+                      aria-label={`Empieza, ${dia.label}`}
                       onChange={e => updateFranja(dia.dow, idx, 'horaInicio', e.target.value)}
-                      className="bg-transparent text-[12px] text-foreground focus:outline-none w-[62px]" />
+                      className="min-h-11 w-[6.5rem] bg-transparent text-base tabular-nums text-foreground focus:outline-none [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:text-[12px]" />
                     <span className="text-muted-foreground text-[12px]">–</span>
                     <input type="time" value={f.horaFin}
+                      aria-label={`Termina, ${dia.label}`}
                       onChange={e => updateFranja(dia.dow, idx, 'horaFin', e.target.value)}
-                      className={cn('bg-transparent text-[12px] focus:outline-none w-[62px]', f.horaFin > f.horaInicio ? 'text-foreground' : 'text-destructive')} />
+                      className={cn('min-h-11 w-[6.5rem] bg-transparent text-base tabular-nums focus:outline-none [@media(pointer:fine)]:min-h-0 [@media(pointer:fine)]:text-[12px]', f.horaFin > f.horaInicio ? 'text-foreground' : 'text-destructive')} />
                     <button onClick={() => removeFranja(dia.dow, idx)} className="ml-0.5 text-muted-foreground hover:text-destructive" aria-label="Quitar franja">
                       <X size={14} />
                     </button>

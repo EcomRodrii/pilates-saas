@@ -144,7 +144,7 @@ test.describe('General: guardar una cosa no borra otra', () => {
 // ─── Cobros ──────────────────────────────────────────────────────────────────
 
 function togglePermitirDevolver(page: Page) {
-  return page.getByText('Permitir devolver desde Tentare').locator('xpath=../..').getByRole('button');
+  return page.getByRole('switch', { name: 'Permitir devolver desde Tentare' });
 }
 
 test.describe('Cobros: Devoluciones no borra SEPA', () => {

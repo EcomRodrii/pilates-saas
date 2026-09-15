@@ -157,7 +157,7 @@ test.describe('Aprobar una penalización cuando el servidor no dice que sí', ()
 
     await expect.poll(() => intentos.post).toBeGreaterThan(0);
     await expect(tarjeta.getByText(/No se ha cobrado: este estudio no tiene Stripe conectado/)).toBeVisible({ timeout: 15_000 });
-    await expect(tarjeta.getByText(/Configuración → Integraciones/)).toBeVisible();
+    await expect(tarjeta.getByText(/Configuración → Cobros y facturas/)).toBeVisible();
     await expect(tarjeta.getByText(SIN_CONFIRMAR)).toHaveCount(0);
     await expect(boton).toBeEnabled();
     await expect(page.getByText('Cobro aprobado')).toHaveCount(0);

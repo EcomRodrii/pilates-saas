@@ -89,7 +89,7 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
           <p className="text-[13px] text-muted-foreground">Aún no hay logros configurados.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 @md/config:grid-cols-2 gap-3">
           {achievementDefinitions.map(a => (
             <div key={a.id} className={cn(cardCls, 'p-4 flex items-start gap-3')}>
               <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-[18px] shrink-0">

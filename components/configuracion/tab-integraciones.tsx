@@ -1121,7 +1121,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
 
   return (
     <div className="space-y-5">
-      <div className="grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid max-w-3xl grid-cols-1 gap-3 @xl/config:grid-cols-2">
         {CATALOGO_INTEGRACIONES.filter(c => !MAS_INTEGRACIONES.has(c.tipo)).map(cat => pintarTarjeta(cat, 'h3'))}
         {/* CONGELADO (feature-freeze PMF): se quitó la tarjeta "Kiosko de check-in"
             (generación del token del dispositivo). La ruta /api/kiosk/token sigue
@@ -1129,7 +1129,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       </div>
 
       <TarjetaAjuste id="mas-integraciones" marco={false} className="max-w-3xl">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 @xl/config:grid-cols-2">
           {CATALOGO_INTEGRACIONES.filter(c => MAS_INTEGRACIONES.has(c.tipo)).map(cat => pintarTarjeta(cat, 'h4'))}
         </div>
       </TarjetaAjuste>

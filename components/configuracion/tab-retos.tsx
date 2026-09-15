@@ -86,7 +86,7 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
           <p className="text-[13px] text-muted-foreground">Aún no hay retos configurados.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 @md/config:grid-cols-2 gap-3">
           {ordenados.map(c => {
             const est = estadoReto(c, false, now);
             const badge = ESTADO_LABEL[est];

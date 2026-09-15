@@ -203,8 +203,12 @@ export function ConfigShell() {
     // Si se llegó desde la lista con un solo paso, «volver» es el atrás de
     // siempre y el historial queda como estaba. Si se llegó por un enlace
     // (una notificación, otra sección), se sustituye por la lista.
+    //
+    // ⚠️ Con el atrás, la lista NO se pinta antes de que la URL cambie: si se
+    // pintara al momento, un segundo toque rápido en otra fila hacía su `push`
+    // con el atrás aún en vuelo y el historial se descolocaba (medido en e2e:
+    // acababa fuera del panel). La vuelta la aplica el efecto de la URL.
     if (pushesDesdeLista.current === 1) {
-      setAbierto(prev => prev && { ...prev, tab: null, ancla: undefined });
       router.back();
       return;
     }
@@ -213,7 +217,8 @@ export function ConfigShell() {
 
   return (
     <ContextoNavegacionConfig.Provider value={nav}>
-      <div data-tour="configuracion-vista" data-vista={permitida ? 'detalle' : 'lista'} className="group/config space-y-6">
+      {/* `config-tactil`: el tamaño mínimo de lo que se pulsa con el dedo (globals.css). */}
+      <div data-tour="configuracion-vista" data-vista={permitida ? 'detalle' : 'lista'} className="group/config config-tactil space-y-6">
         <PageHeader
           title="Configuración"
           description="Cómo funciona tu estudio: tus clases, cómo reservan tus alumnas, cómo cobras y qué ven en su app."
@@ -244,7 +249,11 @@ export function ConfigShell() {
               <section
                 key={mostrada}
                 aria-labelledby="seccion-titulo"
-                className="tab-content-in space-y-5 [&_:is(input,select,textarea)]:scroll-mb-40"
+                // scroll-mb-48 (192 px): al enfocar un campo, el navegador lo sube
+                // por encima de la barra de guardar Y de la navegación del móvil.
+                // Con 40 (160 px) no llegaba: medido a 375 px, la barra de las
+                // reglas de reserva baja a dos líneas y tapaba un píxel del campo.
+                className="tab-content-in space-y-5 [&_:is(input,select,textarea)]:scroll-mb-48"
               >
                 <CabeceraSeccion seccion={seccionPorId(mostrada)} tituloRef={tituloRef} onVolver={volver} />
                 <Seccion showToast={showToast} />

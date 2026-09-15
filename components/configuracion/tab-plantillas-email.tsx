@@ -162,7 +162,7 @@ function Interruptor({ on, onChange, label, ocupado }: {
       disabled={ocupado}
       onClick={onChange}
       className={cn(
-        'relative h-6 w-10 shrink-0 rounded-full transition-colors disabled:opacity-50',
+        'relative h-6 w-10 shrink-0 rounded-full transition-colors disabled:opacity-50 before:absolute before:-inset-2.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
         on ? 'bg-brand' : 'bg-muted-foreground/25',
       )}
     >
@@ -435,7 +435,7 @@ function EditorPlantilla({
             </div>
             <textarea
               ref={areaCuerpo}
-              className={cn(inputCls, 'font-mono text-[12px] leading-relaxed')}
+              className={cn(inputCls, 'font-mono leading-relaxed [@media(pointer:fine)]:text-[12px]')}
               rows={14}
               value={b.cuerpo}
               onChange={e => set('cuerpo', e.target.value)}
@@ -650,7 +650,7 @@ export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => vo
       </div>
 
       <Dialog open={!!metaAbierta} onOpenChange={open => { if (!open) setAbierta(null); }}>
-        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-5xl">
           {metaAbierta && (
             <>
               <DialogHeader>

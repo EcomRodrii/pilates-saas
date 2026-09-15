@@ -89,7 +89,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
       {puedeEditar ? (
         <div className={cn(cardCls, 'p-6')}>
           <h4 className="text-[14px] font-semibold text-foreground mb-4">{editId ? 'Editar campo' : 'Nuevo campo'}</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 @md/config:grid-cols-2 gap-4">
             <Field
               label="Nombre del campo"
               description="Lo que se preguntará en la ficha de cada alumna. Ej: «Horario preferido»."
@@ -107,7 +107,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
               </select>
             </Field>
             {form.tipo === 'seleccion' && (
-              <div className="sm:col-span-2">
+              <div className="@md/config:col-span-2">
                 <Field
               label="Opciones (separadas por comas)"
               description="Las opciones entre las que elegir. Ej: Mañana, Tarde, Indiferente."
@@ -145,9 +145,9 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
               <li key={c.id} className="flex items-center gap-3 py-3">
                 {puedeEditar && (
                   <div className="flex flex-col gap-0.5">
-                    <button onClick={() => mover(c.id, -1)} disabled={i === 0}
+                    <button onClick={() => mover(c.id, -1)} disabled={i === 0} aria-label={`Subir ${c.etiqueta}`}
                       className="text-[11px] leading-none text-muted-foreground hover:text-foreground disabled:opacity-30">▲</button>
-                    <button onClick={() => mover(c.id, 1)} disabled={i === ordenados.length - 1}
+                    <button onClick={() => mover(c.id, 1)} disabled={i === ordenados.length - 1} aria-label={`Bajar ${c.etiqueta}`}
                       className="text-[11px] leading-none text-muted-foreground hover:text-foreground disabled:opacity-30">▼</button>
                   </div>
                 )}
@@ -164,7 +164,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
                 {puedeEditar && (
                   <>
                     <label className="flex items-center gap-1.5 cursor-pointer shrink-0" title="Activo">
-                      <Toggle on={c.activo} onChange={async v => { const res = await updateCampoPersonalizado(c.id, { activo: v }); if (!res.ok) showToast(res.error); }} />
+                      <Toggle on={c.activo} ariaLabel={`Activo: ${c.etiqueta}`} onChange={async v => { const res = await updateCampoPersonalizado(c.id, { activo: v }); if (!res.ok) showToast(res.error); }} />
                     </label>
                     <button onClick={() => editar(c)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground shrink-0" title="Editar">
                       <Pencil size={14} />

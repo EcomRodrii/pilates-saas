@@ -572,6 +572,22 @@ nextjs-portal { display: none !important; }
 @keyframes tab-content-in { from { opacity: 0; } to { opacity: 1; } }
 .tab-content-in { animation: tab-content-in var(--motion-fast) var(--motion-ease) both; }
 
+/* Configuración con el dedo: todo lo que se pulsa mide al menos 44 px (WCAG
+   2.5.8 y la guía de Apple). Se hace aquí y no botón a botón porque son cientos
+   repartidos en treinta componentes, y uno nuevo que olvidara la clase volvería
+   a los 26 px de antes. Fuera, a propósito:
+   · los interruptores (`role="switch"`): llegan a 44 px con su `::before` sin
+     cambiar de dibujo — ensancharlos deformaría el carril;
+   · los enlaces dentro de un párrafo: son `inline` y `min-height` no les aplica;
+   · las vistas previas (`data-vista-previa`), que tienen que ser idénticas a lo
+     que ve la alumna en su web. */
+@media (pointer: coarse) {
+  .config-tactil :is(button, a, summary):not([role="switch"]):not([data-vista-previa] *) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 /* Toast (components/ui/toast.tsx) — entraba/salía de golpe, sin transición.
    Entrada con algo más de presencia (sube desde abajo, es una confirmación);
    salida más corta, mismo criterio que el resto de overlays de este archivo

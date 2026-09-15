@@ -349,8 +349,11 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                 />
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={activa}
+                  aria-label={def.nombre}
                   onClick={() => handleToggleActiva(def.trigger, def.nombre, def.descripcion)}
-                  className="w-11 h-6 rounded-full transition-colors relative shrink-0"
+                  className="w-11 h-6 rounded-full transition-colors relative shrink-0 before:absolute before:-inset-2.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   style={{ backgroundColor: activa ? 'var(--foreground)' : 'var(--border)' }}
                 >
                   {/* `left` con calc(100% - ...), no `translateX(22px)` fijo: la
@@ -408,7 +411,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                   Tus alumnas ya están acumulando {moneda}. Estas tres son un punto de partida —
                   puedes editarlas o borrarlas después.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 @xl/config:grid-cols-3 gap-3">
                   {sugeridas.map(sg => (
                     <div key={sg.nombre} className={cn(cardCls, 'p-3 flex flex-col gap-1')}>
                       <span className="text-[18px]">{sg.icono}</span>
@@ -432,7 +435,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 @md/config:grid-cols-2 gap-3">
             {rewardCatalog.map(item => (
               <div key={item.id} className={cn(cardCls, 'p-4 flex items-start gap-3')}>
                 <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-[18px] shrink-0">

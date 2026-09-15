@@ -113,7 +113,7 @@ test('sin plan no se pulsa, y se dice por qué', async ({ page }) => {
   // Deshabilitado DE VERDAD, no solo apagado: un interruptor que se deja pulsar
   // y no hace nada es indistinguible de uno roto.
   const boton = page.locator('label', { hasText: 'Pedir confirmación a quien suele no venir' })
-    .getByRole('button').first();
+    .getByRole('switch').first();
   await expect(boton).toBeDisabled();
 
   // Y ni forzando el clic sale una escritura.

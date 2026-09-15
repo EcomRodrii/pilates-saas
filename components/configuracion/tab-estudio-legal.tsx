@@ -104,7 +104,7 @@ export function TabEstudioLegal({ showToast }: { showToast: (m: string) => void 
         <textarea
           rows={8}
           aria-label={TEXTOS[campo].titulo}
-          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-mono text-foreground focus:outline-none focus:border-muted-foreground transition-colors resize-y"
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-base font-mono text-foreground transition-colors resize-y [@media(pointer:fine)]:text-[12px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           value={form[campo]}
           onChange={(e) => escribir(campo, e.target.value)}
         />

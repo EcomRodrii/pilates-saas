@@ -58,7 +58,7 @@ export function TabDescubre() {
       {/* Maestro–detalle, como en Apariencia: la lista elige y el panel
           configura. En móvil se apilan — la rejilla de dos columnas solo entra
           a partir de `lg`, donde caben las dos sin apretar ninguna. */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)] items-start">
+      <div className="grid gap-4 @3xl/config:grid-cols-[minmax(0,260px)_minmax(0,1fr)] items-start">
         <div className={cn(cardCls, 'p-3')}>
           <ContenidoPortalList hook={hook} seleccionId={seleccion} onSeleccionar={setSeleccion} />
         </div>

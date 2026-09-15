@@ -302,8 +302,8 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
     <div className="max-w-2xl space-y-5 pb-24">
       {/* ─── Datos y contacto ─── */}
       <TarjetaAjuste id="datos-y-contacto">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Campo label="Nombre del estudio" className="sm:col-span-2" ayuda="El nombre comercial, el que usa todo el mundo. La razón social va en los datos fiscales.">
+        <div className="grid grid-cols-1 gap-5 @md/config:grid-cols-2">
+          <Campo label="Nombre del estudio" className="@md/config:col-span-2" ayuda="El nombre comercial, el que usa todo el mundo. La razón social va en los datos fiscales.">
             {id => (
               <input id={id} className={inputCls} value={form.nombre}
                 onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
@@ -327,7 +327,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
               correos. Ver lib/canales-estudio.ts. */}
           <Campo
             label="Web"
-            className="sm:col-span-2"
+            className="@md/config:col-span-2"
             ayuda={webNoResuelve
               ? 'No parece una dirección web: no se verá en tu página ni en tus correos.'
               : undefined}
@@ -342,7 +342,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
               />
             )}
           </Campo>
-          <Campo label="Dirección" className="sm:col-span-2">
+          <Campo label="Dirección" className="@md/config:col-span-2">
             {id => (
               <input id={id} className={inputCls} value={form.direccion}
                 onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
@@ -388,9 +388,9 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
             <ChevronRight size={15} className="shrink-0 text-muted-foreground" />
           </Link>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 @md/config:grid-cols-2">
           <div className="space-y-1.5">
-            <p className={labelCls}>Logo</p>
+            <h4 className={labelCls}>Logo</h4>
             {/* Sin `respaldo`: el logo es la marca del estudio y no tiene
                 imagen por defecto que valga — una genérica sería la marca de
                 otro. Sin logo, la miniatura dice «Sin imagen», que aquí es
@@ -415,7 +415,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
           </div>
 
           <div className="space-y-1.5">
-            <p className={labelCls}>Favicon</p>
+            <h4 className={labelCls}>Favicon</h4>
             {puedeEditarFavicon ? (
               <>
                 {/* Tampoco lleva `respaldo`, por el mismo motivo que el logo:
@@ -582,7 +582,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
           Los precios se tratan como <span className="font-medium text-foreground">IVA incluido</span>: el tipo solo
           cambia el desglose base/cuota, nunca el total que cobras.
         </p>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 @md/config:grid-cols-2">
           <Campo label="Razón social" ayuda="El nombre legal, si no coincide con el comercial.">
             {id => (
               <input id={id} className={inputCls} value={form.razonSocial}
@@ -609,7 +609,7 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
               NIF que estuvieras escribiendo. */}
           <Campo
             label="IVA general"
-            className="sm:col-span-2"
+            className="@md/config:col-span-2"
             ayuda="Se aplica a las próximas facturas desde que guardas. Las ya emitidas y selladas (Veri*Factu) no cambian."
           >
             {id => (
@@ -630,11 +630,12 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
       </TarjetaAjuste>
 
       {/* ─── Barra de guardado ───
-          Solo aparece con cambios sin guardar. `sticky bottom-0` y no `fixed`:
-          se queda dentro de la columna del panel, sin taparle nada al sidebar
-          ni pelearse con la barra inferior del móvil. */}
+          Solo aparece con cambios sin guardar. `sticky` y no `fixed`: se queda
+          dentro de la columna del panel, sin taparle nada al sidebar. Por encima
+          de la barra de navegación del móvil (56 px + zona segura, `fixed
+          bottom-0 z-30`): pegada a 0 quedaba debajo de ella. */}
       {hayCambios && (
-        <div className="sticky bottom-0 -mx-1 px-1 pb-1">
+        <div className="sticky z-20 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] -mx-1 px-1 pb-1 lg:bottom-4">
           <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur">
             <p className="min-w-0 text-[12.5px] text-muted-foreground">
               Tienes cambios sin guardar.

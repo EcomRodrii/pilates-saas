@@ -56,8 +56,8 @@ async function base(page: Page) {
 /** Abre Configuración › Logros y motivación › Recompensas (subpestaña con carga diferida). */
 async function abrirRecompensas(page: Page) {
   await page.goto('/configuracion?tab=gamificacion');
-  await expect(page.getByRole('heading', { name: 'Logros y motivación' })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('tab', { name: 'Recompensas' }).click();
+  // Desde el 15-sep todo Motivación es una sola pantalla, sin sub-pestañas.
+  await expect(page.getByRole('heading', { level: 2, name: 'Motivación' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Créditos por acción')).toBeVisible({ timeout: 30_000 });
 }
 

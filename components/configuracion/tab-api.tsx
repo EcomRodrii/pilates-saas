@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeGestionarAppsOAuth } from '@/lib/permisos';
 import { authHeader } from '@/lib/api-client';
-import { Field, ColorInput, Toggle, cardCls } from '@/components/configuracion/estilos';
+import { Field, ColorInput, Toggle, cardCls, inputCls } from '@/components/configuracion/estilos';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { TabCrecimientoWeb } from '@/components/configuracion/tab-crecimiento-web';
 import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
@@ -744,7 +744,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
       </p>
 
       <BloqueSeccion titulo="Elige tu widget">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 @md/config:grid-cols-2 gap-2">
           {WIDGETS.map(w => {
             const Icono = WIDGET_ICONOS[w.id];
             const seleccionado = activo === w.id;
@@ -779,7 +779,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
 
       <div className="h-px bg-border my-6" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-x-8 gap-y-6">
+      <div className="grid grid-cols-1 @3xl/config:grid-cols-[360px_1fr] gap-x-8 gap-y-6">
         <div className="space-y-7 min-w-0">
           {(conFiltros || widget.requiereSesion) && (
             <BloqueSeccion titulo="Elige qué mostrar">
@@ -790,7 +790,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
                       <select
                         value={sesionElegida}
                         onChange={e => setSesionElegida(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground"
+                        className={inputCls}
                       >
                         <option value="">Elige una clase próxima…</option>
                         {proximasSesiones.map(s => {
@@ -948,7 +948,9 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
 
         <div className="space-y-6 min-w-0">
           <BloqueSeccion titulo="Vista previa">
-            <div className="rounded-xl border border-border bg-background overflow-y-auto" style={{ maxHeight: 640 }}>
+            {/* `data-vista-previa`: lo de dentro tiene que ser idéntico a lo que ve la
+                visitante, así que no le llega el tamaño táctil de Configuración. */}
+            <div data-vista-previa="" className="rounded-xl border border-border bg-background overflow-y-auto" style={{ maxHeight: 640 }}>
               {widget.modo === 'script' ? (
                 <PreviewWidgetScript slug={slug} config={configEfectiva} />
               ) : listo ? (
@@ -1173,7 +1175,8 @@ function GestionDominios({ dominios, onGuardar, showToast }: {
           onChange={e => setNuevo(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); anadir(); } }}
           placeholder="midominio.com"
-          className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground"
+          aria-label="Dominio que quieres autorizar"
+          className={cn(inputCls, 'flex-1')}
         />
         <button
           onClick={anadir}

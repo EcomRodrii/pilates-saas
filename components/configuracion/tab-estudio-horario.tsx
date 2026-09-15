@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { CalendarOff, Copy, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import { Toggle, btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
+import { Toggle, btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import type { DiaHorario } from '@/lib/types';
 
@@ -152,31 +152,38 @@ export function TabEstudioHorario({ showToast }: { showToast: (m: string) => voi
             <div
               key={local}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 border transition-opacity',
+                'flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3 py-2 border transition-opacity',
                 fila.abierto ? 'border-border' : 'border-transparent opacity-50'
               )}
             >
-              <Toggle on={fila.abierto} onChange={v => actualizarFila(local, { abierto: v })} />
+              <Toggle on={fila.abierto} onChange={v => actualizarFila(local, { abierto: v })} ariaLabel={`Abierto el ${NOMBRES_DIA[local].toLowerCase()}`} />
               <span className="w-[76px] shrink-0 text-[12.5px] font-medium text-foreground">
                 {NOMBRES_DIA[local]}
               </span>
 
               {fila.abierto ? (
                 <>
+                  {/* En una columna estrecha (375 px) las dos horas bajan a su propia
+                      línea: juntas con el interruptor, el nombre y el botón de copiar
+                      pedían 440 px y la página se desplazaba de lado. */}
+                  <div className="order-last flex w-full items-center gap-2 @lg/config:order-none @lg/config:w-auto">
                   <input
                     type="time"
+                    aria-label={`Abre el ${NOMBRES_DIA[local].toLowerCase()}`}
                     value={fila.horaApertura}
                     onChange={e => actualizarFila(local, { horaApertura: e.target.value })}
-                    className="rounded-md border border-border px-2 py-1 text-[12px] w-[118px] shrink-0 tabular-nums focus:outline-none focus:ring-2 focus:ring-black/10"
+                    className="min-h-11 min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-1 text-base tabular-nums [@media(pointer:fine)]:min-h-8 [@media(pointer:fine)]:text-[12px] @lg/config:w-[118px] @lg/config:flex-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   />
                   <span className="text-[11px] text-muted-foreground shrink-0">–</span>
                   <input
                     type="time"
+                    aria-label={`Cierra el ${NOMBRES_DIA[local].toLowerCase()}`}
                     value={fila.horaCierre}
                     onChange={e => actualizarFila(local, { horaCierre: e.target.value })}
-                    className="rounded-md border border-border px-2 py-1 text-[12px] w-[118px] shrink-0 tabular-nums focus:outline-none focus:ring-2 focus:ring-black/10"
+                    className="min-h-11 min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-1 text-base tabular-nums [@media(pointer:fine)]:min-h-8 [@media(pointer:fine)]:text-[12px] @lg/config:w-[118px] @lg/config:flex-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   />
-                  <div className="flex-1 min-w-[60px] hidden sm:block">
+                  </div>
+                  <div className="flex-1 min-w-[60px] hidden @2xl/config:block">
                     <BarraDia fila={fila} />
                   </div>
                 </>
@@ -188,7 +195,8 @@ export function TabEstudioHorario({ showToast }: { showToast: (m: string) => voi
                 type="button"
                 onClick={() => copiarATodos(local)}
                 title={`Copiar ${NOMBRES_DIA[local]} a todos los días`}
-                className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                aria-label={`Copiar ${NOMBRES_DIA[local].toLowerCase()} a todos los días`}
+                className="ml-auto shrink-0 p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <Copy size={14} />
               </button>
@@ -264,22 +272,22 @@ function CierreDelCentro({ showToast }: { showToast: (m: string) => void }) {
           : ' (sin devolverles la sesión: lo tienes desactivado en «Cómo reservan mis alumnas»)'}, y a todo el estudio se le suman esos días a la caducidad de bonos y recuperaciones. Nadie podrá reservar en ese rango.
       </p>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 @sm/config:grid-cols-2">
         <label className="block">
           <span className="text-[12px] text-muted-foreground">Desde</span>
           <input type="date" value={desde} onChange={e => { setDesde(e.target.value); setConfirmando(false); }}
-            className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13px]" />
+            className={cn(inputCls, 'mt-1')} />
         </label>
         <label className="block">
           <span className="text-[12px] text-muted-foreground">Hasta (incluido)</span>
           <input type="date" value={hasta} onChange={e => { setHasta(e.target.value); setConfirmando(false); }}
-            className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13px]" />
+            className={cn(inputCls, 'mt-1')} />
         </label>
       </div>
       <label className="mt-3 block">
         <span className="text-[12px] text-muted-foreground">Motivo (opcional)</span>
         <input value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Vacaciones de agosto"
-          className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13px]" />
+          className={cn(inputCls, 'mt-1')} />
       </label>
 
       {rangoInvalido && (

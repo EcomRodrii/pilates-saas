@@ -175,7 +175,7 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
     await hoja.getByRole('button', { name: 'Volver a las clases' }).click();
     await expect(hoja).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Ocultar precio' }).click();
+    await page.getByRole('switch', { name: 'Ocultar precio' }).click();
     await expect(snippet(page)).toContainText('data-ocultar-precio');
 
     await page.getByRole('button', { name: '10:00 Reformer' }).click();
@@ -205,7 +205,7 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
     expect(codigo).toContain('ocultar-precio=1');
     expect(codigo).toContain('marca=%23112233');
     // Y los controles reflejan lo restaurado — no solo el texto del snippet.
-    await expect(page.getByRole('button', { name: 'Ocultar precio' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('switch', { name: 'Ocultar precio' })).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByRole('group', { name: 'Tipos de clase' }).getByRole('button', { name: 'Reformer' })).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -299,7 +299,8 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
 
     await page.getByRole('button', { name: /Calendario embebido \(integración directa\)/ }).click();
     await page.getByPlaceholder('midominio.com').fill('otrodominio.com');
-    await page.getByRole('button', { name: 'Añadir' }).click();
+    // `exact`: en «Mi app y mi web» también están «Añadir banner» y «Añadir aviso».
+    await page.getByRole('button', { name: 'Añadir', exact: true }).click();
 
     // Primero el guardado real del dominio, por la ruta de servidor (el
     // navegador ya no puede escribir la columna: migr 20260914011356)...

@@ -84,8 +84,8 @@ async function base(page: Page) {
 /** Abre Configuración › Logros y motivación › Canjes. */
 async function abrirCanjes(page: Page) {
   await page.goto('/configuracion?tab=gamificacion');
-  await expect(page.getByRole('heading', { name: 'Logros y motivación' })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('tab', { name: 'Canjes' }).click();
+  // Desde el 15-sep todo Motivación es una sola pantalla, sin sub-pestañas.
+  await expect(page.getByRole('heading', { level: 2, name: 'Motivación' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Pendientes de entregar' })).toBeVisible({ timeout: 30_000 });
 }
 
@@ -98,9 +98,12 @@ test.describe('Canjes pendientes', () => {
 
     // Los tres datos que hacen falta para poder entregarlo: qué, a quién y
     // cuánto pagó. Sin el nombre de la socia la lista no sirve de nada.
-    await expect(page.getByText('Clase invitada')).toBeVisible();
-    await expect(page.getByText(/Marta Ruiz/)).toBeVisible();
-    await expect(page.getByText(/500 créditos/)).toBeVisible();
+    // Dentro de «Canjes pendientes»: desde el 15-sep el catálogo de recompensas
+    // está en la misma pantalla y también dice «Clase invitada» y «500 créditos».
+    const canjes = page.locator('#canjes');
+    await expect(canjes.getByText('Clase invitada')).toBeVisible();
+    await expect(canjes.getByText(/Marta Ruiz/)).toBeVisible();
+    await expect(canjes.getByText(/500 créditos/)).toBeVisible();
   });
 
   test('cancelar pasa por la RPC que DEVUELVE los créditos, no por un cambio de estado', async ({ page }) => {

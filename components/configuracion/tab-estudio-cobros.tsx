@@ -30,6 +30,7 @@ function studioToSepa(s: DatosSepa | null): SepaForm {
 export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void }) {
   const { studio, reflejarStudioGuardado } = useStudio();
   const [form, setForm] = useState<SepaForm>(() => studioToSepa(studio));
+  const idSepa = useId();
   // Lo último que se sabe del servidor: lo que difiere de aquí es lo tecleado.
   const [base, setBase] = useState<SepaForm>(() => studioToSepa(studio));
   const guardandoRef = useRef(false);
@@ -79,18 +80,18 @@ export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void
           El identificador de acreedor te lo da tu banco al darte de alta en los recibos domiciliados (SEPA).
           La remesa se genera en Cobros → Generar remesa SEPA.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 @md/config:grid-cols-2 gap-4">
           <div>
-            <p className={labelCls}>Identificador de acreedor SEPA</p>
-            <input className={inputCls} value={form.sepaAcreedorId} onChange={e => setForm(f => ({ ...f, sepaAcreedorId: e.target.value }))} placeholder="ES00ZZZ00000000000" />
+            <label htmlFor={`${idSepa}-acreedor`} className={labelCls}>Identificador de acreedor SEPA</label>
+            <input id={`${idSepa}-acreedor`} className={inputCls} value={form.sepaAcreedorId} onChange={e => setForm(f => ({ ...f, sepaAcreedorId: e.target.value }))} placeholder="ES00ZZZ00000000000" />
           </div>
           <div>
-            <p className={labelCls}>IBAN de la cuenta del estudio</p>
-            <input className={inputCls} value={form.sepaIban} onChange={e => setForm(f => ({ ...f, sepaIban: e.target.value }))} placeholder="ES00 0000 0000 0000 0000 0000" />
+            <label htmlFor={`${idSepa}-iban`} className={labelCls}>IBAN de la cuenta del estudio</label>
+            <input id={`${idSepa}-iban`} className={inputCls} value={form.sepaIban} onChange={e => setForm(f => ({ ...f, sepaIban: e.target.value }))} placeholder="ES00 0000 0000 0000 0000 0000" />
           </div>
           <div>
-            <p className={labelCls}>Titular de la cuenta</p>
-            <input className={inputCls} value={form.sepaTitular} onChange={e => setForm(f => ({ ...f, sepaTitular: e.target.value }))} />
+            <label htmlFor={`${idSepa}-titular`} className={labelCls}>Titular de la cuenta</label>
+            <input id={`${idSepa}-titular`} className={inputCls} value={form.sepaTitular} onChange={e => setForm(f => ({ ...f, sepaTitular: e.target.value }))} />
           </div>
         </div>
         <button onClick={guardarSepa} disabled={guardando} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors disabled:opacity-60">

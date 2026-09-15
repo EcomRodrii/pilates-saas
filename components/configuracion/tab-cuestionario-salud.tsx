@@ -137,8 +137,8 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
           <p className="text-[12px] text-muted-foreground mb-4">
             Se rellenan en la pestaña «Salud» de la ficha de cada alumna — nunca la propia alumna desde fuera.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
+          <div className="grid grid-cols-1 @md/config:grid-cols-2 gap-4">
+            <div className="@md/config:col-span-2">
               <Field label="Pregunta" description="Lo que se preguntará. Ej: «¿Ha tenido alguna cirugía en el último año?».">
                 <input className={inputCls} placeholder="Ej. ¿Tiene alguna lesión o dolencia actual?"
                   value={form.pregunta} onChange={e => setForm(f => ({ ...f, pregunta: e.target.value }))} />
@@ -183,9 +183,9 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
               <li key={p.id} className="flex items-center gap-3 py-3">
                 {puedeGestionar && (
                   <div className="flex flex-col gap-0.5">
-                    <button onClick={() => mover(p.id, -1)} disabled={i === 0}
+                    <button onClick={() => mover(p.id, -1)} disabled={i === 0} aria-label={`Subir ${p.pregunta}`}
                       className="text-[11px] leading-none text-muted-foreground hover:text-foreground disabled:opacity-30">▲</button>
-                    <button onClick={() => mover(p.id, 1)} disabled={i === ordenadas.length - 1}
+                    <button onClick={() => mover(p.id, 1)} disabled={i === ordenadas.length - 1} aria-label={`Bajar ${p.pregunta}`}
                       className="text-[11px] leading-none text-muted-foreground hover:text-foreground disabled:opacity-30">▼</button>
                   </div>
                 )}
@@ -199,7 +199,7 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
                 {puedeGestionar && (
                   <>
                     <label className="flex items-center gap-1.5 cursor-pointer shrink-0" title="Activa">
-                      <Toggle on={p.activo} onChange={async v => { const res = await updatePlantillaCuestionarioSalud(p.id, { activo: v }); if (!res.ok) showToast(res.error); }} />
+                      <Toggle on={p.activo} ariaLabel={`Activa: ${p.pregunta}`} onChange={async v => { const res = await updatePlantillaCuestionarioSalud(p.id, { activo: v }); if (!res.ok) showToast(res.error); }} />
                     </label>
                     <button onClick={() => editar(p)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground shrink-0" title="Editar">
                       <Pencil size={14} />
