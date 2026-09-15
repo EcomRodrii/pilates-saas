@@ -139,3 +139,93 @@ export function proximaSesionParaPlaza<S extends SesionSlot & { id: string; inic
   }
   return mejor;
 }
+
+// ── Clases semanales del horario ─────────────────────────────────────────────
+//
+// Para asignar una plaza fija se elige una CLASE del horario, no se teclean día
+// y hora (antes la hora escrita tenía que coincidir al minuto con una clase, y
+// si no, la plaza no reservaba nunca). Una franja es sala + día + hora local +
+// tipo: la misma clave con la que el motor empareja, calculada en hora del
+// estudio. No se usa `serie_id` (la plaza se ancla por horario, y hay clases
+// sueltas que se repiten sin ser serie) ni `claveFranjaDe` del Decision OS, que
+// no incluye la sala y juntaría dos salas a la misma hora.
+
+export interface FranjaSemanal {
+  clave: string;
+  diaSemana: number;          // extract(dow): 0=domingo
+  horaInicio: string;         // 'HH:MM:SS' local
+  salaId: string;
+  tipoClaseId: string;
+  proximaSesionId: string;
+  proximaInicio: string;
+  /** Clases programadas de esa franja en la ventana. */
+  clases: number;
+  /** Aforo de la próxima clase. */
+  aforo: number;
+  /** Plazas fijas ACTIVAS en esa franja (aunque su vigencia empiece más tarde). */
+  fijas: PlazaFija[];
+  pausadas: PlazaFija[];
+}
+
+export function claveFranjaDeSesion(s: SesionSlot): string {
+  return `${s.salaId}|${franjaLocalDe(s.inicio).dow}|${horaInicioLocalDe(s.inicio)}|${s.tipoClaseId}`;
+}
+
+/** ¿La plaza está anclada al horario de la franja? Sin mirar vigencia: en la
+ *  lista del horario cuenta también la que empieza la semana que viene. */
+export function plazaEnFranja(pf: PlazaFija, f: Pick<FranjaSemanal, 'salaId' | 'diaSemana' | 'horaInicio' | 'tipoClaseId'>): boolean {
+  return pf.salaId === f.salaId
+    && pf.diaSemana === f.diaSemana
+    && normalizarHoraInicio(pf.horaInicio) === f.horaInicio
+    && (!pf.tipoClaseId || pf.tipoClaseId === f.tipoClaseId);
+}
+
+export function franjasSemanales(
+  sesiones: Sesion[],
+  plazas: PlazaFija[],
+  ahoraMs: number,
+  horizonteDias: number = HORIZONTE_PLAZA_FIJA_DIAS,
+): FranjaSemanal[] {
+  const finMs = ahoraMs + horizonteDias * DIA_MS;
+  const hoy = hoyEnEstudio(new Date(ahoraMs));
+  const porClave = new Map<string, FranjaSemanal>();
+
+  for (const s of sesiones) {
+    if (s.cancelada) continue;
+    const t = Date.parse(s.inicio);
+    if (Number.isNaN(t) || t <= ahoraMs || t > finMs) continue;
+    const clave = claveFranjaDeSesion(s);
+    const actual = porClave.get(clave);
+    if (!actual) {
+      porClave.set(clave, {
+        clave, diaSemana: franjaLocalDe(s.inicio).dow, horaInicio: horaInicioLocalDe(s.inicio),
+        salaId: s.salaId, tipoClaseId: s.tipoClaseId, proximaSesionId: s.id, proximaInicio: s.inicio,
+        clases: 1, aforo: s.aforoMaximo, fijas: [], pausadas: [],
+      });
+      continue;
+    }
+    actual.clases++;
+    if (t < Date.parse(actual.proximaInicio)) {
+      actual.proximaSesionId = s.id;
+      actual.proximaInicio = s.inicio;
+      actual.aforo = s.aforoMaximo;
+    }
+  }
+
+  const franjas = [...porClave.values()];
+  for (const f of franjas) {
+    for (const pf of plazas) {
+      if (pf.estado !== 'ACTIVA' && pf.estado !== 'PAUSADA') continue;
+      if (pf.vigenciaHasta && pf.vigenciaHasta < hoy) continue;
+      if (!plazaEnFranja(pf, f)) continue;
+      (pf.estado === 'ACTIVA' ? f.fijas : f.pausadas).push(pf);
+    }
+  }
+
+  // Lunes primero, como el resto del panel; dentro del día, por hora.
+  const ordenDia = (dow: number) => (dow + 6) % 7;
+  return franjas.sort((a, b) =>
+    ordenDia(a.diaSemana) - ordenDia(b.diaSemana)
+    || a.horaInicio.localeCompare(b.horaInicio)
+    || a.salaId.localeCompare(b.salaId));
+}

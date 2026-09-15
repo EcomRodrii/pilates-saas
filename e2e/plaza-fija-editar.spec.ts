@@ -1,25 +1,22 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Plaza fija: editar el slot desde la ficha de la socia.
+// Plaza fija desde la ficha de la clienta: asignar, cambiar y quitar.
 //
-// Una plaza fija se ancla por (día, hora, sala). Cuando el estudio mueve la
-// clase, la plaza se queda apuntando a un horario sin clase y el cron deja de
-// materializar en silencio. Antes solo se podía quitar y volver a crear a mano.
+// Asignar y cambiar se hacen ELIGIENDO UNA CLASE del horario (antes se
+// tecleaban día y hora, que tenían que coincidir al minuto con una clase) y van
+// por el servidor (`/api/plazas-fijas`), que comprueba cuota y límite semanal y
+// reserva ya las próximas semanas. Nada escribe en `plazas_fijas` desde el
+// navegador: se cuenta cualquier escritura REST para demostrarlo.
 //
-// De paso fija dos cosas que se habían roto sin que ningún test lo viera:
-//   1. La ficha LISTA las plazas que ya existen. Desde #1375 el panel no
-//      cargaba `plazas_fijas` en absoluto: la ficha decía "Sin plaza fija"
-//      para todo el mundo.
-//   2. Un fallo del servidor (409 por el sitio ya cogido) se enseña y el
-//      diálogo NO se cierra. Con contador de peticiones: un test de camino de
-//      fallo sin él es hueco (ver .claude/tentare-os.md).
+// Cada camino de fallo lleva contador de peticiones: un test de fallo sin él es
+// hueco (ver .claude/tentare-os.md).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
 const STUDIO_ID = 'studio-test';
 const STORAGE_KEY = 'sb-example-auth-token';
-// Miércoles. Las sesiones de la ficha son los martes siguientes.
+// Miércoles 5 de agosto. Clases: martes 10:00 y jueves 18:00 (hora de Madrid).
 const AHORA = '2026-08-05T09:00:00';
 
 const STUDIO_ROW = {
@@ -43,24 +40,39 @@ const PLAZA_ROW = {
   vigencia_desde: '2026-01-01', vigencia_hasta: null, estado: 'ACTIVA', creada_en: '2026-01-01T00:00:00+00:00',
 };
 
-/** 8 martes seguidos a la hora UTC dada, desde el 2026-08-11. */
-function martesSemanales(horaUtc: string) {
-  return Array.from({ length: 8 }, (_, i) => {
-    const d = new Date(Date.parse(`2026-08-11T${horaUtc}:00Z`) + i * 7 * 86_400_000);
-    const fin = new Date(d.getTime() + 50 * 60_000);
+/** 6 clases semanales desde `primeraUtc` (ISO en UTC). */
+function semanales(prefijo: string, primeraUtc: string) {
+  return Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(Date.parse(primeraUtc) + i * 7 * 86_400_000);
     return {
-      id: `ses-${i}`, studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
-      inicio: d.toISOString(), fin: fin.toISOString(), aforo_maximo: 10, cancelada: false, notas: null,
+      id: `${prefijo}-${i}`, studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
+      inicio: d.toISOString(), fin: new Date(d.getTime() + 50 * 60_000).toISOString(),
+      aforo_maximo: 10, cancelada: false, notas: null,
     };
   });
 }
+const MARTES_10 = semanales('mar', '2026-08-11T08:00:00Z');
+const JUEVES_18 = semanales('jue', '2026-08-06T16:00:00Z');
+
+const plazaCamel = (o: Record<string, unknown>) => ({
+  id: 'pf-2', studioId: STUDIO_ID, socioId: 'soc-1', diaSemana: 4, horaInicio: '18:00:00', salaId: 'sala-1',
+  tipoClaseId: 'tc-1', spotId: null, vigenciaDesde: '2026-08-05', vigenciaHasta: null, estado: 'ACTIVA',
+  creadaEn: '2026-08-05T07:00:00Z', ...o,
+});
+const guardadaOk = (o: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) => ({
+  ok: true, plaza: plazaCamel(o), creadas: 6, primeraFecha: '2026-08-06', hayClaseProgramada: true, canceladas: [], ...extra,
+});
 
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+type Respuesta = { status?: number; body: unknown };
+
 async function montar(page: Page, opts: {
-  sesiones: unknown[]; patchStatus?: number; patchBody?: unknown;
+  sesiones: unknown[];
+  /** Respuestas de `/api/plazas-fijas`, en orden; la última se repite. */
+  guardar?: Respuesta[];
   /** Respuesta de `POST /api/plazas-fijas/estado` (quitar). */
   estadoStatus?: number; estadoBody?: unknown;
 }) {
@@ -76,7 +88,7 @@ async function montar(page: Page, opts: {
     }));
   }, [STORAGE_KEY, AUTH_UID] as const);
 
-  const patches: Record<string, unknown>[] = [];
+  const escriturasRest: string[] = [];
 
   // OJO con el orden: Playwright resuelve en orden INVERSO al de registro.
   await page.route('**/api/**', route => json(route, {}));
@@ -94,14 +106,21 @@ async function montar(page: Page, opts: {
   await page.route('**/rest/v1/tipos_clase**', route => json(route, [TIPO_CLASE]));
   await page.route('**/rest/v1/sesiones**', route => json(route, opts.sesiones));
   await page.route('**/rest/v1/plazas_fijas**', route => {
-    if (route.request().method() === 'PATCH') {
-      patches.push(route.request().postDataJSON());
-      return json(route, opts.patchBody ?? [], opts.patchStatus ?? 200);
+    if (route.request().method() !== 'GET') {
+      escriturasRest.push(route.request().method());
+      return json(route, []);
     }
     return json(route, [PLAZA_ROW]);
   });
-  // Quitar va por el servidor (suelta las clases ya reservadas), no por un
-  // PATCH con RLS. Registrada después del catch-all `**/api/**`: gana ésta.
+
+  // Registradas después del catch-all `**/api/**`: ganan éstas.
+  const guardados: { metodo: string; cuerpo: Record<string, unknown> }[] = [];
+  const respuestas = opts.guardar ?? [{ body: guardadaOk() }];
+  await page.route('**/api/plazas-fijas', route => {
+    const r = respuestas[Math.min(guardados.length, respuestas.length - 1)];
+    guardados.push({ metodo: route.request().method(), cuerpo: route.request().postDataJSON() });
+    return json(route, r.body, r.status ?? 200);
+  });
   const cambiosEstado: Record<string, unknown>[] = [];
   await page.route('**/api/plazas-fijas/estado', route => {
     cambiosEstado.push(route.request().postDataJSON());
@@ -114,90 +133,138 @@ async function montar(page: Page, opts: {
   // instante de "Sin plaza fija" antes. Se espera la plaza, nunca se aserta
   // la ausencia del vacío.
   await expect(page.getByText('Martes · 10:00')).toBeVisible({ timeout: 15_000 });
-  return { patches, cambiosEstado };
+  return { guardados, cambiosEstado, escriturasRest };
 }
 
-test.describe('Plaza fija: editar el slot desde la ficha', () => {
-  test('la ficha lista la plaza fija que ya existe (regresión: el panel no las cargaba)', async ({ page }) => {
-    await montar(page, { sesiones: martesSemanales('08:00') });
-    await expect(page.getByText('Martes · 10:00')).toBeVisible();
-    // Con clase en su horario no hay aviso de huérfana.
+test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
+  test('la ficha lista la plaza fija que ya existe, sin aviso si su clase está en el horario', async ({ page }) => {
+    await montar(page, { sesiones: [...MARTES_10, ...JUEVES_18] });
     await expect(page.getByText('Sin clase en este horario')).toHaveCount(0);
   });
 
-  test('editar la hora envía UN PATCH con la hora nueva y la lista se actualiza', async ({ page }) => {
-    const { patches } = await montar(page, { sesiones: martesSemanales('08:00') });
-    await page.getByRole('button', { name: 'Editar la plaza fija del Martes 10:00' }).click();
+  test('asignar: se elige una clase del horario y UNA petición al servidor la guarda', async ({ page }) => {
+    const { guardados, escriturasRest } = await montar(page, { sesiones: [...MARTES_10, ...JUEVES_18] });
+    await page.getByRole('button', { name: 'Añadir plaza fija' }).click();
     const dialogo = page.getByRole('dialog');
-    await expect(dialogo.getByRole('heading', { name: 'Editar plaza fija' })).toBeVisible();
-    await expect(dialogo.getByLabel('Hora')).toHaveValue('10:00');
-    await dialogo.getByLabel('Hora').fill('11:00');
-    await dialogo.getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect(dialogo.getByRole('heading', { name: 'Asignar plaza fija' })).toBeVisible();
 
+    // La clase en la que ya tiene plaza no se puede volver a elegir.
+    await expect(dialogo.getByRole('radio', { name: 'Martes 10:00 · Reformer · Sala Reformer' })).toBeDisabled();
+    const jueves = dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' });
+    await jueves.click();
+    await expect(jueves).toHaveAttribute('aria-checked', 'true');
+    expect(guardados.length).toBe(0);
+
+    await dialogo.getByRole('button', { name: 'Asignar plaza fija' }).click();
     await expect(dialogo).toBeHidden();
-    expect(patches.length).toBe(1);
-    // Sin `estado` en el PATCH: editar el hueco no reactiva una plaza en pausa.
-    expect(patches[0]).toMatchObject({ hora_inicio: '11:00:00', dia_semana: 2, sala_id: 'sala-1' });
-    expect(patches[0]).not.toHaveProperty('estado');
-    await expect(page.getByText('Martes · 11:00')).toBeVisible();
-    await expect(page.getByText('Martes · 10:00')).toHaveCount(0);
+    expect(guardados).toHaveLength(1);
+    expect(guardados[0].metodo).toBe('POST');
+    // Viaja la CLASE, no día/hora/sala tecleados.
+    expect(guardados[0].cuerpo).toEqual({
+      socioId: 'soc-1', sesionId: 'jue-0', spotId: null,
+      vigenciaDesde: '2026-08-05', vigenciaHasta: null, confirmarLimite: false,
+    });
+    await expect(page.getByText('Plaza fija guardada · ya tiene reservada la clase del 6 de agosto')).toBeVisible();
+    await expect(page.getByText('Jueves · 18:00')).toBeVisible();
+    expect(escriturasRest).toEqual([]);
   });
 
-  test('si el servidor dice que no (sitio ya cogido), se enseña y el diálogo sigue abierto', async ({ page }) => {
-    const { patches } = await montar(page, {
-      sesiones: martesSemanales('08:00'),
-      patchStatus: 409,
-      patchBody: {
-        code: '23P01', details: null, hint: null,
-        message: 'conflicting key value violates exclusion constraint "plazas_fijas_spot_sin_solape"',
-      },
+  test('si supera el límite semanal de su cuota, avisa y deja asignarla igualmente', async ({ page }) => {
+    const { guardados } = await montar(page, {
+      sesiones: [...MARTES_10, ...JUEVES_18],
+      guardar: [
+        { status: 409, body: { ok: false, codigo: 'SUPERA_LIMITE', limite: 1, error: 'Su cuota es de 1 clase por semana y ya tiene 1 plaza fija.' } },
+        { body: guardadaOk() },
+      ],
+    });
+    await page.getByRole('button', { name: 'Añadir plaza fija' }).click();
+    const dialogo = page.getByRole('dialog');
+    await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
+    await dialogo.getByRole('button', { name: 'Asignar plaza fija' }).click();
+
+    await expect(dialogo.getByText('Su cuota es de 1 clase por semana y ya tiene 1 plaza fija.')).toBeVisible();
+    await expect(dialogo).toBeVisible();
+    expect(guardados).toHaveLength(1);
+
+    await dialogo.getByRole('button', { name: 'Asignar igualmente' }).click();
+    await expect(dialogo).toBeHidden();
+    expect(guardados).toHaveLength(2);
+    expect(guardados[1].cuerpo).toMatchObject({ sesionId: 'jue-0', confirmarLimite: true });
+  });
+
+  test('si el servidor dice que no (sin cuota), se enseña, el diálogo sigue abierto y la lista no cambia', async ({ page }) => {
+    const { guardados } = await montar(page, {
+      sesiones: [...MARTES_10, ...JUEVES_18],
+      guardar: [{ status: 400, body: { ok: false, error: 'Para tener plaza fija necesita una cuota activa que incluya esta clase. Con bono se reserva clase a clase.' } }],
+    });
+    await page.getByRole('button', { name: 'Añadir plaza fija' }).click();
+    const dialogo = page.getByRole('dialog');
+    await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
+    await dialogo.getByRole('button', { name: 'Asignar plaza fija' }).click();
+
+    await expect(dialogo.getByText(/necesita una cuota activa que incluya esta clase/)).toBeVisible();
+    await expect(dialogo).toBeVisible();
+    // El intento SALIÓ de verdad: sin esto el test sería hueco.
+    expect(guardados.length).toBeGreaterThan(0);
+    await expect(page.getByText('Jueves · 18:00')).toHaveCount(0);
+  });
+
+  test('cambiar de clase conserva la plaza (PATCH) y dice cuántas del horario anterior se han cancelado', async ({ page }) => {
+    const { guardados, escriturasRest } = await montar(page, {
+      sesiones: [...MARTES_10, ...JUEVES_18],
+      guardar: [{ body: guardadaOk({ id: 'pf-1', vigenciaDesde: '2026-01-01' }, { canceladas: ['r-1', 'r-2'] }) }],
     });
     await page.getByRole('button', { name: 'Editar la plaza fija del Martes 10:00' }).click();
     const dialogo = page.getByRole('dialog');
-    await dialogo.getByLabel('Hora').fill('11:00');
+    await expect(dialogo.getByRole('heading', { name: 'Cambiar plaza fija' })).toBeVisible();
+    await expect(dialogo.getByRole('radio', { name: 'Martes 10:00 · Reformer · Sala Reformer' })).toHaveAttribute('aria-checked', 'true');
+
+    await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
     await dialogo.getByRole('button', { name: 'Guardar cambios' }).click();
 
-    await expect(dialogo.getByText('Ese sitio ya está asignado a otra socia en ese día y hora')).toBeVisible();
-    await expect(dialogo).toBeVisible();
-    // El intento SALIÓ de verdad: sin esto el test sería hueco.
-    expect(patches.length).toBeGreaterThan(0);
-    // Y la lista no se actualizó en falso.
-    await expect(page.getByText('Martes · 10:00')).toBeVisible();
+    await expect(dialogo).toBeHidden();
+    expect(guardados).toHaveLength(1);
+    expect(guardados[0].metodo).toBe('PATCH');
+    expect(guardados[0].cuerpo).toMatchObject({ plazaId: 'pf-1', sesionId: 'jue-0', vigenciaDesde: '2026-01-01' });
+    await expect(page.getByText(/Plaza fija cambiada · .* · 2 clases del horario anterior canceladas/)).toBeVisible();
+    await expect(page.getByText('Jueves · 18:00')).toBeVisible();
+    await expect(page.getByText('Martes · 10:00')).toHaveCount(0);
+    expect(escriturasRest).toEqual([]);
   });
 
-  test('cuando la clase se movió, la fila avisa y el diálogo repite el aviso hasta que el horario coincide', async ({ page }) => {
-    // Las clases están ahora a las 12:00 locales (10:00Z); la plaza sigue a las 10:00.
-    await montar(page, { sesiones: martesSemanales('10:00') });
+  test('cuando la clase se movió, la fila avisa y el diálogo ofrece la clase nueva sin ninguna marcada', async ({ page }) => {
+    // Las clases del martes están ahora a las 12:00 locales (10:00Z); la plaza sigue a las 10:00.
+    await montar(page, { sesiones: semanales('mar', '2026-08-11T10:00:00Z') });
     await expect(page.getByText('Sin clase en este horario')).toBeVisible();
 
     await page.getByRole('button', { name: 'Editar la plaza fija del Martes 10:00' }).click();
     const dialogo = page.getByRole('dialog');
-    await expect(dialogo.getByText('No hay ninguna clase programada ese día a esa hora')).toBeVisible();
-    await dialogo.getByLabel('Hora').fill('12:00');
-    await expect(dialogo.getByText('No hay ninguna clase programada ese día a esa hora')).toHaveCount(0);
+    const nueva = dialogo.getByRole('radio', { name: 'Martes 12:00 · Reformer · Sala Reformer' });
+    await expect(nueva).toHaveAttribute('aria-checked', 'false');
+    await expect(dialogo.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled();
+    await nueva.click();
+    await expect(dialogo.getByRole('button', { name: 'Guardar cambios' })).toBeEnabled();
   });
 });
 
 test.describe('Plaza fija: quitarla suelta las clases que ya tenía reservadas', () => {
   test('quitar va por el servidor y dice qué clases ha cancelado y cuáles se mantienen', async ({ page }) => {
-    const { cambiosEstado, patches } = await montar(page, {
-      sesiones: martesSemanales('08:00'),
+    const { cambiosEstado, escriturasRest } = await montar(page, {
+      sesiones: MARTES_10,
       estadoBody: { ok: true, canceladas: ['r-1', 'r-2'], mantenidas: ['r-3'], fallidas: 0 },
     });
     await page.getByRole('button', { name: 'Quitar la plaza fija del Martes 10:00' }).click();
-    // El aviso dice lo que va a pasar de verdad (antes: «las reservas ya creadas no se tocan»).
     await expect(page.getByText(/cancela las que ya tenía apuntadas en ese horario/)).toBeVisible();
     await page.getByRole('button', { name: 'Quitar', exact: true }).click();
 
     await expect(page.getByText('Plaza fija quitada · 2 clases canceladas · 1 se mantiene por estar dentro del plazo de cancelación')).toBeVisible();
     expect(cambiosEstado).toEqual([{ plazaId: 'pf-1', estado: 'BAJA' }]);
-    // Ya no es un PATCH directo con RLS: por ese camino las reservas seguían confirmadas.
-    expect(patches.length).toBe(0);
+    expect(escriturasRest).toEqual([]);
   });
 
   test('si el servidor dice que no, se enseña el motivo y la plaza sigue en la lista', async ({ page }) => {
     const { cambiosEstado } = await montar(page, {
-      sesiones: martesSemanales('08:00'),
+      sesiones: MARTES_10,
       estadoStatus: 403,
       estadoBody: { error: 'No tienes permiso para cambiar plazas fijas' },
     });

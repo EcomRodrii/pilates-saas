@@ -174,7 +174,7 @@ export async function emitirPlazaFijaNoMaterializada(
     const motivoTexto = p.motivo === 'sesion_cancelada'
       ? ' Esa clase está cancelada esta semana.'
       : p.motivo === 'sin_plan_vigente' || p.motivo === 'suscripcion_pausada'
-        ? ' Tu plan no está activo o no incluye esta clase, así que no la hemos reservado por ti.'
+        ? ' Tu cuota no está activa o no incluye esta clase, así que no la hemos reservado por ti. Con bono, resérvala clase a clase.'
         : p.motivo === 'sin_autorizacion'
           ? ' Esta clase necesita que el estudio te dé acceso: escríbeles y te la abren.'
           : ' Esta semana está completa — resérvala manualmente si quieres entrar en lista de espera.';

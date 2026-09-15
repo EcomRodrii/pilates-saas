@@ -21,6 +21,12 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- Histórico de la Fase 0. Desde 20260915004253 la función es
+-- `(integer, text)`: se quita dentro de la transacción para que la versión de
+-- un argumento que crea el `\i` no deje dos sobrecargas y la llamada con 42 no
+-- sea ambigua. Lo vigente se prueba en verify-plazas-fijas-una-plaza-y-cuota.sql.
+drop function if exists public.materializar_plazas_fijas(integer, text);
+
 \i supabase/migrations/20260915001236_plazas_fijas_plan_vigente_autorizacion_y_retirada.sql
 
 -- ── Fixture ──────────────────────────────────────────────────────────────────

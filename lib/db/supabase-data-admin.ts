@@ -42,6 +42,9 @@ import {
 } from '@/lib/booking-logic';
 import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
+import { sesionEncajaEnPlaza, normalizarHoraInicio } from '@/lib/plazas-fijas-slot';
+import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
+import type { PlazaFija as PlazaFijaServidor } from '@/lib/types';
 import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
 import { validarCanje } from '@/lib/engines/reward-engine';
 import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
@@ -3631,85 +3634,215 @@ export async function valorarExperienciaReservaPublica(params: {
 // DERIVAN de esa sesión con franjaLocalDe, la misma función que ya usa el
 // motor de decisiones para agrupar franjas recurrentes — así el slot que se
 // guarda es siempre uno que la socia ha visto reservable de verdad.
-export async function crearPlazaFijaPublica(params: {
-  studioId: string; sesionId: string; socioId: string; authUserId: string;
-}): Promise<
-  | { ok: true; id: string; reservaEstaSemana: { estado: string; reservaId: string } | null }
-  | { error: string }
-> {
-  const admin = getSupabaseAdmin();
-  if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
-  if (!socia) return { error: 'No autorizado' as const };
+const COLUMNAS_PLAZA_FIJA = 'id, studio_id, socio_id, dia_semana, hora_inicio, sala_id, tipo_clase_id, spot_id, vigencia_desde, vigencia_hasta, estado, creada_en';
 
-  const { data: ses } = await admin
-    .from('sesiones').select('id, sala_id, tipo_clase_id, inicio, cancelada')
-    .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
-  if (!ses) return { error: 'Sesión no encontrada' as const };
-  if (ses.cancelada) return { error: 'Esta clase está cancelada' as const };
+function plazaFijaDeFila(r: Record<string, unknown>): PlazaFijaServidor {
+  return {
+    id: r.id as string, studioId: r.studio_id as string, socioId: r.socio_id as string,
+    diaSemana: r.dia_semana as number, horaInicio: r.hora_inicio as string, salaId: r.sala_id as string,
+    tipoClaseId: (r.tipo_clase_id as string | null) ?? null, spotId: (r.spot_id as string | null) ?? null,
+    vigenciaDesde: r.vigencia_desde as string, vigenciaHasta: (r.vigencia_hasta as string | null) ?? null,
+    estado: r.estado as PlazaFijaServidor['estado'], creadaEn: r.creada_en as string,
+  };
+}
 
-  // Niveles: sin esto, una socia podía crearse la plaza fija de una clase para
-  // la que no está autorizada. La reserva de ESA semana la rechazaba
-  // `reservar_plaza`, pero el fallo se ignoraba más abajo (se devuelve
-  // `ok: true` igual) y la plaza quedaba ACTIVA, así que el cron nocturno le
-  // confirmaba todas las ocurrencias siguientes. Encontrado en revisión de
-  // seguridad. El disparador de `reservas` lo corta igualmente; esto evita
-  // además dejar la fila huérfana y da un mensaje que se entiende.
-  if (ses.tipo_clase_id) {
+interface TextosPlazaFija { sinAutorizacion: string; sinCuota: string; duplicada: string; sitioOcupado: string }
+
+const TEXTOS_PLAZA_FIJA_PANEL: TextosPlazaFija = {
+  sinAutorizacion: 'Esta clase necesita autorización y esta clienta no la tiene. Dásela en su ficha y vuelve a intentarlo.',
+  sinCuota: 'Para tener plaza fija necesita una cuota activa que incluya esta clase. Con bono se reserva clase a clase.',
+  duplicada: 'Ya tiene una plaza fija en esa clase',
+  sitioOcupado: 'Ese sitio ya está asignado a otra clienta en esa clase',
+};
+
+const TEXTOS_PLAZA_FIJA_ALUMNA: TextosPlazaFija = {
+  sinAutorizacion: 'Esta clase necesita que el estudio te dé acceso. Escríbeles y te la abren.',
+  sinCuota: 'La plaza fija es para quien tiene una cuota activa que incluya esta clase. Con bono, resérvala clase a clase.',
+  duplicada: 'Ya tienes una plaza fija en ese horario',
+  sitioOcupado: 'Ese sitio ya no está libre en ese horario — contacta con el estudio',
+};
+
+// Crear o mover una plaza fija: UNA sola forma, para el panel y para la app.
+//
+// La franja (día, hora local, sala, tipo) sale de una CLASE del horario, nunca de
+// campos tecleados. Antes el panel insertaba día/hora a mano (si no coincidía al
+// minuto con una clase, la plaza no reservaba nunca) y reservaba la primera clase
+// con `addReserva`, que descuenta bono, mientras que las de cada noche las crea
+// el motor sin descontar. Ahora, tras guardar, el MISMO motor reserva ya las
+// próximas 6 semanas (`materializar_plazas_fijas` con `p_plaza_id`).
+//
+// Comprueba, por este orden: clienta y clase del estudio, clase no cancelada,
+// autorización del tipo de clase, cuota vigente que la cubra (solo cuota:
+// `cuotaParaPlazaFija`), sitio de esa sala, duplicado en la misma franja y límite
+// semanal (avisa con `SUPERA_LIMITE` y deja confirmar, decisión del fundador).
+// Al MOVER, suelta las reservas futuras del horario viejo con el mismo camino
+// que quitar (`retirarReservasFuturasPlazaFija`).
+async function guardarPlazaFijaDesdeSesion(
+  admin: SupabaseClient,
+  params: { studioId: string; socioId: string; datos: Omit<DatosPlazaFija, 'socioId'>; plazaId?: string },
+  textos: TextosPlazaFija,
+): Promise<ResultadoGuardarPlazaFija> {
+  const { studioId, socioId, datos, plazaId } = params;
+  if (datos.vigenciaHasta && datos.vigenciaHasta < datos.vigenciaDesde) {
+    return { ok: false, error: '«Hasta» no puede ser anterior a «Desde»: ese rango nunca estaría activo.' };
+  }
+
+  const [{ data: ses }, { data: socio }] = await Promise.all([
+    admin.from('sesiones').select('id, sala_id, tipo_clase_id, inicio, cancelada')
+      .eq('id', datos.sesionId).eq('studio_id', studioId).maybeSingle(),
+    admin.from('socios').select('id').eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
+  ]);
+  if (!socio) return { ok: false, error: 'Clienta no encontrada' };
+  if (!ses) return { ok: false, error: 'Clase no encontrada' };
+  if (ses.cancelada) return { ok: false, error: 'Esta clase está cancelada: elige otra del horario.' };
+  const tipoClaseId = (ses.tipo_clase_id as string | null) ?? null;
+  const salaId = ses.sala_id as string;
+
+  // Niveles: sin esto se podía crear la plaza fija de una clase para la que no
+  // está autorizada, y el motor la saltaría cada noche sin que nadie lo viera.
+  if (tipoClaseId) {
     const { data: tipo } = await admin
       .from('tipos_clase').select('requiere_autorizacion')
-      .eq('id', ses.tipo_clase_id as string).eq('studio_id', params.studioId).maybeSingle();
+      .eq('id', tipoClaseId).eq('studio_id', studioId).maybeSingle();
     if (tipo?.requiere_autorizacion) {
       const { data: permiso } = await admin
         .from('socio_tipos_clase_autorizados').select('tipo_clase_id')
-        .eq('studio_id', params.studioId)
-        .eq('socio_id', params.socioId)
-        .eq('tipo_clase_id', ses.tipo_clase_id as string)
+        .eq('studio_id', studioId).eq('socio_id', socioId).eq('tipo_clase_id', tipoClaseId)
         .maybeSingle();
-      if (!permiso) return { error: 'Esta clase necesita que el estudio te dé acceso. Escríbeles y te la abren.' as const };
+      if (!permiso) return { ok: false, error: textos.sinAutorizacion };
     }
+  }
+
+  const [{ data: susRows }, { data: planRows }] = await Promise.all([
+    admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId).eq('estado', 'ACTIVA'),
+    admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
+  ]);
+  const planes = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
+  const cuota = cuotaParaPlazaFija(socioId, (susRows ?? []).map(mapSuscripcion), planes, hoyEnEstudio(), tipoClaseId);
+  if (!cuota) return { ok: false, error: textos.sinCuota };
+
+  if (datos.spotId) {
+    const { data: spot } = await admin.from('spots').select('id')
+      .eq('id', datos.spotId).eq('studio_id', studioId).eq('sala_id', salaId).eq('activo', true).maybeSingle();
+    if (!spot) return { ok: false, error: 'Ese sitio no es de la sala de esta clase' };
   }
 
   const { dow, hora, minuto } = franjaLocalDe(ses.inicio as string);
   const horaInicio = `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}:00`;
-  const salaId = ses.sala_id as string;
-  const tipoClaseId = (ses.tipo_clase_id as string | null) ?? null;
 
-  // Dedup: ya tiene una plaza fija ACTIVA o PAUSADA en ese mismo slot semanal
-  // — no tiene sentido duplicarla (y `materializar_plazas_fijas` la contaría
-  // dos veces como candidatas del mismo hueco). PAUSADA cuenta también: sin
-  // esto, pausar y volver a la misma clase dejaba crear una segunda fila para
-  // el mismo slot, con la primera huérfana e invisible para la propia socia.
-  const { data: existente } = await admin.from('plazas_fijas').select('id')
-    .eq('studio_id', params.studioId).eq('socio_id', params.socioId).in('estado', ['ACTIVA', 'PAUSADA'])
-    .eq('dia_semana', dow).eq('hora_inicio', horaInicio).eq('sala_id', salaId).maybeSingle();
-  if (existente) return { error: 'Ya tienes una plaza fija en ese horario' as const };
+  const { data: suyasRows } = await admin.from('plazas_fijas').select(COLUMNAS_PLAZA_FIJA)
+    .eq('studio_id', studioId).eq('socio_id', socioId).in('estado', ['ACTIVA', 'PAUSADA']);
+  const suyas = (suyasRows ?? []).map(r => plazaFijaDeFila(r as Record<string, unknown>));
+  const anterior = plazaId ? suyas.find(p => p.id === plazaId) ?? null : null;
+  if (plazaId && !anterior) return { ok: false, error: 'Plaza fija no encontrada' };
 
-  const id = `pf-${uid()}`;
-  const { error } = await admin.from('plazas_fijas').insert({
-    id, studio_id: params.studioId, socio_id: params.socioId,
-    dia_semana: dow, hora_inicio: horaInicio, sala_id: salaId,
-    tipo_clase_id: tipoClaseId, spot_id: null,
-    vigencia_desde: new Date().toISOString().slice(0, 10), vigencia_hasta: null, estado: 'ACTIVA',
-  });
-  if (error) return { error: 'No se pudo crear la plaza fija' as const };
+  // PAUSADA cuenta también: pausar y volver a la misma clase no puede dejar dos
+  // filas para la misma franja.
+  const duplicada = suyas.some(p => p.id !== plazaId
+    && p.diaSemana === dow && normalizarHoraInicio(p.horaInicio) === horaInicio && p.salaId === salaId);
+  if (duplicada) return { ok: false, error: textos.duplicada };
 
-  // Materializa YA la ocurrencia de esta semana (la sesión que estaba viendo):
-  // sin esto tendría que esperar al cron nocturno y se quedaría sin la clase
-  // de esta misma semana. Reutiliza crearReservaPublica entero (mismos gates
-  // de plan/ventana/aforo que "Reservar" ya aplica) — nunca se reimplementa
-  // aquí ese cálculo.
-  let reservaEstaSemana: { estado: string; reservaId: string } | null = null;
-  const { data: yaReservada } = await admin.from('reservas').select('id')
-    .eq('sesion_id', params.sesionId).eq('socio_id', params.socioId)
-    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA']).maybeSingle();
-  if (!yaReservada) {
-    const r = await crearReservaPublica({
-      studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, authUserId: params.authUserId,
-    });
-    if (!('error' in r)) reservaEstaSemana = { estado: r.estado, reservaId: r.reservaId };
+  if (!plazaId && !datos.confirmarLimite) {
+    const activas = suyas.filter(p => p.estado === 'ACTIVA').length;
+    const exceso = superaLimiteSemanal(cuota, activas);
+    if (exceso) {
+      return {
+        ok: false, codigo: 'SUPERA_LIMITE', limite: exceso.limite,
+        error: `Su cuota es de ${exceso.limite} ${exceso.limite === 1 ? 'clase' : 'clases'} por semana y ya tiene ${activas} ${activas === 1 ? 'plaza fija' : 'plazas fijas'}.`,
+      };
+    }
   }
-  return { ok: true as const, id, reservaEstaSemana };
+
+  const fila = {
+    dia_semana: dow, hora_inicio: horaInicio, sala_id: salaId, tipo_clase_id: tipoClaseId,
+    spot_id: datos.spotId, vigencia_desde: datos.vigenciaDesde, vigencia_hasta: datos.vigenciaHasta,
+  };
+  const escritura = anterior
+    ? await admin.from('plazas_fijas').update(fila)
+        .eq('id', anterior.id).eq('studio_id', studioId).eq('socio_id', socioId)
+        .select(COLUMNAS_PLAZA_FIJA).maybeSingle()
+    : await admin.from('plazas_fijas').insert({ id: `pf-${uid()}`, studio_id: studioId, socio_id: socioId, ...fila, estado: 'ACTIVA' })
+        .select(COLUMNAS_PLAZA_FIJA).maybeSingle();
+  if (escritura.error) {
+    if (escritura.error.message.includes('plazas_fijas_spot_sin_solape')) return { ok: false, error: textos.sitioOcupado };
+    capturarExcepcion(new Error(escritura.error.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId } });
+    return { ok: false, error: 'No se pudo guardar la plaza fija' };
+  }
+  if (!escritura.data) return { ok: false, error: 'Plaza fija no encontrada' };
+  const plaza = plazaFijaDeFila(escritura.data as unknown as Record<string, unknown>);
+
+  // Mover de clase suelta lo que ya tenía reservado en la franja vieja, con el
+  // mismo criterio que quitar (sin penalización, mantiene lo que está dentro del
+  // plazo de cancelación). Cambiar solo el sitio o las fechas no toca nada.
+  let canceladas: string[] = [];
+  const cambiaDeClase = anterior && (anterior.diaSemana !== plaza.diaSemana
+    || normalizarHoraInicio(anterior.horaInicio) !== plaza.horaInicio
+    || anterior.salaId !== plaza.salaId || anterior.tipoClaseId !== plaza.tipoClaseId);
+  if (anterior && cambiaDeClase) {
+    canceladas = (await retirarReservasFuturasPlazaFija(admin, studioId, anterior)).canceladas;
+  }
+
+  // Mejor esfuerzo: si el motor fallara, la plaza ya está guardada y el cron de
+  // esta noche la recoge.
+  let creadas = 0;
+  if (plaza.estado === 'ACTIVA') {
+    const { data, error } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: 42, p_plaza_id: plaza.id });
+    if (error) {
+      capturarExcepcion(new Error(error.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId: plaza.id } });
+    } else {
+      creadas = (data as number | null) ?? 0;
+    }
+  }
+
+  // Lo que la pantalla tiene que poder decir de verdad: si la próxima clase ya
+  // está reservada, o si no hay ninguna programada en ese horario.
+  const { data: futuras } = await admin.from('sesiones').select('id, sala_id, tipo_clase_id, inicio, cancelada')
+    .eq('studio_id', studioId).eq('sala_id', plaza.salaId).gt('inicio', new Date().toISOString())
+    .order('inicio', { ascending: true }).limit(80);
+  const proxima = (futuras ?? [])
+    .map(s => ({ id: s.id as string, salaId: s.sala_id as string, tipoClaseId: (s.tipo_clase_id as string | null) ?? '', inicio: s.inicio as string, cancelada: Boolean(s.cancelada) }))
+    .find(s => !s.cancelada && sesionEncajaEnPlaza(plaza, s));
+  let primeraFecha: string | null = null;
+  if (proxima) {
+    const { data: reservada } = await admin.from('reservas').select('id')
+      .eq('sesion_id', proxima.id).eq('socio_id', socioId).in('estado', ['CONFIRMADA', 'ASISTIDA']).maybeSingle();
+    if (reservada) primeraFecha = hoyEnEstudio(new Date(proxima.inicio));
+  }
+
+  return { ok: true, plaza, creadas, primeraFecha, hayClaseProgramada: Boolean(proxima), canceladas };
+}
+
+// Panel: la ruta `app/api/plazas-fijas` ya ha comprobado el rol y saca el estudio
+// de la sesión. Al mover, la clienta sale de la propia plaza, nunca del body.
+export async function guardarPlazaFijaStaff(
+  admin: SupabaseClient,
+  params: { studioId: string; datos: DatosPlazaFija; plazaId?: string },
+): Promise<ResultadoGuardarPlazaFija> {
+  let socioId = params.datos.socioId;
+  if (params.plazaId) {
+    const { data: plaza } = await admin.from('plazas_fijas').select('socio_id')
+      .eq('id', params.plazaId).eq('studio_id', params.studioId).maybeSingle();
+    if (!plaza) return { ok: false, error: 'Plaza fija no encontrada' };
+    socioId = plaza.socio_id as string;
+  }
+  return guardarPlazaFijaDesdeSesion(
+    admin, { studioId: params.studioId, socioId, datos: params.datos, plazaId: params.plazaId }, TEXTOS_PLAZA_FIJA_PANEL,
+  );
+}
+
+// App de la alumna: crea su plaza desde la clase que está viendo, desde hoy y sin
+// fin. Mismas reglas que el panel; el límite semanal, sin confirmación.
+export async function crearPlazaFijaPublica(params: {
+  studioId: string; sesionId: string; socioId: string; authUserId: string;
+}): Promise<ResultadoGuardarPlazaFija> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
+  if (!socia) return { ok: false, error: 'No autorizado' };
+  return guardarPlazaFijaDesdeSesion(admin, {
+    studioId: params.studioId, socioId: params.socioId,
+    datos: { sesionId: params.sesionId, spotId: null, vigenciaDesde: hoyEnEstudio(), vigenciaHasta: null },
+  }, TEXTOS_PLAZA_FIJA_ALUMNA);
 }
 
 type EstadoPlazaFija = 'ACTIVA' | 'PAUSADA' | 'BAJA';
@@ -3791,6 +3924,36 @@ async function aplicarEstadoPlazaFija(
   params: { studioId: string; plazaId: string; estado: EstadoPlazaFija; socioId?: string },
   mensajeSitioOcupado: string,
 ): Promise<ResultadoEstadoPlazaFija> {
+  // Reanudar vuelve a pasar las reglas de dar una plaza. Sin esto, desde la app
+  // se podía pausar una plaza, crear otra (el límite semanal solo cuenta las
+  // ACTIVAS) y reanudar la primera: una plaza más que su cuota, reservada cada
+  // semana sin descontar nada. Y reanudar sin cuota vigente. El mostrador puede
+  // pasar del límite a sabiendas (decisión del fundador), la clienta no.
+  if (params.estado === 'ACTIVA') {
+    let lectura = admin.from('plazas_fijas').select(COLUMNAS_PLAZA_FIJA)
+      .eq('id', params.plazaId).eq('studio_id', params.studioId);
+    if (params.socioId) lectura = lectura.eq('socio_id', params.socioId);
+    const { data: fila } = await lectura.maybeSingle();
+    if (!fila) return { error: 'Plaza fija no encontrada' as const };
+    const actual = plazaFijaDeFila(fila as unknown as Record<string, unknown>);
+    if (actual.estado !== 'ACTIVA') {
+      const [{ data: susRows }, { data: planRows }, { data: activasRows }] = await Promise.all([
+        admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', actual.socioId).eq('estado', 'ACTIVA'),
+        admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
+        admin.from('plazas_fijas').select('id').eq('studio_id', params.studioId).eq('socio_id', actual.socioId).eq('estado', 'ACTIVA'),
+      ]);
+      const planes = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
+      const cuota = cuotaParaPlazaFija(actual.socioId, (susRows ?? []).map(mapSuscripcion), planes, hoyEnEstudio(), actual.tipoClaseId);
+      const textos = params.socioId ? TEXTOS_PLAZA_FIJA_ALUMNA : TEXTOS_PLAZA_FIJA_PANEL;
+      if (!cuota) return { error: textos.sinCuota };
+      const activas = (activasRows ?? []).length;
+      const exceso = params.socioId ? superaLimiteSemanal(cuota, activas) : null;
+      if (exceso) {
+        return { error: `Tu cuota es de ${exceso.limite} ${exceso.limite === 1 ? 'clase' : 'clases'} por semana y ya tienes ${activas} ${activas === 1 ? 'plaza fija activa' : 'plazas fijas activas'}.` };
+      }
+    }
+  }
+
   let consulta = admin.from('plazas_fijas')
     .update({ estado: params.estado })
     .eq('id', params.plazaId).eq('studio_id', params.studioId);
