@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
-  CalendarDays, ChevronDown,
+  CalendarDays, CalendarClock,
   UserPlus, UserCheck, Pencil, Trash2, Copy,
   Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
 } from 'lucide-react';
@@ -77,6 +77,10 @@ import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 import { TentareOrb } from '@/components/marca/tentare-orb';
 import { DialogoRenovarSerie } from '@/components/series/dialogo-renovar-serie';
+import { VistaHorario } from '@/components/calendario/vista-horario';
+import { ElegirClienta } from '@/components/calendario/elegir-clienta';
+import { pedirHorario } from '@/lib/horario-fijo-cliente';
+import { textoRepeticion, type HorarioFijo, type TarjetaHorario } from '@/lib/horario-fijo';
 import { nombreSerie } from '@/lib/series-renovacion';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -590,7 +594,9 @@ export default function Calendario() {
   const [mounted, setMounted] = useState(false);
 
   // ── Vista: Día (por sala) / Semana (7 columnas) / Mes — punto 2 del rediseño ─
-  const [vista, setVista] = useState<'dia' | 'semana' | 'mes'>('semana');
+  // «Horario» no es un rango de fechas: son las clases que se repiten, por día
+  // de la semana (components/calendario/vista-horario.tsx).
+  const [vista, setVista] = useState<'dia' | 'semana' | 'mes' | 'horario'>('semana');
   const [semana, setSemana] = useState(() => weekStart(FALLBACK));
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => FALLBACK);
   const [mesVisto, setMesVisto] = useState(() => FALLBACK);
@@ -656,7 +662,6 @@ export default function Calendario() {
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
   const [showRecurrentes, setShowRecurrentes] = useState(false);
   const [initialRecurrente, setInitialRecurrente] = useState<RecurringFormData | undefined>(undefined);
-  const [showNuevaMenu, setShowNuevaMenu] = useState(false);
   const [showCobertura, setShowCobertura] = useState(false);
   const [ausencias, setAusencias] = useState<AusenciaInstructora[]>([]);
   useEffect(() => { let vivo = true; listarAusencias().then(r => { if (vivo) setAusencias(r); }); return () => { vivo = false; }; }, []);
@@ -1398,6 +1403,7 @@ export default function Calendario() {
       horaFin: form.horaFin,
     });
     if (!guardado.ok) { showToast(guardado.error); return; }
+    invalidarHorario();
     if (guardado.count != null && guardado.count !== n) {
       Sentry.captureMessage('[calendario] editar_serie_desde: filas afectadas no coinciden con las esperadas', {
         level: 'warning', tags: { area: 'calendario', tipo: 'conflicto_edicion' },
@@ -1546,6 +1552,7 @@ export default function Calendario() {
     const res = await cancelarSerieDesde(sesionId);
     setSesionId(null);
     if (!res.ok) { showToast(res.error); return; }
+    invalidarHorario();
     // El toast cuenta lo que de verdad salió. Antes decía «clientas avisadas»
     // siempre: `notificarCancelacionSesiones` disparaba los emails sin esperar
     // el resultado, exactamente el fallo que ya se cerró en `cancelarSesion`
@@ -1586,6 +1593,7 @@ export default function Calendario() {
   async function crearClasesRecurrentes(sesionesFields: Omit<Sesion, 'id' | 'studioId'>[]) {
     const res = await addSesionesSerie(sesionesFields);
     if (!res.ok) { showToast(`No se ha creado la serie. ${res.error}`); return; }
+    invalidarHorario();
     setShowRecurrentes(false);
     const { navego: otraSemana } = invalidarCacheSerieYNavegarSiHaceFalta(sesionesFields.map(s => new Date(s.inicio)));
     if (!otraSemana) void refrescarVista();
@@ -1784,6 +1792,48 @@ export default function Calendario() {
     await cargarDatosVista(rango);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rango.desde, rango.hasta, cargarDatosVista]);
+
+  // ── Horario fijo: las clases que se repiten ─────────────────────────────────
+  // Todas las clases futuras de cada serie, agrupadas en el servidor
+  // (`/api/calendario/horario`). Se pide al entrar en la vista «Horario» o al
+  // abrir una clase de una serie (para decir hasta cuándo se repite), y se
+  // olvida tras cualquier cambio que lo mueva: crear, editar, cancelar o renovar
+  // una serie y dar una plaza fija. `versionHorario` descarta la respuesta de
+  // una petición que ya estaba en vuelo cuando se olvidó.
+  const [horario, setHorario] = useState<HorarioFijo | null>(null);
+  const [errorHorario, setErrorHorario] = useState<string | null>(null);
+  const [versionHorario, setVersionHorario] = useState(0);
+  const necesitaHorario = vista === 'horario' || Boolean(sesionActual?.serieId);
+  useEffect(() => {
+    if (!mounted || !necesitaHorario || horario) return;
+    let vigente = true;
+    void pedirHorario().then(h => {
+      if (!vigente) return;
+      if (h) { setHorario(h); setErrorHorario(null); }
+      else setErrorHorario('Comprueba tu conexión y vuelve a intentarlo.');
+    });
+    return () => { vigente = false; };
+  }, [mounted, necesitaHorario, horario, versionHorario]);
+  const invalidarHorario = useCallback(() => {
+    setHorario(null);
+    setErrorHorario(null);
+    setVersionHorario(v => v + 1);
+  }, []);
+
+  const nombreTipoDe = (id: string) => tiposClase.find(t => t.id === id)?.nombre;
+  const nombreSalaDe = (id: string) => salas.find(x => x.id === id)?.nombre;
+  // «+ Plaza fija» desde una tarjeta: primero la clienta, luego el mismo
+  // diálogo que la ficha, con esa clase ya elegida.
+  const [plazaFijaEnTarjeta, setPlazaFijaEnTarjeta] = useState<TarjetaHorario | null>(null);
+
+  function verProximaClase(t: TarjetaHorario) {
+    if (sesiones.some(x => x.id === t.proximaSesionId)) { saltarAClase(t.proximaSesionId); return; }
+    // Más allá de lo que tiene cargado el panel: al menos se lleva a ese día.
+    const inicio = new Date(t.proximaInicio);
+    setDiaSeleccionado(inicio);
+    setSemana(weekStart(inicio));
+    setVista('dia');
+  }
 
   // Aforo en vivo. Cierra dos agujeros a la vez:
   //
@@ -2372,7 +2422,9 @@ export default function Calendario() {
   }
 
   // ── Label ────────────────────────────────────────────────────────────────────
-  const mesLabel = vista === 'semana'
+  const mesLabel = vista === 'horario'
+    ? 'Las clases que se repiten cada semana'
+    : vista === 'semana'
     ? `${semana.toLocaleDateString('es-ES', { day: 'numeric' })} – ${addDays(semana, 6).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`
     : vista === 'mes'
     ? mesVisto.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
@@ -2608,8 +2660,18 @@ export default function Calendario() {
             >
               <CalendarDays size={14} />Mes
             </button>
+            {!esInstructorTop && (
+              <button
+                onClick={() => setVista('horario')}
+                title="Las clases que se repiten: hasta cuándo van y quién viene fija"
+                className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', vista === 'horario' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
+              >
+                <CalendarClock size={14} />Horario
+              </button>
+            )}
           </div>
 
+          {vista !== 'horario' && (
           <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
             <button
               onClick={() => vista === 'semana' ? cambiarSemana(-1) : vista === 'mes' ? cambiarMes(-1) : cambiarDia(-1)}
@@ -2629,44 +2691,27 @@ export default function Calendario() {
               <ChevronRight size={16} />
             </button>
           </div>
+          )}
 
+          {/* Las dos formas de crear, a la vista. «Clase recurrente» vivía dentro
+              de un desplegable de «Nueva clase» y casi nadie la encontraba — y
+              es la que monta el horario fijo del estudio. */}
           {gestionaClientas ? (
-          <div className="relative">
-            <div className="flex rounded-xl overflow-hidden bg-primary">
+            <>
               <button
                 onClick={() => openNueva()}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-card/10 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
               >
                 <Plus size={15} />Nueva clase
               </button>
               <button
-                onClick={() => setShowNuevaMenu(v => !v)}
-                aria-label="Más opciones para crear clase"
-                className="px-2 py-2 text-primary-foreground hover:bg-card/10 transition-colors border-l border-primary-foreground/20"
+                onClick={() => { setInitialRecurrente(undefined); setShowRecurrentes(true); }}
+                title="Una clase que se repite cada semana, con su hora, sala e instructora"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border border-border bg-card text-foreground hover:bg-muted transition-colors"
               >
-                <ChevronDown size={14} />
+                <RefreshCw size={15} />Clase recurrente
               </button>
-            </div>
-            {showNuevaMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowNuevaMenu(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px] menu-pop-in">
-                  <button
-                    onClick={() => { setShowNuevaMenu(false); openNueva(); }}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-foreground hover:bg-muted transition-colors text-left"
-                  >
-                    <Plus size={14} className="text-muted-foreground" />Clase única
-                  </button>
-                  <button
-                    onClick={() => { setShowNuevaMenu(false); setInitialRecurrente(undefined); setShowRecurrentes(true); }}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-foreground hover:bg-muted transition-colors text-left"
-                  >
-                    <RefreshCw size={14} className="text-muted-foreground" />Clases recurrentes
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+            </>
           ) : creaClasesPropias && (
             <button
               onClick={() => openNueva()}
@@ -2686,13 +2731,14 @@ export default function Calendario() {
           antes de llegar a una sola clase. */}
       {/* Sin sentido en Mes: son agregados de la ventana de Día/Semana visible
           (metricasDia/metricasSemana), no del mes entero. */}
-      {vista !== 'mes' && (
+      {vista !== 'mes' && vista !== 'horario' && (
         <div className="hidden lg:block px-6 pb-3 shrink-0">
           <TarjetasMetricas tarjetas={tarjetas} />
         </div>
       )}
 
       {/* ── Filtros (punto 9) ──────────────────────────────────────────────────── */}
+      {vista !== 'horario' && (
       <div className="px-4 lg:px-6 pb-3 shrink-0">
         <FiltrosCalendario
           salas={datosVista?.salas ?? []}
@@ -2705,11 +2751,12 @@ export default function Calendario() {
           onBusqueda={setBusqueda}
         />
       </div>
+      )}
 
       {/* ── Franja de decisiones (punto 3) ─────────────────────────────────────── */}
       {/* Sin sentido en Mes: listaría cada clase pendiente del mes entero, no
           "lo de hoy/esta semana" que la franja está pensada para resumir. */}
-      {vista !== 'mes' && decisionesResumen.length > 0 && (
+      {vista !== 'mes' && vista !== 'horario' && decisionesResumen.length > 0 && (
         <div className="px-4 lg:px-6 pb-3 shrink-0">
           <FranjaDecisiones
             decisiones={decisionesResumen}
@@ -2722,8 +2769,25 @@ export default function Calendario() {
       )}
 
       {/* ── Día por salas / Semana 7 columnas / Mes ────────────────────────────── */}
-      <ReanimarAlCambiar clave={claveVista} className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6" animClassName="calendario-vista-in">
-        {!datosVista && errorCargaVista ? (
+      <ReanimarAlCambiar clave={vista === 'horario' ? 'horario' : claveVista} className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6" animClassName="calendario-vista-in">
+        {vista === 'horario' ? (
+          <VistaHorario
+            horario={horario}
+            error={errorHorario}
+            onReintentar={invalidarHorario}
+            hoy={todayStr}
+            nombreTipo={nombreTipoDe}
+            nombreSala={nombreSalaDe}
+            nombreInstructora={id => instructores.find(i => i.id === id)?.nombre ?? null}
+            nombreClienta={nombreClientaResolver}
+            puedeRenovar={!esInstructorTop}
+            puedeAsignarPlaza={gestionaClientas}
+            onRenovar={t => setRenovarSerieDe({ serieId: t.serieId, nombre: nombreSerie(t, nombreTipoDe, nombreSalaDe) })}
+            onAnadirPlaza={setPlazaFijaEnTarjeta}
+            onVerClase={verProximaClase}
+            onCrearRecurrente={gestionaClientas ? () => { setInitialRecurrente(undefined); setShowRecurrentes(true); } : undefined}
+          />
+        ) : !datosVista && errorCargaVista ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-4">
             <p className="text-[13px] font-medium text-foreground">No hemos podido cargar el calendario</p>
             <p className="text-[12px] text-muted-foreground">{errorCargaVista}</p>
@@ -2754,6 +2818,7 @@ export default function Calendario() {
             nombreEstudio={studio?.nombre ?? 'tu estudio'}
             onCreado={(n) => {
               showToast(`Horario creado: ${n} clases en las próximas semanas`);
+              invalidarHorario();
               void cargarDatosVista(rango);
             }}
           />
@@ -2857,6 +2922,7 @@ export default function Calendario() {
           onCambiarPestana={setPestanaPanel}
           titulo={sesionActual.tipoClase.nombre}
           horaTexto={horaTextoSesion(sesionActual.inicio, sesionActual.fin)}
+          repeticion={sesionActual.serieId ? textoRepeticion(sesionActual.inicio, sesionActual.serieId, horario) : null}
           instructoraNombre={sesionActual.instructor.nombre === '?' ? null : sesionActual.instructor.nombre}
           salaNombre={sesionActual.sala.nombre === '?' ? null : sesionActual.sala.nombre}
           estado={estadoVista}
@@ -3183,6 +3249,27 @@ export default function Calendario() {
         />
       )}
 
+      {plazaFijaEnTarjeta && (
+        <ElegirClienta
+          titulo="Añadir plaza fija"
+          subtitulo={nombreSerie(plazaFijaEnTarjeta, nombreTipoDe, nombreSalaDe)}
+          clientas={socios
+            .filter(s => s.activo && !plazaFijaEnTarjeta.plazasFijas.some(p => p.socioId === s.id))
+            .map(s => ({ id: s.id, nombre: `${s.nombre} ${s.apellidos}` }))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))}
+          onClose={() => setPlazaFijaEnTarjeta(null)}
+          onElegir={socioId => {
+            const t = plazaFijaEnTarjeta;
+            setPlazaFijaEnTarjeta(null);
+            setPlazaFijaDesdeClase({
+              socioId,
+              clave: claveFranjaDeSesion({ salaId: t.salaId, tipoClaseId: t.tipoClaseId, inicio: t.proximaInicio }),
+              spotId: null,
+            });
+          }}
+        />
+      )}
+
       {plazaFijaDesdeClase && (
         <DialogoPlazaFija
           socioId={plazaFijaDesdeClase.socioId}
@@ -3191,6 +3278,7 @@ export default function Calendario() {
           onClose={() => setPlazaFijaDesdeClase(null)}
           onGuardada={(r, movida) => {
             setPlazaFijaDesdeClase(null);
+            invalidarHorario();
             showToast(textoPlazaGuardada(r, movida));
             // Las reservas de las próximas semanas las acaba de crear el servidor.
             void refrescarVista();
@@ -3532,9 +3620,12 @@ export default function Calendario() {
         <DialogoRenovarSerie
           serieId={renovarSerieDe.serieId}
           nombre={renovarSerieDe.nombre}
-          onClose={() => setRenovarSerieDe(null)}
+          // Al cerrar también se olvida el horario: «Renovar sola» se guarda sin
+          // renovar, y la tarjeta tiene que decir si se renueva sola.
+          onClose={() => { setRenovarSerieDe(null); invalidarHorario(); }}
           onHecho={(mensaje, renovada) => {
             setRenovarSerieDe(null);
+            invalidarHorario();
             showToast(mensaje);
             // Las clases nuevas las ha creado el servidor: se olvida la caché de
             // todas las semanas y se vuelve a pedir la que se está viendo.

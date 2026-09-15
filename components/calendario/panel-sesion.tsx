@@ -1,5 +1,6 @@
 'use client';
 
+import { RefreshCw } from 'lucide-react';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { SpotMap } from '@/components/spots/spot-map';
 import { ListaClientas, type ListaClientasProps } from './lista-clientas';
@@ -22,6 +23,8 @@ export interface PanelSesionProps {
 
   titulo: string;
   horaTexto: string;
+  /** «Se repite cada lunes hasta el 05/10/2026» si la clase es de una serie; null si es suelta. */
+  repeticion?: string | null;
   /**
    * Quién la da y dónde. El panel decía «Pilates Reformer · 09:00–09:50 ·
    * Programada» y nada más: con 9 instructoras y 2 salas, la propietaria tenía
@@ -65,7 +68,7 @@ const PESTANAS: { id: PestanaSesion; label: string }[] = [
 
 export function PanelSesion({
   abierto, onCerrar, pestana, onCambiarPestana, titulo, horaTexto, estado, ocupacion, accionesCabecera,
-  instructoraNombre = null, salaNombre = null,
+  instructoraNombre = null, salaNombre = null, repeticion = null,
   clientas, extraClientas, eventosHistorial, spots, reservasConSocio, socios,
   onCheckinSpot, onLiberarSpot, onAsignarSpot,
 }: PanelSesionProps) {
@@ -93,6 +96,12 @@ export function PanelSesion({
             <p className="text-[12px] text-muted-foreground">
               {horaTexto} · <span style={{ color: p.tinta }}>{p.label}</span>
             </p>
+            {repeticion && (
+              <p className="flex items-center gap-1 text-[12px] text-muted-foreground" data-testid="repeticion-clase">
+                <RefreshCw size={11} aria-hidden className="shrink-0" />
+                <span className="truncate">{repeticion}</span>
+              </p>
+            )}
             {(instructoraNombre || salaNombre) && (
               <p className="text-[12px] text-muted-foreground truncate">
                 {/* Con una sustitución abierta el estado ya dice «Sin

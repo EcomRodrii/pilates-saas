@@ -42,6 +42,13 @@ export default function Contenido() {
           de acordarte, marca &ldquo;Renovar sola&rdquo; al renovarla: un mes antes del final se renueva con las mismas
           semanas y te avisa.
         </p>
+        <p>
+          Para crear una serie directamente, usa el botón &ldquo;Clase recurrente&rdquo; de la cabecera del Calendario.
+          Las clases de una serie llevan la marca ↻ y, al abrirlas, dicen hasta cuándo se repiten. Y la vista
+          &ldquo;Horario&rdquo; (junto a Día, Semana y Mes) reúne todas las que se repiten por día de la semana:
+          hasta cuándo va cada una, si se renueva sola y cuántas alumnas tienen plaza fija, con los botones para
+          renovarla o dar una plaza fija a una clienta sin salir de ahí.
+        </p>
       </AyudaPaso>
 
       <AyudaResultado>
