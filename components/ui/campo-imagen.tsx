@@ -106,7 +106,7 @@ export function CampoImagen({
               onError={respaldo ? alFallarImagen(respaldo) : undefined}
             />
           ) : (
-            <span className="text-[9px] text-muted-foreground text-center px-1">Sin imagen</span>
+            <span className="text-xs leading-tight text-muted-foreground text-center px-1">Sin imagen</span>
           )}
         </div>
 
