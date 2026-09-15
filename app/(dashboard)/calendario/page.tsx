@@ -262,13 +262,19 @@ function FormField({
 
 // ─── DiaPill ─────────────────────────────────────────────────────────────────
 
-function DiaPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function DiaPill({ label, nombre, active, onClick }: { label: string; nombre: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      // La letra sola («M», «X») no dice qué día es a un lector de pantalla, ni
+      // si está marcado.
+      aria-label={nombre}
+      aria-pressed={active}
       className={cn(
-        'w-9 h-9 rounded-full text-[12px] font-bold transition-colors',
+        // Con el dedo, 44 px de alto y el ancho que le toque en la fila de siete;
+        // con ratón, el círculo de 36 px de siempre.
+        'h-11 w-full rounded-full text-[13px] font-bold transition-colors pointer-fine:h-9 pointer-fine:w-9 pointer-fine:text-[12px]',
         active ? 'bg-brand text-brand-foreground' : 'bg-muted text-muted-foreground hover:bg-border'
       )}
     >
@@ -277,9 +283,10 @@ function DiaPill({ label, active, onClick }: { label: string; active: boolean; o
   );
 }
 
-const DIA_PILLS: { label: string; day: number }[] = [
-  { label: 'L', day: 1 }, { label: 'M', day: 2 }, { label: 'X', day: 3 },
-  { label: 'J', day: 4 }, { label: 'V', day: 5 }, { label: 'S', day: 6 }, { label: 'D', day: 0 },
+const DIA_PILLS: { label: string; nombre: string; day: number }[] = [
+  { label: 'L', nombre: 'Lunes', day: 1 }, { label: 'M', nombre: 'Martes', day: 2 }, { label: 'X', nombre: 'Miércoles', day: 3 },
+  { label: 'J', nombre: 'Jueves', day: 4 }, { label: 'V', nombre: 'Viernes', day: 5 }, { label: 'S', nombre: 'Sábado', day: 6 },
+  { label: 'D', nombre: 'Domingo', day: 0 },
 ];
 
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
@@ -388,17 +395,26 @@ function ModalClasesRecurrentes({
     onCrear(sesionesGeneradas);
   }
 
-  const f2 = 'w-full border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-foreground focus:outline-none text-foreground';
-  const s2 = 'w-full border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-foreground focus:outline-none text-foreground bg-card appearance-none';
+  // Con el dedo los campos van a 16 px: por debajo, iOS amplía la página al
+  // enfocarlos. Con ratón, los 14 px de siempre. `min-w-0` porque en Safari un
+  // `<input type="date">` puede medir su ancho natural aunque lleve `w-full`.
+  const f2 = 'w-full min-w-0 border border-border rounded-xl px-3.5 py-2.5 text-base pointer-fine:text-sm focus:border-foreground focus:outline-none text-foreground';
+  const s2 = 'w-full min-w-0 border border-border rounded-xl px-3.5 py-2.5 text-base pointer-fine:text-sm focus:border-foreground focus:outline-none text-foreground bg-card appearance-none';
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      {/* En el móvil este diálogo iba de borde a borde de la pantalla: su
+          `max-w-lg` pisaba el `max-w` del DialogContent base, que es el que deja
+          1rem de margen a cada lado. `sm:max-w-lg` lo aplica solo donde cabe.
+          Y «Crear» estaba al final del formulario, a dos pantallas de scroll:
+          ahora la cabecera y los botones se quedan quietos y lo que se desplaza
+          es el formulario. */}
+      <DialogContent className="sm:max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 px-5 pt-5 pb-3 pr-12">
           <DialogTitle className="text-lg font-semibold text-foreground">Crear clases recurrentes</DialogTitle>
           <p className="text-sm text-muted-foreground mt-0.5">Genera múltiples sesiones de una vez</p>
         </DialogHeader>
-        <div className="space-y-4 mt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-1 pb-4 space-y-4">
           <FormField label="Tipo de clase">
             <select className={s2} value={form.tipoClaseId} onChange={e => {
               const tipoClaseId = e.target.value;
@@ -458,7 +474,9 @@ function ModalClasesRecurrentes({
                 }} />
             </FormField>
             {duracionInvalida && (
-              <p className="col-span-2 -mt-2 text-xs text-amber-700">Mínimo 15 minutos.</p>
+              // `sm:` y no a secas: en el móvil la rejilla tiene UNA columna, y un
+              // `col-span-2` le añadía una segunda implícita.
+              <p className="sm:col-span-2 -mt-2 text-xs text-amber-700">Mínimo 15 minutos.</p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -466,9 +484,11 @@ function ModalClasesRecurrentes({
             <p className="text-xs leading-relaxed text-muted-foreground text-balance">
               Se creará una clase cada semana en estos días, desde la fecha de inicio hasta la de fin.
             </p>
-            <div role="group" aria-labelledby={`${uid}-dias`} className="flex items-center gap-2 flex-wrap">
-              {DIA_PILLS.map(({ label, day }) => (
-                <DiaPill key={day} label={label} active={form.diasSemana.includes(day)} onClick={() => toggleDia(day)} />
+            {/* Con el dedo, los siete en una fila que reparte el ancho (a 320 px
+                siguen cabiendo en una); con ratón, los círculos de siempre. */}
+            <div role="group" aria-labelledby={`${uid}-dias`} className="grid max-w-sm grid-cols-7 gap-1.5 pointer-fine:flex pointer-fine:items-center pointer-fine:gap-2">
+              {DIA_PILLS.map(({ label, nombre, day }) => (
+                <DiaPill key={day} label={label} nombre={nombre} active={form.diasSemana.includes(day)} onClick={() => toggleDia(day)} />
               ))}
             </div>
             {form.diasSemana.length === 0 && <p className="text-xs text-destructive">Selecciona al menos un día</p>}
@@ -501,12 +521,12 @@ function ModalClasesRecurrentes({
             </div>
           )}
         </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">Cancelar</button>
+        <div className="shrink-0 flex gap-3 border-t border-border px-5 py-3">
+          <button onClick={onClose} className="flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">Cancelar</button>
           <button
             onClick={handleSubmit}
             disabled={form.diasSemana.length === 0 || estimatedCount === 0 || duracionInvalida}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-brand text-brand-foreground hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold bg-brand text-brand-foreground hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {estimatedCount > 0 ? `Crear ${estimatedCount} clases` : 'Crear clases'}
           </button>
