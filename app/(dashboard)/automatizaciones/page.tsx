@@ -204,51 +204,55 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
                 está trabajando Tentare solo. Va a 20 px sobre el fondo de
                 marca, donde su iridiscencia se lee bien. */}
             <TentareOrb tam={20} />
-            <span className="text-sm text-white/50 font-medium">Sistema autónomo</span>
+            {/* ⚠️ Tinta `primary-foreground`, nunca `white`: en oscuro la
+                tarjeta `bg-primary` es CLARA y el blanco fijo se quedaba en
+                1,17:1. Las opacidades bajan como mucho a /70 — a /50 la letra
+                pequeña ya no llega a 4,5:1 sobre el primario claro. */}
+            <span className="text-sm text-primary-foreground/70 font-medium">Sistema autónomo</span>
             {/* El (i) va junto a esta etiqueta y no junto al <h1>, porque el
                 título de esta pantalla es un saludo: "Buenas tardes 👋" no es
                 el nombre de nada que explicar. Tinta propia: el resto del
                 panel lo pinta sobre fondo claro, y aquí el fondo es la marca. */}
             <AyudaDePantalla
               ruta="/automatizaciones"
-              className="text-white/50 hover:bg-white/10 hover:text-white data-popup-open:bg-white/10 data-popup-open:text-white"
+              className="text-primary-foreground/70 hover:bg-primary-foreground/10 hover:text-primary-foreground data-popup-open:bg-primary-foreground/10 data-popup-open:text-primary-foreground"
             />
           </div>
           <h1 className="text-2xl font-bold mb-1">
             {greeting} 👋
           </h1>
           {pendingAdmin.length === 0 ? (
-            <p className="text-white/70 text-sm">
+            <p className="text-primary-foreground/70 text-sm">
               Hoy no tienes nada pendiente. El sistema gestionó{' '}
-              <span className="text-white font-semibold">{ejecutadas} acciones</span> automáticamente.
+              <span className="text-primary-foreground font-semibold">{ejecutadas} acciones</span> automáticamente.
             </p>
           ) : (
-            <p className="text-white/70 text-sm">
+            <p className="text-primary-foreground/70 text-sm">
               El sistema gestionó{' '}
-              <span className="text-white font-semibold">{ejecutadas} acciones</span> hoy,
-              pero hay <span className="text-amber-300 font-semibold">{pendingAdmin.length} casos</span> que requieren tu atención.
+              <span className="text-primary-foreground font-semibold">{ejecutadas} acciones</span> hoy,
+              pero hay <span className="text-amber-300 dark:text-amber-800 font-semibold">{pendingAdmin.length} casos</span> que requieren tu atención.
             </p>
           )}
         </div>
         <div className="shrink-0 w-14 h-14 rounded-2xl bg-card/10 flex items-center justify-center">
-          <Zap size={28} className="text-white/80" />
+          <Zap size={28} className="text-primary-foreground/80" />
         </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
         <div className="rounded-xl bg-card/10 px-4 py-3">
           <div className="text-2xl font-bold">{ejecutadas}</div>
-          <div className="text-white/50 text-xs mt-0.5">Acciones hoy</div>
+          <div className="text-primary-foreground/70 text-xs mt-0.5">Acciones hoy</div>
         </div>
         <div className="rounded-xl bg-card/10 px-4 py-3">
-          <div className={cn('text-2xl font-bold', fallidas > 0 ? 'text-amber-300' : 'text-white')}>{fallidas}</div>
-          <div className="text-white/50 text-xs mt-0.5">Fallidas hoy</div>
+          <div className={cn('text-2xl font-bold', fallidas > 0 ? 'text-amber-300 dark:text-amber-800' : 'text-primary-foreground')}>{fallidas}</div>
+          <div className="text-primary-foreground/70 text-xs mt-0.5">Fallidas hoy</div>
         </div>
         <div className="rounded-xl bg-card/10 px-4 py-3">
-          <div className={cn('text-2xl font-bold', pendingAdmin.length > 0 ? 'text-red-300' : 'text-green-300')}>
+          <div className={cn('text-2xl font-bold', pendingAdmin.length > 0 ? 'text-red-300 dark:text-red-800' : 'text-green-300 dark:text-green-800')}>
             {pendingAdmin.length}
           </div>
-          <div className="text-white/50 text-xs mt-0.5">Tu intervención</div>
+          <div className="text-primary-foreground/70 text-xs mt-0.5">Tu intervención</div>
         </div>
       </div>
     </div>
@@ -674,7 +678,7 @@ function LogItem({
         <button
           onClick={onApproveCharge}
           disabled={approving}
-          className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
         >
           {approving ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
           {approving ? 'Cobrando…' : 'Aprobar y cobrar'}
@@ -685,7 +689,7 @@ function LogItem({
           onClick={onAprobarEnvio}
           disabled={approving || !log.mensajeCliente}
           title={!log.mensajeCliente ? 'No se pudo redactar un mensaje para la clienta' : undefined}
-          className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
         >
           {approving ? <Loader2 size={12} className="animate-spin" /> : <Gift size={12} />}
           {approving ? 'Enviando…' : (ETIQUETA_APROBAR[log.accion] ?? 'Aprobar y enviar')}

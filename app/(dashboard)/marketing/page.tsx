@@ -948,7 +948,7 @@ export default function MarketingPage() {
                         <button
                           onClick={() => handleEnviarCampana(c)}
                           disabled={enviandoId === c.id}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-[#333] disabled:opacity-60 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-60 transition-colors"
                           title="Enviar campaña ahora"
                         >
                           {enviandoId === c.id
