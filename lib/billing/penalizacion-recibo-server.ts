@@ -198,13 +198,19 @@ export async function seguirPenalizacionAlRecibo(
         if (error) console.error('[penalizaciones] no se pudo reflejar el recibo en la penalización', penalizacionId, error.message);
         const tocadas = data?.length ?? 0;
         if (tocadas > 0 && previa?.reserva_id && hayQueRevisarLiquidacion(previa.estado, e)) {
-          const revisada = await pedirRevisionLiquidacionPenalizacion(admin, p.studioId, previa,
+          const resultado = await pedirRevisionLiquidacionPenalizacion(admin, p.studioId, previa,
             motivoRevisionPorRecibo(estadoRecibo, Number(previa.importe)));
-          if (!revisada) {
-            Sentry.captureMessage('[penalizaciones] no se pudo pedir la revisión de la liquidación de una penalización no cobrada', {
-              level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-recibo' },
-              extra: { penalizacionId, reciboId: p.reciboId, studioId: p.studioId },
-            });
+          // I-5 (auditoría 15-sep): 'ya_pagada' es el caso grave — la nómina que
+          // repartió esta penalización ya se pagó, así que nadie va a corregirla
+          // solo. Antes 0 filas sin error se leía como éxito y nunca avisaba.
+          if (resultado === 'ya_pagada' || resultado === 'error') {
+            Sentry.captureMessage(
+              resultado === 'ya_pagada'
+                ? '[penalizaciones] penalización no cobrada tras pagar la nómina que la repartió: revisión manual'
+                : '[penalizaciones] no se pudo pedir la revisión de la liquidación de una penalización no cobrada',
+              { level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-recibo' },
+                extra: { penalizacionId, reciboId: p.reciboId, studioId: p.studioId } },
+            );
           }
         }
         return { error: !!error, tocadas };
