@@ -75,6 +75,8 @@ async function montar(page: Page, opts: {
   guardar?: Respuesta[];
   /** Respuesta de `POST /api/plazas-fijas/estado` (quitar). */
   estadoStatus?: number; estadoBody?: unknown;
+  /** Columnas de la plaza fija que se pisan (p. ej. una pausa). */
+  plaza?: Record<string, unknown>;
 }) {
   await page.clock.setFixedTime(new Date(AHORA));
   await page.addInitScript(([key, uid]) => {
@@ -110,7 +112,7 @@ async function montar(page: Page, opts: {
       escriturasRest.push(route.request().method());
       return json(route, []);
     }
-    return json(route, [PLAZA_ROW]);
+    return json(route, [{ ...PLAZA_ROW, ...opts.plaza }]);
   });
 
   // Registradas después del catch-all `**/api/**`: ganan éstas.
@@ -275,5 +277,72 @@ test.describe('Plaza fija: quitarla suelta las clases que ya tenía reservadas',
     // El intento SALIÓ de verdad: sin esto el test sería hueco.
     expect(cambiosEstado.length).toBeGreaterThan(0);
     await expect(page.getByText('Martes · 10:00')).toBeVisible();
+  });
+});
+
+test.describe('Plaza fija: pausarla unas fechas sin perderla', () => {
+  const conPausa = (o: Record<string, unknown>) => ({
+    ok: true, canceladas: [], mantenidas: [], fallidas: 0, creadas: 0,
+    plaza: plazaCamel({ id: 'pf-1', diaSemana: 2, horaInicio: '10:00:00', tipoClaseId: null, vigenciaDesde: '2026-01-01', ...o }),
+  });
+
+  test('pausar va por el servidor con las fechas, dice qué ha cancelado y la fila dice cuándo', async ({ page }) => {
+    const { cambiosEstado, escriturasRest } = await montar(page, {
+      sesiones: MARTES_10,
+      estadoBody: { ...conPausa({ pausaDesde: '2026-08-10', pausaHasta: '2026-08-23' }), canceladas: ['r-1', 'r-2'] },
+    });
+    await page.getByRole('button', { name: 'Pausar la plaza fija del Martes 10:00' }).click();
+    const dialogo = page.getByRole('dialog');
+    await expect(dialogo.getByRole('heading', { name: 'Pausar plaza fija' })).toBeVisible();
+    // Sin «hasta» no se puede guardar.
+    await expect(dialogo.getByRole('button', { name: 'Pausar', exact: true })).toBeDisabled();
+    await dialogo.getByLabel('Desde').fill('2026-08-10');
+    await dialogo.getByLabel('Hasta').fill('2026-08-23');
+    await dialogo.getByRole('button', { name: 'Pausar', exact: true }).click();
+
+    await expect(dialogo).toBeHidden();
+    expect(cambiosEstado).toEqual([{ plazaId: 'pf-1', pausa: { desde: '2026-08-10', hasta: '2026-08-23' } }]);
+    await expect(page.getByText('Plaza fija en pausa del 10/08/2026 al 23/08/2026 · 2 clases canceladas')).toBeVisible();
+    await expect(page.getByText('Pausa programada del 10/08/2026 al 23/08/2026')).toBeVisible();
+    expect(escriturasRest).toEqual([]);
+  });
+
+  test('si el servidor dice que no, el diálogo enseña el motivo y la plaza no queda en pausa', async ({ page }) => {
+    const { cambiosEstado } = await montar(page, {
+      sesiones: MARTES_10,
+      estadoStatus: 400,
+      estadoBody: { error: 'Una pausa no puede pasar de un año. Si no va a volver, quita la plaza fija.' },
+    });
+    await page.getByRole('button', { name: 'Pausar la plaza fija del Martes 10:00' }).click();
+    const dialogo = page.getByRole('dialog');
+    await dialogo.getByLabel('Hasta').fill('2026-08-23');
+    await dialogo.getByRole('button', { name: 'Pausar', exact: true }).click();
+
+    await expect(dialogo.getByText('Una pausa no puede pasar de un año. Si no va a volver, quita la plaza fija.')).toBeVisible();
+    // El intento SALIÓ de verdad: sin esto el test sería hueco.
+    expect(cambiosEstado.length).toBeGreaterThan(0);
+    await expect(dialogo).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialogo).toBeHidden();
+    await expect(page.getByText(/Pausa programada|En pausa hasta/)).toHaveCount(0);
+  });
+
+  test('una plaza en pausa lo dice, y quitar la pausa le vuelve a reservar las clases', async ({ page }) => {
+    const { cambiosEstado } = await montar(page, {
+      sesiones: MARTES_10,
+      plaza: { pausa_desde: '2026-08-03', pausa_hasta: '2026-08-20' },
+      estadoBody: { ...conPausa({ pausaDesde: null, pausaHasta: null }), creadas: 2 },
+    });
+    await expect(page.getByText('En pausa hasta el 20/08/2026')).toBeVisible();
+    await page.getByRole('button', { name: 'Cambiar la pausa de la plaza fija del Martes 10:00' }).click();
+    const dialogo = page.getByRole('dialog');
+    await expect(dialogo.getByRole('heading', { name: 'Cambiar la pausa' })).toBeVisible();
+    await expect(dialogo.getByLabel('Hasta')).toHaveValue('2026-08-20');
+    await dialogo.getByRole('button', { name: 'Quitar pausa' }).click();
+
+    await expect(dialogo).toBeHidden();
+    expect(cambiosEstado).toEqual([{ plazaId: 'pf-1', pausa: null }]);
+    await expect(page.getByText('Pausa quitada · 2 clases reservadas de nuevo')).toBeVisible();
+    await expect(page.getByText('En pausa hasta el 20/08/2026')).toHaveCount(0);
   });
 });

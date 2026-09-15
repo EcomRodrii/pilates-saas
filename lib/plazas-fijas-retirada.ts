@@ -14,12 +14,16 @@
 // se cancela aparte, con las reglas de siempre. Salir de una lista de espera no
 // tiene plazo, así que esas se sueltan siempre.
 //
+// `rango` (pausa con fechas): solo las clases cuya fecha LOCAL cae dentro, los
+// dos días incluidos. Sin rango, todas las futuras (quitar o cambiar de clase).
+//
 // Lógica pura: el tiempo entra por `ahoraMs` y la ventana ya resuelta por
 // sesión (el tipo de clase manda sobre el estudio), para que los tests sean
 // deterministas.
 
 import { sesionEncajaEnPlaza, type SesionSlot } from './plazas-fijas-slot.ts';
 import { esCancelacionTardia } from './booking-logic.ts';
+import { hoyEnEstudio } from './utils.ts';
 import type { PlazaFija, Reserva } from './types.ts';
 
 export interface ReservasARetirar {
@@ -35,6 +39,7 @@ export function reservasARetirarDePlaza(
   reservas: Pick<Reserva, 'id' | 'sesionId' | 'socioId' | 'estado'>[],
   ahoraMs: number,
   ventanaHorasDe: (sesionId: string) => number,
+  rango?: { desde: string; hasta: string },
 ): ReservasARetirar {
   const porId = new Map(sesiones.map(s => [s.id, s]));
   const retirar: string[] = [];
@@ -47,6 +52,10 @@ export function reservasARetirarDePlaza(
     const inicioMs = Date.parse(s.inicio);
     if (Number.isNaN(inicioMs) || inicioMs <= ahoraMs) continue;
     if (!sesionEncajaEnPlaza(pf, s)) continue;
+    if (rango) {
+      const fecha = hoyEnEstudio(new Date(s.inicio));
+      if (fecha < rango.desde || fecha > rango.hasta) continue;
+    }
     if (r.estado === 'CONFIRMADA' && esCancelacionTardia(s.inicio, new Date(ahoraMs), ventanaHorasDe(r.sesionId))) {
       mantener.push(r.id);
     } else {

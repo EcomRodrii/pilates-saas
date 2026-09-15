@@ -69,3 +69,14 @@ test('respeta la vigencia: una clase después de «hasta» no es de la plaza', (
   const r = reservasARetirarDePlaza(conFin, sesiones, [res('r-sig', 'sig'), res('r-sig2', 'sig2')], AHORA, ventana12h);
   assert.deepEqual(r.retirar, ['r-sig']);
 });
+
+test('con rango (pausa con fechas) solo suelta las clases de esas fechas, los dos días incluidos', () => {
+  const reservas = [res('r-sig', 'sig'), res('r-sig2', 'sig2')];
+  assert.deepEqual(reservasARetirarDePlaza(pf, sesiones, reservas, AHORA, ventana12h, { desde: '2026-09-15', hasta: '2026-09-15' }).retirar, ['r-sig2']);
+  assert.deepEqual(reservasARetirarDePlaza(pf, sesiones, reservas, AHORA, ventana12h, { desde: '2026-09-02', hasta: '2026-09-08' }).retirar, ['r-sig']);
+  // Dentro del rango pero dentro del plazo de cancelación: se mantiene igual que sin rango.
+  assert.deepEqual(
+    reservasARetirarDePlaza(pf, sesiones, [res('r-hoy', 'hoy')], AHORA, ventana12h, { desde: '2026-09-01', hasta: '2026-09-30' }),
+    { retirar: [], mantener: ['r-hoy'] },
+  );
+});

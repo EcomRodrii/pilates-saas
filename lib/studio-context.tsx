@@ -197,6 +197,7 @@ import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, hoyEnEstudio } from '@/lib/utils';
 import type { DatosPlazaFija, ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
+import type { Pausa, ResultadoPausaPlazaFija } from '@/lib/plazas-fijas-pausa';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import type { TabBarStyleId } from '@/lib/theme-schema';
@@ -332,6 +333,8 @@ interface StudioContextValue {
   asignarPlazaFija: (datos: DatosPlazaFija) => Promise<ResultadoGuardarPlazaFija>;
   moverPlazaFija: (id: string, datos: Omit<DatosPlazaFija, 'socioId'>) => Promise<ResultadoGuardarPlazaFija>;
   quitarPlazaFija: (id: string) => Promise<ResultadoEscritura & { canceladas?: number; mantenidas?: number; fallidas?: number }>;
+  // Pausa con fechas: sigue ACTIVA y con su sitio; `null` quita la pausa.
+  pausarPlazaFija: (id: string, pausa: Pausa | null) => Promise<ResultadoPausaPlazaFija>;
   // Feature #2 (ficha Lorari-vs-Tentare): autoservicio desde el portal — solo
   // tiene efecto con sesión de socia (ctxPublico presente); nunca desde staff,
   // que sigue usando asignarPlazaFija/quitarPlazaFija de arriba.
@@ -1686,6 +1689,35 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setReservas(prev => prev.map(r => canceladas.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
     }
     return { ok: true, canceladas: canceladas.size, mantenidas: datos.mantenidas?.length ?? 0, fallidas: datos.fallidas ?? 0 };
+  }
+
+  // Pausa con fechas (vacaciones, lesión…): no cambia el estado, la plaza sigue
+  // ACTIVA con su sitio y el motor se salta esas semanas. Va por el servidor
+  // porque suelta las clases ya reservadas en esas fechas y, al quitar o acortar
+  // la pausa, reserva ya las que vuelven. NO optimista: se pinta la plaza que
+  // devuelve el servidor y solo las reservas que dice haber cancelado.
+  async function pausarPlazaFija(id: string, pausa: Pausa | null): Promise<ResultadoPausaPlazaFija> {
+    const respuesta = await fetch('/api/plazas-fijas/estado', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ plazaId: id, pausa }),
+    }).catch(() => null);
+    const datos = await respuesta?.json().catch(() => null) as {
+      ok?: boolean; plaza?: PlazaFija; canceladas?: string[]; mantenidas?: string[]; fallidas?: number; creadas?: number; error?: string;
+    } | null;
+    if (!respuesta?.ok || !datos?.ok || !datos.plaza) {
+      return { ok: false, error: datos?.error ?? 'No se pudo guardar la pausa' };
+    }
+    const plaza = datos.plaza;
+    setPlazasFijas(prev => prev.map(p => p.id === plaza.id ? plaza : p));
+    const canceladas = new Set(datos.canceladas ?? []);
+    if (canceladas.size > 0) {
+      setReservas(prev => prev.map(r => canceladas.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+    }
+    return {
+      ok: true, canceladas: canceladas.size, mantenidas: datos.mantenidas?.length ?? 0,
+      fallidas: datos.fallidas ?? 0, creadas: datos.creadas ?? 0,
+    };
   }
 
   // Feature #2 (ficha Lorari-vs-Tentare): autoservicio de plaza fija desde el
@@ -5450,6 +5482,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     asignarPlazaFija,
     moverPlazaFija,
     quitarPlazaFija,
+    pausarPlazaFija,
     crearPlazaFijaPropia,
     pausarPlazaFijaPropia,
     reanudarPlazaFijaPropia,

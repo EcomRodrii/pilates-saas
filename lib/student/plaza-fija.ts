@@ -15,6 +15,9 @@ export interface PlazaFijaMin {
   vigenciaDesde: string;      // YYYY-MM-DD
   vigenciaHasta: string | null;
   estado: 'ACTIVA' | 'PAUSADA' | 'BAJA';
+  /** Pausa con fechas (YYYY-MM-DD, ambas incluidas): esas semanas no se reserva. */
+  pausaDesde?: string | null;
+  pausaHasta?: string | null;
 }
 
 export interface RecuperacionMin { id?: string; caducaEl: string; estado: 'DISPONIBLE' | 'USADA' | 'CADUCADA' | 'ANULADA' }
@@ -25,9 +28,11 @@ export interface PlazaFijaVista {
   salaId: string;
   tipoClaseId: string | null;
   estado: 'ACTIVA' | 'PAUSADA';
-  /** YYYY-MM-DD de la próxima ocurrencia (hoy incluido si la hora no ha pasado). */
+  /** YYYY-MM-DD de la próxima ocurrencia (hoy incluido si la hora no ha pasado), saltándose la pausa. */
   proximaFecha: string | null;
   vigenciaHasta: string | null;
+  /** Pausa con fechas que aún no ha terminado; `enCurso` = hoy está dentro. */
+  pausa: { desde: string; hasta: string; enCurso: boolean } | null;
 }
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -47,14 +52,22 @@ export function proyectarPlazaFija(plazas: PlazaFijaMin[], hoyISO: string, horaA
   // El filtro de arriba ya descartó las BAJA, pero el tipo no lo sabe.
   if (!p || p.estado === 'BAJA') return null;
   const hora = p.horaInicio.slice(0, 5);
+  const pausaVigente = p.pausaDesde && p.pausaHasta && p.pausaHasta >= hoyISO
+    ? { desde: p.pausaDesde, hasta: p.pausaHasta, enCurso: p.pausaDesde <= hoyISO }
+    : null;
   let proximaFecha: string | null = null;
   if (p.estado === 'ACTIVA') {
     let delta = (p.diaSemana - dow(hoyISO) + 7) % 7;
     if (delta === 0 && hora < horaAhora) delta = 7;
-    const fecha = sumarDias(hoyISO, delta);
+    let fecha = sumarDias(hoyISO, delta);
+    // Las semanas en pausa no se le reservan: su próxima es la primera después.
+    while (pausaVigente && fecha >= pausaVigente.desde && fecha <= pausaVigente.hasta) fecha = sumarDias(fecha, 7);
     proximaFecha = (fecha >= p.vigenciaDesde && (!p.vigenciaHasta || fecha <= p.vigenciaHasta)) ? fecha : null;
   }
-  return { diaSemana: p.diaSemana, hora, salaId: p.salaId, tipoClaseId: p.tipoClaseId, estado: p.estado, proximaFecha, vigenciaHasta: p.vigenciaHasta };
+  return {
+    diaSemana: p.diaSemana, hora, salaId: p.salaId, tipoClaseId: p.tipoClaseId, estado: p.estado,
+    proximaFecha, vigenciaHasta: p.vigenciaHasta, pausa: pausaVigente,
+  };
 }
 
 export function nombreDia(diaSemana: number): string { return DIAS[diaSemana] ?? ''; }

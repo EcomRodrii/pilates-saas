@@ -44,6 +44,7 @@ import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContr
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
+import { sesionEnPausa, validarPausa, type Pausa } from '@/lib/plazas-fijas-pausa';
 import type { PlazaFija as PlazaFijaServidor } from '@/lib/types';
 import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
 import { validarCanje } from '@/lib/engines/reward-engine';
@@ -3634,7 +3635,7 @@ export async function valorarExperienciaReservaPublica(params: {
 // DERIVAN de esa sesión con franjaLocalDe, la misma función que ya usa el
 // motor de decisiones para agrupar franjas recurrentes — así el slot que se
 // guarda es siempre uno que la socia ha visto reservable de verdad.
-const COLUMNAS_PLAZA_FIJA = 'id, studio_id, socio_id, dia_semana, hora_inicio, sala_id, tipo_clase_id, spot_id, vigencia_desde, vigencia_hasta, estado, creada_en';
+const COLUMNAS_PLAZA_FIJA = 'id, studio_id, socio_id, dia_semana, hora_inicio, sala_id, tipo_clase_id, spot_id, vigencia_desde, vigencia_hasta, estado, pausa_desde, pausa_hasta, creada_en';
 
 function plazaFijaDeFila(r: Record<string, unknown>): PlazaFijaServidor {
   return {
@@ -3643,6 +3644,7 @@ function plazaFijaDeFila(r: Record<string, unknown>): PlazaFijaServidor {
     tipoClaseId: (r.tipo_clase_id as string | null) ?? null, spotId: (r.spot_id as string | null) ?? null,
     vigenciaDesde: r.vigencia_desde as string, vigenciaHasta: (r.vigencia_hasta as string | null) ?? null,
     estado: r.estado as PlazaFijaServidor['estado'], creadaEn: r.creada_en as string,
+    pausaDesde: (r.pausa_desde as string | null) ?? null, pausaHasta: (r.pausa_hasta as string | null) ?? null,
   };
 }
 
@@ -3801,7 +3803,7 @@ async function guardarPlazaFijaDesdeSesion(
     .order('inicio', { ascending: true }).limit(80);
   const proxima = (futuras ?? [])
     .map(s => ({ id: s.id as string, salaId: s.sala_id as string, tipoClaseId: (s.tipo_clase_id as string | null) ?? '', inicio: s.inicio as string, cancelada: Boolean(s.cancelada) }))
-    .find(s => !s.cancelada && sesionEncajaEnPlaza(plaza, s));
+    .find(s => !s.cancelada && sesionEncajaEnPlaza(plaza, s) && !sesionEnPausa(plaza, s.inicio));
   let primeraFecha: string | null = null;
   if (proxima) {
     const { data: reservada } = await admin.from('reservas').select('id')
@@ -3862,8 +3864,9 @@ type ResultadoEstadoPlazaFija =
 // penalización ni recuperación (no lo ha decidido la socia clase a clase), y con
 // `cancelada_motivo = 'plaza_fija_retirada'`, que hace que el barrido semanal no
 // la compense y que, al reanudar, la materialización vuelva a reservarla.
+// Con `rango` (pausa con fechas) solo se sueltan las clases de esas fechas.
 async function retirarReservasFuturasPlazaFija(
-  admin: SupabaseClient, studioId: string, plaza: PlazaParaRetirar,
+  admin: SupabaseClient, studioId: string, plaza: PlazaParaRetirar, rango?: Pausa,
 ): Promise<{ canceladas: string[]; mantenidas: string[]; fallidas: number }> {
   const ahoraMs = Date.now();
   // Se parte de SUS reservas activas (pocas), no de las sesiones futuras de la
@@ -3898,6 +3901,7 @@ async function retirarReservasFuturasPlazaFija(
   const { retirar, mantener } = reservasARetirarDePlaza(
     plaza, sesiones, reservas, ahoraMs,
     sesionId => ventanaPorTipo.get(tipoDeSesion.get(sesionId) ?? '') ?? pol.ventanaHoras,
+    rango,
   );
 
   const canceladas: string[] = [];
@@ -4005,6 +4009,52 @@ export async function cambiarEstadoPlazaFijaStaff(
   admin: SupabaseClient, params: { studioId: string; plazaId: string; estado: EstadoPlazaFija },
 ): Promise<ResultadoEstadoPlazaFija> {
   return aplicarEstadoPlazaFija(admin, params, 'Ese sitio ya está asignado a otra clienta en ese día y hora');
+}
+
+// Pausa con fechas desde el panel (vacaciones, una lesión…). No cambia el
+// estado: la plaza sigue ACTIVA y con su sitio, y el motor se salta esas fechas
+// (lib/plazas-fijas-pausa.ts). Al ponerla se sueltan SOLO las clases de esas
+// fechas, por el mismo camino que quitar. Y el motor se vuelve a pasar por esta
+// plaza siempre: al quitar o acortar la pausa, las semanas que vuelven quedan
+// reservadas ya y no a las 2:00 (lo cancelado con `plaza_fija_retirada` se puede
+// volver a reservar; lo que canceló la socia, no).
+type ResultadoPausaServidor =
+  | { ok: true; plaza: PlazaFijaServidor; canceladas: string[]; mantenidas: string[]; fallidas: number; creadas: number }
+  | { error: string };
+
+export async function pausarPlazaFijaStaff(
+  admin: SupabaseClient, params: { studioId: string; plazaId: string; pausa: Pausa | null },
+): Promise<ResultadoPausaServidor> {
+  const { studioId, plazaId, pausa } = params;
+  if (pausa) {
+    const motivo = validarPausa(pausa.desde, pausa.hasta, hoyEnEstudio());
+    if (motivo) return { error: motivo };
+  }
+  // El filtro de estado va en la propia escritura: una plaza de baja no se pausa.
+  const { data, error } = await admin.from('plazas_fijas')
+    .update({ pausa_desde: pausa?.desde ?? null, pausa_hasta: pausa?.hasta ?? null })
+    .eq('id', plazaId).eq('studio_id', studioId).eq('estado', 'ACTIVA')
+    .select(COLUMNAS_PLAZA_FIJA).maybeSingle();
+  if (error) {
+    capturarExcepcion(new Error(error.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId } });
+    return { error: 'No se pudo guardar la pausa' };
+  }
+  if (!data) return { error: 'Plaza fija no encontrada' };
+  const plaza = plazaFijaDeFila(data as unknown as Record<string, unknown>);
+
+  const retirada = pausa
+    ? await retirarReservasFuturasPlazaFija(admin, studioId, plaza, pausa)
+    : { canceladas: [] as string[], mantenidas: [] as string[], fallidas: 0 };
+
+  // Mejor esfuerzo, como al guardar: si el motor fallara, el cron de esta noche lo recoge.
+  let creadas = 0;
+  const { data: n, error: errorMotor } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: 42, p_plaza_id: plaza.id });
+  if (errorMotor) {
+    capturarExcepcion(new Error(errorMotor.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId } });
+  } else {
+    creadas = (n as number | null) ?? 0;
+  }
+  return { ok: true, plaza, ...retirada, creadas };
 }
 
 export const pausarPlazaFijaPublica = (params: { studioId: string; socioId: string; authUserId: string; plazaId: string }) =>

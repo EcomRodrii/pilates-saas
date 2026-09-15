@@ -252,6 +252,7 @@ function plazasSinClase(
     if (p.estado !== 'ACTIVA') continue;
     if (diasHasta(p.vigenciaDesde, e.ahoraMs) > 0) continue;                 // aún no empieza
     if (p.vigenciaHasta && diasHasta(p.vigenciaHasta, e.ahoraMs) < 0) continue; // ya terminó
+    if (p.pausaHasta && diasHasta(p.pausaHasta, e.ahoraMs) >= 0) continue;     // en pausa: sin reservas a propósito
     if (e.ahoraMs - Date.parse(p.creadaEn) < PLAZA_GRACIA_MS) continue;      // el cron aún no ha corrido
     if (conPlazaFutura.has(p.socioId)) continue;                            // sí se materializó
     if (excluirPlazas.has(p.id)) continue;                                  // ya avisada con la causa real (4a)

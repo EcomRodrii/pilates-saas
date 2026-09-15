@@ -456,7 +456,7 @@ export function proyectarPlazaFija(d: PayloadMin, hoyISO: string, horaAhora = '0
   if (!p) return null;
   const sala = (d.salas ?? []).find((s) => s.id === p.salaId)?.nombre ?? 'Sala';
   const tipo = p.tipoClaseId ? ((d.tiposClase ?? []).find((t) => t.id === p.tipoClaseId)?.nombre ?? null) : null;
-  return { diaSemana: p.diaSemana, hora: p.hora, sala, tipo, estado: p.estado, proximaFecha: p.proximaFecha, vigenciaHasta: p.vigenciaHasta };
+  return { diaSemana: p.diaSemana, hora: p.hora, sala, tipo, estado: p.estado, proximaFecha: p.proximaFecha, vigenciaHasta: p.vigenciaHasta, pausa: p.pausa };
 }
 
 /** Recuperaciones que aún puede usar. */

@@ -6,6 +6,10 @@
 // que usa «Hacer fija» del calendario (`DialogoPlazaFija`). Antes aquí se
 // tecleaban día y hora, que tenían que coincidir al minuto con una clase.
 //
+// Pausar unas fechas (vacaciones, una lesión…) no la quita ni le cambia el
+// estado: sigue activa con su sitio y el motor se salta esas semanas
+// (`DialogoPausaPlazaFija`, lib/plazas-fijas-pausa.ts).
+//
 // La plaza se ancla por (día, hora, sala): cuando el estudio mueve la clase se
 // queda apuntando a un horario sin clase y el motor no reserva nada. Por eso la
 // fila avisa cuando no hay ninguna clase en su horario (mismo criterio que la
@@ -14,10 +18,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Plus, Trash2, Pencil, CalendarClock } from 'lucide-react';
+import { Plus, Trash2, Pencil, CalendarClock, Pause } from 'lucide-react';
 import { IconoAviso } from '@/lib/iconos';
 import { plazasFijasSinSesion } from '@/lib/plazas-fijas-slot';
+import { estadoPausa } from '@/lib/plazas-fijas-pausa';
+import { hoyEnEstudio } from '@/lib/utils';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { DialogoPausaPlazaFija } from '@/components/plazas-fijas/dialogo-pausa-plaza-fija';
 import type { PlazaFija } from '@/lib/types';
 
 // Lunes primero (UX); los valores son los de extract(dow) de Postgres (0=domingo).
@@ -27,7 +34,7 @@ const DIAS: { v: number; l: string }[] = [
 ];
 const diaLabel = (v: number) => DIAS.find(d => d.v === v)?.l ?? '—';
 
-function fechaCorta(iso: string | null): string {
+function fechaCorta(iso: string | null | undefined): string {
   if (!iso) return '—';
   const [y, m, d] = iso.slice(0, 10).split('-');
   return `${d}/${m}/${y}`;
@@ -56,6 +63,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
   const { plazasFijas, quitarPlazaFija, salas, tiposClase, spots, sesiones } = useStudio();
   // null = cerrado; { plaza: null } = asignando una nueva; { plaza } = cambiando esa.
   const [dialogo, setDialogo] = useState<{ plaza: PlazaFija | null } | null>(null);
+  const [aPausar, setAPausar] = useState<PlazaFija | null>(null);
   const [aBorrar, setABorrar] = useState<PlazaFija | null>(null);
 
   // La hora entra por estado (no `Date.now()` dentro de un memo) — mismo patrón
@@ -65,6 +73,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Reloj: sincroniza con el paso del TIEMPO, un sistema externo.
     setAhoraMs(Date.now());
   }, []);
+  const hoy = ahoraMs ? hoyEnEstudio(new Date(ahoraMs)) : null;
 
   const mias = useMemo(
     () => plazasFijas
@@ -104,18 +113,28 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
             const spot = p.spotId ? spots.find(s => s.id === p.spotId) : null;
             const tipo = p.tipoClaseId ? tiposClase.find(t => t.id === p.tipoClaseId) : null;
             const sinClase = huerfanas.has(p.id);
+            const hora = p.horaInicio.slice(0, 5);
+            const pausa = hoy ? estadoPausa(p, hoy) : 'sin_pausa';
             return (
               <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                     <CalendarClock size={14} className="text-muted-foreground shrink-0" />
-                    {diaLabel(p.diaSemana)} · {p.horaInicio.slice(0, 5)}
+                    {diaLabel(p.diaSemana)} · {hora}
                     {p.estado === 'PAUSADA' && <span className="text-[11px] font-medium text-muted-foreground">· en pausa</span>}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {sala?.nombre ?? 'Sala'}{spot ? ` · ${spot.nombre}` : ''}{tipo ? ` · ${tipo.nombre}` : ''}
                     {' · desde '}{fechaCorta(p.vigenciaDesde)}{p.vigenciaHasta ? ` hasta ${fechaCorta(p.vigenciaHasta)}` : ''}
                   </p>
+                  {pausa !== 'sin_pausa' && (
+                    <p className="text-[11px] font-semibold text-foreground mt-1 flex items-center gap-1">
+                      <Pause size={11} className="shrink-0 text-muted-foreground" aria-hidden />
+                      {pausa === 'en_curso'
+                        ? `En pausa hasta el ${fechaCorta(p.pausaHasta)}`
+                        : `Pausa programada del ${fechaCorta(p.pausaDesde)} al ${fechaCorta(p.pausaHasta)}`}
+                    </p>
+                  )}
                   {sinClase && (
                     <p role="status" title={AVISO_SIN_CLASE} className="text-[11px] font-medium text-warning mt-1 flex items-center gap-1">
                       <IconoAviso size={12} className="shrink-0" aria-hidden />
@@ -124,10 +143,20 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
+                  {p.estado === 'ACTIVA' && (
+                    <button
+                      onClick={() => setAPausar(p)}
+                      title={pausa === 'sin_pausa' ? 'Pausar unas fechas (vacaciones, lesión…)' : 'Cambiar o quitar la pausa'}
+                      aria-label={`${pausa === 'sin_pausa' ? 'Pausar' : 'Cambiar la pausa de'} la plaza fija del ${diaLabel(p.diaSemana)} ${hora}`}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+                    >
+                      <Pause size={14} />
+                    </button>
+                  )}
                   <button
                     onClick={() => setDialogo({ plaza: p })}
                     title="Cambiar de clase, sitio o fechas"
-                    aria-label={`Editar la plaza fija del ${diaLabel(p.diaSemana)} ${p.horaInicio.slice(0, 5)}`}
+                    aria-label={`Editar la plaza fija del ${diaLabel(p.diaSemana)} ${hora}`}
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
                   >
                     <Pencil size={14} />
@@ -135,7 +164,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                   <button
                     onClick={() => setABorrar(p)}
                     title="Quitar plaza fija"
-                    aria-label={`Quitar la plaza fija del ${diaLabel(p.diaSemana)} ${p.horaInicio.slice(0, 5)}`}
+                    aria-label={`Quitar la plaza fija del ${diaLabel(p.diaSemana)} ${hora}`}
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted"
                   >
                     <Trash2 size={14} />
@@ -155,6 +184,18 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
           onGuardada={(r, movida) => {
             setDialogo(null);
             onToast(textoPlazaGuardada(r, movida));
+          }}
+        />
+      )}
+
+      {aPausar && (
+        <DialogoPausaPlazaFija
+          plaza={aPausar}
+          nombre={`${diaLabel(aPausar.diaSemana)} ${aPausar.horaInicio.slice(0, 5)}`}
+          onClose={() => setAPausar(null)}
+          onHecho={mensaje => {
+            setAPausar(null);
+            onToast(mensaje);
           }}
         />
       )}

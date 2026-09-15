@@ -919,6 +919,8 @@ export function mapPlazaFija(r: RowPlazasFijas): PlazaFija {
     vigenciaDesde: r.vigencia_desde,
     vigenciaHasta: r.vigencia_hasta ?? null,
     estado: (r.estado as PlazaFija['estado']) ?? 'ACTIVA',
+    pausaDesde: r.pausa_desde ?? null,
+    pausaHasta: r.pausa_hasta ?? null,
     creadaEn: r.creada_en,
   };
 }

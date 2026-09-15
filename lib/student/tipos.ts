@@ -183,6 +183,8 @@ export interface GamificacionVista {
 export interface PlazaFijaVista {
   diaSemana: number; hora: string; sala: string; tipo: string | null; estado: 'ACTIVA' | 'PAUSADA';
   proximaFecha: string | null; vigenciaHasta: string | null;
+  /** Pausa con fechas que aún no ha terminado; `enCurso` = hoy está dentro. */
+  pausa: { desde: string; hasta: string; enCurso: boolean } | null;
 }
 /**
  * ⚠️ NO se redeclara aquí: se reexporta la de `plaza-fija.ts`, que es donde vive

@@ -169,6 +169,13 @@ test('con clase en el slot pero sin reserva materializada sigue saliendo el avis
   assert.equal(b[0].titulo, 'Plaza fija sin clase');
 });
 
+test('una plaza en pausa no sale como «sin clase»: no tiene reservas a propósito', () => {
+  // Mismo caso que el anterior (clase en el slot, sin reserva materializada), pero de vacaciones.
+  const p = plaza({ id: 'p1', socioId: 's1', creadaEn: '2026-07-01T00:00:00Z', pausaDesde: '2026-07-10', pausaHasta: '2026-08-31' });
+  const b = construirBandeja(entrada({ plazasFijas: [p], sesiones: juevesSemanales('08:00', 6) }));
+  assert.equal(b.length, 0);
+});
+
 test('la causa concreta va por encima del aviso genérico, y cada plaza sale una sola vez', () => {
   const huerfana = plaza({ id: 'p1', socioId: 's1', creadaEn: '2026-07-01T00:00:00Z' });           // jueves 10:00
   const sinAforo = plaza({ id: 'p2', socioId: 's1', diaSemana: 5, creadaEn: '2026-07-01T00:00:00Z' }); // viernes 10:00

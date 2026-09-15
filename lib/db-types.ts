@@ -1609,6 +1609,10 @@ export interface RowPlazasFijas {
   vigencia_hasta: string | null;
   estado: string;
   creada_en: string;
+  // migr 20260915090000.
+  pausa_desde: string | null;
+  // migr 20260915090000.
+  pausa_hasta: string | null;
 }
 
 export interface RowRecuperaciones {
