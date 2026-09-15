@@ -63,7 +63,7 @@ import {
   dbInsertNovedadEstudio, dbUpdateNovedadEstudio, dbDeleteNovedadEstudio,
   dbInsertSala, dbUpdateSala, dbDeleteSala,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
-  dbUpdateStudio, dbUpdateHorarioEstudio, dbUpdateStudioConfig, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
+  dbUpdateStudio, dbUpdateHorarioEstudio, dbUpdateStudioConfig, resolverEstudioDeLaSesion, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
@@ -784,6 +784,9 @@ export function useStudio(): StudioContextValue {
 
 export function StudioProvider({ children, studioIdOverride, publicSlug }: { children: ReactNode; studioIdOverride?: string; publicSlug?: string }) {
   const [dataLoaded, setDataLoaded] = useState(false);
+  // Solo con la respuesta de la base de datos (ver `resolverEstudioDeLaSesion`):
+  // el panel lo usa para decir «esta cuenta no tiene ningún estudio».
+  const [sinEstudio, setSinEstudio] = useState(false);
   // I-14: qué tablas de dinero llegaron truncadas en el arranque del panel
   // (fetchAllRows falló en alguna página). Vacío = todo llegó completo.
   const [datosIncompletos, setDatosIncompletos] = useState<string[]>([]);
@@ -1345,7 +1348,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         return fetchCriticalStudioData();
       }
       if (authUserId) {
-        const resolved = await resolveStudioId();
+        const { studioId: resolved, fallo } = await resolverEstudioDeLaSesion();
+        // «No tiene estudio» solo si la base de datos lo ha contestado: un fallo
+        // al preguntar no es una cuenta sin estudio.
+        setSinEstudio(!fallo && !resolved);
         // Resetea a vacío si no resuelve, para no heredar el estudio de una
         // sesión anterior en el mismo cliente.
         setCurrentStudioId(resolved ?? '');
@@ -5854,6 +5860,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       studio={studio}
       instructores={instructores}
       dataLoaded={dataLoaded}
+      sinEstudio={sinEstudio}
       updateStudio={updateStudio}
       updateAvatarAdmin={updateAvatarAdmin}
       addInstructor={addInstructor}
