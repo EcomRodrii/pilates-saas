@@ -74,6 +74,25 @@ test('un error de PostgREST llega entero, para que se traduzca por su código', 
   assert.equal(!r.ok && (r.error as { code?: string }).code, '42501');
 });
 
+test('un valor fuera de rango (CHECK, I-17) llega entero y se traduce a un aviso comprensible', async () => {
+  // Los CHECK de `studios` (migr 20260915232436: iva_por_defecto,
+  // penalizacion_importe_eur…) son la única validación de servidor sobre lo
+  // que escribe el navegador — RLS decide QUIÉN, no QUÉ valor. Aquí se
+  // comprueba que un 23514 real de PostgREST no se cuela como jerga técnica.
+  const { db } = montar({
+    status: 400,
+    body: {
+      code: '23514',
+      message: 'new row for relation "studios" violates check constraint "studios_iva_por_defecto_rango"',
+      details: null, hint: null,
+    },
+  });
+  const r = await actualizarFilaStudio(db, 'studio-1', { iva_por_defecto: -5 });
+  assert.equal(r.ok, false);
+  assert.equal(!r.ok && (r.error as { code?: string }).code, '23514');
+  assert.equal(!r.ok && mensajeDeFalloAlGuardar(r.error), 'Alguno de los datos no es válido. Revísalo y vuelve a intentarlo.');
+});
+
 test('sin columnas que escribir no hace petición y no es un fallo', async () => {
   // Los «desconectar» de Integraciones llaman a updateStudio con campos que
   // dbUpdateStudio no mapea (googleCalendarEmail, gmailEmail…): el cuerpo sale
