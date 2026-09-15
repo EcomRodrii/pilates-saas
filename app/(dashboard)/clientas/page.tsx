@@ -17,6 +17,7 @@ import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
 import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, LeadStage, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
@@ -184,6 +185,7 @@ export default function Socios() {
     // compone en el contexto con el mismo helper: el diálogo tiene que enseñar
     // exactamente lo que se va a guardar, no una versión parecida.
     studio, registrarConsentimientoMarketing,
+    plazasFijas,
   } = useStudio();
   const rol = useRol();
   const verSemaforo = puedeVerSemaforo(rol);
@@ -280,6 +282,12 @@ export default function Socios() {
   // usarlo desde la lista dejaría el fallo escrito donde nadie lo ve — que es
   // justo el bug que hubo que arreglar en /reservar (#505).
   const [errorFila, setErrorFila] = useState<string | null>(null);
+  // Tras dar de alta (o cambiar a) una cuota: a quién se le ofrece plaza fija, y
+  // para quién está abierto el diálogo si dice que sí.
+  const [ofrecerPlazaFija, setOfrecerPlazaFija] = useState<{ socioId: string; nombre: string; plan: string } | null>(null);
+  const [plazaFijaPara, setPlazaFijaPara] = useState<string | null>(null);
+  // Esta pantalla no tiene toast: lo que ha guardado el diálogo se dice arriba.
+  const [avisoPlazaFija, setAvisoPlazaFija] = useState<string | null>(null);
   const contratoRef = useRef<HTMLDivElement>(null);
 
   // (El reset de la selección al cambiar de filtro vive más abajo, junto al de
@@ -688,6 +696,14 @@ export default function Socios() {
     setErrorGuardar(null);
   }
 
+  // Mismo criterio que la ficha: la plaza fija va con la cuota, así que se
+  // pregunta al darla. Con bono, o si ya tiene plaza fija, no se pregunta.
+  function ofrecerPlazaFijaSiCuota(socioId: string, planId: string, nombre: string) {
+    const plan = planesTarifa.find(p => p.id === planId);
+    const yaTiene = plazasFijas.some(p => p.socioId === socioId && p.estado !== 'BAJA');
+    if (plan?.tipo === 'MENSUAL' && !yaTiene) setOfrecerPlazaFija({ socioId, nombre, plan: plan.nombre });
+  }
+
   async function handleCrear() {
     if (guardando) return;
     setGuardando(true);
@@ -740,6 +756,7 @@ export default function Socios() {
     // La bienvenida la manda addSocio (lib/studio-context.tsx) — así cubre
     // también las altas que no pasan por esta pantalla (import CSV, alta
     // pública). Mandarla aquí también duplicaba el email.
+    if (res.id && form.planId) ofrecerPlazaFijaSiCuota(res.id, form.planId, form.nombre.trim());
     resetModal();
   }
 
@@ -777,6 +794,7 @@ export default function Socios() {
         return;
       }
       setGuardando(false);
+      ofrecerPlazaFijaSiCuota(editandoId, form.planId, form.nombre.trim());
     }
     resetModal();
   }
@@ -845,6 +863,14 @@ export default function Socios() {
         <p role="alert" className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-700">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           <span>{errorFila}</span>
+        </p>
+      )}
+      {avisoPlazaFija && (
+        <p role="status" className="flex items-start justify-between gap-2 p-2.5 rounded-lg bg-muted text-[12px] text-foreground">
+          <span>{avisoPlazaFija}</span>
+          <button onClick={() => setAvisoPlazaFija(null)} className="shrink-0 font-semibold text-muted-foreground hover:text-foreground">
+            Cerrar
+          </button>
         </p>
       )}
       <PageHeader
@@ -1676,6 +1702,47 @@ export default function Socios() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Tras dar una cuota: ¿viene siempre a la misma clase? ─────────────── */}
+      <Dialog open={ofrecerPlazaFija !== null} onOpenChange={(open) => { if (!open) setOfrecerPlazaFija(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-foreground">¿Le das una plaza fija?</DialogTitle>
+          </DialogHeader>
+          {ofrecerPlazaFija && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {ofrecerPlazaFija.nombre} ya tiene «{ofrecerPlazaFija.plan}». Si viene siempre a la misma clase, elige
+              cuál: se le reserva sola cada semana, sin apuntarla a mano.
+            </p>
+          )}
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              onClick={() => { setPlazaFijaPara(ofrecerPlazaFija?.socioId ?? null); setOfrecerPlazaFija(null); }}
+              className="w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-brand-foreground"
+            >
+              Elegir su clase
+            </button>
+            <button
+              onClick={() => setOfrecerPlazaFija(null)}
+              className="w-full rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              Ahora no
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {plazaFijaPara && (
+        <DialogoPlazaFija
+          socioId={plazaFijaPara}
+          onClose={() => setPlazaFijaPara(null)}
+          onGuardada={(r, movida) => {
+            setPlazaFijaPara(null);
+            setErrorFila(null);
+            setAvisoPlazaFija(textoPlazaGuardada(r, movida));
+          }}
+        />
+      )}
 
       {/* ── Modal: Asignar plan (bulk) ──────────────────────────────────────── */}
       <Dialog
