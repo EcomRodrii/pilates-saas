@@ -24,7 +24,7 @@ import {
   dbReservarMatricula,
   dbGuardarEntrega,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
-  dbInsertPlazaFija, dbUpdatePlazaFija, dbListPlazasFijas,
+  dbListPlazasFijas,
   dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion, dbAmpliarCaducidades,
   dbRegistrarConsentimientoMarketing,
   dbPonerExcepcion, dbQuitarExcepcion,
@@ -196,7 +196,7 @@ import { calcularRacha, claveMesActual, objetivoMensualAlcanzado, type RachaInfo
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, hoyEnEstudio } from '@/lib/utils';
-import { proximaSesionParaPlaza, horaInicioLocalDe } from '@/lib/plazas-fijas-slot';
+import type { DatosPlazaFija, ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import type { TabBarStyleId } from '@/lib/theme-schema';
@@ -326,17 +326,18 @@ interface StudioContextValue {
   spots: Spot[];
   bloqueosMaquina: BloqueoMaquina[];
   plazasFijas: PlazaFija[];
-  // F2 (B2.2): asignar devuelve el resultado para que la UI muestre el choque de
-  // sitio (violación de la exclusión GiST). quitar = baja lógica (estado BAJA).
-  asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true; proximaOcurrencia: ProximaOcurrenciaPlazaFija } | { error: string }>;
-  editarPlazaFija: (id: string, cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>) => Promise<ResultadoEscritura & { proximaOcurrencia?: ProximaOcurrenciaPlazaFija }>;
+  // Crear y mover una plaza fija van por el servidor (`app/api/plazas-fijas`):
+  // se elige una clase del horario, se comprueban cuota y límite, y el motor
+  // reserva ya las próximas semanas. quitar = baja lógica (estado BAJA).
+  asignarPlazaFija: (datos: DatosPlazaFija) => Promise<ResultadoGuardarPlazaFija>;
+  moverPlazaFija: (id: string, datos: Omit<DatosPlazaFija, 'socioId'>) => Promise<ResultadoGuardarPlazaFija>;
   quitarPlazaFija: (id: string) => Promise<ResultadoEscritura & { canceladas?: number; mantenidas?: number; fallidas?: number }>;
   // Feature #2 (ficha Lorari-vs-Tentare): autoservicio desde el portal — solo
   // tiene efecto con sesión de socia (ctxPublico presente); nunca desde staff,
   // que sigue usando asignarPlazaFija/quitarPlazaFija de arriba.
-  // reservaEstaSemana: si al crearla ya materializó la ocurrencia de esta
-  // semana (la sesión desde la que se creó), null si ya la tenía reservada.
-  crearPlazaFijaPropia: (sesionId: string) => Promise<{ ok: true; reservaEstaSemana: { estado: string; reservaId: string } | null } | { ok: false; error: string }>;
+  // primeraFecha: la próxima clase de la plaza si ya quedó reservada (el
+  // servidor reserva las próximas semanas al crearla).
+  crearPlazaFijaPropia: (sesionId: string) => Promise<{ ok: true; primeraFecha: string | null } | { ok: false; error: string }>;
   pausarPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
   reanudarPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
   darDeBajaPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
@@ -1623,50 +1624,43 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // real de una propietaria en prueba, 14-sep). Mejor esfuerzo: si algo falla
   // aquí (aforo lleno, sin bono…) la plaza se guarda igual — el cron de esta
   // noche la recogerá como cualquier otra.
-  async function materializarProximaOcurrenciaPlaza(pf: PlazaFija): Promise<ProximaOcurrenciaPlazaFija> {
-    if (pf.estado !== 'ACTIVA') return null;
-    // eslint-disable-next-line react-hooks/purity -- se llama desde un evento (guardar/editar plaza fija), nunca durante el render.
-    const ahoraMs = Date.now();
-    const sesion = proximaSesionParaPlaza(pf, sesiones, ahoraMs);
-    if (!sesion) return null;
-    const datos = { sesionId: sesion.id, fecha: hoyEnEstudio(new Date(sesion.inicio)), hora: horaInicioLocalDe(sesion.inicio).slice(0, 5) };
-    const yaApuntada = reservas.some(r => r.sesionId === sesion.id && r.socioId === pf.socioId && r.estado !== 'CANCELADA');
-    if (yaApuntada) return datos;
-    const res = await addReserva(sesion.id, pf.socioId, pf.spotId);
-    return res.ok ? datos : null;
+  // Crear y mover una plaza fija van por el servidor (`app/api/plazas-fijas`),
+  // que deduce la franja de la clase elegida, comprueba cuota y límite semanal y
+  // reserva ya las próximas semanas con el MISMO motor que cada noche. Antes el
+  // navegador insertaba la fila con RLS y reservaba la primera clase con
+  // `addReserva` (que descuenta bono), distinta de todas las demás.
+  // NO optimista: se pinta la plaza que devuelve el servidor. Mover conserva la
+  // fila (y su antigüedad, que decide el turno cuando falta aforo).
+  async function guardarPlazaFijaEnServidor(
+    metodo: 'POST' | 'PATCH', cuerpo: Record<string, unknown>,
+  ): Promise<ResultadoGuardarPlazaFija> {
+    const respuesta = await fetch('/api/plazas-fijas', {
+      method: metodo,
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(cuerpo),
+    }).catch(() => null);
+    const datos = await respuesta?.json().catch(() => null) as ResultadoGuardarPlazaFija | null;
+    if (!respuesta?.ok || !datos || !datos.ok) {
+      const fallo = datos && !datos.ok ? datos : null;
+      return { ok: false, error: fallo?.error ?? 'No se pudo guardar la plaza fija', codigo: fallo?.codigo, limite: fallo?.limite };
+    }
+    const { plaza } = datos;
+    setPlazasFijas(prev => prev.some(p => p.id === plaza.id)
+      ? prev.map(p => p.id === plaza.id ? plaza : p)
+      : [...prev, plaza]);
+    const canceladas = new Set(datos.canceladas ?? []);
+    if (canceladas.size > 0) {
+      setReservas(prev => prev.map(r => canceladas.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+    }
+    return { ...datos, canceladas: [...canceladas] };
   }
 
-  // F2 (B2.2): asignar plaza fija. NO optimista: puede fallar por la exclusión
-  // GiST (sitio ya pillado en ese slot); sólo se añade al estado si la BD acepta.
-  async function asignarPlazaFija(
-    fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>,
-  ): Promise<{ ok: true; proximaOcurrencia: ProximaOcurrenciaPlazaFija } | { error: string }> {
-    const nueva: PlazaFija = {
-      ...fields, id: `pf-${uid()}`, studioId: getCurrentStudioId(), creadaEn: new Date().toISOString(),
-    };
-    const res = await dbInsertPlazaFija(nueva);
-    if (!('ok' in res)) return res;
-    setPlazasFijas(prev => [...prev, nueva]);
-    const proximaOcurrencia = await materializarProximaOcurrenciaPlaza(nueva);
-    return { ok: true, proximaOcurrencia };
+  async function asignarPlazaFija(datos: DatosPlazaFija): Promise<ResultadoGuardarPlazaFija> {
+    return guardarPlazaFijaEnServidor('POST', { ...datos });
   }
 
-  // Cambiar el hueco de una plaza fija ya asignada (día, hora, sala, sitio o
-  // vigencia). Antes solo había asignar/quitar, así que mover a una socia de
-  // hora obligaba a darla de baja y crearla otra vez — perdiendo la fila y su
-  // histórico (y su antigüedad, que es lo que decide el turno cuando falta
-  // aforo en la materialización). NO optimista por lo mismo que
-  // `asignarPlazaFija`: el slot nuevo puede chocar con la exclusión GiST.
-  async function editarPlazaFija(
-    id: string,
-    cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>,
-  ): Promise<ResultadoEscritura & { proximaOcurrencia?: ProximaOcurrenciaPlazaFija }> {
-    const res = await dbUpdatePlazaFija(id, cambios);
-    if (!res.ok) return res;
-    setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, ...cambios } : p));
-    const actual = plazasFijas.find(p => p.id === id);
-    const proximaOcurrencia = actual ? await materializarProximaOcurrenciaPlaza({ ...actual, ...cambios }) : null;
-    return { ok: true, proximaOcurrencia };
+  async function moverPlazaFija(id: string, datos: Omit<DatosPlazaFija, 'socioId'>): Promise<ResultadoGuardarPlazaFija> {
+    return guardarPlazaFijaEnServidor('PATCH', { ...datos, plazaId: id });
   }
 
   // Baja lógica (estado BAJA): deja de materializar; conserva el histórico.
@@ -1700,13 +1694,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // vacío (mismo guard que el resto de escrituras públicas de este contexto).
   async function crearPlazaFijaPropia(
     sesionId: string,
-  ): Promise<{ ok: true; reservaEstaSemana: { estado: string; reservaId: string } | null } | { ok: false; error: string }> {
+  ): Promise<{ ok: true; primeraFecha: string | null } | { ok: false; error: string }> {
     const cpub = ctxPublico();
     if (!cpub) return { ok: false, error: 'No disponible' };
     const r = await postPublico('/api/public/plaza-fija', { accion: 'crear', studioId: cpub.studioId, sesionId });
     if (!r.ok) return r;
-    const datos = r.datos as { id?: string; reservaEstaSemana?: { estado: string; reservaId: string } | null } | null;
-    return { ok: true, reservaEstaSemana: datos?.reservaEstaSemana ?? null };
+    // El servidor reserva ya las próximas semanas con el mismo motor que cada
+    // noche; `primeraFecha` es la próxima clase si quedó reservada.
+    const datos = r.datos as { primeraFecha?: string | null } | null;
+    return { ok: true, primeraFecha: datos?.primeraFecha ?? null };
   }
 
   async function cambiarEstadoPlazaFijaPropia(id: string, accion: 'pausar' | 'reanudar' | 'dar_de_baja'): Promise<ResultadoEscritura> {
@@ -5444,7 +5440,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     marcarAveria,
     quitarAveria,
     asignarPlazaFija,
-    editarPlazaFija,
+    moverPlazaFija,
     quitarPlazaFija,
     crearPlazaFijaPropia,
     pausarPlazaFijaPropia,

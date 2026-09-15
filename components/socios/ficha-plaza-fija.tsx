@@ -1,21 +1,23 @@
 'use client';
 
-// F2 (B2.2) — Plaza fija: sección de la ficha de la socia para asignar su hueco
-// semanal recurrente. La materialización nocturna (cron) crea las reservas.
+// F2 (B2.2) — Plaza fija: sección de la ficha de la clienta con sus clases fijas.
+//
+// Asignar o cambiar se hace eligiendo una CLASE del horario en el mismo diálogo
+// que usa «Hacer fija» del calendario (`DialogoPlazaFija`). Antes aquí se
+// tecleaban día y hora, que tenían que coincidir al minuto con una clase.
 //
 // La plaza se ancla por (día, hora, sala): cuando el estudio mueve la clase se
-// queda apuntando a un horario sin clase, el cron no genera nada y nadie avisa.
-// Por eso la fila avisa cuando no hay ninguna clase en su horario (mismo
-// criterio que la bandeja «Para hoy», lib/plazas-fijas-slot.ts) y el diálogo
-// repite el aviso en vivo mientras se elige el hueco nuevo.
+// queda apuntando a un horario sin clase y el motor no reserva nada. Por eso la
+// fila avisa cuando no hay ninguna clase en su horario (mismo criterio que la
+// bandeja «Para hoy», lib/plazas-fijas-slot.ts).
 
-import { useEffect, useMemo, useState, useId } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Plus, Trash2, Pencil, CalendarClock } from 'lucide-react';
 import { IconoAviso } from '@/lib/iconos';
-import { plazasFijasSinSesion, normalizarHoraInicio } from '@/lib/plazas-fijas-slot';
+import { plazasFijasSinSesion } from '@/lib/plazas-fijas-slot';
+import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import type { PlazaFija } from '@/lib/types';
 
 // Lunes primero (UX); los valores son los de extract(dow) de Postgres (0=domingo).
@@ -25,34 +27,13 @@ const DIAS: { v: number; l: string }[] = [
 ];
 const diaLabel = (v: number) => DIAS.find(d => d.v === v)?.l ?? '—';
 
-function isoHoy(): string {
-  const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
-}
 function fechaCorta(iso: string | null): string {
   if (!iso) return '—';
   const [y, m, d] = iso.slice(0, 10).split('-');
   return `${d}/${m}/${y}`;
 }
 
-const inputCls = 'w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring';
-const labelCls = 'text-xs font-semibold text-muted-foreground mb-1.5 block';
-
-type Form = {
-  diaSemana: number;
-  horaInicio: string;
-  salaId: string;
-  tipoClaseId: string;
-  spotId: string;
-  vigenciaDesde: string;
-  vigenciaHasta: string;
-};
-
-function formVacio(salaId: string): Form {
-  return { diaSemana: 1, horaInicio: '', salaId, tipoClaseId: '', spotId: '', vigenciaDesde: isoHoy(), vigenciaHasta: '' };
-}
-
-const AVISO_SIN_CLASE = 'No hay ninguna clase programada ese día a esa hora en esa sala en las próximas semanas. Si la clase se movió, ajusta la plaza fija a su horario nuevo.';
+const AVISO_SIN_CLASE = 'No hay ninguna clase programada ese día a esa hora en esa sala en las próximas semanas. Si la clase se movió, cámbiala a la clase nueva.';
 
 // Lo que ha pasado de verdad al quitar la plaza, con las cifras del servidor.
 function textoPlazaQuitada(canceladas: number, mantenidas: number, fallidas: number): string {
@@ -72,15 +53,10 @@ function textoPlazaQuitada(canceladas: number, mantenidas: number, fallidas: num
 }
 
 export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
-  const { plazasFijas, asignarPlazaFija, editarPlazaFija, quitarPlazaFija, salas, tiposClase, spots, sesiones } = useStudio();
-  const uid = useId();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  // null = el diálogo está creando; una plaza = está editando esa.
-  const [editando, setEditando] = useState<PlazaFija | null>(null);
+  const { plazasFijas, quitarPlazaFija, salas, tiposClase, spots, sesiones } = useStudio();
+  // null = cerrado; { plaza: null } = asignando una nueva; { plaza } = cambiando esa.
+  const [dialogo, setDialogo] = useState<{ plaza: PlazaFija | null } | null>(null);
   const [aBorrar, setABorrar] = useState<PlazaFija | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [guardando, setGuardando] = useState(false);
-  const [f, setF] = useState<Form>(() => formVacio(''));
 
   // La hora entra por estado (no `Date.now()` dentro de un memo) — mismo patrón
   // y mismo motivo que bandeja-hoy.tsx: la lógica pura la recibe inyectada.
@@ -93,106 +69,34 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
   const mias = useMemo(
     () => plazasFijas
       .filter(p => p.socioId === socioId && p.estado !== 'BAJA')
-      .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio)),
+      .sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.horaInicio.localeCompare(b.horaInicio)),
     [plazasFijas, socioId],
   );
 
-  // Plazas de esta socia que apuntan a un horario donde ya no hay clase.
+  // Plazas de esta clienta que apuntan a un horario donde ya no hay clase.
   const huerfanas = useMemo(
     () => new Set(ahoraMs ? plazasFijasSinSesion(mias, sesiones, ahoraMs).map(p => p.id) : []),
     [mias, sesiones, ahoraMs],
   );
-
-  // El mismo aviso, en vivo, sobre lo que hay en el formulario: evita guardar
-  // una plaza en un horario que no existe sin enterarse hasta la bandeja.
-  const formSinClase = useMemo(() => {
-    if (!ahoraMs || !f.horaInicio || !f.salaId || !f.vigenciaDesde) return false;
-    const candidata: PlazaFija = {
-      id: 'form', studioId: '', socioId, diaSemana: f.diaSemana, horaInicio: normalizarHoraInicio(f.horaInicio),
-      salaId: f.salaId, tipoClaseId: f.tipoClaseId || null, spotId: null,
-      vigenciaDesde: f.vigenciaDesde, vigenciaHasta: f.vigenciaHasta || null, estado: 'ACTIVA', creadaEn: '',
-    };
-    return plazasFijasSinSesion([candidata], sesiones, ahoraMs).length > 0;
-  }, [f, sesiones, ahoraMs, socioId]);
-
-  const spotsSala = spots.filter(s => s.salaId === f.salaId && s.activo);
-  // "Hasta" es opcional (vacío = sin fecha de fin), así que solo se compara
-  // cuando SÍ se ha puesto — un rango invertido no tiene ningún momento en
-  // que esté activo (#873).
-  const rangoInvertido = !!f.vigenciaHasta && f.vigenciaHasta < f.vigenciaDesde;
-  const puedeGuardar = !!f.salaId && !!f.horaInicio && !!f.vigenciaDesde && !rangoInvertido && !guardando;
-
-  function abrir() {
-    setEditando(null);
-    setF(formVacio(salas[0]?.id ?? ''));
-    setError(null);
-    setDialogOpen(true);
-  }
-
-  function abrirEditar(p: PlazaFija) {
-    setEditando(p);
-    setF({
-      diaSemana: p.diaSemana,
-      horaInicio: p.horaInicio.slice(0, 5),
-      salaId: p.salaId,
-      tipoClaseId: p.tipoClaseId ?? '',
-      spotId: p.spotId ?? '',
-      vigenciaDesde: p.vigenciaDesde,
-      vigenciaHasta: p.vigenciaHasta ?? '',
-    });
-    setError(null);
-    setDialogOpen(true);
-  }
-
-  async function guardar() {
-    if (!puedeGuardar) return;
-    setGuardando(true);
-    setError(null);
-    const campos = {
-      diaSemana: f.diaSemana,
-      horaInicio: normalizarHoraInicio(f.horaInicio),
-      salaId: f.salaId,
-      tipoClaseId: f.tipoClaseId || null,
-      spotId: f.spotId || null,
-      vigenciaDesde: f.vigenciaDesde,
-      vigenciaHasta: f.vigenciaHasta || null,
-    };
-    // Editar conserva la fila (y su histórico); antes había que quitarla y
-    // volver a crearla para moverla de hora.
-    const res = editando
-      ? await editarPlazaFija(editando.id, campos)
-      : await asignarPlazaFija({ ...campos, socioId, estado: 'ACTIVA' });
-    setGuardando(false);
-    if ('error' in res) { setError(res.error); return; }
-    setDialogOpen(false);
-    setEditando(null);
-    // Confirmación explícita de lo que ha pasado de verdad — sin esto, guardar
-    // solo cerraba el diálogo y nada decía si ya había clase apuntada o si
-    // tocaba esperar a que se programara una (feedback real de una
-    // propietaria en prueba: "no se entera" de qué ha hecho el botón).
-    onToast(res.proximaOcurrencia
-      ? `Plaza fija guardada · ya tiene reservada la clase del ${fechaCorta(res.proximaOcurrencia.fecha)}`
-      : 'Plaza fija guardada · en cuanto haya una clase programada en ese horario, se le reservará sola');
-  }
 
   return (
     <div className="border border-border rounded-xl p-5">
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="min-w-0">
           <p className="text-sm font-bold text-foreground">Plaza fija</p>
-          <p className="text-xs text-muted-foreground">Viene siempre al mismo hueco: se le reserva sola cada semana, sin que tengas que apuntarla clase a clase.</p>
+          <p className="text-xs text-muted-foreground">Viene siempre a la misma clase: se le reserva sola cada semana, sin que tengas que apuntarla clase a clase.</p>
         </div>
         <button
-          onClick={abrir}
-          disabled={salas.length === 0}
-          className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors disabled:opacity-40 shrink-0"
+          onClick={() => setDialogo({ plaza: null })}
+          aria-label="Añadir plaza fija"
+          className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors shrink-0"
         >
           <Plus size={14} /> Añadir
         </button>
       </div>
 
       {mias.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2">Aún no tiene plaza fija. Elige un día y hora para que venga siempre a ese hueco.</p>
+        <p className="text-xs text-muted-foreground py-2">Aún no tiene plaza fija. Elige la clase a la que viene cada semana.</p>
       ) : (
         <div className="space-y-2">
           {mias.map(p => {
@@ -215,14 +119,14 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                   {sinClase && (
                     <p role="status" title={AVISO_SIN_CLASE} className="text-[11px] font-medium text-warning mt-1 flex items-center gap-1">
                       <IconoAviso size={12} className="shrink-0" aria-hidden />
-                      Sin clase en este horario — edítala si la clase se movió
+                      Sin clase en este horario — cámbiala a la clase nueva
                     </p>
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
                   <button
-                    onClick={() => abrirEditar(p)}
-                    title="Cambiar día, hora, sala o vigencia"
+                    onClick={() => setDialogo({ plaza: p })}
+                    title="Cambiar de clase, sitio o fechas"
                     aria-label={`Editar la plaza fija del ${diaLabel(p.diaSemana)} ${p.horaInicio.slice(0, 5)}`}
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
                   >
@@ -243,88 +147,17 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={o => !o && setDialogOpen(false)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editando ? 'Editar plaza fija' : 'Añadir plaza fija'}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor={`${uid}-dia`} className={labelCls}>Día</label>
-                <select id={`${uid}-dia`} className={inputCls} value={f.diaSemana} onChange={e => setF(p => ({ ...p, diaSemana: Number(e.target.value) }))}>
-                  {DIAS.map(d => <option key={d.v} value={d.v}>{d.l}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor={`${uid}-hora`} className={labelCls}>Hora</label>
-                <input id={`${uid}-hora`} type="time" className={inputCls} value={f.horaInicio} onChange={e => setF(p => ({ ...p, horaInicio: e.target.value }))} />
-              </div>
-            </div>
-            <div>
-              <label htmlFor={`${uid}-sala`} className={labelCls}>Sala</label>
-              <select id={`${uid}-sala`} className={inputCls} value={f.salaId} onChange={e => setF(p => ({ ...p, salaId: e.target.value, spotId: '' }))}>
-                {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor={`${uid}-tipo`} className={labelCls}>Tipo de clase (opcional)</label>
-                <select id={`${uid}-tipo`} className={inputCls} value={f.tipoClaseId} onChange={e => setF(p => ({ ...p, tipoClaseId: e.target.value }))}>
-                  <option value="">Cualquiera</option>
-                  {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor={`${uid}-spot`} className={labelCls}>Sitio (opcional)</label>
-                <select id={`${uid}-spot`} className={inputCls} value={f.spotId} onChange={e => setF(p => ({ ...p, spotId: e.target.value }))}>
-                  <option value="">Cualquiera</option>
-                  {spotsSala.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor={`${uid}-desde`} className={labelCls}>Desde</label>
-                <input id={`${uid}-desde`} type="date" className={inputCls} value={f.vigenciaDesde} onChange={e => setF(p => ({ ...p, vigenciaDesde: e.target.value }))} />
-              </div>
-              <div>
-                <label htmlFor={`${uid}-hasta`} className={labelCls}>Hasta (opcional)</label>
-                <input id={`${uid}-hasta`} type="date" className={inputCls} value={f.vigenciaHasta} onChange={e => setF(p => ({ ...p, vigenciaHasta: e.target.value }))} />
-              </div>
-            </div>
-            {/* Mismo criterio que quitar una plaza fija ("las reservas ya
-                creadas no se tocan"): el cron materializa el hueco nuevo pero
-                no retira lo ya generado del viejo, y sin decirlo la socia
-                aparece apuntada en los dos sitios. */}
-            {editando && (
-              <p className="text-[11px] text-muted-foreground">
-                Las reservas ya generadas en el hueco anterior no se tocan: cancélalas desde el calendario si hace falta.
-              </p>
-            )}
-            {rangoInvertido && (
-              <p role="alert" className="text-xs font-medium text-destructive">
-                “Hasta” no puede ser anterior a “Desde” — ese rango nunca estaría activo.
-              </p>
-            )}
-            {!rangoInvertido && formSinClase && (
-              <p role="status" className="text-xs font-medium text-warning flex items-start gap-1.5">
-                <IconoAviso size={14} className="shrink-0 mt-px" aria-hidden />
-                <span>{AVISO_SIN_CLASE} Se puede guardar igual, pero no generará reservas hasta que exista esa clase.</span>
-              </p>
-            )}
-            {error && <p className="text-xs font-medium text-destructive">{error}</p>}
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button onClick={() => setDialogOpen(false)} className="text-xs font-semibold px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground">Cancelar</button>
-            <button
-              disabled={!puedeGuardar}
-              onClick={guardar}
-              className="text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {guardando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Añadir plaza fija'}
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {dialogo && (
+        <DialogoPlazaFija
+          socioId={socioId}
+          plaza={dialogo.plaza}
+          onClose={() => setDialogo(null)}
+          onGuardada={(r, movida) => {
+            setDialogo(null);
+            onToast(textoPlazaGuardada(r, movida));
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={aBorrar !== null}

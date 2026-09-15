@@ -923,22 +923,6 @@ export function mapPlazaFija(r: RowPlazasFijas): PlazaFija {
   };
 }
 
-function plazaFijaToDb(p: PlazaFija) {
-  return {
-    id: p.id,
-    studio_id: p.studioId ?? STUDIO_ID,
-    socio_id: p.socioId,
-    dia_semana: p.diaSemana,
-    hora_inicio: p.horaInicio,
-    sala_id: p.salaId,
-    tipo_clase_id: p.tipoClaseId ?? null,
-    spot_id: p.spotId ?? null,
-    vigencia_desde: p.vigenciaDesde,
-    vigencia_hasta: p.vigenciaHasta ?? null,
-    estado: p.estado,
-  };
-}
-
 export function mapRecuperacion(r: RowRecuperaciones): Recuperacion {
   return {
     id: r.id,
@@ -2676,39 +2660,10 @@ export async function dbListPlazasFijas(studioId: string): Promise<PlazaFija[]> 
   return (data ?? []).map(mapPlazaFija);
 }
 
-export async function dbInsertPlazaFija(p: PlazaFija): Promise<{ ok: true } | { error: string }> {
-  const { error } = await supabase.from('plazas_fijas').insert(plazaFijaToDb(p));
-  if (error) {
-    reportDbError('[dbInsertPlazaFija]', error);
-    // Violación de la exclusión GiST = ese sitio ya está pillado en ese slot.
-    if (error.message.includes('plazas_fijas_spot_sin_solape')) {
-      return { error: 'Ese sitio ya está asignado a otra socia en ese día y hora' };
-    }
-    return { error: error.message };
-  }
-  return { ok: true };
-}
-
-export async function dbUpdatePlazaFija(id: string, changes: Partial<PlazaFija>): Promise<ResultadoEscritura> {
-  const db: Record<string, unknown> = {};
-  if ('diaSemana' in changes) db.dia_semana = changes.diaSemana;
-  if ('horaInicio' in changes) db.hora_inicio = changes.horaInicio;
-  if ('salaId' in changes) db.sala_id = changes.salaId;
-  if ('tipoClaseId' in changes) db.tipo_clase_id = changes.tipoClaseId;
-  if ('spotId' in changes) db.spot_id = changes.spotId;
-  if ('vigenciaDesde' in changes) db.vigencia_desde = changes.vigenciaDesde;
-  if ('vigenciaHasta' in changes) db.vigencia_hasta = changes.vigenciaHasta;
-  if ('estado' in changes) db.estado = changes.estado;
-  const { error } = await supabase.from('plazas_fijas').update(db).eq('id', id);
-  // Cambiar día/hora/sitio choca con la misma exclusión GiST que el alta, así
-  // que necesita el mismo mensaje: el genérico de Postgres no dice a quién
-  // pertenece el sitio ni qué hacer.
-  if (error?.message.includes('plazas_fijas_spot_sin_solape')) {
-    reportDbError('[dbUpdatePlazaFija]', error);
-    return { ok: false, error: 'Ese sitio ya está asignado a otra socia en ese día y hora' };
-  }
-  return error ? falloEscritura('[dbUpdatePlazaFija]', error) : ESCRITURA_OK;
-}
+// Escribir plazas fijas ya NO se hace desde el navegador: crear, mover, pausar y
+// quitar van por `app/api/plazas-fijas` (reglas de cuota, límite y autorización,
+// y reserva con el mismo motor que cada noche). La RLS de escritura está cerrada
+// (migr 20260915061357).
 
 // F2 (B2.3): recuperaciones. La caducidad + el tope (4) los resuelve la RPC.
 export async function dbCrearRecuperacion(

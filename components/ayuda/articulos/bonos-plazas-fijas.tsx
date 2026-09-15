@@ -14,13 +14,20 @@ export default function Contenido() {
 
       <h2 style={{ ...h2, marginTop: 4 }}>Cómo se asigna</h2>
       <p>
-        En la ficha de la alumna, bloque <strong>«Plaza fija»</strong> → «Añadir». Eliges día de la semana, hora
-        y sala, y opcionalmente el tipo de clase y hasta el sitio concreto (si tu sala tiene máquinas numeradas).
+        En la ficha de la alumna, bloque <strong>«Plaza fija»</strong> → «Añadir», o desde una clase del
+        calendario con <strong>«Hacer fija»</strong> junto a su nombre. En los dos casos <strong>eliges la
+        clase</strong> de tu horario a la que viene cada semana (y, si tu sala tiene máquinas numeradas, su
+        sitio). Ves cuántas plazas fijas tiene ya cada clase.
+      </p>
+      <p>
+        Hace falta que tenga una <strong>cuota</strong> activa que incluya esa clase. Con bono no se puede: las
+        reservas de una plaza fija no descuentan sesiones, así que con bono se reserva clase a clase. Si la cuota
+        tiene un máximo de clases por semana y ya tiene esas plazas fijas, te avisa antes y puedes asignarla
+        igualmente.
       </p>
       <p>
         La plaza se guarda como un <strong>hueco semanal</strong>, no como una lista de reservas. Al guardarla ya
-        se le reserva la próxima clase de ese hueco; las siguientes las crea Tentare cada noche, mirando las seis
-        semanas que vienen.
+        se le reservan las clases de las seis semanas que vienen, y después Tentare sigue reservándolas cada noche.
       </p>
 
       <h2 style={h2}>Si cambias el horario de la clase</h2>
@@ -37,9 +44,9 @@ export default function Contenido() {
 
       <h2 style={h2}>Cambiarle el hueco a una alumna</h2>
       <p>
-        Desde su ficha puedes <strong>editar</strong> la plaza —día, hora, sala— sin borrarla y volver a
-        crearla. Importa hacerlo así: al recrearla perdería su antigüedad. Las reservas ya creadas en el hueco
-        anterior no se mueven: cancélalas desde el calendario.
+        Desde su ficha puedes <strong>cambiarla</strong> a otra clase, o solo de sitio o de fechas, sin borrarla y
+        volver a crearla. Importa hacerlo así: al recrearla perdería su antigüedad. Si la cambias de clase, las que
+        ya tenía reservadas en la anterior se cancelan sin penalización y se le reservan las de la nueva.
       </p>
 
       <h2 style={h2}>Cuando una semana no puede venir</h2>

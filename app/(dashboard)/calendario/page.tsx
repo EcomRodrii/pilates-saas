@@ -23,8 +23,7 @@ import {
   Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
 } from 'lucide-react';
 import Link from 'next/link';
-import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera, hoyEnEstudio, franjaLocalDe } from '@/lib/utils';
-import { horaInicioLocalDe, nombreDiaSemana } from '@/lib/plazas-fijas-slot';
+import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera } from '@/lib/utils';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
 import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
 import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
@@ -33,7 +32,8 @@ import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva, heredaOverride } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
-import { sesionEncajaEnPlaza, type SesionSlot } from '@/lib/plazas-fijas-slot';
+import { sesionEncajaEnPlaza, claveFranjaDeSesion, type SesionSlot } from '@/lib/plazas-fijas-slot';
+import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
@@ -537,7 +537,7 @@ interface DatosVista {
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
-    suscripciones, planesTarifa, studio, plazasFijas, asignarPlazaFija,
+    suscripciones, planesTarifa, studio, plazasFijas,
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
@@ -2157,25 +2157,15 @@ export default function Calendario() {
   // encontraba desde el sitio donde de verdad se decide "esta clienta viene
   // siempre a este hueco". Ancla al slot de la sesión actual (sala/día/hora
   // en local del estudio, mismo criterio que sesionEncajaEnPlaza).
-  async function hacerPlazaFija(reservaId: string) {
+  //
+  // Ya no crea en un clic: abre el MISMO diálogo que la ficha, con esta clase y
+  // el sitio de esta reserva ya elegidos, para que se vea qué se va a guardar y
+  // el resultado sea idéntico venga de donde venga.
+  const [plazaFijaDesdeClase, setPlazaFijaDesdeClase] = useState<{ socioId: string; clave: string; spotId: string | null } | null>(null);
+  function hacerPlazaFija(reservaId: string) {
     const r = reservasActuales.find(x => x.id === reservaId);
     if (!r || !sesionActual) return;
-    const franja = franjaLocalDe(sesionActual.inicio);
-    const res = await asignarPlazaFija({
-      socioId: r.socioId,
-      diaSemana: franja.dow,
-      horaInicio: horaInicioLocalDe(sesionActual.inicio),
-      salaId: sesionActual.salaId,
-      tipoClaseId: sesionActual.tipoClaseId,
-      spotId: r.spotId,
-      vigenciaDesde: hoyEnEstudio(),
-      vigenciaHasta: null,
-      estado: 'ACTIVA',
-    });
-    if ('error' in res) { showToast(res.error); return; }
-    showToast(res.proximaOcurrencia
-      ? `Plaza fija creada — ya tiene reservada la clase del ${fechaLargaEstudio(new Date(`${res.proximaOcurrencia.fecha}T12:00:00`))}, y así cada ${nombreDiaSemana(franja.dow)}.`
-      : `Plaza fija creada — ${nombreClientaResolver(r.socioId)} queda apuntada cada ${nombreDiaSemana(franja.dow)} en cuanto haya clase programada.`);
+    setPlazaFijaDesdeClase({ socioId: r.socioId, clave: claveFranjaDeSesion(sesionActual), spotId: r.spotId ?? null });
   }
 
   function abrirIncidencia(sesionId: string) {
@@ -3161,6 +3151,21 @@ export default function Calendario() {
           instructorId={yo.id}
           sesionId={sesionActual.id}
           onClose={() => setNotaVozSocioId(null)}
+        />
+      )}
+
+      {plazaFijaDesdeClase && (
+        <DialogoPlazaFija
+          socioId={plazaFijaDesdeClase.socioId}
+          claveInicial={plazaFijaDesdeClase.clave}
+          spotInicial={plazaFijaDesdeClase.spotId}
+          onClose={() => setPlazaFijaDesdeClase(null)}
+          onGuardada={(r, movida) => {
+            setPlazaFijaDesdeClase(null);
+            showToast(textoPlazaGuardada(r, movida));
+            // Las reservas de las próximas semanas las acaba de crear el servidor.
+            void refrescarVista();
+          }}
         />
       )}
 
