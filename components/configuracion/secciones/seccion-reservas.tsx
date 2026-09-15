@@ -116,9 +116,9 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
       </GrupoFilas>
 
       <GrupoFilas titulo="Tentare lo hace así">
-        <FilaInformativa icono={Users} titulo="La plaza que se libera pasa sola a la primera de la lista" detalle="Por orden de llegada, sin que tengas que tocar nada." />
+        <FilaInformativa icono={Users} titulo="La plaza que se libera va a la primera de la lista" detalle="Por orden de llegada: al momento, o con el plazo para aceptarla que pongas en Lista de espera." />
         <FilaInformativa icono={Timer} titulo="Una clase sin su mínimo de alumnas se cancela 2 h antes" detalle="Solo si le pones un mínimo. Avisa a quien tenía plaza." />
-        <FilaInformativa icono={RotateCcw} titulo="Cada alumna guarda hasta 4 recuperaciones" detalle="Sin usar a la vez: con 4, no se le da otra hasta que gaste una." />
+        <FilaInformativa icono={RotateCcw} titulo="Cada alumna guarda hasta 4 recuperaciones" detalle="Sin usar a la vez: con 4, no se le da otra hasta que use o le caduque una." />
       </GrupoFilas>
 
       <CajonAjuste id="reservar" abierto={cajon === 'reservar'} onCerrar={cerrar}>

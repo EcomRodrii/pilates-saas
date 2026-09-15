@@ -537,7 +537,7 @@ test('reglas de reserva: lo principal delante, y los tipos que la cambian antes 
   assert.equal(resumenRegla('reservar', r, sin), 'Cualquier antelación · con plan o bono');
   assert.equal(resumenRegla('reservar', { ...r, reservaAntelacionMaximaDias: 30, requiereAprobacion: true }, sin), 'Hasta 30 días antes · la apruebas tú');
   assert.equal(resumenRegla('cancelar-y-recuperar', r, sin), 'Hasta 12 h antes · después pierde la sesión');
-  assert.equal(resumenRegla('cancelar-y-recuperar', { ...r, cancelacionVentanaHoras: 0 }, sin), 'Sin plazo para cancelar');
+  assert.equal(resumenRegla('cancelar-y-recuperar', { ...r, cancelacionVentanaHoras: 0 }, sin), 'Cancela hasta el último momento');
   assert.equal(resumenRegla('si-se-cancela-una-clase', r, sin), 'Devuelve la sesión · sin mínimo');
   assert.equal(resumenRegla('si-se-cancela-una-clase', { ...r, cancelacionClaseDevuelveBono: false, minimoAsistentesPorClase: 3 }, sin), 'No devuelve la sesión · mínimo 3 alumnas');
   assert.equal(resumenRegla('lista-de-espera', r, sin), 'Plaza al momento');
@@ -554,12 +554,15 @@ test('reglas de reserva: lo principal delante, y los tipos que la cambian antes 
   // Los tipos que la cambian no se pierden nunca por falta de sitio.
   assert.equal(resumenRegla('cancelar-y-recuperar', r, { excepciones: 2 }), 'Hasta 12 h antes · 2 tipos lo cambian');
   assert.equal(resumenRegla('lista-de-espera', r, { excepciones: 1 }), 'Plaza al momento · 1 tipo lo cambia');
+  // El cargo propio de un tipo no se cobra: la fila no puede decir que «lo cambia».
+  assert.equal(resumenRegla('si-cancela-tarde-o-no-viene', r, { excepciones: 2 }), 'Sin cargo · 2 tipos: su cargo no se cobra');
   const peores = { ...r, reservaAntelacionMaximaDias: 365, cancelacionVentanaHoras: 168, minimoAsistentesPorClase: 12, penalizacionImporteEur: 12.5 };
   for (const t of TARJETAS_REGLAS) {
     for (const v of [r, peores]) {
       const texto = resumenRegla(t, v, { excepciones: 12, pideConfirmacion: true });
       assert.ok(texto && texto.length <= MAX_RESUMEN, `${t}: «${texto}» no cabe`);
-      assert.match(texto, /12 tipos lo cambian/, `${t}: «${texto}» se come las excepciones`);
+      const excepcion = t === 'si-cancela-tarde-o-no-viene' ? /12 tipos: su cargo no se cobra/ : /12 tipos lo cambian/;
+      assert.match(texto, excepcion, `${t}: «${texto}» se come las excepciones`);
     }
   }
 });

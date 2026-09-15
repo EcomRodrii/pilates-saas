@@ -18,7 +18,8 @@ import {
 // llevan UN estado y su acción en la fila o en su cajón (canales-comunicacion.tsx).
 // El recordatorio de clase es de serie: se cuenta, no se configura aquí
 // (lib/notificaciones/recordatorio-clase.ts: 24 h antes app + email + WhatsApp si
-// está conectado; 1 h antes, solo la app).
+// está conectado y con plantilla aprobada; 1 h antes, solo la app; quien reserva
+// con menos de 24 h recibe el correo en la pasada siguiente, franja `tardia`).
 
 const CAJONES = ['integracion-resend', 'integracion-whatsapp', 'integracion-gmail'] as const;
 
@@ -56,7 +57,7 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
         <FilaInformativa
           icono={BellRing}
           titulo="El recordatorio de cada clase sale solo"
-          detalle="24 h antes, por correo y en su app (y por WhatsApp si lo conectas); 1 h antes, en su app."
+          detalle="24 h antes, por correo y en su app (y por WhatsApp si lo conectas y Meta te aprueba la plantilla); 1 h antes, en su app. Si reserva con menos de 24 h, el correo le llega al poco, salvo en la última hora y cuarto."
         />
       </GrupoFilas>
 

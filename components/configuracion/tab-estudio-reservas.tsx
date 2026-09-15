@@ -117,13 +117,17 @@ function enumerar(nombres: readonly string[]): string {
   return `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}`;
 }
 
-/** «Reformer y Mat tienen su propia regla» y a un toque, los tipos de clase (por el shell: #2030). */
-function TiposDeClaseQueLaCambian({ tipos }: { tipos: TiposQueLaCambian }) {
+/** «Reformer y Mat tienen su propia regla» y a un toque, los tipos de clase (por el shell: #2030).
+ *  `cargo`: en el del cargo no «la cambian»: su importe propio no se cobra nunca. */
+function TiposDeClaseQueLaCambian({ tipos, cargo = false }: { tipos: TiposQueLaCambian; cargo?: boolean }) {
   const nav = useNavegacionConfig();
   if (tipos.length === 0) return null;
   return (
     <div data-excepciones="" className="text-sm text-muted-foreground text-pretty">
-      <p>{enumerar(tipos.map(t => t.nombre))} {tipos.length === 1 ? 'tiene' : 'tienen'} su propia regla: no siguen esta.</p>
+      <p>
+        {enumerar(tipos.map(t => t.nombre))} {tipos.length === 1 ? 'tiene' : 'tienen'}{' '}
+        {cargo ? 'su propio cargo, y no se cobra: tus alumnas solo aceptaron el del estudio.' : 'su propia regla: no siguen esta.'}
+      </p>
       <Link
         href={hrefDeHerramienta('tipos-de-clase')}
         onClick={e => {
@@ -547,7 +551,7 @@ export function FormPenalizacion({ excepciones, ...props }: PropsCajonRegla) {
           <p className="text-sm text-warning text-pretty">Sin pasar lista, nunca habrá un «no vino» que cobrar: márcalo a mano en Asistentes.</p>
         )}
         <Consecuencia texto={consecuenciaRegla('si-cancela-tarde-o-no-viene', enPantalla)} />
-        <TiposDeClaseQueLaCambian tipos={excepciones} />
+        <TiposDeClaseQueLaCambian tipos={excepciones} cargo />
       </div>
       <Barra
         tarjeta="si-cancela-tarde-o-no-viene"

@@ -161,7 +161,7 @@ test('con otros valores guardados, otras filas', async ({ page }) => {
   });
   await abrirReservas(page);
 
-  await expect(valorFila(page, 'cancelar-y-recuperar')).toHaveText('Sin plazo para cancelar');
+  await expect(valorFila(page, 'cancelar-y-recuperar')).toHaveText('Cancela hasta el último momento');
   await expect(valorFila(page, 'si-se-cancela-una-clase')).toHaveText('No devuelve la sesión · sin mínimo');
   await expect(valorFila(page, 'lista-de-espera')).toHaveText('Sin lista de espera');
   await expect(avisosEnConfiguracion(page)).toHaveAttribute('aria-checked', 'false');

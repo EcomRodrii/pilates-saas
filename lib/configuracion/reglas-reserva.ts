@@ -290,8 +290,9 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
 /**
  * Lo que se pregunta antes de guardar el cargo: es dinero de tus alumnas. Dice
  * lo que va a pasar, y lo que NO va a pasar aunque lo pongas (con términos
- * propios no se cobra: `consentimientoCubrePenalizacion`) o aunque lo quites
- * (un tipo de clase con su propio cargo lo sigue cobrando).
+ * propios no se cobra: `consentimientoCubrePenalizacion`), que un importe nuevo
+ * no se cobra a quien aceptó el texto anterior, y que el cargo propio de un tipo
+ * de clase tampoco se cobra (el consentimiento exige el importe del estudio).
  */
 export function confirmarPenalizacion(
   antes: ReglasReserva,
@@ -300,19 +301,21 @@ export function confirmarPenalizacion(
 ): { titulo: string; descripcion: string; textoConfirmar: string } {
   const importe = cifra(ahora.penalizacionImporteEur);
   if (importe === 0) {
-    const siguen = e.tiposConCargoPropio === 0 ? ''
-      : e.tiposConCargoPropio === 1 ? ' El tipo de clase con su propio cargo lo sigue cobrando.'
-      : ` Los ${e.tiposConCargoPropio} tipos de clase con su propio cargo lo siguen cobrando.`;
+    const tampoco = e.tiposConCargoPropio > 0 ? ', tampoco en los tipos de clase con su propio cargo' : '';
     return {
       titulo: '¿Quitar el cargo?',
-      descripcion: `Desde ahora, cancelar tarde o no venir no le cuesta nada a tus alumnas.${siguen}`,
+      descripcion: `Desde ahora, cancelar tarde o no venir no le cuesta nada a tus alumnas${tampoco}.`,
       textoConfirmar: 'Sí, quitarlo',
     };
   }
   const aviso = e.terminosPropios ? ' Con tus términos propios no se cobrará: tus alumnas no han aceptado este cargo.' : '';
   return {
     titulo: cifra(antes.penalizacionImporteEur) === 0 ? `¿Cobrar ${euros(importe)}?` : '¿Cambiar el cargo?',
-    descripcion: `${consecuenciaRegla('si-cancela-tarde-o-no-viene', ahora)} Va a su tarjeta guardada, si tiene una y aceptó tus condiciones.${aviso}`,
+    descripcion: `${consecuenciaRegla('si-cancela-tarde-o-no-viene', ahora)} ${cifra(antes.penalizacionImporteEur) !== importe
+      // El importe va dentro del texto del contrato: quien aceptó el anterior no
+      // tiene consentimiento para este (penalizacion-consentimiento.ts).
+      ? 'Va a su tarjeta guardada, solo si tiene una y aceptó tus condiciones con este cargo: quien las aceptó antes de este cambio no paga hasta que las vuelva a aceptar.'
+      : 'Va a su tarjeta guardada, si tiene una y aceptó tus condiciones.'}${aviso}`,
     textoConfirmar: 'Sí, guardarlo',
   };
 }

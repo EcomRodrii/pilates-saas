@@ -748,7 +748,7 @@ export function resumenRegla(
     case 'cancelar-y-recuperar': {
       const v = r.cancelacionVentanaHoras;
       return unir([
-        v > 0 ? `hasta ${numero(v)} h antes` : 'sin plazo para cancelar',
+        v > 0 ? `hasta ${numero(v)} h antes` : 'cancela hasta el último momento',
         excepciones,
         v > 0 ? (r.cancelacionDevolverBonoTardia ? 'después también recupera' : 'después pierde la sesión') : null,
       ]);
@@ -774,12 +774,15 @@ export function resumenRegla(
       ]);
     case 'si-cancela-tarde-o-no-viene': {
       const importe = r.penalizacionImporteEur ?? 0;
-      if (importe <= 0) return unir(['sin cargo', excepciones]);
+      // Un tipo con otro cargo no se cobra nunca: el consentimiento exige el
+      // importe del estudio (penalizacion-consentimiento.ts). «Lo cambian» diría que sí.
+      const conOtroCargo = e.excepciones > 0 ? `${contar(e.excepciones, 'tipo', 'tipos')}: su cargo no se cobra` : null;
+      if (importe <= 0) return unir(['sin cargo', conOtroCargo]);
       const tarde = r.penalizacionAplicaCancelacionTardia;
       const falta = r.penalizacionAplicaNoShow;
       return unir([
         euros(importe),
-        excepciones,
+        conOtroCargo,
         r.penalizacionCobroAutomatico ? 'se cobra solo' : 'lo apruebas tú',
         tarde && falta ? null : tarde ? 'solo si cancela tarde' : falta ? 'solo si no viene' : 'sin aplicar a nada',
       ]);

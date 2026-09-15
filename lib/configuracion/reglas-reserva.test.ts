@@ -205,7 +205,11 @@ test('el cargo pregunta antes con lo que pasa, y con lo que NO pasa', () => {
     /Con tus términos propios no se cobrará/);
   const quitar = confirmarPenalizacion({ ...antes, penalizacionImporteEur: 5 }, antes, { terminosPropios: false, tiposConCargoPropio: 2 });
   assert.equal(quitar.titulo, '¿Quitar el cargo?');
-  assert.match(quitar.descripcion, /Los 2 tipos de clase con su propio cargo lo siguen cobrando\.$/);
+  assert.equal(quitar.descripcion, 'Desde ahora, cancelar tarde o no venir no le cuesta nada a tus alumnas, tampoco en los tipos de clase con su propio cargo.');
+  // Un importe nuevo no se cobra a quien aceptó el texto anterior.
+  assert.match(poner.descripcion, /quien las aceptó antes de este cambio no paga hasta que las vuelva a aceptar\.$/);
+  const soloAutomatico = confirmarPenalizacion({ ...antes, penalizacionImporteEur: 5 }, { ...antes, penalizacionImporteEur: 5, penalizacionCobroAutomatico: true }, { terminosPropios: false, tiposConCargoPropio: 0 });
+  assert.match(soloAutomatico.descripcion, /Va a su tarjeta guardada, si tiene una y aceptó tus condiciones\.$/);
   assert.equal(confirmarPenalizacion({ ...antes, penalizacionImporteEur: 5 }, { ...antes, penalizacionImporteEur: 8 }, { terminosPropios: false, tiposConCargoPropio: 0 }).titulo, '¿Cambiar el cargo?');
 });
 
