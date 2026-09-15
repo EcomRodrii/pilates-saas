@@ -9,8 +9,9 @@ import type { ResultadoEscritura } from '@/lib/errores';
 import { labelCls, btnSecondary } from '@/components/configuracion/estilos';
 
 // Lo que comparten los formularios que editan la fila del estudio desde tres
-// secciones distintas: «Datos y contacto» (Mi estudio), «Textos de tu app» (Mi
-// app y mi web) y «Datos fiscales e IVA» (Cobros y facturas).
+// secciones distintas: «Nombre y dirección» y «Contacto» (Mi estudio, cada uno en
+// su cajón), «Textos de tu app» (Marca) y «Datos fiscales e IVA» (Cobros y
+// facturas).
 //
 // Eran UN solo formulario con un solo «Guardar» (TabEstudioGeneral) que mandaba
 // los diecisiete campos a la vez. Partido, cada uno manda SOLO los suyos: un

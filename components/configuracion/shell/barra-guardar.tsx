@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { cn } from '@/lib/utils';
 import type { SeccionId } from '@/lib/configuracion/secciones';
 import { useNavegacionConfig } from './contexto';
+import { useCajonAjuste } from './cajon-ajuste';
 
 // Algunos errores ya empiezan por «No se ha guardado:» (una fila que la RLS no
 // deja tocar, lib/db/actualizar-studio.ts): no se repite.
@@ -28,6 +31,8 @@ function textoDeError(error: string): string {
 //  · Una ref contra el doble toque: el `disabled` llega un render tarde.
 //  · Salir con cambios pregunta: aquí se avisa al shell (que pinta el diálogo) y
 //    se engancha `beforeunload` para recargar o cerrar la pestaña.
+//  · Lo que no se deshace solo (cerrar el centro) pide `confirmar` antes de
+//    llamar a `onGuardar`.
 //
 // Colocación (§2 de la reorganización):
 //  · ÚLTIMA hija de la columna de la sección, nunca dentro de una tarjeta: el
@@ -36,6 +41,9 @@ function textoDeError(error: string): string {
 //    `fixed` dentro se colocaría respecto a él.
 //  · Por encima de la barra de navegación del móvil y el iPad (56 px + zona
 //    segura), que es `fixed bottom-0`.
+//  · Dentro de un cajón (cajon-ajuste.tsx) va pegada a su borde de abajo: el
+//    cajón ya tapa la navegación. Y allí apunta los cambios, para que cerrar el
+//    cajón pregunte.
 //  · `data-barra-guardar` SOLO mientras se ve: con él a la vista, la burbuja de
 //    WhatsApp se aparta (globals.css). En todos los anchos: a 1024 px tapaba
 //    «Guardar».
@@ -45,6 +53,7 @@ export function BarraGuardar({
   seccion,
   cambios,
   bloqueo,
+  confirmar,
   onGuardar,
   onDescartar,
 }: {
@@ -53,16 +62,20 @@ export function BarraGuardar({
   cambios: readonly string[];
   /** Por qué no se puede guardar todavía (un plazo imposible). Deja «Guardar» apagado. */
   bloqueo?: string | null;
+  /** Lo que se pregunta antes de guardar algo que no se deshace solo. */
+  confirmar?: { titulo: string; descripcion: string; textoConfirmar: string } | null;
   /** `null` = guardado de verdad; un texto = no se ha guardado, y por qué. */
   onGuardar: () => Promise<string | null>;
   onDescartar: () => void;
 }) {
   const nav = useNavegacionConfig();
+  const cajon = useCajonAjuste();
   const visible = cambios.length > 0;
   const enVuelo = useRef(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [anuncio, setAnuncio] = useState('');
+  const [preguntando, setPreguntando] = useState(false);
 
   // Salir de la sección con cambios: el shell pregunta antes de cambiar de
   // sección o de pantalla.
@@ -70,6 +83,12 @@ export function BarraGuardar({
     if (!visible || !nav) return;
     return nav.marcarSinGuardar(seccion);
   }, [visible, nav, seccion]);
+
+  // Cerrar el cajón con cambios: pregunta el cajón.
+  useEffect(() => {
+    if (!visible || !cajon) return;
+    return cajon.marcarCambios();
+  }, [visible, cajon]);
 
   // Recargar o cerrar la pestaña: el diálogo del navegador (su texto no se
   // puede cambiar).
@@ -98,6 +117,12 @@ export function BarraGuardar({
     }
   }
 
+  function alPulsarGuardar() {
+    if (enVuelo.current || bloqueo) return;
+    if (confirmar) setPreguntando(true);
+    else void guardar();
+  }
+
   function descartar() {
     setError(null);
     onDescartar();
@@ -113,9 +138,14 @@ export function BarraGuardar({
           data-barra-guardar=""
           role="region"
           aria-label="Cambios sin guardar"
-          className="sticky z-20 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] lg:bottom-4"
+          className={cajon
+            ? 'sticky bottom-0 z-10 -mx-4 mt-auto border-t border-border bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:-mx-6 md:px-6'
+            : 'sticky z-20 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] lg:bottom-4'}
         >
-          <div className="flex max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur @sm/config:flex-row @sm/config:items-center @sm/config:justify-between">
+          <div className={cn(
+            'flex flex-col gap-3 @sm/config:flex-row @sm/config:items-center @sm/config:justify-between',
+            !cajon && 'max-w-2xl rounded-xl border border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur',
+          )}>
             <div className="min-w-0 space-y-1">
               {(error || bloqueo) && (
                 <p role="alert" className="text-sm font-medium text-destructive text-pretty">
@@ -133,7 +163,7 @@ export function BarraGuardar({
               {/* Apagado (un plazo imposible) tiene que seguir leyéndose: la
                   opacidad del `Button` dejaba el oliva a medio fundir. */}
               <Button
-                type="button" size="lg" onClick={guardar} disabled={guardando || !!bloqueo}
+                type="button" size="lg" onClick={alPulsarGuardar} disabled={guardando || !!bloqueo}
                 className="disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
               >
                 {guardando ? 'Guardando…' : 'Guardar'}
@@ -141,6 +171,17 @@ export function BarraGuardar({
             </div>
           </div>
         </div>
+      )}
+      {confirmar && (
+        <ConfirmDialog
+          open={preguntando}
+          onOpenChange={setPreguntando}
+          titulo={confirmar.titulo}
+          descripcion={confirmar.descripcion}
+          textoConfirmar={confirmar.textoConfirmar}
+          textoCancelar="Volver"
+          onConfirm={() => { void guardar(); }}
+        />
       )}
     </>
   );

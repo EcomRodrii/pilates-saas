@@ -22,6 +22,12 @@ export interface NavegacionConfig {
    * desmontarse).
    */
   marcarSinGuardar: (seccion: SeccionId) => () => void;
+  /**
+   * El ancla con la que se ha abierto lo que se ve (`#horario`), para la sección
+   * que la abre en un cajón y no en una tarjeta. `vista` cambia en cada
+   * navegación: la misma ancla pedida dos veces se vuelve a abrir.
+   */
+  anclaAbierta: { id: string; vista: number } | null;
 }
 
 export const ContextoNavegacionConfig = createContext<NavegacionConfig | null>(null);

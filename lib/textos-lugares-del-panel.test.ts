@@ -52,6 +52,12 @@ const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
     patron: /Reservas y cancelaciones|Guardar política de reservas/,
     ahora: 'Configuración → Cómo reservan mis alumnas, con sus tarjetas (Reservar, Cancelar y recuperar, Lista de espera, Asistencia, Si cancela tarde o no viene) y un solo «Guardar»',
   },
+  // 15-sep (v2): Mi estudio va en filas con su cajón. «Datos y contacto» se
+  // partió en «Nombre y dirección» y «Contacto», y el cierre es una fila propia.
+  {
+    patron: /Guardar datos y contacto|Cerrar el centro unos días|Cerrar el centro esos días/,
+    ahora: 'Mi estudio en filas: «Nombre y dirección», «Contacto», «Horario» y «Cerrar el centro», cada una con su «Guardar»',
+  },
   { patron: /Ir a Migración/, ahora: 'Traer mis datos' },
   // No hay pantalla para emparejar un datáfono: no se manda a buscarla.
   { patron: /Empareja uno en Configuración/, ahora: 'solo el estado («Sin datáfono emparejado»)' },

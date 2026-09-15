@@ -1,25 +1,29 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarOff, Copy, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Copy } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { Toggle, btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/estilos';
-import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
+import { hayCambios as formularioCambiado, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
+import { rangoDeFechas } from '@/lib/configuracion/resumenes';
+import { Toggle, btnSecondary, inputCls } from '@/components/configuracion/estilos';
+import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
+import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
+import { Campo } from '@/components/configuracion/formulario-estudio';
 import type { DiaHorario } from '@/lib/types';
 
-// El calendario decía "Cerrado" en cualquier día sin clases, aunque el
-// estudio SÍ trabajara ese día — porque hasta ahora no había ningún dato de
-// horario real por día que cruzar (ver lib/calendario-columnas.ts, campo
-// `cerrado`). Esta pantalla es ese dato que faltaba.
+// Los cajones «Horario» y «Cerrar el centro» de Mi estudio.
 //
-// Convención local de esta UI: 0=lunes..6=domingo (igual que vista-semana.tsx
-// y lib/calendario-columnas.ts). `DiaHorario.diaSemana` de la BD usa
-// EXTRACT(DOW), 0=domingo..6=sábado — la conversión vive solo aquí, en los
-// bordes de entrada/salida del componente.
+// El calendario decía "Cerrado" en cualquier día sin clases, aunque el estudio
+// SÍ trabajara ese día — porque no había ningún dato de horario real por día que
+// cruzar (ver lib/calendario-columnas.ts, campo `cerrado`). El horario es ese
+// dato.
+//
+// Convención local de esta UI: 0=lunes..6=domingo (igual que vista-semana.tsx y
+// lib/calendario-columnas.ts). `DiaHorario.diaSemana` de la BD usa EXTRACT(DOW),
+// 0=domingo..6=sábado — la conversión vive solo aquí, en los bordes.
 const NOMBRES_DIA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const LUNES_A_VIERNES = [0, 1, 2, 3, 4];
-const FIN_DE_SEMANA = [5, 6];
+const DIA_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const DIAS = [0, 1, 2, 3, 4, 5, 6];
 
 const diaSemanaALocal = (d: number) => (d + 6) % 7;
 const localADiaSemana = (l: number) => (l + 1) % 7;
@@ -30,21 +34,22 @@ interface FilaHorario {
   horaCierre: string;
 }
 
+/** Un día por clave ('0' = lunes): así lo compara y lo sincroniza formulario-sincronizado.ts. */
+type FormHorario = Record<string, FilaHorario>;
+
 const FILA_DEFAULT: FilaHorario = { abierto: true, horaApertura: '08:00', horaCierre: '22:00' };
 
-function aHHMM(t: string | null): string {
-  return t ? t.slice(0, 5) : FILA_DEFAULT.horaApertura;
-}
+const aHHMM = (t: string | null) => (t ? t.slice(0, 5) : FILA_DEFAULT.horaApertura);
 
-function horarioAForm(horario: DiaHorario[] | undefined): FilaHorario[] {
+function horarioAForm(horario: DiaHorario[] | undefined): FormHorario {
   const porLocal = new Map(horario?.map(h => [diaSemanaALocal(h.diaSemana), h]));
-  return Array.from({ length: 7 }, (_, local) => {
+  return Object.fromEntries(DIAS.map(local => {
     const h = porLocal.get(local);
-    if (!h) return { ...FILA_DEFAULT };
-    return h.abierto
-      ? { abierto: true, horaApertura: aHHMM(h.horaApertura), horaCierre: aHHMM(h.horaCierre) }
+    const fila = !h ? { ...FILA_DEFAULT }
+      : h.abierto ? { abierto: true, horaApertura: aHHMM(h.horaApertura), horaCierre: aHHMM(h.horaCierre) }
       : { abierto: false, horaApertura: FILA_DEFAULT.horaApertura, horaCierre: FILA_DEFAULT.horaCierre };
-  });
+    return [String(local), fila];
+  }));
 }
 
 function minutos(hhmm: string): number {
@@ -52,178 +57,131 @@ function minutos(hhmm: string): number {
   return h * 60 + m;
 }
 
-// Barra 24h con la franja abierta pintada — de un vistazo se ve la semana
-// entera como 7 barras apiladas, en vez de leer 14 horas sueltas.
-function BarraDia({ fila }: { fila: FilaHorario }) {
-  if (!fila.abierto) {
-    return <div className="h-2 w-full rounded-full bg-muted" />;
-  }
-  const ini = minutos(fila.horaApertura);
-  const fin = minutos(fila.horaCierre);
-  const left = Math.max(0, Math.min(100, (ini / 1440) * 100));
-  const width = Math.max(0, Math.min(100 - left, ((fin - ini) / 1440) * 100));
-  return (
-    <div className="relative h-2 w-full rounded-full bg-muted overflow-hidden">
-      <div
-        className="absolute inset-y-0 rounded-full"
-        style={{ left: `${left}%`, width: `${width}%`, background: 'var(--brand-medio)' }}
-      />
-    </div>
-  );
-}
+// ⚠️ Las dos horas van en la MISMA línea que el día a cualquier anchura: hasta el
+// 15-sep bajaban a la suya por debajo de `@lg/config` (32 rem), que es más ancho
+// que la columna de Configuración a 1024 px, así que no subían nunca. En el móvil
+// el día va abreviado para que quepan, y con el dedo sobra el relojito de Chrome
+// (tocar el campo ya abre el selector): a 375 px dejaba «08:0».
+const INPUT_HORA = 'min-h-11 min-w-0 flex-1 rounded-md border border-input bg-card px-1.5 py-1 text-base tabular-nums [@media(pointer:coarse)]:[&::-webkit-calendar-picker-indicator]:hidden [@media(pointer:fine)]:min-h-8 [@media(pointer:fine)]:px-2 [@media(pointer:fine)]:text-[13px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
-export function TabEstudioHorario({ showToast }: { showToast: (m: string) => void }) {
+export function FormHorario({ onGuardado }: PropsFormularioCajon) {
   const { studio, updateHorarioEstudio } = useStudio();
-  const [filas, setFilas] = useState<FilaHorario[]>(() => horarioAForm(studio?.horarioSemana));
-  const [studioAnterior, setStudioAnterior] = useState(studio);
-  if (studio !== studioAnterior) {
-    setStudioAnterior(studio);
-    setFilas(horarioAForm(studio?.horarioSemana));
-  }
-  const [guardando, setGuardando] = useState(false);
+  const horario = studio?.horarioSemana;
+  const [form, setForm] = useState(() => horarioAForm(horario));
+  const [base, setBase] = useState(() => horarioAForm(horario));
 
-  function actualizarFila(local: number, cambios: Partial<FilaHorario>) {
-    setFilas(prev => prev.map((f, i) => (i === local ? { ...f, ...cambios } : f)));
-  }
-
-  function copiarATodos(local: number) {
-    const origen = filas[local];
-    setFilas(prev => prev.map(() => ({ ...origen })));
-    showToast(`${NOMBRES_DIA[local]} copiado a los 7 días`);
+  // Llega el horario del servidor: lo que no se ha tocado se pone al día, lo
+  // tocado se queda (#2027).
+  const [horarioAnterior, setHorarioAnterior] = useState(horario);
+  if (horario !== horarioAnterior) {
+    setHorarioAnterior(horario);
+    const servidor = horarioAForm(horario);
+    setForm(sincronizarFormulario(form, base, servidor));
+    setBase(servidor);
   }
 
-  function igualarGrupo(dias: number[], etiqueta: string) {
-    const [primero, ...resto] = dias;
-    const origen = filas[primero];
-    setFilas(prev => prev.map((f, i) => (resto.includes(i) ? { ...origen } : f)));
-    showToast(`${etiqueta}: mismo horario aplicado`);
-  }
+  const fila = (local: number) => form[String(local)];
+  const cambiar = (local: number, cambios: Partial<FilaHorario>) =>
+    setForm(f => ({ ...f, [local]: { ...f[String(local)], ...cambios } }));
+  const copiar = (desde: number, a: readonly number[]) =>
+    setForm(f => ({ ...f, ...Object.fromEntries(a.map(l => [String(l), { ...f[String(desde)] }])) }));
 
-  function presetEstandar() {
-    setFilas(Array.from({ length: 7 }, () => ({ ...FILA_DEFAULT })));
-    showToast('Horario estándar aplicado — recuerda guardar');
-  }
+  const malo = DIAS.find(l => {
+    const f = fila(l);
+    return f.abierto && (!f.horaApertura || !f.horaCierre || minutos(f.horaApertura) >= minutos(f.horaCierre));
+  });
+  const bloqueo = malo === undefined ? null : `${NOMBRES_DIA[malo]}: la hora de cierre tiene que ser posterior a la de apertura.`;
 
-  async function guardar() {
-    const invalida = filas.find(f => f.abierto && minutos(f.horaApertura) >= minutos(f.horaCierre));
-    if (invalida) { showToast('La hora de cierre tiene que ser posterior a la de apertura.'); return; }
-    setGuardando(true);
-    const dias: DiaHorario[] = filas.map((f, local) => ({
-      diaSemana: localADiaSemana(local),
-      abierto: f.abierto,
-      horaApertura: f.abierto ? `${f.horaApertura}:00` : null,
-      horaCierre: f.abierto ? `${f.horaCierre}:00` : null,
-    }));
+  async function alGuardar() {
+    const dias: DiaHorario[] = DIAS.map(local => {
+      const f = fila(local);
+      return {
+        diaSemana: localADiaSemana(local),
+        abierto: f.abierto,
+        horaApertura: f.abierto ? `${f.horaApertura}:00` : null,
+        horaCierre: f.abierto ? `${f.horaCierre}:00` : null,
+      };
+    });
     const res = await updateHorarioEstudio(dias);
-    setGuardando(false);
-    showToast(res.ok ? 'Horario guardado' : res.error);
+    if (!res.ok) return res.error;
+    onGuardado('Horario guardado');
+    return null;
   }
 
-  // Una tarjeta, «Horario y cierres», con dos partes: es la misma pregunta
-  // —cuándo abre este estudio— contestada para cada día de la semana y para
-  // unas fechas concretas.
   return (
-    <TarjetaAjuste id="horario-y-cierres">
-      <div>
-        <h4 className="text-sm font-semibold text-foreground flex items-center gap-1.5 mb-1">
-          <Sparkles size={14} className="text-brand-medio" aria-hidden />
-          Horario del estudio
-        </h4>
-        <p className="text-[12px] text-muted-foreground mb-4">
-          El calendario usa esto para saber si un día sin clases está{' '}
-          <span className="font-medium text-foreground">cerrado</span> o simplemente{' '}
-          <span className="font-medium text-foreground">libre</span>. Vale todo el año, los 12 meses.
-        </p>
-
-        <div className="flex flex-wrap gap-2 mb-5">
-          <button type="button" onClick={presetEstandar} className={btnSecondary}>
-            Horario estándar (08:00–22:00)
+    <>
+      <div className="space-y-4 pb-6">
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setForm(horarioAForm(undefined))} className={btnSecondary}>
+            Horario estándar (8:00–22:00)
           </button>
-          <button type="button" onClick={() => igualarGrupo(LUNES_A_VIERNES, 'Lunes a viernes')} className={btnSecondary}>
+          <button type="button" onClick={() => copiar(0, [1, 2, 3, 4])} className={btnSecondary}>
             Lunes a viernes igual
           </button>
-          <button type="button" onClick={() => igualarGrupo(FIN_DE_SEMANA, 'Fin de semana')} className={btnSecondary}>
+          <button type="button" onClick={() => copiar(5, [6])} className={btnSecondary}>
             Fin de semana igual
           </button>
         </div>
 
-        <div className="space-y-1.5">
-          {filas.map((fila, local) => (
-            <div
-              key={local}
-              className={cn(
-                'flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3 py-2 border transition-opacity',
-                fila.abierto ? 'border-border' : 'border-transparent opacity-50'
-              )}
-            >
-              <Toggle on={fila.abierto} onChange={v => actualizarFila(local, { abierto: v })} ariaLabel={`Abierto el ${NOMBRES_DIA[local].toLowerCase()}`} />
-              <span className="w-[76px] shrink-0 text-[12.5px] font-medium text-foreground">
-                {NOMBRES_DIA[local]}
-              </span>
-
-              {fila.abierto ? (
-                <>
-                  {/* En una columna estrecha (375 px) las dos horas bajan a su propia
-                      línea: juntas con el interruptor, el nombre y el botón de copiar
-                      pedían 440 px y la página se desplazaba de lado. */}
-                  <div className="order-last flex w-full items-center gap-2 @lg/config:order-none @lg/config:w-auto">
-                  <input
-                    type="time"
-                    aria-label={`Abre el ${NOMBRES_DIA[local].toLowerCase()}`}
-                    value={fila.horaApertura}
-                    onChange={e => actualizarFila(local, { horaApertura: e.target.value })}
-                    className="min-h-11 min-w-0 flex-1 rounded-md border border-input bg-card px-2 py-1 text-base tabular-nums [@media(pointer:fine)]:min-h-8 [@media(pointer:fine)]:text-[12px] @lg/config:w-[118px] @lg/config:flex-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                  />
-                  <span className="text-[11px] text-muted-foreground shrink-0">–</span>
-                  <input
-                    type="time"
-                    aria-label={`Cierra el ${NOMBRES_DIA[local].toLowerCase()}`}
-                    value={fila.horaCierre}
-                    onChange={e => actualizarFila(local, { horaCierre: e.target.value })}
-                    className="min-h-11 min-w-0 flex-1 rounded-md border border-input bg-card px-2 py-1 text-base tabular-nums [@media(pointer:fine)]:min-h-8 [@media(pointer:fine)]:text-[12px] @lg/config:w-[118px] @lg/config:flex-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                  />
-                  </div>
-                  <div className="flex-1 min-w-[60px] hidden @2xl/config:block">
-                    <BarraDia fila={fila} />
-                  </div>
-                </>
-              ) : (
-                <span className="flex-1 text-[12px] text-muted-foreground">Cerrado</span>
-              )}
-
-              <button
-                type="button"
-                onClick={() => copiarATodos(local)}
-                title={`Copiar ${NOMBRES_DIA[local]} a todos los días`}
-                aria-label={`Copiar ${NOMBRES_DIA[local].toLowerCase()} a todos los días`}
-                className="ml-auto shrink-0 p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <Copy size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <button onClick={guardar} disabled={guardando} className={cn(btnPrimary, 'mt-5')}>
-          {guardando ? 'Guardando…' : 'Guardar horario'}
-        </button>
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {DIAS.map(local => {
+            const f = fila(local);
+            const dia = NOMBRES_DIA[local].toLowerCase();
+            return (
+              <li key={local} className="flex min-h-14 items-center gap-2 py-1.5 pl-3 pr-1 @sm/config:gap-3">
+                <Toggle on={f.abierto} onChange={v => cambiar(local, { abierto: v })} ariaLabel={`Abierto el ${dia}`} />
+                <span className="w-8 shrink-0 text-sm font-medium text-foreground @sm/config:w-[4.5rem]">
+                  <span aria-hidden className="@sm/config:hidden">{DIA_CORTO[local]}</span>
+                  <span className="sr-only @sm/config:not-sr-only">{NOMBRES_DIA[local]}</span>
+                </span>
+                {f.abierto ? (
+                  <span className="flex min-w-0 flex-1 items-center gap-1">
+                    <input
+                      type="time" aria-label={`Abre el ${dia}`} value={f.horaApertura}
+                      onChange={e => cambiar(local, { horaApertura: e.target.value })} className={INPUT_HORA}
+                    />
+                    <span aria-hidden className="shrink-0 text-muted-foreground">–</span>
+                    <input
+                      type="time" aria-label={`Cierra el ${dia}`} value={f.horaCierre}
+                      onChange={e => cambiar(local, { horaCierre: e.target.value })} className={INPUT_HORA}
+                    />
+                  </span>
+                ) : (
+                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">Cerrado</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => copiar(local, DIAS.filter(l => l !== local))}
+                  title={`Copiar ${dia} a todos los días`}
+                  aria-label={`Copiar ${dia} a todos los días`}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <Copy size={16} aria-hidden />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </div>
-
-      <div className="mt-6 border-t border-border pt-6">
-        <CierreDelCentro showToast={showToast} />
-      </div>
-    </TarjetaAjuste>
+      <BarraGuardar
+        seccion="estudio"
+        cambios={formularioCambiado(form, base) ? ['Horario'] : []}
+        bloqueo={bloqueo}
+        onGuardar={alGuardar}
+        onDescartar={() => setForm(base)}
+      />
+    </>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Cierre del centro: la semana de vacaciones, el puente, la reforma.
+// Cerrar el centro: la semana de vacaciones, el puente, la reforma.
 //
-// Va debajo del horario semanal y no en una pantalla propia porque es la misma
-// pregunta —cuándo abre este estudio— contestada para una fecha concreta en vez
-// de para un día de la semana.
+// Cancela clases y alarga la caducidad de TODOS los bonos del estudio: no es un
+// guardado más, así que «Guardar» pregunta antes (`confirmar`). La lista de
+// cierres y deshacer uno llegan aparte.
 // ─────────────────────────────────────────────────────────────────────────────
-function CierreDelCentro({ showToast }: { showToast: (m: string) => void }) {
+export function FormCerrarElCentro({ onGuardado }: PropsFormularioCajon) {
   // Cerrar pasa por `cancelarSesionPorMinimoNoAlcanzado` → `devolverBonosPorCancelacionClase`,
   // que sigue «Devolver la sesión al cancelar una clase entera» como cualquier
   // otra clase cancelada entera (#1342). Decir «se les devuelve» a secas mentía
@@ -233,88 +191,68 @@ function CierreDelCentro({ showToast }: { showToast: (m: string) => void }) {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [motivo, setMotivo] = useState('');
-  const [aplicando, setAplicando] = useState(false);
-  const [confirmando, setConfirmando] = useState(false);
 
+  const hayCambios = desde !== '' || hasta !== '' || motivo.trim() !== '';
   const rangoInvalido = !!desde && !!hasta && hasta < desde;
   const listo = !!desde && !!hasta && !rangoInvalido;
+  const bloqueo = rangoInvalido ? 'La fecha de fin no puede ser anterior a la de inicio.'
+    : !listo ? 'Elige el primer y el último día que cierras.' : null;
+  const dias = listo ? Math.round((Date.parse(hasta) - Date.parse(desde)) / 86_400_000) + 1 : 0;
+  const rango = listo ? rangoDeFechas(desde, hasta) : '';
 
-  async function aplicar() {
-    setAplicando(true);
-    try {
-      const res = await fetch('/api/cierres', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ desde, hasta, motivo }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) { showToast(data?.error ?? 'No se pudo aplicar el cierre'); return; }
-      const partes = [`${data.dias} día${data.dias === 1 ? '' : 's'} cerrados`];
-      if (data.clasesCanceladas) partes.push(`${data.clasesCanceladas} clase${data.clasesCanceladas === 1 ? '' : 's'} cancelada${data.clasesCanceladas === 1 ? '' : 's'}`);
-      if (data.bonosAmpliados) partes.push(`${data.bonosAmpliados} bono${data.bonosAmpliados === 1 ? '' : 's'} prorrogado${data.bonosAmpliados === 1 ? '' : 's'}`);
-      showToast(partes.join(' · '));
-      // Las incidencias no se esconden detrás del mensaje de éxito.
-      if (data.incidencias?.length) showToast(`Con avisos: ${data.incidencias[0]}`);
-      setDesde(''); setHasta(''); setMotivo(''); setConfirmando(false);
-    } finally {
-      setAplicando(false);
-    }
+  async function aplicar(): Promise<string | null> {
+    const res = await fetch('/api/cierres', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ desde, hasta, motivo }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return data?.error ?? 'No se ha podido cerrar el centro';
+    // Hecho, aunque la respuesta no se pueda leer: no se dice que falló.
+    if (!data) { onGuardado('Centro cerrado esos días'); return null; }
+    const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+    const partes = [`${plural(data.dias, 'día cerrado', 'días cerrados')}`];
+    if (data.clasesCanceladas) partes.push(plural(data.clasesCanceladas, 'clase cancelada', 'clases canceladas'));
+    if (data.bonosAmpliados) partes.push(plural(data.bonosAmpliados, 'bono prorrogado', 'bonos prorrogados'));
+    // Las incidencias no se esconden detrás del mensaje de éxito.
+    if (data.incidencias?.length) partes.push(`con avisos: ${data.incidencias[0]}`);
+    onGuardado(partes.join(' · '));
+    return null;
   }
 
   return (
-    <div>
-      <h4 className="text-sm font-semibold text-foreground flex items-center gap-1.5 mb-1">
-        <CalendarOff size={14} className="text-brand-medio" aria-hidden />
-        Cerrar el centro unos días
-      </h4>
-      <p className="text-[12px] text-muted-foreground mb-4">
-        Vacaciones, un puente, una reforma. Se cancelan las clases de esas fechas avisando a quien tuviera reserva{devuelveSesion
-          ? ', se les devuelve la sesión del bono'
-          : ' (sin devolverles la sesión: lo tienes desactivado en «Cómo reservan mis alumnas»)'}, y a todo el estudio se le suman esos días a la caducidad de bonos y recuperaciones. Nadie podrá reservar en ese rango.
-      </p>
-
-      <div className="grid grid-cols-1 gap-3 @sm/config:grid-cols-2">
-        <label className="block">
-          <span className="text-[12px] text-muted-foreground">Desde</span>
-          <input type="date" value={desde} onChange={e => { setDesde(e.target.value); setConfirmando(false); }}
-            className={cn(inputCls, 'mt-1')} />
-        </label>
-        <label className="block">
-          <span className="text-[12px] text-muted-foreground">Hasta (incluido)</span>
-          <input type="date" value={hasta} onChange={e => { setHasta(e.target.value); setConfirmando(false); }}
-            className={cn(inputCls, 'mt-1')} />
-        </label>
-      </div>
-      <label className="mt-3 block">
-        <span className="text-[12px] text-muted-foreground">Motivo (opcional)</span>
-        <input value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Vacaciones de agosto"
-          className={cn(inputCls, 'mt-1')} />
-      </label>
-
-      {rangoInvalido && (
-        <p className="mt-2 text-[12px] text-destructive">La fecha de fin no puede ser anterior a la de inicio.</p>
-      )}
-
-      {/* Cancela clases y toca la caducidad de TODOS los bonos del estudio: no
-          es un guardado más, así que no se hace de un solo clic. */}
-      {confirmando ? (
-        <div className="mt-4 rounded-lg border border-warning/40 bg-warning/10 p-3">
-          <p className="text-[12.5px] text-foreground">
-            Se van a cancelar las clases del {desde} al {hasta} y a avisar a quien tuviera reserva. Esto no se deshace solo.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button onClick={aplicar} disabled={aplicando} className={cn(btnPrimary)}>
-              {aplicando ? 'Aplicando…' : 'Sí, cerrar esos días'}
-            </button>
-            <button onClick={() => setConfirmando(false)} disabled={aplicando} className={cn(btnSecondary)}>
-              Volver
-            </button>
-          </div>
+    <>
+      <div className="space-y-4 pb-6">
+        <div className="grid grid-cols-2 gap-3">
+          <Campo label="Desde">
+            {id => <input id={id} type="date" value={desde} onChange={e => setDesde(e.target.value)} className={inputCls} />}
+          </Campo>
+          <Campo label="Hasta (incluido)">
+            {id => <input id={id} type="date" value={hasta} onChange={e => setHasta(e.target.value)} className={inputCls} />}
+          </Campo>
         </div>
-      ) : (
-        <button onClick={() => setConfirmando(true)} disabled={!listo} className={cn(btnPrimary, 'mt-4')}>
-          Cerrar el centro esos días
-        </button>
-      )}
-    </div>
+        <Campo label="Motivo (opcional)">
+          {id => <input id={id} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Vacaciones de agosto" className={inputCls} />}
+        </Campo>
+        {listo && (
+          <p className="rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground text-pretty">
+            Del {rango} nadie podrá reservar. Se cancelan sus clases avisando a quien tenía reserva
+            {devuelveSesion ? ', que recupera la sesión del bono' : ', sin devolverle la sesión'}, y los bonos y
+            recuperaciones de todas tus alumnas duran {dias === 1 ? '1 día' : `${dias} días`} más.
+          </p>
+        )}
+      </div>
+      <BarraGuardar
+        seccion="estudio"
+        cambios={hayCambios ? ['Cerrar el centro'] : []}
+        bloqueo={bloqueo}
+        confirmar={{
+          titulo: `¿Cerrar el centro del ${rango}?`,
+          descripcion: 'Se cancelan las clases de esos días y se avisa a quien tenía reserva. Esto no se deshace solo.',
+          textoConfirmar: 'Sí, cerrar esos días',
+        }}
+        onGuardar={aplicar}
+        onDescartar={() => { setDesde(''); setHasta(''); setMotivo(''); }}
+      />
+    </>
   );
 }

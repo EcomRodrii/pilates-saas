@@ -238,7 +238,7 @@ export function avisosDeConfiguracion(d: DatosConfiguracion): AvisoConfiguracion
   // 4. Un horario sin ningún día abierto: la agenda y la página de reservas no
   //    saben cuándo abres.
   if (s.horarioSemana && s.horarioSemana.length > 0 && !s.horarioSemana.some(dia => dia.abierto)) {
-    avisos.push({ id: 'horario', texto: 'Tu horario no tiene ningún día abierto', etiqueta: 'Sin horario', tono: 'pendiente', ...en('horario-y-cierres') });
+    avisos.push({ id: 'horario', texto: 'Tu horario no tiene ningún día abierto', etiqueta: 'Sin horario', tono: 'pendiente', ...en('horario') });
   }
 
   return avisos;
@@ -465,6 +465,113 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
       ]);
     }
   }
+}
+
+// ─── Las filas de «Mi estudio» ───────────────────────────────────────────────
+//
+// Cada fila dice su valor de hoy y abre un cajón para cambiarlo. Mismas reglas:
+// `undefined` = sin cargar y la fila enseña su descripción; lo vacío se dice
+// como vacío («Sin teléfono, email ni web»), nunca se rellena.
+
+type DatosNombreYDireccion = Partial<Pick<Studio, 'nombre' | 'direccion' | 'ciudad'>>;
+type DatosContacto = Partial<Pick<Studio, 'telefono' | 'email' | 'sitioWeb'>>;
+
+const limpio = (v: string | null | undefined) => v?.trim() || null;
+
+/** «Pilates Centro · Calle Mayor 4 · Almería». */
+export function resumenNombreYDireccion(s: DatosNombreYDireccion): string | null {
+  if (s.nombre === undefined) return null;
+  const nombre = limpio(s.nombre);
+  const direccion = limpio(s.direccion);
+  const ciudad = limpio(s.ciudad);
+  return unir([nombre ?? 'sin nombre', direccion, ciudad, direccion || ciudad ? null : 'sin dirección']);
+}
+
+/** «600 111 222 · hola@example.com». La web, sin `https://` ni barra final. */
+export function resumenContacto(s: DatosContacto): string | null {
+  if (s.telefono === undefined && s.email === undefined && s.sitioWeb === undefined) return null;
+  const web = limpio(s.sitioWeb)?.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '') ?? null;
+  return unir([limpio(s.telefono), limpio(s.email), web]) ?? 'Sin teléfono, email ni web';
+}
+
+/** «8:00», «21:30». */
+function horaLarga(h: string | null): string | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(h ?? '');
+  return m ? `${Number(m[1])}:${m[2]}` : null;
+}
+
+/**
+ * La semana de lunes a domingo, con los días seguidos iguales juntos:
+ * «L-V 8:00–22:00 · S 9:00–14:00 · D cerrado». Si no cabe en una línea, cuántos
+ * días abre. `null` si falta algún día o alguna hora: no se adivina.
+ */
+export function resumenHorarioSemana(dias: readonly DiaHorario[] | undefined): string | null {
+  if (!dias) return null;
+  const porDia = new Map(dias.map(d => [d.diaSemana, d]));
+  const tramos: { desde: number; hasta: number; franja: string }[] = [];
+  for (let i = 0; i < SEMANA.length; i++) {
+    const dia = porDia.get(SEMANA[i]);
+    if (!dia) return null;
+    let franja = 'cerrado';
+    if (dia.abierto) {
+      const abre = horaLarga(dia.horaApertura);
+      const cierra = horaLarga(dia.horaCierre);
+      if (!abre || !cierra) return null;
+      franja = `${abre}–${cierra}`;
+    }
+    const ultimo = tramos.at(-1);
+    if (ultimo && ultimo.franja === franja) ultimo.hasta = i;
+    else tramos.push({ desde: i, hasta: i, franja });
+  }
+  if (tramos.length === 1) return tramos[0].franja === 'cerrado' ? 'Cerrado toda la semana' : `Todos los días ${tramos[0].franja}`;
+  const letra = (i: number) => LETRA_DIA[SEMANA[i]];
+  const texto = tramos
+    .map(t => `${t.desde === t.hasta ? letra(t.desde) : `${letra(t.desde)}-${letra(t.hasta)}`} ${t.franja}`)
+    .join(' · ');
+  if (texto.length <= MAX_RESUMEN) return texto;
+  const abiertos = tramos.filter(t => t.franja !== 'cerrado').reduce((n, t) => n + t.hasta - t.desde + 1, 0);
+  return `Abre ${contar(abiertos, 'día', 'días')} a la semana`;
+}
+
+const MES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** «2026-12-24» → { dia: 24, mes: 'dic' }. */
+function fechaCorta(iso: string): { dia: number; mes: string } {
+  const [, m, d] = iso.split('-').map(Number);
+  return { dia: d, mes: MES_CORTO[m - 1] };
+}
+
+/** «24–26 dic», «30 dic–2 ene», «8 dic». */
+export function rangoDeFechas(desde: string, hasta: string): string {
+  const a = fechaCorta(desde);
+  const b = fechaCorta(hasta);
+  if (desde === hasta) return `${a.dia} ${a.mes}`;
+  return a.mes === b.mes && desde.slice(0, 4) === hasta.slice(0, 4)
+    ? `${a.dia}–${b.dia} ${a.mes}`
+    : `${a.dia} ${a.mes}–${b.dia} ${b.mes}`;
+}
+
+/**
+ * El cierre que viene (o el que está en curso) y cuántos más hay. `hoy`, en la
+ * fecha del estudio (`YYYY-MM-DD`). `null` = no se han podido leer.
+ */
+export function resumenCierres(cierres: readonly { desde: string; hasta: string }[] | null, hoy: string): string | null {
+  if (!cierres) return null;
+  const proximos = cierres.filter(c => c.hasta >= hoy).sort((a, b) => a.desde.localeCompare(b.desde));
+  if (proximos.length === 0) return 'Sin cierres próximos';
+  const [primero, ...resto] = proximos;
+  const cuando = primero.desde <= hoy
+    ? (primero.hasta === hoy ? 'cerrado hoy' : `cerrado hasta el ${rangoDeFechas(primero.hasta, primero.hasta)}`)
+    : `cerrado ${rangoDeFechas(primero.desde, primero.hasta)}`;
+  return unir([cuando, resto.length > 0 ? `${contar(resto.length, 'cierre más', 'cierres más')}` : null]);
+}
+
+/** «2 sedes · estás en Pilates Centro». `null` = sin cargar. */
+export function resumenSedes(sedes: readonly { id: string; nombre: string }[] | null, actual: string | null | undefined): string | null {
+  if (!sedes) return null;
+  if (sedes.length <= 1) return 'Solo esta sede';
+  const aqui = sedes.find(s => s.id === actual)?.nombre;
+  return unir([contar(sedes.length, 'sede', 'sedes'), aqui ? `estás en ${aqui}` : null]);
 }
 
 // ─── Plan de Tentare ─────────────────────────────────────────────────────────

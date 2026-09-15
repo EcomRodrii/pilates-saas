@@ -85,9 +85,15 @@ export const SECCIONES = [
     resumen: 'Datos, horario, salas y sedes',
     frase: 'Quién eres, dónde estás y cuándo abres: lo que ven tus alumnas y lo que usa la agenda.',
     roles: SOLO_PROPIETARIA,
+    // Cada tarjeta de Mi estudio es una FILA con su valor de hoy, y se cambia en
+    // su cajón (15-sep, v2). «Datos y contacto» eran siete campos y un cajón
+    // lleva como mucho seis: se partió en dos. Sus anclas de antes
+    // (`#datos-y-contacto`, `#horario-y-cierres`) llevan aquí (destino.ts).
     tarjetas: [
-      { id: 'datos-y-contacto', titulo: 'Datos y contacto', frase: 'Nombre, teléfono, email, web y dirección. Salen en tu página de reservas y en el pie de tus correos.', guardado: 'barra', palabras: ['nombre', 'teléfono', 'email', 'dirección', 'web'] },
-      { id: 'horario-y-cierres', titulo: 'Horario y cierres', frase: 'Cuándo abres cada semana y qué días cierras.', guardado: 'barra', palabras: ['apertura', 'abrir', 'cerrar', 'vacaciones', 'festivos'] },
+      { id: 'nombre-y-direccion', titulo: 'Nombre y dirección', frase: 'Cómo se llama tu estudio y dónde está: sale en tu página de reservas y en tus correos.', guardado: 'barra', palabras: ['nombre', 'dirección', 'ciudad', 'código postal'] },
+      { id: 'contacto', titulo: 'Contacto', frase: 'Dónde te escriben o te llaman tus alumnas, y tu web.', guardado: 'barra', palabras: ['teléfono', 'email', 'web'] },
+      { id: 'horario', titulo: 'Horario', frase: 'Cuándo abres cada día: la agenda distingue un día cerrado de uno sin clases.', guardado: 'barra', palabras: ['apertura', 'abrir', 'días'] },
+      { id: 'cerrar-el-centro', titulo: 'Cerrar el centro', frase: 'Unos días de vacaciones, un puente o una reforma: se cancelan las clases de esas fechas.', guardado: 'barra', palabras: ['vacaciones', 'festivos', 'cierre'] },
       { id: 'salas', titulo: 'Salas', frase: 'Tus salas y cuántas personas caben: esa cifra es el tope de plazas de cada clase.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'salas', palabras: ['aforo', 'capacidad', 'plazas', 'averías', 'máquinas'] },
       { id: 'sedes', titulo: 'Sedes', frase: 'Tus otras sedes: cámbiate a una o añade otra.', guardado: 'accion', condicion: 'multiSede', palabras: ['cambiar de sede', 'centros', 'cadena'] },
     ],
