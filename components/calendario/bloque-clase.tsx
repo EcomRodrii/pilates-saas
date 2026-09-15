@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, RefreshCw } from 'lucide-react';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { PINTA, type EstadoSesion } from '@/lib/calendario-estado';
 import { cn, horaEstudio } from '@/lib/utils';
@@ -20,7 +20,8 @@ const ALTO_TRES_LINEAS_PX = 55;
 const ALTO_DOS_LINEAS_PX = 42;
 
 export interface BloqueClaseProps {
-  sesion: Pick<Sesion, 'inicio' | 'fin' | 'aforoMaximo' | 'cancelada'>;
+  /** Con `serieId`, el bloque lleva la marca ↻ de clase que se repite. */
+  sesion: Pick<Sesion, 'inicio' | 'fin' | 'aforoMaximo' | 'cancelada'> & { serieId?: string | null };
   tipo: Pick<TipoClase, 'nombre' | 'color'>;
   instructor: Pick<Instructor, 'nombre'> | null;
   reservasSesion: Pick<Reserva, 'estado'>[];
@@ -237,6 +238,14 @@ export function BloqueClase({
         >
           {horaTexto}
         </span>
+        {/* Clase que se repite: se distingue de una suelta sin abrirla. Va en la
+            línea de la hora, que nunca se quita, y a su tamaño: no cambia el
+            alto que mide `e2e/calendario-semana-legible.spec.ts`. */}
+        {sesion.serieId && (
+          <span role="img" aria-label="Se repite cada semana" title="Se repite cada semana" className="shrink-0 inline-flex" style={{ color: p.tinta }}>
+            <RefreshCw size={ancho ? 11 : 9} strokeWidth={2.5} aria-hidden />
+          </span>
+        )}
         {ancho && estado !== 'PROGRAMADA' && (
           <span
             className="rounded-full bg-white/60 px-1.5 py-0.5 text-[9.5px] font-bold whitespace-nowrap"
