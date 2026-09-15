@@ -20,13 +20,17 @@ import {
 } from '@/lib/billing/penalizacion-recibo-server';
 
 // Dispatcher: a las 08:30 UTC (evita las 07:00 de automatizaciones y las
-// 06:30/14:30 del Decision OS, para no competir por la concurrencia del plan free).
+// 14:30 del Decision OS, para no competir por la concurrencia del plan free).
 export const dunningDispatcher = inngest.createFunction(
   { id: 'dunning-dispatcher', triggers: [{ cron: '30 8 * * *' }] },
   async ({ step }) => {
-    const nowISO = await step.run('now', async () => new Date().toISOString());
-
-    const studios = await step.run('list-studios', async () => {
+    // La hora va dentro del step de la lista, no en uno propio: cada step es una
+    // ejecución de Inngest, y el valor sigue siendo el mismo en los replays.
+    // Id nuevo a propósito: el step devuelve otra forma ({ nowISO, studios }), y
+    // con el id viejo una ejecución a medias durante un despliegue recuperaría el
+    // array guardado y el fan-out fallaría para todos los estudios.
+    const { nowISO, studios } = await step.run('list-studios-con-hora', async () => {
+      const nowISO = new Date().toISOString();
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
       // Solo estudios con Stripe conectado: sin cuenta conectada no hay cobro posible.
@@ -44,7 +48,7 @@ export const dunningDispatcher = inngest.createFunction(
           .range(from, to),
       );
       if (error) throw new Error(error.message);
-      return data;
+      return { nowISO, studios: data };
     });
 
     await enviarFanOutEnLotes(step, 'fan-out-dunning', EVENTS.DUNNING_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
@@ -64,7 +68,15 @@ export const procesarDunningEstudio = inngest.createFunction(
   async ({ event, step }) => {
     const { studioId, nowISO } = event.data as { studioId: string; nowISO: string };
 
-    const recibos = await step.run('candidatos', async () => {
+    // Las tres lecturas fijas del barrido van en UN step (antes tres): cada step es
+    // una ejecución de Inngest, y estas solo leen, así que repetirlas en un
+    // reintento no tiene efectos. Leer los SEPA atascados y las tarjetas sin
+    // caducidad ANTES del bucle de cobro no cambia qué se hace: un adeudo enviado en
+    // este mismo barrido vuelve de Stripe como `processing`, que ya era un no-op en
+    // el backstop, y cobrar no toca la caducidad de ninguna tarjeta.
+    type Atascado = { id: string; piId: string; stripeAccountId: string };
+    type SinCaducidad = { socioId: string; pmId: string; stripeAccountId: string };
+    const { recibos, atascados, sinCaducidad } = await step.run('lecturas', async () => {
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
       const { data, error } = await admin
@@ -77,7 +89,66 @@ export const procesarDunningEstudio = inngest.createFunction(
         .lte('proximo_reintento', nowISO)
         .limit(200);
       if (error) throw new Error(error.message);
-      return data ?? [];
+      const recibos = data ?? [];
+      const sinStripe = { recibos, atascados: [] as Atascado[], sinCaducidad: [] as SinCaducidad[] };
+
+      // Lo que sigue pregunta a Stripe: sin clave o sin cuenta conectada, nada.
+      const key = process.env.STRIPE_SECRET_KEY;
+      if (!key || key.startsWith('sk_test_XXXX')) return sinStripe;
+      const { data: studio } = await admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle();
+      const stripeAccountId = (studio as { stripe_account_id: string | null } | null)?.stripe_account_id;
+      if (!stripeAccountId) return sinStripe;
+
+      // Las dos lecturas que siguen son secundarias y se repiten mañana. Si fallan
+      // (un 504 de PostgREST a esta hora, por ejemplo) NO pueden tumbar el step:
+      // detrás vienen los cobros del día, que antes no dependían de ellas. Se
+      // avisa y se sigue sin ellas.
+      const aviso = (que: string, e: unknown) => Sentry.captureMessage(`[dunning] no se pudo leer ${que}; se reintenta mañana`, {
+        level: 'warning', tags: { area: 'cobros', tipo: 'dunning' },
+        extra: { studioId, error: e instanceof Error ? e.message : String(e) },
+      });
+
+      // Backstop SEPA (ver el bucle de más abajo): EN_CURSO desde hace más de 15 días.
+      let atascados: Atascado[] = [];
+      try {
+        const umbral = new Date(new Date(nowISO).getTime() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const { data: enCursoViejos, error: errAtascados } = await admin
+          .from('recibos')
+          .select('id, stripe_payment_intent_id')
+          .eq('studio_id', studioId)
+          .eq('estado', 'EN_CURSO')
+          .not('stripe_payment_intent_id', 'is', null)
+          .lte('fecha_vencimiento', umbral)
+          .limit(50);
+        if (errAtascados) throw new Error(errAtascados.message);
+        atascados = (enCursoViejos ?? []).map(r => ({ id: r.id as string, piId: r.stripe_payment_intent_id as string, stripeAccountId }));
+      } catch (e) {
+        aviso('los adeudos SEPA atascados', e);
+      }
+
+      // Relleno de caducidades (ver el step `caducidades`).
+      let sinCaducidad: SinCaducidad[] = [];
+      try {
+        const { data: tarjetas, error: errTarjetas } = await admin
+          .from('socios')
+          .select('id, stripe_payment_method_id')
+          .eq('studio_id', studioId)
+          .not('stripe_payment_method_id', 'is', null)
+          .is('tarjeta_exp_anio', null)
+          // Un Link no tiene caducidad, y sin esto se volvería a pedir a Stripe
+          // cada día, para siempre (y 25 así taparían el relleno de las tarjetas).
+          // `.or` y no `.neq` a secas: `neq` excluiría también las `tarjeta_marca`
+          // NULL, que son justo las tarjetas viejas por rellenar.
+          .or('tarjeta_marca.is.null,tarjeta_marca.neq.link')
+          .is('borrado_en', null)
+          .limit(25);
+        if (errTarjetas) throw new Error(errTarjetas.message);
+        sinCaducidad = (tarjetas ?? []).map(r => ({ socioId: r.id as string, pmId: r.stripe_payment_method_id as string, stripeAccountId }));
+      } catch (e) {
+        aviso('las tarjetas sin caducidad', e);
+      }
+
+      return { recibos, atascados, sinCaducidad };
     });
 
     let cobrados = 0, enCurso = 0, reprogramados = 0, fallidos = 0, omitidos = 0;
@@ -155,32 +226,22 @@ export const procesarDunningEstudio = inngest.createFunction(
     // vuelve a mirar. 15 días naturales de margen sobre un adeudo SEPA que
     // normalmente falla en <14 días hábiles: no es el SLA real, es solo el
     // umbral de "esto ya no es normal, hay que preguntarle a Stripe".
+    // Cada recibo atascado sigue en su propio step: aquí sí se mueve dinero.
     let sepaReconciliados = 0, sepaSiguenEnCurso = 0;
-    const atascados = await step.run('sepa-atascado-candidatos', async () => {
-      const key = process.env.STRIPE_SECRET_KEY;
-      if (!key || key.startsWith('sk_test_XXXX')) return [];
-      const admin = getSupabaseAdmin();
-      if (!admin) throw new Error('Service role no configurada');
-      const { data: studio } = await admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle();
-      const stripeAccountId = (studio as { stripe_account_id: string | null } | null)?.stripe_account_id;
-      if (!stripeAccountId) return [];
-      const umbral = new Date(new Date(nowISO).getTime() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      const { data, error } = await admin
-        .from('recibos')
-        .select('id, stripe_payment_intent_id')
-        .eq('studio_id', studioId)
-        .eq('estado', 'EN_CURSO')
-        .not('stripe_payment_intent_id', 'is', null)
-        .lte('fecha_vencimiento', umbral)
-        .limit(50);
-      if (error) throw new Error(error.message);
-      return (data ?? []).map(r => ({ id: r.id as string, piId: r.stripe_payment_intent_id as string, stripeAccountId }));
-    });
-
     for (const rec of atascados) {
       const res = await step.run(`sepa-reconciliar-${rec.id}`, async () => {
         const admin = getSupabaseAdmin();
         if (!admin) throw new Error('Service role no configurada');
+        // Se relee el recibo antes de actuar: entre la lectura del principio y este
+        // step puede pasar el bucle de cobros entero, y si en ese rato el webhook ya
+        // lo resolvió, actuar otra vez sumaría un intento de más en
+        // registrarFalloCobro (reintento perdido, FALLIDO antes de tiempo, doble aviso).
+        const { data: actual, error: errActual } = await admin.from('recibos')
+          .select('estado, stripe_payment_intent_id').eq('id', rec.id).eq('studio_id', studioId).maybeSingle();
+        if (errActual) throw new Error(errActual.message);
+        if (actual?.estado !== 'EN_CURSO' || actual.stripe_payment_intent_id !== rec.piId) {
+          return { tipo: 'ya_resuelto' as const };
+        }
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-06-24.dahlia' });
         const pi = await stripe.paymentIntents.retrieve(rec.piId, {}, { stripeAccount: rec.stripeAccountId });
         if (pi.status === 'processing') return { tipo: 'sigue_en_curso' as const };
@@ -199,7 +260,8 @@ export const procesarDunningEstudio = inngest.createFunction(
         await registrarFalloCobro({ admin, reciboId: rec.id, studioId, esSepa: true, ahoraISO: nowISO });
         return { tipo: 'reconciliado' as const, ok: true };
       });
-      if (res.tipo === 'sigue_en_curso') sepaSiguenEnCurso++; else sepaReconciliados++;
+      if (res.tipo === 'sigue_en_curso') sepaSiguenEnCurso++;
+      else if (res.tipo === 'reconciliado') sepaReconciliados++;
     }
 
     // Relleno por goteo de la caducidad de las tarjetas (Fase 3 del Brain).
@@ -214,47 +276,28 @@ export const procesarDunningEstudio = inngest.createFunction(
     // 25 por pasada: converge en unos días sin castigar la cuota de API de
     // Stripe, y cuando ya no queda ninguna el índice parcial hace que la
     // consulta no cueste nada.
-    let caducidadesRellenadas = 0;
-    const sinCaducidad = await step.run('tarjetas-sin-caducidad', async () => {
-      const key = process.env.STRIPE_SECRET_KEY;
-      if (!key || key.startsWith('sk_test_XXXX')) return [];
+    //
+    // Las hasta 25 tarjetas van en UN step (antes uno por tarjeta), y sin
+    // tarjetas no se gasta ninguno. `guardarCaducidadTarjeta` no lanza nunca y es
+    // idempotente: repetir el lote en un reintento solo vuelve a escribir la misma
+    // caducidad, y una tarjeta que Stripe ya no reconoce (borrada, cuenta
+    // desconectada) no puede tumbar el barrido de cobros de arriba.
+    const caducidadesRellenadas = sinCaducidad.length === 0 ? 0 : await step.run('caducidades', async () => {
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
-      const { data: studio } = await admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle();
-      const stripeAccountId = (studio as { stripe_account_id: string | null } | null)?.stripe_account_id;
-      if (!stripeAccountId) return [];
-      const { data, error } = await admin
-        .from('socios')
-        .select('id, stripe_payment_method_id')
-        .eq('studio_id', studioId)
-        .not('stripe_payment_method_id', 'is', null)
-        .is('tarjeta_exp_anio', null)
-        // Un Link no tiene caducidad, y sin esto se volvería a pedir a Stripe
-        // cada día, para siempre (y 25 así taparían el relleno de las tarjetas).
-        // `.or` y no `.neq` a secas: `neq` excluiría también las `tarjeta_marca`
-        // NULL, que son justo las tarjetas viejas por rellenar.
-        .or('tarjeta_marca.is.null,tarjeta_marca.neq.link')
-        .is('borrado_en', null)
-        .limit(25);
-      if (error) throw new Error(error.message);
-      return (data ?? []).map(r => ({ socioId: r.id as string, pmId: r.stripe_payment_method_id as string, stripeAccountId }));
-    });
-
-    for (const s of sinCaducidad) {
-      // Un step por socia: idempotente y reanudable. `guardarCaducidadTarjeta`
-      // no lanza nunca, así que una tarjeta que Stripe ya no reconoce (borrada,
-      // cuenta desconectada) no puede tumbar el barrido de cobros de arriba.
-      const ok = await step.run(`caducidad-${s.socioId}`, async () => {
-        const admin = getSupabaseAdmin();
-        if (!admin) throw new Error('Service role no configurada');
-        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-06-24.dahlia' });
+      // Timeout corto y sin reintentos de red: con el de serie (80 s por llamada)
+      // 25 tarjetas con Stripe lento pasarían del límite de 300 s de la función.
+      // Una que no responda se rellena mañana.
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-06-24.dahlia', timeout: 8_000, maxNetworkRetries: 0 });
+      let rellenadas = 0;
+      for (const s of sinCaducidad) {
         const r = await guardarCaducidadTarjeta(admin, stripe, {
           socioId: s.socioId, studioId, paymentMethodId: s.pmId, stripeAccount: s.stripeAccountId,
         });
-        return r !== null;
-      });
-      if (ok) caducidadesRellenadas++;
-    }
+        if (r !== null) rellenadas++;
+      }
+      return rellenadas;
+    });
 
     return { studioId, candidatos: recibos.length, cobrados, enCurso, reprogramados, fallidos, omitidos, sepaReconciliados, sepaSiguenEnCurso, caducidadesRellenadas };
   },
