@@ -1,11 +1,12 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { filasDeSociaConInstructora } from '@/lib/datos-salud/acceso-servidor';
 import {
-  VENTANA_ALUMNA_DIAS, instructoraAtiendeSocia, type ClaseOCitaDeSocia,
+  VENTANA_ALUMNA_DIAS, dentroDeVentanaAlumna, instructoraAtiendeSocia, type ClaseOCitaDeSocia,
 } from '@/lib/datos-salud/acceso-instructora';
 import {
-  notasPropias, saludParaInstructora, type CondicionParaAviso, type SaludAlumna,
+  notasPropias, saludParaInstructora, type CondicionParaAviso, type NotaPropia, type SaludAlumna,
 } from '@/lib/datos-salud/salud-para-instructora';
+import type { NotaDeSesionEntrada } from '@/lib/portal-instructora/nota-sesion';
 import type { SeveridadCondicion, ZonaCorporal } from '@/lib/types';
 import { fechaEnZona, horaEnZona, nombresParaLista } from '@/lib/student/agenda-instructora';
 import {
@@ -13,7 +14,8 @@ import {
   type AlumnaResumen, type ClaseConAlumna, type FichaAlumna,
 } from '@/lib/student/alumnas-instructora';
 
-// «Tus alumnas» de la instructora en la app del estudio. SOLO lectura.
+// «Tus alumnas» de la instructora en la app del estudio. Lectura, más una sola
+// escritura: la nota de sesión (`guardarNotaDeSesion`, 15-sep-2026).
 //
 // «Su alumna» = `instructoraAtiendeSocia` (reserva no cancelada en una clase suya
 // no cancelada, o cita con ella, entre hace 30 días y dentro de 30), la MISMA
@@ -233,6 +235,85 @@ export async function fichaDeAlumna(
     proximas,
     pasadas,
   };
+}
+
+export type ResultadoNotaDeSesion = NotaPropia | 'NO_ES_SUYA' | 'SIN_CONSENTIMIENTO' | 'CLASE_NO_VALIDA';
+
+/**
+ * Nota de sesión de la instructora sobre una alumna suya (15-sep-2026): una fila
+ * de `notas_progreso`, la misma tabla que usa el panel.
+ *
+ * ⚠️ Dato de salud escrito con service-role: la RLS de `notas_progreso` solo
+ * deja a la propietaria, así que las condiciones van aquí, y son las mismas que
+ * para LEER su salud (`saludDeAlumna`):
+ *   · es su alumna (`instructoraAtiendeSocia`, misma regla que la RLS de salud);
+ *   · consentimiento de salud vigente (sin él, ni se guarda);
+ *   · la clase, si se elige, es suya, no cancelada, con una reserva no cancelada
+ *     de esta alumna y dentro de la ventana de 30 días;
+ *   · estudio, alumna y autora salen del token y del slug, nunca del cuerpo.
+ * No edita ni borra: solo añade. Corregir o quitar una nota sigue siendo cosa
+ * de la dirección del estudio, en el panel.
+ */
+export async function guardarNotaDeSesion(
+  p: { studioId: string; instructorId: string; socioId: string; nota: NotaDeSesionEntrada },
+  ahora: Date = new Date(),
+): Promise<ResultadoNotaDeSesion> {
+  const admin = adminOLanza();
+  const filas = await filasDeSociaConInstructora(admin, p.studioId, p.instructorId, p.socioId, ahora);
+  if (filas === null) throw new Error('No se ha podido comprobar si es su alumna');
+  if (!instructoraAtiendeSocia(filas, p.instructorId, ahora)) return 'NO_ES_SUYA';
+
+  const { data: socio, error } = await admin.from('socios')
+    .select('id, consentimiento_salud_fecha, consentimiento_salud_revocado_en')
+    .eq('id', p.socioId).eq('studio_id', p.studioId).is('borrado_en', null).maybeSingle();
+  if (error) throw error;
+  if (!socio) return 'NO_ES_SUYA';
+  const consentimiento = saludParaInstructora({
+    consentimientoFecha: (socio as { consentimiento_salud_fecha: string | null }).consentimiento_salud_fecha ?? null,
+    consentimientoRevocadoEn: (socio as { consentimiento_salud_revocado_en: string | null }).consentimiento_salud_revocado_en ?? null,
+    condiciones: [],
+  }).consentimiento;
+  if (consentimiento !== 'VIGENTE') return 'SIN_CONSENTIMIENTO';
+
+  if (p.nota.sesionId) {
+    const [ses, res] = await Promise.all([
+      admin.from('sesiones').select('id, inicio, cancelada')
+        .eq('id', p.nota.sesionId).eq('studio_id', p.studioId).eq('instructor_id', p.instructorId)
+        .maybeSingle(),
+      admin.from('reservas').select('id')
+        .eq('studio_id', p.studioId).eq('socio_id', p.socioId).eq('sesion_id', p.nota.sesionId)
+        .neq('estado', 'CANCELADA').limit(1),
+    ]);
+    if (ses.error) throw ses.error;
+    if (res.error) throw res.error;
+    const sesion = ses.data as { inicio: string; cancelada: boolean | null } | null;
+    if (!sesion || sesion.cancelada === true || (res.data ?? []).length === 0 || !dentroDeVentanaAlumna(sesion.inicio, ahora)) {
+      return 'CLASE_NO_VALIDA';
+    }
+  }
+
+  const fila = {
+    id: `nota-${crypto.randomUUID()}`,
+    studio_id: p.studioId,
+    socio_id: p.socioId,
+    instructor_id: p.instructorId,
+    sesion_id: p.nota.sesionId,
+    texto_libre: p.nota.textoLibre,
+    progreso: p.nota.progreso,
+    alertas: p.nota.alertas,
+    plan_proxima_sesion: p.nota.planProximaSesion,
+    ejercicios_casa: null,
+    creada_en: ahora.toISOString(),
+  };
+  const { error: eInsert } = await admin.from('notas_progreso').insert(fila);
+  if (eInsert) throw eInsert;
+
+  const [nota] = notasPropias([{
+    id: fila.id, instructorId: p.instructorId, creadaEn: fila.creada_en, textoLibre: fila.texto_libre,
+    progreso: fila.progreso, alertas: fila.alertas, planProximaSesion: fila.plan_proxima_sesion,
+  }], p.instructorId);
+  if (!nota) throw new Error('La nota guardada no se ha podido leer');
+  return nota;
 }
 
 /** Notas suyas que se enseñan como mucho: la app no es un histórico clínico. */

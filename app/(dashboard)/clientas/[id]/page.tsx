@@ -1298,17 +1298,30 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         </div>
                       </div>
                     )}
-                    {/* Previous AI notes */}
+                    {/* Notas anteriores: las de la IA del panel y las que escriben
+                        las instructoras desde la app (15-sep-2026). Antes solo se
+                        pintaba `progreso`, así que una nota de la app —que siempre
+                        trae «qué tal ha ido» y a veces nada más— salía vacía, con
+                        la fecha y nada. Ahora cada una con quién la escribió. */}
                     {notasProgreso.filter(n => n.socioId === id).length > 0 && (
                       <div className="mt-4 pt-4 border-t border-muted">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Historial de notas IA</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Notas de sesión</p>
                         <div className="space-y-2">
-                          {notasProgreso.filter(n => n.socioId === id).slice(0, 3).map(nota => (
-                            <div key={nota.id} className="rounded-lg bg-muted border border-border px-3 py-2.5">
-                              <p className="text-[10px] text-muted-foreground mb-1">{fecha(nota.creadaEn)}</p>
-                              {nota.progreso && <p className="text-xs text-foreground line-clamp-2">{nota.progreso}</p>}
-                            </div>
-                          ))}
+                          {/* Ordenadas aquí: la carga no garantiza el orden y «las 5 últimas» tiene que serlo. */}
+                          {notasProgreso.filter(n => n.socioId === id)
+                            .sort((a, b) => b.creadaEn.localeCompare(a.creadaEn))
+                            .slice(0, 5).map(nota => {
+                            const autora = instructores.find(x => x.id === nota.instructorId)?.nombre;
+                            return (
+                              <div key={nota.id} className="rounded-lg bg-muted border border-border px-3 py-2.5 space-y-1">
+                                <p className="text-[10px] text-muted-foreground">{fecha(nota.creadaEn)}{autora ? ` · ${autora}` : ''}</p>
+                                {nota.textoLibre && <p className="text-xs text-foreground whitespace-pre-line line-clamp-4">{nota.textoLibre}</p>}
+                                {nota.progreso && <p className="text-xs text-foreground line-clamp-2"><span className="font-semibold">Progreso:</span> {nota.progreso}</p>}
+                                {nota.alertas && <p className="text-xs text-foreground line-clamp-2"><span className="font-semibold">A tener en cuenta:</span> {nota.alertas}</p>}
+                                {nota.planProximaSesion && <p className="text-xs text-foreground line-clamp-2"><span className="font-semibold">Próxima sesión:</span> {nota.planProximaSesion}</p>}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

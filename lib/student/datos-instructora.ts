@@ -364,6 +364,27 @@ export async function getSaludAlumna(slug: string, socioId: string): Promise<Sal
   };
 }
 
+/**
+ * Guarda una nota de sesión sobre una alumna suya. Solo da por guardado lo que
+ * el servidor confirma, y devuelve la nota tal y como quedó.
+ */
+export async function guardarNotaSesion(
+  slug: string, socioId: string,
+  nota: { textoLibre: string; progreso?: string; alertas?: string; planProximaSesion?: string; sesionId?: string | null },
+): Promise<{ ok: true; nota: SaludNota } | { ok: false; error: string }> {
+  try {
+    const res = await postInstructora('alumnas', { slug, accion: 'nota', socioId, nota });
+    const d = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; nota?: SaludNota };
+    if (res.status === 401) return { ok: false, error: SESION_CADUCADA };
+    if (!res.ok || !d.ok || !d.nota) return { ok: false, error: d.error || 'No hemos podido guardar la nota. Vuelve a intentarlo.' };
+    return { ok: true, nota: d.nota };
+  } catch {
+    return { ok: false, error: 'Sin conexión: la nota no se ha guardado. Vuelve a intentarlo cuando tengas cobertura.' };
+  }
+}
+
+type SaludNota = Extract<SaludAlumna, { consentimiento: 'VIGENTE' }>['notas'][number];
+
 // ── Mensajes con sus alumnas ────────────────────────────────────────────────
 
 async function errorDe(res: Response, respaldo: string): Promise<string> {
