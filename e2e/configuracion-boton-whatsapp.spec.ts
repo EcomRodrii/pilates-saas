@@ -80,7 +80,8 @@ for (const vista of VISTAS) {
 
       const ultimo = vista.columna
         ? page.locator('section[aria-labelledby="seccion-titulo"] [data-tarjeta-ajuste]').last()
-        : page.getByRole('navigation', { name: 'Secciones de Configuración' }).getByRole('link').last();
+        // En el móvil, la pantalla de lista es el inicio: su último grupo de filas.
+        : page.locator('[aria-labelledby^="inicio-grupo-"] [data-tarjeta-ajuste]').last();
       await expect(ultimo).toBeInViewport();
       const caja = (await ultimo.boundingBox())!;
       const b = (await burbuja(page).boundingBox())!;

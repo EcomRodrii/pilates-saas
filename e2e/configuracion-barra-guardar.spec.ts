@@ -435,7 +435,9 @@ for (const vista of VISTAS) {
 
         await page.getByRole('button', { name: 'Volver a Configuración' }).click();
         await dialogo.getByRole('button', { name: 'Salir sin guardar' }).click();
-        await expect(page.getByRole('navigation', { name: 'Secciones de Configuración' })).toBeVisible();
+        // En el móvil, volver lleva al inicio de Configuración (sus grupos de secciones).
+        await expect(page.locator('[aria-labelledby^="inicio-grupo-"]').first()).toBeVisible();
+        await expect(titulo(page, 'Cómo reservan mis alumnas')).toBeHidden();
       });
     }
   });
