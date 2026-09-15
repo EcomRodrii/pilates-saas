@@ -1,4 +1,4 @@
--- Drill de la pausa con fechas de plaza fija (migr 20260915090000). TODO dentro
+-- Drill de la pausa con fechas de plaza fija (migr 20260915094312). TODO dentro
 -- de una transacción que termina en ROLLBACK: no deja nada. Fixture con prefijo
 -- `zzdrill-`.
 --
@@ -14,7 +14,7 @@
 \set ON_ERROR_STOP on
 begin;
 
-\i supabase/migrations/20260915090000_plazas_fijas_pausa_con_fechas.sql
+\i supabase/migrations/20260915094312_plazas_fijas_pausa_con_fechas.sql
 
 insert into studios (id, nombre) values ('zzdrill-st', 'Estudio PF');
 insert into salas (id, studio_id, nombre, capacidad) values ('zzdrill-sala-a', 'zzdrill-st', 'Sala A', 6);

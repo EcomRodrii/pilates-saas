@@ -7,7 +7,7 @@
 // reserva la clase y `plazas_fijas_sin_materializar` no avisa de nada. Al acabar
 // vuelve sola: nadie tiene que acordarse de reanudarla.
 //
-// Mismo criterio que el SQL (migr 20260915090000): si aquel cambia, este también.
+// Mismo criterio que el SQL (migr 20260915094312): si aquel cambia, este también.
 // Lógica pura: «hoy» entra por parámetro.
 
 import { hoyEnEstudio } from './utils.ts';
