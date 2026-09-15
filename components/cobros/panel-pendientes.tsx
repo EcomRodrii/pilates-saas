@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { anfitrionPortal } from '@/lib/panel-portal';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
@@ -728,6 +730,145 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
   // tarjeta se contradice consigo misma («178 € en 1 recibo»).
   const pendientesCount = recibos.filter(r => ESTADOS_SIN_COBRAR.includes(r.estado)).length;
 
+  // ── Acciones de un recibo ─────────────────────────────────────────────────
+  // Las mismas en las dos maquetas: pequeñas en la fila del ordenador, y a
+  // tamaño de dedo (44 px y con su nombre escrito) en el detalle que se abre al
+  // tocar la fila en un móvil o un iPad. Con el dedo no llevan `title`: la fila
+  // del ordenador ya los tiene, y dos botones con el mismo título son dos.
+  function accionesRecibo(r: (typeof recibos)[number], factura: (typeof facturas)[number] | undefined, tactil: boolean) {
+    const chip = tactil
+      ? 'flex min-h-11 items-center gap-1.5 px-4 rounded-xl text-sm font-bold transition-colors'
+      : 'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors';
+    const icono = tactil ? 15 : 12;
+    const rojo = tactil
+      ? 'flex min-h-11 items-center gap-1.5 px-4 rounded-xl text-sm font-bold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors'
+      : 'w-8 h-8 flex items-center justify-center rounded-xl hover:bg-destructive/10 transition-colors';
+    const titulo = (t: string) => (tactil ? undefined : t);
+    return (
+      <>
+        {/* FALLIDO se cobra exactamente igual que PENDIENTE — no es un
+            estado ciego. El dunning ya agotó sus 3 reintentos
+            automáticos (lib/billing/dunning.ts), pero
+            cobrarReciboOffSession (lib/billing/stripe-cobros.ts)
+            acepta explícitamente 'PENDIENTE' o 'FALLIDO' como
+            "recuperación manual tras agotar el dunning": el backend
+            siempre soportó reintentar un FALLIDO a mano, solo que
+            esta fila nunca ofrecía ningún botón para hacerlo — con
+            el estado en rojo "No se pudo cobrar" y ni un solo botón
+            visible, "Cobrar online" pulsado aquí no hacía nada
+            porque el botón, sencillamente, no existía. */}
+        {/* DEVUELTO entra aquí también: el banco devolvió el recibo, o
+            sea que el dinero NO está y sigue siendo deuda. Sin este
+            botón, un recibo devuelto no tenía NINGUNA vía de UI para
+            resolverse — y con el bloqueo por impago encendido dejaba a
+            la socia sin poder reservar indefinidamente. */}
+        {(r.estado === 'PENDIENTE' || r.estado === 'FALLIDO' || r.estado === 'DEVUELTO') && (
+          <>
+            <button
+              onClick={() => setCobrandoRecibo(r.id)}
+              className={cn(chip, 'bg-success/10 text-success hover:bg-[#A7F3D0]')}
+              title={titulo('Marcar cobrado (elige cómo) y enviar email')}
+            >
+              <CheckCircle2 size={icono} />
+              Cobrar
+            </button>
+            <button
+              onClick={() => cobrarOnline(r.id)}
+              disabled={stripeLoading === r.id}
+              className={cn(chip, 'bg-brand/10 text-brand-medio hover:bg-info/10 disabled:opacity-60')}
+              title={titulo('Reintentar el cobro con la tarjeta o SEPA que ya tiene guardado la socia')}
+            >
+              {stripeLoading === r.id
+                ? <Loader2 size={icono} className="animate-spin" />
+                : <CreditCard size={icono} />}
+              {tactil ? 'Cobrar online' : 'Online'}
+            </button>
+            <button
+              onClick={async () => {
+                const res = await marcarDevuelto(r.id);
+                if (!res.ok) onToast(res.error);
+              }}
+              className={rojo}
+              title={titulo('Marcar devuelto')}
+            >
+              <XCircle size={tactil ? 15 : 14} className="text-destructive" />
+              {tactil && 'Marcar devuelto'}
+            </button>
+          </>
+        )}
+        {r.estado === 'COBRADO' && (
+          <>
+            {/* C-2 paso 1 (59ª auditoría): antes este botón se
+                ocultaba si el método (p.ej. EFECTIVO) no factura
+                solo — razonable para el aviso de Sentry, pero aquí
+                dejaba 3 cobros en efectivo por 255 € que la
+                propietaria no podía ver ni resolver desde ningún
+                sitio del panel. `emiteFacturaAutomatica` decide
+                qué se FACTURA SOLA al cobrar, no qué se enseña
+                aquí: un cobro COBRADO sin factura siempre se
+                puede sellar a mano, sea cual sea su método. El
+                botón llama a `reintentarSelladoFactura` (nunca a
+                `crearFacturaDirecta`, que crearía un recibo
+                nuevo y duplicaría el cobro — I-11). */}
+            {factura ? (
+              <Link
+                href={`/facturas?ver=${factura.id}`}
+                className={cn(chip, 'bg-background text-muted-foreground hover:bg-border')}
+                title={titulo('Ver factura')}
+              >
+                <FileText size={icono} />
+                {factura.numeroCompleto}
+              </Link>
+            ) : (
+              <button
+                onClick={() => handleReintentarFactura(r.id)}
+                disabled={reintentandoFactura === r.id}
+                className={cn(chip, 'bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-60')}
+                title={titulo('El cobro se registró pero la factura no llegó a sellarse — reintentar')}
+              >
+                {reintentandoFactura === r.id
+                  ? <Loader2 size={icono} className="animate-spin" />
+                  : <RefreshCw size={icono} />}
+                Sin factura
+              </button>
+            )}
+            <button
+              onClick={async () => {
+                const res = await marcarDevuelto(r.id);
+                if (!res.ok) onToast(res.error);
+              }}
+              className={rojo}
+              title={titulo('Devolver')}
+            >
+              <XCircle size={tactil ? 15 : 14} className="text-destructive" />
+              {tactil && 'Devolver'}
+            </button>
+          </>
+        )}
+        {r.estado === 'DEVUELTO' && (
+          <button
+            onClick={async () => {
+              const res = await reintentar(r.id);
+              if (!res.ok) onToast(res.error);
+            }}
+            className={cn(chip, 'bg-info/10 text-brand-medio hover:bg-info/10')}
+          >
+            <RefreshCw size={icono} />
+            Reintentar
+          </button>
+        )}
+        <button
+          onClick={() => setConfirmEliminar(r.id)}
+          className={rojo}
+          title={titulo('Eliminar')}
+        >
+          <Trash2 size={tactil ? 15 : 14} className="text-destructive" />
+          {tactil && 'Eliminar'}
+        </button>
+      </>
+    );
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (!mounted) return null;
@@ -736,7 +877,11 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     <div className="min-h-screen bg-background space-y-6 pb-10">
 
       {/* ── Stripe toast ─────────────────────────────────────────────────────── */}
-      {stripeToast && (
+      {/* En portal, igual que el aviso de tarjeta de abajo: `.panel-page-in` deja
+          un transform en la página y un `fixed` dentro se ancla a ella, no a la
+          pantalla. En un móvil, con la lista bajada, el aviso salía arriba del
+          todo de la página, fuera de la vista. */}
+      {stripeToast && createPortal(
         <div className={cn(
           'fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold transition-all',
           stripeToast.tipo === 'ok'
@@ -745,14 +890,15 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
         )}>
           {stripeToast.tipo === 'ok' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
           {stripeToast.msg}
-        </div>
+        </div>,
+        anfitrionPortal(),
       )}
 
       {/* Sin método guardado: la salida real, no un error. Se explica en una
           frase POR QUÉ no se puede cobrar y qué hace el enlace, porque la
           propietaria se lo va a reenviar a una clienta y tiene que poder
           contárselo. */}
-      {pedirTarjeta && (
+      {pedirTarjeta && createPortal(
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="titulo-pedir-tarjeta">
           <div className="w-full max-w-md rounded-2xl bg-card border border-border p-5 shadow-xl">
             <h3 id="titulo-pedir-tarjeta" className="text-[17px] font-bold text-foreground">
@@ -803,7 +949,8 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        anfitrionPortal(),
       )}
 
       <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1028,15 +1175,28 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
 
                   return (
                     <div key={r.id}>
+                      {/* En el móvil la fila es una rejilla de dos líneas —nombre e
+                          importe arriba, concepto y estado debajo— hecha con los
+                          MISMOS elementos que la de escritorio: `contents` los suelta
+                          en la rejilla y desde `sm` vuelven a su sitio. Nada se pinta
+                          dos veces, así que un texto sigue siendo uno solo.
+
+                          Antes, en un teléfono, solo cabían las iniciales, el importe
+                          y el estado: los botones de la fila, invisibles hasta pasar
+                          el ratón, seguían ocupando su ancho y dejaban el nombre en
+                          0 px. Y seguían ahí aunque no se vieran: un toque en la
+                          mitad derecha podía caer en «Marcar devuelto». Con el dedo,
+                          las acciones van en el detalle que se abre al tocar la fila. */}
                       <div
-                        className="flex items-center gap-4 px-5 py-4 hover:bg-muted transition-colors group cursor-pointer"
+                        data-recibo={r.id}
+                        className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-1 px-4 py-4 sm:flex sm:gap-4 sm:px-5 hover:bg-muted transition-colors group cursor-pointer"
                         onClick={() => setExpandedId(expanded ? null : r.id)}
                       >
                         {/* Avatar */}
                         <Link
                           href={`/clientas/${r.socioId}`}
                           onClick={e => e.stopPropagation()}
-                          className="shrink-0"
+                          className="col-start-1 row-start-1 row-span-2 shrink-0"
                         >
                           <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand-medio">
                             {initials}
@@ -1044,167 +1204,71 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                         </Link>
 
                         {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{r.concepto}</p>
-                          <p className="text-xs mt-0.5 text-muted-foreground truncate">
+                        <div className="contents sm:block sm:flex-1 sm:min-w-0">
+                          <p className="col-start-2 row-start-2 min-w-0 truncate text-xs text-muted-foreground sm:text-sm sm:font-semibold sm:text-foreground">{r.concepto}</p>
+                          <p className="col-start-2 row-start-1 min-w-0 truncate text-sm font-semibold text-foreground sm:mt-0.5 sm:text-xs sm:font-normal sm:text-muted-foreground">
                             <Link
                               href={`/clientas/${r.socioId}`}
                               onClick={e => e.stopPropagation()}
-                              className="hover:text-brand-medio hover:underline transition-colors"
+                              // Con el dedo el nombre es parte de la fila: tocarlo la
+                              // abre. La ficha está a un toque dentro del detalle.
+                              className="pointer-events-none sm:pointer-events-auto hover:text-brand-medio hover:underline transition-colors"
                             >
                               {name}
                             </Link>
-                            {' · '}
-                            <Calendar size={11} className="inline -mt-0.5" />
-                            {' '}Vence {fecha(r.fechaVencimiento)}
+                            <span className="hidden sm:inline">
+                              {' · '}
+                              <Calendar size={11} className="inline -mt-0.5" />
+                              {' '}Vence {fecha(r.fechaVencimiento)}
+                            </span>
                           </p>
                         </div>
 
                         {/* Amount + badge */}
-                        <div className="text-right shrink-0 mr-2">
-                          <CifraPrivada className="text-sm font-extrabold text-foreground">
+                        <div className="contents sm:block sm:text-right sm:shrink-0 sm:mr-2">
+                          <CifraPrivada className="col-start-3 row-start-1 justify-self-end text-sm font-extrabold text-foreground">
                             {formatEuro(r.importe)}
                           </CifraPrivada>
                           <span
-                            className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                            className="col-start-3 row-start-2 justify-self-end whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: badge.bg, color: badge.text }}
                           >
                             {badge.label}
                           </span>
                         </div>
 
-                        {/* Action buttons */}
+                        {/* Acciones en la fila: solo desde `lg`, que es donde caben. Con
+                            ratón aparecen al pasar por encima; con el dedo (un iPad en
+                            horizontal) no hay «pasar por encima», así que se ven siempre. */}
                         <div
-                          className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                          className="hidden lg:flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100 transition-opacity shrink-0"
                           onClick={e => e.stopPropagation()}
                         >
-                          {/* FALLIDO se cobra exactamente igual que PENDIENTE — no es un
-                              estado ciego. El dunning ya agotó sus 3 reintentos
-                              automáticos (lib/billing/dunning.ts), pero
-                              cobrarReciboOffSession (lib/billing/stripe-cobros.ts)
-                              acepta explícitamente 'PENDIENTE' o 'FALLIDO' como
-                              "recuperación manual tras agotar el dunning": el backend
-                              siempre soportó reintentar un FALLIDO a mano, solo que
-                              esta fila nunca ofrecía ningún botón para hacerlo — con
-                              el estado en rojo "No se pudo cobrar" y ni un solo botón
-                              visible, "Cobrar online" pulsado aquí no hacía nada
-                              porque el botón, sencillamente, no existía. */}
-                          {/* DEVUELTO entra aquí también: el banco devolvió el recibo, o
-                              sea que el dinero NO está y sigue siendo deuda. Sin este
-                              botón, un recibo devuelto no tenía NINGUNA vía de UI para
-                              resolverse — y con el bloqueo por impago encendido dejaba a
-                              la socia sin poder reservar indefinidamente. */}
-                          {(r.estado === 'PENDIENTE' || r.estado === 'FALLIDO' || r.estado === 'DEVUELTO') && (
-                            <>
-                              <button
-                                onClick={() => setCobrandoRecibo(r.id)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-success/10 text-success hover:bg-[#A7F3D0] transition-colors"
-                                title="Marcar cobrado (elige cómo) y enviar email"
-                              >
-                                <CheckCircle2 size={12} />
-                                Cobrar
-                              </button>
-                              <button
-                                onClick={() => cobrarOnline(r.id)}
-                                disabled={stripeLoading === r.id}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-brand/10 text-brand-medio hover:bg-info/10 transition-colors disabled:opacity-60"
-                                title="Reintentar el cobro con la tarjeta o SEPA que ya tiene guardado la socia"
-                              >
-                                {stripeLoading === r.id
-                                  ? <Loader2 size={12} className="animate-spin" />
-                                  : <CreditCard size={12} />}
-                                Online
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  const res = await marcarDevuelto(r.id);
-                                  if (!res.ok) onToast(res.error);
-                                }}
-                                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-destructive/10 transition-colors"
-                                title="Marcar devuelto"
-                              >
-                                <XCircle size={14} className="text-destructive" />
-                              </button>
-                            </>
-                          )}
-                          {r.estado === 'COBRADO' && (
-                            <>
-                              {/* C-2 paso 1 (59ª auditoría): antes este botón se
-                                  ocultaba si el método (p.ej. EFECTIVO) no factura
-                                  solo — razonable para el aviso de Sentry, pero aquí
-                                  dejaba 3 cobros en efectivo por 255 € que la
-                                  propietaria no podía ver ni resolver desde ningún
-                                  sitio del panel. `emiteFacturaAutomatica` decide
-                                  qué se FACTURA SOLA al cobrar, no qué se enseña
-                                  aquí: un cobro COBRADO sin factura siempre se
-                                  puede sellar a mano, sea cual sea su método. El
-                                  botón llama a `reintentarSelladoFactura` (nunca a
-                                  `crearFacturaDirecta`, que crearía un recibo
-                                  nuevo y duplicaría el cobro — I-11). */}
-                              {factura ? (
-                                <Link
-                                  href={`/facturas?ver=${factura.id}`}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-background text-muted-foreground hover:bg-border transition-colors"
-                                  title="Ver factura"
-                                >
-                                  <FileText size={12} />
-                                  {factura.numeroCompleto}
-                                </Link>
-                              ) : (
-                                <button
-                                  onClick={() => handleReintentarFactura(r.id)}
-                                  disabled={reintentandoFactura === r.id}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-60"
-                                  title="El cobro se registró pero la factura no llegó a sellarse — reintentar"
-                                >
-                                  {reintentandoFactura === r.id
-                                    ? <Loader2 size={12} className="animate-spin" />
-                                    : <RefreshCw size={12} />}
-                                  Sin factura
-                                </button>
-                              )}
-                              <button
-                                onClick={async () => {
-                                  const res = await marcarDevuelto(r.id);
-                                  if (!res.ok) onToast(res.error);
-                                }}
-                                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-destructive/10 transition-colors"
-                                title="Devolver"
-                              >
-                                <XCircle size={14} className="text-destructive" />
-                              </button>
-                            </>
-                          )}
-                          {r.estado === 'DEVUELTO' && (
-                            <button
-                              onClick={async () => {
-                                const res = await reintentar(r.id);
-                                if (!res.ok) onToast(res.error);
-                              }}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-info/10 text-brand-medio hover:bg-info/10 transition-colors"
-                            >
-                              <RefreshCw size={12} />
-                              Reintentar
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setConfirmEliminar(r.id)}
-                            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-destructive/10 transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 size={14} className="text-destructive" />
-                          </button>
+                          {accionesRecibo(r, factura, false)}
                         </div>
 
                         {/* Chevron */}
-                        <div className="shrink-0 text-muted-foreground">
+                        <div className="col-start-4 row-start-1 row-span-2 shrink-0 text-muted-foreground">
                           {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                         </div>
                       </div>
 
                       {/* Expanded detail */}
                       {expanded && (
-                        <div className="px-5 pb-5 bg-muted border-t border-border">
+                        <div className="px-4 sm:px-5 pb-5 bg-muted border-t border-border">
+                          {/* Por debajo de `lg` las acciones de la fila no se pintan: van
+                              aquí, a tamaño de dedo, con la ficha de la alumna al lado. */}
+                          <div className="lg:hidden flex flex-wrap gap-2 pt-4" onClick={e => e.stopPropagation()}>
+                            {accionesRecibo(r, factura, true)}
+                            {r.socioId && (
+                              <Link
+                                href={`/clientas/${r.socioId}`}
+                                className="flex min-h-11 items-center gap-1.5 px-4 rounded-xl text-sm font-bold border border-border bg-card text-foreground hover:bg-background transition-colors"
+                              >
+                                Ver su ficha
+                              </Link>
+                            )}
+                          </div>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
                             <div>
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Estado</p>
@@ -1530,19 +1594,24 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                     const sinFactura = r.estado === 'COBRADO'
                       && !facturas.some(f => f.reciboId === r.id);
                     return (
-                      <div key={r.id} className="flex items-center gap-4 px-5 py-3.5">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand-medio shrink-0">
+                      // Móvil: misma rejilla de dos líneas que «Quién me debe»
+                      // (nombre e importe arriba, concepto y estado debajo) y
+                      // «Sin factura» en una tercera, a tamaño de dedo. Antes la
+                      // columna del nombre quedaba en 0 px en cuanto la fila
+                      // llevaba ese botón.
+                      <div key={r.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3.5 sm:flex sm:gap-4 sm:px-5">
+                        <div className="col-start-1 row-start-1 row-span-2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand-medio shrink-0">
                           {socioInitials(r.socioId)}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{r.concepto}</p>
-                          <p className="text-xs text-muted-foreground truncate">{socioName(r.socioId)}</p>
+                        <div className="contents sm:block sm:flex-1 sm:min-w-0">
+                          <p className="col-start-2 row-start-2 min-w-0 truncate text-xs text-muted-foreground sm:text-sm sm:font-semibold sm:text-foreground">{r.concepto}</p>
+                          <p className="col-start-2 row-start-1 min-w-0 truncate text-sm font-semibold text-foreground sm:text-xs sm:font-normal sm:text-muted-foreground">{socioName(r.socioId)}</p>
                         </div>
-                        <CifraPrivada className="text-sm font-bold text-foreground shrink-0">
+                        <CifraPrivada className="col-start-3 row-start-1 justify-self-end text-sm font-bold text-foreground shrink-0">
                           {formatEuro(r.importe)}
                         </CifraPrivada>
                         <span
-                          className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
+                          className="col-start-3 row-start-2 justify-self-end whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
                           style={{ backgroundColor: badge.bg, color: badge.text }}
                         >
                           {badge.label}
@@ -1554,7 +1623,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                           <button
                             onClick={() => handleReintentarFactura(r.id)}
                             disabled={reintentandoFactura === r.id}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-60 shrink-0"
+                            className="col-start-2 col-span-2 row-start-3 justify-self-start mt-1 sm:mt-0 min-h-11 pointer-fine:min-h-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-60 shrink-0"
                             title="El cobro se registró pero la factura no llegó a sellarse — reintentar"
                           >
                             {reintentandoFactura === r.id
@@ -1577,7 +1646,11 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
       {/* MODAL: Cobro masivo                                                    */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       <Dialog open={showMasivo} onOpenChange={open => { if (!open && masivoProgress !== 'running') setShowMasivo(false); }}>
-        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        {/* `sm:max-w-lg` y no `max-w-lg`: el base de DialogContent ya deja 1rem
+            de margen a cada lado en el móvil, y un `max-w-lg` a secas lo pisaba
+            (tailwind-merge se queda con el último) — el diálogo iba de borde a
+            borde de la pantalla. */}
+        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Zap size={18} className="text-success" />

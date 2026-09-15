@@ -67,7 +67,9 @@ export default function Cobros() {
         description="Lo que está pendiente, las facturas emitidas y todo el dinero que ha entrado."
       />
 
-      <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit overflow-x-auto">
+      {/* `max-w-full`: con `w-fit` a secas la barra medía su ancho natural y en un
+          móvil de 375 px «Facturas» se salía del margen de la página. */}
+      <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit max-w-full overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.id}
