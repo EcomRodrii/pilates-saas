@@ -62,6 +62,7 @@ import { VistaSemana } from '@/components/calendario/vista-semana';
 import { VistaAgenda, CONSULTA_AGENDA, clasesDeAgenda, type DiaDeAgenda } from '@/components/calendario/vista-agenda';
 import { agendaDeDia, agendaDeSemana } from '@/lib/calendario-agenda';
 import { useCoincideMedio } from '@/lib/hooks/use-coincide-medio';
+import { useAltoHastaElFondo } from '@/lib/hooks/use-alto-hasta-el-fondo';
 import { createPortal } from 'react-dom';
 import { anfitrionPortal } from '@/lib/panel-portal';
 import { VistaMes } from '@/components/calendario/vista-mes';
@@ -2009,6 +2010,10 @@ export default function Calendario() {
   // que la rejilla, y la página hace scroll entera. Arrastrar se queda en la
   // tablet y el ordenador; en el móvil una clase se mueve desde «Editar».
   const enMovil = useCoincideMedio(CONSULTA_AGENDA);
+  // En el ordenador el calendario ocupa justo hasta el fondo de la ventana (ver
+  // `useAltoHastaElFondo`): con `calc(100vh - 72px)` la página se desplazaba y
+  // la rejilla salía cortada abajo en cuanto había algo más encima.
+  const refLienzo = useAltoHastaElFondo<HTMLDivElement>(useCoincideMedio('(min-width: 1024px)'));
   const agendaSemana = useMemo<DiaDeAgenda[]>(() => {
     if (!datosVista) return [];
     return agendaDeSemana(columnasSemana, datosVista.salas.map(s => s.id)).flatMap(d => {
@@ -2676,12 +2681,16 @@ export default function Calendario() {
     // es la PÁGINA la que hace scroll: con la altura fija, la cabecera y los
     // filtros se comían la pantalla y el calendario quedaba en una tira de
     // ~100 px al fondo.
-    <div data-tour="calendario-vista" className="flex flex-col md:h-[calc(100vh-136px)] lg:h-[calc(100vh-72px)]">
+    // ⚠️ Desde `lg` el alto lo pone `refLienzo` midiendo lo que hay encima y
+    // debajo; el `calc` de `md` es solo el punto de partida antes de medir.
+    <div ref={refLienzo} data-tour="calendario-vista" className="flex flex-col md:h-[calc(100vh-136px)]">
     <LienzoCalendario>
     <div className="flex flex-col flex-1 min-h-0 rounded-3xl bg-card border border-border shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)] overflow-hidden">
       {/* ── Top header ─────────────────────────────────────────────────────────── */}
       <PageHeader
-        className="shrink-0 px-4 lg:px-6 pt-4 lg:pt-5 pb-3 lg:pb-4 sm:items-center"
+        // En un portátil bajo (≤ 900 px de alto, `escritorio-bajo` en globals.css)
+        // la cabecera aprieta su aire: cada píxel de aquí es rejilla que no se ve.
+        className="shrink-0 px-4 lg:px-6 pt-4 lg:pt-5 pb-3 lg:pb-4 escritorio-bajo:pt-3 escritorio-bajo:pb-2 sm:items-center"
         title="Calendario"
         description={capitalizarPrimera(mesLabel)}
         actions={
@@ -2694,7 +2703,10 @@ export default function Calendario() {
               aria-label="Importar horario"
               className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 lg:px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Upload size={14} /><span className="hidden lg:inline">Importar horario</span>
+              {/* El texto solo desde `2xl`: con él, en un portátil (1280–1440) la
+                  barra no cabía en una fila y «Clase recurrente» bajaba sola a una
+                  segunda, 47 px menos de rejilla. El nombre sigue en aria-label. */}
+              <Upload size={14} /><span className="hidden 2xl:inline">Importar horario</span>
             </Link>
           )}
 
@@ -2702,6 +2714,7 @@ export default function Calendario() {
             <button
               onClick={() => (modoSeleccion ? salirDeSeleccion() : setModoSeleccion(true))}
               title="Marcar varias clases para cambiarles la instructora de una vez"
+              aria-label={modoSeleccion ? 'Salir de selección' : 'Seleccionar varias'}
               className={cn(
                 'flex items-center gap-1.5 rounded-lg border px-2.5 lg:px-3 py-2 text-[13px] font-medium transition-colors',
                 modoSeleccion
@@ -2710,7 +2723,7 @@ export default function Calendario() {
               )}
             >
               <CheckSquare size={14} />
-              <span className="hidden lg:inline">{modoSeleccion ? 'Salir de selección' : 'Seleccionar varias'}</span>
+              <span className="hidden 2xl:inline">{modoSeleccion ? 'Salir de selección' : 'Seleccionar varias'}</span>
             </button>
           )}
 
@@ -2806,15 +2819,13 @@ export default function Calendario() {
           antes de llegar a una sola clase. */}
       {/* Sin sentido en Mes: son agregados de la ventana de Día/Semana visible
           (metricasDia/metricasSemana), no del mes entero. */}
-      {vista !== 'mes' && vista !== 'horario' && (
-        <div className="hidden lg:block px-6 pb-3 shrink-0">
-          <TarjetasMetricas tarjetas={tarjetas} />
-        </div>
-      )}
-
       {/* ── Filtros (punto 9) ──────────────────────────────────────────────────── */}
+      {/* Filtros y métricas comparten fila cuando caben (pantallas anchas); si no,
+          `flex-wrap-reverse` deja las métricas arriba y los filtros debajo, el
+          orden de siempre. Antes eran dos filas fijas también en un monitor de
+          1920 px, con media fila vacía en cada una. */}
       {vista !== 'horario' && (
-      <div className="px-4 lg:px-6 pb-3 shrink-0">
+      <div className="px-4 lg:px-6 pb-3 escritorio-bajo:pb-2 shrink-0 flex flex-wrap-reverse items-center gap-3 escritorio-bajo:gap-2">
         <FiltrosCalendario
           salas={datosVista?.salas ?? []}
           instructores={instructoresActivos}
@@ -2825,6 +2836,11 @@ export default function Calendario() {
           busqueda={busqueda}
           onBusqueda={setBusqueda}
         />
+        {vista !== 'mes' && (
+          <div className="hidden lg:block min-w-[min(100%,38.75rem)] flex-1">
+            <TarjetasMetricas tarjetas={tarjetas} />
+          </div>
+        )}
       </div>
       )}
 
@@ -2832,7 +2848,7 @@ export default function Calendario() {
       {/* Sin sentido en Mes: listaría cada clase pendiente del mes entero, no
           "lo de hoy/esta semana" que la franja está pensada para resumir. */}
       {vista !== 'mes' && vista !== 'horario' && decisionesResumen.length > 0 && (
-        <div className="px-4 lg:px-6 pb-3 shrink-0">
+        <div className="px-4 lg:px-6 pb-3 escritorio-bajo:pb-2 shrink-0">
           <FranjaDecisiones
             decisiones={decisionesResumen}
             indice={indiceDecision}
