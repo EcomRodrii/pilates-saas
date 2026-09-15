@@ -109,18 +109,14 @@ export async function verificarInstructoraEnEstudio(
   const token = req.headers.get('authorization')?.replace(/^Bearer /, '');
   if (!token || !slug) return null;
 
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) return null;
+
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
-  // En paralelo (15-sep-2026): el usuario del token y el estudio del slug no
-  // dependen el uno del otro, y esta verificación la paga CADA petición de la
-  // app de la instructora. En serie eran dos viajes seguidos antes de empezar.
-  // El estudio también se resuelve por dirección antigua, igual que la alumna.
-  const [{ data: { user }, error }, resuelto] = await Promise.all([
-    supabase.auth.getUser(token),
-    resolverStudioPorSlug(admin as never, slug),
-  ]);
-  if (error || !user) return null;
+  // También por dirección antigua, igual que la sesión de la alumna.
+  const resuelto = await resolverStudioPorSlug(admin as never, slug);
   if (!resuelto) return null;
   const studioId = (resuelto.row as { id: string }).id;
 
