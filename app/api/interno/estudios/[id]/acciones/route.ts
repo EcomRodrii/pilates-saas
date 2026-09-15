@@ -164,7 +164,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       actor: g.admin,
       accion: 'estudio.prueba.ampliada',
       objetivoTipo: 'studio', objetivoId: id,
-      resumen: `${r.nombre}: prueba +${DIAS_AMPLIACION_PRUEBA} días, hasta el ${dia(r.hasta)} (${r.estadoAntes === 'trial_expirado' ? 'había terminado' : 'acababa'} el ${dia(r.trialAntes)})`,
+      // `trialAntes` es NULL en el estado roto que repara #2036 (estudio en
+      // 'trial_expirado' sin fecha de fin): ahí no hay fecha anterior que contar.
+      resumen: r.trialAntes === null
+        ? `${r.nombre}: prueba +${DIAS_AMPLIACION_PRUEBA} días, hasta el ${dia(r.hasta)} (no tenía fecha de fin: estado incoherente reparado)`
+        : `${r.nombre}: prueba +${DIAS_AMPLIACION_PRUEBA} días, hasta el ${dia(r.hasta)} (${r.estadoAntes === 'trial_expirado' ? 'había terminado' : 'acababa'} el ${dia(r.trialAntes)})`,
       antes: { trialEndsAt: r.trialAntes, subscriptionStatus: r.estadoAntes },
       despues: { trialEndsAt: r.hasta, subscriptionStatus: 'trialing' },
     });

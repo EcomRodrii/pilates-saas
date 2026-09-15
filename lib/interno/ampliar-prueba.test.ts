@@ -121,6 +121,38 @@ test('sede de cadena, estudio sin prueba local o con plan activo: no escribe nad
   }
 });
 
+// Regresión de #2036: la PR arregló la regla pura (`ampliacionDePrueba` acepta
+// `trialEndsAt: null`) pero esta función seguía cortando ese caso con un 409, y
+// el compare-and-set lo habría cortado otra vez con `trial_ends_at=eq.null` —
+// que en SQL no casa nunca. El botón de /interno seguía sin funcionar para el
+// estudio real que motivó la PR. Los dos filtros se comprueban aquí.
+test('estado roto (trial_expirado SIN fecha de fin): amplía desde AHORA y compara con is.null', async () => {
+  const { db, escrituras } = montar({ estudio: { ...VENCIDO, trial_ends_at: null } });
+  const r = await ampliarPruebaEstudio(db, 'studio-1', { ahora: AHORA, purgaActiva: false });
+
+  assert.deepEqual(r, {
+    ok: true, nombre: 'Pilates Luz', trialAntes: null, estadoAntes: 'trial_expirado',
+    hasta: '2026-09-21T12:00:00.000Z',
+  });
+
+  assert.equal(escrituras().length, 1);
+  const q = escrituras()[0].url.searchParams;
+  // `eq.null` compararía `trial_ends_at = NULL`, que nunca es cierto: 0 filas y
+  // un 409 permanente. Tiene que viajar como `is.null`.
+  assert.equal(q.get('trial_ends_at'), 'is.null');
+  assert.equal(q.get('subscription_status'), 'eq.trial_expirado');
+  assert.equal(q.get('subscription_id'), 'is.null');
+});
+
+test('con el borrado ENCENDIDO, un estado roto sin fecha no dispara la purga', async () => {
+  // Sin fecha de fin no hay ancla que comparar: `siguientePaso` no puede decidir
+  // que toca purgar, así que el camino sigue abierto en vez de fallar cerrado.
+  const { db, escrituras } = montar({ estudio: { ...VENCIDO, trial_ends_at: null } });
+  const r = await ampliarPruebaEstudio(db, 'studio-1', { ahora: AHORA, purgaActiva: true });
+  assert.equal(r.ok, true);
+  assert.equal(escrituras().length, 1);
+});
+
 test('estudio que no existe: 404 sin escribir', async () => {
   const { db, escrituras } = montar({ estudio: null });
   const r = await ampliarPruebaEstudio(db, 'studio-x', { ahora: AHORA, purgaActiva: false });

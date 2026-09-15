@@ -33,7 +33,11 @@ export function FormSedes({
   const idSede = useId();
   const [nuevaSede, setNuevaSede] = useState(VACIA);
   const [aplicandoCatalogo, setAplicandoCatalogo] = useState<string | null>(null);
-  const [aviso, setAviso] = useState('');
+  // Auditoría 15-sep: este aviso mezclaba éxito y fallo con el MISMO estilo
+  // gris — "No se ha aplicado el catálogo…" se veía igual que "3 tipos de
+  // clase añadidos". Mismo bug de fondo que Toast (C-4), aquí porque este
+  // cajón decidió a propósito no usar el toast flotante del panel.
+  const [aviso, setAviso] = useState<{ texto: string; esError: boolean } | null>(null);
 
   async function aplicarCatalogo(sedeId: string, nombreSede: string) {
     setAplicandoCatalogo(sedeId);
@@ -44,12 +48,15 @@ export function FormSedes({
         body: JSON.stringify({ studioId: sedeId }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) { setAviso(`No se ha aplicado el catálogo: ${data?.error ?? 'inténtalo otra vez'}`); return; }
-      setAviso(data?.aplicados > 0
-        ? `${data.aplicados} tipo(s) de clase añadidos a «${nombreSede}»`
-        : `«${nombreSede}» ya tenía todo el catálogo de la cadena`);
+      if (!res.ok) { setAviso({ texto: `No se ha aplicado el catálogo: ${data?.error ?? 'inténtalo otra vez'}`, esError: true }); return; }
+      setAviso({
+        texto: data?.aplicados > 0
+          ? `${data.aplicados} tipo(s) de clase añadidos a «${nombreSede}»`
+          : `«${nombreSede}» ya tenía todo el catálogo de la cadena`,
+        esError: false,
+      });
     } catch {
-      setAviso('No se ha aplicado el catálogo: no hemos podido hablar con el servidor.');
+      setAviso({ texto: 'No se ha aplicado el catálogo: no hemos podido hablar con el servidor.', esError: true });
     } finally {
       setAplicandoCatalogo(null);
     }
@@ -64,7 +71,7 @@ export function FormSedes({
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) return data?.error ?? 'No se ha podido crear la sede';
-    setAviso(`Sede «${nombre}» creada: ya está en la lista.`);
+    setAviso({ texto: `Sede «${nombre}» creada: ya está en la lista.`, esError: false });
     setNuevaSede(VACIA);
     refrescarSedes();
     return null;
@@ -78,8 +85,15 @@ export function FormSedes({
   return (
     <>
       <div className="space-y-6 pb-6">
-        <p role="status" className={aviso ? 'rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground' : 'sr-only'}>
-          {aviso}
+        <p
+          role={aviso?.esError ? 'alert' : 'status'}
+          className={aviso
+            ? aviso.esError
+              ? 'rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive'
+              : 'rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground'
+            : 'sr-only'}
+        >
+          {aviso?.texto}
         </p>
 
         {/* Con una sola sede no hay nada que listar (mismo criterio que el

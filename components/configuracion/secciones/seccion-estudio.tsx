@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { MostrarToast } from '@/components/ui/toast';
 import { Building2, CalendarOff, Clock, MapPin, Phone } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
@@ -36,7 +37,7 @@ const FILAS_DATOS = [{ id: 'nombre-y-direccion', icono: MapPin }, { id: 'contact
 const FILAS_HORARIO = [{ id: 'horario', icono: Clock }, { id: 'cerrar-el-centro', icono: CalendarOff }] as const;
 const FILA_SEDES = { id: 'sedes', icono: Building2 } as const;
 
-export function SeccionEstudio({ showToast }: { showToast: (m: string) => void }) {
+export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
   const { studio, dataLoaded, salas, bloqueosMaquina } = useStudio();
   const { user } = useAuth();
 
@@ -69,7 +70,7 @@ export function SeccionEstudio({ showToast }: { showToast: (m: string) => void }
     // hard-nav tras guardar, para que StudioProvider remonte limpio contra la
     // nueva sede.
     cambiarSedeActiva(user.id, id).then(ok => {
-      if (!ok) { setCambiandoASede(null); showToast('No se ha podido cambiar de sede'); return; }
+      if (!ok) { setCambiandoASede(null); showToast('No se ha podido cambiar de sede', { variant: 'error' }); return; }
       const destino = sedes?.find(s => s.id === id);
       try { sessionStorage.setItem(CLAVE_CAMBIO_SEDE, destino?.nombre ?? ''); } catch { /* modo privado */ }
       window.location.href = '/dashboard';
