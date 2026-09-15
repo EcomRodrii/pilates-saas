@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { secretoValido } from './secreto.ts';
 import {
-  avisoParaSentry, comprobarFlujos, DEFINICIONES, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR,
+  avisoParaSentry, comprobarFlujos, DEFINICIONES, ID_PENALIZACIONES_COBRADAS_SIN_DINERO,
+  ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR,
 } from './comprobaciones.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -149,4 +151,39 @@ test('aviso para Sentry: nada en verde; solo el número (sin filas ni ids) en av
   const roto = avisoParaSentry(def, { count: null, error: { message: 'timeout' } });
   assert.equal(roto?.nivel, 'error');
   assert.equal(roto?.extra.valor, -1);
+});
+
+// ── Penalizaciones cobradas con el recibo devuelto ──────────────────────────
+
+test('cobradas sin dinero: cuenta COBRADA con su recibo DEVUELTO, solo el número', async () => {
+  const def = DEFINICIONES.find(d => d.id === ID_PENALIZACIONES_COBRADAS_SIN_DINERO);
+  assert.ok(def, 'la comprobación existe junto a las demás');
+  const { admin, llamadas } = adminQueGraba({ count: 2, error: null });
+  const r = await def.contar(admin, new Date('2026-09-15T12:00:00.000Z'));
+  assert.equal(r.count, 2);
+  assert.deepEqual(llamadas[0], ['from', 'penalizaciones']);
+  const [, columnas, opciones] = llamadas.find(l => l[0] === 'select')!;
+  assert.match(String(columnas), /recibos!inner\(/, 'solo las que tienen recibo');
+  assert.deepEqual(opciones, { count: 'exact', head: true }, 'solo el número, nunca filas');
+  assert.ok(llamadas.some(l => l[0] === 'eq' && l[1] === 'estado' && l[2] === 'COBRADA'));
+  assert.ok(llamadas.some(l => l[0] === 'eq' && l[1] === 'recibos.estado' && l[2] === 'DEVUELTO'));
+});
+
+test('cobradas sin dinero: una sola fila ya es fallo, y a Sentry va como error', async () => {
+  const informe = await comprobarFlujos(adminFalso({ penalizaciones: { count: 1, error: null } }));
+  assert.equal(informe.comprobaciones.find(x => x.id === ID_PENALIZACIONES_COBRADAS_SIN_DINERO)!.estado, 'fallo');
+  const def = DEFINICIONES.find(d => d.id === ID_PENALIZACIONES_COBRADAS_SIN_DINERO)!;
+  assert.equal(avisoParaSentry(def, { count: 1, error: null })?.nivel, 'error');
+});
+
+test('el cron de penalizaciones manda a Sentry las dos comprobaciones, y las cobradas sin dinero DESPUÉS de su barrido', () => {
+  // Nadie sondea /api/health/flujos: si el cron no la cuenta, no avisa a nadie.
+  const fuente = readFileSync(new URL('../inngest/penalizaciones.ts', import.meta.url), 'utf8');
+  assert.ok(fuente.includes('const VIGILADAS'), 'la lista de comprobaciones vigiladas existe');
+  const vigiladas = fuente.slice(fuente.indexOf('const VIGILADAS'), fuente.indexOf('async function vigilarPenalizaciones'));
+  assert.ok(vigiladas.includes('ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR'));
+  assert.ok(vigiladas.includes('ID_PENALIZACIONES_COBRADAS_SIN_DINERO'));
+  const barrido = fuente.indexOf('await seguirRecibosResueltos(admin)');
+  const vigilancia = fuente.indexOf('await vigilarPenalizaciones(admin)');
+  assert.ok(barrido > 0 && vigilancia > barrido, 'la vigilancia va después del barrido: lo que quede no lo arregló nadie');
 });

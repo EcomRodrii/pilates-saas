@@ -20,7 +20,7 @@ import {
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { seguirPenalizacionAlRecibo } from '@/lib/billing/penalizacion-recibo-server';
 import {
-  DEFINICIONES, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR, avisoParaSentry,
+  DEFINICIONES, ID_PENALIZACIONES_COBRADAS_SIN_DINERO, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR, avisoParaSentry,
 } from '@/lib/salud/comprobaciones.ts';
 import {
   terminosServicioPorDefecto, politicaPrivacidadPorDefecto, textoLegalCompleto,
@@ -273,20 +273,29 @@ async function seguirRecibosResueltos(admin: SupabaseClient) {
 
 /**
  * Vigilancia sin cron nuevo (Inngest va cerca del límite del plan): de paso por
- * esta pasada, cuántas penalizaciones RECIBO_CREADO llevan más de 1 h con el
- * recibo PENDIENTE sin programar. Es la MISMA comprobación que sirve
- * /api/health/flujos; a Sentry solo va el número.
+ * esta pasada, las comprobaciones de /api/health/flujos que tocan penalizaciones.
+ * Nadie sondea ese endpoint, así que si no se cuentan aquí no avisan a nadie. A
+ * Sentry solo va el número.
+ *
+ * - Recibos sin programar: RECIBO_CREADO con el recibo PENDIENTE sin reintento.
+ * - Cobradas sin dinero: COBRADA con el recibo DEVUELTO, que la liquidación de
+ *   la instructora sigue sumando. Se cuenta DESPUÉS de `seguirRecibosResueltos`
+ *   a propósito: lo que quede ya no lo ha arreglado ni el barrido.
  */
-async function vigilarRecibosSinProgramar(admin: SupabaseClient) {
-  try {
-    const def = DEFINICIONES.find(d => d.id === ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR);
-    if (!def) return;
-    const aviso = avisoParaSentry(def, await def.contar(admin, new Date()));
-    if (aviso) {
-      Sentry.captureMessage(aviso.mensaje, { level: aviso.nivel, tags: { area: 'cobros', tipo: 'salud' }, extra: aviso.extra });
+const VIGILADAS = [ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR, ID_PENALIZACIONES_COBRADAS_SIN_DINERO];
+
+async function vigilarPenalizaciones(admin: SupabaseClient) {
+  for (const id of VIGILADAS) {
+    try {
+      const def = DEFINICIONES.find(d => d.id === id);
+      if (!def) continue;
+      const aviso = avisoParaSentry(def, await def.contar(admin, new Date()));
+      if (aviso) {
+        Sentry.captureMessage(aviso.mensaje, { level: aviso.nivel, tags: { area: 'cobros', tipo: 'salud' }, extra: aviso.extra });
+      }
+    } catch (e) {
+      console.error('[penalizaciones] vigilancia', id, e instanceof Error ? e.message : e);
     }
-  } catch (e) {
-    console.error('[penalizaciones] vigilancia de recibos sin programar', e instanceof Error ? e.message : e);
   }
 }
 
@@ -317,7 +326,7 @@ export const penalizacionesDispatcher = inngest.createFunction(
       // Después de procesar, y también cuando no había nada DETECTADA: lo que
       // barre y lo que vigila no depende de que haya trabajo nuevo.
       await seguirRecibosResueltos(admin);
-      await vigilarRecibosSinProgramar(admin);
+      await vigilarPenalizaciones(admin);
       return { procesadas: pendientes?.length ?? 0 };
     });
   },
