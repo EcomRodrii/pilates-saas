@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   evaluarReembolso, sesionesConsumidas, diasDesdeCobro,
+  leerPlazoReembolso, PLAZO_REEMBOLSO_MAX_DIAS,
   type PoliticaReembolso, type ReciboParaReembolso,
 } from './politica-reembolso.ts';
 
@@ -9,6 +10,16 @@ import {
 // verdad llama a Stripe, y en este repo ninguna prueba llega a la red (los e2e
 // la mockean con `page.route`). Lo que no se compruebe aquí no lo comprueba
 // nadie hasta que haya dinero de por medio.
+
+test('el plazo tecleado: días enteros entre 0 y el tope, o null', () => {
+  assert.equal(leerPlazoReembolso('14'), 14);
+  assert.equal(leerPlazoReembolso(' 0 '), 0);
+  assert.equal(leerPlazoReembolso(String(PLAZO_REEMBOLSO_MAX_DIAS)), PLAZO_REEMBOLSO_MAX_DIAS);
+  // Todo esto antes se guardaba como 0 = «sin límite».
+  for (const malo of ['', '   ', '-3', '1.5', 'abc', '1e3', String(PLAZO_REEMBOLSO_MAX_DIAS + 1), '5000', '99999']) {
+    assert.equal(leerPlazoReembolso(malo), null, `«${malo}»`);
+  }
+});
 
 const AHORA = new Date('2026-08-11T12:00:00Z');
 

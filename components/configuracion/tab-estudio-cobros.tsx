@@ -1,16 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
 import { authHeader } from '@/lib/api-client';
 import type { DatosSepa } from '@/lib/billing/cuenta-cobro';
+import { leerPlazoReembolso, PLAZO_REEMBOLSO_MAX_DIAS } from '@/lib/billing/politica-reembolso';
+import { hayCambios, sincronizarFormulario } from '@/lib/configuracion/formulario-sincronizado';
 import { Toggle, inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+
+// ⚠️ Las dos tarjetas de esta pestaña se guardan cada una con su botón, y la de
+// Devoluciones escribe en `studio`. Antes cada formulario se recopiaba ENTERO al
+// cambiar `studio`, así que guardar la política de devoluciones borraba los
+// datos SEPA a medio escribir. Ahora un campo solo se pone al día si no se ha
+// tocado (lib/configuracion/formulario-sincronizado.ts).
 
 type SepaForm = { sepaAcreedorId: string; sepaIban: string; sepaTitular: string };
 
-function studioToSepa(s: Studio | null): SepaForm {
+function studioToSepa(s: DatosSepa | null): SepaForm {
   return {
     sepaAcreedorId: s?.sepaAcreedorId ?? '',
     sepaIban: s?.sepaIban ?? '',
@@ -21,33 +29,44 @@ function studioToSepa(s: Studio | null): SepaForm {
 export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void }) {
   const { studio, reflejarStudioGuardado } = useStudio();
   const [form, setForm] = useState<SepaForm>(() => studioToSepa(studio));
+  // Lo último que se sabe del servidor: lo que difiere de aquí es lo tecleado.
+  const [base, setBase] = useState<SepaForm>(() => studioToSepa(studio));
+  const guardandoRef = useRef(false);
   const [guardando, setGuardando] = useState(false);
 
   const [studioAnterior, setStudioAnterior] = useState(studio);
   if (studio !== studioAnterior) {
     setStudioAnterior(studio);
-    setForm(studioToSepa(studio));
+    const servidor = studioToSepa(studio);
+    setForm(sincronizarFormulario(form, base, servidor));
+    setBase(servidor);
   }
 
   // Los datos SEPA son la cuenta donde entra el dinero de la remesa: los valida
   // y guarda el servidor (solo la dueña), y aquí se pinta lo que devolvió ya
   // normalizado — nunca lo que se tecleó.
   async function guardarSepa() {
-    if (guardando) return;
+    if (guardandoRef.current) return;
+    guardandoRef.current = true;
     setGuardando(true);
+    const enviado = form;
     try {
       const res = await fetch('/api/estudio/sepa', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify(form),
+        body: JSON.stringify(enviado),
       });
       const data = await res.json().catch(() => null) as { datos?: DatosSepa; error?: string } | null;
       if (!res.ok || !data?.datos) { showToast(data?.error ?? 'No se han podido guardar los datos SEPA'); return; }
       reflejarStudioGuardado(data.datos);
+      const guardado = studioToSepa(data.datos);
+      setForm(f => sincronizarFormulario(f, enviado, guardado));
+      setBase(guardado);
       showToast('Datos SEPA guardados');
     } catch {
       showToast('No se han podido guardar los datos SEPA. Revisa tu conexión.');
     } finally {
+      guardandoRef.current = false;
       setGuardando(false);
     }
   }
@@ -87,30 +106,76 @@ export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void
 // a mano. Se puede seguir devolviendo desde Stripe como hasta ahora — Tentare
 // se entera igual por el webhook.
 
+type DevolucionesForm = { activos: boolean; plazo: string; soloSinUsar: boolean };
+
+function studioToDevoluciones(
+  s: Pick<Studio, 'reembolsosActivos' | 'reembolsoPlazoDias' | 'reembolsoSoloSinUsar'> | null,
+): DevolucionesForm {
+  // Los mismos valores por defecto que lee el servidor (app/api/reembolsos).
+  return {
+    activos: s?.reembolsosActivos ?? false,
+    plazo: String(s?.reembolsoPlazoDias ?? 14),
+    soloSinUsar: s?.reembolsoSoloSinUsar ?? true,
+  };
+}
+
 function PoliticaDevoluciones({ showToast }: { showToast: (m: string) => void }) {
   const { studio, updateStudio } = useStudio();
-  const [activos, setActivos] = useState(studio?.reembolsosActivos ?? false);
-  const [plazo, setPlazo] = useState(String(studio?.reembolsoPlazoDias ?? 14));
-  const [soloSinUsar, setSoloSinUsar] = useState(studio?.reembolsoSoloSinUsar ?? true);
+  const idPlazo = useId();
+  const [form, setForm] = useState<DevolucionesForm>(() => studioToDevoluciones(studio));
+  const [base, setBase] = useState<DevolucionesForm>(() => studioToDevoluciones(studio));
+  const guardandoRef = useRef(false);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [anterior, setAnterior] = useState(studio);
   if (studio !== anterior) {
     setAnterior(studio);
-    setActivos(studio?.reembolsosActivos ?? false);
-    setPlazo(String(studio?.reembolsoPlazoDias ?? 14));
-    setSoloSinUsar(studio?.reembolsoSoloSinUsar ?? true);
+    const servidor = studioToDevoluciones(studio);
+    setForm(sincronizarFormulario(form, base, servidor));
+    setBase(servidor);
+  }
+
+  const plazoDias = leerPlazoReembolso(form.plazo);
+  // Con la política apagada el plazo ni se ve: no se bloquea por algo que no se
+  // puede corregir en pantalla (se guarda el que ya había).
+  const plazoInvalido = form.activos && plazoDias === null;
+  const pendiente = hayCambios(form, base);
+
+  function cambiar(cambio: Partial<DevolucionesForm>) {
+    setForm(f => ({ ...f, ...cambio }));
+    setError(null);
   }
 
   async function guardar() {
-    // Un plazo negativo o con letras se guarda como 0 = sin límite, que es lo
-    // MENOS restrictivo: mejor eso que un número raro que bloquee sin explicarse.
-    const dias = Math.max(0, Math.trunc(Number(plazo) || 0));
-    const res = await updateStudio({
-      reembolsosActivos: activos,
-      reembolsoPlazoDias: dias,
-      reembolsoSoloSinUsar: soloSinUsar,
-    });
-    showToast(res.ok ? 'Política de devoluciones guardada' : res.error);
+    // Un ref y no solo el `disabled`: dos toques seguidos llegan antes de que
+    // el botón se repinte deshabilitado.
+    if (guardandoRef.current || plazoInvalido) return;
+    guardandoRef.current = true;
+    setGuardando(true);
+    setError(null);
+    const enviado = form;
+    const cambios = {
+      reembolsosActivos: enviado.activos,
+      reembolsoPlazoDias: plazoDias ?? leerPlazoReembolso(base.plazo) ?? 14,
+      reembolsoSoloSinUsar: enviado.soloSinUsar,
+    };
+    try {
+      const res = await updateStudio(cambios);
+      // «Guardada» solo con la fila confirmada (updateStudio cuenta filas).
+      if (!res.ok) { setError(res.error); showToast(res.error); return; }
+      const guardado = studioToDevoluciones(cambios);
+      setForm(f => sincronizarFormulario(f, enviado, guardado));
+      setBase(guardado);
+      showToast('Política de devoluciones guardada');
+    } catch {
+      const mensaje = 'No se ha podido guardar la política de devoluciones. Revisa tu conexión.';
+      setError(mensaje);
+      showToast(mensaje);
+    } finally {
+      guardandoRef.current = false;
+      setGuardando(false);
+    }
   }
 
   return (
@@ -127,25 +192,36 @@ function PoliticaDevoluciones({ showToast }: { showToast: (m: string) => void })
           <p className="text-[13px] font-medium text-foreground">Permitir devolver desde Tentare</p>
           <p className="text-[11px] text-muted-foreground">Solo la propietaria y recepción ven el botón.</p>
         </div>
-        <Toggle on={activos} onChange={setActivos} />
+        <Toggle on={form.activos} onChange={v => cambiar({ activos: v })} ariaLabel="Permitir devolver desde Tentare" />
       </div>
 
-      {activos && (
+      {form.activos && (
         <div className="mt-2 pt-3 border-t border-border space-y-4">
           <div className="max-w-[240px]">
-            <p className={labelCls}>Plazo para devolver (días desde el cobro)</p>
+            <label className={labelCls} htmlFor={idPlazo}>Plazo para devolver (días desde el cobro)</label>
             <input
-              className={inputCls}
+              id={idPlazo}
+              className={cn(inputCls, plazoInvalido && 'border-destructive')}
               type="number"
               min={0}
-              value={plazo}
-              onChange={e => setPlazo(e.target.value)}
+              max={PLAZO_REEMBOLSO_MAX_DIAS}
+              step={1}
+              inputMode="numeric"
+              aria-invalid={plazoInvalido}
+              value={form.plazo}
+              onChange={e => cambiar({ plazo: e.target.value })}
             />
-            <p className="text-[11px] text-muted-foreground mt-1">
-              {Number(plazo) > 0
-                ? `Pasados ${Math.trunc(Number(plazo))} días ya no se podrá devolver desde aquí.`
-                : '0 = sin límite: se podrá devolver un cobro de cualquier fecha.'}
-            </p>
+            {plazoInvalido ? (
+              <p role="alert" className="text-[11px] font-medium text-destructive mt-1">
+                {`Tienen que ser días enteros, entre 0 y ${PLAZO_REEMBOLSO_MAX_DIAS}. 0 = sin límite.`}
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {plazoDias
+                  ? `Pasados ${plazoDias} días ya no se podrá devolver desde aquí.`
+                  : '0 = sin límite: se podrá devolver un cobro de cualquier fecha.'}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-between py-1">
@@ -155,14 +231,22 @@ function PoliticaDevoluciones({ showToast }: { showToast: (m: string) => void })
                 No deja devolver un bono del que ya se han gastado sesiones. Los mensuales y las citas no se ven afectados.
               </p>
             </div>
-            <Toggle on={soloSinUsar} onChange={setSoloSinUsar} />
+            <Toggle on={form.soloSinUsar} onChange={v => cambiar({ soloSinUsar: v })} ariaLabel="Solo bonos sin empezar" />
           </div>
         </div>
       )}
 
-      <button onClick={guardar} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
-        Guardar política
-      </button>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          onClick={guardar}
+          disabled={guardando || !pendiente || plazoInvalido}
+          className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors disabled:opacity-40"
+        >
+          {guardando ? 'Guardando…' : 'Guardar política'}
+        </button>
+        {pendiente && !guardando && <span className="text-[12px] text-muted-foreground">Cambios sin guardar.</span>}
+      </div>
+      {error && <p role="alert" className="mt-2 text-[12px] font-medium text-destructive">{error}</p>}
     </div>
   );
 }
