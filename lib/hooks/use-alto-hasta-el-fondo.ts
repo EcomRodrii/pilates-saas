@@ -21,6 +21,17 @@ import { useCallback } from 'react';
 const px = (v: string) => parseFloat(v) || 0;
 
 /**
+ * Pide medir YA, en el mismo instante, sin esperar al fotograma siguiente.
+ *
+ * Lo necesita quien cambia lo de encima dentro de una transición de vista
+ * (`document.startViewTransition`): la foto del estado nuevo se toma al acabar
+ * su callback, y con la medida normal —observador + requestAnimationFrame— el
+ * alto llegaba tarde. La rejilla se animaba hasta el tamaño viejo y luego
+ * saltaba al bueno.
+ */
+export const EVENTO_MEDIR_ALTO = 'tentare:medir-alto';
+
+/**
  * Lo que la página pinta DEBAJO del elemento: márgenes y rellenos inferiores de
  * él y de sus antepasados, y lo que vaya detrás en el flujo.
  *
@@ -68,9 +79,11 @@ export function useAltoHastaElFondo<T extends HTMLElement>(activo: boolean, mini
     const observador = new ResizeObserver(programar);
     for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) observador.observe(p);
     window.addEventListener('resize', programar);
+    window.addEventListener(EVENTO_MEDIR_ALTO, medir);
     return () => {
       observador.disconnect();
       window.removeEventListener('resize', programar);
+      window.removeEventListener(EVENTO_MEDIR_ALTO, medir);
       if (pendiente) cancelAnimationFrame(pendiente);
       el.style.height = '';
     };

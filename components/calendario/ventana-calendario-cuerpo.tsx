@@ -14,8 +14,8 @@ import {
   TZ_ESTUDIO, cn, finDelDiaEstudio, horaEstudio, hoyEnEstudio, inicioDelDiaEstudio, masDias,
 } from '@/lib/utils';
 import {
-  EVENTO_SALTAR_A_CLASE, acotarPosicion, actualizarVentana, posicionInicial,
-  type EstadoVentana, type Punto,
+  EVENTO_SALTAR_A_CLASE, acotarPosicion, actualizarVentana, origenAperturaReciente, pedirCalendarioAmpliado,
+  posicionInicial, type EstadoVentana, type Punto,
 } from '@/lib/calendario/ventana-flotante';
 import { BarraPlazas } from '@/components/dashboard/barra-plazas';
 import type { Instructor, Reserva, Sesion } from '@/lib/types';
@@ -63,7 +63,12 @@ function tituloDia(fecha: string, hoy: string): string {
   return corto.charAt(0).toUpperCase() + corto.slice(1);
 }
 
-export default function VentanaCalendarioCuerpo({ estado }: { estado: EstadoVentana }) {
+export default function VentanaCalendarioCuerpo({ estado, saliendo, alSalir }: {
+  estado: EstadoVentana;
+  /** Se está cerrando: se anima la salida y al acabar avisa con `alSalir`. */
+  saliendo: boolean;
+  alSalir: () => void;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { tiposClase } = useStudio();
@@ -164,10 +169,13 @@ export default function VentanaCalendarioCuerpo({ estado }: { estado: EstadoVent
   const [arrastrando, setArrastrando] = useState(false);
 
   const colocar = useCallback((p: Punto) => {
-    const caja = ref.current?.getBoundingClientRect();
+    // offsetWidth/Height y no getBoundingClientRect: durante la animación de
+    // entrada la ventana va ESCALADA, y con la caja escalada se acotaba contra un
+    // tamaño de juguete y acababa medio fuera de la pantalla.
+    const el = ref.current;
     const acotada = acotarPosicion(
       p,
-      { ancho: caja?.width ?? 0, alto: caja?.height ?? 0 },
+      { ancho: el?.offsetWidth ?? 0, alto: el?.offsetHeight ?? 0 },
       { ancho: window.innerWidth, alto: window.innerHeight },
     );
     posRef.current = acotada;
@@ -179,7 +187,26 @@ export default function VentanaCalendarioCuerpo({ estado }: { estado: EstadoVent
   useLayoutEffect(() => {
     if (!anfitrion || posRef.current) return;
     colocar(posGuardada ?? posicionInicial({ ancho: window.innerWidth, alto: window.innerHeight }));
+    // Nace del botón que la ha abierto (como una ventana desde el Dock). Si se
+    // abre por otro camino —recargar con ella abierta—, aparece en su sitio.
+    const el = ref.current;
+    const origen = origenAperturaReciente();
+    // Leída de nuevo: `colocar` la acaba de escribir, y TypeScript la sigue
+    // viendo `null` por el `return` de arriba.
+    const colocada = posRef.current as Punto | null;
+    if (el && origen && colocada) {
+      el.style.transformOrigin = `${origen.x - colocada.x}px ${origen.y - colocada.y}px`;
+      el.dataset.desde = 'boton';
+    }
   }, [anfitrion, posGuardada, colocar]);
+
+  // Red por si `animationend` no llega (animaciones desactivadas en el sistema):
+  // la ventana no puede quedarse montada e invisible tapando clics.
+  useEffect(() => {
+    if (!saliendo) return;
+    const t = setTimeout(alSalir, 600);
+    return () => clearTimeout(t);
+  }, [saliendo, alSalir]);
 
   // Si la ventana crece (llegan las clases, se despliega) o la pantalla encoge,
   // vuelve a caber. Sin guardar: guardar es cosa de quien la ha movido a mano.
@@ -194,9 +221,9 @@ export default function VentanaCalendarioCuerpo({ estado }: { estado: EstadoVent
   }, [anfitrion, colocar]);
 
   const alPulsar = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || (e.target as HTMLElement).closest('button') || !ref.current) return;
-    const caja = ref.current.getBoundingClientRect();
-    arrastre.current = { dx: e.clientX - caja.left, dy: e.clientY - caja.top, id: e.pointerId };
+    const p = posRef.current;
+    if (e.button !== 0 || (e.target as HTMLElement).closest('button') || !p || saliendo) return;
+    arrastre.current = { dx: e.clientX - p.x, dy: e.clientY - p.y, id: e.pointerId };
     e.currentTarget.setPointerCapture(e.pointerId);
     setArrastrando(true);
   };
@@ -220,7 +247,10 @@ export default function VentanaCalendarioCuerpo({ estado }: { estado: EstadoVent
       router.push(`/calendario?sesion=${encodeURIComponent(sesionId)}`);
     }
   };
-  const verEntero = () => {
+  const agrandar = () => {
+    // «Agrandar» es verlo a toda la pantalla, no solo ir al Calendario: con el
+    // Calendario ya abierto, lo único que pasaba era que la ventana se cerraba.
+    pedirCalendarioAmpliado();
     actualizarVentana({ abierta: false });
     if (pathname !== '/calendario') router.push('/calendario');
   };
@@ -236,8 +266,11 @@ export default function VentanaCalendarioCuerpo({ estado }: { estado: EstadoVent
       ref={ref}
       aria-label="Calendario en ventana"
       data-testid="ventana-calendario"
+      data-saliendo={saliendo ? '' : undefined}
+      data-arrastrando={arrastrando ? '' : undefined}
+      onAnimationEnd={(e) => { if (saliendo && e.target === e.currentTarget) alSalir(); }}
       className={cn(
-        'fixed z-40 w-[320px] overflow-hidden rounded-2xl border border-border bg-card text-foreground',
+        'ventana-flotante fixed z-40 w-[320px] overflow-hidden rounded-2xl border border-border bg-card text-foreground',
         'shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)]',
         arrastrando && 'select-none',
       )}
@@ -252,7 +285,6 @@ export default function VentanaCalendarioCuerpo({ estado }: { estado: EstadoVent
         title="Arrastra para moverla"
         className={cn(
           'flex h-11 touch-none items-center gap-0.5 pl-2 pr-1.5',
-          !plegada && 'border-b border-border',
           arrastrando ? 'cursor-grabbing' : 'cursor-grab',
         )}
       >
@@ -285,7 +317,7 @@ export default function VentanaCalendarioCuerpo({ estado }: { estado: EstadoVent
         >
           {plegada ? <ChevronDown size={15} /> : <Minus size={15} />}
         </button>
-        <button type="button" className={BOTON} aria-label="Ver el calendario entero" title="Ver el calendario entero" onClick={verEntero}>
+        <button type="button" className={BOTON} aria-label="Agrandar a toda la pantalla" title="Agrandar a toda la pantalla" onClick={agrandar}>
           <Maximize2 size={13} />
         </button>
         <button type="button" className={BOTON} aria-label="Cerrar la ventana" title="Cerrar" onClick={() => actualizarVentana({ abierta: false })}>
@@ -293,8 +325,16 @@ export default function VentanaCalendarioCuerpo({ estado }: { estado: EstadoVent
         </button>
       </div>
 
-      {!plegada && (
-        <div className="max-h-[min(460px,calc(100dvh-96px))] overflow-y-auto overscroll-contain">
+      {/* Plegar anima la altura (filas de rejilla 1fr ↔ 0fr, lo único que el CSS
+          sabe animar hasta «su alto natural») en vez de quitar la lista de golpe.
+          Plegada queda fuera del foco y del lector de pantalla. */}
+      <div
+        className={cn('ventana-plegable grid', plegada ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]')}
+        inert={plegada}
+        aria-hidden={plegada || undefined}
+      >
+        <div className={cn('ventana-plegable-dentro min-h-0 overflow-hidden', plegada && 'opacity-0')}>
+        <div className="max-h-[min(460px,calc(100dvh-96px))] overflow-y-auto overscroll-contain border-t border-border">
           {cargando ? (
             <ul aria-hidden className="divide-y divide-border">
               {[0, 1, 2].map(i => (
@@ -366,7 +406,8 @@ export default function VentanaCalendarioCuerpo({ estado }: { estado: EstadoVent
             </ul>
           )}
         </div>
-      )}
+        </div>
+      </div>
     </section>,
     anfitrion,
   );

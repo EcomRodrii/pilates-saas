@@ -25,6 +25,11 @@ async function calendario(page: Page) {
   await page.waitForTimeout(400); // el alto de la rejilla se mide en el siguiente fotograma
 }
 
+/** La ventana nace escalada desde el botón: medirla antes de que acabe da una caja de juguete. */
+async function quieta(page: Page) {
+  await expect.poll(async () => Math.round((await ventana(page).boundingBox())?.width ?? 0)).toBe(320);
+}
+
 async function arrastrar(page: Page, dx: number, dy: number) {
   const barra = page.getByTestId('ventana-calendario-barra');
   const caja = (await barra.boundingBox())!;
@@ -104,6 +109,7 @@ test('salir del Calendario ampliado no deja el panel sin menú', async ({ page }
 test('la ventana flotante se arrastra y se queda donde la dejas, también en otra pantalla y al recargar', async ({ page }) => {
   await calendario(page);
   await page.getByRole('button', { name: 'Abrir en una ventana flotante' }).click();
+  await quieta(page);
   await expect(ventana(page)).toBeInViewport({ ratio: 1 });
   // Las dos clases de hoy del estudio sembrado, con su aforo.
   await expect(ventana(page).getByRole('listitem')).toHaveCount(2);
@@ -134,17 +140,19 @@ test('la ventana flotante se arrastra y se queda donde la dejas, también en otr
 test('soltarla fuera de la pantalla la devuelve entera, y plegada ocupa solo la barra', async ({ page }) => {
   await calendario(page);
   await page.getByRole('button', { name: 'Abrir en una ventana flotante' }).click();
-  await expect(ventana(page)).toBeVisible();
+  await quieta(page);
   await arrastrar(page, 900, 900);
   await expect(ventana(page)).toBeInViewport({ ratio: 1 });
 
   await ventana(page).getByRole('button', { name: 'Plegar la ventana' }).click();
   await expect(ventana(page).getByRole('listitem')).toHaveCount(0);
-  expect((await ventana(page).boundingBox())!.height).toBeLessThan(60);
+  // La altura se anima: se espera a que llegue, no se mide a mitad.
+  await expect.poll(async () => (await ventana(page).boundingBox())!.height).toBeLessThan(60);
   await page.screenshot({ path: 'test-results/ventana-calendario-3-plegada.png' });
 
   await ventana(page).getByRole('button', { name: 'Desplegar la ventana' }).click();
   await expect(ventana(page).getByRole('listitem')).toHaveCount(2);
+  await expect.poll(async () => (await ventana(page).boundingBox())!.height).toBeGreaterThan(120);
   await expect(ventana(page)).toBeInViewport({ ratio: 1 });
 });
 
@@ -159,15 +167,44 @@ test('desde otra pantalla, pulsar una clase de la ventana abre esa clase en el C
   await expect(page.getByRole('dialog')).toBeVisible({ timeout: 30_000 });
 });
 
-test('«Ver el calendario entero» cierra la ventana y lleva al Calendario', async ({ page }) => {
+test('saltar a una clase de mañana no saca hoy de la semana', async ({ page }) => {
+  // El fallo que vio la dueña: la semana pasaba a empezar el día de la clase y
+  // «hoy no aparece en el calendario».
+  await calendario(page);
+  await expect(page.locator('[data-cabecera-dia="0"]')).toContainText('HOY');
+  await page.getByRole('button', { name: 'Abrir en una ventana flotante' }).click();
+  await ventana(page).getByRole('button', { name: 'Día siguiente' }).click();
+  await expect(ventana(page)).toContainText('Mañana');
+  await ventana(page).getByRole('listitem').first().getByRole('button').click();
+  await expect(page.getByRole('dialog')).toBeVisible({ timeout: 30_000 });
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  await page.getByRole('button', { name: /^Semana$/ }).click();
+  await expect(page.locator('[data-cabecera-dia="0"]'), 'la semana sigue empezando hoy').toContainText('HOY');
+});
+
+test('«Agrandar» desde otra pantalla lleva al Calendario ya ampliado y cierra la ventana', async ({ page }) => {
   await calendario(page);
   await page.getByRole('button', { name: 'Abrir en una ventana flotante' }).click();
   await menu(page).getByRole('link', { name: 'Clientas' }).first().click();
   await expect(page).toHaveURL(/\/clientas/, { timeout: 60_000 });
 
-  await ventana(page).getByRole('button', { name: 'Ver el calendario entero' }).click();
+  await ventana(page).getByRole('button', { name: 'Agrandar a toda la pantalla' }).click();
   await expect(page).toHaveURL(/\/calendario/, { timeout: 60_000 });
+  await expect(rejilla(page)).toBeVisible({ timeout: 60_000 });
+  await expect(menu(page), 'llega ampliado').toBeHidden();
   await expect(ventana(page)).toHaveCount(0);
+});
+
+test('«Agrandar» con el Calendario abierto lo amplía en el sitio (antes solo cerraba la ventana)', async ({ page }) => {
+  await calendario(page);
+  await page.getByRole('button', { name: 'Abrir en una ventana flotante' }).click();
+  await quieta(page);
+  await ventana(page).getByRole('button', { name: 'Agrandar a toda la pantalla' }).click();
+  await expect(menu(page)).toBeHidden();
+  await expect(ventana(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Volver al tamaño normal' })).toBeVisible();
 });
 
 test.describe('en una tablet', () => {

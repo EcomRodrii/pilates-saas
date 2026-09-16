@@ -66,7 +66,7 @@ export default function Contenido() {
         El otro saca la agenda del día a una <strong>ventana flotante</strong> que se queda a mano mientras vas a
         Clientas, Cobros o cualquier otra pantalla. La mueves arrastrándola por su barra y se queda donde la dejes,
         también si recargas. Desde la propia ventana cambias de día, la pliegas para que solo quede la barra, o pulsas
-        una clase para abrirla en el Calendario. Solo aparece en un ordenador, no en el móvil ni en la tablet.
+        una clase para abrirla en el Calendario; con sus flechas la agrandas y ves el Calendario a toda la pantalla. Solo aparece en un ordenador, no en el móvil ni en la tablet.
       </p>
     </>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import * as Sentry from '@sentry/nextjs';
-import { useState, useMemo, useEffect, useRef, useCallback, useId, useSyncExternalStore, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, useCallback, useId, useSyncExternalStore, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
 import { capturarMensaje } from '@/lib/sentry-cliente';
@@ -62,9 +62,13 @@ import { VistaSemana } from '@/components/calendario/vista-semana';
 import { VistaAgenda, CONSULTA_AGENDA, clasesDeAgenda, type DiaDeAgenda } from '@/components/calendario/vista-agenda';
 import { agendaDeDia, agendaDeSemana } from '@/lib/calendario-agenda';
 import { useCoincideMedio } from '@/lib/hooks/use-coincide-medio';
+import { semanaQueMuestra } from '@/lib/calendario/semana-visible';
+import { flushSync } from 'react-dom';
+import { EVENTO_MEDIR_ALTO } from '@/lib/hooks/use-alto-hasta-el-fondo';
 import { CONSULTA_ESCRITORIO } from '@/components/calendario/ventana-calendario';
 import {
-  EVENTO_SALTAR_A_CLASE, actualizarVentana, estadoVentana, estadoVentanaServidor, suscribirVentana,
+  EVENTO_SALTAR_A_CLASE, abrirVentanaDesde, actualizarVentana, estadoVentana, estadoVentanaServidor,
+  recogerCalendarioAmpliado, suscribirAmpliar, suscribirVentana,
 } from '@/lib/calendario/ventana-flotante';
 import { useAltoHastaElFondo } from '@/lib/hooks/use-alto-hasta-el-fondo';
 import { createPortal } from 'react-dom';
@@ -880,7 +884,9 @@ export default function Calendario() {
     if (!s) return;
     const inicio = new Date(s.inicio);
     setDiaSeleccionado(inicio);
-    setSemana(weekStart(inicio));
+    // Nunca `weekStart(inicio)` a secas: saltar a una clase de mañana dejaba la
+    // semana empezando mañana y hoy se caía de la vista. Ver semana-visible.ts.
+    setSemana(prev => semanaQueMuestra(inicio, prev, new Date()));
     setVista('dia');
     setSesionId(id);
     setPestanaPanel('clientas');
@@ -963,8 +969,9 @@ export default function Calendario() {
     });
   }
   function onSeleccionarDia(fecha: string) {
-    setDiaSeleccionado(new Date(`${fecha}T12:00:00`));
-    setSemana(weekStart(new Date(`${fecha}T12:00:00`)));
+    const dia = new Date(`${fecha}T12:00:00`);
+    setDiaSeleccionado(dia);
+    setSemana(prev => semanaQueMuestra(dia, prev, new Date()));
     setVista('dia');
   }
 
@@ -1139,7 +1146,7 @@ export default function Calendario() {
     // disparaba una navegación innecesaria.
     const primera = fechas[0];
     const dentroDeLaVentana = dias.some(d => localDate(d) === localDate(primera));
-    if (!dentroDeLaVentana) setSemana(weekStart(primera));
+    if (!dentroDeLaVentana) setSemana(prev => semanaQueMuestra(primera, prev, new Date()));
     return { navego: !dentroDeLaVentana };
   }
 
@@ -1872,7 +1879,7 @@ export default function Calendario() {
     // Más allá de lo que tiene cargado el panel: al menos se lleva a ese día.
     const inicio = new Date(t.proximaInicio);
     setDiaSeleccionado(inicio);
-    setSemana(weekStart(inicio));
+    setSemana(prev => semanaQueMuestra(inicio, prev, new Date()));
     setVista('dia');
   }
 
@@ -2029,7 +2036,35 @@ export default function Calendario() {
   // Si la ventana se estrecha por debajo de un ordenador, deja de estar ampliado
   // sin tener que pulsar nada: las reglas solo existen desde 1024 px.
   const ampliado = ampliadoPedido && escritorio;
-  useEffect(() => {
+
+  // Ampliar y volver, animado. Con `startViewTransition` el navegador hace una
+  // foto antes y otra después y las funde: el calendario crece desde su sitio
+  // hasta llenar la pantalla y el menú se retira hacia la izquierda (curvas en
+  // globals.css, «Calendario ampliado»). Sin soporte (Firefox) o con «reducir
+  // movimiento», el cambio es directo.
+  //
+  // ⚠️ Todo lo del callback tiene que quedar puesto ANTES de que termine, porque
+  // ahí se toma la foto del estado nuevo: por eso `flushSync`, el atributo en un
+  // layout effect (no en un efecto normal, que llega tarde) y la rejilla midiendo
+  // su alto en el acto (`EVENTO_MEDIR_ALTO`). Con la medida normal, un fotograma
+  // después, la animación llegaba al tamaño viejo y luego pegaba un salto.
+  const cambiarAmpliado = useCallback((siguiente: boolean) => {
+    const aplicar = () => {
+      flushSync(() => setAmpliado(siguiente));
+      window.dispatchEvent(new Event(EVENTO_MEDIR_ALTO));
+    };
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+    if (!doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      aplicar();
+      return;
+    }
+    const raiz = document.documentElement;
+    raiz.setAttribute('data-vt-calendario', siguiente ? 'ampliar' : 'reducir');
+    const transicion = doc.startViewTransition(aplicar);
+    transicion.finished.finally(() => raiz.removeAttribute('data-vt-calendario'));
+  }, []);
+
+  useLayoutEffect(() => {
     if (!ampliado) return;
     const raiz = document.documentElement;
     raiz.setAttribute('data-calendario-ampliado', '');
@@ -2038,7 +2073,7 @@ export default function Calendario() {
       // Con un diálogo abierto, Escape es suyo: cierra «Nueva clase», no la vista.
       const hayDialogo = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], [role="alertdialog"]'))
         .some(el => el.checkVisibility?.() ?? true);
-      if (!hayDialogo) setAmpliado(false);
+      if (!hayDialogo) cambiarAmpliado(false);
     };
     document.addEventListener('keydown', alPulsarTecla);
     // ⚠️ Al salir del Calendario también: sin esto, el resto del panel se
@@ -2047,7 +2082,15 @@ export default function Calendario() {
       raiz.removeAttribute('data-calendario-ampliado');
       document.removeEventListener('keydown', alPulsarTecla);
     };
-  }, [ampliado]);
+  }, [ampliado, cambiarAmpliado]);
+
+  // «Agrandar» desde la ventana flotante: al llegar al Calendario (si hubo que
+  // navegar) o en el acto (si ya estaba abierto).
+  useEffect(() => {
+    const recoger = () => { if (recogerCalendarioAmpliado()) cambiarAmpliado(true); };
+    recoger();
+    return suscribirAmpliar(recoger);
+  }, [cambiarAmpliado]);
   const ventana = useSyncExternalStore(suscribirVentana, estadoVentana, estadoVentanaServidor);
   // Una clase pulsada en la ventana flotante con el Calendario ya abierto: la
   // página no se vuelve a montar, así que `?sesion=` no sirve y avisa con un
@@ -2753,7 +2796,7 @@ export default function Calendario() {
           <span className="-my-0.5 ml-1 flex items-center gap-0.5">
             <button
               type="button"
-              onClick={() => actualizarVentana({ abierta: !ventana.abierta, plegada: false })}
+              onClick={(e) => (ventana.abierta ? actualizarVentana({ abierta: false }) : abrirVentanaDesde(e.currentTarget))}
               aria-pressed={ventana.abierta}
               aria-label={ventana.abierta ? 'Cerrar la ventana flotante' : 'Abrir en una ventana flotante'}
               title={ventana.abierta
@@ -2765,7 +2808,7 @@ export default function Calendario() {
             </button>
             <button
               type="button"
-              onClick={() => setAmpliado(a => !a)}
+              onClick={() => cambiarAmpliado(!ampliado)}
               aria-pressed={ampliado}
               aria-label={ampliado ? 'Volver al tamaño normal' : 'Ampliar a toda la pantalla'}
               title={ampliado ? 'Volver al tamaño normal (Esc)' : 'Ampliar a toda la pantalla'}
