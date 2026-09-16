@@ -41,8 +41,12 @@ export function preheaderHtml(texto: string): string {
   return `<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escaparHtml(texto)}${relleno}</div>`;
 }
 
-/** Cabecera `<head>` común: Outlook a 96 ppp, modo claro declarado, reset y media query de móvil. */
-export function cabezaHtml(titulo: string, fondo: string, enlace: string, ancho = 600): string {
+/**
+ * Cabecera `<head>` común: Outlook a 96 ppp, modo claro declarado, reset y media
+ * query de móvil. `estiloMso` es CSS que solo lee Outlook de Windows (va dentro
+ * de un condicional): cada familia decide ahí sus fuentes.
+ */
+export function cabezaHtml(titulo: string, fondo: string, enlace: string, ancho = 600, estiloMso = ''): string {
   return `<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -53,7 +57,7 @@ export function cabezaHtml(titulo: string, fondo: string, enlace: string, ancho 
 <title>${escaparHtml(titulo)}</title>
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
-<![endif]-->
+${estiloMso ? `<style>${estiloMso}</style>\n` : ''}<![endif]-->
 <style>
   body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
   table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-collapse: collapse; }
@@ -67,3 +71,12 @@ export function cabezaHtml(titulo: string, fondo: string, enlace: string, ancho 
 </style>
 </head>`;
 }
+
+/**
+ * ⚠️ Outlook de Windows NO baja por la pila de `font-family`: si la PRIMERA
+ * fuente no está instalada, pinta Times New Roman y se olvida del resto. Estas
+ * son las de FUENTES_EMAIL que Windows trae de serie; cualquier otra
+ * (`-apple-system`, 'Plus Jakarta Sans') hay que sustituirla en el condicional
+ * `mso` o el correo sale en Times.
+ */
+export const FUENTES_EN_WINDOWS = new Set(['Arial', 'Georgia', 'Verdana', 'Times New Roman', 'Courier New']);

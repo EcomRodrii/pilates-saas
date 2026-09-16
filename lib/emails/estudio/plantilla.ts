@@ -21,6 +21,7 @@ import type { CanalResuelto } from '../../canales-estudio.ts';
 import { paletaCorreoEstudio, type PaletaCorreo } from './paleta.ts';
 import { colorLegibleSobre } from '../../color-utils.ts';
 import { sanearMarkdown } from '../sanear-markdown.ts';
+import { escaparHtml, hrefSeguro, imagenSegura, preheaderHtml, cabezaHtml, FUENTES_EN_WINDOWS } from '../html.ts';
 
 /** La marca del estudio tal y como la necesita el correo. */
 export interface MarcaCorreo {
@@ -117,35 +118,23 @@ const PILA_SEGURA = "-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 /** El titular va en serif cursiva SIEMPRE: es la seña de identidad de la plantilla. */
 const PILA_TITULAR = "Georgia, 'Times New Roman', Times, serif";
 
-export function escaparHtml(texto: string): string {
-  return texto
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+/**
+ * Lo que lee SOLO Outlook de Windows. Su motor no baja por la pila de fuentes:
+ * con `-apple-system` o 'Plus Jakarta Sans' delante —ninguna instalada en
+ * Windows— pintaba el cuerpo del correo en Times New Roman. Aquí se le da la
+ * fuente elegida si Windows la tiene, y si no Arial. El serif del titular va
+ * aparte con su clase: Georgia sí está en Windows y es la seña de la plantilla.
+ */
+function estiloMso(fuente?: string | null): string {
+  const elegida = (fuente ?? '').trim();
+  const cuerpo = FUENTES_EN_WINDOWS.has(elegida) ? `'${elegida}', Arial, sans-serif` : 'Arial, Helvetica, sans-serif';
+  return `td, div, p, a, li, span { font-family: ${cuerpo} !important; } .f-serif { font-family: Georgia, serif !important; }`;
 }
 
-/**
- * Un `href` que se puede pintar. Cualquier otra cosa (`javascript:`, un campo a
- * medio escribir) se convierte en `#`: un botón que no lleva a ninguna parte es
- * malo, uno que ejecuta algo es otra cosa.
- */
-function hrefSeguro(url: string): string {
-  const limpia = url.trim();
-  return /^(https?:|mailto:|tel:)/i.test(limpia) ? escaparHtml(limpia) : '#';
-}
-
-/**
- * Lo mismo para el `src` de una imagen, pero devolviendo `null` en vez de `#`:
- * ahí un destino rechazado no puede quedarse en la página como un icono roto,
- * la imagen sencillamente no se pinta. Se exige http(s) — un `data:` cabría en
- * el atributo y metería el peso del archivo en el propio correo, que es la
- * forma más rápida de cruzar el recorte de Gmail.
- */
-function imagenSegura(url?: string | null): string | null {
-  const limpia = (url ?? '').trim();
-  return /^https?:/i.test(limpia) ? escaparHtml(limpia) : null;
-}
+// Las piezas sin marca (escapar, destinos seguros, preheader, <head>) viven en
+// lib/emails/html.ts y las comparte la familia de Tentare. Se reexporta
+// `escaparHtml` para quien ya la importaba de aquí.
+export { escaparHtml };
 
 /** El documento completo. Es la única función que sabe de `<html>`. */
 export function correoEstudio(o: CorreoEstudioOpts): string {
@@ -178,31 +167,9 @@ export function correoEstudio(o: CorreoEstudioOpts): string {
 
   return `<!doctype html>
 <html lang="es" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
-<meta name="color-scheme" content="light">
-<meta name="supported-color-schemes" content="light">
-<title>${escaparHtml(o.marca.estudioNombre)}</title>
-<!--[if mso]>
-<noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
-<![endif]-->
-<style>
-  body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
-  table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-collapse: collapse; }
-  img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
-  body { margin: 0; padding: 0; width: 100% !important; background: ${p.arena}; }
-  a { color: ${p.enlace}; }
-  @media screen and (max-width: ${ANCHO}px) {
-    .w-full { width: 100% !important; }
-    .px-mobile { padding-left: 20px !important; padding-right: 20px !important; }
-    }
-</style>
-</head>
+${cabezaHtml(o.marca.estudioNombre, p.arena, p.enlace, ANCHO, estiloMso(o.marca.fuente))}
 <body style="margin:0;padding:0;background:${p.arena};">
-${preheader(o.preheader)}
+${preheaderHtml(o.preheader)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${p.arena}" style="background:${p.arena};">
 <tr><td align="center" style="padding:28px 12px;">
 <!--[if mso | IE]>
@@ -224,16 +191,6 @@ ${pie(o, p, cuerpoFuente)}
 
 // ── Piezas ───────────────────────────────────────────────────────────────────
 
-/**
- * El texto de bandeja. Los `&zwnj;&nbsp;` de relleno existen para que Gmail no
- * siga leyendo el correo y enseñe las primeras palabras del cuerpo detrás del
- * preheader.
- */
-function preheader(texto: string): string {
-  const relleno = '&nbsp;&zwnj;'.repeat(60);
-  return `<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escaparHtml(texto)}${relleno}</div>`;
-}
-
 function cabecera(marca: MarcaCorreo, p: PaletaCorreo, fuente: string): string {
   // Con logo se pinta el logo; sin él, el nombre del estudio en versales. Nunca
   // las dos cosas: sería el nombre dos veces seguidas.
@@ -242,7 +199,7 @@ function cabecera(marca: MarcaCorreo, p: PaletaCorreo, fuente: string): string {
     ? `<img src="${logo}" height="30" alt="${escaparHtml(marca.estudioNombre)}" style="display:block;border:0;max-height:30px;width:auto;">`
     : `<div style="font-family:${fuente};font-size:12px;font-weight:bold;letter-spacing:.14em;text-transform:uppercase;color:${p.etiqueta};">${escaparHtml(marca.estudioNombre)}</div>`;
   const lema = marca.lema?.trim()
-    ? `<div style="font-family:${PILA_TITULAR};font-style:italic;font-size:13px;line-height:1.4;color:${p.tintaSuave};margin-top:6px;">${escaparHtml(marca.lema.trim())}</div>`
+    ? `<div class="f-serif" style="font-family:${PILA_TITULAR};font-style:italic;font-size:13px;line-height:1.4;color:${p.tintaSuave};margin-top:6px;">${escaparHtml(marca.lema.trim())}</div>`
     : '';
   return `<tr><td class="px-mobile" style="padding:22px 28px 18px;background:${p.papel};">${identidad}${lema}</td></tr>`;
 }
@@ -264,7 +221,7 @@ function titularYTexto(o: CorreoEstudioOpts, p: PaletaCorreo, fuente: string): s
     .map((t, i, todos) => `<div style="font-family:${fuente};font-size:14.5px;line-height:1.7;color:${p.tinta};margin:0 0 ${i === todos.length - 1 ? 0 : 14}px;">${escaparHtml(t)}</div>`)
     .join('');
   return `<tr><td class="px-mobile" style="padding:6px 28px 20px;background:${p.papel};">
-<div style="font-family:${PILA_TITULAR};font-style:italic;font-size:23px;line-height:1.35;color:${p.tinta};margin:0 0 14px;">${escaparHtml(o.titular)}</div>
+<div class="f-serif" style="font-family:${PILA_TITULAR};font-style:italic;font-size:23px;line-height:1.35;color:${p.tinta};margin:0 0 14px;">${escaparHtml(o.titular)}</div>
 ${parrafos}
 </td></tr>`;
 }
@@ -361,7 +318,8 @@ function markdownCorreo(p: PaletaCorreo, fuente: string): Marked {
         const estilo = t.depth === 1
           ? `font-family:${PILA_TITULAR};font-style:italic;`
           : `font-family:${fuente};font-weight:bold;`;
-        return `<div style="${estilo}font-size:${tam}px;line-height:1.35;color:${p.tinta};margin:0 0 12px;">${this.parser.parseInline(t.tokens)}</div>`;
+        const clase = t.depth === 1 ? ' class="f-serif"' : '';
+        return `<div${clase} style="${estilo}font-size:${tam}px;line-height:1.35;color:${p.tinta};margin:0 0 12px;">${this.parser.parseInline(t.tokens)}</div>`;
       },
       list(t) {
         const items = t.items.map(i => `<li style="${texto}margin:0 0 6px;">${this.parser.parseInline(i.tokens)}</li>`).join('');

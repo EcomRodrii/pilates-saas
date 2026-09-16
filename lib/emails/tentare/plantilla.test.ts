@@ -27,7 +27,8 @@ test('Outlook recibe 600 px fijos y Arial forzado, no Times New Roman', () => {
   assert.match(html, /<o:PixelsPerInch>96<\/o:PixelsPerInch>/);
   // Outlook no baja por la pila si la primera fuente no está instalada: cae a
   // Times New Roman. Esta familia no tiene serif, así que se fuerza Arial.
-  assert.match(html, /<!--\[if mso\]>\s*<style>\* \{ font-family: Arial/);
+  const mso = html.match(/<!--\[if mso\]>[\s\S]*?<!\[endif\]-->/)?.[0] ?? '';
+  assert.match(mso, /<style>\* \{ font-family: Arial/);
 });
 
 test('un solo botón; el segundo destino va como enlace', () => {

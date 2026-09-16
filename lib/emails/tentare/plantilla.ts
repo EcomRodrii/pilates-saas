@@ -89,10 +89,7 @@ export function correoTentare(o: CorreoTentareOpts): string {
 
   return `<!doctype html>
 <html lang="es" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-${cabezaHtml('Tentare', t.fondo, t.olivaMedio, ANCHO).replace('</head>', `<!--[if mso]>
-<style>* { font-family: Arial, Helvetica, sans-serif !important; }</style>
-<![endif]-->
-</head>`)}
+${cabezaHtml('Tentare', t.fondo, t.olivaMedio, ANCHO, '* { font-family: Arial, Helvetica, sans-serif !important; }')}
 <body style="margin:0;padding:0;background:${t.fondo};">
 ${preheaderHtml(o.preheader)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.fondo}" style="background:${t.fondo};">
