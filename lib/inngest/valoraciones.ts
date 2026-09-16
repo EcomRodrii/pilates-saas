@@ -14,16 +14,13 @@ import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { emitirValorarClase } from '@/lib/notifications/emit';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { appUrl } from '@/lib/app-url';
 
 function cuandoTexto(inicio: string): string {
   const d = new Date(inicio);
   const fecha = fechaLargaEstudio(d);
   const hora = horaEstudio(d);
   return `${fecha.charAt(0).toUpperCase()}${fecha.slice(1)} · ${hora}`;
-}
-
-function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
 }
 
 /** Cuánto hacia atrás se miran clases terminadas. La comparten el dispatcher y el worker. */

@@ -4,18 +4,18 @@
 -- `reservar_plaza` — un socio no puede reservar en un día declarado cerrado.
 --
 -- ⚠️ CORRECCIÓN (auditoría 2026-09-16, RES-2): esta cabecera afirmaba que
--- `resolver_reserva_pendiente` también lo respetaba. NO es cierto. El cuerpo
--- vivo de esa función (20260907030958) no menciona `fecha_en_cierre` en
--- ninguna de sus 177 líneas, y `grep -l ESTUDIO_CERRADO supabase/migrations/`
--- devuelve solo las dos migraciones que tocan `reservar_plaza`. Con
--- `requiere_aprobacion` activo, una petición creada ANTES del cierre se puede
--- aprobar DESPUÉS: queda CONFIRMADA, consume bono y avisa a la socia de una
--- clase que el estudio ya dijo que no da. Queda PENDIENTE (hoy sin impacto
--- real: 0 filas en `cierres_estudio`) — el arreglo es una migración propia que
--- añada el guard en esa función, con verificación en vivo y re-endurecimiento
--- de grants. No se aplicó aquí para no tocar una RPC central desde una
--- auditoría. Pero el arreglo de abajo la deja fuera a propósito, no por
--- herencia.
+-- `resolver_reserva_pendiente` también lo respetaba. NO era cierto. El cuerpo
+-- vivo de esa función (20260907030958) no mencionaba `fecha_en_cierre` en
+-- ninguna de sus 177 líneas. Con `requiere_aprobacion` activo, una petición
+-- creada ANTES del cierre se podía aprobar DESPUÉS: quedaba CONFIRMADA,
+-- consumía bono y avisaba a la socia de una clase que el estudio ya dijo que
+-- no da.
+--
+-- **RESUELTO** en `20260916180607_resolver_pendiente_respeta_cierre_del_centro.sql`
+-- — mismo criterio que `reservar_plaza`, verificado en vivo (bloquea con el
+-- día cerrado, aprueba igual que siempre sin cierre) y sin cambio de grants.
+-- El arreglo de abajo (`promocionar_siguiente_espera`) la dejaba fuera a
+-- propósito, no por herencia — y sigue siendo el arreglo real de ESE caso.
 --
 -- Pero el cron de las 02:00
 -- (`materializar_plazas_fijas`) seguía CONFIRMANDO plazas fijas en días

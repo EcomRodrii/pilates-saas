@@ -1,0 +1,11 @@
+-- Auditoría 2026-09-16 (RES-6): `reservar_plaza` conservaba EXECUTE para
+-- `authenticated` sin ningún llamador cliente — `dbReservarPlaza` ya no
+-- existe (confirmado con grep: los tres únicos `.rpc('reservar_plaza', ...)`
+-- del repo son con `admin.rpc(...)`, service-role, en
+-- `lib/db/supabase-data-admin.ts`). Un JWT de staff podía saltarse las
+-- guardas de la ruta (`puedeApuntarEnClase` niega a INSTRUCTOR apuntar
+-- alumnas ajenas): el guard interno de la RPC solo exige que la clase sea
+-- suya. Es la instancia concreta de un pendiente que ya lista tentare-os.md.
+-- Verificado con has_function_privilege tras aplicar: authenticated pasa a
+-- false, service_role se mantiene en true (camino admin sin cambios).
+revoke execute on function public.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean) from authenticated;

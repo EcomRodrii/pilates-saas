@@ -17,6 +17,7 @@ import {
   parametrosNudgeCandidata,
   type TipoAlertaPropietaria,
 } from '@/lib/sustituciones/mensajes';
+import { appUrl } from '@/lib/app-url';
 
 // ── Núcleo del contacto a una candidata ─────────────────────────────────────
 //
@@ -46,9 +47,7 @@ export type RankingItem = {
   prob_ofertas?: number;
 };
 
-export function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
-}
+export { appUrl };
 
 // Fecha/hora de la clase en texto legible (España). Compartido por ruta, avisos y escalado.
 export function formatCuando(inicio: string): string {

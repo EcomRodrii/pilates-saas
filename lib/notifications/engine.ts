@@ -21,6 +21,7 @@
 // cliente vía import dinámico, así que aquí NO se tocan los canales: el salto es
 // un fetch a una URL, sin ningún import que arrastre Node al bundle.
 // ─────────────────────────────────────────────────────────────────────────────
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { LEGAL } from '../legal-info.ts';
 import { REGLAS } from './catalog.ts';
@@ -45,12 +46,20 @@ export async function publish(event: NotificationEvent): Promise<NotificacionCre
   try {
     const admin = getSupabaseAdmin();
     if (!admin) {
-      console.error('[notifications] sin service-role: no se puede crear la notificación');
+      // Auditoría 2026-09-16 (AUT-4): esto y los otros cuatro `console.error`
+      // de este fichero eran fallos de CREACIÓN/ENRUTADO —no de entrega, que ya
+      // llega a Sentry agregada en process.ts— y no llegaban a ningún sitio:
+      // console.error entra en los logs de la función y nadie los mira. Sin
+      // esto, un despliegue sin service-role deja de avisar a NADIE sin que se
+      // note hasta que alguien pregunta por qué no le llegó nada.
+      Sentry.captureMessage('[notifications] sin service-role: no se puede crear la notificación', {
+        level: 'error', tags: { area: 'notificaciones', tipo: 'sin-service-role' },
+      });
       return [];
     }
     ({ creadas } = await crearInApp(admin, event));
   } catch (e) {
-    console.error('[notifications] crear in-app falló:', e instanceof Error ? e.message : e);
+    Sentry.captureException(e, { tags: { area: 'notificaciones', tipo: 'crear-in-app-fallo' }, extra: { eventType: event.type } });
     return [];
   }
 
@@ -66,7 +75,9 @@ export async function publish(event: NotificationEvent): Promise<NotificacionCre
 async function entregarExternos(notificationIds: string[]): Promise<void> {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
-    console.error('[notifications] CRON_SECRET ausente: no se entregan canales externos');
+    Sentry.captureMessage('[notifications] CRON_SECRET ausente: no se entregan canales externos', {
+      level: 'error', tags: { area: 'notificaciones', tipo: 'sin-cron-secret' },
+    });
     return;
   }
   const base = process.env.NEXT_PUBLIC_APP_URL || LEGAL.url;
@@ -77,9 +88,13 @@ async function entregarExternos(notificationIds: string[]): Promise<void> {
       body: JSON.stringify({ notificationIds }),
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) console.error('[notifications] entrega externa devolvió', res.status);
+    if (!res.ok) {
+      Sentry.captureMessage('[notifications] entrega externa devolvió un estado que no es ok', {
+        level: 'error', tags: { area: 'notificaciones', tipo: 'entrega-externa-status' }, extra: { status: res.status },
+      });
+    }
   } catch (e) {
-    console.error('[notifications] entrega externa falló:', e instanceof Error ? e.message : e);
+    Sentry.captureException(e, { tags: { area: 'notificaciones', tipo: 'entrega-externa-fallo' } });
   }
 }
 

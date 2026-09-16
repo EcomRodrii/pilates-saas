@@ -2750,6 +2750,13 @@ export async function resolverReservaPendiente(params: {
     if (esCodigoReserva(error.message, 'LIMITE_SEMANAL')) {
       return { error: 'La socia ya alcanzó el límite semanal de su plan y no tiene recuperaciones disponibles. La reserva sigue pendiente: libera una clase de esa semana o recházala.' };
     }
+    // RES-2 (auditoría 2026-09-16): la RPC ahora respeta `fecha_en_cierre`
+    // (antes no lo hacía, aunque la cabecera de la migración decía que sí).
+    // Sin traducir caería en el `error.message` a secas de abajo, el mismo
+    // hueco que ya se cerró para `crearReservaPublica`.
+    if (error.message.includes('ESTUDIO_CERRADO')) {
+      return { error: 'El estudio está cerrado ese día. La reserva sigue pendiente: recházala o espera a que se quite el cierre.' };
+    }
     return { error: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;
