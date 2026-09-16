@@ -60,10 +60,10 @@ test('el preheader está, va oculto y no deja que Gmail siga leyendo el cuerpo',
 test('todo el estilo va en línea: las clases solo sirven para el móvil', () => {
   const html = correoEstudio(BASICO);
   const clases = new Set([...html.matchAll(/class="([^"]+)"/g)].flatMap(m => m[1].split(/\s+/)));
-  assert.deepEqual([...clases].sort(), ['px-mobile', 'w-full'],
+  assert.deepEqual([...clases].sort(), ['f-serif', 'px-mobile', 'w-full'],
     'una clase nueva en el HTML es estilo que Gmail descarta al reenviar el correo');
   for (const clase of clases) {
-    assert.ok(html.includes(`.${clase} {`), `.${clase} se usa pero no está en la media query`);
+    assert.ok(html.includes(`.${clase} {`), `.${clase} se usa pero ningún estilo la define`);
   }
 });
 
@@ -214,4 +214,23 @@ test('el dato destacado se lee sobre el arena de cualquier estudio', () => {
       assert.ok(ratioContraste(usado, arena)! >= 4.5, `el acento «${nombre}» no se lee sobre el arena de ${color}`);
     }
   }
+});
+
+test('Outlook no pinta el cuerpo en Times New Roman', () => {
+  // Su motor no baja por la pila de fuentes: con `-apple-system` delante —que
+  // Windows no tiene— caía directo a Times New Roman.
+  const html = correoEstudio(BASICO);
+  const mso = html.match(/<!--\[if mso\]>[\s\S]*?<!\[endif\]-->/)?.[0] ?? '';
+  assert.match(mso, /td, div, p, a, li, span \{ font-family: Arial/);
+  // El titular sigue en serif: Georgia sí está instalada en Windows.
+  assert.match(mso, /\.f-serif \{ font-family: Georgia/);
+  assert.match(html, /class="f-serif"[^>]*>Tu plaza está reservada/);
+});
+
+test('si la fuente elegida existe en Windows, Outlook la respeta', () => {
+  const conVerdana = correoEstudio({ ...BASICO, marca: { ...MARCA, fuente: 'Verdana' } });
+  assert.match(conVerdana, /td, div, p, a, li, span \{ font-family: 'Verdana', Arial/);
+  // Un webfont no: se sustituye por Arial en vez de dejar que caiga a Times.
+  const conJakarta = correoEstudio({ ...BASICO, marca: { ...MARCA, fuente: 'Plus Jakarta Sans' } });
+  assert.match(conJakarta, /td, div, p, a, li, span \{ font-family: Arial/);
 });

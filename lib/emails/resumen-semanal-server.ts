@@ -1,8 +1,7 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { ResumenSemanalEmail } from '@/lib/emails/resumen-semanal-template';
+import { correoResumenSemanal } from '@/lib/emails/tentare/cuenta';
 import { remitentePorMarca } from '@/lib/emails/remitente';
-import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+import { LEGAL } from '@/lib/legal-info';
 import { nombreAppPorRol } from '@/lib/permisos-reglas';
 
 // Envío del resumen de "semana tranquila" (lib/decision/resumen-semanal-cron.ts).
@@ -24,15 +23,15 @@ export async function enviarEmailResumenSemanal(params: {
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
 
   try {
-    const marcaEstudio = await resolverMarcaEstudio(params.studioId);
-    const html = await render(ResumenSemanalEmail({
+    // Sin `resolverMarcaEstudio`: este correo lo firma Tentare, no el estudio,
+    // así que ahorra las tres consultas que hacía solo para el logo y el color.
+    const html = correoResumenSemanal({
       propietariaNombre: params.propietariaNombre,
       estudioNombre: params.estudioNombre,
-      logoUrl: marcaEstudio.logoUrl,
-      colorPrimario: marcaEstudio.colorPrimario,
       rangoTexto: params.rangoTexto,
       crecimientoPct: params.crecimientoPct,
-    }));
+      urlCentroDeControl: `${process.env.NEXT_PUBLIC_APP_URL || LEGAL.url}/centro-de-control`,
+    });
     const marca = nombreAppPorRol('PROPIETARIO');
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({

@@ -1,11 +1,14 @@
-import type { ComponentProps } from 'react';
-import { FalloPagoSaasEmail } from '@/lib/emails/fallo-pago-saas-template';
-import { MARCA } from './_muestra';
+import { correoFalloPagoSaas } from '@/lib/emails/tentare/cuenta';
 
-type Props = ComponentProps<typeof FalloPagoSaasEmail>;
-
-const Preview = (props: Props) => <FalloPagoSaasEmail {...props} />;
-
-Preview.PreviewProps = { estudioNombre: MARCA.estudioNombre, plan: 'Estudio', proximoIntento: '14 de agosto' } satisfies Props;
+// Familia Tentare (lib/emails/tentare/): el sistema devuelve el documento
+// entero, así que se inyecta tal cual. Ver la nota de emails/reserva.tsx.
+const Preview = () => (
+  <div dangerouslySetInnerHTML={{
+    __html: correoFalloPagoSaas({
+      estudioNombre: 'Estudio Aravaca', plan: 'Estudio', proximoIntento: '19 de septiembre',
+      urlSuscripcion: 'https://www.tentare.app/suscripcion',
+    }),
+  }} />
+);
 
 export default Preview;

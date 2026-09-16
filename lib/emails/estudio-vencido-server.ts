@@ -1,6 +1,5 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { EstudioVencidoEmail } from '@/lib/emails/estudio-vencido-template';
+import { correoEstudioVencido } from '@/lib/emails/tentare/cuenta';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 import { LEGAL } from '@/lib/legal-info';
@@ -22,7 +21,7 @@ export async function enviarAvisoEstudioVencido(params: {
 
   const base = process.env.NEXT_PUBLIC_APP_URL || LEGAL.url;
   try {
-    const html = await render(EstudioVencidoEmail({
+    const html = correoEstudioVencido({
       fase: params.fase,
       estudioNombre: params.estudioNombre,
       fechaPurga: formatearFechaAviso(params.fechaPurga),
@@ -35,7 +34,7 @@ export async function enviarAvisoEstudioVencido(params: {
       // No `/configuracion?tab=backups`: con la prueba agotada el panel redirige
       // a /suscripcion y ese enlace nunca llegaría a la exportación.
       urlExportar: `${base}/suscripcion#exportar-datos`,
-    }));
+    });
     const { error } = await new Resend(apiKey).emails.send({
       from: remitentePorMarca('Tentare'),
       to: [params.to],
