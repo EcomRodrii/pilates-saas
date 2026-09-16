@@ -134,7 +134,6 @@ export function SeccionHero() {
       <header id="top" className="v5-hero">
         <div className="v5-hero-wrap">
           <div className="v5-hero-texto">
-            <p className="v5-hero-antetitulo"><span aria-hidden className="v5-hero-punto" />Sustituciones incluidas desde el primer plan</p>
             <h1 className="v5-hero-h1">Software de gestión para estudios de Pilates</h1>
             <p className="v5-hero-lead">
               Gestiona reservas, clases, alumnos, pagos y profesores desde un solo lugar. Y recupera tus
@@ -248,12 +247,7 @@ export function SeccionHero() {
         .v5-hero-wrap { max-width: 1240px; margin: 0 auto; display: grid;
           grid-template-columns: minmax(0,.94fr) minmax(0,1.06fr); gap: clamp(32px,5vw,72px); align-items: center; }
 
-        .v5-hero-antetitulo { display: inline-flex; align-items: center; gap: 9px; margin: 0; padding: 7px 14px 7px 11px;
-          border-radius: 999px; background: rgba(255,255,255,.66); border: 1px solid rgba(52,56,37,.1);
-          font-size: 13px; font-weight: 700; color: #4A4E3A; }
-        .v5-hero-punto { width: 7px; height: 7px; border-radius: 999px; background: #2F6B4F;
-          box-shadow: 0 0 0 4px rgba(47,107,79,.14); }
-        .v5-hero-h1 { margin: 20px 0 0; font-size: clamp(40px,4.5vw,60px); font-weight: 800; line-height: .98;
+        .v5-hero-h1 { margin: 0; font-size: clamp(40px,4.5vw,60px); font-weight: 800; line-height: .98;
           letter-spacing: -.045em; color: #1F2216; text-wrap: balance; }
         .v5-hero-lead { margin: 22px 0 0; max-width: 46ch; font-size: clamp(16px,1.35vw,18.5px); line-height: 1.55;
           color: #5A5A52; text-wrap: pretty; }
@@ -332,8 +326,7 @@ export function SeccionHero() {
             background: radial-gradient(90% 50% at 70% 72%, rgba(217,194,158,.34), rgba(217,194,158,0) 70%); }
           .v5-hero-wrap { grid-template-columns: minmax(0,1fr); gap: 36px; }
           .v5-hero-texto { width: 100%; max-width: 560px; margin: 0 auto; }
-          .v5-hero-antetitulo { font-size: 12px; padding: 6px 12px 6px 10px; }
-          .v5-hero-h1 { margin-top: 16px; font-size: clamp(38px,10.5vw,52px); }
+          .v5-hero-h1 { margin-top: 0; font-size: clamp(38px,10.5vw,52px); }
           .v5-hero-lead { margin-top: 16px; font-size: 15.5px; max-width: none; }
           .v5-hero-acciones { margin-top: 24px; flex-direction: column; align-items: stretch; gap: 14px; }
           .v5-hero-cta { display: block; text-align: center; font-size: 16px; padding: 16px 24px; }
