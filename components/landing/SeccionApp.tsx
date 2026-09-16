@@ -36,7 +36,6 @@ export function SeccionApp() {
             height={1111}
             className="v5-telefono-img"
             sizes="(max-width: 860px) 55vw, 280px"
-            priority
           />
         </div>
       </div>
