@@ -18,6 +18,7 @@ import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
 import { PrimeraVezAqui } from '@/components/guia/primera-vez-aqui';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { VentanaCalendario } from '@/components/calendario/ventana-calendario';
+import { ControlAmpliado } from '@/components/layout/control-ampliado';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
 import { ReviewBoostModal } from '@/components/growth/review-boost-modal';
@@ -326,6 +327,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {/* Aquí y no en la página del Calendario: se queda flotando mientras
               se cambia de pantalla, y una página se desmonta al salir de ella. */}
           <VentanaCalendario />
+          <ControlAmpliado />
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200">
             {/* ⚠️ El hueco de arriba lo pone el MENÚ en `--panel-top`, no este
                 armazón: aquí no se pide el layout (este proveedor envuelve

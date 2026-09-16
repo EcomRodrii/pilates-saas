@@ -81,9 +81,11 @@ export function PosTerminal() {
   const buscadorRef = useRef<HTMLInputElement>(null);
 
   // ⚠️ El TPV se pinta en un PORTAL a document.body, no dentro del <main> del
-  // panel. Motivo concreto: `PanelPageTransition` anima el contenido con un
-  // `transform`, y la barra superior del panel va en z-30 — dentro de ese
-  // árbol, el TPV quedaba detrás y con los clics interceptados por `<main>`.
+  // panel. Motivo original: `PanelPageTransition` animaba el contenido con un
+  // `transform` (hoy ya no: el cambio de sección va con View Transitions) y la
+  // barra superior del panel va en z-30 — dentro de ese árbol, el TPV quedaba
+  // detrás y con los clics interceptados por `<main>`. El portal se queda: el
+  // z-index de la barra sigue ahí, y cualquier ancestro con transform lo repite.
   // Es el mismo motivo por el que DashboardSheet tiene su prop `portal`.
   //
   // No hace falta un flag de "ya montado" para el SSR: `cargando` empieza en

@@ -1,7 +1,7 @@
 'use client';
 
 import * as Sentry from '@sentry/nextjs';
-import { useState, useMemo, useEffect, useLayoutEffect, useRef, useCallback, useId, useSyncExternalStore, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, useId, useSyncExternalStore, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
 import { capturarMensaje } from '@/lib/sentry-cliente';
@@ -20,7 +20,7 @@ import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   CalendarDays, CalendarClock, ChevronDown,
   UserPlus, UserCheck, Pencil, Trash2, Copy,
-  Upload, QrCode, LayoutGrid, Rows3, CheckSquare, Maximize2, Minimize2, PictureInPicture2,
+  Upload, QrCode, LayoutGrid, Rows3, CheckSquare, PictureInPicture2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera } from '@/lib/utils';
@@ -63,9 +63,7 @@ import { VistaAgenda, CONSULTA_AGENDA, clasesDeAgenda, type DiaDeAgenda } from '
 import { agendaDeDia, agendaDeSemana } from '@/lib/calendario-agenda';
 import { useCoincideMedio } from '@/lib/hooks/use-coincide-medio';
 import { semanaQueMuestra } from '@/lib/calendario/semana-visible';
-import { flushSync } from 'react-dom';
-import { EVENTO_MEDIR_ALTO } from '@/lib/hooks/use-alto-hasta-el-fondo';
-import { CONSULTA_ESCRITORIO } from '@/components/calendario/ventana-calendario';
+import { CONSULTA_ESCRITORIO } from '@/lib/panel/escritorio';
 import {
   EVENTO_SALTAR_A_CLASE, abrirVentanaDesde, actualizarVentana, estadoVentana, estadoVentanaServidor,
   suscribirVentana,
@@ -2027,63 +2025,10 @@ export default function Calendario() {
   // la rejilla salía cortada abajo en cuanto había algo más encima.
   const refLienzo = useAltoHastaElFondo<HTMLDivElement>(useCoincideMedio('(min-width: 1024px)'));
 
-  // ── Ampliar y ventana flotante (solo en un ordenador) ─────────────────────
-  // Ampliar no mueve el calendario de sitio: le pide al panel que esconda menú
-  // y barra superior (reglas en globals.css), y la rejilla crece sola porque su
-  // alto ya se mide contra lo que tiene encima. Ver el porqué en ese CSS.
+  // ── Ventana flotante (solo en un ordenador) ───────────────────────────────
+  // «Ampliar a toda la pantalla» ya no vive aquí: es de todo el panel
+  // (lib/panel/ampliar.ts) y su botón lo pinta PageHeader junto al título.
   const escritorio = useCoincideMedio(CONSULTA_ESCRITORIO);
-  const [ampliadoPedido, setAmpliado] = useState(false);
-  // Si la ventana se estrecha por debajo de un ordenador, deja de estar ampliado
-  // sin tener que pulsar nada: las reglas solo existen desde 1024 px.
-  const ampliado = ampliadoPedido && escritorio;
-
-  // Ampliar y volver, animado. Con `startViewTransition` el navegador hace una
-  // foto antes y otra después y las funde: el calendario crece desde su sitio
-  // hasta llenar la pantalla y el menú se retira hacia la izquierda (curvas en
-  // globals.css, «Calendario ampliado»). Sin soporte (Firefox) o con «reducir
-  // movimiento», el cambio es directo.
-  //
-  // ⚠️ Todo lo del callback tiene que quedar puesto ANTES de que termine, porque
-  // ahí se toma la foto del estado nuevo: por eso `flushSync`, el atributo en un
-  // layout effect (no en un efecto normal, que llega tarde) y la rejilla midiendo
-  // su alto en el acto (`EVENTO_MEDIR_ALTO`). Con la medida normal, un fotograma
-  // después, la animación llegaba al tamaño viejo y luego pegaba un salto.
-  const cambiarAmpliado = useCallback((siguiente: boolean) => {
-    const aplicar = () => {
-      flushSync(() => setAmpliado(siguiente));
-      window.dispatchEvent(new Event(EVENTO_MEDIR_ALTO));
-    };
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
-    if (!doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      aplicar();
-      return;
-    }
-    const raiz = document.documentElement;
-    raiz.setAttribute('data-vt-calendario', siguiente ? 'ampliar' : 'reducir');
-    const transicion = doc.startViewTransition(aplicar);
-    transicion.finished.finally(() => raiz.removeAttribute('data-vt-calendario'));
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!ampliado) return;
-    const raiz = document.documentElement;
-    raiz.setAttribute('data-calendario-ampliado', '');
-    const alPulsarTecla = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return;
-      // Con un diálogo abierto, Escape es suyo: cierra «Nueva clase», no la vista.
-      const hayDialogo = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], [role="alertdialog"]'))
-        .some(el => el.checkVisibility?.() ?? true);
-      if (!hayDialogo) cambiarAmpliado(false);
-    };
-    document.addEventListener('keydown', alPulsarTecla);
-    // ⚠️ Al salir del Calendario también: sin esto, el resto del panel se
-    // quedaría sin menú.
-    return () => {
-      raiz.removeAttribute('data-calendario-ampliado');
-      document.removeEventListener('keydown', alPulsarTecla);
-    };
-  }, [ampliado, cambiarAmpliado]);
-
   const ventana = useSyncExternalStore(suscribirVentana, estadoVentana, estadoVentanaServidor);
   // Una clase pulsada en la ventana flotante con el Calendario ya abierto: la
   // página no se vuelve a montar, así que `?sesion=` no sirve y avisa con un
@@ -2786,30 +2731,18 @@ export default function Calendario() {
         // y esa fila le robaba alto a la rejilla. La línea del título tiene sitio
         // en todos los tamaños; `-my-0.5` y 28 px para no hacerla más alta.
         badge={escritorio && (
-          <span className="-my-0.5 ml-1 flex items-center gap-0.5">
-            <button
-              type="button"
-              onClick={(e) => (ventana.abierta ? actualizarVentana({ abierta: false }) : abrirVentanaDesde(e.currentTarget))}
-              aria-pressed={ventana.abierta}
-              aria-label={ventana.abierta ? 'Cerrar la ventana flotante' : 'Abrir en una ventana flotante'}
-              title={ventana.abierta
-                ? 'Cerrar la ventana flotante'
-                : 'Ventana flotante: la agenda del día a mano mientras usas el resto del panel'}
-              className={cn(BOTON_VENTANA, ventana.abierta && 'bg-muted text-foreground')}
-            >
-              <PictureInPicture2 size={15} />
-            </button>
-            <button
-              type="button"
-              onClick={() => cambiarAmpliado(!ampliado)}
-              aria-pressed={ampliado}
-              aria-label={ampliado ? 'Volver al tamaño normal' : 'Ampliar a toda la pantalla'}
-              title={ampliado ? 'Volver al tamaño normal (Esc)' : 'Ampliar a toda la pantalla'}
-              className={cn(BOTON_VENTANA, ampliado && 'bg-muted text-foreground')}
-            >
-              {ampliado ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-            </button>
-          </span>
+          <button
+            type="button"
+            onClick={(e) => (ventana.abierta ? actualizarVentana({ abierta: false }) : abrirVentanaDesde(e.currentTarget))}
+            aria-pressed={ventana.abierta}
+            aria-label={ventana.abierta ? 'Cerrar la ventana flotante' : 'Abrir en una ventana flotante'}
+            title={ventana.abierta
+              ? 'Cerrar la ventana flotante'
+              : 'Ventana flotante: la agenda del día a mano mientras usas el resto del panel'}
+            className={cn('-my-0.5 ml-1', BOTON_VENTANA, ventana.abierta && 'bg-muted text-foreground')}
+          >
+            <PictureInPicture2 size={15} />
+          </button>
         )}
         actions={
         <div className="flex items-center gap-2 flex-wrap">

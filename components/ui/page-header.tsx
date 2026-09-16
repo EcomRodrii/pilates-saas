@@ -3,6 +3,7 @@ import Link from "next/link"
 import * as React from "react"
 
 import { AyudaDePantalla } from "@/components/ayuda/AyudaDePantalla"
+import { BotonAmpliar } from "@/components/layout/boton-ampliar"
 import { cn } from "@/lib/utils"
 
 // Cabecera única para todas las pantallas del dashboard.
@@ -97,6 +98,9 @@ function PageHeader({
                 (los importadores) no lo pintan porque no tienen ficha. */}
             <AyudaDePantalla />
             {badge}
+            {/* «Ampliar a toda la pantalla»: como el ⓘ, se resuelve por la ruta
+                (lib/panel/ampliar.ts, PANTALLAS_AMPLIABLES) y no por prop. */}
+            <BotonAmpliar />
           </div>
           {description && (
             <p

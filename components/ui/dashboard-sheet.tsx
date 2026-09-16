@@ -3,6 +3,10 @@
 import { createPortal } from 'react-dom';
 import { anfitrionPortal } from '@/lib/panel-portal';
 import { useDialogA11y } from './use-dialog-a11y';
+import { escucharToques, nacerDelToque } from '@/lib/panel/ultimo-toque';
+
+// Ver components/ui/dialog.tsx: el último clic tiene que conocerse antes de abrir.
+escucharToques();
 
 // Equivalente a PublicSheet (components/ui/public-sheet.tsx) para los
 // modales hechos a mano del dashboard — mismo problema (sin role="dialog",
@@ -49,17 +53,18 @@ export function DashboardSheet({
 
   const contenido = (
     <div
-      className={backdropClassName}
+      className={`panel-hoja-velo ${backdropClassName ?? ''}`}
       style={backdropStyle}
       onClick={closeOnBackdropClick ? onClose : undefined}
     >
       <div
-        ref={sheetRef}
+        // Además del ref de accesibilidad, nace del botón que la abre.
+        ref={(el) => { sheetRef.current = el; nacerDelToque(el); }}
         role="dialog"
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={sheetClassName}
+        className={`panel-hoja ${sheetClassName ?? ''}`}
         style={sheetStyle}
         onClick={e => e.stopPropagation()}
       >

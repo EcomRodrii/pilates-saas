@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { TRANSICION_SECCION } from '@/lib/panel/transiciones';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown,
@@ -108,6 +109,7 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, conta
   return (
     <Link
       href={href}
+      transitionTypes={TRANSICION_SECCION}
       // «Configuración» estando en una de sus secciones: vuelve al inicio por el shell (#2030).
       onClick={e => { onClick?.(); alPulsarEnlaceAConfiguracion(e, href); }}
       title={collapsed ? (contador ? `${label} (${contador} ${contadorEtiqueta})` : nuevo ? `${label} (nuevo)` : label) : undefined}
@@ -137,6 +139,7 @@ function BottomNavItem({ href, label, Icon, contador, contadorEtiqueta }: { href
   return (
     <Link
       href={href}
+      transitionTypes={TRANSICION_SECCION}
       onClick={e => alPulsarEnlaceAConfiguracion(e, href)}
       className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
     >
@@ -229,6 +232,7 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
                 <Link
                   key={item.href}
                   href={item.href}
+                  transitionTypes={TRANSICION_SECCION}
                   onClick={e => { onClose(); alPulsarEnlaceAConfiguracion(e, item.href); }}
                   className={cn(
                     'flex items-center gap-3.5 px-4 py-3.5 rounded-full text-[15px] font-medium transition-all mb-1',
