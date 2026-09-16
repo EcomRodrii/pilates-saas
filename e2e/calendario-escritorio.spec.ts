@@ -74,7 +74,7 @@ for (const v of VISTAS) {
     test('los botones de la cabecera van en una sola fila', async ({ page }) => {
       await semana(page);
       const filas = new Set<number>();
-      for (const nombre of [/^Seleccionar varias$/, /^Semana$/, /^Hoy$/, /Nueva clase/, /Clase recurrente/, /^Abrir en una ventana flotante$/, /^Ampliar a toda la pantalla$/]) {
+      for (const nombre of [/^Seleccionar varias$/, /^Semana$/, /^Hoy$/, /Nueva clase/, /Clase recurrente/]) {
         const caja = await page.getByRole('button', { name: nombre }).first().boundingBox();
         filas.add(Math.round((caja!.y + caja!.height / 2) / 8));
       }

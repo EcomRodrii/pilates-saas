@@ -38,6 +38,24 @@ async function arrastrar(page: Page, dx: number, dy: number) {
   await page.mouse.up();
 }
 
+test.describe('en el portátil más común (1366×768)', () => {
+  test.use({ viewport: { width: 1366, height: 768 } });
+
+  // Primero iban al final de la fila de acciones y en CI (Linux) bajaban solos a
+  // una segunda fila, robándole alto a la rejilla. Junto al título hay sitio.
+  test('los controles van en la línea del título, sin hacerla más alta', async ({ page }) => {
+    await calendario(page);
+    const titulo = (await page.locator('[data-slot="page-header-title"]').boundingBox())!;
+    for (const nombre of ['Abrir en una ventana flotante', 'Ampliar a toda la pantalla']) {
+      const b = (await page.getByRole('button', { name: nombre }).boundingBox())!;
+      expect(Math.abs((b.y + b.height / 2) - (titulo.y + titulo.height / 2)), `${nombre}: en la línea del título`).toBeLessThanOrEqual(4);
+      expect(b.height, `${nombre}: no más alto que el título`).toBeLessThanOrEqual(titulo.height);
+    }
+    const acciones = page.locator('[data-slot="page-header-actions"]');
+    await expect(acciones.getByRole('button', { name: 'Ampliar a toda la pantalla' })).toHaveCount(0);
+  });
+});
+
 test('ampliar esconde el menú y la barra, la rejilla gana sitio, y Escape lo devuelve', async ({ page }) => {
   await calendario(page);
   const antes = (await rejilla(page).boundingBox())!;

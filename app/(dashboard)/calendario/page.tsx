@@ -302,7 +302,7 @@ const DIA_PILLS: { label: string; nombre: string; day: number }[] = [
 // Botones Día · Semana · Mes · Horario. En el móvil reparten el ancho, miden
 // 44 px y van sin icono (con él, «Semana» no cabía en su cuarto de 375 px).
 const BOTON_VISTA = 'flex items-center justify-center gap-1.5 px-1.5 md:px-3 py-1.5 min-h-11 md:min-h-0 rounded-lg text-sm md:text-xs font-bold transition-colors [&>svg]:hidden sm:[&>svg]:block';
-const BOTON_VENTANA = 'flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground';
+const BOTON_VENTANA = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground';
 
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
 
@@ -2744,6 +2744,37 @@ export default function Calendario() {
         className="shrink-0 px-4 lg:px-6 pt-4 lg:pt-5 pb-3 lg:pb-4 escritorio-bajo:pt-3 escritorio-bajo:pb-2 sm:items-center"
         title="Calendario"
         description={capitalizarPrimera(mesLabel)}
+        // Controles de ventana junto al título, como en cualquier ventana, y NO al
+        // final de la fila de acciones: ahí no cabían. En CI (Linux, la letra
+        // ocupa algo más) bajaban solos a una segunda fila en 1366 y en 1920 px,
+        // y esa fila le robaba alto a la rejilla. La línea del título tiene sitio
+        // en todos los tamaños; `-my-0.5` y 28 px para no hacerla más alta.
+        badge={escritorio && (
+          <span className="-my-0.5 ml-1 flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => actualizarVentana({ abierta: !ventana.abierta, plegada: false })}
+              aria-pressed={ventana.abierta}
+              aria-label={ventana.abierta ? 'Cerrar la ventana flotante' : 'Abrir en una ventana flotante'}
+              title={ventana.abierta
+                ? 'Cerrar la ventana flotante'
+                : 'Ventana flotante: la agenda del día a mano mientras usas el resto del panel'}
+              className={cn(BOTON_VENTANA, ventana.abierta && 'bg-muted text-foreground')}
+            >
+              <PictureInPicture2 size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setAmpliado(a => !a)}
+              aria-pressed={ampliado}
+              aria-label={ampliado ? 'Volver al tamaño normal' : 'Ampliar a toda la pantalla'}
+              title={ampliado ? 'Volver al tamaño normal (Esc)' : 'Ampliar a toda la pantalla'}
+              className={cn(BOTON_VENTANA, ampliado && 'bg-muted text-foreground')}
+            >
+              {ampliado ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
+          </span>
+        )}
         actions={
         <div className="flex items-center gap-2 flex-wrap">
           <BuscadorRapido candidatas={candidatasBusqueda} onSeleccionar={saltarAClase} />
@@ -2858,35 +2889,6 @@ export default function Calendario() {
             >
               <Plus size={15} />Nueva clase
             </button>
-          )}
-
-          {/* Controles de ventana, al final como en cualquier ventana: llevarse
-              la agenda a una ventana flotante y ampliar a toda la pantalla. */}
-          {escritorio && (
-            <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
-              <button
-                type="button"
-                onClick={() => actualizarVentana({ abierta: !ventana.abierta, plegada: false })}
-                aria-pressed={ventana.abierta}
-                aria-label={ventana.abierta ? 'Cerrar la ventana flotante' : 'Abrir en una ventana flotante'}
-                title={ventana.abierta
-                  ? 'Cerrar la ventana flotante'
-                  : 'Ventana flotante: la agenda del día a mano mientras usas el resto del panel'}
-                className={cn(BOTON_VENTANA, ventana.abierta && 'bg-muted text-foreground')}
-              >
-                <PictureInPicture2 size={15} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setAmpliado(a => !a)}
-                aria-pressed={ampliado}
-                aria-label={ampliado ? 'Volver al tamaño normal' : 'Ampliar a toda la pantalla'}
-                title={ampliado ? 'Volver al tamaño normal (Esc)' : 'Ampliar a toda la pantalla'}
-                className={cn(BOTON_VENTANA, ampliado && 'bg-muted text-foreground')}
-              >
-                {ampliado ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-              </button>
-            </div>
           )}
         </div>
         }
