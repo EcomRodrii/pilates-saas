@@ -7,21 +7,20 @@ import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
-import { RecursosBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { RecursosBlogStructuredData, RecursosBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { PortadaRecursos } from '@/components/recursos/PortadaRecursos';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
+import {
+  CATEGORIAS_RECURSOS, DESTACADA, GUIAS, ORDEN_LISTADO, TARJETAS_SIN_GUIA,
+  fechaModificada, guia, mesCorto, metaTarjeta, urlGuia,
+  type CategoriaRecursos, type PortadaRecursos as Portada,
+} from '@/lib/recursos/guias';
 
-type Category = 'todos' | 'sustituciones' | 'rentabilidad' | 'operacion' | 'espana' | 'software';
+type Category = 'todos' | CategoriaRecursos;
 
-const CATEGORIES: { key: Category; label: string }[] = [
-  { key: 'todos', label: 'Todos' },
-  { key: 'sustituciones', label: 'Sustituciones y equipo' },
-  { key: 'rentabilidad', label: 'Rentabilidad' },
-  { key: 'operacion', label: 'Operación' },
-  { key: 'espana', label: 'España y fiscalidad' },
-  { key: 'software', label: 'Elegir software' },
-];
+const CATEGORIES: { key: Category; label: string }[] = [{ key: 'todos', label: 'Todos' }, ...CATEGORIAS_RECURSOS];
 
-const CATEGORY_GRADIENTS: Record<Exclude<Category, 'todos'>, string> = {
+const CATEGORY_GRADIENTS: Record<CategoriaRecursos, string> = {
   sustituciones: 'linear-gradient(140deg,#22463a,#4E9E7F)',
   rentabilidad: 'linear-gradient(140deg,#1f3d42,#3E7C86)',
   operacion: 'linear-gradient(140deg,#5e2318,#C2503A)',
@@ -30,92 +29,39 @@ const CATEGORY_GRADIENTS: Record<Exclude<Category, 'todos'>, string> = {
 };
 
 type Article = {
-  category: Exclude<Category, 'todos'>;
+  category: CategoriaRecursos;
   title: string;
   body: string;
   href?: string;
   meta: string;
+  portada?: Portada;
 };
 
-const ARTICLES: Article[] = [
-  {
-    category: 'rentabilidad',
-    title: 'Qué puedes aprender de los estudios de pilates que más crecen',
-    body: 'Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana.',
-    href: '/recursos/estudios-pilates-de-exito',
-    meta: '9 min · ago 2026',
-  },
-  {
-    category: 'rentabilidad',
-    title: 'Reformer vs. mat: cómo poner precio a cada clase',
-    body: 'Dos formatos, dos costes, dos techos de ingresos. Cómo fijar precios que reflejen la diferencia — sin dejar dinero sobre la mesa.',
-    href: '/recursos/precios-reformer-mat',
-    meta: '7 min · jul 2026',
-  },
-  {
-    category: 'espana',
-    title: 'Facturación electrónica para estudios en España',
-    body: 'Qué cambia con Veri*factu, cuándo es obligatorio y cómo dejarlo automatizado desde el primer cobro.',
-    href: '/recursos/facturacion-electronica-verifactu',
-    meta: '7 min · jul 2026',
-  },
-  {
-    category: 'rentabilidad',
-    title: 'Cómo subir la ocupación de tus clases valle',
-    body: 'Las 10:00 de un martes vacías cuestan dinero. Lo que hace ClassPass con el precio dinámico, y lo que puedes copiar sin depender de nadie.',
-    href: '/recursos/ocupacion-clases-valle',
-    meta: '7 min · ago 2026',
-  },
-  {
-    category: 'operacion',
-    title: 'Reduce las cancelaciones de última hora',
-    body: 'Lo que cobran de verdad SoulCycle o Barry\'s, y lo que dice la evidencia clínica sobre los recordatorios.',
-    href: '/recursos/reducir-cancelaciones-ultima-hora',
-    meta: '7 min · ago 2026',
-  },
-  {
-    category: 'software',
-    title: 'Checklist: cómo elegir el software de tu estudio',
-    body: 'Lo que dicen miles de reseñas en Capterra y G2 — y las preguntas exactas para la demo.',
-    href: '/recursos/checklist-elegir-software-estudio',
-    meta: '8 min · ago 2026',
-  },
-  {
-    category: 'sustituciones',
-    title: 'Cómo evitar depender de una sola instructora',
-    body: 'El riesgo silencioso de todo estudio: cómo repartir el conocimiento y la carga entre tu equipo.',
-    meta: 'En preparación',
-  },
-  {
-    category: 'software',
-    title: 'Cómo integrar reservas de Pilates en tu propia web',
-    body: 'La alumna que sale de tu web para reservar, casi siempre no vuelve. Widget, plugin o API: qué opción encaja con tu estudio.',
-    href: '/recursos/reservas-en-tu-web',
-    meta: '8 min · ago 2026',
-  },
-  {
-    category: 'software',
-    title: 'Cómo integrar reservas online en la web de tu estudio de pilates',
-    body: 'Las tres formas técnicas comparadas de verdad: qué pierdes con cada una, cómo instalarlas y el checklist antes de publicar.',
-    href: '/recursos/widget-vs-iframe-reservas-pilates',
-    meta: '9 min · ago 2026',
-  },
-  {
-    category: 'software',
-    title: 'Glofox vs. Tentare: cuál conviene a tu estudio de Pilates',
-    body: 'Precio real en euros, permanencia, gestión por reformer individual y sustitución de instructoras — sin folletos de marketing.',
-    href: '/comparativa/tentare-vs-glofox',
-    meta: '11 min · ago 2026',
-  },
-];
+// Las tarjetas y la destacada salen del registro de guías (lib/recursos/guias.ts):
+// título, texto, fechas, minutos y portada ya no se escriben aquí. El pie de cada
+// tarjeta («9 min · ago 2026») se deriva de la misma fecha que el JSON-LD.
+const ARTICLES: Article[] = ORDEN_LISTADO.map((clave) => {
+  const g = GUIAS.find((x) => x.slug === clave);
+  if (g) return { category: g.categoria, title: g.titulo, body: g.resumen, href: urlGuia(g.slug), meta: metaTarjeta(g), portada: g.portada };
+  const t = TARJETAS_SIN_GUIA.find((x) => x.clave === clave);
+  if (!t) throw new Error(`ORDEN_LISTADO: «${clave}» no es ni una guía ni una tarjeta registrada`);
+  return { category: t.categoria, title: t.titulo, body: t.resumen, href: t.href, meta: t.meta, portada: t.portada };
+});
 
+const G_DESTACADA = guia(DESTACADA);
 const FEATURED = {
-  category: 'sustituciones' as const,
-  title: 'Cómo cubrir una baja de instructora sin hacer una llamada',
-  body: 'El proceso que roba noches a las propietarias — y cómo convertirlo en algo que ocurre solo. Paso a paso, con lo que puedes automatizar hoy.',
-  href: '/recursos/cubrir-baja-instructora',
-  meta: '8 min de lectura · Actualizado jul 2026',
+  category: G_DESTACADA.categoria,
+  title: G_DESTACADA.titulo,
+  body: G_DESTACADA.resumen,
+  href: urlGuia(G_DESTACADA.slug),
+  meta: `${G_DESTACADA.lectura} min de lectura · Actualizado ${mesCorto(fechaModificada(G_DESTACADA))}`,
+  portada: G_DESTACADA.portada,
 };
+
+// Lo que mide de verdad cada portada (ver .rec-grid y .rec-feat abajo). Nunca
+// más de 480 px CSS (ANCHO_MAX_PORTADA): los originales no dan para más sin ampliar.
+const SIZES_TARJETA = '(max-width: 524px) calc(100vw - 44px), (max-width: 900px) calc(50vw - 33px), (max-width: 1200px) calc(33vw - 44px), 356px';
+const SIZES_DESTACADA = '(max-width: 572px) calc(100vw - 92px), 480px';
 
 export default function RecursosPage() {
   const [cat, setCat] = useState<Category>('todos');
@@ -135,6 +81,7 @@ export default function RecursosPage() {
     <PageShell>
       <OrganizationStructuredData />
       <RecursosBreadcrumb />
+      <RecursosBlogStructuredData />
       <SiteNav backHref="/recursos" backLabel="Recursos" />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,48px)' }}>
@@ -179,11 +126,17 @@ export default function RecursosPage() {
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 clamp(20px,4vw,44px)', marginBottom: 44 }}>
           <div className="rec-card" style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 24, overflow: 'hidden', boxShadow: '0 30px 60px -40px rgba(26,26,26,.3)' }}>
             <div className="rec-feat">
-              <div style={{ position: 'relative', minHeight: 280, background: CATEGORY_GRADIENTS[FEATURED.category], overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'flex-end', padding: 26, background: 'linear-gradient(to top, rgba(15,15,15,.5), transparent 55%)' }}>
-                  <div>
-                    <span className="lp-mono" style={{ display: 'inline-block', fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#fff', background: 'rgba(255,255,255,.18)', padding: '5px 11px', borderRadius: 999, marginBottom: 14 }}>★ Guía destacada</span>
-                    <div className="lp-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,.82)' }}>Sustituciones y equipo</div>
+              {/* La portada a su tamaño (480 px como mucho), enmarcada en el
+                  degradado de su categoría: estirarla para rellenar la columna
+                  la ampliaría por encima de su original. */}
+              <div className="rec-feat-media" style={{ background: CATEGORY_GRADIENTS[FEATURED.category] }}>
+                <div className="rec-feat-foto">
+                  <PortadaRecursos portada={FEATURED.portada} sizes={SIZES_DESTACADA} prioritaria className="rec-portada" />
+                  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'flex-end', padding: 18, background: 'linear-gradient(to top, rgba(15,15,15,.62), transparent 60%)' }}>
+                    <div>
+                      <span className="lp-mono" style={{ display: 'inline-block', fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#fff', background: 'rgba(15,15,15,.42)', padding: '5px 11px', borderRadius: 999, marginBottom: 10 }}>★ Guía destacada</span>
+                      <div className="lp-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,.9)' }}>{CATEGORIES.find((c) => c.key === FEATURED.category)?.label}</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -205,9 +158,10 @@ export default function RecursosPage() {
           {filtered.map((a) => {
             const card = (
               <>
-                <div style={{ position: 'relative', aspectRatio: '16/10', background: CATEGORY_GRADIENTS[a.category], overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: 16, background: 'linear-gradient(to top, rgba(15,15,15,.42), transparent 55%)' }}>
-                    <span className="lp-mono" style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: '#fff', background: 'rgba(255,255,255,.18)', padding: '5px 10px', borderRadius: 999 }}>
+                <div style={{ position: 'relative', aspectRatio: '2/1', background: CATEGORY_GRADIENTS[a.category], overflow: 'hidden' }}>
+                  {a.portada && <PortadaRecursos portada={a.portada} sizes={SIZES_TARJETA} className="rec-portada" />}
+                  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: 14, background: 'linear-gradient(to top, rgba(15,15,15,.55), transparent 60%)' }}>
+                    <span className="lp-mono" style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: '#fff', background: 'rgba(15,15,15,.42)', padding: '5px 10px', borderRadius: 999 }}>
                       {CATEGORIES.find((c) => c.key === a.category)?.label}
                     </span>
                     {!a.href && <span className="lp-mono" style={{ fontSize: 9.5, color: '#fff', background: 'rgba(0,0,0,.3)', padding: '4px 9px', borderRadius: 999 }}>Próximamente</span>}
@@ -252,7 +206,11 @@ export default function RecursosPage() {
       <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/comparativa', label: 'Comparativa' }, { href: '/glosario', label: 'Glosario' }]} />
 
       <style>{`
-        .rec-feat { display: grid; grid-template-columns: 1.08fr .92fr; gap: 0; }
+        .rec-feat { display: grid; grid-template-columns: minmax(0,528px) minmax(0,1fr); gap: 0; }
+        .rec-feat-media { display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .rec-feat-foto { position: relative; width: 100%; max-width: 480px; aspect-ratio: 2/1; border-radius: 16px;
+          overflow: hidden; background: rgba(255,255,255,.08); box-shadow: 0 24px 50px -30px rgba(0,0,0,.6); }
+        .rec-portada { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
         .rec-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; }
         .rec-card { transition: transform .28s cubic-bezier(.2,.7,0,1), box-shadow .28s; }
         .rec-card:hover { transform: translateY(-6px); box-shadow: 0 40px 74px -40px rgba(26,26,26,.32); }
@@ -260,7 +218,9 @@ export default function RecursosPage() {
           .rec-feat { grid-template-columns: 1fr; }
           .rec-grid { grid-template-columns: repeat(2,1fr); }
         }
-        @media (max-width: 600px) {
+        /* Una columna solo hasta 524 px: más ancha, una tarjeta a todo el ancho
+           mediría más que los 480 px de la portada y se ampliaría. */
+        @media (max-width: 524px) {
           .rec-grid { grid-template-columns: 1fr; }
         }
       `}</style>

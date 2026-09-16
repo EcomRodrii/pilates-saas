@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
+import { fechaModificada, guia } from '@/lib/recursos/guias';
+import { openGraphGuia } from '@/lib/recursos/schema';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
@@ -9,6 +11,8 @@ import { urlDe } from '@/lib/seo/paginas';
 
 const TITLE = 'Cómo integrar reservas de Pilates en tu propia web';
 const SLUG = 'reservas-en-tu-web';
+
+const GUIA = guia('reservas-en-tu-web');
 
 export const metadata: Metadata = {
   title: `${TITLE} — Tentare`,
@@ -19,6 +23,7 @@ export const metadata: Metadata = {
     title: TITLE,
     description: 'Por qué redirigir a otra plataforma cuesta reservas, y las tres formas reales de evitarlo.',
     url: urlDe(`/recursos/${SLUG}`),
+    ...openGraphGuia(GUIA.slug),
   },
 };
 
@@ -38,14 +43,14 @@ export default function ReservasEnTuWebPage() {
         title={TITLE}
         description="Por qué redirigir a otra plataforma cuesta reservas, y las tres opciones reales para integrar un sistema de reservas de Pilates sin salir de tu dominio."
         slug={SLUG}
-        datePublished="2026-08-18"
       />
       <ArticleShell
-        category="Software y web"
+        category={GUIA.seccion}
         coverGradient="linear-gradient(140deg,#1C1F14,#343825)"
         title={TITLE}
         intro="La alumna llega a tu web, pulsa «Reservar» y aparece en una pantalla con otro logo y otro diseño. No sabe si sigue en tu web o no. La mayoría cierra esa ventana y no vuelve — y eso no es un problema de diseño, es una fuga de confianza."
-        readTime="9 min de lectura"
+        readTime={`${GUIA.lectura} min de lectura`}
+        actualizado={fechaModificada(GUIA)}
         toc={TOC}
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>La alumna llega a tu web. Ha visto tu Instagram, le gusta tu estudio, quiere apuntarse. Pulsa «Reservar» y de repente aparece en una pantalla con otros colores, otro logo y una interfaz que no reconoce. No sabe si ha salido de tu web o si eso es tuyo. La mayoría cierra esa ventana y no vuelve.</p>

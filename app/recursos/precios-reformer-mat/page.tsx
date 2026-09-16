@@ -1,12 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
+import { fechaModificada, guia } from '@/lib/recursos/guias';
+import { openGraphGuia } from '@/lib/recursos/schema';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
 import { urlDe } from '@/lib/seo/paginas';
+
+const GUIA = guia('precios-reformer-mat');
 
 export const metadata: Metadata = {
   title: 'Reformer vs. mat: cómo poner precio a cada clase — Tentare',
@@ -17,6 +21,7 @@ export const metadata: Metadata = {
     title: 'Reformer vs. mat: cómo poner precio a cada clase',
     description: 'Cómo fijar precios que reflejen la diferencia entre reformer y mat, sin dejar dinero sobre la mesa.',
     url: urlDe('/recursos/precios-reformer-mat'),
+    ...openGraphGuia(GUIA.slug),
   },
 };
 
@@ -64,15 +69,15 @@ export default function PreciosReformerPage() {
         title="Reformer vs. mat: cómo poner precio a cada clase"
         description="Dos formatos, dos costes, dos techos de ingresos. Cómo fijar precios de Pilates reformer y mat que reflejen la diferencia."
         slug="precios-reformer-mat"
-        datePublished="2026-07-01"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
-        category="Rentabilidad"
+        category={GUIA.seccion}
         coverGradient="linear-gradient(140deg,#173a40,#3E7C86)"
         title="Reformer vs. mat: cómo poner precio a cada clase"
         intro="Dos formatos, dos costes, dos techos de ingresos. Cómo fijar precios que reflejen la diferencia — sin dejar dinero sobre la mesa."
-        readTime="7 min de lectura"
+        readTime={`${GUIA.lectura} min de lectura`}
+        actualizado={fechaModificada(GUIA)}
         toc={TOC}
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>Muchos estudios ponen el mismo precio al mat y al reformer, o lo dejan a ojo. Es uno de los errores que más silenciosamente drena la rentabilidad: son dos negocios distintos bajo el mismo techo, con costes y límites de plazas muy diferentes.</p>

@@ -18,6 +18,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { LEGAL } from '../legal-info.ts';
+import { GUIAS, fechaModificada } from '../recursos/guias.ts';
 
 /**
  * Origen canónico del sitio. **No se escribe aquí**: se deriva de `LEGAL.url`,
@@ -578,23 +579,15 @@ export const PAGINAS: PaginaSeo[] = [
     changeFrequency: 'weekly',
     relacionadas: ['/glosario', '/funcionalidades'],
   },
-  ...([
-    ['cubrir-baja-instructora', '2026-07-01', 'Cómo cubrir una baja de instructora sin hacer una llamada'],
-    ['facturacion-electronica-verifactu', '2026-08-13', 'Facturación electrónica para estudios en España'],
-    ['precios-reformer-mat', '2026-07-01', 'Reformer vs. mat: cómo poner precio a cada clase'],
-    ['estudios-pilates-de-exito', '2026-08-06', 'Qué puedes aprender de los estudios de Pilates que más crecen'],
-    ['ocupacion-clases-valle', '2026-08-06', 'Cómo subir la ocupación de tus clases valle'],
-    ['reducir-cancelaciones-ultima-hora', '2026-08-06', 'Reduce las cancelaciones de última hora'],
-    ['checklist-elegir-software-estudio', '2026-08-06', 'Checklist: cómo elegir el software de tu estudio'],
-    ['reservas-en-tu-web', '2026-08-18', 'Cómo integrar reservas de Pilates en tu propia web'],
-    ['widget-vs-iframe-reservas-pilates', '2026-08-18', 'Cómo integrar reservas online en la web de tu estudio de pilates'],
-  ] as const).map(([slug, actualizado, titulo]): PaginaSeo => ({
-    path: `/recursos/${slug}`,
-    titulo,
-    descripcion: `Guía de Tentare para propietarias de estudios de Pilates: ${titulo.toLowerCase()}.`,
+  // Las guías salen de su registro (lib/recursos/guias.ts), que también da las
+  // fechas de su JSON-LD: antes esta lista las repetía a mano.
+  ...GUIAS.map((g): PaginaSeo => ({
+    path: `/recursos/${g.slug}`,
+    titulo: g.titulo,
+    descripcion: `Guía de Tentare para propietarias de estudios de Pilates: ${g.titulo.toLowerCase()}.`,
     grupo: 'recursos',
-    etiqueta: titulo,
-    actualizado,
+    etiqueta: g.titulo,
+    actualizado: fechaModificada(g),
     prioridad: 0.7,
     changeFrequency: 'monthly',
     relacionadas: ['/recursos'],

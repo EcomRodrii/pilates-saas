@@ -1,12 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
+import { fechaModificada, guia } from '@/lib/recursos/guias';
+import { openGraphGuia } from '@/lib/recursos/schema';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { BeforeAfterCols, Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
 import { urlDe } from '@/lib/seo/paginas';
+
+const GUIA = guia('cubrir-baja-instructora');
 
 export const metadata: Metadata = {
   title: 'Cómo cubrir una baja de instructora sin hacer una llamada — Tentare',
@@ -17,6 +21,7 @@ export const metadata: Metadata = {
     title: 'Cómo cubrir una baja de instructora sin hacer una llamada',
     description: 'El proceso que roba noches a las propietarias — y cómo convertirlo en algo que ocurre solo.',
     url: urlDe('/recursos/cubrir-baja-instructora'),
+    ...openGraphGuia(GUIA.slug),
   },
 };
 
@@ -42,15 +47,15 @@ export default function CubrirBajaPage() {
         title="Cómo cubrir una baja de instructora sin hacer una llamada"
         description="El proceso que roba noches a las propietarias de estudios de Pilates y cómo automatizarlo paso a paso, hasta que la baja se cubre sola."
         slug="cubrir-baja-instructora"
-        datePublished="2026-07-01"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
-        category="Sustituciones y equipo"
+        category={GUIA.seccion}
         coverGradient="linear-gradient(140deg,#191C11,#343825)"
         title="Cómo cubrir una baja de instructora sin hacer una llamada"
         intro="El proceso que roba noches a las propietarias de estudios — y cómo convertirlo en algo que ocurre solo, paso a paso."
-        readTime="8 min de lectura"
+        readTime={`${GUIA.lectura} min de lectura`}
+        actualizado={fechaModificada(GUIA)}
         toc={TOC}
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>Son las 22:47. Suena el móvil: una instructora no puede dar su clase de mañana. Y empieza lo de siempre — abrir el grupo, escribir a una, esperar, escribir a otra, cuadrar horarios y, cuando por fin alguien dice que sí, avisar a las alumnas ya reservadas. Media noche por una clase.</p>

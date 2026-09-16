@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
+import { fechaModificada, guia } from '@/lib/recursos/guias';
+import { openGraphGuia } from '@/lib/recursos/schema';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { urlDe } from '@/lib/seo/paginas';
+
+const GUIA = guia('estudios-pilates-de-exito');
 
 export const metadata: Metadata = {
   title: 'Qué aprender de los estudios de pilates que más crecen — Tentare',
@@ -16,6 +20,7 @@ export const metadata: Metadata = {
     title: 'Qué aprender de los estudios de pilates que más crecen',
     description: 'Lecciones con datos reales de las cadenas líderes y del mercado español, aplicables a cualquier estudio.',
     url: urlDe('/recursos/estudios-pilates-de-exito'),
+    ...openGraphGuia(GUIA.slug),
   },
 };
 
@@ -51,15 +56,15 @@ export default function EstudiosPilatesExitoPage() {
         title="Qué puedes aprender de los estudios de pilates que más crecen"
         description="Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana."
         slug="estudios-pilates-de-exito"
-        datePublished="2026-08-06"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
-        category="Rentabilidad"
+        category={GUIA.seccion}
         coverGradient="linear-gradient(140deg,#1f3d42,#3E7C86)"
         title="Qué puedes aprender de los estudios de pilates que más crecen"
         intro="Con datos reales de las cadenas que más facturan en EE. UU. y del mercado español: qué hacen distinto — y qué puede aplicar mañana un estudio con dos salas y un equipo de cuatro personas."
-        readTime="9 min de lectura"
+        readTime={`${GUIA.lectura} min de lectura`}
+        actualizado={fechaModificada(GUIA)}
         toc={TOC}
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>

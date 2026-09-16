@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
+import { fechaModificada, guia } from '@/lib/recursos/guias';
+import { openGraphGuia } from '@/lib/recursos/schema';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { urlDe } from '@/lib/seo/paginas';
+
+const GUIA = guia('reducir-cancelaciones-ultima-hora');
 
 export const metadata: Metadata = {
   title: 'Reduce las cancelaciones de última hora — Tentare',
@@ -15,6 +19,7 @@ export const metadata: Metadata = {
     title: 'Reduce las cancelaciones de última hora',
     description: 'Políticas reales de grandes cadenas de fitness, y el dato clínico detrás de por qué un recordatorio SÍ cambia el comportamiento.',
     url: urlDe('/recursos/reducir-cancelaciones-ultima-hora'),
+    ...openGraphGuia(GUIA.slug),
   },
 };
 
@@ -49,15 +54,15 @@ export default function ReducirCancelacionesPage() {
         title="Reduce las cancelaciones de última hora"
         description="Lo que cobran de verdad SoulCycle, Barry's o CorePower por cancelar tarde, y lo que dice la evidencia clínica sobre los recordatorios."
         slug="reducir-cancelaciones-ultima-hora"
-        datePublished="2026-08-06"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
-        category="Operación"
+        category={GUIA.seccion}
         coverGradient="linear-gradient(140deg,#5e2318,#C2503A)"
         title="Reduce las cancelaciones de última hora"
         intro="Una plaza que se cancela a las 18:45 para una clase de las 19:00 es peor que una que nunca se reservó: ya no hay tiempo de ofrecérsela a nadie más. Esto es lo que cobran las grandes cadenas de fitness por eso — y lo que dice la evidencia sobre por qué un simple recordatorio cambia el comportamiento."
-        readTime="7 min de lectura"
+        readTime={`${GUIA.lectura} min de lectura`}
+        actualizado={fechaModificada(GUIA)}
         toc={TOC}
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>
