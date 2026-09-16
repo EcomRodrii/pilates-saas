@@ -100,7 +100,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
     titulo: 'Cómo crear una clase',
     descripcion: 'Una clase suelta o una serie recurrente, con su sala, instructora y aforo.',
     terminos: ['nueva clase', 'horario', 'serie', 'recurrente'],
-    actualizado: '2026-09-15',
+    actualizado: '2026-09-16',
     relacionados: ['reservas/editar-o-cancelar-una-clase', 'reservas/lista-de-espera', 'instructores/dar-de-alta-una-instructora', 'reservas/clases-que-se-repiten'],
     estado: 'publicado',
   },

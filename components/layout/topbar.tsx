@@ -36,7 +36,7 @@ export function Topbar() {
     // de este fondo translúcido. La variable la escribe el propio menú al
     // MEDIRSE (`aplicarHuecos`), que es lo único que no se queda desfasado
     // cuando la barra crece de dos filas a tres.
-    <div className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-sm">
+    <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-sm">
       <div className="flex items-center gap-2 flex-1 max-w-md">
         <button
           onClick={() => setLanzadorAbierto(true)}

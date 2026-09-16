@@ -550,6 +550,38 @@ nextjs-portal { display: none !important; }
 @keyframes panel-page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .panel-page-in { animation: panel-page-in var(--motion-normal) var(--motion-ease) both; }
 
+/* ── Calendario ampliado ────────────────────────────────────────────────────
+   El botón «Ampliar» del Calendario pone `data-calendario-ampliado` en <html> y
+   el panel le cede toda la pantalla: fuera menú y barra superior, y el
+   contenido sin su ancho máximo. La rejilla no necesita nada más: su alto ya lo
+   mide `useAltoHastaElFondo` contra lo que tiene encima, y crece sola.
+
+   ⚠️ Por qué así y no con la pantalla completa del navegador
+   (`requestFullscreen`): esa solo enseña el elemento ampliado, y «Nueva clase»,
+   el panel de la sesión y los avisos se pintan en un portal FUERA de él. Se
+   abrían invisibles.
+
+   ⚠️ Los `!important` de las variables no son capricho: el menú las escribe en
+   el `style` de <html> (`aplicarHuecos`, sidebar.tsx), y un estilo en línea
+   gana a cualquier regla que no sea importante. */
+@media (min-width: 1024px) {
+  html[data-calendario-ampliado] {
+    --sidebar-w: 0px !important;
+    --panel-top: 0.75rem !important;
+    --panel-sticky-top: 0px !important;
+  }
+  html[data-calendario-ampliado] [data-panel-menu],
+  html[data-calendario-ampliado] [data-panel-topbar] {
+    display: none !important;
+  }
+  html[data-calendario-ampliado] [data-panel-contenido] {
+    max-width: none;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+}
+
 /* Calendario — cambiar de día/semana/mes (app/(dashboard)/calendario/page.tsx,
    vía ReanimarAlCambiar). Solo opacidad, nunca transform: la rejilla tiene
    bloques posicionados en absoluto y arrastrables (drag & drop de sesiones);

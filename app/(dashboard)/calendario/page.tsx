@@ -1,7 +1,7 @@
 'use client';
 
 import * as Sentry from '@sentry/nextjs';
-import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, useId, useSyncExternalStore, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
 import { capturarMensaje } from '@/lib/sentry-cliente';
@@ -20,7 +20,7 @@ import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   CalendarDays, CalendarClock, ChevronDown,
   UserPlus, UserCheck, Pencil, Trash2, Copy,
-  Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
+  Upload, QrCode, LayoutGrid, Rows3, CheckSquare, Maximize2, Minimize2, PictureInPicture2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera } from '@/lib/utils';
@@ -62,6 +62,10 @@ import { VistaSemana } from '@/components/calendario/vista-semana';
 import { VistaAgenda, CONSULTA_AGENDA, clasesDeAgenda, type DiaDeAgenda } from '@/components/calendario/vista-agenda';
 import { agendaDeDia, agendaDeSemana } from '@/lib/calendario-agenda';
 import { useCoincideMedio } from '@/lib/hooks/use-coincide-medio';
+import { CONSULTA_ESCRITORIO } from '@/components/calendario/ventana-calendario';
+import {
+  EVENTO_SALTAR_A_CLASE, actualizarVentana, estadoVentana, estadoVentanaServidor, suscribirVentana,
+} from '@/lib/calendario/ventana-flotante';
 import { useAltoHastaElFondo } from '@/lib/hooks/use-alto-hasta-el-fondo';
 import { createPortal } from 'react-dom';
 import { anfitrionPortal } from '@/lib/panel-portal';
@@ -298,6 +302,7 @@ const DIA_PILLS: { label: string; nombre: string; day: number }[] = [
 // Botones Día · Semana · Mes · Horario. En el móvil reparten el ancho, miden
 // 44 px y van sin icono (con él, «Semana» no cabía en su cuarto de 375 px).
 const BOTON_VISTA = 'flex items-center justify-center gap-1.5 px-1.5 md:px-3 py-1.5 min-h-11 md:min-h-0 rounded-lg text-sm md:text-xs font-bold transition-colors [&>svg]:hidden sm:[&>svg]:block';
+const BOTON_VENTANA = 'flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground';
 
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
 
@@ -2014,6 +2019,48 @@ export default function Calendario() {
   // `useAltoHastaElFondo`): con `calc(100vh - 72px)` la página se desplazaba y
   // la rejilla salía cortada abajo en cuanto había algo más encima.
   const refLienzo = useAltoHastaElFondo<HTMLDivElement>(useCoincideMedio('(min-width: 1024px)'));
+
+  // ── Ampliar y ventana flotante (solo en un ordenador) ─────────────────────
+  // Ampliar no mueve el calendario de sitio: le pide al panel que esconda menú
+  // y barra superior (reglas en globals.css), y la rejilla crece sola porque su
+  // alto ya se mide contra lo que tiene encima. Ver el porqué en ese CSS.
+  const escritorio = useCoincideMedio(CONSULTA_ESCRITORIO);
+  const [ampliadoPedido, setAmpliado] = useState(false);
+  // Si la ventana se estrecha por debajo de un ordenador, deja de estar ampliado
+  // sin tener que pulsar nada: las reglas solo existen desde 1024 px.
+  const ampliado = ampliadoPedido && escritorio;
+  useEffect(() => {
+    if (!ampliado) return;
+    const raiz = document.documentElement;
+    raiz.setAttribute('data-calendario-ampliado', '');
+    const alPulsarTecla = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      // Con un diálogo abierto, Escape es suyo: cierra «Nueva clase», no la vista.
+      const hayDialogo = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], [role="alertdialog"]'))
+        .some(el => el.checkVisibility?.() ?? true);
+      if (!hayDialogo) setAmpliado(false);
+    };
+    document.addEventListener('keydown', alPulsarTecla);
+    // ⚠️ Al salir del Calendario también: sin esto, el resto del panel se
+    // quedaría sin menú.
+    return () => {
+      raiz.removeAttribute('data-calendario-ampliado');
+      document.removeEventListener('keydown', alPulsarTecla);
+    };
+  }, [ampliado]);
+  const ventana = useSyncExternalStore(suscribirVentana, estadoVentana, estadoVentanaServidor);
+  // Una clase pulsada en la ventana flotante con el Calendario ya abierto: la
+  // página no se vuelve a montar, así que `?sesion=` no sirve y avisa con un
+  // evento. Sin dependencias a propósito: `saltarAClase` se redefine en cada
+  // render y tiene que ser siempre la del render actual.
+  useEffect(() => {
+    const alSaltar = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (typeof id === 'string' && id) saltarAClase(id);
+    };
+    window.addEventListener(EVENTO_SALTAR_A_CLASE, alSaltar);
+    return () => window.removeEventListener(EVENTO_SALTAR_A_CLASE, alSaltar);
+  });
   // Letra grande en la semana solo donde sobra alto (el contrario de
   // `escritorio-bajo`): en un monitor de 1080 las clases iban a 9–10,5 px y se
   // perdían en la rejilla; en un portátil bajo cada hora a la vista cuenta más.
@@ -2811,6 +2858,35 @@ export default function Calendario() {
             >
               <Plus size={15} />Nueva clase
             </button>
+          )}
+
+          {/* Controles de ventana, al final como en cualquier ventana: llevarse
+              la agenda a una ventana flotante y ampliar a toda la pantalla. */}
+          {escritorio && (
+            <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
+              <button
+                type="button"
+                onClick={() => actualizarVentana({ abierta: !ventana.abierta, plegada: false })}
+                aria-pressed={ventana.abierta}
+                aria-label={ventana.abierta ? 'Cerrar la ventana flotante' : 'Abrir en una ventana flotante'}
+                title={ventana.abierta
+                  ? 'Cerrar la ventana flotante'
+                  : 'Ventana flotante: la agenda del día a mano mientras usas el resto del panel'}
+                className={cn(BOTON_VENTANA, ventana.abierta && 'bg-muted text-foreground')}
+              >
+                <PictureInPicture2 size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setAmpliado(a => !a)}
+                aria-pressed={ampliado}
+                aria-label={ampliado ? 'Volver al tamaño normal' : 'Ampliar a toda la pantalla'}
+                title={ampliado ? 'Volver al tamaño normal (Esc)' : 'Ampliar a toda la pantalla'}
+                className={cn(BOTON_VENTANA, ampliado && 'bg-muted text-foreground')}
+              >
+                {ampliado ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+              </button>
+            </div>
           )}
         </div>
         }
