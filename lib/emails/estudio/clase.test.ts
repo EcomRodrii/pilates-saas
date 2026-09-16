@@ -145,3 +145,43 @@ test('los cuatro correos de clase se ven distintos entre sí', () => {
   const correos = [correoReserva(BASE), correoRecordatorio(BASE), correoCancelacionClase(BASE), correoPlazaLiberada(BASE)];
   assert.equal(new Set(correos).size, 4);
 });
+
+test('la propietaria puede poner la foto de portada de ESTE correo', () => {
+  const html = correoReserva({ ...BASE, personalizacion: { portadaUrl: 'https://cdn.example.com/mi-foto.jpg' } });
+  assert.ok(html.includes('cdn.example.com/mi-foto.jpg'));
+  assert.ok(!html.includes('cdn.example.com/portada.jpg'), 'su foto debería mandar sobre la de su app');
+});
+
+test('y puede apagarla en un correo que la lleva, o encenderla en uno que no', () => {
+  // `null` (no lo ha tocado) NO es lo mismo que `false`.
+  assert.ok(correoReserva({ ...BASE, personalizacion: {} }).includes('portada.jpg'));
+  assert.ok(!correoReserva({ ...BASE, personalizacion: { mostrarPortada: false } }).includes('portada.jpg'));
+  // La cancelación va sin foto de fábrica; si la quiere, la tiene.
+  assert.ok(!correoCancelacionClase(BASE).includes('portada.jpg'));
+  assert.ok(correoCancelacionClase({ ...BASE, personalizacion: { mostrarPortada: true } }).includes('portada.jpg'));
+});
+
+test('el destino del botón lo puede cambiar, y lo puede crear donde no había', () => {
+  const aSuWeb = correoReserva({ ...BASE, personalizacion: { botonUrl: 'https://casapilates.example/mi-cuenta' } });
+  assert.ok(aSuWeb.includes('casapilates.example/mi-cuenta'));
+  assert.ok(!aSuWeb.includes('app.example.com'), 'su destino debería mandar sobre el de siempre');
+
+  // La cancelación no lleva botón; con destino Y texto, pasa a llevarlo.
+  assert.ok(!correoCancelacionClase(BASE).includes('mso-padding-alt'));
+  const conBoton = correoCancelacionClase({
+    ...BASE,
+    personalizacion: { botonUrl: 'https://casapilates.example/horario', botonTexto: 'Ver el horario' },
+  });
+  assert.match(conBoton, /mso-padding-alt/);
+  assert.match(conBoton, /Ver el horario/);
+  // Un destino sin texto sería un rectángulo de color: no se pinta.
+  assert.ok(!correoCancelacionClase({ ...BASE, personalizacion: { botonUrl: 'https://casapilates.example' } }).includes('mso-padding-alt'));
+});
+
+test('un destino que no es http se queda en # al pintar', () => {
+  // La cerradura es el CHECK de la base; esto es defensa en profundidad para
+  // una fila escrita antes de existir la regla.
+  const html = correoReserva({ ...BASE, personalizacion: { botonUrl: 'javascript:alert(1)', botonTexto: 'Pincha' } });
+  assert.ok(!/href="javascript:/i.test(html));
+  assert.match(html, /href="#"/);
+});
