@@ -232,8 +232,8 @@ export function SeccionHero() {
            la sección aterriza justo DEBAJO de ella y queda tapado — se ve al
            pulsar "Sustituciones", "Precios" o "FAQ". Medido: la sección
            llegaba a top:0 con la barra ocupando hasta 72. */
-        #producto, #sustituciones, #calendario, #app, #widget, #clientas,
-        #cambiarse, #funcionalidades, #precio, #faq { scroll-margin-top: 88px; }
+        #producto, #sustituciones, #calendario, #app, #funcionalidades,
+        #precio, #cambiarse, #faq { scroll-margin-top: 88px; }
 
         /* --alto-barra: la barra mide 58px y va en el flujo; el héroe sube por
            debajo de ella para que el halo arena empiece arriba del todo.

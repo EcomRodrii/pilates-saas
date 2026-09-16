@@ -85,7 +85,7 @@ export function SeccionParteNoche() {
       </div>
 
       <style>{`
-        .v5-noche { background: #131313; padding: clamp(72px,11vw,132px) clamp(20px,4vw,48px); }
+        .v5-noche { background: #131313; padding: clamp(80px,9vw,128px) clamp(20px,4vw,48px); }
         .v5-noche-wrap { max-width: 1180px; margin: 0 auto; display: grid;
           grid-template-columns: 1fr 1fr; gap: clamp(32px,5vw,72px); align-items: center; }
         .v5-noche-h2 { margin: 0 0 18px; font-size: clamp(30px,4.6vw,56px); font-weight: 800; line-height: 1.02;

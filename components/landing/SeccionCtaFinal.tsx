@@ -72,7 +72,8 @@ export function SeccionCtaFinal() {
 
   return (
     <>
-      <section className="v5-cta" aria-labelledby="v5-cta-h">
+      {/* `data-cta-final`: PopupEmpezar no interrumpe a quien ya lo tiene a la vista. */}
+      <section className="v5-cta" aria-labelledby="v5-cta-h" data-cta-final>
         <div className="v5-cta-foto">
           <FotoLanding
             foto={FOTOS.cierre}

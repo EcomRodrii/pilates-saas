@@ -1,8 +1,6 @@
 'use client';
 
-import Link from 'next/link';
 import { useDemo } from './use-demo';
-import { SALIDAS } from './enlaces';
 import { FOTOS } from './fotos';
 import { FotoLanding } from './FotoLanding';
 
@@ -90,8 +88,8 @@ export function SeccionCalendarioReservas() {
         <header className="v5-cal-head">
           <h2 id="v5-cal-h" className="v5-cal-h2">Tu estudio entero, organizado. Y avisándote solo.</h2>
           <p className="v5-cal-lead">
-            Semana, día o mes; salas y capacidad por máquina. Cuando una clase necesita una decisión, el
-            calendario te lo dice — no lo descubres tú a las 20:55.
+            Semana, día o mes, con capacidad por reformer: cuando una clase necesita una decisión, el calendario
+            te lo dice.
           </p>
         </header>
 
@@ -141,20 +139,13 @@ export function SeccionCalendarioReservas() {
               </div>
             ))}
           </div>
-          <div className="v5-cal-pie">
-            <span><strong>Arrastra una clase para moverla</strong> — los conflictos de sala avisan solos</span>
-            <span>Capacidad por reformer, no solo aforo · multi-sala · citas privadas incluidas</span>
-          </div>
         </div>
 
         {/* ── Las dos micro-demos ── */}
         <div className="v5-micro-grid">
           <div className="v5-micro">
             <div className="v5-micro-top">
-              <div>
-                <div className="v5-micro-tit">Mat + Circuito · 19:00</div>
-                <div className="v5-micro-sub">La cancelación de Ana, de la sección anterior</div>
-              </div>
+              <div className="v5-micro-tit">Mat + Circuito · 19:00</div>
               <span className="v5-micro-count" style={{ color: P.countFg }}>{P.count}</span>
             </div>
             <div className="v5-barras" aria-hidden>
@@ -211,17 +202,13 @@ export function SeccionCalendarioReservas() {
             </figcaption>
           </figure>
         </div>
-
-        <div className="v5-cal-salidas">
-          <Link href={SALIDAS.funcionalidades.href} className="v5-salida-clara">{SALIDAS.funcionalidades.label} →</Link>
-        </div>
       </div>
 
       <style>{`
-        .v5-cal { padding: clamp(72px,11vw,150px) clamp(20px,4vw,48px); }
+        .v5-cal { padding: clamp(80px,9vw,128px) clamp(20px,4vw,48px); }
         .v5-cal-wrap { max-width: 1240px; margin: 0 auto; }
-        .v5-cal-head { max-width: 880px; margin-bottom: 48px; }
-        .v5-cal-h2 { margin: 0 0 18px; font-size: clamp(30px,4.8vw,68px); font-weight: 800; line-height: 1.02;
+        .v5-cal-head { max-width: 980px; margin-bottom: 40px; }
+        .v5-cal-h2 { margin: 0 0 18px; font-size: clamp(30px,4.4vw,60px); font-weight: 800; line-height: 1.02;
           letter-spacing: -.04em; text-wrap: balance; color: #1A1A1A; }
         .v5-cal-lead { margin: 0; max-width: 58ch; font-size: 17px; line-height: 1.6; color: #5A5A52; }
 
@@ -241,7 +228,7 @@ export function SeccionCalendarioReservas() {
         .v5-cal-alerta-t { flex: 1; font-size: 12.5px; font-weight: 700; color: #A8442A; }
         .v5-cal-alerta-b { flex: none; font-size: 11.5px; font-weight: 800; background: #A8442A; color: #fff;
           padding: 6px 12px; border-radius: 999px; white-space: nowrap; }
-        .v5-cal-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; padding: 16px 22px 10px;
+        .v5-cal-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; padding: 16px 22px 20px;
           overflow-x: auto; }
         .v5-cal-col { display: flex; flex-direction: column; gap: 8px; min-width: 108px; }
         .v5-cal-dia { font-size: 11.5px; font-weight: 800; color: #8E8E86; text-align: center; padding-bottom: 2px; }
@@ -250,9 +237,6 @@ export function SeccionCalendarioReservas() {
         .v5-cal-clase-h { font-size: 10.5px; font-weight: 700; color: #A8442A; }
         .v5-cal-clase-n { font-size: 12.5px; font-weight: 800; }
         .v5-cal-clase-o { font-size: 11px; color: #5A5A52; margin-top: 2px; }
-        .v5-cal-pie { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
-          padding: 14px 22px; border-top: 1px solid #F0F0EA; font-size: 12px; color: #8E8E86; }
-        .v5-cal-pie strong { color: #343825; }
 
         .v5-micro-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.3fr);
           gap: 16px; margin-top: 18px; align-items: center; }
@@ -260,7 +244,6 @@ export function SeccionCalendarioReservas() {
           box-shadow: 0 30px 70px rgba(26,26,26,.08); }
         .v5-micro-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
         .v5-micro-tit { font-size: 16px; font-weight: 800; }
-        .v5-micro-sub { font-size: 13px; color: #8E8E86; margin-top: 2px; }
         .v5-micro-count { font-size: 13px; font-weight: 800; transition: color .4s; }
         .v5-micro-como { font-size: 12px; font-weight: 700; color: #8E8E86; }
         .v5-barras { display: flex; gap: 5px; margin: 14px 0 16px; }
@@ -316,9 +299,6 @@ export function SeccionCalendarioReservas() {
           .v5-plazas-tarjeta .v5-micro-top { flex-wrap: wrap; row-gap: 0; }
         }
 
-        .v5-cal-salidas { margin-top: 30px; }
-        .v5-salida-clara { font-size: 15px; font-weight: 700; color: #343825; }
-        .v5-salida-clara:hover { text-decoration: underline; text-underline-offset: 4px; }
 
         @media (prefers-reduced-motion: reduce) {
           .v5-barra, .v5-fila-espera, .v5-fila-estado, .v5-spot, .v5-spot-m, .v5-spot-dot { transition: none; }

@@ -30,8 +30,24 @@ import {
 
 const SEGUNDOS_ANTES = 30;
 const SCROLL_MINIMO = 0.5;
-/** A partir de aquí ya está en el CTA final: no se le interrumpe. */
+/**
+ * Solo si la página no marca su CTA final (`data-cta-final`): a partir de aquí
+ * se da por hecho que ya está en él.
+ *
+ * ⚠️ Con la marca se mira la sección de verdad y no un porcentaje. El 90 % era
+ * «ya está en el CTA» con la home de 16.700 px; al dejarla en unos 9.500 el CTA
+ * asoma antes (hacia el 88 %), y entre ese punto y el 90 % el modal habría
+ * tapado justo el botón que iba a pulsar. Un porcentaje depende del alto de la
+ * página; la posición del CTA, no.
+ */
 const SCROLL_DEMASIADO = 0.9;
+
+/** ¿Tiene ya el CTA final a la vista (o lo ha pasado)? */
+function enElCtaFinal(recorrido: number): boolean {
+  const cta = document.querySelector('[data-cta-final]');
+  if (!cta) return recorrido >= SCROLL_DEMASIADO;
+  return cta.getBoundingClientRect().top < window.innerHeight;
+}
 
 export function PopupEmpezar() {
   const { session, loading } = useAuth();
@@ -82,7 +98,7 @@ export function PopupEmpezar() {
       const alto = document.documentElement.scrollHeight - window.innerHeight;
       if (alto <= 0) return;
       const recorrido = window.scrollY / alto;
-      if (recorrido >= SCROLL_MINIMO && recorrido < SCROLL_DEMASIADO) abrir();
+      if (recorrido >= SCROLL_MINIMO && !enElCtaFinal(recorrido)) abrir();
     };
     window.addEventListener('scroll', alHacerScroll, { passive: true });
 
