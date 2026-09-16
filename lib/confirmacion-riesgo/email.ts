@@ -1,22 +1,23 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { PedirConfirmacionEmail, RecordatorioConfirmacionEmail, PlazaLiberadaEmail } from '@/lib/emails/confirmacion-riesgo-template';
+import { correoPedirConfirmacion, correoRecordatorioConfirmacion, correoPlazaLiberadaSinConfirmar } from '@/lib/emails/estudio/avisos';
+import type { MarcaCorreo } from '@/lib/emails/estudio/plantilla';
 import { remitentePorMarca } from '../emails/remitente.ts';
 
 // Emails de "opción 2" del riesgo de plantón (ver lib/confirmacion-riesgo/logica.ts):
 // pedir confirmación a quien tiene riesgo alto, y avisar con delicadeza si no
-// respondió a tiempo y se liberó su plaza. Plantilla premium compartida
-// (lib/emails/layout.tsx). Mismo patrón de degradación que sustituciones/
+// respondió a tiempo y se liberó su plaza. Sistema de correos del estudio
+// (lib/emails/estudio/). Mismo patrón de degradación que sustituciones/
 // valoraciones: sin RESEND_API_KEY → { skipped }, nunca rompe el flujo que la llama.
 
+/** La marca ya resuelta por quien llama, más a dónde contesta la alumna. */
 interface Marca {
-  logoUrl?: string | null;
-  colorPrimario?: string | null;
+  marca: MarcaCorreo;
+  replyTo?: string;
 }
 
 type EnvioResultado = { ok: true; id?: string } | { ok: false; skipped: true } | { ok: false; error: string };
 
-async function enviar(to: string, subject: string, html: string, estudioNombre: string): Promise<EnvioResultado> {
+async function enviar(to: string, subject: string, html: string, estudioNombre: string, replyTo?: string): Promise<EnvioResultado> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
   if (!to) return { ok: false, error: 'Sin destinatario' };
@@ -24,6 +25,9 @@ async function enviar(to: string, subject: string, html: string, estudioNombre: 
   try {
     const { data, error } = await resend.emails.send({
       from: remitentePorMarca(estudioNombre || 'Tentare'),
+      // Si la alumna contesta «no puedo ir», esa respuesta tiene que llegarle a
+      // SU estudio y no al buzón compartido de la plataforma.
+      ...(replyTo ? { replyTo } : {}),
       to: [to],
       subject,
       html,
@@ -37,22 +41,21 @@ async function enviar(to: string, subject: string, html: string, estudioNombre: 
 }
 
 export async function enviarEmailPedirConfirmacion(params: Marca & {
-  to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; url: string;
+  to: string; toName: string; claseNombre: string; cuando: string; url: string;
 }): Promise<EnvioResultado> {
-  const html = await render(PedirConfirmacionEmail(params));
-  return enviar(params.to, `¿Vienes a ${params.claseNombre}? — ${params.estudioNombre}`, html, params.estudioNombre);
+  const estudio = params.marca.estudioNombre;
+  return enviar(params.to, `¿Vienes a ${params.claseNombre}? — ${estudio}`, correoPedirConfirmacion(params), estudio, params.replyTo);
 }
 
 export async function enviarEmailRecordatorioConfirmacion(params: Marca & {
-  to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; url: string;
+  to: string; toName: string; claseNombre: string; cuando: string; url: string;
 }): Promise<EnvioResultado> {
-  const html = await render(RecordatorioConfirmacionEmail(params));
-  return enviar(params.to, `¿Nos falta tu confirmación? — ${params.claseNombre}`, html, params.estudioNombre);
+  return enviar(params.to, `¿Nos falta tu confirmación? — ${params.claseNombre}`, correoRecordatorioConfirmacion(params), params.marca.estudioNombre, params.replyTo);
 }
 
 export async function enviarEmailPlazaLiberada(params: Marca & {
-  to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string;
+  to: string; toName: string; claseNombre: string; cuando: string; url?: string;
 }): Promise<EnvioResultado> {
-  const html = await render(PlazaLiberadaEmail(params));
-  return enviar(params.to, `Hemos liberado tu plaza en ${params.claseNombre} — ${params.estudioNombre}`, html, params.estudioNombre);
+  const estudio = params.marca.estudioNombre;
+  return enviar(params.to, `Hemos liberado tu plaza en ${params.claseNombre} — ${estudio}`, correoPlazaLiberadaSinConfirmar(params), estudio, params.replyTo);
 }

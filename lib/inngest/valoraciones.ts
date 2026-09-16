@@ -10,6 +10,8 @@ import { fetchAllRows } from '@/lib/supabase-data';
 import { firmarTokenValoracion } from '@/lib/valoraciones/token';
 import { destinatariasValoracion } from '@/lib/valoraciones/destinatarias';
 import { enviarEmailPedirValoracion } from '@/lib/valoraciones/email';
+import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { emitirValorarClase } from '@/lib/notifications/emit';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
@@ -167,10 +169,14 @@ export const procesarValoracionesEstudio = inngest.createFunction(
           .select('id');
         if (!marcada || marcada.length === 0) return { pedida: false, lista: [], datos: null };
 
-        const [{ data: tipo }, { data: instructora }, { data: estudio }] = await Promise.all([
+        const [{ data: tipo }, { data: instructora }, estudio] = await Promise.all([
           admin.from('tipos_clase').select('nombre').eq('id', c.tipo_clase_id ?? '').maybeSingle(),
           admin.from('instructores').select('nombre').eq('id', c.instructor_id).maybeSingle(),
-          admin.from('studios').select('nombre, color_primario, logo_url').eq('id', studioId).maybeSingle(),
+          // Antes esto era un `select('nombre, color_primario, logo_url')` a
+          // mano. La marca del correo la resuelve un solo sitio
+          // (`resolverMarcaEstudio`) para que el pie, el lema y los canales del
+          // estudio salgan igual aquí que en la confirmación de reserva.
+          resolverMarcaEstudio(studioId),
         ]);
 
         return {
@@ -178,9 +184,8 @@ export const procesarValoracionesEstudio = inngest.createFunction(
           datos: {
             claseNombre: tipo?.nombre ?? 'tu clase',
             instructorNombre: instructora?.nombre ?? '',
-            estudioNombre: estudio?.nombre ?? 'Tu estudio',
-            colorPrimario: estudio?.color_primario as string | null | undefined,
-            logoUrl: estudio?.logo_url as string | null | undefined,
+            marca: marcaCorreoDesde(estudio, 'Tu estudio'),
+            replyTo: estudio.replyTo,
           },
         };
       });
@@ -211,9 +216,8 @@ export const procesarValoracionesEstudio = inngest.createFunction(
             const r = await enviarEmailPedirValoracion({
               to: a.email as string,
               toName: a.nombre,
-              estudioNombre: datos.estudioNombre,
-              colorPrimario: datos.colorPrimario,
-              logoUrl: datos.logoUrl,
+              marca: datos.marca,
+              replyTo: datos.replyTo,
               claseNombre: datos.claseNombre,
               cuando: cuandoTexto(c.inicio),
               instructorNombre: datos.instructorNombre,

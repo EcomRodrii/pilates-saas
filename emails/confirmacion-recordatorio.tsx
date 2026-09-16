@@ -1,11 +1,10 @@
-import type { ComponentProps } from 'react';
-import { RecordatorioConfirmacionEmail } from '@/lib/emails/confirmacion-riesgo-template';
-import { MARCA, SOCIA, CLASE, CUANDO, URL_MUESTRA } from './_muestra';
+import { correoRecordatorioConfirmacion } from '@/lib/emails/estudio/avisos';
+import { MARCA_CORREO, SOCIA, CLASE, CUANDO, URL_MUESTRA } from './_muestra';
 
-type Props = ComponentProps<typeof RecordatorioConfirmacionEmail>;
-
-const Preview = (props: Props) => <RecordatorioConfirmacionEmail {...props} />;
-
-Preview.PreviewProps = { ...MARCA, toName: SOCIA, claseNombre: CLASE.claseNombre, cuando: CUANDO, url: URL_MUESTRA } satisfies Props;
+// Segundo aviso. Reconoce que ya se escribió, no repite el primero.
+// Ver la nota de emails/reserva.tsx: el sistema devuelve el documento entero.
+const Preview = () => (
+  <div dangerouslySetInnerHTML={{ __html: correoRecordatorioConfirmacion({ marca: MARCA_CORREO, toName: SOCIA, claseNombre: CLASE.claseNombre, cuando: CUANDO, url: URL_MUESTRA }) }} />
+);
 
 export default Preview;

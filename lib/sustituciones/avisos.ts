@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enviarEmailAvisoAlumna } from './email';
-import type { AvisoAlumna } from '@/lib/emails/sustitucion-template';
+import { resolverMarcaEstudio } from '../emails/plantillas-server.ts';
+import { marcaCorreoDesde } from '../emails/estudio/marca-correo.ts';
+import type { AvisoAlumna } from '@/lib/emails/estudio/avisos';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 // Avisa a las alumnas apuntadas a una clase — SOLO si el estudio lo tiene
@@ -103,15 +105,21 @@ export async function avisarAlumnas(
       ? { tipo: 'reprogramada', cuandoNuevo: cuando }
       : { tipo: 'cancelada' };
   const cuandoAviso = params.tipo === 'reprogramada' ? (params.cuandoAntes ?? cuando) : cuando;
+  // ⚠️ Una consulta más, y a propósito: `resolverMarcaEstudio` es el único
+  // sitio que sabe juntar las dos mitades de la marca (columnas de `studios` y
+  // redes del tema publicado), y sin ella el pie de este aviso saldría distinto
+  // del de la confirmación de reserva que la alumna recibió la semana pasada.
+  // Se resuelve UNA vez para toda la clase, no una por alumna.
   // `replyTo`: el email del estudio, para que responder al aviso le llegue a
   // ELLOS y no se pierda en el buzón de la plataforma.
-  const marca = { colorPrimario: estudio.color_primario, logoUrl: estudio.logo_url, replyTo: estudio.email };
+  const marca = marcaCorreoDesde(await resolverMarcaEstudio(params.studioId), estudioNombre);
+  const replyTo = (estudio.email as string | null) ?? undefined;
 
   let avisadas = 0, skipped = false;
   for (const a of lista) {
     if (!a.email) continue;
     const r = await enviarEmailAvisoAlumna({
-      to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando: cuandoAviso, aviso,
+      to: a.email, toName: a.nombre, marca, replyTo, claseNombre, cuando: cuandoAviso, aviso,
     });
     if ('ok' in r && r.ok) avisadas++;
     if ('skipped' in r) skipped = true;

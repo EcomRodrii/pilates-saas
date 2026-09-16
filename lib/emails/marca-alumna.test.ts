@@ -38,7 +38,7 @@ test('ningún emisor a alumnas manda con la marca de la plataforma', () => {
     'el aviso a la alumna vuelve a mandarse con la marca de la plataforma',
   );
   assert.ok(
-    /params\.estudioNombre/.test(cuerpo),
+    /params\.marca\.estudioNombre/.test(cuerpo),
     'el aviso a la alumna debe mandarse con el nombre de SU estudio',
   );
   assert.ok(

@@ -1,17 +1,10 @@
-import type { ComponentProps } from 'react';
-import { AlumnaAvisoClaseEmail } from '@/lib/emails/sustitucion-template';
-import { MARCA, SOCIA, CLASE, CUANDO } from './_muestra';
+import { correoAvisoSustitucion } from '@/lib/emails/estudio/avisos';
+import { MARCA_CORREO, SOCIA, CLASE, CUANDO } from './_muestra';
 
-type Props = ComponentProps<typeof AlumnaAvisoClaseEmail>;
-
-const Preview = (props: Props) => <AlumnaAvisoClaseEmail {...props} />;
-
-Preview.PreviewProps = {
-  ...MARCA,
-  toName: SOCIA,
-  claseNombre: CLASE.claseNombre,
-  cuando: CUANDO,
-  aviso: { tipo: 'cancelada' } as const,
-} satisfies Props;
+// La única mala de las tres, y la única con filete rojo.
+// Ver la nota de emails/reserva.tsx: el sistema devuelve el documento entero.
+const Preview = () => (
+  <div dangerouslySetInnerHTML={{ __html: correoAvisoSustitucion({ marca: MARCA_CORREO, toName: SOCIA, claseNombre: CLASE.claseNombre, cuando: CUANDO, aviso: { tipo: 'cancelada' as const } }) }} />
+);
 
 export default Preview;
