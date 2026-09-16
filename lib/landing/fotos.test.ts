@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FOTOS, CARPETA_PUBLICA, derivados, rutaFoto, altoDe,
+  FOTOS, CARPETA_PUBLICA, derivados, rutaFoto, altoDe, zonaDeRecorte,
   type FotoRegistrada, type Consentimiento,
 } from '../../components/landing/fotos.ts';
 
@@ -20,8 +20,10 @@ const CARPETA = join(import.meta.dirname, '..', '..', 'public', CARPETA_PUBLICA)
 const ENTRADAS = Object.entries(FOTOS) as [string, FotoRegistrada][];
 const CONSENTIMIENTOS: Consentimiento[] = ['no-aplica', 'firmado'];
 
-// Presupuestos. El que de verdad importa es el del héroe: la AVIF de 1280 es la
-// que se descarga un portátil con pantalla retina en el primer pantallazo.
+// Presupuestos. Cada foto declara el suyo en el registro (`presupuesto`); el del
+// héroe además se fija aquí, porque su AVIF de 1280 es la que se descarga un
+// portátil con pantalla retina en el primer pantallazo y no debe poder subirse
+// tocando solo el registro.
 const PRESUPUESTO_HEROE_AVIF_1280_KB = 140;
 // Techos para todo lo demás: no son objetivos, son el aviso de que algo se
 // exportó mal (calidad al 100, sin recortar, en el formato equivocado).
@@ -74,12 +76,32 @@ for (const [clave, foto] of ENTRADAS) {
 
   test(`${clave}: nombres de fichero descriptivos y recortes coherentes`, () => {
     assert.match(foto.id, /^[a-z0-9]+(-[a-z0-9]+)+$/, 'id en minúsculas con guiones (es el nombre del fichero)');
-    for (const r of Object.values(foto.recortes)) {
+    for (const [nombre, r] of Object.entries(foto.recortes)) {
       if (!r) continue;
       assert.ok(r.foco.x >= 0 && r.foco.x <= 1 && r.foco.y >= 0 && r.foco.y <= 1, 'el foco va de 0 a 1');
       assert.ok(r.anchos.length > 0, 'cada recorte tiene al menos un ancho');
       assert.deepEqual([...r.anchos], [...r.anchos].sort((a, b) => a - b), 'anchos de menor a mayor');
+      for (const [lado, v] of Object.entries(r.limites ?? {})) {
+        assert.ok(typeof v === 'number' && v >= 0 && v < 0.5, `límite «${lado}» de ${nombre} fuera de 0–0,5: ${v}`);
+      }
+      // Lo mismo que comprueba el script al generar, pero sin el original: si un
+      // límite o una proporción dejan el recorte más estrecho que el mayor ancho
+      // pedido, el script se negaría a ampliar y la foto no se podría regenerar.
+      const zona = zonaDeRecorte(foto, r);
+      assert.ok(zona.width >= Math.max(...r.anchos),
+        `el recorte «${nombre}» mide ${zona.width} px y se pide ${Math.max(...r.anchos)}: habría que ampliar`);
+      assert.ok(zona.left >= 0 && zona.top >= 0 && zona.left + zona.width <= foto.ancho && zona.top + zona.height <= foto.alto,
+        `el recorte «${nombre}» se sale del original`);
     }
+  });
+
+  test(`${clave}: el etalonado, si lo lleva, es sutil`, () => {
+    // Acercar una foto a la paleta, no rehacerla: pasado esto, los blancos
+    // viran a naranja o la foto se queda gris.
+    if (!foto.etalonado) return;
+    const { calidez, saturacion } = foto.etalonado;
+    assert.ok(calidez >= 0 && calidez <= 0.12, `calidez fuera de 0–0,12: ${calidez}`);
+    assert.ok(saturacion >= 0.8 && saturacion <= 1.05, `saturación fuera de 0,8–1,05: ${saturacion}`);
   });
 
   test(`${clave}: ninguna URL apunta fuera del sitio`, () => {
@@ -102,6 +124,15 @@ for (const [clave, foto] of ENTRADAS) {
       const kb = statSync(ruta).size / 1024;
       assert.ok(kb <= TECHO_KB[d.formato], `${d.fichero} pesa ${kb.toFixed(1)} KB (techo ${TECHO_KB[d.formato]} KB)`);
     }
+  });
+}
+
+for (const [clave, foto] of ENTRADAS) {
+  test(`${clave}: la AVIF de ${foto.presupuesto.ancho} cabe en su presupuesto de ${foto.presupuesto.kb} KB`, () => {
+    assert.ok(foto.recortes.escritorio.anchos.includes(foto.presupuesto.ancho),
+      `el presupuesto mira un ancho (${foto.presupuesto.ancho}) que no se genera`);
+    const kb = statSync(join(CARPETA, `${foto.id}-${foto.presupuesto.ancho}.avif`)).size / 1024;
+    assert.ok(kb <= foto.presupuesto.kb, `pesa ${kb.toFixed(1)} KB (presupuesto ${foto.presupuesto.kb} KB)`);
   });
 }
 
