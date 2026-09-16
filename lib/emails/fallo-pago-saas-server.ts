@@ -1,7 +1,8 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { FalloPagoSaasEmail } from '@/lib/emails/fallo-pago-saas-template';
+import { correoFalloPagoSaas } from '@/lib/emails/tentare/cuenta';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { remitentePorMarca } from '@/lib/emails/remitente';
+import { LEGAL } from '@/lib/legal-info';
 
 // Aviso a la propietaria del estudio de un fallo de cobro de SU PROPIA
 // suscripción a Tentare (`invoice.payment_failed` del webhook de billing —
@@ -20,12 +21,15 @@ export async function enviarEmailFalloPagoSaas(params: {
   if (esDominioReservado(params.to)) return { ok: false, error: `Email de ejemplo (${params.to}), no una dirección real` };
 
   try {
-    const html = await render(FalloPagoSaasEmail({
+    const html = correoFalloPagoSaas({
       estudioNombre: params.estudioNombre, plan: params.plan, proximoIntento: params.proximoIntento,
-    }));
+      urlSuscripcion: `${process.env.NEXT_PUBLIC_APP_URL || LEGAL.url}/suscripcion`,
+    });
     const resend = new Resend(apiKey);
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+      // `remitentePorMarca` y no `RESEND_FROM` a secas: es el único sitio que
+      // recompone el nombre visible sobre la dirección verificada.
+      from: remitentePorMarca('Tentare'),
       to: [params.to],
       subject: `No hemos podido cobrar tu suscripción — plan ${params.plan}`,
       html,

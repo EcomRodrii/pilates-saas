@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { AccesoActivadoEmail } from '@/lib/emails/acceso-activado-template';
+import { correoAccesoActivado } from '@/lib/emails/tentare/cuenta';
+import { LEGAL } from '@/lib/legal-info';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 
 // Aviso al estudio cuando alguien del equipo activa su acceso
@@ -12,6 +12,8 @@ export async function enviarEmailAccesoActivado(params: {
   nombre: string;
   emailCuenta: string | null;
   estudioNombre: string;
+  // Ya no se usan: este correo lo firma Tentare, no el estudio. Se aceptan para
+  // no romper a quien los pase (lib/equipo/avisar-acceso-activado.ts).
   logoUrl?: string | null;
   colorPrimario?: string | null;
 }): Promise<{ ok: boolean; skipped?: boolean; error?: string; id?: string }> {
@@ -20,7 +22,10 @@ export async function enviarEmailAccesoActivado(params: {
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
 
   try {
-    const html = await render(AccesoActivadoEmail(params));
+    const html = correoAccesoActivado({
+      nombre: params.nombre, emailCuenta: params.emailCuenta, estudioNombre: params.estudioNombre,
+      urlEquipo: `${process.env.NEXT_PUBLIC_APP_URL || LEGAL.url}/equipo`,
+    });
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
       from: remitentePorMarca('Tentare Manager'),

@@ -1,11 +1,14 @@
-import type { ComponentProps } from 'react';
-import { AccesoActivadoEmail } from '@/lib/emails/acceso-activado-template';
-import { MARCA, INSTRUCTORA } from './_muestra';
+import { correoAccesoActivado } from '@/lib/emails/tentare/cuenta';
+import { INSTRUCTORA } from './_muestra';
 
-type Props = ComponentProps<typeof AccesoActivadoEmail>;
-
-const Preview = (props: Props) => <AccesoActivadoEmail {...props} />;
-
-Preview.PreviewProps = { ...MARCA, nombre: INSTRUCTORA, emailCuenta: 'marta.ruiz@ejemplo.com' } satisfies Props;
+// Familia Tentare (lib/emails/tentare/). Ver la nota de emails/reserva.tsx.
+const Preview = () => (
+  <div dangerouslySetInnerHTML={{
+    __html: correoAccesoActivado({
+      nombre: INSTRUCTORA, emailCuenta: 'marta@example.com', estudioNombre: 'Estudio Aravaca',
+      urlEquipo: 'https://www.tentare.app/equipo',
+    }),
+  }} />
+);
 
 export default Preview;
