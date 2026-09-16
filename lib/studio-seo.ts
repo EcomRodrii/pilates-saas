@@ -2,6 +2,8 @@ import { cache } from 'react';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { huellaClave } from '@/lib/publico/acceso-pagina';
+import { getThemePublicado } from '@/lib/theme-data';
+import { colorMarcaDelEstudio } from '@/lib/emails/color-marca';
 
 // Columnas de `studios` que esta función lee, partidas en dos por una razón
 // operativa, no estética: las ESTABLES llevan meses en producción y ninguna
@@ -268,12 +270,20 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
   // los dos casos, así que hay que mirar el error para separarlos.
   if (errorBase) return { estudio: null, causa: 'no-disponible' };
   if (!data) return { estudio: null, causa: 'no-existe' };
+  // Auditoría 2026-09-16 (FE-1): `data.color_primario` es la columna que
+  // escribe el alta y que ningún editor vuelve a tocar — el color de marca se
+  // edita en el tema (Configuración > Marca). Esta app y su icono PWA lo
+  // leían directo de la columna, así que se veían de un color que la
+  // propietaria nunca eligió mientras el panel ya se veía de otro. Mismo
+  // orden que ya cierra `lib/emails/color-marca.ts` para los correos:
+  // publicado → preset → columna, solo como último recurso defensivo.
+  const temaPublicado = await getThemePublicado(data.id);
   return { estudio: {
     id: data.id,
     nombre: data.nombre ?? 'Estudio de Pilates',
     ciudad: data.ciudad ?? '',
     direccion: data.direccion ?? '',
-    colorPrimario: data.color_primario ?? '#1A1A1A',
+    colorPrimario: colorMarcaDelEstudio(temaPublicado.primary, null, data.color_primario) ?? '#1A1A1A',
     logoUrl: data.logo_url ?? null,
     slug: data.slug ?? slug,
     telefono: data.telefono ?? null,
