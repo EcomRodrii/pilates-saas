@@ -32,8 +32,13 @@ import { EstadoAjuste } from './estado-ajuste';
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Cajon {
-  /** Hay cambios sin guardar dentro: cerrar pregunta. Devuelve con qué quitar la marca. */
-  marcarCambios: () => () => void;
+  /**
+   * Hay cambios sin guardar dentro: cerrar pregunta. Devuelve con qué quitar la marca.
+   * `descartar` los deja como estaban al salir sin guardar: el cajón cerrado NO se
+   * desmonta (el Sheet del kit solo se desplaza), así que sin esto el formulario
+   * seguiría sucio y el navegador seguiría avisando al recargar.
+   */
+  marcarCambios: (descartar: () => void) => () => void;
 }
 
 const ContextoCajon = createContext<Cajon | null>(null);
@@ -99,14 +104,14 @@ export function CajonAjuste({
 }) {
   const tarjeta = tarjetaPorId(id);
   const tituloRef = useRef<HTMLHeadingElement>(null);
-  const conCambios = useRef(new Set<number>());
+  const conCambios = useRef(new Map<number, () => void>());
   const ultimaMarca = useRef(0);
   const [preguntando, setPreguntando] = useState(false);
 
   const cajon = useMemo<Cajon>(() => ({
-    marcarCambios: () => {
+    marcarCambios: (descartar: () => void) => {
       const marca = ++ultimaMarca.current;
-      conCambios.current.add(marca);
+      conCambios.current.set(marca, descartar);
       return () => { conCambios.current.delete(marca); };
     },
   }), []);
@@ -174,7 +179,12 @@ export function CajonAjuste({
         textoConfirmar="Salir sin guardar"
         textoCancelar="Seguir editando"
         destructivo
-        onConfirm={onCerrar}
+        onConfirm={() => {
+          // Salir sin guardar deja lo de dentro como estaba: el cajón cerrado sigue
+          // montado, y un formulario sucio seguiría avisando al recargar la pestaña.
+          for (const descartar of [...conCambios.current.values()]) descartar();
+          onCerrar();
+        }}
       />
     </ContextoCajon.Provider>
   );
