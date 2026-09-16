@@ -330,3 +330,24 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
  */
 export const getStudioSeo = async (slug: string): Promise<StudioSeo | null> =>
   (await getStudioSeoResultado(slug)).estudio;
+
+/**
+ * La dirección de ahora de un estudio que se ha rebautizado, o `null`.
+ *
+ * El panel promete, al cambiar la dirección, que la anterior «sigue
+ * funcionando» (0119 la guarda en `studio_slugs_antiguos`), y esa dirección está
+ * impresa en el QR del escaparate. Pero `/reservar` y `/portal` solo buscaban el
+ * slug de ahora: la vieja daba «estudio no encontrado». Solo se pregunta cuando
+ * el slug no es de nadie, así que no añade ninguna consulta a una visita normal.
+ */
+export const slugActualDeDireccionAntigua = cache(async (slug: string): Promise<string | null> => {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data: antigua } = await admin
+    .from('studio_slugs_antiguos').select('studio_id').eq('slug', slug).maybeSingle();
+  if (!antigua) return null;
+  const { data: estudio } = await admin
+    .from('studios').select('slug').eq('id', antigua.studio_id).maybeSingle();
+  const actual = (estudio as { slug: string | null } | null)?.slug ?? null;
+  return actual && actual !== slug ? actual : null;
+});

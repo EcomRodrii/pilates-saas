@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
-import { getStudioSeo } from '@/lib/studio-seo';
+import { redirect } from 'next/navigation';
+import { getStudioSeo, getStudioSeoResultado, slugActualDeDireccionAntigua } from '@/lib/studio-seo';
 import { BASE_URL } from '@/lib/seo/paginas';
 import { EstudioStructuredData } from '@/components/seo/estudio-structured-data';
 import { getThemePublicado } from '@/lib/theme-data';
@@ -97,7 +98,16 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ReservarSlugLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const visitante = await getStudioSeo(slug);
+  const resultado = await getStudioSeoResultado(slug);
+  // Una dirección que el estudio ya cambió lleva a la de ahora: es la que está
+  // en el QR del escaparate y en la bio de Instagram. Temporal y no 308: si el
+  // estudio vuelve a su dirección de antes, un 308 guardado en el navegador la
+  // mandaría en bucle a la que acaba de dejar.
+  if (resultado.estudio === null && resultado.causa === 'no-existe') {
+    const actual = await slugActualDeDireccionAntigua(slug);
+    if (actual) redirect(`/reservar/${actual}`);
+  }
+  const visitante = resultado.estudio;
 
   // El gate va en el LAYOUT del servidor, antes de montar nada: así el HTML
   // que sale por el cable no contiene la página, en vez de pintarla y taparla

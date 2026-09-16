@@ -246,7 +246,7 @@ export const SECCIONES = [
     frase: 'Cómo se ve tu estudio por fuera: la app de tus alumnas, tu página de reservas y tu web.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'La dirección de tu página de reservas y el enlace a la app de tus alumnas.', guardado: 'accion', palabras: ['enlace', 'página de reservas', 'url'] },
+      { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'La dirección de tu página de reservas, el enlace a la app de tus alumnas y el código QR de cada uno para imprimir.', guardado: 'accion', palabras: ['enlace', 'página de reservas', 'url', 'qr', 'código qr', 'cartel', 'escaparate'] },
       { id: 'pagina-publica', titulo: 'Ocultar tu página', frase: 'Mientras la preparas, tu página de reservas y la app de tus alumnas enseñan un aviso en vez de tus clases.', guardado: 'barra', palabras: ['ocultar', 'privada', 'visible', 'esconder', 'clave'] },
       // El directorio NO mira si la página está oculta (lib/configuracion/pagina-publica.ts):
       // se dice aquí, que es donde las dos filas conviven, y no solo dentro del cajón de ocultarla.
