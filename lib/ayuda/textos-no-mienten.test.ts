@@ -52,13 +52,20 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
   // 15-sep (PR B): cada ajuste se fue a su sección.
   {
     patron: new RegExp(`Mi estudio${FLECHA}(?:Marca|Datos fiscales|Textos de tu app)|Mi estudio, en «(?:Marca|Datos fiscales e IVA|Textos de tu app)»`),
-    ahora: '«Marca» y «Textos de tu app» están en Configuración > Mi app y mi web; «Datos fiscales e IVA», en Cobros y facturas',
+    ahora: '«Marca» es su propia sección de Configuración; «Datos fiscales e IVA», en Cobros y facturas',
   },
+  // 16-sep (v2): Marca va en filas con cajón. Sus siete textos no cabían en uno
+  // (≤ 6 campos) y se partieron, y el color perdió su botón propio.
+  {
+    patron: /«Textos de tu app»/,
+    ahora: 'se partió en «Cómo te presentas» y «Textos de bienvenida», en Configuración > Marca',
+  },
+  { patron: /Guardar colores/, ahora: 'el color se guarda con el «Guardar» de su cajón, igual que el resto de Marca' },
   {
     patron: new RegExp(`Conexiones${FLECHA}(?:Stripe|WhatsApp|Gmail)|(?:WhatsApp|Gmail)[^.<]{0,60}Configuración${FLECHA}Conexiones`),
     ahora: 'Stripe está en Configuración > Cobros y facturas; WhatsApp, Gmail y el remitente, en Cómo me comunico',
   },
-  { patron: /Guardar datos del estudio/, ahora: 'cada parte tiene su propio «Guardar»: las filas de Mi estudio y de Cobros y facturas, y la tarjeta de Textos de tu app' },
+  { patron: /Guardar datos del estudio/, ahora: 'cada parte tiene su propio «Guardar»: las filas de Mi estudio, de Cobros y facturas y de Marca' },
   // I-14 (auditoría 15-sep): «Textos de tu app» pasó de su propio botón
   // (`BarraCambiosEstudio`) a la `BarraGuardar` compartida, con la misma
   // guardia de salida que el resto de secciones — el botón ya no dice

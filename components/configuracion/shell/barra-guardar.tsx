@@ -87,8 +87,8 @@ export function BarraGuardar({
   // Cerrar el cajón con cambios: pregunta el cajón.
   useEffect(() => {
     if (!visible || !cajon) return;
-    return cajon.marcarCambios();
-  }, [visible, cajon]);
+    return cajon.marcarCambios(onDescartar);
+  }, [visible, cajon, onDescartar]);
 
   // Recargar o cerrar la pestaña: el diálogo del navegador (su texto no se
   // puede cambiar).

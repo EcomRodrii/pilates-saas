@@ -1,11 +1,12 @@
 'use client';
 
 import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, X, Zap } from 'lucide-react';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { useNavegacionConfig } from './contexto';
+import { EstadoAjuste } from './estado-ajuste';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El cajón donde se cambia una fila de Configuración (§4.3 de la reorganización).
@@ -31,8 +32,13 @@ import { useNavegacionConfig } from './contexto';
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Cajon {
-  /** Hay cambios sin guardar dentro: cerrar pregunta. Devuelve con qué quitar la marca. */
-  marcarCambios: () => () => void;
+  /**
+   * Hay cambios sin guardar dentro: cerrar pregunta. Devuelve con qué quitar la marca.
+   * `descartar` los deja como estaban al salir sin guardar: el cajón cerrado NO se
+   * desmonta (el Sheet del kit solo se desplaza), así que sin esto el formulario
+   * seguiría sucio y el navegador seguiría avisando al recargar.
+   */
+  marcarCambios: (descartar: () => void) => () => void;
 }
 
 const ContextoCajon = createContext<Cajon | null>(null);
@@ -98,14 +104,14 @@ export function CajonAjuste({
 }) {
   const tarjeta = tarjetaPorId(id);
   const tituloRef = useRef<HTMLHeadingElement>(null);
-  const conCambios = useRef(new Set<number>());
+  const conCambios = useRef(new Map<number, () => void>());
   const ultimaMarca = useRef(0);
   const [preguntando, setPreguntando] = useState(false);
 
   const cajon = useMemo<Cajon>(() => ({
-    marcarCambios: () => {
+    marcarCambios: (descartar: () => void) => {
       const marca = ++ultimaMarca.current;
-      conCambios.current.add(marca);
+      conCambios.current.set(marca, descartar);
       return () => { conCambios.current.delete(marca); };
     },
   }), []);
@@ -155,6 +161,12 @@ export function CajonAjuste({
         {/* scroll-mb: un campo enfocado sube por encima de la barra de guardar. */}
         <div className="flex flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-4 md:px-6 [&_:is(input,select,textarea)]:scroll-mb-32">
           <p className="text-sm text-muted-foreground text-pretty">{tarjeta.frase}</p>
+          {/* Casi todo lo que se abre aquí espera a «Guardar». Lo que no —una
+              imagen, que se sube al elegirla— lo dice ANTES de tocar nada, con
+              la misma pastilla que en una tarjeta (tarjeta-ajuste.tsx). */}
+          {tarjeta.guardado === 'al-pulsar' && (
+            <EstadoAjuste tono="neutro" icono={Zap} className="mt-2">Se guarda al momento</EstadoAjuste>
+          )}
           <div className="mt-5 flex flex-1 flex-col">{children}</div>
         </div>
       </DashboardDrawer>
@@ -167,7 +179,12 @@ export function CajonAjuste({
         textoConfirmar="Salir sin guardar"
         textoCancelar="Seguir editando"
         destructivo
-        onConfirm={onCerrar}
+        onConfirm={() => {
+          // Salir sin guardar deja lo de dentro como estaba: el cajón cerrado sigue
+          // montado, y un formulario sucio seguiría avisando al recargar la pestaña.
+          for (const descartar of [...conCambios.current.values()]) descartar();
+          onCerrar();
+        }}
       />
     </ContextoCajon.Provider>
   );

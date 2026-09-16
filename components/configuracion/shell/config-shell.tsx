@@ -85,6 +85,7 @@ const COMPONENTES_HERRAMIENTA: Record<HerramientaId, ComponentType<PropsSeccion>
   'recompensas-y-logros': dynamic(() => import('@/components/configuracion/herramientas/herramienta-recompensas-y-logros').then(m => m.HerramientaRecompensasYLogros), { loading: cargando }),
   'contenido-de-tu-app': dynamic(() => import('@/components/configuracion/herramientas/herramienta-contenido-de-tu-app').then(m => m.HerramientaContenidoDeTuApp), { loading: cargando }),
   widgets: dynamic(() => import('@/components/configuracion/herramientas/herramienta-widgets').then(m => m.HerramientaWidgets), { loading: cargando }),
+  'tus-avisos': dynamic(() => import('@/components/configuracion/herramientas/herramienta-tus-avisos').then(m => m.HerramientaTusAvisos), { loading: cargando }),
 };
 
 type Lugar = { tab: SeccionId | null; abrir?: HerramientaId; ancla?: string };

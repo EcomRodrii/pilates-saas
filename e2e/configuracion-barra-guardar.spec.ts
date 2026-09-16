@@ -3,9 +3,13 @@ import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La barra de guardar de Configuración: en el cajón de cada regla de «Cómo
-// reservan mis alumnas» y en la sección que aún guarda con barra: Tu panel (menú,
-// Inicio y posición son un mismo documento). Mi equipo se guarda al tocar desde
-// el 16-sep (configuracion-mi-equipo.spec.ts).
+// reservan mis alumnas» y en los de «Tu panel». Mi equipo se guarda al tocar
+// desde el 16-sep (configuracion-mi-equipo.spec.ts).
+//
+// ⚠️ 16-sep: ya NO queda ninguna sección con barra propia — «Tu panel» era la
+// última y pasó a filas con cajón. Lo que aquí se medía sobre una sección entera
+// (colocación en el móvil y el iPad, la burbuja de WhatsApp, salir con cambios)
+// se mide ahora dentro de un cajón, que es donde vive la barra.
 //
 // Desde el 15-sep (v2) cada regla de reserva se cambia en su cajón, y su
 // «Guardar» manda SOLO sus columnas (#2027). Lo que se fija aquí:
@@ -116,14 +120,22 @@ async function cajonDe(page: Page, id: string, nombre: string, opts?: Parameters
 }
 
 /**
- * Tu panel guarda aún con la barra de la sección. Se espera a que haya leído cómo
- * está el panel: lo tocado antes se perdería al llegar la lectura.
+ * «Dónde va el menú», en su cajón.
+ *
+ * 16-sep: «Tu panel» era la ÚLTIMA sección con barra de guardar propia, y estos
+ * tests entraban por ahí. Ya no queda ninguna, así que se prueban donde la barra
+ * vive hoy: dentro de un cajón. Se elige este porque su cambio es un clic, sin
+ * teclado ni arrastre, que es lo que necesitan las medidas de colocación.
+ *
+ * Se espera a que haya leído cómo está el panel: lo tocado antes se perdería al
+ * llegar la lectura.
  */
 async function tuPanel(page: Page) {
   const r = await abrir(page, 'configuracion?tab=panel');
   await expect(page.locator('#menu-del-panel')).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('#menu-del-panel')).not.toContainText('Cargando…', { timeout: 30_000 });
-  await expect(fijoArriba(page)).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('#posicion-del-menu').click();
+  await expect(titulo(page, 'Dónde va el menú')).toBeFocused();
+  await expect(fijoArriba(page)).toHaveAttribute('aria-pressed', 'false', { timeout: 30_000 });
   return r;
 }
 
@@ -305,52 +317,60 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
   });
 });
 
-test.describe('Una sección con barra: salir con cambios pregunta', () => {
+test.describe('«Tu panel», ya en cajones: salir con cambios pregunta', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test('cambiar de sección con cambios pregunta; «Seguir editando» no pierde nada', async ({ page }) => {
+  test('cerrar el cajón con cambios pregunta; «Seguir editando» no pierde nada', async ({ page }) => {
     await tuPanel(page);
     await fijoArriba(page).click();
+    await expect(barra(page)).toContainText('Cambios sin guardar en: Dónde va el menú');
     expect(await pideConfirmarAlSalir(page), 'con cambios, recargar o cerrar pregunta').toBe(true);
 
-    const rail = page.getByRole('navigation', { name: 'Secciones de Configuración' });
-    await rail.getByRole('link', { name: 'Cobros y facturas', exact: true }).click();
+    await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
     const dialogo = page.getByRole('dialog', { name: '¿Salir sin guardar?' });
     await expect(dialogo).toBeVisible();
-    await expect(dialogo).toContainText('Los cambios de «Tu panel» se perderán.');
+    await expect(dialogo).toContainText('Los cambios de «Dónde va el menú» se perderán.');
     await dialogo.getByRole('button', { name: 'Seguir editando' }).click();
     await expect(dialogo).toHaveCount(0);
-    await expect(titulo(page, 'Tu panel')).toBeVisible();
-    await expect(page).toHaveURL(/\?tab=panel$/);
+    await expect(titulo(page, 'Dónde va el menú')).toBeVisible();
     await expect(fijoArriba(page)).toHaveAttribute('aria-pressed', 'true');
 
-    // Otra sección, confirmando.
-    await rail.getByRole('link', { name: 'Cobros y facturas', exact: true }).click();
+    // Y confirmando: se cierra y lo tocado se va.
+    await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
     await dialogo.getByRole('button', { name: 'Salir sin guardar' }).click();
-    await expect(titulo(page, 'Cobros y facturas')).toBeVisible();
-    await expect(page).toHaveURL(/\?tab=cobros$/);
+    await expect(titulo(page, 'Dónde va el menú')).toHaveCount(0);
+    await expect(page).toHaveURL(/\?tab=panel$/);
     expect(await pideConfirmarAlSalir(page), 'lo descartado ya no pregunta').toBe(false);
   });
 
-  test('ir a otra pantalla del panel con cambios también pregunta', async ({ page }) => {
-    await tuPanel(page);
+  // ⚠️ Menú, Inicio y posición son campos del MISMO documento y «Guardar» manda
+  // el documento entero. Lo que impide que uno publique lo que otro tenía a
+  // medias es que cerrar sin guardar DESCARTA: sin eso, abrir «Tu menú» y
+  // guardar ahí sacaría también la posición que se acababa de desechar.
+  test('lo desechado en un cajón no se cuela en el «Guardar» del de al lado', async ({ page }) => {
+    const { layouts } = await tuPanel(page);
     await fijoArriba(page).click();
+    await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
+    await page.getByRole('dialog', { name: '¿Salir sin guardar?' })
+      .getByRole('button', { name: 'Salir sin guardar' }).click();
 
-    // «Mi cuenta» está en la lista de secciones, pero es otra pantalla.
-    await page.getByRole('navigation', { name: 'Secciones de Configuración' }).getByRole('link', { name: 'Mi cuenta' }).click();
-    const dialogo = page.getByRole('dialog', { name: '¿Salir sin guardar?' });
-    await expect(dialogo).toBeVisible();
-    await expect(page).toHaveURL(/\/configuracion\?tab=panel$/);
-    await dialogo.getByRole('button', { name: 'Salir sin guardar' }).click();
-    await expect(page).toHaveURL(/\/mi-perfil$/, { timeout: 30_000 });
+    await page.locator('#menu-del-panel').click();
+    await expect(titulo(page, 'Tu menú')).toBeFocused();
+    await page.getByRole('button', { name: 'Ocultar Informes' }).click({ timeout: 30_000 });
+    await guardar(page).click();
+
+    await expect.poll(() => layouts.length, { timeout: 15_000 }).toBe(1);
+    const guardado = layouts[0] as { ocultos: string[]; menuPosition: string };
+    expect(guardado.ocultos).toContain('/informes');
+    expect(guardado.menuPosition, 'la posición desechada no viaja').toBe('lateral');
   });
 
-  test('sin cambios, cambiar de sección no pregunta nada', async ({ page }) => {
+  test('sin cambios, cerrar el cajón no pregunta nada', async ({ page }) => {
     await tuPanel(page);
-    await page.getByRole('navigation', { name: 'Secciones de Configuración' })
-      .getByRole('link', { name: 'Cobros y facturas', exact: true }).click();
-    await expect(titulo(page, 'Cobros y facturas')).toBeVisible();
+    await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
+    await expect(titulo(page, 'Dónde va el menú')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(titulo(page, 'Tu panel')).toBeVisible();
   });
 });
 
@@ -382,25 +402,25 @@ for (const vista of VISTAS) {
   test.describe(`La barra de guardar en ${vista.nombre}`, () => {
     test.use({ viewport: vista.viewport, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
 
-    test('queda por encima de la navegación de abajo, arriba y al final de la sección', async ({ page }) => {
+    // Dentro de un cajón la barra va pegada a SU borde de abajo: el cajón ya tapa
+    // la navegación del móvil, así que lo que hay que medir no es que quede por
+    // encima de ella, sino que entra entera en la pantalla y que «Guardar» no lo
+    // tapa nada — que es lo que de verdad dejaba a la propietaria sin guardar.
+    test('entra entera en la pantalla y «Guardar» se puede pulsar, arriba y al final', async ({ page }) => {
       await tuPanel(page);
       await fijoArriba(page).click();
       await expect(barra(page)).toBeVisible();
 
       for (const donde of ['arriba', 'abajo'] as const) {
-        await page.evaluate(d => window.scrollTo(0, d === 'arriba' ? 0 : document.documentElement.scrollHeight), donde);
+        await page.evaluate(d => {
+          const caja = document.querySelector('[data-barra-guardar]')?.closest('[role="dialog"]')?.querySelector('.overflow-y-auto');
+          if (caja) caja.scrollTo(0, d === 'arriba' ? 0 : caja.scrollHeight);
+        }, donde);
         await page.waitForTimeout(400);
-        const navArriba = await page.evaluate(() => {
-          const nav = [...document.querySelectorAll('nav')].find(n => {
-            const cs = getComputedStyle(n);
-            return cs.position === 'fixed' && cs.display !== 'none' && n.getBoundingClientRect().bottom >= window.innerHeight - 1;
-          });
-          return nav ? nav.getBoundingClientRect().top : null;
-        });
-        expect(navArriba, 'la navegación de abajo').not.toBeNull();
+        const alto = page.viewportSize()!.height;
         const caja = (await barra(page).boundingBox())!;
-        expect(caja.y + caja.height, `${donde}: la barra, encima de la navegación`).toBeLessThanOrEqual(navArriba! + 0.5);
         expect(caja.y, `${donde}: la barra, dentro de la pantalla`).toBeGreaterThanOrEqual(0);
+        expect(caja.y + caja.height, `${donde}: la barra, sin salirse por abajo`).toBeLessThanOrEqual(alto + 0.5);
         // Y lo que hay en el centro de «Guardar» es «Guardar», no la navegación ni otra cosa.
         const alcanzable = await page.evaluate(() => {
           const boton = [...document.querySelectorAll<HTMLButtonElement>('[data-barra-guardar] button')].at(-1)!;
@@ -428,22 +448,25 @@ for (const vista of VISTAS) {
     });
 
     if (vista.viewport.width < 768) {
-      test('«Volver a Configuración» con cambios pregunta antes', async ({ page }) => {
+      // En el móvil el cajón ocupa la pantalla entera y su «Volver» es el único
+      // camino de salida: el de la sección queda detrás.
+      test('«Volver» con cambios pregunta antes', async ({ page }) => {
         await tuPanel(page);
         await fijoArriba(page).click();
-        await page.getByRole('button', { name: 'Volver a Configuración' }).click();
+        await page.getByRole('button', { name: 'Volver', exact: true }).click();
 
         const dialogo = page.getByRole('dialog', { name: '¿Salir sin guardar?' });
         await expect(dialogo).toBeVisible();
         await dialogo.getByRole('button', { name: 'Seguir editando' }).click();
-        await expect(titulo(page, 'Tu panel')).toBeVisible();
+        await expect(titulo(page, 'Dónde va el menú')).toBeVisible();
         await expect(fijoArriba(page)).toHaveAttribute('aria-pressed', 'true');
 
-        await page.getByRole('button', { name: 'Volver a Configuración' }).click();
+        await page.getByRole('button', { name: 'Volver', exact: true }).click();
         await dialogo.getByRole('button', { name: 'Salir sin guardar' }).click();
-        // En el móvil, volver lleva al inicio de Configuración (sus grupos de secciones).
-        await expect(page.locator('[aria-labelledby^="inicio-grupo-"]').first()).toBeVisible();
-        await expect(titulo(page, 'Tu panel')).toBeHidden();
+        // Se vuelve a la sección, con sus filas, y lo tocado no está.
+        await expect(titulo(page, 'Dónde va el menú')).toHaveCount(0);
+        await expect(page.locator('#posicion-del-menu')).toBeVisible();
+        expect(await pideConfirmarAlSalir(page), 'lo descartado ya no pregunta').toBe(false);
       });
     }
   });

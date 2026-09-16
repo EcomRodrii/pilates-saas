@@ -327,7 +327,13 @@ test('cada sección tiene su componente y el shell lo carga', () => {
     assert.ok(existsSync(join(RAIZ, fichero)), `falta ${fichero}`);
     assert.match(shell, new RegExp(`herramientas/herramienta-${h.id}'`), `el shell no carga «${h.id}»`);
     const seccion = readFileSync(join(RAIZ, `components/configuracion/secciones/seccion-${h.seccion}.tsx`), 'utf8');
-    assert.match(seccion, new RegExp(`id: '${h.id}'`), `«${h.seccion}» no pinta la fila de «${h.id}»`);
+    // Las dos formas valen, como en la guardia de las tarjetas: una sección con
+    // varias herramientas las lista (`{ id: 'widgets' as const, … }`) y una con
+    // una sola la pinta directa (`<FilaHerramienta id="tus-avisos" …>`).
+    assert.ok(
+      seccion.includes(`id="${h.id}"`) || seccion.includes(`id: '${h.id}'`),
+      `«${h.seccion}» no pinta la fila de «${h.id}»`,
+    );
   }
 });
 

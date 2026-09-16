@@ -40,8 +40,10 @@ const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   // Stripe, WhatsApp ni Gmail.
   {
     patron: /Mi estudio\s*(?:→|>|&gt;|›)\s*(?:Marca|Datos fiscales|Textos de tu app)|Mi estudio, en «(?:Marca|Datos fiscales e IVA|Textos de tu app)»/,
-    ahora: '«Marca» y «Textos de tu app» en Mi app y mi web; «Datos fiscales e IVA» en Cobros y facturas',
+    ahora: '«Marca» es su propia sección; «Datos fiscales e IVA» está en Cobros y facturas',
   },
+  // 16-sep (v2): Marca en filas con cajón. El botón propio del color ya no existe.
+  { patron: /Guardar colores/, ahora: 'el color se guarda con el «Guardar» de su cajón, en Configuración → Marca' },
   {
     patron: /Conexiones\s*(?:→|>|&gt;|›)\s*(?:Stripe|WhatsApp|Gmail|Cobro con tarjeta)|(?:WhatsApp|Gmail)[^.<'"`]{0,60}Configuración\s*(?:→|>|&gt;|›)\s*Conexiones/,
     ahora: 'Stripe en Cobros y facturas; WhatsApp, Gmail y el remitente en Cómo me comunico',

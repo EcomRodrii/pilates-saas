@@ -18,8 +18,9 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Color y logo</h2>
       <p>
-        El logo y el color están en Configuración &gt; Marca: el logo lo subes en «Logo y favicon» y el color lo pruebas
-        en «El color de tu marca» antes de guardarlo. Los dos los ven tus alumnas en tu página de reservas y en su app — es lo
+        El logo y el color están en Configuración &gt; Marca: el logo lo subes en «Logo y favicon», que se guarda al
+        elegir el archivo, y el color lo pruebas en «El color de tu marca» antes de pulsar «Guardar».
+        Los dos los ven tus alumnas en tu página de reservas y en su app — es lo
         primero que distingue tu estudio del de cualquier otra propietaria de Tentare.
       </p>
 

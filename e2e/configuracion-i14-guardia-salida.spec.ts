@@ -50,25 +50,28 @@ test.describe('I-14: Horario de citas entra en la guardia de salida', () => {
   });
 });
 
-test.describe('I-14: Textos de tu app entra en la guardia de salida', () => {
+// 16-sep: Marca pasó a filas con cajón, y el ancla de «Textos de tu app» abre el
+// suyo («Cómo te presentas»). El aviso al salir sigue siendo el mismo contrato,
+// solo que quien lo da es la guardia del cajón — desde dentro, el cajón tapa la
+// lista de secciones, así que salir es cerrarlo.
+test.describe('I-14: los textos de tu app entran en la guardia de salida', () => {
   test('editar un texto sin guardar avisa al salir — antes su barra imitaba el aviso sin darlo', async ({ page }) => {
     await montar(page);
     await ir(page, 'configuracion?tab=marca#textos-de-tu-app');
-    await expect(page.getByRole('heading', { name: 'Textos de tu app', exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { level: 2, name: 'Cómo te presentas', exact: true })).toBeVisible({ timeout: 30_000 });
 
     expect(await pideConfirmarAlSalir(page), 'sin tocar nada, no pregunta').toBe(false);
     await expect(barra(page)).toHaveCount(0);
 
     await page.getByLabel('Tu lema').fill('Cuerpo, mente, equilibrio');
-    await expect(barra(page)).toContainText('Cambios sin guardar en: Textos de tu app');
+    await expect(barra(page)).toContainText('Cambios sin guardar en: Cómo te presentas');
     expect(await pideConfirmarAlSalir(page), 'con el lema sin guardar, sí pregunta').toBe(true);
 
-    const rail = page.getByRole('navigation', { name: 'Secciones de Configuración' });
-    await rail.getByRole('link', { name: 'Mi app y mi web', exact: true }).click();
+    await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
     await expect(dialogoSalir(page)).toBeVisible();
-    await expect(dialogoSalir(page)).toContainText('Los cambios de «Marca» se perderán.');
+    await expect(dialogoSalir(page)).toContainText('Los cambios de «Cómo te presentas» se perderán.');
     await dialogoSalir(page).getByRole('button', { name: 'Salir sin guardar' }).click();
-    await expect(page).toHaveURL(/\?tab=web$/);
+    await expect(page).toHaveURL(/\?tab=marca$/);
     expect(await pideConfirmarAlSalir(page), 'lo descartado ya no pregunta').toBe(false);
   });
 });

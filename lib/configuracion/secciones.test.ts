@@ -135,8 +135,18 @@ test('«Mi cuenta» lleva a su propia pantalla', () => {
 });
 
 test('«Marca» junta logo, color y textos; «Tu cuenta», avisos, panel, plan y cuenta', () => {
-  assert.deepEqual(seccionPorId('marca').tarjetas.map(t => t.id), ['logo-y-favicon', 'color-de-marca', 'textos-de-tu-app']);
+  // Los siete campos de «Textos de tu app» no caben en un cajón (≤ 6): se
+  // partieron en «Cómo te presentas» y «Textos de bienvenida», y el primero
+  // conserva id y ancla porque los llevan enlaces ya escritos.
+  assert.deepEqual(seccionPorId('marca').tarjetas.map(t => t.id), ['logo-y-favicon', 'color-de-marca', 'textos-de-tu-app', 'textos-de-bienvenida']);
+  assert.equal(tarjetaPorId('textos-de-tu-app').titulo, 'Cómo te presentas');
+  // Solo las imágenes se guardan al elegirlas (el archivo ya se ha subido); el
+  // color y los textos esperan al «Guardar» de su cajón.
+  assert.equal(tarjetaPorId('logo-y-favicon').guardado, 'al-pulsar');
+  for (const id of ['color-de-marca', 'textos-de-tu-app', 'textos-de-bienvenida'] as const) assert.equal(tarjetaPorId(id).guardado, 'barra');
   assert.deepEqual(seccionPorId('avisos').tarjetas.map(t => t.id), ['tus-avisos']);
+  // La tabla de avisos se abre en su pantalla: en su sección solo queda su fila.
+  assert.equal(herramientaDeTarjeta('tus-avisos'), 'tus-avisos');
   assert.deepEqual(seccionPorId('panel').tarjetas.map(t => t.id), ['menu-del-panel', 'inicio-del-panel', 'posicion-del-menu', 'claro-u-oscuro']);
   // Ni el logo ni los textos se quedan también en «Mi app y mi web».
   assert.equal(seccionDeTarjeta('textos-de-tu-app'), 'marca');
@@ -176,9 +186,9 @@ test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mism
   }
 });
 
-test('seis herramientas con pantalla propia, cada una de UNA sección y con sus tarjetas seguidas', () => {
+test('siete herramientas con pantalla propia, cada una de UNA sección y con sus tarjetas seguidas', () => {
   assert.deepEqual(HERRAMIENTAS.map(h => h.id), [
-    'salas', 'tipos-de-clase', 'correos-automaticos', 'recompensas-y-logros', 'contenido-de-tu-app', 'widgets',
+    'salas', 'tipos-de-clase', 'correos-automaticos', 'recompensas-y-logros', 'contenido-de-tu-app', 'widgets', 'tus-avisos',
   ]);
   for (const h of HERRAMIENTAS) {
     assert.ok(esHerramientaId(h.id));
@@ -230,7 +240,9 @@ test('«Mi equipo»: crear clases se guarda al tocarlo y la app es una acción; 
 test('lo que se abre en un cajón cabe en su línea (≤ 120), y las filas a otra pantalla llevan a una que existe', () => {
   // Mi estudio, Cobros y facturas y Alta de alumnas son filas con cajón: su
   // frase es la ÚNICA línea de explicación de ese cajón (§5 de la reorganización).
-  for (const s of ['estudio', 'cobros', 'altas', 'reservas', 'comunicacion', 'motivacion', 'web', 'conexiones', 'equipo'] as const) {
+  // Marca, Mis avisos y Tu panel entraron el 16-sep: eran las cuatro últimas
+  // secciones con el modelo viejo.
+  for (const s of ['estudio', 'cobros', 'altas', 'reservas', 'comunicacion', 'motivacion', 'marca', 'web', 'conexiones', 'equipo', 'avisos', 'panel'] as const) {
     for (const t of seccionPorId(s).tarjetas) assert.ok(t.frase.length <= 120, `${t.id}: ${t.frase.length} caracteres`);
     assert.ok(seccionPorId(s).frase.length <= 90, `${s}: la frase de la sección`);
   }
