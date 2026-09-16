@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useSyncExternalStore } from 'react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
 import { useRol } from '@/lib/permisos';
 import { puedeVer } from '@/lib/permisos-reglas';
 import { useCoincideMedio } from '@/lib/hooks/use-coincide-medio';
@@ -27,6 +27,15 @@ export function VentanaCalendario() {
   const estado = useSyncExternalStore(suscribirVentana, estadoVentana, estadoVentanaServidor);
   const escritorio = useCoincideMedio(CONSULTA_ESCRITORIO);
   const rol = useRol();
-  if (!estado.abierta || !escritorio || !puedeVer(rol, '/calendario')) return null;
-  return <Cuerpo estado={estado} />;
+  const visible = estado.abierta && escritorio && puedeVer(rol, '/calendario');
+
+  // Cerrar no la quita de golpe: sigue montada mientras se anima su salida y
+  // es ella la que avisa al terminar. Ajustar el estado durante el render es el
+  // patrón de React para «cambió una prop» (sin efecto ni fotograma de más).
+  const [montada, setMontada] = useState(visible);
+  if (visible && !montada) setMontada(true);
+  const alSalir = useCallback(() => setMontada(false), []);
+
+  if (!montada) return null;
+  return <Cuerpo estado={estado} saliendo={!visible} alSalir={alSalir} />;
 }

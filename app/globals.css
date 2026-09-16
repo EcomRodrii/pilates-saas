@@ -98,7 +98,18 @@
   --motion-normal: 180ms;
   --motion-medium: 240ms;
   --motion-slow: 320ms;
+  /* Mover una VENTANA entera (ampliar el calendario, la ventana flotante): una
+     superficie grande que cambia de tamaño o nace de un botón. Con --motion-slow
+     se leía como un corte; aquí manda la presencia, como en macOS. */
+  --motion-ventana: 500ms;
   --motion-ease: cubic-bezier(.16, 1, .3, 1);
+  /* Y su curva propia, la única excepción a «no inventar easings», con la medida
+     que la justifica: con --motion-ease una ventana va al 49 % a los 48 ms y al
+     88 % a los 144 ms — grabado a 25 fps, la tarjeta del calendario cruzaba la
+     pantalla en DOS fotogramas y la ventana flotante aparecía ya en su sitio.
+     Se veía como un corte. Esta arranca suave, acelera en el centro y se posa
+     despacio (13 % al 20 % del tiempo, 78 % a la mitad), como en macOS. */
+  --motion-ease-ventana: cubic-bezier(.4, 0, .2, 1);
   --motion-ease-in: cubic-bezier(.4, 0, 1, 1);
 
   /* Midbox-style palette — soft warm off-white, near-black ink, lime accent */
@@ -580,6 +591,111 @@ nextjs-portal { display: none !important; }
     padding-right: 0.75rem;
     padding-bottom: 0.75rem;
   }
+}
+
+/* ── Ampliar y reducir, animado (View Transitions) ──────────────────────────
+   `cambiarAmpliado` (calendario/page.tsx) pone `data-vt-calendario` en <html>
+   solo mientras dura la transición, y con él los nombres: fuera de ella nada
+   lleva `view-transition-name`, así que ninguna otra navegación morfea estas
+   piezas. La tarjeta del calendario crece desde su sitio y lo de dentro NO se
+   estira (se revela, como una ventana que se maximiza); el menú y la barra se
+   retiran hacia fuera en vez de desaparecer. */
+html[data-vt-calendario] [data-tour='calendario-vista'] { view-transition-name: calendario-lienzo; }
+html[data-vt-calendario] aside[data-panel-menu] { view-transition-name: panel-menu; }
+html[data-vt-calendario] div[data-panel-menu] { view-transition-name: panel-logo; }
+html[data-vt-calendario] [data-panel-topbar] { view-transition-name: panel-barra; }
+/* El hueco del menú tiene su propia transición de relleno: llegaría tarde a la
+   foto del estado nuevo y la tarjeta saltaría al acabar. */
+html[data-vt-calendario] main { transition: none !important; }
+
+html[data-vt-calendario]::view-transition-group(*),
+html[data-vt-calendario]::view-transition-old(root),
+html[data-vt-calendario]::view-transition-new(root) {
+  animation-duration: var(--motion-ventana);
+  animation-timing-function: var(--motion-ease-ventana);
+}
+/* La tarjeta NO se funde con su foto vieja durante todo el movimiento: arriba
+   hay dos maquetaciones distintas (título y botones en una fila o en dos) y el
+   fundido largo enseñaba las dos cabeceras a la vez, un fantasma. Se hace así:
+   la foto vieja se va enseguida, y la nueva —a su tamaño real, sin estirarse—
+   viaja con el grupo hasta su sitio. */
+html[data-vt-calendario]::view-transition-old(calendario-lienzo),
+html[data-vt-calendario]::view-transition-new(calendario-lienzo) {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: none;
+  object-position: left top;
+}
+@keyframes vt-fundido-fuera { to { opacity: 0; } }
+html[data-vt-calendario]::view-transition-old(calendario-lienzo) {
+  animation: vt-fundido-fuera 160ms var(--motion-ease-ventana) both;
+}
+html[data-vt-calendario]::view-transition-new(calendario-lienzo) {
+  animation: none;
+  opacity: 1;
+}
+@keyframes vt-menu-fuera { to { opacity: 0; transform: translateX(-2.5rem); } }
+@keyframes vt-menu-dentro { from { opacity: 0; transform: translateX(-2.5rem); } }
+@keyframes vt-barra-fuera { to { opacity: 0; transform: translateY(-1rem); } }
+@keyframes vt-barra-dentro { from { opacity: 0; transform: translateY(-1rem); } }
+html[data-vt-calendario='ampliar']::view-transition-old(panel-menu),
+html[data-vt-calendario='ampliar']::view-transition-old(panel-logo) {
+  animation: vt-menu-fuera var(--motion-ventana) var(--motion-ease-ventana) both;
+}
+html[data-vt-calendario='reducir']::view-transition-new(panel-menu),
+html[data-vt-calendario='reducir']::view-transition-new(panel-logo) {
+  animation: vt-menu-dentro var(--motion-ventana) var(--motion-ease-ventana) both;
+}
+html[data-vt-calendario='ampliar']::view-transition-old(panel-barra) {
+  animation: vt-barra-fuera var(--motion-ventana) var(--motion-ease-ventana) both;
+}
+html[data-vt-calendario='reducir']::view-transition-new(panel-barra) {
+  animation: vt-barra-dentro var(--motion-ventana) var(--motion-ease-ventana) both;
+}
+
+/* ── Ventana flotante del calendario: nacer, irse, plegarse ─────────────────
+   Nace del botón que la abre (transform-origin lo pone el componente) con un
+   poco de desenfoque que se aclara, y se va encogiendo hacia abajo. Arrastrarla
+   la «levanta»: sombra más honda, sin tocar el transform, que es de la animación. */
+@keyframes ventana-entra {
+  from { opacity: 0; transform: translateY(0.625rem) scale(0.96); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes ventana-entra-desde-boton {
+  from { opacity: 0; transform: scale(0.3); filter: blur(10px); }
+  55% { opacity: 1; filter: blur(0); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes ventana-sale {
+  from { opacity: 1; transform: none; filter: none; }
+  to { opacity: 0; transform: translateY(0.5rem) scale(0.95); filter: blur(4px); }
+}
+.ventana-flotante {
+  animation: ventana-entra var(--motion-ventana) var(--motion-ease-ventana) both;
+  transform-origin: top center;
+  transition: box-shadow var(--motion-medium) var(--motion-ease-ventana);
+}
+.ventana-flotante[data-desde='boton'] { animation-name: ventana-entra-desde-boton; }
+.ventana-flotante[data-arrastrando] { box-shadow: 0 36px 80px -24px rgba(0, 0, 0, 0.45); }
+.ventana-flotante[data-saliendo] {
+  animation: ventana-sale var(--motion-slow) var(--motion-ease-ventana) both;
+  transform-origin: top center !important;
+  pointer-events: none;
+}
+.ventana-plegable { transition: grid-template-rows var(--motion-ventana) var(--motion-ease-ventana); }
+/* Al agrandar o reducir, el marco crece o encoge (FLIP en el componente) y lo de
+   dentro —el día o la semana— aparece fundiéndose, no de golpe. */
+@keyframes ventana-contenido-in { from { opacity: 0; } }
+.ventana-contenido { animation: ventana-contenido-in var(--motion-slow) var(--motion-ease-ventana) both; }
+.ventana-plegable-dentro { transition: opacity var(--motion-slow) var(--motion-ease-ventana); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ventana-flotante,
+  .ventana-flotante[data-desde='boton'],
+  .ventana-flotante[data-saliendo] { animation-duration: 1ms; }
+  .ventana-plegable,
+  .ventana-plegable-dentro { transition: none; }
+  .ventana-contenido { animation: none; }
 }
 
 /* Calendario — cambiar de día/semana/mes (app/(dashboard)/calendario/page.tsx,

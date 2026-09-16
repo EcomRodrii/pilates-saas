@@ -26,11 +26,13 @@ export interface Tamano { ancho: number; alto: number }
 export interface EstadoVentana {
   abierta: boolean;
   plegada: boolean;
+  /** Agrandada: la semana entera en columnas, sin dejar de ser una ventana. */
+  expandida: boolean;
   /** `null` = todavía no se ha movido: se coloca arriba a la derecha. */
   posicion: Punto | null;
 }
 
-export const ESTADO_INICIAL: EstadoVentana = { abierta: false, plegada: false, posicion: null };
+export const ESTADO_INICIAL: EstadoVentana = { abierta: false, plegada: false, expandida: false, posicion: null };
 
 const esNumero = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
@@ -45,6 +47,7 @@ export function leerEstado(raw: string | null): EstadoVentana {
   return {
     abierta: o.abierta === true,
     plegada: o.plegada === true,
+    expandida: o.expandida === true,
     posicion: p && esNumero(p.x) && esNumero(p.y) ? { x: p.x, y: p.y } : null,
   };
 }
@@ -111,3 +114,28 @@ export function actualizarVentana(cambio: Partial<EstadoVentana>): void {
 // a la misma ruta no la vuelve a montar. Así que ahí se le avisa con un evento.
 
 export const EVENTO_SALTAR_A_CLASE = 'tentare:calendario-saltar-a-clase';
+
+// ─── El origen de la animación de apertura ───────────────────────────────────
+// La ventana nace del botón que la abre (como una ventana de macOS desde el
+// Dock), no de la nada. No se guarda: solo sirve para la animación de entrada.
+
+/** Cuánto vale un origen: lo justo para que la ventana que se abre ahora lo use. */
+const VIGENCIA_ORIGEN_MS = 1000;
+let origenApertura: (Punto & { en: number }) | null = null;
+
+export function abrirVentanaDesde(boton: HTMLElement | null): void {
+  const caja = boton?.getBoundingClientRect();
+  origenApertura = caja ? { x: caja.left + caja.width / 2, y: caja.top + caja.height / 2, en: Date.now() } : null;
+  actualizarVentana({ abierta: true, plegada: false });
+}
+
+/**
+ * El punto del que nace la ventana, si se acaba de abrir desde un botón.
+ *
+ * No se borra al leerlo: en desarrollo React monta los componentes dos veces, y
+ * la segunda lectura se quedaba sin origen. Caduca solo.
+ */
+export function origenAperturaReciente(ahora = Date.now()): Punto | null {
+  if (!origenApertura || ahora - origenApertura.en > VIGENCIA_ORIGEN_MS) return null;
+  return { x: origenApertura.x, y: origenApertura.y };
+}
