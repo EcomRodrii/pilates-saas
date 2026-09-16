@@ -79,11 +79,6 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
   const tiposById = new Map(tiposClase.map(t => [t.id, t]));
   const salasById = new Map(salas.map(x => [x.id, x]));
   const instrById = new Map(instructores.map(i => [i.id, i]));
-  const ocupadasTotalPorSesion = new Map<string, number>();
-  for (const r of reservas) {
-    if (r.estado === 'CANCELADA') continue;
-    ocupadasTotalPorSesion.set(r.sesionId, (ocupadasTotalPorSesion.get(r.sesionId) ?? 0) + 1);
-  }
   const originalPorSesion = new Map(sustitucionesConfirmadas.map(s => [s.sesionId, s.instructorOriginalId]));
   const sesionesRich = sesiones.map(s => ({
     ...s,
@@ -91,7 +86,12 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
     sala: salasById.get(s.salaId),
     instructor: instrById.get(s.instructorId),
     instructorOriginalNombre: instrById.get(originalPorSesion.get(s.id) ?? '')?.nombre ?? null,
-    ocupadas: ocupadasTotalPorSesion.get(s.id) ?? 0,
+    // Auditoría 2026-09-16 (RES-9): aquí se calculaba un SEGUNDO contador
+    // (`ocupadasTotalPorSesion`, «toda reserva que no sea CANCELADA») que
+    // nadie leía: el map final usa `ocupadasPorSesion`, con el criterio
+    // correcto (CONFIRMADA/ASISTIDA). Se retira el muerto y este campo pasa a
+    // 0; el valor bueno se asigna más abajo, en el `map` de salida.
+    ocupadas: 0,
   }));
 
   const ocupadasPorSesion = new Map<string, number>();

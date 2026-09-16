@@ -29,10 +29,25 @@ import { NextResponse, type NextRequest } from 'next/server';
 // la cabecera de framing no se aplica a peticiones que no son de navegación
 // de nivel superior — pero además el matcher de abajo ya lo deja fuera al
 // excluir explícitamente los estáticos.
+// Auditoría 2026-09-16 (AUTH-5): además del anti-clickjacking de arriba, no
+// se mandaba NINGUNA otra cabecera de seguridad. Las tres que se añaden aquí
+// no cambian ningún comportamiento de la app:
+//   · `Referrer-Policy` — sin ella, las URLs del panel (que llevan el id de
+//     una socia en el path: /clientas/<id>) viajan enteras en el `Referer`
+//     hacia cualquier tercero cargado desde la página.
+//   · `X-Content-Type-Options: nosniff` — impide que un fichero subido y
+//     servido desde origen propio se reinterprete como otro tipo.
+//   · `Permissions-Policy` — apaga cámara/micro/geo salvo donde se pidan.
+// HSTS queda FUERA a propósito: algún estudio puede servir su dominio propio
+// por HTTP, y `max-age` es irreversible desde el navegador durante su vigencia
+// — eso es una decisión de infraestructura, no un parche de auditoría.
 export function proxy(_req: NextRequest) {
   const res = NextResponse.next();
   res.headers.set('X-Frame-Options', 'DENY');
   res.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.headers.set('X-Content-Type-Options', 'nosniff');
+  res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   return res;
 }
 

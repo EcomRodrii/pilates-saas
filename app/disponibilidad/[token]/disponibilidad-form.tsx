@@ -21,6 +21,9 @@ export function DisponibilidadForm({
 }) {
   const [activas, setActivas] = useState<Set<string>>(() => new Set(celdasIniciales));
   const [estado, setEstado] = useState<'idle' | 'guardando' | 'ok' | 'error'>('idle');
+  // Auditoría 2026-09-16 (FE-8): el motivo real que manda el servidor (enlace
+  // caducado, p. ej.), para no enseñar siempre «revisa tu conexión».
+  const [motivoError, setMotivoError] = useState<string | null>(null);
 
   function toggle(dow: number, franja: FranjaKey) {
     const clave = celdaKey(dow, franja);
@@ -35,13 +38,25 @@ export function DisponibilidadForm({
 
   async function guardar() {
     setEstado('guardando');
+    setMotivoError(null);
     try {
       const res = await fetch('/api/public/disponibilidad', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, celdas: Array.from(activas) }),
       });
-      setEstado(res.ok ? 'ok' : 'error');
+      // Auditoría 2026-09-16 (FE-8): el servidor SÍ dice por qué (401 «Enlace
+      // no válido o caducado»), y la pantalla lo tiraba para enseñar siempre
+      // «revisa tu conexión». La instructora que entra tarde al enlace del
+      // email reintenta en bucle sobre un enlace muerto y acaba sin marcar
+      // disponibilidad. Mismo patrón que app/no-puedo/[token]/baja-form.tsx.
+      if (!res.ok) {
+        const j = (await res.json().catch(() => null)) as { error?: string } | null;
+        setMotivoError(j?.error ?? null);
+        setEstado('error');
+        return;
+      }
+      setEstado('ok');
     } catch {
       setEstado('error');
     }
@@ -113,7 +128,7 @@ export function DisponibilidadForm({
           </button>
           {estado === 'error' && (
             <p className="mt-2 text-center text-sm text-destructive">
-              No se pudo guardar. Revisa tu conexión e inténtalo otra vez.
+              {motivoError ?? 'No se pudo guardar. Revisa tu conexión e inténtalo otra vez.'}
             </p>
           )}
           <p className="mt-3 text-center text-xs text-slate-400">

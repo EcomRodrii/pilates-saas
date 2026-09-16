@@ -565,6 +565,7 @@ export default function MarketingPage() {
 
   // Códigos modal
   const [showCodigoModal, setShowCodigoModal] = useState(false)
+  const [creandoCodigo, setCreandoCodigo] = useState(false)
   const [newCodigo, setNewCodigo] = useState({
     codigo: '',
     descripcion: '',
@@ -714,6 +715,11 @@ export default function MarketingPage() {
 
   async function handleAddCodigo() {
     if (!newCodigo.codigo.trim() || !newCodigo.valor) return
+    // Auditoría 2026-09-16 (FE-7): sin cerrojo, dos clics en una conexión
+    // lenta creaban dos códigos de descuento idénticos.
+    if (creandoCodigo) return
+    setCreandoCodigo(true)
+    try {
     const res = await addCodigoDescuento({
       codigo: newCodigo.codigo.toUpperCase(),
       descripcion: newCodigo.descripcion,
@@ -728,6 +734,7 @@ export default function MarketingPage() {
     if (!res.ok) { showToast(res.error); return }
     setNewCodigo({ codigo: '', descripcion: '', tipo: 'PORCENTAJE', valor: '', usosMaximos: '', expira: '', minImporte: '', soloNuevas: false })
     setShowCodigoModal(false)
+    } finally { setCreandoCodigo(false) }
   }
 
   function handleSelectTemplate(key: TemplateKey) {
@@ -1763,9 +1770,10 @@ export default function MarketingPage() {
               </button>
               <button
                 onClick={handleAddCodigo}
-                className="px-4 py-2 text-sm rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors font-medium"
+                disabled={creandoCodigo}
+                className="px-4 py-2 text-sm rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors font-medium disabled:opacity-60"
               >
-                Crear código
+                {creandoCodigo ? 'Creando…' : 'Crear código'}
               </button>
             </div>
           </div>

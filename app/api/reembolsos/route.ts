@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
+import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { evaluarReembolso, type PoliticaReembolso } from '@/lib/billing/politica-reembolso';
 import { paramsReembolso } from '@/lib/billing/reembolso-params';
 
@@ -101,6 +102,16 @@ export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
     return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
+  }
+  // Auditoría 2026-09-16 (DEB-5): esta ruta MUEVE DINERO (devuelve un cobro) y
+  // era la única puerta de dinero con un guardia ad-hoc que solo detectaba el
+  // centinela `sk_test_XXXX` ("sin configurar") — no el desajuste
+  // modo↔entorno, que es lo que de verdad ataja `comprobarModoStripe`: clave
+  // live fuera de producción (devolvería dinero real desde un `npm run dev`) y
+  // clave test en producción (la devolución parecería hecha y no lo estaría).
+  const modo = comprobarModoStripe();
+  if (!modo.puedeCobrar) {
+    return NextResponse.json({ error: modo.motivo }, { status: 503 });
   }
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
   const cuenta = studio.stripe_account_id as string;

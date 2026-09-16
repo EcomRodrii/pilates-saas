@@ -56,6 +56,9 @@ export default function CierreDeAnoPage() {
   // (en vez de un setState(true) al entrar en el effect) evita el "setState
   // síncrono dentro de un effect".
   const [manualesAnio, setManualesAnio] = useState<number | null>(null);
+  // Auditoría 2026-09-16 (FE-2): distingue «no hay ingresos manuales» de «no
+  // he podido leerlos». Sin esto, un 500 se pintaba como cero euros.
+  const [errorManuales, setErrorManuales] = useState(false);
   const cargando = manualesAnio !== anio;
   const [form, setForm] = useState<FormState>(() => emptyForm(new Date().getFullYear(), ivaDef));
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -89,8 +92,16 @@ export default function CierreDeAnoPage() {
     try {
       const res = await fetch(`/api/ingresos-manuales?anio=${year}`, { headers: { ...(await authHeader()) } });
       const data = await res.json();
-      setManuales(res.ok ? (data.ingresos ?? []) : []);
-    } catch { setManuales([]); }
+      // Auditoría 2026-09-16 (FE-2): antes tanto el `catch` como la rama
+      // `!res.ok` hacían `setManuales([])`, convirtiendo «no he podido
+      // preguntarlo» en «no hay nada» — en la pantalla con la que se cuadra el
+      // cierre del ejercicio. Una lista vacía por avería es una cifra falsa
+      // presentada como buena. Mismo principio que lib/db/primer-error.ts: sin
+      // esto la app no se queda corta, MIENTE.
+      if (!res.ok) { setErrorManuales(true); return; }
+      setErrorManuales(false);
+      setManuales(data.ingresos ?? []);
+    } catch { setErrorManuales(true); }
     finally { setManualesAnio(year); }
   }, []);
 
@@ -465,6 +476,12 @@ export default function CierreDeAnoPage() {
 
         {cargando ? (
           <div className="px-5 py-8 text-center text-sm text-muted-foreground">Cargando…</div>
+        ) : errorManuales ? (
+          <div className="px-5 py-8 text-center text-sm">
+            <p className="text-destructive font-medium">No hemos podido leer tus ingresos manuales de {anio}.</p>
+            <p className="mt-1 text-muted-foreground">El total de arriba está incompleto: no lo uses para cuadrar el cierre hasta que cargue.</p>
+            <Button variant="ghost" className="mt-3" onClick={() => void cargarManuales(anio)}>Reintentar</Button>
+          </div>
         ) : manuales.length === 0 ? (
           <div className="px-5 py-8 text-center text-sm text-muted-foreground">Nada añadido para {anio}. Todo lo que cobraste fuera de Tentare va aquí.</div>
         ) : (

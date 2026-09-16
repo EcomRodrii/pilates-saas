@@ -23,17 +23,27 @@ export function ValorarForm({
   const [puntuacion, setPuntuacion] = useState(0);
   const [hover, setHover] = useState(0);
   const [comentario, setComentario] = useState('');
+  // Auditoría 2026-09-16 (FE-8): el servidor manda el motivo (enlace caducado,
+  // puntuación no válida) y se descartaba para enseñar siempre el mismo texto.
+  const [motivoError, setMotivoError] = useState<string | null>(null);
 
   async function enviar() {
     if (puntuacion < 1) return;
     setEstado('enviando');
+    setMotivoError(null);
     try {
       const res = await fetch('/api/public/valorar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, puntuacion, comentario: comentario.trim() || null }),
       });
-      setEstado(res.ok ? 'enviada' : 'error');
+      if (!res.ok) {
+        const j = (await res.json().catch(() => null)) as { error?: string } | null;
+        setMotivoError(j?.error ?? null);
+        setEstado('error');
+        return;
+      }
+      setEstado('enviada');
     } catch {
       setEstado('error');
     }
@@ -101,7 +111,7 @@ export function ValorarForm({
         >
           {estado === 'enviando' ? 'Enviando…' : 'Enviar valoración'}
         </button>
-        {estado === 'error' && <p className="mt-3 text-center text-sm text-destructive">No se pudo enviar. Inténtalo otra vez.</p>}
+        {estado === 'error' && <p className="mt-3 text-center text-sm text-destructive">{motivoError ?? 'No se pudo enviar. Inténtalo otra vez.'}</p>}
       </div>
     </main>
   );

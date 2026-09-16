@@ -34,9 +34,15 @@ export default function PageSalesOS() {
     }
   }, [search]);
 
+  // Auditoría 2026-09-16 (FE-14): el `clearTimeout` cancela el temporizador,
+  // no el `fetch` ya lanzado — dos búsquedas seguidas podían pintar la
+  // respuesta de la primera encima de la segunda. Es el único fetch-en-effect
+  // dependiente de un valor que cambia por tecla sin la guarda `vivo` que usa
+  // el resto del repo (hoy-en-el-estudio.tsx, hilo-mensajes.tsx...).
   useEffect(() => {
-    const timer = setTimeout(() => cargarLeads(), 300);
-    return () => clearTimeout(timer);
+    let vivo = true;
+    const timer = setTimeout(() => { if (vivo) void cargarLeads(); }, 300);
+    return () => { vivo = false; clearTimeout(timer); };
   }, [search, cargarLeads]);
 
   const leadsPorEstado: Record<string, SalesLead[]> = {};

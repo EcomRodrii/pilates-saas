@@ -1,8 +1,23 @@
 -- Auditoría 26ª pasada, P-4: el cierre del centro solo cerraba UNA puerta.
 --
--- `fecha_en_cierre` (20260905153105_cierre_del_centro.sql) ya la respetan
--- `reservar_plaza` y `resolver_reserva_pendiente` — un socio no puede reservar
--- ni ser aprobado en un día declarado cerrado. Pero el cron de las 02:00
+-- `fecha_en_cierre` (20260905153105_cierre_del_centro.sql) la respeta
+-- `reservar_plaza` — un socio no puede reservar en un día declarado cerrado.
+--
+-- ⚠️ CORRECCIÓN (auditoría 2026-09-16, RES-2): esta cabecera afirmaba que
+-- `resolver_reserva_pendiente` también lo respetaba. NO es cierto. El cuerpo
+-- vivo de esa función (20260907030958) no menciona `fecha_en_cierre` en
+-- ninguna de sus 177 líneas, y `grep -l ESTUDIO_CERRADO supabase/migrations/`
+-- devuelve solo las dos migraciones que tocan `reservar_plaza`. Con
+-- `requiere_aprobacion` activo, una petición creada ANTES del cierre se puede
+-- aprobar DESPUÉS: queda CONFIRMADA, consume bono y avisa a la socia de una
+-- clase que el estudio ya dijo que no da. Queda PENDIENTE (hoy sin impacto
+-- real: 0 filas en `cierres_estudio`) — el arreglo es una migración propia que
+-- añada el guard en esa función, con verificación en vivo y re-endurecimiento
+-- de grants. No se aplicó aquí para no tocar una RPC central desde una
+-- auditoría. Pero el arreglo de abajo la deja fuera a propósito, no por
+-- herencia.
+--
+-- Pero el cron de las 02:00
 -- (`materializar_plazas_fijas`) seguía CONFIRMANDO plazas fijas en días
 -- cerrados si el estudio declaraba el cierre DESPUÉS de crear la sesión, y
 -- `promocionar_siguiente_espera` seguía promocionando desde la lista de

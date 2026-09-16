@@ -110,7 +110,15 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string):
   };
 }
 
-async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; expiresAt: string }> {
+// Auditoría 2026-09-16 (DEB-4): esta función se copió de `lib/gmail.ts` /
+// `lib/google-calendar.ts`, donde descartar `refresh_token` es correcto porque
+// Google NO rota el refresh token. Klaviyo rota el suyo en cada renovación
+// (mismo caso que Zoom, ver el comentario de `lib/zoom.ts`): tirar el nuevo y
+// reusar el viejo —ya invalidado— mata la integración PARA SIEMPRE en la
+// primera renovación, y la propietaria solo ve "sincronización fallida" sin
+// forma de arreglarlo salvo desconectar y reconectar. Se devuelve el token
+// rotado con fallback al actual, exactamente el patrón ya probado en Zoom.
+async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string; expiresAt: string }> {
   const { clientId, clientSecret } = env();
   if (!clientId || !clientSecret) throw new Error('Klaviyo no configurado');
 
@@ -124,7 +132,11 @@ async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: 
   if (!res.ok || !data.access_token) {
     throw new Error(data.error_description ?? data.error ?? 'No se pudo renovar el token de Klaviyo');
   }
-  return { accessToken: data.access_token, expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString() };
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token ?? refreshToken,
+    expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString(),
+  };
 }
 
 // Mismo criterio que revocarToken en google-calendar.ts: best-effort, nunca
@@ -155,7 +167,7 @@ export async function getValidAccessToken(studioId: string): Promise<string | nu
   if (vigente) return creds.accessToken;
 
   const renovado = await refreshAccessToken(creds.refreshToken);
-  const nuevasCreds: KlaviyoCredenciales = { accessToken: renovado.accessToken, refreshToken: creds.refreshToken, expiresAt: renovado.expiresAt, listId: creds.listId };
+  const nuevasCreds: KlaviyoCredenciales = { accessToken: renovado.accessToken, refreshToken: renovado.refreshToken, expiresAt: renovado.expiresAt, listId: creds.listId };
   await dbSaveKlaviyoCredenciales(studioId, nuevasCreds);
   return renovado.accessToken;
 }

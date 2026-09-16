@@ -194,8 +194,13 @@ function downloadICS(s: SesionRich, estudioNombre: string, estudioDireccion: str
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function LevelBadge({ nivel }: { nivel?: string }) {
+  // Auditoría 2026-09-16 (FE-11): este par era `rgba(129,140,248,0.2)` de
+  // fondo con `#a5b4fc` de texto — 1,67:1 de contraste, muy por debajo del
+  // 4,5:1 de AA, en una insignia que sale en CADA tarjeta de clase del único
+  // camino que produce ingresos. `NIVEL_COLOR.TODOS` ya existía con un par que
+  // sí contrasta y era código muerto, porque este early-return lo adelantaba.
   if (!nivel || nivel === 'TODOS') return (
-    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: 'rgba(129,140,248,0.2)', color: '#a5b4fc' }}>
+    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: NIVEL_COLOR.TODOS.bg, color: NIVEL_COLOR.TODOS.text }}>
       Todos los niveles
     </span>
   );
@@ -3982,6 +3987,7 @@ export default function ReservarPage() {
                       Escribe tu contraseña si ya la tienes, o solo tu email y te enviamos un enlace de acceso.
                     </p>
                     <input type="email"
+                      aria-label="Tu email"
                       placeholder="Tu email"
                       value={loginForm.email}
                       onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setLoginError(''); }}
@@ -3990,6 +3996,7 @@ export default function ReservarPage() {
                       className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                       style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                     <input type="password"
+                      aria-label="Tu contraseña"
                       placeholder="Tu contraseña (si la tienes)"
                       value={loginPassword}
                       onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
@@ -4141,6 +4148,7 @@ export default function ReservarPage() {
                   );
                 })()}
                 <input type="text"
+                  aria-label="Tu nombre completo"
                   placeholder="Tu nombre completo"
                   value={loginForm.nombre}
                   onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
@@ -4148,6 +4156,7 @@ export default function ReservarPage() {
                   className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                   style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                 <input type="tel"
+                  aria-label="Tu teléfono"
                   placeholder="Tu teléfono (+34 600 000 000)"
                   value={loginForm.telefono}
                   onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
