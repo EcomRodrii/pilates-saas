@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
 import { errorInterno } from '@/lib/errores-servidor';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeVer } from '@/lib/permisos-reglas';
-import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { correoAutomatizacion } from '@/lib/emails/estudio/mensajes';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { resolverContextoEstudio } from '@/lib/emails/plantillas-preview';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 import { definicionMensaje, plantillaDe, renderMensaje } from '@/lib/engines/mensajes-automatizacion';
@@ -16,7 +16,7 @@ import { definicionMensaje, plantillaDe, renderMensaje } from '@/lib/engines/men
 // se sabía cuando le llegaba a una clienta real. Mismo criterio que la prueba
 // de plantillas (/api/plantillas-email/prueba): SIEMPRE al email de quien lo
 // pide, nunca a un destinatario del body, y con la plantilla de correo que usa
-// el envío real (`AutomatizacionEmail`, ver lib/inngest/automatizaciones.ts).
+// el envío real (`correoAutomatizacion`, ver lib/inngest/automatizaciones.ts).
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -54,14 +54,12 @@ export async function POST(req: NextRequest) {
   const mensaje = renderMensaje(plantilla, ejemplos);
 
   const { nombre, marca } = await resolverContextoEstudio(sesion.studioId);
-  const html = await render(AutomatizacionEmail({
+  const html = correoAutomatizacion({
     socioNombre: ejemplos.nombre ?? 'Elena',
     titulo: def.asunto,
     mensaje,
-    estudioNombre: marca.estudioNombre ?? nombre,
-    colorPrimario: marca.colorPrimario,
-    logoUrl: marca.logoUrl,
-  }));
+    marca: marcaCorreoDesde(marca, nombre),
+  });
 
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({

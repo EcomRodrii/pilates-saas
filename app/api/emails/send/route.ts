@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { errorInterno } from '@/lib/errores-servidor';
-import { render } from '@react-email/render';
 import { correoRecibo } from '@/lib/emails/estudio/cobros';
 import { correoBienvenida } from '@/lib/emails/estudio/cuenta';
 import { correoReserva, correoRecordatorio, correoCancelacionClase, correoPlazaLiberada } from '@/lib/emails/estudio/clase';
 import { correoCambioClase } from '@/lib/emails/estudio/avisos';
+import { correoAutomatizacion } from '@/lib/emails/estudio/mensajes';
 import { marcaCorreoDesde, urlAppSocia } from '@/lib/emails/estudio/marca-correo';
-import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
@@ -216,7 +215,7 @@ export async function POST(req: NextRequest) {
     subject = asuntoCustom ?? `Reserva confirmada — ${d.claseNombre}`;
   } else if (tipo === 'automatizacion') {
     const d = datos as { titulo: string; mensaje: string; estudioNombre?: string };
-    html = await render(AutomatizacionEmail({ socioNombre: toName, ...d, ...marca }));
+    html = correoAutomatizacion({ socioNombre: toName, titulo: d.titulo, mensaje: d.mensaje, marca: marcaCorreoDesde(marca, d.estudioNombre ?? nombreEstudio ?? 'Tu estudio') });
     subject = d.titulo;
   } else if (tipo === 'promocion') {
     const d = datos as DatosClase;

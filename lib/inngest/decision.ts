@@ -3,14 +3,15 @@
 // El cliente se importa desde './client' (mismo orden que ese archivo, nota OTel).
 import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { cobroManualDeRecibo } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
-import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { correoAutomatizacion } from '@/lib/emails/estudio/mensajes';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
+import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { remitentePorMarca } from '../emails/remitente.ts';
 import { uid } from '@/lib/utils';
 import { construirSnapshot } from '@/lib/decision/snapshot-cache';
@@ -372,13 +373,16 @@ async function crearCodigoReactivacion(r: Recomendacion): Promise<string | null>
 // IA para que suene personal (falla-suave al determinista).
 async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; detalle: string }> {
   if (!r.socioId) return { ok: false, detalle: 'Sin socia asociada' };
-  const [{ data: socio }, { data: studio }] = await Promise.all([
+  // La marca sale de `resolverMarcaEstudio`, no de un `select` a mano: el color
+  // de `studios.color_primario` es un índigo de alta (lib/emails/color-marca.ts)
+  // y de paso trae el Reply-To del estudio.
+  const [{ data: socio }, studio] = await Promise.all([
     requireSupabaseAdmin().from('socios').select('nombre, email').eq('id', r.socioId).single(),
-    requireSupabaseAdmin().from('studios').select('nombre, color_primario, logo_url').eq('id', r.studioId).single(),
+    resolverMarcaEstudio(r.studioId),
   ]);
   if (!socio?.email) return { ok: false, detalle: 'La socia no tiene email registrado' };
 
-  const estudioNombre = studio?.nombre ?? '';
+  const estudioNombre = studio.nombre ?? '';
 
   // Next-best-offer: si la recomendación lleva descuento, se crea el código real
   // ANTES de redactar, para que el mensaje lo incluya y sea canjeable en el POS.
@@ -400,12 +404,16 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
     literalesObligatorios: codigoDescuento ? [codigoDescuento] : [],
   });
 
-  const html = await render(AutomatizacionEmail({
-    socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo, estudioNombre,
-    colorPrimario: studio?.color_primario, logoUrl: studio?.logo_url,
-  }));
+  const html = correoAutomatizacion({
+    socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo,
+    marca: marcaCorreoDesde(studio, estudioNombre || 'Tu estudio'),
+  });
   const { error } = await resend.emails.send(
-    { from: remitentePorMarca(estudioNombre || 'Tentare'), to: [socio.email], subject: mensaje.asunto, html },
+    {
+      from: remitentePorMarca(estudioNombre || 'Tentare'), to: [socio.email], subject: mensaje.asunto, html,
+      // Si la socia contesta, le contesta a SU estudio y no al buzón de la plataforma.
+      ...(studio.replyTo ? { replyTo: studio.replyTo } : {}),
+    },
     { idempotencyKey: r.id }
   );
   if (error) return { ok: false, detalle: error.message };
@@ -425,14 +433,14 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
 // gestionada sin fallar (la acción real la hace el propietario por WhatsApp).
 async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; detalle: string }> {
   if (!r.socioId) return { ok: true, detalle: 'Recomendación sin socia — marcada como gestionada.' };
-  const [{ data: socio }, { data: studio }] = await Promise.all([
+  const [{ data: socio }, studio] = await Promise.all([
     requireSupabaseAdmin().from('socios').select('nombre, email, telefono').eq('id', r.socioId).single(),
-    requireSupabaseAdmin().from('studios').select('nombre, color_primario, logo_url').eq('id', r.studioId).single(),
+    resolverMarcaEstudio(r.studioId),
   ]);
-  const base = mensajeParaSocia(r.tipo, r.datosUsados, studio?.nombre ?? '');
+  const base = mensajeParaSocia(r.tipo, r.datosUsados, studio.nombre ?? '');
   if (!base) return { ok: true, detalle: 'Sin mensaje automático para este tipo — marcada como gestionada.' };
   // Mismo mensaje, reescrito con IA para que suene personal (falla-suave).
-  const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: studio?.nombre ?? '', tipo: r.tipo, datosUsados: r.datosUsados });
+  const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: studio.nombre ?? '', tipo: r.tipo, datosUsados: r.datosUsados });
 
   // Si la recomendación es de canal WhatsApp y el estudio tiene su WhatsApp
   // Business conectado (Meta Cloud API, no Twilio — se retiró: en producción no
@@ -462,12 +470,15 @@ async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; d
   const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
   if (!resend) return { ok: true, detalle: 'Email no configurado — contáctala por WhatsApp desde la tarjeta.' };
 
-  const html = await render(AutomatizacionEmail({
-    socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo, estudioNombre: studio?.nombre ?? '',
-    colorPrimario: studio?.color_primario, logoUrl: studio?.logo_url,
-  }));
+  const html = correoAutomatizacion({
+    socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo,
+    marca: marcaCorreoDesde(studio, 'Tu estudio'),
+  });
   const { error } = await resend.emails.send(
-    { from: remitentePorMarca(studio?.nombre || 'Tentare'), to: [socio.email], subject: mensaje.asunto, html },
+    {
+      from: remitentePorMarca(studio.nombre || 'Tentare'), to: [socio.email], subject: mensaje.asunto, html,
+      ...(studio.replyTo ? { replyTo: studio.replyTo } : {}),
+    },
     { idempotencyKey: r.id }
   );
   if (error) return { ok: false, detalle: error.message };

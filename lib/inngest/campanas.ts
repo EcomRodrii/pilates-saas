@@ -1,6 +1,5 @@
 import { inngest, EVENTS } from './client';
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { mapCampana } from '@/lib/supabase-data';
 import { fetchAllStudioDataServidor } from '@/lib/db/supabase-data-admin';
@@ -13,9 +12,10 @@ import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
-import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { correoAutomatizacion } from '@/lib/emails/estudio/mensajes';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
-import { appUrl } from '@/lib/emails/plantillas-server';
+import { appUrl, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import type { RowCampanas } from '@/lib/db-types';
 
 // Envío server-side de una campaña — reemplaza el mapLimit(8) que orquestaba
@@ -50,11 +50,22 @@ export const procesarEnvioCampana = inngest.createFunction(
     if (!campana) return { skipped: 'campana no encontrada' };
 
     const studio = await step.run('fetch-studio', async () => {
-      const { data } = await requireSupabaseAdmin()
-        .from('studios').select('nombre, color_primario, logo_url').eq('id', studioId).maybeSingle();
-      return data as { nombre: string | null; color_primario: string | null; logo_url: string | null } | null;
+      const [{ data }, marcaEstudio] = await Promise.all([
+        requireSupabaseAdmin().from('studios').select('nombre, color_primario, logo_url').eq('id', studioId).maybeSingle(),
+        resolverMarcaEstudio(studioId),
+      ]);
+      const fila = data as { nombre: string | null; color_primario: string | null; logo_url: string | null } | null;
+      // La marca del correo viaja en el MISMO paso, sin añadir ninguno: el
+      // color ya no sale de `color_primario` (ver lib/emails/color-marca.ts).
+      return fila ? { ...fila, marca: marcaCorreoDesde(marcaEstudio, fila.nombre || 'Tu estudio') } : null;
     });
     const studioNombre = studio?.nombre || 'Tentare';
+    // Una campaña que empezó antes de este despliegue trae el paso memoizado
+    // sin `marca`: solo para ese caso se cae a las columnas de siempre.
+    const marcaCorreo = studio?.marca ?? marcaCorreoDesde(
+      { nombre: studio?.nombre, colorPrimario: studio?.color_primario, logoUrl: studio?.logo_url },
+      studioNombre,
+    );
 
     // El recorte va DENTRO del step (mismo criterio que procesarEstudioAutomatizaciones):
     // solo se devuelve lo que hace falta, aunque fetchAllStudioData consulte
@@ -118,16 +129,14 @@ export const procesarEnvioCampana = inngest.createFunction(
       const r = await step.run(`envio-${i}-${socio.id}`, async (): Promise<{ ok: boolean; error?: string; meta?: boolean }> => {
         if (campana.tipo === 'EMAIL') {
           if (!resend || !socio.email) return { ok: false };
-          const html = await render(AutomatizacionEmail({
+          const html = correoAutomatizacion({
             socioNombre: socio.nombre,
             titulo: campana.asunto,
             mensaje: campana.contenido,
-            estudioNombre: studioNombre,
-            colorPrimario: studio?.color_primario ?? null,
-            logoUrl: studio?.logo_url ?? null,
+            marca: marcaCorreo,
             // LSSI: toda comunicación comercial lleva enlace de baja.
             unsubscribeUrl: `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(studioId, socio.id)}`,
-          }));
+          });
           const r = await resendEmailProvider(resend).enviar({
             to: socio.email,
             subject: campana.asunto,

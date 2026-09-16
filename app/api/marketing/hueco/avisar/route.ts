@@ -4,10 +4,11 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
 import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_HUECO } from '@/lib/whatsapp';
 import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
-import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { correoAutomatizacion } from '@/lib/emails/estudio/mensajes';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
+import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { normalizarEmail } from '@/lib/emails/rebotes';
@@ -131,6 +132,9 @@ export async function POST(req: NextRequest) {
       admin.from('studios').select('nombre, slug, logo_url, color_primario').eq('id', sesion.studioId).single(),
       admin.from('tipos_clase').select('nombre').eq('id', sesionObj.tipoClaseId).maybeSingle(),
     ]);
+    // La marca del correo, una vez para todo el aviso: el color de
+    // `studios.color_primario` es un índigo de alta (lib/emails/color-marca.ts).
+    const marcaEstudio = await resolverMarcaEstudio(sesion.studioId);
 
     const sesiones = (sesionesRows ?? []).map(r => mapSesion(r as RowSesiones));
     const reservas = (reservasRows ?? []).map(r => mapReserva(r as RowReservas));
@@ -306,20 +310,18 @@ export async function POST(req: NextRequest) {
           : await enviarWhatsAppTexto(whatsapp!, socia.telefono!, textoAviso(socia.nombre));
         salud.anota(resultado);
       } else {
-        const html = await render(AutomatizacionEmail({
+        const html = correoAutomatizacion({
           socioNombre: socia.nombre,
           titulo: `Se ha quedado un hueco en ${nombreClase}`,
           mensaje: `Se ha liberado una plaza en ${nombreClase} el ${fecha} a las ${hora}. Si te viene bien, es tuya.`,
-          estudioNombre: nombreEstudio,
-          logoUrl: studioRow?.logo_url ?? null,
-          colorPrimario: studioRow?.color_primario ?? null,
+          marca: marcaCorreoDesde(marcaEstudio, nombreEstudio),
           accion: { url: enlace, texto: 'Reservar mi plaza' },
           // LSSI art. 21: toda comunicación comercial lleva enlace de baja. Y
           // aquí no es solo la ley — el consentimiento que firmó la socia
           // promete literalmente poder darse de baja «desde el enlace de baja
           // de cualquier email». Sin él, el correo incumple su propio permiso.
           unsubscribeUrl: `${appUrl}/api/marketing/baja?token=${firmarBajaMarketing(sesion.studioId, socia.id)}`,
-        }));
+        });
         // `ResultadoEnvioProvider` es `{ ok: boolean; error?: string }`, no una
         // unión discriminada: se normaliza aquí para que el resto del bucle
         // trate los dos canales igual. Un `ok: false` sin mensaje del proveedor
