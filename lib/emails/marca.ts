@@ -17,8 +17,8 @@ import { canalesDelEstudio, type CanalResuelto, type RedSocialId } from '../cana
 export type MarcaEstudio = {
   // Para el remitente: `remitentePorMarca(marca.nombre)`.
   nombre?: string | null;
-  // Para las plantillas: `<EmailLayout studioNombre={estudioNombre}>`. Mismo
-  // dato que `nombre`, con el nombre de la prop. Sin `| null`: las plantillas
+  // Para las plantillas que reciben la prop `estudioNombre`. Mismo dato que
+  // `nombre`, con el nombre de la prop. Sin `| null`: las plantillas
   // la declaran `estudioNombre?: string` con default, y un `null` explícito
   // mataría el default en vez de ceder a él.
   estudioNombre?: string;
@@ -49,7 +49,7 @@ export type MarcaEstudio = {
   // enteraba nunca. Ninguno de los correos a clientas ponía Reply-To.
   replyTo?: string;
   // Los CANALES del estudio (su web y sus redes), ya resueltos a enlaces
-  // seguros: `<EmailLayout canales={...}>` los pinta en el pie. Vienen de dos
+  // seguros: `correoEstudio` (lib/emails/estudio/plantilla.ts) los pinta en el pie. Vienen de dos
   // sitios distintos —`studios.sitio_web` y el tema publicado— y `marcaDesdeFila`
   // es quien los junta, para que ninguna plantilla tenga que saberlo.
   // Ausente/vacío = el pie de siempre, sin una línea de más.

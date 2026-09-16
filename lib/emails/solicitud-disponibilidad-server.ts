@@ -1,6 +1,5 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { SolicitudDisponibilidadEmail } from '@/lib/emails/solicitud-disponibilidad-template';
+import { correoSolicitudDisponibilidad } from '@/lib/emails/tentare/equipo';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 
 // Envío del email de "pedir disponibilidad" (P2-10, app/api/sustituciones/pedir-disponibilidad).
@@ -21,7 +20,7 @@ export async function enviarEmailSolicitudDisponibilidad(params: {
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
 
   try {
-    const html = await render(SolicitudDisponibilidadEmail(params));
+    const html = correoSolicitudDisponibilidad(params);
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
       from: remitentePorMarca('Tentare'),

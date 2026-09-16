@@ -1,11 +1,9 @@
-import type { ComponentProps } from 'react';
-import { SolicitudDisponibilidadEmail } from '@/lib/emails/solicitud-disponibilidad-template';
-import { MARCA, PROPIETARIA, INSTRUCTORA, URL_MUESTRA } from './_muestra';
+import { correoSolicitudDisponibilidad } from '@/lib/emails/tentare/equipo';
+import { MARCA, INSTRUCTORA, PROPIETARIA, URL_MUESTRA } from './_muestra';
 
-type Props = ComponentProps<typeof SolicitudDisponibilidadEmail>;
-
-const Preview = (props: Props) => <SolicitudDisponibilidadEmail {...props} />;
-
-Preview.PreviewProps = { ...MARCA, nombre: INSTRUCTORA, propietariaNombre: PROPIETARIA, url: URL_MUESTRA } satisfies Props;
+// Familia Tentare (lib/emails/tentare/). Ver la nota de emails/reserva.tsx.
+const Preview = () => (
+  <div dangerouslySetInnerHTML={{ __html: correoSolicitudDisponibilidad({ nombre: INSTRUCTORA, propietariaNombre: PROPIETARIA, estudioNombre: MARCA.estudioNombre, url: URL_MUESTRA }) }} />
+);
 
 export default Preview;

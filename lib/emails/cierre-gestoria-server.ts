@@ -1,6 +1,5 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { CierreGestoriaEmail } from '@/lib/emails/cierre-gestoria-template';
+import { correoCierreGestoria } from '@/lib/emails/tentare/equipo';
 import { serializeCsv } from '@/lib/csv';
 import { cierreLibroCsvData, type CierreAnual } from '@/lib/fiscal/cierre-engine';
 import { remitentePorMarca } from '@/lib/emails/remitente';
@@ -24,7 +23,8 @@ export async function enviarCierreAGestoria(params: {
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
 
-  const { to, estudioNombre, estudioEmail, logoUrl, colorPrimario, anio, trimestre, cierre } = params;
+  // `logoUrl`/`colorPrimario` se aceptan pero ya no pintan: el correo lo firma Tentare Manager.
+  const { to, estudioNombre, estudioEmail, anio, trimestre, cierre } = params;
   const nombreAdjunto = trimestre
     ? `cierre-${anio}-T${trimestre}-libro-facturas.csv`
     : `cierre-${anio}-libro-facturas.csv`;
@@ -34,14 +34,12 @@ export async function enviarCierreAGestoria(params: {
     const csv = '﻿' + serializeCsv(headers, rows); // BOM para Excel
     const contentBase64 = Buffer.from(csv, 'utf-8').toString('base64');
 
-    const html = await render(
-      CierreGestoriaEmail({
-        estudioNombre, logoUrl, colorPrimario, anio, trimestre, remitente: estudioNombre,
-        totales: cierre.totales,
-        trimestres: cierre.trimestres,
-        nombreAdjunto,
-      }),
-    );
+    const html = correoCierreGestoria({
+      estudioNombre, anio, trimestre,
+      totales: cierre.totales,
+      trimestres: cierre.trimestres,
+      nombreAdjunto,
+    });
 
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({

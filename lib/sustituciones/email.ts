@@ -1,15 +1,15 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
 import type { TipoAlertaPropietaria } from '@/lib/sustituciones/mensajes';
-import { ContactoSustitutaEmail, AlertaPropietariaEmail } from '@/lib/emails/sustitucion-template';
+import { correoContactoSustituta, correoAlertaPropietaria } from '@/lib/emails/tentare/equipo';
 import { correoAvisoSustitucion, asuntoAvisoAlumna, type AvisoAlumna } from '@/lib/emails/estudio/avisos';
 import type { MarcaCorreo } from '@/lib/emails/estudio/plantilla';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 
-// Emails del módulo de sustituciones, con la plantilla premium compartida
-// (lib/emails/layout.tsx) — marca del estudio (logo + colorPrimario) igual
-// que el resto del producto. Mismo patrón de degradación que send-server.ts:
-// si Resend no está configurado, no falla → { skipped }.
+// Emails del módulo de sustituciones. Los dos al EQUIPO (contactar a una
+// sustituta, avisar a la propietaria) los firma Tentare y van con su sistema
+// (lib/emails/tentare/); el aviso a la ALUMNA lleva la marca de su estudio
+// (lib/emails/estudio/). Mismo patrón de degradación que send-server.ts: si
+// Resend no está configurado, no falla → { skipped }.
 
 interface Marca {
   logoUrl?: string | null;
@@ -27,8 +27,9 @@ export async function enviarEmailContactoSustituta(params: Marca & {
   url: string;    // la página de respuesta (ACEPTO / No puedo se pulsan allí)
   recordatorio?: boolean; // 2º toque: cambia el tono a "recordatorio"
 }): Promise<EnvioResultado> {
-  const { to, toName, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, url, recordatorio } = params;
-  const html = await render(ContactoSustitutaEmail({ toName, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, url, recordatorio }));
+  const { to, toName, estudioNombre, claseNombre, cuando, url, recordatorio } = params;
+  // Firma Tentare: `logoUrl`/`colorPrimario` se aceptan pero ya no pintan.
+  const html = correoContactoSustituta({ toName, estudioNombre, claseNombre, cuando, url, recordatorio });
   const asunto = recordatorio
     ? `Recordatorio: ¿puedes cubrir ${claseNombre}? — ${estudioNombre}`
     : `¿Puedes cubrir ${claseNombre}? — ${estudioNombre}`;
@@ -49,11 +50,11 @@ export async function enviarEmailAlertaPropietaria(params: Marca & {
   yaContactando?: boolean; // 'baja': el motor ya está avisando a candidatas
   nNetwork?: number;       // 'agotada': profesionales de Network propuestos (solo el número)
 }): Promise<EnvioResultado> {
-  const { to, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando, nNetwork } = params;
+  const { to, estudioNombre, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando, nNetwork } = params;
   const agotada = tipo === 'agotada';
   const baja = tipo === 'baja';
   const sinSustituta = tipo === 'sin_sustituta';
-  const html = await render(AlertaPropietariaEmail({ estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando, nNetwork }));
+  const html = correoAlertaPropietaria({ estudioNombre, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando, nNetwork });
   const asunto = baja
     ? `${candidataNombre ?? 'Una instructora'} no puede dar ${claseNombre} — ya estamos en ello`
     : agotada

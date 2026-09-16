@@ -1,20 +1,9 @@
-import type { ComponentProps } from 'react';
-import { AlertaPropietariaEmail } from '@/lib/emails/sustitucion-template';
-import { MARCA, INSTRUCTORA, CLASE, CUANDO, URL_MUESTRA } from './_muestra';
+import { correoAlertaPropietaria } from '@/lib/emails/tentare/equipo';
+import { MARCA, CLASE, CUANDO, URL_MUESTRA } from './_muestra';
 
-type Props = ComponentProps<typeof AlertaPropietariaEmail>;
-
-const Preview = (props: Props) => <AlertaPropietariaEmail {...props} />;
-
-Preview.PreviewProps = {
-  ...MARCA,
-  claseNombre: CLASE.claseNombre,
-  cuando: CUANDO,
-  // 'baja' | 'sin_respuesta' | 'agotada' — cada una cambia título y cuerpo.
-  tipo: 'sin_respuesta' as const,
-  candidataNombre: INSTRUCTORA,
-  urlPanel: URL_MUESTRA,
-  yaContactando: true,
-} satisfies Props;
+// Familia Tentare (lib/emails/tentare/). Ver la nota de emails/reserva.tsx.
+const Preview = () => (
+  <div dangerouslySetInnerHTML={{ __html: correoAlertaPropietaria({ estudioNombre: MARCA.estudioNombre, claseNombre: CLASE.claseNombre, cuando: CUANDO, tipo: 'agotada' as const, urlPanel: URL_MUESTRA, nNetwork: 2 }) }} />
+);
 
 export default Preview;

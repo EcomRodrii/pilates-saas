@@ -1,16 +1,9 @@
-import type { ComponentProps } from 'react';
-import { ReferenciaSolicitudEmail } from '@/lib/emails/referencia-solicitud-template';
-import { URL_MUESTRA } from './_muestra';
+import { correoReferenciaSolicitud } from '@/lib/emails/tentare/equipo';
+import { INSTRUCTORA, PROPIETARIA, URL_MUESTRA } from './_muestra';
 
-type Props = ComponentProps<typeof ReferenciaSolicitudEmail>;
-
-const Preview = (props: Props) => <ReferenciaSolicitudEmail {...props} />;
-
-Preview.PreviewProps = {
-  nombreReferente: 'Carla Jiménez',
-  profesionalNombre: 'Marta Ruiz',
-  relacion: 'fue mi responsable de estudio',
-  url: URL_MUESTRA,
-} satisfies Props;
+// Familia Tentare (lib/emails/tentare/). Ver la nota de emails/reserva.tsx.
+const Preview = () => (
+  <div dangerouslySetInnerHTML={{ __html: correoReferenciaSolicitud({ nombreReferente: PROPIETARIA, profesionalNombre: INSTRUCTORA, relacion: 'Compañeras en Estudio Aravaca', url: URL_MUESTRA }) }} />
+);
 
 export default Preview;

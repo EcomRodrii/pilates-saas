@@ -126,11 +126,10 @@ export function interpolarPersonalizacion(
 // Se reexporta para no tocar los ~10 importadores que ya lo traen de aquí.
 export type { MarcaEstudio } from './marca.ts';
 
-// Resuelve el logo + color + slug de un estudio para pintarlos en la
-// plantilla premium compartida (lib/emails/layout.tsx) y, si hace falta,
-// enlazar a su portal (bienvenida). Sin studioId (emails de plataforma, no de
-// un estudio concreto) devuelve {} y el layout cae al morado por defecto de
-// Tentare. Una sola query: antes `slug` vivía en un resolver aparte que
+// Resuelve el logo + color + slug de un estudio para pintarlos en sus correos
+// (lib/emails/estudio/, vía `marcaCorreoDesde`) y, si hace falta, enlazar a su
+// portal (bienvenida). Sin studioId devuelve {} y la plantilla cae a la marca
+// por defecto; los correos de Tentare no pasan por aquí (lib/emails/tentare/). Una sola query: antes `slug` vivía en un resolver aparte que
 // repetía la misma consulta a `studios` por el mismo id.
 export async function resolverMarcaEstudio(studioId: string | null | undefined): Promise<MarcaEstudio> {
   if (!studioId) return {};
