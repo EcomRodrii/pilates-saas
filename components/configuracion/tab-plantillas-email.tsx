@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { FUENTES_EMAIL, type FuenteEmail, type PlantillaEmail, type TipoPlantillaEmail } from '@/lib/types';
 import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/components/configuracion/estilos';
 import { EstadoAjuste } from '@/components/configuracion/shell/estado-ajuste';
-import { previsualizarPlantilla, enviarPruebaPlantilla } from '@/lib/api-client';
+import { previsualizarPlantilla, enviarPruebaPlantilla, fetchThemePublicado } from '@/lib/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useNavegacionConfig } from '@/components/configuracion/shell/contexto';
@@ -296,7 +296,11 @@ function BloquePortada({
           clasePreview="w-24 h-14"
           textoSubir="Subir foto"
           textoCambiar="Cambiar foto"
-          ayuda="JPG o PNG. Se guarda en JPG a 1200 px: Outlook no pinta WEBP y dejaría un hueco."
+          ayuda={
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+              JPG o PNG. Se guarda en JPG a 1200 px: Outlook no pinta WEBP y dejaría un hueco.
+            </p>
+          }
         />
       )}
     </div>
@@ -409,6 +413,21 @@ function EditorPlantilla({
   // mismo no es un cambio que se pierda.
   const sucio = JSON.stringify(b) !== JSON.stringify(borradorDe(plantilla));
   useEffect(() => { onSucio(sucio); }, [sucio, onSucio]);
+
+  // El color de la marca del estudio, para que los selectores enseñen lo que
+  // sale de verdad. Del tema PUBLICADO —que sin tema cae al preset—, no de
+  // `studio.colorPrimario`: esa columna guarda un índigo de alta que no eligió
+  // nadie (ver lib/emails/color-marca.ts). Mientras carga, el oliva del kit.
+  const [colorMarca, setColorMarca] = useState({ primario: '#343825', secundario: '#5A6142' });
+  useEffect(() => {
+    let vivo = true;
+    fetchThemePublicado()
+      .then(t => { if (vivo && t) setColorMarca({ primario: t.primary, secundario: t.secondary || t.primary }); })
+      // Sin tema que leer, los selectores se quedan en el del kit: el correo
+      // tampoco tendría otro.
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, []);
 
   const modoLibre = b.cuerpo.trim() !== '';
 
@@ -533,7 +552,7 @@ function EditorPlantilla({
             )}
           >
             <span className="block text-[13px] font-semibold text-foreground">Cambiar solo el saludo</span>
-            <span className="block text-xs text-muted-foreground">El diseño de Tentare, con tus palabras.</span>
+            <span className="block text-xs text-muted-foreground">Con tu marca y tus colores; tú pones las palabras.</span>
           </button>
           <button
             type="button"
@@ -611,20 +630,24 @@ function EditorPlantilla({
               calcula solo para que se lea sobre el fondo que elijas.
             </p>
             <BloquePortada meta={meta} b={b} set={set} showToast={showToast} />
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Color de la franja" description="La banda de arriba del correo.">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Color principal" description="Tiñe el correo: la franja, las etiquetas y el fondo.">
+                {/* Enseña el color que sale DE VERDAD: el que haya elegido aquí,
+                    o el de su marca. Antes enseñaba un oliva fijo mientras el
+                    correo salía de otro color. */}
                 <input type="color" className={cn(inputCls, 'h-10 p-1')}
-                  value={b.colorCabecera || '#343825'}
+                  value={b.colorCabecera || colorMarca.primario}
                   onChange={e => set('colorCabecera', e.target.value)} />
               </Field>
               <Field
                 label="Color del botón"
-                description={b.colorBoton ? 'Distinto al de la franja.' : 'Va con el de la franja.'}
+                description={b.colorBoton ? 'Distinto al principal.' : b.colorCabecera ? 'Va con el principal.' : 'El secundario de tu marca.'}
               >
-                {/* Enseña lo que va a salir de verdad: si no lo ha fijado,
-                    hereda de la franja. Enseñar aquí otro color sería mentir. */}
+                {/* Mismo orden que el correo (marcaConPersonalizacion): el suyo,
+                    si no el principal que haya elegido, si no el secundario de
+                    su marca. */}
                 <input type="color" className={cn(inputCls, 'h-10 p-1')}
-                  value={b.colorBoton || b.colorCabecera || '#343825'}
+                  value={b.colorBoton || b.colorCabecera || colorMarca.secundario}
                   onChange={e => set('colorBoton', e.target.value)} />
               </Field>
             </div>
