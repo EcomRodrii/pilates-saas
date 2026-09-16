@@ -23,7 +23,19 @@ export type MarcaEstudio = {
   // mataría el default en vez de ceder a él.
   estudioNombre?: string;
   colorPrimario?: string | null;
+  // El segundo color de su marca, el del tema publicado. En el correo pinta el
+  // BOTÓN, igual que el terracota de la referencia sobre el verde salvia.
+  // Ausente = el botón va del color principal.
+  colorSecundario?: string | null;
   logoUrl?: string | null;
+  // La portada del estudio (`studios.imagen_bienvenida_url`), la misma que ve
+  // la alumna al abrir su app. Ausente = la de por defecto del producto.
+  portadaUrl?: string | null;
+  // El lema del estudio, bajo el logo del correo. Ausente = no se pinta.
+  lema?: string | null;
+  // Dirección postal ya compuesta para el pie. Es requisito de un correo
+  // comercial (LSSI) y además dice de qué estudio físico viene esto.
+  direccionPostal?: string | null;
   slug?: string | null;
   // A dónde va la respuesta de la clienta. NO es el remitente: la dirección
   // que firma sigue siendo la verificada de la plataforma (ver
@@ -50,8 +62,11 @@ export function marcaDesdeFila(
   fila: {
     nombre?: unknown; color_primario?: unknown; logo_url?: unknown; slug?: unknown;
     email?: unknown; sitio_web?: unknown;
+    imagen_bienvenida_url?: unknown; lema?: unknown;
+    direccion?: unknown; ciudad?: unknown; codigo_postal?: unknown;
   },
   redesSociales?: Partial<Record<RedSocialId, string>> | null,
+  colorSecundario?: string | null,
 ): MarcaEstudio {
   const nombre = (fila.nombre as string | null) ?? null;
   // Igual que `estudioNombre`: se omite si no hay valor, para no pisar con
@@ -69,10 +84,30 @@ export function marcaDesdeFila(
     // volvería al default 'Tentare' por la puerta de atrás.
     ...(nombre ? { estudioNombre: nombre } : {}),
     colorPrimario: (fila.color_primario as string | null) ?? undefined,
+    colorSecundario: colorSecundario ?? null,
     logoUrl: (fila.logo_url as string | null) ?? null,
+    portadaUrl: (fila.imagen_bienvenida_url as string | null) ?? null,
+    lema: (fila.lema as string | null) ?? null,
+    direccionPostal: direccionPostal(fila),
     slug: (fila.slug as string | null) ?? null,
     // Solo si hay alguno: una clave presente con array vacío obligaría a cada
     // consumidor a distinguir «sin canales» de «no me los han pasado».
     ...(canales.length ? { canales } : {}),
   };
+}
+
+/**
+ * «Calle Larios 12, 29015 Málaga» a partir de las tres columnas sueltas.
+ *
+ * Se compone aquí y no en la plantilla porque las tres pueden faltar por
+ * separado: sin esto, un estudio con ciudad pero sin calle acababa con una coma
+ * suelta en el pie de todos sus correos. Sin ninguna de las tres devuelve
+ * `null` y el pie sencillamente no la dice.
+ */
+function direccionPostal(fila: { direccion?: unknown; ciudad?: unknown; codigo_postal?: unknown }): string | null {
+  const calle = ((fila.direccion as string | null) ?? '').trim();
+  const cp = ((fila.codigo_postal as string | null) ?? '').trim();
+  const ciudad = ((fila.ciudad as string | null) ?? '').trim();
+  const localidad = [cp, ciudad].filter(Boolean).join(' ');
+  return [calle, localidad].filter(Boolean).join(', ') || null;
 }

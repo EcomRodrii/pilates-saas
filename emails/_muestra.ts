@@ -10,6 +10,18 @@ export const MARCA = {
   colorPrimario: '#343825',
 };
 
+// La misma marca, con la forma que pide el sistema de correos del estudio
+// (lib/emails/estudio/). Convive con MARCA mientras quedan plantillas sin migrar.
+export const MARCA_CORREO = {
+  estudioNombre: 'Estudio Aravaca',
+  logoUrl: null as string | null,
+  colorPrimario: '#343825',
+  colorSecundario: '#8C6A4A',
+  portadaUrl: null as string | null,
+  lema: 'Movimiento con cabeza',
+  direccionPostal: 'Calle Ejemplo 12, 28023 Madrid',
+};
+
 export const SOCIA = 'Ana García';
 export const PROPIETARIA = 'Laura Méndez';
 export const INSTRUCTORA = 'Marta Ruiz';

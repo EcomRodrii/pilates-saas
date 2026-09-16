@@ -13,7 +13,7 @@ aquí. El portal y el widget usan `<img>` crudo por decisión ya documentada
 (fondos con `position:absolute` + `object-fit:cover`, donde el optimizador no
 aporta y sí obliga a medidas fijas).
 
-## Los cinco archivos
+## Los seis archivos
 
 | Archivo | Medidas | Ratio | Dónde se ve |
 |---|---|---|---|
@@ -22,6 +22,21 @@ aporta y sí obliga a medidas fijas).
 | `estudio-banda.webp` | 1600×592 | 27:10 | cabecera de las pantallas Clases y Bonos |
 | `estudio-banner.webp` | 1600×770 | 2.08:1 | banner «Invita a una amiga» · banners de contenido |
 | `clase.webp` | 1600×900 | 16:9 | cualquier clase sin foto propia |
+| `estudio-hero-correo.jpg` | 1200×750 | 16:10 | portada de los correos del estudio a sus alumnas |
+
+### Por qué uno va en JPG
+
+`estudio-hero-correo.jpg` es la MISMA foto que `estudio-hero`, recortada y
+guardada en JPG. No es un dibujo distinto y no se edita aparte: sale del webp con
+
+```
+node -e "require('sharp')('public/por-defecto/estudio-hero.webp').resize(1200,750,{fit:'cover'}).jpeg({quality:72,mozjpeg:true}).toFile('public/por-defecto/estudio-hero-correo.jpg')"
+```
+
+⚠️ En correo no vale WEBP: Outlook de Windows no lo pinta y dejaría la cabecera
+del correo en un hueco con el texto alternativo. Y a diferencia de las otras,
+esta se ve **a color y sin velo** (la cabecera del correo no tiñe nada), así que
+al sustituirla hay que mirarla tal cual.
 
 ## Lo que hay que respetar al sustituirlas
 

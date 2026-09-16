@@ -2,8 +2,8 @@ import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
 import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
-import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
-import { ReservaEmail } from '@/lib/emails/reserva-template';
+import { correoReserva, correoRecordatorio } from './estudio/clase.ts';
+import { marcaCorreoDesde, urlAppSocia } from './estudio/marca-correo.ts';
 import { EsperaSinPlazaEmail } from '@/lib/emails/espera-sin-plaza-template';
 import { resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
@@ -69,15 +69,24 @@ async function renderPorTipo(
   // "TENTARE" (default de la plantilla). `marca` omite las claves que no tiene,
   // así que sin studioId el `d.estudioNombre` del caller sigue valiendo.
   const base = { socioNombre: toName, intro, personalizacion, ...d, ...marca };
+  // Los correos ya migrados al sistema del estudio reciben la marca como un
+  // objeto, no desparramada en props sueltas (ver lib/emails/estudio/).
+  const clase = {
+    socioNombre: toName, intro, personalizacion,
+    claseNombre: d.claseNombre, fecha: d.fecha, hora: d.hora, sala: d.sala, instructor: d.instructor,
+    zoomJoinUrl: d.zoomJoinUrl,
+    marca: marcaCorreoDesde(marca, d.estudioNombre ?? 'Tu estudio'),
+    url: urlAppSocia(marca.slug),
+  };
   switch (tipo) {
     case 'promocion':
       return { html: await render(PromocionEsperaEmail(base)), subject: asunto ?? `Se ha liberado tu plaza — ${d.claseNombre}` };
     case 'cancelacion':
       return { html: await render(CancelacionClaseEmail(base)), subject: asunto ?? `Clase cancelada — ${d.claseNombre}` };
     case 'recordatorio':
-      return { html: await render(RecordatorioEmail(base)), subject: asunto ?? `Recordatorio — ${d.claseNombre}` };
+      return { html: correoRecordatorio(clase), subject: asunto ?? `Recordatorio — ${d.claseNombre}` };
     case 'reserva':
-      return { html: await render(ReservaEmail(base)), subject: asunto ?? `Reserva confirmada — ${d.claseNombre}` };
+      return { html: correoReserva(clase), subject: asunto ?? `Reserva confirmada — ${d.claseNombre}` };
     case 'espera-sin-plaza': {
       const sesiones = d.sesionesRestantes ?? 1;
       return {
