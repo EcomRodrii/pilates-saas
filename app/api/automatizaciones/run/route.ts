@@ -7,6 +7,8 @@ import { fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor, dbGetIntegr
 import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { computeAutomationCandidatos } from '@/lib/engines/automation-engine';
 import { procesarCandidato } from '@/lib/inngest/automatizaciones';
+import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { mapLimit } from '@/lib/concurrency';
 import type { AutomationLog } from '@/lib/types';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -71,10 +73,15 @@ export async function POST(req: NextRequest) {
   const nowISO = new Date().toISOString();
 
   try {
-    const data = await fetchAllStudioDataServidor(sesion.studioId);
+    const [data, marcaEstudio] = await Promise.all([
+      fetchAllStudioDataServidor(sesion.studioId),
+      // Mismo camino que el cron: la marca del correo, una vez por estudio, del
+      // tema y no de `studios.color_primario` (índigo de alta, ver
+      // lib/emails/color-marca.ts).
+      resolverMarcaEstudio(sesion.studioId),
+    ]);
     const studioNombre = data.studio?.nombre ?? 'tu estudio';
-    const studioColor = data.studio?.colorPrimario;
-    const studioLogo = data.studio?.logoUrl;
+    const marca = marcaCorreoDesde(marcaEstudio, studioNombre);
 
     // I-5: mismo guard de consentimiento que el cron (lib/inngest/automatizaciones.ts)
     // — data.socios no trae el texto completo (mismo ahorro de payload que el
@@ -116,7 +123,7 @@ export async function POST(req: NextRequest) {
     const logs: AutomationLog[] = await mapLimit(
       candidatos,
       6,
-      (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend, whatsapp }),
+      (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, marca, index: i, nowISO, dry, resend, whatsapp }),
     );
 
     // En seco no se toca el contador: no ha disparado nada.

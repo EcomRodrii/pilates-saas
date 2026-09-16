@@ -1,12 +1,13 @@
 import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { dbUpsertAutomationLog, fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor, dbUpdateAutomatizacionServidor, dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/engines/automation-engine';
 import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/engines/marketing-automation-engine';
-import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { correoAutomatizacion } from '@/lib/emails/estudio/mensajes';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
+import type { MarcaCorreo } from '@/lib/emails/estudio/plantilla';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
 import { MARCA_INACTIVIDAD } from '@/lib/engines/senales-inactividad';
 import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
@@ -14,7 +15,7 @@ import { whatsappMetaProvider } from '@/lib/marketing/providers/whatsapp-meta';
 import { whatsappDelEstudio, type WhatsAppDelEstudio } from '@/lib/whatsapp-estudio';
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
-import { appUrl } from '@/lib/emails/plantillas-server';
+import { appUrl, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
@@ -83,8 +84,13 @@ function logIdCandidato(studioId: string, c: AutomationCandidato, index: number,
 interface ProcesarOpts {
   studioId: string;
   studioNombre: string;
-  studioColor?: string | null;
-  studioLogo?: string | null;
+  /**
+   * La marca del estudio para el correo, resuelta UNA vez por estudio dentro
+   * del paso `fetch-data` que ya existía (ni un paso de Inngest más, ni una
+   * consulta por alumna). Ver lib/emails/color-marca.ts: el color ya no sale de
+   * `studios.color_primario`, que guarda un índigo de alta.
+   */
+  marca: MarcaCorreo;
   index: number;
   nowISO: string;
   dry: boolean;
@@ -101,7 +107,7 @@ interface ProcesarOpts {
 // persiste el log idempotente. Devuelve el log resultante. Es el cuerpo que va
 // dentro de un step.run() por candidato: durable y reintentable en aislamiento.
 export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, studioNombre, studioColor, studioLogo, index, nowISO, dry, resend, whatsapp } = opts;
+  const { studioId, studioNombre, marca, index, nowISO, dry, resend, whatsapp } = opts;
   const base = {
     id: logIdCandidato(studioId, c, index, nowISO),
     studioId,
@@ -210,13 +216,11 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para la clienta', mensajeCliente: null };
   } else {
     const email = c.socio.email;
-    const html = await render(AutomatizacionEmail({
+    const html = correoAutomatizacion({
       socioNombre: c.socio.nombre,
       titulo: c.titulo,
       mensaje: c.mensajeCliente,
-      estudioNombre: studioNombre,
-      colorPrimario: studioColor,
-      logoUrl: studioLogo,
+      marca,
       // I-5 (auditoría 19-ago): el motor clásico renderizaba esto SIN
       // unsubscribeUrl para sus dos candidatos comerciales (AUSENCIA_DIAS/
       // NUEVA_SOCIA sin aprobación humana — computeAutomationCandidatos ya
@@ -225,7 +229,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       // servicio, no comerciales — LSSI no les exige enlace de baja, y
       // dárselo insinuaría que dejar de recibirlos es opcional.
       ...(c.comercial ? { unsubscribeUrl: `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(studioId, c.socio.id)}` } : {}),
-    }));
+    });
     // Un 429 (u otro fallo transitorio de Resend) no debe perderse como
     // FALLIDO permanente — ver lib/emails/resend-reintentos.ts (dentro de
     // resendEmailProvider).
@@ -258,7 +262,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
 // usuario) y persiste el log en automation_logs (ruleId = id de la
 // automatización, para dedup y contador). Idempotency-Key por id de log.
 export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, studioColor, studioLogo, index, nowISO, dry, resend, whatsapp } = opts;
+  const { studioId, marca, index, nowISO, dry, resend, whatsapp } = opts;
   const accionLog: AutomationLog['accion'] =
     c.canal === 'WHATSAPP' ? 'ENVIAR_WHATSAPP' : c.canal === 'NOTIFICACION' ? 'NOTIFICAR_ADMIN' : 'ENVIAR_EMAIL';
   const base = {
@@ -354,12 +358,11 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog,
       detalle: `${c.socio.nombre} tiene un email de ejemplo (${c.socio.email}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.` };
   } else {
-    const html = await render(AutomatizacionEmail({
-      socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre,
-      colorPrimario: studioColor, logoUrl: studioLogo,
+    const html = correoAutomatizacion({
+      socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, marca,
       // LSSI: toda comunicación comercial lleva enlace de baja.
       unsubscribeUrl: `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(opts.studioId, c.socio.id)}`,
-    }));
+    });
     // Mismo reintento ante fallos transitorios que en procesarCandidato (ver
     // resendEmailProvider).
     const r = await resendEmailProvider(resend!).enviar({
@@ -496,8 +499,13 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     // No se toca `construirSnapshot` (Decision OS): ese YA devuelve un
     // SnapshotEstudio recortado, con ventanas temporales incluidas.
     const data = await step.run('fetch-data', async () => {
-      const d = await fetchAllStudioDataServidor(studioId);
+      const [d, marcaEstudio] = await Promise.all([
+        fetchAllStudioDataServidor(studioId),
+        resolverMarcaEstudio(studioId),
+      ]);
       return {
+        // Objeto plano, serializable: se memoiza con el resto del paso.
+        marca: marcaCorreoDesde(marcaEstudio, studioNombre),
         automationRules: d.automationRules,
         automationLogs: d.automationLogs,
         automatizaciones: d.automatizaciones,
@@ -511,6 +519,15 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
         planesTarifa: d.planesTarifa,
       };
     });
+
+    // ⚠️ `data.marca` falta en una ejecución que empezó ANTES de este despliegue
+    // y se reanuda después: Inngest le devuelve el `fetch-data` ya memoizado,
+    // con la forma vieja. Para ese caso —y solo ese— se cae a lo que trae el
+    // evento, que es lo que pintaba el correo hasta hoy.
+    const marca: MarcaCorreo = data.marca ?? marcaCorreoDesde(
+      { nombre: studioNombre, colorPrimario: studioColor, logoUrl: studioLogo },
+      studioNombre,
+    );
 
     // Guard de consentimiento (art. 7.4 RGPD, docs/marketing-integrations-arquitectura.md
     // §7): select TARGETED con el texto completo — data.socios (arriba) NO lo
@@ -558,7 +575,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       // id de step estable entre replays (índice + regla). Cada candidato es
       // un paso durable e independiente.
       const log = await step.run(`candidato-${i}-${c.rule.id}`, () =>
-        procesarCandidato(c, { studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend, whatsapp })
+        procesarCandidato(c, { studioId, studioNombre, marca, index: i, nowISO, dry, resend, whatsapp })
       );
 
       if (c.accion === 'COBRAR_RECIBO') cobrosPropuestos++;
@@ -596,7 +613,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     for (let i = 0; i < mktCandidatos.length; i++) {
       const c = mktCandidatos[i];
       const log = await step.run(`mkt-${i}-${c.automatizacion.id}-${c.socio.id}`, () =>
-        procesarCandidatoMkt(c, { studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend, whatsapp }),
+        procesarCandidatoMkt(c, { studioId, studioNombre, marca, index: i, nowISO, dry, resend, whatsapp }),
       );
       if (log.resultado === 'EJECUTADO') mktEnviados++; else if (log.resultado === 'FALLIDO') mktFallidos++;
       firedPorAuto.set(c.automatizacion.id, (firedPorAuto.get(c.automatizacion.id) ?? 0) + 1);
