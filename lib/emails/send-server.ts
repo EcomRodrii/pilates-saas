@@ -1,8 +1,7 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
 import { correoReserva, correoRecordatorio, correoCancelacionClase, correoPlazaLiberada } from './estudio/clase.ts';
+import { correoEsperaSinPlaza } from './estudio/mensajes.ts';
 import { marcaCorreoDesde, urlAppSocia } from './estudio/marca-correo.ts';
-import { EsperaSinPlazaEmail } from '@/lib/emails/espera-sin-plaza-template';
 import { resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from './remitente.ts';
@@ -61,14 +60,9 @@ async function renderPorTipo(
   const intro = plantilla.intro ? interpolar(plantilla.intro, vars) : undefined;
   const asunto = plantilla.asunto ? interpolar(plantilla.asunto, vars) : undefined;
   const personalizacion = interpolarPersonalizacion(plantilla, vars);
-  // `...marca` al final a propósito: el nombre/logo/color del estudio los
-  // resuelve el servidor desde `studios`, y eso manda sobre lo que traiga `d`.
-  // Con el orden inverso, un `d` sin `estudioNombre` dejaba el encabezado en
-  // "TENTARE" (default de la plantilla). `marca` omite las claves que no tiene,
-  // así que sin studioId el `d.estudioNombre` del caller sigue valiendo.
-  const base = { socioNombre: toName, intro, personalizacion, ...d, ...marca };
-  // Los correos ya migrados al sistema del estudio reciben la marca como un
-  // objeto, no desparramada en props sueltas (ver lib/emails/estudio/).
+  // La marca la resuelve el servidor desde `studios` y manda sobre lo que
+  // traiga `d`: con el orden inverso, un `d` sin `estudioNombre` dejaba el
+  // encabezado del correo en «TENTARE».
   const clase = {
     socioNombre: toName, intro, personalizacion,
     claseNombre: d.claseNombre, fecha: d.fecha, hora: d.hora, sala: d.sala, instructor: d.instructor,
@@ -88,7 +82,7 @@ async function renderPorTipo(
     case 'espera-sin-plaza': {
       const sesiones = d.sesionesRestantes ?? 1;
       return {
-        html: await render(EsperaSinPlazaEmail({ ...base, sesionesRestantes: sesiones })),
+        html: correoEsperaSinPlaza({ ...clase, sesionesRestantes: sesiones, caducaEl: d.caducaEl, urlHorario: d.urlHorario, emailEstudio: marca.replyTo }),
         subject: asunto ?? (sesiones <= 1
           ? `Tu clase de ${d.claseNombre} se llenó — te devolvemos el dinero si quieres`
           : `No se liberó sitio en ${d.claseNombre}, pero tu bono está intacto`),

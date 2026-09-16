@@ -1,10 +1,9 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import type { TipoAlertaPropietaria } from '@/lib/sustituciones/mensajes';
-import {
-  ContactoSustitutaEmail, AlertaPropietariaEmail, AlumnaAvisoClaseEmail, asuntoAvisoAlumna,
-  type AvisoAlumna,
-} from '@/lib/emails/sustitucion-template';
+import { ContactoSustitutaEmail, AlertaPropietariaEmail } from '@/lib/emails/sustitucion-template';
+import { correoAvisoSustitucion, asuntoAvisoAlumna, type AvisoAlumna } from '@/lib/emails/estudio/avisos';
+import type { MarcaCorreo } from '@/lib/emails/estudio/plantilla';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 
 // Emails del módulo de sustituciones, con la plantilla premium compartida
@@ -70,17 +69,21 @@ export async function enviarEmailAlertaPropietaria(params: Marca & {
 // Un solo emisor para los tres desenlaces (hay sustituta / la clase se mueve /
 // la clase se cae): eran tres funciones idénticas salvo el asunto, y el asunto
 // ya vive con el resto de la copy en la plantilla.
-export async function enviarEmailAvisoAlumna(params: Marca & {
+export async function enviarEmailAvisoAlumna(params: {
   to: string;
   toName: string;
-  estudioNombre: string;
+  // La marca del estudio, ya resuelta: este correo se pinta con el sistema del
+  // estudio (lib/emails/estudio/), no con el layout genérico del producto.
+  marca: MarcaCorreo;
+  /** El email del estudio: a dónde contesta la alumna si responde al aviso. */
+  replyTo?: string | null;
   claseNombre: string;
   // Cuándo era la clase. En 'reprogramada' es el horario ORIGINAL: el nuevo va
   // dentro de `aviso.cuandoNuevo`.
   cuando: string;
   aviso: AvisoAlumna;
 }): Promise<EnvioResultado> {
-  const html = await render(AlumnaAvisoClaseEmail(params));
+  const html = correoAvisoSustitucion(params);
   // ⚠️ Aquí ponía `'Tentare'`. Es un email A LA ALUMNA que dice que su clase se
   // cancela o cambia de instructora, y llegaba con el nombre de la plataforma
   // como remitente mientras el cuerpo ya llevaba el logo y el color del
@@ -92,7 +95,7 @@ export async function enviarEmailAvisoAlumna(params: Marca & {
   // paraguas.
   return enviar(
     params.to, asuntoAvisoAlumna(params.aviso, params.claseNombre), html,
-    params.estudioNombre, params.replyTo,
+    params.marca.estudioNombre, params.replyTo,
   );
 }
 

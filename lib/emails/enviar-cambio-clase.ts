@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
+import { correoCambioClase } from '@/lib/emails/estudio/avisos';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { resolverPlantilla, interpolar, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
@@ -43,6 +43,8 @@ export async function enviarEmailesCambioClase(
     resolverMarcaEstudio(studioId),
   ]);
 
+  const marcaCorreoEstudio = marcaCorreoDesde(marca, 'Tu estudio');
+
   // Asunto según qué cambió de verdad — mismo criterio que /api/emails/send.
   const motivoAsunto = datos.cambioHora || datos.cambioSala ? 'Cambio de horario' : 'Cambio de instructora';
 
@@ -52,13 +54,13 @@ export async function enviarEmailesCambioClase(
     const subject = plantilla.asunto
       ? interpolar(plantilla.asunto, varsPlantilla)
       : `${motivoAsunto} — ${datos.claseNombre}`;
-    const html = await render(CambioClaseEmail({
-      socioNombre: d.nombre, intro, ...marca,
+    const html = correoCambioClase({
+      socioNombre: d.nombre, intro, marca: marcaCorreoEstudio,
       claseNombre: datos.claseNombre, fecha: datos.fecha, hora: datos.hora,
       sala: datos.sala, instructor: datos.instructor, instructorAnterior: datos.instructorAnterior,
       cambioHora: datos.cambioHora, cambioSala: datos.cambioSala,
       masClasesDeLaSerie: datos.masClasesDeLaSerie,
-    }));
+    });
     const { error } = await resend.emails.send({
       from: remitentePorMarca(marca.nombre || 'Tentare'),
       // Reply-To del estudio: si la clienta contesta, le contesta a SU estudio.

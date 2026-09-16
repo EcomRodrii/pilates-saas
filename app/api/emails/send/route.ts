@@ -5,9 +5,9 @@ import { render } from '@react-email/render';
 import { correoRecibo } from '@/lib/emails/estudio/cobros';
 import { correoBienvenida } from '@/lib/emails/estudio/cuenta';
 import { correoReserva, correoRecordatorio, correoCancelacionClase, correoPlazaLiberada } from '@/lib/emails/estudio/clase';
+import { correoCambioClase } from '@/lib/emails/estudio/avisos';
 import { marcaCorreoDesde, urlAppSocia } from '@/lib/emails/estudio/marca-correo';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
-import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
@@ -228,7 +228,7 @@ export async function POST(req: NextRequest) {
     subject = asuntoCustom ?? `Clase cancelada — ${d.claseNombre}`;
   } else if (tipo === 'cambio') {
     const d = datos as DatosClase & { cambioHora?: boolean; cambioSala?: boolean };
-    html = await render(CambioClaseEmail({ socioNombre: toName, intro: introCustom, ...d, ...marca }));
+    html = correoCambioClase({ socioNombre: toName, intro: introCustom, ...d, marca: marcaCorreoDesde(marca, d.estudioNombre ?? nombreEstudio ?? 'Tu estudio') });
     // Asunto según qué cambió de verdad — antes siempre decía "instructora"
     // aunque el motivo fuera mover la clase de hora/sala.
     const motivoAsunto = d.cambioHora || d.cambioSala ? 'Cambio de horario' : 'Cambio de instructora';

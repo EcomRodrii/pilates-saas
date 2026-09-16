@@ -30,6 +30,8 @@ import {
 import { ejecutarCancelacionReserva } from '@/lib/db/supabase-data-admin';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
@@ -46,10 +48,15 @@ function cuandoTexto(inicio: string): string {
 // propia (en vez de la privada de lib/supabase-data.ts) para no ensanchar el
 // export surface del god-file por un helper de formato.
 async function datosParaEmail(admin: SupabaseClient, studioId: string, socioId: string, sesionId: string) {
-  const [{ data: socia }, { data: ses }, { data: studio }] = await Promise.all([
+  const [{ data: socia }, { data: ses }, studio] = await Promise.all([
     admin.from('socios').select('nombre, email').eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
     admin.from('sesiones').select('inicio, tipo_clase_id').eq('id', sesionId).eq('studio_id', studioId).maybeSingle(),
-    admin.from('studios').select('nombre, color_primario, logo_url').eq('id', studioId).maybeSingle(),
+    // La marca del correo sale de un solo sitio, no de un `select` a mano: así
+    // el pie con la dirección, el lema y los canales del estudio salen igual
+    // aquí que en la confirmación de reserva. Cuesta dos consultas más por
+    // fila (las tres de `resolverMarcaEstudio` van en paralelo), y a cambio
+    // desaparece la tercera copia del mapeo de marca de este repo.
+    resolverMarcaEstudio(studioId),
   ]);
   if (!socia?.email || !ses) return null;
   const { data: tipo } = ses.tipo_clase_id
@@ -60,9 +67,8 @@ async function datosParaEmail(admin: SupabaseClient, studioId: string, socioId: 
     socioEmail: socia.email as string,
     claseNombre: (tipo?.nombre as string) ?? 'Clase',
     cuando: cuandoTexto(ses.inicio as string),
-    estudioNombre: (studio?.nombre as string) ?? 'Tu estudio',
-    colorPrimario: (studio as { color_primario?: string | null } | null)?.color_primario,
-    logoUrl: (studio as { logo_url?: string | null } | null)?.logo_url,
+    marca: marcaCorreoDesde(studio, 'Tu estudio'),
+    replyTo: studio.replyTo,
   };
 }
 
@@ -196,8 +202,8 @@ export const procesarConfirmacionAskEstudio = inngest.createFunction(
         const token = firmarTokenConfirmacion(studioId, c.socio_id, c.id);
         const url = `${appUrl()}/confirmar-reserva/${token}`;
         const envio = await enviarEmailPedirConfirmacion({
-          to: datos.socioEmail, toName: datos.socioNombre, estudioNombre: datos.estudioNombre,
-          colorPrimario: datos.colorPrimario, logoUrl: datos.logoUrl,
+          to: datos.socioEmail, toName: datos.socioNombre,
+          marca: datos.marca, replyTo: datos.replyTo,
           claseNombre: datos.claseNombre, cuando: datos.cuando, url,
         });
         return { pedida: true, emailEnviado: 'ok' in envio && envio.ok === true };
@@ -360,8 +366,8 @@ export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
         const token = firmarTokenConfirmacion(c.studio_id, c.socio_id, c.id);
         const url = `${appUrl()}/confirmar-reserva/${token}`;
         const envio = await enviarEmailRecordatorioConfirmacion({
-          to: datos.socioEmail, toName: datos.socioNombre, estudioNombre: datos.estudioNombre,
-          colorPrimario: datos.colorPrimario, logoUrl: datos.logoUrl,
+          to: datos.socioEmail, toName: datos.socioNombre,
+          marca: datos.marca, replyTo: datos.replyTo,
           claseNombre: datos.claseNombre, cuando: datos.cuando, url,
         });
         return { recordada: true, emailEnviado: 'ok' in envio && envio.ok === true };
@@ -402,8 +408,8 @@ export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
         const datos = r.datos;
         await step.run(`avisar-liberada-${p.id}`, async () => {
           const res = await enviarEmailPlazaLiberada({
-            to: datos.socioEmail, toName: datos.socioNombre, estudioNombre: datos.estudioNombre,
-            colorPrimario: datos.colorPrimario, logoUrl: datos.logoUrl,
+            to: datos.socioEmail, toName: datos.socioNombre,
+            marca: datos.marca, replyTo: datos.replyTo,
             claseNombre: datos.claseNombre, cuando: datos.cuando,
           });
           // `skipped` (Resend sin configurar) no es un fallo transitorio -- no
