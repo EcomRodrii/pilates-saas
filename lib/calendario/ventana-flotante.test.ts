@@ -18,10 +18,12 @@ test('una posición a medias no se usa: se vuelve a colocar arriba a la derecha'
   assert.equal(leerEstado(JSON.stringify({ abierta: true, posicion: { x: 'a', y: 3 } })).posicion, null);
 });
 
-test('solo `true` abre o pliega: un "true" de texto no', () => {
-  const e = leerEstado(JSON.stringify({ abierta: 'true', plegada: 1, posicion: { x: 5, y: 6 } }));
+test('solo `true` abre, pliega o agranda: un "true" de texto no', () => {
+  const e = leerEstado(JSON.stringify({ abierta: 'true', plegada: 1, expandida: 'si', posicion: { x: 5, y: 6 } }));
   assert.equal(e.abierta, false);
   assert.equal(e.plegada, false);
+  assert.equal(e.expandida, false);
+  assert.equal(leerEstado(JSON.stringify({ abierta: true, expandida: true })).expandida, true);
   assert.deepEqual(e.posicion, { x: 5, y: 6 });
 });
 

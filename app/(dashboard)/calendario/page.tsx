@@ -68,7 +68,7 @@ import { EVENTO_MEDIR_ALTO } from '@/lib/hooks/use-alto-hasta-el-fondo';
 import { CONSULTA_ESCRITORIO } from '@/components/calendario/ventana-calendario';
 import {
   EVENTO_SALTAR_A_CLASE, abrirVentanaDesde, actualizarVentana, estadoVentana, estadoVentanaServidor,
-  recogerCalendarioAmpliado, suscribirAmpliar, suscribirVentana,
+  suscribirVentana,
 } from '@/lib/calendario/ventana-flotante';
 import { useAltoHastaElFondo } from '@/lib/hooks/use-alto-hasta-el-fondo';
 import { createPortal } from 'react-dom';
@@ -2084,13 +2084,6 @@ export default function Calendario() {
     };
   }, [ampliado, cambiarAmpliado]);
 
-  // «Agrandar» desde la ventana flotante: al llegar al Calendario (si hubo que
-  // navegar) o en el acto (si ya estaba abierto).
-  useEffect(() => {
-    const recoger = () => { if (recogerCalendarioAmpliado()) cambiarAmpliado(true); };
-    recoger();
-    return suscribirAmpliar(recoger);
-  }, [cambiarAmpliado]);
   const ventana = useSyncExternalStore(suscribirVentana, estadoVentana, estadoVentanaServidor);
   // Una clase pulsada en la ventana flotante con el Calendario ya abierto: la
   // página no se vuelve a montar, así que `?sesion=` no sirve y avisa con un

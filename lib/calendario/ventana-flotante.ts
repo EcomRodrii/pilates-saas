@@ -26,11 +26,13 @@ export interface Tamano { ancho: number; alto: number }
 export interface EstadoVentana {
   abierta: boolean;
   plegada: boolean;
+  /** Agrandada: la semana entera en columnas, sin dejar de ser una ventana. */
+  expandida: boolean;
   /** `null` = todavía no se ha movido: se coloca arriba a la derecha. */
   posicion: Punto | null;
 }
 
-export const ESTADO_INICIAL: EstadoVentana = { abierta: false, plegada: false, posicion: null };
+export const ESTADO_INICIAL: EstadoVentana = { abierta: false, plegada: false, expandida: false, posicion: null };
 
 const esNumero = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
@@ -45,6 +47,7 @@ export function leerEstado(raw: string | null): EstadoVentana {
   return {
     abierta: o.abierta === true,
     plegada: o.plegada === true,
+    expandida: o.expandida === true,
     posicion: p && esNumero(p.x) && esNumero(p.y) ? { x: p.x, y: p.y } : null,
   };
 }
@@ -111,33 +114,6 @@ export function actualizarVentana(cambio: Partial<EstadoVentana>): void {
 // a la misma ruta no la vuelve a montar. Así que ahí se le avisa con un evento.
 
 export const EVENTO_SALTAR_A_CLASE = 'tentare:calendario-saltar-a-clase';
-
-// ─── «Agrandar» desde la ventana ─────────────────────────────────────────────
-// Agrandar la ventana es ver el calendario A TODA LA PANTALLA, no solo ir al
-// Calendario: así lo entendía la dueña, y con el Calendario ya abierto la ventana
-// simplemente desaparecía («agrandar no funciona»). El aviso se queda pendiente
-// hasta que la página lo recoja: si hay que navegar, la página aún no existe
-// cuando se pulsa.
-
-let ampliarPendiente = false;
-const oyentesAmpliar = new Set<() => void>();
-
-export function pedirCalendarioAmpliado(): void {
-  ampliarPendiente = true;
-  for (const avisar of oyentesAmpliar) avisar();
-}
-
-/** `true` una sola vez por petición: quien lo lee se queda con ella. */
-export function recogerCalendarioAmpliado(): boolean {
-  const pedido = ampliarPendiente;
-  ampliarPendiente = false;
-  return pedido;
-}
-
-export function suscribirAmpliar(avisar: () => void): () => void {
-  oyentesAmpliar.add(avisar);
-  return () => { oyentesAmpliar.delete(avisar); };
-}
 
 // ─── El origen de la animación de apertura ───────────────────────────────────
 // La ventana nace del botón que la abre (como una ventana de macOS desde el

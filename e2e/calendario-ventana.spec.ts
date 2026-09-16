@@ -184,27 +184,54 @@ test('saltar a una clase de mañana no saca hoy de la semana', async ({ page }) 
   await expect(page.locator('[data-cabecera-dia="0"]'), 'la semana sigue empezando hoy').toContainText('HOY');
 });
 
-test('«Agrandar» desde otra pantalla lleva al Calendario ya ampliado y cierra la ventana', async ({ page }) => {
-  await calendario(page);
-  await page.getByRole('button', { name: 'Abrir en una ventana flotante' }).click();
-  await menu(page).getByRole('link', { name: 'Clientas' }).first().click();
-  await expect(page).toHaveURL(/\/clientas/, { timeout: 60_000 });
-
-  await ventana(page).getByRole('button', { name: 'Agrandar a toda la pantalla' }).click();
-  await expect(page).toHaveURL(/\/calendario/, { timeout: 60_000 });
-  await expect(rejilla(page)).toBeVisible({ timeout: 60_000 });
-  await expect(menu(page), 'llega ampliado').toBeHidden();
-  await expect(ventana(page)).toHaveCount(0);
-});
-
-test('«Agrandar» con el Calendario abierto lo amplía en el sitio (antes solo cerraba la ventana)', async ({ page }) => {
+test('⤢ agranda la ventana a la semana SIN cerrarla, y ⤡ la devuelve a pequeña', async ({ page }) => {
+  // La dueña: «no expande, se quita la pestaña». La ventana tiene que seguir ahí.
   await calendario(page);
   await page.getByRole('button', { name: 'Abrir en una ventana flotante' }).click();
   await quieta(page);
-  await ventana(page).getByRole('button', { name: 'Agrandar a toda la pantalla' }).click();
-  await expect(menu(page)).toBeHidden();
-  await expect(ventana(page)).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Volver al tamaño normal' })).toBeVisible();
+  const pequena = (await ventana(page).boundingBox())!;
+
+  await ventana(page).getByRole('button', { name: 'Agrandar la ventana' }).click();
+  await expect(ventana(page), 'no se cierra').toBeVisible();
+  await expect.poll(async () => Math.round((await ventana(page).boundingBox())!.width)).toBeGreaterThan(1000);
+  await expect(ventana(page).getByTestId('ventana-dia')).toHaveCount(7);
+  await expect(ventana(page).getByTestId('ventana-dia').first()).toContainText('HOY');
+  await expect(ventana(page)).toContainText('Esta semana');
+  // El estudio sembrado tiene 6 clases de hoy en adelante (la de ayer no entra).
+  await expect(ventana(page).getByRole('listitem')).toHaveCount(6);
+  await expect(ventana(page)).toBeInViewport({ ratio: 1 });
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: 'test-results/ventana-calendario-agrandada.png' });
+
+  await ventana(page).getByRole('button', { name: 'Reducir la ventana' }).click();
+  await expect(ventana(page), 'tampoco se cierra al reducir').toBeVisible();
+  await expect.poll(async () => Math.round((await ventana(page).boundingBox())!.width)).toBe(320);
+  await expect(ventana(page).getByRole('listitem')).toHaveCount(2);
+  // Y vuelve a donde estaba antes de agrandarla, no se queda donde la empujó.
+  const vuelta = (await ventana(page).boundingBox())!;
+  expect(Math.round(vuelta.x)).toBe(Math.round(pequena.x));
+  expect(Math.round(vuelta.y)).toBe(Math.round(pequena.y));
+
+  // Agrandada, recargar la deja agrandada.
+  await ventana(page).getByRole('button', { name: 'Agrandar la ventana' }).click();
+  await expect.poll(async () => Math.round((await ventana(page).boundingBox())!.width)).toBeGreaterThan(1000);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(ventana(page)).toBeVisible({ timeout: 60_000 });
+  await expect.poll(async () => Math.round((await ventana(page).boundingBox())!.width)).toBeGreaterThan(1000);
+});
+
+test('agrandada, las flechas pasan de semana en semana', async ({ page }) => {
+  await calendario(page);
+  await page.getByRole('button', { name: 'Abrir en una ventana flotante' }).click();
+  await quieta(page);
+  await ventana(page).getByRole('button', { name: 'Agrandar la ventana' }).click();
+  await expect(ventana(page).getByTestId('ventana-dia')).toHaveCount(7);
+  await ventana(page).getByRole('button', { name: 'Semana siguiente' }).click();
+  await expect(ventana(page)).not.toContainText('Esta semana');
+  await expect(ventana(page).getByTestId('ventana-dia').first()).not.toContainText('HOY');
+  // El título vuelve a hoy.
+  await ventana(page).getByRole('button', { name: /–/ }).first().click();
+  await expect(ventana(page)).toContainText('Esta semana');
 });
 
 test.describe('en una tablet', () => {

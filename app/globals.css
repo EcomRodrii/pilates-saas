@@ -683,6 +683,10 @@ html[data-vt-calendario='reducir']::view-transition-new(panel-barra) {
   pointer-events: none;
 }
 .ventana-plegable { transition: grid-template-rows var(--motion-ventana) var(--motion-ease-ventana); }
+/* Al agrandar o reducir, el marco crece o encoge (FLIP en el componente) y lo de
+   dentro —el día o la semana— aparece fundiéndose, no de golpe. */
+@keyframes ventana-contenido-in { from { opacity: 0; } }
+.ventana-contenido { animation: ventana-contenido-in var(--motion-slow) var(--motion-ease-ventana) both; }
 .ventana-plegable-dentro { transition: opacity var(--motion-slow) var(--motion-ease-ventana); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -691,6 +695,7 @@ html[data-vt-calendario='reducir']::view-transition-new(panel-barra) {
   .ventana-flotante[data-saliendo] { animation-duration: 1ms; }
   .ventana-plegable,
   .ventana-plegable-dentro { transition: none; }
+  .ventana-contenido { animation: none; }
 }
 
 /* Calendario — cambiar de día/semana/mes (app/(dashboard)/calendario/page.tsx,
