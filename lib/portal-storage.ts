@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/db/supabase';
 import { recortarTransparencia } from '@/lib/imagen/recortar-logo';
-import { redimensionarImagen, LADO_AVATAR, LADO_FOTO_CLASE, LADO_LOGO_CLASE, LADO_BANNER } from '@/lib/imagen-cliente';
+import { redimensionarImagen, LADO_AVATAR, LADO_FOTO_CLASE, LADO_LOGO_CLASE, LADO_BANNER, LADO_PORTADA_CORREO } from '@/lib/imagen-cliente';
 // La higienización de la clave vive en un módulo SIN imports para que
 // `node --test` pueda probarla: no resuelve el alias `@/`, y este fichero lo usa.
 import { claveDeImagenPortal } from '@/lib/storage-clave';
@@ -203,6 +203,42 @@ export async function subirBannerEstudio(bannerId: string, file: File): Promise<
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+/**
+ * Portada de UN correo concreto del estudio (`plantillas_email.portada_url`).
+ *
+ * ⚠️ Se guarda en JPEG, no en WEBP como el resto de imágenes del panel: Outlook
+ * de Windows no pinta WEBP y dejaría la cabecera del correo en un hueco con el
+ * texto alternativo. Aquí no hay forma de verlo hasta que llega a una clienta.
+ *
+ * 1200 px de lado: el correo mide 600 y se sirve a 2× para pantallas densas.
+ */
+export const PORTADA_CORREO_MAX_BYTES = LOGO_MAX_BYTES;
+
+export async function subirPortadaCorreo(
+  studioId: string,
+  tipo: string,
+  file: File,
+): Promise<{ url: string } | { error: string }> {
+  const invalido = validarImagenMarca(file, PORTADA_CORREO_MAX_BYTES);
+  if (invalido) return { error: invalido };
+  const path = `portada-correo-${studioId}-${tipo}`;
+  const img = await redimensionarImagen(file, LADO_PORTADA_CORREO, 'image/jpeg');
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, img, { upsert: true, contentType: img.type });
+  if (uploadError) return { error: uploadError.message };
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  // El `?v=` es lo que hace que una portada cambiada se vea cambiada: sin él,
+  // el proxy de imágenes de Gmail sigue sirviendo la anterior.
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+export async function eliminarPortadaCorreo(studioId: string, tipo: string): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([`portada-correo-${studioId}-${tipo}`]);
+  if (error) return { error: error.message };
+  return { ok: true };
 }
 
 export async function eliminarBannerEstudio(bannerId: string): Promise<{ ok: true } | { error: string }> {

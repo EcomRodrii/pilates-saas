@@ -16,6 +16,8 @@
 //     de equipo) → solo PROPIETARIO.
 //   - producto-<id>: /productos, que exige `puedeMoverDinero` igual que la RLS
 //     de `productos_pos` → PROPIETARIO y RECEPCION.
+//   - portada-correo-<studio>-<tipo>: la foto de un correo, en Configuración →
+//     Correos automáticos → solo PROPIETARIO (RLS de `plantillas_email`).
 //   - instructor-<id>: la propia instructora (tab-perfil de /mi-perfil) o quien
 //     puede gestionar SU ficha (`puede_gestionar_ficha_instructor`: la
 //     propietaria, o el manager sobre INSTRUCTOR/RECEPCION).
@@ -26,7 +28,7 @@ export type Rol = 'PROPIETARIO' | 'MANAGER' | 'RECEPCION' | 'INSTRUCTOR';
 
 export type TipoRutaAvatar =
   | 'favicon-borrador' | 'portal' | 'admin' | 'marca' | 'instructor' | 'network'
-  | 'claselogo' | 'clase' | 'banner' | 'producto' | 'socia';
+  | 'claselogo' | 'clase' | 'banner' | 'producto' | 'portada-correo' | 'socia';
 
 /** Mismo orden de ramas que el SQL: `favicon-borrador-` va antes que `favicon-`, `claselogo-` antes que `clase-`. */
 export function clasificarRutaAvatar(nombre: string): TipoRutaAvatar {
@@ -40,6 +42,9 @@ export function clasificarRutaAvatar(nombre: string): TipoRutaAvatar {
   if (nombre.startsWith('clase-')) return 'clase';
   if (nombre.startsWith('banner-')) return 'banner';
   if (nombre.startsWith('producto-')) return 'producto';
+  // Va después de 'portal-' y no colisiona con él: 'portada-correo-' no empieza
+  // por 'portal-'. La rama del SQL está en el mismo orden.
+  if (nombre.startsWith('portada-correo-')) return 'portada-correo';
   return 'socia';
 }
 
@@ -53,6 +58,9 @@ export const ROLES_ESCRITURA: Record<TipoRutaAvatar, readonly Rol[]> = {
   banner: ['PROPIETARIO', 'MANAGER'],
   admin: ['PROPIETARIO'],
   producto: ['PROPIETARIO', 'RECEPCION'],
+  // Mismo criterio que la RLS de `plantillas_email` y que
+  // /api/plantillas-email/preview, que responde 403 a cualquier otro rol.
+  'portada-correo': ['PROPIETARIO'],
   // Gestionar la ficha de otra: la propietaria siempre; el manager solo sobre
   // INSTRUCTOR/RECEPCION (ver `rolFichaInstructora`).
   instructor: ['PROPIETARIO', 'MANAGER'],

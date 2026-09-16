@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bold, Italic, Link2, List, Heading, Loader2, Send, Check, Undo2, Pencil, MailX,
+  Image as IconoImagen, Minus, Quote,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { CampoImagen } from '@/components/ui/campo-imagen';
+import { subirPortadaCorreo, eliminarPortadaCorreo } from '@/lib/portal-storage';
 import { cn } from '@/lib/utils';
 import { FUENTES_EMAIL, type FuenteEmail, type PlantillaEmail, type TipoPlantillaEmail } from '@/lib/types';
 import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/components/configuracion/estilos';
@@ -44,9 +47,10 @@ const PLANTILLAS_META: {
   // mientras quedan plantillas sin pasar al diseño del estudio: enseñar aquí un
   // texto que su correo no lleva es justo lo que este campo evita.
   pieDefault: string;
-  // Una línea honesta sobre lo que este correo enseña y aún no se puede cambiar
-  // desde aquí. Ausente = no hay nada que advertir.
-  avisoNoEditable?: string;
+  // ¿Este correo lleva foto de portada de fábrica? Decide qué dice el
+  // interruptor cuando la propietaria no lo ha tocado. Va aquí y no en la
+  // plantilla de correo para que la pantalla NO tenga que adivinarlo.
+  portadaDeFabrica: boolean;
   // Qué se pierde la clienta si se apaga este correo. Se enseña al apagarlo y
   // mientras siga apagado: apagar un correo es una decisión legítima de la
   // propietaria, pero tiene que tomarla sabiendo qué deja de llegar. No es un
@@ -60,7 +64,7 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, estamos encantadas de tenerte en {estudio}.',
     variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
     pieDefault: '{estudio} · tu dirección',
-    avisoNoEditable: 'La foto de arriba es la portada de tu app (Configuración → Apariencia). Todavía no se puede poner una distinta solo para este correo.',
+    portadaDeFabrica: true,
     datosLabel: 'Su plan contratado',
     avisoAlApagar: 'Nadie le mandará el enlace para entrar a su portal al darla de alta.',
     botonLabel: 'Botón de acceso a su portal',
@@ -73,7 +77,7 @@ const PLANTILLAS_META: {
     datosLabel: 'Fecha, hora, sala e instructora',
     botonLabel: 'Botón para abrir su app',
     pieDefault: '{estudio} · tu dirección',
-    avisoNoEditable: 'La foto de arriba es la portada de tu app (Configuración → Apariencia). Todavía no se puede poner una distinta solo para este correo.',
+    portadaDeFabrica: true,
     avisoAlApagar: 'Solo verá la confirmación en pantalla al reservar y en su portal.',
   },
   {
@@ -84,7 +88,7 @@ const PLANTILLAS_META: {
     datosLabel: 'Fecha, hora, sala e instructora',
     botonLabel: 'Botón para abrir su app',
     pieDefault: '{estudio} · tu dirección',
-    avisoNoEditable: 'La foto de arriba es la portada de tu app (Configuración → Apariencia). Todavía no se puede poner una distinta solo para este correo.',
+    portadaDeFabrica: true,
     avisoAlApagar: 'No le llegará el aviso previo por correo. El de su app (24 h y 1 h antes) y el de WhatsApp, si lo tienes, siguen saliendo.',
   },
   {
@@ -94,7 +98,7 @@ const PLANTILLAS_META: {
     variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
     pieDefault: '{estudio} · tu dirección',
-    avisoNoEditable: 'Este correo va sin foto de portada a propósito: lleva un aviso, y el filete de color de arriba es el que lo marca.',
+    portadaDeFabrica: false,
     avisoAlApagar: 'No se enterará por correo de que has anulado su clase.',
   },
   {
@@ -105,7 +109,7 @@ const PLANTILLAS_META: {
     datosLabel: 'Fecha, hora, sala e instructora',
     botonLabel: 'Botón para abrir su app',
     pieDefault: '{estudio} · tu dirección',
-    avisoNoEditable: 'La foto de arriba es la portada de tu app (Configuración → Apariencia). Todavía no se puede poner una distinta solo para este correo.',
+    portadaDeFabrica: true,
     avisoAlApagar: 'No sabrá que ha entrado desde la lista de espera y puede perder la plaza.',
   },
   {
@@ -115,7 +119,7 @@ const PLANTILLAS_META: {
     variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
     datosLabel: 'El concepto y el importe',
     pieDefault: '{estudio} · tu dirección',
-    avisoNoEditable: 'Este correo va sin foto de portada a propósito: lleva un aviso, y el filete de color de arriba es el que lo marca.',
+    portadaDeFabrica: false,
     avisoAlApagar: 'No sabrá que su cobro ha fallado: tendrás que avisarla tú.',
   },
 ];
@@ -123,22 +127,29 @@ const PLANTILLAS_META: {
 type Meta = (typeof PLANTILLAS_META)[number];
 
 type Borrador = {
-  asunto: string; intro: string; cuerpo: string; botonTexto: string;
+  asunto: string; intro: string; cuerpo: string; botonTexto: string; botonUrl: string;
   colorCabecera: string; colorBoton: string; logoUrl: string; fuente: string; pie: string;
+  portadaUrl: string;
+  // `null` = lo que decida la plantilla (la reserva lleva foto, la cancelación
+  // no). Es distinto de `false`, que la apaga a propósito.
+  mostrarPortada: boolean | null;
 };
 
 const VACIO: Borrador = {
-  asunto: '', intro: '', cuerpo: '', botonTexto: '',
+  asunto: '', intro: '', cuerpo: '', botonTexto: '', botonUrl: '',
   colorCabecera: '', colorBoton: '', logoUrl: '', fuente: '', pie: '',
+  portadaUrl: '', mostrarPortada: null,
 };
 
 function borradorDe(p: PlantillaEmail | undefined): Borrador {
   if (!p) return VACIO;
   return {
     asunto: p.asunto ?? '', intro: p.intro ?? '', cuerpo: p.cuerpo ?? '',
-    botonTexto: p.botonTexto ?? '', colorCabecera: p.colorCabecera ?? '',
+    botonTexto: p.botonTexto ?? '', botonUrl: p.botonUrl ?? '',
+    colorCabecera: p.colorCabecera ?? '',
     colorBoton: p.colorBoton ?? '', logoUrl: p.logoUrl ?? '',
     fuente: p.fuente ?? '', pie: p.pie ?? '',
+    portadaUrl: p.portadaUrl ?? '', mostrarPortada: p.mostrarPortada ?? null,
   };
 }
 
@@ -155,7 +166,8 @@ function resumen(b: Borrador, activa: boolean): { texto: string; tocado: boolean
   if (!activa) return { texto: 'Como viene de fábrica', tocado: false };
   if (b.cuerpo.trim()) return { texto: 'Correo escrito por ti', tocado: true };
   const partes = [b.asunto.trim() && 'asunto', b.intro.trim() && 'apertura'].filter(Boolean);
-  const marca = [b.colorCabecera, b.colorBoton, b.logoUrl, b.fuente, b.pie].some(v => v.trim());
+  const marca = [b.colorCabecera, b.colorBoton, b.logoUrl, b.fuente, b.pie, b.portadaUrl, b.botonUrl].some(v => v.trim())
+    || b.mostrarPortada !== null;
   if (marca) partes.push('marca');
   if (partes.length === 0) return { texto: 'Como viene de fábrica', tocado: false };
   return { texto: `Con tu ${partes.join(', ')}`, tocado: true };
@@ -196,6 +208,11 @@ const FORMATOS: Formato[] = [
   { icono: Heading, titulo: 'Título', antes: '## ', despues: '', ejemplo: 'Un título' },
   { icono: List, titulo: 'Lista', antes: '- ', despues: '', ejemplo: 'Un punto de la lista' },
   { icono: Link2, titulo: 'Enlace', antes: '[', despues: '](https://)', ejemplo: 'texto del enlace' },
+  // Los tres de abajo son Markdown de toda la vida, así que no hacen falta
+  // tokens nuevos ni saber nada: la aplicación escribe los símbolos.
+  { icono: IconoImagen, titulo: 'Imagen', antes: '![', despues: '](https://)', ejemplo: 'qué se ve en la foto' },
+  { icono: Minus, titulo: 'Separador', antes: '\n---\n', despues: '', ejemplo: '' },
+  { icono: Quote, titulo: 'Cita', antes: '> ', despues: '', ejemplo: 'Lo que dijo alguien' },
 ];
 
 function BarraFormato({ onAplicar }: { onAplicar: (f: Formato) => void }) {
@@ -210,6 +227,78 @@ function BarraFormato({ onAplicar }: { onAplicar: (f: Formato) => void }) {
           <f.icono size={14} />
         </button>
       ))}
+    </div>
+  );
+}
+
+
+// ─── Foto de portada de un correo ────────────────────────────────────────────
+// Lo que la propietaria no podía cambiar hasta ahora: qué foto encabeza ESTE
+// correo, y si lo encabeza alguna. El valor por defecto sigue siendo la portada
+// de su app, así que quien no toque nada no nota nada.
+
+function BloquePortada({
+  meta, b, set, showToast,
+}: {
+  meta: Meta;
+  b: Borrador;
+  set: <K extends keyof Borrador>(k: K, v: Borrador[K]) => void;
+  showToast: (m: string) => void;
+}) {
+  const { studio } = useStudio();
+  const [subiendo, setSubiendo] = useState(false);
+  // `null` = no lo ha tocado, así que manda lo que trae la plantilla.
+  const lleva = b.mostrarPortada ?? meta.portadaDeFabrica;
+
+  async function subir(file: File) {
+    if (!studio) return { error: 'Todavía no se ha cargado el estudio.' };
+    setSubiendo(true);
+    const r = await subirPortadaCorreo(studio.id, meta.tipo, file);
+    setSubiendo(false);
+    if ('error' in r) return r;
+    // Subir una foto es querer verla: encenderla a mano después sería un paso
+    // más para descubrir por qué no sale.
+    set('mostrarPortada', true);
+    return r;
+  }
+
+  async function cambiar(url: string | null) {
+    if (url === null && studio) await eliminarPortadaCorreo(studio.id, meta.tipo);
+    set('portadaUrl', url ?? '');
+    if (url === null) showToast('Vuelve la portada de tu app');
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[13px] font-medium text-foreground">Foto de portada</p>
+          <p className="text-xs text-muted-foreground">
+            {lleva
+              ? 'Encabeza este correo. Vacía = la portada de tu app (Apariencia).'
+              : 'Este correo va sin foto. Enciéndela si quieres que la lleve.'}
+          </p>
+        </div>
+        <Toggle
+          on={lleva}
+          onChange={v => set('mostrarPortada', v === meta.portadaDeFabrica ? null : v)}
+          ariaLabel="Este correo lleva foto de portada"
+        />
+      </div>
+
+      {lleva && (
+        <CampoImagen
+          etiqueta="Foto de portada del correo"
+          valor={b.portadaUrl || null}
+          onSubir={subir}
+          onCambiar={cambiar}
+          ocupado={subiendo}
+          clasePreview="w-24 h-14"
+          textoSubir="Subir foto"
+          textoCambiar="Cambiar foto"
+          ayuda="JPG o PNG. Se guarda en JPG a 1200 px: Outlook no pinta WEBP y dejaría un hueco."
+        />
+      )}
     </div>
   );
 }
@@ -242,8 +331,10 @@ function VistaPreviaViva({ tipo, borrador }: { tipo: TipoPlantillaEmail; borrado
       const r = await previsualizarPlantilla({
         tipo,
         asunto: oNulo(b.asunto), intro: oNulo(b.intro), cuerpo: oNulo(b.cuerpo),
-        botonTexto: oNulo(b.botonTexto), colorCabecera: oNulo(b.colorCabecera),
+        botonTexto: oNulo(b.botonTexto), botonUrl: oNulo(b.botonUrl),
+        colorCabecera: oNulo(b.colorCabecera),
         colorBoton: oNulo(b.colorBoton), logoUrl: oNulo(b.logoUrl),
+        portadaUrl: oNulo(b.portadaUrl), mostrarPortada: b.mostrarPortada,
         pie: oNulo(b.pie), fuente: oNulo(b.fuente),
       });
       if (!vigente) return;
@@ -360,6 +451,14 @@ function EditorPlantilla({
 
   async function guardar() {
     if (guardando) return;
+    // El destino del botón lo acota también un CHECK en la base (migr
+    // 20260916013000), que es la cerradura de verdad. Se comprueba aquí para no
+    // devolverle el error crudo de Postgres a la propietaria.
+    const destino = b.botonUrl.trim();
+    if (destino && !/^https?:\/\//i.test(destino)) {
+      setErrorGuardar('El destino del botón tiene que empezar por https://');
+      return;
+    }
     setGuardando(true);
     setErrorGuardar(null);
     const oNulo = (v: string) => (v.trim() ? v.trim() : null);
@@ -369,8 +468,10 @@ function EditorPlantilla({
       // dejaría el correo saliendo por defecto y parecería que no se guardó.
       activa: true,
       asunto: oNulo(b.asunto), intro: oNulo(b.intro), cuerpo: oNulo(b.cuerpo),
-      botonTexto: oNulo(b.botonTexto), colorCabecera: oNulo(b.colorCabecera),
+      botonTexto: oNulo(b.botonTexto), botonUrl: oNulo(b.botonUrl),
+      colorCabecera: oNulo(b.colorCabecera),
       colorBoton: oNulo(b.colorBoton), logoUrl: oNulo(b.logoUrl),
+      portadaUrl: oNulo(b.portadaUrl), mostrarPortada: b.mostrarPortada,
       pie: oNulo(b.pie), fuente: fuenteValida(b.fuente),
     });
     setGuardando(false);
@@ -386,8 +487,10 @@ function EditorPlantilla({
     const r = await enviarPruebaPlantilla({
       tipo: meta.tipo,
       asunto: oNulo(b.asunto), intro: oNulo(b.intro), cuerpo: oNulo(b.cuerpo),
-      botonTexto: oNulo(b.botonTexto), colorCabecera: oNulo(b.colorCabecera),
+      botonTexto: oNulo(b.botonTexto), botonUrl: oNulo(b.botonUrl),
+      colorCabecera: oNulo(b.colorCabecera),
       colorBoton: oNulo(b.colorBoton), logoUrl: oNulo(b.logoUrl),
+      portadaUrl: oNulo(b.portadaUrl), mostrarPortada: b.mostrarPortada,
       pie: oNulo(b.pie), fuente: oNulo(b.fuente),
     });
     setEnviando(false);
@@ -499,7 +602,7 @@ function EditorPlantilla({
         {/* ── Marca ── */}
         <details className="rounded-xl border border-border">
           <summary className="cursor-pointer list-none px-4 py-3 text-[13px] font-medium text-foreground">
-            Colores, logo y pie
+            Foto, colores, logo y pie
             <span className="ml-2 text-xs font-normal text-muted-foreground">opcional</span>
           </summary>
           <div className="space-y-4 border-t border-border p-4">
@@ -507,9 +610,7 @@ function EditorPlantilla({
               Si no tocas nada se usan los de tu estudio. El color del texto del botón se
               calcula solo para que se lea sobre el fondo que elijas.
             </p>
-            {meta.avisoNoEditable && (
-              <p className="text-xs text-muted-foreground">{meta.avisoNoEditable}</p>
-            )}
+            <BloquePortada meta={meta} b={b} set={set} showToast={showToast} />
             <div className="grid grid-cols-2 gap-4">
               <Field label="Color de la franja" description="La banda de arriba del correo.">
                 <input type="color" className={cn(inputCls, 'h-10 p-1')}
@@ -533,11 +634,26 @@ function EditorPlantilla({
                 Volver a los colores de mi estudio
               </button>
             )}
-            {meta.botonLabel && (
-              <Field label="Texto del botón" description="Lo que pone dentro del botón.">
-                <input className={inputCls} placeholder="El de siempre"
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Texto del botón" description={meta.botonLabel ?? 'Este correo no lleva botón salvo que le pongas destino.'}>
+                <input className={inputCls} placeholder={meta.botonLabel ? 'El de siempre' : 'Ver el horario'}
                   value={b.botonTexto} onChange={e => set('botonTexto', e.target.value)} />
               </Field>
+              <Field
+                label="A dónde lleva"
+                description={meta.botonLabel
+                  ? 'Vacío = a su app, como siempre.'
+                  : 'Con destino y texto, este correo pasa a llevar botón.'}
+              >
+                <input className={inputCls} type="url" inputMode="url" placeholder="https://…"
+                  value={b.botonUrl} onChange={e => set('botonUrl', e.target.value)} />
+              </Field>
+            </div>
+            {b.botonUrl.trim() !== '' && !/^https?:\/\//i.test(b.botonUrl.trim()) && (
+              <p className="text-xs text-foreground">
+                El destino tiene que empezar por <strong>https://</strong>. Tal cual está, el botón no
+                llevaría a ninguna parte y no se guarda.
+              </p>
             )}
             <Field label="Logo solo para este correo" description="Dirección de una imagen PNG o JPG. Vacío = el logo de tu estudio.">
               <input className={inputCls} placeholder="https://…"

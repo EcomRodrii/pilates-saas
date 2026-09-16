@@ -1361,6 +1361,12 @@ export interface RowPlantillasEmail {
   fuente: string | null;
   // migr 20260907121459.
   enviar: boolean | null;
+  // migr 20260916013000.
+  portada_url: string | null;
+  // migr 20260916013000.
+  mostrar_portada: boolean | null;
+  // migr 20260916013000.
+  boton_url: string | null;
 }
 
 export interface RowInstructorDependencySnapshots {
@@ -5173,6 +5179,9 @@ export type PlantillasEmailInsert = {
   pie?: string | null | null;
   fuente?: string | null | null;
   enviar?: boolean | null | null;
+  portada_url?: string | null | null;
+  mostrar_portada?: boolean | null | null;
+  boton_url?: string | null | null;
 }
 
 export type PlantillasEmailUpdate = {
@@ -5191,6 +5200,9 @@ export type PlantillasEmailUpdate = {
   pie?: string | null | null;
   fuente?: string | null | null;
   enviar?: boolean | null | null;
+  portada_url?: string | null | null;
+  mostrar_portada?: boolean | null | null;
+  boton_url?: string | null | null;
 }
 
 export type InstructorDependencySnapshotsInsert = {

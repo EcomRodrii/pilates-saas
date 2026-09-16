@@ -152,3 +152,17 @@ test('contrato: el orden de ramas del SQL es el mismo que el del clasificador TS
     }
   }
 });
+
+test('portada-correo: la foto de un correo la pone solo la propietaria', () => {
+  // Mismo criterio que la RLS de `plantillas_email` y que
+  // /api/plantillas-email/preview, que responde 403 a cualquier otro rol.
+  assert.equal(clasificarRutaAvatar('portada-correo-est-1-reserva'), 'portada-correo');
+  assert.equal(puedeEscribirRutaAvatar({ ...base, nombre: 'portada-correo-est-1-reserva', rol: 'PROPIETARIO' }), true);
+  for (const rol of ['MANAGER', 'RECEPCION', 'INSTRUCTOR'] as Rol[]) {
+    assert.equal(puedeEscribirRutaAvatar({ ...base, nombre: 'portada-correo-est-1-reserva', rol }), false, rol);
+  }
+  // Y nunca sobre el correo de otro estudio.
+  assert.equal(puedeEscribirRutaAvatar({ esDelEstudio: false, esPropia: false, nombre: 'portada-correo-otro-reserva', rol: 'PROPIETARIO' }), false);
+  // ⚠️ No lo pisa la rama de 'portal-': son prefijos distintos y el orden importa.
+  assert.equal(clasificarRutaAvatar('portal-est-1-hero'), 'portal');
+});

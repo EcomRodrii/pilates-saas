@@ -24,6 +24,9 @@ export const LADO_LOGO_CLASE = 512;
 /** Lado máximo para un banner del portal (se pinta a ancho completo). */
 export const LADO_BANNER = 1600;
 
+/** Portada de un correo: el correo mide 600 px y se sirve a 2× para pantallas densas. */
+export const LADO_PORTADA_CORREO = 1200;
+
 /** Por debajo de esto no merece la pena re-codificar: se perdería calidad a cambio de nada. */
 const YA_ES_PEQUENA_BYTES = 150 * 1024;
 
@@ -55,7 +58,15 @@ export function debeIntentarReducir(tipoMime: string): boolean {
  * eso el `contentType` se toma de `blob.type` y no se asume 'image/webp' — la
  * suite e2e solo corre en Chromium y no vería esta diferencia.
  */
-export async function redimensionarImagen(file: File, ladoMaximo: number): Promise<File> {
+export async function redimensionarImagen(
+  file: File,
+  ladoMaximo: number,
+  // ⚠️ `image/jpeg` NO es una preferencia de calidad: es lo que necesita una
+  // imagen que va a viajar DENTRO de un correo. Outlook de Windows no pinta
+  // WEBP y dejaría la cabecera del correo en un hueco con el texto
+  // alternativo — y ahí el resultado no se ve hasta que llega a una clienta.
+  formato: 'image/webp' | 'image/jpeg' = 'image/webp',
+): Promise<File> {
   if (!debeIntentarReducir(file.type)) return file;
   if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') return file;
 
@@ -79,7 +90,9 @@ export async function redimensionarImagen(file: File, ladoMaximo: number): Promi
     const escala = Math.min(1, ladoMaximo / Math.max(bitmap.width, bitmap.height));
 
     // Ya cabe en el lado máximo y además no pesa: dejarla como está.
-    if (escala === 1 && file.size <= YA_ES_PEQUENA_BYTES) return file;
+    // ⚠️ Con JPEG pedido no vale el atajo: una WEBP pequeña ya cabe y ya pesa
+    // poco, pero sigue siendo WEBP, que es justo lo que no puede salir de aquí.
+    if (escala === 1 && file.size <= YA_ES_PEQUENA_BYTES && formato !== 'image/jpeg') return file;
 
     const ancho = Math.max(1, Math.round(bitmap.width * escala));
     const alto = Math.max(1, Math.round(bitmap.height * escala));
@@ -92,14 +105,17 @@ export async function redimensionarImagen(file: File, ladoMaximo: number): Promi
     ctx.drawImage(bitmap, 0, 0, ancho, alto);
 
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/webp', CALIDAD_WEBP);
+      canvas.toBlob(resolve, formato, CALIDAD_WEBP);
     });
 
-    // Si no hay blob, o el resultado NO mejora (puede pasar con imágenes ya
-    // muy optimizadas o muy pequeñas), se queda el original. Nunca empeoramos.
-    if (!blob || blob.size >= file.size) return file;
+    if (!blob) return file;
+    // Si el resultado NO mejora (imágenes ya muy optimizadas o muy pequeñas) se
+    // queda el original... salvo pidiendo JPEG: ahí el formato es el motivo del
+    // encargo, y devolver el WEBP original «porque pesa menos» sería justo el
+    // fallo que se quería evitar.
+    if (blob.size >= file.size && formato !== 'image/jpeg') return file;
 
-    const extension = blob.type === 'image/webp' ? 'webp' : 'png';
+    const extension = blob.type === 'image/webp' ? 'webp' : blob.type === 'image/jpeg' ? 'jpg' : 'png';
     return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.${extension}`, {
       type: blob.type,
       lastModified: Date.now(),

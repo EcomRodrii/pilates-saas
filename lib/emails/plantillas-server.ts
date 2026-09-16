@@ -1,6 +1,8 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import type { PersonalizacionCorreo } from './estudio/plantilla.ts';
 import { marcaDesdeFila, type MarcaEstudio } from './marca.ts';
+import { colorMarcaDelEstudio, colorSecundarioDelEstudio } from './color-marca.ts';
+import { presetAThemeConfig } from '@/lib/theme-runtime';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resuelve el override de plantilla de email de un estudio (asunto + intro).
@@ -64,7 +66,7 @@ export async function resolverPlantilla(studioId: string | null | undefined, tip
   if (!admin) return {};
   const { data } = await admin
     .from('plantillas_email')
-    .select('asunto, intro, activa, cuerpo, boton_texto, color_cabecera, color_boton, logo_url, pie, fuente')
+    .select('asunto, intro, activa, cuerpo, boton_texto, boton_url, color_cabecera, color_boton, logo_url, portada_url, mostrar_portada, pie, fuente')
     .eq('studio_id', studioId)
     .eq('tipo', tipo)
     .maybeSingle();
@@ -78,9 +80,14 @@ export async function resolverPlantilla(studioId: string | null | undefined, tip
     intro: texto(data.intro),
     cuerpo: texto(data.cuerpo),
     botonTexto: texto(data.boton_texto),
+    botonUrl: texto(data.boton_url),
     colorCabecera: texto(data.color_cabecera),
     colorBoton: texto(data.color_boton),
     logoUrl: texto(data.logo_url),
+    portadaUrl: texto(data.portada_url),
+    // Booleano, no texto: `null` significa «lo que decida la plantilla» y es
+    // distinto de `false`, que la apaga a propósito.
+    ...(typeof data.mostrar_portada === 'boolean' ? { mostrarPortada: data.mostrar_portada } : {}),
     pie: texto(data.pie),
     fuente: texto(data.fuente),
   };
@@ -110,6 +117,8 @@ export function interpolarPersonalizacion(
     cuerpo: p.cuerpo ? interpolar(p.cuerpo, vars) : undefined,
     pie: p.pie ? interpolar(p.pie, vars) : undefined,
     botonTexto: p.botonTexto ? interpolar(p.botonTexto, vars) : undefined,
+    // El destino del botón NO se interpola a propósito: es una URL, y meterle
+    // el nombre de la socia dentro solo puede romperla.
   };
 }
 
@@ -136,7 +145,7 @@ export async function resolverMarcaEstudio(studioId: string | null | undefined):
       // (lib/emails/estudio/plantilla.ts). ⚠️ Es una lista blanca: un campo que
       // no se pida aquí llega vacío al correo y en silencio — el mismo fallo
       // que dejó el héroe del portal sin foto en su día.
-      .select('nombre, color_primario, logo_url, slug, email, sitio_web, imagen_bienvenida_url, lema, direccion, ciudad, codigo_postal')
+      .select('nombre, color_primario, logo_url, slug, email, sitio_web, imagen_bienvenida_url, lema, direccion, ciudad, codigo_postal, tema_portal')
       .eq('id', studioId)
       .maybeSingle(),
     // Las REDES del estudio viven en el tema publicado, no en `studios` (ver
@@ -147,11 +156,24 @@ export async function resolverMarcaEstudio(studioId: string | null | undefined):
     // justifica dejar de enviar una confirmación de reserva.
     Promise.resolve(
       admin.from('studio_theme').select('config_published').eq('studio_id', studioId).maybeSingle(),
-    ).then((r) => r.data?.config_published as { redesSociales?: Record<string, string>; secondary?: string } | null, () => null),
+    ).then((r) => r.data?.config_published as { redesSociales?: Record<string, string>; primary?: string; secondary?: string } | null, () => null),
     resolverRemitenteResend(studioId),
   ]);
   if (!data) return {};
-  const marca = marcaDesdeFila(data, tema?.redesSociales ?? null, tema?.secondary ?? null);
+  // ⚠️ El color del correo NO sale de `studios.color_primario`: sale de lo que
+  // la propietaria eligió en Configuración → Marca, y sin tema publicado del
+  // preset que ve en su panel. Ver lib/emails/color-marca.ts — medido el
+  // 16-sep-2026, esa columna llevaba un índigo de alta en 10 de los 11 estudios
+  // activos, así que diez mandaban correos de un color que no es el suyo.
+  const preset = presetAThemeConfig(data.tema_portal as string | null);
+  const marca = marcaDesdeFila(
+    {
+      ...data,
+      color_primario: colorMarcaDelEstudio(tema?.primary, preset.primary, data.color_primario),
+    },
+    tema?.redesSociales ?? null,
+    colorSecundarioDelEstudio(tema?.secondary, preset.secondary),
+  );
   // La integración "Resend" del estudio deja de ser decorativa: hasta ahora
   // guardaba `fromEmail`/`fromName` en `integraciones.config` y NINGUNA línea
   // del producto los leía — dos estudios en producción la tenían en verde

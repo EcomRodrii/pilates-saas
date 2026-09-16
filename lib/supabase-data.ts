@@ -2247,9 +2247,15 @@ function mapPlantillaEmail(r: RowPlantillasEmail): PlantillaEmail {
     enviar: r.enviar ?? true,
     cuerpo: r.cuerpo ?? null,
     botonTexto: r.boton_texto ?? null,
+    botonUrl: r.boton_url ?? null,
     colorCabecera: r.color_cabecera ?? null,
     colorBoton: r.color_boton ?? null,
     logoUrl: r.logo_url ?? null,
+    portadaUrl: r.portada_url ?? null,
+    // ⚠️ `?? null` y no `?? false`: aquí `null` significa «lo que decida la
+    // plantilla» (la reserva lleva foto, la cancelación no), que no es lo
+    // mismo que «no la lleves».
+    mostrarPortada: r.mostrar_portada ?? null,
     pie: r.pie ?? null,
     fuente: (r.fuente as PlantillaEmail['fuente']) ?? null,
   };
@@ -2273,9 +2279,12 @@ export async function dbUpsertPlantillaEmail(p: PlantillaEmail): Promise<Resulta
     enviar: p.enviar,
     cuerpo: p.cuerpo,
     boton_texto: p.botonTexto,
+    boton_url: p.botonUrl,
     color_cabecera: p.colorCabecera,
     color_boton: p.colorBoton,
     logo_url: p.logoUrl,
+    portada_url: p.portadaUrl,
+    mostrar_portada: p.mostrarPortada,
     pie: p.pie,
     fuente: p.fuente,
     actualizado_en: new Date().toISOString(),

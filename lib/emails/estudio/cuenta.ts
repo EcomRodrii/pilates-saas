@@ -3,7 +3,7 @@
 
 import { correoEstudio, correoEstudioLibre, type MarcaCorreo } from './plantilla.ts';
 import type { PersonalizacionCorreo } from './clase.ts';
-import { marcaConPersonalizacion } from './clase.ts';
+import { marcaConPersonalizacion, botonConPersonalizacion } from './clase.ts';
 
 export interface PropsBienvenida {
   socioNombre: string;
@@ -20,13 +20,13 @@ export interface PropsBienvenida {
 }
 
 export function correoBienvenida(p: PropsBienvenida): string {
-  const boton = p.url ? { href: p.url, texto: p.personalizacion?.botonTexto || 'Activar mi acceso' } : null;
+  const boton = botonConPersonalizacion(p.url ? { href: p.url, texto: 'Activar mi acceso' } : null, p.personalizacion);
   const base = {
     marca: marcaConPersonalizacion(p.marca, p.personalizacion),
     detalle: p.planNombre ? { filas: [{ label: 'Tu plan', value: p.planNombre }] } : undefined,
     boton,
     pie: p.personalizacion?.pie ?? null,
-    conPortada: true,
+    conPortada: p.personalizacion?.mostrarPortada ?? true,
     firma: `Con cariño, el equipo de ${p.marca.estudioNombre}`,
   };
   const preheader = `Ya eres parte de ${p.marca.estudioNombre}`;
@@ -39,8 +39,9 @@ export function correoBienvenida(p: PropsBienvenida): string {
     titular: `Bienvenida a ${p.marca.estudioNombre}`,
     parrafos: [
       p.intro?.trim() || `Hola ${p.socioNombre}, estamos encantadas de tenerte aquí.`,
-      // Solo se promete el enlace si de verdad hay enlace.
-      p.url
+      // Solo se promete el enlace si de verdad hay botón: con un destino propio
+      // de la propietaria, «este enlace es tuyo» dejaría de ser verdad.
+      boton && !p.personalizacion?.botonUrl
         ? 'Ya puedes reservar tus clases desde tu app. Este enlace es tuyo: entra y pon tu contraseña, sin buscar nada más.'
         : 'Ya puedes reservar tus clases. Si tienes cualquier duda, escríbenos.',
     ],

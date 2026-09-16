@@ -49,6 +49,7 @@ export function marcaConPersonalizacion(marca: MarcaCorreo, z?: PersonalizacionC
   return {
     ...marca,
     ...(z.logoUrl ? { logoUrl: z.logoUrl } : {}),
+    ...(z.portadaUrl ? { portadaUrl: z.portadaUrl } : {}),
     ...(z.colorCabecera ? { colorPrimario: z.colorCabecera } : {}),
     ...(z.colorBoton ? { colorSecundario: z.colorBoton } : z.colorCabecera ? { colorSecundario: z.colorCabecera } : {}),
     ...(z.fuente ? { fuente: z.fuente } : {}),
@@ -59,11 +60,27 @@ function comun(p: PropsClase, boton: { href: string; texto: string } | null) {
   return {
     marca: marcaConPersonalizacion(p.marca, p.personalizacion),
     detalle: { titulo: p.claseNombre, filas: filas(p) },
-    boton: boton && { href: boton.href, texto: p.personalizacion?.botonTexto || boton.texto },
+    boton: botonConPersonalizacion(boton, p.personalizacion),
     pie: p.personalizacion?.pie ?? null,
-    conPortada: true,
+    conPortada: p.personalizacion?.mostrarPortada ?? true,
     firma: `Nos vemos en el estudio — ${p.marca.estudioNombre}`,
   };
+}
+
+/**
+ * El botón, con lo que haya elegido la propietaria para ESTA plantilla.
+ *
+ * ⚠️ Un `botonUrl` suyo puede crear un botón donde la plantilla no tenía
+ * ninguno —es justo lo que pide quien quiere mandar a su alumna a su web— pero
+ * solo si además le pone texto: un botón sin texto es un rectángulo de color.
+ */
+export function botonConPersonalizacion(
+  boton: { href: string; texto: string } | null,
+  z?: PersonalizacionCorreo | null,
+): { href: string; texto: string } | null {
+  const href = z?.botonUrl?.trim() || boton?.href;
+  const texto = z?.botonTexto?.trim() || boton?.texto;
+  return href && texto ? { href, texto } : null;
 }
 
 export function correoReserva(p: PropsClase): string {
@@ -99,7 +116,7 @@ export function correoRecordatorio(p: PropsClase): string {
 export function correoCancelacionClase(p: PropsClase & { bonoDevuelto?: boolean }): string {
   // Sin portada a propósito: una foto grande y luminosa encima de «tu clase se
   // ha cancelado» se lee como una broma. El filete rojo hace el aviso.
-  const base = { ...comun(p, null), conPortada: false, acento: ACENTO.alerta };
+  const base = { ...comun(p, null), conPortada: p.personalizacion?.mostrarPortada ?? false, acento: ACENTO.alerta };
   const preheader = `${p.claseNombre} se ha cancelado`;
   if (p.personalizacion?.cuerpo) {
     return correoEstudioLibre({ ...base, preheader, titular: '', cuerpo: p.personalizacion.cuerpo });
