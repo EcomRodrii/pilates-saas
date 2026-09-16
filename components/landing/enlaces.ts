@@ -51,7 +51,7 @@ export const NAV_NETWORK: EnlaceNav = { href: '/network', label: 'Tentare Networ
  * la página que más tráfico recibe.
  */
 export const SALIDAS = {
-  funcionalidades: { href: '/funcionalidades', label: 'Ver las 15 funcionalidades' },
+  funcionalidades: { href: '/funcionalidades', label: 'Ver las 17 funcionalidades' },
   sustituciones: { href: '/funcionalidades/sustituciones', label: 'Cómo funcionan las sustituciones' },
   precio: { href: '/precios', label: 'Ver los planes en detalle' },
   comparativa: { href: '/comparativa', label: 'Comparar con otras plataformas' },
@@ -84,16 +84,20 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
       { href: '/funcionalidades/sustituciones', label: 'Sustituciones' },
       { href: '/funcionalidades/cobros-recurrentes', label: 'Cobros' },
       { href: '/funcionalidades/facturacion', label: 'Facturación' },
-      // Solo 4 de las 15 caben sin que la columna se desborde — el resto se
+      // Solo 4 de las 17 caben sin que la columna se desborde — el resto se
       // alcanza en un clic desde aquí. Antes esta columna era el único techo
       // de las 11 restantes desde el pie global (docs/SEO-AI-MASTERPLAN.md §19).
-      { href: '/funcionalidades', label: 'Ver las 15 →' },
+      { href: '/funcionalidades', label: 'Ver las 17 →' },
     ],
   },
   {
     titulo: 'Recursos',
     enlaces: [
       { href: '/recursos', label: 'Blog' },
+      // El Centro de Ayuda tiene 14 categorías y decenas de artículos y NO
+      // estaba enlazado desde ninguna página pública: solo llegaba quien ya
+      // sabía la URL o entraba desde el panel.
+      { href: '/ayuda', label: 'Centro de Ayuda' },
       { href: '/glosario', label: 'Glosario' },
       { href: 'mailto:hola@tentare.app', label: 'Contacto' },
     ],

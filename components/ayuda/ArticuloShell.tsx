@@ -8,7 +8,7 @@ import { AyudaRelacionados } from './AyudaRelacionados';
 import { AyudaFeedback } from './AyudaFeedback';
 import { AyudaCTASoporte } from './AyudaCTASoporte';
 import { MUTED } from '@/components/landing/theme';
-import { relacionadosDe, urlArticulo, type ArticuloAyuda } from '@/lib/ayuda/registro';
+import { categoriaDe, relacionadosDe, urlArticulo, type ArticuloAyuda } from '@/lib/ayuda/registro';
 
 const fecha = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -20,7 +20,10 @@ const fecha = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('
 export function ArticuloShell({ articulo, children }: { articulo: ArticuloAyuda; children: React.ReactNode }) {
   const migas: Miga[] = [
     { label: 'Inicio', href: '/ayuda' },
-    { label: articulo.categoria, href: `/ayuda/${articulo.categoria}` },
+    // El TÍTULO de la categoría, no su slug: la miga decía «instructores» donde
+    // la pantalla anterior dice «Instructoras y equipo», y eso viajaba también
+    // al BreadcrumbList del JSON-LD.
+    { label: categoriaDe(articulo.categoria)?.titulo ?? articulo.categoria, href: `/ayuda/${articulo.categoria}` },
     { label: articulo.titulo },
   ];
   // La etiqueta legible de categoría se resuelve en la página (generateMetadata

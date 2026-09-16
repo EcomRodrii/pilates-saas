@@ -27,7 +27,7 @@ const BLOQUES: { titulo: string; lead: string; paths: string[] }[] = [
   {
     titulo: 'Que las clases se llenen',
     lead: 'Lo que tus alumnas tocan, y las reglas con las que lo tocan.',
-    paths: ['/funcionalidades/reservas-online', '/funcionalidades/lista-de-espera', '/funcionalidades/calendario-y-salas', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/control-de-asistencia'],
+    paths: ['/funcionalidades/reservas-online', '/funcionalidades/lista-de-espera', '/funcionalidades/plazas-fijas', '/funcionalidades/calendario-y-salas', '/funcionalidades/clases-recurrentes', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/control-de-asistencia'],
   },
   {
     titulo: 'Que el equipo funcione sin ti',
