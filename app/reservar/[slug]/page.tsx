@@ -197,10 +197,18 @@ function LevelBadge({ nivel }: { nivel?: string }) {
   // Auditoría 2026-09-16 (FE-11): este par era `rgba(129,140,248,0.2)` de
   // fondo con `#a5b4fc` de texto — 1,67:1 de contraste, muy por debajo del
   // 4,5:1 de AA, en una insignia que sale en CADA tarjeta de clase del único
-  // camino que produce ingresos. `NIVEL_COLOR.TODOS` ya existía con un par que
-  // sí contrasta y era código muerto, porque este early-return lo adelantaba.
+  // camino que produce ingresos.
+  //
+  // ⚠️ La primera corrección reutilizó `NIVEL_COLOR.TODOS` (`#FFF2F7`/
+  // `#3F5A7A`, un hex fijo de modo claro) y rompió el widget embebido en una
+  // web oscura (`?fondo=transparente&texto=claro`): una superficie opaca y
+  // clara ahí es justo lo que `reservar-oscuro-todas-las-vistas.spec.ts`
+  // vigila. Los tokens `--portal-surface-2`/`--portal-muted-2` —que la rama de
+  // abajo ya usa para los niveles sin color propio— se adaptan solos a ese
+  // modo y dan 6,17:1 en el claro normal: mismo arreglo de contraste, sin el
+  // hueco nuevo.
   if (!nivel || nivel === 'TODOS') return (
-    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: NIVEL_COLOR.TODOS.bg, color: NIVEL_COLOR.TODOS.text }}>
+    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: 'var(--portal-surface-2)', color: 'var(--portal-muted-2)' }}>
       Todos los niveles
     </span>
   );
