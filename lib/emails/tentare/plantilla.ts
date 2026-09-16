@@ -141,8 +141,12 @@ function agenda(a: NonNullable<CorreoTentareOpts['agenda']>): string {
   const titulo = a.titulo?.trim()
     ? `<div style="font-family:${PILA};font-size:10.5px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${t.olivaMedio};margin:0 0 8px;">${escaparHtml(a.titulo.trim())}</div>`
     : '';
+  // La columna mide lo que su texto más largo, con techo: a 140 px fijos un
+  // «T1» se quedaba con media pantalla del móvil y el resto iba en cuatro líneas.
+  const larga = Math.max(...a.filas.map(f => f.cuando.length));
+  const anchoCuando = Math.min(140, Math.max(44, larga * 8 + 16));
   const filas = a.filas.map(f => `<tr>
-<td width="140" valign="top" style="padding:9px 12px 9px 0;border-top:1px solid ${t.arena};font-family:${PILA};font-weight:bold;font-size:13px;color:${t.oliva};${f.tachado ? 'text-decoration:line-through;' : ''}">${escaparHtml(f.cuando)}</td>
+<td width="${anchoCuando}" valign="top" style="padding:9px 12px 9px 0;border-top:1px solid ${t.arena};font-family:${PILA};font-weight:bold;font-size:13px;color:${t.oliva};${f.tachado ? 'text-decoration:line-through;' : ''}">${escaparHtml(f.cuando)}</td>
 <td valign="top" style="padding:9px 0;border-top:1px solid ${t.arena};font-family:${PILA};font-size:14px;line-height:1.5;color:${t.tinta};${f.tachado ? 'text-decoration:line-through;' : ''}">${escaparHtml(f.que)}</td>
 </tr>`).join('');
   return `<tr><td class="px-mobile" style="padding:8px 32px 18px;">
@@ -155,8 +159,13 @@ function cifras(cs: { valor: string; etiqueta: string }[]): string {
   // Más de tres no caben en 375 px sin que la cifra se parta en dos líneas.
   const visibles = cs.slice(0, 3);
   const ancho = Math.floor(100 / visibles.length);
-  const celdas = visibles.map(c => `<td width="${ancho}%" valign="top" style="padding:18px 10px;text-align:center;">
-<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.1;color:${t.oliva};margin:0 0 6px;">${escaparHtml(c.valor)}</div>
+  // El cuerpo baja con la cifra más larga del bloque, no con cada una: tres
+  // tamaños distintos en fila se leen como un descuadre. «10.000,00 €» a 26 px
+  // no cabía en un tercio de 600 y el «€» saltaba de línea.
+  const larga = Math.max(...visibles.map(c => c.valor.length));
+  const cuerpo = visibles.length === 1 || larga <= 7 ? 26 : larga <= 9 ? 20 : 17;
+  const celdas = visibles.map(c => `<td width="${ancho}%" valign="top" style="padding:18px 8px;text-align:center;">
+<div style="font-family:${PILA};font-weight:800;font-size:${cuerpo}px;line-height:1.15;color:${t.oliva};margin:0 0 6px;white-space:nowrap;">${escaparHtml(c.valor)}</div>
 <div style="font-family:${PILA};font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:${t.tintaSuave};">${escaparHtml(c.etiqueta)}</div>
 </td>`).join('');
   return `<tr><td class="px-mobile" style="padding:6px 32px 18px;">

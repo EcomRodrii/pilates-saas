@@ -169,8 +169,10 @@ export function correoCierreGestoria(p: CierreGestoriaProps): string {
       { valor: formatEuro(p.totales.cuota), etiqueta: 'IVA repercutido' },
       { valor: formatEuro(p.totales.total), etiqueta: 'Total facturado' },
     ],
-    agenda: {
-      titulo: p.trimestre ? 'Resumen del trimestre' : 'Resumen por trimestre',
+    // Un cierre trimestral ya lo cuenta entero en las cifras: la agenda solo
+    // aporta en el de año, donde desglosa los cuatro trimestres.
+    agenda: p.trimestre ? null : {
+      titulo: 'Resumen por trimestre',
       filas: filas.map(t => ({
         cuando: `T${t.trimestre}`,
         que: `Base ${formatEuro(t.base)} · IVA ${formatEuro(t.cuota)} · Total ${formatEuro(t.total)}`,

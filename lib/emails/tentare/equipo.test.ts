@@ -69,10 +69,22 @@ test('el cierre para la gestoría lleva cifras con dos decimales y filtra el tri
   });
   assert.match(html, /Cierre T3 2026/);
   assert.ok(!html.includes('8264,456') && !html.includes('8.264,456'), 'tres decimales en un documento fiscal');
-  assert.match(html, /T3<\/td>/);
-  assert.ok(!html.includes('>T2<'), 'un envío trimestral no enseña los demás trimestres');
+  assert.ok(!html.includes('>T2<') && !html.includes('>T3<'), 'un envío trimestral no repite en agenda lo que ya dicen las cifras');
+  assert.match(html, /10\.000,00 €/);
+  assert.match(html, /font-size:17px;[^"]*white-space:nowrap;">10\.000,00 €/, 'la cifra larga baja de cuerpo y no se parte');
   assert.match(html, /3 ingreso\(s\) añadido\(s\) a mano/);
   assert.match(html, /no sustituye la presentación de impuestos/);
+});
+
+test('el cierre de año sí desglosa los trimestres en agenda', () => {
+  const html = correoCierreGestoria({
+    estudioNombre: 'Casa Pilates', anio: 2026, trimestre: null, nombreAdjunto: 'cierre.csv',
+    totales: { base: 20, cuota: 4, total: 24, numFacturas: 8, numManuales: 0 },
+    trimestres: [1, 2, 3, 4].map(n => ({ trimestre: n, base: 5, cuota: 1, total: 6 })),
+  });
+  assert.match(html, /Cierre de año 2026/);
+  for (const n of [1, 2, 3, 4]) assert.match(html, new RegExp(`>T${n}<`));
+  assert.match(html, /font-size:26px;[^"]*">24,00 €/, 'las cifras cortas mantienen el cuerpo grande');
 });
 
 test('la referencia de Network no obliga a crear cuenta', () => {
