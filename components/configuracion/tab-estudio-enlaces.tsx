@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ComponentType } from 'react';
-import { Calendar as CalendarLinkIcon, Check, ChevronRight, Copy, ExternalLink, Link2, Smartphone } from 'lucide-react';
+import { Calendar as CalendarLinkIcon, Check, ChevronRight, Copy, ExternalLink, Globe, Link2, Smartphone } from 'lucide-react';
 import { cn, copiarAlPortapapeles } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { normalizarSlug, motivoSlugInvalido } from '@/lib/slug';
 import { resumenDireccion } from '@/lib/configuracion/resumenes';
 import { tarjetaPorId } from '@/lib/configuracion/secciones';
+import { hrefCanal } from '@/lib/canales-estudio';
+import type { DestinoQr } from '@/lib/qr/escaparate';
 import { btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { Campo } from '@/components/configuracion/formulario-estudio';
+import { BotonQr } from '@/components/configuracion/dialogo-qr';
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import { IconoFila } from '@/components/configuracion/shell/fila-herramienta';
 import { TituloFila, ValorFila } from '@/components/configuracion/shell/fila-ajuste';
@@ -18,7 +21,8 @@ import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajo
 // ─────────────────────────────────────────────────────────────────────────────
 // «Dirección y enlaces», en Mi app y mi web (15-sep, v2): una fila con la
 // dirección corta de tu página y «Copiar», y un cajón con la dirección, que se
-// cambia con «Guardar», y los dos enlaces que se comparten.
+// cambia con «Guardar», y los enlaces que se comparten, cada uno con su código
+// QR para imprimir (dialogo-qr.tsx).
 //
 // Son dos cosas DISTINTAS que se confundían bajo «portal»: la página de reservas
 // (sin cuenta, para captar) y la app de tus alumnas (con cuenta, instalable).
@@ -109,13 +113,15 @@ export function FilaDireccionYEnlaces({ onAbrir, showToast }: { onAbrir: () => v
   );
 }
 
-function EnlacePublico({ icono: Icono, titulo, detalle, url, que, abrir, showToast }: {
+function EnlacePublico({ icono: Icono, titulo, detalle, url, que, abrir, qr, showToast }: {
   icono: ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>;
   titulo: string;
   detalle: string;
   url: string;
   que: string;
   abrir?: boolean;
+  /** Su código QR para imprimir: a qué lleva, el nombre del estudio y la dirección para el archivo. */
+  qr: { destino: DestinoQr; estudio: string; slug: string };
   showToast: (m: string) => void;
 }) {
   return (
@@ -130,6 +136,7 @@ function EnlacePublico({ icono: Icono, titulo, detalle, url, que, abrir, showToa
       </span>
       <span className="flex flex-wrap gap-2 pl-[26px]">
         <BotonCopiar texto={url} que={que} showToast={showToast} />
+        <BotonQr destino={qr.destino} url={url} slug={qr.slug} estudio={qr.estudio} nombreEnlace={titulo} />
         {abrir && (
           <a href={url} target="_blank" rel="noopener noreferrer" className={cn(btnSecondary, 'inline-flex items-center gap-1.5')}>
             Abrir <ExternalLink size={14} aria-hidden />
@@ -149,6 +156,10 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
   const { studio } = useStudio();
   const origen = useOrigen();
   const slug = studio?.slug ?? '';
+  const estudio = studio?.nombre ?? '';
+  // La MISMA normalización que el pie de su página pública: «miestudio.com» vale,
+  // y lo que no resuelve a http(s) no se convierte en un QR que no lleva a nada.
+  const web = hrefCanal('web', studio?.sitioWeb);
   const [valor, setValor] = useState(slug);
   // Si llega la dirección después de abrir, se pone si no se había tocado.
   const [slugVisto, setSlugVisto] = useState(slug);
@@ -241,6 +252,7 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
               url={`${origen}/reservar/${slug}`}
               que="El enlace de tu página"
               abrir
+              qr={{ destino: 'reservas', estudio, slug }}
               showToast={showToast}
             />
             {/* Sin sesión de alumna no lleva a nada útil: se copia para pasarlo, no se abre. */}
@@ -250,8 +262,31 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
               detalle="Para alumnas ya dadas de alta: reservan, ven su bono y su progreso. Se instala en el móvil."
               url={`${origen}/portal/${slug}`}
               que="El enlace de la app"
+              qr={{ destino: 'app', estudio, slug }}
               showToast={showToast}
             />
+            {web ? (
+              <EnlacePublico
+                icono={Globe}
+                titulo="Tu web"
+                detalle="La que tienes en Contacto. Para quien quiere conocer el estudio antes de venir."
+                url={web}
+                que="El enlace de tu web"
+                abrir
+                qr={{ destino: 'web', estudio, slug }}
+                showToast={showToast}
+              />
+            ) : (
+              <li className="flex items-start gap-2.5 py-3">
+                <Globe size={16} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-foreground">Tu web</span>
+                  <span className="block text-sm text-muted-foreground text-pretty">
+                    Si tienes web propia, añádela en Mi estudio → Contacto y aquí tendrás también su enlace y su código QR.
+                  </span>
+                </span>
+              </li>
+            )}
           </ul>
         </div>
       </div>

@@ -36,6 +36,19 @@ export default function Contenido() {
         de Instagram, en tu WhatsApp Business o enviarlo directamente a una alumna nueva. Si prefieres que viva dentro
         de tu propia web, la vía es el widget.
       </p>
+      <p>
+        Para quien pasa por delante del estudio, imprime su código QR. En <strong>Configuración</strong> &gt;{' '}
+        <strong>«Mi app y mi web»</strong> &gt; <strong>«Dirección y enlaces»</strong>, cada enlace —tu página de
+        reservas, la app de tus alumnas y tu web, si la tienes en Contacto— lleva un botón <strong>«Código QR»</strong>.
+        Ahí descargas un cartel en A4 con el nombre del estudio, listo para el escaparate (en PDF para imprimir o en
+        PNG para redes), o solo el código, en PNG o SVG, para tus folletos o para quien te hace el diseño.
+      </p>
+      <p>
+        El cartel sale con el color de tu marca, y puedes elegir otro fondo y otro color para el código. Los colores
+        que elijas se recuerdan para los carteles de tus otros enlaces. Si eliges un color demasiado claro para el
+        código, se avisa y no se aplica, porque el móvil podría no leerlo. Y si más adelante cambias la dirección de
+        tu página, el QR que ya tienes impreso sigue llevando a ella.
+      </p>
 
       <AyudaResultado>
         Cualquier persona con el enlace puede ver tu horario y reservar, sin que tengas que darla de alta tú antes —

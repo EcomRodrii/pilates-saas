@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { cargarEstudio } from '@/lib/student/estudio';
-import { getStudioSeo } from '@/lib/studio-seo';
+import { getStudioSeo, slugActualDeDireccionAntigua } from '@/lib/studio-seo';
 import { acentoCssText } from '@/lib/student/tema';
 import { StudentProvider } from '@/components/student/contexto';
 import { ToastProvider } from '@/components/student/ui/Toast';
@@ -105,7 +105,12 @@ export default async function StudentLayout({
   // `notFound()` la clienta veía «esta página no existe» por un parpadeo de la
   // base de datos, y ese 404 se comparte y se indexa.
   if (estudio === 'no-disponible') throw new Error('STUDENT_ESTUDIO_NO_DISPONIBLE');
-  if (!estudio) notFound();
+  if (!estudio) {
+    // La dirección de antes de rebautizarse lleva a la de ahora (ver /reservar).
+    const actual = await slugActualDeDireccionAntigua(slug);
+    if (actual) redirect(`/portal/${actual}`);
+    notFound();
+  }
 
   // M-2 (auditoría 58ª pasada): el gate de "página oculta" ya lo respeta
   // `/reservar` (app/reservar/[slug]/layout.tsx) pero aquí nunca se leía —

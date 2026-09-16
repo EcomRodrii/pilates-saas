@@ -424,8 +424,8 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'que-es-el-portal', categoria: 'portal', tipo: 'guia',
     titulo: 'Qué es el portal de reservas',
-    descripcion: 'La página pública donde tus alumnas ven tu horario y reservan, con o sin cuenta.',
-    actualizado: '2026-09-14',
+    descripcion: 'La página pública donde tus alumnas ven tu horario y reservan, con o sin cuenta, y su código QR para el escaparate.',
+    actualizado: '2026-09-16',
     relacionados: ['portal/acceso-de-una-clienta', 'portal/personalizar-tu-portal', 'widget/que-es-el-widget', 'portal/ocultar-tu-pagina'],
     estado: 'publicado',
   },
