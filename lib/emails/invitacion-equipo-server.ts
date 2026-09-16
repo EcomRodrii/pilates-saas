@@ -1,6 +1,5 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { InvitacionEquipoEmail } from '@/lib/emails/invitacion-equipo-template';
+import { correoInvitacionEquipo } from '@/lib/emails/tentare/equipo';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 import { nombreAppPorRol } from '@/lib/permisos-reglas';
 import type { Rol } from '@/lib/types';
@@ -24,7 +23,8 @@ export async function enviarEmailInvitacionEquipo(params: {
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
 
   try {
-    const html = await render(InvitacionEquipoEmail(params));
+    // Firma Tentare: `logoUrl`/`colorPrimario` se aceptan pero ya no pintan.
+    const html = correoInvitacionEquipo(params);
     const marca = nombreAppPorRol((params.rol as Rol) ?? 'INSTRUCTOR');
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({

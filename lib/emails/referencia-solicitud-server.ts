@@ -1,6 +1,5 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { ReferenciaSolicitudEmail } from '@/lib/emails/referencia-solicitud-template';
+import { correoReferenciaSolicitud } from '@/lib/emails/tentare/equipo';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 
 // Envío del email de solicitud de referencia (app/api/network/referencias).
@@ -20,7 +19,7 @@ export async function enviarEmailReferenciaSolicitud(params: {
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
 
   try {
-    const html = await render(ReferenciaSolicitudEmail(params));
+    const html = correoReferenciaSolicitud(params);
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
       from: remitentePorMarca('Tentare Network'),
