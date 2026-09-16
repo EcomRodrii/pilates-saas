@@ -20,7 +20,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { hexToHsl, mezclarHex, colorLegibleSobre } from '../../color-utils.ts';
-import { foregroundParaFondo } from '../../wcag-contrast.ts';
+import { foregroundParaFondo, ratioContraste } from '../../wcag-contrast.ts';
 
 /** El oliva del kit. Solo se usa cuando el estudio no ha elegido color. */
 export const MARCA_POR_DEFECTO = '#343825';
@@ -65,8 +65,8 @@ export interface PaletaCorreo {
 
 /**
  * Deriva la paleta del correo a partir del color principal del estudio y, si lo
- * tiene, del secundario (que es el que pinta el botón — el mismo papel que el
- * terracota de la referencia sobre el verde salvia).
+ * tiene, del secundario: si tiene cuerpo pinta el botón (el terracota de la
+ * referencia sobre el verde salvia); si es casi blanco, es el fondo.
  *
  * Un hex inválido o ausente cae al color del kit: nunca sale una cadena rota,
  * que en un correo se traduce en un fondo transparente sobre el que no se lee
@@ -91,17 +91,50 @@ const BASE = {
   tintaSuave: '#6B6355',
 } as const;
 
+/**
+ * Cuánto color de marca admite la base cálida sin ensuciarse.
+ *
+ * ⚠️ Mezclar en RGB dos tonos opuestos del círculo no tiñe: apaga. Un 10 % de
+ * índigo sobre el arena daba un gris lila de oficina —visto en una bandeja de
+ * verdad, con un tema publicado en #666dcc—. Por eso el peso cae con la
+ * distancia de tono: entero hasta 60°, nada a partir de 120°. Una marca fría
+ * recibe el arena cálido tal cual, que es lo que hace la referencia con su
+ * salvia y su terracota: tonos distintos, no el mismo desteñido.
+ */
+function pesoDeMarca(marca: string): number {
+  const m = hexToHsl(marca);
+  const base = hexToHsl(BASE.arena);
+  if (!m || !base) return 0.1;
+  const d = Math.abs(m.h - base.h) % 360;
+  const distancia = d > 180 ? 360 - d : d;
+  if (distancia <= 60) return 0.1;
+  if (distancia >= 120) return 0;
+  return (0.1 * (120 - distancia)) / 60;
+}
+
 export function paletaCorreoEstudio(
   colorPrimario?: string | null,
   colorSecundario?: string | null,
+  /** Elegido a mano en la plantilla: pinta el botón aunque sea claro. */
+  colorBoton?: string | null,
 ): PaletaCorreo {
   const marca = hexToHsl(colorPrimario ?? '') ? (colorPrimario as string) : MARCA_POR_DEFECTO;
+  const secundario = hexToHsl(colorSecundario ?? '') ? (colorSecundario as string) : null;
+  const peso = pesoDeMarca(marca);
 
-  const arena = mezclarHex(marca, BASE.arena, 0.1);
-  const papel = mezclarHex(marca, BASE.papel, 0.03);
+  // ⚠️ El `secondary` del tema NO significa lo mismo en todos: en los presets
+  // es un tono oscuro de la marca (#5A6142), y en Oliva/Bloom/Noir es una
+  // «superficie suave» (#ECE8E1) — ver theme-schema.ts. Usado siempre como
+  // botón, dos de los tres temas publicados en producción mandaban un botón
+  // beige con el texto negro, que no se ve como botón. Un secundario muy claro
+  // es el fondo que el estudio eligió, así que se usa de arena; uno con cuerpo
+  // pinta el botón.
+  const superficie = secundario && (ratioContraste(secundario, '#FFFFFF') ?? 99) < 1.6 ? secundario : null;
+  const arena = superficie ?? mezclarHex(marca, BASE.arena, peso);
+  const papel = mezclarHex(marca, BASE.papel, peso * 0.3);
 
-  const secundarioValido = hexToHsl(colorSecundario ?? '') ? (colorSecundario as string) : null;
-  const boton = secundarioValido ?? marca;
+  const elegido = hexToHsl(colorBoton ?? '') ? (colorBoton as string) : null;
+  const boton = elegido ?? (secundario && !superficie && (ratioContraste(secundario, papel) ?? 0) >= 3 ? secundario : marca);
 
   return {
     marca,
@@ -109,8 +142,8 @@ export function paletaCorreoEstudio(
     papel,
     // Ni el color de marca a pelo (un filo saturado alrededor de la tarjeta) ni
     // un gris: la marca desteñida sobre el arena, como el salvia claro de la
-    // referencia.
-    borde: mezclarHex(marca, arena, 0.32),
+    // referencia. Una marca fría apenas lo toca, por lo mismo que el arena.
+    borde: mezclarHex(marca, arena, 0.08 + 0.24 * (peso / 0.1)),
     tinta: mezclarHex(marca, BASE.tinta, 0.1),
     // Se calcula contra `arena`, que es el más claro de los dos fondos donde se
     // pinta: lo que cumple ahí cumple también sobre `papel`.

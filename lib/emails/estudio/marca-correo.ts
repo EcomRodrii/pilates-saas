@@ -30,6 +30,34 @@ export function portadaDeCorreo(propia?: string | null, base = BASE_IMAGENES_COR
   return `${base}${IMAGENES_POR_DEFECTO.correo[0]}`;
 }
 
+/**
+ * El logo tal y como viaja en un correo: si vive en nuestro Storage, la copia
+ * que sirve el transformador de imágenes de Supabase, a 400×144 como mucho.
+ *
+ * Medido en producción: dos de los cinco logos eran fotos de móvil de 0,6 y
+ * 1,1 MB, y el correo las mandaba enteras para pintarlas a 30 px. Por esa URL
+ * la de 1,1 MB llega en 4,7 KB. `format=origin` no es opcional: sin él Supabase
+ * sirve WEBP a quien lo acepte, y Outlook de Windows no lo pinta.
+ *
+ * La caja es el doble de la que ocupa en pantalla (200×72, ver `cabecera`):
+ * con `resize=contain` el logo cabe entero sea cual sea su forma, y la plantilla
+ * lo reduce a la mitad para que se vea nítido en una pantalla retina.
+ *
+ * Una URL de fuera se deja tal cual: no hay nada que transformar.
+ */
+export function logoDeCorreo(url?: string | null): string | null {
+  const limpio = (url ?? '').trim();
+  if (!limpio) return null;
+  const m = limpio.match(/^(https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1)\/object\/public\/([^?#]+)(\?[^#]*)?$/);
+  if (!m) return limpio;
+  const consulta = new URLSearchParams(m[3] ? m[3].slice(1) : '');
+  consulta.set('width', '400');
+  consulta.set('height', '144');
+  consulta.set('resize', 'contain');
+  consulta.set('format', 'origin');
+  return `${m[1]}/render/image/public/${m[2]}?${consulta.toString()}`;
+}
+
 export function marcaCorreoDesde(marca: MarcaEstudio, estudioNombreFallback: string): MarcaCorreo {
   return {
     estudioNombre: marca.estudioNombre || marca.nombre || estudioNombreFallback,

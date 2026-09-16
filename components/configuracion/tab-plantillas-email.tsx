@@ -13,6 +13,7 @@ import { FUENTES_EMAIL, type FuenteEmail, type PlantillaEmail, type TipoPlantill
 import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/components/configuracion/estilos';
 import { EstadoAjuste } from '@/components/configuracion/shell/estado-ajuste';
 import { previsualizarPlantilla, enviarPruebaPlantilla, fetchThemePublicado } from '@/lib/api-client';
+import { paletaCorreoEstudio } from '@/lib/emails/estudio/paleta';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useNavegacionConfig } from '@/components/configuracion/shell/contexto';
@@ -631,7 +632,7 @@ function EditorPlantilla({
             </p>
             <BloquePortada meta={meta} b={b} set={set} showToast={showToast} />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Color principal" description="Tiñe el correo: la franja, las etiquetas y el fondo.">
+              <Field label="Color principal" description="La franja de arriba, las etiquetas y el botón.">
                 {/* Enseña el color que sale DE VERDAD: el que haya elegido aquí,
                     o el de su marca. Antes enseñaba un oliva fijo mientras el
                     correo salía de otro color. */}
@@ -641,13 +642,14 @@ function EditorPlantilla({
               </Field>
               <Field
                 label="Color del botón"
-                description={b.colorBoton ? 'Distinto al principal.' : b.colorCabecera ? 'Va con el principal.' : 'El secundario de tu marca.'}
+                description={b.colorBoton ? 'Distinto al principal.' : b.colorCabecera ? 'Va con el principal.' : 'El de tu marca.'}
               >
                 {/* Mismo orden que el correo (marcaConPersonalizacion): el suyo,
-                    si no el principal que haya elegido, si no el secundario de
-                    su marca. */}
+                    si no el principal que haya elegido, si no el que le toca por
+                    su marca — que NO es siempre el secundario: uno casi blanco
+                    es su fondo, y el botón va en el principal (paleta.ts). */}
                 <input type="color" className={cn(inputCls, 'h-10 p-1')}
-                  value={b.colorBoton || b.colorCabecera || colorMarca.secundario}
+                  value={b.colorBoton || b.colorCabecera || paletaCorreoEstudio(colorMarca.primario, colorMarca.secundario).boton}
                   onChange={e => set('colorBoton', e.target.value)} />
               </Field>
             </div>
