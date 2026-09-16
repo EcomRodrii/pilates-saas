@@ -83,3 +83,36 @@ test('sin ningún canal la clave se omite (no un array vacío)', () => {
   assert.ok(!('canales' in marcaDesdeFila({ nombre: 'Casa Pilates' })));
   assert.ok(!('canales' in marcaDesdeFila({ nombre: 'Casa Pilates', sitio_web: '  ' }, {})));
 });
+
+test('la dirección del pie se compone sin comas ni huecos sueltos', () => {
+  // Las tres columnas pueden faltar por separado. Con un join ingenuo, un
+  // estudio con ciudad pero sin calle acababa con una coma delante en el pie de
+  // TODOS sus correos.
+  assert.equal(
+    marcaDesdeFila({ direccion: 'Calle Ejemplo 12', codigo_postal: '29015', ciudad: 'Málaga' }).direccionPostal,
+    'Calle Ejemplo 12, 29015 Málaga',
+  );
+  assert.equal(marcaDesdeFila({ ciudad: 'Málaga' }).direccionPostal, 'Málaga');
+  assert.equal(marcaDesdeFila({ direccion: 'Calle Ejemplo 12' }).direccionPostal, 'Calle Ejemplo 12');
+  assert.equal(marcaDesdeFila({ direccion: '  ', ciudad: '' }).direccionPostal, null);
+  assert.equal(marcaDesdeFila({}).direccionPostal, null);
+});
+
+test('portada, lema y color secundario llegan a la marca del correo', () => {
+  // Los tres los pinta la plantilla del estudio y ninguno existía antes aquí:
+  // si alguien los quita del `.select` de resolverMarcaEstudio llegan vacíos y
+  // en silencio, que es como se quedó el héroe del portal sin foto en su día.
+  const marca = marcaDesdeFila(
+    { nombre: 'Casa Pilates', imagen_bienvenida_url: 'https://cdn.example.com/p.jpg', lema: 'Cuerpo · Mente' },
+    null,
+    '#B9714A',
+  );
+  assert.equal(marca.portadaUrl, 'https://cdn.example.com/p.jpg');
+  assert.equal(marca.lema, 'Cuerpo · Mente');
+  assert.equal(marca.colorSecundario, '#B9714A');
+});
+
+test('sin tema publicado el correo no se queda sin botón', () => {
+  // El secundario vive en `studio_theme`, que puede no existir o no leerse.
+  assert.equal(marcaDesdeFila({ nombre: 'Casa Pilates' }).colorSecundario, null);
+});

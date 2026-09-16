@@ -31,7 +31,7 @@
 //     sí lleva default.
 
 /** Los huecos de imagen de un estudio. Uno por forma, no por pantalla. */
-export type HuecoImagen = 'portada' | 'vertical' | 'banda' | 'banner';
+export type HuecoImagen = 'portada' | 'vertical' | 'banda' | 'banner' | 'correo';
 
 /**
  * La única fuente de verdad. Cambiar una foto es sustituir el archivo de
@@ -51,6 +51,12 @@ export const IMAGENES_POR_DEFECTO: Record<HuecoImagen, readonly string[]> = {
   banda: ['/por-defecto/estudio-banda.webp'],
   // 1600×770 (2.08:1) · banner «Invita a una amiga»
   banner: ['/por-defecto/estudio-banner.webp'],
+  // 1200×750 (16:10) · portada de los correos del estudio a sus alumnas.
+  // ⚠️ Es la MISMA foto que `portada`, en JPG y no en WEBP: Outlook de Windows
+  // no pinta WEBP y dejaría la cabecera del correo en un hueco con el texto
+  // alternativo. Sale del mismo archivo con `sharp` (ver README del directorio),
+  // no es un dibujo distinto.
+  correo: ['/por-defecto/estudio-hero-correo.jpg'],
 };
 
 /** Fotos de clase: la genérica y las cinco por familia de disciplina. */

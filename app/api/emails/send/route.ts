@@ -4,12 +4,12 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { render } from '@react-email/render';
 import { ReciboEmail } from '@/lib/emails/recibo-template';
 import { BienvenidaEmail } from '@/lib/emails/bienvenida-template';
-import { ReservaEmail } from '@/lib/emails/reserva-template';
+import { correoReserva, correoRecordatorio } from '@/lib/emails/estudio/clase';
+import { marcaCorreoDesde, urlAppSocia } from '@/lib/emails/estudio/marca-correo';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
 import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
-import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
@@ -188,6 +188,12 @@ export async function POST(req: NextRequest) {
   const personalizacion = interpolarPersonalizacion(plantilla, varsPlantilla);
 
   type DatosClase = { claseNombre: string; fecha: string; hora: string; sala: string; instructor: string; estudioNombre?: string };
+  // Los correos ya migrados al sistema del estudio reciben la marca como un
+  // objeto, no desparramada en props sueltas (ver lib/emails/estudio/).
+  const claseEstudio = (d: DatosClase) => ({
+    marca: marcaCorreoDesde(marca, d.estudioNombre ?? nombreEstudio ?? 'Tu estudio'),
+    url: urlAppSocia(marca.slug),
+  });
 
   if (tipo === 'recibo') {
     const d = datos as {
@@ -208,7 +214,7 @@ export async function POST(req: NextRequest) {
     subject = asuntoCustom ?? `¡Bienvenida a ${nombreEstudio ?? 'tu estudio'}!`;
   } else if (tipo === 'reserva') {
     const d = datos as DatosClase;
-    html = await render(ReservaEmail({ socioNombre: toName, intro: introCustom, personalizacion, ...d, ...marca }));
+    html = correoReserva({ socioNombre: toName, intro: introCustom, personalizacion, ...d, ...claseEstudio(d) });
     subject = asuntoCustom ?? `Reserva confirmada — ${d.claseNombre}`;
   } else if (tipo === 'automatizacion') {
     const d = datos as { titulo: string; mensaje: string; estudioNombre?: string };
@@ -231,7 +237,7 @@ export async function POST(req: NextRequest) {
     subject = asuntoCustom ?? `${motivoAsunto} — ${d.claseNombre}`;
   } else {
     const d = datos as DatosClase;
-    html = await render(RecordatorioEmail({ socioNombre: toName, intro: introCustom, ...d, ...marca }));
+    html = correoRecordatorio({ socioNombre: toName, intro: introCustom, personalizacion, ...d, ...claseEstudio(d) });
     subject = asuntoCustom ?? `Recordatorio — ${d.claseNombre}`;
   }
 

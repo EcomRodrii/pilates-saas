@@ -1,11 +1,11 @@
-import type { ComponentProps } from 'react';
-import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
-import { MARCA, SOCIA, CLASE } from './_muestra';
+import { correoRecordatorio } from '@/lib/emails/estudio/clase';
+import { MARCA_CORREO, SOCIA, CLASE, URL_MUESTRA } from './_muestra';
 
-type Props = ComponentProps<typeof RecordatorioEmail>;
-
-const Preview = (props: Props) => <RecordatorioEmail {...props} />;
-
-Preview.PreviewProps = { ...MARCA, ...CLASE, socioNombre: SOCIA } satisfies Props;
+// Ver la nota de emails/reserva.tsx: el sistema devuelve el documento entero.
+const Preview = () => (
+  <div dangerouslySetInnerHTML={{
+    __html: correoRecordatorio({ marca: MARCA_CORREO, socioNombre: SOCIA, ...CLASE, url: URL_MUESTRA }),
+  }} />
+);
 
 export default Preview;

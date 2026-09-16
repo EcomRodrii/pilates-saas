@@ -40,6 +40,13 @@ const PLANTILLAS_META: {
   datosLabel: string;
   // Presente solo si la plantilla tiene adónde enlazar.
   botonLabel?: string;
+  // Lo que pone el pie cuando ella no escribe el suyo. NO es el mismo en todas
+  // mientras quedan plantillas sin pasar al diseño del estudio: enseñar aquí un
+  // texto que su correo no lleva es justo lo que este campo evita.
+  pieDefault: string;
+  // Una línea honesta sobre lo que este correo enseña y aún no se puede cambiar
+  // desde aquí. Ausente = no hay nada que advertir.
+  avisoNoEditable?: string;
   // Qué se pierde la clienta si se apaga este correo. Se enseña al apagarlo y
   // mientras siga apagado: apagar un correo es una decisión legítima de la
   // propietaria, pero tiene que tomarla sabiendo qué deja de llegar. No es un
@@ -52,6 +59,7 @@ const PLANTILLAS_META: {
     asuntoDefault: '¡Bienvenida a {estudio}!',
     introDefault: 'Hola {nombre}, estamos encantadas de tenerte en {estudio}.',
     variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
+    pieDefault: 'Enviado por {estudio} · Powered by Tentare',
     datosLabel: 'Su plan contratado',
     avisoAlApagar: 'Nadie le mandará el enlace para entrar a su portal al darla de alta.',
     botonLabel: 'Botón de acceso a su portal',
@@ -62,6 +70,9 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, tu plaza está reservada.',
     variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
+    botonLabel: 'Botón para abrir su app',
+    pieDefault: '{estudio} · tu dirección',
+    avisoNoEditable: 'La foto de arriba es la portada de tu app (Configuración → Apariencia). Todavía no se puede poner una distinta solo para este correo.',
     avisoAlApagar: 'Solo verá la confirmación en pantalla al reservar y en su portal.',
   },
   {
@@ -70,6 +81,9 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, te esperamos en tu próxima clase. Aquí tienes los detalles.',
     variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
+    botonLabel: 'Botón para abrir su app',
+    pieDefault: '{estudio} · tu dirección',
+    avisoNoEditable: 'La foto de arriba es la portada de tu app (Configuración → Apariencia). Todavía no se puede poner una distinta solo para este correo.',
     avisoAlApagar: 'No le llegará el aviso previo por correo. El de su app (24 h y 1 h antes) y el de WhatsApp, si lo tienes, siguen saliendo.',
   },
   {
@@ -78,6 +92,7 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, lamentamos avisarte de que esta clase ha sido cancelada. No hace falta que te presentes.',
     variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
+    pieDefault: 'Enviado por {estudio} · Powered by Tentare',
     avisoAlApagar: 'No se enterará por correo de que has anulado su clase.',
   },
   {
@@ -86,6 +101,7 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, estabas en lista de espera y ha quedado una plaza libre.',
     variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
+    pieDefault: 'Enviado por {estudio} · Powered by Tentare',
     avisoAlApagar: 'No sabrá que ha entrado desde la lista de espera y puede perder la plaza.',
   },
   {
@@ -94,6 +110,7 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, hemos intentado cobrar tu cuota y el pago no se ha completado.',
     variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
     datosLabel: 'El concepto y el importe',
+    pieDefault: 'Enviado por {estudio} · Powered by Tentare',
     avisoAlApagar: 'No sabrá que su cobro ha fallado: tendrás que avisarla tú.',
   },
 ];
@@ -485,6 +502,9 @@ function EditorPlantilla({
               Si no tocas nada se usan los de tu estudio. El color del texto del botón se
               calcula solo para que se lea sobre el fondo que elijas.
             </p>
+            {meta.avisoNoEditable && (
+              <p className="text-xs text-muted-foreground">{meta.avisoNoEditable}</p>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <Field label="Color de la franja" description="La banda de arriba del correo.">
                 <input type="color" className={cn(inputCls, 'h-10 p-1')}
@@ -525,7 +545,11 @@ function EditorPlantilla({
               </select>
             </Field>
             <Field label="Pie del correo" description="La línea pequeña del final.">
-              <input className={inputCls} placeholder="Enviado por {estudio} · Powered by Tentare"
+              {/* El placeholder sale de la plantilla, no de una constante:
+                  mientras quedan correos sin pasar al diseño del estudio, el
+                  pie de fábrica no es el mismo en todos, y enseñar aquí uno que
+                  su correo no lleva es exactamente lo que no puede pasar. */}
+              <input className={inputCls} placeholder={meta.pieDefault}
                 value={b.pie} onChange={e => set('pie', e.target.value)} />
             </Field>
           </div>

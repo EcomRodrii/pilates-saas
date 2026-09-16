@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   IMAGENES_POR_DEFECTO, IMAGENES_CLASE,
   familiaDeClase, imagenDeEstudio, imagenDeClase, elegirVariante,
@@ -91,6 +93,25 @@ test('todas las rutas por defecto apuntan a public/por-defecto', () => {
   // cae aquí y no en el portal de una socia.
   const todas = [...Object.values(IMAGENES_POR_DEFECTO).flat(), ...Object.values(IMAGENES_CLASE)];
   for (const ruta of todas) {
-    assert.match(ruta, /^\/por-defecto\/[a-z-]+\.webp$/, ruta);
+    assert.match(ruta, /^\/por-defecto\/[a-z-]+\.(webp|jpg)$/, ruta);
+  }
+});
+
+test('todo va en WEBP menos la portada de los correos, que va en JPG', () => {
+  // La excepción es una sola y tiene motivo: Outlook de Windows no pinta WEBP y
+  // dejaría la cabecera del correo en un hueco con el texto alternativo. Si
+  // mañana aparece una segunda excepción, que sea una decisión y no un descuido.
+  const pantalla = [...Object.values(IMAGENES_POR_DEFECTO).flat(), ...Object.values(IMAGENES_CLASE)]
+    .filter((r) => !IMAGENES_POR_DEFECTO.correo.includes(r));
+  for (const ruta of pantalla) assert.match(ruta, /\.webp$/, ruta);
+  for (const ruta of IMAGENES_POR_DEFECTO.correo) assert.match(ruta, /\.jpg$/, ruta);
+});
+
+test('los archivos por defecto existen de verdad en public/', () => {
+  // Una ruta escrita a mano que no existe se ve como un hueco, no como un
+  // error: el navegador no dice nada y el correo tampoco.
+  const raiz = join(import.meta.dirname, '..', 'public');
+  for (const ruta of [...Object.values(IMAGENES_POR_DEFECTO).flat(), ...Object.values(IMAGENES_CLASE)]) {
+    assert.ok(existsSync(join(raiz, ruta)), `falta el archivo ${ruta}`);
   }
 });

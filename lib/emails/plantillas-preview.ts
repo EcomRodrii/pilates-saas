@@ -1,7 +1,7 @@
 import { render } from '@react-email/render';
 import { BienvenidaEmail } from '@/lib/emails/bienvenida-template';
-import { ReservaEmail } from '@/lib/emails/reserva-template';
-import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
+import { correoReserva, correoRecordatorio } from '@/lib/emails/estudio/clase';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
 import { ImpagoEmail } from '@/lib/emails/impago-template';
@@ -80,14 +80,22 @@ export async function renderPlantillaMuestra(
   );
   const base = { socioNombre: SOCIA_MUESTRA, intro, personalizacion, estudioNombre, ...marca };
   const conClase = { ...base, claseNombre: CLASE_MUESTRA, ...DATOS_CLASE_MUESTRA };
+  // Los correos ya migrados al sistema del estudio reciben la marca como un
+  // objeto. La URL de muestra es la misma que la bienvenida: sin ella la
+  // propietaria escribiría el texto de su botón y no vería ningún botón.
+  const conClaseEstudio = {
+    socioNombre: SOCIA_MUESTRA, intro, personalizacion,
+    claseNombre: CLASE_MUESTRA, ...DATOS_CLASE_MUESTRA,
+    marca: marcaCorreoDesde(marca, estudioNombre), url: URL_MUESTRA,
+  };
 
   switch (tipo) {
     case 'bienvenida':
       return { html: await render(BienvenidaEmail({ ...base, planNombre: 'Mensual Ilimitado', url: URL_MUESTRA })), subject: asuntoOverride ?? `¡Bienvenida a ${estudioNombre}!` };
     case 'reserva':
-      return { html: await render(ReservaEmail(conClase)), subject: asuntoOverride ?? `Reserva confirmada — ${CLASE_MUESTRA}` };
+      return { html: correoReserva(conClaseEstudio), subject: asuntoOverride ?? `Reserva confirmada — ${CLASE_MUESTRA}` };
     case 'recordatorio':
-      return { html: await render(RecordatorioEmail(conClase)), subject: asuntoOverride ?? `Recordatorio — ${CLASE_MUESTRA}` };
+      return { html: correoRecordatorio(conClaseEstudio), subject: asuntoOverride ?? `Recordatorio — ${CLASE_MUESTRA}` };
     case 'cancelacion':
       return { html: await render(CancelacionClaseEmail(conClase)), subject: asuntoOverride ?? `Clase cancelada — ${CLASE_MUESTRA}` };
     case 'promocion':
