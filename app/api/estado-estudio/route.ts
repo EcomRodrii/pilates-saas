@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   const [
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
-    plazasFijasPorDecidir,
+    plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
   ] = await Promise.all([
@@ -156,6 +156,9 @@ export async function GET(req: NextRequest) {
     // Mismos dos permisos que resolverlas (`/api/plazas-fijas/solicitudes`).
     si(gestionaClientas && gestionaCalendario, () => contar('plazas-fijas-decidir', admin.from('solicitudes_plaza_fija')
       .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE'))),
+    // A-14: mismo gate que /api/terminal/reconciliaciones y /api/terminal/reconciliar.
+    si(mueveDinero, () => contar('reconciliaciones-pendientes', admin.from('reconciliaciones_pos')
+      .select('payment_intent_id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE'))),
 
     // ── En marcha ──
     si(verSustituciones, () => contar('sust-buscando', admin.from('sustituciones')
@@ -186,7 +189,7 @@ export async function GET(req: NextRequest) {
   const conteos: ConteosEstudio = {
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
-    plazasFijasPorDecidir,
+    plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
   };
