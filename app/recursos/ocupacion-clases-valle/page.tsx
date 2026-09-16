@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
+import { fechaModificada, guia } from '@/lib/recursos/guias';
+import { openGraphGuia } from '@/lib/recursos/schema';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { BeforeAfterCols, Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { urlDe } from '@/lib/seo/paginas';
+
+const GUIA = guia('ocupacion-clases-valle');
 
 export const metadata: Metadata = {
   title: 'Cómo subir la ocupación de tus clases valle — Tentare',
@@ -15,6 +19,7 @@ export const metadata: Metadata = {
     title: 'Cómo subir la ocupación de tus clases valle',
     description: 'Tácticas reales — con lo que hace ClassPass de fondo — para llenar las horas flojas sin regalar el precio.',
     url: urlDe('/recursos/ocupacion-clases-valle'),
+    ...openGraphGuia(GUIA.slug),
   },
 };
 
@@ -49,15 +54,15 @@ export default function OcupacionClasesVallePage() {
         title="Cómo subir la ocupación de tus clases valle"
         description="Las 10:00 de un martes vacías cuestan dinero igual. Qué hace ClassPass con el precio dinámico, y qué puedes copiar sin depender de ninguna plataforma externa."
         slug="ocupacion-clases-valle"
-        datePublished="2026-08-06"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
-        category="Rentabilidad"
+        category={GUIA.seccion}
         coverGradient="linear-gradient(140deg,#1f3d42,#3E7C86)"
         title="Cómo subir la ocupación de tus clases valle"
         intro="Las 10:00 de un martes vacías cuestan lo mismo que llenas: sala, instructora, luz. Esto es lo que hacen las plataformas grandes con el precio dinámico — y lo que puedes copiar sin depender de ninguna de ellas."
-        readTime="7 min de lectura"
+        readTime={`${GUIA.lectura} min de lectura`}
+        actualizado={fechaModificada(GUIA)}
         toc={TOC}
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>

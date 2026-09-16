@@ -7,6 +7,7 @@ import { ACC } from '@/components/landing/theme';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
+import { mesCorto } from '@/lib/recursos/guias';
 
 export type TocItem = { id: string; label: string };
 
@@ -17,6 +18,7 @@ export function ArticleShell({
   title,
   intro,
   readTime,
+  actualizado,
   toc,
   backHref,
   backLabel,
@@ -29,6 +31,12 @@ export function ArticleShell({
   title: string;
   intro: string;
   readTime: string;
+  /**
+   * Última fecha del contenido (AAAA-MM-DD). Las guías de /recursos la pasan
+   * desde su registro (lib/recursos/guias.ts), la misma que su JSON-LD. Sin
+   * ella se queda el texto que llevaba antes (la comparativa de Glofox).
+   */
+  actualizado?: string;
   toc: TocItem[];
   backHref?: string;
   backLabel?: string;
@@ -95,7 +103,7 @@ export function ArticleShell({
             <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(255,255,255,.4)' }} />
             <span className="lp-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,.8)' }}>{readTime}</span>
             <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(255,255,255,.4)' }} />
-            <span className="lp-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,.8)' }}>Actualizado jul 2026</span>
+            <span className="lp-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,.8)' }}>Actualizado {actualizado ? mesCorto(actualizado) : 'jul 2026'}</span>
           </div>
         </div>
       </header>

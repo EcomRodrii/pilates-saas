@@ -3,6 +3,7 @@ import { PAGINAS, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { ciudadesConPerfilesPublicados, slugCiudadUrl } from '@/lib/network/publico';
 import { ARTICULOS, CATEGORIAS, urlArticulo } from '@/lib/ayuda/registro';
+import { imagenesSitemap } from '@/lib/recursos/schema';
 
 // El sitemap se DERIVA del registro (lib/seo/paginas.ts); aquí no se mantiene
 // ninguna lista.
@@ -23,14 +24,20 @@ import { ARTICULOS, CATEGORIAS, urlArticulo } from '@/lib/ayuda/registro';
 // (mismo patrón que el resto de rutas de Network); en ese caso el sitemap
 // simplemente no lleva perfiles, no rompe el build.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const estaticas: MetadataRoute.Sitemap = PAGINAS.map((p) => ({
-    url: urlDe(p.path),
-    changeFrequency: p.changeFrequency,
-    priority: p.prioridad,
-    // Solo cuando la fecha es real. Ver el comentario de `actualizado` en el
-    // registro: inventarla es peor que omitirla.
-    ...(p.actualizado ? { lastModified: new Date(p.actualizado) } : {}),
-  }));
+  const estaticas: MetadataRoute.Sitemap = PAGINAS.map((p) => {
+    // La portada de cada guía de /recursos (sitemap de imágenes). Solo las
+    // guías tienen: el resto de páginas no lleva una imagen propia que indexar.
+    const images = imagenesSitemap(p.path);
+    return {
+      url: urlDe(p.path),
+      changeFrequency: p.changeFrequency,
+      priority: p.prioridad,
+      // Solo cuando la fecha es real. Ver el comentario de `actualizado` en el
+      // registro: inventarla es peor que omitirla.
+      ...(p.actualizado ? { lastModified: new Date(p.actualizado) } : {}),
+      ...(images.length ? { images } : {}),
+    };
+  });
 
   // Categorías y artículos del Centro de Ayuda: rutas dinámicas
   // (app/ayuda/[categoria], app/ayuda/[categoria]/[articulo]) que no pasa el

@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
+import { fechaModificada, guia } from '@/lib/recursos/guias';
+import { openGraphGuia } from '@/lib/recursos/schema';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { urlDe } from '@/lib/seo/paginas';
+
+const GUIA = guia('checklist-elegir-software-estudio');
 
 export const metadata: Metadata = {
   title: 'Checklist: cómo elegir el software de tu estudio — Tentare',
@@ -15,6 +19,7 @@ export const metadata: Metadata = {
     title: 'Checklist: cómo elegir el software de tu estudio',
     description: 'Las señales de alarma que las reseñas públicas ya han encontrado por ti, antes de que firmes un contrato de un año.',
     url: urlDe('/recursos/checklist-elegir-software-estudio'),
+    ...openGraphGuia(GUIA.slug),
   },
 };
 
@@ -49,15 +54,15 @@ export default function ChecklistSoftwarePage() {
         title="Checklist: cómo elegir el software de tu estudio"
         description="Qué dicen de verdad miles de reseñas en Capterra y G2, y las preguntas exactas que hay que hacer en una demo antes de firmar."
         slug="checklist-elegir-software-estudio"
-        datePublished="2026-08-06"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
-        category="Elegir software"
+        category={GUIA.seccion}
         coverGradient="linear-gradient(140deg,#1C1F14,#343825)"
         title="Checklist: cómo elegir el software de tu estudio"
         intro="Cambiar de software una vez ya duele. Cambiarlo dos veces por no haber preguntado lo correcto en la demo, duele el doble. Esto es lo que ya han encontrado miles de reseñas públicas — antes de que tengas que descubrirlo tú."
-        readTime="8 min de lectura"
+        readTime={`${GUIA.lectura} min de lectura`}
+        actualizado={fechaModificada(GUIA)}
         toc={TOC}
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>

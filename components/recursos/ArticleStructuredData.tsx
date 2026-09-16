@@ -1,21 +1,22 @@
 import { LEGAL } from '@/lib/legal-info';
+import { blogLd, blogPostingLd } from '@/lib/recursos/schema';
 
-// BreadcrumbList + Article/BlogPosting JSON-LD para una guía de /recursos.
-// Separado del listado (BreadcrumbListRecursos, más abajo) porque una guía
-// tiene un nivel más en la miga de pan y campos propios de Article
-// (headline/datePublished) que el listado no tiene.
+// BreadcrumbList + BlogPosting JSON-LD para una guía de /recursos.
+// Separado del listado (RecursosBreadcrumb y RecursosBlogStructuredData, más
+// abajo) porque una guía tiene un nivel más en la miga de pan y campos propios.
+//
+// ⚠️ Las fechas, la sección y la imagen NO se pasan por props: salen del
+// registro de guías (lib/recursos/guias.ts) dentro de `blogPostingLd`, que es
+// una función pura con su test. Antes cada page.tsx escribía su `datePublished`
+// a mano y el sitemap tenía otra copia de las mismas fechas.
 export function ArticleStructuredData({
   title,
   description,
   slug,
-  datePublished,
-  dateModified = datePublished,
 }: {
   title: string;
   description: string;
   slug: string;
-  datePublished: string;
-  dateModified?: string;
 }) {
   const url = `${LEGAL.url}/recursos/${slug}`;
 
@@ -29,21 +30,7 @@ export function ArticleStructuredData({
     ],
   };
 
-  const articleLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: title,
-    description,
-    url,
-    datePublished,
-    dateModified,
-    // Person, no Organization — mismo nombre que el byline visible
-    // (ArticleShell) y que /legal (Marcos Roca Rodríguez, en su forma
-    // pública). Señal de E-E-A-T real, auditoría GEO 2026-08-20.
-    author: { '@type': 'Person', name: 'Marcos Roca', jobTitle: 'Fundador de Tentare', url: `${LEGAL.url}/legal` },
-    publisher: { '@type': 'Organization', name: LEGAL.marca, url: LEGAL.url },
-    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
-  };
+  const articleLd = blogPostingLd({ slug, titulo: title, descripcion: description });
 
   return (
     <>
@@ -51,6 +38,12 @@ export function ArticleStructuredData({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd).replace(/</g, '\\u003c') }} />
     </>
   );
+}
+
+// Blog JSON-LD del listado /recursos: sus guías publicadas, con `@id` estable
+// para que el `isPartOf` de cada BlogPosting apunte aquí.
+export function RecursosBlogStructuredData() {
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(blogLd()).replace(/</g, '\\u003c') }} />;
 }
 
 // FAQPage JSON-LD para las guías que ya muestran <ArticleFaq> en pantalla —

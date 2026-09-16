@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
+import { fechaModificada, guia } from '@/lib/recursos/guias';
+import { openGraphGuia } from '@/lib/recursos/schema';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { BeforeAfterCols, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
@@ -8,6 +10,8 @@ import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/
 import { Check } from 'lucide-react';
 import { ACC } from '@/components/landing/theme';
 import { urlDe } from '@/lib/seo/paginas';
+
+const GUIA = guia('facturacion-electronica-verifactu');
 
 export const metadata: Metadata = {
   title: 'Facturación electrónica para estudios de Pilates en España: qué cambia con Veri*factu',
@@ -18,6 +22,7 @@ export const metadata: Metadata = {
     title: 'Facturación electrónica para estudios de Pilates: qué cambia con Veri*factu',
     description: 'Qué es Veri*factu, cuándo es obligatorio y qué debe tener cada factura de tu estudio.',
     url: urlDe('/recursos/facturacion-electronica-verifactu'),
+    ...openGraphGuia(GUIA.slug),
   },
 };
 
@@ -44,16 +49,15 @@ export default function VerifactuPage() {
         title="Facturación electrónica para estudios de Pilates en España: qué cambia con Veri*factu"
         description="Qué es Veri*factu, cuándo es obligatorio (2027) y qué debe tener cada factura de tu estudio de Pilates."
         slug="facturacion-electronica-verifactu"
-        datePublished="2026-07-01"
-        dateModified="2026-08-13"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
-        category="España y fiscalidad"
+        category={GUIA.seccion}
         coverGradient="linear-gradient(140deg,#22251A,#5A6142)"
         title="Facturación electrónica: qué cambia con Veri*factu"
         intro="Qué es, cuándo te obliga y qué debe tener cada factura de tu estudio a partir de ahora. Sin letra pequeña."
-        readTime="7 min de lectura"
+        readTime={`${GUIA.lectura} min de lectura`}
+        actualizado={fechaModificada(GUIA)}
         toc={TOC}
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>Si gestionas un estudio de Pilates en España, es probable que ya hayas oído hablar de Veri*factu — y también es probable que no tengas del todo claro qué significa para tu día a día. Esta guía lo resume sin tecnicismos: qué es, cuándo te obliga y qué tiene que hacer tu software de facturación por ti.</p>

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
+import { fechaModificada, guia } from '@/lib/recursos/guias';
+import { openGraphGuia } from '@/lib/recursos/schema';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
@@ -9,6 +11,8 @@ import { urlDe } from '@/lib/seo/paginas';
 
 const TITLE = 'Cómo integrar reservas online en la web de tu estudio de pilates';
 const SLUG = 'widget-vs-iframe-reservas-pilates';
+
+const GUIA = guia('widget-vs-iframe-reservas-pilates');
 
 export const metadata: Metadata = {
   title: `${TITLE} — Tentare`,
@@ -19,6 +23,7 @@ export const metadata: Metadata = {
     title: TITLE,
     description: 'El método que elijas determina cuántas alumnas potenciales llegan al final del proceso sin abandonar.',
     url: urlDe(`/recursos/${SLUG}`),
+    ...openGraphGuia(GUIA.slug),
   },
 };
 
@@ -46,14 +51,14 @@ export default function WidgetVsIframePage() {
         title={TITLE}
         description="Las tres formas reales de integrar reservas web para Pilates, cómo instalarlas en WordPress, Wix y Squarespace, qué configurar después y el checklist legal y técnico antes de publicar."
         slug={SLUG}
-        datePublished="2026-08-18"
       />
       <ArticleShell
-        category="Software y web"
+        category={GUIA.seccion}
         coverGradient="linear-gradient(140deg,#173a40,#3E7C86)"
         title={TITLE}
         intro="¿Tu botón de «Reserva aquí» lleva a las alumnas fuera de tu web justo cuando están a punto de confirmar la clase? El método que elijas determina directamente cuántas de esas alumnas potenciales llegan al final del proceso sin abandonar."
-        readTime="10 min de lectura"
+        readTime={`${GUIA.lectura} min de lectura`}
+        actualizado={fechaModificada(GUIA)}
         toc={TOC}
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>¿Tu botón de &quot;Reserva aquí&quot; lleva a las alumnas fuera de tu web justo cuando están a punto de confirmar la clase? Es el problema más común en estudios de pilates: la alumna abandona tu página, pierde el contexto de tu marca y, en muchos casos, no vuelve. El método que elijas para integrar las reservas en la web de tu estudio de pilates determina directamente cuántas de esas alumnas potenciales llegan al final del proceso sin abandonar.</p>
