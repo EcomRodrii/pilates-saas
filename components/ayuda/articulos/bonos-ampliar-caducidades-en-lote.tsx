@@ -34,6 +34,15 @@ export default function Contenido() {
         <li><strong>No: las cuotas.</strong> En una mensualidad, esa fecha es la del próximo cobro — moverla no le regala días, le cambia cuándo se le cobra. Si quieres compensar a quien tiene mensual, es otra conversación (un mes gratis, un descuento), no esto.</li>
       </ul>
 
+      <h2 style={h2}>Si vas a cerrar el centro, no hace falta que lo hagas a mano</h2>
+      <p>
+        Cuando el motivo son vacaciones, un puente o unas obras, lo que quieres es un{' '}
+        <Link href="/ayuda/configuracion/cierres-del-centro" style={enlace}>cierre del centro</Link>: además de
+        cancelar las clases de esas fechas y avisar a quien tenía reserva, <strong>alarga solo</strong> los bonos y
+        las recuperaciones de todas tus alumnas esos mismos días, sin que selecciones a nadie. Esta pantalla es para
+        lo otro: regalar días a quien tú elijas, sin cerrar.
+      </p>
+
       <h2 style={h2}>Amplía antes de cerrar, no después</h2>
       <p>
         Lo que ya ha caducado <strong>no vuelve</strong>. Si cierras del 1 al 7 y a alguien le caducaba el bono el

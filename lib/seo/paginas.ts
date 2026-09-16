@@ -65,6 +65,8 @@ export interface PaginaSeo {
 
 /** Fecha de publicación del lote de páginas de funcionalidades y /precios. */
 const PUBLICADO = '2026-08-11';
+/** Lo que entra o se reescribe con la 1.03 (16-sep-2026). */
+const ACTUALIZADO_1_03 = '2026-09-16';
 
 // ─── Funcionalidades ─────────────────────────────────────────────────────────
 // El orden de este array es el orden del hub /funcionalidades y del footer.
@@ -81,7 +83,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/lista-de-espera', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/app-para-alumnas'],
+    relacionadas: ['/funcionalidades/lista-de-espera', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/app-para-alumnas', '/funcionalidades/plazas-fijas'],
   },
   {
     path: '/funcionalidades/lista-de-espera',
@@ -107,7 +109,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/control-de-asistencia', '/funcionalidades/gestion-de-instructoras'],
+    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/control-de-asistencia', '/funcionalidades/gestion-de-instructoras', '/funcionalidades/clases-recurrentes'],
   },
   {
     path: '/funcionalidades/gestion-de-instructoras',
@@ -146,7 +148,33 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/cobros-recurrentes', '/funcionalidades/reservas-online', '/funcionalidades/ficha-de-clienta'],
+    relacionadas: ['/funcionalidades/cobros-recurrentes', '/funcionalidades/reservas-online', '/funcionalidades/ficha-de-clienta', '/funcionalidades/plazas-fijas'],
+  },
+  {
+    path: '/funcionalidades/plazas-fijas',
+    titulo: 'Plazas fijas: el sitio semanal de tus alumnas | Tentare',
+    descripcion:
+      'Da a una alumna su plaza en la clase de cada semana y Tentare se la reserva sola. Pausa con fechas para vacaciones, reglas para cuando se queda sin cuota y peticiones desde su app.',
+    grupo: 'funcionalidades',
+    etiqueta: 'Plazas fijas',
+    resumen: 'Su hueco semanal, reservado solo, con pausa y reglas propias.',
+    prioridad: 0.9,
+    changeFrequency: 'monthly',
+    actualizado: ACTUALIZADO_1_03,
+    relacionadas: ['/funcionalidades/bonos-y-membresias', '/funcionalidades/clases-recurrentes', '/funcionalidades/reservas-online'],
+  },
+  {
+    path: '/funcionalidades/clases-recurrentes',
+    titulo: 'Clases recurrentes y renovación del horario | Tentare',
+    descripcion:
+      'Programa las clases que se repiten cada semana, edítalas o cancélalas en bloque, y renueva la serie antes de que se acabe. Con aviso previo y sin crear clases en días de cierre.',
+    grupo: 'funcionalidades',
+    etiqueta: 'Clases recurrentes',
+    resumen: 'Tu horario semanal, con aviso antes de acabarse y renovación sin sorpresas.',
+    prioridad: 0.9,
+    changeFrequency: 'monthly',
+    actualizado: ACTUALIZADO_1_03,
+    relacionadas: ['/funcionalidades/calendario-y-salas', '/funcionalidades/plazas-fijas', '/funcionalidades/reservas-online'],
   },
   {
     path: '/funcionalidades/cobros-recurrentes',
