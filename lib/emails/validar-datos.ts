@@ -55,10 +55,11 @@ export function validarDatosEmail(tipo: string, data: unknown): string | null {
   }
 
   if (tipo === 'recibo') {
-    // recibo-template hace importe.toFixed(2) en el preview: un string "12.50"
-    // del JSON revienta igual que un undefined, y el endpoint no tiene try/catch
-    // alrededor del render, así que sale un 500 opaco. Comprobar el TIPO, no la
-    // presencia — `!d.importe` rechazaría un importe legítimo de 0.
+    // `correoRecibo` pasa el importe por `formatEuro`, que llama a
+    // `toLocaleString`: un string "12.50" del JSON revienta igual que un
+    // undefined, y el endpoint no tiene try/catch alrededor del render, así que
+    // sale un 500 opaco. Comprobar el TIPO, no la presencia — `!d.importe`
+    // rechazaría un importe legítimo de 0.
     if (typeof d.importe !== 'number' || !Number.isFinite(d.importe)) {
       return 'El importe del recibo debe ser un número.';
     }

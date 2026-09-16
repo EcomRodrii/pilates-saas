@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import type { PersonalizacionPlantilla } from '@/lib/emails/cuerpo-editable';
+import type { PersonalizacionCorreo } from './estudio/plantilla.ts';
 import { marcaDesdeFila, type MarcaEstudio } from './marca.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12,7 +12,7 @@ import { marcaDesdeFila, type MarcaEstudio } from './marca.ts';
 // personalización total (migr 20260811005749): con `cuerpo` la propietaria
 // escribe el correo entero y las plantillas dejan de pintar su estructura fija.
 // Todo opcional — ausente significa "como siempre", en cada campo por separado.
-export type PlantillaOverride = { asunto?: string; intro?: string } & PersonalizacionPlantilla;
+export type PlantillaOverride = { asunto?: string; intro?: string } & PersonalizacionCorreo;
 
 // Los 6 transaccionales relacionales que el estudio puede personalizar. `recibo`
 // (contenido fiscal) y `automatizacion` (100% dinámico) quedan fuera a propósito.
@@ -90,7 +90,7 @@ export type VarsPlantilla = { nombre?: string; estudio?: string; clase?: string 
 
 // Sustituye las variables permitidas en el texto editable por el estudio.
 // Ojo: NO toca {datos} ni {boton}, que son tokens de maquetación y los resuelve
-// el render (lib/emails/cuerpo-editable.tsx), no esta sustitución de texto.
+// el render (lib/emails/estudio/plantilla.ts), no esta sustitución de texto.
 export function interpolar(texto: string, vars: VarsPlantilla): string {
   return texto
     .replace(/\{nombre\}/gi, vars.nombre ?? '')
@@ -104,7 +104,7 @@ export function interpolar(texto: string, vars: VarsPlantilla): string {
 export function interpolarPersonalizacion(
   p: PlantillaOverride,
   vars: VarsPlantilla,
-): PersonalizacionPlantilla {
+): PersonalizacionCorreo {
   return {
     ...p,
     cuerpo: p.cuerpo ? interpolar(p.cuerpo, vars) : undefined,
@@ -199,7 +199,7 @@ export function appUrl(): string {
 // un token propio: Supabase ya resuelve firma, expiración y un solo uso. Fallo
 // suave: si Supabase Admin no está disponible o el email no es válido, la
 // bienvenida se manda igual, solo sin el botón de acceso directo (ver
-// bienvenida-template.tsx).
+// lib/emails/estudio/cuenta.ts).
 //
 // ⚠️ El destino es `/acceso/verificar`, el MISMO al que apunta el login sin
 // contraseña de la app (`lib/student/auth.ts`). Importa por dos motivos: es la

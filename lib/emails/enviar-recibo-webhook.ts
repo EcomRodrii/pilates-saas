@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { ReciboEmail } from '@/lib/emails/recibo-template';
+import { correoRecibo } from '@/lib/emails/estudio/cobros';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { resolverMarcaEstudio, appUrl } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from './remitente.ts';
@@ -50,21 +50,19 @@ export async function enviarEmailReciboWebhook(
 
     const resend = new Resend(apiKey);
     const concepto = (recibo.concepto as string | null) ?? 'tu cuota';
-    const html = await render(ReciboEmail({
+    const html = correoRecibo({
       socioNombre: (socio?.nombre as string | null) ?? 'Socia',
       concepto,
       importe: Number(recibo.importe),
       fechaCobro: (recibo.fecha_cobro as string | null) ?? new Date().toISOString(),
       numeroFactura: (factura?.numero_completo as string | null) ?? undefined,
-      estudioNombre: marca.estudioNombre ?? 'Tentare',
-      logoUrl: marca.logoUrl,
-      colorPrimario: marca.colorPrimario,
+      marca: marcaCorreoDesde(marca, 'Tu estudio'),
       // Enlace a "Pagos" del portal, donde ya se muestra la factura a la socia
       // (badge "· Factura", lib/factura-pdf.ts, y el botón de descarga en el
       // detalle). Sin slug (estudio raro sin portal resuelto), el email sale
       // igual, sin el botón.
       url: marca.slug ? `${appUrl()}/portal/${marca.slug}/pagos` : undefined,
-    }));
+    });
     const subject = `Pago confirmado — ${concepto}`;
 
     const { data, error } = await resend.emails.send({

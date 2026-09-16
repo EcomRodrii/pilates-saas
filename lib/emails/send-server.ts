@@ -1,8 +1,6 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
-import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
-import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
-import { correoReserva, correoRecordatorio } from './estudio/clase.ts';
+import { correoReserva, correoRecordatorio, correoCancelacionClase, correoPlazaLiberada } from './estudio/clase.ts';
 import { marcaCorreoDesde, urlAppSocia } from './estudio/marca-correo.ts';
 import { EsperaSinPlazaEmail } from '@/lib/emails/espera-sin-plaza-template';
 import { resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
@@ -80,9 +78,9 @@ async function renderPorTipo(
   };
   switch (tipo) {
     case 'promocion':
-      return { html: await render(PromocionEsperaEmail(base)), subject: asunto ?? `Se ha liberado tu plaza — ${d.claseNombre}` };
+      return { html: correoPlazaLiberada({ ...clase, bonoConsumido: d.bonoConsumido }), subject: asunto ?? `Se ha liberado tu plaza — ${d.claseNombre}` };
     case 'cancelacion':
-      return { html: await render(CancelacionClaseEmail(base)), subject: asunto ?? `Clase cancelada — ${d.claseNombre}` };
+      return { html: correoCancelacionClase({ ...clase, bonoDevuelto: d.bonoDevuelto }), subject: asunto ?? `Clase cancelada — ${d.claseNombre}` };
     case 'recordatorio':
       return { html: correoRecordatorio(clase), subject: asunto ?? `Recordatorio — ${d.claseNombre}` };
     case 'reserva':

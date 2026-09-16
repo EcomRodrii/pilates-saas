@@ -1,11 +1,10 @@
-import type { ComponentProps } from 'react';
-import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
-import { MARCA, SOCIA, CLASE } from './_muestra';
+import { correoPlazaLiberada } from '@/lib/emails/estudio/clase';
+import { MARCA_CORREO, SOCIA, CLASE, URL_MUESTRA } from './_muestra';
 
-type Props = ComponentProps<typeof PromocionEsperaEmail>;
-
-const Preview = (props: Props) => <PromocionEsperaEmail {...props} />;
-
-Preview.PreviewProps = { ...MARCA, ...CLASE, socioNombre: SOCIA, bonoConsumido: true } satisfies Props;
+// Buenas noticias: sí lleva portada, y el filete va en verde.
+// Ver la nota de emails/reserva.tsx: el sistema devuelve el documento entero.
+const Preview = () => (
+  <div dangerouslySetInnerHTML={{ __html: correoPlazaLiberada({ marca: MARCA_CORREO, socioNombre: SOCIA, ...CLASE, url: URL_MUESTRA, bonoConsumido: true }) }} />
+);
 
 export default Preview;

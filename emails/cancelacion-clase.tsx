@@ -1,11 +1,10 @@
-import type { ComponentProps } from 'react';
-import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
-import { MARCA, SOCIA, CLASE } from './_muestra';
+import { correoCancelacionClase } from '@/lib/emails/estudio/clase';
+import { MARCA_CORREO, SOCIA, CLASE } from './_muestra';
 
-type Props = ComponentProps<typeof CancelacionClaseEmail>;
-
-const Preview = (props: Props) => <CancelacionClaseEmail {...props} />;
-
-Preview.PreviewProps = { ...MARCA, ...CLASE, socioNombre: SOCIA, bonoDevuelto: true } satisfies Props;
+// Sin foto de portada y con filete rojo: es un aviso, no una postal.
+// Ver la nota de emails/reserva.tsx: el sistema devuelve el documento entero.
+const Preview = () => (
+  <div dangerouslySetInnerHTML={{ __html: correoCancelacionClase({ marca: MARCA_CORREO, socioNombre: SOCIA, ...CLASE, bonoDevuelto: true }) }} />
+);
 
 export default Preview;

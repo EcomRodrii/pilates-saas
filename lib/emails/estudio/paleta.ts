@@ -25,6 +25,22 @@ import { foregroundParaFondo } from '../../wcag-contrast.ts';
 /** El oliva del kit. Solo se usa cuando el estudio no ha elegido color. */
 export const MARCA_POR_DEFECTO = '#343825';
 
+/**
+ * Los tres colores que NO son de marca: el filete de un correo que trae un aviso
+ * con significado propio. Una clase cancelada tiene que leerse como una clase
+ * cancelada aunque el estudio sea rosa, y un cobro fallido igual.
+ *
+ * Viven aquí y no en cada plantilla por el mismo motivo que el resto de la
+ * paleta: repetidos por seis ficheros acaban divergiendo, y son justo los que
+ * nadie vuelve a mirar. Se usan SOLO como `acento` (el filete de 5 px), nunca
+ * como fondo de texto.
+ */
+export const ACENTO = {
+  alerta: '#B91C1C',
+  aviso: '#8F6215',
+  bien: '#065F46',
+} as const;
+
 export interface PaletaCorreo {
   /** El color del estudio, tal cual. Filete superior y detalles. */
   marca: string;

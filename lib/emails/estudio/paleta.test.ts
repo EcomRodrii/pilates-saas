@@ -61,3 +61,4 @@ test('el color secundario pinta el botón; sin él, lo pinta el principal', () =
   // Un secundario a medio escribir no puede dejar el botón sin fondo.
   assert.equal(paletaCorreoEstudio('#7C9A82', 'rosa').boton, '#7C9A82');
 });
+
