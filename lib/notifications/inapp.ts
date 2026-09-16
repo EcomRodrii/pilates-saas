@@ -13,6 +13,7 @@
 // (módulos de Node) y este módulo es alcanzable desde el bundle de cliente.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/nextjs';
 import { REGLAS, plantillaDe, render, type ReglaEvento } from './catalog.ts';
 import { resolverDestinatarios } from './recipients.ts';
 import type {
@@ -189,8 +190,16 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
     });
     if (error) {
       // 23505 = choque con dedup → ese hecho ya se notificó a esta persona.
+      // Cualquier otro error SÍ es un fallo de creación real (auditoría
+      // 2026-09-16, AUT-4): antes iba a `console.error`, que nadie mira. Sin
+      // esto, un INSERT que falla se confunde con "no quería este canal" —
+      // ambos casos solo suman `omitidas`, y nadie puede reconstruir por qué
+      // esta socia en concreto no recibió el aviso.
       if ((error as { code?: string }).code !== '23505') {
-        console.error('[notifications] insert falló:', error.message);
+        Sentry.captureMessage('[notifications] insert de notificación falló', {
+          level: 'error', tags: { area: 'notificaciones', tipo: 'crear-in-app-insert' },
+          extra: { eventType: event.type, mensajeError: error.message },
+        });
       }
       omitidas++;
       continue;

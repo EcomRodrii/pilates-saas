@@ -1249,9 +1249,33 @@ export type ResultadoDevolucionBono = 'DEVUELTA' | 'SIN_BONO' | 'FALLO';
 // Devuelve `DEVUELTA` solo si de verdad se devolvió una sesión. Antes no
 // devolvía nada y el llamador daba la devolución por hecha (I-5): ver el
 // comentario en `bonoDevolvible`.
+//
+// Auditoría 2026-09-16 (RES-3): `reservaId` es opcional y, cuando la reserva
+// quedó RASTREADA (`bono_consumo_rastreado` + `bono_suscripcion_id`, migr
+// 20260914182637), la devolución va DIRECTA a esa suscripción — el dato que
+// dice de qué bono se cobró, no la heurística `bonoDevolvible` (que puede
+// elegir un bono DISTINTO del que se descontó: un bono A agotado que caduca
+// antes y un bono B con hueco que caduca después, la heurística devuelve a A
+// aunque el consumo real fuera de B — el saldo total cuadra, pero el crédito
+// acaba en el bono equivocado). Sin `reservaId`, o para una reserva anterior
+// a esa migración (sin rastreo), cae a la heurística de siempre.
 export async function devolverBonoServidor(
   admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId?: string | null,
+  reservaId?: string,
 ): Promise<ResultadoDevolucionBono> {
+  if (reservaId) {
+    const { data: reserva, error: errorReserva } = await admin.from('reservas')
+      .select('bono_consumo_rastreado, bono_suscripcion_id')
+      .eq('id', reservaId).eq('studio_id', studioId).maybeSingle();
+    if (errorReserva && !esColumnaInexistente(errorReserva)) reportDbError('[devolverBonoServidor]', errorReserva);
+    if (reserva?.bono_consumo_rastreado && reserva.bono_suscripcion_id) {
+      const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono', {
+        p_suscripcion_id: reserva.bono_suscripcion_id as string, p_studio_id: studioId,
+      });
+      if (error) { reportDbError('[devolverBonoServidor]', error); return 'FALLO'; }
+      return nuevoSaldo != null ? 'DEVUELTA' : 'SIN_BONO';
+    }
+  }
   const [{ data: susRows }, { data: planRows }] = await Promise.all([
     admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
     admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
@@ -1304,7 +1328,7 @@ export async function devolverBonosPorCancelacionClase(
   const sinCobro = await reservasSinCobroRegistrado(admin, studioId, confirmadas.flatMap(c => c.reservaId ? [c.reservaId] : []));
   for (const c of confirmadas) {
     if (c.reservaId && sinCobro.has(c.reservaId)) { devueltoPorSocia.set(c.socioId, false); continue; }
-    devueltoPorSocia.set(c.socioId, (await devolverBonoServidor(admin, studioId, c.socioId, c.tipoClaseId)) === 'DEVUELTA');
+    devueltoPorSocia.set(c.socioId, (await devolverBonoServidor(admin, studioId, c.socioId, c.tipoClaseId, c.reservaId)) === 'DEVUELTA');
   }
   return devueltoPorSocia;
 }
@@ -3348,7 +3372,7 @@ export async function ejecutarCancelacionReserva(
       // Antes se ponía a true a pelo, así que el email de cancelación le decía a
       // la socia que le habíamos devuelto la sesión aunque no se hubiera
       // devuelto nada.
-      bonoDevuelto = (await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null)) === 'DEVUELTA';
+      bonoDevuelto = (await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null, params.reservaId)) === 'DEVUELTA';
     }
   }
 
