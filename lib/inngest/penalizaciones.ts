@@ -34,7 +34,7 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
     admin.from('penalizaciones').update({ estado, procesada_en: new Date().toISOString() })
       .eq('id', pen.id).in('estado', [...DESDE_DETECTADA]);
 
-  const { data: studio } = await admin
+  const { data: studio, error: errStudio } = await admin
     .from('studios')
     .select(`
       id, nombre, razon_social, nif, direccion, ciudad, codigo_postal, email,
@@ -42,6 +42,16 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
       stripe_account_id, suspendido_en, politica_privacidad, terminos_servicio, plaza_fija_sin_cuota
     `)
     .eq('id', pen.studio_id).maybeSingle();
+  // Un fallo de lectura aquí (una columna que falta, la BD caída) deja `studio`
+  // en null y el cron salía MUDO: parece que no hay nada que cobrar. No cobra,
+  // que es lo correcto, pero hay que poder verlo — se encontró probando en local
+  // con la base sin migrar, donde el cron no ejecutaba nada sin decirlo.
+  if (errStudio) {
+    Sentry.captureMessage('[penalizaciones] no se ha podido leer el estudio', {
+      level: 'error', extra: { penalizacionId: pen.id, studioId: pen.studio_id, error: errStudio.message },
+    });
+    return;
+  }
   if (!studio || studio.suspendido_en) return; // estudio suspendido: no se persigue cobro en su nombre
 
   // La clase: para la política de plaza fija sin cuota, la ventana del contrato
