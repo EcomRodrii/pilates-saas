@@ -72,7 +72,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
       { nombre: 'Lista de espera automática', detalle: 'Cuando alguien cancela, la plaza se ofrece sola a la siguiente.', valor: TODOS },
       { nombre: 'Reglas de reserva por tipo de clase', detalle: 'Antelación, plan obligatorio, aprobación manual y mínimo de asistentes.', valor: TODOS },
       { nombre: 'Políticas de cancelación y no-show', detalle: 'Ventana de cancelación, devolución de bono y penalización opcional.', valor: TODOS },
-      { nombre: 'Plazas fijas y recuperaciones', valor: TODOS },
+      { nombre: 'Plazas fijas y recuperaciones', detalle: 'Su hueco de cada semana, reservado solo. Se pausa por vacaciones sin perder el sitio, y tú decides qué pasa con sus clases si se queda sin cuota.', valor: TODOS },
     ],
   },
   {
@@ -80,7 +80,8 @@ export const CATEGORIAS: CategoriaPlan[] = [
     titulo: 'Agenda y salas',
     filas: [
       { nombre: 'Calendario por semana, día y sala', valor: TODOS },
-      { nombre: 'Series recurrentes y duplicado de clases', valor: TODOS },
+      { nombre: 'Series recurrentes y duplicado de clases', detalle: 'Tu horario de siempre, creado de una vez. Te avisa antes de que una serie se acabe, y puede renovarse sola.', valor: TODOS },
+      { nombre: 'Cierres por vacaciones, puentes u obras', detalle: 'Cierras unos días: se cancelan sus clases, se avisa a quien tenía reserva y los bonos de todas duran esos días más.', valor: TODOS },
       { nombre: 'Salas con aforo propio', detalle: 'El aforo de la clase lo hereda de la sala.', valor: TODOS },
       { nombre: 'Citas individuales', detalle: 'Valoraciones y sesiones uno a uno, con su propio cobro.', valor: TODOS },
       { nombre: 'Control de asistencia y check-in', valor: TODOS },
@@ -112,7 +113,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
     titulo: 'Equipo',
     filas: [
       { nombre: 'Instructoras, recepción y gerencia', detalle: 'Cada rol ve lo suyo: recepción no entra en la caja ni en la ficha clínica.', valor: TODOS },
-      { nombre: 'Autoservicio de la instructora', detalle: 'Crea sus clases, marca su disponibilidad y confirma sus ausencias.', valor: TODOS },
+      { nombre: 'App para tu equipo', detalle: 'Su agenda, pasar lista, su disponibilidad, sus ausencias y los mensajes con sus alumnas, desde el móvil y con tu marca.', valor: TODOS },
       { nombre: 'Tarifa por hora y liquidación', valor: TODOS },
       { nombre: 'Una instructora en varias sedes', detalle: 'Con horario, tarifa y permisos distintos en cada una.', valor: porFeature('multiCentro') },
     ],
@@ -203,6 +204,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
     filas: [
       { nombre: 'Portal de la alumna', detalle: 'Reserva, bonos, facturas y pase de acceso, desde el móvil.', valor: TODOS },
       { nombre: 'Se instala en la pantalla de inicio', valor: TODOS },
+      { nombre: 'Ocultar tu página mientras la preparas', detalle: 'Enseña un aviso en vez de tus clases, y con una clave dejas entrar solo a quien tú quieras.', valor: TODOS },
       { nombre: 'Tu dirección propia', detalle: 'tentare.app/portal/tu-estudio', valor: TODOS },
       { nombre: 'App con tu marca', detalle: 'Tus colores, tu logo y tus pantallas: lo que ve la alumna es tu estudio.', valor: porFeature('marca') },
     ],

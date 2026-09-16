@@ -86,7 +86,8 @@ software para estudios de Pilates · software de gestión para Pilates · progra
 
 ## Producto
 
-- [Funcionalidades](https://www.tentare.app/funcionalidades): las 15 áreas del producto (reservas online, lista de espera, calendario y salas, cancelaciones y no-shows, control de asistencia, gestión de instructoras, sustituciones, bonos y membresías, cobros recurrentes, facturación, ficha de clienta, app de marca para alumnas, automatizaciones y avisos, informes y rentabilidad, varias sedes).
+- [Funcionalidades](https://www.tentare.app/funcionalidades): las 17 áreas del producto (reservas online, lista de espera, plazas fijas, calendario y salas, clases recurrentes, cancelaciones y no-shows, control de asistencia, gestión de instructoras, sustituciones, bonos y membresías, cobros recurrentes, facturación, ficha de clienta, app de marca para alumnas, automatizaciones y avisos, informes y rentabilidad, varias sedes).
+- [Centro de ayuda](https://www.tentare.app/ayuda): documentación pública por categorías (empezar, reservas, clientes, instructores, pagos, bonos, portal de la alumna, widget, automatizaciones, integraciones, app, configuración, informes) y guías de resolución de problemas. Cada artículo responde una pregunta concreta y dice cuándo se actualizó.
 - [Precios](https://www.tentare.app/precios): tres planes públicos y sin permanencia — Base 29€/mes, Estudio 59€/mes, Cadena 149€/mes. Prueba de 7 días sin tarjeta.
 - [Comparativa](https://www.tentare.app/comparativa): cómo se compara Tentare con bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, Glofox y otros — precio real, permanencia, facturación española y sustitución de instructoras, punto por punto.
 - [Cambiarte a Tentare](https://www.tentare.app/soluciones/cambiar-de-software): migración de clientas, bonos, clases, reservas y pagos históricos desde otro software.

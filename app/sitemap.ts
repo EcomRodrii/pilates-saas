@@ -32,8 +32,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...(p.actualizado ? { lastModified: new Date(p.actualizado) } : {}),
   }));
 
+  // Categorías y artículos del Centro de Ayuda: rutas dinámicas
+  // (app/ayuda/[categoria], app/ayuda/[categoria]/[articulo]) que no pasa el
+  // barrido estático de lib/seo/paginas.ts — se derivan aquí directamente del
+  // mismo registro que alimenta esas páginas, para no mantener una lista aparte.
+  //
+  // ⚠️ Se calculan ANTES del early return de abajo A PROPÓSITO. Son contenido
+  // estático que no consulta nada, y colgaban del cliente de servicio: sin esa
+  // clave, el sitemap perdía las 14 categorías y todos los artículos sin que
+  // fallara nada ni se notara. Lo que necesita la base de datos son los perfiles
+  // de Network y las páginas de estudio, y solo eso debe caerse con ella.
+  const paginasCategoriaAyuda: MetadataRoute.Sitemap = CATEGORIAS.map((c) => ({
+    url: `${BASE_URL}/ayuda/${c.slug}`,
+    changeFrequency: 'weekly',
+    priority: 0.6,
+  }));
+  const paginasArticuloAyuda: MetadataRoute.Sitemap = ARTICULOS
+    .filter((a) => a.estado === 'publicado')
+    .map((a) => ({
+      url: `${BASE_URL}${urlArticulo(a)}`,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+      lastModified: new Date(a.actualizado),
+    }));
+
   const admin = getSupabaseAdmin();
-  if (!admin) return estaticas;
+  if (!admin) return [...estaticas, ...paginasCategoriaAyuda, ...paginasArticuloAyuda];
 
   const { data } = await admin
     .from('red_perfiles')
@@ -114,24 +138,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: 'weekly',
     priority: 0.5,
   }));
-
-  // Categorías y artículos del Centro de Ayuda: rutas dinámicas
-  // (app/ayuda/[categoria], app/ayuda/[categoria]/[articulo]) que no pasa el
-  // barrido estático de lib/seo/paginas.ts — se derivan aquí directamente del
-  // mismo registro que alimenta esas páginas, para no mantener una lista aparte.
-  const paginasCategoriaAyuda: MetadataRoute.Sitemap = CATEGORIAS.map((c) => ({
-    url: `${BASE_URL}/ayuda/${c.slug}`,
-    changeFrequency: 'weekly',
-    priority: 0.6,
-  }));
-  const paginasArticuloAyuda: MetadataRoute.Sitemap = ARTICULOS
-    .filter((a) => a.estado === 'publicado')
-    .map((a) => ({
-      url: `${BASE_URL}${urlArticulo(a)}`,
-      changeFrequency: 'monthly',
-      priority: 0.7,
-      lastModified: new Date(a.actualizado),
-    }));
 
   return [...estaticas, ...perfiles, ...paginasCiudad, ...paginasEstudio, ...paginasCategoriaAyuda, ...paginasArticuloAyuda];
 }
