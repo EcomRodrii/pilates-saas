@@ -122,7 +122,7 @@ export async function obtenerLead(
     .from('sales_leads')
     .select('*')
     .eq('id', lead_id)
-    .eq('borrado_en', null)
+    .is('borrado_en', null)
     .single();
 
   if (error) {
@@ -146,7 +146,7 @@ export async function listarLeads(
   let query = admin
     .from('sales_leads')
     .select('*', { count: 'exact' })
-    .eq('borrado_en', null);
+    .is('borrado_en', null);
 
   if (opciones.estado) {
     query = query.eq('estado', opciones.estado);
