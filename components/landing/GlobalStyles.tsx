@@ -44,7 +44,7 @@ export function GlobalStyles() {
       .tnt-bento-2 { grid-column: span 2; }
 
       @media (max-width: 960px) {
-        .tnt-hero, .tnt-row { grid-template-columns: 1fr !important; }
+        .tnt-row { grid-template-columns: 1fr !important; }
         .tnt-row > div { order: unset !important; }
         .tnt-navlinks, .tnt-navcta { display: none !important; }
         .tnt-menubtn { display: inline-flex !important; }
@@ -57,16 +57,12 @@ export function GlobalStyles() {
       @media (max-width: 600px) {
         .tnt-footer { grid-template-columns: 1fr 1fr !important; }
         .tnt-steps4 { grid-template-columns: 1fr !important; gap: 36px !important; }
-        .tnt-herobadge { display: none; }
         .tnt-flow-vline-bg, .tnt-flow-vline-fill { display: block; }
       }
 
       @keyframes lp-riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
       @keyframes lp-dash { to { stroke-dashoffset: 0; } }
       @keyframes lp-kenburns { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
-      @keyframes lp-floatA { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-13px); } }
-      @keyframes lp-floatB { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-18px); } }
-      @keyframes lp-floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
       @keyframes lp-msgIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
       @keyframes lp-cometpulse { 0%,100% { box-shadow: 0 0 14px 4px rgba(90,97,66,.7); } 50% { box-shadow: 0 0 22px 7px rgba(90,97,66,.95); } }
       @keyframes lp-fadeIn { from { opacity: 0; } to { opacity: 1; } }

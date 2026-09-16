@@ -63,8 +63,9 @@ const PIEZAS = [
   { nombre: 'hoja-der', dx: 22, dy: -10 },
 ] as const;
 
-/** La última pieza acaba aquí. */
-const FIN_MONTAJE = (PIEZAS.length - 1) * RETARDO + MONTAJE;
+/** La última pieza acaba aquí, y la cortina empieza a irse. Lo lee el héroe
+ *  para que sus tarjetas no entren escondidas detrás de ella. */
+export const FIN_MONTAJE = (PIEZAS.length - 1) * RETARDO + MONTAJE;
 const SALIDA = 0.55;
 const TOTAL = FIN_MONTAJE + SALIDA;
 /** Punto del ciclo en el que empieza a disolverse, en %. */

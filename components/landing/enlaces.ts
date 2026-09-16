@@ -25,6 +25,12 @@ export interface EnlaceNav {
   label: string;
 }
 
+/**
+ * El alta: crear el estudio y empezar la prueba. Usa esto en vez de escribir la
+ * ruta: el popup, los planes y el CTA final aún la llevan literal.
+ */
+export const ALTA = '/crear-estudio';
+
 /** Menú superior. Anclas: el recorrido de la landing es la propia página. */
 export const NAV_V5: EnlaceNav[] = [
   { href: '#funcionalidades', label: 'Funcionalidades' },

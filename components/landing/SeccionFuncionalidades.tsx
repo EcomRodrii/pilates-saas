@@ -243,7 +243,7 @@ export function SeccionFuncionalidades() {
         <div className="fn2-cabecera">
           <p className="fn2-eyebrow">Funcionalidades</p>
           <h2 id="fn2-h" className="fn2-h2">Todo lo que necesita un estudio de Pilates. En un panel.</h2>
-          <p className="fn2-lead">Quince áreas, cada una con su propia página — sin genérico, sin relleno.</p>
+          <p className="fn2-lead">Son {items.length} áreas, cada una con su propia página — sin genérico, sin relleno.</p>
         </div>
         <div className="fn2-grid">
           {items.map((p) => {
