@@ -113,6 +113,7 @@ export async function POST(req: NextRequest) {
     if (sinCobro.has(r.id as string)) continue;
     const res = await devolverBonoServidor(
       admin, sesion.studioId, r.socio_id as string, tipoPorSesion.get(r.sesion_id as string) ?? null,
+      r.id as string,
     );
     if (res === 'DEVUELTA') devueltas++;
     // `SIN_BONO` no cuenta como fallo: la socia pagó suelta o su bono ya está al
