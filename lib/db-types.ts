@@ -1361,11 +1361,11 @@ export interface RowPlantillasEmail {
   fuente: string | null;
   // migr 20260907121459.
   enviar: boolean | null;
-  // migr 20260916013000.
+  // migr 20260916105833.
   portada_url: string | null;
-  // migr 20260916013000.
+  // migr 20260916105833.
   mostrar_portada: boolean | null;
-  // migr 20260916013000.
+  // migr 20260916105833.
   boton_url: string | null;
 }
 

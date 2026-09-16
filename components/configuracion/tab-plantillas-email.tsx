@@ -452,7 +452,7 @@ function EditorPlantilla({
   async function guardar() {
     if (guardando) return;
     // El destino del botón lo acota también un CHECK en la base (migr
-    // 20260916013000), que es la cerradura de verdad. Se comprueba aquí para no
+    // 20260916105833), que es la cerradura de verdad. Se comprueba aquí para no
     // devolverle el error crudo de Postgres a la propietaria.
     const destino = b.botonUrl.trim();
     if (destino && !/^https?:\/\//i.test(destino)) {

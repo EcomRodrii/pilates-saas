@@ -1,5 +1,5 @@
 -- Portada de un correo del estudio (`plantillas_email.portada_url`, migr
--- 20260916013000). Un prefijo de subida nuevo: `portada-correo-<studio>-<tipo>`.
+-- 20260916105833). Un prefijo de subida nuevo: `portada-correo-<studio>-<tipo>`.
 --
 -- ⚠️ Son DOS funciones, no una, y olvidarse de la segunda es el fallo del
 -- 11-ago-2026 otra vez: `avatars_path_autorizado` decide la LECTURA y
