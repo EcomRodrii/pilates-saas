@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import type { PersonalizacionCorreo } from './estudio/plantilla.ts';
 import { marcaDesdeFila, type MarcaEstudio } from './marca.ts';
 import { colorMarcaDelEstudio, colorSecundarioDelEstudio } from './color-marca.ts';
+import { presetAThemeConfig } from '@/lib/theme-runtime';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resuelve el override de plantilla de email de un estudio (asunto + intro).
@@ -144,7 +145,7 @@ export async function resolverMarcaEstudio(studioId: string | null | undefined):
       // (lib/emails/estudio/plantilla.ts). ⚠️ Es una lista blanca: un campo que
       // no se pida aquí llega vacío al correo y en silencio — el mismo fallo
       // que dejó el héroe del portal sin foto en su día.
-      .select('nombre, color_primario, logo_url, slug, email, sitio_web, imagen_bienvenida_url, lema, direccion, ciudad, codigo_postal')
+      .select('nombre, color_primario, logo_url, slug, email, sitio_web, imagen_bienvenida_url, lema, direccion, ciudad, codigo_postal, tema_portal')
       .eq('id', studioId)
       .maybeSingle(),
     // Las REDES del estudio viven en el tema publicado, no en `studios` (ver
@@ -159,14 +160,19 @@ export async function resolverMarcaEstudio(studioId: string | null | undefined):
     resolverRemitenteResend(studioId),
   ]);
   if (!data) return {};
-  // ⚠️ El color del correo NO sale de `studios.color_primario` a secas: sale de
-  // lo que la propietaria haya elegido en Configuración → Marca, que se guarda
-  // en el tema. Ver lib/emails/color-marca.ts — la columna era la única fuente
-  // y por eso cambiar el color no cambiaba los correos.
+  // ⚠️ El color del correo NO sale de `studios.color_primario`: sale de lo que
+  // la propietaria eligió en Configuración → Marca, y sin tema publicado del
+  // preset que ve en su panel. Ver lib/emails/color-marca.ts — medido el
+  // 16-sep-2026, esa columna llevaba un índigo de alta en 10 de los 11 estudios
+  // activos, así que diez mandaban correos de un color que no es el suyo.
+  const preset = presetAThemeConfig(data.tema_portal as string | null);
   const marca = marcaDesdeFila(
-    { ...data, color_primario: colorMarcaDelEstudio(data.color_primario, tema?.primary) },
+    {
+      ...data,
+      color_primario: colorMarcaDelEstudio(tema?.primary, preset.primary, data.color_primario),
+    },
     tema?.redesSociales ?? null,
-    colorSecundarioDelEstudio(tema?.secondary),
+    colorSecundarioDelEstudio(tema?.secondary, preset.secondary),
   );
   // La integración "Resend" del estudio deja de ser decorativa: hasta ahora
   // guardaba `fromEmail`/`fromName` en `integraciones.config` y NINGUNA línea

@@ -1,29 +1,28 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // De qué color es un estudio, para sus correos.
 //
-// El dato vive en DOS sitios y solo uno se puede editar hoy:
+// ⚠️ Medido en producción el 16-sep-2026, y no es una mejora de matiz: de los
+// 11 estudios activos, **10 tenían `studios.color_primario = '#4F46E5'`** — un
+// índigo que escribe el alta y que no ha elegido nadie. Los correos leían esa
+// columna, así que diez estudios llevaban meses mandando correos de un color
+// que no es el suyo, mientras su panel y su app se veían de otro.
 //
-//   · `studio_theme.config_published.primary` — lo que cambia la propietaria en
-//     Configuración → Marca, y lo que pintan el panel, su página de reservas y
-//     la app de la alumna.
-//   · `studios.color_primario` — una columna anterior a todo eso. NINGUNA
-//     pantalla la escribe ya (comprobado con grep sobre `components/` y `app/`:
-//     el único mapeo que queda, en `updateStudio`, no tiene llamantes).
+// El color de un estudio vive donde lo edita la propietaria, que es el tema:
 //
-// Los correos leían la columna. Resultado: una propietaria cambiaba su color,
-// veía su panel y su app cambiar, y sus correos seguían saliendo del color
-// viejo para siempre. Este módulo es la regla que lo cierra, en un solo sitio
-// y con test, porque el caso ambiguo no es evidente:
+//   1. `studio_theme.config_published.primary` — lo que elige en Configuración
+//      → Marca. Solo 3 de los 11 lo tienen publicado.
+//   2. El preset de `studios.tema_portal` (`presetAThemeConfig`) — de donde cae
+//      el panel cuando aún no hay tema publicado. Los 8 restantes se ven en
+//      oliva `#343825` por aquí, no en índigo.
+//   3. `studios.color_primario` queda como último recurso defensivo. En
+//      producción no lo alcanza nadie, y es a propósito: si volviera a mandar,
+//      volvería el índigo.
 //
-// ⚠️ Un tema publicado puede traer el `primary` POR DEFECTO sin que nadie haya
-// elegido nada — basta con que la propietaria haya publicado un favicon o un
-// texto de su página. En ese caso tomar el tema le cambiaría el color de sus
-// correos al oliva del producto sin haberlo pedido. Por eso el default del
-// producto no cuenta como elección: ahí manda la columna de siempre.
+// Es el mismo orden que resuelve `getThemePublicado` para el panel y el portal.
+// La regla vive aquí, suelta y con test, porque el correo no puede importar
+// `lib/theme-data.ts` (arrastra el cliente service-role) ni `theme-runtime`
+// (arrastra el runtime del portal entero).
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** El oliva del kit: el `primary` con el que nace un tema sin tocar. */
-export const PRIMARY_POR_DEFECTO = '#343825';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -32,26 +31,25 @@ function valido(v: unknown): string | null {
 }
 
 /**
- * El color principal del correo. `null` si el estudio no tiene ninguno en
- * ningún sitio — la paleta cae entonces al del kit, igual que siempre.
+ * El color principal del correo, en orden: lo que eligió, lo que su preset
+ * pinta en el panel, y solo entonces la columna vieja. `null` si no hay nada
+ * válido en ninguno — la paleta cae entonces al del kit.
  */
 export function colorMarcaDelEstudio(
-  colorColumna: unknown,
   primaryDelTema: unknown,
+  primaryDelPreset: unknown,
+  colorColumna: unknown,
 ): string | null {
-  const columna = valido(colorColumna);
-  const tema = valido(primaryDelTema);
-  // Sin tema publicado, o con el default del producto encima de un color propio
-  // de la columna, manda la columna: es el comportamiento de siempre y no puede
-  // cambiarle el color a nadie por sorpresa.
-  if (!tema || (tema.toUpperCase() === PRIMARY_POR_DEFECTO && columna)) return columna;
-  return tema;
+  return valido(primaryDelTema) ?? valido(primaryDelPreset) ?? valido(colorColumna);
 }
 
 /**
- * El secundario, que en el correo pinta el botón. Solo vive en el tema — no hay
- * columna equivalente en `studios`, así que aquí no hay ambigüedad que resolver.
+ * El secundario, que en el correo pinta el botón. Mismo orden, sin columna: no
+ * hay ningún `color_secundario` en `studios`.
  */
-export function colorSecundarioDelEstudio(secondaryDelTema: unknown): string | null {
-  return valido(secondaryDelTema);
+export function colorSecundarioDelEstudio(
+  secondaryDelTema: unknown,
+  secondaryDelPreset: unknown,
+): string | null {
+  return valido(secondaryDelTema) ?? valido(secondaryDelPreset);
 }
