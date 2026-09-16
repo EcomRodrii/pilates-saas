@@ -5179,6 +5179,9 @@ export type PlantillasEmailInsert = {
   pie?: string | null | null;
   fuente?: string | null | null;
   enviar?: boolean | null | null;
+  portada_url?: string | null | null;
+  mostrar_portada?: boolean | null | null;
+  boton_url?: string | null | null;
 }
 
 export type PlantillasEmailUpdate = {
@@ -5197,6 +5200,9 @@ export type PlantillasEmailUpdate = {
   pie?: string | null | null;
   fuente?: string | null | null;
   enviar?: boolean | null | null;
+  portada_url?: string | null | null;
+  mostrar_portada?: boolean | null | null;
+  boton_url?: string | null | null;
 }
 
 export type InstructorDependencySnapshotsInsert = {
@@ -8514,10 +8520,7 @@ export type Database = {
         Row: RowReservas;
         Insert: ReservasInsert;
         Update: ReservasUpdate;
-        portada_url?: string | null | null;
-  mostrar_portada?: boolean | null | null;
-  boton_url?: string | null | null;
-};
+      };
       achievement_definitions: {
         Row: RowAchievementDefinitions;
         Insert: AchievementDefinitionsInsert;
