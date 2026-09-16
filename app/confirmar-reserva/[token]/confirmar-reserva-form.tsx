@@ -20,17 +20,22 @@ export function ConfirmarReservaForm({
   yaConfirmado: boolean;
 }) {
   const [estado, setEstado] = useState<Estado>(yaConfirmado ? 'confirmada' : 'idle');
+  // Auditoría 2026-09-16 (FE-8): el JSON de error ya se leía… y se descartaba
+  // en la rama de fallo, para enseñar siempre «revisa tu conexión» aunque lo
+  // que pasara fuese que el enlace había caducado.
+  const [motivoError, setMotivoError] = useState<string | null>(null);
 
   async function confirmar() {
     setEstado('enviando');
+    setMotivoError(null);
     try {
       const res = await fetch('/api/public/confirmacion-reserva', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
       });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; yaResuelta?: boolean };
-      if (!res.ok) { setEstado('error'); return; }
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; yaResuelta?: boolean; error?: string };
+      if (!res.ok) { setMotivoError(data.error ?? null); setEstado('error'); return; }
       // Puede pasar que el corte la liberara justo antes de que confirmara —
       // se le dice la verdad, no se finge que sirvió de algo.
       setEstado(data.yaResuelta ? 'liberada' : 'confirmada');
@@ -82,7 +87,7 @@ export function ConfirmarReservaForm({
             {estado === 'enviando' ? 'Confirmando…' : 'Sí, voy a venir'}
           </button>
           {estado === 'error' && (
-            <p className="mt-2 text-sm text-destructive">No se pudo confirmar. Revisa tu conexión e inténtalo otra vez.</p>
+            <p className="mt-2 text-sm text-destructive">{motivoError ?? 'No se pudo confirmar. Revisa tu conexión e inténtalo otra vez.'}</p>
           )}
           <p className="mt-3 text-xs text-slate-400">
             Si no confirmas, liberaremos tu plaza para que otra persona pueda venir.

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { puedeModerarComunidad } from '@/lib/permisos-reglas';
 import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
 import { emitirPostComunidadNuevo } from '@/lib/notifications/emit';
 import { mapPostComunidad } from '@/lib/supabase-data';
@@ -39,6 +40,14 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Auditoría 2026-09-16 (AUTH-1): el único gate era "hay sesión de staff", y
+  // el INSERT va con service-role, así que la RLS —la cerradura real— no
+  // opinaba en este camino. `puedeModerarComunidad` ya existía pero su único
+  // consumidor era la UI (components/comunidad/comunidad-feed.tsx). Publicar
+  // además dispara un push a TODAS las socias del segmento elegido en el body.
+  if (!puedeModerarComunidad(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para publicar en la comunidad' }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as {
     texto?: unknown; audiencia?: unknown; imagenUrl?: unknown;

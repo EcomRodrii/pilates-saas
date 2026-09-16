@@ -53,6 +53,15 @@ interface SesionConRelaciones {
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Auditoría 2026-09-16 (AUTH-2): mismo gate que sus nueve hermanas de
+  // /api/integrations (ver gmail/disconnect). Esta ruta ESCRIBE
+  // `sesiones.google_event_id` con service-role, así que sin él una
+  // instructora —que desde la retirada de Tentare Core no tiene ninguna
+  // pantalla de panel— podía escribir columnas que la RLS le niega y vaciar el
+  // Google Calendar de la propietaria.
+  if (sesion.rol !== 'PROPIETARIO') {
+    return NextResponse.json({ error: 'Solo la propietaria puede sincronizar integraciones' }, { status: 403 });
+  }
 
   const accessToken = await getValidAccessToken(sesion.studioId);
   if (!accessToken) {

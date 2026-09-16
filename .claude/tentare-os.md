@@ -318,8 +318,11 @@ comprobar el aforo en ese momento con lock (`FOR UPDATE`, mismo patrón que
 **Regla de negocio, no de reloj**: ninguna reserva puede aprobarse después de
 que su clase haya empezado — la guardia vive DENTRO de la RPC (si
 `sesiones.inicio <= now()`, fuerza `CANCELADA` pase lo que pase con
-`p_aprobar`), no en el cron. El cron `lib/inngest/reservas-pendientes.ts`
-(cada 5 min, sin fan-out por estudio — es una query global) solo hace el
+`p_aprobar`), no en el cron. El cron `app/api/cron/reservas-pendientes`
+(pg_cron, `*/10`, sin fan-out por estudio — es una query global; corregido en
+la auditoría del 2026-09-16: este texto decía `lib/inngest/reservas-pendientes.ts`
+cada 5 min y ese fichero no existe, la cadencia real la fija
+`lib/inngest/crons-cadencia.test.ts`) solo hace el
 aviso proactivo a la socia vía `expirarReservaPendiente()`; si el cron se
 retrasara o no corriera un tick, la regla de negocio seguiría siendo
 correcta, solo el aviso llegaría tarde. Corría cada minuto; se bajó a 5 min
@@ -384,7 +387,9 @@ consume el bono en TS al confirmar (no en la RPC), mismo criterio que
 `resolver_reserva_pendiente`/Fase 2a.
 
 **Regla de negocio, no de reloj** (mismo patrón que Fase 2a): el cron
-`lib/inngest/lista-espera-ofertas.ts` corre cada 5 min (no cada minuto como
+`app/api/cron/lista-espera-ofertas-expirar` (pg_cron) corre cada 5 min — la
+cadencia es correcta, el fichero no: `lib/inngest/lista-espera-ofertas.ts`
+nunca existió (corregido el 2026-09-16) — (no cada minuto como
 Fase 2a — aquí no hay una regla de seguridad de "clase ya empezada" en juego,
 solo UX de cuánto tarda en enterarse la siguiente persona de la cola).
 
@@ -415,8 +420,9 @@ es opt-in, el estudio ya sabe lo que implica al activarla.
 
 ⚠️ **Única regla de "Fase 2" cuyo override se resuelve con `heredaOverride()`
 en TS, no en SQL directo** — a diferencia de Fase 2b. Motivo: el chequeo
-ocurre solo dentro del cron server-side (`lib/inngest/minimo-asistentes.ts`,
-cada 15 min, sin fan-out — query global de sesiones en la próxima ventana de
+ocurre solo dentro del cron server-side (`app/api/cron/minimo-asistentes`
+por pg_cron —no `lib/inngest/minimo-asistentes.ts`, que no existe; corregido
+el 2026-09-16—, cada 15 min, sin fan-out — query global de sesiones en la próxima ventana de
 2h, mismo patrón de doble filtro SQL+JS que `confirmacion-riesgo`), nunca en
 una RPC invocable por `authenticated`, así que no aplica la restricción que
 forzó SQL directo en `cancelar_reserva_plaza`.
@@ -461,7 +467,9 @@ y ese historial de POR QUÉ no se cobró (sin tarjeta, sin consentimiento,
 revertida) tiene que quedar auditable sin leer logs. RLS igual que
 `recibos`/`suscripciones`: solo PROPIETARIO/RECEPCION.
 
-Cron `lib/inngest/penalizaciones.ts` (cada 10 min) crea el recibo y cobra
+Cron `lib/inngest/penalizaciones.ts` (**cada hora**, `0 * * * *` — este texto
+decía «cada 10 min», corregido el 2026-09-16 contra el propio fichero y contra
+`lib/inngest/crons-cadencia.test.ts`) crea el recibo y cobra
 (automático) o lo deja `PENDIENTE_APROBACION` (manual, endpoint nuevo
 `app/api/penalizaciones/aprobar/route.ts` + card `PenalizacionesPendientes`
 en el dashboard — "una lista + un botón", no una pantalla nueva). Guard de

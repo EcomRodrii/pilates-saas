@@ -9,6 +9,7 @@ import { getAlumna } from '@/lib/student/datos';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { guardarDatos } from '@/lib/student/perfil-y-avisos';
+import { ErrorState, OfflineState } from '@/components/student/ui/States';
 import { Input } from '@/components/student/ui/Input';
 import { Button } from '@/components/student/ui/Button';
 import { useAuthStudent } from '@/lib/student/auth';
@@ -33,7 +34,13 @@ export default function DatosPage() {
   // lleva socioId, nombre y email. Con eso, apellidos, teléfono y dirección
   // habrían salido en blanco — y se habrían GUARDADO vacíos al primer envío.
   const cargarAlumna = useCallback(() => getAlumna(estudio.slug), [estudio.slug]);
-  const { data: socia } = useAsync(cargarAlumna, (d) => !d);
+  // Auditoría 2026-09-16 (FE-10): esta pantalla TIRABA el `estado` de
+  // `useAsync`. Si `getAlumna` fallaba, `socia` se quedaba en null para
+  // siempre: formulario en blanco, sin explicación ni reintentar, y al pulsar
+  // Guardar el toast decía «aún estamos cargando tus datos» cuando en realidad
+  // ya se había rendido. 28 de las 35 pantallas del portal sí pintan
+  // ErrorState/OfflineState (ver comunidad/page.tsx); esta era la excepción.
+  const { data: socia, estado: estadoCarga, reintentar } = useAsync(cargarAlumna, (d) => !d);
   const { toast } = useToast();
   const { cambiarEmail } = useAuthStudent(estudio.slug);
 
@@ -119,6 +126,8 @@ export default function DatosPage() {
     <StudentShell>
       <PageHeader titulo="Datos personales" back />
       <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14, maxWidth: 520 }}>
+        {estadoCarga === 'error' && <ErrorState cuerpo="No hemos podido cargar tus datos. Vuelve a intentarlo." onRetry={reintentar} />}
+        {estadoCarga === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver y editar tus datos." />}
         {/* La foto. Antes no había forma de poner ninguna: el avatar era
             siempre las iniciales.
             ⚠️ Y aquí vivía una CUARTA regla de iniciales, que no daba lo mismo

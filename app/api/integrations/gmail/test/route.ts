@@ -9,6 +9,11 @@ import { getValidAccessToken, enviarEmailGmail } from '@/lib/gmail';
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Auditoría 2026-09-16 (AUTH-2): mismo gate que gmail/disconnect. Provoca un
+  // envío real desde la cuenta de Gmail del estudio.
+  if (sesion.rol !== 'PROPIETARIO') {
+    return NextResponse.json({ error: 'Solo la propietaria puede probar integraciones' }, { status: 403 });
+  }
 
   const accessToken = await getValidAccessToken(sesion.studioId);
   if (!accessToken) {

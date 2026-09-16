@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { entregarExternos } from '@/lib/notifications/process';
+import { secretoValido } from '@/lib/salud/secreto';
 
 // Entrega de canales EXTERNOS (push/email) de notificaciones ya
 // creadas. Es el sustituto de la cola de Inngest: engine.publish() escribe la
@@ -13,7 +14,13 @@ export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: 'CRON_SECRET no configurado' }, { status: 503 });
-  if (req.headers.get('x-notif-secret') !== secret) {
+  // Auditoría 2026-09-16 (AUT-8): era un `!==` directo. Esta ruta es tan
+  // sondeable desde internet como las 21 de /api/cron, que ya comparan en
+  // tiempo constante por el motivo que explica lib/salud/secreto.ts. Se
+  // reutiliza ese helper (espera el formato `Bearer <secreto>`) en vez de
+  // escribir una segunda comparación de credenciales.
+  const cabecera = req.headers.get('x-notif-secret');
+  if (!secretoValido(cabecera === null ? null : `Bearer ${cabecera}`, secret)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 

@@ -67,25 +67,16 @@ export const EVENTS = {
   // registrado sin que nadie publicara sus eventos: quien abría el código veía
   // primero la ruta de Inngest, con reintentos y concurrencia, y creía que era
   // la que corre.
-  // Automatizaciones del motor: los dispatchers cron hacen fan-out de un evento
-  // por estudio; el worker detecta la condición (recordatorios, bono a punto de
-  // caducar, clienta inactiva) y publica los eventos de notificación.
-  NOTIF_AUTOMACION_ESTUDIO: 'notification/automacion.estudio',
-  // Backups (P0-36) — barrido diario de copias de seguridad, un evento por
-  // estudio (fan-out del dispatcher cron). Reemplaza el route de Vercel Cron que
-  // iteraba todos los estudios en serie dentro de una sola invocación acotada.
-  BACKUPS_ESTUDIO: 'backups/studio.sweep',
+  // Auditoría 2026-09-16 (AUT-6): aquí vivían NOTIF_AUTOMACION_ESTUDIO,
+  // BACKUPS_ESTUDIO, REVISIONES_SALUD_ESTUDIO y RESUMEN_SEMANAL_ESTUDIO.
+  // Ninguno se emitía ni se consumía ya: los cuatro barridos corren por
+  // pg_cron (`notif-*`, `backups-diarios`, `revisiones-salud`,
+  // `resumen-semanal`), mismo motivo por el que ya se borraron de aquí
+  // RECORDATORIOS_ESTUDIO y CONFIRMACION_RIESGO_CORTE_ESTUDIO. Comprobado sin
+  // referencias en HEAD y en origin/main antes de retirarlos.
   // RECORDATORIOS_ESTUDIO eliminado (2026-09): el recordatorio de clase lo manda
   // solo el barrido de pg_cron `notif-recordatorios`. El fan-out diario de
   // Inngest por estudio mandaba lo mismo y costaba una ejecución por estudio al día.
-  // Recordatorios de revisión de ficha clínica (M-5, auditoría 2026-07-29) —
-  // mismo motivo: reemplaza el route de Vercel Cron que recorría las
-  // condiciones de salud de TODOS los estudios en una sola invocación.
-  REVISIONES_SALUD_ESTUDIO: 'revisiones-salud/studio.sweep',
-  // Resumen semanal del Umbral (semanas silenciosas) — un evento por estudio
-  // (fan-out del dispatcher cron semanal), mismo patrón que
-  // NOTIF_AUTOMACION_ESTUDIO.
-  RESUMEN_SEMANAL_ESTUDIO: 'resumen-semanal/studio.sweep',
   // Envío de campaña de marketing (docs/marketing-integrations-arquitectura.md
   // §5) — NO es fan-out de dispatcher: lo dispara un endpoint (POST
   // /api/marketing/campanas/[id]/enviar) al pulsar "Enviar", un evento por

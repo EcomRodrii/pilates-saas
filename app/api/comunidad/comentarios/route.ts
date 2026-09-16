@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { puedeModerarComunidad } from '@/lib/permisos-reglas';
 import { uid } from '@/lib/utils';
 import type { ComentarioComunidad } from '@/lib/types';
 
@@ -47,6 +48,11 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Auditoría 2026-09-16 (AUTH-1): mismo motivo que /api/comunidad/posts —
+  // escribe con service-role, así que la RLS no es el límite aquí.
+  if (!puedeModerarComunidad(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para comentar en la comunidad' }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as { postId?: unknown; texto?: unknown } | null;
   const postId = typeof body?.postId === 'string' ? body.postId : null;

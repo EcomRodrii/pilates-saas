@@ -314,6 +314,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [showAddTag, setShowAddTag] = useState(false);
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [notaText, setNotaText] = useState('');
+  const [guardandoNota, setGuardandoNota] = useState(false);
   const [reservaFilter, setReservaFilter] = useState<'todas' | 'confirmadas' | 'asistidas' | 'canceladas'>('todas');
   const [reservasPage, setReservasPage] = useState(20);
   const [toast, setToast] = useState<string | null>(null);
@@ -746,9 +747,16 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
   async function handleAddNota() {
     if (!notaText.trim()) return;
-    const res = await addNota(id, notaText);
-    if (!res.ok) { setToast(res.error); return; }
-    setNotaText('');
+    // Auditoría 2026-09-16 (FE-7): el campo solo se limpiaba al VOLVER la
+    // respuesta, así que dos clics en una conexión lenta dejaban dos notas
+    // idénticas en la ficha. Mismo patrón que app/(dashboard)/citas/page.tsx.
+    if (guardandoNota) return;
+    setGuardandoNota(true);
+    try {
+      const res = await addNota(id, notaText);
+      if (!res.ok) { setToast(res.error); return; }
+      setNotaText('');
+    } finally { setGuardandoNota(false); }
   }
 
   async function handleAiNote() {
@@ -1196,8 +1204,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       />
                       {notaText.trim() && (
                         <div className="flex justify-end px-3 pb-2">
-                          <button onClick={handleAddNota} className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-primary-foreground bg-primary">
-                            Guardar nota
+                          <button onClick={handleAddNota} disabled={guardandoNota} className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-primary-foreground bg-primary disabled:opacity-60">
+                            {guardandoNota ? 'Guardando…' : 'Guardar nota'}
                           </button>
                         </div>
                       )}

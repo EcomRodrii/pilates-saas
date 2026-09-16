@@ -27,6 +27,9 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
   const [procesando, setProcesando] = useState(false);
   const [resultado, setResultado] = useState<NotaIAEstructurada | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
+  // Auditoría 2026-09-16 (FE-7): cerrojo de doble envío — sin él, dos clics
+  // dejaban dos notas idénticas en la ficha de la clienta.
+  const [guardandoNota, setGuardandoNota] = useState(false);
   // La RLS de `notas_progreso` y la ruta de IA exigen consentimiento de salud
   // vigente: sin él, grabar y estructurar acabaría en un guardado rechazado.
   const tieneConsentimiento = Boolean(socios.find(s => s.id === socioId)?.consentimientoSalud);
@@ -48,6 +51,9 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
 
   async function guardar() {
     if (!resultado) return;
+    if (guardandoNota) return;
+    setGuardandoNota(true);
+    try {
     const res = await addNotaProgreso({
       socioId, instructorId, sesionId,
       textoLibre: transcripcion,
@@ -58,6 +64,7 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
     });
     if (!res.ok) { setErrorAccion('No se ha podido guardar la nota. Inténtalo de nuevo.'); return; }
     onClose();
+    } finally { setGuardandoNota(false); }
   }
 
   return (
@@ -133,8 +140,8 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
             {resultado.planProximaSesion && <p className="text-sm text-foreground"><span className="font-bold">Próxima sesión: </span>{resultado.planProximaSesion}</p>}
             {resultado.ejerciciosCasa && <p className="text-sm text-foreground"><span className="font-bold">Ejercicios casa: </span>{resultado.ejerciciosCasa}</p>}
             <div className="flex gap-2 pt-2 border-t border-border">
-              <button onClick={guardar} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-bold hover:brightness-95 transition-colors">
-                <CheckCircle2 size={12} /> Guardar nota
+              <button onClick={guardar} disabled={guardandoNota} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-bold hover:brightness-95 transition-colors disabled:opacity-60">
+                <CheckCircle2 size={12} /> {guardandoNota ? 'Guardando…' : 'Guardar nota'}
               </button>
               <button onClick={() => setResultado(null)} className="px-3 py-1.5 border border-border text-foreground rounded-lg text-xs font-bold hover:bg-muted transition-colors">
                 Descartar

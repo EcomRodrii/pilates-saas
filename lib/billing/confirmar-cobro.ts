@@ -146,6 +146,19 @@ export async function confirmarCobroRecibo(
           level: 'error',
           extra: { reciboId, studioId, fuente, paymentIntentCobrado: anterior, paymentIntentDuplicado: paymentIntentId },
         });
+      } else if (!anterior && previo?.estado === 'COBRADO') {
+        // Auditoría 2026-09-16 (PAY-2): el discriminante `anterior && ...` deja
+        // MUDO el caso más probable de doble cargo real. `dbMarcarCobrado`
+        // (mostrador: efectivo/transferencia) cierra el recibo SIN escribir
+        // `stripe_payment_intent_id` y SIN expirar la Checkout Session que la
+        // socia ya tuviera abierta; si ella la completa después, el cargo entra
+        // de verdad, aquí `anterior` es null, la condición de arriba es falsa y
+        // no queda constancia en ninguna parte. Un cobro real sobre un recibo
+        // ya cerrado hay que avisarlo AUNQUE no se sepa con qué se cerró.
+        Sentry.captureMessage('[confirmarCobroRecibo] cobro real sobre un recibo ya COBRADO sin cargo registrado: revisar y devolver', {
+          level: 'error',
+          extra: { reciboId, studioId, fuente, paymentIntentDuplicado: paymentIntentId },
+        });
       }
     }
     return { ok: true, actualizado: false };

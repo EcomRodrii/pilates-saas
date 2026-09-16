@@ -36,6 +36,10 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
+  // Auditoría 2026-09-16 (FE-7): sin este cerrojo, dos clics en una conexión
+  // lenta creaban dos filas idénticas. Mismo patrón que ya usa
+  // app/(dashboard)/citas/page.tsx (`if (guardando) return;` + `disabled`).
+  const [guardando, setGuardando] = useState(false);
 
   function openNuevo() { setForm(emptyForm()); setEditId(null); setModal('nuevo'); }
   function openEditar(a: AchievementDefinition) {
@@ -45,10 +49,14 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
   }
   async function guardar() {
     if (!form.nombre.trim() || form.umbral <= 0) return;
-    const res = modal === 'nuevo' ? await addAchievementDefinition(form) : editId ? await updateAchievementDefinition(editId, form) : { ok: true as const };
-    if (!res.ok) { showToast(res.error); return; }
-    setModal(null);
-    showToast(modal === 'nuevo' ? 'Logro creado' : 'Logro actualizado');
+    if (guardando) return;
+    setGuardando(true);
+    try {
+      const res = modal === 'nuevo' ? await addAchievementDefinition(form) : editId ? await updateAchievementDefinition(editId, form) : { ok: true as const };
+      if (!res.ok) { showToast(res.error); return; }
+      setModal(null);
+      showToast(modal === 'nuevo' ? 'Logro creado' : 'Logro actualizado');
+    } finally { setGuardando(false); }
   }
   async function cargarSugeridos() {
     const existentes = new Set(achievementDefinitions.map(a => a.nombre));
@@ -171,7 +179,7 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
               </label>
               <div className="flex gap-2">
                 <button onClick={() => setModal(null)} className={btnSecondary}>Cancelar</button>
-                <button onClick={guardar} className={btnPrimary}>Guardar</button>
+                <button onClick={guardar} disabled={guardando} className={btnPrimary}>{guardando ? 'Guardando…' : 'Guardar'}</button>
               </div>
             </div>
           </div>

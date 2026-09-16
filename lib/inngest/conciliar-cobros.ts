@@ -488,6 +488,28 @@ async function entregar(
     const piId = typeof sesion?.payment_intent === 'string'
       ? sesion.payment_intent
       : sesion?.payment_intent?.id ?? null;
+    // Auditoría 2026-09-16 (PAY-1): el webhook RECHAZA con 409 una sesión
+    // pagada por MENOS de lo que vale el recibo — y aquí no se miraba. Como el
+    // webhook responde 200 antes de procesar, ese 409 no encola reintento de
+    // Stripe: una hora después este barrido daba por bueno lo que el webhook
+    // había rechazado, marcaba COBRADO, renovaba y sellaba factura por el
+    // importe del recibo. Gemelos divergentes otra vez (F-12/F-13), en la
+    // única comprobación que el comentario de confirmar-cobro.ts da por
+    // "propia del objeto vivo de Stripe" — que el conciliador también tiene.
+    if (sesion) {
+      const { data: reciboRow } = await admin
+        .from('recibos').select('importe').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+      if (reciboRow) {
+        const esperadoCentimos = Math.round(Number(reciboRow.importe) * 100);
+        if (typeof sesion.amount_total !== 'number' || sesion.amount_total < esperadoCentimos) {
+          Sentry.captureMessage('[conciliador] importe de checkout inferior al recibo: NO se entrega', {
+            level: 'error', tags: { area: 'cobros', tipo: 'importe-insuficiente' },
+            extra: { reciboId: p.reciboId, studioId: p.studioId, sesionId: p.sesionId, amountTotal: sesion.amount_total, esperadoCentimos },
+          });
+          return;
+        }
+      }
+    }
     // Con qué se pagó DE VERDAD, igual que el webhook: una sesión que ofrece
     // Bizum la puede acabar pagando la socia con tarjeta, y al revés. Esto era
     // un 'TARJETA' a pelo — y el conciliador es el camino real en 4 de cada 6

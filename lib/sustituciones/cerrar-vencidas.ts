@@ -12,6 +12,7 @@
 // apareciendo como "activa" en el panel indefinidamente, aunque ya haya
 // pasado (ver app/(dashboard)/sustituciones/page.tsx, que además filtra esto
 // en el cliente como defensa en profundidad mientras este barrido no corre).
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { ESTADOS_EN_JUEGO, alertarPropietaria } from '@/lib/sustituciones/contacto';
@@ -75,7 +76,17 @@ export async function cerrarSustitucionesVencidas(): Promise<{ cerradas: number 
       studioId: s.studio_id,
       sesion: sesion ? { inicio: sesion.inicio, tipo_clase_id: sesion.tipo_clase_id } : null,
       tipo: 'sin_sustituta',
-    }).catch(() => {});
+      // Auditoría 2026-09-16 (AUT-7): era `.catch(() => {})`. Este aviso es
+      // justo el que la cabecera de este fichero dice que faltaba («tu clase
+      // se quedó sin cubrir»), y la sustitución YA está cerrada con
+      // compare-and-set: si el aviso se pierde no hay segunda oportunidad, así
+      // que tragárselo en silencio es la peor opción posible.
+    }).catch((e: unknown) => {
+      Sentry.captureException(e, {
+        tags: { area: 'sustituciones', tipo: 'alerta-sin-sustituta-fallida' },
+        extra: { studioId: s.studio_id, sustitucionId: s.id },
+      });
+    });
   }));
 
   return { cerradas: actualizadas?.length ?? 0 };
