@@ -15,6 +15,11 @@ import { SALIDAS } from './enlaces';
 // reasigna sola (responder.ts). Esta demo contaba antes el orden al revés:
 // contactaba sola a dos a la vez y pedía la aprobación al final.
 //
+// Absorbe al antiguo bloque «El martes de una propietaria» (SeccionMartes,
+// retirado al aligerar la home): su idea —dejar de dirigir el estudio desde
+// WhatsApp— es el título, y la baja de las 16:42 que contaba el martes es
+// justo la que resuelve esta demo.
+//
 // Se puede avanzar a mano: el ciclo automático es un acompañamiento, no la
 // única forma de verlo. Con `prefers-reduced-motion` arranca directamente en
 // "Cubierta", que es el fotograma que cuenta el resultado.
@@ -88,13 +93,10 @@ export function SeccionSustituciones() {
     >
       <div className="v5-sust-wrap">
         <header className="v5-sust-head">
-          <p className="v5-sust-eyebrow">Sustituciones</p>
-          <h2 id="v5-sust-h" className="v5-sust-h2">
-            Una profesora cancela a las 16:42.<br />Tú no deberías montar una operación de rescate.
-          </h2>
+          <h2 id="v5-sust-h" className="v5-sust-h2">Deja de dirigir tu estudio desde WhatsApp.</h2>
           <p className="v5-sust-lead">
-            Tentare sabe quién puede dar esa clase y te la propone. Con tu visto bueno la contacta, insiste
-            por ti y te lo trae resuelto. Míralo pasar:
+            Una instructora cancela a las 16:42: Tentare sabe quién puede dar esa clase, te la propone y, con tu
+            visto bueno, la contacta, insiste por ti y te lo trae resuelto.
           </p>
         </header>
 
@@ -169,11 +171,6 @@ export function SeccionSustituciones() {
                 </li>
               ))}
             </ol>
-            <p className="v5-registro-p">
-              De esas siete cosas, tú solo has hecho una: dar el visto bueno — y en modo autónomo, ni eso.
-              Si nadie hubiera aceptado, te lo diría con las opciones sobre la mesa en vez de dejarte
-              descubrirlo por la mañana.
-            </p>
             <Link href={SALIDAS.sustituciones.href} className="v5-salida">
               {SALIDAS.sustituciones.label} <span aria-hidden>→</span>
             </Link>
@@ -182,17 +179,15 @@ export function SeccionSustituciones() {
       </div>
 
       <style>{`
-        .v5-sust { background: #131313; padding: clamp(72px,11vw,150px) clamp(20px,4vw,48px); }
+        .v5-sust { background: #131313; padding: clamp(80px,9vw,128px) clamp(20px,4vw,48px); }
         .v5-sust-wrap { max-width: 1240px; margin: 0 auto; }
-        .v5-sust-head { max-width: 900px; margin-bottom: clamp(34px,5vw,56px); }
-        .v5-sust-eyebrow { margin: 0 0 18px; font-size: 12px; font-weight: 700;
-          letter-spacing: .18em; text-transform: uppercase; color: #D9C29E; }
-        .v5-sust-h2 { margin: 0 0 18px; font-size: clamp(30px,4.8vw,70px); font-weight: 800;
+        .v5-sust-head { max-width: 820px; margin-bottom: clamp(36px,4.5vw,56px); }
+        .v5-sust-h2 { margin: 0 0 18px; font-size: clamp(30px,4.4vw,60px); font-weight: 800;
           line-height: 1.02; letter-spacing: -.04em; color: #fff; text-wrap: balance; }
-        .v5-sust-lead { margin: 0; max-width: 56ch; font-size: 17px; line-height: 1.6; color: #A6A69E; }
+        .v5-sust-lead { margin: 0; max-width: 58ch; font-size: 17px; line-height: 1.6; color: #A6A69E; }
 
         .v5-sust-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(340px,100%),1fr));
-          gap: clamp(28px,4vw,60px); align-items: start; }
+          gap: clamp(28px,4vw,60px); align-items: center; }
 
         .v5-card { background: #EEEEE8; border-radius: 20px; padding: 18px;
           box-shadow: 0 60px 120px rgba(0,0,0,.5); }
@@ -233,7 +228,6 @@ export function SeccionSustituciones() {
           display: flex; flex-direction: column; gap: 11px; }
         .v5-registro-l li { display: flex; gap: 14px; font-size: 14.5px; line-height: 1.5; color: #C9C9C2; }
         .v5-hora { flex: none; width: 46px; font-variant-numeric: tabular-nums; color: #8E8E86; }
-        .v5-registro-p { margin: 0 0 22px; font-size: 15px; line-height: 1.6; color: #A6A69E; max-width: 46ch; }
         .v5-salida { display: inline-flex; align-items: center; gap: 8px; font-size: 15px;
           font-weight: 700; color: #D9C29E; }
         .v5-salida:hover { text-decoration: underline; text-underline-offset: 4px; }

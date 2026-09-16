@@ -10,17 +10,13 @@ import { BG } from '@/components/landing/theme';
 import { SeccionHero } from '@/components/landing/SeccionHero';
 import { VideoProducto } from '@/components/landing/VideoProducto';
 import { SeccionParteNoche } from '@/components/landing/SeccionParteNoche';
-import { SeccionMartes } from '@/components/landing/SeccionMartes';
 import { SeccionSustituciones } from '@/components/landing/SeccionSustituciones';
 import { SeccionCalendarioReservas } from '@/components/landing/SeccionCalendarioReservas';
-import { SeccionApp } from '@/components/landing/SeccionApp';
-import { SeccionWidget } from '@/components/landing/SeccionWidget';
-import { SeccionClientas } from '@/components/landing/SeccionClientas';
+import { SeccionReservas } from '@/components/landing/SeccionReservas';
 import { SeccionCambiarse } from '@/components/landing/SeccionCambiarse';
 import { SeccionFuncionalidades } from '@/components/landing/SeccionFuncionalidades';
 import { SeccionPrecio } from '@/components/landing/SeccionPrecio';
 import { SeccionFaq } from '@/components/landing/SeccionFaq';
-import { SeccionRecursos } from '@/components/landing/SeccionRecursos';
 import { SeccionCtaFinal } from '@/components/landing/SeccionCtaFinal';
 import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { PopupEmpezar } from '@/components/landing/PopupEmpezar';
@@ -94,21 +90,22 @@ export default function LandingPage() {
         {/* El producto, inmediatamente después de la promesa: es la prueba de
             lo que acaba de prometer el titular, no un adorno. */}
         <VideoProducto />
-        <SeccionMartes />
+        {/* Once bloques y cada uno con una sola idea: título, una frase y lo
+            que se ve (el fundador: «la home se ve muy saturada»). Lo que salió
+            —el martes de una propietaria, clientas y equipo, «Hecho para
+            entenderse», «La cuenta» y las guías— o ya lo contaba otro bloque o
+            tiene su página propia; los recursos siguen en la barra. */}
         <SeccionSustituciones />
         <SeccionCalendarioReservas />
-        <SeccionApp />
-        <SeccionWidget />
+        <SeccionReservas />
         {/* "Anoche, mientras tú cerrabas" vivía en el hero, donde llegaba
             antes de que se supiera qué es Tentare. Aquí ya se ha visto el
             producto entero funcionando, y "esto lo hizo solo" se entiende. */}
         <SeccionParteNoche />
-        <SeccionClientas />
-        <SeccionCambiarse />
         <SeccionFuncionalidades />
         <SeccionPrecio />
+        <SeccionCambiarse />
         <SeccionFaq />
-        <SeccionRecursos />
       </div>
       <SeccionCtaFinal />
       <WhatsAppFab />

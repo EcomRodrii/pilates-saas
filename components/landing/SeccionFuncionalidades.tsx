@@ -1,31 +1,20 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { funcionalidades } from '@/lib/seo/paginas';
+import { SALIDAS } from './enlaces';
 
-// Vitrina de funcionalidades de la home, v2: cada tarjeta lleva una viñeta
-// ilustrada a dos tintas (oliva #343825 + arena #D9C29E) y tres áreas van
-// destacadas a doble ancho con lámina oscura. Título y resumen siguen
-// saliendo del registro (`lib/seo/paginas.ts`); las destacadas amplían el
-// copy aquí porque la tarjeta grande pide una frase más larga.
+// Vitrina de funcionalidades de la home: un enlace por área, cada uno con su
+// viñeta a dos tintas (oliva #343825 + arena #D9C29E). Título y resumen salen
+// del registro (`lib/seo/paginas.ts`), así que un área nueva entra sola.
+//
+// Compacta a propósito (al aligerar la home): viñeta pequeña al lado del texto
+// en vez de lámina grande encima, y sin las tres tarjetas destacadas a doble
+// ancho, que repetían lo que ya cuentan las demos de más arriba. Los 17 enlaces
+// se quedan: son la puerta de la home al árbol de /funcionalidades.
 //
 // Conserva id="funcionalidades" (ancla del nav) y aria-labelledby.
 
-const DESTACADAS: Record<string, { chip: string; copy: string }> = {
-  '/funcionalidades/reservas-online': {
-    chip: 'Lo que más se usa',
-    copy: 'Reservan solas desde el móvil, con las reglas que tú pongas — antelación, límites por bono y confirmación al momento.',
-  },
-  '/funcionalidades/cobros-recurrentes': {
-    chip: 'Sin perseguir a nadie',
-    copy: 'Cobra solo, reintenta lo que falla y avisa cuando toca — recibo a recibo, sin hojas de cálculo.',
-  },
-  '/funcionalidades/app-para-alumnas': {
-    chip: 'Tu marca, no la nuestra',
-    copy: 'Tu estudio en su móvil, con tu nombre, tu icono y tus colores — reservas, bonos y avisos en un toque.',
-  },
-};
-
-// Viñetas para lámina clara (86px). Trazo oliva, relleno héroe arena,
+// Viñetas (dibujadas a 48 y pintadas a 40 px). Trazo oliva, relleno héroe arena,
 // secundarios #B9BFA3 y blanco. viewBox 48, strokeWidth 2, remates redondos.
 const ICONOS: Record<string, React.ReactNode> = {
   '/funcionalidades/lista-de-espera': (
@@ -166,159 +155,159 @@ const ICONOS: Record<string, React.ReactNode> = {
       <path d="M15 16v-4.5a9 9 0 0 1 9-4.5 9 9 0 0 1 10 2" stroke="#B9BFA3" strokeDasharray="0.1 4" />
     </>
   ),
-};
-
-// Viñetas para lámina oscura (118px): trazo crema #EDE8D8, base #4A4F33,
-// héroe arena, secundarios #9BA083.
-const ICONOS_DESTACADA: Record<string, React.ReactNode> = {
+  // Las tres que eran «destacadas» (lámina oscura), pasadas a la paleta clara:
+  // base #4A4F33 → blanco, secundarios #9BA083 → #B9BFA3.
   '/funcionalidades/reservas-online': (
     <>
-      <rect x="12" y="6" width="20" height="37" rx="5" fill="#4A4F33" />
-      <path d="M19 38.5h10" stroke="#9BA083" />
-      <path d="M16.5 13.5h7" stroke="#9BA083" />
-      <rect x="16.5" y="18.5" width="15" height="7" rx="2.5" fill="#31351F" stroke="#9BA083" />
-      <path d="M20 22h8" stroke="#D9C29E" />
+      <rect x="12" y="6" width="20" height="37" rx="5" fill="#fff" />
+      <path d="M19 38.5h10" stroke="#B9BFA3" />
+      <path d="M16.5 13.5h7" stroke="#B9BFA3" />
+      <rect x="16.5" y="18.5" width="15" height="7" rx="2.5" fill="#F1F2EA" stroke="#B9BFA3" />
+      <path d="M20 22h8" stroke="#343825" />
       <circle cx="34.5" cy="15" r="8.5" fill="#D9C29E" stroke="#343825" />
       <path d="m30.8 15 2.6 2.6 4.6-5" stroke="#343825" />
-      <path d="M6.5 10.5c1.6-2.4 3.9-4.2 6.5-5.2" stroke="#9BA083" strokeDasharray="0.1 4.6" />
-      <path d="M5 33.5h4M3.5 28.5h5.5" stroke="#9BA083" />
+      <path d="M5 33.5h4M3.5 28.5h5.5" stroke="#B9BFA3" />
       <path d="m40 33.5 3 7-4.6-1.4-1.8 3.4-2-8.4Z" fill="#D9C29E" stroke="#343825" strokeWidth={1.7} />
     </>
   ),
   '/funcionalidades/cobros-recurrentes': (
     <>
       <circle cx="24" cy="24" r="12" fill="#D9C29E" stroke="#343825" />
-      <circle cx="24" cy="24" r="8.6" fill="none" stroke="#343825" strokeWidth={1.4} strokeDasharray="0.1 3.4" />
       <path d="M28.3 20.4a5.4 5.4 0 1 0 0 7.2M18 22.6h7M18 25.4h6" stroke="#343825" />
       <path d="M42 24a18 18 0 0 0-31-12.4" />
       <path d="M11.5 5.5v6.5H18" />
       <path d="M6 24a18 18 0 0 0 31 12.4" />
       <path d="M36.5 42.5V36H30" />
-      <rect x="37" y="6" width="8" height="6" rx="2" fill="#4A4F33" stroke="#9BA083" />
-      <path d="M37 8.4h8" stroke="#9BA083" strokeWidth={1.5} />
-      <path d="M4.5 38.5h4M3 34h4" stroke="#9BA083" />
+      <rect x="37" y="6" width="8" height="6" rx="2" fill="#fff" stroke="#B9BFA3" />
+      <path d="M4.5 38.5h4M3 34h4" stroke="#B9BFA3" />
     </>
   ),
   '/funcionalidades/app-para-alumnas': (
     <>
-      <rect x="13" y="5" width="22" height="38" rx="5.5" fill="#4A4F33" />
-      <path d="M21 38.5h6" stroke="#9BA083" />
+      <rect x="13" y="5" width="22" height="38" rx="5.5" fill="#fff" />
+      <path d="M21 38.5h6" stroke="#B9BFA3" />
       <rect x="18.5" y="12.5" width="11" height="11" rx="3.5" fill="#D9C29E" stroke="#343825" />
       <path d="M24 16v4M22 18h4" stroke="#343825" />
-      <path d="M18.5 28.5h11M18.5 32.5h7" stroke="#9BA083" />
+      <path d="M18.5 28.5h11M18.5 32.5h7" stroke="#B9BFA3" />
       <path d="m40.5 5.5 1.6 3.2 3.2 1.6-3.2 1.6-1.6 3.2-1.6-3.2-3.2-1.6 3.2-1.6Z" fill="#D9C29E" stroke="#343825" strokeWidth={1.6} />
-      <path d="M6 14.5h4.5M4.5 19.5h6" stroke="#9BA083" />
-      <circle cx="8" cy="35" r="2.4" fill="none" stroke="#9BA083" />
+      <path d="M6 14.5h4.5M4.5 19.5h6" stroke="#B9BFA3" />
+    </>
+  ),
+  // Estas dos entraron en el registro sin viñeta (#2126) y su lámina salía vacía.
+  '/funcionalidades/clases-recurrentes': (
+    <>
+      <path d="M14 4v6M28 4v6" />
+      <rect x="5" y="7" width="32" height="30" rx="5" fill="#fff" />
+      <path d="M5 16h32" />
+      <rect x="10.5" y="21" width="9" height="7" rx="2" fill="#D9C29E" stroke="none" />
+      <path d="M13 24.5h4" stroke="#343825" strokeWidth={1.6} />
+      <path d="M24 24.5h7" stroke="#B9BFA3" />
+      <circle cx="35.5" cy="35.5" r="8" fill="#F1F2EA" />
+      <path d="M39.4 33a4.4 4.4 0 1 0 .4 3.6" />
+      <path d="M40 29.8v3.6h-3.6" />
+    </>
+  ),
+  '/funcionalidades/plazas-fijas': (
+    <>
+      <path d="M7 7.5h34" stroke="#B9BFA3" />
+      <rect x="6" y="13" width="16" height="12" rx="3" fill="#fff" />
+      <rect x="26" y="13" width="16" height="12" rx="3" fill="#D9C29E" />
+      <path d="m30.5 19 2.5 2.5 4.5-4.5" stroke="#343825" />
+      <rect x="6" y="30" width="16" height="12" rx="3" fill="#fff" />
+      <rect x="26" y="30" width="16" height="12" rx="3" fill="#fff" />
+      <circle cx="14" cy="36" r="1.8" fill="#B9BFA3" stroke="none" />
+      <circle cx="34" cy="36" r="1.8" fill="#B9BFA3" stroke="none" />
     </>
   ),
 };
 
-function Vineta({ path, destacada }: { path: string; destacada?: boolean }) {
+function Vineta({ path }: { path: string }) {
   return (
     <svg
-      width={destacada ? 118 : 86}
-      height={destacada ? 118 : 86}
+      width={40}
+      height={40}
       viewBox="0 0 48 48"
       fill="none"
-      stroke={destacada ? '#EDE8D8' : '#343825'}
+      stroke="#343825"
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
     >
-      {destacada ? ICONOS_DESTACADA[path] : ICONOS[path]}
+      {ICONOS[path]}
     </svg>
   );
 }
 
-const Flecha = <ArrowRight size={15} aria-hidden />;
-
 export function SeccionFuncionalidades() {
   const items = funcionalidades();
-  let claras = 0; // alterna arena/salvia solo entre las tarjetas normales
 
   return (
     <section id="funcionalidades" className="fn2" aria-labelledby="fn2-h">
       <div className="fn2-wrap">
         <div className="fn2-cabecera">
-          <p className="fn2-eyebrow">Funcionalidades</p>
           <h2 id="fn2-h" className="fn2-h2">Todo lo que necesita un estudio de Pilates. En un panel.</h2>
           <p className="fn2-lead">Son {items.length} áreas, cada una con su propia página — sin genérico, sin relleno.</p>
         </div>
         <div className="fn2-grid">
-          {items.map((p) => {
-            const dest = DESTACADAS[p.path];
-            if (dest) {
-              return (
-                <Link key={p.path} href={p.path} className="fn2-card fn2-dest">
-                  <span className="fn2-plate fn2-plate--oscura"><Vineta path={p.path} destacada /></span>
-                  <span className="fn2-body">
-                    <span className="fn2-chip">{dest.chip}</span>
-                    <span className="fn2-tit fn2-tit--g">{p.etiqueta}</span>
-                    <span className="fn2-desc">{dest.copy}</span>
-                    <span className="fn2-cta">Ver cómo funciona{Flecha}</span>
-                  </span>
-                </Link>
-              );
-            }
-            const tono = claras++ % 2 === 0 ? 'fn2-plate--arena' : 'fn2-plate--salvia';
-            return (
-              <Link key={p.path} href={p.path} className="fn2-card">
-                <span className={`fn2-plate ${tono}`}><Vineta path={p.path} /></span>
+          {items.map((p, n) => (
+            <Link key={p.path} href={p.path} className="fn2-card">
+              <span className={`fn2-plate ${n % 2 === 0 ? 'fn2-plate--arena' : 'fn2-plate--salvia'}`}><Vineta path={p.path} /></span>
+              <span className="fn2-body">
                 <span className="fn2-tit">{p.etiqueta}</span>
                 <span className="fn2-desc">{p.resumen}</span>
-                <span className="fn2-cta">Ver cómo funciona{Flecha}</span>
-              </Link>
-            );
-          })}
+              </span>
+            </Link>
+          ))}
         </div>
+        <Link href={SALIDAS.funcionalidades.href} className="fn2-salida">
+          {SALIDAS.funcionalidades.label} <ArrowRight size={15} aria-hidden />
+        </Link>
       </div>
 
       <style>{`
-        .fn2 { padding: clamp(72px,11vw,120px) clamp(20px,4vw,48px); }
+        .fn2 { padding: clamp(80px,9vw,128px) clamp(20px,4vw,48px); }
         .fn2-wrap { max-width: 1240px; margin: 0 auto; }
-        .fn2-cabecera { max-width: 640px; margin-bottom: 48px; }
-        .fn2-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .18em; color: #8E8E86; margin: 0 0 18px; text-transform: uppercase; }
-        .fn2-h2 { font-size: clamp(28px,4.4vw,48px); font-weight: 800; line-height: 1.03; letter-spacing: -.04em; margin: 0 0 14px; text-wrap: balance; }
-        .fn2-lead { font-size: 16px; line-height: 1.5; color: #5A5A52; margin: 0; }
+        .fn2-cabecera { max-width: 980px; margin-bottom: 40px; }
+        .fn2-h2 { font-size: clamp(28px,4vw,52px); font-weight: 800; line-height: 1.03; letter-spacing: -.04em; margin: 0 0 16px; text-wrap: balance; }
+        .fn2-lead { font-size: 17px; line-height: 1.5; color: #5A5A52; margin: 0; }
 
-        .fn2-grid { display: grid; grid-template-columns: repeat(3,1fr); grid-auto-flow: dense; gap: 16px; }
-        .fn2-card { background: #fff; border: 1px solid #E7E7E0; border-radius: 20px; padding: 10px 10px 22px;
-          display: flex; flex-direction: column; color: inherit; text-decoration: none;
+        .fn2-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+        .fn2-card { display: flex; align-items: center; gap: 14px; padding: 12px 16px 12px 12px; border-radius: 16px;
+          background: #fff; border: 1px solid #E7E7E0; color: inherit; text-decoration: none;
           transition: transform .26s cubic-bezier(.2,.7,0,1), box-shadow .26s, border-color .26s; }
-        .fn2-card:hover { transform: translateY(-5px); box-shadow: 0 32px 58px -28px rgba(26,26,26,.32); border-color: #D9D9CE; }
+        .fn2-card:hover { transform: translateY(-3px); box-shadow: 0 22px 44px -26px rgba(26,26,26,.3); border-color: #D9D9CE; }
+        .fn2-card:focus-visible { outline: 2px solid #343825; outline-offset: 2px; }
 
-        .fn2-plate { height: 128px; border-radius: 13px; display: flex; align-items: center; justify-content: center; }
+        .fn2-plate { flex: none; width: 60px; height: 60px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
         .fn2-plate--arena { background: linear-gradient(135deg,#F5EDDD,#EFE3CC); }
         .fn2-plate--salvia { background: linear-gradient(135deg,#EFF1E4,#E7EAD6); }
-        .fn2-plate--oscura { background: linear-gradient(140deg,#3C4129,#282C1B); }
         .fn2-plate svg { transition: transform .45s cubic-bezier(.34,1.56,.64,1); }
-        .fn2-card:hover .fn2-plate svg { transform: translateY(-5px) scale(1.08) rotate(-2deg); }
+        .fn2-card:hover .fn2-plate svg { transform: translateY(-2px) scale(1.06); }
 
-        .fn2-tit { font-size: 16.5px; font-weight: 800; letter-spacing: -.015em; color: #1A1A1A; margin: 17px 14px 0; }
-        .fn2-desc { font-size: 13.5px; line-height: 1.55; color: #5A5A52; margin: 6px 14px 0; flex: 1; }
-        .fn2-cta { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700; color: #343825; margin: 15px 14px 0; }
-        .fn2-cta svg { transition: transform .25s ease; }
-        .fn2-card:hover .fn2-cta svg { transform: translateX(5px); }
+        .fn2-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .fn2-tit { font-size: 15.5px; font-weight: 800; letter-spacing: -.01em; color: #1A1A1A; }
+        .fn2-desc { font-size: 13.5px; line-height: 1.45; color: #5A5A52; }
 
-        .fn2-dest { grid-column: span 2; flex-direction: row; gap: 4px; padding: 10px; }
-        .fn2-dest .fn2-plate { width: 44%; height: auto; flex-shrink: 0; }
-        .fn2-body { flex: 1; display: flex; flex-direction: column; padding: 16px 14px 12px 18px; }
-        .fn2-body .fn2-tit, .fn2-body .fn2-desc, .fn2-body .fn2-cta { margin-left: 0; margin-right: 0; }
-        .fn2-chip { display: inline-flex; align-self: flex-start; font-size: 10.5px; font-weight: 800; letter-spacing: .12em;
-          text-transform: uppercase; color: #343825; background: #F1F2EA; border-radius: 999px; padding: 5px 11px; }
-        .fn2-tit--g { font-size: 20px; letter-spacing: -.02em; margin-top: 13px; }
-        .fn2-body .fn2-desc { font-size: 14px; line-height: 1.6; margin-top: 7px; }
-        .fn2-body .fn2-cta { font-size: 14px; margin-top: 14px; }
+        .fn2-salida { display: inline-flex; align-items: center; gap: 7px; margin-top: 28px; font-size: 15px;
+          font-weight: 700; color: #343825; }
+        .fn2-salida:hover { text-decoration: underline; text-underline-offset: 4px; }
 
-        @media (max-width: 980px) { .fn2-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 1200px) { .fn2-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+        @media (max-width: 900px) { .fn2-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+        /* En el móvil, dos columnas con viñeta y nombre: los 17 enlaces siguen,
+           el resumen de cada uno está en su página. En una columna con resumen
+           eran más de 2.000 px de home. */
         @media (max-width: 640px) {
-          .fn2-grid { grid-template-columns: 1fr; }
-          .fn2-dest { grid-column: span 1; flex-direction: column; }
-          .fn2-dest .fn2-plate { width: 100%; height: 150px; }
+          .fn2-grid { gap: 8px; }
+          .fn2-card { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; }
+          .fn2-plate { width: 44px; height: 44px; border-radius: 10px; }
+          .fn2-plate svg { width: 32px; height: 32px; }
+          .fn2-tit { font-size: 14px; line-height: 1.3; }
+          .fn2-desc { display: none; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .fn2-card, .fn2-plate svg, .fn2-cta svg { transition: none; }
+          .fn2-card, .fn2-plate svg { transition: none; }
         }
       `}</style>
     </section>
