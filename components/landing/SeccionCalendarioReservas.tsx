@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useDemo } from './use-demo';
 import { SALIDAS } from './enlaces';
+import { FOTOS } from './fotos';
+import { FotoLanding } from './FotoLanding';
 
 // Sección 04 de la landing v5 — "DEMO 2 · Calendario y reservas".
 //
@@ -18,7 +20,12 @@ import { SALIDAS } from './enlaces';
 //     esta clase»: eso es el radar de ocupación (clases por debajo del 70 %,
 //     lo lanza la propietaria), no la lista de espera, que avisa a la cola.
 //  3. El aforo por reformer (`SPOTS`) — 3 fotogramas de cómo una alumna elige
-//     su máquina, "como en el cine".
+//     su máquina, "como en el cine". Va encima de una foto de reformers
+//     (`FOTOS.plazas`), sobre la pared crema de arriba: la demo es de muestra,
+//     así que va `aria-hidden` y el <figcaption> la cuenta en una frase.
+//     ⚠️ La tarjeta tiene que caber en esa pared sin tapar las máquinas: por eso
+//     la foto pasa a una columna antes (1180 px) que el resto de la sección, y a
+//     su recorte vertical en el móvil.
 
 const CLASE = { n: 'Reformer Avanzado', sub: 'Mañana · 08:30 · Sala 1', dia: 'LUN 10', ocup: '6/8' };
 
@@ -62,6 +69,10 @@ const SPOTS_FASES: FotogramaSpot[] = [
 // 8 puestos, 2 ya ocupados por otras alumnas (independiente del que elige Claudia).
 const OCUPADOS = new Set([1, 5]);
 
+const MEDIA_UNA_COLUMNA = '(max-width: 1180px)';
+const MEDIA_FOTO_MOVIL = '(max-width: 640px)';
+const proporcion = ({ proporcion: [ancho, alto] }: { proporcion: readonly [number, number] }) => `${ancho} / ${alto}`;
+
 export function SeccionCalendarioReservas() {
   // Identificadores directos y no `plaza.ref` / `spot.ref`: el compilador de
   // React exige que un ref pasado a JSX sea un binding de primer nivel, no un
@@ -77,7 +88,6 @@ export function SeccionCalendarioReservas() {
     <section id="calendario" ref={refPlaza as React.Ref<HTMLElement>} className="v5-cal" aria-labelledby="v5-cal-h">
       <div className="v5-cal-wrap">
         <header className="v5-cal-head">
-          <p className="v5-cal-eyebrow">Calendario y reservas</p>
           <h2 id="v5-cal-h" className="v5-cal-h2">Tu estudio entero, organizado. Y avisándote solo.</h2>
           <p className="v5-cal-lead">
             Semana, día o mes; salas y capacidad por máquina. Cuando una clase necesita una decisión, el
@@ -160,33 +170,46 @@ export function SeccionCalendarioReservas() {
             <p className="v5-radar"><strong>Lista de espera:</strong> {P.radar}</p>
           </div>
 
-          <div className="v5-micro" ref={refSpot as React.Ref<HTMLDivElement>}>
-            <div className="v5-micro-top">
-              <span className="v5-micro-tit">Y tus alumnas eligen su reformer</span>
-              <span className="v5-micro-como">como en el cine</span>
+          <figure className="v5-plazas" ref={refSpot as React.Ref<HTMLElement>}>
+            <div className="v5-plazas-foto">
+              <FotoLanding
+                foto={FOTOS.plazas}
+                mediaMovil={MEDIA_FOTO_MOVIL}
+                sizes={{ escritorio: '(max-width: 1180px) calc(100vw - 40px), (max-width: 1336px) 52vw, 692px', movil: 'calc(100vw - 40px)' }}
+              />
             </div>
-            <div className="v5-espejo"><span /><span className="v5-espejo-t">ESPEJO</span><span /></div>
-            <div className="v5-spots" role="img" aria-label={SP.msg}>
-              {Array.from({ length: 8 }, (_, n) => {
-                const ocupado = OCUPADOS.has(n);
-                const elegido = SP.sel === n;
-                return (
-                  <div
-                    key={n}
-                    className="v5-spot"
-                    style={{
-                      borderColor: elegido ? '#8F6215' : ocupado ? '#DDDBD0' : '#E7E7E0',
-                      background: elegido ? 'rgba(143,98,21,.06)' : '#fff',
-                    }}
-                  >
-                    <span className="v5-spot-m" style={{ background: ocupado ? '#C9C7BB' : elegido ? '#8F6215' : '#DCE0CB' }} />
-                    <span className="v5-spot-n">{n + 1}</span>
-                  </div>
-                );
-              })}
+            <div className="v5-micro v5-plazas-tarjeta" aria-hidden="true">
+              <div className="v5-micro-top">
+                <span className="v5-micro-tit">Y tus alumnas eligen su reformer</span>
+                <span className="v5-micro-como">como en el cine</span>
+              </div>
+              <div className="v5-espejo"><span /><span className="v5-espejo-t">ESPEJO</span><span /></div>
+              <div className="v5-spots">
+                {Array.from({ length: 8 }, (_, n) => {
+                  const ocupado = OCUPADOS.has(n);
+                  const elegido = SP.sel === n;
+                  return (
+                    <div
+                      key={n}
+                      className="v5-spot"
+                      style={{
+                        borderColor: elegido ? '#8F6215' : ocupado ? '#DDDBD0' : '#E7E7E0',
+                        background: elegido ? 'rgba(143,98,21,.06)' : '#fff',
+                      }}
+                    >
+                      <span className="v5-spot-m" style={{ background: ocupado ? '#C9C7BB' : elegido ? '#8F6215' : '#DCE0CB' }} />
+                      <span className="v5-spot-n">{n + 1}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="v5-spot-msg"><span className="v5-spot-dot" style={{ background: SP.dot }} />{SP.msg}</p>
             </div>
-            <p className="v5-spot-msg"><span className="v5-spot-dot" style={{ background: SP.dot }} />{SP.msg}</p>
-          </div>
+            <figcaption className="v5-cal-oculto">
+              Foto de reformers en un estudio con, encima, cómo elige su reformer una alumna desde la app: ve qué plazas
+              están libres, elige la suya y queda guardada como su favorita.
+            </figcaption>
+          </figure>
         </div>
 
         <div className="v5-cal-salidas">
@@ -198,8 +221,6 @@ export function SeccionCalendarioReservas() {
         .v5-cal { padding: clamp(72px,11vw,150px) clamp(20px,4vw,48px); }
         .v5-cal-wrap { max-width: 1240px; margin: 0 auto; }
         .v5-cal-head { max-width: 880px; margin-bottom: 48px; }
-        .v5-cal-eyebrow { margin: 0 0 18px; font-size: 12px; font-weight: 700; letter-spacing: .18em;
-          text-transform: uppercase; color: #8E8E86; }
         .v5-cal-h2 { margin: 0 0 18px; font-size: clamp(30px,4.8vw,68px); font-weight: 800; line-height: 1.02;
           letter-spacing: -.04em; text-wrap: balance; color: #1A1A1A; }
         .v5-cal-lead { margin: 0; max-width: 58ch; font-size: 17px; line-height: 1.6; color: #5A5A52; }
@@ -233,8 +254,8 @@ export function SeccionCalendarioReservas() {
           padding: 14px 22px; border-top: 1px solid #F0F0EA; font-size: 12px; color: #8E8E86; }
         .v5-cal-pie strong { color: #343825; }
 
-        .v5-micro-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(320px,100%),1fr));
-          gap: 16px; margin-top: 18px; align-items: stretch; }
+        .v5-micro-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.3fr);
+          gap: 16px; margin-top: 18px; align-items: center; }
         .v5-micro { background: #fff; border: 1px solid #E7E7E0; border-radius: 20px; padding: 24px;
           box-shadow: 0 30px 70px rgba(26,26,26,.08); }
         .v5-micro-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -264,6 +285,36 @@ export function SeccionCalendarioReservas() {
         .v5-spot-msg { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 12.5px;
           color: #5A5A52; }
         .v5-spot-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; transition: background .4s; }
+
+        /* La foto con la demo de plazas encima, sobre la pared de arriba. */
+        .v5-plazas { position: relative; margin: 0; }
+        .v5-plazas-foto { position: relative; aspect-ratio: ${proporcion(FOTOS.plazas.recortes.escritorio)};
+          border-radius: 20px; overflow: hidden; background: #E9DFCC; box-shadow: 0 30px 70px rgba(26,26,26,.08); }
+        .v5-plazas-foto picture, .v5-plazas-foto img { display: block; width: 100%; height: 100%; }
+        .v5-plazas-foto img { object-fit: cover; }
+        .v5-plazas-tarjeta { position: absolute; top: 14px; right: 14px; width: min(376px, calc(100% - 28px));
+          padding: 13px 15px 12px; border-radius: 16px; border-color: rgba(52,56,37,.08);
+          box-shadow: 0 24px 48px -22px rgba(34,37,26,.42), 0 2px 6px rgba(34,37,26,.06); }
+        .v5-plazas-tarjeta .v5-micro-top { flex-wrap: nowrap; }
+        .v5-plazas-tarjeta .v5-micro-tit { font-size: 14.5px; }
+        .v5-plazas-tarjeta .v5-micro-como { font-size: 11.5px; }
+        .v5-plazas-tarjeta .v5-espejo { margin: 6px 0 6px; }
+        .v5-plazas-tarjeta .v5-spots { gap: 6px; }
+        .v5-plazas-tarjeta .v5-spot { padding: 5px 0 3px; gap: 2px; border-radius: 9px; }
+        .v5-plazas-tarjeta .v5-spot-m { width: 14px; height: 18px; border-radius: 4px; }
+        .v5-plazas-tarjeta .v5-spot-n { font-size: 10px; }
+        .v5-plazas-tarjeta .v5-spot-msg { margin-top: 8px; font-size: 12px; }
+        .v5-cal-oculto { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+          clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+        @media ${MEDIA_UNA_COLUMNA} {
+          .v5-micro-grid { grid-template-columns: minmax(0,1fr); }
+        }
+        @media ${MEDIA_FOTO_MOVIL} {
+          .v5-plazas-foto { aspect-ratio: ${proporcion(FOTOS.plazas.recortes.movil)}; }
+          .v5-plazas-tarjeta { top: 12px; right: 12px; width: calc(100% - 24px); padding: 12px 14px 11px; }
+          .v5-plazas-tarjeta .v5-micro-top { flex-wrap: wrap; row-gap: 0; }
+        }
 
         .v5-cal-salidas { margin-top: 30px; }
         .v5-salida-clara { font-size: 15px; font-weight: 700; color: #343825; }
