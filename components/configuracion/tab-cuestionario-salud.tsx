@@ -16,7 +16,7 @@
 // profundidad, no el único candado. La RLS de la migración sigue siendo la
 // cerradura real en cualquier caso.
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Check, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
@@ -50,10 +50,12 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
   const cajon = useCajonAjuste();
   const nav = useNavegacionConfig();
   const aMedias = editId !== null || form.pregunta.trim() !== '' || form.opciones.trim() !== '';
+  // Salir sin guardar deja la pregunta a medias como estaba: el cajón cerrado sigue montado.
+  const descartarAMedias = useCallback(() => { setEditId(null); setForm(emptyForm()); }, []);
   useEffect(() => {
     if (!aMedias || !cajon) return;
-    return cajon.marcarCambios();
-  }, [aMedias, cajon]);
+    return cajon.marcarCambios(descartarAMedias);
+  }, [aMedias, cajon, descartarAMedias]);
   useEffect(() => {
     if (!aMedias || !nav) return;
     return nav.marcarSinGuardar('altas');

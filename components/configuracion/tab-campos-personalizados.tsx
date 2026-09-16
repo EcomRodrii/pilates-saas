@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Check, Plus, Pencil, Trash2, ShieldAlert } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeGestionarCamposPersonalizados } from '@/lib/permisos';
@@ -46,10 +46,12 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
   const cajon = useCajonAjuste();
   const nav = useNavegacionConfig();
   const aMedias = editId !== null || form.etiqueta.trim() !== '' || form.opciones.trim() !== '';
+  // Salir sin guardar deja el alta a medias como estaba: el cajón cerrado sigue montado.
+  const descartarAMedias = useCallback(() => { setEditId(null); setForm(emptyCampoForm()); }, []);
   useEffect(() => {
     if (!aMedias || !cajon) return;
-    return cajon.marcarCambios();
-  }, [aMedias, cajon]);
+    return cajon.marcarCambios(descartarAMedias);
+  }, [aMedias, cajon, descartarAMedias]);
   useEffect(() => {
     if (!aMedias || !nav) return;
     return nav.marcarSinGuardar('altas');
