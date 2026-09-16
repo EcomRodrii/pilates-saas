@@ -86,7 +86,7 @@ export function SeccionHero() {
     <>
       <nav className="v5-nav" aria-label="Principal">
         <a href="#top" className="v5-nav-logo" aria-label="Tentare — inicio">
-          <LogoTentare formato="horizontal" tinta="tinta" alto={26} decorativo />
+          <LogoTentare formato="isotipo" tinta="color" alto={30} decorativo />
         </a>
         <div className="v5-nav-links">
           {NAV_V5.map((l) => (
