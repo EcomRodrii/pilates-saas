@@ -2258,9 +2258,12 @@ type BorradorPlantilla = {
   intro?: string | null;
   cuerpo?: string | null;
   botonTexto?: string | null;
+  botonUrl?: string | null;
   colorCabecera?: string | null;
   colorBoton?: string | null;
   logoUrl?: string | null;
+  portadaUrl?: string | null;
+  mostrarPortada?: boolean | null;
   pie?: string | null;
   fuente?: string | null;
 };

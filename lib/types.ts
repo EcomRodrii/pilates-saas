@@ -520,9 +520,15 @@ export interface PlantillaEmail {
   // campo a campo. `cuerpo` es Markdown con los tokens {datos} y {boton}.
   cuerpo: string | null;
   botonTexto: string | null;
+  // A dónde lleva el botón de ESTE correo. `null` = el destino de siempre.
+  botonUrl: string | null;
   colorCabecera: string | null;
   colorBoton: string | null;
   logoUrl: string | null;
+  // Foto de portada SOLO para este correo, y si lo lleva. `null` en la primera
+  // = la portada de su app; `null` en la segunda = lo que decida la plantilla.
+  portadaUrl: string | null;
+  mostrarPortada: boolean | null;
   pie: string | null;
   fuente: FuenteEmail | null;
 }

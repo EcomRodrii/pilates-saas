@@ -7,7 +7,7 @@
 
 import { correoEstudio, correoEstudioLibre, type MarcaCorreo } from './plantilla.ts';
 import { ACENTO } from './paleta.ts';
-import { marcaConPersonalizacion, type PersonalizacionCorreo } from './clase.ts';
+import { marcaConPersonalizacion, botonConPersonalizacion, type PersonalizacionCorreo } from './clase.ts';
 import { formatEuro } from '../../utils.ts';
 
 export interface PropsImpago {
@@ -33,9 +33,9 @@ export function correoImpago(p: PropsImpago): string {
       { label: 'Concepto', value: p.concepto },
       { label: 'Importe', value: formatEuro(p.importe), destacado: true },
     ] },
-    boton: null,
+    boton: botonConPersonalizacion(null, p.personalizacion),
     pie: p.personalizacion?.pie ?? null,
-    conPortada: false,
+    conPortada: p.personalizacion?.mostrarPortada ?? false,
     acento: p.definitivo ? ACENTO.alerta : ACENTO.aviso,
   };
   const cuerpo = p.definitivo

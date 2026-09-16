@@ -44,9 +44,12 @@ export type BorradorPlantilla = {
   intro?: string | null;
   cuerpo?: string | null;
   botonTexto?: string | null;
+  botonUrl?: string | null;
   colorCabecera?: string | null;
   colorBoton?: string | null;
   logoUrl?: string | null;
+  portadaUrl?: string | null;
+  mostrarPortada?: boolean | null;
   pie?: string | null;
   fuente?: string | null;
 };
@@ -67,9 +70,14 @@ export async function renderPlantillaMuestra(
     {
       cuerpo: override.cuerpo?.trim() || undefined,
       botonTexto: override.botonTexto?.trim() || undefined,
+      botonUrl: override.botonUrl?.trim() || undefined,
       colorCabecera: override.colorCabecera?.trim() || undefined,
       colorBoton: override.colorBoton?.trim() || undefined,
       logoUrl: override.logoUrl?.trim() || undefined,
+      portadaUrl: override.portadaUrl?.trim() || undefined,
+      // `null` en el formulario significa «lo que decida la plantilla», que no
+      // es lo mismo que apagarla: solo viaja si es un booleano de verdad.
+      ...(typeof override.mostrarPortada === 'boolean' ? { mostrarPortada: override.mostrarPortada } : {}),
       pie: override.pie?.trim() || undefined,
       fuente: override.fuente?.trim() || undefined,
     },

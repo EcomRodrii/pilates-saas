@@ -47,9 +47,18 @@ export interface MarcaCorreo {
 export interface PersonalizacionCorreo {
   cuerpo?: string;
   botonTexto?: string;
+  /** A dónde lleva el botón. Ausente = el destino de siempre (su app…). */
+  botonUrl?: string;
   colorCabecera?: string;
   colorBoton?: string;
   logoUrl?: string;
+  /** Foto de portada SOLO para este correo. Ausente = la de su app. */
+  portadaUrl?: string;
+  /**
+   * ¿Este correo lleva foto? Ausente = lo que decida la plantilla (la reserva
+   * sí, la cancelación no). `false` la apaga aunque la plantilla la pinte.
+   */
+  mostrarPortada?: boolean;
   pie?: string;
   fuente?: string;
 }
@@ -359,6 +368,9 @@ function markdownCorreo(p: PaletaCorreo, fuente: string): Marked {
         return `<${t.ordered ? 'ol' : 'ul'} style="margin:0 0 14px;padding-left:20px;">${items}</${t.ordered ? 'ol' : 'ul'}>`;
       },
       link(t) { return `<a href="${hrefSeguro(t.href)}" style="color:${p.enlace};text-decoration:underline;">${this.parser.parseInline(t.tokens)}</a>`; },
+      // Sin esto sale un `<hr>` pelado: cada cliente de correo le pone su
+      // propio grosor y su propio gris, y en Outlook queda una raya hundida.
+      hr() { return `<div style="height:1px;line-height:1px;font-size:0;background:${p.borde};margin:0 0 18px;">&nbsp;</div>`; },
       blockquote(t) { return `<div style="${texto}margin:0 0 14px;padding:2px 0 2px 14px;border-left:3px solid ${p.borde};color:${p.tintaSuave};">${this.parser.parse(t.tokens)}</div>`; },
       // Una imagen pegada por la propietaria sale a lo ancho de la tarjeta y
       // nunca sin `alt`: con las imágenes bloqueadas —el caso por defecto en
