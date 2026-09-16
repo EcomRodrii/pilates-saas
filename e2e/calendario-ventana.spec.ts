@@ -132,6 +132,9 @@ test('la ventana flotante se arrastra y se queda donde la dejas, también en otr
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(ventana(page)).toBeVisible({ timeout: 60_000 });
+  // Al recargar vuelve a entrar animada (escalada al 96 %): medirla a mitad daba
+  // 1-3 px de más en CI. Se mide quieta.
+  await quieta(page);
   const recargada = (await ventana(page).boundingBox())!;
   expect(Math.round(recargada.x)).toBe(Math.round(movida.x));
   expect(Math.round(recargada.y)).toBe(Math.round(movida.y));
@@ -208,9 +211,9 @@ test('⤢ agranda la ventana a la semana SIN cerrarla, y ⤡ la devuelve a peque
   await expect.poll(async () => Math.round((await ventana(page).boundingBox())!.width)).toBe(320);
   await expect(ventana(page).getByRole('listitem')).toHaveCount(2);
   // Y vuelve a donde estaba antes de agrandarla, no se queda donde la empujó.
-  const vuelta = (await ventana(page).boundingBox())!;
-  expect(Math.round(vuelta.x)).toBe(Math.round(pequena.x));
-  expect(Math.round(vuelta.y)).toBe(Math.round(pequena.y));
+  // Con espera: posición y tamaño se animan juntos y se leía el último fotograma.
+  await expect.poll(async () => Math.round((await ventana(page).boundingBox())!.x)).toBe(Math.round(pequena.x));
+  await expect.poll(async () => Math.round((await ventana(page).boundingBox())!.y)).toBe(Math.round(pequena.y));
 
   // Agrandada, recargar la deja agrandada.
   await ventana(page).getByRole('button', { name: 'Agrandar la ventana' }).click();
