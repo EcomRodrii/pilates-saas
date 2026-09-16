@@ -41,14 +41,16 @@ export function DashboardDrawer({
    * Renderiza en `document.body` en vez de donde vive el caller.
    *
    * ⚠️ **Cualquier panel abierto desde una página del dashboard lo necesita.**
-   * `PanelPageTransition` envuelve el contenido de cada página en
-   * `.panel-page-in`, cuya animación va con `fill-mode: both` sobre un
-   * fotograma final `transform: none` — y "none" ANIMADO computa a
-   * `matrix(1, 0, 0, 1, 0, 0)`, no a "sin transform". Una identidad sigue
-   * creando un containing block, así que el `fixed inset-0` de aquí se ancla a
-   * la caja de la página, no al viewport: medido en /configuración, el panel
-   * salía a 343×848 dentro de un viewport de 375×812, empezando 56px más abajo
-   * y con el pie tapado por la barra inferior del móvil.
+   * Históricamente, `PanelPageTransition` envolvía cada página en
+   * `.panel-page-in`, con `fill-mode: both` sobre un fotograma final
+   * `transform: none` — y "none" ANIMADO computa a `matrix(1, 0, 0, 1, 0, 0)`,
+   * que sigue creando un containing block: el `fixed inset-0` de aquí se
+   * anclaba a la caja de la página (medido en /configuración: 343×848 dentro de
+   * un viewport de 375×812, 56px más abajo). Desde que el cambio de sección va
+   * con View Transitions ese transform ya no existe, pero el portal se queda:
+   * cualquier ancestro con transform/filter/backdrop-filter (la topbar lleva
+   * `backdrop-blur`) provoca lo mismo, y un panel no debe depender de que
+   * ninguna página lo tenga.
    *
    * Mismo problema y mismo remedio que `DashboardSheet`, que ya traía esta
    * prop; allí el sospechoso anotado era el `backdrop-blur` de la topbar.

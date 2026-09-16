@@ -58,9 +58,10 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>En el ordenador: ampliarlo o llevarlo en una ventana</h2>
       <p>
-        Al final de la fila de botones del Calendario hay dos pequeños. El de las flechas lo{' '}
+        Junto al título «Calendario» hay dos botones pequeños. El de las flechas lo{' '}
         <strong>amplía a toda la pantalla</strong>: esconde el menú y la barra de arriba para que quepan más horas y
-        más días; con el mismo botón, o con <strong>Esc</strong>, vuelve a su tamaño.
+        más días; con el mismo botón, o con <strong>Esc</strong>, vuelve a su tamaño. Ese mismo botón lo tienen
+        Clientas, Cobros, Informes, Mensajería y Equipo.
       </p>
       <p>
         El otro saca la agenda del día a una <strong>ventana flotante</strong> que se queda a mano mientras vas a

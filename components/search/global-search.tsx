@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { TRANSICION_SECCION } from '@/lib/panel/transiciones';
 import { useStudio } from '@/lib/studio-context';
 import { Search, ArrowRight, Calendar, CreditCard, X, Zap, Users, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -177,7 +178,7 @@ export function GlobalSearch({
 
   // Estando en Configuración, una tarea de Configuración («Datos fiscales») la
   // abre el shell: con el router la dirección se quedaba pegada (#2030).
-  function go(href: string) { if (!irEnConfiguracion(href)) router.push(href); setOpen(false); }
+  function go(href: string) { if (!irEnConfiguracion(href)) router.push(href, { transitionTypes: TRANSICION_SECCION }); setOpen(false); }
 
   return (
     <>

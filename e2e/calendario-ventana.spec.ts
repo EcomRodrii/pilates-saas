@@ -103,7 +103,7 @@ test('salir del Calendario ampliado no deja el panel sin menú', async ({ page }
   await page.goBack();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 60_000 });
   await expect(menu(page)).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.hasAttribute('data-calendario-ampliado'))).toBe(false);
+  expect(await page.evaluate(() => document.documentElement.hasAttribute('data-panel-ampliado'))).toBe(false);
 });
 
 test('la ventana flotante se arrastra y se queda donde la dejas, también en otra pantalla y al recargar', async ({ page }) => {

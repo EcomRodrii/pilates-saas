@@ -6,6 +6,11 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
+import { escucharToques, nacerDelToque } from "@/lib/panel/ultimo-toque"
+
+// Para que el diálogo nazca del botón que lo abre, hay que saber dónde fue el
+// último clic ANTES de abrirse: se escucha desde que este módulo se carga.
+escucharToques()
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -31,7 +36,8 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        // Animaciones en globals.css («Diálogos, cajones y hojas del panel»).
+        "panel-velo fixed inset-0 isolate z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs",
         className
       )}
       {...props}
@@ -52,8 +58,10 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
+        // Nace del botón que lo abre: el origen de la escala es el último clic.
+        ref={nacerDelToque}
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[min(calc(100%-2rem),24rem)] max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "panel-dialogo fixed top-1/2 left-1/2 z-50 grid w-full max-w-[min(calc(100%-2rem),24rem)] max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
           className
         )}
         {...props}

@@ -128,7 +128,12 @@ test('«Volver» no escribe nada', async ({ page }) => {
   await elegirCuota(page);
 
   await page.getByRole('button', { name: 'Volver' }).click();
-  await expect(page.getByRole('dialog')).toBeHidden();
+  // «Volver» cierra los DOS diálogos a la vez (el de asignar plan y este aviso),
+  // y mientras se animan al salir los dos siguen en el árbol. `toBeHidden()` con
+  // un localizador que encuentra dos NO espera: falla en el acto por modo
+  // estricto. En main pasaba por casualidad de tiempos (medido: el primero se
+  // iba antes de mirar). `toHaveCount(0)` espera a que no quede ninguno.
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(cuenta.altas).toHaveLength(0);
   expect(cuenta.asignaciones).toHaveLength(0);
 });

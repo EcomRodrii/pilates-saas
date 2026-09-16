@@ -558,11 +558,9 @@ nextjs-portal { display: none !important; }
    ni falta hace: un solo frame de opacidad 0 en el nuevo contenido ya evita
    el "aparece de golpe". `both` conserva el estado inicial durante el
    primer paint del frame reiniciado. */
-@keyframes panel-page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.panel-page-in { animation: panel-page-in var(--motion-normal) var(--motion-ease) both; }
 
-/* ── Calendario ampliado ────────────────────────────────────────────────────
-   El botón «Ampliar» del Calendario pone `data-calendario-ampliado` en <html> y
+/* ── Pantalla ampliada ──────────────────────────────────────────────────────
+   El botón «Ampliar» (PageHeader, lib/panel/ampliar.ts) pone `data-panel-ampliado` en <html> y
    el panel le cede toda la pantalla: fuera menú y barra superior, y el
    contenido sin su ancho máximo. La rejilla no necesita nada más: su alto ya lo
    mide `useAltoHastaElFondo` contra lo que tiene encima, y crece sola.
@@ -576,16 +574,16 @@ nextjs-portal { display: none !important; }
    el `style` de <html> (`aplicarHuecos`, sidebar.tsx), y un estilo en línea
    gana a cualquier regla que no sea importante. */
 @media (min-width: 1024px) {
-  html[data-calendario-ampliado] {
+  html[data-panel-ampliado] {
     --sidebar-w: 0px !important;
     --panel-top: 0.75rem !important;
     --panel-sticky-top: 0px !important;
   }
-  html[data-calendario-ampliado] [data-panel-menu],
-  html[data-calendario-ampliado] [data-panel-topbar] {
+  html[data-panel-ampliado] [data-panel-menu],
+  html[data-panel-ampliado] [data-panel-topbar] {
     display: none !important;
   }
-  html[data-calendario-ampliado] [data-panel-contenido] {
+  html[data-panel-ampliado] [data-panel-contenido] {
     max-width: none;
     padding-left: 0.75rem;
     padding-right: 0.75rem;
@@ -594,43 +592,43 @@ nextjs-portal { display: none !important; }
 }
 
 /* ── Ampliar y reducir, animado (View Transitions) ──────────────────────────
-   `cambiarAmpliado` (calendario/page.tsx) pone `data-vt-calendario` en <html>
+   `cambiarAmpliado` (lib/panel/ampliar.ts) pone `data-vt-ampliar` en <html>
    solo mientras dura la transición, y con él los nombres: fuera de ella nada
    lleva `view-transition-name`, así que ninguna otra navegación morfea estas
-   piezas. La tarjeta del calendario crece desde su sitio y lo de dentro NO se
+   piezas. La pantalla crece desde su sitio y lo de dentro NO se
    estira (se revela, como una ventana que se maximiza); el menú y la barra se
    retiran hacia fuera en vez de desaparecer. */
-html[data-vt-calendario] [data-tour='calendario-vista'] { view-transition-name: calendario-lienzo; }
-html[data-vt-calendario] aside[data-panel-menu] { view-transition-name: panel-menu; }
-html[data-vt-calendario] div[data-panel-menu] { view-transition-name: panel-logo; }
-html[data-vt-calendario] [data-panel-topbar] { view-transition-name: panel-barra; }
+html[data-vt-ampliar] [data-panel-pagina] { view-transition-name: panel-pagina; }
+html[data-vt-ampliar] aside[data-panel-menu] { view-transition-name: panel-menu; }
+html[data-vt-ampliar] div[data-panel-menu] { view-transition-name: panel-logo; }
+html[data-vt-ampliar] [data-panel-topbar] { view-transition-name: panel-barra; }
 /* El hueco del menú tiene su propia transición de relleno: llegaría tarde a la
    foto del estado nuevo y la tarjeta saltaría al acabar. */
-html[data-vt-calendario] main { transition: none !important; }
+html[data-vt-ampliar] main { transition: none !important; }
 
-html[data-vt-calendario]::view-transition-group(*),
-html[data-vt-calendario]::view-transition-old(root),
-html[data-vt-calendario]::view-transition-new(root) {
+html[data-vt-ampliar]::view-transition-group(*),
+html[data-vt-ampliar]::view-transition-old(root),
+html[data-vt-ampliar]::view-transition-new(root) {
   animation-duration: var(--motion-ventana);
   animation-timing-function: var(--motion-ease-ventana);
 }
-/* La tarjeta NO se funde con su foto vieja durante todo el movimiento: arriba
+/* La pantalla NO se funde con su foto vieja durante todo el movimiento: arriba
    hay dos maquetaciones distintas (título y botones en una fila o en dos) y el
    fundido largo enseñaba las dos cabeceras a la vez, un fantasma. Se hace así:
    la foto vieja se va enseguida, y la nueva —a su tamaño real, sin estirarse—
    viaja con el grupo hasta su sitio. */
-html[data-vt-calendario]::view-transition-old(calendario-lienzo),
-html[data-vt-calendario]::view-transition-new(calendario-lienzo) {
+html[data-vt-ampliar]::view-transition-old(panel-pagina),
+html[data-vt-ampliar]::view-transition-new(panel-pagina) {
   inline-size: 100%;
   block-size: 100%;
   object-fit: none;
   object-position: left top;
 }
 @keyframes vt-fundido-fuera { to { opacity: 0; } }
-html[data-vt-calendario]::view-transition-old(calendario-lienzo) {
+html[data-vt-ampliar]::view-transition-old(panel-pagina) {
   animation: vt-fundido-fuera 160ms var(--motion-ease-ventana) both;
 }
-html[data-vt-calendario]::view-transition-new(calendario-lienzo) {
+html[data-vt-ampliar]::view-transition-new(panel-pagina) {
   animation: none;
   opacity: 1;
 }
@@ -638,18 +636,18 @@ html[data-vt-calendario]::view-transition-new(calendario-lienzo) {
 @keyframes vt-menu-dentro { from { opacity: 0; transform: translateX(-2.5rem); } }
 @keyframes vt-barra-fuera { to { opacity: 0; transform: translateY(-1rem); } }
 @keyframes vt-barra-dentro { from { opacity: 0; transform: translateY(-1rem); } }
-html[data-vt-calendario='ampliar']::view-transition-old(panel-menu),
-html[data-vt-calendario='ampliar']::view-transition-old(panel-logo) {
+html[data-vt-ampliar='ampliar']::view-transition-old(panel-menu),
+html[data-vt-ampliar='ampliar']::view-transition-old(panel-logo) {
   animation: vt-menu-fuera var(--motion-ventana) var(--motion-ease-ventana) both;
 }
-html[data-vt-calendario='reducir']::view-transition-new(panel-menu),
-html[data-vt-calendario='reducir']::view-transition-new(panel-logo) {
+html[data-vt-ampliar='reducir']::view-transition-new(panel-menu),
+html[data-vt-ampliar='reducir']::view-transition-new(panel-logo) {
   animation: vt-menu-dentro var(--motion-ventana) var(--motion-ease-ventana) both;
 }
-html[data-vt-calendario='ampliar']::view-transition-old(panel-barra) {
+html[data-vt-ampliar='ampliar']::view-transition-old(panel-barra) {
   animation: vt-barra-fuera var(--motion-ventana) var(--motion-ease-ventana) both;
 }
-html[data-vt-calendario='reducir']::view-transition-new(panel-barra) {
+html[data-vt-ampliar='reducir']::view-transition-new(panel-barra) {
   animation: vt-barra-dentro var(--motion-ventana) var(--motion-ease-ventana) both;
 }
 
@@ -689,6 +687,60 @@ html[data-vt-calendario='reducir']::view-transition-new(panel-barra) {
 .ventana-contenido { animation: ventana-contenido-in var(--motion-slow) var(--motion-ease-ventana) both; }
 .ventana-plegable-dentro { transition: opacity var(--motion-slow) var(--motion-ease-ventana); }
 
+/* ── Cambiar de sección (View Transitions de React) ─────────────────────────
+   PanelPageTransition pone la clase `panel-seccion` solo en las navegaciones
+   del menú y de ⌘K (lib/panel/transiciones.ts). Lo de antes se va subiendo y
+   fundiéndose enseguida; lo nuevo sube a su sitio con la curva de ventana. Más
+   corto que una ventana (340 ms, no 500): cambiar de sección es lo que más se
+   repite en el día y ahí la velocidad pesa más que la presencia. */
+@keyframes panel-seccion-sale { to { opacity: 0; transform: translateY(-0.375rem); } }
+@keyframes panel-seccion-entra { from { opacity: 0; transform: translateY(0.75rem); } }
+::view-transition-group(.panel-seccion) {
+  animation-duration: 340ms;
+  animation-timing-function: var(--motion-ease-ventana);
+}
+::view-transition-old(.panel-seccion) {
+  animation: panel-seccion-sale 160ms var(--motion-ease-ventana) both;
+}
+::view-transition-new(.panel-seccion) {
+  animation: panel-seccion-entra 340ms var(--motion-ease-ventana) 40ms both;
+}
+
+/* ── Diálogos, cajones y hojas del panel ─────────────────────────────────────
+   Los diálogos nacen del botón que los abre (transform-origin lo pone
+   `nacerDelToque`, lib/panel/ultimo-toque.ts): crecen desde ahí con un poco de
+   desenfoque que se aclara, y se van fundiéndose.
+
+   ⚠️ Las ENTRADAS van con `backwards`, nunca `both`. Con `both` el último
+   fotograma (`transform: none`) se queda aplicado como una matriz identidad, y
+   eso ancla cualquier `position: fixed` de dentro a la caja en vez de a la
+   ventana — el fallo que arrastró `.panel-page-in` durante meses. `backwards`
+   aplica el primer fotograma mientras espera y no deja nada al terminar.
+   Las SALIDAS sí necesitan `both`: se quedan invisibles hasta desmontarse.
+
+   ⚠️ Escala contenida (0.92, no la de la ventana): una escala grande falsea
+   `boundingBox()` en los e2e mientras corre — ya costó un rojo con la hoja
+   pública — y un diálogo no tiene que viajar, solo aparecer desde su botón. */
+@keyframes panel-dialogo-entra {
+  from { opacity: 0; transform: scale(0.92); filter: blur(3px); }
+}
+@keyframes panel-dialogo-sale { to { opacity: 0; transform: scale(0.97); } }
+@keyframes panel-velo-entra { from { opacity: 0; } }
+@keyframes panel-velo-sale { to { opacity: 0; } }
+.panel-dialogo[data-open] { animation: panel-dialogo-entra var(--motion-slow) var(--motion-ease-ventana) backwards; }
+/* Salida en 100 ms, lo mismo que antes de este cambio: cerrar tiene que sentirse
+   inmediato, y mientras sale el diálogo sigue en el árbol como role="dialog" —
+   con 180 ms, «Volver» dejaba dos diálogos a la vez el tiempo suficiente para
+   que un e2e los contara (plan-cobrado-en-tpv-avisa.spec.ts). */
+.panel-dialogo[data-closed] { animation: panel-dialogo-sale 100ms var(--motion-ease-ventana) both; }
+.panel-velo[data-open] { animation: panel-velo-entra var(--motion-slow) var(--motion-ease-ventana) backwards; }
+.panel-velo[data-closed] { animation: panel-velo-sale 100ms var(--motion-ease-ventana) both; }
+/* Las hojas (DashboardSheet) solo animan la entrada: se desmontan al cerrarse y
+   quien las usa suele vaciar su contenido en el mismo instante; una salida
+   animada enseñaba una caja vacía encogiéndose. */
+.panel-hoja { animation: panel-dialogo-entra var(--motion-slow) var(--motion-ease-ventana) backwards; }
+.panel-hoja-velo { animation: panel-velo-entra var(--motion-slow) var(--motion-ease-ventana) backwards; }
+
 @media (prefers-reduced-motion: reduce) {
   .ventana-flotante,
   .ventana-flotante[data-desde='boton'],
@@ -696,6 +748,12 @@ html[data-vt-calendario='reducir']::view-transition-new(panel-barra) {
   .ventana-plegable,
   .ventana-plegable-dentro { transition: none; }
   .ventana-contenido { animation: none; }
+  .panel-dialogo[data-open], .panel-dialogo[data-closed],
+  .panel-velo[data-open], .panel-velo[data-closed],
+  .panel-hoja, .panel-hoja-velo { animation-duration: 1ms; }
+  ::view-transition-group(.panel-seccion),
+  ::view-transition-old(.panel-seccion),
+  ::view-transition-new(.panel-seccion) { animation-duration: 0s !important; animation-delay: 0s !important; }
 }
 
 /* Calendario — cambiar de día/semana/mes (app/(dashboard)/calendario/page.tsx,
@@ -815,10 +873,12 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
 @keyframes drawer-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes drawer-sheet-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes drawer-sheet-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
-.animate-drawer-backdrop-in { animation: drawer-backdrop-in .18s ease both; }
-.animate-drawer-backdrop-out { animation: drawer-backdrop-out .18s ease both; }
-.animate-drawer-sheet-in { animation: drawer-sheet-in .22s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.animate-drawer-sheet-out { animation: drawer-sheet-out .18s ease both; }
+.animate-drawer-backdrop-in { animation: drawer-backdrop-in var(--motion-slow) var(--motion-ease-ventana) backwards; }
+.animate-drawer-backdrop-out { animation: drawer-backdrop-out 220ms var(--motion-ease-ventana) both; }
+/* Entrada con la curva de ventana y `backwards` (antes .22s expo y `both`: el
+   `translateX(0)` final se quedaba aplicado y anclaba los `fixed` de dentro). */
+.animate-drawer-sheet-in { animation: drawer-sheet-in 420ms var(--motion-ease-ventana) backwards; }
+.animate-drawer-sheet-out { animation: drawer-sheet-out 260ms var(--motion-ease-ventana) both; }
 
 /* PublicSheet (components/ui/public-sheet.tsx) — el modal de reserva/citas
    públicas aparecía de golpe, sin transición alguna. Mismo espíritu que el

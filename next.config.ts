@@ -19,6 +19,12 @@ const nextConfig: NextConfig = {
   typescript: {
     tsconfigPath: process.env.NODE_ENV === 'production' ? './tsconfig.json' : './tsconfig.dev.json',
   },
+  // Transiciones de vista de React en las navegaciones: el contenido del panel se
+  // anima al cambiar de sección (components/layout/panel-page-transition.tsx).
+  // Solo se anima lo que lleva el tipo `panel-seccion`; ver lib/panel/transiciones.ts.
+  experimental: {
+    viewTransition: true,
+  },
   // ⚠️ Aquí vivía un bloque `experimental` con dos claves que tampoco hacían
   // nada, y se retira entero en vez de "arreglarse":
   //
