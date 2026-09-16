@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { marcaCorreoDesde, portadaDeCorreo, urlAppSocia, BASE_IMAGENES_CORREO } from './marca-correo.ts';
+import { marcaCorreoDesde, portadaDeCorreo, urlAppSocia, logoDeCorreo, BASE_IMAGENES_CORREO } from './marca-correo.ts';
 
 test('la portada por defecto es un JPG servido desde el host con www', () => {
   const url = portadaDeCorreo(null);
@@ -45,4 +45,22 @@ test('sin slug no hay enlace a la app: mejor sin botón que con uno a ninguna pa
   assert.equal(urlAppSocia(null), null);
   assert.equal(urlAppSocia('  '), null);
   assert.match(urlAppSocia('casa-pilates')!, /\/portal\/casa-pilates$/);
+});
+
+test('el logo de nuestro Storage viaja reducido y en su formato, nunca en WEBP', () => {
+  const url = logoDeCorreo('https://abcd1234.supabase.co/storage/v1/object/public/avatars/logo-studio-x?v=17');
+  assert.ok(url!.startsWith('https://abcd1234.supabase.co/storage/v1/render/image/public/avatars/logo-studio-x?'),
+    'una foto de móvil de 1 MB no puede ir entera a pintarse a 72 px');
+  const q = new URL(url!).searchParams;
+  assert.equal(q.get('v'), '17', 'sin la versión, el proxy de Gmail seguiría sirviendo el logo viejo');
+  assert.equal(q.get('resize'), 'contain', 'recortar un logo se come letras');
+  assert.equal(q.get('format'), 'origin', 'sin esto Supabase sirve WEBP y Outlook no lo pinta');
+  assert.equal(q.get('width'), '400');
+  assert.equal(q.get('height'), '144');
+});
+
+test('un logo de fuera se deja tal cual, y uno vacío no pinta nada', () => {
+  assert.equal(logoDeCorreo('https://cdn.example.com/logo.png'), 'https://cdn.example.com/logo.png');
+  assert.equal(logoDeCorreo('   '), null);
+  assert.equal(logoDeCorreo(null), null);
 });

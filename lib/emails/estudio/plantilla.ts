@@ -22,6 +22,7 @@ import { paletaCorreoEstudio, type PaletaCorreo } from './paleta.ts';
 import { colorLegibleSobre } from '../../color-utils.ts';
 import { sanearMarkdown } from '../sanear-markdown.ts';
 import { escaparHtml, hrefSeguro, imagenSegura, preheaderHtml, cabezaHtml, FUENTES_EN_WINDOWS } from '../html.ts';
+import { logoDeCorreo } from './marca-correo.ts';
 
 /** La marca del estudio tal y como la necesita el correo. */
 export interface MarcaCorreo {
@@ -29,6 +30,8 @@ export interface MarcaCorreo {
   logoUrl?: string | null;
   colorPrimario?: string | null;
   colorSecundario?: string | null;
+  /** El del botón elegido a mano en la plantilla. Gana siempre, sea claro u oscuro. */
+  colorBoton?: string | null;
   /** Foto de portada. Ausente = el correo no lleva hero aunque se pida. */
   portadaUrl?: string | null;
   /** El lema del estudio, bajo el logo. Ausente = no se pinta nada. */
@@ -138,7 +141,7 @@ export { escaparHtml };
 
 /** El documento completo. Es la única función que sabe de `<html>`. */
 export function correoEstudio(o: CorreoEstudioOpts): string {
-  const p = paletaCorreoEstudio(o.marca.colorPrimario, o.marca.colorSecundario);
+  const p = paletaCorreoEstudio(o.marca.colorPrimario, o.marca.colorSecundario, o.marca.colorBoton);
   const cuerpoFuente = o.marca.fuente ? `'${o.marca.fuente.replace(/'/g, '')}', ${PILA_SEGURA}` : PILA_SEGURA;
   const filete = o.acento?.trim() || p.marca;
   // El acento también pinta el dato destacado de la tarjeta (el importe de un
@@ -147,20 +150,22 @@ export function correoEstudio(o: CorreoEstudioOpts): string {
   // estudio rosa. Mismo criterio que el resto de la paleta.
   const destaque = colorLegibleSobre(filete, p.arena);
 
+  const foto = o.conPortada ? portada(o.marca) : '';
+  // Tras la cabecera basta un respiro; tras la foto, el titular necesita aire.
+  const arriba = foto ? 26 : 6;
   const cuerpo = o.contenidoHtml !== undefined
-    ? `<tr><td class="px-mobile" style="padding:6px 28px 20px;background:${p.papel};">${o.contenidoHtml}</td></tr>`
+    ? `<tr><td class="px-mobile" style="padding:${arriba}px 28px 20px;background:${p.papel};">${o.contenidoHtml}</td></tr>`
     : [
-        titularYTexto(o, p, cuerpoFuente),
+        titularYTexto(o, p, cuerpoFuente, arriba),
         o.detalle && o.detalle.filas.length > 0 ? tarjetaDetalle(o.detalle, p, cuerpoFuente, destaque) : '',
         o.boton ? boton(o.boton, p, cuerpoFuente) : '',
       ].join('');
 
   const bloques = [
-    // La foto va lo primero, como en la referencia: es lo que hace que el
-    // correo se lea como del estudio antes que como del software. La cabecera
-    // con el logo queda debajo, de membrete.
-    o.conPortada ? portada(o.marca) : '',
+    // Membrete y después la foto. La foto primero (como la referencia, que no
+    // tiene logo) dejaba el logo encajado entre la foto y el titular.
     cabecera(o.marca, p, cuerpoFuente),
+    foto,
     cuerpo,
     notaYFirma(o, p, cuerpoFuente),
   ].join('');
@@ -194,14 +199,23 @@ ${pie(o, p, cuerpoFuente)}
 function cabecera(marca: MarcaCorreo, p: PaletaCorreo, fuente: string): string {
   // Con logo se pinta el logo; sin él, el nombre del estudio en versales. Nunca
   // las dos cosas: sería el nombre dos veces seguidas.
-  const logo = imagenSegura(marca.logoUrl);
+  //
+  // Centrado y arriba del todo, de membrete. Antes iba debajo de la foto y a
+  // 30 px de alto, y así llegó a una bandeja real: un logo cuadrado se quedaba
+  // en un sello ilegible y uno que era una foto parecía una imagen rota.
+  const logo = imagenSegura(logoDeCorreo(marca.logoUrl));
+  // ⚠️ Dos límites y ningún tamaño fijo: no sabemos la forma del logo. Uno
+  // cuadrado topa con el alto (72×72) y uno apaisado con el ancho (200×40).
+  // Outlook ignora `max-*`, así que ahí va su propia copia con alto fijo.
+  const alt = escaparHtml(marca.estudioNombre);
   const identidad = logo
-    ? `<img src="${logo}" height="30" alt="${escaparHtml(marca.estudioNombre)}" style="display:block;border:0;max-height:30px;width:auto;">`
-    : `<div style="font-family:${fuente};font-size:12px;font-weight:bold;letter-spacing:.14em;text-transform:uppercase;color:${p.etiqueta};">${escaparHtml(marca.estudioNombre)}</div>`;
+    ? `<!--[if mso]><img src="${logo}" height="56" alt="${alt}" style="display:block;margin:0 auto;border:0;"><![endif]-->
+<!--[if !mso]><!--><img src="${logo}" alt="${alt}" style="display:block;margin:0 auto;border:0;width:auto;height:auto;max-width:200px;max-height:72px;"><!--<![endif]-->`
+    : `<div style="font-family:${fuente};font-size:12px;font-weight:bold;letter-spacing:.16em;text-transform:uppercase;color:${p.etiqueta};">${alt}</div>`;
   const lema = marca.lema?.trim()
-    ? `<div class="f-serif" style="font-family:${PILA_TITULAR};font-style:italic;font-size:13px;line-height:1.4;color:${p.tintaSuave};margin-top:6px;">${escaparHtml(marca.lema.trim())}</div>`
+    ? `<div class="f-serif" style="font-family:${PILA_TITULAR};font-style:italic;font-size:13px;line-height:1.4;color:${p.tintaSuave};margin-top:8px;">${escaparHtml(marca.lema.trim())}</div>`
     : '';
-  return `<tr><td class="px-mobile" style="padding:22px 28px 18px;background:${p.papel};">${identidad}${lema}</td></tr>`;
+  return `<tr><td class="px-mobile" align="center" style="padding:24px 28px 22px;background:${p.papel};text-align:center;">${identidad}${lema}</td></tr>`;
 }
 
 function portada(marca: MarcaCorreo): string {
@@ -215,12 +229,12 @@ function portada(marca: MarcaCorreo): string {
 </td></tr>`;
 }
 
-function titularYTexto(o: CorreoEstudioOpts, p: PaletaCorreo, fuente: string): string {
+function titularYTexto(o: CorreoEstudioOpts, p: PaletaCorreo, fuente: string, arriba: number): string {
   const parrafos = (o.parrafos ?? [])
     .filter((t): t is string => !!t && t.trim() !== '')
     .map((t, i, todos) => `<div style="font-family:${fuente};font-size:14.5px;line-height:1.7;color:${p.tinta};margin:0 0 ${i === todos.length - 1 ? 0 : 14}px;">${escaparHtml(t)}</div>`)
     .join('');
-  return `<tr><td class="px-mobile" style="padding:6px 28px 20px;background:${p.papel};">
+  return `<tr><td class="px-mobile" style="padding:${arriba}px 28px 20px;background:${p.papel};">
 <div class="f-serif" style="font-family:${PILA_TITULAR};font-style:italic;font-size:23px;line-height:1.35;color:${p.tinta};margin:0 0 14px;">${escaparHtml(o.titular)}</div>
 ${parrafos}
 </td></tr>`;
@@ -349,7 +363,7 @@ function markdownCorreo(p: PaletaCorreo, fuente: string): Marked {
  * lo que cambia es que ahora se pinta con la marca del estudio.
  */
 export function correoEstudioLibre(o: CorreoEstudioOpts & { cuerpo: string }): string {
-  const p = paletaCorreoEstudio(o.marca.colorPrimario, o.marca.colorSecundario);
+  const p = paletaCorreoEstudio(o.marca.colorPrimario, o.marca.colorSecundario, o.marca.colorBoton);
   const fuente = o.marca.fuente ? `'${o.marca.fuente.replace(/'/g, '')}', ${PILA_SEGURA}` : PILA_SEGURA;
   const md = markdownCorreo(p, fuente);
 

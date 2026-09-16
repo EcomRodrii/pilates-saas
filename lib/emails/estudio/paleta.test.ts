@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { paletaCorreoEstudio, MARCA_POR_DEFECTO } from './paleta.ts';
 import { ratioContraste } from '../../wcag-contrast.ts';
+import { hexToHsl } from '../../color-utils.ts';
 
 // Umbral de texto normal. Ninguna de las tres cosas que se pintan SOBRE un
 // fondo en el correo es texto grande: la etiqueta va a 11 px, el pie a 11 y el
@@ -62,3 +63,37 @@ test('el color secundario pinta el botón; sin él, lo pinta el principal', () =
   assert.equal(paletaCorreoEstudio('#7C9A82', 'rosa').boton, '#7C9A82');
 });
 
+
+test('un secundario casi blanco es el fondo del estudio, no su botón', () => {
+  // Así llegó a una bandeja real: tema publicado con #ECE8E1 de «superficie
+  // suave», y el correo lo usaba de botón — beige sobre beige, texto negro.
+  const p = paletaCorreoEstudio('#666dcc', '#ECE8E1');
+  assert.equal(p.boton, '#666dcc', 'el botón vuelve al color principal');
+  assert.equal(p.arena, '#ECE8E1', 'el fondo es el que eligió el estudio');
+  assert.ok(ratioContraste(p.botonTexto, p.boton)! >= AA, 'texto del botón ilegible');
+  assert.ok(ratioContraste(p.etiqueta, p.arena)! >= AA, 'etiqueta ilegible');
+  assert.ok(ratioContraste(p.tinta, p.arena)! >= 7);
+});
+
+test('un secundario con cuerpo sigue pintando el botón (los presets)', () => {
+  assert.equal(paletaCorreoEstudio('#343825', '#5A6142').boton, '#5A6142');
+});
+
+test('una marca fría no ensucia el arena de gris', () => {
+  // Un 10 % de índigo sobre el arena cálido daba un gris lila: tonos opuestos
+  // en RGB no tiñen, apagan. La saturación del arena es la medida de eso.
+  const base = hexToHsl(paletaCorreoEstudio('#343825').arena)!;
+  for (const fria of ['#666dcc', '#4F46E5', '#0F766E', '#6D28D9']) {
+    const arena = hexToHsl(paletaCorreoEstudio(fria).arena)!;
+    assert.ok(arena.s >= 40, `arena apagado (${arena.s.toFixed(0)} %) con ${fria}`);
+  }
+  assert.ok(base.s > 0, 'la marca cálida sigue tiñendo');
+  assert.notEqual(paletaCorreoEstudio('#343825').arena, paletaCorreoEstudio('#666dcc').arena);
+});
+
+test('el color de botón elegido a mano gana, sea claro u oscuro', () => {
+  const p = paletaCorreoEstudio('#666dcc', '#ECE8E1', '#F3E6D8');
+  assert.equal(p.boton, '#F3E6D8');
+  assert.equal(p.arena, '#ECE8E1', 'elegir botón no cambia el fondo');
+  assert.ok(ratioContraste(p.botonTexto, p.boton)! >= AA);
+});

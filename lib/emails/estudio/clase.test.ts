@@ -77,6 +77,17 @@ test('eligiendo solo el color de cabecera, el botón la sigue', () => {
   assert.ok(!html.includes('#7C9A82'));
 });
 
+test('un botón claro elegido a mano sigue siendo el botón, aunque el tema lo tome por fondo', () => {
+  // El secundario casi blanco de un tema es su superficie (paleta.ts). Pero si
+  // la propietaria elige ese color PARA EL BOTÓN, lo que ha dicho es otra cosa.
+  const html = correoReserva({
+    ...BASE,
+    marca: { ...BASE.marca, colorPrimario: '#666dcc', colorSecundario: '#ECE8E1' },
+    personalizacion: { colorBoton: '#F3E6D8' },
+  });
+  assert.match(html, /bgcolor="#F3E6D8"/i, 'el botón elegido no pinta el botón');
+});
+
 test('el logo y el pie propios de la plantilla se respetan', () => {
   const html = correoReserva({
     ...BASE,

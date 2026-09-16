@@ -71,8 +71,10 @@ test('ninguna imagen sin alt, y ninguna en WEBP', () => {
   const html = correoEstudio(BASICO);
   const imgs = html.match(/<img[^>]*>/g) ?? [];
   assert.ok(imgs.length >= 2, 'se esperaban el logo y la portada');
-  for (const img of imgs) {
-    assert.match(img, /alt="[^"]+"/, `imagen sin texto alternativo: ${img}`);
+  for (const img of imgs) assert.match(img, /alt="[^"]+"/, `imagen sin texto alternativo: ${img}`);
+  // Lo que Outlook ve: fuera lo que va solo para el resto (`[if !mso]`).
+  const paraOutlook = html.replace(/<!--\[if !mso\]><!-->[\s\S]*?<!--<!\[endif\]-->/g, '');
+  for (const img of paraOutlook.match(/<img[^>]*>/g) ?? []) {
     assert.match(img, /width="\d+"|height="\d+"/, `imagen sin medida para Outlook: ${img}`);
   }
   assert.ok(!/\.webp/i.test(html), 'Outlook de Windows no pinta WEBP');
@@ -233,4 +235,20 @@ test('si la fuente elegida existe en Windows, Outlook la respeta', () => {
   // Un webfont no: se sustituye por Arial en vez de dejar que caiga a Times.
   const conJakarta = correoEstudio({ ...BASICO, marca: { ...MARCA, fuente: 'Plus Jakarta Sans' } });
   assert.match(conJakarta, /td, div, p, a, li, span \{ font-family: Arial/);
+});
+
+test('el logo va arriba, antes que la foto, y cabe entero sea cual sea su forma', () => {
+  const html = correoEstudio(BASICO);
+  const logo = html.indexOf('cdn.example.com/logo.png');
+  const foto = html.indexOf('cdn.example.com/portada.jpg');
+  assert.ok(logo > 0 && foto > 0 && logo < foto, 'el membrete va antes que la foto');
+  // A 30 px fijos, un logo cuadrado se quedaba en un sello ilegible.
+  assert.match(html, /max-width:200px;max-height:72px;/);
+  assert.match(html, /<!--\[if mso\]><img src="https:\/\/cdn\.example\.com\/logo\.png" height="56"/,
+    'Outlook ignora max-height: necesita su propia copia con alto fijo');
+});
+
+test('el titular no se pega a la foto', () => {
+  assert.match(correoEstudio(BASICO), /padding:26px 28px 20px;[^>]*>\s*<div class="f-serif"/);
+  assert.match(correoEstudio({ ...BASICO, conPortada: false }), /padding:6px 28px 20px;[^>]*>\s*<div class="f-serif"/);
 });

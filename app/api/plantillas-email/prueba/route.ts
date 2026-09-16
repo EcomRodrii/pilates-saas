@@ -4,6 +4,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { esTipoEditable } from '@/lib/emails/plantillas-server';
 import { renderPlantillaMuestra, resolverContextoEstudio, type BorradorPlantilla } from '@/lib/emails/plantillas-preview';
+import { remitentePorMarca } from '@/lib/emails/remitente';
 
 // P2-11. Envío de PRUEBA de una plantilla: manda el email de verdad, con los
 // mismos datos de muestra que la vista previa, pero SIEMPRE al email de quien
@@ -38,7 +39,9 @@ export async function POST(req: NextRequest) {
 
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
-    from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+    // Con el nombre del estudio, como el envío de verdad: la prueba existe
+    // para ver cómo llega a la bandeja, y ahí el remitente es lo primero.
+    from: remitentePorMarca(nombre),
     to: [sesion.email],
     subject: `[PRUEBA] ${subject}`,
     html,

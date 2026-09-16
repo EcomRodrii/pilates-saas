@@ -51,7 +51,10 @@ export function marcaConPersonalizacion(marca: MarcaCorreo, z?: PersonalizacionC
     ...(z.logoUrl ? { logoUrl: z.logoUrl } : {}),
     ...(z.portadaUrl ? { portadaUrl: z.portadaUrl } : {}),
     ...(z.colorCabecera ? { colorPrimario: z.colorCabecera } : {}),
-    ...(z.colorBoton ? { colorSecundario: z.colorBoton } : z.colorCabecera ? { colorSecundario: z.colorCabecera } : {}),
+    // Al botón como elección explícita, no como «secundario»: un secundario
+    // casi blanco se toma por fondo (paleta.ts), y aquí la propietaria ha dicho
+    // que ese es el color de su botón.
+    ...(z.colorBoton || z.colorCabecera ? { colorBoton: z.colorBoton || z.colorCabecera } : {}),
     ...(z.fuente ? { fuente: z.fuente } : {}),
   };
 }
