@@ -20,7 +20,8 @@ export default function Contenido() {
       <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
         <li><strong>Tu logo</strong>, en Configuración &gt; Marca.</li>
         <li><strong>Tu color</strong>, en «El color de tu marca», en esa misma sección.</li>
-        <li><strong>Los textos con los que te presentas</strong> en tu página de reservas, en «Textos de tu app», en esa misma sección.</li>
+        <li><strong>Los textos con los que te presentas</strong> en tu página de reservas, en «Cómo te presentas», en esa misma sección.</li>
+        <li><strong>Las frases del inicio de su app</strong>, en «Textos de bienvenida». La foto de la portada todavía no.</li>
       </ul>
 
       <AyudaResultado>

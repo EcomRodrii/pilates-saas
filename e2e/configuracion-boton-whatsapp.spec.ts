@@ -133,7 +133,7 @@ for (const vista of VISTAS) {
 
     test('con la barra de guardar a la vista, la burbuja se aparta', async ({ page }) => {
       await panel(page);
-      await ir(page, 'configuracion?tab=marca');
+      await ir(page, 'configuracion?tab=marca#textos-de-tu-app');
       const telefono = page.getByRole('textbox', { name: 'Tu lema' });
       await expect(telefono).toBeVisible({ timeout: 30_000 });
       await expect(burbuja(page)).toBeVisible();
@@ -151,7 +151,7 @@ for (const vista of VISTAS) {
     // hubiera cambios (sin barra que la apartara): mientras se escribe, se aparta.
     test('en Marca, mientras se escribe en un campo, la burbuja se aparta', async ({ page }) => {
       await panel(page);
-      await ir(page, 'configuracion?tab=marca');
+      await ir(page, 'configuracion?tab=marca#textos-de-tu-app');
       const lema = page.getByRole('textbox', { name: 'Tu lema' });
       await expect(lema).toBeVisible({ timeout: 30_000 });
       await expect(burbuja(page)).toBeVisible();
@@ -175,7 +175,7 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 1280, height: 800
 
     test('con la barra de guardar a la vista se aparta, y vuelve al descartar', async ({ page }) => {
       await panel(page);
-      await ir(page, 'configuracion?tab=marca');
+      await ir(page, 'configuracion?tab=marca#textos-de-tu-app');
       const telefono = page.getByRole('textbox', { name: 'Tu lema' });
       await expect(telefono).toBeVisible({ timeout: 30_000 });
       await expect(burbuja(page)).toBeVisible();

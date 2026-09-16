@@ -91,7 +91,9 @@ async function montar(
 const NOMBRE_Y_DIRECCION = ['ciudad', 'codigo_postal', 'direccion', 'nombre'];
 const CONTACTO = ['email', 'sitio_web', 'telefono'];
 const FISCALES = ['iva_por_defecto', 'nif', 'razon_social'];
-const TEXTOS = ['anio_fundacion', 'descripcion', 'frase_heroe', 'frase_manuscrita', 'lema', 'normas_texto', 'subtitulo_heroe'];
+// Marca en filas con su cajón (16-sep, v2): los siete textos son dos cajones,
+// «Cómo te presentas» y «Textos de bienvenida», y cada uno manda solo los suyos.
+const PRESENTACION = ['anio_fundacion', 'descripcion', 'lema', 'normas_texto'];
 
 test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () => {
   // Cobros y facturas en filas con su cajón (15-sep, v2): `#datos-fiscales` lo abre.
@@ -157,8 +159,8 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
     await expect(page.getByText('Nombre y dirección guardados')).toBeVisible();
   });
 
-  test('guardar los textos de tu app manda solo los textos', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=marca', {
+  test('guardar «Cómo te presentas» manda esos cuatro textos y ninguno más', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=marca#textos-de-tu-app', {
       fila: { ...STUDIO_ROW, nif: NIF, razon_social: 'Guardada SL' },
     });
 
@@ -169,17 +171,19 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
 
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
     expect(patches.at(-1)).toMatchObject({ lema: 'Cuerpo y mente' });
-    expect(Object.keys(patches.at(-1)!).sort()).toEqual(TEXTOS);
-    await expect(page.getByText('Textos de tu app guardados')).toBeVisible();
+    // Ni las frases de bienvenida, que son el cajón de al lado.
+    expect(Object.keys(patches.at(-1)!).sort()).toEqual(PRESENTACION);
+    await expect(page.getByText('Tu presentación, guardada')).toBeVisible();
   });
 
-  test('pegar el logo no borra los textos a medio escribir, y solo manda el logo', async ({ page }) => {
-    const { patches } = await montar(page, '/configuracion?tab=marca');
+  // 16-sep: el logo y los textos ya no están en la misma pantalla —cada uno en
+  // su cajón, y solo se abre uno— así que «pegar el logo mientras escribías el
+  // lema» ya no puede pasar. Lo que sigue importando, y se fija aquí, es que el
+  // logo manda SU columna y ninguna más.
+  test('pegar el logo lo guarda solo, y manda solo el logo', async ({ page }) => {
+    const { patches } = await montar(page, '/configuracion?tab=marca#logo-y-favicon');
 
-    const lema = page.getByRole('textbox', { name: 'Tu lema' });
-    await expect(lema).toBeVisible({ timeout: 30_000 });
-    await lema.fill('Cuerpo y mente');
-
+    await expect(page.getByRole('button', { name: 'o pegar un enlace' }).first()).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'o pegar un enlace' }).first().click();
     await page.getByRole('textbox', { name: 'Enlace de logo' }).fill('https://example.com/logo.png');
     await page.getByRole('button', { name: 'Usar este enlace' }).click();
@@ -188,9 +192,8 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
     await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
     expect(patches.at(-1)).toEqual({ logo_url: 'https://example.com/logo.png' });
     await expect(page.getByText('Logo actualizado')).toBeVisible();
-
-    await expect(lema).toHaveValue('Cuerpo y mente');
-    await expect(page.getByText(/Cambios sin guardar en: Textos de tu app/)).toBeVisible();
+    // Y no hay ninguna barra que prometa un «Guardar» que aquí no existe.
+    await expect(page.getByRole('region', { name: 'Cambios sin guardar' })).toHaveCount(0);
   });
 
   for (const respuesta of ['cero-filas', '403', 'abort'] as const) {

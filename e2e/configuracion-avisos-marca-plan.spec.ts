@@ -44,6 +44,14 @@ async function panel(page: Page, opciones: { respuestaPreferencias?: number; bil
 
 const tituloSeccion = (page: Page, nombre: string) => page.getByRole('heading', { level: 2, name: nombre, exact: true });
 
+/**
+ * Marca va en filas con cajón desde el 16-sep: el ancla de una fila abre el suyo
+ * (config-shell.tsx), que es la vía corta para entrar donde está cada cosa.
+ */
+async function cajonDeMarca(page: Page, ancla: 'logo-y-favicon' | 'color-de-marca') {
+  await ir(page, `configuracion?tab=marca#${ancla}`);
+}
+
 // El favicon solo se ofrece con la marca en el plan (Estudio en adelante).
 const ESTUDIO_CON_MARCA = {
   id: 'studio-test', nombre: 'Pilates Centro', slug: 'pilates-centro',
@@ -102,15 +110,17 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     await cuenta.locator('#inicio-seccion-avisos').click();
     await expect(page).toHaveURL(/\/configuracion\?tab=avisos$/);
     await expect(tituloSeccion(page, 'Mis avisos')).toBeVisible({ timeout: 30_000 });
+    // La tabla vive en su pantalla (16-sep): la sección es una fila que lleva allí.
+    await page.locator('#fila-herramienta-tus-avisos').click();
+    await expect(page).toHaveURL(/\?tab=avisos&abrir=tus-avisos$/);
     await expect(page.getByRole('switch', { name: INTERRUPTOR })).toBeVisible({ timeout: 15_000 });
 
-    await page.goBack();
-    await expect(page).toHaveURL(/\/configuracion$/);
+    await page.goto('/configuracion');
     await page.locator('#inicio-seccion-panel').click();
     await expect(page).toHaveURL(/\/configuracion\?tab=panel$/);
     await expect(tituloSeccion(page, 'Tu panel')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#menu-del-panel')).toBeVisible();
-    await expect(page.getByRole('switch', { name: 'Modo oscuro' })).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Claro u oscuro' })).toBeVisible();
   });
 
   // ⚠️ #2030: en el build de producción, un `<Link>` o `router.push` a otra
@@ -143,7 +153,7 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
 
   test('cambiar un aviso manda la misma petición que la pantalla de antes', async ({ page }) => {
     const { escrituras } = await panel(page);
-    await ir(page, 'configuracion?tab=avisos');
+    await ir(page, 'configuracion?tab=avisos&abrir=tus-avisos');
 
     const interruptor = page.getByRole('switch', { name: INTERRUPTOR });
     await expect(interruptor).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
@@ -160,7 +170,7 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
 
   test('si el servidor dice que no, lo dice y el interruptor vuelve atrás', async ({ page }) => {
     const { escrituras } = await panel(page, { respuestaPreferencias: 500 });
-    await ir(page, 'configuracion?tab=avisos');
+    await ir(page, 'configuracion?tab=avisos&abrir=tus-avisos');
 
     const interruptor = page.getByRole('switch', { name: INTERRUPTOR });
     await expect(interruptor).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
@@ -177,7 +187,7 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
   // editor del portal, en mantenimiento), y guardar el color lo borraba.
   test('subir un favicon lo publica, y guardar después el color no lo toca', async ({ page }) => {
     const { publicaciones, borradores } = await montarMarca(page);
-    await ir(page, 'configuracion?tab=marca');
+    await cajonDeMarca(page, 'logo-y-favicon');
     await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeEnabled({ timeout: 30_000 });
 
     // Solo lo subido desde aquí: el favicon se pinta en la página pública de
@@ -194,19 +204,25 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     await expect(page.getByText('Favicon aplicado')).toBeVisible();
     await expect(page.getByRole('button', { name: /Cambiar favicon/ })).toBeVisible();
 
+    // El color es otra fila y otro cajón: se cierra este (el favicon no deja
+    // nada sin guardar, así que no pregunta) y se abre el suyo.
+    await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
+    await page.locator('#color-de-marca').click();
     await page.getByRole('textbox', { name: 'Color principal en hexadecimal' }).fill('#224466');
-    await page.getByRole('button', { name: 'Guardar colores' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(() => publicaciones.length).toBe(2);
     // Solo los dos colores: el servidor publica eso encima de lo publicado, así
     // que el favicon ni viaja ni se pisa, y el borrador no se reescribe.
     expect(publicaciones[1]).toEqual({ campos: { primary: '#224466', secondary: '#D9C29E' } });
     expect(borradores()).toBe(0);
-    await expect(page.getByRole('button', { name: /Cambiar favicon/ })).toBeVisible();
+    await expect(page.getByText('Colores aplicados')).toBeVisible();
+    // Y el favicon sigue puesto: la fila de al lado lo dice.
+    await expect(page.locator('#logo-y-favicon [data-resumen]')).toHaveText(/con favicon/);
   });
 
   test('si publicar el favicon falla, lo dice y se queda el de antes', async ({ page }) => {
     const { publicaciones } = await montarMarca(page, 500);
-    await ir(page, 'configuracion?tab=marca');
+    await cajonDeMarca(page, 'logo-y-favicon');
     await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeEnabled({ timeout: 30_000 });
 
     await archivoFavicon(page).setInputFiles({ name: 'favicon.png', mimeType: 'image/png', buffer: PNG });
@@ -223,7 +239,7 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
   test('si otra pestaña acaba de cambiar la marca, lo dice y no da el favicon por aplicado', async ({ page }) => {
     const conflicto = 'La marca acaba de cambiar desde otra pestaña. Recarga la página y vuelve a intentarlo.';
     const { publicaciones } = await montarMarca(page, 409, conflicto);
-    await ir(page, 'configuracion?tab=marca');
+    await cajonDeMarca(page, 'logo-y-favicon');
     await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeEnabled({ timeout: 30_000 });
 
     await archivoFavicon(page).setInputFiles({ name: 'favicon.png', mimeType: 'image/png', buffer: PNG });

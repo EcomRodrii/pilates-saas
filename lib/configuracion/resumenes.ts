@@ -425,6 +425,16 @@ export interface DatosHerramientas {
   /** Las webs donde está autorizado el calendario embebido. */
   widgetDominios?: readonly string[] | null;
   motivacion?: { recompensas: number; logros: number; niveles: number; retos: number } | null;
+  /**
+   * «Mis avisos»: cuántos tipos puede configurar este rol, cuántos le llegan por
+   * algún sitio, y si este navegador tiene el push concedido. `null` = sin leer.
+   */
+  avisos?: {
+    total: number;
+    encendidos: number;
+    /** Lo que dice `Notification.permission`; `null` = aún no se ha mirado. */
+    push: 'granted' | 'denied' | 'default' | 'unsupported' | null;
+  } | null;
 }
 
 function enVigor(x: ConVigencia, ahoraMs: number): boolean {
@@ -483,6 +493,20 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
       // calendario embebido. Sin ninguna, la fila cuenta qué hay dentro.
       const n = d.widgetDominios?.length ?? 0;
       return n > 0 ? `${contar(n, 'web autorizada', 'webs autorizadas')} para el calendario` : null;
+    }
+
+    case 'tus-avisos': {
+      if (!d.avisos) return null;
+      const { total, encendidos, push } = d.avisos;
+      return unir([
+        encendidos === total ? `los ${total} tipos` : `${encendidos} de ${total} tipos`,
+        // El permiso es de ESTE navegador, así que sin mirarlo no se dice nada.
+        push === 'granted' ? 'push activado'
+          : push === 'denied' ? 'push bloqueado'
+          : push === 'unsupported' ? 'sin push en este navegador'
+          : push === 'default' ? 'push sin activar'
+          : null,
+      ]);
     }
 
     case 'recompensas-y-logros': {
@@ -1056,6 +1080,92 @@ export function resumenPaginaPublica(e: { oculta: boolean; tieneClave: boolean }
   if (!e) return null;
   if (!e.oculta) return 'Visible para todo el mundo';
   return e.tieneClave ? 'Oculta: solo entra quien tenga la clave' : 'Oculta: no entra nadie';
+}
+
+// ─── Marca ───────────────────────────────────────────────────────────────────
+//
+// Mismas reglas: un campo AUSENTE es «no se sabe» y la fila vuelve a su
+// descripción. El favicon no lo ve todo el mundo (pide plan y ser propietaria),
+// así que se pasa ausente cuando no se ha podido leer y la fila cuenta solo el logo.
+
+/** «Con logo · sin favicon». `null` = no se sabe ni una cosa ni la otra. */
+export function resumenLogoYFavicon(e: { logo?: string | null; favicon?: string | null }): string | null {
+  return unir([
+    e.logo === undefined ? null : limpio(e.logo) ? 'con logo' : 'sin logo',
+    e.favicon === undefined ? null : limpio(e.favicon) ? 'con favicon' : 'sin favicon',
+  ]);
+}
+
+/**
+ * «Tu color · #2C352C», o el de fábrica con su código. Sale del tema PUBLICADO,
+ * que es el que ven tus alumnas; `null` = no se ha podido leer.
+ */
+export function resumenColorMarca(e: { primary: string | null | undefined; porDefecto: string }): string | null {
+  const color = limpio(e.primary);
+  if (!color) return null;
+  return unir([
+    color.toLowerCase() === e.porDefecto.toLowerCase() ? 'el color de Tentare' : 'tu color',
+    color.toUpperCase(),
+  ]);
+}
+
+type DatosPresentacion = Partial<Pick<Studio, 'descripcion' | 'lema' | 'anioFundacion' | 'normasTexto'>>;
+type DatosBienvenida = Partial<Pick<Studio, 'subtituloHeroe' | 'fraseHeroe' | 'fraseManuscrita'>>;
+
+/** «Presentación · lema · desde 2016 · normas», o que no hay nada escrito. */
+export function resumenPresentacion(s: DatosPresentacion): string | null {
+  if (s.descripcion === undefined && s.lema === undefined && s.anioFundacion === undefined && s.normasTexto === undefined) return null;
+  return unir([
+    limpio(s.descripcion) ? 'presentación' : null,
+    limpio(s.lema) ? 'lema' : null,
+    s.anioFundacion ? `desde ${s.anioFundacion}` : null,
+    limpio(s.normasTexto) ? 'normas' : null,
+  ]) ?? 'Nada escrito todavía';
+}
+
+/**
+ * «Bienvenida · frase de portada · frase a mano». Lo que se deja vacío no sale
+ * en la app (salvo el saludo, que vuelve al de Tentare), así que se dice vacío.
+ */
+export function resumenTextosBienvenida(s: DatosBienvenida): string | null {
+  if (s.subtituloHeroe === undefined && s.fraseHeroe === undefined && s.fraseManuscrita === undefined) return null;
+  return unir([
+    limpio(s.subtituloHeroe) ? 'bienvenida' : null,
+    limpio(s.fraseHeroe) ? 'frase de portada' : null,
+    limpio(s.fraseManuscrita) ? 'frase a mano' : null,
+  ]) ?? 'Sin frases tuyas';
+}
+
+// ─── Tu panel ────────────────────────────────────────────────────────────────
+//
+// Lo que cuenta cada fila sale del layout ya leído (`studio_layout`): sin él no
+// se dice nada, que «ninguno escondido» con la lectura fallida sería mentira.
+
+type Conteo = { total: number; ocultos: number } | null;
+
+/** «12 módulos · 2 escondidos». `null` = el layout no se ha podido leer. */
+export function resumenMenuPanel(e: Conteo): string | null {
+  if (!e) return null;
+  return unir([
+    contar(e.total, 'módulo', 'módulos'),
+    e.ocultos > 0 ? contar(e.ocultos, 'escondido', 'escondidos') : 'ninguno escondido',
+  ]);
+}
+
+/** «7 secciones · 1 escondida». `null` = el layout no se ha podido leer. */
+export function resumenInicioPanel(e: Conteo): string | null {
+  if (!e) return null;
+  return unir([
+    contar(e.total, 'sección', 'secciones'),
+    e.ocultos > 0 ? contar(e.ocultos, 'escondida', 'escondidas') : 'ninguna escondida',
+  ]);
+}
+
+/** Las mismas palabras que sus dos botones. `null` = sin leer. */
+export function resumenPosicionMenu(p: 'lateral' | 'superior' | null | undefined): string | null {
+  if (p === 'lateral') return 'Fijo a la izquierda';
+  if (p === 'superior') return 'Fijo arriba';
+  return null;
 }
 
 // ─── Mi equipo ───────────────────────────────────────────────────────────────

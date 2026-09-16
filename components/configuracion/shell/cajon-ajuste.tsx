@@ -1,11 +1,12 @@
 'use client';
 
 import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, X, Zap } from 'lucide-react';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { useNavegacionConfig } from './contexto';
+import { EstadoAjuste } from './estado-ajuste';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El cajón donde se cambia una fila de Configuración (§4.3 de la reorganización).
@@ -155,6 +156,12 @@ export function CajonAjuste({
         {/* scroll-mb: un campo enfocado sube por encima de la barra de guardar. */}
         <div className="flex flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-4 md:px-6 [&_:is(input,select,textarea)]:scroll-mb-32">
           <p className="text-sm text-muted-foreground text-pretty">{tarjeta.frase}</p>
+          {/* Casi todo lo que se abre aquí espera a «Guardar». Lo que no —una
+              imagen, que se sube al elegirla— lo dice ANTES de tocar nada, con
+              la misma pastilla que en una tarjeta (tarjeta-ajuste.tsx). */}
+          {tarjeta.guardado === 'al-pulsar' && (
+            <EstadoAjuste tono="neutro" icono={Zap} className="mt-2">Se guarda al momento</EstadoAjuste>
+          )}
           <div className="mt-5 flex flex-1 flex-col">{children}</div>
         </div>
       </DashboardDrawer>

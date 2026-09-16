@@ -1,61 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import { useRol } from '@/lib/permisos';
-import { tieneFeature } from '@/lib/billing/entitlements';
 import { CampoImagen } from '@/components/ui/campo-imagen';
 import {
   subirLogoEstudio, eliminarLogoEstudio,
   subirFaviconEstudio, eliminarFaviconEstudio,
 } from '@/lib/portal-storage';
-import { fetchThemePublicado, publicarThemeApi } from '@/lib/api-client';
+import { publicarThemeApi } from '@/lib/api-client';
 import { labelCls } from '@/components/configuracion/estilos';
-import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
-// «Logo y favicon», en la sección Marca. Se guardan SOLOS al subirlos, sin
-// ninguna barra de Guardar, y el color tiene su propia tarjeta al lado
-// (tab-color-marca.tsx): nada de esta tarjeta espera a un botón. Por eso ningún
-// campo de texto vive aquí (mezclar los dos modelos en una tarjeta es la trampa
-// de #1971).
+// «Logo y favicon»: el cajón de su fila, en la sección Marca.
+//
+// ⚠️ ÚNICA fila de Marca que NO espera a un «Guardar», y es a propósito: elegir
+// un archivo lo SUBE ya al almacén, siempre a la misma ruta del estudio
+// (`logo-<id>`, lib/portal-storage.ts). Un «Descartar» no podría devolver el
+// archivo anterior —ya no existe—, así que una barra de guardar aquí prometería
+// algo que no puede cumplir. El cajón lo dice antes de tocar nada con su
+// pastilla «Se guarda al momento» (cajon-ajuste.tsx), que sale de
+// `guardado: 'al-pulsar'` en lib/configuracion/secciones.ts.
+//
+// Por eso tampoco vive aquí ningún campo de texto: mezclar los dos modelos en un
+// mismo contenedor es la trampa de #1971.
 //
 // ⚠️ Guardar el logo es un `updateStudio({ logoUrl })` y cambia `studio` de
-// referencia: los formularios de al lado («Textos de tu app») no pierden lo que
-// se está escribiendo porque solo se ponen al día los campos sin tocar
+// referencia: los cajones de al lado («Cómo te presentas») no pierden lo que se
+// esté escribiendo porque solo se ponen al día los campos sin tocar
 // (components/configuracion/formulario-estudio.tsx).
 
-export function TabMarca({ showToast }: { showToast: (m: string) => void }) {
+export function DetalleLogoYFavicon({ favicon, puedeEditarFavicon, soyPropietaria, showToast, onFavicon }: {
+  /** El favicon PUBLICADO; `undefined` = aún no se sabe (o no se puede editar). */
+  favicon: string | null | undefined;
+  puedeEditarFavicon: boolean;
+  soyPropietaria: boolean;
+  showToast: (m: string) => void;
+  /** Lo que quedó publicado, para que la fila de la sección lo cuente. */
+  onFavicon: (url: string | null) => void;
+}) {
   const { studio, updateStudio } = useStudio();
-  const rol = useRol();
   const [subiendo, setSubiendo] = useState<'logo' | 'favicon' | null>(null);
-
-  // El favicon NO es una columna de `studios`: vive en el tema
-  // (`studio_theme.config_published.faviconUrl`). Se lee aparte porque
-  // `useStudio` no lo trae. `undefined` = aún no se sabe.
-  const [favicon, setFavicon] = useState<string | null | undefined>(undefined);
-
-  // Editar la marca es de PROPIETARIO y de plan Estudio en adelante — lo exige
-  // `guardarThemeAction` en el servidor. Se comprueba también aquí para no
-  // ofrecer un botón que va a devolver 403: la RLS y la acción siguen siendo
-  // el límite real, esto es solo no mentir en pantalla.
-  const puedeEditarFavicon = rol === 'PROPIETARIO' && !!studio && tieneFeature(studio, 'marca');
-
-  // Se enseña el PUBLICADO, que es el que lleva la pestaña de tu página de
-  // reservas. Uno que se quedó en el borrador antes de este cambio no se ve
-  // fuera, así que tampoco se enseña aquí como si estuviera puesto.
-  useEffect(() => {
-    // Sin `setState` en el cuerpo del efecto (react-hooks/set-state-in-effect):
-    // cuando no se puede editar, el bloque del favicon ni se pinta, así que no
-    // hay nada que poner a null — basta con no pedir el tema.
-    if (!puedeEditarFavicon) return;
-    let vivo = true;
-    fetchThemePublicado()
-      .then(t => { if (vivo) setFavicon(t.faviconUrl ?? null); })
-      // Sin favicon que enseñar es mejor que una tarjeta rota: el logo no
-      // depende del tema para nada.
-      .catch(() => { if (vivo) setFavicon(null); });
-    return () => { vivo = false; };
-  }, [puedeEditarFavicon]);
 
   // ── Logo: columna de `studios`, se guarda al momento ──
   // Sube y guarda van separados porque `CampoImagen` ofrece dos vías —archivo
@@ -110,7 +93,7 @@ export function TabMarca({ showToast }: { showToast: (m: string) => void }) {
         showToast(res.errores[0]?.mensaje ?? 'No se ha podido aplicar el favicon.');
         return;
       }
-      setFavicon(res.theme.faviconUrl ?? null);
+      onFavicon(res.theme.faviconUrl ?? null);
       showToast(url ? 'Favicon aplicado' : 'Favicon quitado');
       // El archivo de borrador ya no hace falta, y solo se borra DESPUÉS de
       // publicar: si publicar fallara, el de antes seguiría intacto.
@@ -123,69 +106,63 @@ export function TabMarca({ showToast }: { showToast: (m: string) => void }) {
   }
 
   return (
-    <TarjetaAjuste id="logo-y-favicon">
-      <div>
-        <div className="grid grid-cols-1 gap-5 @md/config:grid-cols-2">
-          <div className="space-y-1.5">
-            <h4 className={labelCls}>Logo</h4>
-            {/* Sin `respaldo`: el logo es la marca del estudio y no tiene
-                imagen por defecto que valga — una genérica sería la marca de
-                otro. Sin logo, la miniatura dice «Sin imagen», que aquí es
-                la verdad. */}
-            <CampoImagen
-              etiqueta="logo"
-              valor={studio?.logoUrl}
-              onSubir={subirLogo}
-              onCambiar={guardarLogo}
-              ocupado={subiendo === 'logo'}
-              ajuste="contain"
-              clasePreview="w-12 h-12"
-              textoSubir="Subir logo"
-              textoCambiar="Cambiar logo"
-              ayuda={
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  Sale en la app de tus alumnas y en el icono de sus notificaciones.
-                  Recomendado: 512×512 px, cuadrado y sin márgenes de sobra.
-                </p>
-              }
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <h4 className={labelCls}>Favicon</h4>
-            {puedeEditarFavicon ? (
-              <>
-                {/* Tampoco lleva `respaldo`, por el mismo motivo que el logo:
-                    sin favicon la pestaña enseña el de Tentare, y poner ahí
-                    una imagen genérica de Pilates sería peor, no mejor. */}
-                <CampoImagen
-                  etiqueta="favicon"
-                  valor={favicon ?? null}
-                  onSubir={subirFavicon}
-                  onCambiar={guardarFavicon}
-                  ocupado={subiendo === 'favicon' || favicon === undefined}
-                  ajuste="contain"
-                  clasePreview="w-12 h-12"
-                  textoSubir="Subir favicon"
-                  textoCambiar="Cambiar favicon"
-                  conEnlace={false}
-                  ayuda={
-                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                      El icono de la pestaña de tu página de reservas. Se aplica al momento. Cuadrado y pequeño: 64×64 px basta.
-                    </p>
-                  }
-                />
-              </>
-            ) : (
-              <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                {rol === 'PROPIETARIO'
-                  ? 'El favicon forma parte de la app con tu marca, incluida a partir del plan Estudio.'
-                  : 'Solo la propietaria puede cambiar el favicon.'}
-              </p>
-            )}
-          </div>
-        </div>
+    <div className="grid grid-cols-1 gap-5 pb-6 @md/config:grid-cols-2">
+      <div className="space-y-1.5">
+        <h4 className={labelCls}>Logo</h4>
+        {/* Sin `respaldo`: el logo es la marca del estudio y no tiene
+            imagen por defecto que valga — una genérica sería la marca de
+            otro. Sin logo, la miniatura dice «Sin imagen», que aquí es
+            la verdad. */}
+        <CampoImagen
+          etiqueta="logo"
+          valor={studio?.logoUrl}
+          onSubir={subirLogo}
+          onCambiar={guardarLogo}
+          ocupado={subiendo === 'logo'}
+          ajuste="contain"
+          clasePreview="w-12 h-12"
+          textoSubir="Subir logo"
+          textoCambiar="Cambiar logo"
+          ayuda={
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+              Sale en la app de tus alumnas y en el icono de sus notificaciones.
+              Recomendado: 512×512 px, cuadrado y sin márgenes de sobra.
+            </p>
+          }
+        />
       </div>
-    </TarjetaAjuste>
+
+      <div className="space-y-1.5">
+        <h4 className={labelCls}>Favicon</h4>
+        {puedeEditarFavicon ? (
+          // Tampoco lleva `respaldo`, por el mismo motivo que el logo:
+          // sin favicon la pestaña enseña el de Tentare, y poner ahí
+          // una imagen genérica de Pilates sería peor, no mejor.
+          <CampoImagen
+            etiqueta="favicon"
+            valor={favicon ?? null}
+            onSubir={subirFavicon}
+            onCambiar={guardarFavicon}
+            ocupado={subiendo === 'favicon' || favicon === undefined}
+            ajuste="contain"
+            clasePreview="w-12 h-12"
+            textoSubir="Subir favicon"
+            textoCambiar="Cambiar favicon"
+            conEnlace={false}
+            ayuda={
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                El icono de la pestaña de tu página de reservas. Se aplica al momento. Cuadrado y pequeño: 64×64 px basta.
+              </p>
+            }
+          />
+        ) : (
+          <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+            {soyPropietaria
+              ? 'El favicon forma parte de la app con tu marca, incluida a partir del plan Estudio.'
+              : 'Solo la propietaria puede cambiar el favicon.'}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

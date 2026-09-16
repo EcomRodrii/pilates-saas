@@ -11,6 +11,8 @@ import {
   resumenDomiciliaciones, resumenGmail, resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan,
   resumenPlanesActivos, resumenRegla, resumenRemitente, resumenSedes, resumenStripe, resumenWhatsapp, resumenesDeConfiguracion, revisaEsto, unir,
   resumenAppInstructoras, resumenAvisarAlumnas, resumenEquipo, resumenModoSustituciones, resumenTarifas,
+  resumenColorMarca, resumenInicioPanel, resumenLogoYFavicon, resumenMenuPanel, resumenPosicionMenu,
+  resumenPresentacion, resumenTextosBienvenida,
   type DatosConfiguracion, type IntegracionResumible,
 } from './resumenes.ts';
 import { TARJETAS_REGLAS, reglasGuardadas } from './reglas-reserva.ts';
@@ -380,6 +382,7 @@ test('ninguna fila de herramienta pasa de una línea del móvil ni dice «client
     contenido: { mensajeDestacado: 'Hola', tarjetas: Array.from({ length: 20 }, () => ({ activo: true })), avisos: Array.from({ length: 30 }, () => ({ activo: true })), ahoraMs: AHORA },
     widgetDominios: Array.from({ length: 12 }, (_, i) => `https://w${i}.example.com`),
     motivacion: { recompensas: 120, logros: 340, niveles: 12, retos: 45 },
+    avisos: { total: 12, encendidos: 7, push: 'unsupported' as const },
   };
   for (const h of HERRAMIENTAS) {
     const v = resumenHerramienta(h.id, muchos);
@@ -678,6 +681,78 @@ test('apps con acceso y la dirección corta de tu página', () => {
   assert.equal(resumenPaginaPublica({ oculta: true, tieneClave: true }), 'Oculta: solo entra quien tenga la clave');
   // Sin saberlo, no se afirma que se ve.
   assert.equal(resumenPaginaPublica(null), null);
+});
+
+// ─── Marca ───────────────────────────────────────────────────────────────────
+
+test('Marca: el logo y el favicon se cuentan por separado, y el favicon que no se puede leer no se cuenta', () => {
+  assert.equal(resumenLogoYFavicon({}), null);
+  assert.equal(resumenLogoYFavicon({ logo: 'https://x.example/logo.png', favicon: 'https://x.example/f.png' }), 'Con logo · con favicon');
+  assert.equal(resumenLogoYFavicon({ logo: 'https://x.example/logo.png', favicon: null }), 'Con logo · sin favicon');
+  assert.equal(resumenLogoYFavicon({ logo: null, favicon: null }), 'Sin logo · sin favicon');
+  // Sin plan o sin ser propietaria el favicon no llega: se cuenta solo el logo.
+  assert.equal(resumenLogoYFavicon({ logo: null }), 'Sin logo');
+  // Una cadena en blanco es «no ha puesto ninguno», no un logo.
+  assert.equal(resumenLogoYFavicon({ logo: '   ' }), 'Sin logo');
+});
+
+test('Marca: el color dice si es tuyo o el de fábrica, y cuál', () => {
+  const porDefecto = '#343825';
+  assert.equal(resumenColorMarca({ primary: undefined, porDefecto }), null);
+  assert.equal(resumenColorMarca({ primary: null, porDefecto }), null);
+  assert.equal(resumenColorMarca({ primary: '#343825', porDefecto }), 'El color de Tentare · #343825');
+  // Da igual cómo venga escrito desde el servidor.
+  assert.equal(resumenColorMarca({ primary: '#343825', porDefecto: '#343825' }), 'El color de Tentare · #343825');
+  assert.equal(resumenColorMarca({ primary: '#7c3aed', porDefecto }), 'Tu color · #7C3AED');
+});
+
+test('Marca: los textos dicen qué hay escrito, y lo vacío se dice vacío', () => {
+  assert.equal(resumenPresentacion({}), null);
+  assert.equal(resumenPresentacion({ descripcion: null, lema: null, anioFundacion: null, normasTexto: null }), 'Nada escrito todavía');
+  assert.equal(resumenPresentacion({ descripcion: 'Estudio boutique', lema: null, anioFundacion: null, normasTexto: null }), 'Presentación');
+  assert.equal(
+    resumenPresentacion({ descripcion: 'Estudio boutique', lema: 'Cuerpo · Mente', anioFundacion: 2016, normasTexto: 'Puntualidad' }),
+    'Presentación · lema · desde 2016 · normas',
+  );
+
+  assert.equal(resumenTextosBienvenida({}), null);
+  assert.equal(resumenTextosBienvenida({ subtituloHeroe: null, fraseHeroe: null, fraseManuscrita: null }), 'Sin frases tuyas');
+  assert.equal(
+    resumenTextosBienvenida({ subtituloHeroe: 'Hoy toca', fraseHeroe: 'Más fuerte', fraseManuscrita: 'Un cuerpo feliz' }),
+    'Bienvenida · frase de portada · frase a mano',
+  );
+  assert.equal(resumenTextosBienvenida({ subtituloHeroe: null, fraseHeroe: null, fraseManuscrita: 'Un cuerpo feliz' }), 'Frase a mano');
+});
+
+// ─── Tu panel ────────────────────────────────────────────────────────────────
+
+test('Tu panel: cuántos módulos y secciones hay y cuántos están escondidos; sin leerlo, nada', () => {
+  assert.equal(resumenMenuPanel(null), null);
+  assert.equal(resumenMenuPanel({ total: 12, ocultos: 0 }), '12 módulos · ninguno escondido');
+  assert.equal(resumenMenuPanel({ total: 12, ocultos: 2 }), '12 módulos · 2 escondidos');
+  assert.equal(resumenMenuPanel({ total: 1, ocultos: 1 }), '1 módulo · 1 escondido');
+
+  assert.equal(resumenInicioPanel(null), null);
+  assert.equal(resumenInicioPanel({ total: 7, ocultos: 0 }), '7 secciones · ninguna escondida');
+  assert.equal(resumenInicioPanel({ total: 7, ocultos: 1 }), '7 secciones · 1 escondida');
+
+  assert.equal(resumenPosicionMenu(null), null);
+  assert.equal(resumenPosicionMenu(undefined), null);
+  assert.equal(resumenPosicionMenu('lateral'), 'Fijo a la izquierda');
+  assert.equal(resumenPosicionMenu('superior'), 'Fijo arriba');
+});
+
+// ─── Mis avisos ──────────────────────────────────────────────────────────────
+
+test('Mis avisos: cuántos tipos llegan y qué pasa con el push de ESTE navegador', () => {
+  const avisos = (d: Parameters<typeof resumenHerramienta>[1]['avisos']) => resumenHerramienta('tus-avisos', { avisos: d });
+  assert.equal(avisos(null), null);
+  assert.equal(avisos({ total: 8, encendidos: 8, push: 'granted' }), 'Los 8 tipos · push activado');
+  assert.equal(avisos({ total: 8, encendidos: 6, push: 'default' }), '6 de 8 tipos · push sin activar');
+  assert.equal(avisos({ total: 8, encendidos: 6, push: 'denied' }), '6 de 8 tipos · push bloqueado');
+  assert.equal(avisos({ total: 8, encendidos: 0, push: 'unsupported' }), '0 de 8 tipos · sin push en este navegador');
+  // Sin haber mirado el permiso no se dice nada de él.
+  assert.equal(avisos({ total: 8, encendidos: 8, push: null }), 'Los 8 tipos');
 });
 
 test('Motivación: la pastilla del plan en la fila, y los créditos como los aplica el servidor', () => {

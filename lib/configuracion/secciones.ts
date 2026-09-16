@@ -44,7 +44,8 @@ export type CondicionTarjeta = 'multiSede' | 'cadena';
  * dice cómo está.
  */
 export type HerramientaId =
-  | 'salas' | 'tipos-de-clase' | 'correos-automaticos' | 'recompensas-y-logros' | 'contenido-de-tu-app' | 'widgets';
+  | 'salas' | 'tipos-de-clase' | 'correos-automaticos' | 'recompensas-y-logros' | 'contenido-de-tu-app' | 'widgets'
+  | 'tus-avisos';
 
 export interface TarjetaConfiguracion {
   readonly id: string;
@@ -220,11 +221,22 @@ export const SECCIONES = [
     frase: 'Cómo te reconocen tus alumnas: tu logo, tu color y cómo te presentas en su app.',
     roles: SOLO_PROPIETARIA,
     palabras: ['imagen', 'identidad'],
+    // Filas con su valor de hoy (16-sep, v2). Convivían TRES formas de guardar en
+    // la misma pantalla —el logo al soltarlo, «Guardar colores» en línea y una
+    // barra de sección abajo—, que es la queja del fundador. Ahora cada fila
+    // declara la suya con su forma: el color y los textos esperan al «Guardar»
+    // de su cajón, y solo las imágenes se guardan al elegirlas, porque el
+    // archivo ya se sube a ese instante y ningún «Descartar» lo devolvería
+    // (ver tab-marca.tsx). «Textos de tu app» eran SIETE campos y un cajón lleva
+    // como mucho seis: se partió en dos por dónde se lee cada frase.
     tarjetas: [
       // Era `marca`, que ahora es el id de la sección: su ancla vieja lleva aquí (destino.ts).
       { id: 'logo-y-favicon', titulo: 'Logo y favicon', frase: 'Se aplican al momento: el logo, en la app de tus alumnas, y el favicon, en la pestaña de tu página de reservas.', guardado: 'al-pulsar', palabras: ['icono', 'imagen'] },
-      { id: 'color-de-marca', titulo: 'El color de tu marca', frase: 'Tiñe tu panel, tu página de reservas y la app de tus alumnas. Lo ves aplicado mientras lo eliges.', guardado: 'accion', palabras: ['colores', 'tema', 'apariencia'] },
-      { id: 'textos-de-tu-app', titulo: 'Textos de tu app', frase: 'Tu presentación, lema, frases de bienvenida y normas del centro. Lo que dejes vacío no se muestra.', guardado: 'barra', palabras: ['presentación', 'lema', 'normas'] },
+      { id: 'color-de-marca', titulo: 'El color de tu marca', frase: 'Tiñe tu panel, tu página de reservas y la app de tus alumnas. Lo ves aplicado mientras lo eliges.', guardado: 'barra', palabras: ['colores', 'tema', 'apariencia'] },
+      // Su ancla y su id se quedan: los llevan enlaces de la guía, de la ayuda y
+      // de correos ya enviados.
+      { id: 'textos-de-tu-app', titulo: 'Cómo te presentas', frase: 'Tu descripción, tu lema, tu año de apertura y las normas de tu centro.', guardado: 'barra', palabras: ['presentación', 'lema', 'normas', 'textos de tu app'] },
+      { id: 'textos-de-bienvenida', titulo: 'Textos de bienvenida', frase: 'Las frases que lee tu alumna al abrir su app: bajo el saludo, en la portada y a mano.', guardado: 'barra', palabras: ['bienvenida', 'frase a mano', 'portada'] },
     ],
   },
   {
@@ -236,7 +248,9 @@ export const SECCIONES = [
     tarjetas: [
       { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'La dirección de tu página de reservas y el enlace a la app de tus alumnas.', guardado: 'accion', palabras: ['enlace', 'página de reservas', 'url'] },
       { id: 'pagina-publica', titulo: 'Ocultar tu página', frase: 'Mientras la preparas, tu página de reservas y la app de tus alumnas enseñan un aviso en vez de tus clases.', guardado: 'barra', palabras: ['ocultar', 'privada', 'visible', 'esconder', 'clave'] },
-      { id: 'network', titulo: 'Aparecer en Tentare Network', frase: 'Tu estudio sale en el buscador de estudios de Tentare, aunque no tengan tu enlace.', guardado: 'al-pulsar', palabras: ['directorio', 'buscador de estudios'] },
+      // El directorio NO mira si la página está oculta (lib/configuracion/pagina-publica.ts):
+      // se dice aquí, que es donde las dos filas conviven, y no solo dentro del cajón de ocultarla.
+      { id: 'network', titulo: 'Aparecer en Tentare Network', frase: 'Tu estudio sale en el buscador de estudios de Tentare. Aunque ocultes tu página, seguirá saliendo ahí.', guardado: 'al-pulsar', palabras: ['directorio', 'buscador de estudios'] },
       { id: 'contenido-de-tu-app', titulo: 'Contenido de tu app', frase: 'Tarjetas de «Descubre», mensaje destacado y avisos del tablón en el inicio de su app.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'contenido-de-tu-app', palabras: ['descubre', 'tablón', 'mensaje destacado'] },
       { id: 'widgets', titulo: 'Widgets para tu web', frase: 'El horario, las citas o una clase concreta dentro de tu propia web, con un código para pegar.', guardado: 'accion', ancho: 'amplio', herramienta: 'widgets', palabras: ['incrustar', 'código', 'visitas'] },
     ],
@@ -302,17 +316,25 @@ export const SECCIONES = [
     frase: 'Los avisos que te llegan a ti, no los de tus alumnas.',
     roles: SOLO_PROPIETARIA,
     palabras: ['notificaciones', 'alertas'],
+    // La sección era el componente de preferencias entero, sin una sola línea
+    // que dijera cómo están (16-sep, v2). Ahora es una fila con su valor y la
+    // tabla se abre en su pantalla (`?tab=avisos&abrir=tus-avisos`): ahí cada
+    // interruptor se guarda al tocarlo, sin mezclarse con el «Guardar» de un cajón.
     tarjetas: [
-      { id: 'tus-avisos', titulo: 'Tipos de aviso', frase: 'Enciende o apaga cada tipo de aviso, dentro del panel o como notificación push.', guardado: 'al-pulsar', palabras: ['push', 'móvil'] },
+      { id: 'tus-avisos', titulo: 'Tipos de aviso', frase: 'Enciende o apaga cada tipo de aviso, dentro del panel o como notificación push.', guardado: 'al-pulsar', herramienta: 'tus-avisos', palabras: ['push', 'móvil'] },
     ],
   },
   {
     id: 'panel',
     titulo: 'Tu panel',
     resumen: 'Menú, Inicio y modo claro u oscuro',
-    frase: 'Cómo se ordena tu panel: el menú y el Inicio los ve todo tu equipo, y el modo oscuro solo tú.',
+    frase: 'Cómo se ordena tu panel: el menú y el Inicio los ve tu equipo; el modo oscuro, solo tú.',
     roles: SOLO_PROPIETARIA,
     palabras: ['personalizar'],
+    // Filas con su valor de hoy (16-sep, v2): era la ÚLTIMA sección con barra de
+    // guardar propia. Menú, Inicio y posición son campos del MISMO documento
+    // (`studio_layout`), así que cada cajón manda solo el suyo gracias a que solo
+    // se abre uno a la vez y cerrar sin guardar descarta (seccion-panel.tsx).
     tarjetas: [
       { id: 'menu-del-panel', titulo: 'Tu menú', frase: 'Ordena los módulos dentro de su grupo y esconde los que no uses. Inicio, Configuración y Suscripción siempre se ven.', guardado: 'barra', palabras: ['módulos', 'ocultar', 'orden'] },
       { id: 'inicio-del-panel', titulo: 'Tu Inicio', frase: 'Ordena y esconde las secciones de tu pantalla de Inicio. Los avisos de estado van siempre arriba.', guardado: 'barra', palabras: ['secciones', 'pantalla principal'] },
@@ -483,6 +505,7 @@ export const HERRAMIENTAS: readonly HerramientaConfiguracion[] = [
   },
   deTarjeta('contenido-de-tu-app', 'Mensaje destacado, tarjetas y avisos del tablón'),
   deTarjeta('widgets', 'Tu horario y tus reservas dentro de tu web'),
+  deTarjeta('tus-avisos', 'Cada tipo de aviso, en el panel y en el móvil'),
 ];
 
 const HERRAMIENTA_POR_ID = new Map<string, HerramientaConfiguracion>(HERRAMIENTAS.map(h => [h.id, h]));

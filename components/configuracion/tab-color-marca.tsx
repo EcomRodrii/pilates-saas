@@ -1,7 +1,7 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// «El color de tu marca», en Configuración › Marca.
+// «El color de tu marca»: el cajón de su fila, en Configuración › Marca.
 //
 // Vivía en «Personalizar tu panel» (/configuracion/apariencia/panel), a una
 // pantalla del logo. La misma lectura y la misma vista previa; al guardar se
@@ -15,16 +15,22 @@
 // ⚠️ Y hay que DISPARAR `tentare-theme-changed` al publicar: `PanelThemeProvider`
 // lo escucha y repinta sin recargar. No hacerlo fue exactamente por qué la
 // primera versión «no hacía nada» al guardar un color.
+//
+// 16-sep (v2): tenía su propio «Guardar colores» en línea, una de las TRES
+// formas de guardar que convivían en Marca. Ahora es la `BarraGuardar` de todo
+// el repo: el mismo botón, la misma guardia de salida y el mismo contrato de
+// «Guardado» solo con la respuesta del servidor. El tema PUBLICADO lo lee la
+// sección una sola vez y lo comparte con la fila del logo (seccion-marca.tsx).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { fetchThemePublicado, publicarThemeApi } from '@/lib/api-client';
+import { publicarThemeApi } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { ThemeConfig } from '@/lib/theme-schema';
-import { btnPrimary, btnSecondary, inputCls, labelCls } from '@/components/configuracion/estilos';
-import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
+import { tarjetaPorId } from '@/lib/configuracion/secciones';
+import { btnSecondary, inputCls, labelCls } from '@/components/configuracion/estilos';
+import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -56,20 +62,12 @@ function CampoColor({ label, valor, onChange }: { label: string; valor: string; 
   );
 }
 
-export function TabColorMarca({ showToast }: { showToast: (m: string) => void }) {
-  const [publicado, setPublicado] = useState<ThemeConfig | null>(null);
-  const [sinLeer, setSinLeer] = useState(false);
-  const [primary, setPrimary] = useState('');
-  const [secondary, setSecondary] = useState('');
-  const [guardandoColor, setGuardandoColor] = useState(false);
-
-  useEffect(() => {
-    let vivo = true;
-    fetchThemePublicado()
-      .then(t => { if (!vivo) return; setPublicado(t); setPrimary(t.primary); setSecondary(t.secondary); })
-      .catch(() => { if (vivo) setSinLeer(true); });
-    return () => { vivo = false; };
-  }, []);
+function FormularioColorMarca({ publicado, onGuardado }: {
+  publicado: ThemeConfig;
+  onGuardado: (tema: ThemeConfig) => void;
+}) {
+  const [primary, setPrimary] = useState(publicado.primary);
+  const [secondary, setSecondary] = useState(publicado.secondary);
 
   // Vista previa en vivo: el color se ve MIENTRAS se elige, no después de
   // guardar. Se pinta sobre el mismo nodo que usa `PanelThemeProvider`.
@@ -89,13 +87,10 @@ export function TabColorMarca({ showToast }: { showToast: (m: string) => void })
     }
   }, []);
 
-  const colorCambiado = Boolean(publicado)
-    && (primary !== publicado?.primary || secondary !== publicado?.secondary);
+  const cambiado = primary !== publicado.primary || secondary !== publicado.secondary;
   const validos = HEX.test(primary) && HEX.test(secondary);
 
-  const guardarColor = useCallback(async () => {
-    if (!publicado || !HEX.test(primary) || !HEX.test(secondary)) return;
-    setGuardandoColor(true);
+  async function guardar(): Promise<string | null> {
     try {
       // ⚠️ Solo los dos colores. El servidor los publica encima de lo PUBLICADO
       // y los deja en el borrador sin tocar nada más: ni sale a producción lo
@@ -103,59 +98,60 @@ export function TabColorMarca({ showToast }: { showToast: (m: string) => void })
       // (lib/theme-publicar-campos.ts). Antes se reescribía el borrador entero
       // desde lo publicado, y el favicon pendiente desaparecía.
       const res = await publicarThemeApi({ primary, secondary });
-      if (!res.ok) {
-        showToast(res.errores[0]?.mensaje ?? 'Ese color no tiene contraste suficiente para leerse encima.');
-        return;
-      }
-      setPublicado(res.theme);
+      if (!res.ok) return res.errores[0]?.mensaje ?? 'Ese color no tiene contraste suficiente para leerse encima.';
       guardadoRef.current = true;
       document.documentElement.style.removeProperty('--brand');
       // Esto es lo que repinta el panel entero al momento.
       window.dispatchEvent(new CustomEvent('tentare-theme-changed'));
-      showToast('Colores aplicados');
+      onGuardado(res.theme);
+      return null;
     } catch (e) {
-      showToast(mensajeSeguro((e as Error).message, ERROR_RED));
-    } finally {
-      setGuardandoColor(false);
+      return mensajeSeguro((e as Error).message, ERROR_RED);
     }
-  }, [publicado, primary, secondary, showToast]);
+  }
 
   return (
-    <TarjetaAjuste id="color-de-marca">
-      {sinLeer ? (
-        <p role="alert" className="text-sm text-destructive">
-          No hemos podido leer tus colores. Recarga la página para intentarlo de nuevo.
-        </p>
-      ) : !publicado ? (
-        <p className="text-sm text-muted-foreground">Cargando tus colores…</p>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-5">
-            <CampoColor label="Color principal" valor={primary} onChange={setPrimary} />
-            <CampoColor label="Color secundario" valor={secondary} onChange={setSecondary} />
-          </div>
-          {!validos && (
-            <p className="text-sm text-destructive">Escríbelo como #RRGGBB: seis cifras, por ejemplo #7C3AED.</p>
-          )}
-          {/* Los botones solo con algo que guardar: un «Guardar» gris en reposo
-              parecía roto. */}
-          {colorCambiado && (
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={guardarColor} disabled={guardandoColor || !validos} className={btnPrimary}>
-                {guardandoColor ? 'Guardando…' : 'Guardar colores'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setPrimary(publicado.primary); setSecondary(publicado.secondary); }}
-                disabled={guardandoColor}
-                className={cn(btnSecondary, 'inline-flex items-center gap-1.5')}
-              >
-                <RotateCcw size={14} aria-hidden /> Descartar
-              </button>
-            </div>
-          )}
+    <>
+      <div className="flex flex-col gap-4 pb-6">
+        <div className="flex flex-wrap gap-5">
+          <CampoColor label="Color principal" valor={primary} onChange={setPrimary} />
+          <CampoColor label="Color secundario" valor={secondary} onChange={setSecondary} />
         </div>
-      )}
-    </TarjetaAjuste>
+        {!validos && (
+          <p role="alert" className="text-sm text-destructive">Escríbelo como #RRGGBB: seis cifras, por ejemplo #7C3AED.</p>
+        )}
+      </div>
+      <BarraGuardar
+        seccion="marca"
+        cambios={cambiado ? [tarjetaPorId('color-de-marca').titulo] : []}
+        bloqueo={validos ? null : 'Uno de los dos colores no está escrito como #RRGGBB.'}
+        onGuardar={guardar}
+        onDescartar={() => { setPrimary(publicado.primary); setSecondary(publicado.secondary); }}
+      />
+    </>
+  );
+}
+
+/**
+ * El cajón. Sin el tema leído no se enseña ningún selector: uno con un color de
+ * fábrica marcado afirmaría un color que a lo mejor no es el suyo.
+ */
+export function DetalleColorMarca({ publicado, cargando, onReintentar, onGuardado }: {
+  publicado: ThemeConfig | null;
+  cargando: boolean;
+  onReintentar: () => void;
+  onGuardado: (tema: ThemeConfig) => void;
+}) {
+  if (publicado) {
+    return <FormularioColorMarca key={`${publicado.primary}-${publicado.secondary}`} publicado={publicado} onGuardado={onGuardado} />;
+  }
+  if (cargando) return <p role="status" className="pb-6 text-sm text-muted-foreground">Cargando tus colores…</p>;
+  return (
+    <div className="flex flex-col items-start gap-3 pb-6">
+      <p role="alert" className="text-sm font-medium text-destructive text-pretty">
+        No hemos podido leer tus colores.
+      </p>
+      <button type="button" onClick={onReintentar} className={btnSecondary}>Volver a intentarlo</button>
+    </div>
   );
 }

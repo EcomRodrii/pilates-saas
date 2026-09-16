@@ -99,23 +99,35 @@ test.describe('Apariencia — mantenimiento y salida', () => {
   });
 });
 
+/**
+ * «Tu panel» en filas con cajón (16-sep): cada fila se abre para cambiarla. La
+ * fila lleva el id de su tarjeta, que es también su ancla.
+ */
+async function abrirCajonPanel(page: Page, id: 'menu-del-panel' | 'inicio-del-panel' | 'posicion-del-menu') {
+  await page.goto('/configuracion/apariencia/panel');
+  await expect(page).toHaveURL(/\/configuracion\?tab=panel$/, { timeout: 30_000 });
+  await page.locator(`#${id}`).click({ timeout: 30_000 });
+}
+
 test.describe('Personalizar tu panel', () => {
   // Desde el 15-sep (v2) vive dentro de Configuración: la ruta de antes lleva
-  // a «Tu panel», y el color está en «Marca».
+  // a «Tu panel», y el color está en «Marca». Desde el 16-sep, en filas.
   test('trae las cinco cosas', async ({ page }) => {
     await montar(page);
     await page.goto('/configuracion/apariencia/panel');
     await expect(page).toHaveURL(/\/configuracion\?tab=panel$/, { timeout: 30_000 });
-    for (const t of ['Tu menú', 'Tu Inicio', 'Dónde va el menú', 'Claro u oscuro']) {
-      await expect(page.getByRole('heading', { name: t, exact: true })).toBeVisible({ timeout: 30_000 });
+    for (const id of ['menu-del-panel', 'inicio-del-panel', 'posicion-del-menu']) {
+      await expect(page.locator(`#${id}`)).toBeVisible({ timeout: 30_000 });
     }
-    await page.goto('/configuracion?tab=marca');
+    // Claro u oscuro se guarda al tocarlo: es un interruptor en su fila, no un cajón.
+    await expect(page.getByRole('switch', { name: 'Claro u oscuro' })).toBeVisible();
+    await page.goto('/configuracion?tab=marca#color-de-marca');
     await expect(page.getByRole('heading', { name: 'El color de tu marca', exact: true })).toBeVisible({ timeout: 30_000 });
   });
 
   test('los módulos que no se pueden esconder salen con candado, no sin control', async ({ page }) => {
     await montar(page);
-    await page.goto('/configuracion/apariencia/panel');
+    await abrirCajonPanel(page, 'menu-del-panel');
     // Por `title` y no por `aria-label` del módulo concreto: el candado es un
     // <span> no interactivo (getByLabel no lo alcanza) y el rótulo del módulo
     // cambió de «Dashboard» a «Inicio» (14-sep) — dos formas de que el test
@@ -127,7 +139,7 @@ test.describe('Personalizar tu panel', () => {
 
   test('cambiar la posición guarda `menuPosition` en el layout, no otra cosa', async ({ page }) => {
     const { puts } = await montar(page);
-    await page.goto('/configuracion/apariencia/panel');
+    await abrirCajonPanel(page, 'posicion-del-menu');
     await page.getByRole('button', { name: /Fijo arriba/ }).click({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(() => puts.length).toBeGreaterThan(0);
@@ -141,7 +153,7 @@ test.describe('Personalizar tu panel', () => {
 
   test('ocultar un módulo y guardar lo saca del menú EN EL SITIO, sin recargar', async ({ page }) => {
     const { puts } = await montar(page);
-    await page.goto('/configuracion/apariencia/panel');
+    await abrirCajonPanel(page, 'menu-del-panel');
     await page.getByRole('button', { name: 'Ocultar Informes' }).click({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(() => puts.length).toBeGreaterThan(0);
@@ -157,7 +169,7 @@ test.describe('Personalizar tu panel', () => {
 test.describe('Reordenar módulos', () => {
   test('arrastrar un módulo cambia su orden y viaja en el guardado', async ({ page }) => {
     const { puts } = await montar(page);
-    await page.goto('/configuracion/apariencia/panel');
+    await abrirCajonPanel(page, 'menu-del-panel');
     // Con el ratón, que es como se usa. `PointerSensor` no arranca hasta los
     // 5 px (para que pulsar el ojo no cuente como arrastre), así que el gesto
     // tiene que ir por pasos: un salto seco de A a B no lo despierta.
