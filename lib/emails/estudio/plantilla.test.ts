@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { correoEstudio, correoEstudioLibre, escaparHtml, type MarcaCorreo } from './plantilla.ts';
+import { ACENTO, paletaCorreoEstudio } from './paleta.ts';
+import { ratioContraste } from '../../wcag-contrast.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo que se comprueba aquí es el HTML que LLEGA A LA BANDEJA, no la forma de
@@ -178,4 +180,38 @@ test('una imagen con destino raro no se pinta, en vez de quedarse rota', () => {
 
 test('escaparHtml es lo que impide que un nombre con comillas rompa un atributo', () => {
   assert.equal(escaparHtml('a"b<c>d&e'), 'a&quot;b&lt;c&gt;d&amp;e');
+});
+
+test('el dato destacado se ve más grande y del color del acento', () => {
+  const html = correoEstudio({
+    ...BASICO,
+    acento: '#065F46',
+    detalle: { filas: [
+      { label: 'Concepto', value: 'Cuota de agosto' },
+      { label: 'Importe', value: '45,00 €', destacado: true },
+    ] },
+  });
+  assert.match(html, /font-size:20px;font-weight:bold;[^"]*color:#065F46[^"]*">45,00/);
+  // Y lo que no está destacado sigue como siempre.
+  assert.match(html, /font-size:13\.5px;font-weight:normal;[^"]*">Cuota de agosto/);
+});
+
+test('el dato destacado se lee sobre el arena de cualquier estudio', () => {
+  // El acento se eligió como FILETE de 5 px, donde el contraste no importa. En
+  // cuanto pinta texto sí importa, y medido: el ámbar del primer aviso de
+  // impago se queda en 4,2:1 sobre el arena de un estudio rosa.
+  for (const color of ['#F7A6C4', '#FFE066', '#343825', '#C2185B', '#7C9A82']) {
+    const { arena } = paletaCorreoEstudio(color);
+    for (const [nombre, acento] of Object.entries(ACENTO)) {
+      const html = correoEstudio({
+        ...BASICO,
+        marca: { ...MARCA, colorPrimario: color },
+        acento,
+        detalle: { filas: [{ label: 'Importe', value: '45,00 €', destacado: true }] },
+      });
+      const usado = html.match(/font-size:20px;font-weight:bold;[^"]*color:(#[0-9A-Fa-f]{6})/)?.[1];
+      assert.ok(usado, `no se encontró el color del dato destacado (${nombre}/${color})`);
+      assert.ok(ratioContraste(usado, arena)! >= 4.5, `el acento «${nombre}» no se lee sobre el arena de ${color}`);
+    }
+  }
 });

@@ -19,6 +19,7 @@
 import { Marked } from 'marked';
 import type { CanalResuelto } from '../../canales-estudio.ts';
 import { paletaCorreoEstudio, type PaletaCorreo } from './paleta.ts';
+import { colorLegibleSobre } from '../../color-utils.ts';
 import { sanearMarkdown } from '../sanear-markdown.ts';
 
 /** La marca del estudio tal y como la necesita el correo. */
@@ -38,10 +39,31 @@ export interface MarcaCorreo {
   canales?: CanalResuelto[];
 }
 
+/**
+ * Lo que la propietaria ha personalizado de una plantilla (`plantillas_email`).
+ * Todo opcional: ausente = se mantiene lo de siempre, campo a campo. Es el
+ * reflejo en TypeScript de las columnas nullable de la migr 20260811005749.
+ */
+export interface PersonalizacionCorreo {
+  cuerpo?: string;
+  botonTexto?: string;
+  colorCabecera?: string;
+  colorBoton?: string;
+  logoUrl?: string;
+  pie?: string;
+  fuente?: string;
+}
+
 export interface FilaDetalle {
   label: string;
   value: string;
   tachado?: boolean;
+  /**
+   * El dato que da sentido al correo: el importe de un justificante de pago, el
+   * de un cobro fallido. Se pinta más grande y en el color del filete. Uno por
+   * tarjeta — con dos ya no destaca ninguno.
+   */
+  destacado?: boolean;
 }
 
 export interface CorreoEstudioOpts {
@@ -121,12 +143,17 @@ export function correoEstudio(o: CorreoEstudioOpts): string {
   const p = paletaCorreoEstudio(o.marca.colorPrimario, o.marca.colorSecundario);
   const cuerpoFuente = o.marca.fuente ? `'${o.marca.fuente.replace(/'/g, '')}', ${PILA_SEGURA}` : PILA_SEGURA;
   const filete = o.acento?.trim() || p.marca;
+  // El acento también pinta el dato destacado de la tarjeta (el importe de un
+  // cobro), y ahí ya no es un filete de 5 px sino TEXTO sobre el arena. Medido:
+  // el ámbar del primer aviso de impago se queda en 4,2:1 sobre el arena de un
+  // estudio rosa. Mismo criterio que el resto de la paleta.
+  const destaque = colorLegibleSobre(filete, p.arena);
 
   const cuerpo = o.contenidoHtml !== undefined
     ? `<tr><td class="px-mobile" style="padding:6px 28px 20px;background:${p.papel};">${o.contenidoHtml}</td></tr>`
     : [
         titularYTexto(o, p, cuerpoFuente),
-        o.detalle && o.detalle.filas.length > 0 ? tarjetaDetalle(o.detalle, p, cuerpoFuente) : '',
+        o.detalle && o.detalle.filas.length > 0 ? tarjetaDetalle(o.detalle, p, cuerpoFuente, destaque) : '',
         o.boton ? boton(o.boton, p, cuerpoFuente) : '',
       ].join('');
 
@@ -233,18 +260,18 @@ ${parrafos}
 </td></tr>`;
 }
 
-function tarjetaDetalle(d: NonNullable<CorreoEstudioOpts['detalle']>, p: PaletaCorreo, fuente: string): string {
+function tarjetaDetalle(d: NonNullable<CorreoEstudioOpts['detalle']>, p: PaletaCorreo, fuente: string, destaque: string): string {
   const titulo = d.titulo?.trim()
     ? `<div style="font-family:${fuente};font-weight:bold;font-size:13px;color:${p.etiqueta};margin:0 0 10px;">${escaparHtml(d.titulo.trim())}</div>`
     : '';
-  return `<tr><td class="px-mobile" style="padding:0 28px 20px;background:${p.papel};">${filasDetalle(d.filas, p, fuente, '0', titulo)}</td></tr>`;
+  return `<tr><td class="px-mobile" style="padding:0 28px 20px;background:${p.papel};">${filasDetalle(d.filas, p, fuente, '0', titulo, destaque)}</td></tr>`;
 }
 
 /** La tarjeta arena con las filas etiqueta/valor. La comparten el correo de sistema y el cuerpo libre. */
-function filasDetalle(filas: FilaDetalle[], p: PaletaCorreo, fuente: string, margen: string, titulo = ''): string {
+function filasDetalle(filas: FilaDetalle[], p: PaletaCorreo, fuente: string, margen: string, titulo = '', destaque = p.etiqueta): string {
   const cuerpo = filas.map(f => `<tr>
-<td width="110" valign="top" style="padding:6px 0 4px;font-family:${fuente};font-size:11px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:${p.etiqueta};">${escaparHtml(f.label)}</td>
-<td valign="top" style="padding:4px 0;font-family:${fuente};font-size:13.5px;line-height:1.5;color:${p.tinta};${f.tachado ? 'text-decoration:line-through;' : ''}">${escaparHtml(f.value)}</td>
+<td width="110" valign="top" style="padding:${f.destacado ? '8px' : '6px'} 0 4px;font-family:${fuente};font-size:11px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:${p.etiqueta};">${escaparHtml(f.label)}</td>
+<td valign="top" style="padding:4px 0;font-family:${fuente};font-size:${f.destacado ? '20px' : '13.5px'};font-weight:${f.destacado ? 'bold' : 'normal'};line-height:1.5;color:${f.destacado ? destaque : p.tinta};${f.tachado ? 'text-decoration:line-through;' : ''}">${escaparHtml(f.value)}</td>
 </tr>`).join('');
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${p.arena}" style="background:${p.arena};border-radius:6px;margin:${margen};"><tr><td style="padding:16px 18px;">
 ${titulo}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${cuerpo}</table>
@@ -348,8 +375,8 @@ function markdownCorreo(p: PaletaCorreo, fuente: string): Marked {
 /**
  * Correo cuyo cuerpo entero lo escribe la propietaria en Markdown, con dos
  * tokens que coloca donde quiera: `{datos}` (la tarjeta de detalle) y
- * `{boton}`. Mismo contrato que tenía `cuerpo-editable.tsx` — lo que cambia es
- * que ahora se pinta con el sistema del estudio y no con el layout genérico.
+ * `{boton}`. Mismo contrato de tokens que tenía el layout genérico anterior —
+ * lo que cambia es que ahora se pinta con la marca del estudio.
  */
 export function correoEstudioLibre(o: CorreoEstudioOpts & { cuerpo: string }): string {
   const p = paletaCorreoEstudio(o.marca.colorPrimario, o.marca.colorSecundario);

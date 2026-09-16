@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { errorInterno } from '@/lib/errores-servidor';
 import { render } from '@react-email/render';
-import { ReciboEmail } from '@/lib/emails/recibo-template';
-import { BienvenidaEmail } from '@/lib/emails/bienvenida-template';
-import { correoReserva, correoRecordatorio } from '@/lib/emails/estudio/clase';
+import { correoRecibo } from '@/lib/emails/estudio/cobros';
+import { correoBienvenida } from '@/lib/emails/estudio/cuenta';
+import { correoReserva, correoRecordatorio, correoCancelacionClase, correoPlazaLiberada } from '@/lib/emails/estudio/clase';
 import { marcaCorreoDesde, urlAppSocia } from '@/lib/emails/estudio/marca-correo';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
-import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
-import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
@@ -200,7 +198,7 @@ export async function POST(req: NextRequest) {
       concepto: string; importe: number; fechaCobro: string;
       numeroFactura?: string; estudioNombre?: string;
     };
-    html = await render(ReciboEmail({ socioNombre: toName, ...d, ...marca }));
+    html = correoRecibo({ socioNombre: toName, ...d, marca: marcaCorreoDesde(marca, d.estudioNombre ?? nombreEstudio ?? 'Tu estudio') });
     subject = `Pago confirmado — ${d.concepto}`;
   } else if (tipo === 'bienvenida') {
     const d = datos as { planNombre?: string; estudioNombre?: string };
@@ -210,7 +208,7 @@ export async function POST(req: NextRequest) {
     // lo dispara el staff en vez de esperar a que la socia lo pida ella misma.
     // Fallo suave: si algo falla, la bienvenida sale igual, sin el botón.
     const urlAcceso = marca.slug ? await generarEnlaceAccesoSocia(marca.slug, to) : null;
-    html = await render(BienvenidaEmail({ socioNombre: toName, intro: introCustom, personalizacion, url: urlAcceso ?? undefined, ...d, ...marca }));
+    html = correoBienvenida({ socioNombre: toName, intro: introCustom, personalizacion, url: urlAcceso, planNombre: d.planNombre, marca: marcaCorreoDesde(marca, d.estudioNombre ?? nombreEstudio ?? 'Tu estudio') });
     subject = asuntoCustom ?? `¡Bienvenida a ${nombreEstudio ?? 'tu estudio'}!`;
   } else if (tipo === 'reserva') {
     const d = datos as DatosClase;
@@ -222,11 +220,11 @@ export async function POST(req: NextRequest) {
     subject = d.titulo;
   } else if (tipo === 'promocion') {
     const d = datos as DatosClase;
-    html = await render(PromocionEsperaEmail({ socioNombre: toName, intro: introCustom, personalizacion, ...d, ...marca }));
+    html = correoPlazaLiberada({ socioNombre: toName, intro: introCustom, personalizacion, ...d, ...claseEstudio(d) });
     subject = asuntoCustom ?? `Se ha liberado tu plaza — ${d.claseNombre}`;
   } else if (tipo === 'cancelacion') {
     const d = datos as DatosClase;
-    html = await render(CancelacionClaseEmail({ socioNombre: toName, intro: introCustom, personalizacion, ...d, ...marca }));
+    html = correoCancelacionClase({ socioNombre: toName, intro: introCustom, personalizacion, ...d, ...claseEstudio(d) });
     subject = asuntoCustom ?? `Clase cancelada — ${d.claseNombre}`;
   } else if (tipo === 'cambio') {
     const d = datos as DatosClase & { cambioHora?: boolean; cambioSala?: boolean };

@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
-import { render } from '@react-email/render';
-import { ImpagoEmail } from '@/lib/emails/impago-template';
+import { correoImpago } from '@/lib/emails/estudio/cobros';
+import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { resolverMarcaEstudio, resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion } from '@/lib/emails/plantillas-server';
 import { remitentePorMarca } from './remitente.ts';
 
@@ -33,18 +33,15 @@ export async function enviarEmailImpago(params: {
     const vars = { nombre: params.toName, estudio: params.estudioNombre };
     const intro = plantilla.intro ? interpolar(plantilla.intro, vars) : undefined;
     const asuntoOverride = plantilla.asunto ? interpolar(plantilla.asunto, vars) : undefined;
-    const html = await render(
-      ImpagoEmail({
-        socioNombre: params.toName,
-        estudioNombre: params.estudioNombre,
-        ...marca,
-        concepto: params.concepto,
-        importe: params.importe,
-        definitivo: params.definitivo,
-        intro,
-        personalizacion: interpolarPersonalizacion(plantilla, vars),
-      }),
-    );
+    const html = correoImpago({
+      socioNombre: params.toName,
+      marca: marcaCorreoDesde(marca, params.estudioNombre ?? 'Tu estudio'),
+      concepto: params.concepto,
+      importe: params.importe,
+      definitivo: params.definitivo,
+      intro,
+      personalizacion: interpolarPersonalizacion(plantilla, vars),
+    });
     const subject = asuntoOverride ?? (params.definitivo
       ? `No hemos podido cobrar tu cuota — ${params.concepto}`
       : `Problema con tu pago — ${params.concepto}`);

@@ -1,10 +1,7 @@
-import { render } from '@react-email/render';
-import { BienvenidaEmail } from '@/lib/emails/bienvenida-template';
-import { correoReserva, correoRecordatorio } from '@/lib/emails/estudio/clase';
+import { correoReserva, correoRecordatorio, correoCancelacionClase, correoPlazaLiberada } from '@/lib/emails/estudio/clase';
 import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
-import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
-import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
-import { ImpagoEmail } from '@/lib/emails/impago-template';
+import { correoBienvenida } from '@/lib/emails/estudio/cuenta';
+import { correoImpago } from '@/lib/emails/estudio/cobros';
 import { appUrl, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, type MarcaEstudio, type TipoPlantillaEditable } from '@/lib/emails/plantillas-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
@@ -78,31 +75,33 @@ export async function renderPlantillaMuestra(
     },
     vars,
   );
-  const base = { socioNombre: SOCIA_MUESTRA, intro, personalizacion, estudioNombre, ...marca };
-  const conClase = { ...base, claseNombre: CLASE_MUESTRA, ...DATOS_CLASE_MUESTRA };
+  const marcaCorreo = marcaCorreoDesde(marca, estudioNombre);
   // Los correos ya migrados al sistema del estudio reciben la marca como un
   // objeto. La URL de muestra es la misma que la bienvenida: sin ella la
   // propietaria escribiría el texto de su botón y no vería ningún botón.
   const conClaseEstudio = {
     socioNombre: SOCIA_MUESTRA, intro, personalizacion,
     claseNombre: CLASE_MUESTRA, ...DATOS_CLASE_MUESTRA,
-    marca: marcaCorreoDesde(marca, estudioNombre), url: URL_MUESTRA,
+    marca: marcaCorreo, url: URL_MUESTRA,
   };
 
   switch (tipo) {
     case 'bienvenida':
-      return { html: await render(BienvenidaEmail({ ...base, planNombre: 'Mensual Ilimitado', url: URL_MUESTRA })), subject: asuntoOverride ?? `¡Bienvenida a ${estudioNombre}!` };
+      return {
+        html: correoBienvenida({ socioNombre: SOCIA_MUESTRA, intro, personalizacion, marca: marcaCorreo, planNombre: 'Mensual Ilimitado', url: URL_MUESTRA }),
+        subject: asuntoOverride ?? `¡Bienvenida a ${estudioNombre}!`,
+      };
     case 'reserva':
       return { html: correoReserva(conClaseEstudio), subject: asuntoOverride ?? `Reserva confirmada — ${CLASE_MUESTRA}` };
     case 'recordatorio':
       return { html: correoRecordatorio(conClaseEstudio), subject: asuntoOverride ?? `Recordatorio — ${CLASE_MUESTRA}` };
     case 'cancelacion':
-      return { html: await render(CancelacionClaseEmail(conClase)), subject: asuntoOverride ?? `Clase cancelada — ${CLASE_MUESTRA}` };
+      return { html: correoCancelacionClase({ ...conClaseEstudio, bonoDevuelto: true }), subject: asuntoOverride ?? `Clase cancelada — ${CLASE_MUESTRA}` };
     case 'promocion':
-      return { html: await render(PromocionEsperaEmail(conClase)), subject: asuntoOverride ?? `Se ha liberado tu plaza — ${CLASE_MUESTRA}` };
+      return { html: correoPlazaLiberada(conClaseEstudio), subject: asuntoOverride ?? `Se ha liberado tu plaza — ${CLASE_MUESTRA}` };
     case 'impago':
       return {
-        html: await render(ImpagoEmail({ ...base, concepto: 'Cuota de agosto', importe: 45, definitivo: false })),
+        html: correoImpago({ socioNombre: SOCIA_MUESTRA, intro, personalizacion, marca: marcaCorreo, concepto: 'Cuota de agosto', importe: 45, definitivo: false }),
         subject: asuntoOverride ?? 'Problema con tu pago — Cuota de agosto',
       };
   }

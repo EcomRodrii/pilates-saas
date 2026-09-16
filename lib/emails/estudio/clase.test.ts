@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { correoReserva, correoRecordatorio, type PropsClase } from './clase.ts';
+import { correoReserva, correoRecordatorio, correoCancelacionClase, correoPlazaLiberada, type PropsClase } from './clase.ts';
+import { ACENTO } from './paleta.ts';
 
 // Muestras sin PII: dominios de ejemplo (RFC 2606) y nombres inventados. El
 // repositorio es público.
@@ -105,4 +106,42 @@ test('ninguna dirección de muestra de este test es real', () => {
   for (const host of [...fuente.matchAll(/@([\w.-]+)/g)].map(m => m[1])) {
     assert.match(host, /\.(example|invalid)$|^example\.(com|org|net)$/);
   }
+});
+
+test('la cancelación no lleva foto y tacha lo que ya no existe', () => {
+  const html = correoCancelacionClase(BASE);
+  assert.ok(!html.includes('cdn.example.com/portada.jpg'),
+    'una foto luminosa encima de «tu clase se ha cancelado» se lee como una broma');
+  assert.ok(html.includes(ACENTO.alerta), 'el filete debería avisar en rojo');
+  assert.match(html, /Tu clase se ha cancelado/);
+  // Fecha y hora tachadas; sala e instructora no (siguen existiendo).
+  const tachados = [...html.matchAll(/line-through[^>]*>([^<]+)</g)].map(m => m[1]);
+  assert.deepEqual(tachados, ['Lunes 4 de agosto', '09:00']);
+  assert.ok(!html.includes('mso-padding-alt'), 'no hay nada que pulsar en una clase cancelada');
+});
+
+test('la devolución del bono se dice, no se supone', () => {
+  assert.ok(!correoCancelacionClase(BASE).includes('devuelto la sesión'));
+  assert.match(correoCancelacionClase({ ...BASE, bonoDevuelto: true }), /devuelto la sesión a tu bono/);
+});
+
+test('la plaza liberada es buena noticia: portada y filete verde', () => {
+  const html = correoPlazaLiberada(BASE);
+  assert.ok(html.includes('cdn.example.com/portada.jpg'));
+  assert.ok(html.includes(ACENTO.bien));
+  assert.match(html, /Se ha liberado tu plaza/);
+  assert.match(html, /Ver mis clases/);
+});
+
+test('si se consume una sesión del bono, se le dice', () => {
+  // Transparencia: nunca se le descuenta sin avisar.
+  assert.ok(!correoPlazaLiberada(BASE).includes('descontado una sesión'));
+  assert.match(correoPlazaLiberada({ ...BASE, bonoConsumido: true }), /descontado una sesión de tu bono/);
+});
+
+test('los cuatro correos de clase se ven distintos entre sí', () => {
+  // Un `case` mal copiado en el emisor manda «tu plaza está reservada» cuando
+  // la clase se acaba de cancelar, y no lo nota nadie hasta que se queja alguien.
+  const correos = [correoReserva(BASE), correoRecordatorio(BASE), correoCancelacionClase(BASE), correoPlazaLiberada(BASE)];
+  assert.equal(new Set(correos).size, 4);
 });
