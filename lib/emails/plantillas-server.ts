@@ -3,6 +3,9 @@ import type { PersonalizacionCorreo } from './estudio/plantilla.ts';
 import { marcaDesdeFila, type MarcaEstudio } from './marca.ts';
 import { colorMarcaDelEstudio, colorSecundarioDelEstudio } from './color-marca.ts';
 import { presetAThemeConfig } from '@/lib/theme-runtime';
+import { appUrl } from '@/lib/app-url';
+
+export { appUrl };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resuelve el override de plantilla de email de un estudio (asunto + intro).
@@ -208,10 +211,6 @@ async function resolverRemitenteResend(
     fromEmail: fromEmail && /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(fromEmail) ? fromEmail : undefined,
     fromName: texto(cfg.fromName),
   };
-}
-
-export function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
 }
 
 // Genera un enlace de acceso firmado (magic link de Supabase Auth) para que una

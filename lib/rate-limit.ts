@@ -13,6 +13,7 @@
 // que tocar una fila concreta de `rate_limits` (borrar el cerrojo de OTP) debe
 // pasar por `claveRateLimit`, o no encontrará nada.
 
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
   type RateLimitOptions, type RateLimitResult, aplicarRateLimit, claveOpaca, rateLimitKey,
@@ -22,6 +23,11 @@ import {
 export type { RateLimitOptions, RateLimitResult } from '@/lib/rate-limit-core';
 export { clientIp, rateLimitKey } from '@/lib/rate-limit-core';
 
+// Auditoría 2026-09-16 (AUTH-6): una vez por proceso, no por petición — la RPC
+// puede fallar en racha y este limitador se llama en casi cada ruta pública;
+// sin el dedup, una racha inundaría Sentry con la misma alerta.
+let avisadoFalloRpc = false;
+
 // Aplica el límite sobre una clave. Devuelve el veredicto; nunca lanza (fail-open).
 export async function rateLimit(bucketKey: string, opts: RateLimitOptions): Promise<RateLimitResult> {
   const admin = getSupabaseAdmin();
@@ -29,7 +35,13 @@ export async function rateLimit(bucketKey: string, opts: RateLimitOptions): Prom
     ? async (p_key: string, p_max: number, p_window_seconds: number) =>
       await admin.rpc('rate_limit_hit', { p_key, p_max, p_window_seconds })
     : null;
-  return aplicarRateLimit(rpc, secretoRateLimit(process.env), bucketKey, opts);
+  return aplicarRateLimit(rpc, secretoRateLimit(process.env), bucketKey, opts, (motivo) => {
+    if (avisadoFalloRpc) return;
+    avisadoFalloRpc = true;
+    Sentry.captureMessage('[rate-limit] fail-open: la RPC de conteo ha fallado, este proceso deja pasar sin límite', {
+      level: 'error', tags: { area: 'rate-limit', motivo },
+    });
+  });
 }
 
 /** La clave tal como queda guardada en `rate_limits`, o null si no hay secreto. */

@@ -20,9 +20,15 @@ const raiz = join(import.meta.dirname, '..', '..');
 test('cada código que lanza la RPC de reservar tiene traducción', () => {
   const dir = join(raiz, 'supabase', 'migrations');
   // La definición viva es la de la migración MÁS RECIENTE que la reescribe.
+  // ⚠️ Tiene que ser un `create (or replace) function`, no cualquier mención:
+  // una migración de solo `revoke ... on function public.reservar_plaza(...)`
+  // (auditoría 2026-09-16, RES-6) también contiene el texto "function
+  // public.reservar_plaza" sin definir el cuerpo — con un filtro por
+  // substring a secas, si es la más reciente, este test cree que ESA es la
+  // definición y no encuentra ningún `raise exception` dentro.
   const fichero = readdirSync(dir)
     .filter(f => f.endsWith('.sql'))
-    .filter(f => readFileSync(join(dir, f), 'utf8').includes('function public.reservar_plaza'))
+    .filter(f => /create\s+(or\s+replace\s+)?function\s+public\.reservar_plaza\s*\(/i.test(readFileSync(join(dir, f), 'utf8')))
     .sort().pop();
   assert.ok(fichero, 'no se encontró ninguna migración que defina reservar_plaza');
 

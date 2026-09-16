@@ -114,19 +114,30 @@ export type RpcRateLimit = (
  * Núcleo de `rateLimit` (lib/rate-limit.ts). FAIL-OPEN: sin RPC, sin secreto o
  * con error, deja pasar. Sin secreto NO se llama a la RPC — la alternativa sería
  * escribir la clave en claro, que es justo lo que esto evita.
+ *
+ * ⚠️ Auditoría 2026-09-16 (AUTH-6): el fail-open es la decisión correcta —no
+ * se toca aquí—, pero se tomaba EN SILENCIO. Si la RPC falla, el cerrojo de 6
+ * intentos/15 min del OTP y el de la clave de página oculta desaparecen a la
+ * vez, sin ninguna señal. `alFallar` es un aviso INYECTADO (no un import
+ * directo de Sentry) para que este módulo siga siendo puro y probable sin BD,
+ * y solo se llama en el camino de «rpc/secreto SÍ configurados, pero algo
+ * falló» — no cuando sencillamente no hay service role (local/dev, ya
+ * documentado como degradación aceptada, no una avería).
  */
 export async function aplicarRateLimit(
   rpc: RpcRateLimit | null, secreto: string, bucketKey: string, opts: RateLimitOptions,
+  alFallar?: (motivo: 'rpc-sin-resultado' | 'excepcion') => void,
 ): Promise<RateLimitResult> {
   const abierto = { allowed: true, remaining: opts.max, resetAt: null };
   if (!rpc || !secreto) return abierto;
   try {
     const { data, error } = await rpc(await claveOpaca(bucketKey, secreto), opts.max, opts.windowSeconds);
     const row = Array.isArray(data) ? data[0] : data;
-    if (error || !row) return abierto;
+    if (error || !row) { alFallar?.('rpc-sin-resultado'); return abierto; }
     const r = row as { allowed: boolean; remaining: number; reset_at: string };
     return { allowed: r.allowed, remaining: r.remaining, resetAt: new Date(r.reset_at) };
   } catch {
+    alFallar?.('excepcion');
     return abierto;
   }
 }

@@ -3843,7 +3843,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // la RPC podía llegar antes de que el UPDATE de arriba hubiera hecho
     // commit y rechazaba la concesión con CONDICION_NO_CUMPLIDA, perdiendo en
     // silencio el crédito de una asistencia real.
-    const res = await dbUpdateReserva(reservaId, { estado: 'ASISTIDA', checkInEn });
+    const res = await dbUpdateReserva(reservaId, { estado: 'ASISTIDA', checkInEn }, 'CONFIRMADA');
     // Antes esto no comprobaba el resultado: un fallo del UPDATE dejaba la
     // reserva marcada ASISTIDA en pantalla (con créditos/logros ya concedidos
     // sobre una asistencia que el servidor nunca llegó a registrar) sin
@@ -3901,7 +3901,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // antes de que la escritura se confirmara, un fallo silencioso dejaba a la
   // socia SIN marcar en el sitio que de verdad decide si se le cobra.
   async function marcarNoShow(reservaId: string): Promise<ResultadoEscritura> {
-    const res = await dbUpdateReserva(reservaId, { estado: 'NO_ASISTIO', checkInEn: null });
+    const res = await dbUpdateReserva(reservaId, { estado: 'NO_ASISTIO', checkInEn: null }, 'CONFIRMADA');
     if (!res.ok) return res;
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'NO_ASISTIO' as const, checkInEn: null } : r));
     return res;
@@ -3912,7 +3912,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // muestra CONFIRMADA, la propietaria cree haber revertido algo que el
   // trigger de penalización todavía ve como no-show.
   async function revertirNoShow(reservaId: string): Promise<ResultadoEscritura> {
-    const res = await dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
+    const res = await dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null }, 'NO_ASISTIO');
     if (!res.ok) return res;
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CONFIRMADA' as const, checkInEn: null } : r));
     return res;
@@ -3925,7 +3925,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // vuelve a hacer check-in de la misma reserva. La reversión del ledger de
   // gamificación (logros/retos/premio de referido) queda fuera de alcance.
   async function deshacerCheckin(reservaId: string): Promise<ResultadoEscritura> {
-    const res = await dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
+    const res = await dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null }, 'ASISTIDA');
     if (!res.ok) return res;
     setReservas(prev => prev.map(r => r.id === reservaId && r.estado === 'ASISTIDA'
       ? { ...r, estado: 'CONFIRMADA' as const, checkInEn: null } : r));
@@ -4004,7 +4004,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setReservas(prev => prev.map(r =>
       r.id === reservaId ? { ...r, spotId: null } : r
     ));
-    const res = await dbUpdateReserva(reservaId, { spotId: null });
+    const res = await dbUpdateReserva(reservaId, { spotId: null }, anterior?.estado);
     if (!res.ok && anterior) setReservas(prev => prev.map(r => r.id === reservaId ? anterior : r));
     return res;
   }
@@ -4039,7 +4039,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
     const anterior = reserva;
     setReservas(prev => prev.map(r => r.id === reserva.id ? { ...r, spotId } : r));
-    const res = await dbUpdateReserva(reserva.id, { spotId });
+    const res = await dbUpdateReserva(reserva.id, { spotId }, reserva.estado);
     if (!res.ok) setReservas(prev => prev.map(r => r.id === reserva.id ? anterior : r));
     return res;
   }

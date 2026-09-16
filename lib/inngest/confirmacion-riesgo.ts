@@ -32,10 +32,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
-
-function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
-}
+import { appUrl } from '@/lib/app-url';
 
 function cuandoTexto(inicio: string): string {
   const d = new Date(inicio);

@@ -3170,7 +3170,17 @@ export async function dbCancelarReservasPorSesiones(sesionIds: string[]): Promis
   return { ok: true, ids: (data ?? []).map(r => r.id as string) };
 }
 
-export async function dbUpdateReserva(id: string, changes: Partial<Reserva>): Promise<ResultadoEscritura> {
+export async function dbUpdateReserva(
+  id: string,
+  changes: Partial<Reserva>,
+  // Auditoría 2026-09-16 (RES-7): sin esto, un "deshacer check-in" sobre una
+  // reserva que otra persona acaba de cancelar la resucitaba a CONFIRMADA,
+  // ocupando aforo de nuevo — el UPDATE casa por `id` a secas y no mira si el
+  // estado que el llamador creía ver sigue siendo el real. El caller pasa el
+  // estado con el que LEYÓ la fila; si ya no coincide, cuenta como las 0 filas
+  // que este escritor ya sabía tratar (misma rama de abajo, mismo mensaje).
+  estadoEsperado?: Reserva['estado'],
+): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('sesionId' in changes) db.sesion_id = changes.sesionId;
   if ('socioId' in changes) db.socio_id = changes.socioId;
@@ -3179,19 +3189,23 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>): Pr
   if ('posicionEspera' in changes) db.posicion_espera = changes.posicionEspera;
   if ('checkInEn' in changes) db.check_in_en = changes.checkInEn;
   // ⚠️ `.select('id')`: un UPDATE que no casa ninguna fila —porque la RLS lo
-  // filtró, o porque la reserva ya no existe— NO devuelve error en Supabase
-  // (auditoría 22ª pasada, F-5). Este es el único escritor de SEIS acciones del
-  // panel (check-in, no-show y sus dos deshacer, asignar y liberar sitio), y en
-  // el check-in el éxito falso es caro: se pinta ASISTIDA, se abre la puerta y
+  // filtró, porque la reserva ya no existe, o (con `estadoEsperado`) porque
+  // alguien la cambió entre medias— NO devuelve error en Supabase (auditoría
+  // 22ª pasada, F-5). Este es el único escritor de SEIS acciones del panel
+  // (check-in, no-show y sus dos deshacer, asignar y liberar sitio), y en el
+  // check-in el éxito falso es caro: se pinta ASISTIDA, se abre la puerta y
   // se disparan créditos, logros y racha sobre una asistencia que la base de
   // datos nunca registró — `otorgar_credito_disparador` exige la fila ya en
   // ASISTIDA, así que el crédito se pierde en silencio.
-  const { data, error } = await supabase.from('reservas').update(db).eq('id', id).select('id');
+  let query = supabase.from('reservas').update(db).eq('id', id);
+  if (estadoEsperado) query = query.eq('estado', estadoEsperado);
+  const { data, error } = await query.select('id');
   if (error) return falloEscritura('[dbUpdateReserva]', error);
   if (!data?.length) {
     // `code: '42501'` para que `mensajeDeFalloAlGuardar` diga "no tienes
     // permiso" en vez de un genérico: la causa abrumadoramente más probable de
-    // 0 filas aquí es la RLS (una instructora sobre una clase que no es suya).
+    // 0 filas aquí es la RLS (una instructora sobre una clase que no es suya)
+    // — o, con `estadoEsperado`, que la reserva cambió de estado entre medias.
     return falloEscritura('[dbUpdateReserva]', { code: '42501', message: `la reserva ${id} no se ha podido actualizar (0 filas)` });
   }
   return ESCRITURA_OK;

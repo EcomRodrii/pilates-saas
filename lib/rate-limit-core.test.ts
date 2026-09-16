@@ -128,3 +128,21 @@ test('aplicarRateLimit: fail-open ante error o excepción de la RPC, y sin clien
   assert.equal((await aplicarRateLimit(async () => { throw new Error('red'); }, SECRETO, 'r:1', opts)).allowed, true);
   assert.equal((await aplicarRateLimit(null, SECRETO, 'r:1', opts)).allowed, true);
 });
+
+// Auditoría 2026-09-16 (AUTH-6): el fail-open es la decisión correcta, pero se
+// tomaba en silencio. `alFallar` es el aviso inyectado (no un import directo
+// de Sentry, para que este módulo siga siendo puro).
+test('aplicarRateLimit: avisa con `alFallar` cuando la RPC falla o lanza, no cuando sencillamente no hay rpc/secreto', async () => {
+  const opts = { max: 3, windowSeconds: 60 };
+  const motivos: string[] = [];
+  const avisar = (m: string) => motivos.push(m);
+
+  await aplicarRateLimit(async () => ({ data: null, error: { message: 'x' } }), SECRETO, 'r:1', opts, avisar);
+  await aplicarRateLimit(async () => { throw new Error('red'); }, SECRETO, 'r:1', opts, avisar);
+  assert.deepEqual(motivos, ['rpc-sin-resultado', 'excepcion']);
+
+  // Sin rpc o sin secreto (local/dev sin service role) NO es una avería: no avisa.
+  await aplicarRateLimit(null, SECRETO, 'r:1', opts, avisar);
+  await aplicarRateLimit(async () => ({ data: null, error: null }), '', 'r:1', opts, avisar);
+  assert.deepEqual(motivos, ['rpc-sin-resultado', 'excepcion']);
+});
