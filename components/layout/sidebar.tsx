@@ -606,6 +606,7 @@ export function Sidebar() {
           menú arriba no hay «encima»: se oculta aquí y se pinta dentro de la
           propia barra, a la izquierda del todo. */}
       <div
+        data-panel-menu
         className={cn(
           'fixed top-4 left-4 z-20 items-center justify-center h-20 shrink-0 transition-[width] duration-200',
           horizontal ? 'hidden' : 'hidden lg:flex',
@@ -622,6 +623,7 @@ export function Sidebar() {
       {/* ── Desktop sidebar (floating black pill — Midbox) ─────────────────── */}
       <aside
         ref={barraRef}
+        data-panel-menu
         className={cn(
           'hidden lg:flex fixed z-20 transition-[width] duration-200',
           // Recortar solo tiene sentido en la columna: tumbada, la barra CRECE

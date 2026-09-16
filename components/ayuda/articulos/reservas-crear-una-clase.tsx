@@ -55,6 +55,19 @@ export default function Contenido() {
         La clase aparece en tu Calendario y, si no está oculta, en tu portal de reservas públicas — al momento, sin
         publicar nada aparte.
       </AyudaResultado>
+
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>En el ordenador: ampliarlo o llevarlo en una ventana</h2>
+      <p>
+        Al final de la fila de botones del Calendario hay dos pequeños. El de las flechas lo{' '}
+        <strong>amplía a toda la pantalla</strong>: esconde el menú y la barra de arriba para que quepan más horas y
+        más días; con el mismo botón, o con <strong>Esc</strong>, vuelve a su tamaño.
+      </p>
+      <p>
+        El otro saca la agenda del día a una <strong>ventana flotante</strong> que se queda a mano mientras vas a
+        Clientas, Cobros o cualquier otra pantalla. La mueves arrastrándola por su barra y se queda donde la dejes,
+        también si recargas. Desde la propia ventana cambias de día, la pliegas para que solo quede la barra, o pulsas
+        una clase para abrirla en el Calendario. Solo aparece en un ordenador, no en el móvil ni en la tablet.
+      </p>
     </>
   );
 }

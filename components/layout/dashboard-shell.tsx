@@ -17,6 +17,7 @@ import { Spotlight } from '@/components/tour/spotlight';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
 import { PrimeraVezAqui } from '@/components/guia/primera-vez-aqui';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
+import { VentanaCalendario } from '@/components/calendario/ventana-calendario';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
 import { ReviewBoostModal } from '@/components/growth/review-boost-modal';
@@ -322,13 +323,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               arriba): no debe bloquear el panel. Se autogobierna con
               debeMostrarModal() — el componente decide si se muestra. */}
           <ReviewBoostModal studio={studio} rol={rolResuelto ? rol : null} />
+          {/* Aquí y no en la página del Calendario: se queda flotando mientras
+              se cambia de pantalla, y una página se desmonta al salir de ella. */}
+          <VentanaCalendario />
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200">
             {/* ⚠️ El hueco de arriba lo pone el MENÚ en `--panel-top`, no este
                 armazón: aquí no se pide el layout (este proveedor envuelve
                 TODAS las rutas), así que decidirlo por estado propio haría que
                 el hueco y la barra discreparan medio segundo en cada carga.
                 En móvil no cambia nada: ya era barra arriba, y `pt-14` manda. */}
-            <div className="pt-14 lg:pt-[var(--panel-top)] pb-[calc(9rem+env(safe-area-inset-bottom,0px))] lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+            <div data-panel-contenido className="pt-14 lg:pt-[var(--panel-top)] pb-[calc(9rem+env(safe-area-inset-bottom,0px))] lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <Topbar />
               <PanelPageTransition>
                 {cargandoDatos ? <PanelSkeleton /> : (

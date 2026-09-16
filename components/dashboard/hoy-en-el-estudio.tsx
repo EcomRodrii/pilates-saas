@@ -11,6 +11,7 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { TentareOrb } from '@/components/marca/tentare-orb';
 import { Toast, useToast } from '@/components/ui/toast';
 import { RellenarHuecoPanel } from './rellenar-hueco-panel';
+import { BarraPlazas } from './barra-plazas';
 import { PINTA } from '@/lib/calendario-estado';
 import { detectarConflictos, hayConflicto } from '@/lib/calendar-logic';
 import {
@@ -542,34 +543,6 @@ function AccionClase({
     >
       {clase.finalizada ? 'Ver clase' : 'Todo preparado'}
     </Link>
-  );
-}
-
-/** Aforo a golpe de vista. Con salas pequeñas (lo normal en pilates) una plaza
- *  por segmento se lee sin contar; a partir de 20 vuelve a ser una barra. */
-function BarraPlazas({ ocupadas, aforo }: { ocupadas: number; aforo: number }) {
-  const lleno = aforo > 0 && ocupadas >= aforo;
-  const color = lleno ? 'var(--brand)' : 'var(--brand-medio)';
-
-  if (aforo > 0 && aforo <= 20) {
-    return (
-      <span className="mt-1.5 flex gap-[3px]" aria-hidden>
-        {Array.from({ length: aforo }, (_, i) => (
-          <span
-            key={i}
-            className="h-1.5 min-w-0 flex-1 rounded-[1px]"
-            style={{ backgroundColor: i < ocupadas ? color : 'var(--muted)' }}
-          />
-        ))}
-      </span>
-    );
-  }
-
-  const pct = aforo > 0 ? Math.min(100, (ocupadas / aforo) * 100) : 0;
-  return (
-    <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
-      <span className="block h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-    </span>
   );
 }
 
