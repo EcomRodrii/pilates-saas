@@ -2150,7 +2150,11 @@ type MotivoIntentoFallido =
   | 'RESERVA_BLOQUEADA_IMPAGO'
   // Y otra vez: 20260907031432. Se distingue de LIMITE_SEMANAL a propósito —
   // «quiere más Máquina de la que su cuota le da» es una señal de venta.
-  | 'LIMITE_SEMANAL_ACTIVIDAD';
+  | 'LIMITE_SEMANAL_ACTIVIDAD'
+  // RES-4: Verificación de entitlement dentro del lock. Si la socia no tiene
+  // plan/bono activo, se registra como SIN_ENTITLEMENT aquí, siendo la
+  // verificación ahora atómica en la RPC dentro de pg_advisory_xact_lock.
+  | 'SIN_ENTITLEMENT';
 
 function registrarIntentoFallido(admin: SupabaseClient, params: {
   studioId: string; socioId: string; sesionId?: string | null; tipoClaseId?: string | null; motivo: MotivoIntentoFallido;
@@ -2285,6 +2289,10 @@ export async function crearReservaPublica(params: {
     }
   }
 
+  // RES-4: El tipo de la clase se necesita para pasar a la RPC (dentro o fuera del
+  // gate de plan). Se define aquí para que esté disponible en ambos casos.
+  const tipoDeLaClase = tipoClaseId;
+
   if (exigirPlanResuelto || pol.maxSimultaneas != null) {
     const [{ data: susRows }, { data: planRows }, { data: resRows }, { data: sesRows }] = await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
@@ -2299,31 +2307,25 @@ export async function crearReservaPublica(params: {
       // clases canceladas, y sin la columna no podría distinguirlas.
       admin.from('sesiones').select('id, inicio, cancelada').eq('studio_id', params.studioId).gte('inicio', new Date().toISOString()),
     ]);
-    const hoyISO = new Date().toISOString().slice(0, 10);
-    // El tipo de la clase importa: un bono acotado a Reformer no da derecho a
-    // reservar Mat (0111). Ya se resolvió arriba (tipoClaseId), sin repetir la query.
-    const tipoDeLaClase = tipoClaseId;
+    // RES-4: El gate de entitlement se ha movido DENTRO de la RPC (dentro del
+    // lock transaccional) para evitar race conditions. Dos peticiones concurrentes
+    // con 1 bono ya no pueden pasar ambas el gate en TS y luego ambas insertar
+    // CONFIRMADA con lock — solo una puede hacerlo. La RPC ahora devuelve
+    // SIN_ENTITLEMENT si falla la comprobación DENTRO del lock.
+    //
+    // Sin embargo, mantenemos una comprobación de TypeScript para devolver
+    // `codigo: 'bono-no-cubre'` vs `codigo: 'sin-plan'`, ya que el test
+    // estructural lo espera (cadena-rechazo-reserva.test.ts).
+    // Esta comprobación es defensiva; la RPC es la autoridad real.
     const planesGate = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
-    // Si el estudio no vende ningún plan, exigirlo solo deja a la clienta en un
-    // callejón: el mensaje le pide contratar algo que no existe.
     const seVendeAlgo = hayAlgoQueContratar(planesGate);
     if (exigirPlanResuelto && seVendeAlgo && !tieneEntitlementActivo(
-      params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyISO, tipoDeLaClase,
+      params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, new Date().toISOString().slice(0, 10), tipoDeLaClase,
     )) {
-      // Se distingue "no tienes bono" de "tu bono no vale para esta clase":
-      // con el mensaje genérico la socia no entendería por qué le rechazan una
-      // clase teniendo sesiones de sobra.
       const tieneAlgunPlan = tieneEntitlementActivo(
-        params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyISO,
+        params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, new Date().toISOString().slice(0, 10),
       );
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: tieneAlgunPlan ? 'PLAN_NO_INCLUYE_TIPO' : 'SIN_PLAN' });
-      // Con `codigo`, igual que los rechazos que vienen de la RPC más abajo.
-      // Sin él, el cliente (lib/student/reserva-codigos.ts) no puede distinguir
-      // «no tienes bono» de «el servidor ha dicho algo que no sabemos
-      // traducir», y cae en el copy genérico de avería — «algo no ha salido como
-      // esperábamos, inténtalo de nuevo», con un botón de reintentar que va a
-      // fallar exactamente igual — además de disparar un aviso en Sentry por
-      // algo que es una regla de negocio, no una avería.
       return tieneAlgunPlan
         ? { error: ERROR_BONO_NO_CUBRE, codigo: 'bono-no-cubre' as const }
         : { error: ERROR_SIN_PLAN, codigo: 'sin-plan' as const };
@@ -2374,6 +2376,8 @@ export async function crearReservaPublica(params: {
     // La RPC ya sabía hacerlo: bloquea la fila del spot `for update`, valida
     // sala y `activo`, y comprueba ocupación antes de decidir el estado.
     p_spot_id: params.spotId ?? null,
+    p_exigir_entitlement: exigirPlanResuelto,
+    p_tipo_clase_id: tipoDeLaClase,
   });
   if (error) {
     // ⚠️ El `codigo` es lo que consume el cliente; el `error` es solo para
@@ -2409,6 +2413,13 @@ export async function crearReservaPublica(params: {
       // juzga ni se le detalla la deuda en una pantalla pública. Se le dice a
       // quién preguntar.
       return { error: 'Tienes un pago pendiente con el estudio. Escríbeles y lo resolvéis.' as const, codigo: 'impago' as const };
+    }
+    // RES-4: Verificación de entitlement ahora DENTRO del lock (migración
+    // 20260918000000). Si la socia no tiene plan/bono activo que cubra esta
+    // clase, la RPC lo detecta atomicamente y devuelve SIN_ENTITLEMENT.
+    if (error.message.includes('SIN_ENTITLEMENT')) {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'SIN_ENTITLEMENT' });
+      return { error: ERROR_SIN_PLAN, codigo: 'sin-plan' as const };
     }
     if (error.message.includes('NECESITA_AUTORIZACION')) {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'NECESITA_AUTORIZACION' });

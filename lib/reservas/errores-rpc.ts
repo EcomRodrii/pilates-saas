@@ -28,6 +28,10 @@ export const MENSAJE_RESERVA_RPC: Record<string, string> = {
   LIMITE_SEMANAL_ACTIVIDAD: 'Ha alcanzado el máximo semanal de esa actividad. Puede que aún le queden clases de otra.',
   NECESITA_AUTORIZACION: 'Esta clase es solo para alumnas autorizadas. Autorízala en su ficha y vuelve a apuntarla.',
   RESERVA_BLOQUEADA_IMPAGO: 'Tiene un recibo sin cobrar. Márcalo como cobrado desde Cobros y vuelve a apuntarla.',
+  // RES-4: Verificación de entitlement ahora atómica dentro del lock.
+  // Si la socia no tiene plan/bono activo, la RPC rechaza dentro de la
+  // transacción en lugar de en TypeScript.
+  SIN_ENTITLEMENT: 'No tiene un plan o bono activo que incluya esta clase. Vende un plan y vuelve a apuntarla.',
   ESTUDIO_CERRADO: 'El estudio está cerrado ese día. Quita el cierre desde Configuración → Horario si de verdad abrís.',
   SPOT_OCUPADO: 'Ese sitio lo acaba de coger otra persona.',
   SPOT_NO_DISPONIBLE: 'Ese sitio no está disponible.',
