@@ -1119,13 +1119,3 @@ añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
 - ⚠️ **Por Stripe no ha pasado un euro real**: 1 socia de 202 con tarjeta guardada,
   0 con SEPA. F4 no detectará nada hasta que las haya. Probar el primer cobro en
   un estudio de pruebas antes de fiarse de esto con clientas reales.
-
-## `npm run typecheck` en local puede mentir por un `.next` viejo
-
-Si `.next/` quedó de una sesión anterior con rutas que ya no existen (p.ej.
-`app/demo/page.js` borrada hace tiempo), `tsc --noEmit` falla con varios errores
-en `.next/types/**`/`.next/dev/types/**` que apuntan a esas rutas fantasma —
-parecen errores del proyecto y no lo son. En CI no pasa nunca: el `.next` ahí
-siempre es fresco (build limpio). Si `typecheck` da rojo solo en local y los
-errores están todos dentro de `.next/`, borra `.next/` y repite antes de asumir
-que el código está roto.
