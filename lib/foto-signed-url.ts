@@ -38,18 +38,28 @@ export function useFotoUrl(fotoPath: string | null, studioId: string) {
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    let isMounted = true;
 
-    obtenerUrlFoto(fotoPath, studioId)
-      .then(resultado => {
+    (async () => {
+      setLoading(true);
+      setError(null);
+
+      const resultado = await obtenerUrlFoto(fotoPath, studioId);
+      if (isMounted) {
         setUrl(resultado);
         if (!resultado) setError('No se pudo cargar la foto');
-      })
-      .catch(err => {
+        setLoading(false);
+      }
+    })().catch(err => {
+      if (isMounted) {
         setError(err?.message || 'Error al cargar la foto');
-      })
-      .finally(() => setLoading(false));
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [fotoPath, studioId]);
 
   return { url, loading, error };
