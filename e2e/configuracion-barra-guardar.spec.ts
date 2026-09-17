@@ -215,6 +215,12 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
     await expect(page.getByRole('dialog').locator('[data-consecuencia]')).toContainText('se cerraría antes de abrirse');
     await expect(barra(page).getByRole('alert')).toHaveText('La reserva se cerraría antes de abrirse: cambia los días o los minutos.');
     await expect(guardar(page)).toBeDisabled();
+    // El cajón entra deslizándose (#2138) y `force` se salta la espera de
+    // estabilidad: el clic caía a media animación, con «Guardar» aún fuera de
+    // la pantalla («Element is outside of the viewport»; medido: a los 0 ms el
+    // cajón está en x=1140 de 1280, a los 400 ms ya en su sitio). Intermitente
+    // en CI según lo rápida que fuera la máquina.
+    await expect(guardar(page)).toBeInViewport({ ratio: 1 });
     await guardar(page).click({ force: true });
     await page.waitForTimeout(500);
     expect(patches).toHaveLength(0);
@@ -226,6 +232,12 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
     await page.getByLabel('Minutos para aceptar la plaza').fill('');
     await expect(barra(page).getByRole('alert')).toContainText('Pon cuántos minutos tiene para aceptar la plaza');
     await expect(guardar(page)).toBeDisabled();
+    // El cajón entra deslizándose (#2138) y `force` se salta la espera de
+    // estabilidad: el clic caía a media animación, con «Guardar» aún fuera de
+    // la pantalla («Element is outside of the viewport»; medido: a los 0 ms el
+    // cajón está en x=1140 de 1280, a los 400 ms ya en su sitio). Intermitente
+    // en CI según lo rápida que fuera la máquina.
+    await expect(guardar(page)).toBeInViewport({ ratio: 1 });
     await guardar(page).click({ force: true });
     await page.waitForTimeout(500);
     expect(patches).toHaveLength(0);
