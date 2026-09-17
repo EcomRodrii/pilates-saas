@@ -372,16 +372,6 @@ export interface Integracion {
   ultimoErrorEn: string | null;
 }
 
-export interface Usuario {
-  id: string;
-  studioId: string;
-  rol: Rol;
-  nombre: string;
-  email: string;
-  telefono: string | null;
-  avatarUrl: string | null;
-}
-
 export interface AceptacionContrato {
   fecha: string;
   firma: string;

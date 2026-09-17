@@ -1,0 +1,15 @@
+-- RLS-3 (auditoría 2026-09-16): `usuarios` era la única tabla de negocio con
+-- una policy `FOR ALL USING(true)` sin comprobación de rol. 0 filas en
+-- producción, y verificado por `git grep` que el ÚNICO caller
+-- (`lib/supabase-data.ts`, `db.from('usuarios').select('*')...`, consultado
+-- en CADA arranque del panel) nunca llega a usarse: el campo `usuarios` del
+-- payload no tiene ningún consumidor en `app/`/`components/`. Legado de un
+-- directorio de personal ya sustituido por `instructores` +
+-- `studios.owner_auth_user_id`.
+--
+-- Verificado en vivo antes de aplicar: 0 filas, 0 FKs apuntando a la tabla, 0
+-- vistas dependientes, y el DROP no falla por ninguna dependencia.
+--
+-- El caller muerto se quita del mismo cambio: `lib/supabase-data.ts`
+-- (`usuariosRes`, la query y el campo `usuarios` del payload del panel).
+drop table public.usuarios;
