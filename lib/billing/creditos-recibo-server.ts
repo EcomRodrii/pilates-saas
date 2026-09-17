@@ -6,7 +6,7 @@ import { evaluarFeature } from './billing-rules.ts';
 //
 // Mismo patrón que «la penalización sigue a su recibo» (`seguirPenalizacionAlRecibo`):
 // quien cambia el estado de un recibo llama aquí, y aquí no se decide nada. La
-// base (`sincronizar_creditos_renovacion`, migr 20260917015000) mira el estado
+// base (`sincronizar_creditos_renovacion`, migr 20260917010429) mira el estado
 // REAL del recibo y deja los créditos como tienen que estar:
 //   · cobrado y es una renovación (marcada, o la recompra del mismo plan) → los
 //     otorga, una sola vez;

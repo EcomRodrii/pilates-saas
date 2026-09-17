@@ -1806,7 +1806,7 @@ export interface RewardHistory {
 
 // REVERSION: créditos de una renovación cuyo cobro se devolvió. COMPENSACION: lo
 // ya gastado de esa renovación, descontado de una ganancia posterior (migr
-// 20260917015000). Los dos van en negativo.
+// 20260917010429). Los dos van en negativo.
 export type TipoTransaccion = 'GANANCIA' | 'CANJE' | 'REVERSION' | 'COMPENSACION';
 
 // Libro mayor completo (ganancias + canjes) — es la fuente de verdad real

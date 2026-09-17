@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
     });
     // Y los de «Renovar plan», si el ticket los dio (recompra del mismo plan).
     // Estos no se quedan en lo que quede de saldo: lo ya gastado queda por
-    // compensar (migr 20260917015000). Nunca lanza.
+    // compensar (migr 20260917010429). Nunca lanza.
     if (venta.recibo_id) {
       await seguirCreditosAlRecibo(admin, { studioId: sesion.studioId, reciboId: venta.recibo_id as string });
     }

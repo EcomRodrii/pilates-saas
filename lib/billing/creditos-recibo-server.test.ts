@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { seguirCreditosAlRecibo, type DependenciasCreditosRecibo } from './creditos-recibo-server.ts';
 
 // `seguirCreditosAlRecibo` no decide qué recibo da créditos: eso es de la base
@@ -151,7 +151,15 @@ test('el reembolso sincroniza en las DOS salidas del dinero: reembolso total y c
 });
 
 // ── La migración: lo que no se puede perder sin que nadie lo note ───────────
-const MIGRACION = fuente('../../supabase/migrations/20260917015000_creditos_renovacion_siguen_al_recibo.sql');
+// Por CONTENIDO, no por el timestamp del nombre: al aplicarla, este repo la
+// sella con la fecha real de aplicación y renombra el fichero (ver
+// tentare-os.md, «Migraciones») — el nombre con el que se escribió no
+// sobrevive.
+const DIR_MIGRACIONES = new URL('../../supabase/migrations/', import.meta.url);
+const ficheroMigracion = readdirSync(DIR_MIGRACIONES).filter(n => n.endsWith('.sql'))
+  .find(n => /create or replace function public\.sincronizar_creditos_renovacion\b/.test(readFileSync(new URL(n, DIR_MIGRACIONES), 'utf8')));
+if (!ficheroMigracion) throw new Error('no hay ninguna migración que defina sincronizar_creditos_renovacion');
+const MIGRACION = readFileSync(new URL(ficheroMigracion, DIR_MIGRACIONES), 'utf8');
 
 test('migración: las funciones nuevas son solo del servidor (revocadas a anon Y authenticated)', () => {
   // `pg_default_acl` da EXECUTE directo a anon/authenticated: revocar PUBLIC no basta.
