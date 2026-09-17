@@ -56,6 +56,9 @@ export default function LogrosPage() {
   // y gana créditos con la clase recién terminada. Sin esto, su pantalla
   // abierta seguiría diciendo el saldo de antes hasta recargar a mano.
   useCreditosEnVivoPortal(estudio.slug, estudio.id, refrescar);
+  // Un estudio puede dar créditos sin haber creado niveles: sin esto la
+  // pantalla le decía «Aún sin nivel» de algo que no existe.
+  const hayNiveles = Boolean(data?.nivel.actual || data?.nivel.siguiente);
 
   const alternarReto = async (retoId: string, apuntada: boolean) => {
     if (ocupado) return;
@@ -110,7 +113,7 @@ export default function LogrosPage() {
                 hace bajar de nivel (misma regla que enuncia el panel). */}
             <section className="card card--pad-lg" data-testid="nivel">
               <div className="row row--top row--between" style={{ ['--gap' as string]: 'var(--s-3)' }}>
-                <div style={{ minWidth: 0 }}>
+                {hayNiveles && (<div style={{ minWidth: 0 }}>
                   <p className="t-label">Tu nivel</p>
                   <p className="t-title" style={{ marginTop: 'var(--s-1)' }}>
                     {data.nivel.actual ? `${data.nivel.actual.icono} ${data.nivel.actual.nombre}` : 'Aún sin nivel'}
@@ -118,9 +121,11 @@ export default function LogrosPage() {
                   {data.nivel.actual?.beneficios && (
                     <p className="t-meta" style={{ marginTop: 2 }}>{data.nivel.actual.beneficios}</p>
                   )}
-                </div>
-                <div className="no-shrink" style={{ textAlign: 'right' }}>
-                  <p className="t-label">Créditos</p>
+                </div>)}
+                {/* Con el nombre que le da SU estudio: decía «Créditos» aunque
+                    el estudio los llamara «puntos» en el resto de la pantalla. */}
+                <div className="no-shrink" style={{ textAlign: hayNiveles ? 'right' : 'left' }}>
+                  <p className="t-label">Tus {moneda}</p>
                   <p className="t-title t-num" style={{ marginTop: 'var(--s-1)' }}>{data.saldo}</p>
                 </div>
               </div>
@@ -133,6 +138,29 @@ export default function LogrosPage() {
                 </>
               )}
             </section>
+
+            {/* ── CÓMO GANAR ───────────────────────────────────────────────
+                Las reglas ACTIVAS de su estudio, con lo que da cada una. Sin
+                esto, la alumna veía un saldo que subía sin saber por qué, ni qué
+                hacer para ganar más. Los logros y retos de abajo ya llevan su
+                propia cantidad. Los textos dicen lo que el código premia de
+                verdad (ver `formasDeGanar`). */}
+            {data.formasDeGanar.length > 0 && (
+              <section data-testid="como-ganar">
+                <p className="t-label" style={{ marginBottom: 'var(--s-2)' }}>Cómo ganar {moneda}</p>
+                <div className="card card--pad stack" style={{ ['--gap' as string]: 'var(--s-3)' }}>
+                  {data.formasDeGanar.map((f) => (
+                    <div key={f.trigger} className="row row--between" style={{ ['--gap' as string]: 'var(--s-3)' }} data-testid="forma-de-ganar">
+                      <div style={{ minWidth: 0 }}>
+                        <p className="t-card-title">{f.titulo}</p>
+                        {f.detalle && <p className="t-meta" style={{ marginTop: 2 }}>{f.detalle}</p>}
+                      </div>
+                      <span className="t-num no-shrink" style={{ fontWeight: 800, color: 'var(--accent)' }}>+{f.creditos}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* ── RETOS ────────────────────────────────────────────────────
                 Solo los vigentes: uno terminado no se puede ganar. */}

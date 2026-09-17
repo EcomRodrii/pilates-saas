@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { AHORA, SLUG, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-lista';
+import { AHORA, SESION_ID, SLUG, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-lista';
 
 // Gamificación en la app de la alumna.
 //
@@ -12,8 +12,20 @@ import { AHORA, SLUG, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from './
 const base = `/portal/${SLUG}`;
 const HOY = '2026-08-12'; // el reloj que fija sembrarSociaLista
 
+/** El estudio premia la asistencia con 10. Es la regla que más estudios tienen en producción. */
+const REGLA_ASISTENCIA = {
+  id: 'rr-asistencia', studioId: STUDIO_ID, trigger: 'ASISTENCIA_CLASE', nombre: 'Asistir a clase', descripcion: null,
+  creditos: 10, activa: true, topeMensual: null, unidadEuros: null, creadoEn: '2026-08-01T00:00:00Z',
+};
+
 function conGamificacion() {
   const f = fixtureSociaLista() as Record<string, unknown>;
+  f.rewardRules = [
+    REGLA_ASISTENCIA,
+    { ...REGLA_ASISTENCIA, id: 'rr-compra', trigger: 'COMPRA', nombre: 'Comprar', creditos: 1, unidadEuros: 10 },
+    // Apagada a propósito: la app no puede prometerla.
+    { ...REGLA_ASISTENCIA, id: 'rr-renovar', trigger: 'RENOVACION_PLAN', nombre: 'Renovar', creditos: 40, activa: false },
+  ];
   f.levelDefinitions = [
     { id: 'n1', studioId: STUDIO_ID, nombre: 'Inicio', orden: 1, umbralCreditos: 0, color: '#aaa', icono: '🌱', beneficios: null },
     { id: 'n2', studioId: STUDIO_ID, nombre: 'Constante', orden: 2, umbralCreditos: 100, color: '#bbb', icono: '⭐', beneficios: 'Prioridad en lista de espera' },
@@ -196,7 +208,10 @@ test.describe('Student PWA · gamificación', () => {
     const card = page.getByTestId('nivel-inicio');
     await expect(card).toBeVisible({ timeout: 30_000 });
     await expect(card.getByText('Constante', { exact: false })).toBeVisible();
-    await expect(card.getByText('150 créditos →')).toBeVisible();
+    // El SALDO encabeza la tarjeta (antes iba pequeño en una esquina y no se encontraba).
+    await expect(card.getByText('Tus créditos')).toBeVisible();
+    await expect(card.getByTestId('saldo-inicio')).toHaveText('150');
+    await expect(card.getByTestId('por-clase-inicio')).toHaveText('+10 por cada clase');
     await card.click();
     await expect(page).toHaveURL(/\/logros$/);
     void HOY;
@@ -330,3 +345,72 @@ test.describe('Tus canjes', () => {
     await expect(page.getByTestId('mis-canjes')).toHaveCount(0);
   });
 });
+
+// ── Su saldo y cómo se ganan ────────────────────────────────────────────────
+//
+// Lo que faltaba (17-sep): la alumna veía, como mucho, un número pequeño en la
+// tarjeta del nivel, y en ningún sitio cuántos créditos le da venir a clase ni
+// qué más los da. Las reglas ya viajaban en el payload; nadie las leía.
+// Lo que se vigila: que solo se promete lo que el estudio tiene ENCENDIDO.
+test.describe('Student PWA · saldo y cómo se ganan los créditos', () => {
+  test('Logros dice cómo ganar: solo las reglas activas, con su cantidad', async ({ page }) => {
+    await montar(page, conGamificacion());
+    await page.goto(`${base}/logros`);
+    const seccion = page.getByTestId('como-ganar');
+    await expect(seccion).toBeVisible({ timeout: 30_000 });
+    await expect(seccion.getByText('Cómo ganar créditos')).toBeVisible();
+    const filas = seccion.getByTestId('forma-de-ganar');
+    await expect(filas).toHaveCount(2);
+    await expect(filas.nth(0)).toContainText('Asistir a una clase');
+    await expect(filas.nth(0)).toContainText('+10');
+    await expect(filas.nth(1)).toContainText('Comprar en el estudio');
+    await expect(filas.nth(1)).toContainText('Por cada 10 € que gastes en el estudio');
+    await expect(filas.nth(1)).toContainText('+1');
+    // La renovación está APAGADA en el estudio: prometerla sería mentir.
+    await expect(seccion.getByText('Renovar tu plan')).toHaveCount(0);
+  });
+
+  test('un estudio que SOLO da créditos enseña el saldo y cómo ganar, sin hablar de niveles', async ({ page }) => {
+    const f = fixtureSociaLista() as Record<string, unknown>;
+    f.rewardRules = [REGLA_ASISTENCIA];
+    (f.socia as Record<string, unknown>).memberCredits = [
+      { socioId: 'socio-e2e-1', studioId: STUDIO_ID, saldo: 30, totalGanado: 30, totalCanjeado: 0, actualizadoEn: '2026-08-10T00:00:00Z' },
+    ];
+    await montar(page, f);
+    await page.goto(`${base}/logros`);
+    await expect(page.getByTestId('como-ganar')).toBeVisible({ timeout: 30_000 });
+    // Antes: «Tu estudio aún no ha configurado esto», con créditos en la cuenta.
+    await expect(page.getByText(/aún no ha configurado esto/i)).toHaveCount(0);
+    const nivel = page.getByTestId('nivel');
+    await expect(nivel.getByText('Tus créditos')).toBeVisible();
+    await expect(nivel.getByText('30', { exact: true })).toBeVisible();
+    await expect(nivel.getByText(/Aún sin nivel|Tu nivel/)).toHaveCount(0);
+
+    await page.goto(base);
+    const card = page.getByTestId('nivel-inicio');
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card.getByTestId('saldo-inicio')).toHaveText('30');
+    await expect(card.getByTestId('por-clase-inicio')).toHaveText('+10 por cada clase');
+  });
+
+  test('la ficha de la clase dice lo que da asistir', async ({ page }) => {
+    const f = fixtureSociaLista() as Record<string, unknown>;
+    f.rewardRules = [REGLA_ASISTENCIA];
+    await montar(page, f);
+    await page.goto(`${base}/reservar/${SESION_ID}`);
+    await expect(page.getByText('+10 al asistir')).toBeVisible({ timeout: 30_000 });
+    // La etiqueta de la fila es el nombre de la moneda del estudio (aquí, el de
+    // por defecto). El nombre propio llega por otra petición, no por este payload.
+    await expect(page.getByText('Créditos', { exact: true })).toBeVisible();
+  });
+
+  test('sin regla de asistencia ACTIVA, la ficha de la clase no promete créditos', async ({ page }) => {
+    const f = fixtureSociaLista() as Record<string, unknown>;
+    f.rewardRules = [{ ...REGLA_ASISTENCIA, activa: false }];
+    await montar(page, f);
+    await page.goto(`${base}/reservar/${SESION_ID}`);
+    await expect(page.getByText('Cancelación', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/al asistir/)).toHaveCount(0);
+  });
+});
+

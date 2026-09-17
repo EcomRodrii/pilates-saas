@@ -15,6 +15,7 @@ const VACIA: GamificacionVista = {
   hay: false, saldo: 0, totalGanado: 0, totalCanjeado: 0, diasParaCaducar: null,
   nivel: { actual: null, siguiente: null, faltan: null, progreso: 0 },
   logros: [], retos: [], recompensas: [], canjes: [],
+  formasDeGanar: [], creditosPorClase: null,
 };
 
 export async function getGamificacion(slug: string): Promise<GamificacionVista> {
