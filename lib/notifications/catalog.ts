@@ -206,6 +206,12 @@ export const EVENTOS = {
   RECORDATORIO_1H: 'reserva.recordatorio_1h',
   BONO_POR_CADUCAR: 'bono.por_caducar',
   BONO_AGOTADO: 'bono.agotado',
+  // PAY-6 (auditoría 2026-09-16, decisión del fundador): si el estudio sube el
+  // precio de un plan MENSUAL, la renovación automática cobra el precio nuevo
+  // — pero la socia se entera ANTES, no el día del cargo. `dedupKey` por
+  // (suscripción, fecha_fin): una sola vez por ciclo, aunque el cron la
+  // revise varios días dentro de la ventana de aviso.
+  SUSCRIPCION_PRECIO_SUBE: 'suscripcion.precio_sube',
   // Una socia ha gastado sus créditos en una recompensa del catálogo. El
   // portal le dice «El estudio te avisará» — y hasta ahora al estudio no se le
   // avisaba: el canje quedaba en PENDIENTE en una tabla que ninguna pantalla
@@ -408,6 +414,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.VALORAR_CLASE]:         { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.BONO_POR_CADUCAR]:      { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.BONO_AGOTADO]:          { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  // PUSH + EMAIL a propósito: es un cambio de importe en un cobro recurrente,
+  // no una noticia que pueda perderse en la campana de la app — el email deja
+  // constancia por si hace falta reclamar más adelante.
+  [EVENTOS.SUSCRIPCION_PRECIO_SUBE]: { category: 'pagos',   priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'socia-del-evento' },
   // Va por PUSH y no por email a propósito: es una buena noticia con fecha
   // límite, y el sitio donde se gasta es la app.
   [EVENTOS.RECUPERACION_OTORGADA]:  { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
@@ -1014,6 +1024,14 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: 'Has usado la última sesión de tu bono de {plan}. Renueva para seguir reservando.',
     // Igual que el anterior: «renueva» es comprar.
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/comprar`,
+  },
+  // PAY-6: aviso con antelación de que la PRÓXIMA renovación (no la actual)
+  // va a cobrar un importe distinto al que la socia paga hoy. `{fecha}` es el
+  // día en que se aplicará, no una fecha ya pasada.
+  [`${EVENTOS.SUSCRIPCION_PRECIO_SUBE}#SOCIA`]: {
+    title: 'Tu cuota va a cambiar de precio',
+    body: 'A partir del {fecha}, tu plan {plan} pasará de {precioAnterior} a {precioNuevo} al mes.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/pagos`,
   },
   // `{clases}` llega ya en singular o plural desde el barrido: este catálogo no
   // sabe pluralizar y no se le va a enseñar por un caso.

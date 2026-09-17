@@ -65,6 +65,10 @@ const POR_EVENTO: Record<string, TipoAviso> = {
   'pago.fallido': 'atencion',
   'pago.devuelto': 'atencion',
   'pago.penalizacion': 'atencion',
+  // PAY-6: la próxima renovación va a costarle más. Le cuesta dinero, igual
+  // que el resto del grupo — no es una buena noticia con confeti ni un simple
+  // recado del estudio.
+  'suscripcion.precio_sube': 'atencion',
 
   // El estudio le cuenta algo: ni bueno ni malo.
   'reserva.lista_espera': 'estudio',
