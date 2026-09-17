@@ -80,8 +80,19 @@ export function NotificationBell() {
     return () => { vivo = false; };
   }, [user]);
 
+  // FE-15 (auditoría 2026-09-16): sin el guardia `vivo`, un fetch que resuelve
+  // tras desmontar (cierre de sesión, navegación fuera del panel) escribía
+  // sobre un componente que ya no existe — mismo patrón que ya usan los otros
+  // dos efectos de este fichero (arriba y en el canal de Realtime).
+  const vivoRef = useRef(true);
+  useEffect(() => {
+    vivoRef.current = true;
+    return () => { vivoRef.current = false; };
+  }, []);
+
   const cargar = useCallback(async () => {
     const { items, unread } = await fetchNotificaciones(authHeader, AMBITO_STAFF);
+    if (!vivoRef.current) return;
     setItems(items); setUnread(unread);
   }, []);
 
@@ -93,7 +104,6 @@ export function NotificationBell() {
   // mirase. Para que volver a la pestaña no obligue a esperar al siguiente
   // minuto, se recarga en cuanto vuelve a ser visible.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void cargar();
     const t = setInterval(() => { if (!document.hidden) void cargar(); }, 60_000);
     const alVolver = () => { if (!document.hidden) void cargar(); };
