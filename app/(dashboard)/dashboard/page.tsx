@@ -37,6 +37,7 @@ import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic
 import { useAuth } from '@/lib/auth-context';
 import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
+import { ReconciliacionesPendientes } from '@/components/dashboard/reconciliaciones-pendientes';
 import { CanjesPendientes } from '@/components/dashboard/canjes-pendientes';
 import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
 import { PlazasFijasPorDecidir } from '@/components/dashboard/plazas-fijas-por-decidir';
@@ -703,6 +704,7 @@ export default function Dashboard() {
               {gestionaClientas && gestionaCalendario && <PlazasFijasPorDecidir onToast={showToast} />}
               {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
               {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
+              {mueveDinero && <ReconciliacionesPendientes onToast={showToast} />}
               {gestionaClientas && <CanjesPendientes onToast={showToast} />}
               {/* El motivo de una baja puede ser salud: propietaria y gerencia, nunca recepción. */}
               {gestionaEquipo && <BajasPorRevisar onToast={showToast} />}

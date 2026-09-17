@@ -55,6 +55,8 @@ export interface ConteosEstudio {
   seriesPorRenovar?: number | null;
   /** Peticiones de plaza fija (plaza, pausa o la vuelta de una pausa) que esperan al estudio. */
   plazasFijasPorDecidir?: number | null;
+  /** Cobros por datáfono confirmados en Stripe sin venta registrada (A-14, backstop). */
+  reconciliacionesPorRevisar?: number | null;
   // En marcha
   sustitucionesBuscando?: number | null;
   ofertasListaEspera?: number | null;
@@ -86,6 +88,7 @@ export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
   bajasPorRevisar: 'decidir-bajas-equipo',
   seriesPorRenovar: 'decidir-series',
   plazasFijasPorDecidir: 'decidir-plazas-fijas',
+  reconciliacionesPorRevisar: 'decidir-reconciliaciones',
 };
 
 export interface LineaEstado {
@@ -141,6 +144,10 @@ const LINEAS: DefLinea[] = [
     uno: 'Una petición de plaza fija espera tu respuesta', varios: n => `${n} peticiones de plaza fija esperan tu respuesta` },
   { id: 'canjesPorEntregar', bandeja: 'decidir', href: null,
     uno: 'Una recompensa canjeada por entregar', varios: n => `${n} recompensas canjeadas por entregar` },
+  // Backstop A-14: cobro confirmado en Stripe sin venta registrada. Se resuelve
+  // en su propia tarjeta (marcar resuelto), no hay pantalla a la que ir.
+  { id: 'reconciliacionesPorRevisar', bandeja: 'decidir', href: null,
+    uno: 'Un cobro de caja sin venta registrada', varios: n => `${n} cobros de caja sin venta registrada` },
   // La última: no corre prisa (la clase ya la cubre el motor o la decide la
   // línea de arriba) y solo queda anotado, nunca es una sanción.
   { id: 'bajasPorRevisar', bandeja: 'decidir', href: null,
