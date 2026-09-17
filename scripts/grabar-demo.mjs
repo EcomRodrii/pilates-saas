@@ -1,10 +1,12 @@
-// ⚠️ Desde el 16-sep-2026 el vídeo del hero YA NO sale de este script. Los
-// ficheros de public/producto (demo.* para escritorio y demo-movil.* para el
-// corte vertical del móvil) se montan con HyperFrames en un proyecto que vive
-// fuera del repo, a partir de capturas reales del panel de un estudio de
-// prueba con datos inventados. Este script se queda como referencia de cómo
-// se grabó el vídeo anterior: si se vuelve a ejecutar, sobrescribe demo.* con
-// esa versión antigua y deja el corte móvil desparejado.
+// ⚠️ Desde el 16-sep-2026 el vídeo del hero YA NO sale de este script, y desde
+// el 17-sep-2026 tampoco es un bucle mudo: es un resumen de 78 s con
+// controles, `public/producto/tour.mp4` + `tour-poster.jpg`, montado con
+// HyperFrames en un proyecto que vive fuera del repo a partir de capturas
+// reales del panel de un estudio de prueba con datos inventados (ver
+// components/landing/VideoProducto.tsx). Este script se queda como
+// referencia de cómo se grabó el vídeo antiguo (demo.*, demo-movil.*, ya
+// borrados del repo): si se vuelve a ejecutar, crea ficheros demo.* que ya
+// no usa ningún componente.
 //
 // Graba el vídeo de producto del hero a partir de la DEMO REAL ("Estudio
 // Aurora", studio-demo: un estudio cien por cien ficticio que existe justo

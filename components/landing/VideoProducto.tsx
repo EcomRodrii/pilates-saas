@@ -1,100 +1,48 @@
-'use client';
-
-import { useSyncExternalStore } from 'react';
-import { CONSULTA_MOVIL, CORTES_VIDEO_PRODUCTO } from '@/lib/landing/video-producto';
-
-// El vídeo de producto del hero: el panel REAL de Tentare con datos de un
-// estudio de prueba inventado, en bucle y sin sonido. Cuatro momentos —el día
-// en el estudio, la agenda, la sustituta ya propuesta y los cobros del mes—
-// con zooms suaves sobre la interfaz, sin cursor, sin barra de navegador y sin
-// nada del sistema operativo: solo el producto.
+// El vídeo de producto del hero («Ver Tentare en acción»): el resumen de 78 s
+// del panel REAL de Tentare con datos de un estudio de prueba inventado —
+// bajas que se cubren solas, la semana entera en el calendario, reservas,
+// cobros— narrado con tipografía y avisos sobre el propio producto.
 //
-// Se monta con HyperFrames en un proyecto que vive fuera del repo, a partir de
-// capturas del panel (ver la nota de scripts/grabar-demo.mjs). Hay dos cortes:
-//  · escritorio: 1440×900, 13,6 s, ~1 MB en MP4 y ~760 KB en WebM;
-//  · móvil (≤ 760 px): 1080×1350 (4:5), el mismo bucle recortado sobre una
-//    fila de Inicio, la agenda, la tarjeta de la sustituta y las tarjetas de
-//    Cobros, para que a 390 px de ancho los rótulos se lean. Un solo vídeo de
-//    escritorio a 390 px era una interfaz reconocible pero ilegible.
+// Hasta el 17-sep-2026 este hueco era un bucle mudo en autoplay (dos cortes,
+// uno vertical para el móvil, montado solo en el cliente con
+// `prefers-reduced-motion` y un `<picture>` de arranque para no descargar
+// nada de más). Se sustituyó por este vídeo con controles nativos, que el
+// visitante arranca él mismo, por dos motivos:
+//  · un bucle de 13 s en autoplay es exactamente el movimiento continuo que
+//    `prefers-reduced-motion` pide evitar — con controles, el visitante decide;
+//  · el corte 4:5 se veía apretado en el móvil real (medido en tentare.app a
+//    390 px: 487 px de alto, más que la mitad de la pantalla, contra las
+//    secciones de alrededor). Un 16:9 con controles no necesita un corte
+//    aparte: a 390 px de ancho mide ~219 px de alto en cualquier pantalla.
 //
-// Rendimiento (es la portada, no puede costar caro) y la regla que manda:
-// NUNCA se descargan los dos cortes.
-//  · En el servidor y durante la hidratación todavía no se sabe el ancho, así
-//    que no se pinta ningún <video>: solo un <picture> con los dos pósteres, y
-//    el navegador pide únicamente el que casa con su `media`. Es lo que mide el
-//    LCP. Un <video> con varios <source> no sirve para esto: el póster es un
-//    atributo único y el navegador lo pide antes de saber nada.
-//  · Ya en el cliente se monta el <video> del corte que toca, con ese mismo
-//    póster (sale de la caché) y `preload="metadata"`.
-//  · `key` por corte: si la ventana cruza los 760 px, el <video> se vuelve a
-//    montar con sus fuentes nuevas (cambiar los <source> de un vídeo ya
-//    cargado no hace nada).
-//  · Codificación: H.264 High 4:2:0 (`yuv420p`) y VP9 perfil 0. Un 4:4:4 no lo
-//    decodifica por hardware ni iOS ni la mayoría de Android y el vídeo se
-//    veía en negro (#1004); lib/landing/video-producto.test.ts lo vigila.
+// Un solo fichero, un solo tamaño (1920×1080) y sin nada de la maquinaria que
+// existía solo para que el autoplay fuera seguro y barato: ni dos cortes, ni
+// medias queries de movimiento reducido, ni montar el <video> aparte en el
+// cliente. `width`/`height` explícitos reservan el hueco (nada de CLS) y
+// `preload="none"` con `poster` significa que no se descarga nada del vídeo
+// hasta que el visitante pulsa play.
 //
-// Con `prefers-reduced-motion` no se monta el <video> siquiera — se queda el
-// póster. Un bucle de 13 s es movimiento continuo en pantalla, justo lo que
-// esa preferencia pide evitar.
+// Codificación: H.264 High 4:2:0 (yuv420p) — un 4:4:4 no lo decodifica por
+// hardware ni iOS ni la mayoría de Android (#1004); lib/landing/video-producto.test.ts
+// lo vigila, aunque ahora el vídeo lo arranca el visitante y no autoplay.
 
-const CONSULTA_MENOS_MOVIMIENTO = '(prefers-reduced-motion: reduce)';
-
-/** `null` en el servidor y en la hidratación: todavía no se sabe. */
-function useConsulta(consulta: string): boolean | null {
-  return useSyncExternalStore(
-    (avisar) => {
-      const mq = window.matchMedia(consulta);
-      mq.addEventListener('change', avisar);
-      return () => mq.removeEventListener('change', avisar);
-    },
-    () => window.matchMedia(consulta).matches,
-    () => null,
-  );
-}
-
-const ALT = 'Tentare por dentro: las clases del día, la agenda, la sustituta ya propuesta ante una baja y los cobros del mes.';
+const ANCHO = 1920;
+const ALTO = 1080;
+const ALT = 'Tentare por dentro: bajas que se cubren solas, la semana entera en el calendario, reservas online y los cobros del mes.';
 
 export function VideoProducto() {
-  const menos = useConsulta(CONSULTA_MENOS_MOVIMIENTO);
-  const movil = useConsulta(CONSULTA_MOVIL);
-  const { escritorio, movil: corteMovil } = CORTES_VIDEO_PRODUCTO;
-  const corte = movil === null ? null : movil ? corteMovil : escritorio;
-
   return (
     <div className="v5-prod" id="producto">
       <div className="v5-prod-marco">
-        {menos !== false || corte === null ? (
-          <picture>
-            <source media={CONSULTA_MOVIL} srcSet={corteMovil.poster} width={corteMovil.ancho} height={corteMovil.alto} />
-            {/* Un <img> normal dentro de <picture>: es el mismo fotograma que el póster del vídeo y next/image no deja elegir fuente por `media`. */}
-            <img src={escritorio.poster} alt={ALT} width={escritorio.ancho} height={escritorio.alto} />
-          </picture>
-        ) : (
-          <video
-            key={corte.id}
-            ref={(el) => {
-              // El atributo `muted` (no solo la propiedad) es lo que el
-              // autoplay de iOS exige a un vídeo creado en el cliente.
-              if (el) el.defaultMuted = true;
-            }}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="metadata"
-            poster={corte.poster}
-            width={corte.ancho}
-            height={corte.alto}
-            aria-label={ALT}
-          >
-            <source src={corte.webm} type="video/webm" />
-            <source src={corte.mp4} type="video/mp4" />
-          </video>
-        )}
+        <video controls preload="none" poster="/producto/tour-poster.jpg" width={ANCHO} height={ALTO} aria-label={ALT}>
+          <source src="/producto/tour.mp4" type="video/mp4" />
+          Tu navegador no puede reproducir este vídeo. Puedes verlo directamente en{' '}
+          <a href="/producto/tour.mp4">/producto/tour.mp4</a>.
+        </video>
       </div>
 
       <style>{`
-        .v5-prod { position: relative; z-index: 2; max-width: 1180px; margin: -96px auto 0;
+        .v5-prod { position: relative; z-index: 2; max-width: 1180px; margin: -72px auto 0;
           padding: 0 clamp(20px,4vw,48px); }
         /* El marco: esquinas redondeadas, un borde muy tenue y una sombra
            larga. Nada de barra de navegador ni de puntos de ventana — lo que
@@ -102,14 +50,14 @@ export function VideoProducto() {
         .v5-prod-marco { position: relative; border-radius: clamp(14px,1.6vw,22px); overflow: hidden;
           background: #0F0F0F; border: 1px solid rgba(252,251,246,.14);
           box-shadow: 0 40px 120px -30px rgba(0,0,0,.65), 0 8px 24px rgba(0,0,0,.28); }
-        .v5-prod-marco picture { display: block; }
-        .v5-prod-marco video, .v5-prod-marco img { display: block; width: 100%; height: auto; }
+        .v5-prod-marco video { display: block; width: 100%; height: auto; }
 
         @media (max-width: 760px) {
           /* Sube menos (el hero es más corto) y va de borde a borde: a 390 px
-             cada píxel cuenta. Aquí se sirve el corte vertical (4:5), hecho
-             para leerse a este ancho. */
-          .v5-prod { margin-top: -40px; padding: 0; }
+             cada píxel cuenta. Con 16:9 el vídeo ya mide poco (~219 px de
+             alto a 390 de ancho), así que el solape solo tiene que asomar la
+             esquina superior sobre el héroe, no comerse media pantalla. */
+          .v5-prod { margin-top: -24px; padding: 0; }
           .v5-prod-marco { border-radius: 12px; border-left: none; border-right: none; }
         }
       `}</style>

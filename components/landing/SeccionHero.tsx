@@ -238,8 +238,11 @@ export function SeccionHero() {
         /* --alto-barra: la barra mide 58px y va en el flujo; el héroe sube por
            debajo de ella para que el halo arena empiece arriba del todo.
            El relleno de abajo deja sitio a dos cosas que se meten en él: la
-           tarjeta que desborda la foto y el vídeo de producto, que sube 96 px
-           (40 en móvil) sobre el héroe (VideoProducto.tsx). */
+           tarjeta que desborda la foto y el vídeo de producto, que sube 72 px
+           (24 en móvil) sobre el héroe (VideoProducto.tsx) — menos que antes,
+           porque el vídeo pasó de un bucle 4:5 muy alto a un 16:9 con
+           controles, mucho más bajo, y el mismo solape de antes lo habría
+           montado sobre las tarjetas flotantes de la foto. */
         .v5-hero { --alto-barra: 58px; position: relative;
           margin-top: calc(-1 * var(--alto-barra));
           padding: calc(var(--alto-barra) + clamp(48px,8vh,96px)) clamp(20px,4vw,48px) clamp(156px,14vw,188px);

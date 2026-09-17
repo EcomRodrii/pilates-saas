@@ -2,22 +2,30 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { CONSULTA_MOVIL, CORTES_VIDEO_PRODUCTO, PRESUPUESTO_VIDEO_KB } from './video-producto.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El vídeo de producto del hero (components/landing/VideoProducto.tsx) y sus
-// ficheros de public/producto, leídos sin ffprobe (CI no lo tiene):
+// El vídeo de producto del hero (components/landing/VideoProducto.tsx): un
+// único fichero con controles nativos, `public/producto/tour.mp4` +
+// `tour-poster.jpg`, leídos sin ffprobe (CI no lo tiene).
 //
-//   · los dos cortes existen, miden lo que dice el componente y no engordan;
-//   · el MP4 es H.264 High (o Main/Baseline) 4:2:0. Un 4:4:4 se reproducía en
-//     negro en el móvil (#1004) y en el navegador de escritorio no se notaba;
-//   · el WebM es VP9;
-//   · el corte móvil del CSS es el mismo que el `media` del <picture>.
+// Lo que se protege:
+//   · el vídeo y el póster existen, el póster mide lo mismo que declara el
+//     componente (1920×1080) y el vídeo no engorda por encima de lo que cabe
+//     bien en una descarga que el visitante pide con un clic;
+//   · el MP4 es H.264 High (o Main/Baseline) 4:2:0 — un 4:4:4 se reproducía en
+//     negro en el móvil (#1004); ya no hay autoplay, pero el códec sigue
+//     teniendo que decodificar en cualquier navegador que abra el fichero;
+//   · el componente no vuelve a traer autoplay/loop, y `preload` no es
+//     `"auto"` — es un vídeo que arranca el visitante, no un bucle de fondo.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PUBLIC = join(import.meta.dirname, '..', '..', 'public');
 const COMPONENTE = join(import.meta.dirname, '..', '..', 'components', 'landing', 'VideoProducto.tsx');
-const ruta = (url: string) => join(PUBLIC, url);
+const MP4 = join(PUBLIC, 'producto', 'tour.mp4');
+const POSTER = join(PUBLIC, 'producto', 'tour-poster.jpg');
+
+/** Techo de peso (es la portada, aunque ahora bajo demanda): que nadie suba un máster sin comprimir por error. */
+const TECHO_MP4_KB = 10 * 1024;
 
 /** Primer `tkhd` con ancho y alto (coma fija 16.16). */
 function medidasMp4(b: Buffer): { ancho: number; alto: number } {
@@ -49,18 +57,6 @@ function avcC(b: Buffer): { perfil: number; croma: number | null } {
   return { perfil, croma };
 }
 
-/** PixelWidth (0xB0) y PixelHeight (0xBA) del primer vídeo del WebM. */
-function medidasWebm(b: Buffer): { ancho: number; alto: number } {
-  const leer = (id: number) => {
-    for (let i = b.indexOf(id); i !== -1 && i < b.length - 3; i = b.indexOf(id, i + 1)) {
-      if (b[i + 1] === 0x82) return b.readUInt16BE(i + 2);
-      if (b[i + 1] === 0x81) return b[i + 2];
-    }
-    throw new Error(`sin elemento 0x${id.toString(16)}`);
-  };
-  return { ancho: leer(0xb0), alto: leer(0xba) };
-}
-
 function medidasJpeg(b: Buffer): { ancho: number; alto: number } {
   for (let i = 2; i < b.length - 9; ) {
     if (b[i] !== 0xff) { i++; continue; }
@@ -71,36 +67,30 @@ function medidasJpeg(b: Buffer): { ancho: number; alto: number } {
   throw new Error('JPEG sin SOF');
 }
 
-for (const corte of Object.values(CORTES_VIDEO_PRODUCTO)) {
-  test(`vídeo de producto (${corte.id}): ficheros, medidas y peso`, () => {
-    for (const url of [corte.poster, corte.webm, corte.mp4]) assert.ok(existsSync(ruta(url)), `falta public${url}`);
+test('vídeo de producto: fichero, medidas y peso', () => {
+  assert.ok(existsSync(MP4), 'falta public/producto/tour.mp4');
+  assert.ok(existsSync(POSTER), 'falta public/producto/tour-poster.jpg');
 
-    const mp4 = readFileSync(ruta(corte.mp4));
-    assert.deepEqual(medidasMp4(mp4), { ancho: corte.ancho, alto: corte.alto }, `${corte.mp4} no mide lo que dice el componente`);
-    assert.deepEqual(medidasWebm(readFileSync(ruta(corte.webm))), { ancho: corte.ancho, alto: corte.alto }, `${corte.webm} no mide lo que dice el componente`);
-    assert.deepEqual(medidasJpeg(readFileSync(ruta(corte.poster))), { ancho: corte.ancho, alto: corte.alto }, `${corte.poster} no mide lo que dice el componente`);
+  const mp4Medidas = medidasMp4(readFileSync(MP4));
+  const posterMedidas = medidasJpeg(readFileSync(POSTER));
+  assert.deepEqual(posterMedidas, mp4Medidas, 'tour-poster.jpg no mide lo mismo que tour.mp4');
+  assert.deepEqual(mp4Medidas, { ancho: 1920, alto: 1080 }, 'tour.mp4 no es 1920×1080 (16:9)');
 
-    const techo = PRESUPUESTO_VIDEO_KB[corte.id];
-    for (const url of [corte.webm, corte.mp4]) {
-      const kb = statSync(ruta(url)).size / 1024;
-      assert.ok(kb <= techo, `${url} pesa ${kb.toFixed(0)} KB (techo ${techo} KB)`);
-    }
-  });
+  const kb = statSync(MP4).size / 1024;
+  assert.ok(kb <= TECHO_MP4_KB, `tour.mp4 pesa ${kb.toFixed(0)} KB (techo ${TECHO_MP4_KB} KB)`);
+});
 
-  test(`vídeo de producto (${corte.id}): códecs que el móvil decodifica (#1004)`, () => {
-    const { perfil, croma } = avcC(readFileSync(ruta(corte.mp4)));
-    assert.ok([66, 77, 100].includes(perfil), `${corte.mp4}: perfil H.264 ${perfil} (se espera Baseline, Main o High, nunca High 4:4:4)`);
-    if (croma !== null) assert.equal(croma, 1, `${corte.mp4}: croma ${croma}, tiene que ser 4:2:0`);
-    assert.ok(readFileSync(ruta(corte.webm)).includes('V_VP9'), `${corte.webm} no es VP9`);
-  });
-}
+test('vídeo de producto: códec que decodifica en cualquier navegador (#1004)', () => {
+  const { perfil, croma } = avcC(readFileSync(MP4));
+  assert.ok([66, 77, 100].includes(perfil), `tour.mp4: perfil H.264 ${perfil} (se espera Baseline, Main o High, nunca High 4:4:4)`);
+  if (croma !== null) assert.equal(croma, 1, `tour.mp4: croma ${croma}, tiene que ser 4:2:0`);
+});
 
-test('el corte móvil del CSS es el del <picture> y nada llega al servidor como <video>', () => {
+test('vídeo de producto: lo arranca el visitante, no un bucle de fondo', () => {
   const fuente = readFileSync(COMPONENTE, 'utf8');
-  const px = CONSULTA_MOVIL.match(/max-width:\s*(\d+)px/)?.[1];
-  assert.ok(px, 'CONSULTA_MOVIL sin max-width');
-  assert.match(fuente, new RegExp(`@media \\(max-width: ${px}px\\)`), 'el CSS del componente usa otro corte');
-  assert.match(fuente, /<source media=\{CONSULTA_MOVIL\}/, 'el póster móvil tiene que elegirse con media en el <picture>');
-  // Sin saber el ancho (servidor e hidratación) solo se pinta el <picture>.
-  assert.match(fuente, /\(\) => null,/, 'la instantánea del servidor tiene que ser «no se sabe»');
+  assert.doesNotMatch(fuente, /\bautoPlay\b/, 'no debe volver autoPlay: el vídeo lo arranca el visitante con los controles');
+  assert.doesNotMatch(fuente, /\bloop\b/, 'no debe volver loop: ya no es un bucle de fondo');
+  assert.match(fuente, /\bcontrols\b/, 'el <video> tiene que llevar controles nativos');
+  assert.doesNotMatch(fuente, /preload=["']auto["']/, 'preload no puede ser "auto": nada se descarga hasta que se pulsa play');
+  assert.match(fuente, /preload=["']none["']/, 'preload tiene que ser "none"');
 });
