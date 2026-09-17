@@ -527,14 +527,19 @@ async function entregar(
     // en 4 de cada 6 cobros (cabecera del fichero), y no guardarlo aquí deja a
     // la socia sin tarjeta guardada: la siguiente renovación automática nunca
     // vuelve a cobrar sola (lib/inngest/renovaciones.ts exige un método no
-    // nulo para entrar al dunning). `sesion.metadata.socioId` viene siempre
-    // poblado para una sesión de recibo (app/api/stripe/checkout/route.ts lo
-    // pone desde `recibo.socio_id`, ya de confianza) — sin guard de identidad,
-    // mismo criterio que Modo A en el webhook.
+    // nulo para entrar al dunning).
+    // ⚠️ PAY-3 (auditoría 2026-09-16), CORRECCIÓN de la nota anterior:
+    // `sesion.metadata.socioId` NO viene "ya de confianza" para una sesión de
+    // recibo — sale de `recibo.socio_id` sin JWT (pagar por enlace nunca exige
+    // sesión), y guardarlo sin más deja la tarjeta de CUALQUIERA que conozca
+    // el reciboId como método de la titular. Mismo guard que ahora usa Modo A
+    // en el webhook: solo demostrada con la marca explícita del checkout.
+    const pagadorVerificado = sesion?.metadata?.pagadorVerificado === '1';
     if (sesion?.metadata?.socioId && typeof sesion.customer === 'string') {
       const resMetodo = await guardarMetodoDeCompra(admin, stripe, {
         studioId: p.studioId, socioId: sesion.metadata.socioId, customerId: sesion.customer,
-        stripeAccount: cuenta, paymentIntentId: piId, exigirIdentidadDemostrada: false,
+        stripeAccount: cuenta, paymentIntentId: piId, exigirIdentidadDemostrada: true,
+        socioIdVerificado: pagadorVerificado ? sesion.metadata.socioId : null,
       });
       if (!resMetodo.ok) {
         Sentry.captureMessage('[conciliador] cobrado pero no se pudo guardar el método de pago', {

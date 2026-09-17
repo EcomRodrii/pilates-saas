@@ -164,6 +164,16 @@ export async function POST(req: NextRequest) {
   // dos bloques más abajo, nunca del body. Solo la rama de PLAN confiaba en
   // el valor crudo — ahí se exige el Bearer del portal (ver más abajo).
   let socioId: string | null = null;
+  // PAY-3 (auditoría 2026-09-16). Pagar un recibo por enlace NUNCA exige
+  // sesión — la mayoría llegan por email/WhatsApp sin login. Pero
+  // `socioId` en esa rama sale de `recibo.socio_id`, no de un JWT: si esa
+  // marca "de confianza" a secas, quien conozca el reciboId (no es secreto
+  // criptográfico) puede pagarlo con su propia tarjeta y, como la sesión pide
+  // `setup_future_usage: 'off_session'`, el webhook la guardaría en la ficha
+  // de la TITULAR del recibo. Esto decide si HAY sesión y si resuelve a la
+  // MISMA persona — nunca bloquea el pago, solo si se puede guardar la
+  // tarjeta de quien paga.
+  let pagadorVerificado = false;
   // Sesión de Checkout que este recibo ya tenga abierta (migr 20260817214500).
   // Es lo que impide crear una SEGUNDA sesión pagable del mismo recibo.
   let sesionAbiertaId: string | null = null;
@@ -212,6 +222,15 @@ export async function POST(req: NextRequest) {
     socioId = recibo.socio_id ?? socioId;
     sesionAbiertaId = (recibo.checkout_session_id as string | null) ?? null;
     metadata.reciboId = body.reciboId;
+    // PAY-3: sin exigir sesión (a diferencia de la rama de plan de abajo),
+    // comprueba si la hay y si resuelve a la MISMA socia dueña del recibo.
+    if (socioId) {
+      const usuarioRecibo = await verificarUsuarioSupabase(req);
+      if (usuarioRecibo) {
+        const socioIdDeSesion = await socioAutenticado(usuarioRecibo.userId, body.studioId);
+        pagadorVerificado = !!socioIdDeSesion && socioIdDeSesion === socioId;
+      }
+    }
     // ¿Es el recibo de una CUOTA? `entrega_tipo` se escribe DESPUÉS de cobrar,
     // así que un pendiente casi nunca lo trae y se mira el plan de su
     // suscripción (ver `tipoDeReciboParaBizum`). Si la consulta no da nada,
@@ -393,6 +412,11 @@ export async function POST(req: NextRequest) {
     return conCorsWidget(req, NextResponse.json({ error: 'Importe no válido' }, { status: 409 }));
   }
   if (socioId) metadata.socioId = socioId;
+  // PAY-3: solo se marca cuando el JWT de esta petición resolvió a la MISMA
+  // titular del recibo — nunca a partir de `recibo.socio_id` a secas. El
+  // webhook y el conciliador solo guardan la tarjeta del pagador con esta
+  // marca presente.
+  if (body.reciboId && pagadorVerificado) metadata.pagadorVerificado = '1';
   // Stripe exige valores de metadata como string no vacío.
   if (body.origenLead) metadata.origenLead = body.origenLead;
   // "Pagar y reservar sin login" con Bizum: el webhook (checkout.session.

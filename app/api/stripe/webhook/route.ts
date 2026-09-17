@@ -357,6 +357,12 @@ async function procesarEvento(
     const reciboId = session.metadata?.reciboId;
     const socioId = session.metadata?.socioId;
     const studioId = session.metadata?.studioId;
+    // PAY-3 (auditoría 2026-09-16): en la rama de RECIBO, `socioId` sale de
+    // `recibo.socio_id` sin JWT (pagar por enlace nunca exige sesión) — solo
+    // cuenta como identidad demostrada del PAGADOR si checkout/route.ts marcó
+    // esto explícitamente (resolvió al MISMO socio_id del recibo). En la rama
+    // de PLAN, `socioId` ya viene verificado por JWT desde el propio checkout.
+    const pagadorVerificado = session.metadata?.pagadorVerificado === '1';
     // Compra de un PLAN desde el enlace público. Se escribía en el checkout y
     // aquí no se leía nunca: Stripe cobraba y no se entregaba nada.
     const planId = session.metadata?.planId;
@@ -765,7 +771,11 @@ async function procesarEvento(
           const res = await guardarMetodoDeCompra(admin, stripe, {
             studioId, socioId: socioDestino, customerId: session.customer, stripeAccount: event.account,
             paymentIntentId: session.payment_intent, exigirIdentidadDemostrada: true,
-            socioIdVerificado: socioId, fichaCreada: fichaCreadaEnLaEntrega,
+            // PAY-3: en la rama de RECIBO, `socioId` solo cuenta como
+            // demostrado con la marca explícita del checkout; en la de PLAN
+            // (sin reciboId) ya viene verificado por JWT — sin cambios ahí.
+            socioIdVerificado: reciboId ? (pagadorVerificado ? socioId : null) : socioId,
+            fichaCreada: fichaCreadaEnLaEntrega,
           });
           if (!res.ok) {
             // ⚠️ Sin `return`. Se creyó que un 5xx hacía reintentar a Stripe, y no:
