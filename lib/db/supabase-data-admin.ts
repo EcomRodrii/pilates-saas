@@ -37,7 +37,7 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN } from '@/lib/bono-logic';
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
@@ -2294,7 +2294,7 @@ export async function crearReservaPublica(params: {
   const tipoDeLaClase = tipoClaseId;
 
   if (exigirPlanResuelto || pol.maxSimultaneas != null) {
-    const [{ data: susRows }, { data: planRows }, { data: resRows }, { data: sesRows }] = await Promise.all([
+    const [, , { data: resRows }, { data: sesRows }] = await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
       admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
       admin.from('reservas').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
@@ -2307,11 +2307,8 @@ export async function crearReservaPublica(params: {
       // clases canceladas, y sin la columna no podría distinguirlas.
       admin.from('sesiones').select('id, inicio, cancelada').eq('studio_id', params.studioId).gte('inicio', new Date().toISOString()),
     ]);
-    const hoyISO = new Date().toISOString().slice(0, 10);
-    const planesGate = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
-    // Si el estudio no vende ningún plan, exigirlo solo deja a la clienta en un
-    // callejón: el mensaje le pide contratar algo que no existe.
-    const seVendeAlgo = hayAlgoQueContratar(planesGate);
+    // RES-4: El gate de entitlement se ha movido DENTRO de la RPC, no se necesita
+    // más hidratarTiposDePlanes ni verificar seVendeAlgo aquí en TS.
     // RES-4: El gate de entitlement se ha movido DENTRO de la RPC (dentro del
     // lock transaccional) para evitar race conditions. Dos peticiones concurrentes
     // con 1 bono ya no pueden pasar ambas el gate en TS y luego ambas insertar
