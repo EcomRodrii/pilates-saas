@@ -2150,7 +2150,11 @@ type MotivoIntentoFallido =
   | 'RESERVA_BLOQUEADA_IMPAGO'
   // Y otra vez: 20260907031432. Se distingue de LIMITE_SEMANAL a propósito —
   // «quiere más Máquina de la que su cuota le da» es una señal de venta.
-  | 'LIMITE_SEMANAL_ACTIVIDAD';
+  | 'LIMITE_SEMANAL_ACTIVIDAD'
+  // RES-4: Verificación de entitlement dentro del lock. Si la socia no tiene
+  // plan/bono activo, se registra como SIN_ENTITLEMENT aquí, siendo la
+  // verificación ahora atómica en la RPC dentro de pg_advisory_xact_lock.
+  | 'SIN_ENTITLEMENT';
 
 function registrarIntentoFallido(admin: SupabaseClient, params: {
   studioId: string; socioId: string; sesionId?: string | null; tipoClaseId?: string | null; motivo: MotivoIntentoFallido;
@@ -2311,7 +2315,8 @@ export async function crearReservaPublica(params: {
     // lock transaccional) para evitar race conditions. Dos peticiones concurrentes
     // con 1 bono ya no pueden pasar ambas el gate en TS y luego ambas insertar
     // CONFIRMADA con lock — solo una puede hacerlo. La RPC ahora devuelve
-    // SIN_ENTITLEMENT si falla la comprobación DENTRO del lock.
+    // SIN_ENTITLEMENT si falla la comprobación DENTRO del lock. No se comprueba
+    // aquí en TS.
     if (pol.maxSimultaneas != null) {
       const activas = contarReservasActivasFuturas(
         params.socioId,
