@@ -11,7 +11,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { claveCheckoutEmbebido } from '@/lib/billing/clave-checkout-embebido';
 import { setupFutureUsageCheckout } from '@/lib/billing/uso-futuro-tarjeta';
-import { telefonoValido } from '@/lib/csv';
+import { telefonoValido } from '@/lib/reservar/formato';
 import type { TipoPlan } from '@/lib/types';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
@@ -152,8 +152,18 @@ export async function POST(req: NextRequest) {
   // Teléfono: saneado pero NO bloqueante — a diferencia del email (que decide
   // a qué ficha se asocia el bono, y por eso 400ea), el teléfono es un dato de
   // contacto secundario: un formato raro no puede frenar un cobro legítimo.
-  // Mismo criterio "aviso, no bloqueo" que telefonoValido documenta en el
-  // importador. Inválido o ausente → simplemente no viaja.
+  // Inválido o ausente → simplemente no viaja.
+  //
+  // FE-4 (auditoría 2026-09-16): este endpoint usaba el `telefonoValido` de
+  // `lib/csv.ts` (España-específico: exige 9 dígitos tras normalizar +34)
+  // mientras el ÚNICO llamador real que recoge un teléfono nuevo de una
+  // visitante (`app/reservar/[slug]/page.tsx`) ya valida en cliente con el
+  // de `lib/reservar/formato.ts` (≥9 dígitos, sin exigir formato español).
+  // Con ese desajuste, un móvil no español pasaba el botón del cliente y el
+  // servidor lo tiraba sin decírselo a nadie — la propietaria se quedaba con
+  // una clienta de pago nueva sin teléfono, sin saber que faltaba. Ahora los
+  // dos usan el mismo validador, así que lo que habilita el botón es lo que
+  // de verdad se guarda.
   const telefonoCrudo = body.socioTelefono?.trim() ?? '';
   const socioTelefono = telefonoCrudo && telefonoCrudo.length <= 32 && telefonoValido(telefonoCrudo)
     ? telefonoCrudo
