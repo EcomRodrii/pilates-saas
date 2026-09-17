@@ -98,7 +98,6 @@ import type {
   RowContenidoPortal,
   RowContenidoPortalBanners,
   RowNovedadesEstudio,
-  RowUsuarios,
   RowVentasPos,
   RowVideosOnDemand,
   RowValoracionesIniciales,
@@ -174,7 +173,6 @@ import type {
   BannerPortal,
   NovedadEstudio,
   UbicacionBannerPortal,
-  Usuario,
   VentaPOS,
   VideoOnDemand,
   ValoracionSocia,
@@ -448,19 +446,6 @@ async function sinFilasTocadas(tabla: string, id: string, sinPermiso: string): P
 }
 
 // ─── Mappers: DB (snake_case) → TS (camelCase) ───────────────────────────────
-
-
-export function mapUsuario(r: RowUsuarios): Usuario {
-  return {
-    id: r.id,
-    studioId: r.studio_id,
-    rol: r.rol,
-    nombre: r.nombre,
-    email: r.email,
-    telefono: r.telefono ?? null,
-    avatarUrl: r.avatar_url ?? null,
-  } as Usuario;
-}
 
 
 // ─── Filas del ARRANQUE del panel ────────────────────────────────────────────
@@ -5548,7 +5533,6 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
   const [
     studioRes,
     studioHorarioRes,
-    usuariosRes,
     sociosRes,
     planesTarifaRes,
     suscripcionesRes,
@@ -5612,7 +5596,6 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
   ] = await enTandas([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
-    db.from('usuarios').select('*').eq('studio_id', sid),
     // A-3/A-4: las socias con baja lógica (borrado_en) no entran al panel; su
     // rastro fiscal (recibos/facturas) sí queda y se muestra como "Socia eliminada".
     // fetchAllRows (no un .select('*') a secas): sin paginar, PostgREST corta en
@@ -5729,7 +5712,6 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
       politicaPrivacidad: (studioRes.data as { politica_privacidad?: string | null } | null)?.politica_privacidad ?? null,
       terminosServicio: (studioRes.data as { terminos_servicio?: string | null } | null)?.terminos_servicio ?? null,
     },
-    usuarios: (usuariosRes.data ?? []).map(mapUsuario),
     socios: (sociosRes.data ?? []).map(mapSocio),
     planesTarifa: planesConTiposPanel,
     suscripciones: (suscripcionesRes.data ?? []).map(mapSuscripcion),
