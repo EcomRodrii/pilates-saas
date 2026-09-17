@@ -19,6 +19,7 @@ import { fetchAllRows } from '@/lib/supabase-data';
 import { idsEstudios } from './estudios.ts';
 import { repartirVencidas } from '@/lib/billing/baja-al-vencer';
 import { puedeArmarReintento, type ReciboParaCobrar } from '@/lib/billing/cobro-permitido';
+import { debeAvisarSubidaPrecio } from '@/lib/billing/aviso-subida-precio';
 
 export const renovacionesDispatcher = inngest.createFunction(
   { id: 'renovaciones-dispatcher', triggers: [{ cron: '0 8 * * *' }] },
@@ -280,6 +281,77 @@ async function generarRecibosRenovacion(studioId: string, nowISO: string, conMet
   return creados;
 }
 
+// PAY-6 (auditoría 2026-09-16, decisión del fundador): el estudio puede subir
+// el precio de un plan y la renovación cobra el importe de HOY — pero la
+// socia se entera ANTES, no el día del cargo. Corre en el MISMO cron diario
+// (nunca uno nuevo — Inngest ya va al ~84% del plan free), mirando las
+// suscripciones que vencen dentro de la ventana de aviso, no las ya vencidas
+// (esas las mira `generarRecibosRenovacion`).
+//
+// Ventana de varios días (no un único "exactamente hoy+7"), a propósito: si el
+// cron se salta un día, el aviso no se pierde. El `dedupKey` de
+// `emitirSuscripcionPrecioSube` (suscripción + fecha_fin) es quien garantiza
+// UN solo aviso por ciclo aunque esta función la revise varias veces dentro
+// de la ventana.
+const VENTANA_AVISO_DIAS = 7;
+
+async function avisarSubidaPrecioRenovacion(studioId: string, nowISO: string): Promise<number> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const hoy = nowISO.slice(0, 10);
+  const limite = new Date(nowISO);
+  limite.setUTCDate(limite.getUTCDate() + VENTANA_AVISO_DIAS);
+  const limiteISO = limite.toISOString().slice(0, 10);
+
+  const [{ data: susRows, error: susErr }, { data: planRows, error: planErr }] = await Promise.all([
+    admin.from('suscripciones')
+      .select('id, socio_id, plan_id, fecha_fin')
+      .eq('studio_id', studioId)
+      .eq('estado', 'ACTIVA')
+      .not('fecha_fin', 'is', null)
+      .gte('fecha_fin', hoy)
+      .lte('fecha_fin', limiteISO),
+    admin.from('planes_tarifa')
+      .select('id, nombre, precio, tipo')
+      .eq('studio_id', studioId)
+      .eq('tipo', 'MENSUAL'),
+  ]);
+  if (susErr) throw new Error(susErr.message);
+  if (planErr) throw new Error(planErr.message);
+
+  const planById = new Map((planRows ?? []).map(p => [p.id as string, p]));
+  const candidatas = (susRows ?? []).filter(s => planById.has(s.plan_id as string));
+  if (candidatas.length === 0) return 0;
+
+  const euros = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
+  let avisados = 0;
+  for (const sus of candidatas) {
+    const plan = planById.get(sus.plan_id as string)!;
+    // El precio ANTERIOR es el último que de verdad se le cobró, no el que
+    // tuviera el plan al contratar — si nunca se le ha cobrado (alta muy
+    // reciente, primer ciclo) no hay "subida" de la que avisar: es su primer
+    // cargo, ya lo vio al contratar.
+    const { data: ultimoCobro, error: cobroErr } = await admin.from('recibos')
+      .select('importe')
+      .eq('studio_id', studioId).eq('suscripcion_id', sus.id as string).eq('estado', 'COBRADO')
+      .order('fecha_cobro', { ascending: false }).limit(1).maybeSingle();
+    if (cobroErr) throw new Error(cobroErr.message);
+    if (!ultimoCobro) continue;
+    const precioAnterior = Number(ultimoCobro.importe);
+    const precioNuevo = Number(plan.precio);
+    if (!debeAvisarSubidaPrecio(precioAnterior, precioNuevo)) continue;
+    const { emitirSuscripcionPrecioSube } = await import('@/lib/notifications/emit');
+    await emitirSuscripcionPrecioSube(admin, {
+      studioId, socioId: sus.socio_id as string, suscripcionId: sus.id as string,
+      plan: plan.nombre as string,
+      precioAnterior: euros.format(precioAnterior), precioNuevo: euros.format(precioNuevo),
+      fecha: sus.fecha_fin as string,
+    });
+    avisados++;
+  }
+  return avisados;
+}
+
 export const procesarRenovacionesEstudio = inngest.createFunction(
   {
     id: 'renovaciones-estudio',
@@ -290,12 +362,13 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
   async ({ event, step }) => {
     const { studioId, nowISO } = event.data as { studioId: string; nowISO: string };
 
-    // Los tres pasos van en UN step (antes tres): cada step es una ejecución de
-    // Inngest. Repetirlos juntos en un reintento no duplica nada: la adopción
-    // solo toca recibos con `proximo_reintento` nulo, la cancelación por baja es
-    // condicional a `estado = 'ACTIVA'` y el recibo de renovación tiene id
-    // determinista (23505 = ya existía). El orden no cambia: primero adoptar,
-    // luego generar.
+    // Los cuatro pasos van en UN step (antes tres): cada step es una ejecución
+    // de Inngest. Repetirlos juntos en un reintento no duplica nada: la
+    // adopción solo toca recibos con `proximo_reintento` nulo, la cancelación
+    // por baja es condicional a `estado = 'ACTIVA'`, el recibo de renovación
+    // tiene id determinista (23505 = ya existía) y el aviso de subida de
+    // precio es idempotente por `dedupKey` (PAY-6). El orden no cambia: primero
+    // adoptar, luego generar, luego avisar de subidas futuras.
     //
     // El Set de socias con método se construye DENTRO del step y no se devuelve:
     // un Set devuelto por step.run se serializaría a `{}` en el replay (mismo
@@ -304,7 +377,8 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
       const conMetodoCobro = new Set(await sociosConMetodoCobro(studioId));
       const adoptados = await adoptarRecibosCliente(studioId, nowISO, conMetodoCobro);
       const generados = await generarRecibosRenovacion(studioId, nowISO, conMetodoCobro);
-      return { studioId, adoptados, generados };
+      const avisados = await avisarSubidaPrecioRenovacion(studioId, nowISO);
+      return { studioId, adoptados, generados, avisados };
     });
   },
 );

@@ -676,6 +676,35 @@ export async function emitirBonoAgotado(
   }
 }
 
+// PAY-6 (auditoría 2026-09-16): aviso con antelación de que la PRÓXIMA
+// renovación de su cuota MENSUAL va a cobrar un importe distinto al que paga
+// hoy — el estudio subió el precio del plan. `precioAnterior`/`precioNuevo`
+// llegan ya formateados (Intl.NumberFormat es-ES/EUR): la plantilla solo
+// sustituye texto, no formatea números. `dedupKey` por (suscripción,
+// fecha_fin): una sola vez por ciclo de renovación, aunque el cron la revise
+// varios días dentro de la ventana de aviso.
+export async function emitirSuscripcionPrecioSube(
+  admin: SupabaseClient, p: {
+    studioId: string; socioId: string; suscripcionId: string; plan: string;
+    precioAnterior: string; precioNuevo: string; fecha: string;
+  },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.SUSCRIPCION_PRECIO_SUBE, studioId: p.studioId,
+      data: {
+        plan: p.plan, precioAnterior: p.precioAnterior, precioNuevo: p.precioNuevo, fecha: p.fecha,
+        socioId: p.socioId, slug: (studio?.slug as string | null) ?? '',
+      },
+      resource: { type: 'suscripcion', id: p.suscripcionId },
+      dedupKey: `precio-sube:${p.suscripcionId}:${p.fecha}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirSuscripcionPrecioSube:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Una socia ha canjeado una recompensa con sus créditos. Al mostrador, que es
 // quien se la entrega. `dedupKey` por id de canje: cada canje avisa UNA vez,
 // aunque el emisor se reintente.
