@@ -9,6 +9,7 @@ import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 import { guardarMetodoDeCompra } from '@/lib/billing/guardar-metodo-de-compra';
 import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
+import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
 import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
@@ -1697,6 +1698,9 @@ async function procesarEvento(
             });
             return NextResponse.json({ error: 'Fallo al restaurar el recibo' }, { status: 500 });
           }
+          // El dinero no llegó a salir: los créditos de «Renovar plan» que se
+          // revirtieron al marcarlo DEVUELTO vuelven. Nunca lanza.
+          await seguirCreditosAlRecibo(admin, { studioId, reciboId });
         }
 
         // 2. La marca del fallo (enciende la fase FALLIDA del panel y el botón
@@ -1837,7 +1841,7 @@ async function procesarEvento(
           }
         }
         const { data: venta } = await admin.from('ventas_pos')
-          .select('id, devuelta_en').eq('studio_id', studioId).eq('stripe_payment_intent_id', piId).maybeSingle();
+          .select('id, devuelta_en, recibo_id').eq('studio_id', studioId).eq('stripe_payment_intent_id', piId).maybeSingle();
         if (!venta) {
           Sentry.captureMessage('[stripe webhook] refund fallido de venta POS sin venta asociada', {
             level: 'warning', extra: { paymentIntentId: piId, studioId },
@@ -1858,6 +1862,11 @@ async function procesarEvento(
               level: 'error', tags: { area: 'cobros' }, extra: { ventaPosId: venta.id, studioId, chargeId, detalle: error.message },
             });
             return NextResponse.json({ error: 'Fallo al restaurar la venta POS' }, { status: 500 });
+          }
+          // Igual que con un recibo: si el ticket dio créditos de «Renovar plan»,
+          // vuelven. Nunca lanza.
+          if (venta.recibo_id) {
+            await seguirCreditosAlRecibo(admin, { studioId, reciboId: venta.recibo_id as string });
           }
         }
       }

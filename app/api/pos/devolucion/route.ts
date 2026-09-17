@@ -10,6 +10,7 @@ import { uid } from '@/lib/utils';
 import { contextoCobroDe } from '@/lib/pos/terminal';
 import { revertirCreditosVentaPOS } from '@/lib/pos/venta-servidor';
 import { registrarDevolucion } from '@/lib/billing/registrar-devolucion';
+import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
 import { mensajeErrorVenta, codigoDeErrorPg } from '@/lib/pos/tipos';
 
 export const dynamic = 'force-dynamic';
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: venta } = await admin.from('ventas_pos')
-    .select('id, estado, total, importe_devuelto, metodo_pago, stripe_payment_intent_id, socio_id, numero')
+    .select('id, estado, total, importe_devuelto, metodo_pago, stripe_payment_intent_id, socio_id, numero, recibo_id')
     .eq('id', ventaId).eq('studio_id', sesion.studioId)
     .maybeSingle();
   if (!venta) return NextResponse.json({ error: 'No encontramos esa venta' }, { status: 404 });
@@ -190,6 +191,12 @@ export async function POST(req: NextRequest) {
     creditosRetirados = await revertirCreditosVentaPOS(admin, {
       studioId: sesion.studioId, ventaId, socioId: venta.socio_id ?? null,
     });
+    // Y los de «Renovar plan», si el ticket los dio (recompra del mismo plan).
+    // Estos no se quedan en lo que quede de saldo: lo ya gastado queda por
+    // compensar (migr 20260917015000). Nunca lanza.
+    if (venta.recibo_id) {
+      await seguirCreditosAlRecibo(admin, { studioId: sesion.studioId, reciboId: venta.recibo_id as string });
+    }
   }
 
   return NextResponse.json({

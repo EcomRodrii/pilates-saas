@@ -1804,7 +1804,10 @@ export interface RewardHistory {
   creadoEn: string;
 }
 
-export type TipoTransaccion = 'GANANCIA' | 'CANJE';
+// REVERSION: créditos de una renovación cuyo cobro se devolvió. COMPENSACION: lo
+// ya gastado de esa renovación, descontado de una ganancia posterior (migr
+// 20260917015000). Los dos van en negativo.
+export type TipoTransaccion = 'GANANCIA' | 'CANJE' | 'REVERSION' | 'COMPENSACION';
 
 // Libro mayor completo (ganancias + canjes) — es la fuente de verdad real
 // del saldo; MemberCredits es solo una caché para no recalcular sumando.
@@ -1813,7 +1816,7 @@ export interface CreditTransaction {
   studioId: string;
   socioId: string;
   tipo: TipoTransaccion;
-  creditos: number; // positivo en GANANCIA, negativo en CANJE
+  creditos: number; // positivo en GANANCIA, negativo en CANJE, REVERSION y COMPENSACION
   descripcion: string;
   refId: string | null;
   creadoEn: string;

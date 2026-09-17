@@ -27,6 +27,7 @@ import { cicloInicialDe } from '../bono-logic.ts';
 import type { PlanTarifa } from '../types.ts';
 import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
 import type { FuenteConfirmacion } from './confirmar-cobro.ts';
+import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 
 export interface CompraPlan {
   /**
@@ -477,6 +478,11 @@ export async function entregarPlanComprado(
   if (!selladoFactura.ok) {
     console.error('[entregarPlanComprado] cobro OK pero factura sin sellar:', selladoFactura.error);
   }
+
+  // Créditos de «Renovar plan»: comprar en la tienda web un plan que ya tenía
+  // (y que terminó hace 60 días o menos) cuenta como renovarlo. Lo decide la
+  // base; si no toca, no pasa nada. Nunca lanza.
+  await seguirCreditosAlRecibo(admin, { studioId: compra.studioId, reciboId: ids.reciboId });
 
   // ── 4. La matrícula, si se cobró en este mismo cargo ───────────────────────
   // P-1 (auditoría 26ª pasada). Recibo y factura APARTE de los del plan —

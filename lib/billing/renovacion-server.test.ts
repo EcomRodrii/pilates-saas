@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aplicarRenovacionServidor } from './renovacion-server.ts';
+import { readFileSync } from 'node:fs';
+import { aplicarRenovacionServidor, type EfectosRenovacion } from './renovacion-server.ts';
 
 // El snapshot de la entrega es lo único que permitirá, cuando se devuelva el
 // dinero, saber QUÉ habría que deshacer: `suscripciones` no tiene `updated_at`,
@@ -22,6 +23,9 @@ function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null; reci
   const rpcs: Array<{ nombre: string; args: Fila }> = [];
   const api = {
     rpc(nombre: string, args: Fila) {
+      // Los créditos (`seguirCreditosAlRecibo`, por defecto) van aparte: sus
+      // tests los inyectan. Aquí solo interesa la recarga del bono.
+      if (nombre === 'sincronizar_creditos_renovacion') return Promise.resolve({ data: [], error: null });
       rpcs.push({ nombre, args });
       // La RPC recarga la suscripción por dentro, así que se refleja aquí para
       // que el test siga midiendo "¿se tocó la suscripción?".
@@ -283,4 +287,95 @@ test('una renovación de verdad SIGUE recargando, aunque queden sesiones vivas',
   assert.equal(rpcs[0]?.nombre, 'renovar_bono_idempotente');
   assert.equal(r.aplicada, true);
   assert.equal(updates.suscripciones.length, 1);
+});
+
+// ── Créditos de «Renovar plan» ───────────────────────────────────────────────
+// Antes solo los daba el «marcar cobrado» del panel: una renovación cobrada con
+// tarjeta guardada, SEPA, Checkout o el datáfono no daba nada, con la regla
+// activa y anunciada a la alumna en «Cómo ganar créditos». Ahora cada cobro de
+// servidor pide sincronizarlos; QUÉ recibo los da lo decide la base
+// (`sincronizar_creditos_renovacion`), porque la recompra del mismo plan
+// también cuenta y eso no se ve desde este módulo.
+
+/** Efectos de mentira: apunta qué recibos se pidió sincronizar. */
+function efectosEspia(opts: { falla?: boolean } = {}) {
+  const pedidos: Array<{ studioId: string; reciboId: string }> = [];
+  const efectos: EfectosRenovacion = {
+    seguirCreditos: async (_admin, p) => {
+      pedidos.push(p);
+      if (opts.falla) throw new Error('RPC caída');
+    },
+  };
+  return { efectos, pedidos };
+}
+
+const SUS_MENSUAL = { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: null, fecha_fin: '2026-01-15', estado: 'ACTIVA' };
+
+test('créditos: cobrar una renovación pide sincronizarlos, con el recibo', async () => {
+  const { admin } = fakeAdmin({ sus: SUS_MENSUAL, plan: MENSUAL, recibo: { suscripcion_id: 'sus-1', es_renovacion: true } });
+  const { efectos, pedidos } = efectosEspia();
+  const r = await aplicarRenovacionServidor(admin, params, efectos);
+  assert.equal(r.aplicada, true, 'la entrega sigue igual');
+  assert.deepEqual(pedidos, [{ studioId: 'studio-1', reciboId: 'rec-1' }]);
+});
+
+test('créditos: la primera venta de un plan TAMBIÉN se sincroniza — la recompra del mismo plan la decide la base', async () => {
+  // Sin entrega (no es `es_renovacion`), pero puede ser la recompra de un plan
+  // que ya tenía: eso solo lo sabe `recibo_es_renovacion_para_creditos`.
+  const { admin, updates } = fakeAdmin({
+    sus: { ...SUS_MENSUAL, fecha_fin: '2026-10-06' }, plan: MENSUAL, recibo: { suscripcion_id: 'sus-1', es_renovacion: false },
+  });
+  const { efectos, pedidos } = efectosEspia();
+  await aplicarRenovacionServidor(admin, params, efectos);
+  assert.equal(updates.suscripciones.length, 0, 'la entrega sigue sin tocar nada');
+  assert.equal(pedidos.length, 1);
+});
+
+test('créditos: la llamada repetida (webhook tras el cobro síncrono) vuelve a pedirlos sin re-entregar', async () => {
+  const { admin, updates } = fakeAdmin({
+    sus: SUS_MENSUAL, plan: MENSUAL,
+    recibo: { suscripcion_id: 'sus-1', es_renovacion: true, entrega_tipo: 'MENSUAL', entrega_aplicada: true },
+  });
+  const { efectos, pedidos } = efectosEspia();
+  await aplicarRenovacionServidor(admin, params, efectos);
+  assert.equal(pedidos.length, 1, 'es el reintento si la primera falló');
+  assert.equal(updates.suscripciones.length, 0, 'no re-extiende');
+});
+
+test('créditos: una mensual pagada por adelantado (sin nada que extender) los pide igual', async () => {
+  const lejos = new Date();
+  lejos.setFullYear(lejos.getFullYear() + 1);
+  const { admin } = fakeAdmin({
+    sus: { ...SUS_MENSUAL, fecha_fin: lejos.toISOString().slice(0, 10) }, plan: MENSUAL,
+    recibo: { suscripcion_id: 'sus-1', es_renovacion: true },
+  });
+  const { efectos, pedidos } = efectosEspia();
+  const r = await aplicarRenovacionServidor(admin, params, efectos);
+  assert.equal(r.aplicada, false);
+  assert.equal(pedidos.length, 1);
+});
+
+test('⚠️ créditos: si sincronizar falla, NO lanza — tumbaría la factura y el justificante del cobro', async () => {
+  // `confirmarCobroRecibo` sella la factura y avisa a la socia DESPUÉS de esta
+  // llamada: un throw aquí dejaría un cobro real sin factura ni recibo por email.
+  const { admin } = fakeAdmin({ sus: SUS_MENSUAL, plan: MENSUAL, recibo: { suscripcion_id: 'sus-1', es_renovacion: true } });
+  const { efectos, pedidos } = efectosEspia({ falla: true });
+  const r = await aplicarRenovacionServidor(admin, params, efectos);
+  assert.equal(pedidos.length, 1);
+  assert.equal(r.aplicada, true, 'la renovación ya hecha se devuelve igual');
+  assert.equal(r.tipo, 'MENSUAL');
+});
+
+// Los créditos cuelgan de `aplicarRenovacionServidor`: si un camino de cobro
+// deja de llamarlo, deja también de dar créditos (y de entregar el ciclo). No se
+// pueden importar esos módulos aquí (Stripe, Inngest, cliente admin), así que se
+// comprueba sobre el código fuente.
+function fuente(ruta: string): string {
+  return readFileSync(new URL(ruta, import.meta.url), 'utf8');
+}
+
+test('créditos: los tres confirmadores de cobro de servidor pasan por aplicarRenovacionServidor', () => {
+  for (const ruta of ['./stripe-cobros.ts', './confirmar-cobro.ts', './dunning-server.ts']) {
+    assert.match(fuente(ruta), /await aplicarRenovacionServidor\(admin, \{/, ruta);
+  }
 });

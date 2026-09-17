@@ -53,7 +53,9 @@ function montar(o: Opciones) {
     },
   };
   const seguir = async (_admin: unknown, p: { studioId: string; reciboId: string }) => { seguidos.push(p); };
-  return { admin: admin as never, updates, seguidos, seguir };
+  const creditos: { studioId: string; reciboId: string }[] = [];
+  const seguirCreditos = async (_admin: unknown, p: { studioId: string; reciboId: string }) => { creditos.push(p); };
+  return { admin: admin as never, updates, seguidos, seguir, creditos, seguirCreditos };
 }
 
 const P = { studioId: 'studio-1', reciboId: 'rec-penaliz-pen-1', ahoraISO: '2026-09-15T09:00:00.000Z' };
@@ -183,4 +185,36 @@ test('registrarFalloCobro pone al día la penalización DESPUÉS de comprobar qu
   const captura = cuerpo.indexOf('} catch (e) {', llamada);
   assert.ok(guardia > 0 && soloPenalizacion > guardia, 'solo con el fallo ya registrado en el recibo');
   assert.ok(intento > soloPenalizacion && llamada > intento && captura > llamada, 'dentro de try/catch: el registro del fallo ya está hecho');
+});
+
+// Créditos de «Renovar plan»: un recibo devuelto no se queda los que dio.
+test('créditos: marcar devuelto pide revertirlos, también si ya estaba DEVUELTO', async () => {
+  for (const estado of ['COBRADO', 'DEVUELTO']) {
+    const m = montar({ recibo: { estado, stripe_payment_intent_id: null } });
+    const r = await marcarReciboDevuelto(m.admin, { ...P, reciboId: 'rec-renov-sus-1-2026-09' }, m.seguir, m.seguirCreditos);
+    assert.equal(r.ok, true, estado);
+    assert.deepEqual(m.creditos, [{ studioId: 'studio-1', reciboId: 'rec-renov-sus-1-2026-09' }], estado);
+  }
+});
+
+test('créditos: si el recibo no llega a DEVUELTO (Stripe, EN_CURSO, carrera, error), no se tocan', async () => {
+  const casos: Opciones[] = [
+    { recibo: { estado: 'COBRADO', stripe_payment_intent_id: 'pi_1', metodo_cobro: 'TARJETA' } },
+    { recibo: { estado: 'EN_CURSO' } },
+    { recibo: { estado: 'COBRADO' }, cambiaEntreMedias: true },
+    { recibo: { estado: 'COBRADO' }, errorUpdate: true },
+    { recibo: null },
+  ];
+  for (const o of casos) {
+    const m = montar(o);
+    const r = await marcarReciboDevuelto(m.admin, P, m.seguir, m.seguirCreditos);
+    assert.equal(r.ok, false, JSON.stringify(o));
+    assert.equal(m.creditos.length, 0, JSON.stringify(o));
+  }
+});
+
+test('créditos: un fallo al sincronizarlos no tumba «marcar devuelto»', async () => {
+  const m = montar({ recibo: { estado: 'COBRADO' } });
+  const r = await marcarReciboDevuelto(m.admin, P, m.seguir, async () => { throw new Error('RPC caída'); });
+  assert.equal(r.ok, true);
 });
