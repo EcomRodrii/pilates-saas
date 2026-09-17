@@ -48,22 +48,23 @@ export function validarFotoPerfil(file: File): string | null {
   return null;
 }
 
-export async function subirFotoPerfil(socioId: string, file: File): Promise<{ url: string } | { error: string }> {
+// RLS-1: Subir foto de socia a bucket privado.
+// Devuelve el PATH (no la URL pública). La URL se genera server-side vía
+// /api/foto/signed-url después de verificar permisos.
+export async function subirFotoPerfil(socioId: string, file: File): Promise<{ path: string } | { error: string }> {
   const img = await redimensionarImagen(file, LADO_AVATAR);
   const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
+    .from('avatars-privadas')
     .upload(socioId, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(socioId);
-  // Cache-bust: el path es siempre el mismo, así que sin esto el navegador
-  // seguiría mostrando la foto anterior tras sustituirla.
-  return { url: `${data.publicUrl}?v=${Date.now()}` };
+  // Devolvemos solo el path. La URL se genera bajo demanda en servidor.
+  return { path: socioId };
 }
 
 export async function eliminarFotoPerfil(socioId: string): Promise<{ ok: true } | { error: string }> {
-  const { error } = await supabase.storage.from(BUCKET).remove([socioId]);
+  const { error } = await supabase.storage.from('avatars-privadas').remove([socioId]);
   if (error) return { error: error.message };
   return { ok: true };
 }
@@ -269,21 +270,21 @@ export async function eliminarFotoAdmin(studioId: string): Promise<{ ok: true } 
 }
 
 // Foto de perfil de instructora — mismo bucket público, prefijo propio.
-export async function subirFotoInstructor(instructorId: string, file: File): Promise<{ url: string } | { error: string }> {
+// RLS-1: Subir foto de instructora a bucket privado.
+export async function subirFotoInstructor(instructorId: string, file: File): Promise<{ path: string } | { error: string }> {
   const path = `instructor-${instructorId}`;
   const img = await redimensionarImagen(file, LADO_AVATAR);
   const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
+    .from('avatars-privadas')
     .upload(path, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return { url: `${data.publicUrl}?v=${Date.now()}` };
+  return { path };
 }
 
 export async function eliminarFotoInstructor(instructorId: string): Promise<{ ok: true } | { error: string }> {
-  const { error } = await supabase.storage.from(BUCKET).remove([`instructor-${instructorId}`]);
+  const { error } = await supabase.storage.from('avatars-privadas').remove([`instructor-${instructorId}`]);
   if (error) return { error: error.message };
   return { ok: true };
 }
