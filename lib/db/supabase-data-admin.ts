@@ -2960,6 +2960,29 @@ export async function aceptarOfertaListaEspera(params: {
   const { data: res } = await admin.from('reservas').select('sesion_id').eq('id', params.reservaId).maybeSingle();
   const sesionId = res?.sesion_id as string | undefined;
 
+  // RES-1: dos motivos NUEVOS de cancelación al aceptar, y a propósito SIN
+  // compensación con `crear_recuperacion`. Los tres motivos de abajo
+  // (AFORO_LLENO/CLASE_CANCELADA/CLASE_YA_EMPEZADA) son un fallo AJENO a
+  // ella: el estudio o el reloj le quitan una plaza que sí le correspondía.
+  // Exceder su propio límite semanal o chocar con su propia otra reserva no
+  // lo es — sigue con el resto de su cuota intacta y puede reservar otra
+  // clase que sí le quepa; compensarla sería regalarle una clase de más por
+  // una oferta que nunca pudo aceptar de verdad.
+  if (resultado === 'LIMITE_SEMANAL' || resultado === 'LIMITE_SEMANAL_ACTIVIDAD' || resultado === 'CONFLICTO_HORARIO') {
+    if (sesionId) {
+      const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
+      await emitirReservaCancelada(admin, {
+        studioId: params.studioId, sesionId, socioId: params.socioId, reservaId: params.reservaId,
+        motivo: resultado === 'CONFLICTO_HORARIO' ? 'conflicto_horario_propio' : 'limite_semanal_propio',
+      });
+    }
+    return {
+      error: resultado === 'CONFLICTO_HORARIO'
+        ? 'Ya tienes otra clase o cita a esa misma hora: no hemos podido confirmarte esta plaza.'
+        : 'Ya has alcanzado el máximo de clases de tu plan esta semana: no hemos podido confirmarte esta plaza.',
+    };
+  }
+
   if (resultado !== 'CONFIRMADA') {
     // Aceptó dentro de plazo y aun así se queda sin plaza. Decisión de producto:
     // PIERDE EL SITIO (ya la ha cancelado la RPC) y se le compensa con una

@@ -117,7 +117,7 @@ export async function emitirReservaAbandonada(
 // clase ya ha empezado", esta es "no aceptaste la plaza liberada a tiempo").
 export async function emitirReservaCancelada(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' | 'clase_cancelada' },
+  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' | 'clase_cancelada' | 'limite_semanal_propio' | 'conflicto_horario_propio' },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
@@ -141,7 +141,17 @@ export async function emitirReservaCancelada(
               // clase cancelada). Tampoco es culpa suya: misma compensación.
               : p.motivo === 'clase_cancelada'
                 ? ' El estudio canceló la clase. Te hemos guardado una recuperación para otra clase.'
-                : '';
+                // RES-1: exceder su PROPIO límite semanal o chocar con su
+                // PROPIA otra reserva/cita no es un fallo ajeno como los
+                // cuatro de arriba — el resto de su cuota sigue intacta y
+                // puede reservar otra clase que sí le quepa, así que aquí NO
+                // se menciona ninguna recuperación (no se le compensa: ver
+                // supabase-data-admin.ts, aceptarOfertaListaEspera).
+                : p.motivo === 'limite_semanal_propio'
+                  ? ' Ya habías alcanzado el máximo de clases de tu plan para esta semana, así que no hemos podido confirmarte esta plaza. El resto de tu cuota sigue disponible.'
+                  : p.motivo === 'conflicto_horario_propio'
+                    ? ' Tenías otra clase o cita a la misma hora, así que no hemos podido confirmarte esta plaza.'
+                    : '';
     await publish({
       type: EVENTOS.RESERVA_CANCELADA, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, motivoTexto },
