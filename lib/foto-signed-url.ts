@@ -35,7 +35,6 @@ export function useFotoUrl(fotoPath: string | null, studioId: string) {
 
   useEffect(() => {
     if (!fotoPath) {
-      setUrl(null);
       return;
     }
 
