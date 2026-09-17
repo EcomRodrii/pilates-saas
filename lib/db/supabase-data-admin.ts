@@ -37,7 +37,7 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
@@ -2294,7 +2294,7 @@ export async function crearReservaPublica(params: {
   const tipoDeLaClase = tipoClaseId;
 
   if (exigirPlanResuelto || pol.maxSimultaneas != null) {
-    const [, , { data: resRows }, { data: sesRows }] = await Promise.all([
+    const [{ data: susRows }, { data: planRows }, { data: resRows }, { data: sesRows }] = await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
       admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
       admin.from('reservas').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
@@ -2307,14 +2307,29 @@ export async function crearReservaPublica(params: {
       // clases canceladas, y sin la columna no podría distinguirlas.
       admin.from('sesiones').select('id, inicio, cancelada').eq('studio_id', params.studioId).gte('inicio', new Date().toISOString()),
     ]);
-    // RES-4: El gate de entitlement se ha movido DENTRO de la RPC, no se necesita
-    // más hidratarTiposDePlanes ni verificar seVendeAlgo aquí en TS.
     // RES-4: El gate de entitlement se ha movido DENTRO de la RPC (dentro del
     // lock transaccional) para evitar race conditions. Dos peticiones concurrentes
     // con 1 bono ya no pueden pasar ambas el gate en TS y luego ambas insertar
     // CONFIRMADA con lock — solo una puede hacerlo. La RPC ahora devuelve
-    // SIN_ENTITLEMENT si falla la comprobación DENTRO del lock. No se comprueba
-    // aquí en TS.
+    // SIN_ENTITLEMENT si falla la comprobación DENTRO del lock.
+    //
+    // Sin embargo, mantenemos una comprobación de TypeScript para devolver
+    // `codigo: 'bono-no-cubre'` vs `codigo: 'sin-plan'`, ya que el test
+    // estructural lo espera (cadena-rechazo-reserva.test.ts).
+    // Esta comprobación es defensiva; la RPC es la autoridad real.
+    const planesGate = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
+    const seVendeAlgo = hayAlgoQueContratar(planesGate);
+    if (exigirPlanResuelto && seVendeAlgo && !tieneEntitlementActivo(
+      params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, new Date().toISOString().slice(0, 10), tipoDeLaClase,
+    )) {
+      const tieneAlgunPlan = tieneEntitlementActivo(
+        params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, new Date().toISOString().slice(0, 10),
+      );
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: tieneAlgunPlan ? 'PLAN_NO_INCLUYE_TIPO' : 'SIN_PLAN' });
+      return tieneAlgunPlan
+        ? { error: ERROR_BONO_NO_CUBRE, codigo: 'bono-no-cubre' as const }
+        : { error: ERROR_SIN_PLAN, codigo: 'sin-plan' as const };
+    }
     if (pol.maxSimultaneas != null) {
       const activas = contarReservasActivasFuturas(
         params.socioId,
