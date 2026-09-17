@@ -370,7 +370,7 @@ export interface RowMemberCredits {
   actualizado_en: string;
   // migr 20260908020000.
   caduca_el: string | null;
-  // migr 20260917015000.
+  // migr 20260917010429.
   creditos_por_compensar: number | null;
 }
 
