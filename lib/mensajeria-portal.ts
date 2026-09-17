@@ -127,37 +127,3 @@ export async function marcarConversacionLeida(
     });
   } catch { /* best-effort: no bloquea la lectura si falla */ }
 }
-
-// ── Qué instructora hay detrás de una conversación ──────────────────────────
-//
-// El GET de conversaciones no devuelve quién es la instructora (la RPC no
-// guarda ningún `titulo`) — enriquecerlo exigiría una ruta nueva, fuera de
-// alcance de este cambio (solo UI). Lo que SÍ podemos hacer sin tocar el
-// backend: recordar, en el dispositivo desde el que se abrió la conversación,
-// qué instructora se eligió — así el título no se degrada a un genérico justo
-// en el caso más común (la propia socia, en su propio teléfono). Si no hay
-// nada guardado (otro dispositivo, o conversación ya existente de antes de
-// este cambio), se cae a la etiqueta genérica "Tu instructora".
-const CLAVE_INSTRUCTOR_POR_CONVERSACION = 'ps_portal_mensajeria_instructor';
-
-function mapaInstructorPorConversacion(): Record<string, string> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(CLAVE_INSTRUCTOR_POR_CONVERSACION);
-    const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === 'object' ? parsed as Record<string, string> : {};
-  } catch { return {}; }
-}
-
-export function recordarInstructorDeConversacion(conversacionId: string, instructorId: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const mapa = mapaInstructorPorConversacion();
-    mapa[conversacionId] = instructorId;
-    window.localStorage.setItem(CLAVE_INSTRUCTOR_POR_CONVERSACION, JSON.stringify(mapa));
-  } catch { /* localStorage no disponible (Safari privado, cuota...): sin memoria, cae al genérico */ }
-}
-
-export function instructorRecordadoDe(conversacionId: string): string | null {
-  return mapaInstructorPorConversacion()[conversacionId] ?? null;
-}
