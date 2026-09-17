@@ -326,6 +326,11 @@ function Verificar() {
 }
 
 export default function Page() {
-  // `useSearchParams` exige Suspense en App Router.
-  return <Suspense fallback={null}><Verificar /></Suspense>;
+  // `useSearchParams` exige Suspense en App Router. FE-13 (auditoría
+  // 2026-09-16): `fallback={null}` dejaba el hueco del formulario en blanco
+  // (el marco de `acceso/layout.tsx` — foto, logo, nombre del estudio — sigue
+  // ahí, pero el bloque de texto/formulario desaparecía del todo un instante).
+  // Un hueco con tamaño reservado evita el salto de layout, mismo criterio
+  // que `reservar/confirmacion/page.tsx`.
+  return <Suspense fallback={<div style={{ minHeight: 240 }} />}><Verificar /></Suspense>;
 }

@@ -44,7 +44,7 @@ function Pagos() {
   }, [sp, toast]);
 
   return (
-    <StudentShell>
+    <>
       <PageHeader titulo="Pagos" sub="Recibos y estado de cada cobro" back />
 
       <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 14 }}>
@@ -100,14 +100,21 @@ function Pagos() {
           </section>
         ))}
       </div>
-    </StudentShell>
+    </>
   );
 }
 
+// FE-13 (auditoría 2026-09-16): `StudentShell` va FUERA del límite de
+// Suspense (mismo patrón que `reservar/confirmacion/page.tsx`) — antes
+// envolvía a `<Pagos>` entera, así que mientras `useSearchParams()` resolvía
+// (exige Suspense en el App Router) la cabecera y la barra de navegación
+// desaparecían del todo: pantalla en blanco, no solo el contenido.
 export default function PagosPage() {
   return (
-    <Suspense fallback={null}>
-      <Pagos />
-    </Suspense>
+    <StudentShell>
+      <Suspense fallback={<ListSkeleton n={3} h={66} />}>
+        <Pagos />
+      </Suspense>
+    </StudentShell>
   );
 }

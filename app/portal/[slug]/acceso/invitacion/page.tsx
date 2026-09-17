@@ -78,6 +78,10 @@ function Invitacion() {
 }
 
 export default function Page() {
-  // `useSearchParams` exige Suspense en App Router.
-  return <Suspense fallback={null}><Invitacion /></Suspense>;
+  // `useSearchParams` exige Suspense en App Router. FE-13 (auditoría
+  // 2026-09-16): `fallback={null}` dejaba el bloque en blanco un instante
+  // (el marco de `acceso/layout.tsx` sigue ahí, pero el texto/botón
+  // desaparecían del todo). Hueco con tamaño reservado, mismo criterio que
+  // `verificar/page.tsx` y `reservar/confirmacion/page.tsx`.
+  return <Suspense fallback={<div style={{ minHeight: 200 }} />}><Invitacion /></Suspense>;
 }

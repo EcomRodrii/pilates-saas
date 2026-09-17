@@ -89,7 +89,7 @@ function Bonos() {
   const otros = data?.filter((b) => b.estado !== 'activo') ?? [];
 
   return (
-    <StudentShell>
+    <>
       <PageHeader
         titulo="Bonos"
         sub="Tus sesiones y su caducidad"
@@ -169,15 +169,21 @@ function Bonos() {
           </>
         )}
       </div>
-    </StudentShell>
+    </>
   );
 }
 
+// FE-13 (auditoría 2026-09-16): `StudentShell` va FUERA del límite de
+// Suspense (mismo patrón que `reservar/confirmacion/page.tsx`) — antes
+// envolvía a `<Bonos>` entera, así que mientras `useSearchParams()` resolvía
+// (exige Suspense en el App Router) la cabecera y la barra de navegación
+// desaparecían del todo: pantalla en blanco, no solo el contenido.
 export default function BonosPage() {
-  // `useSearchParams` exige un límite de Suspense en el App Router.
   return (
-    <Suspense fallback={null}>
-      <Bonos />
-    </Suspense>
+    <StudentShell>
+      <Suspense fallback={<ListSkeleton n={2} h={96} />}>
+        <Bonos />
+      </Suspense>
+    </StudentShell>
   );
 }
