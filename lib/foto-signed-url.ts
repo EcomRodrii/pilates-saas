@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 // RLS-1: Helpers para obtener URLs firmadas de fotos de personas.
 
 /**
@@ -25,7 +27,6 @@ export async function obtenerUrlFoto(
  * Hook para componentes React que necesitan una foto.
  * Maneja carga y errores automáticamente.
  */
-import { useEffect, useState } from 'react';
 
 export function useFotoUrl(fotoPath: string | null, studioId: string) {
   const [url, setUrl] = useState<string | null>(null);
