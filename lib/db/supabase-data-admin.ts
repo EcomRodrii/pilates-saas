@@ -2289,6 +2289,10 @@ export async function crearReservaPublica(params: {
     }
   }
 
+  // RES-4: El tipo de la clase se necesita para pasar a la RPC (dentro o fuera del
+  // gate de plan). Se define aquí para que esté disponible en ambos casos.
+  const tipoDeLaClase = tipoClaseId;
+
   if (exigirPlanResuelto || pol.maxSimultaneas != null) {
     const [{ data: susRows }, { data: planRows }, { data: resRows }, { data: sesRows }] = await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
@@ -2304,9 +2308,6 @@ export async function crearReservaPublica(params: {
       admin.from('sesiones').select('id, inicio, cancelada').eq('studio_id', params.studioId).gte('inicio', new Date().toISOString()),
     ]);
     const hoyISO = new Date().toISOString().slice(0, 10);
-    // El tipo de la clase importa: un bono acotado a Reformer no da derecho a
-    // reservar Mat (0111). Ya se resolvió arriba (tipoClaseId), sin repetir la query.
-    const tipoDeLaClase = tipoClaseId;
     const planesGate = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
     // Si el estudio no vende ningún plan, exigirlo solo deja a la clienta en un
     // callejón: el mensaje le pide contratar algo que no existe.
