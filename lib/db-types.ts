@@ -370,6 +370,8 @@ export interface RowMemberCredits {
   actualizado_en: string;
   // migr 20260908020000.
   caduca_el: string | null;
+  // migr 20260917010429.
+  creditos_por_compensar: number | null;
 }
 
 export interface RowMensajesEquipo {
@@ -3717,6 +3719,7 @@ export type MemberCreditsInsert = {
   total_canjeado?: number | null;
   actualizado_en?: string | null;
   caduca_el?: string | null | null;
+  creditos_por_compensar?: number | null | null;
 }
 
 export type MemberCreditsUpdate = {
@@ -3727,6 +3730,7 @@ export type MemberCreditsUpdate = {
   total_canjeado?: number | null;
   actualizado_en?: string | null;
   caduca_el?: string | null | null;
+  creditos_por_compensar?: number | null | null;
 }
 
 export type MensajesEquipoInsert = {

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { penalizacionDelRecibo } from './penalizacion-aprobar-reglas.ts';
+import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 
 // «Marcar devuelto» / «Devolver» de Cobros (components/cobros/panel-pendientes.tsx).
 //
@@ -49,6 +50,7 @@ export async function marcarReciboDevuelto(
   admin: SupabaseClient,
   p: { studioId: string; reciboId: string; ahoraISO: string },
   seguir: SeguirPenalizacion = seguirPorDefecto,
+  seguirCreditos: SeguirPenalizacion = seguirCreditosAlRecibo,
 ): Promise<ResultadoMarcarDevuelto> {
   const { data: recibo, error: errLectura } = await admin.from('recibos')
     .select('estado, fecha_devolucion, stripe_payment_intent_id, metodo_cobro, sepa_estado')
@@ -104,6 +106,15 @@ export async function marcarReciboDevuelto(
     } catch (e) {
       console.error('[marcar-devuelto] no se pudo poner al día la penalización del recibo', p.reciboId, e instanceof Error ? e.message : e);
     }
+  }
+
+  // Los créditos de «Renovar plan» que diera este recibo se revierten (lo ya
+  // gastado queda por compensar). También SIEMPRE que esté DEVUELTO, por el
+  // mismo motivo que la penalización; repetir no hace nada. Nunca lanza.
+  try {
+    await seguirCreditos(admin, { studioId: p.studioId, reciboId: p.reciboId });
+  } catch (e) {
+    console.error('[marcar-devuelto] no se pudieron poner al día los créditos del recibo', p.reciboId, e instanceof Error ? e.message : e);
   }
 
   return { ok: true, fechaDevolucion, yaEstaba };

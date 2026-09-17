@@ -184,7 +184,7 @@ import type {
 } from '@/lib/types';
 import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados, marcarReciboDevueltoApi } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados, marcarReciboDevueltoApi, sincronizarCreditosRecibosApi } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
@@ -4329,6 +4329,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Refill bono or extend mensual when renewal payment is collected
     const recibo = recibos.find(r => r.id === reciboId);
     if (recibo) await aplicarRenovacionSuscripcion(recibo);
+    // Créditos de «Renovar plan»: los decide el servidor, sin esperar.
+    void reflejarCreditosDeRecibos([reciboId]);
     if (recibo) {
       const socio = socios.find(s => s.id === recibo.socioId);
       addActividadReciente(
@@ -4337,9 +4339,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         recibo.socioId ?? undefined,
         recibo.socioId ? `/socios/${recibo.socioId}` : undefined
       );
-      if (recibo.concepto.startsWith('Renovación') && recibo.socioId) {
-        otorgarCreditos(recibo.socioId, 'RENOVACION_PLAN', reciboId);
-      }
     }
     // `cobroRegistrado` distingue el fallo del SELLADO fiscal (el dinero ya se
     // registró como cobrado, solo falta la factura) de un fallo real al
@@ -4496,6 +4495,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     for (const recibo of cobradosAhora) {
       await aplicarRenovacionSuscripcion(recibo);
     }
+    // Créditos de «Renovar plan» de lo cobrado: los decide el servidor. Antes el
+    // cobro en lote no daba ninguno.
+    void reflejarCreditosDeRecibos(cobradosAhora.map(r => r.id));
     const saltados = new Set(res.idsSaltados ?? []);
     return { ...res, cobrados: cobradosAhora.length, saltados: pendientes.filter(r => saltados.has(r.id)) };
   }
@@ -4838,6 +4840,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // ── Gamificación: créditos y recompensas ──────────────────────────────────────
   // El valor de cada acción SIEMPRE sale de rewardRules (configurable por el
   // estudio) — otorgarCreditos nunca usa un número fijo.
+
+  // Créditos de «Renovar plan» tras cobrar a mano. El cobro se escribe desde
+  // aquí, pero QUÉ recibo da créditos lo decide el servidor
+  // (`/api/cobros/creditos-recibos` → `sincronizar_creditos_renovacion`): una
+  // renovación marcada o la recompra del mismo plan, con el recibo como clave, la
+  // misma que usan el webhook y los crons. Aquí solo se refleja el saldo que
+  // devuelve. Antes lo decidía esta pantalla por el texto del concepto.
+  async function reflejarCreditosDeRecibos(reciboIds: string[]) {
+    const resultados = await sincronizarCreditosRecibosApi(reciboIds);
+    for (const r of resultados) {
+      if (r.accion !== 'OTORGADO' || !r.socioId || r.saldo == null) continue;
+      const { socioId, saldo, creditos } = r;
+      const now = new Date().toISOString();
+      setMemberCredits(prev => {
+        const existente = prev.find(m => m.socioId === socioId);
+        return existente
+          ? prev.map(m => m.socioId === socioId ? { ...m, saldo, totalGanado: m.totalGanado + creditos, actualizadoEn: now } : m)
+          : [...prev, { socioId, studioId: getCurrentStudioId(), saldo, totalGanado: creditos, totalCanjeado: 0, caducaEl: null, actualizadoEn: now }];
+      });
+    }
+  }
 
   function otorgarCreditos(socioId: string, trigger: RewardTrigger, refId: string | null) {
     // Gate de plan (espejo del servidor en lib/supabase-data.ts): sin la

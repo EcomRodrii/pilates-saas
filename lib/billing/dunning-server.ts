@@ -6,6 +6,7 @@ import { aplicarRenovacionServidor } from './renovacion-server.ts';
 import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import { penalizacionDelRecibo } from './penalizacion-aprobar-reglas.ts';
+import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 
 // Registra un intento de cobro FALLIDO de un recibo y avanza su ciclo de dunning:
 // cuenta el intento, reprograma el siguiente reintento (+3 / +7 días) o marca el
@@ -100,6 +101,14 @@ export async function registrarFalloCobro(params: {
         level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-recibo' }, extra: { reciboId, studioId },
       });
     }
+  }
+
+  // Un adeudo SEPA dado por COBRADO que el banco devuelve después: el dinero no
+  // está, así que los créditos de «Renovar plan» que dio se revierten (lo
+  // gastado queda por compensar). Solo SEPA puede venir de COBRADO; con tarjeta
+  // el recibo nunca estuvo cobrado y no hay nada que revertir. Nunca lanza.
+  if (esSepa) {
+    await seguirCreditosAlRecibo(admin, { studioId, reciboId });
   }
 
   // Hallazgo A (auditoría dunning 2026-08-10): al agotar los 3 reintentos la

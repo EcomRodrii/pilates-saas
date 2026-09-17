@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { mesesDeCiclo } from '../bono-logic.ts';
+import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 import * as Sentry from '@sentry/nextjs';
 
 // Aplica la RENOVACIÓN de una suscripción cuando se cobra su recibo, en el
@@ -43,7 +44,42 @@ export interface ResultadoRenovacion {
 
 const SIN_ENTREGA: ResultadoRenovacion = { aplicada: false, tipo: 'NINGUNA', antes: null, despues: null };
 
+/** Lo que la renovación hace fuera de este módulo, inyectable para probarlo sin BD. */
+export interface EfectosRenovacion {
+  seguirCreditos: (admin: SupabaseClient, p: { studioId: string; reciboId: string }) => Promise<unknown>;
+}
+
+const EFECTOS: EfectosRenovacion = { seguirCreditos: seguirCreditosAlRecibo };
+
+// Cobrar un recibo entrega el ciclo (si es una renovación) y pone al día sus
+// créditos de «Renovar plan». Todos los caminos de servidor que dejan un recibo
+// COBRADO pasan por aquí justo después: `cobrarReciboOffSession` (dunning de las
+// renovaciones, «cobrar online», Decision OS), `confirmarCobroExitoso` (SEPA y la
+// red del webhook de tarjeta) y `confirmarCobroRecibo` (Checkout —«renovar en un
+// toque»—, conciliador y datáfono/Bizum del mostrador).
+//
+// Los créditos se piden para CUALQUIER recibo, no solo los `es_renovacion`: la
+// recompra del mismo plan también cuenta, y eso lo decide la base
+// (`seguirCreditosAlRecibo`). Tampoco dependen de lo que haya hecho la entrega:
+// una mensual pagada por adelantado sigue siendo una renovación cobrada. Y la
+// llamada repetida (el webhook de tarjeta tras el cobro síncrono, la reentrega
+// de SEPA) es el reintento si la primera falló; repetir no suma nada.
 export async function aplicarRenovacionServidor(
+  admin: SupabaseClient,
+  params: { studioId: string; reciboId: string },
+  efectos: EfectosRenovacion = EFECTOS,
+): Promise<ResultadoRenovacion> {
+  const resultado = await entregarRenovacion(admin, params);
+  // `seguirCreditosAlRecibo` nunca lanza; el catch es por si se inyecta otra cosa.
+  try {
+    await efectos.seguirCreditos(admin, params);
+  } catch (e) {
+    console.error('[aplicarRenovacionServidor] créditos sin sincronizar', params.reciboId, e);
+  }
+  return resultado;
+}
+
+async function entregarRenovacion(
   admin: SupabaseClient,
   params: { studioId: string; reciboId: string },
 ): Promise<ResultadoRenovacion> {

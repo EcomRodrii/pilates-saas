@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import { hoyEnEstudio } from '@/lib/utils';
 import { filaSuscripcionDeLinea } from '@/lib/pos/suscripcion-de-linea';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
 import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -226,6 +227,13 @@ export async function entregarVentaPOS(
       const fila = Array.isArray(data) ? data[0] : data;
       creditos = Number(fila?.r_creditos ?? 0);
     }
+  }
+
+  // «Renovar plan»: si el ticket lleva un plan que la socia ya tenía (y terminó
+  // hace 60 días o menos), cuenta como renovarlo — aparte de los créditos por
+  // COMPRA de arriba, que van por importe. Lo decide la base. Nunca lanza.
+  if (reciboId && venta.socio_id) {
+    await seguirCreditosAlRecibo(admin, { studioId, reciboId });
   }
 
   void ahora;

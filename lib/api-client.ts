@@ -890,6 +890,38 @@ export async function cobrarOnlineDirecto(params: { reciboId: string; socioId: s
   return aviso ? { ok: true, ...aviso } : { ok: true };
 }
 
+// Créditos de «Renovar plan» tras cobrar recibos a mano en el panel. Solo
+// avisa: qué recibo da créditos lo decide el servidor. NUNCA lanza — unos
+// créditos no pueden estropear un cobro ya hecho; sin respuesta, lista vacía.
+export interface CreditosDeRecibo {
+  reciboId: string;
+  accion: 'OTORGADO' | 'REVERTIDO' | 'NADA';
+  socioId: string | null;
+  creditos: number;
+  saldo: number | null;
+}
+
+export async function sincronizarCreditosRecibosApi(reciboIds: string[]): Promise<CreditosDeRecibo[]> {
+  const resultados: CreditosDeRecibo[] = [];
+  // De 50 en 50, el tope de la ruta: «cobrar pendientes» del estudio entero
+  // puede llevar más.
+  for (let i = 0; i < reciboIds.length; i += 50) {
+    try {
+      const res = await fetch('/api/cobros/creditos-recibos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ reciboIds: reciboIds.slice(i, i + 50) }),
+      });
+      if (!res.ok) continue;
+      const data = (await res.json().catch(() => ({}))) as { resultados?: unknown };
+      if (Array.isArray(data.resultados)) resultados.push(...(data.resultados as CreditosDeRecibo[]));
+    } catch {
+      // Sin red: el cobro ya está hecho; los créditos se quedan sin reflejar.
+    }
+  }
+  return resultados;
+}
+
 // «Marcar devuelto» desde Cobros. NUNCA lanza: sin respuesta legible no se
 // afirma nada, y la pantalla no marca el recibo.
 export async function marcarReciboDevueltoApi(reciboId: string): Promise<{ ok: true; fechaDevolucion: string } | { ok: false; error: string }> {

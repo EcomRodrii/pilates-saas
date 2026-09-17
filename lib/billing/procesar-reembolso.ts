@@ -29,6 +29,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import { registrarDevolucion, referenciaDevolucion, origenDeReembolso, type OrigenDevolucion } from './registrar-devolucion.ts';
+import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 
 // Orígenes cuyo PaymentIntent apunta a un recibo real de Tentare, y que por
 // tanto hay que marcar DEVUELTO/disputado cuando se devuelve o se impugna.
@@ -147,6 +148,15 @@ async function procesarReembolsoDeUnRecibo(
     }),
     stripeChargeId: p.chargeId,
   });
+
+  // Créditos de «Renovar plan», con la devolución ya anotada: con el recibo DEVUELTO, se revierten (lo
+  // gastado queda por compensar). Solo en el TOTAL: un parcial deja el recibo
+  // COBRADO y los créditos se quedan. Siempre, no solo en la transición: repetir
+  // no hace nada y así un reintento repara uno que falló. Nunca lanza.
+  if (origen === 'REEMBOLSO_TOTAL') {
+    await seguirCreditosAlRecibo(admin, { studioId: p.studioId, reciboId: p.reciboId });
+  }
+
   if (dev) {
     // Notificación best-effort: un fallo aquí no puede tumbar la conciliación
     // — el dinero y la fila de `devoluciones` ya están escritos pase lo que
@@ -352,6 +362,11 @@ export async function procesarDisputeClosed(
       console.error(`[${p.fuente}] disputa perdida: no se pudo comprobar si el recibo era de una penalización`, p.reciboId, e instanceof Error ? e.message : e);
     }
 
+    // Créditos de «Renovar plan» del recibo: fuera, igual que la penalización y
+    // también SIEMPRE que se pierde (el recibo pudo quedar DEVUELTO antes, a
+    // mano). Nunca lanza.
+    await seguirCreditosAlRecibo(admin, { studioId: p.studioId, reciboId: p.reciboId });
+
     // ⚠️ `charge_refunded` = el estudio reembolsó DURANTE la disputa. Ese
     // dinero ya lo anota `charge.refunded`/`procesarChargeRefunded` con la
     // misma referencia (`chargeId:acumulado`), así que `registrarDevolucion`
@@ -414,7 +429,7 @@ export async function procesarReembolsoVentaPos(
   const acumuladoDevuelto = p.charge.amountRefunded ?? 0; // céntimos
 
   const { data: venta, error } = await admin.from('ventas_pos')
-    .select('id, socio_id, total')
+    .select('id, socio_id, total, recibo_id')
     .eq('studio_id', p.studioId).eq('stripe_payment_intent_id', p.paymentIntentId)
     .maybeSingle();
   if (error) {
@@ -441,6 +456,12 @@ export async function procesarReembolsoVentaPos(
     referencia: referenciaDevolucion({ tipo: 'reembolso', chargeId: p.charge.id, acumuladoDevueltoCentimos: acumuladoDevuelto }),
     stripeChargeId: p.charge.id,
   });
+  // Devuelta ENTERA: `registrarDevolucion` ya puso `devuelta_en`, que es lo que
+  // mira la base para dar el cobro por deshecho. Los créditos de «Renovar plan»
+  // del ticket se revierten; también en el reintento (repetir no hace nada).
+  if (origen === 'REEMBOLSO_TOTAL' && venta.recibo_id) {
+    await seguirCreditosAlRecibo(admin, { studioId: p.studioId, reciboId: venta.recibo_id as string });
+  }
   if (!dev) {
     // Reintento del mismo evento (el UNIQUE de `devoluciones.referencia` ya
     // frenó el INSERT) — no hay nada nuevo que anotar ni que avisar.
