@@ -166,8 +166,92 @@ export function recompensasDe(
 }
 
 /** ¿Hay algo que enseñar? Sin nada configurado, la pantalla no debe existir. */
-export function hayGamificacion(p: { niveles: unknown[]; logros: unknown[]; retos: unknown[]; recompensas: unknown[] }): boolean {
-  return p.niveles.length > 0 || p.logros.length > 0 || p.retos.length > 0 || p.recompensas.length > 0;
+export function hayGamificacion(p: {
+  niveles: unknown[]; logros: unknown[]; retos: unknown[]; recompensas: unknown[];
+  formasDeGanar?: unknown[]; saldo?: number;
+}): boolean {
+  return p.niveles.length > 0 || p.logros.length > 0 || p.retos.length > 0 || p.recompensas.length > 0
+    // Un estudio que solo DA créditos (sin niveles ni catálogo) también tiene
+    // algo que enseñar: el saldo y cómo ganar más. Y un saldo que ya tiene no
+    // se esconde tras «tu estudio aún no ha configurado esto» porque el estudio
+    // haya borrado su catálogo.
+    || (p.formasDeGanar?.length ?? 0) > 0 || (p.saldo ?? 0) > 0;
+}
+
+// ── Cómo se ganan ────────────────────────────────────────────────────────────
+
+/** Una regla del estudio tal como viaja en el payload público (`reward_rules`). */
+export interface ReglaDef {
+  trigger: string;
+  creditos: number;
+  activa: boolean;
+  unidadEuros?: number | null;
+  topeMensual?: number | null;
+}
+
+/** Una forma de ganar créditos, lista para pintar. */
+export interface FormaDeGanar {
+  trigger: string;
+  titulo: string;
+  /** Cuándo cuenta, si el título no basta. */
+  detalle: string | null;
+  creditos: number;
+  /** Solo compras: cada cuántos euros se dan los `creditos`. */
+  porCadaEuros: number | null;
+}
+
+const euros = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
+
+// ⚠️ Cada texto describe lo que el CÓDIGO premia de verdad, no el nombre
+// interno de la regla:
+//  · «Semana completa» se da con la primera clase ASISTIDA de cada semana
+//    (`calcularRacha` en el check-in, panel y servidor), no por ir a todas.
+//  · «Comprar» solo cuenta en la caja del estudio (`otorgar_creditos_compra`,
+//    TPV): `floor(importe / unidad) × créditos`.
+//  · «Traer a una amiga» se da cuando la amiga ASISTE a su primera clase, con
+//    el tope mensual de la regla (`decidirPremioReferido`).
+// Si un disparador cambia de comportamiento, su texto cambia en el mismo PR.
+// El orden es el de la pantalla: lo más frecuente primero.
+const FORMAS: ReadonlyArray<{ trigger: string; titulo: string; detalle: (r: ReglaDef) => string | null }> = [
+  { trigger: 'ASISTENCIA_CLASE', titulo: 'Asistir a una clase', detalle: () => null },
+  { trigger: 'SEMANA_COMPLETA', titulo: 'Venir a clase cada semana', detalle: () => 'Con tu primera clase de la semana' },
+  { trigger: 'OBJETIVO_MENSUAL', titulo: 'Cumplir tu objetivo del mes', detalle: () => 'Las clases que te marcas para el mes' },
+  { trigger: 'PRIMERA_RESERVA', titulo: 'Tu primera reserva', detalle: () => null },
+  {
+    trigger: 'REFERIDO_AMIGO', titulo: 'Traer a una amiga',
+    detalle: (r) => r.topeMensual && r.topeMensual > 0
+      ? `Cuando venga a su primera clase · hasta ${r.topeMensual} ${r.topeMensual === 1 ? 'amiga' : 'amigas'} al mes`
+      : 'Cuando venga a su primera clase',
+  },
+  { trigger: 'RENOVACION_PLAN', titulo: 'Renovar tu plan', detalle: () => null },
+  {
+    trigger: 'COMPRA', titulo: 'Comprar en el estudio',
+    detalle: (r) => {
+      const u = r.unidadEuros && r.unidadEuros > 0 ? r.unidadEuros : 1;
+      return u === 1 ? 'Por cada euro que gastes en el estudio' : `Por cada ${euros(u)} € que gastes en el estudio`;
+    },
+  },
+];
+
+/**
+ * Cómo se ganan créditos en ESTE estudio: solo sus reglas activas y con algo
+ * que dar. Igual que la RPC que los otorga, vale la primera regla activa de
+ * cada disparador.
+ */
+export function formasDeGanar(reglas: ReadonlyArray<ReglaDef>): FormaDeGanar[] {
+  return FORMAS.flatMap(({ trigger, titulo, detalle }) => {
+    const r = reglas.find((x) => x.trigger === trigger && x.activa);
+    if (!r || !(r.creditos > 0)) return [];
+    return [{
+      trigger, titulo, detalle: detalle(r), creditos: r.creditos,
+      porCadaEuros: trigger === 'COMPRA' ? (r.unidadEuros && r.unidadEuros > 0 ? r.unidadEuros : 1) : null,
+    }];
+  });
+}
+
+/** Lo que da asistir a una clase; `null` = el estudio no premia la asistencia. */
+export function creditosPorAsistir(reglas: ReadonlyArray<ReglaDef>): number | null {
+  return formasDeGanar(reglas).find((f) => f.trigger === 'ASISTENCIA_CLASE')?.creditos ?? null;
 }
 
 // ── Sus canjes ───────────────────────────────────────────────────────────────

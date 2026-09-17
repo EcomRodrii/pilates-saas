@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canjesDe, hayGamificacion, logrosDe, nivelDe, recompensasDe, retosDe } from './gamificacion.ts';
+import { canjesDe, creditosPorAsistir, formasDeGanar, hayGamificacion, logrosDe, nivelDe, recompensasDe, retosDe } from './gamificacion.ts';
 
 const niveles = [
   { id: 'n1', nombre: 'Inicio', orden: 1, umbralCreditos: 0, color: '#aaa', icono: '🌱', beneficios: null },
@@ -229,3 +229,59 @@ test('canjesDe: un estado que no conocemos se trata como pendiente, no se pierde
 test('canjesDe: sin canjes, lista vacía y sin reventar', () => {
   assert.deepEqual(canjesDe([], CATALOGO), []);
 });
+
+// ── Cómo se ganan ────────────────────────────────────────────────────────────
+
+const regla = (trigger: string, creditos: number, extra: { activa?: boolean; unidadEuros?: number | null; topeMensual?: number | null } = {}) =>
+  ({ trigger, creditos, activa: true, unidadEuros: null, topeMensual: null, ...extra });
+
+test('formasDeGanar: solo reglas activas con créditos, en el orden de la pantalla', () => {
+  const f = formasDeGanar([
+    regla('COMPRA', 1, { unidadEuros: 10 }),
+    regla('RENOVACION_PLAN', 40, { activa: false }),
+    regla('ASISTENCIA_CLASE', 10),
+    regla('PRIMERA_RESERVA', 0),
+    regla('INVENTADO', 99),
+  ]);
+  assert.deepEqual(f.map((x) => x.trigger), ['ASISTENCIA_CLASE', 'COMPRA']);
+  assert.deepEqual(f[0], { trigger: 'ASISTENCIA_CLASE', titulo: 'Asistir a una clase', detalle: null, creditos: 10, porCadaEuros: null });
+  assert.equal(f[1].detalle, 'Por cada 10 € que gastes en el estudio');
+  assert.equal(f[1].porCadaEuros, 10);
+});
+
+test('formasDeGanar: compra sin unidad es por cada euro; el referido dice su tope', () => {
+  assert.equal(formasDeGanar([regla('COMPRA', 2)])[0].detalle, 'Por cada euro que gastes en el estudio');
+  assert.equal(formasDeGanar([regla('COMPRA', 2, { unidadEuros: 2.5 })])[0].detalle, 'Por cada 2,5 € que gastes en el estudio');
+  assert.equal(formasDeGanar([regla('REFERIDO_AMIGO', 50, { topeMensual: 1 })])[0].detalle,
+    'Cuando venga a su primera clase · hasta 1 amiga al mes');
+  assert.equal(formasDeGanar([regla('REFERIDO_AMIGO', 50, { topeMensual: 3 })])[0].detalle,
+    'Cuando venga a su primera clase · hasta 3 amigas al mes');
+  assert.equal(formasDeGanar([regla('REFERIDO_AMIGO', 50)])[0].detalle, 'Cuando venga a su primera clase');
+});
+
+test('formasDeGanar: «semana completa» dice lo que premia de verdad (la primera clase de la semana)', () => {
+  const [s] = formasDeGanar([regla('SEMANA_COMPLETA', 30)]);
+  assert.equal(s.titulo, 'Venir a clase cada semana');
+  assert.equal(s.detalle, 'Con tu primera clase de la semana');
+});
+
+test('formasDeGanar: como la RPC, vale la primera regla ACTIVA de cada disparador', () => {
+  const f = formasDeGanar([regla('ASISTENCIA_CLASE', 5, { activa: false }), regla('ASISTENCIA_CLASE', 10)]);
+  assert.equal(f.length, 1);
+  assert.equal(f[0].creditos, 10);
+});
+
+test('creditosPorAsistir: null si el estudio no premia la asistencia', () => {
+  assert.equal(creditosPorAsistir([regla('ASISTENCIA_CLASE', 10)]), 10);
+  assert.equal(creditosPorAsistir([regla('ASISTENCIA_CLASE', 10, { activa: false })]), null);
+  assert.equal(creditosPorAsistir([regla('RENOVACION_PLAN', 40)]), null);
+  assert.equal(creditosPorAsistir([]), null);
+});
+
+test('hayGamificacion: un estudio que solo da créditos, o un saldo que ya tiene, también cuentan', () => {
+  const vacio = { niveles: [], logros: [], retos: [], recompensas: [] };
+  assert.equal(hayGamificacion({ ...vacio, formasDeGanar: [1] }), true);
+  assert.equal(hayGamificacion({ ...vacio, saldo: 30 }), true);
+  assert.equal(hayGamificacion({ ...vacio, formasDeGanar: [], saldo: 0 }), false);
+});
+

@@ -769,6 +769,12 @@ export async function fetchPublicStudioData(
         : base;
     });
 
+    // Las reglas de créditos son una PROMESA a la alumna («+10 al asistir»):
+    // solo viajan si su plan de verdad los da. Con un plan sin gamificación
+    // `otorgarCreditosServidor` y el panel no otorgan nada, y enseñarlas sería
+    // prometer créditos que no llegan. Mismo gate que al otorgar.
+    const reglasDeCreditosVivas = !liviano && !(await evaluarFeature(admin, studioId, 'gamificacion'));
+
     return {
       tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
       salas: (salasRes.data ?? []).map(mapSala),
@@ -784,7 +790,7 @@ export async function fetchPublicStudioData(
       }),
       planesTarifa: planesConTiposPub,
       videosOnDemand: (videosRes?.data ?? []).map(mapVideoOnDemand),
-      rewardRules: (rewardRulesRes?.data ?? []).map(mapRewardRule),
+      rewardRules: reglasDeCreditosVivas ? (rewardRulesRes?.data ?? []).map(mapRewardRule) : [],
       rewardCatalog: (rewardCatalogRes?.data ?? []).map(mapRewardCatalogItem),
       levelDefinitions: (levelDefsRes?.data ?? []).map(mapLevelDefinition),
       achievementDefinitions: (achDefsRes?.data ?? []).map(mapAchievementDefinition),

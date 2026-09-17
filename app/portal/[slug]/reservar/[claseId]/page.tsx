@@ -1,5 +1,7 @@
 'use client';
 
+import { nombreCreditos } from '@/lib/creditos-nombre';
+
 import { useCallback, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
@@ -338,6 +340,11 @@ export default function FichaClasePage() {
               ? `Gratis hasta ${aviso.horasVentana} h antes`
               : 'Ya no devuelve la sesión'}
           />
+          {/* Lo que da venir a ESTA clase, solo si el estudio premia la
+              asistencia. Se gana al registrar la asistencia, no al reservar. */}
+          {clase.creditosAlAsistir != null && (
+            <Fila k={mayuscula(nombreCreditos(estudio.creditosNombre))} v={`+${clase.creditosAlAsistir} al asistir`} />
+          )}
         </div>
 
         {/* Plaza fija: PEDIRLA, no darla. El estudio decide y ella lo ve en su app.
@@ -445,6 +452,8 @@ export default function FichaClasePage() {
     </StudentShell>
   );
 }
+
+const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function Fila({ k, v }: { k: string; v: string }) {
   return (

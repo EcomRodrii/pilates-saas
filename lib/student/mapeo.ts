@@ -14,7 +14,7 @@ import {
 } from './plaza-fija.ts';
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
 // traduce el nivel de una CLASE (PRINCIPIANTE → Iniciación). Nada que ver.
-import { canjesDe, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type RetoDef } from './gamificacion.ts';
+import { canjesDe, creditosPorAsistir, formasDeGanar, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type ReglaDef, type RetoDef } from './gamificacion.ts';
 import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from './tipos.ts';
 
 // Traducción PURA entre el vocabulario del backend y el del paquete de diseño.
@@ -230,6 +230,8 @@ export interface PayloadMin {
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
   rewardCatalog?: RecompensaDef[];
+  /** Las reglas de créditos del estudio. Viajaban en el payload y nadie las leía. */
+  rewardRules?: ReglaDef[];
   salas?: { id: string; nombre: string; fotoUrl?: string | null }[];
   instructores?: {
     id: string; nombre: string; activo?: boolean; fotoUrl?: string | null;
@@ -297,6 +299,9 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
     ocupadas.set(r.sesion_id, (ocupadas.get(r.sesion_id) ?? 0) + 1);
   }
 
+  // Una vez para todo el horario: hoy es la misma cantidad para todas las clases.
+  const porAsistir = creditosPorAsistir(d.rewardRules ?? []);
+
   const salida: Clase[] = [];
   for (const s of d.sesiones ?? []) {
     if (s.cancelada) continue;
@@ -311,6 +316,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       tipoClaseId: s.tipoClaseId,
       ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null,
       permiteListaEspera: tipo?.permiteListaEspera ?? null,
+      creditosAlAsistir: porAsistir,
       fecha: f,
       hora: horaLocal(s.inicio),
       duracionMin: Math.max(1, Math.round((new Date(s.fin).getTime() - new Date(s.inicio).getTime()) / 60000)),
@@ -435,11 +441,17 @@ export function proyectarGamificacion(d: PayloadMin, hoyISO: string): Gamificaci
     canjesPorItem[r.catalogItemId] = (canjesPorItem[r.catalogItemId] ?? 0) + 1;
   }
   const recompensas = recompensasDe(d.rewardCatalog ?? [], saldo, hoyISO, canjesPorItem);
+  const formas = formasDeGanar(d.rewardRules ?? []);
   return {
     // `recompensas` y no el catálogo crudo: un estudio cuya única recompensa
     // venció no tiene nada que enseñar, y la pantalla debe decirlo en vez de
     // abrir un tablero con todas las secciones vacías.
-    hay: hayGamificacion({ niveles, logros: d.achievementDefinitions ?? [], retos: d.challengeDefinitions ?? [], recompensas }),
+    hay: hayGamificacion({
+      niveles, logros: d.achievementDefinitions ?? [], retos: d.challengeDefinitions ?? [], recompensas,
+      formasDeGanar: formas, saldo,
+    }),
+    formasDeGanar: formas,
+    creditosPorClase: formas.find((f) => f.trigger === 'ASISTENCIA_CLASE')?.creditos ?? null,
     saldo, totalGanado, totalCanjeado: c?.totalCanjeado ?? 0,
     // Solo se avisa cuando queda poco: una fecha a ocho meses vista es ruido
     // en una pantalla que ya tiene niveles, logros, retos y recompensas.

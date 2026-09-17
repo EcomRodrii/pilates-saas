@@ -63,6 +63,13 @@ export interface Clase {
    * servidor lo habría rechazado.
    */
   permiteListaEspera: boolean | null;
+  /**
+   * Créditos que da asistir a ESTA clase; `null` = no da ninguno. Hoy es la
+   * regla del estudio para todas las clases (`ASISTENCIA_CLASE`); vive en la
+   * clase y no en el estudio para que un importe por tipo no cambie las
+   * pantallas.
+   */
+  creditosAlAsistir?: number | null;
   fecha: string;            // ISO date YYYY-MM-DD
   hora: string;             // HH:mm
   duracionMin: number;
@@ -181,6 +188,10 @@ export interface GamificacionVista {
    * aviso que se desvanece — y quien no ve resultado, vuelve a pulsar.
    */
   canjes: import('./gamificacion.ts').CanjeVista[];
+  /** Cómo se ganan, según las reglas ACTIVAS del estudio. Vacío = no premia nada. */
+  formasDeGanar: import('./gamificacion.ts').FormaDeGanar[];
+  /** Lo que da asistir a una clase; `null` = el estudio no premia la asistencia. */
+  creditosPorClase: number | null;
 }
 
 /** Plaza fija vigente de la alumna, ya con nombres (F2). */
