@@ -62,7 +62,7 @@ const TECHO = 500;
 
 export const conciliarReembolsos = inngest.createFunction(
   // cada 2 horas
-  { id: 'conciliar-reembolsos-disputas', retries: 0, triggers: [{ cron: '0 */4 * * *' }] },
+  { id: 'conciliar-reembolsos-disputas', retries: 0, triggers: [{ cron: '0 */2 * * *' }] },
   async () => {
     const admin = getSupabaseAdmin();
     if (!admin) {

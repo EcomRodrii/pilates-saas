@@ -315,7 +315,7 @@ async function leerPendientesDelCorte(studioIds: string[], nowISO: string, now: 
 }
 
 export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
-  { id: 'confirmacion-riesgo-corte-dispatcher', triggers: [{ cron: '0 */8 * * *' }] },
+  { id: 'confirmacion-riesgo-corte-dispatcher', triggers: [{ cron: '0 */4 * * *' }] },
   async ({ step }) => {
     // Todas las lecturas del tic van en UN step (antes cuatro: hora, estudios,
     // recordatorios y pendientes). Solo leen, así que repetirlas en un reintento no
