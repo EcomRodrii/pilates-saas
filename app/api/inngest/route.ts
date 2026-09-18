@@ -38,7 +38,6 @@ import { procesarEnvioCampana } from '@/lib/inngest/campanas';
 import { enviarLoteProspeccion } from '@/lib/inngest/prospeccion';
 import { reviewBoostDispatcher } from '@/lib/inngest/review-boost';
 import { alertarFalloTerminalInngest } from '@/lib/inngest/fallo-terminal';
-import { detectarDoblesCobrosJob } from '@/lib/inngest/detectar-dobles-cobros';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -73,6 +72,5 @@ export const { GET, POST, PUT } = serve({
     enviarLoteProspeccion,
     reviewBoostDispatcher,
     alertarFalloTerminalInngest,
-    detectarDoblesCobrosJob,
   ],
 });
