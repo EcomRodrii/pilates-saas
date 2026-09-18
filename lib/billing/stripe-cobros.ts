@@ -38,6 +38,46 @@ export interface ResultadoCobro {
   aviso?: 'COBRADO_SIN_PERSISTIR';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PAY-4: Registrar intentos de cobro para auditoría
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Registra un intento de cobro en `cobros_intentos` de forma idempotente
+ * (por payment_intent_id). Best-effort: un fallo aquí no deshace el cobro.
+ */
+async function registrarIntentoCobro(
+  admin: ReturnType<typeof getSupabaseAdmin>,
+  params: {
+    paymentIntentId: string;
+    studioId: string;
+    reciboId: string;
+    importeCentimos: number;
+    origen: 'checkout' | 'off_session' | 'manual' | 'renovacion';
+    desenlace: 'cobrado' | 'fallido' | 'disputado' | 'revertido';
+  },
+): Promise<void> {
+  if (!admin) return;
+  const { paymentIntentId, studioId, reciboId, importeCentimos, origen, desenlace } = params;
+
+  const { error } = await admin.from('cobros_intentos').insert({
+    payment_intent_id: paymentIntentId,
+    studio_id: studioId,
+    recibo_id: reciboId,
+    importe_centimos: importeCentimos,
+    origen,
+    desenlace,
+  });
+
+  // Idempotencia: si el payment_intent_id ya existe (23505), es un reintento
+  // del mismo evento y no hay nada que hacer.
+  if (error && error.code !== '23505') {
+    Sentry.captureMessage('[registrarIntentoCobro] no se pudo registrar el intento de cobro', {
+      level: 'warning', tags: { area: 'cobros', tipo: 'auditoria' },
+      extra: { paymentIntentId, studioId, reciboId, desenlace, detalle: error.message },
+    });
+  }
+}
+
 export async function cobrarReciboOffSession(params: {
   reciboId: string;
   socioId: string;
@@ -222,6 +262,17 @@ export async function cobrarReciboOffSession(params: {
           extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
         });
       }
+      // PAY-4: Registrar el intento de SEPA processing
+      if (paymentIntent.id && amountCents > 0) {
+        await registrarIntentoCobro(admin, {
+          paymentIntentId: paymentIntent.id,
+          studioId: params.studioId,
+          reciboId: params.reciboId,
+          importeCentimos: amountCents,
+          origen: 'off_session',
+          desenlace: 'cobrado', // SEPA processing es éxito en Stripe (será resuelto por webhook)
+        });
+      }
       return { ok: true, status: paymentIntent.status, importe: recibo.importe };
     }
 
@@ -251,6 +302,17 @@ export async function cobrarReciboOffSession(params: {
           level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
           extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
         });
+        // PAY-4: Registrar el intento de cobro incluso si el UPDATE falló
+        if (paymentIntent.id && amountCents > 0) {
+          await registrarIntentoCobro(admin, {
+            paymentIntentId: paymentIntent.id,
+            studioId: params.studioId,
+            reciboId: params.reciboId,
+            importeCentimos: amountCents,
+            origen: 'off_session',
+            desenlace: 'cobrado',
+          });
+        }
         return { ok: true, status: paymentIntent.status, importe: recibo.importe, aviso: 'COBRADO_SIN_PERSISTIR' };
       }
       if (updErr) {
@@ -262,11 +324,33 @@ export async function cobrarReciboOffSession(params: {
         // Además del aviso a Sentry, se devuelve un resultado DISTINGUIBLE: el
         // llamante marcaba el cobro como EJECUTADO y respondía 200, así que el
         // fallo de persistencia quedaba invisible para quien operaba.
+        // PAY-4: Registrar el intento de cobro incluso si el UPDATE falló
+        if (paymentIntent.id && amountCents > 0) {
+          await registrarIntentoCobro(admin, {
+            paymentIntentId: paymentIntent.id,
+            studioId: params.studioId,
+            reciboId: params.reciboId,
+            importeCentimos: amountCents,
+            origen: 'off_session',
+            desenlace: 'cobrado',
+          });
+        }
         return {
           ok: true, status: paymentIntent.status, importe: recibo.importe,
           aviso: 'COBRADO_SIN_PERSISTIR',
           error: 'El cobro se completó en Stripe pero no se pudo marcar el recibo como COBRADO. Revísalo manualmente.',
         };
+      }
+      // PAY-4: Registrar el intento de cobro exitoso
+      if (paymentIntent.id && amountCents > 0) {
+        await registrarIntentoCobro(admin, {
+          paymentIntentId: paymentIntent.id,
+          studioId: params.studioId,
+          reciboId: params.reciboId,
+          importeCentimos: amountCents,
+          origen: 'off_session',
+          desenlace: 'cobrado',
+        });
       }
       // Post-cobro, en el servidor (antes solo pasaba al "marcar cobrado" a
       // mano en el panel): renovar la suscripción del recibo (refill de bono /
