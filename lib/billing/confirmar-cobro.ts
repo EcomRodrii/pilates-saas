@@ -182,6 +182,17 @@ export async function confirmarCobroRecibo(
     });
   }
 
+  // PAY-4: registrar intento de cobro exitoso
+  if (paymentIntentId) {
+    await registrarIntentoCobro(admin, {
+      paymentIntentId,
+      studioId,
+      reciboId,
+      origen: 'checkout',
+      desenlace: 'cobrado',
+    });
+  }
+
   const { emitirPagoRealizado } = await import('../notifications/emit.ts');
   await emitirPagoRealizado(admin, { studioId, reciboId });
   const { enviarEmailReciboWebhook } = await import('../emails/enviar-recibo-webhook.ts');
@@ -305,4 +316,30 @@ export async function consumirCodigoDescuentoSiAplica(
       extra: { codigoDescuentoId, studioId, reciboId, detalle: String(errMarcarConsumo) },
     });
   }
+}
+
+// PAY-4: Registrar intento de cobro para auditoría y doble cobro detection
+export async function registrarIntentoCobro(
+  admin: SupabaseClient,
+  params: {
+    paymentIntentId: string;
+    studioId: string;
+    reciboId: string;
+    origen: 'checkout' | 'off_session' | 'webhook' | 'manual';
+    desenlace: 'cobrado' | 'fallido' | 'pendiente' | 'reintentando';
+  },
+): Promise<void> {
+  const { paymentIntentId, studioId, reciboId, origen, desenlace } = params;
+  const { data: recibo } = await admin.from('recibos')
+    .select('importe').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
+  if (!recibo) return;
+
+  await admin.from('cobros_intentos').insert({
+    payment_intent_id: paymentIntentId,
+    studio_id: studioId,
+    recibo_id: reciboId,
+    importe_centimos: recibo.importe,
+    origen,
+    desenlace,
+  }).then(() => {}).catch(() => {});
 }
