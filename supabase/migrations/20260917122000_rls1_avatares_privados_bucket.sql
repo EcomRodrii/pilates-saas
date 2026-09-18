@@ -28,7 +28,7 @@ create policy avatars_privadas_insert_autorizado on storage.objects
     bucket_id = 'avatars-privadas'
     and (
       -- Socia propia
-      name = auth.uid()
+      name = auth.uid()::text
       -- O instructor/propietaria de otro estudio (editando en panel)
       or name like 'instructor-%'
       or name like 'network-%'
