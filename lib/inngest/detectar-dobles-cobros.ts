@@ -24,7 +24,7 @@ export const detectarDoblesCobrosJob = inngest.createFunction(
       multiplier: 2,
     },
   },
-  { cron: '10 * * * *' }, // cada hora, minuto 10 (espaciado)
+  { cron: '0 * * * *' }, // cada hora
   async ({ step }) => {
     const resultado = await step.run('detectar-dobles-cobros', async () => {
       return detectarYRegistrarDoblesCobros(7);
