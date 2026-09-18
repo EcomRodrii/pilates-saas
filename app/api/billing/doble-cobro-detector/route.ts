@@ -6,7 +6,7 @@
  *
  * POST /api/billing/doble-cobro-detector
  *   Ejecuta la detección desde cero en los últimos 7 días.
- *   Uso: solo PROPIETARIO (via bisagra desde otro endpoint).
+ *   Uso: solo PROPIETARIO/RECEPCION (puedeMoverDinero).
  *
  * PUT /api/billing/doble-cobro-detector/:id
  *   Marca un doble cobro como CONFIRMADO, FALSO_POSITIVO o RESUELTO
@@ -14,35 +14,29 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient, getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { verificarSesionStaff } from '@/lib/auth-server';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { detectarYRegistrarDoblesCobros, obtenerDoblesCobrosEnRevision } from '@/lib/billing/detectar-doble-cobro';
-import { puedeVerEstudio } from '@/lib/permisos-reglas';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 export async function GET(request: NextRequest) {
   try {
-    const sesion = await getSupabaseClient();
-    if (!sesion?.user?.id) {
+    const sesion = await verificarSesionStaff(request);
+    if (!sesion) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Resolver studio_id desde query param o sesión activa
-    const studioId = request.nextUrl.searchParams.get('studio_id');
-    if (!studioId) {
-      return NextResponse.json({ error: 'Parámetro studio_id requerido' }, { status: 400 });
-    }
-
-    // Comprobar permiso: solo PROPIETARIO puede ver esto
-    const perm = await puedeVerEstudio(sesion.user.id, studioId);
-    if (!perm || !perm.puedeMoverDinero) {
+    // Comprobar permiso: solo quien puede mover dinero
+    if (!puedeMoverDinero(sesion.rol)) {
       return NextResponse.json({ error: 'No tienes permiso para ver dobles cobros' }, { status: 403 });
     }
 
-    // Obtener lista de dobles cobros PENDIENTE_REVISION
-    const dobles = await obtenerDoblesCobrosEnRevision(studioId);
+    // Obtener lista de dobles cobros PENDIENTE_REVISION para el estudio activo
+    const dobles = await obtenerDoblesCobrosEnRevision(sesion.studioId);
 
     return NextResponse.json({
       ok: true,
-      studioId,
+      studioId: sesion.studioId,
       total: dobles.length,
       doblesCobros: dobles,
     });
@@ -57,31 +51,25 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const sesion = await getSupabaseClient();
-    if (!sesion?.user?.id) {
+    const sesion = await verificarSesionStaff(request);
+    if (!sesion) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const studioId = body.studio_id;
-    const diasAtras = body.dias_atras ?? 7;
-
-    if (!studioId) {
-      return NextResponse.json({ error: 'Parámetro studio_id requerido' }, { status: 400 });
-    }
-
-    // Permiso: PROPIETARIO
-    const perm = await puedeVerEstudio(sesion.user.id, studioId);
-    if (!perm || !perm.puedeMoverDinero) {
+    // Permiso: solo quien puede mover dinero
+    if (!puedeMoverDinero(sesion.rol)) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
+
+    const body = await request.json().catch(() => ({})) as { dias_atras?: number } | null;
+    const diasAtras = body?.dias_atras ?? 7;
 
     // Ejecutar detección y registro
     const resultado = await detectarYRegistrarDoblesCobros(diasAtras);
 
     return NextResponse.json({
       ok: true,
-      studioId,
+      studioId: sesion.studioId,
       diasAtras,
       detectados: resultado.detectados,
       registrados: resultado.registrados,
@@ -98,13 +86,18 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const sesion = await getSupabaseClient();
-    if (!sesion?.user?.id) {
+    const sesion = await verificarSesionStaff(request);
+    if (!sesion) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { id, estado, notas } = body;
+    // Permiso: solo quien puede mover dinero
+    if (!puedeMoverDinero(sesion.rol)) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
+    const body = await request.json().catch(() => ({})) as { id?: string; estado?: string; notas?: string } | null;
+    const { id, estado, notas } = body ?? {};
 
     if (!id || !estado) {
       return NextResponse.json(
@@ -125,7 +118,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Servicio no configurado' }, { status: 500 });
     }
 
-    // Leer el registro actual para verificar permiso
+    // Leer el registro actual para verificar que pertenece a este estudio
     const { data: actual, error: readError } = await admin
       .from('dobles_cobros_detectados')
       .select('studio_id')
@@ -136,9 +129,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Doble cobro no encontrado' }, { status: 404 });
     }
 
-    // Permiso: PROPIETARIO del estudio
-    const perm = await puedeVerEstudio(sesion.user.id, actual.studio_id);
-    if (!perm || !perm.puedeMoverDinero) {
+    // Verificar que pertenece al estudio activo (defensa en profundidad)
+    if (actual.studio_id !== sesion.studioId) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
@@ -154,7 +146,7 @@ export async function PUT(request: NextRequest) {
 
     if (estado === 'RESUELTO') {
       updatePayload.resuelto_en = new Date().toISOString();
-      updatePayload.revisado_por = sesion.user.email ?? sesion.user.id;
+      updatePayload.revisado_por = sesion.user?.email ?? sesion.user?.id ?? 'unknown';
     }
 
     const { data, error } = await admin
