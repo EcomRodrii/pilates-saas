@@ -466,7 +466,7 @@ export const penalizacionesDispatcher = inngest.createFunction(
   // espaciarlo no abre huecos, solo alarga la cola.
   // Auditoría #3 (2026-08-25): reducido de cada 30min a cada hora.
   // Ahorro: ~1.440 - 24 = ~1.416/mes
-  { id: 'penalizaciones-procesar', triggers: [{ cron: '0 * * * *' }] },
+  { id: 'penalizaciones-procesar', triggers: [{ cron: '5 * * * *' }] },
   async ({ step }) => {
     return step.run('procesar', async () => {
       const admin = getSupabaseAdmin();
