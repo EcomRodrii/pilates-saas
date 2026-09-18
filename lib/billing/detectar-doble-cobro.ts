@@ -1,229 +1,234 @@
-/**
- * PAY-5: Detectar doble cobro
- *
- * Identifica recibos que tienen múltiples payment_intent exitosos en `cobros_intentos`.
- * Un recibo puede tener varios intentos (reintentos tras fallo), pero solo UNO debe
- * estar en estado 'cobrado'. Si hay MÁS de uno, es doble cobro.
- *
- * Lógica:
- * - Un payment_intent reintentado = MISMO ID, es legítimo (idempotencia Stripe)
- * - Múltiples payment_intent DISTINTOS exitosos = DOBLE COBRO detectado
- *
- * Esta función es idempotente: corre sobre cobros_intentos (que es auditoría,
- * nunca se borra) y registra sus hallazgos en dobles_cobros_detectados.
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// PAY-5: Detectar cobros duplicados (PAY-4 → libro de auditoría)
+//
+// Un recibo con 2+ intentos de cobro exitosos indica un doble cargo:
+// - Mismo payment_intent_id: reintento legítimo (idempotencia de Stripe)
+// - Diferentes payment_intent_id: PROBLEMA → hay que devolverlo
+//
+// Grouping: por (recibo_id, studio_id) para reconstrucción de auditoría.
+// ─────────────────────────────────────────────────────────────────────────────
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+export interface IntentoCobro {
+  payment_intent_id: string;
+  importe_centimos: number;
+  origen: string;
+  desenlace: string;
+  creado_en: string;
+}
 
 export interface DobleCobroDetectado {
-  reciboId: string;
-  studioId: string;
-  paymentIntentIds: string[];
-  importeCentimos: number;
-  intentosExitosos: number;
-  primeraFecha: string;
-  ultimaFecha: string;
+  recibo_id: string;
+  studio_id: string;
+  intentos_exitosos: IntentoCobro[];
+  importe_duplicado_centimos: number;
+  mensaje: string;
 }
 
 /**
- * Busca recibos con múltiples cobros exitosos en los últimos N días.
- * Por defecto, últimos 7 días (PAY-5 fue pensado para recuperación post-incidencia).
- * Agrupa por payment_intent_id DISTINTO dentro de cada recibo.
+ * Detecta si un recibo tiene múltiples cobros EXITOSOS con DIFERENTES payment_intent_id.
+ * Devuelve `null` si no hay doble cobro detectado.
+ *
+ * Lógica:
+ * - Lee todos los intentos de ese recibo filtrados por desenlace='cobrado'
+ * - Agrupa por payment_intent_id
+ * - Si hay 2+ payment_intent_id distintos → DOBLE COBRO
+ * - Si hay 1 payment_intent_id → reintento legítimo, no es problema
  */
-export async function detectarDoblesCobros(diasAtras: number = 7): Promise<DobleCobroDetectado[]> {
-  const admin = getSupabaseAdmin();
-  if (!admin) {
-    throw new Error('Servicio no configurado (service role)');
-  }
+export async function detectarDobleCobroPorRecibo(
+  admin: SupabaseClient,
+  params: { reciboId: string; studioId: string },
+): Promise<DobleCobroDetectado | null> {
+  const { reciboId, studioId } = params;
 
-  const fechaLimite = new Date();
-  fechaLimite.setDate(fechaLimite.getDate() - diasAtras);
-
-  // Query: todos los intentos de cobro exitosos de los últimos N días
-  const { data, error } = await admin.from('cobros_intentos').select(
-    `
-    recibo_id,
-    studio_id,
-    importe_centimos,
-    desenlace,
-    creado_en,
-    payment_intent_id
-    `
-  )
+  const { data: intentos, error } = await admin
+    .from('cobros_intentos')
+    .select('payment_intent_id, importe_centimos, origen, desenlace, creado_en')
+    .eq('recibo_id', reciboId)
+    .eq('studio_id', studioId)
     .eq('desenlace', 'cobrado')
-    .gte('creado_en', fechaLimite.toISOString())
-    .order('recibo_id')
     .order('creado_en', { ascending: true });
 
-  if (error || !data || data.length === 0) {
+  if (error || !intentos || intentos.length === 0) {
+    return null;
+  }
+
+  // Agrupar por payment_intent_id
+  const porPaymentIntent = new Map<string, IntentoCobro>();
+  for (const intento of intentos) {
+    if (!porPaymentIntent.has(intento.payment_intent_id)) {
+      porPaymentIntent.set(intento.payment_intent_id, intento);
+    }
+  }
+
+  // Si hay 2+ payment_intent_id distintos → DOBLE COBRO
+  if (porPaymentIntent.size >= 2) {
+    const intentosExitosos = Array.from(porPaymentIntent.values());
+    const importeTotal = intentosExitosos.reduce((sum, i) => sum + i.importe_centimos, 0);
+    const importePrimero = intentosExitosos[0]?.importe_centimos ?? 0;
+    const importeDuplicado = importeTotal - importePrimero;
+
+    return {
+      recibo_id: reciboId,
+      studio_id: studioId,
+      intentos_exitosos: intentosExitosos,
+      importe_duplicado_centimos: importeDuplicado,
+      mensaje: `Doble cobro detectado: ${intentosExitosos.length} cargos exitosos (${importeDuplicado / 100} EUR hay que devolver)`,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Detecta TODOS los recibos del estudio con doble cobro (útil para barrido/auditoría).
+ * Agrupa por (recibo_id, studio_id) para el mapeo de la tarjeta de alertas.
+ */
+export async function detectarTodosLosDoblesCobros(
+  admin: SupabaseClient,
+  studioId: string,
+): Promise<DobleCobroDetectado[]> {
+  const { data: intentos, error } = await admin
+    .from('cobros_intentos')
+    .select('recibo_id, payment_intent_id, importe_centimos, origen, desenlace, creado_en')
+    .eq('studio_id', studioId)
+    .eq('desenlace', 'cobrado')
+    .order('recibo_id, creado_en', { ascending: true });
+
+  if (error || !intentos || intentos.length === 0) {
     return [];
   }
 
-  // Agrupar por recibo_id
-  const agrupadoPorRecibo = new Map<
-    string,
-    Array<{
-      studio_id: string;
-      importe_centimos: number;
-      creado_en: string;
-      payment_intent_id: string;
-    }>
-  >();
-
-  for (const intento of data) {
-    const key = intento.recibo_id;
-    if (!agrupadoPorRecibo.has(key)) {
-      agrupadoPorRecibo.set(key, []);
+  // Agrupar por recibo
+  const porRecibo = new Map<string, IntentoCobro[]>();
+  for (const intento of intentos) {
+    if (!porRecibo.has(intento.recibo_id)) {
+      porRecibo.set(intento.recibo_id, []);
     }
-    agrupadoPorRecibo.get(key)!.push(intento);
+    porRecibo.get(intento.recibo_id)!.push(intento);
   }
 
-  // Filtrar solo recibos con múltiples payment_intent DISTINTOS
-  const doblesCobros: DobleCobroDetectado[] = [];
-  for (const [reciboId, intentos] of agrupadoPorRecibo.entries()) {
-    // Agrupar por payment_intent_id para contar cuántos DISTINTOS hay
-    const porPaymentIntent = new Set<string>();
-    for (const intento of intentos) {
-      porPaymentIntent.add(intento.payment_intent_id);
+  const dobles: DobleCobroDetectado[] = [];
+  for (const [reciboId, intentosDelRecibo] of porRecibo) {
+    // Agrupar por payment_intent_id dentro del recibo
+    const porPaymentIntent = new Map<string, IntentoCobro>();
+    for (const intento of intentosDelRecibo) {
+      if (!porPaymentIntent.has(intento.payment_intent_id)) {
+        porPaymentIntent.set(intento.payment_intent_id, intento);
+      }
     }
 
-    // Si hay 2+ payment_intent_id distintos → es doble cobro
-    if (porPaymentIntent.size > 1) {
-      const unique = intentos[0];
-      doblesCobros.push({
-        reciboId,
-        studioId: unique.studio_id,
-        paymentIntentIds: Array.from(porPaymentIntent),
-        importeCentimos: unique.importe_centimos,
-        intentosExitosos: porPaymentIntent.size,
-        primeraFecha: intentos[0].creado_en,
-        ultimaFecha: intentos[intentos.length - 1].creado_en,
+    // Si hay 2+ payment_intent_id → es un doble cobro
+    if (porPaymentIntent.size >= 2) {
+      const intentosExitosos = Array.from(porPaymentIntent.values());
+      const importeTotal = intentosExitosos.reduce((sum, i) => sum + i.importe_centimos, 0);
+      const importePrimero = intentosExitosos[0]?.importe_centimos ?? 0;
+      const importeDuplicado = importeTotal - importePrimero;
+
+      dobles.push({
+        recibo_id: reciboId,
+        studio_id: studioId,
+        intentos_exitosos: intentosExitosos,
+        importe_duplicado_centimos: importeDuplicado,
+        mensaje: `Doble cobro: ${intentosExitosos.length} cargos (${importeDuplicado / 100} EUR)`,
       });
     }
   }
 
-  return doblesCobros;
+  return dobles;
 }
 
 /**
- * Registra un doble cobro detectado en la tabla de auditoría.
- * Idempotente por (recibo_id, studio_id) — si ya existe, no duplica.
+ * Detecta y registra TODOS los dobles cobros en los últimos N días.
+ * Agregación para cron o barrido manual de auditoría.
  */
-export async function registrarDobleCobroDetectado(
-  doble: DobleCobroDetectado
-): Promise<{ ok: boolean; error?: string; id?: string }> {
-  const admin = getSupabaseAdmin();
-  if (!admin) {
-    return { ok: false, error: 'Servicio no configurado' };
+export async function detectarYRegistrarDoblesCobros(
+  admin: SupabaseClient,
+  diasAtras: number = 7,
+): Promise<{ detectados: number; registrados: number; errores: string[] }> {
+  const desde = new Date();
+  desde.setDate(desde.getDate() - diasAtras);
+
+  const { data: estudios, error: errEstudios } = await admin
+    .from('studios')
+    .select('id')
+    .gte('creado_en', desde.toISOString());
+
+  if (errEstudios || !estudios) {
+    return { detectados: 0, registrados: 0, errores: [errEstudios?.message ?? 'Sin estudios'] };
   }
 
-  const { data, error } = await admin.from('dobles_cobros_detectados').insert({
-    studio_id: doble.studioId,
-    recibo_id: doble.reciboId,
-    payment_intent_ids: doble.paymentIntentIds,
-    importe_centimos: doble.importeCentimos,
-    intentos_exitosos_count: doble.intentosExitosos,
-    primera_fecha: doble.primeraFecha,
-    ultima_fecha: doble.ultimaFecha,
-  }).select('id');
-
-  // Idempotencia: si ya existe una fila para este recibo, no hay error
-  // (violación de constraint UNIQUE o similar)
-  if (error && error.code === '23505') {
-    return { ok: true }; // Duplicado, pero idempotente
-  }
-
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-
-  return {
-    ok: true,
-    id: data?.[0]?.id,
-  };
-}
-
-/**
- * Detecta y registra todos los dobles cobros en los últimos N días.
- * Llamada desde cron `lib/inngest/detectar-dobles-cobros.ts` cada hora.
- * Best-effort: si falla un registro individual, continúa con el siguiente.
- */
-export async function detectarYRegistrarDoblesCobros(diasAtras: number = 7): Promise<{
-  detectados: number;
-  registrados: number;
-  errores: string[];
-}> {
-  const dobles = await detectarDoblesCobros(diasAtras);
-  const registrados: string[] = [];
+  let detectados = 0;
+  let registrados = 0;
   const errores: string[] = [];
 
-  for (const doble of dobles) {
-    const resultado = await registrarDobleCobroDetectado(doble);
-    if (resultado.ok) {
-      if (resultado.id) {
-        registrados.push(resultado.id);
+  for (const studio of estudios) {
+    try {
+      const dobles = await detectarTodosLosDoblesCobros(admin, studio.id);
+      detectados += dobles.length;
+
+      for (const doble of dobles) {
+        const paymentIntentIds = doble.intentos_exitosos.map((i) => i.payment_intent_id);
+        const primeraFecha = new Date(Math.min(...doble.intentos_exitosos.map((i) => new Date(i.creado_en).getTime())));
+        const ultimaFecha = new Date(Math.max(...doble.intentos_exitosos.map((i) => new Date(i.creado_en).getTime())));
+
+        const { error } = await admin
+          .from('dobles_cobros_detectados')
+          .upsert({
+            studio_id: doble.studio_id,
+            recibo_id: doble.recibo_id,
+            payment_intent_ids: paymentIntentIds,
+            importe_centimos: doble.importe_duplicado_centimos,
+            intentos_exitosos_count: doble.intentos_exitosos.length,
+            primera_fecha: primeraFecha.toISOString(),
+            ultima_fecha: ultimaFecha.toISOString(),
+            estado: 'PENDIENTE_REVISION',
+            metadata: {
+              detectado_por: 'PAY-5-detector',
+              intentos: doble.intentos_exitosos,
+            },
+          }, { onConflict: 'recibo_id,studio_id' });
+
+        if (!error) registrados++;
+        else errores.push(`${doble.recibo_id}: ${error.message}`);
       }
-    } else {
-      errores.push(`Recibo ${doble.reciboId}: ${resultado.error}`);
+    } catch (err) {
+      errores.push(`Studio ${studio.id}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
-  return {
-    detectados: dobles.length,
-    registrados: registrados.length,
-    errores,
-  };
+  return { detectados, registrados, errores };
 }
 
 /**
- * Obtiene la lista de dobles cobros pendientes de revisión para un estudio.
- * Usada por el endpoint `/api/billing/doble-cobro-detector`.
+ * Obtiene todos los dobles cobros en estado PENDIENTE_REVISION.
  */
 export async function obtenerDoblesCobrosEnRevision(
-  studioId: string
+  admin: SupabaseClient,
+  studioId: string,
 ): Promise<Array<{
   id: string;
-  reciboId: string;
-  paymentIntentIds: string[];
-  importeCentimos: number;
-  intentosExitosos: number;
-  primeraFecha: string;
-  ultimaFecha: string;
+  recibo_id: string;
+  importe_centimos: number;
+  intentos_exitosos_count: number;
+  primera_fecha: string;
+  mensaje?: string;
   estado: string;
 }>> {
-  const admin = getSupabaseAdmin();
-  if (!admin) {
-    throw new Error('Servicio no configurado');
-  }
-
-  const { data, error } = await admin.from('dobles_cobros_detectados').select(
-    `
-    id,
-    recibo_id,
-    payment_intent_ids,
-    importe_centimos,
-    intentos_exitosos_count,
-    primera_fecha,
-    ultima_fecha,
-    estado
-    `
-  )
+  const { data, error } = await admin
+    .from('dobles_cobros_detectados')
+    .select('id, recibo_id, importe_centimos, intentos_exitosos_count, primera_fecha, estado')
     .eq('studio_id', studioId)
     .eq('estado', 'PENDIENTE_REVISION')
-    .order('creado_en', { ascending: false });
+    .order('primera_fecha', { ascending: false });
 
-  if (error) {
-    throw new Error(`Error al obtener dobles cobros: ${error.message}`);
+  if (error || !data) {
+    console.error('[obtenerDoblesCobrosEnRevision]', error?.message);
+    return [];
   }
 
-  return (data ?? []).map(row => ({
-    id: row.id,
-    reciboId: row.recibo_id,
-    paymentIntentIds: row.payment_intent_ids,
-    importeCentimos: row.importe_centimos,
-    intentosExitosos: row.intentos_exitosos_count,
-    primeraFecha: row.primera_fecha,
-    ultimaFecha: row.ultima_fecha,
-    estado: row.estado,
+  return data.map((d) => ({
+    ...d,
+    mensaje: `Doble cobro: ${d.intentos_exitosos_count} cargos (${d.importe_centimos / 100} EUR)`,
   }));
 }

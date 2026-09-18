@@ -1,5 +1,5 @@
 /**
- * PAY-5: Endpoint privado para detectar y revisar dobles cobros
+ * PAY-5/PAY-6: Endpoint privado para detectar y revisar dobles cobros
  *
  * GET /api/billing/doble-cobro-detector
  *   Devuelve lista de dobles cobros PENDIENTE_REVISION para este estudio.
@@ -10,13 +10,13 @@
  *
  * PUT /api/billing/doble-cobro-detector/:id
  *   Marca un doble cobro como CONFIRMADO, FALSO_POSITIVO o RESUELTO
- *   con notas opcionales. Cambio de estado = PAY-6 (reembolso).
+ *   con notas opcionales. Cambio de estado = PAY-7 (reembolso).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient, getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { detectarYRegistrarDoblesCobros, obtenerDoblesCobrosEnRevision } from '@/lib/billing/detectar-doble-cobro';
-import { puedeVerEstudio } from '@/lib/permisos-reglas';
+import { detectarYRegistrarDoblesCobros, obtenerDoblesCobrosEnRevision } from '@/lib/billing/detectar-doble-cobro.ts';
+import { puedeVerEstudio } from '@/lib/permisos-reglas.ts';
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,7 +38,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Obtener lista de dobles cobros PENDIENTE_REVISION
-    const dobles = await obtenerDoblesCobrosEnRevision(studioId);
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: 'Servicio no configurado' }, { status: 500 });
+    }
+
+    const dobles = await obtenerDoblesCobrosEnRevision(admin, studioId);
 
     return NextResponse.json({
       ok: true,
@@ -50,7 +55,7 @@ export async function GET(request: NextRequest) {
     console.error('[doble-cobro-detector GET]', err);
     return NextResponse.json(
       { error: 'Error al obtener dobles cobros' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -76,8 +81,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: 'Servicio no configurado' }, { status: 500 });
+    }
+
     // Ejecutar detección y registro
-    const resultado = await detectarYRegistrarDoblesCobros(diasAtras);
+    const resultado = await detectarYRegistrarDoblesCobros(admin, diasAtras);
 
     return NextResponse.json({
       ok: true,
@@ -91,7 +101,7 @@ export async function POST(request: NextRequest) {
     console.error('[doble-cobro-detector POST]', err);
     return NextResponse.json(
       { error: 'Error al detectar dobles cobros' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -109,14 +119,14 @@ export async function PUT(request: NextRequest) {
     if (!id || !estado) {
       return NextResponse.json(
         { error: 'Parámetros id y estado requeridos' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!['CONFIRMADO', 'FALSO_POSITIVO', 'RESUELTO'].includes(estado)) {
       return NextResponse.json(
         { error: 'Estado inválido' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -178,7 +188,7 @@ export async function PUT(request: NextRequest) {
     console.error('[doble-cobro-detector PUT]', err);
     return NextResponse.json(
       { error: 'Error al actualizar doble cobro' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
