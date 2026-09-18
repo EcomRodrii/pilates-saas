@@ -27,14 +27,17 @@ create table public.cobros_intentos (
 -- Auditoría: solo lectura para authenticated/service_role, escritura solo para service_role
 create policy "cobros_intentos_lectura_rol" on public.cobros_intentos
   for select
-  using (true);  -- Todos los roles pueden leer (datos no sensibles más allá del recibo)
+  to authenticated, service_role
+  using (true);  -- Roles autenticados pueden leer (datos no sensibles más allá del recibo)
 
 create policy "cobros_intentos_escritura_service_role" on public.cobros_intentos
   for insert
+  to service_role
   with check (auth.role() = 'service_role');
 
 create policy "cobros_intentos_update_service_role" on public.cobros_intentos
   for update
+  to service_role
   using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 
