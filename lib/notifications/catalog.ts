@@ -200,6 +200,10 @@ export const EVENTOS = {
   // aplica a una venta al contado, y su dedupKey/deepLink están atados a
   // `devoluciones`/`recibos`, tablas que una venta POS no tiene.
   VENTA_POS_DEVUELTA: 'venta_pos.devuelta',
+  // PAY-6: doble cobro detectado — a la propietaria. Un recibo con múltiples
+  // payment_intent exitosos es un fallo de idempotencia o un error en el
+  // webhook — la propietaria necesita investigar qué pasó.
+  DOBLE_COBRO_DETECTADO: 'pago.doble_cobro_detectado',
   SISTEMA_ERROR: 'sistema.error',
   // Automatizaciones (cron → publish)
   RECORDATORIO_24H: 'reserva.recordatorio_24h',
@@ -396,6 +400,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // en Stripe pase lo que pase, lo accionable es solo que el cierre de caja
   // no quede inflado — no hay plazo externo corriendo.
   [EVENTOS.VENTA_POS_DEVUELTA]: { category: 'pagos', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'mostrador' },
+  // PAY-6: doble cobro detectado en la BD — múltiples payment_intent exitosos
+  // en el mismo recibo. Es un fallo de idempotencia o un error en el webhook
+  // y requiere investigación inmediata. ALTA prioridad a la propietaria.
+  [EVENTOS.DOBLE_COBRO_DETECTADO]: { category: 'pagos', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   [EVENTOS.PAGO_DISPUTADO]:        { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   // ALTA + EMAIL + propietaria: es la obligada tributaria real, y el silencio
   // aquí es peor que en cualquier otro evento de "pagos" — una factura
@@ -989,6 +997,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Un cargo ha sido disputado',
     body: '{socia} ha impugnado el cargo de {concepto} ({importe} €) ante su banco. Tienes hasta el {plazo} para responder con evidencia en Stripe.',
     deepLink: () => `/cobros?tab=pendientes`,
+  }),
+  ...paraRoles(EVENTOS.DOBLE_COBRO_DETECTADO, ROLES_POR_AUDIENCIA.mostrador, {
+    title: 'Doble cobro detectado',
+    body: 'Hemos detectado múltiples cobros exitosos en el mismo recibo (ID: {reciboId}). Importe: {importe} € ({intentos} intentos). Por favor, revisa este cobro inmediatamente.',
+    deepLink: () => '/cobros',
   }),
   [`${EVENTOS.SISTEMA_ERROR}#PROPIETARIO`]: {
     title: 'Aviso del sistema',
