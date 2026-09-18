@@ -14,7 +14,6 @@
  */
 
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { alertarDobleCobroDetectado } from './doble-cobro-alertas.ts';
 
 export interface DobleCobroDetectado {
   reciboId: string;
@@ -164,13 +163,6 @@ export async function detectarYRegistrarDoblesCobros(diasAtras: number = 7): Pro
       if (resultado.id) {
         registrados.push(resultado.id);
       }
-      // Alerta best-effort: no rompe el flujo si falla
-      await alertarDobleCobroDetectado(
-        doble.studioId,
-        doble.reciboId,
-        doble.importeCentimos,
-        doble.intentosExitosos,
-      );
     } else {
       errores.push(`Recibo ${doble.reciboId}: ${resultado.error}`);
     }
