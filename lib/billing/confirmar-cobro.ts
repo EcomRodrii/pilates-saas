@@ -57,45 +57,6 @@ export type ResultadoConfirmarCobroRecibo =
     }
   | { ok: false; error: string };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PAY-4: Registrar intentos de cobro para auditoría
-// ─────────────────────────────────────────────────────────────────────────────
-/**
- * Registra un intento de cobro en `cobros_intentos` de forma idempotente
- * (por payment_intent_id). Best-effort: un fallo aquí no deshace el cobro.
- */
-async function registrarIntentoCobro(
-  admin: SupabaseClient,
-  params: {
-    paymentIntentId: string;
-    studioId: string;
-    reciboId: string;
-    importeCentimos: number;
-    origen: 'checkout' | 'off_session' | 'manual' | 'renovacion';
-    desenlace: 'cobrado' | 'fallido' | 'disputado' | 'revertido';
-  },
-): Promise<void> {
-  const { paymentIntentId, studioId, reciboId, importeCentimos, origen, desenlace } = params;
-
-  const { error } = await admin.from('cobros_intentos').insert({
-    payment_intent_id: paymentIntentId,
-    studio_id: studioId,
-    recibo_id: reciboId,
-    importe_centimos: importeCentimos,
-    origen,
-    desenlace,
-  });
-
-  // Idempotencia: si el payment_intent_id ya existe (23505), es un reintento
-  // del mismo evento y no hay nada que hacer.
-  if (error && error.code !== '23505') {
-    Sentry.captureMessage('[registrarIntentoCobro] no se pudo registrar el intento de cobro', {
-      level: 'warning', tags: { area: 'cobros', tipo: 'auditoria' },
-      extra: { paymentIntentId, studioId, reciboId, desenlace, detalle: error.message },
-    });
-  }
-}
-
 /**
  * Confirma el cobro de un recibo pagado por Checkout Session (portal, enlace
  * público, widget embebido). Idempotente: una reentrega del mismo evento, o
@@ -119,14 +80,6 @@ export async function confirmarCobroRecibo(
   // `conciliado_en` — con `ahoraISO` un cobro a la 01:30 de Madrid se fechaba
   // el día anterior (mismo bug que ya documenta `hoyEnEstudio`).
   const hoy = hoyEnEstudio(new Date(ahoraISO));
-
-  // PAY-4: Leer el recibo antes de marcar para obtener el importe
-  const { data: reciboParaLeer, error: reciboError } = await admin.from('recibos')
-    .select('importe').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
-  if (reciboError) {
-    return { ok: false, error: `No se pudo leer el recibo: ${reciboError.message}` };
-  }
-  const importeRecibo = reciboParaLeer?.importe ?? 0;
 
   const { data: marcado, error } = await admin
     .from('recibos')
@@ -206,32 +159,9 @@ export async function confirmarCobroRecibo(
           level: 'error',
           extra: { reciboId, studioId, fuente, paymentIntentDuplicado: paymentIntentId },
         });
-        // PAY-4: Registrar el intento de doble cobro para auditoría
-        if (paymentIntentId && importeRecibo > 0) {
-          await registrarIntentoCobro(admin, {
-            paymentIntentId,
-            studioId,
-            reciboId,
-            importeCentimos: Math.round(importeRecibo * 100),
-            origen: 'checkout',
-            desenlace: 'cobrado',
-          });
-        }
       }
     }
     return { ok: true, actualizado: false };
-  }
-
-  // PAY-4: Registrar el intento de cobro exitoso
-  if (paymentIntentId && importeRecibo > 0) {
-    await registrarIntentoCobro(admin, {
-      paymentIntentId,
-      studioId,
-      reciboId,
-      importeCentimos: Math.round(importeRecibo * 100),
-      origen: 'checkout',
-      desenlace: 'cobrado',
-    });
   }
 
   // Renovación en servidor (refill de bono / extensión del mensual).
