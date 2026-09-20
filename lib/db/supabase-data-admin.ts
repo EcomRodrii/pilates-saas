@@ -1275,8 +1275,21 @@ export async function devolverBonoServidor(
       .eq('id', reservaId).eq('studio_id', studioId).maybeSingle();
     if (errorReserva && !esColumnaInexistente(errorReserva)) reportDbError('[devolverBonoServidor]', errorReserva);
     if (reserva?.bono_consumo_rastreado && reserva.bono_suscripcion_id) {
-      const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono', {
-        p_suscripcion_id: reserva.bono_suscripcion_id as string, p_studio_id: studioId,
+      // ⚠️ Idempotente POR RESERVA (auditoría 2026-09-19).
+      //
+      // Antes se llamaba a `devolver_sesion_bono`, que es un `+1` ciego topado
+      // por el plan y no sabe qué reserva lo provocó. Ninguno de los filtros de
+      // `/api/reservas/devolver-bonos` (CANCELADA, sesión cancelada, rastreada)
+      // cambia al devolver, así que repetir el POST con los mismos ids volvía a
+      // sumar cada vez hasta el tope: un doble clic inflaba el saldo de la
+      // socia, y ese saldo son clases.
+      //
+      // `devolver_sesion_bono_por_reserva` sella `reservas.bono_devuelto_en` y
+      // devuelve en la misma transacción; el propio UPDATE de la marca es lo
+      // que serializa dos peticiones simultáneas. `null` = ya estaba devuelta
+      // (o el bono está al tope), que es un SIN_BONO, no un fallo.
+      const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono_por_reserva', {
+        p_studio_id: studioId, p_reserva_id: reservaId,
       });
       if (error) { reportDbError('[devolverBonoServidor]', error); return 'FALLO'; }
       return nuevoSaldo != null ? 'DEVUELTA' : 'SIN_BONO';
@@ -2376,8 +2389,21 @@ export async function crearReservaPublica(params: {
     // La RPC ya sabía hacerlo: bloquea la fila del spot `for update`, valida
     // sala y `activo`, y comprueba ocupación antes de decidir el estado.
     p_spot_id: params.spotId ?? null,
+    // ⚠️ NO añadas `p_tipo_clase_id` aquí (auditoría 2026-09-19).
+    //
+    // La función VIVA en producción tiene 9 parámetros y termina en
+    // `p_exigir_entitlement`: deriva el tipo de clase de la propia sesión
+    // (`select ... tipo_clase_id from sesiones ... for update`), que es más
+    // seguro que recibirlo del llamante porque no se puede falsear. La
+    // migración 20260918000000 del repo declara una variante de 10 parámetros
+    // con `p_tipo_clase_id` que NUNCA llegó a aplicarse así; mandar ese
+    // argumento hacía que PostgREST no encontrase ninguna función
+    // (PGRST202) y tumbaba TODAS las reservas de la alumna.
+    //
+    // `p_exigir_entitlement` es además lo que desambigua la llamada: queda
+    // viva una sobrecarga de 8 parámetros y cualquier llamada que no nombre
+    // este argumento resuelve a las dos (SQLSTATE 42725, «is not unique»).
     p_exigir_entitlement: exigirPlanResuelto,
-    p_tipo_clase_id: tipoDeLaClase,
   });
   if (error) {
     // ⚠️ El `codigo` es lo que consume el cliente; el `error` es solo para
@@ -2558,6 +2584,17 @@ export async function reservarPlazaTrasPagoPublico(params: {
     // y acto seguido se quedaría sin plaza. Quien acaba de pagar no es quien
     // debe.
     p_saltar_gate_impago: true,
+    // ⚠️ Explícito por DOS motivos, y los dos son obligatorios:
+    //
+    // 1. NEGOCIO: el dinero de esta clase ya está cobrado. Volver a exigir un
+    //    entitlement activo dentro del lock dejaría sin plaza a quien acaba de
+    //    pagarla (mismo razonamiento que `p_saltar_gate_impago` justo arriba).
+    // 2. RESOLUCIÓN: en producción conviven dos sobrecargas de `reservar_plaza`
+    //    (8 y 9 parámetros, las dos con defaults). Una llamada que NO nombre
+    //    `p_exigir_entitlement` encaja en las dos y Postgres responde
+    //    42725 «function ... is not unique» — es decir, la reserva tras pago
+    //    falla SIEMPRE. Nombrarlo aquí es lo que la hace unívoca.
+    p_exigir_entitlement: false,
   });
   if (error) {
     // YA_RESERVADA: mismo p_reserva_id que un reintento anterior del webhook
@@ -2688,6 +2725,16 @@ export async function crearReservaMostrador(params: {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: params.reservaId,
     p_saltar_gate_impago: true,
+    // ⚠️ Explícito por DOS motivos (mismo caso que el camino de tras-pago):
+    //
+    // 1. NEGOCIO: el mostrador apunta walk-ins que pagan en caja o traen un
+    //    bono que la recepcionista ya ha comprobado. Exigir entitlement aquí
+    //    haría que el mostrador empezase a rechazar clientas presentes.
+    // 2. RESOLUCIÓN: sin nombrar `p_exigir_entitlement`, esta llamada encaja a
+    //    la vez en la sobrecarga de 8 y en la de 9 parámetros y Postgres
+    //    responde 42725 «function ... is not unique» — apuntar desde el
+    //    mostrador falla SIEMPRE.
+    p_exigir_entitlement: false,
   });
   if (error) {
     // Reintento del MISMO intento (el id lo genera el panel y viaja en la

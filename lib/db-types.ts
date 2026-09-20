@@ -33,6 +33,8 @@ export interface RowReservas {
   bono_consumo_rastreado: boolean | null;
   // migr 20260915001236.
   cancelada_motivo: string | null;
+  // migr 20260919075507.
+  bono_devuelto_en: string | null;
 }
 
 export interface RowAchievementDefinitions {

@@ -330,16 +330,45 @@ export async function registrarIntentoCobro(
   },
 ): Promise<void> {
   const { paymentIntentId, studioId, reciboId, origen, desenlace } = params;
-  const { data: recibo } = await admin.from('recibos')
+  const { data: recibo, error: errorRecibo } = await admin.from('recibos')
     .select('importe').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
-  if (!recibo) return;
+  if (!recibo) {
+    // Un intento de cobro sin fila en el libro es exactamente lo que este libro
+    // existe para evitar. Que el recibo no aparezca no es «nada que anotar»:
+    // o el id no es de este estudio, o la lectura falló.
+    Sentry.captureMessage('[registrarIntentoCobro] intento de cobro SIN anotar: no se resolvió el recibo', {
+      level: 'warning', tags: { area: 'cobros', tipo: 'auditoria-cobros' },
+      extra: { paymentIntentId, reciboId, studioId, origen, desenlace, error: errorRecibo?.message },
+    });
+    return;
+  }
 
-  await admin.from('cobros_intentos').insert({
+  const { error } = await admin.from('cobros_intentos').insert({
     payment_intent_id: paymentIntentId,
     studio_id: studioId,
     recibo_id: reciboId,
     importe_centimos: recibo.importe,
     origen,
     desenlace,
-  }).then(() => {}).catch(() => {});
+  });
+
+  // ⚠️ El fallo NO se traga (auditoría 2026-09-19).
+  //
+  // Aquí había un `.then(() => {}).catch(() => {})` que, además de no
+  // compilar (`PromiseLike<void>` no tiene `.catch` → TS2339, y con él caía
+  // el build entero), silenciaba cualquier error de escritura. La tabla
+  // `cobros_intentos` NO EXISTÍA en producción —su migración figuraba como
+  // aplicada pero nunca llegó a crearla—, así que este insert fallaba
+  // siempre y nadie se enteró: el libro que contesta a «me habéis cobrado
+  // dos veces» llevaba días vacío aparentando funcionar.
+  //
+  // El 23505 sí es benigno y esperado: el PaymentIntent es la clave primaria,
+  // de modo que un reintento del webhook con el mismo intent choca a
+  // propósito. Es la idempotencia funcionando, no un fallo.
+  if (error && error.code !== '23505') {
+    Sentry.captureMessage('[registrarIntentoCobro] no se pudo anotar el intento de cobro', {
+      level: 'error', tags: { area: 'cobros', tipo: 'auditoria-cobros' },
+      extra: { paymentIntentId, reciboId, studioId, origen, desenlace, error: error.message, code: error.code },
+    });
+  }
 }

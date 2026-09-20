@@ -1,53 +1,50 @@
--- RES-4 (auditoría 2026-09-17): Race condition de doble reserva sin cobrar.
--- Problema: Gate de entitlement en TS antes del lock permite dos peticiones concurrentes
--- pasar ambas, luego ambas se serializan en la RPC pero CONFIRMADA ya se pasó.
--- Solución: Mover gate DENTRO de la RPC, dentro del lock transaccional.
+-- Auditoría 2026-09-19 · CUARTO defecto del mismo bloque de reservas, que solo
+-- aparece una vez desatascados los tres anteriores (20260919120000).
+--
+-- Con la ambigüedad de firmas resuelta y el `??` corregido, una sonda real
+-- contra producción (dentro de una transacción abortada) devolvió:
+--
+--   ALUMNA    = 42703: column st.requiere_plan does not exist
+--   MOSTRADOR = OK (LISTA_ESPERA, 1)
+--
+-- O sea: el mostrador y el camino de tras-pago ya funcionan, pero la reserva de
+-- la propia alumna sigue muriendo en cuanto el estudio exige plan, porque el
+-- cuerpo vivo de `reservar_plaza` lee `studios.requiere_plan` y esa columna no
+-- existe. La que existe se llama `studios.reserva_exigir_plan`.
+--
+-- ---------------------------------------------------------------------------
+-- Por qué NO me limito a corregir el nombre de la columna
+-- ---------------------------------------------------------------------------
+-- Ese `select` dentro del lock es redundante Y además está mal como regla de
+-- negocio. `p_exigir_entitlement` NO es una pista: es la decisión ya resuelta
+-- por el llamante, que aplica la herencia completa
+--
+--     heredaOverride(tipos_clase.reserva_exigir_plan, studios.reserva_exigir_plan)
+--
+-- (`lib/db/supabase-data-admin.ts`, `exigirPlanResuelto`). Volver a mirar SOLO
+-- la columna del estudio pisa el override por tipo de clase: un estudio que no
+-- exige plan en general pero sí en un tipo concreto pasaba el parámetro a
+-- `true` y la RPC lo apagaba igualmente mirando el estudio. El gate quedaba
+-- otra vez fuera del lock — justo la carrera que RES-4 quería cerrar.
+--
+-- Así que la función pasa a fiarse del parámetro, que es para lo que está. El
+-- resto del cuerpo es idéntico al que corre hoy en producción, carácter a
+-- carácter, salvo el bloque marcado y la variable `v_requiere_plan`, que deja
+-- de usarse.
+-- ---------------------------------------------------------------------------
 
--- Helper para verificar si socia tiene entitlement activo
-create or replace function public.socio_tiene_entitlement_activo(
-  p_studio_id text, p_socio_id text, p_tipo_clase_id text,
-  p_hoy date default current_date
-)
-returns boolean
-language plpgsql
-set search_path to 'public', 'pg_temp'
-as $function$
-begin
-  return exists (
-    select 1
-    from suscripciones s
-    join planes_tarifa p on p.id = s.plan_id
-    where s.studio_id = p_studio_id
-      and s.socio_id = p_socio_id
-      and s.estado = 'ACTIVA'
-      and (s.fecha_fin is null or s.fecha_fin >= p_hoy)
-      and public.plan_cubre_tipo_clase(p.id, p_tipo_clase_id)
-      and (
-        (p.tipo = 'MENSUAL')
-        -- `coalesce`, no `??`: el `??` es de JavaScript y en SQL es 42883.
-        -- Corregido en la auditoría del 2026-09-19 sobre este fichero ya
-        -- aplicado porque, tal cual estaba, un `supabase db push` desde limpio
-        -- recreaba la función rota y tumbaba las reservas otra vez hasta que
-        -- corriera 20260919074101. La versión VIVA en producción ya está
-        -- arreglada por esa migración posterior.
-        or (p.tipo in ('BONO', 'PUNTUAL') and coalesce(s.sesiones_restantes, 0) > 0)
-      )
-  );
-end;
-$function$;
-
--- Actualizar reservar_plaza: agregar parámetros p_exigir_entitlement y p_tipo_clase_id
--- y verificación dentro del lock
 create or replace function public.reservar_plaza(
-  p_studio_id text, p_sesion_id text, p_socio_id text, p_reserva_id text,
+  p_studio_id text,
+  p_sesion_id text,
+  p_socio_id text,
+  p_reserva_id text,
   p_permite_lista_espera boolean default true,
   p_requiere_aprobacion boolean default false,
   p_spot_id text default null,
   p_saltar_gate_impago boolean default false,
-  p_exigir_entitlement boolean default true,
-  p_tipo_clase_id text default null
+  p_exigir_entitlement boolean default true
 )
-returns table(estado text, posicion_espera integer)
+returns table(estado text, posicion_espera int)
 language plpgsql
 security definer
 set search_path to 'public', 'pg_temp'
@@ -76,13 +73,6 @@ begin
   perform public.validar_socio_del_studio(p_socio_id, p_studio_id);
 
   perform pg_advisory_xact_lock(hashtext(p_studio_id || ':' || p_socio_id));
-
-  -- RES-4: Verificar entitlement DENTRO del lock
-  if p_exigir_entitlement and p_tipo_clase_id is not null then
-    if not public.socio_tiene_entitlement_activo(p_studio_id, p_socio_id, p_tipo_clase_id) then
-      raise exception 'SIN_ENTITLEMENT';
-    end if;
-  end if;
 
   select inicio, fin, instructor_id, sala_id, tipo_clase_id
     into v_inicio, v_fin, v_instructor_id, v_sala_id, v_tipo_clase_id
@@ -122,6 +112,18 @@ begin
          and a.studio_id = p_studio_id
     ) then
       raise exception 'NECESITA_AUTORIZACION';
+    end if;
+  end if;
+
+  -- ⚠️ RES-4: el gate de plan/bono va DENTRO del lock, que es lo que impide la
+  -- doble reserva sin cobrar. `p_exigir_entitlement` llega ya resuelto por el
+  -- llamante con la herencia tipo-de-clase → estudio; aquí NO se vuelve a
+  -- mirar `studios` (ver cabecera de esta migración: la versión anterior leía
+  -- `studios.requiere_plan`, columna que no existe → 42703, y de paso anulaba
+  -- el override por tipo de clase).
+  if p_exigir_entitlement and v_tipo_clase_id is not null then
+    if not public.socio_tiene_entitlement_activo(p_studio_id, p_socio_id, v_tipo_clase_id, current_date) then
+      raise exception 'SIN_ENTITLEMENT';
     end if;
   end if;
 
@@ -211,8 +213,9 @@ begin
 end;
 $function$;
 
--- Grants: la firma cambió (10 parámetros ahora), así que Postgres crea nuevo objeto
--- REVOKE + GRANT explícito requerido
-revoke execute on function public.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean, text) from public, anon;
-grant execute on function public.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean, text) to authenticated, service_role, postgres;
-grant execute on function public.socio_tiene_entitlement_activo(text, text, text, date) to authenticated, service_role, postgres;
+-- `create or replace` sobre la MISMA firma conserva los grants, pero se repiten
+-- explícitos: esta función no tiene ningún llamador cliente (los tres del repo
+-- son service-role) y ya se coló una vez un `grant ... to authenticated` que
+-- deshizo el endurecimiento de RES-6.
+revoke execute on function public.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean) from public, anon, authenticated;
+grant execute on function public.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean) to service_role, postgres;
