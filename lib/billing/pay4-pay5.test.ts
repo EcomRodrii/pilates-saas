@@ -4,8 +4,8 @@ import assert from 'node:assert';
 test('PAY-4: registrarIntentoCobro es idempotente', async () => {
   // Simulación: llamar dos veces con el mismo payment_intent_id
   // debe resultar en una sola fila (PK cobros_intentos.payment_intent_id)
-  const paymentIntentId = 'pi_test_123';
-  const reciboId = 'rec_abc';
+  const _paymentIntentId = 'pi_test_123';
+  const _reciboId = 'rec_abc';
 
   // Primera llamada: inserta
   // Segunda llamada: falla silenciosamente (ya existe)
