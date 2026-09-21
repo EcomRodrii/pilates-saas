@@ -7,6 +7,7 @@
 // Tentare; aquí solo se anota que se pagó.
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
@@ -14,7 +15,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
 import {
   fetchTarifasEquipo, actualizarTarifaInstructor, fetchLiquidaciones, generarLiquidacion,
-  transicionarLiquidacion, type TarifaInstructor, type Liquidacion,
+  transicionarLiquidacion, fetchTiempoTrabajado, type TarifaInstructor, type Liquidacion,
 } from '@/lib/api-client';
 import { formatEuro } from '@/lib/utils';
 
@@ -33,6 +34,10 @@ export default function LiquidacionesPage() {
 
   const [tarifas, setTarifas] = useState<Record<string, TarifaInstructor>>({});
   const [liquidaciones, setLiquidaciones] = useState<Record<string, Liquidacion>>({});
+  // Minutos fichados por instructora en el mes. `null` = no se pudo leer: no se
+  // pinta nada antes que un «0 h» que no es verdad. Es solo informativo: la
+  // liquidación sigue calculándose por horas de clase.
+  const [fichado, setFichado] = useState<Map<string, number> | null>(null);
   const [cargando, setCargando] = useState(true);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
 
@@ -42,8 +47,9 @@ export default function LiquidacionesPage() {
     let vivo = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCargando(true);
-    Promise.all([fetchTarifasEquipo(), fetchLiquidaciones(anio, mes)]).then(([tar, liq]) => {
+    Promise.all([fetchTarifasEquipo(), fetchLiquidaciones(anio, mes), fetchTiempoTrabajado(anio, mes)]).then(([tar, liq, tiempo]) => {
       if (!vivo) return;
+      setFichado(tiempo ? new Map(tiempo.resumen.map(r => [r.instructorId, r.minutos])) : null);
       setTarifas(Object.fromEntries(tar.map(t => [t.instructorId, t])));
       setLiquidaciones(Object.fromEntries(liq.map(l => [l.instructorId, l])));
       setCargando(false);
@@ -138,6 +144,11 @@ export default function LiquidacionesPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-[14px] font-semibold text-foreground">{i.nombre}</h2>
+                    {fichado && (
+                      <Link href="/equipo/tiempo-trabajado" className="block mt-0.5 text-[12px] text-muted-foreground hover:text-foreground hover:underline" data-testid="fichado-mes">
+                        Fichado en {MESES[mes - 1]}: {Math.floor((fichado.get(i.id) ?? 0) / 60)} h {String((fichado.get(i.id) ?? 0) % 60).padStart(2, '0')} min
+                      </Link>
+                    )}
                     {liq && (
                       <span className={`inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                         liq.estado === 'PAGADA' ? 'bg-emerald-500/15 text-emerald-600' :
