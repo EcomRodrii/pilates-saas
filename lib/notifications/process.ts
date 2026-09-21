@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { REGLAS } from './catalog.ts';
 import { CANALES, type ResultadoCanal } from './channels.ts';
-import { crearInApp, canalesExtraDe, preferenciaDe, PREF_DEFECTO, type Preferencia } from './inapp.ts';
+import { crearInApp, canalesExtraDe, preferenciaDe, prefDelEvento, PREF_DEFECTO, type Preferencia } from './inapp.ts';
 import { resolverContactoConocido, emailDeLaPropietaria } from './recipients.ts';
 import * as Sentry from '@sentry/nextjs';
 import type {
@@ -233,7 +233,7 @@ export async function entregarExternos(
     // `categorias` está acotado por el catálogo de reglas, no por el tamaño de
     // la tanda: solo se trocean los user_id.
     enLotes<Fila>(userIds, lote => admin.from('notification_preference')
-      .select('user_id, category, inapp, push, email, whatsapp, sms')
+      .select('user_id, category, inapp, push, email, whatsapp, sms, push_eventos')
       .in('user_id', lote).in('category', categorias)),
   ]);
 
@@ -283,12 +283,12 @@ export async function entregarExternos(
     const critica = regla.priority === 'CRITICA';
     const fila = dest.userId ? prefs.get(`${dest.userId}|${regla.category}`) : undefined;
     // Sin fila guardada se aplica el default, igual que hacía `preferenciaDe`.
-    const pref: Preferencia = fila
+    const pref: Preferencia = prefDelEvento(fila
       ? {
           inapp: fila.inapp as boolean, push: fila.push as boolean, email: fila.email as boolean,
-          whatsapp: fila.whatsapp as boolean, sms: fila.sms as boolean,
+          whatsapp: fila.whatsapp as boolean, sms: fila.sms as boolean, pushEventos: fila.push_eventos,
         }
-      : PREF_DEFECTO;
+      : PREF_DEFECTO, noti.event_type as string);
     const canales = canalesExtraDe(regla, pref, critica);
     const n = await entregarCanales(admin, mapRow(noti), dest, canales, fallos);
     if (n > 0) entregadas++;

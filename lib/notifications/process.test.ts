@@ -305,3 +305,47 @@ test('sin fallos el resumen queda vacío (y avisarFallos no manda nada)', () => 
   assert.deepEqual(r.porCanal, {});
   assert.deepEqual(r.ejemplos, []);
 });
+
+const socia = { recipient_role: 'SOCIA', recipient_socio_id: 's-1', category: 'reservas' };
+const prefReservas = (push: boolean, pushEventos: Fila) => ({
+  user_id: 'u-1', category: 'reservas', inapp: true, push, email: false, whatsapp: false, sms: false,
+  push_eventos: pushEventos,
+});
+const pushDe = (insertados: Fila[], id: string) =>
+  insertados.filter(f => f.notification_id === id && f.channel === 'PUSH').length;
+
+test('push por tipo: la excepción apaga ESE aviso y no el resto de su categoría', async () => {
+  // Misma categoría (`reservas`), misma persona: apagar el recordatorio de una
+  // hora no puede arrastrar a la plaza liberada.
+  const { admin, insertados } = fakeAdmin({
+    notification: [
+      noti('n-1', { ...socia, event_type: 'reserva.recordatorio_1h' }),
+      noti('n-2', { ...socia, event_type: 'reserva.plaza_liberada' }),
+    ],
+    notification_delivery: [],
+    socios: [{ id: 's-1', email: 'socia@example.com', telefono: null }],
+    notification_preference: [prefReservas(true, { 'reserva.recordatorio_1h': false })],
+  });
+
+  await entregarExternos(admin, ['n-1', 'n-2']);
+
+  assert.equal(pushDe(insertados, 'n-1'), 0, 'apagado por tipo: ni se intenta');
+  assert.equal(pushDe(insertados, 'n-2'), 1, 'la categoría sigue encendida para el resto');
+});
+
+test('push por tipo: una excepción encendida gana a la categoría apagada', async () => {
+  const { admin, insertados } = fakeAdmin({
+    notification: [
+      noti('n-1', { ...socia, event_type: 'reserva.recordatorio_24h' }),
+      noti('n-2', { ...socia, event_type: 'reserva.plaza_liberada' }),
+    ],
+    notification_delivery: [],
+    socios: [{ id: 's-1', email: 'socia@example.com', telefono: null }],
+    notification_preference: [prefReservas(false, { 'reserva.recordatorio_24h': true })],
+  });
+
+  await entregarExternos(admin, ['n-1', 'n-2']);
+
+  assert.equal(pushDe(insertados, 'n-1'), 1);
+  assert.equal(pushDe(insertados, 'n-2'), 0);
+});

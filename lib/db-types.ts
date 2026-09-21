@@ -1724,6 +1724,8 @@ export interface RowNotificationPreference {
   whatsapp: boolean;
   sms: boolean;
   updated_at: string;
+  // migr 20260921132122.
+  push_eventos: any | null;
 }
 
 export interface RowPushSubscription {
@@ -5903,6 +5905,7 @@ export type NotificationPreferenceInsert = {
   whatsapp?: boolean | null;
   sms?: boolean | null;
   updated_at?: string | null;
+  push_eventos?: any | null | null;
 }
 
 export type NotificationPreferenceUpdate = {
@@ -5916,6 +5919,7 @@ export type NotificationPreferenceUpdate = {
   whatsapp?: boolean | null;
   sms?: boolean | null;
   updated_at?: string | null;
+  push_eventos?: any | null | null;
 }
 
 export type PushSubscriptionInsert = {

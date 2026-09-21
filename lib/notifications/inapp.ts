@@ -16,6 +16,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import { REGLAS, plantillaDe, render, type ReglaEvento } from './catalog.ts';
 import { resolverDestinatarios } from './recipients.ts';
+import { pushEfectivo } from './push-por-tipo.ts';
 import type {
   NotificationCategory, NotificationChannel, NotificationEvent, NotificationRow, Recipient,
 } from './types.ts';
@@ -26,8 +27,19 @@ import type {
 // ningún canal: son datos inertes, no una preferencia que haga algo. Ninguna
 // pantalla los ofrecía, así que nadie los echa de menos; quitarlos de verdad es
 // una migración aparte, no un efecto colateral de este cambio.
-export interface Preferencia { inapp: boolean; push: boolean; email: boolean; whatsapp: boolean; sms: boolean; }
+export interface Preferencia {
+  inapp: boolean; push: boolean; email: boolean; whatsapp: boolean; sms: boolean;
+  /** Excepciones de push por tipo (`push_eventos`); se aplican con `prefDelEvento`. */
+  pushEventos?: unknown;
+}
 export const PREF_DEFECTO: Preferencia = { inapp: true, push: true, email: false, whatsapp: false, sms: false };
+
+// La preferencia de la CATEGORÍA con el push ya resuelto para ESTE tipo. Todo
+// camino que decida si sale un push pasa por aquí: si uno la aplica y otro no,
+// la campana y el móvil dejan de estar de acuerdo.
+export function prefDelEvento(pref: Preferencia, evento: string): Preferencia {
+  return { ...pref, push: pushEfectivo(pref.push, pref.pushEventos, evento) };
+}
 
 // Canales EXTRA (además del in-app) para un destinatario.
 //
@@ -55,11 +67,11 @@ export async function preferenciaDe(
   admin: SupabaseClient, userId: string, category: NotificationCategory,
 ): Promise<Preferencia> {
   const { data } = await admin.from('notification_preference')
-    .select('inapp, push, email, whatsapp, sms').eq('user_id', userId).eq('category', category).maybeSingle();
+    .select('inapp, push, email, whatsapp, sms, push_eventos').eq('user_id', userId).eq('category', category).maybeSingle();
   if (!data) return PREF_DEFECTO;
   return {
     inapp: data.inapp as boolean, push: data.push as boolean, email: data.email as boolean,
-    whatsapp: data.whatsapp as boolean, sms: data.sms as boolean,
+    whatsapp: data.whatsapp as boolean, sms: data.sms as boolean, pushEventos: data.push_eventos,
   };
 }
 
@@ -155,7 +167,9 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
     if (!pl) { omitidas++; continue; }
 
     const critica = regla.priority === 'CRITICA';
-    const pref = dest.userId ? await preferenciaDe(admin, dest.userId, regla.category) : PREF_DEFECTO;
+    const pref = prefDelEvento(
+      dest.userId ? await preferenciaDe(admin, dest.userId, regla.category) : PREF_DEFECTO, event.type,
+    );
     const quiereInapp = critica || pref.inapp;
     const canalesExtra = canalesExtraDe(regla, pref, critica);
     if (!quiereInapp && canalesExtra.length === 0) { omitidas++; continue; }

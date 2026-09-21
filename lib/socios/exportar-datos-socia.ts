@@ -281,7 +281,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('memoria_socio', 'id, clave, origen, evidencia, activa, creado_en, expira_en'),
     tabla('recomendaciones', 'id, tipo, titulo, motivo, estado, creado_en'),
     authUserId
-      ? leer(db, 'notification_preference', 'category, inapp, push, email', [['eq', 'studio_id', studioId], ['eq', 'user_id', authUserId]], 'category')
+      ? leer(db, 'notification_preference', 'category, inapp, push, email, push_eventos', [['eq', 'studio_id', studioId], ['eq', 'user_id', authUserId]], 'category')
       : sinFilas,
     leer(db, 'campos_personalizados', 'id, etiqueta', [['eq', 'studio_id', studioId]], 'id'),
     conSalud ? tabla('valoraciones_iniciales', 'id, estado, objetivos, objetivo_principal, experiencia, nivel, actividad_habitual, frecuencia, expectativas, creado_en, actualizado_en, completada_en') : sinFilas,
