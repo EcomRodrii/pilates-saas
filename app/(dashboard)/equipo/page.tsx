@@ -491,6 +491,9 @@ export default function EquipoPage() {
                 <Link href="/equipo/rendimiento" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
                   <TrendingUp size={16} /> Rendimiento
                 </Link>
+                <Link href="/equipo/tiempo-trabajado" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
+                  <Clock size={16} /> Tiempo trabajado
+                </Link>
                 <Link href="/equipo/liquidaciones" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
                   <Euro size={16} /> Liquidaciones
                 </Link>

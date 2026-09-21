@@ -37,6 +37,7 @@ import type { EstadoCoberturaNetwork } from '@/lib/network/cobertura-sustitucion
 import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
 import type { EstudioListadoPublico } from '@/lib/network/publico-estudios.ts';
 import type { RowDocumentosSocio } from '@/lib/db-types';
+import type { CambioJornada, JornadaEquipo, ResumenInstructora } from '@/lib/fichaje/jornadas-equipo';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -2487,6 +2488,46 @@ export async function transicionarLiquidacion(
     return res.ok ? { ok: true, item: data.item } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
   } catch {
     return { ok: false, error: 'No se pudo actualizar la liquidación' };
+  }
+}
+
+// ── Tiempo trabajado (Equipo) ────────────────────────────────────────────────
+export interface TiempoTrabajadoMes {
+  jornadas: JornadaEquipo[];
+  cambios: Record<string, CambioJornada[]>;
+  resumen: ResumenInstructora[];
+}
+
+/** `null` si no se ha podido leer: una lista vacía diría «nadie ha fichado», y no se sabe. */
+export async function fetchTiempoTrabajado(anio: number, mes: number): Promise<TiempoTrabajadoMes | null> {
+  try {
+    const qs = new URLSearchParams({ anio: String(anio), mes: String(mes) });
+    const res = await fetch(`/api/equipo/jornadas?${qs.toString()}`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    const d = (await res.json()) as Partial<TiempoTrabajadoMes>;
+    return {
+      jornadas: Array.isArray(d.jornadas) ? d.jornadas : [],
+      cambios: d.cambios && typeof d.cambios === 'object' ? d.cambios : {},
+      resumen: Array.isArray(d.resumen) ? d.resumen : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function corregirJornada(
+  id: string, cambios: { checkInAt?: string; checkOutAt?: string }, motivo: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/equipo/jornadas', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id, ...cambios, motivo }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar la corrección' };
   }
 }
 
