@@ -1865,10 +1865,6 @@ export interface RowInstructorTarifas {
   recargo_sustitucion_pct: number | null;
   // migr 20260904194535.
   horas_semanales_contrato: number | null;
-  // migr 20260920120100.
-  vigente_desde: string | null;
-  // migr 20260920120100.
-  vigente_hasta: string | null;
 }
 
 export interface RowFavoritosClase {
@@ -3113,7 +3109,7 @@ export interface RowInstructorWorkSessions {
   id: string;
   studio_id: string;
   instructor_id: string;
-  check_in_at: string | null;
+  check_in_at: string;
   check_out_at: string | null;
   check_in_method: string;
   check_out_method: string | null;
@@ -3122,15 +3118,7 @@ export interface RowInstructorWorkSessions {
   created_by: string;
   edited_at: string | null;
   edited_by: string | null;
-}
-
-export interface RowWorkSessionSessions {
-  id: string;
-  work_session_id: string;
-  sesion_id: string;
-  studio_id: string;
-  linked_at: string;
-  linked_by: string;
+  OR: string;
 }
 
 export interface RowWorkSessionAudits {
@@ -3150,10 +3138,6 @@ export interface RowStudioConfigTiempo {
   studio_id: string;
   check_in_window_minutes: number;
   open_session_limit_hours: number;
-  allow_retroactive_check_in: boolean;
-  allow_edit_closed_sessions: boolean;
-  metodos_habilitados: string[];
-  created_at: string;
   updated_at: string;
 }
 
@@ -6226,8 +6210,6 @@ export type InstructorTarifasInsert = {
   base_mensual_eur?: number | null | null;
   recargo_sustitucion_pct?: number | null | null;
   horas_semanales_contrato?: number | null | null;
-  vigente_desde?: string | null | null;
-  vigente_hasta?: string | null | null;
 }
 
 export type InstructorTarifasUpdate = {
@@ -6240,8 +6222,6 @@ export type InstructorTarifasUpdate = {
   base_mensual_eur?: number | null | null;
   recargo_sustitucion_pct?: number | null | null;
   horas_semanales_contrato?: number | null | null;
-  vigente_desde?: string | null | null;
-  vigente_hasta?: string | null | null;
 }
 
 export type FavoritosClaseInsert = {
@@ -8650,7 +8630,7 @@ export type InstructorWorkSessionsInsert = {
   id?: string | null;
   studio_id?: string | null;
   instructor_id?: string | null;
-  check_in_at?: string | null | null;
+  check_in_at?: string | null;
   check_out_at?: string | null | null;
   check_in_method?: string | null;
   check_out_method?: string | null | null;
@@ -8659,13 +8639,14 @@ export type InstructorWorkSessionsInsert = {
   created_by?: string | null;
   edited_at?: string | null | null;
   edited_by?: string | null | null;
+  OR?: string | null;
 }
 
 export type InstructorWorkSessionsUpdate = {
   id?: string | null;
   studio_id?: string | null;
   instructor_id?: string | null;
-  check_in_at?: string | null | null;
+  check_in_at?: string | null;
   check_out_at?: string | null | null;
   check_in_method?: string | null;
   check_out_method?: string | null | null;
@@ -8674,24 +8655,7 @@ export type InstructorWorkSessionsUpdate = {
   created_by?: string | null;
   edited_at?: string | null | null;
   edited_by?: string | null | null;
-}
-
-export type WorkSessionSessionsInsert = {
-  id?: string | null;
-  work_session_id?: string | null;
-  sesion_id?: string | null;
-  studio_id?: string | null;
-  linked_at?: string | null;
-  linked_by?: string | null;
-}
-
-export type WorkSessionSessionsUpdate = {
-  id?: string | null;
-  work_session_id?: string | null;
-  sesion_id?: string | null;
-  studio_id?: string | null;
-  linked_at?: string | null;
-  linked_by?: string | null;
+  OR?: string | null;
 }
 
 export type WorkSessionAuditsInsert = {
@@ -8724,10 +8688,6 @@ export type StudioConfigTiempoInsert = {
   studio_id?: string | null;
   check_in_window_minutes?: number | null;
   open_session_limit_hours?: number | null;
-  allow_retroactive_check_in?: boolean | null;
-  allow_edit_closed_sessions?: boolean | null;
-  metodos_habilitados?: string[] | null;
-  created_at?: string | null;
   updated_at?: string | null;
 }
 
@@ -8735,10 +8695,6 @@ export type StudioConfigTiempoUpdate = {
   studio_id?: string | null;
   check_in_window_minutes?: number | null;
   open_session_limit_hours?: number | null;
-  allow_retroactive_check_in?: boolean | null;
-  allow_edit_closed_sessions?: boolean | null;
-  metodos_habilitados?: string[] | null;
-  created_at?: string | null;
   updated_at?: string | null;
 }
 
@@ -9734,11 +9690,6 @@ export type Database = {
         Row: RowInstructorWorkSessions;
         Insert: InstructorWorkSessionsInsert;
         Update: InstructorWorkSessionsUpdate;
-      };
-      work_session_sessions: {
-        Row: RowWorkSessionSessions;
-        Insert: WorkSessionSessionsInsert;
-        Update: WorkSessionSessionsUpdate;
       };
       work_session_audits: {
         Row: RowWorkSessionAudits;
