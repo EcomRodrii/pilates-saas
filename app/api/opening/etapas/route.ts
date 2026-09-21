@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarApertura, puedeMoverDinero } from '@/lib/permisos-reglas';
-import { validarEtapa, type EtapaVista, type TipoEtapa, type AlCompletar } from '@/lib/opening/etapas';
+import { validarEtapa } from '@/lib/opening/etapas';
+import { cargarEtapas } from '@/lib/opening/servidor';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
 
 // Etapas de lanzamiento (Fundadora, acceso anticipado…) de Opening OS.
@@ -19,57 +20,21 @@ async function sesionConPermiso(req: NextRequest) {
   return { sesion };
 }
 
-// fecha_fin es exclusiva (medianoche del día siguiente): el último día es 1 ms antes.
-const diaEstudio = (iso: string, exclusivo = false) =>
-  hoyEnEstudio(new Date(new Date(iso).getTime() - (exclusivo ? 1 : 0)));
-
 export async function GET(req: NextRequest) {
   const { sesion, error } = await sesionConPermiso(req);
   if (error) return error;
-  const admin = requireSupabaseAdmin();
-
-  const [etapasR, planesR] = await Promise.all([
-    admin.from('launch_stages')
-      .select('id, etapa, plan_id, fecha_inicio, fecha_fin, limite_plazas, al_completar, estado, cerrada_motivo')
-      .eq('studio_id', sesion.studioId).order('fecha_inicio', { ascending: true }),
-    admin.from('planes_tarifa').select('id, nombre, tipo, precio, activo').eq('studio_id', sesion.studioId),
-  ]);
-  if (etapasR.error || planesR.error) {
-    console.error('[opening:etapas:get]', etapasR.error ?? planesR.error);
+  try {
+    const { etapas, planes } = await cargarEtapas(requireSupabaseAdmin(), sesion.studioId);
+    return NextResponse.json({
+      hoy: hoyEnEstudio(),
+      puedeCerrarVenta: puedeMoverDinero(sesion.rol),
+      etapas,
+      planes: planes.filter(p => p.activo).map(({ id, nombre, tipo, precio }) => ({ id, nombre, tipo, precio })),
+    });
+  } catch (e) {
+    console.error('[opening:etapas:get]', e);
     return NextResponse.json({ error: 'No se pudieron cargar las etapas' }, { status: 500 });
   }
-
-  const planes = planesR.data ?? [];
-  const nombrePlan = new Map(planes.map(p => [p.id as string, p.nombre as string]));
-  const ventas = await Promise.all((etapasR.data ?? []).map(e =>
-    admin.rpc('opening_ventas_etapa', { p_stage_id: e.id }).then(r => {
-      if (r.error) console.error('[opening:etapas:ventas]', r.error);
-      return r.error ? null : Number(r.data ?? 0);
-    })));
-  if (ventas.some(v => v === null)) {
-    return NextResponse.json({ error: 'No se pudieron contar las ventas' }, { status: 500 });
-  }
-
-  const etapas: EtapaVista[] = (etapasR.data ?? []).map((e, i) => ({
-    id: e.id as string,
-    etapa: e.etapa as TipoEtapa,
-    planId: (e.plan_id as string | null) ?? null,
-    planNombre: e.plan_id ? nombrePlan.get(e.plan_id as string) ?? null : null,
-    desde: diaEstudio(e.fecha_inicio as string),
-    hasta: diaEstudio(e.fecha_fin as string, true),
-    limitePlazas: (e.limite_plazas as number | null) ?? null,
-    alCompletar: e.al_completar as AlCompletar,
-    cerrada: e.estado === 'CERRADA',
-    cerradaMotivo: (e.cerrada_motivo as 'CUPO' | 'FECHA' | null) ?? null,
-    ventas: ventas[i] as number,
-  }));
-
-  return NextResponse.json({
-    hoy: hoyEnEstudio(),
-    puedeCerrarVenta: puedeMoverDinero(sesion.rol),
-    etapas,
-    planes: planes.filter(p => p.activo).map(p => ({ id: p.id, nombre: p.nombre, tipo: p.tipo, precio: Number(p.precio) })),
-  });
 }
 
 export async function POST(req: NextRequest) {

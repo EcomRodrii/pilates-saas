@@ -122,7 +122,7 @@ test('ninguna línea de «Decidir» sin enlace se queda sin tarjeta a la que sal
   const todas = construirEstadoEstudio({
     sustitucionesPorDecidir: 1, reservasPorAprobar: 1, recibosFallidos: 1, penalizacionesPorAprobar: 1,
     devolucionesPorRevisar: 1, automatizacionesEsperando: 1, canjesPorEntregar: 1, bajasPorRevisar: 1,
-    seriesPorRenovar: 1,
+    seriesPorRenovar: 1, alertasApertura: 1,
   });
   const sinEnlace = todas.decidir.filter(l => l.href === null);
   assert.ok(sinEnlace.length > 0);
@@ -149,4 +149,12 @@ test('las clases que se repiten y se acaban esperan decisión en su tarjeta, ant
   assert.equal(linea.texto, '2 clases que se repiten están a punto de terminar');
   assert.equal(ANCLA_DECIDIR.seriesPorRenovar, 'decidir-series');
   assert.equal(construirEstadoEstudio({ seriesPorRenovar: 1 }).decidir[0].texto, 'Una clase que se repite está a punto de terminar');
+});
+
+test('las alertas de apertura esperan a la propietaria y saltan a su tarjeta de Inicio', () => {
+  const e = construirEstadoEstudio({ alertasApertura: 2, recibosFallidos: 1 });
+  assert.deepEqual(e.decidir.map(l => l.id), ['alertasApertura', 'recibosFallidos']);
+  assert.equal(e.decidir[0].texto, 'Tu apertura tiene 2 avisos');
+  assert.equal(construirEstadoEstudio({ alertasApertura: 1 }).decidir[0].texto, 'Tu apertura tiene un aviso');
+  assert.equal(ANCLA_DECIDIR.alertasApertura, 'decidir-apertura');
 });

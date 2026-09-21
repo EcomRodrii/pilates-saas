@@ -1382,3 +1382,20 @@ export async function emitirSeriesRenovadasSolas(
     console.error('[notifications] emitirSeriesRenovadasSolas:', e instanceof Error ? e.message : e);
   }
 }
+
+// Opening OS: una notificación por alerta que se ABRE (el cron de alertas solo
+// llama aquí con las nuevas). La clave lleva el día: si una alerta se resuelve
+// y vuelve a abrirse otro día, se vuelve a avisar; el mismo día, no.
+export async function emitirAlertaApertura(
+  p: { studioId: string; fecha: string; tipo: string; titulo: string; descripcion: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.OPENING_ALERTA, studioId: p.studioId,
+      data: { titulo: p.titulo, descripcion: p.descripcion, tipo: p.tipo },
+      dedupKey: `opening-alerta:${p.studioId}:${p.tipo}:${p.fecha}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirAlertaApertura:', e instanceof Error ? e.message : e);
+  }
+}

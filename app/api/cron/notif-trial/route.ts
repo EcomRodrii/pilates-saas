@@ -4,6 +4,8 @@ import { secretoValido } from '@/lib/salud/secreto';
 import { barrerTrialAvisos } from '@/lib/notificaciones/trial-avisos-cron';
 import { avanzarCicloEstudiosVencidos } from '@/lib/retencion/avanzar-ciclo-estudios-vencidos';
 import { errorInterno } from '@/lib/errores-servidor';
+import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { barrerAlertasApertura } from '@/lib/opening/alertas-cron';
 
 export const dynamic = 'force-dynamic';
 // El ciclo de estudios vencidos puede, en modo activo, borrar Storage y R2 de
@@ -16,6 +18,7 @@ export const maxDuration = 120;
 // Además de los avisos de prueba, avanza el ciclo de estudios que vencieron sin
 // pagar (lib/retencion/avanzar-ciclo-estudios-vencidos.ts): mismo público y
 // misma cadencia, sin crear un job de pg_cron ni un cron de Inngest nuevos.
+// Y, por lo mismo, las alertas de Opening OS (lib/opening/alertas-cron.ts).
 export async function POST(req: NextRequest) {
   const secret = process.env.SUPABASE_CRON_SECRET;
   if (!secret) {
@@ -34,9 +37,17 @@ export async function POST(req: NextRequest) {
     cicloEstudiosVencidos = { error: 'Error avanzando el ciclo de estudios vencidos.' };
   }
 
+  let alertasApertura: unknown;
+  try {
+    alertasApertura = await barrerAlertasApertura(requireSupabaseAdmin());
+  } catch (err) {
+    Sentry.captureException(err, { tags: { cron: 'notif-trial', area: 'opening' } });
+    alertasApertura = { error: 'Error revisando las alertas de apertura.' };
+  }
+
   try {
     const resumen = await barrerTrialAvisos();
-    return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos });
+    return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura });
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'notif-trial' } });
     return errorInterno('cron/notif-trial:POST', err, 'Error avisando de prueba gratuita a punto de acabar.');

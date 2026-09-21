@@ -248,3 +248,63 @@ test.describe('Etapas de lanzamiento', () => {
     expect(errores).toEqual([]);
   });
 });
+
+test.describe('Alertas de apertura en la tarjeta', () => {
+  test('se ven con su cifra y su enlace, y la tarjeta es el ancla de la bandeja', async ({ page }) => {
+    await montar(page, {
+      inicial: {
+        ...CON_FECHA,
+        alertas: [{ tipo: 'CAPACIDAD_LLENA', severidad: 'ALTA', titulo: 'Tus clases se van a llenar',
+          descripcion: 'Ocupación prevista 92 %: 220 plazas para 240 publicadas.', href: '/calendario' }],
+      },
+    });
+    const alerta = page.getByRole('link', { name: /Tus clases se van a llenar/ });
+    await expect(alerta).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(alerta).toHaveAttribute('href', '/calendario');
+    await expect(page.locator('#decidir-apertura')).toContainText('Abres en 14 días');
+  });
+
+  test('sin horario: la alerta no se repite con el recuadro de «sin clases»', async ({ page }) => {
+    await montar(page, {
+      inicial: {
+        ...CON_FECHA,
+        analisis: { ...ANALISIS, capacidadPublicada: 0, sesionesEnVentana: 0, ocupacionPrevista: null, riesgo: 'SIN_OFERTA' },
+        alertas: [{ tipo: 'SIN_HORARIO', severidad: 'CRITICA', titulo: 'Aún no hay clases publicadas',
+          descripcion: 'Abres en 14 días y no hay horario en las próximas 6 semanas: nadie puede reservar.', href: '/calendario' }],
+      },
+    });
+    await expect(page.getByText('Aún no hay clases publicadas')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(page.getByText(/Sin horario no se puede reservar/)).toHaveCount(0);
+  });
+});
+
+const AJUSTES = {
+  objetivoPreventaPct: 40, conversionLeadsPct: 20, umbralAmarilloPct: 70, umbralRojoPct: 85,
+  ventanaSemanas: 6, sesionesSemanaSinTope: 2, semanasBonoSinCaducidad: 8,
+};
+
+test.describe('Ajustar la previsión', () => {
+  test('cambia la fecha y los supuestos en un solo guardado', async ({ page }) => {
+    const peticiones = await montar(page, { inicial: { ...CON_FECHA, ajustes: AJUSTES } });
+    await page.getByRole('button', { name: 'Ajustar previsión' }).click({ timeout: ARRANQUE_MS });
+    await page.getByLabel('Fecha de apertura').fill('2026-10-20');
+    await page.getByLabel('Objetivo de preventa').fill('50');
+    await page.getByLabel('Clases por semana de una cuota ilimitada').fill('2.5');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+
+    await expect(page.getByRole('button', { name: 'Ajustar previsión' })).toBeVisible();
+    expect(peticiones.patch).toEqual([{
+      fechaApertura: '2026-10-20',
+      ajustes: { ...AJUSTES, objetivoPreventaPct: 50, sesionesSemanaSinTope: 2.5 },
+    }]);
+  });
+
+  test('si el servidor lo rechaza, lo dice y el formulario sigue abierto', async ({ page }) => {
+    const peticiones = await montar(page, { inicial: { ...CON_FECHA, ajustes: AJUSTES }, patchStatus: 400 });
+    await page.getByRole('button', { name: 'Ajustar previsión' }).click({ timeout: ARRANQUE_MS });
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page.locator('form p[role="alert"]')).toHaveText('No se pudo guardar');
+    expect(peticiones.patch.length).toBeGreaterThan(0);
+    await expect(page.getByText('Ajustar previsión', { exact: true })).toBeVisible();
+  });
+});

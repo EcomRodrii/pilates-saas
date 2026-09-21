@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
-  puedeGestionarAutomatizaciones, puedeGestionarCalendario, puedeGestionarClientas,
+  puedeGestionarApertura, puedeGestionarAutomatizaciones, puedeGestionarCalendario, puedeGestionarClientas,
   puedeGestionarEquipo, puedeMoverDinero, puedeVer, puedeVerFinanzas,
 } from '@/lib/permisos-reglas';
 import { construirEstadoEstudio, contarConCandidatosNetwork, type ConteosEstudio } from '@/lib/estado-estudio';
@@ -73,6 +73,7 @@ export async function GET(req: NextRequest) {
     plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
+    alertasApertura,
   ] = await Promise.all([
     // ── Decidir ──
     // Solo clases que aún no han empezado: una que ya pasó sin cubrir la cierra
@@ -184,6 +185,9 @@ export async function GET(req: NextRequest) {
     si(gestionaAutomatizaciones, () => contar('auto-ejecutadas', admin.from('automation_logs')
       .select('id', HEAD).eq('studio_id', studioId)
       .eq('resultado', 'EJECUTADO').gte('ejecutado_en', inicioDiaISO))),
+    // Opening OS: mismo gate que la tarjeta de apertura y la RLS de alertas_opening.
+    si(puedeGestionarApertura(rol), () => contar('alertas-apertura', admin.from('alertas_opening')
+      .select('id', HEAD).eq('studio_id', studioId).is('resuelta_en', null))),
   ]);
 
   const conteos: ConteosEstudio = {
@@ -192,6 +196,7 @@ export async function GET(req: NextRequest) {
     plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
+    alertasApertura,
   };
   return NextResponse.json(construirEstadoEstudio(conteos));
 }

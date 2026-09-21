@@ -259,6 +259,9 @@ export const EVENTOS = {
   SERIES_POR_TERMINAR: 'clases.series_por_terminar',
   SERIES_POR_TERMINAR_URGENTE: 'clases.series_por_terminar_urgente',
   SERIES_RENOVADAS_SOLAS: 'clases.series_renovadas_solas',
+  // Opening OS (lib/opening/alertas.ts): el estudio que abre tiene un problema
+  // con fecha (sin horario, clases que se llenan, preventa lenta, etapa llena).
+  OPENING_ALERTA: 'clases.opening_alerta',
   // El Umbral (lib/decision/umbral.ts): como mucho UN evento de este tipo al
   // día por estudio (reforzado por el UNIQUE(studio_id,fecha) de
   // decision_mensajes_dia) — nunca se dispara si el día es de silencio.
@@ -472,6 +475,8 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.SERIES_POR_TERMINAR]:         { category: 'clases', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'gerencia' },
   [EVENTOS.SERIES_POR_TERMINAR_URGENTE]: { category: 'clases', priority: 'ALTA',  canales: ['PUSH', 'EMAIL'], audiencia: 'gerencia' },
   [EVENTOS.SERIES_RENOVADAS_SOLAS]:      { category: 'clases', priority: 'BAJA',  canales: ['PUSH'], audiencia: 'gerencia' },
+  // Una por alerta NUEVA (el cron solo emite las que abre): no se repite cada día.
+  [EVENTOS.OPENING_ALERTA]:              { category: 'clases', priority: 'ALTA',  canales: ['PUSH'], audiencia: 'gerencia' },
   // ALTA + PUSH+INAPP a propósito, nada más: el Umbral solo interrumpe cuando
   // cree que merece la pena — un canal más (EMAIL) diluiría esa
   // misma promesa. Sin EMAIL: el mensaje es del día, no algo para revisar
@@ -1126,6 +1131,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: '{resumen}',
     body: '{lista}. Con la misma configuración, y las plazas fijas siguen.',
     deepLink: () => `/calendario`,
+  }),
+  // {titulo}/{descripcion} los redacta detectarAlertas, con la cifra que los sostiene.
+  ...paraRoles(EVENTOS.OPENING_ALERTA, ROLES_POR_AUDIENCIA.gerencia, {
+    title: '{titulo}',
+    body: '{descripcion}',
+    deepLink: () => `/dashboard#decidir-apertura`,
   }),
   ...paraRoles(EVENTOS.AUTOMATIZACION_DISPARADA, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Automatización: {automatizacion}',
