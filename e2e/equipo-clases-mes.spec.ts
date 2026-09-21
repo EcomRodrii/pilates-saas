@@ -235,3 +235,69 @@ test.describe('Clases en la liquidación', () => {
     expect(puts).toEqual([{ pagarDuracionReal: true }]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Que el estudio se entere desde el primer día: mientras alguna instructora no
+// tenga relación (contratada/autónoma), Equipo, Liquidaciones y Tiempo trabajado
+// lo explican y dicen de quién falta. Si las tarifas no se pueden leer, se calla
+// antes que afirmar que falta de alguien.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Control horario explicado desde el minuto 1', () => {
+  test('Equipo lo explica, dice de quién falta y lleva a elegirlo', async ({ page }) => {
+    await montar(page);
+    await page.route((u) => u.pathname === '/api/equipo/tarifas', (r) => json(r, { items: [] }));
+    await ir(page, 'equipo');
+    const aviso = page.getByTestId('aviso-control-horario');
+    await expect(aviso).toContainText('Control horario: dinos cómo trabaja cada instructora', { timeout: 30_000 });
+    await expect(page.getByTestId('aviso-control-horario-faltan')).toHaveText('Falta decirlo de una instructora: Marta Ruiz.');
+    await expect(aviso.getByRole('link', { name: 'Elegir contratada o autónoma' })).toHaveAttribute('href', '/equipo/liquidaciones');
+    await expect(aviso.getByRole('link', { name: 'Cómo funciona' })).toHaveAttribute('href', '/ayuda/instructores/control-horario');
+  });
+
+  test('con la relación ya elegida, no dice nada', async ({ page }) => {
+    let lecturas = 0;
+    await montar(page);
+    await page.route((u) => u.pathname === '/api/equipo/tarifas', (r) => { lecturas++; return json(r, { items: [{ instructorId: 'ins-marta', tarifaHora: 20, baseMensualEur: null, recargoSustitucionPct: null, horasSemanalesContrato: null, relacionLaboral: 'AUTONOMA' }] }); });
+    await ir(page, 'equipo');
+    await expect.poll(() => lecturas, { timeout: 30_000 }).toBeGreaterThan(0);
+    await page.waitForTimeout(800);
+    await expect(page.getByTestId('aviso-control-horario')).toHaveCount(0);
+  });
+
+  test('sin poder leer las tarifas, se calla antes que afirmar que falta', async ({ page }) => {
+    let lecturas = 0;
+    await montar(page);
+    await page.route((u) => u.pathname === '/api/equipo/tarifas', (r) => { lecturas++; return json(r, { error: 'caído' }, 500); });
+    await ir(page, 'equipo');
+    await expect.poll(() => lecturas, { timeout: 30_000 }).toBeGreaterThan(0);
+    await page.waitForTimeout(800);
+    await expect(page.getByTestId('aviso-control-horario')).toHaveCount(0);
+  });
+
+  test('en Liquidaciones desaparece en cuanto se elige la relación', async ({ page }) => {
+    await abrirLiquidaciones(page, { ...LIQ, clasesSinConfirmar: 0 });
+    await page.route((u) => u.pathname === '/api/equipo/tarifas', (r) =>
+      r.request().method() === 'PATCH' ? json(r, { ok: true }) : json(r, { items: [] }));
+    await expect(page.getByTestId('aviso-control-horario')).toContainText('Elige la relación en su tarjeta', { timeout: 30_000 });
+    await page.getByLabel('Relación de Marta Ruiz con el estudio').selectOption('CONTRATADA');
+    await expect(page.getByTestId('aviso-control-horario')).toHaveCount(0);
+  });
+
+  test('Tiempo trabajado lo explica si falta, y el vacío habla de jornadas y de clases', async ({ page }) => {
+    await montar(page);
+    await page.route((u) => u.pathname === '/api/equipo/tarifas', (r) => json(r, { items: [] }));
+    await page.route((u) => u.pathname === '/api/equipo/jornadas', (r) => json(r, { jornadas: [], cambios: {}, resumen: [] }));
+    await page.route((u) => u.pathname === '/api/equipo/clases', (r) => json(r, { clases: [], cambios: {}, resumen: [] }));
+    await ir(page, 'equipo/tiempo-trabajado');
+    await expect(page.getByTestId('aviso-control-horario')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('tiempo-vacio')).toContainText('las jornadas que fichan');
+    await expect(page.getByTestId('tiempo-vacio')).toContainText('«Empezar clase»');
+  });
+
+  test('Equipo abre el alta directamente con ?nuevo=1 (desde el aviso del calendario)', async ({ page }) => {
+    await montar(page);
+    await ir(page, 'equipo?nuevo=1');
+    await expect(page.getByRole('dialog', { name: 'Nuevo miembro del equipo' })).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/equipo$/);
+  });
+});

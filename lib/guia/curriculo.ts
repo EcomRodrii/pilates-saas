@@ -194,17 +194,18 @@ export const CAPITULOS: CapituloGuia[] = [
     titulo: 'Tu equipo',
     resumen: 'Quién trabaja contigo, qué puede ver cada una y cómo se cubren las bajas.',
     nivel: 'esencial',
-    minutos: 7,
+    minutos: 8,
     queAprendes: [
       'Los cuatro roles y qué ve cada uno',
       'Por qué la disponibilidad de tus instructoras hace trabajar al buscador de sustitutas',
       'Cómo se gestionan vacaciones y bajas',
+      'Cómo sabe Tentare qué clases dio cada una y a qué hora (contratada o autónoma)',
     ],
     porQue: 'Sin al menos una instructora no puedes programar ninguna clase: toda clase necesita quien la dé.',
     apartados: [
       {
         titulo: 'Los cuatro roles',
-        texto: 'Propietaria lo ve todo. Responsable de sede lleva lo operativo y el equipo, pero no el dinero ni la configuración. Recepción cobra y gestiona alumnas, pero no ve informes ni configuración. Instructora ve su calendario, sus alumnas y poco más. No es una cuestión de confianza: es que cada una vea lo suyo y no se pierda en lo demás.',
+        texto: 'Propietaria lo ve todo. Responsable de sede lleva lo operativo y el equipo, pero no el dinero ni la configuración. Recepción cobra y gestiona alumnas, pero no ve informes ni configuración. La instructora no entra al panel: trabaja desde la app del estudio en su móvil, con sus clases, sus alumnas y su disponibilidad. No es una cuestión de confianza: es que cada una vea lo suyo y no se pierda en lo demás.',
       },
       {
         titulo: 'Dar de alta a alguien',
@@ -226,10 +227,15 @@ export const CAPITULOS: CapituloGuia[] = [
         titulo: 'Su tarifa por hora',
         texto: 'Puedes guardar la tarifa de cada instructora para preparar las liquidaciones. Solo tú y quien lleve la sede la veis; ella puede consultar la suya, pero nunca la de otra ni cambiar la propia.',
       },
+      {
+        titulo: 'Control horario: contratada o autónoma',
+        texto: 'Cada instructora empieza sus clases desde su app («Empezar clase»); si se le olvida, la app le pregunta después si la dio. En Liquidaciones dices cómo trabaja cada una: contratada (además ficha su jornada, como exige la ley) o autónoma (no ficha y se le paga por clases). Lo revisas todo en Equipo → Tiempo trabajado, y una clase sin confirmar no deja cerrar la liquidación del mes.',
+      },
     ],
     acciones: [
       { label: 'Añadir a alguien a mi equipo', href: '/equipo' },
       { label: 'Ver el buscador de sustitutas', href: '/sustituciones' },
+      { label: 'Decir si son contratadas o autónomas', href: '/equipo/liquidaciones' },
     ],
     consejo: 'Aunque des clases tú sola, date de alta como instructora: tus clases necesitan a alguien asignado y así tu calendario cuadra desde el primer día.',
     // 'invitar-equipo' ya no cuenta aquí: exige más de una persona con cuenta,

@@ -108,7 +108,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/equipo': {
     titulo: 'Equipo',
     resumen:
-      'Tus instructoras y quien esté en el mostrador: a quién das de alta, qué puede ver cada una, cuándo está disponible y cuánto cobra la hora. También las horas que ha dado cada una.',
+      'Tus instructoras y quien esté en el mostrador: a quién das de alta, qué puede ver cada una, cuándo está disponible y cuánto cobra la hora. En Tiempo trabajado, las jornadas que fichan y las clases que dio cada una, con su hora real.',
     ahorra: 'Dar acceso a todo el mundo a todo, y cuadrar horas a mano para pagar.',
     destino: { categoria: 'instructores', slug: 'dar-de-alta-una-instructora' },
   },
