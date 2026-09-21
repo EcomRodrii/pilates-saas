@@ -4,7 +4,11 @@
  * Todas las operaciones son transaccionales y auditadas
  */
 
-import { createClient } from '@/lib/db/supabase-server';
+'use server';
+
+import { headers } from 'next/headers';
+import { NextRequest } from 'next/server';
+import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
 import { verificarSesionStaff } from '@/lib/auth-server';
@@ -29,13 +33,16 @@ export async function registrarEntrada(
 ): Promise<WorkSessionState> {
   try {
     // 1. Verificar sesión y rol
-    const sesion = await verificarSesionStaff();
+    const headersList = await headers();
+    const req = new NextRequest(new URL('http://localhost/api/'), {
+      headers: headersList as any,
+    });
+    const sesion = await verificarSesionStaff(req);
     if (!sesion?.studioId || !sesion?.userId) {
       return { success: false, error: 'No autorizado' };
     }
 
     // Verificar que es instructora
-    const supabase = await createClient();
     const { data: instructora } = await supabase
       .rpc('current_instructor_id')
       .single();
@@ -156,13 +163,16 @@ export async function registrarSalida(
 ): Promise<WorkSessionState> {
   try {
     // 1. Verificar sesión
-    const sesion = await verificarSesionStaff();
+    const headersList = await headers();
+    const req = new NextRequest(new URL('http://localhost/api/'), {
+      headers: headersList as any,
+    });
+    const sesion = await verificarSesionStaff(req);
     if (!sesion?.studioId || !sesion?.userId) {
       return { success: false, error: 'No autorizado' };
     }
 
     // 2. Obtener jornada (con RLS automático vía supabase client)
-    const supabase = await createClient();
     const { data: workSession, error: fetchError } = await supabase
       .from('instructor_work_sessions')
       .select('*')
@@ -253,7 +263,11 @@ export async function editarRegistroHorario(
 ): Promise<WorkSessionState> {
   try {
     // 1. Verificar sesión y permisos
-    const sesion = await verificarSesionStaff();
+    const headersList = await headers();
+    const req = new NextRequest(new URL('http://localhost/api/'), {
+      headers: headersList as any,
+    });
+    const sesion = await verificarSesionStaff(req);
     if (!sesion?.studioId || !sesion?.userId) {
       return { success: false, error: 'No autorizado' };
     }
@@ -264,7 +278,6 @@ export async function editarRegistroHorario(
     }
 
     // Verificar que es PROPIETARIO o MANAGER
-    const supabase = await createClient();
     const { data: rol } = await supabase.rpc('current_rol').single();
 
     if (rol !== 'PROPIETARIO' && rol !== 'MANAGER') {
@@ -360,12 +373,15 @@ export async function vincularSesion(
   sesionId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const sesion = await verificarSesionStaff();
+    const headersList = await headers();
+    const req = new NextRequest(new URL('http://localhost/api/'), {
+      headers: headersList as any,
+    });
+    const sesion = await verificarSesionStaff(req);
     if (!sesion?.studioId || !sesion?.userId) {
       return { success: false, error: 'No autorizado' };
     }
 
-    const supabase = await createClient();
     const { data: rol } = await supabase.rpc('current_rol').single();
 
     if (rol !== 'PROPIETARIO' && rol !== 'MANAGER') {

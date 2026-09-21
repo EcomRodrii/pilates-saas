@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { createClient } from '@/lib/db/supabase-client';
+import { supabase } from '@/lib/db/supabase';
 import { registrarEntrada, registrarSalida, type WorkSessionState } from '@/lib/instructor-time-entries';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,9 +29,6 @@ export default function TiempoTrabajadoPage() {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
-
-  // Memoizar client para evitar re-renders
-  const supabase = useMemo(() => createClient(), []);
 
   // Cargar estado actual
   useEffect(() => {
@@ -89,7 +86,7 @@ export default function TiempoTrabajadoPage() {
     // Polling cada 10 segundos
     const interval = setInterval(cargarEstado, 10000);
     return () => clearInterval(interval);
-  }, [supabase]);
+  }, []);
 
   // Actualizar tiempo transcurrido
   useEffect(() => {
