@@ -20,6 +20,7 @@ const ANALISIS = {
   sesionesEnVentana: 24,
   demandaComprometida: 180,
   desglose: { OBSERVADA: { suscripciones: 0, plazas: 0 }, ESTIMADA_POR_PLAN: { suscripciones: 15, plazas: 180 } },
+  estimadasPorMotivo: { TOPE_PLAN: 0, SIN_TOPE: 12, BONO: 3, PUNTUAL: 0 },
   demandaPotencial: 34,
   leads: 7,
   ocupacionPrevista: 0.75,
@@ -101,7 +102,7 @@ test.describe('Apertura del estudio en la home', () => {
 
     await expect(page.getByText('75 %')).toBeVisible();
     await expect(page.getByText('240 en 24 clases')).toBeVisible();
-    await expect(page.getByText(/15 de tus cuotas aún no tienen historial/)).toBeVisible();
+    await expect(page.getByText('15 de tus cuotas aún no tienen historial: las estimamos por su plan (los 3 bonos, repartiendo lo que les queda hasta que caducan; las 12 ilimitadas, a 2 clases por semana).')).toBeVisible();
     await expect(page.getByText(/tus 7 interesadas/)).toBeVisible();
     if (CAPTURAS) {
       const tarjeta = page.getByText('Abres en 14 días').locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]');
@@ -150,7 +151,8 @@ test.describe('Apertura del estudio en la home', () => {
   test('un estudio que ya opera no ve nada', async ({ page }) => {
     const peticiones = await montar(page, { inicial: { visible: false } });
     await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: ARRANQUE_MS });
-    expect(peticiones.get).toBeGreaterThan(0);
+    // La petición sale al montar la sección, no a la vez que el resto de la home.
+    await expect.poll(() => peticiones.get).toBeGreaterThan(0);
     await expect(page.getByText(/Cuándo abres|Abres en/)).toHaveCount(0);
   });
 

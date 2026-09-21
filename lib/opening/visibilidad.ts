@@ -9,12 +9,17 @@ export interface EstadoApertura {
   fechaApertura: string | null;
   fase: string | null;
   estudioCreadoEn: string | null;
+  /** Ya hay alguna reserva ASISTIDA: el estudio da clases. */
+  tieneAsistencias: boolean;
 }
 
 /**
  * La sección de apertura es un aviso que desaparece solo. Un estudio que ya
  * opera (fase OPERANDO, o dado de alta hace tiempo sin fecha de apertura) no
  * debe verla nunca: preguntarle «¿cuándo abres?» sería ruido.
+ *
+ * El alta reciente NO basta para suponer que abre: un estudio migrado desde
+ * otra plataforma llega con semanas de historial el mismo día del alta.
  */
 export function debeMostrarApertura(e: EstadoApertura, now: Date): boolean {
   if (e.fase === 'OPERANDO') return false;
@@ -22,6 +27,7 @@ export function debeMostrarApertura(e: EstadoApertura, now: Date): boolean {
     const fin = new Date(`${e.fechaApertura}T00:00:00Z`).getTime() + DIAS_TRAS_APERTURA * MS_DIA;
     return now.getTime() < fin;
   }
+  if (e.tieneAsistencias) return false;
   if (!e.estudioCreadoEn) return false;
   return now.getTime() - new Date(e.estudioCreadoEn).getTime() < DIAS_ALTA_RECIENTE * MS_DIA;
 }

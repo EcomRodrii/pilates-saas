@@ -42,12 +42,13 @@ export async function GET(req: NextRequest) {
   const { studioId } = sesion;
   const now = new Date();
 
-  const [studioR, progresoR, configR] = await Promise.all([
+  const [studioR, progresoR, configR, asistenciaR] = await Promise.all([
     admin.from('studios').select('fecha_apertura, creado_en').eq('id', studioId).maybeSingle(),
     admin.from('opening_progreso').select('fase').eq('studio_id', studioId).maybeSingle(),
     admin.from('opening_config').select('*').eq('studio_id', studioId).maybeSingle(),
+    admin.from('reservas').select('id').eq('studio_id', studioId).eq('estado', 'ASISTIDA').limit(1),
   ]);
-  const errorBase = studioR.error ?? progresoR.error ?? configR.error;
+  const errorBase = studioR.error ?? progresoR.error ?? configR.error ?? asistenciaR.error;
   if (errorBase || !studioR.data) {
     console.error('[opening:get] base', errorBase);
     return NextResponse.json({ error: 'No se pudo cargar la apertura' }, { status: 500 });
@@ -55,7 +56,12 @@ export async function GET(req: NextRequest) {
 
   const fechaApertura = (studioR.data.fecha_apertura as string | null) ?? null;
   const fase = (progresoR.data?.fase as string | undefined) ?? null;
-  if (!debeMostrarApertura({ fechaApertura, fase, estudioCreadoEn: studioR.data.creado_en as string | null }, now)) {
+  const estado = {
+    fechaApertura, fase,
+    estudioCreadoEn: studioR.data.creado_en as string | null,
+    tieneAsistencias: (asistenciaR.data?.length ?? 0) > 0,
+  };
+  if (!debeMostrarApertura(estado, now)) {
     return NextResponse.json({ visible: false });
   }
 
