@@ -7,6 +7,8 @@ import { authHeader } from '@/lib/api-client';
 import type { AnalisisCapacidad, NivelRiesgo } from '@/lib/opening/capacidad';
 import { notaEstimacion } from '@/lib/opening/textos';
 import { EtapasLanzamiento } from './etapas-lanzamiento';
+import { AjustesAperturaForm } from './ajustes-apertura';
+import type { AjustesApertura } from '@/lib/opening/ajustes';
 import { ANCLA_DECIDIR } from '@/lib/estado-estudio-cliente';
 
 interface RespuestaApertura {
@@ -15,6 +17,7 @@ interface RespuestaApertura {
   diasHastaApertura?: number | null;
   analisis?: AnalisisCapacidad;
   supuestos?: { sesionesSemanaSinTope: number; semanasBonoSinCaducidad: number; conversionLeads: number };
+  ajustes?: AjustesApertura;
   alertas?: { tipo: string; severidad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA'; titulo: string; descripcion: string; href: string }[];
 }
 
@@ -64,6 +67,7 @@ export function AperturaEstudio() {
   const [fecha, setFecha] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ajustando, setAjustando] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -94,6 +98,26 @@ export function AperturaEstudio() {
     }
   }
 
+  async function guardarAjustes(cambios: { fechaApertura: string; ajustes: AjustesApertura }): Promise<string | null> {
+    try {
+      const res = await fetch('/api/opening', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify(cambios),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => null) as { error?: string } | null;
+        return j?.error ?? 'No se pudo guardar. Inténtalo de nuevo.';
+      }
+      const d = await pedirApertura();
+      if (d) setDatos(d);
+      setAjustando(false);
+      return null;
+    } catch {
+      return 'Sin conexión. Inténtalo de nuevo.';
+    }
+  }
+
   if (!datos?.visible) return null;
   const { analisis, supuestos } = datos;
   const sinFecha = !datos.fechaApertura;
@@ -105,13 +129,27 @@ export function AperturaEstudio() {
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand-secondary">
           <CalendarClock size={16} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold text-foreground">{titular(datos.diasHastaApertura)}</p>
           <p className="text-[11px] text-muted-foreground">
             {sinFecha ? 'Con la fecha te decimos si tus clases van a dar abasto.' : `Previsión de las próximas ${semanas} semanas`}
           </p>
         </div>
+        {!sinFecha && datos.ajustes && !ajustando && (
+          <button type="button" onClick={() => setAjustando(true)} className="shrink-0 text-[12px] font-medium text-brand-secondary hover:underline">
+            Ajustar previsión
+          </button>
+        )}
       </div>
+
+      {ajustando && datos.ajustes && (
+        <AjustesAperturaForm
+          fechaApertura={datos.fechaApertura ?? null}
+          ajustes={datos.ajustes}
+          onGuardar={guardarAjustes}
+          onCancelar={() => setAjustando(false)}
+        />
+      )}
 
       {(datos.alertas?.length ?? 0) > 0 && (
         <ul className="mt-3 space-y-2">

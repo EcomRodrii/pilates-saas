@@ -277,3 +277,34 @@ test.describe('Alertas de apertura en la tarjeta', () => {
     await expect(page.getByText(/Sin horario no se puede reservar/)).toHaveCount(0);
   });
 });
+
+const AJUSTES = {
+  objetivoPreventaPct: 40, conversionLeadsPct: 20, umbralAmarilloPct: 70, umbralRojoPct: 85,
+  ventanaSemanas: 6, sesionesSemanaSinTope: 2, semanasBonoSinCaducidad: 8,
+};
+
+test.describe('Ajustar la previsión', () => {
+  test('cambia la fecha y los supuestos en un solo guardado', async ({ page }) => {
+    const peticiones = await montar(page, { inicial: { ...CON_FECHA, ajustes: AJUSTES } });
+    await page.getByRole('button', { name: 'Ajustar previsión' }).click({ timeout: ARRANQUE_MS });
+    await page.getByLabel('Fecha de apertura').fill('2026-10-20');
+    await page.getByLabel('Objetivo de preventa').fill('50');
+    await page.getByLabel('Clases por semana de una cuota ilimitada').fill('2.5');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+
+    await expect(page.getByRole('button', { name: 'Ajustar previsión' })).toBeVisible();
+    expect(peticiones.patch).toEqual([{
+      fechaApertura: '2026-10-20',
+      ajustes: { ...AJUSTES, objetivoPreventaPct: 50, sesionesSemanaSinTope: 2.5 },
+    }]);
+  });
+
+  test('si el servidor lo rechaza, lo dice y el formulario sigue abierto', async ({ page }) => {
+    const peticiones = await montar(page, { inicial: { ...CON_FECHA, ajustes: AJUSTES }, patchStatus: 400 });
+    await page.getByRole('button', { name: 'Ajustar previsión' }).click({ timeout: ARRANQUE_MS });
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page.locator('form p[role="alert"]')).toHaveText('No se pudo guardar');
+    expect(peticiones.patch.length).toBeGreaterThan(0);
+    await expect(page.getByText('Ajustar previsión', { exact: true })).toBeVisible();
+  });
+});

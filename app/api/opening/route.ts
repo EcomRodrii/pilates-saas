@@ -5,6 +5,7 @@ import { puedeGestionarApertura } from '@/lib/permisos-reglas';
 import { debeMostrarApertura, diasHastaApertura } from '@/lib/opening/visibilidad';
 import { cargarAnalisis, cargarEstadoApertura } from '@/lib/opening/servidor';
 import { evaluarAlertasApertura } from '@/lib/opening/alertas-cron';
+import { ajustesDesdeConfig, validarAjustes } from '@/lib/opening/ajustes';
 
 // Opening OS en la home: fecha de apertura, capacidad frente a demanda y las
 // alertas (lib/opening/alertas-cron.ts; el cron horario es quien notifica).
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
       fase,
       analisis,
       alertas: alertas.map(({ tipo, severidad, titulo, descripcion, href }) => ({ tipo, severidad, titulo, descripcion, href })),
+      ajustes: ajustesDesdeConfig(config),
       supuestos: {
         sesionesSemanaSinTope: config.sesionesSemanaSinTope,
         semanasBonoSinCaducidad: config.semanasBonoSinCaducidad,
@@ -68,20 +70,22 @@ function esFechaValida(f: unknown): f is string {
   return anio >= 2000 && anio <= 2100;
 }
 
-// PATCH { fechaApertura: 'YYYY-MM-DD' } fija la fecha; { yaAbierto: true } la
-// oculta para siempre (fase OPERANDO).
+// PATCH { yaAbierto: true } la oculta para siempre (fase OPERANDO). Si no:
+// { fechaApertura?: 'YYYY-MM-DD', ajustes?: AjustesApertura }, al menos uno.
+// Se valida todo antes de escribir nada.
 export async function PATCH(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarApertura(sesion.rol)) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 });
 
-  const body = await req.json().catch(() => null) as { fechaApertura?: unknown; yaAbierto?: unknown } | null;
+  const body = await req.json().catch(() => null) as { fechaApertura?: unknown; yaAbierto?: unknown; ajustes?: unknown } | null;
   const admin = requireSupabaseAdmin();
   const { studioId } = sesion;
+  const ahora = new Date().toISOString();
 
   if (body?.yaAbierto === true) {
     const { error } = await admin.from('opening_progreso')
-      .upsert({ studio_id: studioId, fase: 'OPERANDO', updated_at: new Date().toISOString() }, { onConflict: 'studio_id' });
+      .upsert({ studio_id: studioId, fase: 'OPERANDO', updated_at: ahora }, { onConflict: 'studio_id' });
     if (error) {
       console.error('[opening:patch] ya abierto', error);
       return NextResponse.json({ error: 'No se pudo guardar' }, { status: 500 });
@@ -89,15 +93,30 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const fecha = body?.fechaApertura;
-  if (!esFechaValida(fecha)) {
+  const hayFecha = body?.fechaApertura !== undefined;
+  const hayAjustes = body?.ajustes !== undefined;
+  if (!hayFecha && !hayAjustes) return NextResponse.json({ error: 'Nada que guardar' }, { status: 400 });
+  if (hayFecha && !esFechaValida(body!.fechaApertura)) {
     return NextResponse.json({ error: 'Fecha no válida' }, { status: 400 });
   }
-  const { data, error } = await admin.from('studios').update({ fecha_apertura: fecha })
-    .eq('id', studioId).select('fecha_apertura').maybeSingle();
-  if (error || !data) {
-    console.error('[opening:patch] fecha', error);
-    return NextResponse.json({ error: 'No se pudo guardar' }, { status: 500 });
+  const ajustes = hayAjustes ? validarAjustes(body!.ajustes) : null;
+  if (ajustes && !ajustes.ok) return NextResponse.json({ error: ajustes.error }, { status: 400 });
+
+  if (ajustes?.ok) {
+    const { error } = await admin.from('opening_config')
+      .upsert({ studio_id: studioId, ...ajustes.fila, updated_at: ahora }, { onConflict: 'studio_id' });
+    if (error) {
+      console.error('[opening:patch] ajustes', error);
+      return NextResponse.json({ error: 'No se pudieron guardar los ajustes' }, { status: 500 });
+    }
   }
-  return NextResponse.json({ ok: true, fechaApertura: data.fecha_apertura });
+  if (hayFecha) {
+    const { data, error } = await admin.from('studios').update({ fecha_apertura: body!.fechaApertura })
+      .eq('id', studioId).select('fecha_apertura').maybeSingle();
+    if (error || !data) {
+      console.error('[opening:patch] fecha', error);
+      return NextResponse.json({ error: 'No se pudo guardar la fecha' }, { status: 500 });
+    }
+  }
+  return NextResponse.json({ ok: true });
 }
