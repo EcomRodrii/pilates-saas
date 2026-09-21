@@ -169,3 +169,10 @@ test('jornadas del equipo sin cerrar: van a Decidir, cuentan en el contador y ll
   assert.equal(construirEstadoEstudio({ jornadasPorRevisar: undefined }).aplica, false);
 });
 
+
+test('clases que el equipo dijo no dar: van a decidir y llevan a Tiempo trabajado', () => {
+  const e = construirEstadoEstudio({ clasesNoDadasPorRevisar: 3 });
+  assert.deepEqual(e.decidir, [{ id: 'clasesNoDadasPorRevisar', n: 3, href: '/equipo/tiempo-trabajado', texto: '3 clases que el equipo dijo no dar' }]);
+  assert.equal(construirEstadoEstudio({ clasesNoDadasPorRevisar: 1 }).decidir[0].texto, 'Una clase que una instructora dijo no dar');
+  assert.equal(construirEstadoEstudio({ clasesNoDadasPorRevisar: undefined }).aplica, false);
+});

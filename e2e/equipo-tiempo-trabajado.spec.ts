@@ -142,7 +142,7 @@ test.describe('Tiempo trabajado del equipo', () => {
     await expect(tarjeta(page)).toBeVisible({ timeout: 30_000 });
     const [descarga] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Exportar CSV' }).click(),
+      page.getByRole('button', { name: 'CSV jornadas' }).click(),
     ]);
     expect(descarga.suggestedFilename()).toMatch(/^tiempo-trabajado-\d{4}-\d{2}\.csv$/);
     const ruta = await descarga.path();

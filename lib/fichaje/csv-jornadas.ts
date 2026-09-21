@@ -1,4 +1,5 @@
 import type { JornadaEquipo } from './jornadas-equipo.ts';
+import type { ClaseEquipo } from './clases-equipo.ts';
 
 // Registro de jornada del mes en CSV, para la gestoría o una inspección.
 //
@@ -42,4 +43,36 @@ export function csvJornadas(jornadas: readonly JornadaEquipo[], nombre: (instruc
 /** `tiempo-trabajado-2026-09.csv` */
 export function nombreCsvJornadas(anio: number, mes: number): string {
   return `tiempo-trabajado-${anio}-${String(mes).padStart(2, '0')}.csv`;
+}
+
+const ESTADO_CLASE: Partial<Record<ClaseEquipo['estado'], string>> = {
+  DADA: 'Dada', EN_CURSO: 'En curso', EMPEZABLE: 'Sin empezar', NO_DADA: 'No dada', SIN_CONFIRMAR: 'Sin confirmar',
+  PREVIA: 'Dada (antes del control de clases)',
+};
+const ORIGEN: Record<NonNullable<ClaseEquipo['origen']>, string> = {
+  BOTON: 'Empezada en la app', LISTA: 'Al pasar lista', CONFIRMACION: 'Confirmada por ella', PROPIETARIA: 'Corregida por el estudio',
+};
+
+/** Las clases del mes: si se dieron, a qué hora empezaron y cómo se supo. */
+export function csvClases(clases: readonly ClaseEquipo[], nombre: (instructorId: string) => string): string {
+  const cabecera = ['Instructora', 'Fecha', 'Clase', 'Horario', 'Estado', 'Empezó', 'Terminó', 'Retraso (min)', 'Cómo se supo'];
+  const filas = [...clases]
+    .sort((a, b) => nombre(a.instructorId).localeCompare(nombre(b.instructorId), 'es') || a.inicio.localeCompare(b.inicio))
+    .map((c) => [
+      nombre(c.instructorId),
+      fmtFecha.format(new Date(c.inicio)),
+      c.nombre,
+      `${fmtHora.format(new Date(c.inicio))}-${fmtHora.format(new Date(c.fin))}`,
+      ESTADO_CLASE[c.estado] ?? c.estado,
+      c.inicioReal ? fmtHora.format(new Date(c.inicioReal)) : '',
+      c.finReal ? fmtHora.format(new Date(c.finReal)) : (c.inicioReal ? fmtHora.format(new Date(c.fin)) : ''),
+      c.retrasoMin > 0 ? String(c.retrasoMin) : '',
+      c.porJornada ? 'Dentro de su jornada' : c.origen ? ORIGEN[c.origen] : '',
+    ]);
+  return '\ufeff' + [cabecera, ...filas].map((f) => f.map(celda).join(';')).join('\r\n') + '\r\n';
+}
+
+/** `clases-impartidas-2026-09.csv` */
+export function nombreCsvClases(anio: number, mes: number): string {
+  return `clases-impartidas-${anio}-${String(mes).padStart(2, '0')}.csv`;
 }

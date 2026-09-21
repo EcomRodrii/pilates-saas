@@ -2000,6 +2000,18 @@ export interface RowLiquidacionesInstructoras {
   minutos_fichados: number | null;
   // migr 20260921183019.
   jornadas_sin_cerrar: number | null;
+  // migr 20260921211857.
+  relacion_laboral: string | null;
+  // migr 20260921211857.
+  clases_sin_confirmar: number | null;
+  // migr 20260921211857.
+  clases_no_dadas: number | null;
+  // migr 20260921211857.
+  minutos_retraso: number | null;
+  // migr 20260921211857.
+  minutos_contrato: number | null;
+  // migr 20260921211857.
+  minutos_extra: number | null;
 }
 
 export interface RowRetoParticipaciones {
@@ -3210,6 +3222,8 @@ export interface RowStudioConfigTiempo {
   updated_at: string;
   // migr 20260921183019.
   liquidar_por: string | null;
+  // migr 20260921211857.
+  pagar_duracion_real: boolean | null;
 }
 
 export interface RowLaunchStagePlazas {
@@ -6555,6 +6569,12 @@ export type LiquidacionesInstructorasInsert = {
   modo?: string | null | null;
   minutos_fichados?: number | null | null;
   jornadas_sin_cerrar?: number | null | null;
+  relacion_laboral?: string | null | null;
+  clases_sin_confirmar?: number | null | null;
+  clases_no_dadas?: number | null | null;
+  minutos_retraso?: number | null | null;
+  minutos_contrato?: number | null | null;
+  minutos_extra?: number | null | null;
 }
 
 export type LiquidacionesInstructorasUpdate = {
@@ -6585,6 +6605,12 @@ export type LiquidacionesInstructorasUpdate = {
   modo?: string | null | null;
   minutos_fichados?: number | null | null;
   jornadas_sin_cerrar?: number | null | null;
+  relacion_laboral?: string | null | null;
+  clases_sin_confirmar?: number | null | null;
+  clases_no_dadas?: number | null | null;
+  minutos_retraso?: number | null | null;
+  minutos_contrato?: number | null | null;
+  minutos_extra?: number | null | null;
 }
 
 export type RetoParticipacionesInsert = {
@@ -8921,6 +8947,7 @@ export type StudioConfigTiempoInsert = {
   open_session_limit_hours?: number | null;
   updated_at?: string | null;
   liquidar_por?: string | null | null;
+  pagar_duracion_real?: boolean | null | null;
 }
 
 export type StudioConfigTiempoUpdate = {
@@ -8929,6 +8956,7 @@ export type StudioConfigTiempoUpdate = {
   open_session_limit_hours?: number | null;
   updated_at?: string | null;
   liquidar_por?: string | null | null;
+  pagar_duracion_real?: boolean | null | null;
 }
 
 export type LaunchStagePlazasInsert = {

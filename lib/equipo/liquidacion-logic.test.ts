@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularLiquidacion, periodoLiquidacionDe } from './liquidacion-logic.ts';
+import { calcularLiquidacion, minutosContratoMes, periodoLiquidacionDe, type SesionParaLiquidacion } from './liquidacion-logic.ts';
 import { rangoMesEstudio } from '../fichaje/jornadas-equipo.ts';
 
 const sesion = (id: string, horas: number) => ({
@@ -210,4 +210,89 @@ test('por horas fichadas sin datos de fichaje: falla en vez de pagar 0', () => {
     sesionesPropias: [], sesionesSustitucion: [], penalizacionesCobradasEur: [], tarifa: TARIFA_FICHAJE, repartoPenalizacionPct: null,
     modo: 'HORAS_FICHADAS',
   }));
+});
+
+// ── Clases impartidas y relación con el estudio (21-sep-2026) ────────────────
+
+const cl = (id: string, extra: Partial<SesionParaLiquidacion> = {}): SesionParaLiquidacion => ({
+  id, inicio: '2026-09-23T17:00:00.000Z', fin: '2026-09-23T18:00:00.000Z', ...extra,
+});
+const tarifa20 = { tarifaHora: 20, baseMensualEur: null, recargoSustitucionPct: 50 };
+
+test('una clase que no dio no se paga ni cuenta, y queda en el detalle a 0 €', () => {
+  const r = calcularLiquidacion({
+    sesionesPropias: [cl('a', { control: 'DADA' }), cl('b', { control: 'NO_DADA' })],
+    sesionesSustitucion: [cl('c', { control: 'NO_DADA' })],
+    penalizacionesCobradasEur: [], tarifa: tarifa20, repartoPenalizacionPct: null,
+  });
+  assert.equal(r.nClasesPropias, 1);
+  assert.equal(r.nClasesSustitucion, 0);
+  assert.equal(r.clasesNoDadas, 2);
+  assert.equal(r.totalEur, 20);
+  assert.deepEqual(r.detalle.filter((d) => 'noDada' in d && d.noDada).map((d) => ('sesionId' in d ? d.sesionId : '')), ['b', 'c']);
+});
+
+test('sin confirmar: se paga su horario y se cuenta aparte', () => {
+  const r = calcularLiquidacion({
+    sesionesPropias: [cl('a', { control: 'SIN_CONFIRMAR' }), cl('b')],
+    sesionesSustitucion: [], penalizacionesCobradasEur: [], tarifa: tarifa20, repartoPenalizacionPct: null,
+  });
+  assert.equal(r.clasesSinConfirmar, 1);
+  assert.equal(r.totalEur, 40);
+});
+
+test('retraso: por defecto se paga el horario entero y solo se enseña; con la opción del estudio, lo real', () => {
+  const tarde = cl('a', { control: 'DADA', minutosReales: 45, retrasoMin: 15 });
+  const comun = { sesionesPropias: [tarde], sesionesSustitucion: [], penalizacionesCobradasEur: [], tarifa: tarifa20, repartoPenalizacionPct: null };
+  const porHorario = calcularLiquidacion(comun);
+  assert.equal(porHorario.totalEur, 20);
+  assert.equal(porHorario.minutosRetraso, 15);
+  const real = calcularLiquidacion({ ...comun, pagarDuracionReal: true });
+  assert.equal(real.totalEur, 15);
+  // Sin confirmar o sin fila: no hay duración real, se paga el horario aunque la opción esté puesta.
+  assert.equal(calcularLiquidacion({ ...comun, sesionesPropias: [cl('b', { control: 'SIN_CONFIRMAR' })], pagarDuracionReal: true }).totalEur, 20);
+});
+
+test('autónoma: se liquida por clases aunque el estudio liquide por horas fichadas', () => {
+  const r = calcularLiquidacion({
+    sesionesPropias: [cl('a', { control: 'DADA' })], sesionesSustitucion: [], penalizacionesCobradasEur: [],
+    tarifa: tarifa20, repartoPenalizacionPct: null,
+    modo: 'HORAS_FICHADAS', fichaje: { minutosCerrados: 600, jornadasSinCerrar: 3 }, relacion: 'AUTONOMA',
+  });
+  assert.equal(r.modo, 'CLASES');
+  assert.equal(r.totalEur, 20);
+  assert.equal(r.jornadasSinCerrar, 0);
+  assert.equal(r.minutosFichados, null);
+});
+
+test('contratada con horas de contrato: lo fichado de más se enseña como extra y no se paga aparte', () => {
+  const r = calcularLiquidacion({
+    sesionesPropias: [], sesionesSustitucion: [], penalizacionesCobradasEur: [],
+    tarifa: tarifa20, repartoPenalizacionPct: null,
+    modo: 'HORAS_FICHADAS', fichaje: { minutosCerrados: 660, jornadasSinCerrar: 0 },
+    relacion: 'CONTRATADA', minutosContrato: 600,
+  });
+  assert.equal(r.minutosExtra, 60);
+  assert.equal(r.variablePropiasEur, 200); // 10 h, no 11
+  // Por debajo de contrato: se paga lo fichado, sin extra.
+  const menos = calcularLiquidacion({
+    sesionesPropias: [], sesionesSustitucion: [], penalizacionesCobradasEur: [], tarifa: tarifa20, repartoPenalizacionPct: null,
+    modo: 'HORAS_FICHADAS', fichaje: { minutosCerrados: 300, jornadasSinCerrar: 0 }, relacion: 'CONTRATADA', minutosContrato: 600,
+  });
+  assert.equal(menos.minutosExtra, 0);
+  assert.equal(menos.variablePropiasEur, 100);
+});
+
+test('sin relación definida o sin contrato: nada de extras, como hasta ahora', () => {
+  const r = calcularLiquidacion({
+    sesionesPropias: [], sesionesSustitucion: [], penalizacionesCobradasEur: [], tarifa: tarifa20, repartoPenalizacionPct: null,
+    modo: 'HORAS_FICHADAS', fichaje: { minutosCerrados: 660, jornadasSinCerrar: 0 }, minutosContrato: 600,
+  });
+  assert.equal(r.minutosExtra, null);
+  assert.equal(r.variablePropiasEur, 220);
+});
+
+test('horas de contrato del mes: la convención de nómina (52 semanas / 12 meses), la misma que «Horas del mes»', () => {
+  assert.equal(minutosContratoMes(12), 52 * 60);
+  assert.equal(minutosContratoMes(null), null);
 });

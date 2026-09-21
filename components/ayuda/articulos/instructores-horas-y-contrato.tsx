@@ -46,11 +46,14 @@ export default function Contenido() {
         interesa saber es a cuánto te has comprometido, no cuánto lleva impartido.
       </p>
 
-      <h2 style={h2}>Un límite que conviene conocer</h2>
+      <h2 style={h2}>Asignadas no es lo mismo que dadas</h2>
       <p>
-        «Realizadas» significa que su clase ya pasó y no estaba cancelada. Tentare no tiene fichaje: si una clase
-        no llegó a darse y nadie la canceló, seguirá contando. Para cuadrar una nómina, cruza esto con lo que
-        sepas del mes.
+        «Realizadas» significa que su clase ya pasó y no estaba cancelada. Si una clase no llegó a darse, lo sabrás
+        por el{' '}
+        <Link href="/ayuda/instructores/control-horario" style={enlace}>control horario</Link>: la instructora
+        empieza cada clase en su app, y si dice que no la dio, sale en Equipo → Tiempo trabajado y no se le paga.
+        Si es contratada, lo que fiche por encima de su contrato aparece en su liquidación como horas de más, sin
+        pagarse aparte.
       </p>
 
       <AyudaResultado>

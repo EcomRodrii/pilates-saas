@@ -28,6 +28,12 @@ export default function Contenido() {
         sustitución: esas horas ya están dentro de lo fichado), y una liquidación con jornadas sin cerrar no se puede
         confirmar hasta corregirlas en Equipo → Tiempo trabajado.
       </p>
+      <p>
+        Además, cada clase cuenta según si se dio: una que la instructora dijo no dar no se paga, y una que terminó
+        sin saberse si la dio se paga por su horario pero no deja confirmar la liquidación. Las autónomas se pagan
+        siempre por clases. Todo esto, en{' '}
+        <Link href="/ayuda/instructores/control-horario" style={{ color: 'inherit', textDecoration: 'underline' }}>control horario: jornadas y clases</Link>.
+      </p>
 
       <AyudaResultado>
         Un cambio de tarifa no toca las liquidaciones ya confirmadas o pagadas. Una que siga en borrador sí se

@@ -138,7 +138,7 @@ export async function listarJornadasEquipo(
 }
 
 /** Cuenta de Auth → nombre visible, solo dentro de este estudio. */
-async function nombresPorCuenta(admin: SupabaseClient, studioId: string, ids: string[]): Promise<Map<string, string>> {
+export async function nombresPorCuenta(admin: SupabaseClient, studioId: string, ids: string[]): Promise<Map<string, string>> {
   const m = new Map<string, string>();
   if (ids.length === 0) return m;
   const [equipo, estudio] = await Promise.all([

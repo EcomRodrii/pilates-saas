@@ -2,8 +2,11 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { uid } from '../utils.ts';
 import type { Rol } from '@/lib/types';
-import { calcularLiquidacion, type ModoLiquidacion, type SesionParaLiquidacion } from './liquidacion-logic.ts';
+import {
+  calcularLiquidacion, minutosContratoMes, type ModoLiquidacion, type RelacionLaboral, type SesionParaLiquidacion,
+} from './liquidacion-logic.ts';
 import { rangoMesEstudio } from '../fichaje/jornadas-equipo.ts';
+import { estadoDeClase, retrasoMinutos, type FilaClase, type Tramo } from '../fichaje/clases-impartidas.ts';
 
 // Capa de datos server-only para la liquidación de instructoras (fila 11 del
 // informe estratégico). Separada de lib/supabase-data.ts (god file, no
@@ -34,6 +37,12 @@ export interface LiquidacionRow {
   modo: ModoLiquidacion;
   minutosFichados: number | null;
   jornadasSinCerrar: number;
+  relacionLaboral: RelacionLaboral;
+  clasesSinConfirmar: number;
+  clasesNoDadas: number;
+  minutosRetraso: number;
+  minutosContrato: number | null;
+  minutosExtra: number | null;
 }
 
 function mapRow(r: Record<string, unknown>): LiquidacionRow {
@@ -61,14 +70,27 @@ function mapRow(r: Record<string, unknown>): LiquidacionRow {
     modo: r.modo === 'HORAS_FICHADAS' ? 'HORAS_FICHADAS' : 'CLASES',
     minutosFichados: r.minutos_fichados == null ? null : Number(r.minutos_fichados),
     jornadasSinCerrar: Number(r.jornadas_sin_cerrar ?? 0),
+    relacionLaboral: r.relacion_laboral === 'CONTRATADA' || r.relacion_laboral === 'AUTONOMA' ? r.relacion_laboral : null,
+    clasesSinConfirmar: Number(r.clases_sin_confirmar ?? 0),
+    clasesNoDadas: Number(r.clases_no_dadas ?? 0),
+    minutosRetraso: Number(r.minutos_retraso ?? 0),
+    minutosContrato: r.minutos_contrato == null ? null : Number(r.minutos_contrato),
+    minutosExtra: r.minutos_extra == null ? null : Number(r.minutos_extra),
   };
 }
 
-/** Con qué calcula este estudio la parte variable. Sin fila de configuración: por clases. */
-export async function modoLiquidacionEstudio(admin: SupabaseClient, studioId: string): Promise<ModoLiquidacion> {
-  const { data, error } = await admin.from('studio_config_tiempo').select('liquidar_por').eq('studio_id', studioId).maybeSingle();
+export interface CriterioLiquidacion { modo: ModoLiquidacion; pagarDuracionReal: boolean }
+
+/**
+ * Cómo liquida este estudio: con qué calcula la parte variable y si las clases
+ * dadas se pagan por su horario (por defecto) o por lo que duraron de verdad.
+ * Sin fila de configuración: por clases y por horario.
+ */
+export async function criterioLiquidacionEstudio(admin: SupabaseClient, studioId: string): Promise<CriterioLiquidacion> {
+  const { data, error } = await admin.from('studio_config_tiempo').select('liquidar_por, pagar_duracion_real').eq('studio_id', studioId).maybeSingle();
   if (error) throw error;
-  return (data as { liquidar_por?: string } | null)?.liquidar_por === 'HORAS_FICHADAS' ? 'HORAS_FICHADAS' : 'CLASES';
+  const f = data as { liquidar_por?: string; pagar_duracion_real?: boolean } | null;
+  return { modo: f?.liquidar_por === 'HORAS_FICHADAS' ? 'HORAS_FICHADAS' : 'CLASES', pagarDuracionReal: f?.pagar_duracion_real === true };
 }
 
 /**
@@ -79,7 +101,7 @@ export async function modoLiquidacionEstudio(admin: SupabaseClient, studioId: st
  */
 async function fichajeDelPeriodo(
   admin: SupabaseClient, studioId: string, instructorId: string, desde: string, hasta: string,
-): Promise<{ minutosCerrados: number; jornadasSinCerrar: number }> {
+): Promise<{ minutosCerrados: number; jornadasSinCerrar: number; tramos: Tramo[] }> {
   const { data, error } = await admin.from('instructor_work_sessions')
     .select('check_in_at, check_out_at, status')
     .eq('studio_id', studioId).eq('instructor_id', instructorId)
@@ -87,14 +109,49 @@ async function fichajeDelPeriodo(
   if (error) throw error;
   let minutosCerrados = 0;
   let jornadasSinCerrar = 0;
+  const tramos: Tramo[] = [];
   for (const j of (data ?? []) as { check_in_at: string; check_out_at: string | null; status: string }[]) {
+    tramos.push({ desde: j.check_in_at, hasta: j.check_out_at });
     if (j.status === 'CLOSED' && j.check_out_at) {
       minutosCerrados += Math.round((Date.parse(j.check_out_at) - Date.parse(j.check_in_at)) / 60_000);
     } else {
       jornadasSinCerrar++;
     }
   }
-  return { minutosCerrados, jornadasSinCerrar };
+  return { minutosCerrados, jornadasSinCerrar, tramos };
+}
+
+/**
+ * Qué se sabe de si dio cada clase del mes (clases impartidas), con el mismo
+ * criterio que su app y «Tiempo trabajado» (`estadoDeClase`). Solo DADA,
+ * NO_DADA y SIN_CONFIRMAR cambian algo; el resto (anteriores a la función, aún
+ * por llegar, en curso sin empezar) se paga por su horario como siempre.
+ */
+async function conControlDeClases(
+  admin: SupabaseClient, studioId: string, instructorId: string,
+  sesiones: { id: string; inicio: string; fin: string }[], tramos: Tramo[], relacion: RelacionLaboral, ahora: Date,
+): Promise<SesionParaLiquidacion[]> {
+  if (sesiones.length === 0) return [];
+  const { data, error } = await admin.from('clases_impartidas')
+    .select('sesion_id, estado, inicio_real, fin_real, origen')
+    .eq('studio_id', studioId).eq('instructor_id', instructorId).in('sesion_id', sesiones.map((s) => s.id));
+  if (error) throw error;
+  const filas = new Map(((data ?? []) as FilaClase[]).map((f) => [f.sesion_id, f]));
+  return sesiones.map((s) => {
+    const fila = filas.get(s.id) ?? null;
+    const { estado } = estadoDeClase({ ...s, cancelada: false, nombre: '' }, fila, tramos, relacion, ahora);
+    if (estado === 'NO_DADA' || estado === 'SIN_CONFIRMAR') return { ...s, control: estado };
+    if ((estado === 'DADA' || estado === 'EN_CURSO') && fila?.inicio_real) {
+      const fin = Date.parse(fila.fin_real ?? s.fin);
+      return {
+        ...s, control: 'DADA',
+        minutosReales: Math.max(0, Math.round((fin - Date.parse(fila.inicio_real)) / 60_000)),
+        retrasoMin: retrasoMinutos({ ...s, cancelada: false, nombre: '' }, fila),
+      };
+    }
+    // Dada por su jornada (contratada) o sin nada que decir: su horario.
+    return estado === 'DADA' ? { ...s, control: 'DADA' } : s;
+  });
 }
 
 /**
@@ -104,7 +161,7 @@ async function fichajeDelPeriodo(
  * documento que la instructora ya pudo haber visto.
  */
 export async function generarLiquidacionBorrador(
-  admin: SupabaseClient, studioId: string, instructorId: string, anio: number, mes: number,
+  admin: SupabaseClient, studioId: string, instructorId: string, anio: number, mes: number, ahora = new Date(),
 ): Promise<{ row?: LiquidacionRow; error?: string }> {
   const { data: existente } = await admin
     .from('liquidaciones_instructoras').select('id, estado')
@@ -122,7 +179,7 @@ export async function generarLiquidacionBorrador(
   const { desde, hasta } = rango;
 
   const [{ data: tarifaRow }, { data: sesionesRow }, { data: sustitucionesRow }, { data: studioRow }] = await Promise.all([
-    admin.from('instructor_tarifas').select('tarifa_hora, base_mensual_eur, recargo_sustitucion_pct')
+    admin.from('instructor_tarifas').select('tarifa_hora, base_mensual_eur, recargo_sustitucion_pct, relacion_laboral, horas_semanales_contrato')
       .eq('instructor_id', instructorId).eq('studio_id', studioId).maybeSingle(),
     admin.from('sesiones').select('id, inicio, fin')
       .eq('studio_id', studioId).eq('instructor_id', instructorId).eq('cancelada', false)
@@ -134,8 +191,8 @@ export async function generarLiquidacionBorrador(
 
   const sesiones = (sesionesRow ?? []) as { id: string; inicio: string; fin: string }[];
   const sesionesSustitucionIds = new Set((sustitucionesRow ?? []).map(r => r.sesion_id as string));
-  const sesionesPropias: SesionParaLiquidacion[] = sesiones.filter(s => !sesionesSustitucionIds.has(s.id));
-  const sesionesSustitucion: SesionParaLiquidacion[] = sesiones.filter(s => sesionesSustitucionIds.has(s.id));
+  const relacionRaw = (tarifaRow as { relacion_laboral?: string | null } | null)?.relacion_laboral;
+  const relacion: RelacionLaboral = relacionRaw === 'CONTRATADA' || relacionRaw === 'AUTONOMA' ? relacionRaw : null;
 
   // Penalizaciones cobradas en el periodo cuya reserva pertenece a una
   // sesión de esta instructora — join en dos pasos porque supabase-js no
@@ -168,17 +225,27 @@ export async function generarLiquidacionBorrador(
       .map(p => Number(p.importe));
   }
 
-  let modo: ModoLiquidacion;
-  let fichaje: { minutosCerrados: number; jornadasSinCerrar: number } | undefined;
+  // Criterio del estudio, jornadas y clases impartidas: si algo no se puede leer,
+  // no se genera — pagar por lo que no se ha podido comprobar es peor que esperar.
+  let criterio: { modo: ModoLiquidacion; pagarDuracionReal: boolean };
+  let fichaje: { minutosCerrados: number; jornadasSinCerrar: number; tramos: Tramo[] } | undefined;
+  let sesionesPropias: SesionParaLiquidacion[];
+  let sesionesSustitucion: SesionParaLiquidacion[];
   try {
-    modo = await modoLiquidacionEstudio(admin, studioId);
-    if (modo === 'HORAS_FICHADAS') fichaje = await fichajeDelPeriodo(admin, studioId, instructorId, desde, hasta);
+    criterio = await criterioLiquidacionEstudio(admin, studioId);
+    // La autónoma no ficha: ni se paga por jornada ni una jornada «cubre» sus clases.
+    if (relacion !== 'AUTONOMA') fichaje = await fichajeDelPeriodo(admin, studioId, instructorId, desde, hasta);
+    const controladas = await conControlDeClases(admin, studioId, instructorId, sesiones, fichaje?.tramos ?? [], relacion, ahora);
+    sesionesPropias = controladas.filter(s => !sesionesSustitucionIds.has(s.id));
+    sesionesSustitucion = controladas.filter(s => sesionesSustitucionIds.has(s.id));
   } catch {
-    return { error: 'No se ha podido leer el fichaje del mes. Inténtalo de nuevo.' };
+    return { error: 'No se han podido leer el fichaje o las clases del mes. Inténtalo de nuevo.' };
   }
+  const horasContrato = (tarifaRow as { horas_semanales_contrato?: number | string | null } | null)?.horas_semanales_contrato;
 
   const calculo = calcularLiquidacion({
-    modo, fichaje,
+    modo: criterio.modo, fichaje, relacion, pagarDuracionReal: criterio.pagarDuracionReal,
+    minutosContrato: minutosContratoMes(horasContrato == null ? null : Number(horasContrato)),
     sesionesPropias, sesionesSustitucion, penalizacionesCobradasEur,
     tarifa: {
       tarifaHora: tarifaRow?.tarifa_hora == null ? null : Number(tarifaRow.tarifa_hora),
@@ -197,6 +264,8 @@ export async function generarLiquidacionBorrador(
     n_penalizaciones: calculo.nPenalizaciones, reparto_penalizaciones_eur: calculo.repartoPenalizacionesEur,
     n_clases_sin_tarifa: calculo.nClasesSinTarifa,
     modo: calculo.modo, minutos_fichados: calculo.minutosFichados, jornadas_sin_cerrar: calculo.jornadasSinCerrar,
+    relacion_laboral: calculo.relacion, clases_sin_confirmar: calculo.clasesSinConfirmar, clases_no_dadas: calculo.clasesNoDadas,
+    minutos_retraso: calculo.minutosRetraso, minutos_contrato: calculo.minutosContrato, minutos_extra: calculo.minutosExtra,
     detalle: calculo.detalle, estado: 'BORRADOR', generada_en: new Date().toISOString(),
   }, { onConflict: 'instructor_id,periodo_anio,periodo_mes' }).select().maybeSingle();
 
@@ -206,7 +275,7 @@ export async function generarLiquidacionBorrador(
 
 export async function transicionarLiquidacion(
   admin: SupabaseClient, id: string, studioId: string,
-  accion: 'confirmar' | 'marcar_pagada', actorUserId: string, referenciaPago?: string | null,
+  accion: 'confirmar' | 'marcar_pagada', actorUserId: string, referenciaPago?: string | null, ahora = new Date(),
 ): Promise<{ row?: LiquidacionRow; error?: string }> {
   const { data: actual } = await admin.from('liquidaciones_instructoras')
     .select('id, estado, instructor_id, periodo_anio, periodo_mes')
@@ -222,7 +291,7 @@ export async function transicionarLiquidacion(
     // generarLiquidacionBorrador (idempotente, solo toca BORRADOR).
     const recalculado = await generarLiquidacionBorrador(
       admin, studioId, actual.instructor_id as string,
-      actual.periodo_anio as number, actual.periodo_mes as number,
+      actual.periodo_anio as number, actual.periodo_mes as number, ahora,
     );
     if (recalculado.error || !recalculado.row) {
       return { error: recalculado.error ?? 'No se pudo recalcular antes de confirmar' };
@@ -232,6 +301,12 @@ export async function transicionarLiquidacion(
     if (recalculado.row.modo === 'HORAS_FICHADAS' && recalculado.row.jornadasSinCerrar > 0) {
       const n = recalculado.row.jornadasSinCerrar;
       return { error: `${n === 1 ? 'Hay una jornada' : `Hay ${n} jornadas`} de este mes sin cerrar. Corrígelas en Tiempo trabajado antes de confirmar.` };
+    }
+    // Una clase sin confirmar se ha pagado por su horario a ciegas: primero se
+    // sabe si la dio (ella desde su app, o quien gestiona desde Tiempo trabajado).
+    if (recalculado.row.clasesSinConfirmar > 0) {
+      const n = recalculado.row.clasesSinConfirmar;
+      return { error: `${n === 1 ? 'Hay una clase' : `Hay ${n} clases`} de este mes sin confirmar si se dieron. Revísalas en Tiempo trabajado antes de confirmar.` };
     }
     // Compare-and-set (hallazgo #3): sin esto, dos PATCH casi simultáneos
     // podían superar ambos el chequeo en memoria de arriba.
