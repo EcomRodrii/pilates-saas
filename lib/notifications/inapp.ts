@@ -17,6 +17,7 @@ import * as Sentry from '@sentry/nextjs';
 import { REGLAS, plantillaDe, render, type ReglaEvento } from './catalog.ts';
 import { resolverDestinatarios } from './recipients.ts';
 import { pushEfectivo } from './push-por-tipo.ts';
+import { esTextoEditable, textoEfectivo, type TextoAviso } from './textos-estudio.ts';
 import type {
   NotificationCategory, NotificationChannel, NotificationEvent, NotificationRow, Recipient,
 } from './types.ts';
@@ -73,6 +74,21 @@ export async function preferenciaDe(
     inapp: data.inapp as boolean, push: data.push as boolean, email: data.email as boolean,
     whatsapp: data.whatsapp as boolean, sms: data.sms as boolean, pushEventos: data.push_eventos,
   };
+}
+
+// El texto que el estudio escribió para este aviso (`notification_template`), o
+// `null`. Si la lectura falla sale el de fábrica: un aviso con el texto de
+// siempre es mejor que ningún aviso.
+export async function textoDelEstudio(
+  admin: SupabaseClient, studioId: string, evento: string,
+): Promise<TextoAviso | null> {
+  if (!esTextoEditable(evento)) return null;
+  const { data, error } = await admin.from('notification_template')
+    .select('title_tpl, body_tpl')
+    .eq('studio_id', studioId).eq('event_type', evento).eq('locale', 'es')
+    .maybeSingle();
+  if (error || !data) return null;
+  return { title: data.title_tpl as string, body: data.body_tpl as string };
 }
 
 // ── Clave de dedup: (persona, y solo si hace falta, BANDEJA) ────────────────
@@ -159,6 +175,11 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
   // necesita desempate exige haber visto a todos los destinatarios del evento.
   const dobles = identidadesEnDosBandejas(destinatarios);
   const data = event.data ?? {};
+  // Solo habla en nombre del estudio ante sus ALUMNAS: el resto de
+  // destinatarios del mismo evento (instructora, mostrador) sigue con el suyo.
+  const delEstudio = destinatarios.some(d => d.role === 'SOCIA')
+    ? textoEfectivo(event.type, await textoDelEstudio(admin, event.studioId, event.type))
+    : null;
   const creadas: NotificacionCreada[] = [];
   let omitidas = 0;
 
@@ -177,8 +198,9 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
     const dedupKey = claveDedup(event.dedupKey, dest, dobles);
 
     const id = `not-${crypto.randomUUID()}`;
-    const title = render(pl.title, data);
-    const body = render(pl.body, data);
+    const texto = dest.role === 'SOCIA' && delEstudio ? delEstudio : pl;
+    const title = render(texto.title, data);
+    const body = render(texto.body, data);
     const deepLink = pl.deepLink?.(data) ?? null;
     const archivedAt = quiereInapp ? null : new Date().toISOString();
     const { error } = await admin.from('notification').insert({

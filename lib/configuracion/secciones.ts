@@ -45,7 +45,7 @@ export type CondicionTarjeta = 'multiSede' | 'cadena';
  */
 export type HerramientaId =
   | 'salas' | 'tipos-de-clase' | 'correos-automaticos' | 'recompensas-y-logros' | 'contenido-de-tu-app' | 'widgets'
-  | 'tus-avisos';
+  | 'tus-avisos' | 'avisos-del-movil';
 
 export interface TarjetaConfiguracion {
   readonly id: string;
@@ -187,6 +187,7 @@ export const SECCIONES = [
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'correos-automaticos', titulo: 'Correos automáticos', frase: 'Bienvenida, reserva, recordatorio, cancelación…: apaga los que no quieras o cambia lo que dicen.', guardado: 'catalogo', herramienta: 'correos-automaticos', palabras: ['emails', 'recordatorio', 'bienvenida', 'plantillas'] },
+      { id: 'avisos-del-movil', titulo: 'Avisos en el móvil', frase: 'Cuándo le llega a cada alumna el recordatorio de su clase y qué dicen los avisos de su móvil, con tus palabras.', guardado: 'catalogo', herramienta: 'avisos-del-movil', palabras: ['push', 'notificaciones', 'antelación', 'recordatorio de clase', 'textos'] },
       { id: 'integracion-resend', titulo: 'Nombre y respuesta de tus correos', frase: 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.', guardado: 'catalogo', palabras: ['remitente', 'emails'] },
       { id: 'integracion-whatsapp', titulo: 'WhatsApp', frase: 'Recordatorios y avisos desde tu número de WhatsApp Business.', guardado: 'accion', palabras: ['mensajes'] },
       { id: 'integracion-gmail', titulo: 'Contactos de Gmail', frase: 'Trae los contactos de tu Gmail como alumnas nuevas. Los correos no salen desde tu Gmail.', guardado: 'accion' },
@@ -506,6 +507,7 @@ export const HERRAMIENTAS: readonly HerramientaConfiguracion[] = [
   deTarjeta('contenido-de-tu-app', 'Mensaje destacado, tarjetas y avisos del tablón'),
   deTarjeta('widgets', 'Tu horario y tus reservas dentro de tu web'),
   deTarjeta('tus-avisos', 'Cada tipo de aviso, en el panel y en el móvil'),
+  deTarjeta('avisos-del-movil', 'Cuándo llega el recordatorio y qué dice cada aviso'),
 ];
 
 const HERRAMIENTA_POR_ID = new Map<string, HerramientaConfiguracion>(HERRAMIENTAS.map(h => [h.id, h]));

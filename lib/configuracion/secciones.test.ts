@@ -186,9 +186,10 @@ test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mism
   }
 });
 
-test('siete herramientas con pantalla propia, cada una de UNA sección y con sus tarjetas seguidas', () => {
+test('ocho herramientas con pantalla propia, cada una de UNA sección y con sus tarjetas seguidas', () => {
   assert.deepEqual(HERRAMIENTAS.map(h => h.id), [
     'salas', 'tipos-de-clase', 'correos-automaticos', 'recompensas-y-logros', 'contenido-de-tu-app', 'widgets', 'tus-avisos',
+    'avisos-del-movil',
   ]);
   for (const h of HERRAMIENTAS) {
     assert.ok(esHerramientaId(h.id));

@@ -49,8 +49,8 @@ test.describe('Alumna · push por tipo de aviso', () => {
     await montar(page);
     await page.goto(`/portal/${SLUG}/perfil/preferencias`);
 
-    await expect(interruptor(page, 'El día antes')).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
-    await expect(interruptor(page, 'Una hora antes')).toHaveAttribute('aria-checked', 'false');
+    await expect(interruptor(page, 'Con antelación')).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
+    await expect(interruptor(page, 'Justo antes de la clase')).toHaveAttribute('aria-checked', 'false');
     await expect(interruptor(page, 'Reserva confirmada')).toHaveAttribute('aria-checked', 'false');
     // Sin fila de `clases`: encendido, que es el defecto del motor.
     await expect(interruptor(page, 'Clase cancelada')).toHaveAttribute('aria-checked', 'true');
@@ -65,7 +65,7 @@ test.describe('Alumna · push por tipo de aviso', () => {
     const puts = await montar(page);
     await page.goto(`/portal/${SLUG}/perfil/preferencias`);
 
-    const unaHora = interruptor(page, 'Una hora antes');
+    const unaHora = interruptor(page, 'Justo antes de la clase');
     await expect(unaHora).toHaveAttribute('aria-checked', 'false', { timeout: 30_000 });
     await unaHora.click();
 
@@ -80,7 +80,7 @@ test.describe('Alumna · push por tipo de aviso', () => {
     const puts = await montar(page, 500);
     await page.goto(`/portal/${SLUG}/perfil/preferencias`);
 
-    const dia = interruptor(page, 'El día antes');
+    const dia = interruptor(page, 'Con antelación');
     await expect(dia).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
     await dia.click();
 

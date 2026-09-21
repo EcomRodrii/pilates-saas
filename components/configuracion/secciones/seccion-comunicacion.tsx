@@ -1,12 +1,14 @@
 'use client';
 
-import { BellRing, Bot, Mail } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Bot, Mail } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { resumenHerramienta } from '@/lib/configuracion/resumenes';
 import { FILAS_A_OTRA_PANTALLA } from '@/lib/configuracion/secciones';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
-import { FilaAjuste, FilaExterna, FilaInformativa, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
+import { dbListTextosAviso } from '@/lib/notifications/textos-estudio-db';
 import {
   DetalleGmail, DetalleWhatsapp, FilaGmail, FilaWhatsapp, FormRemitente, useGmail, useRemitente, useWhatsapp,
 } from '@/components/configuracion/canales-comunicacion';
@@ -16,15 +18,23 @@ import {
 //
 // Los correos automáticos siguen siendo su herramienta (#2061). WhatsApp y Gmail
 // llevan UN estado y su acción en la fila o en su cajón (canales-comunicacion.tsx).
-// El recordatorio de clase es de serie: se cuenta, no se configura aquí
-// (lib/notificaciones/recordatorio-clase.ts: 24 h antes app + email + WhatsApp si
-// está conectado y con plantilla aprobada; 1 h antes, solo la app; quien reserva
-// con menos de 24 h recibe el correo en la pasada siguiente, franja `tardia`).
+// El recordatorio de clase sigue siendo de serie (sale solo), pero desde migr
+// 20260921150000 el estudio elige su antelación y el texto de los avisos del
+// móvil: herramienta «Avisos en el móvil».
 
 const CAJONES = ['integracion-resend', 'integracion-whatsapp', 'integracion-gmail'] as const;
 
 export function SeccionComunicacion({ showToast }: { showToast: (m: string) => void }) {
-  const { plantillasEmail, plantillasEmailCargadas } = useStudio();
+  const { studio, plantillasEmail, plantillasEmailCargadas } = useStudio();
+  // Sin leerlos, la fila no dice cuántos textos son suyos: `null`, no «0».
+  const [textosPropios, setTextosPropios] = useState<number | null>(null);
+  const studioId = studio?.id;
+  useEffect(() => {
+    if (!studioId) return;
+    let vivo = true;
+    dbListTextosAviso(studioId).then(t => { if (vivo) setTextosPropios(Object.keys(t).length); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [studioId]);
   const remitente = useRemitente();
   const whatsapp = useWhatsapp(showToast);
   const gmail = useGmail(showToast);
@@ -53,11 +63,16 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
         <FilaGmail g={gmail} onAbrir={() => abrir('integracion-gmail')} />
       </GrupoFilas>
 
-      <GrupoFilas titulo="Tentare lo hace así">
-        <FilaInformativa
-          icono={BellRing}
-          titulo="El recordatorio de cada clase sale solo"
-          detalle="24 h antes, por correo y en su app (y por WhatsApp si lo conectas y Meta te aprueba la plantilla); 1 h antes, en su app. Si reserva con menos de 24 h, el correo le llega al poco, salvo en la última hora y cuarto."
+      <GrupoFilas titulo="Sus avisos">
+        <FilaHerramienta
+          id="avisos-del-movil"
+          valor={resumenHerramienta('avisos-del-movil', {
+            avisosMovil: studio ? {
+              largoHoras: studio.recordatorioLargoHoras ?? 24,
+              cortoMinutos: studio.recordatorioCortoMinutos ?? 60,
+              textosPropios,
+            } : null,
+          })}
         />
       </GrupoFilas>
 

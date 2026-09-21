@@ -6,7 +6,8 @@
 // ASISTIDA) y pg_cron (push 24 h y 1 h, cada 15 min, solo CONFIRMADA). Una socia
 // podía recibir tres mensajes por la misma clase y a horas que no casaban.
 //
-// Decisión del fundador (final):
+// Decisión del fundador (final). Las antelaciones son las de por defecto: desde
+// migr 20260921150000 cada estudio elige 12/24/48 h y 30/60/120 min.
 //   · 24 h antes → aviso en su app + email + WhatsApp (si el estudio lo conectó).
 //   · 1 h antes  → solo aviso en su app.
 //   · Si reservó con la franja de 24 h ya pasada y aún falta más de 1 h 15 min,
@@ -36,6 +37,14 @@ import { acumuladorSalud } from '../integraciones/salud.ts';
 import { exigirLectura } from '../exigir-lectura.ts';
 import { mapLimit } from '../concurrency.ts';
 import { fechaLargaEstudio, horaEstudio } from '../utils.ts';
+import {
+  ANTELACION_POR_DEFECTO, antelacionDeFila, textoAntelacion, type AntelacionRecordatorio,
+} from './antelacion-recordatorio.ts';
+
+export {
+  ANTELACION_POR_DEFECTO, ANTELACIONES_CORTO_MINUTOS, ANTELACIONES_LARGO_HORAS, antelacionDeFila, textoAntelacion,
+  type AntelacionRecordatorio,
+} from './antelacion-recordatorio.ts';
 import type { TipoExcepcion } from '../excepciones.ts';
 
 // Tipado, no un literal suelto: una errata aquí apagaría la exención en
@@ -54,6 +63,12 @@ const CONCURRENCIA_ENVIOS = 4;
  * `tardia` = quien reservó cuando la franja de 24 h ya había pasado. No es una
  * franja de push: solo recupera el email y el WhatsApp que no llegó a tener.
  */
+//
+// ⚠️ '24h' y '1h' son NOMBRES de franja, no su duración: son el recordatorio
+// LARGO (push + email + WhatsApp) y el CORTO (solo push), y cada estudio decide
+// su antelación (`studios.recordatorio_largo_horas` / `_corto_minutos`, migr
+// 20260921150000). Se conservan porque son también el tipo de evento
+// (`reserva.recordatorio_24h`/`_1h`) y la clave de dedup de los ya enviados.
 export type FranjaRecordatorio = '24h' | '1h' | 'tardia';
 type FranjaPush = Exclude<FranjaRecordatorio, 'tardia'>;
 
@@ -62,40 +77,59 @@ type FranjaPush = Exclude<FranjaRecordatorio, 'tardia'>;
 // 11:00 (o las 09:00) en el reloj del estudio. El texto sí va en hora del
 // estudio (`horaEstudio`, TZ_ESTUDIO). Anchura: el cron corre cada 15 min, así
 // que la de 24 h (1 h) tiene cuatro pasadas y la de 1 h (30 min), dos.
-export const FRANJAS_RECORDATORIO: Record<FranjaPush, { centroH: number; margenH: number }> = {
-  '24h': { centroH: 24, margenH: 0.5 },
-  '1h': { centroH: 1, margenH: 0.25 },
-};
+//
+// La anchura NO cambia con la antelación: depende del ritmo del cron, no de a
+// cuánto está la clase. Con 30 min, la corta va de 15 a 45 min: dos pasadas.
+export function franjasDe(a: AntelacionRecordatorio = ANTELACION_POR_DEFECTO): Record<FranjaPush, { centroH: number; margenH: number }> {
+  return {
+    '24h': { centroH: a.largoHoras, margenH: 0.5 },
+    '1h': { centroH: a.cortoMinutos / 60, margenH: 0.25 },
+  };
+}
+export const FRANJAS_RECORDATORIO = franjasDe();
 
 const HORA_MS = 3_600_000;
 
-// Franja tardía: ENTRE las dos de push, sin tocar ninguna — (1 h 15 min,
-// 23 h 30 min). Por debajo de 1 h 15 min solo queda el push de 1 h: un correo
-// que llegara minutos antes que ese push sería ruido, no un recordatorio.
-export function franjaRecordatorio(inicio: string | Date, ahoraMs: number): FranjaRecordatorio | null {
+// Franja tardía: ENTRE las dos de push, sin tocar ninguna — por defecto (1 h
+// 15 min, 23 h 30 min). Por debajo solo queda el push corto: un correo que
+// llegara minutos antes que ese push sería ruido, no un recordatorio.
+export function franjaRecordatorio(
+  inicio: string | Date, ahoraMs: number, a: AntelacionRecordatorio = ANTELACION_POR_DEFECTO,
+): FranjaRecordatorio | null {
   const inicioMs = new Date(inicio).getTime();
   if (!Number.isFinite(inicioMs)) return null;
-  for (const franja of Object.keys(FRANJAS_RECORDATORIO) as FranjaPush[]) {
-    const { desdeMs, hastaMs } = limitesFranja(franja, ahoraMs);
+  for (const franja of ['24h', '1h'] as FranjaPush[]) {
+    const { desdeMs, hastaMs } = limitesFranja(franja, ahoraMs, a);
     if (inicioMs >= desdeMs && inicioMs <= hastaMs) return franja;
   }
-  if (inicioMs > limitesFranja('1h', ahoraMs).hastaMs && inicioMs < limitesFranja('24h', ahoraMs).desdeMs) return 'tardia';
+  if (inicioMs > limitesFranja('1h', ahoraMs, a).hastaMs && inicioMs < limitesFranja('24h', ahoraMs, a).desdeMs) return 'tardia';
   return null;
 }
 
 /** Inicios de clase que caen en la franja, ambos extremos incluidos. */
-export function ventanaFranja(franja: FranjaPush, ahoraMs: number): { desdeISO: string; hastaISO: string } {
-  const { desdeMs, hastaMs } = limitesFranja(franja, ahoraMs);
+export function ventanaFranja(
+  franja: FranjaPush, ahoraMs: number, a: AntelacionRecordatorio = ANTELACION_POR_DEFECTO,
+): { desdeISO: string; hastaISO: string } {
+  const { desdeMs, hastaMs } = limitesFranja(franja, ahoraMs, a);
   return { desdeISO: new Date(desdeMs).toISOString(), hastaISO: new Date(hastaMs).toISOString() };
 }
 
-/** Lo que lee el barrido: desde el inicio de la de 1 h hasta el final de la de 24 h (las tres franjas, contiguas). */
-export function ventanaBarrido(ahoraMs: number): { desdeISO: string; hastaISO: string } {
-  return { desdeISO: ventanaFranja('1h', ahoraMs).desdeISO, hastaISO: ventanaFranja('24h', ahoraMs).hastaISO };
+/**
+ * Lo que lee el barrido: del inicio de la franja corta MÁS CORTA al final de la
+ * larga MÁS LARGA entre los estudios. Ceñida a lo que hay configurado: si nadie
+ * pidió 48 h no se leen dos días de clases cada 15 min.
+ */
+export function ventanaBarrido(
+  ahoraMs: number, antelaciones: AntelacionRecordatorio[] = [ANTELACION_POR_DEFECTO],
+): { desdeISO: string; hastaISO: string } {
+  const lista = antelaciones.length ? antelaciones : [ANTELACION_POR_DEFECTO];
+  const desdeMs = Math.min(...lista.map((a) => limitesFranja('1h', ahoraMs, a).desdeMs));
+  const hastaMs = Math.max(...lista.map((a) => limitesFranja('24h', ahoraMs, a).hastaMs));
+  return { desdeISO: new Date(desdeMs).toISOString(), hastaISO: new Date(hastaMs).toISOString() };
 }
 
-function limitesFranja(franja: FranjaPush, ahoraMs: number) {
-  const { centroH, margenH } = FRANJAS_RECORDATORIO[franja];
+function limitesFranja(franja: FranjaPush, ahoraMs: number, a: AntelacionRecordatorio = ANTELACION_POR_DEFECTO) {
+  const { centroH, margenH } = franjasDe(a)[franja];
   return { desdeMs: ahoraMs + (centroH - margenH) * HORA_MS, hastaMs: ahoraMs + (centroH + margenH) * HORA_MS };
 }
 
@@ -286,6 +320,8 @@ export interface ReservaParaRecordar {
   whatsapp: WhatsAppDelEstudio | null;
   /** Ver `EntradaCanalesRecordatorio.yaReclamado` (solo franja tardía). */
   yaReclamado?: { email: boolean; whatsapp: boolean } | null;
+  /** La de su estudio. Ausente = la de siempre (24 h y 1 h). */
+  antelacion?: AntelacionRecordatorio;
 }
 
 export interface PuertosRecordatorio {
@@ -342,6 +378,8 @@ export async function enviarRecordatorioClase(
         slug: reserva.slug,
         sesionId: reserva.sesionId,
         socioId: reserva.socioId,
+        // `{antelacion}` del texto: «Tu clase es en 24 horas», o lo que eligió el estudio.
+        antelacion: textoAntelacion(franja === '24h' ? '24h' : '1h', reserva.antelacion),
       },
       resource: { type: 'sesion', id: reserva.sesionId },
       // Misma clave que antes: el despliegue no repite pushes ya creados.
@@ -403,19 +441,26 @@ export async function barrerRecordatoriosClase(
 
   // ⚠️ Todas las lecturas van PAGINADAS: una consulta global lee las filas de
   // TODOS los estudios, y PostgREST corta en 1.000 sin avisar (#684).
-  const { data: studios, error: errStudios } = await leer<{ id: string; slug: string | null; nombre: string | null }>(
-    'studios', (from, to) => admin.from('studios').select('id, slug, nombre').is('suspendido_en', null).range(from, to),
+  const { data: studios, error: errStudios } = await leer<{
+    id: string; slug: string | null; nombre: string | null;
+    recordatorio_largo_horas: number | null; recordatorio_corto_minutos: number | null;
+  }>(
+    'studios', (from, to) => admin.from('studios')
+      .select('id, slug, nombre, recordatorio_largo_horas, recordatorio_corto_minutos')
+      .is('suspendido_en', null).range(from, to),
   );
   exigirLectura(errStudios, 'leyendo estudios');
   if (!studios.length) return resumen;
   const studioPorId = new Map(studios.map((s) => [s.id, s]));
   const studioIds = studios.map((s) => s.id);
+  const antelacionPorStudio = new Map(studios.map((s) => [s.id, antelacionDeFila(s)]));
+  const antelacionDe = (studioId: string) => antelacionPorStudio.get(studioId) ?? ANTELACION_POR_DEFECTO;
 
   // UNA lectura para las tres franjas, que son contiguas (de 45 min a 24 h 30
   // min): las clases del próximo día. `franjaRecordatorio` decide la de cada una.
   // `order('id')`: sin orden, dos páginas de PostgREST pueden repetir o saltarse filas.
   type Sesion = { id: string; studio_id: string; inicio: string; tipo_clase_id: string | null; sala_id: string | null; instructor_id: string | null; zoom_join_url: string | null };
-  const { desdeISO, hastaISO } = ventanaBarrido(ahoraMs);
+  const { desdeISO, hastaISO } = ventanaBarrido(ahoraMs, [...antelacionPorStudio.values()]);
   const { data: sesionesVentana, error: errSesiones } = await leer<Sesion>('sesiones', (from, to) => admin.from('sesiones')
     .select('id, studio_id, inicio, tipo_clase_id, sala_id, instructor_id, zoom_join_url')
     .eq('cancelada', false).in('studio_id', studioIds)
@@ -424,7 +469,7 @@ export async function barrerRecordatoriosClase(
   const franjaDe = new Map<string, FranjaRecordatorio>();
   const sesPorId = new Map<string, Sesion>();
   for (const s of sesionesVentana) {
-    const franja = franjaRecordatorio(s.inicio, ahoraMs);
+    const franja = franjaRecordatorio(s.inicio, ahoraMs, antelacionDe(s.studio_id));
     if (!franja) continue;
     franjaDe.set(s.id, franja);
     sesPorId.set(s.id, s);
@@ -581,6 +626,7 @@ export async function barrerRecordatoriosClase(
       plantillaEmailEncendida: !plantillaApagada.has(ses.studio_id),
       whatsapp: whatsappPorStudio.get(ses.studio_id) ?? null,
       yaReclamado: franja === 'tardia' ? yaReclamado(r) : null,
+      antelacion: antelacionDe(ses.studio_id),
     };
     try {
       const res = await enviarRecordatorioClase(admin, reserva, franja, puertos);

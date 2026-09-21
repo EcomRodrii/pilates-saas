@@ -7,7 +7,7 @@ export default function Contenido() {
     <>
       <AyudaAntesDeEmpezar>
         Los avisos que Tentare ha enviado en tu nombre: a qué perfil, cuándo, por qué canal y con qué resultado.
-        Es la respuesta a «¿le llegó el aviso de 24 h o de 1 h en su app?», que hasta ahora solo se podía suponer.
+        Es la respuesta a «¿le llegó el recordatorio de su clase en su app?», que hasta ahora solo se podía suponer.
         Salen los últimos 150.
       </AyudaAntesDeEmpezar>
 
