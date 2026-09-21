@@ -15,6 +15,8 @@ import {
   type TarifaInstructor, type TiempoTrabajadoMes,
 } from '@/lib/api-client';
 import type { CambioJornada, JornadaEquipo } from '@/lib/fichaje/jornadas-equipo';
+import { csvJornadas, nombreCsvJornadas } from '@/lib/fichaje/csv-jornadas';
+import { descargarBlob } from '@/lib/descargar-blob';
 import { formatEuro, instanteEnEstudio, TZ_ESTUDIO } from '@/lib/utils';
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -96,6 +98,17 @@ export default function TiempoTrabajadoPage() {
             <select aria-label="Año" value={anio} onChange={(e) => setAnio(Number(e.target.value))} className={inputCls}>
               {[ahora.getFullYear() - 1, ahora.getFullYear()].map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
+            <button
+              onClick={() => datos && descargarBlob(
+                new Blob([csvJornadas(datos.jornadas, (id) => nombre.get(id) ?? 'Instructora')], { type: 'text/csv;charset=utf-8' }),
+                nombreCsvJornadas(anio, mes),
+              )}
+              disabled={!datos || datos.jornadas.length === 0}
+              title={datos && datos.jornadas.length === 0 ? 'No hay jornadas este mes' : undefined}
+              className="px-3 py-1.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+            >
+              Exportar CSV
+            </button>
           </div>
         }
       />
@@ -166,7 +179,7 @@ export default function TiempoTrabajadoPage() {
             );
           })}
           <p className="text-[12px] text-muted-foreground">
-            Cada jornada cuenta en el mes en que empezó. Una jornada abierta no suma horas hasta que se cierra. El coste es orientativo, a la tarifa por hora actual.
+            El CSV sirve como registro de jornada para la gestoría. Cada jornada cuenta en el mes en que empezó. Una jornada abierta no suma horas hasta que se cierra. El coste es orientativo, a la tarifa por hora actual.
           </p>
         </div>
       )}
