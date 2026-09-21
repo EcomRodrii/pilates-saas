@@ -13,6 +13,7 @@ import { mensajeErrorVenta, codigoDeErrorPg, type LineaVentaPeticion } from '@/l
 import { cuotaSinClienta, MENSAJE_CUOTA_SIN_CLIENTA } from '@/lib/pos/cuota-exige-clienta';
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import type { MetodoPago } from '@/lib/types';
+import { esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasDelEstudio, reservarPlazasPOS } from '@/lib/opening/cupo';
 
 export const dynamic = 'force-dynamic';
 
@@ -178,6 +179,27 @@ export async function POST(req: NextRequest) {
   const estadoInicial = proveedor.esAutoritativo ? 'PENDIENTE_PAGO' : 'PAGADA';
   const ventaId = `vpos-${uid()}`;
 
+  // Cupo exacto de una etapa de lanzamiento (Opening OS): una plaza por línea
+  // de plan, reservada ANTES de cobrar. Con la etapa llena no se cobra nada.
+  let plazasPOS: string[] = [];
+  const planesConLinea = sane.lineas
+    .filter((l) => l.tipo === 'PLAN' && l.referenciaId)
+    .map((l) => l.referenciaId as string);
+  if (planesConLinea.length > 0) {
+    // Antes, lo abandonado por internet vuelve a la venta (sin esto, el
+    // mostrador vería la etapa llena hasta que alguien comprara online).
+    try { await recuperarPlazasDelEstudio(admin, sesion.studioId, planesConLinea); }
+    catch (err) { console.error('[pos/venta] recuperar plazas', err); }
+    try {
+      plazasPOS = await reservarPlazasPOS(admin, sesion.studioId, idempotenciaClave, planesConLinea);
+    } catch (err) {
+      if (esEtapaAgotada(err)) {
+        return NextResponse.json({ error: MENSAJE_ETAPA_AGOTADA, codigo: 'ETAPA_AGOTADA' }, { status: 409 });
+      }
+      return errorInterno('pos:venta:plaza', err, 'No se ha podido registrar la venta. Inténtalo de nuevo.');
+    }
+  }
+
   const { data, error } = await admin.rpc('registrar_venta_pos', {
     p_venta_id: ventaId,
     p_studio_id: sesion.studioId,
@@ -200,6 +222,8 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
+    // La venta no llegó a existir: sus plazas no se han usado.
+    for (const id of plazasPOS) await liberarPlaza(admin, id);
     // Los códigos de negocio de la RPC (`SIN_STOCK:Calcetines:1`) se traducen a
     // una frase; el resto es un fallo de verdad y se reporta.
     const codigo = codigoDeErrorPg(error.message);

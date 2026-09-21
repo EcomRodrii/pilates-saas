@@ -170,6 +170,9 @@ export async function cargarEtapas(admin: SupabaseClient, studioId: string): Pro
 
 export interface AlertaGuardada extends AlertaApertura { id: string; creadaEn: string }
 
+export const PREFIJO_CUPO_SUPERADO = 'CUPO_SUPERADO:';
+const DIAS_AVISO_CUPO = 7;
+
 export async function cargarAlertasAbiertas(admin: SupabaseClient, studioId: string): Promise<AlertaGuardada[]> {
   const { data, error } = await admin.from('alertas_opening')
     .select('id, tipo, severidad, titulo, descripcion, datos, created_at')
@@ -202,7 +205,14 @@ export async function sincronizarAlertas(
   const tiposDetectados = new Set(detectadas.map(a => a.tipo));
   const tiposAbiertos = new Set(abiertas.map(a => a.tipo));
 
-  const aResolver = abiertas.filter(a => !tiposDetectados.has(a.tipo)).map(a => a.id);
+  // Los avisos de cupo superado los crea la BD (migr 20260921195853), no
+  // detectarAlertas: si se resolvieran por «no detectado», desaparecerían en
+  // cuanto la propietaria abriera Inicio. Se resuelven solos a los 7 días.
+  const esDeLaBD = (tipo: string) => tipo.startsWith(PREFIJO_CUPO_SUPERADO);
+  const caducado = (creadaEn: string) => now.getTime() - new Date(creadaEn).getTime() > DIAS_AVISO_CUPO * 86_400_000;
+  const aResolver = abiertas
+    .filter(a => esDeLaBD(a.tipo) ? caducado(a.creadaEn) : !tiposDetectados.has(a.tipo))
+    .map(a => a.id);
   if (aResolver.length > 0) {
     const { error } = await admin.from('alertas_opening')
       .update({ resuelta_en: now.toISOString() }).eq('studio_id', studioId).in('id', aResolver);

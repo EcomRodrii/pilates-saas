@@ -18,6 +18,10 @@ import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
 import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula } from '@/lib/billing/matricula-online';
+import {
+  asignarRefPlaza, claveStripe, esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas, reservarPlazaEtapa,
+  type PlazaReservada,
+} from '@/lib/opening/cupo';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
@@ -601,6 +605,26 @@ export async function POST(req: NextRequest) {
       })
     : null;
 
+  // Cupo EXACTO de una etapa de lanzamiento «Cerrar la venta» (Opening OS): la
+  // plaza se reserva bajo lock ANTES de crear el cobro, con la misma clave del
+  // intento. null = el plan no tiene cupo ahora y la compra sigue como siempre.
+  let plaza: PlazaReservada | null = null;
+  if (!body.reciboId && body.planId) {
+    try {
+      await recuperarPlazasCaducadas(admin, stripe, body.planId, body.studioId, studio.stripe_account_id);
+      plaza = await reservarPlazaEtapa(admin, body.planId, body.studioId, clavePlan ?? `cs-${globalThis.crypto.randomUUID()}`);
+    } catch (err) {
+      if (cupoMatriculaReservado) {
+        await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+      }
+      if (esEtapaAgotada(err)) {
+        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_ETAPA_AGOTADA }, { status: 409 }));
+      }
+      return conCorsWidget(req, errorInterno('stripe/checkout:plaza', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo.'));
+    }
+    if (plaza) metadata.plazaEtapaId = plaza.id;
+  }
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -655,6 +679,11 @@ export async function POST(req: NextRequest) {
       success_url: retorno.successUrl,
       cancel_url: retorno.cancelUrl,
       locale: 'es',
+      // Con plaza reservada la sesión caduca con ella (31 min): así Stripe
+      // confirma el abandono con `checkout.session.expired` y la plaza vuelve.
+      // Sale de la plaza, no de Date.now(): un reintento del mismo intento
+      // manda los mismos parámetros y la idempotencia de Stripe no protesta.
+      ...(plaza ? { expires_at: Math.floor(new Date(plaza.expiraEn).getTime() / 1000) } : {}),
     }, {
       stripeAccount: studio.stripe_account_id,
       // Cinturón además de los tirantes: la reutilización de arriba no cubre la
@@ -672,9 +701,30 @@ export async function POST(req: NextRequest) {
       ...(body.reciboId
         ? { idempotencyKey: `checkout-${body.reciboId}-${[...paymentMethodTypes].sort().join('-')}` }
         : clavePlan
-          ? { idempotencyKey: clavePlan }
+          // Con plaza de cupo, la clave lleva su intento: un intento liberado y
+          // vuelto a reservar necesita otra sesión, no la caducada.
+          ? { idempotencyKey: plaza ? claveStripe(clavePlan, plaza.intento) : clavePlan }
           : {}),
     });
+
+    // La plaza queda ligada a ESTE cobro. Si no se puede guardar, no hay forma
+    // de confirmarla ni de soltarla después: se deshace la venta entera.
+    if (plaza && !(await asignarRefPlaza(admin, plaza.id, session.id))) {
+      try {
+        await stripe.checkout.sessions.expire(session.id, undefined, {
+          stripeAccount: studio.stripe_account_id, idempotencyKey: `checkout-expirar-${session.id}`,
+        });
+      } catch (errExpirar) {
+        Sentry.captureException(errExpirar instanceof Error ? errExpirar : new Error('No se pudo expirar la sesión de Checkout'), {
+          tags: { area: 'stripe-checkout' }, extra: { sessionId: session.id, studioId: body.studioId, motivo: 'plaza_sin_ref' },
+        });
+      }
+      await liberarPlaza(admin, plaza.id);
+      if (cupoMatriculaReservado) {
+        await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+      }
+      return conCorsWidget(req, NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' }, { status: 500 }));
+    }
 
     // Se registra ANTES de devolver la URL. Si esto fallara y devolviéramos la
     // sesión igualmente, quedaría una sesión pagable que Tentare no conoce — y
@@ -726,6 +776,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     // Si el cobro no llegó a nacer, la plaza que se reservó para decidir su
     // precio no se ha usado. Devolverla antes de contestar el error.
+    if (plaza) await liberarPlaza(admin, plaza.id);
     if (cupoMatriculaReservado) {
       await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
     }

@@ -17,6 +17,7 @@ import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 import { metodoRealDeSesion } from '@/lib/billing/metodo-real-sesion';
 import { liberarCupoMatriculaUnaVez } from '@/lib/billing/matricula-online';
+import { liberarPlazaPorRef } from '@/lib/opening/cupo';
 import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
@@ -1439,6 +1440,14 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       const piId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null;
       if (admin) await liberarCupoMatriculaDelWebhook(admin, event, session.metadata, piId);
+    }
+
+    // Cupo exacto de una etapa de lanzamiento (Opening OS): la sesión caducó sin
+    // pagar, así que su plaza vuelve a la venta. Solo suelta una RESERVADA; si
+    // el pago llegó antes (VENDIDA), no la toca.
+    if (session.metadata?.plazaEtapaId) {
+      const admin = getSupabaseAdmin();
+      if (admin) await liberarPlazaPorRef(admin, session.id);
     }
   }
 

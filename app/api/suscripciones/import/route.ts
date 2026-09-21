@@ -75,6 +75,15 @@ export async function POST(req: NextRequest) {
   const socioPorEmail = new Map<string, string>();
   for (const s of socios ?? []) if (s.email) socioPorEmail.set(s.email.toLowerCase(), s.id);
 
+  // Planes con una etapa de lanzamiento de cupo exacto en curso (Opening OS):
+  // una membresía migrada no es una venta y no puede gastar una plaza Fundadora.
+  const ahoraISO = new Date().toISOString();
+  const { data: etapasCupo, error: errE } = await admin.from('launch_stages').select('plan_id')
+    .eq('studio_id', sesion.studioId).eq('al_completar', 'CERRAR').not('limite_plazas', 'is', null)
+    .lte('fecha_inicio', ahoraISO).gt('fecha_fin', ahoraISO);
+  if (errE) return errorInterno('suscripciones:import:etapas', errE, 'No se ha podido comprobar el catálogo. Inténtalo de nuevo.');
+  const planesConCupo = new Set((etapasCupo ?? []).map(e => e.plan_id as string));
+
   const planPorNombre = new Map<string, { id: string; tipo: string; sesiones: number | null }>();
   for (const p of planes ?? []) planPorNombre.set(normPlan(p.nombre), { id: p.id, tipo: p.tipo, sesiones: p.sesiones });
 
@@ -111,6 +120,10 @@ export async function POST(req: NextRequest) {
     const plan = planPorNombre.get(normPlan(planNombre));
     if (!plan) {
       errores.push({ fila: numFila, email: emailRaw, motivo: `No existe el plan «${planNombre}» en tu catálogo` });
+      return;
+    }
+    if (planesConCupo.has(plan.id)) {
+      errores.push({ fila: numFila, email: emailRaw, motivo: `«${planNombre}» tiene una etapa de lanzamiento con plazas limitadas en curso: véndelo desde el mostrador` });
       return;
     }
 

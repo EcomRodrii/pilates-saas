@@ -135,8 +135,10 @@ test('salto 0: todo `raise exception` de reservar_plaza lo traduce el TS', () =>
     .filter(f => f.endsWith('.sql'))
     .sort();
   // La ULTIMA migracion que redefine la RPC es la que esta viva en produccion.
+  // El `\s*\(` no sobra: sin el, `reservar_plaza_etapa` (cupo de Opening OS)
+  // pasaba por la RPC de reservas y el test leia la migracion equivocada.
   const ultima = migraciones
-    .filter(f => /create or replace function public\.reservar_plaza/i.test(leer(`supabase/migrations/${f}`)))
+    .filter(f => /create or replace function public\.reservar_plaza\s*\(/i.test(leer(`supabase/migrations/${f}`)))
     .pop();
   assert.ok(ultima, 'no se encuentra ninguna migracion que defina reservar_plaza');
 

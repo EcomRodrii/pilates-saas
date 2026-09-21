@@ -159,3 +159,9 @@ test('el trigger de las reglas de dinero de un tipo de clase dice quién decide,
   assert.equal(r, 'Esa regla la cambia la propietaria del estudio.');
   assert.doesNotMatch(r, /vuelve a entrar/i);
 });
+
+test('una etapa de lanzamiento llena se explica en cristiano, con qué hacer', () => {
+  const m = mensajeDeFalloAlGuardar({ code: 'P0001', message: 'ETAPA_AGOTADA' });
+  assert.match(m, /plazas de esa oferta se han agotado/);
+  assert.match(m, /amplía el cupo/);
+});

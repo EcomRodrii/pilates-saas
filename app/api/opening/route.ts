@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarApertura, puedeVer } from '@/lib/permisos-reglas';
 import { debeMostrarApertura, diasHastaApertura } from '@/lib/opening/visibilidad';
-import { cargarAnalisis, cargarEstadoApertura } from '@/lib/opening/servidor';
+import { cargarAlertasAbiertas, cargarAnalisis, cargarEstadoApertura, PREFIJO_CUPO_SUPERADO } from '@/lib/opening/servidor';
 import { evaluarAlertasApertura } from '@/lib/opening/alertas-cron';
 import { ajustesDesdeConfig, validarAjustes } from '@/lib/opening/ajustes';
 import { recomendar, validarOnboarding } from '@/lib/opening/onboarding';
@@ -38,7 +38,11 @@ export async function GET(req: NextRequest) {
     // horario) no puede seguir en pantalla hasta la siguiente pasada del cron.
     // Aquí solo se RESUELVEN: abrirlas y notificarlas es del cron, o gerencia
     // abriendo la home dejaría a la propietaria sin su aviso.
-    const { detectadas: alertas, etapas, planes } = await evaluarAlertasApertura(admin, studioId, estado, analisis, now, { abrirNuevas: false });
+    const { detectadas, etapas, planes } = await evaluarAlertasApertura(admin, studioId, estado, analisis, now, { abrirNuevas: false });
+    // Más los avisos que abre la propia BD (cupo superado): no los detecta
+    // detectarAlertas, pero la bandeja los cuenta y tienen que verse aquí.
+    const deLaBD = (await cargarAlertasAbiertas(admin, studioId)).filter(a => a.tipo.startsWith(PREFIJO_CUPO_SUPERADO));
+    const alertas = [...detectadas, ...deLaBD];
     const recomendaciones = recomendar({
       respuestas: estado.respuestas,
       hayClasesPublicadas: analisis.sesionesEnVentana > 0,
