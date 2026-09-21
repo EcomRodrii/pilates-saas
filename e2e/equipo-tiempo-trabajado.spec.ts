@@ -135,6 +135,22 @@ test.describe('Tiempo trabajado del equipo', () => {
     await expect(fila).toContainText('Por revisar');
   });
 
+  test('exportar descarga el registro del mes en CSV, en hora de Madrid', async ({ page }) => {
+    await abrir(page);
+    await expect(tarjeta(page)).toBeVisible({ timeout: 30_000 });
+    const [descarga] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Exportar CSV' }).click(),
+    ]);
+    expect(descarga.suggestedFilename()).toMatch(/^tiempo-trabajado-\d{4}-\d{2}\.csv$/);
+    const ruta = await descarga.path();
+    const texto = (await import('node:fs')).readFileSync(ruta!, 'utf8').replace(/^\uFEFF/, '');
+    const lineas = texto.trimEnd().split('\r\n');
+    expect(lineas[0]).toBe('Instructora;Fecha;Entrada;Salida;Duración (h:mm);Horas;Estado;Corregida');
+    expect(lineas).toContain('Marta Ruiz;2026-09-15;09:00;13:00;4:00;4,00;Cerrada;Sí');
+    expect(lineas).toContain('Marta Ruiz;2026-09-16;09:00;;;;Por revisar;No');
+  });
+
   test('en el móvil se lee sin salirse de lado', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await abrir(page);
