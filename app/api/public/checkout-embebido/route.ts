@@ -18,7 +18,7 @@ import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
 import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula } from '@/lib/billing/matricula-online';
 import {
-  asignarRefPlaza, esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas, reservarPlazaEtapa,
+  asignarRefPlaza, claveStripe, esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas, reservarPlazaEtapa,
   type PlazaReservada,
 } from '@/lib/opening/cupo';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
@@ -553,7 +553,9 @@ export async function POST(req: NextRequest) {
       // Mejora respecto al camino existente (Checkout Session no la lleva):
       // dos pestañas del mismo intento legítimo no generan dos PaymentIntents
       // cobrables — ver §1/§9.4 del diseño y `claveIdempotencia` arriba.
-      idempotencyKey: idemKey,
+      // Con plaza de cupo, la clave lleva su intento: si su PaymentIntent se
+      // canceló al recuperar la plaza, un nuevo intento necesita otro, no ese.
+      idempotencyKey: plaza ? claveStripe(idemKey, plaza.intento) : idemKey,
     });
 
     // La plaza queda ligada a ESTE cobro; si no se puede guardar, no habría

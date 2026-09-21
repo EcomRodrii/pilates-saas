@@ -29,6 +29,7 @@ import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
 import type { FuenteConfirmacion } from './confirmar-cobro.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 import { confirmarPlazaPorRef } from '../opening/cupo.ts';
+import { idsDe } from './ids-compra.ts';
 
 export interface CompraPlan {
   /**
@@ -187,24 +188,9 @@ const YA_EXISTIA = '23505';
 // `rec-web-…` distintos sin chocar por PK) chocarían igual que ya podían
 // chocar dos sesiones `cs_` entre sí — no es un riesgo nuevo que introduzca
 // `pi_`, es el mismo que ya asumía el diseño original.
-export function idsDe(sessionId: string) {
-  // Sufijo corto y estable: los ids de sesión/PaymentIntent de Stripe son largos.
-  const base = sessionId.replace(/^(cs|pi)_(test_|live_)?/, '').slice(0, 24);
-  return {
-    suscripcionId: `sus-web-${base}`,
-    reciboId: `rec-web-${base}`,
-    // P-1 (auditoría 26ª pasada): recibo APARTE para la matrícula, con el
-    // mismo sufijo derivado — un reintento del webhook choca por PK igual
-    // que el recibo del plan, nunca duplica la matrícula.
-    reciboMatriculaId: `rec-web-mat-${base}`,
-    socioId: `soc-web-${base}`,
-    // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
-    // §4.2): idempotencia de la RESERVA nacida de este pago, mismo patrón —
-    // un reintento del webhook deriva el MISMO id, así que reservar_plaza
-    // choca por PK en vez de duplicar la plaza.
-    reservaId: `res-web-${base}`,
-  };
-}
+// Vive en ./ids-compra.ts (lo necesita también el cupo de Opening OS, que esta
+// función ya importa: importarlo desde aquí sería circular).
+export { idsDe };
 
 /**
  * Crea (si hace falta) la ficha, la suscripción y el recibo ya cobrado de una

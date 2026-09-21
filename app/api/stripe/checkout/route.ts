@@ -19,7 +19,7 @@ import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
 import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula } from '@/lib/billing/matricula-online';
 import {
-  asignarRefPlaza, esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas, reservarPlazaEtapa,
+  asignarRefPlaza, claveStripe, esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas, reservarPlazaEtapa,
   type PlazaReservada,
 } from '@/lib/opening/cupo';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
@@ -701,7 +701,9 @@ export async function POST(req: NextRequest) {
       ...(body.reciboId
         ? { idempotencyKey: `checkout-${body.reciboId}-${[...paymentMethodTypes].sort().join('-')}` }
         : clavePlan
-          ? { idempotencyKey: clavePlan }
+          // Con plaza de cupo, la clave lleva su intento: un intento liberado y
+          // vuelto a reservar necesita otra sesión, no la caducada.
+          ? { idempotencyKey: plaza ? claveStripe(clavePlan, plaza.intento) : clavePlan }
           : {}),
     });
 

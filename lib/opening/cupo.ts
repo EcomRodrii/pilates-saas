@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type Stripe from 'stripe';
+import Stripe from 'stripe';
+import { idsDe } from '../billing/ids-compra.ts';
 
 // Cupo EXACTO de las etapas «Cerrar la venta» (migr 20260922090000). La base
 // decide y bloquea; esto solo envuelve las RPC y recupera plazas de cobros que
@@ -20,7 +21,14 @@ export function esEtapaAgotada(e: unknown): boolean {
 /** Minutos que dura una reserva. Stripe exige ≥ 30 min para `expires_at` de una sesión. */
 export const MINUTOS_RESERVA = 31;
 
-export interface PlazaReservada { id: string; expiraEn: string }
+export interface PlazaReservada { id: string; expiraEn: string; intento: number }
+
+/**
+ * Clave de idempotencia de Stripe para el cobro de esta plaza. Si el mismo
+ * intento se liberó y se vuelve a reservar, la clave cambia: con la vieja,
+ * Stripe devolvería la sesión caducada o el PaymentIntent cancelado.
+ */
+export const claveStripe = (clave: string, intento: number) => (intento > 0 ? `${clave}:r${intento}` : clave);
 
 /**
  * Reserva una plaza antes de crear el cobro. null = el plan no tiene cupo
@@ -42,9 +50,9 @@ export async function reservarPlazaEtapa(
   }
   if (!data) return null;
   const { data: plaza, error: e2 } = await admin.from('launch_stage_plazas')
-    .select('id, expira_en').eq('id', data as string).single();
+    .select('id, expira_en, intento').eq('id', data as string).single();
   if (e2) throw e2;
-  return { id: plaza.id as string, expiraEn: (plaza.expira_en as string | null) ?? expira };
+  return { id: plaza.id as string, expiraEn: (plaza.expira_en as string | null) ?? expira, intento: Number(plaza.intento ?? 0) };
 }
 
 /** Guarda la referencia del cobro (cs_/pi_). false = no se pudo: hay que deshacer el cobro. */
@@ -84,12 +92,12 @@ const PI_CANCELABLE = new Set(['requires_payment_method', 'requires_confirmation
 /**
  * Plazas RESERVADAS cuyo plazo pasó: se pregunta a Stripe y solo se sueltan si
  * el cobro ya no puede ocurrir (sesión caducada o expirada ahora, PaymentIntent
- * cancelado). Un pago completado o en proceso (SEPA/Bizum) conserva su plaza.
- * Se llama antes de reservar, así que una plaza abandonada vuelve a la venta
- * en cuanto alguien más intenta comprar — sin cron.
+ * cancelado), o si ya se entregó por otra vía y el trigger le dio otra plaza.
+ * Un pago en proceso (SEPA/Bizum) conserva la suya. Se llama antes de reservar
+ * y en el barrido horario: una plaza abandonada vuelve a la venta sin cron nuevo.
  */
 export async function recuperarPlazasCaducadas(
-  admin: SupabaseClient, stripe: Stripe, planId: string, studioId: string, stripeAccount: string, ahora = new Date(),
+  admin: SupabaseClient, stripe: Stripe, planId: string, studioId: string, stripeAccount: string | null, ahora = new Date(),
 ): Promise<number> {
   const { data: etapas, error: e1 } = await admin.from('launch_stages')
     .select('id').eq('studio_id', studioId).eq('plan_id', planId).eq('al_completar', 'CERRAR');
@@ -99,6 +107,14 @@ export async function recuperarPlazasCaducadas(
     .eq('estado', 'RESERVADA').lt('expira_en', ahora.toISOString()).limit(20);
   if (e2 || !plazas?.length) return 0;
 
+  // El cobro se entregó, pero su confirmación falló y el trigger tomó otra
+  // plaza para la misma suscripción: esta se quedaría reservada para siempre.
+  const entregadaPorOtraVia = async (ref: string) => {
+    const { data } = await admin.from('launch_stage_plazas').select('id')
+      .eq('suscripcion_id', idsDe(ref).suscripcionId).eq('estado', 'VENDIDA').maybeSingle();
+    return !!data;
+  };
+
   let liberadas = 0;
   for (const p of plazas) {
     const ref = p.stripe_ref as string | null;
@@ -107,25 +123,36 @@ export async function recuperarPlazasCaducadas(
       if (!ref) {
         // Reservada y el cobro nunca llegó a crearse (o no se pudo guardar su ref).
         suelta = true;
-      } else if (ref.startsWith('cs_')) {
+      } else if (ref.startsWith('cs_') && stripeAccount) {
         const s = await stripe.checkout.sessions.retrieve(ref, undefined, { stripeAccount });
         if (s.status === 'expired') suelta = true;
         else if (s.status === 'open') {
           await stripe.checkout.sessions.expire(ref, undefined, { stripeAccount, idempotencyKey: `plaza-expirar-${ref}` });
           suelta = true;
-        }
-      } else if (ref.startsWith('pos:')) {
-        // TPV: la plaza vuelve si la venta se anuló o nunca llegó a registrarse.
-        const clave = claveDeRefPOS(ref);
-        const { data: venta } = await admin.from('ventas_pos').select('estado')
-          .eq('studio_id', studioId).eq('idempotencia_clave', clave).maybeSingle();
-        suelta = !venta || venta.estado === 'ANULADA';
-      } else if (ref.startsWith('pi_')) {
+        } else if (s.status === 'complete') suelta = await entregadaPorOtraVia(ref);
+      } else if (ref.startsWith('pi_') && stripeAccount) {
         const pi = await stripe.paymentIntents.retrieve(ref, undefined, { stripeAccount });
         if (pi.status === 'canceled') suelta = true;
         else if (PI_CANCELABLE.has(pi.status)) {
           const c = await stripe.paymentIntents.cancel(ref, undefined, { stripeAccount, idempotencyKey: `plaza-cancelar-${ref}` });
           suelta = c.status === 'canceled';
+        } else if (pi.status === 'succeeded') suelta = await entregadaPorOtraVia(ref);
+      } else if (ref.startsWith('pos:')) {
+        // TPV: vuelve si la venta se anuló, nunca llegó a registrarse, o sigue
+        // pendiente con un cobro que Stripe da por perdido. El cobro del TPV no
+        // se cancela desde aquí: es del mostrador.
+        const { data: venta } = await admin.from('ventas_pos')
+          .select('estado, checkout_session_id, stripe_payment_intent_id')
+          .eq('studio_id', studioId).eq('idempotencia_clave', claveDeRefPOS(ref)).maybeSingle();
+        if (!venta || venta.estado === 'ANULADA') suelta = true;
+        else if (venta.estado === 'PENDIENTE_PAGO' && stripeAccount) {
+          if (venta.checkout_session_id) {
+            const s = await stripe.checkout.sessions.retrieve(venta.checkout_session_id as string, undefined, { stripeAccount });
+            suelta = s.status === 'expired';
+          } else if (venta.stripe_payment_intent_id) {
+            const pi = await stripe.paymentIntents.retrieve(venta.stripe_payment_intent_id as string, undefined, { stripeAccount });
+            suelta = pi.status === 'canceled';
+          }
         }
       }
       if (suelta) {
@@ -139,6 +166,32 @@ export async function recuperarPlazasCaducadas(
     }
   }
   return liberadas;
+}
+
+/**
+ * Lo mismo para todos los planes con cupo de un estudio (o los indicados). La
+ * usan el TPV antes de reservar y el barrido horario de apertura, que no tienen
+ * un cliente de Stripe a mano. Sin Stripe configurado solo recupera lo que no
+ * depende de él (sin ref, TPV anulado).
+ */
+export async function recuperarPlazasDelEstudio(
+  admin: SupabaseClient, studioId: string, soloPlanes?: string[],
+): Promise<number> {
+  const { data: etapas } = await admin.from('launch_stages').select('plan_id')
+    .eq('studio_id', studioId).eq('al_completar', 'CERRAR').not('limite_plazas', 'is', null);
+  let planes = [...new Set((etapas ?? []).map(e => e.plan_id as string).filter(Boolean))];
+  if (soloPlanes) planes = planes.filter(p => soloPlanes.includes(p));
+  if (planes.length === 0) return 0;
+
+  const { data: studio } = await admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle();
+  const key = process.env.STRIPE_SECRET_KEY;
+  const conStripe = !!key && !key.startsWith('sk_test_XXXX');
+  const stripe = new Stripe(conStripe ? key! : 'sk_test_sin_configurar', { apiVersion: '2026-06-24.dahlia' });
+  const cuenta = conStripe ? ((studio?.stripe_account_id as string | null) ?? null) : null;
+
+  let n = 0;
+  for (const planId of planes) n += await recuperarPlazasCaducadas(admin, stripe, planId, studioId, cuenta);
+  return n;
 }
 
 // ── TPV ────────────────────────────────────────────────────────────────────

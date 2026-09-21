@@ -33,6 +33,11 @@ create table public.launch_stage_plazas (
   suscripcion_id text,
   estado text not null default 'RESERVADA' check (estado in ('RESERVADA','VENDIDA','LIBERADA')),
   expira_en timestamptz,
+  -- Cuántas veces se ha vuelto a reservar este mismo intento tras liberarse.
+  -- Va en la clave de idempotencia de Stripe (`<clave>:r<intento>`): con la
+  -- clave vieja, Stripe devolvería la sesión caducada o el PaymentIntent
+  -- cancelado, o rechazaría el `expires_at` nuevo durante 24 h.
+  intento integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint launch_stage_plazas_clave unique (stage_id, clave)
@@ -126,7 +131,8 @@ begin
   if v_existe then
     -- Mismo intento que ya se liberó: vuelve a reservarse (ya se comprobó que cabe).
     update public.launch_stage_plazas
-       set estado = 'RESERVADA', expira_en = p_expira_en, stripe_ref = null, updated_at = now()
+       set estado = 'RESERVADA', expira_en = p_expira_en, stripe_ref = null,
+           intento = intento + 1, updated_at = now()
      where id = v_plaza.id;
     return v_plaza.id;
   end if;

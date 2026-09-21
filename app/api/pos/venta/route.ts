@@ -13,7 +13,7 @@ import { mensajeErrorVenta, codigoDeErrorPg, type LineaVentaPeticion } from '@/l
 import { cuotaSinClienta, MENSAJE_CUOTA_SIN_CLIENTA } from '@/lib/pos/cuota-exige-clienta';
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import type { MetodoPago } from '@/lib/types';
-import { esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, reservarPlazasPOS } from '@/lib/opening/cupo';
+import { esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasDelEstudio, reservarPlazasPOS } from '@/lib/opening/cupo';
 
 export const dynamic = 'force-dynamic';
 
@@ -186,6 +186,10 @@ export async function POST(req: NextRequest) {
     .filter((l) => l.tipo === 'PLAN' && l.referenciaId)
     .map((l) => l.referenciaId as string);
   if (planesConLinea.length > 0) {
+    // Antes, lo abandonado por internet vuelve a la venta (sin esto, el
+    // mostrador vería la etapa llena hasta que alguien comprara online).
+    try { await recuperarPlazasDelEstudio(admin, sesion.studioId, planesConLinea); }
+    catch (err) { console.error('[pos/venta] recuperar plazas', err); }
     try {
       plazasPOS = await reservarPlazasPOS(admin, sesion.studioId, idempotenciaClave, planesConLinea);
     } catch (err) {

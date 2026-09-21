@@ -3,6 +3,7 @@ import { hoyEnEstudio, inicioDelDiaEstudio, TZ_ESTUDIO } from '../utils.ts';
 import { emitirAlertaApertura, emitirBriefApertura } from '../notifications/emit.ts';
 import { puedeVer } from '../permisos-reglas.ts';
 import { construirBrief } from './brief.ts';
+import { recuperarPlazasDelEstudio } from './cupo.ts';
 import { recomendar } from './onboarding.ts';
 import { detectarAlertas, type AlertaApertura } from './alertas.ts';
 import { debeMostrarApertura, diasHastaApertura, DIAS_TRAS_APERTURA } from './visibilidad.ts';
@@ -87,6 +88,9 @@ export async function barrerAlertasApertura(admin: SupabaseClient, now = new Dat
       const estado = await cargarEstadoApertura(admin, studioId);
       if (!estado) continue;
       resumen.estudios++;
+      // Plazas de cupo abandonadas: vuelven a la venta aunque nadie intente
+      // comprar (el mostrador las vería ocupadas hasta entonces).
+      await recuperarPlazasDelEstudio(admin, studioId);
       if (!debeMostrarApertura(estado, now)) {
         await sincronizarAlertas(admin, studioId, [], now);
         continue;
