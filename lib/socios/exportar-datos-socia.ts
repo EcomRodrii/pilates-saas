@@ -252,7 +252,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('plazas_fijas', 'id, dia_semana, hora_inicio, sala_id, tipo_clase_id, vigencia_desde, vigencia_hasta, estado, pausa_desde, pausa_hasta, creada_en'),
     // Lo que pidió sobre su plaza fija y qué le contestó el estudio, con el motivo
     // que le escribieron: es suyo y se lo lleva.
-    tabla('solicitudes_plaza_fija', 'id, tipo, origen, estado, plaza_id, dia_semana, hora_inicio, sala_id, desde_propuesta, hasta_propuesta, desde_aprobada, hasta_aprobada, motivo_sistema, motivo_rechazo, creada_en, resuelta_en'),
+    tabla('solicitudes_plaza_fija', 'id, tipo, origen, estado, plaza_id, clase_fija_id, duracion_meses, vigencia_hasta_propuesta, dia_semana, hora_inicio, sala_id, desde_propuesta, hasta_propuesta, desde_aprobada, hasta_aprobada, motivo_sistema, motivo_rechazo, creada_en, resuelta_en'),
     tabla('recuperaciones', 'id, motivo, caduca_el, estado, creada_en'),
     tabla('member_credits', 'saldo, total_ganado, total_canjeado, caduca_el, actualizado_en', 'socio_id'),
     tabla('credit_transactions', 'id, tipo, creditos, descripcion, creado_en'),

@@ -2987,6 +2987,12 @@ export interface RowSolicitudesPlazaFija {
   creada_en: string;
   resuelta_en: string | null;
   resuelta_por: string | null;
+  // migr 20260922120000.
+  clase_fija_id: string | null;
+  // migr 20260922120000.
+  duracion_meses: number | null;
+  // migr 20260922120000.
+  vigencia_hasta_propuesta: string | null;
 }
 
 export interface RowSalesLeads {
@@ -3268,6 +3274,27 @@ export interface RowClasesImpartidasAuditoria {
   motivo: string | null;
   created_at: string;
   created_by: string;
+}
+
+export interface RowClasesFijas {
+  id: string;
+  studio_id: string;
+  nombre: string;
+  descripcion: string | null;
+  activa: boolean;
+  duraciones_meses: number[];
+  plazas: number | null;
+  creada_en: string;
+  actualizada_en: string;
+  and: string | null;
+}
+
+export interface RowClasesFijasFranjas {
+  id: string;
+  clase_fija_id: string;
+  studio_id: string;
+  serie_id: string;
+  dia_semana: number;
 }
 
 
@@ -8467,6 +8494,9 @@ export type SolicitudesPlazaFijaInsert = {
   creada_en?: string | null;
   resuelta_en?: string | null | null;
   resuelta_por?: string | null | null;
+  clase_fija_id?: string | null | null;
+  duracion_meses?: number | null | null;
+  vigencia_hasta_propuesta?: string | null | null;
 }
 
 export type SolicitudesPlazaFijaUpdate = {
@@ -8493,6 +8523,9 @@ export type SolicitudesPlazaFijaUpdate = {
   creada_en?: string | null;
   resuelta_en?: string | null | null;
   resuelta_por?: string | null | null;
+  clase_fija_id?: string | null | null;
+  duracion_meses?: number | null | null;
+  vigencia_hasta_propuesta?: string | null | null;
 }
 
 export type SalesLeadsInsert = {
@@ -9045,6 +9078,48 @@ export type ClasesImpartidasAuditoriaUpdate = {
   motivo?: string | null | null;
   created_at?: string | null;
   created_by?: string | null;
+}
+
+export type ClasesFijasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  activa?: boolean | null;
+  duraciones_meses?: number[] | null;
+  plazas?: number | null | null;
+  creada_en?: string | null;
+  actualizada_en?: string | null;
+  and?: string | null | null;
+}
+
+export type ClasesFijasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  activa?: boolean | null;
+  duraciones_meses?: number[] | null;
+  plazas?: number | null | null;
+  creada_en?: string | null;
+  actualizada_en?: string | null;
+  and?: string | null | null;
+}
+
+export type ClasesFijasFranjasInsert = {
+  id?: string | null;
+  clase_fija_id?: string | null;
+  studio_id?: string | null;
+  serie_id?: string | null;
+  dia_semana?: number | null;
+}
+
+export type ClasesFijasFranjasUpdate = {
+  id?: string | null;
+  clase_fija_id?: string | null;
+  studio_id?: string | null;
+  serie_id?: string | null;
+  dia_semana?: number | null;
 }
 
 export type Database = {
@@ -10084,6 +10159,16 @@ export type Database = {
         Row: RowClasesImpartidasAuditoria;
         Insert: ClasesImpartidasAuditoriaInsert;
         Update: ClasesImpartidasAuditoriaUpdate;
+      };
+      clases_fijas: {
+        Row: RowClasesFijas;
+        Insert: ClasesFijasInsert;
+        Update: ClasesFijasUpdate;
+      };
+      clases_fijas_franjas: {
+        Row: RowClasesFijasFranjas;
+        Insert: ClasesFijasFranjasInsert;
+        Update: ClasesFijasFranjasUpdate;
       };
     };
   };
