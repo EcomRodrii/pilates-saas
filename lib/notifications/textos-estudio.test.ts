@@ -33,7 +33,7 @@ test('rechaza lo vacío, lo largo y las variables que el aviso no trae', () => {
   assert.match(validarTexto(e, { title: 'x'.repeat(81), body: 'x' })!, /80/);
   assert.match(validarTexto(e, { title: 'x', body: 'x'.repeat(241) })!, /240/);
   assert.match(validarTexto(e, { title: '¡Hola {nombre}!', body: '{clase}' })!, /\{nombre\}/);
-  assert.equal(validarTexto(e, { title: 'Faltan {antelacion}', body: '{clase} a las {hora}, te guardamos el sitio' }), null);
+  assert.equal(validarTexto(e, { title: 'Tu clase es en {antelacion}', body: '{clase} a las {hora}, te guardamos el sitio' }), null);
   assert.match(validarTexto('sistema.stripe_desconectado', { title: 'x', body: 'x' })!, /no se puede/);
 });
 
@@ -55,4 +55,24 @@ test('vista previa: la instructora del cambio de clase no se pega a la sala', ()
   const t = previsualizar(textoDeFabrica('clase.modificada')!, {}, 'clase.modificada');
   assert.doesNotMatch(t.body, /NorteAna/);
   assert.match(t.body, /Sala Norte con Ana/);
+});
+
+test('«falta… (con el verbo)» se puede usar en los recordatorios y en nada más', () => {
+  const t = { title: 'Ya {faltan}', body: '{clase} a las {hora}' };
+  assert.equal(validarTexto('reserva.recordatorio_1h', t), null);
+  assert.equal(validarTexto('reserva.recordatorio_24h', t), null);
+  // Otro aviso no la trae: se quedaría en blanco.
+  assert.match(validarTexto('clase.cancelada', { title: 'Ya {faltan}', body: '{clase}' })!, /\{faltan\}/);
+  assert.equal(previsualizar(t, { faltan: 'falta 1 hora' }).title, 'Ya falta 1 hora');
+});
+
+test('«faltan {antelacion}» no se deja guardar: con 1 hora diría «faltan 1 hora»', () => {
+  for (const frase of ['Faltan {antelacion}', 'Falta {antelacion} para tu clase', 'Quedan {antelacion}', 'queda {antelacion}']) {
+    assert.match(validarTexto('reserva.recordatorio_1h', { title: frase, body: '{clase}' })!, /falta… \(con el verbo\)/, frase);
+  }
+  // Y el motor, si se encontrara uno guardado así, manda el de fábrica.
+  const guardado = { title: 'Faltan {antelacion}', body: '{clase} a las {hora}' };
+  assert.deepEqual(textoEfectivo('reserva.recordatorio_1h', guardado), textoDeFabrica('reserva.recordatorio_1h'));
+  // «es en {antelacion}» concuerda siempre: se puede.
+  assert.equal(validarTexto('reserva.recordatorio_1h', { title: 'Tu clase es en {antelacion}', body: '{clase}' }), null);
 });

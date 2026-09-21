@@ -10,6 +10,8 @@ import { errorInterno } from '@/lib/errores-servidor';
 
 export const dynamic = 'force-dynamic';
 
+const SUSCRIPCION_ABANDONADA_MS = 7 * 24 * 60 * 60 * 1000;
+
 export async function POST(req: NextRequest) {
   const user = await verificarUsuarioSupabase(req);
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -49,6 +51,20 @@ export async function POST(req: NextRequest) {
     last_used_at: new Date().toISOString(),
   }, { onConflict: 'endpoint' });
   if (error) return errorInterno('notifications/subscribe:post', error, 'No se ha podido guardar la suscripción. Inténtalo de nuevo.');
+
+  // Las suscripciones viejas del MISMO dispositivo (misma cuenta, estudio y
+  // navegador) que nadie ha confirmado en una semana se retiran: el servicio
+  // de push puede seguir aceptándolas sin entregar nada, y el motor diría
+  // «enviado» a un móvil que no recibe (pasó en producción, 21-sep). La app
+  // confirma la suya cada día al abrirse (`renovarSuscripcionPush`), así que
+  // una que lleva 7 días sin confirmarse ya no es de una instalación viva.
+  // Best-effort: si falla, la suscripción nueva ya está guardada.
+  if (b.userAgent) {
+    const haceUnaSemana = new Date(Date.now() - SUSCRIPCION_ABANDONADA_MS).toISOString();
+    await admin.from('push_subscription').delete()
+      .eq('user_id', user.userId).eq('studio_id', b.studioId).eq('user_agent', b.userAgent)
+      .neq('endpoint', sub.endpoint).lt('last_used_at', haceUnaSemana);
+  }
   return NextResponse.json({ ok: true });
 }
 

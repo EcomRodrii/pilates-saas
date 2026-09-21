@@ -70,3 +70,21 @@ export function textoPush(e: EstadoPush): TextoPush {
       return { titulo: 'Este navegador no admite avisos', cuerpo: 'Prueba desde Chrome o Safari actualizados.', accion: null, encendido: false };
   }
 }
+
+// ── Renovar la suscripción al abrir la app ──────────────────────────────────
+//
+// Un móvil puede quedarse con una suscripción que el servicio de push acepta y
+// no entrega (reinstalar la app, una suscripción antigua): el servidor dice
+// «enviado» y a la alumna no le llega nada, sin que nadie lo sepa. Pasó en
+// producción el 21-sep con un iPhone suscrito el 6-sep. Al abrir la app se
+// vuelve a mandar la suscripción de ESTE dispositivo, como mucho una vez al día.
+
+export const RENOVAR_PUSH_CADA_MS = 24 * 60 * 60 * 1000;
+
+/** `ultimaMs` null o ilegible = nunca se renovó en este dispositivo. */
+export function tocaRenovarPush(ultimaMs: number | null, ahoraMs: number): boolean {
+  if (ultimaMs == null || !Number.isFinite(ultimaMs)) return true;
+  // Un reloj que ha ido hacia atrás no puede dejarla sin renovar para siempre.
+  if (ultimaMs > ahoraMs) return true;
+  return ahoraMs - ultimaMs >= RENOVAR_PUSH_CADA_MS;
+}

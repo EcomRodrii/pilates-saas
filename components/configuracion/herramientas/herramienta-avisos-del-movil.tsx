@@ -5,7 +5,7 @@ import { useStudio } from '@/lib/studio-context';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import { Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/components/configuracion/estilos';
 import {
-  ANTELACIONES_CORTO_MINUTOS, ANTELACIONES_LARGO_HORAS, textoAntelacion,
+  ANTELACIONES_CORTO_MINUTOS, ANTELACIONES_LARGO_HORAS, textoAntelacion, textoFaltan,
 } from '@/lib/notificaciones/antelacion-recordatorio';
 import { EVENTOS } from '@/lib/notifications/catalog';
 import {
@@ -25,8 +25,8 @@ function useDatosDe() {
   const { studio } = useStudio();
   const a = { largoHoras: studio?.recordatorioLargoHoras ?? 24, cortoMinutos: studio?.recordatorioCortoMinutos ?? 60 };
   return (evento: string): Record<string, string> =>
-    evento === EVENTOS.RECORDATORIO_24H ? { antelacion: textoAntelacion('24h', a) }
-      : evento === EVENTOS.RECORDATORIO_1H ? { antelacion: textoAntelacion('1h', a) }
+    evento === EVENTOS.RECORDATORIO_24H ? { antelacion: textoAntelacion('24h', a), faltan: textoFaltan('24h', a) }
+      : evento === EVENTOS.RECORDATORIO_1H ? { antelacion: textoAntelacion('1h', a), faltan: textoFaltan('1h', a) }
       : {};
 }
 
