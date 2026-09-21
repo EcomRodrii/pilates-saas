@@ -26,7 +26,7 @@ export function AperturaSuave({ estado, fechaApertura, onGuardar }: {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const invitadas = estado.grupo?.invitadas ?? [];
+  const invitadas = useMemo(() => estado.grupo?.invitadas ?? [], [estado.grupo]);
   const idsInvitadas = useMemo(() => new Set(invitadas.map(i => i.id)), [invitadas]);
   const q = busqueda.trim().toLowerCase();
   const sugerencias = q.length < 2 ? [] : socios
