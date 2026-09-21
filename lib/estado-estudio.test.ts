@@ -158,3 +158,14 @@ test('las alertas de apertura esperan a la propietaria y saltan a su tarjeta de 
   assert.equal(construirEstadoEstudio({ alertasApertura: 1 }).decidir[0].texto, 'Tu apertura tiene un aviso');
   assert.equal(ANCLA_DECIDIR.alertasApertura, 'decidir-apertura');
 });
+
+test('jornadas del equipo sin cerrar: van a Decidir, cuentan en el contador y llevan a Tiempo trabajado', () => {
+  const e = construirEstadoEstudio({ jornadasPorRevisar: 2 });
+  assert.equal(e.nDecidir, 2);
+  assert.deepEqual(e.decidir, [{ id: 'jornadasPorRevisar', n: 2, href: '/equipo/tiempo-trabajado', texto: '2 jornadas del equipo sin cerrar por revisar' }]);
+  assert.equal(construirEstadoEstudio({ jornadasPorRevisar: 1 }).decidir[0].texto, 'Una jornada del equipo sin cerrar por revisar');
+  // Falló o no lo puede ver: ni línea ni cifra.
+  assert.equal(construirEstadoEstudio({ jornadasPorRevisar: null, recibosFallidos: 1 }).nDecidir, 1);
+  assert.equal(construirEstadoEstudio({ jornadasPorRevisar: undefined }).aplica, false);
+});
+
