@@ -17,6 +17,10 @@ import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
 import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula } from '@/lib/billing/matricula-online';
+import {
+  asignarRefPlaza, esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas, reservarPlazaEtapa,
+  type PlazaReservada,
+} from '@/lib/opening/cupo';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
@@ -364,6 +368,25 @@ export async function POST(req: NextRequest) {
     codigoDescuentoId,
   });
 
+  // Cupo EXACTO de una etapa «Cerrar la venta» (Opening OS): plaza reservada
+  // bajo lock ANTES de crear nada en Stripe, con la clave de este intento. Un
+  // PaymentIntent no caduca solo: si se abandona, la plaza vuelve cuando el
+  // siguiente comprador la necesita y Stripe confirma que se puede cancelar
+  // (recuperarPlazasCaducadas).
+  let plaza: PlazaReservada | null = null;
+  try {
+    await recuperarPlazasCaducadas(admin, stripe, body.planId, body.studioId, stripeAccount);
+    plaza = await reservarPlazaEtapa(admin, body.planId, body.studioId, idemKey);
+  } catch (err) {
+    if (cupoMatriculaReservado) {
+      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+    }
+    if (esEtapaAgotada(err)) {
+      return conCorsWidget(req, NextResponse.json({ error: MENSAJE_ETAPA_AGOTADA }, { status: 409 }));
+    }
+    return conCorsWidget(req, errorInterno('public/checkout-embebido:plaza', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo.'));
+  }
+
   // I-2 (auditoría 19-ago): el PaymentIntent se creaba con
   // `setup_future_usage: 'off_session'` pero SIN `customer` — Stripe crea el
   // Customer automáticamente en una Checkout Session, pero NO en un
@@ -482,6 +505,7 @@ export async function POST(req: NextRequest) {
   // Stripe lo rechaza), el webhook necesita saber que se llevó una plaza
   // gratis de matrícula para devolverla — ver `liberarCupoMatriculaUnaVez`.
   if (cupoMatriculaReservado) metadata.cupoMatriculaReservado = '1';
+  if (plaza) metadata.plazaEtapaId = plaza.id;
   if (socioId) metadata.socioId = socioId;
   // Stripe exige valores de metadata como string no vacío.
   if (body.origenLead) metadata.origenLead = body.origenLead;
@@ -532,6 +556,23 @@ export async function POST(req: NextRequest) {
       idempotencyKey: idemKey,
     });
 
+    // La plaza queda ligada a ESTE cobro; si no se puede guardar, no habría
+    // forma de confirmarla ni de soltarla: se cancela el cobro y se devuelve.
+    if (plaza && !(await asignarRefPlaza(admin, plaza.id, paymentIntent.id))) {
+      try {
+        await stripe.paymentIntents.cancel(paymentIntent.id, undefined, { stripeAccount, idempotencyKey: `plaza-cancelar-${paymentIntent.id}` });
+        await liberarPlaza(admin, plaza.id);
+      } catch (errCancelar) {
+        // Si no se puede cancelar, la plaza se queda reservada: mejor no vender
+        // una de más. La recuperará la siguiente compra si Stripe lo confirma.
+        console.error('[checkout-embebido] no se pudo cancelar el cobro sin plaza ligada', paymentIntent.id, errCancelar);
+      }
+      if (cupoMatriculaReservado) {
+        await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+      }
+      return conCorsWidget(req, NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' }, { status: 500 }));
+    }
+
     // ⚠️ Se devuelve el IMPORTE, y no es un extra: es lo único que permite que
     // la pantalla enseñe lo que de verdad se va a cobrar.
     //
@@ -556,6 +597,7 @@ export async function POST(req: NextRequest) {
     }));
   } catch (err) {
     // Si el cobro no llegó a nacer, la plaza no se ha usado.
+    if (plaza) await liberarPlaza(admin, plaza.id);
     if (cupoMatriculaReservado) {
       await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
     }

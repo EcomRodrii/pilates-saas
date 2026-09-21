@@ -28,6 +28,7 @@ import type { PlanTarifa } from '../types.ts';
 import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
 import type { FuenteConfirmacion } from './confirmar-cobro.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
+import { confirmarPlazaPorRef } from '../opening/cupo.ts';
 
 export interface CompraPlan {
   /**
@@ -383,6 +384,12 @@ export async function entregarPlanComprado(
     },
     hoy,
   );
+
+  // Cupo exacto (Opening OS): si este cobro reservó plaza en una etapa, pasa a
+  // VENDIDA ligada a esta suscripción ANTES de insertarla, para que el trigger
+  // de suscripciones no tome otra. Idempotente ante reintentos del webhook y
+  // nunca bloquea la entrega: el dinero ya entró.
+  await confirmarPlazaPorRef(admin, compra.sessionId, ids.suscripcionId);
 
   const { error: errSus } = await admin.from('suscripciones').insert({
     id: ids.suscripcionId,

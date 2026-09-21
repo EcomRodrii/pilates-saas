@@ -6,6 +6,7 @@ import { filaSuscripcionDeLinea } from '@/lib/pos/suscripcion-de-linea';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
 import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
+import { confirmarPlazaPOS } from '@/lib/opening/cupo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo que pasa DESPUÉS de que una venta quede cobrada.
@@ -65,7 +66,7 @@ export async function entregarVentaPOS(
 
   const { data: venta } = await admin
     .from('ventas_pos')
-    .select('id, socio_id, total, numero, estado, recibo_id, metodo_pago')
+    .select('id, socio_id, total, numero, estado, recibo_id, metodo_pago, idempotencia_clave')
     .eq('id', ventaId).eq('studio_id', studioId)
     .maybeSingle();
 
@@ -109,6 +110,11 @@ export async function entregarVentaPOS(
     if (!plan) { avisos.push(`«${linea.nombre}» ya no existe en el catálogo.`); continue; }
 
     const suscripcionId = `sus-pos-${linea.id.replace(ID_SEGURO, '')}`;
+    // Cupo exacto (Opening OS): la plaza que se reservó al registrar la venta
+    // pasa a VENDIDA ligada a esta suscripción, antes de insertarla.
+    if (venta.idempotencia_clave) {
+      await confirmarPlazaPOS(admin, venta.idempotencia_clave as string, plan.id as string, suscripcionId);
+    }
     // ⚠️ El ciclo lo calcula `cicloInicialDe`, la MISMA función que el resto de
     // altas. Aquí se usaba `calcularFechaFinBono`, que es la cuenta de un bono:
     // una CUOTA vendida en el mostrador nacía sin fecha de fin y no se renovaba
