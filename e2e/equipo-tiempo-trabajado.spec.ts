@@ -160,4 +160,20 @@ test.describe('Tiempo trabajado del equipo', () => {
     await t.getByTestId('jornada').nth(1).getByRole('button', { name: 'Corregir' }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   });
+
+  test('en Liquidaciones cada instructora enseña lo fichado del mes; si no se puede leer, no inventa un 0', async ({ page }) => {
+    await abrir(page);
+    await page.route((u) => u.pathname === '/api/equipo/liquidaciones', (r) => json(r, { items: [] }));
+    await ir(page, 'equipo/liquidaciones');
+    const linea = page.getByTestId('fichado-mes');
+    await expect(linea.first()).toBeVisible({ timeout: 30_000 });
+    await expect(linea.filter({ hasText: '4 h 00 min' })).toHaveCount(1);
+    await expect(linea.first()).toHaveAttribute('href', '/equipo/tiempo-trabajado');
+
+    await page.route((u) => u.pathname === '/api/equipo/jornadas', (r) => json(r, { error: 'caído' }, 500));
+    await ir(page, 'equipo/liquidaciones');
+    await expect(page.getByText('Liquidaciones de instructoras')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Generar liquidación', { exact: false }).first()).toBeVisible();
+    await expect(page.getByTestId('fichado-mes')).toHaveCount(0);
+  });
 });
