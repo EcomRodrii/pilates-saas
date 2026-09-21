@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { escaparLike } from '../escapar-like.ts';
 
@@ -78,7 +79,7 @@ export async function reservarMatricula(
 }
 
 /**
- * Devuelve la plaza si el cobro no llegó a crearse. Best-effort.
+ * Devuelve la plaza si el cobro no llegó a crearse.
  *
  * ⚠️ **Solo service_role.** `authenticated` no tiene EXECUTE sobre
  * `liberar_cupo_matricula` (migr 20260912002351): devolver una plaza es una
@@ -86,14 +87,47 @@ export async function reservarMatricula(
  * daría «permission denied for function», así que si alguna pantalla llega a
  * necesitarlo, hace falta una ruta que lo haga con el admin — no volver a abrir
  * el grant. Lo sujeta `liberar-cupo-solo-servidor.test.ts`.
+ *
+ * ⚠️ No lanza, pero tampoco calla. Se llama desde caminos que YA están
+ * contestando un error a la clienta: lanzar cambiaría esa respuesta. Antes se
+ * tragaba todo —incluido el `{ error }` que supabase-js devuelve sin rechazar
+ * la promesa—, y una plaza que no volvía no dejaba rastro. Ahora reintenta y,
+ * si no lo consigue, avisa con lo necesario para devolverla a mano.
  */
 export async function liberarCupoMatricula(
   admin: SupabaseClient,
   planId: string,
   studioId: string,
-): Promise<void> {
-  await admin.rpc('liberar_cupo_matricula', { p_plan_id: planId, p_studio_id: studioId })
-    .then(() => undefined, () => undefined);
+  opciones: { intentos?: number; esperaMs?: number; avisar?: (e: unknown) => void } = {},
+): Promise<boolean> {
+  const intentos = opciones.intentos ?? 3;
+  let ultimo: unknown = null;
+  for (let i = 0; i < intentos; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, (opciones.esperaMs ?? 200) * i));
+    try {
+      const { error } = await admin.rpc('liberar_cupo_matricula', { p_plan_id: planId, p_studio_id: studioId });
+      if (!error) return true;
+      ultimo = error;
+    } catch (e) {
+      ultimo = e;
+    }
+  }
+  (opciones.avisar ?? avisarPlazaNoDevuelta)({ ultimo, planId, studioId });
+  return false;
+}
+
+function avisarPlazaNoDevuelta(d: unknown): void {
+  const { ultimo, planId, studioId } = d as { ultimo: unknown; planId: string; studioId: string };
+  const detalle = ultimo instanceof Error ? ultimo.message : (ultimo as { message?: string } | null)?.message ?? String(ultimo);
+  console.error('[matricula-online] no se pudo devolver la plaza de matrícula gratis', planId, detalle);
+  Sentry.captureMessage('[matricula] una plaza de matrícula gratis no se pudo devolver', {
+    level: 'error', tags: { area: 'cobros', tipo: 'cupo-matricula' },
+    extra: {
+      planId, studioId, detalle,
+      // Ninguna pantalla enseña ni edita el contador: la corrección es de Tentare.
+      queHacer: 'El cobro no llegó a crearse y la plaza sigue gastada. Restar 1 a planes_tarifa.matricula_gratis_usados de ese plan (id + studio_id); la pantalla de planes no lo edita.',
+    },
+  });
 }
 
 /**

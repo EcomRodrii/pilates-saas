@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { primeraVezConPlan, liberarCupoMatriculaUnaVez, esRespuestaRepetida } from './matricula-online.ts';
+import { primeraVezConPlan, liberarCupoMatricula, liberarCupoMatriculaUnaVez, esRespuestaRepetida } from './matricula-online.ts';
 
 type Fila = Record<string, unknown>;
 
@@ -142,4 +142,46 @@ test('respuesta repetida por idempotencia → true; primera creación → false'
   assert.equal(esRespuestaRepetida(conCabeceras({ 'idempotent-replayed': 'false' })), false);
   assert.equal(esRespuestaRepetida({ id: 'pi_1' }), false);
   assert.equal(esRespuestaRepetida(null), false);
+});
+
+// liberarCupoMatricula (compensación síncrona de los checkouts): antes se
+// tragaba todo, incluido el `{ error }` que supabase-js devuelve SIN rechazar.
+function fakeAdminCompensacion(respuestas: Array<'ok' | 'error' | 'lanza'>) {
+  let n = 0;
+  return {
+    admin: {
+      rpc: () => {
+        const r = respuestas[Math.min(n++, respuestas.length - 1)];
+        if (r === 'lanza') return Promise.reject(new Error('red caída'));
+        return Promise.resolve({ data: null, error: r === 'error' ? { message: 'timeout' } : null });
+      },
+    } as never,
+    llamadas: () => n,
+  };
+}
+
+test('compensación: a la primera → true y sin aviso', async () => {
+  const { admin, llamadas } = fakeAdminCompensacion(['ok']);
+  const avisos: unknown[] = [];
+  assert.equal(await liberarCupoMatricula(admin, 'plan-1', 'studio-1', { esperaMs: 0, avisar: e => avisos.push(e) }), true);
+  assert.equal(llamadas(), 1);
+  assert.equal(avisos.length, 0);
+});
+
+test('⚠️ compensación: un `{ error }` ya NO cuenta como devuelta — reintenta', async () => {
+  const { admin, llamadas } = fakeAdminCompensacion(['error', 'lanza', 'ok']);
+  const avisos: unknown[] = [];
+  assert.equal(await liberarCupoMatricula(admin, 'plan-1', 'studio-1', { esperaMs: 0, avisar: e => avisos.push(e) }), true);
+  assert.equal(llamadas(), 3);
+  assert.equal(avisos.length, 0);
+});
+
+test('⚠️ compensación: si nunca lo consigue, AVISA con plan y estudio (no se calla)', async () => {
+  const { admin, llamadas } = fakeAdminCompensacion(['error']);
+  const avisos: Array<{ planId: string; studioId: string }> = [];
+  assert.equal(await liberarCupoMatricula(admin, 'plan-1', 'studio-1', { esperaMs: 0, avisar: e => avisos.push(e as never) }), false);
+  assert.equal(llamadas(), 3);
+  assert.equal(avisos.length, 1);
+  assert.equal(avisos[0].planId, 'plan-1');
+  assert.equal(avisos[0].studioId, 'studio-1');
 });
