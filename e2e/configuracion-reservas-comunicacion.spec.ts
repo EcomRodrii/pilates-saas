@@ -163,7 +163,9 @@ for (const vista of VISTAS) {
       await expect(page.locator('#integracion-gmail').getByRole('button', { name: 'Conectar' })).toHaveCount(gmail === 'Sin conectar' ? 1 : 0);
       await expect(page.getByText('No conectado', { exact: true })).toHaveCount(0);
 
-      await expect(page.locator('[data-fila-informativa]')).toContainText('24 h antes, por correo y en su app');
+      // El recordatorio ya no es un texto fijo: es la fila de «Avisos en el móvil», con la antelación del estudio.
+      await expect(page.locator('[data-fila-informativa]')).toHaveCount(0);
+      await expect(page.locator('#fila-herramienta-avisos-del-movil')).toContainText('Recordatorio 24 h y 1 h');
       await expect(page.locator('#fila-automatizaciones')).toHaveAttribute('href', '/automatizaciones');
       expect(await desborde(page), 'Comunicación se sale de lado').toBeLessThanOrEqual(0);
     });
