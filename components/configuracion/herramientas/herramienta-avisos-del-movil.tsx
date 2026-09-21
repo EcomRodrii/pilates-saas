@@ -12,7 +12,7 @@ import {
   CUERPO_MAX, ETIQUETA_VARIABLE, TIPOS_CON_TEXTO_EDITABLE, TITULO_MAX, previsualizar, textoDeFabrica,
   validarTexto, variablesPermitidas, type TextoAviso,
 } from '@/lib/notifications/textos-estudio';
-import { dbGuardarTextoAviso, dbListTextosAviso, dbRestaurarTextoAviso } from '@/lib/notifications/textos-estudio-db';
+import { dbGuardarTextoAviso, dbListTextosAviso, dbRestaurarTextoAviso, enviarPruebaPush } from '@/lib/notifications/textos-estudio-db';
 
 // Avisos en el móvil de las alumnas: CUÁNDO les llega el recordatorio de clase
 // y QUÉ dicen los avisos, con las palabras del estudio. Solo la propietaria (la
@@ -190,6 +190,9 @@ function Editor({ evento, nombre, propio, studioId, datos, onCerrar, onGuardado 
   const [body, setBody] = useState(inicial.body);
   const [ocupado, setOcupado] = useState(false);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
+  // Resultado de la última prueba: se dice cuántos dispositivos la ACEPTARON,
+  // no que haya llegado — «aceptado» no es «entregado» (lo vimos el 21-sep).
+  const [prueba, setPrueba] = useState<string | null>(null);
   const error = validarTexto(evento, { title, body });
   const muestra = previsualizar({ title, body }, datos, evento);
   const variables = variablesPermitidas(evento);
@@ -202,6 +205,19 @@ function Editor({ evento, nombre, propio, studioId, datos, onCerrar, onGuardado 
     setOcupado(false);
     if (!res.ok) { setErrorServidor(res.error); return; }
     onGuardado({ title: title.trim(), body: body.trim() }, 'Texto guardado');
+  }
+
+  async function probar() {
+    if (error) return;
+    setOcupado(true);
+    setErrorServidor(null);
+    setPrueba(null);
+    const res = await enviarPruebaPush(evento, { title, body });
+    setOcupado(false);
+    if (!res.ok) { setErrorServidor(res.error); return; }
+    setPrueba(res.dispositivos === 1
+      ? 'Enviada a tu dispositivo. Si en un minuto no te ha llegado, abre la app de tu estudio en el móvil y vuelve a probar.'
+      : `Enviada a tus ${res.dispositivos} dispositivos. Si en un minuto no te ha llegado, abre la app de tu estudio en el móvil y vuelve a probar.`);
   }
 
   async function restaurar() {
@@ -244,8 +260,10 @@ function Editor({ evento, nombre, propio, studioId, datos, onCerrar, onGuardado 
         <p className="text-[13px]">{muestra.body || '—'}</p>
       </div>
       {(error || errorServidor) && <p role="alert" className="text-xs text-destructive">{errorServidor ?? error}</p>}
+      {prueba && !errorServidor && <p role="status" className="text-xs text-muted-foreground">{prueba}</p>}
       <div className="flex flex-wrap gap-2">
         <button type="button" className={btnPrimary} disabled={!!error || ocupado} onClick={() => void guardar()}>Guardar</button>
+        <button type="button" className={btnSecondary} disabled={!!error || ocupado} onClick={() => void probar()}>Enviarme una prueba</button>
         <button type="button" className={btnSecondary} disabled={ocupado} onClick={onCerrar}>Cancelar</button>
         {propio && (
           <button type="button" className={btnSecondary} disabled={ocupado} onClick={() => void restaurar()}>Volver al original</button>

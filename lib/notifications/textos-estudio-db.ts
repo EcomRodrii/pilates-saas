@@ -2,7 +2,28 @@
 // la sesión de la propietaria: la RLS (`template_write`, solo PROPIETARIO de su
 // estudio) es la cerradura; esto solo valida antes para dar un error legible.
 import { supabase } from '@/lib/db/supabase';
+import { authHeader } from '@/lib/api-client';
 import { validarTexto, type TextoAviso } from './textos-estudio.ts';
+
+export type ResultadoPrueba = { ok: true; dispositivos: number } | { ok: false; error: string };
+
+/** Manda el texto que se está escribiendo, como push de prueba, a los dispositivos de quien lo pide. */
+export async function enviarPruebaPush(evento: string, t: TextoAviso): Promise<ResultadoPrueba> {
+  const invalido = validarTexto(evento, t);
+  if (invalido) return { ok: false, error: invalido };
+  try {
+    const res = await fetch('/api/notifications/prueba-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ evento, title: t.title, body: t.body }),
+    });
+    const cuerpo = (await res.json().catch(() => ({}))) as { dispositivos?: number; error?: string };
+    if (!res.ok) return { ok: false, error: cuerpo.error ?? 'No se ha podido enviar la prueba. Inténtalo de nuevo.' };
+    return { ok: true, dispositivos: cuerpo.dispositivos ?? 1 };
+  } catch {
+    return { ok: false, error: 'No se ha podido enviar la prueba. Revisa tu conexión.' };
+  }
+}
 
 // Un id fijo por (estudio, tipo): el índice único de la tabla es PARCIAL
 // (`uq_template_studio ... WHERE studio_id IS NOT NULL`) y PostgREST no sabe

@@ -84,3 +84,44 @@ test('si la base no lo guarda, se dice y no aparece como suyo', async ({ page })
   expect(plantillas.length).toBeGreaterThan(0);
   await expect(page.getByText('Texto tuyo')).toHaveCount(0);
 });
+
+async function mockPrueba(page: Page, respuesta: { status: number; body: unknown }) {
+  const envios: Record<string, unknown>[] = [];
+  await page.route('**/api/notifications/prueba-push', (r) => {
+    envios.push(r.request().postDataJSON() as Record<string, unknown>);
+    return json(r, respuesta.body, respuesta.status);
+  });
+  return envios;
+}
+
+test('«Enviarme una prueba» manda lo que se está escribiendo, sin guardarlo', async ({ page }) => {
+  const { plantillas } = await panel(page);
+  const envios = await mockPrueba(page, { status: 200, body: { ok: true, dispositivos: 2 } });
+  await ir(page, 'configuracion?tab=comunicacion&abrir=avisos-del-movil');
+
+  await page.getByRole('button', { name: 'Editar «Justo antes de la clase»' }).click({ timeout: 30_000 });
+  await page.getByLabel(/^Título/).fill('Ya {faltan}');
+  await page.getByRole('button', { name: 'Enviarme una prueba' }).click();
+
+  await expect.poll(() => envios.length).toBe(1);
+  expect(envios[0]).toMatchObject({ evento: 'reserva.recordatorio_1h', title: 'Ya {faltan}' });
+  // Dice cuántos dispositivos la aceptaron, no que haya llegado.
+  await expect(page.getByRole('status').filter({ hasText: 'Enviada a tus 2 dispositivos' })).toBeVisible();
+  expect(plantillas).toHaveLength(0);
+});
+
+test('sin ningún dispositivo con avisos, la prueba dice dónde activarlos', async ({ page }) => {
+  await panel(page);
+  const envios = await mockPrueba(page, {
+    status: 409,
+    body: { error: 'No tienes los avisos activados en ningún dispositivo. Actívalos en Configuración › Mis avisos o en la app de tu estudio, y vuelve a probar.' },
+  });
+  await ir(page, 'configuracion?tab=comunicacion&abrir=avisos-del-movil');
+
+  await page.getByRole('button', { name: 'Editar «Clase cancelada»' }).click({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Enviarme una prueba' }).click();
+
+  await expect(page.getByRole('alert').filter({ hasText: 'No tienes los avisos activados' })).toBeVisible();
+  expect(envios.length).toBeGreaterThan(0);
+  await expect(page.getByRole('status').filter({ hasText: 'Enviada' })).toHaveCount(0);
+});
