@@ -396,9 +396,9 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'plazas-fijas', categoria: 'bonos', tipo: 'guia',
     titulo: 'Plazas fijas: su hueco de cada semana',
-    descripcion: 'Ana viene todos los martes a las 10. Cómo se asigna, cómo se pausa unas semanas, qué pasa si se queda sin cuota y cómo te la piden desde su app.',
-    terminos: ['plaza fija', 'hueco semanal', 'recurrente', 'sitio fijo', 'reserva recurrente', 'pausar plaza fija', 'vacaciones', 'sin cuota', 'petición de plaza'],
-    actualizado: '2026-09-16',
+    descripcion: 'Ana viene todos los martes a las 10. Cómo se marca una alumna, cómo se pausa unas semanas, qué pasa si se queda sin cuota y cómo te la piden desde su app.',
+    terminos: ['plaza fija', 'hueco semanal', 'recurrente', 'sitio fijo', 'reserva recurrente', 'pausar plaza fija', 'vacaciones', 'sin cuota', 'petición de plaza', 'pedir plaza fija', 'marcarse en una clase fija', 'clase fija', 'con bono'],
+    actualizado: '2026-09-21',
     relacionados: ['bonos/recuperaciones', 'reservas/editar-o-cancelar-una-clase', 'reservas/clases-que-se-repiten'],
     estado: 'publicado',
   },

@@ -6,6 +6,7 @@ import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
 import { capturarMensaje } from '@/lib/sentry-cliente';
 import { useStudio } from '@/lib/studio-context';
+import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 import { supabase } from '@/lib/db/supabase';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
@@ -103,6 +104,8 @@ import { nombreSerie } from '@/lib/series-renovacion';
 // componente: dentro era un objeto nuevo en cada render, y es el valor inicial
 // de cuatro estados.
 const FALLBACK = new Date('2026-01-01T12:00:00');
+/** El ajuste «Peticiones desde su app», al que lleva el aviso de la vista Horario. */
+const HREF_PETICIONES_PLAZA_FIJA = '/configuracion?tab=reservas#plaza-fija-desde-la-app';
 
 function addDays(date: Date, n: number) {
   const d = new Date(date);
@@ -2928,6 +2931,8 @@ export default function Calendario() {
             onAnadirPlaza={setPlazaFijaEnTarjeta}
             onVerClase={verProximaClase}
             onCrearRecurrente={gestionaClientas ? () => { setInitialRecurrente(undefined); setShowRecurrentes(true); } : undefined}
+            alumnasPidenPlaza={gestionaClientas ? studio?.plazaFijaSolicitarDesdeApp === true : undefined}
+            hrefAjustePeticiones={gestionaClientas && puedeAbrirEnConfiguracion(rolActual, HREF_PETICIONES_PLAZA_FIJA) ? HREF_PETICIONES_PLAZA_FIJA : null}
           />
         ) : !datosVista && errorCargaVista ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-4">

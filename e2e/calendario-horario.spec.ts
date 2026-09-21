@@ -103,6 +103,35 @@ test.describe('Calendario · las clases que se repiten', () => {
     expect(pedidosHorario.n).toBeGreaterThan(0);
   });
 
+  // «¿Cómo se marcan ellas en una clase fija?» — los estudios no lo tenían claro.
+  // De serie las alumnas NO pueden pedir su plaza fija desde la app, y esta vista
+  // es donde el estudio trabaja con ellas: aquí se le dice cómo está y, si es la
+  // propietaria, se le lleva al ajuste.
+  test('«Horario» dice que las alumnas no pueden pedir su plaza fija desde la app, y lleva al ajuste', async ({ page }) => {
+    await abrirCalendario(page, () => ({ body: HORARIO }));
+    await irAHorario(page);
+
+    const aviso = page.getByTestId('aviso-peticiones-plaza-fija');
+    await expect(aviso).toBeVisible({ timeout: 30_000 });
+    await expect(aviso).toContainText('Tus alumnas no pueden pedir su plaza fija desde la app');
+    const enlace = aviso.getByRole('link', { name: 'Dejar que la pidan ellas' });
+    await expect(enlace).toHaveAttribute('href', '/configuracion?tab=reservas#plaza-fija-desde-la-app');
+  });
+
+  test('«Horario» dice que sí pueden pedirla cuando el ajuste está encendido, sin enlace', async ({ page }) => {
+    await abrirCalendario(page, () => ({ body: HORARIO }));
+    // Después de `montar`, que registra su fila del estudio: gana esta.
+    await page.route('**/rest/v1/studios**', r => json(r, {
+      id: 'studio-test', nombre: 'Pilates Centro', slug: 'pilates-centro', owner_auth_user_id: 'auth-e2e-duena',
+      email: 'cloe@example.com', moneda: 'EUR', plaza_fija_solicitar_desde_app: true,
+    }));
+    await irAHorario(page);
+
+    const aviso = page.getByTestId('aviso-peticiones-plaza-fija');
+    await expect(aviso).toContainText('Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Inicio.', { timeout: 30_000 });
+    await expect(aviso.getByRole('link')).toHaveCount(0);
+  });
+
   test('«Renovar» desde la tarjeta abre el mismo diálogo que simula en el servidor', async ({ page }) => {
     const { envios } = await abrirCalendario(page, () => ({ body: HORARIO }));
     await irAHorario(page);

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { BookingState } from '@/lib/student/tipos';
 import { COPY } from '@/lib/student/maquina-reserva';
 import { seArreglaComprando } from '@/lib/bono-logic';
@@ -11,7 +12,7 @@ import { Sello } from '@/components/student/ui/Sello';
  * ambos caen en `error` — y sin este texto la alumna leía «algo no ha salido
  * como esperábamos, inténtalo de nuevo» y reintentaba contra el mismo muro.
  */
-export function BookingStatus({ state, titulo, mensaje, onRetry, onWaitlist, onClose, onComprar }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; titulo?: string; mensaje?: string; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void; onComprar?: () => void }) {
+export function BookingStatus({ state, titulo, mensaje, onRetry, onWaitlist, onClose, onComprar, oferta }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; titulo?: string; mensaje?: string; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void; onComprar?: () => void; /** Algo que ofrecerle justo al terminar (p. ej. hacer fija la clase), entre el mensaje y los botones. */ oferta?: ReactNode }) {
   const c = COPY[state];
   const ok = state === 'confirmed';
   // ⚠️ `ok` decide el CONFETI, no el botón. Estar en la lista de espera no es
@@ -39,6 +40,7 @@ export function BookingStatus({ state, titulo, mensaje, onRetry, onWaitlist, onC
       </div>
       <h3 className="t-h2" style={{ marginTop: 15, letterSpacing: '-.025em', animation: 'apUp .4s .15s both' }}>{titulo ?? c.titulo}</h3>
       <p style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', color: 'var(--muted-foreground)', lineHeight: 1.5, animation: 'apUp .4s .22s both' }}>{mensaje ?? c.cuerpo}</p>
+      {ok && oferta}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16, animation: 'apUp .4s .3s both' }}>
         {state === 'full' && onWaitlist && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onWaitlist}>Unirme a la lista de espera</button>}
         {compraLoArregla && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onComprar}>Ver bonos y suscripciones</button>}

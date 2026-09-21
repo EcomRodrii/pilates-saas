@@ -10,6 +10,7 @@ import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
 import {
   plazaFijaEnClase as plazaFijaEnClaseDe, proyectarPlazasFijas as plazasFijasDe, proyectarRecuperaciones as recuperacionesDe,
+  tieneCuotaQueCubre,
   type PeticionPlazaFijaMin, type PlazaFijaEnClase, type PlazaFijaMin, type RecuperacionMin,
 } from './plaza-fija.ts';
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
@@ -486,12 +487,16 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
 
 /** Si en la ficha de esta clase se le ofrece pedir plaza fija. Las fechas, en la zona del estudio. */
 export function proyectarPlazaFijaEnClase(
-  d: PayloadMin, clase: { id: string; fecha: string; hora: string; salaId: string },
+  d: PayloadMin, clase: { id: string; fecha: string; hora: string; salaId: string; tipoClaseId?: string | null },
 ): PlazaFijaEnClase {
   const sesiones = (d.sesiones ?? []).map((s) => ({
     id: s.id, fecha: hoyEnEstudio(new Date(s.inicio)), hora: horaEstudio(s.inicio), salaId: s.salaId, cancelada: s.cancelada,
   }));
-  return plazaFijaEnClaseDe(clase, sesiones, d.socia?.plazasFijas ?? [], d.socia?.peticionesPlazaFija ?? []);
+  // Sin sesión no hay a quién decirle nada de su cuota: se deja como estaba.
+  const tieneCuota = d.socia
+    ? tieneCuotaQueCubre(d.socia.suscripciones ?? [], d.planesTarifa ?? [], hoyEnEstudio(), clase.tipoClaseId ?? null)
+    : true;
+  return plazaFijaEnClaseDe(clase, sesiones, d.socia?.plazasFijas ?? [], d.socia?.peticionesPlazaFija ?? [], tieneCuota);
 }
 
 /** Recuperaciones que aún puede usar. */

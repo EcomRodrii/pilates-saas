@@ -12,7 +12,26 @@ export default function Contenido() {
         tenga que entrar a reservarlo ni tú apuntarla a mano.
       </AyudaAntesDeEmpezar>
 
-      <h2 style={{ ...h2, marginTop: 4 }}>Cómo se asigna</h2>
+      <h2 style={{ ...h2, marginTop: 4 }}>¿Cómo se marca una alumna en una clase fija?</h2>
+      <p>
+        Para que una alumna no tenga que reservar su clase cada semana, necesita una plaza fija en ella. Hay tres
+        maneras de dársela:
+      </p>
+      <ul style={{ margin: '0 0 12px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <li><strong>La das tú.</strong> Es lo que hay de serie, y se explica justo debajo: desde su ficha, desde la clase
+          del calendario o desde la vista «Horario».</li>
+        <li><strong>La pide ella.</strong> Si lo activas en Configuración → «Cómo reservan mis alumnas» → «Peticiones
+          desde su app», le sale <strong>«Pedir plaza fija»</strong> en la ficha de cualquier clase que se repite cada
+          semana y también justo al terminar de reservarla. Tú la apruebas en Inicio.</li>
+        <li><strong>Al darle una cuota</strong>, te preguntamos si le das plaza fija.</li>
+      </ul>
+      <p>
+        En los tres casos <strong>hace falta que tenga una cuota</strong> que incluya esa clase. Con un bono o con
+        clases sueltas no hay plaza fija: se reserva clase a clase. Por eso a una alumna con bono no le sale el botón
+        de pedirla en su app: le explicamos que la plaza fija es para quien tiene cuota.
+      </p>
+
+      <h2 style={h2}>Cómo se asigna</h2>
       <p>
         En la ficha de la alumna, bloque <strong>«Plaza fija»</strong> → «Añadir»; desde una clase del
         calendario con <strong>«Hacer fija»</strong> junto a su nombre; o en la vista <strong>«Horario»</strong>
@@ -112,9 +131,15 @@ export default function Contenido() {
 
       <h2 style={h2}>Si te la piden desde su app</h2>
       <p>
-        De serie, las plazas fijas se dan en recepción. En Configuración → «Cómo reservan mis alumnas» → «Peticiones
-        desde su app» puedes dejar que tus alumnas <strong>pidan</strong> una plaza fija desde la clase que están
-        viendo, o una pausa de la suya. Son peticiones: <strong>hasta que las apruebas no cambia nada</strong>.
+        De serie, las plazas fijas se dan en recepción y tus alumnas no pueden pedirlas. En Configuración → «Cómo
+        reservan mis alumnas» → «Peticiones desde su app» puedes dejar que <strong>pidan</strong> una plaza fija desde la
+        clase que están viendo o justo al terminar de reservarla, y una pausa de la suya. Son peticiones:{' '}
+        <strong>hasta que las apruebas no cambia nada</strong>, y mientras tanto ella sigue reservando como siempre.
+      </p>
+      <p>
+        En esa misma pantalla ves, debajo del interruptor, <strong>cómo lo ve tu alumna</strong>, con sus mismas
+        palabras. Y en la vista «Horario» del calendario te recordamos si están encendidas o no; si eres la
+        propietaria, desde ahí llegas al ajuste.
       </p>
       <p>
         Te llega un aviso y las decides en Inicio, en «{'Una petición de plaza fija espera tu respuesta'}». Si con esa
