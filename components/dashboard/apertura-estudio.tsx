@@ -7,6 +7,7 @@ import { authHeader } from '@/lib/api-client';
 import type { AnalisisCapacidad, NivelRiesgo } from '@/lib/opening/capacidad';
 import { notaEstimacion } from '@/lib/opening/textos';
 import { EtapasLanzamiento } from './etapas-lanzamiento';
+import { ANCLA_DECIDIR } from '@/lib/estado-estudio-cliente';
 
 interface RespuestaApertura {
   visible: boolean;
@@ -14,7 +15,15 @@ interface RespuestaApertura {
   diasHastaApertura?: number | null;
   analisis?: AnalisisCapacidad;
   supuestos?: { sesionesSemanaSinTope: number; semanasBonoSinCaducidad: number; conversionLeads: number };
+  alertas?: { tipo: string; severidad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA'; titulo: string; descripcion: string; href: string }[];
 }
+
+const COLOR_ALERTA = {
+  CRITICA: 'border-destructive/30 bg-destructive/10',
+  ALTA: 'border-warning/30 bg-warning/10',
+  MEDIA: 'border-border bg-background',
+  BAJA: 'border-border bg-background',
+} as const;
 
 const RIESGO: Record<Exclude<NivelRiesgo, 'SIN_OFERTA'>, { clase: string; texto: string }> = {
   VERDE: { clase: 'text-success', texto: 'Hay sitio de sobra: buen momento para captar.' },
@@ -37,6 +46,7 @@ async function pedirApertura(): Promise<RespuestaApertura | null> {
     const d = (await res.json()) as RespuestaApertura | null;
     // Sin dar por hecha la forma: un cuerpo inesperado no puede tumbar la home.
     if (!d || typeof d.visible !== 'boolean') return null;
+    if (d.alertas !== undefined && !Array.isArray(d.alertas)) return null;
     if (d.visible && d.analisis && (typeof d.analisis.capacidadPublicada !== 'number'
       || !d.analisis.desglose?.ESTIMADA_POR_PLAN || !d.analisis.estimadasPorMotivo)) return null;
     return d;
@@ -90,7 +100,7 @@ export function AperturaEstudio() {
   const semanas = analisis ? Math.round(analisis.ventana.dias / 7) : 0;
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
+    <div id={ANCLA_DECIDIR.alertasApertura} tabIndex={-1} className="scroll-mt-4 rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-2.5">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand-secondary">
           <CalendarClock size={16} />
@@ -102,6 +112,22 @@ export function AperturaEstudio() {
           </p>
         </div>
       </div>
+
+      {(datos.alertas?.length ?? 0) > 0 && (
+        <ul className="mt-3 space-y-2">
+          {datos.alertas!.map(a => (
+            <li key={a.tipo}>
+              <Link href={a.href} className={`flex items-start justify-between gap-2 rounded-xl border px-3 py-2.5 transition-colors hover:opacity-90 ${COLOR_ALERTA[a.severidad] ?? COLOR_ALERTA.MEDIA}`}>
+                <span className="min-w-0">
+                  <span className="block text-[12.5px] font-semibold text-foreground">{a.titulo}</span>
+                  <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{a.descripcion}</span>
+                </span>
+                <ArrowRight size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {sinFecha && (
         <form
@@ -136,7 +162,7 @@ export function AperturaEstudio() {
 
       {error && <p role="alert" className="mt-2 text-[12px] text-destructive">{error}</p>}
 
-      {analisis && (analisis.riesgo === 'SIN_OFERTA' ? (
+      {analisis && (analisis.riesgo === 'SIN_OFERTA' ? (datos.alertas?.some(a => a.tipo === 'SIN_HORARIO') ? null : (
         <Link
           href="/calendario"
           className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-[12.5px] text-foreground transition-colors hover:bg-muted"
@@ -144,7 +170,7 @@ export function AperturaEstudio() {
           <span>Aún no hay clases publicadas en las próximas {semanas} semanas. Sin horario no se puede reservar.</span>
           <ArrowRight size={14} className="shrink-0" />
         </Link>
-      ) : (
+      )) : (
         <div className="mt-3 rounded-xl border border-border bg-background px-3 py-2.5">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-[12px] text-muted-foreground">Ocupación prevista</span>

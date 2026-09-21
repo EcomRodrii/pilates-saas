@@ -57,6 +57,8 @@ export interface ConteosEstudio {
   plazasFijasPorDecidir?: number | null;
   /** Cobros por datáfono confirmados en Stripe sin venta registrada (A-14, backstop). */
   reconciliacionesPorRevisar?: number | null;
+  /** Alertas de apertura abiertas (Opening OS, lib/opening/alertas.ts). */
+  alertasApertura?: number | null;
   // En marcha
   sustitucionesBuscando?: number | null;
   ofertasListaEspera?: number | null;
@@ -89,6 +91,7 @@ export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
   seriesPorRenovar: 'decidir-series',
   plazasFijasPorDecidir: 'decidir-plazas-fijas',
   reconciliacionesPorRevisar: 'decidir-reconciliaciones',
+  alertasApertura: 'decidir-apertura',
 };
 
 export interface LineaEstado {
@@ -127,6 +130,10 @@ const LINEAS: DefLinea[] = [
   // para quien quiera mirar la clase antes de decidir.
   { id: 'reservasPorAprobar', bandeja: 'decidir', href: null,
     uno: 'Una reserva espera tu aprobación', varios: n => `${n} reservas esperan tu aprobación` },
+  // El estudio que abre tiene fecha: sin horario o con clases que se llenan, se
+  // pierde la apertura. Se ve y se resuelve en su tarjeta de Inicio.
+  { id: 'alertasApertura', bandeja: 'decidir', href: null,
+    uno: 'Tu apertura tiene un aviso', varios: n => `Tu apertura tiene ${n} avisos` },
   { id: 'recibosFallidos', bandeja: 'decidir', href: '/cobros?tab=deudas',
     uno: 'Un cobro que Tentare no ha conseguido cobrar', varios: n => `${n} cobros que Tentare no ha conseguido cobrar` },
   { id: 'penalizacionesPorAprobar', bandeja: 'decidir', href: null,
