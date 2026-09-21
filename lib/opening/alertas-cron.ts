@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { hoyEnEstudio } from '../utils.ts';
-import { emitirAlertaApertura } from '../notifications/emit.ts';
+import { hoyEnEstudio, inicioDelDiaEstudio, TZ_ESTUDIO } from '../utils.ts';
+import { emitirAlertaApertura, emitirBriefApertura } from '../notifications/emit.ts';
+import { puedeVer } from '../permisos-reglas.ts';
+import { construirBrief } from './brief.ts';
+import { recomendar } from './onboarding.ts';
 import { detectarAlertas, type AlertaApertura } from './alertas.ts';
 import { debeMostrarApertura, diasHastaApertura, DIAS_TRAS_APERTURA } from './visibilidad.ts';
 import type { AnalisisCapacidad } from './capacidad.ts';
@@ -34,7 +37,32 @@ export async function evaluarAlertasApertura(
 export interface ResumenAlertasApertura {
   estudios: number;
   nuevas: number;
+  briefs: number;
   errores: number;
+}
+
+/** El brief sale por la mañana; varias horas por si una pasada del cron falla (la clave por día evita el doble). */
+const HORAS_BRIEF = new Set([8, 9, 10, 11]);
+const SEVERIDAD = { CRITICA: 0, ALTA: 1, MEDIA: 2, BAJA: 3 } as const;
+
+function horaEnEstudio(now: Date): number {
+  return Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ_ESTUDIO, hour: '2-digit', hourCycle: 'h23' }).format(now));
+}
+
+/** Ventas (cuotas que empezaron) e interesadas dadas de alta AYER, en el día del estudio. */
+async function novedadesDeAyer(admin: SupabaseClient, studioId: string, now: Date) {
+  const hoy = hoyEnEstudio(now);
+  const ayer = hoyEnEstudio(new Date(new Date(inicioDelDiaEstudio(hoy)).getTime() - 1));
+  const [ventas, interesadas] = await Promise.all([
+    admin.from('suscripciones').select('id', { count: 'exact', head: true })
+      .eq('studio_id', studioId).eq('fecha_inicio', ayer),
+    admin.from('socios').select('id', { count: 'exact', head: true })
+      .eq('studio_id', studioId).is('borrado_en', null).in('lead_stage', ['LEAD', 'INTERESADA'])
+      .gte('fecha_alta', inicioDelDiaEstudio(ayer)).lt('fecha_alta', inicioDelDiaEstudio(hoy)),
+  ]);
+  if (ventas.error) throw ventas.error;
+  if (interesadas.error) throw interesadas.error;
+  return { ventasAyer: ventas.count ?? 0, interesadasAyer: interesadas.count ?? 0 };
 }
 
 /**
@@ -51,7 +79,8 @@ export async function barrerAlertasApertura(admin: SupabaseClient, now = new Dat
   if (error) throw error;
 
   const hoy = hoyEnEstudio(now);
-  const resumen: ResumenAlertasApertura = { estudios: 0, nuevas: 0, errores: 0 };
+  const resumen: ResumenAlertasApertura = { estudios: 0, nuevas: 0, briefs: 0, errores: 0 };
+  const tocaBrief = HORAS_BRIEF.has(horaEnEstudio(now));
   for (const { id } of data ?? []) {
     const studioId = id as string;
     try {
@@ -63,11 +92,34 @@ export async function barrerAlertasApertura(admin: SupabaseClient, now = new Dat
         continue;
       }
       const analisis = await cargarAnalisis(admin, studioId, estado.config, now);
-      const { nuevas } = await evaluarAlertasApertura(admin, studioId, estado, analisis, now);
+      const { detectadas, nuevas, etapas, planes } = await evaluarAlertasApertura(admin, studioId, estado, analisis, now);
       for (const a of nuevas) {
         await emitirAlertaApertura({ studioId, fecha: hoy, tipo: a.tipo, titulo: a.titulo, descripcion: a.descripcion });
       }
       resumen.nuevas += nuevas.length;
+
+      if (tocaBrief) {
+        const [siguiente] = recomendar({
+          respuestas: estado.respuestas,
+          hayClasesPublicadas: analisis.sesionesEnVentana > 0,
+          hayPlanes: planes.some(p => p.activo),
+          hayEtapaFundadora: etapas.some(e => e.etapa === 'FUNDADORA'),
+          // El brief va a toda la gerencia: el paso se nombra, no se enlaza.
+          puedeVer: href => puedeVer('PROPIETARIO', href),
+        });
+        const [masGrave] = [...detectadas].sort((a, b) => SEVERIDAD[a.severidad] - SEVERIDAD[b.severidad]);
+        const brief = construirBrief({
+          diasHastaApertura: diasHastaApertura(estado.fechaApertura, now),
+          fechaAproximada: estado.respuestas?.fechaAproximada ?? false,
+          ...(await novedadesDeAyer(admin, studioId, now)),
+          alerta: masGrave ?? null,
+          siguientePaso: siguiente ?? null,
+        });
+        if (brief) {
+          await emitirBriefApertura({ studioId, fecha: hoy, ...brief });
+          resumen.briefs++;
+        }
+      }
     } catch (e) {
       // Un estudio que falla no deja sin revisar a los demás.
       resumen.errores++;

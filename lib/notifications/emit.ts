@@ -1399,3 +1399,18 @@ export async function emitirAlertaApertura(
     console.error('[notifications] emitirAlertaApertura:', e instanceof Error ? e.message : e);
   }
 }
+
+// Opening Brief: como mucho uno al día por estudio (la clave lleva la fecha).
+export async function emitirBriefApertura(
+  p: { studioId: string; fecha: string; titulo: string; cuerpo: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.OPENING_BRIEF, studioId: p.studioId,
+      data: { titulo: p.titulo, cuerpo: p.cuerpo },
+      dedupKey: `opening-brief:${p.studioId}:${p.fecha}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirBriefApertura:', e instanceof Error ? e.message : e);
+  }
+}

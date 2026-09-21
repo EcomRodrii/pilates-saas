@@ -262,6 +262,9 @@ export const EVENTOS = {
   // Opening OS (lib/opening/alertas.ts): el estudio que abre tiene un problema
   // con fecha (sin horario, clases que se llenan, preventa lenta, etapa llena).
   OPENING_ALERTA: 'clases.opening_alerta',
+  // Opening Brief (lib/opening/brief.ts): el resumen de la mañana del estudio
+  // que abre. Como mucho uno al día y solo si hay algo que contar.
+  OPENING_BRIEF: 'clases.opening_brief',
   // El Umbral (lib/decision/umbral.ts): como mucho UN evento de este tipo al
   // día por estudio (reforzado por el UNIQUE(studio_id,fecha) de
   // decision_mensajes_dia) — nunca se dispara si el día es de silencio.
@@ -477,6 +480,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.SERIES_RENOVADAS_SOLAS]:      { category: 'clases', priority: 'BAJA',  canales: ['PUSH'], audiencia: 'gerencia' },
   // Una por alerta NUEVA (el cron solo emite las que abre): no se repite cada día.
   [EVENTOS.OPENING_ALERTA]:              { category: 'clases', priority: 'ALTA',  canales: ['PUSH'], audiencia: 'gerencia' },
+  [EVENTOS.OPENING_BRIEF]:               { category: 'clases', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'gerencia' },
   // ALTA + PUSH+INAPP a propósito, nada más: el Umbral solo interrumpe cuando
   // cree que merece la pena — un canal más (EMAIL) diluiría esa
   // misma promesa. Sin EMAIL: el mensaje es del día, no algo para revisar
@@ -1136,6 +1140,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   ...paraRoles(EVENTOS.OPENING_ALERTA, ROLES_POR_AUDIENCIA.gerencia, {
     title: '{titulo}',
     body: '{descripcion}',
+    deepLink: () => `/dashboard#decidir-apertura`,
+  }),
+  ...paraRoles(EVENTOS.OPENING_BRIEF, ROLES_POR_AUDIENCIA.gerencia, {
+    title: '{titulo}',
+    body: '{cuerpo}',
     deepLink: () => `/dashboard#decidir-apertura`,
   }),
   ...paraRoles(EVENTOS.AUTOMATIZACION_DISPARADA, ROLES_POR_AUDIENCIA.mostrador, {
