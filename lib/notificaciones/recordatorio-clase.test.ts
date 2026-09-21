@@ -5,6 +5,7 @@ import { Resend } from 'resend';
 import {
   barrerRecordatoriosClase, canalesRecordatorio, claveIdempotenciaRecordatorio, datosClaseRecordatorio,
   enviarEmailRecordatorio, enviarRecordatorioClase, franjaRecordatorio, ventanaBarrido, ventanaFranja,
+  textoAntelacion, antelacionDeFila,
   type EntradaCanalesRecordatorio, type EnviarEmail, type PuertosRecordatorio, type ReservaParaRecordar,
 } from './recordatorio-clase.ts';
 import { fechaLargaEstudio } from '../utils.ts';
@@ -31,6 +32,42 @@ test('franja de 1 h: [45 min, 75 min]; por debajo, nada', () => {
   assert.equal(franjaRecordatorio(new Date(AHORA + 1.25 * H + 1), AHORA), 'tardia');
   assert.equal(franjaRecordatorio(new Date(AHORA - 1 * H), AHORA), null);
   assert.equal(franjaRecordatorio('no es una fecha', AHORA), null);
+});
+
+test('antelación del estudio: 48 h y 2 h mueven las dos franjas y la tardía queda entre ellas', () => {
+  const a = { largoHoras: 48, cortoMinutos: 120 };
+  assert.equal(franjaRecordatorio(new Date(AHORA + 48 * H), AHORA, a), '24h');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 2 * H), AHORA, a), '1h');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 24 * H), AHORA, a), 'tardia', 'a 24 h ya no toca el largo: es tardía');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 1 * H), AHORA, a), null, 'por debajo del corto, nada');
+});
+
+test('antelación del estudio: 12 h y 30 min', () => {
+  const a = { largoHoras: 12, cortoMinutos: 30 };
+  assert.equal(franjaRecordatorio(new Date(AHORA + 12 * H), AHORA, a), '24h');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 0.5 * H), AHORA, a), '1h');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 0.25 * H), AHORA, a), '1h', 'la corta de 30 min va de 15 a 45: dos pasadas');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 24 * H), AHORA, a), null, 'a 24 h todavía no le toca nada');
+});
+
+test('el barrido lee de la corta más corta a la larga más larga de los estudios', () => {
+  const v = ventanaBarrido(AHORA, [{ largoHoras: 24, cortoMinutos: 60 }, { largoHoras: 48, cortoMinutos: 30 }]);
+  assert.deepEqual(v, { desdeISO: '2026-09-15T08:15:00.000Z', hastaISO: '2026-09-17T08:30:00.000Z' });
+  // Sin nadie en 48 h no se leen dos días de clases cada 15 min.
+  assert.deepEqual(ventanaBarrido(AHORA, [{ largoHoras: 24, cortoMinutos: 60 }]), ventanaBarrido(AHORA));
+});
+
+test('`{antelacion}` dice lo que eligió el estudio', () => {
+  assert.equal(textoAntelacion('24h'), '24 horas');
+  assert.equal(textoAntelacion('1h'), '1 hora');
+  assert.equal(textoAntelacion('1h', { largoHoras: 24, cortoMinutos: 30 }), '30 minutos');
+  assert.equal(textoAntelacion('1h', { largoHoras: 24, cortoMinutos: 120 }), '2 horas');
+  assert.equal(textoAntelacion('24h', { largoHoras: 48, cortoMinutos: 60 }), '48 horas');
+});
+
+test('una antelación fuera de lista (no debería pasar el CHECK) cae a la de siempre', () => {
+  assert.deepEqual(antelacionDeFila({ recordatorio_largo_horas: 36, recordatorio_corto_minutos: null }), { largoHoras: 24, cortoMinutos: 60 });
+  assert.deepEqual(antelacionDeFila({ recordatorio_largo_horas: 48, recordatorio_corto_minutos: 30 }), { largoHoras: 48, cortoMinutos: 30 });
 });
 
 test('la ventana que se consulta es la misma que decide la franja', () => {
@@ -279,7 +316,7 @@ test('dos pasadas seguidas dentro de la franja: Resend recibe UNA llamada, con l
     assert.equal(m.eventos[0].type, EVENTOS.RECORDATORIO_24H);
     assert.equal(m.eventos[0].dedupKey, 'recordatorio-24h:res-1');
     assert.equal(m.eventos[1].dedupKey, 'recordatorio-24h:res-1');
-    assert.deepEqual(m.eventos[0].data, { clase: 'Reformer', hora: '10:10', slug: 'pilates-luz', sesionId: 'ses-1', socioId: 'soc-1' });
+    assert.deepEqual(m.eventos[0].data, { clase: 'Reformer', hora: '10:10', slug: 'pilates-luz', sesionId: 'ses-1', socioId: 'soc-1', antelacion: '24 horas' });
   } finally { m.desmontar(); }
 });
 

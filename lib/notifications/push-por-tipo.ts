@@ -31,8 +31,8 @@ export const PUSH_POR_TIPO: Record<RolConPushPorTipo, GrupoPush[]> = {
     {
       titulo: 'Recordatorios de clase',
       tipos: [
-        { evento: EVENTOS.RECORDATORIO_24H, titulo: 'El día antes', detalle: '24 horas antes de cada clase' },
-        { evento: EVENTOS.RECORDATORIO_1H, titulo: 'Una hora antes' },
+        { evento: EVENTOS.RECORDATORIO_24H, titulo: 'Con antelación', detalle: 'El primero que te llega de cada clase' },
+        { evento: EVENTOS.RECORDATORIO_1H, titulo: 'Justo antes de la clase' },
       ],
     },
     {

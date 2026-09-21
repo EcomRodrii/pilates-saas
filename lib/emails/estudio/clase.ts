@@ -110,7 +110,7 @@ export function correoRecordatorio(p: PropsClase): string {
   return correoEstudio({
     ...base,
     preheader,
-    titular: 'Te esperamos mañana',
+    titular: 'Te esperamos en clase',
     parrafos: [p.intro?.trim() || `Hola ${p.socioNombre}, un recordatorio de tu próxima clase.`],
     nota: 'Si no puedes asistir, cancela tu plaza con antelación para que otra persona pueda aprovecharla.',
   });

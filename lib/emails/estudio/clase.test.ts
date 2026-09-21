@@ -34,7 +34,13 @@ test('el recordatorio NO es el mismo correo que la reserva', () => {
   // Suena obvio; el fallo real que evita es un `case` mal copiado en el emisor,
   // que manda «tu plaza está reservada» 24 h antes de la clase.
   assert.notEqual(correoRecordatorio(BASE), correoReserva(BASE));
-  assert.match(correoRecordatorio(BASE), /Te esperamos mañana/);
+  assert.match(correoRecordatorio(BASE), /Te esperamos en clase/);
+});
+
+test('el recordatorio no promete «mañana»', () => {
+  // La antelación la elige el estudio (12/24/48 h) y quien reserva el mismo día
+  // también lo recibe: «mañana» era falso en los dos casos.
+  assert.doesNotMatch(correoRecordatorio(BASE), /mañana/i);
 });
 
 test('la clase online enseña su enlace de Zoom', () => {

@@ -996,14 +996,15 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   // ── Automatizaciones ──
   [`${EVENTOS.RECORDATORIO_24H}#SOCIA`]: {
-    // 24 h ± 30 min antes: en los bordes de medianoche la clase es HOY, no
-    // «mañana». Sin día relativo, la frase es verdad siempre.
-    title: 'Tu clase es en 24 horas',
+    // La antelación la elige el estudio (12/24/48 h y 30/60/120 min) y llega ya
+    // escrita en `{antelacion}`. Sin día relativo («mañana»): en los bordes de
+    // medianoche la clase es HOY, y así la frase es verdad siempre.
+    title: 'Tu clase es en {antelacion}',
     body: 'Recuerda: {clase} a las {hora}. ¡Te esperamos!',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   [`${EVENTOS.RECORDATORIO_1H}#SOCIA`]: {
-    title: 'Tu clase es en 1 hora',
+    title: 'Tu clase es en {antelacion}',
     body: '{clase} a las {hora}. ¡Nos vemos en un rato!',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },

@@ -374,6 +374,17 @@ test('recompensas y logros: lo que hay en cada catálogo, y nada inventado mient
   assert.equal(resumenHerramienta('recompensas-y-logros', { motivacion: null }), null);
 });
 
+test('avisos en el móvil: la antelación que sale de verdad y cuántos textos son suyos', () => {
+  const r = (largoHoras: number, cortoMinutos: number, textosPropios: number | null) =>
+    resumenHerramienta('avisos-del-movil', { avisosMovil: { largoHoras, cortoMinutos, textosPropios } });
+  assert.equal(r(24, 60, 0), 'Recordatorio 24 h y 1 h · textos de Tentare');
+  assert.equal(r(48, 30, 1), 'Recordatorio 48 h y 30 min · 1 texto tuyo');
+  assert.equal(r(12, 120, 3), 'Recordatorio 12 h y 2 h · 3 textos tuyos');
+  // Sin leer los textos no se dice «de Tentare»: no se sabe.
+  assert.equal(r(24, 60, null), 'Recordatorio 24 h y 1 h');
+  assert.equal(resumenHerramienta('avisos-del-movil', { avisosMovil: null }), null);
+});
+
 test('ninguna fila de herramienta pasa de una línea del móvil ni dice «clienta»', () => {
   const muchos = {
     numTiposClase: 120,
@@ -383,6 +394,7 @@ test('ninguna fila de herramienta pasa de una línea del móvil ni dice «client
     widgetDominios: Array.from({ length: 12 }, (_, i) => `https://w${i}.example.com`),
     motivacion: { recompensas: 120, logros: 340, niveles: 12, retos: 45 },
     avisos: { total: 12, encendidos: 7, push: 'unsupported' as const },
+    avisosMovil: { largoHoras: 48, cortoMinutos: 120, textosPropios: 20 },
   };
   for (const h of HERRAMIENTAS) {
     const v = resumenHerramienta(h.id, muchos);

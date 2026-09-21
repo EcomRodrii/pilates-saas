@@ -1026,6 +1026,10 @@ export interface RowStudios {
   plaza_fija_fin_pausa: string | null;
   // migr 20260921131627.
   fecha_apertura: string | null;
+  // migr 20260921145514.
+  recordatorio_largo_horas: number | null;
+  // migr 20260921145514.
+  recordatorio_corto_minutos: number | null;
 }
 
 export interface RowSuscripciones {
@@ -4617,6 +4621,8 @@ export type StudiosInsert = {
   plaza_fija_pausa_libera_sitio?: boolean | null | null;
   plaza_fija_fin_pausa?: string | null | null;
   fecha_apertura?: string | null | null;
+  recordatorio_largo_horas?: number | null | null;
+  recordatorio_corto_minutos?: number | null | null;
 }
 
 export type StudiosUpdate = {
@@ -4747,6 +4753,8 @@ export type StudiosUpdate = {
   plaza_fija_pausa_libera_sitio?: boolean | null | null;
   plaza_fija_fin_pausa?: string | null | null;
   fecha_apertura?: string | null | null;
+  recordatorio_largo_horas?: number | null | null;
+  recordatorio_corto_minutos?: number | null | null;
 }
 
 export type SuscripcionesInsert = {
