@@ -23,6 +23,8 @@ export interface EstadoFichaje {
   ventanaMinutos: number;
   /** Lo ya cerrado hoy (día del estudio). La abierta, si la hay, se suma en pantalla con su cronómetro. */
   hoy: { minutosCerrados: number; jornadasCerradas: number };
+  /** Contratada, autónoma o sin definir. La pone la ruta; aquí no se lee. */
+  relacion?: 'CONTRATADA' | 'AUTONOMA' | null;
 }
 
 const HORAS_LIMITE_POR_DEFECTO = 12;

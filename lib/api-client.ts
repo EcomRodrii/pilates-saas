@@ -2342,6 +2342,25 @@ export interface TarifaInstructor {
   recargoSustitucionPct: number | null;
   /** Horas semanales pactadas. null = sin contrato definido: no se compara. */
   horasSemanalesContrato: number | null;
+  /** Contratada (ficha jornada) o autónoma (confirma clases). null = sin definir. */
+  relacionLaboral?: 'CONTRATADA' | 'AUTONOMA' | null;
+}
+
+/** Solo la relación laboral: no toca tarifa, base ni horas. */
+export async function guardarRelacionLaboral(
+  instructorId: string, relacionLaboral: 'CONTRATADA' | 'AUTONOMA' | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/equipo/tarifas', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ instructorId, relacionLaboral }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar' };
+  }
 }
 
 export async function fetchTarifasEquipo(): Promise<TarifaInstructor[]> {

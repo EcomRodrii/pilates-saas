@@ -92,4 +92,28 @@ test.describe('Liquidar por horas fichadas', () => {
     await expect(page.getByTestId('jornadas-sin-cerrar')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Confirmar' })).toBeEnabled();
   });
+
+  test('relación con el estudio: se guarda lo que confirma el servidor y explica qué cambia', async ({ page }) => {
+    const patches: unknown[] = [];
+    let falla = false;
+    await abrir(page, { liq: null });
+    await page.route((u) => u.pathname === '/api/equipo/tarifas', (r) => {
+      if (r.request().method() !== 'PATCH') return json(r, { items: [] });
+      patches.push(r.request().postDataJSON());
+      return falla ? json(r, { error: 'No se ha podido guardar.' }, 500) : json(r, { ok: true });
+    });
+    const select = page.getByLabel('Relación de Marta Ruiz con el estudio');
+    await expect(select).toHaveValue('', { timeout: 30_000 });
+    await expect(page.getByTestId('relacion-explicacion')).toContainText('Indica si trabaja contratada');
+    await select.selectOption('AUTONOMA');
+    await expect(page.getByText('Guardado: como autónoma no fichará jornada, confirmará sus clases.')).toBeVisible({ timeout: 30_000 });
+    await expect(select).toHaveValue('AUTONOMA');
+    await expect(page.getByTestId('relacion-explicacion')).toContainText('Autónoma: no ficha jornada');
+    expect(patches).toEqual([{ instructorId: 'ins-marta', relacionLaboral: 'AUTONOMA' }]);
+    falla = true;
+    await select.selectOption('CONTRATADA');
+    await expect(page.getByText('No se ha podido guardar.')).toBeVisible({ timeout: 30_000 });
+    expect(patches).toHaveLength(2);
+    await expect(select).toHaveValue('AUTONOMA');
+  });
 });

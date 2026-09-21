@@ -56,6 +56,7 @@ const DESTINO: Record<string, { destino: Destino; motivo: string }> = {
   liquidaciones_instructoras: { destino: 'fiscal', motivo: 'pagos a la instructora' },
   instructor_tarifas: { destino: 'fiscal', motivo: 'base de las liquidaciones' },
   instructor_work_sessions: { destino: 'fiscal', motivo: 'registro de jornada del personal: hay que conservarlo; sin la ficha (anonimizada) no identifica a nadie' },
+  clases_impartidas: { destino: 'fiscal', motivo: 'qué clase se dio y cuándo (base de lo pagado): se conserva, sin quién la tocó' },
   contenido_portal_banners: { destino: 'fuera', motivo: 'contenido del estudio; created_by solo es autoría' },
   novedades_estudio: { destino: 'fuera', motivo: 'contenido del estudio; created_by solo es autoría' },
   videos_on_demand: { destino: 'fuera', motivo: 'el asset vive en Stream y nadie lo borra: la fila no se borra antes que él' },
@@ -97,6 +98,7 @@ test('la purga vacía el texto libre de las filas que conserva', () => {
     'sesiones.notas', 'sesiones.incidencia_texto', 'citas.notas',
     'instructor_work_sessions.created_by', 'instructor_work_sessions.edited_by',
     'work_session_audits.created_by', 'work_session_audits.reason',
+    'clases_impartidas.created_by', 'clases_impartidas_auditoria.motivo',
   ]) {
     assert.ok(columnasVaciadas.has(columna), `${ultima.nombre}: falta ${columna} en c_vaciar`);
   }
