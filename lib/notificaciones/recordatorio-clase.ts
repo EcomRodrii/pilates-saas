@@ -38,11 +38,11 @@ import { exigirLectura } from '../exigir-lectura.ts';
 import { mapLimit } from '../concurrency.ts';
 import { fechaLargaEstudio, horaEstudio } from '../utils.ts';
 import {
-  ANTELACION_POR_DEFECTO, antelacionDeFila, textoAntelacion, type AntelacionRecordatorio,
+  ANTELACION_POR_DEFECTO, antelacionDeFila, textoAntelacion, textoFaltan, type AntelacionRecordatorio,
 } from './antelacion-recordatorio.ts';
 
 export {
-  ANTELACION_POR_DEFECTO, ANTELACIONES_CORTO_MINUTOS, ANTELACIONES_LARGO_HORAS, antelacionDeFila, textoAntelacion,
+  ANTELACION_POR_DEFECTO, ANTELACIONES_CORTO_MINUTOS, ANTELACIONES_LARGO_HORAS, antelacionDeFila, textoAntelacion, textoFaltan,
   type AntelacionRecordatorio,
 } from './antelacion-recordatorio.ts';
 import type { TipoExcepcion } from '../excepciones.ts';
@@ -380,6 +380,7 @@ export async function enviarRecordatorioClase(
         socioId: reserva.socioId,
         // `{antelacion}` del texto: «Tu clase es en 24 horas», o lo que eligió el estudio.
         antelacion: textoAntelacion(franja === '24h' ? '24h' : '1h', reserva.antelacion),
+        faltan: textoFaltan(franja === '24h' ? '24h' : '1h', reserva.antelacion),
       },
       resource: { type: 'sesion', id: reserva.sesionId },
       // Misma clave que antes: el despliegue no repite pushes ya creados.

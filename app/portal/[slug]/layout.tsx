@@ -140,7 +140,7 @@ export default async function StudentLayout({
       {/* El acento del estudio, en servidor. Solo los 7 tokens que cambian por
           estudio; los otros 35 son estáticos y viven en student.css. */}
       <style dangerouslySetInnerHTML={{ __html: acentoCssText(estudio.colorPrimario) }} />
-      <RegistroSW slug={estudio.slug} />
+      <RegistroSW slug={estudio.slug} studioId={estudio.id} />
       {/* El toast vive aquí y no en cada pantalla: es un aviso global y así
           sobrevive a las navegaciones dentro del portal. */}
       <StudentProvider estudio={estudio}>

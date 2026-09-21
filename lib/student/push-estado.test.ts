@@ -1,6 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estadoPush, textoPush, type ContextoPush } from './push-estado.ts';
+import { estadoPush, textoPush, tocaRenovarPush, type ContextoPush } from './push-estado.ts';
+
+test('renovar la suscripción: la primera vez sí, luego como mucho una vez al día', () => {
+  const ahora = Date.parse('2026-09-21T18:00:00Z');
+  const H = 3_600_000;
+  assert.equal(tocaRenovarPush(null, ahora), true);
+  assert.equal(tocaRenovarPush(Number.NaN, ahora), true);
+  assert.equal(tocaRenovarPush(ahora - 23 * H, ahora), false);
+  assert.equal(tocaRenovarPush(ahora - 24 * H, ahora), true);
+  assert.equal(tocaRenovarPush(ahora + 5 * H, ahora), true, 'reloj hacia atrás: se renueva');
+});
 
 const base: ContextoPush = { permiso: 'default', esIOS: false, esStandalone: false, hayClave: true, suscrita: false };
 

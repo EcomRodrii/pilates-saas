@@ -13,7 +13,7 @@
 
 import { portalAuthHeader } from '@/lib/api-client';
 import { esIOS, esStandalone, estadoPermiso, pushSoportado, urlBase64ToUint8Array } from '@/lib/notifications/push-client';
-import type { ContextoPush } from '@/lib/student/push-estado';
+import { tocaRenovarPush, type ContextoPush } from '@/lib/student/push-estado';
 
 export type ResultadoPush =
   | { ok: true }
@@ -128,5 +128,47 @@ export async function desactivarPushStudent(slug: string): Promise<boolean> {
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+const claveRenovado = (slug: string) => `tentare:push-renovado:${slug}`;
+
+/**
+ * Al abrir la app, vuelve a mandar al servidor la suscripción de ESTE
+ * dispositivo, como mucho una vez al día. El servidor, al recibirla, retira
+ * las viejas del mismo dispositivo.
+ *
+ * Solo con el permiso YA concedido: aquí nunca se pregunta nada. Y nunca se
+ * cancela una suscripción que existe: en iPhone, volver a suscribirse sin un
+ * toque de la alumna puede fallar, y la dejaría sin avisos.
+ */
+export async function renovarSuscripcionPush(studioId: string, slug: string): Promise<void> {
+  if (!pushSoportado() || estadoPermiso() !== 'granted') return;
+  if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) return;
+  let ultima: number | null = null;
+  try { ultima = Number(localStorage.getItem(claveRenovado(slug)) ?? 'NaN'); } catch { /* sin almacenamiento: se intenta */ }
+  if (!tocaRenovarPush(ultima, Date.now())) return;
+
+  try {
+    const auth = await portalAuthHeader();
+    // Sin sesión el servidor no sabría de quién es: no hay nada que renovar.
+    if (!auth.Authorization) return;
+    const reg = await navigator.serviceWorker.getRegistration(scopeDe(slug));
+    if (!reg) return;
+    // Sin suscripción NO se rehace: con el permiso concedido, eso es que ella
+    // apagó los avisos de este dispositivo, y volver a suscribirla sería
+    // desobedecerla.
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return;
+    const res = await fetch('/api/notifications/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ studioId, subscription: sub.toJSON(), userAgent: navigator.userAgent }),
+    });
+    if (res.ok) {
+      try { localStorage.setItem(claveRenovado(slug), String(Date.now())); } catch { /* da igual */ }
+    }
+  } catch {
+    // Renovar es un extra: si falla, la próxima vez que abra la app se reintenta.
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { renovarSuscripcionPush } from '@/lib/student/push';
 
 /**
  * Registra el service worker para la app de la alumna.
@@ -18,7 +19,7 @@ import { useEffect } from 'react';
  * `scope` acotado a la app del estudio: sin eso el SW controlaría también el
  * panel y la landing, que no lo esperan.
  */
-export function RegistroSW({ slug }: { slug: string }) {
+export function RegistroSW({ slug, studioId }: { slug: string; studioId: string }) {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     // En desarrollo el SW cachea el HTML de Next y las recargas dejan de
@@ -26,11 +27,16 @@ export function RegistroSW({ slug }: { slug: string }) {
     if (process.env.NODE_ENV !== 'production') return;
 
     const scope = `/portal/${encodeURIComponent(slug)}/`;
-    navigator.serviceWorker.register('/sw.js', { scope }).catch(() => {
-      // Un registro fallido no puede tumbar la app: sin SW simplemente no hay
-      // caché ni push, y todo lo demás sigue funcionando contra la red.
-    });
-  }, [slug]);
+    navigator.serviceWorker.register('/sw.js', { scope })
+      // Con el SW listo, se renueva la suscripción de este dispositivo si
+      // la tiene (lib/student/push.ts). Vale para la alumna y la instructora:
+      // las dos usan esta misma app.
+      .then(() => renovarSuscripcionPush(studioId, slug))
+      .catch(() => {
+        // Un registro fallido no puede tumbar la app: sin SW simplemente no hay
+        // caché ni push, y todo lo demás sigue funcionando contra la red.
+      });
+  }, [slug, studioId]);
 
   return null;
 }

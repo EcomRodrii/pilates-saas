@@ -37,11 +37,24 @@ export function variablesDe(texto: string): string[] {
   return [...new Set([...texto.matchAll(/\{(\w+)\}/g)].map(m => m[1]))];
 }
 
-/** Las que puede usar el texto del estudio: las del título y el cuerpo de fábrica. */
+// Variables que el evento SÍ trae aunque el texto de fábrica no las use. El
+// barrido de recordatorios manda `faltan` («falta 1 hora») junto a `antelacion`.
+const VARIABLES_EXTRA: Record<string, string[]> = {
+  'reserva.recordatorio_24h': ['faltan'],
+  'reserva.recordatorio_1h': ['faltan'],
+};
+
+/** Las que puede usar el texto del estudio: las del texto de fábrica y las que el evento añade. */
 export function variablesPermitidas(evento: string): string[] {
   const f = textoDeFabrica(evento);
-  return f ? variablesDe(`${f.title} ${f.body}`) : [];
+  if (!f) return [];
+  return [...new Set([...variablesDe(`${f.title} ${f.body}`), ...(VARIABLES_EXTRA[evento] ?? [])])];
 }
+
+// «faltan {antelacion}» se lee bien con 24 horas y mal con 1 hora («faltan 1
+// hora»): la antelación la cambia el estudio cuando quiera, así que la frase
+// acabaría mal tarde o temprano. Pasó en la prueba real del 21-sep.
+const CONCORDANCIA_ROTA = /\b(faltan?|quedan?)\s+\{antelacion\}/i;
 
 /** Motivo por el que no se puede guardar, o `null` si vale. */
 export function validarTexto(evento: string, t: TextoAviso): string | null {
@@ -55,6 +68,9 @@ export function validarTexto(evento: string, t: TextoAviso): string | null {
   const permitidas = new Set(variablesPermitidas(evento));
   const ajenas = variablesDe(`${title} ${body}`).filter(v => !permitidas.has(v));
   if (ajenas.length) return `Este aviso no sabe rellenar ${ajenas.map(v => `{${v}}`).join(', ')}.`;
+  if (CONCORDANCIA_ROTA.test(`${title} ${body}`)) {
+    return 'Con 1 hora diría «faltan 1 hora». Usa «falta… (con el verbo)», que concuerda sola: «falta 1 hora», «faltan 30 minutos».';
+  }
   return null;
 }
 
@@ -73,7 +89,8 @@ export const ETIQUETA_VARIABLE: Record<string, string> = {
   cuando: 'día y hora',
   hora: 'hora',
   fecha: 'fecha',
-  antelacion: 'cuánto falta',
+  antelacion: 'cuánto falta («1 hora»)',
+  faltan: 'falta… (con el verbo)',
   sala: 'sala',
   instructora: 'instructora',
   sustituta: 'quien la sustituye',
@@ -94,7 +111,7 @@ export const ETIQUETA_VARIABLE: Record<string, string> = {
 
 const MUESTRA: Record<string, string> = {
   clase: 'Reformer', cuando: 'jueves 25 a las 18:30', hora: '18:30', fecha: '30 de septiembre',
-  antelacion: '24 horas', sala: 'Sala Norte', instructora: 'Ana', sustituta: 'Marta',
+  antelacion: '24 horas', faltan: 'faltan 24 horas', sala: 'Sala Norte', instructora: 'Ana', sustituta: 'Marta',
   concepto: 'Bono 10', importe: '75', sesiones: '2', plan: 'Bono 10', precioAnterior: '69 €',
   precioNuevo: '75 €', clases: '1 clase', remitente: 'Ana', autor: 'El estudio',
   previsualizacion: ': «¿Nos vemos el jueves?»', titulo: 'Consentimiento', respuesta: 'Te hemos guardado la plaza.',

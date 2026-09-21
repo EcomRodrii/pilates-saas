@@ -127,9 +127,11 @@ test.describe('Student PWA · avisos push en este dispositivo', () => {
     await expect(tarjeta(page)).toHaveAttribute('data-estado', 'granted-on', { timeout: 30_000 });
     await interruptor(page).click();
 
-    await expect.poll(() => peticiones.length).toBe(1);
-    expect(peticiones[0].method).toBe('DELETE');
-    expect(peticiones[0].body.endpoint).toBe('https://push.e2e.test/inicial');
+    // Contra el build, al abrir la app ya se ha renovado esta suscripción (un
+    // POST): lo que se comprueba aquí es el borrado, no la primera petición.
+    const borrados = () => peticiones.filter((p) => p.method === 'DELETE');
+    await expect.poll(() => borrados().length).toBe(1);
+    expect(borrados()[0].body.endpoint).toBe('https://push.e2e.test/inicial');
     await expect(tarjeta(page)).toHaveAttribute('data-estado', 'granted-off');
   });
 
@@ -170,5 +172,41 @@ test.describe('Student PWA · avisos push en este dispositivo', () => {
       await expect(interruptor(page)).toHaveCount(0);
       await expect(tarjeta(page).getByText(/Añadir a pantalla de inicio/)).toBeVisible();
     });
+  });
+});
+
+// Renovar la suscripción al abrir la app (RegistroSW → renovarSuscripcionPush).
+// Un iPhone con una suscripción antigua recibía «enviado» y no mostraba nada
+// (producción, 21-sep). Solo contra el build: en `next dev` no se registra el
+// service worker, a propósito (cachearía el HTML de Next).
+test.describe('Student PWA · renovar la suscripción al abrir', () => {
+  test.skip(process.env.E2E_USA_BUILD !== '1', 'RegistroSW solo actúa en el build de producción');
+
+  test('suscrita: al abrir manda SU suscripción al servidor, y una sola vez al día', async ({ page }) => {
+    await fingirNavegador(page, 'granted', { suscrita: true });
+    const peticiones = await montarPreferencias(page);
+    await page.goto(PREFS);
+
+    await expect.poll(() => peticiones.length, { timeout: 30_000 }).toBe(1);
+    expect(peticiones[0].method).toBe('POST');
+    expect(peticiones[0].auth).toMatch(/^Bearer /);
+    expect(peticiones[0].body.studioId).toBe(STUDIO_ID);
+    expect((peticiones[0].body.subscription as { endpoint: string }).endpoint).toBe('https://push.e2e.test/inicial');
+
+    // Otra vez el mismo día: no se repite.
+    await page.reload();
+    await expect(page.locator('body')).toBeVisible();
+    await page.waitForTimeout(2_000);
+    expect(peticiones).toHaveLength(1);
+  });
+
+  test('con permiso pero sin suscripción (apagó los avisos) no la vuelve a suscribir', async ({ page }) => {
+    await fingirNavegador(page, 'granted', { suscrita: false });
+    const peticiones = await montarPreferencias(page);
+    await page.goto(PREFS);
+
+    await expect(page.locator('body')).toBeVisible();
+    await page.waitForTimeout(3_000);
+    expect(peticiones).toHaveLength(0);
   });
 });

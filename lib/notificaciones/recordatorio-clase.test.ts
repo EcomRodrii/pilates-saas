@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 import {
   barrerRecordatoriosClase, canalesRecordatorio, claveIdempotenciaRecordatorio, datosClaseRecordatorio,
   enviarEmailRecordatorio, enviarRecordatorioClase, franjaRecordatorio, ventanaBarrido, ventanaFranja,
-  textoAntelacion, antelacionDeFila,
+  textoAntelacion, textoFaltan, antelacionDeFila,
   type EntradaCanalesRecordatorio, type EnviarEmail, type PuertosRecordatorio, type ReservaParaRecordar,
 } from './recordatorio-clase.ts';
 import { fechaLargaEstudio } from '../utils.ts';
@@ -63,6 +63,14 @@ test('`{antelacion}` dice lo que eligió el estudio', () => {
   assert.equal(textoAntelacion('1h', { largoHoras: 24, cortoMinutos: 30 }), '30 minutos');
   assert.equal(textoAntelacion('1h', { largoHoras: 24, cortoMinutos: 120 }), '2 horas');
   assert.equal(textoAntelacion('24h', { largoHoras: 48, cortoMinutos: 60 }), '48 horas');
+});
+
+test('`{faltan}` concuerda el verbo: «falta 1 hora», «faltan 30 minutos»', () => {
+  assert.equal(textoFaltan('1h'), 'falta 1 hora');
+  assert.equal(textoFaltan('1h', { largoHoras: 24, cortoMinutos: 30 }), 'faltan 30 minutos');
+  assert.equal(textoFaltan('1h', { largoHoras: 24, cortoMinutos: 120 }), 'faltan 2 horas');
+  assert.equal(textoFaltan('24h'), 'faltan 24 horas');
+  assert.equal(textoFaltan('24h', { largoHoras: 12, cortoMinutos: 60 }), 'faltan 12 horas');
 });
 
 test('una antelación fuera de lista (no debería pasar el CHECK) cae a la de siempre', () => {
@@ -316,7 +324,7 @@ test('dos pasadas seguidas dentro de la franja: Resend recibe UNA llamada, con l
     assert.equal(m.eventos[0].type, EVENTOS.RECORDATORIO_24H);
     assert.equal(m.eventos[0].dedupKey, 'recordatorio-24h:res-1');
     assert.equal(m.eventos[1].dedupKey, 'recordatorio-24h:res-1');
-    assert.deepEqual(m.eventos[0].data, { clase: 'Reformer', hora: '10:10', slug: 'pilates-luz', sesionId: 'ses-1', socioId: 'soc-1', antelacion: '24 horas' });
+    assert.deepEqual(m.eventos[0].data, { clase: 'Reformer', hora: '10:10', slug: 'pilates-luz', sesionId: 'ses-1', socioId: 'soc-1', antelacion: '24 horas', faltan: 'faltan 24 horas' });
   } finally { m.desmontar(); }
 });
 

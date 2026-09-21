@@ -24,3 +24,13 @@ export function textoAntelacion(franja: '24h' | '1h', a: AntelacionRecordatorio 
   const h = a.cortoMinutos / 60;
   return h === 1 ? '1 hora' : `${h} horas`;
 }
+
+/**
+ * «falta 1 hora», «faltan 30 minutos»: la variable `{faltan}`, con el verbo ya
+ * concordado. Escribir «faltan {antelacion}» a mano decía «faltan 1 hora» en
+ * cuanto el estudio elegía la hora (visto en la prueba real del 21-sep).
+ */
+export function textoFaltan(franja: '24h' | '1h', a: AntelacionRecordatorio = ANTELACION_POR_DEFECTO): string {
+  const cuanto = textoAntelacion(franja, a);
+  return `${cuanto.startsWith('1 ') ? 'falta' : 'faltan'} ${cuanto}`;
+}
