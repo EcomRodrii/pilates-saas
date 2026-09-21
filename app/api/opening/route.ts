@@ -7,6 +7,8 @@ import { cargarAlertasAbiertas, cargarAnalisis, cargarEstadoApertura, PREFIJO_CU
 import { evaluarAlertasApertura } from '@/lib/opening/alertas-cron';
 import { ajustesDesdeConfig, validarAjustes } from '@/lib/opening/ajustes';
 import { recomendar, validarOnboarding } from '@/lib/opening/onboarding';
+import { evaluarListo } from '@/lib/opening/listo';
+import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 
 // Opening OS en la home: fecha de apertura, capacidad frente a demanda y las
 // alertas (lib/opening/alertas-cron.ts; el cron horario es quien notifica).
@@ -38,14 +40,16 @@ export async function GET(req: NextRequest) {
     // horario) no puede seguir en pantalla hasta la siguiente pasada del cron.
     // Aquí solo se RESUELVEN: abrirlas y notificarlas es del cron, o gerencia
     // abriendo la home dejaría a la propietaria sin su aviso.
-    const { detectadas, etapas, planes } = await evaluarAlertasApertura(admin, studioId, estado, analisis, now, { abrirNuevas: false });
+    const { detectadas, etapas, planes, datosListo } = await evaluarAlertasApertura(admin, studioId, estado, analisis, now, { abrirNuevas: false });
     // Más los avisos que abre la propia BD (cupo superado): no los detecta
     // detectarAlertas, pero la bandeja los cuenta y tienen que verse aquí.
     const deLaBD = (await cargarAlertasAbiertas(admin, studioId)).filter(a => a.tipo.startsWith(PREFIJO_CUPO_SUPERADO));
     const alertas = [...detectadas, ...deLaBD];
+    // Enlace solo si su rol puede abrir esa pantalla (MANAGER no ve Cobros).
+    const listo = evaluarListo(datosListo, now, href =>
+      puedeVer(sesion.rol, href.split(/[?#]/)[0]) && puedeAbrirEnConfiguracion(sesion.rol, href));
     const recomendaciones = recomendar({
       respuestas: estado.respuestas,
-      hayClasesPublicadas: analisis.sesionesEnVentana > 0,
       alertas: alertas.map(a => a.tipo),
       hayPlanes: planes.some(p => p.activo),
       hayEtapaFundadora: etapas.some(e => e.etapa === 'FUNDADORA'),
@@ -61,6 +65,7 @@ export async function GET(req: NextRequest) {
       ajustes: ajustesDesdeConfig(config),
       onboarding: estado.respuestas,
       recomendaciones,
+      listo,
       supuestos: {
         sesionesSemanaSinTope: config.sesionesSemanaSinTope,
         semanasBonoSinCaducidad: config.semanasBonoSinCaducidad,

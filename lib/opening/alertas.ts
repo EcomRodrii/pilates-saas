@@ -1,5 +1,6 @@
 import type { AnalisisCapacidad } from './capacidad.ts';
 import { NOMBRE_ETAPA, type EtapaVista } from './etapas.ts';
+import { ANCLA_LISTO, type IdComprobacion } from './listo.ts';
 
 export interface AlertaApertura {
   /** Único por estudio mientras está abierta (índice uq_alertas_opening_abierta). */
@@ -17,11 +18,14 @@ export interface EntradaAlertas {
   /** Id → activo de los planes del estudio. */
   planActivo: Map<string, boolean>;
   objetivoPreventa: number;
+  /** Imprescindibles de «¿lista para abrir?» que no están OK (lib/opening/listo.ts). */
+  pendientesListo?: IdComprobacion[];
 }
 
 /** A partir de cuántos días antes de abrir tiene sentido vigilar horario y preventa. */
 export const DIAS_VIGILANCIA_HORARIO = 21;
 export const DIAS_VIGILANCIA_PREVENTA = 14;
+export const DIAS_VIGILANCIA_LISTO = 7;
 
 const pct = (x: number) => `${Math.round(x * 100)} %`;
 const dias = (n: number) => (n === 1 ? '1 día' : `${n} días`);
@@ -44,6 +48,19 @@ export function detectarAlertas(e: EntradaAlertas): AlertaApertura[] {
         ? `Abres en ${dias(d)} y no hay horario en las próximas ${Math.round(a.ventana.dias / 7)} semanas: nadie puede reservar.`
         : `No hay horario en las próximas ${Math.round(a.ventana.dias / 7)} semanas: nadie puede reservar.`,
       href: '/calendario',
+    });
+  }
+
+  // Las clases ya las avisa SIN_HORARIO: no se cuentan dos veces.
+  const pendientes = (e.pendientesListo ?? []).filter(id => !(id === 'clases' && out.some(x => x.tipo === 'SIN_HORARIO')));
+  if (d !== null && d <= DIAS_VIGILANCIA_LISTO && pendientes.length > 0) {
+    out.push({
+      tipo: 'APERTURA_NO_LISTA',
+      severidad: 'CRITICA',
+      titulo: d >= 0 ? `Abres en ${dias(d)} y aún falta algo imprescindible` : 'Aún falta algo imprescindible para funcionar',
+      // Sin cifra: la alerta queda abierta mientras falte algo y la lista cambia.
+      descripcion: 'Mira «¿Lista para abrir?» en Inicio: te dice qué falta y dónde se arregla.',
+      href: `/dashboard#${ANCLA_LISTO}`,
     });
   }
 

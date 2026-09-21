@@ -36,16 +36,13 @@ test('un jsonb vacío o a medias no cuenta como onboarding hecho', () => {
 
 const ctx = (p: Partial<ContextoRecomendaciones>): ContextoRecomendaciones => ({
   respuestas: { completado: true, puntos: ['LOCAL'], objetivos: [], fechaAproximada: false },
-  hayClasesPublicadas: true, alertas: [], hayPlanes: true, hayEtapaFundadora: false, puedeVer: () => true, ...p,
+  alertas: [], hayPlanes: true, hayEtapaFundadora: false, puedeVer: () => true, ...p,
 });
 const ids = (p: Partial<ContextoRecomendaciones>) => recomendar(ctx(p)).map(r => r.id);
 
-test('sin horario, lo primero es publicarlo, se haya pedido o no', () => {
-  assert.deepEqual(ids({ hayClasesPublicadas: false }), ['horario']);
-});
-
-test('si ya hay alerta de «sin horario», no se repite como siguiente paso', () => {
-  assert.deepEqual(ids({ hayClasesPublicadas: false, alertas: ['SIN_HORARIO'] }), []);
+test('los imprescindibles (horario, cobro…) no salen aquí: los lleva «¿Lista para abrir?»', () => {
+  const r = { completado: true as const, puntos: [], objetivos: ['TODO_PREPARADO' as const, 'LLENAR_HORARIOS' as const], fechaAproximada: false };
+  assert.deepEqual(ids({ respuestas: r }), []);
 });
 
 test('fundadoras: etapa si ya hay planes, el plan antes si no, y nada si ya hay etapa', () => {
@@ -56,7 +53,7 @@ test('fundadoras: etapa si ya hay planes, el plan antes si no, y nada si ya hay 
 });
 
 test('respeta lo que el rol puede ver y no pasa de 3', () => {
-  const r = { completado: true as const, puntos: [], objetivos: ['CONTRATAR' as const, 'PRIMERAS_CLIENTAS' as const, 'TODO_PREPARADO' as const, 'FUNDADORAS' as const], fechaAproximada: false };
-  assert.equal(recomendar(ctx({ respuestas: r, hayClasesPublicadas: false })).length, 3);
+  const r = { completado: true as const, puntos: [], objetivos: ['CONTRATAR' as const, 'PRIMERAS_CLIENTAS' as const, 'FUNDADORAS' as const], fechaAproximada: false };
+  assert.equal(recomendar(ctx({ respuestas: r })).length, 3);
   assert.ok(!ids({ respuestas: r, puedeVer: h => h !== '/network/buscar' }).includes('contratar'));
 });

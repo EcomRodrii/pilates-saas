@@ -338,3 +338,60 @@ test.describe('Ajustar la previsión', () => {
     await expect(page.getByText('Ajustar previsión', { exact: true })).toBeVisible();
   });
 });
+
+test.describe('¿Lista para abrir?', () => {
+  const base = {
+    visible: true, fechaApertura: '2026-10-15', diasHastaApertura: 5, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS,
+    onboarding: { completado: true, puntos: ['LOCAL'], objetivos: [], fechaAproximada: false },
+  };
+  const ok = (id: string, titulo: string, bloquea = true) => ({ id, titulo, detalle: '', estado: 'OK', bloquea, href: '/x' });
+  const LISTO_A_MEDIAS = [
+    ok('clases', 'Clases para tu apertura'),
+    ok('pagina', 'Tu página de reservas'),
+    { id: 'antelacion', titulo: 'Reservas abiertas', detalle: 'Solo dejas reservar con 7 días de antelación.', estado: 'FALTA', bloquea: false, href: '/configuracion?tab=reservas#reservar' },
+    { id: 'stripe', titulo: 'Cobro online', detalle: 'Stripe no ha contestado. Vuelve a comprobarlo en un momento.', estado: 'SIN_COMPROBAR', bloquea: true, href: '/configuracion?tab=cobros#integracion-stripe' },
+    { id: 'fiscal', titulo: 'Datos fiscales', detalle: 'Falta: NIF válido. Sin ellos no se pueden emitir facturas.', estado: 'FALTA', bloquea: true, href: '/configuracion?tab=cobros#datos-fiscales' },
+  ];
+
+  test('enumera solo lo que falla, imprescindible primero, y «sin comprobar» nunca pasa por hecho', async ({ page }) => {
+    const peticiones = await montar(page, {
+      inicial: { ...base, listo: LISTO_A_MEDIAS, alertas: [{ tipo: 'APERTURA_NO_LISTA', severidad: 'CRITICA', titulo: 'Abres en 5 días y aún falta algo imprescindible', descripcion: 'Mira «¿Lista para abrir?» en Inicio.', href: '/dashboard#lista-para-abrir' }] },
+    });
+    const bloque = page.locator('#lista-para-abrir');
+    await expect(bloque.getByText('¿Lista para abrir?')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(bloque.getByText('2 de 5')).toBeVisible();
+    const puntos = bloque.getByRole('listitem');
+    await expect(puntos).toHaveCount(3);
+    await expect(puntos.nth(0)).toContainText('Cobro online');
+    await expect(puntos.nth(0)).toContainText('Sin comprobar');
+    await expect(puntos.nth(1)).toContainText('Datos fiscales');
+    await expect(puntos.nth(2)).toContainText('Recomendado');
+    await expect(bloque.getByRole('link', { name: /Datos fiscales/ })).toHaveAttribute('href', '/configuracion?tab=cobros#datos-fiscales');
+    await expect(bloque.getByText(/Todo lo imprescindible está listo/)).toHaveCount(0);
+    // Su alerta no se repite encima: el bloque ya lo dice.
+    await expect(page.getByText('Abres en 5 días y aún falta algo imprescindible')).toHaveCount(0);
+    // «Primeros pasos» se esconde: daría Stripe por hecho solo con tener cuenta.
+    await expect(page.getByRole('button', { name: 'Ocultar primeros pasos' })).toHaveCount(0);
+    if (CAPTURAS) await page.getByText('Abres en 5 días').locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]').screenshot({ path: `${CAPTURAS}/lista-para-abrir.png` });
+
+    // «Comprobar» vuelve a pedirlo al servidor y pinta lo nuevo.
+    let comprobaciones = 0;
+    await page.route('**/api/opening', route => { comprobaciones++; return json(route, {
+      ...base, listo: LISTO_A_MEDIAS.map(c => ({ ...c, estado: 'OK', detalle: '' })),
+    }); });
+    await bloque.getByRole('button', { name: 'Comprobar' }).click();
+    await expect(bloque.getByText(/Todo lo imprescindible está listo/)).toBeVisible();
+    await expect(bloque.getByText('5 de 5')).toBeVisible();
+    expect(comprobaciones).toBeGreaterThan(0);
+    expect(peticiones.get).toBeGreaterThan(0);
+  });
+
+  test('sin permiso para arreglarlo, lo dice en vez de enlazar a una pantalla que no puede abrir', async ({ page }) => {
+    await montar(page, {
+      inicial: { ...base, listo: [ok('clases', 'Clases para tu apertura'), { id: 'stripe', titulo: 'Cobro online', detalle: 'Stripe sin conectar.', estado: 'FALTA', bloquea: true, href: null }] },
+    });
+    const bloque = page.locator('#lista-para-abrir');
+    await expect(bloque.getByText('Lo resuelve la propietaria.', { exact: false })).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(bloque.getByRole('link')).toHaveCount(0);
+  });
+});
