@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarApertura } from '@/lib/permisos-reglas';
+import { puedeGestionarApertura, puedeVer } from '@/lib/permisos-reglas';
 import { debeMostrarApertura, diasHastaApertura } from '@/lib/opening/visibilidad';
 import { cargarAnalisis, cargarEstadoApertura } from '@/lib/opening/servidor';
 import { evaluarAlertasApertura } from '@/lib/opening/alertas-cron';
 import { ajustesDesdeConfig, validarAjustes } from '@/lib/opening/ajustes';
+import { recomendar, validarOnboarding } from '@/lib/opening/onboarding';
 
 // Opening OS en la home: fecha de apertura, capacidad frente a demanda y las
 // alertas (lib/opening/alertas-cron.ts; el cron horario es quien notifica).
@@ -37,7 +38,14 @@ export async function GET(req: NextRequest) {
     // horario) no puede seguir en pantalla hasta la siguiente pasada del cron.
     // Aquí solo se RESUELVEN: abrirlas y notificarlas es del cron, o gerencia
     // abriendo la home dejaría a la propietaria sin su aviso.
-    const { detectadas: alertas } = await evaluarAlertasApertura(admin, studioId, estado, analisis, now, { abrirNuevas: false });
+    const { detectadas: alertas, etapas, planes } = await evaluarAlertasApertura(admin, studioId, estado, analisis, now, { abrirNuevas: false });
+    const recomendaciones = recomendar({
+      respuestas: estado.respuestas,
+      hayClasesPublicadas: analisis.sesionesEnVentana > 0,
+      hayPlanes: planes.some(p => p.activo),
+      hayEtapaFundadora: etapas.some(e => e.etapa === 'FUNDADORA'),
+      puedeVer: href => puedeVer(sesion.rol, href),
+    });
     return NextResponse.json({
       visible: true,
       fechaApertura,
@@ -46,6 +54,8 @@ export async function GET(req: NextRequest) {
       analisis,
       alertas: alertas.map(({ tipo, severidad, titulo, descripcion, href }) => ({ tipo, severidad, titulo, descripcion, href })),
       ajustes: ajustesDesdeConfig(config),
+      onboarding: estado.respuestas,
+      recomendaciones,
       supuestos: {
         sesionesSemanaSinTope: config.sesionesSemanaSinTope,
         semanasBonoSinCaducidad: config.semanasBonoSinCaducidad,
@@ -70,7 +80,8 @@ function esFechaValida(f: unknown): f is string {
   return anio >= 2000 && anio <= 2100;
 }
 
-// PATCH { yaAbierto: true } la oculta para siempre (fase OPERANDO). Si no:
+// PATCH { yaAbierto: true } la oculta para siempre (fase OPERANDO);
+// { onboarding } guarda las respuestas y la fecha (o la quita, «no lo sé»). Si no:
 // { fechaApertura?: 'YYYY-MM-DD', ajustes?: AjustesApertura }, al menos uno.
 // Se valida todo antes de escribir nada.
 export async function PATCH(req: NextRequest) {
@@ -78,7 +89,7 @@ export async function PATCH(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarApertura(sesion.rol)) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 });
 
-  const body = await req.json().catch(() => null) as { fechaApertura?: unknown; yaAbierto?: unknown; ajustes?: unknown } | null;
+  const body = await req.json().catch(() => null) as { fechaApertura?: unknown; yaAbierto?: unknown; ajustes?: unknown; onboarding?: unknown } | null;
   const admin = requireSupabaseAdmin();
   const { studioId } = sesion;
   const ahora = new Date().toISOString();
@@ -89,6 +100,24 @@ export async function PATCH(req: NextRequest) {
     if (error) {
       console.error('[opening:patch] ya abierto', error);
       return NextResponse.json({ error: 'No se pudo guardar' }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (body?.onboarding !== undefined) {
+    const v = validarOnboarding(body.onboarding);
+    if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
+    const { error: e1 } = await admin.from('opening_progreso')
+      .upsert({ studio_id: studioId, fase: v.fase, objetivos: v.respuestas, updated_at: ahora }, { onConflict: 'studio_id' });
+    if (e1) {
+      console.error('[opening:patch] onboarding', e1);
+      return NextResponse.json({ error: 'No se pudo guardar' }, { status: 500 });
+    }
+    const { data, error: e2 } = await admin.from('studios').update({ fecha_apertura: v.fechaApertura })
+      .eq('id', studioId).select('id').maybeSingle();
+    if (e2 || !data) {
+      console.error('[opening:patch] onboarding fecha', e2);
+      return NextResponse.json({ error: 'No se pudo guardar la fecha' }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }

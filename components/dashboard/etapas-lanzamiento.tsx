@@ -100,7 +100,7 @@ export function EtapasLanzamiento() {
   const campo = 'h-9 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground';
 
   return (
-    <div className="mt-3 rounded-xl border border-border bg-background px-3 py-2.5">
+    <div id="etapas-lanzamiento" className="mt-3 scroll-mt-4 rounded-xl border border-border bg-background px-3 py-2.5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[12.5px] font-semibold text-foreground">Etapas de lanzamiento</p>
         {!abierto && planes.length > 0 && (

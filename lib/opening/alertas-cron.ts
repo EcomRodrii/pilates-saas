@@ -4,7 +4,8 @@ import { emitirAlertaApertura } from '../notifications/emit.ts';
 import { detectarAlertas, type AlertaApertura } from './alertas.ts';
 import { debeMostrarApertura, diasHastaApertura, DIAS_TRAS_APERTURA } from './visibilidad.ts';
 import type { AnalisisCapacidad } from './capacidad.ts';
-import { cargarAnalisis, cargarEstadoApertura, cargarEtapas, sincronizarAlertas, type EstadoAperturaServidor } from './servidor.ts';
+import { cargarAnalisis, cargarEstadoApertura, cargarEtapas, sincronizarAlertas, type EstadoAperturaServidor, type PlanVenta } from './servidor.ts';
+import type { EtapaVista } from './etapas.ts';
 
 /** Margen tras la ventana de la sección para resolver alertas que se queden abiertas. */
 const DIAS_LIMPIEZA = DIAS_TRAS_APERTURA + 30;
@@ -17,7 +18,7 @@ const DIAS_LIMPIEZA = DIAS_TRAS_APERTURA + 30;
 export async function evaluarAlertasApertura(
   admin: SupabaseClient, studioId: string, estado: EstadoAperturaServidor, analisis: AnalisisCapacidad, now: Date,
   opciones: { abrirNuevas: boolean } = { abrirNuevas: true },
-): Promise<{ detectadas: AlertaApertura[]; nuevas: AlertaApertura[] }> {
+): Promise<{ detectadas: AlertaApertura[]; nuevas: AlertaApertura[]; etapas: EtapaVista[]; planes: PlanVenta[] }> {
   const { etapas, planes } = await cargarEtapas(admin, studioId);
   const detectadas = detectarAlertas({
     diasHastaApertura: diasHastaApertura(estado.fechaApertura, now),
@@ -27,7 +28,7 @@ export async function evaluarAlertasApertura(
     objetivoPreventa: estado.config.objetivoPreventa,
   });
   const nuevas = await sincronizarAlertas(admin, studioId, detectadas, now, opciones);
-  return { detectadas, nuevas };
+  return { detectadas, nuevas, etapas, planes };
 }
 
 export interface ResumenAlertasApertura {
