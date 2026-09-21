@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CalendarClock } from 'lucide-react';
+import { ArrowRight, CalendarClock, CheckCircle2, RefreshCw } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 import type { AnalisisCapacidad, NivelRiesgo } from '@/lib/opening/capacidad';
 import { notaEstimacion } from '@/lib/opening/textos';
@@ -11,6 +11,7 @@ import { AjustesAperturaForm } from './ajustes-apertura';
 import { OnboardingApertura } from './onboarding-apertura';
 import type { AjustesApertura } from '@/lib/opening/ajustes';
 import { ANCLA_DECIDIR } from '@/lib/estado-estudio-cliente';
+import { ANCLA_LISTO, type Comprobacion } from '@/lib/opening/listo';
 
 interface RespuestaApertura {
   visible: boolean;
@@ -21,6 +22,7 @@ interface RespuestaApertura {
   ajustes?: AjustesApertura;
   onboarding?: { completado: true; puntos: string[]; objetivos: string[]; fechaAproximada: boolean } | null;
   recomendaciones?: { id: string; titulo: string; motivo: string; href: string }[];
+  listo?: Comprobacion[];
   alertas?: { tipo: string; severidad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA'; titulo: string; descripcion: string; href: string }[];
 }
 
@@ -60,6 +62,7 @@ async function pedirApertura(): Promise<RespuestaApertura | null> {
     if (!d || typeof d.visible !== 'boolean') return null;
     if (d.alertas !== undefined && !Array.isArray(d.alertas)) return null;
     if (d.recomendaciones !== undefined && !Array.isArray(d.recomendaciones)) return null;
+    if (d.listo !== undefined && !Array.isArray(d.listo)) return null;
     if (d.visible && d.analisis && (typeof d.analisis.capacidadPublicada !== 'number'
       || !d.analisis.desglose?.ESTIMADA_POR_PLAN || !d.analisis.estimadasPorMotivo)) return null;
     return d;
@@ -72,8 +75,75 @@ async function pedirApertura(): Promise<RespuestaApertura | null> {
 // Opening OS en la home. Solo se pinta mientras el estudio está abriendo: la
 // API decide la visibilidad (lib/opening/visibilidad.ts) y devuelve
 // `visible: false` en cualquier otro caso, incluido un rol sin permiso.
-export function AperturaEstudio() {
+const ETIQUETA_ESTADO = {
+  FALTA: (c: Comprobacion) => (c.bloquea ? 'Imprescindible' : 'Recomendado'),
+  SIN_COMPROBAR: () => 'Sin comprobar',
+} as const;
+
+// «¿Lista para abrir?»: solo se enumera lo que falla, imprescindible primero.
+// Lo que pasa se resume en una cifra. Nunca «todo listo» con algo sin comprobar.
+function ListaParaAbrir({ listo, onComprobar, comprobando }: { listo: Comprobacion[]; onComprobar: () => void; comprobando: boolean }) {
+  const ok = listo.filter(c => c.estado === 'OK').length;
+  const fallan = listo.filter(c => c.estado !== 'OK')
+    .sort((a, b) => Number(b.bloquea) - Number(a.bloquea));
+  const todo = fallan.length === 0;
+  return (
+    <div id={ANCLA_LISTO} tabIndex={-1} className="mt-3 scroll-mt-4 rounded-xl border border-border bg-background px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[12px] font-medium text-foreground">
+          ¿Lista para abrir? <span className="tabular-nums text-muted-foreground">{ok} de {listo.length}</span>
+        </p>
+        <button type="button" onClick={onComprobar} disabled={comprobando}
+          className="flex items-center gap-1 text-[12px] font-medium text-brand-secondary hover:underline disabled:opacity-60">
+          <RefreshCw size={12} className={comprobando ? 'animate-spin' : ''} />
+          {comprobando ? 'Comprobando…' : 'Comprobar'}
+        </button>
+      </div>
+      {todo ? (
+        <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-success">
+          <CheckCircle2 size={14} /> Todo lo imprescindible está listo: se puede reservar, comprar y facturar.
+        </p>
+      ) : (
+        <ul className="mt-2 space-y-1.5">
+          {fallan.map(c => {
+            const cuerpo = (
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[12.5px] font-semibold text-foreground">{c.titulo}</span>
+                  <span className={`rounded-full px-1.5 py-px text-[10.5px] font-medium ${
+                    c.estado === 'SIN_COMPROBAR' ? 'bg-muted text-muted-foreground'
+                      : c.bloquea ? 'bg-destructive/10 text-destructive' : 'bg-warning/15 text-warning'}`}>
+                    {c.estado === 'FALTA' ? ETIQUETA_ESTADO.FALTA(c) : ETIQUETA_ESTADO.SIN_COMPROBAR()}
+                  </span>
+                </span>
+                <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
+                  {c.detalle}{c.href ? '' : ' Lo resuelve la propietaria.'}
+                </span>
+              </span>
+            );
+            return (
+              <li key={c.id}>
+                {c.href ? (
+                  <Link href={c.href} className="flex items-start justify-between gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-muted">
+                    {cuerpo}
+                    <ArrowRight size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+                  </Link>
+                ) : <div className="px-1 py-1">{cuerpo}</div>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {!todo && ok > 0 && (
+        <p className="mt-1.5 text-[11px] text-muted-foreground">{ok === 1 ? '1 punto comprobado' : `${ok} puntos comprobados`} ahora mismo y en orden.</p>
+      )}
+    </div>
+  );
+}
+
+export function AperturaEstudio({ onVisible }: { onVisible?: (visible: boolean) => void } = {}) {
   const [datos, setDatos] = useState<RespuestaApertura | null>(null);
+  const [comprobando, setComprobando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ajustando, setAjustando] = useState(false);
@@ -83,6 +153,18 @@ export function AperturaEstudio() {
     void pedirApertura().then(d => { if (vivo && d) setDatos(d); });
     return () => { vivo = false; };
   }, []);
+
+  // La home esconde «Primeros pasos» mientras esta tarjeta manda: una diría que
+  // Stripe está hecho (hay cuenta) y la otra que aún no cobra.
+  const visible = !!datos?.visible;
+  useEffect(() => { onVisible?.(visible); }, [visible, onVisible]);
+
+  async function comprobar() {
+    setComprobando(true);
+    const d = await pedirApertura();
+    if (d) setDatos(d);
+    setComprobando(false);
+  }
 
   async function enviar(body: Record<string, unknown>) {
     setGuardando(true);
@@ -146,6 +228,8 @@ export function AperturaEstudio() {
   // estudio que ya puso fecha antes de que existiera no lo repite.
   const mostrarOnboarding = !datos.onboarding && sinFecha;
   const semanas = analisis ? Math.round(analisis.ventana.dias / 7) : 0;
+  // Su aviso vive en el propio bloque de «¿Lista para abrir?».
+  const alertas = (datos.alertas ?? []).filter(a => a.tipo !== 'APERTURA_NO_LISTA');
 
   return (
     <div id={ANCLA_DECIDIR.alertasApertura} tabIndex={-1} className="scroll-mt-4 rounded-2xl border border-border bg-card p-4">
@@ -177,9 +261,9 @@ export function AperturaEstudio() {
         />
       )}
 
-      {(datos.alertas?.length ?? 0) > 0 && (
+      {alertas.length > 0 && (
         <ul className="mt-3 space-y-2">
-          {datos.alertas!.map(a => (
+          {alertas.map(a => (
             <li key={a.tipo}>
               <Link href={a.href} className={`flex items-start justify-between gap-2 rounded-xl border px-3 py-2.5 transition-colors hover:opacity-90 ${COLOR_ALERTA[a.severidad] ?? COLOR_ALERTA.MEDIA}`}>
                 <span className="min-w-0">
@@ -195,6 +279,10 @@ export function AperturaEstudio() {
 
       {mostrarOnboarding && (
         <OnboardingApertura onGuardar={guardarOnboarding} onYaAbierto={() => void enviar({ yaAbierto: true })} guardando={guardando} />
+      )}
+
+      {!mostrarOnboarding && (datos.listo?.length ?? 0) > 0 && (
+        <ListaParaAbrir listo={datos.listo!} onComprobar={() => void comprobar()} comprobando={comprobando} />
       )}
 
       {!mostrarOnboarding && (datos.recomendaciones?.length ?? 0) > 0 && (

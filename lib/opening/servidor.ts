@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 import type { EstadoSuscripcion, TipoPlan } from '../types.ts';
+import { estadoCobroCuenta } from '../billing/cuenta-puede-cobrar.ts';
+import { ventanaListo, type DatosListo } from './listo.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import {
   analizarCapacidad, CONFIG_OPENING_DEFECTO,
@@ -166,6 +169,72 @@ export async function cargarEtapas(admin: SupabaseClient, studioId: string): Pro
     ventas: ventas[i],
   }));
   return { etapas, planes };
+}
+
+/** Tope para la lectura de Stripe desde la home: si no contesta, «sin comprobar». */
+const TIMEOUT_STRIPE_MS = 2500;
+
+function stripeServidor(): Stripe | null {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key || key.startsWith('sk_test_XXXX')) return null;
+  return new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
+}
+
+/** Lo que necesita evaluarListo, leído de las mismas tablas que usan checkout, reservas y facturas. */
+export async function cargarDatosListo(
+  admin: SupabaseClient, studioId: string, fechaApertura: string | null, now: Date,
+): Promise<DatosListo> {
+  const { desde, hasta } = ventanaListo(fechaApertura, now);
+  const [studioR, sesionesR, planesR] = await Promise.all([
+    admin.from('studios')
+      .select('slug, stripe_account_id, reserva_exigir_plan, reserva_antelacion_maxima_dias, nif, razon_social, direccion, codigo_postal, ciudad')
+      .eq('id', studioId).maybeSingle(),
+    admin.from('sesiones').select('inicio, cancelada, tipo_clase_id, instructor_id, aforo_maximo')
+      .eq('studio_id', studioId).gte('inicio', desde.toISOString()).lt('inicio', hasta.toISOString()).limit(2000),
+    admin.from('planes_tarifa').select('id, activo, precio').eq('studio_id', studioId),
+  ]);
+  const error = studioR.error ?? sesionesR.error ?? planesR.error;
+  if (error) throw error;
+  const s = studioR.data ?? {} as Record<string, unknown>;
+
+  const planes = (planesR.data ?? []).map(p => ({ id: p.id as string, activo: Boolean(p.activo), precio: Number(p.precio) }));
+  const vendibles = planes.filter(p => p.activo && p.precio > 0).map(p => p.id);
+  const tiposPorPlan: Record<string, string[]> = {};
+  if (vendibles.length > 0) {
+    const { data, error: e } = await admin.from('plan_tipos_clase').select('plan_id, tipo_clase_id').in('plan_id', vendibles);
+    if (e) throw e;
+    for (const t of data ?? []) (tiposPorPlan[t.plan_id as string] ??= []).push(t.tipo_clase_id as string);
+  }
+
+  const cuenta = (s.stripe_account_id as string | null) ?? null;
+  const stripe = cuenta ? stripeServidor() : null;
+  const estadoStripe: DatosListo['stripe'] = !cuenta ? 'SIN_CUENTA'
+    : !stripe ? 'SIN_RESPUESTA'
+    : await estadoCobroCuenta(stripe, cuenta, { timeoutMs: TIMEOUT_STRIPE_MS });
+
+  return {
+    sesiones: (sesionesR.data ?? []).map(x => ({
+      inicio: x.inicio as string,
+      cancelada: Boolean(x.cancelada),
+      tipoClaseId: (x.tipo_clase_id as string | null) ?? null,
+      instructorId: (x.instructor_id as string | null) ?? null,
+      aforoMaximo: Number(x.aforo_maximo ?? 0),
+    })),
+    slug: (s.slug as string | null) ?? null,
+    // Mismo defecto que la política de reservas: sin valor, se exige plan.
+    exigirPlan: (s.reserva_exigir_plan as boolean | null) ?? true,
+    planes,
+    tiposPorPlan,
+    stripe: estadoStripe,
+    fiscal: {
+      nif: (s.nif as string | null) ?? null,
+      razonSocial: (s.razon_social as string | null) ?? null,
+      direccion: (s.direccion as string | null) ?? null,
+      codigoPostal: (s.codigo_postal as string | null) ?? null,
+      ciudad: (s.ciudad as string | null) ?? null,
+    },
+    antelacionMaximaDias: (s.reserva_antelacion_maxima_dias as number | null) ?? null,
+  };
 }
 
 export interface AlertaGuardada extends AlertaApertura { id: string; creadaEn: string }

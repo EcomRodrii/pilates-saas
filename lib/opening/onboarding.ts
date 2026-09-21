@@ -88,7 +88,6 @@ export interface Recomendacion { id: string; titulo: string; motivo: string; hre
 
 export interface ContextoRecomendaciones {
   respuestas: RespuestasOnboarding | null;
-  hayClasesPublicadas: boolean;
   /** Tipos de alerta abiertos: lo que ya avisa una alerta no se repite como paso. */
   alertas: string[];
   hayPlanes: boolean;
@@ -106,9 +105,8 @@ export function recomendar(c: ContextoRecomendaciones): Recomendacion[] {
   const objetivos = new Set(c.respuestas?.objetivos ?? []);
   const out: Recomendacion[] = [];
 
-  if (!c.hayClasesPublicadas && !c.alertas.includes('SIN_HORARIO')) {
-    out.push({ id: 'horario', titulo: 'Publica tu horario', motivo: 'Sin clases en el calendario nadie puede reservar ni comprar para ellas.', href: '/calendario' });
-  }
+  // Horario, cobro y demás imprescindibles los lleva «¿Lista para abrir?»
+  // (lib/opening/listo.ts): aquí solo lo que depende de lo que quiere hacer.
   if (objetivos.has('FUNDADORAS') && !c.hayEtapaFundadora) {
     out.push(c.hayPlanes
       ? { id: 'fundadora', titulo: 'Crea tu etapa Fundadora', motivo: 'Elige el plan, las fechas y cuántas plazas vendes a ese precio.', href: '#etapas-lanzamiento' }
@@ -119,9 +117,6 @@ export function recomendar(c: ContextoRecomendaciones): Recomendacion[] {
   }
   if (objetivos.has('PRIMERAS_CLIENTAS') || objetivos.has('LISTA_ESPERA')) {
     out.push({ id: 'interesadas', titulo: 'Apunta a tus primeras interesadas', motivo: 'Tenlas localizadas para avisarlas cuando abras la venta.', href: '/clientas?nuevo=1' });
-  }
-  if (objetivos.has('TODO_PREPARADO')) {
-    out.push({ id: 'primeros-pasos', titulo: 'Termina los primeros pasos', motivo: 'Lo que falta para poder cobrar y recibir reservas.', href: '/primeros-pasos' });
   }
 
   return out.filter(r => r.href.startsWith('#') || c.puedeVer(r.href.split('?')[0])).slice(0, 3);

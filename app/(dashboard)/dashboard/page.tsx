@@ -310,6 +310,8 @@ export default function Dashboard() {
   // Props para el contenedor de cada sección: orden CSS + hidden si está oculta.
   const wrap = (id: string) => ({ style: { order: ordenSeccion(id) ?? 0 }, hidden: ordenSeccion(id) === undefined });
 
+  // Lo sube la tarjeta de apertura (visible solo mientras el estudio abre).
+  const [aperturaVisible, setAperturaVisible] = useState(false);
   // Hydration fix — avoids server/client mismatch with Date
   const [mounted, setMounted] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
@@ -779,12 +781,15 @@ export default function Dashboard() {
             de INSTRUCTOR. Sin este guardia, su botón "Ver todos los pasos"
             la devolvía al propio dashboard, mismo enlace-que-no-lleva-a-
             ningún-sitio que ya se evita en el resto de esta pantalla. */}
-        {puedeVer(rolActual, '/primeros-pasos') && (
+        {/* Mientras la tarjeta de apertura se ve, ella dice qué falta (y
+            comprueba Stripe de verdad); «Primeros pasos» daría Stripe por hecho
+            solo con tener cuenta. */}
+        {puedeVer(rolActual, '/primeros-pasos') && !aperturaVisible && (
         <div {...wrap('onboarding')}><OnboardingChecklist /></div>
         )}
 
         {puedeGestionarApertura(rolActual) && (
-        <div {...wrap('apertura')}><AperturaEstudio /></div>
+        <div {...wrap('apertura')}><AperturaEstudio onVisible={setAperturaVisible} /></div>
         )}
 
         {/* ── Automation briefing ────────────────────────────────────────────── */}

@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
+import { estadoCobroCuenta } from '@/lib/billing/cuenta-puede-cobrar';
 import { clasificarErrorCobro } from '@/lib/billing/clasificar-error-cobro';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
@@ -162,15 +163,14 @@ export async function cobrarReciboOffSession(params: {
   // Verifica que la cuenta conectada del estudio PUEDE cobrar antes de intentarlo.
   // Si el onboarding de Stripe está a medias (charges_enabled=false) o la cuenta
   // se desconectó, el cargo fallaría con un error críptico; mejor avisar claro.
-  try {
-    const cuenta = await stripe.accounts.retrieve(studio.stripe_account_id);
-    if (!cuenta.charges_enabled) {
-      return {
-        ok: false, errorCode: 'CUENTA_NO_LISTA',
-        error: 'La cuenta de Stripe del estudio aún no puede cobrar. Completa el onboarding en Stripe (verificación de identidad y cuenta bancaria).',
-      };
-    }
-  } catch {
+  const cobro = await estadoCobroCuenta(stripe, studio.stripe_account_id);
+  if (cobro === 'NO_PUEDE') {
+    return {
+      ok: false, errorCode: 'CUENTA_NO_LISTA',
+      error: 'La cuenta de Stripe del estudio aún no puede cobrar. Completa el onboarding en Stripe (verificación de identidad y cuenta bancaria).',
+    };
+  }
+  if (cobro === 'SIN_RESPUESTA') {
     return { ok: false, error: 'No se pudo verificar la cuenta de Stripe del estudio (¿desconectada?).', errorCode: 'CUENTA_NO_LISTA' };
   }
 

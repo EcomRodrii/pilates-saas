@@ -8,7 +8,8 @@ import { recomendar } from './onboarding.ts';
 import { detectarAlertas, type AlertaApertura } from './alertas.ts';
 import { debeMostrarApertura, diasHastaApertura, DIAS_TRAS_APERTURA } from './visibilidad.ts';
 import type { AnalisisCapacidad } from './capacidad.ts';
-import { cargarAnalisis, cargarEstadoApertura, cargarEtapas, sincronizarAlertas, type EstadoAperturaServidor, type PlanVenta } from './servidor.ts';
+import { cargarAnalisis, cargarDatosListo, cargarEstadoApertura, cargarEtapas, sincronizarAlertas, type EstadoAperturaServidor, type PlanVenta } from './servidor.ts';
+import { ACCION_LISTO, bloqueantesPendientes, evaluarListo, type DatosListo } from './listo.ts';
 import type { EtapaVista } from './etapas.ts';
 
 /** Margen tras la ventana de la sección para resolver alertas que se queden abiertas. */
@@ -22,17 +23,23 @@ const DIAS_LIMPIEZA = DIAS_TRAS_APERTURA + 30;
 export async function evaluarAlertasApertura(
   admin: SupabaseClient, studioId: string, estado: EstadoAperturaServidor, analisis: AnalisisCapacidad, now: Date,
   opciones: { abrirNuevas: boolean } = { abrirNuevas: true },
-): Promise<{ detectadas: AlertaApertura[]; nuevas: AlertaApertura[]; etapas: EtapaVista[]; planes: PlanVenta[] }> {
-  const { etapas, planes } = await cargarEtapas(admin, studioId);
+): Promise<{ detectadas: AlertaApertura[]; nuevas: AlertaApertura[]; etapas: EtapaVista[]; planes: PlanVenta[]; datosListo: DatosListo }> {
+  const [{ etapas, planes }, datosListo] = await Promise.all([
+    cargarEtapas(admin, studioId),
+    cargarDatosListo(admin, studioId, estado.fechaApertura, now),
+  ]);
+  // Para la alerta da igual quién pueda arreglarlo: el rol solo decide los enlaces.
+  const pendientesListo = bloqueantesPendientes(evaluarListo(datosListo, now, () => true)).map(c => c.id);
   const detectadas = detectarAlertas({
     diasHastaApertura: diasHastaApertura(estado.fechaApertura, now),
     analisis,
     etapas,
     planActivo: new Map(planes.map(p => [p.id, p.activo])),
     objetivoPreventa: estado.config.objetivoPreventa,
+    pendientesListo,
   });
   const nuevas = await sincronizarAlertas(admin, studioId, detectadas, now, opciones);
-  return { detectadas, nuevas, etapas, planes };
+  return { detectadas, nuevas, etapas, planes, datosListo };
 }
 
 export interface ResumenAlertasApertura {
@@ -96,16 +103,17 @@ export async function barrerAlertasApertura(admin: SupabaseClient, now = new Dat
         continue;
       }
       const analisis = await cargarAnalisis(admin, studioId, estado.config, now);
-      const { detectadas, nuevas, etapas, planes } = await evaluarAlertasApertura(admin, studioId, estado, analisis, now);
+      const { detectadas, nuevas, etapas, planes, datosListo } = await evaluarAlertasApertura(admin, studioId, estado, analisis, now);
       for (const a of nuevas) {
         await emitirAlertaApertura({ studioId, fecha: hoy, tipo: a.tipo, titulo: a.titulo, descripcion: a.descripcion });
       }
       resumen.nuevas += nuevas.length;
 
       if (tocaBrief) {
-        const [siguiente] = recomendar({
+        // Lo imprescindible que falte va antes que cualquier recomendación.
+        const [pendiente] = bloqueantesPendientes(evaluarListo(datosListo, now, () => true));
+        const [recomendado] = recomendar({
           respuestas: estado.respuestas,
-          hayClasesPublicadas: analisis.sesionesEnVentana > 0,
           alertas: detectadas.map(a => a.tipo),
           hayPlanes: planes.some(p => p.activo),
           hayEtapaFundadora: etapas.some(e => e.etapa === 'FUNDADORA'),
@@ -118,7 +126,7 @@ export async function barrerAlertasApertura(admin: SupabaseClient, now = new Dat
           fechaAproximada: estado.respuestas?.fechaAproximada ?? false,
           ...(await novedadesDeAyer(admin, studioId, now)),
           alerta: masGrave ?? null,
-          siguientePaso: siguiente ?? null,
+          siguientePaso: pendiente ? { titulo: ACCION_LISTO[pendiente.id] } : recomendado ?? null,
         });
         if (brief) {
           await emitirBriefApertura({ studioId, fecha: hoy, ...brief });
