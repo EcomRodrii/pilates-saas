@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, CalendarClock } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 import type { AnalisisCapacidad, NivelRiesgo } from '@/lib/opening/capacidad';
+import { notaEstimacion } from '@/lib/opening/textos';
 
 interface RespuestaApertura {
   visible: boolean;
@@ -28,9 +29,6 @@ function titular(dias: number | null | undefined): string {
   return `Llevas ${-dias} ${dias === -1 ? 'día' : 'días'} abierto`;
 }
 
-// Opening OS en la home. Solo se pinta mientras el estudio está abriendo: la
-// API decide la visibilidad (lib/opening/visibilidad.ts) y devuelve
-// `visible: false` en cualquier otro caso, incluido un rol sin permiso.
 async function pedirApertura(): Promise<RespuestaApertura | null> {
   try {
     const res = await fetch('/api/opening', { headers: await authHeader() });
@@ -42,6 +40,9 @@ async function pedirApertura(): Promise<RespuestaApertura | null> {
   }
 }
 
+// Opening OS en la home. Solo se pinta mientras el estudio está abriendo: la
+// API decide la visibilidad (lib/opening/visibilidad.ts) y devuelve
+// `visible: false` en cualquier otro caso, incluido un rol sin permiso.
 export function AperturaEstudio() {
   const [datos, setDatos] = useState<RespuestaApertura | null>(null);
   const [fecha, setFecha] = useState('');
@@ -164,8 +165,7 @@ export function AperturaEstudio() {
           </dl>
           {analisis.desglose.ESTIMADA_POR_PLAN.suscripciones > 0 && supuestos && (
             <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-              {analisis.desglose.ESTIMADA_POR_PLAN.suscripciones} de tus cuotas aún no tienen historial: las estimamos
-              por su plan (las que no tienen tope, a {supuestos.sesionesSemanaSinTope} clases por semana).
+              {notaEstimacion(analisis, supuestos.sesionesSemanaSinTope)}
             </p>
           )}
         </div>
