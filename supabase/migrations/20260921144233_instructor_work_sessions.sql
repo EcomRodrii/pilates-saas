@@ -95,11 +95,9 @@ CREATE POLICY config_tiempo_select ON public.studio_config_tiempo
   FOR SELECT TO authenticated
   USING (studio_id = current_studio_id());
 
-CREATE POLICY config_tiempo_write ON public.studio_config_tiempo
-  FOR ALL TO authenticated
-  USING (studio_id = current_studio_id() AND public.current_rol() = 'PROPIETARIO')
-  WITH CHECK (studio_id = current_studio_id() AND public.current_rol() = 'PROPIETARIO');
-
-REVOKE ALL ON public.studio_config_tiempo FROM anon;
-GRANT SELECT, INSERT, UPDATE ON public.studio_config_tiempo TO authenticated;
+-- Sin escritura desde el cliente: la cambia el servidor. Revocar a los dos roles
+-- y no solo a anon: los privilegios por defecto del proyecto dan TRUNCATE y
+-- TRIGGER a authenticated, y esos dos se saltan la RLS.
+REVOKE ALL ON public.studio_config_tiempo FROM anon, authenticated;
+GRANT SELECT ON public.studio_config_tiempo TO authenticated;
 GRANT ALL ON public.studio_config_tiempo TO service_role;

@@ -12,6 +12,7 @@ import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { addDias, etiquetaDia, fechaLarga, hoyISO, saludo } from '@/lib/student/formato';
 import { getClases } from '@/lib/student/datos';
+import { fichar } from '@/lib/student/datos-fichaje';
 import {
   getAgendaInstructora, getHilosInstructora, getOfertasInstructora, getPerfilInstructora, responderOferta,
 } from '@/lib/student/datos-instructora';
@@ -104,6 +105,14 @@ export default function HoyInstructoraPage() {
     [esInstructora, slug],
   );
   const { data: perfil } = useAsync(cargarPerfil, () => false, `instr:${slug}:perfil`);
+  // El fichaje, aparte y sin copia guardada: si falla, la tarjeta sigue llevando a
+  // «Fichar» (sin estado) y el resto de «Hoy» no se entera; y lo que pinta es
+  // siempre el estado del servidor, nunca uno recordado de otra visita.
+  const cargarFichaje = useCallback(
+    () => (esInstructora ? fichar(slug, 'estado').then((r) => r.estado) : new Promise<never>(() => {})),
+    [esInstructora, slug],
+  );
+  const { data: fichaje } = useAsync(cargarFichaje, () => false);
   const miId = useMiAuthUserId();
 
   const responder = async (oferta: OfertaSustitucion, accion: 'aceptar' | 'rechazar') => {
@@ -280,6 +289,20 @@ export default function HoyInstructoraPage() {
                 <Cifra valor={String(semana.plazasOcupadas)} texto={semana.plazasOcupadas === 1 ? 'plaza ocupada' : 'plazas ocupadas'} separador />
               </div>
             </section>
+
+            <Link href={href('/equipo/fichaje')} className="card card--tap" data-testid="fichaje-hoy" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '13px 15px' }}>
+              <span style={{ minWidth: 0 }}>
+                <span className="t-label" style={{ display: 'block' }}>Fichaje</span>
+                <span style={{ display: 'block', marginTop: 3, fontSize: 'var(--t-body)', fontWeight: 700 }}>
+                  {fichaje?.abierta
+                    ? `Jornada abierta desde las ${new Date(fichaje.abierta.checkInAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}`
+                    : fichaje ? 'No has fichado la entrada' : 'Tu entrada y salida'}
+                </span>
+              </span>
+              <span style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>
+                {fichaje?.abierta ? 'Fichar salida →' : fichaje ? 'Fichar entrada →' : 'Fichar →'}
+              </span>
+            </Link>
 
             <FilaAccesos accesos={accesos} enLinea />
 

@@ -7,8 +7,8 @@ import { montarPortal, SLUG } from './portal-mock';
 // El servidor está simulado con estado (una jornada abierta o no) para poder
 // recargar y ver que sigue ahí. ⚠️ Un mock nunca es el servidor real: que el
 // índice único de la base de datos absorbe el doble clic, y que la RLS niega
-// escrituras directas, se comprobó aparte contra un PostgreSQL real (ver
-// AUDITORIA_QA_FINAL.md); aquí se prueba lo que ve y hace la pantalla.
+// escrituras directas, se comprobó aparte contra PostgreSQL; aquí se prueba lo
+// que ve y hace la pantalla.
 //
 // Cada camino de fallo lleva contador de intentos: «no pintó éxito» sería verdad
 // también si la pantalla no hubiera llegado a enviar nada.
@@ -20,7 +20,7 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, opciones: { entradaFalla?: boolean; abiertaHaceMin?: number } = {}) {
+async function montar(page: Page, opciones: { entradaFalla?: boolean; abiertaHaceMin?: number; estadoFalla?: boolean } = {}) {
   const contador = { entrada: 0, salida: 0, estado: 0, cuerpos: [] as Record<string, unknown>[] };
   let abierta: { id: string; checkInAt: string; requiereRevision: boolean } | null = opciones.abiertaHaceMin != null
     ? { id: 'j1', checkInAt: new Date(Date.now() - opciones.abiertaHaceMin * 60_000).toISOString(), requiereRevision: false }
@@ -29,11 +29,15 @@ async function montar(page: Page, opciones: { entradaFalla?: boolean; abiertaHac
   await montarPortal(page, { conSesion: true, sinSocia: true });
   await page.route('**/api/public/session**', (route) => json(route, { error: 'No hay ninguna socia' }, 404));
   await page.route('**/api/portal/instructora/sesion', (route) => json(route, { instructora: INSTRUCTORA }));
+  await page.route('**/api/portal/instructora/agenda', (route) => json(route, { clases: [], bajas: [] }));
   await page.route('**/api/portal/instructora/fichaje', async (route) => {
     const cuerpo = JSON.parse(route.request().postData() || '{}') as { slug?: string; accion?: string };
     contador.cuerpos.push(cuerpo);
     const estado = () => ({ abierta, proxima: null, ventanaMinutos: 10 });
-    if (cuerpo.accion === 'estado') { contador.estado++; return json(route, { estado: estado() }); }
+    if (cuerpo.accion === 'estado') {
+      contador.estado++;
+      return opciones.estadoFalla ? json(route, { error: 'caído' }, 500) : json(route, { estado: estado() });
+    }
     // Latencia real: sin ella el segundo clic de un doble clic llegaría cuando ya se ha repintado.
     await new Promise((r) => setTimeout(r, 300));
     if (cuerpo.accion === 'entrada') {
@@ -131,6 +135,28 @@ test.describe('Fichaje de la instructora', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await boton.click();
     await expect(page.getByTestId('fichaje-estado')).toHaveAttribute('data-abierta', 'true');
+  });
+
+  test('en «Hoy» se ve si está fichada y lleva a fichar', async ({ page }) => {
+    const c = await montar(page, { abiertaHaceMin: 45 });
+    await page.goto(`/portal/${SLUG}/equipo`);
+    const tarjeta = page.getByTestId('fichaje-hoy');
+    await expect(tarjeta).toContainText(/Jornada abierta desde las \d{2}:\d{2}/, { timeout: 30_000 });
+    await expect(tarjeta).toContainText('Fichar salida');
+    expect(c.estado).toBeGreaterThan(0);
+    await tarjeta.click();
+    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/equipo/fichaje$`), { timeout: 30_000 });
+    await expect(page.getByTestId('fichaje-estado')).toHaveAttribute('data-abierta', 'true', { timeout: 30_000 });
+  });
+
+  test('si no se puede leer el fichaje, «Hoy» se ve igual y el acceso sigue ahí', async ({ page }) => {
+    const c = await montar(page, { estadoFalla: true });
+    await page.goto(`/portal/${SLUG}/equipo`);
+    const tarjeta = page.getByTestId('fichaje-hoy');
+    await expect(tarjeta).toContainText('Tu entrada y salida', { timeout: 30_000 });
+    await expect(tarjeta).toContainText('Fichar →');
+    await expect(page.getByTestId('resumen-semana')).toBeVisible();
+    expect(c.estado).toBeGreaterThan(0);
   });
 });
 
