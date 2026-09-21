@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularLiquidacion } from './liquidacion-logic.ts';
+import { calcularLiquidacion, periodoLiquidacionDe } from './liquidacion-logic.ts';
+import { rangoMesEstudio } from '../fichaje/jornadas-equipo.ts';
 
 const sesion = (id: string, horas: number) => ({
   id, inicio: '2026-08-01T09:00:00.000Z', fin: new Date(new Date('2026-08-01T09:00:00.000Z').getTime() + horas * 3600000).toISOString(),
@@ -100,4 +101,54 @@ test('mezcla realista: base + clases propias + una sustitución con recargo + pe
   assert.equal(r.variableSustitucionEur, 27.5); // 1h * 25 * 1.1
   assert.equal(r.repartoPenalizacionesEur, 5); // 20 * 25%
   assert.equal(r.totalEur, 282.5);
+});
+
+// El mes de una liquidación se corta a medianoche de MADRID, no de UTC. Con
+// `Date.UTC` una clase de las 00:30 del día 1 caía en el mes anterior.
+const dentro = (r: { desde: string; hasta: string } | null, iso: string) =>
+  !!r && Date.parse(iso) >= Date.parse(r.desde) && Date.parse(iso) < Date.parse(r.hasta);
+
+test('periodo de liquidación: septiembre (UTC+2) empieza a las 00:00 de Madrid del día 1', () => {
+  const sep = rangoMesEstudio(2026, 9);
+  assert.deepEqual(sep, { desde: '2026-08-31T22:00:00.000Z', hasta: '2026-09-30T22:00:00.000Z' });
+  // 00:30 del 1-sep en Madrid = 31-ago 22:30 UTC: es de septiembre.
+  assert.ok(dentro(sep, '2026-08-31T22:30:00.000Z'));
+  assert.ok(!dentro(rangoMesEstudio(2026, 8), '2026-08-31T22:30:00.000Z'));
+  assert.deepEqual(periodoLiquidacionDe('2026-08-31T22:30:00.000Z'), { anio: 2026, mes: 9 });
+  // 23:59 del 31-ago en Madrid sigue siendo agosto.
+  assert.deepEqual(periodoLiquidacionDe('2026-08-31T21:59:00.000Z'), { anio: 2026, mes: 8 });
+});
+
+test('periodo de liquidación: octubre cruza el cambio de hora y acaba en UTC+1', () => {
+  const oct = rangoMesEstudio(2026, 10);
+  assert.deepEqual(oct, { desde: '2026-09-30T22:00:00.000Z', hasta: '2026-10-31T23:00:00.000Z' });
+  // 01:30 del 1-oct en Madrid (verano) = 30-sep 23:30 UTC: octubre.
+  assert.ok(dentro(oct, '2026-09-30T23:30:00.000Z'));
+  // 23:30 del 31-oct en Madrid (ya invierno) = 22:30 UTC: todavía octubre.
+  assert.ok(dentro(oct, '2026-10-31T22:30:00.000Z'));
+  assert.deepEqual(periodoLiquidacionDe('2026-10-31T22:30:00.000Z'), { anio: 2026, mes: 10 });
+  // 00:30 del 1-nov en Madrid (invierno) = 31-oct 23:30 UTC: noviembre.
+  assert.ok(!dentro(oct, '2026-10-31T23:30:00.000Z'));
+  assert.deepEqual(periodoLiquidacionDe('2026-10-31T23:30:00.000Z'), { anio: 2026, mes: 11 });
+});
+
+test('periodo de liquidación: diciembre → enero cambia de año a medianoche de Madrid', () => {
+  assert.deepEqual(rangoMesEstudio(2026, 12), { desde: '2026-11-30T23:00:00.000Z', hasta: '2026-12-31T23:00:00.000Z' });
+  assert.deepEqual(rangoMesEstudio(2027, 1), { desde: '2026-12-31T23:00:00.000Z', hasta: '2027-01-31T23:00:00.000Z' });
+  // 00:30 del 1-ene-2027 en Madrid = 31-dic-2026 23:30 UTC: enero de 2027.
+  assert.ok(dentro(rangoMesEstudio(2027, 1), '2026-12-31T23:30:00.000Z'));
+  assert.ok(!dentro(rangoMesEstudio(2026, 12), '2026-12-31T23:30:00.000Z'));
+  assert.deepEqual(periodoLiquidacionDe('2026-12-31T23:30:00.000Z'), { anio: 2027, mes: 1 });
+});
+
+test('periodoLiquidacionDe y rangoMesEstudio coinciden en cada borde del año', () => {
+  // Lo que genera la liquidación (rango) y lo que marca para revisión una
+  // penalización revertida (periodo) tienen que hablar del MISMO mes.
+  for (let mes = 1; mes <= 12; mes++) {
+    const r = rangoMesEstudio(2026, mes)!;
+    assert.deepEqual(periodoLiquidacionDe(r.desde), { anio: 2026, mes }, `inicio de ${mes}`);
+    const ultimoMinuto = new Date(Date.parse(r.hasta) - 60000).toISOString();
+    assert.deepEqual(periodoLiquidacionDe(ultimoMinuto), { anio: 2026, mes }, `final de ${mes}`);
+  }
+  assert.equal(periodoLiquidacionDe('no-es-fecha'), null);
 });

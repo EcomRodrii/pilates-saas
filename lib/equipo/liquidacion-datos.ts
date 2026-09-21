@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { uid } from '@/lib/utils';
 import type { Rol } from '@/lib/types';
 import { calcularLiquidacion, type SesionParaLiquidacion } from './liquidacion-logic.ts';
+import { rangoMesEstudio } from '../fichaje/jornadas-equipo.ts';
 
 // Capa de datos server-only para la liquidación de instructoras (fila 11 del
 // informe estratégico). Separada de lib/supabase-data.ts (god file, no
@@ -57,12 +58,6 @@ function mapRow(r: Record<string, unknown>): LiquidacionRow {
   };
 }
 
-function rangoPeriodo(anio: number, mes: number): { desde: string; hasta: string } {
-  const desde = new Date(Date.UTC(anio, mes - 1, 1));
-  const hasta = new Date(Date.UTC(anio, mes, 1));
-  return { desde: desde.toISOString(), hasta: hasta.toISOString() };
-}
-
 /**
  * Genera (o recalcula) el BORRADOR de liquidación de una instructora para un
  * mes. Idempotente vía upsert (unique instructor_id+periodo). Rechaza si la
@@ -80,7 +75,12 @@ export async function generarLiquidacionBorrador(
     return { error: `Esta liquidación ya está ${existente.estado === 'CONFIRMADA' ? 'confirmada' : 'pagada'} — reabre el proceso antes de recalcular` };
   }
 
-  const { desde, hasta } = rangoPeriodo(anio, mes);
+  // El mes a medianoche de Madrid, no de UTC: con `Date.UTC` una clase (o una
+  // penalización cobrada) entre las 00:00 y la 01:59 del día 1 caía en la
+  // liquidación del mes anterior. Mismo rango que «Tiempo trabajado».
+  const rango = rangoMesEstudio(anio, mes);
+  if (!rango) return { error: 'Periodo no válido' };
+  const { desde, hasta } = rango;
 
   const [{ data: tarifaRow }, { data: sesionesRow }, { data: sustitucionesRow }, { data: studioRow }] = await Promise.all([
     admin.from('instructor_tarifas').select('tarifa_hora, base_mensual_eur, recargo_sustitucion_pct')

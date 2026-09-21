@@ -157,3 +157,15 @@ test('seguirPenalizacionAlRecibo avisa por Sentry cuando la liquidación ya est�
   assert.ok(cuerpo.includes('Sentry.captureMessage'), 'debe avisar por Sentry en el caso ya_pagada/error');
   assert.ok(cuerpo.includes("'ya_pagada'"), 'debe distinguir el caso ya_pagada explícitamente');
 });
+
+test('pedirRevisionLiquidacionPenalizacion: el periodo es el mes de Madrid, no el de UTC', async () => {
+  // Cobrada a las 00:30 del 1-oct en Madrid (30-sep 22:30 UTC): la liquidación
+  // que la repartió es la de OCTUBRE — con getUTCMonth se marcaba septiembre.
+  const { admin, updates } = fakeAdmin();
+  const resultado = await pedirRevisionLiquidacionPenalizacion(
+    admin, 'studio-1', { ...PEN, procesada_en: '2026-09-30T22:30:00.000Z' }, 'motivo');
+  assert.equal(resultado, 'revisada');
+  const liq = updates.find(u => u.tabla === 'liquidaciones_instructoras');
+  assert.equal(liq?.filtros.periodo_anio, 2026);
+  assert.equal(liq?.filtros.periodo_mes, 10);
+});

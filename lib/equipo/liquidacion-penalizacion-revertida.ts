@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
+import { periodoLiquidacionDe } from './liquidacion-logic.ts';
 
 // 44ª pasada de auditoría, hallazgo H-2. Cuando `procesarReembolsoDeUnRecibo`
 // (lib/billing/procesar-reembolso.ts) marca DEVUELTO un recibo, este helper
@@ -90,11 +91,12 @@ export async function pedirRevisionLiquidacionPenalizacion(
   if (!instructorId) return 'sin_periodo';
 
   // Mismo criterio que generarLiquidacionBorrador: el periodo de una
-  // penalización es el mes en que se COBRÓ, no el de la clase.
+  // penalización es el mes en que se COBRÓ, no el de la clase — y en hora del
+  // estudio, o una cobrada a las 00:30 del día 1 marcaría el mes anterior.
   if (!pen.procesada_en) return 'sin_periodo';
-  const fecha = new Date(pen.procesada_en);
-  const anio = fecha.getUTCFullYear();
-  const mes = fecha.getUTCMonth() + 1;
+  const periodo = periodoLiquidacionDe(pen.procesada_en);
+  if (!periodo) return 'sin_periodo';
+  const { anio, mes } = periodo;
 
   const { data: tocadas, error } = await admin.from('liquidaciones_instructoras')
     .update({ requiere_revision: true, revision_motivo: motivo })
