@@ -20,6 +20,8 @@ export interface StudioConfig {
    *  la puerta de verdad es `/api/public/plaza-fija`. Ausente = no. */
   puedePedirPlazaFija?: boolean;
   puedePedirPausa?: boolean;
+  /** Opening OS: fecha de apertura si la apertura suave está puesta. Solo etiqueta; decide el servidor. */
+  aperturaSuaveHasta?: string | null;
   /** Cómo llama el estudio a sus créditos. `null` = el nombre por defecto. */
   creditosNombre: string | null;
   /** Lema corto bajo el nombre, en la cabecera sobre el héroe. `null` = no se pinta. */
