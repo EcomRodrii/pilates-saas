@@ -175,7 +175,10 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     const visto = await contarPeticiones(page);
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
 
-    await expect(page.getByText('¿Vienes los miércoles a las 10:00?', { exact: false })).toBeVisible({ timeout: 30_000 });
+    // La hora NO se fija en el test: el fixture da la clase sin zona, así que en
+    // el CI (UTC) sale a las 12:00 del estudio y en una máquina en Madrid a las
+    // 10:00. Lo que se defiende es que lleve SU día y SU hora, sea la que sea.
+    await expect(page.getByText(/¿Vienes los miércoles a las \d{2}:\d{2}\?/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/sin que tengas que volver a hacerlo/)).toBeVisible();
     await expect(page.getByText(/Tu estudio tiene que confirmarla/)).toBeVisible();
     await page.getByRole('button', { name: 'Pedir plaza fija' }).click();
@@ -211,7 +214,7 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     const oferta = page.getByTestId('oferta-plaza-fija');
     await expect(oferta).toBeVisible();
     await expect(oferta.getByText('¿Vienes cada semana?')).toBeVisible();
-    await expect(oferta.getByText(/los miércoles a las 10:00/)).toBeVisible();
+    await expect(oferta.getByText(/los miércoles a las \d{2}:\d{2}/)).toBeVisible();
     await oferta.getByRole('button', { name: 'Pedir plaza fija' }).click();
 
     await expect(oferta.getByText('Petición enviada: tu estudio te contestará en la app.')).toBeVisible({ timeout: 30_000 });
