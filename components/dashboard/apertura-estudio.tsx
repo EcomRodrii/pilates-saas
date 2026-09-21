@@ -6,6 +6,7 @@ import { ArrowRight, CalendarClock } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 import type { AnalisisCapacidad, NivelRiesgo } from '@/lib/opening/capacidad';
 import { notaEstimacion } from '@/lib/opening/textos';
+import { EtapasLanzamiento } from './etapas-lanzamiento';
 
 interface RespuestaApertura {
   visible: boolean;
@@ -33,7 +34,12 @@ async function pedirApertura(): Promise<RespuestaApertura | null> {
   try {
     const res = await fetch('/api/opening', { headers: await authHeader() });
     if (!res.ok) return null;
-    return (await res.json()) as RespuestaApertura;
+    const d = (await res.json()) as RespuestaApertura | null;
+    // Sin dar por hecha la forma: un cuerpo inesperado no puede tumbar la home.
+    if (!d || typeof d.visible !== 'boolean') return null;
+    if (d.visible && d.analisis && (typeof d.analisis.capacidadPublicada !== 'number'
+      || !d.analisis.desglose?.ESTIMADA_POR_PLAN || !d.analisis.estimadasPorMotivo)) return null;
+    return d;
   } catch {
     // Sección de ayuda: si no carga, no ocupa sitio en la home.
     return null;
@@ -170,6 +176,8 @@ export function AperturaEstudio() {
           )}
         </div>
       ))}
+
+      <EtapasLanzamiento />
     </div>
   );
 }

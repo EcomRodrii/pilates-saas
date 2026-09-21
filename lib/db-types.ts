@@ -3146,6 +3146,12 @@ export interface RowLaunchStages {
   estado: string;
   created_at: string;
   updated_at: string;
+  // migr 20260921161026.
+  al_completar: string | null;
+  // migr 20260921161026.
+  cerrada_en: string | null;
+  // migr 20260921161026.
+  cerrada_motivo: string | null;
 }
 
 export interface RowAlertasOpening {
@@ -8744,6 +8750,9 @@ export type LaunchStagesInsert = {
   estado?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  al_completar?: string | null | null;
+  cerrada_en?: string | null | null;
+  cerrada_motivo?: string | null | null;
 }
 
 export type LaunchStagesUpdate = {
@@ -8757,6 +8766,9 @@ export type LaunchStagesUpdate = {
   estado?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  al_completar?: string | null | null;
+  cerrada_en?: string | null | null;
+  cerrada_motivo?: string | null | null;
 }
 
 export type AlertasOpeningInsert = {

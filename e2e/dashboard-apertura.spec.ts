@@ -33,10 +33,15 @@ interface Opciones {
   inicial: unknown;
   trasGuardar?: unknown;
   patchStatus?: number;
+  /** GET /api/opening/etapas antes y después de crear o borrar una. En dev React
+   *  monta dos veces, así que la respuesta depende de lo que ha pasado, no de
+   *  cuántas peticiones van. */
+  etapas?: { antes: unknown; despues?: unknown };
 }
 
 async function montar(page: Page, o: Opciones) {
-  const peticiones = { get: 0, patch: [] as unknown[] };
+  const peticiones = { get: 0, patch: [] as unknown[], etapasPost: [] as unknown[], etapasDelete: [] as string[] };
+  let etapasCambiadas = false;
   let guardado = false;
 
   await page.addInitScript(([key, uid]) => {
@@ -66,6 +71,13 @@ async function montar(page: Page, o: Opciones) {
     }
     peticiones.get++;
     return json(route, guardado && o.trasGuardar ? o.trasGuardar : o.inicial);
+  });
+  await page.route('**/api/opening/etapas**', async route => {
+    const m = route.request().method();
+    if (m === 'POST') { etapasCambiadas = true; peticiones.etapasPost.push(route.request().postDataJSON()); return json(route, { ok: true, id: 'nueva' }); }
+    if (m === 'DELETE') { etapasCambiadas = true; peticiones.etapasDelete.push(new URL(route.request().url()).searchParams.get('id') ?? ''); return json(route, { ok: true }); }
+    const e = o.etapas ?? { antes: { hoy: '2026-10-03', puedeCerrarVenta: true, etapas: [], planes: [] } };
+    return json(route, etapasCambiadas && e.despues ? e.despues : e.antes);
   });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
@@ -164,5 +176,75 @@ test.describe('Apertura del estudio en la home', () => {
     await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: ARRANQUE_MS });
     expect(peticiones.get).toBe(0);
     await expect(page.getByText('¿Cuándo abres tu estudio?')).toHaveCount(0);
+  });
+});
+
+const CON_FECHA = { visible: true, fechaApertura: '2026-10-15', diasHastaApertura: 14, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS };
+const PLANES = [{ id: 'p1', nombre: 'Cuota Fundadora', tipo: 'MENSUAL', precio: 59 }];
+const ETAPA = {
+  id: '11111111-1111-1111-1111-111111111111', etapa: 'FUNDADORA', planId: 'p1', planNombre: 'Cuota Fundadora',
+  desde: '2026-10-01', hasta: '2026-10-15', limitePlazas: 20, alCompletar: 'CERRAR', cerrada: false, cerradaMotivo: null, ventas: 3,
+};
+
+test.describe('Etapas de lanzamiento', () => {
+  test('crea una etapa Fundadora con cupo y cierre de venta', async ({ page }) => {
+    const peticiones = await montar(page, {
+      inicial: CON_FECHA,
+      etapas: { antes: { hoy: '2026-10-03', puedeCerrarVenta: true, etapas: [], planes: PLANES }, despues: { hoy: '2026-10-03', puedeCerrarVenta: true, etapas: [ETAPA], planes: PLANES } },
+    });
+    await page.getByRole('button', { name: 'Añadir etapa' }).click({ timeout: ARRANQUE_MS });
+    await page.getByLabel('Plan que se vende').selectOption('p1');
+    await page.getByLabel('Desde').fill('2026-10-01');
+    await page.getByLabel('Hasta (incluido)').fill('2026-10-15');
+    await page.getByLabel('Plazas (vacío = sin límite)').fill('20');
+    await page.getByLabel('Cerrar la venta del plan').check();
+    await expect(page.getByText(/dejará de venderse en tu web y en la app/)).toBeVisible();
+    await page.getByRole('button', { name: 'Guardar etapa' }).click();
+
+    await expect(page.getByText('Fundadora · Cuota Fundadora')).toBeVisible();
+    await expect(page.getByText('3 de 20')).toBeVisible();
+    await expect(page.getByText('Activa hasta el 15 oct')).toBeVisible();
+    expect(peticiones.etapasPost).toEqual([{
+      etapa: 'FUNDADORA', planId: 'p1', desde: '2026-10-01', hasta: '2026-10-15', limitePlazas: '20', alCompletar: 'CERRAR',
+    }]);
+    if (CAPTURAS) {
+      const t = page.getByText('Etapas de lanzamiento').locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]');
+      await t.screenshot({ path: `${CAPTURAS}/etapas-con-fundadora.png` });
+    }
+  });
+
+  test('quien no gestiona cobros no puede elegir cerrar la venta', async ({ page }) => {
+    await montar(page, { inicial: CON_FECHA, etapas: { antes: { hoy: '2026-10-03', puedeCerrarVenta: false, etapas: [], planes: PLANES } } });
+    await page.getByRole('button', { name: 'Añadir etapa' }).click({ timeout: ARRANQUE_MS });
+    await expect(page.getByLabel('Solo avisarme')).toBeChecked();
+    await expect(page.getByLabel('Cerrar la venta del plan')).toHaveCount(0);
+    await expect(page.getByText(/solo lo puede elegir quien gestiona los cobros/)).toBeVisible();
+  });
+
+  test('sin planes, manda a crear el plan en Paquetes', async ({ page }) => {
+    await montar(page, { inicial: CON_FECHA });
+    await expect(page.getByText(/Crea primero el plan que quieres vender/).getByRole('link', { name: 'Paquetes' })).toHaveAttribute('href', '/productos', { timeout: ARRANQUE_MS });
+    await expect(page.getByRole('button', { name: 'Añadir etapa' })).toHaveCount(0);
+  });
+
+  test('borrar pide confirmación antes de borrar', async ({ page }) => {
+    const peticiones = await montar(page, {
+      inicial: CON_FECHA,
+      etapas: { antes: { hoy: '2026-10-03', puedeCerrarVenta: true, etapas: [ETAPA], planes: PLANES }, despues: { hoy: '2026-10-03', puedeCerrarVenta: true, etapas: [], planes: PLANES } },
+    });
+    await page.getByRole('button', { name: 'Borrar etapa Fundadora' }).click({ timeout: ARRANQUE_MS });
+    expect(peticiones.etapasDelete).toEqual([]);
+    await page.getByRole('button', { name: 'Borrar', exact: true }).click();
+    await expect(page.getByText('Fundadora · Cuota Fundadora')).toHaveCount(0);
+    expect(peticiones.etapasDelete).toEqual([ETAPA.id]);
+  });
+
+  test('una respuesta inesperada de etapas no tumba la home', async ({ page }) => {
+    const errores: string[] = [];
+    page.on('pageerror', e => errores.push(e.message));
+    await montar(page, { inicial: CON_FECHA, etapas: { antes: {} } });
+    await expect(page.getByText('Abres en 14 días')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(page.getByText('Etapas de lanzamiento')).toHaveCount(0);
+    expect(errores).toEqual([]);
   });
 });
