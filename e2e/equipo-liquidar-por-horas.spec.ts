@@ -80,7 +80,7 @@ test.describe('Liquidar por horas fichadas', () => {
   test('una liquidación por horas enseña lo fichado; con jornadas sin cerrar avisa y no deja confirmar', async ({ page }) => {
     await abrir(page, { modo: 'HORAS_FICHADAS' });
     await expect(page.getByTestId('variable-fichado')).toContainText('5 h 30 min fichadas', { timeout: 30_000 });
-    await expect(page.getByTestId('jornadas-sin-cerrar')).toContainText('2 jornadas de este mes sin cerrar');
+    await expect(page.getByTestId('jornadas-sin-cerrar')).toContainText('2 jornadas de este mes están sin cerrar');
     await expect(page.getByRole('link', { name: 'Tiempo trabajado' })).toHaveAttribute('href', '/equipo/tiempo-trabajado');
     await expect(page.getByRole('button', { name: 'Confirmar' })).toBeDisabled();
     await expect(page.getByText('clases propias')).toHaveCount(0);

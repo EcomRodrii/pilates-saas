@@ -157,7 +157,14 @@ export default function LiquidacionesPage() {
 
       {criterio && (
         <div className="rounded-2xl border border-border bg-card px-5 py-3 flex flex-wrap items-center justify-between gap-3 text-[13px]" data-testid="criterio-liquidacion">
-          <span className="text-muted-foreground">Parte variable calculada por</span>
+          <span className="min-w-0">
+            <span className="block text-muted-foreground">Parte variable calculada por</span>
+            <span className="block text-[12px] text-muted-foreground/80">
+              {criterio.modo === 'HORAS_FICHADAS'
+                ? 'Horas de jornadas cerradas × tarifa por hora. Sin recargo de sustitución: esas horas ya están en lo fichado.'
+                : 'Horas de cada clase dada × tarifa por hora, con recargo en las sustituciones.'}
+            </span>
+          </span>
           {criterio.puedeCambiar ? (
             <select aria-label="Calcular la parte variable por" value={criterio.modo} disabled={guardandoCriterio}
               onChange={e => void cambiarCriterio(e.target.value as ModoLiquidacion)} className={inputCls + ' w-auto'}>
@@ -203,7 +210,7 @@ export default function LiquidacionesPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-3 text-[12px] text-muted-foreground">
                     <label className="flex items-center gap-1">
                       Tarifa/h
                       <input type="number" min={0} step={0.01} className={inputCls}
@@ -245,8 +252,10 @@ export default function LiquidacionesPage() {
                     <div><p className="text-muted-foreground">{liq.nPenalizaciones} penalizaciones</p><p className="font-semibold text-foreground">{formatEuro(liq.repartoPenalizacionesEur)}</p></div>
                     {liq.modo === 'HORAS_FICHADAS' && liq.jornadasSinCerrar > 0 && (
                       <p className="col-span-2 sm:col-span-4 text-[12px] text-amber-600" data-testid="jornadas-sin-cerrar">
-                        {liq.jornadasSinCerrar === 1 ? 'Una jornada' : `${liq.jornadasSinCerrar} jornadas`} de este mes sin cerrar: no se pagan hasta corregirlas en{' '}
-                        <Link href="/equipo/tiempo-trabajado" className="underline">Tiempo trabajado</Link>, y no se puede confirmar.
+                        {liq.jornadasSinCerrar === 1
+                          ? 'Una jornada de este mes está sin cerrar: no se paga ni se puede confirmar hasta corregirla en '
+                          : `${liq.jornadasSinCerrar} jornadas de este mes están sin cerrar: no se pagan ni se puede confirmar hasta corregirlas en `}
+                        <Link href="/equipo/tiempo-trabajado" className="underline">Tiempo trabajado</Link>.
                       </p>
                     )}
                     {liq.nClasesSinTarifa > 0 && (

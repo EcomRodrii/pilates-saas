@@ -124,17 +124,28 @@ export default function TiempoTrabajadoPage() {
         <p className="text-sm text-muted-foreground">Todavía no hay instructoras de alta.</p>
       ) : (
         <div className="space-y-4" data-testid="tiempo-trabajado">
+          {datos.jornadas.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-5 text-[13px]" data-testid="tiempo-vacio">
+              <p className="font-semibold text-foreground">Nadie ha fichado en {MESES[mes - 1]}.</p>
+              <p className="mt-1 text-muted-foreground">
+                Tus instructoras fichan desde la app del estudio, en Hoy → Fichaje: la entrada al llegar y la salida al irse.
+                En cuanto lo hagan, sus jornadas aparecen aquí.
+              </p>
+            </div>
+          )}
           {filas.map(({ id, resumen, jornadas }) => {
             const tarifa = tarifas[id]?.tarifaHora;
             const minutos = resumen?.minutos ?? 0;
             const desplegada = abierta === id;
             return (
               <div key={id} className="rounded-2xl border border-border bg-card p-5" data-testid="tiempo-instructora">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <h2 className="text-[14px] font-semibold text-foreground">{nombre.get(id) ?? 'Instructora'}</h2>
                     <div className="mt-1 flex flex-wrap gap-1.5">
-                      {(resumen?.abiertas ?? 0) > 0 && (
+                      {/* «Ahora» solo si la abierta es de verdad actual: una olvidada hace
+                          días ya sale como «por revisar», no como fichada. */}
+                      {jornadas.some((j) => j.status === 'OPEN' && !j.requiereRevision) && (
                         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700">Fichada ahora</span>
                       )}
                       {(resumen?.aRevisar ?? 0) > 0 && (
@@ -144,11 +155,11 @@ export default function TiempoTrabajadoPage() {
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-[13px] text-right">
-                    <div><p className="text-muted-foreground">Horas</p><p className="font-semibold text-foreground" data-testid="horas-mes">{horas(minutos)}</p></div>
+                  <div className="grid grid-cols-3 gap-4 text-[13px] sm:text-right">
+                    <div><p className="text-muted-foreground">Horas</p><p className="font-semibold text-foreground whitespace-nowrap" data-testid="horas-mes">{horas(minutos)}</p></div>
                     <div><p className="text-muted-foreground">Jornadas</p><p className="font-semibold text-foreground">{resumen?.jornadas ?? 0}</p></div>
                     <div>
-                      <p className="text-muted-foreground">Coste estimado</p>
+                      <p className="text-muted-foreground" title="Horas cerradas del mes × tarifa por hora actual">Coste</p>
                       <p className="font-semibold text-foreground">{tarifa != null ? formatEuro((minutos / 60) * tarifa) : '—'}</p>
                     </div>
                   </div>
@@ -178,9 +189,16 @@ export default function TiempoTrabajadoPage() {
               </div>
             );
           })}
-          <p className="text-[12px] text-muted-foreground">
-            El CSV sirve como registro de jornada para la gestoría. Cada jornada cuenta en el mes en que empezó. Una jornada abierta no suma horas hasta que se cierra. El coste es orientativo, a la tarifa por hora actual.
-          </p>
+          <details className="rounded-2xl border border-border bg-card px-5 py-3 text-[13px]" data-testid="tiempo-como-funciona">
+            <summary className="cursor-pointer font-semibold text-foreground">¿Cómo funciona?</summary>
+            <ul className="mt-2 mb-1 list-disc space-y-1.5 pl-5 text-muted-foreground">
+              <li>Cada instructora ficha desde la app del estudio (Hoy → Fichaje): la entrada al llegar y la salida al irse. Si trabaja mañana y tarde, son dos jornadas.</li>
+              <li>Las horas de una jornada solo cuentan cuando se cierra. Cada jornada cuenta en el mes en que empezó.</li>
+              <li><strong>Por revisar</strong>: lleva abierta más horas de las normales, casi siempre porque olvidó fichar la salida. Corrígela con la hora real; el motivo es obligatorio y queda en el historial, con quién lo cambió.</li>
+              <li>El <strong>coste</strong> es orientativo: horas cerradas por la tarifa por hora actual. Lo que se paga lo decide Liquidaciones, que puede calcular por horas de clase o por horas fichadas.</li>
+              <li><strong>Exportar CSV</strong> descarga el registro de jornada del mes, para la gestoría o una inspección.</li>
+            </ul>
+          </details>
         </div>
       )}
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
@@ -240,6 +258,11 @@ function FilaJornada({ jornada: j, cambios, onGuardado, onError }: {
 
       {editando && (
         <div className="mt-3 grid gap-3 rounded-xl bg-muted/40 p-3 sm:grid-cols-2">
+          {!j.checkOutAt && (
+            <p className="text-[12px] text-muted-foreground sm:col-span-2" data-testid="ayuda-correccion">
+              Pon la hora a la que se fue de verdad. Al guardar, la jornada queda cerrada y sus horas cuentan en el mes.
+            </p>
+          )}
           <label className="grid gap-1 text-[12px] text-muted-foreground">Entrada
             <span className="flex gap-2">
               <input type="date" value={f.fechaEntrada} onChange={(e) => setF({ ...f, fechaEntrada: e.target.value })} className={inputCls} />

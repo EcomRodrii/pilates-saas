@@ -296,7 +296,9 @@ export default function HoyInstructoraPage() {
                 <span style={{ display: 'block', marginTop: 3, fontSize: 'var(--t-body)', fontWeight: 700 }}>
                   {fichaje?.abierta
                     ? `Jornada abierta desde las ${new Date(fichaje.abierta.checkInAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}`
-                    : fichaje ? 'No has fichado la entrada' : 'Tu entrada y salida'}
+                    : fichaje && fichaje.hoy.jornadasCerradas > 0
+                      ? `Hoy has fichado ${Math.floor(fichaje.hoy.minutosCerrados / 60)} h ${String(fichaje.hoy.minutosCerrados % 60).padStart(2, '0')} min`
+                      : fichaje ? 'No has fichado la entrada hoy' : 'Tu entrada y salida'}
                 </span>
                 {fichaje?.abierta?.requiereRevision && (
                   <span className="t-meta" data-testid="fichaje-hoy-revisar" style={{ display: 'block', marginTop: 3, color: 'var(--warning)' }}>
