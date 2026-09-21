@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
     const recomendaciones = recomendar({
       respuestas: estado.respuestas,
       hayClasesPublicadas: analisis.sesionesEnVentana > 0,
+      alertas: alertas.map(a => a.tipo),
       hayPlanes: planes.some(p => p.activo),
       hayEtapaFundadora: etapas.some(e => e.etapa === 'FUNDADORA'),
       puedeVer: href => puedeVer(sesion.rol, href),
