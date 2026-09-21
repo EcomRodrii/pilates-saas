@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { verificarInstructoraEnEstudio, type SesionInstructoraPortal } from '@/lib/auth-instructora';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
@@ -53,7 +54,10 @@ export async function POST(req: NextRequest) {
     const ruta = `instructor-${sesion.instructorId}`;
     const { error: fallo } = await admin.storage.from('avatars')
       .upload(ruta, archivo, { upsert: true, contentType: archivo.type });
-    if (fallo) return NextResponse.json({ error: 'No hemos podido guardar la foto.' }, { status: 400 });
+    if (fallo) {
+      Sentry.captureException(fallo, { tags: { area: 'foto-instructora', paso: 'storage-upload' }, extra: { tipo: archivo.type, bytes: archivo.size } });
+      return errorInterno('portal/instructora/foto:POST:storage', fallo, 'No hemos podido guardar la foto.');
+    }
 
     const { data } = admin.storage.from('avatars').getPublicUrl(ruta);
     // Cache-bust: la ruta es siempre la misma, así que sin esto el navegador
@@ -68,6 +72,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url });
   } catch (err) {
+    Sentry.captureException(err, { tags: { area: 'foto-instructora', paso: 'POST' } });
     return errorInterno('portal/instructora/foto:POST', err, 'No hemos podido guardar la foto.');
   }
 }

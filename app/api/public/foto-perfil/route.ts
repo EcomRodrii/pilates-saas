@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { socioAutenticado, actualizarSociaPublica } from '@/lib/db/supabase-data-admin';
@@ -82,7 +83,10 @@ export async function POST(req: NextRequest) {
     const { error: fallo } = await admin.storage
       .from('avatars')
       .upload(r.socioId, archivo, { upsert: true, contentType: archivo.type });
-    if (fallo) return conCorsWidget(req, NextResponse.json({ error: 'No hemos podido guardar la foto.' }, { status: 400 }));
+    if (fallo) {
+      Sentry.captureException(fallo, { tags: { area: 'foto-perfil', paso: 'storage-upload' }, extra: { tipo: archivo.type, bytes: archivo.size } });
+      return conCorsWidget(req, errorInterno('public/foto-perfil:POST:storage', fallo, 'No hemos podido guardar la foto.'));
+    }
 
     const { data } = admin.storage.from('avatars').getPublicUrl(r.socioId);
     // Cache-bust: el path es siempre el mismo, así que sin esto el navegador
@@ -94,10 +98,14 @@ export async function POST(req: NextRequest) {
     const res = await actualizarSociaPublica({
       studioId: r.studioId, socioId: r.socioId, authUserId: r.authUserId, cambios: { fotoUrl: url },
     });
-    if ('error' in res) return conCorsWidget(req, NextResponse.json(res, { status: 400 }));
+    if ('error' in res) {
+      Sentry.captureMessage(`foto-perfil: la ficha no se actualizó tras subir: ${String(res.error)}`, { level: 'error', tags: { area: 'foto-perfil', paso: 'ficha' } });
+      return conCorsWidget(req, NextResponse.json(res, { status: 400 }));
+    }
 
     return conCorsWidget(req, NextResponse.json({ url }));
   } catch (err) {
+    Sentry.captureException(err, { tags: { area: 'foto-perfil', paso: 'POST' } });
     return conCorsWidget(req, errorInterno('public/foto-perfil:POST', err, 'No hemos podido guardar la foto.'));
   }
 }
