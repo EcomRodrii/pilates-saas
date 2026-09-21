@@ -83,8 +83,7 @@ create table public.launch_stages (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint launch_stages_fechas check (fecha_fin > fecha_inicio),
-  constraint launch_stages_plan_mismo_estudio foreign key (plan_id, studio_id)
-    references public.planes_tarifa(id, studio_id) on delete set null (plan_id),
+  constraint launch_stages_plan_mismo_estudio foreign key (plan_id, studio_id) references public.planes_tarifa(id, studio_id) on delete set null (plan_id),
   constraint launch_stages_unica unique (studio_id, etapa, fecha_inicio)
 );
 alter table public.launch_stages enable row level security;

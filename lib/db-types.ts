@@ -1024,6 +1024,8 @@ export interface RowStudios {
   plaza_fija_pausa_libera_sitio: boolean | null;
   // migr 20260915231920.
   plaza_fija_fin_pausa: string | null;
+  // migr 20260921131627.
+  fecha_apertura: string | null;
 }
 
 export interface RowSuscripciones {
@@ -3105,6 +3107,53 @@ export interface RowDoblesCobrosDetectados {
   resuelto_en: string | null;
 }
 
+export interface RowOpeningProgreso {
+  studio_id: string;
+  fase: string;
+  objetivos: any;
+  checklist: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RowOpeningConfig {
+  studio_id: string;
+  umbral_amarillo: number;
+  umbral_rojo: number;
+  conversion_leads: number;
+  objetivo_preventa: number;
+  ventana_analisis_dias: number;
+  sesiones_semana_sin_tope: number;
+  semanas_bono_sin_caducidad: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RowLaunchStages {
+  id: string;
+  studio_id: string;
+  etapa: string;
+  plan_id: string | null;
+  fecha_inicio: string;
+  fecha_fin: string;
+  limite_plazas: number | null;
+  estado: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RowAlertasOpening {
+  id: string;
+  studio_id: string;
+  tipo: string;
+  severidad: string;
+  titulo: string;
+  descripcion: string | null;
+  datos: any;
+  resuelta_en: string | null;
+  created_at: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -4529,6 +4578,7 @@ export type StudiosInsert = {
   plaza_fija_pausa_desde_app?: boolean | null | null;
   plaza_fija_pausa_libera_sitio?: boolean | null | null;
   plaza_fija_fin_pausa?: string | null | null;
+  fecha_apertura?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -4658,6 +4708,7 @@ export type StudiosUpdate = {
   plaza_fija_pausa_desde_app?: boolean | null | null;
   plaza_fija_pausa_libera_sitio?: boolean | null | null;
   plaza_fija_fin_pausa?: string | null | null;
+  fecha_apertura?: string | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -8590,6 +8641,100 @@ export type DoblesCobrosDetectadosUpdate = {
   resuelto_en?: string | null | null;
 }
 
+export type OpeningProgresoInsert = {
+  studio_id?: string | null;
+  fase?: string | null;
+  objetivos?: any | null;
+  checklist?: any | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type OpeningProgresoUpdate = {
+  studio_id?: string | null;
+  fase?: string | null;
+  objetivos?: any | null;
+  checklist?: any | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type OpeningConfigInsert = {
+  studio_id?: string | null;
+  umbral_amarillo?: number | null;
+  umbral_rojo?: number | null;
+  conversion_leads?: number | null;
+  objetivo_preventa?: number | null;
+  ventana_analisis_dias?: number | null;
+  sesiones_semana_sin_tope?: number | null;
+  semanas_bono_sin_caducidad?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type OpeningConfigUpdate = {
+  studio_id?: string | null;
+  umbral_amarillo?: number | null;
+  umbral_rojo?: number | null;
+  conversion_leads?: number | null;
+  objetivo_preventa?: number | null;
+  ventana_analisis_dias?: number | null;
+  sesiones_semana_sin_tope?: number | null;
+  semanas_bono_sin_caducidad?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type LaunchStagesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  etapa?: string | null;
+  plan_id?: string | null | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  limite_plazas?: number | null | null;
+  estado?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type LaunchStagesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  etapa?: string | null;
+  plan_id?: string | null | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  limite_plazas?: number | null | null;
+  estado?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type AlertasOpeningInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  severidad?: string | null;
+  titulo?: string | null;
+  descripcion?: string | null | null;
+  datos?: any | null;
+  resuelta_en?: string | null | null;
+  created_at?: string | null;
+}
+
+export type AlertasOpeningUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  severidad?: string | null;
+  titulo?: string | null;
+  descripcion?: string | null | null;
+  datos?: any | null;
+  resuelta_en?: string | null | null;
+  created_at?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -9577,6 +9722,26 @@ export type Database = {
         Row: RowDoblesCobrosDetectados;
         Insert: DoblesCobrosDetectadosInsert;
         Update: DoblesCobrosDetectadosUpdate;
+      };
+      opening_progreso: {
+        Row: RowOpeningProgreso;
+        Insert: OpeningProgresoInsert;
+        Update: OpeningProgresoUpdate;
+      };
+      opening_config: {
+        Row: RowOpeningConfig;
+        Insert: OpeningConfigInsert;
+        Update: OpeningConfigUpdate;
+      };
+      launch_stages: {
+        Row: RowLaunchStages;
+        Insert: LaunchStagesInsert;
+        Update: LaunchStagesUpdate;
+      };
+      alertas_opening: {
+        Row: RowAlertasOpening;
+        Insert: AlertasOpeningInsert;
+        Update: AlertasOpeningUpdate;
       };
     };
   };
