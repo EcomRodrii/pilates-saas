@@ -15,6 +15,7 @@ import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunnin
 import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
 import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
+import { cerrarCheckoutDeBizumFallido } from '@/lib/pos/cerrar-bizum-fallido';
 import { metodoRealDeSesion } from '@/lib/billing/metodo-real-sesion';
 import { liberarCupoMatriculaUnaVez } from '@/lib/billing/matricula-online';
 import { liberarPlazaPorRef } from '@/lib/opening/cupo';
@@ -1390,6 +1391,25 @@ async function procesarEvento(
           level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id },
         });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      // Bizum: el rechazo no cierra el QR — la clienta puede reintentar en el
+      // móvil. Anular la venta con el QR vivo es lo que acababa en doble cobro
+      // (el TPV decía «no se ha cobrado nada» y se cobraba en efectivo). Se
+      // cierra primero; solo si queda cerrado se anula. Ver
+      // lib/pos/cerrar-bizum-fallido.ts.
+      if (pi.metadata?.origen === 'pos_bizum' && event.account) {
+        const cierre = await cerrarCheckoutDeBizumFallido(stripe, pi.id, event.account);
+        if (cierre === 'no-se-sabe') {
+          return NextResponse.json({ error: 'No se pudo cerrar el enlace de Bizum' }, { status: 500 });
+        }
+        if (cierre !== 'cerrada') {
+          if (cierre === 'sin-sesion') {
+            Sentry.captureMessage('[stripe webhook] Bizum del mostrador rechazado sin Checkout Session: no se anula', {
+              level: 'warning', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, eventAccount: event.account },
+            });
+          }
+          return NextResponse.json({ received: true });
+        }
       }
       const respuesta = await liberarCobroPosFallidoDelWebhook(
         admin, event, pi.metadata, pi.id,

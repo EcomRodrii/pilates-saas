@@ -38,6 +38,8 @@ import { metodoRealDeSesion } from '../billing/metodo-real-sesion.ts';
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
 import { liberarCupoMatriculaUnaVez } from '../billing/matricula-online.ts';
+import { cobroPosDeSesionCaducada } from '../pos/cerrar-bizum-fallido.ts';
+import { liberarCobroPosFallido } from '../pos/liberar-cobro-fallido.ts';
 import { pisAbandonadosConPlaza, plazaDePICancelado, plazaDeSesionCaducada, type PlazaADevolver } from '../billing/cupo-matricula-abandonado.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
 import { recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente, type ReciboCobrado } from '../facturas-sin-sellar.ts';
@@ -221,7 +223,29 @@ async function conciliarEstudio(
     await entregar(admin, stripe, studio.stripe_account_id, p, sesionPorId.get(p.sesionId), piPorId.get(p.sesionId));
   }
   await devolverPlazasDeMatricula(admin, stripe, studio, [...sesionPorId.values()], [...piPorId.values()]);
+  await soltarCobrosPosCaducados(admin, studio, [...sesionPorId.values()]);
   return pendientes.length;
+}
+
+// QR de Bizum del mostrador caducados sin pagar: se anula la venta (devuelve
+// stock y plaza de matrícula) o se suelta el recibo. Ver
+// `cobroPosDeSesionCaducada`. Los QR duran 30 min, así que la ventana de 12 h
+// los ve de sobra. Idempotente: `fallar_pago_venta_pos` solo toca ventas en
+// PENDIENTE_PAGO, y el recibo va acotado a su sesión o su PI.
+async function soltarCobrosPosCaducados(
+  admin: SupabaseClient,
+  studio: { id: string; stripe_account_id: string },
+  sesiones: Stripe.Checkout.Session[],
+): Promise<void> {
+  for (const s of sesiones) {
+    const cobro = cobroPosDeSesionCaducada(s);
+    if (!cobro) continue;
+    // La metadata solo CONFIRMA el estudio; la autoridad es la cuenta listada.
+    if (s.metadata?.studioId && s.metadata.studioId !== studio.id) continue;
+    await liberarCobroPosFallido(admin, {
+      studioId: studio.id, ...cobro, motivo: 'El enlace de pago caducó sin completarse',
+    });
+  }
 }
 
 // Plazas de «matrícula gratis para las N primeras» de compras que ya no pueden

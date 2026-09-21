@@ -32,6 +32,12 @@ export async function liberarCobroPosFallido(
     /** El PaymentIntent al que se acota el UPDATE de `recibos`. `null` = sin acotar (venía sin PI resoluble). */
     paymentIntentId: string | null;
     motivo: string;
+    /**
+     * La Checkout Session caducada, cuando no hay PI (un QR que nadie intentó
+     * pagar caduca sin él). Acota el UPDATE de `recibos` igual que el PI: sin
+     * ninguno de los dos se pisaría un reintento más nuevo del mismo recibo.
+     */
+    checkoutSessionId?: string | null;
   },
 ): Promise<{ tipo: 'venta' | 'recibo' | 'ninguno' }> {
   const ventaId = p.metadata?.ventaId;
@@ -48,6 +54,9 @@ export async function liberarCobroPosFallido(
     if (p.paymentIntentId) {
       await admin.from('recibos').update(cambios)
         .eq('id', reciboId).eq('studio_id', p.studioId).eq('cobro_mostrador_pi', p.paymentIntentId);
+    } else if (p.checkoutSessionId) {
+      await admin.from('recibos').update(cambios)
+        .eq('id', reciboId).eq('studio_id', p.studioId).eq('cobro_mostrador_checkout_session_id', p.checkoutSessionId);
     } else {
       await admin.from('recibos').update(cambios)
         .eq('id', reciboId).eq('studio_id', p.studioId);
