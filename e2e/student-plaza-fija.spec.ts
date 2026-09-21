@@ -179,9 +179,9 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     // el CI (UTC) sale a las 12:00 del estudio y en una máquina en Madrid a las
     // 10:00. Lo que se defiende es que lleve SU día y SU hora, sea la que sea.
     await expect(page.getByText(/¿Vienes los miércoles a las \d{2}:\d{2}\?/)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/sin que tengas que volver a hacerlo/)).toBeVisible();
+    await expect(page.getByText(/sin que tengas que volver a reservarla/)).toBeVisible();
     await expect(page.getByText(/Tu estudio tiene que confirmarla/)).toBeVisible();
-    await page.getByRole('button', { name: 'Pedir plaza fija' }).click();
+    await page.getByRole('button', { name: 'Pedir clase fija' }).click();
 
     await expect(page.getByText(/Ya la has pedido: tu estudio te contestará aquí/)).toBeVisible({ timeout: 30_000 });
     expect(visto.intentos).toBeGreaterThan(0);
@@ -193,9 +193,9 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     const visto = await contarPeticiones(page);
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
 
-    await expect(page.getByText(/La plaza fija es para quien tiene una cuota activa que incluya esta clase/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/La clase fija es para quien tiene una cuota activa que incluya esta clase/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/Con bono o clases sueltas, se reserva clase a clase/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Pedir plaza fija' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
     expect(visto.intentos, 'nada sale hacia el servidor').toBe(0);
   });
 
@@ -215,7 +215,7 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     await expect(oferta).toBeVisible();
     await expect(oferta.getByText('¿Vienes cada semana?')).toBeVisible();
     await expect(oferta.getByText(/los miércoles a las \d{2}:\d{2}/)).toBeVisible();
-    await oferta.getByRole('button', { name: 'Pedir plaza fija' }).click();
+    await oferta.getByRole('button', { name: 'Pedir clase fija' }).click();
 
     await expect(oferta.getByText('Petición enviada: tu estudio te contestará en la app.')).toBeVisible({ timeout: 30_000 });
     expect(visto.intentos).toBeGreaterThan(0);
@@ -233,5 +233,109 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     await page.getByRole('button', { name: /^confirmar/i }).click();
     await expect(page.getByText('Reserva confirmada')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('oferta-plaza-fija')).toHaveCount(0);
+  });
+});
+
+
+// ── Su clase fija: qué ve cuando ya la tiene ─────────────────────────────────
+//
+// Los estudios decían que no tenían claro que la alumna NO reserva. Su tarjeta
+// tiene que decir que la plaza está reservada sola, enseñar las próximas clases
+// que ya tiene y dejar que falte UNA semana sin tocar la clase fija. Con lo que
+// SÍ hace el servidor: se cancela solo la reserva de esa semana (`res-pf-`).
+
+// ⚠️ Con su desfase (+02:00, verano en Madrid), NO como las del resto del fixture
+// (`2026-08-12T10:00:00`, sin zona). Sin él el navegador las lee en su zona local y
+// la hora del estudio sale 10:00 en una máquina en Madrid y 12:00 en el CI (UTC):
+// la plaza fija de las 10:00 dejaba de coincidir con sus clases y «Próximas
+// clases» salía vacía solo en el CI. Aquí la hora tiene que ser SIEMPRE la misma.
+const CLASES_FIJAS = [
+  { id: 'res-pf-s20', sesion: 'ses-20', inicio: '2026-08-13T10:00:00+02:00', fin: '2026-08-13T10:50:00+02:00' },
+  { id: 'res-pf-s21', sesion: 'ses-21', inicio: '2026-08-20T10:00:00+02:00', fin: '2026-08-20T10:50:00+02:00' },
+  { id: 'res-pf-s22', sesion: 'ses-22', inicio: '2026-08-27T10:00:00+02:00', fin: '2026-08-27T10:50:00+02:00' },
+];
+
+async function montarConClaseFija(page: Page, opts: { reservaAMano?: boolean } = {}) {
+  await sembrarSociaLista(page);
+  const f = fixtureSociaLista() as unknown as Record<string, unknown>;
+  const sesiones = f.sesiones as unknown[];
+  for (const c of CLASES_FIJAS) {
+    sesiones.push({ id: c.sesion, studioId: STUDIO_ID, tipoClaseId: 'tc-r', salaId: 'sala-1', instructorId: 'ins-1', inicio: c.inicio, fin: c.fin, aforoMaximo: 10, cancelada: false });
+  }
+  const socia = f.socia as Record<string, unknown>;
+  // El reloj de `sembrarSociaLista` es el 2026-08-12: los jueves 13, 20 y 27 a las 10:00 (hora del fixture).
+  socia.plazasFijas = [{ id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIO_ID, diaSemana: 4, horaInicio: '10:00:00', salaId: 'sala-1', tipoClaseId: 'tc-r', spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z' }];
+  socia.reservas = [
+    ...CLASES_FIJAS.map((c) => ({ id: c.id, sesionId: c.sesion, socioId: SOCIO_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-01T00:00:00Z', posicionEspera: null })),
+    // Una reserva de una vez, en OTRO día: no es de su clase fija y no puede salir en «Próximas clases».
+    ...(opts.reservaAMano ? [{ id: 'res-mano-1', sesionId: 'ses-10', socioId: SOCIO_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-02T00:00:00Z', posicionEspera: null }] : []),
+  ];
+  await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
+  await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], unread: 0 }) }));
+  await page.route((u) => u.pathname === '/api/public/comunidad/posts', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ posts: [] }) }));
+}
+
+test.describe('Student PWA · tu clase fija', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('dice que la plaza está reservada sola y enseña las próximas clases que ya tiene', async ({ page }) => {
+    await montarConClaseFija(page, { reservaAMano: true });
+    await page.goto(`${base}/bonos`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await expect(tarjeta.getByText('Tu clase fija', { exact: true })).toBeVisible();
+    await expect(tarjeta.getByTestId('plaza-fija-reservada-sola')).toHaveText('Tu plaza está reservada automáticamente cada semana. No necesitas reservar esta clase.');
+
+    // Las tres que el motor le tiene reservadas, y NO la que reservó a mano.
+    const proximas = tarjeta.getByTestId('proximas-clases-fijas');
+    await expect(proximas.getByText('Próximas clases')).toBeVisible();
+    await expect(proximas.getByText('Reservada')).toHaveCount(3);
+    await expect(proximas.getByRole('button', { name: 'No puedo asistir' })).toHaveCount(3);
+    // Y cómo dejarla o cambiarla: no se hace desde la app, se escribe al estudio.
+    await expect(tarjeta.getByRole('link', { name: 'Escribir al estudio' })).toHaveAttribute('href', `${base}/mensajes`);
+  });
+
+  test('«No puedo asistir» cancela SOLO esa semana y dice que su clase fija sigue', async ({ page }) => {
+    await montarConClaseFija(page);
+    const cancelaciones: Record<string, unknown>[] = [];
+    await page.route('**/api/public/reserva', (r) => {
+      const cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
+      if (r.request().method() !== 'POST' || cuerpo.accion !== 'cancelar') return r.continue();
+      cancelaciones.push(cuerpo);
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, tardia: false, bonoDevuelto: false, eraConfirmada: true, recuperacionCreada: false }) });
+    });
+
+    await page.goto(`${base}/bonos`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await tarjeta.getByRole('button', { name: 'No puedo asistir' }).first().click();
+
+    // Antes de confirmar se le dice qué toca: solo esta clase, y nada de «tu bono».
+    const aviso = page.getByTestId('no-puedo-aviso');
+    await expect(aviso).toContainText('Solo cancelas esta clase. Tu clase fija de los jueves sigue activa');
+    await expect(aviso).not.toContainText('bono');
+    await page.getByRole('button', { name: 'Sí, no puedo asistir' }).click();
+
+    await expect(page.getByText('Cancelada solo esta semana · tu clase fija sigue activa ✓')).toBeVisible({ timeout: 30_000 });
+    // Un camino que no llega a cancelar nada «no miente», y no probaría nada.
+    expect(cancelaciones.length).toBeGreaterThan(0);
+    expect(cancelaciones[0]).toMatchObject({ reservaId: 'res-pf-s20' });
+    expect(cancelaciones, 'solo esa semana, no la recurrencia').toHaveLength(1);
+  });
+
+  test('«Mis clases»: la de su clase fija lo dice y no habla de bono; la de una vez es una reserva normal', async ({ page }) => {
+    await montarConClaseFija(page, { reservaAMano: true });
+    await page.goto(`${base}/mis-reservas`);
+    await expect(page.getByText('Tu clase fija ✓').first()).toBeVisible({ timeout: 30_000 });
+    // La reservada a mano NO es de su clase fija, aunque coincidiera el horario.
+    await expect(page.getByText('Reservada ✓')).toHaveCount(1);
+
+    await page.getByRole('button', { name: /^Cancelar$/ }).nth(1).click();
+    const aviso = page.getByTestId('cancelar-clase-fija-aviso');
+    await expect(aviso).toBeVisible();
+    await expect(aviso).toContainText('Tu clase fija de los jueves sigue activa');
+    await expect(page.getByText(/sesión de tu bono/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Sí, no puedo asistir' })).toBeVisible();
   });
 });

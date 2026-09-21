@@ -67,7 +67,7 @@ export interface AvisoCancelacion {
  * tipo → estudio. Pasar aquí un número global sería volver al bug que el
  * paquete trae de serie.
  */
-export function avisoCancelacion(c: Clase, horasPolitica: number, ahora: Date = new Date()): AvisoCancelacion {
+export function avisoCancelacion(c: Pick<Clase, 'fecha' | 'hora' | 'ventanaCancelacionHoras'>, horasPolitica: number, ahora: Date = new Date()): AvisoCancelacion {
   // La cascada del servidor: la ventana del TIPO de clase manda sobre la del
   // estudio (`tipos_clase.ventana_cancelacion_horas ?? studios.cancelacion_ventana_horas`).
   // Sin esto, una clase con política propia se anunciaba con la del estudio.

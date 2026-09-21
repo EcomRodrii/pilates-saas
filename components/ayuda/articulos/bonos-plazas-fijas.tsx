@@ -31,6 +31,23 @@ export default function Contenido() {
         de pedirla en su app: le explicamos que la plaza fija es para quien tiene cuota.
       </p>
 
+      <h2 style={h2}>Qué ve tu alumna</h2>
+      <p>
+        En su app se llama <strong>«clase fija»</strong>. En su tarjeta <strong>«Tu clase fija»</strong> lee, con su día y
+        su hora, que <strong>su plaza está reservada automáticamente cada semana y que no necesita reservar esa clase</strong>.
+        Debajo tiene sus <strong>próximas clases</strong> ya reservadas —las que el sistema le tiene apartadas—, cada una con
+        un botón <strong>«No puedo asistir»</strong> que cancela solo esa semana: su clase fija sigue activa y la semana
+        siguiente vuelve a tener su plaza. Si cancela a tiempo y su cuota le limita las clases por semana, se le guarda una{' '}
+        <Link href="/ayuda/bonos/recuperaciones" style={enlace}>recuperación</Link>.
+      </p>
+      <p>
+        Puede <strong>pedir una pausa</strong> (si lo has activado) desde esa misma tarjeta. Para dejarla del todo,
+        reactivarla o cambiarla, <strong>te escribe</strong> desde el botón «Escribir al estudio» y lo haces tú desde su
+        ficha: no puede quitársela ella sola. En la lista de una clase del calendario verás quién está por su clase fija
+        (<strong>Fija</strong>), por una recuperación (<strong>Recuperación</strong>) o por una reserva de una vez
+        (<strong>Reserva</strong>).
+      </p>
+
       <h2 style={h2}>Cómo se asigna</h2>
       <p>
         En la ficha de la alumna, bloque <strong>«Plaza fija»</strong> → «Añadir»; desde una clase del
@@ -103,11 +120,11 @@ export default function Contenido() {
 
       <h2 style={h2}>Cuando una semana no puede venir</h2>
       <p>
-        Que cancele esa clase desde su app como cualquier otra. Al ser plaza fija no se le devuelve sesión de
-        bono —no se le había descontado ninguna—. Si cancela a tiempo y su plan le limita las clases por
-        semana, se le guarda una{' '}
+        Que pulse <strong>«No puedo asistir»</strong> en esa semana, en su tarjeta «Tu clase fija» o en «Mis clases». Solo se
+        cancela esa clase; al ser plaza fija no se le devuelve sesión de bono —no se le había descontado ninguna—. Si
+        cancela a tiempo y su plan le limita las clases por semana, se le guarda una{' '}
         <Link href="/ayuda/bonos/recuperaciones" style={enlace}>recuperación</Link>. La semana siguiente su plaza
-        sigue ahí.
+        sigue ahí, y el sistema no vuelve a reservarle la que canceló.
       </p>
 
       <h2 style={h2}>Si se va de vacaciones</h2>

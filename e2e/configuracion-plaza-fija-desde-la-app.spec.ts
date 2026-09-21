@@ -49,9 +49,9 @@ test.describe('Configuración · peticiones de plaza fija desde la app', () => {
     const vista = page.getByTestId('vista-previa-plaza-fija');
     await expect(vista).toContainText('Así lo ve tu alumna');
     await expect(vista).toContainText('¿Vienes los martes a las 10:00?');
-    await expect(vista).toContainText('sin que tengas que volver a hacerlo');
+    await expect(vista).toContainText('tu plaza queda reservada cada semana');
     await expect(vista).toContainText('Tu estudio tiene que confirmarla');
-    await expect(vista).toContainText('Pedir plaza fija');
+    await expect(vista).toContainText('Pedir clase fija');
     await expect(vista).toContainText('Ahora tus alumnas no lo ven');
   });
 

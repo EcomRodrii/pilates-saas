@@ -3638,8 +3638,8 @@ const TEXTOS_PLAZA_FIJA_PANEL: TextosPlazaFija = {
 
 const TEXTOS_PLAZA_FIJA_ALUMNA: TextosPlazaFija = {
   sinAutorizacion: 'Esta clase necesita que el estudio te dé acceso. Escríbeles y te la abren.',
-  sinCuota: 'La plaza fija es para quien tiene una cuota activa que incluya esta clase. Con bono, resérvala clase a clase.',
-  duplicada: 'Ya tienes una plaza fija en ese horario',
+  sinCuota: 'La clase fija es para quien tiene una cuota activa que incluya esta clase. Con bono, resérvala clase a clase.',
+  duplicada: 'Ya tienes una clase fija en ese horario',
   sitioOcupado: 'Ese sitio ya no está libre en ese horario — contacta con el estudio',
 };
 
@@ -3965,7 +3965,7 @@ async function aplicarEstadoPlazaFija(
     // Una pausa que soltó su sitio no se reanuda cambiando el estado: vuelve por la
     // misma puerta que la vuelta del cron, que comprueba que el sitio siga libre.
     if (actual.estado === 'PAUSADA' && actual.pausaLiberaSitio) {
-      if (params.socioId) return { error: 'Tu plaza fija está en pausa: habla con tu estudio para volver.' };
+      if (params.socioId) return { error: 'Tu clase fija está en pausa: habla con tu estudio para volver.' };
       const v = await volverDePausaPlazaFija(admin, actual, { forzar: true });
       if ('error' in v) return { error: v.error };
       if (v.accion !== 'VOLVER') return { error: mensajeSitioOcupado };
@@ -3977,7 +3977,7 @@ async function aplicarEstadoPlazaFija(
       if (!cuota) return { error: textos.sinCuota };
       const exceso = params.socioId ? superaLimiteSemanal(cuota, activas) : null;
       if (exceso) {
-        return { error: `Tu cuota es de ${exceso.limite} ${exceso.limite === 1 ? 'clase' : 'clases'} por semana y ya tienes ${activas} ${activas === 1 ? 'plaza fija activa' : 'plazas fijas activas'}.` };
+        return { error: `Tu cuota es de ${exceso.limite} ${exceso.limite === 1 ? 'clase' : 'clases'} por semana y ya tienes ${activas} ${activas === 1 ? 'clase fija activa' : 'clases fijas activas'}.` };
       }
     }
   }
@@ -4298,7 +4298,7 @@ export async function solicitarPlazaFijaAlumna(
     .select('plaza_fija_solicitar_desde_app').eq('id', p.studioId).maybeSingle();
   if (errStudio) throw new Error(errStudio.message);
   if (studio?.plaza_fija_solicitar_desde_app !== true) {
-    return { error: 'Tu estudio da las plazas fijas en recepción: pídesela a ellos.', status: 403 };
+    return { error: 'Tu estudio da las clases fijas en recepción: pídesela a ellos.', status: 403 };
   }
   // Las mismas comprobaciones que dar la plaza: lo que no se le podría dar, no se pide.
   const v = await validarPlazaFijaDesdeSesion(admin, {
@@ -4313,7 +4313,7 @@ export async function solicitarPlazaFijaAlumna(
     supera_limite: !!v.exceso,
   }).select('id').single();
   if (error) {
-    if (error.code === '23505') return { error: 'Ya has pedido esta plaza fija: tu estudio te contestará.', status: 409 };
+    if (error.code === '23505') return { error: 'Ya has pedido esta clase fija: tu estudio te contestará.', status: 409 };
     throw new Error(error.message);
   }
   const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
@@ -4340,9 +4340,9 @@ export async function solicitarPausaPlazaFijaAlumna(
   }
   if (!fila) return { error: 'Plaza fija no encontrada', status: 404 };
   const plaza = plazaFijaDeFila(fila as unknown as Record<string, unknown>);
-  if (plaza.estado !== 'ACTIVA') return { error: 'Tu plaza fija ya está en pausa.', status: 400 };
+  if (plaza.estado !== 'ACTIVA') return { error: 'Tu clase fija ya está en pausa.', status: 400 };
   if (estadoPausa(plaza, hoy) !== 'sin_pausa') {
-    return { error: 'Tu plaza fija ya tiene una pausa: si quieres cambiarla, habla con tu estudio.', status: 400 };
+    return { error: 'Tu clase fija ya tiene una pausa: si quieres cambiarla, habla con tu estudio.', status: 400 };
   }
   const motivo = validarPausa(p.desde, p.hasta, hoy);
   if (motivo) return { error: motivo, status: 400 };
@@ -4352,7 +4352,7 @@ export async function solicitarPausaPlazaFijaAlumna(
     desde_propuesta: p.desde, hasta_propuesta: p.hasta,
   }).select('id').single();
   if (error) {
-    if (error.code === '23505') return { error: 'Ya has pedido una pausa para esta plaza fija: tu estudio te contestará.', status: 409 };
+    if (error.code === '23505') return { error: 'Ya has pedido una pausa para esta clase fija: tu estudio te contestará.', status: 409 };
     throw new Error(error.message);
   }
   const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
@@ -4519,7 +4519,7 @@ export async function resolverPeticionPlazaFija(
   if (sol.tipo === 'CREAR') {
     if (!p.aprobar) {
       if (!await cerrar('RECHAZADA', { motivo_rechazo: p.motivo })) return yaResuelta;
-      await responder(conMotivo(`Tu estudio no puede darte la plaza fija de ${franja}`));
+      await responder(conMotivo(`Tu estudio no puede darte la clase fija de ${franja}`));
       return { ok: true, mensaje: 'Petición rechazada' };
     }
     // La plaza es la franja que pidió. Si su clase ya no existe o ha cambiado de
@@ -4553,14 +4553,14 @@ export async function resolverPeticionPlazaFija(
         : { error: r.error, status: 400 };
     }
     await anotar({ resultado_plaza_id: r.plaza.id });
-    await responder(`Tu estudio te ha dado la plaza fija de ${franja}.${r.primeraFecha ? ' Ya tienes reservada la próxima clase.' : ''}`);
+    await responder(`Tu estudio te ha dado la clase fija de ${franja}.${r.primeraFecha ? ' Ya tienes reservada la próxima clase.' : ''}`);
     return { ok: true, mensaje: 'Plaza fija dada' };
   }
 
   if (sol.tipo === 'PAUSAR') {
     if (!p.aprobar) {
       if (!await cerrar('RECHAZADA', { motivo_rechazo: p.motivo })) return yaResuelta;
-      await responder(conMotivo('Tu estudio no ha aprobado la pausa de tu plaza fija'));
+      await responder(conMotivo('Tu estudio no ha aprobado la pausa de tu clase fija'));
       return { ok: true, mensaje: 'Petición rechazada' };
     }
     const pausa = { desde: sol.desde_propuesta as string, hasta: sol.hasta_propuesta as string };
@@ -4573,7 +4573,7 @@ export async function resolverPeticionPlazaFija(
       return { error: r.error, status: 400 };
     }
     await anotar({ desde_aprobada: pausa.desde, hasta_aprobada: pausa.hasta, resultado_plaza_id: r.plaza.id });
-    await responder(`Tu estudio ha aprobado la pausa de tu plaza fija del ${diaMes(pausa.desde)} al ${diaMes(pausa.hasta)}.`);
+    await responder(`Tu estudio ha aprobado la pausa de tu clase fija del ${diaMes(pausa.desde)} al ${diaMes(pausa.hasta)}.`);
     return { ok: true, mensaje: 'Pausa aprobada' };
   }
 
@@ -4590,7 +4590,7 @@ export async function resolverPeticionPlazaFija(
       return { error: 'Su sitio lo tiene ahora otra clienta: cámbiale el sitio desde su ficha o quítale la plaza.', status: 409 };
     }
     await anotar({ resultado_plaza_id: v.plaza.id });
-    await responder(`Tu plaza fija de ${franja} vuelve después de tu pausa.`);
+    await responder(`Tu clase fija de ${franja} vuelve después de tu pausa.`);
     return { ok: true, mensaje: 'Vuelve a su plaza fija' };
   }
   // Rechazar la vuelta quita la plaza. Primero se reclama la petición (nadie la
@@ -4603,7 +4603,7 @@ export async function resolverPeticionPlazaFija(
       .eq('id', sol.id).eq('estado', 'RECHAZADA');
     return { error: baja.error, status: 400 };
   }
-  await responder(conMotivo(`Tu plaza fija de ${franja} no continúa después de tu pausa`));
+  await responder(conMotivo(`Tu clase fija de ${franja} no continúa después de tu pausa`));
   return { ok: true, mensaje: 'Plaza fija quitada' };
 }
 
