@@ -2987,11 +2987,11 @@ export interface RowSolicitudesPlazaFija {
   creada_en: string;
   resuelta_en: string | null;
   resuelta_por: string | null;
-  // migr 20260922120000.
+  // migr 20260921230223.
   clase_fija_id: string | null;
-  // migr 20260922120000.
+  // migr 20260921230223.
   duracion_meses: number | null;
-  // migr 20260922120000.
+  // migr 20260921230223.
   vigencia_hasta_propuesta: string | null;
 }
 
