@@ -115,7 +115,7 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
     return 'Tu sesión había caducado y se está renovando. Vuelve a intentarlo.';
   }
   // Cupo exacto de una etapa de lanzamiento (trigger de suscripciones, migr
-  // 20260922090000): la venta desde el mostrador se para con la etapa llena.
+  // 20260921195853): la venta desde el mostrador se para con la etapa llena.
   if (/ETAPA_AGOTADA/.test(msg)) {
     return 'Las plazas de esa oferta se han agotado. Si quieres vender más, amplía el cupo de la etapa en Inicio.';
   }

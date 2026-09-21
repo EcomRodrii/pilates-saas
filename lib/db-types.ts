@@ -3202,6 +3202,20 @@ export interface RowStudioConfigTiempo {
   updated_at: string;
 }
 
+export interface RowLaunchStagePlazas {
+  id: string;
+  stage_id: string;
+  studio_id: string;
+  clave: string;
+  stripe_ref: string | null;
+  suscripcion_id: string | null;
+  estado: string;
+  expira_en: string | null;
+  intento: number;
+  created_at: string;
+  updated_at: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -8867,6 +8881,34 @@ export type StudioConfigTiempoUpdate = {
   updated_at?: string | null;
 }
 
+export type LaunchStagePlazasInsert = {
+  id?: string | null;
+  stage_id?: string | null;
+  studio_id?: string | null;
+  clave?: string | null;
+  stripe_ref?: string | null | null;
+  suscripcion_id?: string | null | null;
+  estado?: string | null;
+  expira_en?: string | null | null;
+  intento?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type LaunchStagePlazasUpdate = {
+  id?: string | null;
+  stage_id?: string | null;
+  studio_id?: string | null;
+  clave?: string | null;
+  stripe_ref?: string | null | null;
+  suscripcion_id?: string | null | null;
+  estado?: string | null;
+  expira_en?: string | null | null;
+  intento?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -9889,6 +9931,11 @@ export type Database = {
         Row: RowStudioConfigTiempo;
         Insert: StudioConfigTiempoInsert;
         Update: StudioConfigTiempoUpdate;
+      };
+      launch_stage_plazas: {
+        Row: RowLaunchStagePlazas;
+        Insert: LaunchStagePlazasInsert;
+        Update: LaunchStagePlazasUpdate;
       };
     };
   };

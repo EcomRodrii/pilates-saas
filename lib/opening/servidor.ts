@@ -205,7 +205,7 @@ export async function sincronizarAlertas(
   const tiposDetectados = new Set(detectadas.map(a => a.tipo));
   const tiposAbiertos = new Set(abiertas.map(a => a.tipo));
 
-  // Los avisos de cupo superado los crea la BD (migr 20260922090000), no
+  // Los avisos de cupo superado los crea la BD (migr 20260921195853), no
   // detectarAlertas: si se resolvieran por «no detectado», desaparecerían en
   // cuanto la propietaria abriera Inicio. Se resuelven solos a los 7 días.
   const esDeLaBD = (tipo: string) => tipo.startsWith(PREFIJO_CUPO_SUPERADO);

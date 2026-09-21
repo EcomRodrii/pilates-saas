@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { idsDe } from '../billing/ids-compra.ts';
 
-// Cupo EXACTO de las etapas «Cerrar la venta» (migr 20260922090000). La base
+// Cupo EXACTO de las etapas «Cerrar la venta» (migr 20260921195853). La base
 // decide y bloquea; esto solo envuelve las RPC y recupera plazas de cobros que
 // Stripe confirma que ya no van a ocurrir.
 
