@@ -16,7 +16,8 @@ import { catalogo } from '@/lib/student/catalogo';
 import { confirmarReserva } from '@/lib/student/reservar';
 import { proyectarPlazaFijaEnClase } from '@/lib/student/mapeo';
 import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
-import type { PlazaFijaEnClase } from '@/lib/student/plaza-fija';
+import { diaSemanaDe, type PlazaFijaEnClase } from '@/lib/student/plaza-fija';
+import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
 import type { BookingState } from '@/lib/student/tipos';
@@ -95,7 +96,7 @@ export default function FichaClasePage() {
       // como plaza fija. Lo decide `lib/student/plaza-fija.ts`; el servidor lo
       // vuelve a comprobar al pedirla.
       plazaFija: clase && payload
-        ? proyectarPlazaFijaEnClase(payload, { id: clase.id, fecha: clase.fecha, hora: clase.hora, salaId: clase.salaId })
+        ? proyectarPlazaFijaEnClase(payload, { id: clase.id, fecha: clase.fecha, hora: clase.hora, salaId: clase.salaId, tipoClaseId: clase.tipoClaseId })
         : null,
     };
   }, [estudio.slug, claseId]);
@@ -242,6 +243,27 @@ export default function FichaClasePage() {
   const enSheet = bk !== 'idle';
   const esFinal = enSheet && bk !== 'reviewing' && bk !== 'submitting';
 
+  // Al terminar de reservar una clase que se repite, es el momento de decirle
+  // que puede dejar de reservarla a mano: antes solo lo veía quien abría la ficha
+  // y bajaba hasta la tarjeta. Solo si el estudio la deja pedir y ella puede.
+  const ofertaPlazaFija = bk === 'confirmed' && estudio.puedePedirPlazaFija && plazaFija
+    && (plazaFija.estado === 'PUEDE_PEDIR' || plazaFija.estado === 'PEDIDA') ? (
+      <div data-testid="oferta-plaza-fija" style={{ marginTop: 14, padding: '12px 14px', borderRadius: 14, background: 'var(--muted)', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800 }}>{TEXTOS_PLAZA_FIJA.trasReservarTitulo}</p>
+        {plazaFija.estado === 'PEDIDA' ? (
+          <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.trasReservarPedida}</p>
+        ) : (
+          <>
+            <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.trasReservar(diaSemanaDe(clase.fecha), clase.hora)}</p>
+            <div>
+              <Button variant="secondary" size="sm" loading={pfEnviando} onClick={() => void pedirPlaza()}>{TEXTOS_PLAZA_FIJA.botonPedir}</Button>
+            </div>
+          </>
+        )}
+        {pfError && <p role="alert" className="t-meta" style={{ margin: 0 }}>{pfError}</p>}
+      </div>
+    ) : null;
+
   return (
     // `headerTransparente`, igual que Inicio: esta pantalla también abre con
     // una foto a sangre y la cabecera iba SÓLIDA encima. No era solo una
@@ -348,23 +370,26 @@ export default function FichaClasePage() {
         </div>
 
         {/* Plaza fija: PEDIRLA, no darla. El estudio decide y ella lo ve en su app.
-            Solo si el estudio lo permite y la clase se repite cada semana. */}
-        {estudio.puedePedirPlazaFija && plazaFija && (plazaFija.estado === 'PUEDE_PEDIR' || plazaFija.estado === 'PEDIDA') && (
+            Solo si el estudio lo permite y la clase se repite cada semana. Quien
+            no tiene cuota que la cubra (un bono no da plaza fija) no ve un botón que
+            el servidor rechazaría: se le dice por qué. */}
+        {estudio.puedePedirPlazaFija && plazaFija && (plazaFija.estado === 'PUEDE_PEDIR' || plazaFija.estado === 'PEDIDA' || plazaFija.estado === 'SOLO_CON_CUOTA') && (
           <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-            <p className="t-label" style={{ margin: 0 }}>Plaza fija</p>
+            <p className="t-label" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.titulo}</p>
             {plazaFija.estado === 'PEDIDA' ? (
               <>
-                <p className="t-meta" style={{ margin: 0 }}>Ya la has pedido: tu estudio te contestará aquí.</p>
+                <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.pedida}</p>
                 <Button variant="ghost" size="sm" loading={pfEnviando} onClick={() => void anularPlazaFija(plazaFija.peticionId)}>
-                  Anular la petición
+                  {TEXTOS_PLAZA_FIJA.botonAnular}
                 </Button>
               </>
+            ) : plazaFija.estado === 'SOLO_CON_CUOTA' ? (
+              <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.soloConCuota}</p>
             ) : (
               <>
-                <p className="t-meta" style={{ margin: 0 }}>
-                  ¿Vienes cada semana a esta clase? Pídesela a tu estudio y, si dice que sí, te la reserva cada semana.
-                </p>
-                <Button variant="secondary" size="sm" loading={pfEnviando} onClick={() => void pedirPlaza()}>Pedir plaza fija</Button>
+                <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.ofrecer(diaSemanaDe(clase.fecha), clase.hora)}</p>
+                <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.quePasa}</p>
+                <Button variant="secondary" size="sm" loading={pfEnviando} onClick={() => void pedirPlaza()}>{TEXTOS_PLAZA_FIJA.botonPedir}</Button>
               </>
             )}
             {pfError && <p role="alert" className="t-meta" style={{ margin: 0 }}>{pfError}</p>}
@@ -446,6 +471,7 @@ export default function FichaClasePage() {
             onWaitlist={() => ir('reviewing')}
             onComprar={() => router.push(href('/comprar'))}
             onClose={finalizar}
+            oferta={ofertaPlazaFija}
           />
         )}
       </Sheet>

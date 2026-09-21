@@ -71,6 +71,9 @@ function sumarDias(iso: string, n: number): string {
 
 function dow(iso: string): number { return new Date(`${iso}T12:00:00`).getDay(); }
 
+/** Día de la semana (0 = domingo) de una fecha YYYY-MM-DD. */
+export function diaSemanaDe(iso: string): number { return dow(iso); }
+
 /**
  * TODAS las plazas fijas vigentes de la socia, lunes primero. Antes se enseñaba
  * una sola: quien venía lunes y miércoles veía solo una de las dos.
@@ -134,19 +137,49 @@ export type PlazaFijaEnClase =
   | { estado: 'PUEDE_PEDIR' }
   | { estado: 'PEDIDA'; peticionId: string }
   | { estado: 'TIENE_PLAZA' }
-  | { estado: 'NO_SE_REPITE' };
+  | { estado: 'NO_SE_REPITE' }
+  /** La clase se repite, pero ella no tiene una cuota que la cubra: con bono no hay plaza fija. */
+  | { estado: 'SOLO_CON_CUOTA' };
+
+/** Lo mínimo de una de sus suscripciones para saber si le da derecho a plaza fija. */
+export interface CuotaMin { planId: string; estado: string; fechaFin: string | null }
+/** Lo mínimo de un plan para lo mismo. `tipo` `MENSUAL` es la cuota; bono y clase suelta no. */
+export interface PlanCuotaMin { id: string; tipo?: string | null; tiposClaseIds?: string[] }
+
+/**
+ * ¿Tiene una cuota vigente que incluya esta clase? Es LA regla del servidor
+ * (`cuotaParaPlazaFija`, lib/plazas-fijas-reglas.ts; y `cuota_cubre_plaza_fija`
+ * en SQL, que aplica el motor cada noche), copiada aquí porque este módulo no
+ * importa nada. Solo decide si enseñar el botón: el servidor lo vuelve a
+ * comprobar al pedir. Un test la compara con la del servidor (plaza-fija-cuota.test.ts).
+ */
+export function tieneCuotaQueCubre(
+  suscripciones: CuotaMin[], planes: PlanCuotaMin[], hoyISO: string, tipoClaseId: string | null,
+): boolean {
+  return suscripciones.some((s) => {
+    if (s.estado !== 'ACTIVA') return false;
+    if (s.fechaFin && s.fechaFin < hoyISO) return false;
+    const plan = planes.find((p) => p.id === s.planId);
+    if (!plan || plan.tipo !== 'MENSUAL') return false;
+    const tipos = plan.tiposClaseIds;
+    return !tipos || tipos.length === 0 || !tipoClaseId || tipos.includes(tipoClaseId);
+  });
+}
 
 /**
  * Qué ofrecer en la ficha de una clase sobre su plaza fija. Solo se pide en una
  * clase que se repite (otra clase en su misma sala, día y hora), y no si ya la
- * tiene —activa o en pausa— o ya la ha pedido. El servidor lo vuelve a comprobar
- * todo al pedir y al dar la plaza: esto solo decide si enseñar el botón.
+ * tiene —activa o en pausa— o ya la ha pedido. Si no tiene cuota que la cubra
+ * (`tieneCuota` en falso), no se le ofrece un botón que el servidor rechazaría:
+ * se le dice por qué. El servidor lo vuelve a comprobar todo al pedir y al dar la
+ * plaza: esto solo decide qué enseñar.
  */
 export function plazaFijaEnClase(
   clase: { id: string; fecha: string; hora: string; salaId: string },
   sesiones: { id: string; fecha: string; hora: string; salaId: string; cancelada: boolean }[],
   plazas: PlazaFijaMin[],
   peticiones: PeticionPlazaFijaMin[],
+  tieneCuota = true,
 ): PlazaFijaEnClase {
   const dia = dow(clase.fecha);
   const mismaFranja = (d: number | null, hora: string | null, sala: string | null) =>
@@ -156,7 +189,8 @@ export function plazaFijaEnClase(
   if (pedida) return { estado: 'PEDIDA', peticionId: pedida.id };
   const repite = sesiones.some((s) => s.id !== clase.id && s.fecha !== clase.fecha && !s.cancelada
     && s.salaId === clase.salaId && s.hora === clase.hora && dow(s.fecha) === dia);
-  return repite ? { estado: 'PUEDE_PEDIR' } : { estado: 'NO_SE_REPITE' };
+  if (!repite) return { estado: 'NO_SE_REPITE' };
+  return tieneCuota ? { estado: 'PUEDE_PEDIR' } : { estado: 'SOLO_CON_CUOTA' };
 }
 
 export interface RecuperacionVista {

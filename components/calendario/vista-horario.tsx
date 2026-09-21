@@ -34,6 +34,13 @@ export interface VistaHorarioProps {
   onAnadirPlaza: (t: TarjetaHorario) => void;
   onVerClase: (t: TarjetaHorario) => void;
   onCrearRecurrente?: () => void;
+  /**
+   * Si las alumnas pueden pedir su plaza fija desde la app (ajuste del estudio,
+   * apagado de serie). `undefined` = no se sabe todavía: no se dice nada.
+   */
+  alumnasPidenPlaza?: boolean;
+  /** A dónde lleva «Dejar que la pidan ellas»; `null` si quien mira no puede abrir ese ajuste. */
+  hrefAjustePeticiones?: string | null;
 }
 
 function textoFin(t: TarjetaHorario, hoy: string): { texto: string; aviso: boolean } {
@@ -150,6 +157,20 @@ export function VistaHorario(p: VistaHorarioProps) {
             <span className="font-medium text-warning">
               {' · '}{nPronto === 1 ? '1 termina en menos de un mes' : `${nPronto} terminan en menos de un mes`}
             </span>
+          )}
+        </p>
+      )}
+      {tarjetas.length > 0 && p.alumnasPidenPlaza !== undefined && (
+        <p className="mb-3 text-xs text-muted-foreground text-pretty" data-testid="aviso-peticiones-plaza-fija">
+          {p.alumnasPidenPlaza ? (
+            <>Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Inicio.</>
+          ) : (
+            <>
+              Tus alumnas no pueden pedir su plaza fija desde la app: se la das tú, aquí o en su ficha.
+              {p.hrefAjustePeticiones && (
+                <>{' '}<Link href={p.hrefAjustePeticiones} className="font-medium underline underline-offset-2 hover:text-primary">Dejar que la pidan ellas</Link></>
+              )}
+            </>
           )}
         </p>
       )}

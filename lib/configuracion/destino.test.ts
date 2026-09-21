@@ -171,6 +171,8 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=reservas#reglas-de-reserva', { tab: 'reservas', ancla: 'reservar' }],
     ['/configuracion#reglas-de-reserva', { tab: 'reservas', ancla: 'reservar' }],
     ['/configuracion?tab=reservas#asistencia', { tab: 'reservas', ancla: 'asistencia' }],
+    // El aviso de la vista Horario del calendario lleva al ajuste de las peticiones desde la app.
+    ['/configuracion?tab=reservas#plaza-fija-desde-la-app', { tab: 'reservas', ancla: 'plaza-fija-desde-la-app' }],
     ['/configuracion?tab=estudio#lista-de-espera', { tab: 'reservas', ancla: 'lista-de-espera' }],
     // Los ajustes sueltos de dentro llevan a la fila cuyo cajón los tiene (15-sep, v2).
     ['/configuracion?tab=reservas#ajuste-ventana-cancelacion', { tab: 'reservas', ancla: 'cancelar-y-recuperar' }],
