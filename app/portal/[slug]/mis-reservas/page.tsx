@@ -14,7 +14,7 @@ import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { cancelarReserva, aceptarOfertaEspera } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato';
-import { diaSemanaDe } from '@/lib/student/plaza-fija';
+import { acotarFijasProximas, diaSemanaDe } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
 import { añadirAlCalendario } from '@/lib/student/enlaces-clase';
@@ -92,7 +92,10 @@ export default function MisReservasPage() {
   // Las pasadas no se pierden: caen al historial, que es donde se buscan.
   const hoy = hoyISO();
   const activa = (e: string) => e === 'confirmada' || e === 'en-espera';
-  const prox = items.filter((x) => activa(x.r.estado) && x.c.fecha >= hoy);
+  const proxTodas = items.filter((x) => activa(x.r.estado) && x.c.fecha >= hoy);
+  // El motor reserva la clase fija con meses de antelación: se enseñan las
+  // primeras y se dice cuántas más hay, en vez de una lista de medio año.
+  const { visibles: prox, ocultas: fijasOcultas } = acotarFijasProximas(proxTodas);
   const hist = items.filter((x) => !activa(x.r.estado) || x.c.fecha < hoy);
 
   const sel = items.find((x) => x.r.id === cancelId);
@@ -227,7 +230,8 @@ export default function MisReservasPage() {
                 href={href('/reservar')}
               />
             ) : (
-              prox.map(({ r, c }) => {
+              <>
+              {prox.map(({ r, c }) => {
                 const i = data.instructoras.find((x) => x.id === c.instructoraId);
                 const av = avisoCancelacion(c, estudio.politicaCancelacionHoras);
                 const espera = r.estado === 'en-espera';
@@ -317,7 +321,13 @@ export default function MisReservasPage() {
                     </div>
                   </div>
                 );
-              })
+              })}
+              {fijasOcultas > 0 && (
+                <p data-testid="fijas-ocultas" className="t-meta" style={{ margin: '2px 4px 0', textAlign: 'center' }}>
+                  {TEXTOS_PLAZA_FIJA.masReservadas(fijasOcultas)}
+                </p>
+              )}
+              </>
             )
           ) : (
             hist.length === 0 ? (

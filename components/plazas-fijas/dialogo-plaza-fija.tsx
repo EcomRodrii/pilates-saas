@@ -145,8 +145,8 @@ export function DialogoPlazaFija({
           <DialogTitle>{plaza ? 'Cambiar plaza fija' : 'Asignar plaza fija'}</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground -mt-1">
-          Elige la clase a la que viene cada semana. Se le reservan ya las próximas 6 semanas (menos las que empiezan dentro del plazo de cancelación), y después solas cada
-          noche. Hace falta una cuota activa que incluya esa clase; con bono se reserva clase a clase.
+          Elige la clase a la que viene cada semana. Se le reservan ya las clases programadas en ese horario, hasta unos seis meses por delante (menos las que empiezan dentro del plazo de cancelación), y después solas: cada
+          noche y al crear una clase nueva. Hace falta una cuota activa que incluya esa clase; con bono se reserva clase a clase.
         </p>
         {(sinNingunaCuota || cuotaNoIncluyeClase) && (
           <p role="status" className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-xs font-medium text-warning">

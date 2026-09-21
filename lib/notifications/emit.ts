@@ -168,12 +168,14 @@ export async function emitirReservaCancelada(
 // por (sesión, socia) — con el UNIQUE(studio_id, dedup_key) del motor, cada
 // semana que falla genera como mucho un aviso, para siempre, sin necesidad de
 // un "último periodo avisado" tipo Fase 2b de gestoría.
-// Los motivos que devuelve `plazas_fijas_sin_materializar`.
+// Los motivos que devuelve `plazas_fijas_sin_materializar`. `conflicto_horario`:
+// ya tiene otra clase (o una cita) a esa hora, y el motor no la deja en dos
+// sitios a la vez.
 // `suscripcion_pausada` es el nombre viejo de `sin_plan_vigente` (hasta la migr
 // 20260915001236): se sigue aceptando por si el código llega antes que la
 // migración, con el texto nuevo, que también es cierto para una pausa.
 export type MotivoPlazaNoMaterializada =
-  | 'sesion_cancelada' | 'sin_plan_vigente' | 'suscripcion_pausada' | 'sin_autorizacion' | 'sin_aforo';
+  | 'sesion_cancelada' | 'sin_plan_vigente' | 'suscripcion_pausada' | 'sin_autorizacion' | 'sin_aforo' | 'conflicto_horario';
 
 export async function emitirPlazaFijaNoMaterializada(
   admin: SupabaseClient,
@@ -187,7 +189,9 @@ export async function emitirPlazaFijaNoMaterializada(
         ? ' Tu cuota no está activa o no incluye esta clase, así que no la hemos reservado por ti. Con bono, resérvala clase a clase.'
         : p.motivo === 'sin_autorizacion'
           ? ' Esta clase necesita que el estudio te dé acceso: escríbeles y te la abren.'
-          : ' Esta semana está completa — resérvala manualmente si quieres entrar en lista de espera.';
+          : p.motivo === 'conflicto_horario'
+            ? ' Ya tienes otra clase a esa hora, así que no la hemos reservado por ti. Si prefieres esta, cancela la otra y reserva esta.'
+            : ' Esta semana está completa — resérvala manualmente si quieres entrar en lista de espera.';
     await publish({
       type: EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, motivoTexto },

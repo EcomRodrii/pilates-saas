@@ -164,6 +164,33 @@ export function proximasDeUnaPlaza(
   return salida.sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, max);
 }
 
+/**
+ * Cuántas clases de su clase fija se enseñan en «Mis clases → Próximas». El motor
+ * las reserva con meses de antelación (~26 por clase fija), y una lista de medio
+ * año tapa lo que de verdad se busca ahí: lo que viene esta semana y la siguiente.
+ * Las reservas hechas a mano NO se acotan nunca.
+ */
+export const FIJAS_VISIBLES_EN_PROXIMAS = 6;
+
+/**
+ * Deja las próximas `max` reservas de clase fija (`res-pf-`) por fecha y todas las
+ * demás. `ocultas` cuenta las que siguen reservadas pero no se enseñan, para
+ * decirlo en pantalla en vez de esconderlas sin más.
+ */
+export function acotarFijasProximas<T extends { r: { id: string }; c: { fecha: string; hora: string } }>(
+  items: T[],
+  max: number = FIJAS_VISIBLES_EN_PROXIMAS,
+): { visibles: T[]; ocultas: number } {
+  const esFija = (x: T) => x.r.id.startsWith('res-pf-');
+  const fijas = items.filter(esFija)
+    .sort((a, b) => `${a.c.fecha} ${a.c.hora}`.localeCompare(`${b.c.fecha} ${b.c.hora}`));
+  const quedan = new Set(fijas.slice(0, max).map((x) => x.r.id));
+  return {
+    visibles: items.filter((x) => !esFija(x) || quedan.has(x.r.id)),
+    ocultas: fijas.length - quedan.size,
+  };
+}
+
 export type PlazaFijaEnClase =
   | { estado: 'PUEDE_PEDIR' }
   | { estado: 'PEDIDA'; peticionId: string }

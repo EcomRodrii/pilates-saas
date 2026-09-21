@@ -10,7 +10,7 @@
 // (`plazas_fijas`): es el hueco que el motor mantiene reservado.
 //
 // Solo se afirma lo que el sistema hace de verdad: el motor reserva la clase
-// cada semana (`materializar_plazas_fijas`, unas seis semanas por delante), la
+// cada semana (`materializar_plazas_fijas`, con meses de antelación), la
 // petición no cambia nada hasta que el estudio la aprueba, cancelar UNA semana
 // no toca la clase fija, y solo se guarda una clase para recuperar si cancela a
 // tiempo y su cuota limita las clases por semana (`otorgarRecuperacionPlazaFijaSiAplica`).
@@ -50,6 +50,11 @@ export const TEXTOS_PLAZA_FIJA = {
   reservada: 'Reservada',
   noPuedo: 'No puedo asistir',
   /** Cuando aún no hay ninguna reservada (recién asignada, o el horario no llega tan lejos). */
+  /** «Mis clases → Próximas» solo enseña las primeras; el resto sigue reservado. */
+  masReservadas: (n: number) =>
+    n === 1
+      ? 'Y 1 clase más de tu clase fija, ya reservada: irá apareciendo aquí según se acerque.'
+      : `Y ${n} clases más de tu clase fija, ya reservadas: irán apareciendo aquí según se acerquen.`,
   sinProximas: 'Tu próxima clase se reservará sola en cuanto la programe el estudio.',
   /** Baja, reactivarla o cambiarla: no se hace desde la app, se le escribe al estudio. */
   cambiarla: '¿Quieres cambiarla o dejarla?',

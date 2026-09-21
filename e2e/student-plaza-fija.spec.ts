@@ -255,18 +255,29 @@ const CLASES_FIJAS = [
   { id: 'res-pf-s22', sesion: 'ses-22', inicio: '2026-08-27T10:00:00+02:00', fin: '2026-08-27T10:50:00+02:00' },
 ];
 
-async function montarConClaseFija(page: Page, opts: { reservaAMano?: boolean } = {}) {
+// Los jueves siguientes, también en horario de verano (+02:00): el motor reserva la
+// clase fija con meses de antelación, y «Mis clases» no puede volverse una lista de
+// medio año.
+const JUEVES_EXTRA = ['2026-09-03', '2026-09-10', '2026-09-17', '2026-09-24', '2026-10-01', '2026-10-08'];
+
+async function montarConClaseFija(page: Page, opts: { reservaAMano?: boolean; masFijas?: number } = {}) {
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   const sesiones = f.sesiones as unknown[];
-  for (const c of CLASES_FIJAS) {
+  const clasesFijas = [
+    ...CLASES_FIJAS,
+    ...JUEVES_EXTRA.slice(0, opts.masFijas ?? 0).map((dia, i) => ({
+      id: `res-pf-x${i}`, sesion: `ses-x${i}`, inicio: `${dia}T10:00:00+02:00`, fin: `${dia}T10:50:00+02:00`,
+    })),
+  ];
+  for (const c of clasesFijas) {
     sesiones.push({ id: c.sesion, studioId: STUDIO_ID, tipoClaseId: 'tc-r', salaId: 'sala-1', instructorId: 'ins-1', inicio: c.inicio, fin: c.fin, aforoMaximo: 10, cancelada: false });
   }
   const socia = f.socia as Record<string, unknown>;
   // El reloj de `sembrarSociaLista` es el 2026-08-12: los jueves 13, 20 y 27 a las 10:00 (hora del fixture).
   socia.plazasFijas = [{ id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIO_ID, diaSemana: 4, horaInicio: '10:00:00', salaId: 'sala-1', tipoClaseId: 'tc-r', spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z' }];
   socia.reservas = [
-    ...CLASES_FIJAS.map((c) => ({ id: c.id, sesionId: c.sesion, socioId: SOCIO_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-01T00:00:00Z', posicionEspera: null })),
+    ...clasesFijas.map((c) => ({ id: c.id, sesionId: c.sesion, socioId: SOCIO_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-01T00:00:00Z', posicionEspera: null })),
     // Una reserva de una vez, en OTRO día: no es de su clase fija y no puede salir en «Próximas clases».
     ...(opts.reservaAMano ? [{ id: 'res-mano-1', sesionId: 'ses-10', socioId: SOCIO_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-02T00:00:00Z', posicionEspera: null }] : []),
   ];
@@ -337,5 +348,24 @@ test.describe('Student PWA · tu clase fija', () => {
     await expect(aviso).toContainText('Tu clase fija de los jueves sigue activa');
     await expect(page.getByText(/sesión de tu bono/)).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Sí, no puedo asistir' })).toBeVisible();
+  });
+
+  test('«Mis clases»: con muchas clases fijas ya reservadas se enseñan las primeras y se dice cuántas más hay', async ({ page }) => {
+    // 9 clases fijas + 1 reserva a mano. Las de la clase fija se acotan a las 6 primeras; la
+    // reservada a mano no se acota nunca.
+    await montarConClaseFija(page, { reservaAMano: true, masFijas: 6 });
+    await page.goto(`${base}/mis-reservas`);
+    await expect(page.getByText('Tu clase fija ✓').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Tu clase fija ✓')).toHaveCount(6);
+    await expect(page.getByText('Reservada ✓')).toHaveCount(1);
+    await expect(page.getByTestId('fijas-ocultas')).toHaveText('Y 3 clases más de tu clase fija, ya reservadas: irán apareciendo aquí según se acerquen.');
+  });
+
+  test('«Mis clases»: con pocas clases fijas no hay nada que acotar ni aviso de «más»', async ({ page }) => {
+    await montarConClaseFija(page, { reservaAMano: true });
+    await page.goto(`${base}/mis-reservas`);
+    await expect(page.getByText('Tu clase fija ✓').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Tu clase fija ✓')).toHaveCount(3);
+    await expect(page.getByTestId('fijas-ocultas')).toHaveCount(0);
   });
 });
