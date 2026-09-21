@@ -15,7 +15,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
 import {
   fetchTarifasEquipo, actualizarTarifaInstructor, fetchLiquidaciones, generarLiquidacion,
-  transicionarLiquidacion, fetchTiempoTrabajado, type TarifaInstructor, type Liquidacion,
+  transicionarLiquidacion, fetchTiempoTrabajado, fetchModoLiquidacion, guardarModoLiquidacion,
+  type TarifaInstructor, type Liquidacion, type ModoLiquidacion,
 } from '@/lib/api-client';
 import { formatEuro } from '@/lib/utils';
 
@@ -35,13 +36,35 @@ export default function LiquidacionesPage() {
   const [tarifas, setTarifas] = useState<Record<string, TarifaInstructor>>({});
   const [liquidaciones, setLiquidaciones] = useState<Record<string, Liquidacion>>({});
   // Minutos fichados por instructora en el mes. `null` = no se pudo leer: no se
-  // pinta nada antes que un «0 h» que no es verdad. Es solo informativo: la
-  // liquidación sigue calculándose por horas de clase.
+  // pinta nada antes que un «0 h» que no es verdad.
   const [fichado, setFichado] = useState<Map<string, number> | null>(null);
+  // Con qué calcula el estudio la parte variable. `null` = no se sabe todavía.
+  const [criterio, setCriterio] = useState<{ modo: ModoLiquidacion; puedeCambiar: boolean } | null>(null);
+  const [guardandoCriterio, setGuardandoCriterio] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
 
   const activos = useMemo(() => instructores.filter(i => i.activo && i.rol === 'INSTRUCTOR'), [instructores]);
+
+  useEffect(() => {
+    let vivo = true;
+    fetchModoLiquidacion().then(c => { if (vivo) setCriterio(c); });
+    return () => { vivo = false; };
+  }, []);
+
+  async function cambiarCriterio(modo: ModoLiquidacion) {
+    if (!criterio || modo === criterio.modo || guardandoCriterio) return;
+    const texto = modo === 'HORAS_FICHADAS'
+      ? 'A partir de ahora, los borradores pagarán las horas fichadas (jornadas cerradas) × tarifa por hora, sin recargo de sustitución. Las liquidaciones confirmadas o pagadas no cambian. ¿Seguimos?'
+      : 'A partir de ahora, los borradores volverán a pagar las horas de clase × tarifa por hora. Las liquidaciones confirmadas o pagadas no cambian. ¿Seguimos?';
+    if (!window.confirm(texto)) return;
+    setGuardandoCriterio(true);
+    const r = await guardarModoLiquidacion(modo);
+    setGuardandoCriterio(false);
+    if (!r.ok) { showToast(r.error ?? 'No se pudo guardar'); return; }
+    setCriterio({ ...criterio, modo });
+    showToast('Criterio guardado. Recalcula los borradores de este mes para aplicarlo.');
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -116,7 +139,9 @@ export default function LiquidacionesPage() {
     <div className="space-y-5">
       <PageHeader
         title="Liquidaciones de instructoras"
-        description="Base + variable por clase + sustituciones + reparto de penalizaciones. Un desglose transparente — el pago se hace fuera de Tentare."
+        description={criterio?.modo === 'HORAS_FICHADAS'
+          ? 'Base + horas fichadas + reparto de penalizaciones. Un desglose transparente — el pago se hace fuera de Tentare.'
+          : 'Base + variable por clase + sustituciones + reparto de penalizaciones. Un desglose transparente — el pago se hace fuera de Tentare.'}
         back={{ href: '/equipo', label: 'Volver a Equipo' }}
         actions={
           <div className="flex items-center gap-2">
@@ -129,6 +154,21 @@ export default function LiquidacionesPage() {
           </div>
         }
       />
+
+      {criterio && (
+        <div className="rounded-2xl border border-border bg-card px-5 py-3 flex flex-wrap items-center justify-between gap-3 text-[13px]" data-testid="criterio-liquidacion">
+          <span className="text-muted-foreground">Parte variable calculada por</span>
+          {criterio.puedeCambiar ? (
+            <select aria-label="Calcular la parte variable por" value={criterio.modo} disabled={guardandoCriterio}
+              onChange={e => void cambiarCriterio(e.target.value as ModoLiquidacion)} className={inputCls + ' w-auto'}>
+              <option value="CLASES">horas de clase</option>
+              <option value="HORAS_FICHADAS">horas fichadas</option>
+            </select>
+          ) : (
+            <span className="font-semibold text-foreground">{criterio.modo === 'HORAS_FICHADAS' ? 'horas fichadas' : 'horas de clase'}</span>
+          )}
+        </div>
+      )}
 
       {cargando ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
@@ -188,9 +228,27 @@ export default function LiquidacionesPage() {
                 {liq ? (
                   <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-[13px]">
                     <div><p className="text-muted-foreground">Base</p><p className="font-semibold text-foreground">{formatEuro(liq.baseEur)}</p></div>
-                    <div><p className="text-muted-foreground">{liq.nClasesPropias} clases propias</p><p className="font-semibold text-foreground">{formatEuro(liq.variablePropiasEur)}</p></div>
-                    <div><p className="text-muted-foreground">{liq.nClasesSustitucion} sustituciones</p><p className="font-semibold text-foreground">{formatEuro(liq.variableSustitucionEur)}</p></div>
+                    {liq.modo === 'HORAS_FICHADAS' ? (
+                      <>
+                        <div data-testid="variable-fichado">
+                          <p className="text-muted-foreground">{Math.floor((liq.minutosFichados ?? 0) / 60)} h {String((liq.minutosFichados ?? 0) % 60).padStart(2, '0')} min fichadas</p>
+                          <p className="font-semibold text-foreground">{formatEuro(liq.variablePropiasEur)}</p>
+                        </div>
+                        <div><p className="text-muted-foreground">Clases del mes</p><p className="font-semibold text-foreground">{liq.nClasesPropias + liq.nClasesSustitucion}</p></div>
+                      </>
+                    ) : (
+                      <>
+                        <div><p className="text-muted-foreground">{liq.nClasesPropias} clases propias</p><p className="font-semibold text-foreground">{formatEuro(liq.variablePropiasEur)}</p></div>
+                        <div><p className="text-muted-foreground">{liq.nClasesSustitucion} sustituciones</p><p className="font-semibold text-foreground">{formatEuro(liq.variableSustitucionEur)}</p></div>
+                      </>
+                    )}
                     <div><p className="text-muted-foreground">{liq.nPenalizaciones} penalizaciones</p><p className="font-semibold text-foreground">{formatEuro(liq.repartoPenalizacionesEur)}</p></div>
+                    {liq.modo === 'HORAS_FICHADAS' && liq.jornadasSinCerrar > 0 && (
+                      <p className="col-span-2 sm:col-span-4 text-[12px] text-amber-600" data-testid="jornadas-sin-cerrar">
+                        {liq.jornadasSinCerrar === 1 ? 'Una jornada' : `${liq.jornadasSinCerrar} jornadas`} de este mes sin cerrar: no se pagan hasta corregirlas en{' '}
+                        <Link href="/equipo/tiempo-trabajado" className="underline">Tiempo trabajado</Link>, y no se puede confirmar.
+                      </p>
+                    )}
                     {liq.nClasesSinTarifa > 0 && (
                       <p className="col-span-2 sm:col-span-4 text-[12px] text-amber-600">
                         {liq.nClasesSinTarifa} {liq.nClasesSinTarifa === 1 ? 'clase' : 'clases'} sin tarifa fijada — no se han valorado.
@@ -205,7 +263,8 @@ export default function LiquidacionesPage() {
                               className="px-3 py-1.5 rounded-lg border border-border text-[12px] font-semibold text-foreground hover:bg-muted disabled:opacity-50">
                               Recalcular
                             </button>
-                            <button onClick={() => handleTransicion(liq, 'confirmar')} disabled={procesandoId === i.id}
+                            <button onClick={() => handleTransicion(liq, 'confirmar')}
+                              disabled={procesandoId === i.id || (liq.modo === 'HORAS_FICHADAS' && liq.jornadasSinCerrar > 0)}
                               className="px-3 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-semibold hover:brightness-95 disabled:opacity-50">
                               Confirmar
                             </button>

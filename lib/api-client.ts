@@ -2416,6 +2416,37 @@ export interface Liquidacion {
   generadaEn: string;
   requiereRevision: boolean;
   revisionMotivo: string | null;
+  modo: 'CLASES' | 'HORAS_FICHADAS';
+  minutosFichados: number | null;
+  jornadasSinCerrar: number;
+}
+
+export type ModoLiquidacion = Liquidacion['modo'];
+
+/** `null` si no se ha podido leer: no se enseña ningún criterio antes que uno falso. */
+export async function fetchModoLiquidacion(): Promise<{ modo: ModoLiquidacion; puedeCambiar: boolean } | null> {
+  try {
+    const res = await fetch('/api/equipo/liquidacion-modo', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const d = (await res.json()) as { modo?: string; puedeCambiar?: boolean };
+    return { modo: d.modo === 'HORAS_FICHADAS' ? 'HORAS_FICHADAS' : 'CLASES', puedeCambiar: d.puedeCambiar === true };
+  } catch {
+    return null;
+  }
+}
+
+export async function guardarModoLiquidacion(modo: ModoLiquidacion): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/equipo/liquidacion-modo', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ modo }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar el criterio' };
+  }
 }
 
 // Rendimiento de instructoras (fila 17 del informe estratégico): retención,

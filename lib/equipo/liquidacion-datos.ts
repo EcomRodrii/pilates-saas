@@ -1,8 +1,8 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { uid } from '@/lib/utils';
+import { uid } from '../utils.ts';
 import type { Rol } from '@/lib/types';
-import { calcularLiquidacion, type SesionParaLiquidacion } from './liquidacion-logic.ts';
+import { calcularLiquidacion, type ModoLiquidacion, type SesionParaLiquidacion } from './liquidacion-logic.ts';
 import { rangoMesEstudio } from '../fichaje/jornadas-equipo.ts';
 
 // Capa de datos server-only para la liquidación de instructoras (fila 11 del
@@ -31,6 +31,9 @@ export interface LiquidacionRow {
   generadaEn: string;
   requiereRevision: boolean;
   revisionMotivo: string | null;
+  modo: ModoLiquidacion;
+  minutosFichados: number | null;
+  jornadasSinCerrar: number;
 }
 
 function mapRow(r: Record<string, unknown>): LiquidacionRow {
@@ -55,7 +58,43 @@ function mapRow(r: Record<string, unknown>): LiquidacionRow {
     generadaEn: r.generada_en as string,
     requiereRevision: (r.requiere_revision as boolean | null) ?? false,
     revisionMotivo: (r.revision_motivo as string | null) ?? null,
+    modo: r.modo === 'HORAS_FICHADAS' ? 'HORAS_FICHADAS' : 'CLASES',
+    minutosFichados: r.minutos_fichados == null ? null : Number(r.minutos_fichados),
+    jornadasSinCerrar: Number(r.jornadas_sin_cerrar ?? 0),
   };
+}
+
+/** Con qué calcula este estudio la parte variable. Sin fila de configuración: por clases. */
+export async function modoLiquidacionEstudio(admin: SupabaseClient, studioId: string): Promise<ModoLiquidacion> {
+  const { data, error } = await admin.from('studio_config_tiempo').select('liquidar_por').eq('studio_id', studioId).maybeSingle();
+  if (error) throw error;
+  return (data as { liquidar_por?: string } | null)?.liquidar_por === 'HORAS_FICHADAS' ? 'HORAS_FICHADAS' : 'CLASES';
+}
+
+/**
+ * Lo fichado por una instructora en el periodo: minutos de jornadas CERRADAS y
+ * cuántas siguen abiertas o por revisar. Cuenta en el mes en que empezó cada
+ * jornada, igual que «Tiempo trabajado». Un error lanza: pagar 0 h por no haber
+ * podido leer es peor que no generar el borrador.
+ */
+async function fichajeDelPeriodo(
+  admin: SupabaseClient, studioId: string, instructorId: string, desde: string, hasta: string,
+): Promise<{ minutosCerrados: number; jornadasSinCerrar: number }> {
+  const { data, error } = await admin.from('instructor_work_sessions')
+    .select('check_in_at, check_out_at, status')
+    .eq('studio_id', studioId).eq('instructor_id', instructorId)
+    .gte('check_in_at', desde).lt('check_in_at', hasta);
+  if (error) throw error;
+  let minutosCerrados = 0;
+  let jornadasSinCerrar = 0;
+  for (const j of (data ?? []) as { check_in_at: string; check_out_at: string | null; status: string }[]) {
+    if (j.status === 'CLOSED' && j.check_out_at) {
+      minutosCerrados += Math.round((Date.parse(j.check_out_at) - Date.parse(j.check_in_at)) / 60_000);
+    } else {
+      jornadasSinCerrar++;
+    }
+  }
+  return { minutosCerrados, jornadasSinCerrar };
 }
 
 /**
@@ -129,7 +168,17 @@ export async function generarLiquidacionBorrador(
       .map(p => Number(p.importe));
   }
 
+  let modo: ModoLiquidacion;
+  let fichaje: { minutosCerrados: number; jornadasSinCerrar: number } | undefined;
+  try {
+    modo = await modoLiquidacionEstudio(admin, studioId);
+    if (modo === 'HORAS_FICHADAS') fichaje = await fichajeDelPeriodo(admin, studioId, instructorId, desde, hasta);
+  } catch {
+    return { error: 'No se ha podido leer el fichaje del mes. Inténtalo de nuevo.' };
+  }
+
   const calculo = calcularLiquidacion({
+    modo, fichaje,
     sesionesPropias, sesionesSustitucion, penalizacionesCobradasEur,
     tarifa: {
       tarifaHora: tarifaRow?.tarifa_hora == null ? null : Number(tarifaRow.tarifa_hora),
@@ -147,6 +196,7 @@ export async function generarLiquidacionBorrador(
     n_clases_sustitucion: calculo.nClasesSustitucion, variable_sustitucion_eur: calculo.variableSustitucionEur,
     n_penalizaciones: calculo.nPenalizaciones, reparto_penalizaciones_eur: calculo.repartoPenalizacionesEur,
     n_clases_sin_tarifa: calculo.nClasesSinTarifa,
+    modo: calculo.modo, minutos_fichados: calculo.minutosFichados, jornadas_sin_cerrar: calculo.jornadasSinCerrar,
     detalle: calculo.detalle, estado: 'BORRADOR', generada_en: new Date().toISOString(),
   }, { onConflict: 'instructor_id,periodo_anio,periodo_mes' }).select().maybeSingle();
 
@@ -176,6 +226,12 @@ export async function transicionarLiquidacion(
     );
     if (recalculado.error || !recalculado.row) {
       return { error: recalculado.error ?? 'No se pudo recalcular antes de confirmar' };
+    }
+    // Por horas fichadas, una jornada sin cerrar son horas que no se pagarían:
+    // se corrige antes de confirmar, no después.
+    if (recalculado.row.modo === 'HORAS_FICHADAS' && recalculado.row.jornadasSinCerrar > 0) {
+      const n = recalculado.row.jornadasSinCerrar;
+      return { error: `${n === 1 ? 'Hay una jornada' : `Hay ${n} jornadas`} de este mes sin cerrar. Corrígelas en Tiempo trabajado antes de confirmar.` };
     }
     // Compare-and-set (hallazgo #3): sin esto, dos PATCH casi simultáneos
     // podían superar ambos el chequeo en memoria de arriba.
