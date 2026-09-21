@@ -19,7 +19,7 @@ import {
 // Los correos automáticos siguen siendo su herramienta (#2061). WhatsApp y Gmail
 // llevan UN estado y su acción en la fila o en su cajón (canales-comunicacion.tsx).
 // El recordatorio de clase sigue siendo de serie (sale solo), pero desde migr
-// 20260921150000 el estudio elige su antelación y el texto de los avisos del
+// 20260921145514 el estudio elige su antelación y el texto de los avisos del
 // móvil: herramienta «Avisos en el móvil».
 
 const CAJONES = ['integracion-resend', 'integracion-whatsapp', 'integracion-gmail'] as const;

@@ -7,7 +7,7 @@
 // podía recibir tres mensajes por la misma clase y a horas que no casaban.
 //
 // Decisión del fundador (final). Las antelaciones son las de por defecto: desde
-// migr 20260921150000 cada estudio elige 12/24/48 h y 30/60/120 min.
+// migr 20260921145514 cada estudio elige 12/24/48 h y 30/60/120 min.
 //   · 24 h antes → aviso en su app + email + WhatsApp (si el estudio lo conectó).
 //   · 1 h antes  → solo aviso en su app.
 //   · Si reservó con la franja de 24 h ya pasada y aún falta más de 1 h 15 min,
@@ -67,7 +67,7 @@ const CONCURRENCIA_ENVIOS = 4;
 // ⚠️ '24h' y '1h' son NOMBRES de franja, no su duración: son el recordatorio
 // LARGO (push + email + WhatsApp) y el CORTO (solo push), y cada estudio decide
 // su antelación (`studios.recordatorio_largo_horas` / `_corto_minutos`, migr
-// 20260921150000). Se conservan porque son también el tipo de evento
+// 20260921145514). Se conservan porque son también el tipo de evento
 // (`reserva.recordatorio_24h`/`_1h`) y la clave de dedup de los ya enviados.
 export type FranjaRecordatorio = '24h' | '1h' | 'tardia';
 type FranjaPush = Exclude<FranjaRecordatorio, 'tardia'>;

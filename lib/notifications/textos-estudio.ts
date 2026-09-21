@@ -4,7 +4,7 @@
 // estudio o el de fábrica.
 //
 // Se guardan en `notification_template` (una fila por estudio y tipo; solo la
-// propietaria escribe, migr 20260921150000). Solo los avisos que recibe la
+// propietaria escribe, migr 20260921145514). Solo los avisos que recibe la
 // ALUMNA (`PUSH_POR_TIPO.SOCIA`): son los que hablan en nombre del estudio.
 //
 // ⚠️ Un texto solo puede usar las variables que ya usa el de fábrica: son las

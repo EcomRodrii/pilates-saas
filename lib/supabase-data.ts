@@ -4948,7 +4948,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('creditosCaducanMeses' in changes) db.creditos_caducan_meses = changes.creditosCaducanMeses;
   if ('rachaClasesSemana' in changes) db.racha_clases_semana = changes.rachaClasesSemana;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
-  // GRANT de columna en migr 20260921150000; valores cerrados por CHECK.
+  // GRANT de columna en migr 20260921145514; valores cerrados por CHECK.
   if ('recordatorioLargoHoras' in changes) db.recordatorio_largo_horas = changes.recordatorioLargoHoras;
   if ('recordatorioCortoMinutos' in changes) db.recordatorio_corto_minutos = changes.recordatorioCortoMinutos;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;

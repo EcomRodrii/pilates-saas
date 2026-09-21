@@ -2,7 +2,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Configuración › Cómo me comunico › Avisos en el móvil (migr 20260921150000):
+// Configuración › Cómo me comunico › Avisos en el móvil (migr 20260921145514):
 //   · la antelación del recordatorio se guarda al elegirla, en su columna;
 //   · el texto de un aviso se guarda con título y cuerpo, sin variables ajenas;
 //   · si la base no guarda nada (la RLS no casa: 0 filas, sin error), se dice y

@@ -1,6 +1,6 @@
 // Antelación del recordatorio de clase que elige cada estudio (client-safe: la
 // usan el barrido de `recordatorio-clase.ts` y la pantalla de Configuración).
-// Los valores están cerrados también por CHECK en `studios` (migr 20260921150000).
+// Los valores están cerrados también por CHECK en `studios` (migr 20260921145514).
 
 /** Antelación que eligió el estudio. Valores cerrados por CHECK: 12/24/48 h y 30/60/120 min. */
 export interface AntelacionRecordatorio { largoHoras: number; cortoMinutos: number }

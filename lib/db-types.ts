@@ -1024,9 +1024,9 @@ export interface RowStudios {
   plaza_fija_pausa_libera_sitio: boolean | null;
   // migr 20260915231920.
   plaza_fija_fin_pausa: string | null;
-  // migr 20260921150000.
+  // migr 20260921145514.
   recordatorio_largo_horas: number | null;
-  // migr 20260921150000.
+  // migr 20260921145514.
   recordatorio_corto_minutos: number | null;
 }
 
