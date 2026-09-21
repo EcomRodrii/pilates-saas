@@ -241,6 +241,12 @@ export function puedeGestionarPortalHome(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER';
 }
 
+// Opening OS (apertura del estudio). Espejo de la RLS de opening_progreso /
+// opening_config / launch_stages / alertas_opening (migr 20260921131627).
+export function puedeGestionarApertura(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER';
+}
+
 // Ver el Notification Center (`/notificaciones`, `/api/notifications/admin`): el
 // historial de TODO lo que el estudio ha enviado, a quién y con qué resultado,
 // con título y cuerpo completos. No es la campana de cada cual —eso es
