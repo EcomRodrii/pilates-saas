@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 // sola invocación.
 export const maxDuration = 300;
 
-// Materializa las plazas fijas en reservas de las próximas 6 semanas. Lo dispara
+// Materializa las plazas fijas en reservas de los próximos ~6 meses (180 días). Lo dispara
 // Vercel Cron (ver vercel.json) con el CRON_SECRET como autenticación.
 // Idempotente: no duplica reservas ya existentes, así que re-ejecutarlo es seguro.
 export async function GET(req: NextRequest) {

@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 // noche las creaba el motor sin descontar nada. Ahora todo pasa por el servidor:
 // la franja se deduce de UNA clase del horario (nunca de día/hora tecleados), se
 // comprueba la cuota y el límite semanal, y el MISMO motor reserva ya las
-// próximas 6 semanas (`materializar_plazas_fijas` con `p_plaza_id`).
+// próximas semanas y meses (`materializar_plazas_fijas` con `p_plaza_id`, 180 días).
 //
 // Mismos dos permisos que `app/api/plazas-fijas/estado`: cambia la plaza (RLS de
 // `plazas_fijas`) y, al mover, cancela reservas del horario viejo (RLS de

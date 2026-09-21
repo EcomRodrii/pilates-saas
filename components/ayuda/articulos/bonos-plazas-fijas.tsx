@@ -95,8 +95,17 @@ export default function Contenido() {
       </p>
       <p>
         La plaza se guarda como un <strong>hueco semanal</strong>, no como una lista de reservas. Al guardarla ya
-        se le reservan las clases de las seis semanas que vienen (menos las que ya empiezan dentro del plazo de
-        cancelación: esas no se le apuntan solas, porque no podría cancelarlas sin coste), y después Tentare sigue reservándolas cada noche.
+        se le reservan todas las clases que tienes programadas en ese horario, hasta unos seis meses por delante
+        (menos las que ya empiezan dentro del plazo de cancelación: esas no se le apuntan solas, porque no podría
+        cancelarlas sin coste). Después Tentare sigue reservándolas cada noche y, además, <strong>en el momento en
+        que creas una clase nueva</strong> de ese horario: su sitio queda apartado desde que la clase existe, no
+        cuando la clase se acerca, así que no se le puede llenar por delante.
+      </p>
+      <p>
+        Hay cosas que Tentare <strong>no le reserva sola</strong>: una clase cancelada, una que su cuota no incluye,
+        una en semanas de pausa o de cierre del estudio, y una a la misma hora que otra clase o cita que ya tiene.
+        En esos casos, y si la clase está llena, la alumna recibe un aviso con el motivo. Tampoco se le vuelve a
+        reservar una clase en la que ella misma canceló, aunque la cancelación fuera de una reserva hecha a mano.
       </p>
 
       <h2 style={h2}>Si cambias el horario de la clase</h2>

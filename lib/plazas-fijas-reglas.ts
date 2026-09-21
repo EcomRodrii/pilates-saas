@@ -30,7 +30,7 @@ export type ResultadoGuardarPlazaFija =
   | {
       ok: true;
       plaza: PlazaFija;
-      /** Reservas nuevas que ha creado el motor al guardar (próximas 6 semanas). */
+      /** Reservas nuevas que ha creado el motor al guardar (hasta 180 días por delante). */
       creadas: number;
       /** Fecha (YYYY-MM-DD) de la próxima clase de la plaza si ya la tiene reservada. */
       primeraFecha: string | null;

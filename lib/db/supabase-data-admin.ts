@@ -39,7 +39,7 @@ import {
 } from '@/lib/booking-logic';
 import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
-import { sesionEncajaEnPlaza, normalizarHoraInicio } from '@/lib/plazas-fijas-slot';
+import { sesionEncajaEnPlaza, normalizarHoraInicio, HORIZONTE_MATERIALIZAR_DIAS, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { estadoPausa, sesionEnPausa, validarPausa, type Pausa } from '@/lib/plazas-fijas-pausa';
 import {
@@ -1710,7 +1710,7 @@ export async function aplicarCatalogoCadena(params: { cadenaId: string; studioId
 // Mismo límite que el resto de abanicos contra Supabase de este repo.
 const CONCURRENCIA_AVISOS = 8;
 
-export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ creadas: number; noMaterializadas: number; soltadas: number }> {
+export async function materializarPlazasFijas(horizonteDias = HORIZONTE_MATERIALIZAR_DIAS): Promise<{ creadas: number; noMaterializadas: number; soltadas: number }> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
@@ -1741,7 +1741,7 @@ export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ cre
   // un fallo aquí no debe tumbar el cron que sí generó reservas reales.
   let noMaterializadas = 0;
   try {
-    const { data: gaps, error: gapsError } = await admin.rpc('plazas_fijas_sin_materializar', { p_horizonte_dias: horizonteDias });
+    const { data: gaps, error: gapsError } = await admin.rpc('plazas_fijas_sin_materializar', { p_horizonte_dias: Math.min(horizonteDias, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS) });
     if (gapsError) throw new Error(gapsError.message);
     const filas = (gaps as { studio_id: string; socio_id: string; sesion_id: string; motivo: string }[]) ?? [];
     noMaterializadas = filas.length;
@@ -3650,7 +3650,7 @@ const TEXTOS_PLAZA_FIJA_ALUMNA: TextosPlazaFija = {
 // minuto con una clase, la plaza no reservaba nunca) y reservaba la primera clase
 // con `addReserva`, que descuenta bono, mientras que las de cada noche las crea
 // el motor sin descontar. Ahora, tras guardar, el MISMO motor reserva ya las
-// próximas 6 semanas (`materializar_plazas_fijas` con `p_plaza_id`).
+// próximas semanas y meses (`materializar_plazas_fijas` con `p_plaza_id`, 180 días).
 //
 // Comprueba, por este orden: clienta y clase del estudio, clase no cancelada,
 // autorización del tipo de clase, cuota vigente que la cubra (solo cuota:
@@ -3788,7 +3788,7 @@ async function guardarPlazaFijaDesdeSesion(
   // esta noche la recoge.
   let creadas = 0;
   if (plaza.estado === 'ACTIVA') {
-    const { data, error } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: 42, p_plaza_id: plaza.id });
+    const { data, error } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: HORIZONTE_MATERIALIZAR_DIAS, p_plaza_id: plaza.id });
     if (error) {
       capturarExcepcion(new Error(error.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId: plaza.id } });
     } else {
@@ -4124,7 +4124,7 @@ export async function pausarPlazaFijaStaff(
 
   // Mejor esfuerzo, como al guardar: si el motor fallara, el cron de esta noche lo recoge.
   let creadas = 0;
-  const { data: n, error: errorMotor } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: 42, p_plaza_id: plaza.id });
+  const { data: n, error: errorMotor } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: HORIZONTE_MATERIALIZAR_DIAS, p_plaza_id: plaza.id });
   if (errorMotor) {
     capturarExcepcion(new Error(errorMotor.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId } });
   } else {
@@ -4224,7 +4224,7 @@ export async function volverDePausaPlazaFija(
 
   let creadas = 0;
   if (opciones.materializar !== false) {
-    const { data: n, error: errorMotor } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: 42, p_plaza_id: vuelta.id });
+    const { data: n, error: errorMotor } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: HORIZONTE_MATERIALIZAR_DIAS, p_plaza_id: vuelta.id });
     if (errorMotor) capturarExcepcion(new Error(errorMotor.message), { tags: { area: 'plazas-fijas' }, extra });
     else creadas = (n as number | null) ?? 0;
   }

@@ -11,8 +11,28 @@
 import { franjaLocalDe, hoyEnEstudio } from './utils.ts';
 import type { PlazaFija, Sesion } from './types.ts';
 
-/** Mismo horizonte que `materializar_plazas_fijas(p_horizonte_dias default 42)`. */
+/**
+ * Cuánto mira el PANEL hacia delante para detectar una plaza sin sesión y para
+ * pintar las franjas. Es una ventana de trabajo del estudio, no la del motor.
+ */
 export const HORIZONTE_PLAZA_FIJA_DIAS = 42;
+
+/**
+ * Hasta dónde reserva el motor (`materializar_plazas_fijas`): la clase fija de
+ * una alumna aparta su sitio con esta antelación. Antes eran 42 días y una clase
+ * más lejana se podía llenar con reservas normales antes de que el motor llegara
+ * a ella (los estudios no limitan hoy la antelación de reserva). Además, al
+ * CREAR una sesión un disparador reserva sus plazas fijas al momento, con este
+ * mismo horizonte (migr 20260921205935).
+ */
+export const HORIZONTE_MATERIALIZAR_DIAS = 180;
+
+/**
+ * Hasta dónde se AVISA a la alumna de una clase fija que no se pudo reservar
+ * (cancelada, sin cuota, sin aforo, solapada). Se queda en unas semanas: un
+ * aviso de «esta semana…» sobre una clase de dentro de cuatro meses no ayuda.
+ */
+export const HORIZONTE_AVISOS_PLAZA_FIJA_DIAS = 42;
 
 const DIA_MS = 86_400_000;
 

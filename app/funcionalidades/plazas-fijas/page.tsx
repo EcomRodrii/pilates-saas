@@ -95,7 +95,7 @@ export default function PlazasFijasPage() {
             },
             {
               titulo: 'Y sigue sola cada noche',
-              body: 'Tentare mantiene reservadas las seis semanas siguientes. Según avanza el calendario, va añadiendo la nueva.',
+              body: 'Tentare mantiene reservadas todas las clases que ya tienes programadas, hasta unos seis meses por delante. Cuando creas una clase nueva, su sitio se aparta en el momento.',
             },
             {
               titulo: 'Con su cuota por delante',

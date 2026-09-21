@@ -1,7 +1,7 @@
 // Qué clases soltar cuando se pausa o se quita una plaza fija.
 //
 // Antes, pausar o quitar solo cambiaba el estado de la plaza: las reservas que
-// ya había creado (hasta 6 semanas por delante) seguían CONFIRMADAS, la socia
+// ya había creado (hasta 180 días por delante) seguían CONFIRMADAS, la socia
 // seguía apareciendo apuntada y la máquina seguía ocupada para nadie.
 //
 // Se sueltan sus reservas activas en clases FUTURAS que encajan en el slot de la
