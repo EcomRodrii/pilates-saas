@@ -67,3 +67,13 @@ $function$;
 
 comment on function public.generar_url_foto_firmada(text, int) is
   'Placeholder: lógica real en /api/foto/signed-url (Node.js con Supabase admin SDK)';
+
+-- Añadido en la auditoría del 2026-09-19. Es la única línea que se toca de una
+-- migración ya aplicada, y se toca porque faltaba la decisión explícita sobre
+-- `anon` que exige `lib/rgpd-grants-anon-guardias-contrato.test.ts` — el test
+-- estaba EN ROJO por este fichero. Sin esto, un `supabase db push` desde limpio
+-- recrea un SECURITY DEFINER expuesto en la API REST (`pg_default_acl` de este
+-- proyecto da EXECUTE directo a anon/authenticated en toda función nueva, ver
+-- .claude/tentare-os.md). La función se elimina en 20260919074624; este revoke
+-- protege la ventana entre ambas si alguna vez se replica el historial.
+revoke all on function public.generar_url_foto_firmada(text, int) from public, anon;

@@ -33,6 +33,8 @@ export interface RowReservas {
   bono_consumo_rastreado: boolean | null;
   // migr 20260915001236.
   cancelada_motivo: string | null;
+  // migr 20260919075507.
+  bono_devuelto_en: string | null;
 }
 
 export interface RowAchievementDefinitions {
@@ -3080,6 +3082,29 @@ export interface RowSalesEvents {
   creado_en: string;
 }
 
+export interface RowCobrosIntentos {
+  payment_intent_id: string;
+  studio_id: string;
+  recibo_id: string;
+  importe_centimos: number;
+  origen: string;
+  desenlace: string;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowDoblesCobrosDetectados {
+  id: string;
+  studio_id: string;
+  recibo_id: string;
+  payment_intent_ids: string[];
+  tipo: string;
+  estado: string;
+  notas: string | null;
+  detectado_en: string;
+  resuelto_en: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -3101,6 +3126,7 @@ export type ReservasInsert = {
   bono_decidido_en?: string | null | null;
   bono_consumo_rastreado?: boolean | null | null;
   cancelada_motivo?: string | null | null;
+  bono_devuelto_en?: string | null | null;
 }
 
 export type ReservasUpdate = {
@@ -3123,6 +3149,7 @@ export type ReservasUpdate = {
   bono_decidido_en?: string | null | null;
   bono_consumo_rastreado?: boolean | null | null;
   cancelada_motivo?: string | null | null;
+  bono_devuelto_en?: string | null | null;
 }
 
 export type AchievementDefinitionsInsert = {
@@ -8517,6 +8544,52 @@ export type SalesEventsUpdate = {
   creado_en?: string | null;
 }
 
+export type CobrosIntentosInsert = {
+  payment_intent_id?: string | null;
+  studio_id?: string | null;
+  recibo_id?: string | null;
+  importe_centimos?: number | null;
+  origen?: string | null;
+  desenlace?: string | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type CobrosIntentosUpdate = {
+  payment_intent_id?: string | null;
+  studio_id?: string | null;
+  recibo_id?: string | null;
+  importe_centimos?: number | null;
+  origen?: string | null;
+  desenlace?: string | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type DoblesCobrosDetectadosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  recibo_id?: string | null;
+  payment_intent_ids?: string[] | null;
+  tipo?: string | null;
+  estado?: string | null;
+  notas?: string | null | null;
+  detectado_en?: string | null;
+  resuelto_en?: string | null | null;
+}
+
+export type DoblesCobrosDetectadosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  recibo_id?: string | null;
+  payment_intent_ids?: string[] | null;
+  tipo?: string | null;
+  estado?: string | null;
+  notas?: string | null | null;
+  detectado_en?: string | null;
+  resuelto_en?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -9494,6 +9567,16 @@ export type Database = {
         Row: RowSalesEvents;
         Insert: SalesEventsInsert;
         Update: SalesEventsUpdate;
+      };
+      cobros_intentos: {
+        Row: RowCobrosIntentos;
+        Insert: CobrosIntentosInsert;
+        Update: CobrosIntentosUpdate;
+      };
+      dobles_cobros_detectados: {
+        Row: RowDoblesCobrosDetectados;
+        Insert: DoblesCobrosDetectadosInsert;
+        Update: DoblesCobrosDetectadosUpdate;
       };
     };
   };

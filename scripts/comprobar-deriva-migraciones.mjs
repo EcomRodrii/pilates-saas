@@ -43,6 +43,7 @@ const ACEPTADAS = {
     'mis_estudios_search_path',
     'penalizaciones_indice_recibo_id',
     'reclamar_webhook_event_reload_schema',
+    'res1_lista_espera_respeta_limite_y_solape',
     'reserva_exigir_plan_por_defecto',
     'revoke_anon_rpc_via_public',
   ],
@@ -51,11 +52,15 @@ const ACEPTADAS = {
   // uno (grants de reservar_numero_factura, índice único de socios excluyendo
   // borrado_en, default de reserva_exigir_plan, tiene_consentimiento_salud).
   sinAplicar: [
+    'cadenas_current_rol_fix',
     'defaults_protectores_reservas',
     'ficha_clinica',
     'fix_socios_email_unico_excluye_borrado',
     'marca_e_iva',
+    'pay5_detector_dobles_cobros',
+    'res1_reservar_plaza_respeta_limite_y_solape',
     'reservar_numero_factura_revoca_anon',
+    'studios_gestoria_email',
     'tiene_consentimiento_salud_revoca_anon',
   ],
 }
