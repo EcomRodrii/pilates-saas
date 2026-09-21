@@ -17,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
+import { AperturaEstudio } from '@/components/dashboard/apertura-estudio';
 import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraciones-caidas';
 import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
 import { EstadoDelEstudio } from '@/components/dashboard/estado-del-estudio';
@@ -43,7 +44,7 @@ import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
 import { PlazasFijasPorDecidir } from '@/components/dashboard/plazas-fijas-por-decidir';
 import { ReservasPorAprobar } from '@/components/dashboard/reservas-por-aprobar';
 import { SeriesPorRenovar } from '@/components/dashboard/series-por-renovar';
-import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { puedeGestionarApertura, puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
 
@@ -780,6 +781,10 @@ export default function Dashboard() {
             ningún-sitio que ya se evita en el resto de esta pantalla. */}
         {puedeVer(rolActual, '/primeros-pasos') && (
         <div {...wrap('onboarding')}><OnboardingChecklist /></div>
+        )}
+
+        {puedeGestionarApertura(rolActual) && (
+        <div {...wrap('apertura')}><AperturaEstudio /></div>
         )}
 
         {/* ── Automation briefing ────────────────────────────────────────────── */}

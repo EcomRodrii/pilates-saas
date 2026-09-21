@@ -20,6 +20,7 @@ export const HOME_SECCIONES: HomeSeccion[] = [
   { id: 'estado', label: 'Lo que espera tu visto bueno' },
   { id: 'accion', label: 'Lo que necesita tu atención' },
   { id: 'onboarding', label: 'Primeros pasos' },
+  { id: 'apertura', label: 'Apertura del estudio' },
   { id: 'resumen', label: 'Hoy de un vistazo' },
   { id: 'automatizaciones', label: 'Resumen de automatizaciones' },
   { id: 'ingresos', label: 'Ingresos del mes' },
@@ -58,7 +59,9 @@ export const HOME_SECCIONES: HomeSeccion[] = [
 // la siguiente pregunta es «¿tengo que hacer algo?». Es la bandeja que junta lo
 // que antes estaba repartido en diez pantallas, y su sitio no puede depender de
 // cómo haya ordenado cada estudio su home — por eso es fija, igual que 'accion'.
-export const HOME_FIJAS_PRIMERO: readonly string[] = ['hoy', 'estado', 'accion', 'onboarding'];
+// 'apertura' (Opening OS) va tras 'onboarding': solo aparece mientras el
+// estudio está abriendo y desaparece sola, igual que el checklist.
+export const HOME_FIJAS_PRIMERO: readonly string[] = ['hoy', 'estado', 'accion', 'onboarding', 'apertura'];
 
 // Prioridad elegida en el asistente de bienvenida (`studios.onb_prioridad`) →
 // sección de la home que la atiende.

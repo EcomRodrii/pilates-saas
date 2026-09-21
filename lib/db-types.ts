@@ -1024,6 +1024,8 @@ export interface RowStudios {
   plaza_fija_pausa_libera_sitio: boolean | null;
   // migr 20260915231920.
   plaza_fija_fin_pausa: string | null;
+  // migr 20260921131627.
+  fecha_apertura: string | null;
   // migr 20260921145514.
   recordatorio_largo_horas: number | null;
   // migr 20260921145514.
@@ -3111,6 +3113,89 @@ export interface RowDoblesCobrosDetectados {
   resuelto_en: string | null;
 }
 
+export interface RowInstructorWorkSessions {
+  id: string;
+  studio_id: string;
+  instructor_id: string;
+  check_in_at: string;
+  check_out_at: string | null;
+  check_in_method: string;
+  check_out_method: string | null;
+  status: string;
+  created_at: string;
+  created_by: string;
+  edited_at: string | null;
+  edited_by: string | null;
+  OR: string;
+}
+
+export interface RowWorkSessionAudits {
+  id: string;
+  studio_id: string;
+  work_session_id: string;
+  action: string;
+  field_name: string | null;
+  value_before: string | null;
+  value_after: string | null;
+  reason: string | null;
+  created_at: string;
+  created_by: string;
+}
+
+export interface RowStudioConfigTiempo {
+  studio_id: string;
+  check_in_window_minutes: number;
+  open_session_limit_hours: number;
+  updated_at: string;
+}
+
+export interface RowOpeningProgreso {
+  studio_id: string;
+  fase: string;
+  objetivos: any;
+  checklist: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RowOpeningConfig {
+  studio_id: string;
+  umbral_amarillo: number;
+  umbral_rojo: number;
+  conversion_leads: number;
+  objetivo_preventa: number;
+  ventana_analisis_dias: number;
+  sesiones_semana_sin_tope: number;
+  semanas_bono_sin_caducidad: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RowLaunchStages {
+  id: string;
+  studio_id: string;
+  etapa: string;
+  plan_id: string | null;
+  fecha_inicio: string;
+  fecha_fin: string;
+  limite_plazas: number | null;
+  estado: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RowAlertasOpening {
+  id: string;
+  studio_id: string;
+  tipo: string;
+  severidad: string;
+  titulo: string;
+  descripcion: string | null;
+  datos: any;
+  resuelta_en: string | null;
+  created_at: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -4535,6 +4620,7 @@ export type StudiosInsert = {
   plaza_fija_pausa_desde_app?: boolean | null | null;
   plaza_fija_pausa_libera_sitio?: boolean | null | null;
   plaza_fija_fin_pausa?: string | null | null;
+  fecha_apertura?: string | null | null;
   recordatorio_largo_horas?: number | null | null;
   recordatorio_corto_minutos?: number | null | null;
 }
@@ -4666,6 +4752,7 @@ export type StudiosUpdate = {
   plaza_fija_pausa_desde_app?: boolean | null | null;
   plaza_fija_pausa_libera_sitio?: boolean | null | null;
   plaza_fija_fin_pausa?: string | null | null;
+  fecha_apertura?: string | null | null;
   recordatorio_largo_horas?: number | null | null;
   recordatorio_corto_minutos?: number | null | null;
 }
@@ -8602,6 +8689,172 @@ export type DoblesCobrosDetectadosUpdate = {
   resuelto_en?: string | null | null;
 }
 
+export type InstructorWorkSessionsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  check_in_at?: string | null;
+  check_out_at?: string | null | null;
+  check_in_method?: string | null;
+  check_out_method?: string | null | null;
+  status?: string | null;
+  created_at?: string | null;
+  created_by?: string | null;
+  edited_at?: string | null | null;
+  edited_by?: string | null | null;
+  OR?: string | null;
+}
+
+export type InstructorWorkSessionsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  check_in_at?: string | null;
+  check_out_at?: string | null | null;
+  check_in_method?: string | null;
+  check_out_method?: string | null | null;
+  status?: string | null;
+  created_at?: string | null;
+  created_by?: string | null;
+  edited_at?: string | null | null;
+  edited_by?: string | null | null;
+  OR?: string | null;
+}
+
+export type WorkSessionAuditsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  work_session_id?: string | null;
+  action?: string | null;
+  field_name?: string | null | null;
+  value_before?: string | null | null;
+  value_after?: string | null | null;
+  reason?: string | null | null;
+  created_at?: string | null;
+  created_by?: string | null;
+}
+
+export type WorkSessionAuditsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  work_session_id?: string | null;
+  action?: string | null;
+  field_name?: string | null | null;
+  value_before?: string | null | null;
+  value_after?: string | null | null;
+  reason?: string | null | null;
+  created_at?: string | null;
+  created_by?: string | null;
+}
+
+export type StudioConfigTiempoInsert = {
+  studio_id?: string | null;
+  check_in_window_minutes?: number | null;
+  open_session_limit_hours?: number | null;
+  updated_at?: string | null;
+}
+
+export type StudioConfigTiempoUpdate = {
+  studio_id?: string | null;
+  check_in_window_minutes?: number | null;
+  open_session_limit_hours?: number | null;
+  updated_at?: string | null;
+}
+
+export type OpeningProgresoInsert = {
+  studio_id?: string | null;
+  fase?: string | null;
+  objetivos?: any | null;
+  checklist?: any | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type OpeningProgresoUpdate = {
+  studio_id?: string | null;
+  fase?: string | null;
+  objetivos?: any | null;
+  checklist?: any | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type OpeningConfigInsert = {
+  studio_id?: string | null;
+  umbral_amarillo?: number | null;
+  umbral_rojo?: number | null;
+  conversion_leads?: number | null;
+  objetivo_preventa?: number | null;
+  ventana_analisis_dias?: number | null;
+  sesiones_semana_sin_tope?: number | null;
+  semanas_bono_sin_caducidad?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type OpeningConfigUpdate = {
+  studio_id?: string | null;
+  umbral_amarillo?: number | null;
+  umbral_rojo?: number | null;
+  conversion_leads?: number | null;
+  objetivo_preventa?: number | null;
+  ventana_analisis_dias?: number | null;
+  sesiones_semana_sin_tope?: number | null;
+  semanas_bono_sin_caducidad?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type LaunchStagesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  etapa?: string | null;
+  plan_id?: string | null | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  limite_plazas?: number | null | null;
+  estado?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type LaunchStagesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  etapa?: string | null;
+  plan_id?: string | null | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  limite_plazas?: number | null | null;
+  estado?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type AlertasOpeningInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  severidad?: string | null;
+  titulo?: string | null;
+  descripcion?: string | null | null;
+  datos?: any | null;
+  resuelta_en?: string | null | null;
+  created_at?: string | null;
+}
+
+export type AlertasOpeningUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  severidad?: string | null;
+  titulo?: string | null;
+  descripcion?: string | null | null;
+  datos?: any | null;
+  resuelta_en?: string | null | null;
+  created_at?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -9589,6 +9842,41 @@ export type Database = {
         Row: RowDoblesCobrosDetectados;
         Insert: DoblesCobrosDetectadosInsert;
         Update: DoblesCobrosDetectadosUpdate;
+      };
+      instructor_work_sessions: {
+        Row: RowInstructorWorkSessions;
+        Insert: InstructorWorkSessionsInsert;
+        Update: InstructorWorkSessionsUpdate;
+      };
+      work_session_audits: {
+        Row: RowWorkSessionAudits;
+        Insert: WorkSessionAuditsInsert;
+        Update: WorkSessionAuditsUpdate;
+      };
+      studio_config_tiempo: {
+        Row: RowStudioConfigTiempo;
+        Insert: StudioConfigTiempoInsert;
+        Update: StudioConfigTiempoUpdate;
+      };
+      opening_progreso: {
+        Row: RowOpeningProgreso;
+        Insert: OpeningProgresoInsert;
+        Update: OpeningProgresoUpdate;
+      };
+      opening_config: {
+        Row: RowOpeningConfig;
+        Insert: OpeningConfigInsert;
+        Update: OpeningConfigUpdate;
+      };
+      launch_stages: {
+        Row: RowLaunchStages;
+        Insert: LaunchStagesInsert;
+        Update: LaunchStagesUpdate;
+      };
+      alertas_opening: {
+        Row: RowAlertasOpening;
+        Insert: AlertasOpeningInsert;
+        Update: AlertasOpeningUpdate;
       };
     };
   };
