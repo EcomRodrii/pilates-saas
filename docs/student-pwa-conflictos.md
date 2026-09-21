@@ -199,6 +199,14 @@ canales in-app, push, email, WhatsApp y SMS. Ausencia de fila = encendido.
 que «categoría reservas»— pero cada uno gobierna su categoría REAL. Inventarlos
 habría producido una pantalla que guarda preferencias que el motor no lee.
 
+**Después (migr 20260921132122)** · El push ya se decide por TIPO de aviso
+(`notification_preference.push_eventos`, excepciones dentro de la fila de la
+categoría), así que los interruptores del diseño existen de verdad: uno por cada
+push que le puede llegar (`lib/notifications/push-por-tipo.ts`, con un test que
+obliga a que estén todos). «Novedades del estudio» desaparece: la categoría
+`marketing` no tiene hoy ningún push y el interruptor no apagaba nada. El email
+sigue siendo por categoría.
+
 ---
 
 ## DC-13 · Cambiar el email · RESUELTO

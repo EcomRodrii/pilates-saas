@@ -7,74 +7,31 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useEstudio } from '@/components/student/contexto';
 import { useToast } from '@/components/student/ui/Toast';
-import { getPreferencias, guardarPreferencia, type PreferenciaCategoria } from '@/lib/student/perfil-y-avisos';
+import { getPreferencias, guardarPreferencia } from '@/lib/student/perfil-y-avisos';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { activarPushStudent, contextoPushStudent, desactivarPushStudent } from '@/lib/student/push';
 import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estado';
 import { OposicionPerfilado } from '@/components/student/domain/OposicionPerfilado';
+import { PushPorTipo, estadoInicialPush } from '@/components/student/domain/PushPorTipo';
+import { Interruptor } from '@/components/student/ui/Interruptor';
 
 // Preferencias de aviso (§A.19).
 //
-// ⚠️ DESIGN CONFLICT · el paquete inventa cuatro interruptores («Recordatorio de
-// clase», «Plaza liberada», «Novedades del estudio», «Recibos por email») que no
-// existen en el backend. Lo que hay es un modelo de CATEGORÍA × CANAL: las
-// categorías de una socia son `reservas`, `clases`, `pagos` y `marketing`
-// (`CATEGORIAS_POR_ROL.SOCIA`), y los canales in-app, push, email, WhatsApp y
-// SMS.
-//
-// Se respeta el TONO del diseño —hablarle a una alumna de «categoría reservas»
-// no ayuda a nadie— pero cada fila gobierna su categoría real y su texto
-// describe lo que esa categoría contiene de verdad. Inventar interruptores
-// habría producido una pantalla que guarda preferencias que el motor no lee;
-// heredar los nombres del diseño sin mirar el catálogo produjo algo peor: una
-// pantalla que apagaba lo contrario de lo que prometía (ver FILAS).
+// El paquete de diseño pedía interruptores por aviso («Recordatorio de clase»,
+// «Plaza liberada»…) y el backend solo sabía de CATEGORÍAS: un interruptor
+// apagaba la categoría entera, y apagar el recordatorio de una hora callaba
+// también la plaza liberada. Desde migr 20260921132122 el push se decide por
+// TIPO (`notification_preference.push_eventos`), así que la pantalla enseña un
+// interruptor por aviso real (`PUSH_POR_TIPO.SOCIA`, con un test que obliga a
+// que esté cada push que le puede llegar). El email sigue siendo por categoría.
 //
 // Ausencia de fila = encendido: es el valor por defecto del propio endpoint.
-
-// ⚠️ Estas etiquetas describen lo que hay HOY en cada categoría del catálogo
-// (`lib/notifications/catalog.ts`) y TIENEN QUE SEGUIRLO: el interruptor gobierna
-// la categoría entera, no el evento que da nombre a la fila. Antes decían lo
-// contrario de lo que hacían —«Recordatorio de clase» estaba puesto sobre
-// `clases`, que es donde viven CLASE_CANCELADA/CLASE_MODIFICADA/CLASE_SUSTITUTA,
-// mientras que RECORDATORIO_24H y RECORDATORIO_1H son `reservas`—, así que
-// apagar los recordatorios silenciaba el aviso de que te habían cancelado la
-// clase y no apagaba ningún recordatorio. Si algún día se mueve un evento de
-// categoría, lo que hay que reescribir es esta tabla, no la categoría del evento.
-const FILAS: Array<{ categoria: string; label: string; sub?: string }> = [
-  { categoria: 'reservas', label: 'Tus reservas', sub: 'Recordatorio de tus clases, plaza liberada, cambios en tus reservas y la petición de valorar la clase tras asistir' },
-  { categoria: 'clases', label: 'Cambios en las clases', sub: 'Si se cancela, se modifica o la da otra instructora' },
-  { categoria: 'pagos', label: 'Bonos y pagos', sub: 'Bono a punto de caducar o agotado, cobros' },
-  { categoria: 'marketing', label: 'Novedades del estudio' },
-];
-
-function Toggle({ on, onChange, label, sub, disabled }: {
-  on: boolean; onChange: (v: boolean) => void; label: string; sub?: string; disabled?: boolean;
-}) {
-  return (
-    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '13px 15px', minHeight: 56, borderBottom: '1px solid var(--muted)', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.6 : 1 }}>
-      <span>
-        <span style={{ display: 'block', fontSize: 'var(--t-small)', fontWeight: 700 }}>{label}</span>
-        {sub && <span className="t-meta" style={{ display: 'block', marginTop: 1 }}>{sub}</span>}
-      </span>
-      <button
-        type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled}
-        onClick={() => onChange(!on)}
-        // El interruptor mide 44×26: se toca a menudo y el fallo cae en la
-        // fila de al lado, que cambia OTRA preferencia.
-        className="tap"
-        style={{ position: 'relative', width: 44, height: 26, borderRadius: 99, border: 'none', background: on ? 'var(--success)' : 'var(--border-strong)', transition: 'background .25s', flexShrink: 0 }}
-      >
-        <span aria-hidden style={{ position: 'absolute', top: 3, left: 3, width: 20, height: 20, borderRadius: 99, background: '#fff', boxShadow: '0 2px 6px rgba(26,26,26,.25)', transform: on ? 'translateX(18px)' : 'none', transition: 'transform .25s var(--ease-spring)' }} />
-      </button>
-    </label>
-  );
-}
 
 export default function PreferenciasPage() {
   const { estudio } = useEstudio();
   const { online } = useOnline();
   const { toast } = useToast();
-  const [local, setLocal] = useState<Record<string, { push: boolean; email: boolean }>>({});
+  const [emailPagos, setEmailPagos] = useState(false);
   // Estado de push de ESTE dispositivo. Es del navegador, no del servidor:
   // permiso + suscripción del SW acotado a la app. `null` hasta leerlo.
   const [push, setPush] = useState<EstadoPush | null>(null);
@@ -82,33 +39,27 @@ export default function PreferenciasPage() {
 
   const cargar = useCallback(async () => {
     const prefs = await getPreferencias();
-    const mapa: Record<string, { push: boolean; email: boolean }> = {};
-    for (const f of FILAS) {
-      const p = prefs.find((x: PreferenciaCategoria) => x.category === f.categoria);
-      // Sin fila, encendido: es el defecto del endpoint, no una suposición.
-      mapa[f.categoria] = { push: p ? p.push : true, email: p ? p.email : false };
-    }
-    setLocal(mapa);
+    // Sin fila, email apagado: es el defecto del endpoint, no una suposición.
+    setEmailPagos(prefs.find((p) => p.category === 'pagos')?.email ?? false);
     setPush(estadoPush(await contextoPushStudent(estudio.slug)));
-    return mapa;
+    return estadoInicialPush('SOCIA', prefs);
   }, [estudio.slug]);
 
-  const { estado, reintentar } = useAsync(cargar, () => false);
+  const { estado, data: pushInicial, reintentar } = useAsync(cargar, () => false);
 
-  const cambiar = async (categoria: string, campo: 'push' | 'email', valor: boolean) => {
-    const antes = local[categoria];
-    // Optimista en la UI —un interruptor tiene que responder al instante— pero
-    // se REVIERTE si el servidor dice que no. Dejarlo cambiado sería enseñarle
-    // una preferencia que el motor no tiene.
-    setLocal((s) => ({ ...s, [categoria]: { ...s[categoria], [campo]: valor } }));
-    const ok = await guardarPreferencia({ studioId: estudio.id, category: categoria, [campo]: valor });
+  const cambiarEmail = async (valor: boolean) => {
+    const antes = emailPagos;
+    // Optimista —un interruptor tiene que responder al instante— pero se
+    // REVIERTE si el servidor dice que no.
+    setEmailPagos(valor);
+    const ok = await guardarPreferencia({ studioId: estudio.id, category: 'pagos', email: valor });
     if (!ok) {
-      setLocal((s) => ({ ...s, [categoria]: antes }));
+      setEmailPagos(antes);
       toast('No hemos podido guardar ese cambio.');
     }
   };
 
-  // Los interruptores por categoría de arriba no sirven de nada si este
+  // Los interruptores por tipo de abajo no sirven de nada si este
   // dispositivo no está suscrito: esta es la tarjeta que lo suscribe. Se
   // relee el estado real del navegador después de cada acción en vez de
   // suponer el resultado.
@@ -148,7 +99,7 @@ export default function PreferenciasPage() {
                 <p className="t-label" style={{ margin: '0 0 7px' }}>Este dispositivo</p>
                 <div className="card" style={{ overflow: 'hidden' }} data-testid="push-dispositivo" data-estado={push ?? undefined}>
                   {dispositivo.accion ? (
-                    <Toggle
+                    <Interruptor
                       label={dispositivo.titulo}
                       sub={dispositivo.cuerpo}
                       on={dispositivo.encendido}
@@ -166,26 +117,18 @@ export default function PreferenciasPage() {
             )}
 
             <p className="t-label" style={{ margin: '16px 0 7px' }}>Avisos en el móvil</p>
-            <div className="card" style={{ overflow: 'hidden' }}>
-              {FILAS.map((f) => (
-                <Toggle
-                  key={f.categoria}
-                  label={f.label}
-                  sub={f.sub}
-                  on={local[f.categoria]?.push ?? true}
-                  disabled={!online}
-                  onChange={(v) => void cambiar(f.categoria, 'push', v)}
-                />
-              ))}
-            </div>
+            <p className="t-meta" style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
+              Elige qué te avisamos al móvil. Lo que apagues seguirá apareciendo en tus avisos dentro de la app.
+            </p>
+            {pushInicial && <PushPorTipo rol="SOCIA" studioId={estudio.id} inicial={pushInicial} online={online} />}
 
             <p className="t-label" style={{ margin: '16px 0 7px' }}>Email</p>
             <div className="card" style={{ overflow: 'hidden' }}>
-              <Toggle
+              <Interruptor
                 label="Recibos y confirmaciones por email"
-                on={local.pagos?.email ?? false}
+                on={emailPagos}
                 disabled={!online}
-                onChange={(v) => void cambiar('pagos', 'email', v)}
+                onChange={(v) => void cambiarEmail(v)}
               />
             </div>
 
