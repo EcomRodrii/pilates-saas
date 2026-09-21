@@ -110,6 +110,7 @@ export default function PerfilInstructoraPage() {
           items={[
             { label: 'Tus datos', href: href('/equipo/perfil/datos') },
             { label: 'Contraseña', href: href('/equipo/perfil/seguridad') },
+            { label: 'Avisos en el móvil', href: href('/equipo/perfil/avisos') },
           ]}
         />
 

@@ -109,6 +109,8 @@ export interface PreferenciaCategoria {
   inapp: boolean;
   push: boolean;
   email: boolean;
+  /** Excepciones de push por tipo; lo que no aparece hereda `push`. */
+  pushEventos: Record<string, boolean>;
 }
 
 /**
@@ -129,7 +131,7 @@ export async function getPreferencias(): Promise<PreferenciaCategoria[]> {
   // no eligió.
   if (!res.ok) throw new Error(`preferences respondió ${res.status}`);
   const cuerpo = (await res.json()) as
-    | { prefs?: Record<string, { inapp?: boolean; push?: boolean; email?: boolean }> }
+    | { prefs?: Record<string, { inapp?: boolean; push?: boolean; email?: boolean; pushEventos?: unknown }> }
     | PreferenciaCategoria[];
   if (Array.isArray(cuerpo)) return cuerpo;
   return Object.entries(cuerpo.prefs ?? {}).map(([category, v]) => ({
@@ -137,8 +139,28 @@ export async function getPreferencias(): Promise<PreferenciaCategoria[]> {
     inapp: v?.inapp ?? true,
     push: v?.push ?? true,
     email: v?.email ?? false,
+    pushEventos: soloBooleanos(v?.pushEventos),
   }));
+}
 
+function soloBooleanos(v: unknown): Record<string, boolean> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  return Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === 'boolean')) as Record<string, boolean>;
+}
+
+/** Enciende o apaga el push de UN tipo de aviso (la categoría la decide el servidor). */
+export async function guardarPushEvento(p: { studioId: string; evento: string; push: boolean }): Promise<boolean> {
+  try {
+    const auth = await portalAuthHeader();
+    const res = await fetch('/api/notifications/preferences', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify(p),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 /**

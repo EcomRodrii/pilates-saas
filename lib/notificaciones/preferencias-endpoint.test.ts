@@ -93,3 +93,26 @@ for (const rel of [PREFERENCIAS, SUBSCRIBE]) {
     assert.ok(fuente.includes('status: 403'), `${rel} debe responder 403 a quien no pertenece al estudio`);
   });
 }
+
+// ── Push por tipo (`{ studioId, evento, push }`) ────────────────────────────
+test('el PUT por tipo pasa por la misma comprobación de pertenencia', () => {
+  const put = cuerpoDelPut(leer(PREFERENCIAS));
+  const pertenencia = put.indexOf('socioAutenticado(');
+  const rpc = put.indexOf(".rpc('fijar_push_evento'");
+  assert.ok(rpc > 0, 'el PUT por tipo ya no llama a fijar_push_evento: revisa este test');
+  assert.ok(pertenencia > 0 && pertenencia < rpc, 'el push por tipo se guarda antes de comprobar que la persona es del estudio');
+});
+
+test('el PUT por tipo no deja que el cliente elija la categoría ni el tipo', () => {
+  const put = cuerpoDelPut(leer(PREFERENCIAS));
+  assert.match(put, /esPushEditable\(b\.evento/, 'solo se aceptan los tipos que ofrecen las pantallas');
+  assert.match(put, /p_category: REGLAS\[b\.evento as string\]\.category/,
+    'la categoría sale del catálogo: con la del body, una excepción podría acabar en la fila de otra categoría');
+});
+
+test('el PUT por tipo fusiona en SQL, no lee-modifica-escribe el jsonb', () => {
+  const put = cuerpoDelPut(leer(PREFERENCIAS));
+  // Dos toques seguidos a tipos distintos de la misma categoría: con un
+  // read-modify-write desde la ruta, el segundo pisaría al primero.
+  assert.ok(!/push_eventos\s*:/.test(put), 'la ruta escribe `push_eventos` entero: se perdería un cambio concurrente');
+});

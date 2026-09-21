@@ -3,6 +3,8 @@ import { verificarUsuarioSupabase, verificarSesionStaff } from '@/lib/auth-serve
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { errorInterno } from '@/lib/errores-servidor';
+import { REGLAS } from '@/lib/notifications/catalog';
+import { esPushEditable } from '@/lib/notifications/push-por-tipo';
 
 // Preferencias de notificación por usuario y categoría (qué quiere recibir y por
 // qué canal). Ausencia de fila = valores por defecto (in-app + push ON). Cada
@@ -17,10 +19,15 @@ export async function GET(req: NextRequest) {
   if (!admin) return NextResponse.json({ prefs: {} });
 
   const { data } = await admin.from('notification_preference')
-    .select('category, inapp, push, email, whatsapp, sms').eq('user_id', user.userId);
+    .select('category, inapp, push, email, whatsapp, sms, push_eventos').eq('user_id', user.userId);
   const prefs: Record<string, unknown> = {};
   for (const r of data ?? []) {
-    prefs[r.category as string] = { inapp: r.inapp, push: r.push, email: r.email, whatsapp: r.whatsapp, sms: r.sms };
+    prefs[r.category as string] = {
+      inapp: r.inapp, push: r.push, email: r.email, whatsapp: r.whatsapp, sms: r.sms,
+      // Excepciones por tipo: { 'reserva.recordatorio_1h': false }. Lo que no
+      // aparece hereda `push` de la categoría (`pushEfectivo`).
+      pushEventos: r.push_eventos ?? {},
+    };
   }
   return NextResponse.json({ prefs });
 }
@@ -44,9 +51,17 @@ export async function PUT(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'sin service-role' }, { status: 500 });
 
   const b = (await req.json().catch(() => null)) as
-    | { studioId?: string; category?: string; inapp?: boolean; push?: boolean; email?: boolean; whatsapp?: boolean; sms?: boolean }
+    | { studioId?: string; category?: string; evento?: string; inapp?: boolean; push?: boolean; email?: boolean; whatsapp?: boolean; sms?: boolean }
     | null;
-  if (!b?.studioId || !b?.category) return NextResponse.json({ error: 'faltan datos' }, { status: 400 });
+  if (!b?.studioId) return NextResponse.json({ error: 'faltan datos' }, { status: 400 });
+  // Push de UN tipo: `{ studioId, evento, push }`. La categoría no la decide el
+  // cliente, sale del catálogo; y solo se aceptan los tipos que ofrecen las
+  // pantallas, para no guardar excepciones que ninguna enseña.
+  const porTipo = typeof b.evento === 'string';
+  if (porTipo && (!esPushEditable(b.evento as string) || typeof b.push !== 'boolean')) {
+    return NextResponse.json({ error: 'faltan datos' }, { status: 400 });
+  }
+  if (!porTipo && !b.category) return NextResponse.json({ error: 'faltan datos' }, { status: 400 });
 
   // El `studio_id` que se escribe abajo venía CRUDO del body con solo el JWT
   // validado: cualquiera con cuenta podía sembrar una fila con el estudio de
@@ -59,6 +74,21 @@ export async function PUT(req: NextRequest) {
     if (staff?.studioId !== b.studioId) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
+  }
+
+  if (porTipo) {
+    // Fusión atómica en la fila de la categoría (migr 20260921132122): dos
+    // toques seguidos a tipos distintos no se pisan, y la fila se crea con los
+    // mismos valores por defecto que abajo si aún no existía.
+    const { error } = await admin.rpc('fijar_push_evento', {
+      p_user_id: user.userId,
+      p_studio_id: b.studioId,
+      p_category: REGLAS[b.evento as string].category,
+      p_event_type: b.evento as string,
+      p_push: b.push as boolean,
+    });
+    if (error) return errorInterno('notifications/preferences:put-evento', error, 'No se han podido guardar las preferencias. Inténtalo de nuevo.');
+    return NextResponse.json({ ok: true });
   }
 
   // Update PARCIAL de verdad: solo los canales PRESENTES en el body. Antes esto
