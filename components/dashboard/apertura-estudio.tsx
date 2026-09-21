@@ -259,7 +259,7 @@ export function AperturaEstudio() {
         </div>
       ))}
 
-      {!mostrarOnboarding && <EtapasLanzamiento />}
+      {!mostrarOnboarding && <EtapasLanzamiento onCambio={() => void pedirApertura().then(d => { if (d) setDatos(d); })} />}
     </div>
   );
 }

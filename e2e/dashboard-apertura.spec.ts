@@ -225,7 +225,11 @@ test.describe('Etapas de lanzamiento', () => {
     await page.getByLabel('Plazas (vacío = sin límite)').fill('20');
     await page.getByLabel('Cerrar la venta del plan').check();
     await expect(page.getByText(/dejará de venderse en tu web y en la app/)).toBeVisible();
+    const getsAntes = peticiones.get;
     await page.getByRole('button', { name: 'Guardar etapa' }).click();
+    // La tarjeta vuelve a pedir sus recomendaciones: si no, seguiría sugiriendo
+    // «Crea tu etapa Fundadora» encima de la etapa recién creada.
+    await expect.poll(() => peticiones.get).toBeGreaterThan(getsAntes);
 
     await expect(page.getByText('Fundadora · Cuota Fundadora')).toBeVisible();
     await expect(page.getByText('3 de 20')).toBeVisible();

@@ -36,12 +36,16 @@ test('un jsonb vacío o a medias no cuenta como onboarding hecho', () => {
 
 const ctx = (p: Partial<ContextoRecomendaciones>): ContextoRecomendaciones => ({
   respuestas: { completado: true, puntos: ['LOCAL'], objetivos: [], fechaAproximada: false },
-  hayClasesPublicadas: true, hayPlanes: true, hayEtapaFundadora: false, puedeVer: () => true, ...p,
+  hayClasesPublicadas: true, alertas: [], hayPlanes: true, hayEtapaFundadora: false, puedeVer: () => true, ...p,
 });
 const ids = (p: Partial<ContextoRecomendaciones>) => recomendar(ctx(p)).map(r => r.id);
 
 test('sin horario, lo primero es publicarlo, se haya pedido o no', () => {
   assert.deepEqual(ids({ hayClasesPublicadas: false }), ['horario']);
+});
+
+test('si ya hay alerta de «sin horario», no se repite como siguiente paso', () => {
+  assert.deepEqual(ids({ hayClasesPublicadas: false, alertas: ['SIN_HORARIO'] }), []);
 });
 
 test('fundadoras: etapa si ya hay planes, el plan antes si no, y nada si ya hay etapa', () => {

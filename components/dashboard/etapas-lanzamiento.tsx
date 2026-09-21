@@ -35,7 +35,9 @@ const VACIO = { etapa: 'FUNDADORA' as TipoEtapa, planId: '', desde: '', hasta: '
 // Etapas de lanzamiento dentro de la tarjeta de apertura: qué plan se vende en
 // cada etapa, hasta cuándo, con qué cupo, y qué hacer al llenarse (lo elige el
 // estudio; el cierre lo hace la BD, migr 20260921161026).
-export function EtapasLanzamiento() {
+// `onCambio`: la tarjeta de apertura recarga sus recomendaciones (p. ej. deja de
+// sugerir «Crea tu etapa Fundadora» en cuanto existe).
+export function EtapasLanzamiento({ onCambio }: { onCambio?: () => void }) {
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState(VACIO);
@@ -52,6 +54,7 @@ export function EtapasLanzamiento() {
   async function recargar() {
     const d = await pedirEtapas();
     if (d) setDatos(d);
+    onCambio?.();
   }
 
   async function guardar(ev: React.FormEvent) {
