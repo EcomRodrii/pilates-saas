@@ -1,5 +1,7 @@
 'use client';
 
+import { ANCLA_LISTO } from '@/lib/opening/listo';
+import Link from 'next/link';
 import { useState } from 'react';
 import { Check, X, Clock3, MessageCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -122,6 +124,12 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
           <h2 className="font-heading text-[18px] font-semibold text-foreground">{titulo}</h2>
           <p className="max-w-sm text-[13.5px] text-muted-foreground">{subtitulo}</p>
           {puente}
+          {veredicto.porApertura && (
+            <p className="max-w-sm text-[12.5px] text-muted-foreground">
+              Estás abriendo tu estudio y hoy ya te he avisado de tu apertura: lo pendiente está en{' '}
+              <Link href={`/dashboard#${ANCLA_LISTO}`} className="font-semibold underline underline-offset-2" style={{ color: 'var(--brand-secondary)' }}>Inicio</Link>.
+            </p>
+          )}
           {veredicto.semanaTranquila && (
             <p className="max-w-sm text-[12.5px] text-muted-foreground">
               Esta semana no hubo nada que mereciera interrumpirte.
