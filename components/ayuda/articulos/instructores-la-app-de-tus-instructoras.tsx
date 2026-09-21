@@ -51,7 +51,9 @@ export default function Contenido() {
           <strong>Hoy</strong> — cuántas clases da hoy, su semana y los próximos días. Aquí le llegan también las
           ofertas de <Link href="/ayuda/instructores/sustituciones" style={enlace}>sustitución</Link>, con dos
           botones: «La cubro» y «No puedo». Y los atajos a crear una clase suya (si lo permites), su disponibilidad,
-          sus ausencias y sus alumnas.
+          sus ausencias y sus alumnas. Desde aquí empieza cada clase («Empezar clase») y ficha su jornada si es
+          contratada: lo explica el{' '}
+          <Link href="/ayuda/instructores/control-horario" style={enlace}>control horario</Link>.
         </li>
         <li><strong>Agenda</strong> — sus clases, seguidas, día a día.</li>
         <li>

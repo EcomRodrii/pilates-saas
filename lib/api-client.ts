@@ -38,6 +38,7 @@ import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
 import type { EstudioListadoPublico } from '@/lib/network/publico-estudios.ts';
 import type { RowDocumentosSocio } from '@/lib/db-types';
 import type { CambioJornada, JornadaEquipo, ResumenInstructora } from '@/lib/fichaje/jornadas-equipo';
+import type { CambioClase, ClaseEquipo, ResumenClases } from '@/lib/fichaje/clases-equipo';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -2438,28 +2439,41 @@ export interface Liquidacion {
   modo: 'CLASES' | 'HORAS_FICHADAS';
   minutosFichados: number | null;
   jornadasSinCerrar: number;
+  // Clases impartidas (#2183+). Opcionales: una respuesta antigua no las trae.
+  relacionLaboral?: 'CONTRATADA' | 'AUTONOMA' | null;
+  clasesSinConfirmar?: number;
+  clasesNoDadas?: number;
+  minutosRetraso?: number;
+  minutosContrato?: number | null;
+  minutosExtra?: number | null;
 }
 
 export type ModoLiquidacion = Liquidacion['modo'];
 
 /** `null` si no se ha podido leer: no se enseña ningún criterio antes que uno falso. */
-export async function fetchModoLiquidacion(): Promise<{ modo: ModoLiquidacion; puedeCambiar: boolean } | null> {
+export async function fetchModoLiquidacion(): Promise<{ modo: ModoLiquidacion; pagarDuracionReal: boolean; puedeCambiar: boolean } | null> {
   try {
     const res = await fetch('/api/equipo/liquidacion-modo', { headers: await authHeader() });
     if (!res.ok) return null;
-    const d = (await res.json()) as { modo?: string; puedeCambiar?: boolean };
-    return { modo: d.modo === 'HORAS_FICHADAS' ? 'HORAS_FICHADAS' : 'CLASES', puedeCambiar: d.puedeCambiar === true };
+    const d = (await res.json()) as { modo?: string; pagarDuracionReal?: boolean; puedeCambiar?: boolean };
+    return {
+      modo: d.modo === 'HORAS_FICHADAS' ? 'HORAS_FICHADAS' : 'CLASES',
+      pagarDuracionReal: d.pagarDuracionReal === true,
+      puedeCambiar: d.puedeCambiar === true,
+    };
   } catch {
     return null;
   }
 }
 
-export async function guardarModoLiquidacion(modo: ModoLiquidacion): Promise<{ ok: boolean; error?: string }> {
+export async function guardarModoLiquidacion(
+  cambio: { modo?: ModoLiquidacion; pagarDuracionReal?: boolean },
+): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/api/equipo/liquidacion-modo', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ modo }),
+      body: JSON.stringify(cambio),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
@@ -2578,6 +2592,53 @@ export async function corregirJornada(
     return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
   } catch {
     return { ok: false, error: 'No se pudo guardar la corrección' };
+  }
+}
+
+export interface ClasesDelMes {
+  clases: ClaseEquipo[];
+  cambios: Record<string, CambioClase[]>;
+  resumen: ResumenClases[];
+}
+
+/** Las clases del mes para «Tiempo trabajado». `null` si no se ha podido leer. */
+export async function fetchClasesDelMes(anio: number, mes: number): Promise<ClasesDelMes | null> {
+  try {
+    const qs = new URLSearchParams({ anio: String(anio), mes: String(mes) });
+    const res = await fetch(`/api/equipo/clases?${qs.toString()}`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    const d = (await res.json()) as Partial<ClasesDelMes>;
+    return {
+      clases: Array.isArray(d.clases) ? d.clases : [],
+      cambios: d.cambios && typeof d.cambios === 'object' ? d.cambios : {},
+      resumen: Array.isArray(d.resumen) ? d.resumen : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function corregirClasesEquipo(
+  items: { sesionId: string; estado: 'DADA' | 'NO_DADA'; inicio?: string; fin?: string }[], motivo: string,
+): Promise<{ ok: boolean; error?: string }> {
+  return patchClases({ accion: 'corregir', items, motivo });
+}
+
+export async function marcarClaseRevisada(sesionId: string): Promise<{ ok: boolean; error?: string }> {
+  return patchClases({ accion: 'revisar', sesionId });
+}
+
+async function patchClases(cuerpo: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/equipo/clases', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(cuerpo),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar el cambio' };
   }
 }
 

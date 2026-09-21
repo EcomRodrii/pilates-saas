@@ -61,6 +61,8 @@ export interface ConteosEstudio {
   alertasApertura?: number | null;
   /** Jornadas del equipo abiertas más horas de las que permite el estudio, o marcadas por revisar. */
   jornadasPorRevisar?: number | null;
+  /** Clases que una instructora dijo no dar y nadie ha revisado todavía. */
+  clasesNoDadasPorRevisar?: number | null;
   // En marcha
   sustitucionesBuscando?: number | null;
   ofertasListaEspera?: number | null;
@@ -163,6 +165,9 @@ const LINEAS: DefLinea[] = [
   // cuentan en el mes. Se corrige en Tiempo trabajado, con su motivo.
   { id: 'jornadasPorRevisar', bandeja: 'decidir', href: '/equipo/tiempo-trabajado',
     uno: 'Una jornada del equipo sin cerrar por revisar', varios: n => `${n} jornadas del equipo sin cerrar por revisar` },
+  // No se le paga; hay que mirar quién la dio. Se revisa en Tiempo trabajado.
+  { id: 'clasesNoDadasPorRevisar', bandeja: 'decidir', href: '/equipo/tiempo-trabajado',
+    uno: 'Una clase que una instructora dijo no dar', varios: n => `${n} clases que el equipo dijo no dar` },
   { id: 'bajasPorRevisar', bandeja: 'decidir', href: null,
     uno: 'Una baja de última hora del equipo por revisar', varios: n => `${n} bajas de última hora del equipo por revisar` },
 

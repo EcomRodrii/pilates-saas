@@ -39,7 +39,7 @@ export default function LiquidacionesPage() {
   // pinta nada antes que un «0 h» que no es verdad.
   const [fichado, setFichado] = useState<Map<string, number> | null>(null);
   // Con qué calcula el estudio la parte variable. `null` = no se sabe todavía.
-  const [criterio, setCriterio] = useState<{ modo: ModoLiquidacion; puedeCambiar: boolean } | null>(null);
+  const [criterio, setCriterio] = useState<{ modo: ModoLiquidacion; pagarDuracionReal: boolean; puedeCambiar: boolean } | null>(null);
   const [guardandoCriterio, setGuardandoCriterio] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
@@ -59,10 +59,24 @@ export default function LiquidacionesPage() {
       : 'A partir de ahora, los borradores volverán a pagar las horas de clase × tarifa por hora. Las liquidaciones confirmadas o pagadas no cambian. ¿Seguimos?';
     if (!window.confirm(texto)) return;
     setGuardandoCriterio(true);
-    const r = await guardarModoLiquidacion(modo);
+    const r = await guardarModoLiquidacion({ modo });
     setGuardandoCriterio(false);
     if (!r.ok) { showToast(r.error ?? 'No se pudo guardar'); return; }
     setCriterio({ ...criterio, modo });
+    showToast('Criterio guardado. Recalcula los borradores de este mes para aplicarlo.');
+  }
+
+  async function cambiarDuracionReal(pagarDuracionReal: boolean) {
+    if (!criterio || guardandoCriterio) return;
+    const texto = pagarDuracionReal
+      ? 'A partir de ahora, cada clase dada se pagará por lo que duró de verdad: si empezó 10 min tarde o acabó antes, se paga menos. Las liquidaciones confirmadas o pagadas no cambian. ¿Seguimos?'
+      : 'A partir de ahora, cada clase dada se pagará por su horario entero, aunque empezara tarde o acabara antes. Las liquidaciones confirmadas o pagadas no cambian. ¿Seguimos?';
+    if (!window.confirm(texto)) return;
+    setGuardandoCriterio(true);
+    const r = await guardarModoLiquidacion({ pagarDuracionReal });
+    setGuardandoCriterio(false);
+    if (!r.ok) { showToast(r.error ?? 'No se pudo guardar'); return; }
+    setCriterio({ ...criterio, pagarDuracionReal });
     showToast('Criterio guardado. Recalcula los borradores de este mes para aplicarlo.');
   }
 
@@ -187,6 +201,26 @@ export default function LiquidacionesPage() {
           ) : (
             <span className="font-semibold text-foreground">{criterio.modo === 'HORAS_FICHADAS' ? 'horas fichadas' : 'horas de clase'}</span>
           )}
+          <div className="basis-full flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3" data-testid="criterio-duracion">
+            <span className="min-w-0">
+              <span className="block text-muted-foreground">Cada clase dada se paga por</span>
+              <span className="block text-[12px] text-muted-foreground/80">
+                {criterio.pagarDuracionReal
+                  ? 'Lo que duró de verdad: desde que la empezó en la app hasta que acabó. Un retraso se descuenta.'
+                  : 'Su horario entero. Si empezó tarde, se ve el retraso, pero no se descuenta.'}
+                {' '}Las autónomas se pagan siempre por clases.
+              </span>
+            </span>
+            {criterio.puedeCambiar ? (
+              <select aria-label="Pagar cada clase por" value={criterio.pagarDuracionReal ? 'real' : 'horario'} disabled={guardandoCriterio}
+                onChange={e => void cambiarDuracionReal(e.target.value === 'real')} className={inputCls + ' w-auto'}>
+                <option value="horario">su horario</option>
+                <option value="real">lo que duró</option>
+              </select>
+            ) : (
+              <span className="font-semibold text-foreground">{criterio.pagarDuracionReal ? 'lo que duró' : 'su horario'}</span>
+            )}
+          </div>
         </div>
       )}
 
@@ -287,6 +321,36 @@ export default function LiquidacionesPage() {
                         <Link href="/equipo/tiempo-trabajado" className="underline">Tiempo trabajado</Link>.
                       </p>
                     )}
+                    {(liq.clasesSinConfirmar ?? 0) > 0 && (
+                      <p className="col-span-2 sm:col-span-4 text-[12px] text-amber-600" data-testid="clases-sin-confirmar-liq">
+                        {liq.clasesSinConfirmar === 1
+                          ? 'Una clase de este mes terminó sin saberse si la dio. Se ha contado por su horario, pero no se puede confirmar hasta revisarla en '
+                          : `${liq.clasesSinConfirmar} clases de este mes terminaron sin saberse si las dio. Se han contado por su horario, pero no se puede confirmar hasta revisarlas en `}
+                        <Link href="/equipo/tiempo-trabajado" className="underline">Tiempo trabajado</Link>.
+                      </p>
+                    )}
+                    {(liq.clasesNoDadas ?? 0) > 0 && (
+                      <p className="col-span-2 sm:col-span-4 text-[12px] text-muted-foreground" data-testid="clases-no-dadas-liq">
+                        {liq.clasesNoDadas === 1 ? 'Una clase que dijo no dar no se paga.' : `${liq.clasesNoDadas} clases que dijo no dar no se pagan.`}
+                      </p>
+                    )}
+                    {(liq.minutosRetraso ?? 0) > 0 && (
+                      <p className="col-span-2 sm:col-span-4 text-[12px] text-muted-foreground" data-testid="retraso-liq">
+                        Empezó tarde {liq.minutosRetraso} min en total este mes
+                        {criterio?.pagarDuracionReal ? ' (descontados).' : ' (no se descuentan: se paga el horario).'}
+                      </p>
+                    )}
+                    {liq.minutosExtra != null && liq.minutosContrato != null && (
+                      <p className="col-span-2 sm:col-span-4 text-[12px] text-muted-foreground" data-testid="extra-liq">
+                        Contrato: {Math.round(liq.minutosContrato / 60)} h este mes.
+                        {liq.minutosExtra > 0
+                          ? ` Ha fichado ${Math.floor(liq.minutosExtra / 60)} h ${String(liq.minutosExtra % 60).padStart(2, '0')} min de más: se enseñan, no se pagan aparte.`
+                          : ' No ha fichado horas de más.'}
+                      </p>
+                    )}
+                    {liq.relacionLaboral === 'AUTONOMA' && liq.modo === 'CLASES' && criterio?.modo === 'HORAS_FICHADAS' && (
+                      <p className="col-span-2 sm:col-span-4 text-[12px] text-muted-foreground">Como autónoma no ficha jornada: se le paga por clases.</p>
+                    )}
                     {liq.nClasesSinTarifa > 0 && (
                       <p className="col-span-2 sm:col-span-4 text-[12px] text-amber-600">
                         {liq.nClasesSinTarifa} {liq.nClasesSinTarifa === 1 ? 'clase' : 'clases'} sin tarifa fijada — no se han valorado.
@@ -302,7 +366,7 @@ export default function LiquidacionesPage() {
                               Recalcular
                             </button>
                             <button onClick={() => handleTransicion(liq, 'confirmar')}
-                              disabled={procesandoId === i.id || (liq.modo === 'HORAS_FICHADAS' && liq.jornadasSinCerrar > 0)}
+                              disabled={procesandoId === i.id || (liq.modo === 'HORAS_FICHADAS' && liq.jornadasSinCerrar > 0) || (liq.clasesSinConfirmar ?? 0) > 0}
                               className="px-3 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-semibold hover:brightness-95 disabled:opacity-50">
                               Confirmar
                             </button>

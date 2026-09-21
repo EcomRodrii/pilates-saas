@@ -48,6 +48,7 @@ const CONTENIDO: Record<string, () => Promise<{ default: ComponentType }>> = {
   'bonos/plazas-fijas': () => import('@/components/ayuda/articulos/bonos-plazas-fijas'),
   'bonos/ampliar-caducidades-en-lote': () => import('@/components/ayuda/articulos/bonos-ampliar-caducidades-en-lote'),
   'instructores/horas-y-contrato': () => import('@/components/ayuda/articulos/instructores-horas-y-contrato'),
+  'instructores/control-horario': () => import('@/components/ayuda/articulos/instructores-control-horario'),
   'instructores/pasar-clases-a-otra': () => import('@/components/ayuda/articulos/instructores-pasar-clases-a-otra'),
   'reservas/clases-con-requisito': () => import('@/components/ayuda/articulos/reservas-clases-con-requisito'),
   'bonos/renovaciones': () => import('@/components/ayuda/articulos/bonos-renovaciones'),

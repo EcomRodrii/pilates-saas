@@ -113,7 +113,7 @@ test('por horas fichadas sin nada pendiente: confirma', async () => {
 test('si el fichaje no se puede leer, no genera un borrador con 0 h', async () => {
   const t = base('HORAS_FICHADAS');
   const r = await generarLiquidacionBorrador(crearAdmin(t, { falla: 'instructor_work_sessions' }), 's1', 'i1', 2026, 9);
-  assert.match(r.error ?? '', /No se ha podido leer el fichaje/);
+  assert.match(r.error ?? '', /No se han podido leer el fichaje/);
   assert.equal(t.liquidaciones_instructoras.length, 0);
 });
 
@@ -123,4 +123,74 @@ test('una liquidación ya confirmada no se recalcula aunque el estudio cambie a 
   const r = await generarLiquidacionBorrador(crearAdmin(t), 's1', 'i1', 2026, 9);
   assert.match(r.error ?? '', /ya está confirmada/);
   assert.equal(t.liquidaciones_instructoras[0].modo, 'CLASES');
+});
+
+// ── Clases impartidas en la liquidación (21-sep-2026) ──────────────────────
+
+const OCT = (dia: number, h: number) => `2026-10-${String(dia).padStart(2, '0')}T${String(h).padStart(2, '0')}:00:00.000Z`;
+const DESPUES = new Date('2026-11-05T10:00:00.000Z');
+
+function conClases(relacion: string | null, extra: Record<string, unknown> = {}): Record<string, Fila[]> {
+  const t = base(null);
+  t.instructor_tarifas = [{ instructor_id: 'i1', studio_id: 's1', tarifa_hora: 20, base_mensual_eur: 0, recargo_sustitucion_pct: 50, relacion_laboral: relacion, ...extra }];
+  t.sesiones = [
+    { id: 'dada', studio_id: 's1', instructor_id: 'i1', cancelada: false, inicio: OCT(5, 17), fin: OCT(5, 18) },
+    { id: 'nodada', studio_id: 's1', instructor_id: 'i1', cancelada: false, inicio: OCT(6, 17), fin: OCT(6, 18) },
+    { id: 'olvidada', studio_id: 's1', instructor_id: 'i1', cancelada: false, inicio: OCT(7, 17), fin: OCT(7, 18) },
+  ];
+  t.clases_impartidas = [
+    { sesion_id: 'dada', studio_id: 's1', instructor_id: 'i1', estado: 'DADA', inicio_real: '2026-10-05T17:15:00.000Z', fin_real: null, origen: 'BOTON' },
+    { sesion_id: 'nodada', studio_id: 's1', instructor_id: 'i1', estado: 'NO_DADA', inicio_real: null, fin_real: null, origen: 'CONFIRMACION' },
+  ];
+  t.instructor_work_sessions = [];
+  return t;
+}
+
+test('autónoma: la que no dio no se paga, la olvidada se paga por su horario y bloquea confirmar', async () => {
+  const t = conClases('AUTONOMA');
+  const admin = crearAdmin(t);
+  const r = await generarLiquidacionBorrador(admin, 's1', 'i1', 2026, 10, DESPUES);
+  assert.equal(r.row?.relacionLaboral, 'AUTONOMA');
+  assert.equal(r.row?.clasesNoDadas, 1);
+  assert.equal(r.row?.clasesSinConfirmar, 1);
+  assert.equal(r.row?.minutosRetraso, 15);
+  assert.equal(r.row?.nClasesPropias, 2);
+  assert.equal(r.row?.variablePropiasEur, 40); // dada (horario entero) + olvidada
+  const c = await transicionarLiquidacion(admin, r.row!.id, 's1', 'confirmar', 'u1', null, DESPUES);
+  assert.match(c.error ?? '', /Hay una clase de este mes sin confirmar/);
+  assert.equal(t.liquidaciones_instructoras[0].estado, 'BORRADOR');
+});
+
+test('pagar lo que duró: el retraso se descuenta', async () => {
+  const t = conClases('AUTONOMA');
+  t.studio_config_tiempo = [{ studio_id: 's1', liquidar_por: 'CLASES', pagar_duracion_real: true }];
+  const r = await generarLiquidacionBorrador(crearAdmin(t), 's1', 'i1', 2026, 10, DESPUES);
+  assert.equal(r.row?.variablePropiasEur, 35); // 45 min + 60 min de la olvidada
+});
+
+test('contratada: la clase dentro de su jornada cuenta como dada sin tocar nada', async () => {
+  const t = conClases('CONTRATADA');
+  t.instructor_work_sessions = [
+    { studio_id: 's1', instructor_id: 'i1', status: 'CLOSED', check_in_at: OCT(7, 16), check_out_at: OCT(7, 19) },
+  ];
+  const r = await generarLiquidacionBorrador(crearAdmin(t), 's1', 'i1', 2026, 10, DESPUES);
+  assert.equal(r.row?.clasesSinConfirmar, 0);
+  assert.equal(r.row?.clasesNoDadas, 1);
+});
+
+test('contratada con contrato: por horas fichadas, lo de más se enseña y no se paga', async () => {
+  const t = conClases('CONTRATADA', { horas_semanales_contrato: 1 }); // 1 h/semana → 52/12 h = 260 min al mes
+  t.studio_config_tiempo = [{ studio_id: 's1', liquidar_por: 'HORAS_FICHADAS' }];
+  t.instructor_work_sessions = [
+    { studio_id: 's1', instructor_id: 'i1', status: 'CLOSED', check_in_at: OCT(7, 10), check_out_at: OCT(7, 16) },
+  ];
+  const r = await generarLiquidacionBorrador(crearAdmin(t), 's1', 'i1', 2026, 10, DESPUES);
+  assert.equal(r.row?.minutosContrato, 260);
+  assert.equal(r.row?.minutosExtra, 360 - 260);
+  assert.equal(r.row?.variablePropiasEur, Math.round(260 / 60 * 20 * 100) / 100);
+});
+
+test('si las clases no se pueden leer, no genera el borrador', async () => {
+  const r = await generarLiquidacionBorrador(crearAdmin(conClases('AUTONOMA'), { falla: 'clases_impartidas' }), 's1', 'i1', 2026, 10, DESPUES);
+  assert.match(r.error ?? '', /no se han podido leer/i);
 });
