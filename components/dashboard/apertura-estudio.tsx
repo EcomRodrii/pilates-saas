@@ -8,6 +8,7 @@ import type { AnalisisCapacidad, NivelRiesgo } from '@/lib/opening/capacidad';
 import { notaEstimacion } from '@/lib/opening/textos';
 import { EtapasLanzamiento } from './etapas-lanzamiento';
 import { AjustesAperturaForm } from './ajustes-apertura';
+import { OnboardingApertura } from './onboarding-apertura';
 import type { AjustesApertura } from '@/lib/opening/ajustes';
 import { ANCLA_DECIDIR } from '@/lib/estado-estudio-cliente';
 
@@ -18,6 +19,8 @@ interface RespuestaApertura {
   analisis?: AnalisisCapacidad;
   supuestos?: { sesionesSemanaSinTope: number; semanasBonoSinCaducidad: number; conversionLeads: number };
   ajustes?: AjustesApertura;
+  onboarding?: { completado: true; puntos: string[]; objetivos: string[]; fechaAproximada: boolean } | null;
+  recomendaciones?: { id: string; titulo: string; motivo: string; href: string }[];
   alertas?: { tipo: string; severidad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA'; titulo: string; descripcion: string; href: string }[];
 }
 
@@ -34,8 +37,14 @@ const RIESGO: Record<Exclude<NivelRiesgo, 'SIN_OFERTA'>, { clase: string; texto:
   ROJO: { clase: 'text-destructive', texto: 'Vas a quedarte sin plazas: publica más horarios.' },
 };
 
-function titular(dias: number | null | undefined): string {
-  if (dias === null || dias === undefined) return '¿Cuándo abres tu estudio?';
+function titular(d: RespuestaApertura): string {
+  const dias = d.diasHastaApertura;
+  if (!d.fechaApertura || dias === null || dias === undefined) return d.onboarding ? 'Preparando tu apertura' : 'Preparemos tu apertura';
+  // Aproximada: «hacia noviembre», nunca una cuenta atrás de días que no es real.
+  if (d.onboarding?.fechaAproximada && dias > 0) {
+    const mes = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${d.fechaApertura}T00:00:00Z`));
+    return `Abres hacia ${mes}`;
+  }
   if (dias > 1) return `Abres en ${dias} días`;
   if (dias === 1) return 'Abres mañana';
   if (dias === 0) return 'Hoy abres tu estudio';
@@ -50,6 +59,7 @@ async function pedirApertura(): Promise<RespuestaApertura | null> {
     // Sin dar por hecha la forma: un cuerpo inesperado no puede tumbar la home.
     if (!d || typeof d.visible !== 'boolean') return null;
     if (d.alertas !== undefined && !Array.isArray(d.alertas)) return null;
+    if (d.recomendaciones !== undefined && !Array.isArray(d.recomendaciones)) return null;
     if (d.visible && d.analisis && (typeof d.analisis.capacidadPublicada !== 'number'
       || !d.analisis.desglose?.ESTIMADA_POR_PLAN || !d.analisis.estimadasPorMotivo)) return null;
     return d;
@@ -64,7 +74,6 @@ async function pedirApertura(): Promise<RespuestaApertura | null> {
 // `visible: false` en cualquier otro caso, incluido un rol sin permiso.
 export function AperturaEstudio() {
   const [datos, setDatos] = useState<RespuestaApertura | null>(null);
-  const [fecha, setFecha] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ajustando, setAjustando] = useState(false);
@@ -98,12 +107,12 @@ export function AperturaEstudio() {
     }
   }
 
-  async function guardarAjustes(cambios: { fechaApertura: string; ajustes: AjustesApertura }): Promise<string | null> {
+  async function patch(body: Record<string, unknown>): Promise<string | null> {
     try {
       const res = await fetch('/api/opening', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify(cambios),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => null) as { error?: string } | null;
@@ -111,16 +120,31 @@ export function AperturaEstudio() {
       }
       const d = await pedirApertura();
       if (d) setDatos(d);
-      setAjustando(false);
       return null;
     } catch {
       return 'Sin conexión. Inténtalo de nuevo.';
     }
   }
 
+  async function guardarAjustes(cambios: { fechaApertura: string; ajustes: AjustesApertura }): Promise<string | null> {
+    const err = await patch(cambios);
+    if (!err) setAjustando(false);
+    return err;
+  }
+
+  async function guardarOnboarding(onboarding: Record<string, unknown>): Promise<string | null> {
+    setGuardando(true);
+    const err = await patch({ onboarding });
+    setGuardando(false);
+    return err;
+  }
+
   if (!datos?.visible) return null;
   const { analisis, supuestos } = datos;
   const sinFecha = !datos.fechaApertura;
+  // El asistente solo para quien no lo ha hecho y tampoco tiene fecha: un
+  // estudio que ya puso fecha antes de que existiera no lo repite.
+  const mostrarOnboarding = !datos.onboarding && sinFecha;
   const semanas = analisis ? Math.round(analisis.ventana.dias / 7) : 0;
 
   return (
@@ -130,14 +154,16 @@ export function AperturaEstudio() {
           <CalendarClock size={16} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-foreground">{titular(datos.diasHastaApertura)}</p>
+          <p className="text-[13px] font-semibold text-foreground">{titular(datos)}</p>
           <p className="text-[11px] text-muted-foreground">
-            {sinFecha ? 'Con la fecha te decimos si tus clases van a dar abasto.' : `Previsión de las próximas ${semanas} semanas`}
+            {mostrarOnboarding ? 'Tres preguntas y te decimos por dónde empezar.'
+              : sinFecha ? 'Cuando tengas fecha, te decimos si tus clases van a dar abasto.'
+              : `Previsión de las próximas ${semanas} semanas`}
           </p>
         </div>
-        {!sinFecha && datos.ajustes && !ajustando && (
+        {!mostrarOnboarding && datos.ajustes && !ajustando && (
           <button type="button" onClick={() => setAjustando(true)} className="shrink-0 text-[12px] font-medium text-brand-secondary hover:underline">
-            Ajustar previsión
+            {sinFecha ? 'Poner fecha' : 'Ajustar previsión'}
           </button>
         )}
       </div>
@@ -167,40 +193,32 @@ export function AperturaEstudio() {
         </ul>
       )}
 
-      {sinFecha && (
-        <form
-          className="mt-3 flex flex-wrap items-center gap-2"
-          onSubmit={(ev) => { ev.preventDefault(); if (fecha) void enviar({ fechaApertura: fecha }); }}
-        >
-          <label htmlFor="fecha-apertura" className="sr-only">Fecha de apertura</label>
-          <input
-            id="fecha-apertura"
-            type="date"
-            value={fecha}
-            onChange={(ev) => setFecha(ev.target.value)}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-[13px] text-foreground"
-          />
-          <button
-            type="submit"
-            disabled={!fecha || guardando}
-            className="h-9 rounded-lg bg-primary px-3 text-[12.5px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-          >
-            {guardando ? 'Guardando…' : 'Guardar fecha'}
-          </button>
-          <button
-            type="button"
-            disabled={guardando}
-            onClick={() => void enviar({ yaAbierto: true })}
-            className="h-9 px-2 text-[12px] text-muted-foreground hover:text-foreground hover:underline disabled:opacity-50"
-          >
-            Mi estudio ya está abierto
-          </button>
-        </form>
+      {mostrarOnboarding && (
+        <OnboardingApertura onGuardar={guardarOnboarding} onYaAbierto={() => void enviar({ yaAbierto: true })} guardando={guardando} />
+      )}
+
+      {!mostrarOnboarding && (datos.recomendaciones?.length ?? 0) > 0 && (
+        <div className="mt-3">
+          <p className="text-[11.5px] font-medium text-muted-foreground">Tu siguiente paso</p>
+          <ul className="mt-1.5 space-y-1.5">
+            {datos.recomendaciones!.map(r => (
+              <li key={r.id}>
+                <Link href={r.href} className="flex items-start justify-between gap-2 rounded-xl border border-border bg-background px-3 py-2.5 transition-colors hover:bg-muted">
+                  <span className="min-w-0">
+                    <span className="block text-[12.5px] font-semibold text-foreground">{r.titulo}</span>
+                    <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{r.motivo}</span>
+                  </span>
+                  <ArrowRight size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {error && <p role="alert" className="mt-2 text-[12px] text-destructive">{error}</p>}
 
-      {analisis && (analisis.riesgo === 'SIN_OFERTA' ? (datos.alertas?.some(a => a.tipo === 'SIN_HORARIO') ? null : (
+      {!mostrarOnboarding && analisis && (analisis.riesgo === 'SIN_OFERTA' ? (datos.alertas?.some(a => a.tipo === 'SIN_HORARIO') ? null : (
         <Link
           href="/calendario"
           className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-[12.5px] text-foreground transition-colors hover:bg-muted"
@@ -241,7 +259,7 @@ export function AperturaEstudio() {
         </div>
       ))}
 
-      <EtapasLanzamiento />
+      {!mostrarOnboarding && <EtapasLanzamiento />}
     </div>
   );
 }

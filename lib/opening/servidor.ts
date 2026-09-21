@@ -7,6 +7,7 @@ import {
 } from './capacidad.ts';
 import type { AlCompletar, EtapaVista, TipoEtapa } from './etapas.ts';
 import type { AlertaApertura } from './alertas.ts';
+import { leerRespuestas, type RespuestasOnboarding } from './onboarding.ts';
 
 // Cargas de Opening OS con cliente service-role, compartidas por la API de la
 // home y el cron de alertas. ⚠️ La RLS no filtra: quien llama ya ha decidido
@@ -37,12 +38,14 @@ export interface EstadoAperturaServidor {
   estudioCreadoEn: string | null;
   tieneAsistencias: boolean;
   config: ConfigCompleta;
+  /** null = onboarding sin hacer (o guardado a medias). */
+  respuestas: RespuestasOnboarding | null;
 }
 
 export async function cargarEstadoApertura(admin: SupabaseClient, studioId: string): Promise<EstadoAperturaServidor | null> {
   const [studioR, progresoR, configR, asistenciaR] = await Promise.all([
     admin.from('studios').select('fecha_apertura, creado_en').eq('id', studioId).maybeSingle(),
-    admin.from('opening_progreso').select('fase').eq('studio_id', studioId).maybeSingle(),
+    admin.from('opening_progreso').select('fase, objetivos').eq('studio_id', studioId).maybeSingle(),
     admin.from('opening_config').select('*').eq('studio_id', studioId).maybeSingle(),
     admin.from('reservas').select('id').eq('studio_id', studioId).eq('estado', 'ASISTIDA').limit(1),
   ]);
@@ -55,6 +58,7 @@ export async function cargarEstadoApertura(admin: SupabaseClient, studioId: stri
     estudioCreadoEn: (studioR.data.creado_en as string | null) ?? null,
     tieneAsistencias: (asistenciaR.data?.length ?? 0) > 0,
     config: configDesdeFila(configR.data),
+    respuestas: leerRespuestas(progresoR.data?.objetivos),
   };
 }
 

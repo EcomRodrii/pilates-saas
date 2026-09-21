@@ -96,21 +96,34 @@ async function montar(page: Page, o: Opciones) {
 }
 
 test.describe('Apertura del estudio en la home', () => {
-  test('sin fecha: la pide, la guarda y enseña la previsión con su origen', async ({ page }) => {
+  test('onboarding: tres pasos, guarda las respuestas y recomienda por dónde empezar', async ({ page }) => {
     const peticiones = await montar(page, {
-      inicial: { visible: true, fechaApertura: null, diasHastaApertura: null, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS },
-      trasGuardar: { visible: true, fechaApertura: '2026-10-15', diasHastaApertura: 14, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS },
+      inicial: { visible: true, fechaApertura: null, diasHastaApertura: null, fase: null, onboarding: null, analisis: ANALISIS, supuestos: SUPUESTOS },
+      trasGuardar: {
+        visible: true, fechaApertura: '2026-10-15', diasHastaApertura: 14, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS,
+        onboarding: { completado: true, puntos: ['LOCAL'], objetivos: ['FUNDADORAS'], fechaAproximada: false },
+        recomendaciones: [{ id: 'fundadora', titulo: 'Crea tu etapa Fundadora', motivo: 'Elige el plan, las fechas y cuántas plazas vendes a ese precio.', href: '#etapas-lanzamiento' }],
+      },
     });
 
-    await expect(page.getByText('¿Cuándo abres tu estudio?')).toBeVisible({ timeout: ARRANQUE_MS });
-    if (CAPTURAS) await page.screenshot({ path: `${CAPTURAS}/apertura-sin-fecha.png`, fullPage: false });
+    await expect(page.getByText('Preparemos tu apertura')).toBeVisible({ timeout: ARRANQUE_MS });
+    // Mientras pregunta, no enseña cifras.
+    await expect(page.getByText('Ocupación prevista')).toHaveCount(0);
+    if (CAPTURAS) await page.getByText('Preparemos tu apertura').locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]').screenshot({ path: `${CAPTURAS}/onboarding-paso-1.png` });
 
+    await expect(page.locator('#decidir-apertura').getByRole('button', { name: 'Siguiente', exact: true })).toBeDisabled();
+    await page.getByRole('checkbox', { name: 'Ya tengo el local' }).click();
+    await page.locator('#decidir-apertura').getByRole('button', { name: 'Siguiente', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Vender plazas fundadoras' }).click();
+    await page.locator('#decidir-apertura').getByRole('button', { name: 'Siguiente', exact: true }).click();
+    await page.getByRole('radio', { name: 'Tengo una fecha exacta' }).click();
     await page.getByLabel('Fecha de apertura').fill('2026-10-15');
-    await page.getByRole('button', { name: 'Guardar fecha' }).click();
+    await page.getByRole('button', { name: 'Listo' }).click();
 
     await expect(page.getByText('Abres en 14 días')).toBeVisible();
-    expect(peticiones.patch).toEqual([{ fechaApertura: '2026-10-15' }]);
-    expect(peticiones.get).toBeGreaterThan(1);
+    expect(peticiones.patch).toEqual([{ onboarding: { puntos: ['LOCAL'], objetivos: ['FUNDADORAS'], fechaTipo: 'EXACTA', fecha: '2026-10-15', mes: '' } }]);
+    await expect(page.getByText('Tu siguiente paso')).toBeVisible();
+    await expect(page.getByRole('link', { name: /Crea tu etapa Fundadora/ })).toHaveAttribute('href', '#etapas-lanzamiento');
 
     await expect(page.getByText('75 %')).toBeVisible();
     await expect(page.getByText('240 en 24 clases')).toBeVisible();
@@ -122,29 +135,42 @@ test.describe('Apertura del estudio en la home', () => {
     }
   });
 
+  test('fecha aproximada: «Abres hacia…», sin cuenta atrás de días', async ({ page }) => {
+    await montar(page, {
+      inicial: {
+        visible: true, fechaApertura: '2026-11-01', diasHastaApertura: 31, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS,
+        onboarding: { completado: true, puntos: ['PROYECTO'], objetivos: [], fechaAproximada: true },
+      },
+    });
+    await expect(page.getByText('Abres hacia noviembre de 2026')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(page.getByText(/Abres en \d+ días/)).toHaveCount(0);
+  });
+
   test('si el servidor dice que no, lo dice y no finge que guardó', async ({ page }) => {
     const peticiones = await montar(page, {
-      inicial: { visible: true, fechaApertura: null, diasHastaApertura: null, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS },
+      inicial: { visible: true, fechaApertura: null, diasHastaApertura: null, fase: null, onboarding: null, analisis: ANALISIS, supuestos: SUPUESTOS },
       patchStatus: 500,
     });
-    await expect(page.getByText('¿Cuándo abres tu estudio?')).toBeVisible({ timeout: ARRANQUE_MS });
-    await page.getByLabel('Fecha de apertura').fill('2026-10-15');
-    await page.getByRole('button', { name: 'Guardar fecha' }).click();
+    await page.getByRole('checkbox', { name: 'Ya tengo el local' }).click({ timeout: ARRANQUE_MS });
+    await page.locator('#decidir-apertura').getByRole('button', { name: 'Siguiente', exact: true }).click();
+    await page.locator('#decidir-apertura').getByRole('button', { name: 'Siguiente', exact: true }).click();
+    await page.getByRole('radio', { name: 'Todavía no lo sé' }).click();
+    await page.getByRole('button', { name: 'Listo' }).click();
 
     await expect(page.locator('p[role="alert"]')).toHaveText('No se pudo guardar');
     expect(peticiones.patch.length).toBeGreaterThan(0);
-    await expect(page.getByText('¿Cuándo abres tu estudio?')).toBeVisible();
+    await expect(page.getByText('¿Cuándo quieres abrir?')).toBeVisible();
   });
 
   test('«ya está abierto» la quita de la home', async ({ page }) => {
     const peticiones = await montar(page, {
-      inicial: { visible: true, fechaApertura: null, diasHastaApertura: null, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS },
+      inicial: { visible: true, fechaApertura: null, diasHastaApertura: null, fase: null, onboarding: null, analisis: ANALISIS, supuestos: SUPUESTOS },
       trasGuardar: { visible: false },
     });
-    await expect(page.getByText('¿Cuándo abres tu estudio?')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(page.getByText('Preparemos tu apertura')).toBeVisible({ timeout: ARRANQUE_MS });
     await page.getByRole('button', { name: 'Mi estudio ya está abierto' }).click();
 
-    await expect(page.getByText('¿Cuándo abres tu estudio?')).toHaveCount(0);
+    await expect(page.getByText('Preparemos tu apertura')).toHaveCount(0);
     expect(peticiones.patch).toEqual([{ yaAbierto: true }]);
   });
 
@@ -165,7 +191,7 @@ test.describe('Apertura del estudio en la home', () => {
     await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: ARRANQUE_MS });
     // La petición sale al montar la sección, no a la vez que el resto de la home.
     await expect.poll(() => peticiones.get).toBeGreaterThan(0);
-    await expect(page.getByText(/Cuándo abres|Abres en/)).toHaveCount(0);
+    await expect(page.getByText(/Preparemos tu apertura|Abres en/)).toHaveCount(0);
   });
 
   test('recepción ni siquiera la pide', async ({ page }) => {
@@ -175,7 +201,7 @@ test.describe('Apertura del estudio en la home', () => {
     });
     await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: ARRANQUE_MS });
     expect(peticiones.get).toBe(0);
-    await expect(page.getByText('¿Cuándo abres tu estudio?')).toHaveCount(0);
+    await expect(page.getByText('Preparemos tu apertura')).toHaveCount(0);
   });
 });
 
