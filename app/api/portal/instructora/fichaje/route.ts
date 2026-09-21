@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarInstructoraEnEstudio } from '@/lib/auth-instructora';
 import { estadoFichaje, registrarEntrada, registrarSalida } from '@/lib/fichaje/fichaje-servidor';
+import { relacionDe } from '@/lib/fichaje/clases-impartidas';
 import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
 import { retryAfterSeconds, tooManyRequestsResponse } from '@/lib/rate-limit-core';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -41,6 +42,14 @@ export async function POST(req: NextRequest) {
     const ctx = { studioId: sesion.studioId, instructorId: sesion.instructorId, userId: sesion.userId };
     let extra: Record<string, unknown> = {};
 
+    const relacion = await relacionDe(admin, ctx.studioId, ctx.instructorId);
+    // Una autónoma no ficha jornada: controlar su entrada y salida como a una
+    // empleada es justo lo que no hay que hacer. Confirma sus clases. Salir sí se
+    // deja, por si tenía una abierta de antes de que el estudio la marcara.
+    if (accion === 'entrada' && relacion === 'AUTONOMA') {
+      return NextResponse.json({ error: 'Como autónoma no fichas jornada: confirma tus clases desde Hoy.' }, { status: 409 });
+    }
+
     if (accion === 'entrada' || accion === 'salida') {
       const r = accion === 'entrada' ? await registrarEntrada(admin, ctx) : await registrarSalida(admin, ctx);
       if (!r.ok) {
@@ -55,7 +64,7 @@ export async function POST(req: NextRequest) {
       extra = 'yaAbierta' in r ? { yaAbierta: r.yaAbierta } : { yaCerrada: r.yaCerrada, minutos: r.minutos };
     }
 
-    return NextResponse.json({ ...extra, estado: await estadoFichaje(admin, ctx) });
+    return NextResponse.json({ ...extra, estado: { ...(await estadoFichaje(admin, ctx)), relacion } });
   } catch (err) {
     return errorInterno(`portal/instructora/fichaje:${accion}`, err,
       'No hemos podido cargar tu fichaje. Inténtalo de nuevo.');

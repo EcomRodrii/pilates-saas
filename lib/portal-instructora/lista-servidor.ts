@@ -100,7 +100,8 @@ export async function listaDeClase(p: ClaseDeInstructora): Promise<ListaDeClase 
 }
 
 export type ResultadoMarcar =
-  | { ok: true; estado: EstadoEnLista }
+  /** `clase` solo al marcar «Asistió»: con eso la ruta da la clase por dada. */
+  | { ok: true; estado: EstadoEnLista; clase?: { id: string; inicio: string } }
   | { ok: false; status: 404 | 409; error: string };
 
 /** Marca «Asistió» o lo deshace. Solo eso: nunca escribe `NO_ASISTIO`. */
@@ -125,13 +126,13 @@ export async function marcarAsistencia(
 
   if (p.accion === 'asistio') {
     // Idempotente: un doble toque no es un error.
-    if (actual === 'ASISTIDA') return { ok: true, estado: 'asistio' };
+    if (actual === 'ASISTIDA') return { ok: true, estado: 'asistio', clase: { id: clase.id, inicio: clase.inicio } };
     if (actual !== 'CONFIRMADA') {
       return { ok: false, status: 409, error: actual === 'NO_ASISTIO' ? NO_VINO : 'Esta reserva ya no está confirmada.' };
     }
     const r = await checkinPublico({ studioId: p.studioId, reservaId: p.reservaId });
     if ('error' in r) return { ok: false, status: 409, error: r.error ?? 'No se ha podido marcar la asistencia.' };
-    return { ok: true, estado: 'asistio' };
+    return { ok: true, estado: 'asistio', clase: { id: clase.id, inicio: clase.inicio } };
   }
 
   if (actual === 'CONFIRMADA') return { ok: true, estado: 'por-marcar' };

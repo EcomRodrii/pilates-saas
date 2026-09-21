@@ -1,8 +1,20 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { textoBaja, type ClaseQueDa } from '@/lib/student/agenda-instructora';
 import { Foto } from '@/components/student/ui/Foto';
+
+/** El control horario de esta clase, si ya se puede empezar o está en curso. */
+export interface ControlClase {
+  estado: 'EMPEZABLE' | 'EN_CURSO';
+  /** En curso: la hora a la que empezó (hora del estudio, «18:03»). */
+  horaInicioReal?: string;
+  enviando: boolean;
+  onEmpezar: () => void;
+  /** «HH:MM» de hoy, hora del estudio. */
+  onTerminarAntes: (hora: string) => void;
+}
 
 /**
  * «Tu próxima clase» de la instructora, con la misma cara que la de la alumna
@@ -13,7 +25,7 @@ import { Foto } from '@/components/student/ui/Foto';
  * pedido la baja, en qué está (ver `textoBaja`). «Pasar lista» solo aparece
  * cuando ya se puede: quien llama decide con `puedePasarLista`.
  */
-export function ProximaClaseQueDaCard({ clase, foto, cuando, enCurso, hrefClase, hrefLista }: {
+export function ProximaClaseQueDaCard({ clase, foto, cuando, enCurso: enCursoPorHora, hrefClase, hrefLista, control }: {
   clase: ClaseQueDa;
   foto: string | null;
   /** «Hoy · 20:00», «Jue 17 · 20:00». */
@@ -21,7 +33,16 @@ export function ProximaClaseQueDaCard({ clase, foto, cuando, enCurso, hrefClase,
   enCurso: boolean;
   hrefClase: string;
   hrefLista?: string;
+  control?: ControlClase;
 }) {
+  const [terminando, setTerminando] = useState(false);
+  const [horaFin, setHoraFin] = useState('');
+  // Empezada antes de su hora: ya está en curso aunque el reloj diga que aún no.
+  const enCurso = enCursoPorHora || control?.estado === 'EN_CURSO';
+  const abrirTerminar = () => {
+    setHoraFin(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Europe/Madrid' }));
+    setTerminando(true);
+  };
   const baja = clase.baja ? textoBaja(clase.baja.estado, clase.baja.sustituta) : null;
   const botonSecundario = {
     height: 34,
@@ -69,9 +90,48 @@ export function ProximaClaseQueDaCard({ clase, foto, cuando, enCurso, hrefClase,
             {baja.detalle && <p style={{ margin: '1px 0 0', fontSize: 'var(--t-meta)', color: 'color-mix(in srgb, var(--accent-deep-foreground) 80%, transparent)' }}>{baja.detalle}</p>}
           </div>
         )}
+        {control?.estado === 'EN_CURSO' && (
+          <p data-testid="clase-empezada" style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--on-dark)' }}>
+            Empezaste a las {control.horaInicioReal}. Termina sola a las {clase.horaFin}.
+          </p>
+        )}
+        {control?.estado === 'EMPEZABLE' && (
+          <div style={{ marginTop: 11 }}>
+            <button
+              type="button"
+              data-testid="empezar-clase"
+              onClick={control.onEmpezar}
+              disabled={control.enviando}
+              className="btn btn--full tap"
+              style={{ background: 'var(--on-dark)', color: 'var(--accent-deep)', height: 44, fontWeight: 800, opacity: control.enviando ? 0.7 : 1 }}
+            >
+              {control.enviando ? 'Anotando…' : 'Empezar clase'}
+            </button>
+            <p style={{ margin: '6px 0 0', fontSize: 'var(--t-meta)', color: 'color-mix(in srgb, var(--accent-deep-foreground) 75%, transparent)' }}>
+              Tentare anota la hora a la que empiezas. Al acabar no tienes que hacer nada.
+            </p>
+          </div>
+        )}
+        {control?.estado === 'EN_CURSO' && terminando && (
+          <form
+            data-testid="terminar-antes"
+            onSubmit={(e) => { e.preventDefault(); if (horaFin) { control.onTerminarAntes(horaFin); setTerminando(false); } }}
+            style={{ marginTop: 10, padding: '10px 11px', borderRadius: 12, background: 'color-mix(in srgb, var(--accent-deep-foreground) 12%, transparent)' }}
+          >
+            <label htmlFor="hora-fin-clase" style={{ display: 'block', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--on-dark)' }}>
+              ¿A qué hora terminaste?
+            </label>
+            <div style={{ marginTop: 7, display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input id="hora-fin-clase" type="time" required value={horaFin} onChange={(e) => setHoraFin(e.target.value)} aria-label="Hora a la que terminaste"
+                style={{ height: 36, borderRadius: 10, border: 'none', padding: '0 10px', fontFamily: 'inherit', fontSize: 'var(--t-body)', fontWeight: 700, background: 'var(--on-dark)', color: 'var(--accent-deep)' }} />
+              <button type="submit" className="btn btn--sm tap" disabled={control.enviando} style={{ background: 'var(--on-dark)', color: 'var(--accent-deep)', height: 36 }}>Guardar</button>
+              <button type="button" className="btn btn--sm tap" onClick={() => setTerminando(false)} style={{ ...botonSecundario, height: 36 }}>Cancelar</button>
+            </div>
+          </form>
+        )}
         <div style={{ display: 'flex', gap: 7, marginTop: 11, flexWrap: 'wrap' }}>
           {hrefLista && (
-            <Link href={hrefLista} className="btn btn--sm tap" style={{ background: 'var(--on-dark)', color: 'var(--accent-deep)', height: 34 }}>Pasar lista</Link>
+            <Link href={hrefLista} className="btn btn--sm tap" style={control?.estado === 'EMPEZABLE' ? botonSecundario : { background: 'var(--on-dark)', color: 'var(--accent-deep)', height: 34 }}>Pasar lista</Link>
           )}
           <Link
             href={hrefClase}
@@ -80,6 +140,9 @@ export function ProximaClaseQueDaCard({ clase, foto, cuando, enCurso, hrefClase,
           >
             Ver la clase
           </Link>
+          {control?.estado === 'EN_CURSO' && !terminando && (
+            <button type="button" className="btn btn--sm tap" onClick={abrirTerminar} style={botonSecundario}>Terminé antes</button>
+          )}
         </div>
       </div>
     </section>

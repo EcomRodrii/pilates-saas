@@ -1873,6 +1873,8 @@ export interface RowInstructorTarifas {
   recargo_sustitucion_pct: number | null;
   // migr 20260904194535.
   horas_semanales_contrato: number | null;
+  // migr 20260921210035.
+  relacion_laboral: string | null;
 }
 
 export interface RowFavoritosClase {
@@ -3222,6 +3224,36 @@ export interface RowLaunchStagePlazas {
   intento: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface RowClasesImpartidas {
+  sesion_id: string;
+  studio_id: string;
+  instructor_id: string;
+  estado: string;
+  inicio_real: string | null;
+  fin_real: string | null;
+  origen: string;
+  revisada_en: string | null;
+  revisada_por: string | null;
+  created_at: string;
+  created_by: string;
+  edited_at: string | null;
+  edited_by: string | null;
+  OR: string | null;
+}
+
+export interface RowClasesImpartidasAuditoria {
+  id: string;
+  studio_id: string;
+  sesion_id: string;
+  accion: string;
+  campo: string | null;
+  valor_antes: string | null;
+  valor_despues: string | null;
+  motivo: string | null;
+  created_at: string;
+  created_by: string;
 }
 
 
@@ -6301,6 +6333,7 @@ export type InstructorTarifasInsert = {
   base_mensual_eur?: number | null | null;
   recargo_sustitucion_pct?: number | null | null;
   horas_semanales_contrato?: number | null | null;
+  relacion_laboral?: string | null | null;
 }
 
 export type InstructorTarifasUpdate = {
@@ -6313,6 +6346,7 @@ export type InstructorTarifasUpdate = {
   base_mensual_eur?: number | null | null;
   recargo_sustitucion_pct?: number | null | null;
   horas_semanales_contrato?: number | null | null;
+  relacion_laboral?: string | null | null;
 }
 
 export type FavoritosClaseInsert = {
@@ -8925,6 +8959,66 @@ export type LaunchStagePlazasUpdate = {
   updated_at?: string | null;
 }
 
+export type ClasesImpartidasInsert = {
+  sesion_id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  estado?: string | null;
+  inicio_real?: string | null | null;
+  fin_real?: string | null | null;
+  origen?: string | null;
+  revisada_en?: string | null | null;
+  revisada_por?: string | null | null;
+  created_at?: string | null;
+  created_by?: string | null;
+  edited_at?: string | null | null;
+  edited_by?: string | null | null;
+  OR?: string | null | null;
+}
+
+export type ClasesImpartidasUpdate = {
+  sesion_id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  estado?: string | null;
+  inicio_real?: string | null | null;
+  fin_real?: string | null | null;
+  origen?: string | null;
+  revisada_en?: string | null | null;
+  revisada_por?: string | null | null;
+  created_at?: string | null;
+  created_by?: string | null;
+  edited_at?: string | null | null;
+  edited_by?: string | null | null;
+  OR?: string | null | null;
+}
+
+export type ClasesImpartidasAuditoriaInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  sesion_id?: string | null;
+  accion?: string | null;
+  campo?: string | null | null;
+  valor_antes?: string | null | null;
+  valor_despues?: string | null | null;
+  motivo?: string | null | null;
+  created_at?: string | null;
+  created_by?: string | null;
+}
+
+export type ClasesImpartidasAuditoriaUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  sesion_id?: string | null;
+  accion?: string | null;
+  campo?: string | null | null;
+  valor_antes?: string | null | null;
+  valor_despues?: string | null | null;
+  motivo?: string | null | null;
+  created_at?: string | null;
+  created_by?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -9952,6 +10046,16 @@ export type Database = {
         Row: RowLaunchStagePlazas;
         Insert: LaunchStagePlazasInsert;
         Update: LaunchStagePlazasUpdate;
+      };
+      clases_impartidas: {
+        Row: RowClasesImpartidas;
+        Insert: ClasesImpartidasInsert;
+        Update: ClasesImpartidasUpdate;
+      };
+      clases_impartidas_auditoria: {
+        Row: RowClasesImpartidasAuditoria;
+        Insert: ClasesImpartidasAuditoriaInsert;
+        Update: ClasesImpartidasAuditoriaUpdate;
       };
     };
   };

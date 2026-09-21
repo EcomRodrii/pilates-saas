@@ -15,7 +15,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
 import {
   fetchTarifasEquipo, actualizarTarifaInstructor, fetchLiquidaciones, generarLiquidacion,
-  transicionarLiquidacion, fetchTiempoTrabajado, fetchModoLiquidacion, guardarModoLiquidacion,
+  transicionarLiquidacion, fetchTiempoTrabajado, fetchModoLiquidacion, guardarModoLiquidacion, guardarRelacionLaboral,
   type TarifaInstructor, type Liquidacion, type ModoLiquidacion,
 } from '@/lib/api-client';
 import { formatEuro } from '@/lib/utils';
@@ -126,6 +126,19 @@ export default function LiquidacionesPage() {
     }
   }
 
+  async function handleRelacion(instructorId: string, valor: string) {
+    const relacion = valor === 'CONTRATADA' || valor === 'AUTONOMA' ? valor : null;
+    const r = await guardarRelacionLaboral(instructorId, relacion);
+    if (!r.ok) { showToast(r.error ?? 'No se pudo guardar'); return; }
+    setTarifas(prev => ({
+      ...prev,
+      [instructorId]: { ...(prev[instructorId] ?? { instructorId, tarifaHora: null, baseMensualEur: null, recargoSustitucionPct: null, horasSemanalesContrato: null }), relacionLaboral: relacion },
+    }));
+    showToast(relacion === 'AUTONOMA'
+      ? 'Guardado: como autónoma no fichará jornada, confirmará sus clases.'
+      : relacion === 'CONTRATADA' ? 'Guardado: como contratada fichará su jornada.' : 'Guardado.');
+  }
+
   if (!puedeGestionarEquipo(rol)) {
     return (
       <div className="space-y-5">
@@ -212,6 +225,15 @@ export default function LiquidacionesPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-[12px] text-muted-foreground">
                     <label className="flex items-center gap-1">
+                      Relación
+                      <select aria-label={`Relación de ${i.nombre} con el estudio`} className={inputCls + ' w-auto'}
+                        value={tarifa?.relacionLaboral ?? ''} onChange={e => void handleRelacion(i.id, e.target.value)}>
+                        <option value="">Sin definir</option>
+                        <option value="CONTRATADA">Contratada</option>
+                        <option value="AUTONOMA">Autónoma</option>
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-1">
                       Tarifa/h
                       <input type="number" min={0} step={0.01} className={inputCls}
                         defaultValue={tarifa?.tarifaHora ?? ''} placeholder="—"
@@ -231,6 +253,13 @@ export default function LiquidacionesPage() {
                     </label>
                   </div>
                 </div>
+                <p className="mt-2 text-[12px] text-muted-foreground" data-testid="relacion-explicacion">
+                  {tarifa?.relacionLaboral === 'CONTRATADA'
+                    ? 'Contratada: ficha su jornada de entrada y salida, como exige la ley, y además empieza sus clases desde la app.'
+                    : tarifa?.relacionLaboral === 'AUTONOMA'
+                      ? 'Autónoma: no ficha jornada. Empieza sus clases desde la app, o las confirma después si se le olvida.'
+                      : 'Indica si trabaja contratada (ficha su jornada) o como autónoma (solo confirma sus clases).'}
+                </p>
 
                 {liq ? (
                   <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-[13px]">

@@ -14,6 +14,11 @@ import { addDias, etiquetaDia, fechaLarga, hoyISO, saludo } from '@/lib/student/
 import { getClases } from '@/lib/student/datos';
 import { fichar } from '@/lib/student/datos-fichaje';
 import {
+  confirmarClases, empezarClase, getEstadoClases, terminarAntes, type EstadoClases,
+} from '@/lib/student/datos-clases';
+import { ClasesSinConfirmar, type RespuestaClase } from '@/components/student/domain/ClasesSinConfirmar';
+import { instanteEnEstudio } from '@/lib/utils';
+import {
   getAgendaInstructora, getHilosInstructora, getOfertasInstructora, getPerfilInstructora, responderOferta,
 } from '@/lib/student/datos-instructora';
 import { bajasEnCurso, proximaQueDa, puedePasarLista, textoBaja, type OfertaSustitucion } from '@/lib/student/agenda-instructora';
@@ -113,6 +118,44 @@ export default function HoyInstructoraPage() {
     [esInstructora, slug],
   );
   const { data: fichaje } = useAsync(cargarFichaje, () => false);
+  // El control horario de sus clases (empezar, en curso, olvidadas), aparte: si
+  // falla, «Hoy» se ve igual y la tarjeta de la clase queda como antes.
+  const cargarClases = useCallback(
+    () => (esInstructora ? getEstadoClases(slug) : new Promise<never>(() => {})),
+    [esInstructora, slug],
+  );
+  const { data: clasesServidor } = useAsync(cargarClases, () => false);
+  const [clasesPropio, setClasesPropio] = useState<EstadoClases | null>(null);
+  const [enviandoClase, setEnviandoClase] = useState(false);
+  const estadoClases = clasesPropio ?? clasesServidor;
+  const horaDe = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+
+  const conEnvio = async (f: () => Promise<{ ok: boolean; error?: string; estado?: EstadoClases; aviso?: string }>, exito: string) => {
+    if (enviandoClase) return;
+    setEnviandoClase(true);
+    const r = await f();
+    setEnviandoClase(false);
+    if (r.estado) setClasesPropio(r.estado);
+    toast(r.ok ? (r.aviso ? `${exito} ${r.aviso}` : exito) : (r.error ?? 'No hemos podido guardarlo.'));
+  };
+
+  const responderPendientes = (respuestas: RespuestaClase[]) => void conEnvio(async () => {
+    const items = [];
+    for (const r of respuestas) {
+      if (r.modo !== 'OTRO_HORARIO') { items.push({ sesionId: r.sesionId, modo: r.modo }); continue; }
+      const inicio = instanteEnEstudio(r.fecha, r.inicio);
+      const fin = instanteEnEstudio(r.fecha, r.fin);
+      if (!inicio || !fin || fin <= inicio) return { ok: false, error: 'Revisa el horario: el fin tiene que ser posterior al inicio.' };
+      items.push({ sesionId: r.sesionId, modo: r.modo, inicio, fin });
+    }
+    return confirmarClases(slug, items);
+  }, respuestas.length > 1 ? 'Clases confirmadas.' : 'Clase confirmada.');
+  // Lo que hay que hacer ya (empezar o terminar la clase de ahora) va antes que
+  // confirmar las de días pasados: si no, lo urgente queda bajo la barra.
+  const claseAhora = estadoClases?.actual != null;
+  const sinConfirmar = estadoClases && estadoClases.pendientes.length > 0 && (
+    <ClasesSinConfirmar clases={estadoClases.pendientes} enviando={enviandoClase || !online} onResponder={responderPendientes} />
+  );
   const miId = useMiAuthUserId();
 
   const responder = async (oferta: OfertaSustitucion, accion: 'aceptar' | 'rechazar') => {
@@ -259,6 +302,8 @@ export default function HoyInstructoraPage() {
               </section>
             )}
 
+            {!claseAhora && sinConfirmar}
+
             {proxima ? (
               <ProximaClaseQueDaCard
                 clase={proxima}
@@ -269,6 +314,17 @@ export default function HoyInstructoraPage() {
                 hrefLista={ahoraMs != null && puedePasarLista(proxima, ahoraMs)
                   ? href(`/equipo/clase/${encodeURIComponent(proxima.id)}/lista`)
                   : undefined}
+                control={estadoClases?.actual?.id === proxima.id ? {
+                  estado: estadoClases.actual.estado,
+                  horaInicioReal: estadoClases.actual.inicioReal ? horaDe(estadoClases.actual.inicioReal) : undefined,
+                  enviando: enviandoClase || !online,
+                  onEmpezar: () => void conEnvio(() => empezarClase(slug, proxima.id), 'Clase empezada.'),
+                  onTerminarAntes: (hora) => void conEnvio(async () => {
+                    const fin = instanteEnEstudio(hoyISO(), hora);
+                    if (!fin) return { ok: false, error: 'Hora no válida.' };
+                    return terminarAntes(slug, proxima.id, fin);
+                  }, 'Hora de fin guardada.'),
+                } : undefined}
               />
             ) : ahoraMs != null && (
               <EmptyState
@@ -277,6 +333,8 @@ export default function HoyInstructoraPage() {
                 cuerpo="Cuando el estudio te asigne una, aparecerá aquí."
               />
             )}
+
+            {claseAhora && sinConfirmar}
 
             {/* Su semana en tres cifras. Todas salen de SUS clases de lunes a
                 domingo: no se estima nada, así que ninguna puede mentir. */}
@@ -290,6 +348,7 @@ export default function HoyInstructoraPage() {
               </div>
             </section>
 
+            {estadoClases?.relacion !== 'AUTONOMA' && (
             <Link href={href('/equipo/fichaje')} className="card card--tap" data-testid="fichaje-hoy" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '13px 15px' }}>
               <span style={{ minWidth: 0 }}>
                 <span className="t-label" style={{ display: 'block' }}>Fichaje</span>
@@ -310,6 +369,7 @@ export default function HoyInstructoraPage() {
                 {fichaje?.abierta ? 'Fichar salida →' : fichaje ? 'Fichar entrada →' : 'Fichar →'}
               </span>
             </Link>
+            )}
 
             <FilaAccesos accesos={accesos} enLinea />
 

@@ -32,6 +32,7 @@ function mapTarifaRow(r: {
   instructor_id: string; tarifa_hora: number | null; moneda: string;
   base_mensual_eur: number | null; recargo_sustitucion_pct: number | null;
   horas_semanales_contrato: number | null;
+  relacion_laboral?: string | null;
 }) {
   return {
     instructorId: r.instructor_id,
@@ -40,6 +41,7 @@ function mapTarifaRow(r: {
     baseMensualEur: r.base_mensual_eur == null ? null : Number(r.base_mensual_eur),
     recargoSustitucionPct: r.recargo_sustitucion_pct == null ? null : Number(r.recargo_sustitucion_pct),
     horasSemanalesContrato: r.horas_semanales_contrato == null ? null : Number(r.horas_semanales_contrato),
+    relacionLaboral: r.relacion_laboral === 'CONTRATADA' || r.relacion_laboral === 'AUTONOMA' ? r.relacion_laboral : null,
   };
 }
 
@@ -59,7 +61,7 @@ async function getTarifas(
 
   const { data } = await admin
     .from('instructor_tarifas')
-    .select('instructor_id, tarifa_hora, moneda, base_mensual_eur, recargo_sustitucion_pct, horas_semanales_contrato')
+    .select('instructor_id, tarifa_hora, moneda, base_mensual_eur, recargo_sustitucion_pct, horas_semanales_contrato, relacion_laboral')
     .eq('studio_id', sesion.studioId);
   const items = (data ?? []).map(mapTarifaRow);
   if (sesion.rol === 'PROPIETARIO') return { items };
@@ -140,6 +142,15 @@ async function patchTarifa(
     }
   }
 
+  // Contratada (registro de jornada obligatorio) o autónoma (no ficha jornada).
+  let relacionLaboral: 'CONTRATADA' | 'AUTONOMA' | null | undefined;
+  if (body?.relacionLaboral !== undefined) {
+    if (body.relacionLaboral !== null && body.relacionLaboral !== 'CONTRATADA' && body.relacionLaboral !== 'AUTONOMA') {
+      throw new ErrorAccion('Relación no válida', 400);
+    }
+    relacionLaboral = body.relacionLaboral as 'CONTRATADA' | 'AUTONOMA' | null;
+  }
+
   const { data: ficha } = await admin
     .from('instructores').select('id, rol').eq('id', instructorId).eq('studio_id', sesion.studioId).maybeSingle();
   if (!ficha) throw new ErrorAccion('Instructora no encontrada', 404);
@@ -155,6 +166,7 @@ async function patchTarifa(
     ...(baseMensualEur !== undefined && { base_mensual_eur: baseMensualEur }),
     ...(recargoSustitucionPct !== undefined && { recargo_sustitucion_pct: recargoSustitucionPct }),
     ...(horasSemanalesContrato !== undefined && { horas_semanales_contrato: horasSemanalesContrato }),
+    ...(relacionLaboral !== undefined && { relacion_laboral: relacionLaboral }),
     actualizado_en: new Date().toISOString(),
     actualizado_por: sesion.userId,
   }, { onConflict: 'instructor_id' });

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarInstructoraEnEstudio } from '@/lib/auth-instructora';
 import { listaDeClase, marcarAsistencia } from '@/lib/portal-instructora/lista-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import * as Sentry from '@sentry/nextjs';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { marcarDadaPorLista } from '@/lib/fichaje/clases-impartidas';
 import { errorInterno } from '@/lib/errores-servidor';
 
 // Pasar lista desde la app del estudio: leer la lista de una clase suya y marcar
@@ -39,6 +42,16 @@ export async function POST(req: NextRequest) {
 
     const r = await marcarAsistencia({ ...clase, reservaId: reservaId as string, accion });
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+    // Pasar lista también dice que la clase se dio (a su hora). Si falla, la
+    // asistencia de la alumna ya está guardada: no se deshace por esto.
+    if (accion === 'asistio' && r.clase) {
+      const admin = getSupabaseAdmin();
+      if (admin) {
+        await marcarDadaPorLista(admin, { ...clase, userId: sesion.userId }, r.clase).catch((err) => {
+          Sentry.captureException(err, { tags: { area: 'clases-impartidas', origen: 'lista' } });
+        });
+      }
+    }
     return NextResponse.json({ ok: true, estado: r.estado });
   } catch (err) {
     return errorInterno('portal/instructora/lista:POST', err, 'No hemos podido guardar la lista. Vuelve a intentarlo.');

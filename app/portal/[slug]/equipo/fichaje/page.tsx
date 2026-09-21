@@ -70,7 +70,9 @@ export default function FichajePage() {
   const jornadasHoy = actual?.hoy.jornadasCerradas ?? 0;
   const proxima = actual?.proxima ?? null;
   const minutosHasta = proxima && ahora ? Math.round((Date.parse(proxima.inicio) - ahora) / 60_000) : null;
-  const recordar = !abierta && proxima && minutosHasta != null && minutosHasta <= (actual?.ventanaMinutos ?? 10);
+  // Autónoma sin nada fichado: la pantalla no le pregunta por una jornada que no tiene.
+  const autonoma = actual?.relacion === 'AUTONOMA' && !abierta && jornadasHoy === 0;
+  const recordar = !autonoma && !abierta && proxima && minutosHasta != null && minutosHasta <= (actual?.ventanaMinutos ?? 10);
   const revisar = Boolean(abierta?.requiereRevision);
   const pastilla = revisar
     ? { texto: 'Revisa tu salida', color: 'var(--warning)' }
@@ -87,6 +89,7 @@ export default function FichajePage() {
 
         {actual && (
           <>
+            {!autonoma && (
             <div className="card" data-testid="fichaje-estado" data-abierta={abierta ? 'true' : 'false'} style={{ padding: '18px 16px 20px', textAlign: 'center' }}>
               <span data-testid="fichaje-pastilla" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 11px', borderRadius: 999, background: 'var(--muted)', fontSize: 'var(--t-small)', fontWeight: 700 }}>
                 <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: pastilla.color }} />
@@ -111,6 +114,7 @@ export default function FichajePage() {
                 <p className="t-body" style={{ margin: '12px 0 0', fontWeight: 700 }}>No has fichado la entrada hoy</p>
               )}
             </div>
+            )}
 
             {revisar && (
               <p className="note note--warn" style={{ margin: 0 }} data-testid="fichaje-aviso-revisar">
@@ -122,6 +126,15 @@ export default function FichajePage() {
               <p className="note" style={{ margin: 0 }}>Tu clase de {proxima.nombre} empieza a las {hora(proxima.inicio)}. Ficha la entrada cuando llegues.</p>
             )}
 
+            {actual.relacion === 'AUTONOMA' && !abierta ? (
+              <div className="card" data-testid="fichaje-autonoma" style={{ padding: '16px 16px 18px' }}>
+                <p className="t-body" style={{ margin: 0, fontWeight: 800 }}>Como autónoma, no fichas jornada</p>
+                <p className="t-meta" style={{ margin: '5px 0 0', lineHeight: 1.5 }}>
+                  Tus horas salen de las clases que das. Pulsa «Empezar clase» en Hoy cuando empieces; al acabar no tienes que
+                  hacer nada. Si se te olvida, Hoy te preguntará después si la diste.
+                </p>
+              </div>
+            ) : (
             <Button
               full
               loading={enviando}
@@ -131,6 +144,7 @@ export default function FichajePage() {
             >
               {abierta ? 'Fichar salida' : 'Fichar entrada'}
             </Button>
+            )}
             {!online && <p className="t-meta" style={{ margin: 0, textAlign: 'center' }}>Sin conexión: ficha cuando vuelvas a tener cobertura.</p>}
 
             {proxima && (
@@ -153,6 +167,8 @@ export default function FichajePage() {
                 <li>Ficha la entrada al llegar al estudio y la salida al irte. Si trabajas mañana y tarde, ficha cada tramo: son dos jornadas.</li>
                 <li>Es tu registro de jornada: {estudio.nombre} ve la hora de entrada y de salida de cada día, y lo que suma el mes.</li>
                 <li>¿Te equivocaste o se te olvidó fichar? Avisa al estudio: lo corrige y queda constancia de qué cambió y por qué.</li>
+                <li>Además, cada clase se empieza desde Hoy con «Empezar clase» (o al pasar lista). Termina sola a su hora; si acabas antes, pulsa «Terminé antes».</li>
+                <li>Si trabajas como autónoma no fichas jornada: tus horas salen de esas clases. Si se te olvida empezar una, Hoy te pregunta después si la diste.</li>
                 <li>Necesitas conexión para fichar. Pulsar dos veces no crea dos entradas.</li>
               </ul>
             </details>
