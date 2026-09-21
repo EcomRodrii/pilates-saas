@@ -23,7 +23,7 @@ export const HORIZONTE_PLAZA_FIJA_DIAS = 42;
  * más lejana se podía llenar con reservas normales antes de que el motor llegara
  * a ella (los estudios no limitan hoy la antelación de reserva). Además, al
  * CREAR una sesión un disparador reserva sus plazas fijas al momento, con este
- * mismo horizonte (migr 20260922100000).
+ * mismo horizonte (migr 20260921205935).
  */
 export const HORIZONTE_MATERIALIZAR_DIAS = 180;
 

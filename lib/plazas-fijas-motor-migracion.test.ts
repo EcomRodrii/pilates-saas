@@ -5,13 +5,13 @@ import { join } from 'node:path';
 import { HORIZONTE_MATERIALIZAR_DIAS, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS } from './plazas-fijas-slot.ts';
 
 // Guardia de la migración que hace el motor de plazas fijas más robusto
-// (20260922100000). El comportamiento se probó contra la base de datos con una
+// (20260921205935). El comportamiento se probó contra la base de datos con una
 // transacción que se deshace; esto fija lo que un cambio de texto podría romper
 // sin que ningún otro test lo viera: permisos, firma y el horizonte compartido.
 
 const RAIZ = join(import.meta.dirname, '..');
 const sinComentarios = (sql: string) => sql.replace(/--[^\n]*/g, '');
-const SQL = sinComentarios(readFileSync(join(RAIZ, 'supabase/migrations/20260922100000_plazas_fijas_motor_robusto.sql'), 'utf8'));
+const SQL = sinComentarios(readFileSync(join(RAIZ, 'supabase/migrations/20260921205935_plazas_fijas_motor_robusto.sql'), 'utf8'));
 
 test('el envoltorio conserva su firma pública (y con ella sus permisos) y solo delega', () => {
   assert.match(SQL, /create or replace function public\.materializar_plazas_fijas\(\s*p_horizonte_dias integer default 42,\s*p_plaza_id\s+text\s+default null\s*\) returns integer/);
