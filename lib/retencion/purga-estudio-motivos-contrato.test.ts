@@ -95,6 +95,8 @@ test('la purga vacía el texto libre de las filas que conserva', () => {
   for (const columna of [
     'sustituciones.motivo', 'sustituciones.ranking', 'sustituciones.candidatos_network',
     'sesiones.notas', 'sesiones.incidencia_texto', 'citas.notas',
+    'instructor_work_sessions.created_by', 'instructor_work_sessions.edited_by',
+    'work_session_audits.created_by', 'work_session_audits.reason',
   ]) {
     assert.ok(columnasVaciadas.has(columna), `${ultima.nombre}: falta ${columna} en c_vaciar`);
   }

@@ -3113,42 +3113,6 @@ export interface RowDoblesCobrosDetectados {
   resuelto_en: string | null;
 }
 
-export interface RowInstructorWorkSessions {
-  id: string;
-  studio_id: string;
-  instructor_id: string;
-  check_in_at: string;
-  check_out_at: string | null;
-  check_in_method: string;
-  check_out_method: string | null;
-  status: string;
-  created_at: string;
-  created_by: string;
-  edited_at: string | null;
-  edited_by: string | null;
-  OR: string;
-}
-
-export interface RowWorkSessionAudits {
-  id: string;
-  studio_id: string;
-  work_session_id: string;
-  action: string;
-  field_name: string | null;
-  value_before: string | null;
-  value_after: string | null;
-  reason: string | null;
-  created_at: string;
-  created_by: string;
-}
-
-export interface RowStudioConfigTiempo {
-  studio_id: string;
-  check_in_window_minutes: number;
-  open_session_limit_hours: number;
-  updated_at: string;
-}
-
 export interface RowOpeningProgreso {
   studio_id: string;
   fase: string;
@@ -3200,6 +3164,42 @@ export interface RowAlertasOpening {
   datos: any;
   resuelta_en: string | null;
   created_at: string;
+}
+
+export interface RowInstructorWorkSessions {
+  id: string;
+  studio_id: string;
+  instructor_id: string;
+  check_in_at: string;
+  check_out_at: string | null;
+  check_in_method: string;
+  check_out_method: string | null;
+  status: string;
+  created_at: string;
+  created_by: string;
+  edited_at: string | null;
+  edited_by: string | null;
+  OR: string;
+}
+
+export interface RowWorkSessionAudits {
+  id: string;
+  studio_id: string;
+  work_session_id: string;
+  action: string;
+  field_name: string | null;
+  value_before: string | null;
+  value_after: string | null;
+  reason: string | null;
+  created_at: string;
+  created_by: string;
+}
+
+export interface RowStudioConfigTiempo {
+  studio_id: string;
+  check_in_window_minutes: number;
+  open_session_limit_hours: number;
+  updated_at: string;
 }
 
 
@@ -8695,78 +8695,6 @@ export type DoblesCobrosDetectadosUpdate = {
   resuelto_en?: string | null | null;
 }
 
-export type InstructorWorkSessionsInsert = {
-  id?: string | null;
-  studio_id?: string | null;
-  instructor_id?: string | null;
-  check_in_at?: string | null;
-  check_out_at?: string | null | null;
-  check_in_method?: string | null;
-  check_out_method?: string | null | null;
-  status?: string | null;
-  created_at?: string | null;
-  created_by?: string | null;
-  edited_at?: string | null | null;
-  edited_by?: string | null | null;
-  OR?: string | null;
-}
-
-export type InstructorWorkSessionsUpdate = {
-  id?: string | null;
-  studio_id?: string | null;
-  instructor_id?: string | null;
-  check_in_at?: string | null;
-  check_out_at?: string | null | null;
-  check_in_method?: string | null;
-  check_out_method?: string | null | null;
-  status?: string | null;
-  created_at?: string | null;
-  created_by?: string | null;
-  edited_at?: string | null | null;
-  edited_by?: string | null | null;
-  OR?: string | null;
-}
-
-export type WorkSessionAuditsInsert = {
-  id?: string | null;
-  studio_id?: string | null;
-  work_session_id?: string | null;
-  action?: string | null;
-  field_name?: string | null | null;
-  value_before?: string | null | null;
-  value_after?: string | null | null;
-  reason?: string | null | null;
-  created_at?: string | null;
-  created_by?: string | null;
-}
-
-export type WorkSessionAuditsUpdate = {
-  id?: string | null;
-  studio_id?: string | null;
-  work_session_id?: string | null;
-  action?: string | null;
-  field_name?: string | null | null;
-  value_before?: string | null | null;
-  value_after?: string | null | null;
-  reason?: string | null | null;
-  created_at?: string | null;
-  created_by?: string | null;
-}
-
-export type StudioConfigTiempoInsert = {
-  studio_id?: string | null;
-  check_in_window_minutes?: number | null;
-  open_session_limit_hours?: number | null;
-  updated_at?: string | null;
-}
-
-export type StudioConfigTiempoUpdate = {
-  studio_id?: string | null;
-  check_in_window_minutes?: number | null;
-  open_session_limit_hours?: number | null;
-  updated_at?: string | null;
-}
-
 export type OpeningProgresoInsert = {
   studio_id?: string | null;
   fase?: string | null;
@@ -8865,6 +8793,78 @@ export type AlertasOpeningUpdate = {
   datos?: any | null;
   resuelta_en?: string | null | null;
   created_at?: string | null;
+}
+
+export type InstructorWorkSessionsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  check_in_at?: string | null;
+  check_out_at?: string | null | null;
+  check_in_method?: string | null;
+  check_out_method?: string | null | null;
+  status?: string | null;
+  created_at?: string | null;
+  created_by?: string | null;
+  edited_at?: string | null | null;
+  edited_by?: string | null | null;
+  OR?: string | null;
+}
+
+export type InstructorWorkSessionsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  check_in_at?: string | null;
+  check_out_at?: string | null | null;
+  check_in_method?: string | null;
+  check_out_method?: string | null | null;
+  status?: string | null;
+  created_at?: string | null;
+  created_by?: string | null;
+  edited_at?: string | null | null;
+  edited_by?: string | null | null;
+  OR?: string | null;
+}
+
+export type WorkSessionAuditsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  work_session_id?: string | null;
+  action?: string | null;
+  field_name?: string | null | null;
+  value_before?: string | null | null;
+  value_after?: string | null | null;
+  reason?: string | null | null;
+  created_at?: string | null;
+  created_by?: string | null;
+}
+
+export type WorkSessionAuditsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  work_session_id?: string | null;
+  action?: string | null;
+  field_name?: string | null | null;
+  value_before?: string | null | null;
+  value_after?: string | null | null;
+  reason?: string | null | null;
+  created_at?: string | null;
+  created_by?: string | null;
+}
+
+export type StudioConfigTiempoInsert = {
+  studio_id?: string | null;
+  check_in_window_minutes?: number | null;
+  open_session_limit_hours?: number | null;
+  updated_at?: string | null;
+}
+
+export type StudioConfigTiempoUpdate = {
+  studio_id?: string | null;
+  check_in_window_minutes?: number | null;
+  open_session_limit_hours?: number | null;
+  updated_at?: string | null;
 }
 
 export type Database = {
@@ -9855,21 +9855,6 @@ export type Database = {
         Insert: DoblesCobrosDetectadosInsert;
         Update: DoblesCobrosDetectadosUpdate;
       };
-      instructor_work_sessions: {
-        Row: RowInstructorWorkSessions;
-        Insert: InstructorWorkSessionsInsert;
-        Update: InstructorWorkSessionsUpdate;
-      };
-      work_session_audits: {
-        Row: RowWorkSessionAudits;
-        Insert: WorkSessionAuditsInsert;
-        Update: WorkSessionAuditsUpdate;
-      };
-      studio_config_tiempo: {
-        Row: RowStudioConfigTiempo;
-        Insert: StudioConfigTiempoInsert;
-        Update: StudioConfigTiempoUpdate;
-      };
       opening_progreso: {
         Row: RowOpeningProgreso;
         Insert: OpeningProgresoInsert;
@@ -9889,6 +9874,21 @@ export type Database = {
         Row: RowAlertasOpening;
         Insert: AlertasOpeningInsert;
         Update: AlertasOpeningUpdate;
+      };
+      instructor_work_sessions: {
+        Row: RowInstructorWorkSessions;
+        Insert: InstructorWorkSessionsInsert;
+        Update: InstructorWorkSessionsUpdate;
+      };
+      work_session_audits: {
+        Row: RowWorkSessionAudits;
+        Insert: WorkSessionAuditsInsert;
+        Update: WorkSessionAuditsUpdate;
+      };
+      studio_config_tiempo: {
+        Row: RowStudioConfigTiempo;
+        Insert: StudioConfigTiempoInsert;
+        Update: StudioConfigTiempoUpdate;
       };
     };
   };
