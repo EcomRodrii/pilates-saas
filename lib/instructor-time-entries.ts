@@ -35,7 +35,7 @@ export async function registrarEntrada(
     // 1. Verificar sesión y rol
     const headersList = await headers();
     const req = new NextRequest(new URL('http://localhost/api/'), {
-      headers: headersList as any,
+      headers: new Headers(headersList),
     });
     const sesion = await verificarSesionStaff(req);
     if (!sesion?.studioId || !sesion?.userId) {
@@ -165,7 +165,7 @@ export async function registrarSalida(
     // 1. Verificar sesión
     const headersList = await headers();
     const req = new NextRequest(new URL('http://localhost/api/'), {
-      headers: headersList as any,
+      headers: new Headers(headersList),
     });
     const sesion = await verificarSesionStaff(req);
     if (!sesion?.studioId || !sesion?.userId) {
@@ -265,7 +265,7 @@ export async function editarRegistroHorario(
     // 1. Verificar sesión y permisos
     const headersList = await headers();
     const req = new NextRequest(new URL('http://localhost/api/'), {
-      headers: headersList as any,
+      headers: new Headers(headersList),
     });
     const sesion = await verificarSesionStaff(req);
     if (!sesion?.studioId || !sesion?.userId) {
@@ -298,7 +298,7 @@ export async function editarRegistroHorario(
 
     const now = new Date();
     const userId = sesion.userId;
-    const updates: Record<string, any> = {
+    const updates: Record<string, unknown> = {
       edited_at: now.toISOString(),
       edited_by: userId,
     };
@@ -375,7 +375,7 @@ export async function vincularSesion(
   try {
     const headersList = await headers();
     const req = new NextRequest(new URL('http://localhost/api/'), {
-      headers: headersList as any,
+      headers: new Headers(headersList),
     });
     const sesion = await verificarSesionStaff(req);
     if (!sesion?.studioId || !sesion?.userId) {

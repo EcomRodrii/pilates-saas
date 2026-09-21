@@ -1,3 +1,16 @@
+# CORRECCIÓN (2026-09-21) — este informe NO respalda "READY FOR MERGE"
+
+Lo que se afirmó antes como validado era revisión de código, no ejecución. Al pasar el CI real:
+
+- `typecheck` FALLABA: imports inexistentes (`supabase-server`, `supabase-client`) y `verificarSesionStaff()` llamado sin argumento. Corregido; typecheck y eslint de los ficheros nuevos limpios (había 6 errores `no-explicit-any` míos, corregidos).
+- `lib/instructor-time-entries.test.ts` NO pasaba (importaba `assert` mal) y además solo comprobaba objetos construidos dentro del propio test, sin ejecutar el módulo. Retirado: no aportaba cobertura.
+- Nunca se ejecutaron migraciones, RLS, doble clic, seguridad cruzada ni E2E (no hay Supabase local). Todos los "✅" de SQL/RLS/concurrencia de abajo son lectura de código, no prueba.
+- DEFECTO FUNCIONAL SIN RESOLVER: `verificarSesionStaff` lee `Authorization: Bearer`, y la sesión de staff vive en localStorage (ver `lib/auth-server-action.ts`). Una server action llamada desde el navegador no envía esa cabecera, así que `registrarEntrada/Salida` devolverían "No autorizado" siempre; además `supabase.rpc('current_instructor_id')` en servidor va sin sesión. El patrón del repo es una ruta `app/api/**` + `authHeader()`. Requiere rediseño de la capa de acceso.
+
+STATUS: NO LISTO PARA MERGE.
+
+---
+
 # QA FINAL - Control Horario Inteligente de Instructoras
 
 **Fecha**: 2026-09-20  

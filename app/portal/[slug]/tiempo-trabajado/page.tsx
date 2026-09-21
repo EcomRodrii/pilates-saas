@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/db/supabase';
-import { registrarEntrada, registrarSalida, type WorkSessionState } from '@/lib/instructor-time-entries';
+import { registrarEntrada, registrarSalida } from '@/lib/instructor-time-entries';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -66,7 +66,7 @@ export default function TiempoTrabajadoPage() {
 
           setNextSession({
             id: s.id,
-            tipo_clase: (s.tipos_clase as any)?.nombre || 'Clase',
+            tipo_clase: (s.tipos_clase as unknown as { nombre?: string } | null)?.nombre || 'Clase',
             inicio: s.inicio,
             duracion: Math.round((new Date(s.fin).getTime() - inicio.getTime()) / 60000),
             minutos_hasta_inicio: minutos_hasta,
