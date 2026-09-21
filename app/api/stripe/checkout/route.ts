@@ -17,7 +17,7 @@ import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
-import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula } from '@/lib/billing/matricula-online';
+import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula, esRespuestaRepetida } from '@/lib/billing/matricula-online';
 import {
   asignarRefPlaza, claveStripe, esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas, reservarPlazaEtapa,
   type PlazaReservada,
@@ -541,6 +541,10 @@ export async function POST(req: NextRequest) {
   // invalid" dejaba a la alumna sin poder pagar de ninguna forma. Ver
   // lib/billing/bizum-activo.ts.
   if (conBizum && !(await bizumActivo(stripe, studio.stripe_account_id))) {
+    // La plaza de matrícula ya está reservada y aquí no nace ningún cobro.
+    if (cupoMatriculaReservado) {
+      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+    }
     return conCorsWidget(req, NextResponse.json(
       { error: 'Bizum todavía no está disponible para este estudio. Paga con tarjeta mientras tanto.' },
       { status: 409 },
@@ -724,6 +728,15 @@ export async function POST(req: NextRequest) {
         await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
       }
       return conCorsWidget(req, NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' }, { status: 500 }));
+    }
+
+    // Mismo intento que ya creó esta sesión (`clavePlan`: doble clic, dos
+    // pestañas): Stripe devuelve la de antes y esta petición no ha creado nada,
+    // pero SÍ ha reservado otra plaza de matrícula gratis, que no usará nadie.
+    // (La matrícula solo se reserva en compras de plan, nunca con `reciboId`,
+    // así que el bloque de abajo no puede devolverla otra vez.)
+    if (cupoMatriculaReservado && esRespuestaRepetida(session)) {
+      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
     }
 
     // Se registra ANTES de devolver la URL. Si esto fallara y devolviéramos la

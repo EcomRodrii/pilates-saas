@@ -104,32 +104,48 @@ export async function liberarCupoMatricula(
  * el pago, y la plaza de "gratis para las 4 primeras" se quedaba gastada para
  * siempre sin que nadie la hubiera usado.
  *
- * Dos eventos del webhook pueden anunciar el mismo fallo para el MISMO
- * PaymentIntent (`payment_intent.payment_failed` si Stripe rechazó el cobro,
- * y luego `checkout.session.expired` cuando la sesión caduca sin que nadie
- * reintentara) — llamar dos veces a `liberarCupoMatricula` devolvería DOS
- * plazas por una sola reserva. Se cierra con el mismo patrón compare-and-set
- * que ya usa el repo para dinero (`codigos_descuento_consumos`,
- * `recibos.checkout_session_id`): una fila con PK en `payment_intent_id` —
- * el primer aviso gana con el INSERT, el segundo choca por 23505 y no libera
- * nada.
+ * La plaza puede intentar devolverse varias veces para la MISMA compra: el
+ * webhook (`checkout.session.expired`, `payment_intent.canceled`), sus
+ * reintentos y el conciliador horario. Devolverla en cada uno regalaría
+ * plazas, así que va una sola vez por CLAVE (la Checkout Session en el Modo
+ * A, el PaymentIntent en el embebido): la primera gana, las demás no hacen
+ * nada. Mismo patrón compare-and-set que `codigos_descuento_consumos`.
  */
 export async function liberarCupoMatriculaUnaVez(
   admin: SupabaseClient,
-  paymentIntentId: string,
+  clave: string,
   planId: string,
   studioId: string,
-): Promise<void> {
-  const { error } = await admin
-    .from('matricula_cupo_liberaciones')
-    .insert({ payment_intent_id: paymentIntentId, plan_id: planId, studio_id: studioId });
-  if (error) {
-    // 23505 = ya se liberó para este PaymentIntent (el otro evento gemelo
-    // llegó antes) — silencioso a propósito, es el camino normal.
-    if ((error as { code?: string }).code !== '23505') {
-      console.error('[matricula-online] no se pudo registrar la liberación del cupo', paymentIntentId, error);
-    }
-    return;
-  }
-  await liberarCupoMatricula(admin, planId, studioId);
+): Promise<boolean> {
+  // ⚠️ Anotar y devolver van en UNA transacción, dentro de la RPC. Antes eran
+  // dos llamadas (INSERT de dedup + `liberar_cupo_matricula`, que se tragaba
+  // el error): si la segunda fallaba, la fila de «ya devuelta» quedaba escrita
+  // y la plaza no volvía nunca — ni el reintento del webhook ni el conciliador
+  // podían, porque el INSERT ya chocaba.
+  //
+  // Aquí un error SE LANZA: no ha quedado nada anotado, así que el webhook
+  // contesta 5xx (Stripe reintenta) y el conciliador lo vuelve a probar.
+  const { data, error } = await admin.rpc('liberar_cupo_matricula_una_vez', {
+    p_clave: clave, p_plan_id: planId, p_studio_id: studioId,
+  });
+  if (error) throw new Error(`liberar_cupo_matricula_una_vez: ${error.message}`);
+  return data === true;
+}
+
+/**
+ * ¿Esta respuesta de Stripe es la REPETICIÓN de una creación anterior con la
+ * misma clave de idempotencia? (Probado en Stripe test: la primera no trae la
+ * cabecera; la repetida trae `idempotent-replayed: true` y el mismo objeto.)
+ *
+ * Los dos checkouts reservan la plaza de matrícula gratis ANTES de crear el
+ * cobro con una clave de idempotencia por intento. Dos peticiones del mismo
+ * intento (doble clic, dos pestañas, reintento de red) reservaban dos plazas y
+ * Stripe devolvía UN solo cobro: la segunda plaza no la usaba nadie y no
+ * volvía nunca. Si la respuesta es repetida, quien la recibe no ha creado nada
+ * y tiene que devolver lo que reservó.
+ */
+export function esRespuestaRepetida(respuesta: unknown): boolean {
+  const cabeceras = (respuesta as { lastResponse?: { headers?: Record<string, unknown> } } | null)
+    ?.lastResponse?.headers;
+  return cabeceras?.['idempotent-replayed'] === 'true';
 }
