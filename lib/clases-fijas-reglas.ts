@@ -182,6 +182,21 @@ export function franjasYaCubiertas<F extends FranjaHueco>(franjas: F[], plazas: 
     && (!p.tipoClaseId || p.tipoClaseId === f.tipoClaseId)));
 }
 
+/**
+ * Las plazas fijas de la alumna cuya fecha «hasta» ya pasó y que siguen ocupando el
+ * hueco de una de las franjas que se le van a dar. Nadie las pasa a baja al vencer, y
+ * el índice único de franja (`estado <> 'BAJA'`) rechazaría la nueva: pedir otra vez
+ * una clase fija que venció es justo el caso normal, así que se apartan antes de escribir.
+ */
+export function plazasVencidasQueEstorban(
+  plazas: (PlazaMin & { id: string })[], franjas: { diaSemana: number; horaInicio: string; salaId: string }[], hoy: string,
+): string[] {
+  return plazas
+    .filter(p => (p.estado === 'ACTIVA' || p.estado === 'PAUSADA') && !!p.vigenciaHasta && p.vigenciaHasta < hoy)
+    .filter(p => franjas.some(f => f.diaSemana === p.diaSemana && f.horaInicio.slice(0, 5) === p.horaInicio.slice(0, 5) && f.salaId === p.salaId))
+    .map(p => p.id);
+}
+
 export const franjasQueYaTiene = (franjas: FranjaHueco[], plazas: PlazaMin[], hoy: string): number =>
   franjasYaCubiertas(franjas, plazas, hoy).length;
 

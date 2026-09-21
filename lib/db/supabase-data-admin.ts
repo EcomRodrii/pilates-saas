@@ -3673,6 +3673,13 @@ export async function validarPlazaFijaDesdeSesion(
   admin: SupabaseClient,
   params: { studioId: string; socioId: string; datos: Omit<DatosPlazaFija, 'socioId'>; plazaId?: string },
   textos: TextosPlazaFija,
+  /**
+   * `ignorarVencidas`: no cuentan las plazas cuya fecha «hasta» ya pasó (ni para
+   * «ya tiene una en ese horario» ni para el límite semanal). Lo pide la clase fija
+   * del estudio, donde volver a pedirla al vencer es lo normal; el panel sigue como
+   * siempre (sin esta opción, no cambia nada).
+   */
+  opciones: { ignorarVencidas?: boolean } = {},
 ) {
   const { studioId, socioId, datos, plazaId } = params;
   if (datos.vigenciaHasta && datos.vigenciaHasta < datos.vigenciaDesde) {
@@ -3730,11 +3737,13 @@ export async function validarPlazaFijaDesdeSesion(
 
   // PAUSADA cuenta también: pausar y volver a la misma clase no puede dejar dos
   // filas para la misma franja.
-  const duplicada = suyas.some(p => p.id !== plazaId
+  const hoyPlaza = hoyEnEstudio();
+  const cuentan = opciones.ignorarVencidas ? suyas.filter(p => !p.vigenciaHasta || p.vigenciaHasta >= hoyPlaza) : suyas;
+  const duplicada = cuentan.some(p => p.id !== plazaId
     && p.diaSemana === dow && normalizarHoraInicio(p.horaInicio) === horaInicio && p.salaId === salaId);
   if (duplicada) return { ok: false as const, error: textos.duplicada };
 
-  const activas = suyas.filter(p => p.estado === 'ACTIVA').length;
+  const activas = cuentan.filter(p => p.estado === 'ACTIVA').length;
   const exceso = plazaId ? null : superaLimiteSemanal(cuota, activas);
   return { ok: true as const, tipoClaseId, salaId, dow, horaInicio, suyas, anterior, activas, exceso, cuota };
 }

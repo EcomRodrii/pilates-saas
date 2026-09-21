@@ -7,9 +7,11 @@ import { fechaDMY } from '@/lib/series-renovacion';
 import { HORIZONTE_MATERIALIZAR_DIAS } from '@/lib/plazas-fijas-slot';
 import { superaLimiteSemanal } from '@/lib/plazas-fijas-reglas';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
+import { mapLimit } from '@/lib/concurrency';
+import { conCacheCatalogo, invalidarCacheCatalogo } from '@/lib/cache/catalogo-estudio';
 import {
   DURACIONES_POR_DEFECTO, MAX_DESCRIPCION, MAX_FRANJAS, MAX_NOMBRE, estadoOferta, etiquetaDuracion, franjasYaCubiertas,
-  normalizarDuraciones, plazasLibresDeClaseFija, programadaHasta, resolverFranjas, textoFranja, vigenciaHastaDeDuracion,
+  normalizarDuraciones, plazasLibresDeClaseFija, plazasVencidasQueEstorban, programadaHasta, resolverFranjas, textoFranja, vigenciaHastaDeDuracion,
   type CatalogoClasesFijas, type EstadoOferta, type FranjaResuelta, type OfertaAlumna, type OfertaStaff,
 } from '@/lib/clases-fijas-reglas';
 import { TEXTOS_PLAZA_FIJA_ALUMNA, validarPlazaFijaDesdeSesion, type ResultadoPeticionAlumna } from '@/lib/db/supabase-data-admin';
@@ -127,26 +129,13 @@ async function nombresDe(admin: SupabaseClient, studioId: string, franjas: Franj
  * peticiones pendientes. Sin ofertas activas no hace ninguna consulta más.
  */
 export async function catalogoClasesFijas(admin: SupabaseClient, studioId: string, socioId: string | null): Promise<CatalogoClasesFijas> {
-  const defs = await cargarOfertas(admin, studioId, { soloActivas: true });
-  if (defs.length === 0) return { ofertas: [], pedidas: [] };
-  const resueltas = await resolverOfertas(admin, studioId, defs);
-  const nombres = await nombresDe(admin, studioId, resueltas.flatMap(o => o.franjasResueltas));
-  const hoy = hoyEnEstudio();
-
-  const ofertas = resueltas.filter((o): o is OfertaResuelta & { estado: OfertaAlumna['estado'] } => o.estado !== 'CERRADA').map((o): OfertaAlumna => ({
-    id: o.id, nombre: o.nombre, descripcion: o.descripcion, estado: o.estado, plazasLibres: o.plazasLibres,
-    duraciones: o.duracionesMeses.map(meses => ({ meses, etiqueta: etiquetaDuracion(meses), hasta: vigenciaHastaDeDuracion(hoy, meses) })),
-    franjas: o.franjasResueltas.map(f => ({
-      diaSemana: f.diaSemana, hora: f.hora, tipoClaseId: f.tipoClaseId, salaId: f.salaId,
-      tipo: nombres.tipos.get(f.tipoClaseId) ?? 'Clase',
-      sala: nombres.salas.get(f.salaId) ?? '',
-      instructora: f.instructorId ? nombres.instructores.get(f.instructorId) ?? null : null,
-    })).sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora)),
-    programadaHasta: o.programadaHasta,
-  }));
-
+  // Lo que ve cualquier visitante (sin PII) va en la caché corta de catálogos: la
+  // puerta del horario lo pide en cada visita, y resolver una oferta lee las sesiones
+  // de sus series. Cuarto de minuto de retraso en «quedan N plazas» no engaña a nadie:
+  // pedirla vuelve a comprobarlo todo en el servidor. Lo suyo (`pedidas`) nunca se cachea.
+  const ofertas = await conCacheCatalogo(claveCatalogoClasesFijas(studioId), () => ofertasPublicas(admin, studioId), TTL_CLASES_FIJAS_MS);
   let pedidas: CatalogoClasesFijas['pedidas'] = [];
-  if (socioId) {
+  if (socioId && ofertas.length > 0) {
     const { data, error } = await admin.from('solicitudes_plaza_fija')
       .select('id, clase_fija_id, duracion_meses, vigencia_hasta_propuesta')
       .eq('studio_id', studioId).eq('socio_id', socioId).eq('estado', 'PENDIENTE').eq('tipo', 'CREAR_CLASE_FIJA');
@@ -157,6 +146,29 @@ export async function catalogoClasesFijas(admin: SupabaseClient, studioId: strin
     }));
   }
   return { ofertas, pedidas };
+}
+
+const TTL_CLASES_FIJAS_MS = 15_000;
+const claveCatalogoClasesFijas = (studioId: string) => `clases-fijas-publico:${studioId}`;
+
+async function ofertasPublicas(admin: SupabaseClient, studioId: string): Promise<OfertaAlumna[]> {
+  const defs = await cargarOfertas(admin, studioId, { soloActivas: true });
+  if (defs.length === 0) return [];
+  const resueltas = await resolverOfertas(admin, studioId, defs);
+  const nombres = await nombresDe(admin, studioId, resueltas.flatMap(o => o.franjasResueltas));
+  const hoy = hoyEnEstudio();
+
+  return resueltas.filter((o): o is OfertaResuelta & { estado: OfertaAlumna['estado'] } => o.estado !== 'CERRADA').map((o): OfertaAlumna => ({
+    id: o.id, nombre: o.nombre, descripcion: o.descripcion, estado: o.estado, plazasLibres: o.plazasLibres,
+    duraciones: o.duracionesMeses.map(meses => ({ meses, etiqueta: etiquetaDuracion(meses), hasta: vigenciaHastaDeDuracion(hoy, meses) })),
+    franjas: o.franjasResueltas.map(f => ({
+      diaSemana: f.diaSemana, hora: f.hora, tipoClaseId: f.tipoClaseId, salaId: f.salaId,
+      tipo: nombres.tipos.get(f.tipoClaseId) ?? 'Clase',
+      sala: nombres.salas.get(f.salaId) ?? '',
+      instructora: f.instructorId ? nombres.instructores.get(f.instructorId) ?? null : null,
+    })).sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora)),
+    programadaHasta: o.programadaHasta,
+  }));
 }
 
 // ─── Pedirla ──────────────────────────────────────────────────────────────────
@@ -195,7 +207,7 @@ async function comprobarClaseFija(
     const v = await validarPlazaFijaDesdeSesion(admin, {
       studioId: p.studioId, socioId: p.socioId,
       datos: { sesionId: franja.proximaSesionId, spotId: null, vigenciaDesde: p.hoy, vigenciaHasta: p.hasta },
-    }, TEXTOS_PLAZA_FIJA_ALUMNA);
+    }, TEXTOS_PLAZA_FIJA_ALUMNA, { ignorarVencidas: true });
     if (!v.ok) {
       // Con varias franjas, el error tiene que decir de cuál habla.
       const error = varias ? `${textoFranja(franja.diaSemana, franja.hora)}: ${v.error}` : v.error;
@@ -297,6 +309,35 @@ export async function prepararAprobacionClaseFija(
 export async function darPlazasDeClaseFija(
   admin: SupabaseClient, filas: PlazaClaseFijaNueva[],
 ): Promise<{ ok: true; plazaIds: string[]; creadas: number } | { error: string }> {
+  // Volver a pedir una clase fija que venció es lo normal, y la plaza vencida sigue
+  // ocupando su hueco (nadie la pasa a baja): el índice único de franja rechazaría la
+  // nueva. Se aparta antes, solo en las franjas que se van a dar. Está muerta: el
+  // motor no reserva más allá de su fecha, así que pasarla a baja no cancela nada.
+  if (filas.length > 0) {
+    const { data: suyas, error: errSuyas } = await admin.from('plazas_fijas')
+      .select('id, dia_semana, hora_inicio, sala_id, estado, vigencia_hasta')
+      .eq('studio_id', filas[0].studio_id).eq('socio_id', filas[0].socio_id).in('estado', ['ACTIVA', 'PAUSADA']);
+    if (errSuyas) {
+      capturarExcepcion(new Error(errSuyas.message), { tags: { area: 'clases-fijas' } });
+      return { error: 'No se han podido guardar las plazas de la clase fija. Inténtalo de nuevo.' };
+    }
+    const vencidas = plazasVencidasQueEstorban(
+      (suyas ?? []).map(r => ({
+        id: r.id as string, diaSemana: r.dia_semana as number, horaInicio: r.hora_inicio as string, salaId: r.sala_id as string,
+        tipoClaseId: null, estado: r.estado as string, vigenciaHasta: (r.vigencia_hasta as string | null) ?? null,
+      })),
+      filas.map(f => ({ diaSemana: f.dia_semana, horaInicio: f.hora_inicio, salaId: f.sala_id })),
+      filas[0].vigencia_desde,
+    );
+    if (vencidas.length > 0) {
+      const { error: errBaja } = await admin.from('plazas_fijas').update({ estado: 'BAJA' })
+        .eq('studio_id', filas[0].studio_id).eq('socio_id', filas[0].socio_id).in('id', vencidas);
+      if (errBaja) {
+        capturarExcepcion(new Error(errBaja.message), { tags: { area: 'clases-fijas' } });
+        return { error: 'No se han podido guardar las plazas de la clase fija. Inténtalo de nuevo.' };
+      }
+    }
+  }
   const { error } = await admin.from('plazas_fijas').insert(filas);
   if (error) {
     // El índice único de franja cubre la carrera de dos aprobaciones a la vez.
@@ -304,12 +345,17 @@ export async function darPlazasDeClaseFija(
     capturarExcepcion(new Error(error.message), { tags: { area: 'clases-fijas' }, extra: { plazas: filas.length } });
     return { error: 'No se han podido guardar las plazas de la clase fija. Inténtalo de nuevo.' };
   }
-  let creadas = 0;
-  for (const f of filas) {
+  // En paralelo acotado y no en serie: una clase fija son hasta 12 plazas, y esto va
+  // dentro de la petición de aprobar. Un fallo del motor no la tumba (el cron la recoge).
+  const hechas = await mapLimit(filas, 4, async (f) => {
     const { data, error: errMotor } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: HORIZONTE_MATERIALIZAR_DIAS, p_plaza_id: f.id });
-    if (errMotor) capturarExcepcion(new Error(errMotor.message), { tags: { area: 'clases-fijas' }, extra: { plazaId: f.id } });
-    else creadas += (data as number | null) ?? 0;
-  }
+    if (errMotor) {
+      capturarExcepcion(new Error(errMotor.message), { tags: { area: 'clases-fijas' }, extra: { plazaId: f.id } });
+      return 0;
+    }
+    return (data as number | null) ?? 0;
+  });
+  const creadas = hechas.reduce((n, x) => n + x, 0);
   return { ok: true, plazaIds: filas.map(f => f.id), creadas };
 }
 
@@ -452,6 +498,8 @@ export async function guardarOferta(
       if (error) throw new Error(error.message);
     }
   }
+  // Cerrar, editar o crear cambia lo que ve la alumna: no esperar al cuarto de minuto.
+  invalidarCacheCatalogo(claveCatalogoClasesFijas(studioId));
   return { ok: true, id: id as string };
 }
 

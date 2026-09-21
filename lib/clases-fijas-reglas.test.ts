@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  cupoDeFranja, estadoAlumnaOferta, estadoOferta, etiquetaDuracion, franjasQueYaTiene, normalizarDuraciones, textoFranja,
+  cupoDeFranja, estadoAlumnaOferta, estadoOferta, etiquetaDuracion, franjasQueYaTiene, normalizarDuraciones, plazasVencidasQueEstorban, textoFranja,
   plazasLibresDeClaseFija, programadaHasta, resolverFranjas, vigenciaHastaDeDuracion, type FranjaResuelta, type TarjetaMin,
 } from './clases-fijas-reglas.ts';
 
@@ -140,4 +140,15 @@ test('texto de una franja: día con mayúscula y hora sin segundos', () => {
   assert.equal(textoFranja(2, '10:00'), 'Martes 10:00');
   assert.equal(textoFranja(3, '18:30:00'), 'Miércoles 18:30');
   assert.equal(textoFranja(0, '09:00'), 'Domingo 09:00');
+});
+
+test('plazas vencidas que estorban: solo las de la franja que se va a dar, activas o en pausa, con la fecha ya pasada', () => {
+  const p = (id: string, cambios: Record<string, unknown> = {}) => ({ id, diaSemana: 2, horaInicio: '10:00:00', salaId: 'sala-1', tipoClaseId: null, estado: 'ACTIVA', vigenciaHasta: '2026-09-01', ...cambios });
+  const franjas = [{ diaSemana: 2, horaInicio: '10:00:00', salaId: 'sala-1' }];
+  const HOY = '2026-09-21';
+  assert.deepEqual(plazasVencidasQueEstorban([p('a'), p('b', { estado: 'PAUSADA' })], franjas, HOY), ['a', 'b']);
+  assert.deepEqual(plazasVencidasQueEstorban([p('c', { vigenciaHasta: '2026-09-21' })], franjas, HOY), [], 'vale hasta el final de ese día: no estorba nada que aún vale');
+  assert.deepEqual(plazasVencidasQueEstorban([p('d', { vigenciaHasta: null })], franjas, HOY), [], 'sin fecha no vence');
+  assert.deepEqual(plazasVencidasQueEstorban([p('e', { estado: 'BAJA' })], franjas, HOY), [], 'una de baja ya no ocupa el hueco');
+  assert.deepEqual(plazasVencidasQueEstorban([p('f', { diaSemana: 4 }), p('g', { salaId: 'sala-2' }), p('h', { horaInicio: '18:30:00' })], franjas, HOY), [], 'otra franja: no se toca');
 });

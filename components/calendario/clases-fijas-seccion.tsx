@@ -89,7 +89,8 @@ export function ClasesFijasSeccion(p: ClasesFijasSeccionProps) {
           <h3 className="text-sm font-semibold text-foreground">Clases fijas</h3>
           <p className="text-xs text-muted-foreground text-pretty">
             Ofrece a tus clientas una clase fija con nombre: eligen cuánto tiempo la quieren y tú apruebas cada petición.
-            Solo la piden quienes tienen una cuota activa que incluya esas clases.
+            Solo la piden quienes tienen una cuota activa que incluya esas clases. Las piden desde su app aunque
+            «Peticiones desde su app» esté apagado: ese ajuste es solo para pedir plaza en una clase suelta.
           </p>
         </div>
         {p.puedeGestionar && tarjetas.length > 0 && (

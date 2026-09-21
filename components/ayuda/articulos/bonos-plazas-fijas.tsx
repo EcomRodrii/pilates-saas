@@ -132,6 +132,8 @@ export default function Contenido() {
         decimos antes y decides tú.
       </p>
       <p>
+        Crear una clase fija ya es tu forma de abrirla: tus clientas la piden desde su app <strong>aunque «Peticiones
+        desde su app» esté apagado</strong> (ese ajuste es solo para pedir plaza en una clase suelta).
         Como las plazas fijas, <strong>hace falta una cuota</strong> que incluya esas clases: con bono no se ofrece el botón.
         <strong> Cerrar</strong> una clase fija la deja de ofrecer, pero <strong>no toca las plazas que ya diste</strong>. Si una
         de sus clases se queda sin clases programadas (la serie se acabó y no se renovó), la clase fija dice «sin clases
