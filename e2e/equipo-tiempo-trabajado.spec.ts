@@ -73,7 +73,8 @@ test.describe('Tiempo trabajado del equipo', () => {
     await expect(t).toBeVisible({ timeout: 30_000 });
     await expect(t.getByTestId('horas-mes')).toHaveText('4 h 00 min');
     await expect(t).toContainText('88');
-    await expect(t).toContainText('Fichada ahora');
+    // Su única jornada abierta es de hace días: no está «fichada ahora», está por revisar.
+    await expect(t).not.toContainText('Fichada ahora');
     await expect(t).toContainText('1 jornada por revisar');
     expect(lecturas[0]).toMatch(/anio=\d{4}&mes=\d{1,2}/);
 
@@ -103,6 +104,7 @@ test.describe('Tiempo trabajado del equipo', () => {
     await t.getByRole('button', { name: 'Ver 2 jornadas' }).click({ timeout: 30_000 });
     const fila = t.getByTestId('jornada').nth(1);
     await fila.getByRole('button', { name: 'Corregir' }).click();
+    await expect(fila.getByTestId('ayuda-correccion')).toContainText('la jornada queda cerrada');
     await fila.getByLabel('Hora de salida').fill('19:00');
 
     await fila.getByRole('button', { name: 'Guardar corrección' }).click();

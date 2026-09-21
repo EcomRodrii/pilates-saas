@@ -85,6 +85,26 @@ test.describe('Fichaje de la instructora', () => {
     expect(c.salida).toBe(1);
   });
 
+  test('lo trabajado hoy: tras cerrar lo enseña, y con otra abierta suma las dos; y explica cómo funciona', async ({ page }) => {
+    await montarPortal(page, { conSesion: true, sinSocia: true });
+    await page.route('**/api/public/session**', (route) => json(route, { error: 'x' }, 404));
+    await page.route('**/api/portal/instructora/sesion', (route) => json(route, { instructora: INSTRUCTORA }));
+    let abierta: null | { id: string; checkInAt: string; requiereRevision: boolean } = null;
+    await page.route('**/api/portal/instructora/fichaje', (route) => json(route, {
+      estado: { abierta, proxima: null, ventanaMinutos: 10, hoy: { minutosCerrados: 270, jornadasCerradas: 1 } },
+    }));
+    await page.goto(URL_FICHAR);
+    await expect(page.getByTestId('fichaje-pastilla')).toHaveText('Jornada cerrada', { timeout: 30_000 });
+    await expect(page.getByTestId('fichaje-hoy-total')).toHaveText('4 h 30 min');
+    await page.getByTestId('fichaje-como-funciona').locator('summary').click();
+    await expect(page.getByTestId('fichaje-como-funciona')).toContainText('Ficha la entrada al llegar');
+
+    abierta = { id: 'j2', checkInAt: new Date(Date.now() - 60 * 60_000).toISOString(), requiereRevision: false };
+    await page.reload();
+    await expect(page.getByTestId('fichaje-pastilla')).toHaveText('Jornada abierta', { timeout: 30_000 });
+    await expect(page.getByTestId('fichaje-hoy-total')).toHaveText('Hoy llevas 5 h 30 min en total');
+  });
+
   test('doble clic en entrada y en salida: una única petición de cada una', async ({ page }) => {
     const c = await montar(page);
     await page.goto(URL_FICHAR);

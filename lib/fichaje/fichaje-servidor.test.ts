@@ -248,3 +248,19 @@ test('editar: rechaza salida anterior a la entrada y fechas futuras o inválidas
   for (const r of [antes, futura, rota]) { assert.equal(r.ok, false); assert.equal(!r.ok && r.status, 400); }
   assert.deepEqual(tablas.instructor_work_sessions[0], cerrada);
 });
+
+test('estado: lo cerrado HOY en hora de Madrid (no ayer, no lo abierto, no de otra)', async () => {
+  // 21-sep 12:00 UTC = 14:00 en Madrid. El día del estudio empieza el 20-sep a las 22:00 UTC.
+  const AHORA = new Date('2026-09-21T12:00:00.000Z');
+  const f = (o: Fila) => ({ studio_id: 'sA', instructor_id: 'i1', status: 'CLOSED', ...o });
+  const { admin } = crearAdmin({ instructor_work_sessions: [
+    f({ id: 'hoy1', check_in_at: '2026-09-21T06:00:00.000Z', check_out_at: '2026-09-21T08:30:00.000Z' }), // 150
+    f({ id: 'hoy-madrugada', check_in_at: '2026-09-20T22:30:00.000Z', check_out_at: '2026-09-20T23:00:00.000Z' }), // 00:30 Madrid → hoy, 30
+    f({ id: 'ayer', check_in_at: '2026-09-20T21:30:00.000Z', check_out_at: '2026-09-20T21:45:00.000Z' }), // 23:30 Madrid del 20 → no
+    f({ id: 'abierta', status: 'OPEN', check_in_at: '2026-09-21T10:00:00.000Z', check_out_at: null }),
+    f({ id: 'otra', instructor_id: 'i2', check_in_at: '2026-09-21T06:00:00.000Z', check_out_at: '2026-09-21T09:00:00.000Z' }),
+  ] });
+  const e = await estadoFichaje(admin, A, AHORA);
+  assert.deepEqual(e.hoy, { minutosCerrados: 180, jornadasCerradas: 2 });
+  assert.equal(e.abierta?.id, 'abierta');
+});

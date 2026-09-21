@@ -33,6 +33,10 @@ export async function fichar(slug: string, accion: AccionFichaje): Promise<Respu
       abierta: e?.abierta ?? null,
       proxima: e?.proxima ?? null,
       ventanaMinutos: typeof e?.ventanaMinutos === 'number' ? e.ventanaMinutos : 10,
+      hoy: {
+        minutosCerrados: typeof e?.hoy?.minutosCerrados === 'number' ? e.hoy.minutosCerrados : 0,
+        jornadasCerradas: typeof e?.hoy?.jornadasCerradas === 'number' ? e.hoy.jornadasCerradas : 0,
+      },
     },
     yaAbierta: d.yaAbierta === true,
     yaCerrada: d.yaCerrada === true,

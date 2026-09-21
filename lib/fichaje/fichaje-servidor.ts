@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { uid } from '../utils.ts';
+import { hoyEnEstudio, instanteEnEstudio, uid } from '../utils.ts';
 
 // Control horario de la instructora: jornadas (entrada → salida).
 //
@@ -21,6 +21,8 @@ export interface EstadoFichaje {
   abierta: JornadaAbierta | null;
   proxima: ProximaClase | null;
   ventanaMinutos: number;
+  /** Lo ya cerrado hoy (día del estudio). La abierta, si la hay, se suma en pantalla con su cronómetro. */
+  hoy: { minutosCerrados: number; jornadasCerradas: number };
 }
 
 const HORAS_LIMITE_POR_DEFECTO = 12;
@@ -39,7 +41,8 @@ async function jornadaAbierta(admin: SupabaseClient, c: { studioId: string; inst
 export async function estadoFichaje(
   admin: SupabaseClient, c: { studioId: string; instructorId: string }, ahora = new Date(),
 ): Promise<EstadoFichaje> {
-  const [abierta, config, clases] = await Promise.all([
+  const inicioHoy = instanteEnEstudio(hoyEnEstudio(ahora), '00:00') ?? ahora.toISOString();
+  const [abierta, config, clases, cerradasHoy] = await Promise.all([
     jornadaAbierta(admin, c),
     admin.from('studio_config_tiempo').select('check_in_window_minutes, open_session_limit_hours')
       .eq('studio_id', c.studioId).maybeSingle(),
@@ -47,9 +50,16 @@ export async function estadoFichaje(
       .eq('studio_id', c.studioId).eq('instructor_id', c.instructorId)
       .neq('cancelada', true).gte('fin', ahora.toISOString())
       .order('inicio', { ascending: true }).limit(1),
+    admin.from('instructor_work_sessions').select('check_in_at, check_out_at')
+      .eq('studio_id', c.studioId).eq('instructor_id', c.instructorId).eq('status', 'CLOSED')
+      .gte('check_in_at', inicioHoy),
   ]);
   if (config.error) throw config.error;
   if (clases.error) throw clases.error;
+  if (cerradasHoy.error) throw cerradasHoy.error;
+  const filasHoy = (cerradasHoy.data ?? []) as { check_in_at: string; check_out_at: string | null }[];
+  const minutosCerrados = filasHoy.reduce(
+    (t, j) => t + (j.check_out_at ? Math.round((Date.parse(j.check_out_at) - Date.parse(j.check_in_at)) / 60_000) : 0), 0);
 
   const cfg = config.data as { check_in_window_minutes: number; open_session_limit_hours: number } | null;
   const limiteHoras = cfg?.open_session_limit_hours ?? HORAS_LIMITE_POR_DEFECTO;
@@ -67,6 +77,7 @@ export async function estadoFichaje(
       : null,
     proxima: fila ? { id: fila.id, nombre: tipo?.nombre ?? 'Clase', inicio: fila.inicio, fin: fila.fin } : null,
     ventanaMinutos: cfg?.check_in_window_minutes ?? VENTANA_POR_DEFECTO,
+    hoy: { minutosCerrados, jornadasCerradas: filasHoy.length },
   };
 }
 
