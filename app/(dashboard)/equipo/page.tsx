@@ -457,9 +457,8 @@ export default function EquipoPage() {
     const result = await subirFotoInstructor(form.tempId, file);
     setSubiendoFoto(false);
     if ('error' in result) { setErrorFoto(result.error); return; }
-    // RLS-1: guardar NULL para regenerar URLs firmadas on-demand
-    setForm(f => ({ ...f, fotoUrl: null }));
-    if (editId) { const res = await updateInstructor(editId, { fotoUrl: null }); if (!res.ok) setErrorFoto(res.error); }
+    setForm(f => ({ ...f, fotoUrl: result.url }));
+    if (editId) { const res = await updateInstructor(editId, { fotoUrl: result.url }); if (!res.ok) setErrorFoto(res.error); }
   }
 
   async function handleEliminarFoto() {

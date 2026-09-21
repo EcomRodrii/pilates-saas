@@ -15,18 +15,30 @@ const STUDIO_ID = 'studio-test';
 const STORAGE_KEY = 'sb-example-auth-token';
 const UID = 'auth-e2e-duena';
 
-const hoy = new Date();
+// Fechas y horas en hora del ESTUDIO (Madrid), como las piensa la app — nunca en
+// la del proceso de Playwright. Con la del proceso, en CI (UTC) entre las 22:00 y
+// las 24:00 UTC las clases sembradas «de hoy» ya eran de ayer para la app, y los
+// specs que cuentan las clases de hoy fallaban cada noche sin que nadie tocara nada.
+const TZ_ESTUDIO = 'Europe/Madrid';
+const hoyEstudio = new Intl.DateTimeFormat('en-CA', { timeZone: TZ_ESTUDIO }).format(new Date());
+/** El día `n` desde hoy (hora del estudio), anclado a las 12:00 UTC para que su fecha no se mueva. */
 const dia = (n: number) => {
-  const d = new Date(hoy);
-  d.setDate(d.getDate() + n);
+  const d = new Date(`${hoyEstudio}T12:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + n);
   return d;
 };
-const iso = (d: Date, h = 9, m = 0) => {
-  const x = new Date(d);
-  x.setHours(h, m, 0, 0);
-  return x.toISOString();
-};
 const fecha = (d: Date) => d.toISOString().slice(0, 10);
+/** Ese día a las h:m de reloj de Madrid, como instante ISO. */
+const iso = (d: Date, h = 9, m = 0) => {
+  const [a, mes, di] = fecha(d).split('-').map(Number);
+  const supuesto = Date.UTC(a, mes - 1, di, h, m);
+  // Desfase de Madrid en ese momento (+1 h en invierno, +2 h en verano).
+  const partes = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ_ESTUDIO, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).formatToParts(new Date(supuesto)).map((p) => [p.type, p.value]));
+  const comoMadrid = Date.UTC(+partes.year, +partes.month - 1, +partes.day, +partes.hour, +partes.minute);
+  return new Date(supuesto - (comoMadrid - supuesto)).toISOString();
+};
 
 const STUDIO_ROW = {
   id: STUDIO_ID, nombre: 'Pilates Centro', slug: 'pilates-centro',
