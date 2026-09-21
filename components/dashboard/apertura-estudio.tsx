@@ -9,6 +9,7 @@ import { notaEstimacion } from '@/lib/opening/textos';
 import { EtapasLanzamiento } from './etapas-lanzamiento';
 import { AjustesAperturaForm } from './ajustes-apertura';
 import { OnboardingApertura } from './onboarding-apertura';
+import { AperturaSuave, type EstadoAperturaSuave } from './apertura-suave';
 import type { AjustesApertura } from '@/lib/opening/ajustes';
 import { ANCLA_DECIDIR } from '@/lib/estado-estudio-cliente';
 import { ANCLA_LISTO, type Comprobacion } from '@/lib/opening/listo';
@@ -23,6 +24,7 @@ interface RespuestaApertura {
   onboarding?: { completado: true; puntos: string[]; objetivos: string[]; fechaAproximada: boolean } | null;
   recomendaciones?: { id: string; titulo: string; motivo: string; href: string }[];
   listo?: Comprobacion[];
+  aperturaSuave?: EstadoAperturaSuave;
   alertas?: { tipo: string; severidad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA'; titulo: string; descripcion: string; href: string }[];
 }
 
@@ -283,6 +285,10 @@ export function AperturaEstudio({ onVisible }: { onVisible?: (visible: boolean) 
 
       {!mostrarOnboarding && (datos.listo?.length ?? 0) > 0 && (
         <ListaParaAbrir listo={datos.listo!} onComprobar={() => void comprobar()} comprobando={comprobando} />
+      )}
+
+      {!mostrarOnboarding && datos.aperturaSuave && typeof datos.aperturaSuave.activa === 'boolean' && (
+        <AperturaSuave estado={datos.aperturaSuave} fechaApertura={datos.fechaApertura ?? null} onGuardar={patch} />
       )}
 
       {!mostrarOnboarding && (datos.recomendaciones?.length ?? 0) > 0 && (

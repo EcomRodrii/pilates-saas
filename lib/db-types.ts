@@ -1030,6 +1030,8 @@ export interface RowStudios {
   recordatorio_largo_horas: number | null;
   // migr 20260921145514.
   recordatorio_corto_minutos: number | null;
+  // migr 20260921221729.
+  apertura_suave: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -4697,6 +4699,7 @@ export type StudiosInsert = {
   fecha_apertura?: string | null | null;
   recordatorio_largo_horas?: number | null | null;
   recordatorio_corto_minutos?: number | null | null;
+  apertura_suave?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -4829,6 +4832,7 @@ export type StudiosUpdate = {
   fecha_apertura?: string | null | null;
   recordatorio_largo_horas?: number | null | null;
   recordatorio_corto_minutos?: number | null | null;
+  apertura_suave?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {

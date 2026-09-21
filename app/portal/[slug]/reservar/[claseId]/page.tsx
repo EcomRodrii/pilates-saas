@@ -22,6 +22,7 @@ import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/studen
 import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
 import type { BookingState } from '@/lib/student/tipos';
 import { AvailabilityBadge } from '@/components/student/ui/Badge';
+import { etiquetaAperturaSuave } from '@/lib/opening/apertura-suave-texto';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
 import { ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
@@ -345,6 +346,13 @@ export default function FichaClasePage() {
             {bono ? 'Con tu bono · 1 sesión' : (clase.sinPrecioSuelto ? 'Solo con bono' : `${euros(clase.precioSuelto)} clase suelta`)}
           </span>
         </div>
+
+        {/* Apertura suave: solo avisa. Una fundadora o invitada sí puede
+            reservarla; eso lo decide el servidor (crearReservaPublica). */}
+        {(() => {
+          const suave = etiquetaAperturaSuave(clase.inicio, estudio.aperturaSuaveHasta);
+          return suave && <p style={{ fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{suave}</p>;
+        })()}
 
         {inst && <InstructorCard i={inst} onClick={() => setVerInstructora(true)} />}
 

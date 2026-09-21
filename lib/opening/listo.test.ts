@@ -105,3 +105,11 @@ test('alerta: si lo único que falta son las clases y ya avisa SIN_HORARIO, no s
   assert.deepEqual(alertas(3, ['clases'], 'SIN_OFERTA'), ['SIN_HORARIO']);
   assert.ok(alertas(3, ['clases', 'stripe'], 'SIN_OFERTA').includes('APERTURA_NO_LISTA'));
 });
+
+test('apertura suave puesta sin nadie en el grupo: recomienda invitar, sin bloquear', () => {
+  const c = evaluarListo(listo({ aperturaSuaveSinGrupo: true }), now, todo).find(x => x.id === 'suave')!;
+  assert.equal(c.estado, 'FALTA');
+  assert.equal(c.bloquea, false);
+  assert.equal(c.href, '#apertura-suave');
+  assert.equal(estado(listo(), 'suave'), undefined);
+});

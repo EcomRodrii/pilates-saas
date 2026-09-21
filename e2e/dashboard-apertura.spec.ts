@@ -395,3 +395,33 @@ test.describe('¿Lista para abrir?', () => {
     await expect(bloque.getByRole('link')).toHaveCount(0);
   });
 });
+
+test.describe('Apertura suave', () => {
+  const base = {
+    visible: true, fechaApertura: '2026-11-02', diasHastaApertura: 12, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS,
+    onboarding: { completado: true, puntos: ['LOCAL'], objetivos: [], fechaAproximada: false },
+  };
+
+  test('enseña quién forma el grupo y guarda quitar a una invitada y apagarla', async ({ page }) => {
+    const peticiones = await montar(page, {
+      inicial: { ...base, aperturaSuave: { activa: true, grupo: { fundadoras: 2, invitadas: [{ id: 'soc-9', nombre: 'Invitada Prueba' }] } } },
+    });
+    const bloque = page.locator('#apertura-suave');
+    await expect(bloque.getByText('Pueden reservar: 2 fundadoras y 1 invitada.')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(bloque.getByText(/Antes del 2 de noviembre solo reservan/)).toBeVisible();
+    if (CAPTURAS) await bloque.screenshot({ path: `${CAPTURAS}/apertura-suave.png` });
+
+    await bloque.getByRole('button', { name: 'Quitar a Invitada Prueba' }).click();
+    await expect.poll(() => peticiones.patch).toContainEqual({ invitada: { socioId: 'soc-9', invitada: false } });
+
+    await bloque.getByRole('switch', { name: 'Apertura suave' }).click();
+    await expect.poll(() => peticiones.patch).toContainEqual({ aperturaSuave: false });
+  });
+
+  test('sin fecha de apertura no se puede encender', async ({ page }) => {
+    await montar(page, { inicial: { ...base, fechaApertura: null, diasHastaApertura: null, aperturaSuave: { activa: false, grupo: null } } });
+    const bloque = page.locator('#apertura-suave');
+    await expect(bloque.getByText('Pon la fecha de apertura para poder usarla.')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(bloque.getByRole('switch', { name: 'Apertura suave' })).toBeDisabled();
+  });
+});

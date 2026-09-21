@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import type { EstadoSuscripcion, TipoPlan } from '../types.ts';
 import { estadoCobroCuenta } from '../billing/cuenta-puede-cobrar.ts';
 import { ventanaListo, type DatosListo } from './listo.ts';
+import { cargarGrupoAperturaSuave } from './apertura-suave.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import {
   analizarCapacidad, CONFIG_OPENING_DEFECTO,
@@ -187,7 +188,7 @@ export async function cargarDatosListo(
   const { desde, hasta } = ventanaListo(fechaApertura, now);
   const [studioR, sesionesR, planesR] = await Promise.all([
     admin.from('studios')
-      .select('slug, stripe_account_id, reserva_exigir_plan, reserva_antelacion_maxima_dias, nif, razon_social, direccion, codigo_postal, ciudad')
+      .select('slug, stripe_account_id, reserva_exigir_plan, reserva_antelacion_maxima_dias, nif, razon_social, direccion, codigo_postal, ciudad, apertura_suave')
       .eq('id', studioId).maybeSingle(),
     admin.from('sesiones').select('inicio, cancelada, tipo_clase_id, instructor_id, aforo_maximo')
       .eq('studio_id', studioId).gte('inicio', desde.toISOString()).lt('inicio', hasta.toISOString()).limit(2000),
@@ -234,6 +235,11 @@ export async function cargarDatosListo(
       ciudad: (s.ciudad as string | null) ?? null,
     },
     antelacionMaximaDias: (s.reserva_antelacion_maxima_dias as number | null) ?? null,
+    aperturaSuaveSinGrupo: s.apertura_suave === true && fechaApertura !== null
+      && await (async () => {
+        const g = await cargarGrupoAperturaSuave(admin, studioId);
+        return g.fundadoras === 0 && g.invitadas.length === 0;
+      })(),
   };
 }
 

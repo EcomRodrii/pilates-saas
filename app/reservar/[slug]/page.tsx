@@ -1,4 +1,5 @@
 'use client';
+import { etiquetaAperturaSuave } from '@/lib/opening/apertura-suave-texto';
 import { aFechaCal, eventoIcs, nombreIcs } from '@/lib/calendario-ics';
 import { esClavePublicable } from '@/lib/billing/modo-stripe';
 import { bizumPermitidoPara } from '@/lib/billing/bizum-permitido';
@@ -4236,6 +4237,12 @@ export default function ReservarPage() {
                       Clase llena — te apuntaremos en lista de espera
                     </p>
                   )}
+                  {(() => {
+                    // Solo avisa: una fundadora o invitada sí puede reservarla, y
+                    // eso lo decide el servidor (crearReservaPublica).
+                    const suave = etiquetaAperturaSuave(bookingSesion.inicio, studio?.aperturaSuaveHasta);
+                    return suave && <p className="text-[var(--portal-ink)] text-xs font-medium mt-2">{suave}</p>;
+                  })()}
                   {(() => {
                     const ventana = bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
                     return ventana > 0 && (

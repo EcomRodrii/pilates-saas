@@ -8,6 +8,7 @@ import { evaluarAlertasApertura } from '@/lib/opening/alertas-cron';
 import { ajustesDesdeConfig, validarAjustes } from '@/lib/opening/ajustes';
 import { recomendar, validarOnboarding } from '@/lib/opening/onboarding';
 import { evaluarListo } from '@/lib/opening/listo';
+import { cargarAperturaSuave, cargarGrupoAperturaSuave, marcarInvitada } from '@/lib/opening/apertura-suave';
 import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 
 // Opening OS en la home: fecha de apertura, capacidad frente a demanda y las
@@ -46,8 +47,9 @@ export async function GET(req: NextRequest) {
     const deLaBD = (await cargarAlertasAbiertas(admin, studioId)).filter(a => a.tipo.startsWith(PREFIJO_CUPO_SUPERADO));
     const alertas = [...detectadas, ...deLaBD];
     // Enlace solo si su rol puede abrir esa pantalla (MANAGER no ve Cobros).
-    const listo = evaluarListo(datosListo, now, href =>
-      puedeVer(sesion.rol, href.split(/[?#]/)[0]) && puedeAbrirEnConfiguracion(sesion.rol, href));
+    const listo = evaluarListo(datosListo, now, href => href.startsWith('#')
+      || (puedeVer(sesion.rol, href.split(/[?#]/)[0]) && puedeAbrirEnConfiguracion(sesion.rol, href)));
+    const suave = await cargarAperturaSuave(admin, studioId);
     const recomendaciones = recomendar({
       respuestas: estado.respuestas,
       alertas: alertas.map(a => a.tipo),
@@ -66,6 +68,7 @@ export async function GET(req: NextRequest) {
       onboarding: estado.respuestas,
       recomendaciones,
       listo,
+      aperturaSuave: { activa: suave.activa, grupo: suave.activa ? await cargarGrupoAperturaSuave(admin, studioId) : null },
       supuestos: {
         sesionesSemanaSinTope: config.sesionesSemanaSinTope,
         semanasBonoSinCaducidad: config.semanasBonoSinCaducidad,
@@ -99,7 +102,10 @@ export async function PATCH(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarApertura(sesion.rol)) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 });
 
-  const body = await req.json().catch(() => null) as { fechaApertura?: unknown; yaAbierto?: unknown; ajustes?: unknown; onboarding?: unknown } | null;
+  const body = await req.json().catch(() => null) as {
+    fechaApertura?: unknown; yaAbierto?: unknown; ajustes?: unknown; onboarding?: unknown;
+    aperturaSuave?: unknown; invitada?: { socioId?: unknown; invitada?: unknown };
+  } | null;
   const admin = requireSupabaseAdmin();
   const { studioId } = sesion;
   const ahora = new Date().toISOString();
@@ -109,6 +115,39 @@ export async function PATCH(req: NextRequest) {
       .upsert({ studio_id: studioId, fase: 'OPERANDO', updated_at: ahora }, { onConflict: 'studio_id' });
     if (error) {
       console.error('[opening:patch] ya abierto', error);
+      return NextResponse.json({ error: 'No se pudo guardar' }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  // Apertura suave: el interruptor. Sin fecha de apertura no cierra nada
+  // (la regla compara con esa fecha), así que se pide primero la fecha.
+  if (body?.aperturaSuave !== undefined) {
+    if (typeof body.aperturaSuave !== 'boolean') return NextResponse.json({ error: 'Valor no válido' }, { status: 400 });
+    if (body.aperturaSuave) {
+      const { fechaApertura } = await cargarAperturaSuave(admin, studioId);
+      if (!fechaApertura) return NextResponse.json({ error: 'Pon antes la fecha de apertura: la apertura suave cierra las clases anteriores a ese día.' }, { status: 400 });
+    }
+    const { data, error } = await admin.from('studios').update({ apertura_suave: body.aperturaSuave })
+      .eq('id', studioId).select('id').maybeSingle();
+    if (error || !data) {
+      console.error('[opening:patch] apertura suave', error);
+      return NextResponse.json({ error: 'No se pudo guardar' }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  // Invitar (o quitar) a una socia de la apertura suave: la etiqueta en su ficha.
+  if (body?.invitada !== undefined) {
+    const { socioId, invitada } = body.invitada ?? {};
+    if (typeof socioId !== 'string' || !socioId || typeof invitada !== 'boolean') {
+      return NextResponse.json({ error: 'Datos no válidos' }, { status: 400 });
+    }
+    try {
+      const ok = await marcarInvitada(admin, studioId, socioId, invitada);
+      if (!ok) return NextResponse.json({ error: 'Esa clienta no es de este estudio' }, { status: 404 });
+    } catch (e) {
+      console.error('[opening:patch] invitada', e);
       return NextResponse.json({ error: 'No se pudo guardar' }, { status: 500 });
     }
     return NextResponse.json({ ok: true });

@@ -61,6 +61,8 @@ export type CodigoReserva =
   // Cierre del centro (#1665): el estudio cierra unos dias y la RPC rechaza
   // las sesiones creadas DESPUES de declararlo.
   | 'estudio-cerrado'
+  // Opening OS: clase de la apertura suave, solo para fundadoras e invitadas.
+  | 'apertura-suave'
   | 'error';
 
 /**
@@ -74,7 +76,7 @@ const CODIGOS_DE_NEGOCIO: ReadonlySet<string> = new Set<CodigoReserva>([
   'spot-ocupado', 'spot-no-disponible', 'sesion-no-encontrada', 'no-autorizado',
   'clase-cancelada', 'clase-ya-empezada', 'fuera-ventana-minima', 'fuera-ventana-maxima',
   'sin-plan', 'bono-no-cubre', 'max-simultaneas', 'necesita-autorizacion',
-  'impago', 'estudio-cerrado',
+  'impago', 'estudio-cerrado', 'apertura-suave',
 ]);
 
 /**
@@ -214,6 +216,8 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
     // motivo a proposito, solo dice a quien escribir. Es lo que hay que pintar.
     case 'impago':
     case 'estudio-cerrado':
+    // Apertura suave: el mensaje dice el día en que se abre a todas.
+    case 'apertura-suave':
       return { state: 'error', mensaje };
     case 'sesion-no-encontrada': return { state: 'error', mensaje };
     default: return { state: 'error', mensaje };

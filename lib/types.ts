@@ -246,6 +246,8 @@ export interface Studio {
   /** Autoservicio de plaza fija desde la app (migr 20260915231920): la alumna pide y el estudio decide. */
   plazaFijaSolicitarDesdeApp: boolean;
   plazaFijaPausaDesdeApp: boolean;
+  /** Opening OS: fecha de apertura si la apertura suave está puesta (solo en lo público). */
+  aperturaSuaveHasta?: string | null;
   /** Las pausas NUEVAS dejan su sitio libre para otra clienta; las ya puestas no cambian. */
   plazaFijaPausaLiberaSitio: boolean;
   plazaFijaFinPausa: PoliticaFinPausa;

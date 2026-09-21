@@ -87,3 +87,24 @@ test('⚠️ con la red caída, la pantalla no se queda muerta', async ({ page }
   const txt = await page.evaluate(() => document.body.innerText);
   expect(txt, 'anunció éxito con la red caída').not.toContain('¡Reserva confirmada!');
 });
+
+test('⚠️ apertura suave: el «no» dice el día en que se abre, no una avería', async ({ page }) => {
+  // Opening OS: una clase de la apertura suave, reservada por alguien que no es
+  // fundadora ni invitada. El servidor la rechaza con `codigo: 'apertura-suave'`
+  // y la pantalla tiene que contar el motivo tal cual, no «algo ha fallado».
+  let intentos = 0;
+  const mensaje = 'Esta clase es de la apertura suave, solo para fundadoras e invitadas. Abrimos a todas el 2 de noviembre.';
+  await page.route('**/api/public/reserva', (r) => {
+    intentos += 1;
+    return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: mensaje, codigo: 'apertura-suave' }) });
+  });
+
+  await abrirHojaDeClase(page);
+  await pulsarReservar(page);
+  await page.waitForTimeout(3000);
+
+  expect(intentos, 'la reserva no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
+  const txt = await page.evaluate(() => document.body.innerText);
+  expect(txt).not.toContain('¡Reserva confirmada!');
+  expect(txt).toContain('Abrimos a todas el 2 de noviembre');
+});

@@ -14,6 +14,7 @@ import { puertaPublica, catalogoPaginaOculta } from '@/lib/publico/acceso-pagina
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
+import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
 import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { agregadoPublicable, type VotoValoracion } from '@/lib/valoraciones/agregado';
@@ -396,6 +397,9 @@ function studioPublico(r: RowStudios) {
     // verdad es `/api/public/plaza-fija`, que con el ajuste apagado da 403.
     plazaFijaSolicitarDesdeApp: r.plaza_fija_solicitar_desde_app ?? false,
     plazaFijaPausaDesdeApp: r.plaza_fija_pausa_desde_app ?? false,
+    // Apertura suave: solo la fecha, y solo con el interruptor puesto. Etiqueta
+    // sus clases en /reservar; quién puede reservarlas lo decide crearReservaPublica.
+    aperturaSuaveHasta: r.apertura_suave ? (r.fecha_apertura ?? null) : null,
     // El portal lo usa para decidir si el botón "Ver mi acceso" abre el pase
     // QR o lleva directo a la reserva (migr 20260809020328). Sin esta línea
     // `studio.requiereCheckinQr` siempre llegaba `undefined` al cliente y el
@@ -2300,6 +2304,16 @@ export async function crearReservaPublica(params: {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'FUERA_VENTANA_MAXIMA' });
       return { error: 'Todavía no se puede reservar esta clase' as const, codigo: 'fuera-ventana-maxima' as const };
     }
+  }
+
+  // Apertura suave (Opening OS): antes del día de apertura, solo fundadoras e
+  // invitadas. Regla por fecha: el día oficial deja de aplicar sola. El mostrador
+  // (crearReservaMostrador) no pasa por aquí, así que puede apuntar a quien sea.
+  // Sin registrarIntentoFallido: no es demanda perdida, es una puerta que el
+  // estudio ha cerrado a propósito (y el CHECK de `motivo` no lo contempla).
+  {
+    const fechaApertura = await cierreAperturaSuave(admin, params.studioId, params.socioId, inicioISO);
+    if (fechaApertura) return { error: MENSAJE_APERTURA_SUAVE(fechaApertura), codigo: 'apertura-suave' as const };
   }
 
   // RES-4: El tipo de la clase se necesita para pasar a la RPC (dentro o fuera del
