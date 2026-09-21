@@ -767,8 +767,8 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // patrón, un texto por motivo de plazas_fijas_sin_materializar
   // (`MotivoPlazaNoMaterializada` en emit.ts).
   [`${EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA}#SOCIA`]: {
-    title: 'Tu plaza fija no se ha reservado esta semana',
-    body: 'No hemos podido confirmar tu plaza fija en {clase} del {cuando}.{motivoTexto}',
+    title: 'Tu clase fija no se ha reservado esta semana',
+    body: 'No hemos podido confirmar tu clase fija en {clase} del {cuando}.{motivoTexto}',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   // Plaza fija desde la app → mostrador. `{peticion}` llega ya redactada por tipo
@@ -790,7 +790,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   // …y la respuesta, a la alumna. `{respuesta}` es la frase entera (aprobada o no, con su motivo).
   [`${EVENTOS.PLAZA_FIJA_RESPUESTA}#SOCIA`]: {
-    title: 'Tu plaza fija',
+    title: 'Tu clase fija',
     body: '{respuesta}',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}`,
   },

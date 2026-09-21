@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, RefreshCw, Repeat, CalendarClock, X } from 'lucide-react';
-import { horaEstudio } from '@/lib/utils';
+import { CalendarDays, CheckCircle2, RefreshCw, Repeat, CalendarClock, RotateCcw, X, type LucideIcon } from 'lucide-react';
+import { cn, horaEstudio } from '@/lib/utils';
 import type { Reserva } from '@/lib/types';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { avisoQuitarReserva, type MarcaReserva } from '@/lib/plazas-fijas-cancelacion';
@@ -70,9 +70,14 @@ function etiquetaEstado(r: Reserva): string {
 
 const BOTON = 'flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors';
 
-const ETIQUETA_MARCA: Record<Exclude<MarcaReserva, null>, { texto: string; titulo: string }> = {
-  fija: { texto: 'Fija', titulo: 'Viene por su plaza fija: se le reserva sola cada semana' },
-  recuperacion: { texto: 'Recuperación', titulo: 'Viene gastando una clase para recuperar' },
+// De dónde viene cada persona de la lista: de su plaza fija (se le reserva sola
+// cada semana), gastando una recuperación, o por una reserva de una vez. Antes la
+// reserva normal no llevaba nada «para no añadir ruido», y el mostrador no podía
+// ver de un vistazo quién está por qué: las tres llevan etiqueta.
+const ETIQUETA_MARCA: Record<Exclude<MarcaReserva, null> | 'reserva', { texto: string; titulo: string; Icono: LucideIcon }> = {
+  fija: { texto: 'Fija', titulo: 'Viene por su plaza fija: se le reserva sola cada semana', Icono: Repeat },
+  recuperacion: { texto: 'Recuperación', titulo: 'Viene gastando una clase para recuperar', Icono: RotateCcw },
+  reserva: { texto: 'Reserva', titulo: 'Reservó esta clase una vez, ella o el estudio', Icono: CalendarDays },
 };
 
 export function ListaClientas({
@@ -94,6 +99,11 @@ export function ListaClientas({
     <div className="space-y-0.5">
       {visibles.map(r => {
         const marca = marcaDe?.(r) ?? null;
+        // Solo a quien ocupa plaza de verdad: en la lista de espera lo que importa es su turno.
+        // Sin `marcaDe` (otro llamador) no se sabe de dónde viene: no se etiqueta.
+        const ocupaPlaza = r.estado !== 'LISTA_ESPERA' && r.estado !== 'PENDIENTE_APROBACION';
+        const clave = marca ?? (marcaDe && ocupaPlaza ? 'reserva' : null);
+        const etiqueta = clave ? ETIQUETA_MARCA[clave] : null;
         return (
           // Las acciones van en su propia línea, bajo el nombre. En la misma fila
           // (Check-in, No vino, Repetir, Hacer fija) se comían todo el ancho del
@@ -123,12 +133,17 @@ export function ListaClientas({
                 <Link href={`/clientas/${r.socioId}`} className="truncate hover:text-brand-medio hover:underline transition-colors">
                   {nombreClienta(r.socioId)}
                 </Link>
-                {marca && (
+                {etiqueta && (
                   <span
-                    title={ETIQUETA_MARCA[marca].titulo}
-                    className="shrink-0 rounded-full border border-border bg-card px-1.5 py-px text-[10px] font-semibold text-muted-foreground"
+                    title={etiqueta.titulo}
+                    data-marca={clave}
+                    className={cn(
+                      'inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-semibold',
+                      clave === 'fija' ? 'border-brand/30 bg-brand/10 text-brand' : 'border-border bg-card text-muted-foreground',
+                    )}
                   >
-                    {ETIQUETA_MARCA[marca].texto}
+                    <etiqueta.Icono size={10} aria-hidden />
+                    {etiqueta.texto}
                   </span>
                 )}
               </p>

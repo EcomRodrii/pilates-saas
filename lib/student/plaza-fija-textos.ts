@@ -1,12 +1,19 @@
-// Lo que se le dice a la alumna sobre la plaza fija. Sin imports ni `@/`: lo
-// leen la app de la alumna (la ficha de la clase y la hoja de «reserva hecha») y
-// la vista previa de Configuración («Así lo ve tu alumna»), y tiene que ser
-// EXACTAMENTE el mismo texto en los dos sitios — si la vista previa dijera otra
-// cosa que la app, explicar el ajuste sería peor que no explicarlo.
+// Lo que se le dice a la alumna sobre su clase fija. Sin imports ni `@/`: lo
+// leen la app de la alumna (la ficha de la clase, la hoja de «reserva hecha», su
+// tarjeta y «Mis clases») y la vista previa de Configuración («Así lo ve tu
+// alumna»), y tiene que ser EXACTAMENTE el mismo texto en todos los sitios — si
+// la vista previa dijera otra cosa que la app, explicar el ajuste sería peor que
+// no explicarlo.
+//
+// ⚠️ Cara a la alumna se llama «clase fija»: es como la llaman ellas y los
+// estudios. En el código y en el panel del estudio sigue siendo «plaza fija»
+// (`plazas_fijas`): es el hueco que el motor mantiene reservado.
 //
 // Solo se afirma lo que el sistema hace de verdad: el motor reserva la clase
-// cada semana (`materializar_plazas_fijas`), la petición no cambia nada hasta que
-// el estudio la aprueba, y la respuesta le llega en la app.
+// cada semana (`materializar_plazas_fijas`, unas seis semanas por delante), la
+// petición no cambia nada hasta que el estudio la aprueba, cancelar UNA semana
+// no toca la clase fija, y solo se guarda una clase para recuperar si cancela a
+// tiempo y su cuota limita las clases por semana (`otorgarRecuperacionPlazaFijaSiAplica`).
 
 const DIAS_PLURAL = ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'];
 
@@ -16,20 +23,43 @@ export function losDias(diaSemana: number): string {
 }
 
 export const TEXTOS_PLAZA_FIJA = {
-  titulo: 'Plaza fija',
+  // ── Pedirla (ficha de la clase y hoja de «reserva hecha») ──
+  titulo: 'Clase fija',
   /** Lo que es, en una frase, con SU día y SU hora. */
   ofrecer: (diaSemana: number, hora: string) =>
-    `¿Vienes ${losDias(diaSemana)} a las ${hora}? Con una plaza fija te reservamos esta clase cada semana, sin que tengas que volver a hacerlo.`,
+    `¿Vienes ${losDias(diaSemana)} a las ${hora}? Con una clase fija tu plaza queda reservada cada semana, sin que tengas que volver a reservarla.`,
   /** Lo que pasa después de pedirla. */
   quePasa: 'Tu estudio tiene que confirmarla: su respuesta te llega aquí. Hasta entonces, sigue reservando como siempre.',
-  botonPedir: 'Pedir plaza fija',
+  botonPedir: 'Pedir clase fija',
   pedida: 'Ya la has pedido: tu estudio te contestará aquí. Hasta entonces, sigue reservando esta clase como siempre.',
   botonAnular: 'Anular la petición',
   /** Quien no tiene cuota que la cubra: la regla es la del servidor (`cuotaParaPlazaFija`). */
-  soloConCuota: 'La plaza fija es para quien tiene una cuota activa que incluya esta clase. Con bono o clases sueltas, se reserva clase a clase.',
+  soloConCuota: 'La clase fija es para quien tiene una cuota activa que incluya esta clase. Con bono o clases sueltas, se reserva clase a clase.',
   /** Al terminar de reservar una clase que se repite. */
   trasReservarTitulo: '¿Vienes cada semana?',
   trasReservar: (diaSemana: number, hora: string) =>
-    `Pide tu plaza fija y te reservamos esta clase ${losDias(diaSemana)} a las ${hora}. Tu estudio te lo confirma.`,
+    `Pide tu clase fija y tu plaza quedará reservada ${losDias(diaSemana)} a las ${hora}. Tu estudio te lo confirma.`,
   trasReservarPedida: 'Petición enviada: tu estudio te contestará en la app.',
+
+  // ── Su tarjeta, cuando ya la tiene ──
+  tarjetaUna: 'Tu clase fija',
+  tarjetaVarias: 'Tus clases fijas',
+  reservadaSola: 'Tu plaza está reservada automáticamente cada semana. No necesitas reservar esta clase.',
+  enPausa: 'Está en pausa: mientras dure no se te reserva la clase. Al terminar la pausa vuelve sola.',
+  proximas: 'Próximas clases',
+  reservada: 'Reservada',
+  noPuedo: 'No puedo asistir',
+  /** Cuando aún no hay ninguna reservada (recién asignada, o el horario no llega tan lejos). */
+  sinProximas: 'Tu próxima clase se reservará sola en cuanto la programe el estudio.',
+  /** Baja, reactivarla o cambiarla: no se hace desde la app, se le escribe al estudio. */
+  cambiarla: '¿Quieres cambiarla o dejarla?',
+  escribir: 'Escribir al estudio',
+  // ── «No puedo asistir esta semana» ──
+  noPuedoTitulo: '¿No puedes asistir?',
+  noPuedoSolo: (diaSemana: number) =>
+    `Solo cancelas esta clase. Tu clase fija de ${losDias(diaSemana)} sigue activa y la semana que viene tu plaza vuelve a estar reservada.`,
+  noPuedoATiempo: 'Si cancelas a tiempo y tu cuota limita las clases por semana, se te guarda una clase para recuperar.',
+  noPuedoTarde: (horas: number) => `Quedan menos de ${horas} h: es una cancelación tardía y no se te guardará una clase para recuperar.`,
+  noPuedoConfirmar: 'Sí, no puedo asistir',
+  noPuedoMantener: 'Mantener mi plaza',
 } as const;

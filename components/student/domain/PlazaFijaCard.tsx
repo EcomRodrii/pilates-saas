@@ -2,19 +2,27 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import type { PlazaFijaVista, RecuperacionesVista } from '@/lib/student/tipos';
+import { useRouter } from 'next/navigation';
+import type { PlazaFijaVista, ProximaClaseFijaVista, RecuperacionesVista } from '@/lib/student/tipos';
 import { etiquetaDia, fechaCorta } from '@/lib/student/formato';
 import { nombreDia } from '@/lib/student/plaza-fija';
+import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import { anularPeticionPlazaFija, pedirPausaPlazaFija } from '@/lib/student/plaza-fija-peticion';
+import { cancelarReserva } from '@/lib/student/reservas-acciones';
+import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
+import { avisoCancelacion } from '@/lib/student/maquina-reserva';
+import { useOnline } from '@/lib/student/useOnline';
 import { validarPausa } from '@/lib/plazas-fijas-pausa';
 import { hoyEnEstudio } from '@/lib/utils';
-import { useEstudio } from '@/components/student/contexto';
+import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { Badge } from '@/components/student/ui/Badge';
 import { Button } from '@/components/student/ui/Button';
+import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { Input } from '@/components/student/ui/Input';
 import { Sheet } from '@/components/student/ui/Sheet';
+import { useToast } from '@/components/student/ui/Toast';
 
-// «Tu plaza fija» + «Recuperaciones» (F2, el caso canónico del producto).
+// «Tu clase fija» + «Recuperaciones» (F2, el caso canónico del producto).
 // Mismo idioma que CreditCard: tarjeta, rótulo t-label, cifra grande, meta.
 // No decide nada: el servidor es quien materializa la plaza y quien acepta
 // una recuperación al reservar.
@@ -24,10 +32,19 @@ import { Sheet } from '@/components/student/ui/Sheet';
 // «próxima» que no existe (lib/student/plaza-fija.ts).
 type PausaPedida = { id: string; desde: string; hasta: string } | null;
 
-export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = false }: {
+export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = false, onCambio }: {
   plazas: PlazaFijaVista[]; recuperaciones: RecuperacionesVista; hrefHorario: string; compacta?: boolean;
+  /** Se llama tras cancelar una semana, para que la pantalla recargue lo suyo. */
+  onCambio?: () => void;
 }) {
   const { estudio } = useEstudio();
+  const href = usePortalHref();
+  const router = useRouter();
+  const { online } = useOnline();
+  const { toast } = useToast();
+  // «No puedo asistir»: UNA semana de su clase fija. No toca la recurrencia.
+  const [noPuedo, setNoPuedo] = useState<{ plaza: PlazaFijaVista; proxima: ProximaClaseFijaVista } | null>(null);
+  const [cancelando, setCancelando] = useState(false);
   // Pedir una pausa NO la aplica: hasta que el estudio contesta, la plaza sigue
   // igual. Lo que cambia aquí es solo lo que ella ya ha pedido (lo confirmado por
   // el servidor, nunca optimista), por si la pantalla no se recarga.
@@ -72,12 +89,30 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
     setPedidas((prev) => ({ ...prev, [p.id as string]: null }));
   }
 
+  async function confirmarNoPuedo() {
+    if (!noPuedo || cancelando) return;
+    setCancelando(true);
+    const r = await cancelarReserva(estudio.slug, estudio.id, noPuedo.proxima.reservaId, { online });
+    setCancelando(false);
+    if (!r.ok) {
+      if (r.sesionCaducada) { router.push(href('/acceso/login')); return; }
+      // La reserva SIGUE ACTIVA: se deja el diálogo abierto para reintentar.
+      toast(r.error);
+      return;
+    }
+    setNoPuedo(null);
+    toast(mensajeTrasCancelar(r, { esClaseFija: true, fechaCorta }));
+    onCambio?.();
+  }
+
+  const avisoNoPuedo = noPuedo ? avisoCancelacion(noPuedo.proxima, estudio.politicaCancelacionHoras) : null;
+
   if (plazas.length === 0 && recuperaciones.disponibles === 0) return null;
   return (
     <div className="card" data-testid="plaza-fija" style={{ padding: compacta ? '13px 15px' : '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       {plazas.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <p className="t-label" style={{ margin: 0 }}>{plazas.length === 1 ? 'Tu plaza fija' : 'Tus plazas fijas'}</p>
+          <p className="t-label" style={{ margin: 0 }}>{plazas.length === 1 ? TEXTOS_PLAZA_FIJA.tarjetaUna : TEXTOS_PLAZA_FIJA.tarjetaVarias}</p>
           {plazas.map((plaza, i) => {
             const activa = plaza.estado === 'ACTIVA' && !plaza.pausa?.enCurso;
             const dia = nombreDia(plaza.diaSemana);
@@ -99,15 +134,44 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
                     {plaza.proximaFecha ? ` · próxima ${etiquetaDia(plaza.proximaFecha).toLowerCase()}` : ''}
                     {plaza.vigenciaHasta ? ` · hasta el ${fechaCorta(plaza.vigenciaHasta)}` : ''}
                   </p>
+                  {/* Lo que la alumna tiene que saber: no reserva nada, se lo hace Tentare. */}
+                  {activa && !plaza.sinClase && (
+                    <p data-testid="plaza-fija-reservada-sola" style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, lineHeight: 1.45 }}>
+                      {TEXTOS_PLAZA_FIJA.reservadaSola}
+                    </p>
+                  )}
                   {plaza.sinClase && (
                     <p className="t-meta" style={{ margin: '2px 0 0' }}>
                       Ahora no hay clase en ese horario: pregúntale al estudio.
                     </p>
                   )}
+                  {!compacta && activa && !plaza.sinClase && (
+                    <div data-testid="proximas-clases-fijas" style={{ margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <p className="t-label" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.proximas}</p>
+                      {plaza.proximas.length === 0 ? (
+                        <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.sinProximas}</p>
+                      ) : plaza.proximas.map((x) => {
+                        const av = avisoCancelacion(x, estudio.politicaCancelacionHoras);
+                        return (
+                          <div key={x.reservaId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                            <div style={{ minWidth: 0 }}>
+                              <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{etiquetaDia(x.fecha)} · {x.hora}</p>
+                              <p className="t-meta" style={{ margin: '1px 0 0' }}>{TEXTOS_PLAZA_FIJA.reservada}</p>
+                            </div>
+                            {av.puede && (
+                              <Button variant="ghost" size="sm" disabled={!online} onClick={() => setNoPuedo({ plaza, proxima: x })}>
+                                {TEXTOS_PLAZA_FIJA.noPuedo}
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   {plaza.pausa && (
                     <p className="t-meta" style={{ margin: '2px 0 0' }}>
                       {plaza.pausa.enCurso
-                        ? `En pausa hasta el ${fechaCorta(plaza.pausa.hasta)}`
+                        ? `En pausa hasta el ${fechaCorta(plaza.pausa.hasta)}. ${TEXTOS_PLAZA_FIJA.enPausa}`
                         : `Pausa del ${fechaCorta(plaza.pausa.desde)} al ${fechaCorta(plaza.pausa.hasta)}`}
                     </p>
                   )}
@@ -131,6 +195,12 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
             );
           })}
         </div>
+      )}
+      {!compacta && plazas.length > 0 && (
+        <p className="t-meta" style={{ margin: 0 }}>
+          {TEXTOS_PLAZA_FIJA.cambiarla}{' '}
+          <Link href={href('/mensajes')} style={{ fontWeight: 800, color: 'var(--accent)' }}>{TEXTOS_PLAZA_FIJA.escribir}</Link>
+        </p>
       )}
       {recuperaciones.disponibles > 0 && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingTop: plazas.length > 0 ? 10 : 0, borderTop: plazas.length > 0 ? '1px solid var(--muted)' : 'none' }}>
@@ -159,11 +229,34 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
 
       {error && !pidiendo && <p role="alert" className="t-meta" style={{ margin: 0 }}>{error}</p>}
 
+      <ConfirmationDialog
+        open={noPuedo !== null}
+        onClose={() => { if (!cancelando) setNoPuedo(null); }}
+        titulo={TEXTOS_PLAZA_FIJA.noPuedoTitulo}
+        cuerpo={noPuedo ? `${[noPuedo.plaza.tipo, noPuedo.plaza.sala].filter(Boolean).join(' · ')} · ${etiquetaDia(noPuedo.proxima.fecha)} ${noPuedo.proxima.hora}` : ''}
+        confirmar={TEXTOS_PLAZA_FIJA.noPuedoConfirmar}
+        cancelar={TEXTOS_PLAZA_FIJA.noPuedoMantener}
+        tono="danger"
+        loading={cancelando}
+        onConfirm={() => void confirmarNoPuedo()}
+      >
+        {noPuedo && avisoNoPuedo && (
+          <div data-testid="no-puedo-aviso" style={{ background: 'var(--accent-soft)', borderRadius: 'var(--radius-sm)', padding: '11px 14px', marginTop: 13, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>
+              {TEXTOS_PLAZA_FIJA.noPuedoSolo(noPuedo.plaza.diaSemana)}
+            </p>
+            <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>
+              {avisoNoPuedo.devolveriaCredito ? TEXTOS_PLAZA_FIJA.noPuedoATiempo : TEXTOS_PLAZA_FIJA.noPuedoTarde(avisoNoPuedo.horasVentana)}
+            </p>
+          </div>
+        )}
+      </ConfirmationDialog>
+
       <Sheet open={pidiendo !== null} onClose={() => { if (!enviando) setPidiendo(null); }} label="Pedir una pausa">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800 }}>Pedir una pausa</p>
           <p className="t-meta" style={{ margin: 0 }}>
-            Tu estudio la revisa y te contesta aquí. Hasta entonces tu plaza fija sigue igual.
+            Tu estudio la revisa y te contesta aquí. Hasta entonces tu clase fija sigue igual.
           </p>
           <Input label="Desde" type="date" min={hoy} value={desde} onChange={(e) => { setError(''); setDesde(e.target.value); }} />
           <Input

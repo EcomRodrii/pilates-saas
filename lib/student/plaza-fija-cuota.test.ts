@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { plazaFijaEnClase, tieneCuotaQueCubre, type CuotaMin, type PlanCuotaMin } from './plaza-fija.ts';
+import { plazaFijaEnClase, proximasDeUnaPlaza, tieneCuotaQueCubre, type CuotaMin, type PlanCuotaMin } from './plaza-fija.ts';
 import { cuotaParaPlazaFija } from '../plazas-fijas-reglas.ts';
 import { TEXTOS_PLAZA_FIJA, losDias } from './plaza-fija-textos.ts';
 import type { PlanTarifa, Suscripcion } from '../types.ts';
@@ -58,10 +58,50 @@ test('sin cuota, lo demás manda igual: si no se repite o ya la tiene, no se le 
   assert.deepEqual(plazaFijaEnClase(CLASE, [OTRA_SEMANA], [plaza], [], false), { estado: 'TIENE_PLAZA' });
 });
 
-test('los textos llevan su día y su hora, en plural', () => {
+test('los textos llevan su día y su hora, en plural, y hablan de «clase fija»', () => {
   assert.equal(losDias(2), 'los martes');
   assert.equal(losDias(6), 'los sábados');
   assert.equal(losDias(0), 'los domingos');
   assert.match(TEXTOS_PLAZA_FIJA.ofrecer(2, '10:00'), /¿Vienes los martes a las 10:00\?/);
+  assert.match(TEXTOS_PLAZA_FIJA.ofrecer(2, '10:00'), /Con una clase fija tu plaza queda reservada cada semana/);
   assert.match(TEXTOS_PLAZA_FIJA.trasReservar(4, '18:00'), /los jueves a las 18:00/);
+  assert.equal(TEXTOS_PLAZA_FIJA.botonPedir, 'Pedir clase fija');
+  assert.match(TEXTOS_PLAZA_FIJA.noPuedoSolo(2), /Tu clase fija de los martes sigue activa/);
+  assert.match(TEXTOS_PLAZA_FIJA.noPuedoTarde(12), /Quedan menos de 12 h/);
+});
+
+// «Próximas clases» de su clase fija: solo lo que el motor le tiene ya reservado.
+const PLAZA = { diaSemana: 2, hora: '18:00', salaId: 'sala-1' };
+// 2026-09-22 es martes.
+const ses = (id: string, fecha: string, over: Record<string, unknown> = {}) => ({ id, fecha, hora: '18:00', salaId: 'sala-1', cancelada: false, ...over });
+const res = (id: string, sesionId: string, estado = 'CONFIRMADA') => ({ id, sesionId, estado });
+
+test('próximas de su clase fija: solo las del motor, confirmadas, futuras y en su hueco, por orden', () => {
+  const sesiones = [ses('s-1', '2026-09-29'), ses('s-2', '2026-09-22'), ses('s-3', '2026-10-06'), ses('s-4', '2026-10-13')];
+  const reservas = [res('res-pf-a', 's-1'), res('res-pf-b', 's-2'), res('res-pf-c', 's-3'), res('res-pf-d', 's-4')];
+  const r = proximasDeUnaPlaza(PLAZA, reservas, sesiones, '2026-09-21', '10:00', 3);
+  assert.deepEqual(r.map((x) => x.fecha), ['2026-09-22', '2026-09-29', '2026-10-06'], 'las tres primeras, en orden, sin la cuarta');
+  assert.deepEqual(r[0], { reservaId: 'res-pf-b', sesionId: 's-2', fecha: '2026-09-22', hora: '18:00' });
+});
+
+test('próximas de su clase fija: no cuentan la reservada a mano, la cancelada, la pasada ni la de otro hueco', () => {
+  const sesiones = [
+    ses('s-mano', '2026-09-22'), ses('s-canc', '2026-09-29'), ses('s-pasada', '2026-09-15'),
+    ses('s-otra-sala', '2026-10-06', { salaId: 'sala-2' }), ses('s-otra-hora', '2026-10-13', { hora: '19:00' }),
+    ses('s-otro-dia', '2026-09-23'), ses('s-clase-cancelada', '2026-10-20', { cancelada: true }), ses('s-ok', '2026-10-27'),
+  ];
+  const reservas = [
+    res('res-1234', 's-mano'), // reservada a mano en su hueco: NO es de su clase fija
+    res('res-pf-canc', 's-canc', 'CANCELADA'), res('res-pf-pasada', 's-pasada'),
+    res('res-pf-sala', 's-otra-sala'), res('res-pf-hora', 's-otra-hora'), res('res-pf-dia', 's-otro-dia'),
+    res('res-pf-clase-cancelada', 's-clase-cancelada'), res('res-pf-ok', 's-ok'),
+  ];
+  assert.deepEqual(proximasDeUnaPlaza(PLAZA, reservas, sesiones, '2026-09-21').map((x) => x.reservaId), ['res-pf-ok']);
+});
+
+test('próximas de su clase fija: la de hoy cuenta mientras no haya empezado', () => {
+  const sesiones = [ses('s-hoy', '2026-09-22')];
+  const reservas = [res('res-pf-hoy', 's-hoy')];
+  assert.equal(proximasDeUnaPlaza(PLAZA, reservas, sesiones, '2026-09-22', '17:00').length, 1);
+  assert.equal(proximasDeUnaPlaza(PLAZA, reservas, sesiones, '2026-09-22', '18:30').length, 0);
 });

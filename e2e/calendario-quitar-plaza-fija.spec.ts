@@ -65,6 +65,9 @@ test.describe('Calendario · plaza fija y recuperación en la lista de una clase
     await expect(filaDe(page, 'María García Fernández').getByText('Fija', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(filaDe(page, 'Laura Martín').getByText('Recuperación', { exact: true })).toBeVisible();
     await expect(filaDe(page, 'Carmen Del Río Sánchez').getByText('Fija', { exact: true })).toHaveCount(0);
+    // De un vistazo, quién está por qué: la reserva de una vez también lleva su etiqueta.
+    await expect(filaDe(page, 'Carmen Del Río Sánchez').getByText('Reserva', { exact: true })).toBeVisible();
+    await expect(filaDe(page, 'María García Fernández').getByText('Reserva', { exact: true })).toHaveCount(0);
 
     await filaDe(page, 'María García Fernández').getByRole('button', { name: 'Quitar reserva' }).click();
     await expect(page.getByText(/^Sigue con su plaza fija: solo se quita de esta clase/)).toBeVisible();

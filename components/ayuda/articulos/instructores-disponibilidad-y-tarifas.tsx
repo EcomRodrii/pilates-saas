@@ -20,6 +20,14 @@ export default function Contenido() {
         La tarifa la fija la propietaria o manager, nunca la propia instructora — ella solo puede consultar la suya,
         no editarla. Sirve de base para la liquidación mensual de horas trabajadas.
       </p>
+      <p>
+        Por defecto, la parte variable de la liquidación son las <strong>horas de clase</strong> por la tarifa, con
+        recargo en las sustituciones. Si tu equipo ficha la entrada y la salida, puedes calcularla por{' '}
+        <strong>horas fichadas</strong> en su lugar: en Equipo → Liquidaciones, «Parte variable calculada por». Lo
+        cambia solo la propietaria. Por horas fichadas se pagan las jornadas cerradas del mes (sin recargo de
+        sustitución: esas horas ya están dentro de lo fichado), y una liquidación con jornadas sin cerrar no se puede
+        confirmar hasta corregirlas en Equipo → Tiempo trabajado.
+      </p>
 
       <AyudaResultado>
         Un cambio de tarifa no toca las liquidaciones ya confirmadas o pagadas. Una que siga en borrador sí se

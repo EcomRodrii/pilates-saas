@@ -10,11 +10,13 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
-import { getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
+import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { cancelarReserva, aceptarOfertaEspera } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato';
-import { nombreDia } from '@/lib/student/plaza-fija';
+import { diaSemanaDe } from '@/lib/student/plaza-fija';
+import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
+import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
 import { añadirAlCalendario } from '@/lib/student/enlaces-clase';
 import { Badge, EnCursoBadge } from '@/components/student/ui/Badge';
 import { useAhoraMs } from '@/lib/student/use-ahora';
@@ -22,24 +24,18 @@ import { estaEnCurso } from '@/lib/student/estado-clase';
 import { etiquetaHistorial } from '@/lib/student/etiqueta-historial';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
-import type { Clase } from '@/lib/student/tipos';
-import type { PlazaFijaVista } from '@/lib/student/tipos';
 
 // Feedback real de una propietaria en prueba (14-sep): una socia no sabía que
-// podía cancelar SOLO un día de su plaza fija sin perder el hueco semanal —
-// esta tarjeta usaba el mismo badge "Reservada ✓" que cualquier otra clase, y
-// el diálogo de cancelar nunca decía que era su plaza fija. Comparación por
-// nombre (sala/tipo), no por id: `getPlazaFija` (F2) ya proyecta la plaza con
-// nombres resueltos para pintarla, y `Clase` no trae más que eso mismo.
-// De cuál de sus plazas es esta clase (quien viene lunes y miércoles tiene dos),
-// para que el aviso al cancelar nombre el día correcto. `null` = no es de ninguna.
-function plazaDeLaClase(plazas: PlazaFijaVista[], c: Clase): PlazaFijaVista | null {
-  return plazas.find((plaza) => plaza.estado === 'ACTIVA'
-    && new Date(`${c.fecha}T12:00:00`).getDay() === plaza.diaSemana
-    && c.hora === plaza.hora
-    && c.sala === plaza.sala
-    && (!plaza.tipo || c.tipo === plaza.tipo)) ?? null;
-}
+// podía cancelar SOLO un día de su clase fija sin perder el hueco semanal — esta
+// tarjeta usaba el mismo badge «Reservada ✓» que cualquier otra clase.
+//
+// ⚠️ Una reserva es de su clase fija por su ID (`res-pf-`, la crea el motor), NO
+// por coincidir con el horario de una plaza. Antes se comparaba por sala, día y
+// hora: una reserva hecha a mano en el mismo horario también salía como «Tu plaza
+// fija», y el aviso de cancelar le prometía «seguirás apuntada cada semana» a
+// quien no lo estaba por ese camino. Misma regla que el panel
+// (`marcaReserva`, lib/plazas-fijas-cancelacion.ts).
+const esClaseFija = (reservaId: string) => reservaId.startsWith('res-pf-');
 
 // Mis clases (§A.9): próximas / historial, con cancelación y salida de la lista
 // de espera.
@@ -71,10 +67,10 @@ export default function MisReservasPage() {
   const ahoraMs = useAhoraMs();
 
   const cargar = useCallback(async () => {
-    const [reservas, clases, instructoras, { plazas }] = await Promise.all([
-      getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug),
+    const [reservas, clases, instructoras] = await Promise.all([
+      getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug),
     ]);
-    return { reservas, clases, instructoras, plazas };
+    return { reservas, clases, instructoras };
   }, [estudio.slug]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
@@ -101,7 +97,7 @@ export default function MisReservasPage() {
 
   const sel = items.find((x) => x.r.id === cancelId);
   const aviso = sel ? avisoCancelacion(sel.c, estudio.politicaCancelacionHoras) : null;
-  const selPlaza = sel && sel.r.estado !== 'en-espera' ? plazaDeLaClase(data?.plazas ?? [], sel.c) : null;
+  const selEsFija = !!sel && sel.r.estado !== 'en-espera' && esClaseFija(sel.r.id);
 
   // Sin `useCallback` a propósito: cierra sobre `sel`, que se deriva en el
   // render a partir de `data`, y el compilador de React no puede preservar esa
@@ -125,15 +121,7 @@ export default function MisReservasPage() {
     setCancelId(null);
     // El mensaje sale de lo que dijo el SERVIDOR, no de lo que calculó el aviso
     // previo: la ventana real puede diferir (tipo de clase con la suya propia).
-    toast(!res.eraConfirmada
-      ? 'Has salido de la lista de espera'
-      : res.recuperacionCreada
-        ? `Cancelada · tienes una clase para recuperar${res.recuperacionCaducaEl ? ` hasta el ${fechaCorta(res.recuperacionCaducaEl)}` : ''} ✓`
-        : res.recuperacionAlCerrarSemana
-          ? 'Cancelada · si no usas ese hueco esta semana, al acabarla tendrás una clase para recuperar ✓'
-          : res.bonoDevuelto
-          ? 'Cancelada · sesión devuelta a tu bono ✓'
-          : 'Cancelada — la sesión no se devuelve');
+    toast(mensajeTrasCancelar(res, { esClaseFija: !!sel && esClaseFija(sel.r.id), fechaCorta }));
     // Y se recarga: la plaza vuelve al aforo y puede haber promocionado a
     // alguien de la cola. Tachar la fila a mano enseñaría un estado inventado.
     reintentar();
@@ -243,7 +231,7 @@ export default function MisReservasPage() {
                 const i = data.instructoras.find((x) => x.id === c.instructoraId);
                 const av = avisoCancelacion(c, estudio.politicaCancelacionHoras);
                 const espera = r.estado === 'en-espera';
-                const esFija = !espera && plazaDeLaClase(data.plazas, c) !== null;
+                const esFija = !espera && esClaseFija(r.id);
                 // P-5: la oferta vive hasta `ofertaExpiraEn` — pasado ese
                 // instante el cron ya la ha caducado y el sitio no es suyo,
                 // aunque el catálogo todavía no se haya recargado.
@@ -271,7 +259,7 @@ export default function MisReservasPage() {
                           ? '¡Plaza libre!'
                           : espera
                             ? `Lista de espera${r.posicionEspera ? ` · ${r.posicionEspera}ª` : ''}`
-                            : esFija ? 'Tu plaza fija ✓' : 'Reservada ✓'}
+                            : esFija ? 'Tu clase fija ✓' : 'Reservada ✓'}
                       </Badge>
                       )}
                     </div>
@@ -365,24 +353,30 @@ export default function MisReservasPage() {
       <ConfirmationDialog
         open={Boolean(cancelId)}
         onClose={() => { if (!cancelando) setCancelId(null); }}
-        titulo={sel?.r.estado === 'en-espera' ? '¿Salir de la lista de espera?' : '¿Cancelar esta clase?'}
+        titulo={sel?.r.estado === 'en-espera' ? '¿Salir de la lista de espera?' : selEsFija ? TEXTOS_PLAZA_FIJA.noPuedoTitulo : '¿Cancelar esta clase?'}
         cuerpo={sel ? `${sel.c.nombre} · ${etiquetaDia(sel.c.fecha)} ${sel.c.hora}` : ''}
         confirmar={sel?.r.estado === 'en-espera'
           ? 'Sí, salir'
+          : selEsFija ? TEXTOS_PLAZA_FIJA.noPuedoConfirmar
           : aviso?.devolveriaCredito ? 'Sí, cancelar y recuperar sesión' : 'Sí, cancelar igualmente'}
-        cancelar="Mantener mi reserva"
+        cancelar={selEsFija ? TEXTOS_PLAZA_FIJA.noPuedoMantener : 'Mantener mi reserva'}
         tono="danger"
         loading={cancelando}
         onConfirm={confirmarCancelacion}
       >
-        {selPlaza && (
-          <div style={{ background: 'var(--accent-soft)', borderRadius: 'var(--radius-sm)', padding: '11px 14px', marginTop: 13 }}>
+        {/* Una clase fija NO descuenta sesión de ningún bono: hablarle de «recuperar
+            la sesión de tu bono» era falso. Se le dice qué toca de verdad. */}
+        {sel && selEsFija && aviso && (
+          <div data-testid="cancelar-clase-fija-aviso" style={{ background: 'var(--accent-soft)', borderRadius: 'var(--radius-sm)', padding: '11px 14px', marginTop: 13, display: 'flex', flexDirection: 'column', gap: 6 }}>
             <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>
-              Esto NO cancela tu plaza fija de los {nombreDia(selPlaza.diaSemana)} — solo esta clase. Seguirás apuntada cada semana.
+              {TEXTOS_PLAZA_FIJA.noPuedoSolo(diaSemanaDe(sel.c.fecha))}
+            </p>
+            <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>
+              {aviso.devolveriaCredito ? TEXTOS_PLAZA_FIJA.noPuedoATiempo : TEXTOS_PLAZA_FIJA.noPuedoTarde(aviso.horasVentana)}
             </p>
           </div>
         )}
-        {sel && sel.r.estado !== 'en-espera' && (
+        {sel && sel.r.estado !== 'en-espera' && !selEsFija && (
           <div
             style={{
               background: aviso?.devolveriaCredito ? 'var(--accent-soft)' : 'var(--warning-soft)',

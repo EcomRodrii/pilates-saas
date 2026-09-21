@@ -23,9 +23,19 @@ export interface TarifaParaLiquidacion {
 
 export type LineaDetalleLiquidacion =
   | { tipo: 'propia' | 'sustitucion'; sesionId: string; horas: number; importe: number; sinTarifa: boolean }
+  | { tipo: 'fichado'; horas: number; importe: number; sinTarifa: boolean }
   | { tipo: 'penalizaciones'; totalCobrado: number; repartidoEur: number };
 
+/**
+ * Con qué se calcula la parte variable. 'CLASES' (por defecto): horas de clase ×
+ * tarifa, con recargo en las sustituciones. 'HORAS_FICHADAS': horas de jornadas
+ * cerradas × tarifa; sin recargo, porque las clases que cubrió ya están dentro de
+ * lo que fichó.
+ */
+export type ModoLiquidacion = 'CLASES' | 'HORAS_FICHADAS';
+
 export interface LiquidacionCalculada {
+  modo: ModoLiquidacion;
   baseEur: number;
   nClasesPropias: number;
   variablePropiasEur: number;
@@ -34,6 +44,10 @@ export interface LiquidacionCalculada {
   nPenalizaciones: number;
   repartoPenalizacionesEur: number;
   nClasesSinTarifa: number;
+  /** Solo en 'HORAS_FICHADAS': minutos de jornadas cerradas del mes. */
+  minutosFichados: number | null;
+  /** Jornadas del mes abiertas o por revisar: no se pagan, y no se confirma con ellas. */
+  jornadasSinCerrar: number;
   totalEur: number;
   detalle: LineaDetalleLiquidacion[];
 }
@@ -55,8 +69,13 @@ export function calcularLiquidacion(params: {
   penalizacionesCobradasEur: number[]; // importes ya filtrados por instructora y periodo
   tarifa: TarifaParaLiquidacion;
   repartoPenalizacionPct: number | null; // studios.instructor_reparto_penalizacion_pct
+  modo?: ModoLiquidacion;
+  /** Obligatorio en 'HORAS_FICHADAS': lo fichado en el periodo. */
+  fichaje?: { minutosCerrados: number; jornadasSinCerrar: number };
 }): LiquidacionCalculada {
   const { sesionesPropias, sesionesSustitucion, penalizacionesCobradasEur, tarifa, repartoPenalizacionPct } = params;
+  const modo: ModoLiquidacion = params.modo ?? 'CLASES';
+  if (modo === 'HORAS_FICHADAS' && !params.fichaje) throw new Error('calcularLiquidacion: falta el fichaje en modo HORAS_FICHADAS');
   const detalle: LineaDetalleLiquidacion[] = [];
 
   const baseEur = redondear2(tarifa.baseMensualEur ?? 0);
@@ -64,23 +83,33 @@ export function calcularLiquidacion(params: {
 
   let variablePropiasEur = 0;
   let nClasesSinTarifa = 0;
-  for (const s of sesionesPropias) {
-    const horas = horasDeSesion(s);
+  let variableSustitucionEur = 0;
+  if (modo === 'HORAS_FICHADAS') {
+    const horas = params.fichaje!.minutosCerrados / 60;
     const sinTarifa = tarifa.tarifaHora === null;
     const importe = sinTarifa ? 0 : redondear2(horas * (tarifa.tarifaHora as number));
-    if (sinTarifa) nClasesSinTarifa++;
-    variablePropiasEur += importe;
-    detalle.push({ tipo: 'propia', sesionId: s.id, horas: redondear2(horas), importe, sinTarifa });
-  }
+    // El aviso «sin tarifa» sigue contando clases, como en el otro modo.
+    if (sinTarifa) nClasesSinTarifa = sesionesPropias.length + sesionesSustitucion.length;
+    variablePropiasEur = importe;
+    detalle.push({ tipo: 'fichado', horas: redondear2(horas), importe, sinTarifa });
+  } else {
+    for (const s of sesionesPropias) {
+      const horas = horasDeSesion(s);
+      const sinTarifa = tarifa.tarifaHora === null;
+      const importe = sinTarifa ? 0 : redondear2(horas * (tarifa.tarifaHora as number));
+      if (sinTarifa) nClasesSinTarifa++;
+      variablePropiasEur += importe;
+      detalle.push({ tipo: 'propia', sesionId: s.id, horas: redondear2(horas), importe, sinTarifa });
+    }
 
-  let variableSustitucionEur = 0;
-  for (const s of sesionesSustitucion) {
-    const horas = horasDeSesion(s);
-    const sinTarifa = tarifa.tarifaHora === null;
-    const importe = sinTarifa ? 0 : redondear2(horas * (tarifa.tarifaHora as number) * recargoFactor);
-    if (sinTarifa) nClasesSinTarifa++;
-    variableSustitucionEur += importe;
-    detalle.push({ tipo: 'sustitucion', sesionId: s.id, horas: redondear2(horas), importe, sinTarifa });
+    for (const s of sesionesSustitucion) {
+      const horas = horasDeSesion(s);
+      const sinTarifa = tarifa.tarifaHora === null;
+      const importe = sinTarifa ? 0 : redondear2(horas * (tarifa.tarifaHora as number) * recargoFactor);
+      if (sinTarifa) nClasesSinTarifa++;
+      variableSustitucionEur += importe;
+      detalle.push({ tipo: 'sustitucion', sesionId: s.id, horas: redondear2(horas), importe, sinTarifa });
+    }
   }
 
   const totalCobradoPenalizaciones = penalizacionesCobradasEur.reduce((a, b) => a + b, 0);
@@ -94,6 +123,7 @@ export function calcularLiquidacion(params: {
   const totalEur = redondear2(baseEur + variablePropiasEur + variableSustitucionEur + repartoPenalizacionesEur);
 
   return {
+    modo,
     baseEur,
     nClasesPropias: sesionesPropias.length,
     variablePropiasEur,
@@ -102,6 +132,8 @@ export function calcularLiquidacion(params: {
     nPenalizaciones: penalizacionesCobradasEur.length,
     repartoPenalizacionesEur,
     nClasesSinTarifa,
+    minutosFichados: modo === 'HORAS_FICHADAS' ? params.fichaje!.minutosCerrados : null,
+    jornadasSinCerrar: params.fichaje?.jornadasSinCerrar ?? 0,
     totalEur,
     detalle,
   };

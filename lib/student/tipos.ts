@@ -206,7 +206,11 @@ export interface PlazaFijaVista {
   sinClase: boolean;
   /** Pausa con fechas que aún no ha terminado; `enCurso` = hoy está dentro. */
   pausa: { desde: string; hasta: string; enCurso: boolean } | null;
+  /** Sus próximas clases YA reservadas por esta clase fija (las que crea el motor), la más cercana primero. */
+  proximas: ProximaClaseFijaVista[];
 }
+/** Una próxima clase de su clase fija, con la ventana de cancelación de SU tipo de clase (`null` = la del estudio). */
+export type ProximaClaseFijaVista = import('./plaza-fija.ts').ProximaClaseFija & { ventanaCancelacionHoras: number | null };
 /**
  * ⚠️ NO se redeclara aquí: se reexporta la de `plaza-fija.ts`, que es donde vive
  * la proyección que la construye. Estaban las dos escritas a mano y a la

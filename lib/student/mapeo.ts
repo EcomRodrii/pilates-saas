@@ -10,7 +10,7 @@ import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
 import {
   plazaFijaEnClase as plazaFijaEnClaseDe, proyectarPlazasFijas as plazasFijasDe, proyectarRecuperaciones as recuperacionesDe,
-  tieneCuotaQueCubre,
+  proximasDeUnaPlaza, tieneCuotaQueCubre,
   type PeticionPlazaFijaMin, type PlazaFijaEnClase, type PlazaFijaMin, type RecuperacionMin,
 } from './plaza-fija.ts';
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
@@ -473,7 +473,7 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
   // La próxima sale del horario publicado —la clase de verdad en su hueco—, en
   // fecha y hora del estudio, no del móvil.
   const sesiones = (d.sesiones ?? []).map((s) => ({
-    fecha: hoyEnEstudio(new Date(s.inicio)), hora: horaEstudio(s.inicio),
+    id: s.id, fecha: hoyEnEstudio(new Date(s.inicio)), hora: horaEstudio(s.inicio),
     salaId: s.salaId, tipoClaseId: s.tipoClaseId, cancelada: s.cancelada,
   }));
   return plazasFijasDe(d.socia?.plazasFijas ?? [], hoyISO, horaAhora, sesiones, d.socia?.peticionesPlazaFija ?? []).map((p) => ({
@@ -482,6 +482,13 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
     tipo: p.tipoClaseId ? ((d.tiposClase ?? []).find((t) => t.id === p.tipoClaseId)?.nombre ?? null) : null,
     estado: p.estado, proximaFecha: p.proximaFecha, sinClase: p.sinClase, vigenciaHasta: p.vigenciaHasta, pausa: p.pausa,
     pausaPedida: p.pausaPedida,
+    // Lo que su clase fija le tiene ya reservado. Una plaza en pausa o sin clase no lo enseña.
+    proximas: p.estado !== 'ACTIVA' ? [] : proximasDeUnaPlaza(
+      { diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId }, d.socia?.reservas ?? [], sesiones, hoyISO, horaAhora,
+    ).map((x) => {
+      const tipoId = (d.sesiones ?? []).find((s) => s.id === x.sesionId)?.tipoClaseId;
+      return { ...x, ventanaCancelacionHoras: (d.tiposClase ?? []).find((t) => t.id === tipoId)?.ventanaCancelacionHoras ?? null };
+    }),
   }));
 }
 

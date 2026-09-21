@@ -133,6 +133,37 @@ export function proyectarPlazasFijas(
 
 export function nombreDia(diaSemana: number): string { return DIAS[diaSemana] ?? ''; }
 
+/** Una de las próximas clases que el sistema le tiene ya reservadas por su clase fija. */
+export interface ProximaClaseFija { reservaId: string; sesionId: string; fecha: string; hora: string }
+
+/**
+ * Las próximas clases que su clase fija le tiene YA reservadas: las reservas que
+ * crea el motor (`res-pf-`), confirmadas, en una clase que sigue en pie y que cae
+ * en el hueco de su plaza (día, hora y sala). Una reserva hecha a mano en ese
+ * mismo horario NO es de su clase fija y no entra aquí: sale en «Mis clases».
+ *
+ * `fecha` y `hora` de las sesiones ya vienen en la zona del estudio.
+ */
+export function proximasDeUnaPlaza(
+  plaza: { diaSemana: number; hora: string; salaId: string },
+  reservas: { id: string; sesionId: string; estado: string }[],
+  sesiones: { id: string; fecha: string; hora: string; salaId: string; cancelada: boolean }[],
+  hoyISO: string,
+  horaAhora = '00:00',
+  max = 3,
+): ProximaClaseFija[] {
+  const porId = new Map(sesiones.map((s) => [s.id, s]));
+  const salida: ProximaClaseFija[] = [];
+  for (const r of reservas) {
+    if (!r.id.startsWith('res-pf-') || r.estado !== 'CONFIRMADA') continue;
+    const s = porId.get(r.sesionId);
+    if (!s || s.cancelada || s.salaId !== plaza.salaId || s.hora !== plaza.hora || dow(s.fecha) !== plaza.diaSemana) continue;
+    if (s.fecha < hoyISO || (s.fecha === hoyISO && s.hora < horaAhora)) continue;
+    salida.push({ reservaId: r.id, sesionId: s.id, fecha: s.fecha, hora: s.hora });
+  }
+  return salida.sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, max);
+}
+
 export type PlazaFijaEnClase =
   | { estado: 'PUEDE_PEDIR' }
   | { estado: 'PEDIDA'; peticionId: string }
