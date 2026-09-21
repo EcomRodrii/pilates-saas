@@ -55,6 +55,7 @@ const DESTINO: Record<string, { destino: Destino; motivo: string }> = {
   instructor_enlaces_vigentes: { destino: 'revocar', motivo: 'sin fila el enlace firmado se da por vigente: centinela, nunca delete' },
   liquidaciones_instructoras: { destino: 'fiscal', motivo: 'pagos a la instructora' },
   instructor_tarifas: { destino: 'fiscal', motivo: 'base de las liquidaciones' },
+  instructor_work_sessions: { destino: 'fiscal', motivo: 'registro de jornada del personal: hay que conservarlo; sin la ficha (anonimizada) no identifica a nadie' },
   contenido_portal_banners: { destino: 'fuera', motivo: 'contenido del estudio; created_by solo es autoría' },
   novedades_estudio: { destino: 'fuera', motivo: 'contenido del estudio; created_by solo es autoría' },
   videos_on_demand: { destino: 'fuera', motivo: 'el asset vive en Stream y nadie lo borra: la fila no se borra antes que él' },
