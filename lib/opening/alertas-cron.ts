@@ -102,6 +102,7 @@ export async function barrerAlertasApertura(admin: SupabaseClient, now = new Dat
         const [siguiente] = recomendar({
           respuestas: estado.respuestas,
           hayClasesPublicadas: analisis.sesionesEnVentana > 0,
+          alertas: detectadas.map(a => a.tipo),
           hayPlanes: planes.some(p => p.activo),
           hayEtapaFundadora: etapas.some(e => e.etapa === 'FUNDADORA'),
           // El brief va a toda la gerencia: el paso se nombra, no se enlaza.

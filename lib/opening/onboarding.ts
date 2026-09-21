@@ -89,6 +89,8 @@ export interface Recomendacion { id: string; titulo: string; motivo: string; hre
 export interface ContextoRecomendaciones {
   respuestas: RespuestasOnboarding | null;
   hayClasesPublicadas: boolean;
+  /** Tipos de alerta abiertos: lo que ya avisa una alerta no se repite como paso. */
+  alertas: string[];
   hayPlanes: boolean;
   hayEtapaFundadora: boolean;
   /** Filtro de rol: la API pasa puedeVer(rol, href). */
@@ -104,7 +106,7 @@ export function recomendar(c: ContextoRecomendaciones): Recomendacion[] {
   const objetivos = new Set(c.respuestas?.objetivos ?? []);
   const out: Recomendacion[] = [];
 
-  if (!c.hayClasesPublicadas) {
+  if (!c.hayClasesPublicadas && !c.alertas.includes('SIN_HORARIO')) {
     out.push({ id: 'horario', titulo: 'Publica tu horario', motivo: 'Sin clases en el calendario nadie puede reservar ni comprar para ellas.', href: '/calendario' });
   }
   if (objetivos.has('FUNDADORAS') && !c.hayEtapaFundadora) {

@@ -21,7 +21,7 @@ function Opcion({ activa, onClick, children, unica = false }: { activa: boolean;
       className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-[12.5px] transition-colors ${
         activa ? 'border-brand-secondary bg-brand/10 text-foreground' : 'border-border bg-background text-foreground hover:bg-muted'}`}
     >
-      <span className={`flex size-4 shrink-0 items-center justify-center ${unica ? 'rounded-full' : 'rounded'} border ${activa ? 'border-brand-secondary bg-brand-secondary text-white' : 'border-border'}`}>
+      <span className={`flex size-4 shrink-0 items-center justify-center ${unica ? 'rounded-full' : 'rounded'} border ${activa ? 'border-brand-secondary bg-brand-secondary text-white' : 'border-muted-foreground/60 bg-card'}`}>
         {activa && <Check size={11} />}
       </span>
       {children}
