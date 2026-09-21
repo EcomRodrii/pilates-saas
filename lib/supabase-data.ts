@@ -4948,6 +4948,9 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('creditosCaducanMeses' in changes) db.creditos_caducan_meses = changes.creditosCaducanMeses;
   if ('rachaClasesSemana' in changes) db.racha_clases_semana = changes.rachaClasesSemana;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
+  // GRANT de columna en migr 20260921145514; valores cerrados por CHECK.
+  if ('recordatorioLargoHoras' in changes) db.recordatorio_largo_horas = changes.recordatorioLargoHoras;
+  if ('recordatorioCortoMinutos' in changes) db.recordatorio_corto_minutos = changes.recordatorioCortoMinutos;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
   if ('recuperacionCaducidadTipo' in changes) db.recuperacion_caducidad_tipo = changes.recuperacionCaducidadTipo;
   if ('recuperacionCaducidadDias' in changes) db.recuperacion_caducidad_dias = changes.recuperacionCaducidadDias;
@@ -5343,6 +5346,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     currentPeriodEnd: r.current_period_end ?? null,
     trialEndsAt: r.trial_ends_at ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
+    recordatorioLargoHoras: r.recordatorio_largo_horas ?? 24,
+    recordatorioCortoMinutos: r.recordatorio_corto_minutos ?? 60,
     creditosNombre: r.creditos_nombre ?? null,
     creditosCaducanMeses: r.creditos_caducan_meses ?? null,
     rachaClasesSemana: r.racha_clases_semana ?? null,

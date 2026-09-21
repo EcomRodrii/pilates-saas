@@ -154,6 +154,10 @@ export interface Studio {
   trialEndsAt: string | null;
   // Política de reservas y cancelaciones (auditoría C-2/C-4).
   cancelacionVentanaHoras: number;
+  /** Recordatorio largo (push + email + WhatsApp): 12, 24 o 48 h antes. */
+  recordatorioLargoHoras?: number;
+  /** Recordatorio corto (solo push): 30, 60 o 120 min antes. */
+  recordatorioCortoMinutos?: number;
   /** Cómo llama el estudio a su moneda de fidelización. `null` = la del producto. */
   creditosNombre?: string | null;
   /** Meses que duran los créditos desde la última ganancia. `null` = no caducan. */

@@ -435,6 +435,8 @@ export interface DatosHerramientas {
     /** Lo que dice `Notification.permission`; `null` = aún no se ha mirado. */
     push: 'granted' | 'denied' | 'default' | 'unsupported' | null;
   } | null;
+  /** «Avisos en el móvil»: antelación del recordatorio y cuántos textos reescribió (`null` = sin leer). */
+  avisosMovil?: { largoHoras: number; cortoMinutos: number; textosPropios: number | null } | null;
 }
 
 function enVigor(x: ConVigencia, ahoraMs: number): boolean {
@@ -493,6 +495,18 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
       // calendario embebido. Sin ninguna, la fila cuenta qué hay dentro.
       const n = d.widgetDominios?.length ?? 0;
       return n > 0 ? `${contar(n, 'web autorizada', 'webs autorizadas')} para el calendario` : null;
+    }
+
+    case 'avisos-del-movil': {
+      if (!d.avisosMovil) return null;
+      const { largoHoras, cortoMinutos, textosPropios } = d.avisosMovil;
+      const corto = cortoMinutos < 60 ? `${cortoMinutos} min` : `${cortoMinutos / 60} h`;
+      return unir([
+        `Recordatorio ${largoHoras} h y ${corto}`,
+        textosPropios == null ? null
+          : textosPropios === 0 ? 'textos de Tentare'
+          : contar(textosPropios, 'texto tuyo', 'textos tuyos'),
+      ]);
     }
 
     case 'tus-avisos': {
