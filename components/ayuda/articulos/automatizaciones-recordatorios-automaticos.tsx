@@ -33,7 +33,7 @@ export default function Contenido() {
         Estos avisos no se encienden ni se apagan: son parte del producto. La excepción es el correo del
         recordatorio, que puedes apagar en Configuración &gt; Cómo me comunico; apagarlo no apaga el aviso en su app ni el
         WhatsApp. En Configuración &gt; Cómo me comunico &gt; Avisos en el móvil eliges cuánto antes llega el
-        recordatorio y puedes reescribir con tus palabras lo que dice cada aviso que reciben tus alumnas. Cada alumna,
+        recordatorio y puedes reescribir con tus palabras lo que dice cada aviso que reciben tus alumnas (con «Enviarme una prueba» te llega a tu móvil antes de guardarlo). Cada alumna,
         a su vez, puede apagar desde su app los avisos que no quiera en el móvil, uno a uno. Lo que eliges tú es qué
         avisos te llegan a ti y por dónde, en Configuración &gt; Mis avisos, y el WhatsApp de tu estudio se conecta en
         Configuración &gt; Cómo me comunico.
