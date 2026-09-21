@@ -224,7 +224,7 @@ test.describe('Etapas de lanzamiento', () => {
     await page.getByLabel('Hasta (incluido)').fill('2026-10-15');
     await page.getByLabel('Plazas (vacío = sin límite)').fill('20');
     await page.getByLabel('Cerrar la venta del plan').check();
-    await expect(page.getByText(/dejará de venderse en tu web y en la app/)).toBeVisible();
+    await expect(page.getByText(/Nunca se venden más plazas de las que pongas/)).toBeVisible();
     const getsAntes = peticiones.get;
     await page.getByRole('button', { name: 'Guardar etapa' }).click();
     // La tarjeta vuelve a pedir sus recomendaciones: si no, seguiría sugiriendo

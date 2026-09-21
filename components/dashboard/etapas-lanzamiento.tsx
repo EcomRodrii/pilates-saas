@@ -203,7 +203,7 @@ export function EtapasLanzamiento({ onCambio }: { onCambio?: () => void }) {
           </fieldset>
           {form.alCompletar === 'CERRAR' && (
             <p className="text-[11px] leading-snug text-muted-foreground sm:col-span-2">
-              El plan dejará de venderse en tu web y en la app. Las cuotas ya vendidas siguen igual. Si dos personas compran a la vez justo en la última plaza, puede venderse una de más.
+              Nunca se venden más plazas de las que pongas: mientras alguien paga, su plaza queda apartada. Al llenarse, el plan deja de venderse en tu web, en la app y en el mostrador; las cuotas ya vendidas siguen igual.
             </p>
           )}
           <div className="flex items-center gap-2 sm:col-span-2">

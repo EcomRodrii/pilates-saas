@@ -71,8 +71,12 @@ export async function liberarPlazaPorRef(admin: SupabaseClient, ref: string): Pr
  * toma la plaza igual.
  */
 export async function confirmarPlazaPorRef(admin: SupabaseClient, ref: string, suscripcionId: string): Promise<void> {
-  const { error } = await admin.rpc('confirmar_plaza_etapa_por_ref', { p_ref: ref, p_suscripcion_id: suscripcionId });
-  if (error) console.error('[opening:cupo] confirmar', ref, error);
+  try {
+    const { error } = await admin.rpc('confirmar_plaza_etapa_por_ref', { p_ref: ref, p_suscripcion_id: suscripcionId });
+    if (error) console.error('[opening:cupo] confirmar', ref, error);
+  } catch (e) {
+    console.error('[opening:cupo] confirmar', ref, e instanceof Error ? e.message : e);
+  }
 }
 
 const PI_CANCELABLE = new Set(['requires_payment_method', 'requires_confirmation', 'requires_action']);
@@ -181,9 +185,15 @@ export async function reservarPlazasPOS(
 export async function confirmarPlazaPOS(
   admin: SupabaseClient, clave: string, planId: string, suscripcionId: string,
 ): Promise<void> {
-  const refs = Array.from({ length: 20 }, (_, n) => refPlazaPOS(clave, planId, n));
-  const { data, error } = await admin.from('launch_stage_plazas').select('stripe_ref')
-    .in('stripe_ref', refs).eq('estado', 'RESERVADA').order('stripe_ref').limit(1);
-  if (error) { console.error('[opening:cupo] plaza POS', error); return; }
-  if (data?.[0]) await confirmarPlazaPorRef(admin, data[0].stripe_ref as string, suscripcionId);
+  // Nunca bloquea la entrega: la venta ya está cobrada (si falla, el trigger
+  // de suscripciones toma plaza igual).
+  try {
+    const refs = Array.from({ length: 20 }, (_, n) => refPlazaPOS(clave, planId, n));
+    const { data, error } = await admin.from('launch_stage_plazas').select('stripe_ref')
+      .in('stripe_ref', refs).eq('estado', 'RESERVADA').order('stripe_ref').limit(1);
+    if (error) { console.error('[opening:cupo] plaza POS', error); return; }
+    if (data?.[0]) await confirmarPlazaPorRef(admin, data[0].stripe_ref as string, suscripcionId);
+  } catch (e) {
+    console.error('[opening:cupo] plaza POS', e instanceof Error ? e.message : e);
+  }
 }
