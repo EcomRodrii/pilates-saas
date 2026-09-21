@@ -79,3 +79,13 @@ test('sin ventaId ni reciboId en la metadata: no toca nada (tipo ninguno)', asyn
   assert.equal(rpcLlamadas.length, 0);
   assert.equal(updates.length, 0);
 });
+
+test('con reciboId, sin PI pero con la sesión caducada: el UPDATE se acota a ESA sesión', async () => {
+  const { admin, updates } = fakeAdmin();
+  const r = await liberarCobroPosFallido(admin, {
+    studioId: 'studio-1', metadata: { reciboId: 'rec-1' }, paymentIntentId: null,
+    checkoutSessionId: 'cs_1', motivo: 'caducado',
+  });
+  assert.equal(r.tipo, 'recibo');
+  assert.deepEqual(updates[0].filtros, [['id', 'rec-1'], ['studio_id', 'studio-1'], ['cobro_mostrador_checkout_session_id', 'cs_1']]);
+});

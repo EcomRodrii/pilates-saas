@@ -68,12 +68,44 @@ test('⚠️ la plaza se devuelve al estudio de la cuenta firmante, no al que di
 test('⚠️ los dos eventos que liberan cupo le pasan el `event` (sin él no hay cuenta que comprobar)', () => {
   const fuente = readFileSync(RUTA, 'utf8');
 
-  // `payment_intent.payment_failed` y `checkout.session.expired`.
+  // `payment_intent.canceled` y `checkout.session.expired`.
   const llamadas = [...fuente.matchAll(/await liberarCupoMatriculaDelWebhook\(([^)]*)\)/g)];
   assert.equal(llamadas.length, 2,
-    'se esperaban exactamente 2 invocaciones (pago rechazado y sesión caducada); si aparece una tercera, revísala también');
+    'se esperaban exactamente 2 invocaciones (PI cancelado y sesión caducada); si aparece una tercera, revísala también');
   for (const l of llamadas) {
     assert.match(l[1], /\bevent\b/,
       'esta invocación no pasa el evento, así que la función no puede resolver la cuenta firmante');
   }
+});
+
+/** El bloque `if (event.type === '<tipo>') { ... }` del manejador. */
+function bloqueDeEvento(fuente: string, tipo: string): string {
+  const inicio = fuente.indexOf(`if (event.type === '${tipo}') {`);
+  assert.notEqual(inicio, -1, `no existe el manejador de ${tipo}`);
+  const abre = fuente.indexOf('{', inicio);
+  let nivel = 0;
+  for (let i = abre; i < fuente.length; i++) {
+    if (fuente[i] === '{') nivel++;
+    else if (fuente[i] === '}' && --nivel === 0) return fuente.slice(abre, i + 1);
+  }
+  throw new Error(`no se pudo delimitar el manejador de ${tipo}`);
+}
+
+// Un rechazo NO cierra el cobro: el PaymentIntent vuelve a
+// `requires_payment_method` y el widget deja pagar con otra tarjeta sobre el
+// MISMO PI (probado en Stripe test, 21-sep-2026). Devolver la plaza aquí
+// regalaba la matrícula a quien pagaba en el segundo intento, sin contar en el
+// cupo. Ver lib/billing/cupo-matricula-abandonado.ts.
+test('⚠️ un pago RECHAZADO no devuelve la plaza de matrícula gratis', () => {
+  const bloque = bloqueDeEvento(readFileSync(RUTA, 'utf8'), 'payment_intent.payment_failed');
+  assert.doesNotMatch(bloque, /liberarCupoMatricula/,
+    '`payment_intent.payment_failed` no es el final del cobro: la plaza vuelve en `payment_intent.canceled`');
+});
+
+test('la plaza vuelve cuando el cobro ya no puede ocurrir: PI cancelado y sesión caducada', () => {
+  const fuente = readFileSync(RUTA, 'utf8');
+  assert.match(bloqueDeEvento(fuente, 'payment_intent.canceled'), /plazaDePICancelado\(/);
+  // La clave de la sesión es la sesión: caduca con `payment_intent: null` si
+  // nadie intentó pagar, y con la clave en el PI ese caso no devolvía nada.
+  assert.match(bloqueDeEvento(fuente, 'checkout.session.expired'), /plazaDeSesionCaducada\(/);
 });

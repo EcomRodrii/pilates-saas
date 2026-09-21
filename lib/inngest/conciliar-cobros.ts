@@ -37,6 +37,10 @@ import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar, consumirCod
 import { metodoRealDeSesion } from '../billing/metodo-real-sesion.ts';
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
+import { liberarCupoMatriculaUnaVez } from '../billing/matricula-online.ts';
+import { cobroPosDeSesionCaducada } from '../pos/cerrar-bizum-fallido.ts';
+import { liberarCobroPosFallido } from '../pos/liberar-cobro-fallido.ts';
+import { pisAbandonadosConPlaza, plazaDePICancelado, plazaDeSesionCaducada, type PlazaADevolver } from '../billing/cupo-matricula-abandonado.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
 import { recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente, type ReciboCobrado } from '../facturas-sin-sellar.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -218,7 +222,93 @@ async function conciliarEstudio(
   for (const p of pendientes) {
     await entregar(admin, stripe, studio.stripe_account_id, p, sesionPorId.get(p.sesionId), piPorId.get(p.sesionId));
   }
+  await devolverPlazasDeMatricula(admin, stripe, studio, [...sesionPorId.values()], [...piPorId.values()]);
+  await soltarCobrosPosCaducados(admin, studio, [...sesionPorId.values()]);
   return pendientes.length;
+}
+
+// QR de Bizum del mostrador caducados sin pagar: se anula la venta (devuelve
+// stock y plaza de matrícula) o se suelta el recibo. Ver
+// `cobroPosDeSesionCaducada`. Los QR duran 30 min, así que la ventana de 12 h
+// los ve de sobra. Idempotente: `fallar_pago_venta_pos` solo toca ventas en
+// PENDIENTE_PAGO, y el recibo va acotado a su sesión o su PI.
+async function soltarCobrosPosCaducados(
+  admin: SupabaseClient,
+  studio: { id: string; stripe_account_id: string },
+  sesiones: Stripe.Checkout.Session[],
+): Promise<void> {
+  for (const s of sesiones) {
+    const cobro = cobroPosDeSesionCaducada(s);
+    if (!cobro) continue;
+    // La metadata solo CONFIRMA el estudio; la autoridad es la cuenta listada.
+    if (s.metadata?.studioId && s.metadata.studioId !== studio.id) continue;
+    await liberarCobroPosFallido(admin, {
+      studioId: studio.id, ...cobro, motivo: 'El enlace de pago caducó sin completarse',
+    });
+  }
+}
+
+// Plazas de «matrícula gratis para las N primeras» de compras que ya no pueden
+// cobrarse. Vive aquí y no solo en el webhook porque en producción el endpoint
+// no está suscrito a `checkout.session.expired` ni a `payment_intent.canceled`
+// (21-sep-2026): sin esto, la plaza de un checkout abandonado no volvía nunca.
+// La regla —y por qué un RECHAZO no cuenta— está en
+// lib/billing/cupo-matricula-abandonado.ts.
+//
+// Corre en el barrido horario (12 h: ve los PI abandonados del Modo B, que se
+// cancelan a las 2 h) y en la vigilancia diaria (72 h: ve las Checkout Sessions
+// del Modo A, que caducan a las 24 h, fuera de la ventana de 12 h). Repetirse
+// es gratis: la devolución es idempotente por clave, también frente al webhook.
+async function devolverPlazasDeMatricula(
+  admin: SupabaseClient,
+  stripe: Stripe,
+  studio: { id: string; stripe_account_id: string },
+  sesiones: Stripe.Checkout.Session[],
+  pis: Stripe.PaymentIntent[],
+): Promise<void> {
+  // La metadata solo CONFIRMA el estudio; la autoridad es la cuenta de la que
+  // se ha listado (mismo criterio que `queEntregar`).
+  const deEsteEstudio = (md: Stripe.Metadata | null | undefined) => !md?.studioId || md.studioId === studio.id;
+  const aDevolver: PlazaADevolver[] = [];
+
+  for (const s of sesiones) {
+    const plaza = plazaDeSesionCaducada(s);
+    if (plaza && deEsteEstudio(s.metadata)) aDevolver.push(plaza);
+  }
+  for (const pi of pis) {
+    const plaza = plazaDePICancelado(pi);
+    if (plaza && deEsteEstudio(pi.metadata)) aDevolver.push(plaza);
+  }
+
+  // Los abandonados se cancelan primero. La plaza vuelve SOLO si Stripe
+  // responde `canceled`: si la socia está pagando justo ahora, Stripe se niega
+  // a cancelar un PI cobrado o en curso, y la plaza se queda gastada — bien
+  // gastada.
+  for (const pi of pisAbandonadosConPlaza(pis, Math.floor(Date.now() / 1000))) {
+    if (!deEsteEstudio(pi.metadata)) continue;
+    try {
+      const cancelado = await stripe.paymentIntents.cancel(
+        pi.id,
+        { cancellation_reason: 'abandoned' },
+        { stripeAccount: studio.stripe_account_id, idempotencyKey: `cupo-matricula-abandono-${pi.id}` },
+      );
+      const plaza = plazaDePICancelado(cancelado);
+      if (plaza) aDevolver.push(plaza);
+    } catch (e) {
+      // Lo normal es que lo haya pagado entre el listado y aquí. Nada que
+      // devolver; se deja rastro solo si no es eso.
+      if ((e as { code?: string }).code !== 'payment_intent_unexpected_state') {
+        Sentry.captureException(e instanceof Error ? e : new Error('cancelar PI abandonado'), {
+          level: 'warning', tags: { area: 'cobros', tipo: 'cupo-matricula' },
+          extra: { studioId: studio.id, paymentIntentId: pi.id },
+        });
+      }
+    }
+  }
+
+  for (const plaza of aDevolver) {
+    await liberarCupoMatriculaUnaVez(admin, plaza.clave, plaza.planId, studio.id);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -246,6 +336,7 @@ async function vigilarEstudio(
   studio: { id: string; stripe_account_id: string },
 ): Promise<number> {
   const { pendientes, sesionPorId, piPorId } = await detectarPendientes(admin, stripe, studio, VENTANA_VIGILANCIA_HORAS);
+  await devolverPlazasDeMatricula(admin, stripe, studio, [...sesionPorId.values()], [...piPorId.values()]);
 
   // Solo lo que ya está FUERA del alcance del barrido de recuperación. Lo más
   // reciente que 12 h no es un problema todavía: el otro cron lo cogerá en su

@@ -62,7 +62,11 @@ test('⚠️ quien la usa lo hace desde una ruta de servidor, no desde una panta
   const culpables = fuentes(['components', 'lib'])
     .filter(ruta => /liberarCupoMatricula/.test(readFileSync(ruta, 'utf8')))
     .map(ruta => ruta.replace(RAIZ + '/', ''))
-    .filter(ruta => ruta !== 'lib/billing/matricula-online.ts');
+    .filter(ruta => ruta !== 'lib/billing/matricula-online.ts')
+    // Cron de Inngest con service_role, nunca en el navegador: devuelve las
+    // plazas de checkouts abandonados, porque el endpoint de producción no está
+    // suscrito a los eventos que las devolverían (ver cupo-matricula-abandonado.ts).
+    .filter(ruta => ruta !== 'lib/inngest/conciliar-cobros.ts');
 
   assert.deepEqual(culpables, [],
     'devolver un cupo es una compensación de servidor. Si una pantalla necesita '
