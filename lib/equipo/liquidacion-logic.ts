@@ -4,6 +4,8 @@
 // puro: recibe datos ya filtrados por periodo/instructora (la capa de datos
 // hace las queries), nunca llama a Date.now() ni toca red/DB — mismo patrón
 // que lib/decision/margen-clase.ts.
+import { hoyEnEstudio } from '../utils.ts';
+
 const MS_HORA = 3600000;
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -103,4 +105,17 @@ export function calcularLiquidacion(params: {
     totalEur,
     detalle,
   };
+}
+
+/**
+ * El periodo (año/mes) de liquidación al que pertenece un instante, en hora del
+ * estudio. Inverso de `rangoMesEstudio`: lo que ese rango mete en un mes, esto lo
+ * devuelve a ese mismo mes. Con `getUTCMonth` una penalización cobrada a las
+ * 00:30 del día 1 en Madrid se buscaba en la liquidación del mes anterior.
+ */
+export function periodoLiquidacionDe(instanteISO: string): { anio: number; mes: number } | null {
+  const fecha = new Date(instanteISO);
+  if (Number.isNaN(fecha.getTime())) return null;
+  const [anio, mes] = hoyEnEstudio(fecha).split('-').map(Number);
+  return { anio, mes };
 }
