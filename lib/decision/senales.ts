@@ -150,7 +150,7 @@ function calcularIndices(s: SnapshotEstudio): IndicesSenal {
 
 const MS_DIA = 86400000;
 
-function frecuenciaDesdeAsistidas(asistidas: Reserva[]): number | null {
+export function frecuenciaDesdeAsistidas(asistidas: Pick<Reserva, 'creadoEn'>[]): number | null {
   if (asistidas.length === 0) return null;
   const ultimaTs = new Date(asistidas[0].creadoEn).getTime();
   const desde = ultimaTs - 8 * 7 * MS_DIA;
