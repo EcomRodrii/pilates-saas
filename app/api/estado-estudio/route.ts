@@ -6,6 +6,8 @@ import {
   puedeGestionarEquipo, puedeMoverDinero, puedeVer, puedeVerFinanzas,
 } from '@/lib/permisos-reglas';
 import { construirEstadoEstudio, contarConCandidatosNetwork, type ConteosEstudio } from '@/lib/estado-estudio';
+import { HORAS_LIMITE_POR_DEFECTO, instructorasGestionables } from '@/lib/fichaje/jornadas-equipo';
+import type { Rol } from '@/lib/types';
 
 // GET /api/estado-estudio — la bandeja única de la home (lib/estado-estudio.ts):
 // qué espera el visto bueno de quien mira, qué está haciendo Tentare solo y qué
@@ -23,7 +25,7 @@ import { construirEstadoEstudio, contarConCandidatosNetwork, type ConteosEstudio
 // Sin plan de por medio, a diferencia de /api/decisiones: esto es operación del
 // día (una reserva por aprobar, una clase sin cubrir), no el Decision OS.
 //
-// Coste: hasta 14 HEAD + 1 select mínimo (sustituciones agotadas) en paralelo,
+// Coste: hasta 15 HEAD + 1 select mínimo (sustituciones agotadas) en paralelo,
 // una vez por carga de la home y compartidos con el contador del menú
 // (lib/estado-estudio-cliente.ts). Si algún día pesa
 // —el proyecto ya ha visto 504 por ráfagas—, el siguiente paso es una única RPC
@@ -73,7 +75,7 @@ export async function GET(req: NextRequest) {
     plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
-    alertasApertura,
+    alertasApertura, jornadasPorRevisar,
   ] = await Promise.all([
     // ── Decidir ──
     // Solo clases que aún no han empezado: una que ya pasó sin cubrir la cierra
@@ -188,6 +190,35 @@ export async function GET(req: NextRequest) {
     // Opening OS: mismo gate que la tarjeta de apertura y la RLS de alertas_opening.
     si(puedeGestionarApertura(rol), () => contar('alertas-apertura', admin.from('alertas_opening')
       .select('id', HEAD).eq('studio_id', studioId).is('resuelta_en', null))),
+    // Mismo gate y mismo filtro de fichas que Tiempo trabajado: una gerente no
+    // cuenta las jornadas de la propietaria ni las de otra gerente.
+    si(gestionaEquipo, async () => {
+      const [equipo, config] = await Promise.all([
+        admin.from('instructores').select('id, rol').eq('studio_id', studioId),
+        admin.from('studio_config_tiempo').select('open_session_limit_hours').eq('studio_id', studioId).maybeSingle(),
+      ]);
+      // Sin saber de quién son las fichas no se puede contar: null, nunca un 0.
+      if (equipo.error || config.error) {
+        console.error('[estado-estudio:jornadas]', equipo.error ?? config.error);
+        return null;
+      }
+      const roles = new Map(((equipo.data ?? []) as { id: string; rol: Rol }[]).map((f) => [f.id, f.rol]));
+      const ids = instructorasGestionables(rol, roles);
+      if (ids.length === 0) return 0;
+      const horas = (config.data as { open_session_limit_hours: number } | null)?.open_session_limit_hours ?? HORAS_LIMITE_POR_DEFECTO;
+      const corte = new Date(ahora.getTime() - horas * 3600_000).toISOString();
+      // Dos recuentos simples y no un `.or(...)`: son estados excluyentes, así que
+      // sumarlos no cuenta nada dos veces.
+      const [marcadas, olvidadas] = await Promise.all([
+        contar('jornadas-marcadas', admin.from('instructor_work_sessions')
+          .select('id', HEAD).eq('studio_id', studioId).in('instructor_id', ids).eq('status', 'PENDING_REVIEW')),
+        contar('jornadas-olvidadas', admin.from('instructor_work_sessions')
+          .select('id', HEAD).eq('studio_id', studioId).in('instructor_id', ids)
+          .eq('status', 'OPEN').lt('check_in_at', corte)),
+      ]);
+      if (marcadas === null || olvidadas === null) return null;
+      return marcadas + olvidadas;
+    }),
   ]);
 
   const conteos: ConteosEstudio = {
@@ -196,7 +227,7 @@ export async function GET(req: NextRequest) {
     plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
-    alertasApertura,
+    alertasApertura, jornadasPorRevisar,
   };
   return NextResponse.json(construirEstadoEstudio(conteos));
 }

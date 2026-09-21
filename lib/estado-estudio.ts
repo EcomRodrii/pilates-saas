@@ -59,6 +59,8 @@ export interface ConteosEstudio {
   reconciliacionesPorRevisar?: number | null;
   /** Alertas de apertura abiertas (Opening OS, lib/opening/alertas.ts). */
   alertasApertura?: number | null;
+  /** Jornadas del equipo abiertas más horas de las que permite el estudio, o marcadas por revisar. */
+  jornadasPorRevisar?: number | null;
   // En marcha
   sustitucionesBuscando?: number | null;
   ofertasListaEspera?: number | null;
@@ -157,6 +159,10 @@ const LINEAS: DefLinea[] = [
     uno: 'Un cobro de caja sin venta registrada', varios: n => `${n} cobros de caja sin venta registrada` },
   // La última: no corre prisa (la clase ya la cubre el motor o la decide la
   // línea de arriba) y solo queda anotado, nunca es una sanción.
+  // Casi siempre una salida sin fichar: hasta que se corrige, esas horas no
+  // cuentan en el mes. Se corrige en Tiempo trabajado, con su motivo.
+  { id: 'jornadasPorRevisar', bandeja: 'decidir', href: '/equipo/tiempo-trabajado',
+    uno: 'Una jornada del equipo sin cerrar por revisar', varios: n => `${n} jornadas del equipo sin cerrar por revisar` },
   { id: 'bajasPorRevisar', bandeja: 'decidir', href: null,
     uno: 'Una baja de última hora del equipo por revisar', varios: n => `${n} bajas de última hora del equipo por revisar` },
 

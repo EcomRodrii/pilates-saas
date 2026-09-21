@@ -20,10 +20,10 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, opciones: { entradaFalla?: boolean; abiertaHaceMin?: number; estadoFalla?: boolean } = {}) {
+async function montar(page: Page, opciones: { entradaFalla?: boolean; abiertaHaceMin?: number; estadoFalla?: boolean; revisar?: boolean } = {}) {
   const contador = { entrada: 0, salida: 0, estado: 0, cuerpos: [] as Record<string, unknown>[] };
   let abierta: { id: string; checkInAt: string; requiereRevision: boolean } | null = opciones.abiertaHaceMin != null
-    ? { id: 'j1', checkInAt: new Date(Date.now() - opciones.abiertaHaceMin * 60_000).toISOString(), requiereRevision: false }
+    ? { id: 'j1', checkInAt: new Date(Date.now() - opciones.abiertaHaceMin * 60_000).toISOString(), requiereRevision: opciones.revisar === true }
     : null;
 
   await montarPortal(page, { conSesion: true, sinSocia: true });
@@ -147,6 +147,17 @@ test.describe('Fichaje de la instructora', () => {
     await tarjeta.click();
     await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/equipo/fichaje$`), { timeout: 30_000 });
     await expect(page.getByTestId('fichaje-estado')).toHaveAttribute('data-abierta', 'true', { timeout: 30_000 });
+  });
+
+  test('con la jornada abierta de más, «Hoy» le recuerda fichar la salida; si no, no dice nada', async ({ page }) => {
+    await montar(page, { abiertaHaceMin: 14 * 60, revisar: true });
+    await page.goto(`/portal/${SLUG}/equipo`);
+    await expect(page.getByTestId('fichaje-hoy-revisar')).toContainText('¿Se te olvidó fichar la salida?', { timeout: 30_000 });
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await montar(page, { abiertaHaceMin: 30 });
+    await page.goto(`/portal/${SLUG}/equipo`);
+    await expect(page.getByTestId('fichaje-hoy')).toContainText('Jornada abierta desde las', { timeout: 30_000 });
+    await expect(page.getByTestId('fichaje-hoy-revisar')).toHaveCount(0);
   });
 
   test('si no se puede leer el fichaje, «Hoy» se ve igual y el acceso sigue ahí', async ({ page }) => {

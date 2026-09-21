@@ -298,6 +298,11 @@ export default function HoyInstructoraPage() {
                     ? `Jornada abierta desde las ${new Date(fichaje.abierta.checkInAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}`
                     : fichaje ? 'No has fichado la entrada' : 'Tu entrada y salida'}
                 </span>
+                {fichaje?.abierta?.requiereRevision && (
+                  <span className="t-meta" data-testid="fichaje-hoy-revisar" style={{ display: 'block', marginTop: 3, color: 'var(--warning)' }}>
+                    ¿Se te olvidó fichar la salida? Fíchala y avisa al estudio de tu hora real.
+                  </span>
+                )}
               </span>
               <span style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>
                 {fichaje?.abierta ? 'Fichar salida →' : fichaje ? 'Fichar entrada →' : 'Fichar →'}
