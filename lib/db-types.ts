@@ -1992,6 +1992,12 @@ export interface RowLiquidacionesInstructoras {
   requiere_revision: boolean | null;
   // migr 20260909220851.
   revision_motivo: string | null;
+  // migr 20260921183019.
+  modo: string | null;
+  // migr 20260921183019.
+  minutos_fichados: number | null;
+  // migr 20260921183019.
+  jornadas_sin_cerrar: number | null;
 }
 
 export interface RowRetoParticipaciones {
@@ -3200,6 +3206,8 @@ export interface RowStudioConfigTiempo {
   check_in_window_minutes: number;
   open_session_limit_hours: number;
   updated_at: string;
+  // migr 20260921183019.
+  liquidar_por: string | null;
 }
 
 
@@ -6496,6 +6504,9 @@ export type LiquidacionesInstructorasInsert = {
   generada_en?: string | null;
   requiere_revision?: boolean | null | null;
   revision_motivo?: string | null | null;
+  modo?: string | null | null;
+  minutos_fichados?: number | null | null;
+  jornadas_sin_cerrar?: number | null | null;
 }
 
 export type LiquidacionesInstructorasUpdate = {
@@ -6523,6 +6534,9 @@ export type LiquidacionesInstructorasUpdate = {
   generada_en?: string | null;
   requiere_revision?: boolean | null | null;
   revision_motivo?: string | null | null;
+  modo?: string | null | null;
+  minutos_fichados?: number | null | null;
+  jornadas_sin_cerrar?: number | null | null;
 }
 
 export type RetoParticipacionesInsert = {
@@ -8858,6 +8872,7 @@ export type StudioConfigTiempoInsert = {
   check_in_window_minutes?: number | null;
   open_session_limit_hours?: number | null;
   updated_at?: string | null;
+  liquidar_por?: string | null | null;
 }
 
 export type StudioConfigTiempoUpdate = {
@@ -8865,6 +8880,7 @@ export type StudioConfigTiempoUpdate = {
   check_in_window_minutes?: number | null;
   open_session_limit_hours?: number | null;
   updated_at?: string | null;
+  liquidar_por?: string | null | null;
 }
 
 export type Database = {

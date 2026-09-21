@@ -152,3 +152,62 @@ test('periodoLiquidacionDe y rangoMesEstudio coinciden en cada borde del año', 
   }
   assert.equal(periodoLiquidacionDe('no-es-fecha'), null);
 });
+
+// ── Liquidar por horas fichadas (opcional por estudio) ──
+const clase = (id: string, h: number) => ({ id, inicio: '2026-09-15T08:00:00.000Z', fin: new Date(Date.parse('2026-09-15T08:00:00.000Z') + h * 3600_000).toISOString() });
+const TARIFA_FICHAJE = { tarifaHora: 20, baseMensualEur: 100, recargoSustitucionPct: 50 };
+
+test('sin modo, calcula por clases como siempre (compatibilidad)', () => {
+  const r = calcularLiquidacion({ sesionesPropias: [clase('a', 1)], sesionesSustitucion: [clase('b', 1)], penalizacionesCobradasEur: [], tarifa: TARIFA_FICHAJE, repartoPenalizacionPct: null });
+  assert.equal(r.modo, 'CLASES');
+  assert.equal(r.variablePropiasEur, 20);
+  assert.equal(r.variableSustitucionEur, 30);
+  assert.equal(r.minutosFichados, null);
+  assert.equal(r.jornadasSinCerrar, 0);
+  assert.equal(r.totalEur, 150);
+});
+
+test('por horas fichadas: variable = horas cerradas × tarifa, sin recargo; base y penalizaciones igual', () => {
+  const r = calcularLiquidacion({
+    sesionesPropias: [clase('a', 1)], sesionesSustitucion: [clase('b', 1)], penalizacionesCobradasEur: [10],
+    tarifa: TARIFA_FICHAJE, repartoPenalizacionPct: 50,
+    modo: 'HORAS_FICHADAS', fichaje: { minutosCerrados: 450, jornadasSinCerrar: 0 },
+  });
+  assert.equal(r.modo, 'HORAS_FICHADAS');
+  assert.equal(r.variablePropiasEur, 150); // 7,5 h × 20
+  assert.equal(r.variableSustitucionEur, 0);
+  assert.equal(r.repartoPenalizacionesEur, 5);
+  assert.equal(r.totalEur, 255); // 100 + 150 + 5
+  assert.equal(r.minutosFichados, 450);
+  // Las clases se siguen contando, como información.
+  assert.equal(r.nClasesPropias, 1);
+  assert.equal(r.nClasesSustitucion, 1);
+  assert.deepEqual(r.detalle.filter((d) => d.tipo !== 'penalizaciones'), [{ tipo: 'fichado', horas: 7.5, importe: 150, sinTarifa: false }]);
+});
+
+test('por horas fichadas: las jornadas sin cerrar no se pagan pero quedan contadas', () => {
+  const r = calcularLiquidacion({
+    sesionesPropias: [], sesionesSustitucion: [], penalizacionesCobradasEur: [], tarifa: TARIFA_FICHAJE, repartoPenalizacionPct: null,
+    modo: 'HORAS_FICHADAS', fichaje: { minutosCerrados: 60, jornadasSinCerrar: 2 },
+  });
+  assert.equal(r.variablePropiasEur, 20);
+  assert.equal(r.jornadasSinCerrar, 2);
+});
+
+test('por horas fichadas sin tarifa: importe 0 y avisa como en el otro modo', () => {
+  const r = calcularLiquidacion({
+    sesionesPropias: [clase('a', 1)], sesionesSustitucion: [], penalizacionesCobradasEur: [],
+    tarifa: { tarifaHora: null, baseMensualEur: null, recargoSustitucionPct: null }, repartoPenalizacionPct: null,
+    modo: 'HORAS_FICHADAS', fichaje: { minutosCerrados: 120, jornadasSinCerrar: 0 },
+  });
+  assert.equal(r.variablePropiasEur, 0);
+  assert.equal(r.nClasesSinTarifa, 1);
+  assert.equal(r.totalEur, 0);
+});
+
+test('por horas fichadas sin datos de fichaje: falla en vez de pagar 0', () => {
+  assert.throws(() => calcularLiquidacion({
+    sesionesPropias: [], sesionesSustitucion: [], penalizacionesCobradasEur: [], tarifa: TARIFA_FICHAJE, repartoPenalizacionPct: null,
+    modo: 'HORAS_FICHADAS',
+  }));
+});
