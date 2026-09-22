@@ -37,19 +37,26 @@ const ACEPTADAS = {
   sinFichero: [
     'res1_lista_espera_respeta_limite_y_solape',
   ],
-  // ⚠️ Salieron de aquí el 2026-09-22 diez que no se ARREGLARON: el
-  // `supabase migration repair` del 2026-09-20 borró sus filas del registro de
-  // producción, así que el check ya no las ve — pero siguen sin fichero en el
-  // repo, y su SQL ya no se puede recuperar del catálogo. `repair` solo toca el
-  // registro, no el esquema, así que sus efectos deberían seguir en la BD:
-  // advisor_fk_lecturas_ficha_salud,
-  // avatars_path_autorizado_revoke_anon_directo,
-  // avatars_path_autorizado_revoke_public, consentimiento_salud_rls,
-  // editar_serie_desde_revoke_anon, mis_estudios_search_path,
-  // penalizaciones_indice_recibo_id, reclamar_webhook_event_reload_schema,
-  // reserva_exigir_plan_por_defecto, revoke_anon_rpc_via_public.
-  // NUNCA `migration repair --status reverted` para callar este check: no
-  // arregla la deriva, borra la única copia del SQL.
+  // Salieron de aquí el 2026-09-22 diez que el check dio por «arregladas» y no
+  // lo estaban: el `supabase migration repair` del 2026-09-20 BORRÓ sus filas
+  // del registro de producción, así que el check dejó de verlas. Comprobado el
+  // mismo día que no se pierde nada: los diez efectos siguen vivos en la BD y
+  // todos los reproduce otro fichero del repo, posterior o hermano —
+  //   avatars_path_autorizado_revoke_public/_anon_directo → 20260916105914
+  //   editar_serie_desde_revoke_anon                    → 20260915094312
+  //   mis_estudios_search_path                          → 20260731004517
+  //   revoke_anon_rpc_via_public                        → 0076 + 20260731004517
+  //   reclamar_webhook_event_reload_schema              → 20260730012417
+  //   consentimiento_salud_rls                          → las de condiciones_salud
+  //                                                       posteriores (20260914220613)
+  //   penalizaciones_indice_recibo_id                   → 20260730225253
+  //   reserva_exigir_plan_por_defecto                   → 0121
+  //   advisor_fk_lecturas_ficha_salud                   → 20260806102650 (índice _fk)
+  // El SQL original de nueve se recuperó de los transcripts de las sesiones que
+  // las aplicaron (el `input.query` de cada `apply_migration`), no del catálogo.
+  //
+  // ⚠️ NUNCA `migration repair --status reverted` para callar este check: no
+  // arregla la deriva, borra la única copia del SQL que quedaba en la BD.
 
   // Ficheros cuyo nombre no aparece en el registro. NINGUNO es un agujero: sus
   // efectos están vivos en producción bajo otro nombre, comprobados de uno en
