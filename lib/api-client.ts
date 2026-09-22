@@ -300,7 +300,7 @@ export async function publicarBloquesApi(pantalla: PantallaId): Promise<BloqueHo
   const res = await fetch(`/api/portal-bloques/publish?pantalla=${pantalla}`, { method: 'POST', headers: await authHeader() });
   if (!res.ok) {
     // Gemela de publicarThemeApi: se llama tres líneas después en el mismo
-    // `publicarTodo` (theme-editor-fullscreen.tsx). Su ruta devuelve 403 con
+    // `publicarTodo` (hoy, el botón del importador de temas ZIP). Su ruta devuelve 403 con
     // 'Solo la propietaria o la gerencia pueden publicar los bloques'.
     if (res.status === 401) throw new ErrorSesionCaducada();
     if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para publicar el portal.'));
