@@ -420,6 +420,21 @@ export function reportDbError(tag: string, error: unknown, opts?: { escrituraVis
 // escrituras de ese tipo devuelven `ResultadoEscritura` y quien llama decide.
 const ESCRITURA_OK: ResultadoEscritura = { ok: true };
 
+/**
+ * El cuerpo de error de una ruta propia (`/api/...`), con el 409 pegado.
+ *
+ * Un 409 es una regla de negocio que dice que no («dejarías el estudio sin
+ * propietaria»): `esConflictoDeNegocioEsperado` lo deja fuera de Sentry, pero
+ * solo si ve el `status`, y el cuerpo JSON de la ruta no lo trae. Sin esto cada
+ * «no» correcto llegaba a Sentry como error (JAVASCRIPT-NEXTJS-2Y). Solo el
+ * 409: pegar un 401/403 cambiaría el mensaje por «vuelve a entrar».
+ */
+async function cuerpoDeError(res: Response): Promise<unknown> {
+  const cuerpo = await res.json().catch(() => null) as Record<string, unknown> | null;
+  if (!cuerpo || typeof cuerpo !== 'object') return { status: res.status };
+  return res.status === 409 ? { ...cuerpo, status: 409 } : cuerpo;
+}
+
 function falloEscritura(tag: string, error: unknown): ResultadoEscritura {
   // `escrituraVisible`: si el fallo es un JWT caducado, aquí NO se recarga la
   // página (borraría el formulario que la usuaria estaba rellenando) — se
@@ -1974,7 +1989,7 @@ export async function dbDeleteSocio(id: string): Promise<{ error: string | null 
       body: JSON.stringify({ socioId: id }),
     });
     if (!res.ok) {
-      const cuerpo = await res.json().catch(() => ({ status: res.status }));
+      const cuerpo = await cuerpoDeError(res);
       reportDbError('[dbDeleteSocio]', cuerpo);
       return { error: (cuerpo as { error?: string }).error || 'No se ha podido dar de baja a la clienta.' };
     }
@@ -4845,8 +4860,7 @@ export async function dbUpdateInstructor(id: string, changes: Partial<Instructor
       body: JSON.stringify({ id, changes }),
     });
     if (!res.ok) {
-      const cuerpo = await res.json().catch(() => ({ status: res.status }));
-      return falloEscritura('[dbUpdateInstructor]', cuerpo);
+      return falloEscritura('[dbUpdateInstructor]', await cuerpoDeError(res));
     }
     return ESCRITURA_OK;
   } catch (e) {
@@ -5274,8 +5288,7 @@ export async function dbDeleteInstructor(id: string): Promise<ResultadoEscritura
       body: JSON.stringify({ id }),
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ status: res.status }));
-      return falloEscritura('[dbDeleteInstructor]', body);
+      return falloEscritura('[dbDeleteInstructor]', await cuerpoDeError(res));
     }
     return ESCRITURA_OK;
   } catch (e) {
