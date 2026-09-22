@@ -4612,7 +4612,7 @@ export async function resolverPeticionPlazaFija(
     });
     if ('error' in prep) return { error: prep.error, status: prep.status };
     if (!await cerrar('APROBADA')) return yaResuelta;
-    const ampliada = await cf.aplicarAmpliarClaseFija(admin, prep.filas);
+    const ampliada = await cf.aplicarAmpliarClaseFija(admin, { studioId: p.studioId, socioId: sol.socio_id, filas: prep.filas });
     if ('error' in ampliada) {
       await reabrir('APROBADA');
       return { error: ampliada.error, status: 400 };

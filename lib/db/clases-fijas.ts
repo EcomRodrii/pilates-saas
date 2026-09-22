@@ -499,10 +499,14 @@ export async function prepararAmpliarClaseFija(
 
 /** Extiende `vigencia_hasta`: sin capacidad en juego, sin RPC ni lock — un `update` por fila. */
 export async function aplicarAmpliarClaseFija(
-  admin: SupabaseClient, filas: FilaAmpliar[],
+  admin: SupabaseClient, p: { studioId: string; socioId: string; filas: FilaAmpliar[] },
 ): Promise<{ ok: true } | { error: string }> {
-  for (const f of filas) {
-    const { error } = await admin.from('plazas_fijas').update({ vigencia_hasta: f.vigenciaHasta }).eq('id', f.id);
+  for (const f of p.filas) {
+    // `studio_id`/`socio_id` no hacen falta para localizar la fila (el id ya la
+    // identifica), pero acotan la escritura por defensa en profundidad — mismo
+    // criterio que el resto de escrituras de `plazas_fijas` en este fichero.
+    const { error } = await admin.from('plazas_fijas').update({ vigencia_hasta: f.vigenciaHasta })
+      .eq('id', f.id).eq('studio_id', p.studioId).eq('socio_id', p.socioId);
     if (error) {
       capturarExcepcion(new Error(error.message), { tags: { area: 'clases-fijas' }, extra: { plazaId: f.id } });
       return { error: 'No se ha podido ampliar la clase fija. Inténtalo de nuevo.' };
@@ -566,7 +570,7 @@ async function resolverAmpliarAutomaticamente(
     .select('id').maybeSingle();
   if (!reclamada) return null;
 
-  const aplicada = await aplicarAmpliarClaseFija(admin, prep.filas);
+  const aplicada = await aplicarAmpliarClaseFija(admin, { studioId: p.studioId, socioId: p.socioId, filas: prep.filas });
   if ('error' in aplicada) {
     await admin.from('solicitudes_plaza_fija').update({ estado: 'PENDIENTE', resuelta_en: null })
       .eq('id', p.solicitudId).eq('studio_id', p.studioId).eq('estado', 'APROBADA');
