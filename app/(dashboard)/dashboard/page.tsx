@@ -790,7 +790,7 @@ export default function Dashboard() {
         )}
 
         {puedeGestionarApertura(rolActual) && (
-        <div {...wrap('apertura')}><AperturaEstudio onVisible={setAperturaVisible} /></div>
+        <div {...wrap('apertura')}><AperturaEstudio onVisible={setAperturaVisible} verEconomia={puedeVerFinanzas(rolActual)} /></div>
         )}
 
         {/* ── Automation briefing ────────────────────────────────────────────── */}
