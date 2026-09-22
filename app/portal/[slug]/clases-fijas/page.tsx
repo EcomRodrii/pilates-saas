@@ -12,6 +12,7 @@ import { getClasesFijas } from '@/lib/student/datos';
 import { ampliarClaseFija, anularPeticionClaseFija, pedirClaseFija } from '@/lib/student/clases-fijas-datos';
 import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { diasDeLaOferta, type ClaseFijaVista, type ClaseSueltaVista } from '@/lib/student/clases-fijas';
+import { FRANJAS_HORARIAS, franjaHorariaDe } from '@/lib/clases-fijas-reglas';
 import { TEXTOS_CLASES_FIJAS as T } from '@/lib/student/clases-fijas-textos';
 import { TEXTOS_PLAZA_FIJA as TPF } from '@/lib/student/plaza-fija-textos';
 import { nombreDia } from '@/lib/student/plaza-fija';
@@ -51,6 +52,7 @@ export default function ClasesFijasPage() {
 
   const [q, setQ] = useState('');
   const [tipo, setTipo] = useState('Todo');
+  const [hora, setHora] = useState('Todo');
 
   // Los tipos que de verdad hay que ofrecer: solo los que aparecen en alguna
   // oferta u suelta, no el catálogo entero del estudio (un tipo sin ninguna
@@ -60,15 +62,24 @@ export default function ClasesFijasPage() {
     ...(data?.sueltas.map((f) => f.tipo) ?? []),
   ])], [data]);
   const tipoReal = tipos.includes(tipo) ? tipo : 'Todo';
-  const consulta = normalizar(q.trim());
 
+  // Mismo criterio que `tipos`: solo los momentos del día que de verdad tienen
+  // alguna clase fija, en el orden del día (no el orden en que aparecen).
+  const horas = useMemo(() => ['Todo', ...FRANJAS_HORARIAS.filter((fh) =>
+    (data?.ofertas.some((o) => o.franjas.some((f) => franjaHorariaDe(f.hora) === fh)) ?? false)
+    || (data?.sueltas.some((f) => franjaHorariaDe(f.hora) === fh) ?? false))], [data]);
+  const horaReal = horas.includes(hora) ? hora : 'Todo';
+
+  const consulta = normalizar(q.trim());
   const coincide = (textos: (string | null)[]) => !consulta || textos.some((t) => t && normalizar(t).includes(consulta));
 
   const ofertas = (data?.ofertas ?? [])
     .filter((o) => tipoReal === 'Todo' || o.franjas.some((f) => f.tipo === tipoReal))
+    .filter((o) => horaReal === 'Todo' || o.franjas.some((f) => franjaHorariaDe(f.hora) === horaReal))
     .filter((o) => coincide([o.nombre, o.descripcion, ...o.franjas.flatMap((f) => [f.tipo, f.sala, f.instructora])]));
   const sueltas = (data?.sueltas ?? [])
     .filter((f) => tipoReal === 'Todo' || f.tipo === tipoReal)
+    .filter((f) => horaReal === 'Todo' || franjaHorariaDe(f.hora) === horaReal)
     .filter((f) => coincide([f.tipo, f.sala, f.instructora, nombreDia(f.diaSemana)]));
 
   // Distingue «tu estudio no tiene ninguna» (EmptyState, con salida al horario)
@@ -76,9 +87,10 @@ export default function ClasesFijasPage() {
   const hayAlgo = (data?.ofertas.length ?? 0) > 0 || (data?.sueltas.length ?? 0) > 0;
   const total = (data?.ofertas.length ?? 0) + (data?.sueltas.length ?? 0);
   // El buscador ayuda a partir de unas pocas; con 1-3 no hay nada que «apelotone».
-  // Las píldoras de tipo solo si hay más de un tipo real que elegir (sin contar «Todo»).
+  // Cada fila de píldoras solo si hay más de una opción real que elegir (sin contar «Todo»).
   const conBuscador = total > 3;
-  const conFiltros = tipos.length > 2;
+  const conFiltrosTipo = tipos.length > 2;
+  const conFiltrosHora = horas.length > 2;
 
   return (
     <StudentShell>
@@ -105,11 +117,20 @@ export default function ClasesFijasPage() {
               )}
             </div>
           </div>
-          {conFiltros && (
-            <div className="px no-scrollbar" style={{ display: 'flex', gap: 7, overflowX: 'auto', marginTop: 10 }}>
+          {conFiltrosTipo && (
+            <div className="px no-scrollbar" data-testid="filtros-tipo" aria-label="Filtrar por tipo de clase" style={{ display: 'flex', gap: 7, overflowX: 'auto', marginTop: 10 }}>
               {tipos.map((t) => (
                 <button key={t} type="button" className="pill" aria-pressed={tipoReal === t} onClick={() => setTipo(t)} style={{ flexShrink: 0 }}>
                   {t}
+                </button>
+              ))}
+            </div>
+          )}
+          {conFiltrosHora && (
+            <div className="px no-scrollbar" data-testid="filtros-hora" aria-label="Filtrar por hora" style={{ display: 'flex', gap: 7, overflowX: 'auto', marginTop: 7 }}>
+              {horas.map((h) => (
+                <button key={h} type="button" className="pill" aria-pressed={horaReal === h} onClick={() => setHora(h)} style={{ flexShrink: 0 }}>
+                  {h}
                 </button>
               ))}
             </div>

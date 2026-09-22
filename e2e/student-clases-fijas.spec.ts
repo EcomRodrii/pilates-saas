@@ -411,15 +411,50 @@ test.describe('Student PWA · clases fijas del estudio · logo, buscador y filtr
   test('las píldoras de tipo acotan la lista, y «Todo» la devuelve entera', async ({ page }) => {
     await montar(page, { plan: 'cuota', catalogo: conCuatroClases() });
     await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('button', { name: 'Reformer', exact: true })).toBeVisible({ timeout: 30_000 });
+    const filtrosTipo = page.getByTestId('filtros-tipo');
+    await expect(filtrosTipo.getByRole('button', { name: 'Reformer', exact: true })).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: 'Mat Pilates', exact: true }).click();
+    await filtrosTipo.getByRole('button', { name: 'Mat Pilates', exact: true }).click();
     await expect(page.getByTestId('clase-fija')).toHaveCount(0);
     await expect(page.getByTestId('clase-suelta')).toHaveCount(1);
     await expect(page.getByTestId('clase-suelta')).toContainText('Mat Pilates');
 
-    await page.getByRole('button', { name: 'Todo', exact: true }).click();
+    await filtrosTipo.getByRole('button', { name: 'Todo', exact: true }).click();
     await expect(page.getByTestId('clase-fija')).toBeVisible();
     await expect(page.getByTestId('clase-suelta')).toHaveCount(3);
+  });
+
+  // Reformer 10:00/18:30 (oferta), Yoga 09:30 y 11:00, Mat Pilates 19:00 — cortes
+  // de `franjaHorariaDe`: Mañana hasta el mediodía, Noche desde las 18:00.
+  test('las píldoras de hora acotan por momento del día, y «Todo» la devuelve entera', async ({ page }) => {
+    await montar(page, { plan: 'cuota', catalogo: conCuatroClases() });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    const filtrosHora = page.getByTestId('filtros-hora');
+    await expect(filtrosHora.getByRole('button', { name: 'Mañana', exact: true })).toBeVisible({ timeout: 30_000 });
+    // Ni Mediodía ni Tarde tienen ninguna clase en este fixture: no aparecen.
+    await expect(filtrosHora.getByRole('button', { name: 'Mediodía', exact: true })).toHaveCount(0);
+
+    await filtrosHora.getByRole('button', { name: 'Noche', exact: true }).click();
+    // La oferta es un paquete indivisible: si UNA de sus franjas es de noche
+    // (jueves 18:30), se enseña entera — igual que ya hace el filtro de tipo.
+    await expect(page.getByTestId('clase-fija')).toBeVisible();
+    await expect(page.getByText(/jueves 18:30/i)).toBeVisible();
+    await expect(page.getByTestId('clase-suelta')).toHaveCount(1);
+    await expect(page.getByTestId('clase-suelta')).toContainText('Mat Pilates');
+
+    await filtrosHora.getByRole('button', { name: 'Todo', exact: true }).click();
+    await expect(page.getByTestId('clase-suelta')).toHaveCount(3);
+  });
+
+  test('tipo y hora se combinan: acotan a la vez, no uno sustituye al otro', async ({ page }) => {
+    await montar(page, { plan: 'cuota', catalogo: conCuatroClases() });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('filtros-tipo').getByRole('button', { name: 'Yoga', exact: true }).click();
+    await page.getByTestId('filtros-hora').getByRole('button', { name: 'Mañana', exact: true }).click();
+    // Las dos Yoga de este fixture son de mañana: siguen las dos.
+    await expect(page.getByTestId('clase-suelta')).toHaveCount(2, { timeout: 30_000 });
+
+    await page.getByTestId('filtros-hora').getByRole('button', { name: 'Noche', exact: true }).click();
+    await expect(page.getByText('Ninguna coincide con lo que buscas.')).toBeVisible();
   });
 });
