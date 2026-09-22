@@ -70,9 +70,9 @@ function pintarBorrador(iframe: HTMLIFrameElement | null, css: string) {
 
 // ── Piezas ───────────────────────────────────────────────────────────────────
 
-function Seccion({ titulo, detalle, children }: { titulo: string; detalle: string; children: React.ReactNode }) {
+function Seccion({ titulo, detalle, orden = 0, children }: { titulo: string; detalle: string; orden?: number; children: React.ReactNode }) {
   return (
-    <section className={cn(cardCls, 'p-5')}>
+    <section className={cn(cardCls, 'contenido-anim p-5')} style={{ animationDelay: `${orden * 60}ms` }}>
       <h2 className="text-[15px] font-semibold text-foreground">{titulo}</h2>
       <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">{detalle}</p>
       <div className="mt-4">{children}</div>
@@ -96,7 +96,7 @@ function Segmentado<T extends string>({ etiqueta, valor, opciones, onChange }: {
           aria-checked={valor === o.valor}
           onClick={() => onChange(o.valor)}
           className={cn(
-            'min-h-9 rounded-md px-3 text-[13px] font-medium transition-colors',
+            'relative min-h-9 rounded-md px-3 text-[13px] font-medium transition-[color,transform] duration-200 active:scale-[.97]',
             valor === o.valor ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground',
           )}
         >
@@ -121,19 +121,20 @@ function MuestraEstilo({ app, primary, activo, onElegir }: {
       aria-checked={activo}
       onClick={onElegir}
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-xl border text-left transition-shadow',
-        activo ? 'border-brand ring-2 ring-brand/30' : 'border-border hover:shadow-sm',
+        'group relative flex flex-col overflow-hidden rounded-xl border text-left',
+        'transition-[box-shadow,transform,border-color] duration-200 ease-out will-change-transform active:scale-[.98]',
+        activo ? 'border-brand shadow-md ring-2 ring-brand/30' : 'border-border hover:-translate-y-0.5 hover:shadow-md',
       )}
     >
-      <span aria-hidden className="block px-3 pb-3 pt-4" style={{ background: e.background }}>
+      <span aria-hidden className="block px-3 pb-3 pt-4 transition-colors duration-300" style={{ background: e.background }}>
         <span className="block p-2.5" style={{ background: e.card, borderRadius: e.radios.card * 0.7, border: `1px solid ${e.border}`, boxShadow: '0 6px 14px -8px rgba(26,26,26,.25)' }}>
           <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full" style={{ background: a.accent }} />
+            <span className="size-2.5 rounded-full transition-colors duration-300" style={{ background: a.accent }} />
             <span className="h-1.5 w-12 rounded-full" style={{ background: e.foreground, opacity: 0.8 }} />
           </span>
           <span className="mt-1.5 block h-1.5 w-16 rounded-full" style={{ background: e.mutedForeground, opacity: 0.45 }} />
           <span
-            className="mt-2.5 flex h-5 items-center justify-center text-[9px] font-semibold"
+            className="mt-2.5 flex h-5 items-center justify-center text-[9px] font-semibold transition-all duration-300"
             style={{ background: boton.bg, color: boton.fg, borderRadius: Math.min(e.radios.pill, 999) * (e.radios.pill > 100 ? 1 : 0.6) }}
           >
             Reservar
@@ -187,8 +188,13 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla }: {
   slug: string; css: string; recarga: number; pantalla: PantallaId; onPantalla: (p: PantallaId) => void;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
+  const [cargando, setCargando] = useState(true);
   // El borrador se repinta en cada cambio; al cargar (o recargar) la app, en `onLoad`.
   useEffect(() => { pintarBorrador(ref.current, css); }, [css]);
+  // Cambiar de pantalla o recargar monta un iframe nuevo: se funde para que no
+  // dé el salto de blanco → app.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setCargando(true); }, [pantalla, recarga]);
   const escala = 0.8;
   const ruta = PANTALLAS.find(p => p.id === pantalla)?.ruta ?? '';
   return (
@@ -210,9 +216,9 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla }: {
           ref={ref}
           title="Vista previa de la app de tus alumnas"
           src={`/portal/${encodeURIComponent(slug)}${ruta}`}
-          onLoad={() => pintarBorrador(ref.current, css)}
-          className="origin-top-left rounded-[28px] bg-white"
-          style={{ width: MOVIL.ancho, height: MOVIL.alto, transform: `scale(${escala})`, border: 0 }}
+          onLoad={() => { pintarBorrador(ref.current, css); setCargando(false); }}
+          className="origin-top-left rounded-[28px] bg-white transition-opacity duration-300"
+          style={{ width: MOVIL.ancho, height: MOVIL.alto, transform: `scale(${escala})`, border: 0, opacity: cargando ? 0.35 : 1 }}
         />
       </div>
       <a
@@ -239,6 +245,7 @@ export function EditorAparienciaApp() {
   const [publicando, setPublicando] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   const [recarga, setRecarga] = useState(0);
+  const [reciénPublicado, setReciénPublicado] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [pantalla, setPantalla] = useState<PantallaId>('inicio');
   const [tituloAcceso, setTituloAcceso] = useState<string | null>(null);
@@ -304,6 +311,11 @@ export function EditorAparienciaApp() {
       window.dispatchEvent(new CustomEvent('tentare-theme-changed'));
       setRecarga(n => n + 1);
       setAviso({ tipo: 'ok', texto: 'Publicado. Tus alumnas ya ven tu app así.' });
+      // ⚠️ Publicar no cambia NADA en pantalla —la vista previa ya enseñaba el
+      // borrador—, así que sin esto se lee como que no ha pasado nada. Pasó:
+      // «le doy a publicar y no se publica» con el cambio ya guardado.
+      setReciénPublicado(true);
+      window.setTimeout(() => setReciénPublicado(false), 2600);
     } catch (e) {
       setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
     } finally {
@@ -354,7 +366,7 @@ export function EditorAparienciaApp() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div className="order-2 flex min-w-0 flex-col gap-5 lg:order-1">
-          <Seccion titulo="Estilo" detalle="El fondo, las tarjetas y la forma de las esquinas y los botones. Los ocho están pensados para leerse bien con cualquier color, incluido el oscuro.">
+          <Seccion titulo="Estilo" orden={0} detalle="El fondo, las tarjetas y la forma de las esquinas y los botones. Los ocho están pensados para leerse bien con cualquier color, incluido el oscuro.">
             <div role="radiogroup" aria-label="Estilo de la app" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {ESTILOS.map(e => (
                 <MuestraEstilo
@@ -368,7 +380,7 @@ export function EditorAparienciaApp() {
             </div>
           </Seccion>
 
-          <Seccion titulo="Tu color" detalle="El de tu marca. Sale en enlaces, avisos y la tarjeta de la próxima clase, y en tu panel y tu página de reservas.">
+          <Seccion titulo="Tu color" orden={1} detalle="El de tu marca. Sale en enlaces, avisos y la tarjeta de la próxima clase, y en tu panel y tu página de reservas.">
             <div className="flex flex-col gap-5">
               <CampoColor
                 etiqueta="Color de tu marca"
@@ -418,7 +430,7 @@ export function EditorAparienciaApp() {
             </div>
           </Seccion>
 
-          <Seccion titulo="Tipografía" detalle="Una letra para los títulos y otra para el texto, elegidas para ir juntas. La de títulos la llevan además los botones, los rótulos y las etiquetas.">
+          <Seccion titulo="Tipografía" orden={2} detalle="Una letra para los títulos y otra para el texto, elegidas para ir juntas. La de títulos la llevan además los botones, los rótulos y las etiquetas.">
             <div role="radiogroup" aria-label="Tipografía de la app" className="grid gap-2 sm:grid-cols-2">
               {TIPOGRAFIAS.map(t => {
                 const activo = borrador.app.tipografia === t.id;
@@ -430,8 +442,9 @@ export function EditorAparienciaApp() {
                     aria-checked={activo}
                     onClick={() => setApp({ tipografia: t.id })}
                     className={cn(
-                      'rounded-xl border px-4 py-3 text-left transition-shadow',
-                      activo ? 'border-brand ring-2 ring-brand/30' : 'border-border hover:shadow-sm',
+                      'rounded-xl border px-4 py-3 text-left',
+                      'transition-[box-shadow,transform,border-color] duration-200 ease-out active:scale-[.99]',
+                      activo ? 'border-brand shadow-md ring-2 ring-brand/30' : 'border-border hover:-translate-y-0.5 hover:shadow-md',
                     )}
                   >
                     <span className="flex items-center justify-between text-[12px] text-muted-foreground">
@@ -454,7 +467,7 @@ export function EditorAparienciaApp() {
           </Seccion>
 
           <Seccion
-            titulo="La entrada"
+            titulo="La entrada" orden={3}
             detalle="La primera pantalla, donde tus alumnas entran o se registran. La foto es la de portada; el titular lo escribes tú."
           >
             <div className="flex flex-col gap-3">
@@ -499,6 +512,7 @@ export function EditorAparienciaApp() {
 
           <Seccion
             titulo="Fotos"
+            orden={4}
             detalle="Las fotos se guardan al subirlas, sin esperar a «Publicar»: tus alumnas las ven al momento."
           >
             <div className="flex flex-col gap-5">
@@ -568,8 +582,12 @@ export function EditorAparienciaApp() {
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:pr-24">
           <p
             role={aviso?.tipo === 'error' ? 'alert' : 'status'}
-            className={cn('text-[13px]', aviso?.tipo === 'error' ? 'text-destructive' : 'text-muted-foreground')}
+            className={cn(
+              'flex items-center gap-1.5 text-[13px] transition-colors duration-300',
+              aviso?.tipo === 'error' ? 'text-destructive' : reciénPublicado ? 'font-medium text-brand' : 'text-muted-foreground',
+            )}
           >
+            {reciénPublicado && <Check size={15} className="shrink-0" aria-hidden />}
             {aviso?.texto ?? (cambios.length > 0 ? 'Tienes cambios sin publicar.' : 'Todo publicado.')}
           </p>
           <div className="flex items-center gap-2">
@@ -583,12 +601,14 @@ export function EditorAparienciaApp() {
             </button>
             <button
               type="button"
-              className={btnPrimary}
+              className={cn(btnPrimary, 'transition-transform duration-200 active:scale-[.97]')}
               disabled={!puedePublicar}
               onClick={publicar}
               title={!soyPropietaria ? 'Solo la propietaria puede publicar' : undefined}
             >
-              {publicando ? 'Publicando…' : 'Publicar'}
+              {reciénPublicado
+                ? <span className="inline-flex items-center gap-1.5"><Check size={15} aria-hidden /> Publicado</span>
+                : publicando ? 'Publicando…' : 'Publicar'}
             </button>
           </div>
         </div>

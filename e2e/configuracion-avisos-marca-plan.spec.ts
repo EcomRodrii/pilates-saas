@@ -133,7 +133,8 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     await expect(tituloSeccion(page, 'Cobros y facturas')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Abrir menú de perfil' }).click();
-    await page.getByRole('button', { name: /^Apariencia/ }).click();
+    // El menú lleva directo desde el 23-sep: antes había una hoja «Apariencia ·
+    // Beta» por medio, cuyo único contenido propio era el modo oscuro.
     await page.getByRole('link', { name: /Personalizar tu panel/ }).click();
 
     await expect(page).toHaveURL(/\/configuracion\?tab=panel$/, { timeout: 15_000 });

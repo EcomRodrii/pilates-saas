@@ -444,3 +444,28 @@ test('resolveTheme deja vacíos los textos de voz cuando no hay nada guardado', 
   assert.equal(r.reservarAvisoQuiz, '');
   assert.equal(r.reservarListaEspera, '');
 });
+
+// ⚠️ EL OTRO GUARDIÁN, y nace de un fallo real (22-sep-2026). `resolveTheme` es
+// una LISTA BLANCA campo a campo: `appAlumna` entró en el esquema, se publicaba
+// bien y quedaba guardada en `config_published`… y la app de la alumna seguía
+// viéndose igual, porque la lectura la devolvía sin ese campo. Nadie lo cazó: el
+// e2e del editor comprobaba lo que se ENVÍA, y la vista previa inyecta su CSS
+// por su cuenta, así que el camino real —publicar, leer, pintar— no se probaba
+// en ningún sitio. Esto lo cierra para cualquier campo futuro.
+test('resolveTheme no pierde ningún campo que el esquema acepta', () => {
+  const completo = {
+    ...DEFAULT_THEME,
+    appAlumna: { estilo: 'carbon', tipografia: 'romantica', marca: 'fiel', boton: 'marca', encuadre: 'arriba' },
+  };
+  const resuelto = resolveTheme(completo) as Record<string, unknown>;
+  const declarados = Object.keys(themeConfigSchema.shape);
+  const perdidos = declarados.filter((k) => !(k in resuelto));
+  assert.deepEqual(perdidos, [], 'campos que el esquema acepta y la lectura tira por el camino');
+  assert.deepEqual(resuelto.appAlumna, completo.appAlumna);
+});
+
+test('un appAlumna corrupto no tumba el resto del tema', () => {
+  const resuelto = resolveTheme({ ...DEFAULT_THEME, primary: '#123456', appAlumna: { estilo: 'nope' } });
+  assert.equal(resuelto.primary, '#123456');
+  assert.equal(resuelto.appAlumna, undefined);
+});
