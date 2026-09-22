@@ -68,13 +68,19 @@ function EjemploDelUmbral() {
   );
 }
 
-export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, procesando, whatsappHref, nAutonomasHoy = 0, totalPendiente = 0, onVerPendiente, sinHistorial = false }: {
+export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, procesando, whatsappHref, nAutonomasHoy = 0, totalPendiente = 0, onVerPendiente, sinHistorial = false, bandejaHoy }: {
   veredicto: VeredictoAPI;
   onHecho: () => void;
   onYaLoSe: () => void;
   onPosponer: () => void;
   procesando?: boolean;
   whatsappHref?: string | null;
+  /** Reorganización Centro de Control §2 (PR2): "Para hoy" (BandejaHoy) ya no
+   * es su propia Card suelta detrás del desplegable — se pinta aquí, dentro
+   * del mismo Card que el mensaje del día, para que lo operativo del estudio
+   * no dependa de un clic aparte. Se ve en las 4 ramas (incluida SIN_ANALIZAR
+   * y SILENCIO): no depende de que el Decision OS haya terminado su análisis. */
+  bandejaHoy?: React.ReactNode;
   /** Reorganización Centro de Control §1: cuántas acciones ejecutó el piloto
    * automático hoy sin esperar criterio — cambia el titular de "nada
    * pendiente" para que se note que Tentare ya trabajó, no solo que calló. */
@@ -111,6 +117,7 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
           <p className="text-[14px] text-muted-foreground">
             Todavía no he hecho mi primer análisis de hoy. Vuelve en un rato.
           </p>
+          {bandejaHoy}
         </CardContent>
       </Card>
     );
@@ -150,6 +157,7 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
             </ul>
           )}
           {sinHistorial && totalPendiente === 0 && <EjemploDelUmbral />}
+          {bandejaHoy}
         </CardContent>
       </Card>
     );
@@ -170,6 +178,7 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
           <h2 className="font-heading text-[18px] font-semibold text-foreground">{titulo}</h2>
           <p className="max-w-sm text-[13.5px] text-muted-foreground">{subtitulo}</p>
           {puente}
+          {bandejaHoy}
         </CardContent>
       </Card>
     );
@@ -220,6 +229,7 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
             <Clock3 size={14} /> Recuérdamelo
           </Button>
         </div>
+        {bandejaHoy}
       </CardContent>
     </Card>
   );
