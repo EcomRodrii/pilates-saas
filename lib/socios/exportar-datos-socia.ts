@@ -81,6 +81,7 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   solicitudes_derechos: { seccion: 'otros' },
   consentimientos_salud_eventos: { seccion: 'consentimientos' },
   aceptaciones_contrato_eventos: { seccion: 'consentimientos' },
+  consentimientos_marketing_eventos: { seccion: 'consentimientos' },
   memoria_socio: { seccion: 'otros' },
   recomendaciones: { seccion: 'otros' },
   notas_internas: { excluida: 'Anotaciones internas del personal del estudio. Se entregan a petición, valorando caso a caso los derechos de terceros (art. 15.4 RGPD).' },
@@ -234,7 +235,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     citas, plazasFijas, peticionesPlazaFija, recuperaciones,
     saldo, movimientos, canjes, recompensas, logros, progresoLogros, retos, progresoRetos, participacionesRetos,
     participaciones, valoraciones, preferenciasClase, favoritos, documentos,
-    comunicaciones, excepciones, autorizadas, eventos, solicitudes, consentimientosSalud, aceptacionesContrato, memoria, recomendaciones,
+    comunicaciones, excepciones, autorizadas, eventos, solicitudes, consentimientosSalud, aceptacionesContrato, consentimientosMarketing, memoria, recomendaciones,
     avisos, camposPersonalizados,
     valoracionesIniciales, valoracionesInicialesSalud, condiciones, respuestasCuestionario, respuestasSesion, notasProgreso,
   ] = await Promise.all([
@@ -278,6 +279,9 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     // Historial de su aceptación del contrato (migr 20260914015133). Sin `ip_hmac`,
     // `user_agent`, `introducida_por` ni `actor_uid`: son prueba técnica o datos del personal.
     tabla('aceptaciones_contrato_eventos', 'id, en, origen, texto_hash, texto_cliente_coincide', 'en'),
+    // Historial de su consentimiento de marketing (migr 20260922004313). Sin
+    // `ip_hmac` ni `user_agent`: prueba técnica, no algo que necesite ver de sí misma.
+    tabla('consentimientos_marketing_eventos', 'id, accion, en, origen, texto', 'en'),
     tabla('memoria_socio', 'id, clave, origen, evidencia, activa, creado_en, expira_en'),
     tabla('recomendaciones', 'id, tipo, titulo, motivo, estado, creado_en'),
     authUserId
@@ -440,6 +444,9 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
         marketing: s.consentimiento_marketing_en
           ? { fecha: str(s.consentimiento_marketing_en), textoAceptado: str(s.consentimiento_marketing_texto) }
           : null,
+        historialMarketing: porFecha(consentimientosMarketing, 'en').map(e => ({
+          accion: str(e.accion), fecha: str(e.en), via: str(e.origen), textoAceptado: str(e.texto),
+        })),
       },
       preferencias: {
         noUsarParaRecomendacionesAutomaticas: s.excluir_de_perfilado === true,
