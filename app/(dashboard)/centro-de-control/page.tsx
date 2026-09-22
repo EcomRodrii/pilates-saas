@@ -56,7 +56,7 @@ const GRUPOS_SITUACION: { nivel: NivelSituacion; titulo: string }[] = [
 export default function CentroDeControlPage() {
   const { data, loading, error, aprobar, rechazar, posponer, analizarAhora, recargar } = useDecisiones();
   const { socios, studio, dependencySnapshots } = useStudio();
-  const autonomiaConfig = useAutonomiaConfig();
+  const autonomia = useAutonomiaConfig();
   const hayCartera = dependencySnapshots.some(s => s.alumnasTotal > 0);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [analizando, setAnalizando] = useState(false);
@@ -115,10 +115,10 @@ export default function CentroDeControlPage() {
   // (icono + título + enlace a su tarjeta completa en Prioridades/Más
   // situaciones), nunca una tarjeta duplicada.
   const requiereAprobacion = useMemo(() => {
-    if (!data || !autonomiaConfig?.activa) return [];
+    if (!data || !autonomia.config?.activa) return [];
     return [...prioridadesParaTarjetas, ...situacionesNuevas]
-      .filter(r => elegibleParaAutonomia(r as unknown as Recomendacion, autonomiaConfig));
-  }, [data, prioridadesParaTarjetas, situacionesNuevas, autonomiaConfig]);
+      .filter(r => elegibleParaAutonomia(r as unknown as Recomendacion, autonomia.config!));
+  }, [data, prioridadesParaTarjetas, situacionesNuevas, autonomia.config]);
 
   // Reorganización §13: el antiguo "círculo de aprendizaje" (outcomes ya
   // medidos, `data.seguimiento`) no desaparece — es historial de una decisión
@@ -257,7 +257,7 @@ export default function CentroDeControlPage() {
 
       {/* 3. Piloto automático — ejecutado solo / pendiente de tu aprobación */}
       <div className="flex flex-col gap-4">
-        <PilotoAutomatico />
+        <PilotoAutomatico autonomia={autonomia} />
         {!modoAprendizaje && data.resumen!.mientrasDormias.length > 0 && (
           <div className="flex flex-col gap-2 pl-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ejecutado automáticamente</p>
