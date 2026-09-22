@@ -9,9 +9,8 @@ import { useDecisiones, type RecomendacionAPI } from '@/components/decision/use-
 import { useAutonomiaConfig } from '@/components/decision/use-autonomia-config';
 import { elegibleParaAutonomia } from '@/lib/decision/autonomia';
 import { partirMasSituaciones } from '@/lib/decision/prioridad';
-import { nivelSituacion, NIVEL_SITUACION_INFO, type NivelSituacion } from '@/components/decision/severidad';
 import type { Recomendacion } from '@/lib/decision/tipos';
-import { RecommendationCard } from '@/components/decision/recommendation-card';
+import { FilaSituacion } from '@/components/decision/fila-situacion';
 import { WhileYouSlept } from '@/components/decision/while-you-slept';
 import { SpecialistCard } from '@/components/decision/specialist-card';
 import { ActivityList } from '@/components/decision/activity-list';
@@ -22,34 +21,41 @@ import { RiesgoPlanton } from '@/components/decision/riesgo-planton';
 import { EspecialistaCartera } from '@/components/decision/especialista-cartera';
 import { ContratoDecisionOS } from '@/components/decision/contrato-decision-os';
 import { VeredictoDelDia } from '@/components/decision/veredicto-del-dia';
-import { SeguimientoPendiente } from '@/components/decision/seguimiento-pendiente';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Toast, useToast } from '@/components/ui/toast';
 
 // Centro de Control — reorganizado como sistema de decisiones, no como lista
 // de todo lo que Tentare sabe (petición explícita 2026-08-18). Jerarquía fija
-// al desplegar "Ver todo el detalle": Piloto automático → Para hoy →
-// Recomendaciones de hoy (Prioridades → Más situaciones) → Tu equipo y tu
-// cartera → Riesgos → Accesos rápidos → Actividad. Fuera del desplegable,
-// visibles siempre: Estado global (VeredictoDelDia) y Seguimiento.
+// al desplegar "Ver todo el detalle": Piloto automático → Recomendaciones de
+// hoy (una sola lista de situaciones, PR3) → Tu equipo y tu cartera →
+// Riesgos → Actividad. Fuera del desplegable, siempre visible: Estado global
+// (VeredictoDelDia, con "Para hoy" fusionado dentro).
 //
-// Cada situación pendiente cae en EXACTAMENTE un cubo de pantalla —
-// Prioridades XOR Seguimiento XOR Más situaciones — para que nunca se vea la
-// misma recomendación como dos tarjetas con cifras que puedan divergir. La
-// partición (partirMasSituaciones, lib/decision/prioridad.ts) es puramente de
-// presentación: no cambia lo que persiste ni lo que `/dashboard` (Action
-// Center) recibe de `/api/decisiones` — ese contrato no se toca.
+// PR3 (§3): Prioridades + Más situaciones + Seguimiento eran tres
+// presentaciones distintas (grid de tarjetas, 3 sub-rótulos de color, filas
+// compactas) para lo que es conceptualmente una sola lista ordenada. Ahora
+// se concatenan en bloques fijos — Prioridades → Nuevas → Seguimiento — SIN
+// reordenar por score: cada tramo ya llega curado por el servidor (el cap de
+// especialista/críticas de `seleccionarPrioridadesHome`, la partición
+// temporal de `partirMasSituaciones`) y un merge por score global deshacería
+// esas dos curaciones. Cada situación sigue cayendo en EXACTAMENTE un tramo
+// — nunca la misma recomendación dos veces con cifras que puedan divergir.
+// Esta partición es puramente de presentación: no cambia lo que persiste ni
+// lo que `/dashboard` (Action Center) recibe de `/api/decisiones`.
 function frasesSeguimientoOutcome(o: { outcome: 'POSITIVO' | 'NEGATIVO' | 'NEUTRO'; titulo: string }): string {
   if (o.outcome === 'POSITIVO') return `Seguiste esto: ${o.titulo}. Funcionó.`;
   if (o.outcome === 'NEGATIVO') return `La última vez no acerté con esto: ${o.titulo}.`;
   return `Seguiste esto: ${o.titulo}. Sin cambios claros.`;
 }
 
-const GRUPOS_SITUACION: { nivel: NivelSituacion; titulo: string }[] = [
-  { nivel: 'ACCION_RECOMENDADA', titulo: 'Acción recomendada' },
-  { nivel: 'REVISAR', titulo: 'Revisar' },
-  { nivel: 'SENAL', titulo: 'Señal' },
-];
+// `partirMasSituaciones` garantiza `creadoEn.slice(0,10) < fechaHoy` para
+// todo lo que entra en `seguimiento`, así que el resultado siempre es ≥1 —
+// sin caso 0/negativo que blindar. Misma base de comparación (día-calendario
+// en UTC) que ya usa esa partición, para no introducir un segundo criterio
+// de "qué día es hoy" en la misma pantalla.
+function diasAbierta(creadoEn: string, fechaHoy: string): number {
+  return Math.round((Date.parse(fechaHoy) - Date.parse(creadoEn.slice(0, 10))) / 86400000);
+}
 
 export default function CentroDeControlPage() {
   const { data, loading, error, aprobar, rechazar, posponer, analizarAhora, recargar } = useDecisiones();
@@ -92,14 +98,13 @@ export default function CentroDeControlPage() {
   // Deliberadamente NO usa `prioridadesParaTarjetas`: cuenta lo pendiente de
   // verdad, no lo que se pinta como tarjeta en esta pantalla.
   const totalPendiente = data ? data.prioridades.length + data.masSituaciones.length : 0;
-  const anclaPendiente = enSeguimiento.length > 0 ? 'seguimiento' : 'recomendaciones';
 
   // Reorganización §2 (PR2): sustituye a ExecutiveSummary, que sacaba
   // "tiempo estimado"/"impacto potencial" de `resumen` — un snapshot de
   // cuando corrió el cron. Recalculado aquí con los MISMOS arrays que se
   // pintan como tarjetas, para que nunca diverja de lo que se ve (bug
-  // "2 vs 11" ya documentado). NO incluye `enSeguimiento`: eso ya tiene su
-  // propia sección de Seguimiento, fuera de este bloque.
+  // "2 vs 11" ya documentado). NO incluye `enSeguimiento`: son filas sin
+  // botones de acción (PR3), no aportan tiempo/impacto que sumar.
   const itemsVivos = [...prioridadesParaTarjetas, ...situacionesNuevas];
   const tiempoEstimadoVivoMin = itemsVivos.reduce((acc, r) => acc + r.tiempoEstimadoMin, 0);
   const impactoEurMesVivo = itemsVivos.reduce(
@@ -109,15 +114,9 @@ export default function CentroDeControlPage() {
   function handleVerPendiente() {
     setDetalleAbierto(true);
     setTimeout(() => {
-      document.getElementById(anclaPendiente)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('recomendaciones')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
   }
-
-  const gruposSituacion = useMemo(() => {
-    const grupos = new Map<NivelSituacion, RecomendacionAPI[]>([['ACCION_RECOMENDADA', []], ['REVISAR', []], ['SENAL', []]]);
-    for (const r of situacionesNuevas) grupos.get(nivelSituacion(r.prioridad))!.push(r);
-    return grupos;
-  }, [situacionesNuevas]);
 
   // Reorganización §3: recomendaciones pendientes que el piloto automático
   // ejecutaría en el próximo ciclo si sigue encendido — SOLO una referencia
@@ -256,11 +255,6 @@ export default function CentroDeControlPage() {
         bandejaHoy={<BandejaHoy />}
       />
 
-      {/* 2. Seguimiento — situaciones ya detectadas, sin cambios desde la última revisión */}
-      <div id="seguimiento">
-        <SeguimientoPendiente items={enSeguimiento} />
-      </div>
-
       <button
         type="button"
         onClick={() => setDetalleAbierto(v => !v)}
@@ -319,63 +313,37 @@ export default function CentroDeControlPage() {
         {modoAprendizaje ? (
           <EmptyState />
         ) : (
-            <div id="recomendaciones" className="flex flex-col gap-6">
-              {/* 6. Prioridades */}
-              {prioridadesParaTarjetas.length > 0 && (
-                <div id="prioridades" className="flex flex-col gap-3">
-                  <h3 className="font-heading text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Prioridades
-                  </h3>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    {prioridadesParaTarjetas.map(r => (
-                      <RecommendationCard
-                        key={r.id}
-                        recomendacion={r}
-                        onAprobar={() => handleAprobar(r.id)}
-                        onRechazar={() => handleRechazar(r.id)}
-                        procesando={procesandoId === r.id}
-                        whatsappHref={whatsappHref(r)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 7. Más situaciones — 3 niveles: Acción recomendada / Revisar / Señal */}
-              {situacionesNuevas.length > 0 && (
-                <div className="flex flex-col gap-5">
-                  <h3 className="font-heading text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {prioridadesParaTarjetas.length > 0 ? 'Más situaciones' : 'Situaciones a revisar'}
-                  </h3>
-                  {GRUPOS_SITUACION.map(({ nivel, titulo }) => {
-                    const items = gruposSituacion.get(nivel) ?? [];
-                    if (items.length === 0) return null;
-                    const info = NIVEL_SITUACION_INFO[nivel];
-                    return (
-                      <div key={nivel} className="flex flex-col gap-3">
-                        <span
-                          className="w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                          style={{ color: info.color, backgroundColor: info.bg }}
-                        >
-                          {titulo}
-                        </span>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                          {items.map(r => (
-                            <RecommendationCard
-                              key={r.id}
-                              recomendacion={r}
-                              onAprobar={() => handleAprobar(r.id)}
-                              onRechazar={() => handleRechazar(r.id)}
-                              procesando={procesandoId === r.id}
-                              whatsappHref={whatsappHref(r)}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+            <div id="recomendaciones" className="flex flex-col gap-3">
+              {prioridadesParaTarjetas.map(r => (
+                <FilaSituacion
+                  key={r.id}
+                  variante="completo"
+                  recomendacion={r}
+                  onAprobar={() => handleAprobar(r.id)}
+                  onRechazar={() => handleRechazar(r.id)}
+                  procesando={procesandoId === r.id}
+                  whatsappHref={whatsappHref(r)}
+                />
+              ))}
+              {situacionesNuevas.map(r => (
+                <FilaSituacion
+                  key={r.id}
+                  variante="completo"
+                  recomendacion={r}
+                  onAprobar={() => handleAprobar(r.id)}
+                  onRechazar={() => handleRechazar(r.id)}
+                  procesando={procesandoId === r.id}
+                  whatsappHref={whatsappHref(r)}
+                />
+              ))}
+              {enSeguimiento.map(r => (
+                <FilaSituacion
+                  key={r.id}
+                  variante="seguimiento"
+                  recomendacion={r}
+                  diasAbierta={diasAbierta(r.creadoEn, fechaHoy)}
+                />
+              ))}
             </div>
         )}
       </div>

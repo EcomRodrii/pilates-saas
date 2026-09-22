@@ -10,15 +10,19 @@ import { severidad } from './severidad';
 import { SeveridadBadge } from './severidad-badge';
 import type { ImpactoAPI, RecomendacionAPI } from './use-decisiones';
 
-// Plantilla única de recomendación (Bible doc 5 §14 / doc 3): título → motivo
-// → impacto → confianza → tiempo → acción. Nunca cambia de orden entre
-// especialistas — es lo que hace la interfaz predecible (doc 5 regla de oro 12).
-
-// Reorganización Centro de Control §9: nunca una cifra desnuda — siempre con
-// la etiqueta que dice si es riesgo, recuperable o una estimación, para que
-// no se lea como dinero garantizado. Separada de la cifra (no concatenada en
-// un solo string) para poder pintar la cifra grande y la etiqueta pequeña
-// debajo, sin romper el layout compacto título+cifra que ya existía.
+// Reorganización Centro de Control §3 (PR3): sustituye a RecommendationCard +
+// SeguimientoPendiente — una sola lista de situaciones abiertas, en vez de
+// dos grids con 5 encabezados de sección para lo que conceptualmente es una
+// sola cosa. El orden lo decide `page.tsx` concatenando en bloques fijos
+// (Prioridades → Más situaciones nuevas → Seguimiento) — nunca un re-sort
+// por score aquí, o se deshace el cap de especialista/críticas que
+// `lib/decision/prioridad.ts` ya aplicó a propósito en el servidor.
+//
+// `variante` decide cuánto pesa visualmente la fila: 'completo' es
+// accionable (motivo, evidencia, botones); 'seguimiento' es deliberadamente
+// menos — sin botones ni badge de severidad, para no generar fatiga de
+// decisión sobre algo que lleva días sin cambiar (mismo principio que ya
+// tenía SeguimientoPendiente).
 function formatearImpacto(imp: ImpactoAPI | null, riesgo: 'PERDIDA' | 'OPORTUNIDAD', tipo: string): { etiqueta: string; cifra: string } | null {
   if (!imp || imp.valor === 0) return null;
   const signo = imp.valor >= 0 ? '+' : '';
@@ -39,25 +43,52 @@ function botonPrincipal(tipo: string): { label: string; Icon: typeof Check } {
   return { label: 'Hecho', Icon: Check };
 }
 
-export function RecommendationCard({ recomendacion, onAprobar, onRechazar, procesando, whatsappHref }: {
-  recomendacion: RecomendacionAPI;
-  onAprobar: () => void;
-  onRechazar: () => void;
-  procesando?: boolean;
-  whatsappHref?: string | null;
-}) {
+type Props =
+  | {
+      variante: 'completo';
+      recomendacion: RecomendacionAPI;
+      onAprobar: () => void;
+      onRechazar: () => void;
+      procesando?: boolean;
+      whatsappHref?: string | null;
+    }
+  | {
+      variante: 'seguimiento';
+      recomendacion: RecomendacionAPI;
+      /** Días naturales desde `creadoEn` — `partirMasSituaciones` ya
+       * garantiza que es ≥1 para todo lo que llega aquí como seguimiento. */
+      diasAbierta: number;
+    };
+
+export function FilaSituacion(props: Props) {
+  const { recomendacion: r } = props;
   const [porQueAbierto, setPorQueAbierto] = useState(false);
-  const impacto = formatearImpacto(recomendacion.impacto, recomendacion.riesgo, recomendacion.tipo);
-  const esCritica = recomendacion.prioridad === 'CRITICA';
-  const nivelSev = severidad(recomendacion.prioridad, recomendacion.riesgo, recomendacion.confianza.nivel);
-  const { label: labelPrincipal, Icon: IconPrincipal } = botonPrincipal(recomendacion.accion.tipo);
-  const especialista = ESPECIALISTA_INFO[recomendacion.especialista];
+
+  if (props.variante === 'seguimiento') {
+    return (
+      <Card size="sm">
+        <CardContent className="flex items-center gap-2">
+          <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--muted-foreground)' }} />
+          <p className="text-[13px] text-foreground">
+            {r.titulo}. <span className="text-muted-foreground">
+              Sin cambios claros desde la última revisión · abierto hace {props.diasAbierta} {props.diasAbierta === 1 ? 'día' : 'días'}.
+            </span>
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const { onAprobar, onRechazar, procesando, whatsappHref } = props;
+  const impacto = formatearImpacto(r.impacto, r.riesgo, r.tipo);
+  const esCritica = r.prioridad === 'CRITICA';
+  const nivelSev = severidad(r.prioridad, r.riesgo, r.confianza.nivel);
+  const { label: labelPrincipal, Icon: IconPrincipal } = botonPrincipal(r.accion.tipo);
+  const especialista = ESPECIALISTA_INFO[r.especialista];
   // P2-5: cuando detectarConflictos (lib/decision/conflictos.ts) marca dos
   // recomendaciones de especialistas distintos que se contradicen, lo anota
-  // en datosUsados.conflictoCon en vez de ocultar ninguna — aquí es donde
-  // ese aviso se hace visible por primera vez, para que la propietaria elija
-  // ella en vez de que el sistema decida en silencio.
-  const conflictoCon = typeof recomendacion.datosUsados.conflictoCon === 'string' ? recomendacion.datosUsados.conflictoCon : null;
+  // en datosUsados.conflictoCon en vez de ocultar ninguna.
+  const conflictoCon = typeof r.datosUsados.conflictoCon === 'string' ? r.datosUsados.conflictoCon : null;
 
   return (
     <Card className={esCritica ? 'ring-2 ring-destructive/40' : undefined}>
@@ -66,13 +97,13 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
 
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-heading text-[16px] leading-snug font-semibold text-foreground">
-            {recomendacion.titulo}
+            {r.titulo}
           </h3>
           {impacto && (
             <div className="shrink-0 text-right">
               <span
                 className="text-[15px] font-bold"
-                style={{ color: recomendacion.riesgo === 'PERDIDA' ? 'var(--foreground)' : 'var(--success)' }}
+                style={{ color: r.riesgo === 'PERDIDA' ? 'var(--foreground)' : 'var(--success)' }}
               >
                 {impacto.cifra}
               </span>
@@ -81,7 +112,7 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
           )}
         </div>
 
-        <p className="text-[14px] leading-relaxed text-muted-foreground">{recomendacion.motivo}</p>
+        <p className="text-[14px] leading-relaxed text-muted-foreground">{r.motivo}</p>
 
         {conflictoCon && (
           <div className="flex items-start gap-2 rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)' }}>
@@ -94,7 +125,7 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
           {especialista && <span>{especialista.nombre}</span>}
           <span aria-hidden>·</span>
           <span className="inline-flex items-center gap-1">
-            <Clock size={12} /> {recomendacion.tiempoEstimadoMin} min
+            <Clock size={12} /> {r.tiempoEstimadoMin} min
           </span>
           <span aria-hidden>·</span>
           <button
@@ -103,14 +134,14 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
             className="inline-flex items-center gap-1 hover:text-foreground"
             aria-expanded={porQueAbierto}
           >
-            {fraseConfianza(recomendacion.confianza.nivel)}
+            {fraseConfianza(r.confianza.nivel)}
             <ChevronDown size={12} className={porQueAbierto ? 'rotate-180' : ''} />
           </button>
         </div>
 
-        {porQueAbierto && recomendacion.confianza.evidencia.length > 0 && (
+        {porQueAbierto && r.confianza.evidencia.length > 0 && (
           <ul className="flex flex-col gap-1 rounded-lg bg-muted/40 px-3 py-2 text-[12px] text-muted-foreground">
-            {recomendacion.confianza.evidencia.map((e, i) => <li key={i}>· {e}</li>)}
+            {r.confianza.evidencia.map((e, i) => <li key={i}>· {e}</li>)}
           </ul>
         )}
 
