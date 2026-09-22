@@ -6,10 +6,14 @@ import { montar, ir } from './panel-sembrado';
 // interruptor.
 //
 // Los estudios decían que no les quedaba claro cómo se marcan las alumnas en una
-// clase fija sin reservarla cada semana. Se pueden pedir desde la app, pero viene
-// APAGADO de serie y nada lo explicaba: el ajuste era un interruptor sin más.
-// Ahora, debajo, se enseña el cartel que ve la alumna con las MISMAS palabras que
-// su app (`TEXTOS_PLAZA_FIJA`), atenuado mientras esté apagado.
+// clase fija sin reservarla cada semana. Investigado a fondo (22-sep): el ajuste
+// venía APAGADO de serie en los 7 estudios de producción, sin ningún motivo de
+// negocio para tenerlo así — con eso apagado, ninguna alumna veía NUNCA la opción
+// de quedarse fija. Ahora viene ENCENDIDO de serie (migr
+// `20260922151000_plaza_fija_desde_app_por_defecto`); el estudio lo sigue pudiendo
+// apagar si prefiere seguir dándolas a mano en recepción. Debajo del interruptor
+// se enseña el cartel que ve la alumna con las MISMAS palabras que su app
+// (`TEXTOS_PLAZA_FIJA`), atenuado mientras esté apagado.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STUDIO_ID = 'studio-test';
@@ -39,11 +43,11 @@ async function abrirAjuste(page: Page, columnas: Record<string, unknown> = {}) {
 test.describe('Configuración · peticiones de plaza fija desde la app', () => {
   test.describe.configure({ timeout: 180_000 });
 
-  test('explica cómo se marcan las alumnas y enseña lo que ven, atenuado mientras esté apagado', async ({ page }) => {
+  test('de serie ya viene encendido: explica cómo se marcan las alumnas y enseña lo que ven, sin el aviso de que no lo ven', async ({ page }) => {
     await abrirAjuste(page);
 
     // La explicación dice lo que hace de serie, cómo se pide y el límite de la cuota.
-    await expect(page.getByText(/De serie, las plazas fijas las das tú, en recepción/)).toBeVisible();
+    await expect(page.getByText(/pueden pedir quedarse fijas en una clase que se repite/)).toBeVisible();
     await expect(page.getByText(/con bono se reserva clase a clase/)).toBeVisible();
 
     const vista = page.getByTestId('vista-previa-plaza-fija');
@@ -52,22 +56,22 @@ test.describe('Configuración · peticiones de plaza fija desde la app', () => {
     await expect(vista).toContainText('tu plaza queda reservada cada semana');
     await expect(vista).toContainText('Tu estudio tiene que confirmarla');
     await expect(vista).toContainText('Pedir clase fija');
-    await expect(vista).toContainText('Ahora tus alumnas no lo ven');
+    await expect(vista).not.toContainText('Ahora tus alumnas no lo ven');
   });
 
-  test('encendido, la vista previa deja de decir que no lo ven; y al guardar manda solo sus columnas', async ({ page }) => {
+  test('apagado a mano, se ve atenuado con el aviso de que no lo ven', async ({ page }) => {
+    await abrirAjuste(page, { plaza_fija_solicitar_desde_app: false });
+    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('¿Vienes los martes a las 10:00?');
+    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Ahora tus alumnas no lo ven');
+  });
+
+  test('apagarlo (de serie viene encendido) manda solo sus columnas al guardar', async ({ page }) => {
     const { patches } = await abrirAjuste(page);
     await page.getByRole('switch', { name: /Pueden pedir plaza fija/ }).click();
 
-    await expect(page.getByTestId('vista-previa-plaza-fija')).not.toContainText('Ahora tus alumnas no lo ven');
+    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Ahora tus alumnas no lo ven');
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
-    expect(patches[0]).toEqual({ plaza_fija_solicitar_desde_app: true, plaza_fija_pausa_desde_app: false });
-  });
-
-  test('ya encendido, se ve sin el aviso de «ahora no lo ven»', async ({ page }) => {
-    await abrirAjuste(page, { plaza_fija_solicitar_desde_app: true });
-    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('¿Vienes los martes a las 10:00?');
-    await expect(page.getByTestId('vista-previa-plaza-fija')).not.toContainText('Ahora tus alumnas no lo ven');
+    expect(patches[0]).toEqual({ plaza_fija_solicitar_desde_app: false, plaza_fija_pausa_desde_app: false });
   });
 });
