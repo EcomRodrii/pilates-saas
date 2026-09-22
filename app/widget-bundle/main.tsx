@@ -117,7 +117,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
 }) {
   const {
     slots, cargando, error, paginaOculta, studioId, socia, autenticado, sesionCargando, refrescarSesion,
-    politicaPrivacidad, terminosServicio, onReservar, onCancelar, onAceptarOferta,
+    politicaPrivacidad, terminosServicio, nombreEstudio, onReservar, onCancelar, onAceptarOferta,
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
     stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
   } = useDatosWidget(slug, ORIGEN_TENTARE, filtros);
@@ -392,6 +392,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
             autenticado={walkInSinFicha}
             politicaPrivacidad={politicaPrivacidad}
             terminosServicio={terminosServicio}
+            nombreEstudio={nombreEstudio}
             onListo={() => { refrescarSesion(); setAccesoAbierto(false); }}
           />
         </div>

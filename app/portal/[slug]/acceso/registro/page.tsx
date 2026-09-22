@@ -11,7 +11,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useOnline } from '@/lib/student/useOnline';
 import { guardarFirma, leerFirma } from '@/lib/student/consentimiento';
 import { catalogo } from '@/lib/student/catalogo';
-import { textoLegalCompleto } from '@/lib/legal-textos';
+import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { Icono } from '@/components/student/ui/Icono';
@@ -79,7 +79,8 @@ export default function RegistroPage() {
     if (refDelEnlace) guardarReferidor(slug, refDelEnlace);
   }, [slug, refDelEnlace]);
 
-  const [f, setF] = useState({ nombre: '', email: '', telefono: '', pass: '', acepto: false });
+  // `marketing` empieza en false y así debe quedarse: el RGPD no admite la casilla premarcada.
+  const [f, setF] = useState({ nombre: '', email: '', telefono: '', pass: '', acepto: false, marketing: false });
   const [err, setErr] = useState<Record<string, string>>({});
   const [global, setGlobal] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -107,6 +108,7 @@ export default function RegistroPage() {
     firma: f.nombre.trim(),
     versionTexto: textoLegal,
     telefono: f.telefono.trim() || undefined,
+    marketing: f.marketing || undefined,
   });
 
   /**
@@ -244,6 +246,27 @@ export default function RegistroPage() {
         </span>
       </label>
       {err.acepto && <p role="alert" className="field-error" style={{ marginTop: -6 }}>{err.acepto}</p>}
+
+      {/* Consentimiento de marketing: APARTE del contrato, desmarcado y opcional.
+          No marcarlo no cambia nada del alta (RGPD art. 7.4). */}
+      <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
+        <button
+          type="button" role="checkbox" aria-checked={f.marketing}
+          aria-label={`Quiero recibir novedades y ofertas de ${estudio.nombre} por email`}
+          onClick={() => setF({ ...f, marketing: !f.marketing })}
+          style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6, border: 'none', background: f.marketing ? 'var(--accent)' : 'var(--card)', boxShadow: f.marketing ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'all .2s' }}
+        >
+          {f.marketing && <Icono nombre="hecho" tamano={16} grosor={2} />}
+        </button>
+        <span style={{ fontSize: 'var(--t-small)', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
+          Quiero recibir novedades y ofertas de {estudio.nombre} por email (opcional).
+        </span>
+      </label>
+      {/* Fuera de la <label>: dentro, abrir «Qué acepto» marcaría la casilla. */}
+      <details style={{ marginTop: -6, marginLeft: 30, fontSize: 'var(--t-small)', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
+        <summary style={{ cursor: 'pointer', color: 'var(--foreground)', fontWeight: 700 }}>Qué acepto</summary>
+        {textoConsentimientoMarketing({ nombre: estudio.nombre })}
+      </details>
 
       <Button type="submit" full loading={cargando} disabled={!online} style={{ marginTop: 4 }}>
         {!online ? 'Sin conexión' : soloFirma ? (autenticado ? 'Aceptar y continuar' : 'Aceptar y continuar con Google') : 'Crear cuenta'}

@@ -14,7 +14,7 @@ import { useState } from 'react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import { useAuthWidget, urlRetornoWidgetAuth, type AceptacionWidget } from '@/lib/widget/usar-auth-widget';
 import { useCaptchaWidget } from '@/lib/widget/turnstile-shadow';
-import { textoLegalCompleto } from '@/lib/legal-textos';
+import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
 import { telefonoValido } from '@/lib/csv';
 import { sans, radius } from '@/lib/reservar-publico-tokens';
 
@@ -37,8 +37,10 @@ const botonTexto = (): React.CSSProperties => ({
 });
 
 export function FormularioAccesoWidget({
-  t, slug, baseUrl, studioId, autenticado, politicaPrivacidad, terminosServicio, onListo,
+  t, slug, baseUrl, studioId, autenticado, politicaPrivacidad, terminosServicio, nombreEstudio, onListo,
 }: {
+  /** El texto del consentimiento de marketing lleva el nombre del estudio, como el del servidor. */
+  nombreEstudio?: string;
   t: ModoTokens;
   slug: string;
   baseUrl: string;
@@ -58,6 +60,8 @@ export function FormularioAccesoWidget({
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [aceptaContrato, setAceptaContrato] = useState(false);
+  // Consentimiento de marketing: aparte, desmarcado y opcional (RGPD art. 7).
+  const [aceptaMarketing, setAceptaMarketing] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -106,7 +110,7 @@ export function FormularioAccesoWidget({
     setEnviando(true);
     const r = await auth.registrar(studioId, nombre, telefono, {
       fecha: new Date().toISOString(), firma: nombre.trim(), versionTexto: contratoTexto,
-    } satisfies AceptacionWidget);
+    } satisfies AceptacionWidget, aceptaMarketing);
     setEnviando(false);
     if (!r.ok) { setError(r.error ?? 'No se ha podido completar el registro.'); return; }
     onListo();
@@ -129,6 +133,14 @@ export function FormularioAccesoWidget({
             <span>He leído y acepto la política de privacidad y las condiciones del estudio.</span>
           </label>
         )}
+        <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: t.muted }}>
+          <input type="checkbox" checked={aceptaMarketing} onChange={(e) => setAceptaMarketing(e.target.checked)} style={{ marginTop: 2 }} />
+          <span>Quiero recibir novedades y ofertas de {nombreEstudio || 'el estudio'} por email (opcional).</span>
+        </label>
+        <details style={{ fontSize: 11.5, color: t.muted, marginTop: -6, marginLeft: 22 }}>
+          <summary style={{ cursor: 'pointer' }}>Qué acepto</summary>
+          {textoConsentimientoMarketing({ nombre: nombreEstudio || undefined })}
+        </details>
         <div ref={contenedorRef} />
         {error && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--destructive)' }}>{error}</p>}
         <button type="button" onClick={onRegistrar} disabled={enviando} style={botonPrimario(t, enviando)}>

@@ -112,6 +112,8 @@ function Verificar() {
         nombre: firma.firma,
         telefono: firma.telefono ?? '',
         aceptacion: { fecha: firma.fecha, firma: firma.firma, versionTexto: firma.versionTexto },
+        // Solo si marcó la casilla: no marcarla no retira nada.
+        ...(firma.marketing === true ? { marketing: true } : {}),
         // ⚠️ Quien la invitó, si llegó por un enlace de invitación. El endpoint
         // aceptaba `referidoPor` desde siempre y esta pantalla no lo mandaba
         // NUNCA, así que la cadena entera de referidos —el crédito a quien
