@@ -1332,6 +1332,22 @@ export async function devolverBonoServidor(
   // quedó a 0 al gastarla, que `bonoConsumible` descarta.
   const devolvible = bonoDevolvible(socioId, (susRows ?? []).map(mapSuscripcion), planesConTipos, undefined, tipoClaseId);
   if (!devolvible) return 'SIN_BONO';
+
+  // R-4 (auditoría 22-sep): con `reservaId`, sella la devolución POR RESERVA
+  // igual que la rama rastreada de arriba — mismo motivo exacto: repetir el
+  // POST con el mismo id volvía a sumar +1 cada vez, hasta el tope del plan.
+  // Sin `reservaId` (llamantes que no lo tienen) sigue el incremento ciego de
+  // siempre, sin marca posible.
+  if (reservaId) {
+    const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono_legado_por_reserva', {
+      p_studio_id: studioId, p_reserva_id: reservaId, p_suscripcion_id: devolvible.suscripcion.id,
+    });
+    if (error) { reportDbError('[devolverBonoServidor]', error); return 'FALLO'; }
+    // `null` = ya estaba sellada (reintento) o el bono ya estaba al tope —
+    // mismo criterio tri-estado que la rama rastreada: SIN_BONO, no FALLO.
+    return nuevoSaldo != null ? 'DEVUELTA' : 'SIN_BONO';
+  }
+
   // I-10: incremento ATÓMICO con el tope aplicado en el propio WHERE. Antes era
   // read-modify-write sobre el snapshot de arriba, así que dos cancelaciones
   // concurrentes escribían el mismo número y una devolución se perdía en

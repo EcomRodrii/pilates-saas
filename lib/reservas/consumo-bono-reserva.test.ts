@@ -426,3 +426,20 @@ test('⚠️ migración 2 de 2: solo el default, nada más', () => {
   const sentencias = MIGR_B.split(';').map(s => s.trim()).filter(Boolean);
   assert.deepEqual(sentencias, ['alter table public.reservas\n  alter column bono_consumo_rastreado set default true']);
 });
+
+test('⚠️ R-4: la devolución legada también sella por reserva, no solo la rastreada', () => {
+  const cuerpo = cuerpoDe(ADMIN, 'devolverBonoServidor');
+  // La rama rastreada (RES-3) ya sella con `devolver_sesion_bono_por_reserva`
+  // y devuelve pronto; lo que se comprueba aquí es que, tras ella, la rama
+  // legada NO cae directa al `+1` ciego cuando SÍ hay reservaId — antes de
+  // llegar al `devolver_sesion_bono` sin marca, tiene que intentar la RPC
+  // sellada.
+  const trasRamaRastreada = cuerpo.slice(cuerpo.indexOf('bonoDevolvible('));
+  const iLegado = trasRamaRastreada.indexOf('devolver_sesion_bono_legado_por_reserva');
+  const iCiego = trasRamaRastreada.indexOf("rpc('devolver_sesion_bono'");
+  assert.ok(iLegado > 0, 'falta la llamada a la RPC legada sellada');
+  assert.ok(iCiego > iLegado, 'el incremento ciego (sin marca) tiene que ir DESPUÉS, como último recurso sin reservaId');
+  // Y esa llamada va detrás de un `if (reservaId)` — nunca se llama sin id.
+  const guardaReservaId = trasRamaRastreada.slice(0, iLegado).lastIndexOf('if (reservaId)');
+  assert.ok(guardaReservaId > 0, 'la RPC legada sellada exige reservaId, igual que la rastreada');
+});
