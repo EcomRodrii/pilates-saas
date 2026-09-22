@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
       analisis,
       alertas: alertas.map(({ tipo, severidad, titulo, descripcion, href }) => ({ tipo, severidad, titulo, descripcion, href })),
       ajustes: ajustesDesdeConfig(config),
+      avisarAbrimos: config.avisarAbrimos,
       onboarding: estado.respuestas,
       recomendaciones,
       listo,
@@ -104,7 +105,7 @@ export async function PATCH(req: NextRequest) {
 
   const body = await req.json().catch(() => null) as {
     fechaApertura?: unknown; yaAbierto?: unknown; ajustes?: unknown; onboarding?: unknown;
-    aperturaSuave?: unknown; invitada?: { socioId?: unknown; invitada?: unknown };
+    aperturaSuave?: unknown; invitada?: { socioId?: unknown; invitada?: unknown }; avisarAbrimos?: unknown;
   } | null;
   const admin = requireSupabaseAdmin();
   const { studioId } = sesion;
@@ -115,6 +116,18 @@ export async function PATCH(req: NextRequest) {
       .upsert({ studio_id: studioId, fase: 'OPERANDO', updated_at: ahora }, { onConflict: 'studio_id' });
     if (error) {
       console.error('[opening:patch] ya abierto', error);
+      return NextResponse.json({ error: 'No se pudo guardar' }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  // «Abrimos mañana»: encenderlo ES el visto bueno de la propietaria al envío.
+  if (body?.avisarAbrimos !== undefined) {
+    if (typeof body.avisarAbrimos !== 'boolean') return NextResponse.json({ error: 'Valor no válido' }, { status: 400 });
+    const { error } = await admin.from('opening_config')
+      .upsert({ studio_id: studioId, avisar_abrimos: body.avisarAbrimos, updated_at: ahora }, { onConflict: 'studio_id' });
+    if (error) {
+      console.error('[opening:patch] avisar abrimos', error);
       return NextResponse.json({ error: 'No se pudo guardar' }, { status: 500 });
     }
     return NextResponse.json({ ok: true });

@@ -28,6 +28,23 @@ import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/l
 export const CLAVE_CAMBIO_SEDE = 'tentare:sede-cambiada';
 const CLAVE_CAMBIO = CLAVE_CAMBIO_SEDE;
 
+// Aviso a las DEMÁS pestañas de este mismo navegador de que la sede activa
+// cambió. `sessionStorage` (arriba) es por pestaña, así que una pestaña vieja
+// se quedaba con el sidebar mostrando la sede anterior indefinidamente: el
+// servidor resuelve la sede activa fresca en cada petición (`sesion_activa`
+// es una casilla global por cuenta, no por pestaña), pero esa pestaña nunca
+// volvía a preguntar. Resultado real, visto en producción: la home avisaba de
+// un cobro sin cobrar de la sede NUEVA (correcto, servidor al día) y el
+// enlace llevaba a una pantalla que seguía mostrando la sede VIEJA (el
+// StudioProvider de esa pestaña, resuelto una sola vez al montar) — 0
+// resultados, aunque el cobro sí existía.
+//
+// `localStorage` SÍ es compartido entre pestañas del mismo origen, y el
+// evento nativo `storage` lo dispara el navegador únicamente en las OTRAS
+// pestañas, nunca en la que escribió — así que no hace falta ningún guard
+// contra bucles: la pestaña que cambia de sede nunca se recibe su propio aviso.
+const CLAVE_CAMBIO_GLOBAL = 'tentare:sede-cambio-global';
+
 // P2-14: rol legible por sede — instructoras multi-sede pueden ser
 // PROPIETARIO/MANAGER en una y solo INSTRUCTOR en otra, y conviene que no
 // les sorprenda el cambio de permisos al cambiar de sede en este menú.
@@ -68,9 +85,23 @@ export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 't
       if (!ok) { setCambiando(null); return; }
       const destino = sedes.find(s => s.id === studioId);
       try { sessionStorage.setItem(CLAVE_CAMBIO, destino?.nombre ?? ''); } catch { /* modo privado */ }
+      try { localStorage.setItem(CLAVE_CAMBIO_GLOBAL, `${studioId}:${Date.now()}`); } catch { /* modo privado */ }
       window.location.href = '/dashboard';
     });
   }
+
+  // Si la sede cambia desde OTRA pestaña, esta se entera por el evento nativo
+  // `storage` y recarga con el mismo hard-nav que ya usa el propio selector —
+  // así el sidebar y el servidor nunca discrepan más allá de un instante.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key !== CLAVE_CAMBIO_GLOBAL || !e.newValue) return;
+      const [studioId] = e.newValue.split(':');
+      if (studioId && studioId !== studio?.id) window.location.href = '/dashboard';
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [studio?.id]);
 
   // Una sola sede (el caso de la mayoría): nada que desambiguar.
   if (sedes.length < 2) return null;

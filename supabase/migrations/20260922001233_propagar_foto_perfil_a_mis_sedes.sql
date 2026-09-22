@@ -9,7 +9,9 @@ create or replace function public.propagar_foto_perfil_a_mis_sedes(
 ) returns integer language plpgsql security definer set search_path = '' as $f$
 declare v_n integer := 0;
 begin
-  if auth.uid() is null or not (p_cambiar_foto or p_cambiar_avatar) then return 0; end if;
+  -- Sin sesión no hay «mis sedes»: error, no un «0» que se lea como servidor.
+  if auth.uid() is null then raise exception 'Sin sesión' using errcode = '42501'; end if;
+  if not (p_cambiar_foto or p_cambiar_avatar) then return 0; end if;
   if p_foto_url is not null and p_foto_url not like 'https://%/storage/v1/object/public/avatars/%' then
     raise exception 'URL de foto no válida' using errcode = '22023';
   end if;

@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Trash2 } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
+import { useRol } from '@/lib/permisos';
+import { useStudio } from '@/lib/studio-context';
+import { borradorFinEtapa, borradorVentaEtapa, enlaceReservas, hrefMensajeria, tocaRecordarFinEtapa } from '@/lib/opening/comunicaciones';
 import { estadoEtapa, NOMBRE_ETAPA, TIPOS_ETAPA, type AlCompletar, type EtapaVista, type TipoEtapa } from '@/lib/opening/etapas';
 
 interface PlanVenta { id: string; nombre: string; tipo: string; precio: number }
@@ -38,6 +41,10 @@ const VACIO = { etapa: 'FUNDADORA' as TipoEtapa, planId: '', desde: '', hasta: '
 // `onCambio`: la tarjeta de apertura recarga sus recomendaciones (p. ej. deja de
 // sugerir «Crea tu etapa Fundadora» en cuanto existe).
 export function EtapasLanzamiento({ onCambio }: { onCambio?: () => void }) {
+  // Enviar campañas es solo de la propietaria (el servidor lo comprueba): a
+  // nadie más se le ofrece el atajo.
+  const envia = useRol() === 'PROPIETARIO';
+  const { studio } = useStudio();
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState(VACIO);
@@ -133,6 +140,14 @@ export function EtapasLanzamiento({ onCambio }: { onCambio?: () => void }) {
                       {NOMBRE_ETAPA[e.etapa]}{e.planNombre ? ` · ${e.planNombre}` : ''}
                     </p>
                     <p className={`text-[11.5px] ${TONO[est.tono]}`}>{est.texto}</p>
+                    {envia && studio?.slug && !e.cerrada && hoy >= e.desde && (
+                      <Link
+                        href={hrefMensajeria((tocaRecordarFinEtapa(e, hoy) ? borradorFinEtapa : borradorVentaEtapa)(e, studio.nombre, enlaceReservas(studio.slug)))}
+                        className="mt-0.5 inline-block text-[11.5px] font-medium text-brand-secondary hover:underline"
+                      >
+                        {tocaRecordarFinEtapa(e, hoy) ? 'Recordarles que termina' : 'Avisar a tus interesadas'}
+                      </Link>
+                    )}
                   </div>
                   <span className="shrink-0 text-[12px] tabular-nums text-foreground">
                     {e.limitePlazas !== null ? `${e.ventas} de ${e.limitePlazas}` : `${e.ventas} ${e.ventas === 1 ? 'vendida' : 'vendidas'}`}

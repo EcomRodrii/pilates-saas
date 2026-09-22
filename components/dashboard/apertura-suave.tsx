@@ -2,8 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
+import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
+import { useRol } from '@/lib/permisos';
+import { copiarAlPortapapeles } from '@/lib/utils';
 import { ANCLA_APERTURA_SUAVE } from '@/lib/opening/listo';
+import { borradorInvitadas, enlaceReservas, hrefMensajeria } from '@/lib/opening/comunicaciones';
 
 export interface EstadoAperturaSuave {
   activa: boolean;
@@ -21,7 +25,12 @@ export function AperturaSuave({ estado, fechaApertura, onGuardar }: {
   fechaApertura: string | null;
   onGuardar: (body: Record<string, unknown>) => Promise<string | null>;
 }) {
-  const { socios } = useStudio();
+  const { socios, studio } = useStudio();
+  // Enviar campañas es solo de la propietaria (el servidor lo comprueba).
+  const envia = useRol() === 'PROPIETARIO';
+  // null = no se ha intentado; true = copiado; false = el navegador no dejó
+  // (Safari puede mentir o negarse): entonces se enseña el enlace para copiarlo a mano.
+  const [copiado, setCopiado] = useState<boolean | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +110,25 @@ export function AperturaSuave({ estado, fechaApertura, onGuardar }: {
               </ul>
             )}
           </div>
+          {studio?.slug && fechaApertura && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px]">
+              {envia && invitadas.length > 0 && (
+                <Link href={hrefMensajeria(borradorInvitadas(fechaApertura, studio.nombre, enlaceReservas(studio.slug)))}
+                  className="font-medium text-brand-secondary hover:underline">
+                  Escribir a tus invitadas
+                </Link>
+              )}
+              <button type="button" className="font-medium text-brand-secondary hover:underline"
+                onClick={() => void copiarAlPortapapeles(enlaceReservas(studio.slug!)).then(setCopiado)}>
+                {copiado ? 'Enlace copiado' : 'Copiar enlace de reservas'}
+              </button>
+            </div>
+          )}
+          {copiado === false && studio?.slug && (
+            <p className="text-[11px] text-muted-foreground">
+              Tu navegador no deja copiar: mándales este enlace por WhatsApp, <span className="select-all font-medium text-foreground">{enlaceReservas(studio.slug)}</span>
+            </p>
+          )}
           <p className="text-[11px] text-muted-foreground">Desde el mostrador puedes apuntar a cualquiera, esté o no en el grupo.</p>
         </div>
       )}

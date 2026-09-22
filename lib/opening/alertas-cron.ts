@@ -4,6 +4,7 @@ import { emitirAlertaApertura, emitirBriefApertura } from '../notifications/emit
 import { puedeVer } from '../permisos-reglas.ts';
 import { construirBrief } from './brief.ts';
 import { recuperarPlazasDelEstudio } from './cupo.ts';
+import { avisarAbrimos, tocaAvisarAbrimos } from './abrimos.ts';
 import { recomendar } from './onboarding.ts';
 import { detectarAlertas, type AlertaApertura } from './alertas.ts';
 import { debeMostrarApertura, diasHastaApertura, DIAS_TRAS_APERTURA } from './visibilidad.ts';
@@ -37,6 +38,7 @@ export async function evaluarAlertasApertura(
     planActivo: new Map(planes.map(p => [p.id, p.activo])),
     objetivoPreventa: estado.config.objetivoPreventa,
     pendientesListo,
+    hoy: hoyEnEstudio(now),
   });
   const nuevas = await sincronizarAlertas(admin, studioId, detectadas, now, opciones);
   return { detectadas, nuevas, etapas, planes, datosListo };
@@ -46,6 +48,8 @@ export interface ResumenAlertasApertura {
   estudios: number;
   nuevas: number;
   briefs: number;
+  /** Socias avisadas con «abrimos mañana». */
+  abrimos: number;
   errores: number;
 }
 
@@ -87,7 +91,7 @@ export async function barrerAlertasApertura(admin: SupabaseClient, now = new Dat
   if (error) throw error;
 
   const hoy = hoyEnEstudio(now);
-  const resumen: ResumenAlertasApertura = { estudios: 0, nuevas: 0, briefs: 0, errores: 0 };
+  const resumen: ResumenAlertasApertura = { estudios: 0, nuevas: 0, briefs: 0, abrimos: 0, errores: 0 };
   const tocaBrief = HORAS_BRIEF.has(horaEnEstudio(now));
   for (const { id } of data ?? []) {
     const studioId = id as string;
@@ -108,6 +112,14 @@ export async function barrerAlertasApertura(admin: SupabaseClient, now = new Dat
         await emitirAlertaApertura({ studioId, fecha: hoy, tipo: a.tipo, titulo: a.titulo, descripcion: a.descripcion });
       }
       resumen.nuevas += nuevas.length;
+
+      if (tocaBrief && tocaAvisarAbrimos({
+        encendido: estado.config.avisarAbrimos,
+        diasHastaApertura: diasHastaApertura(estado.fechaApertura, now),
+        fechaAproximada: estado.respuestas?.fechaAproximada ?? false,
+      })) {
+        resumen.abrimos += await avisarAbrimos(admin, studioId);
+      }
 
       if (tocaBrief) {
         // Lo imprescindible que falte va antes que cualquier recomendación.

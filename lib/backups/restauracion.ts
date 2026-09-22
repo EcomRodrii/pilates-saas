@@ -29,6 +29,15 @@
 //   6. Una copia anterior a añadir una tabla a BACKUP_TABLES: esa tabla no se
 //      vacía (modo 'ausente').
 //   7. has_function_privilege de anon/authenticated = false, service_role = true.
+//   8. Auditoría 22-sep: `restaurarSnapshot` acota SOLO por `sesion.studioId`, sin
+//      ningún id de fila — es la única ruta de escritura del repo con ese patrón
+//      que sí sería grave. Una pestaña con la sede vieja en pantalla (bug de
+//      `sesion_activa` global por cuenta, arreglado en components/layout/
+//      sede-activa.tsx) podría restaurar sin querer sobre la sede REAL activa en
+//      servidor, no la que el sidebar mostraba. Antes de reactivar: exigir que el
+//      cliente reenvíe el studioId/nombre de sede que cree activo y comparar
+//      contra `sesion.studioId`, 409 si difieren — mismo criterio que ya usa
+//      `sedeGuardada` en resolverSesionStaff.
 // Y además: el diálogo del panel tiene que dejar de decir «sobrescribirá todos
 // los datos» y enumerar lo que NO se restaura (lo fiscal, y las tablas en modo
 // insertar_faltantes no revierten cambios, solo recuperan lo borrado).

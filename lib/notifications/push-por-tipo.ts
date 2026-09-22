@@ -74,6 +74,7 @@ export const PUSH_POR_TIPO: Record<RolConPushPorTipo, GrupoPush[]> = {
         { evento: EVENTOS.MENSAJE_RECIBIDO, titulo: 'Mensajes nuevos' },
         { evento: EVENTOS.POST_COMUNIDAD_NUEVO, titulo: 'Novedades en el tablón' },
         { evento: EVENTOS.DOCUMENTO_SOCIO_NUEVO, titulo: 'Documentos nuevos' },
+        { evento: EVENTOS.OPENING_ABRIMOS, titulo: 'Aviso de que el estudio abre' },
       ],
     },
   ],

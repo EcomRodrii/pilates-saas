@@ -7,7 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { GoogleIcon } from '@/components/icons/brand-icons';
-import { subirFotoAdmin, eliminarFotoAdmin, subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil, propagarFotoPerfil } from '@/lib/portal-storage';
+import { subirFotoAdmin, eliminarFotoAdmin, subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import { fetchTarifasEquipo } from '@/lib/api-client';
 import { inputCls, labelCls, cardCls } from '@/components/configuracion/estilos';
 import { useCuenta } from '@/components/auth/use-cuenta';
@@ -102,7 +102,6 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
     if ('error' in result) { setErrorFoto(result.error); return; }
     const res = yo ? await updateInstructor(yo.id, { fotoUrl: result.url }) : await updateStudio({ fotoUrl: result.url });
     if (!res.ok) { setErrorFoto(res.error); return; }
-    await propagarFotoPerfil(yo ? 'INSTRUCTOR' : 'STUDIO', { fotoUrl: result.url });
     showToast('Foto actualizada');
   }
 
@@ -113,8 +112,7 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
     setSubiendoFoto(false);
     if ('error' in result) { setErrorFoto(result.error); return; }
     const res = yo ? await updateInstructor(yo.id, { fotoUrl: null }) : await updateStudio({ fotoUrl: null });
-    if (!res.ok) { setErrorFoto(res.error); return; }
-    await propagarFotoPerfil(yo ? 'INSTRUCTOR' : 'STUDIO', { fotoUrl: null });
+    if (!res.ok) setErrorFoto(res.error);
   }
 
   const now = new Date();
@@ -132,7 +130,6 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   // esta prop no es estable entre renders.
   const onAvatarChange = useCallback(async (id: string | null) => {
     const res = yo ? await updateInstructor(yo.id, { avatar: id }) : await updateAvatarAdmin(id);
-    if (res.ok) await propagarFotoPerfil(yo ? 'INSTRUCTOR' : 'STUDIO', { avatar: id });
     showToast(res.ok ? 'Avatar actualizado' : res.error);
   }, [yo, updateInstructor, updateAvatarAdmin, showToast]);
 
