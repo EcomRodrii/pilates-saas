@@ -265,6 +265,10 @@ export const EVENTOS = {
   // Opening Brief (lib/opening/brief.ts): el resumen de la mañana del estudio
   // que abre. Como mucho uno al día y solo si hay algo que contar.
   OPENING_BRIEF: 'clases.opening_brief',
+  // «Abrimos mañana» a quien ya tiene cuota de una etapa de lanzamiento. Es
+  // información del servicio contratado, no comercial (no pide consentimiento
+  // de marketing), y solo sale si la propietaria lo encendió en los ajustes.
+  OPENING_ABRIMOS: 'clases.opening_abrimos',
   // El Umbral (lib/decision/umbral.ts): como mucho UN evento de este tipo al
   // día por estudio (reforzado por el UNIQUE(studio_id,fecha) de
   // decision_mensajes_dia) — nunca se dispara si el día es de silencio.
@@ -481,6 +485,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Una por alerta NUEVA (el cron solo emite las que abre): no se repite cada día.
   [EVENTOS.OPENING_ALERTA]:              { category: 'clases', priority: 'ALTA',  canales: ['PUSH'], audiencia: 'gerencia' },
   [EVENTOS.OPENING_BRIEF]:               { category: 'clases', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'gerencia' },
+  [EVENTOS.OPENING_ABRIMOS]:             { category: 'clases', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'socia-del-evento' },
   // ALTA + PUSH+INAPP a propósito, nada más: el Umbral solo interrumpe cuando
   // cree que merece la pena — un canal más (EMAIL) diluiría esa
   // misma promesa. Sin EMAIL: el mensaje es del día, no algo para revisar
@@ -721,6 +726,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
   }),
   // Reserva confirmada → la socia
+  // Opening OS: el día antes de abrir, a quien ya tiene su cuota de lanzamiento.
+  [`${EVENTOS.OPENING_ABRIMOS}#SOCIA`]: {
+    title: '¡Mañana abrimos!',
+    body: '{estudio} abre sus puertas mañana. Tu cuota ya está lista: reserva tu primera clase desde la app.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}`,
+  },
   [`${EVENTOS.RESERVA_CONFIRMADA}#SOCIA`]: {
     title: 'Reserva confirmada',
     body: 'Tu plaza en {clase} del {cuando} está confirmada. ¡Te esperamos!',

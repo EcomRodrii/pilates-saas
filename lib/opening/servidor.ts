@@ -21,10 +21,14 @@ const DIAS_HISTORIAL_ASISTENCIA = 90;
 const PAGINA = 1000;
 const DIA = 86_400_000;
 
-export interface ConfigCompleta extends ConfigOpening { objetivoPreventa: number }
+export interface ConfigCompleta extends ConfigOpening {
+  objetivoPreventa: number;
+  /** «Abrimos mañana» a las socias con cuota de lanzamiento (apagado por defecto). */
+  avisarAbrimos: boolean;
+}
 
 export function configDesdeFila(f: Record<string, unknown> | null): ConfigCompleta {
-  if (!f) return { ...CONFIG_OPENING_DEFECTO, objetivoPreventa: 0.4 };
+  if (!f) return { ...CONFIG_OPENING_DEFECTO, objetivoPreventa: 0.4, avisarAbrimos: false };
   return {
     umbralAmarillo: Number(f.umbral_amarillo),
     umbralRojo: Number(f.umbral_rojo),
@@ -33,6 +37,7 @@ export function configDesdeFila(f: Record<string, unknown> | null): ConfigComple
     sesionesSemanaSinTope: Number(f.sesiones_semana_sin_tope),
     semanasBonoSinCaducidad: Number(f.semanas_bono_sin_caducidad),
     objetivoPreventa: Number(f.objetivo_preventa),
+    avisarAbrimos: f.avisar_abrimos === true,
   };
 }
 
