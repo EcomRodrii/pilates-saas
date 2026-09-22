@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { verificarUsuarioSupabase, verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
@@ -40,7 +40,16 @@ export async function GET(req: NextRequest) {
     // Socia leyendo su propia foto
     autorizado = true;
   } else if (path.startsWith('instructor-')) {
-    // Instructora leyendo su propia foto, o staff del estudio
+    // Instructora leyendo su propia foto, o staff del MISMO estudio.
+    //
+    // ⚠️ Auditoría 2026-09-21: aquí se comparaba `instructor.studio_id ===
+    // studioId`, con `studioId` llegando CRUDO del query string. Eso no
+    // autoriza, solo comprueba que quien llama ACIERTA el estudio — y los
+    // paths son predecibles (lo dice la propia migración del bucket). Con
+    // cualquier JWT válido (una socia de otro estudio, una cuenta de Network)
+    // se obtenía la URL firmada de la foto privada de cualquier instructora.
+    // El estudio tiene que salir de la SESIÓN, nunca de la petición: es el
+    // mismo criterio que ya usaba la rama de socia con `socioAutenticado`.
     const instructorId = path.substring('instructor-'.length);
     const { data: instructor } = await admin
       .from('instructores')
@@ -48,8 +57,13 @@ export async function GET(req: NextRequest) {
       .eq('id', instructorId)
       .single();
 
-    if (instructor && (instructor.auth_user_id === user.userId || instructor.studio_id === studioId)) {
-      autorizado = true;
+    if (instructor) {
+      if (instructor.auth_user_id === user.userId) {
+        autorizado = true;
+      } else {
+        const sesion = await verificarSesionStaff(req);
+        if (sesion && sesion.studioId === instructor.studio_id) autorizado = true;
+      }
     }
   } else if (path.startsWith('network-')) {
     // Persona leyendo su propio perfil de red

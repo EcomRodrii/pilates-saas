@@ -646,8 +646,11 @@ export async function emitirPagoRealizado(
   admin: SupabaseClient, p: { studioId: string; reciboId: string },
 ): Promise<void> {
   try {
+    // `.eq('studio_id', ...)`: se publica con `p.studioId`, así que el recibo
+    // tiene que ser de ese estudio o el aviso se emite con datos de otro
+    // (auditoría 2026-09-21).
     const { data: recibo } = await admin.from('recibos')
-      .select('concepto, importe, socio_id').eq('id', p.reciboId).maybeSingle();
+      .select('concepto, importe, socio_id').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
     if (!recibo?.socio_id) return;
     const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
     await publish({

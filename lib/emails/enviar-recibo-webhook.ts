@@ -65,6 +65,12 @@ export async function enviarEmailReciboWebhook(
     });
     const subject = `Pago confirmado — ${concepto}`;
 
+    // Idempotencia de Resend (auditoría 2026-09-21). Los efectos de BD de este
+    // webhook son compare-and-set y aguantan un reproceso, pero este envío no
+    // lo hacía: la propia ruta del webhook recomienda REENVIAR el evento desde
+    // el Dashboard cuando algo falla, y ese reenvío mandaba un segundo «Pago
+    // confirmado» a la socia. La notificación in-app ya dedupea por
+    // `pago-ok:${reciboId}` (emit.ts); esto le da al correo la misma clave.
     const { data, error } = await resend.emails.send({
       from: remitentePorMarca(marca.nombre ?? 'Tentare'),
       // Reply-To del estudio: un justificante de pago es de los correos que
@@ -74,6 +80,8 @@ export async function enviarEmailReciboWebhook(
       to: [email],
       subject,
       html,
+    }, {
+      idempotencyKey: `recibo-${p.studioId}-${p.reciboId}`,
     });
 
     // Historial auditable, igual que /api/emails/send: best-effort, nunca
