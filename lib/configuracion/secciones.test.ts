@@ -75,7 +75,7 @@ test('los roles de una sección son los de sus tarjetas, juntos: ni una sección
 test('una herramienta se abre si este rol ve alguna de sus tarjetas', () => {
   assert.equal(herramientaVisible('salas', 'MANAGER'), true);
   assert.equal(herramientaVisible('tipos-de-clase', 'MANAGER'), true);
-  for (const id of ['correos-automaticos', 'recompensas-y-logros', 'contenido-de-tu-app', 'widgets'] as const) {
+  for (const id of ['correos-automaticos', 'recompensas-y-logros', 'codigos-descuento', 'contenido-de-tu-app', 'widgets'] as const) {
     assert.equal(herramientaVisible(id, 'MANAGER'), false, id);
     assert.equal(herramientaVisible(id, 'PROPIETARIO'), true, id);
   }
@@ -186,10 +186,10 @@ test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mism
   }
 });
 
-test('ocho herramientas con pantalla propia, cada una de UNA sección y con sus tarjetas seguidas', () => {
+test('nueve herramientas con pantalla propia, cada una de UNA sección y con sus tarjetas seguidas', () => {
   assert.deepEqual(HERRAMIENTAS.map(h => h.id), [
-    'salas', 'tipos-de-clase', 'correos-automaticos', 'recompensas-y-logros', 'contenido-de-tu-app', 'widgets', 'tus-avisos',
-    'avisos-del-movil',
+    'salas', 'tipos-de-clase', 'correos-automaticos', 'recompensas-y-logros', 'codigos-descuento', 'contenido-de-tu-app', 'widgets',
+    'tus-avisos', 'avisos-del-movil',
   ]);
   for (const h of HERRAMIENTAS) {
     assert.ok(esHerramientaId(h.id));

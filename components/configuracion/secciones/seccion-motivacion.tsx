@@ -36,6 +36,7 @@ export function SeccionMotivacion({ showToast }: { showToast: (m: string) => voi
   const {
     studio, dataLoaded, cargarGamificacion, gamificacionCargada, rewardRules,
     rewardCatalog, achievementDefinitions, levelDefinitions, challengeDefinitions,
+    codigosDescuento,
   } = useStudio();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
 
@@ -73,6 +74,13 @@ export function SeccionMotivacion({ showToast }: { showToast: (m: string) => voi
         : null,
     }),
   };
+  // Sin PlanGate a propósito: los códigos de descuento no dependen del plan
+  // de gamificación (a diferencia de recompensas/logros), y `codigosDescuento`
+  // ya viene cargado en el arranque del panel — nunca necesita `null`.
+  const filaCodigos = {
+    id: 'codigos-descuento' as const,
+    valor: resumenHerramienta('codigos-descuento', { codigosDescuento: codigosDescuento.length }),
+  };
 
   return (
     <>
@@ -89,6 +97,10 @@ export function SeccionMotivacion({ showToast }: { showToast: (m: string) => voi
 
       <GrupoFilas titulo="Lo que ven en su app">
         <FilaHerramienta {...filaRecompensas} estado={plan} />
+      </GrupoFilas>
+
+      <GrupoFilas titulo="Promociones">
+        <FilaHerramienta {...filaCodigos} />
       </GrupoFilas>
 
       <CajonAjuste id="reglas" abierto={cajon === 'reglas'} onCerrar={cerrar}>

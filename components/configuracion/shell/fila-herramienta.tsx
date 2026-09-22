@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BellRing, CalendarRange, ChevronRight, Code2, DoorOpen, Gift, Mail, Newspaper, Smartphone, type LucideIcon } from 'lucide-react';
+import { BellRing, CalendarRange, ChevronRight, Code2, DoorOpen, Gift, Mail, Newspaper, Smartphone, Ticket, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { cardCls } from '@/components/configuracion/estilos';
 import { hrefDeHerramienta } from '@/lib/configuracion/destino';
@@ -32,6 +32,7 @@ export const ICONOS_HERRAMIENTA: Record<HerramientaId, LucideIcon> = {
   widgets: Code2,
   'tus-avisos': BellRing,
   'avisos-del-movil': Smartphone,
+  'codigos-descuento': Ticket,
 };
 
 export const idFilaHerramienta = (id: HerramientaId) => `fila-herramienta-${id}`;

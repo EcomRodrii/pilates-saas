@@ -20,7 +20,6 @@ import { QuickActions } from '@/components/decision/quick-actions';
 import { EmptyState } from '@/components/decision/empty-state';
 import { PilotoAutomatico } from '@/components/decision/piloto-automatico';
 import { BandejaHoy } from '@/components/decision/bandeja-hoy';
-import { CodigosDescuento } from '@/components/decision/codigos-descuento';
 import { RiesgoPlanton } from '@/components/decision/riesgo-planton';
 import { EspecialistaCartera } from '@/components/centro-de-control/especialista-cartera';
 import { ContratoDecisionOS } from '@/components/decision/contrato-decision-os';
@@ -368,7 +367,6 @@ export default function CentroDeControlPage() {
         <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
           Accesos rápidos
         </h2>
-        <CodigosDescuento onToast={toast.show} />
         <QuickActions />
       </div>
 

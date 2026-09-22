@@ -6,14 +6,19 @@ import { useStudio } from '@/lib/studio-context';
 import { esCodigoReactivacion, buscarCodigo } from '@/lib/codigos-descuento';
 import type { CodigoDescuento } from '@/lib/types';
 
-// Gestor mínimo de códigos de descuento dentro del Centro de Control.
+// Gestor mínimo de códigos de descuento (Configuración → Motivación).
 //
-// Existe porque el módulo Marketing —única UI de codigos_descuento— está
-// DESACTIVADO por feature flag (MARKETING_MODULE_ENABLED=false: menú oculto y la
-// ruta redirige). Sin esto el propietario no puede ver ni crear códigos, pese a
-// que el POS ya los canjea y el Centro de Control los genera en las
-// reactivaciones. Muestra TODOS (no solo los automáticos), porque cualquiera del
-// catálogo es canjeable en el mostrador.
+// Existe porque el módulo Marketing —única UI pensada para codigos_descuento—
+// está DESACTIVADO por feature flag (MARKETING_MODULE_ENABLED=false: menú
+// oculto y la ruta redirige). Sin esto el propietario no puede ver ni crear
+// códigos, pese a que el POS ya los canjea y el Centro de Control los genera
+// en las reactivaciones. Muestra TODOS (no solo los automáticos), porque
+// cualquiera del catálogo es canjeable en el mostrador.
+//
+// Vivió dentro de Centro de Control hasta la auditoría de arquitectura
+// (22-sep-2026): diluía la pantalla de "un solo mensaje" con un CRUD que no
+// es una decisión del Umbral. Se usa aquí sin cambios, envuelto por
+// components/configuracion/herramientas/herramienta-codigos-descuento.tsx.
 
 function estadoDe(c: CodigoDescuento, hoy: string): { texto: string; clase: string } {
   if (!c.activo) return { texto: 'Desactivado', clase: 'bg-muted text-muted-foreground' };

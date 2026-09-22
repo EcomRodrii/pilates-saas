@@ -87,6 +87,7 @@ const COMPONENTES_HERRAMIENTA: Record<HerramientaId, ComponentType<PropsSeccion>
   widgets: dynamic(() => import('@/components/configuracion/herramientas/herramienta-widgets').then(m => m.HerramientaWidgets), { loading: cargando }),
   'avisos-del-movil': dynamic(() => import('@/components/configuracion/herramientas/herramienta-avisos-del-movil').then(m => m.HerramientaAvisosDelMovil), { loading: cargando }),
   'tus-avisos': dynamic(() => import('@/components/configuracion/herramientas/herramienta-tus-avisos').then(m => m.HerramientaTusAvisos), { loading: cargando }),
+  'codigos-descuento': dynamic(() => import('@/components/configuracion/herramientas/herramienta-codigos-descuento').then(m => m.HerramientaCodigosDescuento), { loading: cargando }),
 };
 
 type Lugar = { tab: SeccionId | null; abrir?: HerramientaId; ancla?: string };
