@@ -11,10 +11,11 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { AvisoControlHorario } from '@/components/equipo/aviso-control-horario';
 import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
 import {
-  fetchTarifasEquipo, actualizarTarifaInstructor, fetchLiquidaciones, generarLiquidacion,
+  leerTarifasEquipo, actualizarTarifaInstructor, fetchLiquidaciones, generarLiquidacion,
   transicionarLiquidacion, fetchTiempoTrabajado, fetchModoLiquidacion, guardarModoLiquidacion, guardarRelacionLaboral,
   type TarifaInstructor, type Liquidacion, type ModoLiquidacion,
 } from '@/lib/api-client';
@@ -34,6 +35,8 @@ export default function LiquidacionesPage() {
   const [mes, setMes] = useState(ahora.getMonth() + 1);
 
   const [tarifas, setTarifas] = useState<Record<string, TarifaInstructor>>({});
+  // Sin poder leer las tarifas no sabemos quién tiene relación: el aviso se calla.
+  const [tarifasLeidas, setTarifasLeidas] = useState(false);
   const [liquidaciones, setLiquidaciones] = useState<Record<string, Liquidacion>>({});
   // Minutos fichados por instructora en el mes. `null` = no se pudo leer: no se
   // pinta nada antes que un «0 h» que no es verdad.
@@ -84,10 +87,11 @@ export default function LiquidacionesPage() {
     let vivo = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCargando(true);
-    Promise.all([fetchTarifasEquipo(), fetchLiquidaciones(anio, mes), fetchTiempoTrabajado(anio, mes)]).then(([tar, liq, tiempo]) => {
+    Promise.all([leerTarifasEquipo(), fetchLiquidaciones(anio, mes), fetchTiempoTrabajado(anio, mes)]).then(([tar, liq, tiempo]) => {
       if (!vivo) return;
       setFichado(tiempo ? new Map(tiempo.resumen.map(r => [r.instructorId, r.minutos])) : null);
-      setTarifas(Object.fromEntries(tar.map(t => [t.instructorId, t])));
+      setTarifas(Object.fromEntries((tar ?? []).map(t => [t.instructorId, t])));
+      setTarifasLeidas(tar !== null);
       setLiquidaciones(Object.fromEntries(liq.map(l => [l.instructorId, l])));
       setCargando(false);
     });
@@ -181,6 +185,11 @@ export default function LiquidacionesPage() {
           </div>
         }
       />
+
+      {tarifasLeidas && (
+        <AvisoControlHorario enLiquidaciones
+          pendientes={activos.filter(i => !tarifas[i.id]?.relacionLaboral).map(i => ({ id: i.id, nombre: i.nombre }))} />
+      )}
 
       {criterio && (
         <div className="rounded-2xl border border-border bg-card px-5 py-3 flex flex-wrap items-center justify-between gap-3 text-[13px]" data-testid="criterio-liquidacion">

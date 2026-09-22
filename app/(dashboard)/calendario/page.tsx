@@ -24,6 +24,7 @@ import {
   Upload, QrCode, LayoutGrid, Rows3, CheckSquare, PictureInPicture2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
 import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera } from '@/lib/utils';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
 import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
@@ -843,20 +844,15 @@ export default function Calendario() {
 
   const faltaConfigurar = useMemo(() => {
     if (!showForm) return null;
-    const faltan: string[] = [];
-    if (!form.tipoClaseId) faltan.push(tiposClase.length === 0 ? 'un tipo de clase' : 'elegir el tipo de clase');
-    if (!form.salaId) faltan.push(salas.length === 0 ? 'una sala' : 'elegir la sala');
     // La instructora solo se exige al CREAR. El horario propuesto deja clases
     // «Sin instructora» y, al editar una para cambiarle la sala, el formulario
     // obligaba a elegir instructora antes de dejar guardar (evaluación del
     // 13-sep). Editar guarda el mismo `instructorId` que ya tenía la clase.
-    const exigeInstructora = showForm === 'nueva';
-    if (!form.instructorId && exigeInstructora) faltan.push(instructores.length === 0 ? 'una instructora' : 'elegir la instructora');
-    if (faltan.length === 0) return null;
-    const sinCrear = (!form.tipoClaseId && tiposClase.length === 0)
-      || (!form.salaId && salas.length === 0)
-      || (!form.instructorId && exigeInstructora && instructores.length === 0);
-    return { faltan, sinCrear };
+    return faltaParaCrearClase({
+      tipoClaseId: form.tipoClaseId, salaId: form.salaId, instructorId: form.instructorId,
+      hayTipos: tiposClase.length > 0, haySalas: salas.length > 0, hayInstructoras: instructores.length > 0,
+      exigeInstructora: showForm === 'nueva',
+    });
   }, [showForm, form.tipoClaseId, form.salaId, form.instructorId, tiposClase.length, salas.length, instructores.length]);
 
   const existentesSlot = useMemo<SlotSesion[]>(() => sesiones.map(s => ({
@@ -3687,15 +3683,13 @@ export default function Calendario() {
                   <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warning" />
                   <div>
                     <p>Para crear la clase falta {faltaConfigurar.faltan.join(', ')}.</p>
-                    {faltaConfigurar.sinCrear && (
-                      <p className="mt-1">
-                        Todavía no lo tienes creado.{' '}
-                        <Link href="/configuracion?tab=clases" className="underline font-semibold">
-                          Créalo en Configuración
-                        </Link>{' '}
+                    {faltaConfigurar.porCrear.map(x => (
+                      <p key={x.href} className="mt-1" data-testid="falta-crear">
+                        {x.texto}{' '}
+                        <Link href={x.href} className="underline font-semibold">{x.enlace}</Link>{' '}
                         y vuelve aquí.
                       </p>
-                    )}
+                    ))}
                   </div>
                 </div>
               </div>

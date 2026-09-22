@@ -20,10 +20,11 @@ import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '
 import {
   generarEnlaceDisponibilidad, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia,
   avisarCambioClaseServidor,
-  fetchTarifasEquipo, actualizarTarifaInstructor, tarjetasEquipo,
+  leerTarifasEquipo, actualizarTarifaInstructor, tarjetasEquipo,
   type ValoracionDetalle, type AusenciaInstructora,
 } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
+import { AvisoControlHorario } from '@/components/equipo/aviso-control-horario';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
@@ -193,6 +194,7 @@ export default function EquipoPage() {
   // (PROPIETARIO/MANAGER pueden fijarla, decisión ya cerrada); la rejilla
   // nunca la pinta directamente, así que no es una fuga nueva.
   const [tarifas, setTarifas] = useState<Record<string, number | null>>({});
+  const [relaciones, setRelaciones] = useState<Record<string, 'CONTRATADA' | 'AUTONOMA' | null> | null>(null);
   const [tarifaHoraInput, setTarifaHoraInput] = useState('');
   // Horas semanales de contrato: mismo origen (instructor_tarifas) y mismo
   // criterio de privacidad que la tarifa — se lee para el formulario y para el
@@ -215,10 +217,14 @@ export default function EquipoPage() {
     let vivo = true;
     listarAusencias().then(r => { if (vivo) setAusencias(r); });
     if (gestiona) {
-      fetchTarifasEquipo().then(r => {
+      leerTarifasEquipo().then(leidas => {
         if (!vivo) return;
+        const r = leidas ?? [];
         setTarifas(Object.fromEntries(r.map(t => [t.instructorId, t.tarifaHora])));
         setHorasContrato(Object.fromEntries(r.map(t => [t.instructorId, t.horasSemanalesContrato])));
+        // `null` = no se han podido leer: el aviso de control horario se calla
+        // antes que decir «falta decirlo» de alguien de quien no lo sabemos.
+        setRelaciones(leidas ? Object.fromEntries(leidas.map(t => [t.instructorId, t.relacionLaboral ?? null])) : null);
       });
     }
     return () => { vivo = false; };
@@ -356,6 +362,20 @@ export default function EquipoPage() {
   }
 
   function openNuevo() { setForm(emptyForm()); setEditId(null); setErrorGuardar(''); setInvitarAhora(false); setModal('nuevo'); }
+
+  // `/equipo?nuevo=1` abre el alta directamente: desde el calendario, cuando una
+  // clase no se puede crear porque todavía no hay ninguna instructora. Se quita
+  // de la URL para que recargar no vuelva a abrirlo.
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.get('nuevo') !== '1' || !gestiona) return;
+    qs.delete('nuevo');
+    window.history.replaceState(null, '', window.location.pathname + (qs.size ? `?${qs}` : ''));
+    // Una sola vez al montar, leyendo la URL: no hay cascada que evitar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    openNuevo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   function openEditar(m: MiembroCompleto) {
     const i = instructorDe(m);
     if (!i) return;
@@ -471,6 +491,9 @@ export default function EquipoPage() {
   }
 
   const activos = tarjetas.filter(m => m.activo).length;
+  const sinRelacion = relaciones && puedeGestionarEquipo(miRol)
+    ? instructores.filter(i => i.activo && i.rol === 'INSTRUCTOR' && !relaciones[i.id]).map(i => ({ id: i.id, nombre: i.nombre }))
+    : [];
   const clasesEstaSemana = tarjetas.reduce((a, m) => a + m.semana.reduce((x, y) => x + y, 0), 0);
   const conAcceso = tarjetas.filter(m => m.conAcceso).length;
   const costeDelEquipo = tarjetas.reduce((a, m) => a + (m.esYo ? 0 : (m.costeMes ?? 0)), 0);
@@ -523,6 +546,7 @@ export default function EquipoPage() {
         <ActividadTab actividadReciente={actividadReciente} />
       ) : (
       <>
+      <AvisoControlHorario pendientes={sinRelacion} />
       {/* ⚠️ Con la carga caída, `tarjetas` es [] y estas tres tarjetas dirían
           «0 miembros · 0 clases · 0 €» justo encima de un cartel que dice que
           no hemos podido cargar el equipo. Cero no es «no lo sé», y aquí no lo

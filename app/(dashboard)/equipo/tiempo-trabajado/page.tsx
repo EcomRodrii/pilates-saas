@@ -10,9 +10,10 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { PageHeader } from '@/components/ui/page-header';
+import { AvisoControlHorario } from '@/components/equipo/aviso-control-horario';
 import { Toast, useToast } from '@/components/ui/toast';
 import {
-  corregirClasesEquipo, corregirJornada, fetchClasesDelMes, fetchTarifasEquipo, fetchTiempoTrabajado, marcarClaseRevisada,
+  corregirClasesEquipo, corregirJornada, fetchClasesDelMes, fetchTiempoTrabajado, leerTarifasEquipo, marcarClaseRevisada,
   type ClasesDelMes, type TarifaInstructor, type TiempoTrabajadoMes,
 } from '@/lib/api-client';
 import type { CambioJornada, JornadaEquipo } from '@/lib/fichaje/jornadas-equipo';
@@ -45,6 +46,7 @@ export default function TiempoTrabajadoPage() {
   const [datos, setDatos] = useState<TiempoTrabajadoMes | null>(null);
   const [error, setError] = useState(false);
   const [tarifas, setTarifas] = useState<Record<string, TarifaInstructor>>({});
+  const [tarifasLeidas, setTarifasLeidas] = useState(false);
   // `null` = no se han podido leer: la parte de clases no se pinta, las jornadas sí.
   const [clases, setClases] = useState<ClasesDelMes | null>(null);
   const [abierta, setAbierta] = useState<{ id: string; que: 'jornadas' | 'clases' } | null>(null);
@@ -58,12 +60,13 @@ export default function TiempoTrabajadoPage() {
 
   useEffect(() => {
     let vivo = true;
-    Promise.all([fetchTiempoTrabajado(anio, mes), fetchTarifasEquipo(), fetchClasesDelMes(anio, mes)]).then(([d, tar, c]) => {
+    Promise.all([fetchTiempoTrabajado(anio, mes), leerTarifasEquipo(), fetchClasesDelMes(anio, mes)]).then(([d, tar, c]) => {
       if (!vivo) return;
       setDatos(d);
       setClases(c);
       setError(d === null);
-      setTarifas(Object.fromEntries(tar.map((t) => [t.instructorId, t])));
+      setTarifas(Object.fromEntries((tar ?? []).map((t) => [t.instructorId, t])));
+      setTarifasLeidas(tar !== null);
     });
     return () => { vivo = false; };
   }, [anio, mes]);
@@ -159,12 +162,18 @@ export default function TiempoTrabajadoPage() {
         <p className="text-sm text-muted-foreground">Todavía no hay instructoras de alta.</p>
       ) : (
         <div className="space-y-4" data-testid="tiempo-trabajado">
+          {tarifasLeidas && (
+            <AvisoControlHorario pendientes={instructores
+              .filter((i) => i.activo && i.rol === 'INSTRUCTOR' && !tarifas[i.id]?.relacionLaboral)
+              .map((i) => ({ id: i.id, nombre: i.nombre }))} />
+          )}
           {datos.jornadas.length === 0 && (clases?.clases.length ?? 0) === 0 && (
             <div className="rounded-2xl border border-dashed border-border bg-card p-5 text-[13px]" data-testid="tiempo-vacio">
-              <p className="font-semibold text-foreground">Nadie ha fichado en {MESES[mes - 1]}.</p>
+              <p className="font-semibold text-foreground">Todavía no hay nada de {MESES[mes - 1]}.</p>
               <p className="mt-1 text-muted-foreground">
-                Tus instructoras fichan desde la app del estudio, en Hoy → Fichaje: la entrada al llegar y la salida al irse.
-                En cuanto lo hagan, sus jornadas aparecen aquí.
+                Aquí verás dos cosas, las dos desde la app del estudio: las <strong>jornadas</strong> que fichan tus
+                instructoras contratadas (entrada al llegar, salida al irse) y las <strong>clases</strong> que da cada una,
+                que empiezan con «Empezar clase» o al pasar lista.
               </p>
             </div>
           )}
