@@ -760,7 +760,15 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     //    llegan a programar una clase, y sin clases no puede haber una primera
     //    reserva. Soltarla en el panel es soltarla lejos del único paso que
     //    le falta.
-    router.push(ans.importar === 'Sí, importadlos' ? '/migracion' : '/calendario');
+    //
+    // No se navega ahí DIRECTAMENTE: primero pasa por /bienvenido-apertura,
+    // que decide si Opening OS tiene algo que preguntarle (sus 3 preguntas de
+    // apertura) antes de soltarla en el destino. No cuenta como un paso más
+    // del wizard —éste ya ha terminado y bienvenidaVistaEn ya está sellado—,
+    // es la pantalla puente pedida para que esas preguntas no le salgan
+    // luego como una sorpresa en el dashboard.
+    const destino = ans.importar === 'Sí, importadlos' ? '/migracion' : '/calendario';
+    router.push(`/bienvenido-apertura?destino=${encodeURIComponent(destino)}`);
   }, [updateStudio, router]);
 
   // P1-5 (auditoría de producto): las 11 preguntas no tenían salida — quien

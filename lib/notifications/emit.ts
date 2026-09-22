@@ -920,6 +920,22 @@ export async function emitirTrialExpirado(
   }
 }
 
+// Embudo de alta (Fase 3 del onboarding): un estudio sigue sin ninguna clase
+// programada 48h después de crearse. dedupKey SIN fecha a propósito — a
+// diferencia de un aviso periódico, este es un único empujón por estudio en
+// toda su vida, no algo que deba repetirse si el barrido lo vuelve a ver.
+export async function emitirEmbudoSinClasesProgramadas(p: { studioId: string }): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.EMBUDO_SIN_CLASES_PROGRAMADAS, studioId: p.studioId,
+      data: {},
+      dedupKey: `embudo-sin-clases:${p.studioId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirEmbudoSinClasesProgramadas:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Sustitución aceptada: a la instructora que cubre (nueva clase asignada).
 export async function emitirSustitucionAceptada(
   admin: SupabaseClient, p: { studioId: string; sesionId: string; instructorId: string },
