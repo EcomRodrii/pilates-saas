@@ -10,12 +10,11 @@ import { cn } from '@/lib/utils';
 
 // «Descubre» y el tablón: lo que el estudio publica y leen sus alumnas.
 //
-// ⚠️ Esta pestaña existe porque la puerta que había está CERRADA. El editor de
-// estas mismas entidades vive en el workspace de Apariencia
-// (`theme-editor-fullscreen.tsx`), y su ruta —`/configuracion/apariencia/editor`—
-// redirige desde el 2026-09-07 con un «EN MANTENIMIENTO» que documenta los tres
-// pasos para reabrirla. O sea que hoy, sin esto, la tabla existe, la app de la
-// alumna sabe pintarla y NADIE puede crear una tarjeta.
+// ⚠️ Esta pestaña existe porque la puerta que había se cerró. El editor de estas
+// mismas entidades vivía en el workspace de Apariencia
+// (`theme-editor-fullscreen.tsx`), cerrado el 7-sep-2026 y borrado el 22 al
+// sustituirlo «Apariencia de tu app». O sea que sin esto la tabla existiría, la
+// app de la alumna sabría pintarla y NADIE podría crear una tarjeta.
 //
 // No se reabre aquel editor: es una decisión de otra persona, con diez suites
 // e2e saltadas colgando de ella. Y no se duplica nada: el propio
