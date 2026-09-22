@@ -45,7 +45,7 @@ export type CondicionTarjeta = 'multiSede' | 'cadena';
  */
 export type HerramientaId =
   | 'salas' | 'tipos-de-clase' | 'correos-automaticos' | 'recompensas-y-logros' | 'contenido-de-tu-app' | 'widgets'
-  | 'tus-avisos' | 'avisos-del-movil';
+  | 'tus-avisos' | 'avisos-del-movil' | 'codigos-descuento';
 
 export interface TarjetaConfiguracion {
   readonly id: string;
@@ -212,6 +212,7 @@ export const SECCIONES = [
       { id: 'logros', titulo: 'Logros', frase: 'Lo que desbloquean tus alumnas al llegar a una cifra que eliges, como 10 clases.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['insignias'] },
       { id: 'niveles', titulo: 'Niveles', frase: 'El nivel sube con los créditos ganados en total; canjear nunca lo hace bajar.', guardado: 'catalogo', herramienta: 'recompensas-y-logros' },
       { id: 'retos', titulo: 'Retos', frase: 'Objetivos con fecha de inicio y fin: solo cuenta lo que pasa dentro de ese periodo.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['desafíos'] },
+      { id: 'codigos-descuento', titulo: 'Códigos de descuento', frase: 'Códigos que tus alumnas usan al pagar, o que canjeas tú en el mostrador.', guardado: 'catalogo', herramienta: 'codigos-descuento', palabras: ['descuento', 'promoción', 'cupón', 'oferta'] },
     ],
   },
   // «Marca» salió de «Mi app y mi web» el 15-sep (v2): el logo estaba en una
@@ -505,6 +506,7 @@ export const HERRAMIENTAS: readonly HerramientaConfiguracion[] = [
     frase: 'Lo que tus alumnas canjean con sus créditos, lo que desbloquean y los retos con fecha que ven en su app.',
     resumen: 'Recompensas, canjes, logros, niveles y retos',
   },
+  deTarjeta('codigos-descuento', 'Códigos que usan tus alumnas al pagar'),
   deTarjeta('contenido-de-tu-app', 'Mensaje destacado, tarjetas y avisos del tablón'),
   deTarjeta('widgets', 'Tu horario y tus reservas dentro de tu web'),
   deTarjeta('tus-avisos', 'Cada tipo de aviso, en el panel y en el móvil'),

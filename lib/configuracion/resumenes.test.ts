@@ -374,6 +374,14 @@ test('recompensas y logros: lo que hay en cada catálogo, y nada inventado mient
   assert.equal(resumenHerramienta('recompensas-y-logros', { motivacion: null }), null);
 });
 
+test('códigos de descuento: cuántos hay, y nada inventado sin cargar', () => {
+  assert.equal(resumenHerramienta('codigos-descuento', { codigosDescuento: 4 }), '4 códigos');
+  assert.equal(resumenHerramienta('codigos-descuento', { codigosDescuento: 1 }), '1 código');
+  assert.equal(resumenHerramienta('codigos-descuento', { codigosDescuento: 0 }), 'Sin códigos todavía');
+  assert.equal(resumenHerramienta('codigos-descuento', { codigosDescuento: null }), null);
+  assert.equal(resumenHerramienta('codigos-descuento', {}), null);
+});
+
 test('avisos en el móvil: la antelación que sale de verdad y cuántos textos son suyos', () => {
   const r = (largoHoras: number, cortoMinutos: number, textosPropios: number | null) =>
     resumenHerramienta('avisos-del-movil', { avisosMovil: { largoHoras, cortoMinutos, textosPropios } });
@@ -395,6 +403,7 @@ test('ninguna fila de herramienta pasa de una línea del móvil ni dice «client
     motivacion: { recompensas: 120, logros: 340, niveles: 12, retos: 45 },
     avisos: { total: 12, encendidos: 7, push: 'unsupported' as const },
     avisosMovil: { largoHoras: 48, cortoMinutos: 120, textosPropios: 20 },
+    codigosDescuento: 999,
   };
   for (const h of HERRAMIENTAS) {
     const v = resumenHerramienta(h.id, muchos);

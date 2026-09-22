@@ -54,6 +54,7 @@ const HERRAMIENTAS = [
   { id: 'tipos-de-clase', seccion: 'clases', tituloSeccion: 'Mis clases y citas', titulo: 'Tipos de clase', valor: '2 tipos de clase' },
   { id: 'correos-automaticos', seccion: 'comunicacion', tituloSeccion: 'Cómo me comunico', titulo: 'Correos automáticos', valor: 'Los 6 correos se envían' },
   { id: 'recompensas-y-logros', seccion: 'motivacion', tituloSeccion: 'Motivación', titulo: 'Recompensas, logros y retos', valor: null },
+  { id: 'codigos-descuento', seccion: 'motivacion', tituloSeccion: 'Motivación', titulo: 'Códigos de descuento', valor: null },
   { id: 'contenido-de-tu-app', seccion: 'web', tituloSeccion: 'Mi app y mi web', titulo: 'Contenido de tu app', valor: null },
   { id: 'widgets', seccion: 'web', tituloSeccion: 'Mi app y mi web', titulo: 'Widgets para tu web', valor: null },
 ] as const;

@@ -425,6 +425,7 @@ export interface DatosHerramientas {
   /** Las webs donde está autorizado el calendario embebido. */
   widgetDominios?: readonly string[] | null;
   motivacion?: { recompensas: number; logros: number; niveles: number; retos: number } | null;
+  codigosDescuento?: number | null;
   /**
    * «Mis avisos»: cuántos tipos puede configurar este rol, cuántos le llegan por
    * algún sitio, y si este navegador tiene el push concedido. `null` = sin leer.
@@ -533,6 +534,11 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
         retos > 0 ? contar(retos, 'reto', 'retos') : null,
         niveles > 0 ? contar(niveles, 'nivel', 'niveles') : null,
       ]);
+    }
+
+    case 'codigos-descuento': {
+      if (d.codigosDescuento == null) return null;
+      return d.codigosDescuento === 0 ? 'Sin códigos todavía' : contar(d.codigosDescuento, 'código', 'códigos');
     }
   }
 }
