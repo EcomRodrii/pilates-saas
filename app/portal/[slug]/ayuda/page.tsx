@@ -32,6 +32,8 @@ export default function AyudaPage() {
   const faq: Array<[string, string]> = [
     ['¿Cómo cancelo una clase?', `Desde Mis clases → Cancelar. Si faltan más de ${estudio.politicaCancelacionHoras} h, normalmente recuperas la sesión de tu bono; el estudio puede tener una regla distinta para algún tipo de clase.`],
     ['¿Qué pasa si la clase está llena?', 'Puedes apuntarte a la lista de espera. Si se libera una plaza, pasa a ser tuya y te avisamos al momento (algunos estudios te dan un plazo para aceptarla).'],
+    ['¿Qué es una clase fija y cómo la pido?', 'Tu sitio reservado cada semana en las clases que elijas, sin tener que volver a reservar. La pides desde Reservar → «Clases fijas»: eliges cuánto tiempo la quieres y tu estudio revisa la petición (algunos estudios la aprueban al momento). Hace falta una cuota activa que cubra esas clases; con bono, se sigue reservando clase a clase.'],
+    ['¿Qué pasa cuando se acerca el fin de mi clase fija?', 'Te avisamos y en «Clases fijas» te dejamos pedir ampliarla, sin perder el sitio que ya tenías. Si no la amplías, al llegar la fecha tienes que volver a pedirla.'],
     ['¿Cómo funciona el pase de acceso?', 'Al entrar al estudio, abre tu reserva: el pase se valida solo. No necesitas imprimir nada, y caduca cada dos minutos por seguridad.'],
     ['¿Caducan los bonos?', 'Depende del bono; lo ves en Bonos → detalle. Te avisamos antes de que caduque.'],
     ['¿Puedo cambiar mi email?', 'Sí, en Perfil → Datos. Te mandamos un enlace para confirmarlo; hasta entonces sigues entrando con el de ahora.'],

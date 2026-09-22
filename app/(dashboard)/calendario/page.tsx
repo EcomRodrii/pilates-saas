@@ -2801,7 +2801,7 @@ export default function Calendario() {
             {!esInstructorTop && (
               <button
                 onClick={() => setVista('horario')}
-                title="Las clases que se repiten: hasta cuándo van y quién viene fija"
+                title="Las clases que se repiten: hasta cuándo van, quién viene fija y las clases fijas que ofreces a tus alumnas"
                 className={cn(BOTON_VISTA, vista === 'horario' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
               >
                 <CalendarClock size={14} />Horario

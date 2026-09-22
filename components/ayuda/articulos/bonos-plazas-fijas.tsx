@@ -137,8 +137,19 @@ export default function Contenido() {
         Como las plazas fijas, <strong>hace falta una cuota</strong> que incluya esas clases: con bono no se ofrece el botón.
         <strong> Cerrar</strong> una clase fija la deja de ofrecer, pero <strong>no toca las plazas que ya diste</strong>. Si una
         de sus clases se queda sin clases programadas (la serie se acabó y no se renovó), la clase fija dice «sin clases
-        programadas» y nadie puede pedirla hasta que la renueves. Y cuando llega la fecha elegida la plaza deja de reservarse
-        sola: por ahora no hay aviso ni «ampliar», la clienta tiene que volver a pedirla.
+        programadas» y nadie puede pedirla hasta que la renueves.
+      </p>
+      <p>
+        Al crearla puedes marcar <strong>«Aprobar automáticamente»</strong>: si cabe y no pasa del límite semanal de
+        su cuota, la petición de la clienta se resuelve al momento, sin pasar por tu bandeja de Inicio. Si no cabe
+        en ese momento, se queda pendiente igual que si el ajuste estuviera apagado — nunca le sale un error nuevo.
+        En la lista de tus clases fijas, las que lo tienen activo llevan la etiqueta <strong>«Automática»</strong>.
+      </p>
+      <p>
+        Cuando a una clienta le quedan pocos días antes de que se le acabe, su app se lo dice sola y le deja{' '}
+        <strong>ampliar</strong> el tiempo sin perder el sitio que ya tenía (nunca se le acorta lo que le quedaba).
+        Esa ampliación es otra petición: te llega a la misma bandeja de Inicio, salvo que también tengas activada
+        la aprobación automática de esa clase fija.
       </p>
 
       <h2 style={h2}>Si cambias el horario de la clase</h2>

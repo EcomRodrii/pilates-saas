@@ -38,7 +38,7 @@ function quePide(p: PeticionPlazaFija): string {
 function detalle(p: PeticionPlazaFija): string | null {
   if (p.tipo === 'CREAR_CLASE_FIJA' || p.tipo === 'AMPLIAR_CLASE_FIJA') {
     const c = p.claseFija;
-    const frases = [c ? `${p.tipo === 'AMPLIAR_CLASE_FIJA' ? 'Ampliarla' : 'Durante'} ${c.duracion}, hasta el ${c.hasta}.` : null, c?.aviso ?? null,
+    const frases = [c ? `${p.tipo === 'AMPLIAR_CLASE_FIJA' ? `Ampliarla ${c.duracion} más` : `Durante ${c.duracion}`}, hasta el ${c.hasta}.` : null, c?.aviso ?? null,
       p.superaLimite ? 'Pasaría del límite de clases por semana de su cuota.' : null];
     return frases.filter(Boolean).join(' ') || null;
   }

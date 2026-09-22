@@ -126,7 +126,8 @@ export function ClasesFijasSeccion(p: ClasesFijasSeccionProps) {
                   {ETIQUETA_ESTADO[o.estado]}
                 </span>
                 {o.aprobacionAutomatica && (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Automática</span>
+                  <span title="Aprueba la petición sola si cabe y no pasa del límite de su cuota"
+                    className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Automática</span>
                 )}
                 {o.pendientes > 0 && (
                   <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning">
@@ -208,6 +209,15 @@ function DialogoClaseFija({ oferta, tarjetas, nombreTipo, nombreSala, onClose, o
   const plazasValidas = numPlazas === null || (Number.isInteger(numPlazas) && numPlazas >= 1 && numPlazas <= 200);
   const puedeGuardar = nombre.trim().length > 0 && elegidas.size >= 1 && elegidas.size <= MAX_FRANJAS
     && duraciones.length >= 1 && plazasValidas && !guardando;
+  // Por qué el botón de guardar sigue apagado: sin esto, un tope desactivado sin
+  // explicación es el primer muro con el que se topa quien prueba esto por primera vez.
+  const motivoBloqueo = guardando ? null
+    : nombre.trim().length === 0 ? 'Ponle un nombre.'
+    : elegidas.size === 0 ? 'Elige al menos una clase que ya se repita.'
+    : elegidas.size > MAX_FRANJAS ? `Como mucho ${MAX_FRANJAS} clases.`
+    : duraciones.length === 0 ? 'Elige al menos una duración.'
+    : !plazasValidas ? 'El tope de clientas tiene que ser un número entre 1 y 200.'
+    : null;
 
   async function guardar() {
     if (!puedeGuardar) return;
@@ -312,7 +322,8 @@ function DialogoClaseFija({ oferta, tarjetas, nombreTipo, nombreSala, onClose, o
         </label>
 
         {error && <p role="alert" className="text-xs font-medium text-destructive">{error}</p>}
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-end gap-2">
+          {motivoBloqueo && <p className="mr-auto text-[11px] text-muted-foreground">{motivoBloqueo}</p>}
           <Button variant="outline" size="sm" disabled={guardando} onClick={onClose}>Cancelar</Button>
           <Button size="sm" disabled={!puedeGuardar} onClick={() => void guardar()}>
             {guardando ? 'Guardando…' : oferta ? 'Guardar cambios' : 'Crear clase fija'}
