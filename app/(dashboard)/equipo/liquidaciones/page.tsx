@@ -22,9 +22,9 @@ import {
 import { formatEuro } from '@/lib/utils';
 import type { Instructor } from '@/lib/types';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { AlertTriangle, ChevronLeft, ChevronRight, Info, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { Cifra, Etiqueta, MESES, Nota, SelectorMes, horasMin } from '@/components/equipo/piezas';
 
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 
 export default function LiquidacionesPage() {
@@ -168,11 +168,6 @@ export default function LiquidacionesPage() {
     );
   }
 
-  const irMes = (delta: number) => {
-    const d = new Date(anio, mes - 1 + delta, 1);
-    setAnio(d.getFullYear());
-    setMes(d.getMonth() + 1);
-  };
   const lista = activos.map(i => liquidaciones[i.id]).filter((l): l is Liquidacion => !!l);
   const resumen = {
     total: lista.reduce((a, l) => a + l.totalEur, 0),
@@ -189,15 +184,7 @@ export default function LiquidacionesPage() {
         description="Lo que le corresponde a cada instructora este mes, desglosado. El pago lo haces tú, fuera de Tentare; aquí queda anotado."
         back={{ href: '/equipo', label: 'Volver a Equipo' }}
         actions={
-          <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1" data-testid="selector-mes">
-            <button onClick={() => irMes(-1)} aria-label="Mes anterior" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-              <ChevronLeft size={16} />
-            </button>
-            <span className="min-w-[132px] text-center text-sm font-semibold capitalize text-foreground">{MESES[mes - 1]} {anio}</span>
-            <button onClick={() => irMes(1)} aria-label="Mes siguiente" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-              <ChevronRight size={16} />
-            </button>
-          </div>
+          <SelectorMes anio={anio} mes={mes} onCambiar={(a, m) => { setAnio(a); setMes(m); }} />
         }
       />
 
@@ -286,38 +273,7 @@ export default function LiquidacionesPage() {
 }
 
 const campoCls = 'rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all';
-const horasMin = (min: number) => `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} min`;
 const euros = (n: number | null | undefined) => n == null ? null : n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
-
-function Cifra({ etiqueta, valor, sub, fuerte = false }: { etiqueta: string; valor: string; sub: string; fuerte?: boolean }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <p className="text-[12px] text-muted-foreground">{etiqueta}</p>
-      <p className={`mt-1 font-bold text-foreground tabular-nums ${fuerte ? 'text-xl' : 'text-lg'}`}>{valor}</p>
-      <p className="text-[11px] text-muted-foreground">{sub}</p>
-    </div>
-  );
-}
-
-function Etiqueta({ tono, children, testId }: { tono: 'neutro' | 'aviso' | 'ok' | 'info' | 'error'; children: React.ReactNode; testId?: string }) {
-  const clases = {
-    neutro: 'bg-muted text-muted-foreground',
-    aviso: 'bg-amber-500/15 text-amber-700',
-    ok: 'bg-emerald-500/15 text-emerald-700',
-    info: 'bg-sky-500/15 text-sky-700',
-    error: 'bg-red-500/15 text-red-700',
-  }[tono];
-  return <span data-testid={testId} className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${clases}`}>{children}</span>;
-}
-
-function Nota({ tono, children, testId }: { tono: 'aviso' | 'info'; children: React.ReactNode; testId?: string }) {
-  return (
-    <p data-testid={testId} className={`flex gap-2 rounded-xl px-3 py-2 text-[12px] leading-relaxed ${tono === 'aviso' ? 'bg-amber-500/10 text-amber-800' : 'bg-muted/60 text-muted-foreground'}`}>
-      {tono === 'aviso' ? <AlertTriangle size={14} className="mt-0.5 shrink-0" /> : <Info size={14} className="mt-0.5 shrink-0" />}
-      <span>{children}</span>
-    </p>
-  );
-}
 
 function TarjetaInstructora({ instructora: i, tarifa, liq, mes, minutosFichados, pagarDuracionReal, modoEstudio, procesando, onGenerar, onTransicion, onRelacion, onTarifa }: {
   instructora: Instructor; tarifa: TarifaInstructor | undefined; liq: Liquidacion | undefined; mes: string;

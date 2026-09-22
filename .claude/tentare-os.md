@@ -203,8 +203,9 @@ estudio (suscripciones, créditos, recuperaciones, plazas fijas, logros…) ni d
 (notificaciones, canal de equipo, dependencia de instructoras), medido suplantando a una
 instructora real: 0 filas, y los demás roles igual que antes. Conserva lo suyo (sus
 `sesiones`/`reservas`, sus bloqueos) y los catálogos. ⚠️ Una política nueva que solo pida
-`studio_id = current_studio_id()` vuelve a abrírselo todo: añade el rol. Sigue pendiente «nota
-de sesión» en la app. **No construir nada para INSTRUCTOR en el panel**: va a la app del estudio.
+`studio_id = current_studio_id()` vuelve a abrírselo todo: añade el rol. La «nota de sesión»
+ya vive en la app (ficha de la alumna, con consentimiento de salud vigente). **No construir nada
+para INSTRUCTOR en el panel**: va a la app del estudio.
 
 Esto es un **rebranding sobre una sola app role-gateada** (`app/(dashboard)/` +
 `lib/permisos-reglas.ts`), NO un split estructural — no hay `app/manager/` ni
