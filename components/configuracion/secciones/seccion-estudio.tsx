@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { MostrarToast } from '@/components/ui/toast';
-import { Building2, CalendarOff, Clock, MapPin, Phone } from 'lucide-react';
+import { Award, Building2, CalendarOff, Clock, MapPin, Phone } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
 import { useRol } from '@/lib/permisos';
@@ -16,6 +16,7 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import { FormContacto, FormNombreYDireccion } from '@/components/configuracion/tab-datos-contacto';
 import { FormCerrarElCentro, FormHorario, ListaCierres } from '@/components/configuracion/tab-estudio-horario';
 import { FormSedes } from '@/components/configuracion/tab-estudio-sedes';
+import { FormCertificado } from '@/components/configuracion/tab-estudio-certificado';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
@@ -33,13 +34,14 @@ import { tarjetaVisible, type TarjetaId } from '@/lib/configuracion/secciones';
 // Un enlace con el ancla de una fila (`#horario`, y las de antes:
 // `#horario-y-cierres`, `#datos-y-contacto`) abre su cajón.
 
-type CajonId = Extract<TarjetaId, 'nombre-y-direccion' | 'contacto' | 'horario' | 'cerrar-el-centro' | 'sedes'>;
+type CajonId = Extract<TarjetaId, 'nombre-y-direccion' | 'contacto' | 'horario' | 'cerrar-el-centro' | 'sedes' | 'certificado'>;
 
-const CAJONES = ['nombre-y-direccion', 'contacto', 'horario', 'cerrar-el-centro', 'sedes'] as const satisfies readonly CajonId[];
+const CAJONES = ['nombre-y-direccion', 'contacto', 'horario', 'cerrar-el-centro', 'sedes', 'certificado'] as const satisfies readonly CajonId[];
 
 const FILAS_DATOS = [{ id: 'nombre-y-direccion', icono: MapPin }, { id: 'contacto', icono: Phone }] as const;
 const FILAS_HORARIO = [{ id: 'horario', icono: Clock }, { id: 'cerrar-el-centro', icono: CalendarOff }] as const;
 const FILA_SEDES = { id: 'sedes', icono: Building2 } as const;
+const FILA_CERTIFICADO = { id: 'certificado', icono: Award } as const;
 
 /** Clases canceladas de cada cierre; los que se pisan con otro no se cuentan (no se sabe de cuál es cada clase). */
 const contarClases = (studioId: string, cierres: readonly CierreGuardado[]) =>
@@ -133,6 +135,9 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
     horario: resumenHorarioSemana(studio?.horarioSemana),
     'cerrar-el-centro': hoy ? resumenCierres(cierres ?? null, hoy) : null,
     sedes: resumenSedes(sedes, studio?.id),
+    // Su estado (activo/revocado/sin generar) lo carga FormCertificado con su
+    // propio fetch: no hay nada del estudio ya en memoria que lo resuma aquí.
+    certificado: null,
   };
 
   const filaSalas = {
@@ -160,6 +165,12 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
         <FilaHerramienta {...filaSalas} />
         {haySedes && <FilaAjuste {...FILA_SEDES} valor={valores.sedes} onAbrir={abrir} />}
       </GrupoFilas>
+
+      {ve('certificado') && (
+        <GrupoFilas titulo="Certificación">
+          <FilaAjuste {...FILA_CERTIFICADO} valor={valores.certificado} onAbrir={abrir} />
+        </GrupoFilas>
+      )}
 
       {ve('nombre-y-direccion') && (
         <CajonAjuste id="nombre-y-direccion" abierto={cajon === 'nombre-y-direccion'} onCerrar={cerrar}>
@@ -196,6 +207,11 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
             cambiarmeASede={cambiarmeASede}
             puedeAnadirSedes={puedeAnadirSedes}
           />
+        </CajonAjuste>
+      )}
+      {ve('certificado') && (
+        <CajonAjuste id="certificado" abierto={cajon === 'certificado'} onCerrar={cerrar}>
+          <FormCertificado showToast={showToast} />
         </CajonAjuste>
       )}
     </>

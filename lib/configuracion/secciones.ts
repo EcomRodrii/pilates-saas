@@ -110,6 +110,7 @@ export const SECCIONES = [
       { id: 'cerrar-el-centro', titulo: 'Cerrar el centro', frase: 'Vacaciones, un puente o una reforma: se cancelan sus clases, y aquí ves y quitas los cierres que pusiste.', guardado: 'barra', roles: SEDE, palabras: ['vacaciones', 'festivos', 'cierre'] },
       { id: 'salas', titulo: 'Salas', frase: 'Tus salas y cuántas personas caben: esa cifra es el tope de plazas de cada clase.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'salas', roles: SEDE, palabras: ['aforo', 'capacidad', 'plazas', 'averías', 'máquinas'] },
       { id: 'sedes', titulo: 'Sedes', frase: 'Tus otras sedes: cámbiate a una o añade otra.', guardado: 'accion', condicion: 'multiSede', palabras: ['cambiar de sede', 'centros', 'cadena'] },
+      { id: 'certificado', titulo: 'Certificado Tentare Verified Studio', frase: 'Un certificado oficial y verificable de que tu estudio está al día con Tentare: para imprimir o compartir.', guardado: 'accion', palabras: ['certificación', 'verificado', 'diploma', 'sello'] },
     ],
   },
   {

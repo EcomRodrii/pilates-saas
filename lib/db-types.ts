@@ -3324,6 +3324,15 @@ export interface RowConsentimientosMarketingEventos {
   user_agent: string | null;
 }
 
+export interface RowCertificadosEstudio {
+  id: string;
+  studio_id: string;
+  estado: string;
+  emitido_en: string;
+  revocado_en: string | null;
+  creado_por: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -9195,6 +9204,24 @@ export type ConsentimientosMarketingEventosUpdate = {
   user_agent?: string | null | null;
 }
 
+export type CertificadosEstudioInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  estado?: string | null;
+  emitido_en?: string | null;
+  revocado_en?: string | null | null;
+  creado_por?: string | null | null;
+}
+
+export type CertificadosEstudioUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  estado?: string | null;
+  emitido_en?: string | null;
+  revocado_en?: string | null | null;
+  creado_por?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10252,6 +10279,11 @@ export type Database = {
         Row: RowConsentimientosMarketingEventos;
         Insert: ConsentimientosMarketingEventosInsert;
         Update: ConsentimientosMarketingEventosUpdate;
+      };
+      certificados_estudio: {
+        Row: RowCertificadosEstudio;
+        Insert: CertificadosEstudioInsert;
+        Update: CertificadosEstudioUpdate;
       };
     };
   };
