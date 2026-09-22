@@ -11,7 +11,7 @@ import { supabase } from '@/lib/db/supabase';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { queImparten } from '@/lib/equipo';
-import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias, puedeGestionarCalendario } from '@/lib/permisos';
 import { semaforo, alertaPreClase, resumenSaludClase, RESPUESTAS_ORDEN, RESPUESTA_META, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida, Sesion } from '@/lib/types';
@@ -2927,6 +2927,7 @@ export default function Calendario() {
             onAnadirPlaza={setPlazaFijaEnTarjeta}
             onVerClase={verProximaClase}
             onCrearRecurrente={gestionaClientas ? () => { setInitialRecurrente(undefined); setShowRecurrentes(true); } : undefined}
+            puedeGestionarClasesFijas={puedeGestionarCalendario(rolActual)}
             alumnasPidenPlaza={gestionaClientas ? studio?.plazaFijaSolicitarDesdeApp === true : undefined}
             hrefAjustePeticiones={gestionaClientas && puedeAbrirEnConfiguracion(rolActual, HREF_PETICIONES_PLAZA_FIJA) ? HREF_PETICIONES_PLAZA_FIJA : null}
           />

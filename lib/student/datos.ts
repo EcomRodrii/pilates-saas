@@ -5,6 +5,9 @@ import {
   proyectarAlumna, proyectarBonos, proyectarClases, proyectarInstructoras, proyectarPagos, proyectarPlazasFijas, proyectarRecuperaciones, proyectarReservas,
 } from '@/lib/student/mapeo';
 import { horaAhora, hoyISO } from '@/lib/student/formato';
+import { pedirCatalogoClasesFijas } from '@/lib/student/clases-fijas-datos';
+import { proyectarClasesFijas, type ClaseFijaVista } from '@/lib/student/clases-fijas';
+import { hoyEnEstudio } from '@/lib/utils';
 import { tarjetasDescubre, type TarjetaDescubre } from '@/lib/student/descubre';
 import type { Alumna, Bono, Clase, Instructora, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from '@/lib/student/tipos';
 
@@ -113,4 +116,19 @@ export async function getMinimoRacha(slug: string): Promise<number> {
 export async function getAlumna(slug: string): Promise<Alumna | null> {
   const d = await catalogo(slug);
   return d ? proyectarAlumna(d) : null;
+}
+
+/**
+ * Las clases fijas que ofrece el estudio, con lo que la alumna ya tiene, lo que ha
+ * pedido y si su cuota las cubre. `null` = no se ha podido saber (la pantalla dice
+ * que no ha cargado, no «no hay»). Las ofertas salen de `/api/public/clases-fijas`;
+ * su cuota y sus plazas, del catálogo que la app ya tiene en memoria.
+ */
+export async function getClasesFijas(slug: string): Promise<ClaseFijaVista[] | null> {
+  const [cat, d] = await Promise.all([pedirCatalogoClasesFijas(slug), catalogo(slug)]);
+  if (!cat) return null;
+  const socia = d?.socia
+    ? { suscripciones: d.socia.suscripciones ?? [], plazasFijas: d.socia.plazasFijas ?? [] }
+    : null;
+  return proyectarClasesFijas(cat, socia, d?.planesTarifa ?? [], hoyEnEstudio());
 }

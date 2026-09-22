@@ -1057,7 +1057,7 @@ export async function revisarBajaInstructora(
 // devuelve `listarPeticionesPlazaFija` en el servidor.
 export interface PeticionPlazaFija {
   id: string;
-  tipo: 'CREAR' | 'PAUSAR' | 'REANUDAR';
+  tipo: 'CREAR' | 'PAUSAR' | 'REANUDAR' | 'CREAR_CLASE_FIJA';
   socioId: string;
   socia: string;
   franja: string;
@@ -1066,6 +1066,8 @@ export interface PeticionPlazaFija {
   hasta: string | null;
   motivoSistema: 'SIN_CUPO' | 'SITIO_OCUPADO' | 'SIN_CUOTA' | 'SUPERA_LIMITE' | 'PREGUNTAR' | null;
   creadaEn: string;
+  /** CREAR_CLASE_FIJA: la oferta pedida, cuánto tiempo eligió y, si hay algo que avisar, qué. */
+  claseFija?: { nombre: string; duracion: string; hasta: string; aviso: string | null } | null;
 }
 
 // Sin dar por hecha la forma: esto se pinta dentro de la bandeja de la home.
@@ -1077,7 +1079,7 @@ export async function listarPeticionesPlazaFija(): Promise<PeticionPlazaFija[]> 
     if (!Array.isArray(d?.peticiones)) return [];
     return (d.peticiones as Array<Partial<PeticionPlazaFija> | null>).filter((p): p is PeticionPlazaFija =>
       !!p && typeof p.id === 'string' && typeof p.socia === 'string' && typeof p.franja === 'string'
-      && (p.tipo === 'CREAR' || p.tipo === 'PAUSAR' || p.tipo === 'REANUDAR'));
+      && (p.tipo === 'CREAR' || p.tipo === 'PAUSAR' || p.tipo === 'REANUDAR' || p.tipo === 'CREAR_CLASE_FIJA'));
   } catch {
     return [];
   }

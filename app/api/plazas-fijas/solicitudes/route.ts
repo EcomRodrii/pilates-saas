@@ -8,6 +8,9 @@ import { errorInterno } from '@/lib/errores-servidor';
 
 export const dynamic = 'force-dynamic';
 
+// Aprobar una clase fija da hasta 12 plazas y las reserva una a una con el motor.
+export const maxDuration = 60;
+
 // Peticiones de plaza fija que esperan al estudio: las de la app de la alumna
 // (una plaza o una pausa) y las vueltas de una pausa que no pudieron volver solas
 // (`solicitudes_plaza_fija`, migr 20260915231920).
