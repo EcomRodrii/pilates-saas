@@ -127,3 +127,82 @@ test.describe('Sede activa siempre visible', () => {
     await expect(confirmacion).toContainText('Ahora estás en Pilates Norte', { timeout: 30_000 });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pestañas desfasadas (visto en producción, 22-sep-2026): se cambiaba de sede
+// desde Configuración, una pestaña abierta seguía enseñando la sede anterior y
+// todo lo que se guardaba ahí lo rechazaba la RLS («tu usuario no puede cambiar
+// los datos de este estudio»). Solo el selector de la barra avisaba a las demás
+// pestañas; y si la sede cambiaba desde otro dispositivo, ninguna se enteraba.
+// Servidor simulado con estado: `activa` es lo que diría current_studio_id().
+// ─────────────────────────────────────────────────────────────────────────────
+async function backendConEstado(page: Page, estado: { activa: string }) {
+  const filas: Record<string, typeof STUDIO_ROW> = {
+    [STUDIO_ID]: STUDIO_ROW,
+    [STUDIO_ID_2]: { ...STUDIO_ROW, id: STUDIO_ID_2, nombre: 'Pilates Norte', slug: 'pilates-norte' },
+  };
+  await page.route('**/api/**', route => json(route, {}));
+  await page.route('**/api/layout**', route =>
+    json(route, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
+  await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));
+  await page.route('**/api/theme**', route =>
+    json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
+  await page.route('**/rest/v1/**', route => json(route, []));
+  await page.route('**/rest/v1/studios**', route => json(route, filas[estado.activa]));
+  await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, estado.activa));
+  await page.route('**/rest/v1/rpc/mis_estudios', route => json(route, DOS_SEDES));
+  await page.route('**/rest/v1/sesion_activa**', async route => {
+    if (route.request().method() !== 'GET') {
+      const cuerpo = JSON.parse(route.request().postData() || '{}') as { studio_id?: string };
+      if (cuerpo.studio_id) estado.activa = cuerpo.studio_id;
+    }
+    return json(route, []);
+  });
+}
+
+test.describe('Ninguna pestaña se queda en la sede anterior', () => {
+  test('cambiar de sede desde Configuración pasa también a las demás pestañas', async ({ context }) => {
+    const estado = { activa: STUDIO_ID };
+    const vieja = await context.newPage();
+    const nueva = await context.newPage();
+    for (const p of [vieja, nueva]) { await backendConEstado(p, estado); await seedSesionDeDuena(p); }
+
+    await vieja.goto('/dashboard');
+    await expect(vieja.getByRole('button', { name: /Sede activa: Pilates Centro/ })).toBeVisible({ timeout: 30_000 });
+
+    await nueva.goto('/configuracion?tab=estudio&sub=sedes');
+    await expect(nueva.getByRole('heading', { name: 'Tus sedes' })).toBeVisible({ timeout: 30_000 });
+    await nueva.getByRole('button', { name: 'Cambiarme' }).click();
+    await expect(nueva.getByRole('status').filter({ hasText: 'Ahora estás en' })).toContainText('Pilates Norte', { timeout: 30_000 });
+
+    // La otra pestaña se recarga sola en la sede nueva.
+    await expect(vieja.getByRole('button', { name: /Sede activa: Pilates Norte/ })).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('si la sede cambió desde otro dispositivo, al volver a la pestaña se recarga en la buena', async ({ page }) => {
+    const estado = { activa: STUDIO_ID };
+    await backendConEstado(page, estado);
+    await seedSesionDeDuena(page);
+    await page.goto('/dashboard');
+    await expect(page.getByRole('button', { name: /Sede activa: Pilates Centro/ })).toBeVisible({ timeout: 30_000 });
+
+    estado.activa = STUDIO_ID_2; // otro dispositivo: ninguna pestaña de este navegador avisa
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(page.getByRole('button', { name: /Sede activa: Pilates Norte/ })).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('sin cambio de sede, volver a la pestaña no recarga nada', async ({ page }) => {
+    const estado = { activa: STUDIO_ID };
+    await backendConEstado(page, estado);
+    await seedSesionDeDuena(page);
+    let consultas = 0;
+    await page.route('**/rest/v1/rpc/current_studio_id', route => { consultas++; return json(route, estado.activa); });
+    await page.goto('/dashboard');
+    await expect(page.getByRole('button', { name: /Sede activa: Pilates Centro/ })).toBeVisible({ timeout: 30_000 });
+    const antes = consultas;
+    await page.evaluate(() => { (window as unknown as { __marca: number }).__marca = 1; window.dispatchEvent(new Event('focus')); });
+    await expect.poll(() => consultas).toBeGreaterThan(antes); // sí lo comprobó…
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => (window as unknown as { __marca?: number }).__marca)).toBe(1); // …y no recargó
+  });
+});

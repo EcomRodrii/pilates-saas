@@ -1,23 +1,8 @@
--- ─────────────────────────────────────────────────────────────────────────────
--- Consentimiento de marketing: historial y alta desde las pantallas públicas.
---
--- Hasta ahora `socios.consentimiento_marketing_*` solo guardaba el ÚLTIMO
--- estado y la baja lo ponía a NULL: no quedaba prueba de «lo dio el día X y lo
--- retiró el día Y» (RGPD art. 7.1: hay que poder demostrar el consentimiento).
--- Mismo patrón que `aceptaciones_contrato_eventos` (20260914015133).
---
---  1. `consentimientos_marketing_eventos` — APPEND-ONLY. Una fila por cada vez
---     que se da o se retira: cuándo (now() del servidor), por qué puerta, qué
---     texto, HMAC de la IP (nunca la IP) y user-agent recortado cuando la
---     puerta los conoce.
---  2. Un TRIGGER sobre `socios` es el ÚNICO que escribe el historial. Así cubre
---     todas las puertas —la ficha del panel (UPDATE directo de authenticated),
---     la RPC de mostrador por lotes, el enlace de baja y la de la propia
---     socia— sin que ninguna pueda olvidarse de apuntarlo.
---  3. `consentimiento_marketing_propio(...)` — la puerta de la socia y del
---     enlace de baja (solo service_role). Pasa origen e IP/UA al trigger por
---     `set_config` local a la transacción.
--- ─────────────────────────────────────────────────────────────────────────────
+-- ⚠️ Fichero RECUPERADO, no escrito a mano: esta migración se aplicó en
+-- producción con `apply_migration` (versión real 20260922004313) y nunca
+-- tuvo fichero en el repo — el check de «Deriva de migraciones» la detectó
+-- huérfana el 22-sep. El texto de abajo es literal el de
+-- `supabase_migrations.schema_migrations.statements`.
 
 create table if not exists public.consentimientos_marketing_eventos (
   id uuid primary key default gen_random_uuid(),
@@ -26,7 +11,6 @@ create table if not exists public.consentimientos_marketing_eventos (
   en timestamptz not null default now(),
   accion text not null check (accion in ('DAR', 'RETIRAR')),
   origen text not null check (origen in ('SOCIA', 'MOSTRADOR', 'BAJA_EMAIL', 'DESCONOCIDO')),
-  -- DAR: el texto aceptado. RETIRAR: el que se retira.
   texto text,
   ip_hmac text check (ip_hmac is null or ip_hmac ~ '^[0-9a-f]{64}$'),
   user_agent text check (user_agent is null or char_length(user_agent) <= 256)
@@ -46,8 +30,6 @@ drop policy if exists consentimientos_marketing_eventos_lectura on public.consen
 create policy consentimientos_marketing_eventos_lectura on public.consentimientos_marketing_eventos
   for select to authenticated
   using (studio_id = current_studio_id() and current_rol() = 'PROPIETARIO');
-
--- ─── 2. El trigger: único que escribe el historial ──────────────────────────
 
 create or replace function public.consentimiento_marketing_historial()
 returns trigger
@@ -98,12 +80,6 @@ drop trigger if exists trg_socios_consentimiento_marketing_historial on public.s
 create trigger trg_socios_consentimiento_marketing_historial
   after insert or update of consentimiento_marketing_texto, consentimiento_marketing_en on public.socios
   for each row execute function public.consentimiento_marketing_historial();
-
--- ─── 3. La puerta de la socia y del enlace de baja ──────────────────────────
---
--- Devuelve 'OK' | 'YA_CONSTABA' | 'SOCIA_NO_ENCONTRADA'. No comprueba quién
--- llama: solo service_role; la ruta decide (la socia con su JWT; la baja con
--- su token firmado). El texto lo compone el servidor, nunca el navegador.
 
 create or replace function public.consentimiento_marketing_propio(
   p_studio_id text,

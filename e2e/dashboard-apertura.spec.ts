@@ -426,6 +426,64 @@ test.describe('Apertura suave', () => {
   });
 });
 
+test.describe('¿Cuánto necesito aguantar?', () => {
+  const base = {
+    visible: true, fechaApertura: '2026-11-02', diasHastaApertura: 12, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS,
+    onboarding: { completado: true, puntos: ['LOCAL'], objetivos: [], fechaAproximada: false },
+  };
+  const RESPUESTA = {
+    fijosMes: 2000, colchon: 12000, ivaPct: 21, sesionesSemanaSinTope: 2,
+    resultado: {
+      faltan: [], costeEquipoMes: 1040, instructorasSinTarifa: 1, hayContratadas: true,
+      ingresoActualMes: 200, cuotasMensualesVendidas: 2, deficitMes: 2840, mesesColchon: 12000 / 2840,
+      planesNoMensuales: 1,
+      filas: [
+        { id: 'ilim', etiqueta: 'Ilimitado', netoCuotaMes: 200, cuotasEquilibrio: 16, plazasNecesarias: 208, plazasMes: 180, ocupacion: 208 / 180, ritmoMinimoMes: 2 },
+        { id: 'm2', etiqueta: 'Mensual 2x', netoCuotaMes: 100, cuotasEquilibrio: 31, plazasNecesarias: 269, plazasMes: 400, ocupacion: 269 / 400, ritmoMinimoMes: 4 },
+      ],
+    },
+  };
+
+  test('se carga al desplegar, cuenta de dónde sale cada cifra y avisa si con este horario no se llega', async ({ page }) => {
+    let pedidas = 0;
+    // Después de montar: el comodín `**/api/**` del andamiaje se registra ahí y,
+    // en Playwright, gana la ruta registrada la última.
+    await montar(page, { inicial: base });
+    await page.route('**/api/opening/economia', r => { pedidas++; return json(r, RESPUESTA); });
+    const boton = page.getByRole('button', { name: /¿Cuánto necesito aguantar\?/ });
+    await expect(boton).toBeVisible({ timeout: ARRANQUE_MS });
+    // No se pide con la home: solo al abrirlo.
+    expect(pedidas).toBe(0);
+    await boton.click();
+    await expect(page.getByText('Si no vendes ni una cuota más, tu colchón aguanta 4 meses.')).toBeVisible();
+    expect(pedidas).toBeGreaterThan(0);
+    const filas = page.getByRole('list', { name: 'Cuotas para cubrir gastos' }).getByRole('listitem');
+    await expect(filas).toHaveCount(2);
+    await expect(filas.nth(0)).toContainText('Con este horario y estos precios no llegas');
+    await expect(filas.nth(1)).toContainText('Llenarías el 67 % de tu horario (269 de 400 plazas al mes)');
+    await expect(filas.nth(1)).toContainText('suma al menos 4 cuotas nuevas al mes');
+    await expect(page.getByText('No incluye el coste de empresa (Seguridad Social)', { exact: false })).toBeVisible();
+    await expect(page.getByText('Una instructora con clases no tiene tarifa', { exact: false })).toBeVisible();
+    if (CAPTURAS) await boton.locator('xpath=..').screenshot({ path: `${CAPTURAS}/economia-apertura.png` });
+  });
+
+  test('si el servidor no guarda, lo dice y no finge el cálculo', async ({ page }) => {
+    let intentos = 0;
+    await montar(page, { inicial: base });
+    await page.route('**/api/opening/economia', r => {
+      if (r.request().method() === 'PATCH') { intentos++; return json(r, { error: 'Pon cantidades en euros, sin signo negativo.' }, 400); }
+      return json(r, { ...RESPUESTA, fijosMes: null, colchon: null, resultado: { ...RESPUESTA.resultado, faltan: ['fijos', 'colchon'], filas: [], deficitMes: null, mesesColchon: null } });
+    });
+    await page.getByRole('button', { name: /¿Cuánto necesito aguantar\?/ }).click({ timeout: ARRANQUE_MS });
+    await expect(page.getByText('Pon tus gastos fijos al mes para saber cuántas cuotas los cubren.')).toBeVisible();
+    await page.getByLabel(/Gastos fijos al mes/).fill('2.400');
+    await page.getByRole('button', { name: 'Calcular' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Pon cantidades en euros' })).toBeVisible();
+    expect(intentos, 'el guardado no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
+    await expect(page.getByText(/tu colchón aguanta/)).toHaveCount(0);
+  });
+});
+
 test.describe('Comunicaciones de la apertura', () => {
   test('la etapa en curso propone avisar a las interesadas, y en sus últimos días recordar que termina', async ({ page }) => {
     await montar(page, {

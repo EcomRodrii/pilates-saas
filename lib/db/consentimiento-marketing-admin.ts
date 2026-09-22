@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { textoConsentimientoMarketing } from '@/lib/legal-textos';
-import type { EvidenciaPeticion } from '@/lib/db/aceptacion-contrato-admin';
+import { textoConsentimientoMarketing } from '../legal-textos.ts';
+import type { EvidenciaPeticion } from './aceptacion-contrato-admin.ts';
 
 // Consentimiento de marketing dado o retirado por LA PROPIA SOCIA (sus altas
 // públicas y su app) o por el enlace de baja de un correo. Única puerta de

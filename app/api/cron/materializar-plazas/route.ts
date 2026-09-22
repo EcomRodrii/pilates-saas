@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { materializarPlazasFijas } from '@/lib/db/supabase-data-admin';
 import { errorInterno } from '@/lib/errores-servidor';
+import { secretoValido } from '@/lib/salud/secreto';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +18,11 @@ export async function GET(req: NextRequest) {
   if (!secret) {
     return NextResponse.json({ error: 'CRON_SECRET no configurado' }, { status: 503 });
   }
-  const auth = req.headers.get('authorization');
-  if (auth !== `Bearer ${secret}`) {
+  // Comparación en tiempo constante (auditoría 2026-09-21): estos cuatro
+  // crons de Vercel eran los únicos que comparaban el secreto con `!==`.
+  // Los 17 de pg_cron ya usaban `secretoValido`, que existe justamente
+  // porque `!==` filtra por temporización cuántos caracteres se acertaron.
+  if (!secretoValido(req.headers.get('authorization'), secret)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 

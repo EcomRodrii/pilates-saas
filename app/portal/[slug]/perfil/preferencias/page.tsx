@@ -47,7 +47,7 @@ export default function PreferenciasPage() {
     setPush(estadoPush(await contextoPushStudent(estudio.slug)));
     setMarketing(await getConsentimientoMarketing(estudio.id));
     return estadoInicialPush('SOCIA', prefs);
-  }, [estudio.slug]);
+  }, [estudio.slug, estudio.id]);
 
   const { estado, data: pushInicial, reintentar } = useAsync(cargar, () => false);
 

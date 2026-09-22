@@ -8,10 +8,10 @@ import { useAuth } from '@/lib/auth-context';
 import { useRol } from '@/lib/permisos';
 import { hoyEnEstudio } from '@/lib/utils';
 import {
-  fetchMisEstudios, cambiarSedeActiva, dbContarClasesCanceladasPorCierre, dbListCierres, type SedeSeleccionable,
+  fetchMisEstudios, dbContarClasesCanceladasPorCierre, dbListCierres, type SedeSeleccionable,
 } from '@/lib/supabase-data';
 import { seSolapaConOtro, type CierreGuardado } from '@/lib/cierres/quitar-cierre';
-import { CLAVE_CAMBIO_SEDE } from '@/components/layout/sede-activa';
+import { irASede } from '@/components/layout/sede-activa';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { FormContacto, FormNombreYDireccion } from '@/components/configuracion/tab-datos-contacto';
 import { FormCerrarElCentro, FormHorario, ListaCierres } from '@/components/configuracion/tab-estudio-horario';
@@ -84,11 +84,8 @@ export function SeccionEstudio({ showToast }: { showToast: MostrarToast }) {
     // Mismo patrón que SedeActiva.elegir() (components/layout/sede-activa.tsx):
     // hard-nav tras guardar, para que StudioProvider remonte limpio contra la
     // nueva sede.
-    cambiarSedeActiva(user.id, id).then(ok => {
-      if (!ok) { setCambiandoASede(null); showToast('No se ha podido cambiar de sede', { variant: 'error' }); return; }
-      const destino = sedes?.find(s => s.id === id);
-      try { sessionStorage.setItem(CLAVE_CAMBIO_SEDE, destino?.nombre ?? ''); } catch { /* modo privado */ }
-      window.location.href = '/dashboard';
+    void irASede(user.id, id, sedes?.find(s => s.id === id)?.nombre ?? '').then(ok => {
+      if (!ok) { setCambiandoASede(null); showToast('No se ha podido cambiar de sede', { variant: 'error' }); }
     });
   }
 
