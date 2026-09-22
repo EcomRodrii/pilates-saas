@@ -154,8 +154,13 @@
   --warning-foreground: #ffffff;
   --info: #3F5A7A;
   --info-foreground: #ffffff;
-  --border: #E7E7E0;
-  --input: #E7E7E0;
+  /* Promovido desde Configuración (e2e/configuracion-contraste.spec.ts, medido
+     ahí primero: tarjeta contra fondo 1,16:1 → 1,45:1). Con Centro de Control
+     como segunda pantalla midiendo el mismo problema, se sube al panel entero
+     en vez de repetir el ámbito .config-tactil pantalla por pantalla — ver
+     comentario que quedaba junto a esa regla, ahora retirada. */
+  --border: #C8C8BD;
+  --input: #83837A;
   --ring: #6B7A3C;
   --radius: 1rem;
   --sidebar: #0F0F0F;
@@ -329,8 +334,9 @@
   --warning-foreground: #16161A;
   --info: #8FAAC9;
   --info-foreground: #16161A;
-  --border: #303035;
-  --input: #303035;
+  /* Mismo motivo que en :root — promovido desde .config-tactil. */
+  --border: #414147;
+  --input: #76767B;
 
   /* Marca en modo oscuro: SALVIA, ni oliva ni arena.
      Dos intentos fallidos antes de este, y los dos por el mismo motivo — mirar
@@ -814,27 +820,13 @@ html[data-vt-ampliar='reducir']::view-transition-new(panel-barra) {
    1,16:1, borde de campo 1,24:1. Medido antes y después en
    e2e/configuracion-contraste.spec.ts.
 
-   Solo dentro de Configuración, a propósito: `--border` y `--input` los usa todo
-   el panel, y aquí se mide primero antes de extenderlo.
-   · `--border` (tarjetas, divisores): mismo gris cálido, más oscuro. 1,45:1
-     contra el fondo en claro y 1,78:1 en oscuro. Una tarjeta agrupa, no es un
-     control: a 3:1 sería una rejilla de cajas compitiendo con los campos.
-   · `--input` (contorno de campo, `inputCls`): 3,82:1 / 3,68:1 sobre la tarjeta.
-     Es el contorno de un CONTROL, y WCAG 1.4.11 pide 3:1.
-   · `--primary` en oscuro ya NO se pisa aquí: esto nació redefiniéndolo solo
-     en Configuración (1,12:1 sobre la tarjeta), y ahora lo redefine `.dark`
-     para todo el panel con los mismos valores. Volver a ponerlo aquí sería una
-     segunda fuente de verdad que diverge en cuanto una cambie.
+   `--border`/`--input` YA NO se redefinen aquí: nacieron acotados a esta clase
+   a propósito («aquí se mide primero antes de extenderlo»), y con Centro de
+   Control como segunda pantalla midiendo el mismo problema (auditoría de
+   arquitectura, 22-sep-2026) se promovieron a los valores raíz de :root/.dark
+   (ver ahí el comentario con las cifras). Los mismos números, un solo sitio.
    ⚠️ Los tokens de MARCA no se tocan: los pisa `panel-theme` en línea con el
    tema del estudio. Ni las paletas categóricas. */
-.config-tactil {
-  --border: #C8C8BD;
-  --input: #83837A;
-}
-.dark .config-tactil {
-  --border: #414147;
-  --input: #76767B;
-}
 
 /* Dentro de Configuración, la burbuja de WhatsApp no manda. Verde saturado era
    el color más fuerte de la pantalla y no significa nada de lo que se está
