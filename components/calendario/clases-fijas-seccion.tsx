@@ -125,6 +125,9 @@ export function ClasesFijasSeccion(p: ClasesFijasSeccionProps) {
                   o.estado === 'DISPONIBLE' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
                   {ETIQUETA_ESTADO[o.estado]}
                 </span>
+                {o.aprobacionAutomatica && (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Automática</span>
+                )}
                 {o.pendientes > 0 && (
                   <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning">
                     {o.pendientes === 1 ? '1 petición por decidir' : `${o.pendientes} peticiones por decidir`}
@@ -193,6 +196,7 @@ function DialogoClaseFija({ oferta, tarjetas, nombreTipo, nombreSala, onClose, o
   const [descripcion, setDescripcion] = useState(oferta?.descripcion ?? '');
   const [duraciones, setDuraciones] = useState<number[]>(oferta?.duracionesMeses ?? DURACIONES_POR_DEFECTO);
   const [plazas, setPlazas] = useState(oferta?.plazas != null ? String(oferta.plazas) : '');
+  const [aprobacionAutomatica, setAprobacionAutomatica] = useState(oferta?.aprobacionAutomatica ?? false);
   const [elegidas, setElegidas] = useState<Set<string>>(
     () => new Set((oferta?.franjas ?? []).map(f => claveDe(f.serieId, f.diaSemana))),
   );
@@ -211,7 +215,7 @@ function DialogoClaseFija({ oferta, tarjetas, nombreTipo, nombreSala, onClose, o
     setError(null);
     const datos: DatosClaseFija = {
       nombre: nombre.trim(), descripcion: descripcion.trim(), duracionesMeses: [...duraciones].sort((a, b) => a - b),
-      plazas: numPlazas,
+      plazas: numPlazas, aprobacionAutomatica,
       franjas: [...elegidas].map(k => { const [serieId, dia] = k.split('|'); return { serieId, diaSemana: Number(dia) }; }),
     };
     const r = oferta ? await editarClaseFija(oferta.id, datos) : await crearClaseFija(datos);
@@ -295,6 +299,16 @@ function DialogoClaseFija({ oferta, tarjetas, nombreTipo, nombreSala, onClose, o
           Tope de clientas por clase <span className="font-normal text-muted-foreground">(vacío = el aforo de cada clase)</span>
           <input value={plazas} onChange={e => setPlazas(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" placeholder="Aforo de la clase"
             className="h-9 w-40 rounded-lg border border-border bg-background px-3 text-[13px] font-normal placeholder:text-muted-foreground" />
+        </label>
+
+        <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border px-2.5 py-2 text-xs hover:bg-muted">
+          <input type="checkbox" className="mt-0.5" checked={aprobacionAutomatica} onChange={e => setAprobacionAutomatica(e.target.checked)} />
+          <span>
+            <span className="font-medium text-foreground">Aprobar automáticamente</span>
+            <span className="block text-[11px] text-muted-foreground">
+              Sin pasar por tu bandeja: si cabe y no pasa del límite de su cuota, le llega dada al momento. Si no puede, se queda pendiente igual que hoy.
+            </span>
+          </span>
         </label>
 
         {error && <p role="alert" className="text-xs font-medium text-destructive">{error}</p>}

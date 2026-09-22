@@ -30,14 +30,15 @@ function diaMes(ymd: string | null): string {
 function quePide(p: PeticionPlazaFija): string {
   if (p.tipo === 'CREAR') return 'Pide plaza fija';
   if (p.tipo === 'CREAR_CLASE_FIJA') return 'Pide una clase fija';
+  if (p.tipo === 'AMPLIAR_CLASE_FIJA') return 'Pide ampliar su clase fija';
   if (p.tipo === 'PAUSAR') return 'Pide pausar su plaza fija';
   return 'Vuelta de su pausa';
 }
 
 function detalle(p: PeticionPlazaFija): string | null {
-  if (p.tipo === 'CREAR_CLASE_FIJA') {
+  if (p.tipo === 'CREAR_CLASE_FIJA' || p.tipo === 'AMPLIAR_CLASE_FIJA') {
     const c = p.claseFija;
-    const frases = [c ? `Durante ${c.duracion}, hasta el ${c.hasta}.` : null, c?.aviso ?? null,
+    const frases = [c ? `${p.tipo === 'AMPLIAR_CLASE_FIJA' ? 'Ampliarla' : 'Durante'} ${c.duracion}, hasta el ${c.hasta}.` : null, c?.aviso ?? null,
       p.superaLimite ? 'Pasaría del límite de clases por semana de su cuota.' : null];
     return frases.filter(Boolean).join(' ') || null;
   }
@@ -155,6 +156,7 @@ export function PlazasFijasPorDecidir({ onToast }: { onToast: (m: string) => voi
                     {enviando === p.id
                       ? 'Guardando…'
                       : p.tipo === 'CREAR_CLASE_FIJA' ? (p.superaLimite ? 'Dar la clase fija igualmente' : 'Dar la clase fija')
+                      : p.tipo === 'AMPLIAR_CLASE_FIJA' ? (p.superaLimite ? 'Ampliarla igualmente' : 'Ampliarla')
                       : p.tipo === 'CREAR' ? (p.superaLimite ? 'Dar la plaza igualmente' : 'Dar la plaza')
                         : p.tipo === 'PAUSAR' ? 'Aprobar la pausa' : 'Que vuelva'}
                   </Button>

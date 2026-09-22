@@ -9,7 +9,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getClasesFijas } from '@/lib/student/datos';
-import { anularPeticionClaseFija, pedirClaseFija } from '@/lib/student/clases-fijas-datos';
+import { ampliarClaseFija, anularPeticionClaseFija, pedirClaseFija } from '@/lib/student/clases-fijas-datos';
 import { diasDeLaOferta, type ClaseFijaVista } from '@/lib/student/clases-fijas';
 import { TEXTOS_CLASES_FIJAS as T } from '@/lib/student/clases-fijas-textos';
 import { nombreDia } from '@/lib/student/plaza-fija';
@@ -61,11 +61,18 @@ function TarjetaClaseFija({ c, studioId, slug, online, onCambio }: {
   const { toast } = useToast();
   const href = usePortalHref();
   const [meses, setMeses] = useState<number>(c.duraciones[0]?.meses ?? 0);
+  const [mesesAmpliar, setMesesAmpliar] = useState<number>(c.duraciones[0]?.meses ?? 0);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
   const elegida = c.duraciones.find((d) => d.meses === meses) ?? c.duraciones[0];
+  const elegidaAmpliar = c.duraciones.find((d) => d.meses === mesesAmpliar) ?? c.duraciones[0];
 
   const puedePedir = c.estado === 'DISPONIBLE' && c.tieneCuota && (c.estadoAlumna === 'LIBRE' || c.estadoAlumna === 'PARCIAL') && !!elegida;
+  // Ya la tiene entera, le queda poco y no ha pedido ya ampliarla: solo entonces se ofrece.
+  // `c.terminaPronto` viene calculado de `proyectarClasesFijas` (con el `hoy` del servidor/catálogo),
+  // no de una llamada propia aquí — ver el comentario en `ClaseFijaVista`.
+  const pronto = c.estadoAlumna === 'LA_TIENE' && c.terminaPronto;
+  const puedeAmpliar = pronto && !c.ampliacionPedida && !!elegidaAmpliar;
 
   async function pedir() {
     if (!puedePedir || enviando || !elegida) return;
@@ -74,7 +81,7 @@ function TarjetaClaseFija({ c, studioId, slug, online, onCambio }: {
     const r = await pedirClaseFija(slug, studioId, c.id, elegida.meses);
     setEnviando(false);
     if (!r.ok) { setError(r.error); return; }
-    toast(T.enviada);
+    toast(r.resuelta && r.mensaje ? r.mensaje : T.enviada);
     onCambio();
   }
 
@@ -86,6 +93,28 @@ function TarjetaClaseFija({ c, studioId, slug, online, onCambio }: {
     setEnviando(false);
     if (!r.ok) { setError(r.error); return; }
     toast(T.anulada);
+    onCambio();
+  }
+
+  async function ampliar() {
+    if (!puedeAmpliar || enviando || !elegidaAmpliar) return;
+    setEnviando(true);
+    setError('');
+    const r = await ampliarClaseFija(slug, studioId, c.id, elegidaAmpliar.meses);
+    setEnviando(false);
+    if (!r.ok) { setError(r.error); return; }
+    toast(r.resuelta && r.mensaje ? r.mensaje : T.ampliacionEnviada);
+    onCambio();
+  }
+
+  async function anularAmpliacion() {
+    if (!c.ampliacionPedida || enviando) return;
+    setEnviando(true);
+    setError('');
+    const r = await anularPeticionClaseFija(slug, studioId, c.ampliacionPedida.solicitudId);
+    setEnviando(false);
+    if (!r.ok) { setError(r.error); return; }
+    toast(T.ampliacionAnulada);
     onCambio();
   }
 
@@ -122,7 +151,6 @@ function TarjetaClaseFija({ c, studioId, slug, online, onCambio }: {
         {c.programadaHasta ? T.hayClasesHasta(fechaDMY(c.programadaHasta)) : ''}
       </p>
 
-      {c.estadoAlumna === 'LA_TIENE' && <p role="status" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{T.laTiene}</p>}
       {c.estadoAlumna === 'PARCIAL' && <p style={{ margin: 0, fontSize: 'var(--t-small)' }}>{T.parcial}</p>}
       {c.estado === 'SIN_CLASES' && <p style={{ margin: 0, fontSize: 'var(--t-small)' }}>{T.sinClases}</p>}
       {c.estado === 'COMPLETA' && c.estadoAlumna !== 'LA_TIENE' && <p style={{ margin: 0, fontSize: 'var(--t-small)' }}>{T.completa}</p>}
@@ -132,7 +160,34 @@ function TarjetaClaseFija({ c, studioId, slug, online, onCambio }: {
           <p role="status" data-testid="clase-fija-pedida" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{T.pedida(fechaDMY(c.pedida.hasta))}</p>
           <Button variant="secondary" size="sm" loading={enviando} disabled={!online} onClick={() => void anular()}>{T.botonAnular}</Button>
         </>
-      ) : c.estado === 'DISPONIBLE' && c.estadoAlumna !== 'LA_TIENE' ? (
+      ) : c.estadoAlumna === 'LA_TIENE' ? (
+        <>
+          <p role="status" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{T.laTiene}</p>
+          {c.venceEl && <p className="t-meta" data-testid="clase-fija-vence" style={{ margin: 0 }}>{T.venceEl(fechaDMY(c.venceEl))}</p>}
+          {c.ampliacionPedida ? (
+            <>
+              <p role="status" data-testid="clase-fija-ampliacion-pedida" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>
+                {T.ampliacionPedida(fechaDMY(c.ampliacionPedida.hasta))}
+              </p>
+              <Button variant="secondary" size="sm" loading={enviando} disabled={!online} onClick={() => void anularAmpliacion()}>{T.botonAnular}</Button>
+            </>
+          ) : pronto ? (
+            <>
+              <div>
+                <p className="t-label" style={{ marginBottom: 6 }}>{T.cuantoTiempoAmpliar}</p>
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }} role="group" aria-label={T.cuantoTiempoAmpliar}>
+                  {c.duraciones.map((d) => (
+                    <button key={d.meses} type="button" className="pill" aria-pressed={d.meses === mesesAmpliar} onClick={() => setMesesAmpliar(d.meses)}>
+                      {d.etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Button full loading={enviando} disabled={!online || !puedeAmpliar} onClick={() => void ampliar()}>{T.botonAmpliar}</Button>
+            </>
+          ) : null}
+        </>
+      ) : c.estado === 'DISPONIBLE' ? (
         c.tieneCuota ? (
           <>
             <div>

@@ -7,10 +7,12 @@
 // aprobar. Y la fecha «hasta» que se le enseña la calcula el servidor, no el móvil.
 
 import {
-  estadoAlumnaOferta, franjasYaCubiertas,
+  DIAS_AVISO_CLASE_FIJA_TERMINA, estadoAlumnaOferta, franjasYaCubiertas, vigenciaMinDeOferta,
   type CatalogoClasesFijas, type EstadoAlumnaOferta, type OfertaAlumna,
 } from '../clases-fijas-reglas.ts';
 import { tieneCuotaQueCubre, type CuotaMin, type PlanCuotaMin } from './plaza-fija.ts';
+
+export { DIAS_AVISO_CLASE_FIJA_TERMINA };
 
 export interface ClaseFijaVista extends OfertaAlumna {
   /** Lo que ya tiene o ha pedido de esta oferta. */
@@ -18,6 +20,17 @@ export interface ClaseFijaVista extends OfertaAlumna {
   /** ¿Tiene una cuota activa que cubra TODAS las clases de la oferta? Sin sesión, `true` (no se le riñe). */
   tieneCuota: boolean;
   pedida: { solicitudId: string; duracionMeses: number; hasta: string } | null;
+  /** Hasta cuándo le dura (si la tiene entera y con fecha). `null` si no aplica. */
+  venceEl: string | null;
+  /** Ya ha pedido ampliarla, antes de que venza. */
+  ampliacionPedida: { solicitudId: string; duracionMeses: number; hasta: string } | null;
+  /**
+   * ¿Falta poco para que venza (dentro de `DIAS_AVISO_CLASE_FIJA_TERMINA`)?
+   * Se calcula aquí, con el mismo `hoy` que `venceEl` y el resto de campos —
+   * mismo criterio que ellos: la pantalla nunca vuelve a llamar a
+   * `hoyEnEstudio()` por su cuenta, lee lo que ya viene resuelto.
+   */
+  terminaPronto: boolean;
 }
 
 export interface SociaMin {
@@ -31,8 +44,10 @@ export function proyectarClasesFijas(
   if (!cat || !Array.isArray(cat.ofertas)) return [];
   const pedidas = Array.isArray(cat.pedidas) ? cat.pedidas : [];
   return cat.ofertas.map((o) => {
-    const p = pedidas.find((x) => x.claseFijaId === o.id) ?? null;
+    const p = pedidas.find((x) => x.claseFijaId === o.id && x.tipo === 'CREAR_CLASE_FIJA') ?? null;
+    const a = pedidas.find((x) => x.claseFijaId === o.id && x.tipo === 'AMPLIAR_CLASE_FIJA') ?? null;
     const yaTiene = socia ? franjasYaCubiertas(o.franjas.map((f) => ({ ...f, tipoClaseId: f.tipoClaseId })), socia.plazasFijas, hoy).length : 0;
+    const venceEl = socia ? vigenciaMinDeOferta(o.franjas, socia.plazasFijas, hoy) : null;
     return {
       ...o,
       estadoAlumna: estadoAlumnaOferta({ franjas: o.franjas.length, yaTiene, pedida: !!p }),
@@ -40,8 +55,18 @@ export function proyectarClasesFijas(
         ? o.franjas.every((f) => tieneCuotaQueCubre(socia.suscripciones, planes, hoy, f.tipoClaseId))
         : true,
       pedida: p ? { solicitudId: p.solicitudId, duracionMeses: p.duracionMeses, hasta: p.hasta } : null,
+      venceEl,
+      ampliacionPedida: a ? { solicitudId: a.solicitudId, duracionMeses: a.duracionMeses, hasta: a.hasta } : null,
+      terminaPronto: terminaPronto(venceEl, hoy),
     };
   });
+}
+
+/** ¿Falta poco para que venza? A partir de aquí la pantalla ofrece ampliarla. */
+export function terminaPronto(venceEl: string | null, hoy: string): boolean {
+  if (!venceEl) return false;
+  const dias = Math.round((Date.parse(venceEl) - Date.parse(hoy)) / 86_400_000);
+  return dias >= 0 && dias <= DIAS_AVISO_CLASE_FIJA_TERMINA;
 }
 
 /** «martes y jueves», «lunes, miércoles y viernes»: los días de la oferta, sin repetir. */

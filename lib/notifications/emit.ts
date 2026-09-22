@@ -241,6 +241,26 @@ export async function emitirRespuestaPlazaFija(
   }
 }
 
+// Clase fija del estudio (Fase 2): a la alumna le quedan pocos días antes de que
+// venza (DIAS_AVISO_CLASE_FIJA_TERMINA) — un aviso por oferta, no por franja, y
+// una dedupKey por fecha de vencimiento: si ampliara y volviera a acercarse a
+// vencer más adelante, se avisa otra vez.
+export async function emitirClaseFijaTerminaPronto(
+  admin: SupabaseClient, p: { studioId: string; socioId: string; claseFijaId: string; nombre: string; hasta: string },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.CLASE_FIJA_TERMINA_PRONTO, studioId: p.studioId,
+      data: { socioId: p.socioId, nombre: p.nombre, hasta: fechaCortaEstudio(new Date(`${p.hasta}T12:00:00Z`)), slug: (studio?.slug as string | null) ?? '' },
+      resource: { type: 'socio', id: p.socioId },
+      dedupKey: `clase-fija-termina-pronto:${p.claseFijaId}:${p.socioId}:${p.hasta}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirClaseFijaTerminaPronto:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Reserva pendiente de aprobar: avisa al mostrador (propietaria/manager/
 // recepción) de que hace falta decidir antes de que empiece la clase.
 export async function emitirReservaPendienteAprobacion(

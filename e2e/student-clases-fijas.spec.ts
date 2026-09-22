@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { SLUG, SOCIO_ID, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-lista';
+import { AHORA, SLUG, SOCIO_ID, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-lista';
 
 // Clases fijas del estudio en la app de la alumna: lo que el estudio ofrece, con qué
 // clases, cuánto tiempo, y pedirla. Pedirla NO la reserva: el estudio la aprueba.
@@ -9,6 +9,13 @@ import { SLUG, SOCIO_ID, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from 
 // intentos (un test de fallo sin contador es hueco: pasa aunque no intente nada).
 
 const base = `/portal/${SLUG}`;
+
+const TZ = 'Europe/Madrid';
+const ymdMadrid = (d: Date) => d.toLocaleDateString('sv-SE', { timeZone: TZ });
+// «Hoy» para el navegador NO es el reloj real: `sembrarSociaLista` instala un
+// reloj fijo en `AHORA` (`page.clock.install`). `Date.now()` real habría dado
+// fechas «hoy + N» que el navegador congelado nunca ve como próximas.
+const enDias = (n: number) => ymdMadrid(new Date(new Date(AHORA).getTime() + n * 86_400_000));
 
 const OFERTA = {
   id: 'cf-1', nombre: 'Reformer · martes y jueves', descripcion: 'Dos días a la semana para trabajar fuerza y control.',
@@ -25,17 +32,24 @@ const OFERTA = {
 };
 type Oferta = typeof OFERTA;
 
+interface Pedida { claseFijaId: string; solicitudId: string; duracionMeses: number; hasta: string; tipo?: 'CREAR_CLASE_FIJA' | 'AMPLIAR_CLASE_FIJA' }
+
 interface Montaje {
-  catalogo: { ofertas: Oferta[]; pedidas: { claseFijaId: string; solicitudId: string; duracionMeses: number; hasta: string }[] };
+  catalogo: { ofertas: Oferta[]; pedidas: Pedida[] };
   /** Lo que contesta el servidor a `plaza-fija`. */
   respuesta: { status: number; body: unknown };
   peticiones: Record<string, unknown>[];
   pedidosCatalogo: number;
 }
 
-async function montar(page: Page, opts: { plan?: 'cuota' | 'bono'; catalogo?: Montaje['catalogo'] | 'roto'; respuesta?: Montaje['respuesta'] } = {}): Promise<Montaje> {
+type PlazaFijaMin = { diaSemana: number; horaInicio: string; salaId: string; tipoClaseId: string | null; estado: string; vigenciaHasta: string | null };
+
+async function montar(page: Page, opts: {
+  plan?: 'cuota' | 'bono'; catalogo?: Montaje['catalogo'] | 'roto'; respuesta?: Montaje['respuesta']; plazasFijas?: PlazaFijaMin[];
+} = {}): Promise<Montaje> {
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
+  if (opts.plazasFijas) (f.socia as Record<string, unknown>).plazasFijas = opts.plazasFijas;
   if (opts.plan === 'cuota') {
     f.planesTarifa = [{ id: 'plan-cuota', studioId: STUDIO_ID, nombre: 'Cuota mensual', tipo: 'MENSUAL', sesiones: null, precio: 60, activo: true }];
     (f.socia as Record<string, unknown>).suscripciones = [
@@ -116,7 +130,7 @@ test.describe('Student PWA · clases fijas del estudio', () => {
     await expect(page.getByTestId('clase-fija-hasta')).toHaveText('Hasta el 12/11/2026');
 
     // Al confirmar el servidor, la lista que vuelve trae su petición.
-    m.catalogo = { ofertas: [OFERTA], pedidas: [{ claseFijaId: 'cf-1', solicitudId: 'spf-9', duracionMeses: 3, hasta: '2026-11-12' }] };
+    m.catalogo = { ofertas: [OFERTA], pedidas: [{ claseFijaId: 'cf-1', solicitudId: 'spf-9', duracionMeses: 3, hasta: '2026-11-12', tipo: 'CREAR_CLASE_FIJA' as const }] };
     await page.getByRole('button', { name: 'Pedir clase fija' }).click();
 
     await expect(page.getByTestId('clase-fija-pedida')).toHaveText('Ya la has pedido (hasta el 12/11/2026): tu estudio te contestará aquí.', { timeout: 30_000 });
@@ -157,7 +171,7 @@ test.describe('Student PWA · clases fijas del estudio', () => {
   test('una petición ya enviada se puede anular, y vuelve el botón', async ({ page }) => {
     const m = await montar(page, {
       plan: 'cuota',
-      catalogo: { ofertas: [OFERTA], pedidas: [{ claseFijaId: 'cf-1', solicitudId: 'spf-9', duracionMeses: 3, hasta: '2026-11-12' }] },
+      catalogo: { ofertas: [OFERTA], pedidas: [{ claseFijaId: 'cf-1', solicitudId: 'spf-9', duracionMeses: 3, hasta: '2026-11-12', tipo: 'CREAR_CLASE_FIJA' as const }] },
       respuesta: { status: 200, body: { ok: true } },
     });
     await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
@@ -181,5 +195,78 @@ test.describe('Student PWA · clases fijas del estudio', () => {
     await montar(page, { plan: 'cuota', catalogo: { ofertas: [], pedidas: [] } });
     await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Tu estudio todavía no tiene clases fijas.')).toBeVisible({ timeout: 30_000 });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fase 2: cuando ya la tiene entera y le quedan pocos días, puede ampliarla antes
+// de perder el sitio. `venceEl`/`ampliacionPedida` los deriva la propia pantalla
+// (`proyectarClasesFijas`) de `socia.plazasFijas`, que ya viaja en el catálogo —
+// por eso aquí se siembra directamente esa lista, no se mockea un endpoint nuevo.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Student PWA · clases fijas del estudio · ampliar antes de vencer', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 }, timezoneId: TZ });
+
+  const plazaDe = (f: Oferta['franjas'][number], vigenciaHasta: string): PlazaFijaMin => ({
+    diaSemana: f.diaSemana, horaInicio: `${f.hora}:00`, salaId: f.salaId, tipoClaseId: f.tipoClaseId, estado: 'ACTIVA', vigenciaHasta,
+  });
+  const cubriendoAmbas = (vigenciaHasta: string) => OFERTA.franjas.map((f) => plazaDe(f, vigenciaHasta));
+
+  test('le queda poco: ve cuándo termina y, al ampliarla, queda pedida con lo que confirmó el servidor', async ({ page }) => {
+    const m = await montar(page, { plan: 'cuota', plazasFijas: cubriendoAmbas(enDias(5)) });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    const tarjeta = page.getByTestId('clase-fija');
+    await expect(tarjeta).toContainText('La tienes ✓', { timeout: 30_000 });
+    await expect(tarjeta).toContainText('Ya tienes esta clase fija.');
+    await expect(page.getByTestId('clase-fija-vence')).toHaveText(`Termina el ${enDias(5).split('-').reverse().join('/')}`);
+    await expect(page.getByRole('group', { name: '¿Cuánto tiempo más la quieres?' })).toBeVisible();
+
+    m.catalogo = { ofertas: [OFERTA], pedidas: [{ claseFijaId: 'cf-1', solicitudId: 'spf-amp-1', duracionMeses: 3, hasta: '2026-12-05', tipo: 'AMPLIAR_CLASE_FIJA' }] };
+    await page.getByRole('button', { name: '3 meses' }).click();
+    await page.getByRole('button', { name: 'Ampliar' }).click();
+
+    await expect(page.getByTestId('clase-fija-ampliacion-pedida')).toHaveText('Has pedido ampliarla (hasta el 05/12/2026): tu estudio te contestará aquí.', { timeout: 30_000 });
+    expect(m.peticiones.length, 'la petición sale hacia el servidor').toBeGreaterThan(0);
+    expect(m.peticiones[0]).toMatchObject({ accion: 'ampliar_clase_fija', studioId: STUDIO_ID, claseFijaId: 'cf-1', duracionMeses: 3 });
+    await expect(page.getByRole('button', { name: 'Ampliar' })).toHaveCount(0);
+  });
+
+  test('si le queda mucho tiempo, se dice cuándo termina pero no se ofrece ampliar', async ({ page }) => {
+    const m = await montar(page, { plan: 'cuota', plazasFijas: cubriendoAmbas(enDias(90)) });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    const tarjeta = page.getByTestId('clase-fija');
+    await expect(tarjeta).toContainText('La tienes ✓', { timeout: 30_000 });
+    await expect(page.getByTestId('clase-fija-vence')).toHaveText(`Termina el ${enDias(90).split('-').reverse().join('/')}`);
+    await expect(page.getByRole('button', { name: 'Ampliar' })).toHaveCount(0);
+    expect(m.peticiones).toHaveLength(0);
+  });
+
+  test('una ampliación ya pedida se puede anular, y vuelve el selector de duración', async ({ page }) => {
+    const m = await montar(page, {
+      plan: 'cuota', plazasFijas: cubriendoAmbas(enDias(5)),
+      catalogo: { ofertas: [OFERTA], pedidas: [{ claseFijaId: 'cf-1', solicitudId: 'spf-amp-2', duracionMeses: 3, hasta: '2026-12-05', tipo: 'AMPLIAR_CLASE_FIJA' }] },
+      respuesta: { status: 200, body: { ok: true } },
+    });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('clase-fija-ampliacion-pedida')).toBeVisible({ timeout: 30_000 });
+
+    m.catalogo = { ofertas: [OFERTA], pedidas: [] };
+    await page.getByRole('button', { name: 'Anular la petición' }).click();
+    await expect(page.getByRole('button', { name: 'Ampliar' })).toBeVisible({ timeout: 30_000 });
+    expect(m.peticiones[0]).toMatchObject({ accion: 'cancelar_peticion', solicitudId: 'spf-amp-2' });
+  });
+
+  test('si el servidor no puede ampliarla, no dice que sí', async ({ page }) => {
+    const m = await montar(page, {
+      plan: 'cuota', plazasFijas: cubriendoAmbas(enDias(5)),
+      respuesta: { status: 409, body: { error: 'Ya no puede ampliarse: revisa su cuota.' } },
+    });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Ampliar' }).click({ timeout: 30_000 });
+    await expect(page.getByRole('alert').filter({ hasText: 'Ya no puede ampliarse: revisa su cuota.' })).toBeVisible({ timeout: 30_000 });
+    expect(m.peticiones.length, 'el camino de fallo sí intentó ampliar').toBeGreaterThan(0);
+    await expect(page.getByTestId('clase-fija-ampliacion-pedida')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Ampliar' })).toBeVisible();
   });
 });

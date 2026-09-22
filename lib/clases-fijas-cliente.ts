@@ -23,6 +23,7 @@ export interface DatosClaseFija {
   duracionesMeses: number[];
   plazas: number | null;
   franjas: { serieId: string; diaSemana: number }[];
+  aprobacionAutomatica: boolean;
 }
 
 export type ResultadoGuardarClaseFija = { ok: true; id: string } | { ok: false; error: string };

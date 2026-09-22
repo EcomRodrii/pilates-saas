@@ -1651,6 +1651,8 @@ export interface RowPlazasFijas {
   pausa_hasta: string | null;
   // migr 20260915231920.
   pausa_libera_sitio: boolean | null;
+  // migr 20260922100000.
+  clase_fija_id: string | null;
 }
 
 export interface RowRecuperaciones {
@@ -3291,6 +3293,8 @@ export interface RowClasesFijas {
   creada_en: string;
   actualizada_en: string;
   and: string | null;
+  // migr 20260922100000.
+  aprobacion_automatica: boolean | null;
 }
 
 export interface RowClasesFijasFranjas {
@@ -5959,6 +5963,7 @@ export type PlazasFijasInsert = {
   pausa_desde?: string | null | null;
   pausa_hasta?: string | null | null;
   pausa_libera_sitio?: boolean | null | null;
+  clase_fija_id?: string | null | null;
 }
 
 export type PlazasFijasUpdate = {
@@ -5977,6 +5982,7 @@ export type PlazasFijasUpdate = {
   pausa_desde?: string | null | null;
   pausa_hasta?: string | null | null;
   pausa_libera_sitio?: boolean | null | null;
+  clase_fija_id?: string | null | null;
 }
 
 export type RecuperacionesInsert = {
@@ -9118,6 +9124,7 @@ export type ClasesFijasInsert = {
   creada_en?: string | null;
   actualizada_en?: string | null;
   and?: string | null | null;
+  aprobacion_automatica?: boolean | null | null;
 }
 
 export type ClasesFijasUpdate = {
@@ -9131,6 +9138,7 @@ export type ClasesFijasUpdate = {
   creada_en?: string | null;
   actualizada_en?: string | null;
   and?: string | null | null;
+  aprobacion_automatica?: boolean | null | null;
 }
 
 export type ClasesFijasFranjasInsert = {

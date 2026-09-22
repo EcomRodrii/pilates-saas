@@ -81,6 +81,10 @@ const POR_EVENTO: Record<string, TipoAviso> = {
   // La respuesta a lo que pidió: puede ser que sí o que no, así que ni se
   // celebra ni se lee como una avería. El texto lo dice.
   'plaza_fija.respuesta': 'estudio',
+  // Le quedan pocos días de una clase fija: el estudio le cuenta algo que
+  // puede resolver ella misma (ampliarla), no una avería — no es 'bono'
+  // porque no es su bono el que caduca, es su sitio fijo.
+  'clase_fija.termina_pronto': 'estudio',
 };
 
 /** Los eventos nombrados aquí. Lo usa el guardia de `tipo-aviso.test.ts`. */
