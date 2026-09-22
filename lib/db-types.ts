@@ -3301,6 +3301,13 @@ export interface RowClasesFijasFranjas {
   dia_semana: number;
 }
 
+export interface RowOpeningEconomia {
+  studio_id: string;
+  fijos_mes_eur: number | null;
+  colchon_eur: number | null;
+  updated_at: string;
+}
+
 export interface RowConsentimientosMarketingEventos {
   id: string;
   studio_id: string;
@@ -9142,6 +9149,20 @@ export type ClasesFijasFranjasUpdate = {
   dia_semana?: number | null;
 }
 
+export type OpeningEconomiaInsert = {
+  studio_id?: string | null;
+  fijos_mes_eur?: number | null | null;
+  colchon_eur?: number | null | null;
+  updated_at?: string | null;
+}
+
+export type OpeningEconomiaUpdate = {
+  studio_id?: string | null;
+  fijos_mes_eur?: number | null | null;
+  colchon_eur?: number | null | null;
+  updated_at?: string | null;
+}
+
 export type ConsentimientosMarketingEventosInsert = {
   id?: string | null;
   studio_id?: string | null;
@@ -10213,6 +10234,11 @@ export type Database = {
         Row: RowClasesFijasFranjas;
         Insert: ClasesFijasFranjasInsert;
         Update: ClasesFijasFranjasUpdate;
+      };
+      opening_economia: {
+        Row: RowOpeningEconomia;
+        Insert: OpeningEconomiaInsert;
+        Update: OpeningEconomiaUpdate;
       };
       consentimientos_marketing_eventos: {
         Row: RowConsentimientosMarketingEventos;

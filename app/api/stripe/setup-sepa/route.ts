@@ -102,7 +102,14 @@ export async function POST(req: NextRequest) {
         { stripeAccount },
       );
       customerId = customer.id;
-      const { error: updErr } = await admin.from('socios').update({ stripe_customer_id: customerId }).eq('id', socio.id);
+      // El `.eq('studio_id', ...)` no es redundante aunque la pertenencia ya
+      // se haya validado arriba: es la regla de la casa en toda escritura de
+      // este repo, y su gemelo `setup-tarjeta` sí la cumplía. Faltaba en una
+      // escritura de credenciales de cobro (auditoría 2026-09-21).
+      const { error: updErr } = await admin.from('socios')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', socio.id)
+        .eq('studio_id', body.studioId);
       if (updErr) {
         return NextResponse.json({ error: 'No se pudo preparar el cliente de pago' }, { status: 500 });
       }

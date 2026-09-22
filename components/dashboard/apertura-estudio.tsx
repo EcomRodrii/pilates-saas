@@ -10,6 +10,7 @@ import { EtapasLanzamiento } from './etapas-lanzamiento';
 import { AjustesAperturaForm } from './ajustes-apertura';
 import { OnboardingApertura } from './onboarding-apertura';
 import { AperturaSuave, type EstadoAperturaSuave } from './apertura-suave';
+import { EconomiaApertura } from './economia-apertura';
 import { AvisoAbrimos } from './aviso-abrimos';
 import { useStudio } from '@/lib/studio-context';
 import type { AjustesApertura } from '@/lib/opening/ajustes';
@@ -146,7 +147,7 @@ function ListaParaAbrir({ listo, onComprobar, comprobando }: { listo: Comprobaci
   );
 }
 
-export function AperturaEstudio({ onVisible }: { onVisible?: (visible: boolean) => void } = {}) {
+export function AperturaEstudio({ onVisible, verEconomia = false }: { onVisible?: (visible: boolean) => void; verEconomia?: boolean } = {}) {
   const [datos, setDatos] = useState<RespuestaApertura | null>(null);
   const [comprobando, setComprobando] = useState(false);
   const { studio } = useStudio();
@@ -361,6 +362,8 @@ export function AperturaEstudio({ onVisible }: { onVisible?: (visible: boolean) 
         <AvisoAbrimos encendido={datos.avisarAbrimos} nombreEstudio={studio?.nombre ?? 'Tu estudio'}
           fechaAproximada={datos.onboarding?.fechaAproximada ?? false} onGuardar={patch} />
       )}
+
+      {!mostrarOnboarding && verEconomia && <EconomiaApertura />}
 
       {!mostrarOnboarding && <EtapasLanzamiento onCambio={() => void pedirApertura().then(d => { if (d) setDatos(d); })} />}
     </div>

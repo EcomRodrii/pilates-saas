@@ -840,7 +840,12 @@ export async function iniciarDomiciliacionSepa(params: {
 // (devuelve true) — ver app/api/stripe/sepa-disponible/route.ts.
 export async function sepaDisponibleParaEstudio(studioId: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/stripe/sepa-disponible?studioId=${encodeURIComponent(studioId)}`);
+    // La cabecera es obligatoria desde la auditoría 2026-09-21 (la ruta ya no
+    // es anónima). Se manda la del portal, igual que su gemela
+    // `iniciarDomiciliacionSepa` de unas líneas más arriba.
+    const res = await fetch(`/api/stripe/sepa-disponible?studioId=${encodeURIComponent(studioId)}`, {
+      headers: { ...(await portalAuthHeader()) },
+    });
     const data = await res.json() as { disponible?: boolean };
     return data.disponible !== false;
   } catch {

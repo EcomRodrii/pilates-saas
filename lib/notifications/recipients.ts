@@ -3,6 +3,7 @@
 // Traduce la "audiencia" declarada en catalog.ts a personas concretas (con su
 // auth_user_id para in-app/push y su email/teléfono para canales externos).
 // ─────────────────────────────────────────────────────────────────────────────
+import * as Sentry from '@sentry/nextjs';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Audiencia } from './catalog.ts';
 import type { NotificationEvent, Recipient } from './types.ts';
@@ -311,7 +312,19 @@ export async function resolverDestinatarios(
   // Estas audiencias no pueden resolverse sin su id en `data`. Si falta, el aviso
   // se perdía sin rastro (le pasó a clase.cancelada en producción): grítalo.
   const falta = (clave: string): Recipient[] => {
-    console.error(`[notifications] ${event.type}: audiencia '${audiencia}' necesita data.${clave} y no viene. Sin destinatarios.`);
+    const mensaje = `[notifications] ${event.type}: audiencia '${audiencia}' necesita data.${clave} y no viene. Sin destinatarios.`;
+    console.error(mensaje);
+    // Auditoría 2026-09-21: el "grítalo" de arriba solo gritaba a los logs de
+    // la función, que es exactamente donde el comentario de `engine.ts:49-57`
+    // explica que no lo mira nadie. Este fallo hace desaparecer el aviso
+    // ENTERO para todos sus destinatarios, y ya pasó en producción con
+    // `clase.cancelada`. Mismo tratamiento que sus hermanos `engine.ts` e
+    // `inapp.ts`, que sí se corrigieron (AUT-4).
+    Sentry.captureMessage(mensaje, {
+      level: 'error',
+      tags: { area: 'notificaciones', tipo: 'audiencia-sin-datos' },
+      extra: { evento: event.type, audiencia, clave, studioId: event.studioId },
+    });
     return [];
   };
 

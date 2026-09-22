@@ -977,6 +977,43 @@ async function procesarEvento(
           if (errRec && errRec.code !== '23505') {
             return NextResponse.json({ error: 'Fallo al registrar el cobro huérfano' }, { status: 500 });
           }
+        } else if (filaConf?.r_estado === 'PAGADA') {
+          // ⚠️ Auditoría 2026-09-21: este caso NO tenía rama y pasaba en
+          // silencio. `confirmar_pago_venta_pos` devuelve `r_aplicado = false`
+          // con `r_estado = 'PAGADA'` cuando la venta YA estaba cobrada, y su
+          // `COALESCE` conserva el PaymentIntent del PRIMER cobro. Si el
+          // segundo PaymentIntent es otro, hay un SEGUNDO CARGO REAL sobre la
+          // misma venta del que Tentare no guardaba ni una línea: ni fila en
+          // `reconciliaciones_pos`, ni Sentry, ni el id del cargo.
+          //
+          // El camino de recibo sí lo detecta explícitamente ("SEGUNDO cobro
+          // del mismo recibo: hay que devolver uno", lib/billing/confirmar-
+          // cobro.ts). Aquí se le da el mismo trato que a la venta anulada:
+          // marcador idempotente por PK del PaymentIntent + aviso.
+          //
+          // Reprocesar el MISMO evento (reenvío desde el Dashboard) es
+          // inofensivo: el id coincide y no se hace nada.
+          const { data: ventaYaPagada } = await admin
+            .from('ventas_pos')
+            .select('stripe_payment_intent_id')
+            .eq('id', ventaIdPos).eq('studio_id', studioId).maybeSingle();
+          const piPrevio = (ventaYaPagada?.stripe_payment_intent_id as string | null) ?? null;
+          if (piPrevio && piPrevio !== pi.id) {
+            Sentry.captureMessage('[stripe webhook] SEGUNDO cobro sobre una venta POS ya pagada', {
+              level: 'error', tags: { area: 'cobros', tipo: 'doble-cobro' },
+              extra: { paymentIntentId: pi.id, paymentIntentPrevio: piPrevio, ventaId: ventaIdPos, studioId,
+                       importe: (pi.amount_received ?? pi.amount ?? 0) / 100 },
+            });
+            const { error: errDup } = await admin.from('reconciliaciones_pos').insert({
+              payment_intent_id: pi.id,
+              studio_id: studioId,
+              importe: (pi.amount_received ?? pi.amount ?? 0) / 100,
+              concepto: pi.metadata.concepto ?? 'Segundo cobro sobre venta ya pagada',
+            });
+            if (errDup && errDup.code !== '23505') {
+              return NextResponse.json({ error: 'Fallo al registrar el cobro duplicado' }, { status: 500 });
+            }
+          }
         }
         capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: origenPos === 'pos_bizum' ? 'bizum' : 'terminal' } });
         return NextResponse.json({ received: true });

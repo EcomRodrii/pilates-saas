@@ -35,33 +35,50 @@ const ACEPTADAS = {
   // Aplicadas en producción, sin fichero en el repo. Recuperables del catálogo
   // (`select statements from supabase_migrations.schema_migrations`).
   sinFichero: [
-    'advisor_fk_lecturas_ficha_salud',
-    'avatars_path_autorizado_revoke_anon_directo',
-    'avatars_path_autorizado_revoke_public',
-    'consentimiento_salud_rls',
-    'editar_serie_desde_revoke_anon',
-    'mis_estudios_search_path',
-    'penalizaciones_indice_recibo_id',
-    'reclamar_webhook_event_reload_schema',
     'res1_lista_espera_respeta_limite_y_solape',
-    'reserva_exigir_plan_por_defecto',
-    'revoke_anon_rpc_via_public',
   ],
+  // Salieron de aquí el 2026-09-22 quince que el check dio por «arregladas» y no
+  // lo estaban: el `supabase migration repair` del 2026-09-20 BORRÓ sus filas
+  // del registro de producción, así que el check dejó de verlas. Comprobado el
+  // mismo día que no se pierde nada: los quince efectos siguen vivos en la BD y
+  // todos los reproduce otro fichero del repo, posterior o hermano —
+  //   avatars_path_autorizado_revoke_public/_anon_directo → 20260916105914
+  //   editar_serie_desde_revoke_anon                    → 20260915094312
+  //   mis_estudios_search_path                          → 20260731004517
+  //   revoke_anon_rpc_via_public                        → 0076 + 20260731004517
+  //   reclamar_webhook_event_reload_schema              → 20260730012417
+  //   consentimiento_salud_rls                          → las de condiciones_salud
+  //                                                       posteriores (20260914220613)
+  //   penalizaciones_indice_recibo_id                   → 20260730225253
+  //   reserva_exigir_plan_por_defecto                   → 0121
+  //   advisor_fk_lecturas_ficha_salud                   → 20260806102650 (índice _fk)
+  //   defaults_protectores_reservas, fix_socios_email_unico_excluye_borrado,
+  //   pay5_detector_dobles_cobros, reservar_numero_factura_revoca_anon,
+  //   tiene_consentimiento_salud_revoca_anon → sus efectos viven bajo otro
+  //   nombre en el registro (mismo criterio, ver `sinAplicar` de abajo).
+  // El SQL original de nueve se recuperó de los transcripts de las sesiones que
+  // las aplicaron (el `input.query` de cada `apply_migration`), no del catálogo.
+  //
+  // ⚠️ NUNCA `migration repair --status reverted` para callar este check: no
+  // arregla la deriva, borra la única copia del SQL que quedaba en la BD.
+  //
+  // ⚠️ Esta lista volvió a aparecer completa en main el 2026-09-22 (#2196):
+  // otra sesión mergeó una rama bifurcada de ANTES de #2192/#2194, y el merge
+  // resucitó sin querer las quince entradas ya retiradas. Si esto vuelve a
+  // pasar, no es que la deriva haya reaparecido — es un merge desde una base
+  // vieja. Comprobar SIEMPRE contra producción antes de asumir que hay que
+  // volver a añadir algo aquí.
+
   // Ficheros cuyo nombre no aparece en el registro. NINGUNO es un agujero: sus
   // efectos están vivos en producción bajo otro nombre, comprobados de uno en
   // uno (grants de reservar_numero_factura, índice único de socios excluyendo
   // borrado_en, default de reserva_exigir_plan, tiene_consentimiento_salud).
   sinAplicar: [
     'cadenas_current_rol_fix',
-    'defaults_protectores_reservas',
     'ficha_clinica',
-    'fix_socios_email_unico_excluye_borrado',
     'marca_e_iva',
-    'pay5_detector_dobles_cobros',
     'res1_reservar_plaza_respeta_limite_y_solape',
-    'reservar_numero_factura_revoca_anon',
     'studios_gestoria_email',
-    'tiene_consentimiento_salud_revoca_anon',
   ],
 }
 

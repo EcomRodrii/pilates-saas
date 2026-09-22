@@ -7,7 +7,8 @@ import { HelpCircle, UserCog, LogOut, ChevronDown, Palette, Building2, Check } f
 import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
 import { cn } from '@/lib/utils';
-import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/lib/supabase-data';
+import { fetchMisEstudios, type SedeSeleccionable } from '@/lib/supabase-data';
+import { irASede } from '@/components/layout/sede-activa';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { HelpWidget } from '@/components/layout/help-widget';
 import { AppearancePanel } from '@/components/layout/appearance-panel';
@@ -54,10 +55,7 @@ export function ProfileMenu() {
     // StudioProvider necesita remontar limpio contra la nueva sede (mismo
     // patrón que crear-estudio/login). resolveStudioId() delega en
     // current_studio_id(), que ya lee sesion_activa.
-    cambiarSedeActiva(user.id, studioId).then(ok => {
-      if (!ok) { setCambiandoSede(null); return; }
-      window.location.href = '/dashboard';
-    });
+    void irASede(user.id, studioId, misEstudios.find(s => s.id === studioId)?.nombre ?? '').then(ok => { if (!ok) setCambiandoSede(null); });
   }
 
   useEffect(() => {

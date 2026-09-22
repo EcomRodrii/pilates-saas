@@ -347,7 +347,14 @@ export async function registrarIntentoCobro(
     payment_intent_id: paymentIntentId,
     studio_id: studioId,
     recibo_id: reciboId,
-    importe_centimos: recibo.importe,
+    // ⚠️ Auditoría 2026-09-21: aquí iba `recibo.importe` a pelo, y
+    // `recibos.importe` son EUROS (`numeric`) mientras la columna es
+    // `importe_centimos integer`. Un recibo de 85,50 € se anotaba como `86`
+    // (Postgres redondea numeric→int): el libro que existe para contestar «me
+    // habéis cobrado dos veces» guardaba importes 100× menores y redondeados,
+    // justo el dato con el que se compara un doble cargo. La conversión es la
+    // misma que ya hacen el webhook y `cobrarReciboOffSession`.
+    importe_centimos: Math.round(Number(recibo.importe) * 100),
     origen,
     desenlace,
   });
