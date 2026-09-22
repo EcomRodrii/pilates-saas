@@ -632,6 +632,7 @@ export default function EquipoPage() {
           {ordenados.map(m => (
             <TarjetaMiembro
               key={m.id} m={m} rolViewer={miRol} gestiona={gestiona}
+              relacion={puedeGestionarEquipo(miRol) && m.rol === 'INSTRUCTOR' ? (relaciones?.[m.id] ?? null) : null}
               refCb={el => { if (el) fichaRefs.current.set(m.id, el); else fichaRefs.current.delete(m.id); }}
               pedido={!!pedido[m.id]}
               diaSel={diaSel && diaSel.id === m.id ? diaSel.i : null}
@@ -994,9 +995,11 @@ const ACCION_ICONO: Record<AccionTipo, typeof Bell> = {
 
 function TarjetaMiembro({
   m, rolViewer, gestiona, refCb, pedido, diaSel, onDiaSel, menuAbierto, onMenu, onAccion,
-  onEditar, onEliminar, onValoraciones, onHoras, onAusencias, onEnlaceBaja, onReasignar, ausente, invitando, onInvitar,
+  onEditar, onEliminar, onValoraciones, onHoras, onAusencias, onEnlaceBaja, onReasignar, ausente, invitando, onInvitar, relacion,
 }: {
   m: MiembroCompleto; rolViewer: Rol; gestiona: boolean; refCb: (el: HTMLElement | null) => void;
+  /** Contratada/autónoma (control horario). Solo para quien gestiona el equipo; null = no se enseña. */
+  relacion?: 'CONTRATADA' | 'AUTONOMA' | null;
   pedido: boolean; diaSel: number | null; onDiaSel: (i: number) => void;
   menuAbierto: boolean; onMenu: () => void; onAccion: (tipo: AccionTipo) => void;
   onEditar: () => void; onEliminar: () => void; onValoraciones: () => void; onHoras: () => void;
@@ -1038,6 +1041,11 @@ function TarjetaMiembro({
                 {m.activo ? 'Activa' : 'Inactiva'}
               </span>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ETIQUETA_ROL[m.rol].label}</span>
+              {relacion && (
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground" data-testid="relacion-tarjeta">
+                  {relacion === 'AUTONOMA' ? 'Autónoma' : 'Contratada'}
+                </span>
+              )}
               {ausente && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
                   <Plane size={10} />{AUSENCIA_ETIQUETA[ausente.tipo]}
