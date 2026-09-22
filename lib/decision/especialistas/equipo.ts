@@ -5,9 +5,11 @@
 // P2-5: E2 · una sustitución sigue sin resolverse pasado un margen razonable
 // — punto ciego original del feedback: este especialista nunca miraba
 // `sustituciones`, solo `sesiones`/`instructores`.
-import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
+import type { Candidata, Especialista, Impacto, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
 import { confianzaCargaEquipo, confianzaSustitucionSinResolver } from '../confianza.ts';
+import { construirIndices, precioMedioSesion, type IndicesSenal } from '../senales.ts';
 
+const redondear2 = (n: number) => Math.round(n * 100) / 100;
 const MS_DIA = 86400000;
 const MS_HORA = 3600000;
 const DIAS_FUTURO = 21;   // ventana de clases próximas
@@ -19,10 +21,11 @@ const DIAS_PASADO = 30;   // "daba clases hace poco"
 const HORAS_SIN_RESOLVER = 3;
 
 /** E2 · sustitución en 'contactando' pasado el plazo → REVISAR_CARGA_EQUIPO. */
-function reglaE2(s: SnapshotEstudio, now: Date): Candidata[] {
+function reglaE2(s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata[] {
   const candidatas: Candidata[] = [];
   const t = now.getTime();
   const instructorPorId = new Map(s.instructores.map(i => [i.id, i]));
+  const precioMedio = precioMedioSesion(s, idx);
 
   for (const sus of s.sustituciones) {
     if (sus.estado !== 'contactando') continue;
@@ -38,6 +41,19 @@ function reglaE2(s: SnapshotEstudio, now: Date): Candidata[] {
       ? `La clase de ${original.nombre} sigue buscando quién la cubra desde hace ${horas}h. El motor automático no lo ha resuelto solo — puede que necesite que alguien mire el panel de sustituciones.`
       : `Hay una sustitución sin resolver desde hace ${horas}h. El motor automático no lo ha resuelto solo — revisa el panel de sustituciones.`;
 
+    // Informe de producto (22-sep-2026): sin impacto, `impactoNorm` cae al
+    // suelo (PESOS.impactoSinDato) y esta situación nunca puede subir de
+    // confianza MEDIA en la tarjeta de "Mi Equipo" — un verde "Bueno" sobre
+    // una clase de verdad sin cubrir. Lo que hay en juego si nadie la cubre:
+    // las plazas YA RESERVADAS de esa sesión concreta, no la capacidad
+    // teórica (mismo criterio que precioMedioSesion: reservas reales, no
+    // aforo vacío).
+    const reservasConfirmadas = s.reservas.filter(r => r.sesionId === sus.sesionId && r.estado === 'CONFIRMADA').length;
+    const valor = redondear2(reservasConfirmadas * precioMedio);
+    const impacto: Impacto | undefined = valor > 0
+      ? { valor, unidad: 'EUR', formula: `${reservasConfirmadas} reserva${reservasConfirmadas === 1 ? '' : 's'} confirmada${reservasConfirmadas === 1 ? '' : 's'} × ${redondear2(precioMedio)}€/sesión` }
+      : undefined;
+
     candidatas.push({
       especialista: 'EQUIPO',
       tipo: 'REVISAR_CARGA_EQUIPO',
@@ -46,6 +62,7 @@ function reglaE2(s: SnapshotEstudio, now: Date): Candidata[] {
       motivoMotor,
       datosUsados: { sustitucionId: sus.id, horasSinResolver: horas, instructora: original?.nombre ?? '' },
       riesgo: 'PERDIDA',
+      impacto,
       confianza,
       accion: { tipo: 'MARCAR_GESTIONADO' },
       instructorId: sus.instructorOriginalId ?? undefined,
@@ -62,7 +79,8 @@ export const equipo: Especialista = {
   id: 'EQUIPO',
   pregunta: '¿Está bien repartido el trabajo del equipo?',
   detectar(s: SnapshotEstudio, _m: MemoriaEstudio, now: Date): Candidata[] {
-    const candidatas: Candidata[] = [...reglaE2(s, now)];
+    const idx = construirIndices(s);
+    const candidatas: Candidata[] = [...reglaE2(s, idx, now)];
     const t = now.getTime();
 
     // Índice: nº de sesiones futuras y pasadas recientes por instructora.
