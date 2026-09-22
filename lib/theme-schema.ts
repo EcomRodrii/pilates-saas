@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { NAV_SEG_IDS, NAV_ICONOS_DISPONIBLES, DEFAULT_NAV_CONFIG, migrarNavConfigRaw } from './portal-nav.ts';
 import { VARIANTES_PORTAL, type EjeVariante } from './theme-variantes.ts';
 import { FAVICON_URL_MAX, faviconConFormaValida } from './theme-favicon.ts';
+import { ESTILO_IDS, TIPOGRAFIA_IDS } from './student/apariencia.ts';
 
 /** Hex de 3 o 6 dígitos. */
 export const hexSchema = z
@@ -408,6 +409,16 @@ const themeIdSchema = z.string();
 const themeVersionSchema = z.number().int();
 const themeCustomizedSchema = z.boolean();
 
+/** «Apariencia de tu app»: solo valores de los catálogos cerrados de `lib/student/apariencia.ts`. */
+export const appAlumnaSchema = z.object({
+  estilo: z.enum(ESTILO_IDS),
+  tipografia: z.enum(TIPOGRAFIA_IDS),
+  marca: z.enum(['suave', 'fiel']),
+  boton: z.enum(['tinta', 'marca']),
+  encuadre: z.enum(['arriba', 'centro', 'abajo']).nullable(),
+}).strict();
+export type AppAlumna = z.infer<typeof appAlumnaSchema>;
+
 /** Esquema completo de un tema válido (el que exige `publicar`). */
 export const themeConfigSchema = z
   .object({
@@ -502,6 +513,9 @@ export const themeConfigSchema = z
     // Builder) — ver lib/portal-nav.ts. Independiente de tabBarStyle: uno
     // decide el LOOK de la barra, este decide QUÉ pestañas tiene.
     navPortal: navConfigSchema,
+    // Apariencia de la app de la alumna (lib/student/apariencia.ts). Ausente =
+    // el aspecto de siempre; la app lo lee con lectura tolerante, clave a clave.
+    appAlumna: appAlumnaSchema.optional(),
     // Redes sociales del pie de página público (Fase 3) — ver REDES_SOCIALES_IDS arriba.
     redesSociales: redesSocialesSchema,
     // Galería de temas (lib/theme-definitions.ts): de qué ThemeDefinition (y

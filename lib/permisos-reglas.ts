@@ -44,8 +44,8 @@ const BLOQUEADO_MANAGER = [
   // citas), con `puede_gestionar_sede()` detrás. Lo que ve DENTRO lo decide
   // `seccionesVisibles` (lib/configuracion/destino.ts) tarjeta a tarjeta, no
   // esta lista, que es por RUTA.
-  // Estas dos SÍ, porque son rutas propias con sus APIs de propietaria: el
-  // editor de marca del portal y la pantalla vieja de avisos. Sin nombrarlas,
+  // Estas dos SÍ, porque son rutas propias con sus APIs de propietaria:
+  // «Apariencia de tu app» y la pantalla vieja de avisos. Sin nombrarlas,
   // abrir `/configuracion` las abriría por prefijo.
   '/configuracion/apariencia', '/configuracion/notificaciones',
   // El Notification Center enseña el TÍTULO Y EL CUERPO de todo lo enviado por

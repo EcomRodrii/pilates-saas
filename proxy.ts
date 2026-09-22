@@ -41,10 +41,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 // HSTS queda FUERA a propósito: algún estudio puede servir su dominio propio
 // por HTTP, y `max-age` es irreversible desde el navegador durante su vigencia
 // — eso es una decisión de infraestructura, no un parche de auditoría.
-export function proxy(_req: NextRequest) {
+//
+// 22-sep-2026: la app de la alumna (`/portal/…`) admite marco, pero SOLO de
+// nuestro propio origen. Lo necesita la vista previa de «Apariencia de tu app»
+// (`/configuracion/apariencia`), que la monta en un iframe para enseñar la app
+// REAL con el estilo que la propietaria está probando. `'self'` sigue cerrando
+// la puerta a cualquier web ajena, que es contra lo que protege esta cabecera.
+export function proxy(req: NextRequest) {
   const res = NextResponse.next();
-  res.headers.set('X-Frame-Options', 'DENY');
-  res.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
+  const enMarcoPropio = req.nextUrl.pathname.startsWith('/portal/');
+  res.headers.set('X-Frame-Options', enMarcoPropio ? 'SAMEORIGIN' : 'DENY');
+  res.headers.set('Content-Security-Policy', enMarcoPropio ? "frame-ancestors 'self'" : "frame-ancestors 'none'");
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');

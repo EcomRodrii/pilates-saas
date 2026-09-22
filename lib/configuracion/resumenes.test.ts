@@ -11,7 +11,7 @@ import {
   resumenDomiciliaciones, resumenGmail, resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan,
   resumenPlanesActivos, resumenRegla, resumenRemitente, resumenSedes, resumenStripe, resumenWhatsapp, resumenesDeConfiguracion, revisaEsto, unir,
   resumenAppInstructoras, resumenAvisarAlumnas, resumenEquipo, resumenModoSustituciones, resumenTarifas,
-  resumenColorMarca, resumenInicioPanel, resumenLogoYFavicon, resumenMenuPanel, resumenPosicionMenu,
+  resumenInicioPanel, resumenLogoYFavicon, resumenMenuPanel, resumenPosicionMenu,
   resumenPresentacion, resumenTextosBienvenida,
   type DatosConfiguracion, type IntegracionResumible,
 } from './resumenes.ts';
@@ -715,16 +715,6 @@ test('Marca: el logo y el favicon se cuentan por separado, y el favicon que no s
   assert.equal(resumenLogoYFavicon({ logo: null }), 'Sin logo');
   // Una cadena en blanco es «no ha puesto ninguno», no un logo.
   assert.equal(resumenLogoYFavicon({ logo: '   ' }), 'Sin logo');
-});
-
-test('Marca: el color dice si es tuyo o el de fábrica, y cuál', () => {
-  const porDefecto = '#343825';
-  assert.equal(resumenColorMarca({ primary: undefined, porDefecto }), null);
-  assert.equal(resumenColorMarca({ primary: null, porDefecto }), null);
-  assert.equal(resumenColorMarca({ primary: '#343825', porDefecto }), 'El color de Tentare · #343825');
-  // Da igual cómo venga escrito desde el servidor.
-  assert.equal(resumenColorMarca({ primary: '#343825', porDefecto: '#343825' }), 'El color de Tentare · #343825');
-  assert.equal(resumenColorMarca({ primary: '#7c3aed', porDefecto }), 'Tu color · #7C3AED');
 });
 
 test('Marca: los textos dicen qué hay escrito, y lo vacío se dice vacío', () => {

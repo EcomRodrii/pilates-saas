@@ -95,7 +95,7 @@ export function FotoPerfil({ studioId, url, iniciales, onCambio, subir, quitar: 
           <span
             aria-hidden
             style={{
-              position: 'absolute', inset: 0, borderRadius: 'var(--radius-pill)',
+              position: 'absolute', inset: 0, borderRadius: 'var(--radius-round)',
               // Entrecomillada: un `)` o un espacio en la URL rompía el fondo.
               background: `url(${JSON.stringify(mostrada)}) center/cover`,
             }}
@@ -108,7 +108,7 @@ export function FotoPerfil({ studioId, url, iniciales, onCambio, subir, quitar: 
           aria-hidden
           style={{
             position: 'absolute', right: 0, bottom: 0, width: 30, height: 30,
-            borderRadius: 'var(--radius-pill)', background: 'var(--primary)',
+            borderRadius: 'var(--radius-round)', background: 'var(--primary)',
             color: 'var(--primary-foreground)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: '2px solid var(--background)',

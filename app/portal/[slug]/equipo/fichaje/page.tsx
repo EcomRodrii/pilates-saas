@@ -97,7 +97,7 @@ export default function FichajePage() {
               </span>
               {abierta ? (
                 <>
-                  <p className="t-num" data-testid="fichaje-tiempo" style={{ margin: '12px 0 0', fontSize: 38, fontWeight: 800, lineHeight: 1.1 }}>{duracion(transcurrido)}</p>
+                  <p className="t-num" data-testid="fichaje-tiempo" style={{ margin: '12px 0 0', fontSize: 38, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', lineHeight: 1.1 }}>{duracion(transcurrido)}</p>
                   <p className="t-meta" style={{ margin: '6px 0 0' }}>Entraste a las {hora(abierta.checkInAt)}</p>
                   {jornadasHoy > 0 && (
                     <p className="t-meta" data-testid="fichaje-hoy-total" style={{ margin: '2px 0 0' }}>Hoy llevas {duracion(cerradoHoy + transcurrido)} en total</p>
@@ -105,7 +105,7 @@ export default function FichajePage() {
                 </>
               ) : jornadasHoy > 0 ? (
                 <>
-                  <p className="t-num" data-testid="fichaje-hoy-total" style={{ margin: '12px 0 0', fontSize: 38, fontWeight: 800, lineHeight: 1.1 }}>{duracion(cerradoHoy)}</p>
+                  <p className="t-num" data-testid="fichaje-hoy-total" style={{ margin: '12px 0 0', fontSize: 38, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', lineHeight: 1.1 }}>{duracion(cerradoHoy)}</p>
                   <p className="t-meta" style={{ margin: '6px 0 0' }}>
                     Trabajado hoy{jornadasHoy > 1 ? `, en ${jornadasHoy} jornadas` : ''}. Si vuelves más tarde, ficha otra entrada.
                   </p>

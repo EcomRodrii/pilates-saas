@@ -25,6 +25,10 @@ export function RegistroSW({ slug, studioId }: { slug: string; studioId: string 
     // En desarrollo el SW cachea el HTML de Next y las recargas dejan de
     // reflejar los cambios; no aporta nada y confunde mucho.
     if (process.env.NODE_ENV !== 'production') return;
+    // Dentro de la vista previa de «Apariencia de tu app» (un iframe del panel)
+    // no: registraría la app en el navegador de la propietaria y su caché
+    // podría servirle la versión de antes mientras prueba estilos.
+    if (window.self !== window.top) return;
 
     const scope = `/portal/${encodeURIComponent(slug)}/`;
     navigator.serviceWorker.register('/sw.js', { scope })

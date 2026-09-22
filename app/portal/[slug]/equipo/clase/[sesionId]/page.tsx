@@ -175,7 +175,7 @@ export default function FichaClaseInstructoraPage() {
         </button>
         <div style={{ position: 'absolute', left: 16, right: 16, bottom: 13, color: '#fff' }}>
           <p className="t-label" style={{ color: 'rgba(255,255,255,.82)' }}>Das clase</p>
-          <h1 style={{ margin: '3px 0 0', fontSize: 'var(--t-h1)', fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.tipo}</h1>
+          <h1 style={{ margin: '3px 0 0', fontSize: 'var(--t-h1)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.tipo}</h1>
           <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {[cuando, clase.sala].filter((t): t is string => Boolean(t)).map((t) => (
               <span key={t} className="badge" style={{ background: 'rgba(250,249,245,.2)', border: '1px solid rgba(255,255,255,.45)', color: '#fff' }}>{t}</span>
@@ -206,7 +206,7 @@ export default function FichaClaseInstructoraPage() {
           <section className="card card--pad-lg" aria-labelledby="ocupacion" data-testid="ocupacion-clase">
             <p id="ocupacion" className="t-label" style={{ margin: 0 }}>Reservas</p>
             <p aria-hidden style={{ margin: '6px 0 0', display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span className="t-num" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1 }}>{plazas.confirmadas}</span>
+              <span className="t-num" style={{ fontSize: 32, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1 }}>{plazas.confirmadas}</span>
               <span style={{ fontSize: 'var(--t-body)', fontWeight: 600, color: 'var(--muted-foreground)' }}>de {plazas.aforo} plazas</span>
             </p>
             <div aria-hidden style={{ marginTop: 9, height: 6, borderRadius: 99, background: 'var(--muted)', overflow: 'hidden' }}>

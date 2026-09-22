@@ -330,7 +330,7 @@ export default function FichaClasePage() {
             />
           )}
           <p className="t-label" style={{ color: 'rgba(255,255,255,.82)' }}>{clase.tipo} · nivel {clase.nivel.toLowerCase()}</p>
-          <h1 style={{ margin: '3px 0 0', fontSize: 'var(--t-h1)', fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>
+          <h1 style={{ margin: '3px 0 0', fontSize: 'var(--t-h1)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>
           <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {[`${etiquetaDia(clase.fecha)} · ${clase.hora}`, `${clase.duracionMin} min`, clase.sala].map((t) => (
               <span key={t} className="badge" style={{ background: 'rgba(250,249,245,.2)', border: '1px solid rgba(255,255,255,.45)', color: '#fff' }}>{t}</span>

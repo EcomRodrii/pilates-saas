@@ -90,7 +90,7 @@ export function ProximaClaseQueDaCard({ clase, foto, cuando, enCurso: enCursoPor
           </p>
           <span className="t-num" style={{ fontSize: 'var(--t-meta)', fontWeight: 600, color: 'var(--accent-deep-muted)', whiteSpace: 'nowrap' }}>{cuando}</span>
         </div>
-        <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--on-dark)' }}>{clase.tipo}</p>
+        <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em', color: 'var(--on-dark)' }}>{clase.tipo}</p>
         <p style={{ margin: '2px 0 0', fontSize: 'var(--t-meta)', color: 'color-mix(in srgb, var(--accent-deep-foreground) 80%, transparent)' }}>{detalle}</p>
         {baja && (
           <div role="status" style={{ marginTop: 10, padding: '8px 11px', borderRadius: 12, background: 'color-mix(in srgb, var(--accent-deep-foreground) 12%, transparent)' }}>

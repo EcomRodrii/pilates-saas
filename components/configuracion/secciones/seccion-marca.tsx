@@ -1,21 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Camera, Image as ImageIcon, MessageSquareQuote, Palette, Type } from 'lucide-react';
+import { Image as ImageIcon, MessageSquareQuote, Palette, Type } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { fetchThemePublicado } from '@/lib/api-client';
-import { DEFAULT_THEME, type ThemeConfig } from '@/lib/theme-schema';
+import type { ThemeConfig } from '@/lib/theme-schema';
 import {
-  resumenColorMarca, resumenLogoYFavicon, resumenPresentacion, resumenTextosBienvenida,
+  resumenLogoYFavicon, resumenPresentacion, resumenTextosBienvenida,
 } from '@/lib/configuracion/resumenes';
+import { estiloPorId, resolverApariencia, tipografiaPorId } from '@/lib/student/apariencia';
+import { tarjetaPorId } from '@/lib/configuracion/secciones';
 import type { TarjetaId } from '@/lib/configuracion/secciones';
 import { DetalleLogoYFavicon } from '@/components/configuracion/tab-marca';
-import { DetalleColorMarca } from '@/components/configuracion/tab-color-marca';
 import { DetallePresentacion, DetalleTextosBienvenida } from '@/components/configuracion/tab-textos-app';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
-import { FilaAjuste, FilaInformativa, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 
 // Marca: cómo te reconocen tus alumnas. El logo estaba en «Mi app y mi web» y el
 // color en otra pantalla (/configuracion/apariencia/panel); ahora van juntos.
@@ -29,16 +30,21 @@ import { FilaAjuste, FilaInformativa, GrupoFilas } from '@/components/configurac
 // lo devolvería (ver tab-marca.tsx), y su cajón lo dice con la pastilla «Se
 // guarda al momento».
 //
-// ⚠️ La FOTO de la portada no se cambia desde aquí, y se dice: su editor está en
-// mantenimiento (app/(dashboard)/configuracion/apariencia) y esa pantalla no
-// ofrece ninguna forma de cambiarla, solo lo explica y vuelve a enviar aquí. Una
-// fila que llevara allí sería un viaje de ida y vuelta al mismo sitio, así que se
-// cuenta en una fila informativa, sin chevron: nada que prometa lo que no hay.
+// 22-sep-2026: el color y la FOTO de la portada salen de aquí a «Apariencia de
+// tu app» (/configuracion/apariencia), que los enseña en un móvil con la app de
+// verdad junto al estilo y la tipografía. La fila lleva allí y dice qué hay puesto.
 //
 // El tema PUBLICADO se lee UNA vez para toda la sección: lo comparten la fila del
-// favicon y la del color, que antes lo pedían cada una por su cuenta.
+// favicon y la de la apariencia, que antes lo pedían cada una por su cuenta.
 
-const CAJONES = ['logo-y-favicon', 'color-de-marca', 'textos-de-tu-app', 'textos-de-bienvenida'] as const satisfies readonly TarjetaId[];
+const CAJONES = ['logo-y-favicon', 'textos-de-tu-app', 'textos-de-bienvenida'] as const satisfies readonly TarjetaId[];
+
+/** «Arena · Serena · #666DCC»: lo que tiene puesto, sin abrir la pantalla. */
+function resumenApariencia(tema: ThemeConfig | null): string | null {
+  if (!tema) return null;
+  const a = resolverApariencia(tema.appAlumna);
+  return `${estiloPorId(a.estilo).nombre} · ${tipografiaPorId(a.tipografia).nombre} · ${tema.primary.toUpperCase()}`;
+}
 
 export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) {
   const { studio, dataLoaded } = useStudio();
@@ -58,7 +64,6 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
   // se cuenta como puesto.
   const [tema, setTema] = useState<ThemeConfig | null>(null);
   const [cargandoTema, setCargandoTema] = useState(true);
-  const [intento, setIntento] = useState(0);
   useEffect(() => {
     let vivo = true;
     fetchThemePublicado()
@@ -68,7 +73,7 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
       .catch(() => {})
       .finally(() => { if (vivo) setCargandoTema(false); });
     return () => { vivo = false; };
-  }, [intento]);
+  }, []);
 
   const cargado = dataLoaded ? studio : null;
   function guardado(texto: string) {
@@ -90,22 +95,19 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
           })}
           onAbrir={abrir}
         />
-        <FilaAjuste
+        <FilaExterna
           id="color-de-marca"
           icono={Palette}
-          valor={resumenColorMarca({ primary: tema?.primary, porDefecto: DEFAULT_THEME.primary })}
-          onAbrir={abrir}
+          titulo={tarjetaPorId('color-de-marca').titulo}
+          valor={resumenApariencia(tema)}
+          descripcion={tarjetaPorId('color-de-marca').frase}
+          href="/configuracion/apariencia"
         />
       </GrupoFilas>
 
       <GrupoFilas titulo="Lo que leen tus alumnas">
         <FilaAjuste id="textos-de-tu-app" icono={Type} valor={resumenPresentacion(cargado ?? {})} onAbrir={abrir} />
         <FilaAjuste id="textos-de-bienvenida" icono={MessageSquareQuote} valor={resumenTextosBienvenida(cargado ?? {})} onAbrir={abrir} />
-        <FilaInformativa
-          icono={Camera}
-          titulo="La foto de la portada"
-          detalle="Todavía no se cambia desde aquí: estamos rehaciendo su editor. La que ya tengas puesta se sigue viendo igual."
-        />
       </GrupoFilas>
 
       <CajonAjuste id="logo-y-favicon" abierto={cajon === 'logo-y-favicon'} onCerrar={cerrar}>
@@ -115,14 +117,6 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
           soyPropietaria={soyPropietaria}
           showToast={showToast}
           onFavicon={url => setTema(t => (t ? { ...t, faviconUrl: url } : t))}
-        />
-      </CajonAjuste>
-      <CajonAjuste id="color-de-marca" abierto={cajon === 'color-de-marca'} onCerrar={cerrar}>
-        <DetalleColorMarca
-          publicado={tema}
-          cargando={cargandoTema}
-          onReintentar={() => { setCargandoTema(true); setIntento(n => n + 1); }}
-          onGuardado={t => { setTema(t); guardado('Colores aplicados'); }}
         />
       </CajonAjuste>
       <CajonAjuste id="textos-de-tu-app" abierto={cajon === 'textos-de-tu-app'} onCerrar={cerrar}>

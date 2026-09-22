@@ -155,7 +155,7 @@ export function HojaCompra({ textosLegales,
       <div className="px" style={{ paddingBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
           <h2 className="t-title">{plan.nombre}</h2>
-          <p style={{ margin: 0, fontSize: 'var(--t-h2)', fontWeight: 800 }}>
+          <p style={{ margin: 0, fontSize: 'var(--t-h2)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)' }}>
             {euros(Number(plan.precio))}
             {esSuscripcion(plan.tipo) && <span className="t-meta">/{nombrePeriodo(plan)}</span>}
           </p>

@@ -170,10 +170,9 @@ export function DetalleTextosBienvenida({ showToast, onGuardado }: {
         </Campo>
         <Campo
           label="Frase de la portada"
-          // ⚠️ La FOTO de la portada no se cambia desde aquí: su editor está en
-          // mantenimiento (app/(dashboard)/configuracion/apariencia). Pedir una
-          // frase «al lado de la foto» sin decirlo era prometer media cosa.
-          ayuda="Se lee en vertical al lado de la foto grande, al abrir la app. Cuatro o cinco palabras. La foto todavía no se cambia desde aquí."
+          // La FOTO de la portada se cambia en «Apariencia de tu app»: pedir una
+          // frase «al lado de la foto» sin decir dónde está la foto era prometer media cosa.
+          ayuda="Se lee en vertical al lado de la foto grande, al abrir la app. Cuatro o cinco palabras. La foto se cambia en «Apariencia de tu app»."
         >
           {id => (
             <input

@@ -38,7 +38,7 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
             alto={800}
             sizes="(min-width:768px) 50vw, 100vw"
             prioritaria
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%', animation: 'apKen 22s ease-in-out infinite' }}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center var(--portada-y, 40%)', animation: 'apKen 22s ease-in-out infinite' }}
           />
         )}
         {/* Velo neutro, no teñido: el diseño deja la foto en su color y el
@@ -54,7 +54,7 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
               {inicialDe(estudio.nombre)}
             </span>
           )}
-          <span style={{ fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.02em' }}>{estudio.nombre}</span>
+          <span style={{ fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em' }}>{estudio.nombre}</span>
         </div>
 
         <div style={{ position: 'absolute', left: 22, right: 22, bottom: 22, color: 'var(--on-dark)' }}>
@@ -63,7 +63,7 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
                 línea es solo la ciudad cuando no hay nada más que decir. */}
             {estudio.ciudad}
           </p>
-          <h1 className="a-up" style={{ margin: '10px 0 0', fontSize: 34, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.06, animationDelay: '80ms' }}>
+          <h1 className="a-up" style={{ margin: '10px 0 0', fontSize: 34, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.06, animationDelay: '80ms' }}>
             Muévete.<br />Lo demás,<br />ya está.
           </h1>
         </div>

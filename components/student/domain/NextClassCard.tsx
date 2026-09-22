@@ -29,7 +29,7 @@ export function NextClassCard({ reserva, clase, instructora, onCalendario, onCom
           {/* En curso el día sobra —es hoy— y lo que importa es cuánto queda. */}
           <span className="t-num" style={{ fontSize: 'var(--t-meta)', fontWeight: 600, color: 'var(--accent-deep-muted)' }}>{enCurso ? 'hasta las ' + horaFin(clase.hora, clase.duracionMin) : etiquetaDia(clase.fecha).toLowerCase() + ' · ' + clase.hora}</span>
         </div>
-        <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--on-dark)' }}>{clase.nombre}</p>
+        <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em', color: 'var(--on-dark)' }}>{clase.nombre}</p>
         <p style={{ margin: '2px 0 0', fontSize: 'var(--t-meta)', color: 'color-mix(in srgb, var(--accent-deep-foreground) 80%, transparent)' }}>con {instructora?.nombre} · {clase.sala} · {clase.duracionMin} min</p>
         <div style={{ display: 'flex', gap: 7, marginTop: 11, flexWrap: 'wrap' }}>
           <Link href={href('/mis-reservas/' + reserva.id)} className="btn btn--sm tap" style={{ background: 'var(--on-dark)', color: 'var(--accent-deep)', height: 34 }}>Ver mi reserva</Link>

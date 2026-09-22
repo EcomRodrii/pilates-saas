@@ -449,9 +449,10 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'personalizar-tu-portal', categoria: 'portal', tipo: 'guia',
-    titulo: 'Personalizar tu portal: qué se puede cambiar hoy',
-    descripcion: 'El editor de portada y secciones está en mantenimiento; tu logo, tu color y tus textos se siguen cambiando desde Configuración.',
-    actualizado: '2026-09-16',
+    titulo: 'Cambiar cómo se ve la app de tus alumnas',
+    descripcion: 'Estilo, color, tipografía y foto de portada, probados en un móvil antes de publicarlos.',
+    terminos: ['apariencia', 'estilo', 'tipografía', 'fuente', 'portada', 'colores', 'tema'],
+    actualizado: '2026-09-22',
     relacionados: ['portal/que-es-el-portal', 'configuracion/marca', 'portal/ocultar-tu-pagina'],
     estado: 'publicado',
   },

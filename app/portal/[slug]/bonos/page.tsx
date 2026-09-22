@@ -99,7 +99,7 @@ function Bonos() {
       <div className="px stack" style={{ ['--gap' as string]: 'var(--s-3)', marginTop: 14 }}>
         {confirmando && (
           <div className="card card--pad row" role="status" aria-live="polite">
-            <span aria-hidden style={{ width: 16, height: 16, borderRadius: 'var(--radius-pill)', border: '2px solid var(--border-strong)', borderTopColor: 'var(--accent)', animation: 'apSpin .7s linear infinite' }} />
+            <span aria-hidden style={{ width: 16, height: 16, borderRadius: 'var(--radius-round)', border: '2px solid var(--border-strong)', borderTopColor: 'var(--accent)', animation: 'apSpin .7s linear infinite' }} />
             <p className="t-small" style={{ fontWeight: 700 }}>Confirmando tu compra con el estudio…</p>
           </div>
         )}

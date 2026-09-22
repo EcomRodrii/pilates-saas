@@ -75,7 +75,7 @@ function Semana({ dias }: { dias: DiaSemana[] }) {
           <span
             aria-hidden
             style={{
-              width: 7, height: 7, borderRadius: 'var(--radius-pill)',
+              width: 7, height: 7, borderRadius: 'var(--radius-round)',
               background: d.hecha ? 'var(--accent)' : 'transparent',
               boxShadow: d.hecha ? 'none' : `inset 0 0 0 1.5px var(--border-strong)`,
             }}

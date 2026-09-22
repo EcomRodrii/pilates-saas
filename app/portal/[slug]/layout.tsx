@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { cargarEstudio } from '@/lib/student/estudio';
 import { getStudioSeo, slugActualDeDireccionAntigua } from '@/lib/studio-seo';
-import { acentoCssText } from '@/lib/student/tema';
+import { estiloPorId, temaAppCssText } from '@/lib/student/apariencia';
 import { StudentProvider } from '@/components/student/contexto';
 import { ToastProvider } from '@/components/student/ui/Toast';
 import { RegistroSW } from '@/components/student/RegistroSW';
@@ -26,17 +26,22 @@ import './student.css';
 // Un `useStudio()`/`useAuth()` aquí LANZA en ejecución; lo impide la regla de
 // `eslint.config.mjs` y lo vigila `e2e/student-sin-codigo-del-panel.spec.ts`.
 
-export const viewport: Viewport = {
-  // El crema del kit. El navegador tiñe con esto la barra de estado cuando la
-  // app está instalada, así que tiene que ser el mismo `--background`.
-  themeColor: '#FAF9F5',
-  width: 'device-width',
-  initialScale: 1,
-  // `viewportFit: 'cover'` para que el nav inferior llegue al borde en móviles
-  // con notch; el padding lo pone `--safe-bottom`. Sin `maximumScale`: limitar
-  // el zoom rompe la accesibilidad y es la misma decisión que /reservar.
-  viewportFit: 'cover',
-};
+export async function generateViewport({ params }: { params: Promise<{ slug: string }> }): Promise<Viewport> {
+  const { slug } = await params;
+  const estudio = await cargarEstudio(slug);
+  return {
+    // El fondo del estilo que eligió el estudio (el crema del kit si no eligió
+    // ninguno). El navegador tiñe con esto la barra de estado cuando la app
+    // está instalada, así que tiene que ser el mismo `--background`.
+    themeColor: estudio && estudio !== 'no-disponible' ? estiloPorId(estudio.apariencia.estilo).background : '#FAF9F5',
+    width: 'device-width',
+    initialScale: 1,
+    // `viewportFit: 'cover'` para que el nav inferior llegue al borde en móviles
+    // con notch; el padding lo pone `--safe-bottom`. Sin `maximumScale`: limitar
+    // el zoom rompe la accesibilidad y es la misma decisión que /reservar.
+    viewportFit: 'cover',
+  };
+}
 
 /** La base de nuestro Supabase, única procedencia aceptada para un logo. */
 function baseSupabase(): string | null {
@@ -137,9 +142,10 @@ export default async function StudentLayout({
 
   return (
     <div className="student-app">
-      {/* El acento del estudio, en servidor. Solo los 7 tokens que cambian por
-          estudio; los otros 35 son estáticos y viven en student.css. */}
-      <style dangerouslySetInnerHTML={{ __html: acentoCssText(estudio.colorPrimario) }} />
+      {/* La apariencia del estudio, en servidor (sin destello). Solo lo que
+          cambia respecto al kit: sin nada elegido, los 7 tokens de acento de
+          siempre; el resto vive en student.css. */}
+      <style dangerouslySetInnerHTML={{ __html: temaAppCssText(estudio.colorPrimario, estudio.apariencia) }} />
       <RegistroSW slug={estudio.slug} studioId={estudio.id} />
       {/* El toast vive aquí y no en cada pantalla: es un aviso global y así
           sobrevive a las navegaciones dentro del portal. */}

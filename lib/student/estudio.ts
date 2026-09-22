@@ -1,4 +1,5 @@
 import 'server-only';
+import { resolverApariencia, type AparienciaApp } from '@/lib/student/apariencia';
 import { getStudioSeoResultado } from '@/lib/studio-seo';
 import { urlMonograma } from '@/lib/monograma-estudio';
 import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
@@ -28,6 +29,8 @@ export interface EstudioStudent extends StudioConfig {
   /** Color de marca del estudio. Alimenta la familia de acento del diseño
    *  (lib/student/tema.ts); ningún componente lo lee directo. */
   colorPrimario: string;
+  /** Estilo, tipografía, botón y encuadre que eligió el estudio (lib/student/apariencia.ts). */
+  apariencia: AparienciaApp;
   /** Gate de página oculta, que el layout tiene que respetar igual que /reservar.
    *  La huella de la clave NO va aquí: este objeto llega al cliente
    *  (`StudentProvider`), y el layout la lee de `getStudioSeo` en servidor. */
@@ -114,6 +117,7 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     subtituloHeroe: s.subtituloHeroe,
     tema: {},
     colorPrimario: s.colorPrimario,
+    apariencia: resolverApariencia(s.aparienciaApp),
     paginaOculta: s.paginaOculta,
   };
 }

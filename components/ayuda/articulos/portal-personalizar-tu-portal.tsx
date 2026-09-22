@@ -1,32 +1,38 @@
 import Link from 'next/link';
-import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
+import { AyudaPaso, AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
-// Reescrito el 14-sep-2026: el editor de tema (/configuracion/apariencia/editor)
-// está cerrado por mantenimiento desde el 7-sep —su ruta redirige y Apariencia
-// lo dice—, así que el artículo contaba un editor que nadie puede abrir. Se
-// quitó la captura por la misma razón: enseñaba esa pantalla cerrada.
+// 22-sep-2026: el editor volvió, rehecho y guiado — «Apariencia de tu app»
+// (/configuracion/apariencia). Este artículo contaba desde el 14-sep que
+// estaba en mantenimiento.
 export default function Contenido() {
   return (
     <>
       <p>
-        El editor de la portada, la tipografía y las secciones del portal de tus alumnas está{' '}
-        <strong>en mantenimiento</strong>: lo estamos rehaciendo y, mientras tanto, esa parte no se puede editar.
-      </p>
-      <p>
-        Lo que ya tenías publicado sigue funcionando igual — tus alumnas ven tu marca como siempre.
+        En <Link href="/configuracion/apariencia" style={{ color: 'inherit', textDecoration: 'underline' }}>Configuración &gt; Marca &gt; Apariencia de tu app</Link>{' '}
+        eliges cómo se ve la app de tus alumnas. A la derecha tienes un móvil con tu app de verdad, con tus clases: cada
+        cambio se ve ahí al momento, y puedes navegar por ella. Tus alumnas no ven nada hasta que pulsas «Publicar».
       </p>
 
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Lo que sí puedes cambiar hoy</h2>
-      <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
-        <li><strong>Tu logo</strong>, en Configuración &gt; Marca.</li>
-        <li><strong>Tu color</strong>, en «El color de tu marca», en esa misma sección.</li>
-        <li><strong>Los textos con los que te presentas</strong> en tu página de reservas, en «Cómo te presentas», en esa misma sección.</li>
-        <li><strong>Las frases del inicio de su app</strong>, en «Textos de bienvenida». La foto de la portada todavía no.</li>
-      </ul>
+      <AyudaPaso numero={1} titulo="Elige un estilo">
+        Crema, Luz, Arena, Rubor o Piedra: el fondo, las tarjetas y la forma de las esquinas y los botones. Todos se leen bien con cualquier color.
+      </AyudaPaso>
+      <AyudaPaso numero={2} titulo="Pon tu color">
+        «Suave» lo lleva a una versión apagada y elegante; «Tal cual» lo deja como es (si es muy claro, lo oscurecemos lo justo para que el texto encima se lea). Decide también si el botón principal va oscuro o en tu color.
+      </AyudaPaso>
+      <AyudaPaso numero={3} titulo="Elige la tipografía">
+        Seis parejas de letra para títulos y texto, pensadas para ir juntas.
+      </AyudaPaso>
+      <AyudaPaso numero={4} titulo="Sube tu portada">
+        La foto grande del inicio y de la pantalla de entrada, y qué parte de ella se ve. Las fotos se guardan al subirlas, sin esperar a «Publicar».
+      </AyudaPaso>
+      <AyudaPaso numero={5} titulo="Publica">
+        Si no te convence, «Descartar» vuelve a lo que tenías.
+      </AyudaPaso>
 
       <AyudaResultado>
-        En cuanto el editor vuelva, lo contaremos en Actualizaciones. Mientras, ver{' '}
-        <Link href="/ayuda/configuracion/marca" style={{ color: 'inherit', textDecoration: 'underline' }}>tu marca: logo y color</Link>.
+        Tu logo, las fotos de tus clases y las de tu equipo tienen su sitio en Configuración y en Equipo; desde la misma
+        pantalla hay un acceso a cada una. Ver también{' '}
+        <Link href="/ayuda/configuracion/marca" style={{ color: 'inherit', textDecoration: 'underline' }}>tu marca: logo y textos</Link>.
       </AyudaResultado>
     </>
   );

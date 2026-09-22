@@ -27,7 +27,7 @@ export function InstructoraSheet({ instructora, clases, reservas, soportaEspera,
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span aria-hidden style={{ width: 56, height: 56, flexShrink: 0, borderRadius: 999, background: i.fotoUrl ? `url(${i.fotoUrl}) center/cover` : 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 'var(--t-h2)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{!i.fotoUrl && i.iniciales}</span>
             <div style={{ minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 'var(--t-h2)', fontWeight: 800, letterSpacing: '-.02em' }}>{i.nombre}</p>
+              <p style={{ margin: 0, fontSize: 'var(--t-h2)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em' }}>{i.nombre}</p>
               {nota
                 ? <p className="t-meta" style={{ margin: '2px 0 0' }}><Icono nombre="estrella" tamano={12} fill="var(--warning)" stroke="var(--warning)" style={{ verticalAlign: '-1px' }} /> {nota}</p>
                 : <p className="t-meta" style={{ margin: '2px 0 0' }}>Instructora del estudio</p>}

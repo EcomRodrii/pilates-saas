@@ -213,7 +213,7 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
           {resumen && <p className="t-meta" style={{ margin: '4px 0 0' }}>{resumen}</p>}
         </div>
         <div style={{ flexShrink: 0, textAlign: 'right' }}>
-          <p style={{ margin: 0, fontSize: 'var(--t-h3)', fontWeight: 800 }}>
+          <p style={{ margin: 0, fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)' }}>
             {euros(p.precio)}
             {p.familia === 'suscripcion' && (
               <span className="t-meta">/{nombrePeriodo({ periodicidadMeses: p.periodicidadMeses })}</span>

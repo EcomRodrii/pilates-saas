@@ -143,7 +143,9 @@ test('«Marca» junta logo, color y textos; «Tu cuenta», avisos, panel, plan y
   // Solo las imágenes se guardan al elegirlas (el archivo ya se ha subido); el
   // color y los textos esperan al «Guardar» de su cajón.
   assert.equal(tarjetaPorId('logo-y-favicon').guardado, 'al-pulsar');
-  for (const id of ['color-de-marca', 'textos-de-tu-app', 'textos-de-bienvenida'] as const) assert.equal(tarjetaPorId(id).guardado, 'barra');
+  for (const id of ['textos-de-tu-app', 'textos-de-bienvenida'] as const) assert.equal(tarjetaPorId(id).guardado, 'barra');
+  // La apariencia de la app no se guarda aquí: es una pantalla propia con su «Publicar».
+  assert.equal(tarjetaPorId('color-de-marca').guardado, 'accion');
   assert.deepEqual(seccionPorId('avisos').tarjetas.map(t => t.id), ['tus-avisos']);
   // La tabla de avisos se abre en su pantalla: en su sección solo queda su fila.
   assert.equal(herramientaDeTarjeta('tus-avisos'), 'tus-avisos');

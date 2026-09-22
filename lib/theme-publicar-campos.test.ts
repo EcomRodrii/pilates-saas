@@ -68,6 +68,6 @@ test('la versión que se escribe supera siempre a la leída, aunque el reloj vay
   assert.equal(siguienteVersionTheme('basura', 1000), new Date(1000).toISOString());
 });
 
-test('Marca solo publica suelto el color y el favicon', () => {
-  assert.deepEqual([...CAMPOS_PUBLICABLES], ['primary', 'secondary', 'faviconUrl']);
+test('se publica suelto el color, el favicon y la apariencia de la app', () => {
+  assert.deepEqual([...CAMPOS_PUBLICABLES], ['primary', 'secondary', 'faviconUrl', 'appAlumna']);
 });

@@ -185,7 +185,7 @@ export default function DetalleReservaPage() {
               )}
             </div>
 
-            <p style={{ margin: '14px 0 0', fontSize: 'var(--t-h3)', fontWeight: 800, color: 'var(--on-dark)' }}>{c.nombre}</p>
+            <p style={{ margin: '14px 0 0', fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', color: 'var(--on-dark)' }}>{c.nombre}</p>
             <p style={{ margin: '3px 0 0', fontSize: 'var(--t-small)', color: 'color-mix(in srgb, var(--accent-deep-foreground) 75%, transparent)' }}>
               {fechaLarga(c.fecha)} · {c.hora} · con {i?.nombre ?? '—'}
             </p>

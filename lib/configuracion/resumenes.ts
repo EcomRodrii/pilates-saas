@@ -1116,18 +1116,6 @@ export function resumenLogoYFavicon(e: { logo?: string | null; favicon?: string 
   ]);
 }
 
-/**
- * «Tu color · #2C352C», o el de fábrica con su código. Sale del tema PUBLICADO,
- * que es el que ven tus alumnas; `null` = no se ha podido leer.
- */
-export function resumenColorMarca(e: { primary: string | null | undefined; porDefecto: string }): string | null {
-  const color = limpio(e.primary);
-  if (!color) return null;
-  return unir([
-    color.toLowerCase() === e.porDefecto.toLowerCase() ? 'el color de Tentare' : 'tu color',
-    color.toUpperCase(),
-  ]);
-}
 
 type DatosPresentacion = Partial<Pick<Studio, 'descripcion' | 'lema' | 'anioFundacion' | 'normasTexto'>>;
 type DatosBienvenida = Partial<Pick<Studio, 'subtituloHeroe' | 'fraseHeroe' | 'fraseManuscrita'>>;
