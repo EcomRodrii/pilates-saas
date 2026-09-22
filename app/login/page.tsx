@@ -158,8 +158,18 @@ export default function LoginPage() {
         | undefined;
       if (pending) {
         const newStudio = await dbCreateStudio({ ...pending, ownerAuthUserId: user.id });
-        if (newStudio) setCurrentStudioId(newStudio.id);
-        await supabase.auth.updateUser({ data: { pending_studio: null } });
+        // ⚠️ La metadata SOLO se limpia si el estudio se creó de verdad. Antes
+        // se borraba pasara lo que pasara: un fallo aquí (red, RLS, la misma
+        // condición de carrera que ya reintenta dbCreateStudio por dentro)
+        // perdía `pending_studio` para siempre, y con él la única forma de
+        // reintentar — la persona quedaba con el email confirmado y sin
+        // estudio, sin ningún dato para recrearlo (auditoría de embudo,
+        // 22-sep-2026). Mismo criterio que ya usa `pending_freelance`, justo
+        // debajo, desde que se corrigió allí.
+        if (newStudio) {
+          setCurrentStudioId(newStudio.id);
+          await supabase.auth.updateUser({ data: { pending_studio: null } });
+        }
       }
       // Alta de instructora freelance (feature #9, /instructora/alta): mismo
       // patrón que pending_studio, con un paso extra — el estudio de un solo

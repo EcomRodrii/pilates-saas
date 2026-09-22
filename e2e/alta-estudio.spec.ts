@@ -271,3 +271,113 @@ test.describe('En el móvil', () => {
     expect(desborda, 'la pantalla del plan se sale a lo ancho en móvil').toBe(false);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// /login termina un alta que quedó a medias: `pending_studio` viaja en la
+// metadata del usuario para sobrevivir a confirmar el email desde otro
+// dispositivo (ver cabecera de app/crear-estudio/page.tsx), y el próximo
+// inicio de sesión reintenta crear el estudio solo.
+//
+// ⚠️ El fallo que este bloque existe para impedir: la metadata se limpiaba
+// pasara lo que pasara con `dbCreateStudio`, incluido cuando FALLABA. Una
+// cuenta que confirmaba el email de verdad y luego tropezaba con un error
+// real al crear el estudio (red, RLS, la misma carrera que `dbCreateStudio`
+// ya reintenta por dentro) perdía `pending_studio` en ese mismo intento —
+// sin él, el siguiente login ya no tenía nada que crear, y la persona se
+// quedaba con el email confirmado y sin estudio, para siempre (auditoría de
+// embudo, 22-sep-2026: así estaban 13 de 38 cuentas). El hermano
+// `pending_freelance`, justo debajo en el código, ya hacía esto bien.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Login termina una alta a medias (pending_studio)', () => {
+  const STORAGE_KEY = 'sb-example-auth-token';
+  const AUTH_UID = 'auth-e2e-mario';
+
+  async function seedSesionConAltaPendiente(page: Page) {
+    await page.addInitScript(([key, uid]) => {
+      localStorage.setItem(key, JSON.stringify({
+        access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
+        expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
+        user: {
+          id: uid, email: 'mario@example.com', aud: 'authenticated', role: 'authenticated',
+          app_metadata: {}, created_at: '2026-01-01T00:00:00Z',
+          user_metadata: {
+            nombre: 'Mario',
+            pending_studio: { nombre: 'New Opening Marbella', ciudad: 'Marbella', plan: 'BASE' },
+          },
+        },
+      }));
+    }, [STORAGE_KEY, AUTH_UID] as const);
+  }
+
+  /** Cuelga la petición a propósito: sin destino resuelto, `/login` nunca
+   *  llega a la navegación dura de `window.location.href` — así el estado
+   *  de después de crear el estudio (o de fallar) se queda quieto y se puede
+   *  comprobar, en vez de perderse en un `goto` real a otra pantalla. */
+  async function montarLogin(page: Page) {
+    await page.route('**/api/auth/destino-post-login**', () => new Promise(() => {}));
+    await page.route('**/rest/v1/rpc/slug_estudio_disponible**', route => json(route, true));
+    await page.route('**/rest/v1/**', route => json(route, []));
+  }
+
+  test('si crear el estudio falla, NO se borra `pending_studio` — sigue habiendo qué reintentar', async ({ page }) => {
+    let intentosStudios = 0;
+    const patchesUsuario: unknown[] = [];
+    page.on('request', (req) => {
+      if (req.method() === 'PUT' && req.url().includes('/auth/v1/user')) {
+        patchesUsuario.push(req.postDataJSON());
+      }
+    });
+
+    await seedSesionConAltaPendiente(page);
+    await montarLogin(page);
+    await page.route('**/rest/v1/studios**', route => {
+      if (route.request().method() !== 'POST') return json(route, []);
+      intentosStudios += 1;
+      // Un error que `dbCreateStudio` NO reintenta por dentro (no es
+      // 23505/23503): falla a la primera, de verdad.
+      return json(route, { code: '55000', message: 'object not in prerequisite state' }, 500);
+    });
+
+    await page.goto('/login');
+    await expect.poll(() => intentosStudios, { timeout: 15_000 }).toBe(1);
+    // Un margen tras el intento fallido: si el bug volviera, el PATCH que
+    // borra la metadata saldría justo después, no antes.
+    await page.waitForTimeout(300);
+
+    const borroPendingStudio = patchesUsuario.some((p) =>
+      typeof p === 'object' && p !== null && 'data' in p
+      && (p as { data?: { pending_studio?: unknown } }).data?.pending_studio === null);
+    expect(borroPendingStudio, 'pending_studio no debería borrarse cuando dbCreateStudio falla').toBe(false);
+  });
+
+  test('si crear el estudio SALE BIEN, ahí sí se limpia `pending_studio`', async ({ page }) => {
+    let creado = false;
+    const patchesUsuario: unknown[] = [];
+    page.on('request', (req) => {
+      if (req.method() === 'PUT' && req.url().includes('/auth/v1/user')) {
+        patchesUsuario.push(req.postDataJSON());
+      }
+    });
+
+    await seedSesionConAltaPendiente(page);
+    await montarLogin(page);
+    await page.route('**/rest/v1/studios**', route => {
+      if (route.request().method() !== 'POST') return json(route, []);
+      creado = true;
+      return json(route, [{ id: 's1', slug: 'new-opening-marbella' }], 201);
+    });
+    await page.route('**/auth/v1/user**', route => {
+      if (route.request().method() !== 'PUT') return route.continue();
+      return json(route, { id: AUTH_UID, email: 'mario@example.com', user_metadata: {} });
+    });
+
+    await page.goto('/login');
+    await expect.poll(() => creado, { timeout: 15_000 }).toBe(true);
+    await page.waitForTimeout(300);
+
+    const borroPendingStudio = patchesUsuario.some((p) =>
+      typeof p === 'object' && p !== null && 'data' in p
+      && (p as { data?: { pending_studio?: unknown } }).data?.pending_studio === null);
+    expect(borroPendingStudio, 'con el estudio ya creado, la metadata SÍ debe limpiarse').toBe(true);
+  });
+});
