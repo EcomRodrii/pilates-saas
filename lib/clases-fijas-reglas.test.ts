@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  cupoDeFranja, estadoAlumnaOferta, estadoOferta, etiquetaDuracion, franjasQueYaTiene, normalizarDuraciones, nuevaVigenciaAmpliar, plazasVencidasQueEstorban, textoFranja,
+  cupoDeFranja, estadoAlumnaOferta, estadoOferta, etiquetaDuracion, franjaHorariaDe, franjasQueYaTiene, normalizarDuraciones, nuevaVigenciaAmpliar, plazasVencidasQueEstorban, textoFranja,
   plazasLibresDeClaseFija, programadaHasta, resolverFranjas, vigenciaHastaDeDuracion, vigenciaMinDeOferta, type FranjaResuelta, type TarjetaMin,
 } from './clases-fijas-reglas.ts';
 
@@ -171,4 +171,15 @@ test('ampliar: nunca acorta lo que ya tenía, y mide desde hoy igual que al pedi
   assert.equal(nuevaVigenciaAmpliar('2026-10-05', '2026-09-21', 3), '2026-12-21', 'la nueva duración manda: llega más lejos');
   assert.equal(nuevaVigenciaAmpliar('2027-06-01', '2026-09-21', 1), '2027-06-01', 'lo que ya tenía llegaba más lejos: no se acorta');
   assert.equal(nuevaVigenciaAmpliar(null, '2026-09-21', 6), '2027-03-21');
+});
+
+test('franja horaria: los cuatro cortes, iguales para cualquier estudio', () => {
+  assert.equal(franjaHorariaDe('06:00'), 'Mañana');
+  assert.equal(franjaHorariaDe('11:59'), 'Mañana');
+  assert.equal(franjaHorariaDe('12:00'), 'Mediodía');
+  assert.equal(franjaHorariaDe('14:59'), 'Mediodía');
+  assert.equal(franjaHorariaDe('15:00'), 'Tarde');
+  assert.equal(franjaHorariaDe('17:59'), 'Tarde');
+  assert.equal(franjaHorariaDe('18:00'), 'Noche');
+  assert.equal(franjaHorariaDe('21:30'), 'Noche');
 });

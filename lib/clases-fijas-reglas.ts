@@ -65,6 +65,26 @@ export function textoFranja(diaSemana: number, hora: string): string {
   return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${hora.slice(0, 5)}`.trim();
 }
 
+/** Los cuatro momentos del día en los que se agrupan las clases fijas, para filtrar. */
+export const FRANJAS_HORARIAS = ['Mañana', 'Mediodía', 'Tarde', 'Noche'] as const;
+export type FranjaHoraria = (typeof FRANJAS_HORARIAS)[number];
+
+/**
+ * A qué momento del día pertenece una hora — para filtrar, no para mostrar (la
+ * hora exacta se sigue enseñando siempre). Cortes fijos, iguales para cualquier
+ * estudio: mañana hasta mediodía, mediodía hasta media tarde, tarde hasta la
+ * caída del sol, noche en adelante — el reparto habitual de un horario de
+ * Pilates, no el horario de apertura de CADA estudio (uno que abre a las 7 y
+ * otro a las 9 igual quieren "mañana" para las dos primeras horas del día).
+ */
+export function franjaHorariaDe(hora: string): FranjaHoraria {
+  const h = Number(hora.slice(0, 2));
+  if (h < 12) return 'Mañana';
+  if (h < 15) return 'Mediodía';
+  if (h < 18) return 'Tarde';
+  return 'Noche';
+}
+
 /** «1 mes», «3 meses», «1 año», «18 meses», «2 años». */
 export function etiquetaDuracion(meses: number): string {
   if (meses === 1) return '1 mes';
