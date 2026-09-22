@@ -52,17 +52,7 @@ export default function ClasesFijasPage() {
                 <TarjetaClaseFija key={c.id} c={c} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
               ))}
               {data.sueltas.length > 0 && (
-                <>
-                  {data.ofertas.length > 0 && (
-                    <div style={{ marginTop: 6 }}>
-                      <p className="t-label" style={{ margin: 0 }}>{T.sueltasTitulo}</p>
-                      <p className="t-meta" style={{ margin: '2px 0 0' }}>{T.sueltasCuerpo}</p>
-                    </div>
-                  )}
-                  {data.sueltas.map((f) => (
-                    <TarjetaSuelta key={`${f.serieId}-${f.diaSemana}`} f={f} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
-                  ))}
-                </>
+                <ListaSueltas sueltas={data.sueltas} conOfertas={data.ofertas.length > 0} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
               )}
             </>
           )
@@ -72,8 +62,37 @@ export default function ClasesFijasPage() {
   );
 }
 
-function TarjetaSuelta({ f, studioId, slug, online, onCambio }: {
-  f: ClaseSueltaVista; studioId: string; slug: string; online: boolean; onCambio: () => void;
+/**
+ * Las clases sin oferta con nombre, en UNA sola tarjeta con una fila por franja
+ * —el mismo lenguaje visual que «Tu clase fija» (`PlazaFijaCard`), no una
+ * tarjeta gigante por franja repitiendo la misma frase: aquí lo que cambia de
+ * una fila a otra es el día y la hora, no la explicación.
+ */
+function ListaSueltas({ sueltas, conOfertas, studioId, slug, online, onCambio }: {
+  sueltas: ClaseSueltaVista[]; conOfertas: boolean; studioId: string; slug: string; online: boolean; onCambio: () => void;
+}) {
+  return (
+    <div className="card" data-testid="clases-sueltas" style={{ padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {conOfertas && (
+        <div>
+          <p className="t-label" style={{ margin: 0 }}>{T.sueltasTitulo}</p>
+          <p className="t-meta" style={{ margin: '2px 0 0' }}>{T.sueltasCuerpo}</p>
+        </div>
+      )}
+      {sueltas.map((f, i) => (
+        <FilaSuelta key={`${f.serieId}-${f.diaSemana}`} f={f} primera={i === 0} studioId={studioId} slug={slug} online={online} onCambio={onCambio} />
+      ))}
+      {/* La explicación de por qué no todas las filas tienen botón va UNA vez
+          aquí abajo, no repetida en cada fila que la necesite. */}
+      {sueltas.some((f) => f.estado.estado === 'SOLO_CON_CUOTA') && (
+        <p data-testid="clase-suelta-sin-cuota" className="t-meta" style={{ margin: 0, paddingTop: 8, borderTop: '1px solid var(--muted)' }}>{TPF.soloConCuota}</p>
+      )}
+    </div>
+  );
+}
+
+function FilaSuelta({ f, primera, studioId, slug, online, onCambio }: {
+  f: ClaseSueltaVista; primera: boolean; studioId: string; slug: string; online: boolean; onCambio: () => void;
 }) {
   const { toast } = useToast();
   const [enviando, setEnviando] = useState(false);
@@ -102,35 +121,25 @@ function TarjetaSuelta({ f, studioId, slug, online, onCambio }: {
   }
 
   return (
-    <article data-testid="clase-suelta" aria-label={`${nombreDia(f.diaSemana)} ${f.hora}`} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-        <div style={{ minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 'var(--t-h3, 1.05rem)', fontWeight: 800, textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} {f.hora}</h2>
-          <p className="t-meta" style={{ marginTop: 2 }}>{f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</p>
-        </div>
-        {f.estado.estado === 'TIENE_PLAZA' ? <Badge tone="booked">La tienes ✓</Badge>
-          : f.estado.estado === 'PEDIDA' ? <Badge tone="wait">Pedida</Badge>
-          : null}
+    <div
+      data-testid="clase-suelta" aria-label={`${nombreDia(f.diaSemana)} ${f.hora}`}
+      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingTop: primera ? 0 : 8, borderTop: primera ? 'none' : '1px solid var(--muted)' }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, letterSpacing: '-.02em', textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} · {f.hora}</p>
+        <p className="t-meta" style={{ margin: '2px 0 0' }}>{f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</p>
+        {f.estado.estado === 'PEDIDA' && (
+          <p role="status" data-testid="clase-suelta-pedida" className="t-meta" style={{ margin: '2px 0 0', fontWeight: 700, color: 'var(--foreground)' }}>{TPF.pedida}</p>
+        )}
+        {error && <p role="alert" style={{ margin: '2px 0 0', fontSize: 'var(--t-small)', color: 'var(--danger, #b00020)', fontWeight: 700 }}>{error}</p>}
       </div>
-
-      {f.estado.estado === 'PEDIDA' ? (
-        <>
-          <p role="status" data-testid="clase-suelta-pedida" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{TPF.pedida}</p>
-          <Button variant="secondary" size="sm" loading={enviando} disabled={!online} onClick={() => void anular()}>{TPF.botonAnular}</Button>
-        </>
-      ) : f.estado.estado === 'TIENE_PLAZA' ? null : f.estado.estado === 'SOLO_CON_CUOTA' ? (
-        <div data-testid="clase-suelta-sin-cuota">
-          <p style={{ margin: 0, fontSize: 'var(--t-small)' }}>{TPF.soloConCuota}</p>
-        </div>
-      ) : (
-        <>
-          <p className="t-meta" style={{ margin: 0 }}>{TPF.ofrecer(f.diaSemana, f.hora)}</p>
-          <Button size="sm" loading={enviando} disabled={!online} onClick={() => void pedir()}>{TPF.botonPedir}</Button>
-        </>
-      )}
-
-      {error && <p role="alert" style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--danger, #b00020)', fontWeight: 700 }}>{error}</p>}
-    </article>
+      <div style={{ flexShrink: 0 }}>
+        {f.estado.estado === 'TIENE_PLAZA' ? <Badge tone="booked">La tienes ✓</Badge>
+          : f.estado.estado === 'PEDIDA' ? <Button variant="ghost" size="sm" loading={enviando} disabled={!online} onClick={() => void anular()}>{TPF.botonAnular}</Button>
+          : f.estado.estado === 'SOLO_CON_CUOTA' ? <Badge tone="neutral">{T.sueltaSinCuota}</Badge>
+          : <Button variant="secondary" size="sm" loading={enviando} disabled={!online} onClick={() => void pedir()}>{TPF.botonPedir}</Button>}
+      </div>
+    </div>
   );
 }
 

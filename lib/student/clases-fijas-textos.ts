@@ -14,6 +14,8 @@ export const TEXTOS_CLASES_FIJAS = {
   // ── Clases sueltas que se repiten, sin oferta con nombre ──
   sueltasTitulo: 'Otras clases fijas disponibles',
   sueltasCuerpo: 'Estas también se repiten cada semana: pide tu plaza y deja de reservarlas una a una.',
+  /** Etiqueta compacta por fila cuando su cuota no la cubre: la explicación completa va UNA vez, no por fila. */
+  sueltaSinCuota: 'Con tu cuota, no',
   /** Lo que es y lo que pasa después, en dos frases. */
   comoFunciona: 'Pides la clase fija y tu estudio la revisa: su respuesta te llega aquí. Cuando te la da, tu plaza queda reservada cada semana mientras tu cuota siga activa.',
   incluye: 'Incluye',
