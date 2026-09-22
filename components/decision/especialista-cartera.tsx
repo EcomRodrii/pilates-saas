@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { ESTADO_ESPECIALISTA_INFO } from '@/lib/decision/severidad';
 import type { InstructorDependencySnapshot } from '@/lib/types';
 
-// Misma fuente que SpecialistCard (Mi Equipo) — lib/decision/severidad.ts.
+// Misma fuente que FilaEspecialista (Mi Equipo) — lib/decision/severidad.ts.
 const ESTADO = ESTADO_ESPECIALISTA_INFO;
 
 const eur = (n: number) => `${Math.round(n).toLocaleString('es-ES')} €`;

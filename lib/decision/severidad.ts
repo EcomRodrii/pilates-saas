@@ -38,10 +38,10 @@ export function nivelSituacion(prioridad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA')
 
 // Estado de un especialista ("Mi Equipo" / "Tu cartera"): fuente única —
 // auditoría de arquitectura (22-sep-2026) encontró la misma tabla
-// EXCELENTE/BUENO/ATENCION/CRITICO duplicada, byte a byte, en
-// `SpecialistCard` y (sin EXCELENTE) en `EspecialistaCartera`, "alineados a
-// mano" según su propio comentario. Un solo sitio para que no puedan
-// divergir por un cambio en uno de los dos.
+// EXCELENTE/BUENO/ATENCION/CRITICO duplicada, byte a byte, en la antigua
+// `SpecialistCard` (hoy `FilaEspecialista`) y (sin EXCELENTE) en
+// `EspecialistaCartera`, "alineados a mano" según su propio comentario. Un
+// solo sitio para que no puedan divergir por un cambio en uno de los dos.
 export type EstadoEspecialista = 'EXCELENTE' | 'BUENO' | 'ATENCION' | 'CRITICO';
 
 export const ESTADO_ESPECIALISTA_INFO: Record<EstadoEspecialista, { label: string; color: string; bg: string }> = {

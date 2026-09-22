@@ -12,7 +12,7 @@ import { partirMasSituaciones } from '@/lib/decision/prioridad';
 import type { Recomendacion } from '@/lib/decision/tipos';
 import { FilaSituacion } from '@/components/decision/fila-situacion';
 import { WhileYouSlept } from '@/components/decision/while-you-slept';
-import { SpecialistCard } from '@/components/decision/specialist-card';
+import { FilaEspecialista } from '@/components/decision/fila-especialista';
 import { ActivityList } from '@/components/decision/activity-list';
 import { EmptyState } from '@/components/decision/empty-state';
 import { PilotoAutomatico } from '@/components/decision/piloto-automatico';
@@ -26,10 +26,10 @@ import { Toast, useToast } from '@/components/ui/toast';
 
 // Centro de Control — reorganizado como sistema de decisiones, no como lista
 // de todo lo que Tentare sabe (petición explícita 2026-08-18). Jerarquía fija
-// al desplegar "Ver todo el detalle": Piloto automático → Recomendaciones de
-// hoy (una sola lista de situaciones, PR3) → Tu equipo y tu cartera →
-// Riesgos → Actividad. Fuera del desplegable, siempre visible: Estado global
-// (VeredictoDelDia, con "Para hoy" fusionado dentro).
+// al desplegar "Ver todo el detalle": Recomendaciones de hoy (una sola lista
+// de situaciones, PR3) → Cómo trabajo para ti (Piloto automático + Mi
+// Equipo, PR4) → Riesgos → Actividad. Fuera del desplegable, siempre
+// visible: Estado global (VeredictoDelDia, con "Para hoy" fusionado dentro).
 //
 // PR3 (§3): Prioridades + Más situaciones + Seguimiento eran tres
 // presentaciones distintas (grid de tarjetas, 3 sub-rótulos de color, filas
@@ -42,6 +42,16 @@ import { Toast, useToast } from '@/components/ui/toast';
 // — nunca la misma recomendación dos veces con cifras que puedan divergir.
 // Esta partición es puramente de presentación: no cambia lo que persiste ni
 // lo que `/dashboard` (Action Center) recibe de `/api/decisiones`.
+//
+// PR4 (§4): "Tu equipo y tu cartera" era un grid de hasta 8 SpecialistCard,
+// con 6+ diciendo casi siempre "Nada que proponerte hoy" — puro peso visual
+// por repetición de layout. Se fusiona con Piloto automático bajo "Cómo
+// trabajo para ti" (las dos caras de "qué hace el sistema por ti": qué le
+// dejo hacer solo, qué ha encontrado cada especialista) y el grid pasa a
+// filas de una línea (FilaEspecialista). Riesgos y Actividad NO se tocan:
+// ya tienen la forma de fila/resumen que este cambio persigue — fusionarlas
+// también habría mezclado config (Piloto) con alerta transversal (Riesgos)
+// e historial (Actividad) sin resolver ningún ruido adicional.
 function frasesSeguimientoOutcome(o: { outcome: 'POSITIVO' | 'NEGATIVO' | 'NEUTRO'; titulo: string }): string {
   if (o.outcome === 'POSITIVO') return `Seguiste esto: ${o.titulo}. Funcionó.`;
   if (o.outcome === 'NEGATIVO') return `La última vez no acerté con esto: ${o.titulo}.`;
@@ -268,33 +278,7 @@ export default function CentroDeControlPage() {
 
       {detalleAbierto && (
       <div id="detalle-centro-de-control" className="contents">
-      {/* 3. Piloto automático — ejecutado solo / pendiente de tu aprobación */}
-      <div className="flex flex-col gap-4">
-        <PilotoAutomatico autonomia={autonomia} />
-        {!modoAprendizaje && data.resumen!.mientrasDormias.length > 0 && (
-          <div className="flex flex-col gap-2 pl-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ejecutado automáticamente</p>
-            <WhileYouSlept items={data.resumen!.mientrasDormias} />
-          </div>
-        )}
-        {requiereAprobacion.length > 0 && (
-          <div className="flex flex-col gap-2 pl-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Requiere tu aprobación</p>
-            <ul className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-3">
-              {requiereAprobacion.map(r => (
-                <li key={r.id}>
-                  <a href="#recomendaciones" className="flex items-center justify-between gap-2 text-[13px] text-foreground hover:text-brand-secondary">
-                    <span className="truncate">{r.titulo}</span>
-                    <ChevronRight size={14} className="shrink-0 text-muted-foreground" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* 4. Recomendaciones de hoy — "Para hoy" (BandejaHoy) ya no vive aquí:
+      {/* 2. Recomendaciones de hoy — "Para hoy" (BandejaHoy) ya no vive aquí:
           se pinta fusionada dentro de VeredictoDelDia (§2, arriba). */}
       <div className="flex flex-col gap-6">
         <div>
@@ -348,19 +332,45 @@ export default function CentroDeControlPage() {
         )}
       </div>
 
-      {/* 10. Tu equipo y tu cartera — solo el resumen por especialista */}
-      {!modoAprendizaje && data.porEspecialista.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Tu equipo y tu cartera
-          </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {data.porEspecialista.map(pe => <SpecialistCard key={pe.especialista} data={pe} />)}
+      {/* 3. Cómo trabajo para ti — Piloto automático (qué le dejo hacer
+          solo) + Mi Equipo (qué ha encontrado cada especialista), fusionados
+          bajo un único encabezado: son las dos caras de "cómo trabaja el
+          sistema", a diferencia de Riesgos (alerta transversal) y Actividad
+          (historial), que se quedan como secciones propias. */}
+      <div className="flex flex-col gap-4">
+        <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Cómo trabajo para ti
+        </h2>
+        <PilotoAutomatico autonomia={autonomia} />
+        {!modoAprendizaje && data.resumen!.mientrasDormias.length > 0 && (
+          <div className="flex flex-col gap-2 pl-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ejecutado automáticamente</p>
+            <WhileYouSlept items={data.resumen!.mientrasDormias} />
           </div>
-        </div>
-      )}
+        )}
+        {requiereAprobacion.length > 0 && (
+          <div className="flex flex-col gap-2 pl-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Requiere tu aprobación</p>
+            <ul className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-3">
+              {requiereAprobacion.map(r => (
+                <li key={r.id}>
+                  <a href="#recomendaciones" className="flex items-center justify-between gap-2 text-[13px] text-foreground hover:text-brand-secondary">
+                    <span className="truncate">{r.titulo}</span>
+                    <ChevronRight size={14} className="shrink-0 text-muted-foreground" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {!modoAprendizaje && data.porEspecialista.length > 0 && (
+          <div className="rounded-3xl border border-border bg-card p-1">
+            {data.porEspecialista.map(pe => <FilaEspecialista key={pe.especialista} data={pe} />)}
+          </div>
+        )}
+      </div>
 
-      {/* 11. Riesgos — visión transversal, separada de las recomendaciones */}
+      {/* 4. Riesgos — visión transversal, separada de las recomendaciones */}
       <div className="flex flex-col gap-3">
         <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
           Riesgos
@@ -375,7 +385,7 @@ export default function CentroDeControlPage() {
           uso medido = 0, ya están en el menú y en ⌘K (auditoría de
           arquitectura, 22-sep-2026). */}
 
-      {/* 12. Actividad — historial/auditoría, siempre al final */}
+      {/* 5. Actividad — historial/auditoría, siempre al final */}
       <ActivityList items={actividadCompleta} />
       </div>
       )}

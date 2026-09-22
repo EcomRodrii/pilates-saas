@@ -1,7 +1,7 @@
 import { Heart, TrendingUp, Calendar, Megaphone, Wallet, UserCog, UserPlus, Rocket, type LucideIcon } from 'lucide-react';
 
 // Nombre corto + icono por especialista — única fuente de verdad, usada por
-// SpecialistCard ("Mi Equipo") y por RecommendationCard (atribución de cada
+// FilaEspecialista ("Mi Equipo") y por FilaSituacion (atribución de cada
 // recomendación). Antes vivía solo dentro de specialist-card.tsx; extraído
 // para que un especialista nuevo (como pasó con CAPTACION en DecisionFlag,
 // P2-5) no pueda faltar en un sitio y no en el otro.
