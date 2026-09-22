@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
@@ -18,7 +18,22 @@ import { nombreDia } from '@/lib/student/plaza-fija';
 import { fechaDMY } from '@/lib/series-renovacion';
 import { Badge } from '@/components/student/ui/Badge';
 import { Button } from '@/components/student/ui/Button';
+import { Icono } from '@/components/student/ui/Icono';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+
+/** Ignora acentos y mayúsculas: mismo criterio que la búsqueda del horario (`reservar/page.tsx`). */
+const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/** El logo del tipo de clase, si tiene — mismo look que la ficha de una clase, a menor tamaño para una fila. */
+function LogoTipo({ url }: { url: string | null }) {
+  if (!url) return null;
+  return (
+    <span
+      aria-hidden data-testid="logo-tipo-clase"
+      style={{ display: 'block', flexShrink: 0, width: 32, height: 32, borderRadius: 9, background: `url(${url}) center/cover`, border: '1px solid var(--border)' }}
+    />
+  );
+}
 
 // Clases fijas del estudio: lo que la alumna ve para pedir una, con qué clases
 // incluye y cuánto tiempo la quiere. Pedirla NO la reserva: el estudio la aprueba
@@ -34,25 +49,90 @@ export default function ClasesFijasPage() {
   const cargar = useCallback(() => getClasesFijas(estudio.slug).then((r) => (r ?? Promise.reject(new Error('sin datos')))), [estudio.slug]);
   const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => d.ofertas.length === 0 && d.sueltas.length === 0);
 
+  const [q, setQ] = useState('');
+  const [tipo, setTipo] = useState('Todo');
+
+  // Los tipos que de verdad hay que ofrecer: solo los que aparecen en alguna
+  // oferta u suelta, no el catálogo entero del estudio (un tipo sin ninguna
+  // clase fija sería una píldora que siempre vacía la lista).
+  const tipos = useMemo(() => ['Todo', ...new Set([
+    ...(data?.ofertas.flatMap((o) => o.franjas.map((f) => f.tipo)) ?? []),
+    ...(data?.sueltas.map((f) => f.tipo) ?? []),
+  ])], [data]);
+  const tipoReal = tipos.includes(tipo) ? tipo : 'Todo';
+  const consulta = normalizar(q.trim());
+
+  const coincide = (textos: (string | null)[]) => !consulta || textos.some((t) => t && normalizar(t).includes(consulta));
+
+  const ofertas = (data?.ofertas ?? [])
+    .filter((o) => tipoReal === 'Todo' || o.franjas.some((f) => f.tipo === tipoReal))
+    .filter((o) => coincide([o.nombre, o.descripcion, ...o.franjas.flatMap((f) => [f.tipo, f.sala, f.instructora])]));
+  const sueltas = (data?.sueltas ?? [])
+    .filter((f) => tipoReal === 'Todo' || f.tipo === tipoReal)
+    .filter((f) => coincide([f.tipo, f.sala, f.instructora, nombreDia(f.diaSemana)]));
+
+  // Distingue «tu estudio no tiene ninguna» (EmptyState, con salida al horario)
+  // de «las tuyas están filtradas» (se queda el buscador para poder quitarlo).
+  const hayAlgo = (data?.ofertas.length ?? 0) > 0 || (data?.sueltas.length ?? 0) > 0;
+  const total = (data?.ofertas.length ?? 0) + (data?.sueltas.length ?? 0);
+  // El buscador ayuda a partir de unas pocas; con 1-3 no hay nada que «apelotone».
+  // Las píldoras de tipo solo si hay más de un tipo real que elegir (sin contar «Todo»).
+  const conBuscador = total > 3;
+  const conFiltros = tipos.length > 2;
+
   return (
     <StudentShell>
       <PageHeader titulo={T.titulo} sub={T.sub} back />
       <p className="px t-meta" style={{ marginTop: 10 }}>{T.comoFunciona}</p>
+
+      {data && hayAlgo && conBuscador && (
+        <>
+          <div className="px" style={{ marginTop: 12 }}>
+            <div style={{ position: 'relative' }}>
+              <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--subtle-foreground)', display: 'flex' }}>
+                <Icono nombre="buscar" tamano={18} />
+              </span>
+              <input
+                type="search" value={q} onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar clases fijas…" aria-label="Buscar clases fijas"
+                style={{ width: '100%', height: 44, paddingLeft: 40, paddingRight: q ? 40 : 14, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', fontSize: 'var(--t-body)', fontFamily: 'inherit', color: 'var(--foreground)' }}
+              />
+              {q && (
+                <button type="button" onClick={() => setQ('')} aria-label="Borrar búsqueda"
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: 999, border: 'none', background: 'var(--muted)', color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icono nombre="cerrar" tamano={16} />
+                </button>
+              )}
+            </div>
+          </div>
+          {conFiltros && (
+            <div className="px no-scrollbar" style={{ display: 'flex', gap: 7, overflowX: 'auto', marginTop: 10 }}>
+              {tipos.map((t) => (
+                <button key={t} type="button" className="pill" aria-pressed={tipoReal === t} onClick={() => setTipo(t)} style={{ flexShrink: 0 }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 }}>
         {estado === 'loading' && <ListSkeleton n={2} h={180} />}
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && !data && <OfflineState />}
         {data && estado !== 'loading' && estado !== 'error' && (
-          data.ofertas.length === 0 && data.sueltas.length === 0 ? (
+          !hayAlgo ? (
             <EmptyState ilustracion="postura" titulo={T.vacio} accion="Ver el horario" href={href('/reservar')} />
+          ) : ofertas.length === 0 && sueltas.length === 0 ? (
+            <p className="t-meta" style={{ textAlign: 'center', padding: '20px 0' }}>{T.sinResultados}</p>
           ) : (
             <>
-              {data.ofertas.map((c) => (
+              {ofertas.map((c) => (
                 <TarjetaClaseFija key={c.id} c={c} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
               ))}
-              {data.sueltas.length > 0 && (
-                <ListaSueltas sueltas={data.sueltas} conOfertas={data.ofertas.length > 0} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
+              {sueltas.length > 0 && (
+                <ListaSueltas sueltas={sueltas} conOfertas={ofertas.length > 0} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
               )}
             </>
           )
@@ -125,13 +205,16 @@ function FilaSuelta({ f, primera, studioId, slug, online, onCambio }: {
       data-testid="clase-suelta" aria-label={`${nombreDia(f.diaSemana)} ${f.hora}`}
       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingTop: primera ? 0 : 8, borderTop: primera ? 'none' : '1px solid var(--muted)' }}
     >
-      <div style={{ minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, letterSpacing: '-.02em', textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} · {f.hora}</p>
-        <p className="t-meta" style={{ margin: '2px 0 0' }}>{f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</p>
-        {f.estado.estado === 'PEDIDA' && (
-          <p role="status" data-testid="clase-suelta-pedida" className="t-meta" style={{ margin: '2px 0 0', fontWeight: 700, color: 'var(--foreground)' }}>{TPF.pedida}</p>
-        )}
-        {error && <p role="alert" style={{ margin: '2px 0 0', fontSize: 'var(--t-small)', color: 'var(--danger, #b00020)', fontWeight: 700 }}>{error}</p>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <LogoTipo url={f.logoUrl} />
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, letterSpacing: '-.02em', textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} · {f.hora}</p>
+          <p className="t-meta" style={{ margin: '2px 0 0' }}>{f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</p>
+          {f.estado.estado === 'PEDIDA' && (
+            <p role="status" data-testid="clase-suelta-pedida" className="t-meta" style={{ margin: '2px 0 0', fontWeight: 700, color: 'var(--foreground)' }}>{TPF.pedida}</p>
+          )}
+          {error && <p role="alert" style={{ margin: '2px 0 0', fontSize: 'var(--t-small)', color: 'var(--danger, #b00020)', fontWeight: 700 }}>{error}</p>}
+        </div>
       </div>
       <div style={{ flexShrink: 0 }}>
         {f.estado.estado === 'TIENE_PLAZA' ? <Badge tone="booked">La tienes ✓</Badge>
@@ -223,11 +306,14 @@ function TarjetaClaseFija({ c, studioId, slug, online, onCambio }: {
 
       <div>
         <p className="t-label" style={{ marginBottom: 6 }}>{T.incluye}</p>
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {c.franjas.map((f) => (
-            <li key={`${f.diaSemana}-${f.hora}-${f.tipoClaseId}`} style={{ fontSize: 'var(--t-small)' }}>
-              <strong style={{ textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} {f.hora}</strong>
-              <span className="t-meta"> · {f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</span>
+            <li key={`${f.diaSemana}-${f.hora}-${f.tipoClaseId}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--t-small)' }}>
+              <LogoTipo url={f.logoUrl} />
+              <span>
+                <strong style={{ textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} {f.hora}</strong>
+                <span className="t-meta"> · {f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</span>
+              </span>
             </li>
           ))}
         </ul>

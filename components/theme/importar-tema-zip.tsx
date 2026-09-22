@@ -15,10 +15,12 @@
 //   `app/tema-publicado/[slug]/[[...ruta]]/route.ts`). NUNCA toca
 //   `studio_theme` ni el portal real.
 // - El que hace que el portal real (`tentare.app/portal/<slug>`,
-//   `/reservar/<slug>`) muestre el tema vive DENTRO del editor nativo
-//   (`/configuracion/apariencia/editor`, tras "Extraer a tema nativo"), y
-//   escribe en `studio_theme.config_published` — sistema totalmente
-//   distinto, sin relación con `theme_imports`.
+//   `/reservar/<slug>`) muestre el tema es el de aquí abajo, tras "Extraer a
+//   tema nativo": publica el BORRADOR entero (`studio_theme.config_draft` →
+//   `config_published`) — sistema totalmente distinto, sin relación con
+//   `theme_imports`. ⚠️ Vivía en el editor de marca del portal; al borrarse ese
+//   editor (22-sep-2026) este camino se habría quedado sin salida, con el tema
+//   extraído en un borrador que nadie podía publicar.
 // Confundir estos dos fue un bug real reportado por el fundador: extraía un
 // ZIP, pulsaba el "Publicar" de esta tarjeta (el de arriba) y el portal
 // real seguía sin cambiar — porque ese botón nunca tocaba `studio_theme`.
@@ -32,7 +34,7 @@ import { Upload, AlertTriangle, CheckCircle2, Eye, EyeOff, ExternalLink, Trash2,
 import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { authHeader } from '@/lib/api-client';
+import { authHeader, publicarThemeApi } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { ImportedThemeManifest } from '@/lib/theme-import/manifest';
 
@@ -62,6 +64,8 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
   const [trabajando, setTrabajando] = useState<string | null>(null);
   const [aBorrar, setABorrar] = useState<TemaImportado | null>(null);
   const [extraido, setExtraido] = useState<string | null>(null);
+  const [publicando, setPublicando] = useState(false);
+  const [publicado, setPublicado] = useState(false);
 
   useEffect(() => { void cargarTemas(); }, []);
 
@@ -218,15 +222,32 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
           <CheckCircle2 className="size-4 mt-0.5 shrink-0" />
           <div className="space-y-1.5">
             <p>
-              «{extraido}» se ha guardado como borrador de tu tema. Todavía no se ve en tu
-              portal — falta publicarlo desde el editor.
+              {publicado
+                ? `«${extraido}» ya está publicado: tus alumnas lo ven en tu portal y en tu página de reservas.`
+                : `«${extraido}» se ha guardado como borrador de tu tema. Todavía no se ve en tu portal.`}
             </p>
-            <Link
-              href="/configuracion/apariencia/editor"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Ir al editor a publicarlo
-            </Link>
+            {!publicado && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={publicando}
+                onClick={async () => {
+                  setPublicando(true);
+                  setError(null);
+                  try {
+                    const res = await publicarThemeApi();
+                    if (res.ok) setPublicado(true);
+                    else setError(res.errores[0]?.mensaje ?? 'Ese tema no tiene contraste suficiente para publicarse.');
+                  } catch (e) {
+                    setError(mensajeSeguro((e as Error).message, ERROR_RED));
+                  } finally {
+                    setPublicando(false);
+                  }
+                }}
+              >
+                {publicando ? 'Publicando…' : 'Publicarlo en mi portal'}
+              </Button>
+            )}
           </div>
         </div>
       ) : null}

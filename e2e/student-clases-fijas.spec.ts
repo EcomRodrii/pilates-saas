@@ -26,8 +26,8 @@ const OFERTA = {
     { meses: 6, etiqueta: '6 meses', hasta: '2027-02-12' },
   ],
   franjas: [
-    { diaSemana: 2, hora: '10:00', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: 'Marta' },
-    { diaSemana: 4, hora: '18:30', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: null },
+    { diaSemana: 2, hora: '10:00', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: 'Marta', logoUrl: null as string | null },
+    { diaSemana: 4, hora: '18:30', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: null, logoUrl: null as string | null },
   ],
 };
 type Oferta = typeof OFERTA;
@@ -37,11 +37,11 @@ interface Pedida { claseFijaId: string; solicitudId: string; duracionMeses: numb
 /** Una franja suelta (sin oferta con nombre) tal y como la manda el servidor. */
 interface Suelta {
   serieId: string; diaSemana: number; hora: string; tipoClaseId: string; salaId: string; instructorId: string | null;
-  tipo: string; sala: string; instructora: string | null; proximaSesionId: string; ultimaFecha: string;
+  tipo: string; sala: string; instructora: string | null; logoUrl: string | null; proximaSesionId: string; ultimaFecha: string;
 }
 const SUELTA: Suelta = {
   serieId: 'serie-1', diaSemana: 3, hora: '09:30', tipoClaseId: 'tc-y', salaId: 'sala-2', instructorId: null,
-  tipo: 'Yoga', sala: 'Sala 2', instructora: null, proximaSesionId: 'ses-suelta-1', ultimaFecha: '2027-01-29',
+  tipo: 'Yoga', sala: 'Sala 2', instructora: null, logoUrl: null, proximaSesionId: 'ses-suelta-1', ultimaFecha: '2027-01-29',
 };
 
 interface Montaje {
@@ -344,5 +344,82 @@ test.describe('Student PWA · clases fijas del estudio · sueltas (sin oferta co
     await expect(page.getByTestId('clase-fija')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('clase-suelta')).toBeVisible();
     await expect(page.getByText('Otras clases fijas disponibles')).toBeVisible();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logo, buscador y filtros por tipo — feedback directo tras revisar el rediseño
+// de las sueltas: sin logo no se distinguen a golpe de vista, y con varias no
+// hay forma de ir directa a la que se busca. El buscador y las píldoras solo
+// aparecen cuando hay algo que de verdad ordenar (más de 3 en total, más de un
+// tipo real): con la lista pequeña de siempre no hay nada que «apelotone».
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Student PWA · clases fijas del estudio · logo, buscador y filtros', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  const LOGO = 'https://example.invalid/logo-reformer.png';
+  // Una oferta + tres sueltas = cuatro en total: pasa el umbral («más de 3») que
+  // enciende el buscador. Con menos, el siguiente test defiende que no aparezca.
+  const conCuatroClases = () => ({
+    ofertas: [{ ...OFERTA, franjas: OFERTA.franjas.map((f) => ({ ...f, logoUrl: LOGO })) }],
+    sueltas: [
+      { ...SUELTA, serieId: 'serie-1', diaSemana: 1, tipo: 'Yoga', proximaSesionId: 'ses-y' },
+      { ...SUELTA, serieId: 'serie-2', diaSemana: 5, tipo: 'Mat Pilates', hora: '19:00', proximaSesionId: 'ses-m' },
+      { ...SUELTA, serieId: 'serie-3', diaSemana: 6, tipo: 'Yoga', hora: '11:00', proximaSesionId: 'ses-y2' },
+    ],
+    pedidas: [],
+  });
+
+  test('con pocas, ni buscador ni píldoras: no hay nada que apelotone', async ({ page }) => {
+    await montar(page, { plan: 'cuota', catalogo: { ofertas: [OFERTA], sueltas: [SUELTA], pedidas: [] } });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('clase-fija')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Buscar clases fijas…')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Todo' })).toHaveCount(0);
+  });
+
+  test('con varias, el logo del tipo se ve donde lo hay y no donde no', async ({ page }) => {
+    await montar(page, { plan: 'cuota', catalogo: conCuatroClases() });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('clase-fija')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('logo-tipo-clase').first()).toBeVisible();
+    // Las sueltas de esta captura no llevan logo (SUELTA no lo trae): sus filas no pintan nada.
+    await expect(page.getByTestId('clase-suelta').first().getByTestId('logo-tipo-clase')).toHaveCount(0);
+  });
+
+  test('el buscador filtra por tipo, sala, instructora o día', async ({ page }) => {
+    await montar(page, { plan: 'cuota', catalogo: conCuatroClases() });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    const buscador = page.getByPlaceholder('Buscar clases fijas…');
+    await expect(buscador).toBeVisible({ timeout: 30_000 });
+
+    await buscador.fill('yoga');
+    await expect(page.getByTestId('clase-fija')).toHaveCount(0);
+    await expect(page.getByTestId('clase-suelta')).toHaveCount(2);
+    await expect(page.getByTestId('clase-suelta').first()).toContainText('Yoga');
+
+    // Sin acentos ni mayúsculas: «MARTA» encuentra a la instructora de la oferta.
+    await buscador.fill('MARTA');
+    await expect(page.getByTestId('clase-fija')).toBeVisible();
+    await expect(page.getByTestId('clase-suelta')).toHaveCount(0);
+
+    await buscador.fill('esto no existe');
+    await expect(page.getByText('Ninguna coincide con lo que buscas.')).toBeVisible();
+  });
+
+  test('las píldoras de tipo acotan la lista, y «Todo» la devuelve entera', async ({ page }) => {
+    await montar(page, { plan: 'cuota', catalogo: conCuatroClases() });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('button', { name: 'Reformer', exact: true })).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Mat Pilates', exact: true }).click();
+    await expect(page.getByTestId('clase-fija')).toHaveCount(0);
+    await expect(page.getByTestId('clase-suelta')).toHaveCount(1);
+    await expect(page.getByTestId('clase-suelta')).toContainText('Mat Pilates');
+
+    await page.getByRole('button', { name: 'Todo', exact: true }).click();
+    await expect(page.getByTestId('clase-fija')).toBeVisible();
+    await expect(page.getByTestId('clase-suelta')).toHaveCount(3);
   });
 });

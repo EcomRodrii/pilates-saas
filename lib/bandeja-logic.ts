@@ -220,8 +220,12 @@ function plazasSinSesion(
     id: `plaza-sin-clase-${p.id}`,
     categoria: 'PLAZA' as const,
     urgencia: 70,
-    titulo: 'Plaza fija sin clase en el horario',
-    detalle: `${nombreSocia(p.socioId)} tiene plaza fija el ${nombreDiaSemana(p.diaSemana)} a las ${p.horaInicio.slice(0, 5)} en ${nombreSala(p.salaId)}, pero ya no hay ninguna clase a esa hora. Si la clase se movió, edita su plaza fija.`,
+    // El nombre va en el TÍTULO, no solo en el detalle: con varias plazas
+    // huérfanas a la vez, la lista se escanea por título, y "Plaza fija sin
+    // clase en el horario" repetido en cada fila es indistinguible una de
+    // otra (visto en producción, 22-sep-2026).
+    titulo: `${nombreSocia(p.socioId)}: plaza fija sin clase en el horario`,
+    detalle: `Tiene plaza fija el ${nombreDiaSemana(p.diaSemana)} a las ${p.horaInicio.slice(0, 5)} en ${nombreSala(p.salaId)}, pero ya no hay ninguna clase a esa hora. Si la clase se movió, edita su plaza fija.`,
     socioId: p.socioId,
     href: `/clientas/${p.socioId}`,
     cta: 'Editar plaza fija',
@@ -260,8 +264,8 @@ function plazasSinClase(
       id: `plaza-${p.id}`,
       categoria: 'PLAZA',
       urgencia: 66,
-      titulo: 'Plaza fija sin clase',
-      detalle: `${nombreSocia(p.socioId)} tiene plaza fija pero no se le ha asignado clase las próximas semanas (¿aforo lleno?).`,
+      titulo: `${nombreSocia(p.socioId)}: plaza fija sin clase`,
+      detalle: 'Tiene plaza fija pero no se le ha asignado clase las próximas semanas (¿aforo lleno?).',
       socioId: p.socioId,
       href: `/clientas/${p.socioId}`,
       cta: 'Ver socia',

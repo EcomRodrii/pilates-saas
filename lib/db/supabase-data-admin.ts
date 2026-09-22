@@ -1595,7 +1595,13 @@ async function trasPromocionDeEspera(admin: SupabaseClient, p: {
 // CONFIRMADA, su dueño se llama otra vez en modo reintento: descuenta solo si
 // falta (idempotente por reserva) y solo entonces avisa. Con la reserva ya
 // cobrada, o legada, no hace nada.
-async function completarConfirmacionTrasReintento(admin: SupabaseClient, p: {
+// D-5 (auditoría 22-sep): exportada además de usarse internamente — es el
+// mismo camino de reparación que necesita `repararBonosSinDecidir`
+// (lib/reservas/reparar-bono-sin-decidir.ts) para cerrar de forma proactiva
+// una reserva CONFIRMADA cuyo descuento de bono quedó tragado por el
+// BEGIN/EXCEPTION defensivo de `reservar_plaza` (D-1). Mismo comportamiento
+// para los llamantes ya existentes (no consumían el valor de retorno).
+export async function completarConfirmacionTrasReintento(admin: SupabaseClient, p: {
   studioId: string; reservaId: string;
   /** Si viene, la reserva tiene que ser de esta socia (camino de la propia alumna). */
   socioId?: string;

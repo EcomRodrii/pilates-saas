@@ -1,26 +1,14 @@
 import { redirect } from 'next/navigation';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EN MANTENIMIENTO (2026-09-07). El editor de marca del portal
-// (`ThemeEditorFullscreen`) sigue INTACTO en el repo — no se borra nada, solo
-// se cierra la puerta.
+// La ruta del editor de marca del portal, que existió hasta el 22-sep-2026.
 //
-// Redirige en vez de pintar un aviso propio porque el aviso ya vive en
-// `/configuracion/apariencia`: dos pantallas contando lo mismo divergen en
-// cuanto una se retoque. Y hace falta que esta ruta también corte, no solo el
-// enlace: quien la tuviera guardada en marcadores entraría igual.
+// Se cerró el 7-sep y se borró el 22 al sustituirlo «Apariencia de tu app»
+// (/configuracion/apariencia): de sus ~20 ajustes, 19 no llegaban a la app de
+// la alumna y su vista previa apuntaba a una ruta ya borrada.
 //
-// PARA REABRIRLO — los tres pasos, y no hay más:
-//   1. Devolver este fichero a
-//      export default function AparienciaEditorPage() { return <ThemeEditorFullscreen />; }
-//   2. Quitar el aviso de `/configuracion/apariencia` y volver a enlazar aquí.
-//   3. Quitar el `.skip` de los `test.describe` de `e2e/apariencia-*.spec.ts`
-//      (5 ficheros, 10 suites). Se saltaron porque entran por esta ruta, no
-//      porque estuvieran mal — son lo que demuestra que el editor funciona, y
-//      sin ellas se reabriría a ciegas.
-// El armazón ya reserva el hueco de pantalla completa para esta ruta exacta
-// (`components/layout/dashboard-shell.tsx`), así que no hay nada más que tocar.
-// ─────────────────────────────────────────────────────────────────────────────
+// La ruta se queda como redirección y no se borra: quien la tuviera guardada
+// en marcadores —o la encuentre en un correo viejo— llega a la pantalla de
+// hoy en vez de a un 404.
 export default function AparienciaEditorPage() {
   redirect('/configuracion/apariencia');
 }

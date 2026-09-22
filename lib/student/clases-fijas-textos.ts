@@ -11,6 +11,8 @@ export const TEXTOS_CLASES_FIJAS = {
   entradaCuerpo: 'Tu sitio reservado cada semana, sin volver a reservar. Elige cuánto tiempo la quieres.',
   entradaBoton: 'Ver las clases fijas',
   vacio: 'Tu estudio todavía no tiene clases fijas.',
+  /** Con búsqueda o filtro activo y ninguna coincidencia: sigue habiendo clases fijas, solo no ESTAS. */
+  sinResultados: 'Ninguna coincide con lo que buscas.',
   // ── Clases sueltas que se repiten, sin oferta con nombre ──
   sueltasTitulo: 'Otras clases fijas disponibles',
   sueltasCuerpo: 'Estas también se repiten cada semana: pide tu plaza y deja de reservarlas una a una.',
