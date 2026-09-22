@@ -5,6 +5,7 @@ import { Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { Input } from '@/components/ui/input.tsx';
 import { useSesionInterna } from '../layout.tsx';
+import { authHeader } from '@/lib/api-client.ts';
 import type { RowSalesLeads } from '@/lib/db-types';
 
 type SalesLead = RowSalesLeads;
@@ -16,19 +17,40 @@ export default function PageSalesOS() {
   const [leads, setLeads] = useState<SalesLead[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // ⚠️ Auditoría 2026-09-21: estos dos `fetch` NO mandaban la cabecera
+  // `Authorization`, y las dos rutas la exigen (`comprobarAdminInterno` lee
+  // `authorization` y no cae a cookie). Siempre respondían 403, y como el
+  // resultado se leía con `data.leads || []` el tablero quedaba vacío: no
+  // «no tienes permiso», sino «todavía no hay leads». El arrastre tampoco
+  // persistía nunca. El resto de /interno ya pasa por `lib/interno/client.ts`,
+  // que añade `authHeader()`; aquí se hacía `fetch` a pelo.
   const cargarLeads = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const params = new URLSearchParams({
         limit: '200',
         ...(search && { search }),
       });
-      const resp = await fetch(`/api/interno/sales/leads?${params}`);
+      const resp = await fetch(`/api/interno/sales/leads?${params}`, {
+        headers: { ...(await authHeader()) },
+      });
+      if (!resp.ok) {
+        const cuerpo = await resp.json().catch(() => null) as { error?: string } | null;
+        setError(resp.status === 403
+          ? (cuerpo?.error ?? 'No tienes permiso para ver los leads.')
+          : 'No se han podido cargar los leads.');
+        setLeads([]);
+        return;
+      }
       const data = await resp.json();
       setLeads(data.leads || []);
     } catch (error) {
       console.error('Error cargando leads:', error);
+      setError('No se han podido cargar los leads.');
+      setLeads([]);
     } finally {
       setLoading(false);
     }
@@ -65,15 +87,22 @@ export default function PageSalesOS() {
     try {
       const resp = await fetch(`/api/interno/sales/leads/${leadId}/estado`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({ nuevo_estado: nuevoEstado }),
       });
 
       if (resp.ok) {
+        setError(null);
         cargarLeads();
+      } else {
+        // Sin esto, una tarjeta rechazada por el servidor volvía a su sitio
+        // sin decir nada y parecía un fallo del arrastre.
+        const cuerpo = await resp.json().catch(() => null) as { error?: string } | null;
+        setError(cuerpo?.error ?? 'No se ha podido mover el lead.');
       }
     } catch (error) {
       console.error('Error moviendo lead:', error);
+      setError('No se ha podido mover el lead.');
     }
   };
 
@@ -90,6 +119,12 @@ export default function PageSalesOS() {
           Nuevo Lead
         </Button>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       {/* Búsqueda */}
       <div className="flex gap-2">
