@@ -10,6 +10,7 @@ import { EtapasLanzamiento } from './etapas-lanzamiento';
 import { AjustesAperturaForm } from './ajustes-apertura';
 import { OnboardingApertura } from './onboarding-apertura';
 import { AperturaSuave, type EstadoAperturaSuave } from './apertura-suave';
+import { EconomiaApertura } from './economia-apertura';
 import type { AjustesApertura } from '@/lib/opening/ajustes';
 import { ANCLA_DECIDIR } from '@/lib/estado-estudio-cliente';
 import { ANCLA_LISTO, type Comprobacion } from '@/lib/opening/listo';
@@ -143,7 +144,7 @@ function ListaParaAbrir({ listo, onComprobar, comprobando }: { listo: Comprobaci
   );
 }
 
-export function AperturaEstudio({ onVisible }: { onVisible?: (visible: boolean) => void } = {}) {
+export function AperturaEstudio({ onVisible, verEconomia = false }: { onVisible?: (visible: boolean) => void; verEconomia?: boolean } = {}) {
   const [datos, setDatos] = useState<RespuestaApertura | null>(null);
   const [comprobando, setComprobando] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -352,6 +353,8 @@ export function AperturaEstudio({ onVisible }: { onVisible?: (visible: boolean) 
           )}
         </div>
       ))}
+
+      {!mostrarOnboarding && verEconomia && <EconomiaApertura />}
 
       {!mostrarOnboarding && <EtapasLanzamiento onCambio={() => void pedirApertura().then(d => { if (d) setDatos(d); })} />}
     </div>
