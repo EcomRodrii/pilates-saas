@@ -11,7 +11,6 @@ import { elegibleParaAutonomia } from '@/lib/decision/autonomia';
 import { partirMasSituaciones } from '@/lib/decision/prioridad';
 import { nivelSituacion, NIVEL_SITUACION_INFO, type NivelSituacion } from '@/components/decision/severidad';
 import type { Recomendacion } from '@/lib/decision/tipos';
-import { ExecutiveSummary } from '@/components/decision/executive-summary';
 import { RecommendationCard } from '@/components/decision/recommendation-card';
 import { WhileYouSlept } from '@/components/decision/while-you-slept';
 import { SpecialistCard } from '@/components/decision/specialist-card';
@@ -94,6 +93,18 @@ export default function CentroDeControlPage() {
   // verdad, no lo que se pinta como tarjeta en esta pantalla.
   const totalPendiente = data ? data.prioridades.length + data.masSituaciones.length : 0;
   const anclaPendiente = enSeguimiento.length > 0 ? 'seguimiento' : 'recomendaciones';
+
+  // Reorganización §2 (PR2): sustituye a ExecutiveSummary, que sacaba
+  // "tiempo estimado"/"impacto potencial" de `resumen` — un snapshot de
+  // cuando corrió el cron. Recalculado aquí con los MISMOS arrays que se
+  // pintan como tarjetas, para que nunca diverja de lo que se ve (bug
+  // "2 vs 11" ya documentado). NO incluye `enSeguimiento`: eso ya tiene su
+  // propia sección de Seguimiento, fuera de este bloque.
+  const itemsVivos = [...prioridadesParaTarjetas, ...situacionesNuevas];
+  const tiempoEstimadoVivoMin = itemsVivos.reduce((acc, r) => acc + r.tiempoEstimadoMin, 0);
+  const impactoEurMesVivo = itemsVivos.reduce(
+    (acc, r) => acc + (r.impacto?.unidad === 'EUR_MES' ? r.impacto.valor : 0), 0,
+  );
 
   function handleVerPendiente() {
     setDetalleAbierto(true);
@@ -242,6 +253,7 @@ export default function CentroDeControlPage() {
         // la prueba —indistinguible de que la pantalla no haga nada— se enseña
         // un ejemplo rotulado de qué aparecerá aquí cuando lo haya.
         sinHistorial={socios.filter(s => s.activo).length < 5}
+        bandejaHoy={<BandejaHoy />}
       />
 
       {/* 2. Seguimiento — situaciones ya detectadas, sin cambios desde la última revisión */}
@@ -288,20 +300,25 @@ export default function CentroDeControlPage() {
         )}
       </div>
 
-      {/* 4. Para hoy */}
-      <BandejaHoy />
-
-      {/* 5. Recomendaciones de hoy */}
+      {/* 4. Recomendaciones de hoy — "Para hoy" (BandejaHoy) ya no vive aquí:
+          se pinta fusionada dentro de VeredictoDelDia (§2, arriba). */}
       <div className="flex flex-col gap-6">
-        <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Recomendaciones de hoy
-        </h2>
+        <div>
+          <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Recomendaciones de hoy
+          </h2>
+          {itemsVivos.length > 0 && (
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              Tiempo estimado · <strong className="font-semibold text-foreground">{tiempoEstimadoVivoMin} min</strong>
+              {impactoEurMesVivo > 0 && (
+                <> · Impacto potencial estimado · <strong className="font-semibold text-foreground">+{impactoEurMesVivo}€/mes</strong></>
+              )}
+            </p>
+          )}
+        </div>
         {modoAprendizaje ? (
           <EmptyState />
         ) : (
-          <>
-            <ExecutiveSummary resumen={data.resumen!} />
-
             <div id="recomendaciones" className="flex flex-col gap-6">
               {/* 6. Prioridades */}
               {prioridadesParaTarjetas.length > 0 && (
@@ -360,7 +377,6 @@ export default function CentroDeControlPage() {
                 </div>
               )}
             </div>
-          </>
         )}
       </div>
 
