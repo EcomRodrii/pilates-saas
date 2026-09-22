@@ -27,6 +27,7 @@ import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { ALGORITHM_VERSION } from '@/lib/decision/version';
 import { elegirMensajeDelDia, type ImpactoRealCalibracion } from '@/lib/decision/umbral';
+import { aperturaAvisadaHoy } from '@/lib/opening/umbral-apertura';
 import { emitirDecisionMensajeDia } from '@/lib/notifications/emit';
 import {
   dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
@@ -275,7 +276,10 @@ export const analizarEstudio = inngest.createFunction(
       );
 
       const veredicto = elegirMensajeDelDia(
-        resultado.candidatasFinales, snapshot.contexto, historialReciente, dedupeKeysAutoResueltas, tasasPorTipo, impactoRealPorTipo
+        resultado.candidatasFinales, snapshot.contexto, historialReciente, dedupeKeysAutoResueltas, tasasPorTipo, impactoRealPorTipo,
+        // Si la lectura falla, habla el Umbral: mejor un push de más que dejar
+        // sin mensaje el cierre entero del análisis.
+        { aperturaAvisadaHoy: await aperturaAvisadaHoy(requireSupabaseAdmin(), studioId, now).catch(() => false) },
       );
 
       if (veredicto.tipo === 'SILENCIO') {

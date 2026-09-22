@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CandidataPriorizada } from './prioridad.ts';
 import type { ContextoEstudio } from './tipos.ts';
-import { elegirMensajeDelDia, impactoCompensa, esNovedad, calibrarUmbral, type TasaSeguimiento, type ImpactoRealCalibracion } from './umbral.ts';
+import { elegirMensajeDelDia, MOTIVO_SILENCIO_APERTURA, impactoCompensa, esNovedad, calibrarUmbral, type TasaSeguimiento, type ImpactoRealCalibracion } from './umbral.ts';
 import type { TipoRecomendacion } from './tipos.ts';
 
 function candidata(p: Partial<CandidataPriorizada> = {}): CandidataPriorizada {
@@ -183,4 +183,11 @@ test('elegirMensajeDelDia: con tasa de seguimiento baja, el impacto ya no compen
   const tasas = new Map<TipoRecomendacion, TasaSeguimiento>([['ABRIR_SESION', { total: 8, seguidas: 1 }]]);
   const conCalibrar = elegirMensajeDelDia([c], contextoEstudioPequeno, [], new Set(), tasas);
   assert.equal(conCalibrar.tipo, 'SILENCIO');
+});
+
+test('elegirMensajeDelDia: si la apertura ya avisó hoy, calla aunque haya un ganador claro', () => {
+  const c = candidata({ impacto: { valor: 79, unidad: 'EUR_MES', formula: 'x' } });
+  assert.equal(elegirMensajeDelDia([c], contextoEstudioPequeno, []).tipo, 'MENSAJE');
+  const r = elegirMensajeDelDia([c], contextoEstudioPequeno, [], new Set(), new Map(), new Map(), { aperturaAvisadaHoy: true });
+  assert.deepEqual(r, { tipo: 'SILENCIO', motivo: MOTIVO_SILENCIO_APERTURA });
 });
