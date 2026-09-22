@@ -22,7 +22,6 @@ const LOS_SIETE = ['RETENCION', 'INGRESOS', 'AGENDA', 'CAPTACION', 'MARKETING', 
 
 // Forma real de ResumenAPI (components/decision/use-decisiones.ts:37).
 const RESUMEN = {
-  estadoGeneral: 'EXCELENTE' as const,
   saludo: 'Buenos días',
   mientrasDormias: [],
   nDecisiones: 0,

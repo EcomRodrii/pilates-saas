@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const now = new Date();
   const fechaHoy = now.toISOString().slice(0, 10);
-  const [resumen, pendientes, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes, nAutonomasHoy] = await Promise.all([
+  const [resumenCompleto, pendientes, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes, nAutonomasHoy] = await Promise.all([
     dbGetResumenDiarioReciente(sesion.studioId, now),
     dbListPendientes(sesion.studioId),
     requireSupabaseAdmin().from('actividad_reciente').select('*').eq('studio_id', sesion.studioId).order('creado_en', { ascending: false }).limit(10),
@@ -37,6 +37,15 @@ export async function GET(req: NextRequest) {
     dbListOutcomesRecientes(sesion.studioId, 3),
     dbCountAutonomasHoy(sesion.studioId, now),
   ]);
+
+  // `estadoGeneral` es un dato interno del director (director.ts, para
+  // redactar el saludo) sin ningún consumidor en el cliente desde que
+  // ExecutiveSummary quitó su badge — auditoría de arquitectura, 22-sep-2026.
+  // Se recorta aquí para que el contrato del cliente no siga prometiendo un
+  // campo que nadie pinta.
+  const resumen = resumenCompleto
+    ? (({ estadoGeneral: _estadoGeneral, ...resto }) => resto)(resumenCompleto)
+    : null;
 
   // El Umbral (lib/decision/umbral.ts): el veredicto del día es el elemento
   // principal de la pantalla — construido a partir de `decision_mensajes_dia`,

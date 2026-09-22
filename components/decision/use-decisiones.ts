@@ -35,7 +35,6 @@ export interface RecomendacionAPI {
 }
 
 export interface ResumenAPI {
-  estadoGeneral: 'EXCELENTE' | 'ATENCION' | 'ACCION_INMEDIATA';
   saludo: string;
   mientrasDormias: { icono: string; texto: string; verificadoPor: string }[];
   nDecisiones: number;
