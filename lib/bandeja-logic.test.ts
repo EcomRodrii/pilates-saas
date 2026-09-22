@@ -155,8 +155,7 @@ test('la clase del slot se movió de hora: entra con la causa concreta y enlaza 
   const p = plaza({ id: 'p1', socioId: 's1', creadaEn: '2026-07-01T00:00:00Z' });
   const b = construirBandeja(entrada({ plazasFijas: [p], sesiones: juevesSemanales('10:00', 6) })); // ahora a las 12:00 locales
   assert.equal(b.length, 1, 'una sola entrada: no se duplica con el aviso genérico');
-  assert.equal(b[0].titulo, 'Plaza fija sin clase en el horario');
-  assert.match(b[0].detalle, /Ana García/);
+  assert.equal(b[0].titulo, 'Ana García: plaza fija sin clase en el horario');
   assert.match(b[0].detalle, /jueves a las 10:00 en Reformer/);
   assert.equal(b[0].href, '/clientas/s1');
   assert.equal(b[0].cta, 'Editar plaza fija');
@@ -166,7 +165,7 @@ test('con clase en el slot pero sin reserva materializada sigue saliendo el avis
   const p = plaza({ id: 'p1', socioId: 's1', creadaEn: '2026-07-01T00:00:00Z' });
   const b = construirBandeja(entrada({ plazasFijas: [p], sesiones: juevesSemanales('08:00', 6) })); // 10:00 locales
   assert.equal(b.length, 1);
-  assert.equal(b[0].titulo, 'Plaza fija sin clase');
+  assert.equal(b[0].titulo, 'Ana García: plaza fija sin clase');
 });
 
 test('una plaza en pausa no sale como «sin clase»: no tiene reservas a propósito', () => {
@@ -185,7 +184,7 @@ test('la causa concreta va por encima del aviso genérico, y cada plaza sale una
     fin: new Date(Date.parse(s.fin) + 86_400_000).toISOString(),
   }));
   const b = construirBandeja(entrada({ plazasFijas: [huerfana, sinAforo], sesiones: viernes }));
-  assert.deepEqual(b.map(i => i.titulo), ['Plaza fija sin clase en el horario', 'Plaza fija sin clase']);
+  assert.deepEqual(b.map(i => i.titulo), ['Ana García: plaza fija sin clase en el horario', 'Ana García: plaza fija sin clase']);
   assert.deepEqual(b.map(i => i.id), ['plaza-sin-clase-p1', 'plaza-p2']);
 });
 
@@ -193,7 +192,7 @@ test('si el horario programado no llega a una semana no se afirma que la plaza e
   const p = plaza({ id: 'p1', socioId: 's1', creadaEn: '2026-07-01T00:00:00Z' });
   const b = construirBandeja(entrada({ plazasFijas: [p], sesiones: juevesSemanales('10:00', 1) }));
   assert.equal(b.length, 1);
-  assert.equal(b[0].titulo, 'Plaza fija sin clase'); // el genérico, no la causa concreta
+  assert.equal(b[0].titulo, 'Ana García: plaza fija sin clase'); // el genérico, no la causa concreta
 });
 
 // ── Tope de 5 + orden ─────────────────────────────────────────────────────────
