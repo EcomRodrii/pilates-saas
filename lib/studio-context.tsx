@@ -444,7 +444,7 @@ interface StudioContextValue {
   updateSesion: (id: string, changes: Partial<Sesion>) => Promise<ResultadoEscritura>;
   deleteSesion: (id: string) => Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }>;
   // Series de clases recurrentes (I-3)
-  addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
+  addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura & { serieId?: string }>;
   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
   cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }>;
   /** Pasa las clases de una instructora a otra entre dos fechas. Devuelve los
@@ -3297,7 +3297,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Crea una serie: todas las sesiones comparten un serie_id y se insertan en UNA
   // sola llamada (batch), en vez de N inserts secuenciales sin rollback.
-  async function addSesionesSerie(fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]): Promise<ResultadoEscritura> {
+  async function addSesionesSerie(fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]): Promise<ResultadoEscritura & { serieId?: string }> {
     if (fields.length === 0) return { ok: true };
     const serieId = `serie-${uid()}`;
     const studioId = getCurrentStudioId();
@@ -3305,7 +3305,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbInsertSesionesBatch(nuevas);
     if (!res.ok) return res;
     setSesiones(prev => [...prev, ...nuevas]);
-    return res;
+    // El serieId se genera aquí, no en el servidor: se devuelve para que quien
+    // llama pueda ofrecer «convertir esto en clase fija» sin adivinarlo.
+    return { ...res, serieId };
   }
 
   // Sesiones de la misma serie que una dada, desde su inicio en adelante ("esta y

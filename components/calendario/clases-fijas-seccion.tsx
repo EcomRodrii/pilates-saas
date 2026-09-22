@@ -29,6 +29,13 @@ export interface ClasesFijasSeccionProps {
   nombreTipo: (id: string) => string | undefined;
   nombreSala: (id: string) => string | undefined;
   puedeGestionar: boolean;
+  /**
+   * Recién creada una clase recurrente, el atajo «Crear clase fija con esto»
+   * (calendario/page.tsx) llega hasta aquí para abrir el diálogo de creación
+   * con esas franjas ya marcadas — sin repetir a mano lo que se acaba de elegir.
+   */
+  preseleccion?: { serieId: string; diasSemana: number[] } | null;
+  onPreseleccionConsumida?: () => void;
 }
 
 const claveDe = (serieId: string, diaSemana: number) => `${serieId}|${diaSemana}`;
@@ -66,6 +73,18 @@ export function ClasesFijasSeccion(p: ClasesFijasSeccionProps) {
     const t = tarjetaDe(serieId, dia);
     return t ? `${textoFranja(dia, t.hora)} · ${p.nombreTipo(t.tipoClaseId) ?? 'Clase'}` : 'Clase que ya no está en el horario';
   };
+
+  // Abre el diálogo de crear con esas franjas ya marcadas — comparando durante
+  // el render (mismo patrón que `abiertoPrevio` en `ModalClasesRecurrentes`),
+  // no con un efecto: así se reintenta solo en cada render mientras el horario
+  // recién invalidado por crear la serie no haya devuelto aún esas franjas, sin
+  // el aviso de lint de mutar estado en un efecto ni un render de más.
+  const [preseleccionAbierta, setPreseleccionAbierta] = useState<ClasesFijasSeccionProps['preseleccion']>(undefined);
+  if (p.preseleccion && p.preseleccion !== preseleccionAbierta && p.preseleccion.diasSemana.some(d => tarjetaDe(p.preseleccion!.serieId, d))) {
+    setPreseleccionAbierta(p.preseleccion);
+    setDialogo({ oferta: null });
+    p.onPreseleccionConsumida?.();
+  }
 
   async function cambiarActiva(o: OfertaStaff) {
     if (cambiando) return;
@@ -177,6 +196,7 @@ export function ClasesFijasSeccion(p: ClasesFijasSeccionProps) {
           tarjetas={tarjetas}
           nombreTipo={p.nombreTipo}
           nombreSala={p.nombreSala}
+          preseleccion={dialogo.oferta ? undefined : (p.preseleccion ?? undefined)}
           onClose={() => setDialogo(null)}
           onGuardada={async () => { setDialogo(null); await cargar(); }}
         />
@@ -185,11 +205,13 @@ export function ClasesFijasSeccion(p: ClasesFijasSeccionProps) {
   );
 }
 
-function DialogoClaseFija({ oferta, tarjetas, nombreTipo, nombreSala, onClose, onGuardada }: {
+function DialogoClaseFija({ oferta, tarjetas, nombreTipo, nombreSala, preseleccion, onClose, onGuardada }: {
   oferta: OfertaStaff | null;
   tarjetas: TarjetaHorario[];
   nombreTipo: (id: string) => string | undefined;
   nombreSala: (id: string) => string | undefined;
+  /** Solo se usa al crear (oferta null): las franjas de la serie recién creada, ya marcadas. */
+  preseleccion?: { serieId: string; diasSemana: number[] };
   onClose: () => void;
   onGuardada: () => void | Promise<void>;
 }) {
@@ -198,9 +220,11 @@ function DialogoClaseFija({ oferta, tarjetas, nombreTipo, nombreSala, onClose, o
   const [duraciones, setDuraciones] = useState<number[]>(oferta?.duracionesMeses ?? DURACIONES_POR_DEFECTO);
   const [plazas, setPlazas] = useState(oferta?.plazas != null ? String(oferta.plazas) : '');
   const [aprobacionAutomatica, setAprobacionAutomatica] = useState(oferta?.aprobacionAutomatica ?? false);
-  const [elegidas, setElegidas] = useState<Set<string>>(
-    () => new Set((oferta?.franjas ?? []).map(f => claveDe(f.serieId, f.diaSemana))),
-  );
+  const [elegidas, setElegidas] = useState<Set<string>>(() => new Set(
+    oferta ? oferta.franjas.map(f => claveDe(f.serieId, f.diaSemana))
+      : preseleccion ? preseleccion.diasSemana.map(d => claveDe(preseleccion.serieId, d))
+        : [],
+  ));
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
 

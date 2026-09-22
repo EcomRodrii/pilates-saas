@@ -44,6 +44,9 @@ export interface VistaHorarioProps {
   alumnasPidenPlaza?: boolean;
   /** A dónde lleva «Dejar que la pidan ellas»; `null` si quien mira no puede abrir ese ajuste. */
   hrefAjustePeticiones?: string | null;
+  /** Viene del atajo «Crear clase fija con esto» tras crear una serie recurrente. */
+  preseleccionClaseFija?: { serieId: string; diasSemana: number[] } | null;
+  onPreseleccionClaseFijaConsumida?: () => void;
 }
 
 function textoFin(t: TarjetaHorario, hoy: string): { texto: string; aviso: boolean } {
@@ -182,6 +185,8 @@ export function VistaHorario(p: VistaHorarioProps) {
         nombreTipo={p.nombreTipo}
         nombreSala={p.nombreSala}
         puedeGestionar={p.puedeGestionarClasesFijas === true}
+        preseleccion={p.preseleccionClaseFija}
+        onPreseleccionConsumida={p.onPreseleccionClaseFijaConsumida}
       />
       {dias.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
