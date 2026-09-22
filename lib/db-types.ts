@@ -3161,6 +3161,8 @@ export interface RowOpeningConfig {
   semanas_bono_sin_caducidad: number;
   created_at: string;
   updated_at: string;
+  // migr 20260922001832.
+  avisar_abrimos: boolean | null;
 }
 
 export interface RowLaunchStages {
@@ -8849,6 +8851,7 @@ export type OpeningConfigInsert = {
   semanas_bono_sin_caducidad?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
+  avisar_abrimos?: boolean | null | null;
 }
 
 export type OpeningConfigUpdate = {
@@ -8862,6 +8865,7 @@ export type OpeningConfigUpdate = {
   semanas_bono_sin_caducidad?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
+  avisar_abrimos?: boolean | null | null;
 }
 
 export type LaunchStagesInsert = {
