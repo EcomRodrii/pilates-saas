@@ -622,6 +622,12 @@ export default function MarketingPage() {
   const tasaApertura = enviadas.length > 0
     ? Math.round(enviadas.reduce((acc, c) => acc + (c.enviados > 0 ? (c.abiertos / c.enviados) * 100 : 0), 0) / enviadas.length)
     : 0
+  // Auditoría 2026-09-22 (AU-8): nada escribe `campanas.abiertos`, así que este
+  // promedio es un 0 % fabricado, no una medición. Mientras no haya webhook de
+  // Resend (`email.opened`) que lo alimente, el KPI solo se enseña si hay algo
+  // que enseñar; un cero inventado en la cabecera del panel es peor que un dato
+  // que no está, porque se lee como «tus campañas no las abre nadie».
+  const hayDatosApertura = enviadas.some(c => c.abiertos > 0)
 
   // Automatizaciones stats
   const autoActivas = automatizaciones.filter(a => a.activa).length
@@ -842,7 +848,9 @@ export default function MarketingPage() {
             { label: 'Campañas activas', value: String(campanasActivas), sub: `${enviadas.length} enviadas` },
             { label: 'Conversión a clienta', value: `${Math.round(tasaConversion)}%`, sub: `${activas} de ${totalConLeadStage} leads` },
             { label: 'Automatizaciones activas', value: String(autoActivas), sub: `${totalEjecuciones} ejecuciones` },
-            { label: 'Apertura media (envíos)', value: `${tasaApertura}%`, sub: `${enviadas.length} campañas` },
+            ...(hayDatosApertura
+              ? [{ label: 'Apertura media (envíos)', value: `${tasaApertura}%`, sub: `${enviadas.length} campañas` }]
+              : []),
             { label: 'Usos de códigos', value: String(totalUsos), sub: `${codigosActivos} activos` },
           ].map(k => (
             <div key={k.label} className="bg-card border border-border rounded-2xl p-4">
@@ -878,7 +886,7 @@ export default function MarketingPage() {
               {[
                 { label: 'Total campañas', value: campanas.length },
                 { label: 'Enviadas', value: enviadas.length },
-                { label: 'Tasa apertura media', value: `${tasaApertura}%` },
+                ...(hayDatosApertura ? [{ label: 'Tasa apertura media', value: `${tasaApertura}%` }] : []),
               ].map(s => (
                 <div key={s.label} className="bg-card border border-border rounded-xl px-4 py-3 min-w-[110px]">
                   <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
@@ -946,8 +954,18 @@ export default function MarketingPage() {
                           )}
                         </div>
                       )}
+                      {/* Auditoría 2026-09-22 (AU-8): «Abiertos» y «Clics» se
+                          pintaban SIEMPRE, y nada en todo el repo escribe
+                          `campanas.abiertos` ni `campanas.clics` — no hay
+                          webhook de Resend de `email.opened`/`email.clicked`.
+                          La propietaria leía «Abiertos: 0 (0%)» como un dato de
+                          negocio y concluía que sus campañas no funcionan,
+                          cuando lo que pasa es que nadie mide eso todavía. Se
+                          muestran solo si alguna vez llegan a tener valor. */}
                       <p className="text-xs text-muted-foreground">
-                        Enviados: {c.enviados} · Abiertos: {c.abiertos}{c.enviados > 0 ? ` (${Math.round((c.abiertos / c.enviados) * 100)}%)` : ''} · Clics: {c.clics}{c.enviados > 0 ? ` (${Math.round((c.clics / c.enviados) * 100)}%)` : ''}
+                        Enviados: {c.enviados}
+                        {c.abiertos > 0 && ` · Abiertos: ${c.abiertos}${c.enviados > 0 ? ` (${Math.round((c.abiertos / c.enviados) * 100)}%)` : ''}`}
+                        {c.clics > 0 && ` · Clics: ${c.clics}${c.enviados > 0 ? ` (${Math.round((c.clics / c.enviados) * 100)}%)` : ''}`}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">

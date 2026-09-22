@@ -170,6 +170,25 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
         )
       : (c.notaInterna ?? c.titulo);
     log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle, mensajeCliente: null };
+  } else if (c.accion !== 'ENVIAR_EMAIL' && c.accion !== 'ENVIAR_WHATSAPP') {
+    // ⚠️ Auditoría 2026-09-22 (AU-6 / E-11): esta cascada terminaba en un
+    // `} else {` que ES el envío de email. Cualquier acción que no case con
+    // ninguna rama anterior acaba mandándole un correo a la clienta — y
+    // `AccionAutomatica` declara tres que ningún motor produce hoy
+    // (`CREAR_NOTA`, `OFRECER_CLASE_GRATIS`, `ENVIAR_EJERCICIOS`) que la UI de
+    // automatizaciones sí pinta con etiqueta e icono.
+    //
+    // Peor y más cercano: `OFRECER_DESCUENTO` y `PROPONER_PLAN` solo entran en
+    // su rama `&& c.contextoIA`. Hoy el motor siempre lo rellena, pero si
+    // dejara de hacerlo, la nota INTERNA («¿Le enviamos una oferta del 15 %?»)
+    // caería hasta aquí y se la llevaría la clienta. Es exactamente el bug de
+    // `NOTIFICAR_ADMIN` que documenta la rama de arriba, a un `if` de repetirse.
+    //
+    // Fallar explícito y visible en el log, nunca enviar «por defecto».
+    log = {
+      ...base, resultado: 'FALLIDO' as ResultadoLog, mensajeCliente: null,
+      detalle: `Acción sin camino de envío: ${c.accion}. No se ha enviado nada.`,
+    };
   } else if (!c.socio) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Acción sin socia asociada', mensajeCliente: null };
   } else if (dry) {
@@ -539,9 +558,29 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     // (computeAutomationCandidatos, justo debajo) también manda ENVIAR_EMAIL
     // comerciales (AUSENCIA_DIAS/NUEVA_SOCIA) y necesita el mismo guard.
     const filasConsentimiento = await step.run('fetch-consentimientos', async () => {
-      const { data: rows } = await requireSupabaseAdmin()
-        .from('socios').select('id, consentimiento_marketing_texto').eq('studio_id', studioId);
-      return (rows ?? []) as { id: string; consentimiento_marketing_texto: string | null }[];
+      // ⚠️ Auditoría 2026-09-22 (AU-2): igual que en campanas.ts, esto iba sin
+      // paginar y PostgREST corta en 1.000 filas EN SILENCIO. Por encima de esa
+      // cifra las socias que no entren en el lote quedan sin consentimiento a
+      // ojos del guard y el motor deja de emitirles candidatos comerciales, a
+      // diario y sin dejar rastro. Se pagina a mano (no con `fetchAllRows`:
+      // vive en el módulo del cliente de navegador) y DENTRO del step que ya
+      // existía, para no añadir pasos de Inngest.
+      const admin = requireSupabaseAdmin();
+      const filas: { id: string; consentimiento_marketing_texto: string | null }[] = [];
+      const TAM = 1000;
+      for (let desde = 0; ; desde += TAM) {
+        const { data: rows, error } = await admin.from('socios')
+          .select('id, consentimiento_marketing_texto').eq('studio_id', studioId)
+          .order('id').range(desde, desde + TAM - 1);
+        // El error NO se traga: un `rows` null daría un lote vacío, saldría del
+        // bucle y el guard de consentimiento dejaría fuera a todas las socias
+        // restantes sin dejar rastro. Lanzar deja que Inngest reintente el step.
+        if (error) throw new Error(`consentimientos: ${error.message}`);
+        const lote = (rows ?? []) as { id: string; consentimiento_marketing_texto: string | null }[];
+        filas.push(...lote);
+        if (lote.length < TAM) break;
+      }
+      return filas;
     });
     const consentimientosMarketing = new Map<string, string>();
     for (const row of filasConsentimiento) {

@@ -140,6 +140,24 @@ export async function confirmarCobroRecibo(
       });
     }
     if (paymentIntentId) {
+      // ⚠️ Auditoría 2026-09-22 (M-1): esta anotación estaba SOLO en el camino
+      // de éxito, más abajo. Es decir: el libro de auditoría de cobros se
+      // escribía exactamente en la rama en la que NO hay nada que detectar, y
+      // nunca en esta — que es, palabra por palabra según el comentario de
+      // arriba, «un SEGUNDO cobro real del mismo recibo». Con la PK sobre
+      // `payment_intent_id` solo cabe una fila por cargo, así que un detector
+      // que agrupe por recibo y cuente PaymentIntents distintos no podía dar
+      // nunca más de uno: el libro era estructuralmente incapaz de contestar a
+      // «me habéis cobrado dos veces».
+      //
+      // Aquí el cargo existe en Stripe (el llamador solo entra con un
+      // PaymentIntent liquidado) pero el recibo NO se ha marcado: el desenlace
+      // honesto es 'pendiente' — dinero cobrado, recibo sin cerrar. Un 23505
+      // (misma reentrega del mismo evento) se tolera dentro, como siempre.
+      await registrarIntentoCobro(admin, {
+        paymentIntentId, studioId, reciboId, origen: 'checkout', desenlace: 'pendiente',
+      });
+
       const anterior = (previo?.stripe_payment_intent_id as string | null) ?? null;
       if (anterior && anterior !== paymentIntentId) {
         Sentry.captureMessage('[confirmarCobroRecibo] SEGUNDO cobro del mismo recibo: hay que devolver uno', {
@@ -343,7 +361,14 @@ export async function registrarIntentoCobro(
     return;
   }
 
-  const { error } = await admin.from('cobros_intentos').insert({
+  // ⚠️ Auditoría 2026-09-22: era un `insert` plano que se tragaba el 23505 como
+  // «idempotencia funcionando». Desde que el mismo PaymentIntent puede anotarse
+  // dos veces (primero 'pendiente' si el recibo no era cobrable en ese instante,
+  // luego 'cobrado' cuando sí lo marca), tragarse el choque dejaba el libro
+  // diciendo 'pendiente' de un cargo que SÍ se cobró — justo el dato con el que
+  // se contesta a «me habéis cobrado dos veces». La tabla ya se diseñó para
+  // esto: tiene `actualizado_en` y policy de UPDATE para `service_role`.
+  const { error } = await admin.from('cobros_intentos').upsert({
     payment_intent_id: paymentIntentId,
     studio_id: studioId,
     recibo_id: reciboId,
@@ -357,7 +382,7 @@ export async function registrarIntentoCobro(
     importe_centimos: Math.round(Number(recibo.importe) * 100),
     origen,
     desenlace,
-  });
+  }, { onConflict: 'payment_intent_id' });
 
   // ⚠️ El fallo NO se traga (auditoría 2026-09-19).
   //
@@ -369,9 +394,10 @@ export async function registrarIntentoCobro(
   // siempre y nadie se enteró: el libro que contesta a «me habéis cobrado
   // dos veces» llevaba días vacío aparentando funcionar.
   //
-  // El 23505 sí es benigno y esperado: el PaymentIntent es la clave primaria,
-  // de modo que un reintento del webhook con el mismo intent choca a
-  // propósito. Es la idempotencia funcionando, no un fallo.
+  // El 23505 sigue tolerándose por si acaso (una carrera con otro escritor que
+  // no pase por el `onConflict`), pero desde que esto es un upsert ya no es el
+  // camino normal: un reintento del webhook con el mismo intent ACTUALIZA la
+  // fila en vez de chocar.
   if (error && error.code !== '23505') {
     Sentry.captureMessage('[registrarIntentoCobro] no se pudo anotar el intento de cobro', {
       level: 'error', tags: { area: 'cobros', tipo: 'auditoria-cobros' },

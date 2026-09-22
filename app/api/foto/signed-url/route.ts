@@ -36,10 +36,15 @@ export async function GET(req: NextRequest) {
   // Verificar permisos según el tipo de path
   let autorizado = false;
 
-  if (path === user.userId) {
-    // Socia leyendo su propia foto
-    autorizado = true;
-  } else if (path.startsWith('instructor-')) {
+  // ⚠️ Auditoría 2026-09-22: aquí había un `if (path === user.userId)` con el
+  // comentario «socia leyendo su propia foto». El path de una socia es su
+  // `socios.id` (la ficha), no su `auth.users.id`: son dos espacios de id
+  // distintos y la comparación no se cumplía nunca. Una comprobación que
+  // APARENTA autorizar y no autoriza es la misma forma exacta del IDOR que se
+  // acaba de cerrar tres líneas más abajo, así que se retira en vez de dejarla
+  // de adorno. El caso lo resuelve, bien, la rama `else` con
+  // `socioAutenticado(user.userId, studioId)`.
+  if (path.startsWith('instructor-')) {
     // Instructora leyendo su propia foto, o staff del MISMO estudio.
     //
     // ⚠️ Auditoría 2026-09-21: aquí se comparaba `instructor.studio_id ===

@@ -118,8 +118,18 @@ export function ContenidoPortalList({
         <Plus size={14} /> Añadir banner
       </button>
 
+      {/* ⚠️ Auditoría 2026-09-22 (F-3): este texto decía «avisos de texto para
+          tus clientas (horario especial, un taller, un cierre puntual)». Ni el
+          tablón (`novedadesEstudio`) ni el mensaje destacado (`contenidoPortal`)
+          los pinta ninguna pantalla: el `Payload` de `lib/student/catalogo.ts`
+          ni siquiera declara esos campos, y `app/portal/[slug]/page.tsx:446-451`
+          documenta que «Del estudio» se retiró por decisión del fundador. Los
+          banners SÍ se ven (vía `getDescubre`), estos dos no. Un «cerramos el
+          24» escrito aquí no lo lee nadie, y eso tiene consecuencias reales, así
+          que el copy deja de prometerlo mientras no haya render. */}
       <p className="text-[12.5px] text-muted-foreground pt-2 border-t border-border">
-        Tablón — avisos de texto para tus clientas (horario especial, un taller, un cierre puntual).
+        Tablón — notas internas del estudio. <strong className="font-semibold">Ahora mismo tus clientas no las ven</strong>:
+        para un aviso que sí les llegue, usa un banner o una campaña.
       </p>
       <div className="space-y-1.5">
         {hook.novedadesEstudio.map((n) => (

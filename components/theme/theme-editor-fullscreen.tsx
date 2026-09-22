@@ -363,8 +363,30 @@ export function ThemeEditorFullscreen() {
         setAvisoPublicar({ tipo: 'error', texto: rTema.errores.map((e) => e.mensaje).join(' ') });
         return;
       }
-      await Promise.all(PANTALLA_IDS.map((p) => publicarBloquesApi(p)));
+      // ⚠️ Auditoría 2026-09-22 (F-5/E-21): esto era un `Promise.all`, que
+      // rechaza al PRIMER fallo — pero las otras tres peticiones ya habían
+      // salido y podían haber tenido éxito, y el tema ya está publicado desde
+      // la línea de arriba. El `catch` de abajo pintaba entonces un error
+      // genérico con un subconjunto ARBITRARIO de pantallas vivas en
+      // producción, y la propietaria no tenía forma de saber cuál. Con
+      // `allSettled` se publica todo lo publicable y se dice qué falló.
+      const resultados = await Promise.allSettled(PANTALLA_IDS.map((p) => publicarBloquesApi(p)));
+      const fallidas = PANTALLA_IDS.filter((_, i) => resultados[i].status === 'rejected');
       window.dispatchEvent(new CustomEvent('tentare-theme-changed'));
+      if (fallidas.length > 0) {
+        // El motivo real importa: `publicarBloquesApi` lanza sesión caducada en
+        // un 401 y falta de permiso en un 403, y decirle «vuelve a pulsar» a
+        // quien tiene la sesión caducada la deja pulsando en bucle.
+        const primerMotivo = resultados.find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined;
+        const detalle = primerMotivo ? mensajeSeguro((primerMotivo.reason as Error)?.message, '') : '';
+        setAvisoPublicar({
+          tipo: 'error',
+          texto: `Se ha publicado el tema, pero no ${fallidas.length === 1 ? 'la pantalla' : 'las pantallas'} `
+            + `${fallidas.map((p) => PANTALLA_LABEL[p]).join(', ')}. `
+            + (detalle || 'Vuelve a pulsar Publicar.'),
+        });
+        return;
+      }
       setAvisoPublicar({ tipo: 'ok', texto: '¡Publicado! Ya lo ven tus clientas.' });
       setDialogoAbierto(false);
       fetchThemePublicado().then(setTemaPublicado).catch(() => {});

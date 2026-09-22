@@ -15,7 +15,13 @@ import type { ModoTokens } from '@/lib/portal-modo';
 import { useAuthWidget, urlRetornoWidgetAuth, type AceptacionWidget } from '@/lib/widget/usar-auth-widget';
 import { useCaptchaWidget } from '@/lib/widget/turnstile-shadow';
 import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
-import { telefonoValido } from '@/lib/csv';
+// Auditoría 2026-09-22 (F-6/E-22): aquí la divergencia no descartaba el dato,
+// BLOQUEABA el alta. `@/lib/csv` exige 9 dígitos españoles (es el validador del
+// importador de CSV), así que una alumna con móvil extranjero no podía
+// registrarse en el widget que el estudio paga por tener en su web — y el
+// estudio no se enteraba de que había existido. `lib/reservar/formato.ts` es la
+// fuente única para un teléfono tecleado por una persona.
+import { telefonoValido } from '@/lib/reservar/formato';
 import { sans, radius } from '@/lib/reservar-publico-tokens';
 
 const ERROR_CAPTCHA = 'No hemos podido comprobar que no eres un robot. Vuelve a intentarlo; si sigue fallando, recarga la página.';

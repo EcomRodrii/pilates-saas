@@ -2,13 +2,14 @@
 // Puro y testeable — la generación real (comprobar colisión contra la BD)
 // vive en el endpoint que publica, no aquí.
 
-export function normalizarSlug(texto: string): string {
-  return texto
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+// Auditoría 2026-09-22 (F-11): este cuerpo era idéntico carácter a carácter al
+// de `lib/slug.ts`. Dos copias de la función que decide cómo se ve una URL, en
+// los dos espacios de direcciones del producto (`/[slug]` del estudio y
+// `/network/instructoras/[slug]`): el día que una divergiera, dos perfiles con
+// el mismo nombre resolverían a slugs distintos según quién los generara.
+// Se reexporta para no cambiar los imports de quien ya la usaba desde aquí.
+export { normalizarSlug } from '../slug.ts';
+import { normalizarSlug } from '../slug.ts';
 
 /** Base del slug antes de resolver colisiones: "María García" + "Barcelona" → "maria-garcia-barcelona". */
 export function slugBase(nombre: string, ciudad: string | null): string {

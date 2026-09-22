@@ -31,7 +31,64 @@ import type { RowCampanas } from '@/lib/db-types';
 // añade además el idempotencyKey de Resend (defensa en profundidad, mismo
 // principio que ya aplica el repo a webhooks de Stripe).
 export const procesarEnvioCampana = inngest.createFunction(
-  { id: 'campanas-enviar', triggers: [{ event: EVENTS.CAMPANA_ENVIAR }], retries: 3, concurrency: { limit: 5 } },
+  {
+    id: 'campanas-enviar', triggers: [{ event: EVENTS.CAMPANA_ENVIAR }], retries: 3, concurrency: { limit: 5 },
+    // ⚠️ Auditoría 2026-09-22 (AU-5 / E-12): sin esto, agotar los 3 reintentos
+    // dejaba la campaña en ENVIANDO PARA SIEMPRE. El compare-and-set de
+    // /api/marketing/campanas/[id]/enviar solo acepta BORRADOR|PROGRAMADA, no
+    // hay barrido de ENVIANDO atascadas, y la UI de marketing no pinta ni un
+    // botón para ese estado (`app/(dashboard)/marketing/page.tsx:954-1002`): la
+    // única salida era borrar la campaña, que destruye el registro.
+    //
+    // Devolverla a BORRADOR la hace reenviable. Esto NO reenvía nada por sí
+    // mismo: solo cambia un estado.
+    //
+    // ⚠️ Solo para campañas de EMAIL, y el matiz importa. En email, reenviar
+    // dentro de la ventana de idempotencia de Resend no duplica: la clave
+    // `campana-${campanaId}-${socio.id}` es estable entre ejecuciones (distinto
+    // del caso de automatizaciones, donde lleva el índice). Fuera de esa
+    // ventana —que caduca, como la de Stripe— sí duplicaría, así que quien
+    // reenvíe días después está aceptando ese riesgo conscientemente.
+    //
+    // En WHATSAPP no hay ninguna clave de idempotencia
+    // (`lib/marketing/providers/whatsapp-meta.ts`): una campaña que murió tras
+    // mandar a 200 de 500, reenviada, le llega DOS VECES a esas 200. Ahí es
+    // preferible el atasco visible al mensaje duplicado, hasta que exista la
+    // tabla de destinatarias que permita reanudar en vez de reenviar (AU-5,
+    // pieza 3). Se deja constancia en el log para que el atasco no sea mudo.
+    //
+    // La forma exacta de lo que llega aquí NO está verificada contra un run real
+    // de Inngest en este entorno — mismo límite honesto que declara
+    // `lib/inngest/fallo-terminal.ts`. Según su documentación, `event` es el
+    // `inngest/function.failed` y el original cuelga de `event.data.event`; se
+    // leen las DOS formas por si acaso, porque si esto no encuentra los ids la
+    // campaña se queda atascada exactamente igual que antes y nadie lo notaría.
+    onFailure: async ({ event }) => {
+      const e = event as { data?: { event?: { data?: unknown }; campanaId?: string; studioId?: string } };
+      const datos = (e?.data?.event?.data ?? e?.data) as { campanaId?: string; studioId?: string } | undefined;
+      if (!datos?.campanaId || !datos?.studioId) {
+        console.error('[campanas-enviar:onFailure] no se han podido leer los ids de la campaña', JSON.stringify(event));
+        return;
+      }
+      const admin = requireSupabaseAdmin();
+      const { data: fila } = await admin.from('campanas')
+        .select('tipo, estado').eq('id', datos.campanaId).eq('studio_id', datos.studioId).maybeSingle();
+      if (fila?.estado !== 'ENVIANDO') return;
+      if (fila.tipo !== 'EMAIL') {
+        console.error(
+          '[campanas-enviar:onFailure] campaña NO-email atascada en ENVIANDO, se deja así a propósito',
+          '(reenviarla duplicaría los WhatsApp ya entregados):', datos.campanaId,
+        );
+        return;
+      }
+      const { error } = await admin.from('campanas')
+        .update({ estado: 'BORRADOR' })
+        .eq('id', datos.campanaId).eq('studio_id', datos.studioId).eq('estado', 'ENVIANDO');
+      if (error) {
+        console.error('[campanas-enviar:onFailure] no se pudo desatascar la campaña', datos.campanaId, error.message);
+      }
+    },
+  },
   async ({ event, step }) => {
     const { campanaId, studioId } = event.data as { campanaId: string; studioId: string };
     // Determinismo entre reintentos (mismo patrón que automatizacionesDispatcher):
@@ -90,9 +147,31 @@ export const procesarEnvioCampana = inngest.createFunction(
     // gotcha ya documentado para dbGetFeatureFlags en lib/inngest/decision.ts).
     // El Map se construye SIEMPRE fuera del step.
     const filasConsentimiento = await step.run('fetch-consentimientos', async () => {
-      const { data } = await requireSupabaseAdmin()
-        .from('socios').select('id, consentimiento_marketing_texto').eq('studio_id', studioId);
-      return (data ?? []) as { id: string; consentimiento_marketing_texto: string | null }[];
+      // ⚠️ Auditoría 2026-09-22 (AU-2): esto iba sin paginar. PostgREST corta en
+      // 1.000 filas EN SILENCIO (lo documenta lib/supabase-data.ts:207), y las
+      // destinatarias SÍ vienen paginadas: a partir de la socia 1.001 el Map no
+      // tenía su entrada, `tieneConsentimientoMarketingVigente(undefined, …)`
+      // devolvía false y se la descartaba. Falla cerrado (no escribe a quien no
+      // debe), pero la campaña se marcaba ENVIADA con un `enviados` menor y ni
+      // un error en ninguna parte. Se pagina a mano y no con `fetchAllRows`
+      // porque ese helper vive en el módulo del cliente de navegador.
+      const admin = requireSupabaseAdmin();
+      const filas: { id: string; consentimiento_marketing_texto: string | null }[] = [];
+      const TAM = 1000;
+      for (let desde = 0; ; desde += TAM) {
+        const { data, error } = await admin.from('socios')
+          .select('id, consentimiento_marketing_texto').eq('studio_id', studioId)
+          .order('id').range(desde, desde + TAM - 1);
+        // El error NO se traga: `data` null daría un lote vacío, saldría del
+        // bucle y seguiría con los consentimientos truncados — el mismo fallo
+        // silencioso que esta paginación viene a cerrar, solo que por otra
+        // causa. Lanzar aquí deja que Inngest reintente el step.
+        if (error) throw new Error(`consentimientos: ${error.message}`);
+        const lote = (data ?? []) as { id: string; consentimiento_marketing_texto: string | null }[];
+        filas.push(...lote);
+        if (lote.length < TAM) break;
+      }
+      return filas;
     });
     const consentimientos = new Map<string, string>();
     for (const row of filasConsentimiento) {
@@ -102,6 +181,23 @@ export const procesarEnvioCampana = inngest.createFunction(
 
     const apiKey = process.env.RESEND_API_KEY;
     const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
+    // ⚠️ Auditoría 2026-09-22 (AU-7): sin este guard, una campaña EMAIL con
+    // `RESEND_API_KEY` ausente, rotada o todavía con el placeholder `re_XXXX…`
+    // recorría a todas sus destinatarias devolviendo `{ ok: false }` MUDO (sin
+    // campo `error`, que nadie acumula), llegaba al paso `marcar-enviada` y la
+    // dejaba **ENVIADA con 0 envíos**. El CAS de la ruta impide reenviarla
+    // (409 «ya se envió»), así que la campaña se perdía y la pantalla decía que
+    // había salido bien. Sin Sentry, sin log, sin salud de integración.
+    //
+    // Es el mismo guard que ya lleva su gemelo `procesarEstudioAutomatizaciones`
+    // (`lib/inngest/automatizaciones.ts`). Lanzar aquí hace fallar la función →
+    // 3 reintentos → `inngest/function.failed` → Sentry vía
+    // `alertarFalloTerminalInngest` → y el `onFailure` de arriba devuelve la
+    // campaña a BORRADOR, entera y reenviable. Un éxito falso pasa a ser un
+    // fallo visible.
+    if (campana.tipo === 'EMAIL' && !resend) {
+      throw new Error('Resend no configurado (RESEND_API_KEY): campaña no enviada');
+    }
 
     // Credenciales de WhatsApp del estudio, FUERA de cualquier `step.run` a
     // propósito: lo que devuelve un step lo persiste Inngest como estado de la
@@ -128,7 +224,12 @@ export const procesarEnvioCampana = inngest.createFunction(
       // no vuelve a ejecutar el cuerpo).
       const r = await step.run(`envio-${i}-${socio.id}`, async (): Promise<{ ok: boolean; error?: string; meta?: boolean }> => {
         if (campana.tipo === 'EMAIL') {
-          if (!resend || !socio.email) return { ok: false };
+          // `resend` ya no puede ser null aquí (guard de arriba), pero el tipo
+          // sigue admitiéndolo. Lo que sí pasa de verdad es la ficha sin email:
+          // antes salía como `{ ok: false }` mudo y no quedaba escrito en
+          // ninguna parte por qué esa socia no recibió la campaña.
+          if (!resend) return { ok: false, error: 'Resend no configurado' };
+          if (!socio.email) return { ok: false, error: `${socio.nombre} no tiene email en su ficha` };
           const html = correoAutomatizacion({
             socioNombre: socio.nombre,
             titulo: campana.asunto,

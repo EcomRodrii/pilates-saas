@@ -11,7 +11,13 @@ import { useState } from 'react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { Socio } from '@/lib/types';
 import type { ResultadoEscritura } from '@/lib/errores';
-import { telefonoValido } from '@/lib/csv';
+// Auditoría 2026-09-22 (F-6/E-22): antes venía de `@/lib/csv`, que exige
+// EXACTAMENTE 9 dígitos españoles porque su trabajo es normalizar un importador
+// de CSV. Aplicada a un dato de contacto que la socia teclea, bloqueaba a
+// cualquiera con un móvil extranjero. La de `lib/reservar/formato.ts` es la que
+// razona este caso («un formato demasiado estricto rechazaría números correctos
+// de otros países sin aportar nada») y es la que usa /reservar.
+import { telefonoValido } from '@/lib/reservar/formato';
 import { sans, radius } from '@/lib/reservar-publico-tokens';
 
 const inputStyle = (t: ModoTokens): React.CSSProperties => ({

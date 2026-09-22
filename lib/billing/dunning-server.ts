@@ -237,7 +237,7 @@ export async function confirmarCobroExitoso(params: {
   // Mismo criterio que el gemelo de checkout en webhook/route.ts.
   if (!rec) {
     const { data: existe } = await admin.from('recibos')
-      .select('id, estado').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
+      .select('id, estado, stripe_payment_intent_id').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
     // No existe (o es de otro estudio): sigue siendo un error para el llamador,
     // que lo usa para detectar un cobro que apunta a otro tenant.
     if (!existe) return { ok: false, error: 'Recibo no encontrado' };
@@ -262,6 +262,38 @@ export async function confirmarCobroExitoso(params: {
     // tarjeta nunca los ha enviado, y mandarlos aquí estrenaría un email por
     // cada cobro normal — un cambio de producto disfrazado de reconciliación.
     if (!esSepa) {
+      // ⚠️ Auditoría 2026-09-22 (M-2): «el caso NORMAL» es cierto para una
+      // reentrega del MISMO cargo, y falso para un SEGUNDO cargo real. Este es
+      // justo el camino que el repo documenta como duplicable: la clave de
+      // idempotencia de Stripe vive ~24 h y el barrido de dunning corre cada
+      // 24 h (`lib/inngest/dunning.ts`, cron '30 8 * * *'), así que el reintento
+      // del día siguiente puede cobrar otra vez de verdad. Su gemelo de
+      // checkout (`lib/billing/confirmar-cobro.ts`) avisa de esto desde F-13;
+      // aquí no había ni aviso ni rastro: el segundo cargo se reparaba «en
+      // silencio lo idempotente» y devolvía ok. Silencio absoluto.
+      //
+      // Solo avisa; no cambia ninguna escritura ni el valor de retorno. Un
+      // doble cargo detectable es la mitad del problema resuelta: la otra
+      // mitad (no cobrarlo) vive en la clave de idempotencia, no aquí.
+      const anterior = (existe.stripe_payment_intent_id as string | null) ?? null;
+      if (params.paymentIntentId && anterior && anterior !== params.paymentIntentId) {
+        Sentry.captureMessage('[confirmarCobroExitoso] SEGUNDO cobro del mismo recibo: hay que devolver uno', {
+          level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
+          extra: {
+            reciboId, studioId, esSepa,
+            paymentIntentCobrado: anterior, paymentIntentDuplicado: params.paymentIntentId,
+          },
+        });
+      } else if (params.paymentIntentId && !anterior) {
+        // Mismo razonamiento que PAY-2 en el gemelo: si el recibo se cerró por
+        // mostrador (efectivo/transferencia) no guarda PaymentIntent, y el
+        // discriminante de arriba dejaría mudo el caso más probable de cargo
+        // real sobre un recibo ya cerrado.
+        Sentry.captureMessage('[confirmarCobroExitoso] cobro real sobre un recibo ya COBRADO sin cargo registrado: revisar y devolver', {
+          level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
+          extra: { reciboId, studioId, esSepa, paymentIntentDuplicado: params.paymentIntentId },
+        });
+      }
       await aplicarRenovacionServidor(admin, { studioId, reciboId });
       try {
         const sell = await sellarFacturaDeRecibo(admin, { studioId, reciboId, facturaId: `fac-off-${reciboId}` });

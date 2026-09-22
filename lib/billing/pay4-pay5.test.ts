@@ -50,6 +50,16 @@ function adminFalso(opts: {
       }
       if (tabla === 'cobros_intentos') {
         return {
+          // Auditoría 2026-09-22: era `insert`. Pasó a `upsert` porque el mismo
+          // PaymentIntent puede anotarse dos veces (primero 'pendiente' si el
+          // recibo no era cobrable en ese instante, luego 'cobrado' cuando sí lo
+          // marca) y el 23505 tragado dejaba el libro diciendo 'pendiente' de un
+          // cargo cobrado. El doble falso recoge las dos formas para que el test
+          // falle si alguien vuelve a un insert plano sin pensarlo.
+          upsert: async (fila: FilaInsertada, opciones?: { onConflict?: string }) => {
+            insertados.push({ ...fila, __onConflict: opciones?.onConflict });
+            return { error: opts.errorInsert ?? null };
+          },
           insert: async (fila: FilaInsertada) => {
             insertados.push(fila);
             return { error: opts.errorInsert ?? null };
@@ -146,7 +156,14 @@ test('PAY-4: un error de escritura que NO es 23505 se reporta y NO se traga', ()
   // arriba (por eso no se puede buscar a secas en todo el cuerpo): lo que se
   // comprueba es que el insert se espera con `await` y su `error` se mira.
   assert.ok(
-    /const \{ error \} = await admin\.from\('cobros_intentos'\)\.insert\(/.test(cuerpo),
-    'el insert se espera y su error se inspecciona, no se descarta',
+    /const \{ error \} = await admin\.from\('cobros_intentos'\)\.upsert\(/.test(cuerpo),
+    'la escritura se espera y su error se inspecciona, no se descarta',
+  );
+  // Auditoría 2026-09-22: y tiene que ser un UPSERT por PaymentIntent. Con un
+  // insert plano, la segunda anotación del mismo cargo (pendiente → cobrado)
+  // choca 23505, se tolera y el libro se queda con el desenlace viejo.
+  assert.ok(
+    cuerpo.includes("{ onConflict: 'payment_intent_id' }"),
+    'el upsert resuelve por payment_intent_id: el desenlace se corrige, no se descarta',
   );
 });

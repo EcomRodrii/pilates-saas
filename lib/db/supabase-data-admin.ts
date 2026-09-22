@@ -2339,10 +2339,20 @@ export async function crearReservaPublica(params: {
       admin.from('sesiones').select('id, inicio, cancelada').eq('studio_id', params.studioId).gte('inicio', new Date().toISOString()),
     ]);
     // RES-4: El gate de entitlement se ha movido DENTRO de la RPC (dentro del
-    // lock transaccional) para evitar race conditions. Dos peticiones concurrentes
-    // con 1 bono ya no pueden pasar ambas el gate en TS y luego ambas insertar
-    // CONFIRMADA con lock — solo una puede hacerlo. La RPC ahora devuelve
-    // SIN_ENTITLEMENT si falla la comprobación DENTRO del lock.
+    // lock transaccional). La RPC devuelve SIN_ENTITLEMENT si falla la
+    // comprobación DENTRO del lock.
+    //
+    // ⚠️ Auditoría 2026-09-22 (R-5): aquí ponía que «dos peticiones concurrentes
+    // con 1 bono ya no pueden pasar ambas el gate». NO ES CIERTO, y creérselo es
+    // la razón plausible de que D-1 lleve varias auditorías sin arreglarse. El
+    // lock es `pg_advisory_xact_lock` y se suelta al hacer commit de la RPC; el
+    // DESCUENTO del bono ocurre DESPUÉS, en TS (`trasReservaCreada` →
+    // `consumirBonoServidor` → `lib/reservas/consumo-bono-reserva.ts`), fuera de
+    // esa transacción. Lo que el lock cierra es la doble reserva sobre la MISMA
+    // clase; dos reservas de CLASES DISTINTAS de la misma socia siguen leyendo
+    // las dos un saldo que ninguna ha descontado todavía y pasan las dos.
+    // Cerrarlo de verdad exige meter `consumir_sesion_bono_reserva` dentro de
+    // `reservar_plaza`, tras el INSERT — no es un comentario lo que falta.
     //
     // Sin embargo, mantenemos una comprobación de TypeScript para devolver
     // `codigo: 'bono-no-cubre'` vs `codigo: 'sin-plan'`, ya que el test
@@ -2896,21 +2906,20 @@ export async function resolverReservaPendiente(params: {
 // Rediseño del Calendario — punto 4, acción "Ofrecer plaza" de la franja de
 // decisiones.
 //
-// ⚠️ Corregido el 3-sep-2026 (auditoría 22ª pasada, F-8): este comentario decía
-// que `promocionar_siguiente_espera` NO comprueba aforo. Desde el 2-sep
-// (migración 20260902185203) SÍ lo comprueba... pero solo en la rama de
-// promoción DIRECTA (`p_plazo_minutos <= 0`). En la rama de OFERTA con plazo
-// —viva en producción: hay 2 tipos de clase con `lista_espera_plazo_
-// aceptacion_minutos > 0`— sigue abriendo la oferta sin mirar el aforo. No
-// produce overbooking (`aceptar_oferta_lista_espera` re-comprueba y devuelve
-// AFORO_LLENO), pero sí el desenlace caro: la socia acepta a tiempo, se queda
-// sin plaza y gasta una recuperación por un hueco que no existía.
-// Dejar de fiarse de este comentario y mirar `pg_proc` antes de diseñar sobre
-// la garantía. Esta
-// función es la que añade esa comprobación real contra la BD (nunca confiar
-// en un recuento de cliente) antes de invocarla, para un disparo MANUAL desde
-// el panel (a diferencia de los otros dos callers, que solo llegan aquí justo
-// después de liberarse un hueco de verdad).
+// ⚠️ Auditoría 2026-09-22 (R-5): este comentario venía diciendo que
+// `promocionar_siguiente_espera` solo comprueba el aforo en la rama de
+// promoción DIRECTA y no en la de OFERTA con plazo. Ya no es cierto: el cuerpo
+// VIVO en producción (migración `20260916180123_promocionar_espera_con_plazo_
+// comprueba_aforo`) calcula `aforo_efectivo` y sale antes de bifurcar por
+// `p_plazo_minutos`, así que las dos ramas lo miran. La cifra tampoco: hoy hay
+// 1 tipo de clase con plazo > 0, no 2.
+//
+// Lo que SÍ sigue siendo cierto, y es el motivo de que esta función haga su
+// propia comprobación contra la BD antes de invocar la RPC: es un disparo
+// MANUAL desde el panel, a diferencia de los otros dos llamantes, que solo
+// llegan justo después de liberarse un hueco de verdad. Hoy es defensa en
+// profundidad, no la única red. Y la regla de siempre: mirar `pg_proc` antes de
+// diseñar sobre la garantía, no fiarse de este comentario.
 export async function ofrecerPlazaLibre(params: {
   studioId: string; sesionId: string;
 }): Promise<{ ok: true; resultado: 'confirmada' | 'oferta' } | { error: string }> {
