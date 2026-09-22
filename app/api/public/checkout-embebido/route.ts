@@ -16,7 +16,7 @@ import type { TipoPlan } from '@/lib/types';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
-import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula } from '@/lib/billing/matricula-online';
+import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula, esRespuestaRepetida } from '@/lib/billing/matricula-online';
 import {
   asignarRefPlaza, claveStripe, esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas, reservarPlazaEtapa,
   type PlazaReservada,
@@ -578,6 +578,13 @@ export async function POST(req: NextRequest) {
         await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
       }
       return conCorsWidget(req, NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' }, { status: 500 }));
+    }
+
+    // Mismo intento que ya creó este PaymentIntent (doble clic, dos pestañas):
+    // Stripe devuelve el de antes y esta petición no ha creado nada, pero SÍ ha
+    // reservado otra plaza de matrícula gratis, que no usará nadie.
+    if (cupoMatriculaReservado && esRespuestaRepetida(paymentIntent)) {
+      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
     }
 
     // ⚠️ Se devuelve el IMPORTE, y no es un extra: es lo único que permite que

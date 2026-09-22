@@ -307,7 +307,16 @@ async function devolverPlazasDeMatricula(
   }
 
   for (const plaza of aDevolver) {
-    await liberarCupoMatriculaUnaVez(admin, plaza.clave, plaza.planId, studio.id);
+    // Un fallo no deja nada anotado (la RPC es atómica): la próxima pasada lo
+    // vuelve a intentar. No corta las demás devoluciones de este estudio.
+    try {
+      await liberarCupoMatriculaUnaVez(admin, plaza.clave, plaza.planId, studio.id);
+    } catch (e) {
+      Sentry.captureException(e instanceof Error ? e : new Error('liberar cupo matrícula'), {
+        level: 'warning', tags: { area: 'cobros', tipo: 'cupo-matricula' },
+        extra: { studioId: studio.id, clave: plaza.clave, planId: plaza.planId },
+      });
+    }
   }
 }
 
