@@ -104,11 +104,17 @@ test.describe('Calendario · las clases que se repiten', () => {
   });
 
   // «¿Cómo se marcan ellas en una clase fija?» — los estudios no lo tenían claro.
-  // De serie las alumnas NO pueden pedir su plaza fija desde la app, y esta vista
-  // es donde el estudio trabaja con ellas: aquí se le dice cómo está y, si es la
-  // propietaria, se le lleva al ajuste.
-  test('«Horario» dice que las alumnas no pueden pedir su plaza fija desde la app, y lleva al ajuste', async ({ page }) => {
+  // De serie las alumnas YA pueden pedir su plaza fija desde la app (22-sep: el
+  // ajuste apagado sin motivo era justo lo que impedía verse la opción), pero un
+  // estudio lo puede seguir apagando, y esta vista es donde trabaja con ellas:
+  // aquí se le dice cómo está y, si es la propietaria, se le lleva al ajuste.
+  test('«Horario» dice que las alumnas no pueden pedir su plaza fija desde la app cuando el estudio lo ha apagado, y lleva al ajuste', async ({ page }) => {
     await abrirCalendario(page, () => ({ body: HORARIO }));
+    // Después de `montar`, que registra su fila del estudio: gana esta.
+    await page.route('**/rest/v1/studios**', r => json(r, {
+      id: 'studio-test', nombre: 'Pilates Centro', slug: 'pilates-centro', owner_auth_user_id: 'auth-e2e-duena',
+      email: 'cloe@example.com', moneda: 'EUR', plaza_fija_solicitar_desde_app: false,
+    }));
     await irAHorario(page);
 
     const aviso = page.getByTestId('aviso-peticiones-plaza-fija');

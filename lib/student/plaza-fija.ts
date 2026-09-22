@@ -251,6 +251,26 @@ export function plazaFijaEnClase(
   return tieneCuota ? { estado: 'PUEDE_PEDIR' } : { estado: 'SOLO_CON_CUOTA' };
 }
 
+/**
+ * Como `plazaFijaEnClase`, pero para una franja que ya se sabe que se repite
+ * (sale de `construirHorario`, agrupada por serie): sin comprobar «repite» —
+ * aquí siempre sería cierto, y comprobarlo pediría el listado de sesiones que
+ * esta franja no trae.
+ */
+export function plazaFijaEnFranja(
+  franja: { diaSemana: number; hora: string; salaId: string },
+  plazas: { diaSemana: number; horaInicio: string; salaId: string; estado: string }[],
+  peticiones: PeticionPlazaFijaMin[],
+  tieneCuota = true,
+): PlazaFijaEnClase {
+  const mismaFranja = (d: number | null, hora: string | null, sala: string | null) =>
+    d === franja.diaSemana && (hora ?? '').slice(0, 5) === franja.hora && sala === franja.salaId;
+  if (plazas.some((p) => p.estado !== 'BAJA' && mismaFranja(p.diaSemana, p.horaInicio, p.salaId))) return { estado: 'TIENE_PLAZA' };
+  const pedida = peticiones.find((p) => p.tipo === 'CREAR' && mismaFranja(p.diaSemana, p.horaInicio, p.salaId));
+  if (pedida) return { estado: 'PEDIDA', peticionId: pedida.id };
+  return tieneCuota ? { estado: 'PUEDE_PEDIR' } : { estado: 'SOLO_CON_CUOTA' };
+}
+
 export interface RecuperacionVista {
   caducaEl: string;
   /**

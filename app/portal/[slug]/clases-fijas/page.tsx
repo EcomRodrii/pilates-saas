@@ -10,8 +10,10 @@ import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getClasesFijas } from '@/lib/student/datos';
 import { ampliarClaseFija, anularPeticionClaseFija, pedirClaseFija } from '@/lib/student/clases-fijas-datos';
-import { diasDeLaOferta, type ClaseFijaVista } from '@/lib/student/clases-fijas';
+import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
+import { diasDeLaOferta, type ClaseFijaVista, type ClaseSueltaVista } from '@/lib/student/clases-fijas';
 import { TEXTOS_CLASES_FIJAS as T } from '@/lib/student/clases-fijas-textos';
+import { TEXTOS_PLAZA_FIJA as TPF } from '@/lib/student/plaza-fija-textos';
 import { nombreDia } from '@/lib/student/plaza-fija';
 import { fechaDMY } from '@/lib/series-renovacion';
 import { Badge } from '@/components/student/ui/Badge';
@@ -30,7 +32,7 @@ export default function ClasesFijasPage() {
   const href = usePortalHref();
   const { online } = useOnline();
   const cargar = useCallback(() => getClasesFijas(estudio.slug).then((r) => (r ?? Promise.reject(new Error('sin datos')))), [estudio.slug]);
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => d.length === 0);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => d.ofertas.length === 0 && d.sueltas.length === 0);
 
   return (
     <StudentShell>
@@ -42,16 +44,93 @@ export default function ClasesFijasPage() {
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && !data && <OfflineState />}
         {data && estado !== 'loading' && estado !== 'error' && (
-          data.length === 0 ? (
+          data.ofertas.length === 0 && data.sueltas.length === 0 ? (
             <EmptyState ilustracion="postura" titulo={T.vacio} accion="Ver el horario" href={href('/reservar')} />
           ) : (
-            data.map((c) => (
-              <TarjetaClaseFija key={c.id} c={c} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
-            ))
+            <>
+              {data.ofertas.map((c) => (
+                <TarjetaClaseFija key={c.id} c={c} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
+              ))}
+              {data.sueltas.length > 0 && (
+                <>
+                  {data.ofertas.length > 0 && (
+                    <div style={{ marginTop: 6 }}>
+                      <p className="t-label" style={{ margin: 0 }}>{T.sueltasTitulo}</p>
+                      <p className="t-meta" style={{ margin: '2px 0 0' }}>{T.sueltasCuerpo}</p>
+                    </div>
+                  )}
+                  {data.sueltas.map((f) => (
+                    <TarjetaSuelta key={`${f.serieId}-${f.diaSemana}`} f={f} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
+                  ))}
+                </>
+              )}
+            </>
           )
         )}
       </div>
     </StudentShell>
+  );
+}
+
+function TarjetaSuelta({ f, studioId, slug, online, onCambio }: {
+  f: ClaseSueltaVista; studioId: string; slug: string; online: boolean; onCambio: () => void;
+}) {
+  const { toast } = useToast();
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState('');
+
+  async function pedir() {
+    if (f.estado.estado !== 'PUEDE_PEDIR' || enviando) return;
+    setEnviando(true);
+    setError('');
+    const r = await pedirPlazaFija(slug, studioId, f.proximaSesionId);
+    setEnviando(false);
+    if (!r.ok) { setError(r.error); return; }
+    toast(TPF.pedida);
+    onCambio();
+  }
+
+  async function anular() {
+    if (f.estado.estado !== 'PEDIDA' || enviando) return;
+    setEnviando(true);
+    setError('');
+    const r = await anularPeticionPlazaFija(slug, studioId, f.estado.peticionId);
+    setEnviando(false);
+    if (!r.ok) { setError(r.error); return; }
+    toast(TPF.botonAnular);
+    onCambio();
+  }
+
+  return (
+    <article data-testid="clase-suelta" aria-label={`${nombreDia(f.diaSemana)} ${f.hora}`} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <h2 style={{ margin: 0, fontSize: 'var(--t-h3, 1.05rem)', fontWeight: 800, textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} {f.hora}</h2>
+          <p className="t-meta" style={{ marginTop: 2 }}>{f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</p>
+        </div>
+        {f.estado.estado === 'TIENE_PLAZA' ? <Badge tone="booked">La tienes ✓</Badge>
+          : f.estado.estado === 'PEDIDA' ? <Badge tone="wait">Pedida</Badge>
+          : null}
+      </div>
+
+      {f.estado.estado === 'PEDIDA' ? (
+        <>
+          <p role="status" data-testid="clase-suelta-pedida" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{TPF.pedida}</p>
+          <Button variant="secondary" size="sm" loading={enviando} disabled={!online} onClick={() => void anular()}>{TPF.botonAnular}</Button>
+        </>
+      ) : f.estado.estado === 'TIENE_PLAZA' ? null : f.estado.estado === 'SOLO_CON_CUOTA' ? (
+        <div data-testid="clase-suelta-sin-cuota">
+          <p style={{ margin: 0, fontSize: 'var(--t-small)' }}>{TPF.soloConCuota}</p>
+        </div>
+      ) : (
+        <>
+          <p className="t-meta" style={{ margin: 0 }}>{TPF.ofrecer(f.diaSemana, f.hora)}</p>
+          <Button size="sm" loading={enviando} disabled={!online} onClick={() => void pedir()}>{TPF.botonPedir}</Button>
+        </>
+      )}
+
+      {error && <p role="alert" style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--danger, #b00020)', fontWeight: 700 }}>{error}</p>}
+    </article>
   );
 }
 

@@ -13,7 +13,7 @@ import {
   DURACIONES_POR_DEFECTO, MAX_DESCRIPCION, MAX_FRANJAS, MAX_NOMBRE, cupoDeFranja, estadoOferta, etiquetaDuracion, franjasYaCubiertas,
   normalizarDuraciones, nuevaVigenciaAmpliar, plazasLibresDeClaseFija, plazasVencidasQueEstorban, programadaHasta, resolverFranjas, textoFranja,
   vigenciaHastaDeDuracion,
-  type CatalogoClasesFijas, type EstadoOferta, type FranjaResuelta, type OfertaAlumna, type OfertaStaff,
+  type CatalogoClasesFijas, type EstadoOferta, type FranjaResuelta, type FranjaSuelta, type OfertaAlumna, type OfertaStaff,
 } from '@/lib/clases-fijas-reglas';
 import { TEXTOS_PLAZA_FIJA_ALUMNA, validarPlazaFijaDesdeSesion, type ResultadoPeticionAlumna } from '@/lib/db/supabase-data-admin';
 import type { RowPlazasFijas, RowSesiones } from '@/lib/db-types';
@@ -91,6 +91,21 @@ async function tarjetasDeSeries(admin: SupabaseClient, studioId: string, serieId
     .dias.flatMap(d => d.tarjetas);
 }
 
+/** El horario vivo de TODAS las series del estudio (no solo las de una oferta): una tarjeta por serie y día. */
+async function tarjetasDeTodoElHorario(admin: SupabaseClient, studioId: string): Promise<TarjetaHorario[]> {
+  const ahora = new Date();
+  const [sesiones, plazas] = await Promise.all([
+    fetchAllRows<RowSesiones>(studioId, 'sesiones', (from, to) => admin.from('sesiones')
+      .select('*').eq('studio_id', studioId).not('serie_id', 'is', null).gte('inicio', ahora.toISOString())
+      .order('inicio').order('id').range(from, to)),
+    fetchAllRows<RowPlazasFijas>(studioId, 'plazas_fijas', (from, to) => admin.from('plazas_fijas')
+      .select('*').eq('studio_id', studioId).in('estado', ['ACTIVA', 'PAUSADA']).order('id').range(from, to)),
+  ]);
+  for (const r of [sesiones, plazas]) if (r.error) throw new Error(r.error.message);
+  return construirHorario(sesiones.data.map(mapSesion), [], plazas.data.map(mapPlazaFija), ahora.getTime())
+    .dias.flatMap(d => d.tarjetas);
+}
+
 export interface OfertaResuelta extends OfertaDef {
   franjasResueltas: FranjaResuelta[];
   estado: EstadoOferta;
@@ -114,8 +129,10 @@ export async function resolverOfertas(admin: SupabaseClient, studioId: string, o
 
 // ─── Lo que ve la alumna ──────────────────────────────────────────────────────
 
-async function nombresDe(admin: SupabaseClient, studioId: string, franjas: FranjaResuelta[]) {
-  const ids = (col: (f: FranjaResuelta) => string | null) => [...new Set(franjas.map(col).filter((x): x is string => !!x))];
+type FranjaConIds = Pick<FranjaResuelta, 'tipoClaseId' | 'salaId' | 'instructorId'>;
+
+async function nombresDe(admin: SupabaseClient, studioId: string, franjas: FranjaConIds[]) {
+  const ids = (col: (f: FranjaConIds) => string | null) => [...new Set(franjas.map(col).filter((x): x is string => !!x))];
   const pide = (tabla: string, lista: string[], cols: string) => lista.length
     ? admin.from(tabla).select(cols).eq('studio_id', studioId).in('id', lista)
     : Promise.resolve({ data: [] as unknown[], error: null });
@@ -133,13 +150,24 @@ async function nombresDe(admin: SupabaseClient, studioId: string, franjas: Franj
  * Las clases fijas que el estudio ofrece hoy, ya resueltas contra su horario. Es lo
  * mismo para cualquier visitante; con `socioId` (un JWT ya verificado) añade SUS
  * peticiones pendientes. Sin ofertas activas no hace ninguna consulta más.
+ *
+ * `puedePedirPlazaFija` (el ajuste del estudio, `plaza_fija_solicitar_desde_app`)
+ * gobierna `sueltas`: es el MISMO permiso que ya abre el botón de plaza fija en la
+ * ficha de una clase — sin él, no se calcula nada de más.
  */
-export async function catalogoClasesFijas(admin: SupabaseClient, studioId: string, socioId: string | null): Promise<CatalogoClasesFijas> {
+export async function catalogoClasesFijas(
+  admin: SupabaseClient, studioId: string, socioId: string | null, puedePedirPlazaFija: boolean,
+): Promise<CatalogoClasesFijas> {
   // Lo que ve cualquier visitante (sin PII) va en la caché corta de catálogos: la
   // puerta del horario lo pide en cada visita, y resolver una oferta lee las sesiones
   // de sus series. Cuarto de minuto de retraso en «quedan N plazas» no engaña a nadie:
   // pedirla vuelve a comprobarlo todo en el servidor. Lo suyo (`pedidas`) nunca se cachea.
-  const ofertas = await conCacheCatalogo(claveCatalogoClasesFijas(studioId), () => ofertasPublicas(admin, studioId), TTL_CLASES_FIJAS_MS);
+  const [ofertas, sueltas] = await Promise.all([
+    conCacheCatalogo(claveCatalogoClasesFijas(studioId), () => ofertasPublicas(admin, studioId), TTL_CLASES_FIJAS_MS),
+    puedePedirPlazaFija
+      ? conCacheCatalogo(claveSueltasClasesFijas(studioId), () => franjasSueltas(admin, studioId), TTL_CLASES_FIJAS_MS)
+      : Promise.resolve([]),
+  ]);
   let pedidas: CatalogoClasesFijas['pedidas'] = [];
   if (socioId && ofertas.length > 0) {
     const { data, error } = await admin.from('solicitudes_plaza_fija')
@@ -152,11 +180,35 @@ export async function catalogoClasesFijas(admin: SupabaseClient, studioId: strin
       tipo: r.tipo as 'CREAR_CLASE_FIJA' | 'AMPLIAR_CLASE_FIJA',
     }));
   }
-  return { ofertas, pedidas };
+  return { ofertas, sueltas, pedidas };
 }
 
 const TTL_CLASES_FIJAS_MS = 15_000;
 const claveCatalogoClasesFijas = (studioId: string) => `clases-fijas-publico:${studioId}`;
+const claveSueltasClasesFijas = (studioId: string) => `clases-fijas-sueltas:${studioId}`;
+
+/**
+ * Las clases que ya se repiten y NO están envueltas en ninguna oferta con
+ * nombre: cada franja de una oferta ACTIVA se descuenta (una franja es de su
+ * oferta o suelta, nunca las dos), para que la misma clase no salga dos veces.
+ */
+async function franjasSueltas(admin: SupabaseClient, studioId: string): Promise<FranjaSuelta[]> {
+  const [ofertas, tarjetas] = await Promise.all([
+    cargarOfertas(admin, studioId, { soloActivas: true }),
+    tarjetasDeTodoElHorario(admin, studioId),
+  ]);
+  const cubiertas = new Set(ofertas.flatMap(o => o.franjas.map(f => `${f.serieId}|${f.diaSemana}`)));
+  const sueltas = tarjetas.filter(t => !cubiertas.has(`${t.serieId}|${t.diaSemana}`));
+  if (sueltas.length === 0) return [];
+  const nombres = await nombresDe(admin, studioId, sueltas);
+  return sueltas.map((t): FranjaSuelta => ({
+    serieId: t.serieId, diaSemana: t.diaSemana, hora: t.hora, tipoClaseId: t.tipoClaseId, salaId: t.salaId, instructorId: t.instructorId,
+    tipo: nombres.tipos.get(t.tipoClaseId) ?? 'Clase',
+    sala: nombres.salas.get(t.salaId) ?? '',
+    instructora: t.instructorId ? nombres.instructores.get(t.instructorId) ?? null : null,
+    proximaSesionId: t.proximaSesionId, ultimaFecha: t.ultimaFecha,
+  })).sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora));
+}
 
 async function ofertasPublicas(admin: SupabaseClient, studioId: string): Promise<OfertaAlumna[]> {
   const defs = await cargarOfertas(admin, studioId, { soloActivas: true });

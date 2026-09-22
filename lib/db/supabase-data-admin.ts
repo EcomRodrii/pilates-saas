@@ -396,7 +396,8 @@ function studioPublico(r: RowStudios) {
     // Plaza fija desde la app (migr 20260915231920): la app solo enseña «pedir
     // plaza fija» o «pedir una pausa» si el estudio lo permite. La puerta de
     // verdad es `/api/public/plaza-fija`, que con el ajuste apagado da 403.
-    plazaFijaSolicitarDesdeApp: r.plaza_fija_solicitar_desde_app ?? false,
+    // Encendido de serie desde el 22-sep (antes apagado, 16-sep): ver reglas-reserva.ts.
+    plazaFijaSolicitarDesdeApp: r.plaza_fija_solicitar_desde_app ?? true,
     plazaFijaPausaDesdeApp: r.plaza_fija_pausa_desde_app ?? false,
     // Apertura suave: solo la fecha, y solo con el interruptor puesto. Etiqueta
     // sus clases en /reservar; quién puede reservarlas lo decide crearReservaPublica.

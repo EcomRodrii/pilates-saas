@@ -34,11 +34,12 @@ export async function POST(req: NextRequest) {
     const studioId = String(estudio.row.id);
 
     const cerrada = await paginaCerradaParaPeticion(req, studioId);
-    if (cerrada) return NextResponse.json({ ofertas: [], pedidas: [] });
+    if (cerrada) return NextResponse.json({ ofertas: [], sueltas: [], pedidas: [] });
 
     const user = await verificarUsuarioSupabase(req);
     const socioId = user ? await socioAutenticado(user.userId, studioId) : null;
-    return NextResponse.json(await catalogoClasesFijas(admin, studioId, socioId), { headers: { 'Cache-Control': 'no-store' } });
+    const puedePedirPlazaFija = estudio.row.plaza_fija_solicitar_desde_app === true;
+    return NextResponse.json(await catalogoClasesFijas(admin, studioId, socioId, puedePedirPlazaFija), { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     return errorInterno('public/clases-fijas:POST', err, 'No se han podido cargar las clases fijas.');
   }

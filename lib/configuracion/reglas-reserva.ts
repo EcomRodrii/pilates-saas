@@ -103,8 +103,10 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     penalizacionAplicaNoShow: s?.penalizacionAplicaNoShow ?? true,
     penalizacionCobroAutomatico: s?.penalizacionCobroAutomatico ?? false,
     plazaFijaSinCuota: s?.plazaFijaSinCuota ?? 'MANTENER',
-    // Sin elegir, como hasta ahora: nada desde la app y la pausa conserva su sitio.
-    plazaFijaSolicitarDesdeApp: s?.plazaFijaSolicitarDesdeApp ?? false,
+    // Pedir plaza fija desde la app viene ENCENDIDO de serie (22-sep): sin motivo de
+    // negocio registrado para tenerlo apagado, y con eso apagado ninguna alumna ve
+    // NUNCA la opción de quedarse fija. La pausa sigue apagada: no es lo que falló.
+    plazaFijaSolicitarDesdeApp: s?.plazaFijaSolicitarDesdeApp ?? true,
     plazaFijaPausaDesdeApp: s?.plazaFijaPausaDesdeApp ?? false,
     plazaFijaPausaLiberaSitio: s?.plazaFijaPausaLiberaSitio ?? false,
     plazaFijaFinPausa: s?.plazaFijaFinPausa ?? 'RECUPERAR_SI_LIBRE',
@@ -357,10 +359,16 @@ export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaS
 // ─── Plaza fija desde su app, y sus pausas ───────────────────────────────────
 //
 // Decisiones del fundador (16-sep): el estudio pone las reglas y Tentare las
-// cumple. Todo apagado de serie, como hasta ahora.
+// cumple. Todo apagado de serie — REVERTIDO el 22-sep para «solicitar desde la
+// app»: sin él, ninguna alumna ve nunca la opción de quedarse fija en una clase
+// suelta, ni en su ficha ni en «Clases fijas» (`ClasesFijasEntrada`, `sueltas`
+// de `catalogoClasesFijas`) — un caso real de un estudio que se quejó de
+// exactamente esto. Sigue apagándose si el estudio lo prefiere; solo cambia el
+// valor de serie. La pausa (`plazaFijaPausaDesdeApp`) no era el problema y sigue
+// apagada.
 
 export const EXPLICACION_PLAZA_FIJA_DESDE_APP =
-  'De serie, las plazas fijas las das tú, en recepción. Si lo enciendes, tus alumnas pueden pedirla ellas desde la ficha de una clase que se repite y justo al terminar de reservarla. Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Te llega un aviso y lo decides en Inicio; hasta que lo apruebas no cambia nada.';
+  'De serie, tus alumnas pueden pedir quedarse fijas en una clase que se repite: desde su ficha, justo al terminar de reservarla, y en «Clases fijas» de su app (con las que ya montaste como oferta con nombre y las demás sueltas). Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Te llega un aviso y lo decides en Inicio; hasta que lo apruebas no cambia nada. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
 
 export const EXPLICACION_PAUSA_PLAZA_FIJA =
   'Vale para las pausas nuevas, las pongas tú o las pida ella; las que ya están puestas siguen como estaban. Las clases de esas fechas se cancelan sin penalización y las que ya pasaron no se tocan.';

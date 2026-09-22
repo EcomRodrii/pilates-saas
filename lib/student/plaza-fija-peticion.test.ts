@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { plazaFijaEnClase, proyectarPlazasFijas, type PeticionPlazaFijaMin, type PlazaFijaMin } from './plaza-fija.ts';
+import { plazaFijaEnClase, plazaFijaEnFranja, proyectarPlazasFijas, type PeticionPlazaFijaMin, type PlazaFijaMin } from './plaza-fija.ts';
 
 // Plaza fija desde la app: la alumna PIDE (migr 20260915231920). Aquí solo se
 // decide qué se le enseña; el servidor vuelve a comprobarlo todo.
@@ -31,6 +31,28 @@ test('no se ofrece si ya la tiene (también en pausa) o ya la ha pedido', () => 
   assert.deepEqual(plazaFijaEnClase(CLASE, [OTRA_SEMANA], [], [pide({})]), { estado: 'PEDIDA', peticionId: 'spf-1' });
   // Una pausa pedida no es una plaza pedida.
   assert.deepEqual(plazaFijaEnClase(CLASE, [OTRA_SEMANA], [], [pide({ tipo: 'PAUSAR', plazaId: 'pf-9' })]), { estado: 'PUEDE_PEDIR' });
+});
+
+// `plazaFijaEnFranja`: lo mismo que `plazaFijaEnClase`, pero para una franja del
+// horario general («Clases fijas disponibles», sin oferta con nombre) — no
+// comprueba «repite» porque quien llama ya sabe que sí (sale de `construirHorario`).
+const FRANJA = { diaSemana: 4, hora: '18:00', salaId: 'sala-1' };
+
+test('sin cuota, se dice por qué; con cuota, se puede pedir', () => {
+  assert.deepEqual(plazaFijaEnFranja(FRANJA, [], [], false), { estado: 'SOLO_CON_CUOTA' });
+  assert.deepEqual(plazaFijaEnFranja(FRANJA, [], [], true), { estado: 'PUEDE_PEDIR' });
+});
+
+test('ya la tiene (también en pausa) o ya la ha pedido: no se ofrece', () => {
+  assert.deepEqual(plazaFijaEnFranja(FRANJA, [PLAZA], []), { estado: 'TIENE_PLAZA' });
+  assert.deepEqual(plazaFijaEnFranja(FRANJA, [{ ...PLAZA, estado: 'PAUSADA' }], []), { estado: 'TIENE_PLAZA' });
+  assert.deepEqual(plazaFijaEnFranja(FRANJA, [{ ...PLAZA, estado: 'BAJA' }], []), { estado: 'PUEDE_PEDIR' });
+  assert.deepEqual(plazaFijaEnFranja(FRANJA, [], [pide({})]), { estado: 'PEDIDA', peticionId: 'spf-1' });
+});
+
+test('una plaza o petición de OTRO hueco no la tapa', () => {
+  assert.deepEqual(plazaFijaEnFranja(FRANJA, [{ ...PLAZA, salaId: 'sala-2' }], []), { estado: 'PUEDE_PEDIR' });
+  assert.deepEqual(plazaFijaEnFranja(FRANJA, [], [pide({ horaInicio: '19:00' })]), { estado: 'PUEDE_PEDIR' });
 });
 
 test('la pausa que ha pedido se pega a SU plaza, no a otra', () => {

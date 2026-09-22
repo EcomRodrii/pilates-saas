@@ -5407,7 +5407,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
     plazaFijaSinCuota: (r.plaza_fija_sin_cuota as PoliticaPlazaFijaSinCuota | null) ?? 'MANTENER',
-    plazaFijaSolicitarDesdeApp: (r.plaza_fija_solicitar_desde_app as boolean | null) ?? false,
+    // Encendido de serie desde el 22-sep (antes apagado, 16-sep): ver el comentario en reglas-reserva.ts.
+    plazaFijaSolicitarDesdeApp: (r.plaza_fija_solicitar_desde_app as boolean | null) ?? true,
     plazaFijaPausaDesdeApp: (r.plaza_fija_pausa_desde_app as boolean | null) ?? false,
     plazaFijaPausaLiberaSitio: (r.plaza_fija_pausa_libera_sitio as boolean | null) ?? false,
     plazaFijaFinPausa: (r.plaza_fija_fin_pausa as Studio['plazaFijaFinPausa'] | null) ?? 'RECUPERAR_SI_LIBRE',

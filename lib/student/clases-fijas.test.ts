@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diasDeLaOferta, proyectarClasesFijas, terminaPronto, type SociaMin } from './clases-fijas.ts';
+import { diasDeLaOferta, proyectarClasesFijas, proyectarClasesSueltas, terminaPronto, type SociaMin } from './clases-fijas.ts';
 import { TEXTOS_CLASES_FIJAS } from './clases-fijas-textos.ts';
-import type { CatalogoClasesFijas, OfertaAlumna } from '../clases-fijas-reglas.ts';
+import type { CatalogoClasesFijas, FranjaSuelta, OfertaAlumna } from '../clases-fijas-reglas.ts';
 
 const franja = (diaSemana: number, hora: string, tipoClaseId = 'tc-1') =>
   ({ diaSemana, hora, tipoClaseId, salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: 'Marta' });
@@ -13,7 +13,8 @@ const oferta = (cambios: Partial<OfertaAlumna> = {}): OfertaAlumna => ({
   franjas: [franja(2, '10:00'), franja(4, '10:00')], programadaHasta: '2027-01-30', ...cambios,
 });
 
-const cat = (o: OfertaAlumna[] = [oferta()], pedidas: CatalogoClasesFijas['pedidas'] = []): CatalogoClasesFijas => ({ ofertas: o, pedidas });
+const cat = (o: OfertaAlumna[] = [oferta()], pedidas: CatalogoClasesFijas['pedidas'] = []): CatalogoClasesFijas =>
+  ({ ofertas: o, sueltas: [], pedidas });
 const planMensual = { id: 'plan-1', tipo: 'MENSUAL', tiposClaseIds: [] as string[] };
 const cuota = { planId: 'plan-1', estado: 'ACTIVA', fechaFin: null };
 const socia = (cambios: Partial<SociaMin> = {}): SociaMin => ({ suscripciones: [cuota], plazasFijas: [], ...cambios });
@@ -133,4 +134,42 @@ test('termina pronto: dentro de la ventana de aviso, no antes ni después de ven
   assert.equal(terminaPronto('2026-09-21', '2026-09-21'), true, 'vence hoy mismo');
   assert.equal(terminaPronto('2026-09-20', '2026-09-21'), false, 'ya venció: no se ofrece ampliar, se ofrece pedirla de nuevo');
   assert.equal(terminaPronto(null, '2026-09-21'), false);
+});
+
+// ─── Sueltas: clases que ya se repiten y no están en ninguna oferta con nombre ───
+
+const suelta = (cambios: Partial<FranjaSuelta> = {}): FranjaSuelta => ({
+  serieId: 'serie-1', diaSemana: 1, hora: '18:00', tipoClaseId: 'tc-1', salaId: 'sala-1',
+  instructorId: null, tipo: 'Reformer', sala: 'Sala 1', instructora: null,
+  proximaSesionId: 'ses-1', ultimaFecha: '2027-01-30', ...cambios,
+});
+
+test('sin sesión de alumna, se ofrece pedirla (no se la riñe por su cuota)', () => {
+  const [v] = proyectarClasesSueltas([suelta()], null, [planMensual], HOY);
+  assert.deepEqual(v.estado, { estado: 'PUEDE_PEDIR' });
+});
+
+test('con cuota que la cubre, se puede pedir; sin ella, se dice por qué', () => {
+  const [conCuota] = proyectarClasesSueltas([suelta()], socia(), [planMensual], HOY);
+  assert.deepEqual(conCuota.estado, { estado: 'PUEDE_PEDIR' });
+  const [sinCuota] = proyectarClasesSueltas([suelta()], socia({ suscripciones: [] }), [planMensual], HOY);
+  assert.deepEqual(sinCuota.estado, { estado: 'SOLO_CON_CUOTA' });
+});
+
+test('ya la tiene o ya la ha pedido: se refleja en su estado', () => {
+  const plaza = { diaSemana: 1, horaInicio: '18:00:00', salaId: 'sala-1', tipoClaseId: 'tc-1', estado: 'ACTIVA', vigenciaHasta: null };
+  const [yaLaTiene] = proyectarClasesSueltas([suelta()], socia({ plazasFijas: [plaza] }), [planMensual], HOY);
+  assert.deepEqual(yaLaTiene.estado, { estado: 'TIENE_PLAZA' });
+
+  const peticion = { id: 'spf-1', tipo: 'CREAR' as const, plazaId: null, diaSemana: 1, horaInicio: '18:00:00', salaId: 'sala-1', desde: null, hasta: null };
+  const [pedida] = proyectarClasesSueltas([suelta()], socia({ peticionesPlazaFija: [peticion] }), [planMensual], HOY);
+  assert.deepEqual(pedida.estado, { estado: 'PEDIDA', peticionId: 'spf-1' });
+});
+
+test('cada suelta lleva sus propios datos (día, hora, tipo, sala) intactos', () => {
+  const [v] = proyectarClasesSueltas([suelta({ diaSemana: 3, hora: '09:30', tipo: 'Yoga', sala: 'Sala 2' })], socia(), [planMensual], HOY);
+  assert.equal(v.diaSemana, 3);
+  assert.equal(v.hora, '09:30');
+  assert.equal(v.tipo, 'Yoga');
+  assert.equal(v.sala, 'Sala 2');
 });
