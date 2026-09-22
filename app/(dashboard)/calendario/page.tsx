@@ -25,7 +25,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
-import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera } from '@/lib/utils';
+import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera, TZ_ESTUDIO } from '@/lib/utils';
+import { horaParedAInstante } from '@/lib/citas/slots';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
 import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
 import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
@@ -140,8 +141,14 @@ function localDate(d: Date | string): string {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
 
+// R-3 (auditoría 22-sep): `new Date('YYYY-MM-DDTHH:MM:00')` se interpreta en la
+// zona del NAVEGADOR — una propietaria que crea/edita desde fuera de
+// Europe/Madrid desplaza toda la sesión. `fecha`/`hora` ya llegan como cadenas
+// sin ambigüedad (del input o de `localDate`, que solo extrae el día — no hay
+// bug ahí); lo que había que anclar era la CONVERSIÓN a instante. Mismo
+// mecanismo que ya usa serie-horario.ts para editar series.
 function toISO(fecha: string, hora: string) {
-  return new Date(`${fecha}T${hora}:00`).toISOString();
+  return horaParedAInstante(fecha, hora, TZ_ESTUDIO).toISOString();
 }
 
 // "Repite como la semana pasada": busca la sesión de la MISMA sala+tipo de
