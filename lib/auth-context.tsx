@@ -49,7 +49,7 @@ type AuthContextType = {
     metadata?: Record<string, unknown>,
     captchaToken?: string,
     redirectPath?: string,
-  ) => Promise<{ error: string | null; needsConfirmation: boolean; yaRegistrado: boolean }>;
+  ) => Promise<{ error: string | null; needsConfirmation: boolean; yaRegistrado: boolean; userId: string | null }>;
   signOut: () => Promise<void>;
   updateProfile: (datos: { nombre: string; apellidos: string }) => Promise<{ error: string | null }>;
   updateEmail: (nuevoEmail: string) => Promise<{ error: string | null; pendiente: boolean }>;
@@ -244,7 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     if (captchaToken) captchaGastado();
-    if (error) return { error: mensajeDeError(error), needsConfirmation: false, yaRegistrado: false };
+    if (error) return { error: mensajeDeError(error), needsConfirmation: false, yaRegistrado: false, userId: null };
     // Cuando el email ya tiene una cuenta CONFIRMADA, gotrue no devuelve un
     // error (por diseño, para no dejar enumerar qué emails están registrados):
     // responde 200 con un `user` fantasma e `identities: []`, sin sesión y sin
@@ -253,7 +253,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // se había enviado nada. Pasó de verdad probando el alta de instructora
     // freelance con un email que ya era propietaria de otro estudio.
     const yaRegistrado = !data.session && Array.isArray(data.user?.identities) && data.user.identities.length === 0;
-    return { error: null, needsConfirmation: !data.session && !yaRegistrado, yaRegistrado };
+    // `userId`: sin sesión (email por confirmar) no hay forma de identificar a
+    // esta persona en PostHog más adelante salvo guardar este id ahora — es la
+    // única pieza que permite medir el embudo "cuenta creada → email
+    // confirmado → estudio creado" en el tramo donde de verdad se pierde gente
+    // (auditoría 22-sep: 38 cuentas, 6 estudios). `null` si `yaRegistrado`: ese
+    // id es fantasma, no una cuenta nueva.
+    return {
+      error: null,
+      needsConfirmation: !data.session && !yaRegistrado,
+      yaRegistrado,
+      userId: yaRegistrado ? null : (data.user?.id ?? null),
+    };
   }
 
   // Botón único reutilizado en /login (entrar y crear) — Google es solo OTRO

@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Check, Loader2, Mail, RotateCcw, ShieldCheck } f
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
+import { capturarEvento, identificar } from '@/lib/posthog-cliente';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
@@ -200,6 +201,10 @@ export default function CrearEstudioPage() {
       setSlugCreado(estudio.slug);
       olvidarBorrador();
       olvidarEmailOtpPendiente();
+      // Cierra el tramo pre-estudio del embudo — a partir de aquí ya existe
+      // `studioId` y el resto de eventos de activación (onboarding_completado,
+      // horario_creado…) siguen la vía normal, keyed por tenant.
+      capturarEvento('alta_estudio_creada');
       setFase('listo');
     } finally {
       setMontando(false);
@@ -229,7 +234,7 @@ export default function CrearEstudioPage() {
       };
 
       const emailUsado = datos.email.trim();
-      const { error: errorAlta, needsConfirmation, yaRegistrado } = await signUp(
+      const { error: errorAlta, needsConfirmation, yaRegistrado, userId } = await signUp(
         emailUsado,
         datos.contrasena,
         { nombre: datos.persona.trim(), pending_studio: pendiente },
@@ -244,6 +249,18 @@ export default function CrearEstudioPage() {
         return;
       }
       if (errorAlta) { setError(errorAlta); return; }
+
+      // Cierra el primer tramo del embudo pre-estudio: sin sesión todavía no
+      // hay `studioId` con el que medir por el camino de siempre
+      // (lib/analytics-eventos.ts, SIEMPRE keyed por tenant) — aquí toca
+      // identificar por persona, el mismo criterio que ya usa `identificar()`
+      // para personal (nunca una socia). Es la única forma de saber cuántas
+      // cuentas se crean y nunca llegan a tener estudio (auditoría 22-sep:
+      // 38 cuentas, 6 estudios — la fuga estaba justo en este tramo).
+      if (userId) {
+        identificar(userId);
+        capturarEvento('alta_estudio_cuenta_creada');
+      }
 
       if (needsConfirmation) {
         // Se ha enviado un CÓDIGO de 6 dígitos. Se recuerda en sessionStorage
@@ -306,7 +323,15 @@ export default function CrearEstudioPage() {
           }}
           // Ya hay sesión: se crea el estudio aquí mismo. Nada de mandar a
           // nadie a /login a terminar su propio registro.
-          onVerificado={() => { void montarEstudio(); }}
+          onVerificado={() => {
+            // Segundo tramo del embudo: confirmó el email de verdad (no una
+            // auto-confirmación — este `onVerificado` solo llega tras un
+            // código correcto). Una sola vez por diseño: `onVerificado` es la
+            // transición de `<OtpVerificacion>` a éxito, no se repite en un
+            // reintento de `montarEstudio()`.
+            capturarEvento('alta_estudio_email_confirmado');
+            void montarEstudio();
+          }}
           sinTarjeta
         />
 
