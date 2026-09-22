@@ -3301,6 +3301,18 @@ export interface RowClasesFijasFranjas {
   dia_semana: number;
 }
 
+export interface RowConsentimientosMarketingEventos {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  en: string;
+  accion: string;
+  origen: string;
+  texto: string | null;
+  ip_hmac: string | null;
+  user_agent: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -9130,6 +9142,30 @@ export type ClasesFijasFranjasUpdate = {
   dia_semana?: number | null;
 }
 
+export type ConsentimientosMarketingEventosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  en?: string | null;
+  accion?: string | null;
+  origen?: string | null;
+  texto?: string | null | null;
+  ip_hmac?: string | null | null;
+  user_agent?: string | null | null;
+}
+
+export type ConsentimientosMarketingEventosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  en?: string | null;
+  accion?: string | null;
+  origen?: string | null;
+  texto?: string | null | null;
+  ip_hmac?: string | null | null;
+  user_agent?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10177,6 +10213,11 @@ export type Database = {
         Row: RowClasesFijasFranjas;
         Insert: ClasesFijasFranjasInsert;
         Update: ClasesFijasFranjasUpdate;
+      };
+      consentimientos_marketing_eventos: {
+        Row: RowConsentimientosMarketingEventos;
+        Insert: ConsentimientosMarketingEventosInsert;
+        Update: ConsentimientosMarketingEventosUpdate;
       };
     };
   };
