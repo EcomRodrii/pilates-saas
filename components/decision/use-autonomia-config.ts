@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { authHeader } from '@/lib/api-client';
-import type { AutonomiaConfig } from '@/lib/decision/autonomia';
+import type { AutonomiaConfig, TipoAccion } from '@/lib/decision/autonomia';
 
 export interface AutonomiaEstado {
   config: AutonomiaConfig | null;
-  tiposDisponibles: string[];
+  tiposDisponibles: TipoAccion[];
   maxTope: number;
   guardando: boolean;
   error: string | null;
@@ -22,7 +22,7 @@ export interface AutonomiaEstado {
 // resultado a `<PilotoAutomatico autonomia={...} />` por props.
 export function useAutonomiaConfig(): AutonomiaEstado {
   const [config, setConfig] = useState<AutonomiaConfig | null>(null);
-  const [tiposDisponibles, setTiposDisponibles] = useState<string[]>([]);
+  const [tiposDisponibles, setTiposDisponibles] = useState<TipoAccion[]>([]);
   const [maxTope, setMaxTope] = useState(50);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -13,7 +13,7 @@
 
 import type { Recomendacion, AccionDecision } from './tipos.ts';
 
-type TipoAccion = AccionDecision['tipo'];
+export type TipoAccion = AccionDecision['tipo'];
 
 export interface AutonomiaConfig {
   activa: boolean;

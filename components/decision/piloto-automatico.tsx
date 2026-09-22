@@ -3,7 +3,7 @@
 import { useRef, useState, useId } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { TentareOrb } from '@/components/marca/tentare-orb';
-import type { AutonomiaConfig } from '@/lib/decision/autonomia';
+import type { AutonomiaConfig, TipoAccion } from '@/lib/decision/autonomia';
 import type { AutonomiaEstado } from './use-autonomia-config';
 
 const TIPO_LABEL: Record<string, string> = {
@@ -32,7 +32,7 @@ export function PilotoAutomatico({ autonomia }: { autonomia: AutonomiaEstado }) 
 
   const maxDiario = maxDiarioLocal ?? config.maxDiario;
 
-  const toggleTipo = (tipo: string) => {
+  const toggleTipo = (tipo: TipoAccion) => {
     const set = new Set(config.tiposPermitidos);
     if (set.has(tipo)) set.delete(tipo); else set.add(tipo);
     guardar(config, { ...config, tiposPermitidos: [...set] });
