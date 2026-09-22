@@ -738,6 +738,17 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     radioTema: pick('radioTema', radioTemaSchema.optional()),
     escalaTexto: pick('escalaTexto', escalaTextoSchema.optional()),
     variantes: pick('variantes', variantesSchema.optional()),
+    // ⚠️ Esta lista es una LISTA BLANCA: lo que no se nombre aquí se pierde al
+    // leer el tema, aunque esté guardado y aunque el esquema lo acepte. Pasó
+    // con `appAlumna` el 22-sep-2026: se publicaba bien, quedaba en
+    // `config_published`, y la app de la alumna seguía viéndose igual porque
+    // este `resolveTheme` la devolvía sin el campo. Añadir un campo al esquema
+    // es la mitad del trabajo; la otra mitad es esta línea.
+    // Solo se emite si hay algo: un `appAlumna: undefined` suelto rompería la
+    // igualdad con `DEFAULT_THEME` de quien compara temas enteros.
+    ...(appAlumnaSchema.safeParse(obj.appAlumna).success
+      ? { appAlumna: appAlumnaSchema.parse(obj.appAlumna) }
+      : {}),
     navPortal: pick('navPortal', navConfigSchema),
     redesSociales: pick('redesSociales', redesSocialesSchema),
     themeId: pick('themeId', themeIdSchema),
