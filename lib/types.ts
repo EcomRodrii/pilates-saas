@@ -66,6 +66,8 @@ export interface Studio {
    * (`subtituloDelHeroe`). Este hueco ya tenía texto antes de ser configurable.
    */
   subtituloHeroe: string | null;
+  /** Titular de la pantalla de entrada de la app. NULL = el del producto. */
+  tituloAcceso: string | null;
   /**
    * Frase corta que la app de la alumna pinta con la tipografía manuscrita
    * (migr 20260910224251). `null` = esa tarjeta no se pinta.

@@ -14,7 +14,7 @@ const COLUMNAS_ESTABLES =
   'id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, '
   + 'codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera';
 const COLUMNAS_JOVENES =
-  'creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, imagen_bienvenida_url, '
+  'creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, titulo_acceso, imagen_bienvenida_url, '
   + 'plaza_fija_solicitar_desde_app, plaza_fija_pausa_desde_app, apertura_suave, fecha_apertura';
 
 /** La fila tal y como la lee esta función: las jóvenes pueden no venir. */
@@ -26,7 +26,7 @@ interface FilaStudio {
   descripcion: string | null; foto_url: string | null;
   cancelacion_ventana_horas: number | null; permite_lista_espera: boolean | null;
   creditos_nombre?: string | null; lema?: string | null; frase_heroe?: string | null;
-  frase_manuscrita?: string | null; subtitulo_heroe?: string | null;
+  frase_manuscrita?: string | null; subtitulo_heroe?: string | null; titulo_acceso?: string | null;
   imagen_bienvenida_url?: string | null;
   plaza_fija_solicitar_desde_app?: boolean | null; plaza_fija_pausa_desde_app?: boolean | null;
   apertura_suave?: boolean | null; fecha_apertura?: string | null;
@@ -112,6 +112,8 @@ export interface StudioSeo {
   fraseHeroe: string | null;
   fraseManuscrita: string | null;
   subtituloHeroe: string | null;
+  /** Titular de la pantalla de entrada. NULL = el del producto (lib/student/titulo-acceso.ts). */
+  tituloAcceso: string | null;
   /**
    * La portada del PORTAL — la que ve la alumna al abrir la app y al entrar.
    *
@@ -197,6 +199,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // es además el que esperan media docena de suites que aguardan a
       // «¿Qué te apetece hoy?» para saber que Inicio ha cargado.
       subtituloHeroe: process.env.E2E_SUBTITULO_HEROE ?? null,
+      tituloAcceso: process.env.E2E_TITULO_ACCESO ?? null,
       imagenBienvenidaUrl: process.env.E2E_PORTADA_URL ?? null,
       // Configurable para que el gate de página oculta se pueda ejercitar
       // alguna vez desde la suite: se decide en el SERVIDOR, así que
@@ -319,6 +322,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     fraseHeroe: (data.frase_heroe as string | null) ?? null,
     fraseManuscrita: (data.frase_manuscrita as string | null) ?? null,
     subtituloHeroe: (data.subtitulo_heroe as string | null) ?? null,
+    tituloAcceso: (data.titulo_acceso as string | null) ?? null,
     imagenBienvenidaUrl: (data.imagen_bienvenida_url as string | null) ?? null,
     // `=== true` y no un truthy: sin la columna todavía aplicada, «no sé» tiene
     // que significar «no oculta» y no esconder la página de todo el mundo.

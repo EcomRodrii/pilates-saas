@@ -4,6 +4,7 @@ import { useEstudio } from '@/components/student/contexto';
 import { inicialDe } from '@/lib/monograma-estudio';
 import { Foto } from '@/components/student/ui/Foto';
 import { urlServida } from '@/lib/student/imagen-servida';
+import { renglonesDeAcceso } from '@/lib/student/titulo-acceso';
 
 /**
  * Marco de acceso: portada fotográfica oscura arriba, formulario sobre crema
@@ -63,8 +64,12 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
                 línea es solo la ciudad cuando no hay nada más que decir. */}
             {estudio.ciudad}
           </p>
+          {/* Lo escribe el estudio en «Apariencia de tu app»; vacío = el del
+              producto, porque esta pantalla no puede quedarse muda. */}
           <h1 className="a-up" style={{ margin: '10px 0 0', fontSize: 34, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.06, animationDelay: '80ms' }}>
-            Muévete.<br />Lo demás,<br />ya está.
+            {renglonesDeAcceso(estudio.tituloAcceso).map((linea, i) => (
+              <span key={linea + i} style={{ display: 'block' }}>{linea}</span>
+            ))}
           </h1>
         </div>
       </div>

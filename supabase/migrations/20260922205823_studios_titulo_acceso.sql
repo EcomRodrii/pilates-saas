@@ -13,7 +13,8 @@
 --
 -- ⚠️ El GRANT: `authenticated` no tiene UPDATE sobre `studios` entera sino
 -- lista blanca de columnas (migr 20260910171150), y una columna nueva no entra
--- sola — verificado con `has_column_privilege` después de aplicar.
+-- sola — verificado con `has_column_privilege` después de aplicar (true para
+-- `authenticated`, false para `anon`).
 
 alter table public.studios
   add column if not exists titulo_acceso text;

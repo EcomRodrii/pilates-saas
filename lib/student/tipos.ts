@@ -32,6 +32,8 @@ export interface StudioConfig {
   fraseManuscrita: string | null;
   /** Línea bajo el saludo. `null` = la del producto, no un hueco. */
   subtituloHeroe: string | null;
+  /** Titular de la pantalla de entrada. Vacío = el del producto, no un hueco. */
+  tituloAcceso: string | null;
   tema: Record<string, string>;
 }
 

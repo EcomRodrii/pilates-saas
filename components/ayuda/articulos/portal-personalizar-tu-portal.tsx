@@ -14,18 +14,26 @@ export default function Contenido() {
       </p>
 
       <AyudaPaso numero={1} titulo="Elige un estilo">
-        Crema, Luz, Arena, Rubor o Piedra: el fondo, las tarjetas y la forma de las esquinas y los botones. Todos se leen bien con cualquier color.
+        Ocho: Crema, Luz, Arena, Rubor, Piedra, Bosque, Niebla y Carbón —este último, de fondo oscuro—. Cambian el
+        fondo, las tarjetas y la forma de las esquinas y los botones, y todos se leen bien con cualquier color.
       </AyudaPaso>
       <AyudaPaso numero={2} titulo="Pon tu color">
         «Suave» lo lleva a una versión apagada y elegante; «Tal cual» lo deja como es (si es muy claro, lo oscurecemos lo justo para que el texto encima se lea). Decide también si el botón principal va oscuro o en tu color.
       </AyudaPaso>
       <AyudaPaso numero={3} titulo="Elige la tipografía">
-        Seis parejas de letra para títulos y texto, pensadas para ir juntas.
+        Nueve parejas de letra para títulos y texto, pensadas para ir juntas. La de títulos se usa también en los
+        botones, los rótulos y las etiquetas, así que la elección se nota en toda la app.
       </AyudaPaso>
-      <AyudaPaso numero={4} titulo="Sube tu portada">
+      <AyudaPaso numero={4} titulo="Escribe tu entrada">
+        La primera pantalla, donde entran o se registran: la foto es la de portada y el titular lo escribes tú, en
+        renglones cortos. Si lo dejas vacío se lee el del producto. Se guarda al momento y lo puedes mirar en la
+        vista previa, que cambia entre «Inicio» y «Entrada».
+      </AyudaPaso>
+
+      <AyudaPaso numero={5} titulo="Sube tu portada">
         La foto grande del inicio y de la pantalla de entrada, y qué parte de ella se ve. Las fotos se guardan al subirlas, sin esperar a «Publicar».
       </AyudaPaso>
-      <AyudaPaso numero={5} titulo="Publica">
+      <AyudaPaso numero={6} titulo="Publica">
         Si no te convence, «Descartar» vuelve a lo que tenías.
       </AyudaPaso>
 
