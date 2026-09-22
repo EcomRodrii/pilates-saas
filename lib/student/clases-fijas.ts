@@ -24,6 +24,13 @@ export interface ClaseFijaVista extends OfertaAlumna {
   venceEl: string | null;
   /** Ya ha pedido ampliarla, antes de que venza. */
   ampliacionPedida: { solicitudId: string; duracionMeses: number; hasta: string } | null;
+  /**
+   * ¿Falta poco para que venza (dentro de `DIAS_AVISO_CLASE_FIJA_TERMINA`)?
+   * Se calcula aquí, con el mismo `hoy` que `venceEl` y el resto de campos —
+   * mismo criterio que ellos: la pantalla nunca vuelve a llamar a
+   * `hoyEnEstudio()` por su cuenta, lee lo que ya viene resuelto.
+   */
+  terminaPronto: boolean;
 }
 
 export interface SociaMin {
@@ -40,6 +47,7 @@ export function proyectarClasesFijas(
     const p = pedidas.find((x) => x.claseFijaId === o.id && x.tipo === 'CREAR_CLASE_FIJA') ?? null;
     const a = pedidas.find((x) => x.claseFijaId === o.id && x.tipo === 'AMPLIAR_CLASE_FIJA') ?? null;
     const yaTiene = socia ? franjasYaCubiertas(o.franjas.map((f) => ({ ...f, tipoClaseId: f.tipoClaseId })), socia.plazasFijas, hoy).length : 0;
+    const venceEl = socia ? vigenciaMinDeOferta(o.franjas, socia.plazasFijas, hoy) : null;
     return {
       ...o,
       estadoAlumna: estadoAlumnaOferta({ franjas: o.franjas.length, yaTiene, pedida: !!p }),
@@ -47,8 +55,9 @@ export function proyectarClasesFijas(
         ? o.franjas.every((f) => tieneCuotaQueCubre(socia.suscripciones, planes, hoy, f.tipoClaseId))
         : true,
       pedida: p ? { solicitudId: p.solicitudId, duracionMeses: p.duracionMeses, hasta: p.hasta } : null,
-      venceEl: socia ? vigenciaMinDeOferta(o.franjas, socia.plazasFijas, hoy) : null,
+      venceEl,
       ampliacionPedida: a ? { solicitudId: a.solicitudId, duracionMeses: a.duracionMeses, hasta: a.hasta } : null,
+      terminaPronto: terminaPronto(venceEl, hoy),
     };
   });
 }

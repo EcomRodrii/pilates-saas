@@ -10,11 +10,10 @@ import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getClasesFijas } from '@/lib/student/datos';
 import { ampliarClaseFija, anularPeticionClaseFija, pedirClaseFija } from '@/lib/student/clases-fijas-datos';
-import { diasDeLaOferta, terminaPronto, type ClaseFijaVista } from '@/lib/student/clases-fijas';
+import { diasDeLaOferta, type ClaseFijaVista } from '@/lib/student/clases-fijas';
 import { TEXTOS_CLASES_FIJAS as T } from '@/lib/student/clases-fijas-textos';
 import { nombreDia } from '@/lib/student/plaza-fija';
 import { fechaDMY } from '@/lib/series-renovacion';
-import { hoyEnEstudio } from '@/lib/utils';
 import { Badge } from '@/components/student/ui/Badge';
 import { Button } from '@/components/student/ui/Button';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -70,7 +69,9 @@ function TarjetaClaseFija({ c, studioId, slug, online, onCambio }: {
 
   const puedePedir = c.estado === 'DISPONIBLE' && c.tieneCuota && (c.estadoAlumna === 'LIBRE' || c.estadoAlumna === 'PARCIAL') && !!elegida;
   // Ya la tiene entera, le queda poco y no ha pedido ya ampliarla: solo entonces se ofrece.
-  const pronto = c.estadoAlumna === 'LA_TIENE' && terminaPronto(c.venceEl, hoyEnEstudio());
+  // `c.terminaPronto` viene calculado de `proyectarClasesFijas` (con el `hoy` del servidor/catálogo),
+  // no de una llamada propia aquí — ver el comentario en `ClaseFijaVista`.
+  const pronto = c.estadoAlumna === 'LA_TIENE' && c.terminaPronto;
   const puedeAmpliar = pronto && !c.ampliacionPedida && !!elegidaAmpliar;
 
   async function pedir() {

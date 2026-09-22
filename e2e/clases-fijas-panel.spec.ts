@@ -139,6 +139,24 @@ test.describe('Horario · clases fijas', () => {
     await expect(oferta.getByRole('button', { name: 'Reabrir Reformer · martes' })).toBeVisible();
   });
 
+  test('el badge «Automática» refleja la oferta, y desmarcar el checkbox manda `aprobacionAutomatica: false`', async ({ page }) => {
+    const s = await abrirHorario(page, [{ ...OFERTA, aprobacionAutomatica: true }]);
+    const oferta = page.getByTestId('clase-fija');
+    await expect(oferta).toContainText('Automática', { timeout: 30_000 });
+
+    await oferta.getByRole('button', { name: 'Editar Reformer · martes' }).click();
+    const dialogo = page.getByRole('dialog');
+    const checkbox = dialogo.getByLabel('Aprobar automáticamente');
+    await expect(checkbox).toBeChecked();
+    await checkbox.uncheck();
+
+    s.ofertas = [{ ...OFERTA, aprobacionAutomatica: false }];
+    await dialogo.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    await expect(page.getByTestId('clase-fija')).not.toContainText('Automática', { timeout: 30_000 });
+    expect(s.escrituras.at(-1)?.cuerpo).toMatchObject({ id: 'cf-1', aprobacionAutomatica: false });
+  });
+
   test('una franja cuya serie ya no tiene clases se avisa, y las plazas libres no bajan de cero', async ({ page }) => {
     await abrirHorario(page, [{
       ...OFERTA, estado: 'SIN_CLASES', plazasLibres: -2,
@@ -205,5 +223,35 @@ test.describe('Inicio · petición de una clase fija', () => {
     await bandeja.getByRole('button', { name: 'No aprobar' }).click({ timeout: 30_000 });
     await expect(bandeja).toBeHidden({ timeout: 30_000 });
     expect(decisiones[0]).toMatchObject({ id: 'spf-1', aprobar: false, motivo: 'Ahora mismo no hay sitio' });
+  });
+
+  // Ampliar (Fase 2): hermana de CREAR_CLASE_FIJA — no compite por cupo, así que su
+  // aviso habla de «Ampliarla», nunca de «Durante», y el botón dice «Ampliarla».
+  const PETICION_AMPLIAR = {
+    ...PETICION, id: 'spf-2', tipo: 'AMPLIAR_CLASE_FIJA', franja: 'Clase fija «Reformer · martes»',
+    claseFija: { nombre: 'Reformer · martes', duracion: '3 meses', hasta: '21/12', aviso: null as string | null },
+  };
+
+  test('pide ampliar su clase fija, y aprobarla pasa por la misma decisión que las demás', async ({ page }) => {
+    const decisiones = await abrirInicio(page, PETICION_AMPLIAR, { status: 200, body: { ok: true, mensaje: 'Clase fija ampliada' } });
+    const bandeja = page.getByTestId('plazas-fijas-por-decidir');
+    await expect(bandeja).toContainText('Pide ampliar su clase fija', { timeout: 30_000 });
+    await expect(bandeja).toContainText('Ampliarla 3 meses, hasta el 21/12.');
+
+    await bandeja.getByRole('button', { name: 'Ampliarla' }).click();
+    await expect(bandeja).toBeHidden({ timeout: 30_000 });
+    expect(decisiones.length).toBeGreaterThan(0);
+    expect(decisiones[0]).toMatchObject({ id: 'spf-2', aprobar: true, confirmarLimite: false });
+  });
+
+  test('si ampliarla pasaría del límite semanal de su cuota, hay que confirmarlo', async ({ page }) => {
+    const decisiones = await abrirInicio(page, PETICION_AMPLIAR, {
+      status: 409, body: { error: 'Su cuota es de 2 clases por semana y con esta ampliación pasaría.', codigo: 'SUPERA_LIMITE' },
+    });
+    const bandeja = page.getByTestId('plazas-fijas-por-decidir');
+    await bandeja.getByRole('button', { name: 'Ampliarla' }).click({ timeout: 30_000 });
+    await expect(bandeja.getByRole('button', { name: 'Ampliarla igualmente' })).toBeVisible({ timeout: 30_000 });
+    await expect(bandeja).toContainText('Pasaría del límite de clases por semana de su cuota.');
+    expect(decisiones.length).toBeGreaterThan(0);
   });
 });

@@ -114,6 +114,19 @@ test('ampliación pedida: sale aparte de «pedida» (crear), y no se confunden',
   assert.deepEqual(v.ampliacionPedida, { solicitudId: 'spf-amp', duracionMeses: 3, hasta: '2027-01-12' });
 });
 
+test('`terminaPronto` de la proyección usa el `venceEl` y el `hoy` reales, no uno propio de la pantalla', () => {
+  const [pronto] = proyectarClasesFijas(cat(), socia({ plazasFijas: [plazaDe2(2, '2026-09-25'), plazaDe2(4, '2026-09-25')] }), [planMensual], HOY);
+  assert.equal(pronto.venceEl, '2026-09-25');
+  assert.equal(pronto.terminaPronto, true, '4 días desde HOY (2026-09-21): dentro de la ventana');
+
+  const [lejos] = proyectarClasesFijas(cat(), socia({ plazasFijas: [plazaDe2(2, '2026-12-25'), plazaDe2(4, '2026-12-25')] }), [planMensual], HOY);
+  assert.equal(lejos.terminaPronto, false);
+
+  const [sinFecha] = proyectarClasesFijas(cat(), socia(), [planMensual], HOY);
+  assert.equal(sinFecha.venceEl, null);
+  assert.equal(sinFecha.terminaPronto, false, 'sin venceEl no hay nada que avisar');
+});
+
 test('termina pronto: dentro de la ventana de aviso, no antes ni después de vencer', () => {
   assert.equal(terminaPronto('2026-10-05', '2026-09-21'), true, '14 días exactos');
   assert.equal(terminaPronto('2026-10-06', '2026-09-21'), false, '15 días: todavía no');
