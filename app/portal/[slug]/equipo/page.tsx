@@ -262,7 +262,7 @@ export default function HoyInstructoraPage() {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0,
                 height: 44, padding: '0 18px', borderRadius: 999,
-                background: 'var(--on-dark)', color: 'var(--foreground)',
+                background: 'var(--on-dark)', color: 'var(--on-dark-tinta)',
                 fontSize: 'var(--t-small)', fontWeight: 800, animationDelay: '180ms',
               }}
             >

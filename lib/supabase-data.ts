@@ -4975,6 +4975,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('fraseHeroe' in changes) db.frase_heroe = changes.fraseHeroe;
   if ('fraseManuscrita' in changes) db.frase_manuscrita = changes.fraseManuscrita;
   if ('subtituloHeroe' in changes) db.subtitulo_heroe = changes.subtituloHeroe;
+  if ('tituloAcceso' in changes) db.titulo_acceso = changes.tituloAcceso;
   if ('creditosNombre' in changes) db.creditos_nombre = changes.creditosNombre;
   if ('creditosCaducanMeses' in changes) db.creditos_caducan_meses = changes.creditosCaducanMeses;
   if ('rachaClasesSemana' in changes) db.racha_clases_semana = changes.rachaClasesSemana;
@@ -5339,6 +5340,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     fraseHeroe: r.frase_heroe ?? null,
     fraseManuscrita: r.frase_manuscrita ?? null,
     subtituloHeroe: r.subtitulo_heroe ?? null,
+    tituloAcceso: r.titulo_acceso ?? null,
     codigoPostal: r.codigo_postal,
     sitioWeb: r.sitio_web ?? null,
     normasTexto: r.normas_texto ?? null,

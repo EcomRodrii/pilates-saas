@@ -39,6 +39,7 @@ import {
   ESTILOS, TIPOGRAFIAS, acentoDe, estiloPorId, resolverApariencia, temaAppCssText,
   type AparienciaApp, type EncuadrePortada,
 } from '@/lib/student/apariencia';
+import { TITULO_ACCESO_POR_DEFECTO } from '@/lib/student/titulo-acceso';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const ID_ESTILO_BORRADOR = 'apariencia-borrador';
@@ -175,29 +176,47 @@ function CampoColor({ etiqueta, valor, onChange }: { etiqueta: string; valor: st
   );
 }
 
-function VistaPrevia({ slug, css, recarga }: { slug: string; css: string; recarga: number }) {
+/** Las dos pantallas que se pueden mirar: la de entrada y la de dentro. */
+const PANTALLAS = [
+  { id: 'inicio', texto: 'Inicio', ruta: '' },
+  { id: 'entrada', texto: 'Entrada', ruta: '/acceso' },
+] as const;
+type PantallaId = (typeof PANTALLAS)[number]['id'];
+
+function VistaPrevia({ slug, css, recarga, pantalla, onPantalla }: {
+  slug: string; css: string; recarga: number; pantalla: PantallaId; onPantalla: (p: PantallaId) => void;
+}) {
   const ref = useRef<HTMLIFrameElement>(null);
   // El borrador se repinta en cada cambio; al cargar (o recargar) la app, en `onLoad`.
   useEffect(() => { pintarBorrador(ref.current, css); }, [css]);
   const escala = 0.8;
+  const ruta = PANTALLAS.find(p => p.id === pantalla)?.ruta ?? '';
   return (
     <div className="flex flex-col items-center">
+      <div className="mb-3">
+        <Segmentado
+          etiqueta="Pantalla de la vista previa"
+          valor={pantalla}
+          opciones={PANTALLAS.map(p => ({ valor: p.id, texto: p.texto }))}
+          onChange={onPantalla}
+        />
+      </div>
       <div
         className="overflow-hidden rounded-[38px] border-[10px] border-neutral-900 bg-neutral-900 shadow-xl"
         style={{ width: MOVIL.ancho * escala + 20, height: MOVIL.alto * escala + 20 }}
       >
         <iframe
-          key={recarga}
+          key={`${recarga}-${pantalla}`}
           ref={ref}
           title="Vista previa de la app de tus alumnas"
-          src={`/portal/${encodeURIComponent(slug)}`}
+          src={`/portal/${encodeURIComponent(slug)}${ruta}`}
           onLoad={() => pintarBorrador(ref.current, css)}
           className="origin-top-left rounded-[28px] bg-white"
           style={{ width: MOVIL.ancho, height: MOVIL.alto, transform: `scale(${escala})`, border: 0 }}
         />
       </div>
       <a
-        href={`/portal/${encodeURIComponent(slug)}`}
+        href={`/portal/${encodeURIComponent(slug)}${ruta}`}
         target="_blank"
         rel="noreferrer"
         className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"
@@ -221,6 +240,9 @@ export function EditorAparienciaApp() {
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   const [recarga, setRecarga] = useState(0);
   const [subiendo, setSubiendo] = useState(false);
+  const [pantalla, setPantalla] = useState<PantallaId>('inicio');
+  const [tituloAcceso, setTituloAcceso] = useState<string | null>(null);
+  const [guardandoTitulo, setGuardandoTitulo] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -332,8 +354,8 @@ export function EditorAparienciaApp() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div className="order-2 flex min-w-0 flex-col gap-5 lg:order-1">
-          <Seccion titulo="Estilo" detalle="El fondo, las tarjetas y la forma de las esquinas. Todos están pensados para leerse bien con cualquier color.">
-            <div role="radiogroup" aria-label="Estilo de la app" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+          <Seccion titulo="Estilo" detalle="El fondo, las tarjetas y la forma de las esquinas y los botones. Los ocho están pensados para leerse bien con cualquier color, incluido el oscuro.">
+            <div role="radiogroup" aria-label="Estilo de la app" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {ESTILOS.map(e => (
                 <MuestraEstilo
                   key={e.id}
@@ -396,7 +418,7 @@ export function EditorAparienciaApp() {
             </div>
           </Seccion>
 
-          <Seccion titulo="Tipografía" detalle="Una letra para los títulos y otra para el texto, elegidas para ir juntas.">
+          <Seccion titulo="Tipografía" detalle="Una letra para los títulos y otra para el texto, elegidas para ir juntas. La de títulos la llevan además los botones, los rótulos y las etiquetas.">
             <div role="radiogroup" aria-label="Tipografía de la app" className="grid gap-2 sm:grid-cols-2">
               {TIPOGRAFIAS.map(t => {
                 const activo = borrador.app.tipografia === t.id;
@@ -428,6 +450,50 @@ export function EditorAparienciaApp() {
                   </button>
                 );
               })}
+            </div>
+          </Seccion>
+
+          <Seccion
+            titulo="La entrada"
+            detalle="La primera pantalla, donde tus alumnas entran o se registran. La foto es la de portada; el titular lo escribes tú."
+          >
+            <div className="flex flex-col gap-3">
+              <label htmlFor="titulo-acceso" className="text-[13px] font-medium text-foreground">
+                Titular de la entrada
+              </label>
+              <textarea
+                id="titulo-acceso"
+                rows={3}
+                maxLength={120}
+                value={tituloAcceso ?? studio.tituloAcceso ?? ''}
+                placeholder={TITULO_ACCESO_POR_DEFECTO}
+                onChange={e => { setAviso(null); setTituloAcceso(e.target.value); }}
+                className={cn(inputCls, 'min-h-24 resize-y leading-relaxed')}
+              />
+              <p className="text-[12px] leading-relaxed text-muted-foreground">
+                Una frase corta, en tres renglones como mucho: cada salto de línea se respeta. Si lo dejas vacío,
+                se lee «{TITULO_ACCESO_POR_DEFECTO.replace(/\n/g, ' ')}».
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className={btnSecondary}
+                  disabled={guardandoTitulo || tituloAcceso === null || tituloAcceso === (studio.tituloAcceso ?? '')}
+                  onClick={async () => {
+                    if (tituloAcceso === null) return;
+                    setGuardandoTitulo(true);
+                    const res = await updateStudio({ tituloAcceso: tituloAcceso.trim() || null });
+                    setGuardandoTitulo(false);
+                    setAviso(res.ok
+                      ? { tipo: 'ok', texto: 'Titular guardado. Ya se lee en tu entrada.' }
+                      : { tipo: 'error', texto: res.error });
+                    if (res.ok) { setTituloAcceso(null); setPantalla('entrada'); setRecarga(n => n + 1); }
+                  }}
+                >
+                  {guardandoTitulo ? 'Guardando…' : 'Guardar el titular'}
+                </button>
+                <span className="text-[12px] text-muted-foreground">Se guarda al momento, sin esperar a «Publicar».</span>
+              </div>
             </div>
           </Seccion>
 
@@ -492,7 +558,7 @@ export function EditorAparienciaApp() {
 
         <div className="order-1 lg:sticky lg:top-20 lg:order-2">
           {studio.slug
-            ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} />
+            ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} />
             : <p className="max-w-xs text-[13px] text-muted-foreground">Tu estudio aún no tiene dirección propia, así que no hay app que enseñar. Se la pones en «Mi app y mi web».</p>}
         </div>
       </div>

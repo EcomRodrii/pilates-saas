@@ -26,7 +26,7 @@ import { acentoCssText, acentoDeEstudio, type AcentoStudent } from './tema.ts';
 
 // ── Estilos ──────────────────────────────────────────────────────────────────
 
-export const ESTILO_IDS = ['crema', 'luz', 'arena', 'rubor', 'piedra'] as const;
+export const ESTILO_IDS = ['crema', 'luz', 'arena', 'rubor', 'piedra', 'bosque', 'niebla', 'carbon'] as const;
 export type EstiloId = (typeof ESTILO_IDS)[number];
 
 /** `pill` es la forma de botones, chips y badges: 999 = píldora. */
@@ -48,6 +48,8 @@ export interface Estilo {
   tinta: string;
   tintaForeground: string;
   radios: Radios;
+  /** Fondo oscuro: el color de marca se ACLARA en vez de oscurecerse, y el texto de encima se invierte. */
+  oscuro?: boolean;
 }
 
 export const ESTILOS: readonly Estilo[] = [
@@ -88,11 +90,35 @@ export const ESTILOS: readonly Estilo[] = [
     tinta: '#1C221E', tintaForeground: '#F1F4EF',
     radios: { xs: 4, sm: 6, card: 8, hero: 10, sheet: 16, pill: 6 },
   },
+  {
+    id: 'bosque', nombre: 'Bosque', descripcion: 'Verde sereno, natural y en calma.',
+    background: '#EDF1E9', foreground: '#1B2418', card: '#FAFCF7', muted: '#E0E7DB',
+    mutedForeground: '#4B5548', subtleForeground: '#566052', border: '#D7E0D1', borderStrong: '#C5D1BE',
+    tinta: '#1B2418', tintaForeground: '#F2F6EE',
+    radios: { xs: 8, sm: 12, card: 18, hero: 22, sheet: 26, pill: 999 },
+  },
+  {
+    id: 'niebla', nombre: 'Niebla', descripcion: 'Azul frío y sobrio, muy nítido.',
+    background: '#EFF2F6', foreground: '#161F2B', card: '#FFFFFF', muted: '#E1E7EF',
+    mutedForeground: '#4B5563', subtleForeground: '#576273', border: '#DCE3EC', borderStrong: '#C7D1DE',
+    tinta: '#161F2B', tintaForeground: '#F3F6FA',
+    radios: { xs: 6, sm: 10, card: 14, hero: 18, sheet: 22, pill: 14 },
+  },
+  {
+    // El único con el fondo oscuro. `oscuro` no es decoración: cambia de qué
+    // lado se deriva el acento y qué tinta lleva encima (ver `acentoDe`).
+    id: 'carbon', nombre: 'Carbón', descripcion: 'Oscuro y elegante, de noche.',
+    background: '#17181B', foreground: '#F2F3F5', card: '#202226', muted: '#292C31',
+    mutedForeground: '#AEB3BB', subtleForeground: '#9BA1A9', border: '#2E3138', borderStrong: '#3C4048',
+    tinta: '#F2F3F5', tintaForeground: '#17181B',
+    radios: { xs: 8, sm: 12, card: 16, hero: 20, sheet: 24, pill: 999 },
+    oscuro: true,
+  },
 ];
 
 // ── Tipografías ──────────────────────────────────────────────────────────────
 
-export const TIPOGRAFIA_IDS = ['moderna', 'editorial', 'elegante', 'serena', 'geometrica', 'redonda'] as const;
+export const TIPOGRAFIA_IDS = ['moderna', 'editorial', 'elegante', 'serena', 'geometrica', 'redonda', 'nitida', 'romantica', 'contraste'] as const;
 export type TipografiaId = (typeof TIPOGRAFIA_IDS)[number];
 
 export interface Tipografia {
@@ -126,6 +152,12 @@ export const TIPOGRAFIAS: readonly Tipografia[] = [
     titulos: `var(--font-outfit)${SANS}`, texto: `var(--font-outfit)${SANS}`, pesoTitulo: 700, escalaTitulo: 1, trackingTitulo: '.01em' },
   { id: 'redonda', nombre: 'Redonda', familias: 'Poppins',
     titulos: `var(--font-poppins)${SANS}`, texto: `var(--font-poppins)${SANS}`, pesoTitulo: 600, escalaTitulo: 0.94, trackingTitulo: '.02em' },
+  { id: 'nitida', nombre: 'Nítida', familias: 'Instrument Sans',
+    titulos: `var(--font-ui)${SANS}`, texto: `var(--font-ui)${SANS}`, pesoTitulo: 700, escalaTitulo: 1, trackingTitulo: '.01em' },
+  { id: 'romantica', nombre: 'Romántica', familias: 'Cormorant Garamond · Figtree',
+    titulos: `var(--font-cormorant)${SERIF}`, texto: `var(--font-figtree)${SANS}`, pesoTitulo: 500, escalaTitulo: 1.26, trackingTitulo: '.04em' },
+  { id: 'contraste', nombre: 'Contraste', familias: 'Outfit · Figtree',
+    titulos: `var(--font-outfit)${SANS}`, texto: `var(--font-figtree)${SANS}`, pesoTitulo: 700, escalaTitulo: 1.02, trackingTitulo: '0em' },
 ];
 
 // ── Lo que guarda el estudio ─────────────────────────────────────────────────
@@ -204,9 +236,44 @@ export function acentoFiel(colorPrimario: string | null | undefined, fondo: stri
   };
 }
 
+/**
+ * El acento sobre un fondo OSCURO: se deriva hacia el otro lado.
+ *
+ * ⚠️ En claro, el acento se oscurece hasta que el blanco de encima se lee. Con
+ * «Carbón» eso daría un acento oscuro sobre fondo oscuro: un enlace que no se
+ * ve. Aquí se ACLARA hasta separarse del fondo, y la tinta de encima pasa a ser
+ * oscura — por eso `accentForeground` no puede ser blanco fijo.
+ *
+ * `suave` aquí no significa «más apagado» sino la misma gama contenida del kit
+ * (S 16-38); `fiel` conserva la saturación del estudio.
+ */
+function acentoClaroSobreOscuro(colorPrimario: string | null | undefined, e: Estilo, marca: IntensidadMarca): AcentoStudent {
+  // Sin color propio, el verde contenido del kit: el mismo punto de partida
+  // que `ACENTO_POR_DEFECTO` en tema.ts, ya aclarado por el bucle de abajo.
+  const hsl = (colorPrimario ? hexToHsl(colorPrimario) : null) ?? { h: 95, s: 22, l: 40 };
+  const s = marca === 'fiel' ? clamp(hsl.s, 20, 75) : clamp(hsl.s, 16, 38);
+  let l = Math.max(hsl.l, 62);
+  let accent = hslToHex({ h: hsl.h, s, l });
+  while (l < 92 && (ratioContraste(accent, e.background) ?? 0) < 4.5) accent = hslToHex({ h: hsl.h, s, l: (l += 2) });
+  const soft = hslToHex({ h: hsl.h, s: clamp(s * 0.5, 8, 40), l: 22 });
+  return {
+    accent,
+    // Encima del acento va el fondo del estilo, no blanco: el acento es claro.
+    accentForeground: colorLegibleSobre(e.background, accent),
+    accentSoft: soft,
+    accentSoftForeground: colorLegibleSobre(accent, soft),
+    // La tarjeta de «tu próxima clase» y el pase: un tono profundo del color.
+    accentDeep: hslToHex({ h: hsl.h, s: clamp(s * 0.8, 14, 60), l: 26 }),
+    accentDeepForeground: hslToHex({ h: hsl.h, s: clamp(s * 0.3, 6, 30), l: 94 }),
+    accentDeepMuted: hslToHex({ h: hsl.h, s: clamp(s * 0.5, 10, 45), l: 72 }),
+  };
+}
+
 /** El acento que se verá, sea cual sea la intensidad. Lo usa también el editor para pintar muestras. */
 export function acentoDe(colorPrimario: string | null | undefined, a: AparienciaApp): AcentoStudent {
-  return a.marca === 'fiel' ? acentoFiel(colorPrimario, estiloPorId(a.estilo).background) : acentoDeEstudio(colorPrimario);
+  const e = estiloPorId(a.estilo);
+  if (e.oscuro) return acentoClaroSobreOscuro(colorPrimario, e, a.marca);
+  return a.marca === 'fiel' ? acentoFiel(colorPrimario, e.background) : acentoDeEstudio(colorPrimario);
 }
 
 // ── El CSS ───────────────────────────────────────────────────────────────────

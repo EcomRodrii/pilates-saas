@@ -111,6 +111,11 @@
      sitios: es el MISMO crema del fondo, usado del revés. */
   --on-dark: #FAF9F5;
   --on-dark-muted: #EAF0E7;
+  /* ⚠️ La tinta de lo que va ENCIMA de `--on-dark` (el botón claro sobre la
+     foto del héroe). No es `--foreground`: con un estilo de fondo oscuro
+     («Carbón») el texto del héroe es claro, y ahí quedaba crema sobre crema —
+     un botón en blanco. Medido en la vista previa, 22-sep-2026. */
+  --on-dark-tinta: #1A1A1A;
 
   /* ── Tipografía ──
      Las FAMILIAS son las del paquete y no se tocan. Lo que se añade es la
@@ -122,7 +127,11 @@
   /* Títulos. Por defecto, la misma familia y el mismo peso de siempre: solo
      cambian si el estudio elige otra pareja tipográfica en «Apariencia de tu
      app» (lib/student/apariencia.ts). Una serif no aguanta el −0,03 em ni el
-     800 de la sans, por eso el peso, la escala y el tracking van con ella. */
+     800 de la sans, por eso el peso, la escala y el tracking van con ella.
+     ⚠️ La tipografía de TÍTULOS la llevan además las micro-etiquetas en
+     versales, los botones, los badges y los chips: son la voz de la marca, no
+     texto corrido, y si se quedaran en la de texto la pareja elegida apenas se
+     notaría fuera de cuatro titulares (petición del fundador, 22-sep). */
   --font-heading: var(--font-sans);
   --heading-weight: 800;
   --heading-scale: 1;
@@ -293,7 +302,7 @@
      la sans no, y con .16em las palabras se deshacían en letras sueltas.
    · 700 en vez del 500 heredado — en versales pequeñas la sans necesita cuerpo
      para no verse desvaída al lado de un titular en 800. */
-.student-app .t-label { font-family: var(--font-sans); font-size: var(--t-label); font-weight: 700; letter-spacing: .10em; text-transform: uppercase; color: var(--subtle-foreground); margin: 0; }
+.student-app .t-label { font-family: var(--font-heading); font-size: var(--t-label); font-weight: 700; letter-spacing: .10em; text-transform: uppercase; color: var(--subtle-foreground); margin: 0; }
 .student-app .t-meta { font-size: var(--t-meta); color: var(--muted-foreground); margin: 0; }
 /* Mono, para lo que de verdad es un CÓDIGO: el identificador de un recibo, el
    del pase de acceso, el de invitar a una amiga. Se lee carácter a carácter,
@@ -372,7 +381,7 @@
    TONO dice de qué color es y el TAMAÑO dice cuánto ocupa. */
 .student-app .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
-  border: none; border-radius: var(--radius-pill); font-weight: 800; white-space: nowrap;
+  border: none; border-radius: var(--radius-pill); font-family: var(--font-heading); font-weight: 800; white-space: nowrap;
   height: var(--h-control-md); font-size: var(--t-small); padding: 0 var(--s-4);
   transition: transform .15s var(--ease), background .2s, box-shadow .25s, border-color .2s, opacity .2s;
 }
@@ -455,7 +464,7 @@
 }
 
 /* ── Badges de plazas ── */
-.student-app .badge { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-label); font-weight: 800; padding: 5px 10px; border-radius: var(--radius-pill); white-space: nowrap; }
+.student-app .badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-heading); font-size: var(--t-label); font-weight: 800; padding: 5px 10px; border-radius: var(--radius-pill); white-space: nowrap; }
 .student-app .badge--ok { background: var(--accent-soft); color: var(--accent-soft-foreground); }
 .student-app .badge--few { background: var(--warning-soft); color: var(--warning-foreground); }
 .student-app .badge--full { background: var(--destructive-soft); color: var(--destructive-foreground); }
@@ -522,7 +531,7 @@
 }
 
 /* ── Pills (filtros / días) ── */
-.student-app .pill { border: 1px solid var(--border-strong); background: var(--card); color: var(--muted-foreground); border-radius: var(--radius-pill); padding: 7px 14px; font-size: 12px; font-weight: 700; transition: all .2s; }
+.student-app .pill { border: 1px solid var(--border-strong); background: var(--card); color: var(--muted-foreground); border-radius: var(--radius-pill); padding: 7px 14px; font-family: var(--font-heading); font-size: 12px; font-weight: 700; transition: all .2s; }
 .student-app .pill[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-soft-foreground); }
 .student-app .day { flex-shrink: 0; min-width: 64px; height: var(--h-control-md); border: 1.5px solid var(--border); background: var(--card); color: var(--foreground); border-radius: 13px; padding: 0 var(--s-3); font-size: var(--t-small); font-weight: 800; transition: all .22s; }
 /* ⚠️ `aria-selected` además de `aria-pressed`, y esto SÍ era un fallo visible.

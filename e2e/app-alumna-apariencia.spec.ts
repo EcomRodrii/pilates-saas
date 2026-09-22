@@ -19,6 +19,14 @@ async function preparar(page: Page, publicar: (cuerpo: { campos: Record<string, 
     plan: 'ESTUDIO', subscription_status: 'active', moneda: 'EUR', iva_por_defecto: 21,
   }));
   const envios: { campos: Record<string, unknown> }[] = [];
+  const escriturasStudio: Record<string, unknown>[] = [];
+  await page.route((u) => u.pathname.startsWith('/rest/v1/studios'), async (r) => {
+    if (r.request().method() === 'PATCH') {
+      escriturasStudio.push(r.request().postDataJSON() as Record<string, unknown>);
+      return json(r, [{ id: 'studio-test' }]);
+    }
+    return r.fallback();
+  });
   await page.route((u) => u.pathname === '/api/theme', (r) => json(r, { ...DEFAULT_THEME, primary: '#666DCC' }));
   await page.route((u) => u.pathname === '/api/theme/publish', async (r) => {
     const cuerpo = r.request().postDataJSON() as { campos: Record<string, unknown> };
@@ -26,7 +34,7 @@ async function preparar(page: Page, publicar: (cuerpo: { campos: Record<string, 
     const res = publicar(cuerpo);
     return json(r, res.cuerpo, res.status);
   });
-  return envios;
+  return { envios, escriturasStudio };
 }
 
 /** El `--background` que ve la app dentro del iframe de la vista previa. */
@@ -41,7 +49,7 @@ test.describe('Apariencia de tu app', () => {
   test.use({ viewport: { width: 1440, height: 950 } });
 
   test('elegir un estilo lo pinta en la vista previa y «Publicar» lo manda', async ({ page }) => {
-    const envios = await preparar(page, (c) => ({ status: 200, cuerpo: { ...DEFAULT_THEME, primary: '#666DCC', ...c.campos } }));
+    const { envios } = await preparar(page, (c) => ({ status: 200, cuerpo: { ...DEFAULT_THEME, primary: '#666DCC', ...c.campos } }));
     await ir(page, 'configuracion/apariencia');
     await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText('Todo publicado.')).toBeVisible();
@@ -62,7 +70,7 @@ test.describe('Apariencia de tu app', () => {
   });
 
   test('si el servidor lo rechaza, lo dice y los cambios siguen sin publicar', async ({ page }) => {
-    const envios = await preparar(page, () => ({ status: 422, cuerpo: { errores: [{ mensaje: 'Ese color no se lee sobre el fondo.', categoriaId: 'color-marca' }] } }));
+    const { envios } = await preparar(page, () => ({ status: 422, cuerpo: { errores: [{ mensaje: 'Ese color no se lee sobre el fondo.', categoriaId: 'color-marca' }] } }));
     await ir(page, 'configuracion/apariencia');
     await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
     await page.getByRole('radio', { name: /Rubor/ }).click();
@@ -70,6 +78,32 @@ test.describe('Apariencia de tu app', () => {
     await expect(page.getByRole('alert').filter({ hasText: 'Ese color no se lee sobre el fondo.' })).toBeVisible({ timeout: 30_000 });
     expect(envios.length).toBeGreaterThan(0);
     await expect(page.getByRole('button', { name: 'Publicar' })).toBeEnabled();
+  });
+
+  test('el titular de la entrada se guarda y la vista previa salta a esa pantalla', async ({ page }) => {
+    const { escriturasStudio } = await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
+    await ir(page, 'configuracion/apariencia');
+    await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
+
+    await page.getByLabel('Titular de la entrada').fill('Respira.\nEmpieza.');
+    await page.getByRole('button', { name: 'Guardar el titular' }).click();
+    await expect(page.getByText('Titular guardado. Ya se lee en tu entrada.')).toBeVisible({ timeout: 30_000 });
+    // Verde por no haber escrito nada no vale.
+    expect(escriturasStudio.length).toBe(1);
+    expect(escriturasStudio[0]).toMatchObject({ titulo_acceso: 'Respira.\nEmpieza.' });
+    // Y se enseña dónde se lee: la vista previa pasa a la pantalla de entrada.
+    const marco = page.frameLocator('iframe[title="Vista previa de la app de tus alumnas"]');
+    await expect(marco.locator('.st-auth-hero')).toBeVisible({ timeout: 60_000 });
+  });
+
+  test('la vista previa cambia entre Inicio y Entrada', async ({ page }) => {
+    await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
+    await ir(page, 'configuracion/apariencia');
+    await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
+    const marco = page.frameLocator('iframe[title="Vista previa de la app de tus alumnas"]');
+    await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
+    await page.getByRole('radio', { name: 'Entrada', exact: true }).click();
+    await expect(marco.locator('.st-auth-hero')).toBeVisible({ timeout: 60_000 });
   });
 
   test('«Descartar» vuelve a lo publicado, también en la vista previa', async ({ page }) => {

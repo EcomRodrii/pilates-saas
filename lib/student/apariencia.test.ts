@@ -58,8 +58,23 @@ test('ningún color de marca, en ningún estilo, deja un botón o enlace ilegibl
     const a = acentoDe(c, { ...APARIENCIA_POR_DEFECTO, estilo: e.id, marca });
     assert.ok(r(a.accentForeground, a.accent) >= 4.5, `${e.id}/${marca}/${c}: texto sobre botón`);
     assert.ok(r(a.accentSoftForeground, a.accentSoft) >= 4.5, `${e.id}/${marca}/${c}: badge`);
-    if (marca === 'fiel') assert.ok(r(a.accent, e.background) >= 4.5, `${e.id}/${c}: enlace sobre fondo`);
+    // El enlace tiene que separarse del fondo en las dos intensidades cuando el
+    // estilo es oscuro: ahí un acento «suave» de los de siempre sería invisible.
+    if (marca === 'fiel' || e.oscuro) assert.ok(r(a.accent, e.background) >= 4.5, `${e.id}/${marca}/${c}: enlace sobre fondo`);
   }
+});
+
+test('el estilo oscuro invierte la derivación: acento claro y tinta oscura encima', () => {
+  const carbon = ESTILOS.find(e => e.id === 'carbon')!;
+  assert.equal(carbon.oscuro, true);
+  for (const c of ['#1F4E79', '#B4708C', '#F7A6C4']) {
+    const a = acentoDe(c, { ...APARIENCIA_POR_DEFECTO, estilo: 'carbon', marca: 'fiel' });
+    assert.ok(r(a.accent, carbon.background) >= 4.5, `${c}: el enlace se ve sobre el fondo oscuro`);
+    assert.ok(r(a.accentForeground, a.accent) >= 4.5, `${c}: el texto del botón se lee`);
+    assert.ok(r(a.accentSoftForeground, a.accentSoft) >= 4.5, `${c}: el badge se lee`);
+  }
+  // Y el botón «oscuro» de un estilo oscuro es claro, o no se vería.
+  assert.match(temaAppCssText('#1F4E79', { estilo: 'carbon' }), /--primary:#F2F3F5/);
 });
 
 test('lo elegido llega al CSS: estilo, botón en marca, tipografía y encuadre', () => {

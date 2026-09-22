@@ -115,6 +115,7 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     fraseHeroe: s.fraseHeroe,
     fraseManuscrita: s.fraseManuscrita,
     subtituloHeroe: s.subtituloHeroe,
+    tituloAcceso: s.tituloAcceso,
     tema: {},
     colorPrimario: s.colorPrimario,
     apariencia: resolverApariencia(s.aparienciaApp),
