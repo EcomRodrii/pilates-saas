@@ -6,7 +6,8 @@ import { useState } from 'react';
 import { Check, X, Clock3, MessageCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { severidad, SEVERIDAD_INFO } from './severidad';
+import { severidad } from './severidad';
+import { SeveridadBadge } from './severidad-badge';
 import type { VeredictoAPI } from './use-decisiones';
 
 // El Umbral (lib/decision/umbral.ts), en pantalla: el elemento principal de
@@ -174,17 +175,12 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
     );
   }
 
-  const sev = SEVERIDAD_INFO[severidad(r.prioridad, r.riesgo, r.confianza.nivel)];
+  const nivelSev = severidad(r.prioridad, r.riesgo, r.confianza.nivel);
 
   return (
     <Card>
       <CardContent className="flex flex-col gap-3">
-        <span
-          className="w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold"
-          style={{ color: sev.color, backgroundColor: sev.bg }}
-        >
-          {sev.emoji} {sev.label}
-        </span>
+        <SeveridadBadge nivel={nivelSev} />
         <h2 className="font-heading text-[20px] leading-snug font-semibold text-foreground">{r.titulo}</h2>
         <p className="text-[14.5px] leading-relaxed text-muted-foreground">{r.motivo}</p>
 

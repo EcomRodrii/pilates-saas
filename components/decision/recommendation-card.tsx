@@ -6,7 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ESPECIALISTA_INFO } from './especialista-info';
 import { etiquetaImpacto, fraseConfianza } from '@/lib/decision/copy';
-import { severidad, SEVERIDAD_INFO } from './severidad';
+import { severidad } from './severidad';
+import { SeveridadBadge } from './severidad-badge';
 import type { ImpactoAPI, RecomendacionAPI } from './use-decisiones';
 
 // Plantilla única de recomendación (Bible doc 5 §14 / doc 3): título → motivo
@@ -48,7 +49,7 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
   const [porQueAbierto, setPorQueAbierto] = useState(false);
   const impacto = formatearImpacto(recomendacion.impacto, recomendacion.riesgo, recomendacion.tipo);
   const esCritica = recomendacion.prioridad === 'CRITICA';
-  const sev = SEVERIDAD_INFO[severidad(recomendacion.prioridad, recomendacion.riesgo, recomendacion.confianza.nivel)];
+  const nivelSev = severidad(recomendacion.prioridad, recomendacion.riesgo, recomendacion.confianza.nivel);
   const { label: labelPrincipal, Icon: IconPrincipal } = botonPrincipal(recomendacion.accion.tipo);
   const especialista = ESPECIALISTA_INFO[recomendacion.especialista];
   // P2-5: cuando detectarConflictos (lib/decision/conflictos.ts) marca dos
@@ -59,14 +60,9 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
   const conflictoCon = typeof recomendacion.datosUsados.conflictoCon === 'string' ? recomendacion.datosUsados.conflictoCon : null;
 
   return (
-    <Card style={esCritica ? { boxShadow: '0 0 0 1px #FCA5A5' } : undefined}>
+    <Card className={esCritica ? 'ring-2 ring-destructive/40' : undefined}>
       <CardContent className="flex flex-col gap-3">
-        <span
-          className="w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold"
-          style={{ color: sev.color, backgroundColor: sev.bg }}
-        >
-          {sev.emoji} {sev.label}
-        </span>
+        <SeveridadBadge nivel={nivelSev} />
 
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-heading text-[16px] leading-snug font-semibold text-foreground">
