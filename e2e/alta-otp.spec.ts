@@ -203,6 +203,69 @@ test.describe('Cuando el código no cuela', () => {
   });
 });
 
+test.describe('Cuando montar el estudio falla tras verificar el código', () => {
+  // ⚠️ El fallo que este bloque existe para impedir, hallado cruzando
+  // auth.users contra studios en prod (22-sep): una cuenta de cada tres que
+  // confirmaba el email de verdad (hueco real de 15-30 s entre el envío y la
+  // confirmación, no un timestamp idéntico de auto-confirmación) se quedaba
+  // SIN estudio — no por abandono, sino porque `dbCreateStudio` fallaba justo
+  // después de verificar, y la única recuperación era leer un texto y navegar
+  // sola a «Iniciar sesión». Ahora hay un botón que repite la misma llamada
+  // in situ.
+  async function llegarConCodigoVerificado(page: Page, opts: { primerIntentoFalla: boolean }) {
+    let intentosPost = 0;
+    await page.route('**/auth/v1/signup**', route => json(route, ALTA_PENDIENTE));
+    await page.route('**/api/auth/otp/verificar', route => json(route, SESION_OK));
+    await page.route('**/auth/v1/token**', route => json(route, {
+      access_token: JWT_DE_MENTIRA, refresh_token: 'tok-refresco', token_type: 'bearer', expires_in: 31536000,
+      user: { id: 'u1', email: 'ana@example.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+    }));
+    await page.route('**/auth/v1/user**', route => json(route, {
+      id: 'u1', email: 'ana@example.com', aud: 'authenticated', role: 'authenticated',
+      app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
+    }));
+    await page.route('**/rest/v1/**', route => json(route, []));
+    await page.route('**/rest/v1/rpc/slug_estudio_disponible', route => json(route, true));
+    await page.route('**/rest/v1/studios**', route => {
+      if (route.request().method() !== 'POST') return json(route, []);
+      intentosPost += 1;
+      if (opts.primerIntentoFalla && intentosPost === 1) {
+        // Un error que NO es el choque de slug/FK que `dbCreateStudio` ya
+        // reintenta solo por dentro (23505/23503): así falla a la primera,
+        // sin los ~6 s de reintento interno, y de verdad hace falta el botón.
+        return json(route, { code: '55000', message: 'object not in prerequisite state' }, 500);
+      }
+      return json(route, [{ id: 's1', slug: 'estudio-aurora' }], 201);
+    });
+
+    await llegarAlCodigo(page);
+    await escribirCodigo(page, '123456');
+    await page.getByRole('button', { name: 'Verificar correo' }).click();
+    return () => intentosPost;
+  }
+
+  test('lo dice y ofrece reintentar en la misma pantalla, sin mandar a /login', async ({ page }) => {
+    await llegarConCodigoVerificado(page, { primerIntentoFalla: true });
+
+    await expect(page.getByText(/no hemos podido montar el estudio todavía/i)).toBeVisible({ timeout: 15_000 });
+    const reintentar = page.getByRole('button', { name: 'Reintentar ahora' });
+    await expect(reintentar).toBeVisible();
+    // Sigue en la MISMA pantalla del código (no hay ningún `router.push`/salto
+    // a otra ruta): el botón se limita a repetir `montarEstudio()` in situ.
+    await expect(page.getByRole('heading', { name: /Escribe el código/ })).toBeVisible();
+  });
+
+  test('pulsar «Reintentar» repite la creación y esta vez llega a "ya está en marcha"', async ({ page }) => {
+    const intentos = await llegarConCodigoVerificado(page, { primerIntentoFalla: true });
+    await expect(page.getByRole('button', { name: 'Reintentar ahora' })).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: 'Reintentar ahora' }).click();
+
+    await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible({ timeout: 15_000 });
+    expect(intentos()).toBe(2);
+  });
+});
+
 test.describe('En el móvil', () => {
   test.use({ viewport: { width: 375, height: 812 } });
 

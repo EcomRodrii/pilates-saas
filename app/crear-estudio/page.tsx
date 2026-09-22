@@ -72,6 +72,7 @@ export default function CrearEstudioPage() {
   const [datos, setDatos] = useState<BorradorAlta>(BORRADOR_ALTA);
   const [fase, setFase] = useState<Fase>('formulario');
   const [enviando, setEnviando] = useState(false);
+  const [montando, setMontando] = useState(false);
   const [error, setError] = useState('');
   const [tocado, setTocado] = useState(false);
   const [comparativaAbierta, setComparativaAbierta] = useState(false);
@@ -159,37 +160,50 @@ export default function CrearEstudioPage() {
   //
   // Si falla, NO se pierde nada: `pending_studio` sigue en la metadata del
   // usuario, así que el siguiente inicio de sesión lo reintenta solo
-  // (`dbCreateStudio` es idempotente por su id determinista). Por eso el
-  // mensaje invita a volver a entrar, en vez de dar el alta por perdida.
+  // (`dbCreateStudio` es idempotente por su id determinista). Pero antes esa
+  // recuperación dependía de que la persona LEYERA el mensaje y navegara sola
+  // a «Iniciar sesión» — y en producción una cuenta de cada tres verificaba el
+  // email y aun así se quedaba sin estudio (ver auditoría de embudo, 22-sep).
+  // Por eso ahora hay un botón «Reintentar ahora» que repite esta misma
+  // llamada in situ, sin salir de la pantalla: mismo camino de recuperación,
+  // sin depender de que nadie entienda el mensaje.
   async function montarEstudio() {
-    // `getSession()` y no `getUser()`: el primero lee la sesión que acabamos de
-    // recibir SIN salir a la red; el segundo hace un viaje al servidor para
-    // revalidar el token. Aquí esa validación no aporta —la sesión la acaba de
-    // emitir nuestro propio `/api/auth/otp/verificar`, no viene del usuario— y
-    // sí añade un punto donde colgarse justo en el momento más frágil del alta.
-    // Quien de verdad decide si este INSERT vale es la RLS, no esta llamada.
-    const { data: { session: sesion } } = await supabase.auth.getSession();
-    const user = sesion?.user ?? null;
-    if (!user) {
-      setError('Tu cuenta está verificada, pero no hemos podido abrir la sesión. Entra desde «Iniciar sesión» y terminamos.');
-      return;
+    if (montando) return;
+    setMontando(true);
+    setError('');
+    try {
+      // `getSession()` y no `getUser()`: el primero lee la sesión que acabamos
+      // de recibir SIN salir a la red; el segundo hace un viaje al servidor
+      // para revalidar el token. Aquí esa validación no aporta —la sesión la
+      // acaba de emitir nuestro propio `/api/auth/otp/verificar`, no viene del
+      // usuario— y sí añade un punto donde colgarse justo en el momento más
+      // frágil del alta. Quien de verdad decide si este INSERT vale es la
+      // RLS, no esta llamada.
+      const { data: { session: sesion } } = await supabase.auth.getSession();
+      const user = sesion?.user ?? null;
+      if (!user) {
+        setError('Tu cuenta está verificada, pero no hemos podido abrir la sesión. Pulsa «Reintentar» o entra desde «Iniciar sesión».');
+        return;
+      }
+      const estudio = await dbCreateStudio({
+        nombre: datos.estudio.trim(),
+        ciudad: datos.ciudad.trim(),
+        plan: datos.plan,
+        comoNosConocio: datos.comoNosConocio || undefined,
+        ownerAuthUserId: user.id,
+      });
+      if (!estudio) {
+        setError('Tu cuenta está creada, pero no hemos podido montar el estudio todavía. Pulsa «Reintentar».');
+        return;
+      }
+      setCurrentStudioId(estudio.id);
+      setSlugCreado(estudio.slug);
+      olvidarBorrador();
+      olvidarEmailOtpPendiente();
+      setFase('listo');
+    } finally {
+      setMontando(false);
     }
-    const estudio = await dbCreateStudio({
-      nombre: datos.estudio.trim(),
-      ciudad: datos.ciudad.trim(),
-      plan: datos.plan,
-      comoNosConocio: datos.comoNosConocio || undefined,
-      ownerAuthUserId: user.id,
-    });
-    if (!estudio) {
-      setError('Tu cuenta está creada, pero no hemos podido montar el estudio. Vuelve a entrar en un minuto y lo terminamos.');
-      return;
-    }
-    setCurrentStudioId(estudio.id);
-    setSlugCreado(estudio.slug);
-    olvidarBorrador();
-    olvidarEmailOtpPendiente();
-    setFase('listo');
   }
 
   async function crear() {
@@ -298,7 +312,30 @@ export default function CrearEstudioPage() {
 
         <div aria-live="polite" className="mt-4 empty:mt-0">
           {error && (
-            <p className="rounded-xl bg-destructive/10 px-3.5 py-2.5 text-[13px] font-medium text-destructive">{error}</p>
+            <>
+              <p className="rounded-xl bg-destructive/10 px-3.5 py-2.5 text-[13px] font-medium text-destructive">{error}</p>
+              {/* El email ya está verificado en este punto: reintentar es solo
+                  repetir `dbCreateStudio` (idempotente), nunca pedir el código
+                  otra vez. Sin este botón, la única recuperación era que la
+                  persona leyera el texto y navegara sola a «Iniciar sesión». */}
+              <button
+                type="button"
+                onClick={() => void montarEstudio()}
+                disabled={montando}
+                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-[14px] font-bold text-brand-foreground transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+              >
+                {montando ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                    Reintentando…
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw size={15} aria-hidden="true" /> Reintentar ahora
+                  </>
+                )}
+              </button>
+            </>
           )}
         </div>
         {captcha}
