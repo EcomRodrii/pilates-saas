@@ -22,7 +22,10 @@ export async function pedirCatalogoClasesFijas(slug: string): Promise<CatalogoCl
     if (!res.ok) return null;
     const d = (await res.json().catch(() => null)) as Partial<CatalogoClasesFijas> | null;
     if (!d || !Array.isArray(d.ofertas)) return null;
-    return { ofertas: d.ofertas, pedidas: Array.isArray(d.pedidas) ? d.pedidas : [] };
+    return {
+      ofertas: d.ofertas, sueltas: Array.isArray(d.sueltas) ? d.sueltas : [],
+      pedidas: Array.isArray(d.pedidas) ? d.pedidas : [],
+    };
   } catch {
     return null;
   }

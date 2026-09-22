@@ -8,9 +8,9 @@
 
 import {
   DIAS_AVISO_CLASE_FIJA_TERMINA, estadoAlumnaOferta, franjasYaCubiertas, vigenciaMinDeOferta,
-  type CatalogoClasesFijas, type EstadoAlumnaOferta, type OfertaAlumna,
+  type CatalogoClasesFijas, type EstadoAlumnaOferta, type FranjaSuelta, type OfertaAlumna,
 } from '../clases-fijas-reglas.ts';
-import { tieneCuotaQueCubre, type CuotaMin, type PlanCuotaMin } from './plaza-fija.ts';
+import { plazaFijaEnFranja, tieneCuotaQueCubre, type CuotaMin, type PeticionPlazaFijaMin, type PlanCuotaMin, type PlazaFijaEnClase } from './plaza-fija.ts';
 
 export { DIAS_AVISO_CLASE_FIJA_TERMINA };
 
@@ -36,6 +36,8 @@ export interface ClaseFijaVista extends OfertaAlumna {
 export interface SociaMin {
   suscripciones: CuotaMin[];
   plazasFijas: { diaSemana: number; horaInicio: string; salaId: string; tipoClaseId: string | null; estado: string; vigenciaHasta: string | null }[];
+  /** Solo hace falta para las sueltas (`proyectarClasesSueltas`): las ofertas tienen sus propias peticiones (`pedidas`). */
+  peticionesPlazaFija?: PeticionPlazaFijaMin[];
 }
 
 export function proyectarClasesFijas(
@@ -60,6 +62,27 @@ export function proyectarClasesFijas(
       terminaPronto: terminaPronto(venceEl, hoy),
     };
   });
+}
+
+export interface ClaseSueltaVista extends FranjaSuelta {
+  estado: PlazaFijaEnClase;
+}
+
+/**
+ * Las clases sueltas (sin oferta con nombre) que ya se repiten, con lo que ella
+ * ya tiene o ha pedido de cada una. Mismo criterio que la ficha de una clase:
+ * sin sesión de alumna, se le ofrece pedirla (no se la riñe por su cuota).
+ */
+export function proyectarClasesSueltas(
+  sueltas: FranjaSuelta[], socia: SociaMin | null, planes: PlanCuotaMin[], hoy: string,
+): ClaseSueltaVista[] {
+  return sueltas.map((f) => ({
+    ...f,
+    estado: plazaFijaEnFranja(
+      f, socia?.plazasFijas ?? [], socia?.peticionesPlazaFija ?? [],
+      socia ? tieneCuotaQueCubre(socia.suscripciones, planes, hoy, f.tipoClaseId) : true,
+    ),
+  }));
 }
 
 /** ¿Falta poco para que venza? A partir de aquí la pantalla ofrece ampliarla. */

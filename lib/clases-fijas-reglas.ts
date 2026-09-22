@@ -253,8 +253,35 @@ export interface OfertaAlumna {
   programadaHasta: string | null;
 }
 
+/**
+ * Una clase que ya se repite en el horario y que NO está envuelta en ninguna
+ * oferta con nombre — «Lunes 18:00 · Reformer», sin más. Mismo mecanismo que
+ * pedir una clase fija desde la ficha de una clase suelta (`plazas_fijas`,
+ * `solicitudes_plaza_fija` tipo `CREAR`), solo que aquí se ven TODAS juntas en
+ * vez de tener que entrar clase a clase para encontrarlas.
+ */
+export interface FranjaSuelta {
+  serieId: string;
+  diaSemana: number;
+  /** 'HH:MM' local. */
+  hora: string;
+  tipoClaseId: string;
+  salaId: string;
+  instructorId: string | null;
+  tipo: string;
+  sala: string;
+  instructora: string | null;
+  /** La próxima clase de esa serie ese día: por ahí se pide y se da la plaza. */
+  proximaSesionId: string;
+  /** Última clase programada (YYYY-MM-DD). */
+  ultimaFecha: string;
+}
+
 export interface CatalogoClasesFijas {
   ofertas: OfertaAlumna[];
+  /** Solo si el estudio deja pedir plaza fija desde la app (`plaza_fija_solicitar_desde_app`):
+   *  sin ese ajuste, vacío — es el mismo permiso que ya gobierna pedirla clase a clase. */
+  sueltas: FranjaSuelta[];
   /** Sus peticiones pendientes (vacío sin sesión de alumna). Pedirla por primera vez y
    *  ampliar lo que ya tiene son peticiones distintas: la pantalla necesita saber cuál es cuál. */
   pedidas: { claseFijaId: string; solicitudId: string; duracionMeses: number; hasta: string; tipo: 'CREAR_CLASE_FIJA' | 'AMPLIAR_CLASE_FIJA' }[];

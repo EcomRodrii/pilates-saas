@@ -34,12 +34,29 @@ type Oferta = typeof OFERTA;
 
 interface Pedida { claseFijaId: string; solicitudId: string; duracionMeses: number; hasta: string; tipo?: 'CREAR_CLASE_FIJA' | 'AMPLIAR_CLASE_FIJA' }
 
+/** Una franja suelta (sin oferta con nombre) tal y como la manda el servidor. */
+interface Suelta {
+  serieId: string; diaSemana: number; hora: string; tipoClaseId: string; salaId: string; instructorId: string | null;
+  tipo: string; sala: string; instructora: string | null; proximaSesionId: string; ultimaFecha: string;
+}
+const SUELTA: Suelta = {
+  serieId: 'serie-1', diaSemana: 3, hora: '09:30', tipoClaseId: 'tc-y', salaId: 'sala-2', instructorId: null,
+  tipo: 'Yoga', sala: 'Sala 2', instructora: null, proximaSesionId: 'ses-suelta-1', ultimaFecha: '2027-01-29',
+};
+
 interface Montaje {
-  catalogo: { ofertas: Oferta[]; pedidas: Pedida[] };
+  catalogo: { ofertas: Oferta[]; pedidas: Pedida[]; sueltas?: Suelta[] };
   /** Lo que contesta el servidor a `plaza-fija`. */
   respuesta: { status: number; body: unknown };
   peticiones: Record<string, unknown>[];
   pedidosCatalogo: number;
+  /**
+   * El payload de `studio-data` (mutable): las sueltas leen `socia.plazasFijas`/
+   * `socia.peticionesPlazaFija` de AQUÍ, no de `catalogo` — es donde hay que tocar
+   * para reflejar «ya la ha pedido» tras una petición, igual que `m.catalogo` para
+   * las ofertas con nombre.
+   */
+  fixture: Record<string, unknown>;
 }
 
 type PlazaFijaMin = { diaSemana: number; horaInicio: string; salaId: string; tipoClaseId: string | null; estado: string; vigenciaHasta: string | null };
@@ -65,7 +82,7 @@ async function montar(page: Page, opts: {
   const m: Montaje = {
     catalogo: opts.catalogo && opts.catalogo !== 'roto' ? opts.catalogo : { ofertas: [OFERTA], pedidas: [] },
     respuesta: opts.respuesta ?? { status: 200, body: { ok: true, solicitudId: 'spf-9' } },
-    peticiones: [], pedidosCatalogo: 0,
+    peticiones: [], pedidosCatalogo: 0, fixture: f,
   };
   await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], unread: 0 }) }));
@@ -74,7 +91,7 @@ async function montar(page: Page, opts: {
     // Una respuesta con otra forma (`{}`): la app no puede dar por hecha la forma.
     return opts.catalogo === 'roto'
       ? r.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
-      : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(m.catalogo) });
+      : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sueltas: [], ...m.catalogo }) });
   });
   await page.route('**/api/public/plaza-fija', (r) => {
     m.peticiones.push(JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>);
@@ -268,5 +285,63 @@ test.describe('Student PWA · clases fijas del estudio · ampliar antes de vence
     expect(m.peticiones.length, 'el camino de fallo sí intentó ampliar').toBeGreaterThan(0);
     await expect(page.getByTestId('clase-fija-ampliacion-pedida')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Ampliar' })).toBeVisible();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Sueltas»: clases que ya se repiten y el estudio nunca envolvió en una oferta
+// con nombre. Es el caso real que motivó esto — un estudio creó clases
+// recurrentes, nunca montó una «clase fija», y su alumna no vio ninguna opción
+// de quedarse fija en ningún sitio. Mismo mecanismo que pedir plaza fija desde
+// la ficha de una clase suelta (`/api/public/plaza-fija`, `accion:
+// 'solicitar_plaza'`), solo que aquí se ven todas juntas.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Student PWA · clases fijas del estudio · sueltas (sin oferta con nombre)', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('la puerta cuenta las sueltas aunque no haya ninguna oferta con nombre', async ({ page }) => {
+    await montar(page, { plan: 'cuota', catalogo: { ofertas: [], sueltas: [SUELTA], pedidas: [] } });
+    await page.goto(`${base}/reservar`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('entrada-clases-fijas')).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('con cuota: sale en la lista y, al pedirla, queda pedida', async ({ page }) => {
+    const m = await montar(page, { plan: 'cuota', catalogo: { ofertas: [], sueltas: [SUELTA], pedidas: [] } });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    const tarjeta = page.getByTestId('clase-suelta');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await expect(tarjeta).toContainText(/miércoles 09:30/i);
+    await expect(tarjeta).toContainText('Yoga');
+    await expect(tarjeta).toContainText('Sala 2');
+
+    // Igual que con las ofertas con nombre: antes de pulsar, se deja lista la
+    // respuesta que dará el servidor tras guardar la petición — aquí, en
+    // `socia.peticionesPlazaFija` (de donde leen las sueltas), no en `m.catalogo`.
+    (m.fixture.socia as Record<string, unknown>).peticionesPlazaFija = [
+      { id: 'spf-suelta-1', tipo: 'CREAR', plazaId: null, diaSemana: SUELTA.diaSemana, horaInicio: `${SUELTA.hora}:00`, salaId: SUELTA.salaId, desde: null, hasta: null },
+    ];
+    await tarjeta.getByRole('button', { name: 'Pedir clase fija' }).click();
+    await expect(tarjeta.getByTestId('clase-suelta-pedida')).toBeVisible({ timeout: 30_000 });
+    expect(m.peticiones.length, 'la petición sale hacia el servidor').toBeGreaterThan(0);
+    expect(m.peticiones[0]).toMatchObject({ accion: 'solicitar_plaza', studioId: STUDIO_ID, sesionId: 'ses-suelta-1' });
+    await expect(tarjeta.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
+  });
+
+  test('con bono no hay botón: se le dice por qué', async ({ page }) => {
+    const m = await montar(page, { plan: 'bono', catalogo: { ofertas: [], sueltas: [SUELTA], pedidas: [] } });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    const tarjeta = page.getByTestId('clase-suelta');
+    await expect(tarjeta.getByTestId('clase-suelta-sin-cuota')).toContainText('La clase fija es para quien tiene una cuota activa', { timeout: 30_000 });
+    await expect(tarjeta.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
+    expect(m.peticiones, 'nada sale hacia el servidor').toHaveLength(0);
+  });
+
+  test('ofertas con nombre y sueltas conviven en la misma pantalla', async ({ page }) => {
+    await montar(page, { plan: 'cuota', catalogo: { ofertas: [OFERTA], sueltas: [SUELTA], pedidas: [] } });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('clase-fija')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('clase-suelta')).toBeVisible();
+    await expect(page.getByText('Otras clases fijas disponibles')).toBeVisible();
   });
 });

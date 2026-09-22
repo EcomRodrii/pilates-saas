@@ -17,7 +17,7 @@ export function ClasesFijasEntrada() {
   const href = usePortalHref();
   const cargar = useCallback(async () => {
     const c = await pedirCatalogoClasesFijas(estudio.slug);
-    return c ? c.ofertas.length : 0;
+    return c ? c.ofertas.length + c.sueltas.length : 0;
   }, [estudio.slug]);
   const { data } = useAsync(cargar, (n) => n === 0);
   if (!data) return null;

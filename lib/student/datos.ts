@@ -6,7 +6,7 @@ import {
 } from '@/lib/student/mapeo';
 import { horaAhora, hoyISO } from '@/lib/student/formato';
 import { pedirCatalogoClasesFijas } from '@/lib/student/clases-fijas-datos';
-import { proyectarClasesFijas, type ClaseFijaVista } from '@/lib/student/clases-fijas';
+import { proyectarClasesFijas, proyectarClasesSueltas, type ClaseFijaVista, type ClaseSueltaVista } from '@/lib/student/clases-fijas';
 import { hoyEnEstudio } from '@/lib/utils';
 import { tarjetasDescubre, type TarjetaDescubre } from '@/lib/student/descubre';
 import type { Alumna, Bono, Clase, Instructora, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from '@/lib/student/tipos';
@@ -118,17 +118,28 @@ export async function getAlumna(slug: string): Promise<Alumna | null> {
   return d ? proyectarAlumna(d) : null;
 }
 
+export interface ClasesFijasData {
+  /** Ofertas con nombre que arma el estudio, envolviendo una o varias franjas. */
+  ofertas: ClaseFijaVista[];
+  /** Clases que ya se repiten y no están en ninguna oferta: solo si el estudio deja pedir plaza fija desde la app. */
+  sueltas: ClaseSueltaVista[];
+}
+
 /**
  * Las clases fijas que ofrece el estudio, con lo que la alumna ya tiene, lo que ha
  * pedido y si su cuota las cubre. `null` = no se ha podido saber (la pantalla dice
- * que no ha cargado, no «no hay»). Las ofertas salen de `/api/public/clases-fijas`;
+ * que no ha cargado, no «no hay»). El catálogo sale de `/api/public/clases-fijas`;
  * su cuota y sus plazas, del catálogo que la app ya tiene en memoria.
  */
-export async function getClasesFijas(slug: string): Promise<ClaseFijaVista[] | null> {
+export async function getClasesFijas(slug: string): Promise<ClasesFijasData | null> {
   const [cat, d] = await Promise.all([pedirCatalogoClasesFijas(slug), catalogo(slug)]);
   if (!cat) return null;
   const socia = d?.socia
-    ? { suscripciones: d.socia.suscripciones ?? [], plazasFijas: d.socia.plazasFijas ?? [] }
+    ? { suscripciones: d.socia.suscripciones ?? [], plazasFijas: d.socia.plazasFijas ?? [], peticionesPlazaFija: d.socia.peticionesPlazaFija ?? [] }
     : null;
-  return proyectarClasesFijas(cat, socia, d?.planesTarifa ?? [], hoyEnEstudio());
+  const hoy = hoyEnEstudio();
+  return {
+    ofertas: proyectarClasesFijas(cat, socia, d?.planesTarifa ?? [], hoy),
+    sueltas: proyectarClasesSueltas(cat.sueltas, socia, d?.planesTarifa ?? [], hoy),
+  };
 }

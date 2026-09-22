@@ -50,8 +50,9 @@ test('sin dato del servidor, los mismos valores por defecto que el formulario de
     penalizacionAplicaNoShow: true, penalizacionCobroAutomatico: false,
     // Sin elegir: como siempre (decisión del fundador, 16-sep).
     plazaFijaSinCuota: 'MANTENER',
-    // Plaza fija desde la app y sus pausas: todo apagado, como hasta ahora (16-sep).
-    plazaFijaSolicitarDesdeApp: false, plazaFijaPausaDesdeApp: false,
+    // Pedir plaza fija desde la app: ENCENDIDO de serie desde el 22-sep (antes
+    // apagado por defecto, 16-sep) — ver el comentario en reglas-reserva.ts.
+    plazaFijaSolicitarDesdeApp: true, plazaFijaPausaDesdeApp: false,
     plazaFijaPausaLiberaSitio: false, plazaFijaFinPausa: 'RECUPERAR_SI_LIBRE',
   });
 });
