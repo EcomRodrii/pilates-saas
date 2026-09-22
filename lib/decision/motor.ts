@@ -13,6 +13,7 @@ import { priorizar, seleccionarPrioridadesHome, enCooldown, type CandidataPriori
 import { construirIndices } from './senales.ts';
 import { sinSociasOpuestas } from './perfilado.ts';
 import { TZ_ESTUDIO } from '../utils.ts';
+import { MARKETING_MODULE_ENABLED } from '../feature-flags.ts';
 
 export interface RecomendacionAExpirar {
   id: string;
@@ -88,7 +89,18 @@ export function ejecutarAnalisis(input: EntradaAnalisis): ResultadoAnalisis {
   // para el estudio (incluidas las candidatas de los otros especialistas,
   // que sí habían funcionado bien). Un especialista roto no debe tumbar a
   // los que están sanos.
-  const especialistasActivos = ESPECIALISTAS.filter(e => flagsEspecialistas?.get(e.id) !== false);
+  // MARKETING queda forzado a apagado mientras el módulo siga congelado
+  // (`MARKETING_MODULE_ENABLED`, lib/feature-flags.ts) — su única acción hoy
+  // (PREPARAR_CAMPANA) prometía "te preparo una campaña" sin que `/marketing`
+  // exista para cumplirlo (informe de producto, 22-sep-2026). Va POR ENCIMA
+  // del `DecisionFlag` por estudio, no en su lugar: así ningún estudio nuevo
+  // ni existente necesita una fila propia para quedar cubierto, y en cuanto
+  // el módulo se reactive esta condición desaparece sola y manda de nuevo el
+  // opt-out normal por estudio.
+  const especialistasActivos = ESPECIALISTAS.filter(e => {
+    if (e.id === 'MARKETING' && !MARKETING_MODULE_ENABLED) return false;
+    return flagsEspecialistas?.get(e.id) !== false;
+  });
   // Art. 21 RGPD: lo que señala a una socia que se ha opuesto al perfilado se
   // descarta AQUÍ, antes de memoria/coordinación/prioridad — así tampoco puede
   // ganar una colisión, llegar al piloto automático ni al mensaje del día. Sus

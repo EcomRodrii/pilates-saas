@@ -181,6 +181,26 @@ test('flagsEspecialistas: FINANZAS=false apaga ese especialista sin tocar los de
   assert.ok(flagIrrelevante.candidatasFinales.some(c => c.especialista === 'FINANZAS'));
 });
 
+// Informe de producto (22-sep-2026): MARKETING prometía "te preparo una
+// campaña" sin que /marketing exista mientras el módulo siga congelado
+// (MARKETING_MODULE_ENABLED=false, lib/feature-flags.ts). El freeze global
+// manda POR ENCIMA de cualquier DecisionFlag de estudio que lo active.
+test('MARKETING no genera candidatas con el módulo congelado, aunque el flag de estudio lo active', () => {
+  const socios: Socio[] = Array.from({ length: 6 }, (_, i) => socio({ id: `inactiva${i}`, nombre: `Inactiva ${i}` }));
+  const reservas = socios.flatMap(s => asistencias(s.id, 1, 1, 35));
+  const snapshot: SnapshotEstudio = {
+    studioId: 'e1', socios, reservas, sesiones: [], salas: [], recibos: [],
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [],
+    contexto: { nSociasActivas: 6, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+  };
+  const resultado = ejecutarAnalisis({
+    snapshot, memoria: new Map(), pendientesActuales: [], resueltas90d: [],
+    nombrePropietario: 'Marco', ventanaMientrasDormiasDesde: new Date(NOW.getTime() - 86400000), now: NOW,
+    flagsEspecialistas: new Map([['MARKETING', true]]),
+  });
+  assert.equal(resultado.candidatasFinales.some(c => c.especialista === 'MARKETING'), false);
+});
+
 test('expiración: PENDIENTE vencida se marca VENCIDA; PENDIENTE resuelta sola se marca RESUELTA_SOLA', () => {
   const snapshot: SnapshotEstudio = {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
