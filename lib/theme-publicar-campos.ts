@@ -10,12 +10,15 @@
 // Aquí se publica lo que se ha tocado, encima de lo publicado, y se deja ese
 // mismo cambio en el borrador sin tocar nada más de él.
 //
-// Pura y sin imports: la ejecuta `node --test` directamente.
+// Pura y sin imports de runtime (el de tipos se borra al compilar): la ejecuta
+// `node --test` directamente.
 
-/** Lo que Marca puede publicar suelto. El resto sigue pasando por el editor. */
-export const CAMPOS_PUBLICABLES = ['primary', 'secondary', 'faviconUrl'] as const;
+import type { AppAlumna } from './theme-schema.ts';
 
-export type CamposPublicables = Partial<{ primary: string; secondary: string; faviconUrl: string | null }>;
+/** Lo que se puede publicar suelto, sin el borrador: el color y el favicon (Marca) y la apariencia de la app. */
+export const CAMPOS_PUBLICABLES = ['primary', 'secondary', 'faviconUrl', 'appAlumna'] as const;
+
+export type CamposPublicables = Partial<{ primary: string; secondary: string; faviconUrl: string | null; appAlumna: AppAlumna }>;
 
 /**
  * Lo publicado y el borrador con SOLO `campos` cambiados. Lo que el borrador

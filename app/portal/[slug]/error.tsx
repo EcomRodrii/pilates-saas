@@ -78,7 +78,7 @@ export default function ErrorPortalStudent({
         <Icono nombre="alerta" tamano={24} />
       </span>
 
-      <h1 style={{ margin: 0, fontSize: 'var(--t-h1)', fontWeight: 800, letterSpacing: '-.02em' }}>
+      <h1 style={{ margin: 0, fontSize: 'var(--t-h1)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em' }}>
         No hemos podido cargar esta pantalla
       </h1>
 

@@ -355,7 +355,7 @@ export default function FichaAlumnaInstructoraPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
             <AvatarSocia nombre={data.nombre} fotoUrl={data.fotoUrl} size={56} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <h2 id="nombre-alumna" className="trunc" data-testid="nombre-alumna" style={{ margin: 0, fontSize: 'var(--t-h2)', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--on-dark)' }}>
+              <h2 id="nombre-alumna" className="trunc" data-testid="nombre-alumna" style={{ margin: 0, fontSize: 'var(--t-h2)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em', color: 'var(--on-dark)' }}>
                 {data.nombre}
               </h2>
               <p style={{ margin: '3px 0 0', fontSize: 'var(--t-meta)', fontWeight: 600, color: tenue }}>

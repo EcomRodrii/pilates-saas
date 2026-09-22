@@ -132,11 +132,11 @@ export default function PasarListaPage() {
               {etiquetaDia(clase.fecha)} · {clase.hora}–{clase.horaFin}
             </span>
           </div>
-          <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--on-dark)' }}>{clase.tipo}</p>
+          <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em', color: 'var(--on-dark)' }}>{clase.tipo}</p>
           {total > 0 && (
             <>
               <p aria-hidden style={{ margin: '12px 0 0', display: 'flex', alignItems: 'baseline', gap: 6, color: 'var(--on-dark)' }}>
-                <span className="t-num" style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1 }}>{vinieron}</span>
+                <span className="t-num" style={{ fontSize: 34, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1 }}>{vinieron}</span>
                 <span style={{ fontSize: 'var(--t-body)', fontWeight: 600, color: tenue }}>de {total}</span>
               </p>
               <div aria-hidden style={{ marginTop: 8, height: 6, borderRadius: 99, background: 'color-mix(in srgb, var(--accent-deep-foreground) 18%, transparent)', overflow: 'hidden' }}>

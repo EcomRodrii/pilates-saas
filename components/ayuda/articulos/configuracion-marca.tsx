@@ -17,6 +17,9 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 // para cambiarlo. «Guardar colores» ya no existe: el color se guarda con el
 // «Guardar» de su cajón, como el resto. «Textos de tu app» se partió en «Cómo te
 // presentas» y «Textos de bienvenida».
+//
+// 22-sep-2026: el color deja su cajón y vive en «Apariencia de tu app», con el
+// estilo, la tipografía y la portada (components/apariencia/).
 export default function Contenido() {
   return (
     <>
@@ -28,9 +31,9 @@ export default function Contenido() {
       </p>
 
       <p>
-        El color está en esa misma sección, en «El color de tu marca»: eliges tu color principal y el secundario, los
-        ves aplicados mientras los pruebas y los dejas puestos con «Guardar». Lo ven tus alumnas en tu página de
-        reservas y en su app. Si sales sin guardar, vuelve el que tenías.
+        El color está en «Apariencia de tu app», en esa misma sección, junto al estilo, la tipografía y la foto de
+        portada de la app de tus alumnas. Lo pruebas en un móvil con tu app de verdad y lo dejas puesto con
+        «Publicar». Tu color sale también en tu panel y en tu página de reservas.
       </p>
 
       <p>
@@ -40,9 +43,8 @@ export default function Contenido() {
       </p>
 
       <AyudaResultado>
-        La foto de la portada todavía no se cambia desde aquí: su editor, la tipografía y las secciones del portal
-        están en mantenimiento, y la que ya tengas puesta se sigue viendo igual. Ver{' '}
-        <Link href="/ayuda/portal/personalizar-tu-portal" style={{ color: 'inherit', textDecoration: 'underline' }}>personalizar tu portal</Link>.
+        Paso a paso, en{' '}
+        <Link href="/ayuda/portal/personalizar-tu-portal" style={{ color: 'inherit', textDecoration: 'underline' }}>cambiar cómo se ve la app de tus alumnas</Link>.
       </AyudaResultado>
     </>
   );

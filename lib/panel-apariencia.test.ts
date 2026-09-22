@@ -1,5 +1,10 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Apariencia en mantenimiento + personalización del panel.
+// «Apariencia de tu app» + personalización del panel.
+//
+// Del 7 al 22 de septiembre esta pantalla estuvo en mantenimiento y aquí vivían
+// los guardias de que el editor viejo siguiera cerrado por las dos puertas. El
+// 22-sep se sustituyó por el editor guiado (components/apariencia/), así que lo
+// que hay que vigilar ahora es que la pantalla lo monte de verdad y que la ruta
+// de antes lleve a ella.
 //
 // Estructurales a propósito: lo que hay que impedir no es un cálculo mal hecho,
 // es que alguien reabra media puerta (deja el enlace al editor, o el editor
@@ -34,74 +39,48 @@ const EDITOR = 'app/(dashboard)/configuracion/apariencia/editor/page.tsx';
 // la posición y claro/oscuro en «Tu panel»; el color, en «Marca». Su ruta de
 // antes redirige.
 const PANEL = 'components/configuracion/secciones/seccion-panel.tsx';
-const COLOR = 'components/configuracion/tab-color-marca.tsx';
+const EDITOR_NUEVO = 'components/apariencia/editor-apariencia-app.tsx';
 const PANEL_ANTIGUO = 'app/(dashboard)/configuracion/apariencia/panel/page.tsx';
 
-// ── El mantenimiento, cerrado por las DOS puertas ────────────────────────────
-test('la pantalla de Apariencia dice que está en mantenimiento', () => {
-  const src = leer(APARIENCIA);
-  assert.match(src, /mantenimiento/i);
-  // Y dice lo que NO se rompe: lo publicado sigue en pie. Sin eso, «en
-  // mantenimiento» se lee como «mis clientas no ven mi marca».
-  assert.match(src, /sigue\s*\n?\s*funcionando igual|sigue funcionando igual/);
-});
+// ── La pantalla nueva, y la puerta de antes ─────────────────────────────────
 
-test('Apariencia ya no lleva al editor de marca', () => {
+test('Apariencia monta el editor guiado, y no un cartel', () => {
   const src = leerCodigo(APARIENCIA);
-  assert.ok(!src.includes('/configuracion/apariencia/editor'),
-    'Si sigue el enlace, el mantenimiento es solo un cartel.');
+  assert.match(src, /<EditorAparienciaApp/);
+  assert.ok(!/mantenimiento/i.test(src), 'El mantenimiento terminó el 22-sep: un cartel viejo aquí manda a la propietaria a ninguna parte.');
 });
 
-test('el editor tampoco se abre escribiendo la URL', () => {
+test('la ruta del editor de antes lleva a la pantalla nueva', () => {
   const src = leerCodigo(EDITOR);
   assert.match(src, /redirect\('\/configuracion\/apariencia'\)/,
-    'Quien lo tenga en marcadores entraría igual.');
-  assert.ok(!src.includes('<ThemeEditorFullscreen'),
-    'La ruta no puede seguir montando el editor.');
+    'Quien lo tenga en marcadores tiene que llegar al editor de hoy.');
+  assert.ok(!src.includes('<ThemeEditorFullscreen'), 'El editor viejo no vuelve por esta ruta.');
 });
 
-test('los e2e del editor se saltan, no se borran', () => {
-  // Son lo que demuestra que el editor funciona. Borrarlas mientras está
-  // cerrado significaría reabrirlo a ciegas el día que toque.
-  // `.spec.ts` y no `apariencia-*` a secas: al lado vive `apariencia-mock.ts`,
-  // que es andamiaje compartido y no tiene ningún test que saltar.
-  const specs = readdirSync(join(raiz, 'e2e'))
-    .filter(f => f.startsWith('apariencia-') && f.endsWith('.spec.ts'));
-  assert.ok(specs.length >= 5, `esperaba las suites de apariencia, encontré ${specs.length}`);
-  for (const f of specs) {
-    const src = readFileSync(join(raiz, 'e2e', f), 'utf8');
-    assert.ok(!/^test\.describe\(/m.test(src),
-      `${f} entra por la ruta cerrada: tiene que ir con .skip mientras dure el mantenimiento.`);
-    assert.match(src, /PARA REACTIVARLA/,
-      `${f} se salta sin decir cómo devolverlo: así es como una suite se queda muerta para siempre.`);
-  }
+test('lo que se elige llega a la app: el editor publica y la app lo pinta en servidor', () => {
+  // Las dos mitades. Sin la primera no se guarda nada; sin la segunda, la
+  // propietaria elige un estilo y sus alumnas siguen viendo el de siempre.
+  assert.match(leer(EDITOR_NUEVO), /publicarThemeApi\(\{/);
+  assert.match(leer(EDITOR_NUEVO), /appAlumna/);
+  const layout = leer('app/portal/[slug]/layout.tsx');
+  assert.match(layout, /temaAppCssText\(estudio\.colorPrimario, estudio\.apariencia\)/,
+    'La app tiene que pintar lo elegido en SERVIDOR: en cliente se vería primero el tema de fábrica.');
 });
 
-test('la nota de reapertura lista TODO lo que hay que deshacer', () => {
-  const src = leer(EDITOR);
-  assert.match(src, /e2e\/apariencia-\*\.spec\.ts/,
-    'Sin nombrar los e2e, se reabre el editor y sus tests siguen saltados en silencio.');
-});
-
-test('el editor NO se borra: solo se cierra la puerta', () => {
-  // Mantenimiento ≠ borrar. Si algún día se reabre, tiene que estar entero.
-  const editor = leer('components/theme/theme-editor-fullscreen.tsx');
-  assert.ok(editor.length > 0);
-  assert.match(leer(EDITOR), /PARA REABRIRLO/,
-    'Sin la nota de cómo volver, reabrirlo es arqueología.');
+test('la vista previa es la app de verdad, y el marco propio está permitido', () => {
+  // Una maqueta del panel se desincroniza de la app en cuanto una cambia; y sin
+  // abrir el marco a nuestro propio origen, el iframe sale en blanco.
+  assert.match(leer(EDITOR_NUEVO), /src=\{`\/portal\//);
+  const proxy = leerCodigo('proxy.ts');
+  assert.match(proxy, /startsWith\('\/portal\/'\)/);
+  assert.match(proxy, /frame-ancestors 'self'/);
+  assert.match(proxy, /frame-ancestors 'none'/, 'El resto del panel sigue sin poder embeberse.');
 });
 
 // ── El botón y sus tres cosas ────────────────────────────────────────────────
-test('Apariencia ofrece UNA salida, al color de tu marca', () => {
-  const src = leer(APARIENCIA);
-  const enlaces = [...src.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
-  assert.deepEqual(enlaces, ['/configuracion?tab=marca#color-de-marca'],
-    'Un solo botón: era el encargo, y dos destinos aquí es una pantalla de menú.');
-});
-
-test('«Tu panel» y «El color de tu marca» traen las cinco cosas, y la ruta de antes lleva allí', () => {
+test('«Tu panel» y «Apariencia de tu app» traen las cinco cosas, y la ruta de antes lleva allí', () => {
   const src = leer(PANEL);
-  assert.match(leer(COLOR), /publicarThemeApi/, 'faltan los colores');
+  assert.match(leer(EDITOR_NUEVO), /publicarThemeApi/, 'faltan los colores');
   assert.match(leer(PANEL_ANTIGUO), /redirect\(RUTAS_ANTIGUAS\['\/configuracion\/apariencia\/panel'\]\)/,
     'Quien tenga la pantalla de antes en marcadores tiene que llegar a «Tu panel».');
   assert.match(src, /p\.modulos/, 'faltan los módulos del menú');
@@ -156,8 +135,8 @@ test('lo pegado arriba se clava DEBAJO del menú, no encima', () => {
     'En columna el sitio correcto es 0, no el aire del contenido.');
 });
 
-test('guardar el color repinta el panel sin recargar', () => {
-  const src = leer(COLOR);
+test('publicar repinta el panel sin recargar', () => {
+  const src = leer(EDITOR_NUEVO);
   // `PanelThemeProvider` ya escucha este evento. No dispararlo fue exactamente
   // por qué la primera versión «no hacía nada» al guardar un color.
   assert.match(src, /dispatchEvent\(new CustomEvent\('tentare-theme-changed'\)\)/);
@@ -179,20 +158,20 @@ test('no se puede guardar encima de un layout que no se ha podido leer', () => {
     'Guardar sobre una lectura fallida borraría el menú que el estudio ya tenía.');
 });
 
-test('el color se publica solo, sobre lo PUBLICADO, sin reescribir el borrador', () => {
-  const src = leer(COLOR);
+test('se publica SOLO lo cambiado, sobre lo PUBLICADO, sin reescribir el borrador', () => {
+  const src = leer(EDITOR_NUEVO);
   // Publicar el borrador entero sacaría a producción lo que el editor viejo
   // dejara a medias; reescribirlo desde lo publicado borraba el favicon
-  // pendiente. Se mandan los dos colores y el servidor fusiona solo esos.
-  assert.match(src, /publicarThemeApi\(\{ primary, secondary \}\)/,
-    'Publicar tiene que ser predecible: publicado + los colores, y nada más.');
+  // pendiente. Se mandan los campos tocados y el servidor fusiona solo esos.
+  assert.match(src, /borrador\.primary !== publicado\.primary \? \{ primary/,
+    'Publicar tiene que ser predecible: publicado + lo que se ha tocado, y nada más.');
   assert.ok(!/guardarThemeBorrador/.test(src), 'El color no reescribe el borrador.');
   assert.match(leer('lib/theme-data.ts'), /export async function publicarCamposTheme[\s\S]*fusionarCampos\(/,
     'La fusión de solo esos campos vive en el servidor.');
 });
 
 test('un color sin contraste no llega a publicarse en silencio', () => {
-  const src = leer(COLOR);
+  const src = leer(EDITOR_NUEVO);
   assert.match(src, /if \(!res\.ok\)/, 'no se mira el veredicto de publicar');
   assert.match(src, /res\.errores\[0\]\?\.mensaje/,
     'Se enseña el motivo real del rechazo, no un genérico.');

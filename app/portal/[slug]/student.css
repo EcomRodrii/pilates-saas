@@ -119,6 +119,14 @@
      que la app dice, y con ocho el ritmo se ve. */
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  /* Títulos. Por defecto, la misma familia y el mismo peso de siempre: solo
+     cambian si el estudio elige otra pareja tipográfica en «Apariencia de tu
+     app» (lib/student/apariencia.ts). Una serif no aguanta el −0,03 em ni el
+     800 de la sans, por eso el peso, la escala y el tracking van con ella. */
+  --font-heading: var(--font-sans);
+  --heading-weight: 800;
+  --heading-scale: 1;
+  --heading-tracking: 0em;
 
   --t-display: 34px;   /* un importe, un saldo: la cifra que se viene a mirar */
   --t-h1: 25px;        /* título de pantalla */
@@ -148,7 +156,11 @@
   --radius-card: 16px;
   --radius-hero: 20px;
   --radius-sheet: 24px;
+  /* `--radius-pill` es la FORMA de botones, chips y badges, y cambia con el
+     estilo del estudio (más recta en «Piedra»). Lo que es redondo por
+     naturaleza —avatares, puntos, casillas— usa `--radius-round`, que no. */
   --radius-pill: 999px;
+  --radius-round: 999px;
 
   /* ── Altura de los controles ──
      Había CINCO alturas de botón (36, 40, 44, 50, 52) sin relación entre
@@ -246,14 +258,14 @@
    con el tamaño porque es lo que de verdad hace legible un párrafo: el mismo
    cuerpo a 1.55 lee muy distinto que a 1.2, y media docena de pantallas no
    declaraban ninguna. */
-.student-app .t-display { font-size: var(--t-display); font-weight: 800; letter-spacing: -.03em; line-height: 1.02; margin: 0; }
-.student-app .t-h1 { font-size: var(--t-h1); font-weight: 800; letter-spacing: -.03em; line-height: 1.06; margin: 0; }
-.student-app .t-h2 { font-size: var(--t-h2); font-weight: 800; letter-spacing: -.02em; margin: 0; }
+.student-app .t-display { font-family: var(--font-heading); font-size: calc(var(--t-display) * var(--heading-scale)); font-weight: var(--heading-weight); letter-spacing: calc(-.03em + var(--heading-tracking)); line-height: 1.02; margin: 0; }
+.student-app .t-h1 { font-family: var(--font-heading); font-size: calc(var(--t-h1) * var(--heading-scale)); font-weight: var(--heading-weight); letter-spacing: calc(-.03em + var(--heading-tracking)); line-height: 1.06; margin: 0; }
+.student-app .t-h2 { font-family: var(--font-heading); font-size: calc(var(--t-h2) * var(--heading-scale)); font-weight: var(--heading-weight); letter-spacing: calc(-.02em + var(--heading-tracking)); margin: 0; }
 /* `.t-h2` conserva el 16px del paquete: lo usan pantallas ya cerradas y
    cambiarlo movería sus cabeceras. `.t-title` (19px) es para las hojas, que hoy
    lo escriben en línea. */
-.student-app .t-title { font-size: var(--t-h2); font-weight: 800; letter-spacing: -.02em; line-height: 1.2; margin: 0; }
-.student-app .t-card-title { font-size: var(--t-h3); font-weight: 800; letter-spacing: -.01em; line-height: 1.3; margin: 0; }
+.student-app .t-title { font-family: var(--font-heading); font-size: calc(var(--t-h2) * var(--heading-scale)); font-weight: var(--heading-weight); letter-spacing: calc(-.02em + var(--heading-tracking)); line-height: 1.2; margin: 0; }
+.student-app .t-card-title { font-family: var(--font-heading); font-size: calc(var(--t-h3) * var(--heading-scale)); font-weight: var(--heading-weight); letter-spacing: calc(-.01em + var(--heading-tracking)); line-height: 1.3; margin: 0; }
 .student-app .t-body { font-size: var(--t-body); font-weight: 500; line-height: 1.55; margin: 0; }
 .student-app .t-small { font-size: var(--t-small); font-weight: 500; line-height: 1.5; margin: 0; }
 /* ⚠️ EL RÓTULO YA NO ES MONOESPACIADO, y es el cambio tipográfico de más
@@ -475,7 +487,7 @@
    mensajes distintos, dos de ellos muros, todos con el MISMO ✓ verde. */
 .student-app .note--simbolo { display: flex; align-items: center; gap: 9px; }
 .student-app .note-simbolo {
-  width: 22px; height: 22px; flex-shrink: 0; border-radius: var(--radius-pill);
+  width: 22px; height: 22px; flex-shrink: 0; border-radius: var(--radius-round);
   background: currentColor; display: flex; align-items: center; justify-content: center;
   font-size: var(--t-meta); font-weight: 800; line-height: 1;
 }
@@ -503,7 +515,7 @@
    elige quien lo use con `--size`. */
 .student-app .avatar {
   width: var(--size, 34px); height: var(--size, 34px); flex-shrink: 0;
-  border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent-soft-foreground);
+  border-radius: var(--radius-round); background: var(--accent-soft); color: var(--accent-soft-foreground);
   display: inline-flex; align-items: center; justify-content: center;
   font-size: calc(var(--size, 34px) * .38); font-weight: 800;
   background-size: cover; background-position: center; overflow: hidden;

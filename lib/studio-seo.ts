@@ -55,6 +55,9 @@ export interface StudioSeo {
   ciudad: string;
   direccion: string;
   colorPrimario: string;
+  /** Lo que el estudio eligió en «Apariencia de tu app», crudo del tema publicado.
+   *  Se valida al leerlo (`resolverApariencia`): aquí puede venir cualquier cosa. */
+  aparienciaApp: unknown;
   logoUrl: string | null;
   slug: string;
   /**
@@ -158,6 +161,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // comprobar que la app se tiñe con la marca de cada estudio. Ausente =
       // '#1A1A1A', como siempre.
       colorPrimario: process.env.E2E_COLOR_PRIMARIO ?? '#1A1A1A',
+      aparienciaApp: process.env.E2E_APARIENCIA_APP ? JSON.parse(process.env.E2E_APARIENCIA_APP) : null,
       // Mismo motivo que `E2E_PAGINA_OCULTA` de unas líneas más abajo: el icono
       // de la PWA se compone en el SERVIDOR a partir de este campo, así que
       // `page.route` no puede llegar a él y sin esta palanca el camino «el
@@ -288,6 +292,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     ciudad: data.ciudad ?? '',
     direccion: data.direccion ?? '',
     colorPrimario: colorMarcaDelEstudio(temaPublicado.primary, null, data.color_primario) ?? '#1A1A1A',
+    aparienciaApp: temaPublicado.appAlumna ?? null,
     logoUrl: data.logo_url ?? null,
     slug: data.slug ?? slug,
     telefono: data.telefono ?? null,

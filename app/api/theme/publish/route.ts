@@ -28,7 +28,7 @@ import { featureDeEstudio } from '@/lib/billing/feature-estudio';
 //     borraba.
 //
 // 409 si otra escritura del tema gana todos los reintentos (lib/theme-data.ts).
-const camposSchema = themeDraftSchema.pick({ primary: true, secondary: true, faviconUrl: true }).strict();
+const camposSchema = themeDraftSchema.pick({ primary: true, secondary: true, faviconUrl: true, appAlumna: true }).strict();
 
 function responder(resultado: ResultadoPublicacion): NextResponse {
   return resultado.ok

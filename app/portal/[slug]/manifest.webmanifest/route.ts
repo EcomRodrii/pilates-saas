@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cargarEstudio } from '@/lib/student/estudio';
+import { estiloPorId } from '@/lib/student/apariencia';
 import { urlIconoEstudio } from '@/lib/monograma-estudio';
 
 // Manifest POR ESTUDIO. Es lo que convierte «añadir a pantalla de inicio» en la
@@ -35,8 +36,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
       start_url: base,
       scope: base,
       display: 'standalone',
-      background_color: '#FAF9F5',
-      theme_color: '#FAF9F5',
+      // El fondo del estilo que eligió el estudio: el mismo que `themeColor` del layout.
+      background_color: estiloPorId(estudio.apariencia.estilo).background,
+      theme_color: estiloPorId(estudio.apariencia.estilo).background,
       lang: 'es',
       // Con el LOGO del estudio cuando lo tiene y podemos servirlo; si no, su
       // inicial. Ver el comentario del layout: `urlIconoEstudio` llevaba tiempo

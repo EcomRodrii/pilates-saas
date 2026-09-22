@@ -64,7 +64,10 @@ export default function InicioPage() {
   const { instructora } = useSesionInstructora(estudio.slug, autenticado);
   const destinoEquipo = href('/equipo');
   useEffect(() => {
-    if (instructora) router.replace(destinoEquipo);
+    // En la vista previa de «Apariencia de tu app» (iframe del panel) se queda
+    // en el Inicio de la alumna aunque la propietaria también dé clase aquí:
+    // es la pantalla que ha venido a ver.
+    if (instructora && window.self === window.top) router.replace(destinoEquipo);
   }, [instructora, destinoEquipo, router]);
   const hoy = hoyISO();
   // `null` hasta que hidrata; los filtros que lo usan lo tratan como «todavía no».
@@ -169,7 +172,7 @@ export default function InicioPage() {
           prioritaria
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-            objectPosition: 'center 32%', animation: 'apKen 22s ease-in-out infinite',
+            objectPosition: 'center var(--portada-y, 32%)', animation: 'apKen 22s ease-in-out infinite',
           }}
         />
         <div
@@ -273,7 +276,7 @@ export default function InicioPage() {
               a ser el titular y «¿Qué te apetece hoy?» baja a subtítulo. Antes
               el nombre de la alumna iba en 13 px y la pregunta genérica en 32:
               lo grande era lo que no la nombraba. */}
-          <h1 className="a-up" style={{ margin: '8px 0 0', fontSize: 30, fontWeight: 800, letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms' }}>
+          <h1 className="a-up" style={{ margin: '8px 0 0', fontSize: 30, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms' }}>
             {saludo(socia?.nombre ?? '')} 👋
           </h1>
           {/* Lo escribe el estudio; sin escribir nada, el del producto. ⚠️ Aquí

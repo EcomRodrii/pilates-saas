@@ -232,7 +232,7 @@ export default function HoyInstructoraPage() {
           alto={268}
           sizes={SIZES_PORTADA}
           prioritaria
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 32%' }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center var(--portada-y, 32%)' }}
         />
         {/* Los mismos dos velos que el Inicio de la alumna, medidos allí sobre
             una foto de sala luminosa: el de arriba para la cabecera y el del
@@ -249,7 +249,7 @@ export default function HoyInstructoraPage() {
           <p className="t-label a-up" style={{ color: 'var(--on-dark)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {estudio.nombre} · {fechaLarga(hoy)}
           </p>
-          <h1 className="a-up" style={{ margin: '8px 0 0', fontSize: 30, fontWeight: 800, letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms' }}>
+          <h1 className="a-up" style={{ margin: '8px 0 0', fontSize: 30, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms' }}>
             {saludo(primerNombre)}
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10, minHeight: 44 }}>
@@ -476,7 +476,7 @@ export default function HoyInstructoraPage() {
 function Cifra({ valor, texto, detalle, separador = false }: { valor: string; texto: string; detalle?: string; separador?: boolean }) {
   return (
     <div style={{ padding: '0 10px', textAlign: 'center', minWidth: 0, borderLeft: separador ? '1px solid var(--border)' : undefined }}>
-      <p className="t-num" style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.1 }}>{valor}</p>
+      <p className="t-num" style={{ margin: 0, fontSize: 22, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em', lineHeight: 1.1 }}>{valor}</p>
       <p className="t-meta" style={{ margin: '3px 0 0' }}>{texto}</p>
       {detalle && <p className="t-meta" style={{ margin: '1px 0 0', color: 'var(--subtle-foreground)' }}>{detalle}</p>}
     </div>

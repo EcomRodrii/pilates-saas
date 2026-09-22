@@ -22,7 +22,8 @@
 // CTA principal es negro en TODAS las pantallas, y cambiarlo por el color del
 // estudio rompería el contraste calculado de los botones sobre foto.
 
-import { hexToHsl, hslToHex, colorLegibleSobre } from '@/lib/color-utils';
+import { hexToHsl, hslToHex, colorLegibleSobre } from '../color-utils.ts';
+import { ratioContraste } from '../wcag-contrast.ts';
 
 /** Los cuatro tokens de acento que un estudio puede teñir. */
 export interface AcentoStudent {
@@ -80,7 +81,13 @@ export function acentoDeEstudio(colorPrimario: string | null | undefined): Acent
 
   // S máx 38 ≈ el `accent-deep` del paquete (39), que es el más saturado de la
   // familia. Mín 16: por debajo el acento deja de leerse como color de marca.
-  const accent = hslToHex({ h: hsl.h, s: clamp(hsl.s, 16, 38), l: clamp(hsl.l, 26, 42) });
+  // ⚠️ L≤42 no basta en los tonos luminosos: un amarillo a L42 lleva el texto
+  // blanco de encima a ~3:1. Se baja la luz solo mientras no llegue a AA, así
+  // que cualquier otro color sale exactamente igual que antes.
+  const s = clamp(hsl.s, 16, 38);
+  let l = clamp(hsl.l, 26, 42);
+  let accent = hslToHex({ h: hsl.h, s, l });
+  while (l > 10 && (ratioContraste(accent, '#FFFFFF') ?? 0) < 4.5) accent = hslToHex({ h: hsl.h, s, l: (l -= 2) });
   return {
     accent,
     // El acento es siempre oscuro (L≤42), así que el texto encima es claro.

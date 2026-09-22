@@ -324,7 +324,7 @@ export default function LogrosPage() {
                       {c.codigo && c.estado === 'PENDIENTE' && (
                         <div style={{ marginTop: 'var(--s-2)' }}>
                           <p className="t-meta" style={{ marginBottom: 2 }}>Enséñalo en el estudio</p>
-                          <p className="t-code" style={{ fontSize: 18, letterSpacing: '0.06em', fontWeight: 800 }}>
+                          <p className="t-code" style={{ fontSize: 18, letterSpacing: '0.06em', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)' }}>
                             {c.codigo}
                           </p>
                         </div>

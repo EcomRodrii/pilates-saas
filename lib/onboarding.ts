@@ -227,8 +227,8 @@ export function calcularOnboarding(d: DatosOnboarding): {
 
   // Los enlaces van a la sección y la tarjeta de hoy. Los ids viejos
   // (`clases-salas&sub=salas`, `descubre`) seguían llegando por destino.ts, pero
-  // la marca mandaba a /configuracion/apariencia, que está en mantenimiento, y
-  // desde el inicio de Configuración este es el «Siguiente» que se ofrece.
+  // la marca mandaba a /configuracion/apariencia cuando estaba en mantenimiento
+  // (7-22 sep), y desde el inicio de Configuración este es el «Siguiente» que se ofrece.
   const configuracionInicial: PasoOnboarding[] = [
     // Se da por hecho con el NIF, que vive en «Datos fiscales e IVA»: el paso
     // llevaba a Mi estudio y prometía «nombre y contacto», que no cuentan.

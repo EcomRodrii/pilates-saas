@@ -240,7 +240,7 @@ function CabeceraChat({ titulo, avatar, subtitulo, hrefPerfil }: {
       </button>
       <AvatarSocia nombre={avatar.nombre} fotoUrl={avatar.fotoUrl} size={40} />
       <div style={{ minWidth: 0, flex: 1 }}>
-        <h1 className="trunc" style={{ margin: 0, fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--foreground)' }}>{titulo}</h1>
+        <h1 className="trunc" style={{ margin: 0, fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em', color: 'var(--foreground)' }}>{titulo}</h1>
         {subtitulo && <p className="t-meta trunc" style={{ margin: '1px 0 0' }}>{subtitulo}</p>}
       </div>
       {hrefPerfil && (

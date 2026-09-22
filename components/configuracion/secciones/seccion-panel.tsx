@@ -17,7 +17,7 @@ import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 //
 // Vivía en «Personalizar tu panel» (/configuracion/apariencia/panel), que hoy
 // redirige aquí. Mismo hook y mismo guardado sobre `studio_layout`; el color de
-// esa pantalla está en Marca (tab-color-marca.tsx).
+// esa pantalla está en Marca, que lleva a «Apariencia de tu app».
 //
 // Filas con su valor de hoy (16-sep, v2): era la ÚLTIMA sección con barra de
 // guardar propia, la última que quedaba con el modelo viejo.

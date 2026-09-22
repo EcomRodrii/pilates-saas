@@ -234,7 +234,10 @@ export const SECCIONES = [
     tarjetas: [
       // Era `marca`, que ahora es el id de la sección: su ancla vieja lleva aquí (destino.ts).
       { id: 'logo-y-favicon', titulo: 'Logo y favicon', frase: 'Se aplican al momento: el logo, en la app de tus alumnas, y el favicon, en la pestaña de tu página de reservas.', guardado: 'al-pulsar', palabras: ['icono', 'imagen'] },
-      { id: 'color-de-marca', titulo: 'El color de tu marca', frase: 'Tiñe tu panel, tu página de reservas y la app de tus alumnas. Lo ves aplicado mientras lo eliges.', guardado: 'barra', palabras: ['colores', 'tema', 'apariencia'] },
+      // Su id se queda (enlaces de la guía y de correos ya enviados), pero desde el
+      // 22-sep es una pantalla propia: el estilo, el color, la tipografía y la
+      // portada de la app de la alumna (/configuracion/apariencia).
+      { id: 'color-de-marca', titulo: 'Apariencia de tu app', frase: 'El estilo, tu color, la tipografía y la portada de la app de tus alumnas, probados en un móvil antes de publicar.', guardado: 'accion', palabras: ['colores', 'color', 'tema', 'apariencia', 'estilo', 'tipografía', 'fuente', 'portada'] },
       // Su ancla y su id se quedan: los llevan enlaces de la guía, de la ayuda y
       // de correos ya enviados.
       { id: 'textos-de-tu-app', titulo: 'Cómo te presentas', frase: 'Tu descripción, tu lema, tu año de apertura y las normas de tu centro.', guardado: 'barra', palabras: ['presentación', 'lema', 'normas', 'textos de tu app'] },

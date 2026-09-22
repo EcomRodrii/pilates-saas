@@ -57,7 +57,7 @@ export function Opcion({ seleccionada, onClick, children, icono, disabled }: {
         aria-hidden
         className="no-shrink"
         style={{
-          width: 20, height: 20, borderRadius: 'var(--radius-pill)',
+          width: 20, height: 20, borderRadius: 'var(--radius-round)',
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           background: seleccionada ? 'var(--accent)' : 'transparent',
           border: seleccionada ? 'none' : '1.5px solid var(--border-strong)',
