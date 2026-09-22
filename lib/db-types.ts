@@ -1864,6 +1864,15 @@ export interface RowPenalizaciones {
   procesada_en: string | null;
 }
 
+export interface RowCertificadosEstudio {
+  id: string;
+  studio_id: string;
+  estado: string;
+  emitido_en: string;
+  revocado_en: string | null;
+  creado_por: string | null;
+}
+
 export interface RowInstructorTarifas {
   instructor_id: string;
   studio_id: string;
@@ -6395,6 +6404,24 @@ export type PenalizacionesUpdate = {
   procesada_en?: string | null | null;
 }
 
+export type CertificadosEstudioInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  estado?: string | null;
+  emitido_en?: string | null;
+  revocado_en?: string | null | null;
+  creado_por?: string | null | null;
+}
+
+export type CertificadosEstudioUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  estado?: string | null;
+  emitido_en?: string | null;
+  revocado_en?: string | null | null;
+  creado_por?: string | null | null;
+}
+
 export type InstructorTarifasInsert = {
   instructor_id?: string | null;
   studio_id?: string | null;
@@ -9707,6 +9734,11 @@ export type Database = {
         Row: RowInstructorTarifas;
         Insert: InstructorTarifasInsert;
         Update: InstructorTarifasUpdate;
+      };
+      certificados_estudio: {
+        Row: RowCertificadosEstudio;
+        Insert: CertificadosEstudioInsert;
+        Update: CertificadosEstudioUpdate;
       };
       favoritos_clase: {
         Row: RowFavoritosClase;

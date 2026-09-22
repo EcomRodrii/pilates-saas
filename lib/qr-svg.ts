@@ -4,8 +4,15 @@
 // impresión o en la preview (dangerouslySetInnerHTML).
 import { QrCode, Ecc } from './vendor/qrcodegen.ts';
 
-export function qrSvgMarkup(text: string, opciones?: { margen?: number }): string {
-  const qr = QrCode.encodeText(text, Ecc.MEDIUM);
+/**
+ * El `viewBox`/`path d` de un QR, sin envolverlo en un `<svg>` — para quien
+ * necesita construir el elemento como JSX (satori/`ImageResponse` no acepta
+ * una cadena de marcado vía `dangerouslySetInnerHTML`, solo elementos React
+ * reales) en vez de como cadena. `qrSvgMarkup` sigue siendo la vía normal
+ * para inyectar en el DOM de verdad.
+ */
+export function qrPathData(text: string, opciones?: { margen?: number; nivel?: Ecc }): { dim: number; path: string } {
+  const qr = QrCode.encodeText(text, opciones?.nivel ?? Ecc.MEDIUM);
   const margen = opciones?.margen ?? 4; // zona de silencio (quiet zone) exigida
   const dim = qr.size + margen * 2;
   let path = '';
@@ -14,6 +21,11 @@ export function qrSvgMarkup(text: string, opciones?: { margen?: number }): strin
       if (qr.getModule(x, y)) path += `M${x + margen},${y + margen}h1v1h-1z`;
     }
   }
+  return { dim, path };
+}
+
+export function qrSvgMarkup(text: string, opciones?: { margen?: number }): string {
+  const { dim, path } = qrPathData(text, opciones);
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${dim} ${dim}" ` +
     `shape-rendering="crispEdges" width="100%" height="100%" role="img" aria-label="Código QR de cotejo Veri*Factu">` +
