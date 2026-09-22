@@ -3,25 +3,16 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ESPECIALISTA_INFO } from './especialista-info';
+import { ESTADO_ESPECIALISTA_INFO } from '@/lib/decision/severidad';
 import type { PorEspecialistaAPI } from './use-decisiones';
 
 // "Mi Equipo" (Bible doc 4/doc 3): cada especialista es una tarjeta con
 // estado, trabajo pendiente e impacto — nunca gráficos.
 
-const ESTADO_INFO: Record<PorEspecialistaAPI['estado'], { label: string; color: string; bg: string }> = {
-  // 'EXCELENTE' lo emite el director cuando hay CERO recomendaciones
-  // pendientes (lib/decision/director.ts), que no es lo mismo que "el negocio
-  // va excelente": la etiqueta se ajusta a lo que el dato significa.
-  EXCELENTE: { label: 'Al día', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
-  BUENO: { label: 'Bueno', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
-  ATENCION: { label: 'Atención', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))' },
-  CRITICO: { label: 'Crítico', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
-};
-
 export function SpecialistCard({ data }: { data: PorEspecialistaAPI }) {
   const info = ESPECIALISTA_INFO[data.especialista];
   if (!info) return null;
-  const estado = ESTADO_INFO[data.estado];
+  const estado = ESTADO_ESPECIALISTA_INFO[data.estado];
   const Icon = info.icon;
 
   return (
