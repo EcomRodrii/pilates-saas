@@ -24,6 +24,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cod
       codigo: certificado.codigo,
       emitidoEnIso: certificado.emitidoEn,
       verifyUrl: urlVerificacion(certificado.codigo),
+      esFounding: certificado.esFounding,
+      foundingNumber: certificado.foundingNumber,
     }),
     CERTIFICADO_IMAGE_SIZE,
   );

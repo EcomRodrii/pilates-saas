@@ -86,15 +86,19 @@ function QrVerificacion({ url, tamano }: { url: string; tamano: number }) {
 }
 
 export function certificadoJsx({
-  studioName, codigo, emitidoEnIso, verifyUrl,
+  studioName, codigo, emitidoEnIso, verifyUrl, esFounding, foundingNumber,
 }: {
   studioName: string;
   codigo: string;
   emitidoEnIso: string;
   verifyUrl: string;
+  /** Variante Founding Studio: primeros 100 estudios en reclamar su certificado, numerados de forma inmutable. */
+  esFounding?: boolean;
+  foundingNumber?: number | null;
 }) {
   const { width, height } = CERTIFICADO_IMAGE_SIZE;
   const tamanoNombre = Math.round(tamanoNombreCertificado(studioName) * 1.25);
+  const anioEmision = new Date(emitidoEnIso).getFullYear();
 
   return (
     <div
@@ -123,11 +127,29 @@ export function certificadoJsx({
         }}
       >
         <div style={{ display: 'flex', fontSize: 74, fontWeight: 800, color: SOLIDO, letterSpacing: -2, textAlign: 'center' }}>
-          CERTIFICADO TENTARE VERIFIED STUDIO
+          {esFounding ? 'TENTARE FOUNDING STUDIO' : 'CERTIFICADO TENTARE VERIFIED STUDIO'}
         </div>
         <div style={{ display: 'flex', marginTop: 20, fontSize: 30, fontWeight: 700, color: GRIS, letterSpacing: 10 }}>
-          CERTIFICACIÓN OFICIAL
+          {esFounding ? `FOUNDING MEMBER · ${anioEmision}` : 'CERTIFICACIÓN OFICIAL'}
         </div>
+
+        {esFounding && foundingNumber != null && (
+          <div
+            style={{
+              display: 'flex',
+              marginTop: 26,
+              padding: '10px 32px',
+              borderRadius: 999,
+              border: `2px solid ${DISCO}`,
+              fontSize: 26,
+              fontWeight: 800,
+              color: DISCO,
+              letterSpacing: 2,
+            }}
+          >
+            {`#${String(foundingNumber).padStart(3, '0')}`}
+          </div>
+        )}
 
         <div style={{ display: 'flex', marginTop: 90, fontSize: 32, color: GRIS }}>Se certifica que</div>
 
@@ -156,6 +178,11 @@ export function certificadoJsx({
         <div style={{ display: 'flex', marginTop: 30, fontSize: 20, fontWeight: 600, color: GRIS, letterSpacing: 4, textAlign: 'center' }}>
           RESERVAS · ALUMNAS · PAGOS · AGENDA · ASISTENCIA · OPERACIONES
         </div>
+        {esFounding && (
+          <div style={{ display: 'flex', marginTop: 16, fontSize: 18, fontWeight: 600, color: DISCO, textAlign: 'center' }}>
+            Uno de los primeros 100 estudios en formar parte de Tentare
+          </div>
+        )}
 
         <div style={{ display: 'flex', marginTop: 64 }}>
           <LogotipoTentare alto={62} />

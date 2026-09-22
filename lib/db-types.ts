@@ -3331,6 +3331,10 @@ export interface RowCertificadosEstudio {
   emitido_en: string;
   revocado_en: string | null;
   creado_por: string | null;
+  // migr 20260922171347.
+  is_founding: boolean | null;
+  // migr 20260922171347.
+  founding_number: number | null;
 }
 
 
@@ -9211,6 +9215,8 @@ export type CertificadosEstudioInsert = {
   emitido_en?: string | null;
   revocado_en?: string | null | null;
   creado_por?: string | null | null;
+  is_founding?: boolean | null | null;
+  founding_number?: number | null | null;
 }
 
 export type CertificadosEstudioUpdate = {
@@ -9220,6 +9226,8 @@ export type CertificadosEstudioUpdate = {
   emitido_en?: string | null;
   revocado_en?: string | null | null;
   creado_por?: string | null | null;
+  is_founding?: boolean | null | null;
+  founding_number?: number | null | null;
 }
 
 export type Database = {

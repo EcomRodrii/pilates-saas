@@ -35,7 +35,14 @@ export default async function VerificarCertificadoPage({ params }: { params: Pro
       <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
         <IconoDesenlace icono={CheckCircle2} tono="exito" />
         <h1 className="text-lg font-semibold text-slate-900">Certificado verificado</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Tentare Verified Studio</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {certificado.esFounding ? 'Tentare Founding Studio' : 'Tentare Verified Studio'}
+        </p>
+        {certificado.esFounding && certificado.foundingNumber != null && (
+          <p className="mt-1 text-xs font-semibold tracking-wide text-[#B4537E]">
+            {`FOUNDING MEMBER #${String(certificado.foundingNumber).padStart(3, '0')}`}
+          </p>
+        )}
 
         <div className="mt-6 flex flex-col items-center gap-1 rounded-xl bg-muted px-4 py-4">
           <Building2 size={18} className="text-muted-foreground" aria-hidden />
