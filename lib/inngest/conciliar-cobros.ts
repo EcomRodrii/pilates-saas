@@ -42,7 +42,7 @@ import { cobroPosDeSesionCaducada } from '../pos/cerrar-bizum-fallido.ts';
 import { liberarCobroPosFallido } from '../pos/liberar-cobro-fallido.ts';
 import { pisAbandonadosConPlaza, plazaDePICancelado, plazaDeSesionCaducada, type PlazaADevolver } from '../billing/cupo-matricula-abandonado.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
-import { recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente, type ReciboCobrado } from '../facturas-sin-sellar.ts';
+import { averiasRecientes, HORAS_REINTENTO_FACTURA, recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente, type ReciboCobrado } from '../facturas-sin-sellar.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Cuánto atrás se mira. Generoso a propósito: con el barrido cada 5 minutos
@@ -489,6 +489,20 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
       },
     });
   }
+  // Aviso aparte, de nivel error: una avería nueva no se diluye en el atasco
+  // viejo que el aviso de arriba repite cada día (ver `averiasRecientes`).
+  const recientes = averiasRecientes(averia, new Date());
+  if (recientes.length > 0) {
+    Sentry.captureMessage('[conciliador] cobro reciente sin su factura automática', {
+      level: 'error',
+      tags: { area: 'facturacion', tipo: 'factura-automatica-averia' },
+      extra: {
+        total: recientes.length,
+        recibos: recientes.map(r => ({ id: r.id, studioId: r.studioId, fechaCobro: r.fechaCobro, metodoCobro: r.metodoCobro ?? null })),
+        queHacer: `La factura debía emitirse sola y el reintento de ${HORAS_REINTENTO_FACTURA} h ya se rindió: es un fallo del producto, no una decisión fiscal. Mirar por qué no se selló (Veri*Factu, datos fiscales del estudio) antes de que salga del trimestre.`,
+      },
+    });
+  }
   return sinFactura.length;
 }
 
@@ -865,7 +879,7 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
       // confirmar-cobro.ts) — nunca sellado retroactivo sin límite.
       let facturasSelladas = 0;
       try {
-        facturasSelladas = await reintentarFacturasPendientesDeSellar(admin, 72);
+        facturasSelladas = await reintentarFacturasPendientesDeSellar(admin, HORAS_REINTENTO_FACTURA);
       } catch (e) {
         Sentry.captureException(e instanceof Error ? e : new Error('reintentarFacturasPendientesDeSellar'), {
           level: 'error', tags: { area: 'cobros', tipo: 'facturacion' },

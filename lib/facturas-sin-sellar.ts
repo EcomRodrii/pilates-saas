@@ -65,3 +65,27 @@ export function recibosConFacturaAutomaticaAusente(
 ): ReciboCobrado[] {
   return recibosCobradosSinFactura(recibos, idsConFactura).filter(r => emiteFacturaAutomatica(r.metodoCobro));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Una avería NUEVA no puede esconderse en el atasco viejo. El aviso diario lleva
+// semanas diciendo lo mismo (24 recibos, el más reciente del 20-ago, y desde el
+// 21-ago los 20 cobros siguientes con su factura): un cobro de mañana sin
+// factura solo movería la cifra de 24 a 25 dentro de un issue que ya salta cada
+// día, y nadie lo leería. Por eso los recientes van en un aviso propio.
+//
+// Recientes = cobrados hace MÁS de 72 h (el reintento automático ya se rindió;
+// antes de eso aún puede sellarse solo) y MENOS de 10 días (con un tic diario
+// avisa una semana entera; después pasa a ser atasco, que es decisión humana).
+// Sin fecha de cobro no hay forma de saber si es nuevo: se queda en el atasco.
+// ─────────────────────────────────────────────────────────────────────────────
+export const HORAS_REINTENTO_FACTURA = 72;
+const DIAS_AVERIA_RECIENTE = 10;
+
+export function averiasRecientes(averia: ReciboCobrado[], ahora: Date): ReciboCobrado[] {
+  const hasta = ahora.getTime() - HORAS_REINTENTO_FACTURA * 3600_000;
+  const desde = ahora.getTime() - DIAS_AVERIA_RECIENTE * 86_400_000;
+  return averia.filter(r => {
+    const t = r.fechaCobro ? Date.parse(r.fechaCobro) : NaN;
+    return Number.isFinite(t) && t < hasta && t >= desde;
+  });
+}

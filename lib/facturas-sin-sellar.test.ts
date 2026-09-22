@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente } from './facturas-sin-sellar.ts';
+import { averiasRecientes, recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente } from './facturas-sin-sellar.ts';
 
 test('un recibo sin factura sale en el resultado', () => {
   const r = recibosCobradosSinFactura(
@@ -59,3 +59,15 @@ test('lo ya facturado no aparece en ninguna de las dos preguntas', () => {
   assert.deepEqual(recibosConFacturaAutomaticaAusente(RECIBOS, todos), []);
 });
 
+
+test('avería reciente: solo pasado el reintento de 72 h y dentro de los 10 días', () => {
+  const ahora = new Date('2026-09-22T07:20:00Z');
+  const r = (id: string, fechaCobro: string | null) => ({ id, studioId: 's', fechaCobro, metodoCobro: 'TARJETA' });
+  const out = averiasRecientes([
+    r('en-reintento', '2026-09-20T10:00:00Z'),
+    r('reciente', '2026-09-17T10:00:00Z'),
+    r('atasco-viejo', '2026-08-20T10:00:00Z'),
+    r('sin-fecha', null),
+  ], ahora);
+  assert.deepEqual(out.map(x => x.id), ['reciente']);
+});
