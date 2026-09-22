@@ -66,17 +66,35 @@ export default function CentroDeControlPage() {
 
   const fechaHoy = new Date().toISOString().slice(0, 10);
 
+  // El Veredicto del Día ya muestra esta recomendación como el mensaje único
+  // de arriba: si además cae en Prioridades/Más situaciones (su mismo score
+  // suele ser justo el que más arriba puntúa), se veía DOS VECES en la misma
+  // pantalla — justo lo que "un solo mensaje" promete no hacer (auditoría de
+  // arquitectura, 22-sep-2026). Se filtra solo de lo que se PINTA como
+  // tarjeta, nunca de `data.prioridades`/`data.masSituaciones` en crudo:
+  // `totalPendiente` de abajo tiene que seguir contando esta recomendación
+  // mientras siga sin resolver, o el puente con el Dashboard se desincroniza.
+  const idVeredicto = data?.veredicto.recomendacion?.id ?? null;
+  const prioridadesParaTarjetas = useMemo(
+    () => (data ? data.prioridades.filter(r => r.id !== idVeredicto) : []),
+    [data, idVeredicto],
+  );
+
   // Reorganización §2/§7: partir "Más situaciones" en lo que ya se venía
   // arrastrando desde un día anterior (Seguimiento) y lo genuinamente nuevo.
   const { seguimiento: enSeguimiento, nuevas: situacionesNuevas } = useMemo(
-    () => data ? partirMasSituaciones(data.masSituaciones, fechaHoy) : { seguimiento: [], nuevas: [] },
-    [data, fechaHoy],
+    () => data
+      ? partirMasSituaciones(data.masSituaciones.filter(r => r.id !== idVeredicto), fechaHoy)
+      : { seguimiento: [], nuevas: [] },
+    [data, fechaHoy, idVeredicto],
   );
 
   // Puente Centro de Control ↔ Dashboard: mismo total que suma el Action
   // Center (`tituloAtencion`, lib/decision/action-center.ts) para que "Todo
   // bajo control" nunca contradiga "N cosas necesitan tu atención" a un clic
   // de distancia — ver hallazgo de auditoría "Veredicto de Marta" 2026-08-20.
+  // Deliberadamente NO usa `prioridadesParaTarjetas`: cuenta lo pendiente de
+  // verdad, no lo que se pinta como tarjeta en esta pantalla.
   const totalPendiente = data ? data.prioridades.length + data.masSituaciones.length : 0;
   const anclaPendiente = enSeguimiento.length > 0 ? 'seguimiento' : 'recomendaciones';
 
@@ -99,9 +117,9 @@ export default function CentroDeControlPage() {
   // situaciones), nunca una tarjeta duplicada.
   const requiereAprobacion = useMemo(() => {
     if (!data || !autonomiaConfig?.activa) return [];
-    return [...data.prioridades, ...situacionesNuevas]
+    return [...prioridadesParaTarjetas, ...situacionesNuevas]
       .filter(r => elegibleParaAutonomia(r as unknown as Recomendacion, autonomiaConfig));
-  }, [data, situacionesNuevas, autonomiaConfig]);
+  }, [data, prioridadesParaTarjetas, situacionesNuevas, autonomiaConfig]);
 
   // Reorganización §13: el antiguo "círculo de aprendizaje" (outcomes ya
   // medidos, `data.seguimiento`) no desaparece — es historial de una decisión
@@ -280,13 +298,13 @@ export default function CentroDeControlPage() {
 
             <div id="recomendaciones" className="flex flex-col gap-6">
               {/* 6. Prioridades */}
-              {data.prioridades.length > 0 && (
+              {prioridadesParaTarjetas.length > 0 && (
                 <div id="prioridades" className="flex flex-col gap-3">
                   <h3 className="font-heading text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Prioridades
                   </h3>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    {data.prioridades.map(r => (
+                    {prioridadesParaTarjetas.map(r => (
                       <RecommendationCard
                         key={r.id}
                         recomendacion={r}
@@ -304,7 +322,7 @@ export default function CentroDeControlPage() {
               {situacionesNuevas.length > 0 && (
                 <div className="flex flex-col gap-5">
                   <h3 className="font-heading text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {data.prioridades.length > 0 ? 'Más situaciones' : 'Situaciones a revisar'}
+                    {prioridadesParaTarjetas.length > 0 ? 'Más situaciones' : 'Situaciones a revisar'}
                   </h3>
                   {GRUPOS_SITUACION.map(({ nivel, titulo }) => {
                     const items = gruposSituacion.get(nivel) ?? [];
