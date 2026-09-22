@@ -2939,6 +2939,19 @@ export async function resolverReservaPendiente(params: {
     if (esCodigoReserva(error.message, 'LIMITE_SEMANAL')) {
       return { error: 'La socia ya alcanzó el límite semanal de su plan y no tiene recuperaciones disponibles. La reserva sigue pendiente: libera una clase de esa semana o recházala.' };
     }
+    // D-2 (auditoría 22-sep): entre que se pidió la reserva y se aprueba puede
+    // pasar de todo — bono agotado en otra clase, plan dado de baja. La RPC
+    // revalida al confirmar y revierte si ya no cubre la clase: la reserva
+    // SIGUE pendiente, mismo criterio que LIMITE_SEMANAL de arriba.
+    if (esCodigoReserva(error.message, 'SIN_ENTITLEMENT')) {
+      return { error: 'La socia ya no tiene un plan o bono activo que cubra esta clase. La reserva sigue pendiente: recházala o pídele que renueve antes de aprobarla.' };
+    }
+    // R-1 (auditoría 22-sep): mientras la reserva esperaba aprobación pudo
+    // apuntarse a otra clase o pedir una cita en el mismo hueco — la RPC
+    // ahora lo comprueba también aquí (ya lo hacía en lista de espera).
+    if (esCodigoReserva(error.message, 'CONFLICTO_HORARIO')) {
+      return { error: 'La socia ya tiene otra clase o cita a esa misma hora. La reserva sigue pendiente: recházala o resuélvelo con ella.' };
+    }
     // RES-2 (auditoría 2026-09-16): la RPC ahora respeta `fecha_en_cierre`
     // (antes no lo hacía, aunque la cabecera de la migración decía que sí).
     // Sin traducir caería en el `error.message` a secas de abajo, el mismo
@@ -3126,18 +3139,25 @@ export async function aceptarOfertaListaEspera(params: {
   // lo es — sigue con el resto de su cuota intacta y puede reservar otra
   // clase que sí le quepa; compensarla sería regalarle una clase de más por
   // una oferta que nunca pudo aceptar de verdad.
-  if (resultado === 'LIMITE_SEMANAL' || resultado === 'LIMITE_SEMANAL_ACTIVIDAD' || resultado === 'CONFLICTO_HORARIO') {
+  // D-2 (auditoría 22-sep): SIN_ENTITLEMENT entra en el mismo bucket — el
+  // bono/plan se agotó o venció mientras la oferta estaba abierta, es SU
+  // plan, no un fallo del estudio.
+  if (resultado === 'LIMITE_SEMANAL' || resultado === 'LIMITE_SEMANAL_ACTIVIDAD' || resultado === 'CONFLICTO_HORARIO' || resultado === 'SIN_ENTITLEMENT') {
     if (sesionId) {
       const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
       await emitirReservaCancelada(admin, {
         studioId: params.studioId, sesionId, socioId: params.socioId, reservaId: params.reservaId,
-        motivo: resultado === 'CONFLICTO_HORARIO' ? 'conflicto_horario_propio' : 'limite_semanal_propio',
+        motivo: resultado === 'CONFLICTO_HORARIO' ? 'conflicto_horario_propio'
+          : resultado === 'SIN_ENTITLEMENT' ? 'sin_entitlement_propio'
+            : 'limite_semanal_propio',
       });
     }
     return {
       error: resultado === 'CONFLICTO_HORARIO'
         ? 'Ya tienes otra clase o cita a esa misma hora: no hemos podido confirmarte esta plaza.'
-        : 'Ya has alcanzado el máximo de clases de tu plan esta semana: no hemos podido confirmarte esta plaza.',
+        : resultado === 'SIN_ENTITLEMENT'
+          ? 'Ya no tienes un plan o bono activo que cubra esta clase: no hemos podido confirmarte esta plaza.'
+          : 'Ya has alcanzado el máximo de clases de tu plan esta semana: no hemos podido confirmarte esta plaza.',
     };
   }
 

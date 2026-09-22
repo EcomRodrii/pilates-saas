@@ -117,7 +117,7 @@ export async function emitirReservaAbandonada(
 // clase ya ha empezado", esta es "no aceptaste la plaza liberada a tiempo").
 export async function emitirReservaCancelada(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' | 'clase_cancelada' | 'limite_semanal_propio' | 'conflicto_horario_propio' },
+  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' | 'clase_cancelada' | 'limite_semanal_propio' | 'conflicto_horario_propio' | 'sin_entitlement_propio' },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
@@ -151,7 +151,12 @@ export async function emitirReservaCancelada(
                   ? ' Ya habías alcanzado el máximo de clases de tu plan para esta semana, así que no hemos podido confirmarte esta plaza. El resto de tu cuota sigue disponible.'
                   : p.motivo === 'conflicto_horario_propio'
                     ? ' Tenías otra clase o cita a la misma hora, así que no hemos podido confirmarte esta plaza.'
-                    : '';
+                    // D-2 (auditoría 22-sep): mismo bucket que los dos de
+                    // arriba — su plan o bono dejó de cubrir la clase
+                    // mientras la oferta seguía abierta, no un fallo ajeno.
+                    : p.motivo === 'sin_entitlement_propio'
+                      ? ' Tu plan o bono ya no cubría esta clase, así que no hemos podido confirmarte esta plaza.'
+                      : '';
     await publish({
       type: EVENTOS.RESERVA_CANCELADA, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, motivoTexto },
