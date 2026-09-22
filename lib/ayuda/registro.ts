@@ -405,8 +405,8 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'plazas-fijas', categoria: 'bonos', tipo: 'guia',
     titulo: 'Plazas fijas: su hueco de cada semana',
-    descripcion: 'Ana viene todos los martes a las 10. Cómo se marca una alumna, qué ve ella en su app, cómo se pausa unas semanas, qué pasa si se queda sin cuota, cómo te la piden y cómo ofrecer una clase fija con nombre.',
-    terminos: ['plaza fija', 'hueco semanal', 'recurrente', 'sitio fijo', 'reserva recurrente', 'pausar plaza fija', 'vacaciones', 'sin cuota', 'petición de plaza', 'pedir plaza fija', 'marcarse en una clase fija', 'clase fija', 'con bono', 'no puedo asistir', 'próximas clases', 'qué ve la alumna', 'crear clase fija', 'clase fija con nombre', 'ofrecer clase fija', 'duración de la clase fija'],
+    descripcion: 'Ana viene todos los martes a las 10. Cómo se marca una alumna, qué ve ella en su app, cómo se pausa unas semanas, qué pasa si se queda sin cuota, cómo te la piden, cómo ofrecer una clase fija con nombre, aprobarla sola y dejar que la amplíe.',
+    terminos: ['plaza fija', 'hueco semanal', 'recurrente', 'sitio fijo', 'reserva recurrente', 'pausar plaza fija', 'vacaciones', 'sin cuota', 'petición de plaza', 'pedir plaza fija', 'marcarse en una clase fija', 'clase fija', 'con bono', 'no puedo asistir', 'próximas clases', 'qué ve la alumna', 'crear clase fija', 'clase fija con nombre', 'ofrecer clase fija', 'duración de la clase fija', 'aprobación automática', 'ampliar clase fija', 'termina pronto'],
     actualizado: '2026-09-22',
     relacionados: ['bonos/recuperaciones', 'reservas/editar-o-cancelar-una-clase', 'reservas/clases-que-se-repiten'],
     estado: 'publicado',
