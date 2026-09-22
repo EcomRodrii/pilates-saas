@@ -108,6 +108,39 @@ export default function Contenido() {
         reservar una clase en la que ella misma canceló, aunque la cancelación fuera de una reserva hecha a mano.
       </p>
 
+      <h2 style={h2}>Clases fijas con nombre: las ofreces tú</h2>
+      <p>
+        Además de dar plazas una a una, puedes armar una <strong>clase fija con nombre</strong> —«Reformer · martes y
+        jueves»— para que tus clientas la pidan desde su app sin que tengas que ir clienta por clienta. Se crea en{' '}
+        <strong>Calendario → Horario → «Crear clase fija»</strong>:
+      </p>
+      <ul style={{ margin: '0 0 12px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <li>Le pones <strong>nombre y una descripción</strong> que verán ellas, y eliges <strong>qué clases incluye</strong>
+          entre las que ya se repiten en tu horario (una o varias, como el martes y el jueves). No tecleas horas: la clase
+          fija sigue sola a «editar esta y las siguientes» y a la renovación de la serie.</li>
+        <li>Eliges <strong>cuánto tiempo se ofrece</strong> —de 1 mes a 2 años, hasta 6 opciones—. Cada clienta escoge una y
+          ve hasta qué fecha llega.</li>
+        <li>Puedes poner un <strong>tope de clientas</strong> por clase; vacío usa el aforo de cada una. Cuando la clase fija
+          está completa, en su app ya no sale el botón.</li>
+      </ul>
+      <p>
+        En la app de tus clientas aparece <strong>«Clases fijas»</strong> en el horario, con qué incluye, cuántas plazas
+        quedan y un botón <strong>«Pedir clase fija»</strong>. <strong>Pedirla no la reserva:</strong> te llega a Inicio como
+        una petición y hasta que la apruebas no cambia nada. Al aprobarla, la clienta recibe <strong>una plaza fija por cada
+        clase</strong> hasta la fecha que eligió, y desde ahí funciona como cualquier otra plaza fija (se reserva sola
+        y puede faltar una semana). Si aprobarla pasa del límite semanal de su cuota, o la clase fija está completa, te lo
+        decimos antes y decides tú.
+      </p>
+      <p>
+        Crear una clase fija ya es tu forma de abrirla: tus clientas la piden desde su app <strong>aunque «Peticiones
+        desde su app» esté apagado</strong> (ese ajuste es solo para pedir plaza en una clase suelta).
+        Como las plazas fijas, <strong>hace falta una cuota</strong> que incluya esas clases: con bono no se ofrece el botón.
+        <strong> Cerrar</strong> una clase fija la deja de ofrecer, pero <strong>no toca las plazas que ya diste</strong>. Si una
+        de sus clases se queda sin clases programadas (la serie se acabó y no se renovó), la clase fija dice «sin clases
+        programadas» y nadie puede pedirla hasta que la renueves. Y cuando llega la fecha elegida la plaza deja de reservarse
+        sola: por ahora no hay aviso ni «ampliar», la clienta tiene que volver a pedirla.
+      </p>
+
       <h2 style={h2}>Si cambias el horario de la clase</h2>
       <p>
         Cuando editas <strong>toda una serie</strong> desde una fecha —«guardar esta y las siguientes»— las

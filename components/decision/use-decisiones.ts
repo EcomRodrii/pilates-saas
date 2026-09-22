@@ -70,6 +70,8 @@ export interface VeredictoAPI {
   recomendacion: RecomendacionAPI | null;
   fraseConfianza: string | null;
   semanaTranquila: boolean;
+  /** Callado porque la apertura del estudio ya avisó hoy (lib/opening/umbral-apertura.ts). */
+  porApertura?: boolean;
 }
 
 export interface SeguimientoAPI {

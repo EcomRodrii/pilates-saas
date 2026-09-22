@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   cancelarPeticionPlazaFijaAlumna, socioAutenticado, solicitarPausaPlazaFijaAlumna, solicitarPlazaFijaAlumna,
 } from '@/lib/db/supabase-data-admin';
+import { solicitarClaseFijaAlumna } from '@/lib/db/clases-fijas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest) {
     desde?: unknown;
     hasta?: unknown;
     solicitudId?: unknown;
+    claseFijaId?: unknown;
+    duracionMeses?: unknown;
   } | null;
 
   if (!body?.studioId) {
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
   // Cada petición nueva avisa al mostrador, y el dedupe va por petición: anular y
   // volver a pedir manda otro push. Por eso PEDIR lleva un límite más corto que el
   // resto de la ruta — nadie pide una plaza fija cinco veces en diez minutos.
-  if (body.accion === 'solicitar_plaza' || body.accion === 'solicitar_pausa') {
+  if (body.accion === 'solicitar_plaza' || body.accion === 'solicitar_pausa' || body.accion === 'solicitar_clase_fija') {
     const limitePeticiones = await enforceRateLimit(req, 'public-plaza-fija-pedir', { max: 5, windowSeconds: 600 });
     if (limitePeticiones) return limitePeticiones;
   }
@@ -59,6 +62,16 @@ export async function POST(req: NextRequest) {
       const sesionId = texto(body.sesionId);
       if (!sesionId) return NextResponse.json({ error: 'Falta la clase' }, { status: 400 });
       const r = await solicitarPlazaFijaAlumna(admin, { studioId: body.studioId, socioId, sesionId });
+      return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
+    }
+    if (body.accion === 'solicitar_clase_fija') {
+      // Una clase fija entera son plazas fijas de varias clases: con la página oculta, desde fuera no.
+      const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
+      if (cerrada) return cerrada;
+      const claseFijaId = texto(body.claseFijaId);
+      const duracionMeses = typeof body.duracionMeses === 'number' && Number.isInteger(body.duracionMeses) ? body.duracionMeses : null;
+      if (!claseFijaId || !duracionMeses) return NextResponse.json({ error: 'Faltan la clase fija o cuánto tiempo la quieres' }, { status: 400 });
+      const r = await solicitarClaseFijaAlumna(admin, { studioId: body.studioId, socioId, claseFijaId, duracionMeses });
       return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
     }
     if (body.accion === 'solicitar_pausa') {

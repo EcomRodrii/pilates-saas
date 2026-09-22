@@ -48,6 +48,23 @@ export function validarFotoPerfil(file: File): string | null {
   return null;
 }
 
+// La foto y el avatar de una persona viven en la fila de CADA sede y la RLS solo deja escribir la
+// activa: sin esto, al cambiar de sede se carga otra fila sin foto. Se copia a las demás sedes de la
+// MISMA persona (la función de BD nunca toca filas de otra). Mejor esfuerzo: la sede activa ya guardó.
+export async function propagarFotoPerfil(
+  destino: 'STUDIO' | 'INSTRUCTOR',
+  cambios: { fotoUrl?: string | null; avatar?: string | null },
+): Promise<void> {
+  const { error } = await supabase.rpc('propagar_foto_perfil_a_mis_sedes', {
+    p_destino: destino,
+    p_cambiar_foto: 'fotoUrl' in cambios,
+    p_foto_url: cambios.fotoUrl ?? null,
+    p_cambiar_avatar: 'avatar' in cambios,
+    p_avatar: cambios.avatar ?? null,
+  });
+  if (error) console.error('[propagarFotoPerfil]', error.message);
+}
+
 // Foto de perfil de socia — bucket público `avatars`, path = id de la socia.
 export async function subirFotoPerfil(socioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const img = await redimensionarImagen(file, LADO_AVATAR);
