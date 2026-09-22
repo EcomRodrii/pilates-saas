@@ -311,7 +311,7 @@ test.describe('Student PWA · clases fijas del estudio · sueltas (sin oferta co
     await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
     const tarjeta = page.getByTestId('clase-suelta');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
-    await expect(tarjeta).toContainText(/miércoles 09:30/i);
+    await expect(tarjeta).toContainText(/miércoles · 09:30/i);
     await expect(tarjeta).toContainText('Yoga');
     await expect(tarjeta).toContainText('Sala 2');
 
@@ -328,11 +328,12 @@ test.describe('Student PWA · clases fijas del estudio · sueltas (sin oferta co
     await expect(tarjeta.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
   });
 
-  test('con bono no hay botón: se le dice por qué', async ({ page }) => {
+  test('con bono no hay botón: se le dice por qué (una vez, no por fila)', async ({ page }) => {
     const m = await montar(page, { plan: 'bono', catalogo: { ofertas: [], sueltas: [SUELTA], pedidas: [] } });
     await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
     const tarjeta = page.getByTestId('clase-suelta');
-    await expect(tarjeta.getByTestId('clase-suelta-sin-cuota')).toContainText('La clase fija es para quien tiene una cuota activa', { timeout: 30_000 });
+    await expect(tarjeta).toContainText('Con tu cuota, no', { timeout: 30_000 });
+    await expect(page.getByTestId('clase-suelta-sin-cuota')).toContainText('La clase fija es para quien tiene una cuota activa');
     await expect(tarjeta.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
     expect(m.peticiones, 'nada sale hacia el servidor').toHaveLength(0);
   });
