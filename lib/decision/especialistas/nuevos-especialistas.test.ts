@@ -261,6 +261,29 @@ test('EQUIPO: sustitución ya resuelta (confirmada) no dispara aunque sea antigu
   assert.equal(equipo.detectar(s, M, NOW).length, 0);
 });
 
+// Informe de producto (22-sep-2026): sin impacto, esta situación nunca podía
+// subir de confianza MEDIA en "Mi Equipo" — un verde "Bueno" sobre una clase
+// de verdad sin cubrir. El valor sale de las reservas YA CONFIRMADAS de esa
+// sesión concreta, no de la capacidad teórica.
+test('EQUIPO: sustitución sin resolver lleva impacto en € de las reservas confirmadas de esa sesión', () => {
+  const s = snap({
+    instructores: [instructor('i1', { nombre: 'Marta' })],
+    socios: [socio({ id: 'a' }), socio({ id: 'b' })],
+    planesTarifa: [plan({ id: 'b', tipo: 'BONO', precio: 64, sesiones: 8 })], // 8€/sesión
+    suscripciones: [sus('a', 'b'), sus('b', 'b')],
+    reservas: [
+      { id: 'r1', studioId: 'e1', socioId: 'a', sesionId: 'se1', estado: 'CONFIRMADA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(1) },
+      { id: 'r2', studioId: 'e1', socioId: 'b', sesionId: 'se1', estado: 'CONFIRMADA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(1) },
+      // De otra sesión: no debe contar.
+      { id: 'r3', studioId: 'e1', socioId: 'a', sesionId: 'se-otra', estado: 'CONFIRMADA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(1) },
+    ] as Reserva[],
+    sustituciones: [sustitucion({ sesionId: 'se1', instructorOriginalId: 'i1', creadoEn: horasAntes(4) })],
+  });
+  const c = equipo.detectar(s, M, NOW);
+  assert.equal(c.length, 1);
+  assert.deepEqual(c[0].impacto, { valor: 16, unidad: 'EUR', formula: '2 reservas confirmadas × 8€/sesión' });
+});
+
 // Regresión: el early-return de E1 ("sin clases futuras = vacaciones") no
 // debe descartar candidatas de E2 ya detectadas — son señales independientes.
 test('EQUIPO: sustitución sin resolver dispara AUNQUE el estudio no tenga ninguna clase futura', () => {
