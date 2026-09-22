@@ -8,14 +8,15 @@ import type { EstadoClases, ModoConfirmar } from '@/lib/fichaje/clases-impartida
 
 export type { EstadoClases, ModoConfirmar };
 
-const VACIO: EstadoClases = { relacion: null, actual: null, pendientes: [] };
+const VACIO: EstadoClases = { relacion: null, actual: null, pendientes: [], terminadaAntes: null };
 
 function normalizar(e: Partial<EstadoClases> | undefined): EstadoClases {
   if (!e) return VACIO;
   return {
     relacion: e.relacion === 'CONTRATADA' || e.relacion === 'AUTONOMA' ? e.relacion : null,
-    actual: e.actual && typeof e.actual.id === 'string' ? e.actual : null,
+    actual: e.actual && typeof e.actual.id === 'string' ? { ...e.actual, finReal: e.actual.finReal ?? null } : null,
     pendientes: Array.isArray(e.pendientes) ? e.pendientes : [],
+    terminadaAntes: e.terminadaAntes && typeof e.terminadaAntes.id === 'string' ? e.terminadaAntes : null,
   };
 }
 

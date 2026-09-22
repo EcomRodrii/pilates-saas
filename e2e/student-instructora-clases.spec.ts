@@ -21,8 +21,9 @@ function json(route: Route, body: unknown, status = 200) {
 
 type Estado = {
   relacion: 'CONTRATADA' | 'AUTONOMA' | null;
-  actual: { id: string; nombre: string; inicio: string; fin: string; estado: 'EMPEZABLE' | 'EN_CURSO'; inicioReal: string | null } | null;
+  actual: { id: string; nombre: string; inicio: string; fin: string; estado: 'EMPEZABLE' | 'EN_CURSO'; inicioReal: string | null; finReal?: string | null } | null;
   pendientes: { id: string; nombre: string; inicio: string; fin: string }[];
+  terminadaAntes?: { id: string; inicioReal: string; finReal: string } | null;
 };
 
 /** La clase de la agenda: empieza dentro de `enMin` minutos (negativo = ya empezó) y dura 55. */
@@ -79,6 +80,7 @@ async function montar(page: Page, opciones: {
     }
     if (cuerpo.accion === 'terminar') {
       contador.terminar++;
+      estado = { ...estado, actual: estado.actual && { ...estado.actual, finReal: cuerpo.fin ?? null } };
       return json(route, { ok: true, estado });
     }
     contador.confirmar++;
@@ -141,6 +143,38 @@ test.describe('Instructora: control horario de sus clases', () => {
     const envio = cuerpos.find((c) => c.accion === 'terminar') as { sesionId: string; fin: string };
     expect(envio.sesionId).toBe(clase.id);
     expect(fmtHora.format(new Date(envio.fin))).toBe(hora);
+    // La tarjeta dice la hora nueva, y ya no ofrece volver a terminar.
+    await expect(page.getByTestId('clase-empezada')).toContainText(`Terminas a las ${hora}.`);
+    await expect(page.getByRole('button', { name: 'Terminé antes' })).toHaveCount(0);
+  });
+
+  test('terminada antes de su hora: la tarjeta deja de decir «en curso» y dice cuándo la dio', async ({ page }) => {
+    const inicioReal = new Date(Date.now() - 20 * 60_000).toISOString();
+    const finReal = new Date(Date.now() - 5 * 60_000).toISOString();
+    await montar(page, { enMin: -25, estado: { actual: null, terminadaAntes: { id: 'ses-ahora', inicioReal, finReal } } });
+    await page.goto(HOY);
+    const tarjeta = page.getByTestId('clase-que-da');
+    await expect(tarjeta).toContainText('Tu clase, terminada', { timeout: 30_000 });
+    await expect(tarjeta).not.toContainText('en curso');
+    await expect(page.getByTestId('clase-terminada')).toHaveText(`La diste de ${fmtHora.format(new Date(inicioReal))} a ${fmtHora.format(new Date(finReal))}.`);
+    await expect(page.getByTestId('empezar-clase')).toHaveCount(0);
+  });
+
+  test('si «Terminé antes» no se guarda, el formulario sigue abierto para corregir la hora', async ({ page }) => {
+    await montar(page, {
+      enMin: -20,
+      estado: { actual: { id: 'ses-ahora', nombre: 'Reformer Flow', inicio: '', fin: '', estado: 'EN_CURSO', inicioReal: new Date(Date.now() - 20 * 60_000).toISOString() } },
+    });
+    await page.route('**/api/portal/instructora/clases', async (route) => {
+      const cuerpo = JSON.parse(route.request().postData() || '{}') as { accion?: string };
+      if (cuerpo.accion === 'terminar') return json(route, { error: 'La empezaste a las 18:00: pon una hora de fin posterior.' }, 400);
+      return route.fallback();
+    });
+    await page.goto(HOY);
+    await page.getByRole('button', { name: 'Terminé antes' }).click({ timeout: 30_000 });
+    await page.getByTestId('terminar-antes').getByRole('button', { name: 'Guardar' }).click();
+    await expect(page.getByText('La empezaste a las 18:00: pon una hora de fin posterior.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('terminar-antes')).toBeVisible();
   });
 
   test('clases sin confirmar: todas a su hora de un toque, y la tarjeta se va', async ({ page }) => {

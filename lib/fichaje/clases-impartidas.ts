@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { uid } from '../utils.ts';
+import { horaEstudio, uid } from '../utils.ts';
 import { registrarEntrada } from './fichaje-servidor.ts';
 
 // Clases impartidas: qué clase dio de verdad cada instructora y a qué hora.
@@ -130,9 +130,16 @@ export interface ClaseActual {
   id: string; nombre: string; inicio: string; fin: string;
   estado: 'EMPEZABLE' | 'EN_CURSO';
   inicioReal: string | null;
+  /** «Terminé antes» ya puesto: la hora a la que acaba de verdad. */
+  finReal: string | null;
 }
+/** Clase de hoy que ella terminó antes de su hora, mientras su horario sigue abierto. */
+export interface ClaseTerminadaAntes { id: string; inicioReal: string; finReal: string }
 export interface ClasePendiente { id: string; nombre: string; inicio: string; fin: string }
-export interface EstadoClases { relacion: Relacion; actual: ClaseActual | null; pendientes: ClasePendiente[] }
+export interface EstadoClases {
+  relacion: Relacion; actual: ClaseActual | null; pendientes: ClasePendiente[];
+  terminadaAntes: ClaseTerminadaAntes | null;
+}
 
 export async function estadoClasesInstructora(admin: SupabaseClient, c: ContextoClases, ahora = new Date()): Promise<EstadoClases> {
   const desdeMs = Math.max(ahora.getTime() - DIAS_PARA_CONFIRMAR * 24 * 60 * MIN, Date.parse(CONFIRMAR_CLASES_DESDE) - 12 * 60 * MIN);
@@ -161,6 +168,7 @@ export async function estadoClasesInstructora(admin: SupabaseClient, c: Contexto
   ]);
 
   let actual: ClaseActual | null = null;
+  let terminadaAntes: ClaseTerminadaAntes | null = null;
   const pendientes: ClasePendiente[] = [];
   for (const s of sesiones) {
     const fila = filas.get(s.id) ?? null;
@@ -170,11 +178,14 @@ export async function estadoClasesInstructora(admin: SupabaseClient, c: Contexto
     if (estado === 'EN_CURSO' || (estado === 'EMPEZABLE' && !actual)) {
       actual = {
         id: s.id, nombre: s.nombre, inicio: s.inicio, fin: s.fin, estado,
-        inicioReal: fila?.inicio_real ?? null,
+        inicioReal: fila?.inicio_real ?? null, finReal: fila?.fin_real ?? null,
       };
     }
+    if (estado === 'DADA' && fila?.inicio_real && fila.fin_real && ahora.getTime() < Date.parse(s.fin)) {
+      terminadaAntes = { id: s.id, inicioReal: fila.inicio_real, finReal: fila.fin_real };
+    }
   }
-  return { relacion, actual, pendientes };
+  return { relacion, actual, pendientes, terminadaAntes };
 }
 
 export type ResultadoEmpezar =
@@ -241,7 +252,16 @@ export async function cambiarFinClase(
   const fila = (await filasDe(admin, c, [s.id])).get(s.id);
   if (!fila || fila.estado !== 'DADA' || !fila.inicio_real) return { ok: false, status: 409, error: 'Esta clase no está empezada.' };
   if (ahora.getTime() >= Date.parse(finEfectivo(s, fila))) return { ok: false, status: 409, error: 'Esta clase ya ha terminado.' };
-  if (fin.getTime() <= Date.parse(fila.inicio_real)) return { ok: false, status: 400, error: 'La hora de fin tiene que ser posterior a la de inicio.' };
+  // La hora llega en minutos («14:18») y el inicio real lleva segundos (14:18:10):
+  // terminar en el mismo minuto en que empezó es «nada más empezar», no un error
+  // que ella no puede corregir escribiendo mejor.
+  const inicioReal = Date.parse(fila.inicio_real);
+  if (fin.getTime() <= inicioReal) {
+    if (fin.getTime() < Math.floor(inicioReal / MIN) * MIN) {
+      return { ok: false, status: 400, error: `La empezaste a las ${horaEstudio(fila.inicio_real)}: pon una hora de fin posterior.` };
+    }
+    fin = new Date(inicioReal + 1000);
+  }
   if (fin.getTime() > ahora.getTime() + 5 * MIN) return { ok: false, status: 400, error: 'Esa hora aún no ha llegado.' };
 
   const antes = finEfectivo(s, fila);

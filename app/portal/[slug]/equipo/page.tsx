@@ -130,13 +130,14 @@ export default function HoyInstructoraPage() {
   const estadoClases = clasesPropio ?? clasesServidor;
   const horaDe = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
 
-  const conEnvio = async (f: () => Promise<{ ok: boolean; error?: string; estado?: EstadoClases; aviso?: string }>, exito: string) => {
-    if (enviandoClase) return;
+  const conEnvio = async (f: () => Promise<{ ok: boolean; error?: string; estado?: EstadoClases; aviso?: string }>, exito: string): Promise<boolean> => {
+    if (enviandoClase) return false;
     setEnviandoClase(true);
     const r = await f();
     setEnviandoClase(false);
     if (r.estado) setClasesPropio(r.estado);
     toast(r.ok ? (r.aviso ? `${exito} ${r.aviso}` : exito) : (r.error ?? 'No hemos podido guardarlo.'));
+    return r.ok;
   };
 
   const responderPendientes = (respuestas: RespuestaClase[]) => void conEnvio(async () => {
@@ -309,7 +310,10 @@ export default function HoyInstructoraPage() {
                 clase={proxima}
                 foto={data.fotos.get(proxima.id) ?? null}
                 cuando={`${etiquetaDia(proxima.fecha, hoy)} · ${proxima.hora}`}
-                enCurso={enCurso}
+                enCurso={enCurso && estadoClases?.terminadaAntes?.id !== proxima.id}
+                terminada={estadoClases?.terminadaAntes?.id === proxima.id
+                  ? { desde: horaDe(estadoClases.terminadaAntes.inicioReal), hasta: horaDe(estadoClases.terminadaAntes.finReal) }
+                  : undefined}
                 hrefClase={href(`/equipo/clase/${encodeURIComponent(proxima.id)}`)}
                 hrefLista={ahoraMs != null && puedePasarLista(proxima, ahoraMs)
                   ? href(`/equipo/clase/${encodeURIComponent(proxima.id)}/lista`)
@@ -317,9 +321,10 @@ export default function HoyInstructoraPage() {
                 control={estadoClases?.actual?.id === proxima.id ? {
                   estado: estadoClases.actual.estado,
                   horaInicioReal: estadoClases.actual.inicioReal ? horaDe(estadoClases.actual.inicioReal) : undefined,
+                  horaFinReal: estadoClases.actual.finReal ? horaDe(estadoClases.actual.finReal) : undefined,
                   enviando: enviandoClase || !online,
                   onEmpezar: () => void conEnvio(() => empezarClase(slug, proxima.id), 'Clase empezada.'),
-                  onTerminarAntes: (hora) => void conEnvio(async () => {
+                  onTerminarAntes: (hora) => conEnvio(async () => {
                     const fin = instanteEnEstudio(hoyISO(), hora);
                     if (!fin) return { ok: false, error: 'Hora no válida.' };
                     return terminarAntes(slug, proxima.id, fin);

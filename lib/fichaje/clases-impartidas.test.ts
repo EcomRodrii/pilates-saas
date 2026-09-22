@@ -245,3 +245,39 @@ test('estado de la instructora: la clase actual (en curso gana) y sus olvidadas,
   assert.deepEqual(e.pendientes.map((p) => p.id), ['olv']);
   assert.equal(e.relacion, null);
 });
+
+// Visto probándolo en producción (22-sep): empezó a las 14:18:10 y «Terminé
+// antes» venía con «14:18», que se leía como terminar antes de empezar.
+test('terminé antes en el mismo minuto en que empezó: se acepta, justo después del inicio', async () => {
+  const { admin, tablas } = crearAdmin({ sesiones: [ses('a', '2026-09-23T16:00:00.000Z')] });
+  await empezarClase(admin, C, 'a', new Date('2026-09-23T16:03:10.000Z'));
+  const mismoMinuto = await cambiarFinClase(admin, C, 'a', new Date('2026-09-23T16:03:00.000Z'), new Date('2026-09-23T16:03:40.000Z'));
+  assert.deepEqual(mismoMinuto, { ok: true });
+  assert.equal(tablas.clases_impartidas[0].fin_real, '2026-09-23T16:03:11.000Z');
+});
+
+test('terminé antes con una hora anterior a la de empezar: el error dice a qué hora la empezó', async () => {
+  const { admin } = crearAdmin({ sesiones: [ses('a', '2026-09-23T16:00:00.000Z')] });
+  await empezarClase(admin, C, 'a', new Date('2026-09-23T16:03:10.000Z'));
+  const r = await cambiarFinClase(admin, C, 'a', new Date('2026-09-23T16:01:00.000Z'), new Date('2026-09-23T16:05:00.000Z'));
+  assert.equal(r.ok, false);
+  assert.match(!r.ok ? r.error : '', /La empezaste a las 18:03/);
+});
+
+test('estado: la clase terminada antes deja de estar «en curso» aunque su horario siga abierto', async () => {
+  const { admin } = crearAdmin({
+    sesiones: [ses('a', '2026-09-24T16:00:00.000Z', 30)],
+    clases_impartidas: [
+      { sesion_id: 'a', studio_id: 'sA', instructor_id: 'i1', estado: 'DADA', inicio_real: '2026-09-24T16:03:00.000Z', fin_real: '2026-09-24T16:10:00.000Z', origen: 'BOTON' },
+    ],
+  });
+  const enCurso = await estadoClasesInstructora(admin, C, new Date('2026-09-24T16:08:00.000Z'));
+  assert.equal(enCurso.actual?.estado, 'EN_CURSO');
+  assert.equal(enCurso.actual?.finReal, '2026-09-24T16:10:00.000Z');
+  assert.equal(enCurso.terminadaAntes, null);
+  const despues = await estadoClasesInstructora(admin, C, new Date('2026-09-24T16:15:00.000Z'));
+  assert.equal(despues.actual, null);
+  assert.deepEqual(despues.terminadaAntes, { id: 'a', inicioReal: '2026-09-24T16:03:00.000Z', finReal: '2026-09-24T16:10:00.000Z' });
+  const acabado = await estadoClasesInstructora(admin, C, new Date('2026-09-24T16:40:00.000Z'));
+  assert.equal(acabado.terminadaAntes, null);
+});
