@@ -120,6 +120,19 @@ export function PropuestaHorario({
     }
   }, [clases, creando, onTerminar]);
 
+  // Descartar no escribe nada de negocio — es la única señal de que la
+  // propuesta se VIO y no encajó, así que sin registrarla "no lo creó" y "ni
+  // lo vio" se confunden en la misma cifra. Fire-and-forget a propósito:
+  // nunca debe hacer esperar a quien solo quiere salir de esta pantalla, y un
+  // fallo de red aquí no es nada que la propietaria deba ver ni reintentar.
+  const descartar = useCallback(() => {
+    onTerminar('descartada');
+    void (async () => {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeader()) };
+      await fetch('/api/onboarding/horario-descartado', { method: 'POST', headers }).catch(() => {});
+    })();
+  }, [onTerminar]);
+
   if (inicial.length === 0) {
     // Sin datos suficientes no se enseña una propuesta vacía: se sale sin
     // ruido y el calendario ya ofrece los otros caminos.
@@ -224,7 +237,7 @@ export function PropuestaHorario({
         </button>
         <button
           type="button"
-          onClick={() => onTerminar('descartada')}
+          onClick={descartar}
           disabled={creando}
           className="text-[13.5px] font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
         >
