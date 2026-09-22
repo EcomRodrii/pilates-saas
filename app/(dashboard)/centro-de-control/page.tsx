@@ -21,7 +21,7 @@ import { EmptyState } from '@/components/decision/empty-state';
 import { PilotoAutomatico } from '@/components/decision/piloto-automatico';
 import { BandejaHoy } from '@/components/decision/bandeja-hoy';
 import { RiesgoPlanton } from '@/components/decision/riesgo-planton';
-import { EspecialistaCartera } from '@/components/centro-de-control/especialista-cartera';
+import { EspecialistaCartera } from '@/components/decision/especialista-cartera';
 import { ContratoDecisionOS } from '@/components/decision/contrato-decision-os';
 import { VeredictoDelDia } from '@/components/decision/veredicto-del-dia';
 import { SeguimientoPendiente } from '@/components/decision/seguimiento-pendiente';
@@ -55,9 +55,8 @@ const GRUPOS_SITUACION: { nivel: NivelSituacion; titulo: string }[] = [
 
 export default function CentroDeControlPage() {
   const { data, loading, error, aprobar, rechazar, posponer, analizarAhora, recargar } = useDecisiones();
-  const { socios, studio, dependencySnapshots } = useStudio();
+  const { socios, studio } = useStudio();
   const autonomia = useAutonomiaConfig();
-  const hayCartera = dependencySnapshots.some(s => s.alumnasTotal > 0);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [analizando, setAnalizando] = useState(false);
   const [detalleAbierto, setDetalleAbierto] = useState(false);
@@ -375,7 +374,7 @@ export default function CentroDeControlPage() {
           Riesgos
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {hayCartera && <EspecialistaCartera />}
+          <EspecialistaCartera />
         </div>
         <RiesgoPlanton />
       </div>

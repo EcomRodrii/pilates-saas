@@ -51,7 +51,7 @@ async function montarCentro(page: Page) {
   const ganadora = recomendacion('rec-duplicada');
   await page.route('**/api/decisiones**', route => json(route, {
     resumen: {
-      estadoGeneral: 'ATENCION', saludo: 'Buenos días', mientrasDormias: [], nDecisiones: 1,
+      saludo: 'Buenos días', mientrasDormias: [], nDecisiones: 1,
       tiempoEstimadoMin: 5, impactoTotal: null, generadoEn: '2026-09-22T06:30:00+00:00',
     },
     veredicto: {
