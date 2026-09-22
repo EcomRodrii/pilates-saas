@@ -16,7 +16,6 @@ import { RecommendationCard } from '@/components/decision/recommendation-card';
 import { WhileYouSlept } from '@/components/decision/while-you-slept';
 import { SpecialistCard } from '@/components/decision/specialist-card';
 import { ActivityList } from '@/components/decision/activity-list';
-import { QuickActions } from '@/components/decision/quick-actions';
 import { EmptyState } from '@/components/decision/empty-state';
 import { PilotoAutomatico } from '@/components/decision/piloto-automatico';
 import { BandejaHoy } from '@/components/decision/bandeja-hoy';
@@ -206,9 +205,23 @@ export default function CentroDeControlPage() {
 
   return (
     <div className="flex flex-col gap-6 pb-10">
-      <p className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
-        {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-      </p>
+      {/* La pantalla no tenía h1 (auditoría de arquitectura, 22-sep-2026):
+          "Centro de Control" solo existía en el menú lateral. "Analizar ahora"
+          se mueve aquí desde dentro del desplegable — era el único CTA real
+          para forzar el primer análisis de un estudio nuevo, y vivía detrás
+          de un clic que nadie tenía motivo para dar el primer día. */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-[20px] font-semibold text-foreground">Centro de Control</h1>
+          <p className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
+            {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </p>
+        </div>
+        <Button variant="ghost" size="sm" onClick={handleAnalizar} disabled={analizando}>
+          <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} />
+          Analizar ahora
+        </Button>
+      </div>
 
       <ContratoDecisionOS hayAnalisis={!modoAprendizaje} />
 
@@ -239,6 +252,8 @@ export default function CentroDeControlPage() {
       <button
         type="button"
         onClick={() => setDetalleAbierto(v => !v)}
+        aria-expanded={detalleAbierto}
+        aria-controls="detalle-centro-de-control"
         className="flex w-fit items-center gap-1 self-start text-[12px] font-semibold text-muted-foreground hover:text-foreground"
       >
         {detalleAbierto ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -246,14 +261,7 @@ export default function CentroDeControlPage() {
       </button>
 
       {detalleAbierto && (
-      <>
-      <div className="flex justify-end">
-        <Button variant="ghost" size="sm" onClick={handleAnalizar} disabled={analizando}>
-          <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} />
-          Analizar ahora
-        </Button>
-      </div>
-
+      <div id="detalle-centro-de-control" className="contents">
       {/* 3. Piloto automático — ejecutado solo / pendiente de tu aprobación */}
       <div className="flex flex-col gap-4">
         <PilotoAutomatico autonomia={autonomia} />
@@ -379,17 +387,13 @@ export default function CentroDeControlPage() {
         <RiesgoPlanton />
       </div>
 
-      {/* 12. Accesos rápidos */}
-      <div className="flex flex-col gap-3">
-        <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Accesos rápidos
-        </h2>
-        <QuickActions />
-      </div>
+      {/* Accesos rápidos (Nueva clase/clienta/factura): retirado de aquí —
+          uso medido = 0, ya están en el menú y en ⌘K (auditoría de
+          arquitectura, 22-sep-2026). */}
 
-      {/* 13. Actividad — historial/auditoría, siempre al final */}
+      {/* 12. Actividad — historial/auditoría, siempre al final */}
       <ActivityList items={actividadCompleta} />
-      </>
+      </div>
       )}
       {toast.message && <Toast message={toast.message} onDismiss={toast.dismiss} />}
     </div>

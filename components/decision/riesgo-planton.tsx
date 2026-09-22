@@ -121,9 +121,11 @@ export function RiesgoPlanton() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {/* h3, no h2: esta fila vive dentro de la sección "Riesgos" (page.tsx),
+            que ya es su propio h2 — junto a EspecialistaCartera. */}
+        <h3 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
           Riesgo de plantón
-        </h2>
+        </h3>
         {activo !== null && (
           <Link
             href="/configuracion?tab=reservas#asistencia"

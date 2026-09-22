@@ -113,7 +113,8 @@ export function EspecialistaCartera() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Users size={16} className="shrink-0 text-muted-foreground" />
-              <span className="text-[13px] font-semibold text-foreground truncate">Riesgo de cartera</span>
+              {/* h3, no span: vive dentro de "Riesgos" (page.tsx, h2), junto a RiesgoPlanton. */}
+              <h3 className="text-[13px] font-semibold text-foreground truncate">Riesgo de cartera</h3>
             </div>
             <Badge style={{ backgroundColor: estado.bg, color: estado.color }} className="shrink-0">
               {estado.label}
