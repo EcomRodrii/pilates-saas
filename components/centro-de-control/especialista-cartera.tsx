@@ -7,14 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Users, RefreshCw, ChevronDown, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ESTADO_ESPECIALISTA_INFO } from '@/lib/decision/severidad';
 import type { InstructorDependencySnapshot } from '@/lib/types';
 
-// Estados alineados con SpecialistCard (Mi Equipo).
-const ESTADO = {
-  CRITICO: { label: 'Crítico', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
-  ATENCION: { label: 'Atención', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))' },
-  BUENO: { label: 'Bueno', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
-} as const;
+// Misma fuente que SpecialistCard (Mi Equipo) — lib/decision/severidad.ts.
+const ESTADO = ESTADO_ESPECIALISTA_INFO;
 
 const eur = (n: number) => `${Math.round(n).toLocaleString('es-ES')} €`;
 
