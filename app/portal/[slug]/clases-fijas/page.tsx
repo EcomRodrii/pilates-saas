@@ -173,6 +173,7 @@ function TarjetaClaseFija({ c, studioId, slug, online, onCambio }: {
             </>
           ) : pronto ? (
             <>
+              <p role="status" className="note note--warn" data-testid="clase-fija-termina-pronto" style={{ margin: 0 }}>{T.terminaProntoAviso}</p>
               <div>
                 <p className="t-label" style={{ marginBottom: 6 }}>{T.cuantoTiempoAmpliar}</p>
                 <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }} role="group" aria-label={T.cuantoTiempoAmpliar}>

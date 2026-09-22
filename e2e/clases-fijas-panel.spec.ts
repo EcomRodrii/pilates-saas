@@ -236,7 +236,7 @@ test.describe('Inicio · petición de una clase fija', () => {
     const decisiones = await abrirInicio(page, PETICION_AMPLIAR, { status: 200, body: { ok: true, mensaje: 'Clase fija ampliada' } });
     const bandeja = page.getByTestId('plazas-fijas-por-decidir');
     await expect(bandeja).toContainText('Pide ampliar su clase fija', { timeout: 30_000 });
-    await expect(bandeja).toContainText('Ampliarla 3 meses, hasta el 21/12.');
+    await expect(bandeja).toContainText('Ampliarla 3 meses más, hasta el 21/12.');
 
     await bandeja.getByRole('button', { name: 'Ampliarla' }).click();
     await expect(bandeja).toBeHidden({ timeout: 30_000 });

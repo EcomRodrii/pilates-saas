@@ -30,6 +30,7 @@ export const TEXTOS_CLASES_FIJAS = {
   anulada: 'Petición anulada.',
   // ── Cuando ya la tiene y está a punto de terminar ──
   venceEl: (fecha: string) => `Termina el ${fecha}`,
+  terminaProntoAviso: 'Se acaba pronto: amplíala para no perder tu sitio.',
   cuantoTiempoAmpliar: '¿Cuánto tiempo más la quieres?',
   botonAmpliar: 'Ampliar',
   ampliacionPedida: (hasta: string) => `Has pedido ampliarla (hasta el ${hasta}): tu estudio te contestará aquí.`,
