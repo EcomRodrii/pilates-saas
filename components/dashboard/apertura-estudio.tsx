@@ -11,6 +11,8 @@ import { AjustesAperturaForm } from './ajustes-apertura';
 import { OnboardingApertura } from './onboarding-apertura';
 import { AperturaSuave, type EstadoAperturaSuave } from './apertura-suave';
 import { EconomiaApertura } from './economia-apertura';
+import { AvisoAbrimos } from './aviso-abrimos';
+import { useStudio } from '@/lib/studio-context';
 import type { AjustesApertura } from '@/lib/opening/ajustes';
 import { ANCLA_DECIDIR } from '@/lib/estado-estudio-cliente';
 import { ANCLA_LISTO, type Comprobacion } from '@/lib/opening/listo';
@@ -26,6 +28,7 @@ interface RespuestaApertura {
   recomendaciones?: { id: string; titulo: string; motivo: string; href: string }[];
   listo?: Comprobacion[];
   aperturaSuave?: EstadoAperturaSuave;
+  avisarAbrimos?: boolean;
   alertas?: { tipo: string; severidad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA'; titulo: string; descripcion: string; href: string }[];
 }
 
@@ -147,6 +150,7 @@ function ListaParaAbrir({ listo, onComprobar, comprobando }: { listo: Comprobaci
 export function AperturaEstudio({ onVisible, verEconomia = false }: { onVisible?: (visible: boolean) => void; verEconomia?: boolean } = {}) {
   const [datos, setDatos] = useState<RespuestaApertura | null>(null);
   const [comprobando, setComprobando] = useState(false);
+  const { studio } = useStudio();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ajustando, setAjustando] = useState(false);
@@ -353,6 +357,11 @@ export function AperturaEstudio({ onVisible, verEconomia = false }: { onVisible?
           )}
         </div>
       ))}
+
+      {!mostrarOnboarding && datos.fechaApertura && typeof datos.avisarAbrimos === 'boolean' && (
+        <AvisoAbrimos encendido={datos.avisarAbrimos} nombreEstudio={studio?.nombre ?? 'Tu estudio'}
+          fechaAproximada={datos.onboarding?.fechaAproximada ?? false} onGuardar={patch} />
+      )}
 
       {!mostrarOnboarding && verEconomia && <EconomiaApertura />}
 

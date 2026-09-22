@@ -1256,6 +1256,22 @@ export async function emitirDocumentoSocioNuevo(
   }
 }
 
+// Opening OS: «abrimos mañana» a una socia con cuota de lanzamiento. dedupKey
+// por estudio y socia: un solo aviso aunque el barrido horario pase varias veces.
+export async function emitirAbrimosManana(
+  p: { studioId: string; socioId: string; slug: string; estudio: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.OPENING_ABRIMOS, studioId: p.studioId,
+      data: { socioId: p.socioId, slug: p.slug, estudio: p.estudio },
+      dedupKey: `opening-abrimos:${p.studioId}:${p.socioId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirAbrimosManana:', e instanceof Error ? e.message : e);
+  }
+}
+
 export async function emitirRedContactoAceptado(
   admin: SupabaseClient,
   p: {
