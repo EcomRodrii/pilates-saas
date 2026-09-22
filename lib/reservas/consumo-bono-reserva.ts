@@ -56,6 +56,32 @@ const RESULTADOS_RPC = new Set<ResultadoConsumo>([
   'CONSUMIDA', 'YA_CONSUMIDA', 'YA_DECIDIDA', 'SIN_SALDO', 'SIN_BONO', 'NO_OCUPA_PLAZA', 'NO_VERIFICABLE',
 ]);
 
+/**
+ * Traduce la fila que ahora devuelve `reservar_plaza` (D-1, migr
+ * 20260922...): con esta RPC decide TAMBIÉN el bono (`consumir_bono_interno`,
+ * ver comentario de arriba), dentro del mismo `pg_advisory_xact_lock` por
+ * socio que confirma la plaza — cerrando la carrera de dos reservas
+ * concurrentes de la MISMA socia leyendo el mismo saldo sin descontar
+ * (auditoría 22-sep, D-1). El resultado que decide es SIEMPRE una decisión
+ * NUEVA en esta llamada (nunca YA_CONSUMIDA/YA_DECIDIDA: la reserva se acaba
+ * de insertar en esta misma transacción), pero se reutiliza el mismo
+ * conjunto de resultados válidos que la RPC vieja para no duplicar el
+ * catálogo.
+ */
+export function interpretarBonoDeReservarPlaza(fila: unknown): ConsumoBono {
+  const f = (fila ?? {}) as { bono_resultado?: unknown; bono_saldo_restante?: unknown; bono_suscripcion_id?: unknown };
+  const resultado = f.bono_resultado;
+  if (typeof resultado !== 'string' || !RESULTADOS_RPC.has(resultado as ResultadoConsumo)) {
+    return { ...SIN_CONSUMO('FALLO'), error: new Error(`reservar_plaza devolvió bono_resultado=${JSON.stringify(f.bono_resultado)}`) };
+  }
+  return {
+    resultado: resultado as ResultadoConsumo,
+    saldo: typeof f.bono_saldo_restante === 'number' ? f.bono_saldo_restante : null,
+    suscripcionId: typeof f.bono_suscripcion_id === 'string' ? f.bono_suscripcion_id : null,
+    via: 'reserva',
+  };
+}
+
 /** Traduce la fila de `consumir_sesion_bono_reserva`. Algo inesperado es un fallo, nunca un éxito. */
 export function interpretarFilaConsumo(fila: unknown): ConsumoBono {
   const f = (fila ?? {}) as { resultado?: unknown; saldo_restante?: unknown; suscripcion_consumida_id?: unknown };

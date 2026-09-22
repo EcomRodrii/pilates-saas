@@ -3,7 +3,7 @@
 // qué candidatos se detectan.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { AutomationRule, AutomationLog, Socio, Reserva, Sesion, TipoClase, Recibo, Suscripcion, PlanTarifa } from '@/lib/types';
+import type { AutomationRule, AutomationLog, AutomationLogHistoricoIndice, Socio, Reserva, Sesion, TipoClase, Recibo, Suscripcion, PlanTarifa } from '@/lib/types';
 import { computeAutomationCandidatos, type AutomationEngineInput } from './automation-engine.ts';
 
 const NOW = new Date('2026-07-10T12:00:00.000Z');
@@ -25,6 +25,11 @@ function rule(p: Partial<AutomationRule> & Pick<AutomationRule, 'trigger'>): Aut
 }
 function log(p: Partial<AutomationLog> & Pick<AutomationLog, 'ruleId' | 'resultado'>): AutomationLog {
   return { id: `log-${++n}`, studioId: 'e1', automatizacionId: null, ruleName: 'R', socioId: null, socioNombre: null, pasoIndex: 0, accion: 'ENVIAR_EMAIL', detalle: '', ejecutadoEn: diasAntes(1), proximaAccionEn: null, ...p };
+}
+// Fila del índice "de por vida" (AU-3) — mismo contrato que `log`, pero sin
+// fecha: solo lo que usan los checks sin ventana (BONO_SESIONES_BAJAS/NUEVA_SOCIA).
+function logHistorico(p: Partial<AutomationLogHistoricoIndice> & Pick<AutomationLogHistoricoIndice, 'ruleId' | 'resultado'>): AutomationLogHistoricoIndice {
+  return { automatizacionId: null, socioId: null, accion: 'ENVIAR_EMAIL', ...p };
 }
 function recibo(p: Partial<Recibo> & Pick<Recibo, 'socioId' | 'estado'>): Recibo {
   return {
@@ -49,7 +54,7 @@ const TEXTO_CONSENTIMIENTO_TEST = 'texto-vigente-test';
 function input(over: Partial<AutomationEngineInput>): AutomationEngineInput {
   const socios = over.socios ?? [];
   return {
-    automationRules: [], automationLogs: [], socios: [], reservas: [], recibos: [] as Recibo[], sesiones: [], tiposClase: [tipo],
+    automationRules: [], automationLogs: [], automationLogsHistorico: [], socios: [], reservas: [], recibos: [] as Recibo[], sesiones: [], tiposClase: [tipo],
     suscripciones: [], planesTarifa: [],
     consentimientosMarketing: new Map(socios.map(s => [s.id, TEXTO_CONSENTIMIENTO_TEST])),
     textoConsentimientoVigente: TEXTO_CONSENTIMIENTO_TEST,
@@ -333,6 +338,31 @@ test('BONO_SESIONES_BAJAS: 3 bonos seguidos + sin sesiones + hay plan mensual �
   assert.equal(c[0].contextoIA?.planSugerido, 'Ilimitado');
 });
 
+// AU-3 (auditoría 22-sep-2026): antes esta dedup vivía sobre `automationLogs`,
+// que llega ACOTADO a una ventana de tiempo (fetchCriticalStudioDataCon) — un
+// PROPONER_PLAN de hace más de esa ventana se caía del array y la propuesta se
+// repetía. `automationLogs` aquí SOLO trae ruido de OTRA regla/socia (simula
+// las cientos de filas que se cuelan entre medias en un estudio real); el
+// único log real de esta regla vive SOLO en `automationLogsHistorico`.
+test('BONO_SESIONES_BAJAS: ya propuesto hace tiempo (fuera de la ventana de automationLogs) → no se repite (AU-3)', () => {
+  const r = rule({ trigger: 'BONO_SESIONES_BAJAS', condicion: { comprasSeguidas: 3 } });
+  const s = socio({ id: 'a' });
+  const bono = planTarifa({ id: 'plan-bono', tipo: 'BONO', nombre: 'Bono 10' });
+  const mensual = planTarifa({ id: 'plan-mensual', tipo: 'MENSUAL', nombre: 'Ilimitado', precio: 79 });
+  const subs = [
+    suscripcion({ socioId: 'a', planId: 'plan-bono', estado: 'ACTIVA', sesionesRestantes: 0, fechaInicio: diasAntes(1) }),
+    suscripcion({ socioId: 'a', planId: 'plan-bono', estado: 'CANCELADA', sesionesRestantes: 0, fechaInicio: diasAntes(30) }),
+    suscripcion({ socioId: 'a', planId: 'plan-bono', estado: 'CANCELADA', sesionesRestantes: 0, fechaInicio: diasAntes(60) }),
+  ];
+  const ruidoDeOtraRegla = Array.from({ length: 20 }, () => log({ ruleId: 'otra-regla', socioId: 'a', resultado: 'EJECUTADO' }));
+  const c = computeAutomationCandidatos(input({
+    automationRules: [r], socios: [s], suscripciones: subs, planesTarifa: [bono, mensual],
+    automationLogs: ruidoDeOtraRegla, // el log real de esta regla NO está aquí
+    automationLogsHistorico: [logHistorico({ ruleId: r.id, socioId: 'a', accion: 'PROPONER_PLAN', resultado: 'EJECUTADO' })],
+  }), NOW);
+  assert.equal(c.length, 0);
+});
+
 test('BONO_SESIONES_BAJAS: sin plan mensual en la casa → sin candidato (nada que proponer)', () => {
   const r = rule({ trigger: 'BONO_SESIONES_BAJAS', condicion: { comprasSeguidas: 3 } });
   const s = socio({ id: 'a' });
@@ -374,6 +404,30 @@ test('NUEVA_SOCIA: alta hace 10 días, nunca asistió → NOTIFICAR_ADMIN', () =
   const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s] }), NOW);
   assert.equal(c.length, 1);
   assert.equal(c[0].accion, 'NOTIFICAR_ADMIN');
+});
+
+// AU-3: mismo patrón que BONO_SESIONES_BAJAS de arriba, para las dos ramas de
+// NUEVA_SOCIA que tampoco tienen ventana propia.
+test('NUEVA_SOCIA: NOTIFICAR_ADMIN ya avisado hace tiempo → no se repite (AU-3)', () => {
+  const r = rule({ trigger: 'NUEVA_SOCIA', condicion: { diasSinReservar: 2, diasSinAsistir: 10 } });
+  const s = socio({ id: 'a', fechaAlta: diasAntes(10) });
+  const c = computeAutomationCandidatos(input({
+    automationRules: [r], socios: [s],
+    automationLogs: [], // el log real se cayó de la ventana — solo queda en el histórico
+    automationLogsHistorico: [logHistorico({ ruleId: r.id, socioId: 'a', accion: 'NOTIFICAR_ADMIN', resultado: 'EJECUTADO' })],
+  }), NOW);
+  assert.equal(c.length, 0);
+});
+
+test('NUEVA_SOCIA: ENVIAR_EMAIL ya avisado hace tiempo → no se repite (AU-3)', () => {
+  const r = rule({ trigger: 'NUEVA_SOCIA', condicion: { diasSinReservar: 2, diasSinAsistir: 10 } });
+  const s = socio({ id: 'a', fechaAlta: diasAntes(3) });
+  const c = computeAutomationCandidatos(input({
+    automationRules: [r], socios: [s],
+    automationLogs: [],
+    automationLogsHistorico: [logHistorico({ ruleId: r.id, socioId: 'a', accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO' })],
+  }), NOW);
+  assert.equal(c.length, 0);
 });
 
 test('NUEVA_SOCIA: ya asistió → sin candidatos', () => {

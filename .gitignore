@@ -13,6 +13,12 @@
 # testing
 /coverage
 
+# Config local de Claude Code (permisos/hooks de MÁQUINA, no del producto).
+# P-8 (auditoría 22-sep): repo público — sin esta línea, un `git add -A`
+# la sube. Solo protegía a quien ya tuviera esto en su .gitignore GLOBAL
+# personal; el repo necesita su propia protección, no depender de eso.
+.claude/settings.local.json
+
 # next.js
 /.next/
 /out/

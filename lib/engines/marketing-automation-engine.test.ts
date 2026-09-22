@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Automatizacion, AutomationLog, Socio, Suscripcion, Reserva, Cita } from '@/lib/types';
+import type { Automatizacion, AutomationLog, AutomationLogHistoricoIndice, Socio, Suscripcion, Reserva, Cita } from '@/lib/types';
 import { computeAutomatizacionMktCandidatos } from './marketing-automation-engine.ts';
 
 const NOW = new Date('2026-07-13T12:00:00.000Z');
@@ -20,6 +20,11 @@ const reserva = (socioId: string, estado: Reserva['estado'], creadoEn: string): 
 // Antes iba en `ruleId`, que tenía FK a automation_rules y rechazaba el insert.
 const log = (automatizacionId: string, socioId: string, ejecutadoEn: string): AutomationLog =>
   ({ id: `l-${++n}`, studioId: 'e1', ruleId: null, automatizacionId, ruleName: '', socioId, socioNombre: '', pasoIndex: 0, accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO', detalle: '', ejecutadoEn, proximaAccionEn: null, reciboId: null });
+// Fila del índice "de por vida" (AU-3) — mismo par (automatizacionId|socioId)
+// que `log`, sin fecha: es justo lo que sobrevive cuando el log real se cae
+// de la ventana de `automationLogs`.
+const logHistorico = (automatizacionId: string, socioId: string, resultado: AutomationLogHistoricoIndice['resultado'] = 'EJECUTADO'): AutomationLogHistoricoIndice =>
+  ({ ruleId: null, automatizacionId, socioId, accion: 'ENVIAR_EMAIL', resultado });
 
 // Por defecto, TODAS las socias del test tienen consentimiento vigente —
 // así los tests existentes (escritos antes del guard de consentimiento)
@@ -33,7 +38,7 @@ function consentirTodas(socios: Socio[]): Map<string, string> {
 function run(input: Partial<Parameters<typeof computeAutomatizacionMktCandidatos>[0]>) {
   const socios = input.socios ?? [];
   return computeAutomatizacionMktCandidatos({
-    automatizaciones: [], automationLogs: [], socios, suscripciones: [], reservas: [], citas: [] as Cita[],
+    automatizaciones: [], automationLogs: [], automationLogsHistorico: [], socios, suscripciones: [], reservas: [], citas: [] as Cita[],
     consentimientosMarketing: consentirTodas(socios),
     textoConsentimientoVigente: TEXTO_CONSENTIMIENTO_TEST,
     ...input,
@@ -111,6 +116,42 @@ test('dedup: no reenvía si ya hay log reciente de esa automatización+socia', (
   assert.equal(c.length, 0);
 });
 
+// AU-3 (auditoría 22-sep-2026): NUEVA_ALTA es UNA_VEZ (DEDUP_DIAS=3650) — el
+// log que demuestra que ya se envió puede haber caído de la ventana de
+// `automationLogs` (fetchCriticalStudioDataCon) sin que eso signifique que hay
+// que reenviarlo. `automationLogs` aquí trae solo ruido de OTRA socia/automatización
+// (simula las cientos de filas de un estudio real entre medias); el único log
+// real de esta socia vive SOLO en `automationLogsHistorico`.
+test('NUEVA_ALTA (UNA_VEZ): log real solo en el histórico (fuera de ventana) → no se repite (AU-3)', () => {
+  const s = socio({ id: '1', fechaAlta: diasAntes(0) });
+  const ruido = Array.from({ length: 20 }, (_, i) => log('otra-auto', `ruido-${i}`, diasAntes(1)));
+  const c = run({
+    automatizaciones: [auto('NUEVA_ALTA')], socios: [s],
+    automationLogs: ruido,
+    automationLogsHistorico: [logHistorico('auto-NUEVA_ALTA', '1')],
+  });
+  assert.equal(c.length, 0);
+});
+
+test('NUEVA_ALTA (UNA_VEZ): sin log ni en la ventana ni en el histórico → SÍ dispara', () => {
+  const s = socio({ id: '1', fechaAlta: diasAntes(0) });
+  const c = run({ automatizaciones: [auto('NUEVA_ALTA')], socios: [s] });
+  assert.equal(c.length, 1);
+});
+
+// Ventanas FINITAS (no UNA_VEZ): un log que solo esté en el histórico (y no en
+// `automationLogs`) NO debe deduplicar — la ventana finita es intencionadamente
+// más corta, y `yaEnviado` solo consulta el histórico cuando ventanaDias===UNA_VEZ.
+test('CUMPLEANOS (ventana finita, no UNA_VEZ): log solo en el histórico → SÍ dispara igual', () => {
+  const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
+  const c = run({
+    automatizaciones: [auto('CUMPLEANOS')], socios: [s],
+    automationLogs: [],
+    automationLogsHistorico: [logHistorico('auto-CUMPLEANOS', '1')],
+  });
+  assert.equal(c.length, 1);
+});
+
 test('solo dispara automatizaciones ACTIVAS; NOTIFICACION genera candidata de canal interno', () => {
   const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
   assert.equal(run({ automatizaciones: [auto('CUMPLEANOS', { activa: false })], socios: [s] }).length, 0);
@@ -153,7 +194,7 @@ test('CITA_RECORDATORIO: cita de mañana dispara', () => {
 test('sin consentimiento de marketing → EMAIL no dispara', () => {
   const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
   const c = computeAutomatizacionMktCandidatos({
-    automatizaciones: [auto('CUMPLEANOS')], automationLogs: [], socios: [s], suscripciones: [], reservas: [], citas: [],
+    automatizaciones: [auto('CUMPLEANOS')], automationLogs: [], automationLogsHistorico: [], socios: [s], suscripciones: [], reservas: [], citas: [],
     consentimientosMarketing: new Map(), // nadie ha consentido
     textoConsentimientoVigente: 'texto vigente',
   }, NOW);
@@ -163,7 +204,7 @@ test('sin consentimiento de marketing → EMAIL no dispara', () => {
 test('consentimiento con texto DESACTUALIZADO (cambió la cláusula) → no dispara', () => {
   const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
   const c = computeAutomatizacionMktCandidatos({
-    automatizaciones: [auto('CUMPLEANOS')], automationLogs: [], socios: [s], suscripciones: [], reservas: [], citas: [],
+    automatizaciones: [auto('CUMPLEANOS')], automationLogs: [], automationLogsHistorico: [], socios: [s], suscripciones: [], reservas: [], citas: [],
     consentimientosMarketing: new Map([['1', 'texto viejo, antes de añadir una cláusula']]),
     textoConsentimientoVigente: 'texto nuevo, con la cláusula añadida',
   }, NOW);
@@ -173,7 +214,7 @@ test('consentimiento con texto DESACTUALIZADO (cambió la cláusula) → no disp
 test('consentimiento vigente (texto coincide) → EMAIL SÍ dispara', () => {
   const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
   const c = computeAutomatizacionMktCandidatos({
-    automatizaciones: [auto('CUMPLEANOS')], automationLogs: [], socios: [s], suscripciones: [], reservas: [], citas: [],
+    automatizaciones: [auto('CUMPLEANOS')], automationLogs: [], automationLogsHistorico: [], socios: [s], suscripciones: [], reservas: [], citas: [],
     consentimientosMarketing: new Map([['1', 'texto vigente']]),
     textoConsentimientoVigente: 'texto vigente',
   }, NOW);
@@ -183,7 +224,7 @@ test('consentimiento vigente (texto coincide) → EMAIL SÍ dispara', () => {
 test('sin consentimiento de marketing → NOTIFICACION (aviso interno) SÍ dispara, no toca a la socia', () => {
   const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
   const c = computeAutomatizacionMktCandidatos({
-    automatizaciones: [auto('CUMPLEANOS', { accion: 'NOTIFICACION' })], automationLogs: [], socios: [s], suscripciones: [], reservas: [], citas: [],
+    automatizaciones: [auto('CUMPLEANOS', { accion: 'NOTIFICACION' })], automationLogs: [], automationLogsHistorico: [], socios: [s], suscripciones: [], reservas: [], citas: [],
     consentimientosMarketing: new Map(),
     textoConsentimientoVigente: 'texto vigente',
   }, NOW);

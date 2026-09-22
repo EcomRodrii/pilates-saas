@@ -3,6 +3,7 @@ import { mensajeDe } from './mensajes-automatizacion.ts';
 import type {
   AutomationRule,
   AutomationLog,
+  AutomationLogHistoricoIndice,
   Socio,
   Reserva,
   Recibo,
@@ -81,6 +82,12 @@ export interface AutomationCandidato {
 export interface AutomationEngineInput {
   automationRules: AutomationRule[];
   automationLogs: AutomationLog[];
+  // AU-3: índice "de por vida", sin ventana de tiempo — ver AutomationLogHistoricoIndice
+  // en lib/types.ts. Solo lo consultan los dos checks de este motor que no tienen
+  // NINGUNA cota temporal propia (BONO_SESIONES_BAJAS/NUEVA_SOCIA): `automationLogs`
+  // llega acotado a una ventana (fetchCriticalStudioDataCon) y no basta para
+  // saber si algo se propuso/avisó hace más tiempo que esa ventana.
+  automationLogsHistorico: AutomationLogHistoricoIndice[];
   socios: Socio[];
   reservas: Reserva[];
   recibos: Recibo[];
@@ -100,7 +107,7 @@ export interface AutomationEngineInput {
 
 export function computeAutomationCandidatos(
   {
-    automationRules, automationLogs, socios, reservas, recibos, sesiones, tiposClase, suscripciones, planesTarifa,
+    automationRules, automationLogs, automationLogsHistorico, socios, reservas, recibos, sesiones, tiposClase, suscripciones, planesTarifa,
     consentimientosMarketing, textoConsentimientoVigente,
   }: AutomationEngineInput,
   now: Date
@@ -125,6 +132,17 @@ export function computeAutomationCandidatos(
   }
   const logsDe = (ruleId: string, socioId: string | null | undefined): AutomationLog[] =>
     logsPorRuleSocio.get(`${ruleId}|${socioId ?? ''}`) ?? [];
+
+  // Índice "de por vida" (AU-3): mismo agrupado que logsPorRuleSocio pero sobre
+  // el histórico COMPLETO, sin ventana. Solo lo usan los checks marcados abajo.
+  const historicoPorRuleSocio = new Map<string, AutomationLogHistoricoIndice[]>();
+  for (const l of automationLogsHistorico) {
+    const k = `${l.ruleId}|${l.socioId ?? ''}`;
+    const arr = historicoPorRuleSocio.get(k);
+    if (arr) arr.push(l); else historicoPorRuleSocio.set(k, [l]);
+  }
+  const logsHistoricoDe = (ruleId: string, socioId: string | null | undefined): AutomationLogHistoricoIndice[] =>
+    historicoPorRuleSocio.get(`${ruleId}|${socioId ?? ''}`) ?? [];
 
   // Última asistencia (creadoEn) por socia — para AUSENCIA_DIAS. Compartida
   // con marketing-automation-engine.ts (misma señal exacta, ver
@@ -444,7 +462,8 @@ export function computeAutomationCandidatos(
         if (ultimasN.length < comprasSeguidasUmbral) return;
         if (!ultimasN.every(s => s.planId === actual.planId)) return;
 
-        const yaPropuesto = logsDe(rule.id, socioId).some(l => l.accion === 'PROPONER_PLAN' && l.resultado !== 'FALLIDO');
+        // AU-3: sin ventana propia — "propuesto alguna vez", nunca "en los últimos N días".
+        const yaPropuesto = logsHistoricoDe(rule.id, socioId).some(l => l.accion === 'PROPONER_PLAN' && l.resultado !== 'FALLIDO');
         if (yaPropuesto) return;
 
         const planSugerido = planesMensuales[0];
@@ -473,7 +492,8 @@ export function computeAutomationCandidatos(
         if (!tieneAsistencia && diasDesdeAlta >= diasSinAsistir) {
           // Mismo `resultado !== 'FALLIDO'` que el ENVIAR_EMAIL de esta misma
           // regla justo debajo: un aviso que falló debe poder reintentarse.
-          const yaAvisado = logsDe(rule.id, socio.id).some(l => l.accion === 'NOTIFICAR_ADMIN' && l.resultado !== 'FALLIDO');
+          // AU-3: sin ventana propia — "avisado alguna vez".
+          const yaAvisado = logsHistoricoDe(rule.id, socio.id).some(l => l.accion === 'NOTIFICAR_ADMIN' && l.resultado !== 'FALLIDO');
           if (yaAvisado) return;
           candidatos.push({
             rule, socio,
@@ -486,7 +506,8 @@ export function computeAutomationCandidatos(
         }
 
         if (!socioTieneReserva.has(socio.id) && diasDesdeAlta >= diasSinReservar) {
-          const yaAvisado = logsDe(rule.id, socio.id).some(l => l.accion === 'ENVIAR_EMAIL' && l.resultado !== 'FALLIDO');
+          // AU-3: sin ventana propia — "avisado alguna vez".
+          const yaAvisado = logsHistoricoDe(rule.id, socio.id).some(l => l.accion === 'ENVIAR_EMAIL' && l.resultado !== 'FALLIDO');
           if (yaAvisado) return;
           // I-5: comercial — mismo guard que AUSENCIA_DIAS.
           if (!tieneConsentimientoMarketingVigente(consentimientosMarketing.get(socio.id), textoConsentimientoVigente)) return;

@@ -1,4 +1,4 @@
-import type { Automatizacion, AutomationLog, Socio, Suscripcion, Reserva, Cita } from '@/lib/types';
+import type { Automatizacion, AutomationLog, AutomationLogHistoricoIndice, Socio, Suscripcion, Reserva, Cita } from '@/lib/types';
 import { ultimaAsistidaPorSocio, huboAvisoInactividadReciente } from './senales-inactividad.ts';
 import { tieneConsentimientoMarketingVigente } from '../marketing/consentimiento.ts';
 import { cumpleMesDia } from '../socios/datos-privados.ts';
@@ -57,6 +57,13 @@ function personalizar(texto: string, socio: Socio): string {
 export interface MktEngineInput {
   automatizaciones: Automatizacion[];
   automationLogs: AutomationLog[];
+  // AU-3 (auditoría 22-sep-2026): índice "de por vida", sin ventana — la ÚNICA
+  // señal fiable para los triggers UNA_VEZ (SUSCRIPCION_CANCELADA/PRIMERA_CLASE/
+  // NUEVA_ALTA, DEDUP_DIAS=3650). `automationLogs` llega acotado a una ventana
+  // de tiempo (ver fetchCriticalStudioDataCon en supabase-data.ts), así que un
+  // envío de hace más de esa ventana se cae del array y "de una vez en la vida"
+  // se reenviaría — ver AutomationLogHistoricoIndice en lib/types.ts.
+  automationLogsHistorico: AutomationLogHistoricoIndice[];
   socios: Socio[];
   suscripciones: Suscripcion[];
   reservas: Reserva[];
@@ -70,7 +77,7 @@ export interface MktEngineInput {
 }
 
 export function computeAutomatizacionMktCandidatos(
-  { automatizaciones, automationLogs, socios, suscripciones, reservas, citas, consentimientosMarketing, textoConsentimientoVigente }: MktEngineInput,
+  { automatizaciones, automationLogs, automationLogsHistorico, socios, suscripciones, reservas, citas, consentimientosMarketing, textoConsentimientoVigente }: MktEngineInput,
   now: Date,
 ): AutomatizacionMktCandidato[] {
   const candidatos: AutomatizacionMktCandidato[] = [];
@@ -88,8 +95,17 @@ export function computeAutomatizacionMktCandidatos(
     const k = `${l.automatizacionId}|${l.socioId ?? ''}`;
     const arr = logsPorKey.get(k); if (arr) arr.push(l); else logsPorKey.set(k, [l]);
   }
+  // AU-3: mismo (automatizacionId|socioId), pero sobre el histórico COMPLETO
+  // (sin ventana ni fecha) — solo para los triggers UNA_VEZ, ver yaEnviado abajo.
+  const enviadoAlgunaVez = new Set<string>();
+  for (const l of automationLogsHistorico) {
+    if (l.resultado === 'FALLIDO' || !l.automatizacionId) continue;
+    enviadoAlgunaVez.add(`${l.automatizacionId}|${l.socioId ?? ''}`);
+  }
   const yaEnviado = (autoId: string, socioId: string, ventanaDias: number): boolean =>
-    (logsPorKey.get(`${autoId}|${socioId}`) ?? []).some(l => (now.getTime() - new Date(l.ejecutadoEn).getTime()) < ventanaDias * MS_DIA);
+    ventanaDias === UNA_VEZ
+      ? enviadoAlgunaVez.has(`${autoId}|${socioId}`)
+      : (logsPorKey.get(`${autoId}|${socioId}`) ?? []).some(l => (now.getTime() - new Date(l.ejecutadoEn).getTime()) < ventanaDias * MS_DIA);
 
   // Suscripción ACTIVA por socia (la primera vigente).
   const susActivaPorSocio = new Map<string, Suscripcion>();

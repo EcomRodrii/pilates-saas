@@ -567,6 +567,10 @@ export async function POST(req: NextRequest) {
   // la socia recupera su checkout, que es mejor que un error). Si pide otro
   // método de pago, la anterior se EXPIRA antes de crear la nueva: expirada ya
   // no se puede pagar, así que nunca hay dos sesiones cobrables vivas a la vez.
+  // M-3 (auditoría 22-sep): también se expira si el IMPORTE cambió. Solo se
+  // llega aquí desde la rama de recibo (la única que rellena
+  // `sesionAbiertaId`), donde `matriculaCentimos` se queda a 0 — el mismo
+  // cálculo que hace el webhook al comprobar el importe cobrado.
   if (sesionAbiertaId) {
     try {
       const previa = await stripe.checkout.sessions.retrieve(
@@ -574,7 +578,7 @@ export async function POST(req: NextRequest) {
         undefined,
         { stripeAccount: studio.stripe_account_id },
       );
-      const decision = decidirSesionCheckout(previa, paymentMethodTypes);
+      const decision = decidirSesionCheckout(previa, paymentMethodTypes, Math.round(importe * 100));
       if (decision === 'reutilizar' && previa.url) {
         return conCorsWidget(req, NextResponse.json({ url: previa.url }));
       }

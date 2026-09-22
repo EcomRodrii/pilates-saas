@@ -1559,6 +1559,24 @@ export interface AutomationLog {
   reciboId?: string | null;
 }
 
+// Índice ligero de automation_logs para dedup "de por vida" — AU-3 (auditoría
+// 22-sep-2026): `automationLogs` que trae el arranque del panel va acotado a
+// una ventana de tiempo (ver fetchCriticalStudioDataCon), así que no sirve
+// para los triggers "una vez en la vida" (SUSCRIPCION_CANCELADA/PRIMERA_CLASE/
+// NUEVA_ALTA en marketing-automation-engine.ts, y los checks sin ventana de
+// automation-engine.ts como BONO_SESIONES_BAJAS/NUEVA_SOCIA): un envío de hace
+// más de esa ventana se caería del array y el motor lo reenviaría. Este índice
+// cubre el HISTÓRICO COMPLETO del estudio (fetchAllRows, sin límite de filas),
+// a propósito con solo 5 columnas — barato de traer aunque el estudio lleve
+// años de actividad.
+export interface AutomationLogHistoricoIndice {
+  ruleId: string | null;
+  automatizacionId: string | null;
+  socioId: string | null;
+  accion: AccionAutomatica;
+  resultado: ResultadoLog;
+}
+
 export interface NotaProgreso {
   id: string;
   studioId: string;

@@ -74,11 +74,46 @@ function fallbackCrossSell(nombre: string, planSugerido: string, precioSugerido:
   return `Hola ${nombre}, hemos visto que sueles agotar tu bono cada mes — ¡nos encanta verte tan constante! Con tu ritmo actual, el plan ${planSugerido} (${precioSugerido}€/mes) puede salirte más a cuenta que seguir comprando bonos sueltos. ¿Te lo explicamos sin compromiso? Un abrazo, el equipo de ${studioNombre}.`;
 }
 
-// Id DETERMINISTA de log por candidato: mismo (estudio, regla, socia, día) →
-// mismo id. Es lo que hace idempotente el upsert cuando un step se reintenta.
-// El índice del candidato desempata dentro de la misma tanda.
-function logIdCandidato(studioId: string, c: AutomationCandidato, index: number, nowISO: string): string {
-  return `log-${studioId}-${c.rule.id}-${c.socio?.id ?? 'na'}-${index}-${nowISO.slice(0, 10)}`;
+// Id DETERMINISTA de log por candidato: mismo (estudio, regla, socia, recibo,
+// acción, día) → mismo id. Es lo que hace idempotente el upsert cuando un
+// step se reintenta, Y es el Idempotency-Key que ve Resend.
+//
+// Auditoría 22-sep (AU-1): antes el desempate final era el ÍNDICE del
+// candidato dentro del array — que cambia entre el cron y «Ejecutar ahora»
+// según el orden de iteración. Dos ejecuciones del MISMO candidato podían
+// generar DOS ids distintos: el upsert por id de B sobrescribía el log
+// EJECUTADO de A (se perdía su dedup y al día siguiente se reenviaba), y el
+// correo de B no se enviaba — Resend devolvía ok:true con el id del correo de
+// A, y el log decía «Email enviado a…» sin que hubiera salido nada. Se
+// desplegó con 0 reglas activas en producción: sin logs del día con el
+// formato viejo, no hay nada que este cambio pueda reenviar.
+//
+// La mayoría de candidatos van sobre una socia (y a veces un recibo), que sí
+// identifican la instancia real. El único caso sin ninguno de los dos es
+// CLASE_LLENA_RECURRENTE (un insight sin socia asociada, y puede haber varias
+// franjas distintas el mismo día): se reutiliza `notaInterna` como
+// discriminador — ya lleva su propia clave de franja embebida
+// (`[día-hora-tipoClase]`), la misma que usa el propio motor para su dedup de
+// «no repetir en 14 días» (automation-engine.ts).
+function logIdCandidato(studioId: string, c: AutomationCandidato, nowISO: string): string {
+  const dia = nowISO.slice(0, 10);
+  const socioId = c.socio?.id ?? 'na';
+  const reciboId = c.reciboId ?? 'na';
+  const sinIdentidadPropia = socioId === 'na' && reciboId === 'na';
+  const discriminador = sinIdentidadPropia ? `-${hashCorto(c.notaInterna ?? c.titulo)}` : '';
+  return `log-${studioId}-${c.rule.id}-${socioId}-${reciboId}-${c.accion}${discriminador}-${dia}`;
+}
+
+// Hash corto NO criptográfico (FNV-1a de 32 bits) — solo para desambiguar
+// dentro de un id determinista, no necesita resistir colisiones adversarias,
+// solo dar el mismo valor para el mismo texto.
+function hashCorto(texto: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < texto.length; i++) {
+    h ^= texto.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
 }
 
 interface ProcesarOpts {
@@ -91,6 +126,9 @@ interface ProcesarOpts {
    * `studios.color_primario`, que guarda un índigo de alta.
    */
   marca: MarcaCorreo;
+  // Solo lo usa procesarCandidatoMkt (motor de marketing, otro vocabulario —
+  // ver AU-6). procesarCandidato ya no lo necesita desde AU-1: su id sale de
+  // logIdCandidato, no del índice de iteración.
   index: number;
   nowISO: string;
   dry: boolean;
@@ -107,9 +145,9 @@ interface ProcesarOpts {
 // persiste el log idempotente. Devuelve el log resultante. Es el cuerpo que va
 // dentro de un step.run() por candidato: durable y reintentable en aislamiento.
 export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, studioNombre, marca, index, nowISO, dry, resend, whatsapp } = opts;
+  const { studioId, studioNombre, marca, nowISO, dry, resend, whatsapp } = opts;
   const base = {
-    id: logIdCandidato(studioId, c, index, nowISO),
+    id: logIdCandidato(studioId, c, nowISO),
     studioId,
     ruleId: c.rule.id,
     automatizacionId: null,
@@ -527,6 +565,9 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
         marca: marcaCorreoDesde(marcaEstudio, studioNombre),
         automationRules: d.automationRules,
         automationLogs: d.automationLogs,
+        // AU-3: índice "de por vida" para los triggers/checks sin ventana propia
+        // (ver el comentario de fetchCriticalStudioDataCon en supabase-data.ts).
+        automationLogsHistorico: d.automationLogsHistorico,
         automatizaciones: d.automatizaciones,
         socios: d.socios,
         reservas: d.reservas,
@@ -593,6 +634,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       {
         automationRules: data.automationRules,
         automationLogs: data.automationLogs,
+        automationLogsHistorico: data.automationLogsHistorico,
         socios: data.socios,
         reservas: data.reservas,
         recibos: data.recibos,
@@ -641,7 +683,9 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     // (ruleId = id de la automatización) para dedup.
     const mktCandidatos = computeAutomatizacionMktCandidatos(
       {
-        automatizaciones: data.automatizaciones, automationLogs: data.automationLogs, socios: data.socios,
+        automatizaciones: data.automatizaciones, automationLogs: data.automationLogs,
+        automationLogsHistorico: data.automationLogsHistorico,
+        socios: data.socios,
         suscripciones: data.suscripciones, reservas: data.reservas, citas: data.citas,
         consentimientosMarketing, textoConsentimientoVigente,
       },

@@ -109,6 +109,7 @@ import type {
   AchievementProgress,
   ActividadReciente,
   AutomationLog,
+  AutomationLogHistoricoIndice,
   AutomationRule,
   Automatizacion,
   BackupMeta,
@@ -1333,6 +1334,22 @@ export function mapAutomationLog(r: RowAutomationLogs): AutomationLog {
     proximaAccionEn: r.proxima_accion_en ?? null,
     reciboId: r.recibo_id ?? null,
   } as AutomationLog;
+}
+
+// Fila ligera (5 columnas) del índice "de por vida" — ver AU-3 y
+// AutomationLogHistoricoIndice en lib/types.ts. No lleva ejecutadoEn/detalle
+// a propósito: los checks que lo consumen son "¿pasó ALGUNA VEZ?", no "¿pasó
+// cuándo?".
+export function mapAutomationLogHistorico(
+  r: Pick<RowAutomationLogs, 'rule_id' | 'automatizacion_id' | 'socio_id' | 'accion' | 'resultado'>,
+): AutomationLogHistoricoIndice {
+  return {
+    ruleId: r.rule_id ?? null,
+    automatizacionId: r.automatizacion_id ?? null,
+    socioId: r.socio_id ?? null,
+    accion: r.accion,
+    resultado: r.resultado,
+  } as AutomationLogHistoricoIndice;
 }
 
 export function mapNotaProgreso(r: RowNotasProgreso): NotaProgreso {
@@ -5546,6 +5563,14 @@ async function fetchSociosPanel(db: SupabaseClient, sid: string) {
 // Sin valor por defecto a propósito: equivocarse en cualquiera de los dos
 // sentidos es silencioso (el servidor se quedaría sin tarjetas guardadas, o el
 // navegador volvería a pedir columnas que la BD le niega).
+// Ver el comentario de la consulta de automation_logs, más abajo: 300 días es
+// el dedup finito más largo declarado hoy (CUMPLEANOS, marketing-automation-
+// engine.ts), +30 días de margen para un cron que se retrase o corra en otro
+// huso horario. Si algún día se declara un DEDUP_DIAS finito mayor que este
+// número, hay que subirlo aquí también — no hay una única fuente de verdad
+// compartida a propósito (este fichero no importa los motores de negocio).
+const VENTANA_DEDUP_AUTOMATIZACIONES_DIAS = 330;
+
 export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: string | undefined, opciones: { privadas: 'columnas' | 'rpc' }) {
   const sid = studioId ?? getCurrentStudioId();
   const [
@@ -5611,6 +5636,10 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     // Añadido AL FINAL del mismo modo que bannersPortalRes de arriba —
     // desestructurado posicional, así que va después de todo lo existente.
     novedadesEstudioRes,
+    // AU-3: índice "de por vida" para los triggers UNA_VEZ (ver el comentario
+    // largo de la consulta de automation_logs más arriba). Va al final del
+    // desestructurado por el mismo motivo que sus vecinas de encima.
+    automationLogsHistoricoRes,
   ] = await enTandas([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
@@ -5643,11 +5672,24 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     db.from('automatizaciones').select('*').eq('studio_id', sid),
     db.from('automation_rules').select('*').eq('studio_id', sid),
     // automation_logs: índice de dedup para el motor de automatizaciones.
-    // Antes sin límite (riesgo: traer 10K+ logs en bootstrap de estudio grande).
-    // Ahora: últimos 500 — lo suficiente para dedup reciente (cubre ~14 días de
-    // actividad típica), y evita traer histórico completo en cada carga.
-    // El motor filtra por query-time en las RPCs que realmente necesiten historial.
-    db.from('automation_logs').select('*').eq('studio_id', sid).order('ejecutado_en', { ascending: false }).limit(500),
+    // AU-3 (auditoría 22-sep-2026): esto llevaba `.order(ejecutado_en
+    // desc).limit(500)` — los 500 MÁS RECIENTES. Con 20 logs/día de actividad
+    // normal un estudio cruza las 500 filas en ~25 días, y los triggers "de
+    // una vez en la vida" (SUSCRIPCION_CANCELADA/PRIMERA_CLASE/NUEVA_ALTA,
+    // DEDUP_DIAS=3650 en marketing-automation-engine.ts) tienen su log
+    // probatorio justo entre los MÁS ANTIGUOS — el primero en caerse. Pasados
+    // esos 25 días, `yaEnviado` volvía a dar `false` y la automatización se
+    // reenviaba. Ahora: ventana de TIEMPO (VENTANA_DEDUP_AUTOMATIZACIONES_DIAS,
+    // 330 días — cubre con margen el dedup finito más largo que hay,
+    // CUMPLEANOS=300, y los 90d que necesita construirSnapshot/Decision OS),
+    // paginada con fetchAllRows (sin LIMIT de filas: un estudio activo puede
+    // superar 500 filas dentro de la propia ventana sin que sea un problema).
+    // Los "de una vez" NO se resuelven con esta ventana — ver
+    // automationLogsHistoricoRes más abajo (AutomationLogHistoricoIndice).
+    fetchAllRows(sid, 'automation_logs', (from, to) =>
+      db.from('automation_logs').select('*').eq('studio_id', sid)
+        .gte('ejecutado_en', new Date(Date.now() - VENTANA_DEDUP_AUTOMATIZACIONES_DIAS * 86400000).toISOString())
+        .range(from, to)),
     db.from('codigos_descuento').select('*').eq('studio_id', sid),
     // Feeds de solo-display: ventana reciente ordenada. Seguro acotar — ningún
     // consumidor agrega sobre el histórico completo (ver P0-2/9).
@@ -5698,6 +5740,17 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     // Sin filtrar por activo: mismo criterio que contenido_portal_banners —
     // el editor necesita ver también los inactivos/caducados para gestionarlos.
     db.from('novedades_estudio').select('*').eq('studio_id', sid).order('created_at', { ascending: false }),
+    // AU-3: índice ligero (5 columnas, sin fecha) del HISTÓRICO COMPLETO de
+    // automation_logs — es lo único que sabe si un trigger "de una vez en la
+    // vida" ya se disparó hace más de VENTANA_DEDUP_AUTOMATIZACIONES_DIAS.
+    // resultado != FALLIDO: un envío fallido nunca cuenta como "ya enviado"
+    // (mismo criterio que ya usan ambos motores fila a fila). fetchAllRows,
+    // no `.limit(...)`: es justo la consulta que no puede volver a truncarse.
+    fetchAllRows<Pick<RowAutomationLogs, 'rule_id' | 'automatizacion_id' | 'socio_id' | 'accion' | 'resultado'>>(
+      sid, 'automation_logs_historico', (from, to) =>
+        db.from('automation_logs')
+          .select('rule_id, automatizacion_id, socio_id, accion, resultado')
+          .eq('studio_id', sid).neq('resultado', 'FALLIDO').range(from, to)),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
@@ -5754,6 +5807,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     automatizaciones: (automatizacionesRes.data ?? []).map(mapAutomatizacion),
     automationRules: (automationRulesRes.data ?? []).map(mapAutomationRule),
     automationLogs: (automationLogsRes.data ?? []).map(mapAutomationLog),
+    automationLogsHistorico: (automationLogsHistoricoRes.data ?? []).map(mapAutomationLogHistorico),
     codigosDescuento: (codigosDescuentoRes.data ?? []).map(mapCodigoDescuento),
     actividadReciente: (actividadRecienteRes.data ?? []).map(mapActividadReciente),
     videosOnDemand: [], // Sprint 1: lazy-load

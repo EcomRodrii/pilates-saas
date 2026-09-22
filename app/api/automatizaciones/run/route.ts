@@ -98,6 +98,8 @@ export async function POST(req: NextRequest) {
       {
         automationRules: data.automationRules,
         automationLogs: data.automationLogs,
+        // AU-3: índice "de por vida" — ver comentario en fetchCriticalStudioDataCon.
+        automationLogsHistorico: data.automationLogsHistorico,
         socios: data.socios,
         reservas: data.reservas,
         recibos: data.recibos,

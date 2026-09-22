@@ -22,7 +22,7 @@ import { primerError } from '@/lib/db/primer-error';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { esCodigoReserva, mensajeDeErrorReserva, MENSAJE_RESERVA_RPC } from '@/lib/reservas/errores-rpc';
 import {
-  descontarSesionDeReserva, devolucionPermitida, efectosTrasConsumo, esColumnaInexistente, ocupaPlaza,
+  descontarSesionDeReserva, devolucionPermitida, efectosTrasConsumo, esColumnaInexistente, ocupaPlaza, interpretarBonoDeReservarPlaza,
   sesionDescontada, type ConsumoBono,
 } from '@/lib/reservas/consumo-bono-reserva';
 import { LEGAL } from '@/lib/legal-info';
@@ -1156,13 +1156,20 @@ async function validarSociaPublica(
 // (antes lo consultaba cada llamante por su cuenta) y así se le puede pasar la
 // sesión a la RPC, que vuelve a comprobar la cobertura del lado de la BD.
 
-async function consumirBonoServidor(admin: SupabaseClient, p: {
+/** Lo que `bonoConsumible` decide: qué suscripción (y su plan) se cobraría. */
+type ConsumibleBono = NonNullable<ReturnType<typeof bonoConsumible>>;
+
+// D-1 (auditoría 22-sep): extraído de `consumirBonoServidor` para poder elegir
+// el bono ANTES de llamar a `reservar_plaza` — la RPC necesita el
+// `suscripcion_id` ya decidido para descontarlo dentro de su propio candado
+// (`pg_advisory_xact_lock` por socio), en la MISMA transacción que confirma
+// la plaza. Antes esta selección + el descuento ocurrían los dos DESPUÉS de
+// que la RPC soltara el candado: dos reservas concurrentes de la misma socia
+// en DOS clases distintas podían leer el mismo saldo sin que ninguna hubiera
+// descontado todavía y las dos salían CONFIRMADA (una de ellas sin cobrar).
+async function resolverBonoParaSesion(admin: SupabaseClient, p: {
   studioId: string; socioId: string; sesionId: string;
-  /** La reserva que se cobra: la decisión (cobrada o no) queda marcada en ella. */
-  reservaId: string;
-  /** Reintento del mismo intento: solo descuenta si puede PROBAR que falta. */
-  reintento?: boolean;
-}): Promise<ConsumoBono> {
+}): Promise<ConsumibleBono | null> {
   const { studioId, socioId, sesionId } = p;
   const { data: ses } = await admin.from('sesiones').select('tipo_clase_id').eq('id', sesionId).maybeSingle();
   const tipoClaseId = (ses?.tipo_clase_id as string | null) ?? null;
@@ -1174,49 +1181,38 @@ async function consumirBonoServidor(admin: SupabaseClient, p: {
   // Los tipos que cubre cada plan viven aparte (0111): sin hidratarlos se
   // descontaría de un bono que no cubre esta clase.
   const planes = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
-  const consumible = bonoConsumible(socioId, suscripciones, planes, undefined, tipoClaseId);
-  // «No hay bono que cubra la clase» también es una decisión y se registra en la
-  // reserva (`suscripcionId: null`): si la socia compra un bono después, un
-  // reintento no le cobra esta clase.
-  //
-  // Decremento ATÓMICO condicional (arregla el sobre-consumo concurrente): N
-  // reservas simultáneas de la misma socia ya NO comparten el mismo descuento.
-  // Y POR RESERVA (migr 20260914182637): la marca queda en la propia reserva en
-  // la misma transacción, así que volver a llamar descuenta si falta y, si no,
-  // no toca nada. Sin la migración aplicada cae al descuento de siempre (ver
-  // `lib/reservas/consumo-bono-reserva.ts`).
-  // La BD vuelve a comprobar la cobertura por tipo de clase (migr 0129). Aquí
-  // `bonoConsumible` ya la respeta, así que esto no debería rechazar nunca —
-  // y justo por eso vale: si algún día deja de respetarla, salta aquí en vez
-  // de servir la clase cara contra el bono barato en silencio.
-  const consumo = await descontarSesionDeReserva(admin as never, {
-    studioId, sesionId, suscripcionId: consumible?.suscripcion.id ?? null,
-    reservaId: p.reservaId, reintento: p.reintento ?? false,
-  });
-  if (consumo.resultado === 'FALLO') { reportDbError('[consumirBonoServidor]', consumo.error); return consumo; }
+  return bonoConsumible(socioId, suscripciones, planes, undefined, tipoClaseId);
+}
+
+// Efectos tras SABER el resultado del cobro (venga de `reservar_plaza` en la
+// misma transacción, o de `consumir_sesion_bono_reserva` en una llamada
+// aparte): avisar si se quedó sin descontar pudiendo, y el aviso de «bono
+// agotado». Compartido por las dos vías para no duplicar esta lógica.
+async function efectosPostBono(admin: SupabaseClient, p: {
+  studioId: string; socioId: string; reservaId: string;
+  consumible: ConsumibleBono | null;
+  consumo: ConsumoBono;
+}): Promise<ConsumoBono> {
+  const { studioId, socioId, consumible, consumo } = p;
+  if (consumo.resultado === 'FALLO') { reportDbError('[efectosPostBono]', consumo.error); return consumo; }
   if (!consumible) return consumo;
   const { suscripcion: sus, plan } = consumible;
   if (consumo.resultado === 'SIN_SALDO') {
     // La socia SÍ tenía un bono consumible (`bonoConsumible` lo confirmó arriba)
-    // pero el RPC no descontó. La reserva ya está CONFIRMADA, así que esto es
-    // una clase servida sin cobrar. No se revierte aquí —cancelar una plaza ya
+    // pero no se descontó. La reserva ya está CONFIRMADA, así que esto es una
+    // clase servida sin cobrar. No se revierte aquí —cancelar una plaza ya
     // confirmada es peor experiencia y es decisión de producto— pero deja de ser
     // invisible: sin esto no había ni rastro.
     //
-    // ⚠️ Este comentario decía "bono agotado en una carrera con otra reserva", y
-    // esa NO era la causa real de las veces que saltó. El 2026-08-11 se vio en
-    // producción que `bonoConsumible` no descartaba los bonos a 0: como agotarse
-    // no cambia el estado ACTIVA, el bono vacío seguía siendo candidato y el
-    // orden determinista lo elegía SIEMPRE, así que con varios bonos activos
-    // esto no saltaba por una carrera sino en cada reserva, indefinidamente.
-    // Arreglado en `bonoConsumible` (filtro `sesionesRestantes > 0`).
-    //
-    // La carrera sigue siendo posible y esta guardia sigue haciendo falta —dos
-    // reservas simultáneas sobre el último saldo—, pero ya no es la explicación
-    // por defecto: si esto vuelve a saltar de forma repetida y no simultánea,
-    // buscar otra causa antes de darlo por una carrera.
+    // Desde D-1 (22-sep) el descuento del bono ocurre DENTRO del mismo candado
+    // que confirma la plaza (`reservar_plaza` → `consumir_bono_interno`), así
+    // que esto YA NO puede venir de la carrera entre dos reservas concurrentes
+    // sobre el último saldo — esa carrera queda cerrada. Sigue siendo posible
+    // por el motivo de siempre (el saldo se agotó justo antes de verdad) y esta
+    // guardia sigue haciendo falta como red de seguridad, no como explicación
+    // por defecto.
     reportDbError(
-      '[consumirBonoServidor] bono consumible sin descontar (posible clase no cobrada)',
+      '[efectosPostBono] bono consumible sin descontar (posible clase no cobrada)',
       { studioId, socioId, suscripcionId: sus.id, reservaId: p.reservaId },
     );
     return consumo;
@@ -1225,19 +1221,8 @@ async function consumirBonoServidor(admin: SupabaseClient, p: {
   // ahora, así que tampoco se vuelve a anunciar «bono agotado».
   if (consumo.resultado !== 'CONSUMIDA') return consumo;
   // ⚠️ Aquí NO se crea ningún recibo. Agotar un bono es el final de una compra
-  // única, no el principio de otra: hasta el 2026-09-05 este bloque insertaba
-  // un recibo «Renovación <plan>» PENDIENTE con `proximo_reintento`, o sea con
-  // el cobro automático ya programado, y el dunning acababa pasando la tarjeta
-  // de la socia por un bono que nadie había pedido (visto en producción:
-  // «Bono 4 clases» autocobrado el 2026-09-02, `pi_3UB9Ya…`). Es el mismo
-  // defecto que ya se corrigió para `PUNTUAL` en agosto; `BONO` se quedó
-  // dentro por creer que el recibo era solo un aviso.
-  //
-  // El aviso sí se queda —no mueve dinero y es justo lo que la socia necesita
-  // saber—, y renovar sigue siendo posible cuando alguien lo PIDE: el botón
-  // «Renovar en un toque» del portal (`app/api/public/renovar-plan`) o el
-  // cobro a mano desde /cobros. Ver `avisaBonoAgotado` en `lib/bono-logic.ts`.
-  //
+  // única, no el principio de otra (ver historia completa en el comentario
+  // original, migr previa a esta). Ver `avisaBonoAgotado` en `lib/bono-logic.ts`.
   // El mensual no pasa por aquí (no consume sesiones): su renovación la sigue
   // llevando el cron `lib/inngest/renovaciones.ts`, intacto.
   if (consumo.saldo === 0 && avisaBonoAgotado(plan)) {
@@ -1245,6 +1230,39 @@ async function consumirBonoServidor(admin: SupabaseClient, p: {
     await emitirBonoAgotado(admin, { studioId, socioId, plan: plan.nombre, suscripcionId: sus.id });
   }
   return consumo;
+}
+
+// Descuenta una sesión del bono activo de la socia (si aplica) usando bono-logic.
+// Camino de RETRY / dueños que NO pasan por `reservar_plaza` en esta misma
+// llamada (`trasPlazaConfirmada`, `trasPromocionDeEspera`,
+// `completarConfirmacionTrasReintento`, y el `reintento` de `trasReservaCreada`):
+// elige el bono y lo descuenta con `consumir_sesion_bono_reserva`, en una
+// transacción APARTE de la que insertó la reserva. Para la confirmación
+// DIRECTA de una reserva nueva, el dueño ya no es esta función — ver D-1 en
+// `resolverBonoParaSesion` y el uso de `p_suscripcion_id` en `reservar_plaza`.
+async function consumirBonoServidor(admin: SupabaseClient, p: {
+  studioId: string; socioId: string; sesionId: string;
+  /** La reserva que se cobra: la decisión (cobrada o no) queda marcada en ella. */
+  reservaId: string;
+  /** Reintento del mismo intento: solo descuenta si puede PROBAR que falta. */
+  reintento?: boolean;
+}): Promise<ConsumoBono> {
+  const { studioId, socioId, sesionId } = p;
+  const consumible = await resolverBonoParaSesion(admin, { studioId, socioId, sesionId });
+  // «No hay bono que cubra la clase» también es una decisión y se registra en la
+  // reserva (`suscripcionId: null`): si la socia compra un bono después, un
+  // reintento no le cobra esta clase.
+  //
+  // Decremento ATÓMICO condicional (arregla el sobre-consumo concurrente): N
+  // reservas simultáneas de la misma socia ya NO comparten el mismo descuento.
+  // Y POR RESERVA (migr 20260914182637): la marca queda en la propia reserva en
+  // la misma transacción, así que volver a llamar descuenta si falta y, si no,
+  // no toca nada.
+  const consumo = await descontarSesionDeReserva(admin as never, {
+    studioId, sesionId, suscripcionId: consumible?.suscripcion.id ?? null,
+    reservaId: p.reservaId, reintento: p.reintento ?? false,
+  });
+  return efectosPostBono(admin, { studioId, socioId, reservaId: p.reservaId, consumible, consumo });
 }
 
 
@@ -1446,6 +1464,18 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
    * descuento ha ocurrido AHORA — ver `efectosTrasConsumo`.
    */
   reintento?: boolean;
+  /**
+   * D-1: el bono YA se decidió DENTRO de `reservar_plaza` (mismo candado que
+   * confirmó la plaza) — lo trae quien llamó a la RPC, vía
+   * `interpretarBonoDeReservarPlaza`. Con esto presente (camino directo, no
+   * reintento) NO se vuelve a llamar a `consumirBonoServidor`: la RPC
+   * `consumir_sesion_bono_reserva` vería `bono_decidido_en` ya escrito y
+   * respondería YA_CONSUMIDA/YA_DECIDIDA, lo que haría que
+   * `efectosTrasConsumo` se saltase avisos y analítica por error.
+   */
+  consumoBono?: ConsumoBono;
+  /** El mismo bono candidato que se pasó a `reservar_plaza` (`p_suscripcion_id`), para el aviso de «bono agotado». */
+  consumibleBono?: ConsumibleBono | null;
 }): Promise<boolean> {
   // La clase decide de QUÉ bono se descuenta (0111): con un "Bono Reformer" y
   // un "Bono Mat" a la vez, sin la sesión se quitaría del equivocado.
@@ -1456,9 +1486,14 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
     });
     if (!efectosTrasConsumo(p.estado, consumo, true)) return false;
   } else if (p.estado === 'CONFIRMADA') {
-    const consumo = await consumirBonoServidor(admin, {
-      studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId,
-    });
+    const consumo = p.consumoBono
+      ? await efectosPostBono(admin, {
+          studioId: p.studioId, socioId: p.socioId, reservaId: p.reservaId,
+          consumible: p.consumibleBono ?? null, consumo: p.consumoBono,
+        })
+      : await consumirBonoServidor(admin, {
+          studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId,
+        });
     // Una llamada concurrente con la misma reserva (un reintento) ya decidió el
     // cobro: es ella la que avisa, cuenta la analítica y da los créditos.
     if (!efectosTrasConsumo(p.estado, consumo, false)) return false;
@@ -2398,6 +2433,12 @@ export async function crearReservaPublica(params: {
   // p_permite_lista_espera: si la clase está llena y el tipo/estudio no admite
   // lista de espera, la RPC rechaza en vez de insertar en LISTA_ESPERA.
   const reservaId = `res-${uid()}`;
+  // D-1: el bono candidato se elige AQUÍ, antes de llamar a la RPC, para que
+  // `reservar_plaza` lo descuente DENTRO del mismo candado por socio que
+  // confirma la plaza — ver `resolverBonoParaSesion`.
+  const consumibleBono = await resolverBonoParaSesion(admin, {
+    studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
+  });
   const { data, error } = await admin.rpc('reservar_plaza', {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: reservaId,
@@ -2432,6 +2473,9 @@ export async function crearReservaPublica(params: {
     // viva una sobrecarga de 8 parámetros y cualquier llamada que no nombre
     // este argumento resuelve a las dos (SQLSTATE 42725, «is not unique»).
     p_exigir_entitlement: exigirPlanResuelto,
+    // D-1: el bono elegido arriba, para que la RPC lo descuente DENTRO del
+    // mismo candado que confirma la plaza (ver `resolverBonoParaSesion`).
+    p_suscripcion_id: consumibleBono?.suscripcion.id ?? null,
   });
   if (error) {
     // ⚠️ El `codigo` es lo que consume el cliente; el `error` es solo para
@@ -2533,10 +2577,15 @@ export async function crearReservaPublica(params: {
     // no lo tiene, en vez de confirmarle la clase en otro sin avisar.
     spotAsignado = params.spotId ?? null;
   }
+  // D-1: el bono ya se decidió DENTRO de `reservar_plaza` cuando la RPC
+  // confirmó la plaza (misma transacción). `interpretarBonoDeReservarPlaza`
+  // traduce lo que devolvió la fila; `trasReservaCreada` lo usa en vez de
+  // volver a llamar a `consumirBonoServidor` (que ya vería la decisión hecha).
+  const consumoBono = estado === 'CONFIRMADA' ? interpretarBonoDeReservarPlaza(row) : undefined;
   // Bono, analítica, gamificación y avisos: dueño único (ver `trasReservaCreada`).
   await trasReservaCreada(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
-    estado, spotAsignado, canal: 'alumna', reservaId,
+    estado, spotAsignado, canal: 'alumna', reservaId, consumoBono, consumibleBono,
   });
   return { ok: true as const, estado, reservaId, spotAsignado, recuperacionUsada };
 }
@@ -2600,6 +2649,12 @@ export async function reservarPlazaTrasPagoPublico(params: {
 
   const { idsDe } = await import('@/lib/billing/entregar-plan-comprado');
   const reservaId = idsDe(params.paymentIntentId).reservaId;
+  // D-1: el plan/bono se acaba de entregar (entregarPlanComprado, en la misma
+  // llamada del webhook que dispara esto) — se elige AQUÍ para que la RPC lo
+  // descuente dentro de su propio candado, igual que el camino de la alumna.
+  const consumibleBono = await resolverBonoParaSesion(admin, {
+    studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
+  });
   const { data, error } = await admin.rpc('reservar_plaza', {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: reservaId,
@@ -2623,6 +2678,9 @@ export async function reservarPlazaTrasPagoPublico(params: {
     //    42725 «function ... is not unique» — es decir, la reserva tras pago
     //    falla SIEMPRE. Nombrarlo aquí es lo que la hace unívoca.
     p_exigir_entitlement: false,
+    // D-1: el bono elegido arriba, para que la RPC lo descuente en la misma
+    // transacción que confirma la plaza.
+    p_suscripcion_id: consumibleBono?.suscripcion.id ?? null,
   });
   if (error) {
     // YA_RESERVADA: mismo p_reserva_id que un reintento anterior del webhook
@@ -2702,9 +2760,12 @@ export async function reservarPlazaTrasPagoPublico(params: {
   const estado: string = row?.estado ?? 'CONFIRMADA';
   const spotAsignado = estado === 'CONFIRMADA' ? (params.spotId ?? null) : null;
 
+  // D-1: bono ya decidido dentro de `reservar_plaza` — ver el mismo criterio
+  // en `crearReservaPublica`.
+  const consumoBono = estado === 'CONFIRMADA' ? interpretarBonoDeReservarPlaza(row) : undefined;
   await trasReservaCreada(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
-    estado, spotAsignado, canal: 'pago', reservaId,
+    estado, spotAsignado, canal: 'pago', reservaId, consumoBono, consumibleBono,
   });
 
   return { ok: true, estado, reservaId, spotAsignado };
@@ -2749,6 +2810,11 @@ export async function crearReservaMostrador(params: {
   if (!ses) return { ok: false, status: 404, error: MENSAJE_RESERVA_RPC.SESION_NO_ENCONTRADA };
   if (ses.cancelada) return { ok: false, status: 400, error: 'Esta clase está cancelada: no se puede apuntar a nadie.' };
 
+  // D-1: el bono se elige AQUÍ para que la RPC lo descuente DENTRO del mismo
+  // candado que confirma la plaza — mismo criterio que `crearReservaPublica`.
+  const consumibleBono = await resolverBonoParaSesion(admin, {
+    studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
+  });
   const { data, error } = await admin.rpc('reservar_plaza', {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: params.reservaId,
@@ -2763,6 +2829,9 @@ export async function crearReservaMostrador(params: {
     //    responde 42725 «function ... is not unique» — apuntar desde el
     //    mostrador falla SIEMPRE.
     p_exigir_entitlement: false,
+    // D-1: el bono elegido arriba, para que la RPC lo descuente en la misma
+    // transacción que confirma la plaza.
+    p_suscripcion_id: consumibleBono?.suscripcion.id ?? null,
   });
   if (error) {
     // Reintento del MISMO intento (el id lo genera el panel y viaja en la
@@ -2801,10 +2870,13 @@ export async function crearReservaMostrador(params: {
   const estado: string = row?.estado ?? 'CONFIRMADA';
   const posicionEspera = (row?.posicion_espera as number | null | undefined) ?? null;
 
+  // D-1: bono ya decidido dentro de `reservar_plaza` — mismo criterio que
+  // `crearReservaPublica`.
+  const consumoBono = estado === 'CONFIRMADA' ? interpretarBonoDeReservarPlaza(row) : undefined;
   await trasReservaCreada(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
     estado, spotAsignado: null, canal: 'mostrador', avisarSocia: params.avisarSocia,
-    reservaId: params.reservaId,
+    reservaId: params.reservaId, consumoBono, consumibleBono,
   });
 
   await otorgarPrimeraReservaSiToca(admin, params.studioId, params.socioId);
