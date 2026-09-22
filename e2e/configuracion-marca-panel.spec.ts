@@ -55,7 +55,6 @@ async function panel(page: Page, opciones: { fallaPublicar?: boolean } = {}) {
 }
 
 const valor = (page: Page, id: string) => page.locator(`#${id} [data-resumen]`);
-const tituloCajon = (page: Page, nombre: string) => page.getByRole('heading', { level: 2, name: nombre, exact: true });
 
 test.describe('Marca, en filas que dicen cómo está', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
