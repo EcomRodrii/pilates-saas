@@ -704,6 +704,9 @@ export default function Calendario() {
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
   const [showRecurrentes, setShowRecurrentes] = useState(false);
   const [initialRecurrente, setInitialRecurrente] = useState<RecurringFormData | undefined>(undefined);
+  // Atajo «Crear clase fija con esto»: qué franjas marcar al abrir el diálogo
+  // de Horario justo después de crear la serie que las genera.
+  const [preseleccionClaseFija, setPreseleccionClaseFija] = useState<{ serieId: string; diasSemana: number[] } | null>(null);
   const [showCobertura, setShowCobertura] = useState(false);
   const [ausencias, setAusencias] = useState<AusenciaInstructora[]>([]);
   useEffect(() => { let vivo = true; listarAusencias().then(r => { if (vivo) setAusencias(r); }); return () => { vivo = false; }; }, []);
@@ -1642,9 +1645,22 @@ export default function Calendario() {
     setShowRecurrentes(false);
     const { navego: otraSemana } = invalidarCacheSerieYNavegarSiHaceFalta(sesionesFields.map(s => new Date(s.inicio)));
     if (!otraSemana) void refrescarVista();
-    showToast(otraSemana
+    const cuantas = otraSemana
       ? `Serie creada · ${sesionesFields.length} clases — te llevo a esa semana`
-      : `Serie creada · ${sesionesFields.length} clases`);
+      : `Serie creada · ${sesionesFields.length} clases`;
+    // Crear una serie es justo el momento de ofrecer que las alumnas se
+    // apunten solas: antes esto quedaba en dos pasos sin conectar (crear la
+    // serie, y por separado ir a armar la clase fija en Horario).
+    const serieId = res.serieId;
+    if (serieId && puedeGestionarCalendario(rolActual)) {
+      const diasSemana = [...new Set(sesionesFields.map(s => new Date(s.inicio).getDay()))];
+      showToast(cuantas, {
+        texto: 'Crear clase fija',
+        onClick: () => { setVista('horario'); setPreseleccionClaseFija({ serieId, diasSemana }); },
+      });
+      return;
+    }
+    showToast(cuantas);
   }
 
   function handleAddReserva(sesionId: string, socioId: string) {
@@ -2930,6 +2946,8 @@ export default function Calendario() {
             puedeGestionarClasesFijas={puedeGestionarCalendario(rolActual)}
             alumnasPidenPlaza={gestionaClientas ? studio?.plazaFijaSolicitarDesdeApp === true : undefined}
             hrefAjustePeticiones={gestionaClientas && puedeAbrirEnConfiguracion(rolActual, HREF_PETICIONES_PLAZA_FIJA) ? HREF_PETICIONES_PLAZA_FIJA : null}
+            preseleccionClaseFija={preseleccionClaseFija}
+            onPreseleccionClaseFijaConsumida={() => setPreseleccionClaseFija(null)}
           />
         ) : !datosVista && errorCargaVista ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-4">
