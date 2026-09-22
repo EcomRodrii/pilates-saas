@@ -18,6 +18,8 @@ interface CertificadoApi {
   estado: 'ACTIVE' | 'REVOKED';
   emitidoEn: string;
   urlVerificacion: string;
+  esFounding: boolean;
+  foundingNumber: number | null;
 }
 
 export function FormCertificado({ showToast }: { showToast: (m: string) => void }) {
@@ -93,11 +95,18 @@ export function FormCertificado({ showToast }: { showToast: (m: string) => void 
 
       {certificado && (
         <div className="flex flex-col gap-4">
+          {certificado.esFounding && certificado.foundingNumber != null && (
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#B4537E] px-3 py-1 text-xs font-semibold text-[#B4537E]">
+              <Award size={12} aria-hidden />
+              {`Tentare Founding Studio #${String(certificado.foundingNumber).padStart(3, '0')}`}
+            </span>
+          )}
+
           {imagenUrl && activo && (
             // eslint-disable-next-line @next/next/no-img-element -- imagen generada dinámicamente (ImageResponse), no un asset estático de Next.
             <img
               src={imagenUrl}
-              alt={`Certificado Tentare Verified Studio, número ${certificado.codigo}`}
+              alt={`Certificado ${certificado.esFounding ? 'Tentare Founding Studio' : 'Tentare Verified Studio'}, número ${certificado.codigo}`}
               className="w-full rounded-xl border border-border"
             />
           )}

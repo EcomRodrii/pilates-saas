@@ -18,6 +18,9 @@ export interface Certificado {
   estado: 'ACTIVE' | 'REVOKED';
   emitidoEn: string;
   revocadoEn: string | null;
+  /** Variante Founding Studio: primeros 100 estudios en reclamar SU certificado (no en darse de alta). Inmutable. */
+  esFounding: boolean;
+  foundingNumber: number | null;
 }
 
 function aCertificado(fila: RowCertificadosEstudio): Certificado {
@@ -27,6 +30,8 @@ function aCertificado(fila: RowCertificadosEstudio): Certificado {
     estado: fila.estado === 'REVOKED' ? 'REVOKED' : 'ACTIVE',
     emitidoEn: fila.emitido_en,
     revocadoEn: fila.revocado_en,
+    esFounding: fila.is_founding ?? false,
+    foundingNumber: fila.founding_number,
   };
 }
 
