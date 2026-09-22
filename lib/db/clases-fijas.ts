@@ -137,13 +137,14 @@ async function nombresDe(admin: SupabaseClient, studioId: string, franjas: Franj
     ? admin.from(tabla).select(cols).eq('studio_id', studioId).in('id', lista)
     : Promise.resolve({ data: [] as unknown[], error: null });
   const [tipos, salas, instrs] = await Promise.all([
-    pide('tipos_clase', ids(f => f.tipoClaseId), 'id, nombre'),
+    pide('tipos_clase', ids(f => f.tipoClaseId), 'id, nombre, logo_url'),
     pide('salas', ids(f => f.salaId), 'id, nombre'),
     pide('instructores', ids(f => f.instructorId), 'id, nombre'),
   ]);
   for (const r of [tipos, salas, instrs]) if (r.error) throw new Error(r.error.message);
   const mapa = (d: unknown[]) => new Map((d as { id: string; nombre: string }[]).map(x => [x.id, x.nombre]));
-  return { tipos: mapa(tipos.data ?? []), salas: mapa(salas.data ?? []), instructores: mapa(instrs.data ?? []) };
+  const logos = new Map((tipos.data as { id: string; logo_url: string | null }[] ?? []).map(x => [x.id, x.logo_url]));
+  return { tipos: mapa(tipos.data ?? []), salas: mapa(salas.data ?? []), instructores: mapa(instrs.data ?? []), logos };
 }
 
 /**
@@ -206,6 +207,7 @@ async function franjasSueltas(admin: SupabaseClient, studioId: string): Promise<
     tipo: nombres.tipos.get(t.tipoClaseId) ?? 'Clase',
     sala: nombres.salas.get(t.salaId) ?? '',
     instructora: t.instructorId ? nombres.instructores.get(t.instructorId) ?? null : null,
+    logoUrl: nombres.logos.get(t.tipoClaseId) ?? null,
     proximaSesionId: t.proximaSesionId, ultimaFecha: t.ultimaFecha,
   })).sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora));
 }
@@ -225,6 +227,7 @@ async function ofertasPublicas(admin: SupabaseClient, studioId: string): Promise
       tipo: nombres.tipos.get(f.tipoClaseId) ?? 'Clase',
       sala: nombres.salas.get(f.salaId) ?? '',
       instructora: f.instructorId ? nombres.instructores.get(f.instructorId) ?? null : null,
+      logoUrl: nombres.logos.get(f.tipoClaseId) ?? null,
     })).sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora)),
     programadaHasta: o.programadaHasta,
   }));
