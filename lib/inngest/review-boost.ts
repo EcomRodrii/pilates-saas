@@ -10,6 +10,7 @@ import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { isEligibleForReviewBoost, type SenalesReviewBoost } from '@/lib/growth/review-boost';
 import { enviarAhora } from '@/lib/analytics';
+import { barrerCuentasSinEstudio, barrerEstudiosSinClases } from './embudo-alta';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const VENTANA_DIAS = 30;
@@ -50,7 +51,7 @@ async function evaluarUno(admin: SupabaseClient, studio: { id: string; trial_end
 export const reviewBoostDispatcher = inngest.createFunction(
   { id: 'review-boost-evaluar', triggers: [{ cron: '0 6 * * *' }] },
   async ({ step }) => {
-    return step.run('evaluar', async () => {
+    const evaluados = await step.run('evaluar', async () => {
       const admin = getSupabaseAdmin();
       if (!admin) return { skipped: 'sin service-role' };
 
@@ -71,5 +72,33 @@ export const reviewBoostDispatcher = inngest.createFunction(
       }
       return { evaluados: studios.length };
     });
+
+    // Fase 3 del onboarding (embudo de alta): dos asuntos sin relación entre
+    // sí colgados del mismo hueco diario, cada uno con su propio try/catch —
+    // mismo patrón que ya usa app/api/cron/notif-trial con pg_cron. Un fallo
+    // en uno no debe tumbar el otro ni el `evaluar` de arriba.
+    const embudoCuentas = await step.run('embudo-cuentas-sin-estudio', async () => {
+      const admin = getSupabaseAdmin();
+      if (!admin) return { skipped: 'sin service-role' };
+      try {
+        return await barrerCuentasSinEstudio(admin);
+      } catch (e) {
+        console.error('[embudo-alta] cuentas sin estudio:', e instanceof Error ? e.message : e);
+        return { error: true };
+      }
+    });
+
+    const embudoEstudios = await step.run('embudo-estudios-sin-clases', async () => {
+      const admin = getSupabaseAdmin();
+      if (!admin) return { skipped: 'sin service-role' };
+      try {
+        return await barrerEstudiosSinClases(admin);
+      } catch (e) {
+        console.error('[embudo-alta] estudios sin clases:', e instanceof Error ? e.message : e);
+        return { error: true };
+      }
+    });
+
+    return { evaluados, embudoCuentas, embudoEstudios };
   },
 );
