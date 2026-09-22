@@ -35,33 +35,32 @@ const ACEPTADAS = {
   // Aplicadas en producción, sin fichero en el repo. Recuperables del catálogo
   // (`select statements from supabase_migrations.schema_migrations`).
   sinFichero: [
-    'advisor_fk_lecturas_ficha_salud',
-    'avatars_path_autorizado_revoke_anon_directo',
-    'avatars_path_autorizado_revoke_public',
-    'consentimiento_salud_rls',
-    'editar_serie_desde_revoke_anon',
-    'mis_estudios_search_path',
-    'penalizaciones_indice_recibo_id',
-    'reclamar_webhook_event_reload_schema',
     'res1_lista_espera_respeta_limite_y_solape',
-    'reserva_exigir_plan_por_defecto',
-    'revoke_anon_rpc_via_public',
   ],
+  // ⚠️ Salieron de aquí el 2026-09-22 diez que no se ARREGLARON: el
+  // `supabase migration repair` del 2026-09-20 borró sus filas del registro de
+  // producción, así que el check ya no las ve — pero siguen sin fichero en el
+  // repo, y su SQL ya no se puede recuperar del catálogo. `repair` solo toca el
+  // registro, no el esquema, así que sus efectos deberían seguir en la BD:
+  // advisor_fk_lecturas_ficha_salud,
+  // avatars_path_autorizado_revoke_anon_directo,
+  // avatars_path_autorizado_revoke_public, consentimiento_salud_rls,
+  // editar_serie_desde_revoke_anon, mis_estudios_search_path,
+  // penalizaciones_indice_recibo_id, reclamar_webhook_event_reload_schema,
+  // reserva_exigir_plan_por_defecto, revoke_anon_rpc_via_public.
+  // NUNCA `migration repair --status reverted` para callar este check: no
+  // arregla la deriva, borra la única copia del SQL.
+
   // Ficheros cuyo nombre no aparece en el registro. NINGUNO es un agujero: sus
   // efectos están vivos en producción bajo otro nombre, comprobados de uno en
   // uno (grants de reservar_numero_factura, índice único de socios excluyendo
   // borrado_en, default de reserva_exigir_plan, tiene_consentimiento_salud).
   sinAplicar: [
     'cadenas_current_rol_fix',
-    'defaults_protectores_reservas',
     'ficha_clinica',
-    'fix_socios_email_unico_excluye_borrado',
     'marca_e_iva',
-    'pay5_detector_dobles_cobros',
     'res1_reservar_plaza_respeta_limite_y_solape',
-    'reservar_numero_factura_revoca_anon',
     'studios_gestoria_email',
-    'tiene_consentimiento_salud_revoca_anon',
   ],
 }
 
