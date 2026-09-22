@@ -294,6 +294,23 @@ test.describe('Control horario explicado desde el minuto 1', () => {
     await expect(page.getByTestId('tiempo-vacio')).toContainText('«Empezar clase»');
   });
 
+  test('la tarjeta de cada instructora dice si es contratada o autónoma', async ({ page }) => {
+    const M = (o: Record<string, unknown>) => ({ avatar: null, fotoUrl: null, activo: true, conAcceso: true, esYo: false, email: null, telefono: null, enClaseAhora: false, claseHoyLabel: null, proximaClaseIso: null, ultimaClaseIso: null, clasesUltimos90Dias: 10, semana: [1, 0, 0, 0, 0, 0, 0], horasDia: ['10:00', null, null, null, null, null, null], ocupacionPct: 80, valoracion: null, horasMes: 4, costeMes: null, coincideContigo: null, disponibilidadActualizadaEn: null, ...o });
+    await montar(page);
+    await page.route((u) => u.pathname === '/api/equipo/tarjetas', (r) => json(r, { items: [
+      M({ id: 'ins-marta', nombre: 'Marta Ruiz', rol: 'INSTRUCTOR', color: '#D9C29E' }),
+      M({ id: 'ins-ana', nombre: 'Ana Peña', rol: 'RECEPCION', color: '#8B7355' }),
+    ] }));
+    await page.route((u) => u.pathname === '/api/equipo/tarifas', (r) => json(r, { items: [
+      { instructorId: 'ins-marta', tarifaHora: 20, baseMensualEur: null, recargoSustitucionPct: null, horasSemanalesContrato: null, relacionLaboral: 'AUTONOMA' },
+    ] }));
+    await ir(page, 'equipo');
+    const etiquetas = page.getByTestId('relacion-tarjeta');
+    await expect(etiquetas).toHaveCount(1, { timeout: 30_000 });
+    await expect(etiquetas).toHaveText('Autónoma');
+    await expect(page.locator('article').filter({ hasText: 'Marta Ruiz' }).getByTestId('relacion-tarjeta')).toBeVisible();
+  });
+
   test('Equipo abre el alta directamente con ?nuevo=1 (desde el aviso del calendario)', async ({ page }) => {
     await montar(page);
     await ir(page, 'equipo?nuevo=1');
