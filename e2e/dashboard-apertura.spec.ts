@@ -425,3 +425,39 @@ test.describe('Apertura suave', () => {
     await expect(bloque.getByRole('switch', { name: 'Apertura suave' })).toBeDisabled();
   });
 });
+
+test.describe('Comunicaciones de la apertura', () => {
+  test('la etapa en curso propone avisar a las interesadas, y en sus últimos días recordar que termina', async ({ page }) => {
+    await montar(page, {
+      inicial: CON_FECHA,
+      etapas: { antes: { hoy: '2026-10-03', puedeCerrarVenta: true, etapas: [ETAPA, { ...ETAPA, id: '22222222-2222-2222-2222-222222222222', etapa: 'ACCESO_ANTICIPADO', desde: '2026-09-20', hasta: '2026-10-04' }], planes: PLANES } },
+    });
+    const avisar = page.getByRole('link', { name: 'Avisar a tus interesadas' });
+    await expect(avisar).toBeVisible({ timeout: ARRANQUE_MS });
+    const href = decodeURIComponent((await avisar.getAttribute('href'))!.replace(/\+/g, ' '));
+    expect(href).toContain('/mensajeria?segmento=ETAPA:INTERESADA');
+    expect(href).toContain('/reservar/studio-carmen');
+    // La que termina mañana cambia el atajo: recordatorio con las plazas que quedan.
+    const recordar = page.getByRole('link', { name: 'Recordarles que termina' });
+    await expect(recordar).toBeVisible();
+    expect(decodeURIComponent((await recordar.getAttribute('href'))!.replace(/\+/g, ' '))).toContain('Quedan 17 plazas');
+  });
+
+  test('Mensajería llega rellena desde un atajo, y enviar sigue siendo cosa de la propietaria', async ({ page }) => {
+    await montar(page, { inicial: { visible: false } });
+    await page.goto('/mensajeria?segmento=ETAPA%3AINTERESADA&asunto=Ya+puedes+reservar&mensaje=Hola%3A%0A%0AYa+est%C3%A1+abierta');
+    await expect(page.getByRole('textbox', { name: /asunto/i })).toHaveValue('Ya puedes reservar', { timeout: ARRANQUE_MS });
+    await expect(page.getByRole('textbox', { name: /mensaje/i })).toHaveValue('Hola:\n\nYa está abierta');
+    // La URL se limpia: recargar no vuelve a rellenar encima de lo que haya escrito.
+    await expect.poll(() => new URL(page.url()).search).toBe('');
+  });
+
+  test('«abrimos mañana» sale apagado, enseña el texto y encenderlo se guarda', async ({ page }) => {
+    const peticiones = await montar(page, { inicial: { ...CON_FECHA, avisarAbrimos: false } });
+    const sw = page.getByRole('switch', { name: 'Avisar el día antes de abrir' });
+    await expect(sw).not.toBeChecked({ timeout: ARRANQUE_MS });
+    await expect(page.getByText(/¡Mañana abrimos! .* abre sus puertas mañana/)).toBeVisible();
+    await sw.click();
+    await expect.poll(() => peticiones.patch).toContainEqual({ avisarAbrimos: true });
+  });
+});
