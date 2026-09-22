@@ -60,13 +60,14 @@ const tituloCajon = (page: Page, nombre: string) => page.getByRole('heading', { 
 test.describe('Marca, en filas que dicen cómo está', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test('cada fila enseña su valor guardado, y la foto de la portada se dice que no se cambia aquí', async ({ page }) => {
+  test('cada fila enseña su valor guardado, y la apariencia lleva a su pantalla', async ({ page }) => {
     await panel(page);
     await ir(page, 'configuracion?tab=marca');
 
     // El logo sí, el favicon no: se cuentan por separado.
     await expect(valor(page, 'logo-y-favicon')).toHaveText('Con logo · sin favicon', { timeout: 30_000 });
-    await expect(valor(page, 'color-de-marca')).toHaveText('El color de Tentare · #343825');
+    // La fila de la apariencia dice cómo está la app: estilo, tipografía y color.
+    await expect(valor(page, 'color-de-marca')).toHaveText('Crema · Moderna · #343825');
     await expect(valor(page, 'textos-de-tu-app')).toHaveText('Presentación · lema · desde 2016');
     await expect(valor(page, 'textos-de-bienvenida')).toHaveText('Frase a mano');
     // Y el valor es un valor, no la descripción de la tarjeta.
@@ -74,46 +75,14 @@ test.describe('Marca, en filas que dicen cómo está', () => {
       await expect(valor(page, id)).toHaveAttribute('data-resumen', 'valor');
     }
 
-    // Lo que no se puede tocar se cuenta sin chevron: no es un ajuste que no
-    // lleva a ningún sitio.
-    const portada = page.locator('[data-fila-informativa]').filter({ hasText: 'La foto de la portada' });
-    await expect(portada).toContainText('Todavía no se cambia desde aquí');
+    // El estilo, el color, la tipografía y la portada se cambian en su pantalla:
+    // esta fila lleva allí, no abre un cajón.
+    await expect(page.locator('#color-de-marca')).toHaveAttribute('href', '/configuracion/apariencia');
   });
 
-  test('el color se guarda con el «Guardar» de su cajón, y ya no hay «Guardar colores»', async ({ page }) => {
-    const { publicaciones } = await panel(page);
-    await ir(page, 'configuracion?tab=marca#color-de-marca');
-    await expect(tituloCajon(page, 'El color de tu marca')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('button', { name: 'Guardar colores' })).toHaveCount(0);
-
-    await page.getByRole('textbox', { name: 'Color principal en hexadecimal' }).fill('#224466');
-    await expect(page.getByRole('region', { name: 'Cambios sin guardar' }))
-      .toContainText('Cambios sin guardar en: El color de tu marca');
-    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
-
-    await expect.poll(() => publicaciones.length).toBe(1);
-    expect(publicaciones[0]).toEqual({ campos: { primary: '#224466', secondary: '#D9C29E' } });
-    // Guardado de verdad: el cajón se cierra, lo dice, y la fila cuenta el nuevo color.
-    await expect(page.getByText('Colores aplicados')).toBeVisible();
-    await expect(tituloCajon(page, 'El color de tu marca')).toHaveCount(0);
-    await expect(valor(page, 'color-de-marca')).toHaveText('Tu color · #224466');
-  });
-
-  test('si el servidor rechaza el color, lo dice, no cierra el cajón y no lo da por guardado', async ({ page }) => {
-    const { publicaciones } = await panel(page, { fallaPublicar: true });
-    await ir(page, 'configuracion?tab=marca#color-de-marca');
-    await expect(tituloCajon(page, 'El color de tu marca')).toBeVisible({ timeout: 30_000 });
-
-    await page.getByRole('textbox', { name: 'Color principal en hexadecimal' }).fill('#FFFFFF');
-    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
-
-    await expect(page.getByText('Ese color no se lee encima del blanco.')).toBeVisible({ timeout: 15_000 });
-    // Verde por no haberlo intentado no vale.
-    expect(publicaciones.length).toBeGreaterThan(0);
-    await expect(tituloCajon(page, 'El color de tu marca')).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Color principal en hexadecimal' })).toHaveValue('#FFFFFF');
-    await expect(page.getByText('Colores aplicados')).toHaveCount(0);
-  });
+  // El color ya no se guarda aquí: vive en «Apariencia de tu app», con el estilo
+  // y la tipografía, y lo cubre `e2e/app-alumna-apariencia.spec.ts` (publicar,
+  // el rechazo del servidor y el contador de peticiones).
 });
 
 test.describe('Tu panel y Mis avisos, en filas', () => {

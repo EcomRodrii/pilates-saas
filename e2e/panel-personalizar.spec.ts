@@ -75,21 +75,15 @@ async function montar(page: Page, layout: Record<string, unknown> = {}, oscuro =
   return { puts, gets };
 }
 
-test.describe('Apariencia — mantenimiento y salida', () => {
-  test('la pantalla avisa y ofrece un solo botón', async ({ page }) => {
+test.describe('Apariencia de tu app', () => {
+  test('la pantalla es el editor, no un cartel de mantenimiento', async ({ page }) => {
+    // Del 7 al 22-sep aquí había un aviso de mantenimiento con una salida al
+    // color. Ahora es el editor guiado; lo que hace se prueba en
+    // `e2e/app-alumna-apariencia.spec.ts`, aquí solo que la ruta es esa.
     await montar(page);
     await page.goto('/configuracion/apariencia');
-    await expect(page.getByText('La portada y el diseño de tu portal, en mantenimiento')).toBeVisible({ timeout: 30_000 });
-    // Y dice que lo publicado no se rompe: sin eso, «mantenimiento» se lee
-    // como «mis clientas ya no ven mi marca».
-    await expect(page.getByText(/sigue\s+funcionando igual/)).toBeVisible();
-    // Evaluación del 13-sep: la pantalla no decía que el color del portal SÍ
-    // se cambia, y una propietaria se fue creyendo que no podía. La salida
-    // tiene que decirlo y llevar a donde se cambia.
-    const salida = page.getByRole('link', { name: /El color de tu marca/ });
-    await expect(salida).toBeVisible();
-    await expect(salida).toContainText('ven tus alumnas en tu página de reservas');
-    await expect(salida).toHaveAttribute('href', '/configuracion?tab=marca#color-de-marca');
+    await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('mantenimiento')).toHaveCount(0);
   });
 
   test('el editor no se abre ni escribiendo la URL', async ({ page }) => {
@@ -121,8 +115,10 @@ test.describe('Personalizar tu panel', () => {
     }
     // Claro u oscuro se guarda al tocarlo: es un interruptor en su fila, no un cajón.
     await expect(page.getByRole('switch', { name: 'Claro u oscuro' })).toBeVisible();
-    await page.goto('/configuracion?tab=marca#color-de-marca');
-    await expect(page.getByRole('heading', { name: 'El color de tu marca', exact: true })).toBeVisible({ timeout: 30_000 });
+    // El color ya no vive en «Tu panel» ni en un cajón de Marca: su fila lleva
+    // a «Apariencia de tu app».
+    await page.goto('/configuracion?tab=marca');
+    await expect(page.locator('#color-de-marca')).toHaveAttribute('href', '/configuracion/apariencia', { timeout: 30_000 });
   });
 
   test('los módulos que no se pueden esconder salen con candado, no sin control', async ({ page }) => {

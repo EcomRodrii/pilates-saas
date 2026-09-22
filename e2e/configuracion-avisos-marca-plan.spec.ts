@@ -184,8 +184,8 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
   });
 
   // El favicon subido en Marca se quedaba en el borrador (solo lo publicaba el
-  // editor del portal, en mantenimiento), y guardar el color lo borraba.
-  test('subir un favicon lo publica, y guardar después el color no lo toca', async ({ page }) => {
+  // editor del portal, hoy retirado), y guardar el color lo borraba.
+  test('subir un favicon lo publica, y publicar después el color no lo toca', async ({ page }) => {
     const { publicaciones, borradores } = await montarMarca(page);
     await cajonDeMarca(page, 'logo-y-favicon');
     await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeEnabled({ timeout: 30_000 });
@@ -204,20 +204,21 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     await expect(page.getByText('Favicon aplicado')).toBeVisible();
     await expect(page.getByRole('button', { name: /Cambiar favicon/ })).toBeVisible();
 
-    // El color es otra fila y otro cajón: se cierra este (el favicon no deja
-    // nada sin guardar, así que no pregunta) y se abre el suyo.
+    // El color se publica desde «Apariencia de tu app», otra pantalla: se cierra
+    // este cajón (el favicon no deja nada sin guardar, así que no pregunta).
     await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
-    await page.locator('#color-de-marca').click();
-    await page.getByRole('textbox', { name: 'Color principal en hexadecimal' }).fill('#224466');
-    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await page.goto('/configuracion/apariencia');
+    await page.getByRole('textbox', { name: 'Color de tu marca en hexadecimal' }).fill('#224466', { timeout: 30_000 });
+    await page.getByRole('button', { name: 'Publicar', exact: true }).click();
     await expect.poll(() => publicaciones.length).toBe(2);
-    // Solo los dos colores: el servidor publica eso encima de lo publicado, así
+    // Solo el color tocado: el servidor lo publica encima de lo publicado, así
     // que el favicon ni viaja ni se pisa, y el borrador no se reescribe.
-    expect(publicaciones[1]).toEqual({ campos: { primary: '#224466', secondary: '#D9C29E' } });
+    expect(publicaciones[1]).toEqual({ campos: { primary: '#224466' } });
     expect(borradores()).toBe(0);
-    await expect(page.getByText('Colores aplicados')).toBeVisible();
-    // Y el favicon sigue puesto: la fila de al lado lo dice.
-    await expect(page.locator('#logo-y-favicon [data-resumen]')).toHaveText(/con favicon/);
+    await expect(page.getByText('Publicado. Tus alumnas ya ven tu app así.')).toBeVisible();
+    // Y el favicon sigue puesto: la fila de Marca lo dice.
+    await page.goto('/configuracion?tab=marca');
+    await expect(page.locator('#logo-y-favicon [data-resumen]')).toHaveText(/con favicon/, { timeout: 30_000 });
   });
 
   test('si publicar el favicon falla, lo dice y se queda el de antes', async ({ page }) => {
