@@ -23,7 +23,9 @@ const base = `/portal/${SLUG}`;
 
 const PANTALLAS: Array<[string, string, OpcionesSocia]> = [
   ['inicio', '', { reservada: true }],
-  ['reservar', '/reservar', {}],
+  // Con una clase fija ofrecida: así se mide también su puerta en el horario.
+  ['reservar', '/reservar', { clasesFijas: 1 }],
+  ['clases-fijas', '/clases-fijas', { clasesFijas: 1 }],
   ['mis-reservas', '/mis-reservas', { reservada: true }],
   ['bonos', '/bonos', {}],
   ['pagos', '/pagos', { recibos: 2 }],

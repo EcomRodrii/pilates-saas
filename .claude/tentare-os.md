@@ -140,8 +140,9 @@ así que todo lo que se versiona lo lee cualquiera:
 - No trocear los "god files" (`lib/supabase-data.ts`, `studio-context.tsx`...) — propuesto y
   rechazado dos veces.
 - Feature-freeze activo sobre Kiosko/POS/VOD/Comunidad (`lib/frozen-features.ts`).
-- `suscripciones` con RLS abierta a todo el personal es decisión de producto deliberada, no
-  agujero pendiente. `sesiones`/`reservas` **YA NO** son "sin cerrar del todo" — probando en
+- `suscripciones` con RLS abierta a todo el personal de mostrador y gestión es decisión de
+  producto deliberada, no agujero pendiente (INSTRUCTOR fuera desde el 22-sep-2026: ya no
+  trabaja en el panel). `sesiones`/`reservas` **YA NO** son "sin cerrar del todo" — probando en
   persona la cuenta de una instructora se vio que podía crear/editar/cancelar CUALQUIER clase
   y añadir clientas a cualquier reserva (migr `20260730109000`/`20260730110000`): INSTRUCTOR
   ahora solo puede UPDATE en sus propias clases (sin INSERT/DELETE); PROPIETARIO/MANAGER/
@@ -196,9 +197,15 @@ panel no tiene ninguna pantalla para INSTRUCTOR (`puedeVer` devuelve `false`) y
 `DashboardShell` la manda a la app con `components/layout/puerta-app-instructora.tsx`; si en
 otra sede gestiona, elige entre la app y cambiar de sede. Pérdidas aceptadas a propósito:
 apuntar/quitar alumnas, editar o cancelar su clase y su email (mostrador), canal de equipo,
-Comunidad, Kisi y citas (uso medido: cero). Pendiente: cerrar por RLS los accesos de
-INSTRUCTOR que ya no usa nadie (`socios_lectura`, salud, `sesiones`…) y «nota de sesión» en la
-app. **No construir nada para INSTRUCTOR en el panel**: va a la app del estudio.
+Comunidad, Kisi y citas (uso medido: cero). RLS de INSTRUCTOR cerrada (22-sep-2026, migr
+`20260921221053`): `socios` y salud ya lo estaban; ahora tampoco lee datos de alumnas del
+estudio (suscripciones, créditos, recuperaciones, plazas fijas, logros…) ni del negocio
+(notificaciones, canal de equipo, dependencia de instructoras), medido suplantando a una
+instructora real: 0 filas, y los demás roles igual que antes. Conserva lo suyo (sus
+`sesiones`/`reservas`, sus bloqueos) y los catálogos. ⚠️ Una política nueva que solo pida
+`studio_id = current_studio_id()` vuelve a abrírselo todo: añade el rol. La «nota de sesión»
+ya vive en la app (ficha de la alumna, con consentimiento de salud vigente). **No construir nada
+para INSTRUCTOR en el panel**: va a la app del estudio.
 
 Esto es un **rebranding sobre una sola app role-gateada** (`app/(dashboard)/` +
 `lib/permisos-reglas.ts`), NO un split estructural — no hay `app/manager/` ni

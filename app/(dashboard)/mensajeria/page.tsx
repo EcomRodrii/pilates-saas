@@ -1,5 +1,6 @@
 'use client';
 
+import { leerBorradorMensajeria } from '@/lib/opening/comunicaciones';
 import { useState, useMemo, useId, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
@@ -95,6 +96,24 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<{ ok: number; fallidos: number; enCola?: boolean } | null>(null);
+
+  // Atajos de la tarjeta de apertura (lib/opening/comunicaciones.ts): llegan con
+  // a quién y qué decir ya escrito. Solo rellenan el formulario; enviar sigue
+  // siendo pulsar «Enviar», con el mismo filtro de consentimiento de siempre.
+  useEffect(() => {
+    const b = leerBorradorMensajeria(window.location.search);
+    if (!b) return;
+    const [tipo, valor] = b.segmento.split(':');
+    /* eslint-disable react-hooks/set-state-in-effect -- Lee window.location.search (?segmento=…). La URL no existe durante el render en servidor, así que esto NO se puede derivar en render. */
+    setCanal('EMAIL');
+    if (tipo === 'ETAPA' && valor) { setModo('etapa'); setEtapaSel(valor as LeadStage); }
+    else if (tipo === 'ETIQUETA' && valor) { setModo('etiqueta'); setEtiquetaSel(valor); }
+    else { setModo('todos'); setSegmentoSel(b.segmento); }
+    setAsunto(b.asunto);
+    setMensaje(b.mensaje);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    window.history.replaceState({}, '', '/mensajeria');
+  }, []);
 
   const etiquetasDisponibles = useMemo(
     () => Array.from(new Set(socios.flatMap(s => s.tags ?? []))).sort((a, b) => a.localeCompare(b, 'es')),
@@ -379,6 +398,13 @@ export default function Mensajeria() {
   const escribeAClientas = puedeGestionarClientas(useRol());
   const [tab, setTab] = useState<Tab>('notificaciones');
   const [busqueda, setBusqueda] = useState('');
+
+  // Un atajo de la tarjeta de apertura llega con un borrador: abre directamente
+  // «Enviar mensaje». El panel de envío lo lee al montarse y limpia la URL.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search; la URL no existe durante el render en servidor.
+    if (leerBorradorMensajeria(window.location.search)) setTab('enviar');
+  }, []);
 
   const [notifItems, setNotifItems] = useState<NotifItem[]>([]);
   const [noLeidas, setNoLeidas] = useState(0);

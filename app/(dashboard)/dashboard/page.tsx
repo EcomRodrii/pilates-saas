@@ -564,6 +564,7 @@ export default function Dashboard() {
   }, [huecosProximos, sesiones, socios, reservas, suscripciones, planesTarifa, now]);
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const [avisandoSesion, setAvisandoSesion] = useState<string | null>(null);
+  const [cobrandoTodos, setCobrandoTodos] = useState(false);
   async function avisarCandidatas(sesionId: string, nCandidatas: number, nombreClase: string) {
     if (nCandidatas === 0 || avisandoSesion) return;
     // «hasta N»: el servidor descarta después a quien no tenga consentimiento
@@ -789,7 +790,7 @@ export default function Dashboard() {
         )}
 
         {puedeGestionarApertura(rolActual) && (
-        <div {...wrap('apertura')}><AperturaEstudio onVisible={setAperturaVisible} /></div>
+        <div {...wrap('apertura')}><AperturaEstudio onVisible={setAperturaVisible} verEconomia={puedeVerFinanzas(rolActual)} /></div>
         )}
 
         {/* ── Automation briefing ────────────────────────────────────────────── */}
@@ -981,15 +982,28 @@ export default function Dashboard() {
                     </span>
                   </div>
                   {pendientes.length > 1 && (
+                    // `cobrando` (auditoría 2026-09-21): el botón no tenía ni
+                    // `disabled` ni estado de carga. NO duplicaba el cobro —
+                    // `dbUpdateRecibosBatch` exige `estado = 'PENDIENTE'` en el
+                    // propio UPDATE y solo factura los ids que cambió—, pero la
+                    // operación sella facturas y renueva suscripciones EN SERIE:
+                    // con 40 recibos son varios segundos sin ninguna señal, y lo
+                    // normal es volver a pulsar creyendo que no ha funcionado.
                     <button
+                      type="button"
+                      disabled={cobrandoTodos}
                       onClick={() => {
-                        void cobrarTodosPendientes().then(res => {
-                          showToast(res.ok ? textoCobroEnLote(res.cobrados ?? 0, res.saltados ?? []) : res.error);
-                        });
+                        if (cobrandoTodos) return;
+                        setCobrandoTodos(true);
+                        void cobrarTodosPendientes()
+                          .then(res => {
+                            showToast(res.ok ? textoCobroEnLote(res.cobrados ?? 0, res.saltados ?? []) : res.error);
+                          })
+                          .finally(() => setCobrandoTodos(false));
                       }}
-                      className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/10 transition-colors"
+                      className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <Zap size={11} /> Cobrar todos
+                      <Zap size={11} /> {cobrandoTodos ? 'Cobrando…' : 'Cobrar todos'}
                     </button>
                   )}
                 </div>

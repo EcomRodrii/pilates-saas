@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { MOTIVO_SILENCIO_APERTURA } from '@/lib/decision/umbral';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -43,12 +44,15 @@ export async function GET(req: NextRequest) {
   const recomendacionGanadora = mensajeHoy?.tipo === 'MENSAJE' && mensajeHoy.recomendacionId
     ? await dbGetRecomendacion(mensajeHoy.recomendacionId)
     : null;
-  const semanaTranquila = mensajesRecientes.length >= 5 && mensajesRecientes.every(m => m.tipo === 'SILENCIO');
+  // Callar porque la apertura ya habló no es «una semana tranquila».
+  const semanaTranquila = mensajesRecientes.length >= 5
+    && mensajesRecientes.every(m => m.tipo === 'SILENCIO' && m.motivoSilencio !== MOTIVO_SILENCIO_APERTURA);
   const veredicto = {
     tipo: mensajeHoy?.tipo ?? ('SIN_ANALIZAR' as const),
     recomendacion: recomendacionGanadora,
     fraseConfianza: recomendacionGanadora ? fraseConfianza(recomendacionGanadora.confianza.nivel) : null,
     semanaTranquila,
+    porApertura: mensajeHoy?.tipo === 'SILENCIO' && mensajeHoy.motivoSilencio === MOTIVO_SILENCIO_APERTURA,
   };
   const seguimiento = outcomesRecientes.map(o => ({
     outcome: o.outcome, tipo: o.recomendacionTipo, titulo: o.recomendacionTitulo,

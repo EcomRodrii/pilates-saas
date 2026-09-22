@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { registrarConsentimientoMarketingPropio } from '@/lib/db/consentimiento-marketing-admin';
+import { evidenciaDePeticion } from '@/lib/db/aceptacion-contrato-admin';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
@@ -56,9 +58,16 @@ export async function GET(req: NextRequest) {
   // porque la socia ya no existe" de "sí las había" — eso sigue siendo a
   // propósito, mismo trato para ambos casos, evitando que el endpoint sirva
   // para comprobar si un id de socia existe.
-  const { error } = await admin.from('socios')
-    .update({ consentimiento_marketing_en: null, consentimiento_marketing_texto: null, consentimiento_marketing_por: null })
-    .eq('id', claim.socioId).eq('studio_id', claim.studioId);
+  // Por la puerta única (migr 20260922004313): la baja queda en el historial
+  // con su origen, IP (en huella) y navegador, no solo borrada.
+  let error: { message: string } | null = null;
+  try {
+    await registrarConsentimientoMarketingPropio(admin, {
+      studioId: claim.studioId, socioId: claim.socioId, dar: false, origen: 'BAJA_EMAIL', evidencia: evidenciaDePeticion(req),
+    });
+  } catch (e) {
+    error = { message: e instanceof Error ? e.message : String(e) };
+  }
   if (error) {
     console.error('[marketing/baja] no se pudo escribir la baja', claim.socioId, error.message);
     return pagina('No disponible ahora mismo', 'No hemos podido procesar tu baja en este momento. Inténtalo de nuevo más tarde o contacta con el estudio.');

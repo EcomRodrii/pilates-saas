@@ -10,9 +10,14 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { PageHeader } from '@/components/ui/page-header';
+import { AvisoControlHorario } from '@/components/equipo/aviso-control-horario';
+import { Cifra, Etiqueta, MESES, Nota, SelectorMes } from '@/components/equipo/piezas';
+import { ProfileAvatar } from '@/components/ui/profile-avatar';
+import { CalendarCheck, Clock, Download } from 'lucide-react';
+import Link from 'next/link';
 import { Toast, useToast } from '@/components/ui/toast';
 import {
-  corregirClasesEquipo, corregirJornada, fetchClasesDelMes, fetchTarifasEquipo, fetchTiempoTrabajado, marcarClaseRevisada,
+  corregirClasesEquipo, corregirJornada, fetchClasesDelMes, fetchTiempoTrabajado, leerTarifasEquipo, marcarClaseRevisada,
   type ClasesDelMes, type TarifaInstructor, type TiempoTrabajadoMes,
 } from '@/lib/api-client';
 import type { CambioJornada, JornadaEquipo } from '@/lib/fichaje/jornadas-equipo';
@@ -21,7 +26,6 @@ import { csvClases, csvJornadas, nombreCsvClases, nombreCsvJornadas } from '@/li
 import { descargarBlob } from '@/lib/descargar-blob';
 import { formatEuro, instanteEnEstudio, TZ_ESTUDIO } from '@/lib/utils';
 
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const inputCls = 'rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all';
 
 const fmtDia = new Intl.DateTimeFormat('es-ES', { timeZone: TZ_ESTUDIO, weekday: 'short', day: 'numeric', month: 'short' });
@@ -45,6 +49,7 @@ export default function TiempoTrabajadoPage() {
   const [datos, setDatos] = useState<TiempoTrabajadoMes | null>(null);
   const [error, setError] = useState(false);
   const [tarifas, setTarifas] = useState<Record<string, TarifaInstructor>>({});
+  const [tarifasLeidas, setTarifasLeidas] = useState(false);
   // `null` = no se han podido leer: la parte de clases no se pinta, las jornadas sí.
   const [clases, setClases] = useState<ClasesDelMes | null>(null);
   const [abierta, setAbierta] = useState<{ id: string; que: 'jornadas' | 'clases' } | null>(null);
@@ -58,12 +63,13 @@ export default function TiempoTrabajadoPage() {
 
   useEffect(() => {
     let vivo = true;
-    Promise.all([fetchTiempoTrabajado(anio, mes), fetchTarifasEquipo(), fetchClasesDelMes(anio, mes)]).then(([d, tar, c]) => {
+    Promise.all([fetchTiempoTrabajado(anio, mes), leerTarifasEquipo(), fetchClasesDelMes(anio, mes)]).then(([d, tar, c]) => {
       if (!vivo) return;
       setDatos(d);
       setClases(c);
       setError(d === null);
-      setTarifas(Object.fromEntries(tar.map((t) => [t.instructorId, t])));
+      setTarifas(Object.fromEntries((tar ?? []).map((t) => [t.instructorId, t])));
+      setTarifasLeidas(tar !== null);
     });
     return () => { vivo = false; };
   }, [anio, mes]);
@@ -99,6 +105,23 @@ export default function TiempoTrabajadoPage() {
     showToast(pendientes.length === 1 ? 'Clase dada por buena' : 'Clases dadas por buenas');
   }
 
+  const totales = useMemo(() => {
+    let minutosFichados = 0, jornadasN = 0, clasesDadas = 0, minutosClase = 0, porRevisar = 0, coste = 0, hayTarifa = false;
+    for (const f of filas) {
+      const rel = tarifas[f.id]?.relacionLaboral ?? null;
+      minutosFichados += f.resumen?.minutos ?? 0;
+      jornadasN += f.resumen?.jornadas ?? 0;
+      clasesDadas += f.resumenClases?.dadas ?? 0;
+      minutosClase += f.resumenClases?.minutosDados ?? 0;
+      porRevisar += (f.resumen?.aRevisar ?? 0) + (f.resumenClases?.sinConfirmar ?? 0)
+        + (f.resumenClases?.noDadasPorRevisar ?? 0) + (f.resumenClases?.fueraDeJornada ?? 0);
+      const t = tarifas[f.id]?.tarifaHora;
+      const min = rel === 'AUTONOMA' ? (f.resumenClases?.minutosDados ?? 0) : (f.resumen?.minutos ?? 0);
+      if (t != null) { hayTarifa = true; coste += (min / 60) * t; }
+    }
+    return { minutosFichados, jornadas: jornadasN, clasesDadas, minutosClase, porRevisar, coste: hayTarifa ? coste : null };
+  }, [filas, tarifas]);
+
   if (!puedeGestionarEquipo(rol)) {
     return (
       <div className="space-y-5">
@@ -116,12 +139,7 @@ export default function TiempoTrabajadoPage() {
         back={{ href: '/equipo', label: 'Volver a Equipo' }}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <select aria-label="Mes" value={mes} onChange={(e) => setMes(Number(e.target.value))} className={inputCls}>
-              {MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-            </select>
-            <select aria-label="Año" value={anio} onChange={(e) => setAnio(Number(e.target.value))} className={inputCls}>
-              {[ahora.getFullYear() - 1, ahora.getFullYear()].map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
+            <SelectorMes anio={anio} mes={mes} onCambiar={(a, m) => { setAnio(a); setMes(m); }} />
             <button
               onClick={() => datos && descargarBlob(
                 new Blob([csvJornadas(datos.jornadas, (id) => nombre.get(id) ?? 'Instructora')], { type: 'text/csv;charset=utf-8' }),
@@ -129,9 +147,9 @@ export default function TiempoTrabajadoPage() {
               )}
               disabled={!datos || datos.jornadas.length === 0}
               title={datos && datos.jornadas.length === 0 ? 'No hay jornadas este mes' : undefined}
-              className="px-3 py-1.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
             >
-              CSV jornadas
+              <Download size={14} /> CSV jornadas
             </button>
             <button
               onClick={() => clases && descargarBlob(
@@ -140,9 +158,9 @@ export default function TiempoTrabajadoPage() {
               )}
               disabled={!clases || clases.clases.length === 0}
               title={clases && clases.clases.length === 0 ? 'No hay clases este mes' : undefined}
-              className="px-3 py-1.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
             >
-              CSV clases
+              <Download size={14} /> CSV clases
             </button>
           </div>
         }
@@ -154,17 +172,29 @@ export default function TiempoTrabajadoPage() {
           <button onClick={() => void recargar()} className="mt-3 px-3 py-1.5 rounded-lg border border-border text-[12px] font-semibold hover:bg-muted">Reintentar</button>
         </div>
       ) : !datos ? (
-        <p className="text-sm text-muted-foreground">Cargando…</p>
+        <div className="space-y-3">{[0, 1, 2].map((k) => <div key={k} className="h-24 animate-pulse rounded-2xl border border-border bg-card" />)}</div>
       ) : filas.length === 0 ? (
         <p className="text-sm text-muted-foreground">Todavía no hay instructoras de alta.</p>
       ) : (
         <div className="space-y-4" data-testid="tiempo-trabajado">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="resumen-tiempo">
+            <Cifra etiqueta="Horas fichadas" valor={horas(totales.minutosFichados)} sub={`${totales.jornadas} ${totales.jornadas === 1 ? 'jornada' : 'jornadas'}`} fuerte />
+            <Cifra etiqueta="Clases dadas" valor={clases ? String(totales.clasesDadas) : '—'} sub={clases ? horas(totales.minutosClase) + ' de clase' : 'no se han podido leer'} />
+            <Cifra etiqueta="Por revisar" valor={String(totales.porRevisar)} sub={totales.porRevisar ? 'jornadas y clases' : 'nada pendiente'} tono={totales.porRevisar ? 'aviso' : undefined} />
+            <Cifra etiqueta="Coste estimado" valor={totales.coste != null ? formatEuro(totales.coste) : '—'} sub="horas × tarifa actual" />
+          </div>
+          {tarifasLeidas && (
+            <AvisoControlHorario pendientes={instructores
+              .filter((i) => i.activo && i.rol === 'INSTRUCTOR' && !tarifas[i.id]?.relacionLaboral)
+              .map((i) => ({ id: i.id, nombre: i.nombre }))} />
+          )}
           {datos.jornadas.length === 0 && (clases?.clases.length ?? 0) === 0 && (
             <div className="rounded-2xl border border-dashed border-border bg-card p-5 text-[13px]" data-testid="tiempo-vacio">
-              <p className="font-semibold text-foreground">Nadie ha fichado en {MESES[mes - 1]}.</p>
+              <p className="font-semibold text-foreground">Todavía no hay nada de {MESES[mes - 1]}.</p>
               <p className="mt-1 text-muted-foreground">
-                Tus instructoras fichan desde la app del estudio, en Hoy → Fichaje: la entrada al llegar y la salida al irse.
-                En cuanto lo hagan, sus jornadas aparecen aquí.
+                Aquí verás dos cosas, las dos desde la app del estudio: las <strong>jornadas</strong> que fichan tus
+                instructoras contratadas (entrada al llegar, salida al irse) y las <strong>clases</strong> que da cada una,
+                que empiezan con «Empezar clase» o al pasar lista.
               </p>
             </div>
           )}
@@ -176,100 +206,104 @@ export default function TiempoTrabajadoPage() {
             const verJornadas = abierta?.id === id && abierta.que === 'jornadas';
             const verClases = abierta?.id === id && abierta.que === 'clases';
             const sinConfirmar = susClases.filter((c) => c.estado === 'SIN_CONFIRMAR');
+            const ficha = instructores.find((i) => i.id === id);
+            const sinActividad = jornadas.length === 0 && susClases.length === 0;
             return (
-              <div key={id} className="rounded-2xl border border-border bg-card p-5" data-testid="tiempo-instructora">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h2 className="text-[14px] font-semibold text-foreground">{nombre.get(id) ?? 'Instructora'}</h2>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {/* «Ahora» solo si la abierta es de verdad actual: una olvidada hace
-                          días ya sale como «por revisar», no como fichada. */}
-                      {jornadas.some((j) => j.status === 'OPEN' && !j.requiereRevision) && (
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700">Fichada ahora</span>
-                      )}
-                      {(resumen?.aRevisar ?? 0) > 0 && (
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700">
-                          {resumen!.aRevisar} {resumen!.aRevisar === 1 ? 'jornada por revisar' : 'jornadas por revisar'}
-                        </span>
-                      )}
-                      {relacion && (
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                          {relacion === 'AUTONOMA' ? 'Autónoma' : 'Contratada'}
-                        </span>
-                      )}
-                      {sinConfirmar.length > 0 && (
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700" data-testid="chip-sin-confirmar">
-                          {sinConfirmar.length === 1 ? '1 clase sin confirmar' : `${sinConfirmar.length} clases sin confirmar`}
-                        </span>
-                      )}
-                      {(resumenClases?.noDadasPorRevisar ?? 0) > 0 && (
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700">
-                          {resumenClases!.noDadasPorRevisar === 1 ? '1 clase que dijo no dar' : `${resumenClases!.noDadasPorRevisar} clases que dijo no dar`}
-                        </span>
-                      )}
-                      {(resumenClases?.fueraDeJornada ?? 0) > 0 && (
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700">
-                          {resumenClases!.fueraDeJornada === 1 ? '1 clase fuera de jornada' : `${resumenClases!.fueraDeJornada} clases fuera de jornada`}
-                        </span>
-                      )}
+              <article key={id} className="rounded-2xl border border-border bg-card" data-testid="tiempo-instructora">
+                <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ProfileAvatar avatarId={ficha?.avatar ?? null} fotoUrl={ficha?.fotoUrl ?? null} nombre={nombre.get(id) ?? 'Instructora'} color={ficha?.color ?? '#999'} size="md" />
+                    <div className="min-w-0">
+                      <h2 className="truncate text-[15px] font-semibold text-foreground">{nombre.get(id) ?? 'Instructora'}</h2>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {relacion && <Etiqueta tono="neutro">{relacion === 'AUTONOMA' ? 'Autónoma' : 'Contratada'}</Etiqueta>}
+                        {/* «Ahora» solo si la abierta es de verdad actual: una olvidada hace
+                            días ya sale como «por revisar», no como fichada. */}
+                        {jornadas.some((j) => j.status === 'OPEN' && !j.requiereRevision) && <Etiqueta tono="ok">Fichada ahora</Etiqueta>}
+                        {(resumen?.aRevisar ?? 0) > 0 && (
+                          <Etiqueta tono="aviso">{resumen!.aRevisar} {resumen!.aRevisar === 1 ? 'jornada por revisar' : 'jornadas por revisar'}</Etiqueta>
+                        )}
+                        {sinConfirmar.length > 0 && (
+                          <Etiqueta tono="aviso" testId="chip-sin-confirmar">{sinConfirmar.length === 1 ? '1 clase sin confirmar' : `${sinConfirmar.length} clases sin confirmar`}</Etiqueta>
+                        )}
+                        {(resumenClases?.noDadasPorRevisar ?? 0) > 0 && (
+                          <Etiqueta tono="aviso">{resumenClases!.noDadasPorRevisar === 1 ? '1 clase que dijo no dar' : `${resumenClases!.noDadasPorRevisar} clases que dijo no dar`}</Etiqueta>
+                        )}
+                        {(resumenClases?.fueraDeJornada ?? 0) > 0 && (
+                          <Etiqueta tono="aviso">{resumenClases!.fueraDeJornada === 1 ? '1 clase fuera de jornada' : `${resumenClases!.fueraDeJornada} clases fuera de jornada`}</Etiqueta>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-[13px] sm:text-right">
-                    <div>
-                      <p className="text-muted-foreground">{relacion === 'AUTONOMA' ? 'Horas de clase' : 'Horas'}</p>
-                      <p className="font-semibold text-foreground whitespace-nowrap" data-testid="horas-mes">{horas(minutos)}</p>
-                    </div>
-                    {relacion === 'AUTONOMA' || !clases ? (
-                      <div><p className="text-muted-foreground">{relacion === 'AUTONOMA' ? 'Clases dadas' : 'Jornadas'}</p><p className="font-semibold text-foreground">{relacion === 'AUTONOMA' ? (resumenClases?.dadas ?? 0) : (resumen?.jornadas ?? 0)}</p></div>
-                    ) : (
-                      <div><p className="text-muted-foreground">Jornadas · clases</p><p className="font-semibold text-foreground">{resumen?.jornadas ?? 0} · {resumenClases?.dadas ?? 0}</p></div>
+                  {sinActividad ? (
+                    <p className="text-[13px] text-muted-foreground sm:text-right">Sin actividad en {MESES[mes - 1]}</p>
+                  ) : (
+                    <dl className="grid grid-cols-3 gap-5 text-[13px] sm:text-right">
+                      <div>
+                        <dt className="text-[12px] text-muted-foreground">{relacion === 'AUTONOMA' ? 'Horas de clase' : 'Horas'}</dt>
+                        <dd className="whitespace-nowrap font-semibold tabular-nums text-foreground" data-testid="horas-mes">{horas(minutos)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[12px] text-muted-foreground">{relacion === 'AUTONOMA' || !clases ? (relacion === 'AUTONOMA' ? 'Clases dadas' : 'Jornadas') : 'Clases'}</dt>
+                        <dd className="font-semibold tabular-nums text-foreground">
+                          {relacion === 'AUTONOMA' ? (resumenClases?.dadas ?? 0) : !clases ? (resumen?.jornadas ?? 0) : (resumenClases?.dadas ?? 0)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[12px] text-muted-foreground" title="Horas del mes × tarifa por hora actual">Coste</dt>
+                        <dd className="font-semibold tabular-nums text-foreground">{tarifa != null ? formatEuro((minutos / 60) * tarifa) : '—'}</dd>
+                      </div>
+                    </dl>
+                  )}
+                </div>
+
+                {(sinConfirmar.length > 0 || (tarifa == null && minutos > 0)) && (
+                  <div className="space-y-2 px-5 pb-4">
+                    {sinConfirmar.length > 0 && (
+                      <Nota tono="aviso" testId="aviso-sin-confirmar"
+                        accion={
+                          <button onClick={() => void darPorDadas(id, sinConfirmar)} className="rounded-lg border border-border bg-card px-2.5 py-1 text-[12px] font-semibold text-foreground hover:bg-muted">
+                            {sinConfirmar.length === 1 ? 'Dar por dada' : `Dar por dadas las ${sinConfirmar.length}`}
+                          </button>
+                        }>
+                        {sinConfirmar.length === 1
+                          ? 'Una clase terminó sin que la empezara en la app ni pasara lista.'
+                          : `${sinConfirmar.length} clases terminaron sin que las empezara en la app ni pasara lista.`}
+                        {' '}Hasta confirmarlo no se puede cerrar su liquidación. Ella también puede confirmarlo desde su app.
+                      </Nota>
                     )}
-                    <div>
-                      <p className="text-muted-foreground" title="Horas cerradas del mes × tarifa por hora actual">Coste</p>
-                      <p className="font-semibold text-foreground">{tarifa != null ? formatEuro((minutos / 60) * tarifa) : '—'}</p>
-                    </div>
-                  </div>
-                </div>
-                {tarifa == null && minutos > 0 && (
-                  <p className="mt-2 text-[12px] text-muted-foreground">Sin tarifa por hora: fíjala en Liquidaciones para ver el coste.</p>
-                )}
-
-                {sinConfirmar.length > 0 && (
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-[12px]" data-testid="aviso-sin-confirmar">
-                    <p className="text-foreground">
-                      {sinConfirmar.length === 1
-                        ? 'Una clase terminó sin que la empezara en la app ni pasara lista.'
-                        : `${sinConfirmar.length} clases terminaron sin que las empezara en la app ni pasara lista.`}
-                      {' '}Hasta confirmarlo no se puede cerrar su liquidación. Ella también puede confirmarlo desde su app.
-                    </p>
-                    <button onClick={() => void darPorDadas(id, sinConfirmar)} className="px-2.5 py-1 rounded-lg border border-border bg-card text-[12px] font-semibold hover:bg-muted">
-                      {sinConfirmar.length === 1 ? 'Dar por dada' : `Dar por dadas las ${sinConfirmar.length}`}
-                    </button>
+                    {tarifa == null && minutos > 0 && (
+                      <Nota tono="info">Sin tarifa por hora: fíjala en <Link href="/equipo/liquidaciones" className="font-semibold underline">Liquidaciones</Link> para ver el coste.</Nota>
+                    )}
                   </div>
                 )}
 
-                <div className="mt-3 flex flex-wrap gap-4">
-                  {jornadas.length > 0 && (
-                    <button
-                      onClick={() => setAbierta(verJornadas ? null : { id, que: 'jornadas' })}
-                      aria-expanded={verJornadas}
-                      className="text-[12px] font-semibold text-brand hover:underline"
-                    >
-                      {verJornadas ? 'Ocultar jornadas' : `Ver ${jornadas.length} ${jornadas.length === 1 ? 'jornada' : 'jornadas'}`}
-                    </button>
-                  )}
-                  {susClases.length > 0 && (
-                    <button
-                      onClick={() => setAbierta(verClases ? null : { id, que: 'clases' })}
-                      aria-expanded={verClases}
-                      className="text-[12px] font-semibold text-brand hover:underline"
-                    >
-                      {verClases ? 'Ocultar clases' : `Ver ${susClases.length} ${susClases.length === 1 ? 'clase' : 'clases'}`}
-                    </button>
-                  )}
-                </div>
+                {(jornadas.length > 0 || susClases.length > 0) && (
+                  <div className="flex flex-wrap gap-2 border-t border-border px-5 py-3">
+                    {susClases.length > 0 && (
+                      <button
+                        onClick={() => setAbierta(verClases ? null : { id, que: 'clases' })}
+                        aria-expanded={verClases}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-semibold transition-colors ${verClases ? 'border-foreground/20 bg-muted text-foreground' : 'border-border text-foreground hover:bg-muted'}`}
+                      >
+                        <CalendarCheck size={14} />
+                        {verClases ? 'Ocultar clases' : `Ver ${susClases.length} ${susClases.length === 1 ? 'clase' : 'clases'}`}
+                      </button>
+                    )}
+                    {jornadas.length > 0 && (
+                      <button
+                        onClick={() => setAbierta(verJornadas ? null : { id, que: 'jornadas' })}
+                        aria-expanded={verJornadas}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-semibold transition-colors ${verJornadas ? 'border-foreground/20 bg-muted text-foreground' : 'border-border text-foreground hover:bg-muted'}`}
+                      >
+                        <Clock size={14} />
+                        {verJornadas ? 'Ocultar jornadas' : `Ver ${jornadas.length} ${jornadas.length === 1 ? 'jornada' : 'jornadas'}`}
+                      </button>
+                    )}
+                  </div>
+                )}
                 {verClases && clases && (
-                  <ul className="mt-3 divide-y divide-border border-t border-border">
+                  <ul className="divide-y divide-border border-t border-border px-5">
                     {susClases.map((c) => (
                       <FilaClase key={c.sesionId} clase={c} cambios={clases.cambios[c.sesionId] ?? []}
                         onGuardado={async (texto) => { await recargar(); showToast(texto); }}
@@ -278,7 +312,7 @@ export default function TiempoTrabajadoPage() {
                   </ul>
                 )}
                 {verJornadas && (
-                  <ul className="mt-3 divide-y divide-border border-t border-border">
+                  <ul className="divide-y divide-border border-t border-border px-5">
                     {jornadas.map((j) => (
                       <FilaJornada key={j.id} jornada={j} cambios={datos.cambios[j.id] ?? []}
                         onGuardado={async () => { await recargar(); showToast('Jornada corregida'); }}
@@ -286,7 +320,7 @@ export default function TiempoTrabajadoPage() {
                     ))}
                   </ul>
                 )}
-              </div>
+              </article>
             );
           })}
           <details className="rounded-2xl border border-border bg-card px-5 py-3 text-[13px]" data-testid="tiempo-como-funciona">

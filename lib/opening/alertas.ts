@@ -1,6 +1,7 @@
 import type { AnalisisCapacidad } from './capacidad.ts';
 import { NOMBRE_ETAPA, type EtapaVista } from './etapas.ts';
 import { ANCLA_LISTO, type IdComprobacion } from './listo.ts';
+import { diasParaFinEtapa, tocaRecordarFinEtapa } from './comunicaciones.ts';
 
 export interface AlertaApertura {
   /** Único por estudio mientras está abierta (índice uq_alertas_opening_abierta). */
@@ -20,6 +21,8 @@ export interface EntradaAlertas {
   objetivoPreventa: number;
   /** Imprescindibles de «¿lista para abrir?» que no están OK (lib/opening/listo.ts). */
   pendientesListo?: IdComprobacion[];
+  /** Día del estudio (YYYY-MM-DD), para los plazos de las etapas. */
+  hoy?: string;
 }
 
 /** A partir de cuántos días antes de abrir tiene sentido vigilar horario y preventa. */
@@ -81,6 +84,20 @@ export function detectarAlertas(e: EntradaAlertas): AlertaApertura[] {
       titulo: 'La preventa va lenta',
       descripcion: `Quedan ${dias(d)} y tus cuotas cubren el ${pct(a.ocupacionPrevista)} de las plazas; tu objetivo es el ${pct(e.objetivoPreventa)}.`,
       href: '/productos',
+    });
+  }
+
+  // Propone, no envía: el recordatorio lo escribe y lo manda la propietaria
+  // desde la etapa (Mensajería prerrellenada). Se resuelve sola al cerrarse.
+  for (const et of e.hoy ? e.etapas.filter(x => tocaRecordarFinEtapa(x, e.hoy!)) : []) {
+    const d = diasParaFinEtapa(et, e.hoy!)!;
+    const quedan = et.limitePlazas !== null ? ` y quedan ${et.limitePlazas - et.ventas} plazas` : '';
+    out.push({
+      tipo: `ETAPA_TERMINA:${et.id}`,
+      severidad: 'BAJA',
+      titulo: `La etapa ${NOMBRE_ETAPA[et.etapa]} termina ${d === 0 ? 'hoy' : d === 1 ? 'mañana' : `en ${dias(d)}`}`,
+      descripcion: `Aún no se ha llenado${quedan}. Si quieres, recuérdaselo a tus interesadas: el correo ya está escrito.`,
+      href: '/dashboard#etapas-lanzamiento',
     });
   }
 

@@ -121,6 +121,10 @@ export const EVENTOS = {
   // pudo volver sola— y la respuesta, a la alumna.
   PLAZA_FIJA_PETICION: 'plaza_fija.peticion',
   PLAZA_FIJA_RESPUESTA: 'plaza_fija.respuesta',
+  // Clases fijas del estudio (Fase 2): a la alumna le quedan pocos días de una
+  // clase fija (`DIAS_AVISO_CLASE_FIJA_TERMINA`) — el cron diario avisa para
+  // que pueda ampliarla antes de que venza, en vez de perder el sitio sin saberlo.
+  CLASE_FIJA_TERMINA_PRONTO: 'clase_fija.termina_pronto',
   // I-3 (auditoría 19-ago): checkout embebido — el pago se confirmó y el
   // plan ya se entregó, pero la clase concreta que la socia intentaba
   // reservar no se pudo confirmar (aforo lleno/cancelada entre crear el
@@ -265,6 +269,10 @@ export const EVENTOS = {
   // Opening Brief (lib/opening/brief.ts): el resumen de la mañana del estudio
   // que abre. Como mucho uno al día y solo si hay algo que contar.
   OPENING_BRIEF: 'clases.opening_brief',
+  // «Abrimos mañana» a quien ya tiene cuota de una etapa de lanzamiento. Es
+  // información del servicio contratado, no comercial (no pide consentimiento
+  // de marketing), y solo sale si la propietaria lo encendió en los ajustes.
+  OPENING_ABRIMOS: 'clases.opening_abrimos',
   // El Umbral (lib/decision/umbral.ts): como mucho UN evento de este tipo al
   // día por estudio (reforzado por el UNIQUE(studio_id,fecha) de
   // decision_mensajes_dia) — nunca se dispara si el día es de silencio.
@@ -327,6 +335,9 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // MEDIA: ninguna caduca en horas (una reserva por aprobar sí, la clase empieza).
   [EVENTOS.PLAZA_FIJA_PETICION]: { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'mostrador' },
   [EVENTOS.PLAZA_FIJA_RESPUESTA]: { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  // MEDIA: hay tiempo de sobra para actuar (DIAS_AVISO_CLASE_FIJA_TERMINA días),
+  // no es una urgencia de hoy.
+  [EVENTOS.CLASE_FIJA_TERMINA_PRONTO]: { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // ALTA + PUSH, mismo criterio que RESERVA_PENDIENTE_APROBACION: hay dinero
   // ya cobrado y una clienta que cree tener plaza sin tenerla — el mostrador
   // tiene que resolverlo hoy, no cuando alguien mire el panel por casualidad.
@@ -481,6 +492,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Una por alerta NUEVA (el cron solo emite las que abre): no se repite cada día.
   [EVENTOS.OPENING_ALERTA]:              { category: 'clases', priority: 'ALTA',  canales: ['PUSH'], audiencia: 'gerencia' },
   [EVENTOS.OPENING_BRIEF]:               { category: 'clases', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'gerencia' },
+  [EVENTOS.OPENING_ABRIMOS]:             { category: 'clases', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'socia-del-evento' },
   // ALTA + PUSH+INAPP a propósito, nada más: el Umbral solo interrumpe cuando
   // cree que merece la pena — un canal más (EMAIL) diluiría esa
   // misma promesa. Sin EMAIL: el mensaje es del día, no algo para revisar
@@ -721,6 +733,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
   }),
   // Reserva confirmada → la socia
+  // Opening OS: el día antes de abrir, a quien ya tiene su cuota de lanzamiento.
+  [`${EVENTOS.OPENING_ABRIMOS}#SOCIA`]: {
+    title: '¡Mañana abrimos!',
+    body: '{estudio} abre sus puertas mañana. Tu cuota ya está lista: reserva tu primera clase desde la app.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}`,
+  },
   [`${EVENTOS.RESERVA_CONFIRMADA}#SOCIA`]: {
     title: 'Reserva confirmada',
     body: 'Tu plaza en {clase} del {cuando} está confirmada. ¡Te esperamos!',
@@ -793,6 +811,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Tu clase fija',
     body: '{respuesta}',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}`,
+  },
+  // Le quedan pocos días de una clase fija (DIAS_AVISO_CLASE_FIJA_TERMINA):
+  // se le avisa para que pueda ampliarla antes de perder el sitio sin saberlo.
+  [`${EVENTOS.CLASE_FIJA_TERMINA_PRONTO}#SOCIA`]: {
+    title: 'Tu clase fija termina pronto',
+    body: '«{nombre}» termina el {hasta}. Amplíala desde tu app si quieres seguir teniéndola.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases-fijas`,
   },
   // Reserva pendiente de aprobar → mostrador (propietaria/manager/recepción)
   [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#PROPIETARIO`]: {

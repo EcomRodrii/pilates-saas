@@ -395,3 +395,127 @@ test.describe('¿Lista para abrir?', () => {
     await expect(bloque.getByRole('link')).toHaveCount(0);
   });
 });
+
+test.describe('Apertura suave', () => {
+  const base = {
+    visible: true, fechaApertura: '2026-11-02', diasHastaApertura: 12, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS,
+    onboarding: { completado: true, puntos: ['LOCAL'], objetivos: [], fechaAproximada: false },
+  };
+
+  test('enseña quién forma el grupo y guarda quitar a una invitada y apagarla', async ({ page }) => {
+    const peticiones = await montar(page, {
+      inicial: { ...base, aperturaSuave: { activa: true, grupo: { fundadoras: 2, invitadas: [{ id: 'soc-9', nombre: 'Invitada Prueba' }] } } },
+    });
+    const bloque = page.locator('#apertura-suave');
+    await expect(bloque.getByText('Pueden reservar: 2 fundadoras y 1 invitada.')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(bloque.getByText(/Antes del 2 de noviembre solo reservan/)).toBeVisible();
+    if (CAPTURAS) await bloque.screenshot({ path: `${CAPTURAS}/apertura-suave.png` });
+
+    await bloque.getByRole('button', { name: 'Quitar a Invitada Prueba' }).click();
+    await expect.poll(() => peticiones.patch).toContainEqual({ invitada: { socioId: 'soc-9', invitada: false } });
+
+    await bloque.getByRole('switch', { name: 'Apertura suave' }).click();
+    await expect.poll(() => peticiones.patch).toContainEqual({ aperturaSuave: false });
+  });
+
+  test('sin fecha de apertura no se puede encender', async ({ page }) => {
+    await montar(page, { inicial: { ...base, fechaApertura: null, diasHastaApertura: null, aperturaSuave: { activa: false, grupo: null } } });
+    const bloque = page.locator('#apertura-suave');
+    await expect(bloque.getByText('Pon la fecha de apertura para poder usarla.')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(bloque.getByRole('switch', { name: 'Apertura suave' })).toBeDisabled();
+  });
+});
+
+test.describe('¿Cuánto necesito aguantar?', () => {
+  const base = {
+    visible: true, fechaApertura: '2026-11-02', diasHastaApertura: 12, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS,
+    onboarding: { completado: true, puntos: ['LOCAL'], objetivos: [], fechaAproximada: false },
+  };
+  const RESPUESTA = {
+    fijosMes: 2000, colchon: 12000, ivaPct: 21, sesionesSemanaSinTope: 2,
+    resultado: {
+      faltan: [], costeEquipoMes: 1040, instructorasSinTarifa: 1, hayContratadas: true,
+      ingresoActualMes: 200, cuotasMensualesVendidas: 2, deficitMes: 2840, mesesColchon: 12000 / 2840,
+      planesNoMensuales: 1,
+      filas: [
+        { id: 'ilim', etiqueta: 'Ilimitado', netoCuotaMes: 200, cuotasEquilibrio: 16, plazasNecesarias: 208, plazasMes: 180, ocupacion: 208 / 180, ritmoMinimoMes: 2 },
+        { id: 'm2', etiqueta: 'Mensual 2x', netoCuotaMes: 100, cuotasEquilibrio: 31, plazasNecesarias: 269, plazasMes: 400, ocupacion: 269 / 400, ritmoMinimoMes: 4 },
+      ],
+    },
+  };
+
+  test('se carga al desplegar, cuenta de dónde sale cada cifra y avisa si con este horario no se llega', async ({ page }) => {
+    let pedidas = 0;
+    // Después de montar: el comodín `**/api/**` del andamiaje se registra ahí y,
+    // en Playwright, gana la ruta registrada la última.
+    await montar(page, { inicial: base });
+    await page.route('**/api/opening/economia', r => { pedidas++; return json(r, RESPUESTA); });
+    const boton = page.getByRole('button', { name: /¿Cuánto necesito aguantar\?/ });
+    await expect(boton).toBeVisible({ timeout: ARRANQUE_MS });
+    // No se pide con la home: solo al abrirlo.
+    expect(pedidas).toBe(0);
+    await boton.click();
+    await expect(page.getByText('Si no vendes ni una cuota más, tu colchón aguanta 4 meses.')).toBeVisible();
+    expect(pedidas).toBeGreaterThan(0);
+    const filas = page.getByRole('list', { name: 'Cuotas para cubrir gastos' }).getByRole('listitem');
+    await expect(filas).toHaveCount(2);
+    await expect(filas.nth(0)).toContainText('Con este horario y estos precios no llegas');
+    await expect(filas.nth(1)).toContainText('Llenarías el 67 % de tu horario (269 de 400 plazas al mes)');
+    await expect(filas.nth(1)).toContainText('suma al menos 4 cuotas nuevas al mes');
+    await expect(page.getByText('No incluye el coste de empresa (Seguridad Social)', { exact: false })).toBeVisible();
+    await expect(page.getByText('Una instructora con clases no tiene tarifa', { exact: false })).toBeVisible();
+    if (CAPTURAS) await boton.locator('xpath=..').screenshot({ path: `${CAPTURAS}/economia-apertura.png` });
+  });
+
+  test('si el servidor no guarda, lo dice y no finge el cálculo', async ({ page }) => {
+    let intentos = 0;
+    await montar(page, { inicial: base });
+    await page.route('**/api/opening/economia', r => {
+      if (r.request().method() === 'PATCH') { intentos++; return json(r, { error: 'Pon cantidades en euros, sin signo negativo.' }, 400); }
+      return json(r, { ...RESPUESTA, fijosMes: null, colchon: null, resultado: { ...RESPUESTA.resultado, faltan: ['fijos', 'colchon'], filas: [], deficitMes: null, mesesColchon: null } });
+    });
+    await page.getByRole('button', { name: /¿Cuánto necesito aguantar\?/ }).click({ timeout: ARRANQUE_MS });
+    await expect(page.getByText('Pon tus gastos fijos al mes para saber cuántas cuotas los cubren.')).toBeVisible();
+    await page.getByLabel(/Gastos fijos al mes/).fill('2.400');
+    await page.getByRole('button', { name: 'Calcular' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Pon cantidades en euros' })).toBeVisible();
+    expect(intentos, 'el guardado no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
+    await expect(page.getByText(/tu colchón aguanta/)).toHaveCount(0);
+  });
+});
+
+test.describe('Comunicaciones de la apertura', () => {
+  test('la etapa en curso propone avisar a las interesadas, y en sus últimos días recordar que termina', async ({ page }) => {
+    await montar(page, {
+      inicial: CON_FECHA,
+      etapas: { antes: { hoy: '2026-10-03', puedeCerrarVenta: true, etapas: [ETAPA, { ...ETAPA, id: '22222222-2222-2222-2222-222222222222', etapa: 'ACCESO_ANTICIPADO', desde: '2026-09-20', hasta: '2026-10-04' }], planes: PLANES } },
+    });
+    const avisar = page.getByRole('link', { name: 'Avisar a tus interesadas' });
+    await expect(avisar).toBeVisible({ timeout: ARRANQUE_MS });
+    const href = decodeURIComponent((await avisar.getAttribute('href'))!.replace(/\+/g, ' '));
+    expect(href).toContain('/mensajeria?segmento=ETAPA:INTERESADA');
+    expect(href).toContain('/reservar/studio-carmen');
+    // La que termina mañana cambia el atajo: recordatorio con las plazas que quedan.
+    const recordar = page.getByRole('link', { name: 'Recordarles que termina' });
+    await expect(recordar).toBeVisible();
+    expect(decodeURIComponent((await recordar.getAttribute('href'))!.replace(/\+/g, ' '))).toContain('Quedan 17 plazas');
+  });
+
+  test('Mensajería llega rellena desde un atajo, y enviar sigue siendo cosa de la propietaria', async ({ page }) => {
+    await montar(page, { inicial: { visible: false } });
+    await page.goto('/mensajeria?segmento=ETAPA%3AINTERESADA&asunto=Ya+puedes+reservar&mensaje=Hola%3A%0A%0AYa+est%C3%A1+abierta');
+    await expect(page.getByRole('textbox', { name: /asunto/i })).toHaveValue('Ya puedes reservar', { timeout: ARRANQUE_MS });
+    await expect(page.getByRole('textbox', { name: /mensaje/i })).toHaveValue('Hola:\n\nYa está abierta');
+    // La URL se limpia: recargar no vuelve a rellenar encima de lo que haya escrito.
+    await expect.poll(() => new URL(page.url()).search).toBe('');
+  });
+
+  test('«abrimos mañana» sale apagado, enseña el texto y encenderlo se guarda', async ({ page }) => {
+    const peticiones = await montar(page, { inicial: { ...CON_FECHA, avisarAbrimos: false } });
+    const sw = page.getByRole('switch', { name: 'Avisar el día antes de abrir' });
+    await expect(sw).not.toBeChecked({ timeout: ARRANQUE_MS });
+    await expect(page.getByText(/¡Mañana abrimos! .* abre sus puertas mañana/)).toBeVisible();
+    await sw.click();
+    await expect.poll(() => peticiones.patch).toContainEqual({ avisarAbrimos: true });
+  });
+});

@@ -241,6 +241,26 @@ export async function emitirRespuestaPlazaFija(
   }
 }
 
+// Clase fija del estudio (Fase 2): a la alumna le quedan pocos días antes de que
+// venza (DIAS_AVISO_CLASE_FIJA_TERMINA) — un aviso por oferta, no por franja, y
+// una dedupKey por fecha de vencimiento: si ampliara y volviera a acercarse a
+// vencer más adelante, se avisa otra vez.
+export async function emitirClaseFijaTerminaPronto(
+  admin: SupabaseClient, p: { studioId: string; socioId: string; claseFijaId: string; nombre: string; hasta: string },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.CLASE_FIJA_TERMINA_PRONTO, studioId: p.studioId,
+      data: { socioId: p.socioId, nombre: p.nombre, hasta: fechaCortaEstudio(new Date(`${p.hasta}T12:00:00Z`)), slug: (studio?.slug as string | null) ?? '' },
+      resource: { type: 'socio', id: p.socioId },
+      dedupKey: `clase-fija-termina-pronto:${p.claseFijaId}:${p.socioId}:${p.hasta}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirClaseFijaTerminaPronto:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Reserva pendiente de aprobar: avisa al mostrador (propietaria/manager/
 // recepción) de que hace falta decidir antes de que empiece la clase.
 export async function emitirReservaPendienteAprobacion(
@@ -646,8 +666,11 @@ export async function emitirPagoRealizado(
   admin: SupabaseClient, p: { studioId: string; reciboId: string },
 ): Promise<void> {
   try {
+    // `.eq('studio_id', ...)`: se publica con `p.studioId`, así que el recibo
+    // tiene que ser de ese estudio o el aviso se emite con datos de otro
+    // (auditoría 2026-09-21).
     const { data: recibo } = await admin.from('recibos')
-      .select('concepto, importe, socio_id').eq('id', p.reciboId).maybeSingle();
+      .select('concepto, importe, socio_id').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
     if (!recibo?.socio_id) return;
     const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
     await publish({
@@ -1253,6 +1276,22 @@ export async function emitirDocumentoSocioNuevo(
     });
   } catch (e) {
     console.error('[notifications] emitirDocumentoSocioNuevo:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Opening OS: «abrimos mañana» a una socia con cuota de lanzamiento. dedupKey
+// por estudio y socia: un solo aviso aunque el barrido horario pase varias veces.
+export async function emitirAbrimosManana(
+  p: { studioId: string; socioId: string; slug: string; estudio: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.OPENING_ABRIMOS, studioId: p.studioId,
+      data: { socioId: p.socioId, slug: p.slug, estudio: p.estudio },
+      dedupKey: `opening-abrimos:${p.studioId}:${p.socioId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirAbrimosManana:', e instanceof Error ? e.message : e);
   }
 }
 

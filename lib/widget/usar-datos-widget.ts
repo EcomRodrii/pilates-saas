@@ -38,6 +38,8 @@ interface DatosCrudos {
   // comparación de consentimiento vigente (penalizaciones) se rompería.
   politicaPrivacidad: string;
   terminosServicio: string;
+  /** Para el texto del consentimiento de marketing: el mismo que compone el servidor. */
+  nombreEstudio: string;
   // Fase 4 (Booking Engine — Mi Cuenta): TODAS las reservas de la socia (no
   // solo las que aforan un slot visible) y su ficha completa. Vienen del
   // MISMO payload que ya se pedía en cada carga (`pub.socia.*`, sin gatear
@@ -53,7 +55,7 @@ interface DatosCrudos {
 const VACIO: DatosCrudos = {
   studioId: '', sesiones: [], tiposClase: [], salas: [], instructores: [], spots: [],
   reservas: [], planesTarifa: [], suscripciones: [], sustitucionesConfirmadas: [],
-  politicaPrivacidad: '', terminosServicio: '', misReservas: [], socio: null, stripeAccountId: null,
+  politicaPrivacidad: '', terminosServicio: '', nombreEstudio: '', misReservas: [], socio: null, stripeAccountId: null,
 };
 
 // `baseUrl`: el bundle corre en el DOM de la web del ESTUDIO — todas las
@@ -108,6 +110,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
         sustitucionesConfirmadas: pub.sustitucionesConfirmadas ?? [],
         politicaPrivacidad: pub.studio?.politicaPrivacidad ?? '',
         terminosServicio: pub.studio?.terminosServicio ?? '',
+        nombreEstudio: pub.studio?.nombre ?? '',
         misReservas: pub.socia?.reservas ?? [],
         socio: pub.socia?.socio ?? null,
         stripeAccountId: pub.studio?.stripeAccountId ?? null,
@@ -280,7 +283,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   return {
     slots, cargando, error, paginaOculta, socia, usuarioEmail, autenticado, sesionCargando, refrescarSesion,
     studioId: datos.studioId || null,
-    politicaPrivacidad: datos.politicaPrivacidad, terminosServicio: datos.terminosServicio,
+    politicaPrivacidad: datos.politicaPrivacidad, terminosServicio: datos.terminosServicio, nombreEstudio: datos.nombreEstudio,
     sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,
     misReservas: datos.misReservas, suscripciones: datos.suscripciones, planesTarifa: datos.planesTarifa, socio: datos.socio,
     stripeAccountId: datos.stripeAccountId,

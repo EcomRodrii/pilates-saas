@@ -150,6 +150,9 @@ export function esNovedad(candidata: CandidataPriorizada, historialReciente: Reg
  * € realmente medidos cuando hay evidencia suficiente — vacío por defecto,
  * mismo comportamiento que Fase 2.
  */
+/** Silencio porque la apertura ya avisó hoy; la UI lo cuenta en vez de enseñar vacío. */
+export const MOTIVO_SILENCIO_APERTURA = 'apertura_en_curso';
+
 export function elegirMensajeDelDia(
   candidatas: CandidataPriorizada[],
   contexto: ContextoEstudio,
@@ -157,7 +160,12 @@ export function elegirMensajeDelDia(
   yaAutoResueltas: Set<string> = new Set(),
   tasasPorTipo: Map<TipoRecomendacion, TasaSeguimiento> = new Map(),
   impactoRealPorTipo: Map<TipoRecomendacion, ImpactoRealCalibracion> = new Map(),
+  opciones: { aperturaAvisadaHoy?: boolean } = {},
 ): ResultadoUmbral {
+  // Mientras el estudio abre, Opening OS ya ha hablado hoy (brief o alerta):
+  // un segundo push el mismo día es ruido (lib/opening/umbral-apertura.ts).
+  if (opciones.aperturaAvisadaHoy) return { tipo: 'SILENCIO', motivo: MOTIVO_SILENCIO_APERTURA };
+
   const elegibles = candidatas.filter(c => {
     const { urgenciaMin, impactoFactor } = calibrarUmbral(c.tipo, tasasPorTipo, impactoRealPorTipo);
     if (c.urgencia < urgenciaMin) return false;                         // 1. decae si se espera

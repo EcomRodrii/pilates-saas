@@ -1,4 +1,5 @@
 'use client';
+import { etiquetaAperturaSuave } from '@/lib/opening/apertura-suave-texto';
 import { aFechaCal, eventoIcs, nombreIcs } from '@/lib/calendario-ics';
 import { esClavePublicable } from '@/lib/billing/modo-stripe';
 import { bizumPermitidoPara } from '@/lib/billing/bizum-permitido';
@@ -13,7 +14,7 @@ import { supabase } from '@/lib/db/supabase';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 import { portalAuthHeader } from '@/lib/api-client';
 import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
-import { textoLegalCompleto } from '@/lib/legal-textos';
+import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando, nombrePeriodo } from '@/lib/bono-logic';
@@ -387,7 +388,7 @@ export default function ReservarPage() {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio, redesSociales, dataLoaded, errorPublico, recargarPublico,
     refrescarAforo,
-    addReserva, updateSocio, cancelarReserva, aceptarOfertaEspera, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, bloquesReservar,
+    addReserva, updateSocio, cancelarReserva, aceptarOfertaEspera, addSocioFromPortal, darConsentimientoMarketingPublico, planMasElegidoId, sustitucionesConfirmadas, textosReservar, bloquesReservar,
     aparienciaWidget,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
@@ -816,6 +817,8 @@ export default function ReservarPage() {
 
   // Aceptación del contrato (clickwrap: checkbox + fecha + versión).
   const [terminosAceptados, setTerminosAceptados] = useState(false);
+  // Consentimiento de marketing: aparte, desmarcado y opcional (no bloquea nada).
+  const [marketingAceptado, setMarketingAceptado] = useState(false);
   // Casilla explícita del popup «pagar y reservar sin cuenta» (rediseño
   // Momence): «Al inscribirme, acepto la política de privacidad». Solo abre la
   // puerta al pago — la aceptación del contrato completo sigue registrándose
@@ -1694,6 +1697,7 @@ export default function ReservarPage() {
         origen: 'PORTAL',
       },
       referidoPor: referidoValido,
+      marketing: marketingAceptado,
       // P1 auditoría Momence: valor CRUDO de `?ref=`, no `referidoValido` —
       // uno es la cadena de atribución a guardar, el otro solo la lógica de
       // recompensa entre socias.
@@ -1707,6 +1711,7 @@ export default function ReservarPage() {
     if (sesionId) trackEventoWidget(studio?.id, 'class_selected', { sesionClaseId: sesionId });
     setBookingSesionId(sesionId);
     setTerminosAceptados(false);
+    setMarketingAceptado(false);
     setPrivacidadAceptada(false);
     setEnlaceEnviado(false);
     setLoginError('');
@@ -1766,7 +1771,7 @@ export default function ReservarPage() {
     if (['confirm', 'espera', 'pendiente', 'registro', 'contrato'].includes(loginStep) && bookingSesionId) {
       trackEventoWidget(studio?.id, 'booking_abandoned', { sesionClaseId: bookingSesionId, socioId: socia?.socioId ?? null });
     }
-    setBookingSesionId(null); setLoginStep('login'); setTerminosAceptados(false); setEnlaceEnviado(false);
+    setBookingSesionId(null); setLoginStep('login'); setTerminosAceptados(false); setMarketingAceptado(false); setEnlaceEnviado(false);
     setLoginPassword('');
   }
 
@@ -2079,6 +2084,9 @@ export default function ReservarPage() {
         // Sin consentimiento guardado no se sigue: avanzar dejaría al estudio
         // creyendo que lo tiene.
         if (!res.ok) { setGateError(res.error); return; }
+        // El de marketing es aparte y opcional: si no se guarda, la reserva
+        // sigue (RGPD art. 7.4) y no se le dice que quedó apuntada.
+        if (marketingAceptado) void darConsentimientoMarketingPublico();
       } else if (!bookingSesionId) {
         // Walk-in en acceso genérico (sin clase elegida): no hay un paso
         // "confirmar" al que enganchar la alta — con clase (bookingSesionId
@@ -4206,6 +4214,21 @@ export default function ReservarPage() {
                     He leído y acepto los términos de servicio y la política de privacidad.
                   </span>
                 </label>
+                <label className="flex items-start gap-2.5 mb-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={marketingAceptado}
+                    onChange={e => setMarketingAceptado(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--portal-ink)]"
+                  />
+                  <span className="text-[var(--portal-ink)] text-xs leading-relaxed">
+                    Quiero recibir novedades y ofertas de {studio?.nombre ?? 'el estudio'} por email (opcional).
+                  </span>
+                </label>
+                <details className="mb-4 ml-6 text-[11px] text-[var(--portal-muted-2)] leading-relaxed">
+                  <summary className="cursor-pointer text-[var(--portal-ink)] font-medium">Qué acepto</summary>
+                  {textoConsentimientoMarketing({ nombre: studio?.nombre })}
+                </details>
                 <div className="flex gap-2">
                   <button onClick={() => setLoginStep('login')}
                     className={`${BOTON_SECUNDARIO} flex-1`}>
@@ -4236,6 +4259,12 @@ export default function ReservarPage() {
                       Clase llena — te apuntaremos en lista de espera
                     </p>
                   )}
+                  {(() => {
+                    // Solo avisa: una fundadora o invitada sí puede reservarla, y
+                    // eso lo decide el servidor (crearReservaPublica).
+                    const suave = etiquetaAperturaSuave(bookingSesion.inicio, studio?.aperturaSuaveHasta);
+                    return suave && <p className="text-[var(--portal-ink)] text-xs font-medium mt-2">{suave}</p>;
+                  })()}
                   {(() => {
                     const ventana = bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
                     return ventana > 0 && (

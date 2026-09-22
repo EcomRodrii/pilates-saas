@@ -40,7 +40,8 @@ function instructorApi(r: any) {
   };
 }
 
-async function montar(page: Page) {
+async function montar(page: Page, opts: { sinInstructoras?: boolean } = {}) {
+  const instructoras = opts.sinInstructoras ? [] : INSTRUCTORES;
   await page.clock.setFixedTime(new Date(`${HOY}T12:00:00`));
 
   await page.addInitScript(([key, uid]) => {
@@ -67,12 +68,12 @@ async function montar(page: Page) {
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/tipos_clase**', route => json(route, TIPOS));
   await page.route('**/rest/v1/salas**', route => json(route, SALAS));
-  await page.route('**/rest/v1/instructores**', route => json(route, INSTRUCTORES));
+  await page.route('**/rest/v1/instructores**', route => json(route, instructoras));
   await page.route('**/rest/v1/sesiones**', route =>
     route.request().method() === 'GET' ? json(route, []) : json(route, [], 201));
   await page.route('**/api/calendario**', route => json(route, {
     sesiones: [], reservas: [], sustituciones: [],
-    salas: SALAS.map(salaApi), instructores: INSTRUCTORES.map(instructorApi),
+    salas: SALAS.map(salaApi), instructores: instructoras.map(instructorApi),
     horaApertura: '08:00:00', horaCierre: '22:00:00', rol: 'PROPIETARIO',
   }));
 
@@ -139,5 +140,24 @@ test.describe('El cajón de «Nueva clase» cabe en la ventana', () => {
     await expect(cajon).toBeVisible();
 
     await expect(cajon.getByRole('button', { name: 'Crear clase' })).toBeInViewport({ ratio: 1 });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sin ninguna instructora, el aviso lleva a Equipo (donde se da de alta) y
+// habla de ella en femenino. Antes mandaba a Configuración → Clases con un
+// «Todavía no lo tienes creado» que valía para un tipo de clase, no para ella.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Crear clase sin ninguna instructora', () => {
+  test('el aviso manda a Equipo a darla de alta, y no deja crear', async ({ page }) => {
+    await montar(page, { sinInstructoras: true });
+    await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Nueva clase' }).first().click({ timeout: 30_000 });
+    const cajon = page.getByRole('dialog', { name: 'Nueva clase' });
+    const aviso = cajon.getByTestId('falta-crear');
+    await expect(aviso).toHaveText('Todavía no tienes ninguna instructora en tu equipo. Añádela en Equipo y vuelve aquí.');
+    await expect(aviso.getByRole('link', { name: 'Añádela en Equipo' })).toHaveAttribute('href', '/equipo?nuevo=1');
+    await expect(cajon).not.toContainText('Créalo en Configuración');
+    await expect(cajon.getByRole('button', { name: 'Crear clase' })).toBeDisabled();
   });
 });

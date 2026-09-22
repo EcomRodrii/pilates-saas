@@ -128,9 +128,15 @@ test('cita 1:1: crear pasa por el gate, cancelar no', () => {
   gateAntesDe('app/api/public/citas/route.ts', ['crearCitaPublica(', "body.accion === 'cancelar'"], { despuesDe: ["body.accion === 'crear'"] });
 });
 
-test('plaza fija: pedir una plaza pasa por el gate antes de escribir la petición', () => {
-  const f = gateAntesDe('app/api/public/plaza-fija/route.ts', ['solicitarPlazaFijaAlumna(']);
+test('plaza fija: pedir una plaza (o una clase fija entera) pasa por el gate antes de escribir la petición', () => {
+  const f = gateAntesDe('app/api/public/plaza-fija/route.ts', ['solicitarPlazaFijaAlumna('], { veces: 2 });
   assert.ok(f.includes("if (body.accion === 'solicitar_plaza')"));
+  // La clase fija tiene SU gate, delante de su propia llamada: el primero de arriba no la cubre.
+  const rama = f.indexOf("if (body.accion === 'solicitar_clase_fija')");
+  assert.ok(rama >= 0, 'si desaparece la acción, este razonamiento sobra');
+  const gateDeLaRama = f.indexOf(GATE, rama);
+  const llamada = f.indexOf('solicitarClaseFijaAlumna(', rama);
+  assert.ok(gateDeLaRama > rama && gateDeLaRama < llamada, 'solicitarClaseFijaAlumna( va después de su propio gate');
   // Pedir una PAUSA (o anularla) no lleva gate a propósito: no reserva nada —al
   // revés, suelta clases— y solo lo alcanza una socia ya autenticada por JWT. La
   // página oculta cierra la puerta de entrar y reservar, no la de que quien ya

@@ -20,13 +20,32 @@ import { useCore } from '@/lib/core-context';
 import { cn } from '@/lib/utils';
 import { ETIQUETA_ROL } from '@/lib/permisos-reglas';
 import type { Rol } from '@/lib/types';
-import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/lib/supabase-data';
+import { fetchMisEstudios, cambiarSedeActiva, resolverEstudioDeLaSesion, type SedeSeleccionable } from '@/lib/supabase-data';
+import { CLAVE_CAMBIO_GLOBAL, CLAVE_CAMBIO_SEDE, cambiarDeSede, sedeDesfasada } from '@/lib/cambio-de-sede';
 
 /** Marca la sede recién elegida para poder confirmarlo al aterrizar. Exportada:
  *  el listado de sedes de Configuración > Estudio (P2-14) cambia de sede con
  *  el mismo mecanismo y debe enseñar el mismo aviso al aterrizar. */
-export const CLAVE_CAMBIO_SEDE = 'tentare:sede-cambiada';
+export { CLAVE_CAMBIO_SEDE };
 const CLAVE_CAMBIO = CLAVE_CAMBIO_SEDE;
+
+// Aviso a las DEMÁS pestañas de este mismo navegador de que la sede activa
+// cambió. `sessionStorage` (arriba) es por pestaña, así que una pestaña vieja
+// se quedaba con el sidebar mostrando la sede anterior indefinidamente: el
+// servidor resuelve la sede activa fresca en cada petición (`sesion_activa`
+// es una casilla global por cuenta, no por pestaña), pero esa pestaña nunca
+// volvía a preguntar. Resultado real, visto en producción: la home avisaba de
+// un cobro sin cobrar de la sede NUEVA (correcto, servidor al día) y el
+// enlace llevaba a una pantalla que seguía mostrando la sede VIEJA (el
+// StudioProvider de esa pestaña, resuelto una sola vez al montar) — 0
+// resultados, aunque el cobro sí existía.
+//
+// `localStorage` SÍ es compartido entre pestañas del mismo origen, y el
+// evento nativo `storage` lo dispara el navegador únicamente en las OTRAS
+// pestañas, nunca en la que escribió — así que no hace falta ningún guard
+// contra bucles: la pestaña que cambia de sede nunca se recibe su propio aviso.
+// (CLAVE_CAMBIO_GLOBAL vive en lib/cambio-de-sede.ts: la escriben los tres
+// sitios que cambian de sede, no solo este selector.)
 
 // P2-14: rol legible por sede — instructoras multi-sede pueden ser
 // PROPIETARIO/MANAGER en una y solo INSTRUCTOR en otra, y conviene que no
@@ -64,13 +83,45 @@ export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 't
     // Hard-nav tras guardar: StudioProvider tiene que remontar limpio contra la
     // nueva sede (mismo patrón que el menú de perfil). El nombre se deja en
     // sessionStorage para poder confirmar el cambio al otro lado del salto.
-    cambiarSedeActiva(user.id, studioId).then(ok => {
-      if (!ok) { setCambiando(null); return; }
-      const destino = sedes.find(s => s.id === studioId);
-      try { sessionStorage.setItem(CLAVE_CAMBIO, destino?.nombre ?? ''); } catch { /* modo privado */ }
-      window.location.href = '/dashboard';
-    });
+    void irASede(user.id, studioId, sedes.find(s => s.id === studioId)?.nombre ?? '').then(ok => { if (!ok) setCambiando(null); });
   }
+
+  // Si la sede cambia desde OTRA pestaña, esta se entera por el evento nativo
+  // `storage` y recarga con el mismo hard-nav que ya usa el propio selector —
+  // así el sidebar y el servidor nunca discrepan más allá de un instante.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key !== CLAVE_CAMBIO_GLOBAL || !e.newValue) return;
+      const [studioId] = e.newValue.split(':');
+      if (studioId && studioId !== studio?.id) window.location.href = '/dashboard';
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [studio?.id]);
+
+  // Red de seguridad: al volver a esta pestaña, si la sede activa del servidor ya
+  // no es la que enseña (cambiada en otro dispositivo, o en una pestaña que no
+  // avisó), se recarga antes de que se guarde nada contra la sede equivocada.
+  // Solo con varias sedes: a la mayoría no le cuesta ni una consulta.
+  const variasSedes = sedes.length > 1;
+  useEffect(() => {
+    if (!variasSedes) return;
+    let comprobando = false;
+    function alVolver() {
+      if (document.visibilityState !== 'visible' || comprobando) return;
+      comprobando = true;
+      void resolverEstudioDeLaSesion().then(({ studioId, fallo }) => {
+        comprobando = false;
+        if (!fallo && sedeDesfasada(studio?.id, studioId)) window.location.href = '/dashboard';
+      });
+    }
+    document.addEventListener('visibilitychange', alVolver);
+    window.addEventListener('focus', alVolver);
+    return () => {
+      document.removeEventListener('visibilitychange', alVolver);
+      window.removeEventListener('focus', alVolver);
+    };
+  }, [variasSedes, studio?.id]);
 
   // Una sola sede (el caso de la mayoría): nada que desambiguar.
   if (sedes.length < 2) return null;
@@ -178,4 +229,14 @@ export function AvisoCambioDeSede() {
       <Building2 size={14} /> Ahora estás en {nombre}
     </div>
   );
+}
+
+/** Cambiar de sede desde cualquier sitio del panel: guarda, avisa a las demás pestañas y recarga. */
+export function irASede(authUserId: string, studioId: string, nombreDestino: string): Promise<boolean> {
+  return cambiarDeSede({
+    guardar: cambiarSedeActiva,
+    sesion: typeof sessionStorage === 'undefined' ? null : sessionStorage,
+    local: typeof localStorage === 'undefined' ? null : localStorage,
+    ir: (url) => { window.location.href = url; },
+  }, authUserId, studioId, nombreDestino);
 }

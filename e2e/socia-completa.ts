@@ -60,6 +60,11 @@ export interface OpcionesSocia {
    */
   descubre?: number;
   /**
+   * Clases fijas que ofrece el estudio (`/api/public/clases-fijas`). `0` = ninguna,
+   * que es el caso por defecto: sin ofertas el horario no pinta su puerta.
+   */
+  clasesFijas?: number;
+  /**
    * Consentimiento de salud VIGENTE. Por defecto `NO_CONSTA`, que es el caso en
    * que «Privacidad y datos» no pinta el bloque de salud.
    */
@@ -100,7 +105,7 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   const {
     bono = 5, reservada = false, ocupadas = 0, conTienda = true, avisos = [],
     posts = 0, conversaciones = 0, valoracionActiva = false, conTarjeta = false, recibos = 0,
-    descubre = 0, saludConsentida = false,
+    descubre = 0, saludConsentida = false, clasesFijas = 0,
   } = o;
 
   const sinMockear: string[] = [];
@@ -206,6 +211,19 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
 
   await page.route('**/api/theme**', (r) => { contar(r); return r.fulfill(json({ primary: '#3E6B4A', secondary: '#3E6B4A', logoUrl: null, radius: 12 })); });
   await page.route('**/api/public/studio-data', (r) => { contar(r); return r.fulfill(json(f)); });
+  // Las clases fijas del estudio: el horario pregunta por ellas al pintar su puerta.
+  await page.route('**/api/public/clases-fijas', (r) => {
+    contar(r);
+    return r.fulfill(json({
+      ofertas: Array.from({ length: clasesFijas }, (_, i) => ({
+        id: `cf-${i}`, nombre: 'Reformer · martes y jueves', descripcion: 'Dos días a la semana para trabajar fuerza y control.',
+        estado: 'DISPONIBLE', plazasLibres: 3, programadaHasta: '2027-01-29',
+        duraciones: [{ meses: 1, etiqueta: '1 mes', hasta: '2026-09-12' }, { meses: 3, etiqueta: '3 meses', hasta: '2026-11-12' }],
+        franjas: [{ diaSemana: 2, hora: '10:00', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: 'Marta' }],
+      })),
+      pedidas: [],
+    }));
+  });
   await page.route('**/api/public/aforo**', (r) => { contar(r); return r.fulfill(json({ sesionIds: [SESION_ID], aforoReservas: filasAforo })); });
 
   await ruta((p) => p === '/api/public/session', (r) => r.fulfill(json({ socioId: SOCIO_ID, nombre: 'Ana Test', email: 'socia-e2e@test.com' })));

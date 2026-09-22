@@ -7,7 +7,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useEstudio } from '@/components/student/contexto';
 import { useToast } from '@/components/student/ui/Toast';
-import { getPreferencias, guardarPreferencia } from '@/lib/student/perfil-y-avisos';
+import { getConsentimientoMarketing, getPreferencias, guardarConsentimientoMarketing, guardarPreferencia } from '@/lib/student/perfil-y-avisos';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { activarPushStudent, contextoPushStudent, desactivarPushStudent } from '@/lib/student/push';
 import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estado';
@@ -32,6 +32,9 @@ export default function PreferenciasPage() {
   const { online } = useOnline();
   const { toast } = useToast();
   const [emailPagos, setEmailPagos] = useState(false);
+  // Novedades del estudio (consentimiento de marketing). null = no se pudo
+  // leer: entonces no se pinta el interruptor en vez de adivinar su estado.
+  const [marketing, setMarketing] = useState<boolean | null>(null);
   // Estado de push de ESTE dispositivo. Es del navegador, no del servidor:
   // permiso + suscripción del SW acotado a la app. `null` hasta leerlo.
   const [push, setPush] = useState<EstadoPush | null>(null);
@@ -42,8 +45,9 @@ export default function PreferenciasPage() {
     // Sin fila, email apagado: es el defecto del endpoint, no una suposición.
     setEmailPagos(prefs.find((p) => p.category === 'pagos')?.email ?? false);
     setPush(estadoPush(await contextoPushStudent(estudio.slug)));
+    setMarketing(await getConsentimientoMarketing(estudio.id));
     return estadoInicialPush('SOCIA', prefs);
-  }, [estudio.slug]);
+  }, [estudio.slug, estudio.id]);
 
   const { estado, data: pushInicial, reintentar } = useAsync(cargar, () => false);
 
@@ -57,6 +61,20 @@ export default function PreferenciasPage() {
       setEmailPagos(antes);
       toast('No hemos podido guardar ese cambio.');
     }
+  };
+
+  // Retirarlo tiene que ser tan fácil como darlo (RGPD art. 7.3). Se pinta lo
+  // que diga el SERVIDOR al guardar, no lo que se pulsó.
+  const cambiarMarketing = async (valor: boolean) => {
+    const antes = marketing;
+    setMarketing(valor);
+    const ahora = await guardarConsentimientoMarketing(estudio.id, valor);
+    if (ahora === null) {
+      setMarketing(antes);
+      toast('No hemos podido guardar ese cambio.');
+      return;
+    }
+    setMarketing(ahora);
   };
 
   // Los interruptores por tipo de abajo no sirven de nada si este
@@ -130,6 +148,15 @@ export default function PreferenciasPage() {
                 disabled={!online}
                 onChange={(v) => void cambiarEmail(v)}
               />
+              {marketing !== null && (
+                <Interruptor
+                  label={`Novedades y ofertas de ${estudio.nombre}`}
+                  sub="Promociones y noticias del estudio. Puedes cambiarlo cuando quieras."
+                  on={marketing}
+                  disabled={!online}
+                  onChange={(v) => void cambiarMarketing(v)}
+                />
+              )}
             </div>
 
             <OposicionPerfilado slug={estudio.slug} />

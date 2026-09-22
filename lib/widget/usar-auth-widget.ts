@@ -96,7 +96,7 @@ export function useAuthWidget(slug: string, baseUrl: string) {
   // socia todavía — mismos tres campos que crearAltaWalkIn en
   // app/reservar/[slug]/page.tsx, mismo endpoint (/api/public/socio, ya
   // CORS-aware desde PR #1090).
-  const registrar = useCallback(async (studioId: string, nombre: string, telefono: string, aceptacion: AceptacionWidget) => {
+  const registrar = useCallback(async (studioId: string, nombre: string, telefono: string, aceptacion: AceptacionWidget, marketing = false) => {
     return postPublicoWidget(`${baseUrl}/api/public/socio`, {
       accion: 'registrar',
       studioId,
@@ -106,6 +106,8 @@ export function useAuthWidget(slug: string, baseUrl: string) {
       aceptacion,
       referidoPor: null,
       origenLead: null,
+      // Casilla de novedades, aparte y desmarcada: solo viaja el «sí».
+      ...(marketing ? { marketing: true } : {}),
     }, { studioId });
   }, [baseUrl]);
 

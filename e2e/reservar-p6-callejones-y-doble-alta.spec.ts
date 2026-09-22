@@ -173,7 +173,9 @@ test.describe('C — doble clic en "Aceptar y continuar" no da de alta dos ficha
     await page.getByPlaceholder(/Tu teléfono/).fill('+34 600 000 000');
     await page.getByRole('button', { name: 'Continuar →' }).click();
     await expect(page.getByRole('heading', { name: 'Acepta los términos' })).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('checkbox').check();
+    // Con la casilla de consentimiento de marketing (aparte, opcional) ya hay
+    // dos checkboxes en la pantalla: se acota por su texto para no ambiguar.
+    await page.getByRole('checkbox', { name: /términos de servicio/ }).check();
 
     const boton = page.getByRole('button', { name: /Aceptar y continuar/ });
     await expect(boton).toBeEnabled();

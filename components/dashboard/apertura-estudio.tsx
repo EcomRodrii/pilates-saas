@@ -9,6 +9,10 @@ import { notaEstimacion } from '@/lib/opening/textos';
 import { EtapasLanzamiento } from './etapas-lanzamiento';
 import { AjustesAperturaForm } from './ajustes-apertura';
 import { OnboardingApertura } from './onboarding-apertura';
+import { AperturaSuave, type EstadoAperturaSuave } from './apertura-suave';
+import { EconomiaApertura } from './economia-apertura';
+import { AvisoAbrimos } from './aviso-abrimos';
+import { useStudio } from '@/lib/studio-context';
 import type { AjustesApertura } from '@/lib/opening/ajustes';
 import { ANCLA_DECIDIR } from '@/lib/estado-estudio-cliente';
 import { ANCLA_LISTO, type Comprobacion } from '@/lib/opening/listo';
@@ -23,6 +27,8 @@ interface RespuestaApertura {
   onboarding?: { completado: true; puntos: string[]; objetivos: string[]; fechaAproximada: boolean } | null;
   recomendaciones?: { id: string; titulo: string; motivo: string; href: string }[];
   listo?: Comprobacion[];
+  aperturaSuave?: EstadoAperturaSuave;
+  avisarAbrimos?: boolean;
   alertas?: { tipo: string; severidad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA'; titulo: string; descripcion: string; href: string }[];
 }
 
@@ -141,9 +147,10 @@ function ListaParaAbrir({ listo, onComprobar, comprobando }: { listo: Comprobaci
   );
 }
 
-export function AperturaEstudio({ onVisible }: { onVisible?: (visible: boolean) => void } = {}) {
+export function AperturaEstudio({ onVisible, verEconomia = false }: { onVisible?: (visible: boolean) => void; verEconomia?: boolean } = {}) {
   const [datos, setDatos] = useState<RespuestaApertura | null>(null);
   const [comprobando, setComprobando] = useState(false);
+  const { studio } = useStudio();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ajustando, setAjustando] = useState(false);
@@ -285,6 +292,10 @@ export function AperturaEstudio({ onVisible }: { onVisible?: (visible: boolean) 
         <ListaParaAbrir listo={datos.listo!} onComprobar={() => void comprobar()} comprobando={comprobando} />
       )}
 
+      {!mostrarOnboarding && datos.aperturaSuave && typeof datos.aperturaSuave.activa === 'boolean' && (
+        <AperturaSuave estado={datos.aperturaSuave} fechaApertura={datos.fechaApertura ?? null} onGuardar={patch} />
+      )}
+
       {!mostrarOnboarding && (datos.recomendaciones?.length ?? 0) > 0 && (
         <div className="mt-3">
           <p className="text-[11.5px] font-medium text-muted-foreground">Tu siguiente paso</p>
@@ -346,6 +357,13 @@ export function AperturaEstudio({ onVisible }: { onVisible?: (visible: boolean) 
           )}
         </div>
       ))}
+
+      {!mostrarOnboarding && datos.fechaApertura && typeof datos.avisarAbrimos === 'boolean' && (
+        <AvisoAbrimos encendido={datos.avisarAbrimos} nombreEstudio={studio?.nombre ?? 'Tu estudio'}
+          fechaAproximada={datos.onboarding?.fechaAproximada ?? false} onGuardar={patch} />
+      )}
+
+      {!mostrarOnboarding && verEconomia && <EconomiaApertura />}
 
       {!mostrarOnboarding && <EtapasLanzamiento onCambio={() => void pedirApertura().then(d => { if (d) setDatos(d); })} />}
     </div>

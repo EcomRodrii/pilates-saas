@@ -100,8 +100,7 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
     const result = yo ? await subirFotoInstructor(yo.id, file) : await subirFotoAdmin(studio!.id, file);
     setSubiendoFoto(false);
     if ('error' in result) { setErrorFoto(result.error); return; }
-    // RLS-1: guardar NULL para regenerar URLs firmadas on-demand
-    const res = yo ? await updateInstructor(yo.id, { fotoUrl: null }) : await updateStudio({ fotoUrl: null });
+    const res = yo ? await updateInstructor(yo.id, { fotoUrl: result.url }) : await updateStudio({ fotoUrl: result.url });
     if (!res.ok) { setErrorFoto(res.error); return; }
     showToast('Foto actualizada');
   }

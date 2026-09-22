@@ -107,6 +107,9 @@ export const ETIQUETA_VARIABLE: Record<string, string> = {
   titulo: 'título del documento',
   respuesta: 'la respuesta del estudio',
   motivoTexto: 'el motivo',
+  estudio: 'nombre del estudio',
+  nombre: 'nombre de la clase fija',
+  hasta: 'fecha hasta la que la tiene',
 };
 
 const MUESTRA: Record<string, string> = {
@@ -115,7 +118,7 @@ const MUESTRA: Record<string, string> = {
   concepto: 'Bono 10', importe: '75', sesiones: '2', plan: 'Bono 10', precioAnterior: '69 €',
   precioNuevo: '75 €', clases: '1 clase', remitente: 'Ana', autor: 'El estudio',
   previsualizacion: ': «¿Nos vemos el jueves?»', titulo: 'Consentimiento', respuesta: 'Te hemos guardado la plaza.',
-  motivoTexto: '',
+  motivoTexto: '', estudio: 'Pilates Luz', nombre: 'Reformer Lunes 18:00', hasta: '30 de septiembre',
 };
 
 // Donde el evento trae la variable ya con su separador: en `clase.modificada`,

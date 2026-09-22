@@ -1030,6 +1030,8 @@ export interface RowStudios {
   recordatorio_largo_horas: number | null;
   // migr 20260921145514.
   recordatorio_corto_minutos: number | null;
+  // migr 20260921221729.
+  apertura_suave: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -1649,6 +1651,8 @@ export interface RowPlazasFijas {
   pausa_hasta: string | null;
   // migr 20260915231920.
   pausa_libera_sitio: boolean | null;
+  // migr 20260922100000.
+  clase_fija_id: string | null;
 }
 
 export interface RowRecuperaciones {
@@ -2987,6 +2991,12 @@ export interface RowSolicitudesPlazaFija {
   creada_en: string;
   resuelta_en: string | null;
   resuelta_por: string | null;
+  // migr 20260921230223.
+  clase_fija_id: string | null;
+  // migr 20260921230223.
+  duracion_meses: number | null;
+  // migr 20260921230223.
+  vigencia_hasta_propuesta: string | null;
 }
 
 export interface RowSalesLeads {
@@ -3153,6 +3163,8 @@ export interface RowOpeningConfig {
   semanas_bono_sin_caducidad: number;
   created_at: string;
   updated_at: string;
+  // migr 20260922001832.
+  avisar_abrimos: boolean | null;
 }
 
 export interface RowLaunchStages {
@@ -3268,6 +3280,48 @@ export interface RowClasesImpartidasAuditoria {
   motivo: string | null;
   created_at: string;
   created_by: string;
+}
+
+export interface RowClasesFijas {
+  id: string;
+  studio_id: string;
+  nombre: string;
+  descripcion: string | null;
+  activa: boolean;
+  duraciones_meses: number[];
+  plazas: number | null;
+  creada_en: string;
+  actualizada_en: string;
+  and: string | null;
+  // migr 20260922100000.
+  aprobacion_automatica: boolean | null;
+}
+
+export interface RowClasesFijasFranjas {
+  id: string;
+  clase_fija_id: string;
+  studio_id: string;
+  serie_id: string;
+  dia_semana: number;
+}
+
+export interface RowOpeningEconomia {
+  studio_id: string;
+  fijos_mes_eur: number | null;
+  colchon_eur: number | null;
+  updated_at: string;
+}
+
+export interface RowConsentimientosMarketingEventos {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  en: string;
+  accion: string;
+  origen: string;
+  texto: string | null;
+  ip_hmac: string | null;
+  user_agent: string | null;
 }
 
 
@@ -4697,6 +4751,7 @@ export type StudiosInsert = {
   fecha_apertura?: string | null | null;
   recordatorio_largo_horas?: number | null | null;
   recordatorio_corto_minutos?: number | null | null;
+  apertura_suave?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -4829,6 +4884,7 @@ export type StudiosUpdate = {
   fecha_apertura?: string | null | null;
   recordatorio_largo_horas?: number | null | null;
   recordatorio_corto_minutos?: number | null | null;
+  apertura_suave?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -5907,6 +5963,7 @@ export type PlazasFijasInsert = {
   pausa_desde?: string | null | null;
   pausa_hasta?: string | null | null;
   pausa_libera_sitio?: boolean | null | null;
+  clase_fija_id?: string | null | null;
 }
 
 export type PlazasFijasUpdate = {
@@ -5925,6 +5982,7 @@ export type PlazasFijasUpdate = {
   pausa_desde?: string | null | null;
   pausa_hasta?: string | null | null;
   pausa_libera_sitio?: boolean | null | null;
+  clase_fija_id?: string | null | null;
 }
 
 export type RecuperacionesInsert = {
@@ -8467,6 +8525,9 @@ export type SolicitudesPlazaFijaInsert = {
   creada_en?: string | null;
   resuelta_en?: string | null | null;
   resuelta_por?: string | null | null;
+  clase_fija_id?: string | null | null;
+  duracion_meses?: number | null | null;
+  vigencia_hasta_propuesta?: string | null | null;
 }
 
 export type SolicitudesPlazaFijaUpdate = {
@@ -8493,6 +8554,9 @@ export type SolicitudesPlazaFijaUpdate = {
   creada_en?: string | null;
   resuelta_en?: string | null | null;
   resuelta_por?: string | null | null;
+  clase_fija_id?: string | null | null;
+  duracion_meses?: number | null | null;
+  vigencia_hasta_propuesta?: string | null | null;
 }
 
 export type SalesLeadsInsert = {
@@ -8812,6 +8876,7 @@ export type OpeningConfigInsert = {
   semanas_bono_sin_caducidad?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
+  avisar_abrimos?: boolean | null | null;
 }
 
 export type OpeningConfigUpdate = {
@@ -8825,6 +8890,7 @@ export type OpeningConfigUpdate = {
   semanas_bono_sin_caducidad?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
+  avisar_abrimos?: boolean | null | null;
 }
 
 export type LaunchStagesInsert = {
@@ -9045,6 +9111,88 @@ export type ClasesImpartidasAuditoriaUpdate = {
   motivo?: string | null | null;
   created_at?: string | null;
   created_by?: string | null;
+}
+
+export type ClasesFijasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  activa?: boolean | null;
+  duraciones_meses?: number[] | null;
+  plazas?: number | null | null;
+  creada_en?: string | null;
+  actualizada_en?: string | null;
+  and?: string | null | null;
+  aprobacion_automatica?: boolean | null | null;
+}
+
+export type ClasesFijasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null | null;
+  activa?: boolean | null;
+  duraciones_meses?: number[] | null;
+  plazas?: number | null | null;
+  creada_en?: string | null;
+  actualizada_en?: string | null;
+  and?: string | null | null;
+  aprobacion_automatica?: boolean | null | null;
+}
+
+export type ClasesFijasFranjasInsert = {
+  id?: string | null;
+  clase_fija_id?: string | null;
+  studio_id?: string | null;
+  serie_id?: string | null;
+  dia_semana?: number | null;
+}
+
+export type ClasesFijasFranjasUpdate = {
+  id?: string | null;
+  clase_fija_id?: string | null;
+  studio_id?: string | null;
+  serie_id?: string | null;
+  dia_semana?: number | null;
+}
+
+export type OpeningEconomiaInsert = {
+  studio_id?: string | null;
+  fijos_mes_eur?: number | null | null;
+  colchon_eur?: number | null | null;
+  updated_at?: string | null;
+}
+
+export type OpeningEconomiaUpdate = {
+  studio_id?: string | null;
+  fijos_mes_eur?: number | null | null;
+  colchon_eur?: number | null | null;
+  updated_at?: string | null;
+}
+
+export type ConsentimientosMarketingEventosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  en?: string | null;
+  accion?: string | null;
+  origen?: string | null;
+  texto?: string | null | null;
+  ip_hmac?: string | null | null;
+  user_agent?: string | null | null;
+}
+
+export type ConsentimientosMarketingEventosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  en?: string | null;
+  accion?: string | null;
+  origen?: string | null;
+  texto?: string | null | null;
+  ip_hmac?: string | null | null;
+  user_agent?: string | null | null;
 }
 
 export type Database = {
@@ -10084,6 +10232,26 @@ export type Database = {
         Row: RowClasesImpartidasAuditoria;
         Insert: ClasesImpartidasAuditoriaInsert;
         Update: ClasesImpartidasAuditoriaUpdate;
+      };
+      clases_fijas: {
+        Row: RowClasesFijas;
+        Insert: ClasesFijasInsert;
+        Update: ClasesFijasUpdate;
+      };
+      clases_fijas_franjas: {
+        Row: RowClasesFijasFranjas;
+        Insert: ClasesFijasFranjasInsert;
+        Update: ClasesFijasFranjasUpdate;
+      };
+      opening_economia: {
+        Row: RowOpeningEconomia;
+        Insert: OpeningEconomiaInsert;
+        Update: OpeningEconomiaUpdate;
+      };
+      consentimientos_marketing_eventos: {
+        Row: RowConsentimientosMarketingEventos;
+        Insert: ConsentimientosMarketingEventosInsert;
+        Update: ConsentimientosMarketingEventosUpdate;
       };
     };
   };

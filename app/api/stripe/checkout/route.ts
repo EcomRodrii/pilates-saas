@@ -30,6 +30,7 @@ import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { telefonoValido } from '@/lib/csv';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
+import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -378,6 +379,9 @@ export async function POST(req: NextRequest) {
       if (tiposDelPlan && tiposDelPlan.length > 0 && !tiposDelPlan.some(t => t.tipo_clase_id === sesion.tipo_clase_id)) {
         return conCorsWidget(req, NextResponse.json({ error: 'Este plan no cubre el tipo de esta clase' }, { status: 400 }));
       }
+      // Apertura suave: mismo criterio que checkout-embebido, antes de cobrar.
+      const cierre = await cierreAperturaSuave(admin, body.studioId, socioId, sesion.inicio as string, { planQueCompra: body.planId });
+      if (cierre) return conCorsWidget(req, NextResponse.json({ error: MENSAJE_APERTURA_SUAVE(cierre), codigo: 'apertura-suave' }, { status: 409 }));
     }
 
     // 32ª pasada de auditoría: este camino (Modo A, redirección al Checkout

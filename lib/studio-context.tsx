@@ -389,7 +389,9 @@ interface StudioContextValue {
 
   // Socios
   addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }) => Promise<ResultadoEscritura & { id?: string }>;
-  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null; origenLead?: string | null }) => Promise<ResultadoEscritura>;
+  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null; origenLead?: string | null; marketing?: boolean }) => Promise<ResultadoEscritura>;
+  /** Consentimiento de marketing de la propia socia en /reservar (solo el «sí» de la casilla del alta). */
+  darConsentimientoMarketingPublico: () => Promise<ResultadoEscritura>;
   updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
   addTagSocio: (socioId: string, tag: string) => Promise<ResultadoEscritura>;
@@ -2542,7 +2544,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
   }
 
-  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null; origenLead?: string | null }): Promise<ResultadoEscritura> {
+  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null; origenLead?: string | null; marketing?: boolean }): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (cpub) {
       // Alta pública vía endpoint (service-role). Se AWAITea para que la reserva
@@ -2555,6 +2557,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         telefono: fields.telefono || undefined,
         aceptacion: fields.aceptacionContrato, referidoPor: fields.referidoPor ?? null,
         origenLead: fields.origenLead ?? null,
+        // Solo el «sí»: el servidor pone texto, fecha y origen, y no marcarla no retira nada.
+        ...(fields.marketing === true ? { marketing: true } : {}),
       });
     }
     const nuevaSocia: Socio = {
@@ -2595,6 +2599,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setStudioConfig(prev => ({ ...prev, ...changes }));
     setTextosLegalesPropios(prev => prev && { ...prev, ...textosPropiosDe(changes, prev) });
     return res;
+  }
+
+  async function darConsentimientoMarketingPublico(): Promise<ResultadoEscritura> {
+    const cpub = ctxPublico();
+    if (!cpub) return { ok: false, error: 'Solo desde la página pública' };
+    return postPublico('/api/public/socio', { accion: 'marketing', studioId: cpub.studioId, marketing: true });
   }
 
   async function updateSocio(id: string, changes: Partial<Socio>): Promise<ResultadoEscritura> {
@@ -5626,6 +5636,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     valoracionesSocias,
     addSocio,
     addSocioFromPortal,
+    darConsentimientoMarketingPublico,
     updateSocio,
     deleteSocio,
     addTagSocio,

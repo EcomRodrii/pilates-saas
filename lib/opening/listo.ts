@@ -10,7 +10,10 @@ import type { EstadoCobroCuenta } from '../billing/cuenta-puede-cobrar.ts';
 /** Id del bloque en la home, para que la alerta lleve directo a él. */
 export const ANCLA_LISTO = 'lista-para-abrir';
 
-export type IdComprobacion = 'clases' | 'pagina' | 'venta' | 'stripe' | 'fiscal' | 'antelacion';
+export type IdComprobacion = 'clases' | 'pagina' | 'venta' | 'stripe' | 'fiscal' | 'antelacion' | 'suave';
+
+/** Id del bloque de apertura suave en la tarjeta. */
+export const ANCLA_APERTURA_SUAVE = 'apertura-suave';
 export type EstadoComprobacion = 'OK' | 'FALTA' | 'SIN_COMPROBAR';
 
 export interface Comprobacion {
@@ -46,6 +49,8 @@ export interface DatosListo {
   stripe: EstadoCobroCuenta | 'SIN_CUENTA';
   fiscal: { nif: string | null; razonSocial: string | null; direccion: string | null; codigoPostal: string | null; ciudad: string | null };
   antelacionMaximaDias: number | null;
+  /** Apertura suave puesta y nadie en el grupo: sus clases no las puede reservar nadie desde la app. */
+  aperturaSuaveSinGrupo?: boolean;
 }
 
 const DIA = 86_400_000;
@@ -67,6 +72,7 @@ export const HREF_LISTO: Record<IdComprobacion, string> = {
   stripe: '/configuracion?tab=cobros#integracion-stripe',
   fiscal: '/configuracion?tab=cobros#datos-fiscales',
   antelacion: '/configuracion?tab=reservas#reservar',
+  suave: '#apertura-suave',
 };
 
 /** Lo que hay que hacer, para el brief («Siguiente paso: …»). */
@@ -77,6 +83,7 @@ export const ACCION_LISTO: Record<IdComprobacion, string> = {
   stripe: 'Deja Stripe listo para cobrar',
   fiscal: 'Completa tus datos fiscales',
   antelacion: 'Revisa con cuánta antelación se puede reservar',
+  suave: 'Invita a alguien a tu apertura suave',
 };
 
 const n = (x: number, uno: string, varios: string) => `${x} ${x === 1 ? uno : varios}`;
@@ -157,6 +164,14 @@ export function evaluarListo(d: DatosListo, now: Date, puedeAbrir: (href: string
       detalle: falta
         ? `Solo dejas reservar con ${n(d.antelacionMaximaDias, 'día', 'días')} de antelación: tu primera clase no se podrá reservar hasta el ${abre.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })}.`
         : '',
+    });
+  }
+
+  // 7 · Apertura suave sin grupo: solo si está puesta.
+  if (d.aperturaSuaveSinGrupo) {
+    out.push({
+      id: 'suave', titulo: 'Apertura suave', bloquea: false, estado: 'FALTA',
+      detalle: 'Está puesta y aún no hay fundadoras ni invitadas: sus clases solo se pueden reservar desde el mostrador.',
     });
   }
 

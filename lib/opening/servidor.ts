@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import type { EstadoSuscripcion, TipoPlan } from '../types.ts';
 import { estadoCobroCuenta } from '../billing/cuenta-puede-cobrar.ts';
 import { ventanaListo, type DatosListo } from './listo.ts';
+import { cargarGrupoAperturaSuave } from './apertura-suave.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import {
   analizarCapacidad, CONFIG_OPENING_DEFECTO,
@@ -20,10 +21,14 @@ const DIAS_HISTORIAL_ASISTENCIA = 90;
 const PAGINA = 1000;
 const DIA = 86_400_000;
 
-export interface ConfigCompleta extends ConfigOpening { objetivoPreventa: number }
+export interface ConfigCompleta extends ConfigOpening {
+  objetivoPreventa: number;
+  /** «Abrimos mañana» a las socias con cuota de lanzamiento (apagado por defecto). */
+  avisarAbrimos: boolean;
+}
 
 export function configDesdeFila(f: Record<string, unknown> | null): ConfigCompleta {
-  if (!f) return { ...CONFIG_OPENING_DEFECTO, objetivoPreventa: 0.4 };
+  if (!f) return { ...CONFIG_OPENING_DEFECTO, objetivoPreventa: 0.4, avisarAbrimos: false };
   return {
     umbralAmarillo: Number(f.umbral_amarillo),
     umbralRojo: Number(f.umbral_rojo),
@@ -32,6 +37,7 @@ export function configDesdeFila(f: Record<string, unknown> | null): ConfigComple
     sesionesSemanaSinTope: Number(f.sesiones_semana_sin_tope),
     semanasBonoSinCaducidad: Number(f.semanas_bono_sin_caducidad),
     objetivoPreventa: Number(f.objetivo_preventa),
+    avisarAbrimos: f.avisar_abrimos === true,
   };
 }
 
@@ -187,7 +193,7 @@ export async function cargarDatosListo(
   const { desde, hasta } = ventanaListo(fechaApertura, now);
   const [studioR, sesionesR, planesR] = await Promise.all([
     admin.from('studios')
-      .select('slug, stripe_account_id, reserva_exigir_plan, reserva_antelacion_maxima_dias, nif, razon_social, direccion, codigo_postal, ciudad')
+      .select('slug, stripe_account_id, reserva_exigir_plan, reserva_antelacion_maxima_dias, nif, razon_social, direccion, codigo_postal, ciudad, apertura_suave')
       .eq('id', studioId).maybeSingle(),
     admin.from('sesiones').select('inicio, cancelada, tipo_clase_id, instructor_id, aforo_maximo')
       .eq('studio_id', studioId).gte('inicio', desde.toISOString()).lt('inicio', hasta.toISOString()).limit(2000),
@@ -234,6 +240,11 @@ export async function cargarDatosListo(
       ciudad: (s.ciudad as string | null) ?? null,
     },
     antelacionMaximaDias: (s.reserva_antelacion_maxima_dias as number | null) ?? null,
+    aperturaSuaveSinGrupo: s.apertura_suave === true && fechaApertura !== null
+      && await (async () => {
+        const g = await cargarGrupoAperturaSuave(admin, studioId);
+        return g.fundadoras === 0 && g.invitadas.length === 0;
+      })(),
   };
 }
 

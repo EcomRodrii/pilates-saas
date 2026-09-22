@@ -256,7 +256,17 @@ export const publicarVersionChangelog = (id: string) =>
 export async function subirImagenCambio(file: File): Promise<{ url: string }> {
   const fd = new FormData();
   fd.append('file', file);
-  const r = await fetch('/api/interno/changelog/imagen', { method: 'POST', body: fd });
+  // ⚠️ Auditoría 2026-09-21: faltaba `Authorization` y la ruta la exige
+  // (`exigirPermiso(req, 'content.write')`), así que subir la captura fallaba
+  // SIEMPRE con «No autorizado». Es la única función del fichero que no pasa
+  // por `pedir()` —porque el cuerpo es `FormData`—, y al saltárselo se saltó
+  // también la cabecera. `Content-Type` NO se pone a mano a propósito: lo
+  // pone `FormData` con su propio boundary.
+  const r = await fetch('/api/interno/changelog/imagen', {
+    method: 'POST',
+    body: fd,
+    headers: { ...(await authHeader()) },
+  });
   const j = (await r.json().catch(() => null)) as { url?: string; error?: string } | null;
   if (!r.ok || !j?.url) throw new Error(j?.error ?? 'No se ha podido subir la imagen.');
   return { url: j.url };

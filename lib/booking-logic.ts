@@ -53,6 +53,20 @@ export function puedeReservarPorAntelacionMaxima(
   return ahora.getTime() >= abreEl;
 }
 
+// Apertura suave (Opening OS): con el interruptor puesto, las clases ANTERIORES
+// al día de apertura solo las reserva su grupo. Regla por fecha, no un estado:
+// el día oficial deja de aplicar sola. `inicioApertura` es la medianoche del día
+// de apertura en hora del estudio (inicioDelDiaEstudio), ya calculada.
+export function bloqueadaPorAperturaSuave(
+  inicioClaseISO: string, inicioApertura: string | null, activa: boolean, enGrupo: boolean,
+): boolean {
+  if (!activa || !inicioApertura || enGrupo) return false;
+  return new Date(inicioClaseISO).getTime() < new Date(inicioApertura).getTime();
+}
+
+/** La etiqueta de `socios.tags` que mete a una socia en la apertura suave. */
+export const ETIQUETA_APERTURA_SUAVE = 'apertura-suave';
+
 // ¿Todavía se puede reservar, o ya estamos dentro de la ventana mínima previa
 // al inicio? ventanaMinimaMinutos <= 0 desactiva el límite (se puede reservar
 // hasta el mismo instante de inicio, que ya bloquea el check de "ya empezado").

@@ -177,6 +177,10 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
     accion: 'ANONIMIZAR',
     detalle: '⚠️ REVISIÓN LEGAL: se quedan fecha, origen, huella del texto aceptado (resoluble en `terminos_versiones`) y si coincidía con el mostrado, como prueba del contrato; `firma` pasa a «[firma eliminada]» (NOT NULL) e `ip_hmac`, `user_agent`, `introducida_por` y `actor_uid` a NULL.',
   },
+  consentimientos_marketing_eventos: {
+    accion: 'ANONIMIZAR',
+    detalle: '⚠️ REVISIÓN LEGAL: se quedan la acción (DAR/RETIRAR), fecha, origen y texto legal como prueba de que hubo consentimiento y cuándo se retiró; `ip_hmac` y `user_agent` a NULL.',
+  },
 };
 
 /**

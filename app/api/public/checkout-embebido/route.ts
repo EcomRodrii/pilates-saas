@@ -25,6 +25,7 @@ import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
+import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
 
 // Fase 3 del "Booking Experience Engine" — checkout embebido dentro del widget
 // (Modo B): sustituye `stripe.checkout.sessions.create()` (redirect de página
@@ -332,6 +333,10 @@ export async function POST(req: NextRequest) {
     if (tiposDelPlan && tiposDelPlan.length > 0 && !tiposDelPlan.some(t => t.tipo_clase_id === sesion.tipo_clase_id)) {
       return conCorsWidget(req, NextResponse.json({ error: 'Este plan no cubre el tipo de esta clase' }, { status: 400 }));
     }
+    // Apertura suave: no se cobra una clase que luego no podría reservar. Si lo
+    // que compra es un plan de etapa (fundadora…), con él entra en el grupo.
+    const cierre = await cierreAperturaSuave(admin, body.studioId, socioId, sesion.inicio as string, { planQueCompra: body.planId });
+    if (cierre) return conCorsWidget(req, NextResponse.json({ error: MENSAJE_APERTURA_SUAVE(cierre), codigo: 'apertura-suave' }, { status: 409 }));
   }
 
   const { data: studio } = await admin
