@@ -200,6 +200,38 @@ export function plazasVencidasQueEstorban(
 export const franjasQueYaTiene = (franjas: FranjaHueco[], plazas: PlazaMin[], hoy: string): number =>
   franjasYaCubiertas(franjas, plazas, hoy).length;
 
+/** Cuántos días antes del vencimiento se avisa y se deja ampliar. Un solo número: lo comparten el cron y la app. */
+export const DIAS_AVISO_CLASE_FIJA_TERMINA = 14;
+
+/**
+ * Hasta cuándo le dura la clase fija a la alumna: la `vigenciaHasta` más próxima entre
+ * las plazas que cubren TODAS las franjas de la oferta. `null` si no la tiene entera, o
+ * si alguna de las que la cubren no tiene fecha (dada a mano, sin vencimiento) — no hay
+ * nada que avisar ni que ampliar.
+ */
+export function vigenciaMinDeOferta<F extends FranjaHueco>(franjas: F[], plazas: PlazaMin[], hoy: string): string | null {
+  const vivas = plazas.filter(p => (p.estado === 'ACTIVA' || p.estado === 'PAUSADA') && (!p.vigenciaHasta || p.vigenciaHasta >= hoy));
+  const vencimientos: string[] = [];
+  for (const f of franjas) {
+    const cubridora = vivas.find(p =>
+      p.diaSemana === f.diaSemana && p.horaInicio.slice(0, 5) === f.hora && p.salaId === f.salaId
+      && (!p.tipoClaseId || p.tipoClaseId === f.tipoClaseId));
+    if (!cubridora || !cubridora.vigenciaHasta) return null;
+    vencimientos.push(cubridora.vigenciaHasta);
+  }
+  return vencimientos.length > 0 ? vencimientos.sort()[0] : null;
+}
+
+/**
+ * La fecha «hasta» tras ampliar: nunca acorta lo que ya tenía. Mismo cálculo que pedirla
+ * por primera vez (`vigenciaHastaDeDuracion` desde hoy) — «3 meses más» es la misma
+ * duración del catálogo, medida desde hoy, igual que al pedirla.
+ */
+export function nuevaVigenciaAmpliar(actual: string | null, hoy: string, meses: number): string {
+  const candidata = vigenciaHastaDeDuracion(hoy, meses);
+  return actual && actual > candidata ? actual : candidata;
+}
+
 export function estadoAlumnaOferta(o: { franjas: number; yaTiene: number; pedida: boolean }): EstadoAlumnaOferta {
   if (o.franjas > 0 && o.yaTiene >= o.franjas) return 'LA_TIENE';
   if (o.pedida) return 'PEDIDA';
@@ -223,8 +255,9 @@ export interface OfertaAlumna {
 
 export interface CatalogoClasesFijas {
   ofertas: OfertaAlumna[];
-  /** Sus peticiones pendientes (vacío sin sesión de alumna). */
-  pedidas: { claseFijaId: string; solicitudId: string; duracionMeses: number; hasta: string }[];
+  /** Sus peticiones pendientes (vacío sin sesión de alumna). Pedirla por primera vez y
+   *  ampliar lo que ya tiene son peticiones distintas: la pantalla necesita saber cuál es cuál. */
+  pedidas: { claseFijaId: string; solicitudId: string; duracionMeses: number; hasta: string; tipo: 'CREAR_CLASE_FIJA' | 'AMPLIAR_CLASE_FIJA' }[];
 }
 
 export interface OfertaStaff {
@@ -232,6 +265,8 @@ export interface OfertaStaff {
   nombre: string;
   descripcion: string | null;
   activa: boolean;
+  /** Sin pasar por la bandeja de Inicio: se resuelve al pedirla, si cabe y su cuota no lo impide. */
+  aprobacionAutomatica: boolean;
   duracionesMeses: number[];
   plazas: number | null;
   franjas: { serieId: string; diaSemana: number; resuelta: boolean }[];

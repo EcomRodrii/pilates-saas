@@ -121,6 +121,10 @@ export const EVENTOS = {
   // pudo volver sola— y la respuesta, a la alumna.
   PLAZA_FIJA_PETICION: 'plaza_fija.peticion',
   PLAZA_FIJA_RESPUESTA: 'plaza_fija.respuesta',
+  // Clases fijas del estudio (Fase 2): a la alumna le quedan pocos días de una
+  // clase fija (`DIAS_AVISO_CLASE_FIJA_TERMINA`) — el cron diario avisa para
+  // que pueda ampliarla antes de que venza, en vez de perder el sitio sin saberlo.
+  CLASE_FIJA_TERMINA_PRONTO: 'clase_fija.termina_pronto',
   // I-3 (auditoría 19-ago): checkout embebido — el pago se confirmó y el
   // plan ya se entregó, pero la clase concreta que la socia intentaba
   // reservar no se pudo confirmar (aforo lleno/cancelada entre crear el
@@ -331,6 +335,9 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // MEDIA: ninguna caduca en horas (una reserva por aprobar sí, la clase empieza).
   [EVENTOS.PLAZA_FIJA_PETICION]: { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'mostrador' },
   [EVENTOS.PLAZA_FIJA_RESPUESTA]: { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  // MEDIA: hay tiempo de sobra para actuar (DIAS_AVISO_CLASE_FIJA_TERMINA días),
+  // no es una urgencia de hoy.
+  [EVENTOS.CLASE_FIJA_TERMINA_PRONTO]: { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // ALTA + PUSH, mismo criterio que RESERVA_PENDIENTE_APROBACION: hay dinero
   // ya cobrado y una clienta que cree tener plaza sin tenerla — el mostrador
   // tiene que resolverlo hoy, no cuando alguien mire el panel por casualidad.
@@ -804,6 +811,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Tu clase fija',
     body: '{respuesta}',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}`,
+  },
+  // Le quedan pocos días de una clase fija (DIAS_AVISO_CLASE_FIJA_TERMINA):
+  // se le avisa para que pueda ampliarla antes de perder el sitio sin saberlo.
+  [`${EVENTOS.CLASE_FIJA_TERMINA_PRONTO}#SOCIA`]: {
+    title: 'Tu clase fija termina pronto',
+    body: '«{nombre}» termina el {hasta}. Amplíala desde tu app si quieres seguir teniéndola.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases-fijas`,
   },
   // Reserva pendiente de aprobar → mostrador (propietaria/manager/recepción)
   [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#PROPIETARIO`]: {

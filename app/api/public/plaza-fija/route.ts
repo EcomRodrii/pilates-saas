@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   cancelarPeticionPlazaFijaAlumna, socioAutenticado, solicitarPausaPlazaFijaAlumna, solicitarPlazaFijaAlumna,
 } from '@/lib/db/supabase-data-admin';
-import { solicitarClaseFijaAlumna } from '@/lib/db/clases-fijas';
+import { solicitarAmpliarClaseFijaAlumna, solicitarClaseFijaAlumna } from '@/lib/db/clases-fijas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
+
+// La aprobación automática de una clase fija puede reservar el motor de varias
+// franjas dentro de esta misma petición (hasta MAX_FRANJAS): el límite por
+// defecto de la función se queda corto.
+export const maxDuration = 60;
 
 // Plaza fija desde la app de la alumna: PIDE y el estudio decide
 // (`solicitudes_plaza_fija`, migr 20260915231920). Antes creaba, pausaba,
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest) {
   // Cada petición nueva avisa al mostrador, y el dedupe va por petición: anular y
   // volver a pedir manda otro push. Por eso PEDIR lleva un límite más corto que el
   // resto de la ruta — nadie pide una plaza fija cinco veces en diez minutos.
-  if (body.accion === 'solicitar_plaza' || body.accion === 'solicitar_pausa' || body.accion === 'solicitar_clase_fija') {
+  if (body.accion === 'solicitar_plaza' || body.accion === 'solicitar_pausa' || body.accion === 'solicitar_clase_fija' || body.accion === 'ampliar_clase_fija') {
     const limitePeticiones = await enforceRateLimit(req, 'public-plaza-fija-pedir', { max: 5, windowSeconds: 600 });
     if (limitePeticiones) return limitePeticiones;
   }
@@ -72,6 +77,16 @@ export async function POST(req: NextRequest) {
       const duracionMeses = typeof body.duracionMeses === 'number' && Number.isInteger(body.duracionMeses) ? body.duracionMeses : null;
       if (!claseFijaId || !duracionMeses) return NextResponse.json({ error: 'Faltan la clase fija o cuánto tiempo la quieres' }, { status: 400 });
       const r = await solicitarClaseFijaAlumna(admin, { studioId: body.studioId, socioId, claseFijaId, duracionMeses });
+      return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
+    }
+    if (body.accion === 'ampliar_clase_fija') {
+      // Sin gate a propósito, mismo criterio que `solicitar_pausa`: no reserva
+      // ninguna franja nueva —solo alarga lo que ya tiene— y solo lo alcanza una
+      // socia ya autenticada por JWT.
+      const claseFijaId = texto(body.claseFijaId);
+      const duracionMeses = typeof body.duracionMeses === 'number' && Number.isInteger(body.duracionMeses) ? body.duracionMeses : null;
+      if (!claseFijaId || !duracionMeses) return NextResponse.json({ error: 'Faltan la clase fija o cuánto tiempo la quieres' }, { status: 400 });
+      const r = await solicitarAmpliarClaseFijaAlumna(admin, { studioId: body.studioId, socioId, claseFijaId, duracionMeses });
       return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
     }
     if (body.accion === 'solicitar_pausa') {

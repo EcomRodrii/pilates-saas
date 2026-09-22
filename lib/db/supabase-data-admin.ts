@@ -4316,7 +4316,9 @@ const diaMes = (ymd: string | null | undefined) => {
   return `${Number(d)}/${Number(m)}`;
 };
 
-export type ResultadoPeticionAlumna = { ok: true; solicitudId: string } | { error: string; status: number };
+export type ResultadoPeticionAlumna =
+  | { ok: true; solicitudId: string; /** Aprobación automática: ya está dada, no «tu estudio te contestará». */ resuelta?: boolean; mensaje?: string }
+  | { error: string; status: number };
 
 export async function solicitarPlazaFijaAlumna(
   admin: SupabaseClient, p: { studioId: string; socioId: string; sesionId: string },
@@ -4406,7 +4408,7 @@ export async function cancelarPeticionPlazaFijaAlumna(
 
 export interface PeticionPlazaFijaPanel {
   id: string;
-  tipo: 'CREAR' | 'PAUSAR' | 'REANUDAR' | 'CREAR_CLASE_FIJA';
+  tipo: 'CREAR' | 'PAUSAR' | 'REANUDAR' | 'CREAR_CLASE_FIJA' | 'AMPLIAR_CLASE_FIJA';
   socioId: string;
   socia: string;
   /** «Martes 10:00 · Reformer» */
@@ -4417,7 +4419,7 @@ export interface PeticionPlazaFijaPanel {
   hasta: string | null;
   motivoSistema: MotivoVueltaPendiente | null;
   creadaEn: string;
-  /** CREAR_CLASE_FIJA: la oferta pedida, lo que eligió y si tiene sitio. */
+  /** CREAR_CLASE_FIJA / AMPLIAR_CLASE_FIJA: la oferta, lo que eligió y si tiene sitio (solo aplica a crear). */
   claseFija?: { nombre: string; duracion: string; hasta: string; aviso: string | null } | null;
 }
 
@@ -4462,18 +4464,19 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
   const nombreTipo = new Map((tipos ?? []).map(t => [t.id as string, t.nombre as string]));
   const nombreSocia = new Map((sociosRes.data ?? []).map(s =>
     [s.id as string, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Una clienta']));
-  // Las clases fijas pedidas: su nombre y si todavía tienen sitio (la bandeja lo avisa).
-  const ofertas = filas.some(f => f.tipo === 'CREAR_CLASE_FIJA')
+  // Las clases fijas pedidas (crear o ampliar): su nombre y si todavía tienen sitio.
+  const ofertas = filas.some(f => f.tipo === 'CREAR_CLASE_FIJA' || f.tipo === 'AMPLIAR_CLASE_FIJA')
     ? await (await import('@/lib/db/clases-fijas')).resumenOfertasPendientes(admin, studioId, filas.map(f => f.clase_fija_id).filter((x): x is string => !!x))
     : new Map<string, { nombre: string; estado: string; plazasLibres: number | null }>();
 
   return filas.flatMap((f): PeticionPlazaFijaPanel[] => {
-    if (f.tipo === 'CREAR_CLASE_FIJA') {
+    if (f.tipo === 'CREAR_CLASE_FIJA' || f.tipo === 'AMPLIAR_CLASE_FIJA') {
       const o = f.clase_fija_id ? ofertas.get(f.clase_fija_id) : null;
       // Su oferta se borró: no hay nada que decidir (las peticiones se van con ella).
       if (!o) return [];
       const [, m, d] = (f.vigencia_hasta_propuesta ?? '').split('-');
-      const aviso = o.estado === 'COMPLETA'
+      // Ampliar no compite por plaza (no crea franjas nuevas): «completa» solo avisa al crear.
+      const aviso = f.tipo === 'CREAR_CLASE_FIJA' && o.estado === 'COMPLETA'
         ? 'La clase fija está completa: si la aprueba, pasa del tope de plazas.'
         : o.estado === 'SIN_CLASES' ? 'Alguna de sus clases ya no está programada: no se le podrá dar.' : null;
       return [{
@@ -4592,6 +4595,30 @@ export async function resolverPeticionPlazaFija(
     await anotar({ resultado_plaza_id: prep.filas[0].id });
     await responder(cf.respuestaClaseFijaAprobada(prep.nombre, prep.hasta, dadas.creadas > 0));
     return { ok: true, mensaje: 'Clase fija dada' };
+  }
+
+  if (sol.tipo === 'AMPLIAR_CLASE_FIJA') {
+    // Ampliar no crea franjas nuevas (ya las tiene): no compite por plaza, así que no
+    // pasa por el tope duro — solo revalida cuota/autorización y extiende la fecha.
+    const cf = await import('@/lib/db/clases-fijas');
+    const nombre = await cf.nombreDeOferta(admin, p.studioId, sol.clase_fija_id) ?? 'la clase fija';
+    if (!p.aprobar) {
+      if (!await cerrar('RECHAZADA', { motivo_rechazo: p.motivo })) return yaResuelta;
+      await responder(conMotivo(`Tu estudio no puede ampliarte la clase fija «${nombre}»`));
+      return { ok: true, mensaje: 'Petición rechazada' };
+    }
+    const prep = await cf.prepararAmpliarClaseFija(admin, {
+      studioId: p.studioId, socioId: sol.socio_id, claseFijaId: sol.clase_fija_id, duracionMeses: sol.duracion_meses,
+    });
+    if ('error' in prep) return { error: prep.error, status: prep.status };
+    if (!await cerrar('APROBADA')) return yaResuelta;
+    const ampliada = await cf.aplicarAmpliarClaseFija(admin, prep.filas);
+    if ('error' in ampliada) {
+      await reabrir('APROBADA');
+      return { error: ampliada.error, status: 400 };
+    }
+    await responder(cf.respuestaClaseFijaAmpliada(prep.nombre, prep.hasta));
+    return { ok: true, mensaje: 'Clase fija ampliada' };
   }
 
   if (sol.tipo === 'CREAR') {

@@ -28,4 +28,11 @@ export const TEXTOS_CLASES_FIJAS = {
   botonAnular: 'Anular la petición',
   enviada: 'Petición enviada: tu estudio te contestará en la app.',
   anulada: 'Petición anulada.',
+  // ── Cuando ya la tiene y está a punto de terminar ──
+  venceEl: (fecha: string) => `Termina el ${fecha}`,
+  cuantoTiempoAmpliar: '¿Cuánto tiempo más la quieres?',
+  botonAmpliar: 'Ampliar',
+  ampliacionPedida: (hasta: string) => `Has pedido ampliarla (hasta el ${hasta}): tu estudio te contestará aquí.`,
+  ampliacionEnviada: 'Petición de ampliarla enviada: tu estudio te contestará en la app.',
+  ampliacionAnulada: 'Petición de ampliar anulada.',
 } as const;

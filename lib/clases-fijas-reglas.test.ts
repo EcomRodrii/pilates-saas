@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  cupoDeFranja, estadoAlumnaOferta, estadoOferta, etiquetaDuracion, franjasQueYaTiene, normalizarDuraciones, plazasVencidasQueEstorban, textoFranja,
-  plazasLibresDeClaseFija, programadaHasta, resolverFranjas, vigenciaHastaDeDuracion, type FranjaResuelta, type TarjetaMin,
+  cupoDeFranja, estadoAlumnaOferta, estadoOferta, etiquetaDuracion, franjasQueYaTiene, normalizarDuraciones, nuevaVigenciaAmpliar, plazasVencidasQueEstorban, textoFranja,
+  plazasLibresDeClaseFija, programadaHasta, resolverFranjas, vigenciaHastaDeDuracion, vigenciaMinDeOferta, type FranjaResuelta, type TarjetaMin,
 } from './clases-fijas-reglas.ts';
 
 const franja = (cambios: Partial<FranjaResuelta> = {}): FranjaResuelta => ({
@@ -151,4 +151,24 @@ test('plazas vencidas que estorban: solo las de la franja que se va a dar, activ
   assert.deepEqual(plazasVencidasQueEstorban([p('d', { vigenciaHasta: null })], franjas, HOY), [], 'sin fecha no vence');
   assert.deepEqual(plazasVencidasQueEstorban([p('e', { estado: 'BAJA' })], franjas, HOY), [], 'una de baja ya no ocupa el hueco');
   assert.deepEqual(plazasVencidasQueEstorban([p('f', { diaSemana: 4 }), p('g', { salaId: 'sala-2' }), p('h', { horaInicio: '18:30:00' })], franjas, HOY), [], 'otra franja: no se toca');
+});
+
+test('vigencia mínima de una oferta: la más próxima entre las plazas que cubren TODAS sus franjas', () => {
+  const franjas = [{ diaSemana: 2, hora: '10:00', salaId: 'sala-1', tipoClaseId: null }, { diaSemana: 4, hora: '18:30', salaId: 'sala-1', tipoClaseId: null }];
+  const p = (dia: number, hora: string, hasta: string | null, cambios: Record<string, unknown> = {}) =>
+    ({ diaSemana: dia, horaInicio: hora, salaId: 'sala-1', tipoClaseId: null, estado: 'ACTIVA', vigenciaHasta: hasta, ...cambios });
+  assert.equal(vigenciaMinDeOferta(franjas, [p(2, '10:00:00', '2026-12-21'), p(4, '18:30:00', '2026-11-12')], '2026-09-21'), '2026-11-12');
+});
+
+test('vigencia mínima: si no la tiene entera, o una de las que la cubren no tiene fecha, no hay nada que avisar', () => {
+  const franjas = [{ diaSemana: 2, hora: '10:00', salaId: 'sala-1', tipoClaseId: null }, { diaSemana: 4, hora: '18:30', salaId: 'sala-1', tipoClaseId: null }];
+  const p = (dia: number, hora: string, hasta: string | null) => ({ diaSemana: dia, horaInicio: hora, salaId: 'sala-1', tipoClaseId: null, estado: 'ACTIVA', vigenciaHasta: hasta });
+  assert.equal(vigenciaMinDeOferta(franjas, [p(2, '10:00:00', '2026-12-21')], '2026-09-21'), null, 'le falta una franja');
+  assert.equal(vigenciaMinDeOferta(franjas, [p(2, '10:00:00', '2026-12-21'), p(4, '18:30:00', null)], '2026-09-21'), null, 'una sin fecha, dada a mano');
+});
+
+test('ampliar: nunca acorta lo que ya tenía, y mide desde hoy igual que al pedirla por primera vez', () => {
+  assert.equal(nuevaVigenciaAmpliar('2026-10-05', '2026-09-21', 3), '2026-12-21', 'la nueva duración manda: llega más lejos');
+  assert.equal(nuevaVigenciaAmpliar('2027-06-01', '2026-09-21', 1), '2027-06-01', 'lo que ya tenía llegaba más lejos: no se acorta');
+  assert.equal(nuevaVigenciaAmpliar(null, '2026-09-21', 6), '2027-03-21');
 });
