@@ -219,3 +219,36 @@ export async function guardarDatos(
     return { ok: false, error: 'No hemos podido guardar. Comprueba tu conexión.' };
   }
 }
+
+/**
+ * Consentimiento de marketing de la alumna: si lo tiene VIGENTE (el texto
+ * actual del estudio). null si no se ha podido leer — la pantalla no enseña un
+ * interruptor que no sabe en qué estado está.
+ */
+export async function getConsentimientoMarketing(studioId: string): Promise<boolean | null> {
+  return pedirConsentimientoMarketing(studioId, undefined);
+}
+
+/**
+ * Darlo o retirarlo desde su app (RGPD art. 7.3: retirar tan fácil como dar).
+ * Devuelve el estado que dice el SERVIDOR tras guardar, o null si falló.
+ */
+export async function guardarConsentimientoMarketing(studioId: string, dar: boolean): Promise<boolean | null> {
+  return pedirConsentimientoMarketing(studioId, dar);
+}
+
+async function pedirConsentimientoMarketing(studioId: string, marketing: boolean | undefined): Promise<boolean | null> {
+  try {
+    const auth = await portalAuthHeader();
+    const res = await fetch('/api/public/socio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ accion: 'marketing', studioId, ...(marketing === undefined ? {} : { marketing }) }),
+    });
+    if (!res.ok) return null;
+    const cuerpo = (await res.json().catch(() => null)) as { marketing?: unknown } | null;
+    return typeof cuerpo?.marketing === 'boolean' ? cuerpo.marketing : null;
+  } catch {
+    return null;
+  }
+}

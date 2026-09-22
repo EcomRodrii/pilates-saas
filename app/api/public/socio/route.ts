@@ -13,6 +13,7 @@ import { normalizarFirma } from '@/lib/datos-salud/consentimiento';
 import {
   registrarAceptacionContrato, textoContratoVigente, evidenciaDePeticion,
 } from '@/lib/db/aceptacion-contrato-admin';
+import { consentimientoMarketingVigente, registrarConsentimientoMarketingPropio } from '@/lib/db/consentimiento-marketing-admin';
 
 // Operaciones de la propia socia desde el portal/reserva. SEGURIDAD: todas
 // exigen sesión real de socia (JWT de Supabase Auth); la identidad se deriva del
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   const body = await req.json().catch(() => null) as {
-    accion?: 'registrar' | 'actualizar';
+    accion?: 'registrar' | 'actualizar' | 'marketing';
     studioId?: string;
     id?: string;
     nombre?: string;
@@ -51,6 +52,13 @@ export async function POST(req: NextRequest) {
     cambios?: Record<string, unknown>;
     /** Invitada como instructora que ha pulsado «Entrar como alumna». */
     eligioAlumna?: boolean;
+    /**
+     * Consentimiento de marketing de la PROPIA socia (casilla desmarcada del
+     * alta, o su interruptor en la app). Solo «sí» o «no»: texto, fecha y
+     * origen los pone el servidor. En el alta solo cuenta `true`: no marcarla
+     * no es retirar uno que ya diera en el mostrador.
+     */
+    marketing?: boolean;
   } | null;
 
   if (!body?.studioId) return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
@@ -63,6 +71,25 @@ export async function POST(req: NextRequest) {
    * Valida la firma y compone el texto vigente. Devuelve la respuesta de error
    * si algo no cuadra, o lo necesario para sellar.
    */
+  /**
+   * Guarda el consentimiento de marketing de la socia sin tumbar lo demás: el
+   * alta no puede depender del marketing (RGPD art. 7.4). Si falla se dice, en
+   * vez de dar por hecho algo que no se guardó.
+   */
+  async function guardarMarketing(socioId: string, dar: boolean): Promise<'OK' | 'no_guardado'> {
+    const admin = getSupabaseAdmin();
+    try {
+      if (!admin) throw new Error('Servidor no configurado');
+      await registrarConsentimientoMarketingPropio(admin, {
+        studioId, socioId, dar, origen: 'SOCIA', evidencia: evidenciaDePeticion(req),
+      });
+      return 'OK';
+    } catch (e) {
+      errorInterno('public/socio:marketing', e, 'No se pudo guardar el consentimiento de marketing');
+      return 'no_guardado';
+    }
+  }
+
   async function prepararAceptacion(ac: FirmaMinima | null | undefined) {
     // Sin firma completa no hay aceptación: fail-closed (ver `registrar`).
     if (!firmaCompleta(ac)) {
@@ -194,12 +221,31 @@ export async function POST(req: NextRequest) {
         if (sello.causa) return conCorsWidget(req, errorInterno('public/socio:aceptacion', sello.causa, sello.error));
         return conCorsWidget(req, NextResponse.json({ error: sello.error }, { status: sello.status }));
       }
+      // La ficha es la creada en ESTA petición para el usuario del token: nunca
+      // se marca a otra socia.
+      if (body.marketing === true) {
+        return conCorsWidget(req, NextResponse.json({ ...r, marketing: await guardarMarketing(socioId, true) }));
+      }
       return conCorsWidget(req, NextResponse.json(r));
     }
 
     // Acciones sobre una socia ya existente: su id sale del token, no del body.
     const socioId = await socioAutenticado(user.userId, studioId);
     if (!socioId) return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 401 }));
+
+    // Su interruptor «Recibir novedades» en la app: leerlo (sin `marketing`) o
+    // cambiarlo. Retirarlo tiene que ser tan fácil como darlo (RGPD art. 7.3).
+    if (body.accion === 'marketing') {
+      const admin = getSupabaseAdmin();
+      if (!admin) return conCorsWidget(req, NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 }));
+      if (body.marketing !== undefined) {
+        if (typeof body.marketing !== 'boolean') return conCorsWidget(req, NextResponse.json({ error: 'Valor no válido' }, { status: 400 }));
+        if (await guardarMarketing(socioId, body.marketing) !== 'OK') {
+          return conCorsWidget(req, NextResponse.json({ error: 'No se ha podido guardar. Inténtalo de nuevo.' }, { status: 500 }));
+        }
+      }
+      return conCorsWidget(req, NextResponse.json({ marketing: await consentimientoMarketingVigente(admin, studioId, socioId) }));
+    }
 
     if (body.accion === 'actualizar') {
       const { aceptacionContrato, ...cambios } = body.cambios ?? {};
@@ -222,6 +268,11 @@ export async function POST(req: NextRequest) {
 
       const r = await actualizarSociaPublica({ studioId, socioId, authUserId: user.userId, cambios });
       if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+      // La casilla del contrato de /reservar cuando ya tenía ficha: solo junto a
+      // su firma, y solo «sí» (no marcarla no retira nada).
+      if (aceptacionContrato != null && body.marketing === true) {
+        return conCorsWidget(req, NextResponse.json({ ...r, marketing: await guardarMarketing(socioId, true) }));
+      }
       return conCorsWidget(req, NextResponse.json(r));
     }
     return conCorsWidget(req, NextResponse.json({ error: 'Acción no válida' }, { status: 400 }));

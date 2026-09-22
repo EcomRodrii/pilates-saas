@@ -189,7 +189,7 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await page.getByRole('button', { name: /^continuar/i }).click();
 
     // Contrato (clickwrap, ya no hay firma en canvas): aceptar términos → continuar.
-    await page.getByRole('checkbox').check();
+    await page.getByRole('checkbox', { name: /términos de servicio/ }).check();
     await page.getByRole('button', { name: /aceptar y continuar/i }).click();
 
     // Confirmar reserva.
@@ -231,7 +231,7 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await page.getByPlaceholder(/tu nombre completo/i).fill('Walk In E2E');
     await page.getByPlaceholder(/tu teléfono/i).fill('+34 600 111 222');
     await page.getByRole('button', { name: /^continuar/i }).click();
-    await page.getByRole('checkbox').check();
+    await page.getByRole('checkbox', { name: /términos de servicio/ }).check();
     await page.getByRole('button', { name: /aceptar y continuar/i }).click();
     await page.getByRole('button', { name: /confirmar reserva/i }).click();
 

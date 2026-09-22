@@ -27,6 +27,11 @@ export interface FirmaContrato {
   versionTexto: string;
   /** El teléfono, si lo dio: viaja con el alta, no con la firma. */
   telefono?: string;
+  /**
+   * Marcó «quiero recibir novedades» (consentimiento de marketing, aparte del
+   * contrato). Solo el «sí»: el texto y la fecha los pone el servidor.
+   */
+  marketing?: boolean;
 }
 
 const clave = (slug: string) => `st_firma_${slug}`;
