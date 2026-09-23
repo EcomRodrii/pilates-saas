@@ -3,6 +3,29 @@ export function GlobalStyles() {
     <style>{`
       .lp-mono { font-family: var(--font-plex-mono), ui-monospace, monospace; }
 
+      /* ── Movimiento de la landing (rediseño 23-sep) ────────────────────────
+         Un solo gesto para todo lo que entra en pantalla: sube 32 px y aparece,
+         atado al SCROLL (animation-timeline: view()), no a un temporizador. Por
+         eso no cuesta JavaScript, no se dispara «tarde» y va a la velocidad a
+         la que lee cada uno. Es mejora progresiva: donde el navegador no lo
+         soporta (Firefox, hoy) el contenido está quieto y visible desde el
+         principio; con prefers-reduced-motion, también.
+         Solo transform y opacity. NUNCA en el héroe ni en el vídeo (están en
+         pantalla al cargar: saldrían a medio aparecer) ni sobre un elemento que
+         ya use transform en :hover (la animación, con fill both, se lo come):
+         en esos casos va en su envoltorio. --lp-r retrasa la entrada en % del
+         recorrido, para escalonar hermanos. */
+      @keyframes lp-rv {
+        from { opacity: 0; transform: translate3d(0, 32px, 0) scale(.985); }
+        to { opacity: 1; transform: none; }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        @supports (animation-timeline: view()) {
+          .lp-rv { animation: lp-rv linear both; animation-timeline: view();
+            animation-range: entry calc(var(--lp-r, 0) * 1%) entry calc(62% + var(--lp-r, 0) * 1%); }
+        }
+      }
+
       /* Hover-lift cards: translateY + shadow + a radial glow tracking the
          cursor via --mx/--my custom properties written by LiftCard. */
       .tnt-lift { position: relative; transition: transform .28s cubic-bezier(.2,.7,0,1), box-shadow .28s; }

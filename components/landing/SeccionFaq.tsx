@@ -8,6 +8,7 @@ import { FAQ_ITEMS } from '@/components/landing/data';
 // al de producción. Aquí se usa FAQ_ITEMS entero (13, la fuente real que ya
 // usa /precios y la landing en producción) en vez de retipear una variante
 // del mismo contenido: dos copias del mismo texto solo pueden desincronizarse.
+// Desde el 23-sep son 8 (eran 14), cruzadas con el código (ver data.tsx).
 //
 // ⚠️ Están TODAS y a la vista (plegadas, pero en la página): alimentan el
 // JSON-LD `FAQPage` de StructuredData, y Google pide que ese contenido se vea.
@@ -28,8 +29,8 @@ export function SeccionFaq() {
   return (
     <section id="faq" className="v5-faq" aria-labelledby="v5-faq-h">
       <div className="v5-faq-wrap">
-        <h2 id="v5-faq-h" className="v5-faq-h2">Lo que preguntan antes de cambiarse</h2>
-        <div className="v5-faq-columnas">
+        <h2 id="v5-faq-h" className="v5-faq-h2 lp-rv">Lo que se pregunta antes de empezar</h2>
+        <div className="v5-faq-columnas lp-rv" style={{ ['--lp-r' as string]: 6 }}>
           {COLUMNAS.map((columna, c) => (
             <div key={c} className="v5-faq-lista">
               {columna.map((f) => {
@@ -55,7 +56,7 @@ export function SeccionFaq() {
       </div>
 
       <style>{`
-        .v5-faq { padding: clamp(80px,9vw,128px) clamp(20px,4vw,48px); }
+        .v5-faq { padding: clamp(64px,7vw,104px) clamp(20px,4vw,48px); }
         .v5-faq-wrap { max-width: 1240px; margin: 0 auto; }
         .v5-faq-h2 { font-size: clamp(28px,4vw,52px); font-weight: 800; line-height: 1.02; letter-spacing: -.04em;
           margin: 0 0 36px; text-wrap: balance; }
@@ -69,6 +70,12 @@ export function SeccionFaq() {
         .v5-faq-pregunta:focus-visible { outline: 2px solid #343825; outline-offset: 2px; }
         .v5-faq-signo { font-size: 20px; font-weight: 600; color: #8E8E86; flex-shrink: 0; }
         .v5-faq-respuesta { font-size: 15px; line-height: 1.7; color: #5A5A52; margin: 0; padding: 0 4px 22px; max-width: 64ch; }
+        @keyframes v5-faq-abre { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: no-preference) {
+          .v5-faq-respuesta { animation: v5-faq-abre .3s cubic-bezier(.2,.8,.2,1) both; }
+          .v5-faq-signo { transition: transform .25s cubic-bezier(.2,.8,.2,1); }
+          .v5-faq-pregunta[aria-expanded="true"] .v5-faq-signo { transform: rotate(180deg); }
+        }
 
         @media (max-width: 860px) {
           .v5-faq-columnas { grid-template-columns: minmax(0,1fr); }

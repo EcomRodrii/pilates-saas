@@ -25,94 +25,80 @@ export const INTEGRACIONES = [
   { group: 'Datos', items: ['Excel · importar y exportar', '+ más en camino'] },
 ];
 
+// Planes de la home. `cta` es el texto del botón; el de Cadena lleva a WhatsApp,
+// no al alta (antes decía «Hablar con ventas» y llevaba a /crear-estudio).
+// ⚠️ Nada que el código no respalde: «Soporte dedicado» salió el 23-sep porque
+// no existe en los entitlements, y «EL MÁS ELEGIDO» también (0 estudios de pago).
 export const PLANS = [
   {
     name: 'Base',
     price: '29€',
     desc: 'Para empezar. Hasta 150 alumnas.',
     features: ['Reservas y calendario', 'Cobros, bonos y facturas', 'Sustituciones asistidas'],
-    cta: 'Crear estudio',
+    cta: 'Probar 7 días gratis',
     dark: false,
     popular: false,
+    contacto: false,
   },
   {
     name: 'Estudio',
     price: '59€',
     desc: 'El plan completo. Alumnas ilimitadas.',
-    features: ['Todo lo de Base', 'Alumnas ilimitadas', 'Sustituciones autónomas', 'App de marca'],
-    cta: 'Crear mi estudio →',
+    features: ['Todo lo de Base', 'Alumnas ilimitadas', 'Sustituciones autónomas', 'App con tu marca'],
+    cta: 'Probar 7 días gratis',
     dark: true,
     popular: true,
+    contacto: false,
   },
   {
     name: 'Cadena',
     price: '149€',
     desc: 'Varias sedes en un mismo panel.',
-    features: ['Todo lo de Estudio', 'Varios centros', 'Soporte dedicado'],
-    cta: 'Hablar con ventas',
+    features: ['Todo lo de Estudio', 'Varios centros', 'Un solo acceso para todas'],
+    cta: 'Hablar con nosotros',
     dark: false,
     popular: false,
+    contacto: true,
   },
 ];
 
+// Las 8 preguntas de la home (rediseño 23-sep; eran 14). Alimentan también el
+// JSON-LD FAQPage de StructuredData, así que lo que se lee aquí es lo que
+// Google ve. Cada respuesta está cruzada con el código — registro de
+// afirmaciones de la Fase 1: la prueba es del plan que eliges (no «todo
+// abierto»), la migración no tiene plazo garantizado, WhatsApp solo con la
+// cuenta de Meta del estudio y la exportación son CSV.
 export const FAQ_ITEMS: { q: string; a: string }[] = [
-  // La primera desde que Tentare está abierto al público: es lo que todo el
-  // mundo pregunta antes que nada, y la respuesta («no, no pedimos tarjeta»)
-  // es justo la que quita el freno para probarlo.
   {
     q: '¿La prueba pide tarjeta?',
-    a: 'No. Son 7 días gratis con todo abierto y no te pedimos ningún dato de pago para empezar: creas tu estudio y entras. Cuando termina la prueba no se te cobra nada — si no eliges plan, simplemente se pausa y tus datos siguen ahí intactos.',
-  },
-  {
-    q: '¿Sustituye a mi software actual o convive con él?',
-    a: 'Lo sustituye del todo: reservas, cobros, calendario, alumnas e instructoras están dentro. Y la migración te la hacemos nosotros en 48h: nos mandas lo que puedas exportar (da igual el formato) y te entregamos el estudio montado, con un acta para comprobar que todo cuadra. Tu software actual sigue funcionando mientras tanto.',
-  },
-  {
-    q: '¿Es difícil de aprender a usar?',
-    a: 'No. Es lo primero que nos dicen las propietarias que lo prueban: si sabes usar WhatsApp, sabes usar Tentare. No hay formación que hacer ni manual que leer — la pantalla de inicio te enseña cada día lo que espera tu visto bueno. La mayoría de estudios ya están reservando y cobrando el primer día.',
-  },
-  {
-    q: '¿Y si ninguna instructora acepta la sustitución?',
-    a: 'Nunca te deja colgada. Si nadie puede, te avisa enseguida con las opciones sobre la mesa: volver a buscar, reprogramar la clase, cancelarla avisando a las alumnas o pedir una instructora de Tentare Network. Tú eliges.',
-  },
-  {
-    q: '¿Tengo que dar de alta a mis instructoras?',
-    a: 'Sí, das de alta a tu equipo una vez con su disponibilidad. A partir de ahí el sistema trabaja con esos datos: sabe quién puede cubrir cada clase sin que tengas que decírselo.',
-  },
-  {
-    q: '¿Cómo avisáis a las alumnas?',
-    a: 'Por el canal de cada alumna: la app del estudio, email o WhatsApp. Cuando cambia una clase, reciben el aviso al momento — sin que tengas que escribir nada.',
-  },
-  {
-    q: '¿Hay permanencia?',
-    a: 'Ninguna. Tus datos son tuyos: si te vas, exportas alumnas, historial y facturas cuando quieras. Nos quedamos porque funciona, no por un contrato.',
+    a: 'No. Son 7 días gratis del plan que elijas y no te pedimos ningún dato de pago para empezar: creas tu estudio y entras. Cuando termina la prueba no se te cobra nada; si no eliges plan, se pausa y tus datos siguen ahí.',
   },
   {
     q: '¿Cuánto tarda ponerlo en marcha?',
-    a: 'Días, no semanas. Traes tus datos con asistentes de importación por CSV (alumnas, bonos, reservas, clases y citas) y te acompañamos en la puesta en marcha. Empiezas con lo básico y activas el resto a tu ritmo.',
+    a: 'Tu horario y tu página de reservas quedan listos en tu primera sesión: el asistente te propone la semana con tus salas y tus clases, y tú la confirmas. Los cobros online se activan al conectar tu cuenta de Stripe, y el resto lo vas activando a tu ritmo.',
   },
   {
-    q: '¿Tengo que usar las sustituciones automáticas desde el principio?',
-    a: 'No. Por defecto funcionan en modo asistido: Tentare te propone la candidata y no escribe a nadie sin tu visto bueno. Los modos autónomo y Vacaciones, que cubren la baja sin ti, los activas solo si quieres (plan Estudio o Cadena).',
+    q: '¿Puedo traer mis datos de otro programa?',
+    a: 'Sí. El importador reconoce las exportaciones de Timp, Momence, bsport, Eversports y Mindbody, y también Excel: alumnas, bonos, reservas y clases. Te enseña un acta con los números para comprobar que todo cuadra y, si algo no te convence, lo deshaces con un botón. Si prefieres, lo hacemos contigo. Las tarjetas guardadas no se pueden pasar de una plataforma a otra: te ayudamos con ese paso.',
+  },
+  {
+    q: '¿Mis alumnas tienen que descargar algo?',
+    a: 'No. Reservan desde tu página de reservas o desde la app de tu estudio, que se añade a la pantalla de inicio del móvil con tu nombre y tu icono, sin pasar por la App Store. Reciben los avisos de cada cambio en el móvil y por email.',
+  },
+  {
+    q: '¿Y si ninguna instructora acepta la sustitución?',
+    a: 'Te avisa enseguida para que decidas: volver a buscar, reprogramar la clase, cancelarla avisando a las alumnas o buscar una instructora en Tentare Network. La clase nunca se cancela sola.',
+  },
+  {
+    q: '¿Cómo cobro a mis alumnas?',
+    a: 'Con Stripe: tarjeta, domiciliación SEPA y Bizum para pagos sueltos. Las cuotas se cobran solas y, si un cobro falla, se reintenta automáticamente. Tentare no se queda comisión de tus cobros. También puedes apuntar pagos en efectivo o por transferencia.',
+  },
+  {
+    q: '¿Hay permanencia?',
+    a: 'Ninguna. Pagas mes a mes y te vas cuando quieras. Tus datos son tuyos: exportas alumnas, reservas, suscripciones, recibos y pagos cuando lo necesites.',
   },
   {
     q: '¿Están seguros los datos de mi estudio y mis alumnas?',
-    a: 'Tentare está diseñado con el RGPD en mente: cada estudio accede únicamente a sus propios datos y puedes exportarlos cuando quieras.',
-  },
-  {
-    q: '¿Puedo gestionar varios centros?',
-    a: 'Sí. El plan Cadena gestiona varios centros desde un mismo panel, con datos y permisos separados por sede.',
-  },
-  {
-    q: '¿Pierdo datos o me quedo sin servicio al migrar?',
-    a: 'No. Tu estudio sigue funcionando en tu sistema actual hasta que tú decidas arrancar, y cada migración deja un acta con los números para comprobar que no falta nada — si algo no cuadra, se deshace entera con un clic. Las tarjetas guardadas de tus alumnas no se transfieren solas entre plataformas: te ayudamos a gestionar ese paso para que nadie se quede sin cobrar.',
-  },
-  {
-    q: '¿Me vais a subir el precio dentro de un año?',
-    a: 'Nuestros precios son públicos y no jugamos a subirlos por sorpresa. Si algún día cambia una tarifa, te avisamos con antelación y respetamos tu plan.',
-  },
-  {
-    q: '¿El soporte es de personas y en español?',
-    a: 'Sí. Te atienden personas, en español, que conocen cómo funciona un estudio de pilates. Sin bots que te dan vueltas ni esperas eternas.',
+    a: 'Cada estudio accede solo a sus datos, con la separación hecha en la propia base de datos, y la ficha de salud de cada alumna tiene permisos aparte. Tentare está diseñado con el RGPD en mente.',
   },
 ];

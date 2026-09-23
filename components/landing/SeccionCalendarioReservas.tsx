@@ -1,29 +1,12 @@
-'use client';
-
-import { useDemo } from './use-demo';
-import { FOTOS } from './fotos';
-import { FotoLanding } from './FotoLanding';
-
-// Sección 04 de la landing v5 — "DEMO 2 · Calendario y reservas".
+// «Y por la mañana, solo lo que necesita tu decisión» — la segunda mitad del
+// bloque 06 del rediseño (23-sep), justo después de SeccionParteNoche.
 //
-// Tres piezas, y solo dos son animadas:
-//
-//  1. El calendario semanal es un MOCKUP ESTÁTICO (una foto del producto
-//     dibujada en HTML, no datos que cambian). El diseño original no lo anima
-//     tampoco — solo hay 12 bindings `{{ }}` en toda la sección y ninguno cae
-//     dentro de esta rejilla. Se porta tal cual.
-//  2. La lista de espera (`PLAZA`) — 4 fotogramas: clase llena → se libera un
-//     hueco → se avisa a quien tocaba → confirmada. El pie se llamaba «Radar
-//     48 h» y decía que se avisaba «a socias con bono activo que ya han hecho
-//     esta clase»: eso es «Rellenar hueco» (la propietaria elige a quién y lo
-//     lanza ella), no la lista de espera, que avisa a la cola.
-//  3. El aforo por reformer (`SPOTS`) — 3 fotogramas de cómo una alumna elige
-//     su máquina, "como en el cine". Va encima de una foto de reformers
-//     (`FOTOS.plazas`), sobre la pared crema de arriba: la demo es de muestra,
-//     así que va `aria-hidden` y el <figcaption> la cuenta en una frase.
-//     ⚠️ La tarjeta tiene que caber en esa pared sin tapar las máquinas: por eso
-//     la foto pasa a una columna antes (1180 px) que el resto de la sección, y a
-//     su recorte vertical en el móvil.
+// El calendario semanal es un MOCKUP ESTÁTICO (el producto dibujado en HTML,
+// no datos que cambian) con la alerta de la única clase que necesita a la
+// propietaria. Hasta el 23-sep llevaba debajo dos micro-demos (la lista de
+// espera y «elige su reformer» sobre una foto): salieron al recortar la home —
+// la lista de espera ya la cuenta «Mientras cerrabas» y la elección de reformer
+// vive en /funcionalidades/plazas-fijas y en la app de la alumna.
 
 const CLASE = { n: 'Reformer Avanzado', sub: 'Mañana · 08:30 · Sala 1', dia: 'LUN 10', ocup: '6/8' };
 
@@ -46,55 +29,20 @@ const RESTO_SEMANA: { dia: string; clases: { h: string; n: string; sub: string; 
   ] },
 ];
 
-interface FotogramaPlaza {
-  count: string; countFg: string; llenas: number;
-  waitTxt: string; waitFg: string; waitBg: string; waitBd: string;
-  radar: string;
-}
-const PLAZA: FotogramaPlaza[] = [
-  { count: '8 / 10', countFg: '#2F6B4F', llenas: 8, waitTxt: 'Lista de espera · nº 1', waitFg: '#8E8E86', waitBg: 'transparent', waitBd: 'transparent', radar: 'Carmen es la primera de la cola.' },
-  { count: '7 / 10', countFg: '#A8442A', llenas: 7, waitTxt: 'Lista de espera · nº 1', waitFg: '#8E8E86', waitBg: 'transparent', waitBd: 'transparent', radar: 'Ana cancela a las 17:40 · plaza libre detectada. Avisando a la lista…' },
-  { count: '7 / 10', countFg: '#8F6215', llenas: 7, waitTxt: 'Avisada · confirmando…', waitFg: '#8F6215', waitBg: 'rgba(143,98,21,.08)', waitBd: '#E5CE9C', radar: 'la primera de la cola recibe el aviso en su móvil.' },
-  { count: '8 / 10', countFg: '#2F6B4F', llenas: 7, waitTxt: 'Confirmada ✓', waitFg: '#2F6B4F', waitBg: 'rgba(47,107,79,.08)', waitBd: 'rgba(47,107,79,.35)', radar: 'plaza recuperada a las 17:44. Sin mensajes tuyos.' },
-];
-
-interface FotogramaSpot { sel: number; msg: string; dot: string; }
-const SPOTS_FASES: FotogramaSpot[] = [
-  { sel: -1, msg: 'Plazas libres en blanco · ocupadas en gris', dot: '#8E8E86' },
-  { sel: 2, msg: 'Claudia elige el reformer 3, junto al espejo', dot: '#8F6215' },
-  { sel: 2, msg: 'Confirmado · guardado como su favorito', dot: '#2F6B4F' },
-];
-// 8 puestos, 2 ya ocupados por otras alumnas (independiente del que elige Claudia).
-const OCUPADOS = new Set([1, 5]);
-
-const MEDIA_UNA_COLUMNA = '(max-width: 1180px)';
-const MEDIA_FOTO_MOVIL = '(max-width: 640px)';
-const proporcion = ({ proporcion: [ancho, alto] }: { proporcion: readonly [number, number] }) => `${ancho} / ${alto}`;
-
 export function SeccionCalendarioReservas() {
-  // Identificadores directos y no `plaza.ref` / `spot.ref`: el compilador de
-  // React exige que un ref pasado a JSX sea un binding de primer nivel, no un
-  // acceso a propiedad — con el acceso, lo trata como lectura durante el
-  // render y lo rechaza.
-  const { i: iPlaza, ref: refPlaza } = useDemo(PLAZA.length, 2500);
-  const { i: iSpot, ref: refSpot } = useDemo(SPOTS_FASES.length, 2900);
-  const P = PLAZA[iPlaza];
-  const barras = Array.from({ length: 10 }, (_, n) => n < P.llenas);
-  const SP = SPOTS_FASES[iSpot];
-
   return (
-    <section id="calendario" ref={refPlaza as React.Ref<HTMLElement>} className="v5-cal" aria-labelledby="v5-cal-h">
+    <section id="calendario" className="v5-cal" aria-labelledby="v5-cal-h">
       <div className="v5-cal-wrap">
-        <header className="v5-cal-head">
-          <h2 id="v5-cal-h" className="v5-cal-h2">Tu estudio entero, organizado. Y avisándote solo.</h2>
+        <header className="v5-cal-head lp-rv">
+          <h2 id="v5-cal-h" className="v5-cal-h2">Y por la mañana, solo lo que necesita tu decisión.</h2>
           <p className="v5-cal-lead">
-            Semana, día o mes, con capacidad por reformer: cuando una clase necesita una decisión, el calendario
-            te lo dice.
+            Semana, día o mes, con capacidad por reformer. Cuando una clase necesita algo de ti, el calendario te
+            lo dice; lo demás ya está resuelto.
           </p>
         </header>
 
         {/* ── El mockup del calendario: estático a propósito ── */}
-        <div className="v5-cal-mock">
+        <div className="v5-cal-mock lp-rv" style={{ ['--lp-r' as string]: 6 }}>
           <div className="v5-cal-mock-top">
             <div>
               <div className="v5-cal-mock-tit">Calendario</div>
@@ -141,71 +89,12 @@ export function SeccionCalendarioReservas() {
           </div>
         </div>
 
-        {/* ── Las dos micro-demos ── */}
-        <div className="v5-micro-grid">
-          <div className="v5-micro">
-            <div className="v5-micro-top">
-              <div className="v5-micro-tit">Mat + Circuito · 19:00</div>
-              <span className="v5-micro-count" style={{ color: P.countFg }}>{P.count}</span>
-            </div>
-            <div className="v5-barras" aria-hidden>
-              {barras.map((llena, n) => (
-                <span key={n} className="v5-barra" style={{ background: llena ? '#4A5330' : '#E7E7E0' }} />
-              ))}
-            </div>
-            <div className="v5-fila-espera" style={{ background: P.waitBg, borderColor: P.waitBd }}>
-              <span className="v5-micro-ini">C</span>
-              <span className="v5-fila-nombre">Carmen V. · lista de espera</span>
-              <span className="v5-fila-estado" style={{ color: P.waitFg }}>{P.waitTxt}</span>
-            </div>
-            <p className="v5-radar"><strong>Lista de espera:</strong> {P.radar}</p>
-          </div>
-
-          <figure className="v5-plazas" ref={refSpot as React.Ref<HTMLElement>}>
-            <div className="v5-plazas-foto">
-              <FotoLanding
-                foto={FOTOS.plazas}
-                mediaMovil={MEDIA_FOTO_MOVIL}
-                sizes={{ escritorio: '(max-width: 1180px) calc(100vw - 40px), (max-width: 1336px) 52vw, 692px', movil: 'calc(100vw - 40px)' }}
-              />
-            </div>
-            <div className="v5-micro v5-plazas-tarjeta" aria-hidden="true">
-              <div className="v5-micro-top">
-                <span className="v5-micro-tit">Y tus alumnas eligen su reformer</span>
-                <span className="v5-micro-como">como en el cine</span>
-              </div>
-              <div className="v5-espejo"><span /><span className="v5-espejo-t">ESPEJO</span><span /></div>
-              <div className="v5-spots">
-                {Array.from({ length: 8 }, (_, n) => {
-                  const ocupado = OCUPADOS.has(n);
-                  const elegido = SP.sel === n;
-                  return (
-                    <div
-                      key={n}
-                      className="v5-spot"
-                      style={{
-                        borderColor: elegido ? '#8F6215' : ocupado ? '#DDDBD0' : '#E7E7E0',
-                        background: elegido ? 'rgba(143,98,21,.06)' : '#fff',
-                      }}
-                    >
-                      <span className="v5-spot-m" style={{ background: ocupado ? '#C9C7BB' : elegido ? '#8F6215' : '#DCE0CB' }} />
-                      <span className="v5-spot-n">{n + 1}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="v5-spot-msg"><span className="v5-spot-dot" style={{ background: SP.dot }} />{SP.msg}</p>
-            </div>
-            <figcaption className="v5-cal-oculto">
-              Foto de reformers en un estudio con, encima, cómo elige su reformer una alumna desde la app: ve qué plazas
-              están libres, elige la suya y queda guardada como su favorita.
-            </figcaption>
-          </figure>
-        </div>
       </div>
 
       <style>{`
-        .v5-cal { padding: clamp(80px,9vw,128px) clamp(20px,4vw,48px); }
+        /* Va justo después de «Mientras cerrabas» (la noche) y es su mañana: mismo
+           fondo y poco aire arriba, para que se lean como un solo bloque. */
+        .v5-cal { padding: clamp(32px,4vw,48px) clamp(20px,4vw,48px) clamp(64px,7vw,104px); }
         .v5-cal-wrap { max-width: 1240px; margin: 0 auto; }
         .v5-cal-head { max-width: 980px; margin-bottom: 40px; }
         .v5-cal-h2 { margin: 0 0 18px; font-size: clamp(30px,4.4vw,60px); font-weight: 800; line-height: 1.02;
@@ -238,71 +127,6 @@ export function SeccionCalendarioReservas() {
         .v5-cal-clase-n { font-size: 12.5px; font-weight: 800; }
         .v5-cal-clase-o { font-size: 11px; color: #5A5A52; margin-top: 2px; }
 
-        .v5-micro-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.3fr);
-          gap: 16px; margin-top: 18px; align-items: center; }
-        .v5-micro { background: #fff; border: 1px solid #E7E7E0; border-radius: 20px; padding: 24px;
-          box-shadow: 0 30px 70px rgba(26,26,26,.08); }
-        .v5-micro-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-        .v5-micro-tit { font-size: 16px; font-weight: 800; }
-        .v5-micro-count { font-size: 13px; font-weight: 800; transition: color .4s; }
-        .v5-micro-como { font-size: 12px; font-weight: 700; color: #8E8E86; }
-        .v5-barras { display: flex; gap: 5px; margin: 14px 0 16px; }
-        .v5-barra { flex: 1; height: 8px; border-radius: 4px; transition: background .45s; }
-        .v5-fila-espera { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 12px;
-          border: 1px solid transparent; transition: background .4s, border-color .4s; }
-        .v5-micro-ini { flex: none; width: 30px; height: 30px; border-radius: 50%; background: #F1F2EA;
-          display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; color: #55622C; }
-        .v5-fila-nombre { flex: 1; font-size: 14px; font-weight: 600; }
-        .v5-fila-estado { flex: none; font-size: 12px; font-weight: 700; transition: color .4s; }
-        .v5-radar { margin: 14px 0 0; padding: 11px 14px; border-radius: 12px; background: #F1F2EA;
-          font-size: 13px; line-height: 1.55; color: #4A5330; }
-
-        .v5-espejo { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-        .v5-espejo span:not(.v5-espejo-t) { flex: 1; height: 2px; background: #E7E7E0; }
-        .v5-espejo-t { font-size: 10px; font-weight: 800; letter-spacing: .18em; color: #B4B0A5; }
-        .v5-spots { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
-        .v5-spot { border-radius: 11px; border: 1.5px solid #E7E7E0; padding: 8px 0 6px; display: flex;
-          flex-direction: column; align-items: center; gap: 4px; transition: background .4s, border-color .4s; }
-        .v5-spot-m { width: 22px; height: 29px; border-radius: 5px; transition: background .4s; }
-        .v5-spot-n { font-size: 10.5px; font-weight: 700; color: #8E8E86; }
-        .v5-spot-msg { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 12.5px;
-          color: #5A5A52; }
-        .v5-spot-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; transition: background .4s; }
-
-        /* La foto con la demo de plazas encima, sobre la pared de arriba. */
-        .v5-plazas { position: relative; margin: 0; }
-        .v5-plazas-foto { position: relative; aspect-ratio: ${proporcion(FOTOS.plazas.recortes.escritorio)};
-          border-radius: 20px; overflow: hidden; background: #E9DFCC; box-shadow: 0 30px 70px rgba(26,26,26,.08); }
-        .v5-plazas-foto picture, .v5-plazas-foto img { display: block; width: 100%; height: 100%; }
-        .v5-plazas-foto img { object-fit: cover; }
-        .v5-plazas-tarjeta { position: absolute; top: 14px; right: 14px; width: min(376px, calc(100% - 28px));
-          padding: 13px 15px 12px; border-radius: 16px; border-color: rgba(52,56,37,.08);
-          box-shadow: 0 24px 48px -22px rgba(34,37,26,.42), 0 2px 6px rgba(34,37,26,.06); }
-        .v5-plazas-tarjeta .v5-micro-top { flex-wrap: nowrap; }
-        .v5-plazas-tarjeta .v5-micro-tit { font-size: 14.5px; }
-        .v5-plazas-tarjeta .v5-micro-como { font-size: 11.5px; }
-        .v5-plazas-tarjeta .v5-espejo { margin: 6px 0 6px; }
-        .v5-plazas-tarjeta .v5-spots { gap: 6px; }
-        .v5-plazas-tarjeta .v5-spot { padding: 5px 0 3px; gap: 2px; border-radius: 9px; }
-        .v5-plazas-tarjeta .v5-spot-m { width: 14px; height: 18px; border-radius: 4px; }
-        .v5-plazas-tarjeta .v5-spot-n { font-size: 10px; }
-        .v5-plazas-tarjeta .v5-spot-msg { margin-top: 8px; font-size: 12px; }
-        .v5-cal-oculto { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
-          clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-
-        @media ${MEDIA_UNA_COLUMNA} {
-          .v5-micro-grid { grid-template-columns: minmax(0,1fr); }
-        }
-        @media ${MEDIA_FOTO_MOVIL} {
-          .v5-plazas-foto { aspect-ratio: ${proporcion(FOTOS.plazas.recortes.movil)}; }
-          .v5-plazas-tarjeta { top: 12px; right: 12px; width: calc(100% - 24px); padding: 12px 14px 11px; }
-          .v5-plazas-tarjeta .v5-micro-top { flex-wrap: wrap; row-gap: 0; }
-        }
-
-
-        @media (prefers-reduced-motion: reduce) {
-          .v5-barra, .v5-fila-espera, .v5-fila-estado, .v5-spot, .v5-spot-m, .v5-spot-dot { transition: none; }
-        }
       `}</style>
     </section>
   );

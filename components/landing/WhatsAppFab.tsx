@@ -15,7 +15,18 @@ const MENSAJE = 'Hola, tengo una duda sobre Tentare:';
 
 export function WhatsAppFab() {
   const [open, setOpen] = useState(false);
+  // Mientras el héroe está en pantalla el botón no está: en el móvil tapaba
+  // las tarjetas de la foto (auditoría del 23-sep). Aparece al dejarlo atrás.
+  const [enHeroe, setEnHeroe] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const heroe = document.getElementById('top');
+    if (!heroe || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver(([e]) => setEnHeroe(e.isIntersecting), { threshold: 0.35 });
+    io.observe(heroe);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -36,7 +47,7 @@ export function WhatsAppFab() {
   const href = enlaceWhatsApp(SOPORTE_WHATSAPP, MENSAJE) ?? '#';
 
   return (
-    <div ref={ref} className="v5-wa-fab">
+    <div ref={ref} className="v5-wa-fab" data-oculto={enHeroe && !open ? '' : undefined}>
       {open && (
         <div className="v5-wa-panel">
           <div className="v5-wa-panel-cabecera">
@@ -49,7 +60,7 @@ export function WhatsAppFab() {
             <WhatsAppIcon size={16} className="v5-wa-boton-icono" />
             Escribir por WhatsApp
           </a>
-          <p className="v5-wa-nota">Te responde una persona, no una IA · Respuesta rápida</p>
+          <p className="v5-wa-nota">Te responde una persona, no una IA</p>
         </div>
       )}
 
@@ -65,7 +76,11 @@ export function WhatsAppFab() {
       </button>
 
       <style>{`
-        .v5-wa-fab { position: fixed; bottom: 24px; right: 20px; z-index: 70; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+        .v5-wa-fab { position: fixed; bottom: 24px; right: 20px; z-index: 70; display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
+          transition: opacity .35s cubic-bezier(.2,.8,.2,1), transform .35s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+        .v5-wa-fab[data-oculto] { opacity: 0; transform: translateY(16px) scale(.9); visibility: hidden; pointer-events: none;
+          transition: opacity .25s ease, transform .25s ease, visibility 0s linear .25s; }
+        @media (prefers-reduced-motion: reduce) { .v5-wa-fab, .v5-wa-fab[data-oculto] { transition: none; } }
         .v5-wa-toggle { position: relative; width: 56px; height: 56px; border-radius: 50%; background: #25D366; border: none;
           box-shadow: 0 10px 30px rgba(0,0,0,.28); display: flex; align-items: center; justify-content: center;
           cursor: pointer; transition: transform .15s; }

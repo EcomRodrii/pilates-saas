@@ -9,6 +9,11 @@ import { ALTA, NAV_V5, NAV_NETWORK } from './enlaces';
 import { FOTOS } from './fotos';
 import { FotoLanding } from './FotoLanding';
 import { FIN_MONTAJE } from './IntroLogo';
+import { PLANS } from './data';
+
+// El precio más bajo, del mismo sitio que la sección de precios: si cambia la
+// tarifa, no se queda una cifra vieja en el primer pantallazo.
+const PRECIO_DESDE = PLANS[0].price.replace('€', ' €');
 
 // Nav + primer pantallazo.
 //
@@ -37,8 +42,10 @@ import { FIN_MONTAJE } from './IntroLogo';
 // de pantalla no lea datos de muestra como si fueran de su estudio.
 //
 // ⚠️ El <h1> empieza por TEXTO, sin marcado delante: e2e/intro-logo.spec.ts
-// comprueba en el HTML crudo que `<h1 …>` va seguido de letras. Es el titular
-// de SEO de #1200 y de la auditoría del 10-sep; la emoción va en el párrafo.
+// comprueba en el HTML crudo que `<h1 …>` va seguido de letras. La categoría
+// («Software de gestión para estudios de Pilates», titular de SEO de #1200) va
+// primero y en pequeño; la promesa (Dirección A del rediseño de 23-sep, «Tu
+// estudio sigue funcionando aunque sueltes el móvil») va dentro, en grande.
 //
 // El logo va con <LogoTentare>, nunca con un <img>: es la regla de marca del
 // repo (docs/marca/).
@@ -134,16 +141,23 @@ export function SeccionHero() {
       <header id="top" className="v5-hero">
         <div className="v5-hero-wrap">
           <div className="v5-hero-texto">
-            <h1 className="v5-hero-h1">Software de gestión para estudios de Pilates</h1>
+            {/* Un solo <h1> con dos voces: la categoría (lo que se busca) en
+                pequeño y la promesa en grande. Empieza por TEXTO —ver el aviso
+                de arriba— y la promesa va en un <span> dentro, así Google lee
+                «Software de gestión para estudios de Pilates» primero y la
+                propietaria lee la promesa primero. */}
+            <h1 className="v5-hero-h1">Software de gestión para estudios de Pilates{' '}
+              <span className="v5-hero-promesa">Tu estudio sigue funcionando aunque sueltes el móvil.</span>
+            </h1>
             <p className="v5-hero-lead">
-              Gestiona reservas, clases, alumnos, pagos y profesores desde un solo lugar. Y recupera tus
-              tardes: Tentare busca quién cubre cada baja y reintenta los cobros que fallan.
+              Tus alumnas reservan y cancelan desde tu app, las bajas encuentran quien las cubra y los cobros
+              se reintentan solos. Tú solo decides lo que necesita tu criterio.
             </p>
             <div className="v5-hero-acciones">
               <Link href={ALTA} className="v5-hero-cta">Probar {TRIAL_DIAS} días gratis</Link>
-              <a href="#producto" className="v5-hero-enlace">Ver Tentare en acción <span aria-hidden>↓</span></a>
+              <a href="#producto" className="v5-hero-enlace">Ver cómo funciona <span aria-hidden>↓</span></a>
             </div>
-            <p className="v5-hero-nota">Sin tarjeta de crédito · Sin permanencia</p>
+            <p className="v5-hero-nota">Sin tarjeta · Sin permanencia · Desde {PRECIO_DESDE}/mes</p>
           </div>
 
           <figure className="v5-hero-escena">
@@ -232,8 +246,8 @@ export function SeccionHero() {
            la sección aterriza justo DEBAJO de ella y queda tapado — se ve al
            pulsar "Sustituciones", "Precios" o "FAQ". Medido: la sección
            llegaba a top:0 con la barra ocupando hasta 72. */
-        #producto, #sustituciones, #calendario, #app, #funcionalidades,
-        #precio, #cambiarse, #faq { scroll-margin-top: 88px; }
+        #producto, #te-suena, #tu-estudio, #sustituciones, #calendario, #app,
+        #funcionalidades, #precio, #faq { scroll-margin-top: 88px; }
 
         /* --alto-barra: la barra mide 58px y va en el flujo; el héroe sube por
            debajo de ella para que el halo arena empiece arriba del todo.
@@ -245,13 +259,17 @@ export function SeccionHero() {
            montado sobre las tarjetas flotantes de la foto. */
         .v5-hero { --alto-barra: 58px; position: relative;
           margin-top: calc(-1 * var(--alto-barra));
-          padding: calc(var(--alto-barra) + clamp(48px,8vh,96px)) clamp(20px,4vw,48px) clamp(156px,14vw,188px);
+          padding: calc(var(--alto-barra) + clamp(48px,8vh,96px)) clamp(20px,4vw,48px) clamp(150px,13vw,180px);
           background: radial-gradient(60% 70% at 80% 36%, rgba(217,194,158,.34), rgba(217,194,158,0) 70%); }
         .v5-hero-wrap { max-width: 1240px; margin: 0 auto; display: grid;
           grid-template-columns: minmax(0,.94fr) minmax(0,1.06fr); gap: clamp(32px,5vw,72px); align-items: center; }
 
-        .v5-hero-h1 { margin: 0; font-size: clamp(40px,4.5vw,60px); font-weight: 800; line-height: .98;
-          letter-spacing: -.045em; color: #1F2216; text-wrap: balance; }
+        /* El h1 pinta la categoría como antetítulo; la promesa, dentro, es
+           el titular grande. */
+        .v5-hero-h1 { margin: 0; font-size: 13px; font-weight: 700; line-height: 1.4; letter-spacing: .14em;
+          text-transform: uppercase; color: #5A5E48; }
+        .v5-hero-promesa { display: block; margin-top: 18px; font-size: clamp(40px,4.5vw,62px); font-weight: 800;
+          line-height: .98; letter-spacing: -.045em; text-transform: none; color: #1F2216; text-wrap: balance; }
         .v5-hero-lead { margin: 22px 0 0; max-width: 46ch; font-size: clamp(16px,1.35vw,18.5px); line-height: 1.55;
           color: #5A5A52; text-wrap: pretty; }
         .v5-hero-acciones { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 26px; margin-top: 32px; }
@@ -259,6 +277,7 @@ export function SeccionHero() {
           padding: 17px 30px; border-radius: 999px; white-space: nowrap;
           box-shadow: 0 18px 36px -16px rgba(52,56,37,.6); transition: transform .2s, background .2s; }
         .v5-hero-cta:hover { background: #22251A; transform: translateY(-2px); }
+        .v5-hero-cta:active { transform: translateY(0) scale(.98); }
         .v5-hero-enlace { font-size: 15.5px; font-weight: 700; color: #343825; white-space: nowrap; }
         .v5-hero-enlace:hover { text-decoration: underline; text-underline-offset: 4px; }
         .v5-hero-cta:focus-visible, .v5-hero-enlace:focus-visible { outline: 2px solid #343825; outline-offset: 3px; }
@@ -313,6 +332,8 @@ export function SeccionHero() {
           .v5-hero-tarjeta { animation: v5-hero-tarjeta-entra .8s cubic-bezier(.22,.7,.3,1) both;
             animation-delay: calc(${FIN_MONTAJE.toFixed(2)}s + var(--orden) * .14s); }
           :root:has(.tnt-intro[data-saltada]) .v5-hero-tarjeta { animation-delay: calc(.1s + var(--orden) * .14s); }
+          /* Sin cortina (visitas siguientes), el retardo lo adelanta el estilo
+             que mete IntroLogo antes de pintar. */
         }
 
         /* Portátil pequeño y tablet apaisada: la foto encoge y las tarjetas con ella. */
@@ -325,11 +346,12 @@ export function SeccionHero() {
         }
 
         @media ${MEDIA_UNA_COLUMNA} {
-          .v5-hero { padding: calc(var(--alto-barra) + 30px) 20px 136px;
+          .v5-hero { padding: calc(var(--alto-barra) + 30px) 20px 128px;
             background: radial-gradient(90% 50% at 70% 72%, rgba(217,194,158,.34), rgba(217,194,158,0) 70%); }
           .v5-hero-wrap { grid-template-columns: minmax(0,1fr); gap: 36px; }
           .v5-hero-texto { width: 100%; max-width: 560px; margin: 0 auto; }
-          .v5-hero-h1 { margin-top: 0; font-size: clamp(38px,10.5vw,52px); }
+          .v5-hero-h1 { margin-top: 0; font-size: 11.5px; letter-spacing: .12em; }
+          .v5-hero-promesa { margin-top: 14px; font-size: clamp(36px,10vw,50px); }
           .v5-hero-lead { margin-top: 16px; font-size: 15.5px; max-width: none; }
           .v5-hero-acciones { margin-top: 24px; flex-direction: column; align-items: stretch; gap: 14px; }
           .v5-hero-cta { display: block; text-align: center; font-size: 16px; padding: 16px 24px; }

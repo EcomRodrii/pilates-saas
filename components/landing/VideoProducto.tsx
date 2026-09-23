@@ -1,4 +1,4 @@
-// El vídeo de producto del hero («Ver Tentare en acción»): el resumen de 78 s
+// El vídeo de producto («Ver cómo funciona» en el hero): el resumen de 78 s
 // del panel REAL de Tentare con datos de un estudio de prueba inventado —
 // bajas que se cubren solas, la semana entera en el calendario, reservas,
 // cobros— narrado con tipografía y avisos sobre el propio producto.
@@ -42,6 +42,10 @@ export function VideoProducto() {
       </div>
 
       <style>{`
+        /* Justo después del héroe, montado 72 px sobre él (el fundador lo
+           quiere ahí, encima de «¿Te suena?»: es la prueba inmediata de la
+           promesa). El fondo oscuro de «¿Te suena?» empieza por debajo, así
+           que el vídeo queda a caballo entre la promesa y el problema. */
         .v5-prod { position: relative; z-index: 2; max-width: 1180px; margin: -72px auto 0;
           padding: 0 clamp(20px,4vw,48px); }
         /* El marco: esquinas redondeadas, un borde muy tenue y una sombra
@@ -53,12 +57,8 @@ export function VideoProducto() {
         .v5-prod-marco video { display: block; width: 100%; height: auto; }
 
         @media (max-width: 760px) {
-          /* Sube menos (el hero es más corto) y va de borde a borde: a 390 px
-             cada píxel cuenta. Con 16:9 el vídeo ya mide poco (~219 px de
-             alto a 390 de ancho), así que el solape solo tiene que asomar la
-             esquina superior sobre el héroe, no comerse media pantalla. */
-          .v5-prod { margin-top: -24px; padding: 0; }
-          .v5-prod-marco { border-radius: 12px; border-left: none; border-right: none; }
+          .v5-prod { margin-top: -24px; padding: 0 12px; }
+          .v5-prod-marco { border-radius: 14px; }
         }
       `}</style>
     </div>

@@ -15,10 +15,11 @@ import { SALIDAS } from './enlaces';
 // reasigna sola (responder.ts). Esta demo contaba antes el orden al revés:
 // contactaba sola a dos a la vez y pedía la aprobación al final.
 //
-// Absorbe al antiguo bloque «El martes de una propietaria» (SeccionMartes,
-// retirado al aligerar la home): su idea —dejar de dirigir el estudio desde
-// WhatsApp— es el título, y la baja de las 16:42 que contaba el martes es
-// justo la que resuelve esta demo.
+// El título fue «Deja de dirigir tu estudio desde WhatsApp» hasta el rediseño
+// del 23-sep: WhatsApp pasa a ser un síntoma (bloque «¿Te suena?») y aquí el
+// titular es lo que hace la demo. La baja de las 16:42 SOLO se cuenta aquí;
+// ningún otro bloque la repite. El registro no dice «también por WhatsApp»:
+// eso solo pasa si el estudio conecta su propia cuenta de Meta.
 //
 // Se puede avanzar a mano: el ciclo automático es un acompañamiento, no la
 // única forma de verlo. Con `prefers-reduced-motion` arranca directamente en
@@ -75,7 +76,7 @@ const REGISTRO: [string, string][] = [
   ['16:43', 'Se calculan las candidatas que pueden darla'],
   ['16:45', 'Tu visto bueno: avisar a Julia'],
   ['16:45', 'Email a Julia con un enlace para aceptar'],
-  ['17:30', 'Recordatorio automático, también por WhatsApp'],
+  ['17:30', 'Recordatorio automático a Julia'],
   ['17:52', 'Julia acepta · la clase se reasigna sola'],
   ['17:52', 'Las 8 alumnas reciben el cambio'],
 ];
@@ -92,15 +93,15 @@ export function SeccionSustituciones() {
       aria-labelledby="v5-sust-h"
     >
       <div className="v5-sust-wrap">
-        <header className="v5-sust-head">
-          <h2 id="v5-sust-h" className="v5-sust-h2">Deja de dirigir tu estudio desde WhatsApp.</h2>
+        <header className="v5-sust-head lp-rv">
+          <h2 id="v5-sust-h" className="v5-sust-h2">La baja se cubre sola.</h2>
           <p className="v5-sust-lead">
             Una instructora cancela a las 16:42: Tentare sabe quién puede dar esa clase, te la propone y, con tu
-            visto bueno, la contacta, insiste por ti y te lo trae resuelto.
+            visto bueno, la contacta, insiste por ti y te lo trae resuelto. Si nadie puede, te avisa y decides tú.
           </p>
         </header>
 
-        <div className="v5-sust-grid">
+        <div className="v5-sust-grid lp-rv" style={{ ['--lp-r' as string]: 6 }}>
           {/* ── La tarjeta que cambia ── */}
           <div className="v5-card">
             <div className="v5-card-top">
@@ -179,7 +180,7 @@ export function SeccionSustituciones() {
       </div>
 
       <style>{`
-        .v5-sust { background: #131313; padding: clamp(80px,9vw,128px) clamp(20px,4vw,48px); }
+        .v5-sust { background: #131313; padding: clamp(64px,7vw,104px) clamp(20px,4vw,48px); }
         .v5-sust-wrap { max-width: 1240px; margin: 0 auto; }
         .v5-sust-head { max-width: 820px; margin-bottom: clamp(36px,4.5vw,56px); }
         .v5-sust-h2 { margin: 0 0 18px; font-size: clamp(30px,4.4vw,60px); font-weight: 800;
@@ -232,6 +233,13 @@ export function SeccionSustituciones() {
           font-weight: 700; color: #D9C29E; }
         .v5-salida:hover { text-decoration: underline; text-underline-offset: 4px; }
 
+        /* En el móvil, del registro se quedan la primera y las tres últimas
+           líneas (la baja, el recordatorio y el cierre): la tarjeta de arriba
+           ya cuenta el paso a paso y las siete seguidas eran media pantalla. */
+        @media (max-width: 560px) {
+          .v5-registro-l li:nth-child(2), .v5-registro-l li:nth-child(3), .v5-registro-l li:nth-child(4) { display: none; }
+          .v5-registro-l li { font-size: 14px; }
+        }
         @media (prefers-reduced-motion: reduce) {
           .v5-badge, .v5-cand, .v5-cand-e, .v5-accion, .v5-paso::after { transition: none; }
         }

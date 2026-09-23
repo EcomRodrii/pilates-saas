@@ -8,34 +8,35 @@ import { test, expect, type Page } from '@playwright/test';
 // deja de ser una invitación y pasa a ser publicidad — y quien lo sufre es
 // alguien que todavía no es clienta y que no se va a quejar, se va.
 //
-// El disparador por TIEMPO son 30 s, demasiado para un test; aquí se usa el de
-// SCROLL, que es el mismo camino de código (`abrir()` y sus reglas de
-// frecuencia). Las reglas en sí están cubiertas aparte y sin navegador en
+// Desde el 23-sep el disparador es dejar atrás la sección de precio (y, en
+// escritorio, la intención de salida). Aquí se usa el de SCROLL, que pasa por
+// el mismo camino de código (`abrir()` y sus reglas de frecuencia). Las reglas en sí están cubiertas aparte y sin navegador en
 // lib/landing/popup-frecuencia.test.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CLAVE = 'tentare:popup-empezar';
 const CLAVE_SESION = 'tentare:popup-empezar-sesion';
 
-const popup = (page: Page) => page.getByRole('dialog', { name: /Empieza gratis en 2 minutos/i });
+const popup = (page: Page) => page.getByRole('dialog', { name: /Pruébalo \d+ días gratis/i });
 
 /**
- * Baja más de la mitad de la página, que es lo que dispara el popup.
+ * Deja atrás la sección de precio (baja hasta la de preguntas), que es lo que
+ * dispara el popup.
  *
  * ⚠️ Repite el gesto hasta que aparece (o hasta agotar los intentos) porque el
  * listener de scroll lo instala un `useEffect`: si el `scrollTo` llega antes de
  * que React hidrate —y bajo carga llega—, ese primer scroll no lo escucha
  * nadie. En un navegador real da igual (la persona sigue moviendo la rueda, y
- * además está el disparador de 30 s), pero en un test es un falso rojo.
+ * además está la intención de salida), pero en un test es un falso rojo.
  */
-async function bajarHastaLaMitad(page: Page) {
+async function pasarElPrecio(page: Page) {
   for (let intento = 0; intento < 10; intento++) {
     await page.evaluate(() => {
-      const alto = document.documentElement.scrollHeight - window.innerHeight;
+      const faq = document.getElementById('faq');
       // Se vuelve arriba antes de bajar para que SIEMPRE haya un evento de
       // scroll nuevo, aunque ya estuviéramos a la altura buena.
       window.scrollTo(0, 0);
-      window.scrollTo(0, alto * 0.6);
+      window.scrollTo(0, faq ? faq.getBoundingClientRect().top + window.scrollY - 40 : 0);
     });
     if (await page.getByRole('dialog').count() > 0) return;
     await page.waitForTimeout(150);
@@ -45,22 +46,24 @@ async function bajarHastaLaMitad(page: Page) {
 test.describe('El popup invita, no persigue', () => {
   test('no aparece nada más entrar', async ({ page }) => {
     await page.goto('/');
-    // Sin scroll y sin esperar 30 s no hay motivo para interrumpir a nadie.
+    // Sin scroll no hay motivo para interrumpir a nadie.
     await expect(popup(page)).toHaveCount(0);
   });
 
   test('aparece al bajar por la página, con el copy exacto', async ({ page }) => {
     await page.goto('/');
-    await bajarHastaLaMitad(page);
+    await pasarElPrecio(page);
 
     await expect(popup(page)).toBeVisible();
-    await expect(popup(page)).toContainText('Sin tarjeta de crédito • Configuración en 2 minutos');
-    await expect(popup(page).getByRole('link', { name: 'Empezar gratis' })).toHaveAttribute('href', '/crear-estudio');
+    // Sin «2 minutos»: el código no respalda ese plazo (auditoría del 23-sep).
+    await expect(popup(page)).toContainText('Sin tarjeta y sin permanencia');
+    await expect(popup(page)).not.toContainText('2 minutos');
+    await expect(popup(page).getByRole('link', { name: /Probar \d+ días gratis/ })).toHaveAttribute('href', '/crear-estudio');
   });
 
   test('cerrarlo lo calla en lo que queda de sesión, aunque se siga navegando', async ({ page }) => {
     await page.goto('/');
-    await bajarHastaLaMitad(page);
+    await pasarElPrecio(page);
     await expect(popup(page)).toBeVisible();
 
     await popup(page).getByRole('button', { name: 'Cerrar' }).click();
@@ -68,7 +71,7 @@ test.describe('El popup invita, no persigue', () => {
 
     // Recargar y volver a bajar: no debe reaparecer.
     await page.reload();
-    await bajarHastaLaMitad(page);
+    await pasarElPrecio(page);
     await expect(popup(page)).toHaveCount(0);
 
     const registro = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? 'null'), CLAVE);
@@ -78,27 +81,27 @@ test.describe('El popup invita, no persigue', () => {
 
   test('«Ahora no» también lo cierra', async ({ page }) => {
     await page.goto('/');
-    await bajarHastaLaMitad(page);
+    await pasarElPrecio(page);
     await popup(page).getByRole('button', { name: 'Ahora no' }).click();
     await expect(popup(page)).toHaveCount(0);
   });
 
   test('Escape lo cierra, sin buscar el botón', async ({ page }) => {
     await page.goto('/');
-    await bajarHastaLaMitad(page);
+    await pasarElPrecio(page);
     await expect(popup(page)).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(popup(page)).toHaveCount(0);
   });
 
-  test('quien ya pulsó «Empezar gratis» no vuelve a verlo nunca', async ({ page }) => {
+  test('quien ya pulsó el botón del popup no vuelve a verlo nunca', async ({ page }) => {
     await page.addInitScript(([k, ks]) => {
       localStorage.setItem(k, JSON.stringify({ vistas: 1, ultimaVista: 1, cerradoEn: null, convertido: true }));
       sessionStorage.removeItem(ks);
     }, [CLAVE, CLAVE_SESION] as const);
 
     await page.goto('/');
-    await bajarHastaLaMitad(page);
+    await pasarElPrecio(page);
     await expect(popup(page)).toHaveCount(0);
   });
 
@@ -108,7 +111,7 @@ test.describe('El popup invita, no persigue', () => {
     }, CLAVE);
 
     await page.goto('/');
-    await bajarHastaLaMitad(page);
+    await pasarElPrecio(page);
     await expect(popup(page)).toHaveCount(0);
   });
 
@@ -126,7 +129,7 @@ test.describe('En el móvil', () => {
 
   test('cabe en pantalla y se puede cerrar con el dedo', async ({ page }) => {
     await page.goto('/');
-    await bajarHastaLaMitad(page);
+    await pasarElPrecio(page);
     await expect(popup(page)).toBeVisible();
 
     const caja = await popup(page).boundingBox();
