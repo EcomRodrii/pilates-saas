@@ -306,6 +306,24 @@ test('confirmarCobroExitoso, reentrega SEPA: repara con el aviso de siempre, sin
   assert.deepEqual(orden, ['renovacion', 'factura', 'notificacion']);
 });
 
+test('confirmarCobroExitoso: un cobro sobre un recibo ANULADO no renueva ni sella, y no pide reintento', async () => {
+  // El dinero entró: `confirmarCobro` avisa para devolverlo. Devolver error haría
+  // que Stripe reintentara para siempre un evento que no se puede aplicar.
+  const { admin } = fakeAdmin({ trasCas: null, actual: { estado: 'ANULADO', stripe_payment_intent_id: null } });
+  const { orden, deps } = efectos();
+  const r = await confirmarCobroExitoso({ admin, ...EXITOSO, metodo: 'TARJETA' }, deps);
+  assert.deepEqual(r, { ok: true });
+  assert.deepEqual(orden, []);
+});
+
+test('confirmarCobroExitoso: un SEGUNDO cargo sobre un recibo ya cobrado se avisa y no se reintenta', async () => {
+  const { admin } = fakeAdmin({ trasCas: null, actual: { estado: 'COBRADO', stripe_payment_intent_id: 'pi_viejo' } });
+  const { orden, deps } = efectos();
+  const r = await confirmarCobroExitoso({ admin, ...EXITOSO, paymentIntentId: 'pi_otro', metodo: 'TARJETA' }, deps);
+  assert.deepEqual(r, { ok: true });
+  assert.deepEqual(orden, [], 'ni renovación ni factura sobre un cobro que no es el que cerró el recibo');
+});
+
 // ── Tarjeta guardada síncrona: cerrarCobroOffSession ─────────────────────────
 
 const OFF = { studioId: 'studio-1', reciboId: 'rec-1', socioId: 'soc-1', metodo: 'TARJETA', paymentIntentId: 'pi_nuevo' };
@@ -392,8 +410,10 @@ test('aplicarEfectosCobro lee el recibo si no se le da, para decidir los crédit
   assert.ok(e.orden.indexOf('creditos') > e.orden.indexOf('factura'));
 });
 
-test('el panel concede los créditos de renovación con el MISMO ref_id que el servidor', () => {
+test('el panel ya no concede créditos de renovación por su cuenta: los da el servidor con el ref_id del recibo', () => {
   const ctx = readFileSync(join(import.meta.dirname, '..', 'studio-context.tsx'), 'utf8');
-  assert.match(ctx, /otorgarCreditos\(recibo\.socioId, 'RENOVACION_PLAN', refIdCreditoRenovacion\(reciboId\)\)/,
-    'si el panel usara otro ref_id, marcar cobrado en mostrador y confirmarlo Stripe darían créditos dos veces');
+  assert.doesNotMatch(ctx, /otorgarCreditos\(recibo\.socioId, 'RENOVACION_PLAN'/,
+    'si el panel volviera a conceder por su cuenta, marcar cobrado en mostrador y confirmarlo Stripe podrían dar créditos dos veces');
+  const srv = readFileSync(join(import.meta.dirname, 'confirmar-cobro.ts'), 'utf8');
+  assert.match(srv, /p_ref_id: refIdCreditoRenovacion\(p\.reciboId\)/, 'el servidor concede con el ref_id compartido');
 });
