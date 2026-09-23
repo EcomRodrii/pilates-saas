@@ -84,6 +84,7 @@ import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna,
 import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
 import { type SesionBuscable } from '@/lib/calendario-busqueda';
 import { metricasDia, metricasSemana, mmA } from '@/lib/calendario-metricas';
+import { minutosEnEstudio, diaEnEstudio } from '@/lib/calendario-hora-estudio';
 import { minutosDesdeOffset, nuevoHorarioArrastrado } from '@/lib/calendario-arrastre';
 import { decisionesOrdenadas, accionParaEstado, reservasParaPasarLista, type ItemDecision, type TipoAccion } from '@/lib/calendario-decisiones';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado, preguntaAvisoCobertura } from '@/lib/calendario-acciones';
@@ -785,7 +786,7 @@ export default function Calendario() {
     tipoClaseId: tiposClase[0]?.id ?? '',
     salaId: salas[0]?.id ?? '',
     instructorId: queImparten(instructores)[0]?.id ?? '',
-    fecha: localDate(now),
+    fecha: diaEnEstudio(now),
     horaInicio: '09:00',
     horaFin: tiposClase[0]?.duracionMinutos
       ? `${String(9 + Math.floor(tiposClase[0].duracionMinutos / 60)).padStart(2, '0')}:${String(tiposClase[0].duracionMinutos % 60).padStart(2, '0')}`
@@ -806,7 +807,7 @@ export default function Calendario() {
   }, [instructores, instructoresActivos, form.instructorId]);
 
   // ── Derived data (contexto completo — formularios/conflictos) ───────────────
-  const todayStr = localDate(now);
+  const todayStr = diaEnEstudio(now);
   const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(semana, i)), [semana]);
   // Semana progresiva: la columna de una sesión ya NO es su día ISO
   // (lunes=0…domingo=6) — es su offset respecto al primer día de la ventana
@@ -1016,7 +1017,7 @@ export default function Calendario() {
 
   function openNueva(prefillFecha?: string, prefillHoraInicio?: string, prefillSalaId?: string) {
     const base = emptyForm();
-    const fecha = prefillFecha ?? localDate(now);
+    const fecha = prefillFecha ?? diaEnEstudio(now);
     // La duración se conserva (misma diferencia que ya traía emptyForm entre
     // horaInicio/horaFin), solo se desplaza al hueco donde se hizo clic.
     const duracionMin = (Number(base.horaFin.slice(0, 2)) * 60 + Number(base.horaFin.slice(3, 5)))
@@ -2027,13 +2028,13 @@ export default function Calendario() {
   const columnasDia = useMemo(() => {
     if (!datosVista) return [];
     const cols: SesionColumna[] = sesionesVistaFiltradas
-      .filter(s => localDate(s.inicio) === localDate(diaSeleccionado))
+      .filter(s => diaEnEstudio(s.inicio) === localDate(diaSeleccionado))
       .map(s => {
         const r = reservasPorSesion.get(s.id) ?? [];
         return {
           id: s.id,
-          inicioMin: new Date(s.inicio).getHours() * 60 + new Date(s.inicio).getMinutes(),
-          finMin: new Date(s.fin).getHours() * 60 + new Date(s.fin).getMinutes(),
+          inicioMin: minutosEnEstudio(s.inicio),
+          finMin: minutosEnEstudio(s.fin),
           salaId: s.salaId,
           estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA',
           confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
@@ -2052,14 +2053,14 @@ export default function Calendario() {
       const r = reservasPorSesion.get(s.id) ?? [];
       return {
         id: s.id,
-        inicioMin: new Date(s.inicio).getHours() * 60 + new Date(s.inicio).getMinutes(),
-        finMin: new Date(s.fin).getHours() * 60 + new Date(s.fin).getMinutes(),
+        inicioMin: minutosEnEstudio(s.inicio),
+        finMin: minutosEnEstudio(s.fin),
         salaId: s.salaId,
         estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA',
         confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
         enEspera: r.filter(x => x.estado === 'LISTA_ESPERA').length,
         aforoMaximo: s.aforoMaximo,
-        dia: columnaPorFecha.get(localDate(s.inicio)) ?? 0,
+        dia: columnaPorFecha.get(diaEnEstudio(s.inicio)) ?? 0,
         finalizada: now.getTime() >= new Date(s.fin).getTime(),
       };
     });
@@ -2187,7 +2188,7 @@ export default function Calendario() {
       const huecosLibres = Math.max(0, s.aforoMaximo - confirmadas);
       return {
         id: s.id,
-        fecha: localDate(s.inicio),
+        fecha: diaEnEstudio(s.inicio),
         confirmadas,
         aforoMaximo: s.aforoMaximo,
         cancelada: s.cancelada,
@@ -2201,17 +2202,17 @@ export default function Calendario() {
   const tarjetas = useMemo(() => {
     if (!datosVista) return [];
     if (vista === 'dia') {
-      const deHoy = sesionesVistaFiltradas.filter(s => localDate(s.inicio) === localDate(diaSeleccionado));
+      const deHoy = sesionesVistaFiltradas.filter(s => diaEnEstudio(s.inicio) === localDate(diaSeleccionado));
       const esHoyReal = localDate(diaSeleccionado) === todayStr;
-      const ahoraMin = now.getHours() * 60 + now.getMinutes();
+      const ahoraMin = minutosEnEstudio(now);
       const base = deHoy.map(s => {
         const r = reservasPorSesion.get(s.id) ?? [];
         const tc = tiposClase.find(t => t.id === s.tipoClaseId);
         const sala = datosVista.salas.find(x => x.id === s.salaId);
         return {
           estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA' as EstadoSesion,
-          inicioMin: new Date(s.inicio).getHours() * 60 + new Date(s.inicio).getMinutes(),
-          finMin: new Date(s.fin).getHours() * 60 + new Date(s.fin).getMinutes(),
+          inicioMin: minutosEnEstudio(s.inicio),
+          finMin: minutosEnEstudio(s.fin),
           nombre: tc?.nombre ?? '?', lugar: sala?.nombre ?? '?',
           confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
           aforoMaximo: s.aforoMaximo,
@@ -2243,12 +2244,12 @@ export default function Calendario() {
       const enEspera = r.filter(x => x.estado === 'LISTA_ESPERA').length;
       const sala = datosVista.salas.find(x => x.id === s.salaId);
       const d = new Date(s.inicio);
-      const dia = columnaPorFecha.get(localDate(s.inicio)) ?? 0;
+      const dia = columnaPorFecha.get(diaEnEstudio(s.inicio)) ?? 0;
       return {
         id: s.id, sesionId: s.id,
         estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA',
         dia: vista === 'semana' ? dia : 0,
-        inicioMin: d.getHours() * 60 + d.getMinutes(),
+        inicioMin: minutosEnEstudio(d),
         enEspera,
         sobreaforo: sala ? Math.max(0, s.aforoMaximo - sala.capacidad) : 0,
         huecosLibres: Math.max(0, s.aforoMaximo - confirmadas),
@@ -3032,7 +3033,7 @@ export default function Calendario() {
             horaInicioMin={horaInicioMinVista}
             horaFinMin={horaFinMinVista}
             pxPorHora={96}
-            ahoraMin={localDate(diaSeleccionado) === todayStr ? now.getHours() * 60 + now.getMinutes() : null}
+            ahoraMin={localDate(diaSeleccionado) === todayStr ? minutosEnEstudio(now) : null}
             seleccionadaId={sesionId}
             marcadas={marcadas}
             onSeleccionar={id => { if (modoSeleccion) { alternarMarcada(id); return; } setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
@@ -3064,7 +3065,7 @@ export default function Calendario() {
             datos={datosPorSesionId}
             fechasSemana={dias}
             hoyIndex={dias.some(d => localDate(d) === todayStr) ? dias.findIndex(d => localDate(d) === todayStr) : null}
-            ahoraMin={now.getHours() * 60 + now.getMinutes()}
+            ahoraMin={minutosEnEstudio(now)}
             horaInicioMin={horaInicioMinVista}
             horaFinMin={horaFinMinVista}
             // 72 y no 58. Medido: una tarjeta de semana necesita 55 px para sus tres
