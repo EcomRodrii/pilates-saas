@@ -10,7 +10,7 @@ export const TIPOS_EXCEPCION: TipoExcepcion[] = ['SIN_AVISO_HUECO', 'SIN_RECORDA
 export const EXCEPCION_META: Record<TipoExcepcion, { label: string; descripcion: string }> = {
   SIN_AVISO_HUECO: {
     label: 'No avisarle de clases con hueco',
-    descripcion: 'El radar de ocupación no le escribirá cuando una clase tenga sitio.',
+    descripcion: 'No entrará en los avisos de hueco libre que salen de «Rellenar hueco».',
   },
   SIN_RECORDATORIO: {
     label: 'No enviarle recordatorios',
