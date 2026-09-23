@@ -168,11 +168,11 @@ cliente nuevo no encuentra al entrar.
 |---|---|---|---|
 | A1 | **Las 7 páginas `/comparativa/tentare-vs-*` NO están en el sitemap.** Existen, tienen metadata, canonical y OG propios. | Alto | `app/sitemap.ts` solo lista `/comparativa` |
 | A2 | **Contradicción `/reservar`**: `app/reservar/[slug]/layout.tsx` declara `robots: { index: true }`, pero `app/robots.ts` prohíbe `/reservar`. Google no puede rastrear para leer la etiqueta. | Alto (decisión de producto pendiente) | ambos ficheros |
-| A3 | **Cero páginas de funcionalidad.** Todo el producto vive en `/` detrás de anclas. `RECORRIDO_ITEMS` da 1 párrafo por área. | Alto — es el objeto de este plan | `components/landing/data.tsx` |
+| A3 | **Cero páginas de funcionalidad.** Todo el producto vive en `/` detrás de anclas. `RECORRIDO_ITEMS` da 1 párrafo por área. | Alto — es el objeto de este plan | `components/landing/data.ts` |
 | A4 | El sitemap incluye 4 URLs con fragmento (`/#precio`, `/#faq`…). Google normaliza el fragmento → 4 entradas duplicadas de `/`. `SiteNavigationElement` ya cubre los sitelinks. | Bajo | `ANCLAS_LANDING` |
 | A5 | Ninguna entrada del sitemap tiene `lastModified`. | Bajo | `app/sitemap.ts` |
 | A6 | **No existe `/precios`.** El precio es `/#precio`. Consulta de altísima intención sin URL de destino. | Medio-alto | — |
-| A7 | La navegación no tiene *hub* de producto: `NAV_LINKS` son 4 anclas + `/recursos`. | Medio | `components/landing/data.tsx` |
+| A7 | La navegación no tiene *hub* de producto: `NAV_LINKS` son 4 anclas + `/recursos`. | Medio | `components/landing/data.ts` |
 | A8 | La columna "Plataforma" del footer tiene **3 etiquetas distintas apuntando al mismo `#recorrido`**. Enlazado interno engañoso. | Medio | `components/landing/Footer.tsx` |
 | A9 | Interlinking pobre: las guías enlazan al glosario, pero no hay grafo funcionalidad↔funcionalidad ni funcionalidad↔guía. | Medio | — |
 | A10 | No hay `/sobre-tentare`. "Sobre Tentare" del footer apunta a `#top`. Hueco de E-E-A-T para un SaaS que toca dinero y datos de salud. | Medio | `components/landing/Footer.tsx` |
