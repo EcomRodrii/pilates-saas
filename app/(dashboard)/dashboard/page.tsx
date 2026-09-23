@@ -20,6 +20,7 @@ import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist
 import { AperturaEstudio } from '@/components/dashboard/apertura-estudio';
 import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraciones-caidas';
 import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
+import { ProximasClases } from '@/components/dashboard/proximas-clases';
 import { EstadoDelEstudio } from '@/components/dashboard/estado-del-estudio';
 import { TentareOrb } from '@/components/marca/tentare-orb';
 import { ActionCenter } from '@/components/decision/action-center';
@@ -700,6 +701,21 @@ export default function Dashboard() {
             «esta clase se ha quedado sin instructora». */}
         <div {...wrap('hoy')}><HoyEnElEstudio /></div>
 
+        {/* ── Próximas clases ─────────────────────────────────────────────────
+            Qué se está dando AHORA —con el cronómetro corriendo— y qué viene
+            después. Pegada a la agenda a propósito: son la misma pregunta en
+            dos tiempos. La de arriba se puede mover de día; esta es siempre el
+            ahora, y por eso cruza a mañana sola cuando el día ya está dado.
+            Mismo endpoint y mismo resumen que la agenda (otro rango), así que
+            el 6/6 de las dos no puede discrepar; `EVENTO_AGENDA` las vuelve a
+            pedir juntas cuando algo cambia.
+
+            `empty:hidden`: la sección se esconde sola cuando no hay ni clase en
+            curso ni ninguna a la vista, y sin esto su envoltorio vacío sigue
+            contando como hijo del `gap-5` — veinte píxeles de aire donde no hay
+            nada. */}
+        <div {...wrap('proximas')} className="empty:hidden"><ProximasClases /></div>
+
         {/* ── Lo que espera tu visto bueno ────────────────────────────────────
             La bandeja única (lib/estado-estudio.ts): lo que no avanza sin ella,
             lo que Tentare está haciendo solo y lo que ya ha resuelto. No es solo
@@ -869,8 +885,17 @@ export default function Dashboard() {
 
         {/* ── Ventas recientes ────────────────────────────────────────────────── */}
         {/* Vistazo rápido junto al toast+sonido de nueva venta (campana). Solo
-            lectura, se oculta sola si no hay nada. */}
-        {verFinanzas && <VentasRecientes />}
+            lectura, se oculta sola si no hay nada.
+            ⚠️ Va con el `order` de 'ingresos', que es la sección a la que
+            pertenece y justo la de debajo. Sin `wrap` se quedaba sin `order` —
+            o sea `order: 0`, el mismo grupo que 'hoy'— y el navegador la subía
+            por delante de la bandeja, del Action Center y de «Próximas
+            clases», que sí llevan el suyo: salía entre la agenda del día y lo
+            siguiente que viene, a mitad de la mañana de la propietaria. El
+            precio de atarla a 'ingresos' es que se esconde con ella, y es el
+            que toca: quien apaga sus ingresos de la home no quiere sus ventas
+            de hoy justo encima. */}
+        {verFinanzas && <div {...wrap('ingresos')}><VentasRecientes /></div>}
 
         {/* ── Revenue card (full width) ──────────────────────────────────────── */}
         {verFinanzas && (
