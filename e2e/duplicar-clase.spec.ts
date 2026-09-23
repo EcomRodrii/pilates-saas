@@ -30,7 +30,12 @@ const SALA = { id: 'sala-1', studio_id: STUDIO_ID, nombre: 'Sala Reformer', capa
 
 const SESION_ORIGEN = {
   id: 'ses-origen', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1',
-  instructor_id: 'ins-1', inicio: `${ORIGEN_FECHA}T10:00:00+00:00`, fin: `${ORIGEN_FECHA}T10:50:00+00:00`,
+  // +02:00, no +00:00: 5-ago-2026 está en horario de verano en Madrid — con
+  // +00:00 la sesión son las 10:00 UTC = 12:00 Madrid, y el fix de R-3 (lee
+  // la hora del formulario en zona del estudio) mostraba correctamente
+  // "12:00", rompiendo esta aserción que asumía "10:00" por el bug ya
+  // corregido.
+  instructor_id: 'ins-1', inicio: `${ORIGEN_FECHA}T10:00:00+02:00`, fin: `${ORIGEN_FECHA}T10:50:00+02:00`,
   aforo_maximo: 12, cancelada: false, notas: 'Traer esterilla propia',
 };
 
