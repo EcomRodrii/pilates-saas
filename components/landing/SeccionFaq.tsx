@@ -68,7 +68,7 @@ export function SeccionFaq() {
           padding: 18px 4px; cursor: pointer; background: none; border: none; text-align: left; font-family: inherit; }
         .v5-faq-pregunta span:first-child { font-size: 16.5px; font-weight: 700; line-height: 1.4; color: #1A1A1A; }
         .v5-faq-pregunta:focus-visible { outline: 2px solid #343825; outline-offset: 2px; }
-        .v5-faq-signo { font-size: 20px; font-weight: 600; color: #8E8E86; flex-shrink: 0; }
+        .v5-faq-signo { font-size: 20px; font-weight: 600; color: #6B6B63; flex-shrink: 0; }
         .v5-faq-respuesta { font-size: 15px; line-height: 1.7; color: #5A5A52; margin: 0; padding: 0 4px 22px; max-width: 64ch; }
         @keyframes v5-faq-abre { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
         @media (prefers-reduced-motion: no-preference) {

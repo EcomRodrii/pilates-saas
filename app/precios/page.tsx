@@ -142,9 +142,9 @@ export default function PreciosPage() {
                   boxShadow: destacado ? '0 34px 66px -26px rgba(26,26,26,.45)' : undefined,
                 }}
               >
-                <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#8E8E86', marginBottom: 12 }}>{PLAN_INFO[p].nombre}</div>
+                <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginBottom: 12 }}>{PLAN_INFO[p].nombre}</div>
                 <div style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-.035em', color: destacado ? '#fff' : undefined, lineHeight: 1 }}>
-                  {PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: '#8E8E86' }}>/mes</span>
+                  {PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: '#6B6B63' }}>/mes</span>
                 </div>
                 {/* «IVA incluido» pegado a la cifra, no en una nota al pie de la
                     página: el precio de un SaaS español se lee para compararlo
@@ -152,7 +152,7 @@ export default function PreciosPage() {
                     llevan un 21%. Misma frase que ya se ve en /suscripcion, que
                     la pidió una clienta con estas palabras (P2-20) — no una
                     redacción nueva para decir lo mismo. */}
-                <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#8E8E86', marginTop: 7 }}>
+                <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginTop: 7 }}>
                   IVA incluido
                 </div>
                 <p style={{ fontSize: 14.5, lineHeight: 1.5, color: destacado ? '#A6A69E' : MUTED, margin: '10px 0 6px' }}>{RESUMEN[p].para}</p>
@@ -176,8 +176,8 @@ export default function PreciosPage() {
             trabaja el sistema por su cuenta.
           </p>
           <ComparativaPlanes todoAbierto destacado="ESTUDIO" />
-          <p className="lp-mono" style={{ fontSize: 11.5, color: '#A8A89F', margin: '14px 0 0' }}>
-            Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades" style={{ color: ACC }}>ver todas</Link>
+          <p className="lp-mono" style={{ fontSize: 11.5, color: '#6B6B63', margin: '14px 0 0' }}>
+            Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>ver todas</Link>
           </p>
         </section>
 
@@ -230,7 +230,7 @@ export default function PreciosPage() {
             ))}
           </div>
           <p style={{ fontSize: 15, color: MUTED, margin: '18px 0 0' }}>
-            Y si vienes de otra plataforma, la <Link href="/comparativa" style={{ color: ACC }}>comparativa</Link> va punto
+            Y si vienes de otra plataforma, la <Link href="/comparativa" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>comparativa</Link> va punto
             por punto — incluido lo que ellos hacen mejor.
           </p>
         </section>

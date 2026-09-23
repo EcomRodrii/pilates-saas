@@ -47,25 +47,25 @@ const FOTOGRAMAS: Fotograma[] = [
   {
     badge: 'Buscando', badgeBg: 'rgba(143,98,21,.12)', badgeFg: '#8F6215',
     c1: 'Encaja con esta clase', c1fg: '#2F6B4F',
-    c2: 'Comprobando…', c2fg: '#8E8E86',
-    btn: 'Calculando candidatas…', btnBg: '#F5F5F1', btnFg: '#8E8E86', hl: false,
+    c2: 'Comprobando…', c2fg: '#6B6B63',
+    btn: 'Calculando candidatas…', btnBg: '#F5F5F1', btnFg: '#6B6B63', hl: false,
   },
   {
     badge: 'Esperando tu visto bueno', badgeBg: 'rgba(52,56,37,.1)', badgeFg: '#5A6142',
     c1: 'Propuesta ✓', c1fg: '#2F6B4F',
-    c2: 'Siguiente en la lista', c2fg: '#8E8E86',
+    c2: 'Siguiente en la lista', c2fg: '#6B6B63',
     btn: 'Avisar a Julia Ramos', btnBg: '#343825', btnFg: '#D9C29E', hl: true,
   },
   {
     badge: 'Contactando', badgeBg: 'rgba(143,98,21,.12)', badgeFg: '#8F6215',
     c1: 'Email enviado · 16:45', c1fg: '#8F6215',
-    c2: 'Siguiente en la lista', c2fg: '#8E8E86',
-    btn: 'Esperando respuesta · si no contesta, recordatorio', btnBg: '#F5F5F1', btnFg: '#8E8E86', hl: false,
+    c2: 'Siguiente en la lista', c2fg: '#6B6B63',
+    btn: 'Esperando respuesta · si no contesta, recordatorio', btnBg: '#F5F5F1', btnFg: '#6B6B63', hl: false,
   },
   {
     badge: 'Cubierta', badgeBg: 'rgba(47,107,79,.12)', badgeFg: '#2F6B4F',
     c1: 'Ha aceptado ✓', c1fg: '#2F6B4F',
-    c2: '—', c2fg: '#8E8E86',
+    c2: '—', c2fg: '#6B6B63',
     btn: 'Cubierta por Julia · 8 alumnas avisadas', btnBg: 'rgba(47,107,79,.12)', btnFg: '#2F6B4F', hl: false,
   },
 ];
@@ -199,7 +199,7 @@ export function SeccionSustituciones() {
         .v5-card-body { background: #fff; border: 1px solid #E7E7E0; border-radius: 16px; padding: 20px; }
         .v5-clase { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
         .v5-clase-n { font-size: 16.5px; font-weight: 800; color: #1A1A1A; }
-        .v5-clase-s { margin-top: 2px; font-size: 13.5px; color: #8E8E86; }
+        .v5-clase-s { margin-top: 2px; font-size: 13.5px; color: #6B6B63; }
         .v5-baja { font-size: 13px; font-weight: 700; color: #A8442A; }
         .v5-sep { height: 1px; background: #E7E7E0; margin: 16px 0; }
         .v5-cands { display: flex; flex-direction: column; gap: 10px; }
@@ -209,11 +209,11 @@ export function SeccionSustituciones() {
           display: flex; align-items: center; justify-content: center;
           font-weight: 800; font-size: 12px; color: #55622C; }
         .v5-cand-n { flex: 1; min-width: 0; font-size: 14.5px; color: #1A1A1A; }
-        .v5-cand-s { font-size: 12.5px; color: #8E8E86; }
+        .v5-cand-s { font-size: 12.5px; color: #6B6B63; }
         .v5-cand-e { flex: none; font-size: 12px; font-weight: 700; transition: color var(--motion-slow); }
         .v5-accion { margin-top: 16px; border-radius: 12px; padding: 13px 16px; text-align: center;
           font-size: 14px; font-weight: 700; transition: background var(--motion-slow), color var(--motion-slow); }
-        .v5-nota { margin: 10px 0 0; text-align: center; font-size: 12px; color: #8E8E86; }
+        .v5-nota { margin: 10px 0 0; text-align: center; font-size: 12px; color: #6B6B63; }
         .v5-pasos { display: flex; gap: 6px; justify-content: center; padding: 14px 0 4px; }
         .v5-paso { width: 30px; height: 10px; border: 0; padding: 0; border-radius: 2px;
           background: transparent; cursor: pointer; position: relative; }

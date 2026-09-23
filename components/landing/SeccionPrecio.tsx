@@ -30,7 +30,7 @@ export function SeccionPrecio() {
         <div className="v5-pre-grid">
           {PLANS.map((plan, n) => (
             <div key={plan.name} className={plan.dark ? 'v5-pre-card v5-pre-card-dark lp-rv' : 'v5-pre-card lp-rv'} style={{ ['--lp-r' as string]: n * 6 }}>
-              <div className="v5-pre-nombre" style={{ color: plan.dark ? '#D9C29E' : '#8E8E86' }}>{plan.name.toUpperCase()}</div>
+              <div className="v5-pre-nombre" style={{ color: plan.dark ? '#D9C29E' : '#6B6B63' }}>{plan.name.toUpperCase()}</div>
               <div className="v5-pre-precio" style={{ color: plan.dark ? '#fff' : '#1A1A1A' }}>
                 {plan.price}<span className="v5-pre-mes">/mes</span>
               </div>
@@ -69,7 +69,7 @@ export function SeccionPrecio() {
           font-size: 11px; font-weight: 800; letter-spacing: .1em; padding: 7px 14px; border-radius: 999px; }
         .v5-pre-nombre { font-size: 12.5px; font-weight: 800; letter-spacing: .12em; margin-bottom: 14px; }
         .v5-pre-precio { font-size: 48px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
-        .v5-pre-mes { font-size: 16px; font-weight: 600; color: #8E8E86; }
+        .v5-pre-mes { font-size: 16px; font-weight: 600; color: #6B6B63; }
         .v5-pre-desc { font-size: 14.5px; margin: 8px 0 22px; }
         .v5-pre-features { border-top: 1px solid; padding-top: 16px; font-size: 15px; font-weight: 500; line-height: 2.05; flex: 1; }
         .v5-pre-cta { display: block; text-align: center; margin-top: 24px; border: 1.5px solid #343825; color: #343825;
@@ -78,7 +78,7 @@ export function SeccionPrecio() {
         .v5-pre-cta:active { transform: scale(.98); }
         .v5-pre-cta-on { border: none; background: #D9C29E; color: #22251A; padding: 15px; }
         .v5-pre-cta-on:hover { color: #22251A; filter: brightness(1.05); }
-        .v5-pre-nota { text-align: center; font-size: 13px; font-weight: 600; color: #8E8E86; margin: 28px 0 10px; }
+        .v5-pre-nota { text-align: center; font-size: 13px; font-weight: 600; color: #6B6B63; margin: 28px 0 10px; }
         .v5-pre-salida { display: block; text-align: center; font-size: 15px; font-weight: 700; color: #55622C; }
         .v5-pre-salida:hover { text-decoration: underline; text-underline-offset: 4px; }
       `}</style>

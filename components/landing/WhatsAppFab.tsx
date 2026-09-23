@@ -97,7 +97,7 @@ export function WhatsAppFab() {
         .v5-wa-panel-cabecera { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
         .v5-wa-icono-zona { width: 40px; height: 40px; border-radius: 999px; background: rgba(37,211,102,.1);
           display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .v5-wa-cerrar { background: none; border: none; color: #8E8E86; font-size: 14px; cursor: pointer; padding: 4px; line-height: 1; }
+        .v5-wa-cerrar { background: none; border: none; color: #6B6B63; font-size: 14px; cursor: pointer; padding: 4px; line-height: 1; }
         .v5-wa-cerrar:hover { color: #1A1A1A; }
         .v5-wa-tit { margin: 12px 0 4px; font-size: 14px; font-weight: 700; color: #1A1A1A; }
         .v5-wa-desc { margin: 0; font-size: 13.5px; line-height: 1.5; color: #5A5A52; }
@@ -106,7 +106,7 @@ export function WhatsAppFab() {
           transition: background .2s; }
         .v5-wa-boton:hover { background: #1EBE5A; }
         .v5-wa-boton-icono path { fill: #fff; }
-        .v5-wa-nota { margin: 10px 0 0; font-size: 11px; color: #8E8E86; text-align: center; }
+        .v5-wa-nota { margin: 10px 0 0; font-size: 11px; color: #6B6B63; text-align: center; }
       `}</style>
     </div>
   );

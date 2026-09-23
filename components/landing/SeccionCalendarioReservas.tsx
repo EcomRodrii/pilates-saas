@@ -60,7 +60,9 @@ export function SeccionCalendarioReservas() {
             <span className="v5-cal-alerta-t">1 clase necesita una decisión — Reformer Avanzado · lun 08:30 · sin instructora</span>
             <span className="v5-cal-alerta-b">Ver 08:30</span>
           </div>
-          <div className="v5-cal-grid">
+          {/* En el móvil la semana se desliza en horizontal: con tabIndex y nombre,
+              también se puede recorrer con el teclado (axe, QA fase 7). */}
+          <div className="v5-cal-grid" tabIndex={0} role="region" aria-label="Semana de ejemplo del calendario">
             <div className="v5-cal-col">
               <span className="v5-cal-dia">{CLASE.dia}</span>
               <div className="v5-cal-clase v5-cal-clase-alerta">
@@ -106,7 +108,7 @@ export function SeccionCalendarioReservas() {
         .v5-cal-mock-top { display: flex; justify-content: space-between; align-items: center; gap: 14px;
           flex-wrap: wrap; padding: 18px 22px; border-bottom: 1px solid #F0F0EA; }
         .v5-cal-mock-tit { font-size: 17px; font-weight: 800; }
-        .v5-cal-mock-sub { font-size: 12px; color: #8E8E86; }
+        .v5-cal-mock-sub { font-size: 12px; color: #6B6B63; }
         .v5-cal-mock-tabs { display: flex; gap: 8px; font-size: 12px; font-weight: 700; flex-wrap: wrap; }
         .v5-tab { padding: 7px 14px; border-radius: 999px; background: #F5F5F1; color: #5A5A52; }
         .v5-tab-on { background: #343825; color: #D9C29E; }
@@ -120,7 +122,7 @@ export function SeccionCalendarioReservas() {
         .v5-cal-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; padding: 16px 22px 20px;
           overflow-x: auto; }
         .v5-cal-col { display: flex; flex-direction: column; gap: 8px; min-width: 108px; }
-        .v5-cal-dia { font-size: 11.5px; font-weight: 800; color: #8E8E86; text-align: center; padding-bottom: 2px; }
+        .v5-cal-dia { font-size: 11.5px; font-weight: 800; color: #6B6B63; text-align: center; padding-bottom: 2px; }
         .v5-cal-clase { border-radius: 11px; padding: 10px 12px; background: #fff; }
         .v5-cal-clase-alerta { background: #fff; border: 1.5px solid #C2503A; }
         .v5-cal-clase-h { font-size: 10.5px; font-weight: 700; color: #A8442A; }
