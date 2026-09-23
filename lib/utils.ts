@@ -190,11 +190,25 @@ export function finDelDiaEstudio(fechaISO: string): string {
  * servidor ni la del navegador.
  */
 export function hoyEnEstudio(ahora: Date = new Date()): string {
+  return fechaISOEstudio(ahora);
+}
+
+/**
+ * 'YYYY-MM-DD' de `fecha` en hora del estudio — mismo cálculo que
+ * `hoyEnEstudio`, pero para cualquier instante, no solo "ahora". Necesaria
+ * para releer la fecha/hora de una sesión YA EXISTENTE al abrir un
+ * formulario de edición: `new Date(inicio).getDate()`/`getHours()` leen en
+ * la zona del NAVEGADOR, y si luego esa cadena vuelve a `toISO`
+ * (`horaParedAInstante`, anclada a Europe/Madrid) el resultado se desplaza
+ * cuando navegador y estudio no coinciden — el mismo bug de R-3, pero en el
+ * sentido inverso (leer en vez de escribir).
+ */
+export function fechaISOEstudio(fecha: Date | string): string {
   // 'en-CA' da exactamente 'YYYY-MM-DD', que es el formato que espera una
   // columna `date` de Postgres.
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: TZ_ESTUDIO, year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(ahora);
+  }).format(new Date(fecha));
 }
 
 /**

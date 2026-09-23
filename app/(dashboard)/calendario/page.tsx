@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
-import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera, TZ_ESTUDIO } from '@/lib/utils';
+import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, fechaISOEstudio, capitalizarPrimera, TZ_ESTUDIO } from '@/lib/utils';
 import { horaParedAInstante } from '@/lib/citas/slots';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
 import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
@@ -1037,9 +1037,14 @@ export default function Calendario() {
       tipoClaseId: sesionActual.tipoClaseId,
       salaId: sesionActual.salaId,
       instructorId: sesionActual.instructorId,
-      fecha: localDate(ini),
-      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
-      horaFin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`,
+      // R-3 en el sentido inverso: `ini`/`fin` son la sesión YA GUARDADA — hay
+      // que releerlas en hora del ESTUDIO (fechaISOEstudio/horaEstudio), nunca
+      // con getters de Date (hora del navegador), porque el valor vuelve a
+      // `toISO` (ahora anclada a Europe/Madrid) al guardar. Con el navegador
+      // en otra zona, guardar sin tocar la hora la desplazaba igual.
+      fecha: fechaISOEstudio(ini),
+      horaInicio: horaEstudio(ini),
+      horaFin: horaEstudio(fin),
       aforoMaximo: sesionActual.aforoMaximo,
       notas: sesionActual.notas ?? '',
       repetir: false,
@@ -1059,9 +1064,12 @@ export default function Calendario() {
       tipoClaseId: origen.tipoClaseId,
       salaId: origen.salaId,
       instructorId: origen.instructorId,
-      fecha: localDate(addDays(ini, 7)),
-      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
-      horaFin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`,
+      // Mismo criterio que openEdit: `ini`/`fin` son la sesión de origen ya
+      // guardada, hay que releerla en hora del estudio antes de que vuelva a
+      // pasar por `toISO` al crear la copia.
+      fecha: fechaISOEstudio(addDays(ini, 7)),
+      horaInicio: horaEstudio(ini),
+      horaFin: horaEstudio(fin),
       aforoMaximo: origen.aforoMaximo,
       notas: '',
       repetir: false,
@@ -1095,7 +1103,9 @@ export default function Calendario() {
       tipoClaseId: origen.tipoClaseId,
       instructorId: origen.instructorId,
       salaId: origen.salaId,
-      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
+      // Mismo criterio que openEdit/openDuplicar: `ini` es la sesión de
+      // origen ya guardada.
+      horaInicio: horaEstudio(ini),
       duracion: Math.round((fin.getTime() - ini.getTime()) / 60_000),
       diasSemana,
       fechaInicio: localDate(inicioCopia),
