@@ -7,7 +7,7 @@ import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { Callout, Checklist, CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
-import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { FaqStructuredData, PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { ConciergeMigracionForm } from '@/components/soluciones/ConciergeMigracionForm';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
@@ -68,6 +68,7 @@ export default function CambiarDeSoftwarePage() {
   return (
     <PageShell>
       <OrganizationStructuredData />
+      <FaqStructuredData items={FAQ} />
       <PageBreadcrumb path={PATH} name="Cambiarte de software" />
       <SiteNav backHref="/comparativa" backLabel="Comparativa" />
 
