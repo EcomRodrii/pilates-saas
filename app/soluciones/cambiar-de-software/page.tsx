@@ -133,7 +133,7 @@ export default function CambiarDeSoftwarePage() {
       {relacionadas.length > 0 && (
         <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,72px)' }}>
           <div style={{ maxWidth: 900, margin: '0 auto' }}>
-            <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#8E8E86', margin: '0 0 18px' }}>Sigue por aquí</h2>
+            <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#6B6B63', margin: '0 0 18px' }}>Sigue por aquí</h2>
             <div className="sol-rel">
               {relacionadas.map((r) => (
                 <Link key={r.path} href={r.path} className="sol-rel-card">
