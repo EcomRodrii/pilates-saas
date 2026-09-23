@@ -17,6 +17,8 @@ import {
   contarReservasActivasFuturas,
   clasesConHuecoProximas,
   candidatasParaHueco,
+  topeAvisosHueco,
+  AVISOS_HUECO_MAXIMO,
   heredaOverride,
   puedeReservarPorAntelacionMaxima,
   puedeReservarPorVentanaMinima,
@@ -513,4 +515,39 @@ test('candidatasParaHueco: un plan sin tipos marcados sigue sirviendo para todo'
 
   const r = candidatasParaHueco({ sesion: huecoSesion, sesiones, socios, reservas: rs, suscripciones, planesTarifa: planes, hoyISO: HOY });
   assert.deepEqual(r.map(s => s.id), ['bono-generico']);
+});
+
+// ── topeAvisosHueco (a cuántas se les escribe de verdad) ──────────────────────
+//
+// El caso que abre este bloque es el que la propietaria sufría: el panel deja
+// seleccionar hasta 12 (MAX_CANDIDATAS), y una clase de UNA plaza libre —que
+// entra desde que la ruta filtra con `umbral: 1`— solo admite 4. Las otras 8
+// se recortaban con un `slice` mudo y la respuesta decía «4 avisos enviados»,
+// verdad a medias que se lee como una avería.
+
+test('topeAvisosHueco: con 12 seleccionadas y 1 plaza libre, caben 4 y se dicen las 8 que no', () => {
+  assert.deepEqual(topeAvisosHueco(12, 1), { caben: 4, saltadasPorTope: 8 });
+});
+
+test('topeAvisosHueco: si caben todas, no sobra ninguna', () => {
+  // 3 plazas × 4 = 12, justo las 12 que deja seleccionar el panel.
+  assert.deepEqual(topeAvisosHueco(12, 3), { caben: 12, saltadasPorTope: 0 });
+  // Y con más plazas que candidatas tampoco se inventa gente que avisar.
+  assert.deepEqual(topeAvisosHueco(2, 5), { caben: 2, saltadasPorTope: 0 });
+});
+
+test('topeAvisosHueco: el máximo por tanda manda aunque haya plazas de sobra', () => {
+  // 40 plazas × 4 = 160, pero por tanda no salen más de AVISOS_HUECO_MAXIMO.
+  const r = topeAvisosHueco(100, 40);
+  assert.equal(r.caben, AVISOS_HUECO_MAXIMO);
+  assert.equal(r.saltadasPorTope, 100 - AVISOS_HUECO_MAXIMO);
+});
+
+test('topeAvisosHueco: sin plazas no se avisa a nadie, y se cuenta a todas como fuera', () => {
+  // La ruta corta antes con un 409, pero el aforo efectivo puede encogerse
+  // entre que se pinta la pantalla y se pulsa. Lo que no puede salir de aquí
+  // es un tope negativo: `slice(0, -4)` contaría desde el final y escribiría
+  // justo a las últimas cuatro.
+  assert.deepEqual(topeAvisosHueco(5, 0), { caben: 0, saltadasPorTope: 5 });
+  assert.deepEqual(topeAvisosHueco(5, -2), { caben: 0, saltadasPorTope: 5 });
 });

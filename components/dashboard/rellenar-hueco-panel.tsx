@@ -11,6 +11,7 @@ import { useRol } from '@/lib/permisos';
 import { authHeader } from '@/lib/api-client';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { candidatasParaRellenar, TEXTO_MOTIVO_CANDIDATA, type ClaseDelDia } from '@/lib/hoy-agenda';
+import { AVISOS_HUECO_POR_PLAZA } from '@/lib/booking-logic';
 import { fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 import type { Reserva, Sesion } from '@/lib/types';
 
@@ -178,6 +179,15 @@ export function RellenarHuecoPanel({
       const partes = [
         `${enviados} aviso${enviados === 1 ? '' : 's'} enviado${enviados === 1 ? '' : 's'}${canales ? ` (${canales})` : ''}`,
       ];
+      // El tope va PRIMERO de las razones: es la que explica que el número sea
+      // menor que lo que se acaba de seleccionar, y la única que no depende de
+      // la socia sino de cuántas plazas hay. `tope` se dice tal cual lo manda
+      // el servidor —depende del aforo EFECTIVO, que aquí no se conoce—, y si
+      // no viene se calla en vez de inventárselo.
+      if (data.saltadasPorTope) {
+        const cual = typeof data.tope === 'number' ? `: el tope de esta clase es ${data.tope}` : '';
+        partes.push(`${data.saltadasPorTope} sin avisar${cual}`);
+      }
       if (data.sinContacto) partes.push(`${data.sinContacto} sin teléfono ni email`);
       if (data.sinConsentimiento) partes.push(`${data.sinConsentimiento} sin consentimiento de marketing`);
       // Las dos razones de abajo las devolvía el servidor desde el principio y
@@ -366,6 +376,7 @@ export function RellenarHuecoPanel({
                 Se envía por WhatsApp a quien tenga teléfono, si tienes WhatsApp Business
                 conectado; al resto, por email. No se avisa a quien no ha dado consentimiento
                 de marketing ni a quien ya recibió un aviso de esta clase en las últimas 24 h.
+                Salen como mucho {AVISOS_HUECO_POR_PLAZA} avisos por plaza libre.
               </p>
             </>
           ) : (

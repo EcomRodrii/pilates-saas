@@ -17,9 +17,13 @@ import { test, expect } from '@playwright/test';
 //   4. Que una respuesta vacía del servidor no tumbe la pantalla principal del
 //      negocio. Es un fallo que ya ocurrió en esta misma home con
 //      /api/decisiones, así que aquí se prueba de entrada.
+//   5. Que el recuento que sale al avisar no se calle a nadie: si el tope de
+//      esta clase deja fuera a parte de lo seleccionado, se dice cuántas y por
+//      qué. «4 avisos enviados» tras seleccionar a doce es cierto y se lee
+//      como una avería.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { montarHome } from './hoy-home-mock';
+import { montarHome, json } from './hoy-home-mock';
 
 test('el día se lee de arriba abajo: hora, instructora, ocupación y estado', async ({ page }) => {
   await montarHome(page);
@@ -60,8 +64,12 @@ test('una clase sin instructora se distingue y lleva a buscar sustituta', async 
 
 test('«Rellenar hueco» enseña a quién ofrecérselo antes de mandar nada', async ({ page }) => {
   let avisos = 0;
-  await page.route('**/api/marketing/hueco/avisar', route => { avisos++; return json(route, { enviados: 1 }); });
   await montarHome(page);
+  // ⚠️ DESPUÉS de montarHome: Playwright resuelve la ÚLTIMA ruta registrada que
+  // encaje, y ahí dentro se registra un `**/api/**` genérico. Antes, este mock
+  // quedaba tapado por él y `avisos` no podía subir nunca — la comprobación de
+  // abajo pasaba sin medir nada.
+  await page.route('**/api/marketing/hueco/avisar', route => { avisos++; return json(route, { enviados: 1 }); });
   const agenda = page.getByRole('region', { name: 'Hoy en el estudio' });
 
   const boton = agenda.getByRole('button', { name: /Rellenar huecos/ });
@@ -96,4 +104,50 @@ test('una respuesta vacía del servidor no tumba la home', async ({ page }) => {
   await expect(agenda.getByText('Hoy no tienes clases')).toBeVisible();
   // El resto de la home sigue en pie.
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+});
+
+test('avisar dice cuántas se quedaron fuera del tope, no solo cuántas salieron', async ({ page }) => {
+  let intentos = 0;
+  let seleccionadasEnviadas = 0;
+  await montarHome(page, { huecoDeUnaPlaza: true });
+  // Después de montarHome, por el catch-all `**/api/**` que registra al final.
+  await page.route('**/api/marketing/hueco/avisar', route => {
+    intentos++;
+    const body = JSON.parse(route.request().postData() ?? '{}') as { socioIds?: string[] };
+    seleccionadasEnviadas = body.socioIds?.length ?? 0;
+    // Lo que contesta el servidor ante esto: con UNA plaza libre el tope es 4
+    // (`topeAvisosHueco`, lib/booking-logic.ts — probado aparte con
+    // `node --test`), así que ocho de las doce ni se intentan.
+    return json(route, { enviados: 4, porWhatsapp: 4, saltadasPorTope: 8, tope: 4 });
+  });
+
+  const agenda = page.getByRole('region', { name: 'Hoy en el estudio' });
+  // Singular: una sola plaza libre. El de tres huecos dice «Rellenar huecos».
+  await agenda.getByRole('button', { name: 'Rellenar hueco', exact: true }).click();
+
+  const panel = page.getByRole('dialog', { name: /Rellenar hueco en Pilates Máquina/ });
+  await expect(panel.getByText('1 plaza disponible')).toBeVisible();
+  // El tope se dice ANTES de pulsar, no solo al recibir la respuesta. La cifra
+  // sale de la constante (`AVISOS_HUECO_POR_PLAZA`), no escrita a mano: es el
+  // mismo número que aplica el servidor.
+  await expect(panel.getByText(/Salen como mucho 4 avisos por plaza libre/)).toBeVisible();
+
+  // Doce candidatas, las que caben en el panel (MAX_CANDIDATAS) — más que el
+  // tope del servidor, que es de lo que va esta prueba.
+  const casillas = panel.getByRole('checkbox');
+  await expect(casillas).toHaveCount(12);
+  for (const casilla of await casillas.all()) await casilla.check();
+
+  await panel.getByRole('button', { name: /Avisar a 12 seleccionadas/ }).click();
+
+  // Lo que se protege: el aviso NO se queda en «4 avisos enviados». Nombra a
+  // las ocho que no salieron y dice cuál era el tope. Una sola aserción sobre
+  // la frase entera, porque el toast de éxito dura 3 s y dos esperas seguidas
+  // podrían caer una a cada lado de ese corte.
+  await expect(page.getByText(/8 sin avisar: el tope de esta clase es 4/)).toBeVisible();
+
+  // Y el contador, sin el cual «no mintió» podría ser verdad por no haber
+  // llamado a nadie: la petición salió, con las doce seleccionadas dentro.
+  expect(intentos).toBe(1);
+  expect(seleccionadasEnviadas).toBe(12);
 });

@@ -17,7 +17,7 @@ import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
-import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
+import { clasesConHuecoProximas, candidatasParaHueco, topeAvisosHueco } from '@/lib/booking-logic';
 import { mapSesion, mapReserva, mapSocio, mapSuscripcion, mapPlanTarifa, hidratarTiposDePlanes } from '@/lib/supabase-data';
 import type { RowSesiones, RowReservas, RowSocios, RowSuscripciones, RowPlanesTarifa } from '@/lib/db-types';
 import { LEGAL } from '@/lib/legal-info';
@@ -63,7 +63,6 @@ import { fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 // ningún rate-limit de mensajería en el repo hasta esta ruta, así que se
 // incorpora aquí desde el principio.
 const VENTANA_DEDUP_HORAS = 24;
-const CAP_MAXIMO = 30;
 
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'hueco-avisar', { max: 10, windowSeconds: 60 });
@@ -196,9 +195,13 @@ export async function POST(req: NextRequest) {
     let candidatas = candidatasParaHueco({ sesion: sesionObj, sesiones, socios, reservas, suscripciones, planesTarifa, hoyISO });
     if (seleccion) candidatas = candidatas.filter(s => seleccion.has(s.id));
 
-    // Cap: no tiene sentido avisar a mucha más gente que huecos reales.
-    const cap = Math.min(candidatas.length, plazasLibres * 4, CAP_MAXIMO);
-    candidatas = candidatas.slice(0, cap);
+    // Tope: no tiene sentido avisar a mucha más gente que huecos reales. Lo que
+    // se recorta se CUENTA y se devuelve — con `umbral: 1`, una clase de una
+    // sola plaza tiene tope 4, así que seleccionar a doce en «Rellenar hueco»
+    // dejaba fuera a ocho en silencio y la respuesta decía «4 avisos enviados»,
+    // cierto y sin explicar el resto.
+    const { caben: tope, saltadasPorTope } = topeAvisosHueco(candidatas.length, plazasLibres);
+    candidatas = candidatas.slice(0, tope);
 
     // Dedup: no volver a avisar a la misma socia de la misma sesión en 24h.
     const desdeDedup = new Date(ahora.getTime() - VENTANA_DEDUP_HORAS * 3600_000).toISOString();
@@ -388,6 +391,12 @@ export async function POST(req: NextRequest) {
       // otro campo es una lista.
       conCorreoRoto: correoRoto.length,
       saltadasPorDedup,
+      // Las que ni se intentaron por no caber en el tope de esta clase. `tope`
+      // viaja al lado porque el límite depende de las plazas libres REALES
+      // (aforo efectivo, descontando máquinas averiadas): la pantalla no puede
+      // recalcularlo sin arriesgarse a explicar el recorte con otro número.
+      saltadasPorTope,
+      tope,
     });
   } catch (err) {
     return errorInterno('marketing/hueco/avisar:POST', err, 'No se pudo avisar a las candidatas. Inténtalo de nuevo más tarde.');
