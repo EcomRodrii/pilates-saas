@@ -129,7 +129,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
         // lema **6,13:1**. Lo guarda `e2e/student-cabecera-sobre-foto.spec.ts`.
         background: flotando
           ? 'linear-gradient(to bottom, rgba(8,8,8,.58), rgba(8,8,8,.52) 70%, rgba(8,8,8,.2) 92%, transparent)'
-          : 'rgba(250,249,245,.88)',
+          : 'var(--velo)',
         backdropFilter: flotando ? undefined : 'blur(16px)',
         borderBottom: flotando ? 'none' : '1px solid var(--border)',
         transition: 'background .18s linear',

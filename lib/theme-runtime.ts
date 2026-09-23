@@ -276,6 +276,12 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     // App de socias (portal)
     '--portal-brand': t.primary,
     '--portal-brand-foreground': marcaForeground,
+    // El color de marca cuando es TEXTO (un enlace, un icono suelto) sobre el
+    // fondo del portal, no superficie. Se oscurece solo lo justo si hace falta.
+    // ⚠️ Antes esto no existía y el hueco se tapaba PROHIBIENDO publicar un
+    // color claro («no contrasta bien con el fondo»), que es pedirle al estudio
+    // que renuncie a su marca por dos textos. Ahora se resuelve aquí.
+    '--portal-brand-texto': colorLegibleSobre(t.primary, MODO_TOKENS.dia.bg),
     '--portal-brand-secondary': t.secondary,
     // Panel de gestión (marca del estudio; el dark/light sigue siendo por-usuario)
     '--brand': t.primary,
@@ -383,8 +389,13 @@ export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   // El foreground de marca se autoderiva, así que el par marca/texto-de-marca
   // siempre cumple; validamos además la marca sobre el fondo del portal para
   // elementos como enlaces/botones fantasma que pintan `--portal-brand` ahí.
-  if (!cumpleContraste(t.primary, fondoPortalDia, { grande: true }))
-    errores.push({ mensaje: 'El color de marca no contrasta bien con el fondo (mínimo WCAG AA 3:1 para elementos grandes).', categoriaId: 'color-marca' });
+  // ⚠️ Aquí se prohibía publicar un color de marca claro contra el fondo del
+  // portal. Retirado el 23-sep-2026: el portal que medía está borrado, la app
+  // de la alumna deriva su acento con contraste garantizado por construcción
+  // (lib/student/apariencia.ts, con su test por estilo y color), y donde la
+  // marca se pinta como TEXTO ahora hay `--portal-brand-texto`, legible por
+  // derivación. Lo que quedaba era un estudio con marca rosa o dorada al que
+  // no se le dejaba publicar su propio color.
   // Par que solo estrena la barra oscura: SOLO ahí `destacado` se pinta sobre
   // la marca (`--portal-tabbar-bg` pasa a ser `primary` en varsBarra). La
   // barra flotante también pinta sobre la marca desde que su pastilla activa

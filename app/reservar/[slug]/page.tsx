@@ -2521,7 +2521,7 @@ export default function ReservarPage() {
         {!socia ? (
           <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '56px 24px', gap: 16, textAlign: 'center', boxShadow: SH.card }}>
             <div style={{ width: 56, height: 56, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--portal-surface-2)' }}>
-              <Users size={24} style={{ color: PRIMARY }} />
+              <Users size={24} style={{ color: 'var(--portal-brand-texto)' }} />
             </div>
             <div>
               <h3 style={{ fontFamily: serif, fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tus reservas</h3>
@@ -4157,7 +4157,7 @@ export default function ReservarPage() {
                   return (
                     <div className="mb-5 px-3.5 py-3 rounded-xl border border-[var(--portal-line)]" style={{ backgroundColor: 'var(--portal-surface-2)' }}>
                       <p className="text-[13px] text-[var(--portal-ink)]">{aviso.texto}</p>
-                      <a href={aviso.href} className="text-[13px] font-semibold underline underline-offset-2 text-[var(--portal-brand)]">
+                      <a href={aviso.href} className="text-[13px] font-semibold underline underline-offset-2 text-[var(--portal-brand-texto)]">
                         {aviso.cta}
                       </a>
                     </div>
