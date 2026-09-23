@@ -3,7 +3,7 @@ import { PLANS } from '@/components/landing/data';
 import { SALIDAS } from './enlaces';
 
 // Sección 11 de la landing v5 — "Precio". Los tres planes se importan de
-// PLANS (components/landing/data.tsx), la misma fuente que usa la landing en
+// PLANS (components/landing/data.ts), la misma fuente que usa la landing en
 // producción: los importes del diseño coincidían con los reales al portarlo,
 // pero importar en vez de retipear evita que un cambio de precio futuro deje
 // esta vista previa con una cifra vieja.
