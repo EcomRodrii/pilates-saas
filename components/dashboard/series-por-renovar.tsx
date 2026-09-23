@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CalendarClock } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { ANCLA_DECIDIR, invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
+import { ANCLA_DECIDIR, invalidarEstadoEstudio, useAnclaDeAviso } from '@/lib/estado-estudio-cliente';
 import { listarSeriesPorRenovar, marcarNoRenovar } from '@/lib/series-renovacion-cliente';
 import { nombreSerie, textoFinSerie, type SeriePorRenovar } from '@/lib/series-renovacion';
 import { hoyEnEstudio } from '@/lib/utils';
@@ -55,6 +55,8 @@ export function SeriesPorRenovar({ onToast }: { onToast: (m: string) => void }) 
       setEnviando(null);
     }
   }
+
+  useAnclaDeAviso(ANCLA_DECIDIR.seriesPorRenovar, items !== null);
 
   if (!items?.length) return null;
   const visibles = items.slice(0, VISIBLES);

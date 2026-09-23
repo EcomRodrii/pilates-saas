@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Gift } from 'lucide-react';
 import { dbListarCanjesPendientes, dbEntregarCanje, getCurrentStudioId, type CanjePendiente } from '@/lib/supabase-data';
 import { nombreCreditos } from '@/lib/creditos-nombre';
-import { ANCLA_DECIDIR, invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
+import { ANCLA_DECIDIR, invalidarEstadoEstudio, useAnclaDeAviso } from '@/lib/estado-estudio-cliente';
 import { useStudio } from '@/lib/studio-context';
 import { Button } from '@/components/ui/button';
 
@@ -71,6 +71,8 @@ export function CanjesPendientes({ onToast }: { onToast: (m: string) => void }) 
     setCodigo('');
     onToast('Recompensa entregada');
   }
+
+  useAnclaDeAviso(ANCLA_DECIDIR.canjesPorEntregar, items !== null);
 
   if (!items?.length) return null;
 

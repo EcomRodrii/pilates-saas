@@ -605,6 +605,13 @@ export interface Plantilla {
 type Datos = Record<string, unknown>;
 const s = (v: unknown, def = '') => (v == null ? def : String(v));
 
+// A LA tarjeta de la petición, no solo a la pantalla: con varias peticiones
+// pendientes «/dashboard» a secas deja a quien pulsa buscando cuál era.
+const enlacePeticionPlazaFija = (d: Datos): string =>
+  d.solicitudId
+    ? `/dashboard?peticion=${encodeURIComponent(s(d.solicitudId))}#decidir-plazas-fijas`
+    : '/dashboard#decidir-plazas-fijas';
+
 // Los tres roles de `mostrador` comparten palabra por palabra el aviso de
 // "cobrado sin plaza": quien lo lea tiene que hacer lo mismo sea cual sea su
 // rol. Se generan en vez de copiarse tres veces para que el copy no pueda
@@ -802,17 +809,17 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PLAZA_FIJA_PETICION}#PROPIETARIO`]: {
     title: 'Plaza fija por decidir',
     body: '{socia} {peticion}.',
-    deepLink: () => '/dashboard',
+    deepLink: (d: Datos) => enlacePeticionPlazaFija(d),
   },
   [`${EVENTOS.PLAZA_FIJA_PETICION}#MANAGER`]: {
     title: 'Plaza fija por decidir',
     body: '{socia} {peticion}.',
-    deepLink: () => '/dashboard',
+    deepLink: (d: Datos) => enlacePeticionPlazaFija(d),
   },
   [`${EVENTOS.PLAZA_FIJA_PETICION}#RECEPCION`]: {
     title: 'Plaza fija por decidir',
     body: '{socia} {peticion}.',
-    deepLink: () => '/dashboard',
+    deepLink: (d: Datos) => enlacePeticionPlazaFija(d),
   },
   // …y la respuesta, a la alumna. `{respuesta}` es la frase entera (aprobada o no, con su motivo).
   [`${EVENTOS.PLAZA_FIJA_RESPUESTA}#SOCIA`]: {

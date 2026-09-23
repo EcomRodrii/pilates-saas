@@ -11,7 +11,7 @@
 // (`invalidarEstadoEstudio`). Sin polling: el menú vive en TODAS las páginas y
 // el proyecto ya ha pagado ráfagas de peticiones en la base de datos.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { authHeader } from '@/lib/api-client';
 import { unaVez } from '@/lib/una-vez';
 import type { ClaveConteo, EstadoEstudio } from '@/lib/estado-estudio';
@@ -93,4 +93,70 @@ export function useEstadoEstudio(): EstadoEstudio | null {
   }, []);
 
   return datos;
+}
+
+// ── Llegar desde un aviso a LA tarjeta (y a la fila) que lo motivó ────────────
+//
+// Un aviso de la campana lleva a `/dashboard#decidir-…` (y, si es una petición
+// concreta, `?peticion=<id>`). Dos cosas hacen que el navegador solo no baste:
+// la tarjeta se pinta DESPUÉS de pedir sus filas, así que el salto nativo al
+// `#` cae en el vacío; y estando ya en el panel, `router.push` no relanza nada
+// que un componente pueda oír. Por eso la campana avisa con `EVENTO_ANCLA` y
+// cada tarjeta se engancha con `useAnclaDeAviso`.
+const EVENTO_ANCLA = 'tentare-ir-a-ancla';
+
+/** Lo llama la campana tras navegar: `href` es el destino del aviso. */
+export function avisarAncla(href: string): void {
+  if (typeof window === 'undefined') return;
+  const u = new URL(href, window.location.origin);
+  if (!u.hash) return;
+  window.dispatchEvent(new CustomEvent(EVENTO_ANCLA, {
+    detail: { ancla: u.hash.slice(1), peticion: u.searchParams.get('peticion') },
+  }));
+}
+
+/** `true` si llegó a la fila pedida (o a la tarjeta, si no se pidió fila). */
+function irAAncla(ancla: string, peticion: string | null): boolean {
+  const tarjeta = document.getElementById(ancla);
+  if (!tarjeta) return false;
+  const fila = peticion
+    ? tarjeta.querySelector<HTMLElement>(`[data-peticion="${CSS.escape(peticion)}"]`)
+    : null;
+  if (peticion && !fila) return false;
+  const suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  (fila ?? tarjeta).scrollIntoView({ block: 'center', behavior: suave ? 'smooth' : 'auto' });
+  tarjeta.focus({ preventScroll: true });
+  if (fila) {
+    // Un aro unos segundos: lo justo para ver CUÁL es entre varias iguales.
+    fila.classList.add('ring-2', 'ring-primary');
+    window.setTimeout(() => fila.classList.remove('ring-2', 'ring-primary'), 3000);
+  }
+  return true;
+}
+
+/**
+ * Engancha una tarjeta de «por decidir» a los avisos que llevan a ella.
+ * `listo` = ya ha pintado sus filas (antes no hay a dónde ir). `onNoEsta` se
+ * llama si lo que el aviso señalaba ya no está —otra persona lo resolvió—, para
+ * que la tarjeta lo diga en vez de dejar un clic mudo.
+ */
+export function useAnclaDeAviso(ancla: string | undefined, listo: boolean, onNoEsta?: () => void): void {
+  const noEsta = useRef(onNoEsta);
+  useEffect(() => { noEsta.current = onNoEsta; });
+  useEffect(() => {
+    if (!ancla || !listo) return;
+    const ir = (peticion: string | null) => { if (!irAAncla(ancla, peticion)) noEsta.current?.(); };
+    // Llegada desde otra pantalla: el `#` y el `?peticion` ya están en la URL.
+    if (window.location.hash === `#${ancla}`) {
+      ir(new URLSearchParams(window.location.search).get('peticion'));
+      // Se consumen: recargar o compartir la URL no debe volver a saltar.
+      window.history.replaceState(window.history.state, '', window.location.pathname);
+    }
+    const alAvisar = (ev: Event) => {
+      const d = (ev as CustomEvent<{ ancla: string; peticion: string | null }>).detail;
+      if (d?.ancla === ancla) ir(d.peticion);
+    };
+    window.addEventListener(EVENTO_ANCLA, alAvisar);
+    return () => window.removeEventListener(EVENTO_ANCLA, alAvisar);
+  }, [ancla, listo]);
 }
