@@ -268,7 +268,11 @@ export interface OfertaAlumna {
   /** Solo el número: nunca quién las tiene. */
   plazasLibres: number | null;
   duraciones: { meses: number; etiqueta: string; hasta: string }[];
-  franjas: { diaSemana: number; hora: string; tipoClaseId: string; salaId: string; tipo: string; sala: string; instructora: string | null; logoUrl: string | null }[];
+  franjas: {
+    diaSemana: number; hora: string; tipoClaseId: string; salaId: string; tipo: string; sala: string; instructora: string | null; logoUrl: string | null;
+    /** La próxima clase de esa franja: por ahí se abre su ficha, como cualquier clase suelta. */
+    proximaSesionId: string;
+  }[];
   /** Hasta cuándo hay clases programadas en todas las franjas. */
   programadaHasta: string | null;
 }
