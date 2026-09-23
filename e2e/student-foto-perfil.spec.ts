@@ -14,7 +14,12 @@ async function montar(page: Page, opts: { subida?: { status: number; body: strin
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   const socio = (f.socia as Record<string, unknown>).socio as Record<string, unknown>;
   socio.apellidos = opts.sinApellidos ? '' : 'Test';
-  if (opts.conFoto) socio.fotoUrl = 'https://cdn.example/foto.png';
+  // SEC-01 (auditoría 23-sep): la foto ya no vive en el bucket público — el
+  // payload solo lleva el PATH (o, en fichas viejas sin migrar, la URL
+  // pública de antes; aquí ya no importa cuál, es solo la señal de "tiene
+  // foto" que decide si la pantalla pide una firmada). La URL que de verdad
+  // se ve sale de `/api/foto/signed-url`, mockeada abajo.
+  if (opts.conFoto) socio.fotoUrl = 'socio-e2e-1';
   await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], unread: 0 }) }));
   await page.route((u) => u.pathname === '/api/public/session', (r) => r.fulfill({
@@ -25,6 +30,13 @@ async function montar(page: Page, opts: { subida?: { status: number; body: strin
   await page.route((u) => u.pathname === '/api/public/foto-perfil', (r) => r.fulfill(
     opts.subida ?? { status: 200, contentType: 'application/json', body: JSON.stringify({ url: 'https://cdn.example/nueva.png?v=1' }) },
   ));
+  // La firmada que devuelve `StudioHeader`/`perfil`/`perfil/datos` al leer la
+  // foto ya guardada — no la que devuelve la subida (esa la fija `opts.subida`
+  // de arriba, con su propio contrato).
+  await page.route((u) => u.pathname === '/api/foto/signed-url', (r) => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ url: 'https://cdn.example/foto.png', expiresIn: 3600 }),
+  }));
   // Un PNG diminuto de verdad, para que el redimensionado tenga algo que leer.
   await page.route('**/cdn.example/**', (r) => r.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('89504e470d0a1a0a', 'hex') }));
 }

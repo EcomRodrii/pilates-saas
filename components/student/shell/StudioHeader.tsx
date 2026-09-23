@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
+import { useFotoUrl } from '@/lib/foto-signed-url';
 import { inicialDe } from '@/lib/monograma-estudio';
 import { urlServida } from '@/lib/student/imagen-servida';
 import { Icono } from '@/components/student/ui/Icono';
@@ -103,6 +104,13 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
   // y no del catálogo: ese payload es el gordo, y hay pantallas de la app que
   // hoy no lo piden.
   const { socia } = useSesionStudent(estudio.slug);
+  // SEC-01 (auditoría 23-sep): `socia.fotoUrl` es la URL pública vieja —
+  // dejó de usarse para no seguir exponiendo el bucket público. `socioId`
+  // sirve directo como `path` de la firma (mismo id con el que se sube:
+  // app/api/public/foto-perfil/route.ts, "path = id de la socia"). Solo se
+  // pide si `fotoUrl` existe: sin foto, pedir la firma igual habría sido un
+  // "object not found" en cada carga para la mayoría de socias.
+  const { url: fotoFirmada } = useFotoUrl(socia?.fotoUrl ? socia.socioId : null, estudio.id, 'portal');
 
   // ⚠️ Transparente solo MIENTRAS se ve el héroe.
   //
@@ -217,7 +225,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
               boxShadow: flotando ? '0 0 0 1.5px rgba(250,249,245,.55)' : '0 0 0 1.5px var(--border)',
             }}
           >
-            <AvatarSocia nombre={socia.nombre} fotoUrl={socia.fotoUrl ?? null} size={34} />
+            <AvatarSocia nombre={socia.nombre} fotoUrl={fotoFirmada} size={34} />
           </Link>
         )}
         </div>

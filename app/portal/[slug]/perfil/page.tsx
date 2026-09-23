@@ -15,6 +15,7 @@ import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Icono } from '@/components/student/ui/Icono';
+import { useFotoUrl } from '@/lib/foto-signed-url';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -27,6 +28,11 @@ export default function PerfilPage() {
   const router = useRouter();
   const cargarAlumna = useCallback(() => getAlumna(estudio.slug), [estudio.slug]);
   const { data: socia } = useAsync(cargarAlumna, (d) => !d);
+  // SEC-01 (auditoría 23-sep): `socia.fotoUrl` ya no es una URL pública
+  // pintable directa — mismo criterio que `perfil/datos/page.tsx`. Solo se
+  // pide la firma si `fotoUrl` existe (evita un "object not found" en cada
+  // carga para quien nunca subió foto).
+  const { url: fotoFirmada } = useFotoUrl(socia?.fotoUrl ? socia.id : null, estudio.id, 'portal');
   const { logout } = useAuthStudent(estudio.slug);
   const [salir, setSalir] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
@@ -53,7 +59,7 @@ export default function PerfilPage() {
           className="card card--pad-lg card--tap row"
           style={{ ['--gap' as string]: '13px' }}
         >
-          <AvatarSocia nombre={socia?.nombre} apellidos={socia?.apellidos} fotoUrl={socia?.fotoUrl} size={56} />
+          <AvatarSocia nombre={socia?.nombre} apellidos={socia?.apellidos} fotoUrl={fotoFirmada} size={56} />
           <div className="trunc">
             <p className="t-card-title trunc">{nombreCompleto}</p>
             <p className="t-meta" style={{ marginTop: 1 }}>Alumna de {estudio.nombre}</p>

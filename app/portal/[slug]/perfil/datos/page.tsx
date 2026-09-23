@@ -16,6 +16,7 @@ import { useAuthStudent } from '@/lib/student/auth';
 import { FotoPerfil } from '@/components/student/domain/FotoPerfil';
 import { iniciales } from '@/lib/mensajeria/presentacion';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
+import { useFotoUrl } from '@/lib/foto-signed-url';
 
 // Datos personales (§A.18).
 //
@@ -41,6 +42,12 @@ export default function DatosPage() {
   // ya se había rendido. 28 de las 35 pantallas del portal sí pintan
   // ErrorState/OfflineState (ver comunidad/page.tsx); esta era la excepción.
   const { data: socia, estado: estadoCarga, reintentar } = useAsync(cargarAlumna, (d) => !d);
+  // SEC-01 (auditoría 23-sep): `socia.fotoUrl` ya no es una URL pública que se
+  // pueda pintar directa — es el path desnudo en el bucket privado (o, para
+  // una ficha aún sin migrar, la URL pública vieja, que ya no sirve como path
+  // real: `useFotoUrl` fallaría a `null`, cayendo a iniciales, nunca a una
+  // imagen rota). Solo se pide la firma si `fotoUrl` existe.
+  const { url: fotoFirmada } = useFotoUrl(socia?.fotoUrl ? socia.id : null, estudio.id, 'portal');
   const { toast } = useToast();
   const { cambiarEmail } = useAuthStudent(estudio.slug);
 
@@ -138,7 +145,7 @@ export default function DatosPage() {
         {socia && (
           <FotoPerfil
             studioId={estudio.id}
-            url={fotoLocal !== undefined ? fotoLocal : (socia.fotoUrl ?? null)}
+            url={fotoLocal !== undefined ? fotoLocal : fotoFirmada}
             iniciales={iniciales(socia.nombre, socia.apellidos)}
             onCambio={(u) => {
               setFotoLocal(u);

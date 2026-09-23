@@ -26,8 +26,12 @@ import { TIPOS_FOTO_PERFIL, FOTO_PERFIL_MAX_BYTES } from '@/lib/foto-perfil-regl
 // id de la socia, así que aceptarlo del cliente sería dejarle elegir a quién
 // le cambia la foto.
 //
-// La política del bucket (`avatars_path_autorizado`) sigue siendo la segunda
-// cerradura, y declara sus propios `allowed_mime_types` y límite de 5 MB.
+// ⚠️ SEC-01 (auditoría 23-sep): sube a `avatars-privadas` (bucket PRIVADO,
+// RLS-1), no a `avatars` (público) — antes la foto quedaba servida sin
+// autenticación en una URL predecible. La política del bucket es la segunda
+// cerradura para quien intente subir directo sin pasar por aquí (esta ruta,
+// con service-role, ya la salta a propósito); declara sus propios
+// `allowed_mime_types` y límite de 5 MB.
 
 export async function OPTIONS(req: NextRequest) {
   return respuestaPreflightWidget(req);
@@ -78,32 +82,46 @@ export async function POST(req: NextRequest) {
     const admin = getSupabaseAdmin();
     if (!admin) return conCorsWidget(req, NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 }));
 
-    // La ruta del objeto ES el id de la socia, sin prefijo — que es lo que la
-    // política del bucket reconoce como «su propia foto».
+    // ⚠️ SEC-01 (auditoría 23-sep): antes subía a `avatars` (bucket PÚBLICO) —
+    // la foto de la socia quedaba servida sin autenticación en una URL
+    // predecible (`/object/public/avatars/<socio_id>`). Ahora va a
+    // `avatars-privadas` (RLS-1, ya existía sin consumidor real) — la ruta del
+    // objeto sigue siendo el id de la socia, sin prefijo, que es lo que
+    // `app/api/foto/signed-url` reconoce como «su propia foto».
     const { error: fallo } = await admin.storage
-      .from('avatars')
+      .from('avatars-privadas')
       .upload(r.socioId, archivo, { upsert: true, contentType: archivo.type });
     if (fallo) {
       Sentry.captureException(fallo, { tags: { area: 'foto-perfil', paso: 'storage-upload' }, extra: { tipo: archivo.type, bytes: archivo.size } });
       return conCorsWidget(req, errorInterno('public/foto-perfil:POST:storage', fallo, 'No hemos podido guardar la foto.'));
     }
 
-    const { data } = admin.storage.from('avatars').getPublicUrl(r.socioId);
-    // Cache-bust: el path es siempre el mismo, así que sin esto el navegador
-    // seguiría enseñando la foto anterior tras sustituirla.
-    const url = `${data.publicUrl}?v=${Date.now()}`;
-
-    // Subir y apuntar van juntos: si la ficha no apuntara al fichero recién
-    // subido, la foto existiría en el bucket y no se vería en ninguna parte.
+    // `socios.foto_url` pasa a guardar el PATH desnudo, no una URL pública —
+    // ya no hay ninguna URL pública que construir. Todo lector pasa por
+    // `useFotoUrl`/`obtenerUrlFoto`, que piden una firmada cada vez (1h de
+    // validez), así que no hace falta cache-busting aquí: cada resolución es
+    // ya una URL nueva.
     const res = await actualizarSociaPublica({
-      studioId: r.studioId, socioId: r.socioId, authUserId: r.authUserId, cambios: { fotoUrl: url },
+      studioId: r.studioId, socioId: r.socioId, authUserId: r.authUserId, cambios: { fotoUrl: r.socioId },
     });
     if ('error' in res) {
       Sentry.captureMessage(`foto-perfil: la ficha no se actualizó tras subir: ${String(res.error)}`, { level: 'error', tags: { area: 'foto-perfil', paso: 'ficha' } });
       return conCorsWidget(req, NextResponse.json(res, { status: 400 }));
     }
 
-    return conCorsWidget(req, NextResponse.json({ url }));
+    // El cliente (`FotoPerfil.tsx`) pinta `url` directo en un
+    // `background-image`, así que necesita algo que cargue en el navegador YA
+    // — se le da una firmada de una vez, para la previsualización optimista;
+    // la próxima vez que se pinte la cabecera/perfil, pedirá la suya propia.
+    const { data: firmada, error: errorFirma } = await admin.storage
+      .from('avatars-privadas')
+      .createSignedUrl(r.socioId, 3600);
+    if (errorFirma || !firmada) {
+      Sentry.captureException(errorFirma ?? new Error('sin URL firmada tras subir'), { tags: { area: 'foto-perfil', paso: 'firmar-tras-subir' } });
+      return conCorsWidget(req, errorInterno('public/foto-perfil:POST:firma', errorFirma ?? new Error('sin URL'), 'La foto se guardó, pero no se pudo mostrar. Recarga la página.'));
+    }
+
+    return conCorsWidget(req, NextResponse.json({ url: firmada.signedUrl }));
   } catch (err) {
     Sentry.captureException(err, { tags: { area: 'foto-perfil', paso: 'POST' } });
     return conCorsWidget(req, errorInterno('public/foto-perfil:POST', err, 'No hemos podido guardar la foto.'));
@@ -131,7 +149,7 @@ export async function DELETE(req: NextRequest) {
 
     // Si el borrado del objeto falla, la socia YA no lo ve: queda un fichero
     // huérfano, que es mucho menos malo que una foto que no se puede quitar.
-    await admin.storage.from('avatars').remove([r.socioId]);
+    await admin.storage.from('avatars-privadas').remove([r.socioId]);
     return conCorsWidget(req, NextResponse.json({ ok: true }));
   } catch (err) {
     return conCorsWidget(req, errorInterno('public/foto-perfil:DELETE', err, 'No hemos podido quitar la foto.'));

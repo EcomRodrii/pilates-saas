@@ -5,10 +5,27 @@ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 
-// RLS-1: Genera URLs firmadas para fotos de personas en bucket privado.
+// RLS-1: Genera URLs firmadas para fotos de personas.
 // Rutas válidas (path): <socio_id>, instructor-<id>, network-<perfil>
-// La política de bucket private evita acceso directo; solo esta ruta puede crear URLs.
-const BUCKET = 'avatars-privadas';
+//
+// ⚠️ SEC-01 (auditoría 23-sep, fase socias). El bucket pensado para esto,
+// `avatars-privadas`, existe con las políticas correctas desde RLS-1 — pero
+// NINGÚN camino de subida escribía ahí (revertido en f90e8241: "RLS-1 dejó a
+// medias el paso a fotos privadas"). Esta fase cierra el camino de la SOCIA
+// de punta a punta (sube ahí `app/api/public/foto-perfil/route.ts`, lee ahí
+// esta ruta); instructor-/network- se QUEDAN en `avatars` (público) a
+// propósito, deliberadamente fuera de esta fase — instructor- porque las
+// fotos de Tentare Network son un marketplace público por diseño
+// (`components/network-publico/tarjeta-instructora.tsx`: "la que ve alguien
+// SIN CUENTA viniendo de Google"), no una fuga; instructor- interno del panel
+// queda pendiente de decidir en una fase aparte, no mezclada con la de
+// socias. `createSignedUrl` no depende del flag `public` del bucket — eso
+// solo afecta a la ruta anónima `/object/public/<bucket>/<path>`; el cliente
+// admin (service-role) ignora RLS en los dos buckets igual.
+function bucketDe(path: string): string {
+  if (path.startsWith('instructor-') || path.startsWith('network-')) return 'avatars';
+  return 'avatars-privadas';
+}
 const DURACION_SEGUNDOS = 3600;  // 1 hora
 
 export interface FotoSignedUrlResponse {
@@ -96,7 +113,7 @@ export async function GET(req: NextRequest) {
 
   // Generar URL firmada
   const { data, error } = await admin.storage
-    .from(BUCKET)
+    .from(bucketDe(path))
     .createSignedUrl(path, DURACION_SEGUNDOS);
 
   if (error || !data) {
