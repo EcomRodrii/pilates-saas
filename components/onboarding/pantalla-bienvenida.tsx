@@ -132,6 +132,15 @@ const OPCIONES_SOFTWARE = [
 
 /** ¿Hay datos que traer de otro sitio? Ni «ninguno» ni «otro» son migrables:
  *  del primero no hay nada, y del segundo no sabemos siquiera qué es. */
+/**
+ * Las tres últimas preguntas NO configuran lo necesario para programar una
+ * clase: cobro (borradores de bono/cuota que se activan luego con precio),
+ * prioridad y tipo de ayuda. Antes iban mezcladas entre las que sí y retrasaban
+ * el primer horario; ahora van AL FINAL y se pueden saltar («Saltar lo que
+ * queda»). Quien las contesta conserva todo lo de antes.
+ */
+const PASOS_OPCIONALES: readonly (keyof Respuestas)[] = ['cobro', 'foco', 'ayuda'];
+
 function vieneDeOtraPlataforma(software: string | undefined): boolean {
   return !!software && software !== SIN_SOFTWARE && software !== OTRO_SOFTWARE;
 }
@@ -181,23 +190,6 @@ const PASOS_BASE: Paso[] = [
     multi: 6,
   },
   {
-    id: 'cobro', etiqueta: 'Tus precios', titulo: '¿Cómo cobras a tus alumnas?',
-    // No se promete el precio: se deja el bono con la forma correcta y en
-    // borrador. Un precio inventado sería un bono comprable por dinero que
-    // nadie ha decidido.
-    // El tope va DICHO. Los pasos de clases y de prioridad ya anunciaban el
-    // suyo ("Elige hasta cuatro", "Elige hasta dos") y este no, así que quien
-    // marcaba las tres formas de cobro —bonos, cuota y clase suelta, que es lo
-    // normal en un estudio— se quedaba con dos sin saber cuál había perdido.
-    // ⚠️ Eran DOS, y lo normal en un estudio es vender las tres: bono, cuota
-    // y clase suelta. `planificarConfiguracion` ya dejaba preparada cualquiera
-    // de ellas; el tope solo vivía aquí, y obligaba a elegir cuál perder
-    // (evaluación del 13-sep).
-    nota: 'Elige todas las que uses. Las dejamos preparadas; el precio lo pones tú antes de activarlas.',
-    opciones: [...OPCIONES_COBRO],
-    multi: OPCIONES_COBRO.length,
-  },
-  {
     id: 'horario', etiqueta: 'Tu espacio', titulo: '¿A qué horas das clases?',
     // Ajusta la franja que pinta el calendario. Sin esto se abre de 8:00 a
     // 22:00 por defecto, así que un estudio de tardes se encuentra media
@@ -227,6 +219,23 @@ const PASOS_BASE: Paso[] = [
       ? `Exporta de ${a.software} tus alumnas, bonos y horario y súbelos: los leemos solos, ves el plan antes de importar nada y se puede deshacer. Sin coste.`
       : 'Si las tienes en Excel, súbelo: lo leemos solo, ves el plan antes de importar nada y se puede deshacer. Sin coste.',
     opciones: ['Sí, importadlos', 'No, empiezo de cero'],
+  },
+  {
+    id: 'cobro', etiqueta: 'Tus precios', titulo: '¿Cómo cobras a tus alumnas?',
+    // No se promete el precio: se deja el bono con la forma correcta y en
+    // borrador. Un precio inventado sería un bono comprable por dinero que
+    // nadie ha decidido.
+    // El tope va DICHO. Los pasos de clases y de prioridad ya anunciaban el
+    // suyo ("Elige hasta cuatro", "Elige hasta dos") y este no, así que quien
+    // marcaba las tres formas de cobro —bonos, cuota y clase suelta, que es lo
+    // normal en un estudio— se quedaba con dos sin saber cuál había perdido.
+    // ⚠️ Eran DOS, y lo normal en un estudio es vender las tres: bono, cuota
+    // y clase suelta. `planificarConfiguracion` ya dejaba preparada cualquiera
+    // de ellas; el tope solo vivía aquí, y obligaba a elegir cuál perder
+    // (evaluación del 13-sep).
+    nota: 'Elige todas las que uses. Las dejamos preparadas; el precio lo pones tú antes de activarlas.',
+    opciones: [...OPCIONES_COBRO],
+    multi: OPCIONES_COBRO.length,
   },
   {
     id: 'foco', etiqueta: 'Prioridad', titulo: '¿Qué es lo que más te preocupa ahora mismo?',
@@ -621,6 +630,10 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
   if (!valorVisto) {
     return (
       <PantallasValor
+        // Solo el logo: las cuatro pantallas de valor iban delante de cualquier
+        // pregunta y eran cuatro clics sin ninguna acción. Quien llega aquí ya
+        // ha decidido registrarse, y el primer valor real es su horario.
+        soloLogo
         onContinuar={saltarValor}
         studioId={studio.id}
         studioNombre={studio.nombre}
@@ -762,14 +775,12 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     //    reserva. Soltarla en el panel es soltarla lejos del único paso que
     //    le falta.
     //
-    // No se navega ahí DIRECTAMENTE: primero pasa por /bienvenido-apertura,
-    // que decide si Opening OS tiene algo que preguntarle (sus 3 preguntas de
-    // apertura) antes de soltarla en el destino. No cuenta como un paso más
-    // del wizard —éste ya ha terminado y bienvenidaVistaEn ya está sellado—,
-    // es la pantalla puente pedida para que esas preguntas no le salgan
-    // luego como una sorpresa en el dashboard.
+    // Directo al destino. Antes pasaba por /bienvenido-apertura (las 3 preguntas
+    // de Opening OS) ANTES de llegar al calendario: una pantalla más entre la
+    // propietaria y su primer horario. Esas mismas preguntas siguen en la home
+    // (sección de apertura, 30 días) y ya no se interponen.
     const destino = ans.importar === 'Sí, importadlos' ? '/migracion' : '/calendario';
-    router.push(`/bienvenido-apertura?destino=${encodeURIComponent(destino)}`);
+    router.push(destino);
   }, [updateStudio, router]);
 
   // P1-5 (auditoría de producto): las 11 preguntas no tenían salida — quien
@@ -1038,6 +1049,21 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
         </div>
 
         <div className="absolute top-[clamp(18px,3.2vh,34px)] right-6 z-10 flex items-center gap-3">
+          {vals.fase === 'wizard' && vals.paso && PASOS_OPCIONALES.includes(vals.paso.id) && (
+            <button
+              type="button"
+              onClick={(ev) => {
+                ev.stopPropagation();
+                const e = engineRef.current;
+                if (!e) return;
+                capturarEvento('bienvenida_recortada', { en: vals.paso?.id });
+                void finalizar(e.ans);
+              }}
+              className="text-[12px] font-semibold text-brand-medio hover:underline whitespace-nowrap"
+            >
+              Saltar lo que queda
+            </button>
+          )}
           {vals.fase === 'wizard' && (
             <button
               type="button"

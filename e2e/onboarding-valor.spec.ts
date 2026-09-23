@@ -1,6 +1,6 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
-// Pantallas de valor: lo primero que ve la propietaria, antes del asistente.
+// Lo primero que ve la propietaria, antes del asistente: la pantalla del logo.
 // Se monta como el resto de e2e del panel (sesión sembrada en localStorage).
 const AUTH_UID = 'auth-e2e-duena';
 const STUDIO_ID = 'studio-test';
@@ -46,45 +46,31 @@ export async function montarBienvenida(page: Page) {
   await page.goto('/dashboard');
 }
 
-test('la primera pantalla enseña valor antes de pedir un solo dato', async ({ page }) => {
+// ⚠️ La baraja de cuatro pantallas de valor YA NO va delante. Quien llega aquí
+// ha decidido registrarse, y eran cuatro clics sin ninguna acción antes del
+// primer horario. Solo queda la pantalla del logo, que es la única que pide algo.
+test('la primera pantalla es el logo, sin baraja de valor ni preguntas', async ({ page }) => {
   await montarBienvenida(page);
-  await expect(page.getByRole('heading', { name: 'Tus alumnas reservan solas, a cualquier hora' })).toBeVisible({ timeout: 30_000 });
-  // Lo que NO debe aparecer todavía: la primera pregunta del asistente.
-  await expect(page.getByText('¿Cuántos centros tienes?')).toHaveCount(0);
-  await expect(page.getByText('1 de 5')).toBeVisible();
-});
-
-test('las cinco pantallas avanzan y desembocan en el asistente', async ({ page }) => {
-  await montarBienvenida(page);
-  await expect(page.getByRole('heading', { name: 'Tus alumnas reservan solas, a cualquier hora' })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('button', { name: 'Siguiente' }).click();
-  await expect(page.getByRole('heading', { name: 'Cobras las cuotas y los bonos automáticamente' })).toBeVisible();
-  await page.getByRole('button', { name: 'Siguiente' }).click();
-  await expect(page.getByRole('heading', { name: 'Cuando una instructora no puede, buscamos sustituta' })).toBeVisible();
-  await page.getByRole('button', { name: 'Siguiente' }).click();
-  await expect(page.getByRole('heading', { name: 'Ves qué clases se llenan y cuáles no' })).toBeVisible();
-  await expect(page.getByText('4 de 5')).toBeVisible();
-  // La última no dice "Siguiente": dice lo que va a pasar.
-  // La quinta y última: la única que pide algo (el logo), y también saltable.
-  await page.getByRole('button', { name: 'Siguiente' }).click();
-  await expect(page.getByRole('heading', { name: 'Ponle tu logo y ya es tuyo' })).toBeVisible();
-  await expect(page.getByText('5 de 5')).toBeVisible();
-  await page.getByRole('button', { name: 'Montar mi estudio' }).click();
+  await expect(page.getByRole('heading', { name: 'Ponle tu logo y ya es tuyo' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Tus alumnas reservan solas, a cualquier hora' })).toHaveCount(0);
+  await expect(page.getByText('¿Cuántos centros tienes?')).toHaveCount(0);
+  // Una sola pantalla: ni «1 de N» ni riel de avance.
+  await expect(page.getByText(/^1 de \d/)).toHaveCount(0);
 });
 
 // Quien ya se ha decidido no necesita que le vendan nada — y la salida está
 // desde la PRIMERA pantalla, no escondida hasta el final.
-test('se puede saltar la baraja entera desde la primera pantalla', async ({ page }) => {
+test('se puede saltar el logo desde la primera pantalla', async ({ page }) => {
   await montarBienvenida(page);
   await expect(page.getByRole('button', { name: 'Saltar' })).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Saltar' }).click();
-  await expect(page.getByRole('heading', { name: 'Tus alumnas reservan solas, a cualquier hora' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Ponle tu logo y ya es tuyo' })).toHaveCount(0);
+  await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible();
 });
 
 test('Tenti se pinta con los colores de marca, no con el índigo del kit', async ({ page }) => {
   await montarBienvenida(page);
-  await expect(page.getByRole('heading', { name: 'Tus alumnas reservan solas, a cualquier hora' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Ponle tu logo y ya es tuyo' })).toBeVisible({ timeout: 30_000 });
   const contorno = await page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue('--tenti-contorno').trim());
   expect(contorno.toUpperCase()).toBe('#343825');
@@ -98,7 +84,7 @@ test('Tenti se pinta con los colores de marca, no con el índigo del kit', async
 // MISMO que las pantallas de valor, así que la propietaria se comía dos
 // bienvenidas seguidas antes de que le preguntáramos nada. El asistente arranca
 // ya en la primera pregunta.
-test('no hay dos bienvenidas: tras la baraja se pregunta, no se saluda otra vez', async ({ page }) => {
+test('no hay dos bienvenidas: tras el logo se pregunta, no se saluda otra vez', async ({ page }) => {
   await montarBienvenida(page);
   await expect(page.getByRole('button', { name: 'Saltar' })).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Saltar' }).click();
@@ -111,12 +97,9 @@ test('no hay dos bienvenidas: tras la baraja se pregunta, no se saluda otra vez'
 
 // El criterio del fundador era «nombre + logo bastan», y el logo no se pedía en
 // ningún sitio: ni en el alta ni en las once preguntas del asistente.
-test('la baraja termina pidiendo el logo, y se puede seguir sin ponerlo', async ({ page }) => {
+test('se pide el logo y se puede seguir sin ponerlo', async ({ page }) => {
   await montarBienvenida(page);
-  for (let i = 0; i < 4; i++) {
-    await page.getByRole('button', { name: 'Siguiente' }).click({ timeout: 30_000 });
-  }
-  await expect(page.getByRole('heading', { name: 'Ponle tu logo y ya es tuyo' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ponle tu logo y ya es tuyo' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Elige tu logo' })).toBeVisible();
   // No bloquea: se entra al asistente sin haber subido nada.
   await page.getByRole('button', { name: 'Montar mi estudio' }).click();

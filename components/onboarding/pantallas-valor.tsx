@@ -108,8 +108,13 @@ const PANTALLAS: Pantalla[] = [
 const MS_ANTES_DE_TRANSFORMAR = 900;
 
 export function PantallasValor({
-  onContinuar, studioId, studioNombre, logoActual, onGuardarLogo,
+  onContinuar, studioId, studioNombre, logoActual, onGuardarLogo, soloLogo = false,
 }: {
+  /** Solo la pantalla del logo, sin la baraja de valor delante. El alta ya la
+   *  hace la propietaria que ha decidido registrarse: venderle otra vez el
+   *  producto antes del primer horario es fricción (ver `PantallaBienvenida`).
+   *  La baraja completa sigue aquí, sin montarse, por si hace falta volver. */
+  soloLogo?: boolean;
   onContinuar: () => void;
   studioId: string;
   studioNombre: string;
@@ -121,8 +126,9 @@ export function PantallasValor({
   const tituloRef = useRef<HTMLHeadingElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const p = PANTALLAS[i];
-  const ultima = i === PANTALLAS.length - 1;
+  const pantallas = soloLogo ? PANTALLAS.filter((x) => x.id === 'logo') : PANTALLAS;
+  const p = pantallas[i];
+  const ultima = i === pantallas.length - 1;
 
   // Volver a «antes» al cambiar de pantalla se hace DURANTE el render y no en
   // un efecto: así no hay un primer pintado con la escena anterior ya
@@ -316,8 +322,9 @@ export function PantallasValor({
 
               {/* Riel de avance: dice cuánto queda, que es información real —
                   no un adorno de «01 / 02 / 03». */}
+              {pantallas.length > 1 && (<>
               <div style={{ display: 'flex', gap: 5 }} aria-hidden>
-                {PANTALLAS.map((q, n) => (
+                {pantallas.map((q, n) => (
                   <span
                     key={q.id}
                     style={{
@@ -329,8 +336,9 @@ export function PantallasValor({
                 ))}
               </div>
               <span style={{ fontSize: 12, color: 'var(--valor-tenue)' }}>
-                {i + 1} de {PANTALLAS.length}
+                {i + 1} de {pantallas.length}
               </span>
+              </>)}
             </div>
           </div>
 

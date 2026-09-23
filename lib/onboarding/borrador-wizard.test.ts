@@ -51,7 +51,7 @@ test('olvidarProgresoWizard borra el borrador', () => {
 
 test('borrador manipulado con basura no rompe la lectura', () => {
   conStorageFalso(() => {
-    window.localStorage.setItem('tentare-onboarding-wizard', JSON.stringify({
+    window.localStorage.setItem('tentare-onboarding-wizard-v2', JSON.stringify({
       studioId: 'studio-1', paso: -1, ans: { centros: 'x'.repeat(999) }, guardadoEn: Date.now(),
     }));
     assert.equal(leerProgresoWizard('studio-1'), null); // paso negativo: descartado entero
@@ -60,7 +60,7 @@ test('borrador manipulado con basura no rompe la lectura', () => {
 
 test('valores fuera de las listas conocidas (localStorage editado a mano) se filtran, no rompen', () => {
   conStorageFalso(() => {
-    window.localStorage.setItem('tentare-onboarding-wizard', JSON.stringify({
+    window.localStorage.setItem('tentare-onboarding-wizard-v2', JSON.stringify({
       studioId: 'studio-1', paso: 1,
       ans: { centros: 123, clases: ['ok', 456, 'x'.repeat(999)] },
       guardadoEn: Date.now(),
@@ -95,5 +95,16 @@ test('un borrador manipulado con basura en aforos no rompe la lectura', () => {
     guardarProgresoWizard('stu-1', 5, { aforos: [{ x: 1 } as unknown as string, '8 plazas'] });
     const leido = leerProgresoWizard('stu-1');
     assert.deepEqual(leido?.ans.aforos, ['', '8 plazas']);
+  });
+});
+
+test('un borrador de antes del cambio de orden no se reanuda (los índices ya no coinciden)', () => {
+  conStorageFalso(() => {
+    window.localStorage.setItem('tentare-onboarding-wizard', JSON.stringify({
+      studioId: 'studio-1', paso: 6, ans: { centros: '1 estudio' }, guardadoEn: Date.now(),
+    }));
+    assert.equal(leerProgresoWizard('studio-1'), null);
+    olvidarProgresoWizard();
+    assert.equal(window.localStorage.getItem('tentare-onboarding-wizard'), null);
   });
 });
