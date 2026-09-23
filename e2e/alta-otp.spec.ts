@@ -113,6 +113,11 @@ test.describe('Después de registrarse se pide el CÓDIGO, no un enlace', () => 
 
     await expect.poll(() => creado, { timeout: 15_000 }).toBe(true);
     await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible();
+
+    // La dirección que se le da para compartir tiene que EXISTIR: decía
+    // «tentare.app/estudio-aurora», que da 404. La página pública es /reservar/.
+    const origen = new URL(page.url()).origin;
+    await expect(page.getByTestId('enlace-reservas-alta')).toHaveText(`${origen}/reservar/estudio-aurora`);
   });
 });
 
