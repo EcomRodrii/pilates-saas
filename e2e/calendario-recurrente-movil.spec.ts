@@ -22,9 +22,10 @@ test.describe.configure({ timeout: 120_000 });
 async function abrir(page: Page): Promise<Locator> {
   await montar(page);
   await ir(page, 'calendario');
-  await page.getByRole('button', { name: /Clase recurrente/ }).click({ timeout: 60_000 });
+  await page.getByRole('button', { name: 'Crear clase', exact: true }).click({ timeout: 60_000 });
+  await page.getByTestId('crear-clase-fija').click();
   const dialogo = page.getByRole('dialog');
-  await expect(dialogo.getByText('Crear clases recurrentes')).toBeVisible();
+  await expect(dialogo.getByText('Nueva clase fija')).toBeVisible();
   // Entra escalando: se mide cuando ha llegado.
   await page.waitForTimeout(400);
   return dialogo;

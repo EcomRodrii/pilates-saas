@@ -2,11 +2,10 @@ import { test, expect, type Route } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Atajo «Crear clase fija con esto»: crear una serie recurrente y armar la
-// clase fija que la ofrece a las alumnas quedaban como dos pasos sin conectar
-// (feedback real de un estudio). Al crear la serie, el toast de confirmación
-// lleva un botón que abre «Crear clase fija» en Horario con esas franjas ya
-// marcadas — sin repetir a mano lo que se acaba de elegir.
+// Atajo «Agrupar con nombre»: al crear una clase fija (Crear clase → Clase fija),
+// el toast de confirmación lleva un botón que abre «Agrupar con nombre» en
+// Horario con esas franjas ya marcadas — sin repetir a mano lo que se acaba de
+// elegir. Agruparla es opcional: cada clase que se repite ya la pueden pedir.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.use({ timezoneId: 'Europe/Madrid' });
@@ -22,7 +21,7 @@ interface TarjetaMin {
   clasesFuturas: number; renovacionAutomatica: boolean; noRenovar: boolean; plazasFijas: never[];
 }
 
-test('crear una serie ofrece «Crear clase fija con esto», y abre el diálogo con esas franjas ya marcadas', async ({ page }) => {
+test('crear una clase fija ofrece «Agrupar con nombre», y abre el diálogo con esas franjas ya marcadas', async ({ page }) => {
   await montar(page);
 
   let tarjetas: TarjetaMin[] = [];
@@ -55,24 +54,25 @@ test('crear una serie ofrece «Crear clase fija con esto», y abre el diálogo c
   }));
 
   await ir(page, 'calendario');
-  await page.getByRole('button', { name: /Clase recurrente/ }).click({ timeout: 60_000 });
+  await page.getByRole('button', { name: 'Crear clase', exact: true }).click({ timeout: 60_000 });
+  await page.getByTestId('crear-clase-fija').click();
   const dialogoRecurrente = page.getByRole('dialog');
-  await expect(dialogoRecurrente.getByText('Crear clases recurrentes')).toBeVisible();
+  await expect(dialogoRecurrente.getByText('Nueva clase fija')).toBeVisible();
   // Días por defecto: lunes y miércoles — dos franjas de la misma serie.
   const crear = dialogoRecurrente.getByRole('button', { name: /^Crear \d+ clases/ });
   await expect(crear).toBeEnabled({ timeout: 10_000 });
   await crear.click();
 
   // El toast trae la acción.
-  const accion = page.getByRole('button', { name: 'Crear clase fija' });
+  const accion = page.getByRole('button', { name: 'Agrupar con nombre' });
   await expect(accion).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/Serie creada/)).toBeVisible();
+  await expect(page.getByText(/Clase fija creada/)).toBeVisible();
   await accion.click();
 
   // Nos lleva a Horario y abre el diálogo de crear, ya con las franjas de la serie marcadas.
   await expect(page.getByTestId('vista-horario')).toBeVisible({ timeout: 30_000 });
   const dialogoClaseFija = page.getByRole('dialog');
-  await expect(dialogoClaseFija.getByText('Crear clase fija').first()).toBeVisible({ timeout: 30_000 });
+  await expect(dialogoClaseFija.getByText('Agrupar con nombre').first()).toBeVisible({ timeout: 30_000 });
   const marcadas = dialogoClaseFija.locator('input[type="checkbox"]:checked');
   await expect(marcadas).toHaveCount(2, { timeout: 10_000 });
 });

@@ -21,8 +21,8 @@ export default function Contenido() {
 
       <h2 style={{ ...h2, marginTop: 4 }}>Crear la clase de cada semana</h2>
       <p>
-        En el <strong>Calendario</strong>, botón <strong>«Clase recurrente»</strong>. Se abre «Crear clases
-        recurrentes»: eliges el tipo de clase, la instructora, la sala, la hora y la duración, marcas los{' '}
+        En el <strong>Calendario</strong>, botón <strong>«Crear clase»</strong> → <strong>«Clase fija»</strong> (la
+        otra opción, «Clase», es para un día concreto). Se abre «Nueva clase fija»: eliges el tipo de clase, la instructora, la sala, la hora y la duración, marcas los{' '}
         <strong>días de la semana</strong> y pones fecha de inicio y de fin. Antes de confirmar te dice cuántas
         clases se van a crear, y te avisa si alguna se solapa con la sala o con la instructora.
       </p>

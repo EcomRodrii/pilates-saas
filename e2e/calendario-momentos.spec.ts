@@ -172,7 +172,8 @@ test.describe('Momentos del calendario', () => {
   test('la duración configurada se usa: 55 min → 09:00 a 09:55', async ({ page }) => {
     await montarCalendario(page);
 
-    await page.getByRole('button', { name: 'Nueva clase' }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
+    await page.getByTestId('crear-clase-suelta').click();
 
     // El formulario abre ya con la duración del tipo aplicada, no con 09:00–09:00.
     const fin = page.locator('input[type="time"]').nth(1);

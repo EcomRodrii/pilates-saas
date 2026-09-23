@@ -209,7 +209,7 @@ test.describe('Calendario · las clases que se repiten', () => {
 
     await ir(page, 'calendario');
     // Crear una serie ya no está escondido en un desplegable.
-    await expect(page.getByRole('button', { name: 'Clase recurrente', exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('button', { name: 'Crear clase', exact: true })).toBeVisible({ timeout: 60_000 });
 
     const marca = page.getByRole('img', { name: 'Se repite cada semana' });
     await expect(marca).toHaveCount(1, { timeout: 30_000 });

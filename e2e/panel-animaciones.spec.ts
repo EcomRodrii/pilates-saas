@@ -99,7 +99,7 @@ test('un diálogo abierto no deja ningún transform puesto al terminar de entrar
   await montar(page);
   await ir(page, 'calendario');
   await expect(page.getByTestId('grid-semana-scroll')).toBeVisible({ timeout: 60_000 });
-  await page.getByRole('button', { name: 'Clase recurrente' }).click();
+  await page.getByRole('button', { name: 'Crear clase', exact: true }).click();
   const dialogo = page.locator('[data-slot="dialog-content"]');
   await expect(dialogo).toBeVisible();
   // Nace del botón: el origen de la escala no es su centro.

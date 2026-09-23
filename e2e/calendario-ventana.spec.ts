@@ -84,7 +84,7 @@ test('con un diálogo abierto, Escape cierra el diálogo y no la vista ampliada'
   await calendario(page);
   await page.getByRole('button', { name: 'Ampliar a toda la pantalla' }).click();
   await expect(menu(page)).toBeHidden();
-  await page.getByRole('button', { name: 'Clase recurrente' }).click();
+  await page.getByRole('button', { name: 'Crear clase', exact: true }).click();
   const dialogo = page.getByRole('dialog');
   await expect(dialogo).toBeVisible();
   await page.keyboard.press('Escape');
@@ -246,7 +246,7 @@ test.describe('en una tablet', () => {
     });
     await montar(page);
     await ir(page, 'calendario');
-    await expect(page.getByRole('button', { name: /Nueva clase/ }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('button', { name: 'Crear clase', exact: true }).first()).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole('button', { name: 'Ampliar a toda la pantalla' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Abrir en una ventana flotante' })).toHaveCount(0);
     await expect(ventana(page)).toHaveCount(0);
