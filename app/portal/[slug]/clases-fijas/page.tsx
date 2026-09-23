@@ -10,7 +10,6 @@ import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getClasesFijas } from '@/lib/student/datos';
 import { ampliarClaseFija, anularPeticionClaseFija, pedirClaseFija } from '@/lib/student/clases-fijas-datos';
-import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { diasDeLaOferta, type ClaseFijaVista, type ClaseSueltaVista } from '@/lib/student/clases-fijas';
 import { FRANJAS_HORARIAS, franjaHorariaDe } from '@/lib/clases-fijas-reglas';
 import { TEXTOS_CLASES_FIJAS as T } from '@/lib/student/clases-fijas-textos';
@@ -20,6 +19,7 @@ import { fechaDMY } from '@/lib/series-renovacion';
 import { Badge } from '@/components/student/ui/Badge';
 import { Button } from '@/components/student/ui/Button';
 import { Icono } from '@/components/student/ui/Icono';
+import { ClaseFijaCard } from '@/components/student/domain/ClaseFijaCard';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 
 /** Ignora acentos y mayúsculas: mismo criterio que la búsqueda del horario (`reservar/page.tsx`). */
@@ -40,7 +40,7 @@ function LogoTipo({ url }: { url: string | null }) {
 function Chevron() {
   return (
     <span aria-hidden style={{ display: 'flex', flexShrink: 0, color: 'var(--subtle-foreground)' }}>
-      <Icono nombre="flecha-derecha" tamano={16} />
+      <Icono nombre="chevron-derecha" tamano={16} />
     </span>
   );
 }
@@ -162,7 +162,7 @@ export default function ClasesFijasPage() {
                 <TarjetaClaseFija key={c.id} c={c} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
               ))}
               {sueltas.length > 0 && (
-                <ListaSueltas sueltas={sueltas} conOfertas={ofertas.length > 0} studioId={estudio.id} slug={estudio.slug} online={online} onCambio={refrescar} />
+                <ListaSueltas sueltas={sueltas} conOfertas={ofertas.length > 0} />
               )}
             </>
           )
@@ -173,93 +173,39 @@ export default function ClasesFijasPage() {
 }
 
 /**
- * Las clases sin oferta con nombre, en UNA sola tarjeta con una fila por franja
- * —el mismo lenguaje visual que «Tu clase fija» (`PlazaFijaCard`), no una
- * tarjeta gigante por franja repitiendo la misma frase: aquí lo que cambia de
- * una fila a otra es el día y la hora, no la explicación.
+ * Las clases que se repiten sin oferta con nombre, como en el horario: una
+ * tarjeta por clase (`ClaseFijaCard`, el mismo aspecto que una clase del
+ * horario) y agrupadas por día. Tocar la tarjeta abre la ficha de su próxima
+ * clase, que es donde se pide la clase fija — aquí no hay un botón por fila:
+ * con 39 clases eran 39 botones iguales.
  */
-function ListaSueltas({ sueltas, conOfertas, studioId, slug, online, onCambio }: {
-  sueltas: ClaseSueltaVista[]; conOfertas: boolean; studioId: string; slug: string; online: boolean; onCambio: () => void;
-}) {
+function ListaSueltas({ sueltas, conOfertas }: { sueltas: ClaseSueltaVista[]; conOfertas: boolean }) {
+  const dias = [...new Set(sueltas.map((f) => f.diaSemana))].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
   return (
-    <div className="card" data-testid="clases-sueltas" style={{ padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <section data-testid="clases-sueltas" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {conOfertas && (
         <div>
           <p className="t-label" style={{ margin: 0 }}>{T.sueltasTitulo}</p>
           <p className="t-meta" style={{ margin: '2px 0 0' }}>{T.sueltasCuerpo}</p>
         </div>
       )}
-      {sueltas.map((f, i) => (
-        <FilaSuelta key={`${f.serieId}-${f.diaSemana}`} f={f} primera={i === 0} studioId={studioId} slug={slug} online={online} onCambio={onCambio} />
-      ))}
-      {/* La explicación de por qué no todas las filas tienen botón va UNA vez
-          aquí abajo, no repetida en cada fila que la necesite. */}
-      {sueltas.some((f) => f.estado.estado === 'SOLO_CON_CUOTA') && (
-        <p data-testid="clase-suelta-sin-cuota" className="t-meta" style={{ margin: 0, paddingTop: 8, borderTop: '1px solid var(--muted)' }}>{TPF.soloConCuota}</p>
+      {sueltas.some((f) => f.estado.estado === 'PUEDE_PEDIR') && (
+        <p className="t-meta" style={{ margin: 0 }}>{T.tocaParaPedir}</p>
       )}
-    </div>
-  );
-}
-
-function FilaSuelta({ f, primera, studioId, slug, online, onCambio }: {
-  f: ClaseSueltaVista; primera: boolean; studioId: string; slug: string; online: boolean; onCambio: () => void;
-}) {
-  const href = usePortalHref();
-  const { toast } = useToast();
-  const [enviando, setEnviando] = useState(false);
-  const [error, setError] = useState('');
-
-  async function pedir() {
-    if (f.estado.estado !== 'PUEDE_PEDIR' || enviando) return;
-    setEnviando(true);
-    setError('');
-    const r = await pedirPlazaFija(slug, studioId, f.proximaSesionId);
-    setEnviando(false);
-    if (!r.ok) { setError(r.error); return; }
-    toast(TPF.pedida);
-    onCambio();
-  }
-
-  async function anular() {
-    if (f.estado.estado !== 'PEDIDA' || enviando) return;
-    setEnviando(true);
-    setError('');
-    const r = await anularPeticionPlazaFija(slug, studioId, f.estado.peticionId);
-    setEnviando(false);
-    if (!r.ok) { setError(r.error); return; }
-    toast(TPF.botonAnular);
-    onCambio();
-  }
-
-  return (
-    <div data-testid="clase-suelta" style={{ paddingTop: primera ? 0 : 8, borderTop: primera ? 'none' : '1px solid var(--muted)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-        {/* La fila lleva a la ficha de su próxima clase, como cualquier clase del
-            horario; el botón de la derecha va aparte (un botón dentro de un
-            enlace no es HTML válido y el lector de pantalla no sabría cuál es). */}
-        <Link
-          href={href('/reservar/' + f.proximaSesionId)} aria-label={`Ver la clase del ${nombreDia(f.diaSemana)} a las ${f.hora}`}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1, color: 'inherit' }}
-        >
-          <LogoTipo url={f.logoUrl} />
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 800, letterSpacing: '-.02em', textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} · {f.hora}</p>
-            <p className="t-meta" style={{ margin: '2px 0 0' }}>{f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</p>
-            {f.estado.estado === 'PEDIDA' && (
-              <p role="status" data-testid="clase-suelta-pedida" className="t-meta" style={{ margin: '2px 0 0', fontWeight: 700, color: 'var(--foreground)' }}>{TPF.pedida}</p>
-            )}
+      {dias.map((d) => {
+        const delDia = sueltas.filter((f) => f.diaSemana === d);
+        return (
+          <div key={d} data-testid="dia-clases-fijas" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <h2 className="t-label" style={{ margin: 0 }}>{T.cabeceraDia(nombreDia(d), delDia.length)}</h2>
+            {delDia.map((f, i) => <ClaseFijaCard key={`${f.serieId}-${f.diaSemana}`} f={f} delay={Math.min(i, 6) * 45} />)}
           </div>
-          <Chevron />
-        </Link>
-        <div style={{ flexShrink: 0 }}>
-          {f.estado.estado === 'TIENE_PLAZA' ? <Badge tone="booked">La tienes ✓</Badge>
-            : f.estado.estado === 'PEDIDA' ? <Button variant="ghost" size="sm" loading={enviando} disabled={!online} onClick={() => void anular()}>{TPF.botonAnular}</Button>
-            : f.estado.estado === 'SOLO_CON_CUOTA' ? <Badge tone="neutral">{T.sueltaSinCuota}</Badge>
-            : <Button variant="secondary" size="sm" loading={enviando} disabled={!online} onClick={() => void pedir()}>{TPF.botonPedir}</Button>}
-        </div>
-      </div>
-      {error && <p role="alert" style={{ margin: '4px 0 0', fontSize: 'var(--t-small)', color: 'var(--danger, #b00020)', fontWeight: 700 }}>{error}</p>}
-    </div>
+        );
+      })}
+      {/* Por qué alguna dice «Necesita cuota»: UNA vez, no en cada tarjeta. */}
+      {sueltas.some((f) => f.estado.estado === 'SOLO_CON_CUOTA') && (
+        <p data-testid="clase-suelta-sin-cuota" className="t-meta" style={{ margin: 0 }}>{TPF.soloConCuota}</p>
+      )}
+    </section>
   );
 }
 

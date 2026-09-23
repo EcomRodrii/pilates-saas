@@ -296,6 +296,8 @@ export interface FranjaSuelta {
   sala: string;
   instructora: string | null;
   logoUrl: string | null;
+  /** Color del tipo de clase: sin logo, la tarjeta lleva su inicial en ese color (como en el horario). */
+  color: string | null;
   /** La próxima clase de esa serie ese día: por ahí se pide y se da la plaza. */
   proximaSesionId: string;
   /** Última clase programada (YYYY-MM-DD). */

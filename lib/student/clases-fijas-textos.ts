@@ -16,8 +16,15 @@ export const TEXTOS_CLASES_FIJAS = {
   // ── Clases sueltas que se repiten, sin oferta con nombre ──
   sueltasTitulo: 'Otras clases fijas disponibles',
   sueltasCuerpo: 'Estas también se repiten cada semana: pide tu plaza y deja de reservarlas una a una.',
-  /** Etiqueta compacta por fila cuando su cuota no la cubre: la explicación completa va UNA vez, no por fila. */
-  sueltaSinCuota: 'Con tu cuota, no',
+  /** Etiqueta compacta por tarjeta cuando su cuota no la cubre: la explicación completa va UNA vez, no por tarjeta. */
+  sueltaSinCuota: 'Necesita cuota',
+  /** Estado en la tarjeta de una clase que se repite (el detalle, en su ficha). */
+  laTienesCorta: 'La tienes ✓',
+  pedidaCorta: 'Pedida',
+  /** Encima de la lista: se pide desde la ficha, como se reserva desde la ficha en el horario. */
+  tocaParaPedir: 'Toca una clase para verla entera y pedirla como clase fija.',
+  /** Cabecera de cada día: «Lunes · 9 clases». */
+  cabeceraDia: (dia: string, n: number) => `${dia.charAt(0).toUpperCase()}${dia.slice(1)} · ${n} ${n === 1 ? 'clase' : 'clases'}`,
   /** Lo que es y lo que pasa después, en dos frases. */
   comoFunciona: 'Pides la clase fija y tu estudio la revisa: su respuesta te llega aquí. Cuando te la da, tu plaza queda reservada cada semana mientras tu cuota siga activa.',
   incluye: 'Incluye',
