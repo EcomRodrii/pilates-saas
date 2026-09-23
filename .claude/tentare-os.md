@@ -48,6 +48,21 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   dependa de una respuesta real o de un navegador concreto **sigue habiendo que mirarlo**:
   el bug de #994 —tres pantallas diciendo «Copiado» con el portapapeles vacío— salió de
   leer el código buscando APIs que Safari no resuelve, no de un test.
+- **El copy público de marca se PROPONE, no se cambia por iniciativa propia.** Las
+  páginas comerciales (`components/landing/`, `app/funcionalidades`, `app/recursos`,
+  `app/precios`, `app/comparativa`, `app/soluciones`, `app/glosario`) son promesas de
+  venta que decide el fundador, no etiquetas de producto. Si un cambio deja una de esas
+  frases falsa, **dilo en el PR con la frase exacta y qué ha dejado de ser cierto, y no la
+  reescribas**: mergear a `main` despliega a producción en el acto, así que una redacción
+  nueva sale publicada sin que nadie la haya aprobado. Pasó el 23-sep-2026: #2252 retiró
+  el radar de ocupación de la home y #2257 reescribió por su cuenta las tres páginas que
+  lo prometían.
+  ⚠️ Esto **acota, no anula**, la regla de que los textos digan la verdad: dentro del
+  producto (panel, `/ayuda`, app de la alumna, correos) un texto desfasado se arregla en
+  el mismo PR, sin preguntar. Lo que necesita visto bueno es solo la web comercial.
+  ⚠️ Y «no lo reescribo» NO es «no lo miro»: dejar una promesa falsa en pie sin avisar es
+  el peor de los dos fallos. El aviso va explícito en el PR, no en un comentario del
+  código que nadie lee.
 - **Commits**: Conventional Commits con scope en español que refleja el área de negocio
   (`fix(seguridad):`, `feat(alta):`, `chore(migraciones):`, `perf(panel):`...) y número de
   PR entre paréntesis cuando exista. El tono puede ser narrativo/autocrítico, no hace falta
