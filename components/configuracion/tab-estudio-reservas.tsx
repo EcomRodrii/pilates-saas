@@ -634,7 +634,7 @@ function VistaPreviaPlazaFija({ activa }: { activa: boolean }) {
   return (
     <div data-testid="vista-previa-plaza-fija" className="rounded-xl border border-border bg-muted/40 p-3">
       <p className="text-[12px] font-semibold text-muted-foreground">
-        Así lo ve tu alumna, en la ficha de la clase. En su app se llama «clase fija».
+        Así lo ve tu alumna, en la ficha de la clase dentro de «Clases fijas». En su app se llama «clase fija».
       </p>
       <div className={cn('mt-2 flex flex-col gap-2 rounded-lg border border-border bg-card p-3', !activa && 'opacity-50')}>
         <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{TEXTOS_PLAZA_FIJA.titulo}</span>

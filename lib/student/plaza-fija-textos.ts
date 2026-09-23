@@ -1,6 +1,6 @@
 // Lo que se le dice a la alumna sobre su clase fija. Sin imports ni `@/`: lo
-// leen la app de la alumna (la ficha de la clase, la hoja de «reserva hecha», su
-// tarjeta y «Mis clases») y la vista previa de Configuración («Así lo ve tu
+// leen la app de la alumna (la ficha de la clase fija, «Mis clases → Fijas» y la
+// tarjeta de Inicio) y la vista previa de Configuración («Así lo ve tu
 // alumna»), y tiene que ser EXACTAMENTE el mismo texto en todos los sitios — si
 // la vista previa dijera otra cosa que la app, explicar el ajuste sería peor que
 // no explicarlo.
@@ -23,7 +23,7 @@ export function losDias(diaSemana: number): string {
 }
 
 export const TEXTOS_PLAZA_FIJA = {
-  // ── Pedirla (ficha de la clase y hoja de «reserva hecha») ──
+  // ── Pedirla (la ficha de la clase fija, `/clases-fijas/[sesionId]`) ──
   titulo: 'Clase fija',
   /** Lo que es, en una frase, con SU día y SU hora. */
   ofrecer: (diaSemana: number, hora: string) =>
@@ -35,11 +35,6 @@ export const TEXTOS_PLAZA_FIJA = {
   botonAnular: 'Anular la petición',
   /** Quien no tiene cuota que la cubra: la regla es la del servidor (`cuotaParaPlazaFija`). */
   soloConCuota: 'La clase fija es para quien tiene una cuota activa que incluya esta clase. Con bono o clases sueltas, se reserva clase a clase.',
-  /** Al terminar de reservar una clase que se repite. */
-  trasReservarTitulo: '¿Vienes cada semana?',
-  trasReservar: (diaSemana: number, hora: string) =>
-    `Pide tu clase fija y tu plaza quedará reservada ${losDias(diaSemana)} a las ${hora}. Tu estudio te lo confirma.`,
-  trasReservarPedida: 'Petición enviada: tu estudio te contestará en la app.',
 
   // ── Su tarjeta, cuando ya la tiene ──
   tarjetaUna: 'Tu clase fija',
@@ -78,6 +73,6 @@ export const TEXTOS_PLAZA_FIJA = {
   /** Un día de su horario con clase y sin reserva: no se promete nada, se dice a quién preguntar. */
   sinReservarAyuda: 'Si un día sale sin reservar, pregúntale a tu estudio: puede que la clase esté llena o que tu cuota no la cubra.',
   cambiosTitulo: '¿Un día no puedes venir?',
-  cambiosCuerpo: 'Cancela solo ese día desde «No puedo asistir» o desde «Mis clases». Tu clase fija sigue igual.',
+  cambiosCuerpo: 'Cancela solo ese día con «No puedo asistir», aquí o en «Próximas». Tu clase fija sigue igual.',
   cambiosListaEspera: 'Tu sitio no se queda vacío: pasa a quien esté en la lista de espera.',
 } as const;

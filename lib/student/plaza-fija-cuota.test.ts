@@ -64,7 +64,6 @@ test('los textos llevan su día y su hora, en plural, y hablan de «clase fija»
   assert.equal(losDias(0), 'los domingos');
   assert.match(TEXTOS_PLAZA_FIJA.ofrecer(2, '10:00'), /¿Vienes los martes a las 10:00\?/);
   assert.match(TEXTOS_PLAZA_FIJA.ofrecer(2, '10:00'), /Con una clase fija tu plaza queda reservada cada semana/);
-  assert.match(TEXTOS_PLAZA_FIJA.trasReservar(4, '18:00'), /los jueves a las 18:00/);
   assert.equal(TEXTOS_PLAZA_FIJA.botonPedir, 'Pedir clase fija');
   assert.match(TEXTOS_PLAZA_FIJA.noPuedoSolo(2), /Tu clase fija de los martes sigue activa/);
   assert.match(TEXTOS_PLAZA_FIJA.noPuedoTarde(12), /Quedan menos de 12 h/);

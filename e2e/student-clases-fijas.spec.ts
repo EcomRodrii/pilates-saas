@@ -320,9 +320,9 @@ test.describe('Student PWA · clases fijas del estudio · sueltas (sin oferta co
     await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
     await expect(page.getByText('Toca una clase para verla entera y pedirla como clase fija.')).toBeVisible();
 
-    await expect(tarjeta).toHaveAttribute('href', `${base}/reservar/ses-suelta-1`);
+    await expect(tarjeta).toHaveAttribute('href', `${base}/clases-fijas/ses-suelta-1`);
     await tarjeta.click();
-    await expect(page).toHaveURL(new RegExp(`${base}/reservar/ses-suelta-1$`), { timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`${base}/clases-fijas/ses-suelta-1$`), { timeout: 30_000 });
     expect(m.peticiones, 'mirar la lista no pide nada').toHaveLength(0);
   });
 
@@ -367,8 +367,8 @@ test.describe('Student PWA · clases fijas del estudio · sueltas (sin oferta co
     await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
     const franjas = page.getByTestId('clase-fija-franja');
     await expect(franjas).toHaveCount(2, { timeout: 30_000 });
-    await expect(franjas.first()).toHaveAttribute('href', `${base}/reservar/ses-cf-mar`);
-    await expect(franjas.nth(1)).toHaveAttribute('href', `${base}/reservar/ses-cf-jue`);
+    await expect(franjas.first()).toHaveAttribute('href', `${base}/clases-fijas/ses-cf-mar`);
+    await expect(franjas.nth(1)).toHaveAttribute('href', `${base}/clases-fijas/ses-cf-jue`);
   });
 });
 

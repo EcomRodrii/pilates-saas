@@ -293,7 +293,7 @@ function TarjetaClaseFija({ c, studioId, slug, online, onCambio }: {
           {c.franjas.map((f) => (
             <li key={`${f.diaSemana}-${f.hora}-${f.tipoClaseId}`}>
               <Link
-                href={href('/reservar/' + f.proximaSesionId)} data-testid="clase-fija-franja"
+                href={href('/clases-fijas/' + f.proximaSesionId)} data-testid="clase-fija-franja"
                 aria-label={`Ver la clase del ${nombreDia(f.diaSemana)} a las ${f.hora}`}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--t-small)', color: 'inherit' }}
               >

@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
@@ -10,7 +10,8 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
-import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
+import { getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
+import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { cancelarReserva, aceptarOfertaEspera } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato';
@@ -53,7 +54,10 @@ export default function MisReservasPage() {
   const { online } = useOnline();
   const { toast } = useToast();
 
-  const [tab, setTab] = useState<'prox' | 'hist'>('prox');
+  // `?tab=fijas`: llegan desde la tarjeta de Inicio y desde la ficha de una clase
+  // fija. Cualquier otro valor cae en «Próximas».
+  const sp = useSearchParams();
+  const [tab, setTab] = useState<Tab>(sp.get('tab') === 'fijas' ? 'fijas' : sp.get('tab') === 'hist' ? 'hist' : 'prox');
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelando, setCancelando] = useState(false);
   const [aceptandoId, setAceptandoId] = useState<string | null>(null);
@@ -67,10 +71,10 @@ export default function MisReservasPage() {
   const ahoraMs = useAhoraMs();
 
   const cargar = useCallback(async () => {
-    const [reservas, clases, instructoras] = await Promise.all([
-      getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug),
+    const [reservas, clases, instructoras, plazaFija] = await Promise.all([
+      getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug),
     ]);
-    return { reservas, clases, instructoras };
+    return { reservas, clases, instructoras, plazaFija };
   }, [estudio.slug]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
@@ -178,13 +182,13 @@ export default function MisReservasPage() {
         <span
           aria-hidden
           style={{
-            position: 'absolute', top: 4, bottom: 4, left: 4, width: 'calc(50% - 4px)',
+            position: 'absolute', top: 4, bottom: 4, left: 4, width: 'calc((100% - 8px) / 3)',
             background: 'var(--card)', borderRadius: 999, boxShadow: '0 3px 10px rgba(26,26,26,.1)',
-            transform: tab === 'hist' ? 'translateX(100%)' : 'none',
+            transform: `translateX(${TABS.indexOf(tab) * 100}%)`,
             transition: 'transform .32s var(--ease-spring)',
           }}
         />
-        {(['prox', 'hist'] as const).map((t) => (
+        {TABS.map((t) => (
           <button
             key={t}
             type="button"
@@ -209,7 +213,7 @@ export default function MisReservasPage() {
               transition: 'color .25s',
             }}
           >
-            {t === 'prox' ? 'Próximas' : 'Historial'}
+            {ETIQUETA_TAB[t]}
           </button>
         ))}
       </div>
@@ -219,7 +223,26 @@ export default function MisReservasPage() {
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && !data && <OfflineState />}
 
-        {data && estado !== 'loading' && estado !== 'error' && (
+        {data && estado !== 'loading' && estado !== 'error' && tab === 'fijas' && (
+          data.plazaFija.plazas.length === 0 ? (
+            <EmptyState
+              ilustracion="calendario"
+              titulo="Aún no tienes clase fija"
+              cuerpo="Con una clase fija tu plaza se reserva sola cada semana, sin tener que volver a reservarla."
+              accion="Ver las clases fijas"
+              href={href('/clases-fijas')}
+            />
+          ) : (
+            // Las recuperaciones se quedan en Bonos, junto a su saldo: aquí solo sus clases fijas.
+            <PlazaFijaCard
+              plazas={data.plazaFija.plazas} calendario={data.plazaFija.calendario}
+              recuperaciones={{ disponibles: 0, proximaCaducidad: null, detalle: [] }}
+              hrefHorario={href('/reservar')} onCambio={reintentar}
+            />
+          )
+        )}
+
+        {data && estado !== 'loading' && estado !== 'error' && tab !== 'fijas' && (
           tab === 'prox' ? (
             prox.length === 0 ? (
               <EmptyState
@@ -415,3 +438,7 @@ export default function MisReservasPage() {
     </StudentShell>
   );
 }
+
+type Tab = 'prox' | 'fijas' | 'hist';
+const TABS: Tab[] = ['prox', 'fijas', 'hist'];
+const ETIQUETA_TAB: Record<Tab, string> = { prox: 'Próximas', fijas: 'Fijas', hist: 'Historial' };

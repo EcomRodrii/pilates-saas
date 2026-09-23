@@ -28,15 +28,20 @@ async function montar(page: Page, opts: { plaza?: boolean; recuperaciones?: numb
 }
 
 test.describe('Student PWA · plaza fija y recuperaciones', () => {
-  test('Bonos enseña la plaza fija con su próxima ocurrencia y las recuperaciones con su caducidad', async ({ page }) => {
+  test('Bonos se queda con las recuperaciones; la clase fija vive en Mis clases → Fijas', async ({ page }) => {
     await montar(page, { recuperaciones: 2 });
     await page.goto(`${base}/bonos`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
-    await expect(tarjeta.getByText('Jueves · 18:00')).toBeVisible();
-    await expect(tarjeta.getByText(/Reformer · Sala 1 · próxima mañana/)).toBeVisible();
     await expect(tarjeta.getByText('2 clases por recuperar')).toBeVisible();
     await expect(tarjeta.getByText(/La primera caduca el/)).toBeVisible();
+    await expect(tarjeta.getByText('Jueves · 18:00')).toHaveCount(0);
+
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    await expect(page.getByRole('tab', { name: 'Fijas' })).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
+    const mia = page.getByTestId('clase-fija-mia');
+    await expect(mia).toContainText('Los jueves · 18:00', { timeout: 30_000 });
+    await expect(mia).toContainText('Reformer · Sala 1');
   });
 
   test('sin plaza ni recuperaciones no se pinta nada (ni en Bonos ni en Inicio)', async ({ page }) => {
@@ -55,13 +60,15 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
     await expect(tarjeta.getByText('Jueves · 18:00')).toBeVisible();
+    await expect(tarjeta.getByText(/Reformer · Sala 1 · próxima mañana/)).toBeVisible();
     await expect(tarjeta.getByText('Activa')).toBeVisible();
+    await expect(tarjeta.getByTestId('ver-mis-clases-fijas')).toHaveAttribute('href', `${base}/mis-reservas?tab=fijas`);
   });
 
   // Plaza fija desde su app (migr 20260915231920): PIDE, no cambia. El ajuste del
   // estudio lo resuelve el servidor (`lib/studio-seo.ts`), encendido en e2e con
   // `E2E_PLAZA_FIJA_APP` (playwright.config.ts).
-  test('Bonos: pide una pausa de su plaza fija y queda a la espera del estudio', async ({ page }) => {
+  test('Mis clases → Fijas: pide una pausa de su plaza fija y queda a la espera del estudio', async ({ page }) => {
     await montar(page);
     let intentos = 0;
     let cuerpo: Record<string, unknown> | null = null;
@@ -71,7 +78,7 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, solicitudId: 'spf-1' }) });
     });
 
-    await page.goto(`${base}/bonos`);
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
     await tarjeta.getByRole('button', { name: 'Pedir una pausa' }).click();
@@ -95,7 +102,7 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
       return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Ya has pedido una pausa para esta plaza fija: tu estudio te contestará.' }) });
     });
 
-    await page.goto(`${base}/bonos`);
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
     await tarjeta.getByRole('button', { name: 'Pedir una pausa' }).click();
@@ -122,16 +129,15 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
 
 // ── Cómo se marca una alumna en una clase fija ───────────────────────────────
 //
-// Los estudios decían que no les quedaba claro cómo se marcan ellas para no
-// reservar cada semana. Lo que la app le dice a la alumna, según SU plan:
-//   · con cuota → se le ofrece pedirla, con su día y su hora, y qué pasa después;
-//   · con bono  → NO se le ofrece un botón que el servidor rechazaría: se le dice
-//                 por qué (con bono no hay plaza fija);
-//   · al terminar de reservar una clase que se repite, se le ofrece en ese mismo
-//     momento, no solo dentro de la ficha.
+// Dos fichas distintas para la misma clase (quejas de estudios, 23-sep: con las
+// dos acciones en una pantalla las alumnas no sabían cuál tocar):
+//   · la de una clase del horario (`/reservar/[id]`) SOLO reserva — ni antes ni
+//     después de reservar se habla de clase fija;
+//   · la de una clase fija (`/clases-fijas/[id]`, desde «Clases fijas») SOLO pide
+//     la clase fija: con cuota, el botón; con bono, por qué no y a las cuotas.
 // El ajuste del estudio (`plaza_fija_solicitar_desde_app`) va encendido en e2e.
 
-async function montarClaseQueSeRepite(page: Page, plan: 'cuota' | 'bono' | 'ninguno') {
+async function montarClaseQueSeRepite(page: Page, plan: 'cuota' | 'bono' | 'ninguno', opts: { laTiene?: boolean } = {}) {
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   // La clase del fixture es el miércoles 12 de agosto a las 10:00: se repite el 19.
@@ -151,17 +157,31 @@ async function montarClaseQueSeRepite(page: Page, plan: 'cuota' | 'bono' | 'ning
       { id: 'sus-b', socioId: SOCIO_ID, planId: 'plan-bono', estado: 'ACTIVA', sesionesRestantes: 5, fechaInicio: '2026-08-01', fechaFin: '2026-12-31' },
     ];
   }
+  if (opts.laTiene) {
+    (f.socia as Record<string, unknown>).plazasFijas = [{ id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIO_ID, diaSemana: 3, horaInicio: '10:00:00', salaId: 'sala-1', tipoClaseId: 'tc-r', spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z' }];
+  }
   await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], unread: 0 }) }));
+  // Las clases fijas del estudio: esta clase, suelta (sin oferta con nombre).
+  await page.route('**/api/public/clases-fijas', (r) => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({
+      ofertas: [], pedidas: [],
+      sueltas: [{
+        serieId: 'serie-1', diaSemana: 3, hora: '10:00', tipoClaseId: 'tc-r', salaId: 'sala-1', instructorId: 'ins-1',
+        tipo: 'Reformer', sala: 'Sala 1', instructora: null, logoUrl: null, color: null, proximaSesionId: SESION_ID, ultimaFecha: '2026-12-30',
+      }],
+    }),
+  }));
 }
 
 /** La petición de plaza fija que llega al servidor, contada, para no dar por bueno un camino que no pide nada. */
-async function contarPeticiones(page: Page) {
+async function contarPeticiones(page: Page, respuesta: { status: number; body: unknown } = { status: 200, body: { ok: true, solicitudId: 'spf-9' } }) {
   const visto = { intentos: 0, cuerpo: null as Record<string, unknown> | null };
   await page.route('**/api/public/plaza-fija', (r) => {
     visto.intentos++;
     visto.cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
-    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, solicitudId: 'spf-9' }) });
+    return r.fulfill({ status: respuesta.status, contentType: 'application/json', body: JSON.stringify(respuesta.body) });
   });
   return visto;
 }
@@ -170,69 +190,71 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('con cuota: se le ofrece con su día y su hora, se le dice qué pasa y al pedirla queda a la espera', async ({ page }) => {
+  test('la ficha de una clase del horario solo reserva: ni antes ni después se habla de clase fija', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    await page.route('**/api/public/reserva', (r) => {
+      if (r.request().method() !== 'POST') return r.continue();
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, estado: 'CONFIRMADA', reservaId: 'res-1' }) });
+    });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('button', { name: /^Reservar$/ }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
+    await expect(page.getByText(/¿Vienes los/)).toHaveCount(0);
+
+    await page.getByRole('button', { name: /^Reservar$/ }).first().click();
+    await page.getByRole('button', { name: /^confirmar/i }).click();
+    await expect(page.getByText('Reserva confirmada')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('oferta-plaza-fija')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
+  });
+
+  test('la ficha de una clase fija solo pide la clase fija: con su día y su hora, sin «Reservar»', async ({ page }) => {
     await montarClaseQueSeRepite(page, 'cuota');
     const visto = await contarPeticiones(page);
-    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
 
     // La hora NO se fija en el test: el fixture da la clase sin zona, así que en
     // el CI (UTC) sale a las 12:00 del estudio y en una máquina en Madrid a las
     // 10:00. Lo que se defiende es que lleve SU día y SU hora, sea la que sea.
     await expect(page.getByText(/¿Vienes los miércoles a las \d{2}:\d{2}\?/)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/sin que tengas que volver a reservarla/)).toBeVisible();
     await expect(page.getByText(/Tu estudio tiene que confirmarla/)).toBeVisible();
-    await page.getByRole('button', { name: 'Pedir clase fija' }).click();
+    await expect(page.getByText(/^Todos los miércoles · \d{2}:\d{2}$/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Reservar$/ })).toHaveCount(0);
 
-    await expect(page.getByText(/Ya la has pedido: tu estudio te contestará aquí/)).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Pedir clase fija' }).click();
+    await expect(page.getByTestId('clase-fija-pedida')).toHaveText(/Ya la has pedido: tu estudio te contestará aquí/, { timeout: 30_000 });
     expect(visto.intentos).toBeGreaterThan(0);
     expect(visto.cuerpo).toMatchObject({ accion: 'solicitar_plaza', sesionId: SESION_ID });
+    await expect(page.getByRole('button', { name: 'Anular la petición' })).toBeVisible();
   });
 
-  test('con bono no se le ofrece un botón que no va a funcionar: se le dice por qué', async ({ page }) => {
+  test('si el servidor dice que no, la ficha no dice que sí', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    const visto = await contarPeticiones(page, { status: 409, body: { error: 'Ya tienes otra clase a esa hora.' } });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Pedir clase fija' }).click({ timeout: 30_000 });
+    await expect(page.getByRole('alert').filter({ hasText: 'Ya tienes otra clase a esa hora.' })).toBeVisible({ timeout: 30_000 });
+    expect(visto.intentos, 'la petición salió de verdad').toBeGreaterThan(0);
+    await expect(page.getByTestId('clase-fija-pedida')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toBeVisible();
+  });
+
+  test('con bono no hay botón que no va a funcionar: se le dice por qué y se le lleva a las cuotas', async ({ page }) => {
     await montarClaseQueSeRepite(page, 'bono');
     const visto = await contarPeticiones(page);
-    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-
-    await expect(page.getByText(/La clase fija es para quien tiene una cuota activa que incluya esta clase/)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/Con bono o clases sueltas, se reserva clase a clase/)).toBeVisible();
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('clase-fija-solo-cuota')).toContainText('La clase fija es para quien tiene una cuota activa', { timeout: 30_000 });
+    await expect(page.getByRole('link', { name: 'Ver las cuotas' })).toHaveAttribute('href', `${base}/comprar`);
     await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
     expect(visto.intentos, 'nada sale hacia el servidor').toBe(0);
   });
 
-  test('al terminar de reservar una clase que se repite, se le ofrece hacerla fija', async ({ page }) => {
-    await montarClaseQueSeRepite(page, 'cuota');
-    const visto = await contarPeticiones(page);
-    await page.route('**/api/public/reserva', (r) => {
-      if (r.request().method() !== 'POST') return r.continue();
-      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, estado: 'CONFIRMADA', reservaId: 'res-1' }) });
-    });
-    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: /^Reservar$/ }).first().click({ timeout: 30_000 });
-    await page.getByRole('button', { name: /^confirmar/i }).click();
-    await expect(page.getByText('Reserva confirmada')).toBeVisible({ timeout: 30_000 });
-
-    const oferta = page.getByTestId('oferta-plaza-fija');
-    await expect(oferta).toBeVisible();
-    await expect(oferta.getByText('¿Vienes cada semana?')).toBeVisible();
-    await expect(oferta.getByText(/los miércoles a las \d{2}:\d{2}/)).toBeVisible();
-    await oferta.getByRole('button', { name: 'Pedir clase fija' }).click();
-
-    await expect(oferta.getByText('Petición enviada: tu estudio te contestará en la app.')).toBeVisible({ timeout: 30_000 });
-    expect(visto.intentos).toBeGreaterThan(0);
-    expect(visto.cuerpo).toMatchObject({ accion: 'solicitar_plaza' });
-  });
-
-  test('al terminar de reservar con bono no se le ofrece nada de plaza fija', async ({ page }) => {
-    await montarClaseQueSeRepite(page, 'bono');
-    await page.route('**/api/public/reserva', (r) => {
-      if (r.request().method() !== 'POST') return r.continue();
-      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, estado: 'CONFIRMADA', reservaId: 'res-1' }) });
-    });
-    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: /^Reservar$/ }).first().click({ timeout: 30_000 });
-    await page.getByRole('button', { name: /^confirmar/i }).click();
-    await expect(page.getByText('Reserva confirmada')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('oferta-plaza-fija')).toHaveCount(0);
+  test('si ya es suya, lo dice y la lleva a sus clases fijas', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota', { laTiene: true });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Ya es tu clase fija ✓')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: 'Ver mis clases fijas' })).toHaveAttribute('href', `${base}/mis-reservas?tab=fijas`);
+    await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
   });
 });
 
@@ -300,10 +322,10 @@ test.describe('Student PWA · tu clase fija', () => {
 
   test('dice que la plaza está reservada sola y enseña las próximas clases que ya tiene', async ({ page }) => {
     await montarConClaseFija(page, { reservaAMano: true });
-    await page.goto(`${base}/bonos`);
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
-    await expect(tarjeta.getByText('Tu clase fija', { exact: true })).toBeVisible();
+    await expect(tarjeta.getByTestId('clase-fija-mia')).toContainText('Los jueves · 10:00');
     await expect(tarjeta.getByTestId('plaza-fija-reservada-sola')).toHaveText('Tu plaza está reservada automáticamente cada semana. No necesitas reservar esta clase.');
 
     // Las tres que el motor le tiene reservadas, y NO la que reservó a mano.
@@ -315,13 +337,12 @@ test.describe('Student PWA · tu clase fija', () => {
     await expect(tarjeta.getByRole('link', { name: 'Escribir al estudio' })).toHaveAttribute('href', `${base}/mensajes`);
   });
 
-  test('su clase fija y cada próxima clase abren su ficha, como en el horario', async ({ page }) => {
+  test('cada próxima clase de su clase fija abre su ficha, como en el horario', async ({ page }) => {
     await montarConClaseFija(page);
-    await page.goto(`${base}/bonos`);
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
-    // La clase fija lleva a la próxima que ya tiene reservada; cada próxima, a la suya.
-    await expect(tarjeta.getByRole('link', { name: 'Ver tu clase del jueves a las 10:00' })).toHaveAttribute('href', `${base}/reservar/ses-20`);
+    // Cada próxima, a la ficha de ESE día (donde se ve y se cancela ese día).
     const proximas = tarjeta.getByTestId('proximas-clases-fijas');
     await expect(proximas.getByTestId('enlace-clase-fija')).toHaveCount(3);
     await expect(proximas.getByTestId('enlace-clase-fija').nth(1)).toHaveAttribute('href', `${base}/reservar/ses-21`);
@@ -341,7 +362,7 @@ test.describe('Student PWA · tu clase fija', () => {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, tardia: false, bonoDevuelto: false, eraConfirmada: true, recuperacionCreada: false }) });
     });
 
-    await page.goto(`${base}/bonos`);
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
     await tarjeta.getByRole('button', { name: 'No puedo asistir' }).first().click();
@@ -408,7 +429,7 @@ test.describe('Student PWA · tu clase fija · calendario del mes', () => {
 
   test('marca los jueves que ya tiene reservados y cada día abre su clase', async ({ page }) => {
     await montarConClaseFija(page);
-    await page.goto(`${base}/bonos`);
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
     const cal = page.getByTestId('calendario-clase-fija');
     await expect(cal).toBeVisible({ timeout: 30_000 });
     await expect(cal.getByText('Agosto de 2026', { exact: true })).toBeVisible();
@@ -424,7 +445,7 @@ test.describe('Student PWA · tu clase fija · calendario del mes', () => {
 
   test('el día que no va sale distinto, y un día con clase sin reserva lo dice', async ({ page }) => {
     await montarConClaseFija(page, { estados: { 'res-pf-s21': 'CANCELADA' }, sinReserva: ['res-pf-s22'] });
-    await page.goto(`${base}/bonos`);
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
     await expect(page.getByTestId('calendario-clase-fija')).toBeVisible({ timeout: 30_000 });
     await expect(dia(page, '2026-08-13').locator('[data-marca="RESERVADA"]')).toHaveCount(1);
     await expect(dia(page, '2026-08-20').locator('[data-marca="NO_VA"]')).toHaveCount(1);
@@ -436,7 +457,7 @@ test.describe('Student PWA · tu clase fija · calendario del mes', () => {
   test('se pasa de mes hasta donde hay clases, y no antes de hoy', async ({ page }) => {
     // Con los jueves de septiembre y los dos primeros de octubre también reservados.
     await montarConClaseFija(page, { masFijas: 6 });
-    await page.goto(`${base}/bonos`);
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
     const cal = page.getByTestId('calendario-clase-fija');
     await expect(cal).toBeVisible({ timeout: 30_000 });
     await expect(cal.getByRole('button', { name: 'Mes anterior' })).toBeDisabled();

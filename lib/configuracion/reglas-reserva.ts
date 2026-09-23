@@ -368,7 +368,7 @@ export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaS
 // apagada.
 
 export const EXPLICACION_PLAZA_FIJA_DESDE_APP =
-  'De serie, tus alumnas pueden pedir quedarse fijas en una clase que se repite: desde su ficha, justo al terminar de reservarla, y en «Clases fijas» de su app (con las que ya montaste como oferta con nombre y las demás sueltas). Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Te llega un aviso y lo decides en Resumen; hasta que lo apruebas no cambia nada. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
+  'De serie, tus alumnas pueden pedir quedarse fijas en una clase que se repite desde «Clases fijas» de su app (con las que ya montaste como oferta con nombre y las demás sueltas): tocan la clase y le dan a «Pedir clase fija». En la ficha de una clase normal solo se reserva, para no mezclar las dos cosas. Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Te llega un aviso y lo decides en Resumen; hasta que lo apruebas no cambia nada. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
 
 export const EXPLICACION_PAUSA_PLAZA_FIJA =
   'Vale para las pausas nuevas, las pongas tú o las pida ella; las que ya están puestas siguen como estaban. Las clases de esas fechas se cancelan sin penalización y las que ya pasaron no se tocan.';
