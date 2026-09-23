@@ -139,7 +139,7 @@ export default function ChecklistSoftwarePage() {
         <ArticleFaq items={FAQ} />
 
         <CtaBlock
-          title="Sin permanencia, migración incluida en 48h"
+          title="Sin permanencia y con ayuda para traer tus datos"
           body="Tentare no ata con contrato anual ni cobra comisión sobre tus cobros. Y si te vas, tus datos son tuyos — los exportas cuando quieras."
         />
 
