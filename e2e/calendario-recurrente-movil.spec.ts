@@ -2,7 +2,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// «Crear clases recurrentes» cabe en un móvil.
+// «Nueva clase fija» (la que se repite cada semana) cabe en un móvil.
 //
 // El fundador lo describió como «0 responsive, muy a lo ancho». Medido a 375 px
 // antes del arreglo: el diálogo iba de borde a borde de la pantalla (x = 0,

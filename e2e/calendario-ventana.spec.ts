@@ -69,8 +69,9 @@ test('ampliar esconde el menú y la barra, la rejilla gana sitio, y Escape lo de
   await page.getByRole('button', { name: 'Ampliar a toda la pantalla' }).click();
   await expect(menu(page)).toBeHidden();
   // Con espera: el hueco del menú se cierra con una transición de 200 ms.
-  // Medido en 1440×900: la rejilla pasa de 1084×465 a 1364×609.
-  await expect.poll(async () => (await rejilla(page).boundingBox())!.height).toBeGreaterThan(antes.height + 100);
+  // Medido en 1440×900: la rejilla pasa de 1084×515 a 1364×609 (antes de «Crear
+  // clase» —un botón menos en la cabecera— partía de 465 y el umbral era +100).
+  await expect.poll(async () => (await rejilla(page).boundingBox())!.height).toBeGreaterThan(antes.height + 60);
   await expect.poll(async () => (await rejilla(page).boundingBox())!.width, { message: 'también gana ancho' }).toBeGreaterThan(antes.width + 200);
   expect(await page.evaluate(() => document.documentElement.scrollHeight - innerHeight), 'la página no se desplaza').toBeLessThanOrEqual(1);
   await page.screenshot({ path: 'test-results/ventana-calendario-1-ampliado.png' });
