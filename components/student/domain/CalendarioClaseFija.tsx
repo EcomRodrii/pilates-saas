@@ -61,7 +61,8 @@ function etiquetaDia(fecha: string, dia: DiaFijo[]): string {
   return `${DIAS_LARGOS[col]} ${Number(fecha.slice(8))} de ${mes}: ${dia.map((x) => `${x.hora}, ${NOMBRE[x.marca].toLowerCase()}`).join('; ')}`;
 }
 
-export function CalendarioClaseFija({ datos, hoy, soportaListaEspera }: { datos: Datos; hoy: string; soportaListaEspera: boolean }) {
+/** `suelto`: va en su propia tarjeta, sin la raya que lo separa de lo de arriba. */
+export function CalendarioClaseFija({ datos, hoy, soportaListaEspera, suelto = false }: { datos: Datos; hoy: string; soportaListaEspera: boolean; suelto?: boolean }) {
   const href = usePortalHref();
   const primero = hoy.slice(0, 7);
   const ultimo = ultimoMesConClases(datos.plazas, datos.sesiones, hoy);
@@ -74,7 +75,7 @@ export function CalendarioClaseFija({ datos, hoy, soportaListaEspera }: { datos:
   const titulo = nombreMes(mesReal);
 
   return (
-    <div data-testid="calendario-clase-fija" style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 12, borderTop: '1px solid var(--muted)' }}>
+    <div data-testid="calendario-clase-fija" style={{ display: 'flex', flexDirection: 'column', gap: 10, ...(suelto ? {} : { paddingTop: 12, borderTop: '1px solid var(--muted)' }) }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <p className="t-label" style={{ margin: 0 }}>{T.calendarioTitulo}</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>

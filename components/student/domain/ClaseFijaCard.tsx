@@ -21,7 +21,7 @@ export function ClaseFijaCard({ f, delay = 0 }: { f: ClaseSueltaVista; delay?: n
   const estado = f.estado.estado;
   return (
     <Link
-      href={href('/reservar/' + f.proximaSesionId)} data-testid="clase-suelta"
+      href={href('/clases-fijas/' + f.proximaSesionId)} data-testid="clase-suelta"
       aria-label={`${f.tipo}, ${f.hora}${f.instructora ? `, con ${f.instructora}` : ''}${f.sala ? `, ${f.sala}` : ''}`}
       className="card card--tap a-up"
       style={{

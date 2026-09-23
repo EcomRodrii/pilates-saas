@@ -14,10 +14,6 @@ import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase, tieneBonoQueNoCubre } from '@/lib/student/bono-cubre';
 import { catalogo } from '@/lib/student/catalogo';
 import { confirmarReserva } from '@/lib/student/reservar';
-import { proyectarPlazaFijaEnClase } from '@/lib/student/mapeo';
-import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
-import { diaSemanaDe, type PlazaFijaEnClase } from '@/lib/student/plaza-fija';
-import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
 import type { BookingState } from '@/lib/student/tipos';
@@ -33,12 +29,16 @@ import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { BookingStatus } from '@/components/student/domain/BookingStatus';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
+import { FichaClaseHero } from '@/components/student/domain/FichaClaseHero';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
-import { Foto } from '@/components/student/ui/Foto';
-import { Icono } from '@/components/student/ui/Icono';
 
 // Ficha de clase + hoja de reserva (§A.7). Es la pantalla donde la máquina de
 // estados del paquete se conecta al servidor real.
+//
+// Aquí solo se RESERVA. La clase fija se pide en su propia ficha
+// (`/clases-fijas/[sesionId]`), a la que se llega desde «Clases fijas»: con las
+// dos acciones en la misma pantalla las alumnas no sabían cuál tocar (quejas de
+// estudios, 23-sep).
 //
 // ⚠️ Lo que NO se hace aquí, y es el punto entero de la fase:
 //   · No se decide si hay plaza. Se pide, y el servidor contesta.
@@ -73,11 +73,6 @@ export default function FichaClasePage() {
   // acaba de pulsar la alumna (y se revierte si el servidor dice que no).
   const [favoritaLocal, setFavoritaLocal] = useState<boolean | null>(null);
   const [verInstructora, setVerInstructora] = useState(false);
-  // Lo que ella acaba de pedir (confirmado por el servidor, nunca optimista): el
-  // payload cacheado aún dice que no lo ha pedido.
-  const [plazaFijaLocal, setPlazaFijaLocal] = useState<PlazaFijaEnClase | null>(null);
-  const [pfEnviando, setPfEnviando] = useState(false);
-  const [pfError, setPfError] = useState('');
 
   const cargar = useCallback(async () => {
     // `getClases` sale del MISMO payload que `getClase`: la ficha de la
@@ -93,12 +88,6 @@ export default function FichaClasePage() {
     return {
       clase, reservas, bonos, instructoras, favoritos, clases,
       spots: payload?.spots, aforoReservas: payload?.aforoReservas,
-      // Si esta clase se repite y aún no es suya, se le puede ofrecer pedirla
-      // como plaza fija. Lo decide `lib/student/plaza-fija.ts`; el servidor lo
-      // vuelve a comprobar al pedirla.
-      plazaFija: clase && payload
-        ? proyectarPlazaFijaEnClase(payload, { id: clase.id, fecha: clase.fecha, hora: clase.hora, salaId: clase.salaId, tipoClaseId: clase.tipoClaseId })
-        : null,
     };
   }, [estudio.slug, claseId]);
 
@@ -109,28 +98,7 @@ export default function FichaClasePage() {
   useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
 
   const clase = data?.clase ?? null;
-  const plazaFija = plazaFijaLocal ?? data?.plazaFija ?? null;
 
-  /** Pedir la plaza fija de esta franja. No la da: la decide el estudio. */
-  const pedirPlaza = useCallback(async () => {
-    if (!clase || pfEnviando) return;
-    setPfEnviando(true);
-    setPfError('');
-    const r = await pedirPlazaFija(estudio.slug, estudio.id, clase.id);
-    setPfEnviando(false);
-    if (!r.ok) { setPfError(r.error); return; }
-    setPlazaFijaLocal(r.solicitudId ? { estado: 'PEDIDA', peticionId: r.solicitudId } : { estado: 'TIENE_PLAZA' });
-  }, [clase, estudio.slug, estudio.id, pfEnviando]);
-
-  const anularPlazaFija = useCallback(async (peticionId: string) => {
-    if (pfEnviando) return;
-    setPfEnviando(true);
-    setPfError('');
-    const r = await anularPeticionPlazaFija(estudio.slug, estudio.id, peticionId);
-    setPfEnviando(false);
-    if (!r.ok) { setPfError(r.error); return; }
-    setPlazaFijaLocal({ estado: 'PUEDE_PEDIR' });
-  }, [estudio.slug, estudio.id, pfEnviando]);
   const inst = data?.instructoras.find((i) => i.id === clase?.instructoraId);
   const disp = clase ? disponibilidad(clase, data?.reservas ?? [], estudio.soportaListaEspera) : 'disponible';
   // El bono que de VERDAD cubre esta clase: un plan puede estar acotado a
@@ -244,26 +212,6 @@ export default function FichaClasePage() {
   const enSheet = bk !== 'idle';
   const esFinal = enSheet && bk !== 'reviewing' && bk !== 'submitting';
 
-  // Al terminar de reservar una clase que se repite, es el momento de decirle
-  // que puede dejar de reservarla a mano: antes solo lo veía quien abría la ficha
-  // y bajaba hasta la tarjeta. Solo si el estudio la deja pedir y ella puede.
-  const ofertaPlazaFija = bk === 'confirmed' && estudio.puedePedirPlazaFija && plazaFija
-    && (plazaFija.estado === 'PUEDE_PEDIR' || plazaFija.estado === 'PEDIDA') ? (
-      <div data-testid="oferta-plaza-fija" style={{ marginTop: 14, padding: '12px 14px', borderRadius: 14, background: 'var(--muted)', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800 }}>{TEXTOS_PLAZA_FIJA.trasReservarTitulo}</p>
-        {plazaFija.estado === 'PEDIDA' ? (
-          <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.trasReservarPedida}</p>
-        ) : (
-          <>
-            <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.trasReservar(diaSemanaDe(clase.fecha), clase.hora)}</p>
-            <div>
-              <Button variant="secondary" size="sm" loading={pfEnviando} onClick={() => void pedirPlaza()}>{TEXTOS_PLAZA_FIJA.botonPedir}</Button>
-            </div>
-          </>
-        )}
-        {pfError && <p role="alert" className="t-meta" style={{ margin: 0 }}>{pfError}</p>}
-      </div>
-    ) : null;
 
   return (
     // `headerTransparente`, igual que Inicio: esta pantalla también abre con
@@ -277,67 +225,11 @@ export default function FichaClasePage() {
     // El velo va DENTRO de `StudioHeader` (medido: el nombre a 8,53:1 sobre la
     // portada más clara), así que no hace falta ninguno aquí.
     <StudentShell headerTransparente>
-      {/* ⚠️ `background` no está en el paquete: allí `clase.fotoUrl` SIEMPRE
-          existe (es un mock). Aquí puede no haberla, y sin tinta detrás el
-          héroe degradaba a crema: el degradado del paquete arranca en
-          `rgba(15,15,15,.36)`, que sobre crema deja el título y la cabecera
-          transparente en blanco sobre claro — ilegibles. `#0F0F0C` es la misma
-          tinta que el propio paquete pone bajo la foto del layout de acceso
-          (`.st-auth-hero`), así que sin foto se ve como el diseño espera. */}
-      <section style={{ position: 'relative', height: 290, overflow: 'hidden', background: '#0F0F0C' }}>
-        <Foto
-          src={clase.fotoUrl}
-          ancho={640}
-          alto={290}
-          sizes="(min-width:1024px) 1040px, (min-width:768px) 640px, 100vw"
-          prioritaria
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', animation: 'apKen 18s ease-in-out infinite' }}
-        />
-        <div
-          aria-hidden
-          style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(15,15,15,.36), rgba(15,15,15,0) 36%, rgba(15,15,15,0) 55%, rgba(15,15,15,.64))' }}
-        />
-        <button
-          type="button"
-          onClick={() => router.back()}
-          aria-label="Volver"
-          className="tap tap--icono"
-          style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', left: 14, width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Icono nombre="flecha-izquierda" tamano={18} />
-        </button>
-        <FavoritoButton
-          slug={estudio.slug} studioId={estudio.id} tipoClaseId={clase.tipoClaseId}
-          marcada={favorita} onCambio={setFavoritaLocal}
-          style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', right: 14 }}
-        />
-        <div style={{ position: 'absolute', left: 16, right: 16, bottom: 13, color: '#fff' }}>
-          {/* El LOGO de la clase. Estaba en el listado y no aquí, que es
-              justo donde se mira la clase: el banner de arriba HEREDA (tipo →
-              sala → estudio), así que a menudo es la misma foto para todas, y
-              el logo es lo único que identifica a esta. No hereda a propósito
-              —ver `Clase.logoUrl`—, así que sin logo propio no se pinta nada
-              en vez de tomar prestado el de otra. */}
-          {clase.logoUrl && (
-            <span
-              aria-hidden
-              data-testid="logo-clase"
-              style={{
-                display: 'block', width: 44, height: 44, borderRadius: 12, marginBottom: 9,
-                background: `url(${clase.logoUrl}) center/cover`,
-                border: '1px solid rgba(255,255,255,.5)',
-              }}
-            />
-          )}
-          <p className="t-label" style={{ color: 'rgba(255,255,255,.82)' }}>{clase.tipo} · nivel {clase.nivel.toLowerCase()}</p>
-          <h1 style={{ margin: '3px 0 0', fontSize: 'var(--t-h1)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>
-          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {[`${etiquetaDia(clase.fecha)} · ${clase.hora}`, `${clase.duracionMin} min`, clase.sala].map((t) => (
-              <span key={t} className="badge" style={{ background: 'rgba(250,249,245,.2)', border: '1px solid rgba(255,255,255,.45)', color: '#fff' }}>{t}</span>
-            ))}
-          </div>
-        </div>
-      </section>
+      <FichaClaseHero
+        clase={clase}
+        chips={[`${etiquetaDia(clase.fecha)} · ${clase.hora}`, `${clase.duracionMin} min`, clase.sala]}
+        derecha={<FavoritoButton slug={estudio.slug} studioId={estudio.id} tipoClaseId={clase.tipoClaseId} marcada={favorita} onCambio={setFavoritaLocal} />}
+      />
 
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 90 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -376,33 +268,6 @@ export default function FichaClasePage() {
             <Fila k={mayuscula(nombreCreditos(estudio.creditosNombre))} v={`+${clase.creditosAlAsistir} al asistir`} />
           )}
         </div>
-
-        {/* Plaza fija: PEDIRLA, no darla. El estudio decide y ella lo ve en su app.
-            Solo si el estudio lo permite y la clase se repite cada semana. Quien
-            no tiene cuota que la cubra (un bono no da plaza fija) no ve un botón que
-            el servidor rechazaría: se le dice por qué. */}
-        {estudio.puedePedirPlazaFija && plazaFija && (plazaFija.estado === 'PUEDE_PEDIR' || plazaFija.estado === 'PEDIDA' || plazaFija.estado === 'SOLO_CON_CUOTA') && (
-          <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-            <p className="t-label" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.titulo}</p>
-            {plazaFija.estado === 'PEDIDA' ? (
-              <>
-                <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.pedida}</p>
-                <Button variant="ghost" size="sm" loading={pfEnviando} onClick={() => void anularPlazaFija(plazaFija.peticionId)}>
-                  {TEXTOS_PLAZA_FIJA.botonAnular}
-                </Button>
-              </>
-            ) : plazaFija.estado === 'SOLO_CON_CUOTA' ? (
-              <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.soloConCuota}</p>
-            ) : (
-              <>
-                <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.ofrecer(diaSemanaDe(clase.fecha), clase.hora)}</p>
-                <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.quePasa}</p>
-                <Button variant="secondary" size="sm" loading={pfEnviando} onClick={() => void pedirPlaza()}>{TEXTOS_PLAZA_FIJA.botonPedir}</Button>
-              </>
-            )}
-            {pfError && <p role="alert" className="t-meta" style={{ margin: 0 }}>{pfError}</p>}
-          </div>
-        )}
 
         {!online && <OfflineState cuerpo="Puedes ver la clase, pero reservar necesita conexión." />}
       </div>
@@ -479,7 +344,6 @@ export default function FichaClasePage() {
             onWaitlist={() => ir('reviewing')}
             onComprar={() => router.push(href('/comprar'))}
             onClose={finalizar}
-            oferta={ofertaPlazaFija}
           />
         )}
       </Sheet>

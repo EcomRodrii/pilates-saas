@@ -18,11 +18,12 @@ export default function Contenido() {
         maneras de dársela:
       </p>
       <ul style={{ margin: '0 0 12px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <li><strong>La das tú.</strong> Es lo que hay de serie, y se explica justo debajo: desde su ficha, desde la clase
-          del calendario o desde la vista «Horario».</li>
-        <li><strong>La pide ella.</strong> Si lo activas en Configuración → «Cómo reservan mis alumnas» → «Peticiones
-          desde su app», le sale <strong>«Pedir plaza fija»</strong> en la ficha de cualquier clase que se repite cada
-          semana y también justo al terminar de reservarla. Tú la apruebas en Resumen.</li>
+        <li><strong>La das tú.</strong> Se explica justo debajo: desde su ficha, desde la clase del calendario o desde
+          la vista «Horario».</li>
+        <li><strong>La pide ella.</strong> Viene activado de serie (Configuración → «Cómo reservan mis alumnas» →
+          «Peticiones desde su app»): en su app, en Reservar → «Clases fijas», toca una clase que se repite y le sale{' '}
+          <strong>«Pedir clase fija»</strong>. En la ficha de una clase normal solo puede reservar, para no mezclar las
+          dos cosas. Tú la apruebas en Resumen.</li>
         <li><strong>Al darle una cuota</strong>, te preguntamos si le das plaza fija.</li>
       </ul>
       <p>
@@ -33,8 +34,8 @@ export default function Contenido() {
 
       <h2 style={h2}>Qué ve tu alumna</h2>
       <p>
-        En su app se llama <strong>«clase fija»</strong>. En su tarjeta <strong>«Tu clase fija»</strong> lee, con su día y
-        su hora, que <strong>su plaza está reservada automáticamente cada semana y que no necesita reservar esa clase</strong>.
+        En su app se llama <strong>«clase fija»</strong>. Las suyas las ve en <strong>Mis clases → «Fijas»</strong>
+        (y un resumen en Inicio): con su día y su hora, lee que <strong>su plaza está reservada automáticamente cada semana y que no necesita reservar esa clase</strong>.
         Debajo tiene sus <strong>próximas clases</strong> ya reservadas —las que el sistema le tiene apartadas—, cada una con
         un botón <strong>«No puedo asistir»</strong> que cancela solo esa semana: su clase fija sigue activa y la semana
         siguiente vuelve a tener su plaza. Si cancela a tiempo y su cuota le limita las clases por semana, se le guarda una{' '}
@@ -201,9 +202,9 @@ export default function Contenido() {
 
       <h2 style={h2}>Si te la piden desde su app</h2>
       <p>
-        De serie, las plazas fijas se dan en recepción y tus alumnas no pueden pedirlas. En Configuración → «Cómo
-        reservan mis alumnas» → «Peticiones desde su app» puedes dejar que <strong>pidan</strong> una plaza fija desde la
-        clase que están viendo o justo al terminar de reservarla, y una pausa de la suya. Son peticiones:{' '}
+        De serie, tus alumnas pueden <strong>pedir</strong> una plaza fija desde «Clases fijas» de su app, tocando la
+        clase que se repite. En Configuración → «Cómo reservan mis alumnas» → «Peticiones desde su app» puedes apagarlo
+        si prefieres darlas solo tú en recepción, y dejar que pidan una pausa de la suya. Son peticiones:{' '}
         <strong>hasta que las apruebas no cambia nada</strong>, y mientras tanto ella sigue reservando como siempre.
       </p>
       <p>

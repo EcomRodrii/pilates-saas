@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { PlazaFijaVista, ProximaClaseFijaVista, RecuperacionesVista } from '@/lib/student/tipos';
 import { etiquetaDia, fechaCorta } from '@/lib/student/formato';
 import { nombreDia } from '@/lib/student/plaza-fija';
-import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
+import { TEXTOS_PLAZA_FIJA, losDias } from '@/lib/student/plaza-fija-textos';
 import { anularPeticionPlazaFija, pedirPausaPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { cancelarReserva } from '@/lib/student/reservas-acciones';
 import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
@@ -124,138 +124,67 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
   const avisoNoPuedo = noPuedo ? avisoCancelacion(noPuedo.proxima, estudio.politicaCancelacionHoras) : null;
 
   if (plazas.length === 0 && recuperaciones.disponibles === 0) return null;
-  return (
-    <div className="card" data-testid="plaza-fija" style={{ padding: compacta ? '13px 15px' : '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {plazas.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <p className="t-label" style={{ margin: 0 }}>{plazas.length === 1 ? TEXTOS_PLAZA_FIJA.tarjetaUna : TEXTOS_PLAZA_FIJA.tarjetaVarias}</p>
-          {plazas.map((plaza, i) => {
-            const activa = plaza.estado === 'ACTIVA' && !plaza.pausa?.enCurso;
-            const dia = nombreDia(plaza.diaSemana);
-            const pedida = pausaPedidaDe(plaza);
-            // Una pausa se pide sobre una plaza activa que no tenga ya una.
-            const puedePedirPausa = estudio.puedePedirPausa === true && !!plaza.id
-              && plaza.estado === 'ACTIVA' && !plaza.pausa && !pedida;
-            return (
-              <div
-                key={`${plaza.diaSemana}-${plaza.hora}-${plaza.sala}`}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, paddingTop: i > 0 ? 8 : 0, borderTop: i > 0 ? '1px solid var(--muted)' : 'none' }}
-              >
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  {/* Su clase fija se abre como cualquier clase: la ficha de la
-                      próxima que ya tiene reservada. Sin ninguna, no hay adónde ir. */}
-                  <EnlaceClase sesionId={plaza.proximas[0]?.sesionId ?? null} etiqueta={`Ver tu clase del ${dia} a las ${plaza.hora}`}>
-                    <p style={{ margin: 0, fontSize: compacta ? 14 : 16, fontWeight: 800, letterSpacing: '-.02em', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {dia.charAt(0).toUpperCase() + dia.slice(1)} · {plaza.hora}
-                      {plaza.proximas[0] && <span aria-hidden style={{ display: 'flex', color: 'var(--subtle-foreground)' }}><Icono nombre="chevron-derecha" tamano={16} /></span>}
-                    </p>
-                    <p className="t-meta" style={{ margin: '2px 0 0' }}>
-                      {[plaza.tipo, plaza.sala].filter(Boolean).join(' · ')}
-                      {plaza.proximaFecha ? ` · próxima ${etiquetaDia(plaza.proximaFecha).toLowerCase()}` : ''}
-                      {plaza.vigenciaHasta ? ` · hasta el ${fechaCorta(plaza.vigenciaHasta)}` : ''}
-                    </p>
-                  </EnlaceClase>
-                  {/* Lo que la alumna tiene que saber: no reserva nada, se lo hace Tentare. */}
-                  {activa && !plaza.sinClase && (
-                    <p data-testid="plaza-fija-reservada-sola" style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, lineHeight: 1.45 }}>
-                      {TEXTOS_PLAZA_FIJA.reservadaSola}
-                    </p>
-                  )}
-                  {plaza.sinClase && (
-                    <p className="t-meta" style={{ margin: '2px 0 0' }}>
-                      Ahora no hay clase en ese horario: pregúntale al estudio.
-                    </p>
-                  )}
-                  {!compacta && activa && !plaza.sinClase && (
-                    <div data-testid="proximas-clases-fijas" style={{ margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <p className="t-label" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.proximas}</p>
-                      {plaza.proximas.length === 0 ? (
-                        <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.sinProximas}</p>
-                      ) : plaza.proximas.map((x) => {
-                        const av = avisoCancelacion(x, estudio.politicaCancelacionHoras);
-                        return (
-                          <div key={x.reservaId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                            <EnlaceClase sesionId={x.sesionId} etiqueta={`Ver la clase del ${etiquetaDia(x.fecha).toLowerCase()} a las ${x.hora}`} flex>
-                              <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
-                                {etiquetaDia(x.fecha)} · {x.hora}
-                                <span aria-hidden style={{ display: 'flex', color: 'var(--subtle-foreground)' }}><Icono nombre="chevron-derecha" tamano={14} /></span>
-                              </p>
-                              <p className="t-meta" style={{ margin: '1px 0 0' }}>{TEXTOS_PLAZA_FIJA.reservada}</p>
-                            </EnlaceClase>
-                            {av.puede && (
-                              <Button variant="ghost" size="sm" disabled={!online} onClick={() => setNoPuedo({ plaza, proxima: x })}>
-                                {TEXTOS_PLAZA_FIJA.noPuedo}
-                              </Button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {plaza.pausa && (
-                    <p className="t-meta" style={{ margin: '2px 0 0' }}>
-                      {plaza.pausa.enCurso
-                        ? `En pausa hasta el ${fechaCorta(plaza.pausa.hasta)}. ${TEXTOS_PLAZA_FIJA.enPausa}`
-                        : `Pausa del ${fechaCorta(plaza.pausa.desde)} al ${fechaCorta(plaza.pausa.hasta)}`}
-                    </p>
-                  )}
-                  {pedida && (
-                    <p className="t-meta" style={{ margin: '2px 0 0' }}>
-                      Pausa pedida del {fechaCorta(pedida.desde)} al {fechaCorta(pedida.hasta)} · esperando a tu estudio
-                    </p>
-                  )}
-                  {(puedePedirPausa || pedida) && (
-                    <div style={{ marginTop: 6 }}>
-                      {pedida
-                        ? <Button variant="ghost" size="sm" loading={enviando} onClick={() => void anular(plaza, pedida.id)}>Anular la petición</Button>
-                        : <Button variant="secondary" size="sm" onClick={() => abrir(plaza)}>Pedir una pausa</Button>}
-                    </div>
-                  )}
-                </div>
-                <Badge tone={plaza.sinClase ? 'few' : activa ? 'ok' : 'neutral'}>
-                  {plaza.sinClase ? 'Sin clase' : activa ? 'Activa' : 'En pausa'}
-                </Badge>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {!compacta && calendario && plazas.length > 0 && (
-        <CalendarioClaseFija datos={calendario} hoy={hoy} soportaListaEspera={estudio.soportaListaEspera} />
-      )}
-      {!compacta && plazas.length > 0 && (
-        <p className="t-meta" style={{ margin: 0 }}>
-          {TEXTOS_PLAZA_FIJA.cambiarla}{' '}
-          <Link href={href('/mensajes')} style={{ fontWeight: 800, color: 'var(--accent)' }}>{TEXTOS_PLAZA_FIJA.escribir}</Link>
-        </p>
-      )}
-      {recuperaciones.disponibles > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingTop: plazas.length > 0 ? 10 : 0, borderTop: plazas.length > 0 ? '1px solid var(--muted)' : 'none' }}>
+
+  const estadoDe = (plaza: PlazaFijaVista) => {
+    const activa = plaza.estado === 'ACTIVA' && !plaza.pausa?.enCurso;
+    return { activa, tono: (plaza.sinClase ? 'few' : activa ? 'ok' : 'neutral') as 'few' | 'ok' | 'neutral', texto: plaza.sinClase ? 'Sin clase' : activa ? 'Activa' : 'En pausa' };
+  };
+
+  /** Su pausa: la que tiene puesta, la que ha pedido, y el botón de pedirla o anularla. */
+  const bloquePausa = (plaza: PlazaFijaVista) => {
+    const pedida = pausaPedidaDe(plaza);
+    // Una pausa se pide sobre una plaza activa que no tenga ya una.
+    const puedePedirPausa = estudio.puedePedirPausa === true && !!plaza.id && plaza.estado === 'ACTIVA' && !plaza.pausa && !pedida;
+    return (
+      <>
+        {plaza.pausa && (
+          <p className="t-meta" style={{ margin: 0 }}>
+            {plaza.pausa.enCurso
+              ? `En pausa hasta el ${fechaCorta(plaza.pausa.hasta)}. ${TEXTOS_PLAZA_FIJA.enPausa}`
+              : `Pausa del ${fechaCorta(plaza.pausa.desde)} al ${fechaCorta(plaza.pausa.hasta)}`}
+          </p>
+        )}
+        {pedida && (
+          <p className="t-meta" style={{ margin: 0 }}>
+            Pausa pedida del {fechaCorta(pedida.desde)} al {fechaCorta(pedida.hasta)} · esperando a tu estudio
+          </p>
+        )}
+        {(puedePedirPausa || pedida) && (
           <div>
-            <p className="t-label" style={{ margin: 0 }}>Recuperaciones</p>
-            <p style={{ margin: '4px 0 0', fontSize: 'var(--t-body)', fontWeight: 800 }}>
-              {recuperaciones.disponibles === 1 ? '1 clase por recuperar' : `${recuperaciones.disponibles} clases por recuperar`}
-            </p>
-            {recuperaciones.proximaCaducidad && (
-              <p className="t-meta" style={{ margin: '2px 0 0' }}>La primera caduca el {fechaCorta(recuperaciones.proximaCaducidad)}</p>
-            )}
-            {/* De cuáles se acuerda uno: las que se ganó. Antes veía un número
-                y no sabía cuál de esas clases había pagado con sus créditos.
-                ⚠️ El nombre sale del VÍNCULO con el canje, nunca de
-                `recuperaciones.motivo` — eso es texto libre que escribe el
-                mostrador, y en producción hay uno que pone «mm». */}
-            {recuperaciones.detalle.filter((r) => r.deRecompensa).map((r, i) => (
-              <p key={i} className="t-meta" style={{ margin: '2px 0 0', color: 'var(--accent)' }}>
-                🎁 Una es tu {r.deRecompensa}
-              </p>
-            ))}
+            {pedida
+              ? <Button variant="ghost" size="sm" loading={enviando} onClick={() => void anular(plaza, pedida.id)}>Anular la petición</Button>
+              : <Button variant="secondary" size="sm" onClick={() => abrir(plaza)}>Pedir una pausa</Button>}
           </div>
-          <Link href={hrefHorario} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>Reservar →</Link>
-        </div>
-      )}
+        )}
+      </>
+    );
+  };
 
-      {error && !pidiendo && <p role="alert" className="t-meta" style={{ margin: 0 }}>{error}</p>}
+  const bloqueRecuperaciones = recuperaciones.disponibles > 0 && (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+      <div>
+        <p className="t-label" style={{ margin: 0 }}>Recuperaciones</p>
+        <p style={{ margin: '4px 0 0', fontSize: 'var(--t-body)', fontWeight: 800 }}>
+          {recuperaciones.disponibles === 1 ? '1 clase por recuperar' : `${recuperaciones.disponibles} clases por recuperar`}
+        </p>
+        {recuperaciones.proximaCaducidad && (
+          <p className="t-meta" style={{ margin: '2px 0 0' }}>La primera caduca el {fechaCorta(recuperaciones.proximaCaducidad)}</p>
+        )}
+        {/* De cuáles se acuerda uno: las que se ganó. ⚠️ El nombre sale del
+            VÍNCULO con el canje, nunca de `recuperaciones.motivo` — eso es texto
+            libre que escribe el mostrador, y en producción hay uno que pone «mm». */}
+        {recuperaciones.detalle.filter((r) => r.deRecompensa).map((r, i) => (
+          <p key={i} className="t-meta" style={{ margin: '2px 0 0', color: 'var(--accent)' }}>
+            🎁 Una es tu {r.deRecompensa}
+          </p>
+        ))}
+      </div>
+      <Link href={hrefHorario} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>Reservar →</Link>
+    </div>
+  );
 
+  const dialogos = (
+    <>
       <ConfirmationDialog
         open={noPuedo !== null}
         onClose={() => { if (!cancelando) setNoPuedo(null); }}
@@ -297,6 +226,130 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
           </Button>
         </div>
       </Sheet>
+    </>
+  );
+
+  // ── Inicio: una tarjeta, lo justo para saber que la tiene y cuándo es la próxima.
+  if (compacta) {
+    return (
+      <div className="card" data-testid="plaza-fija" style={{ padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {plazas.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p className="t-label" style={{ margin: 0 }}>{plazas.length === 1 ? TEXTOS_PLAZA_FIJA.tarjetaUna : TEXTOS_PLAZA_FIJA.tarjetaVarias}</p>
+            {plazas.map((plaza, i) => {
+              const e = estadoDe(plaza);
+              const dia = nombreDia(plaza.diaSemana);
+              return (
+                <div
+                  key={`${plaza.diaSemana}-${plaza.hora}-${plaza.sala}`}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, paddingTop: i > 0 ? 8 : 0, borderTop: i > 0 ? '1px solid var(--muted)' : 'none' }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <EnlaceClase sesionId={plaza.proximas[0]?.sesionId ?? null} etiqueta={`Ver tu clase del ${dia} a las ${plaza.hora}`}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 800, letterSpacing: '-.02em', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {dia.charAt(0).toUpperCase() + dia.slice(1)} · {plaza.hora}
+                        {plaza.proximas[0] && <span aria-hidden style={{ display: 'flex', color: 'var(--subtle-foreground)' }}><Icono nombre="chevron-derecha" tamano={16} /></span>}
+                      </p>
+                      <p className="t-meta" style={{ margin: '2px 0 0' }}>
+                        {[plaza.tipo, plaza.sala].filter(Boolean).join(' · ')}
+                        {plaza.proximaFecha ? ` · próxima ${etiquetaDia(plaza.proximaFecha).toLowerCase()}` : ''}
+                      </p>
+                    </EnlaceClase>
+                    {plaza.sinClase && <p className="t-meta" style={{ margin: '2px 0 0' }}>Ahora no hay clase en ese horario: pregúntale al estudio.</p>}
+                  </div>
+                  <Badge tone={e.tono}>{e.texto}</Badge>
+                </div>
+              );
+            })}
+            <Link href={href('/mis-reservas?tab=fijas')} data-testid="ver-mis-clases-fijas" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
+              Ver mis clases fijas →
+            </Link>
+          </div>
+        )}
+        {bloqueRecuperaciones && <div style={{ paddingTop: plazas.length > 0 ? 10 : 0, borderTop: plazas.length > 0 ? '1px solid var(--muted)' : 'none' }}>{bloqueRecuperaciones}</div>}
+      </div>
+    );
+  }
+
+  // ── «Mis clases → Fijas»: una tarjeta por clase fija, la próxima clase a la
+  // vista, su calendario del mes y cómo cambiarla. El aviso de que se reserva
+  // sola va UNA vez arriba, no repetido en cada tarjeta.
+  const algunaActiva = plazas.some((p) => estadoDe(p).activa && !p.sinClase);
+  return (
+    <div data-testid="plaza-fija" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {algunaActiva && (
+        <p data-testid="plaza-fija-reservada-sola" className="note note--ok" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.reservadaSola}</p>
+      )}
+      {plazas.map((plaza) => {
+        const e = estadoDe(plaza);
+        const [primera, ...resto] = plaza.proximas;
+        return (
+          <article key={`${plaza.diaSemana}-${plaza.hora}-${plaza.sala}`} className="card" data-testid="clase-fija-mia" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 'var(--t-h3, 1.1rem)', fontWeight: 800, letterSpacing: '-.02em' }}>
+                  {`${mayuscula(losDias(plaza.diaSemana))} · ${plaza.hora}`}
+                </p>
+                <p className="t-meta" style={{ margin: '3px 0 0' }}>
+                  {[plaza.tipo, plaza.sala].filter(Boolean).join(' · ')}
+                  {plaza.vigenciaHasta ? ` · hasta el ${fechaCorta(plaza.vigenciaHasta)}` : ''}
+                </p>
+              </div>
+              <Badge tone={e.tono}>{e.texto}</Badge>
+            </div>
+
+            {plaza.sinClase && <p className="t-meta" style={{ margin: 0 }}>Ahora no hay clase en ese horario: pregúntale al estudio.</p>}
+
+            {e.activa && !plaza.sinClase && (
+              <div data-testid="proximas-clases-fijas" style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 12, borderTop: '1px solid var(--muted)' }}>
+                <p className="t-label" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.proximas}</p>
+                {!primera ? (
+                  <p className="t-meta" style={{ margin: 0 }}>{TEXTOS_PLAZA_FIJA.sinProximas}</p>
+                ) : [primera, ...resto].map((x) => {
+                  const av = avisoCancelacion(x, estudio.politicaCancelacionHoras);
+                  return (
+                    <div key={x.reservaId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <EnlaceClase sesionId={x.sesionId} etiqueta={`Ver la clase del ${etiquetaDia(x.fecha).toLowerCase()} a las ${x.hora}`} flex>
+                        <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {etiquetaDia(x.fecha)} · {x.hora}
+                          <Badge tone="booked">{TEXTOS_PLAZA_FIJA.reservada}</Badge>
+                        </p>
+                      </EnlaceClase>
+                      {av.puede && (
+                        <Button variant="ghost" size="sm" disabled={!online} onClick={() => setNoPuedo({ plaza, proxima: x })}>
+                          {TEXTOS_PLAZA_FIJA.noPuedo}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {bloquePausa(plaza)}
+          </article>
+        );
+      })}
+
+      {calendario && plazas.length > 0 && (
+        <div className="card" style={{ padding: '14px 16px' }}>
+          <CalendarioClaseFija datos={calendario} hoy={hoy} soportaListaEspera={estudio.soportaListaEspera} suelto />
+        </div>
+      )}
+
+      {plazas.length > 0 && (
+        <p className="t-meta" style={{ margin: 0 }}>
+          {TEXTOS_PLAZA_FIJA.cambiarla}{' '}
+          <Link href={href('/mensajes')} style={{ fontWeight: 800, color: 'var(--accent)' }}>{TEXTOS_PLAZA_FIJA.escribir}</Link>
+        </p>
+      )}
+
+      {bloqueRecuperaciones && <div className="card" style={{ padding: '14px 16px' }}>{bloqueRecuperaciones}</div>}
+
+      {error && !pidiendo && <p role="alert" className="t-meta" style={{ margin: 0 }}>{error}</p>}
+      {dialogos}
     </div>
   );
 }
+
+const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
