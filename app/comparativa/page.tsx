@@ -60,12 +60,13 @@ function Mark({ v, label }: { v: Verdict; label: string }) {
   return <><span style={{ color, fontWeight: 800 }}>{symbol}</span> {label}</>;
 }
 
-// Los 7 valores por competidor de cada fila son los MISMOS que ya están
-// verificados y publicados en su propia página /comparativa/tentare-vs-<x> —
-// no se ha inventado ningún dato nuevo aquí, solo se reutiliza lo que ya
-// existía repartido en 7 páginas distintas para que esta tabla resumen no
-// mienta por omisión (antes solo comparaba contra 3 de los 7 competidores
-// enlazados debajo — ver docs/SEO-AI-MASTERPLAN.md §8 y §28).
+// Cada celda es lo que CONSTA en la web pública del competidor, con la fecha de
+// la revisión (23-sep-2026) y la fuente en su página 1 a 1. «No consta» significa
+// que su web pública no lo indica: no que no exista, y nunca se rellena con «sí»
+// ni con «no». Una versión anterior de esta tabla atribuía a los competidores
+// contratos anuales, comisiones y sedes de alojamiento que nadie había
+// comprobado; eso no vuelve a entrar. Glofox: su columna sale de nuestra guía
+// (texto del fundador) y solo lleva lo que ella dice.
 const ROWS: {
   feature: string;
   tentare: [Verdict, string];
@@ -84,106 +85,123 @@ const ROWS: {
   flowstark: [Verdict, string];
 }[] = [
   {
-    feature: 'Facturación España (Veri*factu) nativa',
-    tentare: ['partial', 'Formato nativo; envío a la AEAT en construcción'],
-    bsport: ['no', 'Vía ERP externo'],
-    momence: ['no', 'No'],
-    eversports: ['partial', 'Add-on de pago'],
-    mindbody: ['no', 'No'],
-    timp: ['yes', 'Nativo, con TicketBAI'],
-    lorari: ['no', 'Sin mención pública'],
-    bonsai: ['no', 'Sin mención pública'],
-    glofox: ['no', 'Sin mención pública'],
-    viday: ['yes', 'Sí, con TicketBAI también'],
-    gesyoga: ['yes', 'Sí (en modo ERP)'],
-    bookyway: ['no', 'Sin mención pública'],
-    deporweb: ['partial', 'Sello VeriFactu sin explicar el alcance'],
-    flowstark: ['no', 'Sin mención pública'],
-  },
-  {
     feature: 'Precio público en la web',
-    tentare: ['yes', 'Desde 29€/mes'],
-    bsport: ['no', 'A demanda'],
-    momence: ['yes', 'Gratis / 60$ / 199$ por mes'],
-    eversports: ['yes', 'Público'],
-    mindbody: ['no', 'A demanda'],
-    timp: ['yes', 'Desde 50€/mes'],
-    lorari: ['yes', 'Desde 12€/mes'],
-    bonsai: ['yes', 'Gratis (3% comisión) o desde 29€/mes'],
-    glofox: ['partial', 'Desde ~100 USD/mes, hasta ~370€/mes'],
-    viday: ['yes', 'Desde 39€/mes'],
-    gesyoga: ['yes', 'Desde 12€/mes'],
-    bookyway: ['partial', 'Sin cuota fija — 1,50€ por usuario añadido'],
-    deporweb: ['no', 'No publica precio'],
-    flowstark: ['yes', 'Gratis hasta 50 clientes, o 19€/mes'],
+    tentare: ['yes', 'Desde 29 €/mes, IVA incluido'],
+    bsport: ['no', 'Pide presupuesto'],
+    momence: ['no', 'Pide hablar con ellos'],
+    eversports: ['yes', 'Desde 33 €/mes + IVA'],
+    mindbody: ['partial', 'Desde 99 €/mes por ubicación'],
+    timp: ['yes', 'Desde 50 €/mes'],
+    lorari: ['yes', 'Desde 12 €/mes + IVA'],
+    bonsai: ['yes', 'Gratis (3 % extra) o 29 €/mes + IVA'],
+    glofox: ['partial', 'Desde 99 USD/mes'],
+    viday: ['yes', 'Desde 39 €/mes + IVA'],
+    gesyoga: ['yes', 'Desde 12 €/mes + IVA'],
+    bookyway: ['partial', '1,50 € por usuario adicional'],
+    deporweb: ['no', 'No publica cifras'],
+    flowstark: ['yes', 'Gratis (50 clientes) o 19 €/mes'],
   },
   {
     feature: 'Sin permanencia',
-    tentare: ['yes', 'Sí'],
-    bsport: ['no', 'Contrato anual'],
-    momence: ['partial', 'No lo especifica en público'],
-    eversports: ['no', 'Contrato anual'],
-    mindbody: ['no', '12-24 meses'],
-    timp: ['partial', 'Preaviso de 15 días'],
-    lorari: ['partial', 'No lo especifica'],
-    bonsai: ['yes', 'Sí'],
-    glofox: ['no', 'Compromiso anual o trimestral habitual'],
+    tentare: ['yes', 'Sí, mes a mes'],
+    bsport: ['partial', 'No consta'],
+    momence: ['partial', 'No consta'],
+    eversports: ['partial', 'No consta; el plan anual se factura por año'],
+    mindbody: ['partial', 'Depende del plan'],
+    timp: ['partial', 'Mínimo de 3 meses en la mayoría de planes'],
+    lorari: ['yes', 'Cancela cuando quieras'],
+    bonsai: ['partial', 'Mensual sin compromiso; anual por adelantado'],
+    glofox: ['partial', 'Anual o trimestral habitual (según nuestra guía)'],
     viday: ['yes', 'Sí'],
-    gesyoga: ['partial', 'No lo especifica en público'],
-    bookyway: ['partial', 'Pago por uso, sin permanencia declarada'],
-    deporweb: ['partial', 'No lo especifica en público'],
-    flowstark: ['yes', 'Sí — cancela cuando quieras'],
+    gesyoga: ['partial', 'No consta'],
+    bookyway: ['yes', 'Sin suscripción'],
+    deporweb: ['partial', 'No consta'],
+    flowstark: ['yes', 'Cancela cuando quieras'],
+  },
+  {
+    feature: 'Facturación España (Veri*factu)',
+    tentare: ['partial', 'Sí; envío a la AEAT en desarrollo'],
+    bsport: ['partial', 'No consta'],
+    momence: ['partial', 'No consta'],
+    eversports: ['yes', 'Extensión con fiskaly'],
+    mindbody: ['partial', 'No consta'],
+    timp: ['yes', 'Sí, con TicketBAI'],
+    lorari: ['partial', 'No consta'],
+    bonsai: ['partial', 'No consta'],
+    glofox: ['partial', 'No consta'],
+    viday: ['yes', 'Sí, con TicketBAI'],
+    gesyoga: ['yes', 'Sí (en modo ERP)'],
+    bookyway: ['partial', 'No consta'],
+    deporweb: ['partial', 'Artículos y webinars; no consta certificación'],
+    flowstark: ['partial', 'No consta'],
   },
   {
     feature: 'Datos alojados en la UE',
     tentare: ['yes', 'Sí'],
-    bsport: ['yes', 'Sí'],
-    momence: ['partial', 'No especifica dónde'],
-    eversports: ['yes', 'Sí'],
-    mindbody: ['no', 'Estados Unidos'],
-    timp: ['partial', 'No especifica el país'],
-    lorari: ['partial', 'No especifica el país'],
-    bonsai: ['yes', 'Lo declaran en su web'],
-    glofox: ['partial', 'No especifica el país'],
-    viday: ['partial', 'No especifica dónde'],
-    gesyoga: ['partial', 'No especifica dónde'],
-    bookyway: ['yes', 'Sí, en Italia'],
-    deporweb: ['partial', 'No especifica dónde'],
-    flowstark: ['partial', 'Sede en España, alojamiento no especificado'],
+    bsport: ['partial', 'No consta'],
+    momence: ['partial', 'No consta'],
+    eversports: ['partial', 'No consta'],
+    mindbody: ['partial', 'No consta'],
+    timp: ['partial', 'No consta'],
+    lorari: ['partial', 'No consta'],
+    bonsai: ['yes', 'Servidores en la UE, según sus condiciones'],
+    glofox: ['partial', 'No consta'],
+    viday: ['partial', 'No consta'],
+    gesyoga: ['partial', 'No consta'],
+    bookyway: ['partial', 'No consta'],
+    deporweb: ['partial', 'No consta'],
+    flowstark: ['partial', 'No consta'],
   },
   {
-    feature: 'Sin comisión por captar clientas',
+    feature: 'Comisión por clientas nuevas del marketplace',
     tentare: ['yes', 'Sin marketplace'],
-    bsport: ['yes', 'Sin marketplace'],
-    momence: ['partial', 'Solo con el plan más caro'],
-    eversports: ['no', '~25% por venta'],
-    mindbody: ['no', '~20% por venta'],
-    timp: ['no', 'Vía TIMPY, con comisión'],
-    lorari: ['yes', 'Sin marketplace'],
-    bonsai: ['yes', 'Sin marketplace'],
-    glofox: ['yes', 'Sin marketplace'],
-    viday: ['yes', 'Sin marketplace'],
-    gesyoga: ['yes', 'Sin marketplace'],
-    bookyway: ['yes', 'Sin marketplace'],
-    deporweb: ['yes', 'Sin marketplace'],
-    flowstark: ['yes', 'Sin marketplace'],
+    bsport: ['partial', 'No consta'],
+    momence: ['yes', 'Sin marketplace'],
+    eversports: ['yes', 'Sin comisión por reservas de su app o web'],
+    mindbody: ['partial', '20 % (tope 30 $) en la 1.ª compra'],
+    timp: ['partial', 'TIMPY: comisión sin porcentaje público'],
+    lorari: ['partial', 'No consta'],
+    bonsai: ['partial', 'No consta'],
+    glofox: ['partial', 'No consta'],
+    viday: ['partial', 'No consta'],
+    gesyoga: ['partial', 'No consta'],
+    bookyway: ['yes', 'No es un agregador'],
+    deporweb: ['partial', 'No consta'],
+    flowstark: ['partial', 'No consta'],
   },
   {
-    feature: 'Sustitución de instructoras integrada',
-    tentare: ['yes', 'Con niveles de autonomía'],
-    bsport: ['yes', 'Herramientas de sustitución'],
-    momence: ['yes', 'Notificación automática por SMS'],
-    eversports: ['partial', 'Limitado'],
-    mindbody: ['partial', 'Limitado'],
-    timp: ['no', 'Sin evidencia pública'],
-    lorari: ['no', 'No encontrada'],
-    bonsai: ['no', 'No encontrada'],
-    glofox: ['no', 'No nativa — coordinación manual'],
-    viday: ['no', 'No encontrada'],
-    gesyoga: ['no', 'Solo reasignación manual de profesor'],
-    bookyway: ['no', 'No encontrada'],
-    deporweb: ['no', 'No encontrada'],
-    flowstark: ['no', 'No encontrada'],
+    feature: 'Sustitución de instructoras',
+    tentare: ['yes', 'Con tu visto bueno; autónoma en el plan Estudio'],
+    bsport: ['yes', 'Sustituciones automáticas'],
+    momence: ['yes', 'Automatiza sustituciones'],
+    eversports: ['yes', 'Gestión de sustituciones'],
+    mindbody: ['partial', 'No consta'],
+    timp: ['partial', 'No consta'],
+    lorari: ['partial', 'No consta'],
+    bonsai: ['partial', 'No consta'],
+    glofox: ['partial', 'No consta'],
+    viday: ['partial', 'No consta'],
+    gesyoga: ['partial', 'No consta'],
+    bookyway: ['partial', 'No consta'],
+    deporweb: ['partial', 'No consta'],
+    flowstark: ['partial', 'No consta'],
+  },
+  {
+    feature: 'Elegir plaza o reformer al reservar',
+    tentare: ['yes', 'Si la sala tiene sus puestos definidos'],
+    bsport: ['partial', 'No consta'],
+    momence: ['yes', 'Spot scheduling'],
+    eversports: ['yes', 'Spot booking'],
+    mindbody: ['yes', 'Pick-a-Spot (plan Accelerate)'],
+    timp: ['partial', 'No consta'],
+    lorari: ['partial', 'No consta'],
+    bonsai: ['partial', 'No consta'],
+    glofox: ['partial', 'No consta'],
+    viday: ['partial', 'No consta'],
+    gesyoga: ['partial', 'No consta'],
+    bookyway: ['partial', 'No consta'],
+    deporweb: ['partial', 'No consta'],
+    flowstark: ['partial', 'No consta'],
   },
 ];
 
@@ -226,32 +244,32 @@ export default function ComparativaPage() {
                     <tr key={r.feature}>
                       <td style={{ padding: '15px 20px', fontSize: 14, fontWeight: 600, borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}>{r.feature}</td>
                       <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#1A1A1A', background: '#F7F8F1', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.tentare[0]} label={r.tentare[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bsport[0]} label={r.bsport[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.momence[0]} label={r.momence[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.eversports[0]} label={r.eversports[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.mindbody[0]} label={r.mindbody[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.timp[0]} label={r.timp[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.lorari[0]} label={r.lorari[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bonsai[0]} label={r.bonsai[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.glofox[0]} label={r.glofox[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.viday[0]} label={r.viday[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.gesyoga[0]} label={r.gesyoga[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bookyway[0]} label={r.bookyway[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.deporweb[0]} label={r.deporweb[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.flowstark[0]} label={r.flowstark[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bsport[0]} label={r.bsport[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.momence[0]} label={r.momence[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.eversports[0]} label={r.eversports[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.mindbody[0]} label={r.mindbody[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.timp[0]} label={r.timp[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.lorari[0]} label={r.lorari[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bonsai[0]} label={r.bonsai[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.glofox[0]} label={r.glofox[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.viday[0]} label={r.viday[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.gesyoga[0]} label={r.gesyoga[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bookyway[0]} label={r.bookyway[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.deporweb[0]} label={r.deporweb[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.flowstark[0]} label={r.flowstark[1]} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </Reveal>
-          <p className="lp-mono" style={{ fontSize: 11, color: '#A8A89F', margin: '16px 4px 0', lineHeight: 1.6 }}>Basado en información pública de cada proveedor a mediados de 2026 — el mismo dato que ya está publicado y con fuente en cada página 1 a 1 de abajo. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, Glofox, ViDay, GesYoga, BookyWay, DeporWeb y Flowstark son marcas de sus respectivos propietarios; esta comparación es orientativa y sin ánimo de menoscabo.</p>
+          <p className="lp-mono" style={{ fontSize: 11, color: '#6B6B63', margin: '16px 4px 0', lineHeight: 1.6 }}>Basado en la información pública de cada proveedor a 23 de septiembre de 2026, con la fuente en cada página 1 a 1 de abajo. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, Glofox, ViDay, GesYoga, BookyWay, DeporWeb y Flowstark son marcas de sus respectivos propietarios; esta comparación es orientativa y sin ánimo de menoscabo.</p>
         </div>
       </section>
 
       <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,72px)' }}>
         <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-          <Reveal className="lp-mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#A8A89F', marginBottom: 16 }}>Comparativa 1 a 1</Reveal>
+          <Reveal className="lp-mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#6B6B63', marginBottom: 16 }}>Comparativa 1 a 1</Reveal>
           <div className="cmp-links">
             {COMPETITORS.map((c, i) => (
               <Reveal key={c.slug} delay={i * 40}>
@@ -274,20 +292,20 @@ export default function ComparativaPage() {
           <div className="cmp-two">
             <Reveal style={{ background: '#171717', border: '1px solid rgba(255,255,255,.07)', borderRadius: 18, padding: 24 }}>
               <h3 style={{ fontSize: 17, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>App nativa para tus alumnas</h3>
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Hoy tus alumnas usan un portal web (funciona en cualquier móvil, sin instalar). bsport, Momence o Mindbody tienen app nativa de marca; la nuestra está en el camino.</p>
+              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Hoy tus alumnas usan una app web (funciona en cualquier móvil, sin pasar por la App Store). Bsport, Eversports, Mindbody y otros ofrecen apps propias para los clientes del estudio; la de Tentare se instala desde el navegador, con el nombre y el icono de tu estudio, pero no está en las tiendas de aplicaciones.</p>
             </Reveal>
             <Reveal delay={90} style={{ background: '#171717', border: '1px solid rgba(255,255,255,.07)', borderRadius: 18, padding: 24 }}>
               <h3 style={{ fontSize: 17, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>Un marketplace que te traiga clientas</h3>
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Mindbody y Eversports tienen su propio directorio de captación. Nosotros no — a cambio, no te cobramos comisión por cada alumna nueva.</p>
+              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Mindbody y Eversports tienen su propio marketplace de captación (Mindbody cobra hasta un 20 %, con tope, en la primera compra de cada clienta nueva). Tentare no tiene marketplace, y tampoco cobra comisión por clienta nueva.</p>
             </Reveal>
           </div>
-          <Reveal><p style={{ fontSize: 15, lineHeight: 1.6, color: '#8E8E86', margin: '24px 0 0' }}>Preferimos decírtelo antes de que lo descubras. Si algo de esto es imprescindible para ti hoy, te lo diremos en la demo — sin venderte humo.</p></Reveal>
+          <Reveal><p style={{ fontSize: 15, lineHeight: 1.6, color: '#A6A69E', margin: '24px 0 0' }}>Preferimos decírtelo antes de que lo descubras. Si algo de esto es imprescindible para ti hoy, escríbenos antes de probar y te decimos con franqueza si Tentare te sirve.</p></Reveal>
         </div>
       </section>
 
       <section style={{ padding: 'clamp(64px,8vw,110px) clamp(20px,4vw,44px)' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <CtaBlock title="Compruébalo con tu propio estudio." body="Migramos tus datos por ti. Sin permanencia. Sin sorpresas." />
+          <CtaBlock title="Compruébalo con tu propio estudio." body="Te ayudamos a traer tus datos. Sin permanencia. Sin sorpresas." />
         </div>
       </section>
 
