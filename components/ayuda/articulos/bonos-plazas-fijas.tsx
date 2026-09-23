@@ -22,7 +22,7 @@ export default function Contenido() {
           del calendario o desde la vista «Horario».</li>
         <li><strong>La pide ella.</strong> Si lo activas en Configuración → «Cómo reservan mis alumnas» → «Peticiones
           desde su app», le sale <strong>«Pedir plaza fija»</strong> en la ficha de cualquier clase que se repite cada
-          semana y también justo al terminar de reservarla. Tú la apruebas en Inicio.</li>
+          semana y también justo al terminar de reservarla. Tú la apruebas en Resumen.</li>
         <li><strong>Al darle una cuota</strong>, te preguntamos si le das plaza fija.</li>
       </ul>
       <p>
@@ -125,7 +125,7 @@ export default function Contenido() {
       </ul>
       <p>
         En la app de tus clientas aparece <strong>«Clases fijas»</strong> en el horario, con qué incluye, cuántas plazas
-        quedan y un botón <strong>«Pedir clase fija»</strong>. <strong>Pedirla no la reserva:</strong> te llega a Inicio como
+        quedan y un botón <strong>«Pedir clase fija»</strong>. <strong>Pedirla no la reserva:</strong> te llega a Resumen como
         una petición y hasta que la apruebas no cambia nada. Al aprobarla, la clienta recibe <strong>una plaza fija por cada
         clase</strong> hasta la fecha que eligió, y desde ahí funciona como cualquier otra plaza fija (se reserva sola
         y puede faltar una semana). Si aprobarla pasa del límite semanal de su cuota, o la clase fija está completa, te lo
@@ -141,14 +141,14 @@ export default function Contenido() {
       </p>
       <p>
         Al crearla puedes marcar <strong>«Aprobar automáticamente»</strong>: si cabe y no pasa del límite semanal de
-        su cuota, la petición de la clienta se resuelve al momento, sin pasar por tu bandeja de Inicio. Si no cabe
+        su cuota, la petición de la clienta se resuelve al momento, sin pasar por tu bandeja de Resumen. Si no cabe
         en ese momento, se queda pendiente igual que si el ajuste estuviera apagado — nunca le sale un error nuevo.
         En la lista de tus clases fijas, las que lo tienen activo llevan la etiqueta <strong>«Automática»</strong>.
       </p>
       <p>
         Cuando a una clienta le quedan pocos días antes de que se le acabe, su app se lo dice sola y le deja{' '}
         <strong>ampliar</strong> el tiempo sin perder el sitio que ya tenía (nunca se le acorta lo que le quedaba).
-        Esa ampliación es otra petición: te llega a la misma bandeja de Inicio, salvo que también tengas activada
+        Esa ampliación es otra petición: te llega a la misma bandeja de Resumen, salvo que también tengas activada
         la aprobación automática de esa clase fija.
       </p>
 
@@ -195,7 +195,7 @@ export default function Contenido() {
         Si prefieres que durante una pausa larga <strong>su sitio quede libre</strong> para otra alumna, actívalo en
         Configuración → «Cómo reservan mis alumnas» → «Si pausa su plaza fija». Vale para las pausas nuevas —las que ya
         tengas puestas siguen igual— y solo suelta el sitio en pausas de más de una semana. Una semana antes de que
-        acabe, Tentare le devuelve la plaza si su sitio sigue libre y tiene cuota, o te lo pregunta en Inicio, según lo
+        acabe, Tentare le devuelve la plaza si su sitio sigue libre y tiene cuota, o te lo pregunta en Resumen, según lo
         que elijas ahí. Si le dices que no vuelva, se le quita la plaza fija.
       </p>
 
@@ -212,7 +212,7 @@ export default function Contenido() {
         propietaria, desde ahí llegas al ajuste.
       </p>
       <p>
-        Te llega un aviso y las decides en Inicio, en «{'Una petición de plaza fija espera tu respuesta'}». Si con esa
+        Te llega un aviso y las decides en Resumen, en «{'Una petición de plaza fija espera tu respuesta'}». Si con esa
         plaza pasaría del límite de clases por semana de su cuota, te lo decimos ahí y decides tú. Ella ve tu respuesta
         en su app, con el motivo que escribas si no la apruebas.
       </p>

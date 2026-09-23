@@ -1420,7 +1420,7 @@ test('⚠️ cobrar a mano: el recibo de una penalización solo con RECIBO_CREAD
 test('⚠️ PENDIENTE_APROBACION no se cobra desde Cobros: dice dónde aprobarla, que es donde está el guardia', () => {
   const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado: 'PENDIENTE_APROBACION' });
   assert.equal(v.ok, false);
-  if (!v.ok) assert.match(v.mensaje, /apruebes en Inicio/);
+  if (!v.ok) assert.match(v.mensaje, /apruebes en Resumen/);
 });
 
 test('cobrar a mano: cada estado bloqueado dice lo suyo', () => {
@@ -1495,7 +1495,7 @@ test('⚠️ checkout de la alumna: el recibo de una penalización solo con RECI
     assert.equal(v.ok, false, estado);
     if (v.ok) continue;
     assert.equal(v.http, 409, estado);
-    // Texto para la alumna: ni estados internos, ni mandarla a Inicio o a Cobros.
+    // Texto para la alumna: ni estados internos, ni mandarla a Resumen o a Cobros.
     assert.doesNotMatch(v.mensaje, /penalización|Inicio|Cobros|apruebes|undefined|null|[A-Z]{2,}_[A-Z]/, estado);
     assert.match(v.mensaje, /\.$/, estado);
   }

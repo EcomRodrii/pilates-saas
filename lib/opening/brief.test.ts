@@ -29,7 +29,7 @@ test('sin nada que contar, no se manda (no se interrumpe por interrumpir)', () =
 test('los días clave de la cuenta atrás salen aunque no haya novedades', () => {
   assert.equal(construirBrief(e({ diasHastaApertura: 7 }))!.titulo, 'Tu estudio abre en 7 días');
   assert.equal(construirBrief(e({ diasHastaApertura: 1 }))!.titulo, 'Mañana abres tu estudio');
-  assert.deepEqual(construirBrief(e({ diasHastaApertura: 0 })), { titulo: 'Hoy abres tu estudio', cuerpo: 'Todo lo que tienes pendiente para abrir está en Inicio.' });
+  assert.deepEqual(construirBrief(e({ diasHastaApertura: 0 })), { titulo: 'Hoy abres tu estudio', cuerpo: 'Todo lo que tienes pendiente para abrir está en Resumen.' });
 });
 
 test('sin fecha exacta, fuera del último mes o ya abierto: no hay brief', () => {

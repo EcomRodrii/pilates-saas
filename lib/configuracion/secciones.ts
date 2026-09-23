@@ -333,8 +333,8 @@ export const SECCIONES = [
   {
     id: 'panel',
     titulo: 'Tu panel',
-    resumen: 'Menú, Inicio y modo claro u oscuro',
-    frase: 'Cómo se ordena tu panel: el menú y el Inicio los ve tu equipo; el modo oscuro, solo tú.',
+    resumen: 'Menú, Resumen y modo claro u oscuro',
+    frase: 'Cómo se ordena tu panel: el menú y el Resumen los ve tu equipo; el modo oscuro, solo tú.',
     roles: SOLO_PROPIETARIA,
     palabras: ['personalizar'],
     // Filas con su valor de hoy (16-sep, v2): era la ÚLTIMA sección con barra de
@@ -343,7 +343,7 @@ export const SECCIONES = [
     // se abre uno a la vez y cerrar sin guardar descarta (seccion-panel.tsx).
     tarjetas: [
       { id: 'menu-del-panel', titulo: 'Tu menú', frase: 'Ordena los módulos dentro de su grupo y esconde los que no uses. Inicio, Configuración y Suscripción siempre se ven.', guardado: 'barra', palabras: ['módulos', 'ocultar', 'orden'] },
-      { id: 'inicio-del-panel', titulo: 'Tu Inicio', frase: 'Ordena y esconde las secciones de tu pantalla de Inicio. Los avisos de estado van siempre arriba.', guardado: 'barra', palabras: ['secciones', 'pantalla principal'] },
+      { id: 'inicio-del-panel', titulo: 'Tu Resumen', frase: 'Ordena y esconde las secciones de tu pantalla de Resumen. Los avisos de estado van siempre arriba.', guardado: 'barra', palabras: ['secciones', 'pantalla principal', 'inicio'] },
       { id: 'posicion-del-menu', titulo: 'Dónde va el menú', frase: 'A la izquierda o arriba, en el ordenador. En el móvil el menú no cambia.', guardado: 'barra', palabras: ['izquierda', 'arriba'] },
       { id: 'claro-u-oscuro', titulo: 'Claro u oscuro', frase: 'Solo para ti y en este navegador: no cambia nada a nadie más de tu equipo.', guardado: 'al-pulsar', palabras: ['modo oscuro', 'noche'] },
     ],

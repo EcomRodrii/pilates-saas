@@ -37,7 +37,12 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
   { patron: /Planes y tarifas/, ahora: 'las tarifas están en Paquetes (/productos)' },
   { patron: new RegExp(`Configuración${FLECHA}Planes`), ahora: 'las tarifas están en Paquetes (/productos)' },
   { patron: /Transacciones/, ahora: 'es Cobros (Quién me debe · Lo que he cobrado · Facturas)' },
-  { patron: /\bDashboard\b/, ahora: 'la entrada del menú se llama Inicio' },
+  { patron: /\bDashboard\b/, ahora: 'la entrada del menú se llama Resumen' },
+  // 23-sep: «Inicio» pasó a «Resumen». Solo se caza precedido de preposición
+  // («en Inicio», «bandeja de Inicio»), que es como se nombra la pantalla del
+  // panel: «Inicio» suelto sigue siendo legítimo en la app de la alumna, que
+  // conserva ese nombre.
+  { patron: /\b(?:en|En|de|desde|Desde|a) Inicio\b/, ahora: 'la pantalla del panel se llama Resumen (la de la alumna sigue siendo Inicio)' },
   { patron: /Tentare Core/, ahora: 'la instructora trabaja en la app del estudio' },
   { patron: new RegExp(`Configuración${FLECHA}Suscripción`), ahora: 'Suscripción es su propia entrada del menú, no una pestaña' },
   // Configuración se reorganizó por preguntas el 15-sep: las pestañas de antes

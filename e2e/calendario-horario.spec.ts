@@ -134,7 +134,7 @@ test.describe('Calendario · las clases que se repiten', () => {
     await irAHorario(page);
 
     const aviso = page.getByTestId('aviso-peticiones-plaza-fija');
-    await expect(aviso).toContainText('Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Inicio.', { timeout: 30_000 });
+    await expect(aviso).toContainText('Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Resumen.', { timeout: 30_000 });
     await expect(aviso.getByRole('link')).toHaveCount(0);
   });
 

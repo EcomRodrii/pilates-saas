@@ -95,7 +95,7 @@ test.describe('Tentare Core retirado: la instructora va a la app del estudio', (
     await seedSesion(page, UID_RECEPCION, 'sara@example.com');
     await page.goto('/dashboard');
 
-    await expect(page.getByRole('link', { name: /^Inicio/ }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: /^Resumen/ }).first()).toBeVisible({ timeout: 30_000 });
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByTestId('puerta-app-instructora')).toHaveCount(0);
   });
@@ -115,7 +115,7 @@ test.describe('Tentare Core retirado: la instructora va a la app del estudio', (
     await expect(puerta.getByRole('button', { name: /Sede activa: Pilates Centro/ })).toBeVisible();
     // No se la saca del panel sin dejarla elegir, ni se le enseña el panel.
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByRole('link', { name: /^Inicio/ })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /^Resumen/ })).toHaveCount(0);
     expect(intentos.misEstudios).toBeGreaterThan(0);
   });
 

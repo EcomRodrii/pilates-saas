@@ -26,7 +26,7 @@ const FAQ = [
   },
   {
     q: '¿Qué pasa cuando la serie se acaba?',
-    a: 'Tentare te avisa antes, no después. Cuando quedan pocas semanas aparece en Inicio, y según se acerca el final recibes aviso en el móvil y por correo. Desde ahí dices cuántas semanas más quieres y, antes de confirmar, te enseña cuántas clases salen, qué fechas no puede crear y por qué, y qué plazas fijas siguen.',
+    a: 'Tentare te avisa antes, no después. Cuando quedan pocas semanas aparece en Resumen, y según se acerca el final recibes aviso en el móvil y por correo. Desde ahí dices cuántas semanas más quieres y, antes de confirmar, te enseña cuántas clases salen, qué fechas no puede crear y por qué, y qué plazas fijas siguen.',
   },
   {
     q: '¿Puede renovarse sola?',
@@ -55,7 +55,7 @@ export default function ClasesRecurrentesPage() {
           <ol style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
             <li>Creas la clase y eliges cuántas semanas se repite.</li>
             <li>Las clases quedan publicadas y reservables.</li>
-            <li>Cuando quedan pocas, aparece en Inicio.</li>
+            <li>Cuando quedan pocas, aparece en Resumen.</li>
             <li>La alargas desde el propio aviso, o se renueva sola si lo activaste.</li>
           </ol>
         </PanelClaro>
@@ -107,7 +107,7 @@ export default function ClasesRecurrentesPage() {
         <Tabla
           cabeceras={['Cuándo', 'Dónde te llega']}
           filas={[
-            ['Quedan unas semanas', 'En Inicio, en la bandeja de lo que espera tu visto bueno'],
+            ['Quedan unas semanas', 'En Resumen, en la bandeja de lo que espera tu visto bueno'],
             ['Se acerca el final', 'Aviso en el móvil'],
             ['Última semana y último día', 'Aviso en el móvil y por correo'],
             ['Ya terminó', 'Sigue en la lista, marcada, hasta que la renuevas o la descartas'],

@@ -2,7 +2,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La bandeja única de la home («lo que espera tu visto bueno») y el contador
-// sobre Inicio (lib/estado-estudio.ts, /api/estado-estudio).
+// sobre Resumen (lib/estado-estudio.ts, /api/estado-estudio).
 //
 // Lo que se fija aquí:
 //   · lo que espera decisión, lo que Tentare está haciendo y lo resuelto se ven
@@ -10,7 +10,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 //   · sin nada pendiente dice «nada espera tu visto bueno» — nunca «todo bien»;
 //   · si el endpoint falla, la home (la pantalla principal del negocio) sigue en
 //     pie y no se inventa un cero;
-//   · el menú reorganizado: «Inicio» con un solo nombre, Comunidad sin entrada
+//   · el menú reorganizado: «Resumen» con un solo nombre, Comunidad sin entrada
 //     duplicada y Mensajería visible en el modo por defecto.
 //
 // Montaje propio y no `montarHome` (e2e/hoy-home-mock.ts): allí el comodín
@@ -91,7 +91,7 @@ async function montar(
   return intentos;
 }
 
-test.describe('Estado del estudio en Inicio', () => {
+test.describe('Estado del estudio en Resumen', () => {
   test('separa lo que espera tu decisión de lo que Tentare hace y ya ha hecho', async ({ page }) => {
     await montar(page, { cuerpo: CON_PENDIENTES });
 
@@ -112,9 +112,9 @@ test.describe('Estado del estudio en Inicio', () => {
     await expect(bandeja.getByText('Una clase cubierta por una sustituta')).toBeVisible();
   });
 
-  test('el contador de Inicio suma solo lo que espera decisión (3), no lo que está en marcha', async ({ page }) => {
+  test('el contador de Resumen suma solo lo que espera decisión (3), no lo que está en marcha', async ({ page }) => {
     await montar(page, { cuerpo: CON_PENDIENTES });
-    const inicio = page.getByRole('link', { name: /^Inicio/ }).first();
+    const inicio = page.getByRole('link', { name: /^Resumen/ }).first();
     await expect(inicio).toBeVisible({ timeout: 30_000 });
     await expect(inicio).toContainText('3');
     await expect(inicio.getByText('3 por decidir')).toBeAttached();
@@ -131,7 +131,7 @@ test.describe('Estado del estudio en Inicio', () => {
   test('si el endpoint falla, la home sigue en pie y no se inventa un «nada pendiente»', async ({ page }) => {
     const intentos = await montar(page, { cuerpo: { error: 'boom' }, status: 500 });
     // El menú y la home siguen montados.
-    await expect(page.getByRole('link', { name: /^Inicio/ }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: /^Resumen/ }).first()).toBeVisible({ timeout: 30_000 });
     // ⚠️ Sin contador, «no mintió» podría ser cierto por no haberlo intentado.
     await expect.poll(() => intentos.n).toBeGreaterThan(0);
     await expect(page.getByText('Nada espera tu visto bueno')).toHaveCount(0);
@@ -386,9 +386,9 @@ test.describe('Reservas por aprobar, dentro de la bandeja', () => {
 });
 
 test.describe('Menú reorganizado', () => {
-  test('«Inicio» con un solo nombre, Comunidad sin entrada duplicada, Mensajería visible por defecto', async ({ page }) => {
+  test('«Resumen» con un solo nombre, Comunidad sin entrada duplicada, Mensajería visible por defecto', async ({ page }) => {
     await montar(page, { cuerpo: SIN_NADA });
-    await expect(page.getByRole('link', { name: /^Inicio/ }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: /^Resumen/ }).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /^Mensajería/ }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: 'Comunidad', exact: true })).toHaveCount(0);
