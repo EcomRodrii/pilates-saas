@@ -72,8 +72,8 @@ export function SeccionFaq() {
         .v5-faq-respuesta { font-size: 15px; line-height: 1.7; color: #5A5A52; margin: 0; padding: 0 4px 22px; max-width: 64ch; }
         @keyframes v5-faq-abre { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
         @media (prefers-reduced-motion: no-preference) {
-          .v5-faq-respuesta { animation: v5-faq-abre .3s cubic-bezier(.2,.8,.2,1) both; }
-          .v5-faq-signo { transition: transform .25s cubic-bezier(.2,.8,.2,1); }
+          .v5-faq-respuesta { animation: v5-faq-abre var(--motion-slow) var(--motion-ease) both; }
+          .v5-faq-signo { transition: transform var(--motion-medium) var(--motion-ease); }
           .v5-faq-pregunta[aria-expanded="true"] .v5-faq-signo { transform: rotate(180deg); }
         }
 

@@ -77,13 +77,13 @@ export function WhatsAppFab() {
 
       <style>{`
         .v5-wa-fab { position: fixed; bottom: 24px; right: 20px; z-index: 70; display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
-          transition: opacity .35s cubic-bezier(.2,.8,.2,1), transform .35s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+          transition: opacity var(--motion-slow) var(--motion-ease), transform var(--motion-slow) var(--motion-ease), visibility 0s; }
         .v5-wa-fab[data-oculto] { opacity: 0; transform: translateY(16px) scale(.9); visibility: hidden; pointer-events: none;
-          transition: opacity .25s ease, transform .25s ease, visibility 0s linear .25s; }
+          transition: opacity var(--motion-medium) ease, transform var(--motion-medium) ease, visibility 0s linear var(--motion-medium); }
         @media (prefers-reduced-motion: reduce) { .v5-wa-fab, .v5-wa-fab[data-oculto] { transition: none; } }
         .v5-wa-toggle { position: relative; width: 56px; height: 56px; border-radius: 50%; background: #25D366; border: none;
           box-shadow: 0 10px 30px rgba(0,0,0,.28); display: flex; align-items: center; justify-content: center;
-          cursor: pointer; transition: transform .15s; }
+          cursor: pointer; transition: transform var(--motion-fast) var(--motion-ease); }
         .v5-wa-toggle:hover { transform: scale(1.05); background: #1EBE5A; }
         .v5-wa-toggle:active { transform: scale(.95); }
         .v5-wa-toggle-icono { position: relative; }

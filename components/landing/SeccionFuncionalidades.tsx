@@ -248,7 +248,7 @@ export function SeccionFuncionalidades() {
       <div className="fn2-wrap">
         <div className="fn2-cabecera lp-rv">
           <h2 id="fn2-h" className="fn2-h2">Y todo lo demás que necesita un estudio de Pilates.</h2>
-          <Link href={SALIDAS.funcionalidades.href} className="fn2-salida">
+          <Link href={SALIDAS.funcionalidades.href} className="fn2-salida lp-flecha">
             {SALIDAS.funcionalidades.label} <ArrowRight size={15} aria-hidden />
           </Link>
         </div>
@@ -276,7 +276,7 @@ export function SeccionFuncionalidades() {
         .fn2-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
         .fn2-chip { display: inline-flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px;
           background: #fff; border: 1px solid #E7E7E0; color: inherit; text-decoration: none;
-          transition: transform .24s cubic-bezier(.2,.7,0,1), box-shadow .24s, border-color .24s; }
+          transition: transform var(--motion-medium) var(--motion-ease), box-shadow var(--motion-medium), border-color var(--motion-medium); }
         .fn2-chip:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -22px rgba(26,26,26,.35); border-color: #D9D9CE; }
         .fn2-chip:focus-visible { outline: 2px solid #343825; outline-offset: 2px; }
 

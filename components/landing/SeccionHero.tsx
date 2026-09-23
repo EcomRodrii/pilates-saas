@@ -275,7 +275,7 @@ export function SeccionHero() {
         .v5-hero-acciones { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 26px; margin-top: 32px; }
         .v5-hero-cta { display: inline-block; background: #343825; color: #D9C29E; font-weight: 800; font-size: 16.5px;
           padding: 17px 30px; border-radius: 999px; white-space: nowrap;
-          box-shadow: 0 18px 36px -16px rgba(52,56,37,.6); transition: transform .2s, background .2s; }
+          box-shadow: 0 18px 36px -16px rgba(52,56,37,.6); transition: transform var(--motion-normal) var(--motion-ease), background var(--motion-normal); }
         .v5-hero-cta:hover { background: #22251A; transform: translateY(-2px); }
         .v5-hero-cta:active { transform: translateY(0) scale(.98); }
         .v5-hero-enlace { font-size: 15.5px; font-weight: 700; color: #343825; white-space: nowrap; }
@@ -329,7 +329,7 @@ export function SeccionHero() {
           to { opacity: 1; transform: none; }
         }
         @media (prefers-reduced-motion: no-preference) {
-          .v5-hero-tarjeta { animation: v5-hero-tarjeta-entra .8s cubic-bezier(.22,.7,.3,1) both;
+          .v5-hero-tarjeta { animation: v5-hero-tarjeta-entra .8s var(--motion-ease) both;
             animation-delay: calc(${FIN_MONTAJE.toFixed(2)}s + var(--orden) * .14s); }
           :root:has(.tnt-intro[data-saltada]) .v5-hero-tarjeta { animation-delay: calc(.1s + var(--orden) * .14s); }
           /* Sin cortina (visitas siguientes), el retardo lo adelanta el estilo

@@ -150,7 +150,7 @@ export function SeccionCtaFinal() {
         .v5-cta-lead { font-size: 17.5px; font-weight: 500; color: #3F4330; margin: 0 0 30px; max-width: 36ch; }
         .v5-cta-acciones { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
         .v5-cta-boton { background: #343825; color: #D9C29E; font-weight: 800; font-size: 17px; padding: 18px 36px;
-          border-radius: 999px; box-shadow: 0 18px 36px -16px rgba(52,56,37,.6); transition: transform .2s, background .2s; }
+          border-radius: 999px; box-shadow: 0 18px 36px -16px rgba(52,56,37,.6); transition: transform var(--motion-normal) var(--motion-ease), background var(--motion-normal); }
         .v5-cta-boton:hover { background: #22251A; transform: translateY(-2px); }
         .v5-cta-boton:focus-visible { outline: 2px solid #343825; outline-offset: 3px; }
 
