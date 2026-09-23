@@ -26,9 +26,13 @@ export const metadata: Metadata = {
 // fuente que gobierna lo que el producto deja hacer de verdad. Escribirlos a
 // mano aquí sería la vía rápida a una página de precios que promete un límite
 // distinto del que aplica el servidor.
+//
+// ⚠️ Nada de «el más elegido» ni de «más popular» sin datos que lo respalden
+// (retirado el 23-sep con OK del fundador: no había ningún estudio de pago). El
+// texto del botón es el mismo que en la home: «Probar N días gratis».
 const RESUMEN: Record<Plan, { gancho: string; para: string; cta: string }> = {
-  BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: 'Empezar gratis' },
-  ESTUDIO: { gancho: 'El más elegido', para: 'Un estudio en marcha, con equipo y horario completo.', cta: 'Empezar gratis' },
+  BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: `Probar ${TRIAL_DIAS} días gratis` },
+  ESTUDIO: { gancho: 'El plan completo', para: 'Un estudio en marcha, con equipo y horario completo.', cta: `Probar ${TRIAL_DIAS} días gratis` },
   CADENA: { gancho: 'Varias sedes', para: 'Dos o más centros bajo la misma marca.', cta: 'Hablar con nosotros' },
 };
 
@@ -47,7 +51,7 @@ function tope(plan: Plan): string {
 const FAQ = [
   {
     q: `¿La prueba de ${TRIAL_DIAS} días pide tarjeta?`,
-    a: `No. Creas tu estudio y entras: ${TRIAL_DIAS} días con todo abierto sin darnos ningún dato de pago. Al terminar no se te cobra nada — si no eliges plan, la prueba simplemente se acaba y tus datos siguen ahí intactos, sin borrar nada.`,
+    a: `No. Creas tu estudio y entras: ${TRIAL_DIAS} días gratis del plan que elijas, sin darnos ningún dato de pago. Al terminar no se te cobra nada — si no eliges plan, la prueba simplemente se acaba y tus datos siguen ahí intactos, sin borrar nada.`,
   },
   {
     q: `¿Qué pasa exactamente cuando terminan los ${TRIAL_DIAS} días?`,
@@ -138,9 +142,6 @@ export default function PreciosPage() {
                   boxShadow: destacado ? '0 34px 66px -26px rgba(26,26,26,.45)' : undefined,
                 }}
               >
-                {destacado && (
-                  <div className="lp-mono" style={{ position: 'absolute', top: -12, left: 32, background: ACC, color: '#D9C29E', fontSize: 11, fontWeight: 600, letterSpacing: '.08em', padding: '6px 13px', borderRadius: 999 }}>MÁS ELEGIDO</div>
-                )}
                 <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#8E8E86', marginBottom: 12 }}>{PLAN_INFO[p].nombre}</div>
                 <div style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-.035em', color: destacado ? '#fff' : undefined, lineHeight: 1 }}>
                   {PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: '#8E8E86' }}>/mes</span>
