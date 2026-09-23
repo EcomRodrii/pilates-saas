@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, Clock } from 'lucide-react';
+import { alFallarImagen, imagenDeClase, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { puedeVer } from '@/lib/permisos-reglas';
@@ -156,6 +157,7 @@ export function ProximasClases() {
   const datosDe = (c: ClaseDelDia) => ({
     nombre: tipoById.get(c.tipoClaseId)?.nombre ?? 'Clase',
     color: tipoById.get(c.tipoClaseId)?.color ?? 'var(--border)',
+    fotoUrl: tipoById.get(c.tipoClaseId)?.fotoUrl ?? null,
     sala: salaById.get(c.salaId)?.nombre ?? null,
     instructor: instructorById.get(c.instructorId) ?? null,
   });
@@ -189,8 +191,10 @@ export function ProximasClases() {
         {proximas.length > 0 && (
           // Las columnas salen de cuántas hay: con una sola clase y dos
           // columnas quedaba media caja en blanco, que se lee como que falta
-          // algo por cargar.
-          <ul className={cn('grid gap-px bg-muted', proximas.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
+          // algo por cargar. Y una por fila en móvil: con la foto al lado, dos
+          // tarjetas a 390 px dejan unos 60 px para el nombre y vuelve a
+          // cortarse.
+          <ul className={cn('grid gap-px bg-muted', proximas.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2')}>
             {proximas.map(c => (
               <TarjetaClase
                 key={c.sesionId}
@@ -240,11 +244,12 @@ function reloj(segundos: number): string {
 }
 
 function TarjetaEnVivo({
-  clase, nombre, color, sala, instructor, puedeCalendario,
+  clase, nombre, color, fotoUrl, sala, instructor, puedeCalendario,
 }: {
   clase: ClaseDelDia;
   nombre: string;
   color: string;
+  fotoUrl: string | null;
   sala: string | null;
   instructor: Instructor | null;
   puedeCalendario: boolean;
@@ -274,8 +279,10 @@ function TarjetaEnVivo({
       </div>
 
       <div className="mt-2.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        <div className="flex min-w-0 items-center gap-3">
+          {/* Más grande que en las de abajo: esta es la clase que se está dando
+              ahora mismo, y la jerarquía de la sección se lee de un vistazo. */}
+          <FotoClase nombre={nombre} fotoUrl={fotoUrl} alto="size-[92px]" />
           {instructor && (
             <ProfileAvatar
               size="sm"
@@ -286,7 +293,10 @@ function TarjetaEnVivo({
             />
           )}
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold leading-tight text-foreground">{nombre}</p>
+            <p className="flex min-w-0 items-center gap-2">
+              <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+              <span className="truncate text-[15px] font-bold leading-tight text-foreground">{nombre}</span>
+            </p>
             <p className="truncate text-[11.5px] text-muted-foreground">
               {instructor?.nombre ?? 'Sin asignar'}
             </p>
@@ -359,14 +369,66 @@ function TarjetaEnVivo({
   );
 }
 
+// ─── La foto de la clase ─────────────────────────────────────────────────────
+
+/**
+ * La foto del TIPO de clase, con su fecha encima.
+ *
+ * `imagenDeClase` da la que subió el estudio y, si no hay, la de su familia de
+ * disciplina (reformer, mat, yoga…) — así un estudio recién creado tampoco ve
+ * huecos de color liso. `lib/imagenes-por-defecto.ts` avisa de que la misma
+ * foto repetida ocho veces se lee como un error y por eso los LISTADOS no
+ * llevan default: aquí son dos tarjetas grandes, el caso «detalle» que ese
+ * mismo documento sí contempla.
+ *
+ * El velo oscuro no es decoración: la fecha va encima de una foto cualquiera
+ * —clara, con una pared blanca al fondo— y sin él no se lee.
+ */
+function FotoClase({
+  nombre, fotoUrl, fecha, alto = 'size-[78px]',
+}: {
+  nombre: string;
+  fotoUrl: string | null;
+  /** Día y mes encima de la foto. Sin fecha no se pinta velo: la foto se ve
+   *  entera, que es lo que quiere la tarjeta de la clase en curso —está pasando
+   *  AHORA, y su fecha es hoy por definición. */
+  fecha?: { numero: string; mes: string };
+  alto?: string;
+}) {
+  return (
+    <span className={cn('relative shrink-0 overflow-hidden rounded-xl bg-muted', alto)}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- foto subida por el estudio o de catálogo, no un asset conocido en build */}
+      <img
+        src={imagenDeClase({ fotoUrl, nombre })}
+        alt=""
+        className="size-full object-cover"
+        onError={alFallarImagen(IMAGENES_CLASE.generica)}
+      />
+      {fecha && (
+        <>
+          {/* Solo por abajo y lo justo: la fecha va encima de una foto
+              cualquiera —una pared blanca al fondo— y sin velo no se lee. Un
+              velo parejo la oscurecía entera y la foto dejaba de ser foto. */}
+          <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+          <span className="absolute inset-x-0 bottom-1.5 flex flex-col items-center leading-none text-white">
+            <span className="text-[20px] font-bold tabular-nums drop-shadow">{fecha.numero}</span>
+            <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide opacity-95">{fecha.mes}</span>
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
 // ─── Las que vienen después ──────────────────────────────────────────────────
 
 function TarjetaClase({
-  clase, nombre, color, sala, instructor, puedeCalendario,
+  clase, nombre, color, fotoUrl, sala, instructor, puedeCalendario,
 }: {
   clase: ClaseDelDia;
   nombre: string;
   color: string;
+  fotoUrl: string | null;
   sala: string | null;
   instructor: Instructor | null;
   puedeCalendario: boolean;
@@ -384,39 +446,34 @@ function TarjetaClase({
 
   const cuerpo = (
     <>
-      {/* La fecha va en línea y no en un cuadrado aparte: en móvil caben dos
-          tarjetas por fila y ese cuadrado se comía el ancho que necesita el
-          nombre de la clase, que acababa cortado en «Pilates Máqui…». */}
-      <p className="flex items-center gap-2">
-        <span
-          className={cn(
-            'rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-            esHoy ? 'text-brand-medio' : 'text-muted-foreground',
-          )}
-          style={{
-            backgroundColor: esHoy
-              ? 'color-mix(in srgb, var(--brand) 14%, transparent)'
-              : 'var(--muted)',
-          }}
-        >
-          {palabra || `${numero} ${mes}`}
-        </span>
-        <span className="text-[19px] font-bold leading-none tabular-nums text-foreground">
-          {horaEstudio(clase.inicio)}
-        </span>
-        <span className="ml-auto shrink-0 leading-none">
-          <span className="text-[13px] font-bold tabular-nums text-foreground">{clase.ocupadas}</span>
-          <span className="text-[11px] text-muted-foreground">/{clase.aforo}</span>
-        </span>
-      </p>
+      <div className="flex items-start gap-3.5">
+        <FotoClase nombre={nombre} fotoUrl={fotoUrl} fecha={{ numero, mes }} />
 
-      <div className="mt-2 flex min-w-0 items-center gap-2">
-        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-        <p title={nombre} className="truncate text-[13px] font-semibold leading-tight text-foreground">{nombre}</p>
+        <div className="min-w-0 flex-1">
+          {/* El punto del tipo de clase, que es lo que de verdad las distingue:
+              dos clases de la misma familia (dos de reformer) comparten la foto
+              por defecto, y sin él se leerían como la misma. */}
+          <p className="flex min-w-0 items-center gap-2">
+            <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+            <span title={nombre} className="truncate text-[15px] font-bold leading-tight text-foreground">
+              {nombre}
+            </span>
+          </p>
+          <p className="mt-1 flex items-center gap-1.5 text-[15px] font-semibold leading-none tabular-nums text-foreground">
+            <Clock size={13} aria-hidden className="shrink-0 text-muted-foreground" />
+            {/* El día solo cuando NO es hoy: la sección cruza de día sola y la
+                hora a secas no distingue las 10:00 de mañana de las de hoy. */}
+            {palabra && !esHoy ? `${palabra} · ` : ''}{horaEstudio(clase.inicio)}
+          </p>
+          <p className="mt-1 leading-none">
+            <span className="text-[13px] font-bold tabular-nums text-foreground">{clase.ocupadas}</span>
+            <span className="text-[12px] text-muted-foreground">/{clase.aforo}</span>
+          </p>
+          <p className="mt-1 truncate text-[11px] text-muted-foreground">
+            {instructor?.nombre ?? 'Sin asignar'}{sala ? ` · ${sala}` : ''}
+          </p>
+        </div>
       </div>
-      <p className="truncate text-[11px] text-muted-foreground">
-        {instructor?.nombre ?? 'Sin asignar'}{sala ? ` · ${sala}` : ''}
-      </p>
 
       <BarraPlazas ocupadas={clase.ocupadas} aforo={clase.aforo} />
       <p className="mt-1.5 text-[10.5px] text-muted-foreground">

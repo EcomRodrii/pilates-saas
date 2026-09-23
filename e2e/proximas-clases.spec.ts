@@ -60,8 +60,12 @@ test.describe('Próximas clases', () => {
     await expect(tarjetas.nth(1)).toContainText('17:00');
     await expect(s.getByText('19:30')).toHaveCount(0);
 
+    // Cada tarjeta lleva su foto con la fecha encima (día y mes), que es lo que
+    // permite que la lista cruce de día sin que se note el salto.
+    await expect(tarjetas.nth(0).locator('img')).toHaveCount(1);
+    await expect(tarjetas.nth(0)).toContainText('sept');
+
     // 7 de 10 → tres huecos; la de las 17:00 se quedó sin instructora.
-    await expect(tarjetas.nth(0)).toContainText('Hoy');
     await expect(tarjetas.nth(0)).toContainText('7/10');
     await expect(tarjetas.nth(0)).toContainText('3 huecos');
     await expect(tarjetas.nth(1)).toContainText('Sin instructora');
