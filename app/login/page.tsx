@@ -15,7 +15,7 @@ import { GoogleIcon } from '@/components/icons/brand-icons';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { normalizarNombreDeGoogle } from '@/lib/auth/normalizar-nombre-google';
-import { capturarEvento, identificar } from '@/lib/posthog-cliente';
+import { capturarAlLlegar } from '@/lib/posthog-cliente';
 
 export default function LoginPage() {
   const uid = useId();
@@ -173,11 +173,12 @@ export default function LoginPage() {
           // Mismo evento que `/crear-estudio` emite al crear el estudio en el
           // camino feliz — esta es la recuperación de una alta que se había
           // quedado a medias, y el embudo no debe distinguir por qué puerta
-          // llegó a tener estudio. `identificar` de nuevo porque puede ser
-          // otra pestaña/dispositivo del de `signUp()` (PostHog no persiste
-          // identidad entre cargas — `persistence: 'memory'` a propósito).
-          identificar(user.id);
-          capturarEvento('alta_estudio_creada');
+          // llegó a tener estudio.
+          // ⚠️ `capturarEvento` aquí NO enviaba nada: `/login` está excluida de
+          // PostHog (lib/posthog-privacidad.ts) y el evento se tiraba en
+          // silencio. Se aparca y lo envía el panel tras la redirección, ya
+          // identificada la persona (lo hace auth-context al cargar la sesión).
+          capturarAlLlegar('alta_estudio_creada');
         }
       }
       // Alta de instructora freelance (feature #9, /instructora/alta): mismo

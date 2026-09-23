@@ -134,6 +134,24 @@ export function datosOnboardingDelEstudio(f: FuenteOnboarding): DatosOnboarding 
   };
 }
 
+/**
+ * ¿Está ACTIVADO este estudio? La ÚNICA definición: ha recibido su primera
+ * reserva. Es el paso «Recibe tu primera reserva» del checklist de la
+ * propietaria, y es lo que cuenta `/api/interno/kpis` como «activado».
+ *
+ * ⚠️ Antes había dos. /interno daba por activado al estudio que completaba los
+ * 7 pasos del checklist antiguo, NIF y Stripe incluidos: un estudio con
+ * alumnas reservando que cobra en el mostrador (sin Stripe) salía SIN activar,
+ * y uno con todo configurado y ninguna reserva salía activado. Configurar no
+ * es activarse; que alguien reserve, sí.
+ *
+ * Cualquier reserva cuenta, la haga la alumna desde la página o el mostrador
+ * por ella, y aunque luego se cancele: mismo criterio que el checklist.
+ */
+export function estudioActivado(d: Pick<DatosOnboarding, 'numReservas'>): boolean {
+  return d.numReservas > 0;
+}
+
 export interface PasoOnboarding {
   id: string;
   label: string;
@@ -269,7 +287,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
   configuracionInicial.push({
     id: 'primera-reserva', label: 'Recibe tu primera reserva',
     descripcion: 'El momento en que Tentare empieza a trabajar para ti. Comparte tu enlace y deja que alguien reserve.',
-    minutos: 1, done: d.numReservas > 0, href: '/calendario',
+    minutos: 1, done: estudioActivado(d), href: '/calendario',
   });
 
   const pagos: PasoOnboarding[] = [
