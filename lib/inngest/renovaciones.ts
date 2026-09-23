@@ -20,6 +20,7 @@ import { idsEstudios } from './estudios.ts';
 import { repartirVencidas } from '@/lib/billing/baja-al-vencer';
 import { puedeArmarReintento, type ReciboParaCobrar } from '@/lib/billing/cobro-permitido';
 import { debeAvisarSubidaPrecio } from '@/lib/billing/aviso-subida-precio';
+import { emitirRenovacionSinTarjeta } from '@/lib/notifications/emit';
 
 export const renovacionesDispatcher = inngest.createFunction(
   { id: 'renovaciones-dispatcher', triggers: [{ cron: '0 8 * * *' }] },
@@ -277,6 +278,10 @@ async function generarRecibosRenovacion(studioId: string, nowISO: string, conMet
       continue;
     }
     creados++;
+    // Sin tarjeta ni SEPA nadie la va a cobrar sola: se le dice a ella, una vez por
+    // recibo (dedupKey en el aviso), con dónde pagarla. Antes el recibo se quedaba
+    // pendiente sin que nadie se enterase. Al estudio se lo cuenta su bandeja.
+    if (proximoReintento === null) await emitirRenovacionSinTarjeta(admin, { studioId, reciboId: id });
   }
   return creados;
 }

@@ -45,6 +45,11 @@ export interface ConteosEstudio {
   sustitucionesConNetwork?: number | null;
   reservasPorAprobar?: number | null;
   recibosFallidos?: number | null;
+  /**
+   * Renovaciones que NO se van a cobrar solas: su clienta no tiene tarjeta ni SEPA
+   * guardados (`lib/billing/renovacion-sin-tarjeta.ts`). Antes no las contaba nadie.
+   */
+  renovacionesSinCobro?: number | null;
   penalizacionesPorAprobar?: number | null;
   devolucionesPorRevisar?: number | null;
   automatizacionesEsperando?: number | null;
@@ -140,6 +145,11 @@ const LINEAS: DefLinea[] = [
     uno: 'Tu apertura tiene un aviso', varios: n => `Tu apertura tiene ${n} avisos` },
   { id: 'recibosFallidos', bandeja: 'decidir', href: '/cobros?tab=deudas',
     uno: 'Un cobro que Tentare no ha conseguido cobrar', varios: n => `${n} cobros que Tentare no ha conseguido cobrar` },
+  // Sin tarjeta guardada (cuota cobrada en recepción) la renovación no se cobra
+  // sola: o la cobras tú, o ella la paga desde su app, que ya se lo ha avisado.
+  { id: 'renovacionesSinCobro', bandeja: 'decidir', href: '/cobros?tab=deudas',
+    uno: 'Una renovación no se cobra sola: su clienta no tiene tarjeta guardada',
+    varios: n => `${n} renovaciones no se cobran solas: sus clientas no tienen tarjeta guardada` },
   { id: 'penalizacionesPorAprobar', bandeja: 'decidir', href: null,
     uno: 'Una penalización espera tu visto bueno para cobrarse', varios: n => `${n} penalizaciones esperan tu visto bueno para cobrarse` },
   { id: 'devolucionesPorRevisar', bandeja: 'decidir', href: null,

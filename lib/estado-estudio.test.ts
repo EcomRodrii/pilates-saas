@@ -176,3 +176,18 @@ test('clases que el equipo dijo no dar: van a decidir y llevan a Tiempo trabajad
   assert.equal(construirEstadoEstudio({ clasesNoDadasPorRevisar: 1 }).decidir[0].texto, 'Una clase que una instructora dijo no dar');
   assert.equal(construirEstadoEstudio({ clasesNoDadasPorRevisar: undefined }).aplica, false);
 });
+
+test('renovaciones que no se cobran solas: línea en «por decidir», cuenta y enlaza a quién me debe', () => {
+  const una = construirEstadoEstudio({ renovacionesSinCobro: 1 });
+  assert.deepEqual(una.decidir.map(l => l.id), ['renovacionesSinCobro']);
+  assert.equal(una.decidir[0].texto, 'Una renovación no se cobra sola: su clienta no tiene tarjeta guardada');
+  assert.equal(una.decidir[0].href, '/cobros?tab=deudas');
+  assert.equal(una.nDecidir, 1);
+  const cinco = construirEstadoEstudio({ renovacionesSinCobro: 5, recibosFallidos: 1 });
+  assert.equal(cinco.decidir.find(l => l.id === 'renovacionesSinCobro')?.texto, '5 renovaciones no se cobran solas: sus clientas no tienen tarjeta guardada');
+  assert.equal(cinco.nDecidir, 6);
+  // Sin permiso de finanzas (undefined) o si la consulta falló (null), ni línea ni un cero inventado.
+  for (const v of [undefined, null, 0]) {
+    assert.ok(!construirEstadoEstudio({ renovacionesSinCobro: v, reservasPorAprobar: 1 }).decidir.some(l => l.id === 'renovacionesSinCobro'));
+  }
+});

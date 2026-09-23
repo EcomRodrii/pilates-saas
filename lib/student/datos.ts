@@ -11,6 +11,7 @@ import { proyectarClasesFijas, proyectarClasesSueltas, type ClaseFijaVista, type
 import { hoyEnEstudio } from '@/lib/utils';
 import { tarjetasDescubre, type TarjetaDescubre } from '@/lib/student/descubre';
 import type { Alumna, Bono, Clase, Instructora, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from '@/lib/student/tipos';
+import type { RenovacionPorPagar } from '@/lib/billing/renovacion-sin-tarjeta';
 
 // ────────────────────────────────────────────────────────────────────────────
 // ADAPTADOR: las nueve funciones del contrato del paquete de diseño
@@ -97,6 +98,12 @@ export async function getPlazaFija(slug: string): Promise<{ plazas: PlazaFijaVis
     plazas: proyectarPlazasFijas(d, hoyISO(ahora), hora), recuperaciones: proyectarRecuperaciones(d, hoyISO(ahora)),
     calendario: proyectarCalendarioClaseFija(d),
   };
+}
+
+/** Su renovación por pagar a mano (sin tarjeta guardada no se cobra sola). `null` si no hay. */
+export async function getRenovacionPorPagar(slug: string): Promise<RenovacionPorPagar | null> {
+  const d = await catalogo(slug);
+  return d?.socia?.renovacionPorPagar ?? null;
 }
 
 /**

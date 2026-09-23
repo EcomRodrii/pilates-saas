@@ -18,6 +18,7 @@ import {
 import { canjesDe, creditosPorAsistir, formasDeGanar, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type ReglaDef, type RetoDef } from './gamificacion.ts';
 import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from './tipos.ts';
 import type { PlazaCalendario, ReservaCalendario, SesionCalendario } from '../plazas-fijas-calendario.ts';
+import type { RenovacionPorPagar } from '../billing/renovacion-sin-tarjeta.ts';
 
 export interface CalendarioClaseFija { plazas: PlazaCalendario[]; sesiones: SesionCalendario[]; reservas: ReservaCalendario[] }
 
@@ -260,6 +261,8 @@ export interface PayloadMin {
     plazasFijas?: PlazaFijaMin[];
     /** Sus peticiones de plaza fija sin contestar (solo las que pidió ella). */
     peticionesPlazaFija?: PeticionPlazaFijaMin[];
+    /** Su renovación que NO se va a cobrar sola (sin tarjeta guardada). Ver `lib/billing/renovacion-sin-tarjeta.ts`. */
+    renovacionPorPagar?: RenovacionPorPagar | null;
     recuperaciones?: RecuperacionMin[];
     // `caducaEl` viaja porque la pantalla avisa antes de que se pierdan. Sin
   // nombrarlo aquí llegaría `undefined` en silencio, como todo en esta frontera.

@@ -7,16 +7,19 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
-import { getBonos, getPlazaFija } from '@/lib/student/datos';
+import { getBonos, getPlazaFija, getRenovacionPorPagar } from '@/lib/student/datos';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { useToast } from '@/components/student/ui/Toast';
 import { avisoDeRetorno, esperarBonoDePlan } from '@/lib/student/retorno-pago';
-import { renovarPlan } from '@/lib/student/pagos-acciones';
+import { pagarRenovacion, renovarPlan } from '@/lib/student/pagos-acciones';
+import { euros } from '@/lib/student/formato';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Ilustracion } from '@/components/student/ui/Ilustracion';
 
-// Bonos (§A.12). Solo lectura: no hay ninguna acción que mueva dinero aquí.
+// Bonos (§A.12). Lo único que mueve dinero son dos atajos al checkout de
+// siempre: «Renovar mi plan» y «Pagar ahora» de una renovación que no se cobra
+// sola. El importe y a quién se cobra los decide el servidor desde el recibo.
 //
 // ⚠️ Un bono es una fila de `suscripciones` cuyo plan es de tipo BONO o PUNTUAL,
 // y `sesiones_restantes = null` significa ILIMITADO, no cero (el mensual). La
@@ -26,12 +29,13 @@ function Bonos() {
   const href = usePortalHref();
 
   const cargar = useCallback(async () => {
-    const [bonos, plazaFija] = await Promise.all([getBonos(estudio.slug), getPlazaFija(estudio.slug)]);
-    return { bonos, plazaFija };
+    const [bonos, plazaFija, renovacion] = await Promise.all([getBonos(estudio.slug), getPlazaFija(estudio.slug), getRenovacionPorPagar(estudio.slug)]);
+    return { bonos, plazaFija, renovacion };
   }, [estudio.slug]);
-  const { data: cargado, estado, reintentar } = useAsync(cargar, (d) => d.bonos.length === 0 && d.plazaFija.recuperaciones.disponibles === 0);
+  const { data: cargado, estado, reintentar } = useAsync(cargar, (d) => d.bonos.length === 0 && d.plazaFija.recuperaciones.disponibles === 0 && !d.renovacion);
   const data = cargado?.bonos ?? null;
   const plazaFija = cargado?.plazaFija ?? null;
+  const renovacion = cargado?.renovacion ?? null;
 
   // ── Retorno de Stripe ─────────────────────────────────────────────────────
   // `?compra=ok` dice que STRIPE cobró, no que el bono esté: lo entrega el
@@ -65,6 +69,21 @@ function Bonos() {
     // se apaga `renovando` — la pantalla se sustituye por el checkout.
     window.location.href = r.url;
   }, [estudio.id, toast]);
+
+  // «Pagar ahora» de su renovación pendiente: a ESE recibo, no a «Renovar mi
+  // plan» (ver `pagarRenovacion`). Encendido antes del `await`: sin doble toque.
+  const [pagando, setPagando] = useState(false);
+  const pagar = useCallback(async () => {
+    if (!renovacion) return;
+    setPagando(true);
+    const r = await pagarRenovacion(estudio.id, renovacion.reciboId);
+    if (!r.ok) {
+      setPagando(false);
+      toast(r.error);
+      return;
+    }
+    window.location.href = r.url;
+  }, [estudio.id, renovacion, toast]);
 
   useEffect(() => {
     if (yaTratado.current || !aviso) return;
@@ -106,6 +125,28 @@ function Bonos() {
         {estado === 'loading' && <ListSkeleton n={2} h={96} />}
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && !data && <OfflineState />}
+        {/* Una renovación que no se cobra sola (sin tarjeta guardada): antes se
+            quedaba pendiente sin que nadie se enterase. Va la primera: es lo único
+            de esta pantalla que tiene una fecha encima. */}
+        {renovacion && estado !== 'loading' && (
+          <div className="card card--pad" data-testid="renovacion-por-pagar" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p className="t-label" style={{ margin: 0 }}>Renovación pendiente</p>
+            <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800 }}>{renovacion.concepto} · {euros(renovacion.importe)}</p>
+            <p className="t-meta" style={{ margin: 0 }}>No se ha podido cobrar sola porque no tienes una tarjeta guardada.</p>
+            {renovacion.pagableOnline ? (
+              <>
+                <p className="t-meta" style={{ margin: 0 }}>Al pagarla con tarjeta, queda guardada y las próximas renovaciones se cobran solas.</p>
+                <div>
+                  <button type="button" className="btn btn--primary btn--sm" disabled={pagando} onClick={() => void pagar()}>
+                    {pagando ? 'Preparando el pago…' : 'Pagar ahora'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="t-meta" style={{ margin: 0 }}>Págala en el estudio.</p>
+            )}
+          </div>
+        )}
         {estado === 'empty' && (
           <EmptyState
             ilustracion="bono"

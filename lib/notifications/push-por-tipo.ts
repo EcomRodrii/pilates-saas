@@ -66,6 +66,7 @@ export const PUSH_POR_TIPO: Record<RolConPushPorTipo, GrupoPush[]> = {
         { evento: EVENTOS.BONO_AGOTADO, titulo: 'Bono agotado' },
         { evento: EVENTOS.PAGO_FALLIDO, titulo: 'Problema con un pago' },
         { evento: EVENTOS.PAGO_PENALIZACION, titulo: 'Cargo por cancelación tardía' },
+        { evento: EVENTOS.RENOVACION_SIN_TARJETA, titulo: 'Renovación pendiente de pago' },
         { evento: EVENTOS.SUSCRIPCION_PRECIO_SUBE, titulo: 'Cambio de precio de tu cuota' },
       ],
     },

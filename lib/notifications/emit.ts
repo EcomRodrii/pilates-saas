@@ -410,6 +410,30 @@ export async function emitirPagoFallido(
   }
 }
 
+// Su renovación no se va a cobrar sola (sin tarjeta guardada): a la socia, una vez
+// por recibo. El estudio no recibe aviso: lo cuenta su bandeja «por decidir».
+export async function emitirRenovacionSinTarjeta(
+  admin: SupabaseClient, p: { studioId: string; reciboId: string },
+): Promise<void> {
+  try {
+    const { data: recibo } = await admin.from('recibos')
+      .select('concepto, importe, socio_id').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+    if (!recibo?.socio_id) return;
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.RENOVACION_SIN_TARJETA, studioId: p.studioId,
+      data: {
+        concepto: recibo.concepto ?? 'tu cuota', importe: recibo.importe,
+        socioId: recibo.socio_id, slug: (studio?.slug as string | null) ?? '',
+      },
+      resource: { type: 'recibo', id: p.reciboId },
+      dedupKey: `renovacion-sin-tarjeta:${p.reciboId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRenovacionSinTarjeta:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Fase 3: cargo de penalización ya cobrado — a la socia. Sin EMAIL en el
 // catálogo a propósito: el recibo (ReciboEmail) ya se manda por separado con
 // el mismo concepto/importe.
