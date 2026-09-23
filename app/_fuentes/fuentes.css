@@ -1,0 +1,49 @@
+/*
+ * Las variables públicas de fuente (`--font-jakarta`, `--font-ui`…), compuestas
+ * a partir de las que declara cada `next/font/local` de fuentes.ts: base
+ * `latin`, extendida `latin-ext` y la de reserva. Un carácter que la base no
+ * tiene cae a la extendida antes que a la reserva, y la base sigue siendo la
+ * primera familia — que es lo que lee el checkout (`--font-ui`,
+ * components/checkout-widget/checkout-embebido.tsx).
+ *
+ * ⚠️ Van en `:root` de una hoja de estilos, NO en un `style` en línea del
+ * <html>: /reservar las redefine con su propio `:root { --font-ui: … }`
+ * (`fuenteReservarCssVars`, lib/reservar-publico-tokens.ts), y eso solo gana
+ * con la misma especificidad y apareciendo después — igual que cuando las
+ * declaraba la clase de `next/font/google`. Un `style` en línea le ganaría.
+ */
+:root {
+  --font-jakarta: var(--font-jakarta-latin), var(--font-jakarta-ext), 'Plus Jakarta Sans Fallback';
+  --font-plex-mono: var(--font-plex-mono-latin), var(--font-plex-mono-ext), 'IBM Plex Mono Fallback';
+  --font-display: var(--font-display-latin), var(--font-display-ext), 'Instrument Serif Fallback';
+  --font-ui: var(--font-ui-latin), var(--font-ui-ext), 'Instrument Sans Fallback';
+  --font-outfit: var(--font-outfit-latin), var(--font-outfit-ext), 'Outfit Fallback';
+  --font-poppins: var(--font-poppins-latin), var(--font-poppins-ext), 'Poppins Fallback';
+  --font-cormorant: var(--font-cormorant-latin), var(--font-cormorant-ext), 'Cormorant Garamond Fallback';
+  --font-manuscrita: var(--font-manuscrita-latin), var(--font-manuscrita-ext), 'Sacramento Fallback';
+  --font-libre-caslon: var(--font-libre-caslon-latin), var(--font-libre-caslon-ext), 'Libre Caslon Text Fallback';
+  --font-figtree: var(--font-figtree-latin), var(--font-figtree-ext), 'Figtree Fallback';
+}
+
+/*
+ * Las familias de reserva: Arial o Times New Roman ajustadas a las métricas de
+ * cada fuente, para que el texto no salte al llegar el woff2 (`display: swap`)
+ * — y la que pinta los caracteres que la fuente no tiene (la flecha →).
+ *
+ * Son los valores EXACTOS que generaba `next/font/google` (copiados de
+ * producción el 23-sep-2026). `next/font/local` sabe calcularlas solo, pero
+ * las mide sobre el fichero y salen algo distintas (Jakarta: 105,75 % frente a
+ * 104,98 %): una flecha medía 0,1 px más. Por eso en fuentes.ts va
+ * `adjustFontFallback: false` y se declaran aquí, con el mismo nombre que
+ * tenían.
+ */
+@font-face { font-family: "Plus Jakarta Sans Fallback"; src: local("Arial"); ascent-override: 98.88%; descent-override: 21.15%; line-gap-override: 0%; size-adjust: 104.98%; }
+@font-face { font-family: "IBM Plex Mono Fallback"; src: local("Arial"); ascent-override: 76.16%; descent-override: 20.43%; line-gap-override: 0%; size-adjust: 134.59%; }
+@font-face { font-family: "Instrument Serif Fallback"; src: local("Times New Roman"); ascent-override: 117.94%; descent-override: 36.93%; line-gap-override: 0%; size-adjust: 83.94%; }
+@font-face { font-family: "Instrument Sans Fallback"; src: local("Arial"); ascent-override: 94.42%; descent-override: 24.33%; line-gap-override: 0%; size-adjust: 102.74%; }
+@font-face { font-family: "Outfit Fallback"; src: local("Arial"); ascent-override: 100.18%; descent-override: 26.05%; line-gap-override: 0%; size-adjust: 99.82%; }
+@font-face { font-family: "Poppins Fallback"; src: local("Arial"); ascent-override: 93.62%; descent-override: 31.21%; line-gap-override: 8.92%; size-adjust: 112.16%; }
+@font-face { font-family: "Cormorant Garamond Fallback"; src: local("Times New Roman"); ascent-override: 95.27%; descent-override: 29.59%; line-gap-override: 0%; size-adjust: 96.98%; }
+@font-face { font-family: "Sacramento Fallback"; src: local("Arial"); ascent-override: 126.38%; descent-override: 71.91%; line-gap-override: 0%; size-adjust: 73.6%; }
+@font-face { font-family: "Libre Caslon Text Fallback"; src: local("Times New Roman"); ascent-override: 82.44%; descent-override: 22.1%; line-gap-override: 0%; size-adjust: 117.66%; }
+@font-face { font-family: "Figtree Fallback"; src: local("Arial"); ascent-override: 94.32%; descent-override: 24.82%; line-gap-override: 0%; size-adjust: 100.72%; }

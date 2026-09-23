@@ -29,7 +29,7 @@ export { EASE };
 // ── Tipografía ───────────────────────────────────────────────────────────────
 // Plus Jakarta Sans para TODO (cuerpo y titulares — el diseño no usa una
 // serif; los titulares son la misma familia a peso 800, no otra voz). Ya
-// cargada globalmente por next/font (`app/layout.tsx`, `--font-jakarta`),
+// cargada globalmente por next/font (`app/_fuentes/fuentes.ts`, `--font-jakarta`),
 // así que no hace falta una petición nueva a Google Fonts.
 // `serif` conserva el NOMBRE (lo importan ~70 sitios como "la fuente de
 // titulares") para no encadenar un rename de gran alcance — pero ya no es

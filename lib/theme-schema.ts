@@ -24,7 +24,7 @@ export const hexSchema = z
 
 /**
  * Set CURADO de tipografías. `jakarta` es la del sistema (ya cargada por
- * `next/font` en el root layout). Las demás se registran con `next/font` en la
+ * `next/font` en app/_fuentes/fuentes.ts). Las demás se registran con `next/font` en la
  * Fase 3; el `stack` incluye fallback de sistema para degradar con gracia si la
  * fuente aún no está cargada.
  */
@@ -32,7 +32,7 @@ export const FUENTES = [
   { id: 'jakarta', label: 'Plus Jakarta Sans', stack: 'var(--font-jakarta), system-ui, sans-serif' },
   { id: 'inter', label: 'Inter', stack: 'var(--font-inter), system-ui, sans-serif' },
   { id: 'poppins', label: 'Poppins', stack: 'var(--font-poppins), system-ui, sans-serif' },
-  // Tema "Sereno" (themes/sereno/) — registrada en next/font (app/layout.tsx).
+  // Tema "Sereno" (themes/sereno/) — registrada en next/font (app/_fuentes/fuentes.ts).
   { id: 'figtree', label: 'Figtree', stack: 'var(--font-figtree), system-ui, sans-serif' },
   { id: 'serif', label: 'Serif clásica', stack: 'Georgia, "Times New Roman", serif' },
   { id: 'mono', label: 'Monoespaciada', stack: 'var(--font-plex-mono), ui-monospace, monospace' },
@@ -95,15 +95,15 @@ export const ESTILOS_TITULAR_PORTAL = [
   // fuente nueva. Ver tema "Editorial" en theme-definitions.ts.
   { id: 'instrumentSansBold', label: 'Instrument Sans (negrita)' },
   // Tema "Bloom" — Poppins ya está en el set curado de FUENTES (cuerpo) y
-  // registrada en next/font (app/layout.tsx); aquí se reusa en negrita para
+  // registrada en next/font (app/_fuentes/fuentes.ts); aquí se reusa en negrita para
   // titulares, sin fuente nueva.
   { id: 'poppins', label: 'Poppins (negrita)' },
   // Tema "Tentada" — Cormorant Garamond, registrada en next/font
-  // (app/layout.tsx) con su cursiva. Es la ÚNICA de esta lista que trae una
+  // (app/_fuentes/fuentes.ts) con su cursiva. Es la ÚNICA de esta lista que trae una
   // familia nueva: las otras tres reusan fuentes que el layout ya cargaba.
   { id: 'cormorant', label: 'Cormorant Garamond' },
   // Tema "Sereno" — Libre Caslon Text, registrada en next/font con su cursiva
-  // (app/layout.tsx). La segunda familia nueva de esta lista, por el mismo
+  // (app/_fuentes/fuentes.ts). La segunda familia nueva de esta lista, por el mismo
   // motivo que Cormorant: el tema titula con una serif que el repo no tenía.
   { id: 'libreCaslon', label: 'Libre Caslon Text' },
 ] as const;

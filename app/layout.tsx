@@ -1,153 +1,10 @@
 import type { Metadata } from 'next';
 import { BASE_URL } from '@/lib/seo/paginas';
-import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins, Cormorant_Garamond, Libre_Caslon_Text, Figtree, IBM_Plex_Mono, Sacramento } from 'next/font/google';
 import { ProveedoresRaiz } from '@/components/raiz/proveedores-raiz';
 import { AhrefsAnalytics } from '@/components/analitica/ahrefs';
 import { LogSetup } from '@/components/log-setup';
+import { variablesDeFuente } from './_fuentes/fuentes';
 import './globals.css';
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  variable: '--font-jakarta',
-  weight: ['400', '500', '600', '700', '800'],
-});
-
-// Fuente mono del rediseño de /reservar (lib/reservar-publico-tokens.ts) —
-// las etiquetas en versalitas (fecha, hora, "plazas libres") y los precios.
-// Mismo criterio self-hosted que el resto: next/font en vez de un <link> a
-// fonts.googleapis.com en tiempo de ejecución.
-const plexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  variable: '--font-plex-mono',
-  weight: ['400', '500'],
-  display: 'swap',
-});
-
-// Las dos familias del portal de la clienta (lib/portal-design.ts). Van por
-// `next/font`, que las descarga en build y las sirve desde nuestro propio
-// dominio: cero petición a fonts.googleapis.com en tiempo de ejecución, cero
-// FOUT y nada que enseñarle a la clienta sobre lo que visita.
-//
-// La cursiva de la serif NO es decorativa en este diseño —titula la mitad de
-// las pantallas—, así que se pide explícitamente: sin ella el navegador la
-// falsearía inclinando la redonda, que en una Didone se nota a la legua.
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  variable: '--font-display',
-  weight: '400',
-  style: ['normal', 'italic'],
-  display: 'swap',
-});
-
-// El diseño solo usa 400/500/600, pero se carga también el 700: las 14
-// pantallas del portal que aún no se han migrado piden 700 y 800, y sin un
-// grueso real el navegador falsea la negrita engordando el trazo — que en una
-// grotesca se ve sucio. El 800 cae al 700, que sí existe.
-const instrumentSans = Instrument_Sans({
-  subsets: ['latin'],
-  variable: '--font-ui',
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-});
-
-// Titular alternativo del tema "Geométrico" (lib/theme-definitions.ts) — solo
-// se aplica cuando el estudio elige ese tema, vía --portal-heading-font
-// (lib/theme-runtime.ts). Se carga siempre (como las otras) porque next/font
-// no admite carga condicional por tenant; el coste es fijo y pequeño.
-const outfit = Outfit({
-  subsets: ['latin'],
-  variable: '--font-outfit',
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  // Sin precarga: solo la usa un tema concreto (o una sola pieza), y con
-  // `preload: true` —el valor por defecto— se descargaba en TODAS las páginas.
-  // Sin precargar, el navegador la pide solo cuando algo la pinta.
-  preload: false,
-});
-
-// Tema "Bloom" (lib/theme-definitions.ts, FUENTES en lib/theme-schema.ts) —
-// `fontId: 'poppins'` ya estaba en el set curado desde antes, pero sin este
-// registro `--font-poppins` no existía y el fallback silencioso a system-ui
-// se aplicaba siempre. Mismo criterio que `outfit`: coste fijo, se carga
-// siempre, no condicional por tenant.
-const poppins = Poppins({
-  subsets: ['latin'],
-  variable: '--font-poppins',
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  preload: false,
-});
-
-// Tema "Tentada" (themes/tentada/) — la serif de los titulares del portal de
-// la alumna. Se piden 500/600 y la CURSIVA porque el diseño titula con las dos
-// («Hola, Laura» en redonda, «hoy toca cuidarte» y la nota del bono en
-// cursiva): sin la cursiva real el navegador inclina la redonda, y en una
-// Garamond eso se nota tanto como en la Instrument Serif del portal de siempre
-// (ver el comentario de `instrumentSerif` arriba). Mismo criterio que `outfit`
-// y `poppins`: coste fijo, se carga siempre, `next/font` no admite carga
-// condicional por tenant.
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  variable: '--font-cormorant',
-  weight: ['400', '500', '600'],
-  style: ['normal', 'italic'],
-  display: 'swap',
-  preload: false,
-});
-
-// Tema "Sereno" (themes/sereno/) — las DOS familias del tema son nuevas en el
-// repo, a diferencia de los cuatro anteriores, que reusaban lo ya cargado
-// salvo la Garamond de Tentada.
-//
-// Libre Caslon Text titula: el saludo, el nombre de la clase, los titulares de
-// las hojas y el numerazo del bono. Se pide la CURSIVA porque la cita del
-// estudio va en cursiva de verdad (mismo motivo que Instrument Serif y
-// Cormorant: sin ella el navegador inclina la redonda, y en una Caslon se nota
-// tanto como en las otras dos). El 700 entra porque `--section-title-weight`
-// de Sereno es 600 en la SANS pero la display se usa a 400 y a 700 en el
-// prototipo (nombre de clase vs. rótulos fuertes).
-// La MANUSCRITA de la app de la alumna. Una sola cosa la usa —la tarjeta con la
-// frase que escribe el estudio, `CitaManuscrita`— y aun así entra aquí, porque
-// `next/font` no admite carga condicional por tenant: coste fijo, igual que
-// `outfit`, `poppins` y las dos de Sereno.
-//
-// ⚠️ `latin-ext` además de `latin`, y no es opcional en español: la eñe está en
-// `latin`, pero el subconjunto base de Google se queda corto con varios signos
-// que una frase de estudio usa sin pensar (comillas angulares, guion largo).
-// Pesa unos kilobytes más y evita el fallo más feo posible en una tipografía
-// decorativa — que una letra suelta salga en OTRA fuente.
-//
-// Un solo peso porque Sacramento solo tiene uno. Si algún día hace falta
-// «negrita» ahí, NO se pone `font-weight: 700`: el navegador la engorda
-// sintéticamente y una caligráfica engordada a mano se ve rota.
-const sacramento = Sacramento({
-  subsets: ['latin', 'latin-ext'],
-  variable: '--font-manuscrita',
-  weight: '400',
-  display: 'swap',
-  preload: false,
-});
-
-const libreCaslon = Libre_Caslon_Text({
-  subsets: ['latin'],
-  variable: '--font-libre-caslon',
-  weight: ['400', '700'],
-  style: ['normal', 'italic'],
-  display: 'swap',
-  preload: false,
-});
-
-// El cuerpo de Sereno. Se piden 300-700 porque el prototipo usa 500/600 en
-// metadatos y rótulos y 700 en los importes. Mismo criterio que `outfit`,
-// `poppins` y `cormorant`: coste fijo, se carga siempre, `next/font` no admite
-// carga condicional por tenant.
-const figtree = Figtree({
-  subsets: ['latin'],
-  variable: '--font-figtree',
-  weight: ['300', '400', '500', '600', '700'],
-  display: 'swap',
-  preload: false,
-});
 
 // El title/description/OG de aquí abajo llevaban la coletilla "en Barcelona"
 // desde ba4c8134 (18-ago-2026, decisión de negocio explícita del fundador de
@@ -201,7 +58,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} ${cormorant.variable} ${libreCaslon.variable} ${sacramento.variable} ${figtree.variable} ${plexMono.variable} antialiased`}>
+    <html lang="es" className={`${variablesDeFuente} antialiased`}>
       <body className="bg-background">
         <LogSetup />
         {/* Fuera de los providers a propósito: no depende de sesión ni de
