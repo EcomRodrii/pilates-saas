@@ -234,3 +234,38 @@ test('nadie escribe el origen a mano fuera de lib/legal-info.ts', () => {
   assert.deepEqual(reales, [],
     `Origen escrito a mano; usa urlDe() o LEGAL.url: ${reales.join(', ')}`);
 });
+
+// ─── Canonical: cada página indexable declara el suyo ────────────────────────
+
+test('toda página indexable del registro declara su propio canonical (el layout raíz ya no lo pone)', () => {
+  // Hasta el 23-sep el layout raíz declaraba `canonical: '/'` y lo heredaba toda
+  // página que no pusiera el suyo: una página nueva sin canonical quedaba
+  // declarada como copia de la home. Se quitó del layout; este test es lo que
+  // hace que quitarlo sea seguro. Se busca `alternates` (o `generateMetadata`,
+  // que lo puede construir) en la página o en algún layout por encima de ella.
+  const sin: string[] = [];
+  for (const p of PAGINAS) {
+    if (esNoIndexable(p.path)) continue;
+    const segmentos = p.path.split('/').filter(Boolean);
+    const archivos: string[] = [];
+    for (let i = segmentos.length; i >= 0; i--) {
+      const dir = join(RAIZ_APP, ...segmentos.slice(0, i));
+      archivos.push(join(dir, 'page.tsx'), join(dir, 'layout.tsx'));
+    }
+    const lee = (f: string) => { try { return readFileSync(f, 'utf8'); } catch { return ''; } };
+    if (!archivos.some((f) => /alternates|generateMetadata/.test(lee(f)))) sin.push(p.path);
+  }
+  assert.deepEqual(sin, [], `Sin canonical propio: ${sin.join(', ')}`);
+});
+
+test('el layout raíz no declara canonical', () => {
+  const layout = readFileSync(join(RAIZ_APP, 'layout.tsx'), 'utf8');
+  assert.doesNotMatch(layout, /alternates:\s*\{[^}]*canonical/, 'un canonical en el layout raíz lo hereda todo el sitio');
+});
+
+test('la home exporta metadata propia desde el servidor', () => {
+  const home = readFileSync(join(RAIZ_APP, 'page.tsx'), 'utf8');
+  assert.doesNotMatch(home, /^'use client'/m, 'una página de cliente no puede exportar metadata');
+  assert.match(home, /export const metadata/);
+  assert.match(home, /alternates:\s*\{\s*canonical/);
+});
