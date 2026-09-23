@@ -117,7 +117,8 @@ test('si el servidor dice que no, lo dice y no sigue a una propuesta imposible',
   await page.getByRole('button', { name: '50 minutos' }).click();
   await page.getByRole('button', { name: 'Ver el horario propuesto' }).click();
 
-  await expect(page.getByRole('alert')).toContainText('No se han podido crear tus tipos de clase');
+  // `getByText` y no `getByRole('alert')`: el anunciador de rutas de Next también es un alert.
+  await expect(page.getByText('No se han podido crear tus tipos de clase.')).toBeVisible();
   // Sin este contador el test pasaría aunque no se hubiera intentado nada.
   expect(intentos).toBeGreaterThan(0);
   await expect(page.getByRole('heading', { name: 'Este sería tu horario' })).toHaveCount(0);
