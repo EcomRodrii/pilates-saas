@@ -1,6 +1,3 @@
-import { ACC_SOFT } from './theme';
-import { AlertTriangle, Calendar, CreditCard, Users } from 'lucide-react';
-
 // Menú principal. También alimenta el `SiteNavigationElement` de
 // components/OrganizationStructuredData.tsx, así que cambiar esta lista mueve
 // las candidatas a sitelinks de Google — no es solo la barra de arriba.
@@ -17,75 +14,6 @@ export const NAV_LINKS = [
   { href: '/recursos', label: 'Recursos' },
 ];
 
-export const CENTRO_CARDS = [
-  { title: 'Resumen ejecutivo', body: 'El estado de tu estudio en una frase, cada mañana.', bg: ACC_SOFT, fg: '#343825' },
-  { title: 'Prioridades que solo apruebas', body: 'Decisiones listas sobre la mesa. Tú dices sí o no.', bg: '#E7F3EC', fg: '#4E9E7F' },
-  { title: 'Mientras dormías', body: 'Lo que se resolvió solo mientras no estabas.', bg: '#262A1C', fg: '#A8B080' },
-  { title: 'Cada área, vigilada', body: 'Reservas, cobros, equipo y alumnas — controlados por separado.', bg: '#EDF3F4', fg: '#3E7C86' },
-  { title: 'Riesgo de plantón', body: 'Te avisa si dependes demasiado de una sola instructora.', bg: '#F1F2EA', fg: '#C2503A' },
-  { title: 'Accesos rápidos', body: 'Lo que más usas, siempre a un clic.', bg: '#F1F2EA', fg: '#5A6142' },
-];
-
-export const DAY_MOMENTS = [
-  {
-    t: '07:00',
-    title: 'Suena el primer «reservado»',
-    body: 'Una alumna coge el Reformer de las 9:00 desde la app, aún en pijama. Su plaza queda confirmada al instante. Tú sigues durmiendo.',
-    tag: 'Reservas 24/7 · confirmación automática',
-    highlight: false,
-  },
-  {
-    t: '08:30',
-    title: 'Una instructora no puede hoy',
-    body: 'Marta avisa desde la app de su baja de las 18:00. Antes de que llegues a leer el mensaje, Tentare ya está contactando a las instructoras que pueden cubrirla.',
-    tag: 'Sustitución automática en marcha',
-    highlight: true,
-    badge: '★ El corazón de Tentare',
-  },
-  {
-    t: '10:15',
-    title: 'Un bono a punto de agotarse',
-    body: 'Nora entra a su última sesión del bono. Recibe un aviso amable con la opción de renovar en un toque — y renueva antes de salir de la sala.',
-    tag: 'Retención · renovación de bonos',
-    highlight: false,
-  },
-  {
-    t: '13:00',
-    title: 'Clase llena, lista de espera activa',
-    body: 'Alguien cancela la clase de las 19:00. La primera de la lista de espera entra sola, recibe su confirmación y el hueco no se pierde.',
-    tag: 'Lista de espera inteligente',
-    highlight: false,
-  },
-  {
-    t: '17:05',
-    title: 'Sustitución cerrada',
-    body: 'Lucía confirma la clase de las 18:00. Calendario actualizado, horas registradas y alumnas avisadas de quién les dará la clase. Tú solo lo apruebas.',
-    tag: 'Clase cubierta · alumnas avisadas',
-    highlight: false,
-    good: true,
-  },
-  {
-    t: '20:30',
-    title: 'Cierre de caja, sin caja',
-    body: 'Se cobran las cuotas del mes y se emiten las facturas automáticamente. Los pagos que fallan se reintentan solos. Nadie persigue a nadie.',
-    tag: 'Cobros recurrentes · facturación',
-    highlight: false,
-  },
-];
-
-export const DISCIPLINAS = [
-  { label: 'Gimnasio boutique', photo: '/disciplinas/boutique.jpg' },
-  { label: 'Gyrotonic', photo: '/disciplinas/gyrotonic.jpg' },
-  { label: 'EMS', photo: '/disciplinas/ems.jpg' },
-  { label: 'Crioterapia', photo: '/disciplinas/crioterapia.jpg' },
-  { label: 'Pilates', photo: '/disciplinas/pilates.jpg' },
-  { label: 'Yoga', photo: '/disciplinas/yoga.jpg' },
-  { label: 'Spinning', photo: '/disciplinas/spinning.jpg' },
-  { label: 'Barre', photo: '/disciplinas/barre.jpg' },
-  { label: 'Boxeo', photo: '/disciplinas/boxeo.jpg' },
-  { label: 'HIIT', photo: '/disciplinas/hiit.jpg' },
-  { label: 'Baile', photo: '/disciplinas/baile.jpg' },
-];
 // Solo integraciones CONECTABLES por el estudio hoy (auditoría 2026-07-23):
 // Mailchimp/Brevo eran "próximamente" en el producto y "Google" a secas y
 // Resend no eran conexiones del estudio — se anuncian como en camino o fuera.
@@ -187,11 +115,4 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
     q: '¿El soporte es de personas y en español?',
     a: 'Sí. Te atienden personas, en español, que conocen cómo funciona un estudio de pilates. Sin bots que te dan vueltas ni esperas eternas.',
   },
-];
-
-export const FLOW_STEPS = [
-  { icon: AlertTriangle, title: 'Entra la baja', cap: 'Ana avisa desde la app · jue 19:00' },
-  { icon: Users, title: 'Busca y contacta', cap: '3 candidatas disponibles · avisadas' },
-  { icon: Calendar, title: 'Confirma y cuadra', cap: 'Lucía acepta · calendario y horas al día' },
-  { icon: CreditCard, title: 'Avisa a las alumnas', cap: 'Cambio notificado por su canal' },
 ];
