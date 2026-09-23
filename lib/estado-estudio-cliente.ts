@@ -14,7 +14,7 @@
 import { useEffect, useState } from 'react';
 import { authHeader } from '@/lib/api-client';
 import { unaVez } from '@/lib/una-vez';
-import type { EstadoEstudio } from '@/lib/estado-estudio';
+import type { ClaveConteo, EstadoEstudio } from '@/lib/estado-estudio';
 
 // Definido en el módulo puro (con su test); se reexporta para que las tarjetas
 // y la bandeja lo sigan importando de aquí.
@@ -41,6 +41,26 @@ async function pedir(): Promise<EstadoEstudio | null> {
 export function invalidarEstadoEstudio(): void {
   ultimo = null;
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENTO));
+}
+
+/**
+ * Cuántos de esta clase esperan decisión, según la bandeja.
+ *
+ * `null` = la bandeja todavía no ha contestado (o falló): «no lo sé», nunca
+ * cero.
+ *
+ * ⚠️ Un `0` aquí significa TRES cosas que la bandeja no distingue: «el servidor
+ * ha contado cero», «a este rol no se le cuenta esto» y «hace hasta 30 s no
+ * había nada» (el recuento va cacheado). Por eso esto sirve para que un RESUMEN
+ * diga la misma cifra que la bandeja, y NO para decidir si se enseña algo con lo
+ * que se trabaja: un cero cacheado escondería trabajo real. Lo fija
+ * `e2e/estado-del-estudio.spec.ts` («si el recuento aún dice nada y la tarjeta
+ * sí tiene algo, se ve la tarjeta»).
+ */
+export function useConteoDecidir(clave: ClaveConteo): number | null {
+  const estado = useEstadoEstudio();
+  if (!estado) return null;
+  return estado.decidir.find(l => l.id === clave)?.n ?? 0;
 }
 
 export function useEstadoEstudio(): EstadoEstudio | null {
