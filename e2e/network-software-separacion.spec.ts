@@ -155,20 +155,6 @@ test.describe('/clave-nueva manda a donde la cuenta pertenece de verdad, no siem
   // sin mirar si la cuenta era de Network. Recuperar la contraseña no es
   // "entrar en" ningún producto (se demuestra controlar el correo), así que
   // esta ruta usa la resolución SIN GATE — nunca "cuenta-de-otro-producto".
-  const STORAGE_KEY = 'sb-example-auth-token';
-
-  async function seedSesion(page: Page, email: string) {
-    await page.addInitScript(({ key, email }) => {
-      localStorage.setItem(key, JSON.stringify({
-        access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
-        expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
-        user: {
-          id: 'auth-e2e-network', email, aud: 'authenticated', role: 'authenticated',
-          app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
-        },
-      }));
-    }, { key: STORAGE_KEY, email });
-  }
 
   test('una cuenta de Network termina en /network/inicio, no en /dashboard', async ({ page }) => {
     await page.route('**/rest/v1/**', route => json(route, []));
@@ -178,9 +164,12 @@ test.describe('/clave-nueva manda a donde la cuenta pertenece de verdad, no siem
       expect(new URL(route.request().url()).searchParams.has('producto')).toBe(false);
       return json(route, { destino: '/network/inicio' });
     });
-    await seedSesion(page, 'red@example.com');
 
-    await page.goto('/clave-nueva');
+    // FE-02: `/clave-nueva` ya no basta con "hay sesión" — exige el evento
+    // PASSWORD_RECOVERY, que gotrue-js solo dispara al canjear un enlace real
+    // (tokens en el fragmento de la URL, `type=recovery`). Una sesión sembrada
+    // a mano en localStorage no lo dispara.
+    await page.goto('/clave-nueva#access_token=e2e-fake-token&refresh_token=e2e-fake-refresh&expires_in=999999999&token_type=bearer&type=recovery');
     await page.getByPlaceholder('Contraseña nueva').fill('unaClaveLarga1');
     await page.getByPlaceholder('Repite la contraseña').fill('unaClaveLarga1');
     await page.getByRole('button', { name: 'Guardar contraseña' }).click({ timeout: 30_000 });

@@ -43,6 +43,21 @@ async function seedSesion(page: Page) {
   }, STORAGE_KEY);
 }
 
+// FE-02: `/clave-nueva` ya no basta con "hay sesión" — exige haber visto el
+// evento PASSWORD_RECOVERY de gotrue-js, que solo se dispara al canjear un
+// enlace real (tokens en el fragmento de la URL, `type=recovery`). Sembrar la
+// sesión a mano en localStorage (`seedSesion`) ya no lo dispara, así que estas
+// pantallas necesitan llegar por la URL con el fragmento de verdad.
+async function irConEnlaceDeRecuperacion(page: Page) {
+  await page.route('**/auth/v1/user**', route => json(route, {
+    id: 'auth-e2e-duena', email: 'cloe@example.com', aud: 'authenticated',
+    role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
+  }));
+  await page.goto(
+    '/clave-nueva#access_token=e2e-fake-token&refresh_token=e2e-fake-refresh&expires_in=999999999&token_type=bearer&type=recovery',
+  );
+}
+
 test.describe('Se puede recuperar la contraseña sin poder entrar', () => {
   test('la pantalla de login ofrece «he olvidado mi contraseña»', async ({ page }) => {
     // Lo que faltaba y dejaba a una propietaria fuera de su propio negocio.
@@ -105,8 +120,7 @@ test.describe('La pantalla de contraseña nueva', () => {
     // Quien llega ya ha demostrado que controla el correo. Pedirle la actual
     // sería absurdo: no se la sabe, por eso está aquí.
     await page.route('**/rest/v1/**', route => json(route, []));
-    await seedSesion(page);
-    await page.goto('/clave-nueva');
+    await irConEnlaceDeRecuperacion(page);
 
     await expect(page.getByText('Elige tu contraseña nueva')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('cloe@example.com')).toBeVisible();
@@ -116,8 +130,7 @@ test.describe('La pantalla de contraseña nueva', () => {
 
   test('avisa si las contraseñas no coinciden, antes de llamar a nadie', async ({ page }) => {
     await page.route('**/rest/v1/**', route => json(route, []));
-    await seedSesion(page);
-    await page.goto('/clave-nueva');
+    await irConEnlaceDeRecuperacion(page);
 
     await page.getByPlaceholder('Contraseña nueva').fill('unaClaveLarga1');
     await page.getByPlaceholder('Repite la contraseña').fill('otraDistinta1');
