@@ -36,7 +36,14 @@ export function esTransformable(url: string | null | undefined): boolean {
 }
 
 /**
- * La misma imagen, pedida a `ancho` píxeles.
+ * La misma imagen, pedida a `ancho` píxeles y con su proporción.
+ *
+ * ⚠️ **`resize=contain` es obligatorio.** Sin él, Storage aplica `cover` y, al
+ * no recibir alto, conserva el ORIGINAL: `width=160` sobre un logo de
+ * 1254×1254 devolvía 160×1254, una franja vertical del centro. Pintada a 40 px
+ * de alto quedaba en 5 px de ancho: el logo del estudio convertido en una raya
+ * junto a su nombre. A las fotos les pasaba lo mismo (390×800 en vez de
+ * 390×390), solo que `object-fit: cover` lo disimulaba recortando otra vez.
  *
  * ⚠️ **Conserva la query que ya trajera.** No es cosmético: las fotos de
  * producto y de clase llevan un `?v=<timestamp>` que es su rompe-cachés
@@ -49,6 +56,7 @@ export function urlServida(url: string, ancho: number): string {
   const [base, query = ''] = url.replace(OBJETO, RENDER).split('?');
   const p = new URLSearchParams(query);
   p.set('width', String(w));
+  p.set('resize', 'contain');
   p.set('quality', String(CALIDAD));
   return `${base}?${p.toString()}`;
 }

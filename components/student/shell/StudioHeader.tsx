@@ -36,11 +36,17 @@ export function altoCabecera(lema: string | null | undefined): number {
 }
 
 /**
- * Tamaño REAL del logo en la cabecera — no el de una pastilla ni el de un
- * favicon (26 px se veía "fino": a ese tamaño un logo de trazo fino pierde
- * peso visual, con o sin fondo detrás). 40 px es el alto real del dibujo;
- * `ANCHO_MAX_LOGO` es el ancho máximo del hueco, no del logo en sí — un
- * isotipo cuadrado normal ocupa mucho menos.
+ * Lado del icono del estudio junto a su nombre. Es su favicon —el símbolo, que
+ * al subirlo se prepara como cuadrado con el dibujo ocupando el 84 %—, así que
+ * a 36 px la figura mide unos 30: la misma marca que la pestaña y que el icono
+ * de la app en el móvil de la alumna.
+ */
+export const LADO_ICONO_MARCA = 36;
+
+/**
+ * Sin icono, el logo: 40 px de alto y como mucho 160 de ancho, sin deformar.
+ * ⚠️ El logo salía como una raya de 5 px no por estos números sino porque
+ * Storage devolvía una franja recortada del centro (ver `urlServida`).
  */
 export const ALTO_LOGO = 40;
 export const ANCHO_MAX_LOGO = 160;
@@ -55,13 +61,43 @@ export const ANCHO_MAX_LOGO = 160;
 const PROPORCION_LOGO_APAISADO = 3.2;
 
 /**
- * El logo del estudio si cabe en la barra; si no, el monograma. La proporción
- * solo se sabe al cargar la imagen, así que hasta entonces se pinta el logo
- * (lo normal es un isotipo) y, si resulta apaisado, cambia al monograma.
+ * La marca del estudio junto a su nombre: su icono › su logo › su inicial.
+ *
+ * El icono va primero porque el logo completo casi nunca es una marca
+ * compacta: el medido en producción era una figura de trazo fino con el nombre
+ * y un lema debajo, sobre crema, y a 40 px de alto la figura medía 15 y el
+ * texto era ilegible. El icono es el símbolo solo, ya preparado para verse
+ * pequeño. Es la misma pieza para la cabecera y la pantalla de acceso.
+ *
+ * Del logo, la proporción solo se sabe al cargarlo, así que hasta entonces se
+ * pinta (lo normal es un isotipo) y, si resulta apaisado, cambia al monograma.
  */
-function LogoOMonograma({ logoUrl, nombre, flotando }: { logoUrl: string | null; nombre: string; flotando: boolean }) {
+export function MarcaEstudio({ iconoUrl, logoUrl, nombre, flotando }: {
+  iconoUrl: string | null; logoUrl: string | null; nombre: string; flotando: boolean;
+}) {
   const [apaisado, setApaisado] = useState<{ src: string; si: boolean } | null>(null);
   const esApaisado = apaisado?.src === logoUrl && apaisado.si;
+  if (iconoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        // 3x: a 36 px en un iPhone son 108 píxeles reales.
+        src={urlServida(iconoUrl, LADO_ICONO_MARCA * 3)}
+        alt=""
+        decoding="async"
+        width={LADO_ICONO_MARCA}
+        height={LADO_ICONO_MARCA}
+        style={{
+          width: LADO_ICONO_MARCA, height: LADO_ICONO_MARCA, flexShrink: 0,
+          // `contain` y fondo blanco: un favicon subido antes de prepararse al
+          // subir puede no ser cuadrado, y no se recorta ni se deforma.
+          objectFit: 'contain', background: '#FFFFFF', borderRadius: 10,
+          // Sobre la foto, una sombra lo separa; sobre el crema, un filo.
+          boxShadow: flotando ? '0 1px 4px rgba(0,0,0,.28)' : '0 0 0 1px var(--border)',
+        }}
+      />
+    );
+  }
   if (logoUrl && !esApaisado) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -167,7 +203,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
             está el problema — el logo se acota, el nombre puede encogerse y
             elidirse, y la campana no se comprime nunca. */}
         <Link href={href()} aria-label={estudio.nombre} className="tap" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, color: flotando ? 'var(--on-dark)' : 'var(--foreground)' }}>
-          <LogoOMonograma logoUrl={estudio.logoUrl} nombre={estudio.nombre} flotando={flotando} />
+          <MarcaEstudio iconoUrl={estudio.iconoMarcaUrl} logoUrl={estudio.logoUrl} nombre={estudio.nombre} flotando={flotando} />
           {/* Con lema, nombre y lema van apilados. El `minWidth: 0` sube al
               contenedor para que el recorte de arriba siga funcionando. */}
           <span className="stack" style={{ ['--gap' as string]: '1px', minWidth: 0 }}>

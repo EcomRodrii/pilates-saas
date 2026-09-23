@@ -1,12 +1,10 @@
 import { ImageResponse } from 'next/og';
 import { inicialDe, coloresMonograma, tamanoValido, logoServible } from '@/lib/monograma-estudio';
 
-// El icono de un estudio que no ha subido logo — inicial de su nombre sobre
-// el color de marca que ya eligió. Sirve a dos sitios que hoy caen los dos al
-// icono de TENTARE cuando el estudio no tiene logo: el manifest de la PWA
-// (app instalada en el móvil de una socia) y las notificaciones push
-// (lib/notifications/channels.ts). Ver lib/monograma-estudio.ts para el
-// porqué completo.
+// El icono cuadrado de un estudio a un tamaño exacto: la pestaña, el icono de
+// iOS y el de la app instalada. Por orden: el icono que subió (`icono=`), su
+// logo sobre su color (`logo=`) o la inicial de su nombre. Nunca el de Tentare.
+// Ver `urlIconoEstudio` en lib/monograma-estudio.ts para el porqué completo.
 //
 // Los datos van EN LA URL (inicial + color ya resueltos), no un id de
 // estudio: sin consulta a BD dentro de esta ruta, y la URL cambia sola si la
@@ -64,19 +62,41 @@ export async function GET(req: Request) {
   const { fondo, texto } = coloresMonograma(searchParams.get('color'));
   const size = tamanoValido(searchParams.get('size'));
 
-  // Con logo, el icono es SU logo sobre su color, no una inicial. Es lo que
-  // hace que la app instalada en el móvil de su alumna lleve la marca correcta
-  // a los tamaños exactos que pide un instalador de Android — antes, el único
-  // candidato de 192/512 era el icono de Tentare.
-  //
   // ⚠️ `logoServible` NO es cosmético: esta ruta DESCARGA la URL en servidor
   // para componer el PNG, así que sin esa comprobación cualquiera podría
   // hacerle pedir lo que quisiera a donde quisiera. Solo el bucket público de
-  // nuestro propio Supabase.
+  // nuestro propio Supabase. Vale para `icono` y para `logo`.
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  // El ICONO que subió el estudio (su favicon) ya viene preparado: símbolo
+  // recortado y centrado en un cuadrado blanco (`prepararIconoMarca`). Aquí
+  // solo se escala, sobre BLANCO — nunca sobre el color de la app: ese marco de
+  // color alrededor de un logo al 68 % era el favicon verde de la pestaña.
+  const icono = searchParams.get('icono');
+  const iconoIncrustado = logoServible(icono, base) ? await comoDataUrl(icono as string) : null;
+  if (iconoIncrustado) {
+    // En la pestaña, a sangre: su margen ya lo trae. En el icono de la app, un
+    // 10 % más, porque el sistema operativo lo recorta en círculo o squircle.
+    const aire = size <= 64 ? 0 : Math.round(size * 0.1);
+    return new ImageResponse(
+      (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFFFFF', padding: aire }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={iconoIncrustado} alt="" width={size - 2 * aire} height={size - 2 * aire} style={{ objectFit: 'contain' }} />
+        </div>
+      ),
+      { width: size, height: size, headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
+    );
+  }
+
+  // Sin icono, con logo: SU logo sobre su color, no una inicial. Es lo que
+  // hace que la app instalada en el móvil de su alumna lleve la marca correcta
+  // a los tamaños exactos que pide un instalador de Android — antes, el único
+  // candidato de 192/512 era el icono de Tentare. El color de fondo se queda
+  // aquí a propósito: un logo en blanco sobre transparente, sobre blanco,
+  // desaparecería.
   const logo = searchParams.get('logo');
-  const logoIncrustado = logoServible(logo, process.env.NEXT_PUBLIC_SUPABASE_URL)
-    ? await comoDataUrl(logo as string)
-    : null;
+  const logoIncrustado = logoServible(logo, base) ? await comoDataUrl(logo as string) : null;
 
   if (logoIncrustado) {
     return new ImageResponse(
