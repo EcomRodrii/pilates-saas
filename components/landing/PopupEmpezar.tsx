@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { X, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { TRIAL_DIAS } from '@/lib/billing/trial';
 import {
   puedeMostrar,
   leerRegistro,
@@ -20,16 +21,21 @@ import {
 //
 //  · Nunca al entrar. Aparecer encima de alguien que todavía no ha leído el
 //    titular es lo que hace que se cierre por reflejo, sin leerlo.
-//  · Se enseña cuando ya ha demostrado interés: 30 segundos en la página, o
-//    haber bajado más de la mitad. Lo que ocurra primero.
+//  · Se enseña cuando ya ha visto lo que cuesta: al dejar atrás la sección de
+//    precio (o, en escritorio, al ir a cerrar la pestaña tras un rato en la
+//    página). Hasta el 23-sep saltaba a los 30 s o a mitad de scroll, que en
+//    la home rediseñada era justo el bloque de la app de la alumna: el
+//    producto, interrumpido por un anuncio del producto.
 //  · No se enseña si ya está a punto de convertir por su cuenta — el pie de la
 //    página ya tiene su propio CTA grande (SeccionCtaFinal), y saltarle un
 //    modal justo ahí es interrumpir a quien iba a pulsar.
 //  · Las reglas de repetición (una por sesión, silencio de 30 días al cerrar,
 //    3 como máximo, nunca más si convierte) viven en lib/landing/popup-frecuencia.ts.
 
-const SEGUNDOS_ANTES = 30;
+/** Sin sección de precio (otra página), el viejo criterio: mitad del recorrido. */
 const SCROLL_MINIMO = 0.5;
+/** Intención de salida (escritorio): solo tras este rato en la página. */
+const SEGUNDOS_ANTES_DE_SALIDA = 10;
 /**
  * Solo si la página no marca su CTA final (`data-cta-final`): a partir de aquí
  * se da por hecho que ya está en él.
@@ -46,7 +52,10 @@ const SCROLL_DEMASIADO = 0.9;
 function enElCtaFinal(recorrido: number): boolean {
   const cta = document.querySelector('[data-cta-final]');
   if (!cta) return recorrido >= SCROLL_DEMASIADO;
-  return cta.getBoundingClientRect().top < window.innerHeight;
+  // Media pantalla, no «asoma»: desde el 23-sep el popup salta al dejar atrás
+  // el precio, y con la home más corta el cierre ya asoma por abajo en las
+  // preguntas frecuentes. Asomar no es estar en él.
+  return cta.getBoundingClientRect().top < window.innerHeight * 0.5;
 }
 
 export function PopupEmpezar() {
@@ -88,23 +97,37 @@ export function PopupEmpezar() {
     }, 180);
   }, []);
 
-  // Disparadores: tiempo y scroll, lo que llegue antes.
+  // Disparadores: haber dejado atrás el precio, o ir a salir (escritorio).
   useEffect(() => {
     if (loading || session) return;
-
-    const porTiempo = setTimeout(abrir, SEGUNDOS_ANTES * 1000);
+    const entrada = Date.now();
 
     const alHacerScroll = () => {
       const alto = document.documentElement.scrollHeight - window.innerHeight;
       if (alto <= 0) return;
       const recorrido = window.scrollY / alto;
-      if (recorrido >= SCROLL_MINIMO && !enElCtaFinal(recorrido)) abrir();
+      if (enElCtaFinal(recorrido)) return;
+      const precio = document.getElementById('precio');
+      const pasado = precio
+        ? precio.getBoundingClientRect().bottom < window.innerHeight * 0.5
+        : recorrido >= SCROLL_MINIMO;
+      if (pasado) abrir();
     };
     window.addEventListener('scroll', alHacerScroll, { passive: true });
 
+    // Ratón que sale por arriba de la ventana: va a la barra de pestañas.
+    // Solo con puntero fino (en táctil no existe el gesto) y tras un rato.
+    const punteroFino = window.matchMedia?.('(pointer: fine)').matches ?? false;
+    const alSalir = (e: MouseEvent) => {
+      if (e.relatedTarget || e.clientY > 0) return;
+      if (Date.now() - entrada < SEGUNDOS_ANTES_DE_SALIDA * 1000) return;
+      abrir();
+    };
+    if (punteroFino) document.addEventListener('mouseout', alSalir);
+
     return () => {
-      clearTimeout(porTiempo);
       window.removeEventListener('scroll', alHacerScroll);
+      document.removeEventListener('mouseout', alSalir);
     };
   }, [abrir, loading, session]);
 
@@ -158,10 +181,10 @@ export function PopupEmpezar() {
 
         <div className="relative">
           <h2 id={tituloId} className="px-6 text-[24px] font-extrabold leading-tight tracking-tight text-foreground sm:px-4 sm:text-[27px]">
-            Empieza gratis en 2 minutos
+            Pruébalo {TRIAL_DIAS} días gratis
           </h2>
           <p className="mt-2.5 text-[14.5px] leading-relaxed text-muted-foreground">
-            Sin tarjeta de crédito • Configuración en 2 minutos
+            Sin tarjeta y sin permanencia. Tu horario y tu página de reservas, listos en tu primera sesión.
           </p>
 
           <Link
@@ -169,7 +192,7 @@ export function PopupEmpezar() {
             onClick={() => cerrar(true)}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-6 py-4 text-[16px] font-bold text-brand-foreground transition-all duration-200 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
           >
-            Empezar gratis
+            Probar {TRIAL_DIAS} días gratis
             <ArrowRight size={17} aria-hidden="true" />
           </Link>
 

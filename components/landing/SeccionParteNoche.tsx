@@ -10,9 +10,6 @@ import { FotoLanding } from './FotoLanding';
 // haya visto el producto funcionando, que es cuando "esto lo hizo solo"
 // significa algo — ya se sabe qué es "esto".
 //
-// Las cuatro líneas son funciones reales, cada una con su propia página:
-// sustituciones, avisos a alumnas, reservas 24/7 y la app.
-//
 // El parte va encima de una foto de la sala vacía con la luz encendida
 // (`FOTOS.anoche`), como avisos de la pantalla de bloqueo: la sala cerrada y el
 // móvil trabajando. Los avisos son de muestra, así que van `aria-hidden` y el
@@ -23,10 +20,15 @@ import { FotoLanding } from './FotoLanding';
 // sobre la pared iluminada daban 1,4:1 medido (hace falta 4,5:1). Los avisos sí
 // van encima porque su texto va sobre su propio fondo claro.
 
+// Desde el rediseño del 23-sep, sin sustituciones: la baja ya la cuenta entera
+// su bloque y aquí se repetía. Cada línea es algo que el producto hace solo:
+// la lista de espera ocupa la plaza al instante (sin plazo configurado), el
+// recordatorio de las clases de mañana sale a 24 h, el recobro reintenta
+// (+1, +3, +7 días) y las reservas entran desde la app.
 const LINEAS: { hora: string; texto: React.ReactNode }[] = [
-  { hora: '21:04', texto: <>Marta avisa: mañana no puede</> },
-  { hora: '21:41', texto: <>Julia acepta — <strong>clase cubierta</strong></> },
-  { hora: '21:41', texto: <>8 alumnas avisadas del cambio</> },
+  { hora: '21:04', texto: <>Ana cancela — <strong>su plaza pasa a Carmen</strong></> },
+  { hora: '21:30', texto: <>Recordatorio de las clases de mañana, enviado</> },
+  { hora: '22:15', texto: <>Cuota de Laura <strong>cobrada al 2.º intento</strong></> },
   { hora: '23:52', texto: <>2 reservas nuevas desde la app</> },
 ];
 
@@ -37,17 +39,17 @@ const proporcion = ({ proporcion: [ancho, alto] }: { proporcion: readonly [numbe
 
 export function SeccionParteNoche() {
   return (
-    <section className="v5-noche" aria-labelledby="v5-noche-h">
+    <section id="noche" className="v5-noche" aria-labelledby="v5-noche-h">
       <div className="v5-noche-wrap">
-        <div className="v5-noche-texto">
-          <h2 id="v5-noche-h" className="v5-noche-h2">Tentare sigue trabajando.</h2>
+        <div className="v5-noche-texto lp-rv">
+          <h2 id="v5-noche-h" className="v5-noche-h2">Mientras cerrabas, Tentare siguió trabajando.</h2>
           <p className="v5-noche-lead">
-            No es una bandeja de avisos esperando a que los leas. Cuando una instructora falla, busca quién la
-            cubre y avisa a las alumnas — y, en modo autónomo, tú te enteras cuando ya está hecho.
+            Las alumnas reservan y cancelan, la lista de espera ocupa la plaza que se libera y los cobros que
+            fallan se reintentan. No es una bandeja de avisos esperando a que la leas: es trabajo hecho.
           </p>
         </div>
 
-        <figure className="v5-noche-escena">
+        <figure className="v5-noche-escena lp-rv" style={{ ['--lp-r' as string]: 6 }}>
           <div className="v5-noche-foto">
             <FotoLanding
               foto={FOTOS.anoche}
@@ -57,8 +59,9 @@ export function SeccionParteNoche() {
             <div className="v5-noche-velo" />
             <div className="v5-noche-parte" aria-hidden="true">
               <ul className="v5-noche-avisos">
-                {LINEAS.map((l) => (
-                  <li key={l.hora + String(l.texto)} className="v5-noche-aviso">
+                {LINEAS.map((l, n) => (
+                  // Los avisos llegan de uno en uno, como a la pantalla de bloqueo.
+                  <li key={l.hora + String(l.texto)} className="v5-noche-aviso lp-rv" style={{ ['--lp-r' as string]: 12 + n * 8 }}>
                     <span className="v5-noche-app"><LogoTentare formato="isotipo" tinta="color" alto={15} decorativo /></span>
                     <span className="v5-noche-aviso-cuerpo">
                       <span className="v5-noche-aviso-cab">
@@ -74,23 +77,26 @@ export function SeccionParteNoche() {
           </div>
           <div className="v5-noche-leyenda" aria-hidden="true">
             <p className="v5-noche-tit">Anoche, mientras tú cerrabas</p>
-            <p className="v5-noche-pie">Ni una llamada tuya.</p>
+            <p className="v5-noche-pie">Ni un mensaje tuyo.</p>
           </div>
           <figcaption className="v5-noche-oculto">
-            Ejemplo del parte de una noche, sobre una foto de la sala vacía: a las 21:04 una instructora avisa de que
-            mañana no puede dar su clase, a las 21:41 otra la acepta y se avisa del cambio a las 8 alumnas, y a las
-            23:52 entran 2 reservas nuevas desde la app. Ni una llamada tuya.
+            Ejemplo del parte de una noche, sobre una foto de la sala vacía: a las 21:04 una alumna cancela y su plaza
+            pasa a la primera de la lista de espera, a las 21:30 sale el recordatorio de las clases de mañana, a las
+            22:15 se cobra una cuota al segundo intento y a las 23:52 entran 2 reservas nuevas desde la app. Ni un
+            mensaje tuyo.
           </figcaption>
         </figure>
       </div>
 
       <style>{`
-        .v5-noche { background: #131313; padding: clamp(80px,9vw,128px) clamp(20px,4vw,48px); }
+        /* Clara desde el 23-sep: la oscura es Sustituciones, justo antes, y dos
+           oscuras seguidas se leían como un solo bloque. La noche la pone la foto. */
+        .v5-noche { padding: clamp(64px,7vw,104px) clamp(20px,4vw,48px) clamp(40px,5vw,64px); }
         .v5-noche-wrap { max-width: 1180px; margin: 0 auto; display: grid;
           grid-template-columns: 1fr 1fr; gap: clamp(32px,5vw,72px); align-items: center; }
         .v5-noche-h2 { margin: 0 0 18px; font-size: clamp(30px,4.6vw,56px); font-weight: 800; line-height: 1.02;
-          letter-spacing: -.04em; color: #fff; text-wrap: balance; }
-        .v5-noche-lead { margin: 0; font-size: 16.5px; line-height: 1.6; color: #A6A69E; max-width: 46ch; }
+          letter-spacing: -.04em; color: #1A1A1A; text-wrap: balance; }
+        .v5-noche-lead { margin: 0; font-size: 17px; line-height: 1.6; color: #5A5A52; max-width: 46ch; }
 
         .v5-noche-escena { position: relative; margin: 0; }
         .v5-noche-foto { position: relative; aspect-ratio: ${proporcion(FOTOS.anoche.recortes.escritorio)};
@@ -117,8 +123,8 @@ export function SeccionParteNoche() {
         .v5-noche-txt strong { font-weight: 800; }
         .v5-noche-leyenda { display: flex; justify-content: space-between; align-items: baseline; gap: 6px 16px;
           flex-wrap: wrap; margin-top: 14px; padding: 0 4px; }
-        .v5-noche-tit { margin: 0; font-size: 14px; font-weight: 700; color: #EAE8DE; }
-        .v5-noche-pie { margin: 0; font-size: 15px; font-weight: 800; color: #D9C29E; }
+        .v5-noche-tit { margin: 0; font-size: 14px; font-weight: 700; color: #3B3B34; }
+        .v5-noche-pie { margin: 0; font-size: 15px; font-weight: 800; color: #55622C; }
 
         .v5-noche-oculto { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
           clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

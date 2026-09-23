@@ -7,10 +7,11 @@ import { SALIDAS } from './enlaces';
 // viñeta a dos tintas (oliva #343825 + arena #D9C29E). Título y resumen salen
 // del registro (`lib/seo/paginas.ts`), así que un área nueva entra sola.
 //
-// Compacta a propósito (al aligerar la home): viñeta pequeña al lado del texto
-// en vez de lámina grande encima, y sin las tres tarjetas destacadas a doble
-// ancho, que repetían lo que ya cuentan las demos de más arriba. Los 17 enlaces
-// se quedan: son la puerta de la home al árbol de /funcionalidades.
+// Desde el rediseño del 23-sep es una FILA de enlaces, no una rejilla de 17
+// tarjetas con resumen: la home vende la transformación y los bloques de arriba
+// ya cuentan lo importante. Los 17 enlaces se quedan (son la puerta de la home
+// al árbol de /funcionalidades, lo que el SEO necesita); el resumen de cada uno
+// vive en su página.
 //
 // Conserva id="funcionalidades" (ancla del nav) y aria-labelledby.
 
@@ -245,69 +246,65 @@ export function SeccionFuncionalidades() {
   return (
     <section id="funcionalidades" className="fn2" aria-labelledby="fn2-h">
       <div className="fn2-wrap">
-        <div className="fn2-cabecera">
-          <h2 id="fn2-h" className="fn2-h2">Todo lo que necesita un estudio de Pilates. En un panel.</h2>
-          <p className="fn2-lead">Son {items.length} áreas, cada una con su propia página — sin genérico, sin relleno.</p>
+        <div className="fn2-cabecera lp-rv">
+          <h2 id="fn2-h" className="fn2-h2">Y todo lo demás que necesita un estudio de Pilates.</h2>
+          <Link href={SALIDAS.funcionalidades.href} className="fn2-salida">
+            {SALIDAS.funcionalidades.label} <ArrowRight size={15} aria-hidden />
+          </Link>
         </div>
-        <div className="fn2-grid">
+        <ul className="fn2-lista">
           {items.map((p, n) => (
-            <Link key={p.path} href={p.path} className="fn2-card">
-              <span className={`fn2-plate ${n % 2 === 0 ? 'fn2-plate--arena' : 'fn2-plate--salvia'}`}><Vineta path={p.path} /></span>
-              <span className="fn2-body">
+            // La animación va en el <li> y no en el enlace: el enlace sube en :hover.
+            <li key={p.path} className="lp-rv" style={{ ['--lp-r' as string]: (n % 6) * 3 }}>
+              <Link href={p.path} className="fn2-chip">
+                <span className={`fn2-plate ${n % 2 === 0 ? 'fn2-plate--arena' : 'fn2-plate--salvia'}`}><Vineta path={p.path} /></span>
                 <span className="fn2-tit">{p.etiqueta}</span>
-                <span className="fn2-desc">{p.resumen}</span>
-              </span>
-            </Link>
+              </Link>
+            </li>
           ))}
-        </div>
-        <Link href={SALIDAS.funcionalidades.href} className="fn2-salida">
-          {SALIDAS.funcionalidades.label} <ArrowRight size={15} aria-hidden />
-        </Link>
+        </ul>
       </div>
 
       <style>{`
-        .fn2 { padding: clamp(80px,9vw,128px) clamp(20px,4vw,48px); }
+        .fn2 { padding: clamp(64px,7vw,96px) clamp(20px,4vw,48px); }
         .fn2-wrap { max-width: 1240px; margin: 0 auto; }
-        .fn2-cabecera { max-width: 980px; margin-bottom: 40px; }
-        .fn2-h2 { font-size: clamp(28px,4vw,52px); font-weight: 800; line-height: 1.03; letter-spacing: -.04em; margin: 0 0 16px; text-wrap: balance; }
-        .fn2-lead { font-size: 17px; line-height: 1.5; color: #5A5A52; margin: 0; }
+        .fn2-cabecera { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+          gap: 12px 32px; margin-bottom: 28px; }
+        .fn2-h2 { font-size: clamp(24px,2.8vw,36px); font-weight: 800; line-height: 1.08; letter-spacing: -.035em;
+          margin: 0; max-width: 24ch; text-wrap: balance; }
 
-        .fn2-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
-        .fn2-card { display: flex; align-items: center; gap: 14px; padding: 12px 16px 12px 12px; border-radius: 16px;
+        .fn2-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+        .fn2-chip { display: inline-flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px;
           background: #fff; border: 1px solid #E7E7E0; color: inherit; text-decoration: none;
-          transition: transform .26s cubic-bezier(.2,.7,0,1), box-shadow .26s, border-color .26s; }
-        .fn2-card:hover { transform: translateY(-3px); box-shadow: 0 22px 44px -26px rgba(26,26,26,.3); border-color: #D9D9CE; }
-        .fn2-card:focus-visible { outline: 2px solid #343825; outline-offset: 2px; }
+          transition: transform .24s cubic-bezier(.2,.7,0,1), box-shadow .24s, border-color .24s; }
+        .fn2-chip:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -22px rgba(26,26,26,.35); border-color: #D9D9CE; }
+        .fn2-chip:focus-visible { outline: 2px solid #343825; outline-offset: 2px; }
 
-        .fn2-plate { flex: none; width: 60px; height: 60px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+        .fn2-plate { flex: none; width: 34px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; }
         .fn2-plate--arena { background: linear-gradient(135deg,#F5EDDD,#EFE3CC); }
         .fn2-plate--salvia { background: linear-gradient(135deg,#EFF1E4,#E7EAD6); }
-        .fn2-plate svg { transition: transform .45s cubic-bezier(.34,1.56,.64,1); }
-        .fn2-card:hover .fn2-plate svg { transform: translateY(-2px) scale(1.06); }
+        .fn2-plate svg { width: 24px; height: 24px; }
+        .fn2-tit { font-size: 14.5px; font-weight: 700; letter-spacing: -.005em; color: #1A1A1A; white-space: nowrap; }
 
-        .fn2-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-        .fn2-tit { font-size: 15.5px; font-weight: 800; letter-spacing: -.01em; color: #1A1A1A; }
-        .fn2-desc { font-size: 13.5px; line-height: 1.45; color: #5A5A52; }
-
-        .fn2-salida { display: inline-flex; align-items: center; gap: 7px; margin-top: 28px; font-size: 15px;
-          font-weight: 700; color: #343825; }
+        .fn2-salida { display: inline-flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 700; color: #343825; }
         .fn2-salida:hover { text-decoration: underline; text-underline-offset: 4px; }
 
-        @media (max-width: 1200px) { .fn2-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
-        @media (max-width: 900px) { .fn2-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-        /* En el móvil, dos columnas con viñeta y nombre: los 17 enlaces siguen,
-           el resumen de cada uno está en su página. En una columna con resumen
-           eran más de 2.000 px de home. */
+        /* En el móvil, las 17 en una tira de dos filas que se desliza en
+           horizontal, a sangre: en varias filas eran casi una pantalla entera. */
         @media (max-width: 640px) {
-          .fn2-grid { gap: 8px; }
-          .fn2-card { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; }
-          .fn2-plate { width: 44px; height: 44px; border-radius: 10px; }
-          .fn2-plate svg { width: 32px; height: 32px; }
-          .fn2-tit { font-size: 14px; line-height: 1.3; }
-          .fn2-desc { display: none; }
+          .fn2-lista { display: grid; grid-template-rows: repeat(2,auto); grid-auto-flow: column; gap: 8px;
+            overflow-x: auto; margin: 0 -20px; padding: 2px 20px 8px; scroll-snap-type: x proximity;
+            scrollbar-width: none; -webkit-mask: linear-gradient(90deg,transparent,#000 20px,#000 calc(100% - 28px),transparent);
+            mask: linear-gradient(90deg,transparent,#000 20px,#000 calc(100% - 28px),transparent); }
+          .fn2-lista::-webkit-scrollbar { display: none; }
+          .fn2-lista li { scroll-snap-align: start; }
+          .fn2-chip { padding: 5px 13px 5px 5px; gap: 8px; }
+          .fn2-plate { width: 30px; height: 30px; }
+          .fn2-plate svg { width: 21px; height: 21px; }
+          .fn2-tit { font-size: 13.5px; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .fn2-card, .fn2-plate svg { transition: none; }
+          .fn2-chip { transition: none; }
         }
       `}</style>
     </section>

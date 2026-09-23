@@ -8,10 +8,11 @@ import { test, expect, type Page } from '@playwright/test';
 // cortina puede arruinar una landing:
 //
 //   · que no se quede             — se retira sola, y también con un gesto.
-//   · que salga SIEMPRE           — y, sobre todo, que esté desde el primer
-//                                   fotograma: la primera versión se pintaba
-//                                   tras hidratar y se veía la web ANTES que
-//                                   la cortina.
+//   · que salga la PRIMERA vez    — y que esté desde el primer fotograma: la
+//                                   primera versión se pintaba tras hidratar y
+//                                   se veía la web ANTES que la cortina.
+//   · que NO salga después        — desde el 23-sep, solo en la primera visita
+//                                   (3 s en cada visita frenaban a quien volvía).
 //   · que no salga a quien pidió  — `prefers-reduced-motion`.
 //     menos movimiento
 //   · que no esté en el HTML      — Google y los lectores de pantalla tienen
@@ -79,13 +80,16 @@ test.describe('La intro del logo', () => {
     // si ha desaparecido, la ha quitado el clic.
   });
 
-  test('sale también en la segunda visita', async ({ page }) => {
+  test('no vuelve a salir en la segunda visita', async ({ page }) => {
     await entrarYCazarLaCortina(page);
     await expect(cortina(page)).toBeHidden({ timeout: 15_000 });
 
-    // Se enseña siempre, no una vez por visitante.
-    await entrarYCazarLaCortina(page);
-    await expect(cortina(page)).toBeVisible();
+    // Solo la primera vez: en la siguiente, oculta antes de pintar (el script
+    // en línea mete su <style> en <head>), no tras hidratar.
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('style#tnt-intro-vista')).toHaveCount(1);
+    await expect(cortina(page)).toBeHidden();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30_000 });
   });
 
   test('quien pide menos movimiento no la ve', async ({ page }) => {

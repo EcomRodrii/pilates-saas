@@ -9,11 +9,13 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import { BG } from '@/components/landing/theme';
 import { SeccionHero } from '@/components/landing/SeccionHero';
 import { VideoProducto } from '@/components/landing/VideoProducto';
+import { SeccionTeSuena } from '@/components/landing/SeccionTeSuena';
+import { SeccionTuEstudio } from '@/components/landing/SeccionTuEstudio';
+import { SeccionConfianza } from '@/components/landing/SeccionConfianza';
 import { SeccionParteNoche } from '@/components/landing/SeccionParteNoche';
 import { SeccionSustituciones } from '@/components/landing/SeccionSustituciones';
 import { SeccionCalendarioReservas } from '@/components/landing/SeccionCalendarioReservas';
 import { SeccionReservas } from '@/components/landing/SeccionReservas';
-import { SeccionCambiarse } from '@/components/landing/SeccionCambiarse';
 import { SeccionFuncionalidades } from '@/components/landing/SeccionFuncionalidades';
 import { SeccionPrecio } from '@/components/landing/SeccionPrecio';
 import { SeccionFaq } from '@/components/landing/SeccionFaq';
@@ -22,6 +24,7 @@ import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { PopupEmpezar } from '@/components/landing/PopupEmpezar';
 import { GlobalStyles } from '@/components/landing/GlobalStyles';
 import { MedicionLanding } from '@/components/landing/MedicionLanding';
+import { AnclasSuaves } from '@/components/landing/AnclasSuaves';
 import { IntroLogo } from '@/components/landing/IntroLogo';
 import { StructuredData } from '@/components/landing/StructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
@@ -88,24 +91,23 @@ export default function LandingPage() {
           se veía a través del propio nav). El pie va FUERA a propósito. */}
       <div style={{ position: 'relative' }}>
         <SeccionHero />
-        {/* El producto, inmediatamente después de la promesa: es la prueba de
-            lo que acaba de prometer el titular, no un adorno. */}
+        {/* Rediseño por fases (23-sep): ATENCIÓN → IDENTIFICACIÓN → PERFIL →
+            VISUALIZACIÓN → SOLUCIÓN → RESULTADO → CONFIANZA → PRECIO → DUDAS.
+            Cada bloque tiene una sola función; lo que no la tenía salió (la
+            rejilla de 17 tarjetas pasó a una fila de enlaces y «Cambiarse» se
+            repartió entre Confianza y las preguntas). El vídeo va justo detrás
+            de la promesa, encima de «¿Te suena?» (el fundador, 23-sep). */}
         <VideoProducto />
-        {/* Once bloques y cada uno con una sola idea: título, una frase y lo
-            que se ve (el fundador: «la home se ve muy saturada»). Lo que salió
-            —el martes de una propietaria, clientas y equipo, «Hecho para
-            entenderse», «La cuenta» y las guías— o ya lo contaba otro bloque o
-            tiene su página propia; los recursos siguen en la barra. */}
-        <SeccionSustituciones />
-        <SeccionCalendarioReservas />
+        <SeccionTeSuena />
+        <SeccionTuEstudio />
         <SeccionReservas />
-        {/* "Anoche, mientras tú cerrabas" vivía en el hero, donde llegaba
-            antes de que se supiera qué es Tentare. Aquí ya se ha visto el
-            producto entero funcionando, y "esto lo hizo solo" se entiende. */}
+        <SeccionSustituciones />
+        {/* La noche y su mañana: mismo fondo, se leen como un solo bloque. */}
         <SeccionParteNoche />
+        <SeccionCalendarioReservas />
+        <SeccionConfianza />
         <SeccionFuncionalidades />
         <SeccionPrecio />
-        <SeccionCambiarse />
         <SeccionFaq />
       </div>
       <SeccionCtaFinal />
@@ -114,6 +116,7 @@ export default function LandingPage() {
           (lib/landing/popup-frecuencia.ts), no aquí. */}
       <PopupEmpezar />
       <MedicionLanding />
+      <AnclasSuaves />
       <GlobalStyles />
     </div>
   );

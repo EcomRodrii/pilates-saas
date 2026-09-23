@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El logo se monta solo cada vez que alguien entra.
+// El logo se monta solo la PRIMERA vez que alguien entra (decisión del
+// fundador, 23-sep: 3 s de cortina en cada visita frenaban a quien volvía a
+// mirar el precio). A partir de ahí, la página aparece directamente.
 //
 // Las cuatro piezas (asta, bol y las dos hojas) entran desenfocadas, desplazadas
 // y algo más grandes, cada una desde el lado al que pertenece, y acaban nítidas
@@ -71,6 +73,28 @@ const TOTAL = FIN_MONTAJE + SALIDA;
 /** Punto del ciclo en el que empieza a disolverse, en %. */
 const PCT_SALIDA = ((FIN_MONTAJE / TOTAL) * 100).toFixed(2);
 
+/**
+ * Marca de «ya la vio». Se lee ANTES de pintar con un <script> en línea que
+ * viaja en el HTML (va delante de la cortina): si está, mete en <head> una
+ * <style id="tnt-intro-vista"> que la quita sin que llegue a verse (y adelanta
+ * las tarjetas del héroe, que si no esperarían a una cortina que no hay). Si
+ * no está, la escribe en ese mismo momento.
+ * ⚠️ Una <style> nueva en <head> y NO un atributo en <html>: el <html> lo pinta
+ * React (app/layout.tsx) y un atributo puesto antes de hidratar es un error
+ * de hidratación en toda la página; React 19 ignora las etiquetas de más en
+ * <head>. En una navegación dentro de la web (sin recarga) el script no corre,
+ * así que el componente repite lo mismo en un layout effect, antes de pintar.
+ * Todo con try/catch: sin almacenamiento (modo privado estricto) se enseña,
+ * que es el comportamiento de siempre.
+ */
+export const CLAVE_INTRO_VISTA = 'tentare:intro-vista';
+/** Estado de módulo: sobrevive a las navegaciones sin recarga, no a una recarga. */
+let introMontadaAntes = false;
+const ID_ESTILO_VISTA = 'tnt-intro-vista';
+const CSS_VISTA = '.tnt-intro{display:none!important}.v5-hero-tarjeta{animation-delay:calc(.25s + var(--orden,0) * .12s)!important}';
+const CUERPO_PRIMERA_VEZ = `window.__tntIntroDecidida=1;try{var k=${JSON.stringify(CLAVE_INTRO_VISTA)};if(localStorage.getItem(k)){if(!document.getElementById(${JSON.stringify(ID_ESTILO_VISTA)})){var s=document.createElement('style');s.id=${JSON.stringify(ID_ESTILO_VISTA)};s.textContent=${JSON.stringify(CSS_VISTA)};document.head.appendChild(s)}}else{localStorage.setItem(k,String(Date.now()))}}catch(e){}`;
+const SCRIPT_PRIMERA_VEZ = `(function(){${CUERPO_PRIMERA_VEZ}})();`;
+
 export function IntroLogo({ autenticado }: { autenticado: boolean }) {
   // Arranca en `false` en servidor y en cliente: el primer render tiene que ser
   // idéntico en los dos lados o React se queja al hidratar.
@@ -83,6 +107,34 @@ export function IntroLogo({ autenticado }: { autenticado: boolean }) {
   // aún es false, igual que en el servidor, así que la hidratación cuadra.
   const oculta = saltada || autenticado;
 
+  // Navegación sin recarga: el script en línea no corre, así que se mira aquí,
+  // antes de pintar, si ya la vio (y si no, se anota).
+  useLayoutEffect(() => {
+    // Lo mismo que el script en línea: si hubo recarga ya lo hizo él (la
+    // <style> existe y no se duplica, y la marca ya estaba escrita).
+    // ⚠️ Si el script ya decidió en ESTA carga, no se vuelve a mirar: en una
+    // primera visita acaba de escribir la marca, y leerla aquí ocultaría la
+    // cortina que tiene que verse (pasó al montarlo).
+    // Solo cuenta para el PRIMER montaje tras una carga: en una navegación
+    // posterior (volver a «/» sin recargar) hay que mirar la marca, que ya
+    // estará escrita.
+    const w = window as typeof window & { __tntIntroDecidida?: number };
+    const primerMontaje = !introMontadaAntes;
+    introMontadaAntes = true;
+    if (primerMontaje && w.__tntIntroDecidida) return;
+    if (document.getElementById(ID_ESTILO_VISTA)) return;
+    try {
+      if (localStorage.getItem(CLAVE_INTRO_VISTA)) {
+        const estilo = document.createElement('style');
+        estilo.id = ID_ESTILO_VISTA;
+        estilo.textContent = CSS_VISTA;
+        document.head.appendChild(estilo);
+      } else {
+        localStorage.setItem(CLAVE_INTRO_VISTA, String(Date.now()));
+      }
+    } catch { /* sin almacenamiento: se enseña */ }
+  }, []);
+
   useEffect(() => {
     if (autenticado) return;
 
@@ -93,6 +145,14 @@ export function IntroLogo({ autenticado }: { autenticado: boolean }) {
   }, [autenticado]);
 
   return (
+    <>
+    {/* Va DELANTE de la cortina y el navegador lo ejecuta al leer el HTML,
+        antes del primer pintado. Dentro de un contenedor con
+        dangerouslySetInnerHTML y no como <script> de React: React 19 avisa de
+        (y nunca ejecuta) los <script> que pinta él; este solo tiene que
+        correr desde el HTML del servidor, y en cliente ya lo cubre el layout
+        effect de arriba. */}
+    <div hidden dangerouslySetInnerHTML={{ __html: `<script>${SCRIPT_PRIMERA_VEZ}</script>` }} />
     <div
       className="tnt-intro"
       data-saltada={oculta ? '' : undefined}
@@ -178,5 +238,6 @@ export function IntroLogo({ autenticado }: { autenticado: boolean }) {
         }
       `}</style>
     </div>
+    </>
   );
 }
