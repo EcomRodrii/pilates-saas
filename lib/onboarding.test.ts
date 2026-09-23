@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { calcularPasosOnboarding, calcularOnboarding, type DatosOnboardingLegacy, type DatosOnboarding } from './onboarding.ts';
+import { calcularPasosOnboarding, calcularOnboarding, estudioActivado, type DatosOnboardingLegacy, type DatosOnboarding } from './onboarding.ts';
 
 // ─── Legacy (embudo interno, app/api/interno/kpis/route.ts) ────────────────
 
@@ -132,6 +132,29 @@ test('v2: "Recibe tu primera reserva" se marca con una reserva real, y con nada 
     numTiposClase: 1, numSesiones: 9, numSocios: 4, numPlanesTarifa: 2, stripeAccountId: 'acct_1',
   }).done, false);
   assert.equal(paso({ ...VACIO_V2, numReservas: 1 }).done, true);
+});
+
+// Una sola definición de «activado» para el checklist y para /interno. Antes
+// /interno exigía NIF y Stripe: un estudio que cobra en el mostrador y ya
+// recibe reservas salía sin activar.
+test('estudioActivado: es la primera reserva, y el checklist dice lo mismo', () => {
+  assert.equal(estudioActivado({ numReservas: 0 }), false);
+  assert.equal(estudioActivado({ numReservas: 1 }), true);
+
+  const primeraReserva = (d: DatosOnboarding) =>
+    calcularOnboarding(d).categorias[0].pasos.find(p => p.id === 'primera-reserva')!.done;
+  // Sin NIF ni Stripe, con una reserva: activado en los dos sitios.
+  const sinNifNiStripe = { ...VACIO_V2, nif: null, stripeAccountId: null, numSesiones: 3, numReservas: 1 };
+  assert.equal(estudioActivado(sinNifNiStripe), true);
+  assert.equal(primeraReserva(sinNifNiStripe), true);
+  // Todo lo que pedía el embudo antiguo hecho, sin reservas: sin activar en los dos.
+  const todoConfigurado = {
+    ...VACIO_V2, nif: 'B00000000', stripeAccountId: 'acct_1', slug: 'mi-estudio',
+    numInstructores: 1, numTiposClase: 1, numSesiones: 9, numSocios: 4, numReservas: 0,
+  };
+  assert.ok(calcularPasosOnboarding(todoConfigurado).every(p => p.done), 'el embudo antiguo lo daba por activado');
+  assert.equal(estudioActivado(todoConfigurado), false);
+  assert.equal(primeraReserva(todoConfigurado), false);
 });
 
 test('v2: "Automatizaciones" refleja las automatizaciones realmente activas por trigger', () => {

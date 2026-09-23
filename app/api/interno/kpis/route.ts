@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
-import { calcularPasosOnboarding, type PasoOnboarding } from '@/lib/onboarding';
+import { calcularPasosOnboarding, estudioActivado, type PasoOnboarding } from '@/lib/onboarding';
 import { catalogo } from '@/lib/migracion/catalogo';
 
 export const runtime = 'nodejs';
@@ -91,11 +91,29 @@ export async function GET(req: NextRequest) {
   );
   const suspendidos = filas.filter(s => s.suspendido_en);
 
-  // Onboarding: `calcularPasosOnboarding` (lib/onboarding.ts) ya existe y corre
-  // per-estudio en el navegador de cada propietaria; esto la centraliza para
-  // ver el embudo real (dónde se atascan las que ya empezaron a usarlo). Solo
-  // sobre "con actividad" — una alta vacía nunca completó nada, incluirla
-  // mezclaría "no ha llegado" con "no le hace falta".
+  // Activación: la MISMA definición que el checklist de la propietaria
+  // (`estudioActivado`, lib/onboarding.ts) — ha recibido su primera reserva.
+  // Antes era «completó los 7 pasos del checklist antiguo», NIF y Stripe
+  // incluidos, que no dicen nada de si alguien usa el estudio.
+  //
+  // Solo se pregunta por los que tienen actividad (sin clases no puede haber
+  // reservas), y con `limit(1)` por estudio: basta saber si hay UNA. Bajarse
+  // todas las reservas de la plataforma para contar por estudio sería leer
+  // miles de filas para responder sí o no.
+  const primeraReserva = await Promise.all(
+    conActividad.map(s => db.from('reservas').select('id').eq('studio_id', s.id as string).limit(1)),
+  );
+  if (primeraReserva.some(r => r.error)) noLeidos.push('reservasPorEstudio');
+  const activadoPorEstudio = new Map<string, boolean>(
+    conActividad.map((s, i) => [s.id as string, estudioActivado({ numReservas: primeraReserva[i].data?.length ?? 0 })]),
+  );
+  const activados = [...activadoPorEstudio.values()].filter(Boolean).length;
+
+  // Dónde se atascan los que aún no se han activado: `calcularPasosOnboarding`
+  // (lib/onboarding.ts) corre per-estudio en el navegador de cada propietaria;
+  // esto la centraliza para ver el embudo real. Solo sobre "con actividad" y
+  // sin activar — una alta vacía nunca completó nada, y a una activada ya no
+  // le falta nada que le impida recibir reservas.
   const instructoresActivosPorEstudio = new Map<string, number>();
   for (const i of instructores.data ?? []) {
     if (!i.activo) continue;
@@ -107,23 +125,29 @@ export async function GET(req: NextRequest) {
     const k = t.studio_id as string;
     tiposClasePorEstudio.set(k, (tiposClasePorEstudio.get(k) ?? 0) + 1);
   }
-  const pasosPorEstudio: PasoOnboarding[][] = conActividad.map(s => {
-    const id = s.id as string;
-    return calcularPasosOnboarding({
-      nif: s.nif as string | null,
-      stripeAccountId: s.stripe_account_id as string | null,
-      slug: s.slug as string | null,
-      numInstructores: instructoresActivosPorEstudio.get(id) ?? 0,
-      numTiposClase: tiposClasePorEstudio.get(id) ?? 0,
-      numSesiones: clasesPorEstudio.get(id) ?? 0,
-      numSocios: sociosPorEstudio.get(id) ?? 0,
+  const pasosPorEstudio: PasoOnboarding[][] = conActividad
+    .filter(s => !activadoPorEstudio.get(s.id as string))
+    .map(s => {
+      const id = s.id as string;
+      return calcularPasosOnboarding({
+        nif: s.nif as string | null,
+        stripeAccountId: s.stripe_account_id as string | null,
+        slug: s.slug as string | null,
+        numInstructores: instructoresActivosPorEstudio.get(id) ?? 0,
+        numTiposClase: tiposClasePorEstudio.get(id) ?? 0,
+        numSesiones: clasesPorEstudio.get(id) ?? 0,
+        numSocios: sociosPorEstudio.get(id) ?? 0,
+      });
     });
-  });
-  const activados = pasosPorEstudio.filter(pasos => pasos.every(p => p.done)).length;
+  // Ni el NIF ni Stripe impiden recibir una reserva (el checklist lo comprobó
+  // contra `crearReservaPublica`: se puede cobrar en el mostrador), así que no
+  // son el paso donde «se atasca» nadie. «reservas» es consecuencia de los
+  // demás, no un paso propio que resolver.
+  const NO_BLOQUEAN_UNA_RESERVA = new Set(['estudio', 'pago', 'reservas']);
   const pendientesPorPaso = new Map<string, { label: string; pendientes: number }>();
   for (const pasos of pasosPorEstudio) {
     for (const p of pasos) {
-      if (p.done || p.id === 'reservas') continue; // consecuencia de los demás, no un paso propio que resolver
+      if (p.done || NO_BLOQUEAN_UNA_RESERVA.has(p.id)) continue;
       const actual = pendientesPorPaso.get(p.id);
       pendientesPorPaso.set(p.id, { label: p.label, pendientes: (actual?.pendientes ?? 0) + 1 });
     }

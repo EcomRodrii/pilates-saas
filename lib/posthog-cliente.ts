@@ -20,7 +20,10 @@
 //     errores, y sanea toda URL: sin fragmento (ahí vuelve la sesión de Supabase
 //     tras un enlace mágico u OAuth), sin query salvo `utm_*`, ids como `:id`.
 //   · NADA en el dispositivo: `persistence: 'memory'`, ni cookie ni
-//     localStorage. El id anónimo dura lo que dura la página.
+//     localStorage. El id anónimo dura lo que dura la página. La única
+//     excepción es nuestra, no del SDK: `capturarAlLlegar` aparca en
+//     `sessionStorage` el NOMBRE de un evento de una lista cerrada, sin props
+//     ni identidad (`lib/posthog-diferidos.ts`).
 //   · Sin autocapture, dead clicks, heatmaps, rage clicks, excepciones,
 //     grabación de sesión, logs de consola, encuestas, tours, chat ni
 //     experimentos. Tres cerrojos independientes para que encender algo en el
@@ -37,6 +40,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { crearCola, type Destino } from '@/lib/sentry-cola';
 import { debeCargarseAnalitica, esVistaIncrustada, sanearEventoPosthog } from '@/lib/posthog-privacidad';
+import { aparcarEvento, recogerEventos } from '@/lib/posthog-diferidos';
 
 type PostHogSDK = typeof import('posthog-js').default;
 
@@ -128,12 +132,28 @@ export function cargarCuandoOcioso(): void {
 function encolar(metodo: string, args: unknown[]) {
   if (!process.env.NEXT_PUBLIC_POSTHOG_KEY || !analiticaPermitidaAqui()) return;
   cola.pedir(metodo, args);
+  // Los aparcados en una pantalla sin analítica (`capturarAlLlegar`) salen
+  // DETRÁS de identificar, para que cuenten a nombre de quien los hizo.
+  if (metodo === 'identify') {
+    try { for (const nombre of recogerEventos(window.sessionStorage)) cola.pedir('capture', [nombre]); } catch { /* sin sessionStorage */ }
+  }
   if (!cola.conectada) void forzarCarga();
 }
 
 /** Evento de producto manual — nunca autocapture. */
 export function capturarEvento(nombre: string, props?: Record<string, unknown>): void {
   encolar('capture', props === undefined ? [nombre] : [nombre, props]);
+}
+
+/**
+ * Para un evento que ocurre en una pantalla SIN analítica (`/login`): se aparca
+ * en esta pestaña y lo envía la primera vista permitida al identificar a la
+ * persona (el panel, tras redirigir). Ver `lib/posthog-diferidos.ts`.
+ */
+export function capturarAlLlegar(nombre: string): void {
+  if (!enNavegador || !process.env.NEXT_PUBLIC_POSTHOG_KEY) return;
+  if (analiticaPermitidaAqui()) { capturarEvento(nombre); return; }
+  try { aparcarEvento(window.sessionStorage, nombre); } catch { /* sin sessionStorage */ }
 }
 
 /** Identifica a un miembro del PERSONAL (nunca una socia) por su UUID, sin PII. */
