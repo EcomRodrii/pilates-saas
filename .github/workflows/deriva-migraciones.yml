@@ -100,3 +100,43 @@ jobs:
           psql "$DERIVA_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc \
             'select name from supabase_migrations.schema_migrations' \
             | node scripts/comprobar-deriva-migraciones.mjs
+
+  # SEC-04 (auditoría 23-sep): `pg_default_acl` concede INSERT/SELECT/UPDATE/
+  # DELETE a `authenticated` en TODA tabla nueva de `public` — no heredado de
+  # PUBLIC, directo (mismo mecanismo que ya documentó el gotcha de
+  # `reservar_numero_factura`, #769). Hoy no es explotable porque las 236
+  # tablas de `public` tienen RLS activada, pero una migración futura que se
+  # olvide `ENABLE ROW LEVEL SECURITY` deja la tabla abierta en silencio — sin
+  # este check, nadie se entera hasta que alguien la explota.
+  #
+  # Mismo job en el mismo workflow, no uno nuevo: comparte trigger (push a
+  # main + diario) y el secreto `DERIVA_DATABASE_URL` — el rol `deriva_ci`
+  # puede leer `pg_class`/`pg_namespace` sin ningún grant nuevo: los catálogos
+  # del sistema son legibles por cualquier rol por defecto en Postgres, no
+  # hace falta ampliar sus permisos.
+  rls-sin-activar:
+    name: RLS sin activar
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Buscar tablas de public sin RLS
+        env:
+          DERIVA_DATABASE_URL: ${{ secrets.DERIVA_DATABASE_URL }}
+        run: |
+          if [ -z "$DERIVA_DATABASE_URL" ]; then
+            echo "Falta el secreto DERIVA_DATABASE_URL (rol deriva_ci)." >&2
+            exit 1
+          fi
+          abiertas=$(psql "$DERIVA_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "
+            select c.relname
+            from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity = false
+            order by c.relname
+          ")
+          if [ -n "$abiertas" ]; then
+            echo "Tablas de public SIN RLS activada (pg_default_acl da acceso directo a 'authenticated'):" >&2
+            echo "$abiertas" >&2
+            exit 1
+          fi
+          echo "Las 236+ tablas de public tienen RLS activada."
