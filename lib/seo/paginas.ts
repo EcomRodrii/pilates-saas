@@ -110,7 +110,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/control-de-asistencia', '/funcionalidades/gestion-de-instructoras', '/funcionalidades/clases-recurrentes'],
+    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/control-de-asistencia', '/funcionalidades/gestion-de-instructoras', '/funcionalidades/clases-recurrentes', '/soluciones/estudio-de-pilates-reformer'],
   },
   {
     path: '/funcionalidades/gestion-de-instructoras',
@@ -162,7 +162,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: ACTUALIZADO_1_03,
-    relacionadas: ['/funcionalidades/bonos-y-membresias', '/funcionalidades/clases-recurrentes', '/funcionalidades/reservas-online'],
+    relacionadas: ['/funcionalidades/bonos-y-membresias', '/funcionalidades/clases-recurrentes', '/funcionalidades/reservas-online', '/soluciones/estudio-de-pilates-reformer'],
   },
   {
     path: '/funcionalidades/clases-recurrentes',
@@ -332,9 +332,9 @@ export const PAGINAS: PaginaSeo[] = [
     // /funcionalidades y /comparativa. La intención local la cubre ahora
     // /network/instructoras/ciudad/barcelona.
     path: '/',
-    titulo: 'Software de Gestión para Estudios de Pilates',
+    titulo: 'Software de gestión para estudios de Pilates | Tentare',
     descripcion:
-      'Gestiona tu estudio de Pilates con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
+      'Reservas desde la app de tu estudio, cobros que se reintentan solos y bajas que se cubren. Software de gestión para estudios de Pilates, desde 29 €/mes.',
     grupo: 'home',
     etiqueta: 'Inicio',
     prioridad: 1,
@@ -565,7 +565,40 @@ export const PAGINAS: PaginaSeo[] = [
     prioridad: 0.6,
     changeFrequency: 'monthly',
     actualizado: '2026-08-15',
-    relacionadas: ['/funcionalidades/sustituciones', '/precios', '/comparativa'],
+    relacionadas: ['/funcionalidades/sustituciones', '/soluciones/estudio-de-pilates-reformer', '/precios', '/comparativa'],
+  },
+  // Página pilar del estudio de REFORMER (fase 5 del rediseño, 23-sep). No
+  // compite con la home («software de gestión para estudios de Pilates»): la
+  // intención aquí es la del estudio boutique de máquinas —plaza por reformer,
+  // aforo por sala, plazas fijas—, que es el cliente principal y no tenía
+  // página propia.
+  {
+    path: '/soluciones/estudio-de-pilates-reformer',
+    titulo: 'Software para estudios de Pilates reformer: plaza por máquina | Tentare',
+    descripcion:
+      'Reservas con plaza por reformer, aforo por sala, plazas fijas, lista de espera automática y sustituciones de instructoras. Para estudios de Pilates reformer en España, desde 29 €/mes.',
+    grupo: 'soluciones',
+    etiqueta: 'Estudio de Pilates reformer',
+    resumen: 'Cada reformer, una plaza: aforo por sala, plazas fijas y lista de espera.',
+    prioridad: 0.8,
+    changeFrequency: 'monthly',
+    actualizado: '2026-09-23',
+    relacionadas: ['/funcionalidades/plazas-fijas', '/funcionalidades/calendario-y-salas', '/funcionalidades/lista-de-espera', '/funcionalidades/sustituciones', '/soluciones'],
+  },
+  // Índice de /soluciones: hasta el 23-sep era un 404 aunque colgaran de él
+  // tres páginas.
+  {
+    path: '/soluciones',
+    titulo: 'Soluciones de Tentare por tipo de estudio | Tentare',
+    descripcion:
+      'Tentare para cada tipo de estudio: Pilates reformer, Yoga, varios centros o quien viene de otro software. Reservas, cobros y sustituciones con precio público.',
+    grupo: 'soluciones',
+    etiqueta: 'Soluciones',
+    resumen: 'Tentare según el tipo de estudio.',
+    prioridad: 0.6,
+    changeFrequency: 'monthly',
+    actualizado: '2026-09-23',
+    relacionadas: ['/soluciones/estudio-de-pilates-reformer', '/soluciones/estudio-de-yoga', '/soluciones/cambiar-de-software', '/funcionalidades/multi-centro'],
   },
   {
     path: '/recursos',

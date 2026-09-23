@@ -162,9 +162,11 @@ const figtree = Figtree({
 // barcelona (una vez arreglado su canonical, mismo audit, hallazgo 1).
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
-  title: 'Software de Gestión para Estudios de Pilates',
+  // Con la marca al final (fase 5, 23-sep): era el único título del sitio sin
+  // «Tentare», y es el de la página que más busca la marca.
+  title: 'Software de gestión para estudios de Pilates | Tentare',
   description:
-    'Gestiona tu estudio de Pilates con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
+    'Reservas desde la app de tu estudio, cobros que se reintentan solos y bajas que se cubren. Software de gestión para estudios de Pilates, desde 29 €/mes.',
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
