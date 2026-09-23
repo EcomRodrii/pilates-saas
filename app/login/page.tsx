@@ -279,6 +279,15 @@ export default function LoginPage() {
         setCuentaDeNetwork(true);
         return;
       }
+      // Sin estudio, sin equipo y sin perfil de Network (p. ej. entró con Google
+      // sin haber creado nunca el suyo): antes seguía a /dashboard y allí
+      // «Esta cuenta no tiene ningún estudio» con un solo enlace, a Network. Lo
+      // que le falta es montar el estudio, y /crear-estudio reconoce la sesión y
+      // le ahorra la cuenta.
+      if (resultado?.tipo === 'cuenta-nueva') {
+        window.location.href = '/crear-estudio';
+        return;
+      }
       window.location.href = resultado?.destino ?? '/dashboard';
     });
   }, [session, user, loading]);

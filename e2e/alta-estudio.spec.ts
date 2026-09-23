@@ -381,3 +381,96 @@ test.describe('Login termina una alta a medias (pending_studio)', () => {
     expect(borroPendingStudio, 'con el estudio ya creado, la metadata SÍ debe limpiarse').toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quien llega con la sesión ya abierta y SIN estudio (entró con Google desde
+// /login, o dejó el alta a medias tras crear la cuenta).
+//
+// ⚠️ El callejón que esto cierra: esa persona aterrizaba en el panel con «Esta
+// cuenta no tiene ningún estudio» y un único enlace, a Network. Justo quien
+// venía a montar el suyo se quedaba sin salida (una de las cuatro cuentas
+// creadas entre el 16 y el 22-sep entró así y nunca tuvo estudio). Ahora
+// /login la manda a /crear-estudio y allí no se le pide otra cuenta.
+//
+// Todos llevan CONTADOR: «no se creó una cuenta nueva» sería verdad también si
+// la pantalla no hubiera hecho nada.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Con la sesión ya abierta, montar el estudio no pide otra cuenta', () => {
+  const STORAGE_KEY = 'sb-example-auth-token';
+
+  async function seedSesion(page: Page) {
+    await page.addInitScript((key) => {
+      localStorage.setItem(key, JSON.stringify({
+        access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
+        expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
+        user: {
+          id: 'auth-e2e-lucia', email: 'lucia@example.com', aud: 'authenticated', role: 'authenticated',
+          app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
+        },
+      }));
+    }, STORAGE_KEY);
+  }
+
+  test('dos pasos, sin cuenta ni código, y termina con el estudio creado', async ({ page }) => {
+    let altas = 0;
+    let estudiosCreados = 0;
+    let preguntasDestino = 0;
+    await seedSesion(page);
+    await page.route('**/auth/v1/signup**', route => { altas += 1; return json(route, ALTA_PENDIENTE_DE_EMAIL); });
+    await page.route('**/api/auth/destino-post-login**', route => { preguntasDestino += 1; return json(route, { tipo: 'cuenta-nueva' }); });
+    await page.route('**/rest/v1/rpc/slug_estudio_disponible**', route => json(route, true));
+    await page.route('**/rest/v1/**', route => json(route, []));
+    await page.route('**/rest/v1/studios**', route => {
+      if (route.request().method() !== 'POST') return json(route, []);
+      estudiosCreados += 1;
+      return json(route, [{ id: 's1', slug: 'estudio-aurora' }], 201);
+    });
+
+    await page.goto('/crear-estudio');
+    await expect.poll(() => preguntasDestino).toBeGreaterThan(0);
+    await expect(page.getByText('lucia@example.com')).toBeVisible();
+    await expect(page.getByLabel('Paso 1 de 2')).toBeVisible();
+
+    await rellenarPaso1(page);
+    await page.getByRole('button', { name: /días gratis/ }).click();
+
+    await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible({ timeout: 15_000 });
+    expect(estudiosCreados, 'el estudio se crea de verdad, no solo se anuncia').toBe(1);
+    expect(altas, 'no se crea otra cuenta: ya hay sesión').toBe(0);
+    await expect(page.getByRole('heading', { name: 'Tu cuenta' })).toHaveCount(0);
+  });
+
+  test('si la cuenta ya tiene estudio, no hay nada que montar: al panel', async ({ page }) => {
+    let preguntasDestino = 0;
+    await seedSesion(page);
+    await page.route('**/api/auth/destino-post-login**', route => { preguntasDestino += 1; return json(route, { tipo: 'entra', destino: '/dashboard' }); });
+    await page.route('**/rest/v1/**', route => json(route, []));
+
+    await page.goto('/crear-estudio');
+    await expect.poll(() => preguntasDestino).toBeGreaterThan(0);
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+  });
+
+  test('sin sesión el alta es la de siempre: tres pasos', async ({ page }) => {
+    let preguntasDestino = 0;
+    await page.route('**/api/auth/destino-post-login**', route => { preguntasDestino += 1; return json(route, { tipo: 'cuenta-nueva' }); });
+    await page.goto('/crear-estudio');
+    await expect(page.getByLabel('Paso 1 de 3')).toBeVisible();
+    // Sin sesión ni siquiera se pregunta: la pantalla no cambia de modo.
+    await page.waitForTimeout(500);
+    expect(preguntasDestino).toBe(0);
+  });
+
+  test('/login manda a crear el estudio a quien entra sin tener ninguno', async ({ page }) => {
+    let preguntasDestino = 0;
+    await seedSesion(page);
+    await page.route('**/api/auth/destino-post-login**', route => { preguntasDestino += 1; return json(route, { tipo: 'cuenta-nueva' }); });
+    await page.route('**/rest/v1/**', route => json(route, []));
+
+    // `commit` y no `load`: /login redirige por sí sola, y esa navegación aborta
+    // la carga que `goto` estaba esperando.
+    await page.goto('/login', { waitUntil: 'commit' });
+    await expect.poll(() => preguntasDestino).toBeGreaterThan(0);
+    await expect(page).toHaveURL(/\/crear-estudio/, { timeout: 15_000 });
+  });
+});
