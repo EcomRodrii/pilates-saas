@@ -8,7 +8,7 @@ import { FAQ_ITEMS } from '@/components/landing/data';
 // al de producción. Aquí se usa FAQ_ITEMS entero (13, la fuente real que ya
 // usa /precios y la landing en producción) en vez de retipear una variante
 // del mismo contenido: dos copias del mismo texto solo pueden desincronizarse.
-// Desde el 23-sep son 8 (eran 14), cruzadas con el código (ver data.tsx).
+// Desde el 23-sep son 8 (eran 14), cruzadas con el código (ver data.ts).
 //
 // ⚠️ Están TODAS y a la vista (plegadas, pero en la página): alimentan el
 // JSON-LD `FAQPage` de StructuredData, y Google pide que ese contenido se vea.
