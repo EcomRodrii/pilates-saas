@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
-import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera, TZ_ESTUDIO } from '@/lib/utils';
+import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, hoyEnEstudio, capitalizarPrimera, TZ_ESTUDIO } from '@/lib/utils';
 import { horaParedAInstante } from '@/lib/citas/slots';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
 import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
@@ -1037,9 +1037,16 @@ export default function Calendario() {
       tipoClaseId: sesionActual.tipoClaseId,
       salaId: sesionActual.salaId,
       instructorId: sesionActual.instructorId,
-      fecha: localDate(ini),
-      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
-      horaFin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`,
+      // R-3: `fecha`/`horaInicio`/`horaFin` alimentan `toISO`, que ahora ancla
+      // a TZ_ESTUDIO — así que hay que EXTRAERLOS también en hora del estudio
+      // (horaEstudio/hoyEnEstudio), no en la del navegador/proceso. Con
+      // `localDate`/`getHours()` (zona del navegador) y un proceso en otra
+      // zona (el runner de CI, en UTC), el redondeo no cerraba: no tocar nada
+      // volvía a computar un instante distinto y disparaba `cambioHora` en
+      // falso.
+      fecha: hoyEnEstudio(ini),
+      horaInicio: horaEstudio(ini),
+      horaFin: horaEstudio(fin),
       aforoMaximo: sesionActual.aforoMaximo,
       notas: sesionActual.notas ?? '',
       repetir: false,
@@ -1059,9 +1066,10 @@ export default function Calendario() {
       tipoClaseId: origen.tipoClaseId,
       salaId: origen.salaId,
       instructorId: origen.instructorId,
-      fecha: localDate(addDays(ini, 7)),
-      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
-      horaFin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`,
+      // R-3: mismo motivo que openEdit — hora del estudio, no del navegador.
+      fecha: hoyEnEstudio(addDays(ini, 7)),
+      horaInicio: horaEstudio(ini),
+      horaFin: horaEstudio(fin),
       aforoMaximo: origen.aforoMaximo,
       notas: '',
       repetir: false,
@@ -1476,7 +1484,10 @@ export default function Calendario() {
       const cambios: CambioClaseSerie[] = [];
       for (const s of sesionesEnriquecidas) {
         if (s.serieId !== base.serieId || s.inicio < base.inicio) continue;
-        const nuevoInicioS = toISO(localDate(new Date(s.inicio)), form.horaInicio);
+        // R-3: misma extracción en hora del estudio que openEdit — si no,
+        // este cálculo compara instantes de dos husos distintos y detecta
+        // un cambio de hora que no es real.
+        const nuevoInicioS = toISO(hoyEnEstudio(new Date(s.inicio)), form.horaInicio);
         const cambioHora = s.inicio !== nuevoInicioS;
         const cambioSala = s.salaId !== form.salaId;
         // ⚠️ El cambio de INSTRUCTORA entra en la condición, y antes no estaba:
