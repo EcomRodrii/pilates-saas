@@ -17,6 +17,7 @@ import { detectarConflictos, hayConflicto } from '@/lib/calendar-logic';
 import {
   construirAgendaDelDia, resumirDia, type ClaseDelDia, type SesionAgenda,
 } from '@/lib/hoy-agenda';
+import { recogerAgendaPrecargada } from '@/lib/agenda-precarga';
 import {
   capitalizarPrimera, cn, fechaLargaEstudio, finDelDiaEstudio, horaEstudio,
   hoyEnEstudio, inicioDelDiaEstudio, masDias,
@@ -103,10 +104,13 @@ export function HoyEnElEstudio() {
     let vivo = true;
     (async () => {
       try {
-        const res = await fetch(
-          `/api/calendario?desde=${encodeURIComponent(inicioDelDiaEstudio(fecha))}&hasta=${encodeURIComponent(finDelDiaEstudio(fecha))}`,
-          { headers: await authHeader() },
-        );
+        const url = `/api/calendario?desde=${encodeURIComponent(inicioDelDiaEstudio(fecha))}&hasta=${encodeURIComponent(finDelDiaEstudio(fecha))}`;
+        // El armazón del panel ya pidió el día de hoy mientras cargaba el
+        // arranque (`lib/agenda-precarga.ts`). Se recoge de un solo uso: el
+        // segundo viaje —cambiar de día, o refrescar tras rellenar un hueco—
+        // es siempre una petición de verdad, así que esto no puede servir un
+        // dato viejo.
+        const res = await (recogerAgendaPrecargada(url) ?? fetch(url, { headers: await authHeader() }));
         if (!res.ok) throw new Error(String(res.status));
         const json: unknown = await res.json();
         if (!vivo) return;
