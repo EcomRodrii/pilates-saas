@@ -65,8 +65,9 @@ const SIZES_DESTACADA = '(max-width: 572px) calc(100vw - 92px), 480px';
 
 export default function RecursosPage() {
   const [cat, setCat] = useState<Category>('todos');
-  // Lee ?q= una vez al montar para que el SearchAction del WebSite JSON-LD
-  // (components/OrganizationStructuredData.tsx) sea real, no solo declarado.
+  // Lee ?q= una vez al montar: un enlace a /recursos?q=… llega ya filtrado.
+  // (Lo anunciaba un SearchAction del JSON-LD, retirado el 23-sep: Google ya no
+  // pinta ese cuadro de búsqueda. El ?q= se queda porque no cuesta nada.)
   const [query, setQuery] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('q') ?? ''));
 
   const q = query.trim().toLowerCase();
