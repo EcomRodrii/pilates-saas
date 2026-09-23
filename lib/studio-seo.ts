@@ -59,6 +59,10 @@ export interface StudioSeo {
    *  Se valida al leerlo (`resolverApariencia`): aquí puede venir cualquier cosa. */
   aparienciaApp: unknown;
   logoUrl: string | null;
+  /** El favicon PUBLICADO del estudio (su símbolo, preparado al subirlo), ya
+   *  saneado por `getThemePublicado`. Es su icono en la pestaña, en la app
+   *  instalada y en la cabecera de su app. */
+  faviconUrl: string | null;
   slug: string;
   /**
    * Página pública oculta mientras el estudio la prepara.
@@ -170,6 +174,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // estudio SÍ tiene logo» no es alcanzable por ningún test. Ausente =
       // sin logo, como siempre.
       logoUrl: process.env.E2E_LOGO_URL ?? null,
+      faviconUrl: process.env.E2E_FAVICON_URL ?? null,
       slug,
       telefono: '+34 600 000 000', email: 'hola@studio-test.es',
       codigoPostal: '29001', descripcion: 'Estudio de prueba.',
@@ -297,6 +302,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     colorPrimario: colorMarcaDelEstudio(temaPublicado.primary, null, data.color_primario) ?? '#1A1A1A',
     aparienciaApp: temaPublicado.appAlumna ?? null,
     logoUrl: data.logo_url ?? null,
+    faviconUrl: temaPublicado.faviconUrl ?? null,
     slug: data.slug ?? slug,
     telefono: data.telefono ?? null,
     email: data.email ?? null,

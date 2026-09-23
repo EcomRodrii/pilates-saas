@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularCajaOpaca, mereceRecorte, UMBRAL_ALFA } from './recorte-alfa.ts';
+import { calcularCajaOpaca, encajeCentrado, fondoLiso, mereceRecorte, tintaClara, UMBRAL_ALFA } from './recorte-alfa.ts';
 
 /** Lienzo transparente con un rectángulo opaco dentro. */
 function lienzo(ancho: number, alto: number, dibujo?: { x: number; y: number; w: number; h: number; alfa?: number }) {
@@ -64,4 +64,73 @@ test('recorta si sobra en un solo lado, aunque el otro esté aprovechado', () =>
 
 test('sin caja no hay nada que recortar', () => {
   assert.equal(mereceRecorte(null, 100, 100), false);
+});
+
+// ── Fondo liso (logo exportado sin transparencia) ───────────────────────────
+
+const CREMA = { r: 245, g: 239, b: 232 };
+const TINTA = { r: 139, g: 111, b: 90 };
+
+/** Lienzo opaco de un color, con un rectángulo de otro dentro. */
+function opaco(ancho: number, alto: number, fondo: typeof CREMA, dibujo?: { x: number; y: number; w: number; h: number; color: typeof CREMA }) {
+  const px = new Uint8ClampedArray(ancho * alto * 4);
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < ancho; x++) {
+      const dentro = dibujo && x >= dibujo.x && x < dibujo.x + dibujo.w && y >= dibujo.y && y < dibujo.y + dibujo.h;
+      const c = dentro ? dibujo.color : fondo;
+      const i = (y * ancho + x) * 4;
+      px[i] = c.r; px[i + 1] = c.g; px[i + 2] = c.b; px[i + 3] = 255;
+    }
+  }
+  return px;
+}
+
+test('un logo sin transparencia: detecta su fondo crema y recorta el aire', () => {
+  // El caso medido: 1254×1254 crema y el dibujo en el centro. Por alfa todo es
+  // «dibujo», así que el recorte de antes no hacía nada.
+  const px = opaco(40, 40, CREMA, { x: 12, y: 8, w: 16, h: 20, color: TINTA });
+  assert.deepEqual(calcularCajaOpaca(px, 40, 40), { x: 0, y: 0, ancho: 40, alto: 40 });
+  const fondo = fondoLiso(px, 40, 40);
+  assert.deepEqual(fondo, CREMA);
+  assert.deepEqual(calcularCajaOpaca(px, 40, 40, UMBRAL_ALFA, fondo), { x: 12, y: 8, ancho: 16, alto: 20 });
+});
+
+test('el ruido de un JPG sigue contando como fondo', () => {
+  const px = opaco(20, 20, CREMA, { x: 5, y: 5, w: 4, h: 4, color: TINTA });
+  for (let i = 0; i < px.length; i += 4) px[i] = Math.min(255, px[i] + ((i / 4) % 7)); // ±6 por canal
+  const fondo = fondoLiso(px, 20, 20);
+  assert.ok(fondo);
+  assert.deepEqual(calcularCajaOpaca(px, 20, 20, UMBRAL_ALFA, fondo), { x: 5, y: 5, ancho: 4, alto: 4 });
+});
+
+test('un dibujo que llega al borde no tiene fondo que quitar', () => {
+  // Una foto, o un logo a sangre: recortar ahí sería comerse el dibujo.
+  const px = opaco(20, 20, CREMA, { x: 0, y: 0, w: 20, h: 8, color: TINTA });
+  assert.equal(fondoLiso(px, 20, 20), null);
+});
+
+test('un borde transparente lo resuelve el recorte por alfa, no este', () => {
+  assert.equal(fondoLiso(lienzo(20, 20, { x: 5, y: 5, w: 4, h: 4 }), 20, 20), null);
+});
+
+// ── El icono del estudio ────────────────────────────────────────────────────
+
+test('el símbolo va centrado, sin deformar, y ocupa el lienzo menos el margen', () => {
+  // Apaisado: manda el ancho.
+  assert.deepEqual(encajeCentrado(800, 400, 512, 0.08), { x: 41, y: 149, ancho: 430, alto: 215 });
+  // Vertical: manda el alto.
+  assert.deepEqual(encajeCentrado(300, 600, 512, 0.08), { x: 149, y: 41, ancho: 215, alto: 430 });
+  // Cuadrado a 64: 54 px de dibujo, 5 de aire por lado.
+  assert.deepEqual(encajeCentrado(900, 900, 64, 0.08), { x: 5, y: 5, ancho: 54, alto: 54 });
+});
+
+test('un símbolo en blanco sobre transparente no puede ir sobre blanco', () => {
+  const blanco = lienzo(10, 10, { x: 2, y: 2, w: 6, h: 6 });
+  for (let i = 0; i < blanco.length; i += 4) { blanco[i] = 255; blanco[i + 1] = 255; blanco[i + 2] = 255; }
+  assert.equal(tintaClara(blanco, 10, 10), true);
+});
+
+test('un símbolo oscuro sobre fondo crema sí va sobre blanco', () => {
+  const px = opaco(20, 20, CREMA, { x: 5, y: 5, w: 6, h: 6, color: TINTA });
+  assert.equal(tintaClara(px, 20, 20, fondoLiso(px, 20, 20)), false);
 });

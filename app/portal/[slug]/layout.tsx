@@ -7,7 +7,7 @@ import { estiloPorId, temaAppCssText } from '@/lib/student/apariencia';
 import { StudentProvider } from '@/components/student/contexto';
 import { ToastProvider } from '@/components/student/ui/Toast';
 import { RegistroSW } from '@/components/student/RegistroSW';
-import { urlIconoEstudio } from '@/lib/monograma-estudio';
+import { iconosDeEstudio } from '@/lib/monograma-estudio';
 import { veredictoPagina, nombreCookieAcceso } from '@/lib/publico/acceso-pagina';
 import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import './student.css';
@@ -58,8 +58,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!estudio) return { title: 'Estudio no encontrado' };
 
   const base = `/portal/${encodeURIComponent(slug)}`;
-  const iconoDe = (size: 32 | 192) =>
-    urlIconoEstudio(estudio.nombre, estudio.colorPrimario, size, estudio.logoUrl, baseSupabase());
   return {
     title: estudio.nombre,
     description: `Reserva tu clase en ${estudio.nombre}.`,
@@ -68,28 +66,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     // sirviendo a la web pública.
     manifest: `${base}/manifest.webmanifest`,
     appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: estudio.nombre },
-    // ⚠️ Con el LOGO del estudio, no solo con su inicial.
-    //
-    // `urlIconoEstudio` existía desde hace tiempo —con su validación anti-SSRF
-    // y sus tests—, y NADIE la llamaba: los cuatro sitios que pintan el icono
-    // usaban `urlMonograma`, que solo sabe de nombre y color. Resultado: un
-    // estudio que SÍ había subido su logo veía una inicial generada en la
-    // pantalla de inicio del móvil de sus alumnas.
-    //
-    // Sin logo, o con uno que no podemos servir, sigue cayendo al monograma —
-    // nunca al icono de Tentare, que es lo que este mecanismo vino a evitar.
-    // ⚠️ CON `sizes`, y con un 32 para la pestaña. Sin declarar tamaño, el
-    // navegador comparaba nuestro icono contra el `favicon.ico` de Tentare
-    // —que sí declara 48x48 y que Next inyecta en toda ruta, sin que una hija
-    // pueda quitarlo— y se quedaba con el de la plataforma. Ver el comentario
-    // de `TAMANOS_MONOGRAMA`.
-    icons: {
-      icon: [
-        { url: iconoDe(32), sizes: '32x32', type: 'image/png' },
-        { url: iconoDe(192), sizes: '192x192', type: 'image/png' },
-      ],
-      apple: iconoDe(192),
-    },
+    // Su icono › su logo › su inicial; nunca el de Tentare. ⚠️ Antes esto no
+    // leía el favicon que sube el estudio: pintaba el LOGO completo al 68 %
+    // sobre el color de la app, y ese marco de color era el favicon verde que
+    // se veía en la pestaña. Ver `iconosDeEstudio`.
+    icons: iconosDeEstudio(
+      estudio.nombre, estudio.colorPrimario,
+      { iconoUrl: estudio.iconoMarcaUrl, logoUrl: estudio.logoUrl }, baseSupabase(),
+    ),
     // La app de la alumna vive detrás de sesión: no se indexa. `/portal` ya
     // está en PREFIJOS_NO_INDEXABLES (lib/seo/paginas.ts), esto es el cinturón.
     robots: { index: false, follow: false },

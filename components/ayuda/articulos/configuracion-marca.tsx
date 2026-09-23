@@ -26,7 +26,7 @@ export default function Contenido() {
       <p>
         En Configuración &gt; Marca cada fila dice cómo lo tienes y, al tocarla, se abre para cambiarlo. «Logo y
         favicon» es la única que se guarda al momento: el archivo se sube en cuanto lo eliges, así que no hay nada que
-        confirmar después. El favicon es el icono de la pestaña de tu página de reservas. El nombre de tu estudio está
+        confirmar después. El favicon es tu icono: el de la pestaña, el que sale junto a tu nombre en la app de tus alumnas y el de su móvil. El nombre de tu estudio está
         en Configuración &gt; Mi estudio, en «Nombre y dirección».
       </p>
 

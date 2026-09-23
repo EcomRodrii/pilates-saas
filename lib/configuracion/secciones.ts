@@ -234,7 +234,7 @@ export const SECCIONES = [
     // como mucho seis: se partió en dos por dónde se lee cada frase.
     tarjetas: [
       // Era `marca`, que ahora es el id de la sección: su ancla vieja lleva aquí (destino.ts).
-      { id: 'logo-y-favicon', titulo: 'Logo y favicon', frase: 'Se aplican al momento: el logo, en la app de tus alumnas, y el favicon, en la pestaña de tu página de reservas.', guardado: 'al-pulsar', palabras: ['icono', 'imagen'] },
+      { id: 'logo-y-favicon', titulo: 'Logo y favicon', frase: 'Se aplican al momento: el favicon es tu icono en la pestaña y en la app de tus alumnas; el logo, en tus correos.', guardado: 'al-pulsar', palabras: ['icono', 'imagen'] },
       // Su id se queda (enlaces de la guía y de correos ya enviados), pero desde el
       // 22-sep es una pantalla propia: el estilo, el color, la tipografía y la
       // portada de la app de la alumna (/configuracion/apariencia).
