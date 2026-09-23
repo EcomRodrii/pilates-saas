@@ -10,6 +10,7 @@ import {
 import { calcularEstadoEspecialista } from '@/lib/decision/director';
 import { seleccionarPrioridadesHome } from '@/lib/decision/prioridad';
 import { fraseConfianza } from '@/lib/decision/copy';
+import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 import type { EspecialistaId, Impacto, Recomendacion } from '@/lib/decision/tipos';
 import type { ActividadReciente } from '@/lib/types';
 
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
 
   const now = new Date();
   const fechaHoy = now.toISOString().slice(0, 10);
-  const [resumenCompleto, pendientes, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes, nAutonomasHoy] = await Promise.all([
+  const [resumenCompleto, pendientesCrudos, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes, nAutonomasHoy] = await Promise.all([
     dbGetResumenDiarioReciente(sesion.studioId, now),
     dbListPendientes(sesion.studioId),
     requireSupabaseAdmin().from('actividad_reciente').select('*').eq('studio_id', sesion.studioId).order('creado_en', { ascending: false }).limit(10),
@@ -37,6 +38,19 @@ export async function GET(req: NextRequest) {
     dbListOutcomesRecientes(sesion.studioId, 3),
     dbCountAutonomasHoy(sesion.studioId, now),
   ]);
+
+  // MARKETING queda fuera de TODO lo que ve el cliente mientras el módulo
+  // siga congelado (`MARKETING_MODULE_ENABLED`, lib/feature-flags.ts) — mismo
+  // criterio que ya aplica `motor.ts` para no generarle candidatas nuevas.
+  // Sin este filtro, una recomendación vieja de cuando el módulo estuvo
+  // reactivado brevemente (ago-2026) seguía colándose como tarjeta real en
+  // "Recomendaciones de hoy" Y como especialista vivo en "Mi Equipo",
+  // prometiendo una campaña que /marketing no existe para cumplir (queja de
+  // producto, 23-sep-2026). Un solo filtro en el origen cubre los tres sitios
+  // que consumen `pendientes` de abajo.
+  const pendientes = MARKETING_MODULE_ENABLED
+    ? pendientesCrudos
+    : pendientesCrudos.filter(r => r.especialista !== 'MARKETING');
 
   // `estadoGeneral` es un dato interno del director (director.ts, para
   // redactar el saludo) sin ningún consumidor en el cliente desde que
@@ -84,9 +98,13 @@ export async function GET(req: NextRequest) {
   // Sembrado con los especialistas MVP activos (ESPECIALISTAS en
   // lib/decision/especialistas/contrato.ts): un especialista con 0 pendientes
   // igual muestra su tarjeta ("todo en orden"), no desaparece de Mi Equipo.
+  // MARKETING no se siembra mientras el módulo siga congelado: `pendientes`
+  // ya viene sin sus filas (filtro de arriba), así que si se sembrara vacío
+  // aquí aparecería como "especialista al día" en vez de no aparecer.
   const porEspecialistaMap = new Map<EspecialistaId, Recomendacion[]>([
     ['RETENCION', []], ['INGRESOS', []], ['AGENDA', []], ['CAPTACION', []],
-    ['FINANZAS', []], ['MARKETING', []], ['EQUIPO', []], ['ONBOARDING', []],
+    ['FINANZAS', []], ['EQUIPO', []], ['ONBOARDING', []],
+    ...(MARKETING_MODULE_ENABLED ? [['MARKETING', []] as [EspecialistaId, Recomendacion[]]] : []),
   ]);
   for (const r of pendientes) {
     const arr = porEspecialistaMap.get(r.especialista) ?? [];
