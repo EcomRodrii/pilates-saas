@@ -22,6 +22,8 @@ const REDES_SOCIALES_TENTARE = [
 // cuadrado y sin texto, como pide Google para el logo de una organización.
 export const ID_ORGANIZACION = `${LEGAL.url}/#organizacion`;
 export const ID_WEB = `${LEGAL.url}/#web`;
+/** El fundador (definido en /sobre-tentare); la organización lo enlaza por @id. */
+export const ID_FUNDADOR = `${LEGAL.url}/sobre-tentare#fundador`;
 export function OrganizationStructuredData() {
   const organizationLd = {
     '@context': 'https://schema.org',
@@ -29,6 +31,7 @@ export function OrganizationStructuredData() {
     '@id': ID_ORGANIZACION,
     name: LEGAL.marca,
     url: LEGAL.url,
+    founder: { '@id': ID_FUNDADOR },
     logo: { '@type': 'ImageObject', url: `${LEGAL.url}/icon-512.png`, width: 512, height: 512 },
     description: 'Software de gestión para estudios de Pilates y Yoga en España: reservas, cobros, bonos y sustituciones de instructoras.',
     email: LEGAL.email,

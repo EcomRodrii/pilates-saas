@@ -473,7 +473,7 @@ export const PAGINAS: PaginaSeo[] = [
     ['tentare-vs-mindbody', 'Mindbody', ['/funcionalidades/cobros-recurrentes', '/seguridad'],
       'Precio, permanencia, facturación Veri*factu, dónde se alojan tus datos y comisión por captar clientas — Tentare frente a Mindbody, punto por punto.'],
     ['tentare-vs-bsport', 'bsport', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'Precio, permanencia, facturación Veri*factu, dónde se alojan tus datos y sustitución de instructoras — Tentare frente a bsport, punto por punto.'],
+      'Cuánto cuesta bsport frente a Tentare, permanencia, facturación y sustitución de instructoras — comparados con lo que consta en la web pública de bsport.'],
     ['tentare-vs-momence', 'Momence', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
       'Precio real (con comisiones), facturación Veri*factu, dónde se alojan tus datos y sustitución de instructoras — Tentare frente a Momence, punto por punto.'],
     ['tentare-vs-timp', 'TIMP', ['/funcionalidades/sustituciones', '/funcionalidades/cobros-recurrentes'],
@@ -503,10 +503,18 @@ export const PAGINAS: PaginaSeo[] = [
       'Precio, permanencia, Veri*factu, gestión por reformer individual y sustitución de instructoras — Tentare frente a Flowstark, punto por punto.'],
   ] as const).map(([slug, nombre, relacionadasFuncionalidad, descripcion]): PaginaSeo => ({
     path: `/comparativa/${slug}`,
-    titulo: `Tentare vs ${nombre}: comparativa para estudios de Pilates en España`,
+    // bsport es la comparación que más se busca («bsport precio», «alternativa
+    // a bsport»): su título lo dice. El resto sigue la plantilla.
+    titulo: slug === 'tentare-vs-bsport'
+      ? 'Tentare vs bsport: precio, alternativas y comparativa para estudios de Pilates'
+      : `Tentare vs ${nombre}: comparativa para estudios de Pilates en España`,
     descripcion,
     grupo: 'software',
     etiqueta: `Tentare vs ${nombre}`,
+    // Solo con fecha las páginas cuyos datos del competidor se han contrastado
+    // con su web pública (visible en pantalla y en el JSON-LD). Las demás, sin
+    // fecha: una inventada sería peor que ninguna (ver `actualizado`).
+    ...(slug === 'tentare-vs-bsport' ? { actualizado: '2026-09-23' } : {}),
     prioridad: 0.7,
     changeFrequency: 'monthly',
     // /precios sigue alcanzable desde el footer de estas páginas — aquí el
@@ -638,6 +646,21 @@ export const PAGINAS: PaginaSeo[] = [
     actualizado: '2026-08-13',
     relacionadas: ['/recursos', '/funcionalidades'],
   },
+  // Página de entidad (fase 5b, 23-sep): quién hay detrás. La pide el autor de
+  // las guías y el JSON-LD de la organización (`founder`).
+  {
+    path: '/sobre-tentare',
+    titulo: 'Sobre Tentare: quién hay detrás del software para estudios de Pilates',
+    descripcion:
+      'Tentare es un software de gestión para estudios de Pilates y Yoga en España. Quién lo hace, cómo trabajamos (precio público, sin permanencia, soporte por personas) y cómo contactar.',
+    grupo: 'software',
+    etiqueta: 'Sobre Tentare',
+    resumen: 'Quién hay detrás y cómo trabajamos.',
+    prioridad: 0.5,
+    changeFrequency: 'yearly',
+    actualizado: '2026-09-23',
+    relacionadas: ['/seguridad', '/precios', '/comparativa'],
+  },
   {
     path: '/seguridad',
     titulo: 'Seguridad y privacidad — Tentare',
@@ -649,7 +672,7 @@ export const PAGINAS: PaginaSeo[] = [
     prioridad: 0.6,
     changeFrequency: 'monthly',
     actualizado: '2026-08-13',
-    relacionadas: ['/funcionalidades/ficha-de-clienta', '/comparativa'],
+    relacionadas: ['/funcionalidades/ficha-de-clienta', '/comparativa', '/sobre-tentare'],
   },
 
   // ── Centro de Ayuda ──────────────────────────────────────────────────────

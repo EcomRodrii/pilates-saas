@@ -5,10 +5,13 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
-import { ComparativaBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { ArticleFaq } from '@/components/recursos/ArticleFaq';
+import { ComparativaBreadcrumb, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { LogoTentare } from '@/components/marca/logo-tentare';
-import { relacionadasDe } from '@/lib/seo/paginas';
+import { paginaDe, relacionadasDe } from '@/lib/seo/paginas';
+import { ID_ORGANIZACION } from '@/components/OrganizationStructuredData';
+import { LEGAL } from '@/lib/legal-info';
 
 export type Verdict = 'yes' | 'no' | 'partial';
 
@@ -36,7 +39,8 @@ export function CompetitorPage({
   honestyIntro,
   honesty,
   footnote,
-  ctaBody = 'Migramos tus datos por ti. Sin permanencia. Sin sorpresas.',
+  faq,
+  ctaBody = 'Te ayudamos a traer tus datos. Sin permanencia. Sin sorpresas.',
 }: {
   name: string;
   slug: string;
@@ -49,13 +53,36 @@ export function CompetitorPage({
   honestyIntro: string;
   honesty: HonestyCard[];
   footnote: string;
+  /** Preguntas que la gente hace de VERDAD sobre este competidor («¿cuánto cuesta?», «¿alternativas?»). Opcional: sin ellas no se pinta ni se declara nada. */
+  faq?: { q: string; a: string }[];
   ctaBody?: string;
 }) {
   const relacionadas = relacionadasDe(`/comparativa/${slug}`);
+  const pagina = paginaDe(`/comparativa/${slug}`);
+  // Fecha de la última revisión de los datos del competidor (del registro): se ve
+  // en pantalla Y se declara en el JSON-LD. Un comparativa sin fecha es una
+  // afirmación sin caducidad, y es lo primero que un buscador con IA desconfía.
+  const revisada = pagina?.actualizado;
+  const revisadaTexto = revisada ? new Date(`${revisada}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : null;
+  const webPageLd = pagina ? {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: pagina.titulo,
+    description: pagina.descripcion,
+    url: `${LEGAL.url}/comparativa/${slug}`,
+    inLanguage: 'es-ES',
+    ...(revisada ? { dateModified: revisada } : {}),
+    isPartOf: { '@id': `${LEGAL.url}/#web` },
+    publisher: { '@id': ID_ORGANIZACION },
+    about: { '@type': 'SoftwareApplication', name: 'Tentare', url: LEGAL.url },
+    mentions: { '@type': 'SoftwareApplication', name },
+  } : null;
   return (
     <PageShell>
       <OrganizationStructuredData />
       <ComparativaBreadcrumb slug={slug} name={`Tentare vs ${name}`} />
+      {webPageLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageLd).replace(/</g, '\\u003c') }} />}
+      {faq && faq.length > 0 && <FaqStructuredData items={faq} />}
       <SiteNav backHref="/comparativa" backLabel="Toda la comparativa" />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,44px)' }}>
@@ -73,6 +100,7 @@ export function CompetitorPage({
           </div>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>{h1}</h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>{intro}</p>
+          {revisadaTexto && <p className="lp-mono" style={{ fontSize: 12, color: '#6B6B63', margin: '18px 0 0' }}>Datos del competidor revisados el {revisadaTexto}</p>}
         </div>
       </header>
 
@@ -82,7 +110,7 @@ export function CompetitorPage({
             <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '18px 20px', fontSize: 11, fontWeight: 600, color: '#8E8E86', textTransform: 'uppercase', letterSpacing: '.06em', background: '#F5F5F1', borderBottom: '1px solid #E7E7E0' }}>Para tu estudio</th>
+                  <th style={{ textAlign: 'left', padding: '18px 20px', fontSize: 11, fontWeight: 600, color: '#6B6B63', textTransform: 'uppercase', letterSpacing: '.06em', background: '#F5F5F1', borderBottom: '1px solid #E7E7E0' }}>Para tu estudio</th>
                   <th style={{ textAlign: 'left', padding: '18px 16px', fontSize: 13, fontWeight: 800, color: '#fff', background: ACC, borderBottom: `1px solid ${ACC}` }}>Tentare</th>
                   <th style={{ textAlign: 'left', padding: '18px 16px', fontSize: 12.5, fontWeight: 700, color: '#5A5A52', background: '#F5F5F1', borderBottom: '1px solid #E7E7E0' }}>{name}</th>
                 </tr>
@@ -92,13 +120,13 @@ export function CompetitorPage({
                   <tr key={r.feature}>
                     <td style={{ padding: '15px 20px', fontSize: 14, fontWeight: 600, borderBottom: i < rows.length - 1 ? '1px solid #EDEDE6' : undefined }}>{r.feature}</td>
                     <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#1A1A1A', background: '#F7F8F1', borderBottom: i < rows.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.tentare[0]} label={r.tentare[1]} /></td>
-                    <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < rows.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.them[0]} label={r.them[1]} /></td>
+                    <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#5A5A52', borderBottom: i < rows.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.them[0]} label={r.them[1]} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </Reveal>
-          <p className="lp-mono" style={{ fontSize: 11, color: '#A8A89F', margin: '16px 4px 0', lineHeight: 1.6 }}>{footnote}</p>
+          <p className="lp-mono" style={{ fontSize: 11, color: '#6B6B63', margin: '16px 4px 0', lineHeight: 1.6 }}>{footnote}</p>
         </div>
       </section>
 
@@ -128,7 +156,7 @@ export function CompetitorPage({
       {relacionadas.length > 0 && (
         <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,72px)' }}>
           <div style={{ maxWidth: 900, margin: '0 auto' }}>
-            <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#8E8E86', margin: '0 0 18px' }}>Sigue por aquí</h2>
+            <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#6B6B63', margin: '0 0 18px' }}>Sigue por aquí</h2>
             <div className="cmp1-rel">
               {relacionadas.map((r) => (
                 <Link key={r.path} href={r.path} className="cmp1-rel-card">
@@ -137,6 +165,15 @@ export function CompetitorPage({
                 </Link>
               ))}
             </div>
+          </div>
+        </section>
+      )}
+
+      {faq && faq.length > 0 && (
+        <section style={{ padding: 'clamp(48px,6vw,72px) clamp(20px,4vw,44px) 0' }}>
+          <div style={{ maxWidth: 640, margin: '0 auto' }}>
+            <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#6B6B63', margin: '0 0 16px' }}>Lo que se pregunta sobre {name}</h2>
+            <ArticleFaq items={faq} />
           </div>
         </section>
       )}
