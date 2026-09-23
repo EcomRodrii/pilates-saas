@@ -406,16 +406,17 @@ function FotoClase({
         onError={alFallarImagen(IMAGENES_CLASE.generica)}
       />
       {fecha && (
-        <>
-          {/* Solo por abajo y lo justo: la fecha va encima de una foto
-              cualquiera —una pared blanca al fondo— y sin velo no se lee. Un
-              velo parejo la oscurecía entera y la foto dejaba de ser foto. */}
-          <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-          <span className="absolute inset-x-0 bottom-1.5 flex flex-col items-center leading-none text-white">
-            <span className="text-[20px] font-bold tabular-nums drop-shadow">{fecha.numero}</span>
-            <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide opacity-95">{fecha.mes}</span>
-          </span>
-        </>
+        // ⚠️ Fondo PROPIO y no un velo en degradado. La primera versión ponía la
+        // fecha en blanco sobre la foto y confiaba en que la foto fuese oscura:
+        // sobre una pared blanca no se leía. `panel-contraste` lo cazó —mide el
+        // texto contra el fondo de su ancestro, y una foto no es un fondo que se
+        // pueda medir—, y tenía razón: lo que hay detrás de una foto subida por
+        // el estudio no lo controla nadie. Con su propia caja oscura el contraste
+        // está garantizado sea cual sea la foto.
+        <span className="absolute bottom-1.5 left-1.5 flex flex-col items-center rounded-md bg-black/70 px-1.5 py-1 leading-none text-white backdrop-blur-[2px]">
+          <span className="text-[17px] font-bold tabular-nums">{fecha.numero}</span>
+          <span className="mt-0.5 text-[8.5px] font-semibold uppercase tracking-wide">{fecha.mes}</span>
+        </span>
       )}
     </span>
   );
