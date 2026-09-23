@@ -378,6 +378,33 @@ test('clasesConHuecoProximas: LISTA_ESPERA no cuenta como ocupada (I-13)', () =>
   assert.equal(r[0].huecos, 10);
 });
 
+// `umbral: 1` es lo que pasa /api/marketing/hueco/avisar desde que se retiró el
+// radar de la home (23-sep-2026): el 0.7 por defecto era el filtro de
+// DESCUBRIMIENTO de aquella tarjeta, y como guardia de ENVÍO solo impedía llenar
+// las últimas plazas de una clase que va bien.
+test('clasesConHuecoProximas: con umbral 1 entra una clase casi llena, pero no una llena', () => {
+  const sesiones = [
+    sesion({ id: 'casi-llena', inicio: '2026-07-11T08:00:00.000Z', aforoMaximo: 10 }),
+    sesion({ id: 'llena', inicio: '2026-07-11T09:00:00.000Z', aforoMaximo: 10 }),
+  ];
+  const rs = [
+    ...Array.from({ length: 9 }, (_, i) => res({ sesionId: 'casi-llena', socioId: `a${i}`, estado: 'CONFIRMADA' })),
+    ...Array.from({ length: 10 }, (_, i) => res({ sesionId: 'llena', socioId: `b${i}`, estado: 'CONFIRMADA' })),
+  ];
+  // Con el 0.7 por defecto, la de 9/10 se rechazaba con «ya no tiene hueco»
+  // teniendo una plaza libre — el bug que motivó hacerlo explícito.
+  assert.equal(clasesConHuecoProximas({ sesiones, reservas: rs, ahora: AHORA_RADAR }).length, 0);
+
+  const r = clasesConHuecoProximas({ sesiones, reservas: rs, ahora: AHORA_RADAR, umbral: 1 });
+  assert.deepEqual(r.map(x => x.sesion.id), ['casi-llena']);
+  assert.equal(r[0].huecos, 1);
+});
+
+test('clasesConHuecoProximas: umbral 1 NO se salta la ventana de 48h', () => {
+  const sesiones = [sesion({ id: 'lejana', inicio: '2026-07-20T08:00:00.000Z', aforoMaximo: 10 })];
+  assert.equal(clasesConHuecoProximas({ sesiones, reservas: [], ahora: AHORA_RADAR, umbral: 1 }).length, 0);
+});
+
 test('clasesConHuecoProximas: ordena por ratio ascendente (más vacía primero)', () => {
   const sesiones = [
     sesion({ id: 'media', inicio: '2026-07-11T08:00:00.000Z', aforoMaximo: 10 }),

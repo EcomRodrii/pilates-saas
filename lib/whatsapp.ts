@@ -69,7 +69,7 @@ export async function enviarWhatsAppTexto(
 // aprobación — ver instrucciones en components/configuracion/tab-integraciones.tsx.
 export const PLANTILLA_RECORDATORIO = { nombre: 'recordatorio_clase', idioma: 'es' } as const;
 
-// Aviso de hueco libre («Rellenar hueco» de la home y el radar de ocupación).
+// Aviso de hueco libre («Rellenar hueco», en la agenda de la home).
 // Plantilla PROPIA y no la de recordatorio por dos motivos que no se pueden
 // juntar en una: el cuerpo es distinto (invita a reservar, no recuerda una
 // reserva que ya existe) y sobre todo la CATEGORÍA de Meta es distinta —

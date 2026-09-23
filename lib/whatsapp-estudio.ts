@@ -25,7 +25,7 @@ export interface FilaIntegracionWhatsApp {
 export interface WhatsAppDelEstudio extends WhatsAppCredenciales {
   /** `recordatorio_clase` (UTILITY) — cron de recordatorios de clase. */
   plantillaRecordatorio: boolean;
-  /** `hueco_disponible` (MARKETING) — radar de ocupación y «Rellenar hueco». */
+  /** `hueco_disponible` (MARKETING) — «Rellenar hueco» de la agenda de la home. */
   plantillaHueco: boolean;
   /** `sustitucion_urgente` (UTILITY) — aviso a la instructora candidata. */
   plantillaSustitucion: boolean;
