@@ -102,15 +102,21 @@ export default function AutomatizacionesPage() {
         </p>
       </Seccion>
 
-      <Seccion id="radar" titulo="El radar de ocupación: avisar a quien tiene sentido">
+      {/* `id="radar"` se queda aunque la sección ya no se llame así: es una URL
+          (#radar) que puede estar enlazada desde fuera, y romperla para cuadrar
+          un nombre interno no compensa. */}
+      <Seccion id="radar" titulo="Rellenar un hueco: avisar a quien tiene sentido">
         <p>
-          Hay un caso que merece mención aparte porque es donde más se nota la diferencia entre automatizar y hacer spam. El
-          radar vigila las próximas 48 horas y te enseña qué clases van por debajo del 70 % de ocupación.
+          Hay un caso que merece mención aparte porque es donde más se nota la diferencia entre automatizar y hacer spam. En
+          la agenda del día, cada clase con plazas libres lleva un botón: «Rellenar hueco». Pulsarlo no manda nada — abre la
+          lista de a quién ofrecérsela, con el motivo de cada una.
         </p>
         <Rejilla
+          columnas={3}
           items={[
-            { titulo: 'No avisa a toda la lista', body: 'Solo a socias con bono activo — pueden reservar de verdad — que ya han hecho antes esa clase y aceptaron recibir comunicaciones.' },
-            { titulo: 'Lo lanzas tú', body: 'El radar detecta y propone; el mensaje sale cuando lo mandas, por WhatsApp si lo tienes conectado y si no por email. La decisión de escribir sigue siendo tuya.' },
+            { titulo: 'Primero, quien ya esperaba', body: 'La lista de espera va antes que nadie y por orden: se le ofrece a la primera y, si no acepta a tiempo, pasa a la siguiente.' },
+            { titulo: 'No avisa a toda la lista', body: 'Solo a socias con bono o plan en vigor para ESA clase — pueden reservar de verdad —, que ya han venido antes y aceptaron recibir comunicaciones.' },
+            { titulo: 'Lo lanzas tú, viendo a quién', body: 'Ves los nombres y el porqué de cada una antes de escribir. Marcas a quién quieres y sale por WhatsApp si lo tienes conectado, y si no por email.' },
           ]}
         />
         <p>

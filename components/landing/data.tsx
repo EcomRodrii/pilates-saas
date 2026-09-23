@@ -72,10 +72,10 @@ export const RECORRIDO_ITEMS = [
   {
     n: '07',
     href: '/funcionalidades/automatizaciones-y-avisos',
-    eyebrow: 'Radar de ocupación',
-    title: 'Detecta el hueco. Avisa. Se llena.',
-    body: 'Tentare vigila las próximas 48h y te enseña qué clases están por debajo del 70% de aforo. Un toque y avisamos por WhatsApp solo a las socias con bono activo que ya han hecho esa clase antes — nada de spam a cualquiera.',
-    chips: ['Radar 48h', 'Aviso por WhatsApp'],
+    eyebrow: 'Rellenar huecos',
+    title: 'Ves el hueco. Eliges a quién. Se llena.',
+    body: 'Cada clase con plazas libres tiene un botón para rellenarla, y Tentare te enseña a quién ofrecérsela y por qué: la lista de espera primero, y luego quien tiene bono en vigor para esa clase y ya ha venido antes. Lo mandas tú, por WhatsApp o por email — nada de spam a cualquiera.',
+    chips: ['Sin spam', 'WhatsApp o email'],
   },
 ];
 
