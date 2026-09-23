@@ -315,6 +315,22 @@ test.describe('Student PWA · tu clase fija', () => {
     await expect(tarjeta.getByRole('link', { name: 'Escribir al estudio' })).toHaveAttribute('href', `${base}/mensajes`);
   });
 
+  test('su clase fija y cada próxima clase abren su ficha, como en el horario', async ({ page }) => {
+    await montarConClaseFija(page);
+    await page.goto(`${base}/bonos`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    // La clase fija lleva a la próxima que ya tiene reservada; cada próxima, a la suya.
+    await expect(tarjeta.getByRole('link', { name: 'Ver tu clase del jueves a las 10:00' })).toHaveAttribute('href', `${base}/reservar/ses-20`);
+    const proximas = tarjeta.getByTestId('proximas-clases-fijas');
+    await expect(proximas.getByTestId('enlace-clase-fija')).toHaveCount(3);
+    await expect(proximas.getByTestId('enlace-clase-fija').nth(1)).toHaveAttribute('href', `${base}/reservar/ses-21`);
+    // «No puedo asistir» sigue siendo un botón aparte: no abre la ficha.
+    await expect(proximas.getByRole('button', { name: 'No puedo asistir' })).toHaveCount(3);
+    await proximas.getByTestId('enlace-clase-fija').first().click();
+    await expect(page).toHaveURL(new RegExp(`${base}/reservar/ses-20$`), { timeout: 30_000 });
+  });
+
   test('«No puedo asistir» cancela SOLO esa semana y dice que su clase fija sigue', async ({ page }) => {
     await montarConClaseFija(page);
     const cancelaciones: Record<string, unknown>[] = [];
