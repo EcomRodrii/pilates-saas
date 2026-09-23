@@ -26,7 +26,8 @@ import {
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
 import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera, TZ_ESTUDIO } from '@/lib/utils';
-import { horaParedAInstante } from '@/lib/citas/slots';
+import { horaParedAInstante, fechaLocalDe } from '@/lib/citas/slots';
+import { horarioConNuevaHora } from '@/lib/serie-horario';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
 import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
 import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
@@ -389,7 +390,10 @@ function ModalClasesRecurrentes({
     while (cursor <= end) {
       if (form.diasSemana.includes(cursor.getDay())) {
         const dateStr = localDate(cursor);
-        const inicio = new Date(`${dateStr}T${form.horaInicio}:00`);
+        // R-3: mismo bug que crearSesion — anclar a la hora de Madrid, no a
+        // la del navegador. `fin` no necesita el mismo tratamiento: es
+        // `inicio` + una duración fija en ms, ajena a la zona.
+        const inicio = horaParedAInstante(dateStr, form.horaInicio, TZ_ESTUDIO);
         const fin = new Date(inicio.getTime() + form.duracion * 60000);
         out.push({
           tipoClaseId: form.tipoClaseId,
@@ -1037,9 +1041,13 @@ export default function Calendario() {
       tipoClaseId: sesionActual.tipoClaseId,
       salaId: sesionActual.salaId,
       instructorId: sesionActual.instructorId,
-      fecha: localDate(ini),
-      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
-      horaFin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`,
+      // R-3: hay que extraer fecha/hora en la MISMA zona (Madrid) con la que
+      // `toISO` las recombina al guardar — con `getHours()`/`localDate`
+      // (zona del navegador) no cambiar nada en el formulario desplazaba la
+      // sesión igual que el bug original, solo que al revés.
+      fecha: fechaLocalDe(ini),
+      horaInicio: horaEstudio(ini),
+      horaFin: horaEstudio(fin),
       aforoMaximo: sesionActual.aforoMaximo,
       notas: sesionActual.notas ?? '',
       repetir: false,
@@ -1059,9 +1067,11 @@ export default function Calendario() {
       tipoClaseId: origen.tipoClaseId,
       salaId: origen.salaId,
       instructorId: origen.instructorId,
-      fecha: localDate(addDays(ini, 7)),
-      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
-      horaFin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`,
+      // R-3: mismo motivo que openEdit — extraer en zona de Madrid, la misma
+      // que usa `toISO` al recombinar.
+      fecha: fechaLocalDe(addDays(ini, 7)),
+      horaInicio: horaEstudio(ini),
+      horaFin: horaEstudio(fin),
       aforoMaximo: origen.aforoMaximo,
       notas: '',
       repetir: false,
@@ -1095,11 +1105,12 @@ export default function Calendario() {
       tipoClaseId: origen.tipoClaseId,
       instructorId: origen.instructorId,
       salaId: origen.salaId,
-      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
+      // R-3: mismo motivo que openEdit — extraer en zona de Madrid.
+      horaInicio: horaEstudio(ini),
       duracion: Math.round((fin.getTime() - ini.getTime()) / 60_000),
       diasSemana,
-      fechaInicio: localDate(inicioCopia),
-      fechaFin: localDate(finCopia),
+      fechaInicio: fechaLocalDe(inicioCopia),
+      fechaFin: fechaLocalDe(finCopia),
       aforoMaximo: origen.aforoMaximo,
     });
     setShowRecurrentes(true);
@@ -1476,7 +1487,11 @@ export default function Calendario() {
       const cambios: CambioClaseSerie[] = [];
       for (const s of sesionesEnriquecidas) {
         if (s.serieId !== base.serieId || s.inicio < base.inicio) continue;
-        const nuevoInicioS = toISO(localDate(new Date(s.inicio)), form.horaInicio);
+        // R-3: mismo motivo que openEdit — `localDate` (zona del navegador)
+        // desplazaba esto igual que el bug original. Aquí, además, es
+        // exactamente lo que ya resuelve serie-horario.ts (mismo propósito:
+        // conservar la fecha local del estudio, cambiar solo la hora).
+        const nuevoInicioS = horarioConNuevaHora(s.inicio, form.horaInicio, form.horaFin).inicio;
         const cambioHora = s.inicio !== nuevoInicioS;
         const cambioSala = s.salaId !== form.salaId;
         // ⚠️ El cambio de INSTRUCTORA entra en la condición, y antes no estaba:
