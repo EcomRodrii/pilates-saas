@@ -8,7 +8,11 @@
 // en vez de un spread — lo que hay en localStorage lo puede editar cualquiera
 // desde las herramientas del navegador.
 
-const CLAVE = 'tentare-onboarding-wizard';
+// `-v2`: el ORDEN de las preguntas cambió (cobro pasó al final) y el borrador
+// guarda el paso por índice. Con la clave vieja, quien tuviera uno a medias
+// reanudaría en otra pregunta y con las respuestas desplazadas.
+const CLAVE = 'tentare-onboarding-wizard-v2';
+const CLAVE_ANTERIOR = 'tentare-onboarding-wizard';
 const CADUCA_MS = 1000 * 60 * 60 * 24 * 3; // 3 días: pasado eso, mejor repetir que arrastrar respuestas viejas.
 const MAX_TEXTO = 60; // ninguna opción real del wizard se acerca a esto.
 
@@ -97,6 +101,7 @@ export function olvidarProgresoWizard(): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem(CLAVE);
+    window.localStorage.removeItem(CLAVE_ANTERIOR);
   } catch {
     // Ver guardarProgresoWizard.
   }

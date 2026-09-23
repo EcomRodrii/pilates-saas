@@ -105,3 +105,44 @@ test('«Clase suelta» y «doy clases» llegan al ejecutor, no se quedan por el 
   expect(cuerpo.usaClaseSuelta).toBe(true);
   expect(cuerpo.imparteClases).toBe(true);
 });
+
+// Las tres últimas preguntas (cobro, prioridad, ayuda) no configuran lo que hace
+// falta para programar una clase, así que van al final y se pueden saltar. Con
+// contador: saltar NO puede significar «no guardar lo que ya contestó».
+test('«Saltar lo que queda» guarda lo contestado y no exige cobro, prioridad ni ayuda', async ({ page }) => {
+  const { configurar } = await montar(page);
+  await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible({ timeout: 30_000 });
+
+  const aElegir = ['1 sala', '8 plazas', '50 minutos', 'Reformer'];
+  for (let i = 0; i < 40; i++) {
+    if (await page.getByText('¿Cómo cobras a tus alumnas?').count() > 0) break;
+    let pulsado = false;
+    for (const etiqueta of aElegir) {
+      const b = page.getByRole('button', { name: etiqueta });
+      if (await b.count() > 0) { await b.first().click(); aElegir.splice(aElegir.indexOf(etiqueta), 1); pulsado = true; break; }
+    }
+    if (!pulsado) await page.keyboard.press('Enter');
+    await page.waitForTimeout(140);
+  }
+  await expect(page.getByText('¿Cómo cobras a tus alumnas?')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Saltar lo que queda' }).click();
+
+  await expect.poll(() => configurar.length, { timeout: 15_000 }).toBeGreaterThan(0);
+  const cuerpo = configurar.at(-1)!;
+  expect(cuerpo.tiposClase).toEqual(['Reformer']);
+  expect(cuerpo.numSalas).toBe(1);
+  // Lo que se saltó no se inventa.
+  expect(cuerpo.usaBonos).toBe(false);
+  expect(cuerpo.usaMembresias).toBe(false);
+  expect(cuerpo.usaClaseSuelta).toBe(false);
+});
+
+test('«Saltar lo que queda» solo aparece en las tres preguntas opcionales del final', async ({ page }) => {
+  await montar(page);
+  await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Saltar lo que queda' })).toHaveCount(0);
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('¿Cuántas salas tienes?')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Saltar lo que queda' })).toHaveCount(0);
+});
