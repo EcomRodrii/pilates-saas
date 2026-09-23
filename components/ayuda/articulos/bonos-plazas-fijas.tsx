@@ -35,7 +35,7 @@ export default function Contenido() {
       <h2 style={h2}>Qué ve tu alumna</h2>
       <p>
         En su app se llama <strong>«clase fija»</strong>. Las suyas las ve en <strong>Mis clases → «Fijas»</strong>
-        (y un resumen en Inicio): con su día y su hora, lee que <strong>su plaza está reservada automáticamente cada semana y que no necesita reservar esa clase</strong>.
+        (y un resumen en la primera pantalla de su app): con su día y su hora, lee que <strong>su plaza está reservada automáticamente cada semana y que no necesita reservar esa clase</strong>.
         Debajo tiene sus <strong>próximas clases</strong> ya reservadas —las que el sistema le tiene apartadas—, cada una con
         un botón <strong>«No puedo asistir»</strong> que cancela solo esa semana: su clase fija sigue activa y la semana
         siguiente vuelve a tener su plaza. Si cancela a tiempo y su cuota le limita las clases por semana, se le guarda una{' '}
