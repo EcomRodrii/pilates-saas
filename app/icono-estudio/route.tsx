@@ -31,15 +31,19 @@ const LOGO_MAX_BYTES = 2 * 1024 * 1024;
  * antes se sabe si hay imagen, y si no la hay se cae al monograma, que es un
  * icono de verdad.
  *
- * SVG queda fuera: `ImageResponse` no lo rasteriza, así que un logo en SVG
- * daría exactamente ese cuadrado vacío. Para esos, la inicial.
+ * Solo PNG y JPEG: son los formatos que `ImageResponse` sabe pintar. Un SVG
+ * daba ese cuadrado vacío, y un WEBP algo peor: una respuesta 200 de CERO
+ * bytes con caché de un año (medido en producción con el favicon de un
+ * estudio). Con otro formato se pasa al siguiente candidato.
  */
+const PINTABLES = ['image/png', 'image/jpeg'];
+
 async function comoDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, { cache: 'force-cache' });
     if (!res.ok) return null;
     const tipo = (res.headers.get('content-type') ?? '').split(';')[0].trim();
-    if (!tipo.startsWith('image/') || tipo === 'image/svg+xml') return null;
+    if (!PINTABLES.includes(tipo)) return null;
     const bytes = new Uint8Array(await res.arrayBuffer());
     if (bytes.byteLength === 0 || bytes.byteLength > LOGO_MAX_BYTES) return null;
     // Por trozos: `String.fromCharCode(...bytes)` con un logo de cientos de

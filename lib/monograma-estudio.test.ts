@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  inicialDe, coloresMonograma, tamanoValido, urlMonograma, urlIconoEstudio, iconosDeEstudio, logoServible,
+  inicialDe, coloresMonograma, tamanoValido, urlMonograma, urlIconoEstudio, iconosDeEstudio, logoServible, VERSION_ICONO,
   COLOR_MONOGRAMA_POR_DEFECTO,
 } from './monograma-estudio.ts';
 
@@ -89,7 +89,7 @@ test('con logo servible, el icono lo lleva en la URL', () => {
 test('sin logo servible se cae al monograma, no a la marca de la plataforma', () => {
   for (const malo of [null, undefined, '', 'https://evil.example/x.png']) {
     const u = urlIconoEstudio('Studio Carmen', '#343825', 512, { iconoUrl: malo, logoUrl: malo }, BASE);
-    assert.equal(u, urlMonograma('Studio Carmen', '#343825', 512));
+    assert.equal(u, `${urlMonograma('Studio Carmen', '#343825', 512)}&r=${VERSION_ICONO}`);
     assert.ok(!u.includes('logo=') && !u.includes('icono='));
   }
 });
@@ -102,10 +102,16 @@ test('sin logo servible se cae al monograma, no a la marca de la plataforma', ()
 
 const ICONO = `${BASE}/storage/v1/object/public/avatars/favicon-abc?v=2`;
 
-test('con icono y logo, el icono va primero', () => {
+test('con icono y logo van los dos: la ruta prueba el icono y, si no puede, el logo', () => {
+  // Un favicon en WEBP no lo sabe pintar `ImageResponse`: con solo el icono en
+  // la URL, la ruta devolvía 200 con CERO bytes (medido en producción).
   const u = urlIconoEstudio('Studio Carmen', '#216338', 64, { iconoUrl: ICONO, logoUrl: LOGO }, BASE);
   assert.ok(u.includes(`icono=${encodeURIComponent(ICONO)}`), u);
-  assert.ok(!u.includes('logo='), u);
+  assert.ok(u.includes(`logo=${encodeURIComponent(LOGO)}`), u);
+});
+
+test('la URL lleva la versión de la ruta: los iconos mal pintados no se quedan en caché un año', () => {
+  assert.ok(urlIconoEstudio('Studio Carmen', '#216338', 64, { iconoUrl: ICONO }, BASE).includes(`r=${VERSION_ICONO}`));
 });
 
 test('un icono de fuera no se sirve: cae al logo, no a una URL libre', () => {
