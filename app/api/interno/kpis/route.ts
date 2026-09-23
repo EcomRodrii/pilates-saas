@@ -100,9 +100,15 @@ export async function GET(req: NextRequest) {
   // reservas), y con `limit(1)` por estudio: basta saber si hay UNA. Bajarse
   // todas las reservas de la plataforma para contar por estudio sería leer
   // miles de filas para responder sí o no.
-  const primeraReserva = await Promise.all(
-    conActividad.map(s => db.from('reservas').select('id').eq('studio_id', s.id as string).limit(1)),
-  );
+  //
+  // De 10 en 10, no todas a la vez: el número de estudios crece y una ráfaga de
+  // cientos de consultas simultáneas es justo lo que ya ha dado 504 en esta base.
+  const primeraReserva: { data: { id: unknown }[] | null; error: unknown }[] = [];
+  for (let i = 0; i < conActividad.length; i += 10) {
+    primeraReserva.push(...await Promise.all(
+      conActividad.slice(i, i + 10).map(s => db.from('reservas').select('id').eq('studio_id', s.id as string).limit(1)),
+    ));
+  }
   if (primeraReserva.some(r => r.error)) noLeidos.push('reservasPorEstudio');
   const activadoPorEstudio = new Map<string, boolean>(
     conActividad.map((s, i) => [s.id as string, estudioActivado({ numReservas: primeraReserva[i].data?.length ?? 0 })]),
