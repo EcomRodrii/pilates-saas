@@ -168,7 +168,7 @@ async function main() {
       const r = await crearEstudioComoAdmin(u.id, pending);
       await admin.auth.admin.updateUserById(u.id, { user_metadata: { ...u.user_metadata, pending_studio: null } });
       if (r.yaExistia) { yaExistian++; console.log(`  → ya existía, metadata limpiada.`); }
-      else { creados++; console.log(`  → creado: tentare.app/${r.slug}`); }
+      else { creados++; console.log(`  → creado: tentare.app/reservar/${r.slug}`); }
     } catch (e) {
       fallidos++;
       console.error(`  → FALLÓ:`, e instanceof Error ? e.message : e);

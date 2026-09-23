@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  borradorFinEtapa, borradorInvitadas, borradorVentaEtapa, diasParaFinEtapa,
+  borradorFinEtapa, borradorInvitadas, borradorVentaEtapa, diasParaFinEtapa, enlaceReservas,
   hrefMensajeria, leerBorradorMensajeria, tocaAvisarAbrimos, tocaRecordarFinEtapa,
 } from './comunicaciones.ts';
 import { detectarAlertas } from './alertas.ts';
@@ -73,4 +73,11 @@ test('«abrimos mañana» solo encendido, la víspera y con fecha exacta', () =>
   assert.equal(tocaAvisarAbrimos({ encendido: true, diasHastaApertura: 2, fechaAproximada: false }), false);
   assert.equal(tocaAvisarAbrimos({ encendido: true, diasHastaApertura: 0, fechaAproximada: false }), false);
   assert.equal(tocaAvisarAbrimos({ encendido: true, diasHastaApertura: 1, fechaAproximada: true }), false);
+});
+
+test('enlaceReservas apunta a /reservar/{slug}: tentare.app/{slug} a secas da 404', () => {
+  // Fuera del navegador cae al dominio canónico. El alta enseñaba
+  // «tentare.app/{slug}» justo cuando la propietaria iba a compartirlo.
+  assert.equal(enlaceReservas('mi-estudio'), 'https://www.tentare.app/reservar/mi-estudio');
+  assert.equal(enlaceReservas('a b'), 'https://www.tentare.app/reservar/a%20b');
 });

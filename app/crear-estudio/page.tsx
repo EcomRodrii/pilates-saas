@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, Loader2, Mail, RotateCcw, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy, Loader2, Mail, RotateCcw, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
@@ -14,6 +14,8 @@ import { LogoTentare } from '@/components/marca/logo-tentare';
 import { SelectorPlan } from '@/components/planes/selector-plan';
 import { HojaComparativa } from '@/components/planes/comparativa-planes';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
+import { enlaceReservas } from '@/lib/opening/comunicaciones';
+import { copiarAlPortapapeles } from '@/lib/utils';
 import { type Plan } from '@/lib/billing/entitlements';
 import {
   BORRADOR_ALTA,
@@ -78,6 +80,8 @@ export default function CrearEstudioPage() {
   const [tocado, setTocado] = useState(false);
   const [comparativaAbierta, setComparativaAbierta] = useState(false);
   const [slugCreado, setSlugCreado] = useState<string | null>(null);
+  // null = sin intentar; false = el navegador no dejó copiar.
+  const [enlaceCopiado, setEnlaceCopiado] = useState<boolean | null>(null);
   // El email al que se mandó el código. Fuente ÚNICA: se fija con el valor que
   // se usó en `signUp()`, no se vuelve a leer del formulario. Si se leyera de
   // `datos.email`, cambiarlo en el campo después de enviar haría que la
@@ -380,10 +384,34 @@ export default function CrearEstudioPage() {
             Tienes {TRIAL_DIAS} días de prueba con todo abierto. No hemos pedido tarjeta y no se te va a cobrar nada.
           </p>
           {slugCreado && (
-            <p className="mt-4 rounded-xl bg-muted px-4 py-3 text-[13px] text-muted-foreground">
-              La dirección de tus alumnas será{' '}
-              <span className="font-semibold text-foreground">tentare.app/{slugCreado}</span>
-            </p>
+            // ⚠️ Decía «tentare.app/{slug}», que da 404: la página pública vive
+            // en /reservar/{slug}. Justo aquí es donde la propietaria apunta el
+            // enlace para mandárselo a sus alumnas, así que sale del mismo
+            // helper que el resto del panel y no se escribe a mano.
+            <div className="mt-4 rounded-xl bg-muted px-4 py-3 text-[13px] text-muted-foreground">
+              <p>La dirección de tus alumnas será</p>
+              <p
+                data-testid="enlace-reservas-alta"
+                className="mt-1 select-all break-all font-semibold text-foreground"
+              >
+                {enlaceReservas(slugCreado)}
+              </p>
+              <button
+                type="button"
+                onClick={() => void copiarAlPortapapeles(enlaceReservas(slugCreado)).then(setEnlaceCopiado)}
+                className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-secondary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                {enlaceCopiado ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+                {enlaceCopiado ? 'Enlace copiado' : 'Copiar enlace'}
+              </button>
+              {/* Safari puede negar el portapapeles: nunca decir «copiado» sin
+                  que lo esté. El enlace sigue arriba, seleccionable a mano. */}
+              {enlaceCopiado === false && (
+                <p role="status" className="mt-1 text-[11.5px]">
+                  Tu navegador no deja copiar: mantén pulsado el enlace para copiarlo.
+                </p>
+              )}
+            </div>
           )}
           <a
             href="/dashboard"
