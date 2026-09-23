@@ -18,8 +18,8 @@ export const ID_BLOG = `${LEGAL.url}/recursos#blog`;
 
 const IDIOMA = 'es-ES';
 
-/** El autor, tal como firma la cabecera de cada guía (ArticleShell) y consta en /legal. */
-export const AUTOR = { '@type': 'Person', name: 'Marcos Roca', jobTitle: 'Fundador de Tentare', url: `${LEGAL.url}/legal` } as const;
+/** El autor, tal como firma la cabecera de cada guía (ArticleShell). Su página es /sobre-tentare (antes apuntaba al aviso legal). */
+export const AUTOR = { '@type': 'Person', '@id': `${LEGAL.url}/sobre-tentare#fundador`, name: 'Marcos Roca', jobTitle: 'Fundador de Tentare', url: `${LEGAL.url}/sobre-tentare` } as const;
 
 /** Logo del editor: el lockup horizontal que ya sirve public/ (1200×319). */
 export const PUBLISHER = {
