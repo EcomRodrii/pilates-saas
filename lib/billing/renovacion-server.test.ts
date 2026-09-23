@@ -375,7 +375,9 @@ function fuente(ruta: string): string {
 }
 
 test('créditos: los tres confirmadores de cobro de servidor pasan por aplicarRenovacionServidor', () => {
-  for (const ruta of ['./stripe-cobros.ts', './confirmar-cobro.ts', './dunning-server.ts']) {
-    assert.match(fuente(ruta), /await aplicarRenovacionServidor\(admin, \{/, ruta);
-  }
+  // Desde el dueño único (`confirmarCobro`), la renovación es el primer efecto
+  // de un cobro confirmado; los otros dos caminos entran por él.
+  assert.match(fuente('./confirmar-cobro.ts'), /renovar: aplicarRenovacionServidor/, 'el dueño único renueva');
+  assert.match(fuente('./stripe-cobros.ts'), /await cerrarCobroOffSession\(admin, \{/, 'tarjeta guardada / SEPA síncrono');
+  assert.match(fuente('./dunning-server.ts'), /export \{ confirmarCobroExitoso \} from '\.\/confirmar-cobro\.ts'/, 'webhook y dunning');
 });

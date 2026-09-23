@@ -25,8 +25,8 @@ import { hoyEnEstudio } from '../utils.ts';
 import { escaparLike } from '../escapar-like.ts';
 import { cicloInicialDe } from '../bono-logic.ts';
 import type { PlanTarifa } from '../types.ts';
-import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
-import type { FuenteConfirmacion } from './confirmar-cobro.ts';
+import { aplicarEfectosCobro, type DependenciasEfectos, type FuenteConfirmacion } from './confirmar-cobro.ts';
+import { facturaIdCheckout } from './cobro-confirmado-reglas.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 import { confirmarPlazaPorRef } from '../opening/cupo.ts';
 import { idsDe } from './ids-compra.ts';
@@ -204,6 +204,8 @@ export { idsDe };
 export async function entregarPlanComprado(
   admin: SupabaseClient,
   compra: CompraPlan,
+  /** Solo para tests: sustituir efectos que salen a la red (aviso, email). */
+  deps: Partial<DependenciasEfectos> = {},
 ): Promise<ResultadoEntrega> {
   const { data: plan, error: errPlan } = await admin
     .from('planes_tarifa')
@@ -451,26 +453,32 @@ export async function entregarPlanComprado(
   }
 
   // P-6 (auditoría 21ª pasada): la compra web nacía fuera del ciclo de
-  // conciliación que F-12/F-13 unificó para el resto de caminos de cobro
-  // (`confirmarCobroRecibo`) — nunca sellaba factura ni marcaba
-  // `conciliado_en`. Mismo orden fijo, mismo criterio de "best-effort, NUNCA
-  // deshace el cobro si falla": el dinero ya entró, no sellar es un problema
-  // de facturación, no de caja. Un fallo deja `factura_pendiente_sellar` a
-  // `true` para que `reintentarFacturasPendientesDeSellar` (el conciliador
-  // horario) lo recoja, igual que cualquier otro camino de cobro.
-  const selladoFactura = await sellarFacturaDeRecibo(admin, {
-    studioId: compra.studioId, reciboId: ids.reciboId, facturaId: `fac-checkout-${ids.reciboId}`,
-  });
+  // conciliación del resto de caminos de cobro — nunca sellaba factura ni
+  // marcaba `conciliado_en`.
   const { error: errConciliado } = await admin.from('recibos').update({
     conciliado_en: ahora, conciliado_por: compra.fuente,
-    ...(selladoFactura.ok ? {} : { factura_pendiente_sellar: true }),
   }).eq('id', ids.reciboId).eq('studio_id', compra.studioId);
   if (errConciliado) {
     console.error('[entregarPlanComprado] sin marca de conciliación:', errConciliado.message);
   }
-  if (!selladoFactura.ok) {
-    console.error('[entregarPlanComprado] cobro OK pero factura sin sellar:', selladoFactura.error);
-  }
+
+  // Los efectos del cobro los aplica el dueño único (`aplicarEfectosCobro`,
+  // lib/billing/confirmar-cobro.ts), no una copia local: factura (con
+  // `factura_pendiente_sellar` si falla, para el conciliador horario), aviso
+  // y email, en ese orden. La entrega ya está hecha arriba (`renovar: false`)
+  // y una compra de alta nunca es una renovación.
+  //
+  // El compare-and-set de ESTA vía es el INSERT del recibo: sin error, esta
+  // llamada lo creó; 23505, es un reintento (webhook reentregado, o el
+  // conciliador llegando detrás). Solo quien lo creó manda el email, que no
+  // es idempotente: antes el webhook lo reenviaba en cada reentrega. El resto
+  // de efectos sí se repite, porque lo son y reparan un intento a medias.
+  await aplicarEfectosCobro(admin, {
+    studioId: compra.studioId, reciboId: ids.reciboId, metodo: compra.metodoCobro ?? 'TARJETA',
+    origen: compra.fuente, facturaId: facturaIdCheckout(ids.reciboId),
+    avisarSocia: !errRec, renovar: false,
+    recibo: { socioId, esRenovacion: false },
+  }, deps);
 
   // Créditos de «Renovar plan»: comprar en la tienda web un plan que ya tenía
   // (y que terminó hace 60 días o menos) cuenta como renovarlo. Lo decide la
@@ -506,19 +514,20 @@ export async function entregarPlanComprado(
       // un dinero que ya cobró.
       console.error('[entregarPlanComprado] matrícula cobrada pero no anotada:', errMat.message);
     } else {
-      const selladoMatricula = await sellarFacturaDeRecibo(admin, {
-        studioId: compra.studioId, reciboId: ids.reciboMatriculaId, facturaId: `fac-checkout-${ids.reciboMatriculaId}`,
-      });
       const { error: errConciliadoMat } = await admin.from('recibos').update({
         conciliado_en: ahora, conciliado_por: compra.fuente,
-        ...(selladoMatricula.ok ? {} : { factura_pendiente_sellar: true }),
       }).eq('id', ids.reciboMatriculaId).eq('studio_id', compra.studioId);
       if (errConciliadoMat) {
         console.error('[entregarPlanComprado] matrícula sin marca de conciliación:', errConciliadoMat.message);
       }
-      if (!selladoMatricula.ok) {
-        console.error('[entregarPlanComprado] matrícula cobrada pero factura sin sellar:', selladoMatricula.error);
-      }
+      // Solo su factura: la matrícula no renueva nada ni da créditos, y el
+      // aviso y el justificante ya salen con el recibo del plan.
+      await aplicarEfectosCobro(admin, {
+        studioId: compra.studioId, reciboId: ids.reciboMatriculaId, metodo: compra.metodoCobro ?? 'TARJETA',
+        origen: compra.fuente, facturaId: facturaIdCheckout(ids.reciboMatriculaId),
+        avisarSocia: false, renovar: false, notificar: false,
+        recibo: { socioId, esRenovacion: false },
+      }, deps);
     }
   }
 

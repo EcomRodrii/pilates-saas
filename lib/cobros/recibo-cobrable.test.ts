@@ -18,6 +18,7 @@ import { join } from 'node:path';
 // uno miraba al otro. Esto los ata.
 
 import { ESTADOS_COBRABLES } from '../billing/deuda-recibo.ts';
+import { estadosAdmitidosPorOrigen } from '../billing/cobro-confirmado-reglas.ts';
 
 const raiz = join(import.meta.dirname, '..', '..');
 const leer = (p: string) => readFileSync(join(raiz, p), 'utf8');
@@ -113,14 +114,23 @@ test('el checkout de la socia no es más estricto que el panel', () => {
 });
 
 test('el confirmador acepta TODO lo que el checkout deja pagar', () => {
+  // Lo que confirma Stripe (webhook, conciliador, TPV) tiene que casar cada
+  // estado que el checkout deja pagar: si no, se cobra el dinero y el UPDATE
+  // no entrega nada. Se comprueba contra la lista compartida, no un literal.
+  for (const origen of ['webhook', 'conciliador', 'tpv'] as const) {
+    const admitidos = estadosAdmitidosPorOrigen(origen);
+    for (const estado of ESTADOS_COBRABLES) {
+      assert.ok(admitidos.includes(estado),
+        `${origen} no admite ${estado}: la socia podría pagarlo y quedarse sin entrega.`);
+    }
+  }
+  // Y que el único escritor use esa regla en su UPDATE, no una lista propia.
   const fuente = sinComentarios(leer('lib/billing/confirmar-cobro.ts'));
-  const bloque = fuente.slice(fuente.indexOf('export async function confirmarCobroRecibo'));
+  const bloque = fuente.slice(fuente.indexOf('export async function confirmarCobro('));
   const cuerpo = bloque.slice(0, bloque.indexOf('\n}\n'));
-  // Se exige la derivación, no el literal: una lista escrita a mano aquí
-  // volvería a poder divergir del checkout sin que nada se entere.
-  assert.match(cuerpo, /\.in\('estado', \[\.\.\.ESTADOS_COBRABLES/,
-    'confirmarCobroRecibo tiene que derivar sus estados de ESTADOS_COBRABLES: si el checkout '
-    + 'deja pagar un estado que este UPDATE no casa, se cobra el dinero y no se entrega nada.');
+  assert.match(cuerpo, /\.in\('estado', estadosAdmitidosPorOrigen\(/,
+    'confirmarCobro tiene que filtrar por estadosAdmitidosPorOrigen: una lista escrita a mano '
+    + 'volvería a poder divergir del checkout sin que nada se entere.');
   // Y que las guardas de reembolso sigan ahí: aceptar DEVUELTO no puede
   // significar resucitar un recibo que se le devolvió a la socia.
   assert.match(cuerpo, /\.is\('reembolso_stripe_id', null\)/);
