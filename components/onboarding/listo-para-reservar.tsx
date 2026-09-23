@@ -24,10 +24,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, ArrowRight, Check, Copy, ExternalLink, MessageCircle } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, Copy, ExternalLink, MessageCircle, Share2 } from 'lucide-react';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { avisoVentaOnline } from '@/lib/onboarding';
+import { capturarEvento } from '@/lib/posthog-cliente';
 
 // El móvil de la vista previa. Se dibuja a tamaño de teléfono de verdad
 // (iPhone 14/15, el más común entre las alumnas) y se encoge para caber.
@@ -75,6 +76,7 @@ export function ListoParaReservar({
   const copiar = useCallback(async () => {
     setError(null);
     if (await copiarAlPortapapeles(url)) {
+      capturarEvento('enlace_compartido', { via: 'copiar' });
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2200);
       return;
@@ -84,6 +86,30 @@ export function ListoParaReservar({
     // con el portapapeles vacío es peor que no decir nada.
     setError('No hemos podido copiar. Selecciona el enlace y cópialo a mano.');
   }, [url]);
+
+  // La hoja nativa de compartir (WhatsApp, Instagram, Mensajes…) solo donde es
+  // lo natural: un móvil o una tableta. En escritorio existe a medias y un
+  // botón «Compartir» que abre un menú raro es peor que copiar. Este componente
+  // solo se pinta en el navegador (portal a <body>), así que no hay SSR aquí.
+  const puedeCompartirNativo = typeof navigator !== 'undefined'
+    && typeof navigator.share === 'function'
+    && typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+
+  const compartir = useCallback(async () => {
+    setError(null);
+    try {
+      await navigator.share({
+        title: nombreEstudio,
+        text: `¡Ya puedes reservar tus clases en ${nombreEstudio}!`,
+        url,
+      });
+      capturarEvento('enlace_compartido', { via: 'nativo' });
+    } catch (e) {
+      // Cerrar la hoja sin elegir nada NO es un fallo, y no cuenta como compartido.
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      setError('No hemos podido abrir el menú de compartir. Copia el enlace y pégalo donde quieras.');
+    }
+  }, [url, nombreEstudio]);
 
   const textoWhatsApp = encodeURIComponent(
     `¡Ya puedes reservar tus clases en ${nombreEstudio}! Entra aquí y elige la que quieras: ${url}`,
@@ -120,7 +146,7 @@ export function ListoParaReservar({
         </h2>
         <p className="mx-auto mt-2 max-w-[520px] text-[14px] leading-relaxed text-muted-foreground">
           {clasesCreadas > 0
-            ? <>Has dejado <strong className="text-foreground">{clasesCreadas} clases</strong> programadas. Tu página está abierta: cualquiera con este enlace puede reservar.</>
+            ? <>Has dejado <strong className="text-foreground">{clasesCreadas === 1 ? '1 clase' : `${clasesCreadas} clases`}</strong> {clasesCreadas === 1 ? 'programada' : 'programadas'}. Tu página está abierta: cualquiera con este enlace puede reservar.</>
             : <>Tu página está abierta: cualquiera con este enlace puede reservar.</>}
         </p>
         {aviso && (
@@ -137,6 +163,16 @@ export function ListoParaReservar({
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
             Tu enlace de reservas
           </p>
+          {puedeCompartirNativo && (
+            <button
+              type="button"
+              onClick={() => void compartir()}
+              className="mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-brand px-5 text-[14.5px] font-bold text-brand-foreground transition-all hover:brightness-95"
+            >
+              <Share2 size={16} aria-hidden />
+              Compartir mi enlace
+            </button>
+          )}
           <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5">
             <span className="min-w-0 flex-1 truncate text-[13px] text-foreground" title={url}>{url}</span>
             <button
@@ -160,6 +196,7 @@ export function ListoParaReservar({
               href={`https://wa.me/?text=${textoWhatsApp}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => capturarEvento('enlace_compartido', { via: 'whatsapp' })}
               className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-medio hover:underline"
             >
               <MessageCircle size={14} aria-hidden />

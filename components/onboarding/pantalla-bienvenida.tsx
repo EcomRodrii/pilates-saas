@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { capturarEvento } from '@/lib/posthog-cliente';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { Volume2, VolumeX } from 'lucide-react';
 import { IconButton } from '@/components/ui/icon-button';
@@ -790,7 +791,13 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
       return;
     }
     olvidarProgresoWizard();
-  }, [updateStudio]);
+    // ⚠️ Antes no se navegaba: «Ahora no» sellaba la bienvenida y la dejaba en
+    // un panel sin salas ni tipos de clase, lejos del único sitio donde se
+    // programa. El calendario vacío ya le pregunta lo mínimo y le propone el
+    // horario — y es donde se mide que salte y luego programe.
+    capturarEvento('bienvenida_saltada');
+    router.push('/calendario');
+  }, [updateStudio, router]);
 
   const avanzar = useCallback(() => {
     const e = engineRef.current;

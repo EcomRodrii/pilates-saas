@@ -19,10 +19,16 @@
 // sería ruido.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useMemo, useState } from 'react';
-import { CalendarPlus, Sparkles, Upload } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { CalendarPlus, Loader2, Sparkles, Upload } from 'lucide-react';
 import Link from 'next/link';
+import { authHeader } from '@/lib/api-client';
+import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { DIAS_SEMANA } from '@/lib/onboarding/horario-propuesto';
+import {
+  OPCIONES_AFORO, OPCIONES_DURACION, OPCIONES_SALAS, TIPOS_CLASE_SUGERIDOS,
+  interpretarRespuestasWizard, planificarConfiguracion, type PlanConfiguracion,
+} from '@/lib/onboarding/plan-configuracion';
 import { PropuestaHorario, type ResultadoPropuesta } from '@/components/onboarding/propuesta-horario';
 import { ListoParaReservar } from '@/components/onboarding/listo-para-reservar';
 
@@ -66,20 +72,85 @@ export function PrimerHorario({
   // Cuántas clases acaba de crear. `null` = todavía no ha creado ninguna.
   const [reciénCreadas, setReciénCreadas] = useState<number | null>(null);
 
+  // Lo que se le pregunta AQUÍ cuando el estudio llega vacío. Sin tipos de clase
+  // esta pantalla era un callejón: solo un enlace a Configuración, y «Ahora no»
+  // del asistente lo dejaba justo así. Sin respuesta no se inventa nada (regla 2
+  // de plan-configuracion.ts): ni aforo, ni duración, ni tipos por defecto.
+  const [clasesSel, setClasesSel] = useState<string[]>([]);
+  const [duracionSel, setDuracionSel] = useState<string | null>(null);
+  const [salasSel, setSalasSel] = useState<string | null>(null);
+  const [aforoSel, setAforoSel] = useState<string | null>(null);
+  const [montando, setMontando] = useState(false);
+  const [errorMontaje, setErrorMontaje] = useState<string | null>(null);
+  // Lo que acabamos de crear. El contexto del panel no lo tiene hasta recargar,
+  // así que la propuesta se monta con esto y no con las props.
+  const [montado, setMontado] = useState<PlanConfiguracion | null>(null);
+
+  const tiposEf = montado && tiposClase.length === 0
+    ? montado.tiposClase.map((t) => ({ nombre: t.nombre, duracionMinutos: t.duracionMinutos }))
+    : tiposClase;
+  const salasEf = montado && salas.length === 0
+    ? montado.salas.map((s) => ({ nombre: s.nombre, capacidad: s.capacidad }))
+    : salas;
+
+  const faltanTipos = tiposEf.length === 0;
+  const faltanSalas = salasEf.length === 0;
+  const preguntasCompletas =
+    (!faltanTipos || (clasesSel.length > 0 && duracionSel != null))
+    && (!faltanSalas || (salasSel != null && aforoSel != null));
+
   const entrada = useMemo(() => ({
     dias,
     horaApertura,
     horaCierre,
-    duracionMinutos: tiposClase[0]?.duracionMinutos ?? 50,
-    tiposClase: tiposClase.map((t) => t.nombre),
+    duracionMinutos: tiposEf[0]?.duracionMinutos ?? 50,
+    tiposClase: tiposEf.map((t) => t.nombre),
     // Cada sala con SU aforo: antes iba solo el de la primera y todo acababa
     // en ella (evaluación del 13-sep).
-    salas: salas.map((s) => ({ nombre: s.nombre, capacidad: s.capacidad })),
+    salas: salasEf.map((s) => ({ nombre: s.nombre, capacidad: s.capacidad })),
     instructora,
-  }), [dias, horaApertura, horaCierre, tiposClase, salas, instructora]);
+  }), [dias, horaApertura, horaCierre, tiposEf, salasEf, instructora]);
 
-  // Sin tipos de clase no hay nada que proponer: lo primero es crearlos.
-  const puedeProponer = puedeCrear && tiposClase.length > 0;
+  // Sin tipos de clase o sin salas hay que preguntarlo primero (abajo), pero ya
+  // no es un callejón: la propuesta se ofrece igual, tras esas preguntas.
+  const puedeProponer = puedeCrear;
+
+  // Crea SOLO lo que ella acaba de elegir (idempotente por nombre, misma ruta y
+  // mismo plan que el asistente) y sigue a la propuesta. Ninguna CLASE se
+  // programa hasta que confirme la propuesta.
+  async function prepararYProponer() {
+    if (montando) return;
+    if (!faltanTipos && !faltanSalas) { setProponiendo(true); return; }
+    setErrorMontaje(null);
+    // El estado de carga se enciende antes del await.
+    setMontando(true);
+    try {
+      const respuestas = interpretarRespuestasWizard({
+        ...(faltanSalas ? { salas: salasSel ?? undefined, aforos: aforoSel ? [aforoSel] : [] } : {}),
+        ...(faltanTipos ? { clases: clasesSel, duracion: duracionSel ?? undefined } : {}),
+      });
+      const plan = planificarConfiguracion(respuestas);
+      const res = await fetch('/api/onboarding/configurar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ ...respuestas, origen: 'calendario' }),
+      });
+      const cuerpo = await res.json().catch(() => null) as { ok?: boolean; nada?: boolean; error?: string } | null;
+      // Se comprueba la respuesta: seguir a una propuesta con un catálogo que no
+      // existe acabaría en «no se ha podido crear» sin saber por qué.
+      if (!res.ok || !cuerpo?.ok || cuerpo.nada) {
+        setErrorMontaje(cuerpo?.error ?? 'No hemos podido preparar tus clases. Puedes crearlas en Configuración.');
+        return;
+      }
+      setMontado(plan);
+      setProponiendo(true);
+    } catch (e) {
+      capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'onboarding-calendario' } });
+      setErrorMontaje('No hemos podido preparar tus clases. Comprueba tu conexión e inténtalo de nuevo.');
+    } finally {
+      setMontando(false);
+    }
+  }
 
   // ⚠️ El momento de valor va AQUÍ y no en un toast. Antes, confirmar el
   // horario enseñaba «Horario creado: 80 clases» y devolvía a la rejilla —
@@ -95,7 +166,13 @@ export function PrimerHorario({
         slug={slug}
         nombreEstudio={nombreEstudio}
         clasesCreadas={reciénCreadas}
-        onSeguir={() => { const n = reciénCreadas; setReciénCreadas(null); onCreado(n); }}
+        onSeguir={() => {
+          // Si el catálogo se ha creado aquí, el panel aún no lo conoce (tipos de
+          // clase y salas salen del contexto, que solo se carga al entrar): sin
+          // recargar, el formulario de «nueva clase» saldría sin tipos.
+          if (montado) { window.location.assign('/calendario'); return; }
+          const n = reciénCreadas; setReciénCreadas(null); onCreado(n);
+        }}
       />
     );
   }
@@ -140,9 +217,42 @@ export function PrimerHorario({
           <div className="mt-6 rounded-2xl border border-border bg-card p-5 text-left">
             <p className="text-[13.5px] font-bold text-foreground">Te lo montamos nosotros</p>
             <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
-              Dinos qué días abres y te preparamos un horario con tus clases. Lo ves antes de crear nada.
+              {faltanTipos || faltanSalas
+                ? 'Contesta lo justo y te preparamos un horario. Guardamos lo que elijas aquí, pero no se programa ninguna clase hasta que confirmes la propuesta.'
+                : 'Dinos qué días abres y te preparamos un horario con tus clases. Lo ves antes de crear nada.'}
             </p>
-            <div className="mt-3.5 flex flex-wrap gap-1.5" role="group" aria-label="Días que abres">
+
+            {faltanTipos && (
+              <>
+                <Pregunta titulo="¿Qué clases das?">
+                  {TIPOS_CLASE_SUGERIDOS.map((t) => (
+                    <Opcion key={t} activa={clasesSel.includes(t)} alPulsar={() => setClasesSel((v) => (v.includes(t) ? v.filter((x) => x !== t) : [...v, t]))}>{t}</Opcion>
+                  ))}
+                </Pregunta>
+                <Pregunta titulo="¿Cuánto dura una clase?">
+                  {OPCIONES_DURACION.map((o) => (
+                    <Opcion key={o} activa={duracionSel === o} alPulsar={() => setDuracionSel(o)}>{o}</Opcion>
+                  ))}
+                </Pregunta>
+              </>
+            )}
+            {faltanSalas && (
+              <>
+                <Pregunta titulo="¿Cuántas salas tienes?">
+                  {OPCIONES_SALAS.map((o) => (
+                    <Opcion key={o} activa={salasSel === o} alPulsar={() => setSalasSel(o)}>{o}</Opcion>
+                  ))}
+                </Pregunta>
+                <Pregunta titulo="¿Cuántas plazas tiene cada sala?" ayuda="El aforo limita las reservas. Si tus salas son distintas, lo ajustas en Configuración.">
+                  {OPCIONES_AFORO.map((o) => (
+                    <Opcion key={o} activa={aforoSel === o} alPulsar={() => setAforoSel(o)}>{o}</Opcion>
+                  ))}
+                </Pregunta>
+              </>
+            )}
+
+            <p className="mt-4 text-[12.5px] font-semibold text-foreground">¿Qué días abres?</p>
+            <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Días que abres">
               {DIAS_SEMANA.map((d) => {
                 const activo = dias.includes(d.dow);
                 return (
@@ -165,13 +275,16 @@ export function PrimerHorario({
             </div>
             <button
               type="button"
-              disabled={dias.length === 0}
-              onClick={() => setProponiendo(true)}
+              disabled={dias.length === 0 || !preguntasCompletas || montando}
+              onClick={() => void prepararYProponer()}
               className="mt-4 inline-flex h-10 items-center gap-2 rounded-full bg-brand px-4 text-[13.5px] font-bold text-brand-foreground transition-all hover:brightness-95 disabled:opacity-50"
             >
-              <Sparkles size={15} aria-hidden />
+              {montando ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Sparkles size={15} aria-hidden />}
               Ver el horario propuesto
             </button>
+            {errorMontaje && (
+              <p role="alert" className="mt-2 text-[12.5px] leading-snug text-destructive">{errorMontaje}</p>
+            )}
           </div>
         )}
 
@@ -179,7 +292,7 @@ export function PrimerHorario({
           <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px]">
             {tiposClase.length === 0 && (
               <Link href="/configuracion?tab=clases&abrir=tipos-de-clase" className="font-semibold text-brand-medio hover:underline">
-                Crear tus tipos de clase
+                Prefiero crear mis tipos de clase a mano
               </Link>
             )}
             <Link href="/calendario/importar" className="inline-flex items-center gap-1.5 font-semibold text-brand-medio hover:underline">
@@ -190,5 +303,32 @@ export function PrimerHorario({
         )}
       </div>
     </div>
+  );
+}
+
+function Pregunta({ titulo, ayuda, children }: { titulo: string; ayuda?: string; children: ReactNode }) {
+  return (
+    <div className="mt-4">
+      <p className="text-[12.5px] font-semibold text-foreground">{titulo}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">{children}</div>
+      {ayuda && <p className="mt-1.5 text-[11.5px] leading-snug text-muted-foreground">{ayuda}</p>}
+    </div>
+  );
+}
+
+function Opcion({ activa, alPulsar, children }: { activa: boolean; alPulsar: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={activa}
+      onClick={alPulsar}
+      className={`rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors ${
+        activa
+          ? 'border-brand bg-brand text-brand-foreground'
+          : 'border-border bg-background text-muted-foreground hover:bg-muted'
+      }`}
+    >
+      {children}
+    </button>
   );
 }

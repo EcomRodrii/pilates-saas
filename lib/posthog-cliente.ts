@@ -59,6 +59,7 @@ function envolverDestino(instancia: PostHogSDK): Destino {
     capture: (...a: unknown[]) => (instancia.capture as (...a: unknown[]) => unknown)(...a),
     identify: (...a: unknown[]) => (instancia.identify as (...a: unknown[]) => unknown)(...a),
     reset: (...a: unknown[]) => (instancia.reset as (...a: unknown[]) => unknown)(...a),
+    register: (...a: unknown[]) => (instancia.register as (...a: unknown[]) => unknown)(...a),
   };
 }
 
@@ -143,4 +144,15 @@ export function identificar(usuarioId: string): void {
 /** Al cerrar sesión de personal — desvincula la sesión del navegador de esa persona. */
 export function resetear(): void {
   encolar('reset', []);
+}
+
+/**
+ * Pega `studio_id` a TODOS los eventos siguientes de esta pestaña. Es el mismo
+ * nombre de propiedad que llevan los eventos de servidor (`construirEvento`),
+ * que van identificados por estudio y no por persona: sin esto no había forma de
+ * seguir a un estudio del navegador al servidor. Un id de tenant, nunca de una
+ * persona ni de una socia. Se vuelve a llamar al cambiar de sede.
+ */
+export function asociarEstudio(studioId: string): void {
+  encolar('register', [{ studio_id: studioId }]);
 }

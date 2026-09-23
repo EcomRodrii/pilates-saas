@@ -51,7 +51,7 @@ export type EventoAnalitica =
       nombre: 'onboarding_completado';
       // Qué le quedó montado. Sin esto no se puede distinguir a quien contestó
       // todo de quien pasó de pantalla en pantalla sin elegir nada.
-      props: { salas: number; tipos_clase: number; planes: number; instructora: boolean; horario: boolean };
+      props: { salas: number; tipos_clase: number; planes: number; instructora: boolean; horario: boolean; origen?: 'asistente' | 'calendario' };
     }
   // El paso donde se pierde más de la mitad de los estudios (4 de 10 lo
   // superan). `origen` distingue el horario propuesto por Tentare del que la
@@ -79,7 +79,10 @@ export function construirEvento(
   return {
     event: evento.nombre,
     distinct_id: studioId, // tenant, nunca una persona natural
-    properties: { ...evento.props, $lib: 'tentare-server' },
+    // `studio_id` también como propiedad: los eventos del navegador (identificados
+    // por persona) llevan la misma, y es lo que permite cruzar los dos en PostHog
+    // sin depender de Group Analytics.
+    properties: { ...evento.props, studio_id: studioId, $lib: 'tentare-server' },
     ...(timestampISO ? { timestamp: timestampISO } : {}),
   };
 }

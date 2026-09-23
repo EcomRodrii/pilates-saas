@@ -24,6 +24,7 @@ import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida'
 import { ReviewBoostModal } from '@/components/growth/review-boost-modal';
 import { estadoBilling } from '@/lib/api-client';
 import { precargarAgenda } from '@/lib/agenda-precarga';
+import { asociarEstudio } from '@/lib/posthog-cliente';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
 import { navSections } from '@/lib/nav-config';
 
@@ -141,6 +142,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       `/api/calendario?desde=${encodeURIComponent(inicioDelDiaEstudio(hoy))}&hasta=${encodeURIComponent(finDelDiaEstudio(hoy))}`,
     );
   }, [session, pathname]);
+
+  // Los eventos de PostHog del navegador llevan el estudio (y así se cruzan con
+  // los del servidor). Depende del id, no del objeto: cambia al cambiar de sede.
+  const estudioId = studio?.id ?? null;
+  useEffect(() => {
+    if (estudioId) asociarEstudio(estudioId);
+  }, [estudioId]);
 
   const [estudioTardaDemasiado, setEstudioTardaDemasiado] = useState(false);
   useEffect(() => {
