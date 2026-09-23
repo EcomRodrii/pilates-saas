@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     title: pagina.titulo,
-    description: 'Se hace tú misma en el panel, o te la hacemos nosotros en 48h. Nada se importa sin que lo revises antes.',
+    description: 'Se hace tú misma en el panel, o te ayudamos nosotros. Nada se importa sin que lo revises antes.',
     url: urlDe(PATH),
   },
 };
@@ -59,7 +59,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto tarda si lo hacéis vosotros?',
-    a: 'El compromiso es menos de 48h desde que nos mandas los exports o el acceso, hasta que tienes el estudio montado con un acta para comprobar que todo cuadra.',
+    a: 'Depende de cuánto tengas y de cómo nos llegue. Nos mandas los exports o el acceso, te decimos el plazo antes de empezar y te entregamos el estudio montado con un acta para comprobar que todo cuadra. Mientras tanto, tu software actual sigue funcionando.',
   },
 ];
 
@@ -76,7 +76,7 @@ export default function CambiarDeSoftwarePage() {
         <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
           <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Cambiarte de software</div>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Cambiarte a Tentare, sin perder nada.</h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>Tu <strong style={{ color: '#1A1A1A' }}>estudio de Pilates</strong> se lleva sus clientas, sus bonos, su calendario y su historial. Lo haces tú misma en el panel o te lo hacemos nosotros en 48h.</p>
+          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>Tu <strong style={{ color: '#1A1A1A' }}>estudio de Pilates</strong> se lleva sus clientas, sus bonos, su calendario y su historial. Lo haces tú misma en el panel o te ayudamos nosotros.</p>
         </div>
       </header>
 
@@ -100,7 +100,7 @@ export default function CambiarDeSoftwarePage() {
 
           <Reveal delay={60} style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px' }}>
             <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 10px' }}>2. Te la hacemos nosotros</h2>
-            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: '0 0 16px' }}>Nos mandas lo que puedas exportar — o acceso a tu software actual — y te entregamos el estudio montado en menos de 48h, con el mismo acta verificable. Tu software actual sigue funcionando mientras tanto.</p>
+            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: '0 0 16px' }}>Nos mandas lo que puedas exportar — o acceso a tu software actual — y te entregamos el estudio montado, con el mismo acta verificable. Tu software actual sigue funcionando mientras tanto.</p>
             <ConciergeMigracionForm />
           </Reveal>
         </div>

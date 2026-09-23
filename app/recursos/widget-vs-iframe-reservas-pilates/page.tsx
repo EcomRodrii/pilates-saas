@@ -132,7 +132,7 @@ export default function WidgetVsIframePage() {
           items={[
             'El widget de reservas se ve correctamente en móvil y en escritorio, sin barras de desplazamiento horizontal ni desbordamientos.',
             'El flujo de reserva completo funciona en producción, no solo en previsualización.',
-            'El correo de confirmación llega en menos de 2 minutos y aparece con el nombre de tu estudio como remitente, no el del proveedor.',
+            'El correo de confirmación llega nada más reservar y aparece con el nombre de tu estudio como remitente, no el del proveedor.',
             'Los recordatorios automáticos están activados para 24 horas y 1 hora antes de la clase.',
             'Los métodos de pago están configurados y probados con una transacción real.',
             'El calendario de reservas online está completo y actualizado con capacidad, horarios y nombre de la instructora.',

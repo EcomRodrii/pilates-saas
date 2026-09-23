@@ -536,7 +536,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/soluciones/cambiar-de-software',
     titulo: 'Cambiarte a Tentare desde otro software, sin perder nada',
     descripcion:
-      'Migración de clientas, bonos, clases, reservas, citas y pagos históricos, revisada antes de tocar nada y reversible con un clic. Lo haces tú o te lo hacemos nosotros en 48h.',
+      'Migración de clientas, bonos, clases, reservas, citas y pagos históricos, revisada antes de tocar nada y reversible con un clic. Lo haces tú o te ayudamos nosotros.',
     grupo: 'soluciones',
     etiqueta: 'Cambiarte de software',
     resumen: 'Cambiarte sin perder tus datos — lo haces tú o te lo hacemos nosotros.',
