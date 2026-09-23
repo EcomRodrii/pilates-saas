@@ -11,7 +11,7 @@ const STORAGE_KEY = 'sb-example-auth-token';
 
 // Martes 8 de septiembre de 2026, 10:00 UTC = 12:00 en Madrid (UTC+2). Todas
 // las horas del fixture van en UTC y se leen en pantalla en hora del estudio.
-const AHORA = '2026-09-08T10:00:00.000Z';
+export const AHORA = '2026-09-08T10:00:00.000Z';
 
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -44,8 +44,18 @@ function reserva(p: { id: string; sesionId: string; socioId: string; estado: str
 }
 
 /** Tres clases que cuentan tres historias distintas del mismo día. */
-function agendaDelDia() {
+function agendaDelDia(conClaseEnCurso = false) {
   const sesiones = [
+    // 11:30–12:30 Madrid: empezó hace media hora y le queda otra media. Solo
+    // con `conClaseEnCurso`, para no mover las cuentas del resto de specs.
+    ...(conClaseEnCurso
+      ? [
+        sesion({ id: 'ses-en-curso', inicio: '2026-09-08T09:30:00.000Z', fin: '2026-09-08T10:30:00.000Z', aforo: 6 }),
+        // Mañana a las 10:00 Madrid: «Próximas clases» cruza de día sola, y sin
+        // una del día siguiente no se prueba que cada tarjeta lleve su fecha.
+        sesion({ id: 'ses-manana', inicio: '2026-09-09T08:00:00.000Z', fin: '2026-09-09T09:00:00.000Z', aforo: 6 }),
+      ]
+      : []),
     // 08:00–09:00 Madrid, ya terminada y con la lista pasada.
     sesion({ id: 'ses-pasada', inicio: '2026-09-08T06:00:00.000Z', fin: '2026-09-08T07:00:00.000Z', aforo: 4 }),
     // 14:00–15:00 Madrid: 7 de 10 → 3 huecos que llenar.
@@ -56,6 +66,9 @@ function agendaDelDia() {
     sesion({ id: 'ses-llena', inicio: '2026-09-08T17:30:00.000Z', fin: '2026-09-08T18:30:00.000Z', aforo: 6 }),
   ];
   const reservas = [
+    ...(conClaseEnCurso
+      ? [0, 1, 2, 3, 4].map(i => reserva({ id: `rc${i}`, sesionId: 'ses-en-curso', socioId: `soc-${i}`, estado: 'CONFIRMADA', checkIn: true }))
+      : []),
     ...[0, 1, 2, 3].map(i => reserva({ id: `rp${i}`, sesionId: 'ses-pasada', socioId: `soc-${i}`, estado: 'ASISTIDA', checkIn: true })),
     ...[0, 1, 2, 3, 4, 5, 6].map(i => reserva({ id: `rh${i}`, sesionId: 'ses-hueco', socioId: `soc-${i}`, estado: 'CONFIRMADA' })),
     ...[0, 1, 2, 3, 4, 5, 6, 7].map(i => reserva({ id: `rs${i}`, sesionId: 'ses-sin-instr', socioId: `soc-${i}`, estado: 'CONFIRMADA' })),
@@ -123,8 +136,16 @@ function historicoDelContexto() {
   return { sesiones, reservas };
 }
 
-export async function montarHome(page: Page, opciones?: { calendarioVacio?: boolean }) {
-  await page.clock.setFixedTime(new Date(AHORA));
+export async function montarHome(
+  page: Page,
+  opciones?: { calendarioVacio?: boolean; conClaseEnCurso?: boolean; ahora?: string },
+) {
+  // Con una clase en curso hace falta poder ADELANTAR el reloj (el cronómetro
+  // de «Próximas clases» cuenta segundos, y un reloj fijo no demuestra que
+  // corra). `install` congela igual que `setFixedTime` mientras no se adelante
+  // a mano, así que el resto de la pantalla se comporta igual.
+  if (opciones?.conClaseEnCurso) await page.clock.install({ time: new Date(opciones.ahora ?? AHORA) });
+  else await page.clock.setFixedTime(new Date(opciones?.ahora ?? AHORA));
 
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -147,7 +168,7 @@ export async function montarHome(page: Page, opciones?: { calendarioVacio?: bool
   await page.route('**/api/theme**', route =>
     json(route, { primary: '#343825', secondary: '#5A6142', logoUrl: null, radius: 12 }));
   await page.route('**/api/calendario**', route =>
-    json(route, opciones?.calendarioVacio ? {} : agendaDelDia()));
+    json(route, opciones?.calendarioVacio ? {} : agendaDelDia(opciones?.conClaseEnCurso)));
 
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>

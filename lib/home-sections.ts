@@ -17,6 +17,7 @@ export interface HomeSeccion {
 // home a mano sigue viendo lo que él mismo eligió.
 export const HOME_SECCIONES: HomeSeccion[] = [
   { id: 'hoy', label: 'Hoy en el estudio' },
+  { id: 'proximas', label: 'Próximas clases' },
   { id: 'estado', label: 'Lo que espera tu visto bueno' },
   { id: 'accion', label: 'Lo que necesita tu atención' },
   { id: 'onboarding', label: 'Primeros pasos' },
@@ -61,7 +62,18 @@ export const HOME_SECCIONES: HomeSeccion[] = [
 // cómo haya ordenado cada estudio su home — por eso es fija, igual que 'accion'.
 // 'apertura' (Opening OS) va tras 'onboarding': solo aparece mientras el
 // estudio está abriendo y desaparece sola, igual que el checklist.
-export const HOME_FIJAS_PRIMERO: readonly string[] = ['hoy', 'estado', 'accion', 'onboarding', 'apertura'];
+// 'proximas' («Próximas clases», 23-sep) va pegada a 'hoy' por encargo expreso
+// del fundador, y no es un capricho de orden: las dos contestan la misma
+// pregunta en dos tiempos —cómo está organizado el día y qué se está dando en
+// este momento—, así que separarlas obligaría a mirar dos sitios para saber si
+// la clase de las 10 ya ha empezado. Se desdobla en dos secciones y no en una
+// porque la agenda se puede mover de día y esto no: esto es siempre el ahora.
+// Fija, además, por el motivo de arriba: un estudio con la home ya ordenada a
+// mano se la encontraría al final. Ser fija implica que tampoco se puede
+// ocultar desde el editor, y con esta se acepta a propósito: se esconde sola
+// cuando no hay ni clase en curso ni ninguna a la vista, que es el único caso
+// en que estorbaría.
+export const HOME_FIJAS_PRIMERO: readonly string[] = ['hoy', 'proximas', 'estado', 'accion', 'onboarding', 'apertura'];
 
 // Prioridad elegida en el asistente de bienvenida (`studios.onb_prioridad`) →
 // sección de la home que la atiende.

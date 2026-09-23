@@ -13,13 +13,14 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { RellenarHuecoPanel } from './rellenar-hueco-panel';
 import { BarraPlazas } from './barra-plazas';
 import { PINTA } from '@/lib/calendario-estado';
+import { invalidarAgenda } from '@/lib/agenda-panel';
 import { detectarConflictos, hayConflicto } from '@/lib/calendar-logic';
 import {
   construirAgendaDelDia, resumirDia, type ClaseDelDia, type SesionAgenda,
 } from '@/lib/hoy-agenda';
 import {
   capitalizarPrimera, cn, fechaLargaEstudio, finDelDiaEstudio, horaEstudio,
-  hoyEnEstudio, inicioDelDiaEstudio, masDias,
+  hoyEnEstudio, inicioDelDiaEstudio, masDias, tituloDia,
 } from '@/lib/utils';
 import type { Instructor, Reserva, Sala, Sesion } from '@/lib/types';
 
@@ -61,14 +62,6 @@ interface DatosDia {
 }
 
 const VACIO: DatosDia = { sesiones: [], reservas: [], salas: [], instructores: [] };
-
-/** El día que se está mirando, en palabras. */
-function tituloDia(fecha: string, hoy: string): string {
-  if (fecha === hoy) return 'Hoy';
-  if (fecha === masDias(hoy, 1)) return 'Mañana';
-  if (fecha === masDias(hoy, -1)) return 'Ayer';
-  return '';
-}
 
 export function HoyEnElEstudio() {
   const { tiposClase } = useStudio();
@@ -137,7 +130,13 @@ export function HoyEnElEstudio() {
   const cargando = !alDia;
   const fallo = alDia && cargado.fallo;
 
-  const refrescar = useCallback(() => setRecarga(n => n + 1), []);
+  // Avisa también a «Próximas clases», que pide el mismo endpoint en otro
+  // rango: las dos pintan la clase en curso, así que no pueden refrescarse por
+  // separado sin acabar diciendo 5/6 y 6/6 una encima de la otra.
+  const refrescar = useCallback(() => {
+    setRecarga(n => n + 1);
+    invalidarAgenda();
+  }, []);
 
   const tipoById = useMemo(() => new Map(tiposClase.map(t => [t.id, t])), [tiposClase]);
   const salaById = useMemo(() => new Map(datos.salas.map(s => [s.id, s])), [datos.salas]);
