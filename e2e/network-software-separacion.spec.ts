@@ -155,7 +155,17 @@ test.describe('/clave-nueva manda a donde la cuenta pertenece de verdad, no siem
   // sin mirar si la cuenta era de Network. Recuperar la contraseña no es
   // "entrar en" ningún producto (se demuestra controlar el correo), así que
   // esta ruta usa la resolución SIN GATE — nunca "cuenta-de-otro-producto".
-
+  //
+  // ⚠️ FE-02 (auditoría 23-sep): esta pantalla ya no acepta CUALQUIER sesión
+  // — exige haber visto el evento `PASSWORD_RECOVERY` de gotrue. Sembrar la
+  // sesión a mano en localStorage (como hacía este test antes) simulaba
+  // exactamente la sesión "cualquiera" que el arreglo dejó de aceptar. La
+  // forma real de llegar aquí es el enlace mágico con el fragmento
+  // `#access_token=…&type=recovery`, que gotrue-js parsea SOLO porque
+  // `/clave-nueva` está en `RUTAS_RETORNO_AUTH_STAFF`
+  // (`lib/db/supabase.ts`) y dispara `PASSWORD_RECOVERY` — sin llamar a la
+  // red para nada más que `GET /auth/v1/user` (ya mockeado), así que el
+  // token no necesita ser un JWT real.
   test('una cuenta de Network termina en /network/inicio, no en /dashboard', async ({ page }) => {
     await page.route('**/rest/v1/**', route => json(route, []));
     await page.route('**/auth/v1/user**', route => json(route, sesionOk('red@example.com').user));
@@ -165,11 +175,9 @@ test.describe('/clave-nueva manda a donde la cuenta pertenece de verdad, no siem
       return json(route, { destino: '/network/inicio' });
     });
 
-    // FE-02: `/clave-nueva` ya no basta con "hay sesión" — exige el evento
-    // PASSWORD_RECOVERY, que gotrue-js solo dispara al canjear un enlace real
-    // (tokens en el fragmento de la URL, `type=recovery`). Una sesión sembrada
-    // a mano en localStorage no lo dispara.
-    await page.goto('/clave-nueva#access_token=e2e-fake-token&refresh_token=e2e-fake-refresh&expires_in=999999999&token_type=bearer&type=recovery');
+    const hash = 'access_token=e2e-fake-token&refresh_token=e2e-fake-refresh'
+      + '&expires_in=3600&token_type=bearer&type=recovery';
+    await page.goto(`/clave-nueva#${hash}`);
     await page.getByPlaceholder('Contraseña nueva').fill('unaClaveLarga1');
     await page.getByPlaceholder('Repite la contraseña').fill('unaClaveLarga1');
     await page.getByRole('button', { name: 'Guardar contraseña' }).click({ timeout: 30_000 });

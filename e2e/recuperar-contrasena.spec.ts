@@ -43,19 +43,22 @@ async function seedSesion(page: Page) {
   }, STORAGE_KEY);
 }
 
-// FE-02: `/clave-nueva` ya no basta con "hay sesión" — exige haber visto el
-// evento PASSWORD_RECOVERY de gotrue-js, que solo se dispara al canjear un
-// enlace real (tokens en el fragmento de la URL, `type=recovery`). Sembrar la
-// sesión a mano en localStorage (`seedSesion`) ya no lo dispara, así que estas
-// pantallas necesitan llegar por la URL con el fragmento de verdad.
-async function irConEnlaceDeRecuperacion(page: Page) {
+// FE-02 (auditoría 23-sep): /clave-nueva ya no acepta cualquier sesión —
+// exige haber visto el evento `PASSWORD_RECOVERY` de gotrue. `seedSesion`
+// (arriba) simula exactamente la sesión "cualquiera" que el arreglo dejó de
+// aceptar; para llegar de verdad hay que navegar con el fragmento del enlace
+// mágico (`#access_token=…&type=recovery`), que gotrue-js parsea solo porque
+// `/clave-nueva` está en `RUTAS_RETORNO_AUTH_STAFF` (lib/db/supabase.ts) —
+// sin llamar a la red para nada más que `GET /auth/v1/user` (mockeado abajo),
+// así que el token no necesita ser un JWT real.
+async function irConEnlaceDeRecuperacion(page: Page, email: string) {
   await page.route('**/auth/v1/user**', route => json(route, {
-    id: 'auth-e2e-duena', email: 'cloe@example.com', aud: 'authenticated',
-    role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
+    id: 'auth-e2e-duena', email, aud: 'authenticated', role: 'authenticated',
+    app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
   }));
-  await page.goto(
-    '/clave-nueva#access_token=e2e-fake-token&refresh_token=e2e-fake-refresh&expires_in=999999999&token_type=bearer&type=recovery',
-  );
+  const hash = 'access_token=e2e-fake-token&refresh_token=e2e-fake-refresh'
+    + '&expires_in=3600&token_type=bearer&type=recovery';
+  await page.goto(`/clave-nueva#${hash}`);
 }
 
 test.describe('Se puede recuperar la contraseña sin poder entrar', () => {
@@ -120,7 +123,7 @@ test.describe('La pantalla de contraseña nueva', () => {
     // Quien llega ya ha demostrado que controla el correo. Pedirle la actual
     // sería absurdo: no se la sabe, por eso está aquí.
     await page.route('**/rest/v1/**', route => json(route, []));
-    await irConEnlaceDeRecuperacion(page);
+    await irConEnlaceDeRecuperacion(page, 'cloe@example.com');
 
     await expect(page.getByText('Elige tu contraseña nueva')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('cloe@example.com')).toBeVisible();
@@ -130,7 +133,7 @@ test.describe('La pantalla de contraseña nueva', () => {
 
   test('avisa si las contraseñas no coinciden, antes de llamar a nadie', async ({ page }) => {
     await page.route('**/rest/v1/**', route => json(route, []));
-    await irConEnlaceDeRecuperacion(page);
+    await irConEnlaceDeRecuperacion(page, 'cloe@example.com');
 
     await page.getByPlaceholder('Contraseña nueva').fill('unaClaveLarga1');
     await page.getByPlaceholder('Repite la contraseña').fill('otraDistinta1');
