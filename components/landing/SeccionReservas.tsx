@@ -218,10 +218,10 @@ export function SeccionReservas() {
            del tamaño y el sitio del icono (escala .158 con origen en su centro)
            y crece hasta ocupar la pantalla, mientras el inicio se aleja un poco
            detrás. Solo transform, opacity y filter: nada que recalcule layout. */
-        .v5-res-capa-inicio { transition: transform .6s cubic-bezier(.2,.9,.22,1), filter .6s ease; transform-origin: var(--ix) var(--iy); }
+        .v5-res-capa-inicio { transition: transform var(--motion-ventana) var(--motion-ease-ventana), filter var(--motion-ventana) ease; transform-origin: var(--ix) var(--iy); }
         .v5-res-capa-app { position: absolute; inset: 0; z-index: 2; transform-origin: var(--ix) var(--iy);
           transform: scale(.158); opacity: 0; border-radius: 26%; overflow: hidden;
-          transition: transform .56s cubic-bezier(.2,.9,.22,1), opacity .18s linear, border-radius .56s cubic-bezier(.2,.9,.22,1); }
+          transition: transform var(--motion-ventana) var(--motion-ease-ventana), opacity var(--motion-normal) linear, border-radius var(--motion-ventana) var(--motion-ease-ventana); }
         .v5-res-telefono[data-fase="abierta"] .v5-res-capa-app { transform: none; opacity: 1; border-radius: 0; }
         .v5-res-telefono[data-fase="abierta"] .v5-res-capa-inicio { transform: scale(1.08); filter: blur(2px) brightness(.9); }
         .v5-res-toque { position: absolute; z-index: 1; left: var(--ix); top: var(--iy); width: 17%; aspect-ratio: 1;
@@ -236,7 +236,7 @@ export function SeccionReservas() {
         .v5-res-repetir { position: absolute; left: 50%; bottom: -20px; transform: translateX(-50%); z-index: 4;
           display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 999px; border: 1px solid #E4E4DC;
           background: #fff; color: #343825; font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer;
-          box-shadow: 0 14px 30px -16px rgba(34,37,26,.45); transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s; }
+          box-shadow: 0 14px 30px -16px rgba(34,37,26,.45); transition: transform var(--motion-normal) var(--motion-ease), box-shadow var(--motion-normal); }
         .v5-res-repetir:hover { transform: translateX(-50%) translateY(-2px); box-shadow: 0 18px 34px -16px rgba(34,37,26,.5); }
         .v5-res-repetir:active { transform: translateX(-50%) scale(.97); }
         .v5-res-repetir:focus-visible { outline: 2px solid #343825; outline-offset: 2px; }

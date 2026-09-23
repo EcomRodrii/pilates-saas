@@ -148,7 +148,7 @@ export function PopupEmpezar() {
       style={{
         background: 'rgba(26,26,26,.42)',
         backdropFilter: 'blur(3px)',
-        animation: `${cerrando ? 'pop-fondo-fuera' : 'pop-fondo-dentro'} .18s ease both`,
+        animation: `${cerrando ? 'pop-fondo-fuera' : 'pop-fondo-dentro'} var(--motion-normal) ease both`,
       }}
       onClick={() => cerrar()}
       role="presentation"
@@ -159,7 +159,7 @@ export function PopupEmpezar() {
         aria-labelledby={tituloId}
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-[26rem] overflow-hidden rounded-3xl bg-card p-6 text-center shadow-[0_30px_70px_-20px_rgba(26,26,26,.5)] sm:p-8"
-        style={{ animation: `${cerrando ? 'pop-hoja-fuera' : 'pop-hoja-dentro'} .26s cubic-bezier(.16,1,.3,1) both` }}
+        style={{ animation: `${cerrando ? 'pop-hoja-fuera' : 'pop-hoja-dentro'} var(--motion-medium) var(--motion-ease) both` }}
       >
         {/* Halo de marca detrás del contenido. Decorativo y muy suave: lo que
             tiene que destacar es el botón, no el fondo. */}

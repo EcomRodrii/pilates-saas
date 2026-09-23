@@ -60,7 +60,10 @@ export function SeccionPrecio() {
         .v5-pre-prueba { display: inline-block; margin: 16px 0 0; padding: 7px 15px; border-radius: 999px;
           background: #343825; color: #D9C29E; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
         .v5-pre-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 16px; align-items: stretch; }
-        .v5-pre-card { position: relative; background: #fff; border: 1px solid #E7E7E0; border-radius: 20px; padding: 32px; display: flex; flex-direction: column; }
+        .v5-pre-card { position: relative; background: #fff; border: 1px solid #E7E7E0; border-radius: 20px; padding: 32px; display: flex; flex-direction: column;
+          transition: box-shadow var(--motion-medium) var(--motion-ease), border-color var(--motion-medium); }
+        /* Sombra y borde, no transform: la tarjeta ya lleva la entrada al hacer scroll. */
+        .v5-pre-card:hover { box-shadow: 0 30px 60px -36px rgba(26,26,26,.28); border-color: #D9D9CE; }
         .v5-pre-card-dark { background: #131313; border: none; box-shadow: 0 40px 90px rgba(26,26,26,.3); }
         .v5-pre-destacado { position: absolute; top: -13px; left: 32px; background: #D9C29E; color: #22251A;
           font-size: 11px; font-weight: 800; letter-spacing: .1em; padding: 7px 14px; border-radius: 999px; }
@@ -70,7 +73,7 @@ export function SeccionPrecio() {
         .v5-pre-desc { font-size: 14.5px; margin: 8px 0 22px; }
         .v5-pre-features { border-top: 1px solid; padding-top: 16px; font-size: 15px; font-weight: 500; line-height: 2.05; flex: 1; }
         .v5-pre-cta { display: block; text-align: center; margin-top: 24px; border: 1.5px solid #343825; color: #343825;
-          font-weight: 800; padding: 14px; border-radius: 999px; transition: background .2s, color .2s, transform .18s cubic-bezier(.2,.8,.2,1); }
+          font-weight: 800; padding: 14px; border-radius: 999px; transition: background var(--motion-normal), color var(--motion-normal), transform var(--motion-fast) var(--motion-ease); }
         .v5-pre-cta:hover { background: #343825; color: #D9C29E; }
         .v5-pre-cta:active { transform: scale(.98); }
         .v5-pre-cta-on { border: none; background: #D9C29E; color: #22251A; padding: 15px; }

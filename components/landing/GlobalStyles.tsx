@@ -3,7 +3,25 @@ export function GlobalStyles() {
     <style>{`
       .lp-mono { font-family: var(--font-plex-mono), ui-monospace, monospace; }
 
-      /* ── Movimiento de la landing (rediseño 23-sep) ────────────────────────
+      /* ── SISTEMA DE MOVIMIENTO DE LA WEB PÚBLICA (fase 4, 23-sep) ──────────
+         Mismos tokens que el panel (--motion-* en app/globals.css): nada de
+         curvas ni duraciones sueltas. Cada movimiento tiene UN motivo:
+           · Entrada al hacer scroll (.lp-rv) ........ orientación: qué es nuevo.
+           · Escalonado (--lp-r) ..................... leer en orden.
+           · Demos (sustituciones, iPhone, avisos) ... explican el producto.
+           · Cambio de estado (píldora de pestañas,
+             FAQ, paso de la demo) ................... continuidad: de dónde viene.
+           · Hover (sombra, borde, flecha) ........... qué se puede tocar / a dónde lleva.
+           · Pulsación (scale .97–.98) ............... respuesta táctil.
+           · Flotantes (WhatsApp, popup) ............. llegan sin tapar lo que se lee.
+         Y lo que NO se hace, a propósito: nada en el héroe ni en el vídeo (son
+         lo primero que se pinta), sin parallax, sin cursores, sin texto letra a
+         letra, sin bucles infinitos salvo el aro del botón de WhatsApp, y sin
+         transiciones entre páginas (casi todo el tráfico entra directo desde
+         Google a una página, y cada página pública tiene su propio layout).
+         Con prefers-reduced-motion, todo se ve quieto y completo.
+
+         ── Entrada al hacer scroll ──
          Un solo gesto para todo lo que entra en pantalla: sube 32 px y aparece,
          atado al SCROLL (animation-timeline: view()), no a un temporizador. Por
          eso no cuesta JavaScript, no se dispara «tarde» y va a la velocidad a
@@ -19,6 +37,11 @@ export function GlobalStyles() {
         from { opacity: 0; transform: translate3d(0, 32px, 0) scale(.985); }
         to { opacity: 1; transform: none; }
       }
+      /* Flecha que avanza en los enlaces que llevan a OTRA página: anuncia
+         «esto sale de aquí» antes del clic. */
+      .lp-flecha svg { transition: transform var(--motion-normal) var(--motion-ease); }
+      .lp-flecha:hover svg, .lp-flecha:focus-visible svg { transform: translateX(3px); }
+
       @media (prefers-reduced-motion: no-preference) {
         @supports (animation-timeline: view()) {
           .lp-rv { animation: lp-rv linear both; animation-timeline: view();

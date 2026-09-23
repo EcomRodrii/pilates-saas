@@ -106,7 +106,7 @@ export function SeccionSustituciones() {
           <div className="v5-card">
             <div className="v5-card-top">
               <span className="v5-card-tit">Sustituciones</span>
-              <span className="v5-badge" style={{ background: f.badgeBg, color: f.badgeFg }}>{f.badge}</span>
+              <span key={f.badge} className="v5-badge v5-cambia" style={{ background: f.badgeBg, color: f.badgeFg }}>{f.badge}</span>
             </div>
 
             <div className="v5-card-body">
@@ -127,7 +127,7 @@ export function SeccionSustituciones() {
                     <strong>Julia Ramos</strong>
                     <span className="v5-cand-s"> · ★ 4,9 · da Reformer Avanzado</span>
                   </span>
-                  <span className="v5-cand-e" style={{ color: f.c1fg }}>{f.c1}</span>
+                  <span key={f.c1} className="v5-cand-e v5-cambia" style={{ color: f.c1fg }}>{f.c1}</span>
                 </div>
                 <div className="v5-cand" style={{ borderColor: 'transparent' }}>
                   <span className="v5-ini">J</span>
@@ -135,11 +135,11 @@ export function SeccionSustituciones() {
                     <strong>Juana</strong>
                     <span className="v5-cand-s"> · ★ 4,9 · disponible ese día</span>
                   </span>
-                  <span className="v5-cand-e" style={{ color: f.c2fg }}>{f.c2}</span>
+                  <span key={f.c2} className="v5-cand-e v5-cambia" style={{ color: f.c2fg }}>{f.c2}</span>
                 </div>
               </div>
 
-              <div className="v5-accion" style={{ background: f.btnBg, color: f.btnFg }}>{f.btn}</div>
+              <div className="v5-accion" style={{ background: f.btnBg, color: f.btnFg }}><span key={f.btn} className="v5-cambia">{f.btn}</span></div>
               <p className="v5-nota">Aviso a las alumnas activado en tu estudio</p>
             </div>
 
@@ -195,7 +195,7 @@ export function SeccionSustituciones() {
         .v5-card-top { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 14px; }
         .v5-card-tit { font-size: 15px; font-weight: 800; color: #1A1A1A; }
         .v5-badge { font-size: 12.5px; font-weight: 700; padding: 6px 12px; border-radius: 999px;
-          transition: background .4s, color .4s; }
+          transition: background var(--motion-slow), color var(--motion-slow); }
         .v5-card-body { background: #fff; border: 1px solid #E7E7E0; border-radius: 16px; padding: 20px; }
         .v5-clase { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
         .v5-clase-n { font-size: 16.5px; font-weight: 800; color: #1A1A1A; }
@@ -204,21 +204,21 @@ export function SeccionSustituciones() {
         .v5-sep { height: 1px; background: #E7E7E0; margin: 16px 0; }
         .v5-cands { display: flex; flex-direction: column; gap: 10px; }
         .v5-cand { display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-          border-radius: 12px; border: 1px solid transparent; transition: background .4s, border-color .4s; }
+          border-radius: 12px; border: 1px solid transparent; transition: background var(--motion-slow), border-color var(--motion-slow); }
         .v5-ini { flex: none; width: 34px; height: 34px; border-radius: 50%; background: #F1F2EA;
           display: flex; align-items: center; justify-content: center;
           font-weight: 800; font-size: 12px; color: #55622C; }
         .v5-cand-n { flex: 1; min-width: 0; font-size: 14.5px; color: #1A1A1A; }
         .v5-cand-s { font-size: 12.5px; color: #8E8E86; }
-        .v5-cand-e { flex: none; font-size: 12px; font-weight: 700; transition: color .4s; }
+        .v5-cand-e { flex: none; font-size: 12px; font-weight: 700; transition: color var(--motion-slow); }
         .v5-accion { margin-top: 16px; border-radius: 12px; padding: 13px 16px; text-align: center;
-          font-size: 14px; font-weight: 700; transition: background .4s, color .4s; }
+          font-size: 14px; font-weight: 700; transition: background var(--motion-slow), color var(--motion-slow); }
         .v5-nota { margin: 10px 0 0; text-align: center; font-size: 12px; color: #8E8E86; }
         .v5-pasos { display: flex; gap: 6px; justify-content: center; padding: 14px 0 4px; }
         .v5-paso { width: 30px; height: 10px; border: 0; padding: 0; border-radius: 2px;
           background: transparent; cursor: pointer; position: relative; }
         .v5-paso::after { content: ''; position: absolute; inset: 3.5px 3px;
-          border-radius: 2px; background: rgba(26,26,26,.16); transition: background .4s; }
+          border-radius: 2px; background: rgba(26,26,26,.16); transition: background var(--motion-slow); }
         .v5-paso:hover::after { background: rgba(26,26,26,.34); }
         .v5-paso:focus-visible { outline: 2px solid #5A6142; outline-offset: 2px; border-radius: 4px; }
         .v5-paso-on::after { background: #5A6142; }
@@ -239,6 +239,13 @@ export function SeccionSustituciones() {
         @media (max-width: 560px) {
           .v5-registro-l li:nth-child(2), .v5-registro-l li:nth-child(3), .v5-registro-l li:nth-child(4) { display: none; }
           .v5-registro-l li { font-size: 14px; }
+        }
+        /* Al pasar de paso, el texto que cambia entra en vez de sustituirse de
+           golpe (la key remonta el span y reinicia la animación): el ojo ve
+           QUÉ ha cambiado en la tarjeta, no un parpadeo de la tarjeta entera. */
+        @keyframes v5-cambia { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: no-preference) {
+          .v5-cambia { display: inline-block; animation: v5-cambia var(--motion-slow) var(--motion-ease) both; }
         }
         @media (prefers-reduced-motion: reduce) {
           .v5-badge, .v5-cand, .v5-cand-e, .v5-accion, .v5-paso::after { transition: none; }

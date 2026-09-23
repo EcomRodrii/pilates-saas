@@ -68,7 +68,10 @@ export function SeccionTeSuena() {
         .v5-suena-lista { list-style: none; margin: clamp(40px,5vw,64px) 0 0; padding: 0; display: grid;
           grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
         .v5-suena-momento { display: flex; flex-direction: column; gap: 10px; padding: 22px 22px 24px; border-radius: 20px;
-          background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08); }
+          background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08);
+          transition: background var(--motion-medium), border-color var(--motion-medium); }
+        /* Sin transform en :hover: el <li> ya lleva la entrada al hacer scroll. */
+        .v5-suena-momento:hover { background: rgba(255,255,255,.07); border-color: rgba(217,194,158,.3); }
         .v5-suena-hora { font-family: var(--font-plex-mono, ui-monospace, monospace); font-size: 13px; font-weight: 600;
           letter-spacing: .04em; color: #D9C29E; font-variant-numeric: tabular-nums; }
         .v5-suena-escena { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.3; letter-spacing: -.01em;

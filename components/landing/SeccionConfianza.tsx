@@ -67,13 +67,13 @@ export function SeccionConfianza() {
         </ul>
 
         <div className="v5-conf-salidas">
-          <Link href={SALIDAS.cambiarse.href} className="v5-conf-salida">
+          <Link href={SALIDAS.cambiarse.href} className="v5-conf-salida lp-flecha">
             {SALIDAS.cambiarse.label} <ArrowRight size={15} aria-hidden />
           </Link>
-          <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="v5-conf-salida">
+          <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="v5-conf-salida lp-flecha">
             Escríbenos por WhatsApp <ArrowRight size={15} aria-hidden />
           </a>
-          <Link href="/seguridad" className="v5-conf-salida">
+          <Link href="/seguridad" className="v5-conf-salida lp-flecha">
             Cómo cuidamos tus datos <ArrowRight size={15} aria-hidden />
           </Link>
         </div>
