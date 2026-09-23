@@ -42,7 +42,7 @@ export function HerramientaRecompensasYLogros({ showToast }: { showToast: (m: st
 }
 
 // Entregar un canje es trabajo del día, no un ajuste: se hace desde la bandeja
-// de Inicio («Decidir»), donde lo ve también recepción. Aquí se dice cuántos
+// de Resumen («Decidir»), donde lo ve también recepción. Aquí se dice cuántos
 // esperan y se lleva allí. La lista de abajo se queda porque es el único sitio
 // con el historial y con «Cancelar», que devuelve los créditos.
 function CanjesPorEntregar() {
@@ -62,7 +62,7 @@ function CanjesPorEntregar() {
         <span className="block text-[15px] font-semibold text-foreground">
           {n === 1 ? '1 canje por entregar' : `${n} canjes por entregar`}
         </span>
-        <span className="block text-sm text-muted-foreground">Se entregan desde Inicio, donde también los ve recepción</span>
+        <span className="block text-sm text-muted-foreground">Se entregan desde Resumen, donde también los ve recepción</span>
       </span>
       <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
     </Link>

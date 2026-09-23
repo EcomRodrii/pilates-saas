@@ -43,7 +43,7 @@ export function construirBrief(e: EntradaBrief): Brief | null {
   }
   if (e.alerta) partes.push(`Atención: ${e.alerta.titulo.replace(/\.$/, '')}.`);
   if (e.siguientePaso) partes.push(`Siguiente paso: ${e.siguientePaso.titulo.replace(/\.$/, '')}.`);
-  if (partes.length === 0) partes.push('Todo lo que tienes pendiente para abrir está en Inicio.');
+  if (partes.length === 0) partes.push('Todo lo que tienes pendiente para abrir está en Resumen.');
 
   return { titulo, cuerpo: partes.join(' ') };
 }

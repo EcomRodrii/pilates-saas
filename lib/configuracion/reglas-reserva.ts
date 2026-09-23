@@ -325,14 +325,14 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       // Las puertas de `/api/public/plaza-fija`: con el ajuste apagado, 403.
       const puede = [r.plazaFijaSolicitarDesdeApp ? 'una plaza fija' : null, r.plazaFijaPausaDesdeApp ? 'una pausa' : null].filter(Boolean);
       if (puede.length === 0) return 'Desde su app no piden nada: las plazas fijas y las pausas se dan en recepción.';
-      return `Desde su app pueden pedir ${puede.join(' o ')}. No cambia nada hasta que lo apruebes en Inicio.`;
+      return `Desde su app pueden pedir ${puede.join(' o ')}. No cambia nada hasta que lo apruebes en Resumen.`;
     }
     case 'si-pausa-su-plaza-fija':
       // Lo que hacen `tocaLiberarSitio` y `decidirVueltaDePausa` (lib/plazas-fijas-solicitudes.ts).
       if (!r.plazaFijaPausaLiberaSitio) return 'Durante una pausa conserva su plaza y su sitio, y al acabar vuelve sola.';
       return r.plazaFijaFinPausa === 'PENDIENTE_CONFIRMAR'
-        ? 'Si la pausa dura más de una semana, su sitio queda libre. Una semana antes de acabar te pregunta en Inicio si vuelve.'
-        : 'Si la pausa dura más de una semana, su sitio queda libre. Una semana antes de acabar vuelve sola si su sitio sigue libre y tiene cuota; si no, te pregunta en Inicio.';
+        ? 'Si la pausa dura más de una semana, su sitio queda libre. Una semana antes de acabar te pregunta en Resumen si vuelve.'
+        : 'Si la pausa dura más de una semana, su sitio queda libre. Una semana antes de acabar vuelve sola si su sitio sigue libre y tiene cuota; si no, te pregunta en Resumen.';
   }
 }
 
@@ -368,14 +368,14 @@ export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaS
 // apagada.
 
 export const EXPLICACION_PLAZA_FIJA_DESDE_APP =
-  'De serie, tus alumnas pueden pedir quedarse fijas en una clase que se repite: desde su ficha, justo al terminar de reservarla, y en «Clases fijas» de su app (con las que ya montaste como oferta con nombre y las demás sueltas). Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Te llega un aviso y lo decides en Inicio; hasta que lo apruebas no cambia nada. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
+  'De serie, tus alumnas pueden pedir quedarse fijas en una clase que se repite: desde su ficha, justo al terminar de reservarla, y en «Clases fijas» de su app (con las que ya montaste como oferta con nombre y las demás sueltas). Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Te llega un aviso y lo decides en Resumen; hasta que lo apruebas no cambia nada. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
 
 export const EXPLICACION_PAUSA_PLAZA_FIJA =
   'Vale para las pausas nuevas, las pongas tú o las pida ella; las que ya están puestas siguen como estaban. Las clases de esas fechas se cancelan sin penalización y las que ya pasaron no se tocan.';
 
 export const OPCIONES_FIN_PAUSA: readonly { valor: PoliticaFinPausa; titulo: string; detalle: string }[] = [
-  { valor: 'RECUPERAR_SI_LIBRE', titulo: 'Vuelve sola si puede', detalle: 'Si su sitio sigue libre, tiene cuota y no pasa de su límite por semana. Si no, te pregunta en Inicio.' },
-  { valor: 'PENDIENTE_CONFIRMAR', titulo: 'Preguntarme siempre', detalle: 'Una semana antes de acabar la pausa te pregunta en Inicio si vuelve.' },
+  { valor: 'RECUPERAR_SI_LIBRE', titulo: 'Vuelve sola si puede', detalle: 'Si su sitio sigue libre, tiene cuota y no pasa de su límite por semana. Si no, te pregunta en Resumen.' },
+  { valor: 'PENDIENTE_CONFIRMAR', titulo: 'Preguntarme siempre', detalle: 'Una semana antes de acabar la pausa te pregunta en Resumen si vuelve.' },
 ];
 
 /**

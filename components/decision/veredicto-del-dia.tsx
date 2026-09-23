@@ -135,7 +135,7 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
           {veredicto.porApertura && (
             <p className="max-w-sm text-[12.5px] text-muted-foreground">
               Estás abriendo tu estudio y hoy ya te he avisado de tu apertura: lo pendiente está en{' '}
-              <Link href={`/dashboard#${ANCLA_LISTO}`} className="font-semibold underline underline-offset-2" style={{ color: 'var(--brand-secondary)' }}>Inicio</Link>.
+              <Link href={`/dashboard#${ANCLA_LISTO}`} className="font-semibold underline underline-offset-2" style={{ color: 'var(--brand-secondary)' }}>Resumen</Link>.
             </p>
           )}
           {veredicto.semanaTranquila && (

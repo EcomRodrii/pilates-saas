@@ -62,7 +62,7 @@ export function detectarAlertas(e: EntradaAlertas): AlertaApertura[] {
       severidad: 'CRITICA',
       titulo: d >= 0 ? `Abres en ${dias(d)} y aún falta algo imprescindible` : 'Aún falta algo imprescindible para funcionar',
       // Sin cifra: la alerta queda abierta mientras falte algo y la lista cambia.
-      descripcion: 'Mira «¿Lista para abrir?» en Inicio: te dice qué falta y dónde se arregla.',
+      descripcion: 'Mira «¿Lista para abrir?» en Resumen: te dice qué falta y dónde se arregla.',
       href: `/dashboard#${ANCLA_LISTO}`,
     });
   }

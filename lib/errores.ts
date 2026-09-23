@@ -117,7 +117,7 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
   // Cupo exacto de una etapa de lanzamiento (trigger de suscripciones, migr
   // 20260921195853): la venta desde el mostrador se para con la etapa llena.
   if (/ETAPA_AGOTADA/.test(msg)) {
-    return 'Las plazas de esa oferta se han agotado. Si quieres vender más, amplía el cupo de la etapa en Inicio.';
+    return 'Las plazas de esa oferta se han agotado. Si quieres vender más, amplía el cupo de la etapa en Resumen.';
   }
   // Una regla de dinero de un tipo de clase que solo fija la propietaria
   // (`tipos_clase_dinero_solo_propietaria`, migr 20260915224739). Es un 42501,

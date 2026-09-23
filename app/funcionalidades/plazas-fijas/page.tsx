@@ -38,7 +38,7 @@ const FAQ = [
   },
   {
     q: '¿Pueden pedirla ellas desde la app?',
-    a: 'Solo si lo activas. Con ese ajuste encendido, una alumna pide la plaza fija desde una clase que se repite, o pide una pausa de la suya, y tú lo apruebas o lo rechazas desde Inicio. Hasta que decides, su plaza no cambia.',
+    a: 'Solo si lo activas. Con ese ajuste encendido, una alumna pide la plaza fija desde una clase que se repite, o pide una pausa de la suya, y tú lo apruebas o lo rechazas desde Resumen. Hasta que decides, su plaza no cambia.',
   },
   {
     q: '¿Puede tener dos plazas fijas?',
@@ -161,7 +161,7 @@ export default function PlazasFijasPage() {
         <PanelClaro titulo="Una petición, paso a paso">
           <ol style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
             <li>Ella la pide desde su app. Su plaza no cambia.</li>
-            <li>A ti te llega un aviso y la petición espera en Inicio.</li>
+            <li>A ti te llega un aviso y la petición espera en Resumen.</li>
             <li>Si pasaría del límite de clases por semana de su cuota, te lo dice ahí.</li>
             <li>Al aprobarla, la plaza se crea con las mismas reglas que si la dieras tú.</li>
             <li>Ella recibe tu respuesta en su app, con el motivo si dices que no.</li>

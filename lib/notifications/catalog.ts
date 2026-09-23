@@ -1161,12 +1161,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // (lib/series-avisos.ts), con todas las clases del estudio en un solo aviso.
   ...paraRoles(EVENTOS.SERIES_POR_TERMINAR, ROLES_POR_AUDIENCIA.gerencia, {
     title: '{resumen}',
-    body: '{lista}. Renuévalas, o di que no, desde Inicio.',
+    body: '{lista}. Renuévalas, o di que no, desde Resumen.',
     deepLink: () => `/dashboard#decidir-series`,
   }),
   ...paraRoles(EVENTOS.SERIES_POR_TERMINAR_URGENTE, ROLES_POR_AUDIENCIA.gerencia, {
     title: '{resumen}',
-    body: '{lista}. Si no la renuevas, ese hueco se queda sin clase: renuévalas, o di que no, desde Inicio.',
+    body: '{lista}. Si no la renuevas, ese hueco se queda sin clase: renuévalas, o di que no, desde Resumen.',
     deepLink: () => `/dashboard#decidir-series`,
   }),
   ...paraRoles(EVENTOS.SERIES_RENOVADAS_SOLAS, ROLES_POR_AUDIENCIA.gerencia, {

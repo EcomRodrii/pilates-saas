@@ -60,7 +60,7 @@ export default function Contenido() {
         </li>
         <li>
           <strong>Dijo no darla</strong> — no se le paga. Mira quién la dio y márcala como revisada; si en realidad
-          sí la dio, corrígela. Mientras no la revises, sale en tu bandeja de Inicio.
+          sí la dio, corrígela. Mientras no la revises, sale en tu bandeja de Resumen.
         </li>
         <li>
           <strong>Fuera de jornada</strong> — una contratada dio la clase sin tener la jornada abierta. Corrige su

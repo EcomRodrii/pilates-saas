@@ -50,19 +50,19 @@ export default function Contenido() {
         que no pase por descuido, Tentare lo revisa una vez al día y te avisa <strong>en tres tiempos</strong>:
       </p>
       <ul style={lista}>
-        <li><strong>Un mes antes</strong>: aparece en Inicio, entre lo que espera tu visto bueno. Sin notificación.</li>
+        <li><strong>Un mes antes</strong>: aparece en Resumen, entre lo que espera tu visto bueno. Sin notificación.</li>
         <li><strong>Dos semanas antes</strong>: además te llega un aviso a la app.</li>
         <li><strong>Una semana antes, y si termina sin renovar</strong>: aviso a la app y por email.</li>
       </ul>
       <p>
-        En Inicio las ves juntas, con el nombre de cada clase, cuándo termina y cuántas alumnas tienen plaza fija
+        En Resumen las ves juntas, con el nombre de cada clase, cuándo termina y cuántas alumnas tienen plaza fija
         ahí. Dos botones: <strong>«Revisar y renovar»</strong> o <strong>«No renovar»</strong>. Si dices que no, deja
         de recordártelo —y si cambias de idea, la renuevas desde la clase en el calendario—.
       </p>
 
       <h2 style={h2}>Renovar una serie</h2>
       <p>
-        Desde Inicio, desde la clase en el calendario («Renovar serie») o desde la vista Horario. Los tres abren el
+        Desde Resumen, desde la clase en el calendario («Renovar serie») o desde la vista Horario. Los tres abren el
         mismo diálogo, <strong>«Renovar clase»</strong>, que no guarda nada hasta que confirmas: primero te enseña
         exactamente lo que va a pasar.
       </p>
@@ -93,7 +93,7 @@ export default function Contenido() {
 
       <AyudaResultado>
         Una serie terminada no borra nada: las clases que ya se dieron siguen en el histórico. Lo que se pierde es lo
-        que venía después, así que la señal a la que merece la pena hacer caso es la de Inicio — cuando avisa, todavía
+        que venía después, así que la señal a la que merece la pena hacer caso es la de Resumen — cuando avisa, todavía
         queda un mes.
       </AyudaResultado>
     </>

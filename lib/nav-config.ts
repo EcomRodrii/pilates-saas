@@ -37,7 +37,7 @@ export interface NavSection {
 // ─── Jerarquía del menú (reorganización 2026-09-14) ─────────────────────────
 // Se ordena por la pregunta que se viene a contestar, no por el objeto que se
 // toca:
-//   · arriba, sin rótulo: dónde se entra (Inicio), el cerebro (Centro de
+//   · arriba, sin rótulo: dónde se entra (Resumen), el cerebro (Centro de
 //     Control) y lo que trabaja solo (Automatizaciones);
 //   · Operación: lo de todos los días — clases, citas, alumnas, mensajes;
 //   · Equipo: quién da las clases y qué pasa cuando alguien no puede;
@@ -49,12 +49,15 @@ export interface NavSection {
 // solo el sitio en el menú. El orden que cada estudio haya guardado a mano
 // (`ordenarItemsMenu`) se sigue respetando dentro de cada grupo.
 const allSections: NavSection[] = [
-  // «Inicio» y no «Dashboard»: la barra de móvil ya la llamaba Inicio, y la
-  // misma pantalla con dos nombres según el dispositivo obligaba a aprender
-  // dos. Va la primera porque es la única entrada que ven todos los roles y
-  // todos los planes; el Centro de Control, justo detrás, es solo de la
-  // propietaria y depende del plan.
-  { items: [{ href: '/dashboard', label: 'Inicio', icon: LayoutDashboard, alias: ['dashboard', 'panel', 'hoy'] }] },
+  // «Resumen» y no «Inicio» ni «Dashboard» (23-sep): el nombre dice lo que hay
+  // dentro —el día resumido— en vez de dónde estás, que ya lo dice el propio
+  // menú. Escritorio y móvil la llaman igual: la misma pantalla con dos
+  // nombres según el dispositivo obligaba a aprender dos. «inicio» sigue en
+  // los alias para que el ⌘K la encuentre por el nombre viejo. Va la primera
+  // porque es la única entrada que ven todos los roles y todos los planes; el
+  // Centro de Control, justo detrás, es solo de la propietaria y depende del
+  // plan.
+  { items: [{ href: '/dashboard', label: 'Resumen', icon: LayoutDashboard, alias: ['inicio', 'dashboard', 'panel', 'hoy'] }] },
   { items: [{ href: '/centro-de-control', label: 'Centro de Control', icon: Compass }] },
   // P2 (auditoría de producto): decía "Automatizaciones IA" — contradice la
   // decisión de marca de usar "automático", ya aplicada al copy de
@@ -172,7 +175,7 @@ export const navSections: NavSection[] = conMarketing
 export const MODULOS: NavItemDef[] = navSections.flatMap((s) => s.items);
 
 export const bottomNavItems: NavItemDef[] = [
-  { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Resumen', icon: LayoutDashboard },
   { href: '/calendario', label: 'Clases', icon: Calendar },
   { href: '/clientas', label: 'Clientas', icon: Users },
   { href: '/cobros', label: 'Cobros', icon: CreditCard },

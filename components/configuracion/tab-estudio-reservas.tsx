@@ -262,7 +262,7 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
         />
         <InterruptorCampo
           titulo="Aprobar cada reserva a mano"
-          detalle="Queda pendiente hasta que la apruebes, desde Inicio o desde la clase."
+          detalle="Queda pendiente hasta que la apruebes, desde Resumen o desde la clase."
           on={form.requiereAprobacion}
           onChange={v => cambiar('requiereAprobacion', v)}
         />
@@ -621,7 +621,7 @@ export function FormSinCuota(props: PropsCajonRegla) {
 // ── Peticiones desde su app (plaza fija) ────────────────────────────────────
 //
 // Dos puertas (`plaza_fija_solicitar_desde_app`, `plaza_fija_pausa_desde_app`):
-// la alumna pide y el estudio decide en Inicio
+// la alumna pide y el estudio decide en Resumen
 // (components/dashboard/plazas-fijas-por-decidir.tsx). Encenderlas no cambia nada
 // de lo que ya hay, así que no pregunta.
 

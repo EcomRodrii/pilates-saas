@@ -155,7 +155,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                   {vueltaPorDecidir && (
                     <p role="status" className="text-[11px] font-medium text-warning mt-1 flex items-center gap-1">
                       <IconoAviso size={12} className="shrink-0" aria-hidden />
-                      Su pausa acabó el {fechaCorta(p.pausaHasta)} y su sitio está libre: decide su vuelta en Inicio
+                      Su pausa acabó el {fechaCorta(p.pausaHasta)} y su sitio está libre: decide su vuelta en Resumen
                     </p>
                   )}
                   {sinClase && (

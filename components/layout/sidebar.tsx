@@ -645,7 +645,7 @@ export function Sidebar() {
       >
         {/* El logo, solo en horizontal: aquí sí hay sitio a la izquierda. */}
         {horizontal && (
-          <Link href="/dashboard" className="shrink-0 pl-1 pr-1 flex items-center" aria-label="Inicio">
+          <Link href="/dashboard" className="shrink-0 pl-1 pr-1 flex items-center" aria-label="Resumen">
             <LogoTentare formato="isotipo" tinta="auto" producto={producto} titulo={marca} alto={34} animacion={animacionLogo} />
           </Link>
         )}

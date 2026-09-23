@@ -169,7 +169,7 @@ export function VistaHorario(p: VistaHorarioProps) {
       {tarjetas.length > 0 && p.alumnasPidenPlaza !== undefined && (
         <p className="mb-3 text-xs text-muted-foreground text-pretty" data-testid="aviso-peticiones-plaza-fija">
           {p.alumnasPidenPlaza ? (
-            <>Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Inicio.</>
+            <>Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Resumen.</>
           ) : (
             <>
               Tus alumnas no pueden pedir su plaza fija desde la app: se la das tú, aquí o en su ficha.
