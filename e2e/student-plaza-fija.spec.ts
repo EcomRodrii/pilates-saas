@@ -260,7 +260,13 @@ const CLASES_FIJAS = [
 // medio año.
 const JUEVES_EXTRA = ['2026-09-03', '2026-09-10', '2026-09-17', '2026-09-24', '2026-10-01', '2026-10-08'];
 
-async function montarConClaseFija(page: Page, opts: { reservaAMano?: boolean; masFijas?: number } = {}) {
+async function montarConClaseFija(page: Page, opts: {
+  reservaAMano?: boolean; masFijas?: number;
+  /** Estado distinto de CONFIRMADA para alguna reserva de la clase fija (por id). */
+  estados?: Record<string, string>;
+  /** Reservas de la clase fija que NO existen: la clase está, la reserva no. */
+  sinReserva?: string[];
+} = {}) {
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   const sesiones = f.sesiones as unknown[];
@@ -277,7 +283,9 @@ async function montarConClaseFija(page: Page, opts: { reservaAMano?: boolean; ma
   // El reloj de `sembrarSociaLista` es el 2026-08-12: los jueves 13, 20 y 27 a las 10:00 (hora del fixture).
   socia.plazasFijas = [{ id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIO_ID, diaSemana: 4, horaInicio: '10:00:00', salaId: 'sala-1', tipoClaseId: 'tc-r', spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z' }];
   socia.reservas = [
-    ...clasesFijas.map((c) => ({ id: c.id, sesionId: c.sesion, socioId: SOCIO_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-01T00:00:00Z', posicionEspera: null })),
+    ...clasesFijas.filter((c) => !opts.sinReserva?.includes(c.id)).map((c) => ({
+      id: c.id, sesionId: c.sesion, socioId: SOCIO_ID, estado: opts.estados?.[c.id] ?? 'CONFIRMADA', creadoEn: '2026-08-01T00:00:00Z', posicionEspera: null,
+    })),
     // Una reserva de una vez, en OTRO día: no es de su clase fija y no puede salir en «Próximas clases».
     ...(opts.reservaAMano ? [{ id: 'res-mano-1', sesionId: 'ses-10', socioId: SOCIO_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-02T00:00:00Z', posicionEspera: null }] : []),
   ];
@@ -367,5 +375,76 @@ test.describe('Student PWA · tu clase fija', () => {
     await expect(page.getByText('Tu clase fija ✓').first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Tu clase fija ✓')).toHaveCount(3);
     await expect(page.getByTestId('fijas-ocultas')).toHaveCount(0);
+  });
+});
+
+// ── El calendario del mes ────────────────────────────────────────────────────
+//
+// Sus días marcados, como en cualquier app de reservas que la alumna conozca. Lo
+// que se defiende: que un check sea una reserva que EXISTE (no «le toca los
+// jueves»), que el día que no va se vea distinto, y que un día sin reserva lo
+// diga en vez de pintar un check que nadie ha hecho.
+test.describe('Student PWA · tu clase fija · calendario del mes', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  const dia = (page: Page, fecha: string) => page.getByTestId('calendario-clase-fija').locator(`[data-testid="dia-clase-fija"][data-fecha="${fecha}"]`);
+
+  test('marca los jueves que ya tiene reservados y cada día abre su clase', async ({ page }) => {
+    await montarConClaseFija(page);
+    await page.goto(`${base}/bonos`);
+    const cal = page.getByTestId('calendario-clase-fija');
+    await expect(cal).toBeVisible({ timeout: 30_000 });
+    await expect(cal.getByText('Agosto de 2026', { exact: true })).toBeVisible();
+    for (const [fecha, sesion] of [['2026-08-13', 'ses-20'], ['2026-08-20', 'ses-21'], ['2026-08-27', 'ses-22']]) {
+      await expect(dia(page, fecha).locator('[data-marca="RESERVADA"]')).toHaveCount(1);
+      await expect(dia(page, fecha)).toHaveAttribute('href', `${base}/reservar/${sesion}`);
+    }
+    // Un miércoles no le toca: ni marca ni enlace.
+    await expect(cal.locator('[data-fecha="2026-08-19"]')).toHaveCount(0);
+    await expect(cal.getByRole('list', { name: 'Leyenda' })).toContainText('Reservada');
+    await expect(page.getByTestId('clase-fija-cambios')).toContainText('¿Un día no puedes venir?');
+  });
+
+  test('el día que no va sale distinto, y un día con clase sin reserva lo dice', async ({ page }) => {
+    await montarConClaseFija(page, { estados: { 'res-pf-s21': 'CANCELADA' }, sinReserva: ['res-pf-s22'] });
+    await page.goto(`${base}/bonos`);
+    await expect(page.getByTestId('calendario-clase-fija')).toBeVisible({ timeout: 30_000 });
+    await expect(dia(page, '2026-08-13').locator('[data-marca="RESERVADA"]')).toHaveCount(1);
+    await expect(dia(page, '2026-08-20').locator('[data-marca="NO_VA"]')).toHaveCount(1);
+    await expect(dia(page, '2026-08-27').locator('[data-marca="SIN_RESERVA"]')).toHaveCount(1);
+    await expect(dia(page, '2026-08-27')).toHaveAttribute('aria-label', /jueves 27 de agosto: 10:00, sin reservar/);
+    await expect(page.getByText('Si un día sale sin reservar, pregúntale a tu estudio')).toBeVisible();
+  });
+
+  test('se pasa de mes hasta donde hay clases, y no antes de hoy', async ({ page }) => {
+    // Con los jueves de septiembre y los dos primeros de octubre también reservados.
+    await montarConClaseFija(page, { masFijas: 6 });
+    await page.goto(`${base}/bonos`);
+    const cal = page.getByTestId('calendario-clase-fija');
+    await expect(cal).toBeVisible({ timeout: 30_000 });
+    await expect(cal.getByRole('button', { name: 'Mes anterior' })).toBeDisabled();
+
+    await cal.getByRole('button', { name: 'Mes siguiente' }).click();
+    await expect(cal.getByText('Septiembre de 2026', { exact: true })).toBeVisible();
+    for (const fecha of ['2026-09-03', '2026-09-10', '2026-09-17', '2026-09-24']) {
+      await expect(dia(page, fecha).locator('[data-marca="RESERVADA"]')).toHaveCount(1);
+    }
+
+    await cal.getByRole('button', { name: 'Mes siguiente' }).click();
+    await expect(cal.getByText('Octubre de 2026', { exact: true })).toBeVisible();
+    await expect(cal.getByTestId('dia-clase-fija')).toHaveCount(2);
+    await expect(cal.getByRole('button', { name: 'Mes siguiente' }).first()).toBeDisabled();
+
+    await cal.getByRole('button', { name: 'Mes anterior' }).click();
+    await cal.getByRole('button', { name: 'Mes anterior' }).click();
+    await expect(cal.getByText('Agosto de 2026', { exact: true })).toBeVisible();
+  });
+
+  test('en Inicio (tarjeta compacta) no sale el calendario', async ({ page }) => {
+    await montarConClaseFija(page);
+    await page.goto(base);
+    await expect(page.getByTestId('plaza-fija')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('calendario-clase-fija')).toHaveCount(0);
   });
 });
