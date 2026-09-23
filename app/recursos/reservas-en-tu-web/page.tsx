@@ -9,14 +9,18 @@ import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredDa
 import { ACC } from '@/components/landing/theme';
 import { urlDe } from '@/lib/seo/paginas';
 
-const TITLE = 'Cómo integrar reservas de Pilates en tu propia web';
+// Guía de DECISIÓN (por qué no redirigir y qué opciones hay). La de INSTALACIÓN
+// —WordPress, Wix, Squarespace— es /recursos/widget-vs-iframe-reservas-pilates.
+// Hasta el 23-sep las dos se titulaban «Cómo integrar reservas … en tu web» y
+// competían entre sí por la misma búsqueda.
+const TITLE = 'Por qué mandar a la alumna a otra web te cuesta reservas';
 const SLUG = 'reservas-en-tu-web';
 
 const GUIA = guia('reservas-en-tu-web');
 
 export const metadata: Metadata = {
   title: `${TITLE} — Tentare`,
-  description: 'La alumna que sale de tu web para reservar, casi siempre no vuelve. Widget, plugin de WordPress o API: tus opciones reales, comparadas sin rodeos.',
+  description: 'Cuando la alumna sale de tu web para reservar, casi siempre no vuelve. Qué se pierde con la redirección y qué opciones tienes: widget, plugin de WordPress o API.',
   alternates: { canonical: urlDe(`/recursos/${SLUG}`) },
   openGraph: {
     type: 'article',
@@ -55,6 +59,7 @@ export default function ReservasEnTuWebPage() {
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>La alumna llega a tu web. Ha visto tu Instagram, le gusta tu estudio, quiere apuntarse. Pulsa «Reservar» y de repente aparece en una pantalla con otros colores, otro logo y una interfaz que no reconoce. No sabe si ha salido de tu web o si eso es tuyo. La mayoría cierra esa ventana y no vuelve.</p>
         <p>Eso no es un problema de diseño: es una fuga de confianza. Y en un sector donde la relación entre alumna y estudio es tan personal como el Pilates, esa fricción cuesta reservas, cuesta fidelización y cuesta reputación. ¿Puedes integrar reservas de Pilates en tu web sin redirigir a otra plataforma? Sí, y en este artículo te explicamos exactamente cómo hacerlo. Redirigir a una plataforma externa no es una decisión técnica neutral: tiene consecuencias directas en tu negocio.</p>
+        <p>Si ya sabes que quieres integrarlo y buscas cómo instalarlo, tienes la <Link href="/recursos/widget-vs-iframe-reservas-pilates" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>guía de instalación paso a paso en WordPress, Wix y Squarespace</Link>.</p>
         <p>Tienes opciones concretas para resolver esto. Soluciones como Tentare permiten a estudios de Pilates en España tener un <Link href="/funcionalidades/reservas-online" style={{ color: ACC }}>sistema de reservas completamente integrado</Link> en su propia web, sin que la alumna salga en ningún momento. A continuación encontrarás las distintas opciones técnicas comparadas, los pasos para implementarlas y una guía de proveedores para tomar una decisión con criterio.</p>
 
         <h2 id="s1">Por qué perder a la alumna en la redirección sale caro</h2>
@@ -133,7 +138,7 @@ export default function ReservasEnTuWebPage() {
 
         <RelatedLinks
           items={[
-            { href: '/recursos/widget-vs-iframe-reservas-pilates', category: 'Software y web', categoryColor: '#22251A', title: 'Cómo integrar reservas online en la web de tu estudio de pilates' },
+            { href: '/recursos/widget-vs-iframe-reservas-pilates', category: 'Software y web', categoryColor: '#22251A', title: 'Cómo instalar reservas en tu web: WordPress, Wix y Squarespace paso a paso' },
             { href: '/comparativa/tentare-vs-glofox', category: 'Comparativa', categoryColor: ACC, title: 'Glofox vs. Tentare: cuál conviene a tu estudio de Pilates' },
             { href: '/recursos', category: 'Centro de Recursos', categoryColor: '#22251A', title: 'Ver todas las guías para tu estudio →' },
           ]}

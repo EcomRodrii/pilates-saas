@@ -207,8 +207,8 @@ export default function GlofoxVsTentarePage() {
 
         <RelatedLinks
           items={[
-            { href: '/recursos/reservas-en-tu-web', category: 'Software y web', categoryColor: '#22251A', title: 'Cómo integrar reservas de Pilates en tu propia web' },
-            { href: '/recursos/widget-vs-iframe-reservas-pilates', category: 'Software y web', categoryColor: '#22251A', title: 'Cómo integrar reservas online en la web de tu estudio de pilates' },
+            { href: '/recursos/reservas-en-tu-web', category: 'Software y web', categoryColor: '#22251A', title: 'Por qué mandar a la alumna a otra web te cuesta reservas' },
+            { href: '/recursos/widget-vs-iframe-reservas-pilates', category: 'Software y web', categoryColor: '#22251A', title: 'Cómo instalar reservas en tu web: WordPress, Wix y Squarespace paso a paso' },
             { href: '/comparativa', category: 'Comparativa', categoryColor: ACC, title: 'Ver los 8 competidores con los que más se compara Tentare →' },
           ]}
         />
