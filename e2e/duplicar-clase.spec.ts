@@ -28,9 +28,13 @@ const EQUIPO = [
 const TIPO_CLASE = { id: 'tc-1', studio_id: STUDIO_ID, nombre: 'Reformer', duracion_min: 50, color: '#F7A6C4' };
 const SALA = { id: 'sala-1', studio_id: STUDIO_ID, nombre: 'Sala Reformer', capacidad: 12, color: '#F7A6C4' };
 
+// 08:00/08:50 UTC = 10:00/10:50 en Madrid (CEST, UTC+2 en agosto) — el fixture
+// tiene que representar un instante real para que las aserciones de hora
+// abajo (openDuplicar ahora lee con horaEstudio(), anclado a Madrid, no con
+// getHours() del navegador) tengan un "10:00" que comprobar.
 const SESION_ORIGEN = {
   id: 'ses-origen', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1',
-  instructor_id: 'ins-1', inicio: `${ORIGEN_FECHA}T10:00:00+00:00`, fin: `${ORIGEN_FECHA}T10:50:00+00:00`,
+  instructor_id: 'ins-1', inicio: `${ORIGEN_FECHA}T08:00:00+00:00`, fin: `${ORIGEN_FECHA}T08:50:00+00:00`,
   aforo_maximo: 12, cancelada: false, notas: 'Traer esterilla propia',
 };
 
