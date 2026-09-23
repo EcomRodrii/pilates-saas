@@ -69,7 +69,7 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
     <nav
       aria-label="Principal"
       style={{
-        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 40, background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--muted)',
+        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 40, background: 'var(--velo)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--muted)',
         // ⚠️ Antes: `var(--safe-bottom)` ENTERA + 10 px de relleno + el aire del
         // botón de 48. En un iPhone con barra de inicio eran ~50 px en blanco bajo
         // las etiquetas, y el fundador lo vio como una barra mal hecha (15-sep).

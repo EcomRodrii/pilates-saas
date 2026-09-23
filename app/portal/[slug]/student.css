@@ -117,6 +117,12 @@
      un botón en blanco. Medido en la vista previa, 22-sep-2026. */
   --on-dark-tinta: #1A1A1A;
 
+  /* El VELO de las barras que flotan sobre el contenido (la de abajo y la
+     cabecera pegada): el fondo del estilo translúcido, con desenfoque detrás.
+     ⚠️ Estaba escrito a mano como `rgba(250,249,245,.88)` en las dos, así que
+     con un estilo de fondo oscuro la app salía negra y su menú, crema. */
+  --velo: rgba(250, 249, 245, .88);
+
   /* ── Tipografía ──
      Las FAMILIAS son las del paquete y no se tocan. Lo que se añade es la
      escala: había 28 tamaños distintos en la app porque cada pantalla elegía el
