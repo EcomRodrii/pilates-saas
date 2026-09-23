@@ -138,8 +138,8 @@ export default function OcupacionClasesVallePage() {
         <ArticleFaq items={FAQ} />
 
         <CtaBlock
-          title="Un aviso automático cuando una clase se queda vacía"
-          body="El Radar de Ocupación de Tentare vigila tus próximas 48h, te enseña las clases por debajo del 70 % y, con un toque, avisa solo a las socias con bono activo que ya han hecho esa clase — por WhatsApp si lo tienes conectado, o por email."
+          title="Llenar una clase floja sin escribir a toda tu lista"
+          body="En Tentare, cada clase con plazas libres tiene un botón para rellenarla: te enseña a quién ofrecérsela y por qué — la lista de espera primero, y luego quien tiene bono o plan en vigor para esa clase y ya ha venido antes. El mensaje sale cuando tú lo mandas, por WhatsApp si lo tienes conectado o por email."
         />
 
         <RelatedLinks
