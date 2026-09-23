@@ -38,7 +38,7 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, exigePlanAlReservar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio, HORIZONTE_MATERIALIZAR_DIAS, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
@@ -2382,8 +2382,11 @@ export async function crearReservaPublica(params: {
   // gate de plan). Se define aquí para que esté disponible en ambos casos.
   const tipoDeLaClase = tipoClaseId;
 
+  // Lo que se le pide a la RPC. `false` salvo que se exija plan Y haya algo que
+  // comprar (`exigePlanAlReservar`). Si no se exige plan, ni se leen las tarifas.
+  let exigirPlanEnRpc = false;
   if (exigirPlanResuelto || pol.maxSimultaneas != null) {
-    const [{ data: susRows }, { data: planRows }, { data: resRows }, { data: sesRows }] = await Promise.all([
+    const [{ data: susRows }, { data: planRows, error: errorPlanes }, { data: resRows }, { data: sesRows }] = await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
       admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
       admin.from('reservas').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
@@ -2417,8 +2420,12 @@ export async function crearReservaPublica(params: {
     // estructural lo espera (cadena-rechazo-reserva.test.ts).
     // Esta comprobación es defensiva; la RPC es la autoridad real.
     const planesGate = await hidratarTiposDePlanes(admin as never, params.studioId, (planRows ?? []).map(mapPlanTarifa));
-    const seVendeAlgo = hayAlgoQueContratar(planesGate);
-    if (exigirPlanResuelto && seVendeAlgo && !tieneEntitlementActivo(
+    const exigirPlan = exigePlanAlReservar(exigirPlanResuelto, planesGate);
+    // Si las tarifas no se han podido leer, «no hay nada a la venta» sería una
+    // suposición: la RPC recibe el ajuste tal cual y decide ella, como siempre.
+    // Cerrado, no abierto.
+    exigirPlanEnRpc = errorPlanes ? exigirPlanResuelto : exigirPlan;
+    if (exigirPlan && !tieneEntitlementActivo(
       params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, new Date().toISOString().slice(0, 10), tipoDeLaClase,
     )) {
       const tieneAlgunPlan = tieneEntitlementActivo(
@@ -2495,7 +2502,8 @@ export async function crearReservaPublica(params: {
     // `p_exigir_entitlement` es además lo que desambigua la llamada: queda
     // viva una sobrecarga de 8 parámetros y cualquier llamada que no nombre
     // este argumento resuelve a las dos (SQLSTATE 42725, «is not unique»).
-    p_exigir_entitlement: exigirPlanResuelto,
+    // Nunca `exigirPlanResuelto` a secas: ver `exigePlanAlReservar`.
+    p_exigir_entitlement: exigirPlanEnRpc,
     // D-1: el bono elegido arriba, para que la RPC lo descuente DENTRO del
     // mismo candado que confirma la plaza (ver `resolverBonoParaSesion`).
     p_suscripcion_id: consumibleBono?.suscripcion.id ?? null,
