@@ -167,15 +167,16 @@ export const metadata: Metadata = {
   title: 'Software de gestión para estudios de Pilates | Tentare',
   description:
     'Reservas desde la app de tu estudio, cobros que se reintentan solos y bajas que se cubren. Software de gestión para estudios de Pilates, desde 29 €/mes.',
-  alternates: { canonical: '/' },
+  // Sin `alternates.canonical` aquí (23-sep): un canonical en el layout raíz lo
+  // heredan TODAS las páginas que no declaran el suyo, y las declara como copia de
+  // la home. Cada página indexable pone el suyo; la home, en app/page.tsx.
   openGraph: {
     type: 'website',
     locale: 'es_ES',
     siteName: 'Tentare',
-    title: 'Software para estudios de Pilates',
+    title: 'Tentare: software para estudios de Pilates y Yoga',
     description:
-      'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo. Sin permanencia, desde 29€/mes.',
-    url: BASE_URL,
+      'Reservas, cobros, bonos y sustituciones de instructoras para estudios de Pilates y Yoga. Sin permanencia, desde 29 €/mes.',
   },
   twitter: {
     card: 'summary_large_image',
