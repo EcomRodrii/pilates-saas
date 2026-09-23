@@ -1160,14 +1160,9 @@ async function validarSociaPublica(
 /** Lo que `bonoConsumible` decide: qué suscripción (y su plan) se cobraría. */
 type ConsumibleBono = NonNullable<ReturnType<typeof bonoConsumible>>;
 
-// D-1 (auditoría 22-sep): extraído de `consumirBonoServidor` para poder elegir
-// el bono ANTES de llamar a `reservar_plaza` — la RPC necesita el
-// `suscripcion_id` ya decidido para descontarlo dentro de su propio candado
-// (`pg_advisory_xact_lock` por socio), en la MISMA transacción que confirma
-// la plaza. Antes esta selección + el descuento ocurrían los dos DESPUÉS de
-// que la RPC soltara el candado: dos reservas concurrentes de la misma socia
-// en DOS clases distintas podían leer el mismo saldo sin que ninguna hubiera
-// descontado todavía y las dos salían CONFIRMADA (una de ellas sin cobrar).
+// D-1 (auditoría 22-sep): extraído de `consumirBonoServidor` para elegir el bono
+// ANTES de llamar a `reservar_plaza`, que necesita el `suscripcion_id` ya
+// decidido para descontarlo dentro de su propia transacción.
 async function resolverBonoParaSesion(admin: SupabaseClient, p: {
   studioId: string; socioId: string; sesionId: string;
 }): Promise<ConsumibleBono | null> {
@@ -1205,13 +1200,8 @@ async function efectosPostBono(admin: SupabaseClient, p: {
     // confirmada es peor experiencia y es decisión de producto— pero deja de ser
     // invisible: sin esto no había ni rastro.
     //
-    // Desde D-1 (22-sep) el descuento del bono ocurre DENTRO del mismo candado
-    // que confirma la plaza (`reservar_plaza` → `consumir_bono_interno`), así
-    // que esto YA NO puede venir de la carrera entre dos reservas concurrentes
-    // sobre el último saldo — esa carrera queda cerrada. Sigue siendo posible
-    // por el motivo de siempre (el saldo se agotó justo antes de verdad) y esta
-    // guardia sigue haciendo falta como red de seguridad, no como explicación
-    // por defecto.
+    // Desde D-1 (22-sep) el descuento de la reserva directa va dentro de
+    // `reservar_plaza`; esta guardia queda como red de seguridad.
     reportDbError(
       '[efectosPostBono] bono consumible sin descontar (posible clase no cobrada)',
       { studioId, socioId, suscripcionId: sus.id, reservaId: p.reservaId },
@@ -2400,17 +2390,8 @@ export async function crearReservaPublica(params: {
     // lock transaccional). La RPC devuelve SIN_ENTITLEMENT si falla la
     // comprobación DENTRO del lock.
     //
-    // ⚠️ Auditoría 2026-09-22 (R-5): aquí ponía que «dos peticiones concurrentes
-    // con 1 bono ya no pueden pasar ambas el gate». NO ES CIERTO, y creérselo es
-    // la razón plausible de que D-1 lleve varias auditorías sin arreglarse. El
-    // lock es `pg_advisory_xact_lock` y se suelta al hacer commit de la RPC; el
-    // DESCUENTO del bono ocurre DESPUÉS, en TS (`trasReservaCreada` →
-    // `consumirBonoServidor` → `lib/reservas/consumo-bono-reserva.ts`), fuera de
-    // esa transacción. Lo que el lock cierra es la doble reserva sobre la MISMA
-    // clase; dos reservas de CLASES DISTINTAS de la misma socia siguen leyendo
-    // las dos un saldo que ninguna ha descontado todavía y pasan las dos.
-    // Cerrarlo de verdad exige meter `consumir_sesion_bono_reserva` dentro de
-    // `reservar_plaza`, tras el INSERT — no es un comentario lo que falta.
+    // El descuento del bono va dentro de `reservar_plaza`, bajo el mismo candado
+    // que confirma la plaza — ver D-1 (`resolverBonoParaSesion`, `p_suscripcion_id`).
     //
     // Sin embargo, mantenemos una comprobación de TypeScript para devolver
     // `codigo: 'bono-no-cubre'` vs `codigo: 'sin-plan'`, ya que el test

@@ -379,6 +379,25 @@ PUBLIC` + `GRANT ... TO authenticated, service_role, postgres` explícito.
 Verificar siempre con `has_function_privilege('anon', '<función>'::regproc,
 'EXECUTE')` tras cambiar la firma de cualquier RPC ya endurecida.
 
+### D-1 cerrado, D-2 documentado y NO aplicado (2026-09-23)
+
+El descuento del bono de la reserva DIRECTA vive dentro de `reservar_plaza`, bajo
+el candado por socia (`p_suscripcion_id` + `consumir_bono_interno`). Los otros
+tres caminos que confirman una plaza —`resolver_reserva_pendiente`,
+`aceptar_oferta_lista_espera` y `promocionar_siguiente_espera`— siguen decidiendo
+el bono en TS, en una transacción aparte (`trasPlazaConfirmada` /
+`trasPromocionDeEspera` → `consumir_sesion_bono_reserva`), y ninguno toma ese
+candado. Nunca cobra de más (decremento condicional, idempotente por reserva);
+lo que puede pasar es una clase sin cobrar, que `efectosPostBono` ya manda a
+Sentry. Volumen actual: 11 reservas con decisión tomada, sin evidencia de casos.
+
+Cierre pendiente, mismo patrón que D-1: tomar `pg_advisory_xact_lock(studio:socio)`
+al inicio de esas RPC y llamar a `consumir_bono_interno` dentro, con el bono
+elegido desde el servidor. Toca la RPC compartida con `cancelar_reserva_plaza` y
+`expirar_oferta_lista_espera`, así que hace falta `REVOKE`/`GRANT` explícito y
+`has_function_privilege` tras cada cambio de firma. Decisión: no hacerlo hasta
+que el volumen lo justifique; no reabrir como bug urgente.
+
 ### Fase 2b — plazo para aceptar una plaza de lista de espera (completa)
 
 Segunda pieza de Fase 2. Antes, `cancelar_reserva_plaza` promocionaba

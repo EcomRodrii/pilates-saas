@@ -60,9 +60,7 @@ const RESULTADOS_RPC = new Set<ResultadoConsumo>([
  * Traduce la fila que ahora devuelve `reservar_plaza` (D-1, migr
  * 20260922...): con esta RPC decide TAMBIÉN el bono (`consumir_bono_interno`,
  * ver comentario de arriba), dentro del mismo `pg_advisory_xact_lock` por
- * socio que confirma la plaza — cerrando la carrera de dos reservas
- * concurrentes de la MISMA socia leyendo el mismo saldo sin descontar
- * (auditoría 22-sep, D-1). El resultado que decide es SIEMPRE una decisión
+ * socio que confirma la plaza (D-1). El resultado que decide es SIEMPRE una decisión
  * NUEVA en esta llamada (nunca YA_CONSUMIDA/YA_DECIDIDA: la reserva se acaba
  * de insertar en esta misma transacción), pero se reutiliza el mismo
  * conjunto de resultados válidos que la RPC vieja para no duplicar el
