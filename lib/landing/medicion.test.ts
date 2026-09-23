@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { destinoDeEnlace, ubicacionDe, type MarcaAncestro } from './medicion.ts';
+import { destinoDeEnlace, nombrePasoAlta, ubicacionDe, type MarcaAncestro } from './medicion.ts';
 
 const ORIGEN = 'https://www.tentare.app';
 
@@ -67,4 +67,12 @@ test('un <header> interno de sección no es el hero', () => {
 test('sin nada reconocible: «otro»', () => {
   assert.equal(ubicacionDe([{ tag: 'div' }, { tag: 'section' }]), 'otro');
   assert.equal(ubicacionDe([]), 'otro');
+});
+
+test('los pasos del alta tienen nombre estable (no número)', () => {
+  assert.equal(nombrePasoAlta(1), 'estudio');
+  assert.equal(nombrePasoAlta(2), 'plan');
+  assert.equal(nombrePasoAlta(3), 'cuenta');
+  assert.equal(nombrePasoAlta(0), null);
+  assert.equal(nombrePasoAlta(4), null);
 });

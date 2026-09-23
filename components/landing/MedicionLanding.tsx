@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { capturarEvento } from '@/lib/posthog-cliente';
-import { destinoDeEnlace, EVENTOS_LANDING, ubicacionDe, type MarcaAncestro } from '@/lib/landing/medicion';
+import { CLAVE_ORIGEN_ALTA, destinoDeEnlace, EVENTOS_LANDING, ubicacionDe, type MarcaAncestro } from '@/lib/landing/medicion';
 
 // Medición mínima de la landing: qué botón lleva al alta, quién escribe por
 // WhatsApp, quién llega a ver el precio y quién le da al vídeo. La lógica y el
@@ -35,6 +35,10 @@ export function MedicionLanding() {
       if (!destino) return;
       const ubicacion = ubicacionDe(ancestrosDe(enlace));
       capturarEvento(destino === 'alta' ? EVENTOS_LANDING.clickAlta : EVENTOS_LANDING.clickWhatsapp, { ubicacion });
+      // El alta sabrá de qué botón venía (lib/landing/medicion.ts, CLAVE_ORIGEN_ALTA).
+      if (destino === 'alta') {
+        try { window.sessionStorage.setItem(CLAVE_ORIGEN_ALTA, ubicacion); } catch { /* sin sessionStorage */ }
+      }
     }
     document.addEventListener('click', alPulsar, true);
 

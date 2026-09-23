@@ -60,6 +60,7 @@ function envolverDestino(instancia: PostHogSDK): Destino {
     identify: (...a: unknown[]) => (instancia.identify as (...a: unknown[]) => unknown)(...a),
     reset: (...a: unknown[]) => (instancia.reset as (...a: unknown[]) => unknown)(...a),
     register: (...a: unknown[]) => (instancia.register as (...a: unknown[]) => unknown)(...a),
+    alias: (...a: unknown[]) => (instancia.alias as (...a: unknown[]) => unknown)(...a),
   };
 }
 
@@ -155,4 +156,19 @@ export function resetear(): void {
  */
 export function asociarEstudio(studioId: string): void {
   encolar('register', [{ studio_id: studioId }]);
+}
+
+/**
+ * Une a la propietaria (ya identificada por su UUID) con el id de su ESTUDIO,
+ * que es el `distinct_id` de todos los eventos de servidor
+ * (lib/analytics-eventos.ts: horario_creado, reserva_completada,
+ * pago_completado…). Sin esto el embudo se partía en dos: la visita y el alta
+ * iban a nombre de la persona y la activación a nombre del estudio, y PostHog
+ * no podía seguir a nadie de la landing a su primera reserva (fase 6, 23-sep).
+ * Un id de tenant, nunca un dato personal. Se llama una vez, al crear el estudio.
+ * Complementa a `asociarEstudio` (que etiqueta los eventos del navegador con el
+ * `studio_id` para filtrar): esto une las dos IDENTIDADES para los embudos.
+ */
+export function vincularEstudio(studioId: string): void {
+  encolar('alias', [studioId]);
 }

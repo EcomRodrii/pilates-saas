@@ -26,6 +26,23 @@ export const EVENTOS_LANDING = {
 export type DestinoEnlace = 'alta' | 'whatsapp';
 
 /**
+ * Desde qué botón de la landing se llegó al alta. MedicionLanding lo deja en
+ * `sessionStorage` al pulsar y /crear-estudio lo lee al empezar, para que el
+ * embudo diga QUÉ CTA trae altas y no solo clics (fase 6, 23-sep). Solo una
+ * etiqueta de ubicación ('hero', 'precio'…): nada de la persona.
+ */
+export const CLAVE_ORIGEN_ALTA = 'tentare:alta-desde';
+
+/** Nombre de cada paso del alta para los eventos (el índice cambia si se reordena). */
+export const PASOS_ALTA = ['estudio', 'plan', 'cuenta'] as const;
+export type PasoAlta = (typeof PASOS_ALTA)[number];
+
+/** Paso del alta por su número (1-based), o null si no existe. */
+export function nombrePasoAlta(n: number): PasoAlta | null {
+  return PASOS_ALTA[n - 1] ?? null;
+}
+
+/**
  * ¿A dónde lleva este enlace, de lo que nos importa medir? `href` es el
  * atributo tal cual (relativo o absoluto); `origen` es el de la página.
  */

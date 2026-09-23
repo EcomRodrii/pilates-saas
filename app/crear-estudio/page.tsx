@@ -6,7 +6,8 @@ import { ArrowLeft, ArrowRight, Check, Copy, Loader2, Mail, RotateCcw, ShieldChe
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
-import { capturarEvento, identificar } from '@/lib/posthog-cliente';
+import { capturarEvento, identificar, vincularEstudio } from '@/lib/posthog-cliente';
+import { CLAVE_ORIGEN_ALTA, nombrePasoAlta } from '@/lib/landing/medicion';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
@@ -126,6 +127,28 @@ export default function CrearEstudioPage() {
     setBorradorRecuperado(true);
   }, []);
 
+  // Embudo del alta (fase 6 del rediseño, 23-sep). Hasta aquí solo se sabía
+  // quién CREABA la cuenta, no quién empezaba ni en qué paso se iba: con 38
+  // cuentas para 6 estudios (22-sep), el hueco era justo ese. Dos eventos:
+  //   · alta_estudio_iniciada { desde }: al entrar, con el botón de la landing
+  //     que la trajo ('hero', 'precio'…; 'directo' si llegó de otro sitio);
+  //   · alta_estudio_paso { paso }: la PRIMERA vez que alcanza cada paso.
+  // El ref los hace de una sola vez aunque el efecto corra dos veces (dev).
+  const embudo = useRef({ iniciada: false, pasos: new Set<number>() });
+  useEffect(() => {
+    if (embudo.current.iniciada) return;
+    embudo.current.iniciada = true;
+    let desde: string | null = null;
+    try { desde = window.sessionStorage.getItem(CLAVE_ORIGEN_ALTA); } catch { /* sin sessionStorage */ }
+    capturarEvento('alta_estudio_iniciada', { desde: desde ?? 'directo' });
+  }, []);
+  useEffect(() => {
+    if (fase !== 'formulario' || paso === 1 || embudo.current.pasos.has(paso)) return;
+    embudo.current.pasos.add(paso);
+    const nombre = nombrePasoAlta(paso);
+    if (nombre) capturarEvento('alta_estudio_paso', { paso: nombre });
+  }, [paso, fase]);
+
   // Guarda a medida que escribe. `yaMontado` evita que el primer render
   // (con el borrador aún vacío) pise lo que acabamos de recuperar.
   useEffect(() => {
@@ -208,7 +231,11 @@ export default function CrearEstudioPage() {
       // Cierra el tramo pre-estudio del embudo — a partir de aquí ya existe
       // `studioId` y el resto de eventos de activación (onboarding_completado,
       // horario_creado…) siguen la vía normal, keyed por tenant.
-      capturarEvento('alta_estudio_creada');
+      // La propietaria ya está identificada; ahora se une a su estudio, que es
+      // el `distinct_id` de todos los eventos de servidor (horario_creado,
+      // reserva_completada…). Así el embudo va de la visita a la primera reserva.
+      vincularEstudio(estudio.id);
+      capturarEvento('alta_estudio_creada', { plan: datos.plan });
       setFase('listo');
     } finally {
       setMontando(false);
