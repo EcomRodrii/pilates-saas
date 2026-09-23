@@ -508,13 +508,20 @@ export const PAGINAS: PaginaSeo[] = [
     titulo: slug === 'tentare-vs-bsport'
       ? 'Tentare vs bsport: precio, alternativas y comparativa para estudios de Pilates'
       : `Tentare vs ${nombre}: comparativa para estudios de Pilates en España`,
-    descripcion,
+    // Desde el 23-sep las descripciones no prometen un cruce de datos que la
+    // página ya no hace (dónde alojan los datos, comisiones…): dicen que se
+    // compara con lo que consta en la web pública del competidor. bsport,
+    // que se buscaba con «precio», conserva la suya.
+    descripcion: slug === 'tentare-vs-bsport'
+      ? descripcion
+      : `Tentare frente a ${nombre}: precio, permanencia, facturación y funciones, comparados con lo que consta en su web pública y con la fecha de la última revisión.`,
     grupo: 'software',
     etiqueta: `Tentare vs ${nombre}`,
-    // Solo con fecha las páginas cuyos datos del competidor se han contrastado
-    // con su web pública (visible en pantalla y en el JSON-LD). Las demás, sin
-    // fecha: una inventada sería peor que ninguna (ver `actualizado`).
-    ...(slug === 'tentare-vs-bsport' ? { actualizado: '2026-09-23' } : {}),
+    // Fecha de la última revisión contra la web pública del competidor (visible
+    // en pantalla y en el JSON-LD). Se pone SOLO si se ha revisado de verdad:
+    // una fecha inventada es peor que ninguna (ver `actualizado`). Las 11
+    // comparativas de esta plantilla se revisaron el 23-sep-2026.
+    actualizado: '2026-09-23',
     prioridad: 0.7,
     changeFrequency: 'monthly',
     // /precios sigue alcanzable desde el footer de estas páginas — aquí el

@@ -12,28 +12,42 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     title: 'Tentare vs BookyWay',
-    description: 'Precio, modelo de pago, Veri*factu, reformer individual y sustitución de instructoras — comparados punto por punto.',
+    description: 'Modelo de precio, sustitución de instructoras y elección de reformer — comparados con lo que consta en la web pública de BookyWay.',
     url: urlDe(PATH),
   },
 };
 
+// ⚠️ Solo se afirma de BookyWay lo que consta en su web pública (bookyway.com,
+// revisada el 23-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
+// cual —«no consta en su web pública»— y nunca se rellena con «sí» ni con «no».
+// Una versión anterior de esta tabla atribuía al competidor datos que nadie había
+// comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio de entrada', tentare: ['yes', 'Desde 29€/mes, todo incluido'], them: ['partial', 'Sin cuota fija: 1,50€ por usuario añadido (modelo de pago por uso, no comparable directamente)'] },
-  { feature: 'Sin permanencia', tentare: ['yes', 'Sí'], them: ['partial', 'No es suscripción — pago por uso, sin permanencia declarada'] },
-  { feature: 'Facturación España (Veri*factu) nativa', tentare: ['partial', 'Formato nativo; envío a la AEAT en construcción'], them: ['no', 'Sin mención pública'] },
-  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE (Fráncfort)'], them: ['yes', 'Sí, en Italia (empresa italiana)'] },
-  { feature: 'Gestión por reformer individual', tentare: ['yes', 'Sí, con lista de espera por aparato'], them: ['no', 'Menciona "Pilates Reformer" como tipo de clase, sin sistema de aparato individual'] },
-  { feature: 'Sustitución de instructoras integrada', tentare: ['yes', 'Automática, con niveles de autonomía'], them: ['no', 'No encontrada'] },
+  { feature: 'Modelo de precio', tentare: ['partial', 'Suscripción mensual con precio público'], them: ['partial', 'Sin suscripción: 1,50 € por usuario adicional tras 30 días'] },
+  { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', 'Sin suscripción ni cancelación, según su web'] },
+  { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', '«Reformer» es un tipo de actividad; no consta elegir máquina'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
 ];
 
 const HONESTY: HonestyCard[] = [
   {
-    title: 'Cientos de reseñas ya publicadas',
-    body: 'BookyWay tiene 321 reseñas en Capterra con 4,7 sobre 5 — un volumen de prueba social que nosotros, con meses en el mercado, todavía no tenemos.',
+    title: 'Sin cuota fija',
+    body: 'BookyWay no cobra suscripción: pagas 1,50 € por cada usuario adicional después de los 30 primeros días. Para un estudio muy pequeño o con poca rotación puede salir más barato que una cuota mensual.',
   },
   {
-    title: 'App nativa para tus alumnas',
-    body: 'Hoy tus alumnas usan un portal web (funciona en cualquier móvil, sin instalar). La nuestra app nativa está en el camino.',
+    title: 'Escala y apps móviles',
+    body: 'Declara más de 2.300 actividades y más de 1 millón de usuarios, con app gratuita para iOS y Android. Tentare no tiene apps en las tiendas.',
+  },
+];
+
+// Las preguntas que de verdad se buscan de BookyWay (precio, permanencia,
+// migrar), respondidas solo con lo que se puede comprobar.
+const FAQ = [
+  {
+    q: '¿Cuánto cuesta BookyWay?',
+    a: 'No tiene suscripción: según su web, tras 30 días de prueba se paga un único pago de 1,50 € por cada usuario adicional. Tentare funciona por cuota mensual: Base 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 
@@ -44,12 +58,13 @@ export default function TentareVsBookyWayPage() {
       slug="tentare-vs-bookyway"
       logo={{ src: '/comparativa/logos/bookyway.svg', alt: 'Logo de BookyWay', height: 20, width: 120 }}
       h1={<>Tentare frente a BookyWay.</>}
-      intro={<>BookyWay es un software italiano (Gymtrainer Srl, Verona), con servidores en Italia, usado también por estudios de Pilates en España vía su web traducida. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la diferencia principal hoy está en la facturación con Veri*factu y en la sustitución automática de instructoras — dos cosas pensadas específicamente para el mercado español que BookyWay no documenta.</>}
+      intro={<>BookyWay es una plataforma italiana de reservas para estudios y gimnasios que no cobra suscripción: solo un pago por cada usuario adicional. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, es un modelo de precio distinto, no comparable euro a euro con una cuota mensual.</>}
       rows={ROWS}
-      veredicto={<>BookyWay tiene un modelo de precio distinto (pago por usuario añadido, no cuota mensual fija) y un volumen de reseñas mucho mayor que el nuestro. Pero es una herramienta italiana sin foco declarado en la normativa fiscal española ni en la sustitución de instructoras — para un estudio que factura en España, esas dos ausencias pesan cada mes.</>}
+      veredicto={<>Si prefieres no tener una cuota y pagar solo por usuario, BookyWay encaja mejor con ese modelo. Si buscas plaza por reformer, plazas fijas, cobros recurrentes y sustituciones de instructoras con un precio mensual fijo y público, Tentare está pensado para eso.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
-      footnote="Basado en información pública de BookyWay a mediados de 2026 (bookyway.com). Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. BookyWay es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de BookyWay (bookyway.com) a 23 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. BookyWay es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      faq={FAQ}
     />
   );
 }
