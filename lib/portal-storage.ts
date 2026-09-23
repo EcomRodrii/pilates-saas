@@ -421,6 +421,12 @@ export async function eliminarLogoEstudio(studioId: string): Promise<{ ok: true 
 export async function subirFaviconEstudio(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const invalido = validarImagenMarca(file, FAVICON_MAX_BYTES);
   if (invalido) return { error: invalido };
+  // Mismo recorte que el logo, y aquí hace MÁS falta: un favicon se pinta a
+  // 16-32 px reales en la pestaña. El mismo fichero de 1508×1043 con 1451×297
+  // de tinta que en el logo dejaba 9 px de dibujo a 32 px de alto, aquí deja
+  // CERO — el favicon se ve directamente como el color de fondo transparente,
+  // sin marca ninguna, que es justo el bug reportado (#favicon-en-blanco).
+  file = await recortarTransparencia(file);
   const path = `favicon-borrador-${studioId}`;
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
