@@ -1034,6 +1034,8 @@ export interface RowStudios {
   apertura_suave: boolean | null;
   // migr 20260922205823.
   titulo_acceso: string | null;
+  // migr 20260923020149.
+  subscription_evento_en: string | null;
 }
 
 export interface RowSuscripciones {
@@ -1583,6 +1585,8 @@ export interface RowCadenas {
   creado_en: string;
   // migr 0108.
   layout_config: any | null;
+  // migr 20260923020149.
+  subscription_evento_en: string | null;
 }
 
 export interface RowSesionActiva {
@@ -4768,6 +4772,7 @@ export type StudiosInsert = {
   recordatorio_corto_minutos?: number | null | null;
   apertura_suave?: boolean | null | null;
   titulo_acceso?: string | null | null;
+  subscription_evento_en?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -4902,6 +4907,7 @@ export type StudiosUpdate = {
   recordatorio_corto_minutos?: number | null | null;
   apertura_suave?: boolean | null | null;
   titulo_acceso?: string | null | null;
+  subscription_evento_en?: string | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -5853,6 +5859,7 @@ export type CadenasInsert = {
   current_period_end?: string | null | null;
   creado_en?: string | null;
   layout_config?: any | null | null;
+  subscription_evento_en?: string | null | null;
 }
 
 export type CadenasUpdate = {
@@ -5866,6 +5873,7 @@ export type CadenasUpdate = {
   current_period_end?: string | null | null;
   creado_en?: string | null;
   layout_config?: any | null | null;
+  subscription_evento_en?: string | null | null;
 }
 
 export type SesionActivaInsert = {

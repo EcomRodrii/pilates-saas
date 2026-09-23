@@ -95,12 +95,12 @@ export async function POST(req: NextRequest) {
 
   try {
     if (event.type.startsWith('customer.subscription.')) {
-      await actualizarSuscripcion(admin, event.data.object as Stripe.Subscription);
+      await actualizarSuscripcion(admin, event.data.object as Stripe.Subscription, event.created);
     } else if (event.type === 'checkout.session.completed') {
       const s = event.data.object as Stripe.Checkout.Session;
       if (s.mode === 'subscription' && typeof s.subscription === 'string') {
         const sub = await stripe.subscriptions.retrieve(s.subscription);
-        await actualizarSuscripcion(admin, sub);
+        await actualizarSuscripcion(admin, sub, event.created);
       } else if (s.mode === 'payment') {
         // Un checkout en modo `payment` NO es una suscripción al SaaS: es una
         // compra de una socia (un bono, un recibo), y su sitio es
@@ -170,7 +170,42 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
-async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscription) {
+// M-4: resultado de intentar aplicar la actualización a una fila candidata —
+// distinguir "no existe tal fila" de "existe, pero el evento llegó
+// desordenado" importa: lo primero es un error real (metadata rota, cliente
+// sin estudio); lo segundo es EXACTAMENTE el caso que este guard existe para
+// descartar en silencio, Stripe no garantiza el orden de entrega.
+type ResultadoAplicar = 'aplicado' | 'no_encontrado' | 'desordenado';
+
+// Aplica `update` a la fila de `tabla` cuya `columna` valga `valor`, PERO solo
+// si no hay ya un evento más reciente aplicado sobre ella
+// (`subscription_evento_en`). El guard va en el propio WHERE del UPDATE, no en
+// un SELECT previo: así es atómico — dos entregas concurrentes del mismo
+// studio nunca pueden las dos pasar el filtro con un evento más antiguo que el
+// que la otra acaba de escribir. Si no afecta ninguna fila, un SELECT aparte
+// (fuera del camino caliente, solo se ejecuta en el caso raro) distingue por
+// qué: fila inexistente vs fila protegida por su propio guard.
+async function aplicarSiNoDesordenado(
+  admin: SupabaseClient,
+  tabla: 'studios' | 'cadenas',
+  columna: 'id' | 'stripe_customer_id',
+  valor: string,
+  update: Record<string, unknown>,
+  eventoEn: string,
+): Promise<ResultadoAplicar> {
+  const { data, error } = await admin
+    .from(tabla)
+    .update({ ...update, subscription_evento_en: eventoEn })
+    .eq(columna, valor)
+    .or(`subscription_evento_en.is.null,subscription_evento_en.lte.${eventoEn}`)
+    .select('id');
+  if (error) throw new Error(`update ${tabla}: ${error.message}`);
+  if (data?.length) return 'aplicado';
+  const { data: fila } = await admin.from(tabla).select('id').eq(columna, valor).maybeSingle();
+  return fila ? 'desordenado' : 'no_encontrado';
+}
+
+async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscription, eventCreated: number) {
   // Plan CADENA: una sola suscripción cubre varias sedes (studios.cadena_id).
   // metadata.cadenaId la puso el checkout (ver app/api/billing/checkout).
   const cadenaId = sub.metadata?.cadenaId ?? null;
@@ -193,25 +228,26 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
   };
   if (plan) update.plan = plan;
 
+  // M-4: `event.created` (segundos) → timestamptz, para comparar con
+  // `subscription_evento_en`. Stripe no garantiza el orden de entrega de sus
+  // webhooks: un `.updated` (active) que llegara DESPUÉS de un `.deleted`
+  // (canceled) devolvía el estudio a `active` sin que la idempotencia por
+  // `event.id` (M10) lo evitara — son eventos DISTINTOS.
+  const eventoEn = new Date(eventCreated * 1000).toISOString();
+
   if (cadenaId) {
     // `cadenas` es la única fuente de verdad para el billing de una cadena —
     // el trigger propagar_plan_cadena (migración 0066) hace el fan-out a
     // TODAS sus sedes en la misma transacción. No tocar `studios` aquí.
-    // `.select('id')` por el mismo motivo que la rama sin metadata de más abajo
-    // (auditoría 22ª pasada, D-8): un `cadenaId` que ya no existe —cadena
-    // borrada, id de una suscripción vieja— no da error, así que el webhook
-    // respondía 200, marcaba el evento procesado y el estado de la suscripción
-    // no se sincronizaba nunca. El comentario de abajo ya lo explicaba; la
-    // defensa no estaba en esta capa.
-    const { data: filas, error } = await admin.from('cadenas').update(update).eq('id', cadenaId).select('id');
-    if (error) throw new Error(`update cadenas: ${error.message}`);
+    const resultado = await aplicarSiNoDesordenado(admin, 'cadenas', 'id', cadenaId, update, eventoEn);
+    if (resultado === 'desordenado') return;
     // Fila inexistente ≠ fallo transitorio: lanzar aquí haría que Stripe
     // reintentara ~3 días un evento que NUNCA va a poder aplicarse (cadena
     // borrada, o metadata con un id viejo), y una tasa de fallo sostenida puede
     // acabar desactivando el destino del webhook para TODOS los demás. Se avisa
     // a Sentry, que es lo que faltaba —antes esto era silencio absoluto— y se
     // sigue: quien lo arregla es una persona corrigiendo la metadata en Stripe.
-    if (!filas?.length) {
+    if (resultado === 'no_encontrado') {
       Sentry.captureMessage('[billing webhook] cadena de la metadata no encontrada', {
         level: 'error', tags: { area: 'billing' }, extra: { cadenaId, estado: sub.status },
       });
@@ -222,14 +258,11 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
   }
 
   if (studioId) {
-    // Mismo `.select('id')` que la rama de `cadenas` de arriba: sin él, un
-    // `studioId` inexistente en la metadata deja la suscripción sin sincronizar
-    // y el webhook lo celebra con un 200.
-    const { data: filas, error } = await admin.from('studios').update(update).eq('id', studioId).select('id');
-    if (error) throw new Error(`update studios: ${error.message}`);
+    const resultado = await aplicarSiNoDesordenado(admin, 'studios', 'id', studioId, update, eventoEn);
+    if (resultado === 'desordenado') return;
     // Mismo criterio que la rama de `cadenas`: Sentry y seguir, no reintentar
     // para siempre algo que ningún reintento arregla.
-    if (!filas?.length) {
+    if (resultado === 'no_encontrado') {
       Sentry.captureMessage('[billing webhook] estudio de la metadata no encontrado', {
         level: 'error', tags: { area: 'billing' }, extra: { studioId, estado: sub.status },
       });
@@ -250,23 +283,14 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
 
   // Sin metadata (legacy, o edición manual en el dashboard de Stripe): el
   // mismo stripe_customer_id puede pertenecer a un estudio individual o a una
-  // cadena — son dos tablas independientes, así que hay que probar ambas. Un
-  // UPDATE que no matchea ninguna fila NO da error en Supabase, de ahí el
-  // `.select('id')` para saber si de verdad escribió algo antes de caer al
-  // siguiente candidato (si no, el estado de la cadena queda obsoleto en
-  // silencio y Stripe nunca reintenta porque el webhook responde 200).
-  const { data: enStudios, error: studiosError } = await admin
-    .from('studios').update(update).eq('stripe_customer_id', customerId).select('id');
-  if (studiosError) throw new Error(`update studios: ${studiosError.message}`);
-  if (enStudios && enStudios.length > 0) return;
+  // cadena — son dos tablas independientes, así que hay que probar ambas.
+  const enStudios = await aplicarSiNoDesordenado(admin, 'studios', 'stripe_customer_id', customerId, update, eventoEn);
+  if (enStudios === 'aplicado' || enStudios === 'desordenado') return;
 
-  const { data: enCadenas, error: cadenasError } = await admin
-    .from('cadenas').update(update).eq('stripe_customer_id', customerId).select('id');
-  if (cadenasError) throw new Error(`update cadenas (fallback sin metadata): ${cadenasError.message}`);
-  // El `.select('id')` que el comentario de arriba pedía y esta rama —la última
-  // del intento -- no tenía: si no casa ni aquí, el cliente de Stripe no
-  // corresponde a ningún estudio ni cadena conocidos y hay que enterarse.
-  if (!enCadenas?.length) {
+  const enCadenas = await aplicarSiNoDesordenado(admin, 'cadenas', 'stripe_customer_id', customerId, update, eventoEn);
+  // Si no casa ni aquí, el cliente de Stripe no corresponde a ningún estudio ni
+  // cadena conocidos y hay que enterarse.
+  if (enCadenas === 'no_encontrado') {
     Sentry.captureMessage('[billing webhook] stripe_customer_id sin estudio ni cadena', {
       level: 'error', tags: { area: 'billing' }, extra: { customerId, estado: sub.status },
     });
