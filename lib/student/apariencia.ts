@@ -21,6 +21,7 @@
 // Puro, sin BD: lo usan el layout de la app (servidor) y el editor (cliente).
 
 import { hexToHsl, hslToHex, colorLegibleSobre } from '../color-utils.ts';
+import { hexARgb } from '../wcag-contrast.ts';
 import { ratioContraste } from '../wcag-contrast.ts';
 import { acentoCssText, acentoDeEstudio, type AcentoStudent } from './tema.ts';
 
@@ -210,6 +211,12 @@ export const tipografiaPorId = (id: TipografiaId): Tipografia => TIPOGRAFIAS.fin
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
+/** El fondo de un estilo, translúcido, para las barras que flotan sobre el contenido. */
+function velo(hex: string): string {
+  const c = hexARgb(hex);
+  return c ? `rgba(${c.r}, ${c.g}, ${c.b}, .88)` : 'rgba(250, 249, 245, .88)';
+}
+
 /**
  * El color del estudio tal cual, oscurecido SOLO si hace falta: el acento lleva
  * texto blanco encima (botones, badges) y tiene que leerse sobre el fondo del
@@ -303,6 +310,10 @@ export function temaAppCssText(colorPrimario: string | null | undefined, crudo: 
   const e = estiloPorId(a.estilo);
   if (e.id !== 'crema') {
     decl.push(
+      // El velo de las barras que flotan sobre el contenido: el fondo del
+      // estilo, translúcido. Sin esto la barra de abajo se queda crema sobre
+      // un fondo oscuro (medido en la app, 23-sep).
+      `--velo:${velo(e.background)}`,
       `--background:${e.background}`, `--foreground:${e.foreground}`, `--card:${e.card}`, `--muted:${e.muted}`,
       `--muted-foreground:${e.mutedForeground}`, `--subtle-foreground:${e.subtleForeground}`,
       `--border:${e.border}`, `--border-strong:${e.borderStrong}`,
@@ -323,7 +334,14 @@ export function temaAppCssText(colorPrimario: string | null | undefined, crudo: 
     );
   }
   if (a.encuadre) decl.push(`--portada-y:${Y_ENCUADRE[a.encuadre]}`);
-  return `${selector}{${decl.join(';')};}`;
+  // ⚠️ El `body` es de la hoja del PANEL, no de la app, así que se queda con su
+  // crema: al rebotar el scroll en el móvil (y en el hueco bajo la barra del
+  // navegador) asomaba una franja blanca debajo de una app oscura. Y
+  // `color-scheme` es lo que tiñe lo que pinta el navegador y no el CSS: la
+  // barra de desplazamiento y ese mismo rebote.
+  const fondoPagina = e.id === 'crema' ? '' :
+    `body{background:${e.background};}` + (e.oscuro ? `:root{color-scheme:dark;}` : '');
+  return `${selector}{${decl.join(';')};}` + fondoPagina;
 }
 
 /** El color de fondo que ve la alumna: la barra del navegador y el manifest de la PWA lo usan. */

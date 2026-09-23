@@ -15,7 +15,11 @@ test('validarContrasteTheme: el favicon no cambia el veredicto', () => {
   // publicarTheme/publicarCamposTheme (lib/theme-data.ts) miran el contraste
   // antes de copiar el favicon y escriben ese mismo tema con la URL final. Solo
   // es correcto mientras el favicon no entre en el chequeo.
-  const sinContraste = { ...DEFAULT_THEME, primary: '#FFFFFF', background: '#FFFFFF' };
+  // Un fondo de portal casi negro con la tinta oscura fija de su modo día: eso
+  // sí sigue siendo ilegible. (Antes se usaba `primary` blanco sobre fondo
+  // blanco, pero ese par dejó de ser motivo de rechazo el 23-sep — ver
+  // `validarContrasteTheme`.)
+  const sinContraste = { ...DEFAULT_THEME, background: '#141414' };
   assert.equal(validarContrasteTheme(sinContraste).ok, false);
   for (const t of [DEFAULT_THEME, sinContraste]) {
     assert.deepEqual(

@@ -16,6 +16,7 @@
 export const CLAVES_PREVIEW_PERMITIDAS: ReadonlySet<string> = new Set([
   '--portal-brand',
   '--portal-brand-foreground',
+  '--portal-brand-texto',
   '--portal-brand-secondary',
   '--brand',
   '--brand-foreground',
