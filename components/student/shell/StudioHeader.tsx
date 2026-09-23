@@ -35,10 +35,21 @@ export function altoCabecera(lema: string | null | undefined): number {
 }
 
 /**
+ * Tamaño REAL del logo en la cabecera — no el de una pastilla ni el de un
+ * favicon (26 px se veía "fino": a ese tamaño un logo de trazo fino pierde
+ * peso visual, con o sin fondo detrás). 40 px es el alto real del dibujo;
+ * `ANCHO_MAX_LOGO` es el ancho máximo del hueco, no del logo en sí — un
+ * isotipo cuadrado normal ocupa mucho menos.
+ */
+export const ALTO_LOGO = 40;
+export const ANCHO_MAX_LOGO = 160;
+
+/**
  * A partir de esta proporción (ancho / alto) un logo es un lockup apaisado: el
- * logotipo con el nombre al lado. En una barra de 26 px de alto y 132 de ancho
- * como mucho, uno de 2000×200 se pinta a 132×13 y se ve como una raya — así lo
- * describió el fundador. Además repetiría el nombre, que ya va escrito al lado.
+ * logotipo con el nombre al lado. En un hueco de `ALTO_LOGO` de alto y
+ * `ANCHO_MAX_LOGO` de ancho como mucho, uno de 2000×200 se pinta como una
+ * raya — así lo describió el fundador. Además repetiría el nombre, que ya va
+ * escrito al lado.
  */
 const PROPORCION_LOGO_APAISADO = 3.2;
 
@@ -52,33 +63,17 @@ function LogoOMonograma({ logoUrl, nombre, flotando }: { logoUrl: string | null;
   const esApaisado = apaisado?.src === logoUrl && apaisado.si;
   if (logoUrl && !esApaisado) {
     return (
-      // ⚠️ Sobre la foto (`flotando`), un logo oscuro o de trazo fino se
-      // pierde contra el velo — el monograma de abajo ya lleva su propia
-      // pastilla clara para ese caso, pero el `<img>` del logo no llevaba
-      // ninguna. Medido con un logo real (trazo oscuro sobre transparente):
-      // sin pastilla, prácticamente invisible sobre el velo oscuro. Misma
-      // pastilla clara que ya usa el monograma flotando, solo que rectangular
-      // para no recortar un logo ancho.
-      <span
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          height: 30, padding: flotando ? '2px 7px' : 0,
-          borderRadius: flotando ? 8 : 0,
-          background: flotando ? 'rgba(250,249,245,.92)' : 'transparent',
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={urlServida(logoUrl, ANCHO_MAX_LOGO)}
+        alt=""
+        decoding="async"
+        onLoad={(e) => {
+          const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+          setApaisado({ src: logoUrl, si: h > 0 && w / h > PROPORCION_LOGO_APAISADO });
         }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={urlServida(logoUrl, 132)}
-          alt=""
-          decoding="async"
-          onLoad={(e) => {
-            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
-            setApaisado({ src: logoUrl, si: h > 0 && w / h > PROPORCION_LOGO_APAISADO });
-          }}
-          style={{ height: 26, maxWidth: 132, objectFit: 'contain', flexShrink: 0 }}
-        />
-      </span>
+        style={{ height: ALTO_LOGO, maxWidth: ANCHO_MAX_LOGO, objectFit: 'contain', flexShrink: 0 }}
+      />
     );
   }
   // Sin logo (o con uno que no cabe), monograma con la inicial — el diseño lo
