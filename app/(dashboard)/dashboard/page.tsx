@@ -44,7 +44,8 @@ import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
 import { PlazasFijasPorDecidir } from '@/components/dashboard/plazas-fijas-por-decidir';
 import { ReservasPorAprobar } from '@/components/dashboard/reservas-por-aprobar';
 import { SeriesPorRenovar } from '@/components/dashboard/series-por-renovar';
-import { puedeGestionarApertura, puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { puedeGestionarApertura, puedeGestionarAutomatizaciones, puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { useConteoDecidir } from '@/lib/estado-estudio-cliente';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
 
@@ -539,6 +540,25 @@ export default function Dashboard() {
   // incluso pasada la medianoche. `hoyStr` viene de `now`, que ahora se
   // actualiza cada minuto (ver arriba), así que este memo recalcula solo de
   // verdad cuando el día cambia.
+  // Cuántas automatizaciones esperan visto bueno, según la BANDEJA — que es la
+  // única cifra de «lo que espera tu visto bueno» en esta pantalla.
+  //
+  // El banner de abajo se lo recalculaba por su cuenta desde `automationLogs`,
+  // así que el MISMO número salía dos veces en la misma pantalla desde dos
+  // sitios distintos: la bandeja lo cuenta en servidor (todas las filas
+  // PENDIENTE_ADMIN) y el contexto trae los logs de una ventana de 330 días.
+  // Podían discrepar, y discrepar en la dirección mala: el banner diciendo
+  // «ninguna espera tu visto bueno» con la bandeja contando dos.
+  //
+  // ⚠️ Solo para quien la bandeja cuenta. `automatizacionesEsperando` se calcula
+  // con `puedeGestionarAutomatizaciones` (solo PROPIETARIO, que es quien puede
+  // aprobarlas), mientras que este banner lo ve también quien solo puede ABRIR
+  // /automatizaciones. Para ese rol la bandeja no tiene número —y no debe
+  // tenerlo: no es su visto bueno— así que se queda con el recuento local, que
+  // es el único que existe para él. Un `?? local` a secas sería un bug: la
+  // bandeja devuelve `0` tanto cuando de verdad hay cero como cuando no cuenta
+  // para ese rol.
+  const esperandoEnBandeja = useConteoDecidir('automatizacionesEsperando');
   const automationBriefing = useMemo(() => {
     const todayLogs = automationLogs.filter(l => l.ejecutadoEn.startsWith(hoyStr));
     const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
@@ -546,8 +566,11 @@ export default function Dashboard() {
     // 'ESPERANDO' nunca lo escribe ningún camino de ejecución: aquí marcaba
     // siempre 0 (P2-4). 'FALLIDO' sí ocurre de verdad.
     const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
-    return { pendingAdmin, ejecutadas, fallidas };
-  }, [automationLogs, hoyStr]);
+    const esperando = puedeGestionarAutomatizaciones(rolActual) && esperandoEnBandeja !== null
+      ? esperandoEnBandeja
+      : pendingAdmin.length;
+    return { esperando, ejecutadas, fallidas };
+  }, [automationLogs, hoyStr, rolActual, esperandoEnBandeja]);
 
   // ── Radar de ocupación: clases con hueco en las próximas 48h ────────────────
   const huecosProximos = useMemo(
@@ -701,6 +724,15 @@ export default function Dashboard() {
         <div {...wrap('estado')} hidden={false}>
           <EstadoDelEstudio
             accionesEnLinea={<>
+              {/* ⚠️ Estas ocho piden sus filas al montar, por las MISMAS que la
+                  bandeja acaba de contar en servidor. Parece trabajo de sobra y
+                  NO se puede quitar: el recuento lleva hasta 30 s de caché y la
+                  tarjeta lee en vivo, así que un cero del contador no significa
+                  que no haya nada — solo que hace un rato no lo había. Saltarse
+                  la consulta con ese cero esconde trabajo pendiente sin dar
+                  ningún error. Lo fija `estado-del-estudio.spec.ts`: «si el
+                  recuento aún dice nada y la tarjeta sí tiene algo, se ve la
+                  tarjeta». Probado y revertido el 23-sep. */}
               {/* La primera: es la única que puede caducar sola (la clase empieza). */}
               {gestionaCalendario && <ReservasPorAprobar onToast={showToast} />}
               {gestionaCalendario && <SeriesPorRenovar onToast={showToast} />}
@@ -801,7 +833,7 @@ export default function Dashboard() {
         {puedeVer(rolActual, '/automatizaciones') && (
         <div {...wrap('automatizaciones')}>
         {(() => {
-          const { pendingAdmin, ejecutadas, fallidas } = automationBriefing;
+          const { esperando, ejecutadas, fallidas } = automationBriefing;
           return (
             <Link
               href="/automatizaciones"
@@ -813,7 +845,7 @@ export default function Dashboard() {
                 <TentareOrb tam={18} />
               </div>
               <div className="min-w-0 flex-1">
-                {pendingAdmin.length === 0 ? (
+                {esperando === 0 ? (
                   // Solo afirma lo que cuenta —las automatizaciones—, no «nada
                   // pendiente» en general: dos secciones más arriba la bandeja
                   // puede estar contando reservas o cobros por decidir.
@@ -821,7 +853,7 @@ export default function Dashboard() {
                 ) : (
                   <p className="text-[13px] font-medium">
                     Sistema autónomo —{' '}
-                    <span className="text-amber-300 dark:text-amber-800">{pendingAdmin.length} caso{pendingAdmin.length > 1 ? 's' : ''} requiere tu atención</span>
+                    <span className="text-amber-300 dark:text-amber-800">{esperando} caso{esperando > 1 ? 's' : ''} requiere tu atención</span>
                   </p>
                 )}
                 <p className="mt-0.5 text-[11px] text-primary-foreground/70">
