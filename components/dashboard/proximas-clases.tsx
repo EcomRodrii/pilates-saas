@@ -280,9 +280,10 @@ function TarjetaEnVivo({
 
       <div className="mt-2.5 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="flex min-w-0 items-center gap-3">
-          {/* Más grande que en las de abajo: esta es la clase que se está dando
-              ahora mismo, y la jerarquía de la sección se lee de un vistazo. */}
-          <FotoClase nombre={nombre} fotoUrl={fotoUrl} alto="size-[92px]" />
+          {/* Más grande que las de abajo (96 px) y no por capricho: es la clase
+              que se está dando AHORA. Con las dos al mismo tamaño, la principal
+              se lee como la menos importante. */}
+          <FotoClase nombre={nombre} fotoUrl={fotoUrl} alto="size-[120px]" />
           {instructor && (
             <ProfileAvatar
               size="sm"
@@ -385,7 +386,7 @@ function TarjetaEnVivo({
  * —clara, con una pared blanca al fondo— y sin él no se lee.
  */
 function FotoClase({
-  nombre, fotoUrl, fecha, alto = 'size-[78px]',
+  nombre, fotoUrl, fecha, alto = 'size-[96px]',
 }: {
   nombre: string;
   fotoUrl: string | null;
