@@ -69,7 +69,7 @@ test('reserva_exige_plan: ajuste heredado (tipo sobre estudio, defecto true) Y t
 });
 
 test('reserva_exige_plan: solo de servidor (ni anon ni authenticated)', () => {
-  const sql = readFileSync(join(DIR, '20260923150000_reservas_entitlement_tardio_solo_si_se_exige_y_se_vende.sql'), 'utf8');
+  const sql = readFileSync(join(DIR, '20260923153837_reservas_entitlement_tardio_solo_si_se_exige_y_se_vende.sql'), 'utf8');
   assert.ok(/revoke all on function public\.reserva_exige_plan\(text, text\) from public, anon, authenticated/i.test(sql));
   assert.ok(/grant execute on function public\.reserva_exige_plan\(text, text\) to service_role, postgres/i.test(sql));
 });
