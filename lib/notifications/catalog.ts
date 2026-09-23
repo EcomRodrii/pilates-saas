@@ -179,6 +179,10 @@ export const EVENTOS = {
   // la propietaria, es accionable por su parte (pedir que la socia acepte el
   // contrato actualizado), a diferencia de "sin tarjeta" que es silencioso.
   PAGO_PENALIZACION_BLOQUEADA: 'pago.penalizacion_bloqueada',
+  // Su renovación no se ha podido cobrar sola: no tiene tarjeta ni SEPA guardados
+  // (lib/billing/renovacion-sin-tarjeta.ts). Antes el recibo se quedaba pendiente
+  // sin avisar a nadie. Al estudio no le llega como aviso: lo ve en su bandeja.
+  RENOVACION_SIN_TARJETA: 'renovacion.sin_tarjeta',
   // Devolución de dinero (reembolso total o parcial). El reembolso PARCIAL era
   // hasta ahora 100 % invisible: no marcaba el recibo, no avisaba a nadie y no
   // dejaba rastro — siendo el caso más habitual cuando la socia ya usó parte del
@@ -399,6 +403,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.PAGO_PENALIZACION]:     { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // Solo in-app, sin push: es accionable pero no urgente de interrumpir.
   [EVENTOS.PAGO_PENALIZACION_BLOQUEADA]: { category: 'pagos', priority: 'MEDIA', canales: [], audiencia: 'propietaria' },
+  [EVENTOS.RENOVACION_SIN_TARJETA]: { category: 'pagos', priority: 'ALTA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // Solo al mostrador: quien disputa el cargo es la propia socia, avisarla
   // de su propia disputa no tiene sentido. EMAIL sí (hay un plazo de Stripe
   // que responder, no es algo que se pueda dejar para cuando se abra el panel).
@@ -986,6 +991,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Nueva venta',
     body: '{socia} ha comprado {concepto} — {importe} €.',
     deepLink: () => `/cobros?tab=cobrado`,
+  },
+  [`${EVENTOS.RENOVACION_SIN_TARJETA}#SOCIA`]: {
+    title: 'Tu renovación está pendiente',
+    body: 'No hemos podido cobrar {concepto} ({importe} €) porque no tienes una tarjeta guardada. Toca para ver cómo pagarla.',
+    // Bonos le enseña la renovación con «Pagar ahora» (o «págala en el estudio»
+    // si el estudio no cobra online). Pagarla desde ahí guarda la tarjeta.
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/bonos`,
   },
   [`${EVENTOS.PAGO_PENALIZACION}#SOCIA`]: {
     title: 'Cargo por cancelación tardía',

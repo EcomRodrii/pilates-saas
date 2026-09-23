@@ -1,4 +1,5 @@
 import 'server-only';
+import { renovacionPorPagar, type FilaReciboRenovacion } from '@/lib/billing/renovacion-sin-tarjeta';
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
@@ -1094,6 +1095,13 @@ export async function fetchPublicStudioData(
       suscripciones: (susRes.data ?? []).map(mapSuscripcion),
       reservas: (resRes.data ?? []).map(mapReserva),
       recibos: misRecibos,
+      // La renovación que no se va a cobrar sola (sin tarjeta guardada): su app le
+      // ofrece pagarla. Se calcula aquí porque el mapeo de recibos no lleva ni
+      // `es_renovacion` ni `proximo_reintento` (`FilaReciboPanel`), y porque solo el
+      // servidor sabe si el estudio cobra online.
+      renovacionPorPagar: renovacionPorPagar(
+        (recRes.data ?? []) as unknown as FilaReciboRenovacion[], Boolean(studioRow.stripe_account_id),
+      ),
       facturas: (facData ?? []).map(mapFactura),
       memberCredits: (credRes.data ?? []).map(mapMemberCredits),
       rewardHistory: (histRes.data ?? []).map(mapRewardHistory),

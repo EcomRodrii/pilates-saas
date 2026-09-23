@@ -65,6 +65,7 @@ const POR_EVENTO: Record<string, TipoAviso> = {
   'pago.fallido': 'atencion',
   'pago.devuelto': 'atencion',
   'pago.penalizacion': 'atencion',
+  'renovacion.sin_tarjeta': 'atencion',
   // PAY-6: la próxima renovación va a costarle más. Le cuesta dinero, igual
   // que el resto del grupo — no es una buena noticia con confeti ni un simple
   // recado del estudio.

@@ -4,6 +4,7 @@ import { cargarAforoPublico, cargarDatosPublicos } from '@/lib/api-client';
 import { aplicarAforo } from '@/lib/student/aforo-fresco';
 import { borrarPorSlug, claveCatalogo } from '@/lib/student/catalogo-clave';
 import { supabasePortal } from '@/lib/db/supabase-portal';
+import type { RenovacionPorPagar } from '@/lib/billing/renovacion-sin-tarjeta';
 import type {
   AchievementDefinition, AchievementProgress, BannerPortal, ChallengeDefinition, ChallengeProgress,
   FavoritoClase, Instructor, LevelDefinition, MemberCredits, PlanTarifa, PlazaFija, Recibo,
@@ -137,6 +138,8 @@ export interface PayloadPublico {
     achievementProgress?: AchievementProgress[];
     challengeProgress?: ChallengeProgress[];
     retosApuntados?: string[];
+    /** Su renovación que NO se va a cobrar sola (sin tarjeta guardada). Ver `lib/billing/renovacion-sin-tarjeta.ts`. */
+    renovacionPorPagar?: RenovacionPorPagar | null;
   } | null;
 }
 

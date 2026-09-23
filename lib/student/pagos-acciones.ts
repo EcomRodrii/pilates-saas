@@ -47,3 +47,30 @@ export async function renovarPlan(studioId: string): Promise<ResultadoRenovar> {
     return { ok: false, error: 'No hemos podido conectar. Comprueba tu conexión y vuelve a intentarlo.' };
   }
 }
+
+/**
+ * Pagar UNA renovación concreta que no se va a cobrar sola (sin tarjeta guardada,
+ * `lib/billing/renovacion-sin-tarjeta.ts`). Va directa a su recibo y no pasa por
+ * `renovarPlan`: aquel elige la suscripción activa más reciente, y con una cuota
+ * y un bono a la vez podía preparar el recibo del otro plan.
+ *
+ * Con su sesión (`portalAuthHeader`) el checkout sabe que paga ella misma y guarda
+ * la tarjeta (`pagadorVerificado`): las próximas renovaciones ya se cobran solas.
+ */
+export async function pagarRenovacion(studioId: string, reciboId: string): Promise<ResultadoRenovar> {
+  try {
+    const auth = await portalAuthHeader();
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ studioId, reciboId, origen: 'portal' }),
+    });
+    const cuerpo = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+    if (!res.ok || !cuerpo?.url) {
+      return { ok: false, error: cuerpo?.error ?? 'No se ha podido iniciar el pago.' };
+    }
+    return { ok: true, url: cuerpo.url };
+  } catch {
+    return { ok: false, error: 'No hemos podido conectar. Comprueba tu conexión y vuelve a intentarlo.' };
+  }
+}

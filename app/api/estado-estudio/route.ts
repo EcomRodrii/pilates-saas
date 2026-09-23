@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   const gestionaEquipo = puedeGestionarEquipo(rol);
 
   const [
-    sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
+    sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, renovacionesSinCobro, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
     plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
@@ -107,6 +107,11 @@ export async function GET(req: NextRequest) {
     // intenta nadie más que ella.
     si(verFinanzas, () => contar('recibos-fallidos', admin.from('recibos')
       .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'FALLIDO'))),
+    // Misma definición que `esRenovacionSinCobroAutomatico`: renovación PENDIENTE
+    // sin reintento programado (nadie la va a cobrar sola).
+    si(verFinanzas, () => contar('renovaciones-sin-cobro', admin.from('recibos')
+      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE')
+      .eq('es_renovacion', true).is('proximo_reintento', null))),
     // I-9 (auditoría 15-sep): una penalización FALLIDA con su recibo huérfano
     // (PENDIENTE, sin `proximo_reintento`) está fuera del dunning por diseño y
     // sin estado FALLIDO propio, así que `recibos-fallidos` de arriba tampoco
@@ -231,7 +236,7 @@ export async function GET(req: NextRequest) {
   const jornadasPorRevisar = equipoPorRevisar === undefined ? undefined : (equipoPorRevisar?.jornadas ?? null);
   const clasesNoDadasPorRevisar = equipoPorRevisar === undefined ? undefined : (equipoPorRevisar?.clases ?? null);
   const conteos: ConteosEstudio = {
-    sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, penalizacionesPorAprobar,
+    sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, renovacionesSinCobro, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
     plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
