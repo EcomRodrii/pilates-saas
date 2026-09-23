@@ -219,7 +219,7 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
         id: `cf-${i}`, nombre: 'Reformer · martes y jueves', descripcion: 'Dos días a la semana para trabajar fuerza y control.',
         estado: 'DISPONIBLE', plazasLibres: 3, programadaHasta: '2027-01-29',
         duraciones: [{ meses: 1, etiqueta: '1 mes', hasta: '2026-09-12' }, { meses: 3, etiqueta: '3 meses', hasta: '2026-11-12' }],
-        franjas: [{ diaSemana: 2, hora: '10:00', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: 'Marta' }],
+        franjas: [{ diaSemana: 2, hora: '10:00', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: 'Marta', logoUrl: null, proximaSesionId: SESION_ID }],
       })),
       pedidas: [],
     }));

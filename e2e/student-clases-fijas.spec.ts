@@ -26,8 +26,8 @@ const OFERTA = {
     { meses: 6, etiqueta: '6 meses', hasta: '2027-02-12' },
   ],
   franjas: [
-    { diaSemana: 2, hora: '10:00', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: 'Marta', logoUrl: null as string | null },
-    { diaSemana: 4, hora: '18:30', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: null, logoUrl: null as string | null },
+    { diaSemana: 2, hora: '10:00', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: 'Marta', logoUrl: null as string | null, proximaSesionId: 'ses-cf-mar' },
+    { diaSemana: 4, hora: '18:30', tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: null, logoUrl: null as string | null, proximaSesionId: 'ses-cf-jue' },
   ],
 };
 type Oferta = typeof OFERTA;
@@ -344,6 +344,29 @@ test.describe('Student PWA · clases fijas del estudio · sueltas (sin oferta co
     await expect(page.getByTestId('clase-fija')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('clase-suelta')).toBeVisible();
     await expect(page.getByText('Otras clases fijas disponibles')).toBeVisible();
+  });
+
+  test('cada clase abre su ficha, como una clase del horario', async ({ page }) => {
+    await montar(page, { plan: 'cuota', catalogo: { ofertas: [OFERTA], sueltas: [SUELTA], pedidas: [] } });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    const franjas = page.getByTestId('clase-fija-franja');
+    await expect(franjas).toHaveCount(2, { timeout: 30_000 });
+    await expect(franjas.first()).toHaveAttribute('href', `${base}/reservar/ses-cf-mar`);
+    await expect(franjas.nth(1)).toHaveAttribute('href', `${base}/reservar/ses-cf-jue`);
+
+    const suelta = page.getByTestId('clase-suelta').getByRole('link', { name: /Ver la clase del miércoles a las 09:30/i });
+    await expect(suelta).toHaveAttribute('href', `${base}/reservar/ses-suelta-1`);
+    await suelta.click();
+    await expect(page).toHaveURL(new RegExp(`${base}/reservar/ses-suelta-1$`), { timeout: 30_000 });
+  });
+
+  test('el botón de pedir no abre la ficha: pide y se queda en la lista', async ({ page }) => {
+    const m = await montar(page, { plan: 'cuota', catalogo: { ofertas: [], sueltas: [SUELTA], pedidas: [] } });
+    await page.goto(`${base}/clases-fijas`, { waitUntil: 'domcontentloaded' });
+    const tarjeta = page.getByTestId('clase-suelta');
+    await tarjeta.getByRole('button', { name: 'Pedir clase fija' }).click({ timeout: 30_000 });
+    await expect.poll(() => m.peticiones.length, { timeout: 30_000 }).toBeGreaterThan(0);
+    await expect(page).toHaveURL(new RegExp(`${base}/clases-fijas$`));
   });
 });
 
