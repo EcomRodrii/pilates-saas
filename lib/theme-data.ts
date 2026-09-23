@@ -209,8 +209,21 @@ async function publicarFavicon(admin: Admin, studioId: string, faviconBorradorUr
   if (!esFaviconDeBorrador(faviconBorradorUrl, studioId)) return faviconBorradorUrl;
   const pathBorrador = `favicon-borrador-${studioId}`;
   const pathPublicado = `favicon-${studioId}`;
-  const { error } = await admin.storage.from(AVATARS_BUCKET).copy(pathBorrador, pathPublicado);
-  if (error) return faviconBorradorUrl; // best-effort: deja la URL de borrador antes que perder la referencia
+  let { error } = await admin.storage.from(AVATARS_BUCKET).copy(pathBorrador, pathPublicado);
+  if (error) {
+    // `copy()` no admite upsert (a diferencia de `upload()`): si YA había un
+    // favicon publicado de antes, el destino existe y la copia falla con
+    // "Duplicate" — republicar un favicon nuevo caía siempre aquí. Se borra
+    // el publicado viejo y se reintenta una vez; si sigue fallando, ahí sí
+    // es best-effort de verdad (deja la URL de borrador antes que perder la
+    // referencia, aunque un borrado posterior del borrador la rompa).
+    await admin.storage.from(AVATARS_BUCKET).remove([pathPublicado]);
+    ({ error } = await admin.storage.from(AVATARS_BUCKET).copy(pathBorrador, pathPublicado));
+    if (error) {
+      console.error('[theme:publicar-favicon]', error.message);
+      return faviconBorradorUrl;
+    }
+  }
   const { data } = admin.storage.from(AVATARS_BUCKET).getPublicUrl(pathPublicado);
   return `${data.publicUrl}?v=${Date.now()}`;
 }

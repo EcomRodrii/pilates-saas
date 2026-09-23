@@ -52,17 +52,33 @@ function LogoOMonograma({ logoUrl, nombre, flotando }: { logoUrl: string | null;
   const esApaisado = apaisado?.src === logoUrl && apaisado.si;
   if (logoUrl && !esApaisado) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={urlServida(logoUrl, 132)}
-        alt=""
-        decoding="async"
-        onLoad={(e) => {
-          const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
-          setApaisado({ src: logoUrl, si: h > 0 && w / h > PROPORCION_LOGO_APAISADO });
+      // ⚠️ Sobre la foto (`flotando`), un logo oscuro o de trazo fino se
+      // pierde contra el velo — el monograma de abajo ya lleva su propia
+      // pastilla clara para ese caso, pero el `<img>` del logo no llevaba
+      // ninguna. Medido con un logo real (trazo oscuro sobre transparente):
+      // sin pastilla, prácticamente invisible sobre el velo oscuro. Misma
+      // pastilla clara que ya usa el monograma flotando, solo que rectangular
+      // para no recortar un logo ancho.
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          height: 30, padding: flotando ? '2px 7px' : 0,
+          borderRadius: flotando ? 8 : 0,
+          background: flotando ? 'rgba(250,249,245,.92)' : 'transparent',
         }}
-        style={{ height: 26, maxWidth: 132, objectFit: 'contain', flexShrink: 0 }}
-      />
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={urlServida(logoUrl, 132)}
+          alt=""
+          decoding="async"
+          onLoad={(e) => {
+            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+            setApaisado({ src: logoUrl, si: h > 0 && w / h > PROPORCION_LOGO_APAISADO });
+          }}
+          style={{ height: 26, maxWidth: 132, objectFit: 'contain', flexShrink: 0 }}
+        />
+      </span>
     );
   }
   // Sin logo (o con uno que no cabe), monograma con la inicial — el diseño lo
