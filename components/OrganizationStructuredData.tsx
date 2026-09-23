@@ -11,16 +11,26 @@ const REDES_SOCIALES_TENTARE = [
   'https://www.linkedin.com/company/tentare/',
 ];
 
-// JSON-LD sitewide (Organization + WebSite con SearchAction) — vive en el
-// root layout porque aplica a todo tentare.app, a diferencia del
-// SoftwareApplication/FAQPage de la home (components/landing/StructuredData.tsx),
-// que son específicos de esa página.
+// JSON-LD sitewide (Organization + WebSite). La misma entidad en todas las
+// páginas públicas, con un `@id` estable al que se refieren el resto de bloques
+// (SoftwareApplication de la home, artículos…): así Google y los buscadores con
+// IA ven UNA organización, no una por página (fase 5 del rediseño, 23-sep).
+//
+// Sin SearchAction desde el 23-sep: apuntaba a una búsqueda de /recursos que
+// solo existe en el cliente, y Google retiró el cuadro de búsqueda del
+// resultado. Y sin `logo` hasta entonces: ahora el icono de 512 px, que es
+// cuadrado y sin texto, como pide Google para el logo de una organización.
+export const ID_ORGANIZACION = `${LEGAL.url}/#organizacion`;
+export const ID_WEB = `${LEGAL.url}/#web`;
 export function OrganizationStructuredData() {
   const organizationLd = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
+    '@id': ID_ORGANIZACION,
     name: LEGAL.marca,
     url: LEGAL.url,
+    logo: { '@type': 'ImageObject', url: `${LEGAL.url}/icon-512.png`, width: 512, height: 512 },
+    description: 'Software de gestión para estudios de Pilates y Yoga en España: reservas, cobros, bonos y sustituciones de instructoras.',
     email: LEGAL.email,
     sameAs: REDES_SOCIALES_TENTARE,
     contactPoint: {
@@ -35,13 +45,11 @@ export function OrganizationStructuredData() {
   const websiteLd = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
+    '@id': ID_WEB,
     name: LEGAL.marca,
     url: LEGAL.url,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: `${LEGAL.url}/recursos?q={search_term_string}`,
-      'query-input': 'required name=search_term_string',
-    },
+    inLanguage: 'es-ES',
+    publisher: { '@id': ID_ORGANIZACION },
   };
 
   // Candidatas a sitelinks orgánicos (los sub-enlaces desplegables bajo el
