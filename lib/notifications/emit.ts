@@ -220,7 +220,7 @@ export async function emitirPeticionPlazaFija(
     const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
     await publish({
       type: EVENTOS.PLAZA_FIJA_PETICION, studioId: p.studioId,
-      data: { socioId: p.socioId, socia, peticion: p.peticion },
+      data: { socioId: p.socioId, socia, peticion: p.peticion, solicitudId: p.solicitudId },
       resource: { type: 'socio', id: p.socioId },
       dedupKey: `plaza-fija-peticion:${p.solicitudId}`,
     });

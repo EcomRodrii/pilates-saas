@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, Check, X, Inbox, PartyPopper, Volume2, VolumeX } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
+import { avisarAncla } from '@/lib/estado-estudio-cliente';
 import { fetchNotificaciones, accionNotificacion, type NotifItem, type AmbitoNotif } from '@/lib/notifications/client';
 import { supabase } from '@/lib/db/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -44,6 +45,13 @@ interface FilaNotification {
   category: NotifItem['category']; priority: NotifItem['priority'];
   event_type: string; resource_type: string | null; resource_id: string | null;
   created_at: string; studio_id: string | null;
+}
+
+// Los avisos de plaza fija guardados ANTES de que el enlace señalara su tarjeta
+// llevan «/dashboard» a secas: se les da la tarjeta, aunque no la fila.
+function destinoDelAviso(n: NotifItem): string | null {
+  if (n.eventType === 'plaza_fija.peticion' && n.deepLink === '/dashboard') return '/dashboard#decidir-plazas-fijas';
+  return n.deepLink;
 }
 
 export function NotificationBell() {
@@ -179,7 +187,11 @@ export function NotificationBell() {
       await accionNotificacion(authHeader, AMBITO_STAFF, 'read', n.id);
     }
     // Un aviso que lleva a Configuración estando en ella: por el shell (#2030).
-    if (n.deepLink) { setAbierto(false); if (!irEnConfiguracion(n.deepLink)) router.push(n.deepLink); }
+    const destino = destinoDelAviso(n);
+    if (destino) {
+      setAbierto(false);
+      if (!irEnConfiguracion(destino)) { router.push(destino); avisarAncla(destino); }
+    }
   }
 
   async function archivar(e: React.MouseEvent, n: NotifItem) {

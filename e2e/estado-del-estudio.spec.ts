@@ -50,6 +50,7 @@ async function montar(
   estado: { cuerpo?: unknown; status?: number },
   rest: Record<string, unknown> = {},
   extra?: (page: Page) => Promise<void>,
+  destino = '/dashboard',
 ) {
   const intentos = { n: 0 };
 
@@ -87,7 +88,7 @@ async function montar(
   // Rutas de API concretas de una prueba (después del genérico: gana).
   if (extra) await extra(page);
 
-  await page.goto('/dashboard');
+  await page.goto(destino);
   return intentos;
 }
 
@@ -392,5 +393,80 @@ test.describe('Menú reorganizado', () => {
     await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /^Mensajería/ }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: 'Comunidad', exact: true })).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Desde la campana: el aviso lleva a LA petición, no solo a la pantalla. Con
+// varias peticiones iguales a la vista, «/dashboard» a secas dejaba a quien
+// pulsaba buscando cuál era.
+// ─────────────────────────────────────────────────────────────────────────────
+const PETICIONES = ['pfs-1', 'pfs-2', 'pfs-3'].map((id, i) => ({
+  id, tipo: 'CREAR', socioId: `soc-${i}`, socia: `Socia ${i + 1}`, franja: `lunes ${8 + i}:00`,
+  superaLimite: false, desde: null, hasta: null, motivoSistema: null, creadaEn: '2026-09-22T09:00:00Z',
+}));
+
+test.describe('Aviso de plaza fija → su petición', () => {
+  const estado = {
+    aplica: true, nDecidir: 3, titulo: '3 cosas esperan tu visto bueno',
+    decidir: [{ id: 'plazasFijasPorDecidir', n: 3, texto: '3 peticiones de plaza fija', href: null }],
+    enMarcha: [], resuelto: [],
+  };
+  const conPeticiones = (intentos: { n: number }) => async (page: Page) => {
+    await page.route('**/api/plazas-fijas/solicitudes**', r => { intentos.n++; return json(r, { peticiones: PETICIONES }); });
+  };
+
+  test('con ?peticion e #decidir-plazas-fijas se sube a esa fila y se marca; la URL se limpia', async ({ page }) => {
+    const intentos = { n: 0 };
+    await montar(page, { cuerpo: estado }, {}, conPeticiones(intentos), '/dashboard?peticion=pfs-3#decidir-plazas-fijas');
+
+    const fila = page.locator('[data-peticion="pfs-3"]');
+    await expect(fila).toBeVisible({ timeout: 30_000 });
+    // ⚠️ Sin contador, «se marcó» podría ser cierto por no haber pedido nada.
+    await expect.poll(() => intentos.n).toBeGreaterThan(0);
+    await expect(fila).toHaveClass(/ring-primary/);
+    await expect(page.locator('[data-peticion="pfs-1"]')).not.toHaveClass(/ring-primary/);
+    await expect(fila).toBeInViewport();
+    await expect(page.locator('#decidir-plazas-fijas')).toBeFocused();
+    await expect(page).not.toHaveURL(/#decidir-|peticion=/);
+  });
+
+  test('si esa petición ya no está, lo dice en vez de quedarse mudo', async ({ page }) => {
+    const intentos = { n: 0 };
+    await montar(page, { cuerpo: estado }, {}, conPeticiones(intentos), '/dashboard?peticion=pfs-9#decidir-plazas-fijas');
+    await expect(page.getByText('Esa petición ya está resuelta.')).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => intentos.n).toBeGreaterThan(0);
+  });
+
+  const aviso = (id: string, deepLink: string) => ({
+    id, title: 'Plaza fija por decidir', body: `Socia pide plaza fija (${id}).`, deepLink,
+    category: 'reservas', priority: 'MEDIA', eventType: 'plaza_fija.peticion',
+    resourceType: 'socio', resourceId: 'soc-1', readAt: null, createdAt: '2026-09-23T09:00:00Z', studioId: STUDIO_ID,
+  });
+
+  test('desde la campana, ya en el panel: el aviso con id marca SU fila; el guardado antes lleva a la tarjeta', async ({ page }) => {
+    const intentos = { n: 0 };
+    await montar(page, { cuerpo: estado }, {}, async p => {
+      await conPeticiones(intentos)(p);
+      await p.route('**/api/notifications**', r => r.request().method() === 'GET'
+        ? json(r, { unread: 2, items: [
+          aviso('n-nuevo', '/dashboard?peticion=pfs-2#decidir-plazas-fijas'),
+          aviso('n-viejo', '/dashboard'),
+        ] })
+        : json(r, {}));
+    });
+    await expect(page.locator('[data-peticion="pfs-1"]')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Notificaciones' }).click();
+    await page.getByText('Socia pide plaza fija (n-nuevo).').click();
+    await expect(page.locator('[data-peticion="pfs-2"]')).toHaveClass(/ring-primary/);
+    await expect(page.locator('[data-peticion="pfs-2"]')).toBeInViewport();
+
+    // Un aviso de antes de este cambio: no sabe qué fila, pero sí la tarjeta.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.getByRole('button', { name: 'Notificaciones' }).click();
+    await page.getByText('Socia pide plaza fija (n-viejo).').click();
+    await expect(page.locator('#decidir-plazas-fijas')).toBeFocused();
+    await expect.poll(() => intentos.n).toBeGreaterThan(0);
   });
 });

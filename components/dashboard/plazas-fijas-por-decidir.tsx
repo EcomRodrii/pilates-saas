@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CalendarClock } from 'lucide-react';
 import { listarPeticionesPlazaFija, resolverPeticionPlazaFija, type PeticionPlazaFija } from '@/lib/api-client';
-import { ANCLA_DECIDIR, invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
+import { ANCLA_DECIDIR, invalidarEstadoEstudio, useAnclaDeAviso } from '@/lib/estado-estudio-cliente';
 import { textoMotivoVuelta } from '@/lib/plazas-fijas-solicitudes';
 import { Button } from '@/components/ui/button';
 
@@ -63,6 +63,10 @@ export function PlazasFijasPorDecidir({ onToast }: { onToast: (m: string) => voi
     return () => { vivo = false; };
   }, []);
 
+  // Llegar desde el aviso de la campana: a esta petición, no solo a la pantalla.
+  useAnclaDeAviso(ANCLA_DECIDIR.plazasFijasPorDecidir, items !== null,
+    () => onToast('Esa petición ya está resuelta.'));
+
   const quitar = (id: string) => {
     setItems((prev) => (prev ?? []).filter((p) => p.id !== id));
     invalidarEstadoEstudio();
@@ -111,7 +115,7 @@ export function PlazasFijasPorDecidir({ onToast }: { onToast: (m: string) => voi
           const vuelta = p.tipo === 'REANUDAR';
           const ocupado = enviando !== null;
           return (
-            <div key={p.id} className="flex flex-col gap-2 rounded-lg bg-muted/40 px-3 py-2">
+            <div key={p.id} data-peticion={p.id} className="flex flex-col gap-2 rounded-lg bg-muted/40 px-3 py-2">
               <div className="min-w-0">
                 <p className="truncate text-[13px] text-foreground">{p.socia} · {p.franja}</p>
                 <p className="text-[11px] text-muted-foreground">{quePide(p)}</p>
