@@ -1,7 +1,6 @@
 import 'server-only';
 import { resolverApariencia, type AparienciaApp } from '@/lib/student/apariencia';
 import { getStudioSeoResultado } from '@/lib/studio-seo';
-import { urlMonograma } from '@/lib/monograma-estudio';
 import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
 import type { StudioConfig } from '@/lib/student/tipos';
 
@@ -65,7 +64,7 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     // `logoUrl: null` es significativo en el diseño: activa el monograma con
     // las iniciales (`StudioHeader`). No se rellena con un placeholder.
     logoUrl: s.logoUrl,
-    iconoUrl: urlMonograma(s.nombre, s.colorPrimario, 192),
+    iconoMarcaUrl: s.faviconUrl,
     // Foto de portada del estudio o, si no ha subido ninguna, una de las diez
     // del repo (`lib/imagenes-por-defecto.ts`). Sin esto, el héroe de la
     // pantalla de acceso sale en negro para todo estudio recién dado de alta —

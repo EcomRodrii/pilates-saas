@@ -36,16 +36,14 @@ export function coloresMonograma(colorPrimario: string | null | undefined): { fo
 /**
  * Tamaños que sirve la ruta. Cualquier otro valor cae a 512.
  *
- * ⚠️ El 32 es para la PESTAÑA del navegador, y sin él el estudio perdía esa
- * batalla. En el portal nuestros iconos sustituyen a los de la plataforma…
- * salvo `favicon.ico`, que Next inyecta en TODAS las rutas y una ruta hija no
- * puede quitar. Quedaban dos candidatos: el de Tentare, declarado `48x48`, y
- * el del estudio a 192 y SIN `sizes`. Para una pestaña —16 px a 1x, 32 a 2x—
- * el navegador no tenía ningún motivo para preferir el nuestro.
- * Con un 32 declarado hay coincidencia exacta a 2x y el candidato más pequeño
- * por encima del pedido a 1x: gana el del estudio en los dos casos.
+ * 64 es el favicon de la pestaña (el navegador lo reduce a 16/32); 180 el de
+ * iOS; 192 y 512 los que exige el manifest de una PWA.
+ *
+ * Ya no compite con el `favicon.ico` de Tentare: vive en `public/`, no en
+ * `app/` (Next inyectaba el de `app/` en TODAS las rutas y una hija no podía
+ * quitarlo). En las páginas de un estudio sus iconos son los únicos.
  */
-export const TAMANOS_MONOGRAMA = [32, 192, 512] as const;
+export const TAMANOS_MONOGRAMA = [64, 180, 192, 512] as const;
 export type TamanoMonograma = (typeof TAMANOS_MONOGRAMA)[number];
 
 export function tamanoValido(v: string | null): TamanoMonograma {
@@ -105,19 +103,67 @@ export function logoServible(logoUrl: string | null | undefined, baseSupabase: s
   return url.startsWith(`${base}/storage/v1/object/public/`);
 }
 
+/** Las imágenes de marca que puede llevar el icono. */
+export interface ImagenesMarca {
+  /** El favicon que subió el estudio: su SÍMBOLO, ya preparado al subirlo como
+   *  cuadrado blanco con el dibujo ocupando el lienzo (`prepararIconoMarca`). */
+  iconoUrl?: string | null;
+  /** El logo completo (puede llevar el nombre, un lema, fondo propio…). */
+  logoUrl?: string | null;
+}
+
 /**
- * La URL del icono del estudio a un tamaño exacto. Con logo servible, el icono
- * lo lleva; sin él, la inicial. Nunca el de Tentare.
+ * La URL del icono del estudio a un tamaño exacto. Nunca el de Tentare.
+ *
+ * Una sola precedencia para la pestaña, el icono de la app instalada y el
+ * manifest: **su icono › su logo › su inicial**. El icono va primero porque es
+ * el que el estudio preparó para verse pequeño; el logo completo, reducido a
+ * 16 px, era un cuadro crema con una figura de 6 px dentro (medido).
  */
 export function urlIconoEstudio(
   nombre: string | null | undefined,
   colorPrimario: string | null | undefined,
   size: TamanoMonograma,
-  logoUrl?: string | null,
+  imagenes: ImagenesMarca = {},
   baseSupabase?: string | null,
 ): string {
-  const base = urlMonograma(nombre, colorPrimario, size);
-  return logoServible(logoUrl, baseSupabase)
-    ? `${base}&logo=${encodeURIComponent((logoUrl as string).trim())}`
-    : base;
+  // ⚠️ Van LOS DOS, no solo el que gana: la ruta solo sabe pintar PNG y JPEG,
+  // y si el icono no lo es (un favicon subido en WEBP) tiene que poder caer al
+  // logo. Con uno solo en la URL caía a nada: 200 con cero bytes (medido).
+  let url = `${urlMonograma(nombre, colorPrimario, size)}&r=${VERSION_ICONO}`;
+  if (logoServible(imagenes.iconoUrl, baseSupabase)) {
+    url += `&icono=${encodeURIComponent((imagenes.iconoUrl as string).trim())}`;
+  }
+  if (logoServible(imagenes.logoUrl, baseSupabase)) {
+    url += `&logo=${encodeURIComponent((imagenes.logoUrl as string).trim())}`;
+  }
+  return url;
+}
+
+/**
+ * Se sube cuando cambia cómo pinta la ruta. Sus respuestas llevan caché de un
+ * año por URL, así que sin esto un icono mal pintado se quedaría servido tal
+ * cual aunque la ruta ya lo pintara bien. (2: los vacíos de los WEBP.)
+ */
+export const VERSION_ICONO = 2;
+
+/**
+ * Los `icons` de la metadata de cualquier página de un estudio (su app y su
+ * página de reservas). Una función y no dos listas a mano: antes `/portal`
+ * pintaba el logo sobre su color y `/reservar` el favicon crudo sin `sizes`.
+ */
+export function iconosDeEstudio(
+  nombre: string | null | undefined,
+  colorPrimario: string | null | undefined,
+  imagenes: ImagenesMarca,
+  baseSupabase: string | null | undefined,
+) {
+  const url = (size: TamanoMonograma) => urlIconoEstudio(nombre, colorPrimario, size, imagenes, baseSupabase);
+  return {
+    icon: [
+      { url: url(64), sizes: '64x64', type: 'image/png' },
+      { url: url(192), sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: url(180), sizes: '180x180', type: 'image/png' }],
+  };
 }

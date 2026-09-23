@@ -20,8 +20,8 @@
 //
 // El aforo que se usa es `aforoMaximo` en bruto, el MISMO que pinta el
 // calendario (`bloque-clase.tsx`). El aforo efectivo descontando máquinas
-// averiadas (`aforoEfectivoSesion`) es cosa del camino de reserva y del radar
-// de avisos; usarlo solo aquí haría que la home y el calendario dijeran dos
+// averiadas (`aforoEfectivoSesion`) es cosa del camino de reserva y del aviso
+// de hueco; usarlo solo aquí haría que la home y el calendario dijeran dos
 // cosas distintas del mismo 8/10. Se acepta un `aforo` explícito por si algún
 // día se quiere unificar en los dos sitios a la vez.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -343,10 +343,10 @@ const VISITAS_PARA_COSTUMBRE = 2;
  *
  * No hay motor de recomendación nuevo: las dos reglas duras
  * —tiene derecho a reservar ESTA clase, y ya ha venido antes a este tipo— son
- * literalmente `candidatasParaHueco` (`booking-logic.ts`), la misma que usa el
- * radar que manda los WhatsApp. Lo único que se añade aquí es el ORDEN y la
- * frase, que es lo que faltaba para que la propietaria pueda decidir en vez de
- * disparar a todas.
+ * literalmente `candidatasParaHueco` (`booking-logic.ts`), la misma que vuelve
+ * a aplicar el servidor al mandar los avisos. Lo único que se añade aquí es el
+ * ORDEN y la frase, que es lo que faltaba para que la propietaria pueda decidir
+ * en vez de disparar a todas — que es lo que hacía el botón que esto sustituyó.
  *
  * Quien ya está en lista de espera va primero y aparte: `candidatasParaHueco`
  * la excluye a propósito (ya tiene una reserva activa en esa sesión), pero

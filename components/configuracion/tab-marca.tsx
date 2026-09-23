@@ -125,8 +125,8 @@ export function DetalleLogoYFavicon({ favicon, puedeEditarFavicon, soyPropietari
           textoCambiar="Cambiar logo"
           ayuda={
             <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-              Sale en la app de tus alumnas y en el icono de sus notificaciones.
-              Recomendado: 512×512 px, cuadrado y sin márgenes de sobra.
+              Tu logo completo: sale en tus correos, en las notificaciones y, si no subes
+              icono, en la app de tus alumnas. Quitamos solos los márgenes que le sobren.
             </p>
           }
         />
@@ -151,7 +151,7 @@ export function DetalleLogoYFavicon({ favicon, puedeEditarFavicon, soyPropietari
             conEnlace={false}
             ayuda={
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                El icono de la pestaña de tu página de reservas. Se aplica al momento. Cuadrado y pequeño: 64×64 px basta.
+                Solo el símbolo, sin texto. Es tu icono en la pestaña, en la app de tus alumnas junto a tu nombre y en su móvil. Lo recortamos y centramos sobre blanco. Se aplica al momento.
               </p>
             }
           />

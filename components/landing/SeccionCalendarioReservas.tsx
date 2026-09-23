@@ -15,8 +15,8 @@ import { FotoLanding } from './FotoLanding';
 //  2. La lista de espera (`PLAZA`) — 4 fotogramas: clase llena → se libera un
 //     hueco → se avisa a quien tocaba → confirmada. El pie se llamaba «Radar
 //     48 h» y decía que se avisaba «a socias con bono activo que ya han hecho
-//     esta clase»: eso es el radar de ocupación (clases por debajo del 70 %,
-//     lo lanza la propietaria), no la lista de espera, que avisa a la cola.
+//     esta clase»: eso es «Rellenar hueco» (la propietaria elige a quién y lo
+//     lanza ella), no la lista de espera, que avisa a la cola.
 //  3. El aforo por reformer (`SPOTS`) — 3 fotogramas de cómo una alumna elige
 //     su máquina, "como en el cine". Va encima de una foto de reformers
 //     (`FOTOS.plazas`), sobre la pared crema de arriba: la demo es de muestra,

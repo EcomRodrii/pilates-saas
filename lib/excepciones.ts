@@ -10,6 +10,10 @@ export const TIPOS_EXCEPCION: TipoExcepcion[] = ['SIN_AVISO_HUECO', 'SIN_RECORDA
 export const EXCEPCION_META: Record<TipoExcepcion, { label: string; descripcion: string }> = {
   SIN_AVISO_HUECO: {
     label: 'No avisarle de clases con hueco',
+    // ⚠️ «los avisos», NO «la lista»: la socia exenta SÍ sale en «Rellenar
+    // hueco» y se puede seleccionar — el filtro vive solo en el servidor
+    // (`exentasSet`, app/api/marketing/hueco/avisar). Ni el panel ni
+    // `candidatasParaRellenar` reciben `socioExcepciones`.
     descripcion: 'No entrará en los avisos de hueco libre que salen de «Rellenar hueco».',
   },
   SIN_RECORDATORIO: {

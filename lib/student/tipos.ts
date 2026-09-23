@@ -13,7 +13,11 @@ export type Disciplina = 'Pilates' | 'Yoga';
 
 export interface StudioConfig {
   slug: string; nombre: string; ciudad: string; direccion: string;
-  logoUrl: string | null; iconoUrl: string; fotoPortada: string;
+  logoUrl: string | null;
+  /** El símbolo del estudio (su favicon, preparado al subirlo): cuadrado, con el dibujo ocupando
+   *  el lienzo. Es la marca compacta junto a su nombre. `null` = no ha subido; se usa el logo. */
+  iconoMarcaUrl: string | null;
+  fotoPortada: string;
   telefono: string; email: string; disciplinas: Disciplina[];
   politicaCancelacionHoras: number; soportaListaEspera: boolean;
   /** El estudio deja pedir plaza fija / una pausa desde la app. Solo decide si se enseña el botón:

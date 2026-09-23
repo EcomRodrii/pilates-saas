@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
     // WhatsApp de un hueco que en realidad no existe porque la sala tiene
     // reformers de baja, y la socia llegaba a una clase ya llena.
     const { data: aforoEfectivo } = await admin.rpc('aforo_efectivo', { p_sesion_id: sesionId });
-    const sesionParaRadar = typeof aforoEfectivo === 'number' ? { ...sesionObj, aforoMaximo: aforoEfectivo } : sesionObj;
+    const sesionParaGuardia = typeof aforoEfectivo === 'number' ? { ...sesionObj, aforoMaximo: aforoEfectivo } : sesionObj;
 
     const ahora = new Date();
     // ⚠️ `umbral: 1` = «cualquier clase con al menos una plaza libre», y es
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
     // ha abierto ESA clase y ha elegido a ESAS socias.
     // La ventana de 48 h sí se mantiene: es la regla de negocio de verdad.
     // Una clase llena sigue cayendo aquí (ratio 1 no es < 1).
-    const huecos = clasesConHuecoProximas({ sesiones: [sesionParaRadar], reservas, ahora, umbral: 1 });
+    const huecos = clasesConHuecoProximas({ sesiones: [sesionParaGuardia], reservas, ahora, umbral: 1 });
     if (huecos.length === 0) {
       return NextResponse.json({ error: 'Esta clase ya no tiene hueco (o ya no está en la ventana de aviso)' }, { status: 409 });
     }

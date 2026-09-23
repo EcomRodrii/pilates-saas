@@ -11,6 +11,12 @@ test('reescribe una URL de Storage al endpoint que redimensiona', () => {
   assert.ok(u.includes('quality=70'));
 });
 
+test('pide `resize=contain`: sin él Storage recorta una franja a alto original', () => {
+  // Medido: `width=160` sobre un logo de 1254×1254 devolvía 160×1254.
+  const u = urlServida('https://x.supabase.co/storage/v1/object/public/avatars/logo-1?v=1', 160);
+  assert.ok(u.includes('resize=contain'), u);
+});
+
 test('deja intacta la foto por defecto: es un estático de Next, no Storage', () => {
   // Intentar transformarla devolvería un 404 y la alumna vería un hueco.
   assert.equal(esTransformable('/por-defecto/estudio-hero.webp'), false);

@@ -21,6 +21,7 @@ import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { Input } from '@/components/student/ui/Input';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { useToast } from '@/components/student/ui/Toast';
+import { Icono } from '@/components/student/ui/Icono';
 import { CalendarioClaseFija } from '@/components/student/domain/CalendarioClaseFija';
 import type { CalendarioClaseFija as DatosCalendario } from '@/lib/student/mapeo';
 
@@ -33,6 +34,17 @@ import type { CalendarioClaseFija as DatosCalendario } from '@/lib/student/mapeo
 // dos. Y si en su hueco ya no hay clase, lo dice en vez de enseñar una
 // «próxima» que no existe (lib/student/plaza-fija.ts).
 type PausaPedida = { id: string; desde: string; hasta: string } | null;
+
+/**
+ * Lleva a la ficha de esa clase, como una clase del horario. Sin clase a la que
+ * ir, pinta lo mismo sin enlace: nunca un enlace a una ficha que no existe.
+ */
+function EnlaceClase({ sesionId, etiqueta, flex = false, children }: { sesionId: string | null; etiqueta: string; flex?: boolean; children: React.ReactNode }) {
+  const href = usePortalHref();
+  const estilo: React.CSSProperties = { display: 'block', minWidth: 0, color: 'inherit', ...(flex ? { flex: 1 } : {}) };
+  if (!sesionId) return <div style={estilo}>{children}</div>;
+  return <Link href={href('/reservar/' + sesionId)} aria-label={etiqueta} data-testid="enlace-clase-fija" style={estilo}>{children}</Link>;
+}
 
 export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = false, onCambio, calendario }: {
   plazas: PlazaFijaVista[]; recuperaciones: RecuperacionesVista; hrefHorario: string; compacta?: boolean;
@@ -129,15 +141,20 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
                 key={`${plaza.diaSemana}-${plaza.hora}-${plaza.sala}`}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, paddingTop: i > 0 ? 8 : 0, borderTop: i > 0 ? '1px solid var(--muted)' : 'none' }}
               >
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: compacta ? 14 : 16, fontWeight: 800, letterSpacing: '-.02em' }}>
-                    {dia.charAt(0).toUpperCase() + dia.slice(1)} · {plaza.hora}
-                  </p>
-                  <p className="t-meta" style={{ margin: '2px 0 0' }}>
-                    {[plaza.tipo, plaza.sala].filter(Boolean).join(' · ')}
-                    {plaza.proximaFecha ? ` · próxima ${etiquetaDia(plaza.proximaFecha).toLowerCase()}` : ''}
-                    {plaza.vigenciaHasta ? ` · hasta el ${fechaCorta(plaza.vigenciaHasta)}` : ''}
-                  </p>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  {/* Su clase fija se abre como cualquier clase: la ficha de la
+                      próxima que ya tiene reservada. Sin ninguna, no hay adónde ir. */}
+                  <EnlaceClase sesionId={plaza.proximas[0]?.sesionId ?? null} etiqueta={`Ver tu clase del ${dia} a las ${plaza.hora}`}>
+                    <p style={{ margin: 0, fontSize: compacta ? 14 : 16, fontWeight: 800, letterSpacing: '-.02em', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {dia.charAt(0).toUpperCase() + dia.slice(1)} · {plaza.hora}
+                      {plaza.proximas[0] && <span aria-hidden style={{ display: 'flex', color: 'var(--subtle-foreground)' }}><Icono nombre="chevron-derecha" tamano={16} /></span>}
+                    </p>
+                    <p className="t-meta" style={{ margin: '2px 0 0' }}>
+                      {[plaza.tipo, plaza.sala].filter(Boolean).join(' · ')}
+                      {plaza.proximaFecha ? ` · próxima ${etiquetaDia(plaza.proximaFecha).toLowerCase()}` : ''}
+                      {plaza.vigenciaHasta ? ` · hasta el ${fechaCorta(plaza.vigenciaHasta)}` : ''}
+                    </p>
+                  </EnlaceClase>
                   {/* Lo que la alumna tiene que saber: no reserva nada, se lo hace Tentare. */}
                   {activa && !plaza.sinClase && (
                     <p data-testid="plaza-fija-reservada-sola" style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, lineHeight: 1.45 }}>
@@ -158,10 +175,13 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
                         const av = avisoCancelacion(x, estudio.politicaCancelacionHoras);
                         return (
                           <div key={x.reservaId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                            <div style={{ minWidth: 0 }}>
-                              <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{etiquetaDia(x.fecha)} · {x.hora}</p>
+                            <EnlaceClase sesionId={x.sesionId} etiqueta={`Ver la clase del ${etiquetaDia(x.fecha).toLowerCase()} a las ${x.hora}`} flex>
+                              <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                {etiquetaDia(x.fecha)} · {x.hora}
+                                <span aria-hidden style={{ display: 'flex', color: 'var(--subtle-foreground)' }}><Icono nombre="chevron-derecha" tamano={14} /></span>
+                              </p>
                               <p className="t-meta" style={{ margin: '1px 0 0' }}>{TEXTOS_PLAZA_FIJA.reservada}</p>
-                            </div>
+                            </EnlaceClase>
                             {av.puede && (
                               <Button variant="ghost" size="sm" disabled={!online} onClick={() => setNoPuedo({ plaza, proxima: x })}>
                                 {TEXTOS_PLAZA_FIJA.noPuedo}
