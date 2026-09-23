@@ -13,7 +13,7 @@ const STORAGE_KEY = 'sb-example-auth-token';
 // las horas del fixture van en UTC y se leen en pantalla en hora del estudio.
 export const AHORA = '2026-09-08T10:00:00.000Z';
 
-function json(route: Route, body: unknown, status = 200) {
+export function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
@@ -44,7 +44,7 @@ function reserva(p: { id: string; sesionId: string; socioId: string; estado: str
 }
 
 /** Tres clases que cuentan tres historias distintas del mismo día. */
-function agendaDelDia(conClaseEnCurso = false) {
+function agendaDelDia(conClaseEnCurso = false, huecoDeUnaPlaza = false) {
   const sesiones = [
     // 11:30–12:30 Madrid: empezó hace media hora y le queda otra media. Solo
     // con `conClaseEnCurso`, para no mover las cuentas del resto de specs.
@@ -58,8 +58,11 @@ function agendaDelDia(conClaseEnCurso = false) {
       : []),
     // 08:00–09:00 Madrid, ya terminada y con la lista pasada.
     sesion({ id: 'ses-pasada', inicio: '2026-09-08T06:00:00.000Z', fin: '2026-09-08T07:00:00.000Z', aforo: 4 }),
-    // 14:00–15:00 Madrid: 7 de 10 → 3 huecos que llenar.
-    sesion({ id: 'ses-hueco', inicio: '2026-09-08T12:00:00.000Z', fin: '2026-09-08T13:00:00.000Z', aforo: 10 }),
+    // 14:00–15:00 Madrid: 7 de 10 → 3 huecos que llenar. Con `huecoDeUnaPlaza`
+    // la sala es más pequeña (7 de 8 → UNA plaza): se baja el AFORO y no se
+    // añaden reservas, porque las socias que llenarían esas dos plazas son
+    // justo las candidatas que el panel tiene que seguir ofreciendo.
+    sesion({ id: 'ses-hueco', inicio: '2026-09-08T12:00:00.000Z', fin: '2026-09-08T13:00:00.000Z', aforo: huecoDeUnaPlaza ? 8 : 10 }),
     // 17:00–18:00 Madrid: llena, pero la instructora avisó de que no viene.
     sesion({ id: 'ses-sin-instr', inicio: '2026-09-08T15:00:00.000Z', fin: '2026-09-08T16:00:00.000Z', aforo: 8, instructorId: 'ins-2', sustitucionAbierta: true }),
     // 19:30–20:30 Madrid: completa y sin nada pendiente.
@@ -90,10 +93,17 @@ function agendaDelDia(conClaseEnCurso = false) {
   };
 }
 
-/** Socias del estudio. De la 0 a la 6 ya están en la clase de las 14:00; la 7
- *  y la 8 son las que podrían llenar el hueco. */
-function sociosDelEstudio() {
-  return [0, 1, 2, 3, 4, 5, 6, 7, 8].map(i => ({
+// Con `huecoDeUnaPlaza` el estudio tiene DOCE candidatas (7…18) en vez de dos:
+// las que caben en el panel (MAX_CANDIDATAS). Es el escenario que destapa el
+// tope — doce seleccionadas para una sola plaza libre, que admite cuatro.
+const CANDIDATAS = [7, 8];
+const CANDIDATAS_MUCHAS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+const candidatasDe = (huecoDeUnaPlaza: boolean) => (huecoDeUnaPlaza ? CANDIDATAS_MUCHAS : CANDIDATAS);
+
+/** Socias del estudio. De la 0 a la 6 ya están en la clase de las 14:00; de la
+ *  7 en adelante son las que podrían llenar el hueco. */
+function sociosDelEstudio(huecoDeUnaPlaza = false) {
+  return [0, 1, 2, 3, 4, 5, 6, ...candidatasDe(huecoDeUnaPlaza)].map(i => ({
     id: `soc-${i}`, studio_id: STUDIO_ID, nombre: `Socia${i}`, apellidos: 'Prueba',
     email: `socia${i}@example.com`, telefono: '+34600000000', nif: null,
     fecha_alta: '2026-01-01', activo: true, lead_stage: 'ACTIVA',
@@ -110,23 +120,26 @@ const PLAN = {
   activo: true, oferta_hasta: null, periodicidad_meses: 1, matricula: 0,
 };
 
-function suscripcionesDelEstudio() {
-  return [7, 8].map(i => ({
+function suscripcionesDelEstudio(huecoDeUnaPlaza = false) {
+  return candidatasDe(huecoDeUnaPlaza).map(i => ({
     id: `sus-${i}`, studio_id: STUDIO_ID, socio_id: `soc-${i}`, plan_id: 'plan-1',
     estado: 'ACTIVA', fecha_inicio: '2026-01-01', fecha_fin: null,
     sesiones_restantes: 5, stripe_subscription_id: null,
   }));
 }
 
-/** Un martes anterior a la misma hora: la 7 y la 8 ya vinieron. */
-function historicoDelContexto() {
+/** Un martes anterior a la misma hora: las candidatas ya vinieron. */
+function historicoDelContexto(huecoDeUnaPlaza = false) {
   const sesiones = [{
     id: 'ses-anterior', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1',
     instructor_id: 'ins-1', inicio: '2026-09-01T12:00:00.000Z', fin: '2026-09-01T13:00:00.000Z',
-    aforo_maximo: 10, cancelada: false, notas: null, serie_id: null, precio_puntual: null,
+    // Solo con el flag: doce asistencias no caben en una sala de diez. Sin él,
+    // el fixture se queda EXACTAMENTE como estaba — las otras specs que montan
+    // esta home no deben moverse ni un valor por este escenario.
+    aforo_maximo: huecoDeUnaPlaza ? 20 : 10, cancelada: false, notas: null, serie_id: null, precio_puntual: null,
     google_event_id: null, incidencia_texto: null, zoom_meeting_id: null, zoom_join_url: null,
   }];
-  const reservas = [7, 8].map(i => ({
+  const reservas = candidatasDe(huecoDeUnaPlaza).map(i => ({
     id: `ra-${i}`, studio_id: STUDIO_ID, sesion_id: 'ses-anterior', socio_id: `soc-${i}`,
     estado: 'ASISTIDA', spot_id: null, posicion_espera: null, oferta_expira_en: null,
     check_in_en: '2026-09-01T12:02:00.000Z', creado_en: '2026-08-30T09:00:00.000Z',
@@ -138,7 +151,7 @@ function historicoDelContexto() {
 
 export async function montarHome(
   page: Page,
-  opciones?: { calendarioVacio?: boolean; conClaseEnCurso?: boolean; ahora?: string },
+  opciones?: { calendarioVacio?: boolean; conClaseEnCurso?: boolean; ahora?: string; huecoDeUnaPlaza?: boolean },
 ) {
   // Con una clase en curso hace falta poder ADELANTAR el reloj (el cronómetro
   // de «Próximas clases» cuenta segundos, y un reloj fijo no demuestra que
@@ -167,18 +180,19 @@ export async function montarHome(
   await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));
   await page.route('**/api/theme**', route =>
     json(route, { primary: '#343825', secondary: '#5A6142', logoUrl: null, radius: 12 }));
+  const unaPlaza = opciones?.huecoDeUnaPlaza ?? false;
   await page.route('**/api/calendario**', route =>
-    json(route, opciones?.calendarioVacio ? {} : agendaDelDia(opciones?.conClaseEnCurso)));
+    json(route, opciones?.calendarioVacio ? {} : agendaDelDia(opciones?.conClaseEnCurso, unaPlaza)));
 
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
-  await page.route('**/rest/v1/socios**', route => json(route, sociosDelEstudio()));
-  await page.route('**/rest/v1/suscripciones**', route => json(route, suscripcionesDelEstudio()));
+  await page.route('**/rest/v1/socios**', route => json(route, sociosDelEstudio(unaPlaza)));
+  await page.route('**/rest/v1/suscripciones**', route => json(route, suscripcionesDelEstudio(unaPlaza)));
   await page.route('**/rest/v1/planes_tarifa**', route => json(route, [PLAN]));
-  await page.route('**/rest/v1/sesiones**', route => json(route, historicoDelContexto().sesiones));
-  await page.route('**/rest/v1/reservas**', route => json(route, historicoDelContexto().reservas));
+  await page.route('**/rest/v1/sesiones**', route => json(route, historicoDelContexto(unaPlaza).sesiones));
+  await page.route('**/rest/v1/reservas**', route => json(route, historicoDelContexto(unaPlaza).reservas));
   await page.route('**/rest/v1/tipos_clase**', route =>
     json(route, [{ id: 'tc-1', studio_id: STUDIO_ID, nombre: 'Pilates Máquina', color: '#66704A', duracion_minutos: 60, descripcion: null, nivel: 'TODOS', foto_url: null }]));
 

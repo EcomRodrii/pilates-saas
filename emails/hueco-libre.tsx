@@ -1,8 +1,8 @@
 import { correoAutomatizacion } from '@/lib/emails/estudio/mensajes';
 import { MARCA_CORREO, SOCIA, CLASE, URL_MUESTRA } from './_muestra';
 
-// El aviso de hueco libre («Rellenar hueco» de la home y el radar de
-// ocupación) cuando sale por correo. Misma plantilla que las campañas, con dos
+// El aviso de hueco libre («Rellenar hueco» de la home, único camino desde el
+// 23-sep-2026) cuando sale por correo. Misma plantilla que las campañas, con dos
 // diferencias que se ven aquí: el botón de reservar —sin él, el enlace queda
 // suelto dentro del texto y Outlook no lo subraya— y el pie de baja, que no es
 // opcional: el consentimiento que firmó la socia promete poder darse de baja

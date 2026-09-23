@@ -209,6 +209,34 @@ export function candidatasParaHueco(params: {
   });
 }
 
+// Tope de destinatarias de un aviso de hueco. Dos límites a la vez: cuatro
+// avisos por plaza libre (avisar a veinte personas de una sola plaza es
+// prometerle la misma silla a diecinueve) y un máximo duro por tanda.
+//
+// ⚠️ Vive aquí, y no dentro de la ruta, porque el runner de tests solo mira
+// `lib/**` (`package.json`): la aritmética que decide a cuánta gente NO se le
+// escribe no puede quedarse en el único sitio del repo sin cobertura posible.
+//
+// Devuelve también cuántas se quedan fuera, y ese nombre es el del campo que
+// viaja en la respuesta: antes se recortaba con un `slice` mudo y la
+// propietaria leía «4 avisos enviados» tras seleccionar a doce, sin que nada
+// contara las otras ocho. Alcanzable desde que la ruta filtra con `umbral: 1`
+// —una clase con UNA plaza libre entra, y su tope es 4—; antes el 409 del
+// umbral 0.7 saltaba primero y el caso no llegaba.
+export const AVISOS_HUECO_POR_PLAZA = 4;
+export const AVISOS_HUECO_MAXIMO = 30;
+
+export function topeAvisosHueco(
+  candidatas: number,
+  plazasLibres: number,
+): { caben: number; saltadasPorTope: number } {
+  // `max(0, …)` por si el aforo efectivo deja la clase sin plazas entre que se
+  // pinta la pantalla y se pulsa: un tope negativo haría que `slice` contara
+  // desde el final y avisara justo a quien no tocaba.
+  const caben = Math.max(0, Math.min(candidatas, plazasLibres * AVISOS_HUECO_POR_PLAZA, AVISOS_HUECO_MAXIMO));
+  return { caben, saltadasPorTope: Math.max(0, candidatas - caben) };
+}
+
 // Decide el estado de una reserva nueva según el aforo y las reservas actuales.
 // Con hueco → CONFIRMADA; sin hueco → LISTA_ESPERA con su posición.
 export function decidirReservaNueva(
