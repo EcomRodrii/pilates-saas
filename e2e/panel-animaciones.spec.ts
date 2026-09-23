@@ -83,8 +83,8 @@ test('se anima el cambio de sección desde el menú, y no un enlace de dentro de
   await expect(page).toHaveURL(/\/clientas/, { timeout: 60_000 });
   await expect.poll(contar, { message: 'el menú anima el cambio de sección' }).toBeGreaterThan(inicial);
 
-  // Un enlace de dentro de la pantalla (Inicio → una clase del día) no se anima.
-  await menu(page).getByRole('link', { name: 'Inicio' }).first().click();
+  // Un enlace de dentro de la pantalla (Resumen → una clase del día) no se anima.
+  await menu(page).getByRole('link', { name: 'Resumen' }).first().click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 60_000 });
   const enlaceClase = page.locator('a[href^="/calendario?sesion="]').first();
   await expect(enlaceClase).toBeVisible({ timeout: 60_000 });

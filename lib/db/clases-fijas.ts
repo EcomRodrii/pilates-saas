@@ -228,6 +228,7 @@ async function ofertasPublicas(admin: SupabaseClient, studioId: string): Promise
       sala: nombres.salas.get(f.salaId) ?? '',
       instructora: f.instructorId ? nombres.instructores.get(f.instructorId) ?? null : null,
       logoUrl: nombres.logos.get(f.tipoClaseId) ?? null,
+      proximaSesionId: f.proximaSesionId,
     })).sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora)),
     programadaHasta: o.programadaHasta,
   }));

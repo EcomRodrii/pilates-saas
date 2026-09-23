@@ -746,7 +746,7 @@ const NO_DESDE_AQUI = 'Esta penalización no se puede cobrar desde aquí:';
 
 const POR_QUE_NO_A_MANO: Partial<Record<EstadoPenalizacion, string>> = {
   DETECTADA: 'todavía se está comprobando si se puede cobrar.',
-  PENDIENTE_APROBACION: 'está esperando a que la apruebes en Inicio, en «penalizaciones pendientes de aprobar», que comprueba antes si el contrato de la alumna recoge el cargo.',
+  PENDIENTE_APROBACION: 'está esperando a que la apruebes en Resumen, en «penalizaciones pendientes de aprobar», que comprueba antes si el contrato de la alumna recoge el cargo.',
   OMITIDA_SIN_TARJETA: 'se dejó sin cobrar porque la alumna no tenía un método de pago guardado.',
   OMITIDA_SIN_CONSENTIMIENTO: 'se dejó sin cobrar porque el contrato que aceptó la alumna no recoge este cargo.',
   OMITIDA_COMPENSADA: 'se dejó sin cobrar porque esa reserva ya dio una recuperación a la alumna.',

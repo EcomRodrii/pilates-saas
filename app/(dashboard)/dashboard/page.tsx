@@ -20,6 +20,7 @@ import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist
 import { AperturaEstudio } from '@/components/dashboard/apertura-estudio';
 import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraciones-caidas';
 import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
+import { ProximasClases } from '@/components/dashboard/proximas-clases';
 import { EstadoDelEstudio } from '@/components/dashboard/estado-del-estudio';
 import { TentareOrb } from '@/components/marca/tentare-orb';
 import { ActionCenter } from '@/components/decision/action-center';
@@ -44,7 +45,8 @@ import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
 import { PlazasFijasPorDecidir } from '@/components/dashboard/plazas-fijas-por-decidir';
 import { ReservasPorAprobar } from '@/components/dashboard/reservas-por-aprobar';
 import { SeriesPorRenovar } from '@/components/dashboard/series-por-renovar';
-import { puedeGestionarApertura, puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { puedeGestionarApertura, puedeGestionarAutomatizaciones, puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { useConteoDecidir } from '@/lib/estado-estudio-cliente';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
 
@@ -539,6 +541,25 @@ export default function Dashboard() {
   // incluso pasada la medianoche. `hoyStr` viene de `now`, que ahora se
   // actualiza cada minuto (ver arriba), así que este memo recalcula solo de
   // verdad cuando el día cambia.
+  // Cuántas automatizaciones esperan visto bueno, según la BANDEJA — que es la
+  // única cifra de «lo que espera tu visto bueno» en esta pantalla.
+  //
+  // El banner de abajo se lo recalculaba por su cuenta desde `automationLogs`,
+  // así que el MISMO número salía dos veces en la misma pantalla desde dos
+  // sitios distintos: la bandeja lo cuenta en servidor (todas las filas
+  // PENDIENTE_ADMIN) y el contexto trae los logs de una ventana de 330 días.
+  // Podían discrepar, y discrepar en la dirección mala: el banner diciendo
+  // «ninguna espera tu visto bueno» con la bandeja contando dos.
+  //
+  // ⚠️ Solo para quien la bandeja cuenta. `automatizacionesEsperando` se calcula
+  // con `puedeGestionarAutomatizaciones` (solo PROPIETARIO, que es quien puede
+  // aprobarlas), mientras que este banner lo ve también quien solo puede ABRIR
+  // /automatizaciones. Para ese rol la bandeja no tiene número —y no debe
+  // tenerlo: no es su visto bueno— así que se queda con el recuento local, que
+  // es el único que existe para él. Un `?? local` a secas sería un bug: la
+  // bandeja devuelve `0` tanto cuando de verdad hay cero como cuando no cuenta
+  // para ese rol.
+  const esperandoEnBandeja = useConteoDecidir('automatizacionesEsperando');
   const automationBriefing = useMemo(() => {
     const todayLogs = automationLogs.filter(l => l.ejecutadoEn.startsWith(hoyStr));
     const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
@@ -546,8 +567,11 @@ export default function Dashboard() {
     // 'ESPERANDO' nunca lo escribe ningún camino de ejecución: aquí marcaba
     // siempre 0 (P2-4). 'FALLIDO' sí ocurre de verdad.
     const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
-    return { pendingAdmin, ejecutadas, fallidas };
-  }, [automationLogs, hoyStr]);
+    const esperando = puedeGestionarAutomatizaciones(rolActual) && esperandoEnBandeja !== null
+      ? esperandoEnBandeja
+      : pendingAdmin.length;
+    return { esperando, ejecutadas, fallidas };
+  }, [automationLogs, hoyStr, rolActual, esperandoEnBandeja]);
 
   // ── Radar de ocupación: clases con hueco en las próximas 48h ────────────────
   const huecosProximos = useMemo(
@@ -677,6 +701,21 @@ export default function Dashboard() {
             «esta clase se ha quedado sin instructora». */}
         <div {...wrap('hoy')}><HoyEnElEstudio /></div>
 
+        {/* ── Próximas clases ─────────────────────────────────────────────────
+            Qué se está dando AHORA —con el cronómetro corriendo— y qué viene
+            después. Pegada a la agenda a propósito: son la misma pregunta en
+            dos tiempos. La de arriba se puede mover de día; esta es siempre el
+            ahora, y por eso cruza a mañana sola cuando el día ya está dado.
+            Mismo endpoint y mismo resumen que la agenda (otro rango), así que
+            el 6/6 de las dos no puede discrepar; `EVENTO_AGENDA` las vuelve a
+            pedir juntas cuando algo cambia.
+
+            `empty:hidden`: la sección se esconde sola cuando no hay ni clase en
+            curso ni ninguna a la vista, y sin esto su envoltorio vacío sigue
+            contando como hijo del `gap-5` — veinte píxeles de aire donde no hay
+            nada. */}
+        <div {...wrap('proximas')} className="empty:hidden"><ProximasClases /></div>
+
         {/* ── Lo que espera tu visto bueno ────────────────────────────────────
             La bandeja única (lib/estado-estudio.ts): lo que no avanza sin ella,
             lo que Tentare está haciendo solo y lo que ya ha resuelto. No es solo
@@ -701,6 +740,15 @@ export default function Dashboard() {
         <div {...wrap('estado')} hidden={false}>
           <EstadoDelEstudio
             accionesEnLinea={<>
+              {/* ⚠️ Estas ocho piden sus filas al montar, por las MISMAS que la
+                  bandeja acaba de contar en servidor. Parece trabajo de sobra y
+                  NO se puede quitar: el recuento lleva hasta 30 s de caché y la
+                  tarjeta lee en vivo, así que un cero del contador no significa
+                  que no haya nada — solo que hace un rato no lo había. Saltarse
+                  la consulta con ese cero esconde trabajo pendiente sin dar
+                  ningún error. Lo fija `estado-del-estudio.spec.ts`: «si el
+                  recuento aún dice nada y la tarjeta sí tiene algo, se ve la
+                  tarjeta». Probado y revertido el 23-sep. */}
               {/* La primera: es la única que puede caducar sola (la clase empieza). */}
               {gestionaCalendario && <ReservasPorAprobar onToast={showToast} />}
               {gestionaCalendario && <SeriesPorRenovar onToast={showToast} />}
@@ -801,7 +849,7 @@ export default function Dashboard() {
         {puedeVer(rolActual, '/automatizaciones') && (
         <div {...wrap('automatizaciones')}>
         {(() => {
-          const { pendingAdmin, ejecutadas, fallidas } = automationBriefing;
+          const { esperando, ejecutadas, fallidas } = automationBriefing;
           return (
             <Link
               href="/automatizaciones"
@@ -813,7 +861,7 @@ export default function Dashboard() {
                 <TentareOrb tam={18} />
               </div>
               <div className="min-w-0 flex-1">
-                {pendingAdmin.length === 0 ? (
+                {esperando === 0 ? (
                   // Solo afirma lo que cuenta —las automatizaciones—, no «nada
                   // pendiente» en general: dos secciones más arriba la bandeja
                   // puede estar contando reservas o cobros por decidir.
@@ -821,7 +869,7 @@ export default function Dashboard() {
                 ) : (
                   <p className="text-[13px] font-medium">
                     Sistema autónomo —{' '}
-                    <span className="text-amber-300 dark:text-amber-800">{pendingAdmin.length} caso{pendingAdmin.length > 1 ? 's' : ''} requiere tu atención</span>
+                    <span className="text-amber-300 dark:text-amber-800">{esperando} caso{esperando > 1 ? 's' : ''} requiere tu atención</span>
                   </p>
                 )}
                 <p className="mt-0.5 text-[11px] text-primary-foreground/70">
@@ -837,8 +885,17 @@ export default function Dashboard() {
 
         {/* ── Ventas recientes ────────────────────────────────────────────────── */}
         {/* Vistazo rápido junto al toast+sonido de nueva venta (campana). Solo
-            lectura, se oculta sola si no hay nada. */}
-        {verFinanzas && <VentasRecientes />}
+            lectura, se oculta sola si no hay nada.
+            ⚠️ Va con el `order` de 'ingresos', que es la sección a la que
+            pertenece y justo la de debajo. Sin `wrap` se quedaba sin `order` —
+            o sea `order: 0`, el mismo grupo que 'hoy'— y el navegador la subía
+            por delante de la bandeja, del Action Center y de «Próximas
+            clases», que sí llevan el suyo: salía entre la agenda del día y lo
+            siguiente que viene, a mitad de la mañana de la propietaria. El
+            precio de atarla a 'ingresos' es que se esconde con ella, y es el
+            que toca: quien apaga sus ingresos de la home no quiere sus ventas
+            de hoy justo encima. */}
+        {verFinanzas && <div {...wrap('ingresos')}><VentasRecientes /></div>}
 
         {/* ── Revenue card (full width) ──────────────────────────────────────── */}
         {verFinanzas && (

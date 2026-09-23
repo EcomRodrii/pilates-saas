@@ -355,7 +355,7 @@ test.describe('¿Lista para abrir?', () => {
 
   test('enumera solo lo que falla, imprescindible primero, y «sin comprobar» nunca pasa por hecho', async ({ page }) => {
     const peticiones = await montar(page, {
-      inicial: { ...base, listo: LISTO_A_MEDIAS, alertas: [{ tipo: 'APERTURA_NO_LISTA', severidad: 'CRITICA', titulo: 'Abres en 5 días y aún falta algo imprescindible', descripcion: 'Mira «¿Lista para abrir?» en Inicio.', href: '/dashboard#lista-para-abrir' }] },
+      inicial: { ...base, listo: LISTO_A_MEDIAS, alertas: [{ tipo: 'APERTURA_NO_LISTA', severidad: 'CRITICA', titulo: 'Abres en 5 días y aún falta algo imprescindible', descripcion: 'Mira «¿Lista para abrir?» en Resumen.', href: '/dashboard#lista-para-abrir' }] },
     });
     const bloque = page.locator('#lista-para-abrir');
     await expect(bloque.getByText('¿Lista para abrir?')).toBeVisible({ timeout: ARRANQUE_MS });

@@ -17,6 +17,9 @@ import {
 // traduce el nivel de una CLASE (PRINCIPIANTE → Iniciación). Nada que ver.
 import { canjesDe, creditosPorAsistir, formasDeGanar, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type ReglaDef, type RetoDef } from './gamificacion.ts';
 import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from './tipos.ts';
+import type { PlazaCalendario, ReservaCalendario, SesionCalendario } from '../plazas-fijas-calendario.ts';
+
+export interface CalendarioClaseFija { plazas: PlazaCalendario[]; sesiones: SesionCalendario[]; reservas: ReservaCalendario[] }
 
 // Traducción PURA entre el vocabulario del backend y el del paquete de diseño.
 //
@@ -490,6 +493,27 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
       return { ...x, ventanaCancelacionHoras: (d.tiposClase ?? []).find((t) => t.id === tipoId)?.ventanaCancelacionHoras ?? null };
     }),
   }));
+}
+
+/**
+ * Lo que necesita el calendario del mes de su clase fija (`lib/plazas-fijas-calendario.ts`).
+ * Solo las clases que caen en el horario de alguna de sus plazas: el payload trae
+ * todo el horario futuro del estudio, y el calendario no necesita más que las suyas.
+ * El payload no trae clases pasadas, así que el calendario empieza hoy.
+ */
+export function proyectarCalendarioClaseFija(d: PayloadMin): CalendarioClaseFija {
+  const plazas: PlazaCalendario[] = (d.socia?.plazasFijas ?? []).filter((p) => p.estado !== 'BAJA').map((p) => ({
+    diaSemana: p.diaSemana, hora: p.horaInicio, salaId: p.salaId, tipoClaseId: p.tipoClaseId, estado: p.estado,
+    vigenciaDesde: p.vigenciaDesde, vigenciaHasta: p.vigenciaHasta, pausaDesde: p.pausaDesde ?? null, pausaHasta: p.pausaHasta ?? null,
+  }));
+  if (plazas.length === 0) return { plazas, sesiones: [], reservas: [] };
+  const sesiones = (d.sesiones ?? []).map((s) => ({
+    id: s.id, fecha: hoyEnEstudio(new Date(s.inicio)), hora: horaEstudio(s.inicio), salaId: s.salaId, tipoClaseId: s.tipoClaseId, cancelada: s.cancelada,
+  })).filter((s) => plazas.some((p) => p.salaId === s.salaId && p.hora.slice(0, 5) === s.hora
+    && new Date(`${s.fecha}T12:00:00Z`).getUTCDay() === p.diaSemana));
+  const ids = new Set(sesiones.map((s) => s.id));
+  const reservas = (d.socia?.reservas ?? []).filter((r) => ids.has(r.sesionId)).map((r) => ({ sesionId: r.sesionId, estado: r.estado }));
+  return { plazas, sesiones, reservas };
 }
 
 /** Si en la ficha de esta clase se le ofrece pedir plaza fija. Las fechas, en la zona del estudio. */

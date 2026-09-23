@@ -23,6 +23,8 @@ import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
 import { ReviewBoostModal } from '@/components/growth/review-boost-modal';
 import { estadoBilling } from '@/lib/api-client';
+import { precargarAgenda } from '@/lib/agenda-precarga';
+import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
 import { navSections } from '@/lib/nav-config';
 
 // Antes vivía todo esto directo en app/(dashboard)/layout.tsx, pero ese
@@ -121,6 +123,25 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // decía a una propietaria de verdad «Esta cuenta no tiene ningún estudio»
   // (visto en producción, 15-sep-2026). El reloj queda para lo único que puede
   // afirmar —que tarda— y da una salida en vez de un skeleton para siempre.
+  // La agenda del día, pedida YA — sin esperar al arranque.
+  //
+  // Este armazón se pinta mientras `cargandoDatos` tapa la página con el
+  // esqueleto, así que es el único sitio desde el que se puede adelantar algo.
+  // Es lo mismo que la bandeja ya consigue de rebote: el `Sidebar` de abajo
+  // vive fuera del gate y llama a `useEstadoEstudio()`, así que
+  // `/api/estado-estudio` viaja en paralelo con las ~28 consultas del arranque
+  // y llega servido. La agenda era lo único de la home que no tenía ese trato:
+  // empezaba su viaje de red DESPUÉS de todo lo demás.
+  //
+  // Solo en /dashboard: en el resto del panel sería una consulta de más.
+  useEffect(() => {
+    if (!session || pathname !== '/dashboard') return;
+    const hoy = hoyEnEstudio();
+    precargarAgenda(
+      `/api/calendario?desde=${encodeURIComponent(inicioDelDiaEstudio(hoy))}&hasta=${encodeURIComponent(finDelDiaEstudio(hoy))}`,
+    );
+  }, [session, pathname]);
+
   const [estudioTardaDemasiado, setEstudioTardaDemasiado] = useState(false);
   useEffect(() => {
     if (!session || studio !== null || sinEstudio) return;

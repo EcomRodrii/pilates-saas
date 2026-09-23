@@ -67,4 +67,17 @@ export const TEXTOS_PLAZA_FIJA = {
   noPuedoTarde: (horas: number) => `Quedan menos de ${horas} h: es una cancelación tardía y no se te guardará una clase para recuperar.`,
   noPuedoConfirmar: 'Sí, no puedo asistir',
   noPuedoMantener: 'Mantener mi plaza',
+  // ── El calendario del mes ──
+  calendarioTitulo: 'Tus días este mes',
+  marcaReservada: 'Reservada',
+  marcaAsistida: 'Fuiste',
+  marcaNoAsistio: 'No fuiste',
+  marcaNoVa: 'No vas',
+  marcaPausa: 'En pausa',
+  marcaSinReservar: 'Sin reservar',
+  /** Un día de su horario con clase y sin reserva: no se promete nada, se dice a quién preguntar. */
+  sinReservarAyuda: 'Si un día sale sin reservar, pregúntale a tu estudio: puede que la clase esté llena o que tu cuota no la cubra.',
+  cambiosTitulo: '¿Un día no puedes venir?',
+  cambiosCuerpo: 'Cancela solo ese día desde «No puedo asistir» o desde «Mis clases». Tu clase fija sigue igual.',
+  cambiosListaEspera: 'Tu sitio no se queda vacío: pasa a quien esté en la lista de espera.',
 } as const;

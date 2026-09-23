@@ -28,7 +28,7 @@ export default function Contenido() {
         esperaba (si no queda sitio, pasa a la lista de espera).
       </p>
       <p>
-        Las apruebas o las rechazas desde Inicio, en &ldquo;Lo que espera tu visto bueno&rdquo;, sin tener que
+        Las apruebas o las rechazas desde Resumen, en &ldquo;Lo que espera tu visto bueno&rdquo;, sin tener que
         buscarlas clase a clase; o desde la propia clase en el calendario, en su lista de clientas. Una reserva que
         sigue pendiente cuando la clase empieza se cancela sola y se avisa a la alumna.
       </p>

@@ -213,6 +213,22 @@ export function masDias(iso: string, dias: number): string {
   return new Date(Date.UTC(y, m - 1, d + dias)).toISOString().slice(0, 10);
 }
 
+/**
+ * El día en palabras cuando las tiene: «Hoy», «Mañana», «Ayer». Cadena vacía
+ * para cualquier otro, que se nombra por su fecha.
+ *
+ * Las dos secciones de clases del panel lo comparten —la agenda del día y
+ * «Próximas clases»—, y tienen que llamar igual al mismo día: una diciendo
+ * «Mañana» y la otra «9 sept» una debajo de la otra se lee como dos días.
+ * Las dos fechas van en 'YYYY-MM-DD' y en día del ESTUDIO.
+ */
+export function tituloDia(fecha: string, hoy: string): string {
+  if (fecha === hoy) return 'Hoy';
+  if (fecha === masDias(hoy, 1)) return 'Mañana';
+  if (fecha === masDias(hoy, -1)) return 'Ayer';
+  return '';
+}
+
 // ── Franja horaria local (día de la semana + hora del estudio) ──────────────
 //
 // Vive aquí, con TZ_ESTUDIO, porque la usan dos lados que no deberían

@@ -5,6 +5,7 @@ import { inicialDe } from '@/lib/monograma-estudio';
 import { Foto } from '@/components/student/ui/Foto';
 import { urlServida } from '@/lib/student/imagen-servida';
 import { renglonesDeAcceso } from '@/lib/student/titulo-acceso';
+import { ALTO_LOGO, ANCHO_MAX_LOGO } from '@/components/student/shell/StudioHeader';
 
 /**
  * Marco de acceso: portada fotográfica oscura arriba, formulario sobre crema
@@ -48,14 +49,8 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
 
         <div style={{ position: 'absolute', top: 'calc(18px + var(--safe-top))', left: 22, display: 'flex', alignItems: 'center', gap: 9, color: 'var(--on-dark)' }}>
           {estudio.logoUrl ? (
-            // Misma pastilla clara que StudioHeader.tsx (shell/StudioHeader.tsx):
-            // esta cabecera está SIEMPRE sobre la foto (no hay estado "sólido"
-            // aquí), así que un logo oscuro sin fondo propio se pierde contra
-            // el velo igual que en el bug reportado.
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: 30, padding: '2px 7px', borderRadius: 8, background: 'rgba(250,249,245,.92)' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={urlServida(estudio.logoUrl, 132)} alt="" decoding="async" style={{ height: 26, maxWidth: 132, objectFit: 'contain' }} />
-            </span>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={urlServida(estudio.logoUrl, ANCHO_MAX_LOGO)} alt="" decoding="async" style={{ height: ALTO_LOGO, maxWidth: ANCHO_MAX_LOGO, objectFit: 'contain' }} />
           ) : (
             <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(250,249,245,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--t-meta)', fontWeight: 800 }}>
               {inicialDe(estudio.nombre)}

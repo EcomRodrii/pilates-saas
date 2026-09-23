@@ -148,7 +148,7 @@ function Bonos() {
                 />
               )
             )}
-            {plazaFija && <PlazaFijaCard plazas={plazaFija.plazas} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} onCambio={reintentar} />}
+            {plazaFija && <PlazaFijaCard plazas={plazaFija.plazas} recuperaciones={plazaFija.recuperaciones} calendario={plazaFija.calendario} hrefHorario={href('/reservar')} onCambio={reintentar} />}
             {activos.map((b) => <CreditCard key={b.id} bono={b} />)}
             {otros.length > 0 && <p className="t-label" style={{ margin: 'var(--s-2) 0 0' }}>Anteriores</p>}
             {otros.map((b) => <CreditCard key={b.id} bono={b} />)}

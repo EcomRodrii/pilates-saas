@@ -151,7 +151,7 @@ test('las clases que se repiten y se acaban esperan decisión en su tarjeta, ant
   assert.equal(construirEstadoEstudio({ seriesPorRenovar: 1 }).decidir[0].texto, 'Una clase que se repite está a punto de terminar');
 });
 
-test('las alertas de apertura esperan a la propietaria y saltan a su tarjeta de Inicio', () => {
+test('las alertas de apertura esperan a la propietaria y saltan a su tarjeta de Resumen', () => {
   const e = construirEstadoEstudio({ alertasApertura: 2, recibosFallidos: 1 });
   assert.deepEqual(e.decidir.map(l => l.id), ['alertasApertura', 'recibosFallidos']);
   assert.equal(e.decidir[0].texto, 'Tu apertura tiene 2 avisos');

@@ -36,6 +36,15 @@ function LogoTipo({ url }: { url: string | null }) {
   );
 }
 
+/** Pista de que la fila abre la ficha de la clase. Decorativa: el nombre accesible va en el enlace. */
+function Chevron() {
+  return (
+    <span aria-hidden style={{ display: 'flex', flexShrink: 0, color: 'var(--subtle-foreground)' }}>
+      <Icono nombre="flecha-derecha" tamano={16} />
+    </span>
+  );
+}
+
 // Clases fijas del estudio: lo que la alumna ve para pedir una, con qué clases
 // incluye y cuánto tiempo la quiere. Pedirla NO la reserva: el estudio la aprueba
 // (`solicitudes_plaza_fija`, tipo CREAR_CLASE_FIJA) y su respuesta llega a la app.
@@ -195,6 +204,7 @@ function ListaSueltas({ sueltas, conOfertas, studioId, slug, online, onCambio }:
 function FilaSuelta({ f, primera, studioId, slug, online, onCambio }: {
   f: ClaseSueltaVista; primera: boolean; studioId: string; slug: string; online: boolean; onCambio: () => void;
 }) {
+  const href = usePortalHref();
   const { toast } = useToast();
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
@@ -222,27 +232,33 @@ function FilaSuelta({ f, primera, studioId, slug, online, onCambio }: {
   }
 
   return (
-    <div
-      data-testid="clase-suelta" aria-label={`${nombreDia(f.diaSemana)} ${f.hora}`}
-      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingTop: primera ? 0 : 8, borderTop: primera ? 'none' : '1px solid var(--muted)' }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-        <LogoTipo url={f.logoUrl} />
-        <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, letterSpacing: '-.02em', textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} · {f.hora}</p>
-          <p className="t-meta" style={{ margin: '2px 0 0' }}>{f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</p>
-          {f.estado.estado === 'PEDIDA' && (
-            <p role="status" data-testid="clase-suelta-pedida" className="t-meta" style={{ margin: '2px 0 0', fontWeight: 700, color: 'var(--foreground)' }}>{TPF.pedida}</p>
-          )}
-          {error && <p role="alert" style={{ margin: '2px 0 0', fontSize: 'var(--t-small)', color: 'var(--danger, #b00020)', fontWeight: 700 }}>{error}</p>}
+    <div data-testid="clase-suelta" style={{ paddingTop: primera ? 0 : 8, borderTop: primera ? 'none' : '1px solid var(--muted)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        {/* La fila lleva a la ficha de su próxima clase, como cualquier clase del
+            horario; el botón de la derecha va aparte (un botón dentro de un
+            enlace no es HTML válido y el lector de pantalla no sabría cuál es). */}
+        <Link
+          href={href('/reservar/' + f.proximaSesionId)} aria-label={`Ver la clase del ${nombreDia(f.diaSemana)} a las ${f.hora}`}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1, color: 'inherit' }}
+        >
+          <LogoTipo url={f.logoUrl} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 800, letterSpacing: '-.02em', textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} · {f.hora}</p>
+            <p className="t-meta" style={{ margin: '2px 0 0' }}>{f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</p>
+            {f.estado.estado === 'PEDIDA' && (
+              <p role="status" data-testid="clase-suelta-pedida" className="t-meta" style={{ margin: '2px 0 0', fontWeight: 700, color: 'var(--foreground)' }}>{TPF.pedida}</p>
+            )}
+          </div>
+          <Chevron />
+        </Link>
+        <div style={{ flexShrink: 0 }}>
+          {f.estado.estado === 'TIENE_PLAZA' ? <Badge tone="booked">La tienes ✓</Badge>
+            : f.estado.estado === 'PEDIDA' ? <Button variant="ghost" size="sm" loading={enviando} disabled={!online} onClick={() => void anular()}>{TPF.botonAnular}</Button>
+            : f.estado.estado === 'SOLO_CON_CUOTA' ? <Badge tone="neutral">{T.sueltaSinCuota}</Badge>
+            : <Button variant="secondary" size="sm" loading={enviando} disabled={!online} onClick={() => void pedir()}>{TPF.botonPedir}</Button>}
         </div>
       </div>
-      <div style={{ flexShrink: 0 }}>
-        {f.estado.estado === 'TIENE_PLAZA' ? <Badge tone="booked">La tienes ✓</Badge>
-          : f.estado.estado === 'PEDIDA' ? <Button variant="ghost" size="sm" loading={enviando} disabled={!online} onClick={() => void anular()}>{TPF.botonAnular}</Button>
-          : f.estado.estado === 'SOLO_CON_CUOTA' ? <Badge tone="neutral">{T.sueltaSinCuota}</Badge>
-          : <Button variant="secondary" size="sm" loading={enviando} disabled={!online} onClick={() => void pedir()}>{TPF.botonPedir}</Button>}
-      </div>
+      {error && <p role="alert" style={{ margin: '4px 0 0', fontSize: 'var(--t-small)', color: 'var(--danger, #b00020)', fontWeight: 700 }}>{error}</p>}
     </div>
   );
 }
@@ -329,12 +345,19 @@ function TarjetaClaseFija({ c, studioId, slug, online, onCambio }: {
         <p className="t-label" style={{ marginBottom: 6 }}>{T.incluye}</p>
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {c.franjas.map((f) => (
-            <li key={`${f.diaSemana}-${f.hora}-${f.tipoClaseId}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--t-small)' }}>
-              <LogoTipo url={f.logoUrl} />
-              <span>
-                <strong style={{ textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} {f.hora}</strong>
-                <span className="t-meta"> · {f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</span>
-              </span>
+            <li key={`${f.diaSemana}-${f.hora}-${f.tipoClaseId}`}>
+              <Link
+                href={href('/reservar/' + f.proximaSesionId)} data-testid="clase-fija-franja"
+                aria-label={`Ver la clase del ${nombreDia(f.diaSemana)} a las ${f.hora}`}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--t-small)', color: 'inherit' }}
+              >
+                <LogoTipo url={f.logoUrl} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <strong style={{ textTransform: 'capitalize' }}>{nombreDia(f.diaSemana)} {f.hora}</strong>
+                  <span className="t-meta"> · {f.tipo}{f.sala ? ` · ${f.sala}` : ''}{f.instructora ? ` · con ${f.instructora}` : ''}</span>
+                </span>
+                <Chevron />
+              </Link>
             </li>
           ))}
         </ul>

@@ -34,7 +34,7 @@ export interface AyudaPantalla {
 
 export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/dashboard': {
-    titulo: 'Inicio',
+    titulo: 'Resumen',
     resumen:
       'Lo que tienes hoy delante: las clases del día, quién ha reservado, qué falta por cobrar y a quién conviene escribir. Es la pantalla con la que se abre el estudio por la mañana.',
     ahorra: 'Mirar en cuatro sitios distintos para saber cómo va el día.',

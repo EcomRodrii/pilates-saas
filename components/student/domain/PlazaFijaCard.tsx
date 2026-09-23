@@ -21,6 +21,8 @@ import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { Input } from '@/components/student/ui/Input';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { useToast } from '@/components/student/ui/Toast';
+import { CalendarioClaseFija } from '@/components/student/domain/CalendarioClaseFija';
+import type { CalendarioClaseFija as DatosCalendario } from '@/lib/student/mapeo';
 
 // «Tu clase fija» + «Recuperaciones» (F2, el caso canónico del producto).
 // Mismo idioma que CreditCard: tarjeta, rótulo t-label, cifra grande, meta.
@@ -32,8 +34,10 @@ import { useToast } from '@/components/student/ui/Toast';
 // «próxima» que no existe (lib/student/plaza-fija.ts).
 type PausaPedida = { id: string; desde: string; hasta: string } | null;
 
-export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = false, onCambio }: {
+export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = false, onCambio, calendario }: {
   plazas: PlazaFijaVista[]; recuperaciones: RecuperacionesVista; hrefHorario: string; compacta?: boolean;
+  /** El mes con sus días reservados. Solo en la tarjeta entera: en Inicio (compacta) no cabe. */
+  calendario?: DatosCalendario;
   /** Se llama tras cancelar una semana, para que la pantalla recargue lo suyo. */
   onCambio?: () => void;
 }) {
@@ -195,6 +199,9 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
             );
           })}
         </div>
+      )}
+      {!compacta && calendario && plazas.length > 0 && (
+        <CalendarioClaseFija datos={calendario} hoy={hoy} soportaListaEspera={estudio.soportaListaEspera} />
       )}
       {!compacta && plazas.length > 0 && (
         <p className="t-meta" style={{ margin: 0 }}>

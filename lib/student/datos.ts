@@ -2,7 +2,8 @@
 
 import { catalogo, refrescarAforo } from '@/lib/student/catalogo';
 import {
-  proyectarAlumna, proyectarBonos, proyectarClases, proyectarInstructoras, proyectarPagos, proyectarPlazasFijas, proyectarRecuperaciones, proyectarReservas,
+  proyectarAlumna, proyectarBonos, proyectarCalendarioClaseFija, proyectarClases, proyectarInstructoras, proyectarPagos, proyectarPlazasFijas, proyectarRecuperaciones, proyectarReservas,
+  type CalendarioClaseFija,
 } from '@/lib/student/mapeo';
 import { horaAhora, hoyISO } from '@/lib/student/formato';
 import { pedirCatalogoClasesFijas } from '@/lib/student/clases-fijas-datos';
@@ -84,15 +85,18 @@ export async function getPagos(slug: string): Promise<Pago[]> {
 }
 
 /** Sus plazas fijas (todas) y recuperaciones (F2). Del mismo payload. */
-export async function getPlazaFija(slug: string): Promise<{ plazas: PlazaFijaVista[]; recuperaciones: RecuperacionesVista }> {
+export async function getPlazaFija(slug: string): Promise<{ plazas: PlazaFijaVista[]; recuperaciones: RecuperacionesVista; calendario: CalendarioClaseFija }> {
   const d = await catalogo(slug);
   const ahora = new Date();
   // La hora EN LA ZONA DEL ESTUDIO: `plazas_fijas.hora_inicio` es el horario
   // del estudio, así que compararlo con la hora del móvil desplazaba la
   // «próxima» plaza fija un día entero para quien no esté en hora peninsular.
   const hora = horaAhora(ahora);
-  if (!d) return { plazas: [], recuperaciones: { disponibles: 0, proximaCaducidad: null, detalle: [] } };
-  return { plazas: proyectarPlazasFijas(d, hoyISO(ahora), hora), recuperaciones: proyectarRecuperaciones(d, hoyISO(ahora)) };
+  if (!d) return { plazas: [], recuperaciones: { disponibles: 0, proximaCaducidad: null, detalle: [] }, calendario: { plazas: [], sesiones: [], reservas: [] } };
+  return {
+    plazas: proyectarPlazasFijas(d, hoyISO(ahora), hora), recuperaciones: proyectarRecuperaciones(d, hoyISO(ahora)),
+    calendario: proyectarCalendarioClaseFija(d),
+  };
 }
 
 /**
