@@ -17,10 +17,11 @@ import { test, expect } from '@playwright/test';
 //   4. Que una respuesta vacía del servidor no tumbe la pantalla principal del
 //      negocio. Es un fallo que ya ocurrió en esta misma home con
 //      /api/decisiones, así que aquí se prueba de entrada.
-//   5. Que el recuento que sale al avisar no se calle a nadie: si el tope de
-//      esta clase deja fuera a parte de lo seleccionado, se dice cuántas y por
-//      qué. «4 avisos enviados» tras seleccionar a doce es cierto y se lee
-//      como una avería.
+//   5. Que el recuento que sale al avisar no se calle a nadie: ni las que deja
+//      fuera el tope de la clase, ni la que tiene puesta la excepción en su
+//      ficha (que SÍ sale en la lista y se puede seleccionar — el filtro vive
+//      solo en el servidor). «4 avisos enviados» tras seleccionar a doce es
+//      cierto y se lee como una avería; un «0 enviados» mudo, todavía peor.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { montarHome, json } from './hoy-home-mock';
@@ -150,4 +151,30 @@ test('avisar dice cuántas se quedaron fuera del tope, no solo cuántas salieron
   // llamado a nadie: la petición salió, con las doce seleccionadas dentro.
   expect(intentos).toBe(1);
   expect(seleccionadasEnviadas).toBe(12);
+});
+
+test('avisar a una socia exenta no se queda en un «0 enviados» mudo', async ({ page }) => {
+  let intentos = 0;
+  await montarHome(page);
+  await page.route('**/api/marketing/hueco/avisar', route => {
+    intentos++;
+    // Lo que contesta el servidor cuando la única seleccionada tiene puesta la
+    // excepción «No avisarle de clases con hueco» en su ficha: no se le manda
+    // nada, y ahora se dice por qué.
+    return json(route, { enviados: 0, saltadasPorExcepcion: 1 });
+  });
+
+  const agenda = page.getByRole('region', { name: 'Hoy en el estudio' });
+  await agenda.getByRole('button', { name: /Rellenar huecos/ }).click();
+
+  const panel = page.getByRole('dialog', { name: /Rellenar hueco en Pilates Máquina/ });
+  // La exenta sigue saliendo en la lista: el panel no filtra por
+  // `socio_excepciones`. Por eso hace falta explicarlo DESPUÉS, al contestar.
+  await panel.getByRole('checkbox', { name: /Socia7/ }).check();
+  await panel.getByRole('button', { name: /Avisar a 1 seleccionada/ }).click();
+
+  // Con cero enviados el cajón NO se cierra: el motivo se queda a la vista,
+  // nombrando el interruptor tal cual está escrito en la ficha.
+  await expect(panel.getByText(/1 con «No avisarle de clases con hueco» en su ficha/)).toBeVisible();
+  expect(intentos).toBe(1);
 });

@@ -12,6 +12,7 @@ import { authHeader } from '@/lib/api-client';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { candidatasParaRellenar, TEXTO_MOTIVO_CANDIDATA, type ClaseDelDia } from '@/lib/hoy-agenda';
 import { AVISOS_HUECO_POR_PLAZA } from '@/lib/booking-logic';
+import { resumenAvisoHueco } from '@/lib/avisos-hueco-resumen';
 import { fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 import type { Reserva, Sesion } from '@/lib/types';
 
@@ -167,44 +168,12 @@ export function RellenarHuecoPanel({
         return;
       }
       // El servidor puede haber descartado a alguna por consentimiento, por no
-      // tener contacto o por haberla avisado ya hace poco. Se dice, no se calla.
+      // tener contacto, por la excepción de su ficha, por el tope de la clase o
+      // por haberla avisado ya hace poco. Se dice, no se calla — y la frase se
+      // arma en `lib/avisos-hueco-resumen.ts`, donde sí la alcanza `node --test`:
+      // es el texto que decide si la propietaria cree que ha avisado a alguien.
       const enviados = data.enviados ?? 0;
-      // Por qué canal salió cada uno: el servidor elige WhatsApp o email por
-      // socia, así que decir solo «5 avisos enviados» deja a la propietaria sin
-      // saber dónde mirar si alguna dice que no le llegó.
-      const canales = [
-        data.porWhatsapp ? `${data.porWhatsapp} por WhatsApp` : null,
-        data.porEmail ? `${data.porEmail} por email` : null,
-      ].filter(Boolean).join(' y ');
-      const partes = [
-        `${enviados} aviso${enviados === 1 ? '' : 's'} enviado${enviados === 1 ? '' : 's'}${canales ? ` (${canales})` : ''}`,
-      ];
-      // El tope va PRIMERO de las razones: es la que explica que el número sea
-      // menor que lo que se acaba de seleccionar, y la única que no depende de
-      // la socia sino de cuántas plazas hay. `tope` se dice tal cual lo manda
-      // el servidor —depende del aforo EFECTIVO, que aquí no se conoce—, y si
-      // no viene se calla en vez de inventárselo.
-      if (data.saltadasPorTope) {
-        const cual = typeof data.tope === 'number' ? `: el tope de esta clase es ${data.tope}` : '';
-        partes.push(`${data.saltadasPorTope} sin avisar${cual}`);
-      }
-      if (data.sinContacto) partes.push(`${data.sinContacto} sin teléfono ni email`);
-      if (data.sinConsentimiento) partes.push(`${data.sinConsentimiento} sin consentimiento de marketing`);
-      // Las dos razones de abajo las devolvía el servidor desde el principio y
-      // este panel no las pintaba. Son justo las que explican un «no ha pasado
-      // nada»: con las dos calladas, avisar a alguien ya avisado hace un rato
-      // se leía como un botón muerto.
-      // Con nombre: lo que hay que hacer es abrir SU ficha y corregir la
-      // dirección, así que decir «1 con el correo mal» obligaría a adivinar cuál.
-      const rotos: string[] = Array.isArray(data.correoRoto) ? data.correoRoto : [];
-      if (rotos.length) {
-        partes.push(`el correo de ${rotos.join(', ')} rebota — corrígelo en su ficha`);
-      }
-      if (data.saltadasPorDedup) {
-        partes.push(`${data.saltadasPorDedup} ya avisada${data.saltadasPorDedup === 1 ? '' : 's'} en las últimas 24 h`);
-      }
-      if (data.errores) partes.push(`${data.errores} con error`);
-      const texto = partes.join(' · ');
+      const texto = resumenAvisoHueco(data);
       // Cero enviados NO es un éxito, aunque el servidor conteste 200: se queda
       // en el panel explicando por qué, en vez de cerrarse con un toast que
       // suena a hecho.

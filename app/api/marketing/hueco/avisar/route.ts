@@ -221,7 +221,13 @@ export async function POST(req: NextRequest) {
       .from('socio_excepciones').select('socio_id')
       .eq('studio_id', sesion.studioId).eq('tipo', 'SIN_AVISO_HUECO');
     const exentasSet = new Set((exentasRows ?? []).map(r => r.socio_id as string));
+    // Se cuenta, como el dedup de arriba. La socia exenta SÍ sale en la lista de
+    // «Rellenar hueco» —el panel no filtra por `socio_excepciones`, el filtro
+    // vive solo aquí—, así que se la puede seleccionar; callar el descarte
+    // dejaba un «0 avisos enviados» sin causa, que se lee como una avería.
+    const antesDeExentas = candidatas.length;
     candidatas = candidatas.filter(s => !exentasSet.has(s.id));
+    const saltadasPorExcepcion = antesDeExentas - candidatas.length;
 
     // Consentimiento de marketing (RGPD art. 7 / LSSI art. 21). Esto es un
     // mensaje COMERCIAL por WhatsApp, no un aviso de servicio: invita a
@@ -397,6 +403,10 @@ export async function POST(req: NextRequest) {
       // recalcularlo sin arriesgarse a explicar el recorte con otro número.
       saltadasPorTope,
       tope,
+      // La excepción «No avisarle de clases con hueco» de su ficha. Es una
+      // decisión de la propietaria, no un impedimento técnico: se nombra el
+      // interruptor tal cual para que sepa dónde desactivarlo si se arrepiente.
+      saltadasPorExcepcion,
     });
   } catch (err) {
     return errorInterno('marketing/hueco/avisar:POST', err, 'No se pudo avisar a las candidatas. Inténtalo de nuevo más tarde.');
