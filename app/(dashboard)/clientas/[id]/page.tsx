@@ -45,7 +45,7 @@ import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
   AlertTriangle, Plus, Tag, MessageSquare, Pause, Play, X, Clock, Megaphone,
   Send, CheckCircle2, Filter, ShieldCheck, FileSignature,
-  Bot, Loader2, Mic, RefreshCw, XCircle,
+  Bot, Loader2, Mic, RefreshCw, XCircle, CalendarClock,
 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { textoCobroEnLote } from '@/lib/cobros/texto-cobro-en-lote';
@@ -1785,6 +1785,17 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     estudio, no si tiene bono. */}
                 {socio.activo ? 'De alta' : 'De baja'}
               </span>
+              {plazasFijas.some(p => p.socioId === id && p.estado !== 'BAJA') && (
+                <span
+                  data-testid="etiqueta-clienta-fija"
+                  title="Tiene plaza fija: se le reserva sola cada semana"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full mt-2 ml-2"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, var(--card))', color: 'var(--primary)' }}
+                >
+                  <CalendarClock size={12} aria-hidden />
+                  Clienta fija
+                </span>
+              )}
               {verSemaforo && semaforoSocio !== 'VERDE' && (
                 <button
                   onClick={verFichaClinica ? () => setActiveTab('salud') : undefined}

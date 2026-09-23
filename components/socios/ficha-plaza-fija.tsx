@@ -27,6 +27,7 @@ import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { hoyEnEstudio } from '@/lib/utils';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { DialogoPausaPlazaFija } from '@/components/plazas-fijas/dialogo-pausa-plaza-fija';
+import { CalendarioPlazaFija } from '@/components/plazas-fijas/calendario-plaza-fija';
 import type { PlazaFija } from '@/lib/types';
 
 // Lunes primero (UX); los valores son los de extract(dow) de Postgres (0=domingo).
@@ -204,6 +205,8 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
           })}
         </div>
       )}
+
+      {hoy && mias.length > 0 && <CalendarioPlazaFija socioId={socioId} plazas={mias} hoy={hoy} />}
 
       {dialogo && (
         <DialogoPlazaFija

@@ -77,6 +77,10 @@ async function montar(page: Page, opts: {
   estadoStatus?: number; estadoBody?: unknown;
   /** Columnas de la plaza fija que se pisan (p. ej. una pausa). */
   plaza?: Record<string, unknown>;
+  /** Filas de `reservas` (por defecto, ninguna). */
+  reservas?: unknown[];
+  /** `false` cuando la clienta no tiene plaza que esperar (la de la fila está de baja). */
+  esperarPlaza?: boolean;
 }) {
   await page.clock.setFixedTime(new Date(AHORA));
   await page.addInitScript(([key, uid]) => {
@@ -107,6 +111,7 @@ async function montar(page: Page, opts: {
   await page.route('**/rest/v1/salas**', route => json(route, [SALA]));
   await page.route('**/rest/v1/tipos_clase**', route => json(route, [TIPO_CLASE]));
   await page.route('**/rest/v1/sesiones**', route => json(route, opts.sesiones));
+  await page.route('**/rest/v1/reservas**', route => json(route, opts.reservas ?? []));
   await page.route('**/rest/v1/plazas_fijas**', route => {
     if (route.request().method() !== 'GET') {
       escriturasRest.push(route.request().method());
@@ -134,7 +139,7 @@ async function montar(page: Page, opts: {
   // Las plazas llegan en la 2ª ola de carga (fetchDeferredStudioData): hay un
   // instante de "Sin plaza fija" antes. Se espera la plaza, nunca se aserta
   // la ausencia del vacío.
-  await expect(page.getByText('Martes · 10:00')).toBeVisible({ timeout: 15_000 });
+  if (opts.esperarPlaza !== false) await expect(page.getByText('Martes · 10:00')).toBeVisible({ timeout: 15_000 });
   return { guardados, cambiosEstado, escriturasRest };
 }
 
@@ -344,5 +349,56 @@ test.describe('Plaza fija: pausarla unas fechas sin perderla', () => {
     expect(cambiosEstado).toEqual([{ plazaId: 'pf-1', pausa: null }]);
     await expect(page.getByText('Pausa quitada · 2 clases reservadas de nuevo')).toBeVisible();
     await expect(page.getByText('En pausa hasta el 20/08/2026')).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Clienta fija» y el calendario del mes: qué días tiene sitio DE VERDAD. Un
+// check es una reserva que existe; un día de su horario con clase y sin reserva
+// sale en ámbar, porque para el estudio es un aviso (sin cuota, clase llena…).
+// ─────────────────────────────────────────────────────────────────────────────
+const reservaRow = (id: string, sesionId: string, estado: string) => ({
+  id, studio_id: STUDIO_ID, sesion_id: sesionId, socio_id: 'soc-1', estado, spot_id: null,
+  posicion_espera: null, creado_en: '2026-08-01T00:00:00+00:00',
+});
+// Martes 4 de agosto, ya pasado (AHORA es el miércoles 5).
+const MARTES_PASADO = { ...MARTES_10[0], id: 'mar-pasado', inicio: '2026-08-04T08:00:00.000Z', fin: '2026-08-04T08:50:00.000Z' };
+
+test.describe('Plaza fija: «Clienta fija» y su calendario', () => {
+  test('la ficha dice que es clienta fija y el mes marca lo que de verdad pasó y tiene reservado', async ({ page }) => {
+    await montar(page, {
+      sesiones: [MARTES_PASADO, ...MARTES_10, ...JUEVES_18],
+      reservas: [
+        reservaRow('r-pasada', 'mar-pasado', 'ASISTIDA'),
+        reservaRow('res-pf-1', 'mar-0', 'CONFIRMADA'),
+        reservaRow('res-pf-2', 'mar-1', 'CANCELADA'),
+        // mar-2 (martes 25): hay clase y no hay reserva.
+        reservaRow('res-pf-4', 'mar-3', 'CONFIRMADA'),
+      ],
+    });
+    await expect(page.getByTestId('etiqueta-clienta-fija')).toHaveText('Clienta fija');
+
+    const cal = page.getByTestId('calendario-plaza-fija');
+    await expect(cal).toBeVisible();
+    await expect(cal.getByText('Agosto de 2026', { exact: true })).toBeVisible();
+    const marca = (fecha: string) => cal.locator(`td[data-fecha="${fecha}"] [data-marca]`);
+    await expect(marca('2026-08-04')).toHaveAttribute('data-marca', 'ASISTIDA');
+    await expect(marca('2026-08-11')).toHaveAttribute('data-marca', 'RESERVADA');
+    await expect(marca('2026-08-18')).toHaveAttribute('data-marca', 'NO_VA');
+    await expect(marca('2026-08-25')).toHaveAttribute('data-marca', 'SIN_RESERVA');
+    // Un jueves con clase no es suyo: ni marca.
+    await expect(marca('2026-08-06')).toHaveCount(0);
+    await expect(cal.getByRole('status')).toContainText('Hay días de su horario sin reservar');
+
+    await cal.getByRole('button', { name: 'Mes siguiente' }).click();
+    await expect(cal.getByText('Septiembre de 2026', { exact: true })).toBeVisible();
+    await expect(marca('2026-09-01')).toHaveAttribute('data-marca', 'RESERVADA');
+  });
+
+  test('sin plaza fija, ni etiqueta ni calendario', async ({ page }) => {
+    await montar(page, { sesiones: [...MARTES_10], plaza: { estado: 'BAJA' }, esperarPlaza: false });
+    await expect(page.getByText('Aún no tiene plaza fija')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('etiqueta-clienta-fija')).toHaveCount(0);
+    await expect(page.getByTestId('calendario-plaza-fija')).toHaveCount(0);
   });
 });
