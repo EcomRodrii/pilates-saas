@@ -127,15 +127,25 @@ export function urlIconoEstudio(
   imagenes: ImagenesMarca = {},
   baseSupabase?: string | null,
 ): string {
-  const base = urlMonograma(nombre, colorPrimario, size);
+  // ⚠️ Van LOS DOS, no solo el que gana: la ruta solo sabe pintar PNG y JPEG,
+  // y si el icono no lo es (un favicon subido en WEBP) tiene que poder caer al
+  // logo. Con uno solo en la URL caía a nada: 200 con cero bytes (medido).
+  let url = `${urlMonograma(nombre, colorPrimario, size)}&r=${VERSION_ICONO}`;
   if (logoServible(imagenes.iconoUrl, baseSupabase)) {
-    return `${base}&icono=${encodeURIComponent((imagenes.iconoUrl as string).trim())}`;
+    url += `&icono=${encodeURIComponent((imagenes.iconoUrl as string).trim())}`;
   }
   if (logoServible(imagenes.logoUrl, baseSupabase)) {
-    return `${base}&logo=${encodeURIComponent((imagenes.logoUrl as string).trim())}`;
+    url += `&logo=${encodeURIComponent((imagenes.logoUrl as string).trim())}`;
   }
-  return base;
+  return url;
 }
+
+/**
+ * Se sube cuando cambia cómo pinta la ruta. Sus respuestas llevan caché de un
+ * año por URL, así que sin esto un icono mal pintado se quedaría servido tal
+ * cual aunque la ruta ya lo pintara bien. (2: los vacíos de los WEBP.)
+ */
+export const VERSION_ICONO = 2;
 
 /**
  * Los `icons` de la metadata de cualquier página de un estudio (su app y su
