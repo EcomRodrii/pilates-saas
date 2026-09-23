@@ -302,7 +302,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Créalas en serie, no una a una',
-        texto: 'Un estudio de Pilates repite su horario cada semana. En el calendario, «Crear clases recurrentes» te deja decir «los martes y jueves a las 10:00, durante doce semanas» y las crea todas de golpe. Meter cuarenta clases a mano es la razón más común de abandonar a medias.',
+        texto: 'Un estudio de Pilates repite su horario cada semana. En el calendario, «Crear clase» → «Clase fija» te deja decir «los martes y jueves a las 10:00, durante doce semanas» y las crea todas de golpe. Meter cuarenta clases a mano es la razón más común de abandonar a medias.',
       },
       {
         titulo: 'Cambiar una serie sin romperla',

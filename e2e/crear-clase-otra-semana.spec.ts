@@ -81,7 +81,8 @@ async function montar(page: Page, opts: { sinInstructoras?: boolean } = {}) {
 }
 
 async function crearClaseEl(page: Page, fecha: string) {
-  await page.getByRole('button', { name: 'Nueva clase' }).first().click({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
+  await page.getByTestId('crear-clase-suelta').click();
   // El campo se busca DENTRO del cajón: el modal de clases recurrentes tiene sus
   // propios input[type=date] y `.first()` cogía el que no era.
   const cajon = page.getByRole('dialog', { name: 'Nueva clase' });
@@ -135,7 +136,8 @@ test.describe('El cajón de «Nueva clase» cabe en la ventana', () => {
     await montar(page);
     await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: 'Nueva clase' }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
+  await page.getByTestId('crear-clase-suelta').click();
     const cajon = page.getByRole('dialog', { name: 'Nueva clase' });
     await expect(cajon).toBeVisible();
 
@@ -152,7 +154,8 @@ test.describe('Crear clase sin ninguna instructora', () => {
   test('el aviso manda a Equipo a darla de alta, y no deja crear', async ({ page }) => {
     await montar(page, { sinInstructoras: true });
     await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Nueva clase' }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
+  await page.getByTestId('crear-clase-suelta').click();
     const cajon = page.getByRole('dialog', { name: 'Nueva clase' });
     const aviso = cajon.getByTestId('falta-crear');
     await expect(aviso).toHaveText('Todavía no tienes ninguna instructora en tu equipo. Añádela en Equipo y vuelve aquí.');

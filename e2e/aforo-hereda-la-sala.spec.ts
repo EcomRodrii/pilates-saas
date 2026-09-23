@@ -94,8 +94,9 @@ async function mockBackend(page: Page) {
 
 async function abrirNuevaClase(page: Page) {
   await page.goto('/calendario');
-  await page.getByRole('button', { name: /Nueva clase|Crear primera clase/ })
-    .first().click({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
+  // «Crear clase» pregunta primero qué: una clase de un día.
+  await page.getByTestId('crear-clase-suelta').click();
 }
 
 test.describe('El aforo sabe cuántas plazas tiene la sala', () => {

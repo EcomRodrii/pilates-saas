@@ -30,7 +30,7 @@ export interface ClasesFijasSeccionProps {
   nombreSala: (id: string) => string | undefined;
   puedeGestionar: boolean;
   /**
-   * Recién creada una clase recurrente, el atajo «Crear clase fija con esto»
+   * Recién creada una clase recurrente, el atajo «Agrupar con nombre»
    * (calendario/page.tsx) llega hasta aquí para abrir el diálogo de creación
    * con esas franjas ya marcadas — sin repetir a mano lo que se acaba de elegir.
    */
@@ -105,16 +105,17 @@ export function ClasesFijasSeccion(p: ClasesFijasSeccionProps) {
       <div className="flex items-start gap-2">
         <Layers size={15} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden />
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-foreground">Clases fijas</h3>
+          <h3 className="text-sm font-semibold text-foreground">Clases fijas con nombre</h3>
           <p className="text-xs text-muted-foreground text-pretty">
-            Ofrece a tus clientas una clase fija con nombre: eligen cuánto tiempo la quieren y tú apruebas cada petición.
+            Opcional: agrupa clases fijas bajo un nombre («Reformer · martes y jueves») para que tus clientas las pidan
+            juntas y elijan cuánto tiempo; tú apruebas cada petición. Cada clase que se repite ya la pueden pedir sola.
             Solo la piden quienes tienen una cuota activa que incluya esas clases. Las piden desde su app aunque
             «Peticiones desde su app» esté apagado: ese ajuste es solo para pedir plaza en una clase suelta.
           </p>
         </div>
         {p.puedeGestionar && tarjetas.length > 0 && (
           <Button size="sm" onClick={() => setDialogo({ oferta: null })}>
-            <Plus size={13} className="mr-1" aria-hidden />Crear clase fija
+            <Plus size={13} className="mr-1" aria-hidden />Agrupar con nombre
           </Button>
         )}
       </div>
@@ -265,7 +266,7 @@ function DialogoClaseFija({ oferta, tarjetas, nombreTipo, nombreSala, preselecci
     <Dialog open onOpenChange={abierto => { if (!abierto && !guardando) onClose(); }}>
       <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{oferta ? 'Editar clase fija' : 'Crear clase fija'}</DialogTitle>
+          <DialogTitle>{oferta ? 'Editar clase fija con nombre' : 'Agrupar con nombre'}</DialogTitle>
         </DialogHeader>
 
         <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
@@ -350,7 +351,7 @@ function DialogoClaseFija({ oferta, tarjetas, nombreTipo, nombreSala, preselecci
           {motivoBloqueo && <p className="mr-auto text-[11px] text-muted-foreground">{motivoBloqueo}</p>}
           <Button variant="outline" size="sm" disabled={guardando} onClick={onClose}>Cancelar</Button>
           <Button size="sm" disabled={!puedeGuardar} onClick={() => void guardar()}>
-            {guardando ? 'Guardando…' : oferta ? 'Guardar cambios' : 'Crear clase fija'}
+            {guardando ? 'Guardando…' : oferta ? 'Guardar cambios' : 'Guardar'}
           </Button>
         </div>
       </DialogContent>

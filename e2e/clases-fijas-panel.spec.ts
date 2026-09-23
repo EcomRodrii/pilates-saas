@@ -72,19 +72,19 @@ test.describe('Horario · clases fijas', () => {
     const seccion = page.getByTestId('clases-fijas-seccion');
     await expect(seccion).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('clases-fijas-vacio')).toContainText('Todavía no has creado ninguna');
-    await expect(seccion.getByText(/Ofrece a tus clientas una clase fija/)).toBeVisible();
-    await expect(seccion.getByRole('button', { name: 'Crear clase fija' })).toBeVisible();
+    await expect(seccion.getByText(/agrupa clases fijas bajo un nombre/)).toBeVisible();
+    await expect(seccion.getByRole('button', { name: 'Agrupar con nombre' })).toBeVisible();
     expect(s.lecturas).toBeGreaterThan(0);
   });
 
   test('se crea eligiendo clases que ya se repiten: el cuerpo lleva serie y día, y la lista se recarga', async ({ page }) => {
     const s = await abrirHorario(page);
-    await page.getByTestId('clases-fijas-seccion').getByRole('button', { name: 'Crear clase fija' }).click({ timeout: 30_000 });
+    await page.getByTestId('clases-fijas-seccion').getByRole('button', { name: 'Agrupar con nombre' }).click({ timeout: 30_000 });
     const dialogo = page.getByRole('dialog');
-    await expect(dialogo.getByText('Crear clase fija').first()).toBeVisible();
+    await expect(dialogo.getByText('Agrupar con nombre').first()).toBeVisible();
 
     // Sin nombre ni clases, no se puede guardar.
-    const guardar = dialogo.getByRole('button', { name: 'Crear clase fija' });
+    const guardar = dialogo.getByRole('button', { name: 'Guardar', exact: true });
     await expect(guardar).toBeDisabled();
 
     await dialogo.getByLabel('Nombre').fill('  Reformer · martes  ');
@@ -113,11 +113,11 @@ test.describe('Horario · clases fijas', () => {
   test('si el servidor dice que no, el diálogo sigue abierto con su motivo y la lista no cambia', async ({ page }) => {
     const s = await abrirHorario(page);
     s.respuestaEscritura = { status: 409, body: { error: 'Alguna de las clases elegidas ya no se repite en el horario. Recarga y elígelas de nuevo.' } };
-    await page.getByTestId('clases-fijas-seccion').getByRole('button', { name: 'Crear clase fija' }).click({ timeout: 30_000 });
+    await page.getByTestId('clases-fijas-seccion').getByRole('button', { name: 'Agrupar con nombre' }).click({ timeout: 30_000 });
     const dialogo = page.getByRole('dialog');
     await dialogo.getByLabel('Nombre').fill('Reformer · martes');
     await dialogo.getByRole('checkbox').nth(1).check();
-    await dialogo.getByRole('button', { name: 'Crear clase fija' }).click();
+    await dialogo.getByRole('button', { name: 'Guardar', exact: true }).click();
 
     await expect(dialogo.getByRole('alert')).toContainText('ya no se repite en el horario', { timeout: 30_000 });
     expect(s.escrituras.length, 'el camino de fallo sí intentó guardar').toBeGreaterThan(0);

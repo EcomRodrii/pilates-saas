@@ -69,8 +69,9 @@ test('ampliar esconde el menú y la barra, la rejilla gana sitio, y Escape lo de
   await page.getByRole('button', { name: 'Ampliar a toda la pantalla' }).click();
   await expect(menu(page)).toBeHidden();
   // Con espera: el hueco del menú se cierra con una transición de 200 ms.
-  // Medido en 1440×900: la rejilla pasa de 1084×465 a 1364×609.
-  await expect.poll(async () => (await rejilla(page).boundingBox())!.height).toBeGreaterThan(antes.height + 100);
+  // Medido en 1440×900: la rejilla pasa de 1084×515 a 1364×609 (antes de «Crear
+  // clase» —un botón menos en la cabecera— partía de 465 y el umbral era +100).
+  await expect.poll(async () => (await rejilla(page).boundingBox())!.height).toBeGreaterThan(antes.height + 60);
   await expect.poll(async () => (await rejilla(page).boundingBox())!.width, { message: 'también gana ancho' }).toBeGreaterThan(antes.width + 200);
   expect(await page.evaluate(() => document.documentElement.scrollHeight - innerHeight), 'la página no se desplaza').toBeLessThanOrEqual(1);
   await page.screenshot({ path: 'test-results/ventana-calendario-1-ampliado.png' });
@@ -84,7 +85,7 @@ test('con un diálogo abierto, Escape cierra el diálogo y no la vista ampliada'
   await calendario(page);
   await page.getByRole('button', { name: 'Ampliar a toda la pantalla' }).click();
   await expect(menu(page)).toBeHidden();
-  await page.getByRole('button', { name: 'Clase recurrente' }).click();
+  await page.getByRole('button', { name: 'Crear clase', exact: true }).click();
   const dialogo = page.getByRole('dialog');
   await expect(dialogo).toBeVisible();
   await page.keyboard.press('Escape');
@@ -246,7 +247,7 @@ test.describe('en una tablet', () => {
     });
     await montar(page);
     await ir(page, 'calendario');
-    await expect(page.getByRole('button', { name: /Nueva clase/ }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('button', { name: 'Crear clase', exact: true }).first()).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole('button', { name: 'Ampliar a toda la pantalla' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Abrir en una ventana flotante' })).toHaveCount(0);
     await expect(ventana(page)).toHaveCount(0);

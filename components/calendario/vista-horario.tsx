@@ -44,7 +44,7 @@ export interface VistaHorarioProps {
   alumnasPidenPlaza?: boolean;
   /** A dónde lleva «Dejar que la pidan ellas»; `null` si quien mira no puede abrir ese ajuste. */
   hrefAjustePeticiones?: string | null;
-  /** Viene del atajo «Crear clase fija con esto» tras crear una serie recurrente. */
+  /** Viene del atajo «Agrupar con nombre» tras crear una serie recurrente. */
   preseleccionClaseFija?: { serieId: string; diasSemana: number[] } | null;
   onPreseleccionClaseFijaConsumida?: () => void;
 }

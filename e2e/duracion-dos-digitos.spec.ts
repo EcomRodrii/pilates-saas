@@ -65,7 +65,7 @@ async function mockBackend(page: Page) {
 
 async function abrirRecurrentes(page: Page) {
   await page.goto('/calendario?recurrentes=1');
-  await expect(page.getByText('Crear clases recurrentes')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Nueva clase fija')).toBeVisible({ timeout: 30_000 });
 }
 
 // Teclear de verdad, dígito a dígito: `fill()` mete el valor de golpe y no
