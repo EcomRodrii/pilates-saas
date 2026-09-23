@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Suscripcion, PlanTarifa } from '@/lib/types';
 import {
-  hayAlgoQueContratar,
+  hayAlgoQueContratar, exigePlanAlReservar,
   bonoConsumible, bonoDevolvible, calcularConsumoBono, tieneEntitlementActivo,
   calcularFechaFinBono, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
@@ -319,6 +319,19 @@ test('con planes pero todos desactivados, tampoco', () => {
 
 test('basta UN plan activo para que el gate vuelva a tener sentido', () => {
   assert.equal(hayAlgoQueContratar([{ activo: false }, { activo: true }]), true);
+});
+
+// Lo que de verdad llega a la RPC. Un estudio recién creado: ajuste activado de
+// fábrica y las tarifas del asistente en borrador (`activo: false`). La RPC
+// recibía `true` y rechazaba a la primera alumna aunque no hubiera nada que comprar.
+test('exigePlanAlReservar: estudio nuevo con tarifas en borrador → no se exige', () => {
+  assert.equal(exigePlanAlReservar(true, [{ activo: false }, { activo: false }]), false);
+  assert.equal(exigePlanAlReservar(true, []), false);
+});
+
+test('exigePlanAlReservar: con algo a la venta se exige, y sin el ajuste nunca', () => {
+  assert.equal(exigePlanAlReservar(true, [{ activo: false }, { activo: true }]), true);
+  assert.equal(exigePlanAlReservar(false, [{ activo: true }]), false);
 });
 
 // ── El eslabón que faltaba entre "no puedes reservar" y "compra un bono" ─────

@@ -417,6 +417,23 @@ export function hayAlgoQueContratar(planes: { activo: boolean }[]): boolean {
   return planes.some(p => p.activo);
 }
 
+/**
+ * ¿Se exige plan a ESTA reserva? La decisión entera, en un sitio: el ajuste
+ * resuelto (estudio o tipo de clase) Y que haya algo que contratar.
+ *
+ * ⚠️ La mitad de esta regla se perdió por el camino. `crearReservaPublica` la
+ * aplicaba en TypeScript, pero a la RPC `reservar_plaza` le pasaba el ajuste a
+ * secas (`p_exigir_entitlement`), y desde RES-4 la RPC comprueba el derecho ella
+ * misma dentro del candado. Resultado: un estudio recién creado —ajuste
+ * activado de fábrica, las tarifas del asistente en borrador— rechazaba a su
+ * primera alumna con «Necesitas un plan o bono activo» mientras el panel le
+ * decía a la propietaria que cualquiera podía reservar. Quien decide ahora es
+ * esta función, y el mismo valor va al chequeo en TS y a la RPC.
+ */
+export function exigePlanAlReservar(exigirPlan: boolean, planes: { activo: boolean }[]): boolean {
+  return exigirPlan && hayAlgoQueContratar(planes);
+}
+
 // Los dos motivos por los que el servidor rechaza una reserva y la salida es
 // COMPRAR algo. Viven aquí, y no sueltos en el módulo de servidor, para que la
 // pantalla que los recibe pueda reconocerlos sin copiar la frase a mano.

@@ -174,3 +174,22 @@ test('salto 0: todo `raise exception` de reservar_plaza lo traduce el TS', () =>
     + `Migracion mirada: ${ultima}`,
   );
 });
+
+// El gate de plan vive en DOS sitios de `crearReservaPublica` —el chequeo en TS
+// y el argumento de la RPC, que desde RES-4 vuelve a comprobarlo dentro del
+// candado— y tienen que decidir lo MISMO. Pasar el ajuste a secas a la RPC
+// rechazaba con SIN_ENTITLEMENT a la primera alumna de un estudio sin nada a la
+// venta, justo lo que el chequeo en TS dejaba pasar a propósito.
+test('la RPC recibe la misma decisión de «exigir plan» que el chequeo en TS', () => {
+  const fuente = leer('lib/db/supabase-data-admin.ts');
+  const inicio = fuente.indexOf('export async function crearReservaPublica');
+  assert.ok(inicio >= 0, 'no encuentro crearReservaPublica');
+  const siguiente = fuente.indexOf('\nexport ', inicio + 1);
+  const cuerpo = fuente.slice(inicio, siguiente === -1 ? undefined : siguiente);
+  assert.match(cuerpo, /const exigirPlan = exigePlanAlReservar\(exigirPlanResuelto, /);
+  assert.match(cuerpo, /if \(exigirPlan && !tieneEntitlementActivo\(/);
+  assert.match(cuerpo, /exigirPlanEnRpc = errorPlanes \? exigirPlanResuelto : exigirPlan;/,
+    'si la lectura de tarifas falla, tiene que decidir la RPC con el ajuste tal cual (cerrado)');
+  assert.match(cuerpo, /p_exigir_entitlement: exigirPlanEnRpc,/);
+  assert.doesNotMatch(cuerpo, /p_exigir_entitlement: exigirPlanResuelto/);
+});
