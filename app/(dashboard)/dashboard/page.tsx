@@ -8,7 +8,7 @@ import {
   UserPlus, CreditCard, Bell,
   CalendarPlus, Zap, ArrowUpRight, RefreshCw,
   Users, BarChart3, Calendar, AlertTriangle,
-  Clock, Activity, MessageSquare,
+  Clock, Activity,
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
 import { cn, inicioDeSemana, finDeSemana, capitalizarPrimera } from '@/lib/utils';
@@ -25,7 +25,7 @@ import { EstadoDelEstudio } from '@/components/dashboard/estado-del-estudio';
 import { TentareOrb } from '@/components/marca/tentare-orb';
 import { ActionCenter } from '@/components/decision/action-center';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
-import { fetchLayout, authHeader } from '@/lib/api-client';
+import { fetchLayout } from '@/lib/api-client';
 import { dbStatsClientas } from '@/lib/supabase-data';
 import { aplicarLayout, DEFAULT_LAYOUT } from '@/lib/layout-runtime';
 import type { LayoutConfig } from '@/lib/layout-schema';
@@ -35,7 +35,6 @@ import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
 import { useRol, puedeVerFinanzas, puedeVer, puedeGestionarClientas, puedeMoverDinero, puedeGestionarCalendario } from '@/lib/permisos';
 import { Toast, useToast } from '@/components/ui/toast';
-import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
 import { useAuth } from '@/lib/auth-context';
 import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
@@ -55,10 +54,6 @@ import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
 function localDate(d: Date | string) {
   const dt = typeof d === 'string' ? new Date(d) : d;
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-}
-
-function formatHora(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 }
 
 function monthKey(d: Date | string) {
@@ -275,7 +270,6 @@ export default function Dashboard() {
     reservas,
     recibos,
     planesTarifa,
-    tiposClase,
     instructores,
     marcarCobrado,
     cobrarTodosPendientes,
@@ -343,7 +337,6 @@ export default function Dashboard() {
   // P0-27: índices compartidos por sesión y del conjunto de sesiones de hoy, para
   // no hacer sesiones.find() dentro de bucles sobre reservas/socios (cuadrático).
   const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
-  const tipoClaseById = useMemo(() => new Map(tiposClase.map(t => [t.id, t])), [tiposClase]);
   // Auditoría 2026-07-29, I-5: plazas ocupadas (CONFIRMADA/ASISTIDA) por
   // sesión, contadas en una sola pasada. ocupacionMedia hacía un
   // reservas.filter() POR CADA sesión de la semana — cuadrático con estudios
@@ -573,51 +566,8 @@ export default function Dashboard() {
     return { esperando, ejecutadas, fallidas };
   }, [automationLogs, hoyStr, rolActual, esperandoEnBandeja]);
 
-  // ── Radar de ocupación: clases con hueco en las próximas 48h ────────────────
-  const huecosProximos = useMemo(
-    () => clasesConHuecoProximas({ sesiones, reservas, ahora: now }).slice(0, 5),
-    [sesiones, reservas, now]
-  );
-  const candidatasPorSesion = useMemo(() => {
-    const hoyISO = localDate(now);
-    const map = new Map<string, number>();
-    for (const h of huecosProximos) {
-      map.set(h.sesion.id, candidatasParaHueco({ sesion: h.sesion, sesiones, socios, reservas, suscripciones, planesTarifa, hoyISO }).length);
-    }
-    return map;
-  }, [huecosProximos, sesiones, socios, reservas, suscripciones, planesTarifa, now]);
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
-  const [avisandoSesion, setAvisandoSesion] = useState<string | null>(null);
   const [cobrandoTodos, setCobrandoTodos] = useState(false);
-  async function avisarCandidatas(sesionId: string, nCandidatas: number, nombreClase: string) {
-    if (nCandidatas === 0 || avisandoSesion) return;
-    // «hasta N»: el servidor descarta después a quien no tenga consentimiento
-    // de marketing vigente, a quien ya se avisó en 24 h y a las exentas. Decir
-    // un número exacto que luego no se cumple convierte el resultado en un
-    // misterio — y hoy la mayoría de las socias NO tiene consentimiento.
-    if (!window.confirm(`Se avisará por WhatsApp a hasta ${nCandidatas} socia${nCandidatas === 1 ? '' : 's'} de que hay hueco en ${nombreClase}. Solo recibirán el aviso las que hayan dado su consentimiento de marketing. ¿Continuar?`)) return;
-    setAvisandoSesion(sesionId);
-    try {
-      const res = await fetch('/api/marketing/hueco/avisar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ sesionId }),
-      });
-      const data = await res.json();
-      if (!res.ok) { showToast(`Error: ${data.error ?? 'no se pudo avisar'}`); return; }
-      // Sin el desglose, «Aviso enviado a 0 socias» no tiene explicación y
-      // parece una avería. `sinConsentimiento` es hoy el motivo más frecuente.
-      const motivos = [
-        data.sinConsentimiento ? `${data.sinConsentimiento} sin consentimiento de marketing` : null,
-        data.sinTelefono ? `${data.sinTelefono} sin teléfono` : null,
-      ].filter(Boolean).join(', ');
-      showToast(`Aviso enviado a ${data.enviados} socia${data.enviados === 1 ? '' : 's'}${motivos ? ` (${motivos})` : ''}`);
-    } catch {
-      showToast('No se pudo conectar con el servidor. El aviso no se ha enviado.');
-    } finally {
-      setAvisandoSesion(null);
-    }
-  }
 
   // ── "10 segundos": lo que el negocio necesita ver hoy sin navegar ───────────
   const resumenHoy = useMemo(() => {
@@ -1016,7 +966,7 @@ export default function Dashboard() {
         <div {...wrap('principal')}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-          {/* LEFT: Pagos pendientes + radar de huecos */}
+          {/* LEFT: Pagos pendientes */}
           <div className="lg:col-span-2 space-y-5">
 
             {/* «Clases de hoy» vivía aquí y ya no: la agenda del día es ahora la
@@ -1108,53 +1058,18 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Clases con hueco (radar de ocupación) */}
-            {huecosProximos.length > 0 && (
-              <div className="bg-card rounded-xl border border-border">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-muted">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare size={14} className="text-muted-foreground" />
-                    <h2 className="text-[13px] font-semibold text-foreground">
-                      Clases con hueco
-                    </h2>
-                    <span className="text-[10px] font-bold text-warning bg-warning/10 px-1.5 py-0.5 rounded-full">
-                      {huecosProximos.length}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground">Próximas 48h</span>
-                </div>
-                <div className="divide-y divide-muted">
-                  {huecosProximos.map(h => {
-                    const tipo = tipoClaseById.get(h.sesion.tipoClaseId);
-                    const nCandidatas = candidatasPorSesion.get(h.sesion.id) ?? 0;
-                    return (
-                      <div key={h.sesion.id} className="flex items-center gap-3 px-5 py-3">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: tipo?.color ?? '#999' }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-semibold text-foreground truncate">
-                            {tipo?.nombre ?? 'Clase'} · {formatHora(h.sesion.inicio)}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground truncate">
-                            {h.huecos} hueco{h.huecos === 1 ? '' : 's'} libre{h.huecos === 1 ? '' : 's'} · {nCandidatas} candidata{nCandidatas === 1 ? '' : 's'} disponible{nCandidatas === 1 ? '' : 's'}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => avisarCandidatas(h.sesion.id, nCandidatas, tipo?.nombre ?? 'la clase')}
-                          disabled={nCandidatas === 0 || avisandoSesion !== null}
-                          className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/20 transition-colors disabled:opacity-40 shrink-0"
-                        >
-                          <MessageSquare size={11} />
-                          {avisandoSesion === h.sesion.id ? 'Avisando…' : 'Avisar a candidatas'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* El radar «Clases con hueco (próximas 48 h)» vivía aquí y ya no.
+                Su botón «Avisar a candidatas» mandaba WhatsApp a TODAS de golpe
+                tras un `window.confirm`, que es justo la UX que vino a sustituir
+                «Rellenar hueco» (`components/dashboard/rellenar-hueco-panel.tsx`):
+                enseña QUIÉN encaja y POR QUÉ antes de mandar nada. Los dos
+                caminos convivían sobre las mismas clases.
+                Nada se pierde de alcance: la ventana de 48 h la impone el
+                SERVIDOR para las dos vías (`clasesConHuecoProximas` en
+                app/api/marketing/hueco/avisar), y el día de mañana se alcanza
+                con la flecha «Día siguiente» de la agenda. El radar era, de
+                hecho, más estrecho: solo clases por debajo del 70 % y como
+                mucho cinco. */}
           </div>
 
           {/* RIGHT: Quick actions + Renovaciones + Actividad */}

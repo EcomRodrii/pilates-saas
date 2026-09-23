@@ -25,8 +25,10 @@ import { filtrarPorConsentimientoMarketing } from '@/lib/marketing/consentimient
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import { fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 
-// Radar de ocupación → "Avisar a candidatas" (Configuración → Dashboard) y
-// «Rellenar hueco» de la home.
+// «Rellenar hueco» de la home (components/dashboard/rellenar-hueco-panel.tsx),
+// único camino desde el 23-sep-2026: el radar de ocupación que llamaba aquí sin
+// selección —«Avisar a candidatas», WhatsApp a todas de golpe— se retiró de la
+// home, que es para lo que se construyó ese panel.
 //
 // Dos canales, resueltos por socia: WhatsApp por la Meta Cloud API del PROPIO
 // estudio (lib/whatsapp.ts + `integraciones` tipo WHATSAPP, lo que la
@@ -104,11 +106,12 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as { sesionId?: string; socioIds?: unknown } | null;
   const sesionId = body?.sesionId;
   if (!sesionId) return NextResponse.json({ error: 'Falta sesionId' }, { status: 400 });
-  // «Rellenar hueco» (home) manda a QUIÉN avisar; el radar de siempre no manda
-  // nada y sigue avisando a todas. La lista es un FILTRO, nunca la fuente: las
-  // candidatas se recalculan igual en servidor y esto solo puede quitar gente
-  // de esa lista, jamás añadirla — mandar un id que no cumple las reglas no
-  // hace que se le mande el WhatsApp.
+  // «Rellenar hueco» manda SIEMPRE a quién avisar; es hoy el único llamador,
+  // así que `socioIds` ausente («avisar a todas las candidatas») ya no lo usa
+  // ninguna pantalla — se mantiene por no cambiar el contrato de la ruta.
+  // La lista es un FILTRO, nunca la fuente: las candidatas se recalculan igual
+  // en servidor y esto solo puede quitar gente de esa lista, jamás añadirla —
+  // mandar un id que no cumple las reglas no hace que se le mande el WhatsApp.
   const seleccion = Array.isArray(body?.socioIds)
     ? new Set(body.socioIds.filter((x): x is string => typeof x === 'string'))
     : null;
@@ -158,19 +161,29 @@ export async function POST(req: NextRequest) {
       admin as never, sesion.studioId, (planesRows ?? []).map(r => mapPlanTarifa(r as RowPlanesTarifa)),
     );
 
-    // Confirma que sigue siendo una sesión futura por debajo del umbral —
-    // protege contra un doble clic sobre datos ya obsoletos.
+    // Confirma que sigue siendo una sesión futura con hueco — protege contra un
+    // doble clic sobre datos ya obsoletos.
     //
     // El aforo usado aquí tiene que ser el EFECTIVO (descontando máquinas
     // averiadas en bloqueos_maquina, igual que aforo_efectivo() en la BD y
-    // reservar_plaza), no el aforoMaximo en bruto: si no, el radar podía avisar
-    // por WhatsApp de un hueco que en realidad no existe porque la sala tiene
+    // reservar_plaza), no el aforoMaximo en bruto: si no, se podía avisar por
+    // WhatsApp de un hueco que en realidad no existe porque la sala tiene
     // reformers de baja, y la socia llegaba a una clase ya llena.
     const { data: aforoEfectivo } = await admin.rpc('aforo_efectivo', { p_sesion_id: sesionId });
     const sesionParaRadar = typeof aforoEfectivo === 'number' ? { ...sesionObj, aforoMaximo: aforoEfectivo } : sesionObj;
 
     const ahora = new Date();
-    const huecos = clasesConHuecoProximas({ sesiones: [sesionParaRadar], reservas, ahora });
+    // ⚠️ `umbral: 1` = «cualquier clase con al menos una plaza libre», y es
+    // explícito a propósito. El 0.7 por defecto de `clasesConHuecoProximas` era
+    // el filtro de DESCUBRIMIENTO del radar de la home —qué clases merecía la
+    // pena ENSEÑARTE—, y el radar se retiró el 23-sep-2026. Como guardia de
+    // ENVÍO no protegía de nada: impedía llenar las dos últimas plazas de una
+    // clase que va bien, y rechazaba con «ya no tiene hueco» una clase que sí
+    // lo tenía. Aquí quien llama es «Rellenar hueco», donde la propietaria ya
+    // ha abierto ESA clase y ha elegido a ESAS socias.
+    // La ventana de 48 h sí se mantiene: es la regla de negocio de verdad.
+    // Una clase llena sigue cayendo aquí (ratio 1 no es < 1).
+    const huecos = clasesConHuecoProximas({ sesiones: [sesionParaRadar], reservas, ahora, umbral: 1 });
     if (huecos.length === 0) {
       return NextResponse.json({ error: 'Esta clase ya no tiene hueco (o ya no está en la ventana de aviso)' }, { status: 409 });
     }
