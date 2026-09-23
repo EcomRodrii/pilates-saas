@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/db/supabase';
-import { recortarTransparencia } from '@/lib/imagen/recortar-logo';
+import { prepararIconoMarca, recortarMargenes } from '@/lib/imagen/recortar-logo';
 import { redimensionarImagen, LADO_AVATAR, LADO_FOTO_CLASE, LADO_LOGO_CLASE, LADO_BANNER, LADO_PORTADA_CORREO } from '@/lib/imagen-cliente';
 // La higienización de la clave vive en un módulo SIN imports para que
 // `node --test` pueda probarla: no resuelve el alias `@/`, y este fichero lo usa.
@@ -388,7 +388,7 @@ export async function subirLogoEstudio(studioId: string, file: File): Promise<{ 
   if (invalido) return { error: invalido };
   // Se valida ANTES de recortar: el límite es sobre lo que sube la persona, no
   // sobre lo que quede después, o un PNG enorme pasaría por haber adelgazado.
-  file = await recortarTransparencia(file);
+  file = await recortarMargenes(file);
   const path = `logo-${studioId}`;
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
@@ -421,12 +421,13 @@ export async function eliminarLogoEstudio(studioId: string): Promise<{ ok: true 
 export async function subirFaviconEstudio(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const invalido = validarImagenMarca(file, FAVICON_MAX_BYTES);
   if (invalido) return { error: invalido };
-  // Mismo recorte que el logo, y aquí hace MÁS falta: un favicon se pinta a
-  // 16-32 px reales en la pestaña. El mismo fichero de 1508×1043 con 1451×297
-  // de tinta que en el logo dejaba 9 px de dibujo a 32 px de alto, aquí deja
-  // CERO — el favicon se ve directamente como el color de fondo transparente,
-  // sin marca ninguna, que es justo el bug reportado (#favicon-en-blanco).
-  file = await recortarTransparencia(file);
+  // No se guarda tal cual: se guarda el ICONO ya preparado para verse pequeño
+  // (símbolo recortado, centrado en un cuadrado blanco y ocupando el 84 %). Un
+  // favicon se pinta a 16-32 px reales; subido con su propio aire —medido: la
+  // figura en la mitad de un lienzo de 1254 px— quedaba en una mancha. Ver
+  // `prepararIconoMarca`. Es la misma imagen para la pestaña (64 px, desde
+  // `/icono-estudio`), el icono de la app instalada y la cabecera de la app.
+  file = await prepararIconoMarca(file);
   const path = `favicon-borrador-${studioId}`;
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)

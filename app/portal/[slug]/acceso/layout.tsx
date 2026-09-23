@@ -1,11 +1,9 @@
 'use client';
 
 import { useEstudio } from '@/components/student/contexto';
-import { inicialDe } from '@/lib/monograma-estudio';
 import { Foto } from '@/components/student/ui/Foto';
-import { urlServida } from '@/lib/student/imagen-servida';
 import { renglonesDeAcceso } from '@/lib/student/titulo-acceso';
-import { ALTO_LOGO, ANCHO_MAX_LOGO } from '@/components/student/shell/StudioHeader';
+import { MarcaEstudio } from '@/components/student/shell/StudioHeader';
 
 /**
  * Marco de acceso: portada fotográfica oscura arriba, formulario sobre crema
@@ -48,14 +46,7 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
         <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(8,8,8,.45), rgba(8,8,8,.05) 35%, rgba(8,8,8,.7))' }} />
 
         <div style={{ position: 'absolute', top: 'calc(18px + var(--safe-top))', left: 22, display: 'flex', alignItems: 'center', gap: 9, color: 'var(--on-dark)' }}>
-          {estudio.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={urlServida(estudio.logoUrl, ANCHO_MAX_LOGO)} alt="" decoding="async" style={{ height: ALTO_LOGO, maxWidth: ANCHO_MAX_LOGO, objectFit: 'contain' }} />
-          ) : (
-            <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(250,249,245,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--t-meta)', fontWeight: 800 }}>
-              {inicialDe(estudio.nombre)}
-            </span>
-          )}
+          <MarcaEstudio iconoUrl={estudio.iconoMarcaUrl} logoUrl={estudio.logoUrl} nombre={estudio.nombre} flotando />
           <span style={{ fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em' }}>{estudio.nombre}</span>
         </div>
 

@@ -147,8 +147,13 @@ const ico = empaquetaIco(await Promise.all(TAMANOS_ICO.map(async px => ({
   px,
   datos: (await pinta(px < 24 ? 'favicon/tentare-favicon.svg' : 'isotipo/tentare-isotipo-degradado.svg', CAJA.isotipoCuadrado, px)).datos,
 }))));
-fs.writeFileSync(path.join(REPO, 'app/favicon.ico'), ico);
-hechos.push(`app/favicon.ico`.padEnd(38) + ` ${TAMANOS_ICO.join('/')}  ${(ico.length / 1024).toFixed(0)} KB`);
+// En `public/` y NO en `app/`: Next inyecta el `favicon.ico` de `app/` en TODAS
+// las rutas y una ruta hija no puede quitarlo, así que la marca de Tentare
+// competía con la del estudio en su propia pestaña. Las páginas de Tentare
+// siguen teniendo sus iconos (`app/icon1..4.png`, `app/apple-icon.png`), que sí
+// ceden ante los `icons` de una ruta hija.
+fs.writeFileSync(path.join(REPO, 'public/favicon.ico'), ico);
+hechos.push(`public/favicon.ico`.padEnd(38) + ` ${TAMANOS_ICO.join('/')}  ${(ico.length / 1024).toFixed(0)} KB`);
 
 await navegador.close();
 fs.rmSync(tmp, { recursive: true, force: true });

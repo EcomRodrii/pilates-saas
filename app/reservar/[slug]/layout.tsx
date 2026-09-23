@@ -11,7 +11,7 @@ import { veredictoPagina, nombreCookieAcceso } from '@/lib/publico/acceso-pagina
 import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import { ThemeStyle } from '@/components/theme-style';
 import { ThemePreviewListener } from '@/components/theme/theme-preview-listener';
-import { urlMonograma } from '@/lib/monograma-estudio';
+import { iconosDeEstudio } from '@/lib/monograma-estudio';
 import { paletaReservarCssText, fuenteReservarCssText } from '@/lib/reservar-publico-tokens';
 
 // Metadata server-rendered (I-9): título/descripción/Open Graph con el nombre y
@@ -89,10 +89,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     // Sin esto, `?tab=citas`, `?embed=1`, `?ref=abc`… serían páginas distintas
     // con el mismo contenido. Ver la cabecera.
     alternates: { canonical: canonica },
-    // Sin favicon propio entra el monograma (inicial + color de marca): antes
-    // caía al favicon RAÍZ, que es el de Tentare — la pestaña del navegador de
-    // esta página enseñaba la marca de otro negocio.
-    icons: { icon: theme.faviconUrl || urlMonograma(studio.nombre, studio.colorPrimario, 192) },
+    // Los mismos iconos que su app (icono › logo › inicial), con `sizes`. Antes
+    // iba el favicon crudo sin tamaño declarado, compitiendo con el
+    // `favicon.ico` de Tentare que Next inyectaba en toda ruta; y sin favicon,
+    // la inicial aunque el estudio tuviera logo.
+    icons: iconosDeEstudio(
+      studio.nombre, studio.colorPrimario,
+      { iconoUrl: theme.faviconUrl, logoUrl: studio.logoUrl }, process.env.NEXT_PUBLIC_SUPABASE_URL,
+    ),
   };
 }
 
