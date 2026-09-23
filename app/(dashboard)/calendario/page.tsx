@@ -62,6 +62,7 @@ import { FranjaDecisiones, type DecisionResumen } from '@/components/calendario/
 import { DialogoDecision } from '@/components/calendario/dialogo-decision';
 import { VistaDiaSalas, type DatoSesion } from '@/components/calendario/vista-dia-salas';
 import { PrimerHorario } from '@/components/calendario/primer-horario';
+import { ListoParaReservar } from '@/components/onboarding/listo-para-reservar';
 import { VistaSemana } from '@/components/calendario/vista-semana';
 import { VistaAgenda, CONSULTA_AGENDA, clasesDeAgenda, type DiaDeAgenda } from '@/components/calendario/vista-agenda';
 import { agendaDeDia, agendaDeSemana } from '@/lib/calendario-agenda';
@@ -714,6 +715,11 @@ export default function Calendario() {
   // ── Modals ──────────────────────────────────────────────────────────────────
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
   const [showRecurrentes, setShowRecurrentes] = useState(false);
+  // Cuántas clases acaba de crear A MANO quien no tenía ninguna. Su página
+  // pública ya tiene algo que enseñar, y ese es el momento de decírselo y de
+  // ofrecerle el enlace — antes solo lo veía quien pasaba por la propuesta de
+  // horario, y quien montaba su primera clase a mano nunca se enteraba.
+  const [primeraClaseCreada, setPrimeraClaseCreada] = useState<number | null>(null);
   const [initialRecurrente, setInitialRecurrente] = useState<RecurringFormData | undefined>(undefined);
   // Atajo «Crear clase fija con esto»: qué franjas marcar al abrir el diálogo
   // de Horario justo después de crear la serie que las genera.
@@ -1171,6 +1177,7 @@ export default function Calendario() {
   async function crearSesion() {
     if (horaInvalida || faltaConfigurar || repetirInvalido || guardandoSesion) return;
     const semanas = form.repetir ? form.repetirSemanas : 1;
+    const eraLaPrimera = sinNingunaClase;
     setGuardandoSesion(true);
     setErrorSesion(null);
 
@@ -1208,6 +1215,7 @@ export default function Calendario() {
     const cuantas = semanas > 1 ? `Serie creada · ${creadas} clases` : 'Clase creada';
     showToast(otraSemana ? `${cuantas} — te llevo a esa semana` : cuantas);
     setShowForm(null);
+    if (eraLaPrimera && studio?.slug) setPrimeraClaseCreada(creadas);
   }
 
   function cuantasApuntadas(id: string): number {
@@ -1661,8 +1669,10 @@ export default function Calendario() {
   }
 
   async function crearClasesRecurrentes(sesionesFields: Omit<Sesion, 'id' | 'studioId'>[]) {
+    const eraLaPrimera = sinNingunaClase;
     const res = await addSesionesSerie(sesionesFields);
     if (!res.ok) { showToast(`No se ha creado la serie. ${res.error}`); return; }
+    if (eraLaPrimera && studio?.slug) setPrimeraClaseCreada(sesionesFields.length);
     invalidarHorario();
     setShowRecurrentes(false);
     const { navego: otraSemana } = invalidarCacheSerieYNavegarSiHaceFalta(sesionesFields.map(s => new Date(s.inicio)));
@@ -3826,6 +3836,15 @@ export default function Calendario() {
             )}
         </>
       </DashboardDrawer>
+
+      {primeraClaseCreada != null && studio?.slug && (
+        <ListoParaReservar
+          slug={studio.slug}
+          nombreEstudio={studio.nombre ?? 'tu estudio'}
+          clasesCreadas={primeraClaseCreada}
+          onSeguir={() => setPrimeraClaseCreada(null)}
+        />
+      )}
 
       {/* ── Modal clases recurrentes ────────────────────────────────────────────── */}
       <ModalClasesRecurrentes

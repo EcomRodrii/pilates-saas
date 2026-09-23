@@ -229,6 +229,9 @@ export async function POST(req: NextRequest) {
         planes: planesNuevos.length,
         instructora: instructoraCreada,
         horario: horarioAjustado,
+        // Desde dónde se montó: el asistente de bienvenida o el calendario vacío.
+        // Lista cerrada — el body es del cliente.
+        origen: (body as { origen?: unknown }).origen === 'calendario' ? 'calendario' : 'asistente',
       },
     });
 

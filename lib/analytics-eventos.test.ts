@@ -19,10 +19,10 @@ test('distinct_id es SIEMPRE el studioId (tenant), no una persona', () => {
   assert.equal(ev.event, 'pago_completado');
 });
 
-test('las properties llevan solo datos de negocio (+ $lib), nada de PII', () => {
+test('las properties llevan solo datos de negocio (+ studio_id, $lib), nada de PII', () => {
   const ev = construirEvento('studio-1', { nombre: 'pago_completado', props: { importe_centimos: 1200, via: 'terminal' } });
   const claves = Object.keys(ev.properties).sort();
-  assert.deepEqual(claves, ['$lib', 'importe_centimos', 'via']);
+  assert.deepEqual(claves, ['$lib', 'importe_centimos', 'studio_id', 'via']);
   // Ninguna clave de PII conocida debe aparecer.
   for (const pii of ['nombre', 'email', 'telefono', 'nif', 'socio', 'socioId', 'condicion', 'salud']) {
     assert.equal(pii in ev.properties, false, `no debe filtrar ${pii}`);
@@ -32,7 +32,7 @@ test('las properties llevan solo datos de negocio (+ $lib), nada de PII', () => 
 test('el payload NO incluye api_key (lo añade el emisor)', () => {
   const ev = construirEvento('studio-1', { nombre: 'suscripcion_cambiada', props: { plan: 'ESTUDIO', estado: 'active' } });
   assert.equal('api_key' in ev, false);
-  assert.deepEqual(ev.properties, { plan: 'ESTUDIO', estado: 'active', $lib: 'tentare-server' });
+  assert.deepEqual(ev.properties, { plan: 'ESTUDIO', estado: 'active', studio_id: 'studio-1', $lib: 'tentare-server' });
 });
 
 test('timestamp: se incluye solo si se pasa', () => {
@@ -46,7 +46,7 @@ test('reserva_completada: sin socioId ni sesionId, solo la señal de negocio', (
   const ev = construirEvento('studio-1', { nombre: 'reserva_completada', props: { con_spot_elegido: true } });
   assert.equal(ev.event, 'reserva_completada');
   assert.equal(ev.distinct_id, 'studio-1');
-  assert.deepEqual(Object.keys(ev.properties).sort(), ['$lib', 'con_spot_elegido']);
+  assert.deepEqual(Object.keys(ev.properties).sort(), ['$lib', 'con_spot_elegido', 'studio_id']);
 });
 
 // Nota de tipos: el union EventoAnalitica es la barrera real anti-PII; esto solo

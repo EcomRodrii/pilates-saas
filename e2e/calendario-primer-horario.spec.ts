@@ -73,12 +73,55 @@ test('un estudio sin ninguna clase ya no recibe una rejilla en blanco', async ({
   await expect(page.getByRole('link', { name: /Ya tengo mi horario/ })).toBeVisible();
 });
 
-// Sin tipos de clase no hay nada que proponer: lo primero es crearlos.
-test('sin tipos de clase se ofrece crearlos, no un horario imposible', async ({ page }) => {
+// Sin tipos de clase el calendario ya NO es un callejón: pregunta lo mínimo ahí
+// mismo (antes solo había un enlace a Configuración, y «Ahora no» del asistente
+// dejaba a la propietaria justo aquí).
+test('sin tipos de clase pregunta lo mínimo y no deja pulsar hasta contestar', async ({ page }) => {
   await montar(page, { tiposClase: [] });
   await expect(page.getByRole('heading', { name: 'Tu horario todavía está vacío' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('button', { name: 'Ver el horario propuesto' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Crear tus tipos de clase' })).toBeVisible();
+  await expect(page.getByText('¿Qué clases das?')).toBeVisible();
+  await expect(page.getByText('¿Cuánto dura una clase?')).toBeVisible();
+  // Las salas ya existen: no se le vuelve a preguntar por ellas.
+  await expect(page.getByText('¿Cuántas salas tienes?')).toHaveCount(0);
+  // Sin respuesta no se inventa nada.
+  await expect(page.getByRole('button', { name: 'Ver el horario propuesto' })).toBeDisabled();
+});
+
+// ⚠️ Con contador: guardar lo elegido tiene que llegar de verdad al servidor.
+test('contestar crea solo lo elegido (origen calendario) y sigue a la propuesta, sin programar ninguna clase', async ({ page }) => {
+  const { importaciones } = await montar(page, { tiposClase: [] });
+  const configuraciones: Record<string, unknown>[] = [];
+  await page.route('**/api/onboarding/configurar', r => {
+    configuraciones.push(r.request().postDataJSON() as Record<string, unknown>);
+    return json(r, { ok: true, salas: 0, tiposClase: 1, planes: 0 });
+  });
+  await expect(page.getByText('¿Qué clases das?')).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Reformer', exact: true }).click();
+  await page.getByRole('button', { name: '50 minutos' }).click();
+  await page.getByRole('button', { name: 'Ver el horario propuesto' }).click();
+
+  await expect.poll(() => configuraciones.length, { timeout: 15_000 }).toBe(1);
+  expect(configuraciones[0]).toMatchObject({ tiposClase: ['Reformer'], duracionMinutos: 50, origen: 'calendario' });
+  expect(configuraciones[0]).not.toHaveProperty('numSalas');
+  await expect(page.getByRole('heading', { name: 'Este sería tu horario' })).toBeVisible();
+  // Guardar el catálogo no programa ninguna clase: eso solo al confirmar.
+  expect(importaciones).toHaveLength(0);
+});
+
+test('si el servidor dice que no, lo dice y no sigue a una propuesta imposible', async ({ page }) => {
+  await montar(page, { tiposClase: [] });
+  let intentos = 0;
+  await page.route('**/api/onboarding/configurar', r => { intentos++; return json(r, { error: 'No se han podido crear tus tipos de clase.' }, 500); });
+  await expect(page.getByText('¿Qué clases das?')).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Reformer', exact: true }).click();
+  await page.getByRole('button', { name: '50 minutos' }).click();
+  await page.getByRole('button', { name: 'Ver el horario propuesto' }).click();
+
+  // `getByText` y no `getByRole('alert')`: el anunciador de rutas de Next también es un alert.
+  await expect(page.getByText('No se han podido crear tus tipos de clase.')).toBeVisible();
+  // Sin este contador el test pasaría aunque no se hubiera intentado nada.
+  expect(intentos).toBeGreaterThan(0);
+  await expect(page.getByRole('heading', { name: 'Este sería tu horario' })).toHaveCount(0);
 });
 
 // Una semana vacía en un estudio en marcha es normal (vacaciones): el bloque
