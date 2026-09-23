@@ -194,7 +194,7 @@ export function CheckoutEmbebido({
   const fuenteCheckout = fuentePago ?? fuenteAuto ?? {
     // Último recurso: la fuente base del widget (Instrument Sans, la de
     // `sans`), pedida a Google Fonts porque dentro del iframe la copia
-    // self-hosted de next/font no existe.
+    // self-hosted de app/_fuentes no existe.
     familia: 'Instrument Sans',
     cssSrc: 'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap',
   };
@@ -206,8 +206,8 @@ export function CheckoutEmbebido({
 
     // Del `font-family` resuelto solo interesa la PRIMERA familia. Y se exige
     // que sea un nombre limpio: sin fuente elegida, `--font-ui` la define
-    // next/font y vale algo como `__Instrument_Sans_e8ce9c` —un alias local
-    // con guiones bajos que Google Fonts no conoce—, así que pedirle esa URL
+    // next/font/local y vale `Instrument_Sans` —un alias local con guion bajo
+    // que Google Fonts no conoce (app/_fuentes/fuentes.ts)—, así que pedirle esa URL
     // daría un 404 y el checkout se quedaría sin fuente. `fuenteValida` deja
     // fuera justo esos alias, y entonces cae al literal de arriba, que es el
     // comportamiento de siempre.

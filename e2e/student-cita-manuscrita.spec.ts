@@ -6,7 +6,7 @@ import { sembrarSociaCompleta, SLUG } from './socia-completa';
 // Dos cosas que este guardia protege y que no se ven leyendo el JSX:
 //
 //  1. Que la tipografía LLEGA. Es la única caligráfica del repo y se carga con
-//     `next/font` desde el layout raíz; si alguien la quita de ahí, el navegador
+//     `next/font` desde app/_fuentes/fuentes.ts; si alguien la quita de ahí, el navegador
 //     cae a la `cursive` del sistema y la frase se sigue leyendo — mal, pero se
 //     lee. Un fallo así no rompe nada y no lo cazaría ningún otro test.
 //  2. Que sin frase NO se pinta la tarjeta. Es contenido opcional del estudio.
