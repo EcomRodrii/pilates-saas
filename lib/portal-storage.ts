@@ -63,25 +63,15 @@ function motivoAvatarSobrepasa(img: File | Blob): string | null {
   return motivoFotoInvalida(img.type, img.size);
 }
 
-// Foto de perfil de socia — bucket público `avatars`, path = id de la socia.
-export async function subirFotoPerfil(socioId: string, file: File): Promise<{ url: string } | { error: string }> {
-  const img = await redimensionarImagen(file, LADO_AVATAR);
-  const motivo = motivoAvatarSobrepasa(img);
-  if (motivo) return { error: motivo };
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(socioId, img, { upsert: true, contentType: img.type });
-  if (uploadError) return { error: uploadError.message };
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(socioId);
-  return { url: `${data.publicUrl}?v=${Date.now()}` };
-}
-
-export async function eliminarFotoPerfil(socioId: string): Promise<{ ok: true } | { error: string }> {
-  const { error } = await supabase.storage.from(BUCKET).remove([socioId]);
-  if (error) return { error: error.message };
-  return { ok: true };
-}
-
+// ⚠️ Auditoría 2026-09-24 (SEC-06). Aquí vivían `subirFotoPerfil` y
+// `eliminarFotoPerfil`: subían la foto de una socia al bucket PÚBLICO
+// `avatars` con el path `<socio_id>`, predecible y descargable sin sesión.
+// SEC-01 (commit 81272559) movió ese camino a `avatars-privadas` con URL
+// firmada, pero dejó estas dos funciones en pie SIN UN SOLO LLAMANTE — resto
+// de una implementación revertida a medias, por cuarta vez en este fichero.
+// Se borran: un `import` futuro devolvía la foto de una socia al bucket
+// público exactamente en el path que SEC-01 acababa de cerrar. El camino vivo
+// es `app/api/public/foto-perfil/route.ts` (+ `app/api/foto/signed-url`).
 // ─── Imagen de un post del Feed de Comunidad ────────────────────────────────
 //
 // Bucket PROPIO (`comunidad-media`, migr 20260826015930), no `avatars`: la RLS
