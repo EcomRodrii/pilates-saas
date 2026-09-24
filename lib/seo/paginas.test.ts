@@ -159,6 +159,11 @@ test('esNoIndexable usa prefijo de cadena, como robots.txt', () => {
   // duplicados. `/i/<slug>`, que sirve el MISMO contenido, sigue bloqueada.
   assert.equal(esNoIndexable('/reservar/mi-estudio'), false);
   assert.equal(esNoIndexable('/i/una-instructora'), true);
+  // …pero el prefijo es `/i/`, no `/i`: los favicons (`/icon1.png`…) y
+  // `/icono-estudio` tienen que poder rastrearse (Google no enseña un favicon
+  // bloqueado por robots.txt).
+  assert.equal(esNoIndexable('/icon1.png'), false);
+  assert.equal(esNoIndexable('/icono-estudio/x'), false);
   assert.equal(esNoIndexable('/funcionalidades/sustituciones'), false);
   assert.equal(esNoIndexable('/precios'), false);
 });

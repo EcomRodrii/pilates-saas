@@ -804,7 +804,11 @@ export const PREFIJOS_NO_INDEXABLES = [
   // se abriera también, el mismo contenido viviría en dos URLs distintas y
   // competirían entre sí. Abrirlo es una decisión aparte, y necesitaría su
   // propio canonical.
-  '/portal', '/kiosk', '/i',
+  // ⚠️ '/i/' CON barra: sin ella, el prefijo de robots.txt bloqueaba también
+  // `/icon1.png`… `/icon4.png` (los favicons que Next sirve desde app/icon*.png)
+  // y `/icono-estudio`. Google exige poder rastrear el favicon para enseñarlo en
+  // los resultados: con él bloqueado, Tentare salía con el icono genérico.
+  '/portal', '/kiosk', '/i/',
   // Enlaces firmados de un solo uso
   '/aceptar-sustitucion', '/confirmar-reserva', '/disponibilidad', '/no-puedo', '/valorar',
   // Panel de gestión — TODOS los segmentos de app/(dashboard)

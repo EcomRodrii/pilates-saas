@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
 import { ciudadDesdeParam } from '@/lib/network/ciudad-param';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { buscarPerfilesPublico } from '@/lib/network/publico';
+import { buscarPerfilesPublico, UMBRAL_MIN_PERFILES_INDEXABLE } from '@/lib/network/publico';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
 import { LEGAL } from '@/lib/legal-info';
 
@@ -34,7 +34,6 @@ const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad'> = {
 // existe para evitar — mismo principio que `MUESTRA_MINIMA` en
 // lib/decision/prediccion.ts (no fiarse de una muestra ruidosa), aplicado
 // aquí como corte duro de indexación en vez de un nivel de confianza.
-const UMBRAL_MIN_PERFILES_INDEXABLE = 3;
 
 async function hayResultadosReales(nombreCiudad: string): Promise<boolean> {
   const admin = getSupabaseAdmin();

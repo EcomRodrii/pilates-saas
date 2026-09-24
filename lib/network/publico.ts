@@ -441,6 +441,29 @@ export function slugCiudadUrl(ciudad: string): string {
 // generar páginas: usarla crearía páginas SEO vacías de ciudades sin
 // ninguna instructora, justo lo que ya evita el comentario de
 // app/sitemap.ts sobre "nunca miles de páginas vacías generadas a priori").
+/**
+ * Perfiles publicados que tiene que tener una ciudad para que su página
+ * (/network/instructoras/ciudad/<ciudad>) sea indexable: con uno solo es una
+ * página fina (auditoría SEO 2026-09-10). La usan la propia página y el
+ * sitemap: si no coincidieran, el sitemap ofrecería páginas marcadas noindex.
+ */
+export const UMBRAL_MIN_PERFILES_INDEXABLE = 3;
+
+/** Ciudades con al menos `UMBRAL_MIN_PERFILES_INDEXABLE` perfiles publicados. */
+export async function ciudadesIndexables(admin: SupabaseClient): Promise<string[]> {
+  const { data } = await admin
+    .from('red_perfiles')
+    .select('ciudad')
+    .eq('estado', 'published')
+    .not('ciudad', 'is', null);
+  const cuenta = new Map<string, number>();
+  for (const f of data ?? []) {
+    const c = (f.ciudad as string).trim();
+    if (c) cuenta.set(c, (cuenta.get(c) ?? 0) + 1);
+  }
+  return [...cuenta].filter(([, n]) => n >= UMBRAL_MIN_PERFILES_INDEXABLE).map(([c]) => c).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
 export async function ciudadesConPerfilesPublicados(admin: SupabaseClient): Promise<string[]> {
   const { data } = await admin
     .from('red_perfiles')

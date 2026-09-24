@@ -53,8 +53,10 @@ test('robots.txt ya no bloquea /reservar, y sigue bloqueando lo que debe', async
 
   // La otra puerta. `\s` al final para no casar con `/reservar-algo` inventado.
   expect(txt, 'robots.txt sigue bloqueando /reservar').not.toMatch(/Disallow:\s*\/reservar\s*$/m);
-  // `/i` sirve el MISMO contenido que /reservar: abrirlo también sería
-  // duplicarlo en dos URLs. Sigue cerrado a propósito.
-  expect(txt, '/i debería seguir bloqueada').toMatch(/Disallow:\s*\/i\s*$/m);
+  // `/i/<slug>` sirve el MISMO contenido que /reservar: abrirlo también sería
+  // duplicarlo en dos URLs. Sigue cerrado a propósito — pero con la barra: sin
+  // ella el prefijo bloqueaba también los favicons (`/icon1.png`…).
+  expect(txt, '/i/ debería seguir bloqueada').toMatch(/Disallow:\s*\/i\/\s*$/m);
+  expect(txt, 'los favicons no pueden quedar bloqueados').not.toMatch(/Disallow:\s*\/i\s*$/m);
   expect(txt, '/portal debería seguir bloqueada').toMatch(/Disallow:\s*\/portal\s*$/m);
 });
