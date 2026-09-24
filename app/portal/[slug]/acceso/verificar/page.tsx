@@ -187,7 +187,9 @@ function Verificar() {
       // aparecía como clienta en el panel). Elige ella.
       if (await debeElegirComoEntrar(slug)) { r.replace(href('/acceso/elegir')); return; }
       // Autenticada pero sin ficha en este estudio: se intenta firmar el alta.
-      const res = await firmarAlta();
+      // Un fallo de red aquí no puede dejarla en «Entrando…» para siempre: se
+      // trata como un alta rechazada, que sí tiene mensaje y salida.
+      const res = await firmarAlta().catch(() => ({ ok: false as const, motivo: 'servidor' as const }));
       if (res.ok) { r.replace(destinoTrasEntrar()); return; }
       if (res.motivo === 'invitacion-instructora') { r.replace(href('/acceso/elegir')); return; }
       if (res.motivo === 'es-instructora') { r.replace(href('/equipo')); return; }
@@ -343,6 +345,22 @@ function Verificar() {
         <Sello />
         <h2 className="t-h1" style={{ marginTop: 16 }}>Todo listo</h2>
         <p className="t-meta" style={{ marginTop: 6 }}>Te llevamos a tu estudio…</p>
+      </div>
+    );
+  }
+
+  // Con sesión y sin `?crear=1`, el efecto de aterrizaje de arriba decide solo
+  // a dónde va (dentro, a elegir, a su parte de instructora o a terminar el
+  // alta), y tarda lo que tardan sus consultas: 2-3 s tras poner el código.
+  // Antes, ese rato se pintaba «Elige tu contraseña» a quien acababa de crear
+  // la cuenta CON contraseña, y la hacía dudar de si la había puesto. Ese
+  // formulario queda para quien viene a elegirla (`?crear=1`) y como salida si
+  // el alta falla (`global`). Lo mismo mientras aún no se sabe si hay sesión.
+  if (isLoading || (autenticado && !forzarPassword && !global)) {
+    return (
+      <div className="a-pop" role="status" aria-busy style={{ textAlign: 'center', padding: '24px 0' }}>
+        <h2 className="t-h1">{autenticado ? `Entrando en ${estudio.nombre}…` : 'Un momento…'}</h2>
+        {autenticado && <p className="t-meta" style={{ marginTop: 6 }}>Estamos preparando tu cuenta.</p>}
       </div>
     );
   }
