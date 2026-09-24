@@ -43,11 +43,11 @@ export default function ClaveNueva() {
   // la contraseña actual a propósito (ver comentario de arriba) — eso solo es
   // seguro si la sesión viene de un enlace de recuperación, no de cualquier
   // sesión ya abierta (p. ej. un navegador desatendido). Al canjear el enlace,
-  // gotrue dispara el evento `PASSWORD_RECOVERY`, que es lo que distingue
-  // "vengo de recuperar mi contraseña" de "ya tenía sesión abierta". Sin
-  // haberlo visto, se trata exactamente igual que un enlace caducado: la
-  // persona no necesita distinguir los dos casos, y bloquear por defecto es el
-  // fallo seguro.
+  // gotrue dispara el evento `PASSWORD_RECOVERY`, y el token de esa sesión dice
+  // que acaba de nacer de verificar el correo: las dos cosas juntas distinguen
+  // "vengo de recuperar mi contraseña" de "ya tenía sesión abierta". Sin ellas,
+  // se trata exactamente igual que un enlace caducado: la persona no necesita
+  // distinguir los dos casos, y bloquear por defecto es el fallo seguro.
   //
   // El evento NO lo escucha esta pantalla: gotrue lo emite una sola vez y solo
   // a quien ya esté suscrito, y esta pantalla puede montar después. Lo anota el

@@ -7,6 +7,8 @@
 // widget solo acepta el mensaje del intento que él mismo inició. Una sesión que
 // ya estuviera guardada en el navegador nunca sale por aquí.
 
+import { payloadJwt } from '../auth/payload-jwt.ts';
+
 /**
  * Métodos `amr` de gotrue que prueban posesión del email.
  *
@@ -24,21 +26,6 @@ const METODOS_EMAIL = new Set(['otp', 'magiclink', 'email/signup']);
 /** Desfase de reloj tolerado entre quien abre el puente y gotrue. */
 export const TOLERANCIA_PUENTE_MS = 30_000;
 
-function decodificarPayloadJwt(token: string): unknown {
-  const partes = token.split('.');
-  if (partes.length !== 3 || !partes[1]) return null;
-  const b64url = partes[1];
-  if (!/^[A-Za-z0-9_-]+$/.test(b64url)) return null;
-  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(b64url.length / 4) * 4, '=');
-  try {
-    const binario = atob(b64);
-    const bytes = Uint8Array.from(binario, (c) => c.charCodeAt(0));
-    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
-  } catch {
-    return null;
-  }
-}
-
 /**
  * ¿Este access token viene de un acceso por email posterior a `desdeMs`?
  *
@@ -52,7 +39,7 @@ export function sesionAutenticadaPorEmailDespuesDe(
   toleranciaMs: number = TOLERANCIA_PUENTE_MS,
 ): boolean {
   if (typeof accessToken !== 'string' || !Number.isFinite(desdeMs)) return false;
-  const payload = decodificarPayloadJwt(accessToken);
+  const payload = payloadJwt(accessToken);
   if (!payload || typeof payload !== 'object') return false;
   const amr = (payload as { amr?: unknown }).amr;
   if (!Array.isArray(amr)) return false;
