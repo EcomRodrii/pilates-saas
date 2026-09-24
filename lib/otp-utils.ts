@@ -13,6 +13,13 @@ export function digitosDeTextoPegado(texto: string, longitud = LONGITUD_OTP): st
   return Array.from({ length: longitud }, (_, i) => soloDigitos[i] ?? '');
 }
 
+// Lo que se teclea o se pega en un campo de código de UNA casilla: se quedan
+// solo los dígitos, hasta la longitud del código. Quien copia el código del
+// correo puede arrastrar espacios o el texto de alrededor.
+export function limpiarCodigo(texto: string, longitud = LONGITUD_OTP): string {
+  return texto.replace(/\D/g, '').slice(0, longitud);
+}
+
 export function codigoCompleto(digitos: string[]): string | null {
   const codigo = digitos.join('');
   return /^\d+$/.test(codigo) && codigo.length === digitos.length ? codigo : null;

@@ -14,21 +14,22 @@ import { errorDeRetornoOAuth } from '@/lib/student/oauth-retorno';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { Sello } from '@/components/student/ui/Sello';
+import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 
 /**
- * DESIGN CONFLICT #2 — código de 4 dígitos frente a enlace por correo.
+ * DESIGN CONFLICT #2 — código por correo frente a enlace por correo.
  *
- *  · Pide el diseño: `app/(auth)/verificar-email/page.tsx`, cuatro casillas de
- *    un dígito con foco automático y un botón «Confirmar».
- *  · Impone el backend: la autenticación es Supabase gotrue, y este proyecto
- *    manda ENLACES, no códigos. Las plantillas de correo no viven en el repo
- *    (`supabase/templates/*` no es lo que se envía: se editan en el panel de
- *    Supabase), así que cambiarlas para emitir un OTP de 4 dígitos sería tocar
- *    infraestructura compartida por todos los productos, no esta app.
- *  · Solución: se conserva la RANURA y su tratamiento visual, y cambia su
- *    trabajo. Esta pantalla es donde ATERRIZA el enlace del correo, y hace las
- *    dos cosas que sí hacen falta y que hoy no existen en ninguna parte del
- *    producto: elegir contraseña y firmar el alta en el estudio.
+ *  · Pide el diseño: `app/(auth)/verificar-email/page.tsx`, casillas para un
+ *    código y un botón «Confirmar».
+ *  · Lo que manda gotrue depende del correo. El de ALTA (registro con
+ *    contraseña, o «entrar con enlace» con un email que aún no tiene cuenta
+ *    confirmada) trae SOLO un código de 6 cifras: la plantilla es común a todo
+ *    el proyecto y el alta del equipo la pasó a código. El de entrar de una
+ *    cuenta que ya existe, el de recuperar y el de Google vuelven con enlace.
+ *  · Así que esta pantalla hace las dos cosas: sin sesión, pide el código
+ *    (lib/student/codigo-del-correo.ts); con sesión —la abra el código o un
+ *    enlace— elige contraseña si hace falta y firma el alta en el estudio.
  *
  * Es también la pantalla que cierra el callejón que dejó el borrado del portal:
  * `/reservar` enlazaba a `/portal/<slug>/login` y `/portal/<slug>/acceso` para
@@ -40,7 +41,7 @@ function Verificar() {
   const r = useRouter();
   const { estudio, slug } = useEstudio();
   const href = usePortalHref();
-  const { fijarPassword, entrarConGoogle } = useAuthStudent(slug);
+  const { fijarPassword, entrarConGoogle, reenviarCodigoAlta } = useAuthStudent(slug);
   const { socia, usuarioEmail, autenticado, isLoading, refrescar } = useSesionStudent(slug);
   // Una instructora del estudio NO se da de alta como alumna: entra a su parte
   // (la app es la misma para las dos, 14-sep-2026). `forzar`: quien aterriza
@@ -55,6 +56,18 @@ function Verificar() {
   const [listo, setListo] = useState(false);
 
   const emailMostrado = usuarioEmail ?? sp.get('email') ?? 'tu email';
+
+  // El correo de alta trae un CÓDIGO de 6 cifras, no un enlace (ver
+  // lib/student/codigo-del-correo.ts). Con el código bueno se abre la sesión
+  // aquí mismo y el efecto de aterrizaje de abajo hace el resto: firma el alta
+  // y la deja dentro, igual que si hubiera abierto un enlace.
+  const [emailCodigo, setEmailCodigo] = useState(() => sp.get('email') ?? '');
+  const { widget: captcha, pedirToken } = useCaptcha();
+  const codigoCorreo = useCodigoDelCorreo(emailCodigo, async () => {
+    const token = await pedirToken();
+    if (token === null) return { error: ERROR_CAPTCHA };
+    return reenviarCodigoAlta(emailCodigo, token || undefined);
+  });
 
   /**
    * A dónde iba antes de que le pidieran entrar, si venía de un enlace
@@ -274,21 +287,53 @@ function Verificar() {
     );
   }
 
-  // Sin sesión: el enlace no se ha abierto todavía (o caducó).
+  // Sin sesión: todavía no ha puesto el código del correo (o no ha abierto el
+  // enlace, si lo que le llegó fue un enlace).
   if (!isLoading && !autenticado) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <form
+        onSubmit={(e) => { e.preventDefault(); void codigoCorreo.verificar(); }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+        noValidate
+      >
         <div>
-          <h2 className="t-h1">Verifica tu email</h2>
+          <h2 className="t-h1">Revisa tu correo</h2>
           <p className="t-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
-            Te hemos enviado un enlace a <b>{emailMostrado}</b>. Ábrelo en este mismo móvil y entras directa.
+            Te hemos enviado un código de 6 cifras a <b>{emailMostrado}</b>. Escríbelo aquí para activar tu cuenta.
           </p>
         </div>
-        <p className="t-meta" style={{ lineHeight: 1.5 }}>
-          El enlace dura una hora. Si ya ha caducado, pide otro desde la pantalla de acceso.
+
+        {/* Sin email en la dirección no hay a quién comprobar el código. */}
+        {!sp.get('email') && (
+          <Input
+            label="Email" type="email" autoComplete="email" inputMode="email"
+            value={emailCodigo} onChange={(e) => setEmailCodigo(e.target.value)}
+          />
+        )}
+        <Input
+          label="Código" data-testid="codigo-correo"
+          inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={12}
+          value={codigoCorreo.codigo} onChange={(e) => codigoCorreo.escribir(e.target.value)}
+          error={codigoCorreo.error || undefined}
+          hint="Caduca a los 10 minutos. Mira también en spam o promociones."
+        />
+        <Button type="submit" full loading={codigoCorreo.verificando}>Activar mi cuenta</Button>
+
+        <p className="t-meta" style={{ textAlign: 'center', lineHeight: 1.5 }}>
+          {codigoCorreo.reenviado && codigoCorreo.espera > 0
+            ? <>Te hemos enviado otro código. Podrás pedir uno más en {codigoCorreo.espera} s.</>
+            : (
+              <button
+                type="button" onClick={() => void codigoCorreo.pedirOtro()} disabled={codigoCorreo.espera > 0 || !emailCodigo.trim()}
+                style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 800, color: 'var(--foreground)', textDecoration: 'underline', cursor: 'pointer' }}
+              >
+                No me ha llegado: enviar otro código
+              </button>
+            )}
         </p>
-        <Button variant="secondary" full onClick={() => r.push(href('/acceso/login'))}>Volver a acceso</Button>
-      </div>
+        <Button type="button" variant="secondary" full onClick={() => r.push(href('/acceso/login'))}>Volver a acceso</Button>
+        {captcha}
+      </form>
     );
   }
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { digitosDeTextoPegado, codigoCompleto, formatearCuentaAtras } from './otp-utils.ts';
+import { digitosDeTextoPegado, codigoCompleto, formatearCuentaAtras, limpiarCodigo } from './otp-utils.ts';
 
 test('digitosDeTextoPegado: pegar "482913" lo distribuye en 6 posiciones', () => {
   assert.deepEqual(digitosDeTextoPegado('482913'), ['4', '8', '2', '9', '1', '3']);
@@ -44,4 +44,14 @@ test('formatearCuentaAtras: formatea mm:ss con ceros a la izquierda', () => {
 
 test('formatearCuentaAtras: nunca negativo, aunque el reloj se pase', () => {
   assert.equal(formatearCuentaAtras(-5), '00:00');
+});
+
+test('limpiarCodigo: se queda con los dígitos, hasta seis', () => {
+  assert.equal(limpiarCodigo('482913'), '482913');
+  // Copiado del correo con espacios o con la frase de alrededor.
+  assert.equal(limpiarCodigo('482 913'), '482913');
+  assert.equal(limpiarCodigo('Tu código de verificación es: 482913'), '482913');
+  assert.equal(limpiarCodigo('48291399'), '482913');
+  assert.equal(limpiarCodigo('48a2'), '482');
+  assert.equal(limpiarCodigo(''), '');
 });

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { tokenDeSesion } from './enlace-de-correo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Suite E2E básica: registro · reserva · pago (página pública /reservar/[slug]).
@@ -262,8 +263,45 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     // El acceso es un único formulario (email + contraseña opcional, un solo
     // botón) — sin contraseña escrita el propio texto lo dice.
     await expect(page.getByPlaceholder(/tu email/i)).toBeVisible();
-    await expect(page.getByText(/te enviamos un enlace de acceso/i)).toBeVisible();
+    // «Un correo», no «un enlace»: a una alumna nueva le llega un código.
+    await expect(page.getByText(/te enviamos un correo para entrar/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /continuar/i })).toBeVisible();
+  });
+
+  test('alumna nueva: el correo le trae un CÓDIGO y con él sigue reservando', async ({ page }) => {
+    // Con un email sin cuenta confirmada, gotrue no manda el enlace de acceso:
+    // manda el correo de alta, que solo trae un código de 6 cifras. Antes esta
+    // pantalla decía «te enviamos un enlace» y no había dónde escribirlo.
+    await mockBackend(page); // sin sesión: alumna nueva
+    let envios = 0;
+    await page.route('**/auth/v1/otp*', route => { envios++; return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{}' }); });
+    const intentos: string[] = [];
+    await page.route('**/api/auth/otp/verificar', route => {
+      const { token } = route.request().postDataJSON() as { token: string };
+      intentos.push(token);
+      return token === '482913'
+        ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, session: { access_token: tokenDeSesion('auth-e2e'), refresh_token: 'e2e-refresh' } }) })
+        : route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'El código no es correcto o ha caducado. Comprueba el código o solicita uno nuevo.', errorCode: 'INVALIDO' }) });
+    });
+
+    await page.goto(`/reservar/${SLUG}`);
+    await abrirYReservar(page);
+    await page.getByPlaceholder(/tu email/i).fill('nueva@example.com');
+    await page.getByRole('button', { name: /continuar/i }).click();
+
+    const codigo = page.getByTestId('codigo-correo');
+    await expect(codigo).toBeVisible();
+    expect(envios, 'tenía que salir el correo').toBeGreaterThan(0);
+
+    // Uno mal: lo dice y no deja pasar.
+    await codigo.fill('000000');
+    await expect(page.getByText(/no es correcto o ha caducado/i)).toBeVisible();
+    await expect(page.getByText('¿Cómo te llamas?')).toHaveCount(0);
+
+    // El bueno: entra y la reserva sigue en el paso que toca a una alumna nueva.
+    await codigo.fill('482 913');
+    await expect(page.getByText('¿Cómo te llamas?').first()).toBeVisible({ timeout: 15_000 });
+    expect(intentos, 'los dos códigos tenían que comprobarse en el servidor').toEqual(['000000', '482913']);
   });
 
   test('pago: "Contratar" plan llama al checkout con planId + studioId (sin importe)', async ({ page }) => {

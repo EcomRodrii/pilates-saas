@@ -74,7 +74,7 @@ export function errorDeRetornoOAuth(url: string): ErrorRetornoOAuth | null {
   if (codigo === 'provider_email_needs_verification') {
     return {
       codigo,
-      mensaje: 'Google no nos ha confirmado tu email. Entra con tu email y te mandamos un enlace.',
+      mensaje: 'Google no nos ha confirmado tu email. Entra con tu email y te mandamos un correo para entrar.',
       reintentable: false,
     };
   }

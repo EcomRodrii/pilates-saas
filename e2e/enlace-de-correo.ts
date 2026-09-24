@@ -19,7 +19,11 @@ export function tokenDeSesion(sub: string, metodo = 'otp') {
     sub, aud: 'authenticated', role: 'authenticated', iat: ahora, exp: ahora + 3600,
     amr: [{ method: metodo, timestamp: ahora }],
   };
-  return `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url(payload)}.firma-e2e`;
+  // La firma tiene que ser base64url VÁLIDO aunque nadie la compruebe: gotrue
+  // rechaza el token entero en `setSession` si no lo es («JWT not in base64url
+  // format»), y un texto de 9 letras no lo es.
+  const firma = Buffer.from('firma-e2e').toString('base64url');
+  return `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url(payload)}.${firma}`;
 }
 
 /** `#…` tal cual lo deja gotrue al volver de un enlace de recuperación. */
