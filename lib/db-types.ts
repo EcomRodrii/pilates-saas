@@ -1036,6 +1036,8 @@ export interface RowStudios {
   titulo_acceso: string | null;
   // migr 20260923020149.
   subscription_evento_en: string | null;
+  // migr 20260924233311.
+  es_demo: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -4773,6 +4775,7 @@ export type StudiosInsert = {
   apertura_suave?: boolean | null | null;
   titulo_acceso?: string | null | null;
   subscription_evento_en?: string | null | null;
+  es_demo?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -4908,6 +4911,7 @@ export type StudiosUpdate = {
   apertura_suave?: boolean | null | null;
   titulo_acceso?: string | null | null;
   subscription_evento_en?: string | null | null;
+  es_demo?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {

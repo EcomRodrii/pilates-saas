@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getStudioSeo, getStudioSeoResultado, slugActualDeDireccionAntigua } from '@/lib/studio-seo';
 import { BASE_URL } from '@/lib/seo/paginas';
+import { estudioIndexable } from '@/lib/seo/estudio-indexable-servidor';
 import { EstudioStructuredData } from '@/components/seo/estudio-structured-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { metadatosPublicos } from '@/lib/theme/seo-publico';
@@ -80,12 +81,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description: descripcion,
     openGraph: { title: titulo, description: descripcion, type: 'website', locale: 'es_ES', ...imagenes },
     twitter: { card: tarjeta, title: titulo, description: descripcion, ...imagenes },
-    // Indexable salvo que el estudio la tenga OCULTA mientras la prepara: eso
-    // no es contenido publicado, y además el layout la sustituye por la pantalla
-    // de acceso, así que lo que se indexaría sería el cartel, no el estudio.
-    robots: studio.paginaOculta
-      ? { index: false, follow: false }
-      : { index: true, follow: true },
+    // Indexable solo si es un estudio REAL y EN USO (lib/seo/estudio-indexable.ts):
+    // ni oculta, ni demo, ni una prueba caducada, ni un horario sin una sola
+    // reserva. El sitemap aplica la misma regla.
+    robots: !studio.paginaOculta && await estudioIndexable(studio.id)
+      ? { index: true, follow: true }
+      : { index: false, follow: true },
     // Sin esto, `?tab=citas`, `?embed=1`, `?ref=abc`… serían páginas distintas
     // con el mismo contenido. Ver la cabecera.
     alternates: { canonical: canonica },
@@ -110,6 +111,11 @@ export default async function ReservarSlugLayout({ children, params }: { childre
   if (resultado.estudio === null && resultado.causa === 'no-existe') {
     const actual = await slugActualDeDireccionAntigua(slug);
     if (actual) redirect(`/reservar/${actual}`);
+    // Un estudio que no existe es un 404 de verdad, no una página vacía con
+    // 200: Google indexaba esas URLs (p. ej. el slug de un alta de prueba) como
+    // «soft 404». Solo con la causa CONFIRMADA: si la base de datos no responde
+    // (`no-disponible`), se deja el camino de siempre y no se niega un estudio real.
+    notFound();
   }
   const visitante = resultado.estudio;
 

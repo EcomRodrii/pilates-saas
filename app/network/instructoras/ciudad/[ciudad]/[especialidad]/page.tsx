@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { buscarPerfilesPublico } from '@/lib/network/publico';
+import { buscarPerfilesPublico, UMBRAL_MIN_PERFILES_INDEXABLE } from '@/lib/network/publico';
 import { esEspecialidadValida, ESPECIALIDAD_LABEL, DISCIPLINA_DE_ESPECIALIDAD, DISCIPLINA_LABEL, type EspecialidadNetwork } from '@/lib/network/catalogo';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
 import { ciudadDesdeParam } from '@/lib/network/ciudad-param';
@@ -22,7 +22,6 @@ const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad' | 'especialidades'> = {
 //
 // Umbral compartido con la variante solo-ciudad (auditoría SEO 2026-09-10,
 // hallazgo 3) — ver el comentario largo en ../page.tsx.
-const UMBRAL_MIN_PERFILES_INDEXABLE = 3;
 
 async function hayResultadosReales(nombreCiudad: string, especialidad: EspecialidadNetwork): Promise<boolean> {
   const admin = getSupabaseAdmin();
