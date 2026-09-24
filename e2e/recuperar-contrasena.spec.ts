@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { fragmentoDeRecuperacion, tokenDeSesion } from './enlace-de-correo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // No se podía cambiar la contraseña. Dos agujeros distintos, los dos reales.
@@ -48,11 +49,10 @@ async function seedSesion(page: Page) {
 // (arriba) simula exactamente la sesión "cualquiera" que el arreglo dejó de
 // aceptar; para llegar de verdad hay que navegar con el fragmento del enlace
 // mágico (`#access_token=…&type=recovery`), que gotrue-js parsea solo porque
-// `/clave-nueva` está en `RUTAS_RETORNO_AUTH_STAFF` (lib/db/supabase.ts) —
-// sin llamar a la red para nada más que `GET /auth/v1/user` (mockeado abajo),
-// así que el token no necesita ser un JWT real.
-const FRAGMENTO_RECUPERACION = 'access_token=e2e-fake-token&refresh_token=e2e-fake-refresh'
-  + '&expires_in=3600&token_type=bearer&type=recovery';
+// `/clave-nueva` está en `RUTAS_RETORNO_AUTH_STAFF` — sin llamar a la red para
+// nada más que `GET /auth/v1/user` (mockeado abajo). El token tiene la forma de
+// uno de gotrue: ver e2e/enlace-de-correo.ts.
+const FRAGMENTO_RECUPERACION = fragmentoDeRecuperacion(tokenDeSesion('auth-e2e-duena'));
 
 async function irConEnlaceDeRecuperacion(page: Page, email: string) {
   await page.route('**/auth/v1/user**', route => json(route, {
@@ -183,6 +183,31 @@ test.describe('La pantalla de contraseña nueva', () => {
     expect(enElPortal, 'la sesión del equipo no pinta nada en el almacenamiento del portal').toBeNull();
     const enStaff = await page.evaluate(clave => localStorage.getItem(clave), STORAGE_KEY);
     expect(enStaff, 'la sesión del enlace tiene que quedar en el cliente del equipo').not.toBeNull();
+  });
+
+  test('un enlace canjeado cuya sesión no nació de verificar el correo no deja fijarla', async ({ page }) => {
+    // Lo que respalda no pedir la contraseña actual es haber abierto el correo
+    // ahora mismo, y eso lo dice el propio token. Aquí el canje sale bien y la
+    // sesión queda guardada, pero el token es de una sesión abierta con
+    // contraseña: la pantalla tiene que tratarlo como un enlace que no vale.
+    const conContrasena = tokenDeSesion('auth-e2e-duena', 'password');
+    await page.route('**/rest/v1/**', route => json(route, []));
+    let canjes = 0;
+    await page.route('**/auth/v1/user**', route => {
+      if (route.request().headers()['authorization'] === `Bearer ${conContrasena}`) canjes++;
+      return json(route, {
+        id: 'auth-e2e-duena', email: 'cloe@example.com', aud: 'authenticated', role: 'authenticated',
+        app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
+      });
+    });
+    await page.goto(`/clave-nueva#${fragmentoDeRecuperacion(conContrasena)}`);
+
+    await expect(page.getByText(/Este enlace ya no vale/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Contraseña nueva')).toHaveCount(0);
+    // Sin esto, «bloquea» podría ser «ni siquiera se canjeó».
+    expect(canjes, 'gotrue tenía que canjear el fragmento').toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(k => localStorage.getItem(k), STORAGE_KEY),
+      { message: 'la sesión del fragmento tenía que quedar guardada' }).not.toBeNull();
   });
 
   test('una sesión ya abierta, sin enlace de por medio, no deja fijarla sin la actual (FE-02)', async ({ page }) => {
