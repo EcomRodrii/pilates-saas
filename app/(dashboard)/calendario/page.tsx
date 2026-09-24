@@ -136,9 +136,14 @@ function weekStart(date: Date) {
   return d;
 }
 
-function formatHora(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-}
+// ⚠️ Auditoría 2026-09-23 (RES-6): esto era un `toLocaleTimeString` SIN
+// `timeZone`, es decir, la hora del NAVEGADOR — mientras todo lo que hay a su
+// alrededor en este fichero (y el resto del panel) usa `horaEstudio`, que
+// formatea con `TZ_ESTUDIO`. Con un navegador fuera de Madrid, los avisos de
+// conflicto («la sala ya está ocupada: 10:00–11:00») y el registro de actividad
+// por reasignación decían una hora distinta de la que pinta la propia tarjeta
+// de la clase. Misma familia que R-3: se delega en la única fuente de verdad.
+const formatHora = horaEstudio;
 
 function localDate(d: Date | string): string {
   const dt = typeof d === 'string' ? new Date(d) : d;
