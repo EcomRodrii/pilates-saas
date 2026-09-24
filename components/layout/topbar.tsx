@@ -22,6 +22,14 @@ export function Topbar() {
   const [lanzadorAbierto, setLanzadorAbierto] = useState(false);
 
   return (
+    // ⚠️ Con un desplegable abierto (perfil, cambio de sede, píldora de prueba) la
+    // barra sube de z-30 a z-40. La pantalla de Equipo lleva su propia barra de
+    // filtros `sticky z-30` y, con el MISMO z-index, la que va más abajo en el DOM
+    // gana: el menú de perfil se quedaba DEBAJO de los filtros y tapaba «Cambiar
+    // de sede» y el resto. Solo mientras hay algo abierto, para no cambiar cómo se
+    // apila la barra el resto del tiempo (ventanas flotantes, ayuda de pantalla,
+    // diálogos).
+    //
     // z-30, no z-10: `position: sticky` + `z-index` crea un contexto de
     // apilamiento propio, así que el z-20 del dropdown de ProfileMenu solo
     // compite DENTRO de este contenedor — frente al resto de la página queda
@@ -36,7 +44,7 @@ export function Topbar() {
     // de este fondo translúcido. La variable la escribe el propio menú al
     // MEDIRSE (`aplicarHuecos`), que es lo único que no se queda desfasado
     // cuando la barra crece de dos filas a tres.
-    <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-sm">
+    <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 has-[[aria-expanded=true]]:z-40 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-sm">
       <div className="flex items-center gap-2 flex-1 max-w-md">
         <button
           onClick={() => setLanzadorAbierto(true)}
