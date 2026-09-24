@@ -19,11 +19,12 @@
 // sería ruido.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CalendarPlus, Loader2, Sparkles, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { authHeader } from '@/lib/api-client';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
+import { capturarEvento } from '@/lib/posthog-cliente';
 import { DIAS_SEMANA } from '@/lib/onboarding/horario-propuesto';
 import {
   OPCIONES_AFORO, OPCIONES_DURACION, OPCIONES_SALAS, TIPOS_CLASE_SUGERIDOS,
@@ -114,6 +115,23 @@ export function PrimerHorario({
   // Sin tipos de clase o sin salas hay que preguntarlo primero (abajo), pero ya
   // no es un callejón: la propuesta se ofrece igual, tras esas preguntas.
   const puedeProponer = puedeCrear;
+
+  // Embudo del primer horario (el paso que 5 de 7 estudios no llegan a dar):
+  // se vio, y llegó a la propuesta. Lo siguiente —programarlo— ya lo mide el
+  // servidor con `horario_creado`. `faltan_preguntas`: llegó sin catálogo y hubo
+  // que preguntárselo aquí (saltó el asistente o no contestó esas preguntas).
+  const visto = useRef(false);
+  useEffect(() => {
+    if (visto.current || !puedeCrear) return;
+    visto.current = true;
+    capturarEvento('primer_horario_visto', { faltan_preguntas: faltanTipos || faltanSalas });
+  }, [puedeCrear, faltanTipos, faltanSalas]);
+  const propuestaVista = useRef(false);
+  useEffect(() => {
+    if (!proponiendo || propuestaVista.current) return;
+    propuestaVista.current = true;
+    capturarEvento('primer_horario_propuesta');
+  }, [proponiendo]);
 
   // Crea SOLO lo que ella acaba de elegir (idempotente por nombre, misma ruta y
   // mismo plan que el asistente) y sigue a la propuesta. Ninguna CLASE se

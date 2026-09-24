@@ -40,6 +40,7 @@ import {
 } from '@/lib/onboarding/plan-configuracion';
 import { guardarProgresoWizard, leerProgresoWizard, olvidarProgresoWizard } from '@/lib/onboarding/borrador-wizard';
 import { alternarSeleccion } from '@/lib/onboarding/seleccion-multiple';
+import { eventoAlLlegar } from '@/lib/onboarding/embudo-wizard';
 
 const FRASES = [
   'Tu estudio ya está en marcha.',
@@ -550,6 +551,10 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
     outOpacity: (out ? 1 - outP : 0).toFixed(3),
     outTransform: `translateY(${(out && !e.reduced ? -16 * outP : 0).toFixed(2)}px)`,
     paso,
+    // Para el embudo (lib/onboarding/embudo-wizard.ts): en qué pregunta está y
+    // de cuántas, ya que el total depende de lo contestado (aforo por sala).
+    pasoN: e.paso + 1,
+    pasosTotal: PASOS.length,
     qPaso: paso ? `${String(e.paso + 1).padStart(2, '0')} — ${String(PASOS.length).padStart(2, '0')}` : '',
     qNota: paso ? (typeof paso.nota === 'function' ? paso.nota(e.ans) : paso.nota) : '',
     // Las respuestas ya dadas, para que los desplegables de la pantalla de
@@ -620,6 +625,15 @@ type Vals = ReturnType<typeof computeVals>;
 export function PantallaBienvenida({ studio }: { studio: Studio }) {
   const [valorVisto, setValorVisto] = useState(false);
   const { updateStudio } = useStudio();
+  // Primer paso a la vista (el logo). Una vez por montaje: el efecto puede
+  // correr dos veces en desarrollo y el asistente se remonta al cambiar de
+  // sede, pero eso ya es otro estudio.
+  const iniciadaEmitida = useRef(false);
+  useEffect(() => {
+    if (iniciadaEmitida.current) return;
+    iniciadaEmitida.current = true;
+    capturarEvento('bienvenida_iniciada');
+  }, []);
   const saltarValor = useCallback(() => setValorVisto(true), []);
   // Devuelve el resultado: PasoLogo solo enseña el logo si quedó guardado.
   const guardarLogo = useCallback(
@@ -670,6 +684,22 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
   useEffect(() => {
     sonidoActivoRef.current = sonidoActivo;
   }, [sonidoActivo]);
+
+  // Embudo: un evento por pantalla, la primera vez que se llega (ver
+  // lib/onboarding/embudo-wizard.ts). Depende de primitivos, no de `vals`, que
+  // cambia en cada frame de la animación.
+  const pantallasVistas = useRef(new Set<string>());
+  const faseVista = vals?.fase ?? null;
+  const pasoVistoId = vals?.paso?.id ?? null;
+  const pasoVistoN = vals?.pasoN;
+  const pasosTotal = vals?.pasosTotal;
+  useEffect(() => {
+    if (!faseVista) return;
+    const ev = eventoAlLlegar(pantallasVistas.current, {
+      fase: faseVista, pasoId: pasoVistoId, n: pasoVistoN, total: pasosTotal,
+    });
+    if (ev) capturarEvento(ev.nombre, ev.props);
+  }, [faseVista, pasoVistoId, pasoVistoN, pasosTotal]);
 
   const audio = useCallback(() => {
     if (audioRef.current) return audioRef.current;
@@ -780,6 +810,7 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     // propietaria y su primer horario. Esas mismas preguntas siguen en la home
     // (sección de apertura, 30 días) y ya no se interponen.
     const destino = ans.importar === 'Sí, importadlos' ? '/migracion' : '/calendario';
+    capturarEvento('bienvenida_completada', { destino: destino === '/migracion' ? 'migracion' : 'calendario' });
     router.push(destino);
   }, [updateStudio, router]);
 
@@ -790,7 +821,7 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
   // que el checklist de primeros pasos sigue pidiendo lo mismo que le pediría
   // de todas formas — el mismo comportamiento que ya tiene un fallo suave de
   // /api/onboarding/configurar más arriba.
-  const saltar = useCallback(async () => {
+  const saltar = useCallback(async (en?: string) => {
     if (guardadoRef.current) return;
     guardadoRef.current = true;
     setErrorGuardado(false);
@@ -806,7 +837,7 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     // un panel sin salas ni tipos de clase, lejos del único sitio donde se
     // programa. El calendario vacío ya le pregunta lo mínimo y le propone el
     // horario — y es donde se mide que salte y luego programe.
-    capturarEvento('bienvenida_saltada');
+    capturarEvento('bienvenida_saltada', en ? { en } : undefined);
     router.push('/calendario');
   }, [updateStudio, router]);
 
@@ -1067,7 +1098,7 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
           {vals.fase === 'wizard' && (
             <button
               type="button"
-              onClick={(ev) => { ev.stopPropagation(); void saltar(); }}
+              onClick={(ev) => { ev.stopPropagation(); void saltar(vals.paso?.id); }}
               className="text-[12px] font-semibold text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
             >
               Ahora no
