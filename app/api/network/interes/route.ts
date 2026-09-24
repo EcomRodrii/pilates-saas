@@ -4,6 +4,7 @@ import { LEGAL } from '@/lib/legal-info';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cayoEnLaTrampa, CAMPO_TRAMPA } from '@/lib/auth/trampa-bots';
+import { camposVaciosARellenar } from '@/lib/network/fusionar-lead';
 
 // Captación de demanda de ESTUDIO en Tentare Network mientras la oferta de
 // instructoras todavía es pequeña (brief "captación de estudios", punto 17 y
@@ -51,19 +52,40 @@ export async function POST(req: NextRequest) {
   let guardado = false;
   const db = getSupabaseAdmin();
   if (db) {
-    const { error } = await db.from('plataforma_lead').upsert(
-      {
-        id: `lead-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-        email: email.toLowerCase(),
-        nombre: nombre || null,
-        estudio: estudio || null,
-        ciudad: ciudad || null,
-        mensaje: mensaje || null,
-        origen,
-        actualizado_en: new Date().toISOString(),
-      },
-      { onConflict: 'email', ignoreDuplicates: false },
-    );
+    // Una fila por email, pero un reenvío NO reescribe el lead (FE-04): el
+    // correo no está verificado, así que cualquiera podía pisar nombre, estudio,
+    // ciudad, mensaje y origen de otra persona. Solo se rellenan campos vacíos.
+    const emailNorm = email.toLowerCase();
+    const nuevo = { nombre: nombre || null, estudio: estudio || null, ciudad: ciudad || null, mensaje: mensaje || null };
+    const { data: existente, error: errLeer } = await db
+      .from('plataforma_lead')
+      .select('nombre, estudio, ciudad, mensaje')
+      .eq('email', emailNorm)
+      .maybeSingle();
+    let error = errLeer;
+    if (!errLeer) {
+      if (existente) {
+        const relleno = camposVaciosARellenar(existente, nuevo);
+        if (Object.keys(relleno).length) {
+          ({ error } = await db.from('plataforma_lead')
+            .update({ ...relleno, actualizado_en: new Date().toISOString() })
+            .eq('email', emailNorm));
+        }
+      } else {
+        // ignoreDuplicates: si dos envíos se cruzan, gana el primero y el
+        // segundo no lo pisa.
+        ({ error } = await db.from('plataforma_lead').upsert(
+          {
+            id: `lead-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+            email: emailNorm,
+            ...nuevo,
+            origen,
+            actualizado_en: new Date().toISOString(),
+          },
+          { onConflict: 'email', ignoreDuplicates: true },
+        ));
+      }
+    }
     if (error) console.error('[network:interes] no se ha podido guardar el lead', error);
     else guardado = true;
   }
