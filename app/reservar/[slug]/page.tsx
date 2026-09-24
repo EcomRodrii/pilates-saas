@@ -52,6 +52,7 @@ import { SpotPickerPublico } from '@/components/reserva/spot-picker-publico';
 import { piDeClientSecret, RETARDOS_POLL_MS, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
+import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 import {
   Users, CheckCircle2, X, Calendar, ChevronLeft,
   CreditCard, FileText, Download, ExternalLink, Mail,
@@ -814,6 +815,15 @@ export default function ReservarPage() {
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que /login.
   const { widget: captcha, pedirToken } = useCaptcha();
+  // Una alumna NUEVA no recibe el enlace de acceso: gotrue le manda el correo
+  // de alta, que trae un código de 6 cifras (lib/student/codigo-del-correo.ts).
+  // Con el código bueno se abre la sesión aquí mismo y el efecto que sigue al
+  // login con contraseña (abajo) retoma la reserva en el paso que toque.
+  const codigoCorreo = useCodigoDelCorreo(loginForm.email, async () => {
+    const token = await pedirToken();
+    if (token === null) return { error: ERROR_CAPTCHA };
+    return enviarEnlace(loginForm.email, bookingSesionId || undefined, token || undefined);
+  });
 
   // Aceptación del contrato (clickwrap: checkbox + fecha + versión).
   const [terminosAceptados, setTerminosAceptados] = useState(false);
@@ -4000,7 +4010,7 @@ export default function ReservarPage() {
                   <>
                     <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">Entra para reservar</h2>
                     <p className="text-[var(--portal-muted-2)] text-sm mb-5">
-                      Escribe tu contraseña si ya la tienes, o solo tu email y te enviamos un enlace de acceso.
+                      Escribe tu contraseña si ya la tienes, o solo tu email y te enviamos un correo para entrar.
                     </p>
                     <input type="email"
                       aria-label="Tu email"
@@ -4034,10 +4044,41 @@ export default function ReservarPage() {
                     <div>
                       <p className="text-[var(--portal-ink)] font-extrabold text-xl">Revisa tu email</p>
                       <p className="text-[var(--portal-muted-2)] text-sm mt-1">
-                        Te enviamos un enlace a <span className="font-semibold text-[var(--portal-ink)]">{loginForm.email}</span>.
-                        Ábrelo en este dispositivo para entrar y vuelve a reservar tu clase.
+                        Te hemos escrito a <span className="font-semibold text-[var(--portal-ink)]">{loginForm.email}</span>.
+                        Si te llega un enlace, ábrelo en este dispositivo. Si te llega un código de 6 cifras, escríbelo aquí:
                       </p>
                     </div>
+                    <form
+                      className="w-full flex flex-col gap-3 text-left"
+                      onSubmit={e => { e.preventDefault(); void codigoCorreo.verificar(); }}
+                      noValidate
+                    >
+                      <input
+                        aria-label="Código del correo" data-testid="codigo-correo"
+                        placeholder="Código de 6 cifras"
+                        inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={12}
+                        value={codigoCorreo.codigo}
+                        onChange={e => codigoCorreo.escribir(e.target.value)}
+                        className="w-full rounded-xl px-4 py-3 text-base text-center tracking-[0.3em] text-[var(--portal-ink)] placeholder:tracking-normal placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors"
+                        style={{ backgroundColor: 'var(--portal-surface-2)' }} />
+                      {codigoCorreo.error && <p role="alert" className="text-destructive text-sm">{codigoCorreo.error}</p>}
+                      <button type="submit" disabled={codigoCorreo.verificando} className={BOTON_PRIMARIO}>
+                        {codigoCorreo.verificando ? 'Comprobando…' : 'Entrar con el código'}
+                      </button>
+                      <p className="text-[var(--portal-muted-2)] text-sm text-center">
+                        {codigoCorreo.reenviado && codigoCorreo.espera > 0
+                          ? <>Te hemos escrito otra vez. Podrás pedir otro en {codigoCorreo.espera} s.</>
+                          : (
+                            <button type="button" onClick={() => void codigoCorreo.pedirOtro()} disabled={codigoCorreo.espera > 0}
+                              className="font-semibold text-[var(--portal-ink)] underline">
+                              No me ha llegado: volver a enviar
+                            </button>
+                          )}
+                      </p>
+                    </form>
+                    {/* El reenvío pide captcha, así que el widget tiene que estar
+                        montado también en este paso. Mide 0 px casi siempre. */}
+                    {captcha}
                   </div>
                 )}
               </div>

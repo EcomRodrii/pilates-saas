@@ -80,6 +80,20 @@ export function useAuthStudent(slug: string) {
   }, [base]);
 
   /**
+   * Volver a mandar el correo de alta (el del código de 6 cifras) a quien se
+   * registró y no lo tiene, o se le caducó: dura 10 minutos.
+   */
+  const reenviarCodigoAlta = useCallback(async (email: string, captchaToken?: string): Promise<ResultadoAuth> => {
+    const { error } = await supabasePortal.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}${base}/acceso/verificar`, captchaToken },
+    });
+    if (captchaToken) captchaGastado();
+    return error ? { error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No se ha podido enviar otro código. Inténtalo de nuevo en unos segundos.')) } : { ok: true };
+  }, [base]);
+
+  /**
    * Crear o cambiar la contraseña de quien YA tiene sesión.
    *
    * ⚠️ Esta pantalla no existía en ninguna parte del producto. `/reservar`
@@ -250,5 +264,5 @@ export function useAuthStudent(slug: string) {
   // compartido no puede esperar a la siguiente persona (`invitacion-app-regla.ts`).
   const logout = useCallback(async () => { invalidarCatalogo(slug); olvidarInvitacionApp(slug); await supabasePortal.auth.signOut(); }, [slug]);
 
-  return { loginConPassword, enviarEnlace, registrarCuenta, fijarPassword, cambiarPassword, cambiarEmail, recuperar, entrarConGoogle, logout };
+  return { loginConPassword, enviarEnlace, registrarCuenta, reenviarCodigoAlta, fijarPassword, cambiarPassword, cambiarEmail, recuperar, entrarConGoogle, logout };
 }

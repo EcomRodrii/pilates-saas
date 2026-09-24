@@ -12,6 +12,7 @@ import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { recuerdaSesion, fijarRecordarSesion } from '@/lib/db/portal-almacen-sesion';
 import { Sello } from '@/components/student/ui/Sello';
 import { Icono } from '@/components/student/ui/Icono';
+import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 
 /**
  * Entrar. Literal del paquete (`app/(auth)/login/page.tsx`) con el backend real
@@ -88,6 +89,16 @@ export default function LoginPage() {
     setEnlaceEnviado(true);
   };
 
+  // Volver a mandar el mismo correo: a quien no tiene cuenta confirmada le
+  // llega otro código; a quien sí, otro enlace.
+  // Con el código bueno la sesión queda abierta; `/acceso/verificar` es la que
+  // sabe qué falta (firmar el alta, o nada) y la deja dentro.
+  const codigoCorreo = useCodigoDelCorreo(f.email, async () => {
+    const token = await pedirToken();
+    if (token === null) return { error: ERROR_CAPTCHA };
+    return enviarEnlace(f.email, token || undefined);
+  }, () => r.replace(href('/acceso/verificar')));
+
   /**
    * Entrar con Google. Va A GOOGLE.
    *
@@ -139,18 +150,48 @@ export default function LoginPage() {
   };
 
   if (enlaceEnviado) {
+    // Qué llega depende de la cuenta, y la pantalla no lo dice para no revelar
+    // si ese email tiene cuenta: con cuenta confirmada, un ENLACE; sin ella
+    // (alumna nueva, o alta a medias), el correo de alta con un CÓDIGO de 6
+    // cifras (lib/student/codigo-del-correo.ts). Se ofrecen las dos salidas.
     return (
-      <div className="a-pop" style={{ textAlign: 'center' }}>
+      <form
+        className="a-pop"
+        onSubmit={(e) => { e.preventDefault(); void codigoCorreo.verificar(); }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'center' }}
+        noValidate
+      >
         <Sello />
-        <h2 className="t-h1" style={{ marginTop: 16 }}>Revisa tu correo</h2>
-        <p className="t-meta" style={{ marginTop: 6, lineHeight: 1.5 }}>
-          Si <b>{f.email}</b> está registrado, te hemos enviado un enlace para entrar. Ábrelo en este mismo móvil.
+        <h2 className="t-h1" style={{ marginTop: 4 }}>Revisa tu correo</h2>
+        <p className="t-meta" style={{ lineHeight: 1.5 }}>
+          Te hemos escrito a <b>{f.email}</b>. Si te llega un enlace, ábrelo en este mismo móvil. Si te llega un código de 6 cifras, escríbelo aquí:
         </p>
-        <button type="button" onClick={() => setEnlaceEnviado(false)} className="btn btn--secondary" style={{ marginTop: 18 }}>
+        <div style={{ textAlign: 'left' }}>
+          <Input
+            label="Código" data-testid="codigo-correo"
+            inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={12}
+            value={codigoCorreo.codigo} onChange={(e) => codigoCorreo.escribir(e.target.value)}
+            error={codigoCorreo.error || undefined}
+          />
+        </div>
+        <Button type="submit" full loading={codigoCorreo.verificando}>Entrar con el código</Button>
+        <p className="t-meta" style={{ lineHeight: 1.5 }}>
+          {codigoCorreo.reenviado && codigoCorreo.espera > 0
+            ? <>Te hemos escrito otra vez. Podrás pedir otro en {codigoCorreo.espera} s.</>
+            : (
+              <button
+                type="button" onClick={() => void codigoCorreo.pedirOtro()} disabled={codigoCorreo.espera > 0}
+                style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 800, color: 'var(--foreground)', textDecoration: 'underline', cursor: 'pointer' }}
+              >
+                No me ha llegado: volver a enviar
+              </button>
+            )}
+        </p>
+        <button type="button" onClick={() => setEnlaceEnviado(false)} className="btn btn--secondary">
           Volver
         </button>
         {captcha}
-      </div>
+      </form>
     );
   }
 
