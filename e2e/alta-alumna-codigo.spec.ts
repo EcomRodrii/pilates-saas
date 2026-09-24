@@ -92,6 +92,42 @@ test.describe('Alta de alumna con el código del correo', () => {
     await expect(page).not.toHaveURL(/\/acceso\//, { timeout: 30_000 });
   });
 
+  test('tras el código NO pide «elige tu contraseña» a quien ya la puso al registrarse', async ({ page }) => {
+    // Mientras se firmaba el alta (2-3 s en un móvil real), la pantalla pintaba
+    // su formulario de contraseña por defecto, y la alumna dudaba de si la había
+    // puesto. Se retrasa la firma a propósito para que ese rato exista en el test.
+    const c = await montar(page);
+    await page.route((u) => u.pathname === '/api/public/socio', async (r) => {
+      await new Promise((fin) => setTimeout(fin, 2_500));
+      c.fichas.push(JSON.parse(r.request().postData() ?? '{}'));
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'socio-nueva' }) });
+    });
+    // Anota qué llega a pintarse en CUALQUIER momento, no solo al final.
+    await page.addInitScript(() => {
+      const w = window as unknown as { __vioElegir?: boolean; __vioEntrando?: boolean };
+      new MutationObserver(() => {
+        const texto = document.body?.innerText ?? '';
+        if (texto.includes('Elige tu contraseña')) w.__vioElegir = true;
+        if (texto.includes('Entrando en')) w.__vioEntrando = true;
+      }).observe(document, { childList: true, subtree: true, characterData: true });
+    });
+    await crearCuenta(page);
+
+    const codigo = page.getByTestId('codigo-correo');
+    await expect(codigo).toBeVisible({ timeout: 30_000 });
+    await codigo.fill(CODIGO_BUENO);
+
+    await expect.poll(() => c.fichas.length, { timeout: 30_000 }).toBe(1);
+    await expect(page).not.toHaveURL(/\/acceso\//, { timeout: 30_000 });
+    const visto = await page.evaluate(() => {
+      const w = window as unknown as { __vioElegir?: boolean; __vioEntrando?: boolean };
+      return { elegir: !!w.__vioElegir, entrando: !!w.__vioEntrando };
+    });
+    expect(visto.elegir, 'no puede pedirle una contraseña que ya puso').toBe(false);
+    // Y mientras se firmaba el alta, decía lo que estaba pasando.
+    expect(visto.entrando, 'el rato de espera tiene que decir que está entrando').toBe(true);
+  });
+
   test('un código equivocado lo dice y no da de alta a nadie', async ({ page }) => {
     const c = await montar(page);
     await crearCuenta(page);
