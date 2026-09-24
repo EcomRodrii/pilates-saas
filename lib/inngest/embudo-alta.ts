@@ -18,10 +18,15 @@
 //    components/onboarding/propuesta-horario.tsx — sin horario no puede
 //    haber ni una reserva. Un único aviso por estudio en toda su vida
 //    (dedupKey sin fecha en emitirEmbudoSinClasesProgramadas).
+//  · Estudio con horario pero sin ninguna reserva (>72h): segundo atasco del
+//    mismo recorrido (lib/onboarding/embudo-avisos.ts). Casi siempre es que el
+//    enlace de reservas no ha salido del panel. Mismo criterio de un único
+//    aviso por estudio, y sin un paso de Inngest más: sale del mismo barrido.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enviarAvisoEmbudoAlta } from '@/lib/emails/embudo-alta-server';
-import { emitirEmbudoSinClasesProgramadas } from '@/lib/notifications/emit';
+import { emitirEmbudoSinClasesProgramadas, emitirEmbudoSinPrimeraReserva } from '@/lib/notifications/emit';
+import { avisoDeEmbudo, HORAS_SIN_CLASES } from '@/lib/onboarding/embudo-avisos';
 
 const MS_HORA = 3_600_000;
 const VENTANA_DIAS_ESTUDIOS = 30; // mismo criterio que review-boost.ts: acota la ventana, no escanea la vida entera.
@@ -75,27 +80,41 @@ export async function barrerCuentasSinEstudio(admin: SupabaseClient): Promise<{ 
   return { avisadas };
 }
 
-export async function barrerEstudiosSinClases(admin: SupabaseClient): Promise<{ avisados: number }> {
+export async function barrerEstudiosSinClases(admin: SupabaseClient): Promise<{ avisados: number; sinReservas: number }> {
   const ahora = Date.now();
-  const hace48h = new Date(ahora - 48 * MS_HORA).toISOString();
+  const haceMinimo = new Date(ahora - HORAS_SIN_CLASES * MS_HORA).toISOString();
   const desdeVentana = new Date(ahora - VENTANA_DIAS_ESTUDIOS * 24 * MS_HORA).toISOString();
 
   const { data: studios } = await admin
     .from('studios')
-    .select('id')
-    .lte('creado_en', hace48h)
+    .select('id, creado_en, subscription_status')
+    .lte('creado_en', haceMinimo)
     .gte('creado_en', desdeVentana)
     .is('suspendido_en', null)
     .limit(500);
 
-  if (!studios?.length) return { avisados: 0 };
+  if (!studios?.length) return { avisados: 0, sinReservas: 0 };
 
+  // Los dos atascos salen del mismo recorrido (sin clases a las 48 h, sin
+  // ninguna reserva a las 72 h), así que no cuesta un paso de Inngest más.
   let avisados = 0;
-  for (const studio of studios) {
-    const { count } = await admin.from('sesiones').select('id', { count: 'exact', head: true }).eq('studio_id', studio.id);
-    if ((count ?? 0) > 0) continue;
-    await emitirEmbudoSinClasesProgramadas({ studioId: studio.id });
-    avisados++;
+  let sinReservas = 0;
+  for (const studio of studios as { id: string; creado_en: string; subscription_status: string | null }[]) {
+    const { count: sesiones } = await admin.from('sesiones').select('id', { count: 'exact', head: true }).eq('studio_id', studio.id);
+    // Las reservas solo se cuentan si hay horario: sin él no puede haberlas.
+    let reservas = 0;
+    if ((sesiones ?? 0) > 0) {
+      const { count } = await admin.from('reservas').select('id', { count: 'exact', head: true }).eq('studio_id', studio.id);
+      reservas = count ?? 0;
+    }
+    const aviso = avisoDeEmbudo({
+      creadoHaceHoras: (ahora - new Date(studio.creado_en).getTime()) / MS_HORA,
+      sesiones: sesiones ?? 0,
+      reservas,
+      pruebaExpirada: studio.subscription_status === 'trial_expirado',
+    });
+    if (aviso === 'SIN_CLASES') { await emitirEmbudoSinClasesProgramadas({ studioId: studio.id }); avisados++; }
+    else if (aviso === 'SIN_RESERVAS') { await emitirEmbudoSinPrimeraReserva({ studioId: studio.id }); sinReservas++; }
   }
-  return { avisados };
+  return { avisados, sinReservas };
 }

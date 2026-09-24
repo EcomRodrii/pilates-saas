@@ -965,6 +965,19 @@ export async function emitirEmbudoSinClasesProgramadas(p: { studioId: string }):
   }
 }
 
+// Segundo atasco: horario hecho, ninguna reserva a las 72 h. Único por estudio.
+export async function emitirEmbudoSinPrimeraReserva(p: { studioId: string }): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.EMBUDO_SIN_PRIMERA_RESERVA, studioId: p.studioId,
+      data: {},
+      dedupKey: `embudo-sin-primera-reserva:${p.studioId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirEmbudoSinPrimeraReserva:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Sustitución aceptada: a la instructora que cubre (nueva clase asignada).
 export async function emitirSustitucionAceptada(
   admin: SupabaseClient, p: { studioId: string; sesionId: string; instructorId: string },
