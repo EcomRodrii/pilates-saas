@@ -33,6 +33,7 @@ import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
 import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import type { CambioClaseSerie } from '@/lib/avisos-serie';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
+import { colorPorIndice } from '@/lib/onboarding/plan-configuracion';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva, heredaOverride } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
@@ -607,7 +608,7 @@ export default function Calendario() {
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
-    addActividadReciente, addRecibo, resetDatosPilates, dataLoaded,
+    addActividadReciente, addRecibo, resetDatosPilates, dataLoaded, addInstructor,
   } = useStudio();
   const { user } = useAuth();
   // Un solo sistema de toast (antes había dos en paralelo) — con soporte de
@@ -3007,6 +3008,16 @@ export default function Calendario() {
             // Solo si el equipo es UNA persona (la propietaria que dijo «sí, yo
             // doy clases»): con más gente, repartir clases es decisión suya.
             instructora={instructoresActivos.length === 1 ? instructoresActivos[0].nombre : null}
+            // Con el equipo vacío las clases nacían sin instructora (el estudio
+            // nuevo de un día tenía 80 y ninguna instructora): se pregunta quién.
+            sinEquipo={instructoresActivos.length === 0}
+            onCrearInstructora={async (nombre) => {
+              const res = await addInstructor({
+                nombre, email: null, telefono: null, color: colorPorIndice(instructores.length),
+                activo: true, rol: 'INSTRUCTOR', authUserId: null,
+              });
+              return res.ok ? { ok: true } : { ok: false, error: res.error };
+            }}
             puedeCrear={gestionaClientas}
             slug={studio?.slug ?? null}
             nombreEstudio={studio?.nombre ?? 'tu estudio'}
