@@ -266,6 +266,10 @@ export const EVENTOS = {
   // horario no puede haber ni una reserva. Un único aviso por estudio en
   // toda su vida (dedupKey sin fecha, ver emitirEmbudoSinClasesProgramadas).
   EMBUDO_SIN_CLASES_PROGRAMADAS: 'sistema.embudo_sin_clases_programadas',
+  // Segundo atasco del mismo embudo: el horario ya está hecho y 72 h después
+  // no ha entrado ni una reserva (casi siempre, porque el enlace no ha salido
+  // del panel). Un único aviso por estudio (lib/onboarding/embudo-avisos.ts).
+  EMBUDO_SIN_PRIMERA_RESERVA: 'sistema.embudo_sin_primera_reserva',
   // Series de clases que se acaban (lib/series/avisos-cron.ts): una clase que se
   // repite y termina sin renovar. Dos niveles (push a 14 días; push + email a 7 y
   // al terminar) y el aviso de las que se renovaron solas.
@@ -496,6 +500,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // MEDIA, no ALTA: es un nudge de producto, no un fallo que bloquee el
   // negocio — mismo criterio que SERIES_POR_TERMINAR (con margen).
   [EVENTOS.EMBUDO_SIN_CLASES_PROGRAMADAS]: { category: 'sistema', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  [EVENTOS.EMBUDO_SIN_PRIMERA_RESERVA]: { category: 'sistema', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   // Series que se acaban: con margen, MEDIA y solo push; cuando queda una semana
   // o ya terminó, ALTA y también email. Gerencia (propietaria y manager): quien
   // decide si la clase sigue. Que se renueve sola es BAJA: ya está resuelto.
@@ -1175,6 +1180,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Tu estudio todavía no tiene horario',
     body: 'Sin clases programadas nadie puede reservar. Te ayudamos a montarlo en un momento.',
     deepLink: () => `/calendario`,
+  },
+  [`${EVENTOS.EMBUDO_SIN_PRIMERA_RESERVA}#PROPIETARIO`]: {
+    title: 'Tu horario está listo: falta que lo sepan tus alumnas',
+    body: 'Todavía no ha entrado ninguna reserva. Comparte el enlace de tu página de reservas por WhatsApp o Instagram: es lo que hace que llegue la primera.',
+    deepLink: () => `/primeros-pasos`,
   },
   // Series que se acaban: {resumen} y {lista} los redacta el barrido
   // (lib/series-avisos.ts), con todas las clases del estudio en un solo aviso.
