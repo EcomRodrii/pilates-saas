@@ -20,7 +20,9 @@ import Link from 'next/link';
 import { KeyRound, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { authHeader } from '@/lib/api-client';
-import { supabase } from '@/lib/db/supabase';
+import {
+  puedeFijarSinContrasenaActual, suscribirRecuperacion, tomarRecuperacion,
+} from '@/lib/auth/recuperacion-contrasena';
 
 const MIN_LEN = 8;
 
@@ -39,22 +41,29 @@ export default function ClaveNueva() {
   //
   // ⚠️ FE-02 (auditoría 23-sep): "hay sesión" NO basta. Esta pantalla no pide
   // la contraseña actual a propósito (ver comentario de arriba) — eso solo es
-  // seguro si la sesión viene DE VERDAD de un enlace de recuperación, no de
-  // cualquier sesión ya abierta (navegador desatendido, token robado de
-  // localStorage). Al canjear el enlace, gotrue dispara siempre el evento
-  // `PASSWORD_RECOVERY` antes de este render útil (la sesión viaja en el
-  // fragmento de la URL) — es la única forma de distinguir "vengo de
-  // recuperar mi contraseña" de "ya tenía sesión abierta". Sin haberlo visto,
-  // se trata exactamente igual que un enlace caducado: la persona no necesita
-  // distinguir los dos casos, y bloquear por defecto es el fallo seguro.
-  const [huboRecuperacion, setHuboRecuperacion] = useState(false);
+  // seguro si la sesión viene de un enlace de recuperación, no de cualquier
+  // sesión ya abierta (p. ej. un navegador desatendido). Al canjear el enlace,
+  // gotrue dispara el evento `PASSWORD_RECOVERY`, que es lo que distingue
+  // "vengo de recuperar mi contraseña" de "ya tenía sesión abierta". Sin
+  // haberlo visto, se trata exactamente igual que un enlace caducado: la
+  // persona no necesita distinguir los dos casos, y bloquear por defecto es el
+  // fallo seguro.
+  //
+  // El evento NO lo escucha esta pantalla: gotrue lo emite una sola vez y solo
+  // a quien ya esté suscrito, y esta pantalla puede montar después. Lo anota el
+  // cliente de staff al nacer (lib/db/supabase.ts) y aquí se TOMA: vale para
+  // este montaje, como antes, y tiene que ser de la MISMA cuenta que la sesión
+  // de ahora (lib/auth/recuperacion-contrasena.ts).
+  const [usuarioRecuperado, setUsuarioRecuperado] = useState<string | null>(null);
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setHuboRecuperacion(true);
-    });
-    return () => subscription.unsubscribe();
+    const tomar = () => {
+      const usuario = tomarRecuperacion();
+      if (usuario) setUsuarioRecuperado(usuario);
+    };
+    tomar(); // el canje pudo terminar antes de montar…
+    return suscribirRecuperacion(tomar); // …o después
   }, []);
-  const sinSesion = !loading && (!session || !huboRecuperacion);
+  const sinSesion = !loading && !puedeFijarSinContrasenaActual(session, usuarioRecuperado);
 
   // ⚠️ Antes mandaba SIEMPRE a /dashboard, sin mirar si la identidad tenía
   // estudio de verdad — exactamente el mismo bug que ya se documentó en

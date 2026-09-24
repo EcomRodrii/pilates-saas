@@ -1,5 +1,6 @@
 import { AuthClient } from '@supabase/auth-js';
 import { almacenSesionPortal } from '@/lib/db/portal-almacen-sesion';
+import { esRetornoAuthStaff } from '@/lib/auth/rutas-retorno-auth-staff';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -40,6 +41,17 @@ export const supabasePortal = {
     storage: almacenSesionPortal,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    // Recoge el enlace mágico de la socia… pero NO el de un miembro del equipo.
+    // Este cliente nace al cargar el módulo, mucho antes que el de staff, y con
+    // `true` a secas canjeaba también el `#access_token` de un enlace de staff
+    // (recuperación de contraseña, confirmación de alta, Google): guardaba esa
+    // sesión en SU almacenamiento y borraba el fragmento de la URL. Si lo
+    // borraba antes de que naciera el cliente de staff, a este ya no le llegaba
+    // nada y `/clave-nueva` decía «Este enlace ya no vale» con un enlace bueno —
+    // a ratos, según quién terminara antes. Es el hallazgo #9 de la auditoría
+    // del 30-jul (ver `lib/db/supabase.ts`), en la otra dirección. Los enlaces
+    // de la socia nunca vuelven a esas rutas (`/portal/…/acceso/verificar`,
+    // `/reservar/…`, `/widget-auth-retorno`).
+    detectSessionInUrl: !esRetornoAuthStaff(typeof window !== 'undefined' ? window.location.pathname : null),
   }),
 };

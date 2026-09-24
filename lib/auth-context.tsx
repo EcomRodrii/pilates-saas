@@ -273,11 +273,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // propia pantalla de consentimiento, y signInWithOAuth no acepta ese
   // parámetro (gotrue no lo exige en este flujo).
   //
-  // redirectPath tiene que resolver a una de las dos rutas de
-  // RUTAS_RETORNO_AUTH_STAFF (lib/db/supabase.ts) — hoy solo /login lee el
-  // fragmento de vuelta, así que un valor distinto dejaría la sesión sin
-  // detectar. Se deja el parámetro por si algún día /clave-nueva también
-  // ofrece Google, pero el caller por defecto usa /login.
+  // redirectPath tiene que resolver a una de las rutas de
+  // RUTAS_RETORNO_AUTH_STAFF (lib/auth/rutas-retorno-auth-staff.ts) — solo ahí
+  // lee el cliente de staff el fragmento de vuelta, así que un valor distinto
+  // dejaría la sesión sin detectar. El caller por defecto usa /login; Network,
+  // /network/acceso.
   async function signInWithGoogle(redirectPath = '/login') {
     const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}${redirectPath}` : undefined;
     const { error } = await supabase.auth.signInWithOAuth({
