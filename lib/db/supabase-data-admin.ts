@@ -1520,6 +1520,18 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
       capturar(p.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: Boolean(p.spotAsignado) } });
     }
   }
+  // ⚠️ Auditoría 2026-09-24 (RES-9): esto vivía SOLO dentro de
+  // `crearReservaMostrador`. Los créditos de «Primera reserva» —que la app de
+  // la alumna anuncia como logro y que `lib/configuracion/creditos.ts` cifra en
+  // 20— los recibía únicamente quien fuera apuntada por recepción; la que
+  // reservaba ella misma desde el widget, la PWA o pagando online no los recibía
+  // nunca, que es el camino mayoritario. Gemelo divergente clásico: este fichero
+  // tiene a `trasReservaCreada` como dueño único de los efectos post-reserva
+  // («la misma reserva avisaba o no según quién pulsara el botón») y este efecto
+  // se había quedado fuera. El `count === 1` y el UNIQUE de `reward_actions`
+  // sobre `ref_id` garantizan que no se da dos veces aunque se reintente.
+  await otorgarPrimeraReservaSiToca(admin, p.studioId, p.socioId);
+
   // S-1: la reserva mueve RESERVAS_TOTALES (y la racha, si la sesión ya pasó),
   // tanto para logros como para retos vigentes.
   await evaluarGamificacionServidor(admin, p.studioId, p.socioId);
@@ -2866,10 +2878,24 @@ export async function crearReservaMostrador(params: {
   // las sesiones ajenas con las que busca solape). Mismo guard que el camino
   // público y que el que ya tenía `addReserva` en el cliente (I-2, 59ª pasada).
   const { data: ses } = await admin
-    .from('sesiones').select('cancelada')
+    .from('sesiones').select('cancelada, inicio')
     .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
   if (!ses) return { ok: false, status: 404, error: MENSAJE_RESERVA_RPC.SESION_NO_ENCONTRADA };
   if (ses.cancelada) return { ok: false, status: 400, error: 'Esta clase está cancelada: no se puede apuntar a nadie.' };
+  // ⚠️ Auditoría 2026-09-23 (RES-1): el comentario de arriba decía «mismo guard
+  // que el camino público», y era falso: el público comprueba TRES cosas
+  // (existe, no cancelada, no empezada) y aquí solo estaban dos. `reservar_plaza`
+  // tampoco compara `inicio` con `now()` —valida cierre, impago, autorización,
+  // entitlement, duplicado, spot, aforo, conflicto y límite semanal, pero nunca
+  // la fecha—, a diferencia de sus hermanas `aceptar_oferta_lista_espera`,
+  // `resolver_reserva_pendiente`, `promocionar_siguiente_espera` y
+  // `confirmar_sustitucion`, que sí la comprueban. Resultado: el mostrador podía
+  // dejar una reserva CONFIRMADA sobre una clase de ayer, CON consumo real de
+  // bono (la RPC llama a `consumir_bono_interno` para toda CONFIRMADA) y con sus
+  // avisos y créditos disparados. Ensucia asistencia, ocupación y liquidaciones.
+  if (new Date(ses.inicio as string).getTime() <= Date.now()) {
+    return { ok: false, status: 400, error: 'Esta clase ya ha empezado: no se puede apuntar a nadie.' };
+  }
 
   // D-1: el bono se elige AQUÍ para que la RPC lo descuente DENTRO del mismo
   // candado que confirma la plaza — mismo criterio que `crearReservaPublica`.
@@ -2913,7 +2939,7 @@ export async function crearReservaMostrador(params: {
           estado: existente.estado as string, spotAsignado: null, canal: 'mostrador',
           avisarSocia: params.avisarSocia, reservaId: params.reservaId, reintento: true,
         });
-        if (completada) await otorgarPrimeraReservaSiToca(admin, params.studioId, params.socioId);
+        void completada; // los créditos de «Primera reserva» los da ya `trasReservaCreada` (RES-9)
         return {
           ok: true, estado: existente.estado as string,
           posicionEspera: (existente.posicion_espera as number | null) ?? null,
@@ -2940,7 +2966,8 @@ export async function crearReservaMostrador(params: {
     reservaId: params.reservaId, consumoBono, consumibleBono,
   });
 
-  await otorgarPrimeraReservaSiToca(admin, params.studioId, params.socioId);
+  // Los créditos de «Primera reserva» los da `trasReservaCreada`, común a los
+  // tres caminos de creación de reserva (RES-9).
 
   return { ok: true, estado, posicionEspera, reservaId: params.reservaId, repetida: false };
 }

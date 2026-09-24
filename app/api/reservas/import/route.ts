@@ -43,6 +43,18 @@ const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(RE_DIACRITI
 
 const OCUPA_PLAZA = ['CONFIRMADA', 'ASISTIDA'];
 
+// ⚠️ Auditoría 2026-09-24 (RES-12). Estos son EXACTAMENTE los estados del
+// índice parcial `uq_reserva_activa_socio_sesion`, verificado en producción:
+//   WHERE estado = ANY (ARRAY['CONFIRMADA','LISTA_ESPERA','ASISTIDA','PENDIENTE_APROBACION'])
+// La lista estaba escrita dos veces a mano y se quedó en tres cuando el índice
+// creció a cuatro con la Fase 2a (aprobación manual). Consecuencia: una fila
+// del CSV para una socia con una reserva PENDIENTE_APROBACION en esa sesión
+// pasaba el filtro, llegaba al insert en lote y reventaba con 23505 — y el
+// lote entero de 500 se abortaba, dejando la importación a medias. El propio
+// comentario del filtro dice para qué está («evita errores de lote enteros»);
+// solo le faltaba el cuarto estado. Una constante, no dos literales.
+const ESTADOS_ACTIVOS_DEL_INDICE = ['CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA', 'PENDIENTE_APROBACION'];
+
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'reservas-import', { max: 10, windowSeconds: 60 });
   if (limited) return limited;
@@ -101,7 +113,7 @@ export async function POST(req: NextRequest) {
   );
   const activas = new Set(
     (yaReservado ?? [])
-      .filter(r => ['CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA'].includes(r.estado as string))
+      .filter(r => ESTADOS_ACTIVOS_DEL_INDICE.includes(r.estado as string))
       .map(r => `${r.sesion_id}|${r.socio_id}`),
   );
   // Y el histórico (NO_ASISTIO, CANCELADA): el índice único es PARCIAL sobre
@@ -154,7 +166,7 @@ export async function POST(req: NextRequest) {
 
     const clave = `${sesion.id}|${socioId}`;
     const claveHist = `${clave}|${f.estado}`;
-    const esActiva = ['CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA'].includes(f.estado);
+    const esActiva = ESTADOS_ACTIVOS_DEL_INDICE.includes(f.estado);
     // Una activa choca con cualquier otra activa (el índice único lo impone);
     // una histórica choca solo con una idéntica del mismo estado.
     if (esActiva && (activas.has(clave) || vistas.has(clave))) { duplicadas++; return; }

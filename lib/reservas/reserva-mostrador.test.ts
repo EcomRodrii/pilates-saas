@@ -94,3 +94,70 @@ test('⚠️ la ruta del mostrador saca el estudio de la sesión y comprueba el 
   assert.ok(RUTA.indexOf('puedeApuntarEnClase(') < RUTA.indexOf('crearReservaMostrador({'),
     'la autorización tiene que ir antes de llamar a crearReservaMostrador');
 });
+
+// ── RES-1 (auditoría 2026-09-23) ────────────────────────────────────────────
+// El mostrador comprobaba DOS cosas (existe, no cancelada) donde el camino
+// público comprueba TRES, y el comentario del propio código afirmaba la paridad
+// que no existía. `reservar_plaza` tampoco compara `inicio` con `now()` — es la
+// única de su familia que no lo hace; sus hermanas (`aceptar_oferta_lista_espera`,
+// `resolver_reserva_pendiente`, `promocionar_siguiente_espera`,
+// `confirmar_sustitucion`) sí. Resultado: recepción podía dejar una reserva
+// CONFIRMADA sobre una clase de ayer, CON consumo real de bono, disparando sus
+// avisos y sus créditos, y ensuciando asistencia, ocupación y liquidaciones.
+test('⚠️ el mostrador NO puede apuntar a nadie a una clase que ya empezó', () => {
+  const i = ADMIN.indexOf('export async function crearReservaMostrador');
+  assert.ok(i > 0, 'no se encuentra crearReservaMostrador: revisa este guardián');
+  // Solo el cuerpo de la función, hasta la llamada a la RPC: el guard tiene que
+  // estar ANTES de reservar, no después.
+  const hastaLaRpc = ADMIN.slice(i, ADMIN.indexOf("admin.rpc('reservar_plaza'", i));
+  assert.ok(
+    /\.select\('cancelada, inicio'\)/.test(hastaLaRpc),
+    'sin leer `inicio` no se puede comprobar si la clase ya empezó',
+  );
+  assert.ok(
+    /new Date\(ses\.inicio as string\)\.getTime\(\) <= Date\.now\(\)/.test(hastaLaRpc),
+    'falta el guard de clase ya empezada, el mismo que tiene el camino público',
+  );
+  assert.ok(
+    hastaLaRpc.includes('ya ha empezado'),
+    'y quien lo sufre tiene que leer por qué, no un error genérico',
+  );
+});
+
+test('⚠️ el guard de clase empezada del mostrador rechaza con 400, no con 500', () => {
+  const i = ADMIN.indexOf('export async function crearReservaMostrador');
+  const hastaLaRpc = ADMIN.slice(i, ADMIN.indexOf("admin.rpc('reservar_plaza'", i));
+  const j = hastaLaRpc.indexOf('ya ha empezado');
+  const linea = hastaLaRpc.slice(hastaLaRpc.lastIndexOf('return', j), j);
+  assert.match(linea, /status: 400/, 'es una regla de negocio, no una avería del servidor');
+});
+
+// ── RES-9 (auditoría 2026-09-24) ────────────────────────────────────────────
+// Los créditos de «Primera reserva» (20, `lib/configuracion/creditos.ts`) los
+// otorgaba SOLO `crearReservaMostrador`. La alumna que reservaba ella misma
+// —widget, PWA, OAuth— o que pagaba online no los recibía nunca, que es el
+// camino mayoritario, mientras la app se los anunciaba como logro. Gemelo
+// divergente: `trasReservaCreada` es el dueño único de los efectos
+// post-reserva en este fichero («la misma reserva avisaba o no según quién
+// pulsara el botón») y este efecto se había quedado fuera de él.
+test('⚠️ «Primera reserva» se otorga en trasReservaCreada, común a los tres caminos', () => {
+  const i = ADMIN.indexOf('async function trasReservaCreada');
+  assert.ok(i > 0, 'no se encuentra trasReservaCreada: revisa este guardián');
+  const fin = ADMIN.indexOf('\nexport async function crearReservaPublica', i);
+  const cuerpo = ADMIN.slice(i, fin > 0 ? fin : i + 20_000);
+  assert.ok(
+    cuerpo.includes('otorgarPrimeraReservaSiToca(admin, p.studioId, p.socioId)'),
+    'si esto no está aquí, el premio vuelve a depender de quién pulse el botón',
+  );
+});
+
+test('⚠️ y NO se otorga además desde crearReservaMostrador (sería el gemelo otra vez)', () => {
+  const i = ADMIN.indexOf('export async function crearReservaMostrador');
+  assert.ok(i > 0);
+  const fin = ADMIN.indexOf('\nasync function otorgarPrimeraReservaSiToca', i);
+  const cuerpo = ADMIN.slice(i, fin > 0 ? fin : i + 20_000);
+  assert.doesNotMatch(
+    cuerpo, /await otorgarPrimeraReservaSiToca\(/,
+    'el mostrador ya pasa por trasReservaCreada; llamarlo aquí duplica la vía',
+  );
+});
