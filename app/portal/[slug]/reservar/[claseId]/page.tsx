@@ -17,7 +17,9 @@ import { confirmarReserva } from '@/lib/student/reservar';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
 import type { BookingState } from '@/lib/student/tipos';
-import { AvailabilityBadge } from '@/components/student/ui/Badge';
+import { AvailabilityBadge, EnCursoBadge, TerminadaBadge } from '@/components/student/ui/Badge';
+import { useAhoraMs } from '@/lib/student/use-ahora';
+import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 import { etiquetaAperturaSuave } from '@/lib/opening/apertura-suave-texto';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
@@ -101,6 +103,14 @@ export default function FichaClasePage() {
 
   const inst = data?.instructoras.find((i) => i.id === clase?.instructoraId);
   const disp = clase ? disponibilidad(clase, data?.reservas ?? [], estudio.soportaListaEspera) : 'disponible';
+  // RES-11: `disponibilidad()` no sabe nada del reloj. Sobre una clase que ya
+  // empezó o terminó ofrecía «Reservar» y el servidor la rechazaba
+  // (`sesionYaEmpezada`). Solo se cierra la reserva NUEVA: quien ya tiene su
+  // plaza o su sitio en la lista sigue viendo «Gestionar».
+  const ahoraMs = useAhoraMs();
+  const enCurso = clase ? estaEnCurso(clase, ahoraMs) : false;
+  const terminada = clase ? yaTermino(clase, ahoraMs) : false;
+  const yaNoSeReserva = (enCurso || terminada) && disp !== 'reservada' && disp !== 'lista-espera';
   // El bono que de VERDAD cubre esta clase: un plan puede estar acotado a
   // ciertos tipos, y el servidor lo aplica al reservar. Elegir «el primero con
   // saldo» hacía que la hoja prometiera «no pagas nada hoy» y el servidor
@@ -233,7 +243,9 @@ export default function FichaClasePage() {
 
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 90 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />
+          {yaNoSeReserva
+            ? (enCurso ? <EnCursoBadge terminaA={horaFin(clase.hora, clase.duracionMin)} /> : <TerminadaBadge />)
+            : <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />}
           <span style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>
             {bono ? 'Con tu bono · 1 sesión' : (clase.sinPrecioSuelto ? 'Solo con bono' : `${euros(clase.precioSuelto)} clase suelta`)}
           </span>
@@ -281,13 +293,19 @@ export default function FichaClasePage() {
           maxWidth: 640, margin: '0 auto',
         }}
       >
-        <BookingButton
-          estado={disp}
-          online={online}
-          onReservar={() => ir('reviewing')}
-          onEspera={() => ir('reviewing')}
-          onCancelar={() => router.push(href('/mis-reservas'))}
-        />
+        {yaNoSeReserva ? (
+          <Button full disabled data-testid="reserva-cerrada">
+            {enCurso ? 'La clase ya ha empezado' : 'La clase ya ha terminado'}
+          </Button>
+        ) : (
+          <BookingButton
+            estado={disp}
+            online={online}
+            onReservar={() => ir('reviewing')}
+            onEspera={() => ir('reviewing')}
+            onCancelar={() => router.push(href('/mis-reservas'))}
+          />
+        )}
       </div>
 
       <InstructoraSheet

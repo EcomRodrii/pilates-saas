@@ -144,4 +144,50 @@ test.describe('Student PWA · la clase que se está dando ahora', () => {
     await expect(badgeEnCurso(page).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Reservada ✓', { exact: true })).toHaveCount(0);
   });
+
+  // RES-11: antes, al terminar la clase el badge de «en curso» se iba y volvía
+  // «10 plazas» — sobre una clase de la mañana, a las 16:30.
+  test('una clase ya terminada dice «Terminada» y no anuncia plazas', async ({ page }) => {
+    await montar(page);
+    await page.clock.setFixedTime(A_LAS('16:30'));
+    await page.goto(`${base}/reservar`);
+
+    await expect(page.getByTestId('badge-terminada').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('10 plazas')).toHaveCount(0);
+  });
+
+  test('la ficha de una clase ya empezada no ofrece reservar', async ({ page }) => {
+    await montar(page);
+    await page.clock.setFixedTime(A_LAS('10:30'));
+    await page.goto(`${base}/reservar/${SESION_ID}`);
+
+    await expect(page.getByTestId('reserva-cerrada')).toHaveText('La clase ya ha empezado', { timeout: 30_000 });
+    await expect(page.getByRole('button', { name: /^Reservar/ })).toHaveCount(0);
+  });
+
+  test('la ficha de una clase ya terminada tampoco', async ({ page }) => {
+    await montar(page);
+    await page.clock.setFixedTime(A_LAS('16:30'));
+    await page.goto(`${base}/reservar/${SESION_ID}`);
+
+    await expect(page.getByTestId('reserva-cerrada')).toHaveText('La clase ya ha terminado', { timeout: 30_000 });
+  });
+
+  test('antes de empezar la ficha sigue ofreciendo reservar', async ({ page }) => {
+    await montar(page);
+    await page.clock.setFixedTime(A_LAS('09:30'));
+    await page.goto(`${base}/reservar/${SESION_ID}`);
+
+    await expect(page.getByRole('button', { name: /^Reservar/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('reserva-cerrada')).toHaveCount(0);
+  });
+
+  test('con su plaza ya reservada, la ficha de una clase empezada sigue dejando gestionarla', async ({ page }) => {
+    await montar(page, { conReserva: true });
+    await page.clock.setFixedTime(A_LAS('10:30'));
+    await page.goto(`${base}/reservar/${SESION_ID}`);
+
+    await expect(page.getByRole('button', { name: /Gestionar/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('reserva-cerrada')).toHaveCount(0);
+  });
 });

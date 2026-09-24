@@ -34,3 +34,10 @@ export function EnCursoBadge({ terminaA }: { terminaA?: string }) {
     </span>
   );
 }
+
+// La clase ya terminó. Sustituye al badge de plazas igual que `EnCursoBadge`:
+// «10 plazas» sobre la clase de las 08:00 a las 19:00 es prometer algo que el
+// servidor rechaza (`sesionYaEmpezada`).
+export function TerminadaBadge() {
+  return <span className="badge badge--neutral" data-testid="badge-terminada">Terminada</span>;
+}
