@@ -61,7 +61,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: actualizada, error: errorUpdate } = await admin.from('campanas')
     .update({ estado: 'ENVIANDO' })
     .eq('id', campanaId).eq('studio_id', sesion.studioId)
-    .in('estado', ['BORRADOR', 'PROGRAMADA'])
+    // ⚠️ Auditoría 2026-09-24 (AUT-A): faltaba 'ACTIVA', y eso convertía el
+    // botón «Activar» del panel (`marketing/page.tsx`, título literal «Activar
+    // como campaña en curso») en un callejón sin salida IRREVERSIBLE: escribía
+    // `estado='ACTIVA'`, ningún cron ni función de Inngest barre ese estado
+    // —`procesarEnvioCampana` solo reacciona a CAMPANA_ENVIAR, que emite esta
+    // ruta— y no existe ninguna transición de vuelta a BORRADOR. La campaña
+    // quedaba con badge verde «Activa», cero emails enviados, cero errores y
+    // sin forma de enviarla nunca. 'PAUSADA' NO entra a propósito: pausada
+    // significa pausada, y tiene su «Reanudar» para volver a ACTIVA.
+    .in('estado', ['BORRADOR', 'PROGRAMADA', 'ACTIVA'])
     .select('id');
   if (errorUpdate) return NextResponse.json({ error: 'No se pudo encolar el envío' }, { status: 500 });
   if (!actualizada || actualizada.length === 0) {

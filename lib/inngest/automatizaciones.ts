@@ -126,10 +126,10 @@ interface ProcesarOpts {
    * `studios.color_primario`, que guarda un índigo de alta.
    */
   marca: MarcaCorreo;
-  // Solo lo usa procesarCandidatoMkt (motor de marketing, otro vocabulario —
-  // ver AU-6). procesarCandidato ya no lo necesita desde AU-1: su id sale de
-  // logIdCandidato, no del índice de iteración.
-  index: number;
+  // ⚠️ AUT-2 (2026-09-23): `index` ya NO existe. Lo usaba solo el id de log de
+  // procesarCandidatoMkt, y hacía que el mismo (automatización, socia, día)
+  // generase ids distintos si cambiaba el orden del array — duplicando log y
+  // correo. Los dos motores derivan ya su id de la identidad, no de la posición.
   nowISO: string;
   dry: boolean;
   resend: Resend | null;
@@ -319,11 +319,21 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
 // usuario) y persiste el log en automation_logs (ruleId = id de la
 // automatización, para dedup y contador). Idempotency-Key por id de log.
 export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, marca, index, nowISO, dry, resend, whatsapp } = opts;
+  const { studioId, marca, nowISO, dry, resend, whatsapp } = opts;
   const accionLog: AutomationLog['accion'] =
     c.canal === 'WHATSAPP' ? 'ENVIAR_WHATSAPP' : c.canal === 'NOTIFICACION' ? 'NOTIFICAR_ADMIN' : 'ENVIAR_EMAIL';
   const base = {
-    id: `mkt-${studioId}-${c.automatizacion.id}-${c.socio.id}-${index}-${nowISO.slice(0, 10)}`,
+    // ⚠️ Auditoría 2026-09-23 (AUT-2): aquí iba `-${index}-`, la posición en el
+    // array. Es exactamente el patrón que AU-1 documentó y arregló en
+    // `procesarCandidato`, y que quedó sin aplicar en el gemelo de marketing.
+    // La terna (automatizacionId, socioId, día) YA identifica la instancia
+    // unívocamente; añadirle el índice hacía que, si el orden de `mktCandidatos`
+    // cambiaba entre dos ejecuciones del mismo día (otra socia entra o sale del
+    // filtro), la MISMA (automatización, socia, día) generara DOS ids: el
+    // `dbUpsertAutomationLog` creaba dos filas en vez de deduplicar, y como el
+    // `idempotencyKey` que ve Resend es `base.id`, Resend reenviaba el mismo
+    // correo comercial a la misma socia el mismo día.
+    id: `mkt-${studioId}-${c.automatizacion.id}-${c.socio.id}-${nowISO.slice(0, 10)}`,
     studioId,
     // S-2: va en su propia columna, no en ruleId. Antes se metía aquí el id de
     // la automatización (`auto-*`), que violaba la FK a automation_rules: el log
@@ -656,7 +666,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       // id de step estable entre replays (índice + regla). Cada candidato es
       // un paso durable e independiente.
       const log = await step.run(`candidato-${i}-${c.rule.id}`, () =>
-        procesarCandidato(c, { studioId, studioNombre, marca, index: i, nowISO, dry, resend, whatsapp })
+        procesarCandidato(c, { studioId, studioNombre, marca, nowISO, dry, resend, whatsapp })
       );
 
       if (c.accion === 'COBRAR_RECIBO') cobrosPropuestos++;
@@ -696,7 +706,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     for (let i = 0; i < mktCandidatos.length; i++) {
       const c = mktCandidatos[i];
       const log = await step.run(`mkt-${i}-${c.automatizacion.id}-${c.socio.id}`, () =>
-        procesarCandidatoMkt(c, { studioId, studioNombre, marca, index: i, nowISO, dry, resend, whatsapp }),
+        procesarCandidatoMkt(c, { studioId, studioNombre, marca, nowISO, dry, resend, whatsapp }),
       );
       if (log.resultado === 'EJECUTADO') mktEnviados++; else if (log.resultado === 'FALLIDO') mktFallidos++;
       firedPorAuto.set(c.automatizacion.id, (firedPorAuto.get(c.automatizacion.id) ?? 0) + 1);

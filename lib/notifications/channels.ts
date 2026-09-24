@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { LEGAL } from '../legal-info.ts';
 import type { DeliveryStatus, NotificationChannel, NotificationRow, Recipient } from './types.ts';
 import { remitentePorMarca } from '../emails/remitente.ts';
+import { conReintentoResend } from '../emails/resend-reintentos.ts';
 import { urlMonograma } from '../monograma-estudio.ts';
 
 export interface ResultadoCanal {
@@ -102,6 +103,10 @@ const email: Canal = {
   nombre: 'EMAIL',
   async enviar({ admin, notificacion, destinatario }) {
     if (!destinatario.email) return { status: 'SKIPPED', error: 'destinatario sin email' };
+    // En un const: el estrechamiento de `destinatario.email` se pierde dentro
+    // del callback de `conReintentoResend` (TS no puede saber que nadie lo ha
+    // mutado entre medias).
+    const emailDestino = destinatario.email;
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey || apiKey.startsWith('re_XXXX')) return { status: 'SKIPPED', error: 'email no configurado' };
 
@@ -132,13 +137,20 @@ const email: Canal = {
       // que el remitente: si el aviso es para el equipo del estudio, poner su
       // propia dirección como respuesta les haría escribirse a sí mismos.
       const replyTo = destinatario.role === 'SOCIA' ? ((st?.email as string | null) ?? '').trim() : '';
-      const { data, error } = await resend.emails.send(
+      // ⚠️ Auditoría 2026-09-23 (AUT-7): este `send` iba a pelo, sin
+      // `conReintentoResend` — el helper que existe justo para esto («un 429 de
+      // "10 req/s" se registraba como FALLIDO para siempre»). Un aviso a todo un
+      // estudio son decenas de envíos seguidos, y `lib/notifications/process.ts`
+      // documenta que «un FAILED no se reintenta solo»: el primero que cayera en
+      // el límite de tasa se perdía definitivamente. Reintentar no puede
+      // duplicar: el `idempotencyKey` ya estaba puesto.
+      const { data, error } = await conReintentoResend(() => resend.emails.send(
         {
-          from, to: [destinatario.email], subject: notificacion.title, html,
+          from, to: [emailDestino], subject: notificacion.title, html,
           ...(replyTo ? { replyTo } : {}),
         },
         { idempotencyKey: `noti-${notificacion.id}` },
-      );
+      ));
       if (error) return { status: 'FAILED', error: error.message };
       return { status: 'SENT', providerId: data?.id };
     } catch (e) {

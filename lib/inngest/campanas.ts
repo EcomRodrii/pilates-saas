@@ -274,6 +274,27 @@ export const procesarEnvioCampana = inngest.createFunction(
         registrarSaludIntegracion(requireSupabaseAdmin(), studioId, 'WHATSAPP', resultadoSalud));
     }
 
+    // ⚠️ Auditoría 2026-09-23 (AUT-5): AU-7 cerró UN camino (Resend sin
+    // configurar → throw), pero quedaban los demás: todas las destinatarias
+    // filtradas por consentimiento, todas sin email, todas rechazadas por
+    // Resend, WhatsApp desconectado a mitad. En cualquiera de ellos `enviados`
+    // valía 0, la campaña pasaba igualmente a ENVIADA, el CAS de la ruta de
+    // envío (`.in('estado', ['BORRADOR','PROGRAMADA'])`) impedía reenviarla
+    // NUNCA, y no se lanzaba nada a Sentry: la propietaria veía «Enviada» de
+    // una campaña que no salió, sin forma de recuperarla.
+    //
+    // Había destinatarias y no salió ni una: eso es un fallo, no un final
+    // feliz. Lanzar lo lleva al `onFailure` de arriba, que devuelve las de
+    // EMAIL a BORRADOR (reenviables) y deja las de WhatsApp en ENVIANDO a
+    // propósito — y `alertarFalloTerminalInngest` lo sube a Sentry. Los envíos
+    // ya hechos están memoizados en sus `step.run`, así que un reintento no
+    // puede duplicar nada.
+    if (enviados === 0 && destinatarias.length > 0) {
+      throw new Error(
+        `[campanas-enviar] campaña ${campanaId}: ${destinatarias.length} destinatarias y 0 envíos reales`,
+      );
+    }
+
     await step.run('marcar-enviada', async () => {
       const { error } = await requireSupabaseAdmin()
         .from('campanas')

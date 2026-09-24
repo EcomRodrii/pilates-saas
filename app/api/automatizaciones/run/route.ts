@@ -80,16 +80,53 @@ export async function POST(req: NextRequest) {
       // lib/emails/color-marca.ts).
       resolverMarcaEstudio(sesion.studioId),
     ]);
+    // ⚠️ Auditoría 2026-09-23 (AUT-9): el cron filtra los estudios suspendidos
+    // con `.is('suspendido_en', null)` y el motivo está escrito allí — «un
+    // estudio suspendido por impago/abuso no debe seguir recibiendo mensajes
+    // automáticos con IA a nombre del negocio». Este botón no comprobaba nada:
+    // un estudio suspendido podía seguir emitiendo correos y WhatsApps a sus
+    // clientas pulsándolo.
+    // `suspendido_en` no viaja en el `Studio` del panel, así que se lee aquí.
+    {
+      const { data: susp } = await admin.from('studios')
+        .select('suspendido_en').eq('id', sesion.studioId).maybeSingle();
+      if (susp?.suspendido_en) {
+        return NextResponse.json(
+          { error: 'Este estudio está suspendido: las automatizaciones no se ejecutan.' },
+          { status: 403 },
+        );
+      }
+    }
     const studioNombre = data.studio?.nombre ?? 'tu estudio';
     const marca = marcaCorreoDesde(marcaEstudio, studioNombre);
 
     // I-5: mismo guard de consentimiento que el cron (lib/inngest/automatizaciones.ts)
     // — data.socios no trae el texto completo (mismo ahorro de payload que el
     // resto del panel), así que se lee aparte, targeted.
-    const { data: filasConsentimiento } = await admin
-      .from('socios').select('id, consentimiento_marketing_texto').eq('studio_id', sesion.studioId);
+    //
+    // ⚠️ Auditoría 2026-09-23 (AUT-3): AU-2 paginó este SELECT en el cron
+    // (lib/inngest/automatizaciones.ts) y en campanas.ts, pero se dejó sin
+    // tocar este tercer llamador — el botón «Ejecutar ahora» de la propietaria.
+    // Sin paginar, PostgREST corta a 1.000 filas EN SILENCIO; y sin comprobar
+    // `error`, un fallo de BD devuelve `undefined` → `?? []` → Map vacío → cero
+    // consentimientos. En los dos casos el botón DIVERGE del cron: descarta
+    // candidatos comerciales que el cron sí envía, sin error y sin rastro.
+    // Mismo bucle, literalmente, que el del cron.
+    const filasConsentimiento: { id: string; consentimiento_marketing_texto: string | null }[] = [];
+    {
+      const TAM = 1000;
+      for (let desde = 0; ; desde += TAM) {
+        const { data: rows, error } = await admin.from('socios')
+          .select('id, consentimiento_marketing_texto').eq('studio_id', sesion.studioId)
+          .order('id').range(desde, desde + TAM - 1);
+        if (error) throw new Error(`consentimientos: ${error.message}`);
+        const lote = (rows ?? []) as { id: string; consentimiento_marketing_texto: string | null }[];
+        filasConsentimiento.push(...lote);
+        if (lote.length < TAM) break;
+      }
+    }
     const consentimientosMarketing = new Map<string, string>();
-    for (const row of filasConsentimiento ?? []) {
+    for (const row of filasConsentimiento) {
       if (row.consentimiento_marketing_texto) consentimientosMarketing.set(row.id, row.consentimiento_marketing_texto);
     }
     const textoConsentimientoVigente = textoConsentimientoMarketing({ nombre: studioNombre });
@@ -125,7 +162,7 @@ export async function POST(req: NextRequest) {
     const logs: AutomationLog[] = await mapLimit(
       candidatos,
       6,
-      (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, marca, index: i, nowISO, dry, resend, whatsapp }),
+      (c) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, marca, nowISO, dry, resend, whatsapp }),
     );
 
     // En seco no se toca el contador: no ha disparado nada.

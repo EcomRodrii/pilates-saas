@@ -627,7 +627,13 @@ export default function MarketingPage() {
   // Resend (`email.opened`) que lo alimente, el KPI solo se enseña si hay algo
   // que enseñar; un cero inventado en la cabecera del panel es peor que un dato
   // que no está, porque se lee como «tus campañas no las abre nadie».
-  const hayDatosApertura = enviadas.some(c => c.abiertos > 0)
+  //
+  // ⚠️ Auditoría 2026-09-23 (AUT-8): `some(c => c.abiertos > 0)` era TRUE en
+  // producción — hay filas con valores sembrados (camp-2: abiertos 6 sobre 8
+  // enviados). El guard de AU-8 no protegía de nada: la cabecera pintaba
+  // «Apertura media 75 %» de algo que nadie mide. Mientras no exista el webhook
+  // que lo alimente, el KPI no se enseña, punto. Volverá con su fuente de datos.
+  const hayDatosApertura = false as boolean
 
   // Automatizaciones stats
   const autoActivas = automatizaciones.filter(a => a.activa).length
@@ -962,14 +968,28 @@ export default function MarketingPage() {
                           negocio y concluía que sus campañas no funcionan,
                           cuando lo que pasa es que nadie mide eso todavía. Se
                           muestran solo si alguna vez llegan a tener valor. */}
+                      {/* ⚠️ Auditoría 2026-09-23 (AUT-8): el guard `> 0` de AU-8
+                          NO bastaba. En producción hay filas con valores
+                          sembrados (camp-2: enviados 8, abiertos 6, clics 3),
+                          así que la pantalla enseñaba «Abiertos: 6 (75%)» de una
+                          campaña cuya apertura NADIE mide — y `page.tsx` los
+                          promediaba además en la tarjeta de cabecera. Una cifra
+                          inventada presentada como métrica de negocio es peor
+                          que no enseñar nada. Vuelven el día que el webhook de
+                          Resend escriba `email.opened`/`email.clicked`. */}
                       <p className="text-xs text-muted-foreground">
                         Enviados: {c.enviados}
-                        {c.abiertos > 0 && ` · Abiertos: ${c.abiertos}${c.enviados > 0 ? ` (${Math.round((c.abiertos / c.enviados) * 100)}%)` : ''}`}
-                        {c.clics > 0 && ` · Clics: ${c.clics}${c.enviados > 0 ? ` (${Math.round((c.clics / c.enviados) * 100)}%)` : ''}`}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {(c.estado === 'BORRADOR' || c.estado === 'PROGRAMADA') && (
+                      {/* ⚠️ Auditoría 2026-09-24 (AUT-A): 'ACTIVA' se añadió aquí y
+                          en el CAS de /api/marketing/campanas/[id]/enviar. Antes,
+                          pulsar «Activar» escondía este botón y dejaba la campaña
+                          en un estado sin remitente y sin vuelta atrás: verde en
+                          pantalla, cero emails, cero errores. Los dos sitios tienen
+                          que decir lo mismo — es el patrón de gemelo divergente que
+                          este repo arrastra. */}
+                      {(c.estado === 'BORRADOR' || c.estado === 'PROGRAMADA' || c.estado === 'ACTIVA') && (
                         <button
                           onClick={() => handleEnviarCampana(c)}
                           disabled={enviandoId === c.id}
@@ -1011,9 +1031,23 @@ export default function MarketingPage() {
                       )}
                       {(c.estado === 'ACTIVA' || c.estado === 'PAUSADA') && (
                         <button
-                          onClick={() => updateCampana(c.id, { estado: 'ENVIADA', enviadaEn: c.enviadaEn ?? new Date().toISOString() }).then(res => { if (!res.ok) showToast(res.error) })}
+                          // ⚠️ Auditoría 2026-09-23 (AUT-1): este botón escribía
+                          // también `enviadaEn`, y con ello la tarjeta pasaba a
+                          // pintar «Enviada · <fecha>» de una campaña recurrente
+                          // que NO había pasado por `procesarEnvioCampana` ni por
+                          // /api/marketing/campanas/[id]/enviar. Cerrar a mano una
+                          // campaña en curso y haberla enviado son cosas
+                          // distintas, y la fecha era lo único que las hacía
+                          // indistinguibles en pantalla. El estado propio
+                          // (FINALIZADA) sigue pendiente: exige migración del
+                          // CHECK de `campanas.estado`, que no es un parche.
+                          //
+                          // ⚠️ Sigue siendo IRREVERSIBLE: el CAS de la ruta de
+                          // envío solo acepta BORRADOR|PROGRAMADA, así que una
+                          // campaña «finalizada» ya no se puede enviar nunca.
+                          onClick={() => updateCampana(c.id, { estado: 'ENVIADA' }).then(res => { if (!res.ok) showToast(res.error) })}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground text-xs font-medium hover:bg-muted transition-colors"
-                          title="Finalizar campaña"
+                          title="Cerrar la campaña en curso (no la envía)"
                         >
                           <Flag className="w-3.5 h-3.5" /> Finalizar
                         </button>
