@@ -51,14 +51,24 @@ async function seedSesion(page: Page) {
 // `/clave-nueva` está en `RUTAS_RETORNO_AUTH_STAFF` (lib/db/supabase.ts) —
 // sin llamar a la red para nada más que `GET /auth/v1/user` (mockeado abajo),
 // así que el token no necesita ser un JWT real.
+const FRAGMENTO_RECUPERACION = 'access_token=e2e-fake-token&refresh_token=e2e-fake-refresh'
+  + '&expires_in=3600&token_type=bearer&type=recovery';
+
 async function irConEnlaceDeRecuperacion(page: Page, email: string) {
   await page.route('**/auth/v1/user**', route => json(route, {
     id: 'auth-e2e-duena', email, aud: 'authenticated', role: 'authenticated',
     app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
   }));
-  const hash = 'access_token=e2e-fake-token&refresh_token=e2e-fake-refresh'
-    + '&expires_in=3600&token_type=bearer&type=recovery';
-  await page.goto(`/clave-nueva#${hash}`);
+  await page.goto(`/clave-nueva#${FRAGMENTO_RECUPERACION}`);
+}
+
+/** Cuenta las lecturas que salen con la sesión sembrada: prueba que la pantalla SÍ la tenía. */
+function contarPeticionesConSesion(page: Page) {
+  const n = { v: 0 };
+  page.on('request', req => {
+    if (req.headers()['authorization'] === 'Bearer e2e-fake-token') n.v++;
+  });
+  return n;
 }
 
 test.describe('Se puede recuperar la contraseña sin poder entrar', () => {
@@ -140,6 +150,79 @@ test.describe('La pantalla de contraseña nueva', () => {
     await page.getByRole('button', { name: 'Guardar contraseña' }).click({ timeout: 30_000 });
 
     await expect(page.getByText('Las contraseñas no coinciden.')).toBeVisible();
+  });
+
+  test('el enlace lo canjea SOLO el cliente del equipo, no también el del portal', async ({ page }) => {
+    // Fallaba a ratos en CI (#2288) y le pasaba igual a una propietaria de
+    // verdad: «Este enlace ya no vale» con un enlace bueno. Había DOS clientes
+    // de auth leyendo el mismo `#access_token`: el del portal de socias, que
+    // nace al cargar el módulo, y el del equipo, que nace al hidratar. Cada uno
+    // lo canjeaba y lo BORRABA de la URL al terminar; si el del portal lo
+    // borraba justo antes de que naciera el del equipo, a este ya no le llegaba
+    // nada y la pantalla no veía ninguna recuperación.
+    //
+    // El orden exacto depende de la carga de la máquina y no se puede forzar
+    // desde fuera, pero su causa sí es determinista: con dos canjes y la sesión
+    // del equipo guardada donde guarda las suyas el portal, la carrera existe
+    // (medido: 8 de 8 cargas). Con un solo canje, no hay con quién competir.
+    await page.route('**/rest/v1/**', route => json(route, []));
+    let canjes = 0;
+    await page.route('**/auth/v1/user**', route => {
+      canjes++;
+      return json(route, {
+        id: 'auth-e2e-duena', email: 'cloe@example.com', aud: 'authenticated', role: 'authenticated',
+        app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
+      });
+    });
+    await page.goto(`/clave-nueva#${FRAGMENTO_RECUPERACION}`);
+
+    await expect(page.getByPlaceholder('Contraseña nueva')).toBeVisible({ timeout: 30_000 });
+    expect(canjes, 'el fragmento tiene que canjearlo un cliente, y solo uno').toBe(1);
+    const enElPortal = await page.evaluate(clave =>
+      localStorage.getItem(clave) ?? sessionStorage.getItem(clave), 'sb-portal-auth');
+    expect(enElPortal, 'la sesión del equipo no pinta nada en el almacenamiento del portal').toBeNull();
+    const enStaff = await page.evaluate(clave => localStorage.getItem(clave), STORAGE_KEY);
+    expect(enStaff, 'la sesión del enlace tiene que quedar en el cliente del equipo').not.toBeNull();
+  });
+
+  test('una sesión ya abierta, sin enlace de por medio, no deja fijarla sin la actual (FE-02)', async ({ page }) => {
+    // El navegador desatendido: hay sesión, pero nadie ha demostrado controlar
+    // el correo. Esta pantalla no pide la contraseña actual, así que aquí tiene
+    // que decir lo mismo que con un enlace caducado.
+    await page.route('**/rest/v1/**', route => json(route, []));
+    const conSesion = contarPeticionesConSesion(page);
+    await seedSesion(page);
+    await page.goto('/clave-nueva');
+
+    await expect(page.getByText(/Este enlace ya no vale/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Contraseña nueva')).toHaveCount(0);
+    // Sin esto, «bloquea» podría ser simplemente «no había sesión».
+    await expect.poll(() => conSesion.v, { message: 'la sesión sembrada tenía que estar viva' })
+      .toBeGreaterThan(0);
+  });
+
+  test('un fragmento «type=recovery» inventado no convierte una sesión abierta en una recuperación', async ({ page }) => {
+    // Por qué no basta con mirar el fragmento de la URL: con una sesión ya
+    // abierta, un token que no vale falla el canje y gotrue CONSERVA la sesión
+    // anterior. La URL diría «recuperación» y la sesión sería otra.
+    await page.route('**/rest/v1/**', route => json(route, []));
+    let canjes = 0;
+    await page.route('**/auth/v1/user**', route => {
+      // Solo cuenta el intento con el token del fragmento, no otras lecturas
+      // del usuario con la sesión sembrada.
+      if (route.request().headers()['authorization'] === 'Bearer inventado') canjes++;
+      return json(route, { code: 401, error_code: 'bad_jwt', msg: 'invalid JWT' }, 401);
+    });
+    const conSesion = contarPeticionesConSesion(page);
+    await seedSesion(page);
+    await page.goto('/clave-nueva#access_token=inventado&refresh_token=inventado'
+      + '&expires_in=3600&token_type=bearer&type=recovery');
+
+    await expect(page.getByText(/Este enlace ya no vale/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Contraseña nueva')).toHaveCount(0);
+    expect(canjes, 'gotrue tenía que intentar canjear el fragmento').toBeGreaterThan(0);
+    await expect.poll(() => conSesion.v, { message: 'la sesión sembrada tenía que seguir viva' })
+      .toBeGreaterThan(0);
   });
 
   test('un enlace ya gastado no enseña un formulario que va a fallar', async ({ page }) => {

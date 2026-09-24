@@ -174,12 +174,12 @@ export function useAuthStudent(slug: string) {
    * cliente —`supabasePortal`, storageKey 'sb-portal-auth'— para que la sesión
    * caiga en la de la alumna y no en la del personal.
    *
-   * El retorno lo recoge el propio cliente porque `supabasePortal` lleva
-   * `detectSessionInUrl: true` sin lista blanca de rutas
-   * (lib/db/supabase-portal.ts:34), al contrario que el de personal, que solo
-   * lo activa en tres rutas. No hay colisión: los módulos de la alumna solo se
-   * importan bajo `app/portal/**`, y el personal vuelve a /login,
-   * /clave-nueva o /network/acceso.
+   * El retorno lo recoge el propio cliente porque `supabasePortal` detecta la
+   * sesión en la URL en todas las rutas MENOS las tres a las que vuelve el
+   * personal (/login, /clave-nueva, /network/acceso — la misma lista que usa su
+   * cliente, al revés: lib/auth/rutas-retorno-auth-staff.ts). Esa exclusión sí
+   * hace falta: `supabasePortal` se carga en todas las pantallas del panel (vía
+   * lib/api-client.ts), y sin ella canjeaba también el enlace del personal.
    *
    * Sin `captchaToken`: `signInWithOAuth` no acepta ese parámetro y gotrue no
    * lo exige en este flujo — el humano lo verifica Google en su pantalla de
