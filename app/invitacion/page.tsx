@@ -35,6 +35,8 @@ export default function PaginaInvitacion() {
   const { user, signOut } = useAuth();
   const [inv, setInv] = useState<Invitacion | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // FE-07: protección contra el doble clic (ver `continuar`).
+  const [yendo, setYendo] = useState(false);
 
   const cargar = useCallback(async () => {
     const token = new URLSearchParams(window.location.search).get('token');
@@ -58,6 +60,13 @@ export default function PaginaInvitacion() {
   useEffect(() => { void cargar(); }, [cargar]);
 
   async function continuar(yaTieneCuenta = false) {
+    // ⚠️ Auditoría 2026-09-23 (FE-07): estos dos botones eran los ÚNICOS de todo
+    // el flujo de auth sin protección contra el doble envío (/login usa
+    // `disabled={submitting}`, /crear-estudio `disabled={enviando}`,
+    // /clave-nueva `disabled={guardando}`, y todo el portal `<Button loading>`).
+    // Dos clics rápidos lanzaban dos `signOut()` concurrentes antes de navegar.
+    if (yendo) return;
+    setYendo(true);
     // Si hay otra sesión abierta (el caso que rompía el flujo), se cierra antes
     // de mandar al alta: si no, el login rebota al panel de esa otra persona.
     if (user) await signOut();
@@ -78,7 +87,12 @@ export default function PaginaInvitacion() {
     // entrar, reclama con el mismo token. Antes solo había «Crear mi cuenta» y
     // quien ya tenía cuenta chocaba con «ya existe una cuenta con ese email».
     const token = new URLSearchParams(window.location.search).get('token');
-    const destino = `/login?destino=/dashboard${yaTieneCuenta ? '' : '&alta=1'}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+    // ⚠️ FE-06: aquí iba `?destino=/dashboard`, y /login lo DESCARTA — su lista
+    // blanca de destinos solo acepta `/interno*` y `/oauth/authorize*`, a
+    // propósito, para no convertir el login en un redirector abierto. El
+    // parámetro no hacía nada salvo sugerir un contrato que no existe: quien
+    // decide a dónde va esta cuenta es /api/auth/destino-post-login.
+    const destino = `/login?${yaTieneCuenta ? '' : 'alta=1'}${token ? `${yaTieneCuenta ? '' : '&'}token=${encodeURIComponent(token)}` : ''}`;
     window.location.href = destino;
   }
 
@@ -184,14 +198,14 @@ export default function PaginaInvitacion() {
         )}
 
         <button
-          type="button" onClick={() => void continuar()}
-          className="mt-1 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13.5px] font-bold"
+          type="button" onClick={() => void continuar()} disabled={yendo}
+          className="mt-1 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13.5px] font-bold disabled:opacity-60"
         >
           {user ? 'Cerrar sesión y crear mi cuenta' : 'Crear mi cuenta'}
         </button>
         <button
-          type="button" onClick={() => void continuar(true)} data-testid="invitacion-ya-tengo-cuenta"
-          className="px-4 py-2.5 rounded-xl border border-border text-[13.5px] font-semibold text-foreground hover:bg-muted"
+          type="button" onClick={() => void continuar(true)} data-testid="invitacion-ya-tengo-cuenta" disabled={yendo}
+          className="px-4 py-2.5 rounded-xl border border-border text-[13.5px] font-semibold text-foreground hover:bg-muted disabled:opacity-60"
         >
           Ya tengo cuenta: iniciar sesión
         </button>

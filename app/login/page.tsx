@@ -228,10 +228,25 @@ export default function LoginPage() {
       // respaldo para el tramo dentro de la misma pestaña.
       const token = (user.user_metadata?.[CLAVE_INVITACION] as string | undefined) ?? leerTokenInvitacion();
       if (token) {
-        await dbReclamarAccesoEquipo(token);
-        olvidarTokenInvitacion();
-        if (user.user_metadata?.[CLAVE_INVITACION]) {
-          await supabase.auth.updateUser({ data: { [CLAVE_INVITACION]: null } });
+        // ⚠️ Auditoría 2026-09-23 (FE-01): el token se borraba de las DOS vías
+        // de persistencia pasara lo que pasara. `dbReclamarAccesoEquipo` nunca
+        // lanza: ante un 429 del rate limit de /api/equipo/reclamar, un 503 sin
+        // service-role o un corte de red devuelve 0 y solo hace `reportDbError`.
+        // El resultado se descartaba, así que la persona invitada acababa con
+        // cuenta creada, email confirmado, SIN ficha de equipo y sin ningún dato
+        // con el que reintentar — el enlace del correo ya consumido.
+        //
+        // Es la misma regla que este fichero ya aplica dos bloques más arriba a
+        // `pending_studio` («la metadata SOLO se limpia si el estudio se creó de
+        // verdad») y a `pending_freelance`; aquí quedó sin aplicar. La acción es
+        // idempotente por diseño, así que conservar el token es seguro: el
+        // siguiente login lo completa solo.
+        const vinculadas = await dbReclamarAccesoEquipo(token);
+        if (vinculadas > 0) {
+          olvidarTokenInvitacion();
+          if (user.user_metadata?.[CLAVE_INVITACION]) {
+            await supabase.auth.updateUser({ data: { [CLAVE_INVITACION]: null } });
+          }
         }
       }
     })().finally(async () => {
