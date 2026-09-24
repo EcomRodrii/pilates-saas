@@ -97,7 +97,7 @@ export function FormularioAccesoWidget({
     // docs/auth-widget-diseno.md §9.3).
     // Un nonce por intento, el MISMO en la pestaña y en el enlace del email:
     // el widget solo acepta la sesión que vuelva con él.
-    const nonce = auth.nuevoIntentoEnlace();
+    const nonce = auth.nuevoIntentoEnlace(email);
     const popup = window.open(urlRetornoWidgetAuth(baseUrl, slug, nonce), 'tentare-widget-auth', 'width=420,height=600');
     setEnviando(true);
     const token = await pedirToken();
@@ -159,8 +159,12 @@ export function FormularioAccesoWidget({
   if (modo === 'magic-enviado') {
     return (
       <div style={contenedorEstilo}>
+        {/* Qué llega depende de la cuenta: con cuenta confirmada, un ENLACE;
+            una alumna nueva recibe el correo de alta, con un CÓDIGO de 6 cifras
+            que se escribe en la ventana que se acaba de abrir (el puente). */}
         <p style={{ margin: 0, fontSize: 14, color: t.ink }}>
-          Te hemos enviado un enlace a <strong>{email}</strong>. Ábrelo en la pestaña nueva para entrar.
+          Te hemos escrito a <strong>{email}</strong>. Sigue en la ventana que se ha abierto: si te llega un
+          código de 6 cifras, escríbelo allí; si te llega un enlace, ábrelo. Después entrarás aquí sola.
         </p>
         <button type="button" onClick={() => setModo('password')} style={botonTexto()}>Volver</button>
       </div>
