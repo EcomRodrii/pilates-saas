@@ -2147,6 +2147,47 @@ async function avisarEsperaSinPlaza(
   }
 }
 
+// Toda espera de una clase ya terminada es un hueco que nadie va a liberar.
+// `barrerEsperasSinPlaza` solo cierra (y avisa) las `res-web-…` pagadas; las
+// demás —una socia que se apuntó a la cola por gusto— se quedaban en
+// LISTA_ESPERA para siempre y ensuciaban el histórico. Aquí se cierran sin
+// avisar a nadie: no pagó por esa clase y la clase ya pasó, no hay nada honesto
+// que contarle. No toca bono (una espera nunca lo consumió). Compare-and-set
+// contra LISTA_ESPERA, así que es idempotente y no pisa una promoción tardía.
+export async function barrerEsperasDeClasesPasadas(nowISO: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const { filas, truncado } = await leerCatalogoCompleto<{ id: string }>(
+    (desde, hasta) => admin
+      .from('reservas')
+      .select('id, sesiones!inner(fin)')
+      .eq('estado', 'LISTA_ESPERA')
+      .not('id', 'like', `${PREFIJO_RESERVA_WEB}%`)
+      .lt('sesiones.fin', nowISO)
+      .order('id', { ascending: true })
+      .range(desde, hasta),
+  );
+  if (truncado) {
+    capturarMensaje('barrerEsperasDeClasesPasadas: se alcanzó el tope de paginación, quedan esperas sin cerrar', 'warning', {
+      tags: { area: 'cron-no-shows' }, extra: { nowISO },
+    });
+  }
+
+  let cerradas = 0;
+  for (const fila of filas) {
+    const { data: upd, error: updErr } = await admin
+      .from('reservas')
+      .update({ estado: 'CANCELADA', posicion_espera: null, oferta_expira_en: null })
+      .eq('id', fila.id)
+      .eq('estado', 'LISTA_ESPERA')
+      .select('id');
+    if (updErr) { reportDbError('[barrerEsperasDeClasesPasadas]', updErr); continue; }
+    if (upd?.length) cerradas++;
+  }
+  return { esperasPendientes: filas.length, esperasCerradas: cerradas, truncado };
+}
+
 // Lee la política de reservas/cancelaciones del estudio (con defaults sensatos
 // si las columnas aún no existen o vienen nulas).
 
