@@ -249,13 +249,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <PanelThemeProvider className="min-h-dvh bg-background">
           <main className="min-h-dvh flex items-center justify-center px-4">
             <div className="max-w-sm text-center space-y-3">
-              <p className="text-[14px] text-foreground font-medium">Esta cuenta no tiene ningún estudio de Tentare.</p>
+              <p className="text-[14px] text-foreground font-medium">Esta cuenta no tiene ningún estudio de Tentare todavía.</p>
               <p className="text-[13px] text-muted-foreground">
-                Si te has registrado para Tentare Network, tu perfil está en otro sitio.
+                Si vienes a montar el tuyo, lo creas en un minuto y con tu cuenta actual.
               </p>
-              <Link href="/network/mi-perfil" className="inline-block px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium">
-                Ir a mi perfil de Network
+              <Link href="/crear-estudio" className="inline-block px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium">
+                Crear mi estudio
               </Link>
+              <p className="text-[12px] text-muted-foreground">
+                ¿Te has registrado para Tentare Network?{' '}
+                <Link href="/network/mi-perfil" className="font-semibold text-foreground underline-offset-2 hover:underline">
+                  Ir a mi perfil
+                </Link>
+              </p>
             </div>
           </main>
         </PanelThemeProvider>

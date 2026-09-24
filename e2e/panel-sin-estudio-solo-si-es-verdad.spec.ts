@@ -19,16 +19,19 @@ import { montar } from './panel-sembrado';
 const json = (r: Route, body: unknown, status = 200) =>
   r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
-const SIN_ESTUDIO = 'Esta cuenta no tiene ningún estudio de Tentare.';
+const SIN_ESTUDIO = 'Esta cuenta no tiene ningún estudio de Tentare todavía.';
 
-test('una cuenta sin estudio lo ve dicho, con la salida a su perfil de Network', async ({ page }) => {
+test('una cuenta sin estudio lo ve dicho, con la salida a crear el suyo y a su perfil de Network', async ({ page }) => {
   await montar(page);
   await page.route('**/rest/v1/rpc/current_studio_id', r => json(r, null));
 
   await page.goto('/dashboard', { waitUntil: 'domcontentloaded' }).catch(() => {});
 
   await expect(page.getByText(SIN_ESTUDIO)).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('link', { name: 'Ir a mi perfil de Network' })).toHaveAttribute('href', '/network/mi-perfil');
+  // La salida principal es montar el estudio (antes solo había Network, y quien
+  // venía a empezar el suyo se quedaba sin camino).
+  await expect(page.getByRole('link', { name: 'Crear mi estudio' })).toHaveAttribute('href', '/crear-estudio');
+  await expect(page.getByRole('link', { name: 'Ir a mi perfil' })).toHaveAttribute('href', '/network/mi-perfil');
   await expect(page.getByText('Tu estudio está tardando en cargar.')).toHaveCount(0);
 });
 

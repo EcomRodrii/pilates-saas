@@ -17,7 +17,8 @@ import { HojaComparativa } from '@/components/planes/comparativa-planes';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { enlaceReservas } from '@/lib/opening/comunicaciones';
 import { copiarAlPortapapeles } from '@/lib/utils';
-import { type Plan } from '@/lib/billing/entitlements';
+import { type Plan, PLAN_INFO } from '@/lib/billing/entitlements';
+import { authHeader } from '@/lib/api-client';
 import {
   BORRADOR_ALTA,
   leerBorrador,
@@ -67,9 +68,17 @@ const PASOS = [
   { n: 3, titulo: 'Tu cuenta', sub: 'Para entrar' },
 ] as const;
 
+// Quien llega YA con la sesión abierta y sin estudio (entró con Google desde
+// /login, o abandonó el alta tras crear la cuenta) no tiene que crear otra
+// cuenta: solo le falta montar el estudio. Antes esa persona aterrizaba en el
+// panel con «Esta cuenta no tiene ningún estudio» y un único enlace, a Network:
+// justo quien venía a empezar el suyo se quedaba sin salida. Sin el paso de
+// cuenta (y sin código por email: la cuenta ya es suya) son dos pasos.
+const PASOS_CON_SESION = PASOS.slice(0, 2);
+
 export default function CrearEstudioPage() {
   const uid = useId();
-  const { signUp, verificarOtpSignup, reenviarConfirmacion } = useAuth();
+  const { signUp, verificarOtpSignup, reenviarConfirmacion, session, user, loading: cargandoSesion, signOut } = useAuth();
   const { widget: captcha, pedirToken } = useCaptcha();
 
   const [paso, setPaso] = useState(1);
@@ -89,8 +98,17 @@ export default function CrearEstudioPage() {
   // pantalla dijera un correo al que no se ha mandado nada.
   const [emailOtp, setEmailOtp] = useState<string | null>(null);
   const [borradorRecuperado, setBorradorRecuperado] = useState(false);
+  // Sesión abierta y sin estudio: el alta se queda en dos pasos (ver PASOS_CON_SESION).
+  const [sesionSinEstudio, setSesionSinEstudio] = useState(false);
+  // Se enciende en cuanto ESTA pantalla empieza a crear la cuenta: a partir de
+  // ahí la sesión que aparezca es la nuestra, no una previa, y no hay que
+  // cambiar de modo a mitad del alta.
+  const cuentaNuevaAqui = useRef(false);
   const tituloRef = useRef<HTMLHeadingElement>(null);
   const yaMontado = useRef(false);
+  const conSesion = sesionSinEstudio && !!session;
+  const pasos = conSesion ? PASOS_CON_SESION : PASOS;
+  const ultimoPaso = pasos.length;
 
   // ── Recuperar lo que dejó a medias ───────────────────────────────────────
   // Cerrar la pestaña a mitad del alta y volver es de los abandonos más
@@ -149,6 +167,28 @@ export default function CrearEstudioPage() {
     if (nombre) capturarEvento('alta_estudio_paso', { paso: nombre });
   }, [paso, fase]);
 
+  // ¿Llega alguien con la sesión ya abierta? Si tiene estudio, al panel (no
+  // tiene nada que hacer aquí); si no, se le ahorra la cuenta. La misma pregunta
+  // que hace /login («a dónde pertenece esta cuenta»), con el mismo contexto.
+  const usuarioId = session?.user?.id ?? null;
+  useEffect(() => {
+    if (cargandoSesion || !usuarioId || cuentaNuevaAqui.current || fase !== 'formulario') return;
+    let cancelado = false;
+    void (async () => {
+      const r = await fetch('/api/auth/destino-post-login?producto=software', { headers: await authHeader() })
+        .then((x) => (x.ok ? x.json() : null))
+        .catch(() => null);
+      if (cancelado || cuentaNuevaAqui.current) return;
+      if (r?.tipo === 'entra') { window.location.href = r.destino ?? '/dashboard'; return; }
+      // Sin respuesta (red, 5xx) se deja el alta de siempre: peor es mandar a
+      // crear el estudio sobre una cuenta que quizá ya tiene uno.
+      if (!r) return;
+      setSesionSinEstudio(true);
+      capturarEvento('alta_estudio_con_sesion');
+    })();
+    return () => { cancelado = true; };
+  }, [cargandoSesion, usuarioId, fase]);
+
   // Guarda a medida que escribe. `yaMontado` evita que el primer render
   // (con el borrador aún vacío) pise lo que acabamos de recuperar.
   useEffect(() => {
@@ -172,7 +212,7 @@ export default function CrearEstudioPage() {
     if (!puedeSeguir) return;
     setTocado(false);
     setError('');
-    setPaso((p) => Math.min(3, p + 1));
+    setPaso((p) => Math.min(ultimoPaso, p + 1));
   }
 
   function atras() {
@@ -221,7 +261,9 @@ export default function CrearEstudioPage() {
         ownerAuthUserId: user.id,
       });
       if (!estudio) {
-        setError('Tu cuenta está creada, pero no hemos podido montar el estudio todavía. Pulsa «Reintentar».');
+        setError(conSesion
+          ? 'No hemos podido montar el estudio todavía. Vuelve a pulsar el botón para intentarlo otra vez.'
+          : 'Tu cuenta está creada, pero no hemos podido montar el estudio todavía. Pulsa «Reintentar».');
         return;
       }
       setCurrentStudioId(estudio.id);
@@ -246,6 +288,7 @@ export default function CrearEstudioPage() {
     setTocado(true);
     if (!puedeSeguir || enviando) return;
     setError('');
+    cuentaNuevaAqui.current = true;
     // El estado de carga se enciende ANTES de pedir el token: Turnstile tarda
     // entre 3 y 7 segundos en emitirlo, y sin esto el botón se queda inerte
     // todo ese rato y la gente lo vuelve a pulsar (bug real de #843).
@@ -305,6 +348,22 @@ export default function CrearEstudioPage() {
       }
 
       // Confirmación de email desactivada en el proyecto: ya hay sesión.
+      await montarEstudio();
+    } catch {
+      setError('No hemos podido crear tu estudio. Revisa tu conexión e inténtalo otra vez.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  // Con la sesión ya abierta no hay cuenta que crear ni código que verificar:
+  // se monta el estudio directamente. El botón sirve también de reintento.
+  async function crearConSesion() {
+    setTocado(true);
+    if (!puedeSeguir || enviando || montando) return;
+    setError('');
+    setEnviando(true);
+    try {
       await montarEstudio();
     } catch {
       setError('No hemos podido crear tu estudio. Revisa tu conexión e inténtalo otra vez.');
@@ -408,7 +467,7 @@ export default function CrearEstudioPage() {
             {datos.estudio} ya está en marcha
           </h1>
           <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-            Tienes {TRIAL_DIAS} días de prueba con todo abierto. No hemos pedido tarjeta y no se te va a cobrar nada.
+            Tienes {TRIAL_DIAS} días de prueba del plan {PLAN_INFO[datos.plan as Plan]?.nombre ?? 'que elegiste'}, con todo lo que incluye. No hemos pedido tarjeta y no se te va a cobrar nada.
           </p>
           {slugCreado && (
             // ⚠️ Decía «tentare.app/{slug}», que da 404: la página pública vive
@@ -452,14 +511,14 @@ export default function CrearEstudioPage() {
   }
 
   // ── El formulario ────────────────────────────────────────────────────────
-  const pasoActual = PASOS[paso - 1];
+  const pasoActual = pasos[Math.min(paso, ultimoPaso) - 1];
 
   return (
     <Marco ancho={paso === 2}>
       {/* Progreso. Es un <ol> con aria-current: un lector de pantalla anuncia
           «paso 2 de 3, Tu plan» en vez de leer tres puntos de adorno. */}
-      <ol className="mb-6 flex items-center gap-1.5" aria-label={`Paso ${paso} de ${PASOS.length}`}>
-        {PASOS.map((p) => {
+      <ol className="mb-6 flex items-center gap-1.5" aria-label={`Paso ${paso} de ${pasos.length}`}>
+        {pasos.map((p) => {
           const hecho = p.n < paso;
           const activo = p.n === paso;
           return (
@@ -488,9 +547,22 @@ export default function CrearEstudioPage() {
           <p className="mt-1 text-[13.5px] text-muted-foreground">{pasoActual.sub}</p>
         </div>
         <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold tabular-nums text-accent-foreground">
-          {paso}/{PASOS.length}
+          {paso}/{pasos.length}
         </span>
       </div>
+
+      {conSesion && paso === 1 && (
+        <p className="mb-4 rounded-xl border border-brand/25 bg-brand/[0.06] px-3.5 py-2.5 text-[12.5px] leading-snug text-foreground">
+          Ya tienes cuenta{user?.email ? <> como <strong>{user.email}</strong></> : null}: solo falta montar tu estudio.{' '}
+          <button
+            type="button"
+            onClick={() => void signOut().then(() => setSesionSinEstudio(false))}
+            className="font-semibold text-brand-medio underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            No soy yo
+          </button>
+        </p>
+      )}
 
       {borradorRecuperado && paso === 1 && (
         <p className="mb-4 flex items-start gap-2 rounded-xl border border-brand/25 bg-brand/[0.06] px-3.5 py-2.5 text-[12.5px] leading-snug text-foreground">
@@ -639,7 +711,7 @@ export default function CrearEstudioPage() {
         )}
         <button
           type="button"
-          onClick={paso === 3 ? crear : siguiente}
+          onClick={paso === ultimoPaso ? (conSesion ? crearConSesion : crear) : siguiente}
           disabled={enviando}
           className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 text-[15px] font-bold text-brand-foreground transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
         >
@@ -648,7 +720,7 @@ export default function CrearEstudioPage() {
               <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
               Creando tu estudio…
             </>
-          ) : paso === 3 ? (
+          ) : paso === ultimoPaso ? (
             <>Empezar mis {TRIAL_DIAS} días gratis</>
           ) : (
             <>Continuar <ArrowRight size={16} aria-hidden="true" /></>
