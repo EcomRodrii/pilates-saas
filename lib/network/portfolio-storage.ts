@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/db/supabase';
-import { validarFotoPerfil } from '@/lib/portal-storage';
+import { validarImagenHastaCincoMb } from '@/lib/portal-storage';
 
 // Portfolio de fotos (F1, red_perfil_media) — subida de la foto en sí.
 //
@@ -32,7 +32,7 @@ const BUCKET = 'red-documentos-identidad';
 export async function subirFotoPortfolioNetwork(
   authUserId: string, file: File,
 ): Promise<{ path: string } | { error: string }> {
-  const invalido = validarFotoPerfil(file);
+  const invalido = validarImagenHastaCincoMb(file);
   if (invalido) return { error: invalido };
 
   const extension = file.name.includes('.') ? file.name.split('.').pop() : null;

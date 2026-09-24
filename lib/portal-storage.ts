@@ -4,6 +4,7 @@ import { redimensionarImagen, LADO_AVATAR, LADO_FOTO_CLASE, LADO_LOGO_CLASE, LAD
 // La higienización de la clave vive en un módulo SIN imports para que
 // `node --test` pueda probarla: no resuelve el alias `@/`, y este fichero lo usa.
 import { claveDeImagenPortal } from '@/lib/storage-clave';
+import { motivoFotoInvalida } from '@/lib/foto-perfil-regla';
 
 // Fotos de perfil de socias — bucket público "avatars" en Supabase Storage.
 // Se sobrescribe siempre el mismo path (sin extensión) para no tener que
@@ -38,19 +39,35 @@ export function validarImagenMarca(file: File, maxBytes: number): string | null 
 export const LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 export const FAVICON_MAX_BYTES = 512 * 1024; // 512 KB
 
-// Guardrail de fotos de perfil (socia/propietaria/instructora): mismo criterio
-// para las 3 — cualquier imagen, hasta 5 MB. Sin recorte: se sube tal cual y
-// se recorta visualmente en círculo (object-fit: cover) al mostrarla.
+// Guardrail de fotos de perfil (socia/propietaria/instructora). Misma regla que
+// la app de la alumna (`lib/foto-perfil-regla.ts`): los formatos son los que el
+// bucket `avatars` acepta de verdad, y el tamaño se mira sobre el fichero YA
+// redimensionado (una foto de móvil de 12 MB queda en ~100 KB). Antes esto
+// admitía cualquier `image/*` y rechazaba >5 MB ANTES de reducir: un HEIC
+// pasaba la validación y Storage lo rechazaba con un error crudo.
 export const FOTO_PERFIL_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 export function validarFotoPerfil(file: File): string | null {
+  return motivoFotoInvalida(file.type, null);
+}
+
+// Para quien sube el ORIGINAL sin redimensionar (documentos de identidad de
+// Network): ahí el tamaño sí hay que mirarlo antes, porque nadie lo reduce.
+export function validarImagenHastaCincoMb(file: File): string | null {
   if (!file.type.startsWith('image/')) return 'Elige un archivo de imagen.';
   if (file.size > FOTO_PERFIL_MAX_BYTES) return 'La imagen no puede superar 5 MB.';
   return null;
 }
 
+// Tamaño del fichero que de verdad se sube (tras `redimensionarImagen`).
+function motivoAvatarSobrepasa(img: File | Blob): string | null {
+  return motivoFotoInvalida(img.type, img.size);
+}
+
 // Foto de perfil de socia — bucket público `avatars`, path = id de la socia.
 export async function subirFotoPerfil(socioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const img = await redimensionarImagen(file, LADO_AVATAR);
+  const motivo = motivoAvatarSobrepasa(img);
+  if (motivo) return { error: motivo };
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(socioId, img, { upsert: true, contentType: img.type });
@@ -249,6 +266,8 @@ export async function eliminarBannerEstudio(bannerId: string): Promise<{ ok: tru
 export async function subirFotoAdmin(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const path = `admin-${studioId}`;
   const img = await redimensionarImagen(file, LADO_AVATAR);
+  const motivo = motivoAvatarSobrepasa(img);
+  if (motivo) return { error: motivo };
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(path, img, { upsert: true, contentType: img.type });
@@ -269,6 +288,8 @@ export async function eliminarFotoAdmin(studioId: string): Promise<{ ok: true } 
 export async function subirFotoInstructor(instructorId: string, file: File): Promise<{ url: string } | { error: string }> {
   const path = `instructor-${instructorId}`;
   const img = await redimensionarImagen(file, LADO_AVATAR);
+  const motivo = motivoAvatarSobrepasa(img);
+  if (motivo) return { error: motivo };
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(path, img, { upsert: true, contentType: img.type });
@@ -315,6 +336,8 @@ export async function eliminarImagenBienvenida(studioId: string): Promise<{ ok: 
 export async function subirFotoPerfilNetwork(perfilId: string, file: File): Promise<{ url: string } | { error: string }> {
   const path = `network-${perfilId}`;
   const img = await redimensionarImagen(file, LADO_AVATAR);
+  const motivo = motivoAvatarSobrepasa(img);
+  if (motivo) return { error: motivo };
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(path, img, { upsert: true, contentType: img.type });
