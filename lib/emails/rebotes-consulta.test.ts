@@ -81,3 +81,40 @@ test('⚠️ la ruta NO acepta correos del cliente: los saca de `socios` del est
   assert.match(src, /eq\('studio_id', sesion\.studioId\)/, 'acotadas al estudio de la SESIÓN');
   assert.match(src, /verificarSesionStaff/, 'y detrás de una sesión de personal');
 });
+
+// ── AUT-4: ahora la consultan los motores de envío ──────────────────────────
+// Va por lotes (el `.in()` viaja en la URL de PostgREST) y un error de lectura
+// NO es «nadie ha rebotado».
+function adminPorLotes(respuesta: (lote: string[]) => { data: { email: string; tipo: string }[] | null; error: { message: string } | null }) {
+  const lotes: string[][] = [];
+  const admin = {
+    from: () => ({
+      select: () => ({
+        in: async (_col: string, lote: string[]) => { lotes.push(lote); return respuesta(lote); },
+      }),
+    }),
+  };
+  return { admin: admin as unknown as Parameters<typeof rebotesDeEmails>[0], lotes };
+}
+
+test('AUT-4: 450 direcciones se preguntan en tres lotes de a lo sumo 200', async () => {
+  const emails = Array.from({ length: 450 }, (_, i) => `socia${i}@example.com`);
+  const { admin, lotes } = adminPorLotes(() => ({ data: [], error: null }));
+  await rebotesDeEmails(admin, emails);
+  assert.deepEqual(lotes.map(l => l.length), [200, 200, 50]);
+});
+
+test('AUT-4: devuelve las rotas de todos los lotes, normalizadas', async () => {
+  const emails = Array.from({ length: 250 }, (_, i) => `socia${i}@example.com`);
+  const { admin } = adminPorLotes((lote) => ({
+    data: lote.filter(e => e === 'socia3@example.com' || e === 'socia230@example.com').map(email => ({ email, tipo: 'REBOTE' })),
+    error: null,
+  }));
+  const rotos = await rebotesDeEmails(admin, [...emails, 'SOCIA3@Example.com']);
+  assert.deepEqual([...rotos.keys()].sort(), ['socia230@example.com', 'socia3@example.com']);
+});
+
+test('⚠️ AUT-4: un error de lectura lanza, no se toma por una lista limpia', async () => {
+  const { admin } = adminPorLotes(() => ({ data: null, error: { message: 'timeout' } }));
+  await assert.rejects(() => rebotesDeEmails(admin, ['a@example.com']), /email_rebotes/);
+});

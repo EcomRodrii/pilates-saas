@@ -1,6 +1,8 @@
 import { inngest, EVENTS } from './client';
 import { Resend } from 'resend';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { rebotesDeEmails } from '@/lib/emails/rebotes-consulta';
+import { normalizarEmail } from '@/lib/emails/rebotes';
 import { mapCampana } from '@/lib/supabase-data';
 import { fetchAllStudioDataServidor } from '@/lib/db/supabase-data-admin';
 import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
@@ -177,7 +179,25 @@ export const procesarEnvioCampana = inngest.createFunction(
     for (const row of filasConsentimiento) {
       if (row.consentimiento_marketing_texto) consentimientos.set(row.id, row.consentimiento_marketing_texto);
     }
-    const destinatarias = filtrarPorConsentimientoMarketing(porCanal, consentimientos, textoVigente);
+    // ⚠️ AUT-4: una campaña por email no escribe a un buzón que `email_rebotes`
+    // ya tiene como roto (rebote definitivo, queja o supresión). Resend acepta
+    // el envío a una dirección suprimida con 200 + id y lo descarta, así que se
+    // contaba como «enviado» un correo que nunca salió, y el remitente compartido
+    // seguía escribiendo a un buzón que ya rebotó (reputación de todos los
+    // estudios). Se excluyen COMO las sin consentimiento: no cuentan ni como
+    // enviadas ni como fallidas. Lista y no Map: el resultado de un step se
+    // serializa.
+    const emailsRotos = campana.tipo === 'EMAIL'
+      ? new Set(await step.run('fetch-rebotes', async () => {
+        const dirs = porCanal.map(s => s.email);
+        if (!dirs.length) return [] as string[];
+        return [...(await rebotesDeEmails(requireSupabaseAdmin(), dirs)).keys()];
+      }))
+      : new Set<string>();
+    const sinRotos = campana.tipo === 'EMAIL'
+      ? porCanal.filter(s => !emailsRotos.has(normalizarEmail(s.email as string)))
+      : porCanal;
+    const destinatarias = filtrarPorConsentimientoMarketing(sinRotos, consentimientos, textoVigente);
 
     const apiKey = process.env.RESEND_API_KEY;
     const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;

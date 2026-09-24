@@ -28,8 +28,16 @@ export async function rebotesDeEmails(
   // por nada — y la pantalla que la dispara puede no tener ni una socia.
   if (!buscar.length) return new Map();
 
-  const { data } = await admin.from('email_rebotes').select('email, tipo').in('email', buscar);
-  return new Map(
-    (data ?? []).map((r) => [normalizarEmail(r.email as string), r.tipo as TipoRebote]),
-  );
+  // Por lotes: `.in()` viaja en la URL de PostgREST, y una campaña a miles de
+  // socias la pasaría de largo (414 / respuesta vacía). 200 direcciones por
+  // consulta caben de sobra.
+  const rotos = new Map<string, TipoRebote>();
+  for (let i = 0; i < buscar.length; i += 200) {
+    const { data, error } = await admin.from('email_rebotes').select('email, tipo').in('email', buscar.slice(i, i + 200));
+    // Un error NO es «nadie ha rebotado»: quien decide no enviar a un buzón roto
+    // no puede tomar un fallo de lectura por una lista limpia.
+    if (error) throw new Error(`email_rebotes: ${error.message}`);
+    for (const r of data ?? []) rotos.set(normalizarEmail(r.email as string), r.tipo as TipoRebote);
+  }
+  return rotos;
 }

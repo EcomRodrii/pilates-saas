@@ -101,6 +101,7 @@ export interface RowAutomationLogs {
   automatizacion_id: string | null;
   // migr 0062.
   mensaje_cliente: string | null;
+  provider_id: string | null;
 }
 
 export interface RowAutomationRules {
@@ -3498,6 +3499,7 @@ export type AutomationLogsInsert = {
   recibo_id?: string | null | null;
   automatizacion_id?: string | null | null;
   mensaje_cliente?: string | null | null;
+  provider_id?: string | null | null;
 }
 
 export type AutomationLogsUpdate = {
@@ -3516,6 +3518,7 @@ export type AutomationLogsUpdate = {
   recibo_id?: string | null | null;
   automatizacion_id?: string | null | null;
   mensaje_cliente?: string | null | null;
+  provider_id?: string | null | null;
 }
 
 export type AutomationRulesInsert = {

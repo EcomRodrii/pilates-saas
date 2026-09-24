@@ -1559,6 +1559,8 @@ export interface AutomationLog {
   ejecutadoEn: string;
   proximaAccionEn: string | null;
   reciboId?: string | null;
+  /** Id del envío en el proveedor (Resend), para cruzarlo con sus webhooks. */
+  proveedorId?: string | null;
 }
 
 // Índice ligero de automation_logs para dedup "de por vida" — AU-3 (auditoría

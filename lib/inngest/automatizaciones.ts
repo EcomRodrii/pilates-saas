@@ -17,6 +17,8 @@ import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import { appUrl, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { rebotesDeEmails } from '@/lib/emails/rebotes-consulta';
+import { normalizarEmail } from '@/lib/emails/rebotes';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
 import * as Sentry from '@sentry/nextjs';
@@ -138,6 +140,25 @@ interface ProcesarOpts {
   // configuración de la plataforma: WhatsApp dejó de ser un secreto único de
   // Tentare cuando se retiró Twilio (ver WHATSAPP_AUDIT.md §0).
   whatsapp: WhatsAppDelEstudio | null;
+  /**
+   * AUT-4: direcciones (normalizadas) que `email_rebotes` tiene como rotas
+   * —rebote definitivo, queja o supresión—. Solo frena el correo COMERCIAL: un
+   * aviso de servicio sigue saliendo (ver lib/emails/rebotes.ts). Resend acepta
+   * un envío a una dirección suprimida con 200 + id y lo descarta, así que sin
+   * este corte el log decía «Email enviado a X» de un correo que nunca salió, y
+   * el remitente compartido seguía escribiendo a un buzón que ya rebotó.
+   */
+  emailsRotos?: ReadonlySet<string>;
+}
+
+// ⚠️ AUT-C: el log ES la idempotencia del motor (`automation_logs` solo tiene
+// PRIMARY KEY (id) y la deduplicación del día siguiente se calcula sobre él).
+// Si no se pudo escribir y el step termina «bien», Inngest lo memoiza y al día
+// siguiente el candidato vuelve a salir. Lanzar hace que el step se reintente;
+// el reenvío lo frena la Idempotency-Key de Resend (= id del log).
+async function guardarLogOFallar(log: AutomationLog): Promise<void> {
+  const r = await dbUpsertAutomationLog(log);
+  if (!r.ok) throw new Error(`No se pudo guardar el log de automatización ${log.id}: ${r.error}`);
 }
 
 // Procesa UN candidato: decide resultado, redacta con IA si aplica, manda el
@@ -271,6 +292,9 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     // ENVIAR_EMAIL sin mensajeCliente sería exactamente el patrón del bug si
     // se intentara enviar otra cosa por defecto — mejor fallar explícito.
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para la clienta', mensajeCliente: null };
+  } else if (c.comercial && opts.emailsRotos?.has(normalizarEmail(c.socio.email))) {
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, mensajeCliente: c.mensajeCliente ?? null,
+      detalle: `${c.socio.nombre} tiene el correo marcado como roto (rebote, queja o baja del proveedor): no se le escribe. Corrígelo en su ficha.` };
   } else {
     const email = c.socio.email;
     const html = correoAutomatizacion({
@@ -302,7 +326,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     if (!r.ok) {
       log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Resend', mensajeCliente: c.mensajeCliente };
     } else {
-      log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"`, mensajeCliente: c.mensajeCliente };
+      log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"`, mensajeCliente: c.mensajeCliente, proveedorId: r.id ?? null };
     }
   }
 
@@ -311,7 +335,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
   // docs/marketing-solape-motores-diseno.md §2 y senales-inactividad.ts.
   if (c.marcaInactividad) log = { ...log, detalle: `${MARCA_INACTIVIDAD} ${log.detalle}` };
 
-  if (!dry) await dbUpsertAutomationLog(log);
+  if (!dry) await guardarLogOFallar(log);
   return log;
 }
 
@@ -424,6 +448,9 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     // en inglés ("Invalid `to` field...") a la propietaria.
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog,
       detalle: `${c.socio.nombre} tiene un email de ejemplo (${c.socio.email}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.` };
+  } else if (opts.emailsRotos?.has(normalizarEmail(c.socio.email))) {
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog,
+      detalle: `${c.socio.nombre} tiene el correo marcado como roto (rebote, queja o baja del proveedor): no se le escribe. Corrígelo en su ficha.` };
   } else {
     const html = correoAutomatizacion({
       socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, marca,
@@ -437,7 +464,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     });
     log = !r.ok
       ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Resend' }
-      : { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.asunto}"` };
+      : { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.asunto}"`, proveedorId: r.id ?? null };
   }
 
   // Marca el log como parte de la señal "socia inactiva" para que el motor
@@ -445,7 +472,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
   // docs/marketing-solape-motores-diseno.md §2 y senales-inactividad.ts.
   if (c.marcaInactividad) log = { ...log, detalle: `${MARCA_INACTIVIDAD} ${log.detalle}` };
 
-  if (!dry) await dbUpsertAutomationLog(log);
+  if (!dry) await guardarLogOFallar(log);
   return log;
 }
 
@@ -658,6 +685,15 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       now
     );
 
+    // AUT-4: qué direcciones de estas candidatas están rotas. Lista (no Map):
+    // lo que devuelve un step.run se serializa y un Map llegaría vacío en el replay.
+    const rotosClasico = await step.run('fetch-rebotes', async () => {
+      const dirs = candidatos.filter(c => c.comercial).map(c => c.socio?.email);
+      if (!dirs.length) return [] as string[];
+      return [...(await rebotesDeEmails(requireSupabaseAdmin(), dirs)).keys()];
+    });
+    const emailsRotosClasico = new Set(rotosClasico);
+
     let emailsEnviados = 0, fallidos = 0, cobrosPropuestos = 0;
     const firedPorRegla = new Map<string, number>();
 
@@ -666,7 +702,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       // id de step estable entre replays (índice + regla). Cada candidato es
       // un paso durable e independiente.
       const log = await step.run(`candidato-${i}-${c.rule.id}`, () =>
-        procesarCandidato(c, { studioId, studioNombre, marca, nowISO, dry, resend, whatsapp })
+        procesarCandidato(c, { studioId, studioNombre, marca, nowISO, dry, resend, whatsapp, emailsRotos: emailsRotosClasico })
       );
 
       if (c.accion === 'COBRAR_RECIBO') cobrosPropuestos++;
@@ -701,12 +737,18 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       },
       now,
     );
+    const rotosMkt = await step.run('fetch-rebotes-mkt', async () => {
+      const dirs = mktCandidatos.filter(c => c.canal === 'EMAIL').map(c => c.socio.email);
+      if (!dirs.length) return [] as string[];
+      return [...(await rebotesDeEmails(requireSupabaseAdmin(), dirs)).keys()];
+    });
+    const emailsRotosMkt = new Set(rotosMkt);
     let mktEnviados = 0, mktFallidos = 0;
     const firedPorAuto = new Map<string, number>();
     for (let i = 0; i < mktCandidatos.length; i++) {
       const c = mktCandidatos[i];
       const log = await step.run(`mkt-${i}-${c.automatizacion.id}-${c.socio.id}`, () =>
-        procesarCandidatoMkt(c, { studioId, studioNombre, marca, nowISO, dry, resend, whatsapp }),
+        procesarCandidatoMkt(c, { studioId, studioNombre, marca, nowISO, dry, resend, whatsapp, emailsRotos: emailsRotosMkt }),
       );
       if (log.resultado === 'EJECUTADO') mktEnviados++; else if (log.resultado === 'FALLIDO') mktFallidos++;
       firedPorAuto.set(c.automatizacion.id, (firedPorAuto.get(c.automatizacion.id) ?? 0) + 1);

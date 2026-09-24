@@ -6258,7 +6258,12 @@ export async function checkinPublico(params: { studioId: string; reservaId: stri
 // ─── Mappers: TS (camelCase) → DB (snake_case) ───────────────────────────────
 
 
-export async function dbUpsertAutomationLog(log: AutomationLog) {
+// ⚠️ Auditoría 2026-09-24 (AUT-C): antes no devolvía nada, y `reportDbError` no
+// lanza. Si el upsert fallaba, Inngest memoizaba el step como correcto y al día
+// siguiente el motor —que deduplica SOLO sobre `automation_logs`— no encontraba
+// el log y reemitía el candidato. Ahora el llamante decide: el motor lanza para
+// que el step se reintente (la Idempotency-Key de Resend evita el reenvío).
+export async function dbUpsertAutomationLog(log: AutomationLog): Promise<ResultadoEscritura> {
   const row = {
     id: log.id,
     studio_id: log.studioId ?? getCurrentStudioId(),
@@ -6276,9 +6281,15 @@ export async function dbUpsertAutomationLog(log: AutomationLog) {
     ejecutado_en: log.ejecutadoEn,
     proxima_accion_en: log.proximaAccionEn,
     recibo_id: log.reciboId ?? null,
+    // AUT-6: el id del envío en Resend, para cruzar un rebote con su envío.
+    provider_id: log.proveedorId ?? null,
   };
   const { error } = await dbEscritura().from('automation_logs').upsert(row, { onConflict: 'id' });
-  if (error) reportDbError('[dbUpsertAutomationLog]', error);
+  if (error) {
+    reportDbError('[dbUpsertAutomationLog]', error);
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
 }
 
 // `studioId` obligatorio: dbEscritura() es service-role (bypasa RLS), así que
