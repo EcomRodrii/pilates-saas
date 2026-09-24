@@ -3,6 +3,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { mensajeSeguro } from '@/lib/errores';
 import { postPublicoWidget } from '@/lib/reservar/api-publica';
+import { esAvisoPuenteListo, TIPO_EMAIL_DEL_INTENTO } from '@/lib/widget/puente-sesion';
 
 // Acciones de login/registro del bundle embebible (Modo B) — Fase 2 del
 // Booking Engine, ver docs/auth-widget-diseno.md. Separado de
@@ -37,6 +38,9 @@ export function urlRetornoWidgetAuth(baseUrl: string, slug: string, nonce: strin
 export function useAuthWidget(slug: string, baseUrl: string) {
   // Nonce del intento de enlace en curso (null = no hay ninguno).
   const intentoRef = useRef<string | null>(null);
+  // Su email: el puente lo pide para comprobar el CÓDIGO que le llega por
+  // correo a una alumna nueva (ver lib/widget/puente-sesion.ts).
+  const emailIntentoRef = useRef<string | null>(null);
 
   // Escucha el mensaje que manda app/widget-auth-retorno/page.tsx al
   // completar el magic link. Solo acepta mensajes cuyo origen sea EXACTAMENTE
@@ -47,10 +51,22 @@ export function useAuthWidget(slug: string, baseUrl: string) {
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       if (!baseUrl || e.origin !== baseUrl) return;
+      // El puente de ESTE intento está listo y pide el email. Se contesta solo a
+      // la ventana que lo pide y solo al origen de Tentare.
+      if (esAvisoPuenteListo(e.data, intentoRef.current)) {
+        if (emailIntentoRef.current && e.source && 'postMessage' in e.source) {
+          (e.source as Window).postMessage(
+            { tipo: TIPO_EMAIL_DEL_INTENTO, nonce: intentoRef.current, email: emailIntentoRef.current },
+            baseUrl,
+          );
+        }
+        return;
+      }
       const data = e.data as { tipo?: string; ok?: boolean; nonce?: string; access_token?: string; refresh_token?: string } | null;
       if (data?.tipo !== 'tentare-widget-auth' || !data.ok || !data.access_token || !data.refresh_token) return;
       if (!intentoRef.current || data.nonce !== intentoRef.current) return;
       intentoRef.current = null;
+      emailIntentoRef.current = null;
       void supabasePortal.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
     }
     window.addEventListener('message', onMessage);
@@ -60,9 +76,10 @@ export function useAuthWidget(slug: string, baseUrl: string) {
   // Abre un intento nuevo de acceso por enlace y devuelve su nonce. Llamar UNA
   // vez por clic, antes de `window.open`, y pasar ese mismo valor a
   // `enviarEnlace`.
-  const nuevoIntentoEnlace = useCallback((): string => {
+  const nuevoIntentoEnlace = useCallback((email: string): string => {
     const nonce = crypto.randomUUID();
     intentoRef.current = nonce;
+    emailIntentoRef.current = email.trim();
     return nonce;
   }, []);
 

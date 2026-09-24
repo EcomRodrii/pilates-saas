@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nonceValido, sesionAutenticadaPorEmailDespuesDe, TOLERANCIA_PUENTE_MS } from './puente-sesion.ts';
+import {
+  emailDelIntento, esAvisoPuenteListo, nonceValido, sesionAutenticadaPorEmailDespuesDe, TOLERANCIA_PUENTE_MS,
+  TIPO_EMAIL_DEL_INTENTO, TIPO_PUENTE_LISTO,
+} from './puente-sesion.ts';
 
 function b64url(obj: unknown): string {
   return Buffer.from(JSON.stringify(obj)).toString('base64url');
@@ -94,4 +97,28 @@ test('nonceValido acepta un UUID y rechaza lo demás', () => {
   assert.equal(nonceValido('3f1c2a4e 9b7d 4c1e 8a2b'), false);
   assert.equal(nonceValido('<script>alert(1)</script>xx'), false);
   assert.equal(nonceValido(['3f1c2a4e-9b7d-4c1e-8a2b-5d6e7f8a9b0c']), false);
+});
+
+// ── Código del correo dentro del puente ──────────────────────────────────────
+const NONCE = '0123456789abcdef-intento';
+
+test('el widget solo atiende el «listo» del puente de SU intento', () => {
+  assert.equal(esAvisoPuenteListo({ tipo: TIPO_PUENTE_LISTO, nonce: NONCE }, NONCE), true);
+  assert.equal(esAvisoPuenteListo({ tipo: TIPO_PUENTE_LISTO, nonce: 'otro-intento-cualquiera' }, NONCE), false);
+  // Sin intento en curso no se contesta a nadie.
+  assert.equal(esAvisoPuenteListo({ tipo: TIPO_PUENTE_LISTO, nonce: NONCE }, null), false);
+  assert.equal(esAvisoPuenteListo({ tipo: 'tentare-widget-auth', nonce: NONCE }, NONCE), false);
+  assert.equal(esAvisoPuenteListo(null, NONCE), false);
+  assert.equal(esAvisoPuenteListo('listo', NONCE), false);
+});
+
+test('el puente acepta el email de su intento, y solo con forma de email', () => {
+  assert.equal(emailDelIntento({ tipo: TIPO_EMAIL_DEL_INTENTO, nonce: NONCE, email: ' nueva@example.com ' }, NONCE), 'nueva@example.com');
+  assert.equal(emailDelIntento({ tipo: TIPO_EMAIL_DEL_INTENTO, nonce: 'otro-intento-cualquiera', email: 'nueva@example.com' }, NONCE), null);
+  assert.equal(emailDelIntento({ tipo: TIPO_EMAIL_DEL_INTENTO, nonce: NONCE, email: 'no-es-un-email' }, NONCE), null);
+  assert.equal(emailDelIntento({ tipo: TIPO_EMAIL_DEL_INTENTO, nonce: NONCE, email: 42 }, NONCE), null);
+  assert.equal(emailDelIntento({ tipo: TIPO_EMAIL_DEL_INTENTO, nonce: NONCE, email: `${'a'.repeat(250)}@example.com` }, NONCE), null);
+  assert.equal(emailDelIntento({ tipo: TIPO_PUENTE_LISTO, nonce: NONCE, email: 'nueva@example.com' }, NONCE), null);
+  // Un puente sin nonce válido no tiene intento: no acepta nada.
+  assert.equal(emailDelIntento({ tipo: TIPO_EMAIL_DEL_INTENTO, nonce: NONCE, email: 'nueva@example.com' }, null), null);
 });

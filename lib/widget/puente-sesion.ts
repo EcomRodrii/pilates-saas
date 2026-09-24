@@ -63,3 +63,39 @@ export function sesionAutenticadaPorEmailDespuesDe(
 export function nonceValido(nonce: unknown): nonce is string {
   return typeof nonce === 'string' && /^[A-Za-z0-9-]{16,64}$/.test(nonce);
 }
+
+// ── El código del correo, dentro del puente ─────────────────────────────────
+//
+// A una alumna NUEVA no le llega el enlace: gotrue le manda el correo de alta,
+// que solo trae un código de 6 cifras (lib/student/codigo-del-correo.ts). Ese
+// código se escribe en la ventana del puente —la que el widget acaba de abrir y
+// tiene el foco—, que es mismo origen que el endpoint que lo comprueba. La
+// sesión que abre pasa por el MISMO filtro que la de un enlace
+// (`sesionAutenticadaPorEmailDespuesDe`), así que el puente no gana ninguna vía
+// nueva de reenviar sesiones.
+//
+// Para comprobar el código hace falta el email, y no viaja en la URL (serían
+// datos personales en el historial): el puente avisa al widget de que está
+// listo y el widget le contesta con el email del intento. Los dos mensajes
+// llevan el nonce del intento, y cada lado comprueba además el origen.
+export const TIPO_PUENTE_LISTO = 'tentare-widget-puente-listo';
+export const TIPO_EMAIL_DEL_INTENTO = 'tentare-widget-email';
+
+/** Lo que el widget acepta del puente: su aviso de «listo», del intento en curso. */
+export function esAvisoPuenteListo(datos: unknown, nonceEnCurso: string | null): boolean {
+  if (!nonceEnCurso || !datos || typeof datos !== 'object') return false;
+  const { tipo, nonce } = datos as { tipo?: unknown; nonce?: unknown };
+  return tipo === TIPO_PUENTE_LISTO && nonce === nonceEnCurso;
+}
+
+/**
+ * El email que el widget manda al puente, o `null` si el mensaje no es del
+ * intento de este puente o no trae un email con forma de email.
+ */
+export function emailDelIntento(datos: unknown, nonce: string | null): string | null {
+  if (!nonce || !datos || typeof datos !== 'object') return null;
+  const { tipo, nonce: suNonce, email } = datos as { tipo?: unknown; nonce?: unknown; email?: unknown };
+  if (tipo !== TIPO_EMAIL_DEL_INTENTO || suNonce !== nonce || typeof email !== 'string') return null;
+  const limpio = email.trim();
+  return limpio.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(limpio) ? limpio : null;
+}
