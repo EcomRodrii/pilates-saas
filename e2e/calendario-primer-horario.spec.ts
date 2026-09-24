@@ -23,8 +23,14 @@ const TIPOS = [
   { id: 'tc-2', studioId: 's', nombre: 'Mat', color: '#8FC98A', duracionMinutos: 50, nivel: 'TODOS', activo: true },
 ];
 const SALAS = [{ id: 'sala-1', studioId: 's', nombre: 'Sala', capacidad: 8, color: '#7FB2E5' }];
+// La propietaria que da clases ella misma: con UNA instructora la propuesta ya
+// las asigna y no hay nada que preguntar. Los tests de «equipo vacío» pasan [].
+const CARMEN = {
+  id: 'ins-1', studioId: 's', nombre: 'Carmen Ruiz', email: null, telefono: null, color: '#7FB2E5',
+  activo: true, rol: 'PROPIETARIO', authUserId: AUTH_UID,
+};
 
-async function montar(page: Page, { conClases = false, tiposClase = TIPOS } = {}) {
+async function montar(page: Page, { conClases = false, tiposClase = TIPOS, instructores = [CARMEN] as unknown[] } = {}) {
   const importaciones: Record<string, unknown>[] = [];
   await page.addInitScript(([k, u]) => {
     localStorage.setItem(k, JSON.stringify({
@@ -45,7 +51,7 @@ async function montar(page: Page, { conClases = false, tiposClase = TIPOS } = {}
     aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null, serieId: null,
   };
   await page.route('**/api/calendario**', r => json(r, {
-    sesiones: conClases ? [SESION] : [], reservas: [], sustituciones: [], salas: SALAS, instructores: [],
+    sesiones: conClases ? [SESION] : [], reservas: [], sustituciones: [], salas: SALAS, instructores,
     horaApertura: '07:00:00', horaCierre: '22:00:00', horarioSemana: [], rol: 'PROPIETARIO',
   }));
   await page.route('**/api/clases/import', r => {
@@ -53,6 +59,12 @@ async function montar(page: Page, { conClases = false, tiposClase = TIPOS } = {}
     return json(r, { ok: true, creadas: 80, omitidas: 0, tiposCreados: 0, sinInstructor: 0, sinSala: 0, errores: [] });
   });
   await page.route('**/rest/v1/**', r => json(r, []));
+  // Las instructoras del contexto salen de Supabase (filas en snake_case), no de
+  // /api/calendario: sin esto el equipo salía siempre vacío.
+  await page.route('**/rest/v1/instructores**', r => json(r, (instructores as Record<string, unknown>[]).map(i => ({
+    id: i.id, studio_id: i.studioId, nombre: i.nombre, email: i.email, telefono: i.telefono,
+    color: i.color, activo: i.activo, rol: i.rol, auth_user_id: i.authUserId,
+  }))));
   await page.route('**/rest/v1/tipos_clase**', r => json(r, tiposClase));
   await page.route('**/rest/v1/salas**', r => json(r, SALAS));
   await page.route('**/rest/v1/studios**', r => json(r, {
@@ -179,4 +191,110 @@ test('«Lo monto yo» no crea nada', async ({ page }) => {
   await page.getByRole('button', { name: 'Lo monto yo' }).click();
   await expect(page.getByRole('heading', { name: 'Tu horario todavía está vacío' })).toBeVisible();
   expect(importaciones).toHaveLength(0);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ¿Quién da las clases? — el cuello de botella de las altas nuevas.
+//
+// Con el equipo vacío la propuesta creaba las clases SIN instructora (el estudio
+// nuevo de un día tenía 80 clases y ninguna instructora) y la primera pantalla
+// tras «crear» ya traía avisos que la propietaria no entendía. Ahora se pregunta
+// antes, y las clases nacen a nombre de quien las da. Todos con contador: sin él,
+// «las clases llevan su instructora» pasaría igual si la petición no saliera.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Con el equipo vacío se pregunta quién da las clases', () => {
+  test('con una instructora en el equipo NO se pregunta', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByRole('button', { name: 'Ver el horario propuesto' })).toBeEnabled({ timeout: 30_000 });
+    await expect(page.getByText('¿Quién da las clases?')).toHaveCount(0);
+  });
+
+  test('sin equipo pregunta, y no deja seguir hasta contestar', async ({ page }) => {
+    await montar(page, { instructores: [] });
+    await expect(page.getByText('¿Quién da las clases?')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Ver el horario propuesto' })).toBeDisabled();
+    // «Otra persona» sin nombre tampoco vale.
+    await page.getByRole('button', { name: 'Otra persona' }).click();
+    await expect(page.getByRole('button', { name: 'Ver el horario propuesto' })).toBeDisabled();
+    await page.getByRole('textbox', { name: 'Nombre de la instructora' }).fill('Marta López');
+    await expect(page.getByRole('button', { name: 'Ver el horario propuesto' })).toBeEnabled();
+  });
+
+  test('«Otra persona»: se da de alta con su nombre y las clases salen a su nombre', async ({ page }) => {
+    const altas: Record<string, unknown>[] = [];
+    const { importaciones } = await montar(page, { instructores: [] });
+    await page.route('**/api/equipo', r => {
+      if (r.request().method() === 'POST') { altas.push(r.request().postDataJSON() as Record<string, unknown>); return json(r, { ok: true }); }
+      return json(r, {});
+    });
+    await expect(page.getByText('¿Quién da las clases?')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Otra persona' }).click();
+    await page.getByRole('textbox', { name: 'Nombre de la instructora' }).fill('Marta   López');
+    await page.getByRole('button', { name: 'Ver el horario propuesto' }).click();
+
+    await expect.poll(() => altas.length, { timeout: 15_000 }).toBe(1);
+    expect(altas[0]).toMatchObject({ nombre: 'Marta López', rol: 'INSTRUCTOR', activo: true });
+    await expect(page.getByRole('heading', { name: 'Este sería tu horario' })).toBeVisible();
+    await page.getByRole('button', { name: 'Crear este horario' }).click();
+
+    await expect.poll(() => importaciones.length, { timeout: 15_000 }).toBe(1);
+    const filas = (importaciones[0] as { rows: { instructor: string | null }[] }).rows;
+    expect(filas.length).toBeGreaterThan(0);
+    for (const f of filas) expect(f.instructor).toBe('Marta López');
+  });
+
+  test('si no se puede añadir a esa persona, lo dice y NO sigue a una propuesta sin instructora', async ({ page }) => {
+    let intentos = 0;
+    await montar(page, { instructores: [] });
+    await page.route('**/api/equipo', r => { intentos++; return json(r, { error: 'No se ha podido guardar a esa persona.' }, 500); });
+    await expect(page.getByText('¿Quién da las clases?')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Otra persona' }).click();
+    await page.getByRole('textbox', { name: 'Nombre de la instructora' }).fill('Marta López');
+    await page.getByRole('button', { name: 'Ver el horario propuesto' }).click();
+
+    await expect.poll(() => intentos, { timeout: 15_000 }).toBeGreaterThan(0);
+    // Sale el mensaje del servidor, no un «listo» mudo.
+    await expect(page.getByText('No se ha podido guardar a esa persona.').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Este sería tu horario' })).toHaveCount(0);
+  });
+
+  test('«Las doy yo»: la ficha la crea el servidor y las clases salen con ese nombre', async ({ page }) => {
+    const configuraciones: Record<string, unknown>[] = [];
+    const { importaciones } = await montar(page, { instructores: [] });
+    await page.route('**/api/onboarding/configurar', r => {
+      configuraciones.push(r.request().postDataJSON() as Record<string, unknown>);
+      return json(r, { ok: true, salas: 0, tiposClase: 0, planes: 0, instructora: true, instructoraNombre: 'Carmen Ruiz' });
+    });
+    await expect(page.getByText('¿Quién da las clases?')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Las doy yo' }).click();
+    await page.getByRole('button', { name: 'Ver el horario propuesto' }).click();
+
+    await expect.poll(() => configuraciones.length, { timeout: 15_000 }).toBe(1);
+    expect(configuraciones[0]).toMatchObject({ imparteClases: true, origen: 'calendario' });
+    await expect(page.getByRole('heading', { name: 'Este sería tu horario' })).toBeVisible();
+    await page.getByRole('button', { name: 'Crear este horario' }).click();
+
+    await expect.poll(() => importaciones.length, { timeout: 15_000 }).toBe(1);
+    const filas = (importaciones[0] as { rows: { instructor: string | null }[] }).rows;
+    for (const f of filas) expect(f.instructor).toBe('Carmen Ruiz');
+  });
+
+  test('«Lo decido luego»: sigue sin llamar a nadie y avisa de lo que pasa', async ({ page }) => {
+    let altas = 0;
+    let configuraciones = 0;
+    const { importaciones } = await montar(page, { instructores: [] });
+    await page.route('**/api/equipo', r => { altas++; return json(r, { ok: true }); });
+    await page.route('**/api/onboarding/configurar', r => { configuraciones++; return json(r, { ok: true }); });
+    await expect(page.getByText('¿Quién da las clases?')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Lo decido luego' }).click();
+    await expect(page.getByText(/Se crearán sin instructora/)).toBeVisible();
+    await page.getByRole('button', { name: 'Ver el horario propuesto' }).click();
+    await expect(page.getByRole('heading', { name: 'Este sería tu horario' })).toBeVisible();
+    await page.getByRole('button', { name: 'Crear este horario' }).click();
+
+    await expect.poll(() => importaciones.length, { timeout: 15_000 }).toBe(1);
+    expect(altas).toBe(0);
+    expect(configuraciones).toBe(0);
+    for (const f of (importaciones[0] as { rows: { instructor: string | null }[] }).rows) expect(f.instructor).toBeNull();
+  });
 });

@@ -27,10 +27,13 @@ import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { capturarEvento } from '@/lib/posthog-cliente';
 import { DIAS_SEMANA } from '@/lib/onboarding/horario-propuesto';
 import {
-  OPCIONES_AFORO, OPCIONES_DURACION, OPCIONES_SALAS, TIPOS_CLASE_SUGERIDOS,
+  OPCIONES_AFORO, OPCIONES_DURACION, OPCIONES_IMPARTE, OPCIONES_SALAS, TIPOS_CLASE_SUGERIDOS,
   interpretarRespuestasWizard, planificarConfiguracion, type PlanConfiguracion,
 } from '@/lib/onboarding/plan-configuracion';
 import { PropuestaHorario, type ResultadoPropuesta } from '@/components/onboarding/propuesta-horario';
+import {
+  hayQuePreguntarQuien, nombreDeInstructora, quienContestado, type QuienDaLasClases,
+} from '@/lib/onboarding/quien-da-las-clases';
 import { ListoParaReservar } from '@/components/onboarding/listo-para-reservar';
 
 /**
@@ -55,6 +58,8 @@ export function PrimerHorario({
   slug,
   nombreEstudio,
   instructora = null,
+  sinEquipo = false,
+  onCrearInstructora,
 }: {
   horaApertura: string;
   horaCierre: string;
@@ -62,6 +67,10 @@ export function PrimerHorario({
   salas: { nombre: string; capacidad: number }[];
   /** Quién da las clases si el equipo es una sola persona; null = no se sabe. */
   instructora?: string | null;
+  /** No hay NINGUNA instructora en el equipo: hay que preguntar quién da las clases. */
+  sinEquipo?: boolean;
+  /** Da de alta a otra persona como instructora (solo su nombre). */
+  onCrearInstructora?: (nombre: string) => Promise<{ ok: boolean; error?: string }>;
   onCreado: (creadas: number) => void;
   /** Una instructora ve el calendario vacío igual, pero no puede sembrarlo. */
   puedeCrear: boolean;
@@ -81,6 +90,14 @@ export function PrimerHorario({
   const [duracionSel, setDuracionSel] = useState<string | null>(null);
   const [salasSel, setSalasSel] = useState<string | null>(null);
   const [aforoSel, setAforoSel] = useState<string | null>(null);
+  // ¿Quién da las clases? Solo se pregunta con el equipo vacío (ver
+  // lib/onboarding/quien-da-las-clases.ts). `instructoraElegida` es el nombre con
+  // el que quedó su ficha; `recargar` avisa de que el contexto del panel no la
+  // conoce (la creó el servidor) y hay que recargar al seguir.
+  const [quien, setQuien] = useState<QuienDaLasClases | null>(null);
+  const [nombreOtra, setNombreOtra] = useState('');
+  const [instructoraElegida, setInstructoraElegida] = useState<string | null>(null);
+  const [recargar, setRecargar] = useState(false);
   const [montando, setMontando] = useState(false);
   const [errorMontaje, setErrorMontaje] = useState<string | null>(null);
   // Lo que acabamos de crear. El contexto del panel no lo tiene hasta recargar,
@@ -96,9 +113,11 @@ export function PrimerHorario({
 
   const faltanTipos = tiposEf.length === 0;
   const faltanSalas = salasEf.length === 0;
+  const faltaQuien = hayQuePreguntarQuien({ puedeCrear, sinEquipo, instructoraYaElegida: instructoraElegida ?? instructora });
   const preguntasCompletas =
     (!faltanTipos || (clasesSel.length > 0 && duracionSel != null))
-    && (!faltanSalas || (salasSel != null && aforoSel != null));
+    && (!faltanSalas || (salasSel != null && aforoSel != null))
+    && (!faltaQuien || quienContestado(quien, nombreOtra));
 
   const entrada = useMemo(() => ({
     dias,
@@ -109,8 +128,8 @@ export function PrimerHorario({
     // Cada sala con SU aforo: antes iba solo el de la primera y todo acababa
     // en ella (evaluación del 13-sep).
     salas: salasEf.map((s) => ({ nombre: s.nombre, capacidad: s.capacidad })),
-    instructora,
-  }), [dias, horaApertura, horaCierre, tiposEf, salasEf, instructora]);
+    instructora: instructora ?? instructoraElegida,
+  }), [dias, horaApertura, horaCierre, tiposEf, salasEf, instructora, instructoraElegida]);
 
   // Sin tipos de clase o sin salas hay que preguntarlo primero (abajo), pero ya
   // no es un callejón: la propuesta se ofrece igual, tras esas preguntas.
@@ -138,29 +157,61 @@ export function PrimerHorario({
   // programa hasta que confirme la propuesta.
   async function prepararYProponer() {
     if (montando) return;
-    if (!faltanTipos && !faltanSalas) { setProponiendo(true); return; }
+    const daLasClasesElla = faltaQuien && quien === 'yo';
+    if (!faltanTipos && !faltanSalas && !daLasClasesElla && !(faltaQuien && quien === 'otra')) {
+      if (faltaQuien) capturarEvento('primer_horario_sin_instructora', { quien: quien ?? 'nadie' });
+      setProponiendo(true);
+      return;
+    }
     setErrorMontaje(null);
     // El estado de carga se enciende antes del await.
     setMontando(true);
     try {
-      const respuestas = interpretarRespuestasWizard({
-        ...(faltanSalas ? { salas: salasSel ?? undefined, aforos: aforoSel ? [aforoSel] : [] } : {}),
-        ...(faltanTipos ? { clases: clasesSel, duracion: duracionSel ?? undefined } : {}),
-      });
-      const plan = planificarConfiguracion(respuestas);
-      const res = await fetch('/api/onboarding/configurar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ ...respuestas, origen: 'calendario' }),
-      });
-      const cuerpo = await res.json().catch(() => null) as { ok?: boolean; nada?: boolean; error?: string } | null;
-      // Se comprueba la respuesta: seguir a una propuesta con un catálogo que no
-      // existe acabaría en «no se ha podido crear» sin saber por qué.
-      if (!res.ok || !cuerpo?.ok || cuerpo.nada) {
-        setErrorMontaje(cuerpo?.error ?? 'No hemos podido preparar tus clases. Puedes crearlas en Configuración.');
-        return;
+      // «Otra persona»: se da de alta con su nombre ANTES de proponer, para que
+      // las clases nazcan a su nombre y no sin instructora.
+      if (faltaQuien && quien === 'otra') {
+        const nombre = nombreDeInstructora(nombreOtra);
+        if (!nombre || !onCrearInstructora) return;
+        const r = await onCrearInstructora(nombre);
+        if (!r.ok) {
+          setErrorMontaje(r.error ?? 'No hemos podido añadir a esa persona. Puedes añadirla en Equipo y volver aquí.');
+          return;
+        }
+        setInstructoraElegida(nombre);
       }
-      setMontado(plan);
+      if (faltanTipos || faltanSalas || daLasClasesElla) {
+        const respuestas = interpretarRespuestasWizard({
+          ...(faltanSalas ? { salas: salasSel ?? undefined, aforos: aforoSel ? [aforoSel] : [] } : {}),
+          ...(faltanTipos ? { clases: clasesSel, duracion: duracionSel ?? undefined } : {}),
+          // «Las doy yo»: su ficha de instructora, que crea el servidor con el
+          // nombre de la sesión (mismo camino que la pregunta del asistente).
+          ...(daLasClasesElla ? { imparte: OPCIONES_IMPARTE[0] } : {}),
+        });
+        const plan = planificarConfiguracion(respuestas);
+        const res = await fetch('/api/onboarding/configurar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+          body: JSON.stringify({ ...respuestas, origen: 'calendario' }),
+        });
+        const cuerpo = await res.json().catch(() => null) as
+          { ok?: boolean; nada?: boolean; error?: string; instructoraNombre?: string | null } | null;
+        // Se comprueba la respuesta: seguir a una propuesta con un catálogo que no
+        // existe acabaría en «no se ha podido crear» sin saber por qué.
+        if (!res.ok || !cuerpo?.ok || cuerpo.nada) {
+          setErrorMontaje(cuerpo?.error ?? 'No hemos podido preparar tus clases. Puedes crearlas en Configuración.');
+          return;
+        }
+        if (daLasClasesElla) {
+          if (!cuerpo.instructoraNombre) {
+            setErrorMontaje('No hemos podido crear tu ficha de instructora. Puedes añadirte en Equipo y volver aquí.');
+            return;
+          }
+          setInstructoraElegida(cuerpo.instructoraNombre);
+          setRecargar(true);
+        }
+        if (faltanTipos || faltanSalas) setMontado(plan);
+      }
+      if (faltaQuien) capturarEvento('primer_horario_sin_instructora', { quien: quien ?? 'nadie' });
       setProponiendo(true);
     } catch (e) {
       capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'onboarding-calendario' } });
@@ -188,7 +239,7 @@ export function PrimerHorario({
           // Si el catálogo se ha creado aquí, el panel aún no lo conoce (tipos de
           // clase y salas salen del contexto, que solo se carga al entrar): sin
           // recargar, el formulario de «nueva clase» saldría sin tipos.
-          if (montado) { window.location.assign('/calendario'); return; }
+          if (montado || recargar) { window.location.assign('/calendario'); return; }
           const n = reciénCreadas; setReciénCreadas(null); onCreado(n);
         }}
       />
@@ -266,6 +317,36 @@ export function PrimerHorario({
                     <Opcion key={o} activa={aforoSel === o} alPulsar={() => setAforoSel(o)}>{o}</Opcion>
                   ))}
                 </Pregunta>
+              </>
+            )}
+
+            {faltaQuien && (
+              <>
+                <Pregunta
+                  titulo="¿Quién da las clases?"
+                  ayuda={quien === 'luego'
+                    ? 'Se crearán sin instructora: tendrás que asignarlas una a una desde el calendario.'
+                    : 'Así cada clase sale ya con su instructora. Puedes cambiarlo clase a clase cuando quieras.'}
+                >
+                  <Opcion activa={quien === 'yo'} alPulsar={() => setQuien('yo')}>Las doy yo</Opcion>
+                  <Opcion activa={quien === 'otra'} alPulsar={() => setQuien('otra')}>Otra persona</Opcion>
+                  <Opcion activa={quien === 'luego'} alPulsar={() => setQuien('luego')}>Lo decido luego</Opcion>
+                </Pregunta>
+                {quien === 'otra' && (
+                  <div className="mt-2">
+                    <label htmlFor="primer-horario-instructora" className="sr-only">Nombre de la instructora</label>
+                    <input
+                      id="primer-horario-instructora"
+                      type="text"
+                      value={nombreOtra}
+                      onChange={(e) => setNombreOtra(e.target.value)}
+                      maxLength={80}
+                      placeholder="Su nombre. Ej. Marta López"
+                      autoComplete="off"
+                      className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-[14px] text-foreground placeholder:text-muted-foreground/70 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/15"
+                    />
+                  </div>
+                )}
               </>
             )}
 

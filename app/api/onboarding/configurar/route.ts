@@ -163,13 +163,18 @@ export async function POST(req: NextRequest) {
     // sabemos que va a chocar, y se trata el 23505 como éxito por si se cruzan
     // de todos modos — mismo tratamiento que dbInsertInstructoraPropia.
     let instructoraCreada = false;
+    // El nombre con el que quedó su ficha (el de la sesión, o el que ya tenía):
+    // el importador de clases asigna por NOMBRE, así que quien acaba de pedir
+    // «las doy yo» necesita el mismo texto que se guardó, no uno adivinado.
+    let instructoraNombre: string | null = null;
     if (plan.instructoraPropia) {
       const { data: yaEsta } = await admin
         .from('instructores')
-        .select('id')
+        .select('id, nombre')
         .eq('studio_id', studioId)
         .eq('auth_user_id', sesion.userId)
         .maybeSingle();
+      if (yaEsta) instructoraNombre = (yaEsta.nombre as string | null) ?? null;
       if (!yaEsta) {
         const { error } = await admin.from('instructores').insert({
           id: uid(), studio_id: studioId, auth_user_id: sesion.userId,
@@ -183,6 +188,7 @@ export async function POST(req: NextRequest) {
           console.error('[onboarding:configurar:instructora]', error);
         } else {
           instructoraCreada = true;
+          instructoraNombre = sesion.nombre;
         }
       }
     }
@@ -241,6 +247,7 @@ export async function POST(req: NextRequest) {
       tiposClase: tiposNuevos.length,
       planes: planesNuevos.length,
       instructora: instructoraCreada,
+      instructoraNombre,
       horario: horarioAjustado,
       favicon: faviconPuesto,
     });
