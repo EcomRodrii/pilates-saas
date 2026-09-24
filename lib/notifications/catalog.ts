@@ -1015,6 +1015,10 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_PENALIZACION_BLOQUEADA}#PROPIETARIO`]: {
     title: 'Penalización sin cobrar',
     body: 'Una penalización de {importe} € no se ha podido cobrar porque la socia no ha aceptado el contrato con la cláusula actualizada.',
+    // A su ficha: es a ella a quien hay que contactar para que acepte el
+    // contrato. Sin enlace, el clic solo marcaba el aviso como leído — y este es
+    // un aviso de dinero. `emitirPenalizacionBloqueada` ya manda `socioId`.
+    deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
   },
   // audiencia: 'propietaria' resuelve solo a PROPIETARIO — mismo criterio que
   // PAGO_PENALIZACION_BLOQUEADA, una única plantilla basta.
