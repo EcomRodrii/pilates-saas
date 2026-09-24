@@ -26,7 +26,7 @@ import {
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
 import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera, TZ_ESTUDIO } from '@/lib/utils';
-import { horaParedAInstante, fechaLocalDe } from '@/lib/citas/slots';
+import { horaParedAInstante, fechaLocalDe, esHoraHHMM } from '@/lib/citas/slots';
 import { horarioConNuevaHora } from '@/lib/serie-horario';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
 import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
@@ -364,6 +364,10 @@ function ModalClasesRecurrentes({
 
   const [form, setForm] = useState<RecurringFormData>(emptyForm);
   const duracionInvalida = !form.duracion || form.duracion < 15;
+  // Un <input type="time"> que se borra da '': sin esto el generador de abajo
+  // pedía `.toISOString()` de una fecha inválida DURANTE EL RENDER y la pantalla
+  // entera caía (Sentry JAVASCRIPT-NEXTJS-30).
+  const horaInvalida = !esHoraHHMM(form.horaInicio);
 
   // Al abrir, el formulario vuelve a estar vacío. Ajuste en render, no efecto:
   // con efecto el diálogo aparecía un frame con lo que se escribió la vez
@@ -384,7 +388,7 @@ function ModalClasesRecurrentes({
   }
 
   const sesionesGeneradas = useMemo<Omit<Sesion, 'id' | 'studioId'>[]>(() => {
-    if (!form.fechaInicio || !form.fechaFin || form.diasSemana.length === 0) return [];
+    if (!form.fechaInicio || !form.fechaFin || form.diasSemana.length === 0 || horaInvalida) return [];
     const start = new Date(form.fechaInicio + 'T00:00:00');
     const end = new Date(form.fechaFin + 'T00:00:00');
     if (start > end) return [];
@@ -413,7 +417,7 @@ function ModalClasesRecurrentes({
       cursor.setDate(cursor.getDate() + 1);
     }
     return out;
-  }, [form]);
+  }, [form, horaInvalida]);
 
   const estimatedCount = sesionesGeneradas.length;
 
@@ -498,7 +502,7 @@ function ModalClasesRecurrentes({
               a 375px cramaba dos campos de formulario en ~170px cada uno. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Hora inicio">
-              <input type="time" className={f2} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
+              <input type="time" className={f2} aria-invalid={horaInvalida} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
             </FormField>
             <FormField label="Duración (min)">
               <input type="number" min={15} max={300} step={5} className={f2}
@@ -511,6 +515,9 @@ function ModalClasesRecurrentes({
                   setForm(f => ({ ...f, duracion: Number.isNaN(n) ? f.duracion : Math.min(300, n), duracionTocada: true }));
                 }} />
             </FormField>
+            {horaInvalida && (
+              <p className="sm:col-span-2 -mt-2 text-xs text-amber-700">Elige la hora de inicio.</p>
+            )}
             {duracionInvalida && (
               // `sm:` y no a secas: en el móvil la rejilla tiene UNA columna, y un
               // `col-span-2` le añadía una segunda implícita.
@@ -563,7 +570,7 @@ function ModalClasesRecurrentes({
           <button onClick={onClose} className="flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">Cancelar</button>
           <button
             onClick={handleSubmit}
-            disabled={form.diasSemana.length === 0 || estimatedCount === 0 || duracionInvalida}
+            disabled={form.diasSemana.length === 0 || estimatedCount === 0 || duracionInvalida || horaInvalida}
             className="flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold bg-brand text-brand-foreground hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {estimatedCount > 0 ? `Crear ${estimatedCount} clases` : 'Crear clases'}

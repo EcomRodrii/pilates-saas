@@ -1,8 +1,9 @@
 'use client';
 
 import Script from 'next/script';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { alGastarCaptcha } from '@/lib/auth/captcha-usado';
+import { ejecutarWidget, leerTokenDelWidget, reiniciarWidget } from '@/lib/auth/turnstile-vivo';
 
 // Cloudflare Turnstile, sin librería de npm: el embed oficial es un <script>
 // global + un div, y esto lo envuelve en un hook.
@@ -102,6 +103,9 @@ export const ERROR_CAPTCHA =
 /** Cuánto se espera a Cloudflare antes de rendirse. */
 const ESPERA_MS = 30_000;
 
+/** Cuánto se espera a que un widget reconstruido quede montado. Es solo React montándolo: milisegundos. */
+const ESPERA_RECONSTRUIR_MS = 3_000;
+
 /**
  * Cuántas veces se reinicia el widget por su cuenta antes de dejar de
  * intentarlo. Acotado a propósito: si Cloudflare está decidido a no dar un
@@ -112,12 +116,28 @@ const ESPERA_MS = 30_000;
 const MAX_REINICIOS = 3;
 
 export function useCaptcha() {
-  const contenedorRef = useRef<HTMLDivElement>(null);
+  // El `<div>` donde Cloudflare pinta su widget. Es ESTADO además de ref, y no es
+  // un detalle: cuando la pantalla cambia de rama y React desmonta ese `<div>` y
+  // monta otro (en `/reservar`, del formulario a «revisa tu correo», dentro de la
+  // misma hoja), el widget se quedaba enganchado al que ya no está en el DOM y
+  // `execute()` no resolvía NUNCA — a los 30 s, «no eres un robot» (medido con el
+  // script real; el botón «volver a enviar» del código no funcionaba). Con el
+  // elemento en el estado, el efecto de montaje vuelve a correr y el widget
+  // sigue al contenedor nuevo.
+  const contenedorRef = useRef<HTMLDivElement | null>(null);
+  const [contenedor, setContenedor] = useState<HTMLDivElement | null>(null);
+  const asignarContenedor = useCallback((el: HTMLDivElement | null) => {
+    contenedorRef.current = el;
+    setContenedor(el);
+  }, []);
   const widgetId = useRef<string | null>(null);
   // Quién espera un token ahora mismo. Solo puede haber uno: el formulario
   // aguarda a `pedirToken()` antes de seguir.
   const esperando = useRef<((t: string | null) => void) | null>(null);
   const reinicios = useRef(0);
+  // Sube cada vez que hay que reconstruir un widget muerto: el efecto de montaje
+  // depende de él y vuelve a correr.
+  const [generacion, setGeneracion] = useState(0);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   const resolver = useCallback((t: string | null) => {
@@ -144,12 +164,38 @@ export function useCaptcha() {
     if (reinicios.current >= MAX_REINICIOS) return;
     if (!widgetId.current || !window.turnstile) return;
     reinicios.current += 1;
-    try {
-      window.turnstile.reset(widgetId.current);
-    } catch {
-      // Un widget destruido del todo tira aquí. No hay nada que salvar: el
-      // siguiente intento fallará y el mensaje ya pide recargar.
+    // Un widget destruido del todo devuelve `false` aquí: no hay nada que
+    // devolver a cero. `pedirToken` lo detecta en el siguiente intento y lo
+    // reconstruye (ver `reconstruir`).
+    reiniciarWidget(window.turnstile, widgetId.current);
+  }, []);
+
+  /**
+   * Monta un widget NUEVO cuando el anterior ha dejado de existir en el
+   * registro de Cloudflare, y devuelve su id (`null` si no llegó a montarse).
+   *
+   * ⚠️ Sin esto, un widget muerto no se recuperaba nunca y `pedirToken` lanzaba
+   * en cada pulsación: en `/reservar`, «Continuar» no hacía nada y no decía por
+   * qué (Sentry JAVASCRIPT-NEXTJS-2T). Ver `lib/auth/turnstile-vivo.ts` para
+   * cuándo desaparece un widget del registro de Cloudflare. (Que React remonte el
+   * `<div>` contenedor es otro caso, y lo cubre el estado `contenedor`.)
+   */
+  const reconstruir = useCallback(async (): Promise<string | null> => {
+    const viejo = widgetId.current;
+    widgetId.current = null;
+    if (viejo && window.turnstile) {
+      try { window.turnstile.remove(viejo); } catch { /* ya no estaba */ }
     }
+    // Lo que Cloudflare dejó dentro del contenedor (un iframe huérfano) no lo
+    // gestiona React: se limpia antes de pintar el nuevo.
+    contenedorRef.current?.replaceChildren();
+    reinicios.current = 0;
+    setGeneracion((g) => g + 1);
+    for (let esperado = 0; esperado < ESPERA_RECONSTRUIR_MS; esperado += 100) {
+      await new Promise<void>((seguir) => setTimeout(seguir, 100));
+      if (widgetId.current) return widgetId.current;
+    }
+    return null;
   }, []);
 
   // ⚠️ NO se depende del `onLoad` del <Script>. Bug real de producción: con
@@ -169,8 +215,8 @@ export function useCaptcha() {
     const parar = () => { if (sondeo) { clearInterval(sondeo); sondeo = null; } };
 
     function montar(): boolean {
-      if (!vivo || widgetId.current || !window.turnstile || !contenedorRef.current) return false;
-      widgetId.current = window.turnstile.render(contenedorRef.current, {
+      if (!vivo || widgetId.current || !window.turnstile || !contenedor) return false;
+      widgetId.current = window.turnstile.render(contenedor, {
         sitekey: siteKey!,
         callback: (token) => resolver(token),
         'error-callback': () => { resolver(null); reiniciar(); },
@@ -201,17 +247,23 @@ export function useCaptcha() {
       // en vez de dejar una promesa colgada para siempre.
       resolver(null);
       if (widgetId.current && window.turnstile) {
-        window.turnstile.remove(widgetId.current);
+        // Un widget ya muerto puede lanzar también al quitarlo, y un cleanup
+        // que lanza rompe el desmontaje de la pantalla.
+        try { window.turnstile.remove(widgetId.current); } catch { /* ya no estaba */ }
         widgetId.current = null;
       }
     };
-  }, [siteKey, resolver, reiniciar]);
+  }, [siteKey, resolver, reiniciar, generacion, contenedor]);
 
   // Un token se gasta al usarlo. Sin esto, el widget emitía uno y no volvía a
   // emitir nunca: el segundo intento de la misma carga fallaba con
   // `captcha_failed (timeout-or-duplicate)`. Ver `lib/auth/captcha-usado.ts`.
   useEffect(() => alGastarCaptcha(() => {
-    if (widgetId.current && window.turnstile) window.turnstile.reset(widgetId.current);
+    // Lo llama la capa de auth DESPUÉS de una petición con token, a mitad de la
+    // propia petición: si esto lanzara (widget muerto), se llevaría por delante
+    // el login o el alta que la disparó. Un widget muerto se reconstruye en el
+    // siguiente `pedirToken`, no aquí.
+    if (widgetId.current && window.turnstile) reiniciarWidget(window.turnstile, widgetId.current);
   }), []);
 
   /**
@@ -230,8 +282,19 @@ export function useCaptcha() {
     // Si ya hay uno emitido y sin gastar se reutiliza: `execute()` sobre un
     // widget ya resuelto NO vuelve a llamar al callback, así que pedirlo otra
     // vez se quedaría esperando los 30 segundos enteros.
-    const ya = window.turnstile.getResponse(widgetId.current);
-    if (ya) return ya;
+    //
+    // Y si el widget ya no existe, se reconstruye AQUÍ y se sigue con el mismo
+    // clic: la persona no tiene por qué enterarse (ver `reconstruir`).
+    let id: string = widgetId.current;
+    let lectura = leerTokenDelWidget(window.turnstile, id);
+    if (lectura.estado === 'muerto') {
+      const nuevo = await reconstruir();
+      if (!nuevo || !window.turnstile) return null;
+      id = nuevo;
+      lectura = leerTokenDelWidget(window.turnstile, id);
+      if (lectura.estado === 'muerto') return null;
+    }
+    if (lectura.token) return lectura.token;
 
     return new Promise<string | null>((resolve) => {
       // Agotar la espera casi siempre significa que el widget se ha caído en
@@ -239,16 +302,23 @@ export function useCaptcha() {
       // reintente parte de un widget sano en vez de repetir los 30 segundos.
       const temporizador = setTimeout(() => { reiniciar(); resolver(null); }, ESPERA_MS);
       esperando.current = (t) => { clearTimeout(temporizador); resolve(t); };
-      window.turnstile!.execute(widgetId.current!);
+      if (ejecutarWidget(window.turnstile!, id) === 'muerto') {
+        // Murió entre la lectura y el `execute`: se falla ya (con el mensaje de
+        // «vuelve a intentarlo») y se deja reconstruido para el siguiente clic.
+        clearTimeout(temporizador);
+        esperando.current = null;
+        void reconstruir();
+        resolve(null);
+      }
     });
-  }, [siteKey, resolver, reiniciar]);
+  }, [siteKey, resolver, reiniciar, reconstruir]);
 
   // El hueco donde el widget se hará visible SI Cloudflare pide resolver algo.
   // En el caso normal no ocupa nada y no se ve.
   const widget = siteKey ? (
     <>
       <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
-      <div ref={contenedorRef} />
+      <div ref={asignarContenedor} />
     </>
   ) : null;
 

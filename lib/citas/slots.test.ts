@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   generarHuecosDia, dentroDeDisponibilidad, horaParedAInstante,
-  diaSemanaLocal, fechaLocalDe, type FranjaDisponibilidad,
+  diaSemanaLocal, esHoraHHMM, fechaLocalDe, type FranjaDisponibilidad,
 } from './slots.ts';
 
 // 2026-01-12 es LUNES (DOW 1). Enero → Madrid en horario de invierno (UTC+1).
@@ -140,4 +140,19 @@ test('dentroDeDisponibilidad rechaza intervalos degenerados', () => {
     inicioISO: '2026-01-12T09:00:00.000Z', finISO: '2026-01-12T09:00:00.000Z',
     franjas: [franjaLunes],
   }), false);
+});
+
+test('esHoraHHMM: solo horas de reloj de verdad', () => {
+  for (const ok of ['00:00', '09:05', '10:00', '23:59']) assert.equal(esHoraHHMM(ok), true, ok);
+  // Un <input type="time"> borrado da '': es lo que rompió el formulario de series.
+  for (const mal of ['', '24:00', '10:60', '9:00', '10:7', '10', '10:00:00', ' 10:00', 'ab:cd']) {
+    assert.equal(esHoraHHMM(mal), false, JSON.stringify(mal));
+  }
+  for (const raro of [undefined, null, 1000, {}]) assert.equal(esHoraHHMM(raro), false, String(raro));
+});
+
+test('una hora vacía NO da un instante válido: por eso hay que comprobarla antes', () => {
+  // Documenta el fallo que esHoraHHMM previene (JAVASCRIPT-NEXTJS-30): la
+  // conversión no valida su entrada.
+  assert.throws(() => horaParedAInstante('2026-09-24', '', 'Europe/Madrid'), RangeError);
 });

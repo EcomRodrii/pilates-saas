@@ -135,3 +135,45 @@ test.describe('Por debajo del mínimo se avisa, no se corrige', () => {
     await expect(page.getByText('Mínimo 15 minutos.')).toHaveCount(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La HORA de inicio vacía no puede tumbar la pantalla (Sentry JAVASCRIPT-NEXTJS-30).
+//
+// Un <input type="time"> que se borra da ''. El generador de series convertía esa
+// hora en un instante sin validarla y pedía `.toISOString()` de una fecha
+// inválida DURANTE EL RENDER: `RangeError: Invalid time value` y la pantalla
+// entera al error boundary — con el diálogo abierto, sin poder ni cerrarlo.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('La hora de inicio vacía se avisa, no rompe la pantalla', () => {
+  test('borrar la hora deja el diálogo en pie y bloquea el botón', async ({ page }) => {
+    await mockBackend(page);
+    await seedSesionDeDuena(page);
+    await abrirRecurrentes(page);
+    const errores: string[] = [];
+    page.on('pageerror', e => errores.push(e.message));
+
+    const hora = page.locator('input[type="time"]').first();
+    await hora.fill('');
+
+    await expect(page.getByText('Elige la hora de inicio.')).toBeVisible();
+    await expect(hora).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.getByRole('button', { name: /^Crear/ })).toBeDisabled();
+    // Sigue la pantalla: si el render lanzara, «Nueva clase fija» habría desaparecido.
+    await expect(page.getByText('Nueva clase fija')).toBeVisible();
+    expect(errores.filter(m => /invalid time value/i.test(m)), 'ningún RangeError de fecha inválida').toEqual([]);
+  });
+
+  test('volver a poner una hora válida desbloquea el botón', async ({ page }) => {
+    await mockBackend(page);
+    await seedSesionDeDuena(page);
+    await abrirRecurrentes(page);
+
+    const hora = page.locator('input[type="time"]').first();
+    await hora.fill('');
+    await expect(page.getByText('Elige la hora de inicio.')).toBeVisible();
+    await hora.fill('18:30');
+
+    await expect(page.getByText('Elige la hora de inicio.')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Crear \d+ clases/ })).toBeEnabled();
+  });
+});
