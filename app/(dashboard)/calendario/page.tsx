@@ -1115,7 +1115,7 @@ export default function Calendario() {
     const futuras = sesionesEnriquecidas.filter(s => s.serieId === origen.serieId && s.inicio >= origen.inicio);
     if (futuras.length === 0) return;
 
-    const diasSemana = [...new Set(futuras.map(s => new Date(s.inicio).getDay()))];
+    const diasSemana = [...new Set(futuras.map(s => franjaLocalDe(s.inicio).dow))];
     const ultimaFecha = futuras.reduce((max, s) => (s.inicio > max ? s.inicio : max), futuras[0].inicio);
     const inicioCopia = addDays(new Date(ultimaFecha), 1);
     const nSemanas = Math.max(1, Math.ceil((new Date(ultimaFecha).getTime() - new Date(origen.inicio).getTime()) / (7 * 24 * 3600_000)) + 1);
@@ -1701,7 +1701,7 @@ export default function Calendario() {
     // serie, y por separado ir a armar la clase fija en Horario).
     const serieId = res.serieId;
     if (serieId && puedeGestionarCalendario(rolActual)) {
-      const diasSemana = [...new Set(sesionesFields.map(s => new Date(s.inicio).getDay()))];
+      const diasSemana = [...new Set(sesionesFields.map(s => franjaLocalDe(s.inicio).dow))];
       showToast(cuantas, {
         texto: 'Agrupar con nombre',
         onClick: () => { setVista('horario'); setPreseleccionClaseFija({ serieId, diasSemana }); },

@@ -286,3 +286,21 @@ test.describe('Arrastrar y soltar una clase', () => {
     expect(patchBody.valor).toBeNull();
   });
 });
+
+// RES-2/RES-7: el navegador NO está en Madrid. La clase se leía en la zona del
+// navegador y se escribía en la del estudio, así que arrastrarla la movía el
+// desfase completo (10:00 → 04:00 con el navegador en Nueva York). Mismo gesto
+// que los de arriba, con otro huso.
+test.describe('Arrastrar con el navegador fuera de Madrid', () => {
+  test.use({ timezoneId: 'America/New_York' });
+
+  test('arrastrar a las 13:00 graba las 13:00 del estudio, no un desplazamiento de zona', async ({ page }) => {
+    const { patchBody } = await montar(page, { reservas: [] });
+
+    await arrastrarA(page, 13 * 60);
+
+    await expect(page.getByText('Clase movida')).toBeVisible({ timeout: 30_000 });
+    expect(patchBody.valor).toBeTruthy();
+    expect(horaEnEstudio(patchBody.valor.inicio)).toBe(13);
+  });
+});
