@@ -10,6 +10,9 @@ import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion
 // Huecos reservables de una instructora para un servicio y un día (Madrid). No
 // requiere sesión: consultar disponibilidad es público (como el horario de
 // clases). No expone PII — solo horas libres. Rate-limitado contra scraping.
+// Con la página oculta sin pase se cierra igual que el catálogo del que salen
+// los ids (studio-data) y que reservar: el widget embebido tampoco ve el
+// catálogo ni puede crear la cita en ese caso, así que no depende de este GET.
 export async function GET(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-citas-huecos', { max: 60, windowSeconds: 60 });
   if (limited) return limited;
@@ -25,6 +28,9 @@ export async function GET(req: NextRequest) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     return NextResponse.json({ error: 'Fecha no válida' }, { status: 400 });
   }
+
+  const cerrada = await paginaCerradaParaPeticion(req, studioId);
+  if (cerrada) return cerrada;
 
   try {
     // P1-7 (auditoría de producto): `instructorId` puede llegar como lista

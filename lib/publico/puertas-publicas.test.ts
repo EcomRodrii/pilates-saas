@@ -124,8 +124,16 @@ test('lista de espera: aceptar la plaza (widget y app de la alumna) pasa por el 
   gateAntesDe('app/api/reservas/aceptar-oferta-espera/route.ts', ['aceptarOfertaListaEspera(']);
 });
 
-test('cita 1:1: crear pasa por el gate, cancelar no', () => {
-  gateAntesDe('app/api/public/citas/route.ts', ['crearCitaPublica(', "body.accion === 'cancelar'"], { despuesDe: ["body.accion === 'crear'"] });
+test('cita 1:1: los huecos (GET) y crear pasan por el gate, cancelar no', () => {
+  const ruta = 'app/api/public/citas/route.ts';
+  const f = gateAntesDe(ruta, ['fetchHuecosCitaPublicoMulti(', 'fetchHuecosCitaPublico({'], { veces: 2 });
+  const post = posicion(f, 'export async function POST', ruta);
+  const gateGet = f.indexOf(GATE);
+  assert.ok(gateGet < post, 'el primer gate está en el GET, antes del POST');
+  const gatePost = f.indexOf(GATE, post);
+  assert.ok(gatePost > posicion(f, "body.accion === 'crear'", ruta), 'el gate del POST va dentro de «crear»');
+  assert.ok(gatePost < posicion(f, 'crearCitaPublica(', ruta), 'crearCitaPublica( va después de su gate');
+  assert.ok(gatePost < posicion(f, "body.accion === 'cancelar'", ruta), 'cancelar queda fuera del gate');
 });
 
 test('plaza fija: pedir una plaza (o una clase fija entera) pasa por el gate antes de escribir la petición', () => {
