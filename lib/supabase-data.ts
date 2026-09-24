@@ -5,6 +5,7 @@ import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion
 import { mapLimit } from '@/lib/concurrency';
 import { supabase } from '@/lib/db/supabase';
 import { actualizarFilaStudio } from '@/lib/db/actualizar-studio';
+import { esConflictoDeNegocioEsperado } from '@/lib/db/conflicto-esperado';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import type { Plan } from '@/lib/billing/entitlements';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
@@ -338,17 +339,6 @@ function esErrorDeRedCliente(error: unknown): boolean {
         ? e.message
         : '';
   return /load failed|failed to fetch|networkerror|network request failed|the operation was aborted/i.test(msg);
-}
-
-// 409 es, por convención en TODAS las API routes de este repo (equipo,
-// decisiones, sustituciones, terminal, penalizaciones...), "conflicto de
-// negocio ya resuelto con su propio mensaje al usuario" — el propio código de
-// app/api/equipo/route.ts lo dice literal: "Se responde 409 con qué hacer, y
-// no se registra nada". No es un bug de la app: es la respuesta esperada a un
-// intento de dar de alta un email duplicado, aprobar dos veces la misma
-// recomendación, etc. — ruido no accionable en Sentry (auditoría M-5).
-function esConflictoDeNegocioEsperado(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && (error as { status?: unknown }).status === 409;
 }
 
 export function reportDbError(tag: string, error: unknown, opts?: { escrituraVisible?: boolean; recargaTrasSesion?: boolean }) {

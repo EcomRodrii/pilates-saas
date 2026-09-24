@@ -13,6 +13,7 @@
 // spike obligatorio antes de dar esto por bueno (docs/auth-widget-diseno.md §9.2).
 import { useCallback, useEffect, useRef } from 'react';
 import { alGastarCaptcha } from '@/lib/auth/captcha-usado';
+import { ejecutarWidget, leerTokenDelWidget, reiniciarWidget } from '@/lib/auth/turnstile-vivo';
 
 const ESPERA_MS = 30_000;
 const MAX_REINICIOS = 3;
@@ -52,7 +53,8 @@ export function useCaptchaWidget(siteKey: string | undefined) {
     if (reinicios.current >= MAX_REINICIOS) return;
     if (!widgetId.current || !window.turnstile) return;
     reinicios.current += 1;
-    try { window.turnstile.reset(widgetId.current); } catch { /* widget destruido, siguiente intento fallará igual */ }
+    // `false` = widget destruido: el siguiente intento fallará con su mensaje.
+    reiniciarWidget(window.turnstile, widgetId.current);
   }, []);
 
   useEffect(() => {
@@ -74,25 +76,34 @@ export function useCaptchaWidget(siteKey: string | undefined) {
       vivo = false;
       resolver(null);
       if (widgetId.current && window.turnstile) {
-        window.turnstile.remove(widgetId.current);
+        try { window.turnstile.remove(widgetId.current); } catch { /* ya no estaba */ }
         widgetId.current = null;
       }
     };
   }, [siteKey, resolver, reiniciar]);
 
   useEffect(() => alGastarCaptcha(() => {
-    if (widgetId.current && window.turnstile) window.turnstile.reset(widgetId.current);
+    if (widgetId.current && window.turnstile) reiniciarWidget(window.turnstile, widgetId.current);
   }), []);
 
   const pedirToken = useCallback(async (): Promise<string | null> => {
     if (!siteKey) return '';
     if (!widgetId.current || !window.turnstile) return null;
-    const ya = window.turnstile.getResponse(widgetId.current);
-    if (ya) return ya;
+    // Un widget muerto LANZA al leerlo (lib/auth/turnstile-vivo.ts): aquí se
+    // trata como «no se pudo» y el formulario dice «vuelve a intentarlo», en vez
+    // de romper el clic. Este hook no reconstruye el widget: la versión completa
+    // (`useCaptcha`) sí, y este bundle aún tiene su spike pendiente.
+    const lectura = leerTokenDelWidget(window.turnstile, widgetId.current);
+    if (lectura.estado === 'muerto') return null;
+    if (lectura.token) return lectura.token;
     return new Promise<string | null>((resolve) => {
       const temporizador = setTimeout(() => { reiniciar(); resolve(null); }, ESPERA_MS);
       esperando.current = (t) => { clearTimeout(temporizador); resolve(t); };
-      window.turnstile!.execute(widgetId.current!);
+      if (ejecutarWidget(window.turnstile!, widgetId.current!) === 'muerto') {
+        clearTimeout(temporizador);
+        esperando.current = null;
+        resolve(null);
+      }
     });
   }, [siteKey, reiniciar]);
 

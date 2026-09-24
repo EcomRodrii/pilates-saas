@@ -57,6 +57,16 @@ function offsetMinutos(instante: Date, tz: string): number {
   return (asUTC - instante.getTime()) / 60000;
 }
 
+// ¿Es una hora 'HH:MM' de reloj? Un `<input type="time">` vacío da '' cuando se
+// borra, y `horaParedAInstante('2026-09-24', '')` no falla al llamarla: devuelve
+// una fecha inválida (`Number('')` es 0 y falta el minuto) que revienta más tarde
+// en `.toISOString()` — dentro del render, así que se lleva la pantalla entera
+// (Sentry JAVASCRIPT-NEXTJS-30, el formulario de series del calendario). Quien
+// reciba una hora de una persona la comprueba con esto antes de convertirla.
+export function esHoraHHMM(hhmm: unknown): hhmm is string {
+  return typeof hhmm === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(hhmm);
+}
+
 // Convierte una hora de pared de Madrid (fecha local 'YYYY-MM-DD' + 'HH:MM') al
 // instante UTC correspondiente. Corrige por el offset vigente en ese momento, así
 // que respeta el DST salvo en la hora exacta del salto (caso extremo, aceptable).
