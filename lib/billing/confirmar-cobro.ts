@@ -533,6 +533,26 @@ export async function confirmarCobroExitoso(
     facturaId,
   }, deps);
 
+  // ⚠️ Auditoría 2026-09-23 (PAY-2): el libro `cobros_intentos` solo lo escribía
+  // el camino de CHECKOUT. El detector `detectar_dobles_cobros` agrupa por
+  // `recibo_id` y cuenta PaymentIntents distintos, así que era ciego justo en el
+  // camino duplicable: la clave de idempotencia de Stripe vive ~24 h y el barrido
+  // de dunning corre cada 24 h, de modo que un segundo cargo real off-session
+  // nunca producía la segunda fila que el detector busca.
+  //   · Transición real: este cargo cerró este recibo → 'cobrado' (firme).
+  //   · NO_COBRABLE (otro cargo, anulado…): el cargo existe en Stripe pero NO
+  //     cerró el recibo → 'pendiente', que es lo que permite ver el segundo cobro.
+  //   · `ya_estaba`: la reentrega del MISMO cargo, ya anotado por quien lo cerró;
+  //     anotar aquí 'pendiente' no lo degradaría (precedencia de
+  //     `registrarIntentoCobro`) pero tampoco aporta nada.
+  if (params.paymentIntentId) {
+    if (r.ok && r.transicion === 'aplicada') {
+      await registrarIntentoCobro(admin, { paymentIntentId: params.paymentIntentId, studioId, reciboId, origen: 'off_session', desenlace: 'cobrado' });
+    } else if (!r.ok && r.codigo === 'NO_COBRABLE') {
+      await registrarIntentoCobro(admin, { paymentIntentId: params.paymentIntentId, studioId, reciboId, origen: 'off_session', desenlace: 'pendiente' });
+    }
+  }
+
   if (!r.ok) {
     // 'Recibo no encontrado' lo usa el webhook para detectar un cobro que
     // apunta a un recibo inexistente o de OTRO estudio.
@@ -733,6 +753,30 @@ export async function registrarIntentoCobro(
     desenlace: 'cobrado' | 'fallido' | 'pendiente' | 'reintentando';
   },
 ): Promise<void> {
+  // ⚠️ Auditoría 2026-09-23: esta función NUNCA puede lanzar. Desde PAY-2 se
+  // llama también desde `cobrarReciboOffSession` y `confirmarCobroExitoso`,
+  // es decir, DESPUÉS de que Stripe haya cobrado de verdad. Un rechazo de la
+  // promesa (red caída al leer `recibos`, no un `error` devuelto) subiría al
+  // catch del llamador y convertiría un cobro correcto en un fallo aparente,
+  // con el dinero ya en la cuenta del estudio. Anotar el libro es importante;
+  // no lo es tanto como no mentir sobre un cobro. Mismo criterio y mismo
+  // motivo que el catch de `aplicarRenovacionServidor`.
+  try {
+    await registrarIntentoCobroInterno(admin, params);
+  } catch (e) {
+    try {
+      Sentry.captureException(e instanceof Error ? e : new Error('no se pudo anotar el intento de cobro'), {
+        level: 'error', tags: { area: 'cobros', tipo: 'auditoria-cobros' },
+        extra: { ...params },
+      });
+    } catch { /* el aviso es best-effort; no lanzar, no */ }
+  }
+}
+
+async function registrarIntentoCobroInterno(
+  admin: SupabaseClient,
+  params: Parameters<typeof registrarIntentoCobro>[1],
+): Promise<void> {
   const { paymentIntentId, studioId, reciboId, origen, desenlace } = params;
   const { data: recibo, error: errorRecibo } = await admin.from('recibos')
     .select('importe').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
@@ -754,6 +798,23 @@ export async function registrarIntentoCobro(
   // diciendo 'pendiente' de un cargo que SÍ se cobró — justo el dato con el que
   // se contesta a «me habéis cobrado dos veces». La tabla ya se diseñó para
   // esto: tiene `actualizado_en` y policy de UPDATE para `service_role`.
+  // ⚠️ Auditoría 2026-09-23 (PAY-1): el upsert del 22-sep es SIMÉTRICO, y la
+  // transición que de verdad ocurre en el camino normal es la INVERSA de la
+  // que se quería permitir. `confirmarCobroRecibo` acota su UPDATE con
+  // `.in('estado', [...ESTADOS_COBRABLES, 'EN_CURSO'])`, y COBRADO no está en
+  // esa lista: la SEGUNDA entrega del mismo evento (reenvío desde el Dashboard,
+  // carrera con el conciliador, expiración de la reclamación de idempotencia a
+  // los 120 s) cae siempre en la rama `if (!marcado)` y escribe 'pendiente'
+  // encima del 'cobrado' que la primera entrega dejó. El libro que existe para
+  // contestar «me habéis cobrado dos veces» acababa diciendo 'pendiente' de
+  // cargos que sí se cobraron — la regresión exacta del arreglo M-1.
+  //
+  // Precedencia explícita: 'cobrado' y 'fallido' son DESENLACES FIRMES y
+  // pisan lo que hubiera; 'pendiente' y 'reintentando' son estados de tránsito
+  // y solo se anotan si no hay ya una fila para ese PaymentIntent. Así la
+  // transición 'pendiente' → 'cobrado' sigue funcionando (que es lo que M-1
+  // necesitaba) y la inversa deja de ser posible.
+  const esDesenlaceFirme = desenlace === 'cobrado' || desenlace === 'fallido';
   const { error } = await admin.from('cobros_intentos').upsert({
     payment_intent_id: paymentIntentId,
     studio_id: studioId,
@@ -768,7 +829,7 @@ export async function registrarIntentoCobro(
     importe_centimos: Math.round(Number(recibo.importe) * 100),
     origen,
     desenlace,
-  }, { onConflict: 'payment_intent_id' });
+  }, { onConflict: 'payment_intent_id', ignoreDuplicates: !esDesenlaceFirme });
 
   // ⚠️ El fallo NO se traga (auditoría 2026-09-19).
   //

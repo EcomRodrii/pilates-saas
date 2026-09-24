@@ -248,7 +248,16 @@ export async function POST(req: NextRequest) {
       // arriba — sin esto, dos pestañas o un doble clic entraban ANTES de
       // que ninguna hubiera guardado `subscription_id`, y las dos creaban
       // una Checkout Session real sobre el MISMO customer.
-      idempotencyKey: `billing-checkout-${studio.id}-${plan}-${Math.floor(Date.now() / 60000)}`,
+      // ⚠️ Auditoría 2026-09-24 (PAY-5, gemelo del SaaS): la clave identificaba
+      // (estudio, plan, minuto) pero NO el descuento, y el descuento se decide
+      // 180 líneas más arriba canjeando `review_boost_recompensas` con un CAS.
+      // La primera petición canjea y crea la sesión CON `discounts`; una segunda
+      // del mismo minuto (doble clic, dos pestañas) ya no encuentra la
+      // recompensa sin canjear, manda `allow_promotion_codes: true` con la MISMA
+      // clave y parámetros distintos, Stripe la rechaza y la propietaria recibe
+      // un 500 «No se pudo iniciar la suscripción». Es exactamente el bug que
+      // PAY-3 acaba de cerrar en el checkout de socias, en su gemelo del SaaS.
+      idempotencyKey: `billing-checkout-${studio.id}-${plan}-${discounts ? `d${recompensa?.stripe_coupon_id ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
     });
 
     if (discounts) capturar(studio.id, { nombre: 'review_boost_reward_claimed', props: {} });

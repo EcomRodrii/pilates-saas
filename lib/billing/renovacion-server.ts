@@ -10,9 +10,15 @@ import * as Sentry from '@sentry/nextjs';
 // Stripe marcaban el recibo COBRADO pero dejaban el bono a 0 sesiones y el
 // mensual caducado: dinero cobrado sin renovar nada.
 //
-// Idempotente: el refill de bono solo aplica con sesiones_restantes = 0, y la
-// extensión mensual solo si alarga la fecha_fin actual — un webhook duplicado
-// no extiende dos veces.
+// Idempotente: la idempotencia del refill de bono es POR RECIBO y vive dentro
+// de `renovar_bono_idempotente` (ver el comentario largo junto a la llamada); la
+// extensión mensual solo aplica si alarga la fecha_fin actual — un webhook
+// duplicado no extiende dos veces.
+//
+// ⚠️ Auditoría 2026-09-23 (PAY-10): aquí ponía «el refill de bono solo aplica
+// con sesiones_restantes = 0», que dejó de ser cierto cuando la RPC pasó a SUMAR
+// en vez de reemplazar para no quitarle a la socia el saldo que le quedaba. Un
+// comentario que contradice al código es peor que no tenerlo.
 //
 // ── Y deja constancia de lo que entregó ──────────────────────────────────────
 //
@@ -74,7 +80,24 @@ export async function aplicarRenovacionServidor(
   try {
     await efectos.seguirCreditos(admin, params);
   } catch (e) {
+    // PAY-9: era SOLO `console.error`. `seguirCreditosAlRecibo` ya avisa por su
+    // cuenta, así que llegar aquí significa que falló el propio avisador (o que
+    // se inyectó otro efecto): la degradación más invisible posible.
+    //
+    // ⚠️ El aviso va dentro de su PROPIO try. Este catch existe para garantizar
+    // que esta función NUNCA lanza —`confirmarCobroRecibo` sella la factura y
+    // avisa a la socia DESPUÉS, y un throw aquí dejaría un cobro real sin
+    // factura ni justificante—, y añadir una llamada que puede fallar dentro de
+    // un catch es exactamente cómo se rompe esa garantía. Pasó en esta misma
+    // auditoría: `Sentry.captureException` no existe en el entorno del runner de
+    // tests, y el test que protege el «NO lanza» se puso rojo al instante.
     console.error('[aplicarRenovacionServidor] créditos sin sincronizar', params.reciboId, e);
+    try {
+      Sentry.captureException(e instanceof Error ? e : new Error('créditos sin sincronizar'), {
+        level: 'warning', tags: { area: 'renovacion', tipo: 'creditos' },
+        extra: { reciboId: params.reciboId, studioId: params.studioId },
+      });
+    } catch { /* el aviso es best-effort; la garantía de no lanzar no lo es */ }
   }
   return resultado;
 }

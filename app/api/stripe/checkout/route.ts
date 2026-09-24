@@ -12,7 +12,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
-import { decidirSesionCheckout } from '@/lib/billing/sesion-checkout';
+import { decidirSesionCheckout, claveCheckoutRecibo } from '@/lib/billing/sesion-checkout';
 import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
@@ -711,7 +711,11 @@ export async function POST(req: NextRequest) {
       // resolvió identificando el INTENTO (persona hasheada + plan + descuento
       // + ventana), y quedó sin aplicar en este camino.
       ...(body.reciboId
-        ? { idempotencyKey: `checkout-${body.reciboId}-${[...paymentMethodTypes].sort().join('-')}` }
+        // PAY-3: la clave lleva TAMBIÉN el importe. Sin él, el camino
+        // `expirar-y-crear` por cambio de importe (M-3) pedía la sesión nueva
+        // con la clave vieja y parámetros distintos, Stripe lo rechazaba y el
+        // recibo quedaba impagable ~24 h con la sesión anterior ya expirada.
+        ? { idempotencyKey: claveCheckoutRecibo(body.reciboId, paymentMethodTypes, Math.round(importe * 100)) }
         : clavePlan
           // Con plaza de cupo, la clave lleva su intento: un intento liberado y
           // vuelto a reservar necesita otra sesión, no la caducada.

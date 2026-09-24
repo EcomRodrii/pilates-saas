@@ -87,6 +87,17 @@ export const procesarDunningEstudio = inngest.createFunction(
         .not('socio_id', 'is', null)
         .not('proximo_reintento', 'is', null)
         .lte('proximo_reintento', nowISO)
+        // ⚠️ Auditoría 2026-09-24 (D-1): gemelo divergente con `renovaciones.ts:145`.
+        // Allí este mismo filtro existe y está comentado como «esto lo está
+        // llevando ella en persona, no lo adoptes» — pero protege SOLO el momento
+        // de la adopción. Un recibo ya adoptado (con `proximo_reintento` puesto)
+        // al que la socia abre DESPUÉS un enlace de pago —`/api/stripe/checkout`
+        // escribe `checkout_session_id` antes de que pague, y la sesión vive ~24h—
+        // lo cobraba igualmente este barrido de las 08:30. Si ella pagaba el
+        // enlace, eran DOS cargos reales: el segundo se detecta en
+        // `confirmar-cobro.ts` («SEGUNDO cobro del mismo recibo») pero nadie lo
+        // devuelve. El criterio tenía que estar en los dos crons, no en uno.
+        .is('checkout_session_id', null)
         .limit(200);
       if (error) throw new Error(error.message);
       const recibos = data ?? [];

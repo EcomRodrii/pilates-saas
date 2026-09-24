@@ -7,7 +7,7 @@ import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
 import { estadoCobroCuenta } from '@/lib/billing/cuenta-puede-cobrar';
 import { clasificarErrorCobro } from '@/lib/billing/clasificar-error-cobro';
 import { puedeIntentarCobro, type ReciboParaCobrar, type ViaCobro } from '@/lib/billing/cobro-permitido';
-import { cerrarCobroOffSession } from '@/lib/billing/confirmar-cobro';
+import { cerrarCobroOffSession, registrarIntentoCobro } from '@/lib/billing/confirmar-cobro';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -242,6 +242,21 @@ export async function cobrarReciboOffSession(params: {
       const cierre = await cerrarCobroOffSession(admin, {
         studioId: params.studioId, reciboId: params.reciboId, socioId: params.socioId,
         metodo: metodo.metodo, paymentIntentId: paymentIntent.id,
+      });
+      // ⚠️ Auditoría 2026-09-23 (PAY-2): este es EL camino duplicable y no
+      // dejaba ni una línea en `cobros_intentos`. La Idempotency-Key lleva el
+      // nº de intento (`-i${intentos_reintento}`), así que el reintento del día
+      // siguiente es una clave NUEVA: un cargo real distinto. El detector
+      // `detectar_dobles_cobros` cuenta PaymentIntents distintos por recibo y
+      // aquí no se escribía ninguno: era ciego justo donde hay dinero que
+      // devolver. Se anota SIEMPRE que Stripe haya cobrado; 'pendiente' cuando
+      // el cargo entró pero el recibo no quedó cerrado.
+      await registrarIntentoCobro(admin, {
+        paymentIntentId: paymentIntent.id,
+        studioId: params.studioId,
+        reciboId: params.reciboId,
+        origen: 'off_session',
+        desenlace: cierre.aviso ? 'pendiente' : 'cobrado',
       });
       return { ok: true, status: paymentIntent.status, importe: recibo.importe, ...cierre };
     }
