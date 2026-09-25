@@ -18,6 +18,8 @@ import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-est
 import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, LeadStage, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { EtiquetaFija } from '@/components/clientas/etiqueta-fija';
+import { ETIQUETA_GENERO, GENEROS, generoDe, type Genero } from '@/lib/genero';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
@@ -52,6 +54,8 @@ type FormSocia = {
   telefono: string;
   nif: string;
   planId: string;
+  /** Género gramatical de las palabras que hablan de ella o de él. '' = sin indicar (se escribe en femenino, como siempre). */
+  genero: Genero | '';
   // Qué pasó con el dinero de esa primera cuota/bono. Por defecto, nada: el
   // recibo nace PENDIENTE. Antes el alta lo daba por cobrado siempre y sin
   // método, y «Cobrado este mes» contaba dinero que no había entrado.
@@ -67,6 +71,7 @@ const emptyForm = (): FormSocia => ({
   telefono: '',
   nif: '',
   planId: '',
+  genero: '',
   cobroPagado: false,
   cobroMetodo: 'EFECTIVO',
   camposExtra: {},
@@ -198,6 +203,14 @@ export default function Socios() {
   // ven, los rellenan y los mandan. Un MANAGER da el alta sin ellos.
   const veDatosPrivados = puedeVerDatosPrivadosSocia(rol);
   const mueveDinero = puedeMoverDinero(rol);
+
+  // Quién tiene una plaza fija (no dada de baja): la lista lo enseña junto al
+  // nombre, para no tener que abrir la ficha una a una. Mismo criterio que
+  // `ofrecerPlazaFijaSiCuota`: una plaza en BAJA ya no cuenta.
+  const idsFijas = useMemo(
+    () => new Set(plazasFijas.filter((p) => p.estado !== 'BAJA').map((p) => p.socioId)),
+    [plazasFijas],
+  );
 
   // Semáforo de salud por clienta (solo el color; el motivo vive en el detalle).
   // FICHA-CLINICA.md §1, §11 — RECEPCIÓN sí ve el color, pero no el motivo ni
@@ -720,6 +733,7 @@ export default function Socios() {
       apellidos: form.apellidos.trim(),
       email: form.email.trim(),
       telefono: form.telefono || null,
+      genero: form.genero || null,
       nif: form.nif || null,
       activo: true,
       camposExtra: form.camposExtra,
@@ -777,6 +791,7 @@ export default function Socios() {
       apellidos: form.apellidos.trim(),
       email: form.email.trim(),
       telefono: form.telefono || null,
+      genero: form.genero || null,
       nif: form.nif || null,
       camposExtra: form.camposExtra,
     }, { puedeVerPrivados: veDatosPrivados, original: socios.find(s => s.id === editandoId) }));
@@ -815,6 +830,7 @@ export default function Socios() {
       telefono: s.telefono ?? '',
       nif: s.nif ?? '',
       planId: sus?.planId ?? '',
+      genero: generoDe(s.genero) ?? '',
       // Solo se usa en el alta; al editar no se crea ningún recibo.
       cobroPagado: false,
       cobroMetodo: 'EFECTIVO',
@@ -1224,6 +1240,7 @@ export default function Socios() {
                                 style={{ backgroundColor: SEMAFORO_META[semaforoParaMostrar.get(s.id)!].color }} />
                             )}
                             <span className="truncate">{s.nombre} {s.apellidos}</span>
+                            {idsFijas.has(s.id) && <EtiquetaFija genero={s.genero} />}
                           </p>
                           <p className="text-[11px] text-muted-foreground truncate">{s.email}</p>
                         </div>
@@ -1349,6 +1366,7 @@ export default function Socios() {
                               style={{ backgroundColor: SEMAFORO_META[semaforoParaMostrar.get(s.id)!].color }} />
                           )}
                           <span className="truncate">{s.nombre} {s.apellidos}</span>
+                            {idsFijas.has(s.id) && <EtiquetaFija genero={s.genero} />}
                         </p>
                         <p className="text-[11px] text-muted-foreground truncate">{s.email}</p>
                       </div>
@@ -1448,6 +1466,18 @@ export default function Socios() {
                   />
                 </FF>
               </div>
+              <FF label="Género" description="Solo cambia cómo se escribe en el panel: «clienta fija» o «cliente fijo», «alumna» o «alumno». Sin indicar se escribe en femenino.">
+                <select
+                  className={inputCls}
+                  value={form.genero}
+                  onChange={(e) => setForm((f) => ({ ...f, genero: generoDe(e.target.value) ?? '' }))}
+                >
+                  <option value="">Sin indicar</option>
+                  {GENEROS.map((g) => (
+                    <option key={g} value={g}>{ETIQUETA_GENERO[g]}</option>
+                  ))}
+                </select>
+              </FF>
               {/* Opcional (evaluación del 13-sep): con la alumna delante en
                   recepción no siempre hay correo, y sin él no se podía darla de
                   alta. Sin email no entra al portal ni recibe correos hasta que

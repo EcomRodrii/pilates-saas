@@ -1,6 +1,7 @@
 // ─── Core types ──────────────────────────────────────────────────────────────
 
 import type { EspecialidadNetwork } from '@/lib/network/catalogo.ts';
+import type { Genero } from '@/lib/genero.ts';
 
 export type Rol = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION' | 'MANAGER';
 export type EstadoSuscripcion = 'ACTIVA' | 'PAUSADA' | 'CANCELADA' | 'EXPIRADA';
@@ -403,6 +404,8 @@ export interface Socio {
   activo: boolean;
   leadStage?: LeadStage;
   tags?: string[];
+  /** Género gramatical de las palabras que hablan de ella o de él (lib/genero.ts). Sin indicar = femenino, como siempre. */
+  genero?: Genero | null;
   aceptacionContrato?: AceptacionContrato;
   // Art. 9 RGPD: consentimiento específico para tratar datos de salud (aparte
   // del contrato general). undefined = no lo ha dado — condiciones_salud no

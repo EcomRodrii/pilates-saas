@@ -6,6 +6,7 @@ import { mapLimit } from '@/lib/concurrency';
 import { supabase } from '@/lib/db/supabase';
 import { actualizarFilaStudio } from '@/lib/db/actualizar-studio';
 import { esConflictoDeNegocioEsperado } from '@/lib/db/conflicto-esperado';
+import { generoDe } from '@/lib/genero';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import type { Plan } from '@/lib/billing/entitlements';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
@@ -589,6 +590,7 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     activo: r.activo,
     leadStage: r.lead_stage ?? undefined,
     tags: r.tags ?? undefined,
+    genero: generoDe(r.genero),
     aceptacionContrato,
     consentimientoSalud,
     consentimientoMarketing,
@@ -1530,6 +1532,7 @@ function socioToDb(socio: Socio) {
     studio_id: studioId ?? STUDIO_ID,
     fecha_alta: fechaAlta,
     lead_stage: leadStage ?? null,
+    genero: rest.genero ?? null,
     metodo_pago_preferido: metodoPagoPreferido ?? 'TARJETA',
     fecha_nacimiento: fechaNacimiento ?? null,
     foto_url: fotoUrl ?? null,
@@ -1942,6 +1945,7 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
   if ('fechaAlta' in changes) db.fecha_alta = changes.fechaAlta;
   if ('activo' in changes) db.activo = changes.activo;
   if ('leadStage' in changes) db.lead_stage = changes.leadStage;
+  if ('genero' in changes) db.genero = changes.genero ?? null;
   if ('tags' in changes) db.tags = changes.tags;
   if ('avatar' in changes) db.avatar = changes.avatar;
   if ('metodoPagoPreferido' in changes) db.metodo_pago_preferido = changes.metodoPagoPreferido;
@@ -5536,7 +5540,7 @@ async function enTandas<T extends readonly unknown[] | []>(
 // los roles (lo vigila lib/rgpd-socios-datos-privados-contrato.test.ts).
 async function fetchSociosPanel(db: SupabaseClient, sid: string) {
   const [publicas, privadas] = await Promise.all([
-    fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, fecha_alta, activo, lead_stage, tags, avatar, metodo_pago_preferido, cumple_mm_dd, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, fecha_alta, activo, lead_stage, tags, genero, avatar, metodo_pago_preferido, cumple_mm_dd, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     // `.order('id')`: sin orden estable, paginar una RPC puede repetir o saltar filas.
     fetchAllRows<FilaDatosPrivadosSocia>(sid, 'socios_datos_privados', (from, to) => db.rpc('socios_datos_privados').order('id').range(from, to)),
   ]);
@@ -5643,7 +5647,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
     opciones.privadas === 'columnas'
-      ? fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, cumple_mm_dd, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to))
+      ? fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, genero, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, cumple_mm_dd, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to))
       : fetchSociosPanel(db, sid),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid),
