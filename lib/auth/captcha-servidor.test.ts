@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { verificarCaptcha } from './captcha-servidor.ts';
+import { captchaDeServidorListo, verificarCaptcha } from './captcha-servidor.ts';
 
 // Un `fetch` de mentira que registra con qué se le llamó.
 function fetchQueDevuelve(cuerpo: unknown, ok = true, status = 200) {
@@ -75,4 +75,12 @@ test('`success` verdadero pero como texto NO cuela', async () => {
   // truthy en JS y habría dado por bueno un token rechazado.
   const { impl } = fetchQueDevuelve({ success: 'false' });
   assert.equal(await verificarCaptcha('tok', { fetchImpl: impl, secreto: 'sec' }), 'invalido');
+});
+
+test('captchaDeServidorListo: fuera de Vercel siempre; desplegado, solo con secreto', () => {
+  assert.equal(captchaDeServidorListo({ vercelEnv: undefined, secreto: undefined }), true, 'local y CI');
+  assert.equal(captchaDeServidorListo({ vercelEnv: 'development', secreto: undefined }), true, 'vercel dev');
+  assert.equal(captchaDeServidorListo({ vercelEnv: 'production', secreto: undefined }), false);
+  assert.equal(captchaDeServidorListo({ vercelEnv: 'preview', secreto: '' }), false, 'una variable vacía no es una clave');
+  assert.equal(captchaDeServidorListo({ vercelEnv: 'production', secreto: 'sec' }), true);
 });

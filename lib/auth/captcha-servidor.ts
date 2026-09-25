@@ -30,6 +30,25 @@ const URL_VERIFICACION = 'https://challenges.cloudflare.com/turnstile/v0/sitever
 const ESPERA_MS = 5_000;
 
 /**
+ * ¿Puede este entorno comprobar un captcha de verdad? Fuera de Vercel (local,
+ * CI) sí por definición: no hay claves y el formulario tiene que poder probarse.
+ * En production/preview, solo con `TURNSTILE_SECRET_KEY`.
+ *
+ * Para lo que no puede funcionar sin captcha (un endpoint que manda un correo a
+ * la dirección que se escriba): la ruta se cierra con esto, y la página ni
+ * enseña el formulario, para no pintar uno que siempre falla.
+ */
+export function captchaDeServidorListo(
+  entorno: { vercelEnv?: string; secreto?: string } = {
+    vercelEnv: process.env.VERCEL_ENV,
+    secreto: process.env.TURNSTILE_SECRET_KEY,
+  },
+): boolean {
+  const desplegado = entorno.vercelEnv === 'production' || entorno.vercelEnv === 'preview';
+  return !desplegado || !!entorno.secreto;
+}
+
+/**
  * Comprueba el token contra Cloudflare.
  *
  * **Sin `TURNSTILE_SECRET_KEY` devuelve `'ok'` sin llamar a nadie**, y no es un

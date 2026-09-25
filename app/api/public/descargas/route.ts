@@ -4,7 +4,7 @@ import { Resend } from 'resend';
 import { LEGAL } from '@/lib/legal-info';
 import { clientIp, enforceRateLimit, rateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { verificarCaptcha } from '@/lib/auth/captcha-servidor';
+import { captchaDeServidorListo, verificarCaptcha } from '@/lib/auth/captcha-servidor';
 import { CAMPO_TRAMPA, cayoEnLaTrampa } from '@/lib/auth/trampa-bots';
 import { EMAIL_VALIDO, RECURSOS_DESCARGABLES, TEXTO_CONSENTIMIENTO_NOVEDADES, buzonCanonico, esSlugDescarga } from '@/lib/recursos/descargas';
 import { escrituraLeadDescarga, pedirConfirmacionNovedades, type LeadExistente } from '@/lib/recursos/descargas-lead';
@@ -63,9 +63,8 @@ export async function POST(req: NextRequest) {
 
   // `verificarCaptcha` sin clave dice «ok» sin comprobar nada (a propósito, para
   // local). Aquí eso no vale en un entorno desplegado: sería un endpoint que
-  // manda correos sin captcha. Se cierra.
-  const desplegado = process.env.VERCEL_ENV === 'production' || process.env.VERCEL_ENV === 'preview';
-  if (desplegado && !process.env.TURNSTILE_SECRET_KEY) {
+  // manda correos sin captcha. Se cierra (y la guía ni enseña el recuadro).
+  if (!captchaDeServidorListo()) {
     console.error('[public:descargas] falta TURNSTILE_SECRET_KEY: no se envía nada sin captcha');
     return NextResponse.json({ error: SIN_SERVICIO }, { status: 503 });
   }

@@ -890,7 +890,9 @@ nuevo que no pase por gotrue, hay que llamar a `verificarCaptcha()` desde el
 servidor. Sin `TURNSTILE_SECRET_KEY` devuelve `'ok'` sin llamar a nadie
 (fail-CLOSED en el veredicto de Cloudflare, fail-OPEN si la llamada no llega a
 completarse), así que un endpoint que manda correos se cierra él mismo cuando
-falta la clave en un entorno desplegado, como `/api/public/descargas`.
+falta la clave en un entorno desplegado (`captchaDeServidorListo()`), como
+`/api/public/descargas`, y la guía ni enseña el recuadro: aparece solo en el
+primer despliegue que tenga la clave.
 ⚠️ Antes de fiarte de un captcha de servidor, mira que la variable exista en
 Vercel: el 25-sep no estaba (solo la site key), aunque este documento contaba
 más abajo que se había añadido.
