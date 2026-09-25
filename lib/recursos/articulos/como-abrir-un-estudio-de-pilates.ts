@@ -15,6 +15,7 @@ const articulo: Articulo = {
     'abrir un centro de pilates',
     'qué necesito para abrir un estudio de pilates',
     'pasos para abrir un estudio de pilates',
+    'montar un negocio de pilates',
   ],
   respuesta: 'Para abrir un estudio de pilates, sigue este orden: decide el concepto (reformer, mat o mixto) y a quién te diriges; haz los números antes de firmar nada; busca un local donde quepan las máquinas y el ayuntamiento admita la actividad; elige el equipamiento; date de alta en Hacienda y en la Seguridad Social y tramita la licencia o declaración responsable; fija precios, bonos y normas de cancelación; prepara equipo, reservas y cobros; y lanza con preventa y clases de prueba.',
   entradilla: 'Cómo abrir un estudio de pilates sin tirar dinero: empezando por el concepto y los números, no por los reformers. Esta guía sigue el orden que evita los errores caros, con lo que cuesta cada paso, lo que exige la normativa y lo que conviene tener listo antes de abrir la puerta.',

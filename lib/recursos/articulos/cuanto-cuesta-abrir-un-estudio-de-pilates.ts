@@ -15,6 +15,7 @@ const articulo: Articulo = {
     'cuánto cuesta un reformer de pilates',
     'precio de una máquina reformer',
     'inversión para un estudio de pilates',
+    'cuánto cuesta montar un negocio de pilates',
   ],
   respuesta: 'Cuánto cuesta abrir un estudio de pilates depende sobre todo de cuántos reformers compres y del local. Como referencia, un reformer profesional cuesta de 2.891,90 € a 6.037,90 € con IVA en la tienda oficial de Elina Pilates, así que seis máquinas suman de 17.351,40 € a 36.227,40 €. A eso se añaden la fianza del local (dos mensualidades por ley), la obra, las tasas, los seguros, el software, la cuota de autónoma y un colchón para los primeros meses.',
   entradilla: 'Cuánto cuesta abrir un estudio de pilates depende de decisiones tuyas, pero casi cada partida tiene un precio que se puede consultar. Aquí están los que hemos verificado, con su fuente y su fecha, y cómo calcular los que dependen de tu local y de tu municipio.',
@@ -211,6 +212,7 @@ const articulo: Articulo = {
       q: '¿Cuánto cuesta el software para un estudio de pilates?',
       a: 'Tentare cuesta 29, 59 o 149 € al mes con IVA según el plan, sin permanencia y con 7 días de prueba gratis sin tarjeta. Aparte van las comisiones del procesador de pagos: con Stripe, un 1,5 % + 0,25 € por pago con tarjeta estándar del Espacio Económico Europeo.',
     },
+    { q: '¿Cuánto cuesta montar un negocio de pilates?', a: 'Lo que tiene precio público suma unos 20.500 € en nuestro ejemplo: 6 reformers de gama de entrada, una silla, esterillas, el registro de la marca y 12 meses de software y de cuota de autónoma. Aparte van la fianza, la obra, las tasas y los seguros, que dependen de tu local y de tu municipio. Con reformers de gama alta, solo las máquinas pasan de 36.000 €.' },
     {
       q: '¿En cuánto tiempo se recupera la inversión de un estudio de pilates?',
       a: 'No hay una cifra honesta que valga para todos: depende de la ocupación, de los precios y de los gastos fijos de tu local. Calcula cuántas plazas necesitas vender al mes para cubrir gastos y qué margen te queda por encima; con eso sale tu plazo.',

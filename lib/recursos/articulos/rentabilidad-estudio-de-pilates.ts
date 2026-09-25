@@ -15,6 +15,8 @@ const articulo: Articulo = {
     'rentabilidad de un estudio de pilates',
     'cuánto gana un estudio de pilates al mes',
     'punto de equilibrio de un estudio de pilates',
+    'negocio de pilates es rentable',
+    'modelo de negocio de un estudio de pilates',
   ],
   respuesta: 'Un estudio de pilates es rentable si vende suficientes plazas a un precio que cubra sus costes y tu sueldo. Los ingresos son plazas por clase × clases a la semana × 4,33 × ocupación × precio medio por plaza sin IVA. En nuestro ejemplo de 6 reformers, 30 clases semanales pagadas a una instructora y 18,75 € por sesión (la mediana del mercado), el estudio cubre gastos hacia el 53 % de ocupación y necesita cerca del 70 % para dejarte además 2.000 € al mes.',
   entradilla: '¿Es rentable un estudio de pilates? No hay una cifra que valga para todos: hay una cuenta. Te la damos entera, con los precios reales de 32 estudios, tres escenarios de ejemplo y las palancas que más mueven el resultado.',
@@ -191,6 +193,8 @@ const articulo: Articulo = {
     { q: '¿Qué ocupación necesita un estudio de pilates para ser rentable?', a: 'La que supera su punto de equilibrio con tu sueldo incluido. En los ejemplos, cerca de un 70 % con 6 reformers y entre un 42 % y un 44 % con 10 reformers o 12 plazas de suelo: cuantas más plazas por clase, menos ocupación necesitas.' },
     { q: '¿Es más rentable el pilates reformer o el de suelo?', a: 'Por plaza, el reformer, que cuesta unas 1,6 veces lo que el suelo. Por clase, depende de las plazas: 6 reformers dejan como máximo 93 € por clase sin IVA y 12 esterillas, 136 €. El suelo necesita más alumnas; el reformer, más inversión.' },
     { q: '¿Cuánto se tarda en recuperar la inversión de un estudio de pilates?', a: 'Divide la inversión inicial entre el margen que te queda cada mes después de tu sueldo. Por ejemplo, 50.000 € con 1.000 € de margen al mes tardan 50 meses; con 2.500 €, 20 meses.' },
+    { q: '¿El negocio de pilates es rentable?', a: 'Puede serlo, pero no por moda: depende de cuántas plazas vendes, a qué precio medio y con qué costes fijos. En el ejemplo de este artículo, un estudio con 6 reformers cubre gastos hacia el 53 % de ocupación y necesita cerca del 70 % para dejarte además 2.000 € al mes. Haz la cuenta con tus números en la calculadora.' },
+    { q: '¿Cuál es el modelo de negocio de un estudio de pilates?', a: 'Vender plazas en clases con aforo limitado: sobre todo cuotas mensuales (31 de los 32 estudios de nuestro estudio de precios publican alguna), bonos de sesiones, clases sueltas y sesiones privadas. Los costes son sobre todo fijos, local e instructoras, así que el resultado lo decide la ocupación.' },
     { q: '¿Cada cuánto hay que revisar la rentabilidad?', a: 'Al menos cada trimestre, y clase a clase: la media del mes esconde franjas que pierden dinero. Las que no cubren su coste durante varias semanas son candidatas a moverse o fusionarse.' },
   ],
   fuentes: [

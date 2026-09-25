@@ -147,7 +147,9 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
           </>
         )}
 
-        <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} cta="Probar 7 días gratis →" />
+        {a.cta.enlace
+          ? <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} href={a.cta.enlace.href} cta={a.cta.enlace.texto} />
+          : <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} cta="Probar 7 días gratis →" />}
         <RelatedLinks items={[...relacionadas, { href: '/recursos', category: 'Centro de Recursos', categoryColor: '#22251A', title: 'Ver todas las guías para tu estudio →' }]} />
       </ArticleShell>
     </PageShell>

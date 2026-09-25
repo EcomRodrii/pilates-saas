@@ -27,6 +27,9 @@ export const FRASES_PROHIBIDAS: { patron: RegExp; motivo: string }[] = [
   { patron: /\bkiosko\b|v[ií]deo bajo demanda/i, motivo: 'funciones congeladas' },
   { patron: /vista consolidada/i, motivo: 'multi-sede sin vista consolidada' },
   { patron: /whatsapp (de serie|incluido|autom[aá]tico)|sms (de serie|incluidos?)/i, motivo: 'WhatsApp solo con la cuenta de Meta del estudio; SMS no' },
+  // La factura solo imprime el QR cuando la AEAT ya tiene el registro, y el
+  // envío no está activo: «numeración, huella y QR» se coló en cuatro textos.
+  { patron: /(numeraci[oó]n legal|huella)[^.]{0,40}\by (el )?(c[oó]digo )?QR\b/i, motivo: 'las facturas de Tentare no llevan QR hasta que la AEAT tenga el registro' },
 ];
 
 const RE_ENLACE = /\[([^\]]+)\]\(([^)\s]+)\)/g;
@@ -121,7 +124,7 @@ export function validarArticulo(a: Articulo, rutasValidas: Set<string>): string[
     ok(!patron.test(texto), `frase prohibida (${motivo}): ${texto.match(patron)?.[0]}`);
   }
 
-  for (const ruta of [...enlacesInternos(a), ...a.relacionadas]) {
+  for (const ruta of [...enlacesInternos(a), ...a.relacionadas, ...(a.cta.enlace ? [a.cta.enlace.href] : [])]) {
     const base = ruta.split('#')[0].split('?')[0];
     // Las plantillas descargables son ficheros de public/ (su existencia la
     // comprueba articulos.test.ts), no páginas del registro.

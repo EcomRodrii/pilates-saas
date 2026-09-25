@@ -92,7 +92,12 @@ export interface Articulo {
   /** Rutas internas relacionadas (tienen que existir). */
   relacionadas: string[];
   /** Llamada a la acción final, honesta y ligada al tema. */
-  cta: { titulo: string; texto: string };
+  /**
+   * El cierre. El botón lleva a /crear-estudio salvo que el artículo no sea
+   * para propietarias (p. ej. el de instructoras): entonces `enlace` apunta a
+   * una ruta interna que exista, con su propio texto de botón.
+   */
+  cta: { titulo: string; texto: string; enlace?: { href: string; texto: string } };
   /**
    * Lo que el revisor tiene que comprobar antes de publicar (dudas, cifras que
    * cambian a menudo…). No se pinta. Vacío = nada pendiente.
