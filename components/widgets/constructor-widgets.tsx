@@ -204,7 +204,7 @@ export function ConstructorWidgets({ slug, showToast }: { slug: string; showToas
 
       <div className="border-t border-border pt-6">
         <div className="min-w-0 space-y-6">
-          <div className="grid items-start gap-6 @4xl/config:grid-cols-[minmax(0,1fr)_340px] @6xl/config:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="grid items-start gap-6 @4xl/config:grid-cols-[minmax(0,1fr)_360px] @6xl/config:grid-cols-[minmax(0,1fr)_380px]">
             <div className="min-w-0 space-y-3">
               <div>
                 <h3 className="text-[17px] font-semibold tracking-tight text-foreground">{w.nombre}</h3>

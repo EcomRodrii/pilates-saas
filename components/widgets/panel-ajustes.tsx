@@ -84,7 +84,7 @@ export function PanelAjustes({ widget: w, config: c, metodo, cambiar, datos, dom
               onClick={() => setPestana(p.id)}
               onKeyDown={teclas}
               className={cn(
-                'relative shrink-0 rounded-t-lg px-2.5 pb-2.5 pt-2 text-[12px] font-medium transition-colors min-h-10',
+                'relative shrink-0 rounded-t-lg px-2 pb-2.5 pt-2 text-[12px] font-medium transition-colors min-h-10',
                 'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                 on ? 'text-foreground after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
