@@ -64,6 +64,12 @@ async function montar(page: Page, opts: {
 const home = (page: Page) => page.getByText(/¿qué te apetece hoy\?/i);
 
 test.describe('Student PWA · preguntas del estudio antes de empezar', () => {
+  // ⚠️ Sin service worker. En el build de producción (el del CI) la app registra
+  // `/sw.js`, y en WebKit una página ya controlada por él manda sus `fetch` a
+  // través del worker: `page.route` no los ve y la reserva llegaba al servidor
+  // de verdad (401 «tu sesión ha caducado»). En `next dev` no hay worker, por
+  // eso pasaba en local. Esto no cambia nada de lo que se prueba.
+  test.use({ serviceWorkers: 'block' });
   test('encendido: la app le pone las preguntas delante, valida y, al guardar, la deja pasar', async ({ page }) => {
     const { envios } = await montar(page);
     await page.goto(CON);
