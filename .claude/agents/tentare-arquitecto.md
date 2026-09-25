@@ -10,8 +10,11 @@ de que se escriba una línea de código, no después.
 
 ## Antes de proponer nada
 
-1. Usa el skill `graphify` (`/graphify`, grafo ya construido en `graphify-out/`) para ver
-   qué depende de qué antes de tocar un módulo con muchas conexiones — no lo adivines.
+1. Usa el skill `graphify` (`/graphify`) para ver qué depende de qué antes de tocar un
+   módulo con muchas conexiones — no lo adivines. ⚠️ `graphify-out/` es local, no se
+   versiona: si no está, `graphify update .` construye el grafo del código sin LLM; si
+   está, la skill la usa tal cual, así que compara antes su «Built from commit»
+   (`GRAPH_REPORT.md`) con tu `HEAD` — un grafo viejo cita ficheros que ya no existen.
 2. Busca si el patrón ya existe en el repo antes de inventar uno nuevo. Ejemplos de
    patrones ya establecidos que debes reutilizar en vez de reinventar:
    - Estado compartido: React Context (`lib/*-context.tsx`) + `lib/stores/`, no
