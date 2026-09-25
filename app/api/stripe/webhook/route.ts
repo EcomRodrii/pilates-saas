@@ -253,6 +253,23 @@ export async function POST(req: NextRequest) {
   }
   const event: Stripe.Event = firma.evento;
 
+  // ⚠️ Auditoría 2026-09-24 (PAY-7): este endpoint acepta DOS secretos (índice 0 =
+  // plataforma, 1 = Connect) y hasta ahora no miraba cuál había verificado. Un
+  // evento de un destino Connect trae SIEMPRE `event.account`; si llega firmado
+  // con el secreto Connect y SIN cuenta, lo más probable es que se haya pegado el
+  // secreto de la plataforma en `STRIPE_CONNECT_WEBHOOK_SECRET`. Sin esta
+  // comprobación nadie lo notaba: `cuentaFirmante` atribuye un evento sin cuenta
+  // al estudio de la propia plataforma (deliberado, ver webhook-tenant.ts) y los
+  // cobros acabarían en el estudio equivocado. Falla ruidoso y sin procesar.
+  // (Su gemelo /api/billing/webhook ya tiene la defensa simétrica.)
+  if (firma.secretoIndice === 1 && !event.account) {
+    Sentry.captureMessage('[stripe webhook] evento SIN cuenta firmado con el secreto Connect: ¿está el secreto de plataforma en STRIPE_CONNECT_WEBHOOK_SECRET?', {
+      level: 'error', tags: { area: 'cobros', tipo: 'secreto-firma-cruzado' },
+      extra: { eventType: event.type, eventId: event.id },
+    });
+    return NextResponse.json({ error: 'Evento sin cuenta en el destino Connect' }, { status: 400 });
+  }
+
   // M10: idempotencia por event.id — reclamación atómica (RPC): si este
   // evento ya se procesó con éxito o hay otra entrega en vuelo dentro de la
   // ventana de expiración, salimos sin reprocesar.
@@ -352,6 +369,17 @@ async function procesarEvento(
   adminDedup: ReturnType<typeof getSupabaseAdmin>,
   claveEvento: string,
 ): Promise<NextResponse> {
+  // ⚠️ Auditoría 2026-09-24 (PAY-4): el marcado vivía SOLO en la última línea de
+  // esta función, y salen antes varios `return` de éxito COMPLETO (evento
+  // ignorado a propósito, o trabajo hecho). El evento se quedaba en 'procesando'
+  // hasta expirar (120 s): un reenvío manual lo reprocesaba entero y
+  // `webhook_events` no distinguía «se completó» de «se cayó a la mitad». Se
+  // marca en cada retorno terminal-y-completo. NO en los parciales con trabajo
+  // pendiente a mano (`entregado: false`, o un PI de terminal sin estudio): ahí
+  // «sin marcar» es exactamente la señal de que falta algo.
+  const marcarProcesado = async () => {
+    if (adminDedup) await marcarWebhookProcesado(adminDedup, claveEvento);
+  };
 
   // Esta es la fuente de verdad real del pago — el redirect al navegador
   // (success_url) solo actualiza la UI de forma optimista, pero si el
@@ -412,6 +440,7 @@ async function procesarEvento(
     // (confirmado en Sentry: JAVASCRIPT-NEXTJS-15, 4 eventos). Quien las procesa
     // es `app/api/billing/webhook`, no esta ruta.
     if (session.mode === 'subscription') {
+      await marcarProcesado();
       return NextResponse.json({ received: true, ignorado: 'suscripcion_saas' });
     }
 
@@ -524,6 +553,7 @@ async function procesarEvento(
       // Va DENTRO de esta rama a propósito: el alta de mandato SEPA (arriba) es
       // mode='setup' y nunca tiene payment_status 'paid'.
       if (session.payment_status !== 'paid') {
+        await marcarProcesado();
         return NextResponse.json({ received: true, ignorado: 'pago_no_completado' });
       }
 
@@ -889,6 +919,7 @@ async function procesarEvento(
         await admin.from('recibos').update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
           .eq('id', reciboIdPos).eq('studio_id', studioId);
 
+        await marcarProcesado();
         return NextResponse.json({ received: true });
       }
 
@@ -986,6 +1017,7 @@ async function procesarEvento(
           }
         }
         capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: origenPos === 'pos_bizum' ? 'bizum' : 'terminal' } });
+        await marcarProcesado();
         return NextResponse.json({ received: true });
       }
 
@@ -1877,6 +1909,7 @@ async function procesarEvento(
           Sentry.captureMessage('[stripe webhook] refund fallido de venta POS sin venta asociada', {
             level: 'warning', extra: { paymentIntentId: piId, studioId },
           });
+          await marcarProcesado();
           return NextResponse.json({ received: true });
         }
         const acumuladoCentimosPos = chargePos.amount_refunded ?? 0;
@@ -1990,6 +2023,6 @@ async function procesarEvento(
   // desde que el 200 se envía antes de procesar, Stripe da la entrega por
   // buena y no reintenta. Quien retoma el trabajo es el conciliador
   // (`lib/inngest/conciliar-cobros.ts`), no Stripe.
-  if (adminDedup) await marcarWebhookProcesado(adminDedup, claveEvento);
+  await marcarProcesado();
   return NextResponse.json({ received: true });
 }

@@ -30,6 +30,8 @@ type FilaInsertada = Record<string, unknown>;
 function adminFalso(opts: {
   importeRecibo: number | null;
   errorInsert?: { message: string; code: string } | null;
+  /** D-4: lo que el libro ya tenía anotado para ese PaymentIntent. */
+  desenlaceExistente?: string | null;
 }): { admin: SupabaseClient; insertados: FilaInsertada[] } {
   const insertados: FilaInsertada[] = [];
   const admin = {
@@ -50,6 +52,14 @@ function adminFalso(opts: {
       }
       if (tabla === 'cobros_intentos') {
         return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: opts.desenlaceExistente ? { desenlace: opts.desenlaceExistente } : null,
+                error: null,
+              }),
+            }),
+          }),
           // Auditoría 2026-09-22: era `insert`. Pasó a `upsert` porque el mismo
           // PaymentIntent puede anotarse dos veces (primero 'pendiente' si el
           // recibo no era cobrable en ese instante, luego 'cobrado' cuando sí lo
@@ -285,4 +295,27 @@ test('⚠️ la detección de segundo cargo cubre SEPA, no solo tarjeta', () => 
     !/esSepa|metodo\s*===|metodo\s*!==/.test(rama),
     'el aviso no puede depender del método de pago: dentro de un if de tarjeta, SEPA queda mudo',
   );
+});
+
+// D-4: la precedencia del libro es cobrado > fallido > reintentando > pendiente.
+test('D-4: un cobrado ya anotado NO se degrada a fallido', async () => {
+  const { admin, insertados } = adminFalso({ importeRecibo: 20, desenlaceExistente: 'cobrado' });
+  await registrarIntentoCobro(admin, { ...PARAMS, desenlace: 'fallido' });
+  assert.strictEqual(insertados.length, 0, 'no se escribe nada: el cargo ya se cobró');
+});
+
+test('D-4: un fallido SÍ pisa un pendiente o un reintentando (transición hacia arriba)', async () => {
+  for (const previo of ['pendiente', 'reintentando']) {
+    const { admin, insertados } = adminFalso({ importeRecibo: 20, desenlaceExistente: previo });
+    await registrarIntentoCobro(admin, { ...PARAMS, desenlace: 'fallido' });
+    assert.strictEqual(insertados.length, 1, `fallido sobre ${previo}`);
+    assert.strictEqual(insertados[0].__ignoreDuplicates, false);
+  }
+});
+
+test('D-4: un cobrado sigue pisando un fallido (el cargo salió después de un rechazo)', async () => {
+  const { admin, insertados } = adminFalso({ importeRecibo: 20, desenlaceExistente: 'fallido' });
+  await registrarIntentoCobro(admin, { ...PARAMS, desenlace: 'cobrado' });
+  assert.strictEqual(insertados.length, 1);
+  assert.strictEqual(insertados[0].__ignoreDuplicates, false);
 });

@@ -14,7 +14,7 @@
 import type Stripe from 'stripe';
 
 export type ResultadoFirmaStripe =
-  | { ok: true; evento: Stripe.Event }
+  | { ok: true; evento: Stripe.Event; /** Posición, en el array que se pasó, del secreto que verificó la firma. */ secretoIndice: number }
   | { ok: false; motivo: 'sin-secreto' }
   | { ok: false; motivo: 'firma-invalida'; error: unknown };
 
@@ -24,15 +24,19 @@ export function verificarFirmaStripe(
   firma: string,
   secretos: ReadonlyArray<string | null | undefined>,
 ): ResultadoFirmaStripe {
-  const configurados = secretos.filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
+  // Se conserva la posición ORIGINAL de cada secreto: si falta el primero, el
+  // segundo sigue siendo «el segundo» para quien pregunta cuál verificó.
+  const configurados = secretos
+    .map((s, indice) => ({ s, indice }))
+    .filter((x): x is { s: string; indice: number } => typeof x.s === 'string' && x.s.trim().length > 0);
   if (configurados.length === 0) return { ok: false, motivo: 'sin-secreto' };
 
   let ultimoError: unknown = new Error('Falta la cabecera stripe-signature');
   if (!firma) return { ok: false, motivo: 'firma-invalida', error: ultimoError };
 
-  for (const secreto of configurados) {
+  for (const { s: secreto, indice } of configurados) {
     try {
-      return { ok: true, evento: stripe.webhooks.constructEvent(cuerpo, firma, secreto) };
+      return { ok: true, evento: stripe.webhooks.constructEvent(cuerpo, firma, secreto), secretoIndice: indice };
     } catch (err) {
       ultimoError = err;
     }

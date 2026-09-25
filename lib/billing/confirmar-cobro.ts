@@ -815,6 +815,18 @@ async function registrarIntentoCobroInterno(
   // transición 'pendiente' → 'cobrado' sigue funcionando (que es lo que M-1
   // necesitaba) y la inversa deja de ser posible.
   const esDesenlaceFirme = desenlace === 'cobrado' || desenlace === 'fallido';
+  // ⚠️ Auditoría 2026-09-24 (D-4): «los dos son firmes» dejaba que el último en
+  // escribir ganara, así que un 'fallido' pisaba un 'cobrado'. Hoy ningún camino
+  // los enfrenta sobre el mismo PaymentIntent, pero el libro es lo que contesta a
+  // «me habéis cobrado dos veces» y no puede depender de que eso siga siendo así.
+  // Precedencia: cobrado > fallido > reintentando > pendiente. La mitad baja de
+  // la escala ya la resuelve `ignoreDuplicates`; aquí se cierra la de arriba: un
+  // 'cobrado' ya anotado no se degrada a 'fallido'.
+  if (desenlace === 'fallido') {
+    const { data: previo } = await admin.from('cobros_intentos')
+      .select('desenlace').eq('payment_intent_id', paymentIntentId).maybeSingle();
+    if (previo?.desenlace === 'cobrado') return;
+  }
   const { error } = await admin.from('cobros_intentos').upsert({
     payment_intent_id: paymentIntentId,
     studio_id: studioId,
