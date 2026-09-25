@@ -14,10 +14,13 @@ import {
 } from './reserva-calendario-logic.ts';
 import { inicioDeSemana } from './utils.ts';
 
-// Construye un ISO cuyo día LOCAL es (año, mes0, dia) a las HH:MM — el
-// round-trip por localDayKey(new Date(iso)) devuelve la misma clave en cualquier huso.
+// Construye un ISO cuyo día y hora DEL ESTUDIO (Madrid, verano: +02:00) son
+// (año, mes0, dia) a las HH:MM. Desde RES-7-f el día de una clase es el del estudio,
+// no el del navegador, así que el fixture tiene que fijarlo explícitamente: con
+// `new Date(y, m0, d, h)` dependía del huso de quien ejecutara el test.
 function isoLocal(y: number, m0: number, d: number, h = 10, min = 0): string {
-  return new Date(y, m0, d, h, min).toISOString();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return new Date(`${y}-${p(m0 + 1)}-${p(d)}T${p(h)}:${p(min)}:00+02:00`).toISOString();
 }
 
 test('localDayKey usa hora local y rellena con ceros', () => {

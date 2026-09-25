@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { serif, sans, cq, radius, shadow } from '@/lib/reservar-publico-tokens';
+import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 export function FichaClaseUnica({
   claseNombre, inicio, fin, duracionMinutos, instructorNombre, instructorFotoUrl,
@@ -34,9 +35,10 @@ export function FichaClaseUnica({
   onVerMisReservas?: () => void;
   onVerHorario: () => void;
 }) {
-  const fecha = new Date(inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-  const horaInicio = new Date(inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  const horaFin = new Date(fin).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  // RES-7-f: en la zona del ESTUDIO, no en la del navegador.
+  const fecha = fechaLargaEstudio(inicio);
+  const horaInicio = horaEstudio(inicio);
+  const horaFin = horaEstudio(fin);
   const completa = plazasLibres === 0;
 
   return (

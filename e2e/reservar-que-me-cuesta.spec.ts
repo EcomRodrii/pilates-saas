@@ -1,6 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import { SLUG, STUDIO_ID, SOCIO_ID, AHORA, fixtureSociaLista } from './socia-lista';
 
+// RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
+// navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
+// el navegador va en Madrid (como en el resto de specs que miran horas) y el reloj
+// simulado lleva su offset explícito: sin él lo interpretaba el runner, y en CI
+// (UTC) «las 8:00» eran las 10:00 de Madrid.
+test.use({ timezoneId: 'Europe/Madrid' });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // §3 — «La alumna nunca debería llegar al checkout sin saber exactamente qué
 // está reservando».
@@ -54,7 +61,7 @@ function fixtureBonoSoloReformer() {
 }
 
 async function sembrar(page: Page) {
-  await page.clock.install({ time: new Date(AHORA) });
+  await page.clock.install({ time: new Date(`${AHORA}+02:00`) });
   await page.addInitScript(() => {
     localStorage.setItem('sb-portal-auth', JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -108,7 +115,7 @@ test('la clase que el bono NO cubre conserva su precio (el bug de la cobertura c
 });
 
 test('sin sesión no se afirma nada sobre el saldo de nadie', async ({ page }) => {
-  await page.clock.install({ time: new Date(AHORA) });
+  await page.clock.install({ time: new Date(`${AHORA}+02:00`) });
   await page.route('**/rest/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: STUDIO_ID }) }));
   await page.route('**/api/theme**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }) }));
   // Misma fixture pero SIN socia: nadie ha entrado.

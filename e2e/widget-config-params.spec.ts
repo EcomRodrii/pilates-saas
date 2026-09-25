@@ -1,5 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 
+// RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
+// navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
+// el navegador va en Madrid (como en el resto de specs que miran horas) y el reloj
+// simulado lleva su offset explícito: sin él lo interpretaba el runner, y en CI
+// (UTC) «las 8:00» eran las 10:00 de Madrid.
+test.use({ timezoneId: 'Europe/Madrid' });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // El motor de parámetros del snippet embebido (lib/reservar/config-widget.ts),
 // verificado en Modo A (`/reservar/[slug]?embed=1&...`). Cada parámetro tiene
@@ -34,7 +41,7 @@ function fx() {
     videosOnDemand: [], rewardRules: [], rewardCatalog: [], levelDefinitions: [], achievementDefinitions: [], challengeDefinitions: [], citasServicios: [], citasDisponibilidad: [], aforoReservas: [], socia: null };
 }
 async function mocks(page: Page) {
-  await page.clock.install({ time: new Date('2026-08-12T08:00:00') });
+  await page.clock.install({ time: new Date('2026-08-12T08:00:00+02:00') });
   await page.route('**/rest/v1/**', r => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: S }) }));
   await page.route('**/api/theme**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }) }));
   await page.route('**/api/public/studio-data', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx()) }));

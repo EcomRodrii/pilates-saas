@@ -63,8 +63,12 @@ export function fixtureSociaLista() {
 }
 
 /** Deja la página lista: reloj fijo, sesión de portal y los mocks de lectura. */
-export async function sembrarSociaLista(page: Page) {
-  await page.clock.install({ time: new Date(AHORA) });
+// `relojMadrid`: `AHORA` es una hora SIN zona y `new Date(AHORA)` la interpreta el
+// runner (Node), no el navegador: en CI (UTC) eran las 08:00 UTC = las 10:00 de
+// Madrid. Los specs que miran horas en la zona del estudio (canal público, RES-7-f)
+// lo piden y el reloj queda a las 08:00 DE MADRID en cualquier máquina.
+export async function sembrarSociaLista(page: Page, opciones: { relojMadrid?: boolean } = {}) {
+  await page.clock.install({ time: new Date(opciones.relojMadrid ? `${AHORA}+02:00` : AHORA) });
   await page.addInitScript(() => {
     localStorage.setItem('sb-portal-auth', JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',

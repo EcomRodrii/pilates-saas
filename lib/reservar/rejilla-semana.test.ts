@@ -39,9 +39,9 @@ test('un aforo sin fijar es «completa», nunca plazas infinitas', () => {
 
 test('solo hay fila para las horas que tienen clase, y ordenadas', () => {
   const franjas = franjasConClases([
-    { id: 'c', inicio: '2026-08-12T18:00:00' },
-    { id: 'a', inicio: '2026-08-12T09:00:00' },
-    { id: 'b', inicio: '2026-08-13T09:30:00' },
+    { id: 'c', inicio: '2026-08-12T18:00:00+02:00' },
+    { id: 'a', inicio: '2026-08-12T09:00:00+02:00' },
+    { id: 'b', inicio: '2026-08-13T09:30:00+02:00' },
   ]);
   // Las 09:00 aparecen UNA vez aunque haya dos clases, y 10..17 no existen.
   assert.deepEqual(franjas, [9, 18]);
@@ -63,9 +63,9 @@ test('el salto de horas se detecta para poder marcarlo', () => {
 test('la semana empieza en lunes, no en domingo', () => {
   // `getDay()` es 0=domingo. Sin corregirlo, el domingo se pinta el primero y
   // toda la rejilla queda desplazada una columna.
-  assert.equal(celdaDe('2026-08-10T09:00:00')?.diaSemana, 0); // lunes
-  assert.equal(celdaDe('2026-08-16T09:00:00')?.diaSemana, 6); // domingo
-  assert.equal(celdaDe('2026-08-12T18:30:00')?.hora, 18);
+  assert.equal(celdaDe('2026-08-10T09:00:00+02:00')?.diaSemana, 0); // lunes
+  assert.equal(celdaDe('2026-08-16T09:00:00+02:00')?.diaSemana, 6); // domingo
+  assert.equal(celdaDe('2026-08-12T18:30:00+02:00')?.hora, 18);
   assert.equal(celdaDe('roto'), null);
 });
 

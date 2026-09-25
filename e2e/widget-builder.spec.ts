@@ -1,5 +1,12 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
+// RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
+// navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
+// el navegador va en Madrid (como en el resto de specs que miran horas) y el reloj
+// simulado lleva su offset explícito: sin él lo interpretaba el runner, y en CI
+// (UTC) «las 8:00» eran las 10:00 de Madrid.
+test.use({ timezoneId: 'Europe/Madrid' });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // El Widget Builder del panel (Configuración → API → Widgets para tu web).
 //

@@ -1,6 +1,13 @@
 import { STRIPE_STUB } from './stripe-stub';
 import { test, expect, type Page } from '@playwright/test';
 
+// RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
+// navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
+// el navegador va en Madrid (como en el resto de specs que miran horas) y el reloj
+// simulado lleva su offset explícito: sin él lo interpretaba el runner, y en CI
+// (UTC) «las 8:00» eran las 10:00 de Madrid.
+test.use({ timezoneId: 'Europe/Madrid' });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // P1-3 — confirmación REAL de la reserva tras «pagar y reservar sin login»
 // (Modo A). Tras confirmar el PaymentIntent, la reserva la crea el WEBHOOK:
@@ -67,7 +74,7 @@ function fixtureClaseConPlanPuntual() {
 
 async function pulsarPagar(page: Page, modoConfirm: 'succeeded' | 'throw' | 'reject' | 'pending' = 'succeeded') {
   await page.addInitScript((m) => { (window as unknown as Record<string, string>).__TENTARE_CONFIRM = m; }, modoConfirm);
-  await page.clock.install({ time: new Date(AHORA) });
+  await page.clock.install({ time: new Date(`${AHORA}+02:00`) });
   await page.route('**/rest/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: STUDIO_ID }) }));
   // El enlace mágico post-pago (signInWithOtp) — mock neutro, no se prueba aquí.
   await page.route('**/auth/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({}) }));

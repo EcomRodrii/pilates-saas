@@ -13,19 +13,19 @@ function tipo(over: Partial<TipoClase> = {}): TipoClase {
 function sesion(over: Partial<Sesion> = {}): Sesion {
   return {
     id: 'ses1', studioId: 's1', tipoClaseId: 't1', salaId: 'sala1', instructorId: 'i1',
-    inicio: '2026-08-20T10:00:00', fin: '2026-08-20T10:50:00', aforoMaximo: 10,
+    inicio: '2026-08-20T10:00:00+02:00', fin: '2026-08-20T10:50:00+02:00', aforoMaximo: 10,
     cancelada: false, notas: null, precioPuntual: null,
     ...over,
   };
 }
 
-const NOW = new Date('2026-08-19T00:00:00').getTime();
+const NOW = new Date('2026-08-19T00:00:00+02:00').getTime();
 
 test('excluye sesiones canceladas y pasadas', () => {
   const slots = construirSlots({
     sesiones: [
       sesion({ id: 'a', cancelada: true }),
-      sesion({ id: 'b', inicio: '2026-08-01T10:00:00' }),
+      sesion({ id: 'b', inicio: '2026-08-01T10:00:00+02:00' }),
       sesion({ id: 'c' }),
     ],
     tiposClase: [tipo()], salas: [], instructores: [], reservas: [], spots: [],
@@ -70,9 +70,9 @@ test('sin socia autenticada, nunca cubierta — siempre precio de clase suelta',
 });
 
 test('horarioDeSesion clasifica por hora local', () => {
-  assert.equal(horarioDeSesion('2026-08-20T08:00:00'), 'manana');
-  assert.equal(horarioDeSesion('2026-08-20T13:00:00'), 'mediodia');
-  assert.equal(horarioDeSesion('2026-08-20T19:00:00'), 'tarde');
+  assert.equal(horarioDeSesion('2026-08-20T08:00:00+02:00'), 'manana');
+  assert.equal(horarioDeSesion('2026-08-20T13:00:00+02:00'), 'mediodia');
+  assert.equal(horarioDeSesion('2026-08-20T19:00:00+02:00'), 'tarde');
 });
 
 test('filtros del snippet: listas de tipos/instructoras/salas y singulares por id', () => {

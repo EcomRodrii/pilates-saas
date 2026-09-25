@@ -12,6 +12,7 @@
 // aunque tenga más clases que ninguno.
 
 /** Lo mínimo que hace falta de una clase. Es un subconjunto de `ReservaSlot`. */
+import { diaEnEstudio } from '../calendario-hora-estudio.ts';
 export interface ClaseDelMes {
   inicio: string;
   aforoMaximo: number;
@@ -58,11 +59,10 @@ function lunesDe(d: Date): Date {
  * alto: la primera se lee como «esa semana no hay nada», que es mentira — es
  * que no existe.
  *
- * ⚠️ Las fechas se agrupan con la hora del NAVEGADOR, igual que `celdaDe`. Para
- * una clienta que reserva desde la ciudad de su estudio —el caso real— es lo
- * correcto; para una que mire desde otro huso, una clase de madrugada podría
- * caer un día antes. Es una limitación heredada de la rejilla semanal, no una
- * nueva: si algún día se arregla, se arregla en los dos sitios a la vez.
+ * Las clases se agrupan por el día del ESTUDIO (`diaEnEstudio`), igual que
+ * `celdaDe` en la rejilla semanal (RES-7-f: antes era el del navegador y una clase
+ * de madrugada caía un día antes para quien mirara desde otro huso). `hoy` y
+ * `ancla` son fechas de CALENDARIO (medianoche local), no instantes.
  */
 export function rejillaMes(
   ancla: Date,
@@ -79,9 +79,8 @@ export function rejillaMes(
 
   const porDia = new Map<string, { clases: number; libres: number }>();
   for (const c of clases) {
-    const d = new Date(c.inicio);
-    if (Number.isNaN(d.getTime())) continue;
-    const k = claveLocal(d);
+    if (Number.isNaN(new Date(c.inicio).getTime())) continue;
+    const k = diaEnEstudio(c.inicio); // día del ESTUDIO (RES-7-f)
     const acc = porDia.get(k) ?? { clases: 0, libres: 0 };
     acc.clases += 1;
     // Nunca negativo: una clase con overbooking (o con el aforo bajado después

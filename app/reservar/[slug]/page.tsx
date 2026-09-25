@@ -25,7 +25,9 @@ import {
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
-import { localDayKey } from '@/lib/reserva-calendario-logic';
+import { horarioDeSesion } from '@/lib/reservar/construir-slots';
+import { franjaLocalDe, hoyEnEstudio, fechaLargaEstudio } from '@/lib/utils';
+import { diaEnEstudio } from '@/lib/calendario-hora-estudio';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { IndicadorPasos } from '@/components/reserva/indicador-pasos';
@@ -114,20 +116,12 @@ function fechaNacimientoISO(texto: string): string | null {
 }
 
 function pad2(n: number) { return String(n).padStart(2, '0'); }
-function localDate(d: Date) {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
 // fmtTime/fmtLong/telefonoValido: extraídas a lib/reservar/formato.ts para
 // que pantalla-reserva.tsx las use sin crear un import circular con esta
 // página.
-// Franja horaria del discovery quiz — misma hora local sin timezone fija
-// que ya usa `fmtTime` para mostrar la hora de la sesión al visitante.
-function horarioDeSesion(iso: string): 'manana' | 'mediodia' | 'tarde' {
-  const h = new Date(iso).getHours();
-  if (h < 12) return 'manana';
-  if (h < 17) return 'mediodia';
-  return 'tarde';
-}
+// La franja horaria del discovery quiz sale de `lib/reservar/construir-slots.ts`
+// (la MISMA función que usa el widget embebido): antes había aquí una copia con
+// `getHours()` del navegador (RES-7-f).
 
 const NIVEL_LABEL: Record<string, string> = {
   PRINCIPIANTE: 'Principiante', MEDIO: 'Intermedio',
@@ -1284,7 +1278,7 @@ export default function ReservarPage() {
   // pulsar "Reservar" creyendo que estaba incluida. Cacheado por tipo.
   const cobertura = useMemo(() => resolutorCobertura({
     socioId: socia?.socioId, suscripciones, planesTarifa,
-    hoyISO: localDate(now), precioClaseSuelta,
+    hoyISO: hoyEnEstudio(now), precioClaseSuelta,
   }), [socia?.socioId, suscripciones, planesTarifa, now, precioClaseSuelta]);
 
   // P2-8: ventana de cancelación por tipo de clase, solo para los que tienen
@@ -1339,7 +1333,7 @@ export default function ReservarPage() {
       })
       .filter(s => claseSirvePara({ objetivos: s.tipo?.objetivos ?? null }, filtroObjetivo))
       .filter(s => !filtroHorario || horarioDeSesion(s.inicio) === filtroHorario)
-      .filter(s => filtroDias.length === 0 || filtroDias.includes(new Date(s.inicio).getDay()))
+      .filter(s => filtroDias.length === 0 || filtroDias.includes(franjaLocalDe(s.inicio).dow))
       .map(s => {
         const mia = miReservaPorSesion.get(s.id) ?? null;
         return {
@@ -1559,9 +1553,9 @@ export default function ReservarPage() {
   // pintar — sin `miReservaId`/aforo/precio, porque no se puede actuar sobre
   // ellas.
   const slotsFinalizadosHoy = useMemo(() => {
-    const hoyKey = localDayKey(now);
+    const hoyKey = hoyEnEstudio(now);
     return sesionesRich
-      .filter(s => !s.cancelada && new Date(s.fin).getTime() <= nowMs && localDayKey(new Date(s.inicio)) === hoyKey)
+      .filter(s => !s.cancelada && new Date(s.fin).getTime() <= nowMs && diaEnEstudio(s.inicio) === hoyKey)
       .filter(s => !filtroTipo || s.tipoClaseId === filtroTipo)
       // Mismos filtros del snippet que `slots` — una FINALIZADA de un tipo
       // excluido tampoco debe verse.
@@ -1657,14 +1651,14 @@ export default function ReservarPage() {
     // venta solo bloquea (ver `hayAlgoQueContratar`).
     if (exigirPlan && hayAlgoQueContratar(planesTarifa)) {
       const ok = socioId
-        ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, localDate(now), tipoClaseId)
+        ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyEnEstudio(now), tipoClaseId)
         : false;
       if (!ok) {
         // Se distingue "no tienes bono" de "tu bono no cubre esta clase": con el
         // mensaje genérico, quien tiene 8 sesiones de Reformer no entendería por
         // qué no puede apuntarse a Mat.
         const tieneAlguno = socioId
-          ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, localDate(now))
+          ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyEnEstudio(now))
           : false;
         return tieneAlguno
           ? 'Tu bono no incluye este tipo de clase. Puedes reservarla pagando la clase suelta.'
@@ -2364,7 +2358,7 @@ export default function ReservarPage() {
       const tipo = tipoClaseId ? tiposClase.find(t => t.id === tipoClaseId) : undefined;
       if (!heredaOverride(tipo?.reservaExigirPlan, studio.reservaExigirPlan)) return null;
       const socioIdActual = socia?.socioId ?? null;
-      if (socioIdActual && tieneEntitlementActivo(socioIdActual, suscripciones, planesTarifa, localDate(now), tipoClaseId ?? undefined)) return null;
+      if (socioIdActual && tieneEntitlementActivo(socioIdActual, suscripciones, planesTarifa, hoyEnEstudio(now), tipoClaseId ?? undefined)) return null;
       return {
         texto: 'Para reservar necesitas un bono o plan activo.',
         href: `/portal/${slug}/comprar`,
@@ -2570,7 +2564,7 @@ export default function ReservarPage() {
               const s = r.sesion!;
               const isPast = new Date(s.fin) < now;
               const isFuture = !isPast && r.estado !== 'ASISTIDA';
-              const fechaLarga = new Date(s.inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+              const fechaLarga = fechaLargaEstudio(s.inicio);
               const badge = r.estado === 'ASISTIDA'
                 ? { texto: 'Asistida', bg: 'var(--portal-surface-2)', color: 'var(--portal-muted)' }
                 : r.estado === 'LISTA_ESPERA'

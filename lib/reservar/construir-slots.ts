@@ -7,13 +7,8 @@ import type { SociaSesion } from '@/lib/use-socia-session';
 import { resolutorCobertura, precioDeCobertura, textoCobertura } from './cobertura.ts';
 import { claseSirvePara } from './objetivos.ts';
 
-function pad2(n: number) { return String(n).padStart(2, '0'); }
-// Fecha local (no UTC) en formato YYYY-MM-DD — mismo helper que ya usa
-// app/reservar/[slug]/page.tsx, duplicado aquí porque no está exportado de
-// ningún módulo compartido.
-function localDate(d: Date) {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
+import { franjaLocalDe } from '../utils.ts';
+import { diaEnEstudio } from '../calendario-hora-estudio.ts';
 
 // Proyección pura sesiones-crudas → ReservaSlot[], sacada de
 // app/reservar/[slug]/page.tsx para que el bundle embebible (Modo B) pueda
@@ -24,8 +19,12 @@ function localDate(d: Date) {
 const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
 const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 
+// ⚠️ RES-7-f: la franja (mañana/mediodía/tarde) y el día de la semana son los del
+// ESTUDIO. Con `getHours()`/`getDay()` un visitante fuera de Madrid veía la clase
+// de las 10:00 en la franja de otra hora, y `hoyISO` decidía la cobertura del bono
+// con SU día: un bono que caduca hoy podía pintarse caducado (o vivo) de más.
 export function horarioDeSesion(iso: string): 'manana' | 'mediodia' | 'tarde' {
-  const h = new Date(iso).getHours();
+  const h = franjaLocalDe(iso).hora;
   if (h < 12) return 'manana';
   if (h < 17) return 'mediodia';
   return 'tarde';
@@ -131,7 +130,7 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
   // fila.
   const cobertura = resolutorCobertura({
     socioId: socia?.socioId, suscripciones, planesTarifa,
-    hoyISO: localDate(new Date(nowMs)), precioClaseSuelta,
+    hoyISO: diaEnEstudio(nowMs), precioClaseSuelta,
   });
 
   return sesionesRich
@@ -145,7 +144,7 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
     .filter(s => !filtros.salas?.length || filtros.salas.includes(s.salaId))
     .filter(s => claseSirvePara({ objetivos: s.tipo?.objetivos ?? null }, filtros.objetivo ?? ''))
     .filter(s => !filtros.horario || horarioDeSesion(s.inicio) === filtros.horario)
-    .filter(s => !filtros.dias?.length || filtros.dias.includes(new Date(s.inicio).getDay()))
+    .filter(s => !filtros.dias?.length || filtros.dias.includes(franjaLocalDe(s.inicio).dow))
     .map(s => {
       const mia = miReservaPorSesion.get(s.id) ?? null;
       return {

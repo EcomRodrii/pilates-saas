@@ -8,9 +8,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { inicioDeSemana } from './utils.ts';
+import { diaEnEstudio } from './calendario-hora-estudio.ts';
 
-// Clave de día en hora local ('YYYY-MM-DD'). No usar toISOString() (UTC): a
-// última hora podría saltar de día y colocar una clase en la casilla errónea.
+// ⚠️ RES-7-f (auditoría 25-sep). Dos cosas distintas, y confundirlas era el fallo:
+//   · FECHA DE CALENDARIO (`Date` a medianoche local, las casillas de la tira y de
+//     la rejilla): `localDayKey`, su clave 'YYYY-MM-DD'. No es un instante.
+//   · INSTANTE de una clase (`inicio` ISO): su día es el del ESTUDIO
+//     (`diaEnEstudio`, Europe/Madrid), no el del navegador. Con el navegador fuera
+//     de Madrid, una clase de las 00:30 caía en la casilla del día anterior.
+// Las claves de los dos lados son la misma cadena 'YYYY-MM-DD', así que encajan.
+
+// Clave de día en hora local ('YYYY-MM-DD') de una FECHA DE CALENDARIO. No usar
+// toISOString() (UTC): a última hora podría saltar de día.
 export function localDayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -34,7 +43,7 @@ export function diasSemana(anchor: Date): Date[] {
 export function contarSlotsPorDia<T extends { inicio: string }>(slots: T[]): Map<string, number> {
   const m = new Map<string, number>();
   for (const s of slots) {
-    const k = localDayKey(new Date(s.inicio));
+    const k = diaEnEstudio(s.inicio);
     m.set(k, (m.get(k) ?? 0) + 1);
   }
   return m;
@@ -43,7 +52,7 @@ export function contarSlotsPorDia<T extends { inicio: string }>(slots: T[]): Map
 // Slots de un día concreto (por clave local), ordenados por hora de inicio.
 export function slotsDelDia<T extends { inicio: string }>(slots: T[], dayKey: string): T[] {
   return slots
-    .filter(s => localDayKey(new Date(s.inicio)) === dayKey)
+    .filter(s => diaEnEstudio(s.inicio) === dayKey)
     .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime());
 }
 
@@ -57,7 +66,7 @@ export function agruparPorDia<T extends { inicio: string }>(
   );
   const grupos: { dayKey: string; items: T[] }[] = [];
   for (const s of ordenados) {
-    const k = localDayKey(new Date(s.inicio));
+    const k = diaEnEstudio(s.inicio);
     const last = grupos[grupos.length - 1];
     if (last?.dayKey === k) last.items.push(s);
     else grupos.push({ dayKey: k, items: [s] });
@@ -72,5 +81,23 @@ export function etiquetaDia(d: Date, ref: Date = new Date()): string {
   if (key === localDayKey(ref)) return 'Hoy';
   if (key === localDayKey(addDays(ref, 1))) return 'Mañana';
   const s = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** `'2026-08-12'` → esa fecha a medianoche LOCAL (una fecha de calendario, no un instante). */
+export function fechaDeClave(clave: string): Date {
+  const [y, m, d] = clave.split('-').map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+/**
+ * «Hoy» / «Mañana» / «vie 25 jul» para un día dado por su CLAVE del estudio.
+ * Sustituye a `etiquetaDia(new Date(inicio), hoy)` en los agrupados de clases:
+ * ese comparaba el día del navegador y formateaba con su zona.
+ */
+export function etiquetaDiaClave(dayKey: string, hoyKey: string): string {
+  if (dayKey === hoyKey) return 'Hoy';
+  if (dayKey === localDayKey(addDays(fechaDeClave(hoyKey), 1))) return 'Mañana';
+  const s = fechaDeClave(dayKey).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

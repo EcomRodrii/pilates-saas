@@ -44,9 +44,9 @@ test('un mes que empieza en lunes no lleva relleno por delante', () => {
 
 test('las clases se agrupan por día, sumando plazas libres', () => {
   const r = rejillaMes(ANCLA, [
-    clase('2026-08-13T10:00:00', 10, 8),
-    clase('2026-08-13T18:00:00', 10, 7),
-    clase('2026-08-14T10:00:00', 10, 10),
+    clase('2026-08-13T10:00:00+02:00', 10, 8),
+    clase('2026-08-13T18:00:00+02:00', 10, 7),
+    clase('2026-08-14T10:00:00+02:00', 10, 10),
   ], HOY);
   assert.equal(dia(r, '2026-08-13').clases, 2);
   assert.equal(dia(r, '2026-08-13').plazasLibres, 5);
@@ -58,8 +58,8 @@ test('⚠️ una clase con overbooking no resta plazas a las demás del día', (
   // Pasa si se baja el aforo después de llenarse. Sin acotar a 0, este día
   // saldría con MENOS plazas libres de las que de verdad quedan.
   const r = rejillaMes(ANCLA, [
-    clase('2026-08-13T10:00:00', 5, 9),
-    clase('2026-08-13T18:00:00', 10, 4),
+    clase('2026-08-13T10:00:00+02:00', 5, 9),
+    clase('2026-08-13T18:00:00+02:00', 10, 4),
   ], HOY);
   assert.equal(dia(r, '2026-08-13').plazasLibres, 6);
 });
@@ -76,10 +76,10 @@ test('la densidad mide DISPONIBILIDAD, no cuántas clases hay', () => {
   // El día con más clases del mes puede ser el peor para reservar. Es la
   // diferencia con la vista mes del panel, que pinta ocupación a propósito.
   const r = rejillaMes(ANCLA, [
-    clase('2026-08-13T09:00:00', 10, 10),
-    clase('2026-08-13T11:00:00', 10, 10),
-    clase('2026-08-13T18:00:00', 10, 10),
-    clase('2026-08-14T10:00:00', 10, 1),
+    clase('2026-08-13T09:00:00+02:00', 10, 10),
+    clase('2026-08-13T11:00:00+02:00', 10, 10),
+    clase('2026-08-13T18:00:00+02:00', 10, 10),
+    clase('2026-08-14T10:00:00+02:00', 10, 1),
   ], HOY);
   assert.equal(dia(r, '2026-08-13').disponibilidad, 'completo');
   assert.equal(dia(r, '2026-08-14').disponibilidad, 'libre');
@@ -99,16 +99,16 @@ test('los días ya pasados se marcan, y hoy NO lo está', () => {
 });
 
 test('una fecha inválida no rompe la rejilla ni inventa un día', () => {
-  const r = rejillaMes(ANCLA, [clase('no-es-una-fecha'), clase('2026-08-13T10:00:00')], HOY);
+  const r = rejillaMes(ANCLA, [clase('no-es-una-fecha'), clase('2026-08-13T10:00:00+02:00')], HOY);
   assert.equal(r.filter((d) => d.clases > 0).length, 1);
 });
 
 test('el resumen no inventa cifras cuando no hay nada', () => {
   const r = rejillaMes(ANCLA, [
-    clase('2026-08-13T10:00:00', 10, 9),
-    clase('2026-08-14T10:00:00', 10, 10),
-    clase('2026-08-15T10:00:00', 10, 4),
-    clase('2026-08-15T12:00:00', 10, 4),
+    clase('2026-08-13T10:00:00+02:00', 10, 9),
+    clase('2026-08-14T10:00:00+02:00', 10, 10),
+    clase('2026-08-15T10:00:00+02:00', 10, 4),
+    clase('2026-08-15T12:00:00+02:00', 10, 4),
   ], HOY);
   assert.equal(resumenDia(dia(r, '2026-08-20')), 'Sin clases');
   assert.equal(resumenDia(dia(r, '2026-08-13')), '1 clase · 1 plaza libre');
@@ -120,7 +120,7 @@ test('⚠️ la etiqueta de un día lleva el MES, no solo el número', () => {
   // La rejilla enseña días de tres meses distintos: sin el mes, el 5 de agosto
   // y el 5 de septiembre sonaban idénticos para un lector de pantalla. Lo
   // destapó un e2e que chocó con las dos celdas a la vez.
-  const r = rejillaMes(ANCLA, [clase('2026-08-13T10:00:00', 10, 9)], HOY);
+  const r = rejillaMes(ANCLA, [clase('2026-08-13T10:00:00+02:00', 10, 9)], HOY);
   assert.equal(etiquetaDia(dia(r, '2026-08-13')), '13 de agosto — 1 clase · 1 plaza libre');
   assert.equal(etiquetaDia(dia(r, '2026-09-05')), '5 de septiembre — Sin clases');
   assert.notEqual(etiquetaDia(dia(r, '2026-08-05')), etiquetaDia(dia(r, '2026-09-05')));

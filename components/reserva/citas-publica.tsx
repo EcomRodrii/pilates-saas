@@ -8,7 +8,8 @@ import { PublicSheet } from '@/components/ui/public-sheet';
 import { serif, sans, cq, radius, shadow } from '@/lib/reservar-publico-tokens';
 import { semantic } from '@/lib/portal-tokens';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
-import { localDayKey, addDays } from '@/lib/reserva-calendario-logic';
+import { localDayKey, addDays, fechaDeClave } from '@/lib/reserva-calendario-logic';
+import { hoyEnEstudio } from '@/lib/utils';
 import { TiraDias } from './tira-dias';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +76,11 @@ export function CitasPublica({
   autenticada, onNeedLogin, onReservar, onCancelar, primary, primaryFg,
   overlayStyle, onOverlayAbierto,
 }: CitasPublicaProps) {
-  const [hoy] = useState(() => new Date());
+  // RES-7-f: `ahora` es el INSTANTE (para saber qué cita ya terminó) y `hoy` el día
+  // del ESTUDIO como fecha de calendario (tira de días, día elegido): con el
+  // navegador fuera de Madrid, «hoy» era otro día.
+  const [ahora] = useState(() => new Date());
+  const hoy = fechaDeClave(hoyEnEstudio(ahora));
   const [paso, setPaso] = useState<'servicio' | 'huecos'>('servicio');
   const [servicioId, setServicioId] = useState<string | null>(null);
   const [instructorSel, setInstructorSel] = useState<string>(CUALQUIERA);
@@ -181,7 +186,7 @@ export function CitasPublica({
   function elegirDia(dayKey: string) { setSelectedDay(dayKey); setBooking(null); }
 
   const citasFuturas = misCitas
-    .filter(c => c.estado !== 'CANCELADA' && new Date(c.fin).getTime() > hoy.getTime())
+    .filter(c => c.estado !== 'CANCELADA' && new Date(c.fin).getTime() > ahora.getTime())
     .sort((a, b) => a.inicio.localeCompare(b.inicio));
 
   const tokensTira = {

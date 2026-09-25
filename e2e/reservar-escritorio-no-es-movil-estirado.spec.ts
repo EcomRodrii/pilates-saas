@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { sembrarSociaLista, SLUG } from './socia-lista';
 
+// RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
+// navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
+// el navegador va en Madrid (como en el resto de specs que miran horas) y el reloj
+// simulado lleva su offset explícito: sin él lo interpretaba el runner, y en CI
+// (UTC) «las 8:00» eran las 10:00 de Madrid.
+test.use({ timezoneId: 'Europe/Madrid' });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Pase visual del widget — dos defectos MEDIDOS en el navegador, no supuestos.
 //
@@ -33,7 +40,7 @@ async function tarjetasVacias(page: import('@playwright/test').Page): Promise<nu
 
 test('en escritorio la hoja es una tarjeta legible, no una banda de 1280px', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await sembrarSociaLista(page);
+  await sembrarSociaLista(page, { relojMadrid: true });
   await page.goto(`/reservar/${SLUG}?tab=clases`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
@@ -61,7 +68,7 @@ test('en móvil la hoja sigue ocupando todo el ancho', async ({ page }) => {
   // patrón correcto ES el panel a todo el ancho ("prácticamente full-screen
   // dentro del widget", el criterio explícito del rediseño).
   await page.setViewportSize({ width: 390, height: 844 });
-  await sembrarSociaLista(page);
+  await sembrarSociaLista(page, { relojMadrid: true });
   await page.goto(`/reservar/${SLUG}?tab=clases`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
@@ -81,7 +88,7 @@ test('la barra lateral no pinta tarjetas vacías', async ({ page }) => {
   // La fixture tiene UN tipo de clase y UNA instructora, así que el rail de
   // filtros no se pinta — que es justo cuando aparecía la tarjeta fantasma.
   await page.setViewportSize({ width: 1280, height: 900 });
-  await sembrarSociaLista(page);
+  await sembrarSociaLista(page, { relojMadrid: true });
   await page.goto(`/reservar/${SLUG}?tab=clases`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
 

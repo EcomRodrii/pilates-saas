@@ -1,5 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 
+// RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
+// navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
+// el navegador va en Madrid (como en el resto de specs que miran horas) y el reloj
+// simulado lleva su offset explícito: sin él lo interpretaba el runner, y en CI
+// (UTC) «las 8:00» eran las 10:00 de Madrid.
+test.use({ timezoneId: 'Europe/Madrid' });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md).
 //
@@ -65,7 +72,7 @@ function fixtureClaseConPlanPuntual() {
 }
 
 async function abrirClaseSinSesion(page: Page) {
-  await page.clock.install({ time: new Date(AHORA) });
+  await page.clock.install({ time: new Date(`${AHORA}+02:00`) });
   await page.route('**/rest/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: STUDIO_ID }) }));
   await page.route('**/api/theme**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }) }));
   await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtureClaseConPlanPuntual()) }));
@@ -212,7 +219,7 @@ test('⚠️ la hoja de la ficha y el modal de acceso nunca coexisten en pantall
   // que abre "Tus datos", así que instrumentar DESPUÉS de llamarla llega
   // tarde — el tránsito ya ocurrió. Se repite el arranque hasta justo antes
   // del clic, a propósito.
-  await page.clock.install({ time: new Date(AHORA) });
+  await page.clock.install({ time: new Date(`${AHORA}+02:00`) });
   await page.route('**/rest/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: STUDIO_ID }) }));
   await page.route('**/api/theme**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }) }));
   await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtureClaseConPlanPuntual()) }));

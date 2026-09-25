@@ -2,17 +2,17 @@
 // nueva pantalla de reserva (`components/reserva/pantalla-reserva.tsx`) — un
 // módulo aparte en vez de exportar desde `page.tsx` para no crear un import
 // circular (la pantalla nueva la monta `page.tsx`, no al revés).
-function pad2(n: number): string {
-  return String(n).padStart(2, '0');
-}
+import { horaEstudio, fechaLargaEstudio } from '../utils.ts';
 
+// ⚠️ RES-7-f: hora y fecha de una clase en la zona del ESTUDIO, no en la del
+// navegador de quien mira. Antes `fmtTime` usaba `getHours()`: un visitante fuera
+// de Madrid veía una clase de las 10:00 a otra hora.
 export function fmtTime(iso: string): string {
-  const d = new Date(iso);
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return horaEstudio(iso);
 }
 
 export function fmtLong(d: Date): string {
-  return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  return fechaLargaEstudio(d);
 }
 
 // Mínimo razonable de dígitos para un teléfono real (España: 9). No se valida

@@ -31,12 +31,13 @@ import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
 import { serif, sans, mono, cq, radius, EASE, densidadCss } from '@/lib/reservar-publico-tokens';
 import {
   localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
-  agruparPorDia, etiquetaDia,
+  agruparPorDia, etiquetaDiaClave, fechaDeClave,
 } from '@/lib/reserva-calendario-logic';
 import { SpotPicker } from './spot-picker';
 import { TiraDias } from './tira-dias';
 import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
-import { franjaLocalDe } from '@/lib/utils';
+import { franjaLocalDe, horaEstudio, fechaLargaEstudio, hoyEnEstudio } from '@/lib/utils';
+import { diaEnEstudio } from '@/lib/calendario-hora-estudio';
 
 // Instrument Sans, la misma familia sans que el resto de /reservar
 // (lib/reservar-publico-tokens.ts, que a su vez reexporta de portal-design.ts
@@ -371,11 +372,12 @@ const GRID_NEUTROS = {
 const GRID_FUENTE = "var(--font-ui), system-ui, -apple-system, 'Segoe UI', sans-serif";
 const DOW_GRID = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 
+// RES-7-f: hora y fecha SIEMPRE en la zona del estudio, no en la del navegador.
 function fmtHora(iso: string): string {
-  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  return horaEstudio(iso);
 }
 function fmtDiaLargo(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  return fechaLargaEstudio(iso);
 }
 /**
  * Hora de una oferta de lista de espera, con el día SOLO si no es hoy.
@@ -388,9 +390,7 @@ function fmtDiaLargo(iso: string): string {
  * reloj" que se evita en el resto del repo — no hay ninguna regla que fijar.
  */
 function fmtHoraOferta(iso: string): string {
-  const expira = new Date(iso);
-  const hoy = new Date();
-  const mismoDia = expira.getFullYear() === hoy.getFullYear() && expira.getMonth() === hoy.getMonth() && expira.getDate() === hoy.getDate();
+  const mismoDia = diaEnEstudio(iso) === hoyEnEstudio();
   return mismoDia ? `las ${fmtHora(iso)}` : `${fmtDiaLargo(iso)} a las ${fmtHora(iso)}`;
 }
 
@@ -526,7 +526,10 @@ export function ReservaCalendario({
   estiloFicha = 'modal', abrirSlotExterno, onAntesDeAbrir,
   avisoRequisitoCompra = null,
 }: ReservaCalendarioProps) {
-  const hoy = useMemo(() => new Date(), []);
+  // RES-7-f: «hoy» es el día del ESTUDIO (una fecha de calendario a medianoche
+  // local), no el del navegador: con el visitante fuera de Madrid la tira de días
+  // arrancaba en otro día y «Hoy» apuntaba a otra jornada.
+  const hoy = useMemo(() => fechaDeClave(hoyEnEstudio()), []);
   const hoyKey = localDayKey(hoy);
   const mananaKey = useMemo(() => localDayKey(addDays(hoy, 1)), [hoy]);
 
@@ -962,7 +965,7 @@ export function ReservaCalendario({
                         }}
                       >
                         <span style={{ color: 'var(--portal-brand)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                          {new Date(slot.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                          {horaEstudio(slot.inicio)}
                         </span>{' '}
                         {slot.claseNombre}
                       </button>
@@ -1080,7 +1083,7 @@ export function ReservaCalendario({
             {gruposLista.map(grupo => (
               <div key={grupo.dayKey}>
                 <p style={{ ...microLabel, marginBottom: 12 }}>
-                  {etiquetaDia(new Date(grupo.items[0].inicio), hoy)}
+                  {etiquetaDiaClave(grupo.dayKey, hoyKey)}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {grupo.items.map(slot => (

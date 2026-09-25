@@ -4,6 +4,8 @@
 // que se pueden equivocar en silencio: qué estado tiene una clase según sus
 // plazas, y qué franjas horarias merecen una fila.
 
+import { franjaLocalDe } from '../utils.ts';
+
 /** Estado de plazas de una clase, que es lo que le da color en la rejilla. */
 export type EstadoPlazas = 'disponible' | 'ultimas' | 'lista-espera' | 'completa';
 
@@ -60,9 +62,8 @@ export interface ClaseEnRejilla {
 export function franjasConClases(clases: readonly ClaseEnRejilla[]): number[] {
   const horas = new Set<number>();
   for (const c of clases) {
-    const d = new Date(c.inicio);
-    if (Number.isNaN(d.getTime())) continue; // una fecha rota no inventa una fila
-    horas.add(d.getHours());
+    if (Number.isNaN(new Date(c.inicio).getTime())) continue; // una fecha rota no inventa una fila
+    horas.add(franjaLocalDe(c.inicio).hora); // hora del ESTUDIO (RES-7-f)
   }
   return [...horas].sort((a, b) => a - b);
 }
@@ -80,9 +81,9 @@ export function haySaltoAntesDe(franjas: readonly number[], indice: number): boo
 
 /** `2026-08-12T18:30:00Z` → la columna (0 = lunes) y la hora de su fila. */
 export function celdaDe(inicio: string): { diaSemana: number; hora: number } | null {
-  const d = new Date(inicio);
-  if (Number.isNaN(d.getTime())) return null;
-  // `getDay()` es 0=domingo; la rejilla empieza en lunes, como el calendario
-  // español que ya usa el resto del producto.
-  return { diaSemana: (d.getDay() + 6) % 7, hora: d.getHours() };
+  if (Number.isNaN(new Date(inicio).getTime())) return null;
+  // `dow` es 0=domingo; la rejilla empieza en lunes, como el calendario español
+  // que ya usa el resto del producto. Día y hora del ESTUDIO (RES-7-f).
+  const { dow, hora } = franjaLocalDe(inicio);
+  return { diaSemana: (dow + 6) % 7, hora };
 }

@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { sembrarSociaLista, abrirHojaDeClase, pulsarReservar } from './socia-lista.ts';
 
+// RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
+// navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
+// el navegador va en Madrid (como en el resto de specs que miran horas) y el reloj
+// simulado lleva su offset explícito: sin él lo interpretaba el runner, y en CI
+// (UTC) «las 8:00» eran las 10:00 de Madrid.
+test.use({ timezoneId: 'Europe/Madrid' });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Qué hace la página pública cuando el servidor dice QUE NO.
 //
@@ -24,7 +31,7 @@ test.setTimeout(180_000);
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 800 });
-  await sembrarSociaLista(page);
+  await sembrarSociaLista(page, { relojMadrid: true });
 });
 
 test('⚠️ un 400 del servidor NO se anuncia como reserva confirmada', async ({ page }) => {
