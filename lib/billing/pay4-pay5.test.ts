@@ -9,11 +9,11 @@
 // Un test que miente es peor que no tenerlo: sostiene la creencia de que un
 // camino de dinero está cubierto.
 //
-// Los de PAY-5/PAY-6 se han retirado en vez de reescribirse: verificado contra
-// producción el 2026-09-21, ni la tabla `dobles_cobros_detectados` ni la
-// función `detectar_dobles_cobros` existen ahí (la migración que las crea
-// nunca se aplicó), y `emitirAlertaDobleCobroDetectado` no tiene ni un
-// llamador. No hay comportamiento que proteger todavía.
+// Los de PAY-5/PAY-6 se retiraron en su día en vez de reescribirse: verificado
+// contra producción el 2026-09-21, ni la tabla `dobles_cobros_detectados` ni la
+// función `detectar_dobles_cobros` existían allí. Desde el 2026-09-25 el
+// detector es real (`vigilar_dobles_cobros()` + pg_cron + ruta
+// /api/cron/dobles-cobros) y sus tests viven en `dobles-cobros.test.ts`.
 //
 // Lo que SÍ se prueba aquí es lo único de PAY-4 que corre de verdad, y el bug
 // que esta misma auditoría encontró en ello.

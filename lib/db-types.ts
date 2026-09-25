@@ -3141,18 +3141,6 @@ export interface RowCobrosIntentos {
   actualizado_en: string;
 }
 
-export interface RowDoblesCobrosDetectados {
-  id: string;
-  studio_id: string;
-  recibo_id: string;
-  payment_intent_ids: string[];
-  tipo: string;
-  estado: string;
-  notas: string | null;
-  detectado_en: string;
-  resuelto_en: string | null;
-}
-
 export interface RowOpeningProgreso {
   studio_id: string;
   fase: string;
@@ -3345,6 +3333,19 @@ export interface RowCertificadosEstudio {
   is_founding: boolean | null;
   // migr 20260922171347.
   founding_number: number | null;
+}
+
+export interface RowDoblesCobrosDetectados {
+  id: string;
+  studio_id: string;
+  recibo_id: string | null;
+  payment_intent_ids: string[];
+  tipo: string;
+  estado: string;
+  notas: string | null;
+  detectado_en: string;
+  notificado_en: string | null;
+  resuelto_en: string | null;
 }
 
 
@@ -8856,30 +8857,6 @@ export type CobrosIntentosUpdate = {
   actualizado_en?: string | null;
 }
 
-export type DoblesCobrosDetectadosInsert = {
-  id?: string | null;
-  studio_id?: string | null;
-  recibo_id?: string | null;
-  payment_intent_ids?: string[] | null;
-  tipo?: string | null;
-  estado?: string | null;
-  notas?: string | null | null;
-  detectado_en?: string | null;
-  resuelto_en?: string | null | null;
-}
-
-export type DoblesCobrosDetectadosUpdate = {
-  id?: string | null;
-  studio_id?: string | null;
-  recibo_id?: string | null;
-  payment_intent_ids?: string[] | null;
-  tipo?: string | null;
-  estado?: string | null;
-  notas?: string | null | null;
-  detectado_en?: string | null;
-  resuelto_en?: string | null | null;
-}
-
 export type OpeningProgresoInsert = {
   studio_id?: string | null;
   fase?: string | null;
@@ -9248,6 +9225,32 @@ export type CertificadosEstudioUpdate = {
   creado_por?: string | null | null;
   is_founding?: boolean | null | null;
   founding_number?: number | null | null;
+}
+
+export type DoblesCobrosDetectadosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  recibo_id?: string | null | null;
+  payment_intent_ids?: string[] | null;
+  tipo?: string | null;
+  estado?: string | null;
+  notas?: string | null | null;
+  detectado_en?: string | null;
+  notificado_en?: string | null | null;
+  resuelto_en?: string | null | null;
+}
+
+export type DoblesCobrosDetectadosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  recibo_id?: string | null | null;
+  payment_intent_ids?: string[] | null;
+  tipo?: string | null;
+  estado?: string | null;
+  notas?: string | null | null;
+  detectado_en?: string | null;
+  notificado_en?: string | null | null;
+  resuelto_en?: string | null | null;
 }
 
 export type Database = {
@@ -10233,11 +10236,6 @@ export type Database = {
         Insert: CobrosIntentosInsert;
         Update: CobrosIntentosUpdate;
       };
-      dobles_cobros_detectados: {
-        Row: RowDoblesCobrosDetectados;
-        Insert: DoblesCobrosDetectadosInsert;
-        Update: DoblesCobrosDetectadosUpdate;
-      };
       opening_progreso: {
         Row: RowOpeningProgreso;
         Insert: OpeningProgresoInsert;
@@ -10312,6 +10310,11 @@ export type Database = {
         Row: RowCertificadosEstudio;
         Insert: CertificadosEstudioInsert;
         Update: CertificadosEstudioUpdate;
+      };
+      dobles_cobros_detectados: {
+        Row: RowDoblesCobrosDetectados;
+        Insert: DoblesCobrosDetectadosInsert;
+        Update: DoblesCobrosDetectadosUpdate;
       };
     };
   };
