@@ -58,7 +58,7 @@ export type EstudioResumible = Partial<Pick<Studio,
   | 'nombre' | 'nif' | 'ivaPorDefecto' | 'stripeAccountId' | 'horarioSemana'
   | 'cancelacionVentanaHoras' | 'permiteListaEspera' | 'listaEsperaPlazoAceptacionMinutos'
   | 'reservaExigirPlan' | 'logoUrl' | 'visibleEnNetwork' | 'instructorasCreanClases'
-  | 'compraPublicaModo' | 'valoracionInicialActiva' | 'gmailEmail'
+  | 'compraPublicaModo' | 'valoracionInicialActiva' | 'preguntasAltaActivas' | 'gmailEmail'
   | 'googleCalendarEmail' | 'zoomEmail' | 'klaviyoAccountName'
 >>;
 
@@ -318,6 +318,8 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
     case 'altas':
       return unir([
         resumenCompraPublica(s.compraPublicaModo),
+        // Solo encendido: «sin preguntas en su app» sería ruido en la mayoría.
+        s.preguntasAltaActivas === true ? 'preguntas en su app' : null,
         s.valoracionInicialActiva === true ? 'valoración inicial activa'
           : s.valoracionInicialActiva === false ? 'sin valoración inicial' : null,
       ]);

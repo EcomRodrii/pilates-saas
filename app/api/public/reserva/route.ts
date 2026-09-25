@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { crearReservaPublica, cancelarReservaPublica, valorarExperienciaReservaPublica, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -58,6 +59,9 @@ export async function POST(req: NextRequest) {
       const bloqueo = await bloqueoPorSuspension(body.studioId);
       if (bloqueo) return conCorsWidget(req, bloqueo);
       if (!body.sesionId) return conCorsWidget(req, NextResponse.json({ error: 'Falta la sesión' }, { status: 400 }));
+      // El estudio pide sus preguntas antes de reservar y le falta alguna.
+      const sinPreguntas = await bloqueoPorPreguntasAlta(body.studioId, socioId, 'reservar');
+      if (sinPreguntas) return conCorsWidget(req, sinPreguntas);
       const r = await crearReservaPublica({
         studioId: body.studioId, sesionId: body.sesionId, socioId, authUserId: user.userId, spotId: body.spotId ?? null,
       });

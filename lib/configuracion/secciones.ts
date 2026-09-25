@@ -176,6 +176,7 @@ export const SECCIONES = [
       { id: 'contrato-y-privacidad', titulo: 'Contrato y privacidad', frase: 'Los textos que acepta cada alumna al darse de alta. Se guarda qué aceptó, cuándo y con qué nombre.', guardado: 'barra', palabras: ['términos', 'condiciones', 'rgpd', 'firma'] },
       { id: 'compra-desde-tu-enlace', titulo: 'Compra desde tu enlace', frase: 'Si alguien que aún no es alumna compra un bono en tu página: que se registre antes de pagar o que pague directamente.', guardado: 'barra', palabras: ['registro', 'comprar un bono'] },
       { id: 'datos-extra-de-la-ficha', titulo: 'Datos extra de la ficha', frase: 'Preguntas tuyas, como su objetivo o cómo te conoció. Salen al darla de alta y en su ficha.', guardado: 'catalogo', palabras: ['campos', 'preguntas'] },
+      { id: 'preguntas-en-su-app', titulo: 'Preguntar los datos extra en su app', frase: 'Tu alumna contesta tus «Datos extra» en su app antes de reservar o comprar. Las obligatorias no se saltan.', guardado: 'al-pulsar', palabras: ['preguntas', 'obligatorias', 'registro', 'alta', 'formulario'] },
       { id: 'valoracion-inicial', titulo: 'Valoración inicial', frase: 'Tus alumnas te cuentan qué buscan antes de sus primeras clases.', guardado: 'al-pulsar', palabras: ['objetivos'] },
       { id: 'cuestionario-de-salud', titulo: 'Cuestionario de salud', frase: 'Preguntas de salud que rellenáis tú o tus instructoras en la ficha de cada alumna; ella no lo rellena.', guardado: 'catalogo', palabras: ['lesiones'] },
     ],

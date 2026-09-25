@@ -15,7 +15,7 @@ const COLUMNAS_ESTABLES =
   + 'codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera';
 const COLUMNAS_JOVENES =
   'creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, titulo_acceso, imagen_bienvenida_url, '
-  + 'plaza_fija_solicitar_desde_app, plaza_fija_pausa_desde_app, apertura_suave, fecha_apertura';
+  + 'plaza_fija_solicitar_desde_app, plaza_fija_pausa_desde_app, apertura_suave, fecha_apertura, preguntas_alta_activas';
 
 /** La fila tal y como la lee esta función: las jóvenes pueden no venir. */
 interface FilaStudio {
@@ -30,6 +30,7 @@ interface FilaStudio {
   imagen_bienvenida_url?: string | null;
   plaza_fija_solicitar_desde_app?: boolean | null; plaza_fija_pausa_desde_app?: boolean | null;
   apertura_suave?: boolean | null; fecha_apertura?: string | null;
+  preguntas_alta_activas?: boolean | null;
 }
 
 /**
@@ -98,6 +99,9 @@ export interface StudioSeo {
    *  Solo decide si se enseña el botón: la puerta es `/api/public/plaza-fija`. */
   plazaFijaSolicitarDesdeApp: boolean;
   plazaFijaPausaDesdeApp: boolean;
+  /** Pedirle en su app las preguntas de «Datos extra» (migr 20260925102844). Solo decide si
+   *  la app las pregunta; qué se pregunta y qué se guarda lo decide `/api/public/preguntas-alta`. */
+  preguntasAltaActivas: boolean;
   /** Fecha de apertura si el estudio tiene la apertura suave puesta; null si no. */
   aperturaSuaveHasta: string | null;
   /** Cómo llama el estudio a su moneda de fidelización. `null` = la del producto. */
@@ -188,6 +192,10 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // Apagado como en producción; la spec que prueba pedir plaza o pausa lo enciende.
       plazaFijaSolicitarDesdeApp: process.env.E2E_PLAZA_FIJA_APP === '1',
       plazaFijaPausaDesdeApp: process.env.E2E_PLAZA_FIJA_APP === '1',
+      // Apagado como en producción. La spec de las preguntas lo enciende con su
+      // PROPIO slug: una variable global lo encendería en todas las specs de la
+      // app, y todas pasarían a esperar la petición de las preguntas.
+      preguntasAltaActivas: slug === 'tentare-preguntas',
       aperturaSuaveHasta: null,
       creditosNombre: process.env.E2E_CREDITOS_NOMBRE ?? null,
       // ⚠️ Puestos POR DEFECTO, al revés que el logo. Se deciden en el SERVIDOR
@@ -320,6 +328,9 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     // botón sin que el servidor lo acepte sería prometerle algo que da 403.
     plazaFijaSolicitarDesdeApp: (data.plaza_fija_solicitar_desde_app as boolean | null) === true,
     plazaFijaPausaDesdeApp: (data.plaza_fija_pausa_desde_app as boolean | null) === true,
+    // Sin la columna, «no sé» es «no se pregunta»: parar la app por algo que el
+    // estudio no ha encendido sería peor que no preguntar.
+    preguntasAltaActivas: (data.preguntas_alta_activas as boolean | null) === true,
     // Apertura suave (Opening OS): la fecha solo viaja si el interruptor está
     // puesto, para etiquetar sus clases. Quién reserva lo decide el servidor.
     aperturaSuaveHasta: data.apertura_suave === true ? ((data.fecha_apertura as string | null) ?? null) : null,

@@ -25,7 +25,7 @@ const FILA = {
   razon_social: 'Pilates Centro SL', nif: NIF, iva_por_defecto: 21, stripe_account_id: null,
   sepa_acreedor_id: 'ES12ZZZ12345678', sepa_iban: 'ES00 0000 0000 0000 0000 0000', sepa_titular: 'Pilates Centro SL',
   reembolsos_activos: true, reembolso_plazo_dias: 14, reembolso_solo_sin_usar: true,
-  compra_publica_modo: 'EXIGIR_REGISTRO', valoracion_inicial_activa: false,
+  compra_publica_modo: 'EXIGIR_REGISTRO', valoracion_inicial_activa: false, preguntas_alta_activas: false,
   politica_privacidad: null, terminos_servicio: null, penalizacion_importe_eur: null,
 };
 
@@ -166,6 +166,33 @@ test.describe('Cobros y altas: guardar', () => {
     expect(patches[0]).toEqual({ valoracion_inicial_activa: true });
     await expect(interruptor).toHaveAttribute('aria-checked', 'false');
     await expect(page.getByText('La valoración inicial ya está activa')).toHaveCount(0);
+  });
+
+  // «Preguntar los datos extra en su app» (petición de varios estudios, 25-sep):
+  // apagado de serie; si el servidor dice que no, vuelve atrás y no dice «activado».
+  test('preguntar los datos extra en su app: si el servidor dice que no, vuelve atrás', async ({ page }) => {
+    const { patches } = await abrir(page, 'configuracion?tab=altas', { fallo: 500 });
+    const interruptor = page.getByRole('switch', { name: 'Preguntar los datos extra en su app' });
+    await expect(interruptor).toHaveAttribute('aria-checked', 'false', { timeout: 30_000 });
+    await expect(interruptor).toBeEnabled();
+
+    await interruptor.click();
+    await expect(page.locator('#preguntas-en-su-app').getByRole('alert')).toHaveText(/^No se ha guardado: .+\.$/);
+    expect(patches.length, 'intentos de escribir').toBeGreaterThan(0);
+    expect(patches[0]).toEqual({ preguntas_alta_activas: true });
+    await expect(interruptor).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('preguntar los datos extra en su app: guardado de verdad se queda encendido', async ({ page }) => {
+    const { patches } = await abrir(page, 'configuracion?tab=altas');
+    const interruptor = page.getByRole('switch', { name: 'Preguntar los datos extra en su app' });
+    await expect(interruptor).toBeEnabled({ timeout: 30_000 });
+
+    await interruptor.click();
+    // Sin preguntas activas en el estudio, el aviso dice que falta crearlas.
+    await expect(page.getByText(/Activado\. Añade alguna pregunta|Tus alumnas contestarán tus preguntas en su app/)).toBeVisible();
+    await expect(interruptor).toHaveAttribute('aria-checked', 'true');
+    expect(patches).toEqual([{ preguntas_alta_activas: true }]);
   });
 
   test('la valoración inicial guardada de verdad se queda encendida', async ({ page }) => {

@@ -63,6 +63,9 @@ export type CodigoReserva =
   | 'estudio-cerrado'
   // Opening OS: clase de la apertura suave, solo para fundadoras e invitadas.
   | 'apertura-suave'
+  // El estudio pide sus preguntas antes de reservar y le falta alguna
+  // (`bloqueoPorPreguntasAlta`). La app abre las preguntas al verlo.
+  | 'faltan-preguntas'
   | 'error';
 
 /**
@@ -76,7 +79,7 @@ const CODIGOS_DE_NEGOCIO: ReadonlySet<string> = new Set<CodigoReserva>([
   'spot-ocupado', 'spot-no-disponible', 'sesion-no-encontrada', 'no-autorizado',
   'clase-cancelada', 'clase-ya-empezada', 'fuera-ventana-minima', 'fuera-ventana-maxima',
   'sin-plan', 'bono-no-cubre', 'max-simultaneas', 'necesita-autorizacion',
-  'impago', 'estudio-cerrado', 'apertura-suave',
+  'impago', 'estudio-cerrado', 'apertura-suave', 'faltan-preguntas',
 ]);
 
 /**
@@ -218,6 +221,8 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
     case 'estudio-cerrado':
     // Apertura suave: el mensaje dice el día en que se abre a todas.
     case 'apertura-suave':
+    // Le faltan las preguntas del estudio: la app las abre sola (`avisarFaltanPreguntas`).
+    case 'faltan-preguntas':
       return { state: 'error', mensaje };
     case 'sesion-no-encontrada': return { state: 'error', mensaje };
     default: return { state: 'error', mensaje };

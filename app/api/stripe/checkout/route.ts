@@ -26,6 +26,7 @@ import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { telefonoValido } from '@/lib/csv';
@@ -278,6 +279,11 @@ export async function POST(req: NextRequest) {
       if (!socioId) {
         return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 403 }));
       }
+      // Mismo cierre que /api/public/checkout-embebido: con ficha y preguntas por
+      // contestar, no se cobra un plan nuevo. Pagar un recibo que ya debe (rama
+      // de arriba) sigue abierto.
+      const sinPreguntas = await bloqueoPorPreguntasAlta(body.studioId, socioId, 'comprar');
+      if (sinPreguntas) return conCorsWidget(req, sinPreguntas);
     }
     // Comprar un plan sin ficha: decide el estudio (0110). En EXIGIR_REGISTRO
     // no se cobra a quien no se ha registrado — sin ficha no hay contrato
