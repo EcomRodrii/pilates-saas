@@ -770,6 +770,8 @@ export interface RowSocios {
   consentimiento_salud_registrado_por_uid: string | null;
   // migr 20260914025903.
   cumple_mm_dd: string | null;
+  // migr 20260925013446.
+  genero: string | null;
 }
 
 export interface RowSoporteSolicitudes {
@@ -4553,6 +4555,7 @@ export type SociosInsert = {
   excluir_de_perfilado?: boolean | null | null;
   consentimiento_salud_registrado_por_uid?: string | null | null;
   cumple_mm_dd?: string | null | null;
+  genero?: string | null | null;
 }
 
 export type SociosUpdate = {
@@ -4603,6 +4606,7 @@ export type SociosUpdate = {
   excluir_de_perfilado?: boolean | null | null;
   consentimiento_salud_registrado_por_uid?: string | null | null;
   cumple_mm_dd?: string | null | null;
+  genero?: string | null | null;
 }
 
 export type SoporteSolicitudesInsert = {
