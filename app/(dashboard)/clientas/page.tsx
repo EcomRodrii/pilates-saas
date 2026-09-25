@@ -22,7 +22,7 @@ import { EtiquetaFija } from '@/components/clientas/etiqueta-fija';
 import { ETIQUETA_GENERO, GENEROS, generoDe, type Genero } from '@/lib/genero';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
-  Search, Plus, Users, UserCheck, AlertCircle, Clock,
+  ListChecks, Search, Plus, Users, UserCheck, AlertCircle, Clock,
   ChevronUp, ChevronDown, ChevronsUpDown, Mail, Pencil,
   Trash2, AlertTriangle, CheckCircle2, Upload, X, UserX,
   Tag, Bookmark, FileText, PenLine, ShieldCheck, Loader2,
@@ -901,6 +901,16 @@ export default function Socios() {
         actions={
           gestionaClientas ? (
           <>
+            {/* Las respuestas de todas a las preguntas del estudio, juntas. Solo si hay preguntas. */}
+            {camposPersonalizados.some(c => c.activo) && (
+              <button
+                onClick={() => router.push('/clientas/respuestas')}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-foreground bg-card border border-border hover:bg-muted transition-colors"
+              >
+                <ListChecks size={14} />
+                Respuestas
+              </button>
+            )}
             <button
               onClick={() => router.push('/clientas/importar')}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-foreground bg-card border border-border hover:bg-muted transition-colors"

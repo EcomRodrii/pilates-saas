@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Check, Plus, Pencil, Trash2, ShieldAlert } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeGestionarCamposPersonalizados } from '@/lib/permisos';
@@ -117,7 +118,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
         <section aria-labelledby={`${uid}-nuevo`} className="space-y-4">
           <h3 id={`${uid}-nuevo`} className="text-sm font-semibold text-foreground">{editId ? 'Editar dato' : 'Nuevo dato'}</h3>
           <div className="grid grid-cols-1 gap-4 @md/config:grid-cols-2">
-            <Field label="Qué preguntas" description="Sale en el alta y en su ficha. Ej.: «Horario preferido».">
+            <Field label="Qué preguntas" description="Sale en el alta, en su ficha y, si lo activas, en su app. Ej.: «Horario preferido».">
               <input className={inputCls} placeholder="Ej. Cómo nos conoció"
                 value={form.etiqueta} onChange={e => setForm(f => ({ ...f, etiqueta: e.target.value }))} />
             </Field>
@@ -154,7 +155,15 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
       )}
 
       <section aria-labelledby={`${uid}-lista`} className="space-y-2">
-        <h3 id={`${uid}-lista`} className="text-sm font-semibold text-foreground">Los que pides ({ordenados.length})</h3>
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 id={`${uid}-lista`} className="text-sm font-semibold text-foreground">Los que pides ({ordenados.length})</h3>
+          {/* Lo contestado por todas, junto: en Clientas, no aquí (esto es qué se pregunta). */}
+          {ordenados.some(c => c.activo) && (
+            <Link href="/clientas/respuestas" className="text-[13px] font-semibold text-foreground underline underline-offset-2">
+              Ver las respuestas
+            </Link>
+          )}
+        </div>
         {ordenados.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aún no pides ningún dato extra.</p>
         ) : (
