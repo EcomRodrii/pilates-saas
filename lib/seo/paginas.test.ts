@@ -6,6 +6,7 @@ import {
   BASE_URL, PAGINAS, PREFIJOS_NO_INDEXABLES, RUTAS_REDIRECCION, esNoIndexable, paginaDe, relacionadasDe, urlDe, funcionalidades,
 } from './paginas.ts';
 import { LEGAL } from '../legal-info.ts';
+import { ARTICULOS, urlArticulo } from '../recursos/articulos/index.ts';
 
 // ─── Recorrido del árbol de rutas ────────────────────────────────────────────
 
@@ -50,7 +51,10 @@ test('toda página pública de app/ está en el registro SEO', () => {
 });
 
 test('toda página del registro existe de verdad en app/', () => {
-  const existentes = new Set(rutasEstaticas());
+  // Los artículos escritos como datos no tienen carpeta propia: los sirve la
+  // ruta dinámica app/recursos/[slug], que solo genera los de ARTICULOS.
+  assert.ok(statSync(join(RAIZ_APP, 'recursos', '[slug]', 'page.tsx')).isFile(), 'falta app/recursos/[slug]/page.tsx');
+  const existentes = new Set([...rutasEstaticas(), ...ARTICULOS.map((a) => urlArticulo(a.slug))]);
   const fantasmas = PAGINAS.filter((p) => !existentes.has(p.path)).map((p) => p.path);
   assert.deepEqual(fantasmas, [], `Registradas en el sitemap pero sin page.tsx: ${fantasmas.join(', ')}`);
 });
