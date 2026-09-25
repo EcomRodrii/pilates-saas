@@ -709,7 +709,12 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       else if (log.resultado === 'EJECUTADO') emailsEnviados++;
       else if (log.resultado === 'FALLIDO') fallidos++;
 
-      firedPorRegla.set(c.rule.id, (firedPorRegla.get(c.rule.id) ?? 0) + 1);
+      // ⚠️ Auditoría 2026-09-22 (AU-12): el contador «Ejecutada N veces» sumaba
+      // CANDIDATOS, no envíos. Con los datos históricos reales (107 FALLIDO frente a
+      // 19 EJECUTADO) una regla habría mostrado «126 veces» cuando llegaron 19: la
+      // cifra con la que la propietaria decide si una automatización le sirve era
+      // 6,6 veces mayor que la realidad. Solo cuenta lo que de verdad se ejecutó.
+      if (log.resultado === 'EJECUTADO') firedPorRegla.set(c.rule.id, (firedPorRegla.get(c.rule.id) ?? 0) + 1);
     }
 
     // Actualiza el contador de cada regla UNA vez, de forma determinista
@@ -751,7 +756,8 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
         procesarCandidatoMkt(c, { studioId, studioNombre, marca, nowISO, dry, resend, whatsapp, emailsRotos: emailsRotosMkt }),
       );
       if (log.resultado === 'EJECUTADO') mktEnviados++; else if (log.resultado === 'FALLIDO') mktFallidos++;
-      firedPorAuto.set(c.automatizacion.id, (firedPorAuto.get(c.automatizacion.id) ?? 0) + 1);
+      // AU-12: solo lo realmente ejecutado (ver arriba).
+      if (log.resultado === 'EJECUTADO') firedPorAuto.set(c.automatizacion.id, (firedPorAuto.get(c.automatizacion.id) ?? 0) + 1);
     }
     if (!dry && firedPorAuto.size > 0) {
       await step.run('actualizar-automatizaciones', async () => {

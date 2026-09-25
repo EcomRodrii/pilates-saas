@@ -38,3 +38,11 @@ test('AUT-4: las campañas por email excluyen los buzones rotos como a las sin c
 test('AUT-6: el id de Resend se guarda en el log de los dos motores', () => {
   assert.equal(AUTO.split('proveedorId: r.id ?? null').length - 1, 2);
 });
+
+test('AU-12: el contador «Ejecutada N veces» solo cuenta lo EJECUTADO, no los candidatos ni los fallidos', () => {
+  const clasico = AUTO.indexOf('firedPorRegla.set(');
+  const mkt = AUTO.indexOf('firedPorAuto.set(');
+  assert.ok(clasico > 0 && mkt > 0);
+  assert.match(AUTO.slice(clasico - 90, clasico), /if \(log\.resultado === 'EJECUTADO'\)/);
+  assert.match(AUTO.slice(mkt - 90, mkt), /if \(log\.resultado === 'EJECUTADO'\)/);
+});

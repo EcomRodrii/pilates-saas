@@ -2532,8 +2532,8 @@ export async function crearReservaPublica(params: {
     p_spot_id: params.spotId ?? null,
     // ⚠️ NO añadas `p_tipo_clase_id` aquí (auditoría 2026-09-19).
     //
-    // La función VIVA en producción tiene 9 parámetros y termina en
-    // `p_exigir_entitlement`: deriva el tipo de clase de la propia sesión
+    // La función VIVA en producción (una sola, 10 argumentos, verificado en
+    // `pg_proc` el 24-sep-2026) deriva el tipo de clase de la propia sesión
     // (`select ... tipo_clase_id from sesiones ... for update`), que es más
     // seguro que recibirlo del llamante porque no se puede falsear. La
     // migración 20260918000000 del repo declara una variante de 10 parámetros
@@ -2541,10 +2541,11 @@ export async function crearReservaPublica(params: {
     // argumento hacía que PostgREST no encontrase ninguna función
     // (PGRST202) y tumbaba TODAS las reservas de la alumna.
     //
-    // `p_exigir_entitlement` es además lo que desambigua la llamada: queda
-    // viva una sobrecarga de 8 parámetros y cualquier llamada que no nombre
-    // este argumento resuelve a las dos (SQLSTATE 42725, «is not unique»).
-    // Nunca `exigirPlanResuelto` a secas: ver `exigePlanAlReservar`.
+    // ⚠️ Antes este comentario decía que `p_exigir_entitlement` desambiguaba entre
+    // una sobrecarga de 8 y otra de 9 parámetros (42725). Ya no existen: solo hay
+    // una `reservar_plaza`. El argumento se sigue mandando por su valor de
+    // NEGOCIO, no por resolución. Nunca `exigirPlanResuelto` a secas: ver
+    // `exigePlanAlReservar`.
     p_exigir_entitlement: exigirPlanEnRpc,
     // D-1: el bono elegido arriba, para que la RPC lo descuente DENTRO del
     // mismo candado que confirma la plaza (ver `resolverBonoParaSesion`).
@@ -2740,16 +2741,11 @@ export async function reservarPlazaTrasPagoPublico(params: {
     // y acto seguido se quedaría sin plaza. Quien acaba de pagar no es quien
     // debe.
     p_saltar_gate_impago: true,
-    // ⚠️ Explícito por DOS motivos, y los dos son obligatorios:
-    //
-    // 1. NEGOCIO: el dinero de esta clase ya está cobrado. Volver a exigir un
-    //    entitlement activo dentro del lock dejaría sin plaza a quien acaba de
-    //    pagarla (mismo razonamiento que `p_saltar_gate_impago` justo arriba).
-    // 2. RESOLUCIÓN: en producción conviven dos sobrecargas de `reservar_plaza`
-    //    (8 y 9 parámetros, las dos con defaults). Una llamada que NO nombre
-    //    `p_exigir_entitlement` encaja en las dos y Postgres responde
-    //    42725 «function ... is not unique» — es decir, la reserva tras pago
-    //    falla SIEMPRE. Nombrarlo aquí es lo que la hace unívoca.
+    // ⚠️ Explícito por NEGOCIO: el dinero de esta clase ya está cobrado. Volver a
+    // exigir un entitlement activo dentro del lock dejaría sin plaza a quien
+    // acaba de pagarla (mismo razonamiento que `p_saltar_gate_impago` justo
+    // arriba). (Un segundo motivo, desambiguar entre sobrecargas de 8 y 9
+    // parámetros, dejó de existir: solo hay una `reservar_plaza`.)
     p_exigir_entitlement: false,
     // D-1: el bono elegido arriba, para que la RPC lo descuente en la misma
     // transacción que confirma la plaza.
@@ -2906,15 +2902,11 @@ export async function crearReservaMostrador(params: {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: params.reservaId,
     p_saltar_gate_impago: true,
-    // ⚠️ Explícito por DOS motivos (mismo caso que el camino de tras-pago):
-    //
-    // 1. NEGOCIO: el mostrador apunta walk-ins que pagan en caja o traen un
-    //    bono que la recepcionista ya ha comprobado. Exigir entitlement aquí
-    //    haría que el mostrador empezase a rechazar clientas presentes.
-    // 2. RESOLUCIÓN: sin nombrar `p_exigir_entitlement`, esta llamada encaja a
-    //    la vez en la sobrecarga de 8 y en la de 9 parámetros y Postgres
-    //    responde 42725 «function ... is not unique» — apuntar desde el
-    //    mostrador falla SIEMPRE.
+    // ⚠️ Explícito por NEGOCIO (mismo caso que el camino de tras-pago): el
+    // mostrador apunta walk-ins que pagan en caja o traen un bono que la
+    // recepcionista ya ha comprobado. Exigir entitlement aquí haría que el
+    // mostrador empezase a rechazar clientas presentes. (La desambiguación entre
+    // sobrecargas ya no aplica: solo hay una `reservar_plaza`.)
     p_exigir_entitlement: false,
     // D-1: el bono elegido arriba, para que la RPC lo descuente en la misma
     // transacción que confirma la plaza.
