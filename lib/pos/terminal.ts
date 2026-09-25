@@ -71,6 +71,14 @@ export interface PeticionCobro {
   importeCentimos: number;
   concepto: string;
   ref: ReferenciaCobro;
+  /**
+   * POS-1: identifica ESTE intento de cobro ante Stripe. Un doble toque, o un
+   * reintento tras un timeout con el cobro ya hecho, vuelve a llegar con la
+   * misma clave y Stripe devuelve el PaymentIntent / la sesión que ya creó en
+   * vez de abrir otro. Debe cambiar cuando el intento anterior se descarta
+   * (cancelado, caducado): una clave reutilizada devolvería el objeto muerto.
+   */
+  claveIdempotencia?: string;
 }
 
 export type ResultadoInicio =
@@ -157,10 +165,16 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
           ...(applicationFeeAmount(p.importeCentimos) !== undefined
             ? { application_fee_amount: applicationFeeAmount(p.importeCentimos) }
             : {}),
-        }, { stripeAccount: ctx.stripeAccount });
+        }, {
+          stripeAccount: ctx.stripeAccount,
+          ...(p.claveIdempotencia ? { idempotencyKey: `${p.claveIdempotencia}-pi` } : {}),
+        });
 
         await ctx.stripe.terminal.readers.processPaymentIntent(
-          readerId, { payment_intent: pi.id }, { stripeAccount: ctx.stripeAccount },
+          readerId, { payment_intent: pi.id }, {
+            stripeAccount: ctx.stripeAccount,
+            ...(p.claveIdempotencia ? { idempotencyKey: `${p.claveIdempotencia}-lector` } : {}),
+          },
         );
         // Solo en test: simula que alguien acerca la tarjeta, para poder probar
         // el flujo entero sin hardware.
@@ -269,7 +283,10 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
           // para un cobro de mostrador, y muy por debajo de las 24h que
           // duraba antes (el QR "seguía válido" al día siguiente).
           expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-        }, { stripeAccount: ctx.stripeAccount });
+        }, {
+          stripeAccount: ctx.stripeAccount,
+          ...(p.claveIdempotencia ? { idempotencyKey: `${p.claveIdempotencia}-cs` } : {}),
+        });
 
         if (!sesion.url) return { ok: false, error: 'Stripe no devolvió el enlace de pago.' };
         // La referencia es el PaymentIntent si Stripe ya lo creó; casi siempre

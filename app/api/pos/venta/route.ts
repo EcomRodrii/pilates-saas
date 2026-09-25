@@ -312,7 +312,10 @@ export async function POST(req: NextRequest) {
   const origen = req.nextUrl.origin;
   const prov = proveedorPara(metodoPago, { readerId: ctx.readerId, origen });
   const concepto = sane.lineas.length === 1 ? 'Venta en el estudio' : `Venta de ${sane.lineas.length} artículos`;
-  const inicio = await prov.iniciar(ctx.ctx, { importeCentimos: centimos, concepto, ref: { ventaId: base.ventaId } });
+  const inicio = await prov.iniciar(ctx.ctx, { importeCentimos: centimos, concepto, ref: { ventaId: base.ventaId },
+    // POS-1: una venta = un intento. El reintento con la misma clave de la operación
+    // ya se corta arriba (`yaExistia`); esto cubre el reintento DENTRO de la petición.
+    claveIdempotencia: `pos-venta-${base.ventaId}-${metodoPago}` });
 
   if (!inicio.ok) {
     await admin.rpc('fallar_pago_venta_pos', {

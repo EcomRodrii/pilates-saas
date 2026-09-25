@@ -111,6 +111,10 @@ export async function POST(req: NextRequest) {
       importeCentimos: centimos,
       concepto: recibo.concepto?.slice(0, 120) || 'Cuota',
       ref: { reciboId },
+      // POS-1: dos toques seguidos sobre el mismo recibo comparten la referencia previa
+      // y por tanto la clave: Stripe devuelve el mismo cobro. Tras cancelar cambia la
+      // referencia guardada, y con ella la clave.
+      claveIdempotencia: `pos-recibo-${reciboId}-${metodo}-${recibo.cobro_mostrador_pi ?? 'sin'}`,
     });
     if (!inicio.ok) return NextResponse.json({ error: inicio.error }, { status: 409 });
 
