@@ -41,6 +41,7 @@ import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-
 import { ReconciliacionesPendientes } from '@/components/dashboard/reconciliaciones-pendientes';
 import { CanjesPendientes } from '@/components/dashboard/canjes-pendientes';
 import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
+import { ClasesSinInstructora } from '@/components/dashboard/clases-sin-instructora';
 import { PlazasFijasPorDecidir } from '@/components/dashboard/plazas-fijas-por-decidir';
 import { ReservasPorAprobar } from '@/components/dashboard/reservas-por-aprobar';
 import { SeriesPorRenovar } from '@/components/dashboard/series-por-renovar';
@@ -701,6 +702,8 @@ export default function Dashboard() {
                   tarjeta». Probado y revertido el 23-sep. */}
               {/* La primera: es la única que puede caducar sola (la clase empieza). */}
               {gestionaCalendario && <ReservasPorAprobar onToast={showToast} />}
+              {/* Clases con alumnas apuntadas que nadie va a dar (RES-8): nada las cancela solo. */}
+              {gestionaCalendario && <ClasesSinInstructora onToast={showToast} />}
               {gestionaCalendario && <SeriesPorRenovar onToast={showToast} />}
               {/* Aprobar da, pausa o devuelve una plaza y reserva o cancela clases: los dos permisos. */}
               {gestionaClientas && gestionaCalendario && <PlazasFijasPorDecidir onToast={showToast} />}

@@ -44,6 +44,8 @@ export interface ConteosEstudio {
    */
   sustitucionesConNetwork?: number | null;
   reservasPorAprobar?: number | null;
+  /** RES-8: clases futuras cuya instructora está de baja. Nada las cancela solo: decide el estudio. */
+  clasesSinInstructora?: number | null;
   recibosFallidos?: number | null;
   /**
    * Renovaciones que NO se van a cobrar solas: su clienta no tiene tarjeta ni SEPA
@@ -93,6 +95,7 @@ export type Bandeja = 'decidir' | 'enMarcha' | 'resuelto';
  */
 export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
   reservasPorAprobar: 'decidir-reservas',
+  clasesSinInstructora: 'decidir-clases-sin-instructora',
   penalizacionesPorAprobar: 'decidir-penalizaciones',
   devolucionesPorRevisar: 'decidir-devoluciones',
   canjesPorEntregar: 'decidir-canjes',
@@ -135,6 +138,9 @@ interface DefLinea {
 const LINEAS: DefLinea[] = [
   { id: 'sustitucionesPorDecidir', bandeja: 'decidir', href: '/sustituciones',
     uno: 'Una clase sin cubrir necesita que decidas', varios: n => `${n} clases sin cubrir necesitan que decidas` },
+  // RES-8: hay alumnas apuntadas a clases que nadie va a dar. Se decide en su tarjeta.
+  { id: 'clasesSinInstructora', bandeja: 'decidir', href: null,
+    uno: 'Una clase suya sin instructora: instructor/a no disponible', varios: n => `${n} clases sin instructora: instructor/a no disponible` },
   // Se aprueba o rechaza en su tarjeta de la bandeja; «Ver clase» sigue ahí
   // para quien quiera mirar la clase antes de decidir.
   { id: 'reservasPorAprobar', bandeja: 'decidir', href: null,

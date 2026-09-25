@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
     plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
-    alertasApertura, equipoPorRevisar,
+    alertasApertura, equipoPorRevisar, clasesSinInstructora,
   ] = await Promise.all([
     // ── Decidir ──
     // Solo clases que aún no han empezado: una que ya pasó sin cubrir la cierra
@@ -231,12 +231,17 @@ export async function GET(req: NextRequest) {
         clases: noDadas,
       };
     }),
+    // RES-8: clases futuras sin cancelar de alguien dado de baja. Una clase con
+    // alumnas apuntadas que nadie va a dar no se cancela sola: decide el estudio.
+    si(gestionaCalendario, () => contar('clases-sin-instructora', admin.from('sesiones')
+      .select('id, instructores!inner(activo)', HEAD).eq('studio_id', studioId)
+      .eq('cancelada', false).gt('inicio', ahoraISO).eq('instructores.activo', false))),
   ]);
 
   const jornadasPorRevisar = equipoPorRevisar === undefined ? undefined : (equipoPorRevisar?.jornadas ?? null);
   const clasesNoDadasPorRevisar = equipoPorRevisar === undefined ? undefined : (equipoPorRevisar?.clases ?? null);
   const conteos: ConteosEstudio = {
-    sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, renovacionesSinCobro, penalizacionesPorAprobar,
+    sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, clasesSinInstructora, recibosFallidos, renovacionesSinCobro, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
     plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,

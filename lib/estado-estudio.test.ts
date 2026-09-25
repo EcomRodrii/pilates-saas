@@ -191,3 +191,12 @@ test('renovaciones que no se cobran solas: línea en «por decidir», cuenta y e
     assert.ok(!construirEstadoEstudio({ renovacionesSinCobro: v, reservasPorAprobar: 1 }).decidir.some(l => l.id === 'renovacionesSinCobro'));
   }
 });
+
+test('RES-8: las clases de una instructora de baja esperan decisión, sin enlace y con su tarjeta', () => {
+  const e = construirEstadoEstudio({ clasesSinInstructora: 2 });
+  assert.deepEqual(e.decidir.map(l => l.id), ['clasesSinInstructora']);
+  assert.equal(e.decidir[0].href, null);
+  assert.equal(ANCLA_DECIDIR.clasesSinInstructora, 'decidir-clases-sin-instructora');
+  assert.equal(e.nDecidir, 2);
+  assert.equal(construirEstadoEstudio({ clasesSinInstructora: undefined }).aplica, false);
+});

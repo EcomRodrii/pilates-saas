@@ -446,6 +446,8 @@ interface StudioContextValue {
   // Series de clases recurrentes (I-3)
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura & { serieId?: string }>;
   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
+  cancelarSesionesConAviso: (sesiones: Sesion[]) => Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }>;
+  asignarInstructoraASesiones: (ids: string[], instructorId: string | null) => Promise<ResultadoEscritura>;
   cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }>;
   /** Pasa las clases de una instructora a otra entre dos fechas. Devuelve los
    *  ids movidos (para poder avisar a esas alumnas) y los que chocaron. */
@@ -3335,6 +3337,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
+  // RES-8: pasa estas clases a otra instructora, o las deja sin instructora
+  // (`null`). Escribe primero y solo pinta lo que la BD aceptó. Es todo o nada:
+  // si UNA choca con otra clase de la destino, el índice de exclusión rechaza el
+  // lote y no se mueve ninguna — el aviso lo lleva `lib/errores`.
+  async function asignarInstructoraASesiones(ids: string[], instructorId: string | null): Promise<ResultadoEscritura> {
+    if (ids.length === 0) return { ok: true };
+    const res = await dbUpdateSesionesBatch(ids, { instructorId: instructorId as string });
+    if (!res.ok) return res;
+    const idSet = new Set(ids);
+    setSesiones(prev => prev.map(s => idSet.has(s.id) ? { ...s, instructorId: instructorId ?? '' } : s));
+    return res;
+  }
+
   async function editarSerieDesde(
     sesionId: string,
     changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string },
@@ -3384,7 +3399,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // Cancela "esta y las siguientes" de una serie (p. ej. "cancelar la serie del
   // verano") y avisa por email a las socias con plaza en cada sesión afectada.
   async function cancelarSerieDesde(sesionId: string): Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }> {
-    const objetivo = sesionesDeSerieDesde(sesionId).filter(s => !s.cancelada);
+    return cancelarSesionesConAviso(sesionesDeSerieDesde(sesionId).filter(s => !s.cancelada));
+  }
+
+  // Cancela estas sesiones (las que sean, sueltas o de varias series) con el
+  // mismo circuito que «esta y las siguientes»: escribe primero, avisa después,
+  // marca las reservas y devuelve el bono según la política del estudio.
+  // La usa también la bandeja de clases de una instructora dada de baja (RES-8).
+  async function cancelarSesionesConAviso(objetivo: Sesion[]): Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }> {
     if (objetivo.length === 0) return { ok: true };
     const ids = objetivo.map(s => s.id);
     const idSet = new Set(ids);
@@ -5672,6 +5694,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     editarSerieDesde,
     reasignarInstructora,
     cancelarSerieDesde,
+    cancelarSesionesConAviso,
+    asignarInstructoraASesiones,
     cancelarReservasDeSesiones,
     addReserva,
     cancelarReserva,

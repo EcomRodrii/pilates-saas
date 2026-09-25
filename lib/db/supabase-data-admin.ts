@@ -768,7 +768,9 @@ export async function fetchPublicStudioData(
       votosPorInstructora.set(v.instructor_id, lista);
     }
     const ahoraValoraciones = new Date();
-    const instructoresPub = (instructoresRes.data ?? []).map((r) => {
+    // RES-8: quien está de baja no se anuncia en los canales públicos (widget, app
+    // de la alumna): la clase queda sin nombre, como cualquier clase sin instructora.
+    const instructoresPub = (instructoresRes.data ?? []).filter((r) => (r as RowInstructores).activo !== false).map((r) => {
       const base = mapInstructorPublico(r as RowInstructores);
       const agregado = agregadoPublicable(votosPorInstructora.get(base.id) ?? [], ahoraValoraciones);
       return agregado

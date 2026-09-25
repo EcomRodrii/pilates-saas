@@ -1,5 +1,6 @@
 'use client';
 
+import { ETIQUETA_INSTRUCTORA_NO_DISPONIBLE, nombreInstructoraDeClase } from '@/lib/equipo/clases-sin-instructora';
 import * as Sentry from '@sentry/nextjs';
 import { useState, useMemo, useEffect, useRef, useCallback, useId, useSyncExternalStore, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
@@ -612,6 +613,15 @@ interface DatosVista {
 }
 
 // ─── Main Calendar Page ───────────────────────────────────────────────────────
+
+// RES-8: quien está de baja no se enseña en sus clases futuras.
+function instructoraVisible<T extends { activo: boolean; nombre: string }>(
+  i: T | null, s: { inicio: string; cancelada: boolean }, ahora: Date,
+): T | null {
+  if (!i || i.activo || s.cancelada || new Date(s.inicio).getTime() <= ahora.getTime()) return i;
+  return { ...i, nombre: ETIQUETA_INSTRUCTORA_NO_DISPONIBLE };
+}
+
 
 export default function Calendario() {
   const {
@@ -2057,6 +2067,9 @@ export default function Calendario() {
     });
   }, [datosVista, busqueda, tiposClase]);
 
+  // Solo para decidir si una clase es «futura»: se recalcula al cambiar de datos, no cada segundo.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const ahoraVista = useMemo(() => new Date(), [datosVista]);
   const datosPorSesionId = useMemo(() => {
     const m = new Map<string, DatoSesion>();
     if (!datosVista) return m;
@@ -2066,13 +2079,14 @@ export default function Calendario() {
       m.set(s.id, {
         sesion: s,
         tipo: tiposById.get(s.tipoClaseId) ?? { id: s.tipoClaseId, studioId: s.studioId, nombre: '?', color: '#999' } as import('@/lib/types').TipoClase,
-        instructor: instrById.get(s.instructorId) ?? null,
+        // RES-8: una clase futura de quien está de baja no enseña su nombre.
+        instructor: instructoraVisible(instrById.get(s.instructorId) ?? null, s, ahoraVista),
         reservasSesion: reservasPorSesion.get(s.id) ?? [],
         estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA',
       });
     }
     return m;
-  }, [sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, tiposClase, datosVista]);
+  }, [sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, tiposClase, datosVista, ahoraVista]);
 
   const atenuada = useCallback((d: DatoSesion) => claseAtenuadaPorInstructor(d.sesion.instructorId, filtroInstructor), [filtroInstructor]);
 
@@ -3027,7 +3041,7 @@ export default function Calendario() {
             hoy={todayStr}
             nombreTipo={nombreTipoDe}
             nombreSala={nombreSalaDe}
-            nombreInstructora={id => instructores.find(i => i.id === id)?.nombre ?? null}
+            nombreInstructora={id => nombreInstructoraDeClase(id, instructores)}
             nombreClienta={nombreClientaResolver}
             puedeRenovar={!esInstructorTop}
             puedeAsignarPlaza={gestionaClientas}

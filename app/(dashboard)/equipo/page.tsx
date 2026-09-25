@@ -915,7 +915,7 @@ export default function EquipoPage() {
             <DialogTitle>Eliminar miembro</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            ¿Seguro que quieres eliminar a <strong className="text-foreground">{confirmDel?.nombre}</strong> del equipo? Las clases y citas ya asignadas no se borran, pero quedarán sin instructor visible.
+            ¿Seguro que quieres eliminar a <strong className="text-foreground">{confirmDel?.nombre}</strong> del equipo? Sus clases futuras no se cancelan ni se tocan las reservas: quedarán marcadas «Instructor/a no disponible» y en tu bandeja de Inicio decidirás si las pasas a otra instructora, las mantienes sin instructora o las cancelas.
           </p>
           {(() => {
             const dep = confirmDel ? dependencySnapshots.find(s => s.instructorId === confirmDel.id) : undefined;
