@@ -8837,7 +8837,7 @@ export type SalesEventsUpdate = {
 export type CobrosIntentosInsert = {
   payment_intent_id?: string | null;
   studio_id?: string | null;
-  recibo_id?: string | null;
+  recibo_id?: string | null | null;
   importe_centimos?: number | null;
   origen?: string | null;
   desenlace?: string | null;
@@ -8848,7 +8848,7 @@ export type CobrosIntentosInsert = {
 export type CobrosIntentosUpdate = {
   payment_intent_id?: string | null;
   studio_id?: string | null;
-  recibo_id?: string | null;
+  recibo_id?: string | null | null;
   importe_centimos?: number | null;
   origen?: string | null;
   desenlace?: string | null;
