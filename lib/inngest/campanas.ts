@@ -1,8 +1,10 @@
 import { inngest, EVENTS } from './client';
 import { Resend } from 'resend';
+import * as Sentry from '@sentry/nextjs';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { rebotesDeEmails } from '@/lib/emails/rebotes-consulta';
 import { normalizarEmail } from '@/lib/emails/rebotes';
+import { anotarEnviosCampana, type EnvioCampana } from '@/lib/marketing/campana-envios';
 import { mapCampana } from '@/lib/supabase-data';
 import { fetchAllStudioDataServidor } from '@/lib/db/supabase-data-admin';
 import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
@@ -199,6 +201,29 @@ export const procesarEnvioCampana = inngest.createFunction(
       : porCanal;
     const destinatarias = filtrarPorConsentimientoMarketing(sinRotos, consentimientos, textoVigente);
 
+    // AUT-B: las que NO se intentan también dejan rastro, con su motivo: es lo que
+    // permite contestar «¿por qué no le llegó?». Un solo paso durable (upsert
+    // idempotente) y sin nombres ni correos en el motivo.
+    const canalCampana: 'EMAIL' | 'WHATSAPP' = campana.tipo === 'EMAIL' ? 'EMAIL' : 'WHATSAPP';
+    const idsDestinatarias = new Set(destinatarias.map(d => d.id));
+    const omitidas: EnvioCampana[] = [];
+    for (const socio of porCanal) {
+      if (idsDestinatarias.has(socio.id)) continue;
+      const roto = campana.tipo === 'EMAIL' && emailsRotos.has(normalizarEmail(socio.email as string));
+      omitidas.push({
+        campanaId, studioId, socioId: socio.id, canal: canalCampana, estado: 'OMITIDO',
+        detalle: roto ? 'Correo marcado como roto (rebote, queja o baja del proveedor)' : 'Sin consentimiento de marketing vigente',
+      });
+    }
+    if (omitidas.length) {
+      await step.run('registrar-omitidas', async () => {
+        const r = await anotarEnviosCampana(requireSupabaseAdmin(), omitidas);
+        if (!r.ok) Sentry.captureMessage('[campanas-enviar] no se pudo anotar el rastro de las omitidas', {
+          level: 'warning', tags: { cron: 'campanas-enviar' }, extra: { campanaId, error: r.error },
+        });
+      });
+    }
+
     const apiKey = process.env.RESEND_API_KEY;
     const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
     // ⚠️ Auditoría 2026-09-22 (AU-7): sin este guard, una campaña EMAIL con
@@ -243,6 +268,7 @@ export const procesarEnvioCampana = inngest.createFunction(
       // dentro del step se perdería en un replay (Inngest memoiza el resultado,
       // no vuelve a ejecutar el cuerpo).
       const r = await step.run(`envio-${i}-${socio.id}`, async (): Promise<{ ok: boolean; error?: string; meta?: boolean }> => {
+        const enviarUna = async (): Promise<{ ok: boolean; error?: string; meta?: boolean; providerId?: string }> => {
         if (campana.tipo === 'EMAIL') {
           // `resend` ya no puede ser null aquí (guard de arriba), pero el tipo
           // sigue admitiéndolo. Lo que sí pasa de verdad es la ficha sin email:
@@ -267,7 +293,7 @@ export const procesarEnvioCampana = inngest.createFunction(
             // pero antes de memoizar, Resend reconoce la clave y no reenvía.
             idempotencyKey: `campana-${campanaId}-${socio.id}`,
           });
-          return { ok: r.ok, error: r.error };
+          return { ok: r.ok, error: r.error, providerId: r.id };
         }
         if (!whatsapp) return { ok: false, error: 'WhatsApp Business no está conectado en este estudio' };
         // Texto, no plantilla, y no por falta de ganas: el cuerpo lo escribe la
@@ -279,6 +305,20 @@ export const procesarEnvioCampana = inngest.createFunction(
         const cuerpo = campana.asunto ? `${campana.asunto}\n\n${campana.contenido}` : campana.contenido;
         const env = await whatsappMetaProvider(whatsapp).enviar({ to: socio.telefono, cuerpo });
         return { ok: env.ok, error: env.error, meta: true };
+        };
+        const res = await enviarUna();
+        // AUT-B: rastro por destinataria, DENTRO del step (memoizado: no se repite
+        // en un replay) y sin lanzar (ver lib/marketing/campana-envios.ts).
+        const anotado = await anotarEnviosCampana(requireSupabaseAdmin(), [{
+          campanaId, studioId, socioId: socio.id, canal: canalCampana,
+          estado: res.ok ? 'ENVIADO' : 'FALLIDO',
+          providerId: res.providerId ?? null,
+          detalle: res.ok ? null : (res.error ?? null),
+        }]);
+        if (!anotado.ok) Sentry.captureMessage('[campanas-enviar] no se pudo anotar el rastro de un envío', {
+          level: 'warning', tags: { cron: 'campanas-enviar' }, extra: { campanaId, error: anotado.error },
+        });
+        return { ok: res.ok, error: res.error, meta: res.meta };
       });
       if (r.ok) enviados++;
       // Solo cuenta como noticia de Meta lo que de verdad habló con Meta: un

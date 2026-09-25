@@ -60,6 +60,10 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
     accion: 'ANONIMIZAR',
     detalle: '`socio_nombre` → «Socia eliminada», `mensaje_cliente` y `detalle` a NULL. La fila queda para las métricas de la automatización.',
   },
+  campana_envios: {
+    accion: 'ANONIMIZAR',
+    detalle: '`detalle` a NULL (puede llevar su nombre o correo). La fila queda para las métricas de la campaña y el id del envío (`provider_id`). FK a `socios` en cascada para el borrado duro.',
+  },
   notification: {
     accion: 'BORRAR',
     detalle: 'Las suyas (`recipient_socio_id`, o su cuenta como SOCIA) y las del staff que la nombran (`data.socioId` / `data.socioIds`). `notification_delivery` en cascada.',

@@ -3350,6 +3350,18 @@ export interface RowDoblesCobrosDetectados {
   resuelto_en: string | null;
 }
 
+export interface RowCampanaEnvios {
+  id: string;
+  campana_id: string;
+  studio_id: string;
+  socio_id: string;
+  canal: string;
+  estado: string;
+  provider_id: string | null;
+  detalle: string | null;
+  creado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -9257,6 +9269,30 @@ export type DoblesCobrosDetectadosUpdate = {
   resuelto_en?: string | null | null;
 }
 
+export type CampanaEnviosInsert = {
+  id?: string | null;
+  campana_id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  canal?: string | null;
+  estado?: string | null;
+  provider_id?: string | null | null;
+  detalle?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type CampanaEnviosUpdate = {
+  id?: string | null;
+  campana_id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  canal?: string | null;
+  estado?: string | null;
+  provider_id?: string | null | null;
+  detalle?: string | null | null;
+  creado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10319,6 +10355,11 @@ export type Database = {
         Row: RowDoblesCobrosDetectados;
         Insert: DoblesCobrosDetectadosInsert;
         Update: DoblesCobrosDetectadosUpdate;
+      };
+      campana_envios: {
+        Row: RowCampanaEnvios;
+        Insert: CampanaEnviosInsert;
+        Update: CampanaEnviosUpdate;
       };
     };
   };
