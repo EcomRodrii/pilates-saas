@@ -112,6 +112,19 @@ export interface ConfigWidget {
   fuente: string | null;
   /** Fuente de titulares/horas/precios. `null` = la misma que `fuente`. */
   fuenteDisplay: string | null;
+  /**
+   * La etiqueta de seguimiento del widget (`ref`): la misma que ya lee
+   * `/reservar/[slug]` para `widget_eventos.origen` y `socios.origen_lead`.
+   * En Modo B no había forma de pasarla. Letras, números, `-` y `_`.
+   */
+  ref: string | null;
+  /**
+   * `identidad="estudio"` (Modo B): sin colores ni fuente en el snippet, el
+   * widget toma el color de marca del estudio (de sus datos públicos) y la
+   * letra de la web donde vive. Opt-in a propósito: un snippet viejo sin este
+   * atributo se sigue viendo EXACTAMENTE igual que antes.
+   */
+  identidadEstudio: boolean;
 }
 
 export const CONFIG_WIDGET_POR_DEFECTO: ConfigWidget = {
@@ -121,6 +134,7 @@ export const CONFIG_WIDGET_POR_DEFECTO: ConfigWidget = {
   diseno: null,
   colorFondo: null, colorPrimario: null, colorNegro: null,
   fuente: null, fuenteDisplay: null,
+  ref: null, identidadEstudio: false,
 };
 
 /** Lo mínimo que hace falta de la fuente. Un `URLSearchParams` encaja tal cual. */
@@ -168,6 +182,14 @@ function leerColor(v: string | null): string | null {
   return COLOR_VALIDO.test(t) ? t : null;
 }
 
+const REF_VALIDA = /^[A-Za-z0-9_-]{1,40}$/;
+
+function leerRef(v: string | null): string | null {
+  if (v == null) return null;
+  const t = v.trim();
+  return REF_VALIDA.test(t) ? t : null;
+}
+
 function leerFuente(v: string | null): string | null {
   if (v == null) return null;
   return fuenteValida(v) ? v.trim() : null;
@@ -179,7 +201,8 @@ function leerFuente(v: string | null): string | null {
  * `tipos`, `instructoras`, `salas` (ids separados por coma), `vista`
  * (`hoy`|`todo`), `ocultar-precio`, `ocultar-nivel`, `ocultar-sustituta`
  * (booleanos), `diseno` (`completo`|`ligero`), `fondo`, `marca`, `negro`
- * (colores hex), `fuente`, `fuente-display` (familias de Google Fonts).
+ * (colores hex), `fuente`, `fuente-display` (familias de Google Fonts),
+ * `ref` (etiqueta de seguimiento) e `identidad` (`estudio`, solo Modo B).
  *
  * ⚠️ En Modo A, `fondo` y `negro`/`tinta` los sigue resolviendo
  * `resolverApariencia` (mismos nombres de siempre, con lo guardado debajo) —
@@ -202,5 +225,7 @@ export function resolverConfigWidget(fuente: FuenteConfig): ConfigWidget {
     colorNegro: leerColor(fuente.get('negro')),
     fuente: leerFuente(fuente.get('fuente')),
     fuenteDisplay: leerFuente(fuente.get('fuente-display')),
+    ref: leerRef(fuente.get('ref')),
+    identidadEstudio: fuente.get('identidad')?.trim() === 'estudio',
   };
 }

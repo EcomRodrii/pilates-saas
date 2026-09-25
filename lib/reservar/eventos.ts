@@ -32,6 +32,26 @@ async function tokenDePortal(): Promise<string | null> {
 
 const CLAVE_SESSION_ID = 'tentare_widget_session';
 
+// La etiqueta de seguimiento (`?ref=`) con la que se abrió este widget. La
+// fija la página una vez al montar y la llevan TODOS sus eventos, no solo los
+// cuatro que ya la pasaban a mano: sin eso, el embudo de un widget concreto
+// («Tentare Widgets», una etiqueta por widget) tendría visitas pero ninguna
+// reserva.
+let origenPorDefecto: string | null = null;
+
+export function fijarOrigenWidget(ref: string | null | undefined): void {
+  origenPorDefecto = ref?.trim() ? ref.trim() : null;
+}
+
+// La vista previa del constructor de widgets (`?vista-previa=1`) es la
+// propietaria mirando su propio widget, no una visita: contarla inflaría «Cómo
+// le va a tu página» cada vez que abre el panel.
+let silenciado = false;
+
+export function silenciarEventosWidget(si: boolean): void {
+  silenciado = si;
+}
+
 /**
  * Un id por pestaña/visita — sessionStorage, se pierde al cerrarla. Nunca se
  * cruza con `socios`: es anónimo por diseño, no un identificador de persona.
@@ -69,7 +89,7 @@ export function trackEventoWidget(
   // de esta tabla más de lo justo. Ver docs/cro-analytics-widget-diseno.md §5.2.
   extra?: { sesionClaseId?: string | null; origen?: string | null; baseUrl?: string; socioId?: string | null },
 ): void {
-  if (typeof window === 'undefined' || !studioId) return;
+  if (typeof window === 'undefined' || !studioId || silenciado) return;
   try {
     // `baseUrl` (por defecto '', ruta relativa de siempre): el bundle
     // embebible (Modo B) llama desde el DOM de la web del estudio, donde una
@@ -99,7 +119,7 @@ export function trackEventoWidget(
           tipo,
           sessionId: sessionIdWidget(),
           sesionClaseId: extra?.sesionClaseId ?? null,
-          origen: extra?.origen ?? null,
+          origen: extra?.origen ?? origenPorDefecto,
           socioId,
         }),
       });

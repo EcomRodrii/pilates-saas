@@ -50,12 +50,15 @@ interface DatosCrudos {
   // `loadStripe(pk, {stripeAccount})` — ver comentario de `studioPublico()`
   // en lib/db/supabase-data-admin.ts.
   stripeAccountId: string | null;
+  // El color de marca del estudio: con `data-identidad="estudio"` el bundle
+  // lo usa como primario en vez del oliva por defecto (main.tsx).
+  colorEstudio: string | null;
 }
 
 const VACIO: DatosCrudos = {
   studioId: '', sesiones: [], tiposClase: [], salas: [], instructores: [], spots: [],
   reservas: [], planesTarifa: [], suscripciones: [], sustitucionesConfirmadas: [],
-  politicaPrivacidad: '', terminosServicio: '', nombreEstudio: '', misReservas: [], socio: null, stripeAccountId: null,
+  politicaPrivacidad: '', terminosServicio: '', nombreEstudio: '', misReservas: [], socio: null, stripeAccountId: null, colorEstudio: null,
 };
 
 // `baseUrl`: el bundle corre en el DOM de la web del ESTUDIO — todas las
@@ -114,6 +117,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
         misReservas: pub.socia?.reservas ?? [],
         socio: pub.socia?.socio ?? null,
         stripeAccountId: pub.studio?.stripeAccountId ?? null,
+        colorEstudio: typeof pub.studio?.colorPrimario === 'string' ? pub.studio.colorPrimario : null,
       });
       setError(null);
       setCargando(false);
@@ -287,6 +291,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,
     misReservas: datos.misReservas, suscripciones: datos.suscripciones, planesTarifa: datos.planesTarifa, socio: datos.socio,
     stripeAccountId: datos.stripeAccountId,
+    colorEstudio: datos.colorEstudio,
     onReservar, onCancelar, onAceptarOferta, onActualizarPerfil, logout, recargar,
     crearCheckoutEmbebido, comprarConBizum,
   };

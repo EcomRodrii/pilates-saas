@@ -114,6 +114,13 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=300, stale-while-revalidate=86400' },
         ],
       },
+      // El runtime del popup (Tentare Widgets): mismo criterio y mismo motivo.
+      {
+        source: '/widget-popup.js',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=300, stale-while-revalidate=86400' },
+        ],
+      },
     ];
   },
 };

@@ -422,7 +422,7 @@ export interface DatosHerramientas {
     avisos: readonly ConVigencia[];
     ahoraMs: number;
   } | null;
-  /** Las webs donde está autorizado el calendario embebido. */
+  /** Las webs donde está autorizada la integración nativa del horario. */
   widgetDominios?: readonly string[] | null;
   motivacion?: { recompensas: number; logros: number; niveles: number; retos: number } | null;
   codigosDescuento?: number | null;
@@ -492,10 +492,10 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
     }
 
     case 'widgets': {
-      // No se sabe qué widgets tiene pegados en su web: solo dónde autorizó el
-      // calendario embebido. Sin ninguna, la fila cuenta qué hay dentro.
+      // No se sabe qué widgets tiene pegados en su web: solo dónde autorizó la
+      // integración nativa. Sin ninguna, la fila cuenta qué hay dentro.
       const n = d.widgetDominios?.length ?? 0;
-      return n > 0 ? `${contar(n, 'web autorizada', 'webs autorizadas')} para el calendario` : null;
+      return n > 0 ? contar(n, 'web con el widget nativo', 'webs con el widget nativo') : null;
     }
 
     case 'avisos-del-movil': {

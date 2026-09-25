@@ -1,41 +1,47 @@
 import Link from 'next/link';
 import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
-// Reescrito el 28-ago-2026 tras verificar en vivo la pestaña de widgets: no es
-// un único widget, son seis, generados y personalizados desde el panel, con
-// vista previa en directo y el código ya listo para copiar.
-//
-// 15-sep-2026: Configuración se reorganizó por preguntas y los widgets están en
-// «Mi app y mi web». La captura enseñaba la fila de pestañas de antes y se quitó.
+// Reescrito el 25-sep-2026 con «Tentare Widgets»: los widgets son piezas de la
+// web del estudio organizadas por lo que hacen (reservas, venta, estudio), y
+// CÓMO se meten en la web (incrustado, nativo, popup, botón, enlace) es una
+// elección aparte de cada widget — antes el «Calendario embebido» figuraba como
+// un widget más cuando era el horario metido de otra forma.
+// Fuente de verdad de la lista: lib/widgets/catalogo.ts.
 export default function Contenido() {
   return (
     <>
       <p>
-        Desde Configuración &gt; Mi app y mi web &gt; Widgets para tu web tienes seis widgets distintos para tu web,
-        cada uno para una cosa: un calendario en vivo, tus citas, «mis reservas» para alumnas ya dadas de alta, la
-        ficha de tu estudio, el enlace directo a una clase concreta, y una versión sin marco ni recuadro para quien
-        quiera integrarlo del todo en su diseño.
+        Desde Configuración &gt; Mi app y mi web &gt; Widgets para tu web eliges qué parte de Tentare quieres en tu
+        propia web, la ajustas viendo el resultado real y copias el código. Tu web sigue siendo tuya: Tentare no la
+        cambia, solo le pone piezas que funcionan de verdad —se reserva, se paga y se entra a la cuenta sin salir de ella.
       </p>
 
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>El más habitual: Horario y reserva de clases</h2>
-      <p>
-        Es el calendario en vivo de tu estudio, incrustado en tu web — tus alumnas reservan sin salir de tu dominio.
-        Puedes elegir qué mostrar (tipos de clase, instructoras, salas, si se ve el precio o el nivel) y el color y
-        tipo de diseño, con vista previa en directo antes de copiar nada.
-      </p>
-
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Los otros cinco</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Los widgets</h2>
       <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
-        <li><strong>Citas</strong> — para servicios con hora concreta (valoraciones, sesiones 1 a 1…), usando los servicios de cita que ya tengas configurados.</li>
-        <li><strong>Mis reservas</strong> — para clientas ya dadas de alta: ven y cancelan sus reservas sin entrar en la app completa.</li>
-        <li><strong>El estudio</strong> — descripción, horario general y políticas, pensado para tu página «Sobre nosotras».</li>
-        <li><strong>Reserva esta clase</strong> — apunta directo a una clase concreta, para un post, una story o una newsletter, en vez de al calendario entero.</li>
-        <li><strong>Calendario embebido (integración directa)</strong> — el mismo calendario, pero sin marco ni recuadro, con tu tipografía alrededor. Requiere autorizar tu dominio primero.</li>
+        <li><strong>Horario y reservas</strong> — tu horario en vivo; reservan y pagan sin salir de tu web. Eliges qué clases, instructoras y salas enseña, y si se ve el precio o el nivel.</li>
+        <li><strong>Citas</strong> — para servicios con hora concreta (valoraciones, sesiones 1 a 1…).</li>
+        <li><strong>Mi cuenta</strong> — sus reservas, sus bonos y su perfil, sin descargar nada.</li>
+        <li><strong>Reserva una clase</strong> — directo a una clase concreta, para un post, una story o un newsletter.</li>
+        <li><strong>Planes y precios</strong> y <strong>Bonos y packs</strong> — tus cuotas y bonos, con pago seguro.</li>
+        <li><strong>El estudio</strong> e <strong>Instructoras</strong> — para tu página «Sobre nosotras».</li>
       </ul>
 
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo meterlo en tu web</h2>
+      <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
+        <li><strong>Incrustado</strong> — dentro de una página de tu web, ajustándose solo a su contenido. Funciona en cualquier web.</li>
+        <li><strong>Integración nativa</strong> (solo el horario) — sin marco: toma el espacio de tu web como si fuera suyo. Requiere autorizar tu dominio primero.</li>
+        <li><strong>Popup</strong> — un botón de tu web que abre el widget en una ventana encima.</li>
+        <li><strong>Botón</strong> — lleva a tu página de reservas. No necesita ningún script.</li>
+        <li><strong>Enlace</strong> — la dirección tal cual, para la bio de Instagram, un newsletter o WhatsApp.</li>
+      </ul>
+      <p>
+        Para cada método el panel te da el código de HTML, WordPress, Webflow o React, con los pasos para pegarlo.
+      </p>
+
       <AyudaResultado>
-        Los cinco primeros funcionan pegando el código tal cual, sin ningún paso previo — ver{' '}
-        <Link href="/ayuda/widget/instalar-con-html" style={{ color: 'inherit', textDecoration: 'underline' }}>instalar el widget con HTML</Link>. Solo la integración directa exige autorizar tu dominio antes.
+        Todo funciona pegando el código tal cual, sin ningún paso previo —ver{' '}
+        <Link href="/ayuda/widget/instalar-con-html" style={{ color: 'inherit', textDecoration: 'underline' }}>instalar el widget con HTML</Link>—.
+        Solo la integración nativa exige autorizar tu dominio antes.
       </AyudaResultado>
     </>
   );

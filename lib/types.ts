@@ -95,11 +95,13 @@ export interface Studio {
    */
   widgetDominiosAutorizados?: string[];
   /**
-   * Última config del Widget Builder (Configuración → API), por tipo de widget
-   * ({ "clases": {...}, "embed-script": {...} }). Solo comodidad del panel para
+   * Última config del constructor de widgets (Configuración → Mi app y mi web →
+   * Widgets para tu web), por widget del catálogo ({ "horario": {...},
+   * "planes": {...} }; los ids de antes —"clases", "embed-script"…— se siguen
+   * leyendo, ver `leerConfigs`). Solo comodidad del panel para
    * no perderlo al recargar: la config EFECTIVA viaja congelada en el snippet
    * copiado (query params / data-*), nunca se lee de aquí en la página pública.
-   * La forma concreta la valida quien lo lee (tab-api.tsx) — es jsonb libre.
+   * La forma concreta la valida quien lo lee (lib/widgets/config.ts) — es jsonb libre.
    * ⚠️ Dato interno del panel: NUNCA añadirlo a studioPublico().
    */
   widgetBuilder?: Record<string, unknown>;

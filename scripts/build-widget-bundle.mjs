@@ -95,3 +95,15 @@ await esbuild.build({
   format: 'esm',
 });
 console.log('✔ public/widget-checkout.js generado');
+
+// «Popup» de Tentare Widgets (app/widget-bundle/popup.ts): el script que abre
+// un widget en una ventana al pulsar un botón de la web del estudio. Aparte y
+// sin React a propósito: se descarga en TODAS las páginas de esa web, se use o
+// no, así que tiene que pesar lo mínimo.
+await esbuild.build({
+  ...opcionesComunes,
+  entryPoints: [path.join(raiz, 'app/widget-bundle/popup.ts')],
+  outfile: path.join(raiz, 'public/widget-popup.js'),
+  format: 'iife',
+});
+console.log('✔ public/widget-popup.js generado');

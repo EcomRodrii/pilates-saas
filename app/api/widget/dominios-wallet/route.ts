@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 // Registra los dominios de wallets (Apple Pay/Google Pay/Link) del estudio
 // sobre SU cuenta conectada de Stripe. Lo dispara GestionDominios
-// (tab-api.tsx) tras guardar un dominio del widget — fire-and-forget: el
+// (components/widgets/dominios.tsx) tras guardar un dominio del widget — fire-and-forget: el
 // guardado del dominio ya se hizo (/api/estudio/widget-dominios), y el registro
 // en Stripe va aparte para que su latencia o su fallo no bloqueen ese guardado.
 //

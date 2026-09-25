@@ -112,15 +112,25 @@ const ORIGEN_TENTARE = (() => {
 // `tema`/`config`/`filtros` llegan resueltos desde montarUno (una vez por
 // montaje, así que son referencias estables — importa para el useMemo de
 // `slots` en useDatosWidget, que tiene `filtros` en sus deps).
-function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filtros }: {
+function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filtros, aplicarMarca }: {
   slug: string; tema?: ModoTokens; config?: ConfigWidget; filtros?: FiltrosSlots;
+  /** Pinta un primario en la raíz del shadow (ver `data-identidad` en montarUno). */
+  aplicarMarca?: (hex: string) => void;
 }) {
   const {
     slots, cargando, error, paginaOculta, studioId, socia, autenticado, sesionCargando, refrescarSesion,
     politicaPrivacidad, terminosServicio, nombreEstudio, onReservar, onCancelar, onAceptarOferta,
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
     stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
+    colorEstudio,
   } = useDatosWidget(slug, ORIGEN_TENTARE, filtros);
+  // `data-identidad="estudio"` sin `data-marca`: el primario es el color de
+  // marca del estudio, que llega con sus datos públicos. Con `data-marca`
+  // manda el snippet, como siempre.
+  useEffect(() => {
+    if (!config.identidadEstudio || config.colorPrimario || !colorEstudio || !aplicarMarca) return;
+    if (/^#[0-9a-fA-F]{6}$/.test(colorEstudio)) aplicarMarca(colorEstudio);
+  }, [config.identidadEstudio, config.colorPrimario, colorEstudio, aplicarMarca]);
   // Cuántas columnas va a tener DE VERDAD el calendario, para que el esqueleto
   // reserve ese ancho y no siete siempre (ver el comentario de abajo).
   const columnasEsqueleto = config.vistaInicial === 'hoy' ? 1 : 7;
@@ -128,9 +138,10 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   useEffect(() => {
     if (!studioId || trackedRef.current) return;
     trackedRef.current = true;
-    trackEventoWidget(studioId, 'widget_loaded', { baseUrl: ORIGEN_TENTARE });
-    trackEventoWidget(studioId, 'widget_viewed', { baseUrl: ORIGEN_TENTARE });
-  }, [studioId]);
+    // `data-ref`: la etiqueta de este widget, para distinguirlo en el embudo.
+    trackEventoWidget(studioId, 'widget_loaded', { baseUrl: ORIGEN_TENTARE, origen: config.ref });
+    trackEventoWidget(studioId, 'widget_viewed', { baseUrl: ORIGEN_TENTARE, origen: config.ref });
+  }, [studioId, config.ref]);
 
   // El formulario se pinta solo (sin toggle) cuando hay un JWT válido pero
   // sin ficha de socia todavía — walk-in que acaba de demostrar su email por
@@ -203,9 +214,12 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
     // intermedio que el comentario de arriba dice explícitamente que este
     // redirect NUNCA quiso tener. Con `directo=1`, Modo A entra derecho al
     // flujo de pagar-y-reservar-sin-login (`openBooking`).
-    window.location.href = `${ORIGEN_TENTARE}/reservar/${slug}?sesion=${encodeURIComponent(slot.id)}&directo=1`;
+    // `ref`: la etiqueta viaja con ella — la reserva y, si es nueva, su ficha
+    // (`origen_lead`) siguen diciendo que llegó por este widget.
+    const ref = config.ref ? `&ref=${encodeURIComponent(config.ref)}` : '';
+    window.location.href = `${ORIGEN_TENTARE}/reservar/${slug}?sesion=${encodeURIComponent(slot.id)}&directo=1${ref}`;
     return true;
-  }, [socia, sesionCargando, slug]);
+  }, [socia, sesionCargando, slug, config.ref]);
 
   // Auditoría de rendimiento (2026-08-31): pide `widget-checkout.js` SOLO al
   // abrir "Planes" — nunca antes. `import()` con URL ABSOLUTA
@@ -431,6 +445,25 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   );
 }
 
+// La letra de la web anfitriona: la del contenedor para el texto y la de su
+// primer titular para los titulares. Se lee del CSS ya calculado — nada de
+// adivinar ni de cargar otra fuente. Una familia vacía o genérica a secas
+// (una web sin tipografía propia) se descarta y queda la base de siempre.
+function letraDeLaWeb(host: HTMLElement): { cuerpo: string | null; titulares: string | null } {
+  const util = (f: string | undefined) => {
+    const t = f?.trim();
+    return t && !/^(serif|sans-serif|system-ui|initial|inherit)$/i.test(t) ? t : null;
+  };
+  try {
+    const cuerpo = util(getComputedStyle(host.parentElement ?? document.body).fontFamily);
+    const titular = document.querySelector('h1, h2');
+    const titulares = titular ? util(getComputedStyle(titular).fontFamily) : null;
+    return { cuerpo, titulares: titulares ?? cuerpo };
+  } catch {
+    return { cuerpo: null, titulares: null };
+  }
+}
+
 function montarUno(host: HTMLElement) {
   const slug = host.dataset.studio?.trim();
   if (!slug) {
@@ -450,17 +483,19 @@ function montarUno(host: HTMLElement) {
   style.textContent = widgetCss;
   shadow.appendChild(style);
   const raiz = document.createElement('div');
-  const marcaFinal = color || '#343825';
-  raiz.style.setProperty('--portal-brand', marcaFinal);
   // Bug real en producción (2026-08-26): un estudio con data-marca="#ffffff"
-  // (blanco) tenía este valor SIEMPRE fijo a un beige claro, sin mirar la
+  // (blanco) tenía el foreground SIEMPRE fijo a un beige claro, sin mirar la
   // marca real — resultado, botón blanco con texto beige sobre página
   // blanca, invisible. Modo A (app/reservar/[slug]/page.tsx) ya calculaba
   // esto por luminancia; Modo B nunca lo hizo — dos implementaciones del
   // mismo dato que divergieron. Mismo criterio aquí: oscuro sobre marca
   // clara, claro sobre marca oscura.
-  const l = luminancia(marcaFinal);
-  raiz.style.setProperty('--portal-brand-foreground', l != null && l < 0.45 ? '#FFFFFF' : '#22261F');
+  const pintarMarca = (hex: string) => {
+    raiz.style.setProperty('--portal-brand', hex);
+    const l = luminancia(hex);
+    raiz.style.setProperty('--portal-brand-foreground', l != null && l < 0.45 ? '#FFFFFF' : '#22261F');
+  };
+  pintarMarca(color || '#343825');
   raiz.style.setProperty('--success', '#2F6B4F');
   raiz.style.setProperty('--warning', '#8F6215');
   raiz.style.setProperty('--destructive', '#A8442A');
@@ -472,9 +507,14 @@ function montarUno(host: HTMLElement) {
   // invalidaba la declaración entera (el bug de "todo en system-ui").
   inyectarFuenteGoogle(config.fuente);
   if (config.fuenteDisplay !== config.fuente) inyectarFuenteGoogle(config.fuenteDisplay);
-  const fuenteUi = config.fuente ? familiaCssDe(config.fuente) : FUENTE_UI_BASE;
+  // `data-identidad="estudio"` (Tentare Widgets): sin fuente en el snippet, la
+  // letra es la de la web donde vive — la que ya ha cargado la propia web, así
+  // que no se pide nada más. Las fuentes del documento sí llegan al shadow
+  // root (el problema de `@font-face` es DECLARARLAS dentro, no usarlas).
+  const anfitrion = config.identidadEstudio ? letraDeLaWeb(host) : null;
+  const fuenteUi = config.fuente ? familiaCssDe(config.fuente) : (anfitrion?.cuerpo ?? FUENTE_UI_BASE);
   const fuenteDisplay = config.fuenteDisplay ? familiaCssDe(config.fuenteDisplay)
-    : config.fuente ? familiaCssDe(config.fuente) : FUENTE_DISPLAY_BASE;
+    : config.fuente ? familiaCssDe(config.fuente) : (anfitrion?.titulares ?? FUENTE_DISPLAY_BASE);
   raiz.style.setProperty('--font-ui', fuenteUi);
   raiz.style.setProperty('--font-display', fuenteDisplay);
   // `serif` (portal-design.ts) mira primero --portal-heading-font: se fija
@@ -499,7 +539,7 @@ function montarUno(host: HTMLElement) {
   // Referencia estable a propósito (ver comentario de WidgetApp).
   const filtros: FiltrosSlots = { tipos: config.tipos, instructoras: config.instructoras, salas: config.salas };
   shadow.appendChild(raiz);
-  createRoot(raiz).render(<StrictMode><WidgetApp slug={slug} tema={tema} config={config} filtros={filtros} /></StrictMode>);
+  createRoot(raiz).render(<StrictMode><WidgetApp slug={slug} tema={tema} config={config} filtros={filtros} aplicarMarca={pintarMarca} /></StrictMode>);
 }
 
 // ⚠️ Bug real en producción (2026-08-30): un estudio con el snippet insertado

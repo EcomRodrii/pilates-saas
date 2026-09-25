@@ -28,7 +28,7 @@ import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajo
 // (sin cuenta, para captar) y la app de tus alumnas (con cuenta, instalable).
 //
 // Aparecer en Tentare Network es un sí/no de su sección (FilaInterruptor).
-// Los widgets tienen su pantalla (tab-api.tsx).
+// Los widgets tienen su pantalla (components/widgets/, «Tentare Widgets»).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const sinSuscripcion = () => () => {};

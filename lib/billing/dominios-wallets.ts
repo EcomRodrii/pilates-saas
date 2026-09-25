@@ -31,7 +31,7 @@ import { LEGAL } from '../legal-info.ts';
  *  hostname pelado, URL con ruta...). Devuelve `null` para basura: vacío,
  *  localhost, IPs o cadenas sin un punto — Stripe/Apple no pueden verificar
  *  nada de eso y el create solo generaría ruido en Sentry. Mismo criterio de
- *  saneo que `normalizar` en GestionDominios (tab-api.tsx), pero en servidor
+ *  saneo que `normalizar` en GestionDominios (components/widgets/dominios.tsx), pero en servidor
  *  y quedándose con el hostname: `payment_method_domains` quiere
  *  `domain_name`, no un origen con protocolo. */
 export function dominioWalletValido(valor: string): string | null {

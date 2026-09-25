@@ -62,7 +62,11 @@ test('la línea de Actividad dice qué se autorizó y qué se retiró', () => {
 test('el navegador ya no escribe los dominios del widget', () => {
   const datos = leer('lib/supabase-data.ts');
   assert.doesNotMatch(datos, /db\.widget_dominios_autorizados\s*=/);
-  assert.doesNotMatch(leer('components/configuracion/tab-api.tsx'), /updateStudio\(\{\s*widgetDominiosAutorizados/);
+  // El constructor (Tentare Widgets) guarda por la ruta de servidor, nunca con updateStudio.
+  for (const f of ['components/widgets/constructor-widgets.tsx', 'components/widgets/dominios.tsx', 'components/configuracion/tab-api.tsx']) {
+    assert.doesNotMatch(leer(f), /updateStudio\(\{\s*widgetDominiosAutorizados/, f);
+  }
+  assert.match(leer('components/widgets/constructor-widgets.tsx'), /\/api\/estudio\/widget-dominios/);
 
   const ruta = leer('app/api/estudio/widget-dominios/route.ts');
   assert.match(ruta, /verificarSesionStaff\(req\)/);

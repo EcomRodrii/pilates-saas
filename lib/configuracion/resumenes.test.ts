@@ -358,8 +358,8 @@ test('contenido de tu app: el mensaje, y lo publicado que se ve hoy', () => {
 });
 
 test('widgets: solo se dice lo que se sabe (las webs autorizadas); sin ninguna, su descripción', () => {
-  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://mi-estudio.example.com'] }), '1 web autorizada para el calendario');
-  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://a.example.com', 'https://b.example.com'] }), '2 webs autorizadas para el calendario');
+  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://mi-estudio.example.com'] }), '1 web con el widget nativo');
+  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://a.example.com', 'https://b.example.com'] }), '2 webs con el widget nativo');
   assert.equal(resumenHerramienta('widgets', { widgetDominios: [] }), null);
   assert.equal(resumenHerramienta('widgets', { widgetDominios: null }), null);
 });

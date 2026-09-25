@@ -295,7 +295,7 @@ export interface ReservaCalendarioProps {
   /**
    * Franja del iframe visible en la pantalla real del usuario, en px relativos
    * al propio iframe (mensaje `tentareHostViewport` del snippet nuevo,
-   * components/configuracion/tab-api.tsx). `null`/ausente = el host no informa
+   * lib/reservar/snippet-embed.ts). `null`/ausente = el host no informa
    * (snippet viejo) y se usa el fallback de `enIframe`.
    */
   franjaVisible?: { top: number; height: number } | null;
