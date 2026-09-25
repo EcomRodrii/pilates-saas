@@ -189,3 +189,8 @@ test('PAY-4: el webhook de Stripe cierra SIEMPRE el evento en un finally, no en 
   const src = readFileSync(new URL('../app/api/stripe/webhook/route.ts', import.meta.url), 'utf8');
   assert.match(src, /\} finally \{[\s\S]{0,600}fallarWebhookEvent\(adminDedup, claveEvento\)/);
 });
+
+test('PAY-4: el webhook del SaaS también deja el evento fallido cuando devuelve 500', () => {
+  const src = readFileSync(new URL('../app/api/billing/webhook/route.ts', import.meta.url), 'utf8');
+  assert.match(src, /console\.error\('\[billing webhook\]', err\);[\s\S]{0,300}fallarWebhookEvent\(admin, claveEvento\)/);
+});

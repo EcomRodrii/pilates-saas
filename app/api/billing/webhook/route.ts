@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { planDePriceId } from '@/lib/billing/billing';
 import { capturar } from '@/lib/analytics';
 import * as Sentry from '@sentry/nextjs';
-import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
+import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, claveWebhook } from '@/lib/webhook-idempotencia';
 import { enviarEmailFalloPagoSaas } from '@/lib/emails/fallo-pago-saas-server';
 import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -162,6 +162,8 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     // Log a Sentry vía consola; devolvemos 500 para que Stripe reintente.
     console.error('[billing webhook]', err);
+    // PAY-4: el reintento de Stripe lo reclama al instante, sin esperar la expiración.
+    await fallarWebhookEvent(admin, claveEvento);
     return NextResponse.json({ error: 'Error al procesar el webhook' }, { status: 500 });
   }
 
