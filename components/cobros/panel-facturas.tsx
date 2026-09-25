@@ -299,7 +299,7 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
           <p className="text-sm font-bold text-foreground">{verifactuActivo ? 'Verifactu — Huella activa' : 'Verifactu — Próximamente'}</p>
           <p className="text-xs font-medium mt-0.5 text-brand-medio">
             {verifactuActivo
-              ? 'Cada factura lleva su huella verificable (registro encadenado + QR) desde que se cobra. El envío automático a la AEAT está en camino.'
+              ? 'Cada factura queda sellada con su huella (registro encadenado) desde que se cobra. El QR se imprime cuando la AEAT tiene el registro, y el envío automático a la AEAT está en camino.'
               : 'Integración con AEAT en desarrollo. Las facturas se generan automáticamente al cobrar un recibo.'}
           </p>
         </div>
