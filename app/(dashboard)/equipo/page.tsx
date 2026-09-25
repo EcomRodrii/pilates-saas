@@ -25,6 +25,8 @@ import {
 } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
 import { AvisoControlHorario } from '@/components/equipo/aviso-control-horario';
+import { AvisoRegistroDeCambios } from '@/components/equipo/aviso-registro-de-cambios';
+import { seAnotanSusCambios } from '@/lib/auditoria/aviso-equipo';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
@@ -547,6 +549,8 @@ export default function EquipoPage() {
       ) : (
       <>
       <AvisoControlHorario pendientes={sinRelacion} />
+      {/* Solo la propietaria ve el libro de cambios de dinero: a ella se le recuerda que su equipo tiene que saberlo. */}
+      {miRol === 'PROPIETARIO' && <AvisoRegistroDeCambios variante="pantalla" />}
       {/* ⚠️ Con la carga caída, `tarjetas` es [] y estas tres tarjetas dirían
           «0 miembros · 0 clases · 0 €» justo encima de un cartel que dice que
           no hemos podido cargar el equipo. Cero no es «no lo sé», y aquí no lo
@@ -759,6 +763,9 @@ export default function EquipoPage() {
                     : <>Para acceder al panel, esta persona tiene que abrir la invitación que le llega a <strong className="text-foreground">{form.email.trim()}</strong>.</>}
                 </p>
               )}
+              {/* Quien trabaja con el dinero en el panel tiene derecho a saber que se anota: el aviso va aquí,
+                  antes de dar de alta, y a ella en el correo de invitación. Una instructora (la app) no aparece en el libro. */}
+              {seAnotanSusCambios(form.rol) && <AvisoRegistroDeCambios variante="alta" />}
             </div>
             <div>
               <span id={`${uid}-color`} className={labelCls}>Color</span>

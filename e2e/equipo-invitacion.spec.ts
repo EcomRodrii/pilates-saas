@@ -148,3 +148,40 @@ test.describe('Invitación al equipo', () => {
     await expect(page.getByText(/invitación enviada a/i)).toBeVisible();
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────────
+// Lo que alguien hace con el dinero del estudio en el panel queda anotado
+// (Cobros → «Cambios del equipo», 6 años). Quien trabaja ahí tiene que saberlo:
+// a él le llega en el correo de invitación (lib/emails/tentare/equipo.test.ts),
+// y a quien invita se le recuerda aquí, antes de dar de alta.
+// ────────────────────────────────────────────────────────────────────────────
+test.describe('Aviso: lo que hace el equipo con el dinero se anota', () => {
+  test('la propietaria lo tiene fijo en la pantalla de Equipo', async ({ page }) => {
+    await montarEquipo(page);
+    const nota = page.getByTestId('aviso-registro-equipo');
+    await expect(nota).toBeVisible({ timeout: 30_000 });
+    await expect(nota).toContainText('6 años');
+    await expect(nota).toContainText('Cambios del equipo');
+    await expect(nota).toContainText('avísale tú');
+  });
+
+  test('al dar de alta: a una instructora no se le avisa (usa la app), a recepción sí', async ({ page }) => {
+    await montarEquipo(page);
+    const dialogo = await rellenarAlta(page, 'Laura', 'laura@example.com');
+
+    // El rol por defecto es instructora: no aparece en el libro, no hay aviso que dar.
+    await expect(dialogo.getByTestId('aviso-registro-alta')).toHaveCount(0);
+
+    await dialogo.getByRole('button', { name: /^Recepción/ }).click();
+    const aviso = dialogo.getByTestId('aviso-registro-alta');
+    await expect(aviso).toBeVisible();
+    await expect(aviso).toContainText('quién, cuándo y qué valor había antes');
+    await expect(aviso).toContainText('Solo lo ve la propietaria');
+    await expect(aviso).toContainText('6 años');
+    // Dice también qué pasa si no se le invita ahora: el aviso lo da el estudio.
+    await expect(aviso).toContainText('si no se lo envías, díselo tú');
+
+    await dialogo.getByRole('button', { name: /^Instructora/ }).click();
+    await expect(dialogo.getByTestId('aviso-registro-alta')).toHaveCount(0);
+  });
+});

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
+import { PLAZO_CONSERVACION_ANIOS } from '@/lib/auditoria/aviso-equipo';
 
 export default function Contenido() {
   return (
@@ -86,6 +87,12 @@ export default function Contenido() {
         que lanza una persona («Cobrar online» o aprobar un cobro en Automatizaciones) ni lo que se importa desde otra
         plataforma. Los descuentos de una sola
         sesión de un bono se esconden por defecto para que no tapen lo importante, y puedes mostrarlos.
+      </p>
+      <p style={{ margin: 0 }}>
+        Cada entrada se guarda <strong>{PLAZO_CONSERVACION_ANIOS} años</strong> y después se borra sola.{' '}
+        <strong>Tu equipo tiene que saber que se anota lo que hace</strong>: el correo de invitación de quien trabaja en
+        el panel se lo cuenta, y al dar de alta a alguien en Equipo tienes el aviso delante. A quien ya trabajaba
+        contigo antes, avísale tú.
       </p>
 
       <AyudaResultado>
